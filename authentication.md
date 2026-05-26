@@ -84,11 +84,34 @@ On first Google sign-in, redirect to `/onboarding` to collect:
   - ☐ **Optional:** "Help us improve Royal Glow — allow anonymous usage analytics." *(analytics consent — DPDP Act. Seeds `analytics: true` in `rgss_cookie_consent`; PostHog + Clarity load for this user. Cookie banner suppressed for analytics category.)*
   - ☐ **Optional:** "Send me offers, updates & promotions via email and notifications." *(marketing consent — DPDP Act. Seeds `marketing: true` in `rgss_cookie_consent`; Meta Pixel + CAPI enabled. Cookie banner suppressed for marketing category.)*
 
-Before starting Google OAuth, store any booking/acquisition context in session/local storage so it survives the redirect:
+Before starting Google OAuth, store any booking/acquisition context in `sessionStorage` so it survives the OAuth redirect:
 - `https://theroyalglow.in` with no UTM → default new customer source `organic`
 - `https://theroyalglow.in/?book=1&utm_source=gmb` → preserve `book=1` and source `gmb`
 - `https://theroyalglow.in/?book=1&utm_source=walkin` → preserve `book=1` and source `walkin`
 - `/book` lead conversion → preserve `leadId` and resolve source `meta_ad` by lead ID or normalized phone
+
+**Why sessionStorage is needed:** The Google OAuth flow redirects the user away from your site (to `accounts.google.com`) and then back to `/api/auth/callback/google`. By the time they return, the original URL query params (`?book=1&utm_source=gmb`) are gone from the browser address bar. `sessionStorage` survives same-tab navigations including OAuth redirects — so the saved context is still there when the user lands on `/onboarding`.
+
+**Implementation flow:**
+```
+Customer arrives at /?book=1&utm_source=walkin
+    ↓
+JavaScript saves to sessionStorage:
+  { book: "1", utm_source: "walkin" }
+    ↓
+Customer clicks "Sign in with Google" → redirected to Google
+    ↓ (sessionStorage SURVIVES the redirect — same browser tab)
+Customer returns from Google → lands on /onboarding
+    ↓
+Onboarding reads sessionStorage → finds utm_source = "walkin"
+    ↓
+✅ customer_profile.acquisition_source = 'walkin' (CORRECT!)
+✅ After onboarding → redirect to / → reads book=1 → dialog auto-opens
+    ↓
+sessionStorage cleared after successful write
+```
+
+**Without this:** Every first-time customer who signs in during their first visit gets incorrectly tagged as `organic` — GMB attribution, walk-in tracking, and Meta ad ROAS all break silently.
 
 After submission: `customer_profile` record created with first-touch `acquisition_source` (`organic`, `gmb`, `walkin`, or converted `meta_ad`) → consent choices written to `rgss_cookie_consent` in localStorage → redirect to `/` (homepage). If `book=1` was preserved, the homepage booking dialog re-opens after onboarding. Cookie banner will not re-ask for categories already consented to here.
 

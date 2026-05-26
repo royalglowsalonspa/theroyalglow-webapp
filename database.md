@@ -71,6 +71,41 @@ Honest verdict: their free tiers are **12-month trials**, not permanent. After t
 | Use Case | Why |
 |----------|-----|
 | **Booking availability cache** | Customer opens the homepage booking dialog → don't hit DB for every slot. Cache available slots in Redis with 5-minute TTL |
+
+**Availability cache — detailed flow:**
+
+Computing available slots requires 3-4 DB queries per request (staff schedules + existing bookings + approved leave + slot computation). Without caching, 100 customers browsing at the same time means 300+ DB queries in seconds — Neon gets hammered and slot pickers feel slow.
+
+```
+Customer 1 picks a date (e.g., June 15th)
+    ↓
+GET /api/availability?date=2026-06-15&branch=RS
+    ↓ Redis: cache MISS (key "availability:RS:2026-06-15" not found)
+    ↓ Query Neon DB (3 queries) → compute free slots
+    ↓ Response: [10:00, 11:00, 14:00, 15:00, 16:00]
+    ↓ Store in Redis: key = "availability:RS:2026-06-15", TTL = 5 minutes
+    ↓ Return to customer (first request: ~100ms)
+
+Customer 2, 3, 4... (within next 5 min) pick same date
+    ↓
+GET /api/availability?date=2026-06-15&branch=RS
+    ↓ Redis: cache HIT → return cached slots instantly (< 5ms)
+    ↓ No DB query needed — Neon is not touched
+```
+
+**Cache invalidation — on booking confirm:**
+```
+Receptionist confirms booking for June 15th at 10:00
+    ↓ Business logic: booking saved to Neon
+    ↓ Invalidate: DELETE Redis key "availability:RS:2026-06-15"
+    ↓ Next customer who checks June 15th gets fresh DB query (without 10:00 slot)
+```
+
+**Key format:** `availability:{branch_code}:{YYYY-MM-DD}` — one key per branch per date.
+
+**TTL:** 5 minutes. Acceptable staleness window — worst case a slot shows as available for up to 5 min after being booked (the booking creation itself will fail with `BOOKING_SLOT_UNAVAILABLE` error if there's a race condition, so double-booking is impossible regardless of cache).
+
+**Implementation priority:** Not needed on day one (< 50 customers/day, Neon handles it fine). Add in week 2-4 post-launch when traffic grows. ~30 minute implementation using `@upstash/redis` already in the stack.
 | **API rate limiting** | Protect the booking API from abuse — critical for a premium service |
 | **Background job queue** | Upstash QStash handles async job queuing elegantly |
 
