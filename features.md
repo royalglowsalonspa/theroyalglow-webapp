@@ -692,6 +692,8 @@ SPA memberships are purchased packages of hours. Members can book any SPA servic
 
 All tiers give access to **all SPA services** (Standard, Premium, VVIP). Hours are the only constraint.
 
+**Branch-locked:** Membership sessions can only be recorded at the branch where the membership was purchased. If a customer wants SPA hours at a different branch, they need a separate membership for that branch.
+
 **Creating a membership:**
 - Admin (Receptionist/Manager/Owner/Developer) goes to `/admin/memberships/new`
 - Selects customer, selects tier
@@ -897,7 +899,7 @@ Multi-branch support for future expansion. Currently single-branch (Rayasandra).
 **Reference numbers with branch:**
 - Booking: `#BKRS2605H38291` (branch code embedded)
 - Invoice: `#INV1262792921` (branch number embedded)
-- Membership: `#RGMEM2690872` (NO branch — cross-branch by design)
+- Membership: `#RGMEM26190872` (branch number embedded — sessions at originating branch only)
 
 ---
 

@@ -71,7 +71,7 @@ Covers: website, CRM, customer management, marketing automation, database, creat
 - **Invoice types:** `service` (normal, gems earned), `membership_purchase` (lump sum, no gems), `membership_session` (₹0 usage record, no gems).
 - **Invoice numbering:** `INV-{branch_number}-{financial_year}-{5_digit_random}` (e.g., `INV-1-2627-92921`, display: `#INV1262792921`). Random 5-digit, no sequence, no reset. Retry on collision.
 - **Booking numbering:** `BK-{branch_code}-{YYMM}-{H|S}-{5_random}[-M]` (e.g., `BK-RS-2605-H-38291`, display: `#BKRS2605H38291`). H=salon, S=spa, -M suffix for membership sessions.
-- **Membership numbering:** `RG-MEM-{YY}-{5_random}` (e.g., `RG-MEM-26-90872`, display: `#RGMEM2690872`). No branch code — cross-branch.
+- **Membership numbering:** `RG-MEM-{YY}-{branch_number}-{5_random}` (e.g., `RG-MEM-26-1-90872`, display: `#RGMEM26190872`). Branch number embedded — sessions restricted to originating branch only.
 - **Snapshots:** service name + price frozen on booking_service and invoice_item.
 - **Denormalized:** customer_profile.total_visits, total_spent_paise.
 - **Key enums:** booking_status, invoice_type, spa_membership_status, service_type, discount_type, notification_type (with membership + gems events), staff_designation, leave_approval_status, leave_type, branch_status.

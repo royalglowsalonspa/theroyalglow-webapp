@@ -1425,13 +1425,15 @@ CREATE UNIQUE INDEX idx_membership_one_active
 **Membership number generation:**
 ```
 -- No sequences. Random 5-digit generation with retry on unique constraint collision.
--- Format: RG-MEM-{YY}-{5_digit_random}
--- Example: RG-MEM-26-90872
--- Display: #RGMEM2690872 (stripped dashes, prefixed with #)
+-- Format: RG-MEM-{YY}-{branch_number}-{5_digit_random}
+-- Example: RG-MEM-26-1-90872
+-- Display: #RGMEM26190872 (stripped dashes, prefixed with #)
 -- YY = calendar year last 2 digits. Resets conceptually on Jan 1 (26 → 27).
--- No branch code — membership is cross-branch (member can avail services at any branch).
--- Pool: 90,000 values per calendar year. Collision rate negligible.
+-- Branch number embedded — sessions restricted to originating branch only.
+-- Pool: 90,000 values per branch per calendar year. Collision rate negligible.
 ```
+
+**Branch-locked sessions:** Membership sessions can ONLY be recorded at the branch where the membership was originally purchased. The session recording flow validates `booking.branch_id == spa_membership originating branch` and rejects with an error if they don't match. Customer must purchase a separate membership if they want SPA hours at a different branch.
 
 **Membership flow:**
 ```
@@ -1763,15 +1765,17 @@ Example: INV-1-2627-92921       → display: #INV1262792921
 
 **Membership Number:**
 ```
-Format:  RG-MEM-{YY}-{5_random}
-Example: RG-MEM-26-90872        → display: #RGMEM2690872
+Format:  RG-MEM-{YY}-{branch_number}-{5_random}
+Example: RG-MEM-26-1-90872        → display: #RGMEM26190872
 ```
 | Part | Source | Notes |
 |------|--------|-------|
 | `RG-MEM` | fixed prefix | |
 | `26` | calendar year last 2 digits | Resets Jan 1 (26 → 27) |
+| `1` | `branch.number` | Single digit (Rayasandra = 1) — tracks originating branch |
 | `90872` | 5-digit random | Range: 10000–99999 |
-| _(no branch code)_ | — | Membership is cross-branch |
+
+**Branch-locked:** Membership sessions can only be recorded at the branch where the membership was purchased. Session recording validates that `booking.branch_id` matches the membership's originating branch — rejects if mismatch.
 
 **Display format rules:**
 - All dashes stripped + prefixed with `#` for customer-facing display
