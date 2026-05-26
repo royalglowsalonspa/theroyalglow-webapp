@@ -464,8 +464,8 @@ rgss_solutions/
 │   │   │   ├── invoice.ts              ← invoice, invoice_item
 │   │   │   ├── membership.ts           ← spa_membership, spa_membership_tier
 │   │   │   ├── offer.ts                ← offer, offer_service, offer_redemption
-│   │   │   ├── lead.ts                 ← lead
-│   │   │   ├── crm.ts                  ← customer_tag, customer_tag_assignment
+│   │   │   ├── lead.ts                 ← lead, lead_note
+│   │   │   ├── crm.ts                  ← customer_tag, customer_tag_assignment, customer_note
 │   │   │   ├── loyalty.ts              ← loyalty_account, loyalty_transaction
 │   │   │   ├── notification.ts         ← notification, push_subscription
 │   │   │   ├── branch.ts              ← branch

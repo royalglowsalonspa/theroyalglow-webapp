@@ -1014,7 +1014,5 @@ Log in → View business dashboard
 ## Out of Scope (Current Phase)
 
 - Payment gateway integration *(Phase 2 — Razorpay or Cashfree when online pre-payment is needed)*
-- Loyalty / rewards program *(future phase)*
-- Multi-location support *(future phase)*
 - Mobile app *(future phase — PWA covers the need at launch)*
 - Inventory management *(future phase)*
