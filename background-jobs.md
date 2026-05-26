@@ -41,8 +41,8 @@ When gems are earned on invoice completion, a **push notification fires synchron
 ```
 Receptionist clicks "Generate Invoice"
     → POST /api/admin/bookings/:id/complete
-    → DB: gems earned, loyalty_transaction inserted with expires_at = created_at + 30 days
-    → web-push sent immediately: "You earned X gems! Use them within 30 days."
+    → DB: gems earned, loyalty_transaction inserted with expires_at = created_at + 365 days
+    → web-push sent immediately: "You earned X gems! Use them within 1 year."
     → Customer receives push within seconds of payment
 ```
 

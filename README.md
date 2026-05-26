@@ -65,7 +65,7 @@ Covers: website, CRM, customer management, marketing automation, database, creat
 - **Date display:** DD/MM/YYYY (Indian standard) via `Intl.DateTimeFormat('en-IN')`.
 - **GST-inclusive pricing:** All customer-facing prices include 18% GST (SAC 999721). Invoice back-calculates base.
 - **Salon/SPA separation:** booking.service_type = 'salon' or 'spa'. No cross-type bookings. Enables clean analytics split.
-- **Loyalty gems:** McDonald's-style catalogue. 1% of bill earned (floor). Gems unlock specific services from catalogue, NOT a ₹ discount. One catalogue service per booking. NO gems on membership purchases or membership sessions. Gems expire 30 days after earning.
+- **Loyalty gems:** McDonald's-style catalogue. 1% of final invoiced amount earned (floor). Gems unlock specific services from catalogue, NOT a ₹ discount. One catalogue service per booking. NO gems on membership purchases or membership sessions. Gems expire **1 year (365 days)** after earning.
 - **Offers:** 3 types (percentage, flat, combo_price). 1 offer/customer/day. Applied at checkout by receptionist. Cannot combine with gems. Salon only.
 - **Booking lifecycle:** pending → confirmed/rejected → in_progress → completed. Walk-ins skip pending.
 - **Invoice types:** `service` (normal, gems earned), `membership_purchase` (lump sum, no gems), `membership_session` (₹0 usage record, no gems).

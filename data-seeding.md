@@ -342,7 +342,7 @@ export const systemSettings = [
   { key: 'gst_rate', value: '0.18' },
   { key: 'gems_earn_rate', value: '0.01' },
   { key: 'gems_value_paise', value: '100' },
-  { key: 'gems_expiry_days', value: '30' },
+  { key: 'gems_expiry_days', value: '365' },
   { key: 'cancellation_window_hours', value: '4' },
   { key: 'reschedule_window_hours', value: '1' },
   { key: 'reschedule_limit_per_booking', value: '2' },

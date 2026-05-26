@@ -442,7 +442,7 @@ rgss_solutions/
 │   ├── business-logic/                  ← Domain rules: bookings, loyalty, invoicing, CRM
 │   │   ├── booking-flow.mdx             ← Full lifecycle: browse → slot → confirm → complete → invoice
 │   │   ├── spa-memberships.mdx          ← Silver/Gold/Platinum tiers, session deduction, expiry logic
-│   │   ├── loyalty-gems.mdx             ← Earn (floor(total × 0.01)), redeem, 1-year expiry, catalogue
+│   │   ├── loyalty-gems.mdx             ← Earn (1% of final invoiced amount, floor), redeem, 1-year (365-day) expiry, catalogue
 │   │   ├── invoicing-gst.mdx            ← GST back-calc (18%), invoice numbering, PDF, Resend delivery
 │   │   ├── no-show-policy.mdx           ← No-show tiers, automatic flags, recovery check, soft-ban
 │   │   ├── lead-pipeline.mdx            ← UTM attribution, status transitions, CAPI Lead/Purchase events

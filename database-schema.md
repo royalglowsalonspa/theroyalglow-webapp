@@ -1641,7 +1641,7 @@ Every gem earn, redeem, expiry, or manual adjustment. Immutable ledger — inser
 | `gems_amount` | `integer` | NOT NULL | Positive for earn/adjust-up, negative for redeem/expire |
 | `invoice_id` | `text` | nullable, FK → `invoice.id` ON DELETE RESTRICT | Which invoice triggered this (null for manual adjustments) |
 | `description` | `text` | nullable | "Earned from invoice #INV1262792921", "Redeemed on booking" |
-| `expires_at` | `timestamptz` | nullable | Set to `created_at + gems_expiry_days` for `type = 'earned'` only. `null` for redeemed / expired / adjusted rows. pg_cron scans this column nightly to expire gems. |
+| `expires_at` | `timestamptz` | nullable | Set to `created_at + gems_expiry_days` (365 days / 1 year) for `type = 'earned'` only. `null` for redeemed / expired / adjusted rows. pg_cron scans this column nightly to expire gems. |
 | `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
 
 ---
@@ -1904,7 +1904,7 @@ Key-value configuration editable from Owner View → System Settings.
 | `gst_rate` | `0.18` | 18% GST. Customer-facing prices are inclusive; invoices back-calculate: base = price ÷ 1.18 |
 | `gems_earn_rate` | `0.01` | 1% — gems per rupee spent |
 | `gems_value_paise` | `100` | 1 gem = ₹1.00 = 100 paise |
-| `gems_expiry_days` | `30` | Days after earning before gems expire. Set as `expires_at = created_at + INTERVAL '30 days'` on every `earned` loyalty_transaction insert. |
+| `gems_expiry_days` | `365` | Days after earning before gems expire. Set as `expires_at = created_at + INTERVAL '365 days'` on every `earned` loyalty_transaction insert. 1 year validity. |
 | `cancellation_window_hours` | `4` | Hours before appointment within which a cancellation is tagged as "late" in CRM. Staff phones customer. No fee ever. |
 | `reschedule_window_hours` | `1` | Customer must reschedule at least this many hours before the appointment |
 | `reschedule_limit_per_booking` | `2` | Max reschedules per booking. 3rd attempt blocked — must cancel and re-book fresh. |
@@ -2362,7 +2362,7 @@ A separate page at `/gems` (customer-facing) and `/admin/gems-catalogue` (admin 
 - **Only one catalogue service redeemable per booking**
 - Gems are all-or-nothing per catalogue item — no partial redemption
 - Customer must have ≥ `service.gems_required` gems to unlock that item
-- Unredeemed gems never expire (for now — add expiry later if needed)
+- Gems expire **1 year (365 days)** after earning. `expires_at = created_at + INTERVAL '365 days'`. Auto-expired nightly by pg_cron Job 7. Customer notified 7 days before via QStash Job 15.
 - Admin can manually adjust gems via `type: 'adjusted'` with reason in `description`
 - Catalogue is managed by owner/manager only — receptionists cannot change it
 
