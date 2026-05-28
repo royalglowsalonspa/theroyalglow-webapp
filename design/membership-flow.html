@@ -3,317 +3,1368 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SPA Membership Flow — Design Reference</title>
+<title>Membership Flow — Royal Glow Salon & SPA</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1200px; margin: 0 auto; padding: 2rem; line-height: 1.6; color: #1a1a1a; background: #fffdf7; }
-  h1, h2, h3, h4 { color: #1a1a1a; margin-top: 2rem; }
-  h1 { border-bottom: 2px solid #c8a961; padding-bottom: 0.5rem; }
-  h2 { border-bottom: 1px solid #e5e5e5; padding-bottom: 0.3rem; }
-  pre { background: #1a1a1a; color: #e5e5e5; padding: 1.5rem; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; line-height: 1.4; }
-  code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 14px; }
-  pre code { background: none; padding: 0; }
-  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
-  th, td { border: 1px solid #e5e5e5; padding: 10px 14px; text-align: left; }
-  th { background: #f9fafb; font-weight: 600; }
-  tr:nth-child(even) { background: #fafafa; }
-  blockquote { border-left: 4px solid #c8a961; margin: 1rem 0; padding: 0.5rem 1rem; background: #fff8f0; }
-  hr { border: none; border-top: 1px solid #e5e5e5; margin: 2rem 0; }
-  ul, ol { padding-left: 1.5rem; }
-  li { margin: 0.3rem 0; }
-  a { color: #c8a961; text-decoration: none; }
-  a:hover { text-decoration: underline; }
+:root {
+  --gold: #C8A961;
+  --gold-light: #FEF3C7;
+  --gold-bg: #FFFDF7;
+  --dark: #1a1a1a;
+  --grey-100: #f9fafb;
+  --grey-200: #f3f4f6;
+  --grey-300: #e5e5e5;
+  --grey-500: #6B6B6B;
+  --grey-700: #374151;
+  --green: #10B981;
+  --green-light: #D1FAE5;
+  --green-dark: #065F46;
+  --red: #EF4444;
+  --red-light: #FEE2E2;
+  --red-dark: #991B1B;
+  --amber: #F59E0B;
+  --amber-light: #FEF3C7;
+  --blue: #3B82F6;
+  --blue-light: #DBEAFE;
+  --purple: #8B5CF6;
+  --purple-light: #EDE9FE;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --radius: 12px;
+  --shadow: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}
 
-  .flow-container { display: flex; flex-direction: column; align-items: center; gap: 0; margin: 2rem 0; }
-  .flow-node { padding: 14px 24px; border-radius: 12px; font-weight: 500; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); min-width: 180px; }
-  .flow-node.trigger { background: #C8A961; color: white; }
-  .flow-node.process { background: white; border: 2px solid #e5e5e5; border-left: 4px solid #C8A961; }
-  .flow-node.decision { background: #FEF3C7; border: 2px solid #F59E0B; }
-  .flow-node.success { background: #D1FAE5; border: 2px solid #10B981; color: #065F46; }
-  .flow-node.error { background: #FEE2E2; border: 2px solid #EF4444; color: #991B1B; }
-  .flow-node.end { background: #1a1a1a; color: white; }
-  .flow-arrow { width: 2px; height: 32px; background: #C8A961; position: relative; margin: 0 auto; }
-  .flow-arrow::after { content: ''; position: absolute; bottom: -6px; left: -5px; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #C8A961; }
-  .flow-arrow-right { width: 40px; height: 2px; background: #C8A961; position: relative; display: inline-block; vertical-align: middle; }
-  .flow-arrow-right::after { content: ''; position: absolute; right: -6px; top: -5px; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 8px solid #C8A961; }
-  .flow-branch { display: flex; gap: 2rem; justify-content: center; }
-  .flow-label { font-size: 12px; color: #6B6B6B; text-align: center; margin-top: 4px; }
-  .flow-row { display: flex; align-items: center; justify-content: center; gap: 1.5rem; }
-  .phone-frame { width: 375px; border: 3px solid #1a1a1a; border-radius: 40px; padding: 12px; margin: 2rem auto; background: white; box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
-  .phone-screen { border-radius: 28px; overflow: hidden; min-height: 500px; background: #FFFDF7; padding: 16px; }
-  .phone-notch { width: 150px; height: 24px; background: #1a1a1a; border-radius: 0 0 12px 12px; margin: 0 auto; }
-  .wire-btn { padding: 12px 24px; border-radius: 999px; font-weight: 600; text-align: center; cursor: pointer; border: none; display: inline-block; margin: 4px; }
-  .wire-btn-primary { background: #C8A961; color: white; }
-  .wire-btn-outline { border: 2px solid #C8A961; color: #C8A961; background: white; }
-  .wire-btn-danger { background: #EF4444; color: white; }
-  .wire-btn-success { background: #10B981; color: white; }
-  .wire-input { width: 100%; padding: 12px 16px; border: 1px solid #e5e5e5; border-radius: 12px; font-size: 14px; margin: 8px 0; box-sizing: border-box; }
-  .wire-card { background: white; border: 1px solid #f0f0f0; border-radius: 12px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-  .wire-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 500; }
-  .badge-pending { background: #FEF3C7; color: #92400E; }
-  .badge-confirmed { background: #D1FAE5; color: #065F46; }
-  .badge-completed { background: #F3F4F6; color: #374151; }
-  .badge-active { background: #DBEAFE; color: #1E40AF; }
-  .badge-expired { background: #FEE2E2; color: #991B1B; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: var(--font);
+  background: var(--gold-bg);
+  color: var(--dark);
+  line-height: 1.6;
+  min-height: 100vh;
+}
 
-  .section-card { background: white; border: 1px solid #f0f0f0; border-radius: 16px; padding: 2rem; margin: 1.5rem 0; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
-  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; }
-  .timeline { display: flex; flex-direction: column; gap: 0; padding: 1rem 0; }
-  .timeline-step { display: flex; align-items: flex-start; gap: 12px; position: relative; padding-bottom: 24px; }
-  .timeline-step:not(:last-child)::before { content: ''; position: absolute; left: 11px; top: 24px; bottom: 0; width: 2px; background: #e5e5e5; }
-  .timeline-dot { width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0; }
-  .timeline-dot.active { background: #C8A961; }
-  .timeline-dot.completed { background: #10B981; }
-  .timeline-dot.error { background: #EF4444; }
-  .timeline-dot.pending { background: #F59E0B; }
-  .timeline-dot.grey { background: #9CA3AF; }
-  .steps { display: flex; align-items: center; justify-content: center; gap: 0; margin: 1.5rem 0; }
-  .step-dot { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; }
-  .step-dot.active { background: #C8A961; color: white; }
-  .step-dot.completed { background: #10B981; color: white; }
-  .step-dot.future { border: 2px solid #e5e5e5; color: #9CA3AF; }
-  .step-line { width: 60px; height: 2px; background: #e5e5e5; }
-  .step-line.completed { background: #10B981; }
-  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin: 1rem 0; }
-  .kpi-card { background: white; border: 1px solid #f0f0f0; border-radius: 12px; padding: 16px; text-align: center; }
-  .kpi-card .value { font-size: 24px; font-weight: 700; color: #1a1a1a; }
-  .kpi-card .label { font-size: 12px; color: #6B6B6B; margin-top: 4px; }
-  .progress-bar { height: 12px; background: #e5e5e5; border-radius: 999px; overflow: hidden; margin: 8px 0; }
-  .progress-bar .fill { height: 100%; background: #C8A961; border-radius: 999px; }
-  .schedule-grid { display: grid; grid-template-columns: 80px repeat(7, 1fr); gap: 2px; font-size: 12px; margin: 1rem 0; }
-  .schedule-grid .header { background: #f9fafb; padding: 8px; font-weight: 600; text-align: center; border-radius: 4px; }
-  .schedule-grid .cell { padding: 8px; text-align: center; border-radius: 4px; min-height: 40px; display: flex; align-items: center; justify-content: center; }
-  .schedule-grid .cell.available { background: #f0fdf4; border: 1px solid #d1fae5; }
-  .schedule-grid .cell.booked { background: #FEF3C7; border: 1px solid #F59E0B; color: #92400E; }
-  .schedule-grid .cell.leave { background: #374151; color: white; }
-  .schedule-grid .cell.buffer { background: #f3f4f6; color: #9CA3AF; }
-  .kanban-board { display: flex; gap: 12px; overflow-x: auto; padding: 1rem 0; }
-  .kanban-column { min-width: 180px; background: #f9fafb; border-radius: 12px; padding: 12px; }
-  .kanban-column h4 { font-size: 13px; margin: 0 0 8px; color: #6B6B6B; }
-  .kanban-card { background: white; border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px; margin-bottom: 8px; font-size: 13px; }
-  .modal-backdrop { background: rgba(0,0,0,0.4); border-radius: 12px; padding: 3rem; display: flex; align-items: center; justify-content: center; margin: 2rem 0; }
-  .modal-box { background: white; border-radius: 16px; padding: 2rem; max-width: 500px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+
+/* Header */
+.page-header {
+  background: linear-gradient(135deg, var(--dark) 0%, #2d2d2d 100%);
+  color: white;
+  padding: 2rem;
+  text-align: center;
+  border-bottom: 3px solid var(--gold);
+}
+.page-header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+.page-header h1 span { color: var(--gold); }
+.page-header p {
+  color: #aaa;
+  font-size: 0.95rem;
+}
+
+/* Tab Navigation */
+.tab-nav {
+  display: flex;
+  gap: 0;
+  background: white;
+  border-bottom: 2px solid var(--grey-300);
+  overflow-x: auto;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow);
+}
+.tab-btn {
+  padding: 1rem 1.5rem;
+  border: none;
+  background: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--grey-500);
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s ease;
+}
+.tab-btn:hover { color: var(--dark); background: var(--grey-100); }
+.tab-btn.active {
+  color: var(--gold);
+  border-bottom-color: var(--gold);
+  background: var(--gold-bg);
+}
+
+
+/* Tab Content */
+.tab-content { display: none; padding: 2rem; max-width: 1200px; margin: 0 auto; }
+.tab-content.active { display: block; }
+
+/* Cards */
+.card {
+  background: white;
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--grey-200);
+}
+.card h3 {
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  color: var(--dark);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Quick Summary Grid */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+.summary-item {
+  background: var(--grey-100);
+  border-radius: 8px;
+  padding: 1rem;
+  border-left: 4px solid var(--gold);
+}
+.summary-item .label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--grey-500);
+  margin-bottom: 0.25rem;
+}
+.summary-item .value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--dark);
+}
+
+
+/* Status Badges */
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.badge-active { background: var(--green-light); color: var(--green-dark); }
+.badge-expired { background: var(--grey-200); color: var(--grey-700); }
+.badge-cancelled { background: var(--red-light); color: var(--red-dark); }
+.badge-low { background: var(--amber-light); color: #92400E; }
+.badge-silver { background: #E5E7EB; color: #374151; }
+.badge-gold { background: var(--gold-light); color: #92400E; }
+.badge-platinum { background: var(--purple-light); color: #5B21B6; }
+
+/* Progress Bar */
+.progress-bar {
+  width: 100%;
+  height: 12px;
+  background: var(--grey-200);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 0.5rem 0;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), #E0C068);
+  border-radius: 6px;
+  transition: width 0.4s ease;
+}
+.progress-fill.low {
+  background: linear-gradient(90deg, var(--red), #F87171);
+}
+.progress-text {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--grey-500);
+  margin-top: 0.25rem;
+}
+
+
+/* SVG Flow Container */
+.flow-container {
+  overflow-x: auto;
+  padding: 1rem;
+  background: white;
+  border-radius: var(--radius);
+  border: 1px solid var(--grey-200);
+}
+.flow-container svg { display: block; margin: 0 auto; }
+.flow-container svg text {
+  font-family: var(--font);
+  font-size: 11px;
+}
+.flow-container svg .node-rect {
+  stroke-width: 2;
+  rx: 8;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.flow-container svg .node-rect:hover {
+  filter: brightness(0.95);
+  stroke-width: 3;
+}
+.flow-container svg .decision {
+  stroke-width: 2;
+  cursor: pointer;
+}
+.flow-container svg .decision:hover {
+  filter: brightness(0.9);
+}
+
+/* Wireframe Phone */
+.wireframe-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  padding: 1rem 0;
+}
+.phone-frame {
+  background: white;
+  border: 3px solid var(--dark);
+  border-radius: 32px;
+  padding: 1rem;
+  width: 280px;
+  margin: 0 auto;
+  box-shadow: var(--shadow-lg);
+  position: relative;
+}
+.phone-frame::before {
+  content: '';
+  display: block;
+  width: 60px;
+  height: 6px;
+  background: var(--grey-300);
+  border-radius: 3px;
+  margin: 0 auto 1rem;
+}
+
+
+.phone-screen {
+  background: var(--grey-100);
+  border-radius: 16px;
+  padding: 1rem;
+  min-height: 420px;
+}
+.phone-screen h4 {
+  font-size: 0.85rem;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+  text-align: center;
+}
+
+/* Wireframe elements */
+.wire-input {
+  background: white;
+  border: 1px solid var(--grey-300);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--grey-500);
+  margin-bottom: 0.5rem;
+  width: 100%;
+}
+.wire-input.filled {
+  color: var(--dark);
+  border-color: var(--gold);
+}
+.wire-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--grey-500);
+  margin-bottom: 0.2rem;
+}
+.wire-btn {
+  display: block;
+  width: 100%;
+  padding: 0.6rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  margin-top: 0.75rem;
+  border: none;
+}
+.wire-btn-gold {
+  background: var(--gold);
+  color: white;
+}
+.wire-btn-red {
+  background: var(--red);
+  color: white;
+}
+.wire-btn-outline {
+  background: white;
+  border: 2px solid var(--gold);
+  color: var(--gold);
+}
+
+
+/* Tier Cards */
+.tier-card {
+  border: 2px solid var(--grey-300);
+  border-radius: 8px;
+  padding: 0.6rem;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.tier-card.selected {
+  border-color: var(--gold);
+  background: var(--gold-light);
+}
+.tier-card .tier-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.tier-card .tier-detail {
+  font-size: 0.65rem;
+  color: var(--grey-500);
+}
+
+/* Collapsible Details */
+details {
+  background: white;
+  border-radius: var(--radius);
+  margin-bottom: 1rem;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--grey-200);
+  overflow: hidden;
+}
+details summary {
+  padding: 1rem 1.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  user-select: none;
+  transition: background 0.2s;
+}
+details summary:hover { background: var(--grey-100); }
+details[open] summary {
+  border-bottom: 1px solid var(--grey-200);
+  background: var(--grey-100);
+}
+details .detail-content {
+  padding: 1.5rem;
+}
+
+
+/* Tables */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.data-table th, .data-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--grey-200);
+}
+.data-table th {
+  background: var(--grey-100);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--grey-500);
+}
+.data-table tr:hover td { background: var(--gold-bg); }
+.data-table code {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  background: var(--grey-100);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}
+
+/* API Endpoint Cards */
+.endpoint {
+  background: var(--grey-100);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-left: 4px solid var(--gold);
+}
+.endpoint .method {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: var(--mono);
+  margin-right: 0.5rem;
+}
+.method-post { background: var(--green-light); color: var(--green-dark); }
+.method-get { background: var(--blue-light); color: #1E40AF; }
+.method-patch { background: var(--amber-light); color: #92400E; }
+.endpoint .path {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.endpoint .desc {
+  font-size: 0.8rem;
+  color: var(--grey-500);
+  margin-top: 0.5rem;
+}
+
+
+/* Rules List */
+.rules-list {
+  list-style: none;
+  padding: 0;
+}
+.rules-list li {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--grey-200);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+.rules-list li::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  flex-shrink: 0;
+}
+
+/* Notification Timeline */
+.notification-timeline {
+  position: relative;
+  padding-left: 2rem;
+  margin: 1rem 0;
+}
+.notification-timeline::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--grey-300);
+}
+.timeline-item {
+  position: relative;
+  margin-bottom: 1.5rem;
+  padding-left: 1rem;
+}
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  left: -1.6rem;
+  top: 0.5rem;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--gold);
+  border: 2px solid white;
+  box-shadow: 0 0 0 2px var(--gold);
+}
+.timeline-item.urgent::before { background: var(--red); box-shadow: 0 0 0 2px var(--red); }
+.timeline-item .time-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--gold);
+  margin-bottom: 0.2rem;
+}
+.timeline-item.urgent .time-label { color: var(--red); }
+.timeline-item .time-desc {
+  font-size: 0.85rem;
+  color: var(--grey-700);
+}
+
+
+/* Mini session table in wireframe */
+.wire-table {
+  width: 100%;
+  font-size: 0.6rem;
+  border-collapse: collapse;
+}
+.wire-table th, .wire-table td {
+  padding: 0.3rem;
+  border-bottom: 1px solid var(--grey-300);
+  text-align: left;
+}
+.wire-table th {
+  font-weight: 600;
+  color: var(--grey-500);
+  text-transform: uppercase;
+  font-size: 0.55rem;
+}
+
+/* Warning banner */
+.warning-banner {
+  background: var(--amber-light);
+  border: 1px solid var(--amber);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.7rem;
+  color: #92400E;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Print styles */
+@media print {
+  .tab-nav { display: none; }
+  .tab-content { display: block !important; page-break-inside: avoid; }
+  .page-header { background: white; color: black; border-bottom: 2px solid #000; }
+  .page-header h1 span { color: #666; }
+  .page-header p { color: #666; }
+  body { background: white; }
+  .card, details { box-shadow: none; border: 1px solid #ccc; }
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .tab-btn { padding: 0.75rem 1rem; font-size: 0.8rem; }
+  .tab-content { padding: 1rem; }
+  .summary-grid { grid-template-columns: 1fr; }
+  .wireframe-grid { grid-template-columns: 1fr; }
+  .phone-frame { width: 100%; max-width: 280px; }
+  .data-table { font-size: 0.75rem; }
+  .data-table th, .data-table td { padding: 0.5rem; }
+}
 </style>
 </head>
 <body>
-<h1>SPA Membership Flow — Design Reference</h1>
-<blockquote><p>Complete lifecycle of SPA memberships: purchase by admin → hours tracking → session recording → expiry alerts → renewal. Covers all wireframes and state transitions.</p></blockquote>
-<hr>
 
-<h2>1. Membership Lifecycle (State Machine)</h2>
-<div class="flow-container">
-  <div class="flow-node trigger">Admin creates membership for customer</div>
-  <div class="flow-arrow"></div>
-  <div class="flow-node success">ACTIVE<br><small>Hours available, sessions can be recorded</small></div>
-  <div class="flow-arrow"></div>
-  <div class="flow-node process">Sessions recorded (hours deducted over time)<br><small>All hours used? → Still active until expires_at</small></div>
-  <div class="flow-arrow"></div>
-  <div class="flow-node decision">Automated Alerts<br><small>T-30d: reminder · T-7d: urgent · T-1d: last chance<br>Hours &lt; 60 min: low balance alert</small></div>
-  <div class="flow-arrow"></div>
-  <div class="flow-branch">
-    <div style="display:flex;flex-direction:column;align-items:center;">
-      <div class="flow-node error">EXPIRED<br><small>expires_at reached (pg_cron)<br>Unused hours forfeited<br>Final email with renewal CTA</small></div>
-    </div>
-    <div style="display:flex;flex-direction:column;align-items:center;">
-      <div class="flow-node end">CANCELLED<br><small>Manager/Owner cancels manually<br>Reason recorded · No refund</small></div>
-    </div>
-  </div>
-</div>
-<p style="font-size:13px;color:#6B6B6B;">No rollover. No pause. No transfer between branches.</p>
-<hr>
 
-<h2>2. Create Membership — <code>/admin/memberships/new</code></h2>
-<div class="section-card">
-  <h3 style="margin-top:0;">Create SPA Membership</h3>
-  <div class="wire-card">
-    <h4 style="margin-top:0;">Customer</h4>
-    <input class="wire-input" placeholder="🔍 Search customer...">
-    <p>Selected: <strong>Priya Sharma</strong> — priya@gmail.com — 98765 43210</p>
-  </div>
-  <div class="wire-card">
-    <h4 style="margin-top:0;">Select Tier</h4>
-    <div class="three-col">
-      <div style="border:2px solid #e5e5e5;border-radius:12px;padding:1rem;text-align:center;">
-        <p><strong>🥈 Silver</strong></p>
-        <p>8 hrs · ₹10,000<br>90 days</p>
+<!-- Page Header -->
+<header class="page-header">
+  <h1>SPA <span>Membership</span> Flow</h1>
+  <p>Royal Glow Salon & SPA — Membership lifecycle, hours tracking, sessions & renewal</p>
+</header>
+
+<!-- Tab Navigation -->
+<nav class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('overview')">Overview</button>
+  <button class="tab-btn" onclick="switchTab('flow')">Flow Diagram</button>
+  <button class="tab-btn" onclick="switchTab('wireframes')">Wireframes</button>
+  <button class="tab-btn" onclick="switchTab('states')">States & Errors</button>
+  <button class="tab-btn" onclick="switchTab('data')">Data & API</button>
+</nav>
+
+
+<!-- ============ TAB 1: OVERVIEW ============ -->
+<section id="tab-overview" class="tab-content active">
+  <div class="card">
+    <h3>Quick Summary</h3>
+    <div class="summary-grid">
+      <div class="summary-item">
+        <div class="label">Admin Route</div>
+        <div class="value">/admin/memberships</div>
       </div>
-      <div style="border:3px solid #C8A961;border-radius:12px;padding:1rem;text-align:center;background:#FFFDF7;">
-        <p><strong>🥇 Gold</strong></p>
-        <p style="font-size:11px;color:#C8A961;">▲ SELECTED</p>
-        <p>15 hrs · ₹15,000<br>90 days</p>
+      <div class="summary-item">
+        <div class="label">Customer Route</div>
+        <div class="value">/membership</div>
       </div>
-      <div style="border:2px solid #e5e5e5;border-radius:12px;padding:1rem;text-align:center;">
-        <p><strong>💎 Platinum</strong></p>
-        <p>Custom pricing<br>Custom hours</p>
+      <div class="summary-item">
+        <div class="label">Purpose</div>
+        <div class="value">SPA membership lifecycle</div>
+      </div>
+      <div class="summary-item">
+        <div class="label">Auth</div>
+        <div class="value">Admin creates; customer views own</div>
+      </div>
+      <div class="summary-item">
+        <div class="label">Statuses</div>
+        <div class="value">Active, Expired, Cancelled</div>
+      </div>
+      <div class="summary-item">
+        <div class="label">Expiry Engine</div>
+        <div class="value">pg_cron + QStash</div>
       </div>
     </div>
   </div>
-  <div class="wire-card">
-    <h4 style="margin-top:0;">Hours</h4>
-    <input class="wire-input" value="15" style="width:200px;">
-    <small>(prefilled, overridable for negotiated deals)</small>
-  </div>
-  <div class="wire-card">
-    <h4 style="margin-top:0;">Price (₹, GST-inclusive)</h4>
-    <input class="wire-input" value="15,000" style="width:200px;">
-  </div>
-  <div class="wire-card">
-    <h4 style="margin-top:0;">Start Date</h4>
-    <input class="wire-input" value="24/05/2026 (today)" style="width:250px;">
-    <p>Expires: 21/08/2026 (90 days from start) ← auto-calculated</p>
-  </div>
-  <div class="wire-card">
-    <h4 style="margin-top:0;">Payment Method</h4>
-    <label style="margin-right:1rem;"><input type="radio" name="pay" checked> Cash</label>
-    <label style="margin-right:1rem;"><input type="radio" name="pay"> UPI</label>
-    <label><input type="radio" name="pay"> Card</label>
-  </div>
-  <div style="text-align:center;margin-top:1.5rem;">
-    <span class="wire-btn wire-btn-primary" style="width:100%;display:block;">Create Membership</span>
-  </div>
-  <p style="font-size:13px;color:#6B6B6B;">This will: Generate membership_purchase invoice (₹15,000) · Email invoice + welcome message · NO gems earned on purchase</p>
-</div>
-<hr>
 
-<h2>3. Membership Detail — <code>/admin/memberships/[id]</code></h2>
-<h3>Active Membership (Hours Remaining)</h3>
-<div class="section-card">
-  <p style="color:#6B6B6B;">← Back to Memberships</p>
-  <div style="display:flex;justify-content:space-between;align-items:center;">
-    <h3 style="margin:0;">Membership #RGMEM26190872</h3>
-    <span class="wire-badge badge-confirmed">● Active</span>
-  </div>
-  <p>Customer: Priya Sharma (→ view profile)<br>Tier: 🥇 Gold<br>Created: 24/05/2026</p>
-  <div class="wire-card">
-    <h4 style="margin-top:0;">Hours Balance</h4>
-    <div class="progress-bar"><div class="fill" style="width:66.7%;"></div></div>
-    <p><strong>10 hrs used</strong> · <strong>5 hrs remaining</strong></p>
-    <p>Used: 10 hrs 0 min / Total: 15 hrs / Remaining: 5 hrs<br>Expires: 21/08/2026 (58 days left)</p>
-  </div>
-  <div class="wire-card">
-    <h4 style="margin-top:0;">Session History</h4>
-    <table>
-      <thead><tr><th>Date</th><th>Service</th><th>Duration</th><th>Staff</th></tr></thead>
+
+  <!-- Tier Comparison -->
+  <div class="card">
+    <h3>Membership Tiers</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Tier</th>
+          <th>Hours</th>
+          <th>Price</th>
+          <th>Validity</th>
+          <th>Custom</th>
+        </tr>
+      </thead>
       <tbody>
-        <tr><td>20/06/26</td><td>Swedish Massage</td><td>90 min</td><td>Meera</td></tr>
-        <tr><td>15/06/26</td><td>Aroma Therapy</td><td>60 min</td><td>Deepa</td></tr>
-        <tr><td>08/06/26</td><td>Thai Massage</td><td>60 min</td><td>Meera</td></tr>
-        <tr><td>01/06/26</td><td>Hot Stone</td><td>90 min</td><td>Deepa</td></tr>
-        <tr><td>28/05/26</td><td>Swedish Massage</td><td>60 min</td><td>Meera</td></tr>
-        <tr><td>26/05/26</td><td>Deep Tissue</td><td>90 min</td><td>Deepa</td></tr>
-        <tr><td>24/05/26</td><td>Aroma Therapy</td><td>60 min</td><td>Meera</td></tr>
+        <tr>
+          <td><span class="badge badge-silver">Silver</span></td>
+          <td>8 hrs</td>
+          <td>&#8377;10,000</td>
+          <td>90 days</td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-gold">Gold</span></td>
+          <td>15 hrs</td>
+          <td>&#8377;15,000</td>
+          <td>90 days</td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-platinum">Platinum</span></td>
+          <td>Custom</td>
+          <td>Custom</td>
+          <td>Custom</td>
+          <td>Yes</td>
+        </tr>
       </tbody>
     </table>
-    <p>Total sessions: 7 &nbsp; Total hours used: 10 hrs 0 min</p>
   </div>
-  <div style="display:flex;gap:1rem;justify-content:center;margin-top:1.5rem;">
-    <span class="wire-btn wire-btn-primary">Record Session</span>
-    <span class="wire-btn wire-btn-danger">Cancel Membership</span>
+
+
+  <!-- Membership Rules -->
+  <div class="card">
+    <h3>Membership Rules</h3>
+    <ul class="rules-list">
+      <li>No rollover — unused hours are forfeited at expiry</li>
+      <li>No pause — membership runs continuously once activated</li>
+      <li>No transfer — membership cannot be moved between branches</li>
+      <li>Branch-locked — valid only at the branch of purchase</li>
+      <li>No gems — loyalty gems are not earned on membership services</li>
+      <li>No refund on cancellation — cancelled memberships forfeit remaining hours</li>
+    </ul>
   </div>
-  <p style="font-size:13px;color:#6B6B6B;">Invoice: #INV1262XXXXX (membership_purchase) → View PDF</p>
-</div>
-<hr>
 
-<h2>4. Record Session Modal</h2>
-<div class="modal-backdrop">
-  <div class="modal-box">
-    <h3 style="margin-top:0;">Record Membership Session</h3>
-    <p>Member: Priya Sharma (#RGMEM26190872 · Gold)<br>Remaining: 5 hrs 0 min</p>
-    <div class="wire-card">
-      <p>✓ Swedish Massage<br>Meera · <select class="wire-input" style="width:auto;margin:0;"><option>60 min</option><option>90 min</option></select></p>
-    </div>
-    <p><strong>Total duration:</strong> 60 min<br><strong>After session:</strong> 4 hrs 0 min remaining</p>
-    <div style="text-align:center;margin-top:1rem;">
-      <span class="wire-btn wire-btn-primary" style="width:100%;display:block;">Record Session</span>
-    </div>
-    <p style="font-size:13px;color:#6B6B6B;">This will: Deduct 60 min · Create ₹0 invoice · Email confirmation · NO gems earned</p>
-  </div>
-</div>
-
-<h4>VALIDATION: If requested duration &gt; remaining hours:</h4>
-<div class="wire-card" style="border-left:4px solid #F59E0B;">
-  <p><strong>⚠️ Insufficient hours</strong></p>
-  <p>Requested: 90 min<br>Remaining: 30 min</p>
-  <p>Cannot record this session. Customer can:</p>
-  <ul>
-    <li>Book a shorter session (≤30 min)</li>
-    <li>Pay per-service rate for excess time</li>
-  </ul>
-  <span class="wire-btn wire-btn-outline">Close</span>
-</div>
-<hr>
-
-<h2>5. Customer Membership View — <code>/membership</code></h2>
-<div class="phone-frame">
-  <div class="phone-notch"></div>
-  <div class="phone-screen">
-    <h3 style="margin-top:1rem;">My SPA Membership</h3>
-    <div class="wire-card" style="background:#FFFDF7;border:2px solid #C8A961;">
-      <p style="text-align:center;"><strong>🥇 Gold Membership</strong><br><small>#RGMEM26190872</small></p>
-      <div class="progress-bar"><div class="fill" style="width:66.7%;"></div></div>
-      <p style="text-align:center;">10 hrs used · 5 hrs remaining</p>
-      <p style="text-align:center;font-size:13px;">Valid until: 21/08/2026 (58 days left)</p>
-    </div>
-    <h4>Session History</h4>
-    <div class="wire-card"><small>20 Jun 2026 · Swedish Massage · 90 min · Meera</small></div>
-    <div class="wire-card"><small>15 Jun 2026 · Aroma Therapy · 60 min · Deepa</small></div>
-    <div class="wire-card"><small>08 Jun 2026 · Thai Massage · 60 min · Meera</small></div>
-    <div class="wire-card" style="background:#f9fafb;">
-      <small>▶ Past Memberships (1): Silver · Jan–Apr 2026 · 6/8 hrs used · Expired</small>
+  <!-- Notification Schedule -->
+  <div class="card">
+    <h3>Automated Alert Timeline</h3>
+    <div class="notification-timeline">
+      <div class="timeline-item">
+        <div class="time-label">T-30 days</div>
+        <div class="time-desc">Reminder email + push notification — membership expiring soon</div>
+      </div>
+      <div class="timeline-item">
+        <div class="time-label">T-7 days</div>
+        <div class="time-desc">Urgent email + push — one week left, book remaining hours</div>
+      </div>
+      <div class="timeline-item urgent">
+        <div class="time-label">T-1 day</div>
+        <div class="time-desc">Last chance email + push — expires tomorrow, use hours now</div>
+      </div>
+      <div class="timeline-item urgent">
+        <div class="time-label">Hours &lt; 60 min</div>
+        <div class="time-desc">Low balance alert — fewer than 60 minutes remaining</div>
+      </div>
+      <div class="timeline-item">
+        <div class="time-label">Expiry day</div>
+        <div class="time-desc">Final email — membership expired, renewal CTA with special offer</div>
+      </div>
     </div>
   </div>
-</div>
+</section>
 
-<h4>Urgency States:</h4>
-<div class="wire-card" style="border-left:4px solid #F59E0B;">
-  <p><strong>⚠️ Expires in 28 days.</strong> Book your remaining hours before they're gone!<br>📞 Call to book: +91 63601 35720</p>
-</div>
-<div class="wire-card" style="border-left:4px solid #EF4444;">
-  <p><strong>🔴 URGENT: Expires in 5 days!</strong><br>3 hrs remaining — will be forfeited.<br>📞 Call NOW: +91 63601 35720</p>
-</div>
-<hr>
 
-<h2>6. Expiry Notification Timeline</h2>
-<div class="section-card">
-  <div class="timeline">
-    <div class="timeline-step"><div class="timeline-dot active"></div><div><strong>Purchase</strong><br>Membership activated (90 days for Gold)</div></div>
-    <div class="timeline-step"><div class="timeline-dot pending"></div><div><strong>T-30 days</strong><br>Email + Push reminder sent</div></div>
-    <div class="timeline-step"><div class="timeline-dot pending"></div><div><strong>T-7 days</strong><br>Urgent Email + Push reminder</div></div>
-    <div class="timeline-step"><div class="timeline-dot error"></div><div><strong>T-1 day</strong><br>"Last chance!" Email + Push</div></div>
-    <div class="timeline-step"><div class="timeline-dot grey"></div><div><strong>Expiry</strong><br>pg_cron: status → 'expired' · +1h: final email with renewal CTA</div></div>
-  </div>
-  <p style="font-size:13px;color:#6B6B6B;">If hours &lt; 60min at any point: → immediate push notification</p>
-</div>
-<hr>
+<!-- ============ TAB 2: FLOW DIAGRAM ============ -->
+<section id="tab-flow" class="tab-content">
+  <div class="card">
+    <h3>Membership Lifecycle Flowchart</h3>
+    <div class="flow-container">
+      <svg width="900" height="980" viewBox="0 0 900 980" xmlns="http://www.w3.org/2000/svg">
+        <!-- Arrowhead marker -->
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#374151"/>
+          </marker>
+          <marker id="arrowhead-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#EF4444"/>
+          </marker>
+          <marker id="arrowhead-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#10B981"/>
+          </marker>
+        </defs>
 
-<h2>7. Membership Tiers — Visual Comparison</h2>
-<div class="three-col">
-  <div class="section-card" style="text-align:center;">
-    <h3 style="margin-top:0;">🥈 Silver</h3>
-    <p style="font-size:2rem;font-weight:700;">8 hours</p>
-    <p><strong>₹10,000</strong><br>90 days</p>
-    <p style="font-size:13px;">All SPA services</p>
+
+        <!-- Step 1: Admin Creates Membership -->
+        <rect class="node-rect" x="320" y="20" width="260" height="56" fill="#FEF3C7" stroke="#C8A961"/>
+        <text x="450" y="44" text-anchor="middle" font-weight="bold" font-size="12" fill="#1a1a1a">Admin Creates Membership</text>
+        <text x="450" y="60" text-anchor="middle" font-size="10" fill="#6B6B6B">Select tier, hours, price, payment</text>
+
+        <!-- Arrow 1→2 -->
+        <line x1="450" y1="76" x2="450" y2="110" stroke="#374151" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+        <!-- Step 2: Payment Recorded -->
+        <rect class="node-rect" x="345" y="110" width="210" height="48" fill="#D1FAE5" stroke="#10B981"/>
+        <text x="450" y="134" text-anchor="middle" font-weight="bold" font-size="11" fill="#065F46">Payment Recorded</text>
+        <text x="450" y="148" text-anchor="middle" font-size="10" fill="#6B6B6B">Cash / UPI / Card</text>
+
+        <!-- Arrow 2→3 -->
+        <line x1="450" y1="158" x2="450" y2="192" stroke="#374151" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+        <!-- Step 3: ACTIVE State -->
+        <rect class="node-rect" x="330" y="192" width="240" height="56" fill="#D1FAE5" stroke="#10B981" stroke-width="3"/>
+        <text x="450" y="216" text-anchor="middle" font-weight="bold" font-size="13" fill="#065F46">ACTIVE</text>
+        <text x="450" y="234" text-anchor="middle" font-size="10" fill="#6B6B6B">Hours available, sessions can be recorded</text>
+
+        <!-- Arrow 3→4 -->
+        <line x1="450" y1="248" x2="450" y2="290" stroke="#374151" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+
+        <!-- Step 4: Record Session -->
+        <rect class="node-rect" x="335" y="290" width="230" height="48" fill="#DBEAFE" stroke="#3B82F6"/>
+        <text x="450" y="310" text-anchor="middle" font-weight="bold" font-size="11" fill="#1E40AF">Record Session</text>
+        <text x="450" y="326" text-anchor="middle" font-size="10" fill="#6B6B6B">Service, duration, staff assigned</text>
+
+        <!-- Arrow 4→5 -->
+        <line x1="450" y1="338" x2="450" y2="380" stroke="#374151" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+        <!-- Step 5: Decision - Hours deducted -->
+        <polygon class="decision" points="450,380 550,420 450,460 350,420" fill="#FEF3C7" stroke="#C8A961" stroke-width="2"/>
+        <text x="450" y="416" text-anchor="middle" font-weight="bold" font-size="10" fill="#1a1a1a">All hours</text>
+        <text x="450" y="430" text-anchor="middle" font-size="10" fill="#1a1a1a">used?</text>
+
+        <!-- No path (left) - back to record more sessions -->
+        <line x1="350" y1="420" x2="230" y2="420" stroke="#10B981" stroke-width="2" marker-end="url(#arrowhead-green)"/>
+        <text x="280" y="410" text-anchor="middle" font-size="10" fill="#10B981" font-weight="bold">No</text>
+        <rect class="node-rect" x="110" y="400" width="120" height="40" fill="#D1FAE5" stroke="#10B981"/>
+        <text x="170" y="420" text-anchor="middle" font-size="10" fill="#065F46">Hours remain</text>
+        <text x="170" y="432" text-anchor="middle" font-size="9" fill="#6B6B6B">Continue active</text>
+        <!-- Arrow back up -->
+        <path d="M 170 400 L 170 310 L 335 310" fill="none" stroke="#10B981" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrowhead-green)"/>
+
+
+        <!-- Yes path (down) - all hours used but still active until expiry -->
+        <line x1="450" y1="460" x2="450" y2="500" stroke="#374151" stroke-width="2" marker-end="url(#arrowhead)"/>
+        <text x="470" y="480" font-size="10" fill="#374151" font-weight="bold">Yes</text>
+
+        <!-- Step 6: Hours depleted, still active -->
+        <rect class="node-rect" x="330" y="500" width="240" height="48" fill="#FEF3C7" stroke="#C8A961"/>
+        <text x="450" y="520" text-anchor="middle" font-weight="bold" font-size="11" fill="#92400E">Hours Depleted</text>
+        <text x="450" y="536" text-anchor="middle" font-size="10" fill="#6B6B6B">Active until expires_at date</text>
+
+        <!-- Arrow 6→7 -->
+        <line x1="450" y1="548" x2="450" y2="590" stroke="#374151" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+        <!-- Step 7: Alert Timeline -->
+        <rect class="node-rect" x="300" y="590" width="300" height="90" fill="#EDE9FE" stroke="#8B5CF6"/>
+        <text x="450" y="610" text-anchor="middle" font-weight="bold" font-size="11" fill="#5B21B6">Automated Alert Timeline</text>
+        <text x="450" y="628" text-anchor="middle" font-size="9" fill="#6B6B6B">T-30 days: reminder email + push</text>
+        <text x="450" y="642" text-anchor="middle" font-size="9" fill="#6B6B6B">T-7 days: urgent email + push</text>
+        <text x="450" y="656" text-anchor="middle" font-size="9" fill="#6B6B6B">T-1 day: last chance email + push</text>
+        <text x="450" y="670" text-anchor="middle" font-size="9" fill="#EF4444">Hours &lt; 60 min: low balance alert</text>
+
+
+        <!-- Arrow 7→8 (down to decision) -->
+        <line x1="450" y1="680" x2="450" y2="720" stroke="#374151" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+        <!-- Step 8: Decision - Expiry reached? -->
+        <polygon class="decision" points="450,720 560,760 450,800 340,760" fill="#FEE2E2" stroke="#EF4444" stroke-width="2"/>
+        <text x="450" y="756" text-anchor="middle" font-weight="bold" font-size="10" fill="#991B1B">expires_at</text>
+        <text x="450" y="770" text-anchor="middle" font-size="10" fill="#991B1B">reached?</text>
+
+        <!-- Yes path (left) - EXPIRED -->
+        <line x1="340" y1="760" x2="200" y2="760" stroke="#EF4444" stroke-width="2" marker-end="url(#arrowhead-red)"/>
+        <text x="270" y="750" text-anchor="middle" font-size="10" fill="#EF4444" font-weight="bold">Yes (pg_cron)</text>
+        <rect class="node-rect" x="70" y="735" width="130" height="52" fill="#FEE2E2" stroke="#EF4444" stroke-width="3"/>
+        <text x="135" y="757" text-anchor="middle" font-weight="bold" font-size="12" fill="#991B1B">EXPIRED</text>
+        <text x="135" y="772" text-anchor="middle" font-size="9" fill="#6B6B6B">Hours forfeited</text>
+        <text x="135" y="783" text-anchor="middle" font-size="9" fill="#6B6B6B">Renewal CTA sent</text>
+
+        <!-- No path (right) - Still waiting -->
+        <line x1="560" y1="760" x2="680" y2="760" stroke="#10B981" stroke-width="2" marker-end="url(#arrowhead-green)"/>
+        <text x="620" y="750" text-anchor="middle" font-size="10" fill="#10B981" font-weight="bold">No</text>
+        <rect class="node-rect" x="680" y="740" width="140" height="40" fill="#D1FAE5" stroke="#10B981"/>
+        <text x="750" y="760" text-anchor="middle" font-size="10" fill="#065F46">Still active</text>
+        <text x="750" y="772" text-anchor="middle" font-size="9" fill="#6B6B6B">Wait for expiry</text>
+
+
+        <!-- CANCELLED path - from ACTIVE state (right side) -->
+        <line x1="570" y1="220" x2="720" y2="220" stroke="#EF4444" stroke-width="2" marker-end="url(#arrowhead-red)"/>
+        <text x="645" y="210" text-anchor="middle" font-size="10" fill="#EF4444" font-weight="bold">Manager cancels</text>
+        <rect class="node-rect" x="720" y="196" width="150" height="52" fill="#FEE2E2" stroke="#EF4444" stroke-width="3"/>
+        <text x="795" y="218" text-anchor="middle" font-weight="bold" font-size="12" fill="#991B1B">CANCELLED</text>
+        <text x="795" y="233" text-anchor="middle" font-size="9" fill="#6B6B6B">Reason recorded</text>
+        <text x="795" y="244" text-anchor="middle" font-size="9" fill="#6B6B6B">No refund</text>
+
+        <!-- Legend -->
+        <rect x="30" y="880" width="840" height="80" fill="#f9fafb" stroke="#e5e5e5" rx="8"/>
+        <text x="60" y="905" font-weight="bold" font-size="11" fill="#374151">Legend:</text>
+        <rect x="60" y="915" width="20" height="14" fill="#D1FAE5" stroke="#10B981" rx="3"/>
+        <text x="88" y="926" font-size="10" fill="#374151">Active / Success</text>
+        <rect x="200" y="915" width="20" height="14" fill="#FEF3C7" stroke="#C8A961" rx="3"/>
+        <text x="228" y="926" font-size="10" fill="#374151">Action / Decision</text>
+        <rect x="370" y="915" width="20" height="14" fill="#FEE2E2" stroke="#EF4444" rx="3"/>
+        <text x="398" y="926" font-size="10" fill="#374151">End State (Expired/Cancelled)</text>
+        <rect x="590" y="915" width="20" height="14" fill="#DBEAFE" stroke="#3B82F6" rx="3"/>
+        <text x="618" y="926" font-size="10" fill="#374151">Session Recording</text>
+        <rect x="750" y="915" width="20" height="14" fill="#EDE9FE" stroke="#8B5CF6" rx="3"/>
+        <text x="778" y="926" font-size="10" fill="#374151">Notifications</text>
+      </svg>
+    </div>
   </div>
-  <div class="section-card" style="text-align:center;border:2px solid #C8A961;">
-    <h3 style="margin-top:0;">🥇 Gold</h3>
-    <p style="font-size:2rem;font-weight:700;">15 hours</p>
-    <p><strong>₹15,000</strong><br>90 days</p>
-    <p style="font-size:13px;">All SPA services</p>
+</section>
+
+
+<!-- ============ TAB 3: WIREFRAMES ============ -->
+<section id="tab-wireframes" class="tab-content">
+  <div class="card">
+    <h3>Mobile Wireframes</h3>
+    <p style="font-size:0.85rem;color:var(--grey-500);margin-bottom:1rem;">Phone-sized wireframes showing the key membership screens for admin and customer views.</p>
   </div>
-  <div class="section-card" style="text-align:center;">
-    <h3 style="margin-top:0;">💎 Platinum</h3>
-    <p style="font-size:2rem;font-weight:700;">Custom</p>
-    <p><strong>Negotiated</strong><br>Custom validity</p>
-    <p style="font-size:13px;">All SPA services</p>
+
+  <div class="wireframe-grid">
+    <!-- Wireframe 1: Create Membership (Admin) -->
+    <div class="phone-frame">
+      <div class="phone-screen">
+        <h4>Create Membership</h4>
+        <div class="wire-label">Customer</div>
+        <div class="wire-input filled">Priya Sharma — +91 98765 43210</div>
+
+        <div class="wire-label" style="margin-top:0.6rem">Select Tier</div>
+        <div class="tier-card">
+          <div class="tier-name"><span class="badge badge-silver">Silver</span></div>
+          <div class="tier-detail">8 hrs &bull; &#8377;10,000 &bull; 90 days</div>
+        </div>
+        <div class="tier-card selected">
+          <div class="tier-name"><span class="badge badge-gold">Gold</span></div>
+          <div class="tier-detail">15 hrs &bull; &#8377;15,000 &bull; 90 days</div>
+        </div>
+        <div class="tier-card">
+          <div class="tier-name"><span class="badge badge-platinum">Platinum</span></div>
+          <div class="tier-detail">Custom hours &bull; Custom price</div>
+        </div>
+
+        <div class="wire-label" style="margin-top:0.6rem">Hours</div>
+        <div class="wire-input filled">15 hours</div>
+
+        <div class="wire-label">Price</div>
+        <div class="wire-input filled">&#8377;15,000</div>
+
+        <div class="wire-label">Start Date</div>
+        <div class="wire-input filled">28 Jan 2025</div>
+
+        <div class="wire-label">Payment Method</div>
+        <div class="wire-input filled">UPI — Paid</div>
+
+        <div class="wire-btn wire-btn-gold">Create Membership</div>
+      </div>
+    </div>
+
+
+    <!-- Wireframe 2: Membership Detail (Admin) -->
+    <div class="phone-frame">
+      <div class="phone-screen">
+        <h4>Membership Detail</h4>
+        <div style="text-align:center;margin-bottom:0.5rem">
+          <span class="badge badge-gold">Gold</span>
+          <span class="badge badge-active">Active</span>
+        </div>
+        <div style="font-size:0.75rem;text-align:center;color:var(--grey-500);margin-bottom:0.5rem">Priya Sharma &bull; Expires 28 Apr 2025</div>
+
+        <div class="wire-label">Hours Used</div>
+        <div class="progress-bar"><div class="progress-fill" style="width:53%"></div></div>
+        <div class="progress-text"><span>8h used</span><span>15h total</span></div>
+
+        <div class="wire-label" style="margin-top:0.75rem">Session History</div>
+        <table class="wire-table">
+          <thead><tr><th>Date</th><th>Service</th><th>Dur</th><th>Staff</th></tr></thead>
+          <tbody>
+            <tr><td>28 Jan</td><td>Swedish Massage</td><td>90m</td><td>Neha</td></tr>
+            <tr><td>04 Feb</td><td>Aromatherapy</td><td>60m</td><td>Ritu</td></tr>
+            <tr><td>12 Feb</td><td>Deep Tissue</td><td>120m</td><td>Neha</td></tr>
+            <tr><td>20 Feb</td><td>Hot Stone</td><td>90m</td><td>Preet</td></tr>
+            <tr><td>01 Mar</td><td>Body Scrub</td><td>60m</td><td>Ritu</td></tr>
+          </tbody>
+        </table>
+
+        <div class="wire-btn wire-btn-gold">Record Session</div>
+        <div class="wire-btn wire-btn-red" style="margin-top:0.4rem">Cancel Membership</div>
+      </div>
+    </div>
+
+
+    <!-- Wireframe 3: Customer /membership view -->
+    <div class="phone-frame">
+      <div class="phone-screen">
+        <h4>My Membership</h4>
+
+        <!-- Gold card style -->
+        <div style="background:linear-gradient(135deg,#C8A961,#E0C068);border-radius:12px;padding:0.75rem;margin-bottom:0.75rem;color:white;">
+          <div style="font-size:0.7rem;opacity:0.8;text-transform:uppercase;letter-spacing:0.05em">Royal Glow SPA</div>
+          <div style="font-size:1.1rem;font-weight:700;margin:0.3rem 0">Gold Membership</div>
+          <div style="font-size:0.7rem;opacity:0.9">Priya Sharma</div>
+          <div style="font-size:0.65rem;margin-top:0.3rem;opacity:0.8">Valid: 28 Jan — 28 Apr 2025</div>
+        </div>
+
+        <div class="warning-banner">
+          &#9888; 7 days remaining — book your sessions now!
+        </div>
+
+        <div class="wire-label">Hours Remaining</div>
+        <div class="progress-bar"><div class="progress-fill low" style="width:20%"></div></div>
+        <div class="progress-text"><span>3h remaining</span><span>15h total</span></div>
+
+        <div class="wire-label" style="margin-top:0.75rem">Recent Sessions</div>
+        <table class="wire-table">
+          <thead><tr><th>Date</th><th>Service</th><th>Duration</th></tr></thead>
+          <tbody>
+            <tr><td>01 Mar</td><td>Body Scrub</td><td>60 min</td></tr>
+            <tr><td>20 Feb</td><td>Hot Stone</td><td>90 min</td></tr>
+            <tr><td>12 Feb</td><td>Deep Tissue</td><td>120 min</td></tr>
+          </tbody>
+        </table>
+
+        <div class="wire-btn wire-btn-outline">View All Sessions</div>
+      </div>
+    </div>
   </div>
-</div>
-<ul>
-  <li>All tiers access ALL SPA services (Standard, Premium, VVIP)</li>
-  <li>Hours are the only constraint</li>
-  <li>Branch-locked (sessions only at purchase branch)</li>
-  <li>No gems earned on purchase or sessions</li>
-  <li>Hours/price fully overridable at creation (negotiated deals)</li>
-</ul>
+</section>
+
+
+<!-- ============ TAB 4: STATES & ERRORS ============ -->
+<section id="tab-states" class="tab-content">
+  <div class="card">
+    <h3>Membership States & Error Handling</h3>
+    <p style="font-size:0.85rem;color:var(--grey-500);">Each collapsible section details a state or error scenario within the membership lifecycle.</p>
+  </div>
+
+  <!-- Active State -->
+  <details open>
+    <summary><span class="badge badge-active">Active</span> Active State — Normal Operation</summary>
+    <div class="detail-content">
+      <p><strong>Condition:</strong> <code>status = 'active'</code> AND <code>remaining_hours > 0</code> AND <code>expires_at > now()</code></p>
+      <p style="margin-top:0.5rem"><strong>Behaviour:</strong></p>
+      <ul style="margin:0.5rem 0 0 1.5rem;font-size:0.9rem">
+        <li>Sessions can be recorded against this membership</li>
+        <li>Progress bar shows hours used vs total</li>
+        <li>Customer can view session history on /membership</li>
+        <li>Admin can record sessions and view full detail on /admin/memberships/[id]</li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- Low Balance -->
+  <details>
+    <summary><span class="badge badge-low">Low</span> Low Balance Alert — Less than 60 minutes</summary>
+    <div class="detail-content">
+      <p><strong>Condition:</strong> <code>remaining_hours &lt; 1</code> (i.e., fewer than 60 minutes left)</p>
+      <p style="margin-top:0.5rem"><strong>Trigger:</strong> After any session recording that brings balance below 60 min.</p>
+      <p style="margin-top:0.5rem"><strong>Actions:</strong></p>
+      <ul style="margin:0.5rem 0 0 1.5rem;font-size:0.9rem">
+        <li>Push notification to customer: "Your SPA membership has less than 1 hour remaining"</li>
+        <li>Email with remaining balance and booking CTA</li>
+        <li>UI badge changes to amber warning in customer view</li>
+        <li>Progress bar turns red (<code>.progress-fill.low</code>)</li>
+      </ul>
+    </div>
+  </details>
+
+
+  <!-- Expiry Warning T-30 -->
+  <details>
+    <summary><span class="badge badge-gold">T-30</span> Expiry Warning — 30 days before expiry</summary>
+    <div class="detail-content">
+      <p><strong>Condition:</strong> <code>expires_at - now() &lt;= 30 days</code></p>
+      <p style="margin-top:0.5rem"><strong>Actions:</strong></p>
+      <ul style="margin:0.5rem 0 0 1.5rem;font-size:0.9rem">
+        <li>Email: "Your Royal Glow SPA membership expires in 30 days"</li>
+        <li>Push notification with remaining hours summary</li>
+        <li>Triggered by QStash scheduled job (daily check)</li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- Expiry Warning T-7 -->
+  <details>
+    <summary><span class="badge badge-low">T-7</span> Urgent Warning — 7 days before expiry</summary>
+    <div class="detail-content">
+      <p><strong>Condition:</strong> <code>expires_at - now() &lt;= 7 days</code></p>
+      <p style="margin-top:0.5rem"><strong>Actions:</strong></p>
+      <ul style="margin:0.5rem 0 0 1.5rem;font-size:0.9rem">
+        <li>Urgent email: "Only 7 days left — book your remaining hours now!"</li>
+        <li>Push notification with urgency flag</li>
+        <li>Customer UI shows amber warning banner</li>
+        <li>Admin dashboard highlights expiring memberships</li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- Expiry Warning T-1 -->
+  <details>
+    <summary><span class="badge badge-cancelled">T-1</span> Last Chance — 1 day before expiry</summary>
+    <div class="detail-content">
+      <p><strong>Condition:</strong> <code>expires_at - now() &lt;= 1 day</code></p>
+      <p style="margin-top:0.5rem"><strong>Actions:</strong></p>
+      <ul style="margin:0.5rem 0 0 1.5rem;font-size:0.9rem">
+        <li>Final email: "Your membership expires TOMORROW — last chance to use your hours"</li>
+        <li>Push notification with highest priority</li>
+        <li>Customer UI shows red warning banner</li>
+        <li>SMS sent as backup (if enabled)</li>
+      </ul>
+    </div>
+  </details>
+
+
+  <!-- Expired State -->
+  <details>
+    <summary><span class="badge badge-expired">Expired</span> Expired State — Membership ended</summary>
+    <div class="detail-content">
+      <p><strong>Condition:</strong> <code>status = 'expired'</code> (set by pg_cron when <code>expires_at &lt;= now()</code>)</p>
+      <p style="margin-top:0.5rem"><strong>Transition:</strong> Automated via <code>pg_cron</code> job running daily at midnight IST.</p>
+      <p style="margin-top:0.5rem"><strong>Actions:</strong></p>
+      <ul style="margin:0.5rem 0 0 1.5rem;font-size:0.9rem">
+        <li>Status updated to 'expired' in database</li>
+        <li>Unused hours are forfeited (no rollover)</li>
+        <li>Final email sent with summary and renewal CTA</li>
+        <li>Sessions can no longer be recorded</li>
+        <li>Customer sees "Membership Expired" with renewal button</li>
+        <li>Admin sees greyed-out card with expiry date</li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- Cancelled State -->
+  <details>
+    <summary><span class="badge badge-cancelled">Cancelled</span> Cancelled State — Manual cancellation</summary>
+    <div class="detail-content">
+      <p><strong>Condition:</strong> <code>status = 'cancelled'</code> (set by manager/owner action)</p>
+      <p style="margin-top:0.5rem"><strong>Who can cancel:</strong> Manager or Owner role only (not staff, not customer).</p>
+      <p style="margin-top:0.5rem"><strong>Required:</strong></p>
+      <ul style="margin:0.5rem 0 0 1.5rem;font-size:0.9rem">
+        <li>Cancel reason must be provided (free text, required field)</li>
+        <li>Confirmation dialog: "This action is irreversible. No refund will be issued."</li>
+      </ul>
+      <p style="margin-top:0.5rem"><strong>Actions:</strong></p>
+      <ul style="margin:0.5rem 0 0 1.5rem;font-size:0.9rem">
+        <li><code>cancelled_at</code> timestamp recorded</li>
+        <li><code>cancel_reason</code> stored</li>
+        <li>No refund issued — remaining hours forfeited</li>
+        <li>Customer notified via email</li>
+        <li>Sessions can no longer be recorded</li>
+      </ul>
+    </div>
+  </details>
+
+
+  <!-- Record Session Validation -->
+  <details>
+    <summary><span class="badge badge-active">Validation</span> Record Session — Insufficient Hours Error</summary>
+    <div class="detail-content">
+      <p><strong>Scenario:</strong> Admin tries to record a session longer than remaining hours.</p>
+      <p style="margin-top:0.5rem"><strong>Validation Rule:</strong> <code>duration_min &lt;= remaining_hours * 60</code></p>
+      <p style="margin-top:0.5rem"><strong>Error Response:</strong></p>
+      <div style="background:var(--red-light);border:1px solid var(--red);border-radius:8px;padding:0.75rem;margin:0.5rem 0;font-size:0.85rem;color:var(--red-dark);">
+        <strong>Error:</strong> Cannot record session. Requested duration (120 min) exceeds remaining balance (45 min). Please reduce duration or record partial session.
+      </div>
+      <p style="margin-top:0.5rem"><strong>UX Handling:</strong></p>
+      <ul style="margin:0.5rem 0 0 1.5rem;font-size:0.9rem">
+        <li>Toast notification with error message</li>
+        <li>Duration input highlighted in red</li>
+        <li>Suggestion to record remaining available time</li>
+        <li>Membership status does not change on validation failure</li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- Session Recording Flow -->
+  <details>
+    <summary><span class="badge badge-active">Flow</span> Session Recording — Step by step</summary>
+    <div class="detail-content">
+      <p><strong>Steps for admin recording a session:</strong></p>
+      <ol style="margin:0.5rem 0 0 1.5rem;font-size:0.9rem;line-height:2">
+        <li><strong>Select Service:</strong> Choose from available SPA services (massage, facial, body treatment, etc.)</li>
+        <li><strong>Enter Duration:</strong> Minutes spent (validated against remaining hours)</li>
+        <li><strong>Assign Staff:</strong> Select the therapist/staff who performed the service</li>
+        <li><strong>Confirm:</strong> Review summary → "Record Session" button</li>
+        <li><strong>Result:</strong> Hours deducted, session logged with timestamp, progress bar updated</li>
+      </ol>
+      <p style="margin-top:0.75rem"><strong>Post-recording checks:</strong></p>
+      <ul style="margin:0.5rem 0 0 1.5rem;font-size:0.9rem">
+        <li>If remaining &lt; 60 min → trigger low balance alert</li>
+        <li>If remaining = 0 → show "All hours used" state</li>
+        <li>Ably real-time update to customer app</li>
+      </ul>
+    </div>
+  </details>
+</section>
+
+
+<!-- ============ TAB 5: DATA & API ============ -->
+<section id="tab-data" class="tab-content">
+  <!-- Membership Table Schema -->
+  <div class="card">
+    <h3>Membership Table Schema</h3>
+    <div style="overflow-x:auto">
+      <table class="data-table">
+        <thead>
+          <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>id</code></td><td>uuid</td><td>PK, default gen_random_uuid()</td><td>Unique membership ID</td></tr>
+          <tr><td><code>customer_id</code></td><td>uuid</td><td>FK → customers.id, NOT NULL</td><td>Customer who holds this membership</td></tr>
+          <tr><td><code>branch_id</code></td><td>uuid</td><td>FK → branches.id, NOT NULL</td><td>Branch where membership is valid</td></tr>
+          <tr><td><code>tier</code></td><td>text</td><td>CHECK IN ('silver','gold','platinum')</td><td>Membership tier</td></tr>
+          <tr><td><code>total_hours</code></td><td>numeric(5,2)</td><td>NOT NULL</td><td>Total hours purchased</td></tr>
+          <tr><td><code>used_hours</code></td><td>numeric(5,2)</td><td>DEFAULT 0</td><td>Hours consumed by sessions</td></tr>
+          <tr><td><code>remaining_hours</code></td><td>numeric(5,2)</td><td>GENERATED (total - used)</td><td>Computed remaining balance</td></tr>
+          <tr><td><code>price</code></td><td>integer</td><td>NOT NULL</td><td>Price paid in paise (&#8377;)</td></tr>
+          <tr><td><code>start_date</code></td><td>date</td><td>NOT NULL</td><td>Membership activation date</td></tr>
+          <tr><td><code>expires_at</code></td><td>timestamptz</td><td>NOT NULL</td><td>Expiry timestamp</td></tr>
+          <tr><td><code>status</code></td><td>text</td><td>CHECK IN ('active','expired','cancelled')</td><td>Current membership status</td></tr>
+          <tr><td><code>payment_method</code></td><td>text</td><td>CHECK IN ('cash','upi','card')</td><td>How membership was paid</td></tr>
+          <tr><td><code>cancelled_at</code></td><td>timestamptz</td><td>NULLABLE</td><td>When membership was cancelled</td></tr>
+          <tr><td><code>cancel_reason</code></td><td>text</td><td>NULLABLE</td><td>Reason for cancellation</td></tr>
+          <tr><td><code>created_at</code></td><td>timestamptz</td><td>DEFAULT now()</td><td>Record creation time</td></tr>
+          <tr><td><code>created_by</code></td><td>uuid</td><td>FK → staff.id</td><td>Admin who created membership</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+
+  <!-- Session Record Schema -->
+  <div class="card">
+    <h3>Session Record Schema</h3>
+    <div style="overflow-x:auto">
+      <table class="data-table">
+        <thead>
+          <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>id</code></td><td>uuid</td><td>PK, default gen_random_uuid()</td><td>Unique session record ID</td></tr>
+          <tr><td><code>membership_id</code></td><td>uuid</td><td>FK → memberships.id, NOT NULL</td><td>Parent membership</td></tr>
+          <tr><td><code>service</code></td><td>text</td><td>NOT NULL</td><td>Service performed (e.g., "Swedish Massage")</td></tr>
+          <tr><td><code>duration_min</code></td><td>integer</td><td>NOT NULL, CHECK > 0</td><td>Duration in minutes</td></tr>
+          <tr><td><code>staff_id</code></td><td>uuid</td><td>FK → staff.id, NOT NULL</td><td>Staff/therapist who performed service</td></tr>
+          <tr><td><code>recorded_at</code></td><td>timestamptz</td><td>DEFAULT now()</td><td>When session was recorded</td></tr>
+          <tr><td><code>recorded_by</code></td><td>uuid</td><td>FK → staff.id</td><td>Admin who recorded the session</td></tr>
+          <tr><td><code>notes</code></td><td>text</td><td>NULLABLE</td><td>Optional session notes</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+
+  <!-- API Endpoints -->
+  <div class="card">
+    <h3>API Endpoints</h3>
+
+    <div class="endpoint">
+      <span class="method method-post">POST</span>
+      <span class="path">/admin/memberships</span>
+      <div class="desc">Create a new membership for a customer. Requires admin/manager role.</div>
+      <div style="margin-top:0.5rem;font-size:0.8rem;color:var(--grey-700)">
+        <strong>Body:</strong> <code>{ customer_id, tier, total_hours, price, start_date, payment_method }</code>
+      </div>
+      <div style="margin-top:0.25rem;font-size:0.8rem;color:var(--grey-700)">
+        <strong>Response:</strong> <code>201 { membership }</code> | <code>400 { error }</code> | <code>403 { unauthorized }</code>
+      </div>
+    </div>
+
+    <div class="endpoint">
+      <span class="method method-get">GET</span>
+      <span class="path">/admin/memberships/[id]</span>
+      <div class="desc">Get full membership detail with session history. Requires admin role.</div>
+      <div style="margin-top:0.25rem;font-size:0.8rem;color:var(--grey-700)">
+        <strong>Response:</strong> <code>200 { membership, sessions[] }</code> | <code>404 { not_found }</code>
+      </div>
+    </div>
+
+    <div class="endpoint">
+      <span class="method method-post">POST</span>
+      <span class="path">/admin/memberships/[id]/record-session</span>
+      <div class="desc">Record a session against an active membership. Validates hours balance.</div>
+      <div style="margin-top:0.5rem;font-size:0.8rem;color:var(--grey-700)">
+        <strong>Body:</strong> <code>{ service, duration_min, staff_id, notes? }</code>
+      </div>
+      <div style="margin-top:0.25rem;font-size:0.8rem;color:var(--grey-700)">
+        <strong>Response:</strong> <code>200 { session, updated_membership }</code> | <code>422 { insufficient_hours }</code>
+      </div>
+    </div>
+
+    <div class="endpoint">
+      <span class="method method-post">POST</span>
+      <span class="path">/admin/memberships/[id]/cancel</span>
+      <div class="desc">Cancel a membership. Manager/Owner only. Requires cancel_reason.</div>
+      <div style="margin-top:0.5rem;font-size:0.8rem;color:var(--grey-700)">
+        <strong>Body:</strong> <code>{ cancel_reason }</code>
+      </div>
+      <div style="margin-top:0.25rem;font-size:0.8rem;color:var(--grey-700)">
+        <strong>Response:</strong> <code>200 { membership }</code> | <code>403 { only_manager_owner }</code>
+      </div>
+    </div>
+
+    <div class="endpoint">
+      <span class="method method-get">GET</span>
+      <span class="path">/membership</span>
+      <div class="desc">Customer views their own active membership. Auth required (customer token).</div>
+      <div style="margin-top:0.25rem;font-size:0.8rem;color:var(--grey-700)">
+        <strong>Response:</strong> <code>200 { membership, sessions[] }</code> | <code>404 { no_active_membership }</code>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Expiry Notification Schedule -->
+  <div class="card">
+    <h3>Expiry Notification Schedule</h3>
+    <p style="font-size:0.85rem;color:var(--grey-500);margin-bottom:1rem">Automated notifications handled by pg_cron (status transition) and QStash (email/push delivery).</p>
+    <table class="data-table">
+      <thead>
+        <tr><th>Trigger</th><th>Channel</th><th>Job</th><th>Template</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>expires_at - 30 days</code></td>
+          <td>Email + Push</td>
+          <td>QStash scheduled</td>
+          <td><code>membership-reminder-30d</code></td>
+        </tr>
+        <tr>
+          <td><code>expires_at - 7 days</code></td>
+          <td>Email + Push</td>
+          <td>QStash scheduled</td>
+          <td><code>membership-urgent-7d</code></td>
+        </tr>
+        <tr>
+          <td><code>expires_at - 1 day</code></td>
+          <td>Email + Push + SMS</td>
+          <td>QStash scheduled</td>
+          <td><code>membership-lastchance-1d</code></td>
+        </tr>
+        <tr>
+          <td><code>remaining_hours &lt; 1</code></td>
+          <td>Push + In-app</td>
+          <td>Post-session hook</td>
+          <td><code>membership-low-balance</code></td>
+        </tr>
+        <tr>
+          <td><code>expires_at reached</code></td>
+          <td>Email</td>
+          <td>pg_cron daily midnight</td>
+          <td><code>membership-expired-renewal</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+
+  <!-- Tier Comparison with Pricing -->
+  <div class="card">
+    <h3>Tier Comparison — Full Details</h3>
+    <div style="overflow-x:auto">
+      <table class="data-table">
+        <thead>
+          <tr><th>Feature</th><th>Silver</th><th>Gold</th><th>Platinum</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Hours included</td><td>8 hrs</td><td>15 hrs</td><td>Custom (20+ hrs)</td></tr>
+          <tr><td>Price</td><td>&#8377;10,000</td><td>&#8377;15,000</td><td>Custom quote</td></tr>
+          <tr><td>Validity</td><td>90 days</td><td>90 days</td><td>Custom (up to 180 days)</td></tr>
+          <tr><td>Per-hour rate</td><td>&#8377;1,250/hr</td><td>&#8377;1,000/hr</td><td>Negotiated</td></tr>
+          <tr><td>Rollover</td><td>No</td><td>No</td><td>No</td></tr>
+          <tr><td>Pause allowed</td><td>No</td><td>No</td><td>No</td></tr>
+          <tr><td>Branch transfer</td><td>No</td><td>No</td><td>No</td></tr>
+          <tr><td>Gems earned</td><td>No</td><td>No</td><td>No</td></tr>
+          <tr><td>Priority booking</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+          <tr><td>Dedicated therapist</td><td>No</td><td>No</td><td>Yes</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+
+  <!-- Membership Rules (Data constraints) -->
+  <div class="card">
+    <h3>Business Rules & Constraints</h3>
+    <table class="data-table">
+      <thead>
+        <tr><th>Rule</th><th>Enforcement</th><th>Error if violated</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>No rollover</td>
+          <td>pg_cron sets status='expired' at midnight</td>
+          <td>N/A (automated)</td>
+        </tr>
+        <tr>
+          <td>No pause</td>
+          <td>No pause endpoint exists; no pause status</td>
+          <td>N/A (no UI affordance)</td>
+        </tr>
+        <tr>
+          <td>No transfer between branches</td>
+          <td><code>branch_id</code> FK on membership; session recording validates branch match</td>
+          <td><code>422: branch_mismatch</code></td>
+        </tr>
+        <tr>
+          <td>Branch-locked</td>
+          <td>RLS policy filters by staff's current branch</td>
+          <td><code>403: wrong_branch</code></td>
+        </tr>
+        <tr>
+          <td>No gems on membership</td>
+          <td>Gems service skips if <code>payment_source = 'membership'</code></td>
+          <td>N/A (logic gate)</td>
+        </tr>
+        <tr>
+          <td>Session duration ≤ remaining</td>
+          <td>Server-side check before INSERT</td>
+          <td><code>422: insufficient_hours</code></td>
+        </tr>
+        <tr>
+          <td>Cancel requires reason</td>
+          <td><code>cancel_reason</code> required in request body</td>
+          <td><code>400: cancel_reason_required</code></td>
+        </tr>
+        <tr>
+          <td>Cancel = manager/owner only</td>
+          <td>Role check middleware</td>
+          <td><code>403: only_manager_owner</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+
+<!-- Tab Switching Script -->
+<script>
+function switchTab(tabId) {
+  // Hide all tabs
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+  // Show selected tab
+  const tab = document.getElementById('tab-' + tabId);
+  if (tab) tab.classList.add('active');
+
+  // Highlight button
+  const buttons = document.querySelectorAll('.tab-btn');
+  const tabNames = ['overview', 'flow', 'wireframes', 'states', 'data'];
+  const idx = tabNames.indexOf(tabId);
+  if (idx >= 0 && buttons[idx]) buttons[idx].classList.add('active');
+}
+
+// Allow direct linking via hash
+window.addEventListener('DOMContentLoaded', () => {
+  const hash = window.location.hash.replace('#', '');
+  if (hash) switchTab(hash);
+});
+</script>
 
 </body>
 </html>
