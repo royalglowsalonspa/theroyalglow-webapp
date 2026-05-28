@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPA Membership Flow — Design Reference</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1200px; margin: 0 auto; padding: 2rem; line-height: 1.6; color: #1a1a1a; background: #fffdf7; }
+  h1, h2, h3, h4 { color: #1a1a1a; margin-top: 2rem; }
+  h1 { border-bottom: 2px solid #c8a961; padding-bottom: 0.5rem; }
+  h2 { border-bottom: 1px solid #e5e5e5; padding-bottom: 0.3rem; }
+  pre { background: #1a1a1a; color: #e5e5e5; padding: 1.5rem; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; line-height: 1.4; }
+  code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 14px; }
+  pre code { background: none; padding: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  th, td { border: 1px solid #e5e5e5; padding: 10px 14px; text-align: left; }
+  th { background: #f9fafb; font-weight: 600; }
+  tr:nth-child(even) { background: #fafafa; }
+  blockquote { border-left: 4px solid #c8a961; margin: 1rem 0; padding: 0.5rem 1rem; background: #fff8f0; }
+  hr { border: none; border-top: 1px solid #e5e5e5; margin: 2rem 0; }
+  ul, ol { padding-left: 1.5rem; }
+  li { margin: 0.3rem 0; }
+  a { color: #c8a961; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<h1>SPA Membership Flow — Design Reference</h1>
+<blockquote><p>Complete lifecycle of SPA memberships: purchase by admin → hours tracking → session recording → expiry alerts → renewal. Covers all wireframes and state transitions.</p></blockquote>
+<hr>
+<h2>1. Membership Lifecycle (State Machine)</h2>
+<pre><code>Admin creates membership for customer
+    │
+    ▼
+┌──────────────┐
+│    ACTIVE    │ ← Hours available, sessions can be recorded
+└──────┬───────┘
+       │
+       ├── Sessions recorded (hours deducted over time)
+       │
+       ├── All hours used? → Still active until expires_at
+       │
+       │          Automated alerts:
+       │          ├── 30 days before expiry → reminder email + push
+       │          ├── 7 days before expiry → urgent reminder
+       │          ├── 1 day before expiry → &quot;Last chance!&quot; alert
+       │          └── Hours &lt; 60 min → &quot;Less than 1 hour left&quot;
+       │
+       ├─── expires_at reached (auto by pg_cron):
+       │    ▼
+       │    ┌──────────────┐
+       │    │   EXPIRED    │ → Unused hours forfeited
+       │    └──────────────┘   → Final email with renewal CTA
+       │
+       └─── Manager/Owner cancels manually:
+            ▼
+            ┌──────────────┐
+            │  CANCELLED   │ → Reason recorded
+            └──────────────┘   → No refund (handled offline)
+
+
+No rollover. No pause. No transfer between branches.</code></pre>
+<hr>
+<h2>2. Create Membership — <code>/admin/memberships/new</code></h2>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│  Create SPA Membership                                                   │
+│  ════════════════════                                                    │
+│                                                                          │
+│  Customer                                                                │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │ 🔍 Search customer...                                           │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│  Selected: Priya Sharma — priya@gmail.com — 98765 43210                 │
+│                                                                          │
+│  ─────────────────────────────────────────────────────────────────      │
+│                                                                          │
+│  Select Tier:                                                            │
+│                                                                          │
+│  ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐       │
+│  │    🥈 Silver      │ │    🥇 Gold        │ │    💎 Platinum    │       │
+│  │                   │ │    ▲ SELECTED    │ │                   │       │
+│  │  8 hrs · ₹10,000 │ │ 15 hrs · ₹15,000│ │  Custom pricing  │       │
+│  │  90 days          │ │ 90 days          │ │  Custom hours    │       │
+│  └──────────────────┘ └──────────────────┘ └──────────────────┘       │
+│                                                                          │
+│  ─────────────────────────────────────────────────────────────────      │
+│                                                                          │
+│  Hours          (prefilled, overridable for negotiated deals)            │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │ 15                                                               │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+│  Price (₹, GST-inclusive)                                                │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │ 15,000                                                           │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+│  Start Date                                                              │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │ 24/05/2026 (today)                                       📅     │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+│  Expires: 21/08/2026 (90 days from start)  ← auto-calculated           │
+│                                                                          │
+│  Payment Method                                                          │
+│  (●) Cash     ( ) UPI     ( ) Card                                      │
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │              [ Create Membership ]                                │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+│  This will:                                                              │
+│  • Generate membership_purchase invoice (₹15,000)                       │
+│  • Email invoice + welcome message to customer                          │
+│  • NO gems earned on membership purchase                                │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘</code></pre>
+<hr>
+<h2>3. Membership Detail — <code>/admin/memberships/[id]</code></h2>
+<h3>Active Membership (Hours Remaining)</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│  ← Back to Memberships                                                   │
+│                                                                          │
+│  Membership #RGMEM26190872                     Status: ● Active          │
+│  ═══════════════════════════                                             │
+│                                                                          │
+│  Customer: Priya Sharma (→ view profile)                                │
+│  Tier: 🥇 Gold                                                           │
+│  Created: 24/05/2026                                                    │
+│                                                                          │
+│  ┌─ Hours Balance ──────────────────────────────────────────────────┐   │
+│  │                                                                   │   │
+│  │  ████████████████████░░░░░░░░░░░░  10 hrs used · 5 hrs remaining │   │
+│  │                                                                   │   │
+│  │  Used: 10 hrs 0 min  /  Total: 15 hrs  /  Remaining: 5 hrs      │   │
+│  │                                                                   │   │
+│  │  Expires: 21/08/2026 (58 days left)                              │   │
+│  │                                                                   │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+│  ┌─ Session History ────────────────────────────────────────────────┐   │
+│  │                                                                   │   │
+│  │  Date        Service              Duration   Staff               │   │
+│  │  ──────────────────────────────────────────────────────────────  │   │
+│  │  20/06/26   Swedish Massage       90 min     Meera              │   │
+│  │  15/06/26   Aroma Therapy         60 min     Deepa              │   │
+│  │  08/06/26   Thai Massage          60 min     Meera              │   │
+│  │  01/06/26   Hot Stone             90 min     Deepa              │   │
+│  │  28/05/26   Swedish Massage       60 min     Meera              │   │
+│  │  26/05/26   Deep Tissue           90 min     Deepa              │   │
+│  │  24/05/26   Aroma Therapy         60 min     Meera              │   │
+│  │                                                                   │   │
+│  │  Total sessions: 7    Total hours used: 10 hrs 0 min             │   │
+│  │                                                                   │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │  [ Record Session ]              [ Cancel Membership ]           │   │
+│  │  (blue, primary)                  (red outline, Manager+ only)   │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+│  Invoice: #INV1262XXXXX (membership_purchase) → View PDF                │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘</code></pre>
+<hr>
+<h2>4. Record Session Modal</h2>
+<pre><code>Receptionist clicks &quot;Record Session&quot;:
+
+┌─────────────────────────────────────────────────────────────┐
+│                                                              │
+│  Record Membership Session                                   │
+│  ════════════════════════                                    │
+│                                                              │
+│  Member: Priya Sharma (#RGMEM26190872 · Gold)               │
+│  Remaining: 5 hrs 0 min                                      │
+│                                                              │
+│  Service(s) performed:                                       │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │ ✓ Swedish Massage                                     │   │
+│  │   Meera · [60 min ▼]                                  │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                                                              │
+│  Total duration: 60 min                                      │
+│  After session: 4 hrs 0 min remaining                        │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │           [ Record Session ]                          │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                                                              │
+│  This will:                                                  │
+│  • Deduct 60 min from membership hours                      │
+│  • Create ₹0 membership_session invoice                     │
+│  • Email session confirmation to customer                   │
+│  • NO gems earned                                            │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+VALIDATION: If requested duration &gt; remaining hours:
+
+┌──────────────────────────────────────────────────────────┐
+│  ⚠️  Insufficient hours                                   │
+│                                                           │
+│  Requested: 90 min                                        │
+│  Remaining: 30 min                                        │
+│                                                           │
+│  Cannot record this session. Customer can:                │
+│  • Book a shorter session (≤30 min)                      │
+│  • Pay per-service rate for excess time                   │
+│                                                           │
+│  [ Close ]                                                │
+└──────────────────────────────────────────────────────────┘</code></pre>
+<hr>
+<h2>5. Customer Membership View — <code>/membership</code></h2>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│  My SPA Membership                                           │
+│  ═════════════════                                           │
+│                                                              │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │                                                      │    │
+│  │  🥇 Gold Membership                                  │    │
+│  │  #RGMEM26190872                                      │    │
+│  │                                                      │    │
+│  │  ████████████████████░░░░░░░░░░░░                    │    │
+│  │  10 hrs used · 5 hrs remaining                       │    │
+│  │                                                      │    │
+│  │  Valid until: 21/08/2026 (58 days left)              │    │
+│  │                                                      │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                                                              │
+│  Session History                                             │
+│  ────────────────                                            │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │  20 Jun 2026 · Swedish Massage · 90 min · Meera     │    │
+│  ├─────────────────────────────────────────────────────┤    │
+│  │  15 Jun 2026 · Aroma Therapy · 60 min · Deepa       │    │
+│  ├─────────────────────────────────────────────────────┤    │
+│  │  08 Jun 2026 · Thai Massage · 60 min · Meera        │    │
+│  └─────────────────────────────────────────────────────┘    │
+│  ... (pagination if &gt; 10)                                    │
+│                                                              │
+│  ┌─ Past Memberships (1) ──────────────────────────────┐    │
+│  │  ▶ Silver · Jan–Apr 2026 · 6/8 hrs used · Expired  │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+URGENCY STATES:
+
+≤30 days remaining:
+┌──────────────────────────────────────────────────┐
+│  ⚠️  Expires in 28 days. Book your remaining      │
+│     hours before they're gone!                    │
+│  📞 Call to book: +91 63601 35720                 │
+└──────────────────────────────────────────────────┘
+
+≤7 days remaining:
+┌──────────────────────────────────────────────────┐
+│  🔴 URGENT: Expires in 5 days!                    │
+│     3 hrs remaining — will be forfeited.          │
+│  📞 Call NOW: +91 63601 35720                     │
+└──────────────────────────────────────────────────┘</code></pre>
+<hr>
+<h2>6. Expiry Notification Timeline</h2>
+<pre><code>                  Purchase                              Expiry
+                     │                                    │
+  ───────────────────┼────────────────────────────────────┼───────
+                     │                                    │
+                     │    ← 90 days (Gold default) →      │
+                     │                                    │
+                     │              T-30d    T-7d   T-1d  │
+                     │                │       │      │    │
+                     │                ▼       ▼      ▼    │
+                     │            Email+   Email+  Email+ │
+                     │            Push     Push    Push   │
+                     │                                    │
+                     │    If hours &lt; 60min at any point:  │
+                     │    → immediate push notification    │
+                     │                                    │
+                     │                                    ▼
+                     │                              pg_cron runs:
+                     │                              status → 'expired'
+                     │                              +1h: final email
+                     │                              with renewal CTA</code></pre>
+<hr>
+<h2>7. Membership Tiers — Visual Comparison</h2>
+<pre><code>┌──────────────────────────────────────────────────────────────────┐
+│                                                                   │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐ │
+│  │                  │  │                  │  │                  │ │
+│  │    🥈 Silver      │  │    🥇 Gold        │  │    💎 Platinum    │ │
+│  │                  │  │                  │  │                  │ │
+│  │  8 hours         │  │  15 hours        │  │  Custom hours   │ │
+│  │  ₹10,000        │  │  ₹15,000        │  │  Negotiated     │ │
+│  │  90 days         │  │  90 days         │  │  Custom validity│ │
+│  │                  │  │                  │  │                  │ │
+│  │  All SPA         │  │  All SPA         │  │  All SPA        │ │
+│  │  services        │  │  services        │  │  services       │ │
+│  │                  │  │                  │  │                  │ │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘ │
+│                                                                   │
+│  • All tiers access ALL SPA services (Standard, Premium, VVIP)   │
+│  • Hours are the only constraint                                  │
+│  • Branch-locked (sessions only at purchase branch)              │
+│  • No gems earned on purchase or sessions                        │
+│  • Hours/price fully overridable at creation (negotiated deals)  │
+│                                                                   │
+└──────────────────────────────────────────────────────────────────┘</code></pre>
+
+</body>
+</html>

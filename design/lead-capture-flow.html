@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lead Capture Flow — Meta Ad → Booking Conversion</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1200px; margin: 0 auto; padding: 2rem; line-height: 1.6; color: #1a1a1a; background: #fffdf7; }
+  h1, h2, h3, h4 { color: #1a1a1a; margin-top: 2rem; }
+  h1 { border-bottom: 2px solid #c8a961; padding-bottom: 0.5rem; }
+  h2 { border-bottom: 1px solid #e5e5e5; padding-bottom: 0.3rem; }
+  pre { background: #1a1a1a; color: #e5e5e5; padding: 1.5rem; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; line-height: 1.4; }
+  code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 14px; }
+  pre code { background: none; padding: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  th, td { border: 1px solid #e5e5e5; padding: 10px 14px; text-align: left; }
+  th { background: #f9fafb; font-weight: 600; }
+  tr:nth-child(even) { background: #fafafa; }
+  blockquote { border-left: 4px solid #c8a961; margin: 1rem 0; padding: 0.5rem 1rem; background: #fff8f0; }
+  hr { border: none; border-top: 1px solid #e5e5e5; margin: 2rem 0; }
+  ul, ol { padding-left: 1.5rem; }
+  li { margin: 0.3rem 0; }
+  a { color: #c8a961; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<h1>Lead Capture Flow — Meta Ad → Booking Conversion</h1>
+<blockquote><p>The paid acquisition funnel: user clicks a Meta/Instagram ad → lands on <code>/book</code> → submits lead form → redirected into homepage booking dialog → converts to a real booking. Designed for maximum conversion from cold ad traffic.</p></blockquote>
+<hr>
+<h2>1. Complete Conversion Funnel</h2>
+<pre><code>┌──────────────────────────────────────────────────────────────────────┐
+│                    META AD → BOOKING FUNNEL                            │
+└──────────────────────────────────────────────────────────────────────┘
+
+  Meta/Instagram Ad                                   PIXEL EVENTS:
+  (Facebook Feed, Instagram Stories, Reels)
+        │                                             
+        │  User taps ad                               
+        ▼                                             
+  ┌─────────────────┐                                 
+  │  /book page     │ ─────────────────────────────── PageView
+  │  (lead form)    │                                 
+  └────────┬────────┘                                 
+           │                                          
+           │  Submits form (name, phone, service)     
+           ▼                                          
+  ┌─────────────────┐                                 
+  │  POST /api/leads│ ─────────────────────────────── Lead (browser + CAPI)
+  │  Lead created   │                                 
+  └────────┬────────┘                                 
+           │                                          
+           │  Redirect: /?book=1&amp;leadId={id}          
+           ▼                                          
+  ┌─────────────────┐                                 
+  │  Homepage       │ ─────────────────────────────── InitiateCheckout
+  │  Dialog opens   │                                 
+  └────────┬────────┘                                 
+           │                                          
+           │  User must sign in (if not already)      
+           ▼                                          
+  ┌─────────────────┐                                 
+  │  /sign-in       │ ─────────────────────────────── (no pixel event)
+  │  Google OAuth   │                                 
+  └────────┬────────┘                                 
+           │                                          
+           │  First time? → /onboarding               
+           ▼                                          
+  ┌─────────────────┐                                 
+  │  /onboarding    │ ─────────────────────────────── CompleteRegistration
+  │  Profile setup  │                                 
+  └────────┬────────┘                                 
+           │                                          
+           │  Redirect back: /?book=1&amp;leadId={id}     
+           ▼                                          
+  ┌─────────────────┐                                 
+  │  Booking dialog │                                 
+  │  4-step flow    │                                 
+  └────────┬────────┘                                 
+           │                                          
+           │  Submits booking                          
+           ▼                                          
+  ┌─────────────────┐                                 
+  │  Booking created│  lead.converted_booking_id set  
+  │  status: pending│  lead.status → 'booked'         
+  └────────┬────────┘                                 
+           │                                          
+           │  Receptionist confirms + completes       
+           ▼                                          
+  ┌─────────────────┐                                 
+  │  Invoice paid   │ ─────────────────────────────── Purchase (CAPI)
+  │  Revenue tracked│                                 
+  └─────────────────┘                                 
+
+
+  DROP-OFF POINTS (retargeting triggers):
+  ───────────────────────────────────────
+  • Views /book but doesn't submit → Retarget: &quot;Complete your enquiry&quot;
+  • Submits lead but doesn't book  → Receptionist follow-up (48h)
+  • Submits booking but doesn't show → No-show tracking</code></pre>
+<hr>
+<h2>2. <code>/book</code> Page — Mobile Wireframe (Ad Landing)</h2>
+<pre><code>┌─────────────────────────────────────┐
+│                                     │
+│  ┌─────────────────────────────┐    │
+│  │       👑 Royal Glow          │    │
+│  │      Salon &amp; SPA            │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│  ⭐ 4.9 · 86 reviews · Bengaluru   │
+│                                     │
+│  ─────────────────────────────      │
+│                                     │
+│  &quot;Tell us what you're               │
+│   looking for&quot;                      │
+│                                     │
+│  Name                               │
+│  ┌─────────────────────────────┐    │
+│  │                             │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│  Phone                              │
+│  ┌─────────────────────────────┐    │
+│  │ +91                         │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│  What are you interested in?        │
+│  ┌─────────────────────────────┐    │
+│  │ Facial &amp; Skincare        ▼  │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│  ┌─────────────────────────────┐    │
+│  │   [ Continue to Booking ]   │    │  ← Primary CTA (brand colour)
+│  └─────────────────────────────┘    │
+│                                     │
+│  ─────────────────────────────      │
+│  📍 1st Floor, Narmada Complex      │
+│     Rayasandra, Bengaluru           │
+│  📞 +91 63601 35720                 │
+│                                     │
+└─────────────────────────────────────┘
+
+DESIGN RULES:
+─────────────
+• NO header navigation — zero distractions
+• NO footer links — only address + phone
+• NO &quot;Sign in&quot; prompt — cold traffic won't sign in
+• Trust signals ABOVE the form (stars, reviews, city)
+• CTA says &quot;Continue to Booking&quot; NOT &quot;Submit&quot;
+• Phone field: +91 prefix auto-shown, 10-digit validation
+• Form fits above fold on most phones (no scrolling to CTA)
+• Min touch target: 44px on all interactive elements</code></pre>
+<h3>Desktop Wireframe</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────┐
+│                                                                   │
+│     ┌── Premium background (brand gradient or salon image) ──┐   │
+│     │                                                         │   │
+│     │         ┌───────────────────────────────────┐          │   │
+│     │         │                                   │          │   │
+│     │         │   👑 Royal Glow Salon &amp; SPA        │          │   │
+│     │         │   ⭐ 4.9 · 86 reviews · Bengaluru  │          │   │
+│     │         │                                   │          │   │
+│     │         │   ─────────────────────────────   │          │   │
+│     │         │                                   │          │   │
+│     │         │   &quot;Tell us what you're            │          │   │
+│     │         │    looking for&quot;                   │          │   │
+│     │         │                                   │          │   │
+│     │         │   Name                            │          │   │
+│     │         │   ┌─────────────────────────┐    │          │   │
+│     │         │   │                         │    │          │   │
+│     │         │   └─────────────────────────┘    │          │   │
+│     │         │                                   │          │   │
+│     │         │   Phone                           │          │   │
+│     │         │   ┌─────────────────────────┐    │          │   │
+│     │         │   │ +91                     │    │          │   │
+│     │         │   └─────────────────────────┘    │          │   │
+│     │         │                                   │          │   │
+│     │         │   Interested in                   │          │   │
+│     │         │   ┌─────────────────────────┐    │          │   │
+│     │         │   │ Select service...    ▼  │    │          │   │
+│     │         │   └─────────────────────────┘    │          │   │
+│     │         │                                   │          │   │
+│     │         │   ┌─────────────────────────┐    │          │   │
+│     │         │   │ [ Continue to Booking ] │    │          │   │
+│     │         │   └─────────────────────────┘    │          │   │
+│     │         │                                   │          │   │
+│     │         │   📍 Rayasandra · 📞 63601 35720  │          │   │
+│     │         │                                   │          │   │
+│     │         └───────────────────────────────────┘          │   │
+│     │                                                         │   │
+│     │         Card: max-width 480px, centered                │   │
+│     └─────────────────────────────────────────────────────────┘   │
+│                                                                   │
+└─────────────────────────────────────────────────────────────────┘</code></pre>
+<hr>
+<h2>3. Form States</h2>
+<h3>Idle State</h3>
+<pre><code>All fields empty, CTA active
+Phone field shows &quot;+91&quot; prefix placeholder
+Service dropdown shows &quot;Select service...&quot;</code></pre>
+<h3>Validation Errors</h3>
+<pre><code>┌─────────────────────────────────────┐
+│  Name                               │
+│  ┌─────────────────────────────┐    │
+│  │                      ← red  │    │
+│  └─────────────────────────────┘    │
+│  ⚠️ Name is required                │
+│                                     │
+│  Phone                              │
+│  ┌─────────────────────────────┐    │
+│  │ +91 123          ← red     │    │
+│  └─────────────────────────────┘    │
+│  ⚠️ Enter a valid 10-digit mobile   │
+│    number                           │
+│                                     │
+│  What are you interested in?        │
+│  ┌─────────────────────────────┐    │
+│  │ Select service...        ▼  │    │  ← no error (optional? or red)
+│  └─────────────────────────────┘    │
+└─────────────────────────────────────┘</code></pre>
+<h3>Submitting State</h3>
+<pre><code>┌─────────────────────────────────────┐
+│  (all fields disabled/greyed)       │
+│                                     │
+│  ┌─────────────────────────────┐    │
+│  │  ⟳ Processing...            │    │  ← spinner in button
+│  └─────────────────────────────┘    │
+└─────────────────────────────────────┘</code></pre>
+<h3>Success State (brief, before redirect)</h3>
+<pre><code>┌─────────────────────────────────────┐
+│                                     │
+│         ✓ Thank you!                │
+│                                     │
+│   Taking you to booking...          │
+│                                     │
+│   (subtle confetti animation)       │
+│                                     │
+└─────────────────────────────────────┘
+
+Duration: 1.5 seconds, then redirect to /?book=1&amp;leadId={id}</code></pre>
+<h3>Error State (API failure)</h3>
+<pre><code>┌─────────────────────────────────────┐
+│                                     │
+│  ❌ Something went wrong.            │
+│                                     │
+│  We couldn't process your request.  │
+│  Please try again or call us        │
+│  directly.                          │
+│                                     │
+│  [ Try Again ]                      │
+│                                     │
+│  📞 +91 63601 35720 (tap to call)   │
+│                                     │
+└─────────────────────────────────────┘</code></pre>
+<hr>
+<h2>4. Service Interest Dropdown Options</h2>
+<pre><code>┌─────────────────────────────────────┐
+│  What are you interested in?    ▼   │
+├─────────────────────────────────────┤
+│  💇 Haircut &amp; Styling               │
+│  🎨 Hair Colouring / Treatment      │
+│  💆 Facial &amp; Skincare               │
+│  🧴 Waxing                          │
+│  💅 Manicure &amp; Pedicure             │
+│  💄 Makeup Services                 │
+│  🧖 Hair SPA &amp; Head Therapies      │
+│  ── SPA Services ──                 │
+│  🌿 Standard SPA (Swedish, Thai)    │
+│  ✨ Premium SPA (Deep Tissue, Bali) │
+│  👑 VVIP SPA (Hot Stone, Potli)     │
+│  ── Other ──                        │
+│  💍 Bridal Packages                 │
+│  ❓ Other / Not Sure                │
+└─────────────────────────────────────┘</code></pre>
+<hr>
+<h2>5. UTM Parameter Handling</h2>
+<pre><code>URL arriving from Meta ad:
+https://theroyalglow.in/book?utm_source=meta&amp;utm_campaign=facial_may&amp;utm_content=carousel_1
+
+┌──────────────────────────────────────────────────────┐
+│  WHAT GETS STORED (on form submit):                   │
+│                                                       │
+│  lead table row:                                      │
+│  ┌─────────────────────────────────────────────────┐ │
+│  │  name: &quot;Priya&quot;                                   │ │
+│  │  phone: &quot;+919876543210&quot;                          │ │
+│  │  service_interested: &quot;facial_skincare&quot;           │ │
+│  │  source: &quot;meta_ad&quot;                               │ │
+│  │  utm_source: &quot;meta&quot;                              │ │
+│  │  utm_campaign: &quot;facial_may&quot;                      │ │
+│  │  utm_content: &quot;carousel_1&quot;                       │ │
+│  │  fbp: &quot;_fbp cookie value&quot; (from browser)         │ │
+│  │  fbc: &quot;_fbc cookie value&quot; (click ID)             │ │
+│  │  status: &quot;new&quot;                                    │ │
+│  │  created_at: now()                                │ │
+│  └─────────────────────────────────────────────────┘ │
+│                                                       │
+│  WHAT FIRES TO META:                                  │
+│  ┌─────────────────────────────────────────────────┐ │
+│  │  Browser Pixel: fbq('track', 'Lead', {           │ │
+│  │    content_name: 'Facial &amp; Skincare',            │ │
+│  │    eventID: 'uuid-123...'                        │ │
+│  │  })                                               │ │
+│  │                                                   │ │
+│  │  CAPI (server): POST graph.facebook.com/events   │ │
+│  │    event_name: 'Lead'                             │ │
+│  │    event_id: 'uuid-123...' (same = deduplication)│ │
+│  │    user_data: { em: hash, ph: hash, fbp, fbc }  │ │
+│  └─────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────┘</code></pre>
+<hr>
+<h2>6. Post-Lead Redirect Flow</h2>
+<pre><code>After lead form submit + 1.5s success animation:
+
+Browser redirects to:
+  https://theroyalglow.in/?book=1&amp;leadId=lead_abc123
+
+    │
+    ▼
+Homepage loads with book=1 query param
+    │
+    ├── User signed in? 
+    │   ├── YES → Booking dialog opens immediately
+    │   │         leadId passed to POST /api/bookings on submit
+    │   │         → lead.converted_booking_id = new booking ID
+    │   │         → lead.status = 'booked'
+    │   │
+    │   └── NO → Store { book:1, leadId } in sessionStorage
+    │            → Redirect to /sign-in
+    │            → After OAuth + onboarding → redirect back
+    │            → Dialog opens with leadId context
+    │
+    ▼
+Booking submitted with leadId linked
+    │
+    ▼
+Lead is now &quot;converted&quot; — appears in admin pipeline as &quot;Booked&quot;
+Revenue from this booking attributed to the original Meta campaign</code></pre>
+<hr>
+<h2>7. Receptionist Follow-up Flow (Lead Not Converted)</h2>
+<pre><code>Lead submitted but customer dropped off (didn't complete booking):
+
+Timeline:
+─────────
+T+0min    Lead created (status: 'new')
+T+48hrs   QStash job fires: /api/jobs/lead-followups
+           │
+           ▼
+          Lead still in 'new' status?
+           ├── YES → Alert receptionist:
+           │         • Push notification
+           │         • Ably: admin:bookings event
+           │         • Dashboard &quot;Stale Leads&quot; count +1
+           │
+           └── NO → Already contacted/booked, skip
+
+
+Admin sees in /admin/leads:
+
+┌─────────────────────────────────────────────────────────────┐
+│  Lead Pipeline                                               │
+│                                                              │
+│  New (3)         Contacted (1)     Follow-up (0)    Booked  │
+│  ┌──────────┐   ┌──────────┐                               │
+│  │ Priya    │   │ Rahul    │                               │
+│  │ 📞 98765 │   │ 📞 87654 │                               │
+│  │ Facial   │   │ SPA      │                               │
+│  │ 🔴 48h+  │   │ 2d ago   │                               │
+│  │ meta/    │   │ meta/    │                               │
+│  │ facial_m │   │ spa_jun  │                               │
+│  └──────────┘   └──────────┘                               │
+│  ┌──────────┐                                               │
+│  │ Aisha   │                                               │
+│  │ 📞 76543 │                                               │
+│  │ Haircut  │                                               │
+│  │ 🔴 72h+  │  ← RED DOT = stale (needs attention)         │
+│  └──────────┘                                               │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+Receptionist actions:
+  → Tap lead card → open lead detail
+  → Call phone number
+  → Open WhatsApp via AiSensy link
+  → Update status to &quot;Contacted&quot;
+  → Add note: &quot;Called, interested in facial, booking for Saturday&quot;
+  → Create booking from lead (links the conversion)</code></pre>
+<hr>
+<h2>8. Meta Ad Creative → Landing Page Connection</h2>
+<pre><code>┌─────────────────────────────────────────────────────────────────┐
+│  AD CREATIVE                    │  LANDING PAGE MATCH            │
+├─────────────────────────────────┼─────────────────────────────────┤
+│                                 │                                 │
+│  &quot;Hydrafacial from ₹1,499&quot;     │  Service dropdown pre-selects   │
+│  Image: facial being performed  │  &quot;Facial &amp; Skincare&quot;            │
+│  CTA: &quot;Book Now&quot;               │  (via utm_content parameter)    │
+│                                 │                                 │
+│  &quot;Transform your hair&quot;          │  Service dropdown pre-selects   │
+│  Video: hair colouring          │  &quot;Hair Colouring / Treatment&quot;   │
+│  CTA: &quot;Book Now&quot;               │                                 │
+│                                 │                                 │
+│  &quot;Premium SPA experience&quot;       │  Service dropdown pre-selects   │
+│  Carousel: spa images           │  &quot;Premium SPA&quot;                  │
+│  CTA: &quot;Book Now&quot;               │                                 │
+│                                 │                                 │
+└─────────────────────────────────┴─────────────────────────────────┘
+
+URL structure for pre-selection:
+  /book?utm_source=meta&amp;utm_campaign=facial_may&amp;utm_content=facial_skincare
+                                                          ▲
+                                                  maps to dropdown value</code></pre>
+<hr>
+<h2>9. Why <code>/book</code> is Separate from Homepage Booking</h2>
+<pre><code>┌────────────────────────────────┐     ┌────────────────────────────────┐
+│   /book (Ad Landing)            │     │   /?book=1 (Homepage Dialog)    │
+├────────────────────────────────┤     ├────────────────────────────────┤
+│ • Cold traffic (never visited)  │     │ • Warm traffic (knows brand)   │
+│ • No sign-in required           │     │ • Sign-in required             │
+│ • Creates LEAD row              │     │ • Creates BOOKING row          │
+│ • 3 fields only (low friction)  │     │ • 4-step full flow             │
+│ • No navigation (distraction    │     │ • Full navigation visible      │
+│   free)                         │     │                                │
+│ • Meta Pixel Lead event fires   │     │ • No Lead event (not a lead)   │
+│ • Source: meta_ad               │     │ • Source: organic/gmb/walkin   │
+│ • After submit → redirects to  │     │ • Direct booking submission    │
+│   homepage dialog               │     │                                │
+│ • NEVER linked from site nav   │     │ • Primary CTA everywhere       │
+└────────────────────────────────┘     └────────────────────────────────┘
+
+KEY RULE: /book is ONLY for Meta/Instagram ad traffic.
+          Homepage CTA, GMB, Google Maps, in-store QR → all use /?book=1</code></pre>
+<hr>
+<h2>10. Conversion Attribution Chain</h2>
+<pre><code>Meta Ad Click
+    │
+    ├── fbclid stamped on URL (Meta click ID)
+    │   → _fbc cookie set by Pixel
+    │
+    ├── _fbp cookie set by Pixel (browser ID)
+    │
+    ▼
+Lead form submitted
+    │
+    ├── Lead row: source='meta_ad', utm_campaign, fbc, fbp stored
+    │
+    ├── Meta Pixel: Lead event (browser, eventID=X)
+    │
+    ├── Meta CAPI: Lead event (server, event_id=X) ← deduplication
+    │
+    ▼
+Customer books (links leadId)
+    │
+    ├── lead.converted_booking_id = booking.id
+    │
+    ▼
+Receptionist marks completed + payment received
+    │
+    ├── Meta CAPI: Purchase event (server)
+    │   { value: ₹1300, currency: 'INR', content_ids: [...] }
+    │
+    ▼
+Meta Ads Manager shows:
+    │
+    ├── Campaign: &quot;facial_may&quot;
+    │   ├── Leads: 15
+    │   ├── Purchases: 8
+    │   ├── Revenue: ₹12,400
+    │   ├── ROAS: 4.1x
+    │   └── Cost per Purchase: ₹375
+    │
+    └── This data trains Meta's algorithm to find more
+        people like Priya who actually pay ₹1,300+ for facials</code></pre>
+<hr>
+<h2>11. Page Design Constraints</h2>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No header/nav links</td>
+<td>Zero exit paths — only the form CTA</td>
+</tr>
+<tr>
+<td>No &quot;sign in&quot; prompt</td>
+<td>Cold traffic bounces on auth screens</td>
+</tr>
+<tr>
+<td>Trust signals above fold</td>
+<td>Social proof reduces form abandonment</td>
+</tr>
+<tr>
+<td>3 fields maximum</td>
+<td>Every extra field drops conversion ~10%</td>
+</tr>
+<tr>
+<td>CTA text: &quot;Continue to Booking&quot;</td>
+<td>Tells user what happens next (not &quot;Submit&quot;)</td>
+</tr>
+<tr>
+<td>Phone shows +91 prefix</td>
+<td>Indian context, reduces typing</td>
+</tr>
+<tr>
+<td>Address + phone in footer only</td>
+<td>Legitimacy signal without competing with form</td>
+</tr>
+<tr>
+<td>No mention of prices</td>
+<td>Price can cause sticker shock before they experience the brand</td>
+</tr>
+<tr>
+<td>Never link from main site</td>
+<td>Would pollute organic/GMB attribution</td>
+</tr>
+<tr>
+<td>robots: noindex, nofollow</td>
+<td>Not an SEO page — ad traffic only</td>
+</tr>
+</tbody>
+</table>
+
+</body>
+</html>

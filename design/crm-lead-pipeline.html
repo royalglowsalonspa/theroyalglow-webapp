@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRM &amp; Lead Pipeline — Design Reference</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1200px; margin: 0 auto; padding: 2rem; line-height: 1.6; color: #1a1a1a; background: #fffdf7; }
+  h1, h2, h3, h4 { color: #1a1a1a; margin-top: 2rem; }
+  h1 { border-bottom: 2px solid #c8a961; padding-bottom: 0.5rem; }
+  h2 { border-bottom: 1px solid #e5e5e5; padding-bottom: 0.3rem; }
+  pre { background: #1a1a1a; color: #e5e5e5; padding: 1.5rem; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; line-height: 1.4; }
+  code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 14px; }
+  pre code { background: none; padding: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  th, td { border: 1px solid #e5e5e5; padding: 10px 14px; text-align: left; }
+  th { background: #f9fafb; font-weight: 600; }
+  tr:nth-child(even) { background: #fafafa; }
+  blockquote { border-left: 4px solid #c8a961; margin: 1rem 0; padding: 0.5rem 1rem; background: #fff8f0; }
+  hr { border: none; border-top: 1px solid #e5e5e5; margin: 2rem 0; }
+  ul, ol { padding-left: 1.5rem; }
+  li { margin: 0.3rem 0; }
+  a { color: #c8a961; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<h1>CRM &amp; Lead Pipeline — Design Reference</h1>
+<blockquote><p>Complete customer relationship management: customer profiles, CRM tagging, lead pipeline kanban, no-show tier progression, and acquisition source tracking. The command center for understanding and nurturing every customer relationship.</p></blockquote>
+<hr>
+<h2>1. Customer Profile Page — <code>/admin/customers/[id]</code></h2>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│  ← Back to Customers                                                     │
+│                                                                          │
+│  ┌─ Header ─────────────────────────────────────────────────────────┐   │
+│  │                                                                   │   │
+│  │  👤 Priya Sharma                                                  │   │
+│  │  📞 +91 98765 43210   ✉️ priya.sharma@gmail.com                   │   │
+│  │  Gender: Female · Branch: Rayasandra · Since: Jan 2025           │   │
+│  │                                                                   │   │
+│  │  Tags:                                                            │   │
+│  │  ┌──────────┐ ┌──────────────┐ ┌─────────┐ ┌──────────┐        │   │
+│  │  │ 🏷 VIP    │ │ 🏷 SPA-lover  │ │ 🏷 loyal │ │  + Add   │        │   │
+│  │  └──────────┘ └──────────────┘ └─────────┘ └──────────┘        │   │
+│  │  (chips are removable ✕, &quot;+ Add&quot; opens autocomplete)             │   │
+│  │                                                                   │   │
+│  └───────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+│  ┌─ KPI Cards ──────────────────────────────────────────────────────┐   │
+│  │                                                                   │   │
+│  │  ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌────────┐ ┌──────┐│   │
+│  │  │ Visits    │ │ LTV       │ │ Avg Spend │ │No-shows│ │ Gems ││   │
+│  │  │   14      │ │ ₹18,200  │ │ ₹1,300   │ │   1    │ │  55  ││   │
+│  │  └───────────┘ └───────────┘ └───────────┘ └────────┘ └──────┘│   │
+│  │                                                                   │   │
+│  └───────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+│  ┌─ Tabs ───────────────────────────────────────────────────────────┐   │
+│  │  [ Bookings ] [ Invoices ] [ Membership ] [ Gems ] [ Notes ]     │   │
+│  │  ════════════                                                     │   │
+│  └───────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+
+│  ┌─ Bookings Tab (Active) ───────────────────────────────────────────┐   │
+│  │                                                                   │   │
+│  │  Date        Service              Status      Staff    Amount     │   │
+│  │  ──────────────────────────────────────────────────────────────  │   │
+│  │  20/06/26   Swedish Massage       ●Completed  Meera   ₹2,500    │   │
+│  │  15/06/26   Facial + Waxing       ●Completed  Anjali  ₹1,800    │   │
+│  │  01/06/26   Haircut               ●Completed  Priya M ₹  500    │   │
+│  │  28/05/26   SPA Aroma Therapy     ●Completed  Deepa   ₹2,500    │   │
+│  │  24/05/26   Facial                ●No-show    —       —         │   │
+│  │                                                                   │   │
+│  │  Showing 5 of 14 · [ Load More ]                                 │   │
+│  │                                                                   │   │
+│  └───────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘</code></pre>
+<hr>
+<h2>2. Customer List Page — <code>/admin/customers</code></h2>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│  Customers                                                    [ Export ] │
+│  ═════════                                                               │
+│                                                                          │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │ 🔍 Search by name, phone, or email...                            │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+│  Filters:                                                                │
+│  ┌──────────┐ ┌────────────┐ ┌──────────────┐ ┌───────────────────┐   │
+│  │Tags    ▼ │ │Visits    ▼ │ │Last Visit  ▼ │ │Sort: LTV desc   ▼ │   │
+│  └──────────┘ └────────────┘ └──────────────┘ └───────────────────┘   │
+│                                                                          │
+│  Tag filter expanded:                                                    │
+│  ┌──────────────────────────────┐                                       │
+│  │ ☑ VIP    ☑ loyal             │                                       │
+│  │ ☐ SPA-lover  ☐ late_cancel  │                                       │
+│  │ ☐ membership  ☐ no_show_1   │                                       │
+│  └──────────────────────────────┘                                       │
+│                                                                          │
+│  ┌────────┬─────────────┬───────────┬──────┬────────┬──────┬────────┐ │
+│  │ Name   │ Phone       │ Tags      │Visits│ LTV    │ Gems │ Last   │ │
+│  ├────────┼─────────────┼───────────┼──────┼────────┼──────┼────────┤ │
+│  │Priya S.│ 98765 43210 │VIP,loyal  │  14  │₹18,200│  55  │ 20 Jun │ │
+│  │Aisha K.│ 87654 32109 │SPA-lover  │   8  │₹12,500│  32  │ 18 Jun │ │
+│  │Rahul M.│ 76543 21098 │—          │   3  │ ₹1,500│   8  │ 23 May │ │
+│  │Meena R.│ 65432 10987 │no_show_2  │   5  │ ₹4,200│  12  │ 10 Jun │ │
+│  └────────┴─────────────┴───────────┴──────┴────────┴──────┴────────┘ │
+│                                                                          │
+│  ← 1 2 3 ... 8 →           Showing 1–20 of 156 customers               │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Sort options: LTV (desc), Visits (desc), Last Visit (recent first),
+              Name (A→Z), Gems (desc), No-shows (desc)</code></pre>
+<hr>
+<h2>3. Lead Pipeline — Kanban Board <code>/admin/leads</code></h2>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│  Lead Pipeline                                        [ + Manual Lead ] │
+│  ═════════════                                                           │
+│                                                                          │
+│  ┌─────────────┬─────────────┬─────────────┬─────────────┬───────────┐ │
+│  │  New (5)    │ Contacted(3)│ Follow-up(2)│  Booked (4) │Won/Lost   │ │
+│  │═════════════│═════════════│═════════════│═════════════│═══════════│ │
+│  │             │             │             │             │           │ │
+│  │┌───────────┐│┌───────────┐│┌───────────┐│┌───────────┐│┌─────────┐│ │
+│  ││ Priya     │││ Rahul     │││ Kavya     │││ Aisha     │││ Meena   ││ │
+│  ││ 📞 98765  │││ 📞 87654  │││ 📞 76543  │││ 📞 65432  │││ ✓ Won   ││ │
+│  ││ Facial    │││ SPA       │││ Haircut   │││ Waxing    │││ ₹2,500  ││ │
+│  ││ meta/     │││ meta/     │││ meta/     │││ meta/     │││ 3 Jun   ││ │
+│  ││ facial_may│││ spa_jun   │││ hair_jun  │││ wax_jun   ││└─────────┘│ │
+│  ││ 🔴 3 days │││ 1 day ago │││ 🔴 5 days │││ Booked!   ││┌─────────┐│ │
+│  │└───────────┘│└───────────┘│└───────────┘│└───────────┘││ Deepa   ││ │
+│  │┌───────────┐│┌───────────┐│┌───────────┐│┌───────────┐││ ✕ Lost  ││ │
+│  ││ Neha      │││ Sita      │││ Arjun     │││ Kiran     │││ Reason: ││ │
+│  ││ 📞 54321  │││ 📞 43210  │││ 📞 32109  │││ 📞 21098  │││ &quot;Too    ││ │
+│  ││ Bridal    │││ Facial    │││ Massage   │││ Hair Color│││  far&quot;   ││ │
+│  ││ organic   │││ meta/     │││ meta/     │││ meta/     ││└─────────┘│ │
+│  ││ 2 days    │││ 3 days    │││ 🔴 7 days │││ Today     ││           │ │
+│  │└───────────┘│└───────────┘│└───────────┘│└───────────┘││           │ │
+│  │             │             │             │             │           │ │
+│  └─────────────┴─────────────┴─────────────┴─────────────┴───────────┘ │
+│                                                                          │
+│  Legend: 🔴 = Stale (48h+ no contact)   Cards show days since capture   │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Card Details:
+┌─────────────────────────────┐
+│  Name (lead name)           │
+│  📞 Phone (tap to call)     │
+│  Service interest (category)│
+│  Campaign source/name       │
+│  Days since capture         │
+│  🔴 Stale indicator (48h+)  │
+└─────────────────────────────┘</code></pre>
+<hr>
+<h2>4. Lead Detail Page — <code>/admin/leads/[id]</code></h2>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│  ← Back to Pipeline                                                      │
+│                                                                          │
+│  ┌─ Info Card ──────────────────────────────────────────────────────┐   │
+│  │                                                                   │   │
+│  │  Lead: Priya Sharma                    Status: ● New              │   │
+│  │  📞 +91 98765 43210 (tap to call)      Created: 22 May 2026      │   │
+│  │  Interest: Facial &amp; Skincare            Days: 3                   │   │
+│  │                                                                   │   │
+│  │  Actions:                                                         │   │
+│  │  [ 📞 Call ] [ 💬 WhatsApp ] [ → Mark Contacted ] [ 🗑 Mark Lost ]│   │
+│  │                                                                   │   │
+│  └───────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+│  ┌─ Attribution Panel ──────────────────────────────────────────────┐   │
+│  │                                                                   │   │
+│  │  Source:      meta_ad                                             │   │
+│  │  Campaign:    facial_may                                          │   │
+│  │  Content:     carousel_1                                          │   │
+│  │  Landing:     /book                                               │   │
+│  │  fbp:         fb.1.168...                                         │   │
+│  │  fbc:         fb.1.168...click123                                 │   │
+│  │                                                                   │   │
+│  │  Linked Customer: — (not yet signed up)                          │   │
+│  │  Converted Booking: — (not yet booked)                           │   │
+│  │                                                                   │   │
+│  └───────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+│  ┌─ Notes Timeline ────────────────────────────────────────────────┐    │
+│  │                                                                   │   │
+│  │  24 May · 11:30 AM · Anjali (Receptionist)                       │   │
+│  │  &quot;Called, interested in facial. Wants Saturday 3 PM.&quot;            │   │
+│  │                                                                   │   │
+│  │  22 May · 02:15 PM · System                                      │   │
+│  │  &quot;Lead created from Meta ad (facial_may campaign)&quot;               │   │
+│  │                                                                   │   │
+│  │  ┌─────────────────────────────────────────────────────────┐     │   │
+│  │  │ Add note...                                    [ Save ] │     │   │
+│  │  └─────────────────────────────────────────────────────────┘     │   │
+│  │                                                                   │   │
+│  └───────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘</code></pre>
+<hr>
+<h2>5. Lead Status Flow — State Machine</h2>
+<pre><code>                Lead form submitted (Meta ad / manual entry)
+                                 │
+                                 ▼
+                         ┌──────────────┐
+                         │     NEW      │ ← Initial state
+                         └──────┬───────┘
+                                │
+                                │  Receptionist calls/messages
+                                ▼
+                         ┌──────────────┐
+                         │  CONTACTED   │ ← First contact made
+                         └──────┬───────┘
+                                │
+                    ┌───────────┼───────────┐
+                    │                       │
+                    ▼                       ▼
+           ┌──────────────┐       ┌──────────────┐
+           │  FOLLOW_UP   │       │    BOOKED    │ ← Booking created with leadId
+           └──────┬───────┘       └──────┬───────┘
+                  │                       │
+                  │  Eventually books     │  Booking completed + paid
+                  │  or gives up          │
+                  ▼                       ▼
+           ┌──────────────┐       ┌──────────────┐
+           │     LOST     │       │     WON      │ ← Invoice paid, revenue attributed
+           └──────────────┘       └──────────────┘
+           (reason recorded)      (LTV tracked)
+
+
+  TRANSITIONS:
+  ─────────────
+  new → contacted      Receptionist marks after first call/WhatsApp
+  new → lost           Lead unreachable after 5 attempts over 14 days
+  contacted → follow_up   Needs more nurturing, appointment not yet set
+  contacted → booked      Customer books (manual or self-service)
+  follow_up → booked      Customer books after follow-up
+  follow_up → lost        Customer declines / unresponsive 14d+
+  booked → won            Booking completed + invoice paid
+  booked → lost           Booking cancelled / no-show (rare)
+
+  AUTOMATIC TRANSITIONS:
+  ─────────────────────
+  • new → stale alert (48h, no status change) — push to receptionist
+  • booked → won (auto when booking.status = 'completed')</code></pre>
+<hr>
+<h2>6. CRM Tagging System</h2>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│  CRM TAG SYSTEM                                                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  AUTOMATIC TAGS (system-assigned after events):                          │
+│  ─────────────────────────────────────────────                          │
+│                                                                          │
+│  Tag               │ Trigger                          │ Removable?       │
+│  ──────────────────┼──────────────────────────────────┼─────────────     │
+│  vip               │ LTV ≥ ₹25,000                   │ No (auto-calc)  │
+│  loyal             │ ≥ 10 completed bookings          │ No (auto-calc)  │
+│  membership        │ Active membership exists         │ No (auto-sync)  │
+│  spa_lover         │ ≥ 5 SPA bookings completed      │ No (auto-calc)  │
+│  new_customer      │ 1 completed booking only         │ No (auto-calc)  │
+│  no_show_1         │ 1 no-show recorded              │ No (auto)       │
+│  no_show_2         │ 2 no-shows recorded             │ No (auto)       │
+│  no_show_3         │ 3 no-shows (deposit required)   │ No (auto)       │
+│  late_cancellation │ Cancelled &lt; 4h before slot      │ No (auto)       │
+│  dormant           │ No visit in 60+ days            │ No (auto-calc)  │
+│  at_risk           │ Was loyal, now dormant 30+ days │ No (auto-calc)  │
+│                                                                          │
+│  MANUAL TAGS (receptionist/manager assigns):                            │
+│  ──────────────────────────────────────────                             │
+│                                                                          │
+│  Tag               │ Use Case                                            │
+│  ──────────────────┼────────────────────────────────────────────────     │
+│  bridal            │ Bridal package client                              │
+│  influencer        │ Social media collaboration                         │
+│  corporate         │ Company-referred client                            │
+│  friend_of_owner   │ Personal connection (no special pricing)           │
+│  difficult         │ Frequent complaints / high-maintenance             │
+│  price_sensitive   │ Always asks for discounts                          │
+│  feedback_given    │ Left Google review                                 │
+│                                                                          │
+│  ADDING TAGS:                                                            │
+│  ┌─────────────────────────────────────────────────────────────┐        │
+│  │  Tags: [VIP ✕] [loyal ✕] [spa_lover ✕] [ + Add tag... ]    │        │
+│  │                                          ┌──────────────┐   │        │
+│  │  Autocomplete dropdown shows:            │ bridal       │   │        │
+│  │  - Existing tags (type-ahead)            │ influencer   │   │        │
+│  │  - Create new: &quot;corporate_xyz&quot;           │ corporate    │   │        │
+│  │  - Max 10 tags per customer              │ + Create new │   │        │
+│  │                                          └──────────────┘   │        │
+│  └─────────────────────────────────────────────────────────────┘        │
+│                                                                          │
+│  Auto tags: grey chips (non-removable, system badge icon)               │
+│  Manual tags: coloured chips (removable with ✕)                         │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘</code></pre>
+<hr>
+<h2>7. No-Show Tier Progression Diagram</h2>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│  NO-SHOW TIER SYSTEM                                                     │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Count │ Tag        │ Consequence                    │ Recovery Path     │
+│  ──────┼────────────┼────────────────────────────────┼─────────────────  │
+│   1st  │ no_show_1  │ Warning SMS/push sent          │ Complete next     │
+│        │            │ &quot;We missed you today!&quot;         │ booking = reset   │
+│        │            │ No penalty                     │ to no_show_0     │
+│        │            │                                │                   │
+│   2nd  │ no_show_2  │ Phone call from receptionist   │ Complete 2        │
+│        │            │ Marked in CRM                  │ consecutive =     │
+│        │            │ Manager notified               │ downgrade to      │
+│        │            │                                │ no_show_1        │
+│        │            │                                │                   │
+│   3rd  │ no_show_3  │ ₹500 advance deposit required │ Complete 3        │
+│        │            │ for future bookings            │ consecutive =     │
+│        │            │ Booking requires phone confirm │ remove deposit    │
+│        │            │ 24h before appointment         │ requirement       │
+│        │            │                                │                   │
+│   4th  │ no_show_4  │ ₹1,000 advance deposit        │ Owner discretion  │
+│        │            │ Flagged for owner review       │ to reinstate      │
+│        │            │ Consider blocking              │                   │
+│        │            │                                │                   │
+│   5th  │ no_show_5  │ BLOCKED from online booking   │ Can only book     │
+│        │            │ Must call salon directly       │ via phone call    │
+│        │            │ Owner manually creates booking │ Owner can reset   │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Progression Flow:
+
+  0 no-shows        1st no-show         2nd no-show         3rd no-show
+      │                  │                   │                   │
+      ▼                  ▼                   ▼                   ▼
+  ┌────────┐       ┌──────────┐       ┌──────────┐       ┌──────────┐
+  │ Normal │──────▶│ Warning  │──────▶│ Flagged  │──────▶│ Deposit  │
+  │ booking│  +1   │ no_show_1│  +1   │ no_show_2│  +1   │ no_show_3│
+  └────────┘       └──────────┘       └──────────┘       └──────────┘
+                        │                   │                   │
+                        │ Complete          │ Complete 2x       │ Complete 3x
+                        │ next booking      │ consecutive       │ consecutive
+                        ▼                   ▼                   ▼
+                   ┌────────┐         ┌──────────┐       ┌──────────┐
+                   │ Reset  │         │Downgrade │       │ Remove   │
+                   │ to 0   │         │ to tier 1│       │ deposit  │
+                   └────────┘         └──────────┘       └──────────┘
+
+IMPLEMENTATION NOTES:
+─────────────────────
+• noshow_count stored on customer row (integer)
+• Tag auto-assigned: no_show_{count} (replaces previous tier tag)
+• Recovery tracked via consecutive_completed_count (resets on new no-show)
+• Deposit collection: manual (receptionist marks &quot;deposit received&quot; on booking)
+• Block enforcement: booking API returns 403 if noshow_count &gt;= 5
+• Owner override: PATCH /api/admin/customers/[id] { noshow_count: 0 }</code></pre>
+<hr>
+<h2>8. Acquisition Source Tracking</h2>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│  ACQUISITION SOURCE ASSIGNMENT                                           │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Source        │ How Assigned                │ Stored On                 │
+│  ──────────────┼─────────────────────────────┼────────────────────────── │
+│  meta_ad       │ Lead submitted via /book    │ lead.source               │
+│                │ page with utm_source=meta   │ booking.source (linked)   │
+│                │                             │                           │
+│  organic       │ Customer books via homepage │ booking.source            │
+│                │ without any UTM params      │ (default if no params)    │
+│                │                             │                           │
+│  gmb           │ Click from Google My        │ booking.source            │
+│                │ Business link:              │                           │
+│                │ /?book=1&amp;utm_source=gmb     │                           │
+│                │                             │                           │
+│  walkin        │ QR code scanned in-store:   │ booking.source            │
+│                │ /?book=1&amp;utm_source=walkin  │                           │
+│                │ OR receptionist creates     │                           │
+│                │ walk-in booking manually    │                           │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Detection Logic (on booking creation):
+</code></pre>
+<p>GET /?book=1&amp;utm_source=X</p>
+<p>         │</p>
+<p>         ▼</p>
+<p>┌──────────────────────────────────┐</p>
+<p>│  Check utm_source param          │</p>
+<p>│                                  │</p>
+<p>│  utm_source present?             │</p>
+<p>│  ├── &quot;meta&quot; → source = meta_ad  │</p>
+<p>│  ├── &quot;gmb&quot;  → source = gmb      │</p>
+<p>│  ├── &quot;walkin&quot; → source = walkin  │</p>
+<p>│  └── other → source = organic    │</p>
+<p>│                                  │</p>
+<p>│  No utm_source?                  │</p>
+<p>│  ├── Has leadId? → source = lead's original source │</p>
+<p>│  └── No leadId? → source = organic                 │</p>
+<p>│                                                    │</p>
+<p>│  Walk-in (admin creates):                          │</p>
+<p>│  → source = walkin (hardcoded in admin form)       │</p>
+<p>│                                                    │</p>
+<p>└────────────────────────────────────────────────────┘</p>
+<pre><code>
+Revenue Attribution Dashboard (Owner-only):
+</code></pre>
+<p>┌─────────────────────────────────────────────────────────────────────────┐</p>
+<p>│  Revenue by Source (Last 30 days)                                        │</p>
+<p>│                                                                          │</p>
+<p>│  Source      │ Bookings │ Revenue    │ Avg Ticket │ Conversion          │</p>
+<p>│  ────────────┼──────────┼────────────┼────────────┼──────────────────── │</p>
+<p>│  organic     │    45    │ ₹58,500   │  ₹1,300   │  N/A                │</p>
+<p>│  meta_ad     │    18    │ ₹27,000   │  ₹1,500   │  Lead→Book: 60%    │</p>
+<p>│  gmb         │    12    │ ₹14,400   │  ₹1,200   │  N/A                │</p>
+<p>│  walkin      │     8    │  ₹6,400   │    ₹800   │  N/A                │</p>
+<p>│  ────────────┼──────────┼────────────┼────────────┼──────────────────── │</p>
+<p>│  TOTAL       │    83    │₹1,06,300  │  ₹1,280   │                     │</p>
+<p>│                                                                          │</p>
+<p>│  Meta ROAS: 4.2x (spend ₹6,500 → revenue ₹27,000)                     │</p>
+<p>│                                                                          │</p>
+<p>└─────────────────────────────────────────────────────────────────────────┘</p>
+<pre><code></code></pre>
+
+</body>
+</html>
