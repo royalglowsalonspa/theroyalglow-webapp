@@ -22,398 +22,412 @@
   li { margin: 0.3rem 0; }
   a { color: #c8a961; text-decoration: none; }
   a:hover { text-decoration: underline; }
+
+  .flow-container { display: flex; flex-direction: column; align-items: center; gap: 0; margin: 2rem 0; }
+  .flow-node { padding: 14px 24px; border-radius: 12px; font-weight: 500; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); min-width: 180px; }
+  .flow-node.trigger { background: #C8A961; color: white; }
+  .flow-node.process { background: white; border: 2px solid #e5e5e5; border-left: 4px solid #C8A961; }
+  .flow-node.decision { background: #FEF3C7; border: 2px solid #F59E0B; }
+  .flow-node.success { background: #D1FAE5; border: 2px solid #10B981; color: #065F46; }
+  .flow-node.error { background: #FEE2E2; border: 2px solid #EF4444; color: #991B1B; }
+  .flow-node.end { background: #1a1a1a; color: white; }
+  .flow-arrow { width: 2px; height: 32px; background: #C8A961; position: relative; margin: 0 auto; }
+  .flow-arrow::after { content: ''; position: absolute; bottom: -6px; left: -5px; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #C8A961; }
+  .flow-branch { display: flex; gap: 2rem; justify-content: center; }
+  .flow-label { font-size: 12px; color: #6B6B6B; text-align: center; margin-top: 4px; }
+  .flow-row { display: flex; align-items: center; justify-content: center; gap: 1.5rem; }
+  .wire-btn { padding: 12px 24px; border-radius: 999px; font-weight: 600; text-align: center; cursor: pointer; border: none; display: inline-block; margin: 4px; }
+  .wire-btn-primary { background: #C8A961; color: white; }
+  .wire-btn-outline { border: 2px solid #C8A961; color: #C8A961; background: white; }
+  .wire-btn-danger { background: #EF4444; color: white; }
+  .wire-btn-success { background: #10B981; color: white; }
+  .wire-input { width: 100%; padding: 12px 16px; border: 1px solid #e5e5e5; border-radius: 12px; font-size: 14px; margin: 8px 0; box-sizing: border-box; }
+  .wire-card { background: white; border: 1px solid #f0f0f0; border-radius: 12px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+  .wire-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 500; }
+  .badge-pending { background: #FEF3C7; color: #92400E; }
+  .badge-confirmed { background: #D1FAE5; color: #065F46; }
+  .badge-completed { background: #F3F4F6; color: #374151; }
+  .badge-active { background: #DBEAFE; color: #1E40AF; }
+  .badge-expired { background: #FEE2E2; color: #991B1B; }
+  .section-card { background: white; border: 1px solid #f0f0f0; border-radius: 16px; padding: 2rem; margin: 1.5rem 0; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; }
+  .timeline { display: flex; flex-direction: column; gap: 0; padding: 1rem 0; }
+  .timeline-step { display: flex; align-items: flex-start; gap: 12px; position: relative; padding-bottom: 24px; }
+  .timeline-step:not(:last-child)::before { content: ''; position: absolute; left: 11px; top: 24px; bottom: 0; width: 2px; background: #e5e5e5; }
+  .timeline-dot { width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0; }
+  .timeline-dot.active { background: #C8A961; }
+  .timeline-dot.completed { background: #10B981; }
+  .timeline-dot.error { background: #EF4444; }
+  .timeline-dot.pending { background: #F59E0B; }
+  .timeline-dot.grey { background: #9CA3AF; }
+
+  .schedule-grid { display: grid; grid-template-columns: 80px repeat(7, 1fr); gap: 2px; font-size: 12px; margin: 1rem 0; }
+  .schedule-grid .header { background: #f9fafb; padding: 8px; font-weight: 600; text-align: center; border-radius: 4px; }
+  .schedule-grid .cell { padding: 8px; text-align: center; border-radius: 4px; min-height: 40px; display: flex; align-items: center; justify-content: center; }
+  .schedule-grid .cell.available { background: #f0fdf4; border: 1px solid #d1fae5; }
+  .schedule-grid .cell.booked { background: #FEF3C7; border: 1px solid #F59E0B; color: #92400E; }
+  .schedule-grid .cell.leave { background: #374151; color: white; }
+  .schedule-grid .cell.buffer { background: #f3f4f6; color: #9CA3AF; }
+  .phone-frame { width: 375px; border: 3px solid #1a1a1a; border-radius: 40px; padding: 12px; margin: 2rem auto; background: white; box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
+  .phone-screen { border-radius: 28px; overflow: hidden; min-height: 500px; background: #FFFDF7; padding: 16px; }
+  .phone-notch { width: 150px; height: 24px; background: #1a1a1a; border-radius: 0 0 12px 12px; margin: 0 auto; }
+  .modal-backdrop { background: rgba(0,0,0,0.4); border-radius: 12px; padding: 3rem; display: flex; align-items: center; justify-content: center; margin: 2rem 0; }
+  .modal-box { background: white; border-radius: 16px; padding: 2rem; max-width: 500px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin: 1rem 0; }
+  .kpi-card { background: white; border: 1px solid #f0f0f0; border-radius: 12px; padding: 16px; text-align: center; }
+  .kpi-card .value { font-size: 24px; font-weight: 700; color: #1a1a1a; }
+  .kpi-card .label { font-size: 12px; color: #6B6B6B; margin-top: 4px; }
+  .progress-bar { height: 12px; background: #e5e5e5; border-radius: 999px; overflow: hidden; margin: 8px 0; }
+  .progress-bar .fill { height: 100%; background: #C8A961; border-radius: 999px; }
 </style>
 </head>
 <body>
 <h1>Staff Schedule &amp; Leave Management — Design Reference</h1>
 <blockquote><p>Staff scheduling: daily/weekly grid views, leave request submission and approval, same-day mark-off, conflict handling, and realtime updates. The operational backbone for staff availability and salon capacity.</p></blockquote>
 <hr>
+
 <h2>1. Staff Schedule Grid — Daily View <code>/admin/schedule</code></h2>
-<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
-│  Schedule — 24 May 2026 (Saturday)            [◀ Prev] [Today] [Next ▶]│
-│  ═════════════════════════════════             [ Daily | Weekly ]        │
-│                                                                          │
-│  ┌────────┬───────┬───────┬───────┬───────┬───────┬───────┬───────┐    │
-│  │ Staff  │ 10:00 │ 10:30 │ 11:00 │ 11:30 │ 12:00 │ 12:30 │ 13:00│    │
-│  ├────────┼───────┼───────┼───────┼───────┼───────┼───────┼───────┤    │
-│  │        │░░░░░░░│░░░░░░░│       │       │       │       │▓▓▓▓▓▓│    │
-│  │ Anjali │░BOOKED░│░BOOKED░│  avail│  avail│  avail│  avail│▓BUFFER▓│    │
-│  │        │░Priya ░│░Priya ░│       │       │       │       │▓▓▓▓▓▓│    │
-│  ├────────┼───────┼───────┼───────┼───────┼───────┼───────┼───────┤    │
-│  │        │       │       │░░░░░░░│░░░░░░░│░░░░░░░│       │       │    │
-│  │ Meera  │  avail│  avail│░BOOKED░│░BOOKED░│░BOOKED░│  avail│  avail│    │
-│  │        │       │       │░Aisha ░│░Aisha ░│░Aisha ░│       │       │    │
-│  ├────────┼───────┼───────┼───────┼───────┼───────┼───────┼───────┤    │
-│  │        │███████│███████│███████│███████│███████│███████│███████│    │
-│  │ Deepa  │█LEAVE█│█LEAVE█│█LEAVE█│█LEAVE█│█LEAVE█│█LEAVE█│█LEAVE█│    │
-│  │        │███████│███████│███████│███████│███████│███████│███████│    │
-│  ├────────┼───────┼───────┼───────┼───────┼───────┼───────┼───────┤    │
-│  │        │       │       │       │░░░░░░░│░░░░░░░│       │       │    │
-│  │Priya M.│  avail│  avail│  avail│░BOOKED░│░BOOKED░│  avail│  avail│    │
-│  │        │       │       │       │░Rahul ░│░Rahul ░│       │       │    │
-│  └────────┴───────┴───────┴───────┴───────┴───────┴───────┴───────┘    │
-│                                                                          │
-│  Legend:                                                                  │
-│  ┌───────┐ Available   ░░░░░░░ Booked (customer name)                   │
-│  └───────┘             ▓▓▓▓▓▓▓ Buffer (15-min between bookings)         │
-│                        ███████ On Leave                                  │
-│                                                                          │
-│  Continues → 13:30, 14:00 ... 20:00 (horizontal scroll)                │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
-
-Interactions:
-• Click booked slot → opens booking detail in side panel
-• Click available slot → opens &quot;Create Walk-in&quot; modal (pre-filled time + staff)
-• Hover on leave → shows leave reason tooltip
-• Slots update in realtime via Ably (slot.booked, slot.released)</code></pre>
+<div class="section-card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+    <h3 style="margin:0;">Schedule — 24 May 2026 (Saturday)</h3>
+    <div>
+      <span class="wire-btn wire-btn-outline" style="padding:6px 12px;font-size:12px;">◀ Prev</span>
+      <span class="wire-btn wire-btn-primary" style="padding:6px 12px;font-size:12px;">Today</span>
+      <span class="wire-btn wire-btn-outline" style="padding:6px 12px;font-size:12px;">Next ▶</span>
+      <span class="wire-btn wire-btn-outline" style="padding:6px 12px;font-size:12px;">Daily | Weekly</span>
+    </div>
+  </div>
+  <div class="schedule-grid">
+    <div class="header">Staff</div>
+    <div class="header">10:00</div>
+    <div class="header">10:30</div>
+    <div class="header">11:00</div>
+    <div class="header">11:30</div>
+    <div class="header">12:00</div>
+    <div class="header">12:30</div>
+    <div class="header">13:00</div>
+    <div class="header">Anjali</div>
+    <div class="cell booked">Priya</div>
+    <div class="cell booked">Priya</div>
+    <div class="cell available">avail</div>
+    <div class="cell available">avail</div>
+    <div class="cell available">avail</div>
+    <div class="cell available">avail</div>
+    <div class="cell buffer">BUFFER</div>
+    <div class="header">Meera</div>
+    <div class="cell available">avail</div>
+    <div class="cell available">avail</div>
+    <div class="cell booked">Aisha</div>
+    <div class="cell booked">Aisha</div>
+    <div class="cell booked">Aisha</div>
+    <div class="cell available">avail</div>
+    <div class="cell available">avail</div>
+    <div class="header">Deepa</div>
+    <div class="cell leave">LEAVE</div>
+    <div class="cell leave">LEAVE</div>
+    <div class="cell leave">LEAVE</div>
+    <div class="cell leave">LEAVE</div>
+    <div class="cell leave">LEAVE</div>
+    <div class="cell leave">LEAVE</div>
+    <div class="cell leave">LEAVE</div>
+    <div class="header">Priya M.</div>
+    <div class="cell available">avail</div>
+    <div class="cell available">avail</div>
+    <div class="cell available">avail</div>
+    <div class="cell booked">Rahul</div>
+    <div class="cell booked">Rahul</div>
+    <div class="cell available">avail</div>
+    <div class="cell available">avail</div>
+  </div>
+  <div style="display:flex;gap:1rem;flex-wrap:wrap;font-size:12px;margin-top:1rem;">
+    <span><span class="cell available" style="display:inline-block;width:20px;height:20px;border-radius:4px;vertical-align:middle;"></span> Available</span>
+    <span><span class="cell booked" style="display:inline-block;width:20px;height:20px;border-radius:4px;vertical-align:middle;"></span> Booked</span>
+    <span><span class="cell buffer" style="display:inline-block;width:20px;height:20px;border-radius:4px;vertical-align:middle;"></span> Buffer (15-min)</span>
+    <span><span class="cell leave" style="display:inline-block;width:20px;height:20px;border-radius:4px;vertical-align:middle;"></span> On Leave</span>
+  </div>
+  <p style="font-size:13px;color:#6B6B6B;margin-top:1rem;">Interactions: Click booked → opens booking detail · Click available → opens "Create Walk-in" · Hover leave → shows reason tooltip · Realtime updates via Ably</p>
+</div>
 <hr>
+
 <h2>2. Weekly View — <code>/admin/schedule?view=weekly</code></h2>
-<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
-│  Schedule — Week of 20–26 May 2026           [◀ Prev] [Today] [Next ▶] │
-│  ═══════════════════════════════════          [ Daily | Weekly ]         │
-│                                                                          │
-│  ┌────────┬──────────┬──────────┬──────────┬──────────┬──────────┐     │
-│  │ Staff  │  Mon 20  │  Tue 21  │  Wed 22  │  Thu 23  │  Fri 24  │     │
-│  ├────────┼──────────┼──────────┼──────────┼──────────┼──────────┤     │
-│  │        │          │          │          │          │          │     │
-│  │ Anjali │ 3 bookings│ 4 bookings│ 2 bookings│ 5 bookings│ 3 bookings│     │
-│  │        │ 10:00-18 │ 10:00-19 │ 10:00-16 │ 10:00-20 │ 10:00-18 │     │
-│  │        │ ████░░░░ │ █████░░░ │ ██░░░░░░ │ ██████░░ │ ████░░░░ │     │
-│  │        │          │          │          │          │          │     │
-│  ├────────┼──────────┼──────────┼──────────┼──────────┼──────────┤     │
-│  │        │          │          │          │          │          │     │
-│  │ Meera  │ 2 bookings│ █ LEAVE  │ █ LEAVE  │ 3 bookings│ 4 bookings│     │
-│  │        │ 10:00-14 │ (sick)   │ (sick)   │ 11:00-18 │ 10:00-19 │     │
-│  │        │ ██░░░░░░ │ ████████ │ ████████ │ ████░░░░ │ █████░░░ │     │
-│  │        │          │          │          │          │          │     │
-│  ├────────┼──────────┼──────────┼──────────┼──────────┼──────────┤     │
-│  │        │          │          │          │          │          │     │
-│  │ Deepa  │ 4 bookings│ 3 bookings│ 5 bookings│ █ LEAVE  │ 2 bookings│     │
-│  │        │ 10:00-19 │ 10:00-17 │ 10:00-20 │ (personal)│ 10:00-15 │     │
-│  │        │ █████░░░ │ ████░░░░ │ ██████░░ │ ████████ │ ██░░░░░░ │     │
-│  │        │          │          │          │          │          │     │
-│  └────────┴──────────┴──────────┴──────────┴──────────┴──────────┘     │
-│                                                                          │
-│  + Sat 25, Sun 26 (scroll right)                                        │
-│                                                                          │
-│  Capacity bars: █ = booked hours / total available hours                │
-│  Red bar = &gt;80% utilisation  │  Green = &lt;50%  │  Amber = 50-80%        │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘</code></pre>
+<div class="section-card">
+  <h3 style="margin-top:0;">Schedule — Week of 20–26 May 2026</h3>
+  <table>
+    <thead><tr><th>Staff</th><th>Mon 20</th><th>Tue 21</th><th>Wed 22</th><th>Thu 23</th><th>Fri 24</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Anjali</strong></td>
+        <td>3 bookings<br>10:00-18<br><div class="progress-bar" style="height:8px;margin:4px 0;"><div class="fill" style="width:50%;"></div></div></td>
+        <td>4 bookings<br>10:00-19<br><div class="progress-bar" style="height:8px;margin:4px 0;"><div class="fill" style="width:63%;"></div></div></td>
+        <td>2 bookings<br>10:00-16<br><div class="progress-bar" style="height:8px;margin:4px 0;"><div class="fill" style="width:25%;"></div></div></td>
+        <td>5 bookings<br>10:00-20<br><div class="progress-bar" style="height:8px;margin:4px 0;"><div class="fill" style="width:75%;background:#EF4444;"></div></div></td>
+        <td>3 bookings<br>10:00-18<br><div class="progress-bar" style="height:8px;margin:4px 0;"><div class="fill" style="width:50%;"></div></div></td>
+      </tr>
+      <tr>
+        <td><strong>Meera</strong></td>
+        <td>2 bookings<br>10:00-14<br><div class="progress-bar" style="height:8px;margin:4px 0;"><div class="fill" style="width:25%;"></div></div></td>
+        <td style="background:#374151;color:white;">LEAVE (sick)</td>
+        <td style="background:#374151;color:white;">LEAVE (sick)</td>
+        <td>3 bookings<br>11:00-18<br><div class="progress-bar" style="height:8px;margin:4px 0;"><div class="fill" style="width:50%;"></div></div></td>
+        <td>4 bookings<br>10:00-19<br><div class="progress-bar" style="height:8px;margin:4px 0;"><div class="fill" style="width:63%;"></div></div></td>
+      </tr>
+      <tr>
+        <td><strong>Deepa</strong></td>
+        <td>4 bookings<br>10:00-19<br><div class="progress-bar" style="height:8px;margin:4px 0;"><div class="fill" style="width:63%;"></div></div></td>
+        <td>3 bookings<br>10:00-17<br><div class="progress-bar" style="height:8px;margin:4px 0;"><div class="fill" style="width:50%;"></div></div></td>
+        <td>5 bookings<br>10:00-20<br><div class="progress-bar" style="height:8px;margin:4px 0;"><div class="fill" style="width:75%;background:#EF4444;"></div></div></td>
+        <td style="background:#374151;color:white;">LEAVE (personal)</td>
+        <td>2 bookings<br>10:00-15<br><div class="progress-bar" style="height:8px;margin:4px 0;"><div class="fill" style="width:25%;"></div></div></td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="font-size:13px;color:#6B6B6B;">Capacity bars: Red = &gt;80% utilisation · Green = &lt;50% · Amber = 50-80%</p>
+</div>
 <hr>
+
 <h2>3. Leave Request Submission — Staff Self-Service</h2>
-<pre><code>Staff opens their app → /staff/leave → &quot;Request Leave&quot;
-
-┌─────────────────────────────────────────────────────┐
-│  Request Leave                                       │
-│  ═════════════                                       │
-│                                                      │
-│  Leave Type:                                         │
-│  (●) Sick Leave    ( ) Personal    ( ) Emergency    │
-│                                                      │
-│  Date(s):                                            │
-│  ┌───────────────────┐  to  ┌───────────────────┐  │
-│  │ 21/05/2026   📅   │      │ 22/05/2026   📅   │  │
-│  └───────────────────┘      └───────────────────┘  │
-│  Duration: 2 days (Tue–Wed)                          │
-│                                                      │
-│  Reason (optional):                                  │
-│  ┌───────────────────────────────────────────────┐  │
-│  │ Fever, doctor advised rest                    │  │
-│  └───────────────────────────────────────────────┘  │
-│                                                      │
-│  ⚠️  You have 1 confirmed booking on 21 May.        │
-│     It will need to be reassigned if approved.      │
-│                                                      │
-│  ┌───────────────────────────────────────────────┐  │
-│  │         [ Submit Request ]                    │  │
-│  └───────────────────────────────────────────────┘  │
-│                                                      │
-└─────────────────────────────────────────────────────┘
-    │
-    ▼
-Leave request created with status: PENDING
-Push notification sent to receptionist/manager
-Ably: admin:leave event published</code></pre>
+<div class="modal-backdrop">
+  <div class="modal-box">
+    <h3 style="margin-top:0;">Request Leave</h3>
+    <div class="wire-card">
+      <strong>Leave Type:</strong><br>
+      <label><input type="radio" name="ltype" checked> Sick Leave</label>&nbsp;&nbsp;
+      <label><input type="radio" name="ltype"> Personal</label>&nbsp;&nbsp;
+      <label><input type="radio" name="ltype"> Emergency</label>
+    </div>
+    <div class="wire-card">
+      <strong>Date(s):</strong>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input class="wire-input" value="21/05/2026" style="width:auto;">
+        <span>to</span>
+        <input class="wire-input" value="22/05/2026" style="width:auto;">
+      </div>
+      <p style="font-size:13px;">Duration: 2 days (Tue–Wed)</p>
+    </div>
+    <div class="wire-card">
+      <strong>Reason (optional):</strong>
+      <textarea class="wire-input" rows="2">Fever, doctor advised rest</textarea>
+    </div>
+    <div class="wire-card" style="border-left:4px solid #F59E0B;">
+      <p style="margin:0;font-size:13px;">⚠️ You have 1 confirmed booking on 21 May. It will need to be reassigned if approved.</p>
+    </div>
+    <div style="text-align:center;margin-top:1rem;">
+      <span class="wire-btn wire-btn-primary" style="width:100%;display:block;">Submit Request</span>
+    </div>
+  </div>
+</div>
+<p>After submission: Leave request created with status PENDING · Push notification to receptionist/manager · Ably: admin:leave event published</p>
 <hr>
+
 <h2>4. Leave Approval — Receptionist View <code>/admin/leave</code></h2>
-<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
-│  Leave Requests                                                          │
-│  ══════════════                                                          │
-│                                                                          │
-│  [ Pending (2) ] [ Approved ] [ Rejected ] [ All ]                      │
-│  ═══════════════                                                         │
-│                                                                          │
-│  ┌───────────────────────────────────────────────────────────────────┐  │
-│  │  Meera — Sick Leave                                    PENDING    │  │
-│  │  21 May – 22 May 2026 (2 days)                                    │  │
-│  │  Reason: &quot;Fever, doctor advised rest&quot;                             │  │
-│  │                                                                    │  │
-│  │  ⚠️  CONFLICT: 1 confirmed booking on 21 May (Aisha K. 11:00 AM) │  │
-│  │     → Must be reassigned to another staff member                  │  │
-│  │                                                                    │  │
-│  │  [ ✓ Approve ]  [ ✕ Reject ]  [ 💬 Add Note ]                    │  │
-│  └───────────────────────────────────────────────────────────────────┘  │
-│                                                                          │
-│  ┌───────────────────────────────────────────────────────────────────┐  │
-│  │  Deepa — Personal Leave                               PENDING    │  │
-│  │  23 May 2026 (1 day)                                              │  │
-│  │  Reason: &quot;Family function&quot;                                        │  │
-│  │                                                                    │  │
-│  │  ✓ No booking conflicts                                          │  │
-│  │                                                                    │  │
-│  │  [ ✓ Approve ]  [ ✕ Reject ]  [ 💬 Add Note ]                    │  │
-│  └───────────────────────────────────────────────────────────────────┘  │
-│                                                                          │
-│  ─────────────────────────────────────────────────────────────────      │
-│                                                                          │
-│  Reject requires reason:                                                 │
-│  ┌───────────────────────────────────────────────────────────────┐      │
-│  │  Rejection Reason:                                             │      │
-│  │  ┌─────────────────────────────────────────────────────────┐  │      │
-│  │  │ Too many staff on leave that day. Please try Thu.       │  │      │
-│  │  └─────────────────────────────────────────────────────────┘  │      │
-│  │  [ Confirm Reject ]                                            │      │
-│  └───────────────────────────────────────────────────────────────┘      │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘</code></pre>
+<div class="section-card">
+  <h3 style="margin-top:0;">Leave Requests</h3>
+  <div style="display:flex;gap:8px;margin-bottom:1rem;">
+    <span class="wire-btn wire-btn-primary" style="padding:8px 16px;font-size:13px;">Pending (2)</span>
+    <span class="wire-btn wire-btn-outline" style="padding:8px 16px;font-size:13px;">Approved</span>
+    <span class="wire-btn wire-btn-outline" style="padding:8px 16px;font-size:13px;">Rejected</span>
+    <span class="wire-btn wire-btn-outline" style="padding:8px 16px;font-size:13px;">All</span>
+  </div>
+  <div class="wire-card" style="border-left:4px solid #F59E0B;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <strong>Meera — Sick Leave</strong>
+      <span class="wire-badge badge-pending">PENDING</span>
+    </div>
+    <p>21 May – 22 May 2026 (2 days)<br>Reason: "Fever, doctor advised rest"</p>
+    <p style="color:#EF4444;">⚠️ CONFLICT: 1 confirmed booking on 21 May (Aisha K. 11:00 AM)<br>→ Must be reassigned to another staff member</p>
+    <div style="display:flex;gap:8px;">
+      <span class="wire-btn wire-btn-success" style="padding:8px 16px;font-size:13px;">✓ Approve</span>
+      <span class="wire-btn wire-btn-danger" style="padding:8px 16px;font-size:13px;">✕ Reject</span>
+      <span class="wire-btn wire-btn-outline" style="padding:8px 16px;font-size:13px;">💬 Add Note</span>
+    </div>
+  </div>
+  <div class="wire-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <strong>Deepa — Personal Leave</strong>
+      <span class="wire-badge badge-pending">PENDING</span>
+    </div>
+    <p>23 May 2026 (1 day)<br>Reason: "Family function"</p>
+    <p style="color:#10B981;">✓ No booking conflicts</p>
+    <div style="display:flex;gap:8px;">
+      <span class="wire-btn wire-btn-success" style="padding:8px 16px;font-size:13px;">✓ Approve</span>
+      <span class="wire-btn wire-btn-danger" style="padding:8px 16px;font-size:13px;">✕ Reject</span>
+      <span class="wire-btn wire-btn-outline" style="padding:8px 16px;font-size:13px;">💬 Add Note</span>
+    </div>
+  </div>
+</div>
 <hr>
+
 <h2>5. Leave State Machine</h2>
-<pre><code>                Staff submits leave request
-                         │
-                         ▼
-                 ┌──────────────┐
-                 │   PENDING    │ ← Initial state
-                 └──────┬───────┘
-                        │
-            ┌───────────┼───────────────────┐
-            │           │                   │
-            ▼           ▼                   ▼
-    ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-    │   APPROVED   │  │   REJECTED   │  │  WITHDRAWN   │
-    └──────────────┘  └──────────────┘  └──────────────┘
-    (by receptionist/  (with reason,     (by staff before
-     manager)          staff notified)    approval decision)
-
-
-  TRANSITIONS:
-  ─────────────
-  pending → approved       Receptionist/Manager approves
-  pending → rejected       Receptionist/Manager rejects (reason required)
-  pending → withdrawn      Staff cancels own request before decision
-
-  POST-APPROVAL:
-  ──────────────
-  approved → schedule grid blocked for those dates
-  approved → conflicting bookings flagged for reassignment
-  approved → Ably: staff.marked_off published (schedule updates live)
-
-  CANNOT:
-  ───────
-  • Approve/reject after withdrawn
-  • Withdraw after approved (must cancel leave separately — manager only)
-  • Staff submit overlapping leave dates with existing approved leave</code></pre>
+<div class="flow-container">
+  <div class="flow-node trigger">Staff submits leave request</div>
+  <div class="flow-arrow"></div>
+  <div class="flow-node decision">PENDING <small>← Initial state</small></div>
+  <div class="flow-arrow"></div>
+  <div class="flow-branch">
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div class="flow-node success">APPROVED<br><small>(by receptionist/manager)</small></div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div class="flow-node error">REJECTED<br><small>(with reason, staff notified)</small></div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div class="flow-node end">WITHDRAWN<br><small>(by staff before decision)</small></div>
+    </div>
+  </div>
+</div>
+<div class="section-card">
+  <h4 style="margin-top:0;">Transitions:</h4>
+  <ul>
+    <li>pending → approved: Receptionist/Manager approves</li>
+    <li>pending → rejected: Receptionist/Manager rejects (reason required)</li>
+    <li>pending → withdrawn: Staff cancels own request before decision</li>
+  </ul>
+  <h4>Post-Approval:</h4>
+  <ul>
+    <li>Schedule grid blocked for those dates</li>
+    <li>Conflicting bookings flagged for reassignment</li>
+    <li>Ably: staff.marked_off published (schedule updates live)</li>
+  </ul>
+  <h4>Cannot:</h4>
+  <ul>
+    <li>Approve/reject after withdrawn</li>
+    <li>Withdraw after approved (must cancel leave separately — manager only)</li>
+    <li>Staff submit overlapping leave dates with existing approved leave</li>
+  </ul>
+</div>
 <hr>
+
 <h2>6. Direct Mark-Off Flow (Same-Day Absence)</h2>
-<pre><code>Staff calls in sick / doesn't show up (no prior leave request):
-
-Receptionist → /admin/schedule → clicks staff name → &quot;Mark Off Today&quot;
-
-┌─────────────────────────────────────────────────────┐
-│  Mark Staff Off — Same Day                           │
-│  ═════════════════════════                           │
-│                                                      │
-│  Staff: Meera                                        │
-│  Date: Today (24 May 2026)                          │
-│                                                      │
-│  Reason:                                             │
-│  (●) Sick — called in                               │
-│  ( ) No-show — did not inform                       │
-│  ( ) Emergency — sent home early                    │
-│  ( ) Other: _______________                         │
-│                                                      │
-│  ⚠️  Meera has 2 bookings today:                    │
-│                                                      │
-│  ┌───────────────────────────────────────────────┐  │
-│  │  11:00 — Aisha K. — Swedish Massage (60 min) │  │
-│  │  14:00 — Rahul M. — Deep Tissue (90 min)     │  │
-│  └───────────────────────────────────────────────┘  │
-│                                                      │
-│  These bookings must be:                             │
-│  (●) Reassigned to available staff                  │
-│  ( ) Cancelled and customer notified                │
-│                                                      │
-│  Reassign to:                                        │
-│  11:00 Aisha K. → [ Deepa         ▼ ]              │
-│  14:00 Rahul M. → [ Priya M.      ▼ ]              │
-│                                                      │
-│  [ Confirm Mark-Off ]                                │
-│                                                      │
-└─────────────────────────────────────────────────────┘
-    │
-    ▼
-Actions on confirm:
-  1. Leave record created (type: 'same_day', status: 'approved')
-  2. Schedule grid updated (Meera slots → blocked)
-  3. Bookings reassigned to selected staff
-  4. Push notifications sent to affected customers:
-     &quot;Your stylist for today has been changed to {newStaff}&quot;
-  5. Ably events: staff.marked_off, slot.reassigned</code></pre>
+<div class="modal-backdrop">
+  <div class="modal-box">
+    <h3 style="margin-top:0;">Mark Staff Off — Same Day</h3>
+    <p><strong>Staff:</strong> Meera<br><strong>Date:</strong> Today (24 May 2026)</p>
+    <div class="wire-card">
+      <strong>Reason:</strong><br>
+      <label><input type="radio" name="reason" checked> Sick — called in</label><br>
+      <label><input type="radio" name="reason"> No-show — did not inform</label><br>
+      <label><input type="radio" name="reason"> Emergency — sent home early</label><br>
+      <label><input type="radio" name="reason"> Other: ___</label>
+    </div>
+    <div class="wire-card" style="border-left:4px solid #F59E0B;">
+      <p style="margin:0;"><strong>⚠️ Meera has 2 bookings today:</strong></p>
+      <ul style="margin:8px 0;">
+        <li>11:00 — Aisha K. — Swedish Massage (60 min)</li>
+        <li>14:00 — Rahul M. — Deep Tissue (90 min)</li>
+      </ul>
+    </div>
+    <div class="wire-card">
+      <strong>These bookings must be:</strong><br>
+      <label><input type="radio" name="action" checked> Reassigned to available staff</label><br>
+      <label><input type="radio" name="action"> Cancelled and customer notified</label>
+      <p style="margin-top:8px;">Reassign to:<br>
+      11:00 Aisha K. → <select class="wire-input" style="width:auto;margin:4px 0;"><option>Deepa</option></select><br>
+      14:00 Rahul M. → <select class="wire-input" style="width:auto;margin:4px 0;"><option>Priya M.</option></select></p>
+    </div>
+    <div style="text-align:center;margin-top:1rem;">
+      <span class="wire-btn wire-btn-danger">Confirm Mark-Off</span>
+    </div>
+  </div>
+</div>
+<p>Actions on confirm:</p>
+<ol>
+  <li>Leave record created (type: 'same_day', status: 'approved')</li>
+  <li>Schedule grid updated (Meera slots → blocked)</li>
+  <li>Bookings reassigned to selected staff</li>
+  <li>Push notifications sent to affected customers</li>
+  <li>Ably events: staff.marked_off, slot.reassigned</li>
+</ol>
 <hr>
+
 <h2>7. Schedule Conflict Handling</h2>
-<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
-│  CONFLICT: Leave Approved → Existing Confirmed Bookings                  │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  Scenario: Meera has confirmed bookings on 21 May,                      │
-│            but her sick leave for 21–22 May is approved.                 │
-│                                                                          │
-│  System behavior:                                                        │
-│                                                                          │
-│  Leave approved                                                          │
-│       │                                                                  │
-│       ▼                                                                  │
-│  Scan bookings for staff on leave dates                                 │
-│       │                                                                  │
-│       ├── Confirmed bookings found? (Meera, 21 May, 11:00 — Aisha K.)  │
-│       │                                                                  │
-│       ▼                                                                  │
-│  ┌────────────────────────────────────────────────────────┐             │
-│  │  ⚠️  Booking Conflict Alert                            │             │
-│  │                                                         │             │
-│  │  Meera's leave was approved but she has:               │             │
-│  │  • 21 May 11:00 — Aisha K. (Swedish Massage)          │             │
-│  │                                                         │             │
-│  │  Action required:                                       │             │
-│  │  [ Reassign to: [Deepa ▼] ]   or   [ Cancel Booking ]  │             │
-│  │                                                         │             │
-│  └────────────────────────────────────────────────────────┘             │
-│                                                                          │
-│  This alert:                                                             │
-│  • Shows immediately after approval (modal on same page)                │
-│  • Also appears as persistent banner on /admin/schedule                 │
-│  • Push notification to receptionist if they navigate away              │
-│  • Cannot be dismissed until all conflicts resolved                     │
-│                                                                          │
-│  Resolution options:                                                     │
-│  ─────────────────                                                      │
-│  1. REASSIGN: Pick another available staff member                       │
-│     → Customer push: &quot;Stylist changed to {name}&quot;                        │
-│     → Booking stays confirmed                                           │
-│                                                                          │
-│  2. CANCEL: Cancel the booking                                          │
-│     → Customer push: &quot;Booking cancelled — staff unavailable&quot;            │
-│     → Customer email with &quot;Book Again&quot; CTA                              │
-│     → booking.status → 'cancelled'                                      │
-│     → cancel_reason: 'staff_unavailable'                                │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘</code></pre>
+<div class="section-card">
+  <h3 style="margin-top:0;">CONFLICT: Leave Approved → Existing Confirmed Bookings</h3>
+  <p>Scenario: Meera has confirmed bookings on 21 May, but her sick leave for 21–22 May is approved.</p>
+  <div class="flow-container">
+    <div class="flow-node trigger">Leave approved</div>
+    <div class="flow-arrow"></div>
+    <div class="flow-node process">Scan bookings for staff on leave dates</div>
+    <div class="flow-arrow"></div>
+    <div class="flow-node decision">Confirmed bookings found?<br><small>Meera, 21 May, 11:00 — Aisha K.</small></div>
+    <div class="flow-arrow"></div>
+    <div class="flow-node error" style="min-width:300px;">⚠️ Booking Conflict Alert<br><small>Action required: Reassign or Cancel</small></div>
+  </div>
+  <div class="wire-card" style="border-left:4px solid #EF4444;">
+    <p><strong>⚠️ Booking Conflict Alert</strong></p>
+    <p>Meera's leave was approved but she has:<br>• 21 May 11:00 — Aisha K. (Swedish Massage)</p>
+    <p>Action required:</p>
+    <div style="display:flex;gap:8px;">
+      <span class="wire-btn wire-btn-primary" style="font-size:13px;">Reassign to: <select style="border:none;background:transparent;color:white;font-weight:600;"><option>Deepa</option></select></span>
+      <span class="wire-btn wire-btn-danger" style="font-size:13px;">Cancel Booking</span>
+    </div>
+  </div>
+  <h4>Resolution options:</h4>
+  <ul>
+    <li><strong>REASSIGN:</strong> Pick another available staff → Customer push: "Stylist changed to {name}" → Booking stays confirmed</li>
+    <li><strong>CANCEL:</strong> Cancel the booking → Customer push + email with "Book Again" CTA → booking.status → 'cancelled' → cancel_reason: 'staff_unavailable'</li>
+  </ul>
+  <p style="font-size:13px;color:#6B6B6B;">This alert shows immediately after approval (modal on same page). Also appears as persistent banner on /admin/schedule. Cannot be dismissed until all conflicts resolved.</p>
+</div>
 <hr>
+
 <h2>8. Staff-Only View — <code>/staff/schedule</code></h2>
-<pre><code>┌─────────────────────────────────────────────────────┐
-│  My Schedule                                         │
-│  ═══════════                                         │
-│                                                      │
-│  Today: 24 May 2026 (Saturday)                      │
-│                                                      │
-│  ┌───────────────────────────────────────────────┐  │
-│  │  10:00 – 10:45                                │  │
-│  │  Priya Sharma — Classic Haircut              │  │
-│  │  Status: ● Confirmed                          │  │
-│  ├───────────────────────────────────────────────┤  │
-│  │  11:00 – 12:30                                │  │
-│  │  (Available)                                  │  │
-│  ├───────────────────────────────────────────────┤  │
-│  │  12:30 – 12:45                                │  │
-│  │  ▓▓ Buffer ▓▓                                │  │
-│  ├───────────────────────────────────────────────┤  │
-│  │  13:00 – 14:30                                │  │
-│  │  Aisha K. — Swedish Massage (90 min)         │  │
-│  │  Status: ● Confirmed                          │  │
-│  ├───────────────────────────────────────────────┤  │
-│  │  14:30 – 20:00                                │  │
-│  │  (Available)                                  │  │
-│  └───────────────────────────────────────────────┘  │
-│                                                      │
-│  ── My Leave ────────────────────────────────────── │
-│                                                      │
-│  ┌───────────────────────────────────────────────┐  │
-│  │  28 May — Personal — ● Approved               │  │
-│  ├───────────────────────────────────────────────┤  │
-│  │  15 Jun — Sick — ● Approved                   │  │
-│  ├───────────────────────────────────────────────┤  │
-│  │  20 Jun — Personal — ○ Pending                │  │
-│  │  [ Withdraw Request ]                         │  │
-│  └───────────────────────────────────────────────┘  │
-│                                                      │
-│  ┌───────────────────────────────────────────────┐  │
-│  │       [ + Request Leave ]                     │  │
-│  └───────────────────────────────────────────────┘  │
-│                                                      │
-└─────────────────────────────────────────────────────┘
-
-Staff can see:
-✓ Their own bookings (customer name, service, time)
-✓ Their own leave history and status
-✓ Submit new leave requests
-✓ Withdraw pending (not yet decided) requests
-
-Staff CANNOT see:
-✕ Other staff schedules
-✕ Customer phone/email
-✕ Booking financial details
-✕ Other staff leave requests
-✕ Approve/reject any leave</code></pre>
+<div class="phone-frame">
+  <div class="phone-notch"></div>
+  <div class="phone-screen">
+    <h3 style="margin-top:1rem;">My Schedule</h3>
+    <p>Today: 24 May 2026 (Saturday)</p>
+    <div class="wire-card"><strong>10:00 – 10:45</strong><br>Priya Sharma — Classic Haircut<br><span class="wire-badge badge-confirmed">● Confirmed</span></div>
+    <div class="wire-card" style="background:#f0fdf4;"><strong>11:00 – 12:30</strong><br>(Available)</div>
+    <div class="wire-card" style="background:#f3f4f6;color:#9CA3AF;"><strong>12:30 – 12:45</strong><br>Buffer</div>
+    <div class="wire-card"><strong>13:00 – 14:30</strong><br>Aisha K. — Swedish Massage (90 min)<br><span class="wire-badge badge-confirmed">● Confirmed</span></div>
+    <div class="wire-card" style="background:#f0fdf4;"><strong>14:30 – 20:00</strong><br>(Available)</div>
+    <hr>
+    <h4>My Leave</h4>
+    <div class="wire-card">28 May — Personal — <span class="wire-badge badge-confirmed">● Approved</span></div>
+    <div class="wire-card">15 Jun — Sick — <span class="wire-badge badge-confirmed">● Approved</span></div>
+    <div class="wire-card">20 Jun — Personal — <span class="wire-badge badge-pending">○ Pending</span><br><span class="wire-btn wire-btn-outline" style="padding:6px 12px;font-size:12px;margin-top:8px;">Withdraw Request</span></div>
+    <div style="text-align:center;margin-top:1rem;">
+      <span class="wire-btn wire-btn-primary">+ Request Leave</span>
+    </div>
+  </div>
+</div>
+<p><strong>Staff can see:</strong> Their own bookings, leave history, submit new leave, withdraw pending requests.<br><strong>Staff CANNOT see:</strong> Other staff schedules, customer phone/email, booking financials, other staff leave, approve/reject.</p>
 <hr>
+
 <h2>9. Ably Realtime Updates on Schedule</h2>
-<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
-│  REALTIME SCHEDULE EVENTS (Ably channels)                                │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  Channel: admin:schedule                                                 │
-│  Subscribers: All admin users viewing /admin/schedule                   │
-│                                                                          │
-│  Event              │ Trigger                   │ UI Effect              │
-│  ──────────────────┼───────────────────────────┼────────────────────── │
-│  slot.booked        │ Booking confirmed         │ Slot fills with       │
-│                     │ (staff assigned to slot)   │ customer name +       │
-│                     │                           │ colour (animated)     │
-│                     │                           │                        │
-│  slot.released      │ Booking cancelled or      │ Slot returns to       │
-│                     │ rescheduled away          │ &quot;available&quot; (fade out)│
-│                     │                           │                        │
-│  staff.marked_off   │ Leave approved or         │ Full row turns to     │
-│                     │ same-day mark-off         │ LEAVE state (dark     │
-│                     │                           │ overlay slides in)    │
-│                     │                           │                        │
-│  leave.approved     │ Leave request approved    │ Future date rows      │
-│                     │                           │ pre-marked (if in     │
-│                     │                           │ current view range)   │
-│                     │                           │                        │
-│  slot.reassigned    │ Booking moved to          │ Old slot releases,    │
-│                     │ different staff           │ new slot fills        │
-│                     │                           │ (simultaneous)        │
-│                                                                          │
-│  Payload example (slot.booked):                                          │
-│  {                                                                       │
-│    &quot;event&quot;: &quot;slot.booked&quot;,                                              │
-│    &quot;staffId&quot;: &quot;staff_meera_001&quot;,                                        │
-│    &quot;date&quot;: &quot;2026-05-24&quot;,                                                │
-│    &quot;startTime&quot;: &quot;11:00&quot;,                                                │
-│    &quot;endTime&quot;: &quot;12:30&quot;,                                                  │
-│    &quot;customerName&quot;: &quot;Aisha K.&quot;,                                          │
-│    &quot;service&quot;: &quot;Swedish Massage&quot;,                                        │
-│    &quot;bookingId&quot;: &quot;bk_abc123&quot;                                             │
-│  }                                                                       │
-│                                                                          │
-│  Animation spec:                                                         │
-│  • slot.booked: empty cell → colour fill slides from left (200ms)       │
-│  • slot.released: colour fades out + shrink (150ms)                     │
-│  • staff.marked_off: dark overlay slides down row (300ms)               │
-│  • slot.reassigned: cross-fade between old/new staff rows (250ms)       │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘</code></pre>
+<div class="section-card">
+  <h3 style="margin-top:0;">Realtime Schedule Events (Ably channels)</h3>
+  <p><strong>Channel:</strong> admin:schedule<br><strong>Subscribers:</strong> All admin users viewing /admin/schedule</p>
+  <table>
+    <thead><tr><th>Event</th><th>Trigger</th><th>UI Effect</th></tr></thead>
+    <tbody>
+      <tr><td>slot.booked</td><td>Booking confirmed (staff assigned to slot)</td><td>Slot fills with customer name + colour (animated)</td></tr>
+      <tr><td>slot.released</td><td>Booking cancelled or rescheduled away</td><td>Slot returns to "available" (fade out)</td></tr>
+      <tr><td>staff.marked_off</td><td>Leave approved or same-day mark-off</td><td>Full row turns to LEAVE state (dark overlay slides in)</td></tr>
+      <tr><td>leave.approved</td><td>Leave request approved</td><td>Future date rows pre-marked (if in current view range)</td></tr>
+      <tr><td>slot.reassigned</td><td>Booking moved to different staff</td><td>Old slot releases, new slot fills (simultaneous)</td></tr>
+    </tbody>
+  </table>
+  <h4>Payload example (slot.booked):</h4>
+  <pre><code>{
+  "event": "slot.booked",
+  "staffId": "staff_meera_001",
+  "date": "2026-05-24",
+  "startTime": "11:00",
+  "endTime": "12:30",
+  "customerName": "Aisha K.",
+  "service": "Swedish Massage",
+  "bookingId": "bk_abc123"
+}</code></pre>
+  <h4>Animation spec:</h4>
+  <ul>
+    <li>slot.booked: empty cell → colour fill slides from left (200ms)</li>
+    <li>slot.released: colour fades out + shrink (150ms)</li>
+    <li>staff.marked_off: dark overlay slides down row (300ms)</li>
+    <li>slot.reassigned: cross-fade between old/new staff rows (250ms)</li>
+  </ul>
+</div>
 
 </body>
 </html>

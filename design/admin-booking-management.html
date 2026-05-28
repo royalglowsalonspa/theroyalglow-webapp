@@ -22,426 +22,431 @@
   li { margin: 0.3rem 0; }
   a { color: #c8a961; text-decoration: none; }
   a:hover { text-decoration: underline; }
+
+  .flow-container { display: flex; flex-direction: column; align-items: center; gap: 0; margin: 2rem 0; }
+  .flow-node { padding: 14px 24px; border-radius: 12px; font-weight: 500; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); min-width: 180px; }
+  .flow-node.trigger { background: #C8A961; color: white; }
+  .flow-node.process { background: white; border: 2px solid #e5e5e5; border-left: 4px solid #C8A961; }
+  .flow-node.decision { background: #FEF3C7; border: 2px solid #F59E0B; }
+  .flow-node.success { background: #D1FAE5; border: 2px solid #10B981; color: #065F46; }
+  .flow-node.error { background: #FEE2E2; border: 2px solid #EF4444; color: #991B1B; }
+  .flow-node.end { background: #1a1a1a; color: white; }
+  .flow-arrow { width: 2px; height: 32px; background: #C8A961; position: relative; margin: 0 auto; }
+  .flow-arrow::after { content: ''; position: absolute; bottom: -6px; left: -5px; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #C8A961; }
+  .flow-arrow-right { width: 40px; height: 2px; background: #C8A961; position: relative; display: inline-block; vertical-align: middle; }
+  .flow-arrow-right::after { content: ''; position: absolute; right: -6px; top: -5px; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 8px solid #C8A961; }
+  .flow-branch { display: flex; gap: 2rem; justify-content: center; }
+  .flow-label { font-size: 12px; color: #6B6B6B; text-align: center; margin-top: 4px; }
+  .flow-row { display: flex; align-items: center; justify-content: center; gap: 1.5rem; }
+
+  .phone-frame { width: 375px; border: 3px solid #1a1a1a; border-radius: 40px; padding: 12px; margin: 2rem auto; background: white; box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
+  .phone-screen { border-radius: 28px; overflow: hidden; min-height: 500px; background: #FFFDF7; padding: 16px; }
+  .phone-notch { width: 150px; height: 24px; background: #1a1a1a; border-radius: 0 0 12px 12px; margin: 0 auto; }
+  .wire-btn { padding: 12px 24px; border-radius: 999px; font-weight: 600; text-align: center; cursor: pointer; border: none; display: inline-block; margin: 4px; }
+  .wire-btn-primary { background: #C8A961; color: white; }
+  .wire-btn-outline { border: 2px solid #C8A961; color: #C8A961; background: white; }
+  .wire-btn-danger { background: #EF4444; color: white; }
+  .wire-btn-success { background: #10B981; color: white; }
+  .wire-input { width: 100%; padding: 12px 16px; border: 1px solid #e5e5e5; border-radius: 12px; font-size: 14px; margin: 8px 0; box-sizing: border-box; }
+  .wire-card { background: white; border: 1px solid #f0f0f0; border-radius: 12px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+  .wire-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 500; }
+  .badge-pending { background: #FEF3C7; color: #92400E; }
+  .badge-confirmed { background: #D1FAE5; color: #065F46; }
+  .badge-completed { background: #F3F4F6; color: #374151; }
+  .badge-active { background: #DBEAFE; color: #1E40AF; }
+  .badge-expired { background: #FEE2E2; color: #991B1B; }
+
+  .section-card { background: white; border: 1px solid #f0f0f0; border-radius: 16px; padding: 2rem; margin: 1.5rem 0; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; }
+  .timeline { display: flex; flex-direction: column; gap: 0; padding: 1rem 0; }
+  .timeline-step { display: flex; align-items: flex-start; gap: 12px; position: relative; padding-bottom: 24px; }
+  .timeline-step:not(:last-child)::before { content: ''; position: absolute; left: 11px; top: 24px; bottom: 0; width: 2px; background: #e5e5e5; }
+  .timeline-dot { width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0; }
+  .timeline-dot.active { background: #C8A961; }
+  .timeline-dot.completed { background: #10B981; }
+  .timeline-dot.error { background: #EF4444; }
+  .timeline-dot.pending { background: #F59E0B; }
+  .timeline-dot.grey { background: #9CA3AF; }
+  .steps { display: flex; align-items: center; justify-content: center; gap: 0; margin: 1.5rem 0; }
+  .step-dot { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; }
+  .step-dot.active { background: #C8A961; color: white; }
+  .step-dot.completed { background: #10B981; color: white; }
+  .step-dot.future { border: 2px solid #e5e5e5; color: #9CA3AF; }
+  .step-line { width: 60px; height: 2px; background: #e5e5e5; }
+  .step-line.completed { background: #10B981; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin: 1rem 0; }
+  .kpi-card { background: white; border: 1px solid #f0f0f0; border-radius: 12px; padding: 16px; text-align: center; }
+  .kpi-card .value { font-size: 24px; font-weight: 700; color: #1a1a1a; }
+  .kpi-card .label { font-size: 12px; color: #6B6B6B; margin-top: 4px; }
+  .progress-bar { height: 12px; background: #e5e5e5; border-radius: 999px; overflow: hidden; margin: 8px 0; }
+  .progress-bar .fill { height: 100%; background: #C8A961; border-radius: 999px; }
+  .schedule-grid { display: grid; grid-template-columns: 80px repeat(7, 1fr); gap: 2px; font-size: 12px; margin: 1rem 0; }
+  .schedule-grid .header { background: #f9fafb; padding: 8px; font-weight: 600; text-align: center; border-radius: 4px; }
+  .schedule-grid .cell { padding: 8px; text-align: center; border-radius: 4px; min-height: 40px; display: flex; align-items: center; justify-content: center; }
+  .schedule-grid .cell.available { background: #f0fdf4; border: 1px solid #d1fae5; }
+  .schedule-grid .cell.booked { background: #FEF3C7; border: 1px solid #F59E0B; color: #92400E; }
+  .schedule-grid .cell.leave { background: #374151; color: white; }
+  .schedule-grid .cell.buffer { background: #f3f4f6; color: #9CA3AF; }
+  .kanban-board { display: flex; gap: 12px; overflow-x: auto; padding: 1rem 0; }
+  .kanban-column { min-width: 180px; background: #f9fafb; border-radius: 12px; padding: 12px; }
+  .kanban-column h4 { font-size: 13px; margin: 0 0 8px; color: #6B6B6B; }
+  .kanban-card { background: white; border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px; margin-bottom: 8px; font-size: 13px; }
+  .modal-backdrop { background: rgba(0,0,0,0.4); border-radius: 12px; padding: 3rem; display: flex; align-items: center; justify-content: center; margin: 2rem 0; }
+  .modal-box { background: white; border-radius: 16px; padding: 2rem; max-width: 500px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
 </style>
 </head>
 <body>
 <h1>Admin Booking Management — Design Reference</h1>
 <blockquote><p>The receptionist/manager workflow for handling bookings: reviewing pending requests, approving/rejecting, assigning staff, managing the checkout flow, and handling no-shows. This is the most-used admin feature.</p></blockquote>
 <hr>
+
 <h2>1. Admin Booking Lifecycle (Receptionist Perspective)</h2>
-<pre><code>New booking notification arrives (Ably push)
-    │
-    ▼
-┌──────────────────┐
-│ Admin Dashboard   │  ← &quot;Pending Bookings: 3&quot; badge updates live
-│ /admin            │
-└────────┬─────────┘
-         │
-         │ Clicks pending booking
-         ▼
-┌──────────────────────────────────────────────────────────────────┐
-│ /admin/bookings/[id]  — PENDING STATE                            │
-│                                                                   │
-│  Actions available:                                               │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │                                                            │  │
-│  │  1. REVIEW booking details (customer, services, time)      │  │
-│  │  2. ASSIGN staff to each service (dropdown per service)    │  │
-│  │  3. APPROVE → status becomes 'confirmed'                   │  │
-│  │     OR                                                     │  │
-│  │  4. REJECT → must provide reason → status 'rejected'       │  │
-│  │                                                            │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                                                                   │
-└──────────────────────────────────────────────────────────────────┘
-         │
-    ┌────┴────┐
-    ▼         ▼
-APPROVED    REJECTED
-    │         │
-    │         └── Customer sees reason
-    │             Email: booking-rejected.tsx
-    │             Push notification sent
-    │             Flow ends here
-    │
-    ▼ (Customer arrives at salon)
-┌──────────────────┐
-│ Mark In Progress  │  ← Receptionist taps when customer checks in
-└────────┬─────────┘
-         │
-         ▼ (Service completed)
-┌──────────────────┐
-│ Mark Completed    │  ← Opens checkout panel
-│ (Checkout Flow)   │
-└────────┬─────────┘
-         │
-         ├── Apply offer? (optional, max 1/customer/day)
-         ├── Select payment method: Cash / UPI / Card
-         ├── Review invoice preview
-         ├── Click &quot;Complete &amp; Generate Invoice&quot;
-         │
-         ▼
-┌──────────────────┐
-│ COMPLETED         │  → Invoice PDF generated
-└──────────────────┘  → Email sent to customer
-                      → Gems awarded
-                      → Meta CAPI Purchase fired
-                      → Brevo contact updated</code></pre>
+<div class="flow-container">
+  <div class="flow-node trigger">New booking notification arrives (Ably push)</div>
+  <div class="flow-arrow"></div>
+  <div class="flow-node process">Admin Dashboard /admin<br><small>"Pending Bookings: 3" badge updates live</small></div>
+  <div class="flow-arrow"></div>
+  <div class="flow-node process">/admin/bookings/[id] — PENDING STATE<br><small>1. Review details · 2. Assign staff · 3. Approve or 4. Reject</small></div>
+  <div class="flow-arrow"></div>
+  <div class="flow-branch">
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div class="flow-node success">APPROVED</div>
+      <div class="flow-arrow"></div>
+      <div class="flow-node process">Mark In Progress<br><small>Receptionist taps when customer checks in</small></div>
+      <div class="flow-arrow"></div>
+      <div class="flow-node process">Mark Completed (Checkout Flow)<br><small>Apply offer · Payment method · Review invoice</small></div>
+      <div class="flow-arrow"></div>
+      <div class="flow-node end">COMPLETED<br><small>Invoice PDF · Email · Gems · Meta CAPI · Brevo</small></div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div class="flow-node error">REJECTED</div>
+      <div class="flow-label">Customer sees reason<br>Email: booking-rejected.tsx<br>Push notification sent<br>Flow ends here</div>
+    </div>
+  </div>
+</div>
 <hr>
+
 <h2>2. Admin Bookings List — <code>/admin/bookings</code></h2>
 <h3>Desktop Wireframe</h3>
-<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
-│  All Bookings                                               [ + Walk-in ]│
-│  ═══════════                                                             │
-│                                                                          │
-│  Filters:                                                                │
-│  ┌────────────┐ ┌────────────┐ ┌──────────┐ ┌─────────┐ ┌──────────┐ │
-│  │Status    ▼ │ │Date Range ▼│ │Staff   ▼ │ │All|Sal|SP│ │🔍 Search │ │
-│  └────────────┘ └────────────┘ └──────────┘ └─────────┘ └──────────┘ │
-│                                                                          │
-│  ┌──────────┬───────────┬──────────┬──────────┬────────┬───────┬─────┐ │
-│  │ Booking# │ Customer  │ Date/Time│ Services │ Status │ Staff │ ₹   │ │
-│  ├──────────┼───────────┼──────────┼──────────┼────────┼───────┼─────┤ │
-│  │ BK..8291 │ Priya S.  │ 24/05 ·  │ Facial,  │●Pending│ —     │1,300│ │
-│  │          │           │ 15:30    │ Waxing   │        │       │     │ │
-│  ├──────────┼───────────┼──────────┼──────────┼────────┼───────┼─────┤ │
-│  │ BK..1023 │ Aisha K.  │ 24/05 ·  │ Swedish  │●Confir-│Meera  │2,500│ │
-│  │          │           │ 11:00    │ Massage  │ med    │       │     │ │
-│  ├──────────┼───────────┼──────────┼──────────┼────────┼───────┼─────┤ │
-│  │ BK..7042 │ Rahul M.  │ 23/05 ·  │ Haircut  │●Comple-│Anjali │  500│ │
-│  │          │           │ 14:00    │          │ ted    │       │     │ │
-│  └──────────┴───────────┴──────────┴──────────┴────────┴───────┴─────┘ │
-│                                                                          │
-│  ← 1 2 3 ... 12 →                                                       │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
-
-Row click → navigates to /admin/bookings/[id]
-Status badges use colour scheme from README.md
-New rows appear at top with slide-down animation (Ably live)</code></pre>
+<div class="section-card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+    <h3 style="margin:0;">All Bookings</h3>
+    <span class="wire-btn wire-btn-primary">+ Walk-in</span>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem;">
+    <select class="wire-input" style="width:auto;min-width:120px;"><option>Status ▼</option></select>
+    <select class="wire-input" style="width:auto;min-width:130px;"><option>Date Range ▼</option></select>
+    <select class="wire-input" style="width:auto;min-width:110px;"><option>Staff ▼</option></select>
+    <select class="wire-input" style="width:auto;min-width:120px;"><option>All | Sal | SP</option></select>
+    <input class="wire-input" style="width:auto;min-width:150px;" placeholder="🔍 Search">
+  </div>
+  <table>
+    <thead><tr><th>Booking#</th><th>Customer</th><th>Date/Time</th><th>Services</th><th>Status</th><th>Staff</th><th>₹</th></tr></thead>
+    <tbody>
+      <tr><td>BK..8291</td><td>Priya S.</td><td>24/05 · 15:30</td><td>Facial, Waxing</td><td><span class="wire-badge badge-pending">● Pending</span></td><td>—</td><td>1,300</td></tr>
+      <tr><td>BK..1023</td><td>Aisha K.</td><td>24/05 · 11:00</td><td>Swedish Massage</td><td><span class="wire-badge badge-confirmed">● Confirmed</span></td><td>Meera</td><td>2,500</td></tr>
+      <tr><td>BK..7042</td><td>Rahul M.</td><td>23/05 · 14:00</td><td>Haircut</td><td><span class="wire-badge badge-completed">● Completed</span></td><td>Anjali</td><td>500</td></tr>
+    </tbody>
+  </table>
+  <p style="text-align:center;color:#6B6B6B;">← 1 2 3 ... 12 →</p>
+  <p style="font-size:13px;color:#6B6B6B;">Row click → navigates to /admin/bookings/[id]<br>Status badges use colour scheme from README.md<br>New rows appear at top with slide-down animation (Ably live)</p>
+</div>
 <hr>
+
 <h2>3. Booking Detail — Pending State (Admin View)</h2>
-<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
-│  ← Back to Bookings         Booking #BKRS2605H38291                      │
-│  ═══════════════════════════════════════════════                          │
-│                                                                          │
-│  ┌─ Customer Info ──────────────────────────────────────────────────┐   │
-│  │  Priya Sharma · 📞 +91 98765 43210 · priya@gmail.com            │   │
-│  │  Tags: [Frequent] [VIP]    No-shows: 0    Source: organic        │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  ┌─ Booking Info ───────────────────────────────────────────────────┐   │
-│  │  Date: 24 May 2026 (Saturday)    Time: 03:30 PM                  │   │
-│  │  Type: Salon                      Branch: Rayasandra              │   │
-│  │  Status: ● Pending                Walk-in: No                     │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  ┌─ Services &amp; Staff Assignment ────────────────────────────────────┐   │
-│  │                                                                   │   │
-│  │  Service              Duration    Price     Assign Staff          │   │
-│  │  ─────────────────────────────────────────────────────────────   │   │
-│  │  Classic Facial       45 min      ₹500     [Anjali         ▼]   │   │
-│  │  Waxing Full Arms     30 min      ₹800     [Priya M.       ▼]   │   │
-│  │                                                                   │   │
-│  │  Total: ₹1,300.00 (incl. GST)                                   │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  ┌─ Notes ──────────────────────────────────────────────────────────┐   │
-│  │  Customer note: &quot;Prefer Anjali for facial if available&quot;           │   │
-│  │                                                                   │   │
-│  │  Add note: [________________________________] [Add]               │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                                                                   │   │
-│  │   [ Approve ✓ ]                    [ Reject ✕ ]                  │   │
-│  │   (green, primary)                  (red, outline)                │   │
-│  │                                                                   │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘</code></pre>
+<div class="section-card">
+  <p style="color:#6B6B6B;">← Back to Bookings</p>
+  <h3>Booking #BKRS2605H38291</h3>
+  <div class="wire-card">
+    <h4 style="margin-top:0;">Customer Info</h4>
+    <p>Priya Sharma · 📞 +91 98765 43210 · priya@gmail.com</p>
+    <p>Tags: <span class="wire-badge badge-active">Frequent</span> <span class="wire-badge badge-confirmed">VIP</span> &nbsp; No-shows: 0 &nbsp; Source: organic</p>
+  </div>
+  <div class="wire-card">
+    <h4 style="margin-top:0;">Booking Info</h4>
+    <p>Date: 24 May 2026 (Saturday) &nbsp; Time: 03:30 PM<br>Type: Salon &nbsp; Branch: Rayasandra<br>Status: <span class="wire-badge badge-pending">● Pending</span> &nbsp; Walk-in: No</p>
+  </div>
+  <div class="wire-card">
+    <h4 style="margin-top:0;">Services &amp; Staff Assignment</h4>
+    <table>
+      <thead><tr><th>Service</th><th>Duration</th><th>Price</th><th>Assign Staff</th></tr></thead>
+      <tbody>
+        <tr><td>Classic Facial</td><td>45 min</td><td>₹500</td><td><select class="wire-input" style="width:auto;margin:0;"><option>Anjali</option></select></td></tr>
+        <tr><td>Waxing Full Arms</td><td>30 min</td><td>₹800</td><td><select class="wire-input" style="width:auto;margin:0;"><option>Priya M.</option></select></td></tr>
+      </tbody>
+    </table>
+    <p><strong>Total: ₹1,300.00 (incl. GST)</strong></p>
+  </div>
+  <div class="wire-card">
+    <h4 style="margin-top:0;">Notes</h4>
+    <p style="font-style:italic;">Customer note: "Prefer Anjali for facial if available"</p>
+    <div style="display:flex;gap:8px;"><input class="wire-input" placeholder="Add note..."><span class="wire-btn wire-btn-outline">Add</span></div>
+  </div>
+  <div style="display:flex;gap:1rem;justify-content:center;margin-top:1.5rem;">
+    <span class="wire-btn wire-btn-success">Approve ✓</span>
+    <span class="wire-btn wire-btn-danger">Reject ✕</span>
+  </div>
+</div>
 <hr>
+
 <h2>4. Reject Modal</h2>
-<pre><code>When receptionist clicks &quot;Reject ✕&quot;:
-
-┌─────────────────────────────────────────────┐
-│                                             │
-│  Reject Booking?                            │
-│  ───────────────                            │
-│                                             │
-│  #BKRS2605H38291 — Priya Sharma            │
-│  24 May 2026 · 03:30 PM                    │
-│                                             │
-│  Reason (required):                         │
-│  ┌─────────────────────────────────────┐   │
-│  │ Staff unavailable for selected      │   │
-│  │ time slot. Please try 4:00 PM      │   │
-│  │ or another day.                     │   │
-│  └─────────────────────────────────────┘   │
-│                                             │
-│  ⚠️  The customer will see this reason      │
-│     in their booking detail and email.      │
-│                                             │
-│  [ Cancel ]          [ Confirm Rejection ]  │
-│                      (red, destructive)     │
-│                                             │
-└─────────────────────────────────────────────┘
-
-After rejection:
-  → Booking status → 'rejected'
-  → Email: booking-rejected.tsx sent to customer
-  → Push notification to customer
-  → Ably: customer channel + admin channel updated
-  → Slot released (was never truly blocked in pending)</code></pre>
+<div class="modal-backdrop">
+  <div class="modal-box">
+    <h3 style="margin-top:0;">Reject Booking?</h3>
+    <p>#BKRS2605H38291 — Priya Sharma<br>24 May 2026 · 03:30 PM</p>
+    <label><strong>Reason (required):</strong></label>
+    <textarea class="wire-input" rows="3" style="resize:vertical;">Staff unavailable for selected time slot. Please try 4:00 PM or another day.</textarea>
+    <p style="font-size:13px;color:#92400E;">⚠️ The customer will see this reason in their booking detail and email.</p>
+    <div style="display:flex;gap:1rem;justify-content:flex-end;margin-top:1rem;">
+      <span class="wire-btn wire-btn-outline">Cancel</span>
+      <span class="wire-btn wire-btn-danger">Confirm Rejection</span>
+    </div>
+  </div>
+</div>
+<p>After rejection:</p>
+<ul>
+  <li>Booking status → 'rejected'</li>
+  <li>Email: booking-rejected.tsx sent to customer</li>
+  <li>Push notification to customer</li>
+  <li>Ably: customer channel + admin channel updated</li>
+  <li>Slot released (was never truly blocked in pending)</li>
+</ul>
 <hr>
+
 <h2>5. Confirmed State — Receptionist Actions</h2>
-<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
-│  Booking #BKRS2605H38291           Status: ● Confirmed                   │
-│                                                                          │
-│  ┌─ Actions ────────────────────────────────────────────────────────┐   │
-│  │                                                                   │   │
-│  │  [ Mark In Progress ]  [ Reschedule ]  [ Cancel ]  [ No-Show ]  │   │
-│  │  (blue, primary)       (outline)       (outline)   (red outline) │   │
-│  │                                                                   │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  Timeline:                                                               │
-│  ● Submitted ─── 24 May, 10:15 AM (by customer)                        │
-│  ● Confirmed ─── 24 May, 10:32 AM (by Reception — Anjali assigned)     │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘</code></pre>
+<div class="section-card">
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <h3 style="margin:0;">Booking #BKRS2605H38291</h3>
+    <span class="wire-badge badge-confirmed">● Confirmed</span>
+  </div>
+  <div class="wire-card">
+    <h4 style="margin-top:0;">Actions</h4>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <span class="wire-btn wire-btn-primary">Mark In Progress</span>
+      <span class="wire-btn wire-btn-outline">Reschedule</span>
+      <span class="wire-btn wire-btn-outline">Cancel</span>
+      <span class="wire-btn wire-btn-danger">No-Show</span>
+    </div>
+  </div>
+  <h4>Timeline:</h4>
+  <div class="timeline">
+    <div class="timeline-step"><div class="timeline-dot completed"></div><div>Submitted — 24 May, 10:15 AM (by customer)</div></div>
+    <div class="timeline-step"><div class="timeline-dot completed"></div><div>Confirmed — 24 May, 10:32 AM (by Reception — Anjali assigned)</div></div>
+  </div>
+</div>
 <hr>
+
 <h2>6. In Progress → Checkout Flow</h2>
-<pre><code>Receptionist clicks &quot;Mark Completed&quot; (service is done):
+<div class="section-card">
+  <h3 style="margin-top:0;">Checkout — #BKRS2605H38291</h3>
+  <div class="wire-card">
+    <h4 style="margin-top:0;">Invoice Preview</h4>
+    <table>
+      <thead><tr><th>Service</th><th>Staff</th><th>Duration</th><th>Price</th></tr></thead>
+      <tbody>
+        <tr><td>Classic Facial</td><td>Anjali</td><td>45 min</td><td>₹500.00</td></tr>
+        <tr><td>Waxing Full Arms</td><td>Priya M.</td><td>30 min</td><td>₹800.00</td></tr>
+      </tbody>
+      <tfoot>
+        <tr><td colspan="3">Subtotal</td><td>₹1,101.69</td></tr>
+        <tr><td colspan="3">GST 18% (SAC 999721)</td><td>₹198.31</td></tr>
+        <tr style="font-weight:700;"><td colspan="3">Total</td><td>₹1,300.00</td></tr>
+      </tfoot>
+    </table>
+  </div>
+  <div class="wire-card">
+    <h4 style="margin-top:0;">Apply Offer (optional)</h4>
+    <select class="wire-input">
+      <option>No offer</option>
+      <option>20% off Facials (valid until 31/05)</option>
+      <option>₹500 off Hair Treatment (valid until 15/06)</option>
+    </select>
+  </div>
+  <div class="wire-card">
+    <h4 style="margin-top:0;">Payment Method</h4>
+    <label style="margin-right:1rem;"><input type="radio" name="pay" checked> Cash</label>
+    <label style="margin-right:1rem;"><input type="radio" name="pay"> UPI</label>
+    <label><input type="radio" name="pay"> Card</label>
+  </div>
+  <div style="text-align:center;margin-top:1.5rem;">
+    <span class="wire-btn wire-btn-success" style="width:100%;display:block;">Complete &amp; Generate Invoice</span>
+  </div>
+  <p style="text-align:center;font-size:13px;color:#6B6B6B;">⟳ Generating invoice... (spinner shown after click, 2-3 seconds)</p>
+</div>
 
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Checkout — #BKRS2605H38291                                              │
-│  ═══════════════════════════                                             │
-│                                                                          │
-│  ┌─ Invoice Preview ────────────────────────────────────────────────┐   │
-│  │                                                                   │   │
-│  │  Service                Staff          Duration      Price        │   │
-│  │  ───────────────────────────────────────────────────────────────  │   │
-│  │  Classic Facial         Anjali         45 min        ₹500.00     │   │
-│  │  Waxing Full Arms       Priya M.       30 min        ₹800.00     │   │
-│  │                                                                   │   │
-│  │  ─────────────────────────────────────────────────────────────── │   │
-│  │  Subtotal                                            ₹1,101.69   │   │
-│  │  GST 18% (SAC 999721)                               ₹  198.31   │   │
-│  │  ═══════════════════════════════════════════════════════════════  │   │
-│  │  Total                                               ₹1,300.00   │   │
-│  │                                                                   │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  ┌─ Apply Offer (optional) ─────────────────────────────────────────┐   │
-│  │  [ No offer        ▼ ]                                            │   │
-│  │  ┌──────────────────────────────────────────────────────────┐    │   │
-│  │  │ No offer                                                  │    │   │
-│  │  │ 20% off Facials (valid until 31/05)                      │    │   │
-│  │  │ ₹500 off Hair Treatment (valid until 15/06)              │    │   │
-│  │  └──────────────────────────────────────────────────────────┘    │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  ┌─ Payment Method ─────────────────────────────────────────────────┐   │
-│  │                                                                   │   │
-│  │  (●) Cash     ( ) UPI     ( ) Card                               │   │
-│  │                                                                   │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │         [ Complete &amp; Generate Invoice ]                           │   │
-│  │         (green, primary, full-width)                              │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  ⟳ Generating invoice... (spinner shown after click, 2-3 seconds)       │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘</code></pre>
 <h3>After Checkout Completes:</h3>
-<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
-│  Booking #BKRS2605H38291           Status: ● Completed                   │
-│                                                                          │
-│  ┌─ Actions ────────────────────────────────────────────────────────┐   │
-│  │  [ View Invoice PDF ]     [ Resend Invoice Email ]               │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  ✓ Invoice #INV1262XXXXX generated                                      │
-│  ✓ Email sent to priya.sharma@gmail.com                                 │
-│  ✓ +13 gems awarded (balance: 55)                                       │
-│                                                                          │
-│  Timeline:                                                               │
-│  ● Submitted ─── 24 May, 10:15 AM                                      │
-│  ● Confirmed ─── 24 May, 10:32 AM                                      │
-│  ● In Progress── 24 May, 03:30 PM                                      │
-│  ● Completed ─── 24 May, 04:45 PM (Invoice: #INV1262XXXXX)             │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘</code></pre>
+<div class="section-card">
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <h3 style="margin:0;">Booking #BKRS2605H38291</h3>
+    <span class="wire-badge badge-completed">● Completed</span>
+  </div>
+  <div style="display:flex;gap:8px;margin:1rem 0;">
+    <span class="wire-btn wire-btn-outline">View Invoice PDF</span>
+    <span class="wire-btn wire-btn-outline">Resend Invoice Email</span>
+  </div>
+  <ul>
+    <li>✓ Invoice #INV1262XXXXX generated</li>
+    <li>✓ Email sent to priya.sharma@gmail.com</li>
+    <li>✓ +13 gems awarded (balance: 55)</li>
+  </ul>
+  <h4>Timeline:</h4>
+  <div class="timeline">
+    <div class="timeline-step"><div class="timeline-dot completed"></div><div>Submitted — 24 May, 10:15 AM</div></div>
+    <div class="timeline-step"><div class="timeline-dot completed"></div><div>Confirmed — 24 May, 10:32 AM</div></div>
+    <div class="timeline-step"><div class="timeline-dot completed"></div><div>In Progress — 24 May, 03:30 PM</div></div>
+    <div class="timeline-step"><div class="timeline-dot completed"></div><div>Completed — 24 May, 04:45 PM (Invoice: #INV1262XXXXX)</div></div>
+  </div>
+</div>
 <hr>
+
 <h2>7. No-Show Flow</h2>
-<pre><code>Scenario: Appointment was at 03:30 PM, it's now 03:45 PM,
-          customer hasn't shown up.
+<p>Scenario: Appointment was at 03:30 PM, it's now 03:45 PM, customer hasn't shown up.</p>
+<h4>Option A — QStash auto-alert (15 min after end time):</h4>
+<div class="wire-card">
+  <p><strong>🔔 Possible no-show</strong></p>
+  <p>Booking #BKRS2605H38291 (Priya Sharma)<br>Scheduled: 03:30 PM — still shows "Confirmed"</p>
+  <div style="display:flex;gap:8px;">
+    <span class="wire-btn wire-btn-primary">View Booking</span>
+    <span class="wire-btn wire-btn-outline">Dismiss</span>
+  </div>
+</div>
 
-Option A — QStash auto-alert (15 min after end time):
-┌──────────────────────────────────────────────────────────┐
-│  🔔 Possible no-show                                      │
-│                                                           │
-│  Booking #BKRS2605H38291 (Priya Sharma)                  │
-│  Scheduled: 03:30 PM — still shows &quot;Confirmed&quot;           │
-│                                                           │
-│  [ View Booking ]  [ Dismiss ]                            │
-└──────────────────────────────────────────────────────────┘
+<h4>Option B — Receptionist manually marks no-show:</h4>
+<div class="modal-backdrop">
+  <div class="modal-box">
+    <h3 style="margin-top:0;">Mark as No-Show?</h3>
+    <p>#BKRS2605H38291 — Priya Sharma<br>24 May 2026 · 03:30 PM</p>
+    <p>This will:</p>
+    <ul>
+      <li>Increment no-show count (current: 2)</li>
+      <li>Release the time slot</li>
+      <li>Notify the customer</li>
+    </ul>
+    <p style="font-size:13px;color:#92400E;">⚠️ At 4 no-shows, future bookings will require manager approval.</p>
+    <div style="display:flex;gap:1rem;justify-content:flex-end;margin-top:1rem;">
+      <span class="wire-btn wire-btn-outline">Cancel</span>
+      <span class="wire-btn wire-btn-danger">Confirm No-Show</span>
+    </div>
+  </div>
+</div>
 
-Option B — Receptionist manually marks no-show:
+<p>After confirmation:</p>
+<div class="flow-container">
+  <div class="flow-node process">No-show count incremented</div>
+  <div class="flow-arrow"></div>
+  <div class="flow-branch">
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div class="flow-node success">Count &lt; 4<br><small>CRM note added, no restriction</small></div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div class="flow-node error">Count = 4<br><small>booking_requires_approval = true<br>CRM tag: "No-Show Risk"<br>Push + email to customer</small></div>
+    </div>
+  </div>
+</div>
 
-Clicks &quot;No-Show&quot; button on confirmed booking:
-
-┌─────────────────────────────────────────────┐
-│                                             │
-│  Mark as No-Show?                           │
-│  ────────────────                           │
-│                                             │
-│  #BKRS2605H38291 — Priya Sharma            │
-│  24 May 2026 · 03:30 PM                    │
-│                                             │
-│  This will:                                 │
-│  • Increment no-show count (current: 2)    │
-│  • Release the time slot                    │
-│  • Notify the customer                     │
-│                                             │
-│  ⚠️  At 4 no-shows, future bookings will    │
-│     require manager approval.               │
-│                                             │
-│  [ Cancel ]     [ Confirm No-Show ]         │
-│                 (red, destructive)          │
-│                                             │
-└─────────────────────────────────────────────┘
-
-After confirmation:
-    │
-    ▼
-No-show count incremented
-    │
-    ├── Count &lt; 4 → CRM note added, no restriction
-    │
-    └── Count = 4 → 
-            ├── booking_requires_approval = true
-            ├── CRM tag: &quot;No-Show Risk&quot; applied (red badge)
-            ├── Push + email to customer:
-            │   &quot;Future bookings require manager approval&quot;
-            └── All future bookings from this customer
-                show warning to receptionist</code></pre>
 <h3>No-Show Tier Indicator on Booking Detail</h3>
-<pre><code>┌─ Customer Info ──────────────────────────────────────────────────┐
-│  Priya Sharma · 📞 +91 98765 43210                               │
-│  Tags: [Frequent] [🔴 No-Show Risk]                              │
-│  No-shows: 4/90d    ⚠️ Requires Manager Approval                  │
-└──────────────────────────────────────────────────────────────────┘</code></pre>
+<div class="wire-card">
+  <h4 style="margin-top:0;">Customer Info</h4>
+  <p>Priya Sharma · 📞 +91 98765 43210</p>
+  <p>Tags: <span class="wire-badge badge-active">Frequent</span> <span class="wire-badge badge-expired">🔴 No-Show Risk</span></p>
+  <p style="color:#92400E;">No-shows: 4/90d &nbsp; ⚠️ Requires Manager Approval</p>
+</div>
 <hr>
+
 <h2>8. Walk-in Booking Creation</h2>
-<pre><code>Receptionist clicks &quot;+ Walk-in&quot; button:
-
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Create Walk-in Booking                                                  │
-│  ═════════════════════                                                   │
-│                                                                          │
-│  Customer                                                                │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │ 🔍 Search by name, phone, or email...                           │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│  Results:                                                                │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │ Priya Sharma — 98765 43210 — priya@gmail.com                    │   │
-│  │ Aisha Khan — 87654 32109 — aisha@gmail.com                      │   │
-│  │ + Create New Customer                                            │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  Service Type: [ Salon ] | [ SPA ]                                       │
-│                                                                          │
-│  Services:                                                               │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │ ✓ Classic Haircut       ₹500   Staff: [Anjali         ▼]       │   │
-│  │ ✓ Hair Wash &amp; Blow Dry  ₹300   Staff: [Anjali         ▼]       │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  Time: [Now - 03:45 PM ▼]  (adjustable)                                │
-│                                                                          │
-│  Notes (optional):                                                       │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │ Customer requested blow dry after cut                            │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │              [ Create Walk-in Booking ]                           │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  Note: Walk-in bookings are directly confirmed (skip pending).          │
-│  Walk-in no-shows do NOT count toward the no-show tier.                 │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘</code></pre>
+<div class="section-card">
+  <h3 style="margin-top:0;">Create Walk-in Booking</h3>
+  <div class="wire-card">
+    <h4 style="margin-top:0;">Customer</h4>
+    <input class="wire-input" placeholder="🔍 Search by name, phone, or email...">
+    <div style="border:1px solid #e5e5e5;border-radius:8px;margin-top:4px;padding:8px;font-size:13px;">
+      <p style="margin:4px 0;">Priya Sharma — 98765 43210 — priya@gmail.com</p>
+      <p style="margin:4px 0;">Aisha Khan — 87654 32109 — aisha@gmail.com</p>
+      <p style="margin:4px 0;color:#C8A961;">+ Create New Customer</p>
+    </div>
+  </div>
+  <div class="wire-card">
+    <h4 style="margin-top:0;">Service Type</h4>
+    <span class="wire-btn wire-btn-primary">Salon</span>
+    <span class="wire-btn wire-btn-outline">SPA</span>
+  </div>
+  <div class="wire-card">
+    <h4 style="margin-top:0;">Services</h4>
+    <table>
+      <tbody>
+        <tr><td>✓ Classic Haircut</td><td>₹500</td><td><select class="wire-input" style="width:auto;margin:0;"><option>Anjali</option></select></td></tr>
+        <tr><td>✓ Hair Wash &amp; Blow Dry</td><td>₹300</td><td><select class="wire-input" style="width:auto;margin:0;"><option>Anjali</option></select></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="wire-card">
+    <h4 style="margin-top:0;">Time</h4>
+    <select class="wire-input" style="width:auto;"><option>Now - 03:45 PM</option></select>
+    <small>(adjustable)</small>
+  </div>
+  <div class="wire-card">
+    <h4 style="margin-top:0;">Notes (optional)</h4>
+    <textarea class="wire-input" rows="2">Customer requested blow dry after cut</textarea>
+  </div>
+  <div style="text-align:center;margin-top:1.5rem;">
+    <span class="wire-btn wire-btn-primary" style="width:100%;display:block;">Create Walk-in Booking</span>
+  </div>
+  <p style="font-size:13px;color:#6B6B6B;">Note: Walk-in bookings are directly confirmed (skip pending). Walk-in no-shows do NOT count toward the no-show tier.</p>
+</div>
 <hr>
+
 <h2>9. Dashboard — Pending Queue (Live)</h2>
-<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
-│  Dashboard                                                               │
-│                                                                          │
-│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐          │
-│  │ Pending    │ │ Today's    │ │ Appointments│ │ Stale      │          │
-│  │ Bookings   │ │ Revenue    │ │ Today      │ │ Leads      │          │
-│  │            │ │            │ │            │ │            │          │
-│  │  🔴 3      │ │ ₹8,400    │ │    7       │ │    2       │          │
-│  └────────────┘ └────────────┘ └────────────┘ └────────────┘          │
-│                                                                          │
-│  ┌─ Pending Bookings (needs action) ────────────────────────────────┐  │
-│  │                                                                   │  │
-│  │  ┌─────────────────────────────────────────────────────────────┐ │  │
-│  │  │ NEW  Priya S. · Facial, Waxing · 03:30 PM · 2 min ago     │ │  │
-│  │  └─────────────────────────────────────────────────────────────┘ │  │
-│  │  ┌─────────────────────────────────────────────────────────────┐ │  │
-│  │  │      Aisha K. · Swedish Massage · 11:00 AM · 15 min ago   │ │  │
-│  │  └─────────────────────────────────────────────────────────────┘ │  │
-│  │  ┌─────────────────────────────────────────────────────────────┐ │  │
-│  │  │ ⚠️   Rahul M. · Haircut · 14:00 PM · 2 HOURS AGO (stale) │ │  │
-│  │  └─────────────────────────────────────────────────────────────┘ │  │
-│  │                                                                   │  │
-│  │  &quot;NEW&quot; badge = just arrived (&lt; 5 min)                            │  │
-│  │  &quot;⚠️&quot; badge = stale (&gt; 2 hours without action)                   │  │
-│  │                                                                   │  │
-│  └───────────────────────────────────────────────────────────────────┘  │
-│                                                                          │
-│  Cards appear in real-time via Ably (admin:bookings channel)            │
-│  New cards slide in from top with animation                              │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘</code></pre>
+<div class="section-card">
+  <h3 style="margin-top:0;">Dashboard</h3>
+  <div class="kpi-grid">
+    <div class="kpi-card"><div class="value" style="color:#EF4444;">3</div><div class="label">Pending Bookings</div></div>
+    <div class="kpi-card"><div class="value">₹8,400</div><div class="label">Today's Revenue</div></div>
+    <div class="kpi-card"><div class="value">7</div><div class="label">Appointments Today</div></div>
+    <div class="kpi-card"><div class="value" style="color:#F59E0B;">2</div><div class="label">Stale Leads</div></div>
+  </div>
+  <div class="wire-card">
+    <h4 style="margin-top:0;">Pending Bookings (needs action)</h4>
+    <div class="wire-card" style="border-left:4px solid #EF4444;">
+      <span class="wire-badge badge-expired">NEW</span> &nbsp; Priya S. · Facial, Waxing · 03:30 PM · <em>2 min ago</em>
+    </div>
+    <div class="wire-card">
+      Aisha K. · Swedish Massage · 11:00 AM · <em>15 min ago</em>
+    </div>
+    <div class="wire-card" style="border-left:4px solid #F59E0B;">
+      <span class="wire-badge badge-pending">⚠️</span> &nbsp; Rahul M. · Haircut · 14:00 PM · <strong>2 HOURS AGO (stale)</strong>
+    </div>
+  </div>
+  <p style="font-size:13px;color:#6B6B6B;">"NEW" badge = just arrived (&lt; 5 min)<br>"⚠️" badge = stale (&gt; 2 hours without action)<br>Cards appear in real-time via Ably (admin:bookings channel)<br>New cards slide in from top with animation</p>
+</div>
 <hr>
+
 <h2>10. Salon-Initiated Cancellation</h2>
-<pre><code>Receptionist cancels a CONFIRMED booking (salon's fault):
-
-┌─────────────────────────────────────────────┐
-│                                             │
-│  Cancel Booking (Salon-initiated)?          │
-│  ─────────────────────────────────          │
-│                                             │
-│  #BKRS2605H38291 — Priya Sharma            │
-│  24 May 2026 · 03:30 PM                    │
-│                                             │
-│  Reason:                                    │
-│  ┌─────────────────────────────────────┐   │
-│  │ Staff emergency — Anjali unavailable│   │
-│  └─────────────────────────────────────┘   │
-│                                             │
-│  This will:                                 │
-│  • Send apology push + email               │
-│  • Offer priority rebooking                 │
-│  • If offer was applied → reinstate        │
-│    offer for next booking                   │
-│                                             │
-│  [ Keep Booking ]  [ Cancel Booking ]       │
-│                    (red)                    │
-│                                             │
-└─────────────────────────────────────────────┘
-
-Customer receives:
-  Email: apology + &quot;Book again&quot; CTA + priority rebooking
-  Push: &quot;Your appointment was cancelled by Royal Glow. We're sorry!&quot;
-  If cancelled &lt;2h before: includes priority rebooking offer</code></pre>
+<div class="modal-backdrop">
+  <div class="modal-box">
+    <h3 style="margin-top:0;">Cancel Booking (Salon-initiated)?</h3>
+    <p>#BKRS2605H38291 — Priya Sharma<br>24 May 2026 · 03:30 PM</p>
+    <label><strong>Reason:</strong></label>
+    <textarea class="wire-input" rows="2">Staff emergency — Anjali unavailable</textarea>
+    <p>This will:</p>
+    <ul>
+      <li>Send apology push + email</li>
+      <li>Offer priority rebooking</li>
+      <li>If offer was applied → reinstate offer for next booking</li>
+    </ul>
+    <div style="display:flex;gap:1rem;justify-content:flex-end;margin-top:1rem;">
+      <span class="wire-btn wire-btn-outline">Keep Booking</span>
+      <span class="wire-btn wire-btn-danger">Cancel Booking</span>
+    </div>
+  </div>
+</div>
+<p>Customer receives:</p>
+<ul>
+  <li>Email: apology + "Book again" CTA + priority rebooking</li>
+  <li>Push: "Your appointment was cancelled by Royal Glow. We're sorry!"</li>
+  <li>If cancelled &lt;2h before: includes priority rebooking offer</li>
+</ul>
 
 </body>
 </html>

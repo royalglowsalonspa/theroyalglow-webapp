@@ -22,289 +22,298 @@
   li { margin: 0.3rem 0; }
   a { color: #c8a961; text-decoration: none; }
   a:hover { text-decoration: underline; }
+
+  .flow-container { display: flex; flex-direction: column; align-items: center; gap: 0; margin: 2rem 0; }
+  .flow-node { padding: 14px 24px; border-radius: 12px; font-weight: 500; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); min-width: 180px; }
+  .flow-node.trigger { background: #C8A961; color: white; }
+  .flow-node.process { background: white; border: 2px solid #e5e5e5; border-left: 4px solid #C8A961; }
+  .flow-node.decision { background: #FEF3C7; border: 2px solid #F59E0B; }
+  .flow-node.success { background: #D1FAE5; border: 2px solid #10B981; color: #065F46; }
+  .flow-node.error { background: #FEE2E2; border: 2px solid #EF4444; color: #991B1B; }
+  .flow-node.end { background: #1a1a1a; color: white; }
+  .flow-arrow { width: 2px; height: 32px; background: #C8A961; position: relative; margin: 0 auto; }
+  .flow-arrow::after { content: ''; position: absolute; bottom: -6px; left: -5px; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #C8A961; }
+  .flow-arrow-right { width: 40px; height: 2px; background: #C8A961; position: relative; display: inline-block; vertical-align: middle; }
+  .flow-arrow-right::after { content: ''; position: absolute; right: -6px; top: -5px; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 8px solid #C8A961; }
+  .flow-branch { display: flex; gap: 2rem; justify-content: center; }
+  .flow-label { font-size: 12px; color: #6B6B6B; text-align: center; margin-top: 4px; }
+  .flow-row { display: flex; align-items: center; justify-content: center; gap: 1.5rem; }
+  .phone-frame { width: 375px; border: 3px solid #1a1a1a; border-radius: 40px; padding: 12px; margin: 2rem auto; background: white; box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
+  .phone-screen { border-radius: 28px; overflow: hidden; min-height: 500px; background: #FFFDF7; padding: 16px; }
+  .phone-notch { width: 150px; height: 24px; background: #1a1a1a; border-radius: 0 0 12px 12px; margin: 0 auto; }
+  .wire-btn { padding: 12px 24px; border-radius: 999px; font-weight: 600; text-align: center; cursor: pointer; border: none; display: inline-block; margin: 4px; }
+  .wire-btn-primary { background: #C8A961; color: white; }
+  .wire-btn-outline { border: 2px solid #C8A961; color: #C8A961; background: white; }
+  .wire-btn-danger { background: #EF4444; color: white; }
+  .wire-btn-success { background: #10B981; color: white; }
+  .wire-input { width: 100%; padding: 12px 16px; border: 1px solid #e5e5e5; border-radius: 12px; font-size: 14px; margin: 8px 0; box-sizing: border-box; }
+  .wire-card { background: white; border: 1px solid #f0f0f0; border-radius: 12px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+  .wire-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 500; }
+  .badge-pending { background: #FEF3C7; color: #92400E; }
+  .badge-confirmed { background: #D1FAE5; color: #065F46; }
+  .badge-completed { background: #F3F4F6; color: #374151; }
+  .badge-active { background: #DBEAFE; color: #1E40AF; }
+  .badge-expired { background: #FEE2E2; color: #991B1B; }
+
+  .section-card { background: white; border: 1px solid #f0f0f0; border-radius: 16px; padding: 2rem; margin: 1.5rem 0; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; }
+  .timeline { display: flex; flex-direction: column; gap: 0; padding: 1rem 0; }
+  .timeline-step { display: flex; align-items: flex-start; gap: 12px; position: relative; padding-bottom: 24px; }
+  .timeline-step:not(:last-child)::before { content: ''; position: absolute; left: 11px; top: 24px; bottom: 0; width: 2px; background: #e5e5e5; }
+  .timeline-dot { width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0; }
+  .timeline-dot.active { background: #C8A961; }
+  .timeline-dot.completed { background: #10B981; }
+  .timeline-dot.error { background: #EF4444; }
+  .timeline-dot.pending { background: #F59E0B; }
+  .timeline-dot.grey { background: #9CA3AF; }
+  .steps { display: flex; align-items: center; justify-content: center; gap: 0; margin: 1.5rem 0; }
+  .step-dot { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; }
+  .step-dot.active { background: #C8A961; color: white; }
+  .step-dot.completed { background: #10B981; color: white; }
+  .step-dot.future { border: 2px solid #e5e5e5; color: #9CA3AF; }
+  .step-line { width: 60px; height: 2px; background: #e5e5e5; }
+  .step-line.completed { background: #10B981; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin: 1rem 0; }
+  .kpi-card { background: white; border: 1px solid #f0f0f0; border-radius: 12px; padding: 16px; text-align: center; }
+  .kpi-card .value { font-size: 24px; font-weight: 700; color: #1a1a1a; }
+  .kpi-card .label { font-size: 12px; color: #6B6B6B; margin-top: 4px; }
+  .progress-bar { height: 12px; background: #e5e5e5; border-radius: 999px; overflow: hidden; margin: 8px 0; }
+  .progress-bar .fill { height: 100%; background: #C8A961; border-radius: 999px; }
+  .schedule-grid { display: grid; grid-template-columns: 80px repeat(7, 1fr); gap: 2px; font-size: 12px; margin: 1rem 0; }
+  .schedule-grid .header { background: #f9fafb; padding: 8px; font-weight: 600; text-align: center; border-radius: 4px; }
+  .schedule-grid .cell { padding: 8px; text-align: center; border-radius: 4px; min-height: 40px; display: flex; align-items: center; justify-content: center; }
+  .schedule-grid .cell.available { background: #f0fdf4; border: 1px solid #d1fae5; }
+  .schedule-grid .cell.booked { background: #FEF3C7; border: 1px solid #F59E0B; color: #92400E; }
+  .schedule-grid .cell.leave { background: #374151; color: white; }
+  .schedule-grid .cell.buffer { background: #f3f4f6; color: #9CA3AF; }
+  .kanban-board { display: flex; gap: 12px; overflow-x: auto; padding: 1rem 0; }
+  .kanban-column { min-width: 180px; background: #f9fafb; border-radius: 12px; padding: 12px; }
+  .kanban-column h4 { font-size: 13px; margin: 0 0 8px; color: #6B6B6B; }
+  .kanban-card { background: white; border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px; margin-bottom: 8px; font-size: 13px; }
+  .modal-backdrop { background: rgba(0,0,0,0.4); border-radius: 12px; padding: 3rem; display: flex; align-items: center; justify-content: center; margin: 2rem 0; }
+  .modal-box { background: white; border-radius: 16px; padding: 2rem; max-width: 500px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
 </style>
 </head>
 <body>
 <h1>SPA Membership Flow — Design Reference</h1>
 <blockquote><p>Complete lifecycle of SPA memberships: purchase by admin → hours tracking → session recording → expiry alerts → renewal. Covers all wireframes and state transitions.</p></blockquote>
 <hr>
+
 <h2>1. Membership Lifecycle (State Machine)</h2>
-<pre><code>Admin creates membership for customer
-    │
-    ▼
-┌──────────────┐
-│    ACTIVE    │ ← Hours available, sessions can be recorded
-└──────┬───────┘
-       │
-       ├── Sessions recorded (hours deducted over time)
-       │
-       ├── All hours used? → Still active until expires_at
-       │
-       │          Automated alerts:
-       │          ├── 30 days before expiry → reminder email + push
-       │          ├── 7 days before expiry → urgent reminder
-       │          ├── 1 day before expiry → &quot;Last chance!&quot; alert
-       │          └── Hours &lt; 60 min → &quot;Less than 1 hour left&quot;
-       │
-       ├─── expires_at reached (auto by pg_cron):
-       │    ▼
-       │    ┌──────────────┐
-       │    │   EXPIRED    │ → Unused hours forfeited
-       │    └──────────────┘   → Final email with renewal CTA
-       │
-       └─── Manager/Owner cancels manually:
-            ▼
-            ┌──────────────┐
-            │  CANCELLED   │ → Reason recorded
-            └──────────────┘   → No refund (handled offline)
-
-
-No rollover. No pause. No transfer between branches.</code></pre>
+<div class="flow-container">
+  <div class="flow-node trigger">Admin creates membership for customer</div>
+  <div class="flow-arrow"></div>
+  <div class="flow-node success">ACTIVE<br><small>Hours available, sessions can be recorded</small></div>
+  <div class="flow-arrow"></div>
+  <div class="flow-node process">Sessions recorded (hours deducted over time)<br><small>All hours used? → Still active until expires_at</small></div>
+  <div class="flow-arrow"></div>
+  <div class="flow-node decision">Automated Alerts<br><small>T-30d: reminder · T-7d: urgent · T-1d: last chance<br>Hours &lt; 60 min: low balance alert</small></div>
+  <div class="flow-arrow"></div>
+  <div class="flow-branch">
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div class="flow-node error">EXPIRED<br><small>expires_at reached (pg_cron)<br>Unused hours forfeited<br>Final email with renewal CTA</small></div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div class="flow-node end">CANCELLED<br><small>Manager/Owner cancels manually<br>Reason recorded · No refund</small></div>
+    </div>
+  </div>
+</div>
+<p style="font-size:13px;color:#6B6B6B;">No rollover. No pause. No transfer between branches.</p>
 <hr>
+
 <h2>2. Create Membership — <code>/admin/memberships/new</code></h2>
-<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
-│  Create SPA Membership                                                   │
-│  ════════════════════                                                    │
-│                                                                          │
-│  Customer                                                                │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │ 🔍 Search customer...                                           │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│  Selected: Priya Sharma — priya@gmail.com — 98765 43210                 │
-│                                                                          │
-│  ─────────────────────────────────────────────────────────────────      │
-│                                                                          │
-│  Select Tier:                                                            │
-│                                                                          │
-│  ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐       │
-│  │    🥈 Silver      │ │    🥇 Gold        │ │    💎 Platinum    │       │
-│  │                   │ │    ▲ SELECTED    │ │                   │       │
-│  │  8 hrs · ₹10,000 │ │ 15 hrs · ₹15,000│ │  Custom pricing  │       │
-│  │  90 days          │ │ 90 days          │ │  Custom hours    │       │
-│  └──────────────────┘ └──────────────────┘ └──────────────────┘       │
-│                                                                          │
-│  ─────────────────────────────────────────────────────────────────      │
-│                                                                          │
-│  Hours          (prefilled, overridable for negotiated deals)            │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │ 15                                                               │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  Price (₹, GST-inclusive)                                                │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │ 15,000                                                           │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  Start Date                                                              │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │ 24/05/2026 (today)                                       📅     │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  Expires: 21/08/2026 (90 days from start)  ← auto-calculated           │
-│                                                                          │
-│  Payment Method                                                          │
-│  (●) Cash     ( ) UPI     ( ) Card                                      │
-│                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │              [ Create Membership ]                                │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  This will:                                                              │
-│  • Generate membership_purchase invoice (₹15,000)                       │
-│  • Email invoice + welcome message to customer                          │
-│  • NO gems earned on membership purchase                                │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘</code></pre>
+<div class="section-card">
+  <h3 style="margin-top:0;">Create SPA Membership</h3>
+  <div class="wire-card">
+    <h4 style="margin-top:0;">Customer</h4>
+    <input class="wire-input" placeholder="🔍 Search customer...">
+    <p>Selected: <strong>Priya Sharma</strong> — priya@gmail.com — 98765 43210</p>
+  </div>
+  <div class="wire-card">
+    <h4 style="margin-top:0;">Select Tier</h4>
+    <div class="three-col">
+      <div style="border:2px solid #e5e5e5;border-radius:12px;padding:1rem;text-align:center;">
+        <p><strong>🥈 Silver</strong></p>
+        <p>8 hrs · ₹10,000<br>90 days</p>
+      </div>
+      <div style="border:3px solid #C8A961;border-radius:12px;padding:1rem;text-align:center;background:#FFFDF7;">
+        <p><strong>🥇 Gold</strong></p>
+        <p style="font-size:11px;color:#C8A961;">▲ SELECTED</p>
+        <p>15 hrs · ₹15,000<br>90 days</p>
+      </div>
+      <div style="border:2px solid #e5e5e5;border-radius:12px;padding:1rem;text-align:center;">
+        <p><strong>💎 Platinum</strong></p>
+        <p>Custom pricing<br>Custom hours</p>
+      </div>
+    </div>
+  </div>
+  <div class="wire-card">
+    <h4 style="margin-top:0;">Hours</h4>
+    <input class="wire-input" value="15" style="width:200px;">
+    <small>(prefilled, overridable for negotiated deals)</small>
+  </div>
+  <div class="wire-card">
+    <h4 style="margin-top:0;">Price (₹, GST-inclusive)</h4>
+    <input class="wire-input" value="15,000" style="width:200px;">
+  </div>
+  <div class="wire-card">
+    <h4 style="margin-top:0;">Start Date</h4>
+    <input class="wire-input" value="24/05/2026 (today)" style="width:250px;">
+    <p>Expires: 21/08/2026 (90 days from start) ← auto-calculated</p>
+  </div>
+  <div class="wire-card">
+    <h4 style="margin-top:0;">Payment Method</h4>
+    <label style="margin-right:1rem;"><input type="radio" name="pay" checked> Cash</label>
+    <label style="margin-right:1rem;"><input type="radio" name="pay"> UPI</label>
+    <label><input type="radio" name="pay"> Card</label>
+  </div>
+  <div style="text-align:center;margin-top:1.5rem;">
+    <span class="wire-btn wire-btn-primary" style="width:100%;display:block;">Create Membership</span>
+  </div>
+  <p style="font-size:13px;color:#6B6B6B;">This will: Generate membership_purchase invoice (₹15,000) · Email invoice + welcome message · NO gems earned on purchase</p>
+</div>
 <hr>
+
 <h2>3. Membership Detail — <code>/admin/memberships/[id]</code></h2>
 <h3>Active Membership (Hours Remaining)</h3>
-<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
-│  ← Back to Memberships                                                   │
-│                                                                          │
-│  Membership #RGMEM26190872                     Status: ● Active          │
-│  ═══════════════════════════                                             │
-│                                                                          │
-│  Customer: Priya Sharma (→ view profile)                                │
-│  Tier: 🥇 Gold                                                           │
-│  Created: 24/05/2026                                                    │
-│                                                                          │
-│  ┌─ Hours Balance ──────────────────────────────────────────────────┐   │
-│  │                                                                   │   │
-│  │  ████████████████████░░░░░░░░░░░░  10 hrs used · 5 hrs remaining │   │
-│  │                                                                   │   │
-│  │  Used: 10 hrs 0 min  /  Total: 15 hrs  /  Remaining: 5 hrs      │   │
-│  │                                                                   │   │
-│  │  Expires: 21/08/2026 (58 days left)                              │   │
-│  │                                                                   │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  ┌─ Session History ────────────────────────────────────────────────┐   │
-│  │                                                                   │   │
-│  │  Date        Service              Duration   Staff               │   │
-│  │  ──────────────────────────────────────────────────────────────  │   │
-│  │  20/06/26   Swedish Massage       90 min     Meera              │   │
-│  │  15/06/26   Aroma Therapy         60 min     Deepa              │   │
-│  │  08/06/26   Thai Massage          60 min     Meera              │   │
-│  │  01/06/26   Hot Stone             90 min     Deepa              │   │
-│  │  28/05/26   Swedish Massage       60 min     Meera              │   │
-│  │  26/05/26   Deep Tissue           90 min     Deepa              │   │
-│  │  24/05/26   Aroma Therapy         60 min     Meera              │   │
-│  │                                                                   │   │
-│  │  Total sessions: 7    Total hours used: 10 hrs 0 min             │   │
-│  │                                                                   │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │  [ Record Session ]              [ Cancel Membership ]           │   │
-│  │  (blue, primary)                  (red outline, Manager+ only)   │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  Invoice: #INV1262XXXXX (membership_purchase) → View PDF                │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘</code></pre>
+<div class="section-card">
+  <p style="color:#6B6B6B;">← Back to Memberships</p>
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <h3 style="margin:0;">Membership #RGMEM26190872</h3>
+    <span class="wire-badge badge-confirmed">● Active</span>
+  </div>
+  <p>Customer: Priya Sharma (→ view profile)<br>Tier: 🥇 Gold<br>Created: 24/05/2026</p>
+  <div class="wire-card">
+    <h4 style="margin-top:0;">Hours Balance</h4>
+    <div class="progress-bar"><div class="fill" style="width:66.7%;"></div></div>
+    <p><strong>10 hrs used</strong> · <strong>5 hrs remaining</strong></p>
+    <p>Used: 10 hrs 0 min / Total: 15 hrs / Remaining: 5 hrs<br>Expires: 21/08/2026 (58 days left)</p>
+  </div>
+  <div class="wire-card">
+    <h4 style="margin-top:0;">Session History</h4>
+    <table>
+      <thead><tr><th>Date</th><th>Service</th><th>Duration</th><th>Staff</th></tr></thead>
+      <tbody>
+        <tr><td>20/06/26</td><td>Swedish Massage</td><td>90 min</td><td>Meera</td></tr>
+        <tr><td>15/06/26</td><td>Aroma Therapy</td><td>60 min</td><td>Deepa</td></tr>
+        <tr><td>08/06/26</td><td>Thai Massage</td><td>60 min</td><td>Meera</td></tr>
+        <tr><td>01/06/26</td><td>Hot Stone</td><td>90 min</td><td>Deepa</td></tr>
+        <tr><td>28/05/26</td><td>Swedish Massage</td><td>60 min</td><td>Meera</td></tr>
+        <tr><td>26/05/26</td><td>Deep Tissue</td><td>90 min</td><td>Deepa</td></tr>
+        <tr><td>24/05/26</td><td>Aroma Therapy</td><td>60 min</td><td>Meera</td></tr>
+      </tbody>
+    </table>
+    <p>Total sessions: 7 &nbsp; Total hours used: 10 hrs 0 min</p>
+  </div>
+  <div style="display:flex;gap:1rem;justify-content:center;margin-top:1.5rem;">
+    <span class="wire-btn wire-btn-primary">Record Session</span>
+    <span class="wire-btn wire-btn-danger">Cancel Membership</span>
+  </div>
+  <p style="font-size:13px;color:#6B6B6B;">Invoice: #INV1262XXXXX (membership_purchase) → View PDF</p>
+</div>
 <hr>
+
 <h2>4. Record Session Modal</h2>
-<pre><code>Receptionist clicks &quot;Record Session&quot;:
+<div class="modal-backdrop">
+  <div class="modal-box">
+    <h3 style="margin-top:0;">Record Membership Session</h3>
+    <p>Member: Priya Sharma (#RGMEM26190872 · Gold)<br>Remaining: 5 hrs 0 min</p>
+    <div class="wire-card">
+      <p>✓ Swedish Massage<br>Meera · <select class="wire-input" style="width:auto;margin:0;"><option>60 min</option><option>90 min</option></select></p>
+    </div>
+    <p><strong>Total duration:</strong> 60 min<br><strong>After session:</strong> 4 hrs 0 min remaining</p>
+    <div style="text-align:center;margin-top:1rem;">
+      <span class="wire-btn wire-btn-primary" style="width:100%;display:block;">Record Session</span>
+    </div>
+    <p style="font-size:13px;color:#6B6B6B;">This will: Deduct 60 min · Create ₹0 invoice · Email confirmation · NO gems earned</p>
+  </div>
+</div>
 
-┌─────────────────────────────────────────────────────────────┐
-│                                                              │
-│  Record Membership Session                                   │
-│  ════════════════════════                                    │
-│                                                              │
-│  Member: Priya Sharma (#RGMEM26190872 · Gold)               │
-│  Remaining: 5 hrs 0 min                                      │
-│                                                              │
-│  Service(s) performed:                                       │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │ ✓ Swedish Massage                                     │   │
-│  │   Meera · [60 min ▼]                                  │   │
-│  └──────────────────────────────────────────────────────┘   │
-│                                                              │
-│  Total duration: 60 min                                      │
-│  After session: 4 hrs 0 min remaining                        │
-│                                                              │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │           [ Record Session ]                          │   │
-│  └──────────────────────────────────────────────────────┘   │
-│                                                              │
-│  This will:                                                  │
-│  • Deduct 60 min from membership hours                      │
-│  • Create ₹0 membership_session invoice                     │
-│  • Email session confirmation to customer                   │
-│  • NO gems earned                                            │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
-
-VALIDATION: If requested duration &gt; remaining hours:
-
-┌──────────────────────────────────────────────────────────┐
-│  ⚠️  Insufficient hours                                   │
-│                                                           │
-│  Requested: 90 min                                        │
-│  Remaining: 30 min                                        │
-│                                                           │
-│  Cannot record this session. Customer can:                │
-│  • Book a shorter session (≤30 min)                      │
-│  • Pay per-service rate for excess time                   │
-│                                                           │
-│  [ Close ]                                                │
-└──────────────────────────────────────────────────────────┘</code></pre>
+<h4>VALIDATION: If requested duration &gt; remaining hours:</h4>
+<div class="wire-card" style="border-left:4px solid #F59E0B;">
+  <p><strong>⚠️ Insufficient hours</strong></p>
+  <p>Requested: 90 min<br>Remaining: 30 min</p>
+  <p>Cannot record this session. Customer can:</p>
+  <ul>
+    <li>Book a shorter session (≤30 min)</li>
+    <li>Pay per-service rate for excess time</li>
+  </ul>
+  <span class="wire-btn wire-btn-outline">Close</span>
+</div>
 <hr>
+
 <h2>5. Customer Membership View — <code>/membership</code></h2>
-<pre><code>┌─────────────────────────────────────────────────────────────┐
-│  My SPA Membership                                           │
-│  ═════════════════                                           │
-│                                                              │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │                                                      │    │
-│  │  🥇 Gold Membership                                  │    │
-│  │  #RGMEM26190872                                      │    │
-│  │                                                      │    │
-│  │  ████████████████████░░░░░░░░░░░░                    │    │
-│  │  10 hrs used · 5 hrs remaining                       │    │
-│  │                                                      │    │
-│  │  Valid until: 21/08/2026 (58 days left)              │    │
-│  │                                                      │    │
-│  └─────────────────────────────────────────────────────┘    │
-│                                                              │
-│  Session History                                             │
-│  ────────────────                                            │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │  20 Jun 2026 · Swedish Massage · 90 min · Meera     │    │
-│  ├─────────────────────────────────────────────────────┤    │
-│  │  15 Jun 2026 · Aroma Therapy · 60 min · Deepa       │    │
-│  ├─────────────────────────────────────────────────────┤    │
-│  │  08 Jun 2026 · Thai Massage · 60 min · Meera        │    │
-│  └─────────────────────────────────────────────────────┘    │
-│  ... (pagination if &gt; 10)                                    │
-│                                                              │
-│  ┌─ Past Memberships (1) ──────────────────────────────┐    │
-│  │  ▶ Silver · Jan–Apr 2026 · 6/8 hrs used · Expired  │    │
-│  └─────────────────────────────────────────────────────┘    │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
+<div class="phone-frame">
+  <div class="phone-notch"></div>
+  <div class="phone-screen">
+    <h3 style="margin-top:1rem;">My SPA Membership</h3>
+    <div class="wire-card" style="background:#FFFDF7;border:2px solid #C8A961;">
+      <p style="text-align:center;"><strong>🥇 Gold Membership</strong><br><small>#RGMEM26190872</small></p>
+      <div class="progress-bar"><div class="fill" style="width:66.7%;"></div></div>
+      <p style="text-align:center;">10 hrs used · 5 hrs remaining</p>
+      <p style="text-align:center;font-size:13px;">Valid until: 21/08/2026 (58 days left)</p>
+    </div>
+    <h4>Session History</h4>
+    <div class="wire-card"><small>20 Jun 2026 · Swedish Massage · 90 min · Meera</small></div>
+    <div class="wire-card"><small>15 Jun 2026 · Aroma Therapy · 60 min · Deepa</small></div>
+    <div class="wire-card"><small>08 Jun 2026 · Thai Massage · 60 min · Meera</small></div>
+    <div class="wire-card" style="background:#f9fafb;">
+      <small>▶ Past Memberships (1): Silver · Jan–Apr 2026 · 6/8 hrs used · Expired</small>
+    </div>
+  </div>
+</div>
 
-URGENCY STATES:
-
-≤30 days remaining:
-┌──────────────────────────────────────────────────┐
-│  ⚠️  Expires in 28 days. Book your remaining      │
-│     hours before they're gone!                    │
-│  📞 Call to book: +91 63601 35720                 │
-└──────────────────────────────────────────────────┘
-
-≤7 days remaining:
-┌──────────────────────────────────────────────────┐
-│  🔴 URGENT: Expires in 5 days!                    │
-│     3 hrs remaining — will be forfeited.          │
-│  📞 Call NOW: +91 63601 35720                     │
-└──────────────────────────────────────────────────┘</code></pre>
+<h4>Urgency States:</h4>
+<div class="wire-card" style="border-left:4px solid #F59E0B;">
+  <p><strong>⚠️ Expires in 28 days.</strong> Book your remaining hours before they're gone!<br>📞 Call to book: +91 63601 35720</p>
+</div>
+<div class="wire-card" style="border-left:4px solid #EF4444;">
+  <p><strong>🔴 URGENT: Expires in 5 days!</strong><br>3 hrs remaining — will be forfeited.<br>📞 Call NOW: +91 63601 35720</p>
+</div>
 <hr>
+
 <h2>6. Expiry Notification Timeline</h2>
-<pre><code>                  Purchase                              Expiry
-                     │                                    │
-  ───────────────────┼────────────────────────────────────┼───────
-                     │                                    │
-                     │    ← 90 days (Gold default) →      │
-                     │                                    │
-                     │              T-30d    T-7d   T-1d  │
-                     │                │       │      │    │
-                     │                ▼       ▼      ▼    │
-                     │            Email+   Email+  Email+ │
-                     │            Push     Push    Push   │
-                     │                                    │
-                     │    If hours &lt; 60min at any point:  │
-                     │    → immediate push notification    │
-                     │                                    │
-                     │                                    ▼
-                     │                              pg_cron runs:
-                     │                              status → 'expired'
-                     │                              +1h: final email
-                     │                              with renewal CTA</code></pre>
+<div class="section-card">
+  <div class="timeline">
+    <div class="timeline-step"><div class="timeline-dot active"></div><div><strong>Purchase</strong><br>Membership activated (90 days for Gold)</div></div>
+    <div class="timeline-step"><div class="timeline-dot pending"></div><div><strong>T-30 days</strong><br>Email + Push reminder sent</div></div>
+    <div class="timeline-step"><div class="timeline-dot pending"></div><div><strong>T-7 days</strong><br>Urgent Email + Push reminder</div></div>
+    <div class="timeline-step"><div class="timeline-dot error"></div><div><strong>T-1 day</strong><br>"Last chance!" Email + Push</div></div>
+    <div class="timeline-step"><div class="timeline-dot grey"></div><div><strong>Expiry</strong><br>pg_cron: status → 'expired' · +1h: final email with renewal CTA</div></div>
+  </div>
+  <p style="font-size:13px;color:#6B6B6B;">If hours &lt; 60min at any point: → immediate push notification</p>
+</div>
 <hr>
+
 <h2>7. Membership Tiers — Visual Comparison</h2>
-<pre><code>┌──────────────────────────────────────────────────────────────────┐
-│                                                                   │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐ │
-│  │                  │  │                  │  │                  │ │
-│  │    🥈 Silver      │  │    🥇 Gold        │  │    💎 Platinum    │ │
-│  │                  │  │                  │  │                  │ │
-│  │  8 hours         │  │  15 hours        │  │  Custom hours   │ │
-│  │  ₹10,000        │  │  ₹15,000        │  │  Negotiated     │ │
-│  │  90 days         │  │  90 days         │  │  Custom validity│ │
-│  │                  │  │                  │  │                  │ │
-│  │  All SPA         │  │  All SPA         │  │  All SPA        │ │
-│  │  services        │  │  services        │  │  services       │ │
-│  │                  │  │                  │  │                  │ │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘ │
-│                                                                   │
-│  • All tiers access ALL SPA services (Standard, Premium, VVIP)   │
-│  • Hours are the only constraint                                  │
-│  • Branch-locked (sessions only at purchase branch)              │
-│  • No gems earned on purchase or sessions                        │
-│  • Hours/price fully overridable at creation (negotiated deals)  │
-│                                                                   │
-└──────────────────────────────────────────────────────────────────┘</code></pre>
+<div class="three-col">
+  <div class="section-card" style="text-align:center;">
+    <h3 style="margin-top:0;">🥈 Silver</h3>
+    <p style="font-size:2rem;font-weight:700;">8 hours</p>
+    <p><strong>₹10,000</strong><br>90 days</p>
+    <p style="font-size:13px;">All SPA services</p>
+  </div>
+  <div class="section-card" style="text-align:center;border:2px solid #C8A961;">
+    <h3 style="margin-top:0;">🥇 Gold</h3>
+    <p style="font-size:2rem;font-weight:700;">15 hours</p>
+    <p><strong>₹15,000</strong><br>90 days</p>
+    <p style="font-size:13px;">All SPA services</p>
+  </div>
+  <div class="section-card" style="text-align:center;">
+    <h3 style="margin-top:0;">💎 Platinum</h3>
+    <p style="font-size:2rem;font-weight:700;">Custom</p>
+    <p><strong>Negotiated</strong><br>Custom validity</p>
+    <p style="font-size:13px;">All SPA services</p>
+  </div>
+</div>
+<ul>
+  <li>All tiers access ALL SPA services (Standard, Premium, VVIP)</li>
+  <li>Hours are the only constraint</li>
+  <li>Branch-locked (sessions only at purchase branch)</li>
+  <li>No gems earned on purchase or sessions</li>
+  <li>Hours/price fully overridable at creation (negotiated deals)</li>
+</ul>
 
 </body>
 </html>

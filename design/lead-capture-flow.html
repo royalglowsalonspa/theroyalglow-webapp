@@ -22,454 +22,554 @@
   li { margin: 0.3rem 0; }
   a { color: #c8a961; text-decoration: none; }
   a:hover { text-decoration: underline; }
+
+
+  .flow-container { display: flex; flex-direction: column; align-items: center; gap: 0; margin: 2rem 0; }
+  .flow-row { display: flex; align-items: center; justify-content: center; gap: 1.5rem; }
+  .flow-node { padding: 14px 24px; border-radius: 12px; font-weight: 500; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); min-width: 180px; position: relative; }
+  .flow-node.trigger { background: #C8A961; color: white; }
+  .flow-node.process { background: white; border: 2px solid #e5e5e5; border-left: 4px solid #C8A961; }
+  .flow-node.decision { background: #FEF3C7; border: 2px solid #F59E0B; }
+  .flow-node.success { background: #D1FAE5; border: 2px solid #10B981; color: #065F46; }
+  .flow-node.error { background: #FEE2E2; border: 2px solid #EF4444; color: #991B1B; }
+  .flow-node.end { background: #1a1a1a; color: white; }
+  .flow-node.pixel { background: #E8DEF8; border: 2px solid #7C3AED; color: #5B21B6; }
+  .flow-arrow { width: 2px; height: 32px; background: #C8A961; position: relative; margin: 0 auto; }
+  .flow-arrow::after { content: ''; position: absolute; bottom: -6px; left: -5px; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #C8A961; }
+  .flow-arrow-right { width: 40px; height: 2px; background: #C8A961; position: relative; }
+  .flow-arrow-right::after { content: ''; position: absolute; right: -6px; top: -5px; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 8px solid #C8A961; }
+  .flow-branch { display: flex; gap: 2rem; justify-content: center; }
+  .flow-label { font-size: 12px; color: #6B6B6B; text-align: center; margin-top: 4px; }
+
+
+  .phone-frame { width: 375px; border: 3px solid #1a1a1a; border-radius: 40px; padding: 12px; margin: 2rem auto; background: white; box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
+  .phone-screen { border-radius: 28px; overflow: hidden; min-height: 500px; background: #FFFDF7; padding: 20px; }
+  .phone-notch { width: 150px; height: 24px; background: #1a1a1a; border-radius: 0 0 12px 12px; margin: 0 auto; }
+  .wire-btn { padding: 12px 24px; border-radius: 999px; font-weight: 600; text-align: center; cursor: pointer; border: none; display: inline-block; margin: 4px; }
+  .wire-btn-primary { background: #C8A961; color: white; }
+  .wire-btn-outline { border: 2px solid #C8A961; color: #C8A961; background: white; }
+  .wire-btn-danger { background: #EF4444; color: white; }
+  .wire-input { width: 100%; padding: 12px 16px; border: 1px solid #e5e5e5; border-radius: 12px; font-size: 14px; margin: 8px 0; box-sizing: border-box; }
+  .wire-card { background: white; border: 1px solid #f0f0f0; border-radius: 12px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+  .section-card { background: white; border: 1px solid #f0f0f0; border-radius: 16px; padding: 2rem; margin: 1.5rem 0; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+
+
+  .desktop-frame { max-width: 800px; border: 2px solid #e5e5e5; border-radius: 12px; margin: 2rem auto; background: linear-gradient(135deg, #f8f4eb 0%, #fffdf7 100%); padding: 3rem; display: flex; justify-content: center; }
+  .state-card { border: 1px solid #e5e5e5; border-radius: 12px; padding: 1.5rem; margin: 1rem 0; }
+  .state-card.error-state { border-color: #EF4444; background: #FEF2F2; }
+  .state-card.loading-state { border-color: #F59E0B; background: #FFFBEB; }
+  .state-card.success-state { border-color: #10B981; background: #ECFDF5; }
+  .kanban-board { display: flex; gap: 12px; overflow-x: auto; padding: 1rem 0; }
+  .kanban-column { min-width: 180px; background: #f9fafb; border-radius: 12px; padding: 12px; }
+  .kanban-column h4 { font-size: 13px; margin: 0 0 8px; color: #6B6B6B; }
+  .kanban-card { background: white; border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px; margin-bottom: 8px; font-size: 13px; }
+  .kanban-card .stale { color: #EF4444; font-weight: 600; }
+  .comparison-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin: 1.5rem 0; }
+  .comparison-card { border: 1px solid #e5e5e5; border-radius: 12px; padding: 1.5rem; }
+  .comparison-card h4 { margin-top: 0; }
+  .pixel-event { display: inline-block; background: #E8DEF8; color: #5B21B6; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
 </style>
 </head>
 <body>
+
+
 <h1>Lead Capture Flow — Meta Ad → Booking Conversion</h1>
 <blockquote><p>The paid acquisition funnel: user clicks a Meta/Instagram ad → lands on <code>/book</code> → submits lead form → redirected into homepage booking dialog → converts to a real booking. Designed for maximum conversion from cold ad traffic.</p></blockquote>
 <hr>
 <h2>1. Complete Conversion Funnel</h2>
-<pre><code>┌──────────────────────────────────────────────────────────────────────┐
-│                    META AD → BOOKING FUNNEL                            │
-└──────────────────────────────────────────────────────────────────────┘
 
-  Meta/Instagram Ad                                   PIXEL EVENTS:
-  (Facebook Feed, Instagram Stories, Reels)
-        │                                             
-        │  User taps ad                               
-        ▼                                             
-  ┌─────────────────┐                                 
-  │  /book page     │ ─────────────────────────────── PageView
-  │  (lead form)    │                                 
-  └────────┬────────┘                                 
-           │                                          
-           │  Submits form (name, phone, service)     
-           ▼                                          
-  ┌─────────────────┐                                 
-  │  POST /api/leads│ ─────────────────────────────── Lead (browser + CAPI)
-  │  Lead created   │                                 
-  └────────┬────────┘                                 
-           │                                          
-           │  Redirect: /?book=1&amp;leadId={id}          
-           ▼                                          
-  ┌─────────────────┐                                 
-  │  Homepage       │ ─────────────────────────────── InitiateCheckout
-  │  Dialog opens   │                                 
-  └────────┬────────┘                                 
-           │                                          
-           │  User must sign in (if not already)      
-           ▼                                          
-  ┌─────────────────┐                                 
-  │  /sign-in       │ ─────────────────────────────── (no pixel event)
-  │  Google OAuth   │                                 
-  └────────┬────────┘                                 
-           │                                          
-           │  First time? → /onboarding               
-           ▼                                          
-  ┌─────────────────┐                                 
-  │  /onboarding    │ ─────────────────────────────── CompleteRegistration
-  │  Profile setup  │                                 
-  └────────┬────────┘                                 
-           │                                          
-           │  Redirect back: /?book=1&amp;leadId={id}     
-           ▼                                          
-  ┌─────────────────┐                                 
-  │  Booking dialog │                                 
-  │  4-step flow    │                                 
-  └────────┬────────┘                                 
-           │                                          
-           │  Submits booking                          
-           ▼                                          
-  ┌─────────────────┐                                 
-  │  Booking created│  lead.converted_booking_id set  
-  │  status: pending│  lead.status → 'booked'         
-  └────────┬────────┘                                 
-           │                                          
-           │  Receptionist confirms + completes       
-           ▼                                          
-  ┌─────────────────┐                                 
-  │  Invoice paid   │ ─────────────────────────────── Purchase (CAPI)
-  │  Revenue tracked│                                 
-  └─────────────────┘                                 
+<div class="flow-container">
+  <div class="flow-row">
+    <div class="flow-node trigger">Meta/Instagram Ad<br><small>Facebook Feed, Instagram Stories, Reels</small></div>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-label">User taps ad</div>
+  <div class="flow-arrow"></div>
+  <div class="flow-row">
+    <div class="flow-node process">/book page<br><small>(lead form)</small></div>
+    <div class="flow-arrow-right"></div>
+    <span class="pixel-event">PageView</span>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-label">Submits form (name, phone, service)</div>
+  <div class="flow-arrow"></div>
+  <div class="flow-row">
+    <div class="flow-node process">POST /api/leads<br><small>Lead created</small></div>
+    <div class="flow-arrow-right"></div>
+    <span class="pixel-event">Lead (browser + CAPI)</span>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-label">Redirect: /?book=1&amp;leadId={id}</div>
+  <div class="flow-arrow"></div>
 
 
-  DROP-OFF POINTS (retargeting triggers):
-  ───────────────────────────────────────
-  • Views /book but doesn't submit → Retarget: &quot;Complete your enquiry&quot;
-  • Submits lead but doesn't book  → Receptionist follow-up (48h)
-  • Submits booking but doesn't show → No-show tracking</code></pre>
+  <div class="flow-row">
+    <div class="flow-node process">Homepage<br><small>Dialog opens</small></div>
+    <div class="flow-arrow-right"></div>
+    <span class="pixel-event">InitiateCheckout</span>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-label">User must sign in (if not already)</div>
+  <div class="flow-arrow"></div>
+  <div class="flow-row">
+    <div class="flow-node process">/sign-in<br><small>Google OAuth</small></div>
+    <div class="flow-arrow-right"></div>
+    <span class="pixel-event" style="background:#f3f4f6;color:#6B6B6B;border:1px solid #e5e5e5;">(no pixel event)</span>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-label">First time? → /onboarding</div>
+  <div class="flow-arrow"></div>
+  <div class="flow-row">
+    <div class="flow-node process">/onboarding<br><small>Profile setup</small></div>
+    <div class="flow-arrow-right"></div>
+    <span class="pixel-event">CompleteRegistration</span>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-label">Redirect back: /?book=1&amp;leadId={id}</div>
+  <div class="flow-arrow"></div>
+
+
+  <div class="flow-row">
+    <div class="flow-node process">Booking dialog<br><small>4-step flow</small></div>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-label">Submits booking</div>
+  <div class="flow-arrow"></div>
+  <div class="flow-row">
+    <div class="flow-node success">Booking created<br><small>lead.converted_booking_id set<br>lead.status → 'booked'</small></div>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-label">Receptionist confirms + completes</div>
+  <div class="flow-arrow"></div>
+  <div class="flow-row">
+    <div class="flow-node end">Invoice paid<br><small>Revenue tracked</small></div>
+    <div class="flow-arrow-right"></div>
+    <span class="pixel-event">Purchase (CAPI)</span>
+  </div>
+</div>
+
+<div class="section-card" style="margin-top: 2rem;">
+  <h4 style="margin-top:0;">DROP-OFF POINTS (retargeting triggers):</h4>
+  <ul>
+    <li>Views /book but doesn't submit → Retarget: "Complete your enquiry"</li>
+    <li>Submits lead but doesn't book → Receptionist follow-up (48h)</li>
+    <li>Submits booking but doesn't show → No-show tracking</li>
+  </ul>
+</div>
+
+
 <hr>
 <h2>2. <code>/book</code> Page — Mobile Wireframe (Ad Landing)</h2>
-<pre><code>┌─────────────────────────────────────┐
-│                                     │
-│  ┌─────────────────────────────┐    │
-│  │       👑 Royal Glow          │    │
-│  │      Salon &amp; SPA            │    │
-│  └─────────────────────────────┘    │
-│                                     │
-│  ⭐ 4.9 · 86 reviews · Bengaluru   │
-│                                     │
-│  ─────────────────────────────      │
-│                                     │
-│  &quot;Tell us what you're               │
-│   looking for&quot;                      │
-│                                     │
-│  Name                               │
-│  ┌─────────────────────────────┐    │
-│  │                             │    │
-│  └─────────────────────────────┘    │
-│                                     │
-│  Phone                              │
-│  ┌─────────────────────────────┐    │
-│  │ +91                         │    │
-│  └─────────────────────────────┘    │
-│                                     │
-│  What are you interested in?        │
-│  ┌─────────────────────────────┐    │
-│  │ Facial &amp; Skincare        ▼  │    │
-│  └─────────────────────────────┘    │
-│                                     │
-│  ┌─────────────────────────────┐    │
-│  │   [ Continue to Booking ]   │    │  ← Primary CTA (brand colour)
-│  └─────────────────────────────┘    │
-│                                     │
-│  ─────────────────────────────      │
-│  📍 1st Floor, Narmada Complex      │
-│     Rayasandra, Bengaluru           │
-│  📞 +91 63601 35720                 │
-│                                     │
-└─────────────────────────────────────┘
 
-DESIGN RULES:
-─────────────
-• NO header navigation — zero distractions
-• NO footer links — only address + phone
-• NO &quot;Sign in&quot; prompt — cold traffic won't sign in
-• Trust signals ABOVE the form (stars, reviews, city)
-• CTA says &quot;Continue to Booking&quot; NOT &quot;Submit&quot;
-• Phone field: +91 prefix auto-shown, 10-digit validation
-• Form fits above fold on most phones (no scrolling to CTA)
-• Min touch target: 44px on all interactive elements</code></pre>
+<div class="phone-frame">
+  <div class="phone-notch"></div>
+  <div class="phone-screen">
+    <div style="text-align:center; margin-bottom: 16px;">
+      <div style="font-size: 24px;">&#x1F451;</div>
+      <h3 style="margin: 4px 0;">Royal Glow Salon &amp; SPA</h3>
+      <p style="color: #6B6B6B; font-size: 14px; margin: 4px 0;">&#x2B50; 4.9 · 86 reviews · Bengaluru</p>
+    </div>
+    <hr style="border:none; border-top:1px solid #e5e5e5; margin: 16px 0;">
+    <p style="font-weight: 500; font-size: 16px; margin-bottom: 12px;">"Tell us what you're looking for"</p>
+    <label style="font-size: 13px; color: #6B6B6B;">Name</label>
+    <input class="wire-input" type="text" placeholder="Your full name">
+    <label style="font-size: 13px; color: #6B6B6B;">Phone</label>
+    <input class="wire-input" type="tel" placeholder="+91" value="+91 ">
+    <label style="font-size: 13px; color: #6B6B6B;">What are you interested in?</label>
+    <select class="wire-input" style="appearance: auto;">
+      <option>Facial &amp; Skincare</option>
+    </select>
+    <div style="margin-top: 16px; text-align: center;">
+      <div class="wire-btn wire-btn-primary" style="width: 100%; display:block;">Continue to Booking</div>
+    </div>
+    <hr style="border:none; border-top:1px solid #e5e5e5; margin: 20px 0 12px;">
+    <p style="font-size: 12px; color: #6B6B6B; text-align:center; margin: 0;">&#x1F4CD; 1st Floor, Narmada Complex, Rayasandra, Bengaluru<br>&#x1F4DE; +91 63601 35720</p>
+  </div>
+</div>
+
+
+<div class="section-card">
+  <h4 style="margin-top:0;">DESIGN RULES:</h4>
+  <ul>
+    <li>NO header navigation — zero distractions</li>
+    <li>NO footer links — only address + phone</li>
+    <li>NO "Sign in" prompt — cold traffic won't sign in</li>
+    <li>Trust signals ABOVE the form (stars, reviews, city)</li>
+    <li>CTA says "Continue to Booking" NOT "Submit"</li>
+    <li>Phone field: +91 prefix auto-shown, 10-digit validation</li>
+    <li>Form fits above fold on most phones (no scrolling to CTA)</li>
+    <li>Min touch target: 44px on all interactive elements</li>
+  </ul>
+</div>
+
 <h3>Desktop Wireframe</h3>
-<pre><code>┌─────────────────────────────────────────────────────────────────┐
-│                                                                   │
-│     ┌── Premium background (brand gradient or salon image) ──┐   │
-│     │                                                         │   │
-│     │         ┌───────────────────────────────────┐          │   │
-│     │         │                                   │          │   │
-│     │         │   👑 Royal Glow Salon &amp; SPA        │          │   │
-│     │         │   ⭐ 4.9 · 86 reviews · Bengaluru  │          │   │
-│     │         │                                   │          │   │
-│     │         │   ─────────────────────────────   │          │   │
-│     │         │                                   │          │   │
-│     │         │   &quot;Tell us what you're            │          │   │
-│     │         │    looking for&quot;                   │          │   │
-│     │         │                                   │          │   │
-│     │         │   Name                            │          │   │
-│     │         │   ┌─────────────────────────┐    │          │   │
-│     │         │   │                         │    │          │   │
-│     │         │   └─────────────────────────┘    │          │   │
-│     │         │                                   │          │   │
-│     │         │   Phone                           │          │   │
-│     │         │   ┌─────────────────────────┐    │          │   │
-│     │         │   │ +91                     │    │          │   │
-│     │         │   └─────────────────────────┘    │          │   │
-│     │         │                                   │          │   │
-│     │         │   Interested in                   │          │   │
-│     │         │   ┌─────────────────────────┐    │          │   │
-│     │         │   │ Select service...    ▼  │    │          │   │
-│     │         │   └─────────────────────────┘    │          │   │
-│     │         │                                   │          │   │
-│     │         │   ┌─────────────────────────┐    │          │   │
-│     │         │   │ [ Continue to Booking ] │    │          │   │
-│     │         │   └─────────────────────────┘    │          │   │
-│     │         │                                   │          │   │
-│     │         │   📍 Rayasandra · 📞 63601 35720  │          │   │
-│     │         │                                   │          │   │
-│     │         └───────────────────────────────────┘          │   │
-│     │                                                         │   │
-│     │         Card: max-width 480px, centered                │   │
-│     └─────────────────────────────────────────────────────────┘   │
-│                                                                   │
-└─────────────────────────────────────────────────────────────────┘</code></pre>
+
+<div class="desktop-frame">
+  <div style="max-width: 480px; width: 100%; background: white; border-radius: 16px; padding: 2.5rem; box-shadow: 0 8px 24px rgba(0,0,0,0.1);">
+    <div style="text-align:center; margin-bottom: 20px;">
+      <div style="font-size: 28px;">&#x1F451;</div>
+      <h3 style="margin: 8px 0 4px;">Royal Glow Salon &amp; SPA</h3>
+      <p style="color: #6B6B6B; font-size: 14px; margin: 0;">&#x2B50; 4.9 · 86 reviews · Bengaluru</p>
+    </div>
+    <hr style="border:none; border-top:1px solid #e5e5e5; margin: 20px 0;">
+    <p style="font-weight: 500; font-size: 18px; margin-bottom: 16px;">"Tell us what you're looking for"</p>
+    <label style="font-size: 13px; color: #6B6B6B;">Name</label>
+    <input class="wire-input" type="text" placeholder="Your full name">
+    <label style="font-size: 13px; color: #6B6B6B;">Phone</label>
+    <input class="wire-input" type="tel" placeholder="+91">
+    <label style="font-size: 13px; color: #6B6B6B;">Interested in</label>
+    <select class="wire-input" style="appearance: auto;">
+      <option>Select service...</option>
+    </select>
+    <div style="margin-top: 20px; text-align: center;">
+      <div class="wire-btn wire-btn-primary" style="width: 100%; display:block;">Continue to Booking</div>
+    </div>
+    <p style="font-size: 12px; color: #6B6B6B; text-align:center; margin-top: 20px;">&#x1F4CD; Rayasandra · &#x1F4DE; 63601 35720</p>
+  </div>
+</div>
+
+
 <hr>
 <h2>3. Form States</h2>
-<h3>Idle State</h3>
-<pre><code>All fields empty, CTA active
-Phone field shows &quot;+91&quot; prefix placeholder
-Service dropdown shows &quot;Select service...&quot;</code></pre>
-<h3>Validation Errors</h3>
-<pre><code>┌─────────────────────────────────────┐
-│  Name                               │
-│  ┌─────────────────────────────┐    │
-│  │                      ← red  │    │
-│  └─────────────────────────────┘    │
-│  ⚠️ Name is required                │
-│                                     │
-│  Phone                              │
-│  ┌─────────────────────────────┐    │
-│  │ +91 123          ← red     │    │
-│  └─────────────────────────────┘    │
-│  ⚠️ Enter a valid 10-digit mobile   │
-│    number                           │
-│                                     │
-│  What are you interested in?        │
-│  ┌─────────────────────────────┐    │
-│  │ Select service...        ▼  │    │  ← no error (optional? or red)
-│  └─────────────────────────────┘    │
-└─────────────────────────────────────┘</code></pre>
-<h3>Submitting State</h3>
-<pre><code>┌─────────────────────────────────────┐
-│  (all fields disabled/greyed)       │
-│                                     │
-│  ┌─────────────────────────────┐    │
-│  │  ⟳ Processing...            │    │  ← spinner in button
-│  └─────────────────────────────┘    │
-└─────────────────────────────────────┘</code></pre>
-<h3>Success State (brief, before redirect)</h3>
-<pre><code>┌─────────────────────────────────────┐
-│                                     │
-│         ✓ Thank you!                │
-│                                     │
-│   Taking you to booking...          │
-│                                     │
-│   (subtle confetti animation)       │
-│                                     │
-└─────────────────────────────────────┘
 
-Duration: 1.5 seconds, then redirect to /?book=1&amp;leadId={id}</code></pre>
+<h3>Idle State</h3>
+<div class="state-card">
+  <p style="margin:0;"><strong>All fields empty, CTA active</strong></p>
+  <p style="margin: 8px 0 0; color: #6B6B6B;">Phone field shows "+91" prefix placeholder. Service dropdown shows "Select service..."</p>
+</div>
+
+<h3>Validation Errors</h3>
+<div class="state-card error-state">
+  <label style="font-size: 13px; color: #6B6B6B;">Name</label>
+  <input class="wire-input" type="text" style="border-color: #EF4444;" value="">
+  <p style="color: #EF4444; font-size: 13px; margin: 2px 0 12px;">&#x26A0;&#xFE0F; Name is required</p>
+  <label style="font-size: 13px; color: #6B6B6B;">Phone</label>
+  <input class="wire-input" type="tel" style="border-color: #EF4444;" value="+91 123">
+  <p style="color: #EF4444; font-size: 13px; margin: 2px 0 12px;">&#x26A0;&#xFE0F; Enter a valid 10-digit mobile number</p>
+  <label style="font-size: 13px; color: #6B6B6B;">What are you interested in?</label>
+  <select class="wire-input" style="appearance: auto;">
+    <option>Select service...</option>
+  </select>
+  <p style="color: #6B6B6B; font-size: 12px; margin: 2px 0 0;">← no error (optional)</p>
+</div>
+
+
+<h3>Submitting State</h3>
+<div class="state-card loading-state">
+  <p style="color: #6B6B6B; margin: 0 0 12px;">(all fields disabled/greyed)</p>
+  <div class="wire-btn wire-btn-primary" style="width: 100%; display:block; opacity: 0.7; pointer-events:none;">&#x27F3; Processing...</div>
+  <p style="color: #6B6B6B; font-size: 12px; margin: 8px 0 0;">← spinner in button</p>
+</div>
+
+<h3>Success State (brief, before redirect)</h3>
+<div class="state-card success-state" style="text-align: center; padding: 2.5rem;">
+  <div style="font-size: 36px; margin-bottom: 8px;">&#x2713;</div>
+  <h3 style="margin: 0 0 8px; color: #065F46;">Thank you!</h3>
+  <p style="color: #065F46; margin: 0;">Taking you to booking...</p>
+  <p style="color: #6B6B6B; font-size: 12px; margin: 12px 0 0;">(subtle confetti animation)</p>
+  <p style="color: #6B6B6B; font-size: 12px; margin: 4px 0 0;">Duration: 1.5 seconds, then redirect to /?book=1&amp;leadId={id}</p>
+</div>
+
 <h3>Error State (API failure)</h3>
-<pre><code>┌─────────────────────────────────────┐
-│                                     │
-│  ❌ Something went wrong.            │
-│                                     │
-│  We couldn't process your request.  │
-│  Please try again or call us        │
-│  directly.                          │
-│                                     │
-│  [ Try Again ]                      │
-│                                     │
-│  📞 +91 63601 35720 (tap to call)   │
-│                                     │
-└─────────────────────────────────────┘</code></pre>
+<div class="state-card error-state" style="text-align: center; padding: 2rem;">
+  <div style="font-size: 28px; margin-bottom: 8px;">&#x274C;</div>
+  <h4 style="margin: 0 0 8px; color: #991B1B;">Something went wrong.</h4>
+  <p style="color: #991B1B; margin: 0 0 16px;">We couldn't process your request. Please try again or call us directly.</p>
+  <div class="wire-btn wire-btn-danger">Try Again</div>
+  <p style="margin: 16px 0 0; font-size: 14px;">&#x1F4DE; <a href="tel:+916360135720" style="color: #991B1B; text-decoration: underline;">+91 63601 35720</a> (tap to call)</p>
+</div>
+
+
 <hr>
 <h2>4. Service Interest Dropdown Options</h2>
-<pre><code>┌─────────────────────────────────────┐
-│  What are you interested in?    ▼   │
-├─────────────────────────────────────┤
-│  💇 Haircut &amp; Styling               │
-│  🎨 Hair Colouring / Treatment      │
-│  💆 Facial &amp; Skincare               │
-│  🧴 Waxing                          │
-│  💅 Manicure &amp; Pedicure             │
-│  💄 Makeup Services                 │
-│  🧖 Hair SPA &amp; Head Therapies      │
-│  ── SPA Services ──                 │
-│  🌿 Standard SPA (Swedish, Thai)    │
-│  ✨ Premium SPA (Deep Tissue, Bali) │
-│  👑 VVIP SPA (Hot Stone, Potli)     │
-│  ── Other ──                        │
-│  💍 Bridal Packages                 │
-│  ❓ Other / Not Sure                │
-└─────────────────────────────────────┘</code></pre>
+
+<div class="section-card" style="max-width: 400px;">
+  <div style="padding: 12px 16px; background: #f9fafb; border: 1px solid #e5e5e5; border-radius: 12px 12px 0 0; font-weight: 500;">What are you interested in? &#x25BC;</div>
+  <div style="border: 1px solid #e5e5e5; border-top: none; border-radius: 0 0 12px 12px; overflow: hidden;">
+    <div style="padding: 10px 16px; border-bottom: 1px solid #f0f0f0;">&#x1F487; Haircut &amp; Styling</div>
+    <div style="padding: 10px 16px; border-bottom: 1px solid #f0f0f0;">&#x1F3A8; Hair Colouring / Treatment</div>
+    <div style="padding: 10px 16px; border-bottom: 1px solid #f0f0f0;">&#x1F486; Facial &amp; Skincare</div>
+    <div style="padding: 10px 16px; border-bottom: 1px solid #f0f0f0;">&#x1F9F4; Waxing</div>
+    <div style="padding: 10px 16px; border-bottom: 1px solid #f0f0f0;">&#x1F485; Manicure &amp; Pedicure</div>
+    <div style="padding: 10px 16px; border-bottom: 1px solid #f0f0f0;">&#x1F484; Makeup Services</div>
+    <div style="padding: 10px 16px; border-bottom: 1px solid #f0f0f0;">&#x1F9D6; Hair SPA &amp; Head Therapies</div>
+    <div style="padding: 10px 16px; background: #f9fafb; font-weight: 600; font-size: 12px; color: #6B6B6B; border-bottom: 1px solid #f0f0f0;">— SPA Services —</div>
+    <div style="padding: 10px 16px; border-bottom: 1px solid #f0f0f0;">&#x1F33F; Standard SPA (Swedish, Thai)</div>
+    <div style="padding: 10px 16px; border-bottom: 1px solid #f0f0f0;">&#x2728; Premium SPA (Deep Tissue, Bali)</div>
+    <div style="padding: 10px 16px; border-bottom: 1px solid #f0f0f0;">&#x1F451; VVIP SPA (Hot Stone, Potli)</div>
+    <div style="padding: 10px 16px; background: #f9fafb; font-weight: 600; font-size: 12px; color: #6B6B6B; border-bottom: 1px solid #f0f0f0;">— Other —</div>
+    <div style="padding: 10px 16px; border-bottom: 1px solid #f0f0f0;">&#x1F48D; Bridal Packages</div>
+    <div style="padding: 10px 16px;">&#x2753; Other / Not Sure</div>
+  </div>
+</div>
+
+
 <hr>
 <h2>5. UTM Parameter Handling</h2>
 <pre><code>URL arriving from Meta ad:
 https://theroyalglow.in/book?utm_source=meta&amp;utm_campaign=facial_may&amp;utm_content=carousel_1
 
-┌──────────────────────────────────────────────────────┐
-│  WHAT GETS STORED (on form submit):                   │
-│                                                       │
-│  lead table row:                                      │
-│  ┌─────────────────────────────────────────────────┐ │
-│  │  name: &quot;Priya&quot;                                   │ │
-│  │  phone: &quot;+919876543210&quot;                          │ │
-│  │  service_interested: &quot;facial_skincare&quot;           │ │
-│  │  source: &quot;meta_ad&quot;                               │ │
-│  │  utm_source: &quot;meta&quot;                              │ │
-│  │  utm_campaign: &quot;facial_may&quot;                      │ │
-│  │  utm_content: &quot;carousel_1&quot;                       │ │
-│  │  fbp: &quot;_fbp cookie value&quot; (from browser)         │ │
-│  │  fbc: &quot;_fbc cookie value&quot; (click ID)             │ │
-│  │  status: &quot;new&quot;                                    │ │
-│  │  created_at: now()                                │ │
-│  └─────────────────────────────────────────────────┘ │
-│                                                       │
-│  WHAT FIRES TO META:                                  │
-│  ┌─────────────────────────────────────────────────┐ │
-│  │  Browser Pixel: fbq('track', 'Lead', {           │ │
-│  │    content_name: 'Facial &amp; Skincare',            │ │
-│  │    eventID: 'uuid-123...'                        │ │
-│  │  })                                               │ │
-│  │                                                   │ │
-│  │  CAPI (server): POST graph.facebook.com/events   │ │
-│  │    event_name: 'Lead'                             │ │
-│  │    event_id: 'uuid-123...' (same = deduplication)│ │
-│  │    user_data: { em: hash, ph: hash, fbp, fbc }  │ │
-│  └─────────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────────┘</code></pre>
+WHAT GETS STORED (on form submit):
+
+lead table row:
+  name: "Priya"
+  phone: "+919876543210"
+  service_interested: "facial_skincare"
+  source: "meta_ad"
+  utm_source: "meta"
+  utm_campaign: "facial_may"
+  utm_content: "carousel_1"
+  fbp: "_fbp cookie value" (from browser)
+  fbc: "_fbc cookie value" (click ID)
+  status: "new"
+  created_at: now()
+
+WHAT FIRES TO META:
+
+Browser Pixel: fbq('track', 'Lead', {
+  content_name: 'Facial &amp; Skincare',
+  eventID: 'uuid-123...'
+})
+
+CAPI (server): POST graph.facebook.com/events
+  event_name: 'Lead'
+  event_id: 'uuid-123...' (same = deduplication)
+  user_data: { em: hash, ph: hash, fbp, fbc }</code></pre>
+
+
 <hr>
 <h2>6. Post-Lead Redirect Flow</h2>
-<pre><code>After lead form submit + 1.5s success animation:
 
-Browser redirects to:
-  https://theroyalglow.in/?book=1&amp;leadId=lead_abc123
+<p>After lead form submit + 1.5s success animation:</p>
+<p>Browser redirects to: <code>https://theroyalglow.in/?book=1&amp;leadId=lead_abc123</code></p>
 
-    │
-    ▼
-Homepage loads with book=1 query param
-    │
-    ├── User signed in? 
-    │   ├── YES → Booking dialog opens immediately
-    │   │         leadId passed to POST /api/bookings on submit
-    │   │         → lead.converted_booking_id = new booking ID
-    │   │         → lead.status = 'booked'
-    │   │
-    │   └── NO → Store { book:1, leadId } in sessionStorage
-    │            → Redirect to /sign-in
-    │            → After OAuth + onboarding → redirect back
-    │            → Dialog opens with leadId context
-    │
-    ▼
-Booking submitted with leadId linked
-    │
-    ▼
-Lead is now &quot;converted&quot; — appears in admin pipeline as &quot;Booked&quot;
-Revenue from this booking attributed to the original Meta campaign</code></pre>
+<div class="flow-container">
+  <div class="flow-row">
+    <div class="flow-node trigger">Homepage loads with book=1 query param</div>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-row">
+    <div class="flow-node decision">User signed in?</div>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-branch">
+    <div class="flow-container" style="margin:0;">
+      <div class="flow-label" style="margin-bottom: 8px;"><strong>YES</strong></div>
+      <div class="flow-node success" style="min-width:220px;">Booking dialog opens immediately<br><small>leadId passed to POST /api/bookings<br>→ lead.converted_booking_id = new booking ID<br>→ lead.status = 'booked'</small></div>
+    </div>
+    <div class="flow-container" style="margin:0;">
+      <div class="flow-label" style="margin-bottom: 8px;"><strong>NO</strong></div>
+      <div class="flow-node process" style="min-width:220px;">Store { book:1, leadId } in sessionStorage<br><small>→ Redirect to /sign-in<br>→ After OAuth + onboarding → redirect back<br>→ Dialog opens with leadId context</small></div>
+    </div>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-row">
+    <div class="flow-node process">Booking submitted with leadId linked</div>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-row">
+    <div class="flow-node end">Lead is now "converted" — appears in admin pipeline as "Booked"<br><small>Revenue from this booking attributed to the original Meta campaign</small></div>
+  </div>
+</div>
+
+
 <hr>
 <h2>7. Receptionist Follow-up Flow (Lead Not Converted)</h2>
-<pre><code>Lead submitted but customer dropped off (didn't complete booking):
 
-Timeline:
-─────────
-T+0min    Lead created (status: 'new')
-T+48hrs   QStash job fires: /api/jobs/lead-followups
-           │
-           ▼
-          Lead still in 'new' status?
-           ├── YES → Alert receptionist:
-           │         • Push notification
-           │         • Ably: admin:bookings event
-           │         • Dashboard &quot;Stale Leads&quot; count +1
-           │
-           └── NO → Already contacted/booked, skip
+<p>Lead submitted but customer dropped off (didn't complete booking):</p>
+
+<div class="flow-container">
+  <div class="flow-row">
+    <div class="flow-node trigger">T+0 min — Lead created<br><small>status: 'new'</small></div>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-label">T+48hrs</div>
+  <div class="flow-arrow"></div>
+  <div class="flow-row">
+    <div class="flow-node process">QStash job fires<br><small>/api/jobs/lead-followups</small></div>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-row">
+    <div class="flow-node decision">Lead still in 'new' status?</div>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-branch">
+    <div class="flow-container" style="margin:0;">
+      <div class="flow-label" style="margin-bottom: 8px;"><strong>YES</strong></div>
+      <div class="flow-node error" style="min-width: 240px;">Alert receptionist<br><small>• Push notification<br>• Ably: admin:bookings event<br>• Dashboard "Stale Leads" count +1</small></div>
+    </div>
+    <div class="flow-container" style="margin:0;">
+      <div class="flow-label" style="margin-bottom: 8px;"><strong>NO</strong></div>
+      <div class="flow-node success" style="min-width: 200px;">Already contacted/booked<br><small>Skip — no action needed</small></div>
+    </div>
+  </div>
+</div>
+
+<h3>Admin Lead Pipeline — /admin/leads</h3>
+
+<div class="kanban-board">
+  <div class="kanban-column">
+    <h4>New (3)</h4>
+    <div class="kanban-card">
+      <strong>Priya</strong><br>
+      &#x1F4DE; 98765<br>
+      Facial<br>
+      <span class="stale">&#x1F534; 48h+</span><br>
+      <small>meta / facial_m</small>
+    </div>
+    <div class="kanban-card">
+      <strong>Aisha</strong><br>
+      &#x1F4DE; 76543<br>
+      Haircut<br>
+      <span class="stale">&#x1F534; 72h+</span><br>
+      <small>← RED = stale (needs attention)</small>
+    </div>
+  </div>
+  <div class="kanban-column">
+    <h4>Contacted (1)</h4>
+    <div class="kanban-card">
+      <strong>Rahul</strong><br>
+      &#x1F4DE; 87654<br>
+      SPA<br>
+      <small>2d ago · meta / spa_jun</small>
+    </div>
+  </div>
+  <div class="kanban-column">
+    <h4>Follow-up (0)</h4>
+    <div class="kanban-card" style="color: #6B6B6B; text-align:center; border-style: dashed;">No leads</div>
+  </div>
+  <div class="kanban-column">
+    <h4>Booked</h4>
+    <div class="kanban-card" style="color: #6B6B6B; text-align:center; border-style: dashed;">Converted leads appear here</div>
+  </div>
+</div>
 
 
-Admin sees in /admin/leads:
+<div class="section-card">
+  <h4 style="margin-top:0;">Receptionist actions:</h4>
+  <ul>
+    <li>Tap lead card → open lead detail</li>
+    <li>Call phone number</li>
+    <li>Open WhatsApp via AiSensy link</li>
+    <li>Update status to "Contacted"</li>
+    <li>Add note: "Called, interested in facial, booking for Saturday"</li>
+    <li>Create booking from lead (links the conversion)</li>
+  </ul>
+</div>
 
-┌─────────────────────────────────────────────────────────────┐
-│  Lead Pipeline                                               │
-│                                                              │
-│  New (3)         Contacted (1)     Follow-up (0)    Booked  │
-│  ┌──────────┐   ┌──────────┐                               │
-│  │ Priya    │   │ Rahul    │                               │
-│  │ 📞 98765 │   │ 📞 87654 │                               │
-│  │ Facial   │   │ SPA      │                               │
-│  │ 🔴 48h+  │   │ 2d ago   │                               │
-│  │ meta/    │   │ meta/    │                               │
-│  │ facial_m │   │ spa_jun  │                               │
-│  └──────────┘   └──────────┘                               │
-│  ┌──────────┐                                               │
-│  │ Aisha   │                                               │
-│  │ 📞 76543 │                                               │
-│  │ Haircut  │                                               │
-│  │ 🔴 72h+  │  ← RED DOT = stale (needs attention)         │
-│  └──────────┘                                               │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
 
-Receptionist actions:
-  → Tap lead card → open lead detail
-  → Call phone number
-  → Open WhatsApp via AiSensy link
-  → Update status to &quot;Contacted&quot;
-  → Add note: &quot;Called, interested in facial, booking for Saturday&quot;
-  → Create booking from lead (links the conversion)</code></pre>
 <hr>
 <h2>8. Meta Ad Creative → Landing Page Connection</h2>
-<pre><code>┌─────────────────────────────────────────────────────────────────┐
-│  AD CREATIVE                    │  LANDING PAGE MATCH            │
-├─────────────────────────────────┼─────────────────────────────────┤
-│                                 │                                 │
-│  &quot;Hydrafacial from ₹1,499&quot;     │  Service dropdown pre-selects   │
-│  Image: facial being performed  │  &quot;Facial &amp; Skincare&quot;            │
-│  CTA: &quot;Book Now&quot;               │  (via utm_content parameter)    │
-│                                 │                                 │
-│  &quot;Transform your hair&quot;          │  Service dropdown pre-selects   │
-│  Video: hair colouring          │  &quot;Hair Colouring / Treatment&quot;   │
-│  CTA: &quot;Book Now&quot;               │                                 │
-│                                 │                                 │
-│  &quot;Premium SPA experience&quot;       │  Service dropdown pre-selects   │
-│  Carousel: spa images           │  &quot;Premium SPA&quot;                  │
-│  CTA: &quot;Book Now&quot;               │                                 │
-│                                 │                                 │
-└─────────────────────────────────┴─────────────────────────────────┘
 
-URL structure for pre-selection:
-  /book?utm_source=meta&amp;utm_campaign=facial_may&amp;utm_content=facial_skincare
-                                                          ▲
-                                                  maps to dropdown value</code></pre>
+<table>
+<thead>
+<tr>
+<th>AD CREATIVE</th>
+<th>LANDING PAGE MATCH</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>"Hydrafacial from ₹1,499"</strong><br>Image: facial being performed<br>CTA: "Book Now"</td>
+<td>Service dropdown pre-selects <strong>"Facial &amp; Skincare"</strong><br>(via utm_content parameter)</td>
+</tr>
+<tr>
+<td><strong>"Transform your hair"</strong><br>Video: hair colouring<br>CTA: "Book Now"</td>
+<td>Service dropdown pre-selects <strong>"Hair Colouring / Treatment"</strong></td>
+</tr>
+<tr>
+<td><strong>"Premium SPA experience"</strong><br>Carousel: spa images<br>CTA: "Book Now"</td>
+<td>Service dropdown pre-selects <strong>"Premium SPA"</strong></td>
+</tr>
+</tbody>
+</table>
+
+<p><strong>URL structure for pre-selection:</strong></p>
+<pre><code>/book?utm_source=meta&amp;utm_campaign=facial_may&amp;utm_content=facial_skincare
+                                                        ^
+                                                maps to dropdown value</code></pre>
+
+
 <hr>
 <h2>9. Why <code>/book</code> is Separate from Homepage Booking</h2>
-<pre><code>┌────────────────────────────────┐     ┌────────────────────────────────┐
-│   /book (Ad Landing)            │     │   /?book=1 (Homepage Dialog)    │
-├────────────────────────────────┤     ├────────────────────────────────┤
-│ • Cold traffic (never visited)  │     │ • Warm traffic (knows brand)   │
-│ • No sign-in required           │     │ • Sign-in required             │
-│ • Creates LEAD row              │     │ • Creates BOOKING row          │
-│ • 3 fields only (low friction)  │     │ • 4-step full flow             │
-│ • No navigation (distraction    │     │ • Full navigation visible      │
-│   free)                         │     │                                │
-│ • Meta Pixel Lead event fires   │     │ • No Lead event (not a lead)   │
-│ • Source: meta_ad               │     │ • Source: organic/gmb/walkin   │
-│ • After submit → redirects to  │     │ • Direct booking submission    │
-│   homepage dialog               │     │                                │
-│ • NEVER linked from site nav   │     │ • Primary CTA everywhere       │
-└────────────────────────────────┘     └────────────────────────────────┘
 
-KEY RULE: /book is ONLY for Meta/Instagram ad traffic.
-          Homepage CTA, GMB, Google Maps, in-store QR → all use /?book=1</code></pre>
+<div class="comparison-grid">
+  <div class="comparison-card" style="border-left: 4px solid #C8A961;">
+    <h4>/book (Ad Landing)</h4>
+    <ul>
+      <li>Cold traffic (never visited)</li>
+      <li>No sign-in required</li>
+      <li>Creates LEAD row</li>
+      <li>3 fields only (low friction)</li>
+      <li>No navigation (distraction free)</li>
+      <li>Meta Pixel Lead event fires</li>
+      <li>Source: meta_ad</li>
+      <li>After submit → redirects to homepage dialog</li>
+      <li>NEVER linked from site nav</li>
+    </ul>
+  </div>
+  <div class="comparison-card" style="border-left: 4px solid #10B981;">
+    <h4>/?book=1 (Homepage Dialog)</h4>
+    <ul>
+      <li>Warm traffic (knows brand)</li>
+      <li>Sign-in required</li>
+      <li>Creates BOOKING row</li>
+      <li>4-step full flow</li>
+      <li>Full navigation visible</li>
+      <li>No Lead event (not a lead)</li>
+      <li>Source: organic/gmb/walkin</li>
+      <li>Direct booking submission</li>
+      <li>Primary CTA everywhere</li>
+    </ul>
+  </div>
+</div>
+
+<blockquote>
+<p><strong>KEY RULE:</strong> /book is ONLY for Meta/Instagram ad traffic. Homepage CTA, GMB, Google Maps, in-store QR → all use /?book=1</p>
+</blockquote>
+
+
 <hr>
 <h2>10. Conversion Attribution Chain</h2>
-<pre><code>Meta Ad Click
-    │
-    ├── fbclid stamped on URL (Meta click ID)
-    │   → _fbc cookie set by Pixel
-    │
-    ├── _fbp cookie set by Pixel (browser ID)
-    │
-    ▼
-Lead form submitted
-    │
-    ├── Lead row: source='meta_ad', utm_campaign, fbc, fbp stored
-    │
-    ├── Meta Pixel: Lead event (browser, eventID=X)
-    │
-    ├── Meta CAPI: Lead event (server, event_id=X) ← deduplication
-    │
-    ▼
-Customer books (links leadId)
-    │
-    ├── lead.converted_booking_id = booking.id
-    │
-    ▼
-Receptionist marks completed + payment received
-    │
-    ├── Meta CAPI: Purchase event (server)
-    │   { value: ₹1300, currency: 'INR', content_ids: [...] }
-    │
-    ▼
-Meta Ads Manager shows:
-    │
-    ├── Campaign: &quot;facial_may&quot;
-    │   ├── Leads: 15
-    │   ├── Purchases: 8
-    │   ├── Revenue: ₹12,400
-    │   ├── ROAS: 4.1x
-    │   └── Cost per Purchase: ₹375
-    │
-    └── This data trains Meta's algorithm to find more
-        people like Priya who actually pay ₹1,300+ for facials</code></pre>
+
+<div class="flow-container">
+  <div class="flow-row">
+    <div class="flow-node trigger">Meta Ad Click</div>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-row">
+    <div class="flow-node pixel">fbclid stamped on URL (Meta click ID)<br><small>→ _fbc cookie set by Pixel<br>→ _fbp cookie set by Pixel (browser ID)</small></div>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-row">
+    <div class="flow-node process">Lead form submitted</div>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-row">
+    <div class="flow-node pixel" style="min-width: 280px;">Lead row: source='meta_ad', utm_campaign, fbc, fbp stored<br><small>Meta Pixel: Lead event (browser, eventID=X)<br>Meta CAPI: Lead event (server, event_id=X) ← deduplication</small></div>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-row">
+    <div class="flow-node success">Customer books (links leadId)<br><small>lead.converted_booking_id = booking.id</small></div>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-row">
+    <div class="flow-node process">Receptionist marks completed + payment received</div>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-row">
+    <div class="flow-node pixel">Meta CAPI: Purchase event (server)<br><small>{ value: ₹1300, currency: 'INR', content_ids: [...] }</small></div>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-row">
+    <div class="flow-node end" style="min-width: 300px;">Meta Ads Manager shows:<br><small>Campaign: "facial_may"<br>Leads: 15 · Purchases: 8 · Revenue: ₹12,400<br>ROAS: 4.1x · Cost per Purchase: ₹375</small></div>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-label">This data trains Meta's algorithm to find more<br>people like Priya who actually pay ₹1,300+ for facials</div>
+</div>
+
+
 <hr>
 <h2>11. Page Design Constraints</h2>
 <table>
@@ -485,7 +585,7 @@ Meta Ads Manager shows:
 <td>Zero exit paths — only the form CTA</td>
 </tr>
 <tr>
-<td>No &quot;sign in&quot; prompt</td>
+<td>No "sign in" prompt</td>
 <td>Cold traffic bounces on auth screens</td>
 </tr>
 <tr>
@@ -497,8 +597,8 @@ Meta Ads Manager shows:
 <td>Every extra field drops conversion ~10%</td>
 </tr>
 <tr>
-<td>CTA text: &quot;Continue to Booking&quot;</td>
-<td>Tells user what happens next (not &quot;Submit&quot;)</td>
+<td>CTA text: "Continue to Booking"</td>
+<td>Tells user what happens next (not "Submit")</td>
 </tr>
 <tr>
 <td>Phone shows +91 prefix</td>
