@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Routes | Royal Glow Salon &amp; Spa</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --gold: #C8A961; --gold-light: #F5E6B8; --gold-dark: #9A7B3A;
+            --purple: #6B4C9A; --purple-light: #E8DFF5; --purple-dark: #4A3370;
+            --teal: #2A9D8F; --teal-light: #D4F1ED;
+            --red: #DC2626; --red-light: #FEE2E2;
+            --amber: #D97706; --amber-light: #FEF3C7;
+            --blue: #2563EB; --blue-light: #DBEAFE;
+            --green: #059669; --green-light: #D1FAE5;
+            --bg: #F8F9FC; --card: #FFFFFF; --text: #1A1A2E;
+            --text-muted: #6B7280; --border: #E5E7EB;
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+            --radius: 12px;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .header { background: linear-gradient(135deg, var(--purple) 0%, var(--purple-dark) 100%); border-radius: var(--radius); padding: 2.5rem 3rem; margin-bottom: 2rem; color: white; position: relative; overflow: hidden; }
+        .header::before { content: ''; position: absolute; top: -50%; right: -10%; width: 400px; height: 400px; background: radial-gradient(circle, rgba(200,169,97,0.15) 0%, transparent 70%); border-radius: 50%; }
+        .header::after { content: ''; position: absolute; bottom: -30%; left: -5%; width: 250px; height: 250px; background: radial-gradient(circle, rgba(42,157,143,0.1) 0%, transparent 70%); border-radius: 50%; }
+        .header h1 { font-size: 2.2rem; margin-bottom: 0.5rem; position: relative; }
+        .header p { opacity: 0.9; font-size: 0.95rem; position: relative; max-width: 600px; }
+        .header .stats { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1.5rem; position: relative; }
+        .header .stat { background: rgba(255,255,255,0.12); border-radius: 8px; padding: 0.6rem 1.2rem; backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.2); }
+        .header .stat-num { font-size: 1.4rem; font-weight: 700; }
+        .header .stat-label { font-size: 0.7rem; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.5px; }
+        .response-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.5rem 2rem; margin-bottom: 2rem; border: 1px solid var(--border); border-left: 4px solid var(--purple); }
+        .response-card h3 { font-size: 0.9rem; color: var(--purple); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; }
+        .response-card pre { background: #1e1e2e; color: #cdd6f4; padding: 1rem 1.2rem; border-radius: 8px; font-size: 0.82rem; font-family: 'SF Mono', 'Fira Code', monospace; overflow-x: auto; line-height: 1.5; }
+        .response-card pre .key { color: #89b4fa; }
+        .response-card pre .type { color: #a6e3a1; }
+        .response-card pre .comment { color: #6c7086; font-style: italic; }
+        .section { margin-bottom: 2.5rem; }
+        .section-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.2rem; padding-bottom: 0.8rem; border-bottom: 2px solid var(--border); }
+        .section-header h2 { font-size: 1.3rem; }
+        .section-header .section-badge { font-size: 0.7rem; padding: 0.3rem 0.7rem; border-radius: 20px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .section-header .section-count { font-size: 0.8rem; color: var(--text-muted); margin-left: auto; }
+        .section-auth .section-header { border-bottom-color: var(--purple); }
+        .section-auth .section-badge { background: var(--purple-light); color: var(--purple); }
+        .section-customer .section-header { border-bottom-color: var(--teal); }
+        .section-customer .section-badge { background: var(--teal-light); color: var(--teal); }
+        .section-admin .section-header { border-bottom-color: var(--gold); }
+        .section-admin .section-badge { background: var(--gold-light); color: var(--gold-dark); }
+        .section-jobs .section-header { border-bottom-color: var(--blue); }
+        .section-jobs .section-badge { background: var(--blue-light); color: var(--blue); }
+        .section-webhooks .section-header { border-bottom-color: var(--red); }
+        .section-webhooks .section-badge { background: var(--red-light); color: var(--red); }
+        .route-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); margin-bottom: 0.8rem; overflow: hidden; transition: box-shadow 0.2s, transform 0.15s; }
+        .route-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+        .route-row { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.5rem; flex-wrap: wrap; }
+        .method-badge { font-size: 0.7rem; font-weight: 700; padding: 0.3rem 0.6rem; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; min-width: 52px; text-align: center; flex-shrink: 0; }
+        .method-GET { background: var(--green-light); color: var(--green); }
+        .method-POST { background: var(--blue-light); color: var(--blue); }
+        .method-PATCH { background: var(--amber-light); color: var(--amber); }
+        .method-DELETE { background: var(--red-light); color: var(--red); }
+        .method-ALL { background: var(--purple-light); color: var(--purple); }
+        .route-path { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.82rem; color: var(--text); font-weight: 500; flex-shrink: 0; }
+        .route-desc { font-size: 0.85rem; color: var(--text-muted); flex: 1; min-width: 200px; }
+        .route-tags { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+        .tag { font-size: 0.65rem; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 600; white-space: nowrap; }
+        .tag-auth { background: #fef3c7; color: #92400e; }
+        .tag-noauth { background: #f0fdf4; color: #166534; }
+        .tag-cache { background: #ede9fe; color: #5b21b6; }
+        .tag-nocache { background: #f9fafb; color: #9ca3af; border: 1px solid #e5e7eb; }
+        .tag-realtime { background: var(--teal-light); color: var(--teal); }
+        .tag-email { background: #fce7f3; color: #be185d; }
+        .tag-capi { background: #e0e7ff; color: #3730a3; }
+        .side-effects { padding: 0 1.5rem 1rem 1.5rem; border-top: 1px dashed var(--border); margin-top: 0; }
+        .side-effects-inner { display: flex; flex-wrap: wrap; gap: 0.4rem; padding-top: 0.7rem; }
+        .effect { font-size: 0.72rem; background: #f8fafc; border: 1px solid var(--border); padding: 0.2rem 0.5rem; border-radius: 4px; color: var(--text-muted); }
+        .schedule-info { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: var(--blue); font-weight: 500; }
+        .schedule-info .clock { font-size: 0.85rem; }
+        .failure-mode { font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 4px; background: #fef2f2; color: #991b1b; font-weight: 500; }
+        .failure-mode.silent { background: #f9fafb; color: #6b7280; }
+        .webhook-source { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; color: var(--text-muted); font-weight: 500; }
+        .section-note { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.8rem 1.2rem; margin-bottom: 1rem; font-size: 0.82rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem; }
+        .section-note .icon { font-size: 1rem; }
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            .header { padding: 1.5rem; }
+            .header h1 { font-size: 1.5rem; }
+            .route-row { flex-direction: column; align-items: flex-start; gap: 0.5rem; padding: 1rem; }
+            .route-desc { min-width: unset; }
+            .header .stats { gap: 0.6rem; }
+            .header .stat { padding: 0.4rem 0.8rem; }
+        }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- Header -->
+<div class="header">
+    <h1>🔌 API Routes</h1>
+    <p>Thin-layer architecture: parse request → validate with Zod → delegate to business logic → return JSON response. All endpoints under <code style="background:rgba(255,255,255,0.15);padding:0.1rem 0.4rem;border-radius:4px;font-size:0.85rem">/api/*</code></p>
+    <div class="stats">
+        <div class="stat"><div class="stat-num">35</div><div class="stat-label">Total Routes</div></div>
+        <div class="stat"><div class="stat-num">1</div><div class="stat-label">Auth</div></div>
+        <div class="stat"><div class="stat-num">13</div><div class="stat-label">Customer</div></div>
+        <div class="stat"><div class="stat-num">7</div><div class="stat-label">Admin</div></div>
+        <div class="stat"><div class="stat-num">12</div><div class="stat-label">Jobs</div></div>
+        <div class="stat"><div class="stat-num">2</div><div class="stat-label">Webhooks</div></div>
+    </div>
+</div>
+
+<!-- Response Format Card -->
+<div class="response-card">
+    <h3>📋 Standard Response Shape</h3>
+    <pre><span class="comment">// Every API response follows this consistent structure</span>
+{
+  <span class="key">"success"</span>: <span class="type">boolean</span>,
+  <span class="key">"data"</span>?: <span class="type">T</span>,              <span class="comment">// Present on success</span>
+  <span class="key">"error"</span>?: {
+    <span class="key">"code"</span>: <span class="type">string</span>,       <span class="comment">// Machine-readable error code</span>
+    <span class="key">"message"</span>: <span class="type">string</span>   <span class="comment">// Human-readable description</span>
+  }
+}</pre>
+</div><!-- Section 8a: Authentication -->
+<div class="section section-auth">
+    <div class="section-header">
+        <span class="section-badge">8a</span>
+        <h2>🔐 Authentication</h2>
+        <span class="section-count">1 route</span>
+    </div>
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-ALL">ALL</span>
+            <span class="route-path">/api/auth/[...betterauth]</span>
+            <span class="route-desc">Better Auth catch-all: Google OAuth sign-in, callback, session check, sign-out, CSRF token generation.</span>
+            <div class="route-tags">
+                <span class="tag tag-noauth">🔓 No Auth</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Section 8b: Customer-Facing API -->
+<div class="section section-customer">
+    <div class="section-header">
+        <span class="section-badge">8b</span>
+        <h2>👤 Customer-Facing API</h2>
+        <span class="section-count">13 routes</span>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-GET">GET</span>
+            <span class="route-path">/api/services</span>
+            <span class="route-desc">All service categories + services list</span>
+            <div class="route-tags">
+                <span class="tag tag-noauth">🔓 No Auth</span>
+                <span class="tag tag-cache">⚡ KV 5min</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-GET">GET</span>
+            <span class="route-path">/api/services/[slug]</span>
+            <span class="route-desc">Single service detail by slug</span>
+            <div class="route-tags">
+                <span class="tag tag-noauth">🔓 No Auth</span>
+                <span class="tag tag-cache">⚡ KV Cached</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-GET">GET</span>
+            <span class="route-path">/api/availability</span>
+            <span class="route-desc">Available time slots. Query: date, serviceIds[], staffId</span>
+            <div class="route-tags">
+                <span class="tag tag-noauth">🔓 No Auth</span>
+                <span class="tag tag-nocache">No Cache</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-GET">GET</span>
+            <span class="route-path">/api/bookings</span>
+            <span class="route-desc">List authenticated customer's bookings</span>
+            <div class="route-tags">
+                <span class="tag tag-auth">🔒 Auth</span>
+                <span class="tag tag-nocache">No Cache</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/bookings</span>
+            <span class="route-desc">Create a new booking</span>
+            <div class="route-tags">
+                <span class="tag tag-auth">🔒 Auth</span>
+                <span class="tag tag-realtime">📡 Ably</span>
+                <span class="tag tag-email">✉️ Email</span>
+            </div>
+        </div>
+        <div class="side-effects"><div class="side-effects-inner">
+            <span class="effect">Ably publish</span>
+            <span class="effect">Email via Resend</span>
+            <span class="effect">PostHog event</span>
+        </div></div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-GET">GET</span>
+            <span class="route-path">/api/bookings/[id]</span>
+            <span class="route-desc">Single booking detail for authenticated owner</span>
+            <div class="route-tags">
+                <span class="tag tag-auth">🔒 Auth + Ownership</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/bookings/[id]/cancel</span>
+            <span class="route-desc">Cancel booking. Validates ≥4h before appointment.</span>
+            <div class="route-tags">
+                <span class="tag tag-auth">🔒 Auth</span>
+                <span class="tag tag-realtime">📡 Ably</span>
+                <span class="tag tag-email">✉️ Email</span>
+            </div>
+        </div>
+        <div class="side-effects"><div class="side-effects-inner">
+            <span class="effect">Slot released</span>
+            <span class="effect">Ably publish</span>
+            <span class="effect">Email notification</span>
+        </div></div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/bookings/[id]/reschedule</span>
+            <span class="route-desc">Reschedule. Max 2 reschedules, min 1h before.</span>
+            <div class="route-tags">
+                <span class="tag tag-auth">🔒 Auth</span>
+                <span class="tag tag-realtime">📡 Ably</span>
+                <span class="tag tag-email">✉️ Email</span>
+            </div>
+        </div>
+        <div class="side-effects"><div class="side-effects-inner">
+            <span class="effect">Slot swap</span>
+            <span class="effect">Ably publish</span>
+            <span class="effect">Calendar event updated</span>
+            <span class="effect">Email notification</span>
+        </div></div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/leads</span>
+            <span class="route-desc">Lead capture from /book page</span>
+            <div class="route-tags">
+                <span class="tag tag-noauth">🔓 No Auth</span>
+                <span class="tag tag-capi">📊 Meta CAPI</span>
+            </div>
+        </div>
+        <div class="side-effects"><div class="side-effects-inner">
+            <span class="effect">Lead row created</span>
+            <span class="effect">Meta CAPI Lead event</span>
+        </div></div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/onboarding/complete</span>
+            <span class="route-desc">Save onboarding data + sync integrations</span>
+            <div class="route-tags">
+                <span class="tag tag-auth">🔒 Auth</span>
+                <span class="tag tag-email">✉️ Email</span>
+                <span class="tag tag-capi">📊 Meta CAPI</span>
+            </div>
+        </div>
+        <div class="side-effects"><div class="side-effects-inner">
+            <span class="effect">Profile created</span>
+            <span class="effect">Brevo contact sync</span>
+            <span class="effect">Meta CAPI CompleteRegistration</span>
+            <span class="effect">Welcome email</span>
+        </div></div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/push/subscribe</span>
+            <span class="route-desc">Register Web Push subscription endpoint</span>
+            <div class="route-tags">
+                <span class="tag tag-auth">🔒 Auth</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-DELETE">DELETE</span>
+            <span class="route-path">/api/push/unsubscribe</span>
+            <span class="route-desc">Remove push subscription</span>
+            <div class="route-tags">
+                <span class="tag tag-auth">🔒 Auth</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/ably/token</span>
+            <span class="route-desc">Ably Token Auth. Role-scoped JWT token.</span>
+            <div class="route-tags">
+                <span class="tag tag-auth">🔒 Auth</span>
+                <span class="tag tag-realtime">📡 Ably</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Section 8c: Admin API -->
+<div class="section section-admin">
+    <div class="section-header">
+        <span class="section-badge">8c</span>
+        <h2>👑 Admin API</h2>
+        <span class="section-count">7 routes</span>
+    </div>
+    <div class="section-note">
+        <span class="icon">🛡️</span>
+        All routes require minimum <strong>Receptionist</strong> role unless otherwise noted.
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-PATCH">PATCH</span>
+            <span class="route-path">/api/admin/bookings/[id]</span>
+            <span class="route-desc">Approve, reject, or assign staff to booking</span>
+            <div class="route-tags">
+                <span class="tag tag-auth">🔒 Receptionist+</span>
+                <span class="tag tag-realtime">📡 Ably</span>
+                <span class="tag tag-email">✉️ Email</span>
+            </div>
+        </div>
+        <div class="side-effects"><div class="side-effects-inner">
+            <span class="effect">Ably → customer + admin</span>
+            <span class="effect">Email notification</span>
+            <span class="effect">Calendar event (on approve)</span>
+        </div></div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/admin/bookings/[id]/complete</span>
+            <span class="route-desc">Checkout: invoice, gems, analytics</span>
+            <div class="route-tags">
+                <span class="tag tag-auth">🔒 Receptionist+</span>
+                <span class="tag tag-email">✉️ Email</span>
+                <span class="tag tag-capi">📊 Meta CAPI</span>
+            </div>
+        </div>
+        <div class="side-effects"><div class="side-effects-inner">
+            <span class="effect">Invoice PDF → R2</span>
+            <span class="effect">Gems awarded</span>
+            <span class="effect">Meta CAPI Purchase</span>
+            <span class="effect">Brevo updated</span>
+            <span class="effect">Ably publish</span>
+            <span class="effect">Email PDF</span>
+        </div></div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/admin/bookings/[id]/noshow</span>
+            <span class="route-desc">Mark no-show. Increments count, checks tier threshold.</span>
+            <div class="route-tags">
+                <span class="tag tag-auth">🔒 Receptionist+</span>
+            </div>
+        </div>
+        <div class="side-effects"><div class="side-effects-inner">
+            <span class="effect">noshow_count incremented</span>
+            <span class="effect">CRM tag if threshold</span>
+            <span class="effect">Customer notified</span>
+        </div></div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/admin/memberships</span>
+            <span class="route-desc">Create membership for customer</span>
+            <div class="route-tags">
+                <span class="tag tag-auth">🔒 Receptionist+</span>
+                <span class="tag tag-email">✉️ Email</span>
+            </div>
+        </div>
+        <div class="side-effects"><div class="side-effects-inner">
+            <span class="effect">membership_purchase invoice</span>
+            <span class="effect">Customer notified</span>
+        </div></div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/admin/memberships/[id]/session</span>
+            <span class="route-desc">Record session usage. Deducts hours.</span>
+            <div class="route-tags">
+                <span class="tag tag-auth">🔒 Receptionist+</span>
+            </div>
+        </div>
+        <div class="side-effects"><div class="side-effects-inner">
+            <span class="effect">Hours deducted</span>
+            <span class="effect">membership_session invoice (₹0)</span>
+            <span class="effect">Email notification</span>
+        </div></div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/admin/leave</span>
+            <span class="route-desc">Submit leave request (staff self-service)</span>
+            <div class="route-tags">
+                <span class="tag tag-auth">🔒 Staff+</span>
+                <span class="tag tag-email">✉️ Email</span>
+            </div>
+        </div>
+        <div class="side-effects"><div class="side-effects-inner">
+            <span class="effect">Push to managers</span>
+            <span class="effect">Email to managers</span>
+        </div></div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-PATCH">PATCH</span>
+            <span class="route-path">/api/admin/leave/[id]</span>
+            <span class="route-desc">Approve or reject leave request</span>
+            <div class="route-tags">
+                <span class="tag tag-auth">🔒 Receptionist+</span>
+                <span class="tag tag-realtime">📡 Ably</span>
+                <span class="tag tag-email">✉️ Email</span>
+            </div>
+        </div>
+        <div class="side-effects"><div class="side-effects-inner">
+            <span class="effect">Ably → staff channel</span>
+            <span class="effect">Email notification</span>
+            <span class="effect">Schedule slot blocked (if approved)</span>
+        </div></div>
+    </div>
+</div>
+
+<!-- Section 8d: Background Jobs -->
+<div class="section section-jobs">
+    <div class="section-header">
+        <span class="section-badge">8d</span>
+        <h2>⏱️ Background Jobs</h2>
+        <span class="section-count">12 routes</span>
+    </div>
+    <div class="section-note">
+        <span class="icon">🔗</span>
+        All triggered by <strong>Upstash QStash</strong> scheduler. Verified via <code style="background:#eef2ff;padding:0.1rem 0.4rem;border-radius:3px;font-size:0.8rem">Upstash-Signature</code> header. Never called by browser.
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/jobs/appointment-reminders</span>
+            <span class="route-desc">Push + email for bookings in next 24h/1h</span>
+            <div class="route-tags">
+                <span class="schedule-info"><span class="clock">🕐</span> Every 15 min</span>
+                <span class="failure-mode">❗ Heartbeat alert</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/jobs/membership-expiry</span>
+            <span class="route-desc">30d/7d/1d expiry reminders for memberships</span>
+            <div class="route-tags">
+                <span class="schedule-info"><span class="clock">🕐</span> Daily 12:30 AM</span>
+                <span class="failure-mode">❗ Heartbeat alert</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/jobs/birthday-emails</span>
+            <span class="route-desc">Birthday offers via Brevo + push notification</span>
+            <div class="route-tags">
+                <span class="schedule-info"><span class="clock">🕐</span> Daily 9:30 AM</span>
+                <span class="failure-mode silent">Silent fail</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/jobs/membership-usage-nudges</span>
+            <span class="route-desc">Remind members with unused hours (≤30d, >60min remaining)</span>
+            <div class="route-tags">
+                <span class="schedule-info"><span class="clock">🕐</span> Wed 11:00 AM</span>
+                <span class="failure-mode silent">Silent fail</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/jobs/lead-followups</span>
+            <span class="route-desc">Alert on stale leads (48h+ without contact)</span>
+            <div class="route-tags">
+                <span class="schedule-info"><span class="clock">🕐</span> Daily 10:30 AM</span>
+                <span class="failure-mode silent">Silent fail</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/jobs/daily-sales-report</span>
+            <span class="route-desc">Revenue summary: booking count, payment breakdown</span>
+            <div class="route-tags">
+                <span class="schedule-info"><span class="clock">🕐</span> Daily 10:30 PM</span>
+                <span class="failure-mode">❗ Heartbeat alert</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/jobs/weekly-report</span>
+            <span class="route-desc">Week-over-week comparison: revenue, top services, new customers</span>
+            <div class="route-tags">
+                <span class="schedule-info"><span class="clock">🕐</span> Mon 9:00 AM</span>
+                <span class="failure-mode silent">Silent fail</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/jobs/gems-expiry-reminder</span>
+            <span class="route-desc">Push notification for gems expiring in 7 days</span>
+            <div class="route-tags">
+                <span class="schedule-info"><span class="clock">🕐</span> Daily 10:30 AM</span>
+                <span class="failure-mode silent">Silent fail</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/jobs/post-service-followup</span>
+            <span class="route-desc">Google review link email after service completion</span>
+            <div class="route-tags">
+                <span class="schedule-info"><span class="clock">🕐</span> +24h after complete</span>
+                <span class="failure-mode silent">Silent fail</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/jobs/stale-booking-alert</span>
+            <span class="route-desc">Alert receptionists if booking still pending after 2h</span>
+            <div class="route-tags">
+                <span class="schedule-info"><span class="clock">🕐</span> +2h after pending</span>
+                <span class="failure-mode silent">Silent fail</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/jobs/noshow-check</span>
+            <span class="route-desc">Check if booking is no-show after scheduled end time</span>
+            <div class="route-tags">
+                <span class="schedule-info"><span class="clock">🕐</span> +15min after end</span>
+                <span class="failure-mode silent">Silent fail</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/jobs/membership-expired-notice</span>
+            <span class="route-desc">Final expiry email with renewal prompt</span>
+            <div class="route-tags">
+                <span class="schedule-info"><span class="clock">🕐</span> +1h after expires_at</span>
+                <span class="failure-mode silent">Silent fail</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Section 8e: Webhooks -->
+<div class="section section-webhooks">
+    <div class="section-header">
+        <span class="section-badge">8e</span>
+        <h2>🪝 Incoming Webhooks</h2>
+        <span class="section-count">2 routes</span>
+    </div>
+    <div class="section-note">
+        <span class="icon">🔏</span>
+        Signature-verified. External services push data into the system.
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/webhooks/meta-leads</span>
+            <span class="route-desc">Receives leads from Instagram/Facebook native forms. Saves with source <code>meta_ad</code>.</span>
+            <div class="route-tags">
+                <span class="webhook-source">📥 Meta Lead Gen</span>
+            </div>
+        </div>
+        <div class="side-effects"><div class="side-effects-inner">
+            <span class="effect">🔏 Meta signature verification</span>
+            <span class="effect">Lead saved (source: meta_ad)</span>
+            <span class="effect">Meta CAPI Lead confirmation</span>
+        </div></div>
+    </div>
+
+    <div class="route-card">
+        <div class="route-row">
+            <span class="method-badge method-POST">POST</span>
+            <span class="route-path">/api/webhooks/aisensy</span>
+            <span class="route-desc">WhatsApp lead status change. Keeps pipeline in sync.</span>
+            <div class="route-tags">
+                <span class="webhook-source">📥 AiSensy</span>
+            </div>
+        </div>
+        <div class="side-effects"><div class="side-effects-inner">
+            <span class="effect">🔏 AiSensy webhook signature</span>
+            <span class="effect">Lead status updated in Neon</span>
+        </div></div>
+    </div>
+</div>
+
+</div>
+</body>
+</html>

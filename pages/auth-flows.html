@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth Flow Pages — Royal Glow Salon & Spa</title>
+    <style>
+        :root {
+            --purple: #6B4C9A;
+            --purple-light: #8B6CBB;
+            --purple-dark: #4A3470;
+            --gold: #C8A961;
+            --gold-light: #E8D9A1;
+            --teal: #2A9D8F;
+            --teal-light: #4ABFB1;
+            --form-blue: #3B82F6;
+            --form-blue-light: #DBEAFE;
+            --state-amber: #F59E0B;
+            --state-amber-light: #FEF3C7;
+            --analytics-teal: #0D9488;
+            --analytics-teal-light: #CCFBF1;
+            --bg: #F8F6FC;
+            --card-bg: #FFFFFF;
+            --text: #1F1A2E;
+            --text-muted: #6B7280;
+            --border: #E5E1ED;
+            --shadow: 0 4px 24px rgba(107, 76, 154, 0.08);
+            --shadow-lg: 0 12px 48px rgba(107, 76, 154, 0.12);
+            --radius: 16px;
+            --radius-sm: 10px;
+        }
+
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .page-header {
+            background: linear-gradient(135deg, var(--purple-dark) 0%, var(--purple) 50%, var(--purple-light) 100%);
+            padding: 3rem 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .page-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(200, 169, 97, 0.1) 0%, transparent 50%);
+            animation: shimmer 8s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { transform: rotate(0deg); }
+            50% { transform: rotate(180deg); }
+        }
+
+
+        .page-header h1 {
+            color: #FFFFFF;
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            position: relative;
+            z-index: 1;
+        }
+
+        .page-header .subtitle {
+            color: var(--gold-light);
+            font-size: 1.1rem;
+            margin-top: 0.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .page-header .badge {
+            display: inline-block;
+            background: rgba(200, 169, 97, 0.2);
+            border: 1px solid var(--gold);
+            color: var(--gold-light);
+            padding: 0.25rem 1rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 1rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+
+        /* Flow Diagram */
+        .flow-diagram {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            padding: 2.5rem;
+            margin-bottom: 3rem;
+            overflow-x: auto;
+        }
+
+        .flow-diagram h2 {
+            font-size: 1.4rem;
+            color: var(--purple);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .flow-svg {
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            display: block;
+        }
+
+        /* Section cards */
+        .page-spec {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 2.5rem;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            transition: box-shadow 0.3s ease, transform 0.2s ease;
+        }
+
+        .page-spec:hover {
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-2px);
+        }
+
+
+        .page-spec-header {
+            background: linear-gradient(135deg, var(--purple) 0%, var(--purple-light) 100%);
+            padding: 1.5rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .page-spec-header h2 {
+            color: #FFFFFF;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .page-spec-header .route {
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #FFFFFF;
+            padding: 0.3rem 1rem;
+            border-radius: 20px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.85rem;
+        }
+
+        .page-spec-body {
+            padding: 2rem;
+        }
+
+        /* Property table */
+        .prop-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1.5rem;
+        }
+
+        .prop-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+
+        .prop-table td:first-child {
+            font-weight: 600;
+            color: var(--purple);
+            white-space: nowrap;
+            width: 140px;
+        }
+
+
+        /* Section headers within spec */
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin: 1.5rem 0 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-title.form { color: var(--form-blue); border-color: var(--form-blue); }
+        .section-title.state { color: var(--state-amber); border-color: var(--state-amber); }
+        .section-title.analytics { color: var(--analytics-teal); border-color: var(--analytics-teal); }
+
+        /* Component lists */
+        .component-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .component-list li {
+            padding: 0.6rem 1rem;
+            border-radius: var(--radius-sm);
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+
+        .component-list li::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-top: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .component-list.form li { background: var(--form-blue-light); }
+        .component-list.form li::before { background: var(--form-blue); }
+        .component-list.state li { background: var(--state-amber-light); }
+        .component-list.state li::before { background: var(--state-amber); }
+        .component-list.analytics li { background: var(--analytics-teal-light); }
+        .component-list.analytics li::before { background: var(--analytics-teal); }
+
+
+        /* Mockup */
+        .mockup-container {
+            background: linear-gradient(135deg, var(--purple-dark), var(--purple));
+            border-radius: var(--radius);
+            padding: 3rem 2rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 1.5rem 0;
+        }
+
+        .mockup-card {
+            background: #FFFFFF;
+            border-radius: 16px;
+            padding: 2.5rem 2rem;
+            width: 100%;
+            max-width: 380px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .mockup-logo {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--purple), var(--gold));
+            border-radius: 50%;
+            margin: 0 auto 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+            font-weight: bold;
+        }
+
+        .mockup-card h3 {
+            font-size: 1.3rem;
+            color: var(--text);
+            margin-bottom: 0.5rem;
+        }
+
+        .mockup-card .mockup-sub {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+
+
+        .google-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            width: 100%;
+            padding: 0.85rem 1.5rem;
+            border: 2px solid #E5E7EB;
+            border-radius: 8px;
+            background: #FFFFFF;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #374151;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .google-btn:hover {
+            border-color: #D1D5DB;
+            background: #F9FAFB;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .google-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .mockup-legal {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 1.25rem;
+            line-height: 1.5;
+        }
+
+        .mockup-legal a {
+            color: var(--purple);
+            text-decoration: none;
+        }
+
+        /* SessionStorage Diagram */
+        .storage-flow {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 2rem;
+            margin: 2rem 0;
+            border: 1px solid var(--border);
+        }
+
+        .storage-flow h3 {
+            color: var(--purple);
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+
+        /* Color legend */
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            margin: 2rem 0;
+            padding: 1rem 1.5rem;
+            background: var(--card-bg);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .legend-dot.form { background: var(--form-blue); }
+        .legend-dot.state { background: var(--state-amber); }
+        .legend-dot.analytics { background: var(--analytics-teal); }
+        .legend-dot.purple { background: var(--purple); }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .page-header h1 { font-size: 1.8rem; }
+            .container { padding: 1rem; }
+            .page-spec-body { padding: 1.25rem; }
+            .page-spec-header { padding: 1rem 1.25rem; }
+            .prop-table td:first-child { width: 100px; font-size: 0.85rem; }
+            .mockup-container { padding: 2rem 1rem; }
+            .flow-diagram { padding: 1.5rem; }
+        }
+
+        /* Code/mono */
+        code {
+            background: #F3F0F9;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.85em;
+            color: var(--purple-dark);
+        }
+
+        /* Consent grid */
+        .consent-grid {
+            display: grid;
+            gap: 0.5rem;
+            margin: 0.5rem 0;
+        }
+
+        .consent-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius-sm);
+            background: #F8F6FC;
+            border: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+
+        .consent-item .checkbox {
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--purple);
+            border-radius: 4px;
+            flex-shrink: 0;
+            margin-top: 1px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .consent-item .checkbox.checked::after {
+            content: '✓';
+            color: var(--purple);
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .consent-item.required {
+            border-color: var(--purple-light);
+            background: #F0EBF8;
+        }
+
+        .required-badge {
+            font-size: 0.7rem;
+            background: var(--purple);
+            color: white;
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+            font-weight: 600;
+            margin-left: 0.25rem;
+        }
+    </style>
+</head>
+<body>
+
+
+    <!-- Header -->
+    <header class="page-header">
+        <h1>Auth Flow Pages</h1>
+        <p class="subtitle">Minimal layout · Centered card · No main navigation · Focused on conversion</p>
+        <span class="badge">Google OAuth · SSR · noindex/nofollow</span>
+    </header>
+
+    <div class="container">
+
+        <!-- Color Legend -->
+        <div class="legend">
+            <div class="legend-item"><span class="legend-dot form"></span> UI Components / Forms</div>
+            <div class="legend-item"><span class="legend-dot state"></span> States & Behavior</div>
+            <div class="legend-item"><span class="legend-dot analytics"></span> Analytics & Tracking</div>
+            <div class="legend-item"><span class="legend-dot purple"></span> Layout & Structure</div>
+        </div>
+
+
+        <!-- Flow Diagram -->
+        <section class="flow-diagram">
+            <h2>🔄 Authentication Flow Diagram</h2>
+            <svg class="flow-svg" viewBox="0 0 900 180" xmlns="http://www.w3.org/2000/svg">
+                <!-- Arrows -->
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#6B4C9A"/>
+                    </marker>
+                    <marker id="arrowhead-gold" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#C8A961"/>
+                    </marker>
+                </defs>
+
+                <!-- Step 1: User Arrives -->
+                <rect x="10" y="55" width="120" height="60" rx="10" fill="#F3F0F9" stroke="#6B4C9A" stroke-width="2"/>
+                <text x="70" y="82" text-anchor="middle" font-size="11" font-weight="600" fill="#6B4C9A">User Arrives</text>
+                <text x="70" y="100" text-anchor="middle" font-size="9" fill="#6B7280">(any protected page)</text>
+
+                <!-- Arrow 1→2 -->
+                <line x1="130" y1="85" x2="170" y2="85" stroke="#6B4C9A" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+                <!-- Step 2: Sign In Page -->
+                <rect x="175" y="55" width="120" height="60" rx="10" fill="#6B4C9A" stroke="#4A3470" stroke-width="2"/>
+                <text x="235" y="80" text-anchor="middle" font-size="11" font-weight="600" fill="#FFFFFF">/sign-in</text>
+                <text x="235" y="98" text-anchor="middle" font-size="9" fill="#E8D9A1">Google OAuth btn</text>
+
+                <!-- Arrow 2→3 -->
+                <line x1="295" y1="85" x2="335" y2="85" stroke="#6B4C9A" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+                <!-- Step 3: Google OAuth -->
+                <rect x="340" y="55" width="130" height="60" rx="30" fill="#FFFFFF" stroke="#4285F4" stroke-width="2"/>
+                <text x="405" y="80" text-anchor="middle" font-size="11" font-weight="600" fill="#4285F4">Google OAuth</text>
+                <text x="405" y="98" text-anchor="middle" font-size="9" fill="#6B7280">Consent Screen</text>
+
+                <!-- Arrow 3→4 -->
+                <line x1="470" y1="85" x2="510" y2="85" stroke="#6B4C9A" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+                <!-- Step 4: Return/Check -->
+                <polygon points="580,55 640,85 580,115 520,85" fill="#FEF3C7" stroke="#F59E0B" stroke-width="2"/>
+                <text x="580" y="82" text-anchor="middle" font-size="10" font-weight="600" fill="#92400E">New</text>
+                <text x="580" y="95" text-anchor="middle" font-size="10" font-weight="600" fill="#92400E">User?</text>
+
+
+                <!-- Arrow 4→5 (Yes - Onboarding) -->
+                <line x1="640" y1="85" x2="680" y2="85" stroke="#C8A961" stroke-width="2" marker-end="url(#arrowhead-gold)"/>
+                <text x="660" y="75" text-anchor="middle" font-size="9" fill="#92400E">Yes</text>
+
+                <!-- Step 5: Onboarding -->
+                <rect x="685" y="55" width="120" height="60" rx="10" fill="#2A9D8F" stroke="#1F7A6E" stroke-width="2"/>
+                <text x="745" y="80" text-anchor="middle" font-size="11" font-weight="600" fill="#FFFFFF">/onboarding</text>
+                <text x="745" y="98" text-anchor="middle" font-size="9" fill="#CCFBF1">Profile Setup</text>
+
+                <!-- Arrow 5→6 -->
+                <line x1="805" y1="85" x2="845" y2="85" stroke="#2A9D8F" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+                <!-- Step 6: Homepage -->
+                <rect x="850" y="55" width="40" height="60" rx="10" fill="#F3F0F9" stroke="#6B4C9A" stroke-width="2"/>
+                <text x="870" y="89" text-anchor="middle" font-size="12" font-weight="700" fill="#6B4C9A">/</text>
+
+                <!-- Arrow 4→6 (No - direct to home) -->
+                <path d="M 580 115 Q 580 155 725 155 Q 870 155 870 120" fill="none" stroke="#6B4C9A" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrowhead)"/>
+                <text x="725" y="148" text-anchor="middle" font-size="9" fill="#6B7280">No (existing user)</text>
+            </svg>
+        </section>
+
+
+        <!-- Page 4.1: Sign In -->
+        <section class="page-spec">
+            <div class="page-spec-header">
+                <h2>4.1 Sign In</h2>
+                <span class="route">/sign-in</span>
+            </div>
+            <div class="page-spec-body">
+                <table class="prop-table">
+                    <tr><td>Title</td><td>Sign In</td></tr>
+                    <tr><td>Purpose</td><td>Single entry point for authentication via Google OAuth</td></tr>
+                    <tr><td>Rendering</td><td>SSR</td></tr>
+                    <tr><td>SEO</td><td><code>robots: noindex, nofollow</code></td></tr>
+                    <tr><td>Layout</td><td>Centered card on gradient/brand background, Royal Glow logo above card</td></tr>
+                </table>
+
+                <!-- UI Components -->
+                <h3 class="section-title form">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/></svg>
+                    UI Components
+                </h3>
+                <ul class="component-list form">
+                    <li>Royal Glow logo — centered above the card</li>
+                    <li>Card heading: <strong>"Sign in to Royal Glow"</strong></li>
+                    <li>Subheading: "Use your Google account to continue"</li>
+                    <li><strong>"Sign in with Google"</strong> button — full-width, Google branded</li>
+                    <li>Legal text: "By signing in, you agree to our Privacy Policy and Terms of Service"</li>
+                    <li>No email/password fields (Google OAuth only)</li>
+                </ul>
+
+
+                <!-- Sign-In Mockup -->
+                <div class="mockup-container">
+                    <div class="mockup-card">
+                        <div class="mockup-logo">RG</div>
+                        <h3>Sign in to Royal Glow</h3>
+                        <p class="mockup-sub">Use your Google account to continue</p>
+                        <button class="google-btn">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                            </svg>
+                            Sign in with Google
+                        </button>
+                        <p class="mockup-legal">By signing in, you agree to our <a href="#">Privacy Policy</a> and <a href="#">Terms of Service</a></p>
+                    </div>
+                </div>
+
+
+                <!-- States -->
+                <h3 class="section-title state">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    States &amp; Behavior
+                </h3>
+                <ul class="component-list state">
+                    <li><strong>Idle:</strong> Button active, ready for click</li>
+                    <li><strong>Redirecting:</strong> Button disabled with spinner — "Redirecting to Google..."</li>
+                    <li><strong>Error:</strong> "Sign-in failed. Please try again." with retry button (e.g., popup blocked)</li>
+                </ul>
+
+                <!-- Pre-redirect behavior -->
+                <h3 class="section-title analytics">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M6 20V14M18 20V4"/></svg>
+                    Pre-Redirect: sessionStorage Preservation
+                </h3>
+                <ul class="component-list analytics">
+                    <li>Stores <code>book=1</code> flag (if user came from booking intent)</li>
+                    <li>Preserves all UTM fields: <code>utm_source</code>, <code>utm_medium</code>, <code>utm_campaign</code>, <code>utm_content</code>, <code>utm_term</code></li>
+                    <li>Stores <code>leadId</code> — links anonymous lead to authenticated user</li>
+                    <li>Stores <code>service</code> slug — pre-selects service after auth completes</li>
+                    <li>Data survives OAuth redirect → read on <code>/onboarding</code> or homepage return</li>
+                </ul>
+
+                <!-- Responsive -->
+                <h3 class="section-title form">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+                    Responsive
+                </h3>
+                <ul class="component-list form">
+                    <li><strong>Mobile:</strong> Card full-width with bottom padding</li>
+                    <li><strong>Desktop:</strong> Card centered, max-width 400px, decorative background</li>
+                </ul>
+            </div>
+        </section>
+
+
+        <!-- SessionStorage Preservation Flow -->
+        <section class="storage-flow">
+            <h3>📦 sessionStorage Preservation Flow</h3>
+            <svg viewBox="0 0 900 140" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:900px;display:block;margin:1rem auto;">
+                <defs>
+                    <marker id="arr2" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                        <polygon points="0 0, 8 3, 0 6" fill="#6B4C9A"/>
+                    </marker>
+                </defs>
+
+                <!-- Step 1: Landing Page -->
+                <rect x="10" y="40" width="150" height="55" rx="8" fill="#F3F0F9" stroke="#6B4C9A" stroke-width="1.5"/>
+                <text x="85" y="60" text-anchor="middle" font-size="10" font-weight="600" fill="#6B4C9A">Landing Page</text>
+                <text x="85" y="76" text-anchor="middle" font-size="9" fill="#6B7280">UTM params in URL</text>
+                <text x="85" y="89" text-anchor="middle" font-size="9" fill="#6B7280">leadId, service slug</text>
+
+                <!-- Arrow -->
+                <line x1="160" y1="67" x2="195" y2="67" stroke="#6B4C9A" stroke-width="1.5" marker-end="url(#arr2)"/>
+
+                <!-- Step 2: Store in sessionStorage -->
+                <rect x="200" y="35" width="160" height="65" rx="8" fill="#CCFBF1" stroke="#2A9D8F" stroke-width="1.5"/>
+                <text x="280" y="55" text-anchor="middle" font-size="10" font-weight="600" fill="#2A9D8F">sessionStorage.set()</text>
+                <text x="280" y="72" text-anchor="middle" font-size="9" fill="#6B7280">book=1, utm_source,</text>
+                <text x="280" y="85" text-anchor="middle" font-size="9" fill="#6B7280">leadId, service</text>
+
+                <!-- Arrow -->
+                <line x1="360" y1="67" x2="395" y2="67" stroke="#6B4C9A" stroke-width="1.5" marker-end="url(#arr2)"/>
+
+                <!-- Step 3: OAuth Redirect -->
+                <rect x="400" y="40" width="140" height="55" rx="27" fill="#FFFFFF" stroke="#4285F4" stroke-width="1.5"/>
+                <text x="470" y="63" text-anchor="middle" font-size="10" font-weight="600" fill="#4285F4">Google OAuth</text>
+                <text x="470" y="80" text-anchor="middle" font-size="9" fill="#6B7280">↔ Redirect away</text>
+
+                <!-- Arrow -->
+                <line x1="540" y1="67" x2="575" y2="67" stroke="#6B4C9A" stroke-width="1.5" marker-end="url(#arr2)"/>
+
+                <!-- Step 4: Return -->
+                <rect x="580" y="40" width="140" height="55" rx="8" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.5"/>
+                <text x="650" y="60" text-anchor="middle" font-size="10" font-weight="600" fill="#92400E">Return to App</text>
+                <text x="650" y="77" text-anchor="middle" font-size="9" fill="#6B7280">sessionStorage intact!</text>
+
+                <!-- Arrow -->
+                <line x1="720" y1="67" x2="755" y2="67" stroke="#6B4C9A" stroke-width="1.5" marker-end="url(#arr2)"/>
+
+                <!-- Step 5: Read & Apply -->
+                <rect x="760" y="35" width="130" height="65" rx="8" fill="#F0EBF8" stroke="#6B4C9A" stroke-width="1.5"/>
+                <text x="825" y="55" text-anchor="middle" font-size="10" font-weight="600" fill="#6B4C9A">Read & Apply</text>
+                <text x="825" y="72" text-anchor="middle" font-size="9" fill="#6B7280">Assign acquisition</text>
+                <text x="825" y="85" text-anchor="middle" font-size="9" fill="#6B7280">Auto-open booking</text>
+            </svg>
+        </section>
+
+
+        <!-- Page 4.2: Onboarding -->
+        <section class="page-spec">
+            <div class="page-spec-header" style="background: linear-gradient(135deg, #1F7A6E 0%, #2A9D8F 50%, #4ABFB1 100%);">
+                <h2>4.2 Welcome Setup</h2>
+                <span class="route">/onboarding</span>
+            </div>
+            <div class="page-spec-body">
+                <table class="prop-table">
+                    <tr><td>Title</td><td>Welcome to Royal Glow</td></tr>
+                    <tr><td>Purpose</td><td>First-time user data collection — name, phone, DOB, gender, consent</td></tr>
+                    <tr><td>Rendering</td><td>SSR (auth-gated, shows only for users without a completed profile)</td></tr>
+                    <tr><td>SEO</td><td><code>robots: noindex, nofollow</code></td></tr>
+                    <tr><td>Redirect</td><td>If profile already complete → redirect to <code>/</code> immediately</td></tr>
+                </table>
+
+                <!-- UI Components -->
+                <h3 class="section-title form">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/></svg>
+                    UI Components
+                </h3>
+                <ul class="component-list form">
+                    <li>Welcome header: <strong>"Welcome to Royal Glow, [First Name]! 👑"</strong></li>
+                    <li><strong>Name</strong> — prefilled from Google, editable text input with label</li>
+                    <li><strong>Email</strong> — prefilled from Google, read-only (greyed out, disabled)</li>
+                    <li><strong>Phone</strong> — <code>tel</code> input, validated Indian mobile format (+91), pre-populated from Google People API if available</li>
+                    <li><strong>Date of Birth</strong> — date picker, DD/MM/YYYY format (Indian standard)</li>
+                    <li><strong>Gender</strong> — select dropdown: Male / Female / Other / Prefer not to say</li>
+                    <li>Submit button: <strong>"Let's Go!"</strong> — primary, full-width</li>
+                </ul>
+
+
+                <!-- Consent Section -->
+                <h3 class="section-title form">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+                    Consent Section — "Privacy &amp; Preferences"
+                </h3>
+                <div class="consent-grid">
+                    <div class="consent-item required">
+                        <div class="checkbox checked"></div>
+                        <div>"I agree to the Privacy Policy..." (links to <code>/privacy</code>) <span class="required-badge">REQUIRED</span></div>
+                    </div>
+                    <div class="consent-item">
+                        <div class="checkbox"></div>
+                        <div>"Help us improve Royal Glow — allow anonymous usage analytics" <em style="color:var(--text-muted);font-size:0.8rem;">(optional)</em></div>
+                    </div>
+                    <div class="consent-item">
+                        <div class="checkbox"></div>
+                        <div>"Send me offers, updates & promotions via email and notifications" <em style="color:var(--text-muted);font-size:0.8rem;">(optional)</em></div>
+                    </div>
+                </div>
+
+
+                <!-- On Submit -->
+                <h3 class="section-title analytics">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                    On Submit
+                </h3>
+                <ul class="component-list analytics">
+                    <li><code>POST /api/onboarding/complete</code> — saves profile data</li>
+                    <li>Acquisition source assigned from <code>sessionStorage</code> first-touch context (organic / gmb / walkin / meta_ad lead)</li>
+                    <li>Consent choices written to <code>rgss_cookie_consent</code> in localStorage</li>
+                    <li>Cookie consent banner suppressed for categories already consented to</li>
+                    <li>Meta CAPI: <code>CompleteRegistration</code> event fired (server-side)</li>
+                    <li>Redirect to <code>/</code> — if <code>book=1</code> in sessionStorage, homepage auto-opens booking dialog</li>
+                </ul>
+
+                <!-- States -->
+                <h3 class="section-title state">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    States
+                </h3>
+                <ul class="component-list state">
+                    <li><strong>Validation Errors:</strong> Inline per field — phone format, DOB required, privacy consent required</li>
+                    <li><strong>Submitting:</strong> Button spinner, all fields disabled</li>
+                    <li><strong>Success:</strong> Instant redirect to <code>/</code> (no success page — seamless transition)</li>
+                </ul>
+
+
+                <!-- Analytics -->
+                <h3 class="section-title analytics">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M6 20V14M18 20V4"/></svg>
+                    Analytics Events
+                </h3>
+                <ul class="component-list analytics">
+                    <li><strong>PostHog:</strong> <code>onboarding_completed</code> with properties: gender, has_phone, consent_analytics, consent_marketing</li>
+                    <li><strong>Meta Pixel:</strong> <code>CompleteRegistration</code> (browser-side)</li>
+                    <li><strong>Meta CAPI:</strong> <code>CompleteRegistration</code> (server-side, deduped with Pixel)</li>
+                </ul>
+            </div>
+        </section>
+
+
+        <!-- Footer -->
+        <footer style="text-align:center; padding:2rem 0; color:var(--text-muted); font-size:0.85rem; border-top:1px solid var(--border); margin-top:2rem;">
+            <p><strong>Royal Glow Salon & Spa</strong> — Auth Flow Pages Specification</p>
+            <p style="margin-top:0.25rem;">Pages 4.1–4.2 · Google OAuth · SSR · noindex/nofollow</p>
+        </footer>
+
+    </div>
+</body>
+</html>

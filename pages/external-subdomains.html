@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>External Subdomains — Royal Glow</title>
+    <style>
+        :root {
+            --purple: #6B4C9A;
+            --purple-light: #8B6FBB;
+            --purple-dark: #4A3470;
+            --gold: #C8A961;
+            --gold-light: #E8D5A0;
+            --gold-dark: #9A7D3A;
+            --teal: #2A9D8F;
+            --teal-light: #4DC4B6;
+            --teal-dark: #1F7A6F;
+            --bg: #FAFAFA;
+            --card-bg: #FFFFFF;
+            --text: #1A1A2E;
+            --text-muted: #5A5A7A;
+            --border: #E8E8F0;
+            --shadow-sm: 0 1px 3px rgba(107,76,154,0.08);
+            --shadow-md: 0 4px 12px rgba(107,76,154,0.12);
+            --shadow-lg: 0 8px 32px rgba(107,76,154,0.16);
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, var(--purple-dark) 0%, var(--purple) 50%, var(--purple-light) 100%);
+            padding: 3rem 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .hero h1 {
+            font-size: clamp(1.8rem, 4vw, 2.8rem);
+            color: #FFFFFF;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+
+        .hero .subtitle {
+            color: var(--gold-light);
+            font-size: 1rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(200,169,97,0.15);
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            position: relative;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        .subdomain-grid {
+            display: grid;
+            gap: 2rem;
+        }
+
+        .subdomain-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .subdomain-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .subdomain-card .card-header {
+            padding: 1.5rem 1.5rem 1rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .card-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            flex-shrink: 0;
+        }
+
+        .card-cms .card-icon { background: rgba(107,76,154,0.1); }
+        .card-docs .card-icon { background: rgba(42,157,143,0.1); }
+        .card-status .card-icon { background: rgba(200,169,97,0.15); }
+
+        .card-header-text h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 0.2rem;
+        }
+
+        .card-cms .card-header-text h3 { color: var(--purple); }
+        .card-docs .card-header-text h3 { color: var(--teal-dark); }
+        .card-status .card-header-text h3 { color: var(--gold-dark); }
+
+        .card-header-text .domain {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            background: rgba(0,0,0,0.04);
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        .card-body {
+            padding: 0 1.5rem 1.5rem;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.5rem 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .detail-label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            padding-top: 0.1rem;
+        }
+
+        .detail-value {
+            font-size: 0.9rem;
+            color: var(--text);
+        }
+
+        .access-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.78rem;
+            font-weight: 600;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        .access-restricted {
+            background: rgba(107,76,154,0.1);
+            color: var(--purple);
+        }
+
+        .access-public {
+            background: rgba(42,157,143,0.1);
+            color: var(--teal-dark);
+        }
+
+        .collections-list {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(107,76,154,0.03);
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(107,76,154,0.08);
+        }
+
+        .collections-list h4 {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--purple);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .collection-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+        }
+
+        .collection-chip {
+            font-size: 0.8rem;
+            padding: 0.3rem 0.6rem;
+            border-radius: 6px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+
+        .monitors-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .monitor-item {
+            font-size: 0.8rem;
+            padding: 0.5rem 0.75rem;
+            background: rgba(200,169,97,0.06);
+            border: 1px solid rgba(200,169,97,0.15);
+            border-radius: 6px;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .monitor-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #4CAF50;
+            flex-shrink: 0;
+        }
+
+        .card-divider {
+            height: 3px;
+        }
+
+        .card-cms .card-divider { background: linear-gradient(90deg, var(--purple), var(--purple-light)); }
+        .card-docs .card-divider { background: linear-gradient(90deg, var(--teal-dark), var(--teal-light)); }
+        .card-status .card-divider { background: linear-gradient(90deg, var(--gold-dark), var(--gold)); }
+
+        @media (max-width: 768px) {
+            .hero { padding: 2rem 1rem; }
+            .container { padding: 1.5rem 1rem; }
+            .detail-grid { grid-template-columns: 1fr; gap: 0.3rem; }
+            .detail-label { margin-top: 0.5rem; }
+            .monitors-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <header class="hero">
+        <h1>External Subdomains</h1>
+        <span class="subtitle">Separate infrastructure &middot; 3 deployments</span>
+    </header>
+
+    <main class="container">
+        <div class="subdomain-grid">
+            <!-- Payload CMS -->
+            <div class="subdomain-card card-cms">
+                <div class="card-divider"></div>
+                <div class="card-header">
+                    <div class="card-icon">&#9998;</div>
+                    <div class="card-header-text">
+                        <h3>Payload CMS v3</h3>
+                        <span class="domain">admin.theroyalglow.in</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="detail-grid">
+                        <span class="detail-label">Platform</span>
+                        <span class="detail-value">Payload CMS v3 on Render (Node.js)</span>
+                        <span class="detail-label">Database</span>
+                        <span class="detail-value">Separate Payload Postgres (not main Neon DB)</span>
+                        <span class="detail-label">Purpose</span>
+                        <span class="detail-value">Marketing content management: blog posts, gallery photos, team bios, homepage banners, FAQ items, about page content</span>
+                        <span class="detail-label">Access</span>
+                        <span class="detail-value"><span class="access-badge access-restricted">Manager + Owner (2 seats)</span></span>
+                        <span class="detail-label">Integration</span>
+                        <span class="detail-value">Main Next.js app fetches via Payload REST API (ISR with 1h revalidation)</span>
+                    </div>
+                    <div class="collections-list">
+                        <h4>Collections Managed</h4>
+                        <div class="collection-items">
+                            <span class="collection-chip">Blog Posts</span>
+                            <span class="collection-chip">Gallery Images</span>
+                            <span class="collection-chip">Team Members</span>
+                            <span class="collection-chip">FAQ Items</span>
+                            <span class="collection-chip">Homepage Banners</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fumadocs -->
+            <div class="subdomain-card card-docs">
+                <div class="card-divider"></div>
+                <div class="card-header">
+                    <div class="card-icon">&#128214;</div>
+                    <div class="card-header-text">
+                        <h3>Technical Documentation</h3>
+                        <span class="domain">docs.theroyalglow.in</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="detail-grid">
+                        <span class="detail-label">Platform</span>
+                        <span class="detail-value">Fumadocs (Next.js) on Vercel or Cloudflare Pages</span>
+                        <span class="detail-label">Purpose</span>
+                        <span class="detail-value">Developer documentation: architecture, API reference (auto-generated from OpenAPI spec via fumadocs-openapi), business logic guides, changelog</span>
+                        <span class="detail-label">Access</span>
+                        <span class="detail-value"><span class="access-badge access-public">Public (developer reference)</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BetterStack Status -->
+            <div class="subdomain-card card-status">
+                <div class="card-divider"></div>
+                <div class="card-header">
+                    <div class="card-icon">&#128994;</div>
+                    <div class="card-header-text">
+                        <h3>Status Page</h3>
+                        <span class="domain">status.theroyalglow.in</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="detail-grid">
+                        <span class="detail-label">Platform</span>
+                        <span class="detail-value">BetterStack Status Page (free tier)</span>
+                        <span class="detail-label">Purpose</span>
+                        <span class="detail-value">Public uptime status: 10 monitors, incident history, scheduled maintenance</span>
+                        <span class="detail-label">Access</span>
+                        <span class="detail-value"><span class="access-badge access-public">Public</span></span>
+                    </div>
+                    <div class="monitors-grid">
+                        <div class="monitor-item"><span class="monitor-dot"></span>Homepage</div>
+                        <div class="monitor-item"><span class="monitor-dot"></span>GMB Link</div>
+                        <div class="monitor-item"><span class="monitor-dot"></span>QR Link</div>
+                        <div class="monitor-item"><span class="monitor-dot"></span>/book</div>
+                        <div class="monitor-item"><span class="monitor-dot"></span>API Health</div>
+                        <div class="monitor-item"><span class="monitor-dot"></span>Payload CMS</div>
+                        <div class="monitor-item"><span class="monitor-dot"></span>Neon Probe</div>
+                        <div class="monitor-item"><span class="monitor-dot"></span>Ably Probe</div>
+                        <div class="monitor-item"><span class="monitor-dot"></span>Redis Probe</div>
+                        <div class="monitor-item"><span class="monitor-dot"></span>R2 Probe</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

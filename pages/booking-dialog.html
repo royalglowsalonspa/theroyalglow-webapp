@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Booking Dialog (4-Step Overlay) — Royal Glow Salon &amp; Spa</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --purple: #6B4C9A; --purple-light: #8B6FBB; --purple-pale: #F3EEFA;
+  --gold: #C8A961; --gold-light: #E8D5A0; --gold-pale: #FFF9E8;
+  --teal: #2A9D8F; --teal-light: #4DB8AB; --teal-pale: #E6F7F5;
+  --green: #10B981; --green-pale: #D1FAE5;
+  --red: #EF4444; --red-pale: #FEE2E2;
+  --blue: #3B82F6; --blue-pale: #DBEAFE;
+  --dark: #1a1a2e;
+  --g50: #f9fafb; --g100: #f3f4f6; --g200: #e5e7eb; --g300: #d1d5db;
+  --g500: #6b7280; --g700: #374151; --g900: #111827;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif; background: linear-gradient(135deg, #f8f6fc 0%, #fefcf5 50%, #f0faf8 100%); color: var(--g900); line-height: 1.6; padding: 2rem; min-height: 100vh; }
+.container { max-width: 1300px; margin: 0 auto; }
+h1 { font-size: 2.2rem; font-weight: 800; color: var(--purple); }
+h2 { font-size: 1.5rem; font-weight: 700; color: var(--dark); margin: 2.5rem 0 1rem; }
+h3 { font-size: 1.1rem; font-weight: 600; color: var(--g700); margin: 1.5rem 0 0.75rem; }
+code { background: rgba(107,76,154,0.08); padding: 2px 7px; border-radius: 4px; font-size: 0.85em; }
+
+.page-header { background: linear-gradient(135deg, var(--purple) 0%, #4A2D7A 100%); border-radius: 20px; padding: 2.5rem 3rem; margin-bottom: 2.5rem; color: white; position: relative; overflow: hidden; box-shadow: 0 20px 60px rgba(107,76,154,0.3); }
+.page-header::before { content:''; position:absolute; top:-50%; right:-10%; width:400px; height:400px; background:radial-gradient(circle, rgba(200,169,97,0.2) 0%, transparent 70%); border-radius:50%; }
+.page-header h1 { color: white; font-size: 2.4rem; margin-bottom: 0.75rem; }
+.page-header p { color: rgba(255,255,255,0.85); font-size: 1.05rem; max-width: 700px; }
+.header-badge { display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.25); padding:6px 14px; border-radius:999px; font-size:0.8rem; color:var(--gold-light); margin-bottom:1rem; font-weight:500; }
+
+.props-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:1rem; margin:1.5rem 0; }
+.prop-card { background:white; border-radius:14px; padding:1.25rem; border:1px solid var(--g200); box-shadow:0 2px 8px rgba(0,0,0,0.04); transition:transform 0.2s,box-shadow 0.2s; }
+.prop-card:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,0.08); }
+.prop-label { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--g500); font-weight:600; margin-bottom:6px; }
+.prop-value { font-size:0.9rem; font-weight:500; color:var(--g900); }
+.prop-icon { font-size:1.5rem; margin-bottom:8px; }
+
+.progress-flow { display:flex; align-items:center; justify-content:center; gap:0; margin:2rem 0; padding:2rem; background:white; border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.06); flex-wrap:wrap; }
+.progress-node { width:56px; height:56px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1.1rem; color:white; position:relative; z-index:2; box-shadow:0 4px 12px rgba(0,0,0,0.15); }
+.progress-node.s1 { background:var(--blue); } .progress-node.s2 { background:var(--purple); }
+.progress-node.s3 { background:var(--teal); } .progress-node.s4 { background:var(--gold); }
+.progress-connector { width:80px; height:4px; background:var(--g200); border-radius:2px; position:relative; }
+.progress-connector::after { content:'▶'; position:absolute; right:-2px; top:-8px; font-size:10px; color:var(--g300); }
+.progress-label { position:absolute; top:64px; left:50%; transform:translateX(-50%); font-size:0.7rem; font-weight:600; white-space:nowrap; color:var(--g500); text-align:center; }
+
+.step-card { background:white; border-radius:20px; padding:2rem; margin:2rem 0; border:1px solid var(--g200); box-shadow:0 4px 20px rgba(0,0,0,0.06); position:relative; overflow:hidden; }
+.step-card::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; }
+.step-card.sc1::before { background:linear-gradient(90deg, var(--blue), #60A5FA); }
+.step-card.sc2::before { background:linear-gradient(90deg, var(--purple), var(--purple-light)); }
+.step-card.sc3::before { background:linear-gradient(90deg, var(--teal), var(--teal-light)); }
+.step-card.sc4::before { background:linear-gradient(90deg, var(--gold), var(--gold-light)); }
+.step-num { display:inline-flex; align-items:center; gap:8px; font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:0.75rem; padding:4px 12px; border-radius:6px; }
+.sc1 .step-num { background:var(--blue-pale); color:var(--blue); }
+.sc2 .step-num { background:var(--purple-pale); color:var(--purple); }
+.sc3 .step-num { background:var(--teal-pale); color:var(--teal); }
+.sc4 .step-num { background:var(--gold-pale); color:var(--gold); }
+.step-title { font-size:1.4rem; font-weight:700; margin-bottom:1rem; color:var(--g900); }
+
+.mockup-split { display:grid; grid-template-columns:1fr 1fr; gap:2rem; margin-top:1.5rem; }
+.mockup-panel { border:2px solid var(--g200); border-radius:16px; overflow:hidden; background:var(--g50); }
+.mp-header { padding:10px 16px; font-size:0.75rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; border-bottom:1px solid var(--g200); display:flex; align-items:center; gap:8px; }
+.mp-header.mob { background:#EDE9FE; color:var(--purple); }
+.mp-header.desk { background:var(--teal-pale); color:var(--teal); }
+.mp-content { padding:1.25rem; }
+
+.mini-input { background:white; border:1.5px solid var(--g200); border-radius:10px; padding:8px 12px; font-size:0.8rem; width:100%; margin:4px 0; color:var(--g700); }
+.mini-input.ro { background:var(--g50); color:var(--g500); }
+.mini-btn { display:inline-block; padding:7px 16px; border-radius:999px; font-size:0.75rem; font-weight:600; border:none; }
+.mini-btn-p { background:var(--gold); color:white; }
+.mini-btn-o { background:white; border:1.5px solid var(--gold); color:var(--gold); }
+.mini-btn-g { background:var(--green); color:white; }
+.mini-lbl { font-size:0.7rem; font-weight:600; color:var(--g500); margin:8px 0 3px; text-transform:uppercase; letter-spacing:0.04em; }
+
+.mini-cal { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; margin:6px 0; text-align:center; font-size:0.65rem; }
+.mini-cal .hdr { font-weight:600; color:var(--g500); padding:3px 0; }
+.mini-cal .day { padding:4px 2px; border-radius:4px; cursor:pointer; font-weight:500; }
+.mini-cal .day.sel { background:var(--blue); color:white; }
+.mini-cal .day.hol { background:var(--g100); color:var(--g300); text-decoration:line-through; }
+
+.slot-chips { display:flex; flex-wrap:wrap; gap:5px; margin:6px 0; }
+.chip { padding:5px 10px; border-radius:7px; font-size:0.7rem; font-weight:500; border:1.5px solid var(--g200); background:white; }
+.chip.sel { background:var(--blue); color:white; border-color:var(--blue); }
+.chip.full { background:var(--g100); color:var(--g300); border-color:var(--g100); text-decoration:line-through; }
+
+.seg-toggle { display:inline-flex; border:2px solid var(--purple); border-radius:999px; overflow:hidden; margin:6px 0; }
+.seg-toggle .seg { padding:5px 14px; font-size:0.75rem; font-weight:600; }
+.seg-toggle .seg.act { background:var(--purple); color:white; }
+.seg-toggle .seg:not(.act) { color:var(--purple); background:white; }
+
+.cat-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(100px,1fr)); gap:6px; margin:8px 0; }
+.cat-card { border:1.5px solid var(--g200); border-radius:10px; padding:10px 6px; text-align:center; font-size:0.7rem; font-weight:500; position:relative; }
+.cat-card.chk { border-color:var(--purple); background:var(--purple-pale); }
+.cat-card .ci { font-size:1.1rem; display:block; margin-bottom:3px; }
+.cat-card .cm { display:none; position:absolute; top:3px; right:4px; background:var(--purple); color:white; width:14px; height:14px; border-radius:50%; font-size:8px; line-height:14px; text-align:center; }
+.cat-card.chk .cm { display:block; }
+
+.svc-list { display:flex; flex-direction:column; gap:6px; margin:8px 0; }
+.svc-item { display:flex; align-items:center; gap:8px; padding:8px 12px; border:1.5px solid var(--g200); border-radius:10px; background:white; }
+.svc-item.chk { border-color:var(--teal); background:var(--teal-pale); }
+.svc-chk { width:16px; height:16px; border-radius:4px; border:2px solid var(--g300); display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:0.6rem; color:white; }
+.svc-item.chk .svc-chk { background:var(--teal); border-color:var(--teal); }
+.svc-name { font-size:0.78rem; font-weight:500; }
+.svc-meta { font-size:0.65rem; color:var(--g500); }
+.svc-price { margin-left:auto; font-weight:600; font-size:0.78rem; color:var(--g700); }
+
+.dur-toggle { display:inline-flex; gap:3px; margin-top:3px; }
+.dur-btn { padding:3px 8px; border-radius:5px; font-size:0.63rem; font-weight:600; border:1.5px solid var(--g200); background:white; }
+.dur-btn.act { background:var(--teal); color:white; border-color:var(--teal); }
+
+.running-total { background:var(--dark); color:white; border-radius:10px; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; margin-top:10px; }
+.running-total .rt-i { font-size:0.7rem; color:var(--g300); }
+.running-total .rt-a { font-size:0.9rem; font-weight:700; }
+
+.confirm-card { text-align:center; padding:1rem; }
+.confirm-icon { width:44px; height:44px; border-radius:50%; margin:0 auto 8px; background:var(--green-pale); display:flex; align-items:center; justify-content:center; font-size:1.2rem; color:var(--green); }
+.confirm-badge { display:inline-block; background:var(--green-pale); color:var(--green); padding:3px 12px; border-radius:999px; font-size:0.72rem; font-weight:600; margin-bottom:10px; }
+.confirm-details { text-align:left; background:var(--g50); border-radius:10px; padding:10px; margin:8px 0; }
+.confirm-row { display:flex; justify-content:space-between; font-size:0.75rem; padding:3px 0; }
+.confirm-total { font-weight:700; font-size:0.85rem; border-top:1px solid var(--g200); padding-top:6px; margin-top:6px; }
+.gst-note { font-size:0.63rem; color:var(--g500); margin-top:3px; }
+.gems-card { display:flex; align-items:center; gap:8px; background:var(--gold-pale); border:1px solid var(--gold-light); border-radius:8px; padding:8px 12px; margin:8px 0; text-align:left; }
+.gems-card .gi { font-size:1.2rem; } .gems-card .gt { font-size:0.72rem; font-weight:500; } .gems-card .gl { font-size:0.65rem; color:var(--gold); }
+.confetti-hint { display:flex; align-items:center; gap:8px; padding:8px 14px; background:var(--gold-pale); border:1px solid var(--gold-light); border-radius:10px; font-size:0.78rem; color:var(--gold); font-weight:500; margin-top:10px; }
+
+.error-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:1rem; margin:1rem 0; }
+.error-item { border:1.5px solid #FCA5A5; background:var(--red-pale); border-radius:14px; padding:1.25rem; position:relative; overflow:hidden; }
+.error-item::before { content:''; position:absolute; top:0; left:0; width:4px; height:100%; background:var(--red); }
+.error-step { font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--red); margin-bottom:6px; padding-left:10px; }
+.error-msg { font-size:0.9rem; font-weight:600; color:#991B1B; margin-bottom:4px; padding-left:10px; }
+.error-desc { font-size:0.8rem; color:#7F1D1D; padding-left:10px; }
+
+.analytics-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin:1rem 0; }
+.analytics-card { border-radius:14px; padding:1.5rem; border:1px solid var(--g200); }
+.analytics-card.ph { background:linear-gradient(135deg, #1D2939 0%, #2E3B4E 100%); color:white; }
+.analytics-card.mp { background:linear-gradient(135deg, #1877F2 0%, #0C5FD4 100%); color:white; }
+.analytics-card h4 { font-size:0.85rem; font-weight:700; margin-bottom:12px; opacity:0.9; }
+.event-list { list-style:none; padding:0; }
+.event-list li { padding:6px 10px; border-radius:8px; font-size:0.75rem; font-weight:500; margin:4px 0; background:rgba(255,255,255,0.1); font-family:'JetBrains Mono', monospace; }
+
+.a11y-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:1rem; margin:1rem 0; }
+.a11y-item { background:white; border:1px solid var(--g200); border-radius:12px; padding:1rem; display:flex; align-items:flex-start; gap:10px; }
+.a11y-icon { font-size:1.2rem; flex-shrink:0; }
+.a11y-text { font-size:0.82rem; color:var(--g700); }
+.a11y-text strong { display:block; margin-bottom:2px; color:var(--g900); }
+
+.ux-compare { display:grid; grid-template-columns:1fr 1fr; gap:2rem; margin:1.5rem 0; }
+.ux-box { border-radius:16px; padding:1.5rem; border:2px solid var(--g200); }
+.ux-box.mob { border-color:var(--purple-light); background:linear-gradient(180deg, var(--purple-pale) 0%, white 30%); }
+.ux-box.desk { border-color:var(--teal-light); background:linear-gradient(180deg, var(--teal-pale) 0%, white 30%); }
+.ux-box h4 { font-size:0.9rem; margin-bottom:10px; }
+.ux-feat { display:flex; align-items:center; gap:8px; font-size:0.82rem; padding:5px 0; color:var(--g700); }
+.ux-feat .dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+.ux-box.mob .dot { background:var(--purple); }
+.ux-box.desk .dot { background:var(--teal); }
+
+.drag-handle { width:30px; height:3px; background:var(--g300); border-radius:99px; margin:0 auto 6px; }
+
+@media (max-width:900px) { .mockup-split,.ux-compare,.analytics-grid { grid-template-columns:1fr; } }
+@media (max-width:768px) { body { padding:1rem; } .page-header { padding:1.5rem; } .page-header h1 { font-size:1.6rem; } .progress-flow { padding:1rem; } .progress-connector { width:40px; } .props-grid { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- HEADER -->
+<div class="page-header">
+  <div class="header-badge">◆ OVERLAY COMPONENT — NOT A ROUTE</div>
+  <h1>Booking Dialog (4-Step Overlay)</h1>
+  <p>Multi-step overlay triggered by <code style="background:rgba(255,255,255,0.15);padding:2px 8px;border-radius:4px;">/?book=1</code> or any "Book Now" button. Renders as bottom sheet on mobile, centered modal on desktop.</p>
+</div>
+
+<!-- PROPERTIES -->
+<h2>⚙️ Dialog Properties</h2>
+<div class="props-grid">
+  <div class="prop-card"><div class="prop-icon">🎯</div><div class="prop-label">Trigger</div><div class="prop-value">"Book Now" button / <code>/?book=1</code> deep-link / "Book This" on service card</div></div>
+  <div class="prop-card"><div class="prop-icon">📱</div><div class="prop-label">Mobile UX</div><div class="prop-value">Bottom sheet — slides up, draggable handle, full height on expand</div></div>
+  <div class="prop-card"><div class="prop-icon">🖥️</div><div class="prop-label">Desktop UX</div><div class="prop-value">Centered modal — max-width 600px, backdrop blur, click-outside to close</div></div>
+  <div class="prop-card"><div class="prop-icon">✨</div><div class="prop-label">Animations</div><div class="prop-value">motion.dev (Framer Motion): slide-up mobile, scale-in desktop, horizontal step slides</div></div>
+  <div class="prop-card"><div class="prop-icon">♿</div><div class="prop-label">Accessibility</div><div class="prop-value">role="dialog", aria-modal="true", focus trapped, Escape to close</div></div>
+</div>
+
+<!-- PROGRESS -->
+<h2>📋 4-Step Flow Overview</h2>
+<div class="progress-flow">
+  <div class="progress-node s1" style="position:relative;">1<span class="progress-label">Branch + Date<br>+ Time Slot</span></div>
+  <div class="progress-connector"></div>
+  <div class="progress-node s2" style="position:relative;">2<span class="progress-label">Choose<br>Categories</span></div>
+  <div class="progress-connector"></div>
+  <div class="progress-node s3" style="position:relative;">3<span class="progress-label">Choose<br>Services</span></div>
+  <div class="progress-connector"></div>
+  <div class="progress-node s4" style="position:relative;">4<span class="progress-label">Summary &amp;<br>Confirmation</span></div>
+</div>
+
+<!-- UX COMPARISON -->
+<h2>📐 Mobile vs Desktop UX</h2>
+<div class="ux-compare">
+  <div class="ux-box mob">
+    <h4>📱 Mobile — Bottom Sheet</h4>
+    <div class="ux-feat"><span class="dot"></span> Slides up from bottom of screen</div>
+    <div class="ux-feat"><span class="dot"></span> Draggable handle for expand/collapse</div>
+    <div class="ux-feat"><span class="dot"></span> Full height on expand</div>
+    <div class="ux-feat"><span class="dot"></span> Swipe down to minimize</div>
+    <div class="ux-feat"><span class="dot"></span> Step transitions: horizontal slide</div>
+    <div class="ux-feat"><span class="dot"></span> Animation: motion.dev slide-up</div>
+  </div>
+  <div class="ux-box desk">
+    <h4>🖥️ Desktop — Centered Modal</h4>
+    <div class="ux-feat"><span class="dot"></span> Max-width: 600px centered</div>
+    <div class="ux-feat"><span class="dot"></span> Backdrop blur overlay</div>
+    <div class="ux-feat"><span class="dot"></span> Click outside to close</div>
+    <div class="ux-feat"><span class="dot"></span> Close (✕) button top-right</div>
+    <div class="ux-feat"><span class="dot"></span> Step transitions: horizontal slide</div>
+    <div class="ux-feat"><span class="dot"></span> Animation: motion.dev scale-in</div>
+  </div>
+</div>
+
+<!-- STEP 1 -->
+<div class="step-card sc1">
+  <div class="step-num">Step 1</div>
+  <div class="step-title">Branch + Date + Time Slot</div>
+  <div class="mockup-split">
+    <div class="mockup-panel">
+      <div class="mp-header mob">📱 Mobile View</div>
+      <div class="mp-content">
+        <div class="drag-handle"></div>
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:4px;">Book Your Appointment</div>
+        <div style="font-size:0.68rem;color:var(--g500);margin-bottom:8px;">Branch: Rayasandra ✓ (auto-selected)</div>
+        <div class="mini-lbl">Your Details</div>
+        <div class="mini-input ro">Priya Sharma (read-only)</div>
+        <div class="mini-input ro">priya@gmail.com (read-only)</div>
+        <div style="display:flex;gap:6px;align-items:center;margin:4px 0;">
+          <span style="font-size:0.7rem;color:var(--g500);">Gender:</span>
+          <select style="border:1.5px solid var(--g200);border-radius:6px;padding:3px 8px;font-size:0.72rem;">
+            <option>Female</option><option>Male</option><option>Other</option>
+          </select>
+        </div>
+        <div class="mini-lbl">Select Date</div>
+        <div class="mini-cal">
+          <div class="hdr">M</div><div class="hdr">T</div><div class="hdr">W</div><div class="hdr">T</div><div class="hdr">F</div><div class="hdr">S</div><div class="hdr">S</div>
+          <div class="day">19</div><div class="day">20</div><div class="day">21</div><div class="day hol">22</div><div class="day">23</div><div class="day sel">24</div><div class="day">25</div>
+          <div class="day">26</div><div class="day">27</div><div class="day">28</div><div class="day">29</div><div class="day">30</div><div class="day">31</div><div class="day"></div>
+        </div>
+        <div class="mini-lbl">Available Slots (24 May)</div>
+        <div class="slot-chips">
+          <div class="chip">10:00</div><div class="chip">10:30</div><div class="chip">11:00</div>
+          <div class="chip full">11:30 Full</div><div class="chip">12:00</div><div class="chip sel">15:30</div>
+          <div class="chip">16:00</div><div class="chip">16:30</div><div class="chip full">17:00 Full</div>
+        </div>
+        <div style="margin-top:12px;text-align:center;"><span class="mini-btn mini-btn-p">Next →</span></div>
+        <div style="font-size:0.6rem;color:var(--g500);text-align:center;margin-top:6px;">aria-live="polite" for slot updates</div>
+      </div>
+    </div>
+    <div class="mockup-panel">
+      <div class="mp-header desk">🖥️ Desktop View</div>
+      <div class="mp-content">
+        <div style="background:rgba(0,0,0,0.15);border-radius:10px;padding:1.5rem;display:flex;align-items:center;justify-content:center;">
+          <div style="background:white;border-radius:14px;padding:1.2rem;width:100%;max-width:300px;box-shadow:0 12px 40px rgba(0,0,0,0.12);position:relative;">
+            <div style="position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:50%;background:var(--g100);display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:var(--g500);">✕</div>
+            <div style="font-weight:700;font-size:0.85rem;margin-bottom:8px;">Book Your Appointment</div>
+            <div style="font-size:0.65rem;color:var(--g500);">Step 1 of 4 — Same content as mobile</div>
+            <div style="margin:10px 0;padding:16px;background:var(--g50);border-radius:8px;text-align:center;color:var(--g500);font-size:0.7rem;">Calendar + Slot Grid<br>(identical to mobile)</div>
+            <div style="display:flex;justify-content:flex-end;margin-top:10px;"><span class="mini-btn mini-btn-p">Next →</span></div>
+          </div>
+        </div>
+        <div style="font-size:0.68rem;color:var(--g500);margin-top:10px;">
+          <strong>Desktop differences:</strong><br>
+          • No drag handle<br>
+          • Close (✕) button top-right<br>
+          • Click backdrop to close (with confirm if mid-flow)<br>
+          • Backdrop blur effect
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STEP 2 -->
+<div class="step-card sc2">
+  <div class="step-num">Step 2</div>
+  <div class="step-title">Choose Categories</div>
+  <div class="mockup-split">
+    <div class="mockup-panel">
+      <div class="mp-header mob">📱 Mobile View</div>
+      <div class="mp-content">
+        <div class="drag-handle"></div>
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:8px;">Choose Category</div>
+        <div class="seg-toggle">
+          <div class="seg act">Salon</div>
+          <div class="seg">SPA</div>
+        </div>
+        <div style="font-size:0.68rem;color:var(--g500);margin:6px 0;">One booking = one type only. Select categories (multi-select):</div>
+        <div class="cat-grid">
+          <div class="cat-card chk"><span class="cm">✓</span><span class="ci">💇</span>Haircut</div>
+          <div class="cat-card"><span class="cm">✓</span><span class="ci">💆</span>Facial</div>
+          <div class="cat-card chk"><span class="cm">✓</span><span class="ci">🧴</span>Waxing</div>
+          <div class="cat-card"><span class="cm">✓</span><span class="ci">💅</span>Nails</div>
+          <div class="cat-card"><span class="cm">✓</span><span class="ci">💄</span>Makeup</div>
+          <div class="cat-card"><span class="cm">✓</span><span class="ci">🧖</span>Hair SPA</div>
+        </div>
+        <div style="margin-top:12px;display:flex;justify-content:space-between;">
+          <span class="mini-btn mini-btn-o">← Back</span>
+          <span class="mini-btn mini-btn-p">Next →</span>
+        </div>
+      </div>
+    </div>
+    <div class="mockup-panel">
+      <div class="mp-header desk">🖥️ Desktop View</div>
+      <div class="mp-content">
+        <div style="background:rgba(0,0,0,0.15);border-radius:10px;padding:1.5rem;display:flex;align-items:center;justify-content:center;">
+          <div style="background:white;border-radius:14px;padding:1.2rem;width:100%;max-width:300px;box-shadow:0 12px 40px rgba(0,0,0,0.12);position:relative;">
+            <div style="position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:50%;background:var(--g100);display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:var(--g500);">✕</div>
+            <div style="font-weight:700;font-size:0.85rem;margin-bottom:6px;">Choose Category</div>
+            <div class="seg-toggle" style="margin:6px 0;">
+              <div class="seg act">Salon</div><div class="seg">SPA</div>
+            </div>
+            <div class="cat-grid" style="grid-template-columns:repeat(3,1fr);">
+              <div class="cat-card chk"><span class="cm">✓</span><span class="ci">💇</span>Haircut</div>
+              <div class="cat-card"><span class="cm">✓</span><span class="ci">💆</span>Facial</div>
+              <div class="cat-card chk"><span class="cm">✓</span><span class="ci">🧴</span>Waxing</div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:12px;">
+              <span class="mini-btn mini-btn-o">← Back</span><span class="mini-btn mini-btn-p">Next →</span>
+            </div>
+          </div>
+        </div>
+        <div style="font-size:0.68rem;color:var(--g500);margin-top:10px;">
+          <strong>Validation:</strong> "Select at least one category" inline error if none selected
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STEP 3 -->
+<div class="step-card sc3">
+  <div class="step-num">Step 3</div>
+  <div class="step-title">Choose Services</div>
+  <div class="mockup-split">
+    <div class="mockup-panel">
+      <div class="mp-header mob">📱 Mobile View</div>
+      <div class="mp-content">
+        <div class="drag-handle"></div>
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:8px;">Choose Services</div>
+        <div style="font-size:0.68rem;color:var(--g500);margin-bottom:6px;">Filtered by: Haircut &amp; Styling, Waxing</div>
+        <div class="mini-lbl">Haircut &amp; Styling</div>
+        <div class="svc-list">
+          <div class="svc-item chk"><div class="svc-chk">✓</div><div><div class="svc-name">Classic Haircut</div><div class="svc-meta">45 min</div></div><div class="svc-price">₹500</div></div>
+          <div class="svc-item"><div class="svc-chk"></div><div><div class="svc-name">Hair Wash &amp; Blow Dry</div><div class="svc-meta">30 min</div></div><div class="svc-price">₹300</div></div>
+        </div>
+        <div class="mini-lbl">Waxing</div>
+        <div class="svc-list">
+          <div class="svc-item chk"><div class="svc-chk">✓</div><div><div class="svc-name">Full Arms</div><div class="svc-meta">30 min</div></div><div class="svc-price">₹800</div></div>
+          <div class="svc-item chk"><div class="svc-chk">✓</div><div><div class="svc-name">Full Legs</div><div class="svc-meta">45 min</div></div><div class="svc-price">₹1,000</div></div>
+        </div>
+        <div class="running-total">
+          <div><div class="rt-i">3 services · ~120 min</div></div>
+          <div class="rt-a">₹2,300.00</div>
+        </div>
+        <div style="margin-top:10px;text-align:center;"><span class="mini-btn mini-btn-p" style="width:100%;display:block;text-align:center;">Submit Booking</span></div>
+      </div>
+    </div>
+    <div class="mockup-panel">
+      <div class="mp-header desk">🖥️ SPA Variant (Duration Toggle)</div>
+      <div class="mp-content">
+        <div style="font-weight:700;font-size:0.85rem;margin-bottom:8px;">SPA Services</div>
+        <div style="font-size:0.68rem;color:var(--g500);margin-bottom:6px;">Single card with inline duration toggle:</div>
+        <div class="svc-list">
+          <div class="svc-item chk">
+            <div class="svc-chk">✓</div>
+            <div>
+              <div class="svc-name">Aroma Therapy</div>
+              <div class="dur-toggle"><div class="dur-btn">60 min · ₹2,500</div><div class="dur-btn act">90 min · ₹3,500</div></div>
+            </div>
+          </div>
+          <div class="svc-item chk">
+            <div class="svc-chk">✓</div>
+            <div>
+              <div class="svc-name">Swedish Massage</div>
+              <div class="dur-toggle"><div class="dur-btn act">60 min · ₹2,000</div><div class="dur-btn">90 min · ₹2,800</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="running-total">
+          <div><div class="rt-i">2 services · ~150 min</div></div>
+          <div class="rt-a">₹5,500.00</div>
+        </div>
+        <div style="font-size:0.68rem;color:var(--g500);margin-top:10px;">
+          <strong>UX Notes:</strong><br>
+          • "Add more" prompt if only 1 service (non-blocking)<br>
+          • Cannot proceed without at least 1 service<br>
+          • Running total shows count · price · duration
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STEP 4 -->
+<div class="step-card sc4">
+  <div class="step-num">Step 4</div>
+  <div class="step-title">Summary &amp; Confirmation</div>
+  <div class="mockup-split">
+    <div class="mockup-panel">
+      <div class="mp-header mob">📱 Mobile View</div>
+      <div class="mp-content">
+        <div class="confirm-card">
+          <div class="confirm-icon">✓</div>
+          <div class="confirm-badge">Booking Submitted!</div>
+          <div style="font-size:0.75rem;color:var(--g500);margin-bottom:10px;">Our team will confirm shortly.</div>
+          <div class="confirm-details">
+            <div style="font-weight:600;font-size:0.7rem;color:var(--g500);margin-bottom:4px;">#BKRS2605H38291</div>
+            <div style="font-size:0.8rem;font-weight:500;">24 May 2026 · 03:30 PM</div>
+            <div style="font-size:0.7rem;color:var(--g500);">Rayasandra</div>
+            <hr style="margin:8px 0;border:none;border-top:1px solid var(--g200);">
+            <div class="confirm-row"><span>Classic Haircut</span><span>₹500</span></div>
+            <div class="confirm-row"><span>Full Arms Waxing</span><span>₹800</span></div>
+            <div class="confirm-row"><span>Full Legs Waxing</span><span>₹1,000</span></div>
+            <div class="confirm-row confirm-total"><span>Total</span><span>₹2,300.00</span></div>
+            <div class="gst-note">Inclusive of 18% GST</div>
+          </div>
+          <div style="font-size:0.72rem;color:var(--g500);margin:6px 0;">💳 Pay at the salon (Cash / UPI / Card)</div>
+          <div class="gems-card">
+            <span class="gi">💎</span>
+            <div><div class="gt">You have 12 gems</div><div class="gl">Browse Gems Catalogue →</div></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px;">
+            <span class="mini-btn mini-btn-p" style="display:block;text-align:center;">View My Bookings</span>
+            <span class="mini-btn mini-btn-o" style="display:block;text-align:center;">Go to Home</span>
+          </div>
+        </div>
+        <div class="confetti-hint">🎉 Confetti animation plays on successful submit (motion.dev)</div>
+      </div>
+    </div>
+    <div class="mockup-panel">
+      <div class="mp-header desk">🖥️ Desktop View</div>
+      <div class="mp-content">
+        <div style="background:rgba(0,0,0,0.15);border-radius:10px;padding:1.5rem;display:flex;align-items:center;justify-content:center;">
+          <div style="background:white;border-radius:14px;padding:1.5rem;width:100%;max-width:300px;box-shadow:0 12px 40px rgba(0,0,0,0.12);text-align:center;">
+            <div style="width:40px;height:40px;border-radius:50%;margin:0 auto 8px;background:var(--green-pale);display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:var(--green);">✓</div>
+            <div style="font-weight:700;font-size:0.9rem;color:#065F46;">Booking Submitted!</div>
+            <div style="font-size:0.7rem;color:var(--g500);margin:4px 0 12px;">Same layout as mobile</div>
+            <div style="padding:10px;background:var(--g50);border-radius:8px;text-align:center;font-size:0.7rem;color:var(--g500);">Service list + Total + Gems + Actions</div>
+          </div>
+        </div>
+        <div style="font-size:0.68rem;color:var(--g500);margin-top:10px;">
+          <strong>Step 4 Features:</strong><br>
+          • Green "Booking Submitted!" badge<br>
+          • Service list with individual prices<br>
+          • Total with GST note<br>
+          • Payment info (Cash / UPI / Card)<br>
+          • Gems info link<br>
+          • Confetti animation (subtle, motion.dev)
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ERROR STATES -->
+<h2>⚠️ Error States</h2>
+<div class="error-grid">
+  <div class="error-item">
+    <div class="error-step">Step 1 — Date &amp; Time</div>
+    <div class="error-msg">"Please select a date and time"</div>
+    <div class="error-desc">Shown when user tries to proceed without picking a date or time slot.</div>
+  </div>
+  <div class="error-item">
+    <div class="error-step">Step 1 — Slot Conflict</div>
+    <div class="error-msg">"This slot is no longer available"</div>
+    <div class="error-desc">Real-time conflict — another user booked the same slot. Slot refreshes via Ably.</div>
+  </div>
+  <div class="error-item">
+    <div class="error-step">Step 2 — Categories</div>
+    <div class="error-msg">"Select at least one category"</div>
+    <div class="error-desc">Inline validation shown below the category grid when proceeding with 0 selected.</div>
+  </div>
+  <div class="error-item">
+    <div class="error-step">Step 3 — Services</div>
+    <div class="error-msg">"Please select at least one service"</div>
+    <div class="error-desc">Cannot submit booking without at least one service checked.</div>
+  </div>
+  <div class="error-item">
+    <div class="error-step">Submit Failure</div>
+    <div class="error-msg">"Something went wrong. Please try again."</div>
+    <div class="error-desc">Generic API failure with retry button. Logged to PostHog for debugging.</div>
+  </div>
+</div>
+
+<!-- ACCESSIBILITY -->
+<h2>♿ Accessibility Features</h2>
+<div class="a11y-grid">
+  <div class="a11y-item"><div class="a11y-icon">🏷️</div><div class="a11y-text"><strong>role="dialog"</strong>Announces as dialog to screen readers</div></div>
+  <div class="a11y-item"><div class="a11y-icon">🔒</div><div class="a11y-text"><strong>aria-modal="true"</strong>Content behind modal is inert</div></div>
+  <div class="a11y-item"><div class="a11y-icon">🎯</div><div class="a11y-text"><strong>Focus Trapped</strong>Tab key cycles within dialog only</div></div>
+  <div class="a11y-item"><div class="a11y-icon">⎋</div><div class="a11y-text"><strong>Escape to Close</strong>Keyboard shortcut closes dialog</div></div>
+  <div class="a11y-item"><div class="a11y-icon">🔄</div><div class="a11y-text"><strong>Focus Return</strong>Focus returns to trigger element on close</div></div>
+  <div class="a11y-item"><div class="a11y-icon">📢</div><div class="a11y-text"><strong>aria-live="polite"</strong>Slot availability changes announced</div></div>
+</div>
+
+<!-- ANALYTICS -->
+<h2>📊 Analytics Events</h2>
+<div class="analytics-grid">
+  <div class="analytics-card ph">
+    <h4>📈 PostHog Events</h4>
+    <ul class="event-list">
+      <li>booking_started <span style="opacity:0.6">— dialog opens</span></li>
+      <li>booking_step_completed <span style="opacity:0.6">— each step</span></li>
+      <li>booking_request_submitted <span style="opacity:0.6">— final submit</span></li>
+      <li>booking_abandoned <span style="opacity:0.6">— closed before step 4</span></li>
+    </ul>
+  </div>
+  <div class="analytics-card mp">
+    <h4>📘 Meta Pixel Events</h4>
+    <ul class="event-list">
+      <li>InitiateCheckout <span style="opacity:0.6">— dialog opens</span></li>
+    </ul>
+    <div style="font-size:0.72rem;margin-top:10px;opacity:0.8;">Fired once per session on first dialog open. CAPI Purchase fired on booking completion (server-side).</div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>
