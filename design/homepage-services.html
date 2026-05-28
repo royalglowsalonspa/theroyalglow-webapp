@@ -3,832 +3,425 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Homepage &amp; Public Pages — Design Reference</title>
+<title>Homepage & Services — Royal Glow Salon & SPA</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1200px; margin: 0 auto; padding: 2rem; line-height: 1.6; color: #1a1a1a; background: #fffdf7; }
-  h1, h2, h3, h4 { color: #1a1a1a; margin-top: 2rem; }
-  h1 { border-bottom: 2px solid #c8a961; padding-bottom: 0.5rem; }
-  h2 { border-bottom: 1px solid #e5e5e5; padding-bottom: 0.3rem; }
-  pre { background: #1a1a1a; color: #e5e5e5; padding: 1.5rem; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; line-height: 1.4; }
-  code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 14px; }
-  pre code { background: none; padding: 0; }
-  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
-  th, td { border: 1px solid #e5e5e5; padding: 10px 14px; text-align: left; }
-  th { background: #f9fafb; font-weight: 600; }
-  tr:nth-child(even) { background: #fafafa; }
-  blockquote { border-left: 4px solid #c8a961; margin: 1rem 0; padding: 0.5rem 1rem; background: #fff8f0; }
-  hr { border: none; border-top: 1px solid #e5e5e5; margin: 2rem 0; }
-  ul, ol { padding-left: 1.5rem; }
-  li { margin: 0.3rem 0; }
-  a { color: #c8a961; text-decoration: none; }
-  a:hover { text-decoration: underline; }
+:root {
+  --gold: #C8A961; --gold-light: #FEF3C7; --gold-bg: #FFFDF7;
+  --dark: #1a1a1a; --grey-100: #f9fafb; --grey-200: #f3f4f6;
+  --grey-300: #e5e5e5; --grey-500: #6B6B6B; --grey-700: #374151;
+  --green: #10B981; --green-light: #D1FAE5; --green-dark: #065F46;
+  --red: #EF4444; --red-light: #FEE2E2; --red-dark: #991B1B;
+  --amber: #F59E0B; --amber-light: #FEF3C7;
+  --blue: #3B82F6; --blue-light: #DBEAFE;
+  --purple: #8B5CF6; --purple-light: #EDE9FE;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --radius: 12px; --shadow: 0 4px 12px rgba(0,0,0,0.08); --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font); background: var(--gold-bg); color: var(--dark); line-height: 1.6; min-height: 100vh; }
 
 
-  .flow-container { display: flex; flex-direction: column; align-items: center; gap: 0; margin: 2rem 0; }
-  .flow-node { padding: 14px 24px; border-radius: 12px; font-weight: 500; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); min-width: 180px; }
-  .flow-node.trigger { background: #C8A961; color: white; }
-  .flow-node.process { background: white; border: 2px solid #e5e5e5; border-left: 4px solid #C8A961; }
-  .flow-node.decision { background: #FEF3C7; border: 2px solid #F59E0B; }
-  .flow-node.success { background: #D1FAE5; border: 2px solid #10B981; color: #065F46; }
-  .flow-node.error { background: #FEE2E2; border: 2px solid #EF4444; color: #991B1B; }
-  .flow-node.end { background: #1a1a1a; color: white; }
-  .flow-arrow { width: 2px; height: 32px; background: #C8A961; position: relative; margin: 0 auto; }
-  .flow-arrow::after { content: ''; position: absolute; bottom: -6px; left: -5px; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #C8A961; }
-  .flow-branch { display: flex; gap: 2rem; justify-content: center; }
-  .flow-label { font-size: 12px; color: #6B6B6B; text-align: center; margin-top: 4px; }
-  .flow-row { display: flex; align-items: center; justify-content: center; gap: 1.5rem; }
+.page-header { background: linear-gradient(135deg, var(--dark) 0%, #2d2d2d 100%); color: white; padding: 2rem; text-align: center; border-bottom: 3px solid var(--gold); }
+.page-header h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.25rem; }
+.page-header h1 span { color: var(--gold); }
+.page-header p { color: #aaa; font-size: 0.95rem; }
+.tab-nav { display: flex; gap: 0; background: white; border-bottom: 2px solid var(--grey-300); overflow-x: auto; position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow); }
+.tab-btn { padding: 1rem 1.5rem; border: none; background: none; font-size: 0.9rem; font-weight: 600; color: var(--grey-500); cursor: pointer; white-space: nowrap; border-bottom: 3px solid transparent; transition: all 0.2s ease; }
+.tab-btn:hover { color: var(--dark); background: var(--grey-100); }
+.tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); background: var(--gold-bg); }
+.tab-content { display: none; padding: 2rem; max-width: 1200px; margin: 0 auto; }
+.tab-content.active { display: block; }
+.card { background: white; border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: var(--shadow); border: 1px solid var(--grey-200); }
+.card h3 { font-size: 1.1rem; margin-bottom: 1rem; color: var(--dark); display: flex; align-items: center; gap: 0.5rem; }
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+.summary-item { background: var(--grey-100); border-radius: 8px; padding: 1rem; border-left: 4px solid var(--gold); }
+.summary-item .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--grey-500); margin-bottom: 0.25rem; }
+.summary-item .value { font-size: 1rem; font-weight: 600; color: var(--dark); }
+.flow-container { overflow-x: auto; padding: 1rem; background: white; border-radius: var(--radius); border: 1px solid var(--grey-200); }
+.flow-container svg { display: block; margin: 0 auto; }
+.flow-container svg text { font-family: var(--font); font-size: 11px; }
+.flow-container svg .node-rect { stroke-width: 2; rx: 8; transition: all 0.2s; cursor: pointer; }
+.flow-container svg .node-rect:hover { filter: brightness(0.95); stroke-width: 3; }
+.flow-container svg .decision { stroke-width: 2; cursor: pointer; transition: all 0.2s; }
+.flow-container svg .decision:hover { filter: brightness(0.9); }
+.wireframe-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; padding: 1rem 0; }
+.phone-frame { background: white; border: 3px solid var(--dark); border-radius: 32px; padding: 1rem; width: 280px; margin: 0 auto; box-shadow: var(--shadow-lg); position: relative; }
+.phone-frame::before { content: ''; display: block; width: 60px; height: 6px; background: var(--grey-300); border-radius: 3px; margin: 0 auto 1rem; }
+.phone-screen { background: var(--grey-100); border-radius: 16px; padding: 1rem; min-height: 400px; }
+.phone-screen h4 { font-size: 0.85rem; color: var(--gold); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; text-align: center; }
 
 
-  .phone-frame { width: 375px; border: 3px solid #1a1a1a; border-radius: 40px; padding: 12px; margin: 2rem auto; background: white; box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
-  .phone-screen { border-radius: 28px; overflow: hidden; min-height: 500px; background: #FFFDF7; padding: 16px; }
-  .phone-notch { width: 150px; height: 24px; background: #1a1a1a; border-radius: 0 0 12px 12px; margin: 0 auto; }
-  .wire-btn { padding: 12px 24px; border-radius: 999px; font-weight: 600; text-align: center; cursor: pointer; border: none; display: inline-block; margin: 4px; }
-  .wire-btn-primary { background: #C8A961; color: white; }
-  .wire-btn-outline { border: 2px solid #C8A961; color: #C8A961; background: white; }
-  .wire-btn-danger { background: #EF4444; color: white; }
-  .wire-btn-success { background: #10B981; color: white; }
-  .wire-input { width: 100%; padding: 12px 16px; border: 1px solid #e5e5e5; border-radius: 12px; font-size: 14px; margin: 8px 0; box-sizing: border-box; }
-  .wire-card { background: white; border: 1px solid #f0f0f0; border-radius: 12px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-  .wire-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 500; }
-  .badge-pending { background: #FEF3C7; color: #92400E; }
-  .badge-confirmed { background: #D1FAE5; color: #065F46; }
-  .badge-completed { background: #F3F4F6; color: #374151; }
-  .badge-active { background: #DBEAFE; color: #1E40AF; }
-  .badge-expired { background: #FEE2E2; color: #991B1B; }
-
-
-  .section-card { background: white; border: 1px solid #f0f0f0; border-radius: 16px; padding: 2rem; margin: 1.5rem 0; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
-  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; }
-  .timeline { display: flex; flex-direction: column; gap: 0; padding: 1rem 0; }
-  .timeline-step { display: flex; align-items: flex-start; gap: 12px; position: relative; padding-bottom: 24px; }
-  .timeline-step:not(:last-child)::before { content: ''; position: absolute; left: 11px; top: 24px; bottom: 0; width: 2px; background: #e5e5e5; }
-  .timeline-dot { width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0; }
-  .timeline-dot.active { background: #C8A961; }
-  .timeline-dot.completed { background: #10B981; }
-  .timeline-dot.error { background: #EF4444; }
-  .timeline-dot.pending { background: #F59E0B; }
-  .timeline-dot.grey { background: #9CA3AF; }
-  .modal-backdrop { background: rgba(0,0,0,0.4); border-radius: 12px; padding: 3rem; display: flex; align-items: center; justify-content: center; margin: 2rem 0; }
-  .modal-box { background: white; border-radius: 16px; padding: 2rem; max-width: 500px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
-
-
-  .hero-section { background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); color: white; border-radius: 16px; padding: 2rem 1.5rem; text-align: center; margin: 12px 0; }
-  .hero-section h3 { color: #C8A961; margin: 0.5rem 0; }
-  .hero-section p { color: #ccc; font-style: italic; }
-  .service-scroll { display: flex; gap: 12px; overflow-x: auto; padding: 8px 0; }
-  .service-mini-card { min-width: 110px; background: white; border: 1px solid #f0f0f0; border-radius: 12px; padding: 12px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-  .service-mini-card .price { color: #C8A961; font-weight: 600; font-size: 13px; }
-  .offer-card { background: linear-gradient(135deg, #fff8f0, #ffffff); border: 1px solid #f0e6d0; border-radius: 12px; padding: 14px; margin: 8px 0; }
-  .testimonial-card { background: white; border: 1px solid #f0f0f0; border-radius: 12px; padding: 14px; margin: 8px 0; }
-  .gallery-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
-  .gallery-placeholder { background: #f3f4f6; border-radius: 8px; height: 60px; display: flex; align-items: center; justify-content: center; color: #9CA3AF; font-size: 20px; }
-  .faq-item { border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px 16px; margin: 6px 0; display: flex; align-items: center; gap: 8px; }
-  .faq-item .arrow { color: #C8A961; font-weight: bold; }
-  .header-bar { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #e5e5e5; margin-bottom: 12px; }
-  .header-bar .logo { font-weight: 700; font-size: 14px; }
-  .header-bar .hamburger { font-size: 20px; cursor: pointer; }
-  .footer-ref { background: #1a1a1a; color: #aaa; border-radius: 8px; padding: 12px; text-align: center; font-size: 12px; margin-top: 16px; }
-  .section-label { font-size: 13px; font-weight: 600; color: #6B6B6B; border-bottom: 1px solid #e5e5e5; padding-bottom: 4px; margin: 16px 0 8px 0; }
-  .rating { color: #C8A961; font-size: 12px; margin-top: 4px; }
-  .toggle-group { display: inline-flex; border: 2px solid #C8A961; border-radius: 999px; overflow: hidden; }
-  .toggle-group .toggle-opt { padding: 8px 16px; font-size: 13px; font-weight: 500; cursor: pointer; }
-  .toggle-group .toggle-opt.active { background: #C8A961; color: white; }
-  .toggle-group .toggle-opt:not(.active) { background: white; color: #1a1a1a; }
-  .cookie-toggle { display: flex; align-items: center; justify-content: space-between; padding: 12px; border: 1px solid #e5e5e5; border-radius: 8px; margin: 8px 0; }
-  .toggle-switch { width: 44px; height: 24px; border-radius: 12px; position: relative; cursor: pointer; }
-  .toggle-switch.on { background: #10B981; }
-  .toggle-switch.off { background: #9CA3AF; }
-  .toggle-switch.locked { background: #10B981; opacity: 0.7; }
-  .toggle-switch::after { content: ''; width: 18px; height: 18px; background: white; border-radius: 50%; position: absolute; top: 3px; transition: left 0.2s; }
-  .toggle-switch.on::after, .toggle-switch.locked::after { left: 22px; }
-  .toggle-switch.off::after { left: 4px; }
-  .dark-footer { background: #1a1a1a; color: #e5e5e5; border-radius: 16px; padding: 2rem; margin: 1.5rem 0; }
-  .dark-footer h4 { color: #C8A961; margin-top: 1rem; }
-  .dark-footer a { color: #C8A961; }
-  .nav-list { list-style: none; padding: 0; }
-  .nav-list li { padding: 10px 0; border-bottom: 1px solid #333; font-size: 15px; }
-  .service-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
-  .service-row:last-child { border-bottom: none; }
-  .service-info .name { font-weight: 600; font-size: 14px; }
-  .service-info .meta { font-size: 12px; color: #6B6B6B; }
+.wire-hero { background: linear-gradient(135deg, var(--dark) 0%, #333 100%); border-radius: 8px; padding: 0.75rem; text-align: center; margin-bottom: 0.5rem; color: white; }
+.wire-hero h5 { font-size: 0.8rem; color: var(--gold); margin-bottom: 0.2rem; }
+.wire-hero p { font-size: 0.55rem; color: #ccc; }
+.wire-service-card { background: white; border-radius: 8px; padding: 0.5rem; border: 1px solid var(--grey-200); text-align: center; width: 70px; flex-shrink: 0; }
+.wire-service-card .icon { font-size: 1.2rem; margin-bottom: 0.2rem; }
+.wire-service-card .name { font-size: 0.5rem; font-weight: 600; }
+.wire-service-card .price { font-size: 0.5rem; color: var(--gold); }
+.wire-offer-card { background: var(--gold-light); border-radius: 8px; padding: 0.5rem; margin-bottom: 0.4rem; border-left: 3px solid var(--gold); }
+.wire-offer-card .title { font-size: 0.65rem; font-weight: 700; }
+.wire-offer-card .desc { font-size: 0.5rem; color: var(--grey-500); }
+.wire-btn { display: block; width: 100%; padding: 0.7rem; margin-top: 0.75rem; border: none; border-radius: 8px; background: var(--gold); color: white; font-weight: 700; font-size: 0.8rem; text-align: center; cursor: pointer; }
+.wire-toggle { display: flex; border-radius: 8px; overflow: hidden; border: 2px solid var(--gold); margin-bottom: 0.75rem; }
+.wire-toggle-btn { flex: 1; padding: 0.4rem; text-align: center; font-size: 0.7rem; font-weight: 600; background: white; color: var(--dark); }
+.wire-toggle-btn.active { background: var(--gold); color: white; }
+.wire-accordion { background: white; border-radius: 6px; margin-bottom: 4px; border: 1px solid var(--grey-200); overflow: hidden; }
+.wire-accordion-header { padding: 0.4rem 0.5rem; font-size: 0.6rem; font-weight: 600; display: flex; justify-content: space-between; }
+.wire-accordion-item { padding: 0.3rem 0.5rem; font-size: 0.55rem; border-top: 1px solid var(--grey-100); display: flex; justify-content: space-between; }
+details { margin-bottom: 1rem; }
+details summary { cursor: pointer; font-weight: 600; padding: 0.75rem 1rem; background: var(--grey-100); border-radius: 8px; border: 1px solid var(--grey-200); list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+details summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+details[open] summary::before { transform: rotate(90deg); }
+details .details-content { padding: 1rem; border: 1px solid var(--grey-200); border-top: none; border-radius: 0 0 8px 8px; background: white; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.data-table th, .data-table td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--grey-200); }
+.data-table th { background: var(--grey-100); font-weight: 600; color: var(--grey-700); }
+.data-table tr:hover { background: var(--gold-bg); }
+@media (max-width: 768px) {
+  .tab-btn { padding: 0.75rem 1rem; font-size: 0.8rem; }
+  .tab-content { padding: 1rem; }
+  .summary-grid { grid-template-columns: 1fr 1fr; }
+  .wireframe-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .page-header h1 { font-size: 1.4rem; }
+  .summary-grid { grid-template-columns: 1fr; }
+}
+@media print {
+  .tab-nav { display: none; }
+  .tab-content { display: block !important; padding: 1rem 0; }
+  .page-header { background: white; color: var(--dark); border-bottom: 2px solid var(--gold); }
+  .card { box-shadow: none; border: 1px solid var(--grey-300); break-inside: avoid; }
+  body { background: white; }
+}
 </style>
 </head>
 <body>
+<header class="page-header">
+  <h1>Homepage & <span>Services</span></h1>
+  <p>Public pages, service browser, offers, FAQ, cookie consent, and PWA install prompt</p>
+</header>
+<nav class="tab-nav">
+  <button class="tab-btn active" data-tab="overview">Overview</button>
+  <button class="tab-btn" data-tab="structure">Page Structure</button>
+  <button class="tab-btn" data-tab="cookies">Cookie Consent</button>
+  <button class="tab-btn" data-tab="wireframes">Wireframes</button>
+  <button class="tab-btn" data-tab="data">Components & SEO</button>
+</nav>
 
 
-<h1>Homepage &amp; Public Pages — Design Reference</h1>
-<blockquote><p>All customer-facing public pages: homepage hero, services browser, offers, contact, header/footer components, PWA install prompt, and cookie consent. Designed mobile-first with full desktop responsive variants.</p></blockquote>
-
-<hr>
-<h2>1. Homepage — Mobile Wireframe</h2>
-
-<div class="phone-frame">
-  <div class="phone-notch"></div>
-  <div class="phone-screen">
-
-    <div class="header-bar">
-      <span class="logo">&#128081; Royal Glow</span>
-      <span class="hamburger">&#9776;</span>
-    </div>
-
-
-    <div class="hero-section">
-      <h3>Royal Glow Salon &amp; SPA</h3>
-      <p>"Where beauty meets royalty"</p>
-      <div style="margin-top: 16px;">
-        <span class="wire-btn wire-btn-primary">Book Now</span>
-      </div>
-      <div class="rating">&#11088; 4.9 &middot; 86+ reviews</div>
-    </div>
-
-    <div class="section-label">Our Services</div>
-    <div class="service-scroll">
-      <div class="service-mini-card">
-        <div>&#128135;</div>
-        <div style="font-size:12px; font-weight:600;">Haircut</div>
-        <div class="price">from &#8377;500</div>
-        <div style="font-size:11px; color:#C8A961; margin-top:4px;">Book &rarr;</div>
-      </div>
-      <div class="service-mini-card">
-        <div>&#128134;</div>
-        <div style="font-size:12px; font-weight:600;">Facial</div>
-        <div class="price">from &#8377;1,499</div>
-        <div style="font-size:11px; color:#C8A961; margin-top:4px;">Book &rarr;</div>
-      </div>
-      <div class="service-mini-card">
-        <div>&#129526;</div>
-        <div style="font-size:12px; font-weight:600;">SPA</div>
-        <div class="price">from &#8377;2,500</div>
-        <div style="font-size:11px; color:#C8A961; margin-top:4px;">Book &rarr;</div>
-      </div>
-    </div>
-    <div style="text-align:center; margin:8px 0;">
-      <span class="wire-btn wire-btn-outline" style="font-size:12px; padding:8px 16px;">View All Services &rarr;</span>
-    </div>
-
-
-    <div class="section-label">Special Offers</div>
-    <div class="offer-card">
-      <div style="font-weight:600;">&#127881; 20% OFF Facials</div>
-      <div style="font-size:13px; color:#6B6B6B;">This week only!</div>
-      <div style="margin-top:8px;"><span class="wire-btn wire-btn-primary" style="font-size:11px; padding:6px 14px;">Book Now &rarr;</span></div>
-    </div>
-    <div class="offer-card">
-      <div style="font-weight:600;">&#128142; Free head massage</div>
-      <div style="font-size:13px; color:#6B6B6B;">with any SPA booking</div>
-      <div style="margin-top:8px;"><span class="wire-btn wire-btn-primary" style="font-size:11px; padding:6px 14px;">Book Now &rarr;</span></div>
-    </div>
-
-    <div class="section-label">What Our Clients Say</div>
-    <div class="testimonial-card">
-      <div style="color:#C8A961;">&#11088;&#11088;&#11088;&#11088;&#11088;</div>
-      <div style="font-size:13px; font-style:italic;">"Best salon experience in Bengaluru!"</div>
-      <div style="font-size:12px; color:#6B6B6B; margin-top:4px;">— Priya S.</div>
-    </div>
-    <div class="testimonial-card">
-      <div style="color:#C8A961;">&#11088;&#11088;&#11088;&#11088;&#11088;</div>
-      <div style="font-size:13px; font-style:italic;">"Amazing SPA, so relaxing"</div>
-      <div style="font-size:12px; color:#6B6B6B; margin-top:4px;">— Aisha K.</div>
-    </div>
-    <div style="text-align:center; font-size:12px; color:#C8A961; margin:8px 0;">See all reviews on Google &rarr;</div>
-
-
-    <div class="section-label">Gallery</div>
-    <div class="gallery-grid">
-      <div class="gallery-placeholder">&#128247;</div>
-      <div class="gallery-placeholder">&#128247;</div>
-      <div class="gallery-placeholder">&#128247;</div>
-      <div class="gallery-placeholder">&#128247;</div>
-    </div>
-    <div style="font-size:11px; color:#9CA3AF; text-align:center;">2x2 grid, tap to lightbox</div>
-
-    <div class="section-label">FAQ</div>
-    <div class="faq-item"><span class="arrow">&#9654;</span> What services do you offer?</div>
-    <div class="faq-item"><span class="arrow">&#9654;</span> Do I need to book in advance?</div>
-    <div class="faq-item"><span class="arrow">&#9654;</span> What payment methods do you accept?</div>
-    <div class="faq-item"><span class="arrow">&#9654;</span> Where are you located?</div>
-
-    <div class="footer-ref">FOOTER (see Section 8)</div>
-
-  </div>
-</div>
-
-
-<hr>
-<h2>2. Homepage — Desktop Wireframe</h2>
-
-<div class="section-card">
-  <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid #e5e5e5; margin-bottom:16px;">
-    <span style="font-weight:700;">&#128081; Royal Glow</span>
-    <div style="display:flex; gap:24px; align-items:center; font-size:14px;">
-      <span>Services</span>
-      <span>Offers</span>
-      <span>Gallery</span>
-      <span>Contact</span>
-      <span class="wire-btn wire-btn-primary" style="padding:8px 16px; font-size:13px;">Book Now</span>
+<!-- OVERVIEW TAB -->
+<section class="tab-content active" id="tab-overview">
+  <div class="card">
+    <h3>📋 Quick Summary</h3>
+    <div class="summary-grid">
+      <div class="summary-item"><div class="label">Route</div><div class="value">/ (homepage)</div></div>
+      <div class="summary-item"><div class="label">Min Role</div><div class="value">Public (no auth)</div></div>
+      <div class="summary-item"><div class="label">Pages</div><div class="value">Home, Services, Offers, Contact</div></div>
+      <div class="summary-item"><div class="label">Design</div><div class="value">Mobile-first responsive</div></div>
+      <div class="summary-item"><div class="label">PWA Install</div><div class="value">2nd visit trigger</div></div>
+      <div class="summary-item"><div class="label">SEO</div><div class="value">Schema.org LocalBusiness</div></div>
     </div>
   </div>
+  <div class="card">
+    <h3>🏠 Homepage Sections</h3>
+    <ol style="padding-left:1.5rem; line-height:2.2;">
+      <li><strong>Header:</strong> Logo + nav + Book Now CTA (sticky)</li>
+      <li><strong>Hero:</strong> Full-width image/video, tagline, CTA, rating</li>
+      <li><strong>Services:</strong> Horizontal scroll cards (mobile) / grid (desktop)</li>
+      <li><strong>Offers:</strong> Active promotional cards with Book Now</li>
+      <li><strong>Reviews:</strong> Google reviews carousel (4.9 rating)</li>
+      <li><strong>Gallery:</strong> Photo grid with lightbox</li>
+      <li><strong>FAQ:</strong> Accordion (Schema.org FAQPage markup)</li>
+      <li><strong>Footer:</strong> NAP, hours, social, legal links</li>
+    </ol>
+  </div>
+</section>
 
-  <div class="hero-section" style="padding:3rem 2rem;">
-    <h3 style="font-size:1.5rem;">Royal Glow Salon &amp; SPA</h3>
-    <p>"Where beauty meets royalty"</p>
-    <div class="rating" style="font-size:14px;">&#11088; 4.9 rating &middot; 86+ Google reviews</div>
-    <div style="margin-top:20px;">
-      <span class="wire-btn wire-btn-primary" style="padding:14px 32px;">Book Now</span>
+
+<!-- PAGE STRUCTURE TAB -->
+<section class="tab-content" id="tab-structure">
+  <div class="card">
+    <h3>🏗️ Page Structure Diagram</h3>
+    <div class="flow-container">
+      <svg width="600" height="420" viewBox="0 0 600 420">
+        <defs>
+          <marker id="arrow-hp" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+          </marker>
+        </defs>
+        <!-- Header -->
+        <rect class="node-rect" x="200" y="10" width="200" height="40" fill="var(--dark)" stroke="var(--dark)"/>
+        <text x="300" y="35" text-anchor="middle" font-weight="bold" fill="white">HEADER (sticky)</text>
+        <line x1="300" y1="50" x2="300" y2="65" stroke="#666" stroke-width="2" marker-end="url(#arrow-hp)"/>
+        <!-- Hero -->
+        <rect class="node-rect" x="200" y="70" width="200" height="40" fill="var(--gold-light)" stroke="var(--gold)"/>
+        <text x="300" y="95" text-anchor="middle" font-weight="bold" fill="var(--dark)">HERO + CTA</text>
+        <line x1="300" y1="110" x2="300" y2="125" stroke="#666" stroke-width="2" marker-end="url(#arrow-hp)"/>
+        <!-- Services -->
+        <rect class="node-rect" x="200" y="130" width="200" height="40" fill="#D1FAE5" stroke="#10B981"/>
+        <text x="300" y="155" text-anchor="middle" font-weight="bold" fill="#065F46">SERVICES (scroll)</text>
+        <line x1="300" y1="170" x2="300" y2="185" stroke="#666" stroke-width="2" marker-end="url(#arrow-hp)"/>
+        <!-- Offers -->
+        <rect class="node-rect" x="200" y="190" width="200" height="40" fill="#FEF3C7" stroke="#F59E0B"/>
+        <text x="300" y="215" text-anchor="middle" font-weight="bold" fill="#92400E">OFFERS</text>
+        <line x1="300" y1="230" x2="300" y2="245" stroke="#666" stroke-width="2" marker-end="url(#arrow-hp)"/>
+        <!-- Reviews -->
+        <rect class="node-rect" x="200" y="250" width="200" height="40" fill="#DBEAFE" stroke="#3B82F6"/>
+        <text x="300" y="275" text-anchor="middle" font-weight="bold" fill="#1E40AF">REVIEWS (carousel)</text>
+        <line x1="300" y1="290" x2="300" y2="305" stroke="#666" stroke-width="2" marker-end="url(#arrow-hp)"/>
+        <!-- FAQ -->
+        <rect class="node-rect" x="200" y="310" width="200" height="40" fill="#EDE9FE" stroke="#8B5CF6"/>
+        <text x="300" y="335" text-anchor="middle" font-weight="bold" fill="#6D28D9">FAQ (accordion)</text>
+        <line x1="300" y1="350" x2="300" y2="365" stroke="#666" stroke-width="2" marker-end="url(#arrow-hp)"/>
+        <!-- Footer -->
+        <rect class="node-rect" x="200" y="370" width="200" height="40" fill="var(--dark)" stroke="var(--dark)"/>
+        <text x="300" y="395" text-anchor="middle" font-weight="bold" fill="white">FOOTER (NAP + social)</text>
+        <!-- Side annotations -->
+        <text x="420" y="35" font-size="9" fill="#999">64px mobile / 72px desktop</text>
+        <text x="420" y="95" font-size="9" fill="#999">Background image + parallax</text>
+        <text x="420" y="155" font-size="9" fill="#999">Horizontal scroll (mobile)</text>
+        <text x="420" y="215" font-size="9" fill="#999">Max 3 active offers</text>
+        <text x="420" y="275" font-size="9" fill="#999">Google reviews embed</text>
+        <text x="420" y="335" font-size="9" fill="#999">Schema.org FAQPage</text>
+        <text x="420" y="395" font-size="9" fill="#999">Schema.org LocalBusiness</text>
+      </svg>
     </div>
   </div>
+</section>
 
 
-  <div class="section-label">Our Services</div>
-  <div class="two-col">
-    <div class="wire-card">
-      <div style="font-weight:600;">&#128135; Haircut &amp; Styling</div>
-      <div style="font-size:13px; color:#6B6B6B;">Expert cuts and styling</div>
-      <div style="font-size:13px; color:#C8A961; margin-top:4px;">From &#8377;500</div>
-      <div style="margin-top:8px;"><span class="wire-btn wire-btn-outline" style="font-size:12px; padding:6px 14px;">View Services &rarr;</span></div>
-    </div>
-    <div class="wire-card">
-      <div style="font-weight:600;">&#128134; Facial &amp; Skincare</div>
-      <div style="font-size:13px; color:#6B6B6B;">Premium skincare treatments</div>
-      <div style="font-size:13px; color:#C8A961; margin-top:4px;">From &#8377;1,499</div>
-      <div style="margin-top:8px;"><span class="wire-btn wire-btn-outline" style="font-size:12px; padding:6px 14px;">View Services &rarr;</span></div>
-    </div>
-    <div class="wire-card">
-      <div style="font-weight:600;">&#129526; SPA &amp; Massage</div>
-      <div style="font-size:13px; color:#6B6B6B;">Relaxing body therapies</div>
-      <div style="font-size:13px; color:#C8A961; margin-top:4px;">From &#8377;2,500</div>
-      <div style="margin-top:8px;"><span class="wire-btn wire-btn-outline" style="font-size:12px; padding:6px 14px;">View Services &rarr;</span></div>
-    </div>
-    <div class="wire-card">
-      <div style="font-weight:600;">&#128133; Manicure &amp; Pedicure</div>
-      <div style="font-size:13px; color:#6B6B6B;">Nail art and care</div>
-      <div style="font-size:13px; color:#C8A961; margin-top:4px;">From &#8377;800</div>
-      <div style="margin-top:8px;"><span class="wire-btn wire-btn-outline" style="font-size:12px; padding:6px 14px;">View Services &rarr;</span></div>
+<!-- COOKIE CONSENT TAB -->
+<section class="tab-content" id="tab-cookies">
+  <div class="card">
+    <h3>🍪 Cookie Consent Flow</h3>
+    <div class="flow-container">
+      <svg width="750" height="300" viewBox="0 0 750 300">
+        <defs>
+          <marker id="arrow-ck" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+          </marker>
+        </defs>
+        <!-- First Visit -->
+        <rect class="node-rect" x="10" y="80" width="120" height="50" fill="var(--grey-200)" stroke="var(--grey-500)"/>
+        <text x="70" y="102" text-anchor="middle" font-weight="bold" fill="var(--grey-700)">First Visit</text>
+        <text x="70" y="118" text-anchor="middle" font-size="9" fill="#666">No cookies yet</text>
+        <line x1="130" y1="105" x2="165" y2="105" stroke="#666" stroke-width="2" marker-end="url(#arrow-ck)"/>
+        <!-- Banner -->
+        <rect class="node-rect" x="170" y="80" width="120" height="50" fill="#FEF3C7" stroke="#F59E0B"/>
+        <text x="230" y="102" text-anchor="middle" font-weight="bold" fill="#92400E">Show Banner</text>
+        <text x="230" y="118" text-anchor="middle" font-size="9" fill="#666">Fixed bottom</text>
+        <!-- Decision -->
+        <polygon class="decision" points="380,105 430,135 380,165 330,135" fill="#FEF3C7" stroke="#F59E0B"/>
+        <text x="380" y="140" text-anchor="middle" font-size="10" fill="#92400E">Choice</text>
+        <line x1="290" y1="105" x2="330" y2="125" stroke="#666" stroke-width="2" marker-end="url(#arrow-ck)"/>
+        <!-- Accept All -->
+        <line x1="430" y1="120" x2="490" y2="60" stroke="#10B981" stroke-width="2" marker-end="url(#arrow-ck)"/>
+        <text x="460" y="80" font-size="9" fill="#10B981">Accept All</text>
+        <rect class="node-rect" x="495" y="35" width="130" height="50" fill="#D1FAE5" stroke="#10B981"/>
+        <text x="560" y="57" text-anchor="middle" font-weight="bold" fill="#065F46">All Cookies</text>
+        <text x="560" y="73" text-anchor="middle" font-size="9" fill="#666">Analytics + Pixel</text>
+        <!-- Reject -->
+        <line x1="380" y1="165" x2="380" y2="200" stroke="#EF4444" stroke-width="2" marker-end="url(#arrow-ck)"/>
+        <text x="405" y="188" font-size="9" fill="#EF4444">Reject</text>
+        <rect class="node-rect" x="315" y="205" width="130" height="50" fill="#FEE2E2" stroke="#EF4444"/>
+        <text x="380" y="227" text-anchor="middle" font-weight="bold" fill="#991B1B">Essential Only</text>
+        <text x="380" y="243" text-anchor="middle" font-size="9" fill="#666">No tracking</text>
+        <!-- Manage -->
+        <line x1="430" y1="150" x2="490" y2="170" stroke="#3B82F6" stroke-width="2" marker-end="url(#arrow-ck)"/>
+        <text x="465" y="168" font-size="9" fill="#3B82F6">Manage</text>
+        <rect class="node-rect" x="495" y="145" width="130" height="50" fill="#DBEAFE" stroke="#3B82F6"/>
+        <text x="560" y="167" text-anchor="middle" font-weight="bold" fill="#1E40AF">Preferences</text>
+        <text x="560" y="183" text-anchor="middle" font-size="9" fill="#666">Granular control</text>
+        <!-- Store & Load -->
+        <line x1="560" y1="85" x2="560" y2="120" stroke="#666" stroke-width="1" stroke-dasharray="4"/>
+        <line x1="625" y1="60" x2="680" y2="60" stroke="#666" stroke-width="2" marker-end="url(#arrow-ck)"/>
+        <rect class="node-rect" x="680" y="35" width="55" height="50" fill="var(--grey-100)" stroke="var(--grey-300)"/>
+        <text x="707" y="57" text-anchor="middle" font-size="9" font-weight="bold" fill="var(--dark)">Store</text>
+        <text x="707" y="73" text-anchor="middle" font-size="8" fill="#666">cookie</text>
+        <!-- Labels -->
+        <text x="375" y="20" text-anchor="middle" font-size="11" font-weight="bold" fill="var(--dark)">Cookie Consent Decision Tree</text>
+        <text x="375" y="290" text-anchor="middle" font-size="10" fill="#999">Consent stored in cookie (365d) • "Cookie Preferences" link in footer</text>
+      </svg>
     </div>
   </div>
 
-
-  <div class="two-col" style="margin-top:1.5rem;">
-    <div>
-      <div class="section-label">Special Offers</div>
-      <div class="offer-card">
-        <div style="font-weight:600;">&#127881; 20% OFF Facials</div>
-        <div style="font-size:13px; color:#6B6B6B;">This week only</div>
-        <div style="margin-top:8px;"><span class="wire-btn wire-btn-primary" style="font-size:12px; padding:6px 14px;">Book Now &rarr;</span></div>
-      </div>
-      <div class="offer-card">
-        <div style="font-weight:600;">&#128142; Free head massage</div>
-        <div style="font-size:13px; color:#6B6B6B;">with SPA booking</div>
-        <div style="margin-top:8px;"><span class="wire-btn wire-btn-primary" style="font-size:12px; padding:6px 14px;">Book Now &rarr;</span></div>
-      </div>
+  <details>
+    <summary>Cookie Categories</summary>
+    <div class="details-content">
+      <table class="data-table">
+        <tr><th>Category</th><th>Purpose</th><th>Can Disable?</th><th>Scripts</th></tr>
+        <tr><td>Essential</td><td>Authentication, session</td><td>No (always on)</td><td>Supabase auth cookies</td></tr>
+        <tr><td>Analytics</td><td>Usage tracking</td><td>Yes</td><td>None (privacy-first)</td></tr>
+        <tr><td>Marketing</td><td>Ad tracking, conversion</td><td>Yes</td><td>Meta Pixel, CAPI</td></tr>
+        <tr><td>Preferences</td><td>UI settings, PWA</td><td>Yes</td><td>localStorage items</td></tr>
+      </table>
     </div>
-    <div>
-      <div class="section-label">Reviews</div>
-      <div class="testimonial-card">
-        <div style="color:#C8A961;">&#11088;&#11088;&#11088;&#11088;&#11088;</div>
-        <div style="font-size:13px;">"Best salon in Bengaluru!" — Priya S.</div>
-      </div>
-      <div class="testimonial-card">
-        <div style="color:#C8A961;">&#11088;&#11088;&#11088;&#11088;&#11088;</div>
-        <div style="font-size:13px;">"Amazing SPA" — Aisha K.</div>
-      </div>
-      <div class="testimonial-card">
-        <div style="color:#C8A961;">&#11088;&#11088;&#11088;&#11088;&#11088;</div>
-        <div style="font-size:13px;">"Love the ambiance" — Rahul M.</div>
-      </div>
-      <div style="margin-top:8px; font-size:12px; color:#C8A961;">See all on Google &rarr;</div>
-    </div>
-  </div>
+  </details>
 
-
-  <div class="section-label">Gallery (masonry grid)</div>
-  <div class="three-col">
-    <div class="gallery-placeholder" style="height:80px;">&#128247;</div>
-    <div class="gallery-placeholder" style="height:100px;">&#128247;</div>
-    <div class="gallery-placeholder" style="height:80px;">&#128247;</div>
-    <div class="gallery-placeholder" style="height:100px;">&#128247;</div>
-    <div class="gallery-placeholder" style="height:80px;">&#128247;</div>
-    <div class="gallery-placeholder" style="height:100px;">&#128247;</div>
-  </div>
-
-  <div class="section-label">FAQ + Footer</div>
-  <p style="font-size:13px; color:#6B6B6B;">2-column accordion layout + full footer (see Section 8)</p>
-
-  <h4>Desktop layout differences:</h4>
-  <ul>
-    <li>Full-width hero with parallax scroll effect</li>
-    <li>2-column grid for service cards (not horizontal scroll)</li>
-    <li>Offers + Reviews side-by-side (2-column)</li>
-    <li>Gallery: masonry grid (3 columns)</li>
-    <li>FAQ: 2-column accordion layout</li>
-  </ul>
-</div>
-
-
-<hr>
-<h2>3. Services Page — <code>/services</code></h2>
-
-<div class="phone-frame">
-  <div class="phone-notch"></div>
-  <div class="phone-screen">
-
-    <h3 style="margin:8px 0 16px 0; font-size:18px;">Our Services</h3>
-
-    <div style="display:flex; gap:0; margin-bottom:16px;">
-      <div class="toggle-group" style="width:100%; display:flex;">
-        <span class="toggle-opt active" style="flex:1; text-align:center;">Salon</span>
-        <span class="toggle-opt" style="flex:1; text-align:center;">SPA</span>
-      </div>
-    </div>
-
-    <div class="section-label">SALON SERVICES</div>
-
-    <div class="wire-card">
-      <div style="font-weight:600; margin-bottom:8px; color:#C8A961;">&#9660; &#128135; Haircut &amp; Styling</div>
-      <div class="service-row">
-        <div class="service-info">
-          <div class="name">Classic Haircut</div>
-          <div class="meta">&#8377;500 &middot; 45 min</div>
-        </div>
-        <span class="wire-btn wire-btn-primary" style="font-size:11px; padding:6px 12px;">Book This</span>
-      </div>
-      <div class="service-row">
-        <div class="service-info">
-          <div class="name">Hair Wash &amp; Blow Dry</div>
-          <div class="meta">&#8377;300 &middot; 30 min</div>
-        </div>
-        <span class="wire-btn wire-btn-primary" style="font-size:11px; padding:6px 12px;">Book This</span>
-      </div>
-      <div class="service-row">
-        <div class="service-info">
-          <div class="name">Global Hair Colour</div>
-          <div class="meta">&#8377;2,500 &middot; 120 min</div>
-        </div>
-        <span class="wire-btn wire-btn-primary" style="font-size:11px; padding:6px 12px;">Book This</span>
-      </div>
-    </div>
-
-
-    <div class="faq-item"><span class="arrow">&#9654;</span> &#128134; Facial &amp; Skincare <span style="font-size:11px; color:#9CA3AF; margin-left:auto;">(collapsed)</span></div>
-    <div class="faq-item"><span class="arrow">&#9654;</span> &#129524; Waxing <span style="font-size:11px; color:#9CA3AF; margin-left:auto;">(collapsed)</span></div>
-    <div class="faq-item"><span class="arrow">&#9654;</span> &#128133; Manicure &amp; Pedicure <span style="font-size:11px; color:#9CA3AF; margin-left:auto;">(collapsed)</span></div>
-    <div class="faq-item"><span class="arrow">&#9654;</span> &#128132; Makeup Services <span style="font-size:11px; color:#9CA3AF; margin-left:auto;">(collapsed)</span></div>
-    <div class="faq-item"><span class="arrow">&#9654;</span> &#129526; Hair SPA &amp; Therapies <span style="font-size:11px; color:#9CA3AF; margin-left:auto;">(collapsed)</span></div>
-
-    <div style="margin-top:20px; padding-top:12px; border-top:1px solid #e5e5e5;">
-      <div style="font-size:13px; color:#6B6B6B; margin-bottom:8px;">Toggle to SPA tab:</div>
-      <div style="display:flex; gap:0;">
-        <div class="toggle-group" style="width:100%; display:flex;">
-          <span class="toggle-opt" style="flex:1; text-align:center;">Salon</span>
-          <span class="toggle-opt active" style="flex:1; text-align:center;">SPA</span>
-        </div>
-      </div>
-      <div class="section-label">SPA SERVICES</div>
-      <div class="faq-item"><span class="arrow" style="color:#10B981;">&#9660;</span> &#127807; Standard SPA</div>
-      <div class="faq-item"><span class="arrow" style="color:#10B981;">&#9660;</span> &#10024; Premium SPA</div>
-      <div class="faq-item"><span class="arrow" style="color:#10B981;">&#9660;</span> &#128081; VVIP SPA</div>
-    </div>
-
-  </div>
-</div>
-
-
-<hr>
-<h2>4. SPA Service Card — Duration Toggle</h2>
-
-<div class="wire-card" style="max-width:500px; margin:2rem auto;">
-  <h4 style="margin:0 0 4px 0;">Aroma Therapy</h4>
-  <p style="font-size:13px; color:#6B6B6B; margin:0 0 16px 0;">Relaxing full-body massage with essential oils</p>
-
-  <div style="margin-bottom:12px;">
-    <span style="font-size:13px; font-weight:500;">Duration:</span>
-    <div style="margin-top:8px;">
-      <div class="toggle-group">
-        <span class="toggle-opt">60 min &middot; &#8377;2,500</span>
-        <span class="toggle-opt active">90 min &middot; &#8377;3,500</span>
-      </div>
-    </div>
-  </div>
-
-  <div style="font-size:13px; color:#6B6B6B; margin-bottom:12px;">Selected: <strong>90 min</strong> — &#8377;3,500</div>
-
-  <span class="wire-btn wire-btn-primary">Book This &rarr;</span>
-</div>
-
-<h4>Implementation Notes</h4>
-<ul>
-  <li>Same service row in DB, same service_id</li>
-  <li>Duration toggle stored as selected_duration in booking</li>
-  <li>Price switches dynamically on toggle (no page reload)</li>
-  <li>"Book This" opens booking dialog with service + duration pre-selected</li>
-  <li>All SPA services have 60/90 toggle (Standard, Premium, VVIP)</li>
-  <li>Salon services do NOT have duration toggle (fixed duration)</li>
-</ul>
-
-
-<hr>
-<h2>5. Offers Page — <code>/offers</code></h2>
-
-<div class="three-col">
-
-  <div class="wire-card">
-    <span class="wire-badge badge-pending">&#127881; PERCENTAGE DISCOUNT</span>
-    <h4 style="margin:12px 0 8px 0;">20% OFF All Facials</h4>
-    <div style="font-size:13px; margin-bottom:8px;">
-      <strong>Applicable services:</strong><br>
-      Hydrafacial &middot; Cleanup &middot; Gold Facial
-    </div>
-    <div style="font-size:12px; color:#6B6B6B; margin-bottom:8px;">
-      <strong>Valid:</strong> 20 May – 31 May 2026
-    </div>
-    <div style="font-size:12px; color:#6B6B6B; margin-bottom:12px;">
-      <strong>Terms:</strong>
-      <ul style="margin:4px 0; padding-left:1rem;">
-        <li>Max 1 per customer per day</li>
-        <li>Cannot combine with other offers</li>
-        <li>Valid at Rayasandra branch only</li>
+  <details>
+    <summary>PWA Install Prompt Strategy</summary>
+    <div class="details-content">
+      <ul style="padding-left:1.5rem; line-height:2;">
+        <li><strong>Trigger:</strong> 2nd visit (localStorage visit_count ≥ 2)</li>
+        <li><strong>AND:</strong> beforeinstallprompt event captured</li>
+        <li><strong>AND:</strong> Not dismissed before</li>
+        <li><strong>AND:</strong> Not already installed (display-mode check)</li>
+        <li><strong>"Not Now":</strong> Don't show for 7 days</li>
+        <li><strong>Dismissed 3x:</strong> Never show again</li>
       </ul>
     </div>
-    <span class="wire-btn wire-btn-primary" style="font-size:12px;">Book Now &rarr;</span>
-  </div>
+  </details>
+</section>
 
 
-  <div class="wire-card">
-    <span class="wire-badge badge-active">&#128142; FLAT DISCOUNT</span>
-    <h4 style="margin:12px 0 8px 0;">&#8377;200 OFF Your First Visit</h4>
-    <div style="font-size:13px; margin-bottom:8px;">
-      <strong>Applicable:</strong> All services &ge; &#8377;500
-    </div>
-    <div style="font-size:12px; color:#6B6B6B; margin-bottom:8px;">
-      <strong>Valid:</strong> Ongoing (new customers only)
-    </div>
-    <div style="font-size:12px; color:#6B6B6B; margin-bottom:12px;">
-      <strong>Terms:</strong>
-      <ul style="margin:4px 0; padding-left:1rem;">
-        <li>First completed booking only</li>
-        <li>Min spend &#8377;500 before discount</li>
-      </ul>
-    </div>
-    <span class="wire-btn wire-btn-primary" style="font-size:12px;">Book Now &rarr;</span>
-  </div>
-
-  <div class="wire-card">
-    <span class="wire-badge badge-confirmed">&#127873; COMPLIMENTARY ADD-ON</span>
-    <h4 style="margin:12px 0 8px 0;">Free Head Massage with any SPA Booking</h4>
-    <div style="font-size:13px; margin-bottom:8px;">
-      <strong>Applicable:</strong> All SPA services
-    </div>
-    <div style="font-size:12px; color:#6B6B6B; margin-bottom:8px;">
-      <strong>Valid:</strong> 1 Jun – 30 Jun 2026
-    </div>
-    <div style="font-size:12px; color:#6B6B6B; margin-bottom:12px;">
-      <strong>Terms:</strong>
-      <ul style="margin:4px 0; padding-left:1rem;">
-        <li>Auto-applied at checkout</li>
-        <li>15 min add-on (no extra charge)</li>
-      </ul>
-    </div>
-    <span class="wire-btn wire-btn-primary" style="font-size:12px;">Book Now &rarr;</span>
-  </div>
-
-</div>
-
-
-<hr>
-<h2>6. Contact Page — <code>/contact</code></h2>
-
-<h3>Mobile (stacked)</h3>
-<div class="phone-frame">
-  <div class="phone-notch"></div>
-  <div class="phone-screen">
-
-    <h3 style="margin:8px 0 16px 0; font-size:18px;">Contact Us</h3>
-
-    <div style="background:#f3f4f6; border-radius:12px; padding:24px; text-align:center; margin-bottom:16px;">
-      <div style="font-size:24px; margin-bottom:8px;">&#128205;</div>
-      <div style="font-size:12px; color:#6B6B6B;">GOOGLE MAP EMBED</div>
-      <div style="font-size:11px; color:#9CA3AF;">(interactive, pinch-zoom)</div>
-    </div>
-
-    <div style="font-size:13px; margin-bottom:12px;">
-      <div style="font-weight:600; margin-bottom:4px;">Royal Glow Salon &amp; SPA</div>
-      <div>1st Floor, Narmada Complex</div>
-      <div>Rayasandra Main Road</div>
-      <div>Bengaluru, 560099</div>
-    </div>
-
-    <div style="font-size:13px; margin-bottom:4px;">&#128222; +91 63601 35720 <span style="color:#C8A961;">(tap to call)</span></div>
-    <div style="font-size:13px; margin-bottom:12px;">&#9993;&#65039; hello@theroyalglow.in</div>
-
-    <div style="font-size:13px; margin-bottom:16px;">
-      <strong>Hours:</strong><br>
-      Mon–Sat: 10:00 AM – 8:00 PM<br>
-      Sunday: 10:00 AM – 6:00 PM
-    </div>
-
-    <div style="border-top:1px solid #e5e5e5; padding-top:16px;">
-      <div style="font-weight:600; font-size:14px; margin-bottom:12px;">Send us a message:</div>
-      <div style="font-size:12px; color:#6B6B6B;">Name</div>
-      <input class="wire-input" placeholder="Your name">
-      <div style="font-size:12px; color:#6B6B6B;">Phone</div>
-      <input class="wire-input" placeholder="+91">
-      <div style="font-size:12px; color:#6B6B6B;">Message</div>
-      <textarea class="wire-input" style="height:60px; resize:none;" placeholder="Your message"></textarea>
-      <div style="margin-top:12px;">
-        <span class="wire-btn wire-btn-primary">Send Message</span>
-      </div>
-    </div>
-
-  </div>
-</div>
-
-
-<h3>Desktop (2-column)</h3>
-<div class="section-card">
-  <h3 style="margin:0 0 16px 0;">Contact Us</h3>
-  <div class="two-col">
-    <div>
-      <div style="background:#f3f4f6; border-radius:12px; padding:32px; text-align:center; margin-bottom:16px;">
-        <div style="font-size:32px; margin-bottom:8px;">&#128205;</div>
-        <div style="font-size:13px; color:#6B6B6B;">GOOGLE MAP EMBED (larger, interactive)</div>
-      </div>
-      <div style="font-size:13px;">
-        <div>&#128205; 1st Floor, Narmada Complex, Rayasandra Main Rd, Bengaluru</div>
-        <div style="margin-top:8px;">&#128222; +91 63601 35720</div>
-        <div>&#9993;&#65039; hello@theroyalglow.in</div>
-        <div style="margin-top:8px;">Hours: Mon–Sat 10AM–8PM, Sun 10AM–6PM</div>
-      </div>
-    </div>
-    <div>
-      <div style="font-weight:600; font-size:14px; margin-bottom:12px;">Send us a message</div>
-      <div style="font-size:12px; color:#6B6B6B;">Name</div>
-      <input class="wire-input" placeholder="Your name">
-      <div style="font-size:12px; color:#6B6B6B;">Phone</div>
-      <input class="wire-input" placeholder="+91">
-      <div style="font-size:12px; color:#6B6B6B;">Message</div>
-      <textarea class="wire-input" style="height:80px; resize:none;" placeholder="Your message"></textarea>
-      <div style="margin-top:12px;">
-        <span class="wire-btn wire-btn-primary">Send Message</span>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-<hr>
-<h2>7. Header Component</h2>
-
-<div class="wire-card" style="max-width:600px; margin:2rem auto;">
-
-  <h4 style="margin:0 0 12px 0;">Mobile Header</h4>
-  <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:#fff; border:1px solid #e5e5e5; border-radius:8px;">
-    <span style="font-weight:700;">&#128081; Royal Glow</span>
-    <span style="font-size:22px;">&#9776;</span>
-  </div>
-
-  <h4 style="margin:20px 0 12px 0;">Mobile Menu (expanded, slide from right)</h4>
-  <div style="border:1px solid #e5e5e5; border-radius:8px; overflow:hidden;">
-    <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid #e5e5e5;">
-      <span style="font-weight:700;">&#128081; Royal Glow</span>
-      <span style="font-size:18px; cursor:pointer;">&#10005;</span>
-    </div>
-    <ul class="nav-list" style="padding:12px 16px;">
-      <li>Home</li>
-      <li>Services</li>
-      <li>Offers</li>
-      <li>Gallery</li>
-      <li>Contact</li>
-    </ul>
-    <div style="border-top:1px solid #e5e5e5; padding:12px 16px;">
-      <ul class="nav-list">
-        <li>My Bookings <span style="font-size:11px; color:#9CA3AF;">(if signed in)</span></li>
-        <li>My Gems <span style="font-size:11px; color:#9CA3AF;">(if signed in)</span></li>
-        <li>Profile <span style="font-size:11px; color:#9CA3AF;">(if signed in)</span></li>
-      </ul>
-    </div>
-    <div style="padding:16px; text-align:center;">
-      <span class="wire-btn wire-btn-primary" style="width:100%; display:block;">Book Now</span>
-      <div style="margin-top:12px; font-size:13px; color:#6B6B6B;">Sign In / Sign Out</div>
-    </div>
-  </div>
-
-
-  <h4 style="margin:20px 0 12px 0;">Desktop Header</h4>
-  <div style="display:flex; justify-content:space-between; align-items:center; padding:14px 24px; background:#fff; border:1px solid #e5e5e5; border-radius:8px;">
-    <span style="font-weight:700;">&#128081; Royal Glow</span>
-    <div style="display:flex; gap:20px; align-items:center; font-size:14px;">
-      <span>Services</span>
-      <span>Offers</span>
-      <span>Gallery</span>
-      <span>Contact</span>
-      <span class="wire-btn wire-btn-primary" style="padding:8px 16px; font-size:13px;">Book Now</span>
-    </div>
-  </div>
-  <p style="font-size:12px; color:#6B6B6B; margin-top:8px;">If signed in: + My Bookings, Gems, Profile avatar dropdown</p>
-
-  <h4 style="margin:16px 0 8px 0;">Header Specs</h4>
-  <ul style="font-size:13px;">
-    <li>Sticky (fixed top on scroll)</li>
-    <li>Background: white with subtle shadow on scroll</li>
-    <li>Height: 64px (mobile), 72px (desktop)</li>
-    <li>Logo: clickable → home</li>
-    <li>"Book Now" CTA: brand colour filled button (always visible)</li>
-    <li>Active page: underline indicator on nav link</li>
-    <li>Desktop: all nav items visible (no hamburger)</li>
-    <li>Mobile: only logo + hamburger visible</li>
-    <li>Transition: hamburger menu slides in from right (250ms, ease-out)</li>
-  </ul>
-</div>
-
-
-<hr>
-<h2>8. Footer Component</h2>
-
-<div class="dark-footer">
-  <div style="text-align:center; margin-bottom:1.5rem;">
-    <span style="font-size:18px; font-weight:700; color:#C8A961;">&#128081; Royal Glow Salon &amp; SPA</span>
-  </div>
-
-  <div class="three-col" style="gap:2rem;">
-    <div>
-      <h4 style="margin-top:0;">NAP</h4>
-      <div style="font-size:13px;">
-        <div>&#128205; 1st Floor, Narmada Complex</div>
-        <div>Rayasandra Main Road, Bengaluru 560099</div>
-        <div style="margin-top:8px;">&#128222; +91 63601 35720</div>
-        <div>&#9993;&#65039; hello@theroyalglow.in</div>
-      </div>
-    </div>
-    <div>
-      <h4 style="margin-top:0;">Hours</h4>
-      <div style="font-size:13px;">
-        <div>Mon–Sat: 10:00 AM – 8:00 PM</div>
-        <div>Sunday: 10:00 AM – 6:00 PM</div>
-      </div>
-      <h4>Social</h4>
-      <div style="display:flex; gap:12px; font-size:13px;">
-        <a href="#">&#128247; Instagram</a>
-        <a href="#">&#128218; Facebook</a>
-        <a href="#">&#9654;&#65039; YouTube</a>
-        <a href="#">&#128506; Maps</a>
-      </div>
-    </div>
-    <div>
-      <h4 style="margin-top:0;">Legal</h4>
-      <div style="font-size:13px;">
-        <div><a href="#">Privacy Policy</a></div>
-        <div><a href="#">Terms of Service</a></div>
-        <div><a href="#">Refund Policy</a></div>
-      </div>
-      <h4>Preferences</h4>
-      <div><span class="wire-btn wire-btn-outline" style="font-size:11px; padding:6px 12px; border-color:#C8A961;">&#127850; Cookie Preferences</span></div>
-    </div>
-  </div>
-
-  <div style="border-top:1px solid #333; margin-top:1.5rem; padding-top:1rem; text-align:center; font-size:12px; color:#9CA3AF;">
-    &copy; 2026 Royal Glow Salon &amp; SPA. All rights reserved.<br>
-    Built with &#10084;&#65039; in Bengaluru
-  </div>
-</div>
-
-<ul style="font-size:13px;">
-  <li>Mobile: single column, stacked sections</li>
-  <li>Desktop: 3-column grid (NAP | Hours+Social | Legal+Links)</li>
-  <li>Background: dark (brand dark shade)</li>
-  <li>Text: white/light grey</li>
-  <li>Social icons: 32px, hover → brand colour highlight</li>
-  <li>NAP matches Google My Business listing EXACTLY (SEO critical)</li>
-  <li>Schema.org LocalBusiness structured data in footer</li>
-</ul>
-
-
-<hr>
-<h2>9. PWA Install Prompt</h2>
-
-<div class="section-card">
-  <h4 style="margin-top:0;">PWA Install Prompt Strategy</h4>
-
-  <ul style="font-size:13px;">
-    <li><strong>Trigger:</strong> Show after 2nd visit (not first visit)</li>
-    <li><strong>Why:</strong> User has shown intent by returning — higher install rate</li>
-    <li><strong>Detection:</strong> localStorage visit_count &ge; 2</li>
-    <li>AND: window.beforeinstallprompt event was captured</li>
-    <li>AND: User has NOT dismissed prompt before</li>
-    <li>AND: App is NOT already installed (display-mode: standalone check)</li>
-  </ul>
-
-  <h4>Custom Branded Prompt</h4>
-  <p style="font-size:13px; color:#6B6B6B;">Bottom sheet on mobile, centered modal on desktop</p>
-
-  <div class="modal-backdrop">
-    <div class="modal-box" style="text-align:center;">
-      <div style="font-size:24px; margin-bottom:12px;">&#128081;</div>
-      <h4 style="margin:0 0 12px 0;">Add Royal Glow to your home screen</h4>
-      <div style="text-align:left; font-size:13px; margin-bottom:20px;">
-        <p style="margin:0 0 8px 0; font-weight:500;">Get quick access to:</p>
-        <div style="margin-left:8px;">
-          &#10003; Book appointments instantly<br>
-          &#10003; View your bookings &amp; gems<br>
-          &#10003; Get exclusive push notifications<br>
-          &#10003; Works offline
+<!-- WIREFRAMES TAB -->
+<section class="tab-content" id="tab-wireframes">
+  <div class="card">
+    <h3>📱 Wireframe Mockups</h3>
+    <div class="wireframe-grid">
+      <!-- Homepage Mobile -->
+      <div class="phone-frame">
+        <div class="phone-screen">
+          <h4>Homepage Mobile</h4>
+          <!-- Header -->
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:0.3rem 0.5rem; background:white; border-radius:6px; margin-bottom:0.5rem;">
+            <span style="font-size:0.7rem; font-weight:700; color:var(--gold);">👑 Royal Glow</span>
+            <span style="font-size:0.8rem;">☰</span>
+          </div>
+          <!-- Hero -->
+          <div class="wire-hero">
+            <h5>Royal Glow Salon & SPA</h5>
+            <p>"Where beauty meets royalty"</p>
+            <div style="font-size:0.55rem; color:var(--gold); margin-top:0.3rem;">⭐ 4.9 · 86+ reviews</div>
+            <div class="wire-btn" style="margin-top:0.4rem; font-size:0.65rem; padding:0.4rem;">Book Now</div>
+          </div>
+          <!-- Services scroll -->
+          <div style="font-size:0.6rem; font-weight:700; margin:0.4rem 0;">Our Services</div>
+          <div style="display:flex; gap:6px; overflow-x:auto; padding-bottom:0.3rem;">
+            <div class="wire-service-card"><div class="icon">💇</div><div class="name">Haircut</div><div class="price">₹500</div></div>
+            <div class="wire-service-card"><div class="icon">💆</div><div class="name">Facial</div><div class="price">₹1,499</div></div>
+            <div class="wire-service-card"><div class="icon">🧖</div><div class="name">SPA</div><div class="price">₹2,500</div></div>
+          </div>
+          <!-- Offers -->
+          <div style="font-size:0.6rem; font-weight:700; margin:0.4rem 0;">Special Offers</div>
+          <div class="wire-offer-card">
+            <div class="title">🎉 20% OFF Facials</div>
+            <div class="desc">This week only!</div>
+          </div>
+          <div class="wire-offer-card">
+            <div class="title">💎 Free head massage</div>
+            <div class="desc">With any SPA booking</div>
+          </div>
         </div>
       </div>
-      <div style="display:flex; gap:12px; justify-content:center;">
-        <span class="wire-btn wire-btn-primary">Install App</span>
-        <span class="wire-btn wire-btn-outline">Not Now</span>
+
+      <!-- Services Page -->
+      <div class="phone-frame">
+        <div class="phone-screen">
+          <h4>Services Page</h4>
+          <!-- Toggle -->
+          <div class="wire-toggle">
+            <div class="wire-toggle-btn active">Salon</div>
+            <div class="wire-toggle-btn">SPA</div>
+          </div>
+          <!-- Accordion categories -->
+          <div class="wire-accordion">
+            <div class="wire-accordion-header"><span>💇 Haircut & Styling</span><span>▼</span></div>
+            <div class="wire-accordion-item"><span>Classic Haircut · 45 min</span><span style="color:var(--gold); font-weight:600;">₹500</span></div>
+            <div class="wire-accordion-item"><span>Hair Wash & Blow Dry · 30 min</span><span style="color:var(--gold); font-weight:600;">₹300</span></div>
+            <div class="wire-accordion-item"><span>Global Hair Colour · 120 min</span><span style="color:var(--gold); font-weight:600;">₹2,500</span></div>
+          </div>
+          <div class="wire-accordion">
+            <div class="wire-accordion-header"><span>💆 Facial & Skincare</span><span>▶</span></div>
+          </div>
+          <div class="wire-accordion">
+            <div class="wire-accordion-header"><span>🧴 Waxing</span><span>▶</span></div>
+          </div>
+          <div class="wire-accordion">
+            <div class="wire-accordion-header"><span>💅 Manicure & Pedicure</span><span>▶</span></div>
+          </div>
+          <div class="wire-accordion">
+            <div class="wire-accordion-header"><span>💄 Makeup Services</span><span>▶</span></div>
+          </div>
+          <div style="font-size:0.55rem; color:var(--grey-500); text-align:center; margin-top:0.5rem;">
+            Tap category to expand • "Book This" per service
+          </div>
+        </div>
       </div>
     </div>
   </div>
-
-  <h4>Behavior</h4>
-  <ul style="font-size:13px;">
-    <li>"Install App" clicked → trigger native beforeinstallprompt</li>
-    <li>"Not Now" clicked → dismiss, don't show for 7 days</li>
-    <li>Dismissed 3 times → never show again</li>
-  </ul>
-</div>
+</section>
 
 
-<hr>
-<h2>10. Cookie Consent Banner</h2>
-
-<h3>Tier 1: Initial Banner (fixed bottom)</h3>
-<div class="wire-card" style="max-width:600px; margin:1rem auto;">
-  <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-    <div style="flex:1; font-size:13px;">
-      &#127850; We use cookies to enhance your experience and for analytics.
-    </div>
-    <div style="display:flex; gap:8px; flex-wrap:wrap;">
-      <span class="wire-btn wire-btn-primary" style="font-size:12px; padding:8px 14px;">Accept All</span>
-      <span class="wire-btn wire-btn-danger" style="font-size:12px; padding:8px 14px;">Reject All</span>
-      <span class="wire-btn wire-btn-outline" style="font-size:12px; padding:8px 14px;">Manage Preferences</span>
-    </div>
+<!-- COMPONENTS & SEO TAB -->
+<section class="tab-content" id="tab-data">
+  <div class="card">
+    <h3>🧩 Page Components</h3>
+    <table class="data-table">
+      <tr><th>Component</th><th>Mobile</th><th>Desktop</th></tr>
+      <tr><td>Header</td><td>Logo + hamburger (64px)</td><td>Full nav + Book Now CTA (72px)</td></tr>
+      <tr><td>Hero</td><td>Full-width image, stacked</td><td>Parallax background, centered text</td></tr>
+      <tr><td>Services</td><td>Horizontal scroll cards</td><td>2-column grid</td></tr>
+      <tr><td>Offers</td><td>Stacked cards</td><td>Side-by-side with reviews</td></tr>
+      <tr><td>Reviews</td><td>Carousel (swipe)</td><td>3-column grid</td></tr>
+      <tr><td>Gallery</td><td>2×2 grid with lightbox</td><td>Masonry 3-column</td></tr>
+      <tr><td>FAQ</td><td>Single column accordion</td><td>2-column accordion</td></tr>
+      <tr><td>Footer</td><td>Single column stacked</td><td>3-column grid</td></tr>
+    </table>
   </div>
-</div>
 
-
-<h3>Tier 2: Preferences Modal (if "Manage Preferences" clicked)</h3>
-<div class="modal-backdrop">
-  <div class="modal-box">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-      <h4 style="margin:0;">Cookie Preferences</h4>
-      <span style="font-size:18px; cursor:pointer;">&#10005;</span>
+  <details>
+    <summary>SEO & Schema.org</summary>
+    <div class="details-content">
+      <table class="data-table">
+        <tr><th>Schema Type</th><th>Page</th><th>Purpose</th></tr>
+        <tr><td>LocalBusiness</td><td>All pages (footer)</td><td>NAP, hours, rating</td></tr>
+        <tr><td>FAQPage</td><td>Homepage FAQ section</td><td>Rich snippets in search</td></tr>
+        <tr><td>Service</td><td>/services</td><td>Service listings</td></tr>
+        <tr><td>Offer</td><td>/offers</td><td>Active promotional offers</td></tr>
+        <tr><td>BreadcrumbList</td><td>All inner pages</td><td>Navigation breadcrumbs</td></tr>
+      </table>
     </div>
+  </details>
 
-    <div class="cookie-toggle">
-      <div>
-        <div style="font-weight:600; font-size:13px;">Essential Cookies</div>
-        <div style="font-size:11px; color:#6B6B6B;">Required for the site to function. (authentication, security, session)</div>
-      </div>
-      <div class="toggle-switch locked"></div>
+  <details>
+    <summary>Header & Footer Specs</summary>
+    <div class="details-content">
+      <ul style="padding-left:1.5rem; line-height:2;">
+        <li><strong>Header:</strong> Sticky, white bg with shadow on scroll, Book Now always visible</li>
+        <li><strong>Mobile menu:</strong> Slide from right (250ms ease-out), links + auth state</li>
+        <li><strong>Footer:</strong> Dark background, white text, social icons (32px hover → gold)</li>
+        <li><strong>NAP:</strong> Must match Google My Business EXACTLY (SEO critical)</li>
+        <li><strong>Cookie Preferences:</strong> Link in footer opens consent manager</li>
+      </ul>
     </div>
-    <div style="font-size:10px; color:#9CA3AF; text-align:right; margin-top:-4px;">ON (locked)</div>
+  </details>
 
-    <div class="cookie-toggle">
-      <div>
-        <div style="font-weight:600; font-size:13px;">Analytics Cookies</div>
-        <div style="font-size:11px; color:#6B6B6B;">Help us understand how you use the site. (PostHog, Google Analytics)</div>
-      </div>
-      <div class="toggle-switch on"></div>
+  <details>
+    <summary>SPA Duration Toggle</summary>
+    <div class="details-content">
+      <ul style="padding-left:1.5rem; line-height:2;">
+        <li>All SPA services have 60/90 min toggle (NOT two separate cards)</li>
+        <li>Salon services have fixed duration (no toggle)</li>
+        <li>Toggle stored as <code>selected_duration</code> in booking</li>
+        <li>Price switches dynamically on toggle (no page reload)</li>
+        <li>"Book This" opens booking dialog with service + duration pre-selected</li>
+      </ul>
     </div>
+  </details>
+</section>
 
-    <div class="cookie-toggle">
-      <div>
-        <div style="font-weight:600; font-size:13px;">Marketing Cookies</div>
-        <div style="font-size:11px; color:#6B6B6B;">Used to deliver relevant ads and track conversions. (Meta Pixel, Google Ads)</div>
-      </div>
-      <div class="toggle-switch on"></div>
-    </div>
-
-    <div class="cookie-toggle">
-      <div>
-        <div style="font-weight:600; font-size:13px;">Functional Cookies</div>
-        <div style="font-size:11px; color:#6B6B6B;">Enable enhanced features like chat and preferences. (Ably realtime, localStorage)</div>
-      </div>
-      <div class="toggle-switch off"></div>
-    </div>
-
-    <div style="margin-top:16px; text-align:center;">
-      <span class="wire-btn wire-btn-primary">Save Preferences</span>
-    </div>
-    <div style="margin-top:12px; text-align:center; font-size:12px;">
-      <a href="#" style="color:#C8A961;">Learn more in our Privacy Policy &rarr;</a>
-    </div>
-  </div>
-</div>
-
-
-<h4>Implementation</h4>
-<ul style="font-size:13px;">
-  <li>Consent stored in cookie: rg_consent={essential:1,analytics:1,...}</li>
-  <li>If analytics rejected → PostHog not loaded, GA not loaded</li>
-  <li>If marketing rejected → Meta Pixel not loaded, no CAPI events</li>
-  <li>Banner re-appears if consent cookie expires (365 days)</li>
-  <li>Footer link "Cookie Preferences" re-opens Tier 2 modal</li>
-  <li>Mobile: banner is full-width bottom sheet</li>
-  <li>Desktop: banner is bottom-right card (max-width 480px)</li>
-</ul>
-
+<script>
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+</script>
 </body>
 </html>
