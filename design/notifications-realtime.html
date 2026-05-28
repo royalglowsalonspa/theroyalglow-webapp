@@ -3,768 +3,458 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Notifications &amp; Realtime Updates — Design Reference</title>
+<title>Notifications & Realtime — Royal Glow Salon & SPA</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1200px; margin: 0 auto; padding: 2rem; line-height: 1.6; color: #1a1a1a; background: #fffdf7; }
-  h1, h2, h3, h4 { color: #1a1a1a; margin-top: 2rem; }
-  h1 { border-bottom: 2px solid #c8a961; padding-bottom: 0.5rem; }
-  h2 { border-bottom: 1px solid #e5e5e5; padding-bottom: 0.3rem; }
-  pre { background: #1a1a1a; color: #e5e5e5; padding: 1.5rem; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; line-height: 1.4; }
-  code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 14px; }
-  pre code { background: none; padding: 0; }
-  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
-  th, td { border: 1px solid #e5e5e5; padding: 10px 14px; text-align: left; }
-  th { background: #f9fafb; font-weight: 600; }
-  tr:nth-child(even) { background: #fafafa; }
-  blockquote { border-left: 4px solid #c8a961; margin: 1rem 0; padding: 0.5rem 1rem; background: #fff8f0; }
-  hr { border: none; border-top: 1px solid #e5e5e5; margin: 2rem 0; }
-  ul, ol { padding-left: 1.5rem; }
-  li { margin: 0.3rem 0; }
-  a { color: #c8a961; text-decoration: none; }
-  a:hover { text-decoration: underline; }
+:root {
+  --gold: #C8A961; --gold-light: #FEF3C7; --gold-bg: #FFFDF7;
+  --dark: #1a1a1a; --grey-100: #f9fafb; --grey-200: #f3f4f6;
+  --grey-300: #e5e5e5; --grey-500: #6B6B6B; --grey-700: #374151;
+  --green: #10B981; --green-light: #D1FAE5; --green-dark: #065F46;
+  --red: #EF4444; --red-light: #FEE2E2; --red-dark: #991B1B;
+  --amber: #F59E0B; --amber-light: #FEF3C7;
+  --blue: #3B82F6; --blue-light: #DBEAFE;
+  --purple: #8B5CF6; --purple-light: #EDE9FE;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --radius: 12px; --shadow: 0 4px 12px rgba(0,0,0,0.08); --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font); background: var(--gold-bg); color: var(--dark); line-height: 1.6; min-height: 100vh; }
 
 
-  .flow-container { display: flex; flex-direction: column; align-items: center; gap: 0; margin: 2rem 0; }
-  .flow-node { padding: 14px 24px; border-radius: 12px; font-weight: 500; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); min-width: 180px; }
-  .flow-node.trigger { background: #C8A961; color: white; }
-  .flow-node.process { background: white; border: 2px solid #e5e5e5; border-left: 4px solid #C8A961; }
-  .flow-node.decision { background: #FEF3C7; border: 2px solid #F59E0B; }
-  .flow-node.success { background: #D1FAE5; border: 2px solid #10B981; color: #065F46; }
-  .flow-node.error { background: #FEE2E2; border: 2px solid #EF4444; color: #991B1B; }
-  .flow-node.end { background: #1a1a1a; color: white; }
-  .flow-arrow { width: 2px; height: 32px; background: #C8A961; position: relative; margin: 0 auto; }
-  .flow-arrow::after { content: ''; position: absolute; bottom: -6px; left: -5px; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #C8A961; }
-  .flow-branch { display: flex; gap: 2rem; justify-content: center; }
-  .flow-label { font-size: 12px; color: #6B6B6B; text-align: center; margin-top: 4px; }
-  .flow-row { display: flex; align-items: center; justify-content: center; gap: 1.5rem; }
+.page-header { background: linear-gradient(135deg, var(--dark) 0%, #2d2d2d 100%); color: white; padding: 2rem; text-align: center; border-bottom: 3px solid var(--gold); }
+.page-header h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.25rem; }
+.page-header h1 span { color: var(--gold); }
+.page-header p { color: #aaa; font-size: 0.95rem; }
+.tab-nav { display: flex; gap: 0; background: white; border-bottom: 2px solid var(--grey-300); overflow-x: auto; position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow); }
+.tab-btn { padding: 1rem 1.5rem; border: none; background: none; font-size: 0.9rem; font-weight: 600; color: var(--grey-500); cursor: pointer; white-space: nowrap; border-bottom: 3px solid transparent; transition: all 0.2s ease; }
+.tab-btn:hover { color: var(--dark); background: var(--grey-100); }
+.tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); background: var(--gold-bg); }
+.tab-content { display: none; padding: 2rem; max-width: 1200px; margin: 0 auto; }
+.tab-content.active { display: block; }
+.card { background: white; border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: var(--shadow); border: 1px solid var(--grey-200); }
+.card h3 { font-size: 1.1rem; margin-bottom: 1rem; color: var(--dark); display: flex; align-items: center; gap: 0.5rem; }
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+.summary-item { background: var(--grey-100); border-radius: 8px; padding: 1rem; border-left: 4px solid var(--gold); }
+.summary-item .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--grey-500); margin-bottom: 0.25rem; }
+.summary-item .value { font-size: 1rem; font-weight: 600; color: var(--dark); }
+.flow-container { overflow-x: auto; padding: 1rem; background: white; border-radius: var(--radius); border: 1px solid var(--grey-200); }
+.flow-container svg { display: block; margin: 0 auto; }
+.flow-container svg text { font-family: var(--font); font-size: 11px; }
+.flow-container svg .node-rect { stroke-width: 2; rx: 8; transition: all 0.2s; cursor: pointer; }
+.flow-container svg .node-rect:hover { filter: brightness(0.95); stroke-width: 3; }
+.flow-container svg .decision { stroke-width: 2; cursor: pointer; transition: all 0.2s; }
+.flow-container svg .decision:hover { filter: brightness(0.9); }
+.wireframe-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; padding: 1rem 0; }
+.phone-frame { background: white; border: 3px solid var(--dark); border-radius: 32px; padding: 1rem; width: 280px; margin: 0 auto; box-shadow: var(--shadow-lg); position: relative; }
+.phone-frame::before { content: ''; display: block; width: 60px; height: 6px; background: var(--grey-300); border-radius: 3px; margin: 0 auto 1rem; }
+.phone-screen { background: var(--grey-100); border-radius: 16px; padding: 1rem; min-height: 400px; }
+.phone-screen h4 { font-size: 0.85rem; color: var(--gold); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; text-align: center; }
 
 
-  .phone-frame { width: 375px; border: 3px solid #1a1a1a; border-radius: 40px; padding: 12px; margin: 2rem auto; background: white; box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
-  .phone-screen { border-radius: 28px; overflow: hidden; min-height: 500px; background: #FFFDF7; padding: 16px; }
-  .phone-notch { width: 150px; height: 24px; background: #1a1a1a; border-radius: 0 0 12px 12px; margin: 0 auto; }
-  .wire-btn { padding: 12px 24px; border-radius: 999px; font-weight: 600; text-align: center; cursor: pointer; border: none; display: inline-block; margin: 4px; }
-  .wire-btn-primary { background: #C8A961; color: white; }
-  .wire-btn-outline { border: 2px solid #C8A961; color: #C8A961; background: white; }
-  .wire-btn-danger { background: #EF4444; color: white; }
-  .wire-btn-success { background: #10B981; color: white; }
-  .wire-input { width: 100%; padding: 12px 16px; border: 1px solid #e5e5e5; border-radius: 12px; font-size: 14px; margin: 8px 0; box-sizing: border-box; }
-  .wire-card { background: white; border: 1px solid #f0f0f0; border-radius: 12px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-  .wire-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 500; }
-  .badge-pending { background: #FEF3C7; color: #92400E; }
-  .badge-confirmed { background: #D1FAE5; color: #065F46; }
-  .badge-completed { background: #F3F4F6; color: #374151; }
-  .badge-active { background: #DBEAFE; color: #1E40AF; }
-  .badge-expired { background: #FEE2E2; color: #991B1B; }
-
-
-  .section-card { background: white; border: 1px solid #f0f0f0; border-radius: 16px; padding: 2rem; margin: 1.5rem 0; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
-  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; }
-  .timeline { display: flex; flex-direction: column; gap: 0; padding: 1rem 0; }
-  .timeline-step { display: flex; align-items: flex-start; gap: 12px; position: relative; padding-bottom: 24px; }
-  .timeline-step:not(:last-child)::before { content: ''; position: absolute; left: 11px; top: 24px; bottom: 0; width: 2px; background: #e5e5e5; }
-  .timeline-dot { width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0; }
-  .timeline-dot.active { background: #C8A961; }
-  .timeline-dot.completed { background: #10B981; }
-  .timeline-dot.error { background: #EF4444; }
-  .timeline-dot.pending { background: #F59E0B; }
-  .timeline-dot.grey { background: #9CA3AF; }
-  .modal-backdrop { background: rgba(0,0,0,0.4); border-radius: 12px; padding: 3rem; display: flex; align-items: center; justify-content: center; margin: 2rem 0; }
-  .modal-box { background: white; border-radius: 16px; padding: 2rem; max-width: 500px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
-
-
-  .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
-  .toggle-switch { width: 44px; height: 24px; border-radius: 12px; position: relative; cursor: pointer; }
-  .toggle-switch.on { background: #C8A961; }
-  .toggle-switch.off { background: #D1D5DB; }
-  .toggle-switch::after { content: ''; position: absolute; width: 18px; height: 18px; background: white; border-radius: 50%; top: 3px; transition: left 0.2s; }
-  .toggle-switch.on::after { left: 22px; }
-  .toggle-switch.off::after { left: 4px; }
-  .notif-item { display: flex; gap: 12px; padding: 12px; border-bottom: 1px solid #f5f5f5; align-items: flex-start; }
-  .notif-item.unread { background: #FFFBF0; font-weight: 500; }
-  .notif-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
-  .notif-dot.blue { background: #3B82F6; }
-  .notif-dot.grey { background: #D1D5DB; }
-  .header-bar { background: #1a1a1a; color: white; padding: 12px 24px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
-  .bell-icon { position: relative; font-size: 20px; cursor: pointer; }
-  .bell-badge { position: absolute; top: -6px; right: -8px; background: #EF4444; color: white; font-size: 10px; font-weight: 700; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.wire-notif-item { background: white; border-radius: 8px; padding: 0.5rem; margin-bottom: 0.4rem; border: 1px solid var(--grey-200); display: flex; gap: 0.5rem; align-items: flex-start; }
+.wire-notif-item.unread { border-left: 3px solid var(--blue); background: var(--blue-light); }
+.wire-notif-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); flex-shrink: 0; margin-top: 4px; }
+.wire-notif-text { font-size: 0.6rem; line-height: 1.4; }
+.wire-notif-time { font-size: 0.5rem; color: var(--grey-500); }
+.wire-btn { display: block; width: 100%; padding: 0.7rem; margin-top: 0.75rem; border: none; border-radius: 8px; background: var(--gold); color: white; font-weight: 700; font-size: 0.8rem; text-align: center; cursor: pointer; }
+details { margin-bottom: 1rem; }
+details summary { cursor: pointer; font-weight: 600; padding: 0.75rem 1rem; background: var(--grey-100); border-radius: 8px; border: 1px solid var(--grey-200); list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+details summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+details[open] summary::before { transform: rotate(90deg); }
+details .details-content { padding: 1rem; border: 1px solid var(--grey-200); border-top: none; border-radius: 0 0 8px 8px; background: white; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.data-table th, .data-table td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--grey-200); }
+.data-table th { background: var(--grey-100); font-weight: 600; color: var(--grey-700); }
+.data-table tr:hover { background: var(--gold-bg); }
+@media (max-width: 768px) {
+  .tab-btn { padding: 0.75rem 1rem; font-size: 0.8rem; }
+  .tab-content { padding: 1rem; }
+  .summary-grid { grid-template-columns: 1fr 1fr; }
+  .wireframe-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .page-header h1 { font-size: 1.4rem; }
+  .summary-grid { grid-template-columns: 1fr; }
+}
+@media print {
+  .tab-nav { display: none; }
+  .tab-content { display: block !important; padding: 1rem 0; }
+  .page-header { background: white; color: var(--dark); border-bottom: 2px solid var(--gold); }
+  .card { box-shadow: none; border: 1px solid var(--grey-300); break-inside: avoid; }
+  body { background: white; }
+}
 </style>
 </head>
 <body>
+<header class="page-header">
+  <h1>Notifications & <span>Realtime</span></h1>
+  <p>Push notifications, Ably WebSocket architecture, email triggers, and in-app bell</p>
+</header>
+<nav class="tab-nav">
+  <button class="tab-btn active" data-tab="overview">Overview</button>
+  <button class="tab-btn" data-tab="ably">Ably Architecture</button>
+  <button class="tab-btn" data-tab="push">Push Flow</button>
+  <button class="tab-btn" data-tab="wireframes">Wireframes</button>
+  <button class="tab-btn" data-tab="data">Email & API</button>
+</nav>
 
 
-<h1>Notifications &amp; Realtime Updates — Design Reference</h1>
-<blockquote><p>Push notifications, Ably realtime connections, email triggers, in-app notification bell, and UI update animations. The communication layer that keeps customers and staff informed in real time.</p></blockquote>
-
-<hr>
-
-<h2>1. Push Notification Flow (Web Push API)</h2>
-
-<div class="flow-container">
-  <div class="flow-node trigger">1. Permission Request<br><small>Browser native prompt — after first successful booking</small></div>
-  <div class="flow-arrow"></div>
-  <div class="flow-branch">
-    <div>
-      <div class="flow-node success">Granted</div>
-      <div class="flow-label">Proceed to subscribe</div>
-    </div>
-    <div>
-      <div class="flow-node error">Denied</div>
-      <div class="flow-label">Never ask again</div>
-    </div>
-    <div>
-      <div class="flow-node decision">Dismissed</div>
-      <div class="flow-label">Can ask again later</div>
+<!-- OVERVIEW TAB -->
+<section class="tab-content active" id="tab-overview">
+  <div class="card">
+    <h3>📋 Quick Summary</h3>
+    <div class="summary-grid">
+      <div class="summary-item"><div class="label">Realtime Provider</div><div class="value">Ably</div></div>
+      <div class="summary-item"><div class="label">Push API</div><div class="value">Web Push (VAPID)</div></div>
+      <div class="summary-item"><div class="label">Email Provider</div><div class="value">Resend + React Email</div></div>
+      <div class="summary-item"><div class="label">Scheduled Jobs</div><div class="value">QStash (Upstash)</div></div>
+      <div class="summary-item"><div class="label">Channels</div><div class="value">6 (admin + customer)</div></div>
+      <div class="summary-item"><div class="label">Notification Types</div><div class="value">7 push + 18 email</div></div>
     </div>
   </div>
-  <div class="flow-arrow"></div>
-
-
-  <div class="flow-node process" style="text-align:left; max-width:500px;">
-    <strong>2. Subscription (client-side)</strong><br>
-    <ul style="margin:8px 0 0 0; padding-left:1.2rem; font-size:14px;">
-      <li><code>navigator.serviceWorker.ready</code></li>
-      <li><code>registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: VAPID_PUBLIC_KEY })</code></li>
-      <li>Returns <code>PushSubscription</code> object</li>
+  <div class="card">
+    <h3>🔔 Communication Layers</h3>
+    <ul style="padding-left:1.5rem; line-height:2;">
+      <li><strong>Ably Realtime:</strong> Live UI updates (status badges, schedule slots, notification bell)</li>
+      <li><strong>Web Push:</strong> Browser notifications (booking confirm, reminders, gems earned)</li>
+      <li><strong>Email (Resend):</strong> Transactional + marketing (invoices, reminders, membership alerts)</li>
+      <li><strong>QStash Jobs:</strong> Scheduled delivery (24h/1h reminders, stale leads, membership expiry)</li>
     </ul>
   </div>
-  <div class="flow-arrow"></div>
-  <div class="flow-node process" style="text-align:left; max-width:500px;">
-    <strong>3. Store Subscription (server-side)</strong><br>
-    <ul style="margin:8px 0 0 0; padding-left:1.2rem; font-size:14px;">
-      <li><code>POST /api/push/subscribe</code></li>
-      <li>Payload: <code>{ endpoint, keys: { p256dh, auth }, userId }</code></li>
-      <li>Saved to <code>push_subscriptions</code> table in Neon</li>
-    </ul>
+</section>
+
+
+<!-- ABLY ARCHITECTURE TAB -->
+<section class="tab-content" id="tab-ably">
+  <div class="card">
+    <h3>🔀 Ably Publish Flow</h3>
+    <div class="flow-container">
+      <svg width="820" height="180" viewBox="0 0 820 180">
+        <defs>
+          <marker id="arrow-ab" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+          </marker>
+        </defs>
+        <!-- Server API -->
+        <rect class="node-rect" x="10" y="60" width="120" height="55" fill="#DBEAFE" stroke="#3B82F6"/>
+        <text x="70" y="83" text-anchor="middle" font-weight="bold" fill="#1E40AF">Server API</text>
+        <text x="70" y="100" text-anchor="middle" font-size="9" fill="#666">Next.js route</text>
+        <line x1="130" y1="87" x2="165" y2="87" stroke="#666" stroke-width="2" marker-end="url(#arrow-ab)"/>
+        <!-- Ably Cloud -->
+        <rect class="node-rect" x="170" y="60" width="120" height="55" fill="#EDE9FE" stroke="#8B5CF6"/>
+        <text x="230" y="83" text-anchor="middle" font-weight="bold" fill="#6D28D9">Ably Cloud</text>
+        <text x="230" y="100" text-anchor="middle" font-size="9" fill="#666">Message broker</text>
+        <line x1="290" y1="87" x2="325" y2="87" stroke="#666" stroke-width="2" marker-end="url(#arrow-ab)"/>
+        <!-- WebSocket -->
+        <rect class="node-rect" x="330" y="60" width="120" height="55" fill="#D1FAE5" stroke="#10B981"/>
+        <text x="390" y="83" text-anchor="middle" font-weight="bold" fill="#065F46">WebSocket</text>
+        <text x="390" y="100" text-anchor="middle" font-size="9" fill="#666">Browser conn</text>
+        <line x1="450" y1="87" x2="485" y2="87" stroke="#666" stroke-width="2" marker-end="url(#arrow-ab)"/>
+        <!-- React State -->
+        <rect class="node-rect" x="490" y="60" width="120" height="55" fill="#FEF3C7" stroke="#F59E0B"/>
+        <text x="550" y="83" text-anchor="middle" font-weight="bold" fill="#92400E">React State</text>
+        <text x="550" y="100" text-anchor="middle" font-size="9" fill="#666">setState()</text>
+        <line x1="610" y1="87" x2="645" y2="87" stroke="#666" stroke-width="2" marker-end="url(#arrow-ab)"/>
+        <!-- UI Update -->
+        <rect class="node-rect" x="650" y="60" width="120" height="55" fill="#D1FAE5" stroke="#10B981"/>
+        <text x="710" y="83" text-anchor="middle" font-weight="bold" fill="#065F46">UI Update</text>
+        <text x="710" y="100" text-anchor="middle" font-size="9" fill="#666">Animated render</text>
+        <!-- Labels -->
+        <text x="410" y="30" text-anchor="middle" font-size="12" font-weight="bold" fill="var(--dark)">Server → Client Realtime Flow</text>
+        <text x="410" y="150" text-anchor="middle" font-size="10" fill="#999">Auth: Token-based via /api/ably/token • Auto-reconnect on network loss</text>
+      </svg>
+    </div>
   </div>
-  <div class="flow-arrow"></div>
+
+  <details>
+    <summary>Ably Channels</summary>
+    <div class="details-content">
+      <table class="data-table">
+        <tr><th>Channel</th><th>Subscribers</th><th>Events</th></tr>
+        <tr><td>admin:bookings</td><td>All admin users</td><td>booking.confirmed, booking.cancelled, booking.created</td></tr>
+        <tr><td>admin:schedule</td><td>Schedule page viewers</td><td>slot.booked, slot.released, staff.marked_off</td></tr>
+        <tr><td>admin:leads</td><td>Lead pipeline viewers</td><td>lead.created, lead.status_changed</td></tr>
+        <tr><td>admin:notifications</td><td>Admin header bell</td><td>notification.new</td></tr>
+        <tr><td>customer:{userId}:bookings</td><td>Specific customer</td><td>booking.confirmed, booking.changed</td></tr>
+        <tr><td>customer:{userId}:gems</td><td>Specific customer</td><td>gems.earned, gems.redeemed</td></tr>
+      </table>
+    </div>
+  </details>
+
+  <details>
+    <summary>Connection Lifecycle</summary>
+    <div class="details-content">
+      <ul style="padding-left:1.5rem; line-height:2;">
+        <li><strong>Connect:</strong> On page mount (useEffect)</li>
+        <li><strong>Disconnect:</strong> On page unmount (cleanup)</li>
+        <li><strong>Auto-reconnect:</strong> Ably handles network loss</li>
+        <li><strong>Token refresh:</strong> authCallback called when token expires</li>
+      </ul>
+    </div>
+  </details>
+</section>
 
 
-  <div class="flow-node end" style="text-align:left; max-width:500px;">
-    <strong>4. Send Notification (server triggers)</strong><br>
-    <ul style="margin:8px 0 0 0; padding-left:1.2rem; font-size:14px; color:#e5e5e5;">
-      <li>Event occurs (booking confirmed, reminder due, etc.)</li>
-      <li>Server fetches user's push subscription(s)</li>
-      <li>web-push library sends to push service endpoint</li>
-      <li>Push service delivers to browser</li>
-      <li>Service worker receives 'push' event</li>
-      <li><code style="color:#C8A961;">self.registration.showNotification(title, options)</code></li>
-    </ul>
+<!-- PUSH FLOW TAB -->
+<section class="tab-content" id="tab-push">
+  <div class="card">
+    <h3>🔔 Push Notification Permission Flow</h3>
+    <div class="flow-container">
+      <svg width="780" height="260" viewBox="0 0 780 260">
+        <defs>
+          <marker id="arrow-push" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+          </marker>
+        </defs>
+        <!-- 2nd Visit -->
+        <rect class="node-rect" x="10" y="50" width="120" height="50" fill="var(--grey-200)" stroke="var(--grey-500)"/>
+        <text x="70" y="72" text-anchor="middle" font-weight="bold" fill="var(--grey-700)">2nd Visit</text>
+        <text x="70" y="88" text-anchor="middle" font-size="9" fill="#666">Return user</text>
+        <line x1="130" y1="75" x2="160" y2="75" stroke="#666" stroke-width="2" marker-end="url(#arrow-push)"/>
+        <!-- After Booking -->
+        <rect class="node-rect" x="165" y="50" width="120" height="50" fill="#D1FAE5" stroke="#10B981"/>
+        <text x="225" y="72" text-anchor="middle" font-weight="bold" fill="#065F46">After Booking</text>
+        <text x="225" y="88" text-anchor="middle" font-size="9" fill="#666">Success moment</text>
+        <line x1="285" y1="75" x2="315" y2="75" stroke="#666" stroke-width="2" marker-end="url(#arrow-push)"/>
+        <!-- Ask Permission -->
+        <rect class="node-rect" x="320" y="50" width="120" height="50" fill="#FEF3C7" stroke="#F59E0B"/>
+        <text x="380" y="72" text-anchor="middle" font-weight="bold" fill="#92400E">Ask Permission</text>
+        <text x="380" y="88" text-anchor="middle" font-size="9" fill="#666">Browser prompt</text>
+        <!-- Decision diamond -->
+        <polygon class="decision" points="380,120 430,150 380,180 330,150" fill="#FEF3C7" stroke="#F59E0B"/>
+        <text x="380" y="155" text-anchor="middle" font-size="10" fill="#92400E">?</text>
+        <!-- Granted path -->
+        <line x1="430" y1="150" x2="480" y2="150" stroke="#10B981" stroke-width="2" marker-end="url(#arrow-push)"/>
+        <text x="455" y="142" font-size="9" fill="#10B981">Granted</text>
+        <!-- Subscribe -->
+        <rect class="node-rect" x="485" y="125" width="120" height="50" fill="#D1FAE5" stroke="#10B981"/>
+        <text x="545" y="147" text-anchor="middle" font-weight="bold" fill="#065F46">Subscribe</text>
+        <text x="545" y="163" text-anchor="middle" font-size="9" fill="#666">VAPID + SW</text>
+        <line x1="605" y1="150" x2="635" y2="150" stroke="#666" stroke-width="2" marker-end="url(#arrow-push)"/>
+        <!-- Receive -->
+        <rect class="node-rect" x="640" y="125" width="120" height="50" fill="#DBEAFE" stroke="#3B82F6"/>
+        <text x="700" y="147" text-anchor="middle" font-weight="bold" fill="#1E40AF">Receive</text>
+        <text x="700" y="163" text-anchor="middle" font-size="9" fill="#666">Push notifs</text>
+        <!-- Denied path -->
+        <line x1="380" y1="180" x2="380" y2="210" stroke="#EF4444" stroke-width="2" marker-end="url(#arrow-push)"/>
+        <text x="405" y="200" font-size="9" fill="#EF4444">Denied</text>
+        <rect class="node-rect" x="320" y="215" width="120" height="35" fill="#FEE2E2" stroke="#EF4444"/>
+        <text x="380" y="237" text-anchor="middle" font-size="10" fill="#991B1B">Never ask again</text>
+        <!-- Dismissed path -->
+        <line x1="330" y1="150" x2="240" y2="150" stroke="#666" stroke-width="1.5" stroke-dasharray="4" marker-end="url(#arrow-push)"/>
+        <text x="285" y="142" font-size="9" fill="#666">Dismissed</text>
+        <text x="285" y="168" font-size="8" fill="#999">Ask again later</text>
+      </svg>
+    </div>
   </div>
-</div>
 
-<hr>
-
-
-<h2>2. Push Notification Types &amp; Content</h2>
-
-<table>
-  <thead>
-    <tr>
-      <th>Type</th>
-      <th>Title</th>
-      <th>Body</th>
-      <th>Action</th>
-      <th>Icon</th>
-      <th>Trigger</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>booking_confirmed</code></td>
-      <td>Booking Confirmed! &#10003;</td>
-      <td>Your appointment on {date} at {time} is confirmed. See you at Royal Glow!</td>
-      <td>Opens <code>/bookings/{id}</code></td>
-      <td style="color:#10B981;">&#10003; green checkmark</td>
-      <td>Receptionist approves booking</td>
-    </tr>
-    <tr>
-      <td><code>reminder_24h</code></td>
-      <td>Reminder: Tomorrow at {time}</td>
-      <td>{services} at Royal Glow, {branch}. We're looking forward to seeing you!</td>
-      <td>Opens <code>/bookings/{id}</code></td>
-      <td>&#128276; bell</td>
-      <td>QStash scheduled job (T-24h)</td>
-    </tr>
-
-
-    <tr>
-      <td><code>reminder_1h</code></td>
-      <td>Almost time! 1 hour to go</td>
-      <td>Your {services} appointment is at {time}. &#128205; {branch_address}</td>
-      <td>Opens Google Maps directions</td>
-      <td>&#9200; clock</td>
-      <td>QStash scheduled job (T-1h)</td>
-    </tr>
-    <tr>
-      <td><code>booking_rescheduled</code></td>
-      <td>Booking Rescheduled</td>
-      <td>Your appointment has been moved to {new_date} at {new_time}.</td>
-      <td>Opens <code>/bookings/{id}</code></td>
-      <td>&#128197; calendar</td>
-      <td>Admin or customer reschedules</td>
-    </tr>
-    <tr>
-      <td><code>booking_rejected</code></td>
-      <td>Booking Rejected</td>
-      <td>Sorry, your {date} booking couldn't be confirmed. Reason: {reason}. Book again?</td>
-      <td>Opens <code>/?book=1</code> (new booking)</td>
-      <td style="color:#EF4444;">&#10005; red cross</td>
-      <td>Receptionist rejects booking</td>
-    </tr>
+  <div class="card">
+    <h3>📧 Email Trigger Map</h3>
+    <div class="flow-container">
+      <svg width="750" height="350" viewBox="0 0 750 350">
+        <defs>
+          <marker id="arrow-em" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#C8A961"/>
+          </marker>
+        </defs>
+        <!-- Central node -->
+        <rect class="node-rect" x="300" y="140" width="140" height="50" fill="var(--gold-light)" stroke="var(--gold)"/>
+        <text x="370" y="163" text-anchor="middle" font-weight="bold" fill="var(--dark)">Resend</text>
+        <text x="370" y="178" text-anchor="middle" font-size="9" fill="#666">Email Engine</text>
+        <!-- Triggers (left side) -->
+        <rect class="node-rect" x="20" y="10" width="150" height="35" fill="#DBEAFE" stroke="#3B82F6"/>
+        <text x="95" y="32" text-anchor="middle" font-size="10" fill="#1E40AF">Booking Confirmed</text>
+        <line x1="170" y1="27" x2="300" y2="155" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#arrow-em)"/>
+        <rect class="node-rect" x="20" y="55" width="150" height="35" fill="#FEE2E2" stroke="#EF4444"/>
+        <text x="95" y="77" text-anchor="middle" font-size="10" fill="#991B1B">Booking Rejected</text>
+        <line x1="170" y1="72" x2="300" y2="158" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#arrow-em)"/>
+        <rect class="node-rect" x="20" y="100" width="150" height="35" fill="#D1FAE5" stroke="#10B981"/>
+        <text x="95" y="122" text-anchor="middle" font-size="10" fill="#065F46">Invoice Generated</text>
+        <line x1="170" y1="117" x2="300" y2="160" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#arrow-em)"/>
+        <rect class="node-rect" x="20" y="145" width="150" height="35" fill="#EDE9FE" stroke="#8B5CF6"/>
+        <text x="95" y="167" text-anchor="middle" font-size="10" fill="#6D28D9">Membership Created</text>
+        <line x1="170" y1="162" x2="300" y2="163" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#arrow-em)"/>
+        <rect class="node-rect" x="20" y="190" width="150" height="35" fill="#FEF3C7" stroke="#F59E0B"/>
+        <text x="95" y="212" text-anchor="middle" font-size="10" fill="#92400E">Membership Expiry</text>
+        <line x1="170" y1="207" x2="300" y2="168" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#arrow-em)"/>
+        <rect class="node-rect" x="20" y="235" width="150" height="35" fill="var(--grey-200)" stroke="var(--grey-500)"/>
+        <text x="95" y="257" text-anchor="middle" font-size="10" fill="var(--grey-700)">Leave Approved</text>
+        <line x1="170" y1="252" x2="300" y2="172" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#arrow-em)"/>
+        <rect class="node-rect" x="20" y="280" width="150" height="35" fill="#DBEAFE" stroke="#3B82F6"/>
+        <text x="95" y="302" text-anchor="middle" font-size="10" fill="#1E40AF">Daily Summary</text>
+        <line x1="170" y1="297" x2="300" y2="175" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#arrow-em)"/>
+        <!-- Templates (right side) -->
+        <line x1="440" y1="152" x2="520" y2="27" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#arrow-em)"/>
+        <rect class="node-rect" x="525" y="10" width="190" height="35" fill="white" stroke="var(--grey-300)"/>
+        <text x="620" y="32" text-anchor="middle" font-size="9" fill="var(--dark)">booking-confirmed.tsx</text>
+        <line x1="440" y1="155" x2="520" y2="72" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#arrow-em)"/>
+        <rect class="node-rect" x="525" y="55" width="190" height="35" fill="white" stroke="var(--grey-300)"/>
+        <text x="620" y="77" text-anchor="middle" font-size="9" fill="var(--dark)">invoice-receipt.tsx (+PDF)</text>
+        <line x1="440" y1="160" x2="520" y2="117" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#arrow-em)"/>
+        <rect class="node-rect" x="525" y="100" width="190" height="35" fill="white" stroke="var(--grey-300)"/>
+        <text x="620" y="122" text-anchor="middle" font-size="9" fill="var(--dark)">membership-welcome.tsx</text>
+        <line x1="440" y1="165" x2="520" y2="162" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#arrow-em)"/>
+        <rect class="node-rect" x="525" y="145" width="190" height="35" fill="white" stroke="var(--grey-300)"/>
+        <text x="620" y="167" text-anchor="middle" font-size="9" fill="var(--dark)">membership-expiry.tsx</text>
+        <line x1="440" y1="168" x2="520" y2="207" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#arrow-em)"/>
+        <rect class="node-rect" x="525" y="190" width="190" height="35" fill="white" stroke="var(--grey-300)"/>
+        <text x="620" y="212" text-anchor="middle" font-size="9" fill="var(--dark)">leave-approved.tsx (Staff)</text>
+        <line x1="440" y1="172" x2="520" y2="252" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#arrow-em)"/>
+        <rect class="node-rect" x="525" y="235" width="190" height="35" fill="white" stroke="var(--grey-300)"/>
+        <text x="620" y="257" text-anchor="middle" font-size="9" fill="var(--dark)">daily-summary.tsx (Owner)</text>
+      </svg>
+    </div>
+  </div>
+</section>
 
 
-    <tr>
-      <td><code>gems_earned</code></td>
-      <td>&#128142; +{count} Gems Earned!</td>
-      <td>You earned {count} gems today. Balance: {total}. Browse the catalogue!</td>
-      <td>Opens <code>/gems</code></td>
-      <td>&#128142; diamond</td>
-      <td>Invoice completed with gems &gt; 0</td>
-    </tr>
-    <tr>
-      <td><code>staff_changed</code></td>
-      <td>Stylist Update</td>
-      <td>Your stylist for {date} has been changed to {new_staff_name}.</td>
-      <td>Opens <code>/bookings/{id}</code></td>
-      <td>&#128100; person</td>
-      <td>Booking reassigned (leave/mark-off)</td>
-    </tr>
-  </tbody>
-</table>
-
-<hr>
-
-
-<h2>3. Ably Realtime Connection Diagram</h2>
-
-<div class="section-card">
-  <h3 style="margin-top:0;">Ably Realtime Architecture</h3>
-  <div class="two-col">
-    <div>
-      <h4>CLIENT (Browser)</h4>
-      <div class="timeline">
-        <div class="timeline-step">
-          <div class="timeline-dot active"></div>
-          <div><strong>Page mounts</strong> (e.g. <code>/admin/bookings</code>)</div>
+<!-- WIREFRAMES TAB -->
+<section class="tab-content" id="tab-wireframes">
+  <div class="card">
+    <h3>📱 Wireframe Mockups</h3>
+    <div class="wireframe-grid">
+      <!-- Notification Bell Dropdown -->
+      <div class="phone-frame">
+        <div class="phone-screen">
+          <h4>Notification Bell</h4>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; padding:0.4rem; background:var(--dark); border-radius:8px;">
+            <span style="color:var(--gold); font-size:0.7rem; font-weight:700;">👑 Royal Glow Admin</span>
+            <span style="position:relative; font-size:1rem;">🔔<span style="position:absolute; top:-4px; right:-6px; background:var(--red); color:white; font-size:0.5rem; width:14px; height:14px; border-radius:50%; display:flex; align-items:center; justify-content:center;">3</span></span>
+          </div>
+          <div style="background:white; border-radius:8px; padding:0.5rem; border:1px solid var(--grey-200);">
+            <div style="display:flex; justify-content:space-between; margin-bottom:0.4rem;">
+              <span style="font-size:0.7rem; font-weight:700;">Notifications</span>
+              <span style="font-size:0.55rem; color:var(--blue); cursor:pointer;">Mark all read</span>
+            </div>
+            <div class="wire-notif-item unread">
+              <div class="wire-notif-dot"></div>
+              <div>
+                <div class="wire-notif-text"><strong>New booking</strong> from Priya S.</div>
+                <div class="wire-notif-text">Facial + Waxing • 24 May 3:30 PM</div>
+                <div class="wire-notif-time">2 min ago</div>
+              </div>
+            </div>
+            <div class="wire-notif-item unread">
+              <div class="wire-notif-dot"></div>
+              <div>
+                <div class="wire-notif-text"><strong>Stale lead:</strong> Neha (72h+)</div>
+                <div class="wire-notif-text">Bridal package inquiry</div>
+                <div class="wire-notif-time">1 hr ago</div>
+              </div>
+            </div>
+            <div class="wire-notif-item unread">
+              <div class="wire-notif-dot"></div>
+              <div>
+                <div class="wire-notif-text"><strong>Leave request</strong> from Meera</div>
+                <div class="wire-notif-text">Sick 21–22 May (⚠️ has bookings)</div>
+                <div class="wire-notif-time">3 hr ago</div>
+              </div>
+            </div>
+            <div class="wire-notif-item">
+              <div>
+                <div class="wire-notif-text">Booking completed: Aisha K.</div>
+                <div class="wire-notif-text">Invoice #INV..5002 (₹2,500)</div>
+                <div class="wire-notif-time">5 hr ago</div>
+              </div>
+            </div>
+            <div style="text-align:center; margin-top:0.5rem;">
+              <span style="font-size:0.6rem; color:var(--blue); cursor:pointer;">View All Notifications →</span>
+            </div>
+          </div>
         </div>
-        <div class="timeline-step">
-          <div class="timeline-dot active"></div>
-          <div><strong>useEffect</strong> &rarr; Initialize <code>Ably.Realtime</code> with authCallback</div>
-        </div>
-        <div class="timeline-step">
-          <div class="timeline-dot active"></div>
-          <div><strong>Subscribe</strong> to channel <code>admin:bookings</code></div>
-        </div>
-        <div class="timeline-step">
-          <div class="timeline-dot completed"></div>
-          <div><strong>Receive message</strong> &rarr; Update React state &rarr; UI re-renders with animated transition</div>
+      </div>
+
+      <!-- Push Notification Preview -->
+      <div class="phone-frame">
+        <div class="phone-screen">
+          <h4>Push Notifications</h4>
+          <div style="background:white; border-radius:12px; padding:0.75rem; margin-bottom:0.75rem; box-shadow:0 2px 8px rgba(0,0,0,0.1); border-left:4px solid var(--green);">
+            <div style="font-size:0.6rem; color:var(--grey-500); margin-bottom:0.2rem;">Royal Glow</div>
+            <div style="font-size:0.75rem; font-weight:700;">Booking Confirmed! ✓</div>
+            <div style="font-size:0.65rem; color:var(--grey-700); margin-top:0.2rem;">Your appointment on 26 May at 3:30 PM is confirmed. See you!</div>
+          </div>
+          <div style="background:white; border-radius:12px; padding:0.75rem; margin-bottom:0.75rem; box-shadow:0 2px 8px rgba(0,0,0,0.1); border-left:4px solid var(--amber);">
+            <div style="font-size:0.6rem; color:var(--grey-500); margin-bottom:0.2rem;">Royal Glow</div>
+            <div style="font-size:0.75rem; font-weight:700;">Reminder: Tomorrow at 3:30 PM</div>
+            <div style="font-size:0.65rem; color:var(--grey-700); margin-top:0.2rem;">Facial + Waxing at Royal Glow, Rayasandra. We're looking forward to seeing you!</div>
+          </div>
+          <div style="background:white; border-radius:12px; padding:0.75rem; margin-bottom:0.75rem; box-shadow:0 2px 8px rgba(0,0,0,0.1); border-left:4px solid var(--gold);">
+            <div style="font-size:0.6rem; color:var(--grey-500); margin-bottom:0.2rem;">Royal Glow</div>
+            <div style="font-size:0.75rem; font-weight:700;">💎 +13 Gems Earned!</div>
+            <div style="font-size:0.65rem; color:var(--grey-700); margin-top:0.2rem;">You earned 13 gems today. Balance: 55. Browse the catalogue!</div>
+          </div>
+          <div style="font-size:0.55rem; color:var(--grey-500); text-align:center; margin-top:0.5rem;">
+            Push sent via Web Push API + Service Worker
+          </div>
         </div>
       </div>
     </div>
+  </div>
+</section>
 
 
-    <div>
-      <h4>SERVER (Next.js API)</h4>
-      <div class="timeline">
-        <div class="timeline-step">
-          <div class="timeline-dot pending"></div>
-          <div><strong>POST /api/admin/bookings/[id]/approve</strong></div>
-        </div>
-        <div class="timeline-step">
-          <div class="timeline-dot active"></div>
-          <div>UPDATE booking SET status='confirmed'</div>
-        </div>
-        <div class="timeline-step">
-          <div class="timeline-dot active"></div>
-          <div>Publish to <code>admin:bookings</code> channel: <code>booking.confirmed</code></div>
-        </div>
-        <div class="timeline-step">
-          <div class="timeline-dot completed"></div>
-          <div>Publish to <code>customer:{userId}:bookings</code> channel</div>
-        </div>
-      </div>
-    </div>
+<!-- EMAIL & API TAB -->
+<section class="tab-content" id="tab-data">
+  <div class="card">
+    <h3>📧 Email Trigger Map</h3>
+    <table class="data-table">
+      <tr><th>Trigger</th><th>Template</th><th>Recipient</th></tr>
+      <tr><td>Booking confirmed</td><td>booking-confirmed.tsx</td><td>Customer</td></tr>
+      <tr><td>Booking rejected</td><td>booking-rejected.tsx</td><td>Customer</td></tr>
+      <tr><td>Invoice generated</td><td>invoice-receipt.tsx (+PDF)</td><td>Customer</td></tr>
+      <tr><td>Membership created</td><td>membership-welcome.tsx (+PDF)</td><td>Customer</td></tr>
+      <tr><td>Membership T-30d</td><td>membership-expiry.tsx</td><td>Customer</td></tr>
+      <tr><td>Membership T-7d</td><td>membership-urgent.tsx</td><td>Customer</td></tr>
+      <tr><td>Gems redeemed</td><td>gems-redeemed.tsx</td><td>Customer</td></tr>
+      <tr><td>Onboarding complete</td><td>welcome.tsx</td><td>Customer</td></tr>
+      <tr><td>Leave approved</td><td>leave-approved.tsx</td><td>Staff</td></tr>
+      <tr><td>Leave rejected</td><td>leave-rejected.tsx</td><td>Staff</td></tr>
+      <tr><td>No-show recorded</td><td>no-show-warning.tsx</td><td>Customer</td></tr>
+      <tr><td>Daily summary</td><td>daily-summary.tsx</td><td>Owner/Manager</td></tr>
+    </table>
   </div>
 
+  <details>
+    <summary>Push Notification Types</summary>
+    <div class="details-content">
+      <table class="data-table">
+        <tr><th>Type</th><th>Title</th><th>Trigger</th></tr>
+        <tr><td>booking_confirmed</td><td>"Booking Confirmed! ✓"</td><td>Receptionist approves</td></tr>
+        <tr><td>reminder_24h</td><td>"Reminder: Tomorrow at {time}"</td><td>QStash T-24h</td></tr>
+        <tr><td>reminder_1h</td><td>"Almost time! 1 hour to go"</td><td>QStash T-1h</td></tr>
+        <tr><td>booking_rescheduled</td><td>"Booking Rescheduled"</td><td>Admin/customer reschedules</td></tr>
+        <tr><td>booking_rejected</td><td>"Booking Rejected"</td><td>Receptionist rejects</td></tr>
+        <tr><td>gems_earned</td><td>"💎 +{count} Gems Earned!"</td><td>Invoice completed</td></tr>
+        <tr><td>staff_changed</td><td>"Stylist Update"</td><td>Booking reassigned</td></tr>
+      </table>
+    </div>
+  </details>
 
-  <h4>Channel Subscription Example</h4>
-<pre><code>// Client-side channel subscription
-const ably = new Ably.Realtime({
-  authCallback: async (tokenParams, cb) => {
-    const token = await fetch('/api/ably/token');
-    cb(null, await token.json());
-  }
+  <details>
+    <summary>QStash Scheduled Jobs</summary>
+    <div class="details-content">
+      <table class="data-table">
+        <tr><th>Job</th><th>Schedule</th><th>Endpoint</th></tr>
+        <tr><td>Reminder (24h)</td><td>Scheduled per booking</td><td>/api/jobs/send-reminder</td></tr>
+        <tr><td>Reminder (1h)</td><td>Scheduled per booking</td><td>/api/jobs/send-reminder</td></tr>
+        <tr><td>Lead stale alert</td><td>Every 1h</td><td>/api/jobs/lead-followups</td></tr>
+        <tr><td>Membership expiry</td><td>Daily 09:00</td><td>/api/jobs/membership-expiry</td></tr>
+        <tr><td>Daily summary</td><td>Daily 21:00</td><td>/api/jobs/daily-summary</td></tr>
+      </table>
+    </div>
+  </details>
+</section>
+
+<script>
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
 });
-
-const channel = ably.channels.get('admin:bookings');
-channel.subscribe('booking.confirmed', (msg) => {
-  updateBookingStatus(msg.data.bookingId, 'confirmed');
-});</code></pre>
-
-  <h4>Channels</h4>
-  <ul>
-    <li><code>admin:bookings</code> — all admin users</li>
-    <li><code>admin:schedule</code> — schedule page viewers</li>
-    <li><code>admin:leads</code> — lead pipeline viewers</li>
-    <li><code>admin:notifications</code> — notification bell</li>
-    <li><code>customer:{userId}:bookings</code> — specific customer's booking updates</li>
-    <li><code>customer:{userId}:gems</code> — gem balance updates</li>
-  </ul>
-
-
-  <h4>Connection Lifecycle</h4>
-  <ul>
-    <li><strong>Connect</strong> on page mount (<code>useEffect</code>)</li>
-    <li><strong>Disconnect</strong> on page unmount (cleanup)</li>
-    <li><strong>Auto-reconnect</strong> on network loss (Ably handles)</li>
-    <li><strong>Token refresh</strong>: authCallback called when token expires</li>
-  </ul>
-</div>
-
-<hr>
-
-
-<h2>4. UI Update Animations</h2>
-
-<div class="section-card">
-  <h3 style="margin-top:0;">Realtime UI Animations (motion.dev / Framer Motion)</h3>
-
-  <div class="wire-card">
-    <h4 style="margin-top:0;">1. Status Badge Morph</h4>
-    <p>When booking status changes via Ably:</p>
-    <div class="flow-row" style="margin: 1rem 0;">
-      <div>
-        <div style="font-size:12px; color:#6B6B6B; margin-bottom:4px;">BEFORE</div>
-        <span class="wire-badge badge-pending">&#9679; Pending</span>
-      </div>
-      <div style="font-size:24px; color:#C8A961;">&rarr;</div>
-      <div>
-        <div style="font-size:12px; color:#6B6B6B; margin-bottom:4px;">AFTER</div>
-        <span class="wire-badge badge-confirmed">&#9679; Confirmed</span>
-      </div>
-    </div>
-    <p style="font-size:13px; color:#6B6B6B;">Animation: background-color crossfade (400ms, spring easing) + text swap (scale 0.95 &rarr; 1.0, 200ms) + subtle pulse (scale 1.0 &rarr; 1.05 &rarr; 1.0, 300ms)</p>
-  </div>
-
-
-  <div class="wire-card">
-    <h4 style="margin-top:0;">2. New Card Slide-In</h4>
-    <p>When new booking appears in admin list:</p>
-    <div style="margin:1rem 0; border:1px solid #e5e5e5; border-radius:8px; overflow:hidden;">
-      <div style="padding:10px 16px; background:#f9fafb; color:#6B6B6B; font-size:13px;">(existing cards)</div>
-      <div style="padding:10px 16px; background:#FFFBF0; border-top:2px solid #C8A961; font-weight:500;">
-        <span style="color:#C8A961;">NEW:</span> Priya S. &middot; <span class="wire-badge badge-pending">Pending</span><br>
-        <small style="color:#6B6B6B;">Just now</small>
-      </div>
-    </div>
-    <p style="font-size:13px; color:#6B6B6B;">Slides down from top: opacity 0&rarr;1, translateY -20&rarr;0, duration: 300ms, ease-out</p>
-  </div>
-
-  <div class="wire-card">
-    <h4 style="margin-top:0;">3. Slot Fill on Schedule</h4>
-    <p>When <code>slot.booked</code> event arrives:</p>
-    <div class="flow-row" style="margin: 1rem 0;">
-      <div>
-        <div style="font-size:12px; color:#6B6B6B; margin-bottom:4px;">BEFORE</div>
-        <div style="width:100px; height:60px; border:2px dashed #D1D5DB; border-radius:8px; display:flex; align-items:center; justify-content:center; color:#9CA3AF;">avail</div>
-      </div>
-      <div style="font-size:24px; color:#C8A961;">&rarr;</div>
-      <div>
-        <div style="font-size:12px; color:#6B6B6B; margin-bottom:4px;">AFTER</div>
-        <div style="width:100px; height:60px; background:#C8A961; border-radius:8px; display:flex; align-items:center; justify-content:center; color:white; font-weight:500;">Priya</div>
-      </div>
-    </div>
-    <p style="font-size:13px; color:#6B6B6B;">Colour fills from left edge: width 0% &rarr; 100%, 200ms + text fades in at 150ms</p>
-  </div>
-
-
-  <div class="wire-card">
-    <h4 style="margin-top:0;">4. Slot Release on Schedule</h4>
-    <p>When <code>slot.released</code> event arrives:</p>
-    <div class="flow-row" style="margin: 1rem 0;">
-      <div>
-        <div style="font-size:12px; color:#6B6B6B; margin-bottom:4px;">BEFORE</div>
-        <div style="width:100px; height:60px; background:#C8A961; border-radius:8px; display:flex; align-items:center; justify-content:center; color:white; font-weight:500;">Aisha</div>
-      </div>
-      <div style="font-size:24px; color:#C8A961;">&rarr;</div>
-      <div>
-        <div style="font-size:12px; color:#6B6B6B; margin-bottom:4px;">AFTER</div>
-        <div style="width:100px; height:60px; border:2px dashed #D1D5DB; border-radius:8px; display:flex; align-items:center; justify-content:center; color:#9CA3AF;">avail</div>
-      </div>
-    </div>
-    <p style="font-size:13px; color:#6B6B6B;">Colour fades out: opacity 1&rarr;0, 150ms + slight scale down 1.0&rarr;0.98</p>
-  </div>
-
-  <div class="wire-card">
-    <h4 style="margin-top:0;">5. Notification Bell Bounce</h4>
-    <p>When new notification arrives:</p>
-    <div style="text-align:center; margin:1rem 0;">
-      <span style="font-size:36px; display:inline-block; animation: none;">&#128276;</span>
-      <span style="font-size:20px; color:#C8A961; margin:0 12px;">&rarr;</span>
-      <span style="font-size:36px; display:inline-block; transform: rotate(-15deg);">&#128276;</span>
-      <span style="font-size:36px; display:inline-block; transform: rotate(15deg);">&#128276;</span>
-      <span style="font-size:36px; display:inline-block; transform: rotate(0deg);">&#128276;</span>
-    </div>
-    <p style="font-size:13px; color:#6B6B6B;">Rotation: -15&deg; &rarr; 15&deg; &rarr; -10&deg; &rarr; 10&deg; &rarr; 0&deg;, duration: 600ms, spring easing + badge count increments with scale pop</p>
-  </div>
-</div>
-
-<hr>
-
-
-<h2>5. Email Notification Trigger Map</h2>
-
-<p><strong>Via Resend + React Email templates</strong></p>
-
-<table>
-  <thead>
-    <tr>
-      <th>Trigger Action</th>
-      <th>Email Template</th>
-      <th>Recipient</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr><td>Booking confirmed</td><td><code>booking-confirmed.tsx</code></td><td>Customer</td></tr>
-    <tr><td>Booking rejected</td><td><code>booking-rejected.tsx</code></td><td>Customer</td></tr>
-    <tr><td>Booking cancelled</td><td><code>booking-cancelled.tsx</code></td><td>Customer</td></tr>
-    <tr><td>Booking rescheduled</td><td><code>booking-rescheduled.tsx</code></td><td>Customer</td></tr>
-    <tr><td>Staff changed</td><td><code>staff-changed.tsx</code></td><td>Customer</td></tr>
-    <tr><td>Invoice generated</td><td><code>invoice-receipt.tsx</code></td><td>Customer (+ PDF)</td></tr>
-    <tr><td>Membership created</td><td><code>membership-welcome.tsx</code></td><td>Customer (+ PDF)</td></tr>
-    <tr><td>Membership session</td><td><code>session-recorded.tsx</code></td><td>Customer (+ PDF)</td></tr>
-    <tr><td>Membership T-30d</td><td><code>membership-expiry.tsx</code></td><td>Customer</td></tr>
-    <tr><td>Membership T-7d</td><td><code>membership-urgent.tsx</code></td><td>Customer</td></tr>
-
-
-    <tr><td>Membership T-1d</td><td><code>membership-lastday.tsx</code></td><td>Customer</td></tr>
-    <tr><td>Membership expired</td><td><code>membership-expired.tsx</code></td><td>Customer</td></tr>
-    <tr><td>Gems redeemed</td><td><code>gems-redeemed.tsx</code></td><td>Customer</td></tr>
-    <tr><td>Onboarding complete</td><td><code>welcome.tsx</code></td><td>Customer</td></tr>
-    <tr><td>Leave approved</td><td><code>leave-approved.tsx</code></td><td>Staff member</td></tr>
-    <tr><td>Leave rejected</td><td><code>leave-rejected.tsx</code></td><td>Staff member</td></tr>
-    <tr><td>No-show recorded</td><td><code>no-show-warning.tsx</code></td><td>Customer</td></tr>
-    <tr><td>Daily summary</td><td><code>daily-summary.tsx</code></td><td>Owner/Manager</td></tr>
-    <tr><td>Lead stale (48h)</td><td><em>(push only, no email)</em></td><td>Receptionist</td></tr>
-  </tbody>
-</table>
-
-<h4>Rules</h4>
-<ul>
-  <li>Every email has "Unsubscribe" footer (legal requirement)</li>
-  <li>Transactional emails (invoice, booking confirm) always sent</li>
-  <li>Marketing emails (membership expiry CTA) respect preferences</li>
-  <li>All emails: from <code>hello@theroyalglow.in</code> via Resend</li>
-  <li>Reply-to: +91 63601 35720 (WhatsApp link in footer)</li>
-</ul>
-
-<hr>
-
-
-<h2>6. Notification Bell — Admin Header</h2>
-
-<div class="wire-card" style="padding:0; overflow:hidden;">
-  <div class="header-bar">
-    <div style="display:flex; align-items:center; gap:12px;">
-      <span style="font-size:18px;">&#128081;</span>
-      <strong>Royal Glow Admin</strong>
-      <nav style="margin-left:2rem; display:flex; gap:1rem; font-size:14px;">
-        <span>/bookings</span>
-        <span>/customers</span>
-        <span>/leads</span>
-      </nav>
-    </div>
-    <div style="display:flex; align-items:center; gap:16px;">
-      <div class="bell-icon">
-        &#128276;
-        <span class="bell-badge">3</span>
-      </div>
-      <span>&#128100;</span>
-    </div>
-  </div>
-
-
-  <div style="max-width:440px; margin-left:auto; border:1px solid #e5e5e5; border-radius:0 0 12px 12px; background:white;">
-    <div style="padding:12px 16px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f0f0f0;">
-      <strong>Notifications</strong>
-      <span class="wire-btn wire-btn-outline" style="padding:6px 12px; font-size:12px;">Mark all read</span>
-    </div>
-
-    <div class="notif-item unread">
-      <div class="notif-dot blue"></div>
-      <div>
-        <strong>New booking from Priya S.</strong><br>
-        <small style="color:#6B6B6B;">Facial + Waxing &middot; 24 May 03:30 PM</small>
-      </div>
-      <small style="color:#9CA3AF; margin-left:auto; white-space:nowrap;">2 min ago</small>
-    </div>
-
-    <div class="notif-item unread">
-      <div class="notif-dot blue"></div>
-      <div>
-        <strong>Stale lead: Neha (72h+)</strong><br>
-        <small style="color:#6B6B6B;">Bridal package inquiry &middot; meta/bridal_jun</small>
-      </div>
-      <small style="color:#9CA3AF; margin-left:auto; white-space:nowrap;">1 hr ago</small>
-    </div>
-
-
-    <div class="notif-item unread">
-      <div class="notif-dot blue"></div>
-      <div>
-        <strong>Leave request from Meera</strong><br>
-        <small style="color:#6B6B6B;">Sick leave 21–22 May (&#9888;&#65039; has bookings)</small>
-      </div>
-      <small style="color:#9CA3AF; margin-left:auto; white-space:nowrap;">3 hr ago</small>
-    </div>
-
-    <div class="notif-item">
-      <div class="notif-dot grey"></div>
-      <div>
-        Booking completed: Aisha K.<br>
-        <small style="color:#6B6B6B;">Invoice #INV..5002 generated (&#8377;2,500)</small>
-      </div>
-      <small style="color:#9CA3AF; margin-left:auto; white-space:nowrap;">5 hr ago</small>
-    </div>
-
-    <div class="notif-item">
-      <div class="notif-dot grey"></div>
-      <div>
-        Daily summary ready<br>
-        <small style="color:#6B6B6B;">12 bookings &middot; &#8377;15,600 revenue</small>
-      </div>
-      <small style="color:#9CA3AF; margin-left:auto; white-space:nowrap;">Yesterday</small>
-    </div>
-
-    <div style="padding:12px 16px; text-align:center; border-top:1px solid #f0f0f0;">
-      <a href="#" style="font-weight:500;">View All Notifications &rarr;</a>
-    </div>
-  </div>
-</div>
-
-
-<p style="margin-top:1rem; font-size:14px; color:#6B6B6B;">
-  <span class="notif-dot blue" style="display:inline-block; vertical-align:middle;"></span> = unread (bold text, blue dot) &nbsp;&nbsp;
-  <span class="notif-dot grey" style="display:inline-block; vertical-align:middle;"></span> = read (normal weight, no dot) &nbsp;&nbsp;
-  <strong style="color:#EF4444;">(3)</strong> = unread count badge (red circle, max "9+")
-</p>
-<p style="font-size:14px; color:#6B6B6B;">Updates in realtime via Ably channel: <code>admin:notifications</code>. New notification &rarr; bell bounces + badge count increments.</p>
-
-<hr>
-
-
-<h2>7. Customer Notification Preferences — <code>/profile</code></h2>
-
-<div class="phone-frame">
-  <div class="phone-notch"></div>
-  <div class="phone-screen">
-    <h3 style="margin-top:12px; font-size:18px;">Notification Preferences</h3>
-
-    <h4 style="margin-bottom:4px;">Push Notifications (Browser)</h4>
-    <p style="font-size:13px; margin:0 0 8px;">Status: <span style="color:#10B981; font-weight:600;">&#9679; Enabled</span></p>
-    <span class="wire-btn wire-btn-outline" style="font-size:12px; padding:8px 16px; margin-bottom:16px;">Disable Push Notifications</span>
-
-    <div style="margin-top:16px;">
-      <div class="toggle-row">
-        <span>Booking confirmations</span>
-        <div class="toggle-switch on"></div>
-      </div>
-      <div class="toggle-row">
-        <span>Booking reminders (24h/1h)</span>
-        <div class="toggle-switch on"></div>
-      </div>
-      <div class="toggle-row">
-        <span>Booking changes</span>
-        <div class="toggle-switch on"></div>
-      </div>
-      <div class="toggle-row">
-        <span>Gems &amp; rewards</span>
-        <div class="toggle-switch on"></div>
-      </div>
-
-
-      <div class="toggle-row">
-        <span>Membership alerts</span>
-        <div class="toggle-switch on"></div>
-      </div>
-      <div class="toggle-row">
-        <span>Offers &amp; promotions</span>
-        <div class="toggle-switch off"></div>
-      </div>
-    </div>
-
-    <h4 style="margin-top:24px; margin-bottom:4px;">Email Notifications</h4>
-    <div>
-      <div class="toggle-row">
-        <span>Invoice receipts (PDF)</span>
-        <div class="toggle-switch on"></div>
-      </div>
-      <div class="toggle-row">
-        <span>Booking confirmations</span>
-        <div class="toggle-switch on"></div>
-      </div>
-      <div class="toggle-row">
-        <span>Booking reminders</span>
-        <div class="toggle-switch off"></div>
-      </div>
-      <div class="toggle-row">
-        <span>Membership expiry alerts</span>
-        <div class="toggle-switch on"></div>
-      </div>
-      <div class="toggle-row">
-        <span>Gems summary (monthly)</span>
-        <div class="toggle-switch on"></div>
-      </div>
-      <div class="toggle-row">
-        <span>Offers &amp; promotions</span>
-        <div class="toggle-switch off"></div>
-      </div>
-    </div>
-
-
-    <p style="font-size:12px; color:#6B6B6B; margin-top:16px;">Note: Invoice receipts and booking confirmations cannot be fully disabled (transactional emails). Toggle only controls the push notification.</p>
-
-    <div style="text-align:center; margin-top:20px;">
-      <span class="wire-btn wire-btn-primary">Save Preferences</span>
-    </div>
-  </div>
-</div>
-
-<hr>
-
-
-<h2>8. QStash Scheduled Job &rarr; Notification Delivery</h2>
-
-<div class="flow-container">
-  <div class="flow-node trigger">Booking Confirmed<br><small>26 May 2026 &middot; 15:30</small></div>
-  <div class="flow-arrow"></div>
-  <div class="flow-branch">
-    <div style="text-align:center;">
-      <div class="flow-node decision">QStash: reminder_24h<br><small>Deliver at: 25 May 15:30 (T-24h)</small></div>
-      <div class="flow-label">POST /api/jobs/send-reminder<br>Body: { bookingId, type: '24h' }</div>
-    </div>
-    <div style="text-align:center;">
-      <div class="flow-node decision">QStash: reminder_1h<br><small>Deliver at: 26 May 14:30 (T-1h)</small></div>
-      <div class="flow-label">POST /api/jobs/send-reminder<br>Body: { bookingId, type: '1h' }</div>
-    </div>
-  </div>
-  <div class="flow-arrow"></div>
-
-
-  <div class="flow-node process" style="text-align:left; max-width:550px;">
-    <strong>Delivery Pipeline (when QStash fires)</strong>
-    <ol style="margin:8px 0 0 0; padding-left:1.4rem; font-size:14px;">
-      <li>Verify QStash signature (security)</li>
-      <li>Fetch booking from DB</li>
-      <li>Check: booking still confirmed? (skip if cancelled)</li>
-      <li>Check: customer preferences (push enabled? email enabled?)</li>
-      <li>Send push notification (if enabled) — <code>web-push.sendNotification(subscription, payload)</code></li>
-      <li>Send email (if enabled) — <code>Resend.emails.send({ template, to, data })</code></li>
-      <li>Log delivery status</li>
-    </ol>
-  </div>
-</div>
-
-<h4>Other Scheduled Jobs</h4>
-
-<table>
-  <thead>
-    <tr>
-      <th>Job</th>
-      <th>Schedule</th>
-      <th>Endpoint</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr><td>Lead stale alert</td><td>Every 1h</td><td><code>/api/jobs/lead-followups</code></td></tr>
-    <tr><td>Membership expiry</td><td>Daily 09:00</td><td><code>/api/jobs/membership-expiry</code></td></tr>
-    <tr><td>Daily summary</td><td>Daily 21:00</td><td><code>/api/jobs/daily-summary</code></td></tr>
-    <tr><td>Dormant customer</td><td>Weekly Mon</td><td><code>/api/jobs/dormant-check</code></td></tr>
-    <tr><td>No-show followup</td><td>T+2h after missed appt</td><td><code>/api/jobs/noshow-followup</code></td></tr>
-  </tbody>
-</table>
-
-
-<h4>Failure Handling</h4>
-<ul>
-  <li>QStash retries 3x with exponential backoff</li>
-  <li>Dead letter queue for inspection</li>
-  <li>Push subscription invalid &rarr; delete from DB (410 Gone response)</li>
-  <li>Email bounce &rarr; mark customer email as invalid</li>
-</ul>
-
-<hr>
-
-
-<h2>9. Permission Strategy — Ask After First Booking</h2>
-
-<div class="section-card">
-  <h3 style="margin-top:0;">Push Permission Strategy</h3>
-  <p><strong>RULE:</strong> NEVER ask for push permission on first page load. Ask AFTER the user has completed their first booking.</p>
-
-  <h4>Timing</h4>
-  <div class="flow-container" style="flex-direction:row; flex-wrap:wrap; gap:8px;">
-    <span class="wire-badge badge-completed">First visit</span>
-    <span style="color:#C8A961;">&rarr;</span>
-    <span class="wire-badge badge-completed">Browse</span>
-    <span style="color:#C8A961;">&rarr;</span>
-    <span class="wire-badge badge-completed">Sign in</span>
-    <span style="color:#C8A961;">&rarr;</span>
-    <span class="wire-badge badge-confirmed">Book</span>
-    <span style="color:#C8A961;">&rarr;</span>
-    <span class="wire-badge badge-active">Confirmation page</span>
-  </div>
-
-  <h4>Confirmation Page Prompt</h4>
-  <div class="wire-card" style="max-width:480px; margin:1rem auto; text-align:center;">
-    <div style="font-size:28px; margin-bottom:8px; color:#10B981;">&#10003;</div>
-    <h3 style="margin:0 0 8px;">Booking Submitted!</h3>
-    <p style="color:#6B6B6B;">Our team will confirm shortly.</p>
-
-
-    <div style="background:#FFFBF0; border:1px solid #F59E0B; border-radius:12px; padding:20px; margin-top:16px; text-align:center;">
-      <div style="font-size:24px; margin-bottom:8px;">&#128276;</div>
-      <strong>Get notified instantly</strong>
-      <p style="color:#6B6B6B; font-size:14px; margin:8px 0 16px;">We'll let you know the moment your booking is confirmed. No need to check back!</p>
-      <span class="wire-btn wire-btn-primary">Enable Notifications</span>
-      <span class="wire-btn wire-btn-outline">Maybe Later</span>
-    </div>
-  </div>
-
-  <p style="margin-top:1rem;">User clicks "Enable Notifications" &rarr; Browser native permission prompt appears (standard browser dialog — cannot be styled).</p>
-
-  <h4>Fallback Banner</h4>
-  <p>If user clicks "Maybe Later" or dismisses, show again on <strong>second visit</strong> (not immediately). Track in <code>localStorage: push_prompt_dismissed_at</code>.</p>
-
-
-  <div class="wire-card" style="display:flex; align-items:center; justify-content:space-between; background:#FFFBF0; border:1px solid #F59E0B;">
-    <div style="display:flex; align-items:center; gap:8px;">
-      <span style="font-size:18px;">&#128276;</span>
-      <span>Never miss a booking update.</span>
-    </div>
-    <div>
-      <span class="wire-btn wire-btn-primary" style="padding:8px 16px; font-size:13px;">Enable Notifications</span>
-      <span class="wire-btn wire-btn-outline" style="padding:8px 16px; font-size:13px;">Dismiss</span>
-    </div>
-  </div>
-  <p style="font-size:13px; color:#6B6B6B;">(Top banner, dismissible, non-intrusive)</p>
-
-  <h4>Stop Asking Rules</h4>
-  <ul>
-    <li><strong>2 dismissals</strong> &rarr; respect the choice permanently</li>
-    <li><strong>Permission denied</strong> &rarr; cannot ask again (browser blocks it)</li>
-    <li><strong>Permission granted</strong> &rarr; no need to ask</li>
-  </ul>
-
-  <h4>Why This Strategy</h4>
-  <ul>
-    <li><strong>Context:</strong> User just booked, WANTS to know when it's confirmed</li>
-    <li><strong>Value prop clear:</strong> "Know instantly" vs generic "Allow notifications"</li>
-    <li><strong>Higher grant rate:</strong> 60-70% vs 20-30% for cold prompts</li>
-    <li><strong>No dark patterns:</strong> "Maybe Later" is equally prominent</li>
-  </ul>
-</div>
-
+</script>
 </body>
 </html>

@@ -3,486 +3,1308 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Authentication &amp; Onboarding Flow — Design Reference</title>
+<title>Auth &amp; Onboarding Flow — Royal Glow Salon &amp; SPA</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1200px; margin: 0 auto; padding: 2rem; line-height: 1.6; color: #1a1a1a; background: #fffdf7; }
-  h1, h2, h3, h4 { color: #1a1a1a; margin-top: 2rem; }
-  h1 { border-bottom: 2px solid #c8a961; padding-bottom: 0.5rem; }
-  h2 { border-bottom: 1px solid #e5e5e5; padding-bottom: 0.3rem; }
-  pre { background: #1a1a1a; color: #e5e5e5; padding: 1.5rem; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; line-height: 1.4; }
-  code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 14px; }
-  pre code { background: none; padding: 0; }
-  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
-  th, td { border: 1px solid #e5e5e5; padding: 10px 14px; text-align: left; }
-  th { background: #f9fafb; font-weight: 600; }
-  tr:nth-child(even) { background: #fafafa; }
-  blockquote { border-left: 4px solid #c8a961; margin: 1rem 0; padding: 0.5rem 1rem; background: #fff8f0; }
-  hr { border: none; border-top: 1px solid #e5e5e5; margin: 2rem 0; }
-  ul, ol { padding-left: 1.5rem; }
-  li { margin: 0.3rem 0; }
-  a { color: #c8a961; text-decoration: none; }
-  a:hover { text-decoration: underline; }
+:root {
+  --gold: #C8A961;
+  --gold-light: #FEF3C7;
+  --gold-bg: #FFFDF7;
+  --dark: #1a1a1a;
+  --grey-100: #f9fafb;
+  --grey-200: #f3f4f6;
+  --grey-300: #e5e5e5;
+  --grey-500: #6B6B6B;
+  --grey-700: #374151;
+  --green: #10B981;
+  --green-light: #D1FAE5;
+  --green-dark: #065F46;
+  --red: #EF4444;
+  --red-light: #FEE2E2;
+  --red-dark: #991B1B;
+  --amber: #F59E0B;
+  --amber-light: #FEF3C7;
+  --blue: #3B82F6;
+  --blue-light: #DBEAFE;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --radius: 12px;
+  --shadow: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: var(--font);
+  background: var(--gold-bg);
+  color: var(--dark);
+  line-height: 1.6;
+  min-height: 100vh;
+}
 
 
-  .flow-container { display: flex; flex-direction: column; align-items: center; gap: 0; margin: 2rem 0; }
-  .flow-row { display: flex; align-items: center; justify-content: center; gap: 1.5rem; }
-  .flow-node { padding: 14px 24px; border-radius: 12px; font-weight: 500; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); min-width: 180px; position: relative; }
-  .flow-node.trigger { background: #C8A961; color: white; }
-  .flow-node.process { background: white; border: 2px solid #e5e5e5; border-left: 4px solid #C8A961; }
-  .flow-node.decision { background: #FEF3C7; border: 2px solid #F59E0B; }
-  .flow-node.success { background: #D1FAE5; border: 2px solid #10B981; color: #065F46; }
-  .flow-node.error { background: #FEE2E2; border: 2px solid #EF4444; color: #991B1B; }
-  .flow-node.end { background: #1a1a1a; color: white; }
-  .flow-arrow { width: 2px; height: 32px; background: #C8A961; position: relative; margin: 0 auto; }
-  .flow-arrow::after { content: ''; position: absolute; bottom: -6px; left: -5px; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #C8A961; }
-  .flow-arrow-right { width: 40px; height: 2px; background: #C8A961; position: relative; }
-  .flow-arrow-right::after { content: ''; position: absolute; right: -6px; top: -5px; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 8px solid #C8A961; }
-  .flow-branch { display: flex; gap: 2rem; justify-content: center; }
-  .flow-label { font-size: 12px; color: #6B6B6B; text-align: center; margin-top: 4px; }
+/* Header */
+.page-header {
+  background: linear-gradient(135deg, var(--dark) 0%, #2d2d2d 100%);
+  color: white;
+  padding: 2rem;
+  text-align: center;
+  border-bottom: 3px solid var(--gold);
+}
+.page-header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+.page-header h1 span { color: var(--gold); }
+.page-header p {
+  color: #aaa;
+  font-size: 0.95rem;
+}
+
+/* Tab Navigation */
+.tab-nav {
+  display: flex;
+  gap: 0;
+  background: white;
+  border-bottom: 2px solid var(--grey-300);
+  overflow-x: auto;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow);
+}
+.tab-btn {
+  padding: 1rem 1.5rem;
+  border: none;
+  background: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--grey-500);
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s ease;
+}
+.tab-btn:hover { color: var(--dark); background: var(--grey-100); }
+.tab-btn.active {
+  color: var(--gold);
+  border-bottom-color: var(--gold);
+  background: var(--gold-bg);
+}
 
 
-  .phone-frame { width: 375px; border: 3px solid #1a1a1a; border-radius: 40px; padding: 12px; margin: 2rem auto; background: white; box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
-  .phone-screen { border-radius: 28px; overflow: hidden; min-height: 600px; background: #FFFDF7; padding: 16px; }
-  .phone-notch { width: 150px; height: 24px; background: #1a1a1a; border-radius: 0 0 12px 12px; margin: 0 auto; }
-  .wire-header { background: white; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0f0f0; }
-  .wire-btn { padding: 12px 24px; border-radius: 999px; font-weight: 600; text-align: center; cursor: pointer; border: none; display: inline-block; margin: 4px; }
-  .wire-btn-primary { background: #C8A961; color: white; }
-  .wire-btn-outline { border: 2px solid #C8A961; color: #C8A961; background: white; }
-  .wire-btn-danger { background: #EF4444; color: white; }
-  .wire-btn-google { background: #4285F4; color: white; }
-  .wire-input { width: 100%; padding: 12px 16px; border: 1px solid #e5e5e5; border-radius: 12px; font-size: 14px; margin: 8px 0; box-sizing: border-box; }
-  .wire-input.locked { background: #f3f4f6; color: #6b7280; }
-  .wire-card { background: white; border: 1px solid #f0f0f0; border-radius: 12px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-  .wire-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 500; }
+/* Tab Content */
+.tab-content { display: none; padding: 2rem; max-width: 1200px; margin: 0 auto; }
+.tab-content.active { display: block; }
+
+/* Cards */
+.card {
+  background: white;
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--grey-200);
+}
+.card h3 {
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  color: var(--dark);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Quick Summary Grid */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+.summary-item {
+  background: var(--grey-100);
+  border-radius: 8px;
+  padding: 1rem;
+  border-left: 4px solid var(--gold);
+}
+.summary-item .label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--grey-500);
+  margin-bottom: 0.25rem;
+}
+.summary-item .value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--dark);
+}
 
 
-  .section-card { background: white; border: 1px solid #f0f0f0; border-radius: 16px; padding: 2rem; margin: 1.5rem 0; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
-  .desktop-frame { max-width: 800px; border: 2px solid #e5e5e5; border-radius: 12px; margin: 2rem auto; background: linear-gradient(135deg, #f8f4eb 0%, #fffdf7 100%); padding: 3rem; display: flex; justify-content: center; align-items: center; }
-  .consent-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; }
-  .consent-checkbox { width: 20px; height: 20px; border: 2px solid #C8A961; border-radius: 4px; flex-shrink: 0; margin-top: 2px; }
-  .consent-checkbox.checked { background: #C8A961; }
-  .state-card { border: 1px solid #e5e5e5; border-radius: 12px; padding: 1.5rem; margin: 1rem 0; }
-  .state-card.error-state { border-color: #EF4444; background: #FEF2F2; }
-  .state-card.loading-state { border-color: #F59E0B; background: #FFFBEB; }
-  .state-card.success-state { border-color: #10B981; background: #ECFDF5; }
-  .cookie-banner { background: white; border: 1px solid #e5e5e5; border-radius: 16px; padding: 1.5rem; margin: 2rem 0; box-shadow: 0 -4px 20px rgba(0,0,0,0.1); }
-  .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
-  .toggle { width: 44px; height: 24px; border-radius: 12px; position: relative; }
-  .toggle.on { background: #C8A961; }
-  .toggle.off { background: #e5e5e5; }
-  .toggle.locked { background: #10B981; }
+/* SVG Styles */
+.flow-container {
+  overflow-x: auto;
+  padding: 1rem;
+  background: white;
+  border-radius: var(--radius);
+  border: 1px solid var(--grey-200);
+}
+.flow-container svg { display: block; margin: 0 auto; }
+.flow-container svg text {
+  font-family: var(--font);
+  font-size: 11px;
+}
+.flow-container svg .node-rect {
+  stroke-width: 2;
+  rx: 8;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.flow-container svg .node-rect:hover {
+  filter: brightness(0.95);
+  stroke-width: 3;
+}
+.flow-container svg .decision {
+  stroke-width: 2;
+  cursor: pointer;
+}
+.flow-container svg .decision:hover {
+  filter: brightness(0.9);
+}
+
+/* Wireframe Phone */
+.wireframe-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+  padding: 1rem 0;
+}
+.phone-frame {
+  background: white;
+  border: 3px solid var(--dark);
+  border-radius: 32px;
+  padding: 1rem;
+  width: 280px;
+  margin: 0 auto;
+  box-shadow: var(--shadow-lg);
+  position: relative;
+}
+.phone-frame::before {
+  content: '';
+  display: block;
+  width: 60px;
+  height: 6px;
+  background: var(--grey-300);
+  border-radius: 3px;
+  margin: 0 auto 1rem;
+}
+
+
+.phone-screen {
+  background: var(--grey-100);
+  border-radius: 16px;
+  padding: 1rem;
+  min-height: 400px;
+}
+.phone-screen h4 {
+  font-size: 0.85rem;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+  text-align: center;
+}
+
+/* Wireframe elements */
+.wire-input {
+  background: white;
+  border: 1px solid var(--grey-300);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  width: 100%;
+}
+.wire-input.locked {
+  background: var(--grey-200);
+  color: var(--grey-500);
+  border-style: dashed;
+}
+.wire-input-label {
+  font-size: 0.65rem;
+  color: var(--grey-500);
+  margin-bottom: 0.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.wire-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.7rem;
+}
+.wire-checkbox-box {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--gold);
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.wire-checkbox-box.checked {
+  background: var(--gold);
+}
+
+
+.wire-btn {
+  display: block;
+  width: 100%;
+  padding: 0.7rem;
+  margin-top: 1rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--gold);
+  color: white;
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-align: center;
+  cursor: pointer;
+}
+.wire-btn:hover { background: #B8963E; }
+.wire-btn.secondary {
+  background: white;
+  color: var(--gold);
+  border: 2px solid var(--gold);
+}
+.wire-btn.google {
+  background: white;
+  color: var(--dark);
+  border: 2px solid var(--grey-300);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.wire-logo {
+  width: 100%;
+  max-width: 120px;
+  margin: 2rem auto 1.5rem;
+  display: block;
+  text-align: center;
+}
+.wire-divider {
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--grey-500);
+  margin: 1rem 0;
+  position: relative;
+}
+.wire-divider::before,
+.wire-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 30%;
+  height: 1px;
+  background: var(--grey-300);
+}
+.wire-divider::before { left: 0; }
+.wire-divider::after { right: 0; }
+
+
+/* Details / Collapsible */
+details {
+  background: white;
+  border: 1px solid var(--grey-200);
+  border-radius: var(--radius);
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+details summary {
+  padding: 1rem 1.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--grey-100);
+  border-bottom: 1px solid var(--grey-200);
+  transition: background 0.2s;
+}
+details summary:hover { background: var(--grey-200); }
+details[open] summary { background: var(--gold-light); }
+details .content { padding: 1.5rem; }
+
+/* Code blocks */
+pre {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  border-radius: 8px;
+  padding: 1.25rem;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.7;
+  margin: 1rem 0;
+}
+code {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+}
+.inline-code {
+  background: var(--grey-200);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+/* Tables */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin: 1rem 0;
+}
+.data-table th, .data-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--grey-200);
+}
+.data-table th {
+  background: var(--grey-100);
+  font-weight: 600;
+  color: var(--grey-700);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.03em;
+}
+.data-table tr:hover td { background: var(--gold-bg); }
+
+
+/* Status Badges */
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.badge-required { background: var(--red-light); color: var(--red-dark); }
+.badge-optional { background: var(--blue-light); color: #1E40AF; }
+.badge-locked { background: var(--grey-200); color: var(--grey-700); }
+.badge-success { background: var(--green-light); color: var(--green-dark); }
+
+/* Side effects list */
+.side-effects-list {
+  list-style: none;
+  counter-reset: step;
+}
+.side-effects-list li {
+  counter-increment: step;
+  padding: 0.75rem 1rem 0.75rem 3rem;
+  margin-bottom: 0.5rem;
+  background: var(--grey-100);
+  border-radius: 8px;
+  border-left: 3px solid var(--gold);
+  position: relative;
+  font-size: 0.85rem;
+}
+.side-effects-list li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0.75rem;
+  top: 0.75rem;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--gold);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Print Styles */
+@media print {
+  .tab-nav { display: none; }
+  .tab-content { display: block !important; page-break-inside: avoid; }
+  .page-header { background: white; color: black; border-bottom: 2px solid black; }
+  .page-header h1 span { color: black; }
+  .page-header p { color: #666; }
+  body { background: white; }
+  .card { box-shadow: none; border: 1px solid #ccc; }
+  .phone-frame { box-shadow: none; }
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .page-header { padding: 1.5rem 1rem; }
+  .page-header h1 { font-size: 1.4rem; }
+  .tab-nav { gap: 0; }
+  .tab-btn { padding: 0.75rem 1rem; font-size: 0.8rem; }
+  .tab-content { padding: 1rem; }
+  .summary-grid { grid-template-columns: 1fr 1fr; }
+  .wireframe-grid { grid-template-columns: 1fr; }
+  .phone-frame { width: 100%; max-width: 300px; }
+  pre { font-size: 0.7rem; padding: 0.75rem; }
+}
 </style>
 </head>
 <body>
 
 
-<h1>Authentication &amp; Onboarding Flow — Design Reference</h1>
-<blockquote><p>The complete sign-in → onboarding → redirect journey. Google OAuth only — no email/password. Designed to minimise friction while collecting necessary data and consent.</p></blockquote>
-<hr>
+<!-- Header -->
+<header class="page-header">
+  <h1>🔐 Auth &amp; Onboarding <span>Flow</span></h1>
+  <p>Royal Glow Salon &amp; SPA — Authentication &amp; First-time User Onboarding</p>
+</header>
 
-<h2>1. Complete Auth Flow (State Machine)</h2>
+<!-- Tab Navigation -->
+<nav class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('overview')">Overview</button>
+  <button class="tab-btn" onclick="switchTab('flow')">Flow Diagram</button>
+  <button class="tab-btn" onclick="switchTab('wireframes')">Wireframes</button>
+  <button class="tab-btn" onclick="switchTab('states')">States &amp; Errors</button>
+  <button class="tab-btn" onclick="switchTab('data')">Data &amp; API</button>
+</nav>
 
-<div class="flow-container">
-  <div class="flow-node trigger">User triggers action requiring auth (e.g., "Book Now")</div>
-  <div class="flow-arrow"></div>
-  <div class="flow-node decision">CHECK: Is user signed in?</div>
-  <div class="flow-arrow"></div>
-  <div class="flow-branch">
+
+<!-- ==================== OVERVIEW TAB ==================== -->
+<section id="tab-overview" class="tab-content active">
+  <div class="card">
+    <h3>📋 Quick Summary</h3>
+    <div class="summary-grid">
+      <div class="summary-item">
+        <div class="label">Route</div>
+        <div class="value">/sign-in → /onboarding</div>
+      </div>
+      <div class="summary-item">
+        <div class="label">Auth Method</div>
+        <div class="value">Google OAuth Only</div>
+      </div>
+      <div class="summary-item">
+        <div class="label">Purpose</div>
+        <div class="value">Sign-in → Profile → Consent → Redirect</div>
+      </div>
+      <div class="summary-item">
+        <div class="label">Role</div>
+        <div class="value">customer</div>
+      </div>
+      <div class="summary-item">
+        <div class="label">Key Feature</div>
+        <div class="value">sessionStorage context preservation</div>
+      </div>
+      <div class="summary-item">
+        <div class="label">Storage Key</div>
+        <div class="value">rgss_auth_context</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>🔑 Authentication Strategy</h3>
+    <p style="margin-bottom:1rem;">Royal Glow uses <strong>Google OAuth only</strong> — no email/password authentication. This simplifies the UX, eliminates password-reset flows, and leverages Google's security infrastructure.</p>
+    <table class="data-table">
+      <thead>
+        <tr><th>Aspect</th><th>Detail</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Provider</td><td>Google OAuth 2.0 (via NextAuth.js)</td></tr>
+        <tr><td>Scopes</td><td><code class="inline-code">openid profile email</code></td></tr>
+        <tr><td>Session</td><td>JWT stored in httpOnly cookie</td></tr>
+        <tr><td>Token Refresh</td><td>Automatic via NextAuth rotation</td></tr>
+        <tr><td>Calendar Access</td><td>Incremental consent — asked AFTER first booking confirmed</td></tr>
+        <tr><td>No-Password Policy</td><td>No email/password forms, no magic links, no OTP</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+
+  <div class="card">
+    <h3>🚀 Flow Overview</h3>
+    <p style="margin-bottom:1rem;">The auth flow is triggered when an unauthenticated user performs a protected action (e.g., "Book Now"). Context is stored in <code class="inline-code">sessionStorage</code> before redirecting.</p>
+    <ol style="padding-left:1.5rem; font-size:0.9rem;">
+      <li>User triggers an auth-requiring action (Book Now, Join Membership, etc.)</li>
+      <li>App stores context in <code class="inline-code">sessionStorage['rgss_auth_context']</code></li>
+      <li>Redirect to <code class="inline-code">/sign-in</code></li>
+      <li>User clicks "Sign in with Google" → Google OAuth consent screen</li>
+      <li>OAuth callback received → session created</li>
+      <li><strong>First-time user?</strong> → Redirect to <code class="inline-code">/onboarding</code></li>
+      <li><strong>Returning user?</strong> → Redirect to <code class="inline-code">/</code> + restore context</li>
+      <li>Onboarding: collect phone, DOB, gender, consent → save profile</li>
+      <li>Redirect to <code class="inline-code">/</code> → read <code class="inline-code">sessionStorage</code> → restore action</li>
+      <li>Context restored: if <code class="inline-code">book=1</code> → open booking dialog; if <code class="inline-code">leadId</code> → link lead</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h3>⚡ Key Design Decisions</h3>
+    <ul style="padding-left:1.5rem; font-size:0.9rem;">
+      <li><strong>sessionStorage over localStorage</strong> — context dies with tab, no stale data across sessions</li>
+      <li><strong>Google Calendar incremental consent</strong> — asked only after first booking is confirmed, not at sign-in</li>
+      <li><strong>Cookie consent integration</strong> — if user consents on onboarding, banner is suppressed for those categories</li>
+      <li><strong>Session expiry re-auth</strong> — user re-authenticates but skips onboarding (profile already complete)</li>
+      <li><strong>No password reset flow</strong> — eliminated entirely by Google-only strategy</li>
+      <li><strong>Lead linking</strong> — if user arrived via lead capture, <code class="inline-code">leadId</code> in context links anonymous lead to authenticated user</li>
+    </ul>
+  </div>
+</section>
+
+
+<!-- ==================== FLOW DIAGRAM TAB ==================== -->
+<section id="tab-flow" class="tab-content">
+  <div class="card">
+    <h3>🔄 Authentication &amp; Onboarding Flow</h3>
+    <p style="margin-bottom:1rem; font-size:0.9rem;">Complete flow from auth trigger through onboarding to context restoration.</p>
     <div class="flow-container">
-      <div class="flow-label">YES</div>
-      <div class="flow-arrow"></div>
-      <div class="flow-node decision">Is profile complete?</div>
-      <div class="flow-arrow"></div>
-      <div class="flow-branch">
-        <div class="flow-container">
-          <div class="flow-label">YES</div>
-          <div class="flow-arrow"></div>
-          <div class="flow-node success">Proceed to action (open dialog, etc.)</div>
+      <svg width="820" height="1100" viewBox="0 0 820 1100" xmlns="http://www.w3.org/2000/svg">
+        <!-- Arrow marker definitions -->
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#C8A961"/>
+          </marker>
+          <marker id="arrowhead-green" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#10B981"/>
+          </marker>
+          <marker id="arrowhead-red" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#EF4444"/>
+          </marker>
+        </defs>
+
+
+        <!-- Node 1: Trigger -->
+        <rect class="node-rect" x="290" y="20" width="240" height="44" fill="#C8A961" stroke="#B8963E" rx="8"/>
+        <text x="410" y="47" text-anchor="middle" fill="white" font-weight="600" font-size="12">User triggers auth-required action</text>
+
+        <!-- Arrow down -->
+        <line x1="410" y1="64" x2="410" y2="94" stroke="#C8A961" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+        <!-- Node 2: Store context -->
+        <rect class="node-rect" x="280" y="94" width="260" height="44" fill="white" stroke="#C8A961" rx="8"/>
+        <text x="410" y="113" text-anchor="middle" fill="#1a1a1a" font-size="11">Store context in sessionStorage</text>
+        <text x="410" y="128" text-anchor="middle" fill="#6B6B6B" font-size="9">key: 'rgss_auth_context'</text>
+
+        <!-- Arrow down -->
+        <line x1="410" y1="138" x2="410" y2="168" stroke="#C8A961" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+        <!-- Decision: Is user signed in? -->
+        <polygon class="decision" points="410,168 530,208 410,248 290,208" fill="#FEF3C7" stroke="#F59E0B"/>
+        <text x="410" y="205" text-anchor="middle" fill="#1a1a1a" font-size="11" font-weight="600">Signed in?</text>
+        <text x="410" y="218" text-anchor="middle" fill="#6B6B6B" font-size="9">check session</text>
+
+
+        <!-- YES branch (right) - Is profile complete? -->
+        <line x1="530" y1="208" x2="630" y2="208" stroke="#10B981" stroke-width="2" marker-end="url(#arrowhead-green)"/>
+        <text x="565" y="200" fill="#10B981" font-size="10" font-weight="600">YES</text>
+
+        <!-- Decision: Profile complete? -->
+        <polygon class="decision" points="700,168 790,208 700,248 610,208" fill="#D1FAE5" stroke="#10B981"/>
+        <text x="700" y="205" text-anchor="middle" fill="#065F46" font-size="10" font-weight="600">Profile</text>
+        <text x="700" y="218" text-anchor="middle" fill="#065F46" font-size="9">complete?</text>
+
+        <!-- Profile YES → Proceed -->
+        <line x1="700" y1="168" x2="700" y2="130" stroke="#10B981" stroke-width="2" marker-end="url(#arrowhead-green)"/>
+        <text x="715" y="152" fill="#10B981" font-size="9" font-weight="600">YES</text>
+        <rect class="node-rect" x="630" y="86" width="140" height="44" fill="#D1FAE5" stroke="#10B981" rx="8"/>
+        <text x="700" y="112" text-anchor="middle" fill="#065F46" font-size="11" font-weight="600">Proceed with action</text>
+
+        <!-- Profile NO → /onboarding -->
+        <line x1="700" y1="248" x2="700" y2="290" stroke="#EF4444" stroke-width="2" marker-end="url(#arrowhead-red)"/>
+        <text x="715" y="270" fill="#EF4444" font-size="9" font-weight="600">NO</text>
+        <rect class="node-rect" x="630" y="290" width="140" height="44" fill="white" stroke="#C8A961" rx="8"/>
+        <text x="700" y="316" text-anchor="middle" fill="#1a1a1a" font-size="11">→ /onboarding</text>
+
+        <!-- NO branch (down) - Redirect to /sign-in -->
+        <line x1="410" y1="248" x2="410" y2="298" stroke="#EF4444" stroke-width="2" marker-end="url(#arrowhead-red)"/>
+        <text x="420" y="270" fill="#EF4444" font-size="10" font-weight="600">NO</text>
+
+
+        <!-- /sign-in page -->
+        <rect class="node-rect" x="300" y="298" width="220" height="44" fill="#DBEAFE" stroke="#3B82F6" rx="8"/>
+        <text x="410" y="317" text-anchor="middle" fill="#1E40AF" font-size="11" font-weight="600">Redirect to /sign-in</text>
+        <text x="410" y="332" text-anchor="middle" fill="#3B82F6" font-size="9">Show Google OAuth button</text>
+
+        <!-- Arrow down -->
+        <line x1="410" y1="342" x2="410" y2="372" stroke="#C8A961" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+        <!-- Google OAuth -->
+        <rect class="node-rect" x="300" y="372" width="220" height="44" fill="white" stroke="#C8A961" rx="8"/>
+        <text x="410" y="391" text-anchor="middle" fill="#1a1a1a" font-size="11">User clicks "Sign in with Google"</text>
+        <text x="410" y="406" text-anchor="middle" fill="#6B6B6B" font-size="9">→ Google OAuth consent screen</text>
+
+        <!-- Arrow down -->
+        <line x1="410" y1="416" x2="410" y2="446" stroke="#C8A961" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+        <!-- OAuth Callback -->
+        <rect class="node-rect" x="300" y="446" width="220" height="44" fill="white" stroke="#C8A961" rx="8"/>
+        <text x="410" y="465" text-anchor="middle" fill="#1a1a1a" font-size="11">OAuth Callback received</text>
+        <text x="410" y="480" text-anchor="middle" fill="#6B6B6B" font-size="9">Session created (JWT cookie)</text>
+
+        <!-- Arrow down -->
+        <line x1="410" y1="490" x2="410" y2="520" stroke="#C8A961" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+
+        <!-- Decision: First sign-in or Returning? -->
+        <polygon class="decision" points="410,520 540,565 410,610 280,565" fill="#FEF3C7" stroke="#F59E0B"/>
+        <text x="410" y="560" text-anchor="middle" fill="#1a1a1a" font-size="11" font-weight="600">First sign-in?</text>
+        <text x="410" y="575" text-anchor="middle" fill="#6B6B6B" font-size="9">or returning user</text>
+
+        <!-- First sign-in (left) → /onboarding -->
+        <line x1="280" y1="565" x2="180" y2="565" stroke="#C8A961" stroke-width="2" marker-end="url(#arrowhead)"/>
+        <text x="230" y="555" fill="#C8A961" font-size="10" font-weight="600">FIRST</text>
+
+        <rect class="node-rect" x="50" y="543" width="130" height="44" fill="#FEF3C7" stroke="#F59E0B" rx="8"/>
+        <text x="115" y="562" text-anchor="middle" fill="#1a1a1a" font-size="11" font-weight="600">→ /onboarding</text>
+        <text x="115" y="577" text-anchor="middle" fill="#6B6B6B" font-size="9">Collect profile</text>
+
+        <!-- Arrow down from /onboarding -->
+        <line x1="115" y1="587" x2="115" y2="630" stroke="#C8A961" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+        <!-- Onboarding form -->
+        <rect class="node-rect" x="30" y="630" width="170" height="55" fill="white" stroke="#C8A961" rx="8"/>
+        <text x="115" y="649" text-anchor="middle" fill="#1a1a1a" font-size="10">Name, Email (locked),</text>
+        <text x="115" y="662" text-anchor="middle" fill="#1a1a1a" font-size="10">Phone, DOB, Gender</text>
+        <text x="115" y="677" text-anchor="middle" fill="#6B6B6B" font-size="9">+ Privacy consent</text>
+
+        <!-- Arrow down from form -->
+        <line x1="115" y1="685" x2="115" y2="720" stroke="#C8A961" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+        <!-- Profile saved -->
+        <rect class="node-rect" x="40" y="720" width="150" height="44" fill="#D1FAE5" stroke="#10B981" rx="8"/>
+        <text x="115" y="739" text-anchor="middle" fill="#065F46" font-size="11" font-weight="600">Profile saved</text>
+        <text x="115" y="754" text-anchor="middle" fill="#065F46" font-size="9">6 side effects fire</text>
+
+
+        <!-- Arrow from profile saved → redirect -->
+        <line x1="115" y1="764" x2="115" y2="800" stroke="#10B981" stroke-width="2" marker-end="url(#arrowhead-green)"/>
+
+        <!-- Returning user (right) → redirect -->
+        <line x1="540" y1="565" x2="630" y2="565" stroke="#10B981" stroke-width="2" marker-end="url(#arrowhead-green)"/>
+        <text x="575" y="555" fill="#10B981" font-size="10" font-weight="600">RETURNING</text>
+
+        <rect class="node-rect" x="630" y="543" width="150" height="44" fill="#D1FAE5" stroke="#10B981" rx="8"/>
+        <text x="705" y="562" text-anchor="middle" fill="#065F46" font-size="11" font-weight="600">Skip onboarding</text>
+        <text x="705" y="577" text-anchor="middle" fill="#065F46" font-size="9">Profile already complete</text>
+
+        <!-- Arrow from returning → redirect merge -->
+        <line x1="705" y1="587" x2="705" y2="800" stroke="#10B981" stroke-width="2"/>
+        <line x1="705" y1="800" x2="420" y2="800" stroke="#10B981" stroke-width="2"/>
+
+        <!-- Redirect to home (merge point) -->
+        <rect class="node-rect" x="50" y="800" width="360" height="44" fill="#DBEAFE" stroke="#3B82F6" rx="8"/>
+        <text x="230" y="819" text-anchor="middle" fill="#1E40AF" font-size="11" font-weight="600">Redirect to / (home) + restore sessionStorage context</text>
+        <text x="230" y="834" text-anchor="middle" fill="#3B82F6" font-size="9">Read 'rgss_auth_context' from sessionStorage</text>
+
+        <!-- Arrow down -->
+        <line x1="230" y1="844" x2="230" y2="880" stroke="#C8A961" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+
+        <!-- Context restoration decision -->
+        <polygon class="decision" points="230,880 360,920 230,960 100,920" fill="#FEF3C7" stroke="#F59E0B"/>
+        <text x="230" y="917" text-anchor="middle" fill="#1a1a1a" font-size="10" font-weight="600">Context</text>
+        <text x="230" y="930" text-anchor="middle" fill="#6B6B6B" font-size="9">has data?</text>
+
+        <!-- book=1 branch -->
+        <line x1="100" y1="920" x2="30" y2="920" stroke="#C8A961" stroke-width="2" marker-end="url(#arrowhead)"/>
+        <text x="65" y="910" fill="#C8A961" font-size="9">book=1</text>
+        <rect class="node-rect" x="-60" y="898" width="90" height="44" fill="white" stroke="#C8A961" rx="8"/>
+        <text x="-15" y="917" text-anchor="middle" fill="#1a1a1a" font-size="9">Open booking</text>
+        <text x="-15" y="930" text-anchor="middle" fill="#6B6B6B" font-size="8">dialog</text>
+
+        <!-- leadId branch -->
+        <line x1="360" y1="920" x2="430" y2="920" stroke="#C8A961" stroke-width="2" marker-end="url(#arrowhead)"/>
+        <text x="385" y="910" fill="#C8A961" font-size="9">leadId</text>
+        <rect class="node-rect" x="430" y="898" width="110" height="44" fill="white" stroke="#C8A961" rx="8"/>
+        <text x="485" y="917" text-anchor="middle" fill="#1a1a1a" font-size="9">Link lead to</text>
+        <text x="485" y="930" text-anchor="middle" fill="#6B6B6B" font-size="8">authenticated user</text>
+
+        <!-- No context → idle -->
+        <line x1="230" y1="960" x2="230" y2="1000" stroke="#C8A961" stroke-width="2" marker-end="url(#arrowhead)"/>
+        <text x="250" y="980" fill="#6B6B6B" font-size="9">empty</text>
+
+        <!-- End state -->
+        <rect class="node-rect" x="160" y="1000" width="140" height="44" fill="#1a1a1a" stroke="#1a1a1a" rx="8"/>
+        <text x="230" y="1020" text-anchor="middle" fill="white" font-size="11" font-weight="600">User on homepage</text>
+        <text x="230" y="1035" text-anchor="middle" fill="#aaa" font-size="9">Clear sessionStorage</text>
+
+      </svg>
+    </div>
+  </div>
+</section>
+
+
+<!-- ==================== WIREFRAMES TAB ==================== -->
+<section id="tab-wireframes" class="tab-content">
+  <div class="card">
+    <h3>📱 Page Wireframes</h3>
+    <p style="margin-bottom:1rem; font-size:0.9rem;">Phone-sized wireframes showing the three key screens in the authentication flow.</p>
+
+    <div class="wireframe-grid">
+      <!-- Wireframe 1: /sign-in -->
+      <div>
+        <h4 style="text-align:center; margin-bottom:0.5rem; font-size:0.9rem;">/sign-in</h4>
+        <div class="phone-frame">
+          <div class="phone-screen">
+            <h4>/sign-in</h4>
+
+            <!-- Logo area -->
+            <div class="wire-logo">
+              <div style="width:80px; height:80px; border-radius:50%; background:var(--gold); margin:0 auto; display:flex; align-items:center; justify-content:center;">
+                <span style="color:white; font-weight:700; font-size:1.2rem;">RG</span>
+              </div>
+              <p style="text-align:center; font-size:0.8rem; font-weight:600; margin-top:0.5rem; color:var(--dark);">Royal Glow</p>
+              <p style="text-align:center; font-size:0.65rem; color:var(--grey-500);">Salon &amp; SPA</p>
+            </div>
+
+            <p style="text-align:center; font-size:0.75rem; color:var(--grey-500); margin-bottom:1.5rem;">Sign in to book appointments, manage your profile, and access exclusive offers.</p>
+
+            <!-- Google Sign-in Button -->
+            <div class="wire-btn google" style="margin-top:0;">
+              <svg width="16" height="16" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+              <span style="font-size:0.8rem; font-weight:600;">Sign in with Google</span>
+            </div>
+
+            <div class="wire-divider">Only method</div>
+
+            <p style="text-align:center; font-size:0.6rem; color:var(--grey-500); margin-top:1.5rem;">By signing in, you agree to our</p>
+            <p style="text-align:center; font-size:0.6rem;"><a href="#" style="color:var(--gold);">Terms &amp; Conditions</a> · <a href="#" style="color:var(--gold);">Privacy Policy</a></p>
+          </div>
         </div>
-        <div class="flow-container">
-          <div class="flow-label">NO</div>
-          <div class="flow-arrow"></div>
-          <div class="flow-node process">Redirect to /onboarding</div>
+      </div>
+
+
+      <!-- Wireframe 2: /onboarding -->
+      <div>
+        <h4 style="text-align:center; margin-bottom:0.5rem; font-size:0.9rem;">/onboarding</h4>
+        <div class="phone-frame">
+          <div class="phone-screen">
+            <h4>Complete Your Profile</h4>
+
+            <!-- Name field (pre-filled from Google) -->
+            <div class="wire-input-label">Full Name <span class="badge badge-success" style="font-size:0.55rem;">PRE-FILLED</span></div>
+            <div class="wire-input" style="color:var(--dark);">Priya Sharma</div>
+
+            <!-- Email field (locked) -->
+            <div class="wire-input-label">Email <span class="badge badge-locked" style="font-size:0.55rem;">LOCKED</span></div>
+            <div class="wire-input locked">priya.sharma@gmail.com</div>
+
+            <!-- Phone field -->
+            <div class="wire-input-label">Phone <span class="badge badge-required" style="font-size:0.55rem;">REQUIRED</span></div>
+            <div class="wire-input" style="color:var(--grey-500);">+91 98765 43210</div>
+
+            <!-- DOB field -->
+            <div class="wire-input-label">Date of Birth <span class="badge badge-optional" style="font-size:0.55rem;">OPTIONAL</span></div>
+            <div class="wire-input" style="color:var(--grey-500);">DD / MM / YYYY</div>
+
+            <!-- Gender field -->
+            <div class="wire-input-label">Gender <span class="badge badge-optional" style="font-size:0.55rem;">OPTIONAL</span></div>
+            <div class="wire-input" style="color:var(--grey-500);">Select...</div>
+
+            <!-- Consent checkboxes -->
+            <div style="margin-top:0.75rem; padding-top:0.5rem; border-top:1px solid var(--grey-300);">
+              <div class="wire-checkbox">
+                <div class="wire-checkbox-box checked"></div>
+                <span>I agree to the <strong>Privacy Policy</strong> <span class="badge badge-required" style="font-size:0.5rem;">REQUIRED</span></span>
+              </div>
+              <div class="wire-checkbox">
+                <div class="wire-checkbox-box"></div>
+                <span>Allow <strong>analytics</strong> tracking <span class="badge badge-optional" style="font-size:0.5rem;">OPT</span></span>
+              </div>
+              <div class="wire-checkbox">
+                <div class="wire-checkbox-box"></div>
+                <span>Receive <strong>marketing</strong> updates <span class="badge badge-optional" style="font-size:0.5rem;">OPT</span></span>
+              </div>
+            </div>
+
+            <div class="wire-btn" style="margin-top:0.75rem;">Complete Profile</div>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- Wireframe 3: Cookie Consent Banner -->
+      <div>
+        <h4 style="text-align:center; margin-bottom:0.5rem; font-size:0.9rem;">Cookie Consent Banner</h4>
+        <div class="phone-frame">
+          <div class="phone-screen" style="position:relative; display:flex; flex-direction:column; justify-content:flex-end;">
+            <!-- Page content background -->
+            <div style="flex:1; display:flex; align-items:center; justify-content:center;">
+              <p style="font-size:0.7rem; color:var(--grey-500); text-align:center;">[ Page content behind ]</p>
+            </div>
+
+            <!-- Cookie banner -->
+            <div style="background:white; border-radius:12px 12px 0 0; padding:1rem; box-shadow:0 -4px 20px rgba(0,0,0,0.15); border-top:3px solid var(--gold);">
+              <p style="font-size:0.75rem; font-weight:600; margin-bottom:0.5rem;">🍪 Cookie Preferences</p>
+              <p style="font-size:0.65rem; color:var(--grey-500); margin-bottom:0.75rem;">We use cookies to improve your experience. Choose your preferences below.</p>
+
+              <div class="wire-checkbox">
+                <div class="wire-checkbox-box checked" style="background:var(--grey-500); border-color:var(--grey-500);"></div>
+                <span style="font-size:0.65rem;"><strong>Essential</strong> — Always on</span>
+              </div>
+              <div class="wire-checkbox">
+                <div class="wire-checkbox-box"></div>
+                <span style="font-size:0.65rem;"><strong>Analytics</strong> — Performance tracking</span>
+              </div>
+              <div class="wire-checkbox">
+                <div class="wire-checkbox-box"></div>
+                <span style="font-size:0.65rem;"><strong>Marketing</strong> — Meta Pixel, ads</span>
+              </div>
+
+              <div style="display:flex; gap:0.5rem; margin-top:0.75rem;">
+                <div class="wire-btn" style="margin:0; flex:1; font-size:0.7rem; padding:0.5rem;">Accept All</div>
+                <div class="wire-btn secondary" style="margin:0; flex:1; font-size:0.7rem; padding:0.5rem;">Reject All</div>
+              </div>
+              <p style="text-align:center; font-size:0.6rem; color:var(--gold); margin-top:0.5rem; cursor:pointer;">Manage Preferences →</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-    <div class="flow-container">
-      <div class="flow-label">NO</div>
-      <div class="flow-arrow"></div>
-      <div class="flow-node process">Store context in sessionStorage:<br>{ book: "1", utm_source, leadId, service }</div>
-      <div class="flow-arrow"></div>
-      <div class="flow-node process">Redirect to /sign-in</div>
-    </div>
   </div>
-</div>
+</section>
 
 
-<div class="flow-container" style="margin-top: 2rem;">
-  <div class="flow-node process">/sign-in page</div>
-  <div class="flow-arrow"></div>
-  <div class="flow-node process">Google OAuth consent</div>
-  <div class="flow-arrow"></div>
-  <div class="flow-node process">OAuth Callback /api/auth/...</div>
-  <div class="flow-arrow"></div>
-  <div class="flow-node decision">First sign-in or Returning user?</div>
-  <div class="flow-arrow"></div>
-  <div class="flow-branch">
-    <div class="flow-container">
-      <div class="flow-label">First sign-in</div>
-      <div class="flow-arrow"></div>
-      <div class="flow-node process">/onboarding (collect data)</div>
-      <div class="flow-arrow"></div>
-      <div class="flow-node success">Profile saved, Consent stored, Source assigned</div>
-      <div class="flow-arrow"></div>
-      <div class="flow-node end">Redirect to / (homepage) + restore context</div>
-    </div>
-    <div class="flow-container">
-      <div class="flow-label">Returning user</div>
-      <div class="flow-arrow"></div>
-      <div class="flow-node end">Redirect to / (homepage) + restore context</div>
-    </div>
-  </div>
-  <div class="flow-arrow"></div>
-  <div class="flow-node process" style="min-width: 280px;">sessionStorage read:<br>book=1? → open dialog<br>leadId? → link lead<br>service? → pre-select</div>
-</div>
+<!-- ==================== STATES & ERRORS TAB ==================== -->
+<section id="tab-states" class="tab-content">
+  <div class="card">
+    <h3>🎭 UI States &amp; Error Handling</h3>
+    <p style="margin-bottom:1rem; font-size:0.9rem;">All possible states for the authentication and onboarding screens, with error handling details.</p>
 
-<hr>
+    <!-- Idle State -->
+    <details>
+      <summary>✅ Idle State — Google Button Ready</summary>
+      <div class="content">
+        <table class="data-table">
+          <tr><th>Property</th><th>Value</th></tr>
+          <tr><td>Button text</td><td>"Sign in with Google"</td></tr>
+          <tr><td>Button state</td><td>Enabled, full opacity</td></tr>
+          <tr><td>Spinner</td><td>Hidden</td></tr>
+          <tr><td>Error message</td><td>Hidden</td></tr>
+          <tr><td>T&amp;C links</td><td>Visible, clickable</td></tr>
+        </table>
+        <pre><code>// Component state
+{
+  isLoading: false,
+  error: null,
+  isRedirecting: false
+}</code></pre>
+      </div>
+    </details>
 
-
-<h2>2. Sign-In Page — <code>/sign-in</code></h2>
-
-<h3>Mobile Wireframe</h3>
-
-<div class="phone-frame">
-  <div class="phone-notch"></div>
-  <div class="phone-screen" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 1.5rem;">
-    <div style="font-size: 2rem;">&#x1F451;</div>
-    <div style="font-weight: 700; font-size: 1.2rem;">Royal Glow<br><span style="font-weight: 400; font-size: 0.9rem; color: #6B6B6B;">Salon &amp; SPA</span></div>
-    <div class="wire-card" style="width: 100%; text-align: center; padding: 2rem 1.5rem;">
-      <h3 style="margin: 0 0 0.5rem 0;">Sign in to Royal Glow</h3>
-      <p style="color: #6B6B6B; font-size: 14px; margin: 0 0 1.5rem 0;">Use your Google account to continue</p>
-      <div class="wire-btn wire-btn-google" style="width: 100%; display: block;">&#x1F535; Sign in with Google</div>
-      <p style="font-size: 12px; color: #6B6B6B; margin-top: 1.5rem;">By signing in, you agree to our <a href="#">Privacy Policy</a> and <a href="#">Terms of Service</a>.</p>
-    </div>
-  </div>
-</div>
+    <!-- Redirecting State -->
+    <details>
+      <summary>⏳ Redirecting State — OAuth in Progress</summary>
+      <div class="content">
+        <table class="data-table">
+          <tr><th>Property</th><th>Value</th></tr>
+          <tr><td>Button text</td><td>"Redirecting..."</td></tr>
+          <tr><td>Button state</td><td>Disabled, 60% opacity</td></tr>
+          <tr><td>Spinner</td><td>Visible (inline, left of text)</td></tr>
+          <tr><td>Click prevention</td><td><code class="inline-code">pointer-events: none</code></td></tr>
+          <tr><td>Duration</td><td>Max 10s before timeout error</td></tr>
+        </table>
+        <pre><code>// Triggered by
+const handleSignIn = async () => {
+  setIsLoading(true);
+  sessionStorage.setItem('rgss_auth_context', JSON.stringify(context));
+  await signIn('google', { callbackUrl: '/' });
+};</code></pre>
+      </div>
+    </details>
 
 
-<h3>Desktop Wireframe</h3>
-
-<div class="desktop-frame">
-  <div class="wire-card" style="max-width: 400px; width: 100%; text-align: center; padding: 3rem 2rem; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.1);">
-    <div style="font-size: 2rem; margin-bottom: 0.5rem;">&#x1F451;</div>
-    <div style="font-weight: 700; font-size: 1.2rem; margin-bottom: 2rem;">Royal Glow</div>
-    <h3 style="margin: 0 0 0.5rem 0;">Sign in to Royal Glow</h3>
-    <p style="color: #6B6B6B; font-size: 14px; margin: 0 0 2rem 0;">Use your Google account to continue</p>
-    <div class="wire-btn wire-btn-google" style="width: 100%; display: block; padding: 14px 24px;">&#x1F535; Sign in with Google</div>
-    <p style="font-size: 12px; color: #6B6B6B; margin-top: 2rem;">By signing in, you agree to our <a href="#">Privacy Policy</a> and <a href="#">Terms of Service</a>.</p>
-  </div>
-</div>
-<p style="text-align: center; font-size: 13px; color: #6B6B6B;">Card: max-width 400px, centered, rounded corners, shadow</p>
-
-
-<h3>Sign-In States</h3>
-
-<div class="state-card">
-  <h4 style="margin: 0 0 1rem 0;">STATE 1: Idle</h4>
-  <div class="wire-btn wire-btn-google">&#x1F535; Sign in with Google</div>
-  <p style="font-size: 12px; color: #6B6B6B; margin-top: 0.5rem;">Active, clickable</p>
-</div>
-
-<div class="state-card loading-state">
-  <h4 style="margin: 0 0 1rem 0;">STATE 2: Redirecting (after click)</h4>
-  <div class="wire-btn" style="background: #93b5e9; color: white; opacity: 0.8;">&#x21BB; Redirecting...</div>
-  <p style="font-size: 12px; color: #6B6B6B; margin-top: 0.5rem;">Disabled, spinner</p>
-</div>
-
-<div class="state-card error-state">
-  <h4 style="margin: 0 0 1rem 0;">STATE 3: Error (popup blocked / OAuth failed)</h4>
-  <p style="color: #991B1B; font-weight: 500;">&#x274C; Sign-in failed.</p>
-  <p style="color: #991B1B;">Please allow popups or try again.</p>
-  <div class="wire-btn wire-btn-outline" style="margin-top: 1rem;">Try Again</div>
-</div>
-
-<hr>
-
-
-<h2>3. Pre-Redirect Context Preservation</h2>
-
-<pre><code>BEFORE Google OAuth redirect:
-
-  sessionStorage.setItem('rgss_auth_context', {
-    book: "1",              // was trying to book
-    utm_source: "gmb",     // came from Google Maps
-    utm_campaign: null,
-    leadId: null,           // or "lead_xyz" if from
-    service: "classic-facial" // pre-selected service
-  })
-
-
-AFTER OAuth callback returns:
-
-  const context = sessionStorage.get('rgss_auth_ctx')
-
-  if (context.book === "1") {
-    // Redirect to homepage with dialog trigger
-    router.push(`/?book=1&amp;service=${context.service}`)
+    <!-- Error: Popup Blocked -->
+    <details>
+      <summary>🚫 Error State — Popup Blocked</summary>
+      <div class="content">
+        <table class="data-table">
+          <tr><th>Property</th><th>Value</th></tr>
+          <tr><td>Error message</td><td>"Pop-up was blocked. Please allow pop-ups for this site and try again."</td></tr>
+          <tr><td>Error style</td><td>Red banner above button, <code class="inline-code">border-left: 4px solid var(--red)</code></td></tr>
+          <tr><td>Button state</td><td>Re-enabled (user can retry)</td></tr>
+          <tr><td>Recovery</td><td>User allows popup → clicks button again</td></tr>
+        </table>
+        <pre><code>// Error detection
+window.addEventListener('message', (e) => {
+  if (e.data?.type === 'oauth-popup-blocked') {
+    setError('popup_blocked');
+    setIsLoading(false);
   }
-
-  sessionStorage.remove('rgss_auth_context')</code></pre>
-
-<hr>
-
-
-<h2>4. Onboarding Page — <code>/onboarding</code></h2>
-
-<h3>Mobile Wireframe</h3>
-
-<div class="phone-frame">
-  <div class="phone-notch"></div>
-  <div class="phone-screen">
-    <h3 style="margin: 1rem 0 0.25rem 0;">Welcome to Royal Glow, Priya! &#x1F451;</h3>
-    <p style="color: #6B6B6B; font-size: 14px; margin-bottom: 1.5rem;">Let's set up your profile</p>
-
-    <label style="font-size: 13px; font-weight: 500; color: #374151;">Name</label>
-    <div class="wire-input">Priya Sharma</div>
-
-    <label style="font-size: 13px; font-weight: 500; color: #374151;">Email</label>
-    <div class="wire-input locked">priya.sharma@gmail.com &#x1F512;</div>
-
-    <label style="font-size: 13px; font-weight: 500; color: #374151;">Phone</label>
-    <div class="wire-input">+91 98765 43210</div>
-
-    <label style="font-size: 13px; font-weight: 500; color: #374151;">Date of Birth</label>
-    <div class="wire-input">DD / MM / YYYY &#x1F4C5;</div>
-
-    <label style="font-size: 13px; font-weight: 500; color: #374151;">Gender</label>
-    <div class="wire-input">Female &#x25BC;</div>
-
-    <hr style="margin: 1.5rem 0 1rem 0;">
-    <p style="font-weight: 600; font-size: 14px; margin-bottom: 0.5rem;">Privacy &amp; Preferences</p>
-
-
-    <div class="consent-row">
-      <div class="consent-checkbox checked"></div>
-      <div style="font-size: 13px;">I agree to the Privacy Policy. My data is stored securely on Indian servers. <strong>(Required)</strong></div>
-    </div>
-
-    <div class="consent-row">
-      <div class="consent-checkbox"></div>
-      <div style="font-size: 13px;">Help us improve Royal Glow — allow anonymous usage analytics</div>
-    </div>
-
-    <div class="consent-row">
-      <div class="consent-checkbox"></div>
-      <div style="font-size: 13px;">Send me offers, updates &amp; promotions via email and notifications</div>
-    </div>
-
-    <div style="margin-top: 1.5rem;">
-      <div class="wire-btn wire-btn-primary" style="width: 100%; display: block; text-align: center;">Let's Go!</div>
-    </div>
-  </div>
-</div>
-
-
-<h3>Onboarding States</h3>
-
-<div class="state-card error-state">
-  <h4 style="margin: 0 0 1rem 0;">STATE: Validation Error</h4>
-  <label style="font-size: 13px; font-weight: 500; color: #374151;">Phone</label>
-  <div class="wire-input" style="border-color: #EF4444;">12345</div>
-  <p style="color: #EF4444; font-size: 12px; margin: 4px 0 0 0;">&#x26A0;&#xFE0F; Enter a valid Indian mobile number (+91 10 dig)</p>
-  <div style="margin-top: 1rem;">
-    <div class="consent-row">
-      <div class="consent-checkbox" style="border-color: #EF4444;"></div>
-      <div style="font-size: 13px;">I agree to Privacy Policy</div>
-    </div>
-    <p style="color: #EF4444; font-size: 12px; margin: 4px 0 0 0;">&#x26A0;&#xFE0F; You must accept to continue</p>
-  </div>
-</div>
-
-<div class="state-card loading-state">
-  <h4 style="margin: 0 0 1rem 0;">STATE: Submitting</h4>
-  <p style="color: #6B6B6B; font-size: 14px;">All fields disabled/greyed</p>
-  <div class="wire-btn" style="background: #e0cfa0; color: white; width: 100%; display: block; text-align: center; opacity: 0.8;">&#x21BB; Setting up...</div>
-  <p style="font-size: 12px; color: #6B6B6B; margin-top: 0.5rem;">Spinner in button</p>
-</div>
-
-<div class="state-card success-state">
-  <h4 style="margin: 0 0 1rem 0;">STATE: Success</h4>
-  <p style="color: #065F46; font-size: 14px;">No success state shown — instant redirect to /</p>
-  <p style="color: #065F46; font-size: 13px;">Cookie consent banner suppressed for checked categories.<br>Dialog auto-opens if book=1 was in sessionStorage.</p>
-</div>
-
-<hr>
-
-
-<h2>5. Onboarding Side Effects Flow</h2>
-
-<div class="flow-container">
-  <div class="flow-node trigger">User clicks "Let's Go!" with valid form</div>
-  <div class="flow-arrow"></div>
-  <div class="flow-node process">POST /api/onboarding/complete</div>
-  <div class="flow-arrow"></div>
-
-  <div class="section-card" style="width: 100%; max-width: 700px;">
-    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-      <div class="flow-node process" style="text-align: left; min-width: auto;">
-        <strong>1.</strong> Save to customer_profile table:<br>
-        <span style="font-size: 13px; color: #6B6B6B;">{ name, phone, dob, gender, marketing_consent, analytics_consent }</span>
+});</code></pre>
       </div>
-      <div class="flow-node process" style="text-align: left; min-width: auto;">
-        <strong>2.</strong> Assign acquisition source:<br>
-        <span style="font-size: 13px; color: #6B6B6B;">Read sessionStorage → utm_source<br>
-        "gmb" → source = 'gmb' | "walkin" → source = 'walkin'<br>
-        leadId exists → source = 'meta_ad' | none → source = 'organic'</span>
+    </details>
+
+    <!-- Error: OAuth Failed -->
+    <details>
+      <summary>❌ Error State — OAuth Failed</summary>
+      <div class="content">
+        <table class="data-table">
+          <tr><th>Property</th><th>Value</th></tr>
+          <tr><td>Error message</td><td>"Sign-in failed. Please try again."</td></tr>
+          <tr><td>Error code display</td><td>Small grey text: <code class="inline-code">Error: {code}</code></td></tr>
+          <tr><td>Button state</td><td>Re-enabled</td></tr>
+          <tr><td>Retry logic</td><td>Max 3 attempts, then show "Contact support"</td></tr>
+          <tr><td>Possible causes</td><td>Network error, Google outage, consent denied</td></tr>
+        </table>
+        <pre><code>// NextAuth error callback
+// pages/api/auth/[...nextauth].ts
+pages: {
+  signIn: '/sign-in',
+  error: '/sign-in', // redirects back with ?error=OAuthCallback
+}</code></pre>
       </div>
-      <div class="flow-node process" style="text-align: left; min-width: auto;">
-        <strong>3.</strong> Write localStorage consent:<br>
-        <span style="font-size: 13px; color: #6B6B6B;">rgss_cookie_consent = { v:1, analytics: &#x2611;, marketing: &#x2611;, ts: now }</span>
+    </details>
+
+
+    <!-- Onboarding Validation Errors -->
+    <details>
+      <summary>⚠️ Onboarding — Validation Errors</summary>
+      <div class="content">
+        <table class="data-table">
+          <thead>
+            <tr><th>Field</th><th>Validation Rule</th><th>Error Message</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Phone</td><td>Required, must match <code class="inline-code">/^\+91\d{10}$/</code></td><td>"Enter a valid Indian mobile number"</td></tr>
+            <tr><td>Name</td><td>Required, min 2 chars</td><td>"Name must be at least 2 characters"</td></tr>
+            <tr><td>DOB</td><td>Optional, must be past date, age ≥ 13</td><td>"You must be at least 13 years old"</td></tr>
+            <tr><td>Gender</td><td>Optional, enum: male/female/other/prefer_not_to_say</td><td>—</td></tr>
+            <tr><td>Privacy Policy</td><td>Required checkbox</td><td>"You must accept the Privacy Policy to continue"</td></tr>
+          </tbody>
+        </table>
+        <pre><code>// Zod schema
+const onboardingSchema = z.object({
+  name: z.string().min(2),
+  phone: z.string().regex(/^\+91\d{10}$/),
+  dob: z.string().optional(),
+  gender: z.enum(['male','female','other','prefer_not_to_say']).optional(),
+  privacyConsent: z.literal(true),
+  analyticsConsent: z.boolean().default(false),
+  marketingConsent: z.boolean().default(false),
+});</code></pre>
       </div>
-      <div class="flow-node process" style="text-align: left; min-width: auto;">
-        <strong>4.</strong> If marketing_consent = true:<br>
-        <span style="font-size: 13px; color: #6B6B6B;">→ Sync contact to Brevo (subscriber list)</span>
+    </details>
+
+    <!-- Onboarding Submitting -->
+    <details>
+      <summary>⏳ Onboarding — Submitting State</summary>
+      <div class="content">
+        <table class="data-table">
+          <tr><th>Property</th><th>Value</th></tr>
+          <tr><td>Button text</td><td>"Saving..."</td></tr>
+          <tr><td>Button state</td><td>Disabled, spinner visible</td></tr>
+          <tr><td>Form fields</td><td>All disabled (readonly)</td></tr>
+          <tr><td>Timeout</td><td>15 seconds → show retry</td></tr>
+          <tr><td>Optimistic UI</td><td>No — wait for server confirmation</td></tr>
+        </table>
+        <pre><code>// Submit handler
+const handleSubmit = async (data) => {
+  setIsSubmitting(true);
+  try {
+    await fetch('/api/onboarding/complete', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    router.push('/');
+  } catch (err) {
+    setError('submission_failed');
+  } finally {
+    setIsSubmitting(false);
+  }
+};</code></pre>
       </div>
-      <div class="flow-node process" style="text-align: left; min-width: auto;">
-        <strong>5.</strong> Fire Meta CAPI: CompleteRegistration event
+    </details>
+
+
+    <!-- Session Expired -->
+    <details>
+      <summary>🔒 Session Expired State</summary>
+      <div class="content">
+        <table class="data-table">
+          <tr><th>Property</th><th>Value</th></tr>
+          <tr><td>Trigger</td><td>JWT expired or revoked mid-session</td></tr>
+          <tr><td>Detection</td><td>API returns 401, NextAuth session check fails</td></tr>
+          <tr><td>User sees</td><td>Toast: "Session expired. Please sign in again."</td></tr>
+          <tr><td>Auto-action</td><td>Store current context → redirect to /sign-in</td></tr>
+          <tr><td>After re-auth</td><td>No onboarding needed (profile already complete)</td></tr>
+          <tr><td>Context preserved</td><td>Yes — stored before redirect, restored after</td></tr>
+        </table>
+        <pre><code>// Session check middleware
+export function middleware(request: NextRequest) {
+  const session = await getToken({ req: request });
+  if (!session) {
+    // Store current page context for post-auth restoration
+    const url = new URL('/sign-in', request.url);
+    url.searchParams.set('callbackUrl', request.nextUrl.pathname);
+    return NextResponse.redirect(url);
+  }
+}</code></pre>
+        <p style="margin-top:1rem; font-size:0.85rem;"><strong>Key point:</strong> Re-auth after session expiry skips onboarding entirely. The user's profile is already complete in the database. Only a fresh JWT is needed.</p>
       </div>
-      <div class="flow-node process" style="text-align: left; min-width: auto;">
-        <strong>6.</strong> Send welcome email via Resend (welcome.tsx template)
-      </div>
-    </div>
+    </details>
+  </div>
+</section>
+
+
+<!-- ==================== DATA & API TAB ==================== -->
+<section id="tab-data" class="tab-content">
+  <div class="card">
+    <h3>💾 sessionStorage Schema</h3>
+    <p style="margin-bottom:1rem; font-size:0.9rem;">Context stored before OAuth redirect, read after successful authentication. Key: <code class="inline-code">rgss_auth_context</code></p>
+    <pre><code>// sessionStorage key: 'rgss_auth_context'
+// Written BEFORE redirect to /sign-in
+// Read AFTER successful auth on homepage
+
+interface AuthContext {
+  book?: '1';              // Flag: user wanted to book → open dialog
+  service?: string;        // Service slug if specific service selected
+  utm_source?: string;     // UTM source for attribution
+  utm_campaign?: string;   // UTM campaign for attribution
+  leadId?: string;         // Anonymous lead to link post-auth
+  returnTo?: string;       // Page to redirect back to (if not /)
+  timestamp: number;       // When context was stored (for staleness check)
+}
+
+// Example:
+sessionStorage.setItem('rgss_auth_context', JSON.stringify({
+  book: '1',
+  service: 'bridal-makeup',
+  utm_source: 'instagram',
+  utm_campaign: 'summer-2025',
+  leadId: 'lead_abc123',
+  timestamp: Date.now()
+}));</code></pre>
+    <table class="data-table">
+      <thead>
+        <tr><th>Field</th><th>Type</th><th>Purpose</th><th>Consumed By</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code class="inline-code">book</code></td><td>string '1'</td><td>Open booking dialog post-auth</td><td>Homepage useEffect</td></tr>
+        <tr><td><code class="inline-code">service</code></td><td>string</td><td>Pre-select service in booking</td><td>BookingDialog</td></tr>
+        <tr><td><code class="inline-code">utm_source</code></td><td>string</td><td>Attribution tracking</td><td>Onboarding API</td></tr>
+        <tr><td><code class="inline-code">utm_campaign</code></td><td>string</td><td>Campaign tracking</td><td>Onboarding API</td></tr>
+        <tr><td><code class="inline-code">leadId</code></td><td>string</td><td>Link anonymous lead to user</td><td>POST /api/onboarding/complete</td></tr>
+        <tr><td><code class="inline-code">timestamp</code></td><td>number</td><td>Staleness check (expire &gt;30min)</td><td>Context reader</td></tr>
+      </tbody>
+    </table>
   </div>
 
-  <div class="flow-arrow"></div>
-  <div class="flow-node end">Redirect to / (homepage)</div>
-  <div class="flow-arrow"></div>
-  <div class="flow-node success">If sessionStorage had book=1:<br>URL becomes /?book=1<br>Booking dialog auto-opens</div>
-</div>
 
-<hr>
+  <div class="card">
+    <h3>🌐 POST /api/onboarding/complete</h3>
+    <p style="margin-bottom:1rem; font-size:0.9rem;">Called when user submits the onboarding form. Performs profile save and triggers all side effects.</p>
 
+    <h4 style="font-size:0.9rem; margin-bottom:0.5rem;">Request Body</h4>
+    <pre><code>POST /api/onboarding/complete
+Content-Type: application/json
+Authorization: Bearer {jwt} (from httpOnly cookie — automatic)
 
-<h2>6. Cookie Consent Banner (Post-Onboarding)</h2>
+{
+  "name": "Priya Sharma",
+  "phone": "+919876543210",
+  "dob": "1995-03-15",           // ISO format, optional
+  "gender": "female",            // optional
+  "privacyConsent": true,        // required
+  "analyticsConsent": true,      // optional
+  "marketingConsent": false,     // optional
+  "utm_source": "instagram",    // from sessionStorage
+  "utm_campaign": "summer-2025", // from sessionStorage
+  "leadId": "lead_abc123"       // from sessionStorage, optional
+}</code></pre>
 
-<blockquote>
-  <p><strong>Logic:</strong> If user checked analytics AND marketing on onboarding → Cookie banner NEVER shows (already consented). If user checked only marketing → Banner shows only for analytics toggle. If user checked nothing (only privacy required) → Full banner shows on next page visit.</p>
-</blockquote>
+    <h4 style="font-size:0.9rem; margin:1rem 0 0.5rem;">Response</h4>
+    <pre><code>// Success (200)
+{
+  "success": true,
+  "user": {
+    "id": "user_xyz789",
+    "name": "Priya Sharma",
+    "email": "priya.sharma@gmail.com",
+    "phone": "+919876543210",
+    "onboardingComplete": true
+  }
+}
 
-<h4>Banner wireframe (bottom of screen):</h4>
+// Validation Error (400)
+{
+  "success": false,
+  "errors": [
+    { "field": "phone", "message": "Enter a valid Indian mobile number" }
+  ]
+}
 
-<div class="cookie-banner">
-  <p style="margin: 0 0 1rem 0; font-size: 14px;">We use cookies to improve your experience and show you relevant offers. You're in control — change preferences any time.</p>
-  <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
-    <div class="wire-btn wire-btn-primary">Accept All</div>
-    <div class="wire-btn wire-btn-outline">Reject All</div>
-    <a href="#" style="font-size: 14px;">Manage Preferences ›</a>
+// Unauthorized (401)
+{
+  "success": false,
+  "message": "Session expired. Please sign in again."
+}</code></pre>
   </div>
-</div>
 
-<h4>"Manage Preferences" expands inline to:</h4>
 
-<div class="cookie-banner">
-  <div class="toggle-row">
-    <div>
-      <strong>Necessary</strong><br>
-      <span style="font-size: 12px; color: #6B6B6B;">Session &amp; security</span>
-    </div>
-    <div class="toggle locked" style="display: flex; align-items: center; justify-content: flex-end; padding-right: 4px;">
-      <span style="font-size: 10px; color: white;">ON &#x1F512;</span>
-    </div>
+  <div class="card">
+    <h3>⚡ Onboarding Side Effects (6 Steps)</h3>
+    <p style="margin-bottom:1rem; font-size:0.9rem;">When <code class="inline-code">POST /api/onboarding/complete</code> succeeds, these 6 side effects fire in order:</p>
+    <ol class="side-effects-list">
+      <li><strong>Save Profile</strong> — Write user profile to database (name, phone, DOB, gender, email). Mark <code class="inline-code">onboardingComplete: true</code>.</li>
+      <li><strong>Assign Source</strong> — Store <code class="inline-code">utm_source</code> and <code class="inline-code">utm_campaign</code> on user record. If <code class="inline-code">leadId</code> present, link anonymous lead → authenticated user.</li>
+      <li><strong>Write Consent to localStorage</strong> — Store consent preferences in <code class="inline-code">localStorage['rgss_cookie_consent']</code> so cookie banner knows what's already approved.</li>
+      <li><strong>Sync to Brevo</strong> — Create/update contact in Brevo (Sendinblue) with email, phone, name. Add to "Customers" list. Tag with source.</li>
+      <li><strong>Fire Meta CAPI</strong> — Server-side <code class="inline-code">CompleteRegistration</code> event to Meta Conversions API. Include <code class="inline-code">fbp</code>/<code class="inline-code">fbc</code> cookies if available.</li>
+      <li><strong>Send Welcome Email</strong> — Queue welcome email via Brevo transactional API. Template includes first booking CTA and salon info.</li>
+    </ol>
+    <pre><code>// Side effects implementation (server-side)
+export async function completeOnboarding(userId: string, data: OnboardingData) {
+  // 1. Save profile
+  await db.user.update({ where: { id: userId }, data: { ...profile, onboardingComplete: true } });
+
+  // 2. Assign source + link lead
+  if (data.leadId) await db.lead.update({ where: { id: data.leadId }, data: { userId } });
+  await db.userSource.create({ data: { userId, source: data.utm_source, campaign: data.utm_campaign } });
+
+  // 3. Consent written client-side (returned in response for client to store)
+
+  // 4. Sync Brevo
+  await brevo.createContact({ email: user.email, attributes: { FIRSTNAME: data.name, PHONE: data.phone } });
+
+  // 5. Fire Meta CAPI
+  await metaCapi.track('CompleteRegistration', { userId, source: data.utm_source });
+
+  // 6. Send welcome email
+  await brevo.sendTransactional({ templateId: WELCOME_TEMPLATE, to: user.email, params: { name: data.name } });
+}</code></pre>
   </div>
-  <div class="toggle-row">
-    <div>
-      <strong>Analytics</strong><br>
-      <span style="font-size: 12px; color: #6B6B6B;">PostHog, Clarity</span>
-    </div>
-    <div class="toggle off"></div>
+
+
+  <div class="card">
+    <h3>🍪 Cookie Consent localStorage Structure</h3>
+    <p style="margin-bottom:1rem; font-size:0.9rem;">Cookie consent preferences stored in <code class="inline-code">localStorage['rgss_cookie_consent']</code>. If user consented on onboarding, the banner is suppressed for those categories.</p>
+    <pre><code>// localStorage key: 'rgss_cookie_consent'
+interface CookieConsent {
+  version: number;         // Schema version (currently 1)
+  timestamp: string;       // ISO date when consent was given
+  source: 'onboarding' | 'banner'; // Where consent was collected
+  categories: {
+    essential: true;       // Always true, cannot be changed
+    analytics: boolean;    // Google Analytics, Vercel Analytics
+    marketing: boolean;    // Meta Pixel, Google Ads
+  };
+}
+
+// Example: user consented to analytics on onboarding
+localStorage.setItem('rgss_cookie_consent', JSON.stringify({
+  version: 1,
+  timestamp: '2025-05-28T10:30:00.000Z',
+  source: 'onboarding',
+  categories: {
+    essential: true,
+    analytics: true,
+    marketing: false
+  }
+}));</code></pre>
+
+    <h4 style="font-size:0.9rem; margin:1rem 0 0.5rem;">Banner Suppression Logic</h4>
+    <pre><code>// Cookie banner component
+function CookieBanner() {
+  const consent = JSON.parse(localStorage.getItem('rgss_cookie_consent'));
+
+  // If consent exists (from onboarding or previous banner interaction)
+  // → suppress banner entirely
+  if (consent?.categories) return null;
+
+  // Otherwise show banner
+  return &lt;BannerUI /&gt;;
+}</code></pre>
   </div>
-  <div class="toggle-row" style="border-bottom: none;">
-    <div>
-      <strong>Marketing</strong><br>
-      <span style="font-size: 12px; color: #6B6B6B;">Meta Pixel, offers</span>
-    </div>
-    <div class="toggle off"></div>
+
+
+  <div class="card">
+    <h3>🔄 Session Expiry Handling</h3>
+    <p style="margin-bottom:1rem; font-size:0.9rem;">When a session expires, the user re-authenticates but does NOT go through onboarding again.</p>
+    <table class="data-table">
+      <thead>
+        <tr><th>Scenario</th><th>Behaviour</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>JWT expires (30 days)</td><td>NextAuth attempts silent refresh. If refresh fails → 401.</td></tr>
+        <tr><td>API returns 401</td><td>Client stores context in sessionStorage → redirects to /sign-in</td></tr>
+        <tr><td>User clicks "Sign in with Google"</td><td>OAuth flow completes → session restored</td></tr>
+        <tr><td>Post-auth check</td><td><code class="inline-code">onboardingComplete: true</code> → skip /onboarding</td></tr>
+        <tr><td>Context restoration</td><td>Read sessionStorage → restore previous action</td></tr>
+        <tr><td>Google Calendar scope</td><td>If previously granted, token is refreshed automatically</td></tr>
+      </tbody>
+    </table>
+    <pre><code>// Session expiry detection + context preservation
+function useAuthGuard() {
+  const { data: session, status } = useSession();
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      // Store current context before redirecting
+      const context: AuthContext = {
+        returnTo: window.location.pathname,
+        timestamp: Date.now(),
+      };
+      sessionStorage.setItem('rgss_auth_context', JSON.stringify(context));
+
+      // Show toast
+      toast.info('Session expired. Please sign in again.');
+
+      // Redirect after brief delay (let toast show)
+      setTimeout(() => router.push('/sign-in'), 1500);
+    }
+  }, [status]);
+}</code></pre>
   </div>
-  <div style="text-align: center; margin-top: 1.5rem;">
-    <div class="wire-btn wire-btn-primary">Save Preferences</div>
+
+
+  <div class="card">
+    <h3>📅 Google Calendar — Incremental Consent</h3>
+    <p style="margin-bottom:1rem; font-size:0.9rem;">Google Calendar access is NOT requested at sign-in. It uses incremental consent — asked only after the first booking is confirmed.</p>
+    <table class="data-table">
+      <thead>
+        <tr><th>When</th><th>What Happens</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>First sign-in</td><td>Scopes: <code class="inline-code">openid profile email</code> only</td></tr>
+        <tr><td>First booking confirmed</td><td>Prompt: "Add to Google Calendar?" → triggers incremental consent</td></tr>
+        <tr><td>User grants calendar</td><td>Scope added: <code class="inline-code">calendar.events</code> → booking events auto-sync</td></tr>
+        <tr><td>User declines</td><td>No calendar sync, no further prompts for 30 days</td></tr>
+        <tr><td>Subsequent bookings</td><td>If scope already granted → auto-add event (no prompt)</td></tr>
+      </tbody>
+    </table>
+    <pre><code>// Incremental consent for Google Calendar
+async function requestCalendarAccess() {
+  const result = await signIn('google', {
+    callbackUrl: window.location.href,
+    scope: 'https://www.googleapis.com/auth/calendar.events',
+    prompt: 'consent', // Force consent screen for new scope
+  });
+  return result;
+}</code></pre>
   </div>
-</div>
-
-<hr>
+</section>
 
 
-<h2>7. Google Calendar Integration (Incremental Consent)</h2>
-
-<blockquote><p><strong>TIMING:</strong> Asked AFTER first booking is confirmed (not at sign-in)</p></blockquote>
-
-<div class="flow-container">
-  <div class="flow-node trigger">Receptionist confirms booking</div>
-  <div class="flow-arrow"></div>
-  <div class="flow-node process">Customer receives confirmation + push notification</div>
-  <div class="flow-arrow"></div>
-  <div class="flow-node process">Next time customer opens /bookings</div>
-  <div class="flow-arrow"></div>
-</div>
-
-<div class="section-card" style="max-width: 600px; margin: 0 auto; text-align: center;">
-  <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">&#x1F4C5;</div>
-  <h3 style="margin: 0 0 0.5rem 0;">Add appointments to Google Calendar?</h3>
-  <p style="color: #6B6B6B; font-size: 14px; margin-bottom: 1.5rem;">Never miss an appointment — we'll add events automatically when your bookings are confirmed.</p>
-  <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
-    <div class="wire-btn wire-btn-outline">Not Now</div>
-    <div class="wire-btn wire-btn-primary">Allow Calendar Access</div>
-  </div>
-</div>
-
-<div class="flow-container" style="margin-top: 1.5rem;">
-  <div class="flow-node decision">User choice</div>
-  <div class="flow-arrow"></div>
-  <div class="flow-branch">
-    <div class="flow-container">
-      <div class="flow-label">"Not Now"</div>
-      <div class="flow-arrow"></div>
-      <div class="flow-node process">Dismiss, ask again after next confirmed booking</div>
-    </div>
-    <div class="flow-container">
-      <div class="flow-label">"Allow Calendar Access"</div>
-      <div class="flow-arrow"></div>
-      <div class="flow-node process">Google OAuth incremental consent (calendar.events scope)</div>
-      <div class="flow-arrow"></div>
-      <div class="flow-node success">On success: create event for current confirmed booking</div>
-      <div class="flow-arrow"></div>
-      <div class="flow-node success">Future bookings: auto-create on confirmation</div>
-    </div>
-  </div>
-</div>
-
-<hr>
-
-
-<h2>8. Session Expiry &amp; Re-authentication</h2>
-
-<div class="flow-container">
-  <div class="flow-node trigger">User's session expires (Better Auth session timeout)</div>
-  <div class="flow-arrow"></div>
-  <div class="flow-node process">User tries to access authenticated page (/bookings, /profile, etc.)</div>
-  <div class="flow-arrow"></div>
-</div>
-
-<div class="section-card" style="max-width: 500px; margin: 0 auto; text-align: center;">
-  <h3 style="margin: 0 0 0.5rem 0;">Session Expired</h3>
-  <p style="color: #6B6B6B; font-size: 14px; margin-bottom: 1.5rem;">Your session has ended. Please sign in again to continue.</p>
-  <div class="wire-btn wire-btn-google">Sign in with Google</div>
-</div>
-
-<div class="flow-container" style="margin-top: 1.5rem;">
-  <div class="flow-arrow"></div>
-  <div class="flow-node success">Re-auth → redirect back to the page they were trying to access</div>
-  <div class="flow-arrow"></div>
-  <div class="flow-node end" style="font-size: 13px;">No onboarding needed — profile already complete</div>
-</div>
+<!-- ==================== JAVASCRIPT ==================== -->
+<script>
+function switchTab(tabId) {
+  // Hide all tab contents
+  document.querySelectorAll('.tab-content').forEach(el => {
+    el.classList.remove('active');
+  });
+  // Remove active from all buttons
+  document.querySelectorAll('.tab-btn').forEach(el => {
+    el.classList.remove('active');
+  });
+  // Show selected tab
+  const tabEl = document.getElementById('tab-' + tabId);
+  if (tabEl) tabEl.classList.add('active');
+  // Mark button as active
+  event.currentTarget.classList.add('active');
+}
+</script>
 
 </body>
 </html>
