@@ -32,6 +32,20 @@ Feed any file directly to a design agent (Figma AI, Stitch, v0, Galileo) as cont
 
 ---
 
+## Device-Primary Strategy
+
+| Audience | Primary Device | Design Approach |
+|----------|---------------|-----------------|
+| Customers | Mobile phone (99.99%) | Mobile-first. All customer pages designed for 375px–428px FIRST. Desktop is a scaled-up adaptation. |
+| Receptionist / Manager | Tablet (10" at counter) | Tablet-first (768px–1024px). Sidebar visible. Touch-friendly. Also used as kiosk to show menu to customers. |
+| Staff (Stylist/Therapist) | Mobile phone | Simplified mobile view. Schedule + leave only. Quick glance UI. |
+| Owner | Laptop | Desktop layout. Reports, analytics, user management. |
+| Developer | Laptop | Desktop layout. Logs, integrations. |
+
+**Rule:** When designing customer-facing pages, start with the mobile wireframe. The desktop version adapts FROM mobile — not the other way around. For admin pages, start with tablet (landscape) wireframe.
+
+---
+
 ## File Index
 
 | File | Section | What It Covers |

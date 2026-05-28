@@ -454,10 +454,88 @@ Sectioned form with clear group headings (Business Hours, Booking Policies, Gems
 | **Gold as primary action colour** | Reinforces "Royal Glow" brand. Every CTA is immediately recognisable. |
 | **Mobile-first responsive** | 70%+ of Indian premium salon traffic is mobile. All designs start mobile. |
 | **PWA-optimised** | Installable on home screen. Offline-capable for viewing bookings. |
+| **Mobile-first for customers, tablet-first for admin** | 99.99% of customers are on mobile. Receptionists use tablet at counter. Design priorities reflect actual device usage, not theoretical responsive design. |
 
 ---
 
-## 10. File References
+## 10. Device-Primary Strategy
+
+> **Critical business context:** 99.99% of customers access the site on **mobile phones only**. Staff (receptionist/manager) primarily use a **tablet** at the reception counter to show the menu, manage bookings, and process checkout. Laptop and mobile are secondary admin devices.
+
+### Device Priority by Audience
+
+| Audience | Primary Device | Secondary | Tertiary |
+|----------|---------------|-----------|----------|
+| **Customers** (public + auth pages) | Mobile phone (99.99%) | — | — |
+| **Receptionist / Manager** (admin) | Tablet (reception counter) | Laptop (back office) | Mobile (on-the-go) |
+| **Staff** (stylist/therapist) | Mobile phone (checking own schedule) | Tablet (salon floor) | — |
+| **Owner** (reports, analytics) | Laptop (home/office) | Tablet | Mobile |
+| **Developer** (integrations, logs) | Laptop | — | — |
+
+### What This Means for Design
+
+**Customer pages (`/`, `/services`, `/offers`, `/bookings`, `/profile`, etc.):**
+- Design mobile-first — this IS the primary (and often only) experience
+- Desktop/tablet layouts are secondary adaptations of the mobile design
+- All touch targets: 44px minimum, thumb-friendly placement
+- Bottom sheet dialogs (booking), not centered modals
+- Sticky "Book Now" CTA at bottom of viewport
+- One-handed reachability: primary actions in thumb zone
+- Fast load: aggressive image optimization, skeleton loaders
+- PWA: installable on homescreen, offline-capable for menu/prices
+- Forms: large inputs (48px height), phone keyboard triggers for phone fields, date picker native-like
+
+**Admin pages (`/admin/*`) — Tablet-primary:**
+- Design for **768px–1024px tablet viewport** as the primary experience
+- Sidebar nav: visible by default on tablet (not collapsed)
+- Data tables: optimized for tablet landscape width (~1024px)
+- Touch-friendly: 44px targets, larger click areas than typical desktop admin
+- Checkout flow: designed for receptionist tapping on tablet while customer watches
+- Schedule grid: staff rows × time columns must be readable on 10" tablet screen
+- Service menu display: tablet is turned toward customer to show services/prices (kiosk-like use)
+- Split-view patterns: booking detail on left, actions on right (tablet landscape)
+- Desktop (laptop): same layout scales up with more breathing room
+- Mobile admin: simplified views for on-the-go checks (not full feature parity)
+
+**Tablet as in-store kiosk (special use case):**
+- `/services` page is shown to customers on the tablet (receptionist holds/rotates tablet)
+- Design must look premium and readable at arm's length on 10" screen
+- Font sizes slightly larger than typical tablet web (18px body minimum for kiosk mode)
+- High contrast mode consideration for salon lighting conditions
+
+### Responsive Breakpoint Priority (Order of Design)
+
+**Customer pages:**
+```
+1st: Mobile (375px–428px)     ← Design THIS first
+2nd: Mobile large (428px–768px)
+3rd: Tablet (768px–1024px)     ← Bonus, not primary
+4th: Desktop (1024px+)         ← Rare, but should work
+```
+
+**Admin pages:**
+```
+1st: Tablet (768px–1024px)     ← Design THIS first
+2nd: Desktop (1024px–1440px)   ← Secondary workspace
+3rd: Mobile (375px–768px)      ← Simplified on-the-go view
+```
+
+### Physical Context
+
+| Context | Device | Position | Implication |
+|---------|--------|----------|-------------|
+| Customer at home browsing | Mobile | Held in one hand, portrait | Thumb zone design, bottom actions |
+| Customer in salon waiting | Mobile | Held, possibly dim screen | Good contrast, readable fonts |
+| Receptionist at front desk | Tablet | On counter stand or held | Touch-first, landscape orientation |
+| Receptionist showing menu to customer | Tablet | Rotated toward customer | Premium visual, kiosk-like readability |
+| Receptionist during checkout | Tablet | On counter, tapping | Large buttons, clear totals, fast workflow |
+| Manager reviewing reports | Laptop | At desk | Standard desktop layout, charts legible |
+| Stylist checking schedule | Mobile | Quick glance between clients | Minimal UI, today's appointments only |
+| Owner checking revenue | Laptop or mobile | Home/office | Dashboard KPIs visible at glance |
+
+---
+
+## 11. File References
 
 For detailed component specs, wireframes, and flow diagrams per page:
 
