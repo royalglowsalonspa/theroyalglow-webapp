@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Landing Pages — Royal Glow</title>
+    <style>
+        :root {
+            --purple: #6B4C9A;
+            --purple-light: #8B6FBB;
+            --purple-dark: #4A3470;
+            --gold: #C8A961;
+            --gold-light: #E8D5A0;
+            --gold-dark: #9A7D3A;
+            --teal: #2A9D8F;
+            --teal-light: #4DC4B6;
+            --teal-dark: #1F7A6F;
+            --bg: #FAFAFA;
+            --card-bg: #FFFFFF;
+            --text: #1A1A2E;
+            --text-muted: #5A5A7A;
+            --border: #E8E8F0;
+            --red: #E53E3E;
+            --red-light: #FFF5F5;
+            --shadow-sm: 0 1px 3px rgba(107,76,154,0.08);
+            --shadow-md: 0 4px 12px rgba(107,76,154,0.12);
+            --shadow-lg: 0 8px 32px rgba(107,76,154,0.16);
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, var(--purple-dark) 0%, var(--purple) 50%, var(--purple-light) 100%);
+            padding: 3rem 2rem 2rem;
+            text-align: center;
+            position: relative;
+        }
+
+        .hero h1 {
+            font-size: clamp(1.8rem, 4vw, 2.8rem);
+            color: #FFFFFF;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+        }
+
+        .hero .subtitle {
+            color: var(--gold-light);
+            font-size: 0.95rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(200,169,97,0.15);
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        /* Warning Banner */
+        .warning-banner {
+            background: var(--red-light);
+            border: 2px solid var(--red);
+            border-radius: var(--radius);
+            padding: 1rem 1.5rem;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .warning-banner .icon {
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .warning-banner .text {
+            font-size: 0.9rem;
+            color: var(--red);
+            font-weight: 600;
+        }
+
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--purple-dark);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: var(--gold);
+            border-radius: 2px;
+        }
+
+        .section-title code {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 1rem;
+            background: rgba(107,76,154,0.08);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        /* Page Overview Card */
+        .overview-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-md);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .overview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .overview-item {
+            padding: 0.75rem;
+            background: rgba(107,76,154,0.03);
+            border-radius: var(--radius-sm);
+            border-left: 3px solid var(--purple);
+        }
+
+        .overview-item .label {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+        }
+
+        .overview-item .value {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-top: 0.15rem;
+        }
+
+        /* Form Mockup */
+        .mockup-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .mockup-section { grid-template-columns: 1fr; }
+        }
+
+        .mockup-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+        }
+
+        .mockup-phone {
+            background: linear-gradient(180deg, var(--purple-dark), var(--purple));
+            padding: 2rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .phone-frame {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 1.5rem;
+            width: 100%;
+            max-width: 320px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .phone-frame .trust-signals {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .phone-frame .brand {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--purple);
+        }
+
+        .phone-frame .stars {
+            font-size: 0.8rem;
+            color: var(--gold-dark);
+            margin-top: 0.25rem;
+        }
+
+        .phone-frame .form-heading {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text);
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .mock-input {
+            width: 100%;
+            padding: 0.6rem 0.75rem;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            margin-bottom: 0.6rem;
+            background: #F8F8FC;
+        }
+
+        .mock-select {
+            width: 100%;
+            padding: 0.6rem 0.75rem;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            background: #F8F8FC;
+        }
+
+        .mock-btn {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--purple);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .phone-frame .footer-mini {
+            text-align: center;
+            margin-top: 1rem;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        /* Details Section */
+        .details-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-md);
+            padding: 1.5rem;
+        }
+
+        .details-card h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--purple);
+            margin-bottom: 1rem;
+        }
+
+        .state-list {
+            list-style: none;
+        }
+
+        .state-list li {
+            padding: 0.6rem 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.88rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+
+        .state-list li:last-child { border-bottom: none; }
+
+        .state-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-top: 0.4rem;
+            flex-shrink: 0;
+        }
+
+        .state-idle .state-dot { background: var(--teal); }
+        .state-submit .state-dot { background: var(--gold); }
+        .state-valid .state-dot { background: var(--red); }
+        .state-success .state-dot { background: #4CAF50; }
+        .state-error .state-dot { background: var(--red); }
+
+        /* Post Submit Flow */
+        .flow-section {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-md);
+            padding: 2rem;
+            margin-top: 2rem;
+        }
+
+        .flow-section h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--purple-dark);
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        .flow-horizontal {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            overflow-x: auto;
+            padding: 1rem 0;
+        }
+
+        .flow-box {
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-align: center;
+            min-width: 120px;
+            white-space: nowrap;
+        }
+
+        .flow-box-purple {
+            background: rgba(107,76,154,0.1);
+            color: var(--purple-dark);
+            border: 1px solid rgba(107,76,154,0.2);
+        }
+
+        .flow-box-teal {
+            background: rgba(42,157,143,0.1);
+            color: var(--teal-dark);
+            border: 1px solid rgba(42,157,143,0.2);
+        }
+
+        .flow-box-gold {
+            background: rgba(200,169,97,0.15);
+            color: var(--gold-dark);
+            border: 1px solid rgba(200,169,97,0.3);
+        }
+
+        .flow-connector {
+            width: 30px;
+            height: 2px;
+            background: var(--gold);
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .flow-connector::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: -3px;
+            width: 0;
+            height: 0;
+            border-top: 4px solid transparent;
+            border-bottom: 4px solid transparent;
+            border-left: 6px solid var(--gold);
+        }
+
+        /* UTM & Meta Section */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .two-col { grid-template-columns: 1fr; }
+        }
+
+        .info-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            padding: 1.5rem;
+            border-top: 3px solid var(--teal);
+        }
+
+        .info-card.gold-top { border-top-color: var(--gold); }
+
+        .info-card h4 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            color: var(--text);
+        }
+
+        .info-card p {
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .info-card code {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.78rem;
+            background: rgba(107,76,154,0.06);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            color: var(--purple);
+        }
+
+        .event-chips {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-top: 0.75rem;
+        }
+
+        .event-chip {
+            font-size: 0.78rem;
+            font-weight: 600;
+            padding: 0.3rem 0.6rem;
+            border-radius: 6px;
+            background: rgba(42,157,143,0.1);
+            color: var(--teal-dark);
+            border: 1px solid rgba(42,157,143,0.2);
+        }
+
+        /* Layout Comparison */
+        .layout-comparison {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-md);
+            padding: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .layout-comparison h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--purple-dark);
+            margin-bottom: 1rem;
+        }
+
+        .layout-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        @media (max-width: 600px) {
+            .layout-grid { grid-template-columns: 1fr; }
+        }
+
+        .layout-item {
+            padding: 1rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+        }
+
+        .layout-item h4 {
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--purple);
+        }
+
+        .layout-item p {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+
+        @media (max-width: 768px) {
+            .hero { padding: 2rem 1rem; }
+            .container { padding: 1.5rem 1rem; }
+            .flow-horizontal { flex-direction: column; }
+            .flow-connector { width: 2px; height: 20px; }
+            .flow-connector::after {
+                right: auto;
+                top: auto;
+                bottom: 0;
+                left: -3px;
+                border-top: 6px solid var(--gold);
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-bottom: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="hero">
+        <h1>Landing Pages</h1>
+        <span class="subtitle">No header/footer/nav &middot; Ad traffic only &middot; Single conversion goal</span>
+    </header>
+
+    <main class="container">
+        <div class="warning-banner">
+            <span class="icon">&#9888;&#65039;</span>
+            <span class="text">Never link to this page from homepage, GMB, Google Maps, or in-store QR codes. Only Meta/Instagram ads should point here.</span>
+        </div>
+
+        <h2 class="section-title">Page 5.1 &mdash; <code>/book</code> Ad Landing Page</h2>
+
+        <div class="overview-card">
+            <div class="overview-grid">
+                <div class="overview-item">
+                    <div class="label">Title</div>
+                    <div class="value">Book Now &mdash; Royal Glow Salon & SPA</div>
+                </div>
+                <div class="overview-item">
+                    <div class="label">Purpose</div>
+                    <div class="value">Meta/Instagram lead capture</div>
+                </div>
+                <div class="overview-item">
+                    <div class="label">Rendering</div>
+                    <div class="value">SSR</div>
+                </div>
+                <div class="overview-item">
+                    <div class="label">SEO</div>
+                    <div class="value">robots: noindex, nofollow</div>
+                </div>
+                <div class="overview-item">
+                    <div class="label">Layout</div>
+                    <div class="value">Zero navigation, brand-focused</div>
+                </div>
+                <div class="overview-item">
+                    <div class="label">Auth Required</div>
+                    <div class="value">No (cold ad traffic)</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mockup-section">
+            <!-- Phone Mockup -->
+            <div class="mockup-card">
+                <div class="mockup-phone">
+                    <div class="phone-frame">
+                        <div class="trust-signals">
+                            <div class="brand">Royal Glow</div>
+                            <div class="stars">&#11088; 4.9 &middot; 86 reviews &middot; Bengaluru</div>
+                        </div>
+                        <div class="form-heading">Tell us what you're looking for</div>
+                        <div class="mock-input">Your name</div>
+                        <div class="mock-input">+91 &nbsp;Mobile number</div>
+                        <div class="mock-select">Service interested in &nbsp;&#9660;</div>
+                        <div class="mock-btn">Continue to Booking</div>
+                        <div class="footer-mini">Royal Glow Salon & SPA &middot; Bengaluru<br>+91 63601 35720</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- States & Details -->
+            <div class="details-card">
+                <h3>Form States</h3>
+                <ul class="state-list">
+                    <li class="state-idle"><span class="state-dot"></span><div><strong>Idle:</strong> Form active, fields editable</div></li>
+                    <li class="state-submit"><span class="state-dot"></span><div><strong>Submitting:</strong> Button spinner, fields disabled</div></li>
+                    <li class="state-valid"><span class="state-dot"></span><div><strong>Validation:</strong> Inline errors (phone format, name required)</div></li>
+                    <li class="state-success"><span class="state-dot"></span><div><strong>Success:</strong> Confetti + "Taking you to booking..." &rarr; redirect</div></li>
+                    <li class="state-error"><span class="state-dot"></span><div><strong>Error:</strong> "Something went wrong. Call us: +91 63601 35720" with phone link</div></li>
+                </ul>
+
+                <h3 style="margin-top: 1.5rem;">Service Dropdown Options</h3>
+                <div class="event-chips">
+                    <span class="event-chip">Haircut</span>
+                    <span class="event-chip">Facial</span>
+                    <span class="event-chip">Waxing</span>
+                    <span class="event-chip">Massage</span>
+                    <span class="event-chip">SPA</span>
+                    <span class="event-chip">Bridal</span>
+                    <span class="event-chip">Other</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Post Submit Flow -->
+        <div class="flow-section">
+            <h3>Post-Submit Redirect Flow</h3>
+            <div class="flow-horizontal">
+                <div class="flow-box flow-box-purple">Form Submit</div>
+                <div class="flow-connector"></div>
+                <div class="flow-box flow-box-teal">POST /api/leads<br><small>lead row created</small></div>
+                <div class="flow-connector"></div>
+                <div class="flow-box flow-box-gold">Meta Pixel: Lead<br><small>+ CAPI (dedup)</small></div>
+                <div class="flow-connector"></div>
+                <div class="flow-box flow-box-purple">"Thank you!" (1.5s)</div>
+                <div class="flow-connector"></div>
+                <div class="flow-box flow-box-teal">Redirect to<br><small>/?book=1&leadId={id}</small></div>
+            </div>
+        </div>
+
+        <!-- UTM & Meta Events -->
+        <div class="two-col">
+            <div class="info-card">
+                <h4>UTM Handling</h4>
+                <p>All UTM params saved to <code>lead</code> row for campaign attribution.</p>
+                <p>Example URL:</p>
+                <p><code>/book?utm_source=meta&utm_campaign=facial_may&utm_content=carousel_1</code></p>
+                <p style="margin-top:0.5rem;"><code>fbc</code> and <code>fbp</code> cookies read from request for Meta CAPI.</p>
+            </div>
+            <div class="info-card gold-top">
+                <h4>Meta Pixel Events</h4>
+                <p>Two events fire on this page:</p>
+                <div class="event-chips">
+                    <span class="event-chip">PageView (on load)</span>
+                    <span class="event-chip">Lead (after submit)</span>
+                </div>
+                <p style="margin-top:0.75rem;">Both browser Pixel + server CAPI fire with same <code>eventId</code> for deduplication.</p>
+            </div>
+        </div>
+
+        <!-- Mobile vs Desktop -->
+        <div class="layout-comparison">
+            <h3>Mobile vs Desktop Layout</h3>
+            <div class="layout-grid">
+                <div class="layout-item">
+                    <h4>Mobile</h4>
+                    <p>Full-screen card, form centered vertically, thumb-friendly input sizing (min 44px touch targets), no horizontal scroll.</p>
+                </div>
+                <div class="layout-item">
+                    <h4>Desktop</h4>
+                    <p>Centered narrow card (max-width 480px) with premium background gradient. Feels like a focused overlay.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer-Facing Public Pages — Royal Glow Salon & Spa</title>
+    <style>
+        :root {
+            --purple: #6B4C9A;
+            --purple-light: #8B6CBB;
+            --purple-dark: #4A3470;
+            --purple-bg: #F5F0FA;
+            --gold: #C8A961;
+            --gold-light: #E8D5A0;
+            --gold-dark: #9A7F3A;
+            --teal: #2A9D8F;
+            --teal-light: #4DBFB2;
+            --teal-dark: #1F7A6F;
+            --teal-bg: #E8F8F5;
+            --bg: #FAFAFA;
+            --surface: #FFFFFF;
+            --text: #1A1A2E;
+            --text-secondary: #555770;
+            --border: #E8E8F0;
+            --shadow-sm: 0 1px 3px rgba(107,76,154,0.08);
+            --shadow-md: 0 4px 12px rgba(107,76,154,0.12);
+            --shadow-lg: 0 8px 32px rgba(107,76,154,0.16);
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--purple-dark) 0%, var(--purple) 50%, var(--purple-light) 100%);
+            padding: 3rem 2rem 4rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(ellipse at center, rgba(200,169,97,0.1) 0%, transparent 60%);
+            animation: shimmer 8s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { transform: rotate(0deg); }
+            50% { transform: rotate(180deg); }
+        }
+
+        .header h1 {
+            color: #fff;
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+
+        .header .subtitle {
+            color: var(--gold-light);
+            font-size: 1.1rem;
+            font-weight: 400;
+            position: relative;
+        }
+
+        .header .badge-count {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            color: #fff;
+            font-size: 0.85rem;
+            margin-top: 1rem;
+            position: relative;
+        }
+
+
+        /* Navigation */
+        .nav-bar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0.8rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .nav-bar .nav-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .nav-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 500;
+            text-decoration: none;
+            color: var(--text-secondary);
+            background: var(--bg);
+            border: 1px solid var(--border);
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .nav-pill:hover {
+            background: var(--purple-bg);
+            color: var(--purple);
+            border-color: var(--purple-light);
+            transform: translateY(-1px);
+        }
+
+        .nav-pill .nav-num {
+            background: var(--purple);
+            color: #fff;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            font-weight: 700;
+        }
+
+
+        /* Main content */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+        }
+
+        /* Page Card */
+        .page-card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-md);
+            margin-bottom: 2rem;
+            overflow: hidden;
+            transition: box-shadow 0.3s ease, transform 0.2s ease;
+        }
+
+        .page-card:hover {
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-2px);
+        }
+
+        .page-card-header {
+            padding: 1.5rem 2rem;
+            background: linear-gradient(135deg, var(--purple-bg) 0%, #fff 100%);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .page-number {
+            background: var(--purple);
+            color: #fff;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .page-title-block {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .page-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 0.25rem;
+        }
+
+        .page-route {
+            font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 0.85rem;
+            color: var(--purple);
+            background: rgba(107,76,154,0.08);
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .page-purpose {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-top: 0.4rem;
+        }
+
+
+        /* Badges */
+        .badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            align-items: center;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .badge-ssr {
+            background: #DBEAFE;
+            color: #1D4ED8;
+            border: 1px solid #93C5FD;
+        }
+
+        .badge-isr {
+            background: #FEF3C7;
+            color: #B45309;
+            border: 1px solid #FCD34D;
+        }
+
+        .badge-ssg {
+            background: #D1FAE5;
+            color: #065F46;
+            border: 1px solid #6EE7B7;
+        }
+
+        .badge-seo {
+            background: #EDE9FE;
+            color: #6B21A8;
+            border: 1px solid #C4B5FD;
+        }
+
+        .badge-pwa {
+            background: #CCFBF1;
+            color: #115E59;
+            border: 1px solid #5EEAD4;
+        }
+
+        .badge-analytics {
+            background: #FEE2E2;
+            color: #991B1B;
+            border: 1px solid #FCA5A5;
+        }
+
+        .badge-jsonld {
+            background: #FFF7ED;
+            color: #C2410C;
+            border: 1px solid #FDBA74;
+        }
+
+        .badge-cms {
+            background: #F0FDF4;
+            color: #166534;
+            border: 1px solid #86EFAC;
+        }
+
+
+        /* Card Body */
+        .page-card-body {
+            padding: 1.5rem 2rem;
+        }
+
+        /* Properties table */
+        .props-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1.5rem;
+            font-size: 0.85rem;
+        }
+
+        .props-table th {
+            text-align: left;
+            padding: 0.6rem 1rem;
+            background: var(--bg);
+            color: var(--text-secondary);
+            font-weight: 600;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+            width: 140px;
+        }
+
+        .props-table td {
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text);
+        }
+
+        .props-table tr:last-child th,
+        .props-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .props-table code {
+            background: rgba(107,76,154,0.06);
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.8rem;
+            color: var(--purple);
+        }
+
+        /* Section titles in card */
+        .section-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--purple);
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.4rem;
+            border-bottom: 2px solid var(--gold-light);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-title .icon {
+            font-size: 1rem;
+        }
+
+
+        /* Component list */
+        .component-list {
+            list-style: none;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 0.6rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .component-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            padding: 0.6rem 0.8rem;
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            font-size: 0.82rem;
+            line-height: 1.4;
+            transition: background 0.2s;
+        }
+
+        .component-list li:hover {
+            background: var(--purple-bg);
+        }
+
+        .component-list li::before {
+            content: '◆';
+            color: var(--teal);
+            font-size: 0.6rem;
+            margin-top: 0.2rem;
+            flex-shrink: 0;
+        }
+
+        /* Deep links */
+        .deep-links {
+            background: linear-gradient(135deg, #F8FAFC 0%, var(--teal-bg) 100%);
+            border: 1px solid rgba(42,157,143,0.2);
+            border-radius: var(--radius-sm);
+            padding: 1rem 1.2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .deep-links code {
+            display: inline-block;
+            background: rgba(42,157,143,0.1);
+            color: var(--teal-dark);
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.78rem;
+            margin: 0.2rem 0.3rem 0.2rem 0;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+        }
+
+        /* Responsive grid */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .two-col {
+                grid-template-columns: 1fr;
+            }
+
+            .page-card-header {
+                padding: 1.2rem 1.2rem;
+            }
+
+            .page-card-body {
+                padding: 1.2rem;
+            }
+
+            .header h1 {
+                font-size: 1.6rem;
+            }
+
+            .component-list {
+                grid-template-columns: 1fr;
+            }
+
+            .props-table th {
+                width: 100px;
+            }
+        }
+
+
+        /* Mobile/Desktop comparison */
+        .responsive-box {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        @media (max-width: 600px) {
+            .responsive-box {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .responsive-box .device-box {
+            padding: 0.8rem 1rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            font-size: 0.82rem;
+        }
+
+        .responsive-box .device-box.mobile {
+            background: #FFF7ED;
+            border-color: #FDBA74;
+        }
+
+        .responsive-box .device-box.desktop {
+            background: #EFF6FF;
+            border-color: #93C5FD;
+        }
+
+        .device-box .device-label {
+            font-weight: 700;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.4rem;
+        }
+
+        .device-box.mobile .device-label { color: #C2410C; }
+        .device-box.desktop .device-label { color: #1D4ED8; }
+
+        /* Analytics */
+        .analytics-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .analytics-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.3rem 0.7rem;
+            border-radius: 16px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            background: #FDF2F8;
+            color: #9D174D;
+            border: 1px solid #FBCFE8;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+            font-size: 0.82rem;
+            border-top: 1px solid var(--border);
+            margin-top: 2rem;
+        }
+
+        .footer a {
+            color: var(--purple);
+            text-decoration: none;
+        }
+
+        /* Divider */
+        .divider {
+            height: 1px;
+            background: var(--border);
+            margin: 1.5rem 0;
+        }
+
+        /* Legend */
+        .legend {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.2rem 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .legend h3 {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+        }
+
+        .legend .legend-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+        }
+    </style>
+</head>
+<body>
+
+
+    <!-- Header -->
+    <header class="header">
+        <h1>Customer-Facing Public Pages</h1>
+        <p class="subtitle">Royal Glow Salon & Spa — Marketing & Discovery Layer</p>
+        <span class="badge-count">&#9670; 8 Public Pages &bull; No Auth Required &bull; SEO-Optimized</span>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="nav-bar">
+        <div class="nav-inner">
+            <a href="#homepage" class="nav-pill"><span class="nav-num">1</span> Homepage</a>
+            <a href="#services" class="nav-pill"><span class="nav-num">2</span> Services</a>
+            <a href="#offers" class="nav-pill"><span class="nav-num">3</span> Offers</a>
+            <a href="#about" class="nav-pill"><span class="nav-num">4</span> About</a>
+            <a href="#contact" class="nav-pill"><span class="nav-num">5</span> Contact</a>
+            <a href="#blog" class="nav-pill"><span class="nav-num">6</span> Blog</a>
+            <a href="#blog-post" class="nav-pill"><span class="nav-num">7</span> Blog Post</a>
+            <a href="#faq" class="nav-pill"><span class="nav-num">8</span> FAQ</a>
+        </div>
+    </nav>
+
+    <main class="container">
+
+        <!-- Legend -->
+        <div class="legend">
+            <h3>Badge Legend</h3>
+            <div class="legend-items">
+                <span class="badge badge-ssr">SSR</span>
+                <span class="badge badge-isr">ISR</span>
+                <span class="badge badge-ssg">SSG</span>
+                <span class="badge badge-seo">SEO Schema</span>
+                <span class="badge badge-jsonld">JSON-LD</span>
+                <span class="badge badge-pwa">PWA Offline</span>
+                <span class="badge badge-analytics">Analytics</span>
+                <span class="badge badge-cms">Payload CMS</span>
+            </div>
+        </div>
+
+
+        <!-- ============================================ -->
+        <!-- 1.1 HOMEPAGE -->
+        <!-- ============================================ -->
+        <article class="page-card" id="homepage">
+            <div class="page-card-header">
+                <span class="page-number">1.1</span>
+                <div class="page-title-block">
+                    <h2 class="page-title">Homepage</h2>
+                    <code class="page-route">/</code>
+                    <p class="page-purpose">Premium brand landing page with a single conversion goal: open the booking dialog.</p>
+                </div>
+                <div class="badges">
+                    <span class="badge badge-ssr">SSR</span>
+                    <span class="badge badge-seo">LocalBusiness</span>
+                    <span class="badge badge-jsonld">4 JSON-LD</span>
+                    <span class="badge badge-analytics">PostHog + Meta + Clarity</span>
+                </div>
+            </div>
+            <div class="page-card-body">
+                <!-- Properties -->
+                <table class="props-table">
+                    <tr><th>Rendering</th><td>SSR (dynamic — personalised CTA if signed in)</td></tr>
+                    <tr><th>Title</th><td><code>&lt;title&gt;Royal Glow Salon &amp; SPA — Premium Beauty in Bengaluru&lt;/title&gt;</code></td></tr>
+                    <tr><th>JSON-LD</th><td><code>LocalBusiness</code> + <code>Organization</code> + <code>WebSite</code> (with SearchAction) + <code>FAQPage</code></td></tr>
+                    <tr><th>OG Image</th><td>Custom branded default (<code>/opengraph-image</code>)</td></tr>
+                    <tr><th>Canonical</th><td><code>https://theroyalglow.in</code></td></tr>
+                </table>
+
+
+                <h4 class="section-title"><span class="icon">&#9881;</span> UI Components</h4>
+                <ul class="component-list">
+                    <li>Hero section: full-bleed image/video background, wordmark, tagline, "Book Now" CTA</li>
+                    <li>Services preview: top 4–6 services as horizontal scroll cards → <code>/services</code></li>
+                    <li>Offers banner: active promotion with countdown timer and CTA</li>
+                    <li>Testimonials: embedded Google Maps review snippets (static, refreshed ISR)</li>
+                    <li>Gallery preview: 4–6 images in masonry grid linking to gallery</li>
+                    <li>FAQ section: 6–8 questions as accordions (<code>FAQPage</code> JSON-LD)</li>
+                    <li>Footer: NAP, social links, legal links, "Cookie Preferences" link</li>
+                </ul>
+
+                <h4 class="section-title"><span class="icon">&#128279;</span> Deep Links</h4>
+                <div class="deep-links">
+                    <code>/?book=1</code> Auto-opens 4-step booking dialog<br>
+                    <code>/?book=1&amp;utm_source=gmb</code> Opens dialog + source = GMB<br>
+                    <code>/?book=1&amp;utm_source=walkin</code> Opens dialog + source = walk-in<br>
+                    <code>/?book=1&amp;leadId={id}</code> Dialog with lead context linked<br>
+                    <code>/?book=1&amp;service=[slug]</code> Dialog with service pre-selected (Step 3)
+                </div>
+
+                <h4 class="section-title"><span class="icon">&#128241;</span> Responsive Behavior</h4>
+                <div class="responsive-box">
+                    <div class="device-box mobile">
+                        <div class="device-label">&#128241; Mobile</div>
+                        Hero image cropped for portrait. "Book Now" sticky at bottom of viewport. Services as horizontal swipe.
+                    </div>
+                    <div class="device-box desktop">
+                        <div class="device-label">&#128187; Desktop</div>
+                        Full-width hero with parallax. "Book Now" in hero center + fixed header CTA.
+                    </div>
+                </div>
+
+                <h4 class="section-title"><span class="icon">&#128200;</span> Analytics Events</h4>
+                <div class="analytics-row">
+                    <span class="analytics-chip">PostHog: <code>page_view</code></span>
+                    <span class="analytics-chip">Meta Pixel: <code>PageView</code></span>
+                    <span class="analytics-chip">Clarity: heatmap + scroll depth</span>
+                </div>
+            </div>
+        </article>
+
+
+        <!-- ============================================ -->
+        <!-- 1.2 SERVICES -->
+        <!-- ============================================ -->
+        <article class="page-card" id="services">
+            <div class="page-card-header">
+                <span class="page-number">1.2</span>
+                <div class="page-title-block">
+                    <h2 class="page-title">Services</h2>
+                    <code class="page-route">/services</code>
+                    <p class="page-purpose">Browse all services with prices. Primary discovery page for what Royal Glow offers.</p>
+                </div>
+                <div class="badges">
+                    <span class="badge badge-ssr">SSR</span>
+                    <span class="badge badge-seo">Service Schema</span>
+                    <span class="badge badge-jsonld">JSON-LD per service</span>
+                    <span class="badge badge-analytics">PostHog + Meta</span>
+                </div>
+            </div>
+            <div class="page-card-body">
+                <table class="props-table">
+                    <tr><th>Rendering</th><td>SSR (data from Neon via Cloudflare KV cache)</td></tr>
+                    <tr><th>Title</th><td><code>Services &amp; Prices | Royal Glow Salon &amp; SPA</code></td></tr>
+                    <tr><th>JSON-LD</th><td><code>LocalBusiness</code> + <code>BreadcrumbList</code> + <code>Service</code> per service + <code>FAQPage</code></td></tr>
+                    <tr><th>Canonical</th><td><code>https://theroyalglow.in/services</code></td></tr>
+                    <tr><th>Data Source</th><td><code>GET /api/services</code> (Cloudflare KV cached, 5-min TTL)</td></tr>
+                    <tr><th>Price Format</th><td><code>&#8377;X,XXX.00</code> with "Incl. 18% GST" note</td></tr>
+                </table>
+
+                <h4 class="section-title"><span class="icon">&#9881;</span> UI Components</h4>
+                <ul class="component-list">
+                    <li>Salon / SPA sticky toggle filter: switches between Salon and SPA categories</li>
+                    <li>Category accordions: collapsible groups (Haircut &amp; Styling, Facial &amp; Skincare, etc.)</li>
+                    <li>Service cards: name, price (₹ GST-inclusive), duration badge, "Book This" mini-button</li>
+                    <li>SPA 60/90min variants: single card with duration toggle (not two cards)</li>
+                    <li>"Book Now" floating CTA at bottom (mobile) / fixed in header (desktop)</li>
+                </ul>
+
+                <h4 class="section-title"><span class="icon">&#128241;</span> Responsive Behavior</h4>
+                <div class="responsive-box">
+                    <div class="device-box mobile">
+                        <div class="device-label">&#128241; Mobile</div>
+                        Single column. Categories as full-width accordions. Sticky Salon/SPA toggle at top.
+                    </div>
+                    <div class="device-box desktop">
+                        <div class="device-label">&#128187; Desktop</div>
+                        Two-column grid within each category. Toggle as horizontal tabs.
+                    </div>
+                </div>
+
+                <h4 class="section-title"><span class="icon">&#128200;</span> Analytics Events</h4>
+                <div class="analytics-row">
+                    <span class="analytics-chip">PostHog: <code>page_view</code>, <code>service_viewed</code></span>
+                    <span class="analytics-chip">Meta Pixel: <code>ViewContent</code> (content_name = category)</span>
+                </div>
+            </div>
+        </article>
+
+
+        <!-- ============================================ -->
+        <!-- 1.3 OFFERS -->
+        <!-- ============================================ -->
+        <article class="page-card" id="offers">
+            <div class="page-card-header">
+                <span class="page-number">1.3</span>
+                <div class="page-title-block">
+                    <h2 class="page-title">Offers &amp; Combos</h2>
+                    <code class="page-route">/offers</code>
+                    <p class="page-purpose">Active promotions with terms, validity dates, and linked services.</p>
+                </div>
+                <div class="badges">
+                    <span class="badge badge-ssr">SSR</span>
+                    <span class="badge badge-jsonld">Event JSON-LD</span>
+                </div>
+            </div>
+            <div class="page-card-body">
+                <table class="props-table">
+                    <tr><th>Rendering</th><td>SSR (dynamic — offers change frequently)</td></tr>
+                    <tr><th>Title</th><td><code>Current Offers &amp; Combos | Royal Glow Salon &amp; SPA</code></td></tr>
+                    <tr><th>JSON-LD</th><td><code>LocalBusiness</code> + <code>BreadcrumbList</code> + <code>Event</code> per active offer</td></tr>
+                    <tr><th>Canonical</th><td><code>https://theroyalglow.in/offers</code></td></tr>
+                    <tr><th>Data Source</th><td><code>offer</code> table filtered by <code>start_date &lt;= now AND end_date &gt;= now</code></td></tr>
+                </table>
+
+                <h4 class="section-title"><span class="icon">&#9881;</span> UI Components</h4>
+                <ul class="component-list">
+                    <li>Offer cards (stacked): name, type badge (% off / ₹ off / Combo), linked services, validity range, terms</li>
+                    <li>"Book Now" CTA on each card → opens homepage booking dialog with offer context</li>
+                    <li>Expired offers: hidden (not shown to customers)</li>
+                    <li>"One offer per customer per day" info banner at top</li>
+                </ul>
+
+                <h4 class="section-title"><span class="icon">&#128241;</span> Responsive Behavior</h4>
+                <div class="responsive-box">
+                    <div class="device-box mobile">
+                        <div class="device-label">&#128241; Mobile</div>
+                        Single column stacked cards.
+                    </div>
+                    <div class="device-box desktop">
+                        <div class="device-label">&#128187; Desktop</div>
+                        2-column grid layout.
+                    </div>
+                </div>
+            </div>
+        </article>
+
+
+        <!-- ============================================ -->
+        <!-- 1.4 ABOUT -->
+        <!-- ============================================ -->
+        <article class="page-card" id="about">
+            <div class="page-card-header">
+                <span class="page-number">1.4</span>
+                <div class="page-title-block">
+                    <h2 class="page-title">About Us</h2>
+                    <code class="page-route">/about</code>
+                    <p class="page-purpose">Business story, team gallery, salon philosophy. Builds trust and E-E-A-T signals.</p>
+                </div>
+                <div class="badges">
+                    <span class="badge badge-isr">ISR 1h</span>
+                    <span class="badge badge-cms">Payload CMS</span>
+                    <span class="badge badge-jsonld">Person JSON-LD</span>
+                </div>
+            </div>
+            <div class="page-card-body">
+                <table class="props-table">
+                    <tr><th>Rendering</th><td>ISR (1h revalidation — content from Payload CMS)</td></tr>
+                    <tr><th>Title</th><td><code>About Royal Glow Salon &amp; SPA — Our Story</code></td></tr>
+                    <tr><th>JSON-LD</th><td><code>LocalBusiness</code> + <code>BreadcrumbList</code> + <code>Person</code> per staff member</td></tr>
+                    <tr><th>Canonical</th><td><code>https://theroyalglow.in/about</code></td></tr>
+                    <tr><th>Data Source</th><td>Payload CMS REST API (<code>/api/pages/about</code>)</td></tr>
+                </table>
+
+                <h4 class="section-title"><span class="icon">&#9881;</span> UI Components</h4>
+                <ul class="component-list">
+                    <li>Brand story section: founder narrative, mission statement (from Payload CMS)</li>
+                    <li>Team gallery: staff cards with photo, name, designation, specialization</li>
+                    <li>Salon images: interior/exterior gallery (Cloudflare R2 via Next.js <code>&lt;Image&gt;</code>)</li>
+                    <li>Values/philosophy section: icons + short text blocks</li>
+                </ul>
+            </div>
+        </article>
+
+
+        <!-- ============================================ -->
+        <!-- 1.5 CONTACT -->
+        <!-- ============================================ -->
+        <article class="page-card" id="contact">
+            <div class="page-card-header">
+                <span class="page-number">1.5</span>
+                <div class="page-title-block">
+                    <h2 class="page-title">Contact</h2>
+                    <code class="page-route">/contact</code>
+                    <p class="page-purpose">All contact methods, location, and enquiry form. Critical for local SEO.</p>
+                </div>
+                <div class="badges">
+                    <span class="badge badge-ssg">SSG</span>
+                    <span class="badge badge-pwa">PWA Offline</span>
+                    <span class="badge badge-seo">LocalBusiness (full)</span>
+                    <span class="badge badge-jsonld">openingHours + geo</span>
+                </div>
+            </div>
+            <div class="page-card-body">
+                <table class="props-table">
+                    <tr><th>Rendering</th><td>SSG (static — contact info rarely changes)</td></tr>
+                    <tr><th>Title</th><td><code>Contact &amp; Location | Royal Glow Salon &amp; SPA Bengaluru</code></td></tr>
+                    <tr><th>JSON-LD</th><td><code>LocalBusiness</code> (full, with <code>geo</code>, <code>openingHoursSpecification</code>) + <code>BreadcrumbList</code></td></tr>
+                    <tr><th>Canonical</th><td><code>https://theroyalglow.in/contact</code></td></tr>
+                    <tr><th>Offline</th><td>PWA cached by service worker — accessible without internet</td></tr>
+                </table>
+
+                <h4 class="section-title"><span class="icon">&#9881;</span> UI Components</h4>
+                <ul class="component-list">
+                    <li>Address block: wrapped in <code>&lt;address&gt;</code> HTML tag, full NAP</li>
+                    <li>Google Maps embed: interactive map with pin (Place ID based)</li>
+                    <li>Business hours table: <code>&lt;time&gt;</code> tags for each day</li>
+                    <li>Phone: click-to-call link (<code>tel:+916360135720</code>)</li>
+                    <li>Email: <code>mailto:hello@theroyalglow.in</code></li>
+                    <li>Social links: Instagram, Facebook (icon buttons with <code>aria-label</code>)</li>
+                    <li>Enquiry/feedback form: name, email, message, submit</li>
+                    <li>"Get Directions" CTA → Google Maps app on mobile</li>
+                </ul>
+
+                <h4 class="section-title"><span class="icon">&#128241;</span> Responsive Behavior</h4>
+                <div class="responsive-box">
+                    <div class="device-box mobile">
+                        <div class="device-label">&#128241; Mobile</div>
+                        Map full-width above form. Click-to-call prominent.
+                    </div>
+                    <div class="device-box desktop">
+                        <div class="device-label">&#128187; Desktop</div>
+                        Map on right, contact info + form on left (2-column layout).
+                    </div>
+                </div>
+            </div>
+        </article>
+
+
+        <!-- ============================================ -->
+        <!-- 1.6 BLOG -->
+        <!-- ============================================ -->
+        <article class="page-card" id="blog">
+            <div class="page-card-header">
+                <span class="page-number">1.6</span>
+                <div class="page-title-block">
+                    <h2 class="page-title">Blog</h2>
+                    <code class="page-route">/blog</code>
+                    <p class="page-purpose">Beauty &amp; wellness articles for SEO content marketing and E-E-A-T.</p>
+                </div>
+                <div class="badges">
+                    <span class="badge badge-isr">ISR 1h</span>
+                    <span class="badge badge-cms">Payload CMS</span>
+                    <span class="badge badge-seo">BreadcrumbList</span>
+                </div>
+            </div>
+            <div class="page-card-body">
+                <table class="props-table">
+                    <tr><th>Rendering</th><td>ISR (1h revalidation)</td></tr>
+                    <tr><th>Title</th><td><code>Beauty &amp; Wellness Blog | Royal Glow Salon &amp; SPA</code></td></tr>
+                    <tr><th>JSON-LD</th><td><code>LocalBusiness</code> + <code>BreadcrumbList</code></td></tr>
+                    <tr><th>Canonical</th><td><code>https://theroyalglow.in/blog</code></td></tr>
+                    <tr><th>Data Source</th><td>Payload CMS REST API (<code>/api/posts?limit=12&amp;page=X</code>)</td></tr>
+                </table>
+
+                <h4 class="section-title"><span class="icon">&#9881;</span> UI Components</h4>
+                <ul class="component-list">
+                    <li>Article cards: featured image, title, excerpt (150 chars), publish date, read time</li>
+                    <li>Pagination or "Load More" button</li>
+                    <li>Category filter chips (if categories defined in Payload CMS)</li>
+                </ul>
+            </div>
+        </article>
+
+
+        <!-- ============================================ -->
+        <!-- 1.7 BLOG POST -->
+        <!-- ============================================ -->
+        <article class="page-card" id="blog-post">
+            <div class="page-card-header">
+                <span class="page-number">1.7</span>
+                <div class="page-title-block">
+                    <h2 class="page-title">Blog Post</h2>
+                    <code class="page-route">/blog/[slug]</code>
+                    <p class="page-purpose">Individual article page with rich structured data for Google.</p>
+                </div>
+                <div class="badges">
+                    <span class="badge badge-isr">ISR</span>
+                    <span class="badge badge-cms">Payload CMS</span>
+                    <span class="badge badge-jsonld">BlogPosting</span>
+                    <span class="badge badge-seo">BreadcrumbList</span>
+                </div>
+            </div>
+            <div class="page-card-body">
+                <table class="props-table">
+                    <tr><th>Rendering</th><td>ISR (1h revalidation)</td></tr>
+                    <tr><th>Title</th><td><code>[Article Title] | Royal Glow Blog</code> (dynamic)</td></tr>
+                    <tr><th>JSON-LD</th><td><code>BlogPosting</code> + <code>BreadcrumbList</code> + <code>LocalBusiness</code></td></tr>
+                    <tr><th>OG Image</th><td>Per-post generated OG image (title + Royal Glow branding)</td></tr>
+                    <tr><th>Canonical</th><td><code>https://theroyalglow.in/blog/[slug]</code></td></tr>
+                    <tr><th>Data Source</th><td>Payload CMS rich text field</td></tr>
+                </table>
+
+                <h4 class="section-title"><span class="icon">&#9881;</span> UI Components</h4>
+                <ul class="component-list">
+                    <li>Article header: title (h1), publish date (<code>&lt;time&gt;</code>), read time, author</li>
+                    <li>Rich text body: rendered from Payload CMS (headings, paragraphs, images, lists)</li>
+                    <li>Table of contents sidebar (desktop only — sticky)</li>
+                    <li>Related articles: 2–3 cards at bottom</li>
+                    <li>CTA banner: "Ready to experience this? Book Now →" linking to <code>/?book=1</code></li>
+                </ul>
+
+                <h4 class="section-title"><span class="icon">&#128241;</span> Responsive Behavior</h4>
+                <div class="responsive-box">
+                    <div class="device-box mobile">
+                        <div class="device-label">&#128241; Mobile</div>
+                        Full-width article. TOC hidden (collapsible at top). Related articles stacked.
+                    </div>
+                    <div class="device-box desktop">
+                        <div class="device-label">&#128187; Desktop</div>
+                        Article with sticky TOC sidebar on right. Related articles in 3-column grid.
+                    </div>
+                </div>
+            </div>
+        </article>
+
+
+        <!-- ============================================ -->
+        <!-- 1.8 FAQ -->
+        <!-- ============================================ -->
+        <article class="page-card" id="faq">
+            <div class="page-card-header">
+                <span class="page-number">1.8</span>
+                <div class="page-title-block">
+                    <h2 class="page-title">FAQ</h2>
+                    <code class="page-route">/faq</code>
+                    <p class="page-purpose">Frequently asked questions — optimised for Google AI Overviews and FAQ rich results.</p>
+                </div>
+                <div class="badges">
+                    <span class="badge badge-ssg">SSG</span>
+                    <span class="badge badge-pwa">PWA Offline</span>
+                    <span class="badge badge-jsonld">FAQPage</span>
+                    <span class="badge badge-seo">BreadcrumbList</span>
+                </div>
+            </div>
+            <div class="page-card-body">
+                <table class="props-table">
+                    <tr><th>Rendering</th><td>SSG (static — no loading/error states needed)</td></tr>
+                    <tr><th>Title</th><td><code>Frequently Asked Questions | Royal Glow Salon &amp; SPA</code></td></tr>
+                    <tr><th>JSON-LD</th><td><code>FAQPage</code> + <code>BreadcrumbList</code> + <code>LocalBusiness</code></td></tr>
+                    <tr><th>Canonical</th><td><code>https://theroyalglow.in/faq</code></td></tr>
+                    <tr><th>Offline</th><td>PWA cached by service worker</td></tr>
+                </table>
+
+                <h4 class="section-title"><span class="icon">&#9881;</span> UI Components</h4>
+                <ul class="component-list">
+                    <li>Question groups by topic: Booking, Services, Pricing, Membership, Cancellation</li>
+                    <li>Accordion pattern: question as <code>&lt;h3&gt;</code>, answer revealed on click</li>
+                    <li>Each answer: 1–3 sentences, answer-first writing (AI-optimised)</li>
+                    <li>"Still have questions?" CTA at bottom → <code>/contact</code></li>
+                </ul>
+
+                <h4 class="section-title"><span class="icon">&#9855;</span> Accessibility</h4>
+                <ul class="component-list">
+                    <li><code>aria-expanded</code> on each accordion trigger</li>
+                    <li><code>aria-controls</code> linking trigger to content panel</li>
+                    <li>Enter/Space to toggle, no mouse-only interactions</li>
+                </ul>
+            </div>
+        </article>
+
+
+        <!-- Summary Section -->
+        <section class="page-card" style="border-left: 4px solid var(--gold);">
+            <div class="page-card-body">
+                <h3 style="color: var(--purple); margin-bottom: 1rem; font-size: 1.1rem;">&#128202; Summary Overview</h3>
+                <table class="props-table">
+                    <tr><th>Total Pages</th><td><strong>8</strong> public customer-facing pages</td></tr>
+                    <tr><th>SSR Pages</th><td>3 — Homepage, Services, Offers (dynamic data)</td></tr>
+                    <tr><th>ISR Pages</th><td>3 — About (1h), Blog (1h), Blog Post (1h)</td></tr>
+                    <tr><th>SSG Pages</th><td>2 — Contact, FAQ (static content)</td></tr>
+                    <tr><th>PWA Offline</th><td>2 — Contact, FAQ (service worker cached)</td></tr>
+                    <tr><th>CMS-Driven</th><td>3 — About, Blog, Blog Post (Payload CMS)</td></tr>
+                    <tr><th>JSON-LD Schemas</th><td>LocalBusiness, Organization, WebSite, Service, FAQPage, BlogPosting, Person, Event, BreadcrumbList</td></tr>
+                    <tr><th>Analytics</th><td>PostHog (all pages) + Meta Pixel (conversion pages) + Clarity (heatmaps)</td></tr>
+                    <tr><th>Primary CTA</th><td>"Book Now" — consistent across all pages, opens 4-step booking dialog</td></tr>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>Royal Glow Salon &amp; Spa — Customer Public Pages Specification</p>
+        <p style="margin-top: 0.4rem;">Part of the <a href="README.html">Pages Architecture</a> documentation</p>
+    </footer>
+
+</body>
+</html>

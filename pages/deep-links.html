@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deep Links & UTM Contracts — Royal Glow</title>
+    <style>
+        :root {
+            --purple: #6B4C9A;
+            --purple-light: #8B6FBB;
+            --purple-dark: #4A3470;
+            --gold: #C8A961;
+            --gold-light: #E8D5A0;
+            --gold-dark: #9A7D3A;
+            --teal: #2A9D8F;
+            --teal-light: #4DC4B6;
+            --teal-dark: #1F7A6F;
+            --bg: #FAFAFA;
+            --card-bg: #FFFFFF;
+            --text: #1A1A2E;
+            --text-muted: #5A5A7A;
+            --border: #E8E8F0;
+            --shadow-sm: 0 1px 3px rgba(107,76,154,0.08);
+            --shadow-md: 0 4px 12px rgba(107,76,154,0.12);
+            --shadow-lg: 0 8px 32px rgba(107,76,154,0.16);
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, var(--purple-dark) 0%, var(--purple) 50%, var(--purple-light) 100%);
+            padding: 3rem 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(200,169,97,0.1) 0%, transparent 50%);
+            animation: pulse 8s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .hero h1 {
+            font-size: clamp(1.8rem, 4vw, 2.8rem);
+            color: #FFFFFF;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+
+        .hero .subtitle {
+            color: var(--gold-light);
+            font-size: 1rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(200,169,97,0.15);
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            position: relative;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--purple-dark);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: var(--gold);
+            border-radius: 2px;
+        }
+
+        .url-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-md);
+            padding: 1.5rem;
+            margin-bottom: 1.25rem;
+            border-left: 4px solid var(--purple);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .url-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .url-card .url {
+            font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 0.9rem;
+            color: var(--purple);
+            background: rgba(107,76,154,0.06);
+            padding: 0.5rem 0.75rem;
+            border-radius: var(--radius-sm);
+            display: inline-block;
+            margin-bottom: 0.75rem;
+            word-break: break-all;
+            font-weight: 600;
+        }
+
+        .url-card .behavior {
+            font-size: 0.95rem;
+            color: var(--text);
+            margin-bottom: 0.75rem;
+            font-weight: 500;
+        }
+
+        .url-card .meta-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.78rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .tag-source {
+            background: rgba(42,157,143,0.1);
+            color: var(--teal-dark);
+        }
+
+        .tag-analytics {
+            background: rgba(200,169,97,0.15);
+            color: var(--gold-dark);
+        }
+
+        .tag-trigger {
+            background: rgba(107,76,154,0.1);
+            color: var(--purple);
+        }
+
+        /* Pre-Auth Preservation */
+        .preservation-section {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-md);
+            padding: 2rem;
+            margin-top: 2.5rem;
+            border: 2px solid var(--teal);
+            position: relative;
+        }
+
+        .preservation-section::before {
+            content: 'SESSION STORAGE';
+            position: absolute;
+            top: -0.7rem;
+            left: 1.5rem;
+            background: var(--teal);
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            letter-spacing: 0.5px;
+        }
+
+        .preservation-section h3 {
+            color: var(--teal-dark);
+            font-size: 1.2rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .preservation-section p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+        }
+
+        .params-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+
+        .param-chip {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.8rem;
+            background: rgba(42,157,143,0.1);
+            color: var(--teal-dark);
+            padding: 0.3rem 0.6rem;
+            border-radius: 6px;
+            border: 1px solid rgba(42,157,143,0.2);
+        }
+
+        /* Flow Diagram */
+        .flow-diagram {
+            background: linear-gradient(135deg, rgba(107,76,154,0.03) 0%, rgba(42,157,143,0.03) 100%);
+            border-radius: var(--radius);
+            padding: 2rem;
+            margin-top: 2.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .flow-diagram h3 {
+            color: var(--purple-dark);
+            font-size: 1.2rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        .flow-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            align-items: center;
+        }
+
+        .flow-step {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .flow-step .step-num {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .flow-step:nth-child(odd) .step-num { background: var(--purple); }
+        .flow-step:nth-child(even) .step-num { background: var(--teal); }
+
+        .flow-step .step-content {
+            flex: 1;
+            padding: 1rem;
+            background: var(--card-bg);
+            border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-sm);
+            font-size: 0.9rem;
+        }
+
+        .flow-step .step-content strong {
+            color: var(--purple-dark);
+        }
+
+        .flow-arrow {
+            width: 2px;
+            height: 24px;
+            background: var(--gold);
+            margin-left: 17px;
+            position: relative;
+        }
+
+        .flow-arrow::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: -4px;
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 6px solid var(--gold);
+        }
+
+        @media (max-width: 768px) {
+            .hero { padding: 2rem 1rem; }
+            .container { padding: 1.5rem 1rem; }
+            .url-card { padding: 1.25rem; }
+            .preservation-section { padding: 1.5rem; }
+            .flow-diagram { padding: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <header class="hero">
+        <h1>Deep Links & UTM Contracts</h1>
+        <span class="subtitle">Not separate pages but URL patterns that trigger behavior</span>
+    </header>
+
+    <main class="container">
+        <h2 class="section-title">URL Patterns</h2>
+
+        <div class="url-card">
+            <div class="url">/?book=1</div>
+            <div class="behavior">Auto-opens 4-step booking dialog on homepage</div>
+            <div class="meta-row">
+                <span class="tag tag-source">Source: General deep-link (shareable)</span>
+                <span class="tag tag-analytics">PostHog: booking_started</span>
+            </div>
+        </div>
+
+        <div class="url-card">
+            <div class="url">/?book=1&utm_source=gmb</div>
+            <div class="behavior">Opens booking dialog + acquisition source = <code>gmb</code></div>
+            <div class="meta-row">
+                <span class="tag tag-source">Source: Google Maps / GMB action button</span>
+                <span class="tag tag-analytics">PostHog: source tracked</span>
+            </div>
+        </div>
+
+        <div class="url-card">
+            <div class="url">/?book=1&utm_source=walkin</div>
+            <div class="behavior">Opens booking dialog + acquisition source = <code>walkin</code></div>
+            <div class="meta-row">
+                <span class="tag tag-source">Source: In-store QR code posters</span>
+                <span class="tag tag-analytics">PostHog: source tracked</span>
+                <span class="tag tag-trigger">Trigger: QR Scan</span>
+            </div>
+        </div>
+
+        <div class="url-card">
+            <div class="url">/?book=1&service=[slug]</div>
+            <div class="behavior">Opens dialog with service pre-selected in Step 3</div>
+            <div class="meta-row">
+                <span class="tag tag-source">Source: Service page "Book This" buttons</span>
+                <span class="tag tag-analytics">PostHog: service pre-selection</span>
+            </div>
+        </div>
+
+        <div class="url-card">
+            <div class="url">/?book=1&leadId={id}</div>
+            <div class="behavior">Opens dialog with lead context linked (post-lead-capture redirect)</div>
+            <div class="meta-row">
+                <span class="tag tag-source">Source: After /book form submit</span>
+                <span class="tag tag-analytics">Lead &rarr; booking conversion tracked</span>
+            </div>
+        </div>
+
+        <div class="url-card">
+            <div class="url">/book?utm_source=meta&utm_campaign=X&utm_content=Y</div>
+            <div class="behavior">Meta ad landing page with full campaign tracking</div>
+            <div class="meta-row">
+                <span class="tag tag-source">Source: Meta/Instagram ads only</span>
+                <span class="tag tag-analytics">Meta Pixel + CAPI + PostHog</span>
+                <span class="tag tag-trigger">Paid Traffic Only</span>
+            </div>
+        </div>
+
+        <div class="preservation-section">
+            <h3>Pre-Auth Preservation</h3>
+            <p>Before Google OAuth redirect, all query parameters are stored in <code>sessionStorage</code>. After the OAuth callback, they're read back to restore context &mdash; opening the booking dialog, assigning acquisition source, and linking the lead.</p>
+            <p><strong>Stored parameters:</strong></p>
+            <div class="params-list">
+                <span class="param-chip">book</span>
+                <span class="param-chip">utm_source</span>
+                <span class="param-chip">utm_campaign</span>
+                <span class="param-chip">utm_content</span>
+                <span class="param-chip">leadId</span>
+                <span class="param-chip">service</span>
+            </div>
+        </div>
+
+        <div class="flow-diagram">
+            <h3>Deep Link Flow — User Journey</h3>
+            <div class="flow-steps">
+                <div class="flow-step">
+                    <div class="step-num">1</div>
+                    <div class="step-content"><strong>User clicks link</strong> (GMB, QR, ad, or shared URL with query params)</div>
+                </div>
+                <div class="flow-arrow"></div>
+                <div class="flow-step">
+                    <div class="step-num">2</div>
+                    <div class="step-content"><strong>Homepage loads</strong> &mdash; detects <code>?book=1</code> and other params</div>
+                </div>
+                <div class="flow-arrow"></div>
+                <div class="flow-step">
+                    <div class="step-num">3</div>
+                    <div class="step-content"><strong>Params saved</strong> to <code>sessionStorage</code> (survives OAuth redirect)</div>
+                </div>
+                <div class="flow-arrow"></div>
+                <div class="flow-step">
+                    <div class="step-num">4</div>
+                    <div class="step-content"><strong>Booking dialog opens</strong> automatically with pre-filled context (service, lead, source)</div>
+                </div>
+                <div class="flow-arrow"></div>
+                <div class="flow-step">
+                    <div class="step-num">5</div>
+                    <div class="step-content"><strong>If auth required</strong> &rarr; OAuth redirect &rarr; callback reads sessionStorage &rarr; dialog re-opens</div>
+                </div>
+                <div class="flow-arrow"></div>
+                <div class="flow-step">
+                    <div class="step-num">6</div>
+                    <div class="step-content"><strong>Analytics fire</strong> &mdash; PostHog event with source attribution, conversion tracked</div>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

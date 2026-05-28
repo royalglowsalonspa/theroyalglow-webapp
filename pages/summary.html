@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Summary — Complete Reference — Royal Glow</title>
+<style>
+:root{--purple:#6B4C9A;--purple-light:#8B6FBB;--purple-dark:#4A3470;--gold:#C8A961;--gold-light:#E8D5A0;--gold-dark:#9A7D3A;--teal:#2A9D8F;--teal-light:#4DC4B6;--teal-dark:#1F7A6F;--bg:#FAFAFA;--card-bg:#FFF;--text:#1A1A2E;--text-muted:#5A5A7A;--border:#E8E8F0;--shadow-sm:0 1px 3px rgba(107,76,154,.08);--shadow-md:0 4px 12px rgba(107,76,154,.12);--shadow-lg:0 8px 32px rgba(107,76,154,.16);--radius:12px;--radius-sm:8px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
+.hero{background:linear-gradient(135deg,var(--purple-dark) 0%,var(--purple) 50%,var(--purple-light) 100%);padding:3rem 2rem;text-align:center;position:relative}
+.hero h1{font-size:clamp(1.8rem,4vw,2.8rem);color:#fff;font-weight:800;margin-bottom:.75rem}
+.hero .stat-badge{display:inline-flex;align-items:center;gap:.5rem;background:rgba(200,169,97,.2);color:var(--gold-light);padding:.5rem 1.2rem;border-radius:24px;font-size:1.1rem;font-weight:700;border:1px solid rgba(200,169,97,.3)}
+.container{max-width:1200px;margin:0 auto;padding:2rem 1.5rem}
+.section{margin-bottom:3rem}
+.section-header{display:flex;align-items:center;gap:.75rem;margin-bottom:1.5rem}
+.section-num{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.8rem;color:#fff;background:var(--purple);flex-shrink:0}
+.section-header h2{font-size:1.25rem;font-weight:700;color:var(--purple-dark)}
+/* Page Count Cards */
+.count-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1rem}
+.count-card{background:var(--card-bg);border-radius:var(--radius-sm);box-shadow:var(--shadow-sm);padding:1rem;text-align:center;border-top:3px solid var(--purple);transition:transform .2s}
+.count-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.count-card .count-num{font-size:2rem;font-weight:800;color:var(--purple);line-height:1}
+.count-card .count-label{font-size:.78rem;color:var(--text-muted);margin-top:.35rem;font-weight:500}
+.count-card:nth-child(2){border-top-color:var(--purple-light)}
+.count-card:nth-child(3){border-top-color:var(--gold)}
+.count-card:nth-child(4){border-top-color:var(--teal)}
+.count-card:nth-child(5){border-top-color:var(--gold-dark)}
+.count-card:nth-child(6){border-top-color:#E53E3E}
+.count-card:nth-child(7){border-top-color:var(--purple-dark)}
+.count-card:nth-child(8){border-top-color:var(--teal-dark)}
+.count-card:nth-child(9){border-top-color:var(--purple-light)}
+.count-card:nth-child(10){border-top-color:var(--gold)}
+.count-card:nth-child(11){border-top-color:#E53E3E}
+.count-card:nth-child(12){border-top-color:var(--teal)}
+.count-card:nth-child(13){border-top-color:var(--purple)}
+/* Role Matrix */
+.matrix-wrap{background:var(--card-bg);border-radius:var(--radius);box-shadow:var(--shadow-md);overflow-x:auto}
+.matrix-table{width:100%;border-collapse:collapse;font-size:.82rem}
+.matrix-table th{padding:.6rem .5rem;background:rgba(107,76,154,.04);border-bottom:2px solid var(--border);font-weight:700;text-align:center;white-space:nowrap;color:var(--purple-dark);font-size:.72rem;text-transform:uppercase;letter-spacing:.3px}
+.matrix-table th:first-child{text-align:left;padding-left:1rem}
+.matrix-table td{padding:.55rem .5rem;border-bottom:1px solid var(--border);text-align:center;vertical-align:middle}
+.matrix-table td:first-child{text-align:left;padding-left:1rem;font-family:'SF Mono','Fira Code',monospace;font-size:.78rem;color:var(--purple);font-weight:600}
+.matrix-table tr:hover{background:rgba(107,76,154,.02)}
+.cell-yes{color:var(--teal);font-size:1rem}
+.cell-no{color:var(--text-muted);font-size:.85rem}
+.cell-limited{color:var(--gold-dark);font-size:.85rem}
+.legend{display:flex;flex-wrap:wrap;gap:1rem;padding:1rem 1.5rem;border-top:1px solid var(--border);font-size:.8rem;color:var(--text-muted)}
+.legend-item{display:flex;align-items:center;gap:.3rem}
+/* Realtime Table */
+.realtime-wrap{background:var(--card-bg);border-radius:var(--radius);box-shadow:var(--shadow-md);overflow-x:auto;border:2px solid rgba(42,157,143,.15)}
+.realtime-table{width:100%;border-collapse:collapse;font-size:.82rem}
+.realtime-table th{padding:.6rem .75rem;background:rgba(42,157,143,.06);border-bottom:2px solid rgba(42,157,143,.15);font-weight:700;text-align:left;color:var(--teal-dark);font-size:.72rem;text-transform:uppercase;letter-spacing:.3px}
+.realtime-table td{padding:.55rem .75rem;border-bottom:1px solid var(--border);vertical-align:top}
+.realtime-table td:nth-child(2){font-family:'SF Mono','Fira Code',monospace;font-size:.75rem;color:var(--teal-dark)}
+.realtime-table td:nth-child(3){font-size:.78rem;color:var(--text-muted)}
+.realtime-table td:nth-child(4){font-size:.78rem;color:var(--purple)}
+.realtime-table tr:hover{background:rgba(42,157,143,.02)}
+/* PWA Section */
+.pwa-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem}
+.pwa-card{background:var(--card-bg);border-radius:var(--radius-sm);box-shadow:var(--shadow-sm);padding:1rem 1.25rem;display:flex;align-items:flex-start;gap:.75rem}
+.pwa-icon{font-size:1.2rem;margin-top:.1rem}
+.pwa-card .pwa-text h4{font-size:.88rem;font-weight:700;color:var(--text);margin-bottom:.15rem}
+.pwa-card .pwa-text p{font-size:.8rem;color:var(--text-muted)}
+.pwa-note{background:rgba(42,157,143,.05);border:1px solid rgba(42,157,143,.15);border-radius:var(--radius-sm);padding:1rem 1.25rem;margin-top:1.25rem;font-size:.85rem;color:var(--teal-dark)}
+.pwa-note strong{color:var(--teal-dark)}
+/* References */
+.ref-list{list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.75rem}
+.ref-list li{background:var(--card-bg);border-radius:var(--radius-sm);box-shadow:var(--shadow-sm);padding:.75rem 1rem;font-size:.85rem;border-left:3px solid var(--gold)}
+.ref-list li a{color:var(--purple);text-decoration:none;font-weight:600}
+.ref-list li a:hover{text-decoration:underline}
+.ref-list li span{display:block;font-size:.78rem;color:var(--text-muted);margin-top:.15rem}
+@media(max-width:768px){.hero{padding:2rem 1rem}.container{padding:1.5rem 1rem}.count-grid{grid-template-columns:repeat(2,1fr)}.pwa-grid{grid-template-columns:1fr}.ref-list{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="hero">
+<h1>Summary &mdash; Complete Reference</h1>
+<span class="stat-badge">~104 total routes &amp; endpoints</span>
+</header>
+<main class="container">
+
+<!-- Section 12: Page Count -->
+<div class="section">
+<div class="section-header"><div class="section-num">12</div><h2>Page Count Summary</h2></div>
+<div class="count-grid">
+<div class="count-card"><div class="count-num">8</div><div class="count-label">Customer Public</div></div>
+<div class="count-card"><div class="count-num">5</div><div class="count-label">Authenticated</div></div>
+<div class="count-card"><div class="count-num">1</div><div class="count-label">Booking Dialog</div></div>
+<div class="count-card"><div class="count-num">2</div><div class="count-label">Auth Flow</div></div>
+<div class="count-card"><div class="count-num">1</div><div class="count-label">Landing Pages</div></div>
+<div class="count-card"><div class="count-num">3</div><div class="count-label">Legal Pages</div></div>
+<div class="count-card"><div class="count-num">37</div><div class="count-label">Admin Pages</div></div>
+<div class="count-card"><div class="count-num">13</div><div class="count-label">Customer API</div></div>
+<div class="count-card"><div class="count-num">7</div><div class="count-label">Admin API</div></div>
+<div class="count-card"><div class="count-num">12</div><div class="count-label">Background Jobs</div></div>
+<div class="count-card"><div class="count-num">2</div><div class="count-label">Webhooks</div></div>
+<div class="count-card"><div class="count-num">3</div><div class="count-label">Subdomains</div></div>
+<div class="count-card"><div class="count-num">10</div><div class="count-label">Special Files</div></div>
+</div>
+</div>
+
+<!-- Section 13: Role Matrix -->
+<div class="section">
+<div class="section-header"><div class="section-num">13</div><h2>Role Access Matrix</h2></div>
+<div class="matrix-wrap">
+<table class="matrix-table">
+<thead><tr><th>Section</th><th>Customer</th><th>Staff</th><th>Receptionist</th><th>Manager</th><th>Owner</th><th>Developer</th></tr></thead>
+<tbody>
+<tr><td>Public pages</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td></tr>
+<tr><td>Auth pages (/profile, /bookings)</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td></tr>
+<tr><td>/admin dashboard</td><td class="cell-no">&mdash;</td><td class="cell-limited">&#128274;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td></tr>
+<tr><td>/admin/bookings/*</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td></tr>
+<tr><td>/admin/customers/*</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td></tr>
+<tr><td>/admin/leads/*</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td></tr>
+<tr><td>/admin/memberships/*</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td></tr>
+<tr><td>/admin/billing/*</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td></tr>
+<tr><td>/admin/schedule</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td></tr>
+<tr><td>/admin/leave</td><td class="cell-no">&mdash;</td><td class="cell-limited">&#128274;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td></tr>
+<tr><td>/admin/staff/*</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td></tr>
+<tr><td>/admin/services/*</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td></tr>
+<tr><td>/admin/offers/*</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td></tr>
+<tr><td>/admin/reports/*</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td></tr>
+<tr><td>/admin/settings</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td></tr>
+<tr><td>/admin/branches/*</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td></tr>
+<tr><td>/admin/users</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-yes">&#10004;</td><td class="cell-yes">&#10004;</td></tr>
+<tr><td>/admin/integrations</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-yes">&#10004;</td></tr>
+<tr><td>/admin/logs</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-no">&mdash;</td><td class="cell-yes">&#10004;</td></tr>
+</tbody>
+</table>
+<div class="legend">
+<div class="legend-item"><span class="cell-yes">&#10004;</span> Full access</div>
+<div class="legend-item"><span class="cell-limited">&#128274;</span> Limited access</div>
+<div class="legend-item"><span class="cell-no">&mdash;</span> No access</div>
+<div class="legend-item">Staff: own schedule/appointments/leave only</div>
+</div>
+</div>
+</div>
+
+<!-- Section 14: Realtime -->
+<div class="section">
+<div class="section-header"><div class="section-num" style="background:var(--teal)">14</div><h2>Realtime Subscription Map</h2></div>
+<div class="realtime-wrap">
+<table class="realtime-table">
+<thead><tr><th>Page</th><th>Ably Channel</th><th>Events</th><th>UI Effect</th></tr></thead>
+<tbody>
+<tr><td>/bookings</td><td>customer:{userId}:bookings</td><td>booking.created, status_changed, rescheduled, cancelled, staff_assigned</td><td>Status badges animate, cards appear/move</td></tr>
+<tr><td>/bookings/[id]</td><td>booking:{bookingId}</td><td>status.changed, note.added, service.added, service.removed</td><td>Timeline extends, notes appear live</td></tr>
+<tr><td>/admin (dashboard)</td><td>admin:bookings</td><td>booking.new, status_changed, walkin_created, cancelled, no_show</td><td>Pending count updates, feed refreshes</td></tr>
+<tr><td>/admin/bookings</td><td>admin:bookings</td><td>Same as dashboard</td><td>Table rows update in-place</td></tr>
+<tr><td>/admin/bookings/[id]</td><td>booking:{bookingId}</td><td>status.changed, note.added</td><td>Detail panel live-updates</td></tr>
+<tr><td>/admin/schedule</td><td>admin:schedule:{YYYY-MM-DD}</td><td>slot.booked, slot.released, staff.marked_off, leave.approved</td><td>Grid slots fill/release live</td></tr>
+<tr><td>/admin/leave</td><td>admin:leave</td><td>leave.requested, leave.withdrawn</td><td>Queue updates without refresh</td></tr>
+<tr><td>Staff dashboard</td><td>staff:{staffId}:schedule</td><td>booking.assigned, unassigned, leave.approved, leave.rejected</td><td>Schedule updates live</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+<!-- Section 15: PWA -->
+<div class="section">
+<div class="section-header"><div class="section-num" style="background:var(--gold-dark)">15</div><h2>PWA &amp; Offline Capabilities</h2></div>
+<div class="pwa-grid">
+<div class="pwa-card"><div class="pwa-icon">&#10004;&#65039;</div><div class="pwa-text"><h4>Service menu + prices</h4><p>Customer can browse services on bad network</p></div></div>
+<div class="pwa-card"><div class="pwa-icon">&#10004;&#65039;</div><div class="pwa-text"><h4>Contact page</h4><p>Address, phone, hours always accessible</p></div></div>
+<div class="pwa-card"><div class="pwa-icon">&#10004;&#65039;</div><div class="pwa-text"><h4>FAQ page</h4><p>Common questions answered offline</p></div></div>
+<div class="pwa-card"><div class="pwa-icon">&#10004;&#65039;</div><div class="pwa-text"><h4>Homepage shell</h4><p>App feels instant on repeat visits</p></div></div>
+<div class="pwa-card"><div class="pwa-icon">&#10004;&#65039;</div><div class="pwa-text"><h4>Gallery thumbnails</h4><p>Premium feel maintained offline</p></div></div>
+<div class="pwa-card"><div class="pwa-icon">&#10060;</div><div class="pwa-text"><h4>Booking flow</h4><p>Requires server (slot availability, auth)</p></div></div>
+<div class="pwa-card"><div class="pwa-icon">&#10060;</div><div class="pwa-text"><h4>Profile / Bookings</h4><p>Requires auth + live data</p></div></div>
+<div class="pwa-card"><div class="pwa-icon">&#10060;</div><div class="pwa-text"><h4>Admin pages</h4><p>All require server-side data</p></div></div>
+</div>
+<div class="pwa-note"><strong>Install prompt strategy:</strong> Shown after 2nd visit (not first &mdash; first feels pushy). Custom branded prompt using <code>beforeinstallprompt</code> event. Branded modal with Royal Glow logo.</div>
+</div>
+
+<!-- Section 16: References -->
+<div class="section">
+<div class="section-header"><div class="section-num" style="background:var(--gold)">16</div><h2>References</h2></div>
+<ul class="ref-list">
+<li><a href="../features.md">features.md</a><span>Full feature specifications and business rules</span></li>
+<li><a href="../architecture.md">architecture.md</a><span>Infrastructure, routing, and project structure</span></li>
+<li><a href="../authentication.md">authentication.md</a><span>Auth flow, roles, and permissions matrix</span></li>
+<li><a href="../database-schema.md">database-schema.md</a><span>All 38 tables and relationships</span></li>
+<li><a href="../background-jobs.md">background-jobs.md</a><span>All 19 scheduled/triggered jobs</span></li>
+<li><a href="../ably-channels.md">ably-channels.md</a><span>Realtime channel structure and event payloads</span></li>
+<li><a href="../email-strategy.md">email-strategy.md</a><span>All email templates and sending strategy</span></li>
+<li><a href="../meta-pixel.md">meta-pixel.md</a><span>Meta Pixel + CAPI implementation</span></li>
+<li><a href="../seo.md">seo.md</a><span>JSON-LD schemas, sitemap, robots.txt, AI search visibility</span></li>
+<li><a href="../observability.md">observability.md</a><span>Monitoring stack (Sentry, BetterStack, PostHog, Clarity, Checkly)</span></li>
+</ul>
+</div>
+
+</main>
+</body>
+</html>

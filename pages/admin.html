@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Portal Pages | Royal Glow Salon &amp; Spa</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --gold: #C8A961; --gold-light: #F5E6B8; --gold-dark: #9A7B3A;
+            --purple: #6B4C9A; --purple-light: #E8DFF5; --purple-dark: #4A3370;
+            --teal: #2A9D8F; --teal-light: #D4F1ED;
+            --red: #DC2626; --red-light: #FEE2E2;
+            --amber: #D97706; --amber-light: #FEF3C7;
+            --blue: #2563EB; --blue-light: #DBEAFE;
+            --green: #059669; --green-light: #D1FAE5;
+            --bg: #F8F9FC; --card: #FFFFFF; --text: #1A1A2E;
+            --text-muted: #6B7280; --border: #E5E7EB;
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+            --radius: 12px;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+        .layout { display: flex; min-height: 100vh; }
+        .sidebar { width: 280px; background: var(--purple-dark); color: white; padding: 1.5rem 0; position: fixed; top: 0; left: 0; height: 100vh; overflow-y: auto; z-index: 100; }
+        .sidebar h2 { padding: 0 1.5rem; font-size: 1rem; margin-bottom: 1rem; opacity: 0.9; }
+        .sidebar .nav-group { margin-bottom: 0.5rem; }
+        .sidebar .nav-group-title { padding: 0.4rem 1.5rem; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.5; font-weight: 600; }
+        .sidebar a { display: block; padding: 0.35rem 1.5rem; font-size: 0.8rem; color: rgba(255,255,255,0.75); text-decoration: none; transition: all 0.15s; border-left: 3px solid transparent; }
+        .sidebar a:hover { background: rgba(255,255,255,0.1); color: white; border-left-color: var(--gold); }
+        .sidebar a.active { background: rgba(255,255,255,0.15); color: white; border-left-color: var(--gold); }
+        .main { margin-left: 280px; flex: 1; padding: 2rem 3rem; max-width: calc(100% - 280px); }
+        .header { background: linear-gradient(135deg, var(--purple) 0%, var(--purple-dark) 100%); border-radius: var(--radius); padding: 2.5rem; margin-bottom: 2rem; color: white; position: relative; overflow: hidden; }
+        .header::before { content: ''; position: absolute; top: -50%; right: -10%; width: 300px; height: 300px; background: radial-gradient(circle, rgba(200,169,97,0.15) 0%, transparent 70%); border-radius: 50%; }
+        .header h1 { font-size: 2rem; margin-bottom: 0.5rem; position: relative; }
+        .header p { opacity: 0.9; font-size: 0.95rem; position: relative; }
+        .header .stats { display: flex; gap: 1.5rem; margin-top: 1.5rem; position: relative; }
+        .header .stat { background: rgba(255,255,255,0.1); border-radius: 8px; padding: 0.6rem 1rem; backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.2); }
+        .header .stat-num { font-size: 1.3rem; font-weight: 700; }
+        .header .stat-label { font-size: 0.75rem; opacity: 0.8; }
+        .layout-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border); }
+        .layout-card h3 { font-size: 0.85rem; color: var(--purple); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.8rem; }
+        .layout-items { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+        .layout-item { background: var(--purple-light); color: var(--purple); padding: 0.3rem 0.7rem; border-radius: 6px; font-size: 0.8rem; font-weight: 500; }
+
+        .page-section { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); margin-bottom: 1.5rem; overflow: hidden; scroll-margin-top: 1rem; }
+        .page-header { padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: background 0.15s; }
+        .page-header:hover { background: var(--bg); }
+        .page-header h3 { font-size: 1.05rem; display: flex; align-items: center; gap: 0.5rem; }
+        .page-header .route { font-family: 'SF Mono', monospace; font-size: 0.8rem; background: var(--purple-light); color: var(--purple); padding: 0.2rem 0.6rem; border-radius: 4px; }
+        .page-header .role-badge { font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 600; }
+        .role-receptionist { background: var(--blue-light); color: var(--blue); }
+        .role-manager { background: var(--amber-light); color: var(--amber); }
+        .role-owner { background: var(--gold-light); color: var(--gold-dark); }
+        .role-developer { background: var(--red-light); color: var(--red); }
+        .role-staff { background: var(--green-light); color: var(--green); }
+        .page-body { padding: 1.5rem; display: none; }
+        .page-section.open .page-body { display: block; }
+        .page-section.open .page-header { background: var(--bg); border-bottom: 2px solid var(--purple); }
+        .chevron { transition: transform 0.2s; font-size: 0.8rem; color: var(--text-muted); }
+        .page-section.open .chevron { transform: rotate(180deg); }
+        .purpose { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem; font-style: italic; }
+        .component-group { margin-bottom: 1.2rem; }
+        .component-group h4 { font-size: 0.85rem; color: var(--purple); margin-bottom: 0.5rem; font-weight: 600; }
+        .component-list { padding-left: 1.2rem; }
+        .component-list li { font-size: 0.85rem; margin-bottom: 0.3rem; color: var(--text); }
+        .component-list li code { background: var(--bg); padding: 0.1rem 0.4rem; border-radius: 3px; font-size: 0.8rem; font-family: monospace; }
+        .state-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 0.6rem; margin-top: 0.5rem; }
+        .state-item { background: var(--bg); border-radius: 6px; padding: 0.6rem 0.8rem; font-size: 0.8rem; border-left: 3px solid var(--border); }
+        .state-item.loading { border-left-color: var(--blue); }
+        .state-item.empty { border-left-color: var(--amber); }
+        .state-item.error { border-left-color: var(--red); }
+        .realtime-badge { display: inline-flex; align-items: center; gap: 0.3rem; background: var(--teal-light); color: var(--teal); padding: 0.3rem 0.7rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; margin-top: 0.5rem; }
+        .realtime-badge::before { content: ''; width: 6px; height: 6px; background: var(--teal); border-radius: 50%; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .info-table { width: 100%; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.85rem; }
+        .info-table td { padding: 0.4rem 0; border-bottom: 1px solid var(--border); }
+        .info-table td:first-child { font-weight: 600; color: var(--text-muted); width: 120px; }
+        .connected-actions { background: linear-gradient(135deg, var(--purple-light), var(--gold-light)); border-radius: 8px; padding: 1rem; margin-top: 1rem; }
+        .connected-actions h4 { font-size: 0.8rem; color: var(--purple); margin-bottom: 0.5rem; }
+        .connected-actions ul { padding-left: 1.2rem; font-size: 0.8rem; }
+        .connected-actions li { margin-bottom: 0.2rem; }
+        @media (max-width: 1024px) { .sidebar { display: none; } .main { margin-left: 0; padding: 1.5rem; max-width: 100%; } }
+        @media (max-width: 640px) { .main { padding: 1rem; } .header { padding: 1.5rem; } .header h1 { font-size: 1.4rem; } .header .stats { flex-wrap: wrap; gap: 0.8rem; } }
+    </style>
+</head>
+<body>
+<div class="layout">
+
+<!-- Sidebar Navigation -->
+<aside class="sidebar">
+    <h2>&#128081; Admin Portal</h2>
+    <div class="nav-group">
+        <div class="nav-group-title">Dashboard</div>
+        <a href="#page-7-1" class="active">7.1 Dashboard</a>
+    </div>
+    <div class="nav-group">
+        <div class="nav-group-title">Bookings</div>
+        <a href="#page-7-2">7.2 All Bookings</a>
+        <a href="#page-7-3">7.3 Create Walk-in</a>
+        <a href="#page-7-4">7.4 Booking Detail</a>
+        <a href="#page-7-5">7.5 Waitlist</a>
+    </div>
+    <div class="nav-group">
+        <div class="nav-group-title">CRM</div>
+        <a href="#page-7-6">7.6 Customer List</a>
+        <a href="#page-7-7">7.7 Customer Profile</a>
+    </div>
+    <div class="nav-group">
+        <div class="nav-group-title">Leads</div>
+        <a href="#page-7-8">7.8 Lead Pipeline</a>
+        <a href="#page-7-9">7.9 Lead Detail</a>
+    </div>
+    <div class="nav-group">
+        <div class="nav-group-title">Staff</div>
+        <a href="#page-7-10">7.10 Staff List</a>
+        <a href="#page-7-11">7.11 Add Staff</a>
+        <a href="#page-7-12">7.12 Staff Profile</a>
+    </div>
+    <div class="nav-group">
+        <div class="nav-group-title">Schedule</div>
+        <a href="#page-7-13">7.13 Staff Schedule</a>
+        <a href="#page-7-14">7.14 Leave Management</a>
+    </div>
+    <div class="nav-group">
+        <div class="nav-group-title">Services</div>
+        <a href="#page-7-15">7.15 All Services</a>
+        <a href="#page-7-16">7.16 Add Service</a>
+        <a href="#page-7-17">7.17 Edit Service</a>
+    </div>
+    <div class="nav-group">
+        <div class="nav-group-title">Offers</div>
+        <a href="#page-7-18">7.18 All Offers</a>
+        <a href="#page-7-19">7.19 Create Offer</a>
+        <a href="#page-7-20">7.20 Edit Offer</a>
+    </div>
+    <div class="nav-group">
+        <div class="nav-group-title">Memberships</div>
+        <a href="#page-7-21">7.21 All Memberships</a>
+        <a href="#page-7-22">7.22 Create Membership</a>
+        <a href="#page-7-23">7.23 Membership Detail</a>
+    </div>
+    <div class="nav-group">
+        <div class="nav-group-title">Billing</div>
+        <a href="#page-7-24">7.24 All Invoices</a>
+        <a href="#page-7-25">7.25 Invoice Detail</a>
+    </div>
+
+    <div class="nav-group">
+        <div class="nav-group-title">Reports</div>
+        <a href="#page-7-26">7.26 Reports Overview</a>
+        <a href="#page-7-27">7.27 Financial</a>
+        <a href="#page-7-28">7.28 Salon Analytics</a>
+        <a href="#page-7-29">7.29 SPA Analytics</a>
+        <a href="#page-7-30">7.30 Staff Performance</a>
+        <a href="#page-7-31">7.31 Lead Analytics</a>
+    </div>
+    <div class="nav-group">
+        <div class="nav-group-title">Settings</div>
+        <a href="#page-7-32">7.32 System Settings</a>
+    </div>
+    <div class="nav-group">
+        <div class="nav-group-title">Branches</div>
+        <a href="#page-7-33">7.33 Branch Management</a>
+        <a href="#page-7-34">7.34 Edit Branch</a>
+    </div>
+    <div class="nav-group">
+        <div class="nav-group-title">Users</div>
+        <a href="#page-7-35">7.35 User Management</a>
+    </div>
+    <div class="nav-group">
+        <div class="nav-group-title">Integrations</div>
+        <a href="#page-7-36">7.36 Integrations</a>
+    </div>
+    <div class="nav-group">
+        <div class="nav-group-title">Logs</div>
+        <a href="#page-7-37">7.37 Error Logs</a>
+    </div>
+</aside>
+
+<!-- Main Content Area -->
+<main class="main">
+    <!-- Header -->
+    <div class="header">
+        <h1>&#9878;&#65039; Admin Portal Pages</h1>
+        <p>Complete page inventory for Royal Glow Salon &amp; Spa administration panel</p>
+        <div class="stats">
+            <div class="stat"><div class="stat-num">37</div><div class="stat-label">Total Pages</div></div>
+            <div class="stat"><div class="stat-num">RBAC</div><div class="stat-label">Gated Access</div></div>
+            <div class="stat"><div class="stat-num">5</div><div class="stat-label">Role Levels</div></div>
+            <div class="stat"><div class="stat-num">Ably</div><div class="stat-label">Realtime Sync</div></div>
+        </div>
+    </div>
+
+    <!-- Shared Layout Card -->
+    <div class="layout-card">
+        <h3>&#128736;&#65039; Shared Layout Components</h3>
+        <div class="layout-items">
+            <span class="layout-item">&#9776; Sidebar Navigation</span>
+            <span class="layout-item">&#128101; Top Bar (User + Branch)</span>
+            <span class="layout-item">&#128241; Mobile Bottom Nav</span>
+            <span class="layout-item">&#9000;&#65039; Command Palette (&#8984;K)</span>
+            <span class="layout-item">&#128276; Toast Notifications</span>
+            <span class="layout-item">&#128274; RBAC Gate Wrapper</span>
+            <span class="layout-item">&#127760; Branch Selector</span>
+            <span class="layout-item">&#128260; Breadcrumb Trail</span>
+        </div>
+    </div>
+
+    <!-- 7.1 Dashboard -->
+    <div class="page-section open" id="page-7-1">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin</span> Dashboard <span class="role-badge role-receptionist">Receptionist+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Central command hub showing today's key metrics, pending actions, and quick-access controls for daily operations.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>KPI Cards &mdash; <code>Pending Bookings</code>, <code>Today's Revenue</code>, <code>Today's Appointments</code>, <code>Stale Leads (48h+)</code></li>
+                    <li>Today's Booking Feed &mdash; live-updating list of upcoming appointments</li>
+                    <li>Pending Actions Panel &mdash; bookings to approve, leave requests, stale leads</li>
+                    <li>Quick-Action Buttons &mdash; New Walk-in, New Lead, View Schedule</li>
+                    <li>Staff-only limited view &mdash; "My Schedule" card with personal bookings only</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Skeleton KPI cards + shimmer feed</div>
+                    <div class="state-item empty">Empty &mdash; "No bookings today" illustration</div>
+                    <div class="state-item error">Error &mdash; Retry banner with cached last-known data</div>
+                </div>
+            </div>
+            <span class="realtime-badge">Ably: admin:bookings</span>
+        </div>
+    </div>
+
+    <!-- 7.2 All Bookings -->
+    <div class="page-section" id="page-7-2">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/bookings</span> All Bookings <span class="role-badge role-receptionist">Receptionist+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Master booking list with advanced filtering, search, and bulk operations for managing all appointments.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Filters Bar &mdash; <code>status</code>, <code>date range</code>, <code>staff</code>, <code>service type</code>, <code>walk-in toggle</code>, <code>search</code></li>
+                    <li>Data Table &mdash; columns: Booking #, Customer, Date/Time, Services, Status, Staff, Total, Type, Actions</li>
+                    <li>Status badges &mdash; color-coded (pending=amber, confirmed=blue, in_progress=purple, completed=green, cancelled=red)</li>
+                    <li>Pagination &mdash; 25 items per page with page navigation</li>
+                    <li>Row actions &mdash; View, Quick-status change dropdown</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Table skeleton with animated rows</div>
+                    <div class="state-item empty">No Results &mdash; "No bookings match filters" with clear filters CTA</div>
+                    <div class="state-item error">Error &mdash; Inline error with retry button</div>
+                </div>
+            </div>
+            <span class="realtime-badge">Ably: admin:bookings</span>
+        </div>
+    </div>
+
+    <!-- 7.3 Create Walk-in -->
+    <div class="page-section" id="page-7-3">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/bookings/new</span> Create Walk-in <span class="role-badge role-receptionist">Receptionist+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Quick-entry form for walk-in customers. Skips pending state and goes directly to confirmed. Walk-in no-shows do not count toward customer penalty.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Customer Search/Select &mdash; typeahead with "Create New" option</li>
+                    <li>Service Selector &mdash; multi-select with price/duration preview</li>
+                    <li>Staff Assignment &mdash; available staff dropdown with schedule awareness</li>
+                    <li>Time Picker &mdash; defaults to "Now", with override option</li>
+                    <li>Notes Field &mdash; optional textarea for special instructions</li>
+                    <li>Submit Button &mdash; "Create Walk-in Booking"</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Submitting &mdash; Button spinner + disabled form</div>
+                    <div class="state-item empty">Success &mdash; Redirect to booking detail with toast</div>
+                    <div class="state-item error">Validation &mdash; Inline field errors (required service, staff)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.4 Booking Detail -->
+    <div class="page-section" id="page-7-4">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/bookings/[id]</span> Booking Detail <span class="role-badge role-receptionist">Receptionist+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Full booking lifecycle view with status management, checkout flow, and connected automation triggers.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Status Timeline &mdash; visual step tracker (pending &rarr; confirmed &rarr; in_progress &rarr; completed)</li>
+                    <li>Customer Info Card &mdash; name, phone, email, visit count, membership badge</li>
+                    <li>Booking Info &mdash; date, time, type (online/walk-in), created date</li>
+                    <li>Services Panel &mdash; list with individual prices, duration, staff assigned</li>
+                    <li>Action Buttons (context-dependent):</li>
+                    <li>&nbsp;&nbsp;Pending: <code>Approve</code> / <code>Reject</code></li>
+                    <li>&nbsp;&nbsp;Confirmed: <code>Mark In Progress</code> / <code>Cancel</code></li>
+                    <li>&nbsp;&nbsp;In Progress: <code>Mark Completed</code></li>
+                    <li>Checkout Flow &mdash; offer application, payment method selection, invoice preview</li>
+                    <li>Notes Section &mdash; internal notes with timestamps</li>
+                    <li>Status History Log &mdash; audit trail of all status changes</li>
+                </ul>
+            </div>
+            <div class="connected-actions">
+                <h4>&#9889; Connected Actions on Complete</h4>
+                <ul>
+                    <li>Invoice auto-generated with line items + GST</li>
+                    <li>Invoice emailed to customer via Resend</li>
+                    <li>Gems awarded based on service config</li>
+                    <li>Meta CAPI Purchase event fired</li>
+                    <li>Brevo contact updated with visit data</li>
+                </ul>
+            </div>
+            <div class="component-group" style="margin-top:1rem">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Skeleton cards + timeline placeholder</div>
+                    <div class="state-item empty">Not Found &mdash; 404 page with back navigation</div>
+                    <div class="state-item error">Action Failed &mdash; Toast error with retry option</div>
+                </div>
+            </div>
+            <span class="realtime-badge">Ably: booking:{bookingId}</span>
+        </div>
+    </div>
+
+    <!-- 7.5 Waitlist -->
+    <div class="page-section" id="page-7-5">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/waitlist</span> Waitlist <span class="role-badge role-receptionist">Receptionist+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Manage customers waiting for availability. Promote entries to confirmed bookings when slots open.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Waitlist Table &mdash; customer, requested service, preferred date/time, position, added date</li>
+                    <li>"Promote to Booking" Button &mdash; opens quick-booking modal pre-filled</li>
+                    <li>"Remove" Button &mdash; with confirmation dialog</li>
+                    <li>Filters &mdash; date range, service type</li>
+                    <li>Priority indicator &mdash; membership holders get highlighted</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Table shimmer</div>
+                    <div class="state-item empty">Empty &mdash; "No one on the waitlist" with illustration</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.6 Customer List -->
+    <div class="page-section" id="page-7-6">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/customers</span> Customer List <span class="role-badge role-receptionist">Receptionist+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">CRM-style customer database with search, filtering by tags, and lifetime value tracking.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Search Bar &mdash; real-time search by name, phone, or email</li>
+                    <li>Tag Filter &mdash; multi-select CRM tags (VIP, Regular, New, At-Risk)</li>
+                    <li>Sort Options &mdash; LTV, Last Visit, Name, Visits</li>
+                    <li>Customer Table &mdash; Name, Phone, Email, Visits, LTV, Last Visit, Tags, Status</li>
+                    <li>Pagination &mdash; 50 per page</li>
+                    <li>Quick actions &mdash; View Profile, Create Booking</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Table skeleton rows</div>
+                    <div class="state-item empty">No Results &mdash; "No customers match your search"</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.7 Customer Profile -->
+    <div class="page-section" id="page-7-7">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/customers/[id]</span> Customer Profile <span class="role-badge role-receptionist">Receptionist+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">360-degree customer view with complete history, CRM data, membership status, and behavioral insights.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Profile Header &mdash; avatar, name, phone, email, join date, acquisition source</li>
+                    <li>CRM Tags &mdash; editable tag chips with add/remove</li>
+                    <li>KPI Cards &mdash; <code>Total Visits</code>, <code>Lifetime Value</code>, <code>Avg Spend</code>, <code>No-Show Count</code>, <code>Gems Balance</code></li>
+                    <li>No-Show Tier Indicator &mdash; warning/danger badge based on threshold</li>
+                    <li>Tabs: Bookings | Invoices | Membership | Gems | Notes</li>
+                    <li>Each tab shows relevant historical data with pagination</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Profile skeleton with tab placeholders</div>
+                    <div class="state-item empty">New Customer &mdash; "No history yet" in each tab</div>
+                    <div class="state-item error">Not Found &mdash; 404 with back to customer list</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.8 Lead Pipeline -->
+    <div class="page-section" id="page-7-8">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/leads</span> Lead Pipeline <span class="role-badge role-receptionist">Receptionist+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Visual lead management with Kanban board for tracking prospects from capture to conversion.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>View Toggle &mdash; Kanban Board / Table View switch</li>
+                    <li>Kanban Columns &mdash; New &rarr; Contacted &rarr; Follow-up &rarr; Booked &rarr; Won / Lost</li>
+                    <li>Drag-and-Drop &mdash; move leads between stages</li>
+                    <li>Stale Indicator &mdash; orange dot on leads untouched for 48h+</li>
+                    <li>Filters &mdash; source, assigned to, date range, stale only</li>
+                    <li>Lead Card &mdash; name, phone, source badge, days in stage, assigned staff</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Column skeleton placeholders</div>
+                    <div class="state-item empty">No Leads &mdash; "Pipeline is empty" with capture link</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.9 Lead Detail -->
+    <div class="page-section" id="page-7-9">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/leads/[id]</span> Lead Detail <span class="role-badge role-receptionist">Receptionist+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Individual lead management with attribution tracking, status control, and communication history.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Lead Info Card &mdash; name, phone, email, source, created date</li>
+                    <li>Attribution Panel &mdash; UTM source, medium, campaign, content, landing page</li>
+                    <li>Status Selector &mdash; dropdown with stage transitions</li>
+                    <li>Assigned To &mdash; staff selector with reassignment</li>
+                    <li>AiSensy WhatsApp Link &mdash; click-to-message with template</li>
+                    <li>Notes Timeline &mdash; chronological notes with add form</li>
+                    <li>"Convert to Customer" action button</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Card skeletons</div>
+                    <div class="state-item empty">No Notes &mdash; "Add the first note" prompt</div>
+                    <div class="state-item error">Not Found &mdash; 404 redirect</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.10 Staff List -->
+    <div class="page-section" id="page-7-10">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/staff</span> Staff List <span class="role-badge role-manager">Manager+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Team overview with staff cards showing designations, availability status, and today's workload.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Staff Cards/Table &mdash; photo, name, designation, status badge, today's booking count</li>
+                    <li>Filter by Designation &mdash; Stylist, Therapist, Receptionist, etc.</li>
+                    <li>Status indicators &mdash; Available, On Leave, Busy</li>
+                    <li>"Add Staff" button &mdash; navigates to add form</li>
+                    <li>Click card &mdash; navigates to staff profile</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Card grid skeleton</div>
+                    <div class="state-item empty">No Staff &mdash; "Add your first team member"</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.11 Add Staff -->
+    <div class="page-section" id="page-7-11">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/staff/new</span> Add Staff <span class="role-badge role-manager">Manager+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Onboard new team members by linking user accounts, assigning designations, and configuring service capabilities.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>User Selector &mdash; search existing users or invite new</li>
+                    <li>Designation Dropdown &mdash; Stylist, Senior Stylist, Therapist, Senior Therapist, etc.</li>
+                    <li>Bio Textarea &mdash; staff description for public profile</li>
+                    <li>Services Multi-Select &mdash; assign capable services with checkboxes</li>
+                    <li>Initial Schedule Grid &mdash; weekly availability matrix (days &times; time blocks)</li>
+                    <li>Submit &mdash; "Add Staff Member" button</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Submitting &mdash; Button loading state</div>
+                    <div class="state-item error">Validation &mdash; Required fields highlighted</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.12 Staff Profile -->
+    <div class="page-section" id="page-7-12">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/staff/[id]</span> Staff Profile <span class="role-badge role-manager">Manager+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Detailed staff view with schedule management, leave history, performance metrics, and service assignments.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Profile Header &mdash; photo, name, designation, status, contact info</li>
+                    <li>Tabs: Schedule | Leave History | Performance | Services</li>
+                    <li>Schedule Tab &mdash; weekly grid with editable availability</li>
+                    <li>Leave History Tab &mdash; past and upcoming leave with status</li>
+                    <li>Performance Tab &mdash; bookings handled, revenue generated, ratings</li>
+                    <li>Services Tab &mdash; assigned services with add/remove capability</li>
+                    <li>Edit Profile button &mdash; inline form editing</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Profile skeleton with tab shimmers</div>
+                    <div class="state-item error">Not Found &mdash; 404 with back navigation</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.13 Staff Schedule -->
+    <div class="page-section" id="page-7-13">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/schedule</span> Staff Schedule <span class="role-badge role-receptionist">Receptionist+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Visual scheduling grid showing all staff availability and bookings in 30-minute time slots.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>View Toggle &mdash; Daily / Weekly switch</li>
+                    <li>Date Picker &mdash; navigate between days/weeks</li>
+                    <li>Schedule Grid &mdash; rows = staff members, columns = 30-min time slots</li>
+                    <li>Color Coding &mdash; Salon bookings (purple), SPA bookings (teal)</li>
+                    <li>Leave Overlay &mdash; greyed-out cells for staff on leave</li>
+                    <li>Click slot &mdash; quick-book modal opens</li>
+                    <li>Booking tooltips &mdash; hover shows customer + service info</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Grid skeleton with time headers</div>
+                    <div class="state-item empty">No Bookings &mdash; Empty grid with available slots highlighted</div>
+                </div>
+            </div>
+            <span class="realtime-badge">Ably: admin:schedule:{date}</span>
+        </div>
+    </div>
+
+    <!-- 7.14 Leave Management -->
+    <div class="page-section" id="page-7-14">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/leave</span> Leave Management <span class="role-badge role-receptionist">Receptionist+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Manage staff leave requests, approvals, and day-off scheduling. Staff members see only their own requests.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Pending Requests Queue &mdash; cards with Approve / Reject buttons</li>
+                    <li>Staff Leave Calendar &mdash; monthly view with leave blocks marked</li>
+                    <li>"Mark Day-Off" Button &mdash; quick day-off creation for specific staff/date</li>
+                    <li>Leave History Table &mdash; past approved/rejected requests</li>
+                    <li>Staff filter &mdash; view specific staff member's leave</li>
+                    <li>Staff-only view &mdash; shows own requests + "Request Leave" form</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Calendar + queue skeleton</div>
+                    <div class="state-item empty">No Pending &mdash; "All caught up! No pending requests"</div>
+                </div>
+            </div>
+            <span class="realtime-badge">Ably: admin:leave</span>
+        </div>
+    </div>
+
+    <!-- 7.15 All Services -->
+    <div class="page-section" id="page-7-15">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/services</span> All Services <span class="role-badge role-manager">Manager+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Service catalog management with categorized listings, drag-to-reorder, and quick active/inactive toggling.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Category Sections &mdash; grouped by Hair, Skin, Nails, SPA, Bridal, etc.</li>
+                    <li>Service Cards &mdash; name, price, duration, active toggle, gems value</li>
+                    <li>Drag Reorder &mdash; drag handles to change display order within category</li>
+                    <li>"Add Service" Button &mdash; navigates to creation form</li>
+                    <li>Click card &mdash; navigates to edit page</li>
+                    <li>Active/Inactive toggle &mdash; instant update with confirmation</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Category sections with card skeletons</div>
+                    <div class="state-item empty">No Services &mdash; "Add your first service to get started"</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.16 Add Service -->
+    <div class="page-section" id="page-7-16">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/services/new</span> Add Service <span class="role-badge role-manager">Manager+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Comprehensive service creation form with pricing, scheduling, gems config, and staff assignment.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Name Input &mdash; service display name</li>
+                    <li>Category Selector &mdash; dropdown with existing categories + create new</li>
+                    <li>Price Input &mdash; INR amount with tax-inclusive note</li>
+                    <li>Duration Picker &mdash; minutes (15-min increments)</li>
+                    <li>Buffer Time &mdash; optional gap between consecutive bookings</li>
+                    <li>Description &mdash; rich text editor for service details</li>
+                    <li>Gems Configuration &mdash; gems awarded on completion</li>
+                    <li>Image Upload &mdash; service photo with crop/resize</li>
+                    <li>Staff Assignment &mdash; multi-select which staff can perform</li>
+                    <li>Active Toggle &mdash; launch immediately or save as draft</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Submitting &mdash; Full-page spinner overlay</div>
+                    <div class="state-item error">Validation &mdash; Inline field errors with scroll-to-first</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.17 Edit Service -->
+    <div class="page-section" id="page-7-17">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/services/[id]</span> Edit Service <span class="role-badge role-manager">Manager+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Edit existing service details. Same form as Add Service but pre-filled. Includes deactivation and booking stats.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Pre-filled Form &mdash; all fields from Add Service with current values</li>
+                    <li>Booking Count Stat &mdash; read-only "X bookings this month" indicator</li>
+                    <li>Deactivate Button &mdash; soft-delete with confirmation dialog</li>
+                    <li>"Save Changes" button with dirty-state detection</li>
+                    <li>Unsaved changes warning on navigation away</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Form skeleton</div>
+                    <div class="state-item error">Save Failed &mdash; Toast with retry</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.18 All Offers -->
+    <div class="page-section" id="page-7-18">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/offers</span> All Offers <span class="role-badge role-manager">Manager+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Promotional offer management with status-based tabs and redemption tracking.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Status Tabs &mdash; Active | Scheduled | Expired</li>
+                    <li>Offer Cards &mdash; type badge, discount amount/percentage, validity dates, redemption count</li>
+                    <li>Type Badges &mdash; Percentage, Flat, BOGO, Bundle</li>
+                    <li>"Create Offer" button &mdash; navigates to creation form</li>
+                    <li>Click card &mdash; navigates to edit page</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Card grid skeleton</div>
+                    <div class="state-item empty">No Offers &mdash; "Create your first promotion"</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.19 Create Offer -->
+    <div class="page-section" id="page-7-19">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/offers/new</span> Create Offer <span class="role-badge role-manager">Manager+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Design and schedule promotional offers with service linking, discount rules, and redemption limits.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Offer Name Input &mdash; display name for the promotion</li>
+                    <li>Type Selector &mdash; Percentage / Flat / BOGO / Bundle</li>
+                    <li>Discount Value &mdash; amount or percentage based on type</li>
+                    <li>Linked Services &mdash; multi-select applicable services</li>
+                    <li>Validity Dates &mdash; start date + end date pickers</li>
+                    <li>Terms &amp; Conditions &mdash; textarea</li>
+                    <li>Max Redemptions &mdash; optional cap per offer / per customer</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Submitting &mdash; Button spinner</div>
+                    <div class="state-item error">Validation &mdash; Date conflicts, missing fields</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.20 Edit Offer -->
+    <div class="page-section" id="page-7-20">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/offers/[id]</span> Edit Offer <span class="role-badge role-manager">Manager+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Modify existing offer details. Redemption count is read-only. Expired offers become read-only entirely.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Pre-filled Form &mdash; same as Create Offer with current values</li>
+                    <li>Redemption Count &mdash; read-only stat showing total uses</li>
+                    <li>Deactivate Button &mdash; end offer early with confirmation</li>
+                    <li>Read-only mode &mdash; all fields disabled after expiry date passes</li>
+                    <li>Status badge &mdash; Active / Expired / Deactivated</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Form skeleton</div>
+                    <div class="state-item error">Update Failed &mdash; Toast error</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.21 All Memberships -->
+    <div class="page-section" id="page-7-21">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/memberships</span> All Memberships <span class="role-badge role-receptionist">Receptionist+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Membership directory with tier-based filtering, usage tracking, and expiry monitoring.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Filters &mdash; status (active/expired/cancelled), tier, customer search</li>
+                    <li>Membership Table &mdash; Customer, ID, Tier Badge, Hours Used/Remaining, Expiry, Status</li>
+                    <li>Tier Badges &mdash; Silver (grey), Gold (gold), Platinum (purple gradient)</li>
+                    <li>Usage Progress Bar &mdash; visual hours consumed indicator</li>
+                    <li>"Create Membership" button</li>
+                    <li>Click row &mdash; navigates to membership detail</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Table skeleton rows</div>
+                    <div class="state-item empty">No Memberships &mdash; "Create first membership plan"</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.22 Create Membership -->
+    <div class="page-section" id="page-7-22">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/memberships/new</span> Create Membership <span class="role-badge role-receptionist">Receptionist+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Enroll customers into SPA membership tiers with configurable hours and pricing.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Customer Selector &mdash; typeahead search with profile preview</li>
+                    <li>Tier Selection &mdash; Silver / Gold / Platinum radio cards with benefits listed</li>
+                    <li>Hours &amp; Price &mdash; pre-filled from tier defaults, overridable</li>
+                    <li>Start Date &mdash; defaults to today</li>
+                    <li>Payment Method &mdash; Cash / Card / UPI / Bank Transfer</li>
+                    <li>Submit &mdash; "Create Membership" with invoice generation</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Submitting &mdash; Processing payment + creating membership</div>
+                    <div class="state-item error">Validation &mdash; Customer already has active membership warning</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.23 Membership Detail -->
+    <div class="page-section" id="page-7-23">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/memberships/[id]</span> Membership Detail <span class="role-badge role-receptionist">Receptionist+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Individual membership view with usage tracking, session history, and administrative actions.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Header &mdash; tier badge, customer name, membership ID, status</li>
+                    <li>Hours Progress Bar &mdash; visual used/remaining with percentage</li>
+                    <li>Expiry Date &mdash; with countdown if approaching</li>
+                    <li>Session History Table &mdash; date, service, duration deducted, staff</li>
+                    <li>Actions: <code>Record Session</code> (deduct hours), <code>Cancel</code> (Manager+ only)</li>
+                    <li>Cancellation requires reason and triggers prorated refund calculation</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Detail skeleton</div>
+                    <div class="state-item empty">No Sessions &mdash; "No sessions recorded yet"</div>
+                    <div class="state-item error">Not Found &mdash; 404 page</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.24 All Invoices -->
+    <div class="page-section" id="page-7-24">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/billing</span> All Invoices <span class="role-badge role-receptionist">Receptionist+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Complete billing history with filtering, search, and CSV export for accounting purposes.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Filters &mdash; type (booking/membership), date range, payment method, customer search</li>
+                    <li>Invoice Table &mdash; Invoice #, Customer, Date, Type, Amount, GST, Total, Payment Method, Status</li>
+                    <li>"Export CSV" Button &mdash; download filtered results for CA/accountant</li>
+                    <li>Pagination &mdash; 50 items per page</li>
+                    <li>Click row &mdash; navigates to invoice detail</li>
+                    <li>Total summary row &mdash; sum of filtered invoices</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Table skeleton with summary placeholder</div>
+                    <div class="state-item empty">No Invoices &mdash; "No invoices for selected filters"</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.25 Invoice Detail -->
+    <div class="page-section" id="page-7-25">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/billing/[id]</span> Invoice Detail <span class="role-badge role-receptionist">Receptionist+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Detailed invoice view with line items, tax breakdown, payment info, and PDF generation.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Invoice Header &mdash; invoice #, date, status badge, type</li>
+                    <li>Customer Info &mdash; name, phone, email</li>
+                    <li>Line Items Table &mdash; service/item, quantity, rate (snapshot at time of booking), amount</li>
+                    <li>Totals Section &mdash; Subtotal, Discount (if offer applied), GST 18%, Grand Total</li>
+                    <li>Payment Info &mdash; method, transaction reference, paid date</li>
+                    <li>Gems Awarded &mdash; badge showing gems credited</li>
+                    <li>PDF Preview &mdash; embedded invoice preview</li>
+                    <li>Actions: <code>Resend Email</code>, <code>Download PDF</code></li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Invoice skeleton</div>
+                    <div class="state-item error">Not Found &mdash; 404 page</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.26 Reports Overview -->
+    <div class="page-section" id="page-7-26">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/reports</span> Reports Overview <span class="role-badge role-manager">Manager+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Reports hub with high-level KPIs, sparkline charts, and quick navigation to detailed analytics.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>KPI Cards &mdash; MTD Revenue, Total Bookings, Active Memberships, Conversion Rate</li>
+                    <li>Quick Charts &mdash; revenue sparkline (7-day), bookings sparkline (7-day)</li>
+                    <li>Report Links Grid &mdash; cards linking to Financial, Salon, SPA, Staff, Lead analytics</li>
+                    <li>Date range selector &mdash; affects KPI calculations</li>
+                    <li>Comparison toggle &mdash; vs previous period</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; KPI card skeletons with chart placeholders</div>
+                    <div class="state-item empty">No Data &mdash; "Not enough data for reports yet"</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.27 Financial Report -->
+    <div class="page-section" id="page-7-27">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/reports/financial</span> Financial Report <span class="role-badge role-manager">Manager+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Comprehensive financial analytics with revenue trends, GST summary, and accountant-ready exports.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Date Range Picker &mdash; custom range with presets (This Month, Last Month, Quarter)</li>
+                    <li>Revenue Chart &mdash; line/bar chart with daily/weekly/monthly granularity</li>
+                    <li>GST Summary &mdash; total collected, payable, with breakdown</li>
+                    <li>Payment Method Breakdown &mdash; pie chart (Cash, Card, UPI, Bank Transfer)</li>
+                    <li>Daily Summary Table &mdash; date, bookings, revenue, GST, net</li>
+                    <li>"Export for CA" Button &mdash; formatted Excel/CSV download</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Chart placeholders with shimmer</div>
+                    <div class="state-item empty">No Revenue &mdash; "No transactions in selected period"</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.28 Salon Analytics -->
+    <div class="page-section" id="page-7-28">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/reports/salon</span> Salon Analytics <span class="role-badge role-manager">Manager+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Salon-specific performance metrics: service popularity, category trends, and revenue attribution.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Service Category Performance &mdash; horizontal bar chart</li>
+                    <li>Most Booked Services &mdash; ranked list with booking counts</li>
+                    <li>Revenue by Service &mdash; table sorted by revenue contribution</li>
+                    <li>Category Trends &mdash; line chart showing growth/decline over time</li>
+                    <li>Date filter &mdash; same as financial reports</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Chart skeletons</div>
+                    <div class="state-item empty">No Data &mdash; "Complete bookings to see analytics"</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.29 SPA Analytics -->
+    <div class="page-section" id="page-7-29">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/reports/spa</span> SPA Analytics <span class="role-badge role-manager">Manager+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">SPA membership-focused analytics: tier distribution, utilisation rates, and revenue from memberships.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Membership Tier Donut Chart &mdash; Silver / Gold / Platinum distribution</li>
+                    <li>Utilisation Rates &mdash; average hours used vs allocated per tier</li>
+                    <li>Session Frequency &mdash; average sessions per member per month</li>
+                    <li>Revenue Split &mdash; membership sales vs per-session revenue</li>
+                    <li>Forfeited Hours &mdash; hours expired unused (potential revenue loss)</li>
+                    <li>Active vs Expired &mdash; membership lifecycle chart</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Donut + chart skeletons</div>
+                    <div class="state-item empty">No Memberships &mdash; "Create memberships to see SPA analytics"</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.30 Staff Performance -->
+    <div class="page-section" id="page-7-30">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/reports/staff</span> Staff Performance <span class="role-badge role-manager">Manager+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Staff productivity metrics with utilisation tracking, revenue attribution, and comparative analysis.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Staff Comparison Table &mdash; name, bookings completed, revenue generated, avg rating, utilisation %</li>
+                    <li>Utilisation Chart &mdash; bar chart showing booked vs available hours per staff</li>
+                    <li>Revenue per Staff &mdash; ranked bar chart</li>
+                    <li>Date Filter &mdash; weekly/monthly/custom range</li>
+                    <li>Export option &mdash; staff performance summary download</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Table + chart skeleton</div>
+                    <div class="state-item empty">No Data &mdash; "Complete bookings to track performance"</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.31 Lead Analytics -->
+    <div class="page-section" id="page-7-31">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/reports/leads</span> Lead Analytics <span class="role-badge role-manager">Manager+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Marketing funnel analytics with conversion tracking, campaign ROI, and source attribution.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Pipeline Funnel &mdash; visual funnel chart (New &rarr; Contacted &rarr; Follow-up &rarr; Booked &rarr; Won)</li>
+                    <li>Conversion Rate &mdash; stage-to-stage and overall lead-to-customer rate</li>
+                    <li>Revenue per Campaign &mdash; attributed revenue by UTM campaign</li>
+                    <li>Source Comparison &mdash; bar chart comparing lead sources (Google, Meta, Walk-in, Referral)</li>
+                    <li>Cost per Lead / Acquisition &mdash; calculated from ad spend data</li>
+                    <li>Date filter + comparison period</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Funnel + chart placeholders</div>
+                    <div class="state-item empty">No Leads &mdash; "Capture leads to see conversion analytics"</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.32 System Settings -->
+    <div class="page-section" id="page-7-32">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/settings</span> System Settings <span class="role-badge role-manager">Manager+</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Global configuration for business rules, policies, gems system, and membership tier defaults.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Salon Info Section &mdash; name, description, logo upload</li>
+                    <li>Business Hours &mdash; weekly schedule editor (open/close times per day)</li>
+                    <li>Policy Configuration Keys:</li>
+                    <li>&nbsp;&nbsp;<code>cancellation_window_hours</code> &mdash; hours before appointment for free cancellation</li>
+                    <li>&nbsp;&nbsp;<code>max_reschedules</code> &mdash; maximum reschedules allowed per booking</li>
+                    <li>&nbsp;&nbsp;<code>no_show_threshold</code> &mdash; no-shows before penalty tier escalation</li>
+                    <li>&nbsp;&nbsp;<code>stale_lead_hours</code> &mdash; hours before lead marked stale</li>
+                    <li>&nbsp;&nbsp;<code>booking_advance_days</code> &mdash; how far in advance bookings allowed</li>
+                    <li>Gems Configuration &mdash; earn rate, redemption rules, expiry</li>
+                    <li>Membership Tier Defaults &mdash; Silver/Gold/Platinum hours, price, benefits</li>
+                    <li>"Save Settings" with section-level save buttons</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Form sections skeleton</div>
+                    <div class="state-item error">Save Failed &mdash; Section-level error banners</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.33 Branch Management -->
+    <div class="page-section" id="page-7-33">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/branches</span> Branch Management <span class="role-badge role-owner">Owner</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Multi-branch administration for managing salon locations, statuses, and primary branch designation.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Branch Cards &mdash; name, code, address, status badge (open/closed/coming_soon)</li>
+                    <li>Primary Badge &mdash; star indicator on primary branch</li>
+                    <li>"Add Branch" Button &mdash; navigates to creation form</li>
+                    <li>Click card &mdash; navigates to edit page</li>
+                    <li>Quick status toggle &mdash; open/close with reason prompt</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Card grid skeleton</div>
+                    <div class="state-item empty">Single Branch &mdash; shows current branch only</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.34 Edit Branch -->
+    <div class="page-section" id="page-7-34">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/branches/[id]</span> Edit Branch <span class="role-badge role-owner">Owner</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Complete branch configuration including location data, contact info, and Google Maps integration.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Branch Number &mdash; auto-generated sequential ID</li>
+                    <li>Branch Code &mdash; short identifier (e.g., "RG-HYD-01")</li>
+                    <li>Name Input &mdash; display name</li>
+                    <li>Address &mdash; full address textarea</li>
+                    <li>Phone &amp; Email &mdash; branch contact info</li>
+                    <li>Google Maps URL &mdash; link to maps listing</li>
+                    <li>Place ID &mdash; Google Place ID for reviews integration</li>
+                    <li>GPS Coordinates &mdash; latitude/longitude for geofencing</li>
+                    <li>Status Selector &mdash; Open / Closed / Coming Soon</li>
+                    <li>Close Reason &mdash; shown when status = Closed</li>
+                    <li>Opening Date &mdash; date picker</li>
+                    <li>Primary Toggle &mdash; set as primary branch (only one allowed)</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Form skeleton</div>
+                    <div class="state-item error">Save Failed &mdash; Validation errors inline</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.35 User Management -->
+    <div class="page-section" id="page-7-35">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/users</span> User Management <span class="role-badge role-owner">Owner</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">User access control with role management, suspension, and session monitoring. Enforces role hierarchy rules.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Filters &mdash; role (Customer, Staff, Receptionist, Manager, Owner, Developer), status, join date range</li>
+                    <li>User Table &mdash; Name, Email, Phone, Role Badge, Status, Last Active, Actions</li>
+                    <li>Row Actions dropdown:</li>
+                    <li>&nbsp;&nbsp;<code>Change Role</code> &mdash; can only assign roles below own level</li>
+                    <li>&nbsp;&nbsp;<code>Suspend</code> &mdash; temporary access removal with reason</li>
+                    <li>&nbsp;&nbsp;<code>Ban</code> &mdash; permanent removal with reason</li>
+                    <li>&nbsp;&nbsp;<code>View Sessions</code> &mdash; active login sessions list</li>
+                    <li>Hierarchy Rules &mdash; cannot modify users of same or higher role</li>
+                    <li>Bulk actions &mdash; multi-select with batch role change</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Table skeleton</div>
+                    <div class="state-item error">Permission Denied &mdash; "Cannot modify user of equal/higher role"</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.36 Integrations -->
+    <div class="page-section" id="page-7-36">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/integrations</span> Integrations <span class="role-badge role-developer">Developer</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Third-party integration management with connection status, configuration, and health monitoring.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Integration Cards (each with status indicator + config):</li>
+                    <li>&nbsp;&nbsp;&#9889; <strong>Ably</strong> &mdash; Realtime messaging, channel stats, connection health</li>
+                    <li>&nbsp;&nbsp;&#128172; <strong>AiSensy</strong> &mdash; WhatsApp Business API, message templates, delivery stats</li>
+                    <li>&nbsp;&nbsp;&#128200; <strong>Meta Pixel/CAPI</strong> &mdash; Event tracking, conversion API, pixel health</li>
+                    <li>&nbsp;&nbsp;&#128027; <strong>Sentry</strong> &mdash; Error tracking, issue count, unresolved errors</li>
+                    <li>&nbsp;&nbsp;&#128994; <strong>BetterStack</strong> &mdash; Uptime monitoring, incident history, status page</li>
+                    <li>&nbsp;&nbsp;&#9993;&#65039; <strong>Resend</strong> &mdash; Email delivery, bounce rate, recent sends</li>
+                    <li>&nbsp;&nbsp;&#128231; <strong>Brevo</strong> &mdash; CRM sync, contact count, automation status</li>
+                    <li>Each card: Connected/Disconnected badge, last sync time, "Configure" button</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; Integration card skeletons</div>
+                    <div class="state-item error">Connection Failed &mdash; red badge with "Reconnect" button</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7.37 Error Logs -->
+    <div class="page-section" id="page-7-37">
+        <div class="page-header" onclick="toggleSection(this)">
+            <h3><span class="route">/admin/logs</span> Error Logs <span class="role-badge role-developer">Developer</span></h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="page-body">
+            <p class="purpose">Application error monitoring with severity filtering, expandable stack traces, and Sentry integration.</p>
+            <div class="component-group">
+                <h4>&#128202; UI Components</h4>
+                <ul class="component-list">
+                    <li>Filters &mdash; severity (Fatal, Error, Warning, Info), date range, route/page</li>
+                    <li>Error List &mdash; timestamp, severity badge, message preview, occurrence count</li>
+                    <li>Expandable Stack Traces &mdash; click to reveal full trace with syntax highlighting</li>
+                    <li>Severity Badges &mdash; Fatal (red), Error (orange), Warning (amber), Info (blue)</li>
+                    <li>Source: Sentry API &mdash; pulled from Sentry project issues</li>
+                    <li>"Mark Resolved" action &mdash; updates Sentry issue status</li>
+                    <li>Link to Sentry &mdash; "View in Sentry" external link per error</li>
+                </ul>
+            </div>
+            <div class="component-group">
+                <h4>&#128640; States</h4>
+                <div class="state-grid">
+                    <div class="state-item loading">Loading &mdash; List skeleton with shimmer rows</div>
+                    <div class="state-item empty">No Errors &mdash; "All clear! No errors in selected period" &#127881;</div>
+                    <div class="state-item error">Sentry Unreachable &mdash; "Cannot fetch logs, check Sentry connection"</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</main>
+</div>
+
+<script>
+function toggleSection(header) {
+    const section = header.parentElement;
+    section.classList.toggle('open');
+}
+
+// Smooth scroll for sidebar links
+document.querySelectorAll('.sidebar a').forEach(link => {
+    link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const targetId = this.getAttribute('href').substring(1);
+        const target = document.getElementById(targetId);
+        if (target) {
+            // Open the section if closed
+            if (!target.classList.contains('open')) {
+                target.classList.add('open');
+            }
+            // Scroll into view
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Update active state
+            document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+            this.classList.add('active');
+        }
+    });
+});
+
+// Expand All / Collapse All with keyboard shortcut
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'e' && e.altKey) {
+        document.querySelectorAll('.page-section').forEach(s => s.classList.add('open'));
+    }
+    if (e.key === 'c' && e.altKey) {
+        document.querySelectorAll('.page-section').forEach(s => s.classList.remove('open'));
+    }
+});
+</script>
+</body>
+</html>

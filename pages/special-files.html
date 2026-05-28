@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Special Files & Endpoints — Royal Glow</title>
+    <style>
+        :root {
+            --purple: #6B4C9A;
+            --purple-light: #8B6FBB;
+            --purple-dark: #4A3470;
+            --gold: #C8A961;
+            --gold-light: #E8D5A0;
+            --gold-dark: #9A7D3A;
+            --teal: #2A9D8F;
+            --teal-light: #4DC4B6;
+            --teal-dark: #1F7A6F;
+            --bg: #FAFAFA;
+            --card-bg: #FFFFFF;
+            --text: #1A1A2E;
+            --text-muted: #5A5A7A;
+            --border: #E8E8F0;
+            --shadow-sm: 0 1px 3px rgba(107,76,154,0.08);
+            --shadow-md: 0 4px 12px rgba(107,76,154,0.12);
+            --shadow-lg: 0 8px 32px rgba(107,76,154,0.16);
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, var(--purple-dark) 0%, var(--purple) 50%, var(--purple-light) 100%);
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: clamp(1.8rem, 4vw, 2.8rem);
+            color: #FFFFFF;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+        }
+
+        .hero .subtitle {
+            color: var(--gold-light);
+            font-size: 0.95rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(200,169,97,0.15);
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        .category-section {
+            margin-bottom: 2.5rem;
+        }
+
+        .category-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .category-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .cat-seo .category-icon { background: rgba(107,76,154,0.1); }
+        .cat-pwa .category-icon { background: rgba(42,157,143,0.1); }
+        .cat-social .category-icon { background: rgba(200,169,97,0.15); }
+        .cat-monitor .category-icon { background: rgba(229,62,62,0.08); }
+
+        .category-header h2 {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .cat-seo .category-header h2 { color: var(--purple); }
+        .cat-pwa .category-header h2 { color: var(--teal-dark); }
+        .cat-social .category-header h2 { color: var(--gold-dark); }
+        .cat-monitor .category-header h2 { color: #C53030; }
+
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 1rem;
+        }
+
+        .file-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            padding: 1.25rem;
+            border-left: 4px solid var(--border);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .file-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .cat-seo .file-card { border-left-color: var(--purple); }
+        .cat-pwa .file-card { border-left-color: var(--teal); }
+        .cat-social .file-card { border-left-color: var(--gold); }
+        .cat-monitor .file-card { border-left-color: #E53E3E; }
+
+        .file-card .file-path {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 0.5rem;
+        }
+
+        .file-card .file-type {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+        }
+
+        .type-generated { background: rgba(42,157,143,0.1); color: var(--teal-dark); }
+        .type-static { background: rgba(107,76,154,0.08); color: var(--purple); }
+        .type-api { background: rgba(229,62,62,0.08); color: #C53030; }
+
+        .file-card .file-desc {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .file-card .file-freq {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.2rem 0.5rem;
+            border-radius: 12px;
+            background: rgba(200,169,97,0.1);
+            color: var(--gold-dark);
+        }
+
+        .file-card .file-freq::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+
+        .freq-build .file-freq::before { background: var(--teal); }
+        .freq-static .file-freq::before { background: var(--purple-light); }
+        .freq-change .file-freq::before { background: var(--gold); }
+        .freq-never .file-freq::before { background: var(--text-muted); }
+        .freq-live .file-freq::before { background: #E53E3E; }
+
+        .file-details {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .file-details code {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.75rem;
+            background: rgba(107,76,154,0.05);
+            padding: 0.1rem 0.3rem;
+            border-radius: 3px;
+        }
+
+        /* Summary Table at Bottom */
+        .summary-table {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+            margin-top: 2rem;
+        }
+
+        .summary-table h3 {
+            padding: 1rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--purple-dark);
+            border-bottom: 1px solid var(--border);
+            background: rgba(107,76,154,0.02);
+        }
+
+        .summary-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .summary-table th {
+            text-align: left;
+            padding: 0.6rem 1rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            background: rgba(0,0,0,0.02);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .summary-table td {
+            padding: 0.6rem 1rem;
+            font-size: 0.85rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .summary-table tr:last-child td { border-bottom: none; }
+
+        .summary-table td:first-child {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--purple);
+        }
+
+        @media (max-width: 768px) {
+            .hero { padding: 2rem 1rem; }
+            .container { padding: 1.5rem 1rem; }
+            .file-grid { grid-template-columns: 1fr; }
+            .summary-table { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <header class="hero">
+        <h1>Special Files & Endpoints</h1>
+        <span class="subtitle">10 non-page utility files supporting SEO, PWA, monitoring & social</span>
+    </header>
+
+    <main class="container">
+
+        <!-- SEO Category -->
+        <div class="category-section cat-seo">
+            <div class="category-header">
+                <div class="category-icon">&#128270;</div>
+                <h2>SEO & Discovery</h2>
+            </div>
+            <div class="file-grid">
+                <div class="file-card freq-build">
+                    <div class="file-path">/sitemap.xml</div>
+                    <span class="file-type type-generated">Generated</span>
+                    <div class="file-desc">Static routes + dynamic blog posts from Payload API. Submitted to Google Search Console.</div>
+                    <span class="file-freq">On build + ISR</span>
+                    <div class="file-details">Source: <code>app/sitemap.ts</code> (Next.js metadata API)</div>
+                </div>
+
+                <div class="file-card freq-static">
+                    <div class="file-path">/robots.txt</div>
+                    <span class="file-type type-generated">Generated</span>
+                    <div class="file-desc">AI crawlers explicitly allowed (GPTBot, Claude-Web, PerplexityBot, Googlebot-Extended, Applebot). Disallows <code>/admin/</code>, <code>/api/</code>, <code>/profile/</code>.</div>
+                    <span class="file-freq">Static (rarely changes)</span>
+                </div>
+
+                <div class="file-card freq-change">
+                    <div class="file-path">/llms.txt</div>
+                    <span class="file-type type-static">Static / API-driven</span>
+                    <div class="file-desc">AI agent discovery: site description, key pages, services, contact, API endpoints. Emerging standard for LLM visibility.</div>
+                    <span class="file-freq">Updated when services/prices change</span>
+                </div>
+
+                <div class="file-card freq-change">
+                    <div class="file-path">/llms-full.txt</div>
+                    <span class="file-type type-static">Static / API-driven</span>
+                    <div class="file-desc">Extended version: complete service menu with prices, staff specializations, full booking instructions.</div>
+                    <span class="file-freq">Updated when services change</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- PWA Category -->
+        <div class="category-section cat-pwa">
+            <div class="category-header">
+                <div class="category-icon">&#128241;</div>
+                <h2>PWA & Offline</h2>
+            </div>
+            <div class="file-grid">
+                <div class="file-card freq-never">
+                    <div class="file-path">/manifest.json</div>
+                    <span class="file-type type-static">Static</span>
+                    <div class="file-desc">PWA manifest: Royal Glow branding, theme colour (gold), icons (192px, 512px), start_url: <code>/</code>, display: <code>standalone</code>.</div>
+                    <span class="file-freq">Rarely updated</span>
+                </div>
+
+                <div class="file-card freq-build">
+                    <div class="file-path">/sw.js</div>
+                    <span class="file-type type-generated">Generated</span>
+                    <div class="file-desc">Service worker: caches service menu, prices, contact page, hours, gallery thumbnails, homepage shell. Enables offline access.</div>
+                    <span class="file-freq">On build</span>
+                    <div class="file-details">Generated via next-pwa or custom service worker</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Social Category -->
+        <div class="category-section cat-social">
+            <div class="category-header">
+                <div class="category-icon">&#127912;</div>
+                <h2>Social & Branding</h2>
+            </div>
+            <div class="file-grid">
+                <div class="file-card freq-static">
+                    <div class="file-path">/opengraph-image</div>
+                    <span class="file-type type-generated">Generated</span>
+                    <div class="file-desc">Default branded OG image for social sharing. Royal Glow logo + tagline on brand background. Generated via Next.js OG image generation.</div>
+                    <span class="file-freq">Static (brand changes only)</span>
+                </div>
+
+                <div class="file-card freq-never">
+                    <div class="file-path">/favicon.ico</div>
+                    <span class="file-type type-static">Static</span>
+                    <div class="file-desc">32x32 favicon for browser tabs and bookmarks.</div>
+                    <span class="file-freq">Never (unless rebrand)</span>
+                </div>
+
+                <div class="file-card freq-never">
+                    <div class="file-path">/apple-icon.png</div>
+                    <span class="file-type type-static">Static</span>
+                    <div class="file-desc">180x180 Apple homescreen icon for iOS PWA &ldquo;Add to Home Screen&rdquo;.</div>
+                    <span class="file-freq">Never (unless rebrand)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Monitoring Category -->
+        <div class="category-section cat-monitor">
+            <div class="category-header">
+                <div class="category-icon">&#128994;</div>
+                <h2>Monitoring</h2>
+            </div>
+            <div class="file-grid">
+                <div class="file-card freq-live">
+                    <div class="file-path">/api/health</div>
+                    <span class="file-type type-api">API Route</span>
+                    <div class="file-desc">Health check endpoint monitored by BetterStack. Returns DB and Redis connection status with timestamp.</div>
+                    <span class="file-freq">Always live</span>
+                    <div class="file-details">Response: <code>{ status: 'ok', db: 'connected', redis: 'connected', timestamp }</code></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Table -->
+        <div class="summary-table">
+            <h3>Quick Reference &mdash; All 10 Files</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Path</th>
+                        <th>Type</th>
+                        <th>Category</th>
+                        <th>Update Frequency</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>/sitemap.xml</td><td>Generated</td><td>SEO</td><td>On build + ISR</td></tr>
+                    <tr><td>/robots.txt</td><td>Generated</td><td>SEO</td><td>Static</td></tr>
+                    <tr><td>/llms.txt</td><td>Static/API</td><td>SEO</td><td>Service changes</td></tr>
+                    <tr><td>/llms-full.txt</td><td>Static/API</td><td>SEO</td><td>Service changes</td></tr>
+                    <tr><td>/manifest.json</td><td>Static</td><td>PWA</td><td>Rarely</td></tr>
+                    <tr><td>/sw.js</td><td>Generated</td><td>PWA</td><td>On build</td></tr>
+                    <tr><td>/opengraph-image</td><td>Generated</td><td>Social</td><td>Static</td></tr>
+                    <tr><td>/favicon.ico</td><td>Static</td><td>Social</td><td>Never</td></tr>
+                    <tr><td>/apple-icon.png</td><td>Static</td><td>Social</td><td>Never</td></tr>
+                    <tr><td>/api/health</td><td>API Route</td><td>Monitoring</td><td>Always live</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+</body>
+</html>

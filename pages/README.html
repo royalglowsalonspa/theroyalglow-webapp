@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pages & Routes — Application Map | Royal Glow Salon & Spa</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --gold: #C8A961;
+            --gold-light: #F5E6B8;
+            --gold-dark: #9A7B3A;
+            --purple: #6B4C9A;
+            --purple-light: #E8DFF5;
+            --teal: #2A9D8F;
+            --teal-light: #D4F1ED;
+            --bg: #FAFAFA;
+            --card: #FFFFFF;
+            --text: #1A1A2E;
+            --text-muted: #6B7280;
+            --border: #E5E7EB;
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);
+            --radius: 12px;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+        .container { max-width: 1100px; margin: 0 auto; }
+        
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--purple) 0%, #4A3370 100%);
+            border-radius: var(--radius);
+            padding: 3rem;
+            margin-bottom: 2rem;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(200,169,97,0.2) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+        .header .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            position: relative;
+        }
+        .header .domain-badges {
+            margin-top: 1.5rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            position: relative;
+        }
+        .domain-badge {
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 20px;
+            padding: 0.3rem 0.8rem;
+            font-size: 0.85rem;
+            backdrop-filter: blur(4px);
+        }
+        
+        /* Section */
+        .section {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+        }
+        .section h2 {
+            font-size: 1.4rem;
+            color: var(--purple);
+            margin-bottom: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .section h2 .icon {
+            width: 28px;
+            height: 28px;
+            background: var(--purple-light);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+        }
+        
+        /* Route Groups Table */
+        .route-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        .route-table th {
+            background: var(--purple);
+            color: white;
+            padding: 0.8rem 1rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .route-table td {
+            padding: 0.8rem 1rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+        .route-table tr:last-child td { border-bottom: none; }
+        .route-table tr:hover td { background: var(--purple-light); }
+        .route-group-code {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            background: var(--purple-light);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: var(--purple);
+            font-weight: 600;
+        }
+        
+        /* File Index */
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+        .file-card {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem 1.2rem;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .file-card:hover {
+            border-color: var(--gold);
+            box-shadow: var(--shadow);
+            transform: translateY(-2px);
+        }
+        .file-card .file-name {
+            font-weight: 600;
+            color: var(--purple);
+            font-size: 0.95rem;
+            margin-bottom: 0.3rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .file-card .file-desc {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+        .file-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            flex-shrink: 0;
+        }
+        .file-icon.public { background: var(--teal-light); color: var(--teal); }
+        .file-icon.auth { background: var(--gold-light); color: var(--gold-dark); }
+        .file-icon.admin { background: var(--purple-light); color: var(--purple); }
+        .file-icon.api { background: #DBEAFE; color: #2563EB; }
+        .file-icon.misc { background: #F3F4F6; color: #6B7280; }
+        
+        /* Cross References */
+        .ref-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 0.6rem;
+        }
+        .ref-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            transition: background 0.2s;
+        }
+        .ref-item:hover { background: var(--bg); }
+        .ref-item .ref-file {
+            font-family: monospace;
+            color: var(--purple);
+            font-weight: 500;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            body { padding: 1rem; }
+            .header { padding: 2rem 1.5rem; }
+            .header h1 { font-size: 1.6rem; }
+            .file-grid { grid-template-columns: 1fr; }
+            .ref-list { grid-template-columns: 1fr; }
+            .route-table { font-size: 0.8rem; }
+            .route-table th, .route-table td { padding: 0.6rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📍 Pages & Routes — Application Map</h1>
+            <p class="subtitle">Index and navigation guide for the complete route specification of Royal Glow Salon & Spa</p>
+            <div class="domain-badges">
+                <span class="domain-badge">🌐 theroyalglow.in</span>
+                <span class="domain-badge">⚙️ admin.theroyalglow.in</span>
+                <span class="domain-badge">📖 docs.theroyalglow.in</span>
+                <span class="domain-badge">📊 status.theroyalglow.in</span>
+            </div>
+        </div>
+
+        <!-- Route Groups -->
+        <div class="section">
+            <h2><span class="icon">🗂️</span> Route Groups (Next.js App Router)</h2>
+            <table class="route-table">
+                <thead>
+                    <tr>
+                        <th>Route Group</th>
+                        <th>Layout</th>
+                        <th>Shared Components</th>
+                        <th>Purpose</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="route-group-code">(customer)</span></td>
+                        <td>Header + Footer + Nav</td>
+                        <td>Cookie banner, PWA prompt, skip-to-content link</td>
+                        <td>Public and authenticated customer pages</td>
+                    </tr>
+                    <tr>
+                        <td><span class="route-group-code">(auth)</span></td>
+                        <td>Minimal centered card</td>
+                        <td>Logo only, no nav</td>
+                        <td>Sign-in and onboarding flows</td>
+                    </tr>
+                    <tr>
+                        <td><span class="route-group-code">(landing)</span></td>
+                        <td>No header/footer</td>
+                        <td>Trust signals only</td>
+                        <td>Conversion-optimised ad landing pages</td>
+                    </tr>
+                    <tr>
+                        <td><span class="route-group-code">(legal)</span></td>
+                        <td>Header + Footer + Nav</td>
+                        <td>Same as customer</td>
+                        <td>Static legal/policy pages (SSG)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="route-group-code">admin/</span></td>
+                        <td>Sidebar nav + Top bar + RBAC gate</td>
+                        <td>Role badge, notifications bell, breadcrumbs</td>
+                        <td>Internal staff portal</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- File Index -->
+        <div class="section">
+            <h2><span class="icon">📁</span> File Index</h2>
+            <div class="file-grid">
+                <a href="./customer-public.html" class="file-card">
+                    <div class="file-name"><span class="file-icon public">🌍</span> customer-public</div>
+                    <div class="file-desc">8 public pages: homepage, services, offers, about, contact, blog, blog post, FAQ</div>
+                </a>
+                <a href="./customer-authenticated.html" class="file-card">
+                    <div class="file-name"><span class="file-icon auth">🔐</span> customer-authenticated</div>
+                    <div class="file-desc">5 auth-gated pages: profile, bookings, booking detail, membership, gems</div>
+                </a>
+                <a href="./booking-dialog.html" class="file-card">
+                    <div class="file-name"><span class="file-icon auth">📅</span> booking-dialog</div>
+                    <div class="file-desc">4-step booking overlay component spec (not a route)</div>
+                </a>
+                <a href="./auth-flows.html" class="file-card">
+                    <div class="file-name"><span class="file-icon auth">🔑</span> auth-flows</div>
+                    <div class="file-desc">Sign-in and onboarding flow pages</div>
+                </a>
+                <a href="./landing-pages.html" class="file-card">
+                    <div class="file-name"><span class="file-icon misc">🎯</span> landing-pages</div>
+                    <div class="file-desc">/book — Meta/Instagram ad lead capture landing page</div>
+                </a>
+                <a href="./legal.html" class="file-card">
+                    <div class="file-name"><span class="file-icon misc">⚖️</span> legal</div>
+                    <div class="file-desc">Privacy policy, terms of service, refund & cancellation policy</div>
+                </a>
+                <a href="./admin.html" class="file-card">
+                    <div class="file-name"><span class="file-icon admin">👑</span> admin</div>
+                    <div class="file-desc">37 admin portal pages (7.1–7.37)</div>
+                </a>
+                <a href="./api-routes.html" class="file-card">
+                    <div class="file-name"><span class="file-icon api">⚡</span> api-routes</div>
+                    <div class="file-desc">32 API endpoints: customer, admin, background jobs, webhooks</div>
+                </a>
+                <a href="./external-subdomains.html" class="file-card">
+                    <div class="file-name"><span class="file-icon misc">🔗</span> external-subdomains</div>
+                    <div class="file-desc">Payload CMS, Fumadocs, BetterStack status page</div>
+                </a>
+                <a href="./special-files.html" class="file-card">
+                    <div class="file-name"><span class="file-icon misc">📄</span> special-files</div>
+                    <div class="file-desc">10 special files: sitemap, robots, llms.txt, manifest, SW, etc.</div>
+                </a>
+                <a href="./deep-links.html" class="file-card">
+                    <div class="file-name"><span class="file-icon api">🔗</span> deep-links</div>
+                    <div class="file-desc">UTM contracts and deep link patterns</div>
+                </a>
+                <a href="./summary.html" class="file-card">
+                    <div class="file-name"><span class="file-icon misc">📊</span> summary</div>
+                    <div class="file-desc">Page count, role matrix, realtime subscription map, PWA capabilities, references</div>
+                </a>
+            </div>
+        </div>
+
+        <!-- Cross References -->
+        <div class="section">
+            <h2><span class="icon">🔗</span> Cross-References</h2>
+            <div class="ref-list">
+                <div class="ref-item"><span class="ref-file">features.md</span> — Full feature specifications and business rules</div>
+                <div class="ref-item"><span class="ref-file">architecture.md</span> — Infrastructure, routing, and project structure</div>
+                <div class="ref-item"><span class="ref-file">authentication.md</span> — Auth flow, roles, and permissions matrix</div>
+                <div class="ref-item"><span class="ref-file">database-schema.md</span> — All 38 tables and relationships</div>
+                <div class="ref-item"><span class="ref-file">background-jobs.md</span> — All 19 scheduled/triggered jobs</div>
+                <div class="ref-item"><span class="ref-file">ably-channels.md</span> — Realtime channel structure and event payloads</div>
+                <div class="ref-item"><span class="ref-file">email-strategy.md</span> — All email templates and sending strategy</div>
+                <div class="ref-item"><span class="ref-file">meta-pixel.md</span> — Meta Pixel + CAPI implementation</div>
+                <div class="ref-item"><span class="ref-file">seo.md</span> — JSON-LD schemas, sitemap, robots.txt, AI search visibility</div>
+                <div class="ref-item"><span class="ref-file">observability.md</span> — Monitoring stack (Sentry, BetterStack, PostHog, Clarity, Checkly)</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

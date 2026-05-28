@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Authenticated Pages — Royal Glow Salon & Spa</title>
+    <style>
+        :root {
+            --purple: #6B4C9A;
+            --purple-light: #8B6BBF;
+            --purple-dark: #4A3370;
+            --gold: #C8A961;
+            --gold-light: #E8D5A0;
+            --teal: #2A9D8F;
+            --teal-light: #4DBFB3;
+            --teal-dark: #1F7A6F;
+            --bg: #F8F6FB;
+            --card-bg: #FFFFFF;
+            --text: #2D2640;
+            --text-muted: #6B6580;
+            --border: #E8E4F0;
+            --shadow: 0 4px 24px rgba(107, 76, 154, 0.08);
+            --shadow-hover: 0 8px 32px rgba(107, 76, 154, 0.14);
+            --radius: 16px;
+            --radius-sm: 8px;
+        }
+
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 12px 24px;
+            color: var(--purple);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: color 0.2s;
+        }
+        .back-link:hover { color: var(--purple-dark); }
+        .back-link::before { content: "←"; font-size: 1.1em; }
+
+
+        .header {
+            background: linear-gradient(135deg, var(--purple) 0%, var(--purple-dark) 100%);
+            padding: 48px 24px 60px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .header::before {
+            content: "";
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(200, 169, 97, 0.15) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+        .header::after {
+            content: "";
+            position: absolute;
+            bottom: -30%;
+            left: -10%;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(42, 157, 143, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+        .header h1 {
+            color: #FFF;
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            position: relative;
+        }
+        .header p {
+            color: rgba(255,255,255,0.8);
+            font-size: 1.05rem;
+            max-width: 600px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+
+        .auth-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 20px;
+            padding: 6px 16px;
+            color: #FFF;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(4px);
+        }
+        .auth-badge .lock-icon {
+            width: 14px;
+            height: 14px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: -32px auto 48px;
+            padding: 0 20px;
+            position: relative;
+        }
+
+
+        .page-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 32px;
+            overflow: hidden;
+            transition: box-shadow 0.3s, transform 0.2s;
+        }
+        .page-card:hover {
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-2px);
+        }
+
+        .page-card-header {
+            padding: 24px 32px;
+            position: relative;
+            overflow: hidden;
+        }
+        .page-card-header.purple-grad {
+            background: linear-gradient(135deg, var(--purple) 0%, var(--purple-light) 100%);
+        }
+        .page-card-header.gold-grad {
+            background: linear-gradient(135deg, #8B6C24 0%, var(--gold) 100%);
+        }
+        .page-card-header.teal-grad {
+            background: linear-gradient(135deg, var(--teal-dark) 0%, var(--teal) 100%);
+        }
+        .page-card-header.mixed-grad {
+            background: linear-gradient(135deg, var(--purple-dark) 0%, var(--teal) 100%);
+        }
+        .page-card-header.gem-grad {
+            background: linear-gradient(135deg, var(--gold) 0%, var(--purple) 100%);
+        }
+
+
+        .page-card-header h2 {
+            color: #FFF;
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .page-card-header .route {
+            color: rgba(255,255,255,0.8);
+            font-size: 0.85rem;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            background: rgba(0,0,0,0.2);
+            padding: 3px 10px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-top: 6px;
+        }
+        .page-card-header .page-number {
+            position: absolute;
+            top: 16px;
+            right: 24px;
+            background: rgba(255,255,255,0.2);
+            color: #FFF;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .page-card-body {
+            padding: 28px 32px;
+        }
+
+
+        .section-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--purple);
+            margin-bottom: 12px;
+            margin-top: 24px;
+        }
+        .section-title:first-child { margin-top: 0; }
+
+        .purpose-text {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+            padding: 12px 16px;
+            background: var(--bg);
+            border-left: 3px solid var(--purple);
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+        }
+
+        .component-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+
+        .component-item {
+            padding: 14px 16px;
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            font-size: 0.88rem;
+        }
+        .component-item strong {
+            display: block;
+            color: var(--text);
+            margin-bottom: 4px;
+            font-size: 0.85rem;
+        }
+        .component-item span {
+            color: var(--text-muted);
+            font-size: 0.82rem;
+        }
+
+        /* Status badges */
+        .status-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 12px 0;
+        }
+        .badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .badge-pending { background: #FEF3CD; color: #856404; }
+        .badge-confirmed { background: #D4EDDA; color: #155724; }
+        .badge-inprogress { background: #CCE5FF; color: #004085; }
+        .badge-completed { background: #E9ECEF; color: #495057; }
+        .badge-cancelled { background: #F8D7DA; color: #721C24; }
+        .badge-rejected { background: #FFF; color: #DC3545; border: 1.5px solid #DC3545; }
+
+
+        /* Ably realtime indicator */
+        .ably-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            background: rgba(42, 157, 143, 0.08);
+            border: 1px solid rgba(42, 157, 143, 0.2);
+            border-radius: 20px;
+            font-size: 0.78rem;
+            color: var(--teal-dark);
+            font-weight: 500;
+            margin: 12px 0;
+        }
+        .ably-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--teal);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.4); }
+        }
+        .ably-channel {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.72rem;
+            background: rgba(42, 157, 143, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+
+        /* Progress bar for membership */
+        .progress-container {
+            margin: 16px 0;
+            padding: 16px;
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+        }
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+        .progress-bar {
+            height: 12px;
+            background: #E8E4F0;
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--teal) 0%, var(--teal-light) 100%);
+            border-radius: 6px;
+            transition: width 0.8s ease;
+        }
+        .progress-text {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+
+        /* Tier badges */
+        .tier-badge {
+            display: inline-block;
+            padding: 4px 14px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .tier-silver { background: linear-gradient(135deg, #C0C0C0, #E8E8E8); color: #444; }
+        .tier-gold { background: linear-gradient(135deg, var(--gold), var(--gold-light)); color: #5A4810; }
+        .tier-platinum { background: linear-gradient(135deg, #8B8B8B, #D4D4D4); color: #222; }
+
+        /* Expiry badges */
+        .expiry-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+        .expiry-amber { background: #FEF3CD; color: #856404; }
+        .expiry-red { background: #F8D7DA; color: #721C24; }
+
+        /* Gems hero */
+        .gems-hero {
+            text-align: center;
+            padding: 24px;
+            background: linear-gradient(135deg, rgba(107, 76, 154, 0.05), rgba(200, 169, 97, 0.08));
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            margin-bottom: 16px;
+        }
+        .gems-number {
+            font-size: 3rem;
+            font-weight: 800;
+            color: var(--purple);
+            line-height: 1;
+        }
+        .gems-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding-left: 28px;
+            margin: 16px 0;
+        }
+        .timeline::before {
+            content: "";
+            position: absolute;
+            left: 8px;
+            top: 4px;
+            bottom: 4px;
+            width: 2px;
+            background: var(--border);
+        }
+        .timeline-step {
+            position: relative;
+            padding: 8px 0 16px;
+            font-size: 0.85rem;
+        }
+        .timeline-step::before {
+            content: "";
+            position: absolute;
+            left: -24px;
+            top: 12px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid var(--teal);
+            background: #FFF;
+        }
+        .timeline-step.active::before {
+            background: var(--teal);
+            box-shadow: 0 0 0 4px rgba(42, 157, 143, 0.2);
+        }
+        .timeline-step .step-title {
+            font-weight: 600;
+            color: var(--text);
+        }
+        .timeline-step .step-time {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+
+        /* State indicators */
+        .states-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 12px 0;
+        }
+        .state-chip {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+        .state-chip .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+        .dot-skeleton { background: #DDD; }
+        .dot-saving { background: var(--gold); }
+        .dot-success { background: var(--teal); }
+        .dot-error { background: #DC3545; }
+
+        /* Action buttons mock */
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 12px 0;
+        }
+        .btn-mock {
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            font-weight: 500;
+            border: none;
+            cursor: default;
+        }
+        .btn-primary { background: var(--purple); color: #FFF; }
+        .btn-secondary { background: var(--bg); color: var(--purple); border: 1px solid var(--purple); }
+        .btn-danger { background: #FFF; color: #DC3545; border: 1px solid #DC3545; }
+        .btn-teal { background: var(--teal); color: #FFF; }
+
+
+        /* Gems catalogue grid */
+        .gems-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin: 12px 0;
+        }
+        .gem-card {
+            padding: 14px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .gem-card.insufficient {
+            opacity: 0.5;
+            filter: grayscale(0.3);
+        }
+        .gem-card .gem-cost {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--purple);
+        }
+        .gem-card .gem-service {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+        .gem-card .redeem-badge {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            background: var(--teal);
+            color: #FFF;
+        }
+        .gem-card.insufficient .redeem-badge {
+            background: #CCC;
+            color: #666;
+        }
+
+
+        /* Business rules */
+        .rules-list {
+            margin: 12px 0;
+            padding: 14px 16px;
+            background: rgba(200, 169, 97, 0.06);
+            border: 1px solid rgba(200, 169, 97, 0.2);
+            border-radius: var(--radius-sm);
+        }
+        .rules-list li {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            list-style: none;
+            padding-left: 18px;
+            position: relative;
+        }
+        .rules-list li::before {
+            content: "⚡";
+            position: absolute;
+            left: 0;
+            font-size: 0.7rem;
+        }
+
+        /* Responsive */
+        .responsive-note {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            background: rgba(107, 76, 154, 0.04);
+            border: 1px dashed var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin: 12px 0;
+        }
+        .responsive-note .icon { font-size: 1rem; }
+
+        /* Toggle switches mock */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+        }
+        .toggle-row:last-child { border-bottom: none; }
+        .toggle-switch {
+            width: 36px;
+            height: 20px;
+            background: var(--teal);
+            border-radius: 10px;
+            position: relative;
+        }
+        .toggle-switch::after {
+            content: "";
+            position: absolute;
+            right: 3px;
+            top: 3px;
+            width: 14px;
+            height: 14px;
+            background: #FFF;
+            border-radius: 50%;
+        }
+        .toggle-switch.off {
+            background: #CCC;
+        }
+        .toggle-switch.off::after {
+            right: auto;
+            left: 3px;
+        }
+
+
+        /* Booking card mock */
+        .booking-card-mock {
+            padding: 16px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            margin: 12px 0;
+        }
+        .booking-card-mock .booking-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .booking-number {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        .booking-details {
+            font-size: 0.85rem;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+        .booking-meta {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        .booking-amount {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--purple);
+            margin-top: 8px;
+        }
+
+        /* Tab bar mock */
+        .tab-bar {
+            display: flex;
+            gap: 0;
+            margin: 12px 0;
+            border-bottom: 2px solid var(--border);
+        }
+        .tab {
+            padding: 10px 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            cursor: default;
+        }
+        .tab.active {
+            color: var(--purple);
+            border-bottom-color: var(--purple);
+            font-weight: 600;
+        }
+
+
+        /* Profile card mock */
+        .profile-mock {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            margin: 12px 0;
+        }
+        .avatar-mock {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--purple-light), var(--teal));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #FFF;
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+        .profile-info .name { font-weight: 600; font-size: 1rem; }
+        .profile-info .email { font-size: 0.82rem; color: var(--text-muted); }
+
+        /* Invoice & review mock */
+        .invoice-mock {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: rgba(42, 157, 143, 0.06);
+            border: 1px solid rgba(42, 157, 143, 0.15);
+            border-radius: var(--radius-sm);
+            margin: 10px 0;
+            font-size: 0.85rem;
+            color: var(--teal-dark);
+        }
+
+        /* Warning banner */
+        .warning-banner {
+            padding: 12px 16px;
+            background: #FEF3CD;
+            border: 1px solid #F5D77B;
+            border-radius: var(--radius-sm);
+            font-size: 0.82rem;
+            color: #856404;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 12px 0;
+        }
+
+        @media (max-width: 768px) {
+            .header { padding: 36px 16px 48px; }
+            .header h1 { font-size: 1.6rem; }
+            .container { padding: 0 12px; }
+            .page-card-body { padding: 20px 16px; }
+            .component-grid { grid-template-columns: 1fr; }
+            .gems-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+
+
+    <a href="README.html" class="back-link">Back to Pages Index</a>
+
+    <header class="header">
+        <div class="auth-badge">
+            <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0110 0v4"/>
+            </svg>
+            Requires Authentication — Google OAuth
+        </div>
+        <h1>Customer Authenticated Pages</h1>
+        <p>5 auth-gated pages for signed-in customers. Role: <strong>customer</strong> and above. Redirect to <code>/sign-in</code> if unauthenticated.</p>
+    </header>
+
+    <div class="container">
+
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- PAGE 2.1: MY PROFILE -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="page-card">
+            <div class="page-card-header purple-grad">
+                <span class="page-number">2.1</span>
+                <h2>My Profile</h2>
+                <span class="route">/profile</span>
+            </div>
+            <div class="page-card-body">
+                <p class="purpose-text">View and edit personal details, manage notification preferences and consent.</p>
+
+                <div class="section-title">Profile Card</div>
+                <div class="profile-mock">
+                    <div class="avatar-mock">PK</div>
+                    <div class="profile-info">
+                        <div class="name">Priya Krishnamurthy</div>
+                        <div class="email">priya.k@gmail.com <span style="font-size:0.7rem; background:#E9ECEF; padding:2px 6px; border-radius:3px; margin-left:4px;">read-only</span></div>
+                    </div>
+                </div>
+
+
+                <div class="section-title">Editable Fields</div>
+                <div class="component-grid">
+                    <div class="component-item">
+                        <strong>Name</strong>
+                        <span>Text input, required</span>
+                    </div>
+                    <div class="component-item">
+                        <strong>Phone</strong>
+                        <span>Phone input with country code</span>
+                    </div>
+                    <div class="component-item">
+                        <strong>Date of Birth</strong>
+                        <span>Date picker, DD/MM/YYYY format</span>
+                    </div>
+                    <div class="component-item">
+                        <strong>Gender</strong>
+                        <span>Select dropdown</span>
+                    </div>
+                </div>
+
+                <div class="section-title">Notification Preferences</div>
+                <div style="background: var(--bg); border-radius: var(--radius-sm); padding: 12px 16px; border: 1px solid var(--border);">
+                    <div class="toggle-row">
+                        <span>Appointment reminders (push + email)</span>
+                        <div class="toggle-switch"></div>
+                    </div>
+                    <div class="toggle-row">
+                        <span>Membership alerts</span>
+                        <div class="toggle-switch"></div>
+                    </div>
+                    <div class="toggle-row">
+                        <span>Marketing emails & offers</span>
+                        <div class="toggle-switch off"></div>
+                    </div>
+                    <div class="toggle-row">
+                        <span>Analytics consent (DPDP Act)</span>
+                        <div class="toggle-switch off"></div>
+                    </div>
+                </div>
+
+
+                <div class="section-title">States</div>
+                <div class="states-list">
+                    <div class="state-chip"><span class="dot dot-skeleton"></span> Loading (skeleton)</div>
+                    <div class="state-chip"><span class="dot dot-saving"></span> Saving (spinner)</div>
+                    <div class="state-chip"><span class="dot dot-success"></span> Success (toast)</div>
+                    <div class="state-chip"><span class="dot dot-error"></span> Validation error</div>
+                </div>
+
+                <div class="section-title">Account Actions</div>
+                <div style="font-size: 0.85rem; color: #DC3545; text-decoration: underline; cursor: default;">
+                    🗑️ Delete My Account <span style="font-size:0.75rem; color: var(--text-muted); text-decoration: none;">(leads to support email — DPDP Act right to erasure)</span>
+                </div>
+
+                <div class="section-title">Data Source</div>
+                <div style="font-size: 0.82rem; color: var(--text-muted); font-family: 'SF Mono', 'Fira Code', monospace;">
+                    customer_profile + user (Better Auth)
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- PAGE 2.2: MY BOOKINGS -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="page-card">
+            <div class="page-card-header teal-grad">
+                <span class="page-number">2.2</span>
+                <h2>My Bookings</h2>
+                <span class="route">/bookings</span>
+            </div>
+            <div class="page-card-body">
+                <p class="purpose-text">View all upcoming and past bookings with status and available actions.</p>
+
+                <div class="ably-indicator">
+                    <span class="ably-dot"></span>
+                    Ably Realtime
+                    <span class="ably-channel">customer:{userId}:bookings</span>
+                </div>
+
+                <div class="section-title">Tab Navigation</div>
+                <div class="tab-bar">
+                    <div class="tab active">Upcoming</div>
+                    <div class="tab">Past</div>
+                </div>
+
+
+                <div class="section-title">Status Badge Key</div>
+                <div class="status-badges">
+                    <span class="badge badge-pending">Pending</span>
+                    <span class="badge badge-confirmed">Confirmed</span>
+                    <span class="badge badge-inprogress">In Progress</span>
+                    <span class="badge badge-completed">Completed</span>
+                    <span class="badge badge-cancelled">Cancelled</span>
+                    <span class="badge badge-rejected">Rejected</span>
+                </div>
+
+                <div class="section-title">Sample Booking Card</div>
+                <div class="booking-card-mock">
+                    <div class="booking-header">
+                        <span class="badge badge-confirmed">Confirmed</span>
+                        <span class="booking-number">#BKRS2605H38291</span>
+                    </div>
+                    <div class="booking-details">24 May 2026 (Saturday) · 03:30 PM</div>
+                    <div class="booking-meta">Bridal Makeup, Hair Spa, and 1 more · Staff: Anita R.</div>
+                    <div class="booking-amount">₹1,300.00</div>
+                </div>
+
+
+                <div class="section-title">Actions Per Status</div>
+                <div class="component-grid">
+                    <div class="component-item">
+                        <strong>Pending</strong>
+                        <div class="action-buttons">
+                            <span class="btn-mock btn-secondary">Edit Services</span>
+                            <span class="btn-mock btn-secondary">Reschedule</span>
+                            <span class="btn-mock btn-danger">Cancel</span>
+                        </div>
+                    </div>
+                    <div class="component-item">
+                        <strong>Confirmed</strong>
+                        <div class="action-buttons">
+                            <span class="btn-mock btn-secondary">Reschedule</span>
+                            <span class="btn-mock btn-danger">Cancel</span>
+                        </div>
+                    </div>
+                    <div class="component-item">
+                        <strong>Completed</strong>
+                        <div class="action-buttons">
+                            <span class="btn-mock btn-primary">View Invoice</span>
+                            <span class="btn-mock btn-teal">Book Again</span>
+                        </div>
+                    </div>
+                    <div class="component-item">
+                        <strong>Rejected / Cancelled</strong>
+                        <div class="action-buttons">
+                            <span class="btn-mock btn-secondary">View Reason</span>
+                            <span class="btn-mock btn-teal">Book Again</span>
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="section-title">Realtime Events</div>
+                <div class="component-grid">
+                    <div class="component-item">
+                        <strong>booking.created</strong>
+                        <span>New booking appears in list</span>
+                    </div>
+                    <div class="component-item">
+                        <strong>booking.status_changed</strong>
+                        <span>Badge animates on change</span>
+                    </div>
+                    <div class="component-item">
+                        <strong>booking.rescheduled</strong>
+                        <span>Date/time updates live</span>
+                    </div>
+                    <div class="component-item">
+                        <strong>booking.cancelled</strong>
+                        <span>Moves to past section</span>
+                    </div>
+                    <div class="component-item">
+                        <strong>booking.staff_assigned</strong>
+                        <span>Staff name appears</span>
+                    </div>
+                </div>
+
+                <div class="section-title">Responsive</div>
+                <div class="responsive-note">
+                    <span class="icon">📱</span>
+                    <span><strong>Mobile:</strong> Stacked full-width cards, swipe actions (reschedule/cancel)</span>
+                </div>
+                <div class="responsive-note">
+                    <span class="icon">🖥️</span>
+                    <span><strong>Desktop:</strong> Table-style list with inline action buttons</span>
+                </div>
+
+                <div class="section-title">Data Source</div>
+                <div style="font-size: 0.82rem; color: var(--text-muted); font-family: 'SF Mono', 'Fira Code', monospace;">
+                    GET /api/bookings (authenticated)
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- PAGE 2.3: BOOKING DETAIL -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="page-card">
+            <div class="page-card-header mixed-grad">
+                <span class="page-number">2.3</span>
+                <h2>Booking Detail</h2>
+                <span class="route">/bookings/[id]</span>
+            </div>
+            <div class="page-card-body">
+                <p class="purpose-text">Full detail view of a single booking with status timeline and all associated data.</p>
+
+                <div class="ably-indicator">
+                    <span class="ably-dot"></span>
+                    Ably Realtime
+                    <span class="ably-channel">booking:{bookingId}</span>
+                </div>
+
+                <div class="section-title">Status Timeline</div>
+                <div class="timeline">
+                    <div class="timeline-step active">
+                        <div class="step-title">Booking Created</div>
+                        <div class="step-time">24 May 2026 · 02:15 PM — by Customer</div>
+                    </div>
+                    <div class="timeline-step active">
+                        <div class="step-title">Confirmed</div>
+                        <div class="step-time">24 May 2026 · 02:45 PM — by Receptionist (Meera S.)</div>
+                    </div>
+                    <div class="timeline-step active">
+                        <div class="step-title">In Progress</div>
+                        <div class="step-time">24 May 2026 · 03:30 PM — by System</div>
+                    </div>
+                    <div class="timeline-step">
+                        <div class="step-title" style="color: var(--text-muted);">Completed</div>
+                        <div class="step-time">Pending...</div>
+                    </div>
+                </div>
+
+
+                <div class="section-title">Booking Info Card</div>
+                <div class="component-grid">
+                    <div class="component-item">
+                        <strong>Booking Number</strong>
+                        <span>#BKRS2605H38291</span>
+                    </div>
+                    <div class="component-item">
+                        <strong>Branch</strong>
+                        <span>Royal Glow — Hisar Main</span>
+                    </div>
+                    <div class="component-item">
+                        <strong>Date & Time</strong>
+                        <span>24 May 2026 (Sat) · 03:30 PM</span>
+                    </div>
+                    <div class="component-item">
+                        <strong>Total Duration</strong>
+                        <span>1 hr 45 min</span>
+                    </div>
+                    <div class="component-item">
+                        <strong>Service Type</strong>
+                        <span class="badge badge-confirmed" style="font-size:0.7rem;">Salon</span>
+                    </div>
+                    <div class="component-item">
+                        <strong>Staff Assigned</strong>
+                        <span>Anita R. — Senior Stylist</span>
+                    </div>
+                </div>
+
+                <div class="section-title">Services List (Detailed)</div>
+                <div style="background: var(--bg); border-radius: var(--radius-sm); border: 1px solid var(--border); overflow: hidden;">
+                    <div style="display: flex; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 0.85rem;">
+                        <span><strong>Bridal Makeup</strong> · 60 min</span>
+                        <span style="color: var(--purple); font-weight: 600;">₹800</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 0.85rem;">
+                        <span><strong>Hair Spa</strong> · 30 min</span>
+                        <span style="color: var(--purple); font-weight: 600;">₹350</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 12px 16px; font-size: 0.85rem;">
+                        <span><strong>Eyebrow Threading</strong> · 15 min</span>
+                        <span style="color: var(--purple); font-weight: 600;">₹150</span>
+                    </div>
+                </div>
+
+
+                <div class="section-title">Payment Summary</div>
+                <div style="background: var(--bg); border-radius: var(--radius-sm); border: 1px solid var(--border); padding: 16px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px;">
+                        <span>Subtotal</span><span>₹1,300.00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px; color: var(--teal);">
+                        <span>Discount (10% off)</span><span>-₹130.00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px; color: var(--text-muted);">
+                        <span>GST (18%)</span><span>₹210.60</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 1rem; font-weight: 700; padding-top: 8px; border-top: 1px solid var(--border); color: var(--purple);">
+                        <span>Total</span><span>₹1,380.60</span>
+                    </div>
+                    <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 8px; font-style: italic;">
+                        💳 Pay at the salon (Cash / UPI / Card)
+                    </div>
+                </div>
+
+                <div class="section-title">Post-Completion Actions</div>
+                <div class="invoice-mock">
+                    📄 <strong>View Invoice PDF</strong> <span style="font-size:0.75rem;">(available after completion)</span>
+                </div>
+                <div class="invoice-mock" style="background: rgba(200, 169, 97, 0.06); border-color: rgba(200, 169, 97, 0.15); color: #8B6C24;">
+                    ⭐ <strong>Rate your experience →</strong> <span style="font-size:0.75rem;">Opens Google Maps review</span>
+                </div>
+
+
+                <div class="section-title">Realtime Events</div>
+                <div class="component-grid">
+                    <div class="component-item">
+                        <strong>status.changed</strong>
+                        <span>Timeline extends with new step</span>
+                    </div>
+                    <div class="component-item">
+                        <strong>note.added</strong>
+                        <span>Staff notes appear live</span>
+                    </div>
+                    <div class="component-item">
+                        <strong>service.added / removed</strong>
+                        <span>Services list updates</span>
+                    </div>
+                </div>
+
+                <div class="section-title">States</div>
+                <div class="states-list">
+                    <div class="state-chip"><span class="dot dot-skeleton"></span> Loading (skeleton timeline)</div>
+                    <div class="state-chip"><span class="dot dot-error"></span> 404 Not Found</div>
+                    <div class="state-chip"><span class="dot dot-error"></span> Error with retry</div>
+                </div>
+
+                <div class="section-title">Data Source</div>
+                <div style="font-size: 0.82rem; color: var(--text-muted); font-family: 'SF Mono', 'Fira Code', monospace;">
+                    GET /api/bookings/[id] (authenticated, ownership verified)
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- PAGE 2.4: SPA MEMBERSHIP -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="page-card">
+            <div class="page-card-header gold-grad">
+                <span class="page-number">2.4</span>
+                <h2>SPA Membership</h2>
+                <span class="route">/membership</span>
+            </div>
+            <div class="page-card-body">
+                <p class="purpose-text">View active membership details, hours balance, session history, and past memberships. Only shown in navigation if customer has an active or past membership.</p>
+
+                <div class="section-title">Active Membership Card</div>
+                <div style="background: linear-gradient(135deg, rgba(200, 169, 97, 0.08), rgba(107, 76, 154, 0.05)); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 20px;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                        <span class="tier-badge tier-gold">Gold</span>
+                        <span style="font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.82rem; color: var(--text-muted);">#RGMEM26A0042</span>
+                    </div>
+
+                    <div class="progress-container" style="margin: 0; background: #FFF;">
+                        <div class="progress-label">
+                            <span>Hours Used</span>
+                            <span>5 hrs / 8 hrs total</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 62.5%;"></div>
+                        </div>
+                        <div class="progress-text">
+                            <strong>5 hrs used</strong> · 3 hrs remaining
+                        </div>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 12px; margin-top: 16px; font-size: 0.85rem;">
+                        <span>Valid until: <strong>15/03/2027</strong></span>
+                        <span class="expiry-badge expiry-amber">28 days remaining</span>
+                    </div>
+                </div>
+
+
+                <div class="section-title">Tier Badges</div>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px;">
+                    <span class="tier-badge tier-silver">Silver</span>
+                    <span class="tier-badge tier-gold">Gold</span>
+                    <span class="tier-badge tier-platinum">Platinum</span>
+                </div>
+
+                <div class="section-title">Expiry Urgency Indicators</div>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px;">
+                    <span class="expiry-badge expiry-amber">≤ 30 days remaining</span>
+                    <span class="expiry-badge expiry-red">≤ 7 days remaining</span>
+                </div>
+
+                <div class="section-title">Session History Table</div>
+                <div style="background: var(--bg); border-radius: var(--radius-sm); border: 1px solid var(--border); overflow: hidden; font-size: 0.82rem;">
+                    <div style="display: grid; grid-template-columns: 1fr 1.5fr 0.8fr 1fr; padding: 10px 14px; background: var(--purple); color: #FFF; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                        <span>Date</span><span>Service</span><span>Duration</span><span>Staff</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1.5fr 0.8fr 1fr; padding: 10px 14px; border-bottom: 1px solid var(--border);">
+                        <span>20/05/2026</span><span>Swedish Massage</span><span>60 min</span><span>Ritu M.</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1.5fr 0.8fr 1fr; padding: 10px 14px; border-bottom: 1px solid var(--border);">
+                        <span>12/04/2026</span><span>Hot Stone Therapy</span><span>90 min</span><span>Deepa K.</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1.5fr 0.8fr 1fr; padding: 10px 14px;">
+                        <span>28/03/2026</span><span>Aromatherapy</span><span>60 min</span><span>Ritu M.</span>
+                    </div>
+                </div>
+                <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 6px;">Paginated if &gt; 10 sessions · Sorted by most recent first</div>
+
+
+                <div class="section-title">Past Memberships (Accordion)</div>
+                <div style="background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; font-size: 0.85rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span><strong>Past Memberships (2)</strong></span>
+                        <span style="font-size: 0.9rem; color: var(--text-muted);">▼</span>
+                    </div>
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 0.82rem; color: var(--text-muted);">
+                        <div style="margin-bottom: 8px;">
+                            <span class="tier-badge tier-silver" style="font-size:0.65rem; padding: 2px 8px;">Silver</span>
+                            Jan 2025 – Dec 2025 · 6/6 hrs used · <span style="color: #856404;">Expired</span>
+                        </div>
+                        <div>
+                            <span class="tier-badge tier-silver" style="font-size:0.65rem; padding: 2px 8px;">Silver</span>
+                            Jan 2024 – Aug 2024 · 3/6 hrs used · <span style="color: #DC3545;">Cancelled</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-title">Navigation Visibility</div>
+                <div class="responsive-note">
+                    <span class="icon">👁️</span>
+                    <span>Only shown in navigation if customer has active or past membership. Otherwise, section is completely hidden.</span>
+                </div>
+
+                <div class="section-title">Data Source</div>
+                <div style="font-size: 0.82rem; color: var(--text-muted); font-family: 'SF Mono', 'Fira Code', monospace;">
+                    spa_membership + booking (is_membership_session = true)
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- PAGE 2.5: GEMS CATALOGUE -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="page-card">
+            <div class="page-card-header gem-grad">
+                <span class="page-number">2.5</span>
+                <h2>Gems Catalogue</h2>
+                <span class="route">/gems</span>
+            </div>
+            <div class="page-card-body">
+                <p class="purpose-text">View gems balance, browse redeemable services, and see transaction history.</p>
+
+                <div class="section-title">Gems Balance Hero</div>
+                <div class="gems-hero">
+                    <div class="gems-number">💎 42</div>
+                    <div class="gems-label">Royal Gems</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">
+                        Earn 1 gem per ₹100 spent · Gems expire 1 year after earning
+                    </div>
+                </div>
+
+                <div class="warning-banner">
+                    ⚠️ <strong>Expiry Alert:</strong> 8 gems expiring in 12 days (earned on 15/06/2025)
+                </div>
+
+
+                <div class="section-title">Redeemable Services Grid</div>
+                <div class="gems-grid">
+                    <div class="gem-card">
+                        <div class="gem-cost">💎 15</div>
+                        <div class="gem-service">Eyebrow Threading</div>
+                        <span class="redeem-badge">Redeem</span>
+                    </div>
+                    <div class="gem-card">
+                        <div class="gem-cost">💎 25</div>
+                        <div class="gem-service">Basic Facial</div>
+                        <span class="redeem-badge">Redeem</span>
+                    </div>
+                    <div class="gem-card">
+                        <div class="gem-cost">💎 35</div>
+                        <div class="gem-service">Hair Spa</div>
+                        <span class="redeem-badge">Redeem</span>
+                    </div>
+                    <div class="gem-card insufficient">
+                        <div class="gem-cost">💎 60</div>
+                        <div class="gem-service">Swedish Massage</div>
+                        <span class="redeem-badge">Insufficient</span>
+                    </div>
+                    <div class="gem-card insufficient">
+                        <div class="gem-cost">💎 80</div>
+                        <div class="gem-service">Bridal Makeup</div>
+                        <span class="redeem-badge">Insufficient</span>
+                    </div>
+                    <div class="gem-card insufficient">
+                        <div class="gem-cost">💎 100</div>
+                        <div class="gem-service">Full Body Spa</div>
+                        <span class="redeem-badge">Insufficient</span>
+                    </div>
+                </div>
+
+
+                <div class="section-title">Transaction History</div>
+                <div style="background: var(--bg); border-radius: var(--radius-sm); border: 1px solid var(--border); overflow: hidden; font-size: 0.82rem;">
+                    <div style="display: grid; grid-template-columns: 1fr 2fr 0.8fr 0.8fr; padding: 10px 14px; background: var(--purple); color: #FFF; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                        <span>Date</span><span>Description</span><span>Amount</span><span>Balance</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 2fr 0.8fr 0.8fr; padding: 10px 14px; border-bottom: 1px solid var(--border);">
+                        <span>20/05/2026</span><span>Earned — Invoice #INV2605</span><span style="color: var(--teal); font-weight: 600;">+13</span><span>42</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 2fr 0.8fr 0.8fr; padding: 10px 14px; border-bottom: 1px solid var(--border);">
+                        <span>15/04/2026</span><span>Redeemed — Eyebrow Threading</span><span style="color: #DC3545; font-weight: 600;">-15</span><span>29</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 2fr 0.8fr 0.8fr; padding: 10px 14px; border-bottom: 1px solid var(--border);">
+                        <span>10/04/2026</span><span>Earned — Invoice #INV1004</span><span style="color: var(--teal); font-weight: 600;">+8</span><span>44</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 2fr 0.8fr 0.8fr; padding: 10px 14px;">
+                        <span>15/06/2025</span><span style="color: #856404;">Expiring — 8 gems in 12 days</span><span style="color: #856404; font-weight: 600;">⚠️ 8</span><span>—</span>
+                    </div>
+                </div>
+
+
+                <div class="section-title">Business Rules</div>
+                <ul class="rules-list">
+                    <li>Earn 1 gem per ₹100 spent: <code style="font-size:0.75rem; background: rgba(107,76,154,0.08); padding: 1px 5px; border-radius: 3px;">floor(total_rupees × 0.01)</code></li>
+                    <li>Gems expire 1 year after earning date</li>
+                    <li>Cannot combine gems redemption with offers on same booking</li>
+                    <li>No gems earned on: membership purchases, membership sessions, gem-redemption bookings</li>
+                </ul>
+
+                <div class="section-title">States</div>
+                <div class="states-list">
+                    <div class="state-chip"><span class="dot dot-skeleton"></span> Loading (skeleton balance + grid)</div>
+                    <div class="state-chip"><span class="dot dot-saving"></span> Zero gems (CTA to book)</div>
+                    <div class="state-chip"><span class="dot dot-error"></span> Error with retry</div>
+                </div>
+
+                <div class="section-title">Data Source</div>
+                <div style="font-size: 0.82rem; color: var(--text-muted); font-family: 'SF Mono', 'Fira Code', monospace;">
+                    gems_transaction + computed balance
+                </div>
+            </div>
+        </div>
+
+    </div><!-- end container -->
+</body>
+</html>
