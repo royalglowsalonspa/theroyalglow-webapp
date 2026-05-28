@@ -38,6 +38,8 @@
 | **List installed skills** | See all skills currently installed in the project | `npx skills list` |
 | **Remove a skill** | Uninstall a previously added skill | `npx skills remove <skill-name>` |
 | **Refero Design Skill** | Research-first design methodology — typography, color, spacing, motion, icons, copywriting, a11y | `npx skills add https://github.com/referodesign/refero_skill` |
+| **Emil Kowalski Design Skill** | UI polish, animations (< 300ms), custom easing, perceived performance, invisible details | `npx skills add emilkowalski/skill` |
+| **Taste Skill (Anti-Slop)** | Stops generic AI "slop" — reference-driven premium frontend with animations, spacing, quality (5.9k ⭐) | `npx skills add https://github.com/Leonxlnx/taste-skill` |
 | **Vercel Agent Skills** | Official Next.js, React, Tailwind, deployment skills | `npx skills add vercel-labs/agent-skills` |
 | **Anthropic Skills** | Official Anthropic agent skills (skill-creator, pptx, etc.) | `npx skills add anthropics/skills` |
 | **Anthony Fu Skills** | Curated skills from Anthony Fu (3.1k ⭐) — TypeScript, tooling | `npx skills add antfu/skills` |
@@ -66,6 +68,8 @@
 | **shadcn/ui Add All** | Add all available components at once | `npx shadcn@latest add --all` |
 | **shadcn/ui Diff** | Show what changed since component was added (check for updates) | `npx shadcn@latest diff` |
 | **Refero Design Skill** | Research-first premium UI — teaches agents to research references, synthesize direction, and implement with craft rules for typography, color, spacing, motion, icons, copy, a11y | `npx skills add https://github.com/referodesign/refero_skill` |
+| **Emil Kowalski Design Skill** | UI polish, component design, animation decisions (< 300ms), custom easing, perceived performance, invisible details that make software feel great | `npx skills add emilkowalski/skill` |
+| **Taste Skill (Anti-Slop)** | Stops AI from generating boring/generic "slop" — generates design references first, analyzes them, then implements modern premium frontends with proper animations, spacing, and visual quality (5.9k ⭐) | `npx skills add https://github.com/Leonxlnx/taste-skill` |
 | **Tailwind CSS v4 (PostCSS)** | CSS-first config — no `tailwind.config.js` needed in v4 | `bun add tailwindcss @tailwindcss/postcss postcss` |
 
 ---
@@ -285,6 +289,8 @@ Skills are Markdown files in `.kiro/skills/` that Kiro auto-activates based on c
 | **fumadocs** | Write and organize documentation with Fumadocs | Create `.kiro/skills/fumadocs.md` |
 | **pwa-service-worker** | Build Progressive Web App features — offline, push, install prompt | Create `.kiro/skills/pwa-service-worker.md` |
 | **refero-design** | Research-first design — references, typography, color, spacing, motion, icons, copy | `npx skills add https://github.com/referodesign/refero_skill` |
+| **emil-design-eng** | Emil Kowalski's UI polish — animations, easing, component craft, perceived performance | `npx skills add emilkowalski/skill` |
+| **taste-skill** | Anti-slop frontend — reference-driven premium design, no generic AI aesthetics | `npx skills add https://github.com/Leonxlnx/taste-skill` |
 | **web-accessibility** | WCAG 2.1 AA compliance — semantic HTML, ARIA, focus management, contrast | Create `.kiro/skills/web-accessibility.md` |
 | **json-ld-seo** | Structured data (LocalBusiness, Service, FAQ, BlogPosting, BreadcrumbList) | Create `.kiro/skills/json-ld-seo.md` |
 | **indian-locale** | India-specific patterns — DD/MM/YYYY dates, ₹ currency, GST, DPDP Act | Create `.kiro/skills/indian-locale.md` |
@@ -298,6 +304,8 @@ These are popular open-source skill repositories used by proficient developers:
 | Repository | Stars | Description | Install |
 |-----------|-------|-------------|---------|
 | [referodesign/refero_skill](https://github.com/referodesign/refero_skill) | Design-first | Research-first design methodology — typography, color, spacing, motion, icons, copywriting, a11y | `npx skills add https://github.com/referodesign/refero_skill` |
+| [emilkowalski/skill](https://github.com/emilkowalski/skill) | Design Eng | Emil Kowalski's UI polish philosophy — animations, easing curves, perceived performance, invisible details that compound into interfaces people love | `npx skills add emilkowalski/skill` |
+| [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill) | 5.9k ⭐ | The Anti-Slop Frontend Framework — stops AI from generating boring/generic UI. Generates design references first, analyzes deeply, then implements premium frontends | `npx skills add https://github.com/Leonxlnx/taste-skill` |
 | [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) | Official | Next.js, React, Tailwind, web design guidelines, deployment | `npx skills add vercel-labs/agent-skills` |
 | [anthropics/skills](https://github.com/anthropics/skills) | Official | Anthropic's official agent skills (skill-creator, presentations, etc.) | `npx skills add anthropics/skills` |
 | [antfu/skills](https://github.com/antfu/skills) | 3.1k ⭐ | Anthony Fu's curated agent skills — TypeScript, tooling, open-source | `npx skills add antfu/skills` |
@@ -352,6 +360,8 @@ These are popular open-source skill repositories used by proficient developers:
 # SKILLS (install once)
 # ──────────────────────────────────────────────
 npx skills add https://github.com/referodesign/refero_skill
+npx skills add emilkowalski/skill
+npx skills add https://github.com/Leonxlnx/taste-skill
 npx skills add vercel-labs/agent-skills
 npx skills add anthropics/skills
 npx skills add antfu/skills
