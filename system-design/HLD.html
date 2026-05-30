@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HLD — Royal Glow Salon &amp; Spa | High-Level Design</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #c9a96e;
+      --accent-soft: rgba(201,169,110,0.12);
+      --code-bg: #1c2128;
+      --link: #58a6ff;
+      --success: #3fb950;
+      --warning: #d29922;
+      --danger: #f85149;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      padding: 2rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 2.2rem;
+      color: var(--accent);
+      border-bottom: 2px solid var(--accent);
+      padding-bottom: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    h2 {
+      font-size: 1.6rem;
+      color: var(--accent);
+      margin-top: 3rem;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+    }
+    h3 {
+      font-size: 1.25rem;
+      color: var(--text);
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+    }
+    h4 {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    p { margin-bottom: 1rem; }
+    a { color: var(--link); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    blockquote {
+      border-left: 3px solid var(--accent);
+      padding: 0.5rem 1rem;
+      margin: 1rem 0;
+      background: var(--accent-soft);
+      border-radius: 0 6px 6px 0;
+    }
+    code {
+      font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+      background: var(--code-bg);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.88rem;
+    }
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      overflow-x: auto;
+      margin: 1rem 0;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.9rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.6rem 0.8rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: var(--surface);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+    ul, ol { margin: 0.5rem 0 1rem 1.5rem; }
+    li { margin-bottom: 0.35rem; }
+    strong { color: var(--text); }
+    .meta {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+      padding: 1rem;
+      background: var(--surface);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .meta strong { color: var(--accent); }
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 2rem 0;
+    }
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin: 2rem 0;
+    }
+    .toc h3 { margin-top: 0; color: var(--accent); }
+    .toc ol { margin-left: 1.25rem; }
+    .toc li { margin-bottom: 0.25rem; }
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge-success { background: rgba(63,185,80,0.15); color: var(--success); }
+    .badge-warning { background: rgba(210,153,34,0.15); color: var(--warning); }
+    .badge-danger { background: rgba(248,81,73,0.15); color: var(--danger); }
+  </style>
+</head>
+<body>
+
+<h1>High-Level Design (HLD) — Royal Glow Salon &amp; Spa</h1>
+
+<div class="meta">
+  <strong>Document Classification:</strong> System Design — Staff Engineer Review<br>
+  <strong>Version:</strong> 1.0<br>
+  <strong>Author:</strong> Engineering Lead<br>
+  <strong>Last Updated:</strong> 2026-05-23<br>
+  <strong>Status:</strong> <span class="badge badge-success">Approved for Implementation</span><br>
+  <strong>Review Panel:</strong> Principal Engineer Design Review
+</div>
+
+<div class="toc">
+  <h3>Table of Contents</h3>
+  <ol>
+    <li><a href="#exec-summary">Executive Summary</a></li>
+    <li><a href="#requirements">System Requirements</a></li>
+    <li><a href="#architecture">Architecture Overview</a></li>
+    <li><a href="#data-arch">Data Architecture</a></li>
+    <li><a href="#auth">Authentication &amp; Authorization</a></li>
+    <li><a href="#api">API Design</a></li>
+    <li><a href="#realtime">Realtime Architecture</a></li>
+    <li><a href="#background">Background Processing</a></li>
+    <li><a href="#deployment">Deployment &amp; CI/CD</a></li>
+    <li><a href="#observability">Observability &amp; Monitoring</a></li>
+    <li><a href="#security">Security Design</a></li>
+    <li><a href="#scalability">Scalability &amp; Performance</a></li>
+    <li><a href="#dr">Disaster Recovery &amp; Business Continuity</a></li>
+    <li><a href="#tradeoffs">Trade-offs &amp; Design Decisions</a></li>
+    <li><a href="#roadmap">Future Roadmap</a></li>
+  </ol>
+</div>
+
+<hr>
+
+<h2 id="exec-summary">1. Executive Summary</h2>
+
+<h3>1.1 Business Context</h3>
+<p>Royal Glow Salon &amp; Spa is a premium beauty and wellness establishment located in Bengaluru, India. The business operates across salon services (haircuts, facials, makeup) and SPA services (massage, aromatherapy) with plans for multi-branch expansion.</p>
+
+<h3>1.2 System Purpose</h3>
+<p>This document describes the high-level design of a <strong>full-stack digital operations platform</strong> that encompasses:</p>
+<ul>
+  <li><strong>Customer-facing:</strong> Online booking, service discovery, loyalty program, membership management</li>
+  <li><strong>Operations:</strong> Staff scheduling, leave management, CRM, lead pipeline, billing/invoicing</li>
+  <li><strong>Analytics:</strong> Revenue reporting, campaign attribution, conversion funnels, staff performance</li>
+</ul>
+
+<h3>1.3 Scale Targets</h3>
+<table>
+  <tr><th>Metric</th><th>Target</th></tr>
+  <tr><td>Registered users</td><td>20,000–50,000</td></tr>
+  <tr><td>Daily active users</td><td>50–200</td></tr>
+  <tr><td>Concurrent users (peak)</td><td>50</td></tr>
+  <tr><td>Application routes</td><td>~104 pages</td></tr>
+  <tr><td>Database tables</td><td>38</td></tr>
+  <tr><td>API endpoints</td><td>35</td></tr>
+  <tr><td>Background jobs</td><td>19</td></tr>
+</table>
+
+<h3>1.4 Key Constraints</h3>
+<table>
+  <tr><th>Constraint</th><th>Impact</th></tr>
+  <tr><td><strong>Solo developer</strong></td><td>No microservices, minimal ops overhead, single consistent stack</td></tr>
+  <tr><td><strong>₹0/month infrastructure</strong></td><td>All free tiers at launch — generous enough for salon scale</td></tr>
+  <tr><td><strong>India-first</strong></td><td>DPDP Act compliance, IST timezone, INR currency (paise), GST 18%</td></tr>
+  <tr><td><strong>Premium brand</strong></td><td>Lighthouse ≥95 performance, 100 accessibility/SEO, motion-rich UI</td></tr>
+</table>
+
+<hr>
+
+<h2 id="requirements">2. System Requirements</h2>
+
+<h3>2.1 Functional Requirements</h3>
+
+<h4>FR-1: Customer Booking Flow</h4>
+<ul>
+  <li>4-step booking dialog (Service Selection → Date/Time → Confirmation → Submitted)</li>
+  <li>Deep-link support: <code>?book=1&amp;utm_source=gmb</code> auto-opens dialog with attribution</li>
+  <li>Walk-in QR code booking, Meta/Instagram ad lead capture (<code>/book</code>)</li>
+  <li>Reschedule and cancellation with policy enforcement</li>
+</ul>
+
+<h4>FR-2: SPA Membership Management</h4>
+<ul>
+  <li>Three tiers: Silver / Gold / Platinum</li>
+  <li>Hour-based session tracking with deduction on service completion</li>
+  <li>Auto-expiry on membership end date (pg_cron Job 2)</li>
+  <li>Renewal prompts at 30/7/1 day milestones</li>
+</ul>
+
+<h4>FR-3: Loyalty &amp; Gems System</h4>
+<ul>
+  <li>Earn rate: 1 gem per ₹100 invoiced (floor, awarded at invoice generation)</li>
+  <li>Expiry: 365 days from earn date (1-year rolling window)</li>
+  <li>Redemption against a service catalogue</li>
+  <li>Auto-expiry job (pg_cron Job 7), reminder push 7 days before (QStash Job 15)</li>
+</ul>
+
+<h4>FR-4: Admin Portal with RBAC</h4>
+<ul>
+  <li>6 hierarchical roles: Customer &lt; Staff &lt; Receptionist &lt; Manager &lt; Owner &lt; Developer</li>
+  <li>Role-gated middleware on all <code>/admin/*</code> routes</li>
+  <li>Role assignment hierarchy enforcement (can only assign below own level)</li>
+</ul>
+
+<h4>FR-5: CRM &amp; Lead Pipeline</h4>
+<ul>
+  <li>Lead sources: Meta ads (<code>/book</code> form), organic, GMB deep-link, walk-in QR</li>
+  <li>Pipeline stages: New → Contacted → Follow-up → Booked → Won / Lost</li>
+  <li>Meta Conversions API (CAPI) server-side events: Lead, CompleteRegistration, Purchase</li>
+  <li>AiSensy WhatsApp integration for shared team inbox</li>
+</ul>
+
+<h4>FR-6: Invoice Generation with GST</h4>
+<ul>
+  <li>GST rate: 18% (SAC code 999721)</li>
+  <li>GST-inclusive pricing: back-calculate base = price ÷ 1.18</li>
+  <li>PDF generation inline on booking completion</li>
+  <li>Email delivery via Resend (synchronous — customer still at counter)</li>
+</ul>
+
+<h4>FR-7: Staff Scheduling &amp; Leave Management</h4>
+<ul>
+  <li>Weekly recurring schedules per staff member</li>
+  <li>Leave request → approval workflow</li>
+  <li>Real-time schedule updates via Ably</li>
+</ul>
+
+<h4>FR-8: Realtime Notifications</h4>
+<ul>
+  <li>Booking status changes (Pending → Confirmed → In-Progress → Completed)</li>
+  <li>Web Push API for native-style notifications (free, unlimited)</li>
+  <li>Ably WebSocket for in-app live UI updates (~50ms delivery)</li>
+</ul>
+
+<h4>FR-9: Multi-Branch Support</h4>
+<ul>
+  <li>Branch entity in database, all bookings/invoices scoped to branch</li>
+  <li>Branch selector in admin views; staff assigned per branch</li>
+</ul>
+
+<h3>2.2 Non-Functional Requirements</h3>
+<table>
+  <tr><th>Category</th><th>Requirement</th><th>Target</th></tr>
+  <tr><td>Latency</td><td>Global response time (edge computing)</td><td>&lt; 100ms</td></tr>
+  <tr><td>Availability</td><td>Uptime target</td><td>99.9%</td></tr>
+  <tr><td>Security</td><td>Privacy compliance</td><td>India DPDP Act 2023</td></tr>
+  <tr><td>Security</td><td>Vulnerability coverage</td><td>OWASP Top 10</td></tr>
+  <tr><td>Performance</td><td>Lighthouse Performance score</td><td>≥ 95</td></tr>
+  <tr><td>Performance</td><td>Lighthouse Accessibility score</td><td>100</td></tr>
+  <tr><td>Performance</td><td>Lighthouse SEO score</td><td>100</td></tr>
+  <tr><td>Cost</td><td>Monthly infrastructure at launch</td><td>₹0</td></tr>
+  <tr><td>Scalability</td><td>Concurrent users (load test)</td><td>50 users</td></tr>
+  <tr><td>Recoverability</td><td>RPO</td><td>~0 seconds</td></tr>
+  <tr><td>Recoverability</td><td>RTO</td><td>&lt; 5 minutes</td></tr>
+  <tr><td>Accessibility</td><td>WCAG compliance</td><td>2.1 AA</td></tr>
+</table>
+
+<hr>
+
+<h2 id="architecture">3. Architecture Overview</h2>
+
+<h3>3.1 Architecture Style</h3>
+<p><strong>Decision: Monolithic modular architecture</strong> (not microservices)</p>
+<table>
+  <tr><th>Factor</th><th>Rationale</th></tr>
+  <tr><td>Team size</td><td>Single developer — no team boundaries to split on</td></tr>
+  <tr><td>Communication overhead</td><td>Zero inter-service communication (no gRPC, no service mesh)</td></tr>
+  <tr><td>Deployment complexity</td><td>One build, one deploy, one rollback</td></tr>
+  <tr><td>Data consistency</td><td>Single database, no distributed transactions</td></tr>
+  <tr><td>Stack consistency</td><td>TypeScript end-to-end, same tooling everywhere</td></tr>
+</table>
+
+<h3>3.2 High-Level Architecture Diagram</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              CLIENT LAYER                                         │
+│    Browser / PWA (Next.js React App)                                             │
+│    ├── Customer Pages: /, /services, /bookings, /membership, /gems               │
+│    ├── Admin Portal: /admin/* (RBAC-gated)                                       │
+│    └── Ably WebSocket Subscription (Token Auth, subscribe-only)                  │
+└──────────────────────────────────────┬──────────────────────────────────────────┘
+                                       │ HTTPS (TLS 1.3)
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           EDGE LAYER (Cloudflare)                                 │
+│    ┌──────────────┐    ┌──────────────────┐    ┌────────────────────────┐        │
+│    │ Cloudflare   │    │ Cloudflare Pages │    │ Cloudflare Workers     │        │
+│    │ DNS + DDoS   │───▶│ (Static CDN)     │───▶│ (Edge SSR + API)       │        │
+│    │ + WAF        │    │                  │    │ 50ms CPU wall time     │        │
+│    └──────────────┘    └──────────────────┘    └──────────┬─────────────┘        │
+│    ┌──────────────────┐                                    │                      │
+│    │ Cloudflare KV    │◀── L1 Edge Cache (5-min TTL)       │                      │
+│    └──────────────────┘                                    │                      │
+└────────────────────────────────────────────────────────────┼──────────────────────┘
+                              ┌───────────────────────────────┼───────────────────┐
+                              ▼                               ▼                   ▼
+┌──────────────────────────────────┐  ┌────────────────────────────┐  ┌──────────────────┐
+│  Render (Singapore)              │  │  Neon DB (PostgreSQL 16)   │  │  Upstash          │
+│  ├── Heavy SSR fallback          │  │  ├── 4 branches:           │  │  ├── Redis         │
+│  └── Payload CMS v3              │  │  │   dev/test/pprd/prod    │  │  │   (cache, rate   │
+│      (admin.theroyalglow.in)     │  │  ├── pg_cron (7 jobs)      │  │  │    limiting)     │
+│                                  │  │  └── Drizzle ORM           │  │  └── QStash        │
+└──────────────────────────────────┘  └────────────────────────────┘  │      (12 HTTP jobs)│
+                                                                       └──────────────────┘
+              ┌───────────────────────────────────────────────────────┐
+              ▼                     ▼                                 ▼
+┌──────────────────┐  ┌──────────────────┐               ┌──────────────────────┐
+│  Cloudflare R2   │  │  Ably            │               │  External Services   │
+│  ├── Images      │  │  ├── 6 channels  │               │  ├── Resend (email)  │
+│  ├── PDF invoices│  │  ├── Token Auth  │               │  ├── Brevo (mktg)   │
+│  └── DB backups  │  │  └── ~50ms push  │               │  ├── web-push       │
+└──────────────────┘  └──────────────────┘               │  └── Slack webhooks │
+                                                          └──────────────────────┘</code></pre>
+
+<h3>3.3 Component Breakdown</h3>
+<table>
+  <tr><th>Layer</th><th>Location</th><th>Responsibility</th><th>Key Constraint</th></tr>
+  <tr><td>Presentation</td><td><code>apps/web/app/</code></td><td>React Server/Client Components, layouts, pages</td><td>Zero business logic</td></tr>
+  <tr><td>UI Components</td><td><code>apps/web/components/</code></td><td>shadcn/ui primitives, booking dialog, admin widgets</td><td>Pure presentation</td></tr>
+  <tr><td>API (Thin)</td><td><code>apps/web/app/api/</code></td><td>Parse → Zod validate → delegate → JSON response</td><td>No DB queries here</td></tr>
+  <tr><td>Business Logic</td><td><code>packages/business/</code></td><td>Pure functions, domain rules, calculations</td><td>No I/O, no framework deps</td></tr>
+  <tr><td>Data Access</td><td><code>packages/db/</code></td><td>Drizzle ORM schemas, query builders, migrations</td><td>Only package that imports Drizzle</td></tr>
+  <tr><td>CMS</td><td><code>apps/cms/</code></td><td>Payload CMS v3 — blog, gallery, team bios, banners, FAQ</td><td>Marketing content only</td></tr>
+</table>
+
+<h3>3.4 Technology Decisions Matrix</h3>
+<table>
+  <tr><th>Category</th><th>Choice</th><th>Alternatives Considered</th><th>Why This Choice</th></tr>
+  <tr><td>Framework</td><td>Next.js 16 (App Router)</td><td>Remix, SvelteKit, Astro</td><td>SSR + SSG + API in one; edge-ready; React ecosystem; largest community</td></tr>
+  <tr><td>Runtime</td><td>Bun</td><td>Node.js, Deno</td><td>3x faster installs, native TS, faster test runs</td></tr>
+  <tr><td>Database</td><td>Neon PostgreSQL 16</td><td>Supabase, PlanetScale, Turso, Xata</td><td>Branching (4 environments free), pg_cron native, serverless</td></tr>
+  <tr><td>ORM</td><td>Drizzle ORM</td><td>Prisma (binary can't run on CF Workers)</td><td>Pure TypeScript, zero binary, runs on V8 isolate</td></tr>
+  <tr><td>Auth</td><td>Better Auth</td><td>Clerk, Auth.js, Supabase Auth</td><td>Self-hosted, YOUR domain on Google consent, built-in RBAC</td></tr>
+  <tr><td>Hosting (Edge)</td><td>Cloudflare Pages + Workers</td><td>Vercel, Netlify</td><td>Generous free tier, global edge, no bandwidth surprises</td></tr>
+  <tr><td>Hosting (Origin)</td><td>Render (Singapore)</td><td>Railway, Fly.io</td><td>Free tier, closest region to India</td></tr>
+  <tr><td>Realtime</td><td>Ably</td><td>Pusher, Socket.io, Supabase Realtime</td><td>6M msg/mo free, 200 concurrent, edge SDK, Token Auth</td></tr>
+  <tr><td>CMS</td><td>Payload CMS v3</td><td>Sanity, Strapi, Contentful</td><td>Self-hosted Next.js plugin, zero vendor lock-in</td></tr>
+  <tr><td>Email (Transactional)</td><td>Resend</td><td>SendGrid, Postmark</td><td>Modern DX, React Email templates</td></tr>
+  <tr><td>Email (Marketing)</td><td>Brevo</td><td>Mailchimp, ConvertKit</td><td>Unsubscribe management, automations, DPDP-compliant</td></tr>
+  <tr><td>Cache</td><td>Upstash Redis</td><td>Self-hosted Redis, Durable Objects</td><td>Serverless, CF Workers compatible, QStash included</td></tr>
+  <tr><td>File Storage</td><td>Cloudflare R2</td><td>AWS S3, Supabase Storage</td><td>S3-compatible, zero egress fees, 10 GB free</td></tr>
+  <tr><td>UI Components</td><td>shadcn/ui + Radix</td><td>Material UI, Chakra, Mantine</td><td>Copy-paste ownership, Radix a11y, zero runtime</td></tr>
+  <tr><td>Styling</td><td>Tailwind CSS v4</td><td>CSS Modules, styled-components</td><td>Utility-first, design tokens, zero runtime JS</td></tr>
+  <tr><td>Animation</td><td>motion (motion.dev)</td><td>GSAP, react-spring</td><td>Free tier, respects prefers-reduced-motion</td></tr>
+  <tr><td>Analytics</td><td>PostHog</td><td>Google Analytics, Mixpanel</td><td>1M events/mo free, feature flags, funnels, session replay</td></tr>
+  <tr><td>Error Monitoring</td><td>Sentry</td><td>Highlight.io, Datadog</td><td>Industry standard, CF Workers support, source maps</td></tr>
+</table>
+
+<hr>
+
+
+<h2 id="data-arch">4. Data Architecture</h2>
+
+<h3>4.1 Database Strategy</h3>
+<p><strong>Engine:</strong> Neon PostgreSQL 16 (serverless, auto-scaling compute, connection pooling built-in)</p>
+
+<table>
+  <tr><th>Neon Branch</th><th>Environment</th><th>Purpose</th><th>Reset Policy</th></tr>
+  <tr><td><code>main</code></td><td>Production</td><td>Live customer data, pg_cron runs here</td><td>Never reset</td></tr>
+  <tr><td><code>preprod</code></td><td>Pre-production</td><td>UAT with anonymised prod data</td><td>Auto-reset daily + PII stripped</td></tr>
+  <tr><td><code>test</code></td><td>QA / CI</td><td>Seeded fixtures for automated tests</td><td>Wiped every CI run</td></tr>
+  <tr><td><code>dev</code></td><td>Development</td><td>Developer sandbox</td><td>Scales to zero when idle</td></tr>
+</table>
+
+<h3>4.2 Data Model Overview</h3>
+<p><strong>38 tables across 13 domains:</strong></p>
+<table>
+  <tr><th>Domain</th><th>Tables</th><th>Key Entities</th></tr>
+  <tr><td>Auth</td><td>4</td><td><code>user</code>, <code>session</code>, <code>account</code>, <code>verification</code></td></tr>
+  <tr><td>Profiles</td><td>2</td><td><code>customer_profile</code>, <code>staff_profile</code></td></tr>
+  <tr><td>Services</td><td>3</td><td><code>service_category</code>, <code>service</code>, <code>service_staff</code></td></tr>
+  <tr><td>Scheduling</td><td>4</td><td><code>staff_schedule</code>, <code>staff_time_off</code>, <code>holiday</code>, <code>waitlist</code></td></tr>
+  <tr><td>Bookings</td><td>4</td><td><code>booking</code>, <code>booking_service</code>, <code>booking_note</code>, <code>booking_history</code></td></tr>
+  <tr><td>Billing</td><td>2</td><td><code>invoice</code>, <code>invoice_item</code></td></tr>
+  <tr><td>SPA Memberships</td><td>2</td><td><code>spa_membership</code>, <code>spa_membership_tier</code></td></tr>
+  <tr><td>Offers</td><td>3</td><td><code>offer</code>, <code>offer_service</code>, <code>offer_redemption</code></td></tr>
+  <tr><td>CRM/Leads</td><td>5</td><td><code>lead</code>, <code>lead_note</code>, <code>customer_tag</code>, <code>customer_tag_assignment</code>, <code>customer_note</code></td></tr>
+  <tr><td>Loyalty</td><td>2</td><td><code>loyalty_account</code>, <code>loyalty_transaction</code></td></tr>
+  <tr><td>Notifications</td><td>2</td><td><code>notification</code>, <code>push_subscription</code></td></tr>
+  <tr><td>Branches</td><td>1</td><td><code>branch</code></td></tr>
+  <tr><td>System</td><td>5</td><td><code>daily_sales_summary</code>, <code>monthly_gst_summary</code>, <code>audit_log</code>, <code>system_setting</code>, <code>feature_flag_override</code></td></tr>
+</table>
+
+<h3>4.3 Key Data Conventions</h3>
+<table>
+  <tr><th>Convention</th><th>Implementation</th></tr>
+  <tr><td>Primary keys</td><td><code>text</code> via <code>nanoid()</code> — prevents enumeration attacks</td></tr>
+  <tr><td>Money</td><td><code>integer</code> in paise (₹1,000.00 = 100000) — no floating-point errors</td></tr>
+  <tr><td>Timestamps</td><td><code>timestamptz</code> stored UTC, displayed IST (UTC+5:30)</td></tr>
+  <tr><td>Date display</td><td>DD/MM/YYYY (<code>en-IN</code> locale)</td></tr>
+  <tr><td>Currency display</td><td>Indian numbering: ₹1,00,000.00 (lakhs)</td></tr>
+  <tr><td>Soft deletes</td><td>Not used — hard deletes with <code>audit_log</code> tracking</td></tr>
+  <tr><td>GST pricing</td><td>All prices GST-inclusive; back-calculate: base = price ÷ 1.18</td></tr>
+</table>
+
+<h3>4.4 Caching Strategy</h3>
+<pre><code>L1: Cloudflare KV (Edge) — Service catalog, 5-min TTL, 200+ PoPs
+      ↓ MISS
+L2: Upstash Redis (Regional) — Slot availability, rate limits, 5-min TTL
+      ↓ MISS
+L3: Neon PostgreSQL (Source of Truth) — All business data, persistent</code></pre>
+
+<h3>4.5 File Storage (Cloudflare R2)</h3>
+<table>
+  <tr><th>Use Case</th><th>Bucket Path</th><th>Access Pattern</th></tr>
+  <tr><td>Service images</td><td><code>media/services/</code></td><td>Public CDN URL</td></tr>
+  <tr><td>Gallery photos</td><td><code>media/gallery/</code></td><td>Public CDN URL</td></tr>
+  <tr><td>Invoice PDFs</td><td><code>invoices/{YYYY}/{MM}/</code></td><td>Signed URL (1h expiry)</td></tr>
+  <tr><td>Weekly DB backups</td><td><code>backups/weekly/</code></td><td>Signed URL (private)</td></tr>
+  <tr><td>CMS uploads</td><td><code>cms/</code></td><td>Public CDN URL</td></tr>
+</table>
+
+<hr>
+
+<h2 id="auth">5. Authentication &amp; Authorization</h2>
+
+<h3>5.1 Auth Architecture</h3>
+<table>
+  <tr><th>Component</th><th>Implementation</th></tr>
+  <tr><td>Provider</td><td>Google OAuth 2.0 only (no email/password)</td></tr>
+  <tr><td>Session storage</td><td>PostgreSQL <code>session</code> table (HttpOnly, Secure, SameSite=Lax cookies)</td></tr>
+  <tr><td>CSRF protection</td><td>Built-in via Better Auth</td></tr>
+  <tr><td>Token type</td><td>Session-based (not JWT) — revocable, server-validated</td></tr>
+  <tr><td>Dashboard</td><td>Better Auth Cloud free tier (audit logs, user analytics)</td></tr>
+  <tr><td>Admin UI</td><td>Custom <code>/admin/users</code> page</td></tr>
+</table>
+
+<h3>5.2 RBAC Model — 6-Tier Hierarchy</h3>
+<pre><code>Customer     → Public pages, own bookings/profile/gems
+    ↓
+Staff        → Own schedule, assigned booking notes, leave requests. NO /admin/*
+    ↓
+Receptionist → Lowest admin role. Bookings, billing, memberships, leave approvals.
+    ↓
+Manager      → Full operational access: staff, services, reports, settings.
+    ↓
+Owner        → Full business access including /admin/users
+    ↓
+Developer    → Everything + /admin/integrations, /admin/logs</code></pre>
+
+<h3>5.3 Role Assignment Rules</h3>
+<table>
+  <tr><th>Assigning Role</th><th>Can Assign</th></tr>
+  <tr><td>Developer</td><td><code>owner</code> and all below</td></tr>
+  <tr><td>Owner</td><td><code>manager</code>, <code>receptionist</code>, <code>staff</code></td></tr>
+  <tr><td>Manager</td><td><code>receptionist</code>, <code>staff</code></td></tr>
+  <tr><td>Receptionist</td><td>— (cannot assign roles)</td></tr>
+</table>
+
+<h3>5.4 Google OAuth Scopes</h3>
+<table>
+  <tr><th>Scope</th><th>When Requested</th><th>Purpose</th></tr>
+  <tr><td><code>email</code></td><td>Sign-in</td><td>User identification</td></tr>
+  <tr><td><code>profile</code></td><td>Sign-in</td><td>Name, avatar pre-fill</td></tr>
+  <tr><td><code>user.phonenumbers.read</code></td><td>Sign-in</td><td>Phone pre-fill</td></tr>
+  <tr><td><code>calendar.events</code></td><td>After first booking confirmed</td><td>Incremental consent — "Add to Calendar?"</td></tr>
+</table>
+
+<hr>
+
+<h2 id="api">6. API Design</h2>
+
+<h3>6.1 Architecture Pattern</h3>
+<p><strong>Thin API Layer:</strong> Request → Parse → Zod Validate → Business Logic → Response</p>
+<p><strong>Standard Response Shape:</strong></p>
+<pre><code>// Success
+{ success: true, data: T }
+
+// Error
+{ success: false, error: { code: "BOOKING_SLOT_UNAVAILABLE", message: "...", statusCode: 409, requestId: "req_abc123" } }</code></pre>
+
+<h3>6.2 API Groups</h3>
+<table>
+  <tr><th>Group</th><th>Count</th><th>Auth</th><th>Purpose</th></tr>
+  <tr><td>Auth</td><td>1</td><td>Public</td><td>Better Auth catch-all</td></tr>
+  <tr><td>Customer</td><td>13</td><td>Authenticated</td><td>Services, availability, bookings, leads, onboarding, push, ably</td></tr>
+  <tr><td>Admin</td><td>7</td><td>Role-gated</td><td>Booking management, memberships, leave</td></tr>
+  <tr><td>Background Jobs</td><td>12</td><td>QStash signature</td><td>Scheduled/triggered work</td></tr>
+  <tr><td>Webhooks</td><td>2</td><td>Signature-verified</td><td>Meta Lead Gen, AiSensy</td></tr>
+  <tr><td><strong>Total</strong></td><td><strong>35</strong></td><td></td><td></td></tr>
+</table>
+
+<h3>6.3 Rate Limiting Strategy</h3>
+<table>
+  <tr><th>Tier</th><th>Limit</th><th>Endpoints</th><th>Rationale</th></tr>
+  <tr><td>Lead</td><td>3 req/min</td><td><code>/api/leads</code></td><td>Prevent spam</td></tr>
+  <tr><td>Booking</td><td>5 req/min</td><td><code>/api/bookings</code> (POST), cancel</td><td>Prevent abuse</td></tr>
+  <tr><td>Standard</td><td>10 req/min</td><td>All authenticated routes</td><td>General protection</td></tr>
+  <tr><td>Relaxed</td><td>30 req/10s</td><td><code>/api/services</code>, <code>/api/availability</code></td><td>High-frequency browse</td></tr>
+  <tr><td>Webhook</td><td>50 req/sec</td><td><code>/api/webhooks/*</code></td><td>Meta/AiSensy burst</td></tr>
+</table>
+
+<hr>
+
+<h2 id="realtime">7. Realtime Architecture</h2>
+
+<h3>7.1 Ably Channel Design</h3>
+<p><strong>Core Principles:</strong> All publishes server-side only · Client Token Auth (subscribe-only) · ~50ms delivery latency</p>
+
+<table>
+  <tr><th>Channel Pattern</th><th>Audience</th><th>Subscribe Trigger</th></tr>
+  <tr><td><code>customer:{userId}:bookings</code></td><td>Individual customer</td><td>Mount <code>/bookings</code></td></tr>
+  <tr><td><code>booking:{bookingId}</code></td><td>Customer + Admin + Staff</td><td>Mount booking detail</td></tr>
+  <tr><td><code>admin:bookings</code></td><td>All admin roles</td><td>Mount <code>/admin</code></td></tr>
+  <tr><td><code>admin:schedule:{YYYY-MM-DD}</code></td><td>Admin roles</td><td>View date in schedule</td></tr>
+  <tr><td><code>admin:leave</code></td><td>Admin roles</td><td>Mount <code>/admin/leave</code></td></tr>
+  <tr><td><code>staff:{staffId}:schedule</code></td><td>Individual staff</td><td>Mount staff dashboard</td></tr>
+</table>
+
+<h3>7.2 Event Flow Example</h3>
+<pre><code>Admin approves booking
+    → DB: booking.status = 'confirmed'
+    → Ably publish (server-side):
+        customer:{userId}:bookings  → booking.status_changed
+        booking:{bookingId}         → status.changed
+        admin:bookings              → booking.status_changed
+        staff:{staffId}:schedule    → booking.assigned
+        admin:schedule:{date}       → slot.booked
+    → Customer's React UI updates status badge automatically (~50ms)</code></pre>
+
+<hr>
+
+<h2 id="background">8. Background Processing</h2>
+
+<h3>8.1 Dual-Engine Design</h3>
+<table>
+  <tr><th>Engine</th><th>Location</th><th>Use For</th><th>Free Tier</th></tr>
+  <tr><td><strong>pg_cron</strong></td><td>Inside Neon DB</td><td>Pure SQL — aggregations, status updates, cleanup</td><td>Unlimited</td></tr>
+  <tr><td><strong>QStash</strong></td><td>Upstash HTTP queue</td><td>External HTTP calls — email, push, Slack</td><td>500 msg/day</td></tr>
+</table>
+<p><strong>Split Rule:</strong> DB-only = pg_cron · External calls = QStash</p>
+
+<h3>8.2 Complete Job Inventory (19 Total)</h3>
+<table>
+  <tr><th>#</th><th>Job</th><th>Tool</th><th>Schedule / Trigger</th><th>External Calls</th></tr>
+  <tr><td>1</td><td>Nightly sales summary</td><td>pg_cron</td><td>11:30 PM IST</td><td>None</td></tr>
+  <tr><td>2</td><td>Membership auto-expire</td><td>pg_cron</td><td>12:00 AM IST</td><td>None</td></tr>
+  <tr><td>3</td><td>Offer auto-expire</td><td>pg_cron</td><td>12:05 AM IST</td><td>None</td></tr>
+  <tr><td>4</td><td>Session cleanup</td><td>pg_cron</td><td>2:30 AM Sun IST</td><td>None</td></tr>
+  <tr><td>5</td><td>Preprod DB sync</td><td>GitHub Actions</td><td>1:00 AM IST</td><td>None</td></tr>
+  <tr><td>6</td><td>Monthly GST summary</td><td>pg_cron</td><td>1:00 AM 1st IST</td><td>None</td></tr>
+  <tr><td>7</td><td>Gems auto-expire</td><td>pg_cron</td><td>12:10 AM IST</td><td>None</td></tr>
+  <tr><td>8</td><td>Appointment reminders</td><td>QStash</td><td>Every 15 min</td><td>web-push + Resend</td></tr>
+  <tr><td>9</td><td>Membership expiry alerts</td><td>QStash</td><td>12:30 AM IST</td><td>web-push + Resend</td></tr>
+  <tr><td>10</td><td>Birthday emails</td><td>QStash</td><td>9:30 AM IST</td><td>Brevo + web-push</td></tr>
+  <tr><td>11</td><td>Membership usage nudges</td><td>QStash</td><td>11:00 AM IST</td><td>web-push + Resend</td></tr>
+  <tr><td>12</td><td>Lead follow-up reminders</td><td>QStash</td><td>10:30 AM IST</td><td>web-push</td></tr>
+  <tr><td>13</td><td>Daily sales report</td><td>QStash</td><td>10:30 PM IST</td><td>Slack + Resend</td></tr>
+  <tr><td>14</td><td>Weekly summary report</td><td>QStash</td><td>Mon 9:00 AM IST</td><td>Slack + Resend</td></tr>
+  <tr><td>15</td><td>Gems expiry reminder</td><td>QStash</td><td>10:30 AM IST</td><td>web-push only</td></tr>
+  <tr><td>16</td><td>Post-service follow-up</td><td>QStash triggered</td><td>+24h after completed</td><td>Brevo</td></tr>
+  <tr><td>17</td><td>Stale pending booking alert</td><td>QStash triggered</td><td>+2h after created</td><td>web-push</td></tr>
+  <tr><td>18</td><td>No-show check</td><td>QStash triggered</td><td>+15min after end_time</td><td>web-push</td></tr>
+  <tr><td>19</td><td>Membership expired notice</td><td>QStash triggered</td><td>+1h after expires_at</td><td>Resend</td></tr>
+</table>
+
+<h3>8.3 Reliability</h3>
+<table>
+  <tr><th>Mechanism</th><th>Coverage</th></tr>
+  <tr><td>QStash auto-retry</td><td>3x exponential backoff on non-2xx responses</td></tr>
+  <tr><td>BetterStack heartbeats</td><td>Every job pings heartbeat URL on success — alert on missed</td></tr>
+  <tr><td>Idempotency</td><td>All jobs check for prior execution before re-running</td></tr>
+</table>
+
+<hr>
+
+
+<h2 id="deployment">9. Deployment &amp; CI/CD</h2>
+
+<h3>9.1 Branch Strategy</h3>
+<pre><code>feature/* ──▶ dev ──▶ test ──▶ pprd ──▶ prod
+                                         │
+                                    [Manual Approval]</code></pre>
+
+<h3>9.2 Pipeline Stages</h3>
+<table>
+  <tr><th>PR Target</th><th>Checks Run</th></tr>
+  <tr><td>→ <code>dev</code></td><td>Lint (Biome) + Unit Tests (Vitest) + Type Check (tsc) + Build + Dep Audit (Trivy + Socket.dev)</td></tr>
+  <tr><td>→ <code>test</code></td><td>All above + Integration Tests + Playwright E2E + Lighthouse CI</td></tr>
+  <tr><td>→ <code>pprd</code></td><td>All above + k6 Load Test (50 concurrent) + OWASP ZAP Security Scan</td></tr>
+  <tr><td>→ <code>prod</code></td><td>All above + Manual Approval → Deploy → Health Check → Smoke Tests</td></tr>
+</table>
+
+<h3>9.3 Feature Flag Strategy</h3>
+<p><strong>Deploy ≠ Release</strong> — Code deployed to edge on every merge. Visibility controlled by PostHog feature flags.</p>
+<pre><code>1. Deploy with flag OFF → code in prod, invisible
+2. Flag ON: role = 'developer' → self-test in production
+3. Flag ON: role = 'owner' | 'manager' → stakeholder preview
+4. Flag ON: 10% customers → monitor Sentry for errors
+5. Flag ON: 100% → full release
+6. Remove flag + dead code after 2 weeks stable</code></pre>
+
+<h3>9.4 Rollback Plan</h3>
+<table>
+  <tr><th>Tier</th><th>Scenario</th><th>Action</th><th>Recovery Time</th></tr>
+  <tr><td><span class="badge badge-success">Tier 1</span></td><td>UI bug after deploy</td><td>Feature flag OFF</td><td>&lt; 10 seconds</td></tr>
+  <tr><td><span class="badge badge-success">Tier 2</span></td><td>App crash / 500 errors</td><td>Cloudflare rollback</td><td>&lt; 30 seconds</td></tr>
+  <tr><td><span class="badge badge-warning">Tier 3</span></td><td>Bad migration (data corrupted)</td><td>Neon PITR branch</td><td>&lt; 5 minutes</td></tr>
+  <tr><td><span class="badge badge-danger">Tier 4</span></td><td>Full disaster (Neon outage)</td><td>Restore from R2 backup</td><td>&lt; 30 minutes</td></tr>
+</table>
+
+<hr>
+
+<h2 id="observability">10. Observability &amp; Monitoring</h2>
+
+<h3>10.1 Five-Layer Stack (All ₹0/month)</h3>
+<table>
+  <tr><th>Layer</th><th>Tool</th><th>What It Answers</th><th>Free Tier</th></tr>
+  <tr><td>1. Error Monitoring</td><td><strong>Sentry</strong></td><td>What broke and why? Stack traces</td><td>5K errors/mo</td></tr>
+  <tr><td>2. Uptime + Status + Logs</td><td><strong>BetterStack</strong></td><td>Is the site up? Did jobs run?</td><td>10 monitors, 1 GB logs</td></tr>
+  <tr><td>3. Product Analytics</td><td><strong>PostHog</strong></td><td>How do users behave?</td><td>1M events/mo</td></tr>
+  <tr><td>4. Heatmaps + Replay</td><td><strong>Microsoft Clarity</strong></td><td>What did users do on screen?</td><td>Unlimited</td></tr>
+  <tr><td>5. Synthetic Monitoring</td><td><strong>Checkly</strong></td><td>Does the app actually work?</td><td>5 checks, 10K runs</td></tr>
+</table>
+
+<h3>10.2 Alert Escalation</h3>
+<table>
+  <tr><th>Level</th><th>Trigger</th><th>Response</th><th>Channel</th></tr>
+  <tr><td>Level 1: Auto</td><td>Health check failure</td><td>Auto-rollback / flag auto-disable</td><td>Automated</td></tr>
+  <tr><td>Level 2: Notify</td><td>Non-critical degradation</td><td>Developer awareness</td><td>Slack #alerts</td></tr>
+  <tr><td>Level 3: Urgent</td><td>Site down, DB unreachable</td><td>Immediate action</td><td>SMS + Push + Slack</td></tr>
+  <tr><td>Level 4: Escalate</td><td>15 min unacknowledged</td><td>Force attention</td><td>Phone call</td></tr>
+</table>
+
+<hr>
+
+<h2 id="security">11. Security Design</h2>
+
+<h3>11.1 Defense in Depth</h3>
+<table>
+  <tr><th>Layer</th><th>Protection</th><th>Implementation</th></tr>
+  <tr><td>Edge</td><td>DDoS / WAF / Bot management</td><td>Cloudflare (automatic, always-on)</td></tr>
+  <tr><td>Transport</td><td>Encryption in transit</td><td>HTTPS only, TLS 1.3, HSTS preload</td></tr>
+  <tr><td>Application</td><td>Content Security Policy</td><td>Nonce-based scripts, strict-dynamic, exact origin CORS</td></tr>
+  <tr><td>Application</td><td>Rate limiting</td><td>Per-endpoint sliding windows (Upstash Redis)</td></tr>
+  <tr><td>Data</td><td>Input validation</td><td>Zod <code>.safeParse()</code> on every API route boundary</td></tr>
+  <tr><td>Data</td><td>SQL injection prevention</td><td>Drizzle ORM parameterized queries (no raw SQL)</td></tr>
+  <tr><td>Auth</td><td>Session security</td><td>HttpOnly, Secure, SameSite=Lax cookies + CSRF built-in</td></tr>
+  <tr><td>Dependencies</td><td>Supply chain attacks</td><td>Trivy (CVE) + Socket.dev (typosquatting) in CI</td></tr>
+</table>
+
+<h3>11.2 India DPDP Act 2023 Compliance</h3>
+<table>
+  <tr><th>Requirement</th><th>Implementation</th></tr>
+  <tr><td>Consent management</td><td>2-tier cookie banner: Necessary (always on) + Analytics/Marketing (opt-in)</td></tr>
+  <tr><td>Right to erasure</td><td>Account deletion removes user + all linked records</td></tr>
+  <tr><td>Data localization</td><td>Neon DB in Singapore (closest to India)</td></tr>
+  <tr><td>No PII in logs</td><td>Sentry/BetterStack scrub email/phone</td></tr>
+  <tr><td>Privacy Policy</td><td>Comprehensive <code>/privacy</code> page (SSG)</td></tr>
+</table>
+
+<hr>
+
+<h2 id="scalability">12. Scalability &amp; Performance</h2>
+
+<h3>12.1 Performance Optimizations</h3>
+<table>
+  <tr><th>Optimization</th><th>Layer</th><th>Impact</th></tr>
+  <tr><td>Edge SSR</td><td>Cloudflare Workers</td><td>Sub-100ms response globally</td></tr>
+  <tr><td>KV edge cache</td><td>Cloudflare KV</td><td>Service catalog &lt; 5ms</td></tr>
+  <tr><td>Redis slot cache</td><td>Upstash</td><td>Availability &lt; 5ms vs ~100ms DB</td></tr>
+  <tr><td>ISR (blog)</td><td>Next.js</td><td>1h revalidation, zero cost between</td></tr>
+  <tr><td>SSG (legal, FAQ)</td><td>Next.js</td><td>Static HTML, zero server cost</td></tr>
+  <tr><td>Image optimization</td><td>Next.js Image + CF Polish</td><td>Auto WebP/AVIF, lazy loading</td></tr>
+  <tr><td>PWA</td><td>Service Worker</td><td>Offline access to menu/prices</td></tr>
+  <tr><td>Streaming SSR</td><td>React Suspense</td><td>Progressive HTML delivery</td></tr>
+</table>
+
+<h3>12.2 Capacity — Free Tier Headroom</h3>
+<table>
+  <tr><th>Service</th><th>Free Limit</th><th>Expected Usage</th><th>Headroom</th></tr>
+  <tr><td>Neon DB</td><td>0.5 GB storage</td><td>~50 MB</td><td>10x+</td></tr>
+  <tr><td>Upstash Redis</td><td>10K req/day</td><td>~500/day</td><td>20x</td></tr>
+  <tr><td>Cloudflare Workers</td><td>100K req/day</td><td>~5K/day</td><td>20x</td></tr>
+  <tr><td>Cloudflare R2</td><td>10 GB</td><td>~2 GB</td><td>5x</td></tr>
+  <tr><td>Ably</td><td>6M msg/mo</td><td>~50K/mo</td><td>120x</td></tr>
+  <tr><td>Sentry</td><td>5K errors/mo</td><td>~50/mo</td><td>100x</td></tr>
+  <tr><td>PostHog</td><td>1M events/mo</td><td>~50K/mo</td><td>20x</td></tr>
+</table>
+
+<hr>
+
+<h2 id="dr">13. Disaster Recovery &amp; Business Continuity</h2>
+
+<h3>13.1 Backup Strategy</h3>
+<table>
+  <tr><th>Type</th><th>Frequency</th><th>Retention</th><th>Storage</th><th>RPO</th></tr>
+  <tr><td>Neon PITR (automatic)</td><td>Continuous</td><td>7 days</td><td>Neon infrastructure</td><td>~0 seconds</td></tr>
+  <tr><td>Weekly pg_dump</td><td>Sunday 7:30 AM IST</td><td>8 weeks</td><td>Cloudflare R2</td><td>≤ 7 days</td></tr>
+  <tr><td>Monthly restore test</td><td>1st of month</td><td>—</td><td>Temp Neon branch</td><td>Validates integrity</td></tr>
+</table>
+
+<h3>13.2 RTO/RPO Targets</h3>
+<table>
+  <tr><th>Scenario</th><th>RPO</th><th>RTO</th><th>Method</th></tr>
+  <tr><td>Code issue</td><td>0</td><td>&lt; 30 sec</td><td>Cloudflare rollback</td></tr>
+  <tr><td>Bad migration</td><td>~0 sec</td><td>&lt; 5 min</td><td>Neon PITR branch</td></tr>
+  <tr><td>Neon outage</td><td>≤ 7 days</td><td>&lt; 30 min</td><td>R2 backup restore</td></tr>
+</table>
+
+<hr>
+
+<h2 id="tradeoffs">14. Trade-offs &amp; Design Decisions</h2>
+
+<table>
+  <tr><th>#</th><th>Decision</th><th>Trade-off Accepted</th><th>Mitigation</th></tr>
+  <tr><td>1</td><td>Monolith over microservices</td><td>Less fault isolation</td><td>Strict layer separation in monorepo</td></tr>
+  <tr><td>2</td><td>Free tiers only</td><td>Limited resources, cold starts</td><td>Free tiers are 10-100x above expected usage</td></tr>
+  <tr><td>3</td><td>Google OAuth only</td><td>No email/password users</td><td>99%+ Indian smartphone users have Google</td></tr>
+  <tr><td>4</td><td>Edge-first (CF Workers)</td><td>50ms CPU wall time</td><td>Render fallback for heavy SSR</td></tr>
+  <tr><td>5</td><td>Better Auth over Clerk</td><td>Less polished dashboard</td><td>Custom /admin/users page</td></tr>
+  <tr><td>6</td><td>Session-based (not JWT)</td><td>DB lookup per request</td><td>Sessions cacheable; &lt; 5ms Neon lookup; revocable</td></tr>
+  <tr><td>7</td><td>Ably over SSE</td><td>External dependency</td><td>SSE incompatible with CF Workers; Ably 120x headroom</td></tr>
+  <tr><td>8</td><td>Drizzle over Prisma</td><td>Smaller community</td><td>Prisma binary can't run on CF Workers</td></tr>
+  <tr><td>9</td><td>nanoid PKs over auto-increment</td><td>Larger index size</td><td>Prevents enumeration attacks</td></tr>
+  <tr><td>10</td><td>Paise over decimal for money</td><td>Requires conversion</td><td>formatINR() utility; no float bugs</td></tr>
+  <tr><td>11</td><td>Hard deletes over soft deletes</td><td>Cannot undelete</td><td>audit_log captures all; simpler queries</td></tr>
+  <tr><td>12</td><td>Single Next.js app (customer+admin)</td><td>Admin in same bundle</td><td>Code splitting; admin code not sent to customers</td></tr>
+</table>
+
+<hr>
+
+<h2 id="roadmap">15. Future Roadmap</h2>
+
+<h3>Phase 2 (Post-Launch, Month 2-4)</h3>
+<table>
+  <tr><th>Feature</th><th>Technical Approach</th></tr>
+  <tr><td>Online payments</td><td>Razorpay/Cashfree integration; payment link in booking confirmation</td></tr>
+  <tr><td>Google Calendar integration</td><td>Incremental OAuth consent; auto-create/update events on booking lifecycle</td></tr>
+  <tr><td>Multi-branch booking</td><td>Branch selector in dialog Step 1; queries scoped by branch_id</td></tr>
+  <tr><td>Staff performance dashboard</td><td>Utilisation %, revenue per staff, customer satisfaction</td></tr>
+</table>
+
+<h3>Phase 3 (Month 4-8)</h3>
+<table>
+  <tr><th>Feature</th><th>Technical Approach</th></tr>
+  <tr><td>Mobile app</td><td>PWA enhancement OR React Native (shared business logic)</td></tr>
+  <tr><td>AI scheduling optimization</td><td>ML model for staff allocation based on historical patterns</td></tr>
+  <tr><td>Inventory management</td><td>Product tracking for salon supplies (~4 new tables)</td></tr>
+</table>
+
+<hr>
+
+<h2>Appendix A: Infrastructure Cost Summary</h2>
+<table>
+  <tr><th>Service</th><th>Free Tier</th><th>First Paid Plan</th></tr>
+  <tr><td>Cloudflare Pages + Workers</td><td>100K req/day</td><td>Pro $20/mo</td></tr>
+  <tr><td>Neon DB</td><td>0.5 GB, 3 GB transfer</td><td>Launch $19/mo</td></tr>
+  <tr><td>Upstash Redis + QStash</td><td>10K req/day, 500 msg/day</td><td>Pro $10/mo</td></tr>
+  <tr><td>Cloudflare R2</td><td>10 GB, 10M ops</td><td>Pay-as-you-go</td></tr>
+  <tr><td>Ably</td><td>6M msg/mo, 200 connections</td><td>$29/mo</td></tr>
+  <tr><td>Render</td><td>Free (spins down)</td><td>Starter $7/mo</td></tr>
+  <tr><td>Sentry</td><td>5K errors/mo</td><td>Team $26/mo</td></tr>
+  <tr><td>BetterStack</td><td>10 monitors, 1 GB logs</td><td>Starter $24/mo</td></tr>
+  <tr><td>PostHog</td><td>1M events/mo</td><td>Scale (usage-based)</td></tr>
+  <tr><td>Clarity</td><td>Unlimited</td><td>Always free</td></tr>
+  <tr><td>Checkly</td><td>5 checks, 10K runs</td><td>Developer $7/mo</td></tr>
+  <tr><td colspan="2"><strong>TOTAL AT LAUNCH</strong></td><td><strong>₹0/month</strong></td></tr>
+</table>
+
+<hr>
+
+<h2>Appendix B: Key Metrics &amp; SLOs</h2>
+<table>
+  <tr><th>SLO</th><th>Target</th><th>Measurement</th></tr>
+  <tr><td>API response time (p95)</td><td>&lt; 200ms</td><td>Checkly + Sentry</td></tr>
+  <tr><td>Homepage TTFB</td><td>&lt; 100ms</td><td>Lighthouse CI + Checkly</td></tr>
+  <tr><td>Booking flow completion</td><td>&gt; 60%</td><td>PostHog funnel</td></tr>
+  <tr><td>Error rate</td><td>&lt; 0.1%</td><td>Sentry</td></tr>
+  <tr><td>Uptime</td><td>99.9%</td><td>BetterStack</td></tr>
+  <tr><td>Lighthouse Performance</td><td>≥ 95</td><td>Lighthouse CI gate</td></tr>
+  <tr><td>Lighthouse Accessibility</td><td>100</td><td>Lighthouse CI gate</td></tr>
+  <tr><td>MTTR</td><td>&lt; 5 minutes</td><td>Rollback tier selection</td></tr>
+</table>
+
+<hr>
+
+<blockquote>
+  <strong>Document End</strong><br>
+  This HLD was prepared following MAANG/FAANG system design review standards.<br>
+  For detailed implementation specifications, refer to individual documentation files in the <code>rgss_solutions_kiro/</code> repository.
+</blockquote>
+
+</body>
+</html>
