@@ -2429,3 +2429,21 @@ packages/db/schema/
 | Branches | 1 | branch |
 | System | 4 | daily_sales_summary, monthly_gst_summary, audit_log, system_setting |
 | **Total** | **38** | |
+
+
+
+---
+
+### favourite_service
+
+Stores customer's favourited/hearted services. Used to personalize the booking flow by showing favourited services first in Step 3.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| user_id | TEXT | NOT NULL, FK → user(id) ON DELETE CASCADE | The customer who favourited |
+| service_id | TEXT | NOT NULL, FK → service(id) ON DELETE CASCADE | The service that was favourited |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | When the favourite was added |
+
+**Primary Key:** `(user_id, service_id)` — composite, prevents duplicates  
+**Index:** `idx_favourite_service_user` on `user_id` — fast lookup of a user's favourites  
+**Cascade:** Both FKs cascade on delete — if user or service is removed, favourites are cleaned up automatically.

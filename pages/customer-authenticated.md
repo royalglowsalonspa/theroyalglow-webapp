@@ -190,3 +190,24 @@
 - No gems earned on: membership purchases, membership sessions, gem-redemption bookings
 
 **Data source:** `gems_transaction` table + computed balance
+
+
+
+---
+
+### Favourite Services (Heart Icon)
+
+**Appears on:** `/services` page, Booking Dialog Step 3
+
+**UI Components:**
+- Heart icon (♡ empty / ❤️ filled) on top-right corner of every service card
+- "Your Favourites" section at the top of Step 3 in booking dialog (only shown if user has ≥1 favourite)
+- Favourited services listed first, separated from regular service order by a section header
+
+**Behaviour:**
+- Tap heart → instant toggle (optimistic UI), API call in background
+- If user has 0 favourites → "Your Favourites" section not shown
+- Heart icon only visible when signed in (hidden for unauthenticated users on /services)
+- No limit on number of favourites
+
+**Data source:** `GET /api/favourites` (fetched on page mount alongside services)

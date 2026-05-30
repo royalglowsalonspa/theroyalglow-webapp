@@ -78,3 +78,15 @@ Signature-verified. External services push data into the system.
 |-------|--------|--------|-------------|---------|
 | `/api/webhooks/meta-leads` | POST | Meta Lead Gen (Instant Forms) | Meta signature verification | Receives leads from Instagram/Facebook native forms. Saves to `lead` table with source `meta_ad`, ad_id, campaign_id. Fires Meta CAPI `Lead` event as confirmation. |
 | `/api/webhooks/aisensy` | POST | AiSensy | AiSensy webhook signature | WhatsApp lead status change notification. Updates `lead` record status in Neon to keep pipeline in sync. |
+
+
+
+---
+
+### Favourite Services API
+
+| Route | Method | Summary | Auth |
+|-------|--------|---------|------|
+| `/api/favourites` | GET | List authenticated user's favourite service IDs. Returns: `{ favourites: string[] }` ordered by most recently added. | Yes |
+| `/api/favourites` | POST | Add a service to favourites. Body: `{ serviceId: string }`. Idempotent — silently succeeds if already favourited. | Yes |
+| `/api/favourites` | DELETE | Remove a service from favourites. Body: `{ serviceId: string }`. Idempotent — silently succeeds if not favourited. | Yes |
