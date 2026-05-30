@@ -7,42 +7,45 @@
   /* ═══════════════════════════════════════════════════
      COLORS — Brand
      ═══════════════════════════════════════════════════ */
-  --color-royal-gold: #F4E09B;
-  --color-deep-gold: #C8A961;
-  --color-warm-gold: #F4E09B;
-  --color-warm-stone: #D4C5A9;
-  --color-warm-cream: #FFF8E7;
-  --color-golden-mist: #FFF3D4;
+  --color-royal-gold: #f4e09b;
+  --color-deep-gold: #c8a961;
+  --color-warm-gold: #f4e09b;
+  --color-warm-stone: #d4c5a9;
+  --color-warm-cream: #fff8e7;
+  --color-golden-mist: #fff3d4;
 
   /* ═══════════════════════════════════════════════════
      COLORS — Neutrals
      ═══════════════════════════════════════════════════ */
-  --color-canvas-white: #FFFFFF;
-  --color-cocoa-dark: #1A0F0A;
-  --color-rich-chocolate: #2D1810;
-  --color-warm-gray: #3D2E1F;
-  --color-dusty-gray: #8C8C8C;
-  --color-outline-gray: #CCCCCC;
-  --color-cloud-gray: #F4F5F9;
+  --color-canvas-white: #ffffff;
+  --color-cocoa-dark: #1a0f0a;
+  --color-rich-chocolate: #2d1810;
+  --color-warm-gray: #3d2e1f;
+  --color-dusty-gray: #8c8c8c;
+  --color-outline-gray: #cccccc;
+  --color-cloud-gray: #f4f5f9;
 
   /* ═══════════════════════════════════════════════════
      COLORS — Functional
      ═══════════════════════════════════════════════════ */
-  --color-success: #3F7D5C;
-  --color-warning: #C8A961;
-  --color-error: #B5482E;
+  --color-success: #3f7d5c;
+  --color-warning: #c8a961;
+  --color-error: #b5482e;
 
   /* ═══════════════════════════════════════════════════
      COLORS — Accent
      ═══════════════════════════════════════════════════ */
-  --color-accent-pink: #F8C8D8;
+  --color-accent-pink: #f8c8d8;
 
   /* ═══════════════════════════════════════════════════
      TYPOGRAPHY — Font Families
      ═══════════════════════════════════════════════════ */
-  --font-display: 'Cabinet Grotesk', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-sans: 'Clash Grotesk', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-ui: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: "Cabinet Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    sans-serif;
+  --font-sans: "Clash Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    sans-serif;
+  --font-ui: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    sans-serif;
 
   /* ═══════════════════════════════════════════════════
      TYPOGRAPHY — Type Scale

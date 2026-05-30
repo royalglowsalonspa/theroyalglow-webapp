@@ -1,0 +1,22 @@
+{
+  "name": "@rgss/business",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@rgss/errors": "workspace:*",
+    "@rgss/types": "workspace:*",
+    "nanoid": "^5.1.11"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

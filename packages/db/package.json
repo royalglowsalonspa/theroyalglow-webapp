@@ -1,0 +1,26 @@
+{
+  "name": "@rgss/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema/index.ts",
+    "./queries": "./src/queries/index.ts"
+  },
+  "scripts": {
+    "generate": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate",
+    "seed": "bun run scripts/seed.ts",
+    "seed:prod": "bun run scripts/seed-prod.ts"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.0",
+    "@rgss/types": "workspace:*",
+    "drizzle-orm": "^0.38.0",
+    "nanoid": "^5.1.11"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.30.0"
+  }
+}

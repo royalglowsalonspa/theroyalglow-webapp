@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@theme {
+  --color-royal-gold: #f4e09b;
+  --color-deep-gold: #c8a961;
+  --color-warm-gold: #f4e09b;
+  --color-warm-stone: #d4c5a9;
+  --color-warm-cream: #fff8e7;
+  --color-golden-mist: #fff3d4;
+  --color-canvas-white: #ffffff;
+  --color-cocoa-dark: #1a0f0a;
+  --color-rich-chocolate: #2d1810;
+  --color-warm-gray: #3d2e1f;
+  --color-dusty-gray: #8c8c8c;
+  --color-outline-gray: #cccccc;
+  --color-cloud-gray: #f4f5f9;
+  --color-success: #3f7d5c;
+  --color-warning: #c8a961;
+  --color-error: #b5482e;
+  --color-accent-pink: #f8c8d8;
+  --font-display: "Cabinet Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Clash Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-ui: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --radius-cards: 6px;
+  --radius-buttons: 8px;
+  --radius-pill: 9999px;
+  --shadow-card-hover: 0 18px 40px -22px rgba(26, 15, 10, 0.25);
+  --shadow-elevated: 0 24px 50px -20px rgba(26, 15, 10, 0.45);
+  --container-rg: 1278px;
+}
+
+@layer base {
+  :root {
+    --radius: 6px;
+    --background: 0 0% 100%;
+    --foreground: 20 33% 5%;
+    --primary: 43 82% 78%;
+    --primary-foreground: 20 33% 5%;
+    --secondary: 30 5% 96%;
+    --secondary-foreground: 20 33% 5%;
+    --muted: 30 5% 96%;
+    --muted-foreground: 20 5% 55%;
+    --accent: 43 42% 60%;
+    --accent-foreground: 20 33% 5%;
+    --destructive: 14 60% 44%;
+    --border: 0 0% 80%;
+    --input: 0 0% 80%;
+    --ring: 43 42% 60%;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    color: var(--color-cocoa-dark);
+    background-color: var(--color-canvas-white);
+  }
+
+  *:focus-visible {
+    outline: 2px solid var(--color-deep-gold);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

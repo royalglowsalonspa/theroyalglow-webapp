@@ -1,0 +1,41 @@
+{
+  "name": "@rgss/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check ./src"
+  },
+  "dependencies": {
+    "@better-auth/infra": "^0.2.11",
+    "@rgss/business": "workspace:*",
+    "@rgss/db": "workspace:*",
+    "@rgss/errors": "workspace:*",
+    "@rgss/logger": "workspace:*",
+    "@rgss/types": "workspace:*",
+    "@t3-oss/env-nextjs": "^0.11.1",
+    "@tailwindcss/postcss": "^4.1.8",
+    "better-auth": "^1.6.12",
+    "clsx": "^2.1.1",
+    "drizzle-orm": "0.38.4",
+    "kysely": "0.27.4",
+    "nanoid": "^5.1.11",
+    "next": "16.2.6",
+    "postcss": "^8.5.4",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tailwind-merge": "^3.3.0",
+    "tailwindcss": "^4.1.8",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.6",
+    "typescript": "^5.7.3"
+  }
+}

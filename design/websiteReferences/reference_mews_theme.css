@@ -15,7 +15,8 @@
   --color-cool-stone: #c4c9dd;
 
   /* Typography */
-  --font-soehne: 'soehne', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-soehne: "soehne", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
 
   /* Typography — Scale */
   --text-caption: 11px;

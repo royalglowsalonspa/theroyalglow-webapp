@@ -1,0 +1,48 @@
+# ═══════════════════════════════════════════════════════════════
+# Royal Glow Salon & Spa — Monorepo .gitignore
+# Turborepo + Bun + Next.js
+# ═══════════════════════════════════════════════════════════════
+
+# ─── Dependencies ─────────────────────────────────────────────
+node_modules/
+
+# ─── Build outputs ────────────────────────────────────────────
+.next/
+dist/
+.turbo/
+*.tsbuildinfo
+
+# ─── Environment files ────────────────────────────────────────
+.env
+.env.local
+.env*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ─── Bun ──────────────────────────────────────────────────────
+bun.lockb
+
+# ─── TypeScript ───────────────────────────────────────────────
+*.tsbuildinfo
+
+# ─── Test coverage ────────────────────────────────────────────
+coverage/
+
+# ─── IDE files ────────────────────────────────────────────────
+.idea/
+*.swp
+*.swo
+*~
+
+# ─── OS files ─────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ─── Misc ─────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
