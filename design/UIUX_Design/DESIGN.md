@@ -1,338 +1,344 @@
-# Royal Glow Salon & SPA — Style Reference
-> Royal Warmth Aesthetic
+# Royal Glow Salon & SPA — Design System
+
+A premium, editorial salon brand. Warm chocolate + royal gold on bright canvas.
+Built on Tailwind CSS v4 (`@theme` tokens in `src/styles.css`).
 
 **Theme:** light
-
-Royal Glow employs a 'Royal Warmth' aesthetic: a pristine white canvas combined with warm gold accents and rich chocolate typography creates an impression of luxury, warmth, and premium care. Components utilise generous spacing and subtle shadow work to define interactive zones. The signature Royal Gold provides a luminous accent for primary actions and highlights, while the deep chocolaty tones ground the interface with richness and sophistication. This design system targets a premium Indian salon experience.
-
 **Logo file:** `Royal Glow Logo.png` (located in this folder)
-
 **Locale conventions:** All prices in ₹ (INR), dates in DD/MM/YYYY format, Indian English spelling.
 
-## Tokens — Colors
+---
 
-| Name | Value | Token | Role |
-|------|-------|-------|------|
-| Canvas White | `#ffffff` | `--color-canvas-white` | Page backgrounds, card surfaces, UI elements requiring clean separation |
-| Cocoa Dark | `#1A0F0A` | `--color-cocoa-dark` | Primary text, critical borders, dark backgrounds for hero sections. A rich chocolaty black. |
-| Cloud Gray | `#f4f5f9` | `--color-cloud-gray` | Subtle background for ghost buttons and secondary content cards |
-| Warm Gray | `#3D2E1F` | `--color-warm-gray` | Secondary text, less prominent UI elements. Chocolate-tinted dark neutral. |
-| Rich Chocolate | `#2D1810` | `--color-rich-chocolate` | Elevated card backgrounds, dark accents for premium feel |
-| Dusty Gray | `#8c8c8c` | `--color-dusty-gray` | Muted text or icon accents, placeholder states |
-| Outline Gray | `#cccccc` | `--color-outline-gray` | Hairline borders, subtle dividers |
-| Royal Gold | `#F4E09B` | `--color-royal-gold` | Primary action backgrounds, interactive highlights — a warm, luminous gold presence against the neutral interface |
-| Warm Cream | `#FFF8E7` | `--color-warm-cream` | Alternative accent background for banners or themed cards, a softer complement to Royal Gold |
-| Golden Mist | `#FFF3D4` | `--color-golden-mist` | Subtle background for notification cards or soft promotional panels |
-| Deep Gold | `#C8A961` | `--color-deep-gold` | Illustrative accents, decorative highlights, small icon fills — used sparingly to create warm luxurious points of interest |
-| Warm Gold | `#F4E09B` | `--color-warm-gold` | Primary action color for filled buttons, selected navigation states, and focused conversion moments. Main CTA fill. |
-| Warm Stone | `#D4C5A9` | `--color-warm-stone` | Subtle decorative strokes, icon outlines, or very light text in specific contexts |
+## 1. Design Principles
 
+- **Editorial calm** — generous whitespace, large display type, dark hero blocks against bright canvas.
+- **Warm luxury** — chocolate browns + champagne/royal gold instead of cold neutrals.
+- **Crisp geometry** — 6px card radius, pill buttons, hairline borders (`cloud-gray`).
+- **Type-led hierarchy** — Cabinet Grotesk Black for headlines does the heavy lifting; color accents are secondary.
+- **Motion is restrained** — 200–250ms ease, max `translateY(-2px)` lift on hover.
 
-## Tokens — Typography
+---
 
-### Inter — The primary typeface for all text elements. Features a wide range of weights, used dynamically for commanding headlines, legible body text, and distinct button labels. The tighter letter-spacing especially at larger sizes contributes to a crisp, modern aesthetic. · `--font-primary`
-- **Font:** Inter (free, widely available via Google Fonts, similar crispness to soehne)
-- **Substitute:** ui-sans-serif, system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif
-- **Weights:** 400, 500, 600, 700, 900
-- **Sizes:** 11px, 12px, 13px, 14px, 15px, 16px, 17px, 18px, 20px, 22px, 28px, 32px, 40px, 48px, 64px, 72px, 96px
-- **Line height:** 0.80, 0.90, 1.00, 1.03, 1.10, 1.15, 1.20, 1.35, 1.50
-- **Letter spacing:** -0.025em for large headlines, gradually relaxing to normal for body text. Tighter tracking for display sizes enhances the modern, precise feel.
-- **Role:** The primary typeface for all text elements. Features a wide range of weights, used dynamically for commanding headlines, legible body text, and distinct button labels. The tighter letter-spacing especially at larger sizes contributes to a crisp, modern aesthetic.
+## 2. Color Tokens
+
+### Brand
+
+| Token | Hex | Role |
+|---|---|---|
+| `--color-royal-gold` | `#F4E09B` | Primary CTA fill, accent highlights |
+| `--color-deep-gold` | `#C8A961` | Links, numerals, primary hover, outlines |
+| `--color-warm-gold` | `#F4E09B` | Alias of royal-gold |
+| `--color-warm-stone` | `#D4C5A9` | Muted gold neutral |
+| `--color-warm-cream` | `#FFF8E7` | Hero secondary card, CTA section bg |
+| `--color-golden-mist` | `#FFF3D4` | Announcement bar, pill hover bg |
+
+### Neutrals
+
+| Token | Hex | Role |
+|---|---|---|
+| `--color-canvas-white` | `#FFFFFF` | Page background |
+| `--color-cocoa-dark` | `#1A0F0A` | Primary text, dark hero card bg |
+| `--color-rich-chocolate` | `#2D1810` | Offer cards bg |
+| `--color-warm-gray` | `#3D2E1F` | Secondary body text |
+| `--color-dusty-gray` | `#8C8C8C` | Tertiary text, timestamps |
+| `--color-outline-gray` | `#CCCCCC` | Inactive indicators, borders |
+| `--color-cloud-gray` | `#F4F5F9` | Card borders, dividers, ghost btn bg |
+
+### Functional
+
+| Token | Hex | Role |
+|---|---|---|
+| `--color-success` | `#3F7D5C` | Confirmations |
+| `--color-warning` | `#C8A961` | Reuses deep-gold |
+| `--color-error` | `#B5482E` | Form errors, destructive actions |
+
+### Accent
+
+| Token | Hex | Role |
+|---|---|---|
+| `--color-accent-pink` | `#F8C8D8` | Review avatar circles |
+
+---
+
+## 3. Typography
+
+### Font Families
+
+| Variable | Font | Weight | Role |
+|---|---|---|---|
+| `--font-display` | Cabinet Grotesk | 900 (Black) | Headlines H1–H3, brand wordmark |
+| `--font-sans` | Clash Grotesk | 400 (Regular) | Body, quotes, descriptions |
+| `--font-ui` | Plus Jakarta Sans | 700 (Bold) | Buttons, nav, pills, eyebrows, badges |
+
+**Font sources:**
+- Cabinet Grotesk — [Fontshare](https://www.fontshare.com/fonts/cabinet-grotesk) (free, commercial use)
+- Clash Grotesk — [Fontshare](https://www.fontshare.com/fonts/clash-grotesk) (free, commercial use)
+- Plus Jakarta Sans — [Google Fonts](https://fonts.google.com/specimen/Plus+Jakarta+Sans) (open source, SIL OFL)
 
 ### Type Scale
 
-| Role | Size | Line Height | Letter Spacing | Token |
-|------|------|-------------|----------------|-------|
-| caption | 11px | 1.5 | 0.05px | `--text-caption` |
-| body | 15px | 1.35 | — | `--text-body` |
-| subheading | 22px | 1.2 | — | `--text-subheading` |
-| heading-sm | 28px | 1.15 | — | `--text-heading-sm` |
-| heading | 48px | 1.1 | -0.96px | `--text-heading` |
-| heading-lg | 72px | 1.03 | -1.44px | `--text-heading-lg` |
-| display | 96px | 0.9 | -2.4px | `--text-display` |
+| Class | Size | Line Height | Letter Spacing | Weight |
+|---|---|---|---|---|
+| `.h-display` | `clamp(40px, 6vw, 72px)` | 1.03 | -1.44px | 900 |
+| `.h-xl` | `clamp(32px, 4.5vw, 48px)` | 1.1 | -0.96px | 900 |
+| `.h-md` | `28px` | 1.15 | — | 800 |
+| Body L | `17px` | 1.6 | — | 400 |
+| Body | `15px` | 1.55 | — | 400 |
+| Small | `13–14px` | 1.5 | — | 400 |
+| Eyebrow | `11px` | 1 | 2px | 700 / uppercase |
 
+### Brand Wordmarks (product partner fonts)
 
-## Tokens — Spacing & Shapes
+| Brand | Font |
+|---|---|
+| L'Oréal | Cinzel |
+| Schwarzkopf | Oswald |
+| Lakmé | Bodoni Moda (italic) |
+| Olaplex | Archivo Black |
+| Wella | Playfair Display |
+| Moroccanoil | Cormorant Garamond |
 
-**Density:** comfortable
+---
 
-### Spacing Scale
+## 4. Spacing & Layout
 
-| Name | Value | Token |
-|------|-------|-------|
-| 7 | 7px | `--spacing-7` |
-| 8 | 8px | `--spacing-8` |
-| 10 | 10px | `--spacing-10` |
-| 12 | 12px | `--spacing-12` |
-| 14 | 14px | `--spacing-14` |
-| 16 | 16px | `--spacing-16` |
-| 20 | 20px | `--spacing-20` |
-| 21 | 21px | `--spacing-21` |
-| 24 | 24px | `--spacing-24` |
-| 32 | 32px | `--spacing-32` |
-| 36 | 36px | `--spacing-36` |
-| 40 | 40px | `--spacing-40` |
-| 42 | 42px | `--spacing-42` |
-| 44 | 44px | `--spacing-44` |
-| 48 | 48px | `--spacing-48` |
-| 80 | 80px | `--spacing-80` |
+| Token | Value | Use |
+|---|---|---|
+| `--page-max-width` | `1278px` | Container max-width |
+| Container padding | `20px` inline | `.container-rg` |
+| Section rhythm | `80px` | Between major sections |
+| Hero padding | `p-8 sm:p-12 lg:p-16` | Hero cards |
+| Card padding | `16px` (small) / `32px` (large) | Service / offer / CTA cards |
+| Default gap | `24px` (`gap-6`) | Grids |
+| Wide gap | `gap-12 lg:gap-16` | Two-column layouts |
 
-### Border Radius
+**Breakpoints** (Tailwind defaults): `sm 640` · `md 768` · `lg 1024` · `xl 1280` · `2xl 1536`.
 
-| Element | Value |
-|---------|-------|
-| pill | 9999px |
-| cards | 6px |
-| buttons | 8px |
-| default | 4px |
+---
 
-### Layout
+## 5. Radius, Shadow, Motion
 
-- **Page max-width:** 1278px
-- **Section gap:** 80px
-- **Card padding:** 16px
-- **Element gap:** 10px
+### Radius
 
+| Token | Value | Use |
+|---|---|---|
+| `--radius-cards` | `6px` | Cards, hero blocks, sections |
+| `--radius-buttons` | `8px` | Reserved (pills preferred) |
+| `--radius-pill` | `9999px` | Buttons, pills, avatars, dots |
+| Testimonial | `10px` | Review cards only |
 
-## Components
+### Shadow
 
-### Hero Dark Card
-**Role:** Prominent information display — Hero banner
+| Name | Value | Use |
+|---|---|---|
+| `--shadow-card-hover` | `0 18px 40px -22px rgba(26,15,10,0.25)` | Card hover state |
+| `--shadow-elevated` | `0 24px 50px -20px rgba(26,15,10,0.45)` | Featured review card |
 
-A large, dark surface with a #1A0F0A (Cocoa Dark) background, 6px border-radius, and generous 80px padding on all sides. Used for dramatic, text-heavy introductory blocks. The hero banner features "Royal Glow Salon & SPA" as the headline with a centred "Book Now" button below.
+### Motion
 
-### Primary Action Button
-**Role:** Call to action
+- Buttons: `transform 0.2s ease, background 0.2s ease`
+- Cards: `box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease`
+- Hover lift: `translateY(-1px)` (buttons) / `translateY(-2px)` (cards)
 
-Filled with Warm Gold (#F4E09B), text is Cocoa Dark (#1A0F0A), 8px border-radius, 48px vertical padding, 44px horizontal padding. A visually commanding element that draws the eye with its warm, luminous gold fill. Used for "Book Now", "Reserve Slot", and primary conversion CTAs.
+---
 
-### Ghost Pill Button
-**Role:** Secondary action or tag
+## 6. Components
 
-Transparent background with Canvas White (#ffffff) text and border. Features an extreme 9999px border-radius for a pill shape and minimal 0px vertical, 12px horizontal padding. Used for subtle categorisation or less prominent actions on dark backgrounds.
+### Buttons (height 40px, font-ui 12px/700, tracking 0.5px, UPPERCASE)
 
-### Subtle Background Button
-**Role:** Informational button or filter
+| Variant | Style |
+|---|---|
+| `.btn-primary` | bg `royal-gold` → hover `deep-gold` + lift; text `cocoa-dark` |
+| `.btn-ghost` | bg `cloud-gray` → hover `golden-mist`; text `cocoa-dark` |
+| Outline gold | border + text `deep-gold` → hover fill `deep-gold` on `cocoa-dark` |
+| White-on-dark | border `white/25`, hover bg `white/10`, text white |
 
-Uses Cloud Gray (#f4f5f9) as background, Cocoa Dark (#1A0F0A) for text, 8px border-radius, and significant 48px vertical, 44px horizontal padding. Less assertive than the primary action, but still prominent. Used for filters like "All Services", "Hair", "Skin", "Nails".
+### Tag Pill
 
-### Feature Grid Card
-**Role:** Display individual features or services
+- bg `royal-gold` at 18% opacity
+- text `royal-gold`
+- 11px/700, tracking 1px
+- padding `8px 14px`
+- radius `9999px` (pill)
 
-A Canvas White (#ffffff) background, 6px border-radius, with crisp implicit content padding, often appearing in grid layouts. Defines distinct content blocks within a section. Used for service cards, stylist profiles, and package displays.
+### Card
 
-### Dark Overlay Promo Card
-**Role:** Specialised content highlight
+- bg white
+- radius 6px
+- border 1px `cloud-gray`
+- Hover: border `golden-mist`, lift `-2px`, shadow `card-hover`
 
-A card with Rich Chocolate (#2D1810) background, 6px border-radius, and often no explicit padding (content manages its own internal spacing). Used for high-contrast promotional items such as membership offers, seasonal packages, or VIP experiences.
+### Offer Card
+
+- bg `rich-chocolate` (#2D1810)
+- text white
+- left border `4px solid deep-gold` (#C8A961)
+- padding `32px`
+- radius 6px
+
+### Featured Review Card
+
+- bg `cocoa-dark` (#1A0F0A)
+- text white
+- radius `10px`
+- shadow `elevated`
 
 ### Accordion Item
-**Role:** Collapsible content area
 
-Uses Canvas White (#ffffff) background with an Outline Gray (#cccccc) 1px border. Text is Cocoa Dark (#1A0F0A). Active state highlights with a touch of Deep Gold (#C8A961). Used for FAQ sections, service details expansion, and pricing breakdowns.
+- bg `canvas-white`
+- border-bottom: 1px `outline-gray`
+- Question: font-sans, 17px, weight 500, cocoa-dark
+- "+" icon: 32px circle, 1px outline-gray border, rotates to "×" on expand
+- Answer: font-sans, 15px, warm-gray
 
+### Hero Dark Card
 
-## Do's and Don'ts
+- bg `cocoa-dark` (#1A0F0A)
+- radius 6px
+- padding: 32px (mobile), 48px (tablet), 64px (desktop)
+- Eyebrow: font-ui, 11px uppercase, tracking 2px, warm-stone text, royal-gold dot
+- Headline: font-display, h-display scale, canvas-white
+- Body: font-sans, 17px, line 1.6, dusty-gray
 
-### Do
-- Prioritise Canvas White (#ffffff) as the primary background for all page sections unless an intentional dark contrast is required.
-- Use Cocoa Dark (#1A0F0A) for all primary text elements and critical borders to maintain high contrast and warmth.
-- Apply Warm Gold (#F4E09B) specifically for primary calls to action (Book Now, Reserve, Confirm), ensuring it stands out against neutral backgrounds.
-- Incorporate 6px border-radius for all cards and container elements to maintain a consistent subtle softening.
-- Maintain an 'elementGap' of 10px where distinct elements require separation in horizontal or vertical stacks.
-- Use the Inter typeface with specific negative letter-spacing for headlines (e.g., -0.025em at 96px) to achieve a modern, condensed feel.
-- Ensure generous vertical section spacing of 80px between major content blocks to create a comfortable rhythm.
-- Display all prices in ₹ (Indian Rupees) and dates in DD/MM/YYYY format.
-- Reference the `Royal Glow Logo.png` for all brand mark placements.
+---
 
-### Don't
-- Do not introduce new vibrant colours unless they serve a specific brand or semantic function; maintain the warm gold and chocolate palette with precise accent usage.
-- Avoid heavy drop shadows or intrusive gradients; surfaces should primarily be flat or have minimal depth created by a single solid border.
-- Do not use generic system fonts; always specify Inter or its recommended substitute with defined weights and line heights.
-- Refrain from using small radius values (e.g., 2px) on cards or buttons; maintain 6px for cards and 8px for buttons, with 9999px for pill-shaped elements.
-- Do not break content beyond the 1278px pageMaxWidth; all main content should be horizontally centred within these bounds.
-- Avoid unnecessary visual clutter. The system thrives on clear visual hierarchy and ample whitespace.
-- Do not use plain, neutral grays for interactive states; interactive elements should leverage Warm Gold (#F4E09B) or Deep Gold (#C8A961) for a distinct visual change.
-- Do not use cool-toned blues or purples; all accent tones should remain within the warm gold/cream spectrum.
+## 7. Tailwind v4 — `src/styles.css`
 
-
-## Agent Prompt Guide
-
-### Quick Colour Reference
-- text: #1A0F0A (Cocoa Dark)
-- background: #ffffff (Canvas White)
-- border: #cccccc (Outline Gray)
-- accent: #C8A961 (Deep Gold)
-- primary action: #F4E09B (Warm Gold — filled action button)
-
-### 3-5 Example Component Prompts
-1. **Create a Hero Dark Card:** Use background #1A0F0A (Cocoa Dark), border-radius 6px, and 80px padding. Place an Inter weight 900 headline at 64px reading "Royal Glow Salon & SPA", colour #ffffff (Canvas White), with letter-spacing -1.6px. Include a Primary Action Button below it with text "Book Now", centred.
-2. **Create a Primary Action Button:** #F4E09B (Warm Gold) background, #1A0F0A (Cocoa Dark) text, 9999px radius, compact pill padding. Use this filled treatment for the main CTA such as "Book Now" or "Reserve Your Slot".
-3. **Design a Feature Grid Card (Service Card):** Use background #ffffff (Canvas White), border-radius 6px. Include an Inter weight 600 heading at 20px reading the service name, colour #1A0F0A (Cocoa Dark), price in ₹ at 15px, and body text at 15px, colour #3D2E1F (Warm Gray). Maintain at least 16px internal padding for content.
-4. **Create an Accordion Section (FAQ):** Each item has a #ffffff (Canvas White) background, 1px solid #cccccc (Outline Gray) border. Title is Inter weight 500 at 18px, colour #1A0F0A (Cocoa Dark). In the active state, highlight the expanding area with a touch of #C8A961 (Deep Gold) on the toggle icon or left border.
-
-
-## Similar Brands
-
-- **Glossier** — Shares a warm, inviting aesthetic with generous whitespace, soft accent colours, and a focus on premium beauty experiences.
-- **Aesop** — Exhibits a similar approach to luxury through restraint, featuring rich earthy tones, clean typography, and minimal yet powerful layouts.
-- **Byredo** — Uses a comparable warm-neutral palette with gold accents, creating an atmosphere of understated luxury and exclusivity.
-- **Charlotte Tilbury** — Employs warm golds and rich darks to convey glamour and premium positioning in the beauty space, similar to Royal Glow's warmth.
-
-
-## Quick Start
-
-### CSS Custom Properties
+Tailwind v4 reads tokens from `@theme`. Any `--color-*` becomes `bg-*`, `text-*`, `border-*` automatically. Any `--font-*` becomes `font-*`.
 
 ```css
-:root {
-  /* Colors */
-  --color-canvas-white: #ffffff;
-  --color-cocoa-dark: #1A0F0A;
-  --color-cloud-gray: #f4f5f9;
-  --color-warm-gray: #3D2E1F;
-  --color-rich-chocolate: #2D1810;
-  --color-dusty-gray: #8c8c8c;
-  --color-outline-gray: #cccccc;
+@import "tailwindcss" source(none);
+@source "../src";
+
+@theme {
+  /* Colors — Brand */
   --color-royal-gold: #F4E09B;
-  --color-warm-cream: #FFF8E7;
-  --color-golden-mist: #FFF3D4;
   --color-deep-gold: #C8A961;
   --color-warm-gold: #F4E09B;
   --color-warm-stone: #D4C5A9;
+  --color-warm-cream: #FFF8E7;
+  --color-golden-mist: #FFF3D4;
 
-  /* Typography — Font Families */
-  --font-primary: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  /* Colors — Neutrals */
+  --color-canvas-white: #FFFFFF;
+  --color-cocoa-dark: #1A0F0A;
+  --color-rich-chocolate: #2D1810;
+  --color-warm-gray: #3D2E1F;
+  --color-dusty-gray: #8C8C8C;
+  --color-outline-gray: #CCCCCC;
+  --color-cloud-gray: #F4F5F9;
 
-  /* Typography — Scale */
-  --text-caption: 11px;
-  --leading-caption: 1.5;
-  --tracking-caption: 0.05px;
-  --text-body: 15px;
-  --leading-body: 1.35;
-  --text-subheading: 22px;
-  --leading-subheading: 1.2;
-  --text-heading-sm: 28px;
-  --leading-heading-sm: 1.15;
-  --text-heading: 48px;
-  --leading-heading: 1.1;
-  --tracking-heading: -0.96px;
-  --text-heading-lg: 72px;
-  --leading-heading-lg: 1.03;
-  --tracking-heading-lg: -1.44px;
-  --text-display: 96px;
-  --leading-display: 0.9;
-  --tracking-display: -2.4px;
+  /* Colors — Functional */
+  --color-success: #3F7D5C;
+  --color-warning: #C8A961;
+  --color-error: #B5482E;
 
+  /* Colors — Accent */
+  --color-accent-pink: #F8C8D8;
 
-  /* Typography — Weights */
-  --font-weight-regular: 400;
-  --font-weight-medium: 500;
-  --font-weight-semibold: 600;
-  --font-weight-bold: 700;
-  --font-weight-black: 900;
+  /* Fonts */
+  --font-display: 'Cabinet Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Clash Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-ui: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
 
-  /* Spacing */
-  --spacing-7: 7px;
-  --spacing-8: 8px;
-  --spacing-10: 10px;
-  --spacing-12: 12px;
-  --spacing-14: 14px;
-  --spacing-16: 16px;
-  --spacing-20: 20px;
-  --spacing-21: 21px;
-  --spacing-24: 24px;
-  --spacing-32: 32px;
-  --spacing-36: 36px;
-  --spacing-40: 40px;
-  --spacing-42: 42px;
-  --spacing-44: 44px;
-  --spacing-48: 48px;
-  --spacing-80: 80px;
-
-  /* Layout */
-  --page-max-width: 1278px;
-  --section-gap: 80px;
-  --card-padding: 16px;
-  --element-gap: 10px;
-
-  /* Border Radius */
-  --radius-md: 4px;
-  --radius-lg: 8px;
-  --radius-full: 9999px;
-
-  /* Named Radii */
-  --radius-pill: 9999px;
+  /* Radius */
   --radius-cards: 6px;
   --radius-buttons: 8px;
-  --radius-default: 4px;
+  --radius-pill: 9999px;
+
+  /* Shadows */
+  --shadow-card-hover: 0 18px 40px -22px rgba(26, 15, 10, 0.25);
+  --shadow-elevated: 0 24px 50px -20px rgba(26, 15, 10, 0.45);
+
+  /* Layout */
+  --container-rg: 1278px;
 }
 ```
 
+### Usage Examples
 
-### Tailwind v4
+```tsx
+{/* Headline */}
+<h1 className="font-display text-cocoa-dark tracking-[-1.44px] leading-[1.03]">
+  Where beauty meets royalty.
+</h1>
 
-```css
-@theme {
-  /* Colors */
-  --color-canvas-white: #ffffff;
-  --color-cocoa-dark: #1A0F0A;
-  --color-cloud-gray: #f4f5f9;
-  --color-warm-gray: #3D2E1F;
-  --color-rich-chocolate: #2D1810;
-  --color-dusty-gray: #8c8c8c;
-  --color-outline-gray: #cccccc;
-  --color-royal-gold: #F4E09B;
-  --color-warm-cream: #FFF8E7;
-  --color-golden-mist: #FFF3D4;
-  --color-deep-gold: #C8A961;
-  --color-warm-gold: #F4E09B;
-  --color-warm-stone: #D4C5A9;
+{/* Primary CTA */}
+<button className="bg-royal-gold text-cocoa-dark font-ui text-xs uppercase tracking-wider rounded-full px-6 py-3 hover:bg-deep-gold hover:-translate-y-px transition-all duration-200">
+  BOOK NOW
+</button>
 
-  /* Typography */
-  --font-primary: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+{/* Offer card */}
+<div className="bg-rich-chocolate text-canvas-white border-l-4 border-deep-gold rounded-[6px] p-8">
+  ...
+</div>
 
-  /* Typography — Scale */
-  --text-caption: 11px;
-  --leading-caption: 1.5;
-  --tracking-caption: 0.05px;
-  --text-body: 15px;
-  --leading-body: 1.35;
-  --text-subheading: 22px;
-  --leading-subheading: 1.2;
-  --text-heading-sm: 28px;
-  --leading-heading-sm: 1.15;
-  --text-heading: 48px;
-  --leading-heading: 1.1;
-  --tracking-heading: -0.96px;
-  --text-heading-lg: 72px;
-  --leading-heading-lg: 1.03;
-  --tracking-heading-lg: -1.44px;
-  --text-display: 96px;
-  --leading-display: 0.9;
-  --tracking-display: -2.4px;
-
-  /* Spacing */
-  --spacing-7: 7px;
-  --spacing-8: 8px;
-  --spacing-10: 10px;
-  --spacing-12: 12px;
-  --spacing-14: 14px;
-  --spacing-16: 16px;
-  --spacing-20: 20px;
-  --spacing-21: 21px;
-  --spacing-24: 24px;
-  --spacing-32: 32px;
-  --spacing-36: 36px;
-  --spacing-40: 40px;
-  --spacing-42: 42px;
-  --spacing-44: 44px;
-  --spacing-48: 48px;
-  --spacing-80: 80px;
-
-  /* Border Radius */
-  --radius-md: 4px;
-  --radius-lg: 8px;
-  --radius-full: 9999px;
-}
+{/* Body text */}
+<p className="font-sans text-warm-gray text-[15px] leading-[1.55]">
+  A premium salon and spa experience in Bengaluru.
+</p>
 ```
+
+---
+
+## 8. Accessibility
+
+- All body text ≥ 15px on `canvas-white` meets WCAG AA against `cocoa-dark` / `warm-gray`.
+- `dusty-gray` (#8C8C8C) on white passes AA only at ≥18px — use for timestamps and meta, never body copy.
+- `royal-gold` text on `cocoa-dark` passes AA at large sizes; never use gold text on white for body.
+- Focus state: `outline: 2px solid var(--color-deep-gold); outline-offset: 2px;`
+- All touch targets: minimum 40px × 40px.
+- Respect `prefers-reduced-motion` — disable all animations when set.
+
+---
+
+## 9. Do / Don't
+
+### Do
+
+- Use `--font-display` (Cabinet Grotesk Black) for any headline ≥ 24px.
+- Use `--font-sans` (Clash Grotesk Regular) for all body text, descriptions, quotes.
+- Use `--font-ui` (Plus Jakarta Sans Bold) for buttons, nav, pills, badges, eyebrows.
+- Pair dark chocolate blocks with cream/white blocks for editorial rhythm.
+- Keep CTAs gold; secondary actions stay neutral (cloud-gray ghost buttons).
+- Use pill radius (9999px) for all buttons — never square buttons.
+- Display all prices in ₹ (Indian Rupees) with Indian comma system.
+- Use DD/MM/YYYY date format everywhere.
+
+### Don't
+
+- Don't introduce new colours outside this palette — extend `@theme` instead.
+- Don't use serif fonts in product UI (reserved for brand wordmarks only).
+- Don't stack more than two gold elements in one viewport — gold is an accent.
+- Don't use cool blues, purples, or grey-blues — everything warm spectrum only.
+- Don't use Inter, Helvetica, or other generic sans fonts — use Clash Grotesk for body.
+- Don't use heavy drop shadows or gradients — keep surfaces flat with hairline borders.
+- Don't break content beyond the 1278px page max-width.
+
+---
+
+## 10. Similar Brands (design mood)
+
+- **Aesop** — Luxury through restraint, rich earthy tones, clean typography.
+- **Charlotte Tilbury** — Warm golds and rich darks for glamour and premium positioning.
+- **Glossier** — Warm, inviting aesthetic with generous whitespace.
+- **Mews.com** — Editorial web design, type-led, clean geometry.
+
+---
+
+## 11. Quick Colour Reference (for AI agents)
+
+```
+text:           #1A0F0A (Cocoa Dark)
+background:     #FFFFFF (Canvas White)
+border:         #CCCCCC (Outline Gray)
+accent:         #C8A961 (Deep Gold)
+primary action: #F4E09B (Royal Gold — filled CTA button)
+body font:      Clash Grotesk Regular (400)
+headline font:  Cabinet Grotesk Black (900)
+ui font:        Plus Jakarta Sans Bold (700)
+```
+
+---
+
+*Generated for use with Lovable, Stitch, Figma AI, v0, Galileo, and other AI design agents. Feed this entire file as context to generate consistent, brand-aligned mockups for any page in the Royal Glow Salon & SPA application.*
