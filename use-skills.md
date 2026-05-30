@@ -40,6 +40,11 @@
 | **Refero Design Skill** | Research-first design methodology — typography, color, spacing, motion, icons, copywriting, a11y | `npx skills add https://github.com/referodesign/refero_skill` |
 | **Emil Kowalski Design Skill** | UI polish, animations (< 300ms), custom easing, perceived performance, invisible details | `npx skills add emilkowalski/skill` |
 | **Taste Skill (Anti-Slop)** | Stops generic AI "slop" — reference-driven premium frontend with animations, spacing, quality (5.9k ⭐) | `npx skills add https://github.com/Leonxlnx/taste-skill` |
+| **Deslop (Hallmark)** | Anti-AI-slop design — typography, colour, layout, motion, interaction + 65 pre-ship gates. Makes UIs look designed, not generated | `npx skills add Nutlope/hallmark` |
+| **Writing PRDs (Vercel)** | Generate high-quality Product Requirements Documents — executive summaries, user stories, technical specs, risk analysis | `npx skills add vercel-labs/agent-skills writing-prds` |
+| **Grill-with-Docs (Matt Pocock)** | Stress-test your plan against existing domain model. Challenges terminology, sharpens decisions, updates CONTEXT.md + ADRs inline | `npx skills add mattpocock/skills grill-with-docs` |
+| **Next.js Developer** | Official Next.js agent skills — RSC boundaries, data patterns, async APIs, metadata, file conventions, error management, route handlers | `npx skills add vercel-labs/next-skills` |
+| **React Doctor** | Scans React codebase for security, performance, correctness, architecture issues — returns 0–100 score with actionable diagnostics | `npx skills add millionco/react-doctor` |
 | **Vercel Agent Skills** | Official Next.js, React, Tailwind, deployment skills | `npx skills add vercel-labs/agent-skills` |
 | **Anthropic Skills** | Official Anthropic agent skills (skill-creator, pptx, etc.) | `npx skills add anthropics/skills` |
 | **Anthony Fu Skills** | Curated skills from Anthony Fu (3.1k ⭐) — TypeScript, tooling | `npx skills add antfu/skills` |
@@ -241,8 +246,26 @@ The **`npx skills`** CLI is the npm-for-skills ecosystem. One command installs a
 # Install Refero Design skill (premium UI methodology)
 npx skills add https://github.com/referodesign/refero_skill
 
+# Install Emil Kowalski Design Engineering skill
+npx skills add emilkowalski/skill
+
+# Install Taste Skill — Anti-Slop frontend (5.9k ⭐)
+npx skills add https://github.com/Leonxlnx/taste-skill
+
+# Install Hallmark — Deslop design skill (anti-AI-slop)
+npx skills add Nutlope/hallmark
+
 # Install Vercel's official agent skills (Next.js, React, Tailwind, deployment)
 npx skills add vercel-labs/agent-skills
+
+# Install Next.js Developer skills (RSC, data patterns, file conventions)
+npx skills add vercel-labs/next-skills
+
+# Install Matt Pocock's engineering skills (grill-with-docs, TDD, write-a-prd)
+npx skills add mattpocock/skills
+
+# Install React Doctor (diagnose & fix React code)
+npx skills add millionco/react-doctor
 
 # Install Anthropic's official skills
 npx skills add anthropics/skills
@@ -291,6 +314,11 @@ Skills are Markdown files in `.kiro/skills/` that Kiro auto-activates based on c
 | **refero-design** | Research-first design — references, typography, color, spacing, motion, icons, copy | `npx skills add https://github.com/referodesign/refero_skill` |
 | **emil-design-eng** | Emil Kowalski's UI polish — animations, easing, component craft, perceived performance | `npx skills add emilkowalski/skill` |
 | **taste-skill** | Anti-slop frontend — reference-driven premium design, no generic AI aesthetics | `npx skills add https://github.com/Leonxlnx/taste-skill` |
+| **hallmark-deslop** | Anti-AI-slop design — typography, colour, layout, motion + 65 pre-ship quality gates | `npx skills add Nutlope/hallmark` |
+| **writing-prds** | Generate PRDs — executive summaries, user stories, technical specs, risk analysis (Vercel) | `npx skills add vercel-labs/agent-skills writing-prds` |
+| **grill-with-docs** | Stress-test plans against domain model, sharpen terminology, update CONTEXT.md + ADRs (Matt Pocock) | `npx skills add mattpocock/skills grill-with-docs` |
+| **nextjs-developer** | Official Next.js skills — RSC, data patterns, async APIs, metadata, error handling, route handlers | `npx skills add vercel-labs/next-skills` |
+| **react-doctor** | Diagnose React code — security, performance, correctness, architecture (0–100 score) | `npx skills add millionco/react-doctor` |
 | **web-accessibility** | WCAG 2.1 AA compliance — semantic HTML, ARIA, focus management, contrast | Create `.kiro/skills/web-accessibility.md` |
 | **json-ld-seo** | Structured data (LocalBusiness, Service, FAQ, BlogPosting, BreadcrumbList) | Create `.kiro/skills/json-ld-seo.md` |
 | **indian-locale** | India-specific patterns — DD/MM/YYYY dates, ₹ currency, GST, DPDP Act | Create `.kiro/skills/indian-locale.md` |
@@ -306,6 +334,10 @@ These are popular open-source skill repositories used by proficient developers:
 | [referodesign/refero_skill](https://github.com/referodesign/refero_skill) | Design-first | Research-first design methodology — typography, color, spacing, motion, icons, copywriting, a11y | `npx skills add https://github.com/referodesign/refero_skill` |
 | [emilkowalski/skill](https://github.com/emilkowalski/skill) | Design Eng | Emil Kowalski's UI polish philosophy — animations, easing curves, perceived performance, invisible details that compound into interfaces people love | `npx skills add emilkowalski/skill` |
 | [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill) | 5.9k ⭐ | The Anti-Slop Frontend Framework — stops AI from generating boring/generic UI. Generates design references first, analyzes deeply, then implements premium frontends | `npx skills add https://github.com/Leonxlnx/taste-skill` |
+| [Nutlope/hallmark](https://github.com/Nutlope/hallmark) | Deslop | Anti-AI-slop design skill — typography, colour, layout, motion, interaction + 65 pre-ship quality gates. Makes UIs look deliberately designed | `npx skills add Nutlope/hallmark` |
+| [mattpocock/skills](https://github.com/mattpocock/skills) | 173k+ installs | Matt Pocock's 24 engineering skills — grill-with-docs, TDD, write-a-prd, prd-to-issues, domain-model, improve-codebase-architecture | `npx skills add mattpocock/skills` |
+| [vercel-labs/next-skills](https://github.com/vercel-labs/next-skills) | Official | Next.js Developer skills — RSC boundaries, data patterns, async APIs, metadata, file conventions, route handlers, image/font optimization | `npx skills add vercel-labs/next-skills` |
+| [millionco/react-doctor](https://github.com/millionco/react-doctor) | React Health | Diagnose & fix React code — security, performance, correctness, architecture scan with 0–100 score + actionable diagnostics | `npx skills add millionco/react-doctor` |
 | [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) | Official | Next.js, React, Tailwind, web design guidelines, deployment | `npx skills add vercel-labs/agent-skills` |
 | [anthropics/skills](https://github.com/anthropics/skills) | Official | Anthropic's official agent skills (skill-creator, presentations, etc.) | `npx skills add anthropics/skills` |
 | [antfu/skills](https://github.com/antfu/skills) | 3.1k ⭐ | Anthony Fu's curated agent skills — TypeScript, tooling, open-source | `npx skills add antfu/skills` |
@@ -362,7 +394,11 @@ These are popular open-source skill repositories used by proficient developers:
 npx skills add https://github.com/referodesign/refero_skill
 npx skills add emilkowalski/skill
 npx skills add https://github.com/Leonxlnx/taste-skill
+npx skills add Nutlope/hallmark
 npx skills add vercel-labs/agent-skills
+npx skills add vercel-labs/next-skills
+npx skills add mattpocock/skills
+npx skills add millionco/react-doctor
 npx skills add anthropics/skills
 npx skills add antfu/skills
 
