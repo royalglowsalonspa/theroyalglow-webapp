@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LLD — Royal Glow Salon &amp; Spa | Low-Level Design</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #c9a96e;
+      --accent-soft: rgba(201,169,110,0.12);
+      --code-bg: #1c2128;
+      --link: #58a6ff;
+      --success: #3fb950;
+      --warning: #d29922;
+      --danger: #f85149;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      padding: 2rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 2.2rem;
+      color: var(--accent);
+      border-bottom: 2px solid var(--accent);
+      padding-bottom: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    h2 {
+      font-size: 1.6rem;
+      color: var(--accent);
+      margin-top: 3rem;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+    }
+    h3 {
+      font-size: 1.25rem;
+      color: var(--text);
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+    }
+
+    h4 {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    p { margin-bottom: 1rem; }
+    a { color: var(--link); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    blockquote {
+      border-left: 3px solid var(--accent);
+      padding: 0.5rem 1rem;
+      margin: 1rem 0;
+      background: var(--accent-soft);
+      border-radius: 0 6px 6px 0;
+    }
+    code {
+      font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+      background: var(--code-bg);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.88rem;
+    }
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      overflow-x: auto;
+      margin: 1rem 0;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.9rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.6rem 0.8rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: var(--surface);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+    ul, ol { margin: 0.5rem 0 1rem 1.5rem; }
+    li { margin-bottom: 0.35rem; }
+    strong { color: var(--text); }
+    .meta {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+      padding: 1rem;
+      background: var(--surface);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .meta strong { color: var(--accent); }
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 2rem 0;
+    }
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin: 2rem 0;
+    }
+    .toc h3 { margin-top: 0; color: var(--accent); }
+    .toc ol { margin-left: 1.25rem; }
+    .toc li { margin-bottom: 0.25rem; }
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge-success { background: rgba(63,185,80,0.15); color: var(--success); }
+    .badge-warning { background: rgba(210,153,34,0.15); color: var(--warning); }
+    .badge-danger { background: rgba(248,81,73,0.15); color: var(--danger); }
+    .kw { color: #ff7b72; }
+    .fn { color: #d2a8ff; }
+    .str { color: #a5d6ff; }
+    .cm { color: #8b949e; }
+    .num { color: #79c0ff; }
+    .type { color: #7ee787; }
+  </style>
+</head>
+<body>
+
+
+<h1>Low-Level Design (LLD) — Royal Glow Salon &amp; Spa</h1>
+
+<div class="meta">
+  <strong>Document Classification:</strong> System Design — Implementation Level<br>
+  <strong>Version:</strong> 1.0<br>
+  <strong>Author:</strong> Engineering Lead<br>
+  <strong>Last Updated:</strong> 2026-05-23<br>
+  <strong>Status:</strong> <span class="badge badge-success">Approved for Implementation</span><br>
+  <strong>Companion Document:</strong> <a href="./HLD.html">HLD — High-Level Design</a>
+</div>
+
+<div class="toc">
+  <h3>Table of Contents</h3>
+  <ol>
+    <li><a href="#db-schema">Database Schema Deep Dive</a></li>
+    <li><a href="#state-machines">State Machines</a></li>
+    <li><a href="#api-sequences">API Sequence Diagrams</a></li>
+    <li><a href="#service-layer">Service Layer Architecture</a></li>
+    <li><a href="#caching">Caching Implementation</a></li>
+    <li><a href="#realtime">Realtime Implementation</a></li>
+    <li><a href="#background-jobs">Background Job Implementation</a></li>
+    <li><a href="#invoice-gst">Invoice &amp; GST Calculation</a></li>
+    <li><a href="#security">Security Implementation Details</a></li>
+    <li><a href="#testing">Testing Strategy (Implementation Level)</a></li>
+    <li><a href="#performance">Performance Optimization Details</a></li>
+    <li><a href="#monitoring">Monitoring &amp; Alerting Implementation</a></li>
+  </ol>
+</div>
+
+<hr>
+
+
+<h2 id="db-schema">1. Database Schema Deep Dive</h2>
+
+<h3>1.1 Entity Relationship Diagram</h3>
+<p><strong>38 tables across 13 domains:</strong> Auth, Profiles, Services, Scheduling, Bookings, Billing, SPA Memberships, Offers, CRM/Leads, Loyalty, Notifications, Branches, System.</p>
+
+<pre><code><span class="cm">%% Key Entity Relationships (Mermaid ERD)</span>
+
+<span class="kw">Auth Domain:</span>
+  user ──┬── session (1:N)
+         ├── account (1:N, OAuth providers)
+         ├── customer_profile (1:1)
+         └── staff_profile (1:1)
+
+<span class="kw">Booking Domain:</span>
+  user ──── booking (1:N) ──── booking_service (1:N) ──── service
+                │                      └──── staff_profile (assigned)
+                ├── branch (N:1)
+                ├── booking_note (1:N)
+                └── booking_history (1:N)
+
+<span class="kw">Billing Domain:</span>
+  booking ──── invoice (1:1) ──── invoice_item (1:N)
+                     └──── offer_redemption (0:1)
+
+<span class="kw">Membership Domain:</span>
+  user ──── spa_membership (1:N) ──── spa_membership_tier (N:1)
+
+<span class="kw">Loyalty Domain:</span>
+  user ──── loyalty_account (1:1) ──── loyalty_transaction (1:N)
+
+<span class="kw">CRM/Lead Domain:</span>
+  lead ──┬── lead_note (1:N)
+  user ──┼── customer_tag_assignment (N:M via customer_tag)
+         └── customer_note (1:N)
+
+<span class="kw">System Domain:</span>
+  branch ──┬── daily_sales_summary (1:N)
+           └── monthly_gst_summary (1:N)
+  audit_log (standalone)
+</code></pre>
+
+<h3>1.2 Key Table Designs</h3>
+
+<h4><code>booking</code> — Core Booking Table</h4>
+<pre><code><span class="kw">CREATE TABLE</span> booking (
+  id                      <span class="type">TEXT</span> <span class="kw">PRIMARY KEY DEFAULT</span> <span class="fn">nanoid</span>(),
+  booking_number          <span class="type">TEXT</span> <span class="kw">NOT NULL UNIQUE</span>,          <span class="cm">-- BK{BRANCH}{DDMM}{TYPE}{NANOID5}</span>
+  customer_id             <span class="type">TEXT</span> <span class="kw">NOT NULL REFERENCES</span> "user"(id) <span class="kw">ON DELETE RESTRICT</span>,
+  branch_id               <span class="type">TEXT</span> <span class="kw">NOT NULL REFERENCES</span> branch(id) <span class="kw">ON DELETE RESTRICT</span>,
+  service_type            <span class="type">service_type_enum</span> <span class="kw">NOT NULL</span>,    <span class="cm">-- 'salon' | 'spa'</span>
+  status                  <span class="type">booking_status_enum</span> <span class="kw">NOT NULL DEFAULT</span> <span class="str">'pending'</span>,
+  date                    <span class="type">DATE</span> <span class="kw">NOT NULL</span>,
+  start_time              <span class="type">TIME</span> <span class="kw">NOT NULL</span>,
+  end_time                <span class="type">TIME</span> <span class="kw">NOT NULL</span>,
+  total_duration_minutes  <span class="type">INTEGER</span> <span class="kw">NOT NULL</span>,
+  notes                   <span class="type">TEXT</span>,
+  cancellation_reason     <span class="type">TEXT</span>,
+  rejection_reason        <span class="type">TEXT</span>,
+  rescheduled_from_id     <span class="type">TEXT</span> <span class="kw">REFERENCES</span> booking(id),
+  rescheduled_to_id       <span class="type">TEXT</span> <span class="kw">REFERENCES</span> booking(id),
+  no_show_count           <span class="type">INTEGER</span> <span class="kw">NOT NULL DEFAULT</span> <span class="num">0</span>,
+  booking_requires_approval <span class="type">BOOLEAN</span> <span class="kw">NOT NULL DEFAULT</span> <span class="num">false</span>,
+  lead_id                 <span class="type">TEXT</span> <span class="kw">REFERENCES</span> lead(id),
+  utm_source              <span class="type">TEXT</span>,
+  utm_medium              <span class="type">TEXT</span>,
+  utm_campaign            <span class="type">TEXT</span>,
+  created_at              <span class="type">TIMESTAMPTZ</span> <span class="kw">NOT NULL DEFAULT</span> <span class="fn">NOW</span>(),
+  updated_at              <span class="type">TIMESTAMPTZ</span> <span class="kw">NOT NULL DEFAULT</span> <span class="fn">NOW</span>(),
+  confirmed_at            <span class="type">TIMESTAMPTZ</span>,
+  completed_at            <span class="type">TIMESTAMPTZ</span>,
+  cancelled_at            <span class="type">TIMESTAMPTZ</span>
+);
+
+<span class="cm">-- Indexes</span>
+<span class="kw">CREATE INDEX</span> idx_booking_customer_date <span class="kw">ON</span> booking(customer_id, date <span class="kw">DESC</span>);
+<span class="kw">CREATE INDEX</span> idx_booking_branch_date <span class="kw">ON</span> booking(branch_id, date, start_time);
+<span class="kw">CREATE INDEX</span> idx_booking_status <span class="kw">ON</span> booking(status) <span class="kw">WHERE</span> status <span class="kw">IN</span> (<span class="str">'pending'</span>, <span class="str">'confirmed'</span>);
+<span class="kw">CREATE INDEX</span> idx_booking_date_status <span class="kw">ON</span> booking(date, status);
+</code></pre>
+
+<h4><code>invoice</code> — Billing with Price Snapshots</h4>
+<pre><code><span class="kw">CREATE TABLE</span> invoice (
+  id                      <span class="type">TEXT</span> <span class="kw">PRIMARY KEY DEFAULT</span> <span class="fn">nanoid</span>(),
+  invoice_number          <span class="type">TEXT</span> <span class="kw">NOT NULL UNIQUE</span>,          <span class="cm">-- INV{DDMM}{BRANCH}{SEQ}</span>
+  booking_id              <span class="type">TEXT</span> <span class="kw">NOT NULL REFERENCES</span> booking(id) <span class="kw">ON DELETE RESTRICT</span>,
+  customer_id             <span class="type">TEXT</span> <span class="kw">NOT NULL REFERENCES</span> "user"(id) <span class="kw">ON DELETE RESTRICT</span>,
+  branch_id               <span class="type">TEXT</span> <span class="kw">NOT NULL REFERENCES</span> branch(id) <span class="kw">ON DELETE RESTRICT</span>,
+  invoice_type            <span class="type">invoice_type_enum</span> <span class="kw">NOT NULL</span>,    <span class="cm">-- 'service'|'membership'|'product'</span>
+  subtotal_paise          <span class="type">INTEGER</span> <span class="kw">NOT NULL</span>,
+  discount_paise          <span class="type">INTEGER</span> <span class="kw">NOT NULL DEFAULT</span> <span class="num">0</span>,
+  taxable_value_paise     <span class="type">INTEGER</span> <span class="kw">NOT NULL</span>,
+  cgst_paise              <span class="type">INTEGER</span> <span class="kw">NOT NULL</span>,              <span class="cm">-- 9% Central GST</span>
+  sgst_paise              <span class="type">INTEGER</span> <span class="kw">NOT NULL</span>,              <span class="cm">-- 9% State GST</span>
+  total_paise             <span class="type">INTEGER</span> <span class="kw">NOT NULL</span>,
+  offer_id                <span class="type">TEXT</span> <span class="kw">REFERENCES</span> offer(id),
+  offer_name_snapshot     <span class="type">TEXT</span>,
+  offer_discount_percent  <span class="type">INTEGER</span>,
+  payment_method          <span class="type">payment_method_enum</span> <span class="kw">NOT NULL</span>, <span class="cm">-- 'cash'|'upi'|'card'|'split'</span>
+  payment_status          <span class="type">payment_status_enum</span> <span class="kw">NOT NULL DEFAULT</span> <span class="str">'paid'</span>,
+  pdf_url                 <span class="type">TEXT</span>,
+  pdf_generated_at        <span class="type">TIMESTAMPTZ</span>,
+  billed_by_id            <span class="type">TEXT</span> <span class="kw">NOT NULL REFERENCES</span> "user"(id),
+  notes                   <span class="type">TEXT</span>,
+  created_at              <span class="type">TIMESTAMPTZ</span> <span class="kw">NOT NULL DEFAULT</span> <span class="fn">NOW</span>(),
+  updated_at              <span class="type">TIMESTAMPTZ</span> <span class="kw">NOT NULL DEFAULT</span> <span class="fn">NOW</span>()
+);
+</code></pre>
+
+<h4><code>spa_membership</code> — Hours Tracking &amp; Expiry</h4>
+<pre><code><span class="kw">CREATE TABLE</span> spa_membership (
+  id                      <span class="type">TEXT</span> <span class="kw">PRIMARY KEY DEFAULT</span> <span class="fn">nanoid</span>(),
+  customer_id             <span class="type">TEXT</span> <span class="kw">NOT NULL REFERENCES</span> "user"(id) <span class="kw">ON DELETE RESTRICT</span>,
+  tier_id                 <span class="type">TEXT</span> <span class="kw">NOT NULL REFERENCES</span> spa_membership_tier(id),
+  status                  <span class="type">membership_status_enum</span> <span class="kw">NOT NULL DEFAULT</span> <span class="str">'active'</span>,
+  total_hours             <span class="type">NUMERIC(5,2)</span> <span class="kw">NOT NULL</span>,
+  used_hours              <span class="type">NUMERIC(5,2)</span> <span class="kw">NOT NULL DEFAULT</span> <span class="num">0</span>,
+  remaining_hours         <span class="type">NUMERIC(5,2)</span> <span class="kw">GENERATED ALWAYS AS</span> (total_hours - used_hours) <span class="kw">STORED</span>,
+  price_paid_paise        <span class="type">INTEGER</span> <span class="kw">NOT NULL</span>,
+  starts_at               <span class="type">TIMESTAMPTZ</span> <span class="kw">NOT NULL DEFAULT</span> <span class="fn">NOW</span>(),
+  expires_at              <span class="type">TIMESTAMPTZ</span> <span class="kw">NOT NULL</span>,
+  cancelled_at            <span class="type">TIMESTAMPTZ</span>,
+  cancellation_reason     <span class="type">TEXT</span>,
+  <span class="kw">CONSTRAINT</span> chk_hours_positive <span class="kw">CHECK</span> (total_hours &gt; <span class="num">0</span>),
+  <span class="kw">CONSTRAINT</span> chk_used_not_exceed <span class="kw">CHECK</span> (used_hours &lt;= total_hours)
+);
+</code></pre>
+
+<h4><code>loyalty_transaction</code> — Earn/Redeem/Expire with TTL</h4>
+<pre><code><span class="kw">CREATE TABLE</span> loyalty_transaction (
+  id                      <span class="type">TEXT</span> <span class="kw">PRIMARY KEY DEFAULT</span> <span class="fn">nanoid</span>(),
+  loyalty_account_id      <span class="type">TEXT</span> <span class="kw">NOT NULL REFERENCES</span> loyalty_account(id) <span class="kw">ON DELETE CASCADE</span>,
+  type                    <span class="type">loyalty_tx_type_enum</span> <span class="kw">NOT NULL</span>,  <span class="cm">-- 'earn'|'redeem'|'expire'|'adjust'</span>
+  gems                    <span class="type">INTEGER</span> <span class="kw">NOT NULL</span>,               <span class="cm">-- +earn, -redeem/expire</span>
+  balance_after           <span class="type">INTEGER</span> <span class="kw">NOT NULL</span>,
+  source_type             <span class="type">TEXT</span>,                           <span class="cm">-- 'invoice'|'promotion'|'expiry_job'</span>
+  source_id               <span class="type">TEXT</span>,
+  description             <span class="type">TEXT</span> <span class="kw">NOT NULL</span>,
+  expires_at              <span class="type">TIMESTAMPTZ</span>,                    <span class="cm">-- 365 days (earn only)</span>
+  expired                 <span class="type">BOOLEAN</span> <span class="kw">NOT NULL DEFAULT</span> <span class="num">false</span>,
+  remaining_gems          <span class="type">INTEGER</span>,                       <span class="cm">-- Tracks partial redemptions</span>
+  created_at              <span class="type">TIMESTAMPTZ</span> <span class="kw">NOT NULL DEFAULT</span> <span class="fn">NOW</span>()
+);
+
+<span class="kw">CREATE INDEX</span> idx_loyalty_tx_expires <span class="kw">ON</span> loyalty_transaction(expires_at)
+  <span class="kw">WHERE</span> type = <span class="str">'earn'</span> <span class="kw">AND</span> expired = <span class="num">false</span> <span class="kw">AND</span> remaining_gems &gt; <span class="num">0</span>;
+</code></pre>
+
+<h4><code>lead</code> — UTM Attribution &amp; Pipeline</h4>
+<pre><code><span class="kw">CREATE TABLE</span> lead (
+  id                      <span class="type">TEXT</span> <span class="kw">PRIMARY KEY DEFAULT</span> <span class="fn">nanoid</span>(),
+  name                    <span class="type">TEXT</span> <span class="kw">NOT NULL</span>,
+  phone                   <span class="type">TEXT</span> <span class="kw">NOT NULL</span>,
+  email                   <span class="type">TEXT</span>,
+  status                  <span class="type">lead_status_enum</span> <span class="kw">NOT NULL DEFAULT</span> <span class="str">'new'</span>,
+  lost_reason             <span class="type">TEXT</span>,
+  source                  <span class="type">lead_source_enum</span> <span class="kw">NOT NULL</span>,
+  utm_source              <span class="type">TEXT</span>, utm_medium <span class="type">TEXT</span>, utm_campaign <span class="type">TEXT</span>,
+  converted_booking_id    <span class="type">TEXT</span> <span class="kw">REFERENCES</span> booking(id),
+  converted_customer_id   <span class="type">TEXT</span> <span class="kw">REFERENCES</span> "user"(id),
+  fbclid                  <span class="type">TEXT</span>, fbc <span class="type">TEXT</span>, fbp <span class="type">TEXT</span>,
+  meta_event_id           <span class="type">TEXT</span>,
+  follow_up_at            <span class="type">TIMESTAMPTZ</span>,
+  created_at              <span class="type">TIMESTAMPTZ</span> <span class="kw">NOT NULL DEFAULT</span> <span class="fn">NOW</span>()
+);
+
+<span class="kw">CREATE INDEX</span> idx_lead_status <span class="kw">ON</span> lead(status) <span class="kw">WHERE</span> status <span class="kw">NOT IN</span> (<span class="str">'won'</span>, <span class="str">'lost'</span>);
+<span class="kw">CREATE INDEX</span> idx_lead_follow_up <span class="kw">ON</span> lead(follow_up_at) <span class="kw">WHERE</span> status = <span class="str">'follow_up'</span>;
+</code></pre>
+
+
+<h3>1.3 Index Strategy</h3>
+<table>
+  <tr><th>Pattern</th><th>Index</th><th>Query Example</th></tr>
+  <tr><td>Customer booking history</td><td><code>idx_booking_customer_date(customer_id, date DESC)</code></td><td><code>WHERE customer_id = ? ORDER BY date DESC</code></td></tr>
+  <tr><td>Branch daily schedule</td><td><code>idx_booking_branch_date(branch_id, date, start_time)</code></td><td><code>WHERE branch_id = ? AND date = ?</code></td></tr>
+  <tr><td>Active bookings filter</td><td><code>idx_booking_status(status) WHERE status IN ('pending','confirmed')</code></td><td>Partial index — only active bookings</td></tr>
+  <tr><td>Active memberships to expire</td><td><code>idx_membership_expires(expires_at) WHERE status = 'active'</code></td><td>pg_cron auto-expire query</td></tr>
+  <tr><td>Gems pending expiry</td><td><code>idx_loyalty_tx_expires(expires_at) WHERE type='earn' AND expired=false</code></td><td>pg_cron gems expiry scan</td></tr>
+  <tr><td>Lead pipeline view</td><td><code>idx_lead_status(status) WHERE status NOT IN ('won','lost')</code></td><td>Active leads only</td></tr>
+  <tr><td>Lead follow-up queue</td><td><code>idx_lead_follow_up(follow_up_at) WHERE status='follow_up'</code></td><td>Follow-up reminder job</td></tr>
+</table>
+
+<h3>1.4 Data Integrity Constraints</h3>
+<table>
+  <tr><th>Constraint</th><th>Table</th><th>Rule</th><th>Rationale</th></tr>
+  <tr><td>FK ON DELETE RESTRICT</td><td><code>booking.customer_id</code></td><td>Cannot delete user with bookings</td><td>Preserve history</td></tr>
+  <tr><td>FK ON DELETE RESTRICT</td><td><code>invoice.booking_id</code></td><td>Cannot delete completed booking</td><td>Invoice integrity</td></tr>
+  <tr><td>FK ON DELETE CASCADE</td><td><code>loyalty_transaction.loyalty_account_id</code></td><td>Delete account → delete txns</td><td>Clean user deletion</td></tr>
+  <tr><td>FK ON DELETE CASCADE</td><td><code>booking_service.booking_id</code></td><td>Delete booking → delete services</td><td>Atomic removal</td></tr>
+  <tr><td>CHECK</td><td><code>invoice.total_paise</code></td><td><code>total_paise &gt; 0</code></td><td>No zero invoices</td></tr>
+  <tr><td>CHECK</td><td><code>spa_membership.total_hours</code></td><td><code>total_hours &gt; 0</code></td><td>Valid membership</td></tr>
+  <tr><td>CHECK</td><td><code>spa_membership.used_hours</code></td><td><code>used_hours &lt;= total_hours</code></td><td>Cannot exceed purchased</td></tr>
+  <tr><td>UNIQUE</td><td><code>booking.booking_number</code></td><td>One booking number globally</td><td>Business identifier</td></tr>
+  <tr><td>UNIQUE</td><td><code>invoice.invoice_number</code></td><td>One invoice number globally</td><td>Legal/tax requirement</td></tr>
+</table>
+
+<hr>
+
+
+<h2 id="state-machines">2. State Machines</h2>
+
+<h3>2.1 Booking State Machine</h3>
+<pre><code>                          ┌─────────┐
+                          │ PENDING │ ← Customer submits booking
+                          └────┬────┘
+                               │
+                ┌──────────────┼──────────────┐
+                │              │              │
+                ▼              ▼              ▼
+          ┌──────────┐  ┌──────────┐  ┌──────────┐
+          │CONFIRMED │  │ REJECTED │  │CANCELLED │
+          └────┬─────┘  └──────────┘  └──────────┘
+               │          (terminal)      (terminal)
+      ┌────────┼────────┬──────────┐
+      │        │        │          │
+      ▼        ▼        ▼          ▼
+┌───────────┐ ┌────────┐ ┌───────┐ ┌────────────┐
+│IN_PROGRESS│ │NO_SHOW │ │CANCEL │ │RESCHEDULED │
+└─────┬─────┘ └────────┘ └───────┘ └────────────┘
+      │       (terminal) (terminal)  (terminal)
+      ▼
+┌──────────┐
+│COMPLETED │ → <span class="fn">Triggers: Invoice + Gems + Email + CAPI + Ably</span>
+└──────────┘
+  (terminal)
+</code></pre>
+
+<table>
+  <tr><th>From</th><th>To</th><th>Triggered By</th><th>Side Effects</th></tr>
+  <tr><td><code>pending</code></td><td><code>confirmed</code></td><td>Admin approves</td><td>Push notification, Ably publish, Email confirmation</td></tr>
+  <tr><td><code>pending</code></td><td><code>rejected</code></td><td>Admin rejects</td><td>Push + email with reason (required), Meta CAPI event</td></tr>
+  <tr><td><code>pending</code></td><td><code>cancelled</code></td><td>Customer cancels</td><td>Ably publish, slot freed</td></tr>
+  <tr><td><code>confirmed</code></td><td><code>in_progress</code></td><td>Admin starts service</td><td>Ably publish, schedule updated</td></tr>
+  <tr><td><code>confirmed</code></td><td><code>cancelled</code></td><td>Customer/Admin cancels</td><td>Push + email, slot freed, Ably publish</td></tr>
+  <tr><td><code>confirmed</code></td><td><code>no_show</code></td><td>QStash job (+15min after end_time)</td><td>Increment no_show_count, CRM tag, push admin</td></tr>
+  <tr><td><code>confirmed</code></td><td><code>rescheduled</code></td><td>Customer/Admin reschedules</td><td>New booking created (linked via rescheduled_to_id)</td></tr>
+  <tr><td><code>in_progress</code></td><td><code>completed</code></td><td>Admin completes (checkout)</td><td><strong>Invoice generated</strong>, gems, PDF, email, CAPI, Brevo, Ably</td></tr>
+</table>
+
+<h3>2.2 Lead Pipeline State Machine</h3>
+<pre><code>  ┌─────┐        ┌───────────┐       ┌───────────┐      ┌────────┐      ┌─────┐
+  │ NEW │───────▶│ CONTACTED │──────▶│ FOLLOW_UP │─────▶│ BOOKED │─────▶│ WON │
+  └──┬──┘        └─────┬─────┘       └─────┬─────┘      └────────┘      └─────┘
+     │                  │                   │             (terminal)     (terminal)
+     ▼                  ▼                   ▼
+  ┌──────┐          ┌──────┐           ┌──────┐
+  │ LOST │          │ LOST │           │ LOST │
+  └──────┘          └──────┘           └──────┘
+</code></pre>
+
+<h3>2.3 Membership Lifecycle State Machine</h3>
+<pre><code>  ┌────────┐
+  │ ACTIVE │ ← Created on purchase
+  └───┬────┘
+      │
+ ┌────┼────┐
+ │         │
+ ▼         ▼
+┌─────────┐  ┌───────────┐
+│ EXPIRED │  │ CANCELLED │
+└─────────┘  └───────────┘
+(terminal)    (terminal)
+
+<span class="cm">Expire: pg_cron nightly → WHERE expires_at &lt; NOW() AND status = 'active'</span>
+<span class="cm">Cancel: Manager action → cancellation_reason required</span>
+</code></pre>
+
+<h3>2.4 No-Show Tier System</h3>
+<table>
+  <tr><th>No-Show Count</th><th>System Behavior</th><th>Customer Impact</th></tr>
+  <tr><td>0</td><td>Normal booking flow</td><td>Auto-confirm possible</td></tr>
+  <tr><td>1–3</td><td>CRM tag "No-Show Risk" applied</td><td>Extra reminders at -2h, -1h, -15min</td></tr>
+  <tr><td>4+</td><td><code>booking_requires_approval = true</code></td><td>All bookings go to Manager approval queue</td></tr>
+  <tr><td>Reset</td><td>3 consecutive completions after flag</td><td>Flag removed, normal flow restored</td></tr>
+</table>
+
+<hr>
+
+
+<h2 id="api-sequences">3. API Sequence Diagrams</h2>
+
+<h3>3.1 Booking Creation Flow</h3>
+<pre><code>Customer          API Route          Business Logic       Database           External
+   │                  │                    │                  │                  │
+   │ POST /api/       │                    │                  │                  │
+   │ bookings         │                    │                  │                  │
+   │─────────────────▶│                    │                  │                  │
+   │                  │ Zod validate       │                  │                  │
+   │                  │───────────────────▶│                  │                  │
+   │                  │                    │ Check availability│                  │
+   │                  │                    │─────────────────▶│                  │
+   │                  │                    │ Check no-show tier│                  │
+   │                  │                    │─────────────────▶│                  │
+   │                  │                    │ Generate BK#      │                  │
+   │                  │                    │ INSERT booking    │                  │
+   │                  │                    │─────────────────▶│                  │
+   │                  │                    │                  │                  │
+   │                  │                    │ Publish Ably ─────────────────────▶│ <span class="fn">Ably</span>
+   │                  │                    │ Push to admins ───────────────────▶│ <span class="fn">web-push</span>
+   │                  │                    │ Meta CAPI ────────────────────────▶│ <span class="fn">InitiateCheckout</span>
+   │                  │                    │                  │                  │
+   │◀── 201 { data: booking } ────────────│                  │                  │
+</code></pre>
+
+<h3>3.2 Booking Completion (Checkout) Flow</h3>
+<pre><code>Admin             API Route          Business Logic       Database           External
+   │                  │                    │                  │                  │
+   │ POST /api/admin/ │                    │                  │                  │
+   │ bookings/:id/    │                    │                  │                  │
+   │ complete         │                    │                  │                  │
+   │─────────────────▶│                    │                  │                  │
+   │                  │ Validate + RBAC    │                  │                  │
+   │                  │───────────────────▶│                  │                  │
+   │                  │                    │                  │                  │
+   │                  │                    │ <span class="num">1.</span> Update status=completed ────▶│  │
+   │                  │                    │ <span class="num">2.</span> Apply offer (1/cust/day) ──▶│  │
+   │                  │                    │ <span class="num">3.</span> splitGST(total)             │  │
+   │                  │                    │ <span class="num">4.</span> INSERT invoice+items ───────▶│  │
+   │                  │                    │ <span class="num">5.</span> Generate PDF ────────────────────▶│ <span class="fn">Render</span>
+   │                  │                    │ <span class="num">6.</span> Upload PDF ─────────────────────▶│ <span class="fn">R2</span>
+   │                  │                    │ <span class="num">7.</span> Award gems ──────────────────▶│  │
+   │                  │                    │ <span class="num">8.</span> Email invoice ─────────────────▶│ <span class="fn">Resend</span>
+   │                  │                    │ <span class="num">9.</span> Sync Brevo ──────────────────────▶│ <span class="fn">Brevo</span>
+   │                  │                    │ <span class="num">10.</span> Meta CAPI Purchase ──────────────▶│ <span class="fn">Meta</span>
+   │                  │                    │ <span class="num">11.</span> Publish Ably ─────────────────────▶│ <span class="fn">Ably</span>
+   │                  │                    │                  │                  │
+   │◀── 200 { data: { invoice, booking } }│                  │                  │
+</code></pre>
+
+<h3>3.3 Lead Capture Flow (/book form)</h3>
+<pre><code>Anonymous User    API Route          Business Logic       Database           External
+   │                  │                    │                  │                  │
+   │ POST /api/leads  │                    │                  │                  │
+   │ { name, phone,   │                    │                  │                  │
+   │   utm_source,    │                    │                  │                  │
+   │   fbclid }       │                    │                  │                  │
+   │─────────────────▶│                    │                  │                  │
+   │                  │ Zod validate       │                  │                  │
+   │                  │───────────────────▶│                  │                  │
+   │                  │                    │ INSERT lead      │                  │
+   │                  │                    │─────────────────▶│                  │
+   │                  │                    │                  │                  │
+   │                  │                    │ Fire Meta CAPI "Lead" ────────────▶│ <span class="fn">Meta CAPI</span>
+   │                  │                    │                  │                  │
+   │◀── 201 { leadId }───────────────────│                  │                  │
+   │                  │                    │                  │                  │
+   │ <span class="cm">Frontend redirects: /?book=1&amp;leadId={id}</span>                                 │
+</code></pre>
+
+<h3>3.4 Authentication Flow</h3>
+<pre><code>User              Better Auth        Google OAuth        Database
+   │                  │                    │                  │
+   │ Click "Sign In"  │                    │                  │
+   │ (save returnUrl  │                    │                  │
+   │  to session      │                    │                  │
+   │  storage)        │                    │                  │
+   │─────────────────▶│                    │                  │
+   │                  │ State + PKCE       │                  │
+   │◀─── 302 ────────│───────────────────▶│ Google consent   │
+   │ (redirected)     │                    │ (theroyalglow.in)│
+   │                  │                    │                  │
+   │ User approves   ─────────────────────▶│                  │
+   │                  │◀── code + state ──│                  │
+   │ Callback ───────▶│ Exchange tokens    │                  │
+   │                  │───────────────────▶│                  │
+   │                  │◀── access_token ──│                  │
+   │                  │                    │                  │
+   │                  │ Find/create user ──────────────────▶│
+   │                  │ Create session  ────────────────────▶│
+   │                  │ Check: has profile? ────────────────▶│
+   │                  │                    │                  │
+   │◀── Set-Cookie ──│                    │                  │
+   │    (HttpOnly,    │                    │                  │
+   │     Secure,      │                    │                  │
+   │     SameSite=Lax)│                    │                  │
+   │                  │                    │                  │
+   │ 302 → /onboarding (new) OR / (existing)                │
+</code></pre>
+
+<hr>
+
+
+<h2 id="service-layer">4. Service Layer Architecture</h2>
+
+<h3>4.1 Layer Dependency Rules</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│                     <span class="fn">DEPENDENCY DIRECTION (left → right)</span>              │
+│                                                                       │
+│  Presentation → API → Business → Data Access → Database              │
+│  <span class="cm">apps/web/</span>   <span class="cm">apps/web/</span>  <span class="cm">packages/</span>   <span class="cm">packages/</span>   <span class="cm">Neon PG</span>         │
+│  <span class="cm">app/</span>       <span class="cm">app/api/</span>  <span class="cm">business/</span>   <span class="cm">db/</span>                           │
+│                                                                       │
+│  <span class="danger">⚠️ NEVER:</span> Presentation imports from db directly                     │
+│  <span class="danger">⚠️ NEVER:</span> Business imports from framework (Next.js, React)          │
+│  <span class="success">✅ Business is pure TypeScript — testable without framework</span>         │
+└─────────────────────────────────────────────────────────────────────┘
+</code></pre>
+
+<h3>4.2 Business Logic Module Structure</h3>
+<pre><code>packages/business/
+├── <span class="fn">booking/</span>
+│   ├── create.ts              ← <span class="fn">createBooking</span>(input): BookingResult
+│   ├── cancel.ts              ← <span class="fn">cancelBooking</span>(id, reason): void
+│   ├── reschedule.ts          ← <span class="fn">rescheduleBooking</span>(id, newDate, newTime)
+│   ├── complete.ts            ← <span class="fn">completeBooking</span>(id, payment): CompleteResult
+│   │                             └── Triggers: invoice, gems, PDF, email, CAPI, Ably
+│   ├── availability.ts        ← <span class="fn">getAvailableSlots</span>(branch, date, services)
+│   ├── no-show.ts             ← <span class="fn">markNoShow</span>(bookingId): void
+│   └── validators.ts          ← <span class="fn">validateBookingRules</span>(input)
+│
+├── <span class="fn">membership/</span>
+│   ├── create.ts              ← <span class="fn">createMembership</span>(input)
+│   ├── record-session.ts      ← <span class="fn">recordSession</span>(membershipId, minutes)
+│   └── cancel.ts              ← <span class="fn">cancelMembership</span>(id, reason)
+│
+├── <span class="fn">invoicing/</span>
+│   ├── generate.ts            ← <span class="fn">generateInvoice</span>(bookingId, offer?, payment)
+│   ├── pdf.ts                 ← <span class="fn">generatePdf</span>(invoiceId): Buffer
+│   ├── gst.ts                 ← <span class="fn">splitGST</span>(inclusivePaise): GSTBreakdown
+│   └── number.ts              ← <span class="fn">generateInvoiceNumber</span>(branchId)
+│
+├── <span class="fn">loyalty/</span>
+│   ├── award-gems.ts          ← <span class="fn">awardGems</span>(userId, invoiceId, totalPaise)
+│   ├── redeem-gems.ts         ← <span class="fn">redeemGems</span>(userId, gems, reason)
+│   └── expire-gems.ts         ← <span class="fn">expireGems</span>(): ExpireResult
+│
+├── <span class="fn">lead/</span>
+│   ├── capture.ts             ← <span class="fn">captureLead</span>(input): Lead
+│   ├── convert.ts             ← <span class="fn">convertLead</span>(leadId, bookingId)
+│   └── pipeline.ts            ← <span class="fn">updatePipelineStatus</span>(leadId, newStatus)
+│
+├── <span class="fn">notifications/</span>
+│   ├── push.ts                ← <span class="fn">sendPushNotification</span>(userId, payload)
+│   ├── email.ts               ← <span class="fn">sendTransactionalEmail</span>(template, data)
+│   └── ably.ts                ← <span class="fn">publishEvent</span>(channel, event, data)
+│
+└── <span class="fn">utils/</span>
+    ├── currency.ts            ← <span class="fn">formatINR</span>(paise): string
+    ├── date.ts                ← <span class="fn">formatDateIN</span>(date): string
+    ├── booking-number.ts      ← <span class="fn">generateBookingNumber</span>(branch, type)
+    └── errors.ts              ← AppError class + error codes
+</code></pre>
+
+<h3>4.3 Error Handling Pattern</h3>
+<pre><code><span class="kw">class</span> <span class="type">AppError</span> <span class="kw">extends</span> Error {
+  <span class="kw">constructor</span>(
+    <span class="kw">public</span> code: <span class="type">ErrorCode</span>,          <span class="cm">// 'BOOKING_SLOT_UNAVAILABLE'</span>
+    <span class="kw">public</span> message: <span class="type">string</span>,
+    <span class="kw">public</span> statusCode: <span class="type">number</span>,
+    <span class="kw">public</span> isOperational: <span class="type">boolean</span> = <span class="num">true</span>,
+    <span class="kw">public</span> retryable: <span class="type">boolean</span> = <span class="num">false</span>
+  ) { <span class="kw">super</span>(message) }
+}
+
+<span class="cm">// Error Code Registry</span>
+<span class="kw">const</span> ERROR_CODES = {
+  BOOKING_SLOT_UNAVAILABLE: { status: <span class="num">409</span>, retryable: <span class="num">false</span> },
+  BOOKING_REQUIRES_APPROVAL: { status: <span class="num">202</span>, retryable: <span class="num">false</span> },
+  SESSION_EXPIRED:           { status: <span class="num">401</span>, retryable: <span class="num">true</span> },
+  INSUFFICIENT_ROLE:         { status: <span class="num">403</span>, retryable: <span class="num">false</span> },
+  MEMBERSHIP_NOT_ACTIVE:     { status: <span class="num">400</span>, retryable: <span class="num">false</span> },
+  RATE_LIMITED:              { status: <span class="num">429</span>, retryable: <span class="num">true</span> },
+  INTERNAL_ERROR:            { status: <span class="num">500</span>, retryable: <span class="num">true</span> },
+}
+
+<span class="cm">// Classification: Operational (4xx) → structured JSON | Programmer (5xx) → Sentry alert</span>
+</code></pre>
+
+<hr>
+
+
+<h2 id="caching">5. Caching Implementation</h2>
+
+<h3>5.1 Cloudflare KV Cache Pattern</h3>
+<pre><code><span class="cm">// Read-through cache for service catalog</span>
+<span class="kw">async function</span> <span class="fn">getServices</span>(branchId: <span class="type">string</span>) {
+  <span class="kw">const</span> cacheKey = <span class="str">`services:${branchId}`</span>
+
+  <span class="cm">// L1: Check KV edge cache</span>
+  <span class="kw">const</span> cached = <span class="kw">await</span> KV.<span class="fn">get</span>(cacheKey, <span class="str">'json'</span>)
+  <span class="kw">if</span> (cached) <span class="kw">return</span> cached <span class="kw">as</span> <span class="type">ServiceWithCategory</span>[]
+
+  <span class="cm">// L2: Query database (source of truth)</span>
+  <span class="kw">const</span> services = <span class="kw">await</span> db.query.service.<span class="fn">findMany</span>({
+    where: <span class="fn">eq</span>(service.branchId, branchId),
+    with: { category: <span class="num">true</span>, serviceStaff: { with: { staff: <span class="num">true</span> } } },
+    orderBy: [<span class="fn">asc</span>(service.sortOrder)]
+  })
+
+  <span class="cm">// Write to cache (5-min TTL)</span>
+  <span class="kw">await</span> KV.<span class="fn">put</span>(cacheKey, JSON.<span class="fn">stringify</span>(services), { expirationTtl: <span class="num">300</span> })
+  <span class="kw">return</span> services
+}
+</code></pre>
+
+<h3>5.2 Redis Slot Availability Cache</h3>
+<pre><code><span class="cm">// Key: availability:{branch}:{date}  |  TTL: 5 minutes</span>
+<span class="cm">// Invalidation: on booking confirm/cancel → DELETE key</span>
+
+<span class="kw">async function</span> <span class="fn">getAvailableSlots</span>(branchId: <span class="type">string</span>, date: <span class="type">string</span>) {
+  <span class="kw">const</span> cacheKey = <span class="str">`availability:${branchId}:${date}`</span>
+
+  <span class="kw">const</span> cached = <span class="kw">await</span> redis.<span class="fn">get</span>&lt;<span class="type">SlotData</span>[]&gt;(cacheKey)
+  <span class="kw">if</span> (cached) <span class="kw">return</span> cached
+
+  <span class="kw">const</span> allSlots = <span class="kw">await</span> <span class="fn">calculateAvailability</span>(branchId, date)
+  <span class="kw">await</span> redis.<span class="fn">set</span>(cacheKey, allSlots, { ex: <span class="num">300</span> })
+  <span class="kw">return</span> allSlots
+}
+
+<span class="cm">// Invalidation on booking state change:</span>
+<span class="kw">async function</span> <span class="fn">invalidateSlotCache</span>(branchId: <span class="type">string</span>, date: <span class="type">string</span>) {
+  <span class="kw">await</span> redis.<span class="fn">del</span>(<span class="str">`availability:${branchId}:${date}`</span>)
+}
+</code></pre>
+
+<h3>5.3 Rate Limiting Implementation</h3>
+<pre><code><span class="kw">import</span> { Ratelimit } <span class="kw">from</span> <span class="str">'@upstash/ratelimit'</span>
+
+<span class="kw">const</span> limiters = {
+  lead:     <span class="kw">new</span> <span class="type">Ratelimit</span>({ limiter: Ratelimit.<span class="fn">slidingWindow</span>(<span class="num">3</span>, <span class="str">'60 s'</span>) }),
+  booking:  <span class="kw">new</span> <span class="type">Ratelimit</span>({ limiter: Ratelimit.<span class="fn">slidingWindow</span>(<span class="num">5</span>, <span class="str">'60 s'</span>) }),
+  standard: <span class="kw">new</span> <span class="type">Ratelimit</span>({ limiter: Ratelimit.<span class="fn">slidingWindow</span>(<span class="num">10</span>, <span class="str">'60 s'</span>) }),
+  relaxed:  <span class="kw">new</span> <span class="type">Ratelimit</span>({ limiter: Ratelimit.<span class="fn">slidingWindow</span>(<span class="num">30</span>, <span class="str">'10 s'</span>) }),
+}
+
+<span class="cm">// Key format: IP + pathname</span>
+<span class="kw">const</span> { success, remaining } = <span class="kw">await</span> limiter.<span class="fn">limit</span>(<span class="str">`${ip}:${pathname}`</span>)
+<span class="kw">if</span> (!success) <span class="kw">return</span> Response.<span class="fn">json</span>({ error: <span class="str">'Rate limited'</span> }, { status: <span class="num">429</span> })
+</code></pre>
+
+<hr>
+
+
+<h2 id="realtime">6. Realtime Implementation</h2>
+
+<h3>6.1 Token Auth Flow</h3>
+<pre><code><span class="cm">// POST /api/ably/token</span>
+<span class="kw">export async function</span> <span class="fn">POST</span>(req: <span class="type">Request</span>) {
+  <span class="cm">// 1. Validate session</span>
+  <span class="kw">const</span> session = <span class="kw">await</span> <span class="fn">getSession</span>(req)
+  <span class="kw">if</span> (!session) <span class="kw">return</span> Response.<span class="fn">json</span>({ error: <span class="str">'Unauthorized'</span> }, { status: <span class="num">401</span> })
+
+  <span class="cm">// 2. Determine capabilities by role</span>
+  <span class="kw">const</span> capabilities = <span class="fn">getCapabilitiesForRole</span>(session.user.role, session.user.id)
+  <span class="cm">// Customer:     customer:{userId}:bookings → [subscribe]</span>
+  <span class="cm">// Staff:        + staff:{staffId}:schedule → [subscribe]</span>
+  <span class="cm">// Admin roles:  + admin:bookings, admin:schedule:*, admin:leave</span>
+
+  <span class="cm">// 3. Generate time-limited token (1 hour TTL)</span>
+  <span class="kw">const</span> tokenRequest = <span class="kw">await</span> ably.auth.<span class="fn">createTokenRequest</span>({
+    clientId: session.user.id,
+    capability: capabilities,
+    ttl: <span class="num">3600</span> * <span class="num">1000</span>,
+  })
+
+  <span class="kw">return</span> Response.<span class="fn">json</span>(tokenRequest)
+}
+</code></pre>
+
+<h3>6.2 Channel Subscription Pattern (React)</h3>
+<pre><code><span class="cm">// Custom hook: useBookingUpdates</span>
+<span class="kw">export function</span> <span class="fn">useBookingUpdates</span>(userId: <span class="type">string</span>, onUpdate: <span class="type">Callback</span>) {
+  <span class="kw">const</span> ably = <span class="fn">useAbly</span>()
+
+  <span class="fn">useEffect</span>(() =&gt; {
+    <span class="kw">const</span> channel = ably.channels.<span class="fn">get</span>(<span class="str">`customer:${userId}:bookings`</span>)
+
+    channel.<span class="fn">subscribe</span>(<span class="str">'booking.status_changed'</span>, (msg) =&gt; {
+      <span class="fn">onUpdate</span>(msg.data)  <span class="cm">// Update React state → UI re-renders</span>
+    })
+
+    <span class="kw">return</span> () =&gt; channel.<span class="fn">unsubscribe</span>()
+  }, [userId])
+}
+</code></pre>
+
+<h3>6.3 Server-Side Publish Pattern</h3>
+<pre><code><span class="cm">// After DB write commits — fan out to all relevant channels</span>
+<span class="kw">async function</span> <span class="fn">publishBookingStatusChange</span>(event: <span class="type">StatusEvent</span>) {
+  <span class="kw">await</span> Promise.<span class="fn">allSettled</span>([
+    <span class="cm">// 1. Notify customer</span>
+    ably.channels.<span class="fn">get</span>(<span class="str">`customer:${event.customerId}:bookings`</span>)
+      .<span class="fn">publish</span>(<span class="str">'booking.status_changed'</span>, { bookingId, toStatus }),
+
+    <span class="cm">// 2. Notify booking detail page</span>
+    ably.channels.<span class="fn">get</span>(<span class="str">`booking:${event.bookingId}`</span>)
+      .<span class="fn">publish</span>(<span class="str">'status.changed'</span>, { fromStatus, toStatus }),
+
+    <span class="cm">// 3. Notify admin dashboard</span>
+    ably.channels.<span class="fn">get</span>(<span class="str">'admin:bookings'</span>)
+      .<span class="fn">publish</span>(<span class="str">'booking.status_changed'</span>, { bookingId, customerName }),
+
+    <span class="cm">// 4. Notify assigned staff</span>
+    ably.channels.<span class="fn">get</span>(<span class="str">`staff:${event.staffId}:schedule`</span>)
+      .<span class="fn">publish</span>(<span class="str">'booking.assigned'</span>, { bookingId, date }),
+
+    <span class="cm">// 5. Update schedule view</span>
+    ably.channels.<span class="fn">get</span>(<span class="str">`admin:schedule:${event.date}`</span>)
+      .<span class="fn">publish</span>(<span class="str">'slot.updated'</span>, { bookingId, toStatus }),
+  ])
+}
+</code></pre>
+
+<hr>
+
+
+<h2 id="background-jobs">7. Background Job Implementation</h2>
+
+<h3>7.1 QStash Job Pattern</h3>
+<pre><code><span class="cm">// POST /api/jobs/appointment-reminders</span>
+<span class="kw">async function</span> <span class="fn">handler</span>(req: <span class="type">Request</span>) {
+  <span class="cm">// 1. Verify QStash signature (middleware)</span>
+  <span class="kw">const</span> isValid = <span class="kw">await</span> <span class="fn">verifySignature</span>(req)
+  <span class="kw">if</span> (!isValid) <span class="kw">return</span> Response.<span class="fn">json</span>({ error: <span class="str">'Unauthorized'</span> }, { status: <span class="num">401</span> })
+
+  <span class="cm">// 2. Query bookings needing reminders</span>
+  <span class="kw">const</span> bookings = <span class="kw">await</span> <span class="fn">getBookingsNeedingReminder</span>(<span class="str">'24h'</span>)
+
+  <span class="cm">// 3. For each: check idempotency, send push + email</span>
+  <span class="kw">for</span> (<span class="kw">const</span> booking <span class="kw">of</span> bookings) {
+    <span class="kw">const</span> alreadySent = <span class="kw">await</span> <span class="fn">checkNotificationSent</span>(booking.id, <span class="str">'reminder_24h'</span>)
+    <span class="kw">if</span> (alreadySent) <span class="kw">continue</span>
+
+    <span class="kw">await</span> <span class="fn">sendPushNotification</span>(booking.customerId, { ... })
+    <span class="kw">await</span> <span class="fn">sendEmail</span>(booking.customerEmail, { ... })
+    <span class="kw">await</span> <span class="fn">insertNotificationLog</span>(booking.id, <span class="str">'reminder_24h'</span>)
+  }
+
+  <span class="cm">// 4. Ping BetterStack heartbeat</span>
+  <span class="kw">await</span> <span class="fn">fetch</span>(process.env.BETTER_STACK_HEARTBEAT_REMINDERS!)
+
+  <span class="kw">return</span> Response.<span class="fn">json</span>({ success: <span class="num">true</span>, processed: bookings.length })
+}
+</code></pre>
+
+<h3>7.2 pg_cron Job Patterns (SQL)</h3>
+<pre><code><span class="cm">-- Job 1: Nightly Sales Summary (11:30 PM IST)</span>
+<span class="kw">SELECT</span> cron.<span class="fn">schedule</span>(<span class="str">'nightly-sales-summary'</span>, <span class="str">'0 18 * * *'</span>,
+$$
+<span class="kw">INSERT INTO</span> daily_sales_summary (id, branch_id, date, total_revenue_paise, ...)
+<span class="kw">SELECT</span> <span class="fn">gen_random_uuid</span>()::text, i.branch_id, CURRENT_DATE,
+       <span class="fn">COALESCE</span>(<span class="fn">SUM</span>(i.total_paise), <span class="num">0</span>), ...
+<span class="kw">FROM</span> invoice i
+<span class="kw">WHERE</span> i.created_at &gt;= CURRENT_DATE
+<span class="kw">GROUP BY</span> i.branch_id
+<span class="kw">ON CONFLICT</span> (branch_id, date) <span class="kw">DO UPDATE SET</span> ...;
+$$);
+
+<span class="cm">-- Job 2: Membership Auto-Expire (12:00 AM IST)</span>
+<span class="kw">SELECT</span> cron.<span class="fn">schedule</span>(<span class="str">'membership-auto-expire'</span>, <span class="str">'30 18 * * *'</span>,
+$$
+<span class="kw">UPDATE</span> spa_membership
+<span class="kw">SET</span> status = <span class="str">'expired'</span>, updated_at = <span class="fn">NOW</span>()
+<span class="kw">WHERE</span> status = <span class="str">'active'</span> <span class="kw">AND</span> expires_at &lt; <span class="fn">NOW</span>();
+$$);
+
+<span class="cm">-- Job 7: Gems Auto-Expire (12:10 AM IST)</span>
+<span class="kw">SELECT</span> cron.<span class="fn">schedule</span>(<span class="str">'gems-auto-expire'</span>, <span class="str">'40 18 * * *'</span>,
+$$
+<span class="kw">WITH</span> expiring_gems <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> lt.id, lt.loyalty_account_id, lt.remaining_gems
+  <span class="kw">FROM</span> loyalty_transaction lt
+  <span class="kw">WHERE</span> lt.type = <span class="str">'earn'</span> <span class="kw">AND</span> lt.expired = <span class="num">false</span>
+    <span class="kw">AND</span> lt.remaining_gems &gt; <span class="num">0</span> <span class="kw">AND</span> lt.expires_at &lt; <span class="fn">NOW</span>()
+)
+<span class="kw">INSERT INTO</span> loyalty_transaction (...)
+<span class="kw">SELECT</span> ... <span class="kw">FROM</span> expiring_gems eg
+<span class="kw">JOIN</span> loyalty_account la <span class="kw">ON</span> la.id = eg.loyalty_account_id;
+
+<span class="cm">-- Mark originals as expired</span>
+<span class="kw">UPDATE</span> loyalty_transaction
+<span class="kw">SET</span> expired = <span class="num">true</span>, remaining_gems = <span class="num">0</span>
+<span class="kw">WHERE</span> type = <span class="str">'earn'</span> <span class="kw">AND</span> expired = <span class="num">false</span>
+  <span class="kw">AND</span> remaining_gems &gt; <span class="num">0</span> <span class="kw">AND</span> expires_at &lt; <span class="fn">NOW</span>();
+$$);
+</code></pre>
+
+<h3>7.3 Event-Driven Delayed Job Pattern</h3>
+<pre><code><span class="cm">// On booking completion → schedule follow-up in +24h</span>
+<span class="kw">await</span> qstash.<span class="fn">publishJSON</span>({
+  url: <span class="str">`${BASE_URL}/api/jobs/post-service-followup`</span>,
+  body: { bookingId, customerId },
+  delay: <span class="str">'24h'</span>,
+  retries: <span class="num">3</span>,
+  deduplicationId: <span class="str">`followup-${bookingId}`</span>,
+})
+
+<span class="cm">// On booking confirmation → schedule no-show check</span>
+<span class="kw">await</span> qstash.<span class="fn">publishJSON</span>({
+  url: <span class="str">`${BASE_URL}/api/jobs/no-show-check`</span>,
+  body: { bookingId },
+  notBefore: Math.<span class="fn">floor</span>(endTimePlus15min / <span class="num">1000</span>),
+  retries: <span class="num">2</span>,
+  deduplicationId: <span class="str">`noshow-${bookingId}`</span>,
+})
+</code></pre>
+
+<hr>
+
+
+<h2 id="invoice-gst">8. Invoice &amp; GST Calculation</h2>
+
+<h3>8.1 GST Back-Calculation</h3>
+<pre><code><span class="kw">const</span> GST_RATE = <span class="num">0.18</span>           <span class="cm">// 18% total (CGST 9% + SGST 9%)</span>
+<span class="kw">const</span> SAC_CODE = <span class="str">'999721'</span>       <span class="cm">// Beauty &amp; wellness services</span>
+
+<span class="kw">interface</span> <span class="type">GSTBreakdown</span> {
+  basePaise: <span class="type">number</span>            <span class="cm">// Pre-tax amount</span>
+  cgstPaise: <span class="type">number</span>            <span class="cm">// Central GST (9%)</span>
+  sgstPaise: <span class="type">number</span>            <span class="cm">// State GST (9%)</span>
+  totalGstPaise: <span class="type">number</span>        <span class="cm">// Total GST (18%)</span>
+  totalPaise: <span class="type">number</span>           <span class="cm">// Original inclusive amount</span>
+}
+
+<span class="kw">export function</span> <span class="fn">splitGST</span>(inclusivePaise: <span class="type">number</span>): <span class="type">GSTBreakdown</span> {
+  <span class="kw">const</span> basePaise = Math.<span class="fn">round</span>(inclusivePaise / (<span class="num">1</span> + GST_RATE))
+  <span class="kw">const</span> totalGstPaise = inclusivePaise - basePaise
+  <span class="kw">const</span> cgstPaise = Math.<span class="fn">round</span>(totalGstPaise / <span class="num">2</span>)
+  <span class="kw">const</span> sgstPaise = totalGstPaise - cgstPaise  <span class="cm">// Avoids rounding mismatch</span>
+  <span class="kw">return</span> { basePaise, cgstPaise, sgstPaise, totalGstPaise, totalPaise: inclusivePaise }
+}
+
+<span class="cm">// splitGST(118000) → base: ₹1,000 | CGST: ₹90 | SGST: ₹90 | Total: ₹1,180</span>
+</code></pre>
+
+<h3>8.2 Invoice Generation Algorithm</h3>
+<table>
+  <tr><th>Step</th><th>Action</th><th>Output</th></tr>
+  <tr><td>1</td><td>Collect booking services with price snapshots</td><td>Line items array</td></tr>
+  <tr><td>2</td><td>Apply offer if eligible (1 per customer per day)</td><td>Discount amount</td></tr>
+  <tr><td>3</td><td>Calculate: subtotal − discount = taxable value</td><td>Taxable amount in paise</td></tr>
+  <tr><td>4</td><td><code>splitGST(taxableValue)</code></td><td>base, CGST, SGST breakdown</td></tr>
+  <tr><td>5</td><td>Generate invoice number: <code>INV{DDMM}{BRANCH}{SEQ}</code></td><td>e.g., <code>INV2605RS001</code></td></tr>
+  <tr><td>6</td><td>INSERT invoice + invoice_items (transaction)</td><td>Invoice record</td></tr>
+  <tr><td>7</td><td>Generate PDF via Render API</td><td>PDF buffer</td></tr>
+  <tr><td>8</td><td>Upload PDF to Cloudflare R2</td><td>Signed URL</td></tr>
+  <tr><td>9</td><td>Send email via Resend with PDF attachment</td><td>Email delivered</td></tr>
+  <tr><td>10</td><td>Award gems: <code>floor(total_paise / 10000)</code></td><td>Gems credited (service invoices only)</td></tr>
+</table>
+
+<h3>8.3 Booking Number Generation</h3>
+<pre><code><span class="cm">// Format: BK{BRANCH_CODE}{DDMM}{SERVICE_TYPE_INITIAL}{5-CHAR-NANOID}</span>
+<span class="cm">// Example: BKRS2605S38a9k</span>
+
+<span class="kw">const</span> BRANCH_CODES = { branch_rajajinagar: <span class="str">'RS'</span>, branch_malleshwaram: <span class="str">'MS'</span> }
+<span class="kw">const</span> TYPE_INITIALS = { salon: <span class="str">'S'</span>, spa: <span class="str">'P'</span> }
+
+<span class="kw">export function</span> <span class="fn">generateBookingNumber</span>(branchId: <span class="type">string</span>, serviceType: <span class="type">string</span>) {
+  <span class="kw">const</span> branch = BRANCH_CODES[branchId] || <span class="str">'XX'</span>
+  <span class="kw">const</span> dd = String(<span class="kw">new</span> Date().<span class="fn">getDate</span>()).<span class="fn">padStart</span>(<span class="num">2</span>, <span class="str">'0'</span>)
+  <span class="kw">const</span> mm = String(<span class="kw">new</span> Date().<span class="fn">getMonth</span>() + <span class="num">1</span>).<span class="fn">padStart</span>(<span class="num">2</span>, <span class="str">'0'</span>)
+  <span class="kw">const</span> type = TYPE_INITIALS[serviceType] || <span class="str">'X'</span>
+  <span class="kw">return</span> <span class="str">`BK${branch}${dd}${mm}${type}${</span><span class="fn">nanoid</span>(<span class="num">5</span>)<span class="str">}`</span>
+}
+</code></pre>
+
+<hr>
+
+
+<h2 id="security">9. Security Implementation Details</h2>
+
+<h3>9.1 Middleware Stack</h3>
+<pre><code><span class="cm">// Order of execution in middleware.ts:</span>
+<span class="num">1.</span> Generate requestId (<span class="fn">nanoid</span>(<span class="num">12</span>))
+<span class="num">2.</span> Rate limiting check (Upstash Redis)
+<span class="num">3.</span> CSP nonce generation (for inline scripts)
+<span class="num">4.</span> CORS check (exact origin: theroyalglow.in only)
+<span class="num">5.</span> Auth session validation (for protected routes)
+<span class="num">6.</span> RBAC role check (for /admin/* routes)
+
+<span class="cm">// Security headers applied:</span>
+Strict-Transport-Security: max-age=<span class="num">31536000</span>; includeSubDomains; preload
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+</code></pre>
+
+<h3>9.2 Zod Validation Pattern</h3>
+<pre><code><span class="kw">const</span> createBookingSchema = z.<span class="fn">object</span>({
+  branchId:    z.<span class="fn">string</span>().<span class="fn">min</span>(<span class="num">1</span>),
+  date:        z.<span class="fn">string</span>().<span class="fn">regex</span>(<span class="str">/^\d{4}-\d{2}-\d{2}$/</span>),
+  startTime:   z.<span class="fn">string</span>().<span class="fn">regex</span>(<span class="str">/^\d{2}:\d{2}$/</span>),
+  serviceIds:  z.<span class="fn">array</span>(z.<span class="fn">string</span>()).<span class="fn">min</span>(<span class="num">1</span>).<span class="fn">max</span>(<span class="num">10</span>),
+  serviceType: z.<span class="fn">enum</span>([<span class="str">'salon'</span>, <span class="str">'spa'</span>]),
+  notes:       z.<span class="fn">string</span>().<span class="fn">max</span>(<span class="num">500</span>).<span class="fn">optional</span>(),
+})
+
+<span class="kw">const</span> captureLeadSchema = z.<span class="fn">object</span>({
+  name:  z.<span class="fn">string</span>().<span class="fn">min</span>(<span class="num">2</span>).<span class="fn">max</span>(<span class="num">100</span>),
+  phone: z.<span class="fn">string</span>().<span class="fn">regex</span>(<span class="str">/^[6-9]\d{9}$/</span>),  <span class="cm">// Indian mobile</span>
+  email: z.<span class="fn">string</span>().<span class="fn">email</span>().<span class="fn">optional</span>(),
+  source: z.<span class="fn">enum</span>([<span class="str">'meta_ad'</span>, <span class="str">'organic'</span>, <span class="str">'gmb'</span>, <span class="str">'walk_in_qr'</span>]),
+})
+
+<span class="cm">// Usage: safeParse on every API boundary</span>
+<span class="kw">const</span> result = createBookingSchema.<span class="fn">safeParse</span>(body)
+<span class="kw">if</span> (!result.success) <span class="kw">return</span> <span class="num">400</span> + fieldErrors
+</code></pre>
+
+<h3>9.3 CSP Header Configuration</h3>
+<pre><code>Content-Security-Policy:
+  default-src <span class="str">'self'</span>;
+  script-src <span class="str">'self'</span> <span class="str">'nonce-{RANDOM}'</span> https://www.googletagmanager.com https://js.posthog.com;
+  style-src <span class="str">'self'</span> <span class="str">'unsafe-inline'</span>;
+  img-src <span class="str">'self'</span> data: blob: https://*.r2.cloudflarestorage.com;
+  connect-src <span class="str">'self'</span> https://*.ably.io wss://*.ably.io https://api.posthog.com;
+  font-src <span class="str">'self'</span>;
+  frame-src https://www.google.com https://accounts.google.com;
+  object-src <span class="str">'none'</span>;
+  frame-ancestors <span class="str">'none'</span>;
+  upgrade-insecure-requests;
+</code></pre>
+
+<hr>
+
+
+<h2 id="testing">10. Testing Strategy (Implementation Level)</h2>
+
+<h3>10.1 Unit Test Pattern</h3>
+<pre><code><span class="fn">describe</span>(<span class="str">'splitGST'</span>, () =&gt; {
+  <span class="fn">it</span>(<span class="str">'correctly splits ₹1,180 inclusive'</span>, () =&gt; {
+    <span class="kw">const</span> result = <span class="fn">splitGST</span>(<span class="num">118000</span>)  <span class="cm">// 118000 paise = ₹1,180</span>
+    <span class="fn">expect</span>(result.basePaise).<span class="fn">toBe</span>(<span class="num">100000</span>)    <span class="cm">// ₹1,000</span>
+    <span class="fn">expect</span>(result.cgstPaise).<span class="fn">toBe</span>(<span class="num">9000</span>)     <span class="cm">// ₹90</span>
+    <span class="fn">expect</span>(result.sgstPaise).<span class="fn">toBe</span>(<span class="num">9000</span>)     <span class="cm">// ₹90</span>
+    <span class="fn">expect</span>(result.totalPaise).<span class="fn">toBe</span>(<span class="num">118000</span>)  <span class="cm">// ₹1,180</span>
+  })
+
+  <span class="fn">it</span>(<span class="str">'CGST + SGST always equals total GST (property test)'</span>, () =&gt; {
+    <span class="kw">const</span> amounts = [<span class="num">10000</span>, <span class="num">50000</span>, <span class="num">99999</span>, <span class="num">149900</span>, <span class="num">500000</span>]
+    <span class="kw">for</span> (<span class="kw">const</span> amt <span class="kw">of</span> amounts) {
+      <span class="kw">const</span> r = <span class="fn">splitGST</span>(amt)
+      <span class="fn">expect</span>(r.cgstPaise + r.sgstPaise).<span class="fn">toBe</span>(r.totalGstPaise)
+    }
+  })
+})
+
+<span class="fn">describe</span>(<span class="str">'generateBookingNumber'</span>, () =&gt; {
+  <span class="fn">it</span>(<span class="str">'follows format BK{BRANCH}{DDMM}{TYPE}{NANOID5}'</span>, () =&gt; {
+    <span class="kw">const</span> num = <span class="fn">generateBookingNumber</span>(<span class="str">'branch_rajajinagar'</span>, <span class="str">'salon'</span>)
+    <span class="fn">expect</span>(num).<span class="fn">toMatch</span>(<span class="str">/^BKRS\d{4}S[a-zA-Z0-9]{5}$/</span>)
+  })
+})
+</code></pre>
+
+<h3>10.2 Integration Test Pattern</h3>
+<pre><code><span class="fn">describe</span>(<span class="str">'POST /api/bookings'</span>, () =&gt; {
+  <span class="fn">it</span>(<span class="str">'creates booking and publishes Ably event'</span>, <span class="kw">async</span> () =&gt; {
+    <span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'/api/bookings'</span>, {
+      method: <span class="str">'POST'</span>,
+      body: JSON.<span class="fn">stringify</span>(validBookingInput),
+      headers: { Cookie: customerSession }
+    })
+    <span class="fn">expect</span>(res.status).<span class="fn">toBe</span>(<span class="num">201</span>)
+    <span class="kw">const</span> { data } = <span class="kw">await</span> res.<span class="fn">json</span>()
+    <span class="fn">expect</span>(data.status).<span class="fn">toBe</span>(<span class="str">'pending'</span>)
+    <span class="fn">expect</span>(data.bookingNumber).<span class="fn">toMatch</span>(<span class="str">/^BKRS/</span>)
+    <span class="fn">expect</span>(mockAbly.publish).<span class="fn">toHaveBeenCalled</span>()
+  })
+
+  <span class="fn">it</span>(<span class="str">'rejects booking for unavailable slot'</span>, <span class="kw">async</span> () =&gt; {
+    <span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'/api/bookings'</span>, { ... })  <span class="cm">// same slot twice</span>
+    <span class="fn">expect</span>(res.status).<span class="fn">toBe</span>(<span class="num">409</span>)
+    <span class="fn">expect</span>(error.code).<span class="fn">toBe</span>(<span class="str">'BOOKING_SLOT_UNAVAILABLE'</span>)
+  })
+
+  <span class="fn">it</span>(<span class="str">'returns 401 for unauthenticated request'</span>, <span class="kw">async</span> () =&gt; {
+    <span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'/api/bookings'</span>, { method: <span class="str">'POST'</span>, body: ... })
+    <span class="fn">expect</span>(res.status).<span class="fn">toBe</span>(<span class="num">401</span>)
+  })
+})
+</code></pre>
+
+<h3>10.3 E2E Test Pattern (Playwright)</h3>
+<pre><code><span class="fn">test</span>(<span class="str">'customer can complete booking flow'</span>, <span class="kw">async</span> ({ page }) =&gt; {
+  <span class="kw">await</span> page.<span class="fn">goto</span>(<span class="str">'/?book=1'</span>)
+
+  <span class="cm">// Step 1: Select service type</span>
+  <span class="kw">await</span> page.<span class="fn">click</span>(<span class="str">'[data-testid="service-type-salon"]'</span>)
+  <span class="kw">await</span> page.<span class="fn">click</span>(<span class="str">'[data-testid="service-haircut"]'</span>)
+  <span class="kw">await</span> page.<span class="fn">click</span>(<span class="str">'[data-testid="next-step"]'</span>)
+
+  <span class="cm">// Step 2: Select date and time</span>
+  <span class="kw">await</span> page.<span class="fn">click</span>(<span class="str">'[data-date="2026-06-15"]'</span>)
+  <span class="kw">await</span> page.<span class="fn">click</span>(<span class="str">'[data-slot="15:30"]'</span>)
+  <span class="kw">await</span> page.<span class="fn">click</span>(<span class="str">'[data-testid="next-step"]'</span>)
+
+  <span class="cm">// Step 3: Confirm and submit</span>
+  <span class="kw">await</span> page.<span class="fn">click</span>(<span class="str">'[data-testid="submit-booking"]'</span>)
+
+  <span class="cm">// Step 4: Success</span>
+  <span class="kw">await</span> <span class="fn">expect</span>(page.<span class="fn">locator</span>(<span class="str">'[data-testid="booking-success"]'</span>)).<span class="fn">toBeVisible</span>()
+  <span class="kw">await</span> <span class="fn">expect</span>(page.<span class="fn">locator</span>(<span class="str">'[data-testid="booking-number"]'</span>)).<span class="fn">toContainText</span>(<span class="str">'BKRS'</span>)
+})
+</code></pre>
+
+<hr>
+
+
+<h2 id="performance">11. Performance Optimization Details</h2>
+
+<h3>11.1 Database Query Optimization</h3>
+<pre><code><span class="cm">// ❌ BAD: Select all columns (wastes bandwidth, breaks caching)</span>
+<span class="kw">const</span> bookings = <span class="kw">await</span> db.<span class="fn">select</span>().<span class="fn">from</span>(booking)
+
+<span class="cm">// ✅ GOOD: Select only needed columns</span>
+<span class="kw">const</span> bookings = <span class="kw">await</span> db.<span class="fn">select</span>({
+  id: booking.id,
+  bookingNumber: booking.bookingNumber,
+  status: booking.status,
+  date: booking.date,
+}).<span class="fn">from</span>(booking).<span class="fn">where</span>(...)
+
+<span class="cm">// ✅ GOOD: Relations via Drizzle (single query, no N+1)</span>
+<span class="kw">const</span> bookings = <span class="kw">await</span> db.query.booking.<span class="fn">findMany</span>({
+  with: { bookingServices: { with: { service: <span class="num">true</span> } } },
+  orderBy: [<span class="fn">desc</span>(booking.date)],
+  limit: <span class="num">20</span>,
+})
+</code></pre>
+
+<p><strong>Connection pooling:</strong> Neon built-in PgBouncer, 100 max connections, serverless HTTP driver for edge.</p>
+
+<h3>11.2 React Server Components vs Client Components</h3>
+<table>
+  <tr><th>Component</th><th>Type</th><th>Rationale</th></tr>
+  <tr><td>Service catalog page</td><td><span class="badge badge-success">Server</span></td><td>Static data, no interactivity, SEO-critical</td></tr>
+  <tr><td>Booking dialog</td><td><span class="badge badge-warning">Client</span></td><td>Multi-step form, state management</td></tr>
+  <tr><td>Admin dashboard layout</td><td><span class="badge badge-success">Server</span></td><td>Initial data fetch on server</td></tr>
+  <tr><td>Admin booking table</td><td><span class="badge badge-warning">Client</span></td><td>Sorting, filtering, realtime updates</td></tr>
+  <tr><td>Homepage hero section</td><td><span class="badge badge-success">Server</span></td><td>Marketing content, SEO first paint</td></tr>
+  <tr><td>Animated service cards</td><td><span class="badge badge-warning">Client</span></td><td>Motion animations, hover effects</td></tr>
+  <tr><td>Booking status badge</td><td><span class="badge badge-warning">Client</span></td><td>Ably realtime subscription</td></tr>
+</table>
+
+<h3>11.3 Image Pipeline</h3>
+<pre><code>┌──────────────┐     ┌────────────────┐     ┌──────────────────────┐     ┌─────────────┐
+│   Upload     │────▶│  Cloudflare R2 │────▶│  Cloudflare CDN      │────▶│  Browser    │
+│   (Admin)    │     │  (Origin)      │     │  (200+ PoPs)         │     │  (Client)   │
+└──────────────┘     └────────────────┘     └──────────────────────┘     └─────────────┘
+                                                       │
+                                            ┌──────────┴──────────┐
+                                            │  <span class="fn">Next.js Image</span>       │
+                                            │  Component           │
+                                            ├──────────────────────┤
+                                            │  • Auto WebP/AVIF    │
+                                            │  • Responsive srcset │
+                                            │  • Lazy loading      │
+                                            │  • Blur placeholder  │
+                                            │  • Size optimization │
+                                            └──────────────────────┘
+</code></pre>
+
+<hr>
+
+
+<h2 id="monitoring">12. Monitoring &amp; Alerting Implementation</h2>
+
+<h3>12.1 Health Check Endpoint</h3>
+<pre><code><span class="cm">// GET /api/health</span>
+<span class="cm">// Checks: DB (SELECT 1), Redis (PING), R2 (HEAD .health)</span>
+<span class="cm">// Returns:</span>
+{
+  <span class="str">"status"</span>: <span class="str">"healthy"</span> | <span class="str">"degraded"</span> | <span class="str">"unhealthy"</span>,
+  <span class="str">"checks"</span>: {
+    <span class="str">"database"</span>: { <span class="str">"status"</span>: <span class="str">"ok"</span>, <span class="str">"latencyMs"</span>: <span class="num">12</span> },
+    <span class="str">"redis"</span>:    { <span class="str">"status"</span>: <span class="str">"ok"</span>, <span class="str">"latencyMs"</span>: <span class="num">3</span> },
+    <span class="str">"r2"</span>:       { <span class="str">"status"</span>: <span class="str">"ok"</span>, <span class="str">"latencyMs"</span>: <span class="num">8</span> }
+  },
+  <span class="str">"totalLatencyMs"</span>: <span class="num">23</span>,
+  <span class="str">"timestamp"</span>: <span class="str">"2026-05-23T14:30:00.000Z"</span>,
+  <span class="str">"version"</span>: <span class="str">"abc123f"</span>
+}
+
+<span class="cm">// HTTP 200 if healthy/degraded, 503 if unhealthy</span>
+<span class="cm">// BetterStack monitors this endpoint every 30 seconds</span>
+</code></pre>
+
+<h3>12.2 Structured Logging Format</h3>
+<pre><code><span class="cm">// All logs emitted as structured JSON to stdout (BetterStack ingests automatically)</span>
+{
+  <span class="str">"level"</span>: <span class="str">"error"</span>,
+  <span class="str">"message"</span>: <span class="str">"PDF generation failed"</span>,
+  <span class="str">"service"</span>: <span class="str">"rgss-web"</span>,
+  <span class="str">"environment"</span>: <span class="str">"prod"</span>,
+  <span class="str">"timestamp"</span>: <span class="str">"2026-05-23T14:30:00.000Z"</span>,
+  <span class="str">"requestId"</span>: <span class="str">"req_abc123"</span>,
+  <span class="str">"data"</span>: { <span class="str">"invoiceId"</span>: <span class="str">"inv_xyz"</span>, <span class="str">"statusCode"</span>: <span class="num">502</span> },
+  <span class="str">"error"</span>: {
+    <span class="str">"name"</span>: <span class="str">"FetchError"</span>,
+    <span class="str">"message"</span>: <span class="str">"Render API timeout"</span>,
+    <span class="str">"stack"</span>: <span class="str">"..."</span>
+  }
+}
+</code></pre>
+
+<h3>12.3 PostHog Event Tracking</h3>
+<table>
+  <tr><th>Event</th><th>Trigger</th><th>Key Properties</th></tr>
+  <tr><td><code>booking_started</code></td><td>Dialog opened</td><td>source, utm_source</td></tr>
+  <tr><td><code>booking_step_completed</code></td><td>Each step advance</td><td>step, step_name, serviceType</td></tr>
+  <tr><td><code>booking_request_submitted</code></td><td>Final submit</td><td>serviceIds, date, branchId</td></tr>
+  <tr><td><code>booking_abandoned</code></td><td>Dialog closed without submit</td><td>last_step, time_spent_ms</td></tr>
+  <tr><td><code>lead_form_submitted</code></td><td>Form on /book submitted</td><td>source, utm_campaign</td></tr>
+  <tr><td><code>lead_converted</code></td><td>Lead → booking created</td><td>leadId, bookingId, days_to_convert</td></tr>
+  <tr><td><code>sign_in_completed</code></td><td>OAuth callback success</td><td>is_new_user, provider</td></tr>
+  <tr><td><code>gems_redeemed</code></td><td>Gems used for service</td><td>gems_count, service_name</td></tr>
+</table>
+
+<p><strong>Funnel Analysis:</strong> <code>booking_started</code> → <code>booking_step_completed (1,2,3)</code> → <code>booking_request_submitted</code> | Target: &gt;60% completion rate.</p>
+
+<hr>
+
+<blockquote>
+  <strong>Document End</strong><br>
+  This LLD was prepared following MAANG/FAANG system design review standards.<br>
+  For the high-level architecture overview, refer to <a href="./HLD.html">HLD.html</a>.<br>
+  For database schema details, refer to <code>database-schema.md</code>.
+</blockquote>
+
+</body>
+</html>
