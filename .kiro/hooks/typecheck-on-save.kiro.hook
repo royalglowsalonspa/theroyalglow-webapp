@@ -1,0 +1,19 @@
+{
+  "enabled": true,
+  "name": "Typecheck on Save",
+  "description": "Runs TypeScript type checking when .ts or .tsx files are saved to catch type errors early",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "**/*.ts",
+      "**/*.tsx"
+    ]
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "bun run typecheck"
+  },
+  "workspaceFolderName": "rgss_website_v1",
+  "shortName": "typecheck-on-save"
+}
