@@ -4,7 +4,7 @@ import { createLogger } from '@rgss/logger'
 // token route. Phase 5 ships the token endpoint only; server-side publishing is
 // a later phase.
 //
-// We read `ABLY_API_KEY` straight from `process.env` (NOT from `env.ts`) on
+// We read `ABLY_PRIVATE_KEY` straight from `process.env` (NOT from `env.ts`) on
 // purpose: `env.ts` types it as a required string and would fail validation
 // when it is absent, but this helper must degrade gracefully (return null so
 // the caller can answer 503) when realtime is not yet configured. `ably` is an
@@ -49,7 +49,7 @@ export async function createAblyTokenRequest(params: {
   userId: string
   isAdmin: boolean
 }): Promise<unknown | null> {
-  const apiKey = process.env.ABLY_API_KEY
+  const apiKey = process.env.ABLY_PRIVATE_KEY
   // Not configured → caller turns this into a 503 SERVICE_UNAVAILABLE.
   if (!apiKey) {
     return null

@@ -2,7 +2,7 @@ import { createLogger } from '@rgss/logger'
 
 // Thin, guarded seam between the web app and the Payload CMS REST API.
 //
-// We read `CMS_URL` straight from `process.env` (NOT from `@/env`) on purpose:
+// We read `NEXT_PUBLIC_CMS_URL` straight from `process.env` (NOT from `@/env`) on purpose:
 // `env.ts` validates its schema at build time and would fail when the CMS is
 // not yet provisioned, but this layer must degrade gracefully — the web app
 // has to build, typecheck, lint, and serve `/blog` and `/gallery` with NO CMS
@@ -23,9 +23,9 @@ function normaliseBase(raw: string): string {
   return raw.endsWith('/') ? raw.slice(0, -1) : raw
 }
 
-/** True only when `CMS_URL` is a non-empty string that parses as a URL. */
+/** True only when `NEXT_PUBLIC_CMS_URL` is a non-empty string that parses as a URL. */
 export function isCmsConfigured(): boolean {
-  const raw = process.env.CMS_URL
+  const raw = process.env.NEXT_PUBLIC_CMS_URL
   if (typeof raw !== 'string' || raw.trim() === '') {
     return false
   }
@@ -44,7 +44,7 @@ export function cmsBaseUrl(): string | null {
     return null
   }
   // `isCmsConfigured` guarantees a non-empty string here.
-  const raw = process.env.CMS_URL as string
+  const raw = process.env.NEXT_PUBLIC_CMS_URL as string
   return normaliseBase(raw.trim())
 }
 

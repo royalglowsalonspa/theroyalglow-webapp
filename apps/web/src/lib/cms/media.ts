@@ -32,7 +32,7 @@ function toAbsoluteUrl(url: string): string {
     return url
   }
 
-  const r2Base = process.env.CLOUDFLARE_R2_PUBLIC_URL
+  const r2Base = process.env.NEXT_PUBLIC_R2_PUBLIC_URL
   const base =
     typeof r2Base === 'string' && r2Base.trim() !== ''
       ? r2Base.trim()

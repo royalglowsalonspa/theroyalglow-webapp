@@ -52,7 +52,8 @@ Custom files like `.env.pprd` are **not** auto-loaded by Next.js. Use them only 
 
 | Variable | Used by | Visibility | Description |
 |----------|---------|------------|-------------|
-| `BETTER_AUTH_SECRET` | web | Private | Random string min 32 chars — signs sessions and tokens. Rotate if compromised. |
+| `BETTER_AUTH_SECRET` | web | Private | Random string min 32 chars — signs sessions and tokens (self-hosted mode). Rotate if compromised. Optional when using Cloud mode. |
+| `BETTER_AUTH_API_KEY` | web | Private | Better Auth Cloud API key (Cloud mode alternative to `BETTER_AUTH_SECRET`). From https://dash.better-auth.com |
 | `BETTER_AUTH_URL` | web | Private | Public app origin used by Better Auth callbacks: `https://theroyalglow.in` |
 | `GOOGLE_OAUTH_CLIENT_ID` | web | Private | Google OAuth 2.0 client ID |
 | `GOOGLE_OAUTH_CLIENT_SECRET` | web | Private | Google OAuth 2.0 client secret |
@@ -64,6 +65,7 @@ Custom files like `.env.pprd` are **not** auto-loaded by Next.js. Use them only 
 | Variable | Used by | Visibility | Description |
 |----------|---------|------------|-------------|
 | `RESEND_API_KEY` | web | Private | Starts with `re_` — used for all transactional emails (invoices, booking confirmations) |
+| `RESEND_FROM_EMAIL` | web | Private | Default From header for transactional email, e.g. `Royal Glow <contact@theroyalglow.in>` |
 
 ---
 
@@ -100,7 +102,8 @@ Custom files like `.env.pprd` are **not** auto-loaded by Next.js. Use them only 
 | `R2_ACCESS_KEY_ID` | web, cms | Private | R2 S3-compatible access key |
 | `R2_SECRET_ACCESS_KEY` | web, cms | Private | R2 S3-compatible secret key |
 | `R2_BUCKET_NAME` | web, cms | Private | Bucket name: `theroyalglow-uploads` |
-| `NEXT_PUBLIC_R2_PUBLIC_URL` | web | **Public** | Public CDN URL for serving uploaded files: `https://uploads.theroyalglow.in` |
+| `R2_ENDPOINT` | cms | Private | R2 S3 endpoint for the Payload storage adapter: `https://<account-id>.r2.cloudflarestorage.com` |
+| `NEXT_PUBLIC_R2_PUBLIC_URL` | web, cms | **Public** | Public CDN URL for serving uploaded files: `https://uploads.theroyalglow.in` |
 
 ---
 
@@ -131,6 +134,7 @@ Custom files like `.env.pprd` are **not** auto-loaded by Next.js. Use them only 
 |----------|---------|------------|-------------|
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | web | **Public** | VAPID public key — sent to browser to create push subscription |
 | `VAPID_PRIVATE_KEY` | web | Private | VAPID private key — used server-side to send push notifications |
+| `VAPID_SUBJECT` | web | Private | VAPID `mailto:`/URL subject for push payloads, e.g. `mailto:contact@theroyalglow.in` |
 
 **Generate once:**
 ```bash
