@@ -15,6 +15,7 @@ export const notification = pgTable('notification', {
   channel: notificationChannelEnum('channel').notNull(),
   status: notificationStatusEnum('status').notNull().default('pending'),
   sentAt: timestamp('sent_at', { withTimezone: true, mode: 'date' }),
+  readAt: timestamp('read_at', { withTimezone: true, mode: 'date' }),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 }, (table) => [
   index('notification_status_created_at_idx').on(table.status, table.createdAt).where(sql`status = 'pending'`),

@@ -1,11 +1,10 @@
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { db } from '../index'
 import { user } from '../schema/auth'
 import { booking, bookingService } from '../schema/booking'
 import { branch } from '../schema/branch'
 import { invoice, invoiceItem } from '../schema/invoice'
-import { loyaltyAccount, loyaltyTransaction } from '../schema/loyalty'
 import { staffProfile } from '../schema/profile'
 
 type BookingStatus = (typeof booking.$inferSelect)['status']
@@ -204,59 +203,4 @@ export async function createInvoiceWithItems(
   ])
 
   return invoiceResult[0] as typeof invoice.$inferSelect
-}
-
-// Find a customer's loyalty account, creating it on first use.
-export async function getOrCreateLoyaltyAccount(customerId: string) {
-  const existing = await db
-    .select()
-    .from(loyaltyAccount)
-    .where(eq(loyaltyAccount.customerId, customerId))
-    .limit(1)
-
-  if (existing[0]) {
-    return existing[0]
-  }
-
-  const [created] = await db
-    .insert(loyaltyAccount)
-    .values({ customerId })
-    .returning()
-
-  return created as typeof loyaltyAccount.$inferSelect
-}
-
-// Record an 'earned' gems transaction and bump the account balance + lifetime
-// total atomically via db.batch(). Returns the inserted transaction.
-export async function addGemsTransaction(
-  accountId: string,
-  gems: number,
-  invoiceId: string,
-  description: string,
-  expiresAt: Date,
-) {
-  const insertTx = db
-    .insert(loyaltyTransaction)
-    .values({
-      loyaltyAccountId: accountId,
-      type: 'earned',
-      gemsAmount: gems,
-      invoiceId,
-      description,
-      expiresAt,
-    })
-    .returning()
-
-  const [txResult] = await db.batch([
-    insertTx,
-    db
-      .update(loyaltyAccount)
-      .set({
-        gemsBalance: sql`${loyaltyAccount.gemsBalance} + ${gems}`,
-        totalGemsEarned: sql`${loyaltyAccount.totalGemsEarned} + ${gems}`,
-      })
-      .where(eq(loyaltyAccount.id, accountId)),
-  ])
-
-  return txResult[0] as typeof loyaltyTransaction.$inferSelect
 }

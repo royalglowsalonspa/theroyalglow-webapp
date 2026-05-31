@@ -11,7 +11,9 @@ export const invoice = pgTable('invoice', {
   id: text('id').primaryKey().$defaultFn(() => nanoid()),
   invoiceNumber: text('invoice_number').notNull().unique(),
   branchId: text('branch_id').notNull().references(() => branch.id, { onDelete: 'restrict' }),
-  bookingId: text('booking_id').notNull().references(() => booking.id, { onDelete: 'restrict' }),
+  // Nullable: a membership_purchase invoice has no underlying booking. Service
+  // and membership_session invoices always set this to their booking id.
+  bookingId: text('booking_id').references(() => booking.id, { onDelete: 'restrict' }),
   customerId: text('customer_id').notNull().references(() => user.id, { onDelete: 'restrict' }),
   subtotalPaise: integer('subtotal_paise').notNull(),
   discountAmountPaise: integer('discount_amount_paise').notNull().default(0),
@@ -39,9 +41,11 @@ export const invoice = pgTable('invoice', {
 export const invoiceItem = pgTable('invoice_item', {
   id: text('id').primaryKey().$defaultFn(() => nanoid()),
   invoiceId: text('invoice_id').notNull().references(() => invoice.id, { onDelete: 'cascade' }),
-  serviceId: text('service_id').notNull().references(() => service.id, { onDelete: 'restrict' }),
+  // Nullable: a membership_purchase line item is not tied to a catalogue service
+  // or a staff member. Service and membership_session items always set both.
+  serviceId: text('service_id').references(() => service.id, { onDelete: 'restrict' }),
   serviceNameSnapshot: text('service_name_snapshot').notNull(),
-  staffNameSnapshot: text('staff_name_snapshot').notNull(),
+  staffNameSnapshot: text('staff_name_snapshot'),
   quantity: integer('quantity').notNull().default(1),
   unitPricePaise: integer('unit_price_paise').notNull(),
   totalPricePaise: integer('total_price_paise').notNull(),

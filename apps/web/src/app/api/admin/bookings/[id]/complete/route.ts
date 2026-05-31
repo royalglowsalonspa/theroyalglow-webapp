@@ -5,12 +5,18 @@ import {
   createInvoiceWithItems,
   getBookingForAdmin,
   getBranchByIdAdmin,
+  getOfferById,
+  getOfferRedemptionForCustomerOnDate,
   getOrCreateLoyaltyAccount,
   getStaffNamesByIds,
+  recordOfferRedemption,
   updateBookingStatus,
 } from '@rgss/db/queries'
 import {
+  assertOfferActive,
+  assertOfferSalonOnly,
   calculateGemsEarned,
+  computeOfferDiscount,
   generateInvoiceNumber,
   splitGST,
 } from '@rgss/business'
@@ -32,6 +38,21 @@ export const POST = withErrorHandler(
     }
     const { paymentMethod } = parsed.data
 
+    // Optional offer application rides alongside the existing completion payload.
+    // Read these defensively from the raw body so the established
+    // completeBookingSchema parse is never widened or broken.
+    const extras = (body ?? {}) as {
+      offerId?: unknown
+      gemsRedeemedServiceId?: unknown
+      redeemGems?: unknown
+    }
+    const offerId =
+      typeof extras.offerId === 'string' && extras.offerId.length > 0
+        ? extras.offerId
+        : null
+    const requestsGemsRedemption =
+      Boolean(extras.gemsRedeemedServiceId) || Boolean(extras.redeemGems)
+
     const existing = await getBookingForAdmin(id)
     if (!existing) {
       throw notFound('Booking not found.')
@@ -50,19 +71,66 @@ export const POST = withErrorHandler(
     }
 
     const now = new Date()
+    const today = now.toISOString().slice(0, 10)
+
+    // Offer application (optional). When an offer is supplied, validate it is
+    // active, salon-only, not combined with gems, and not a second redemption
+    // for this customer today; then compute the discounted total. With no offer
+    // the totals are unchanged (discount 0, final = original) — no regression.
+    let appliedOfferId: string | null = null
+    let discountPaise = 0
+    let finalPaise = existing.totalAmountPaise
+
+    if (offerId) {
+      const offer = await getOfferById(offerId)
+      if (!offer) {
+        throw notFound('Offer not found.')
+      }
+
+      // Active + within date range (throws OFFER_EXPIRED 409).
+      assertOfferActive(offer)
+      // Salon-only — the booking is a single service type (throws
+      // OFFER_NOT_APPLICABLE 409 for spa bookings).
+      assertOfferSalonOnly([existing.serviceType])
+      // Offers cannot be combined with a gems redemption on the same booking.
+      if (requestsGemsRedemption) {
+        throw conflict(
+          ERROR_CODES.OFFER_NOT_APPLICABLE,
+          'An offer cannot be combined with gems on the same booking.',
+        )
+      }
+      // One offer per customer per day — friendly pre-check before the DB
+      // unique constraint would fire.
+      const priorRedemption = await getOfferRedemptionForCustomerOnDate(
+        existing.customerId,
+        today,
+      )
+      if (priorRedemption) {
+        throw conflict(
+          ERROR_CODES.OFFER_NOT_APPLICABLE,
+          'This customer has already redeemed an offer today.',
+        )
+      }
+
+      const computed = computeOfferDiscount(offer, existing.totalAmountPaise)
+      discountPaise = computed.discountPaise
+      finalPaise = computed.finalPaise
+      appliedOfferId = offer.id
+    }
 
     // 1. Mark the booking completed.
     const completed = await updateBookingStatus(id, 'completed', {
       completedAt: now,
     })
 
-    // 2. Build the invoice. Prices are GST-inclusive paise; split out the base
-    //    and GST for the invoice totals.
-    const totalPaise = existing.totalAmountPaise
-    const { basePaise, gstPaise } = splitGST(totalPaise)
+    // 2. Build the invoice. Prices are GST-inclusive paise. The subtotal is the
+    //    original (pre-discount) base; the taxable value + GST are split from the
+    //    discounted total so they reconstruct `finalPaise` exactly.
+    const { basePaise: subtotalPaise } = splitGST(existing.totalAmountPaise)
+    const { basePaise: taxableValuePaise, gstPaise } = splitGST(finalPaise)
 
-    // 3. Gems are earned on service invoices only.
-    const gemsEarned = calculateGemsEarned(totalPaise)
+    // 3. Gems are earned on service invoices only, on the discounted total.
+    const gemsEarned = calculateGemsEarned(finalPaise)
 
     // Snapshot staff names onto each invoice item.
     const staffIds = [
@@ -83,10 +151,11 @@ export const POST = withErrorHandler(
         branchId: existing.branchId,
         bookingId: existing.id,
         customerId: existing.customerId,
-        subtotalPaise: basePaise,
-        taxableValuePaise: basePaise,
+        subtotalPaise,
+        discountAmountPaise: discountPaise,
+        taxableValuePaise,
         gstAmountPaise: gstPaise,
-        totalAmountPaise: totalPaise,
+        totalAmountPaise: finalPaise,
         invoiceType: 'service',
         paymentMethod,
         paymentStatus: 'paid',
@@ -121,14 +190,25 @@ export const POST = withErrorHandler(
       )
     }
 
+    // 5. Record the offer redemption (one-per-customer-per-day, DB-enforced).
+    if (appliedOfferId) {
+      await recordOfferRedemption(
+        appliedOfferId,
+        existing.customerId,
+        existing.id,
+        today,
+      )
+    }
+
     return apiSuccess({
       booking: completed,
       invoice: {
         invoiceNumber: invoice.invoiceNumber,
-        totalPaise,
+        totalPaise: finalPaise,
         gstPaise,
       },
       gemsEarned,
+      discountPaise,
     })
   },
 )

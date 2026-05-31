@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSession } from '@/lib/auth-client'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { MobileNav } from './MobileNav'
 
 const navLinks = [
@@ -66,6 +67,7 @@ export function Header() {
         {/* Auth section */}
         {user ? (
           <div className="hidden lg:flex items-center gap-6">
+            <NotificationBell />
             <Link
               href="/bookings"
               className={`font-ui text-xs uppercase tracking-[0.5px] text-cocoa-dark hover:text-deep-gold transition-colors duration-200 relative py-1 ${
@@ -75,6 +77,26 @@ export function Header() {
               }`}
             >
               My Bookings
+            </Link>
+            <Link
+              href="/membership"
+              className={`font-ui text-xs uppercase tracking-[0.5px] text-cocoa-dark hover:text-deep-gold transition-colors duration-200 relative py-1 ${
+                pathname === '/membership'
+                  ? 'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-deep-gold'
+                  : ''
+              }`}
+            >
+              Membership
+            </Link>
+            <Link
+              href="/gems"
+              className={`font-ui text-xs uppercase tracking-[0.5px] text-cocoa-dark hover:text-deep-gold transition-colors duration-200 relative py-1 ${
+                pathname === '/gems'
+                  ? 'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-deep-gold'
+                  : ''
+              }`}
+            >
+              Gems
             </Link>
             <Link
               href="/profile"
