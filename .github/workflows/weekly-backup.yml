@@ -1,0 +1,60 @@
+name: Weekly Prod Backup
+
+on:
+  schedule:
+    - cron: '0 2 * * 0' # Every Sunday 2 AM UTC (7:30 AM IST)
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client-16
+
+      - name: Create compressed backup
+        run: |
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          BACKUP_FILE="rgss_prod_${TIMESTAMP}.sql.gz"
+          pg_dump "${{ secrets.DATABASE_URL_UNPOOLED_PROD }}" \
+            --no-owner --no-privileges --clean --if-exists \
+            | gzip > "$BACKUP_FILE"
+          echo "BACKUP_FILE=$BACKUP_FILE" >> "$GITHUB_ENV"
+          echo "BACKUP_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)" >> "$GITHUB_ENV"
+
+      - name: Upload to Cloudflare R2
+        run: |
+          aws s3 cp "${{ env.BACKUP_FILE }}" \
+            "s3://rgss-backups/weekly/${{ env.BACKUP_FILE }}" \
+            --endpoint-url "$R2_ENDPOINT"
+
+      - name: Verify backup integrity
+        run: |
+          aws s3 cp "s3://rgss-backups/weekly/${{ env.BACKUP_FILE }}" verify.sql.gz \
+            --endpoint-url "$R2_ENDPOINT"
+          gunzip -t verify.sql.gz
+          echo "Backup verified: ${{ env.BACKUP_FILE }} (${{ env.BACKUP_SIZE }})"
+
+      - name: Cleanup old backups (keep last 8 weeks)
+        run: |
+          aws s3 ls s3://rgss-backups/weekly/ --endpoint-url "$R2_ENDPOINT" \
+            | sort | head -n -8 | awk '{print $4}' \
+            | xargs -I {} aws s3 rm "s3://rgss-backups/weekly/{}" --endpoint-url "$R2_ENDPOINT"
+
+      - name: Ping BetterStack heartbeat
+        run: curl -sf "${{ secrets.BETTER_STACK_HEARTBEAT_BACKUP }}"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          curl -X POST ${{ secrets.BETTER_STACK_INCIDENT_WEBHOOK }} \
+            -H "Content-Type: application/json" \
+            -d '{"title": "Weekly backup FAILED", "severity": "critical"}'

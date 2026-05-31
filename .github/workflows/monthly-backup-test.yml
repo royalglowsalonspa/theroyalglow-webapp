@@ -1,0 +1,47 @@
+# Ops-activated: requires R2 + Neon test-branch secrets to run.
+# Restores the latest weekly backup into the Neon `test` branch and runs
+# integrity checks. Mirrors deployment.md "Monthly Backup Restore Test".
+name: Monthly Backup Restore Test
+
+on:
+  schedule:
+    - cron: '0 3 1 * *' # 1st of every month at 3 AM UTC
+  workflow_dispatch:
+
+jobs:
+  restore-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+    steps:
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client-16
+
+      - name: Get latest backup from R2
+        run: |
+          LATEST=$(aws s3 ls s3://rgss-backups/weekly/ --endpoint-url "$R2_ENDPOINT" \
+            | sort | tail -1 | awk '{print $4}')
+          aws s3 cp "s3://rgss-backups/weekly/$LATEST" backup.sql.gz \
+            --endpoint-url "$R2_ENDPOINT"
+          gunzip backup.sql.gz
+
+      - name: Restore to Neon test branch and verify
+        env:
+          RESTORE_DB_URL: ${{ secrets.DATABASE_URL_UNPOOLED_TEST }}
+        run: |
+          psql "$RESTORE_DB_URL" < backup.sql
+          psql "$RESTORE_DB_URL" -c "SELECT COUNT(*) FROM booking;"
+          psql "$RESTORE_DB_URL" -c "SELECT COUNT(*) FROM invoice;"
+          psql "$RESTORE_DB_URL" -c "SELECT COUNT(*) FROM \"user\";"
+          echo "Backup restore test passed"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          curl -X POST ${{ secrets.BETTER_STACK_INCIDENT_WEBHOOK }} \
+            -H "Content-Type: application/json" \
+            -d '{"title": "Monthly restore test FAILED", "severity": "high"}'

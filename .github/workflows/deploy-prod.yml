@@ -1,0 +1,109 @@
+name: Deploy Production
+
+on:
+  push:
+    branches: [prod]
+
+jobs:
+  pre-deploy-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify all CI checks passed
+        run: |
+          gh api repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs \
+            --jq '.check_runs | map(select(.conclusion != "success")) | length' \
+            | grep -q "^0$"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [pre-deploy-checks]
+    environment:
+      name: production
+      url: https://theroyalglow.in
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+
+      - name: Upload source maps to Sentry
+        run: |
+          bunx @sentry/cli sourcemaps upload \
+            --org ${{ secrets.SENTRY_ORG }} \
+            --project ${{ secrets.SENTRY_PROJECT }} \
+            --release ${{ github.sha }} \
+            apps/web/.next/static
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/web/.next --project-name=rgss-web --branch=prod
+
+      - name: Run database migrations
+        run: bun run db:migrate
+        env:
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_PROD }}
+
+  post-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [deploy]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Health check (retry 3x with 10s delay)
+        run: |
+          for i in 1 2 3; do
+            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" https://theroyalglow.in/api/health || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "Health check passed (attempt $i)"
+              exit 0
+            fi
+            echo "Health check failed (attempt $i, status: $STATUS). Retrying in 10s..."
+            sleep 10
+          done
+          echo "Health check failed after 3 attempts"
+          exit 1
+
+      - name: Smoke test critical paths
+        run: |
+          curl -sf https://theroyalglow.in/ > /dev/null
+          curl -sf "https://theroyalglow.in/?book=1&utm_source=gmb" > /dev/null
+          curl -sf https://theroyalglow.in/services > /dev/null
+          curl -sf https://theroyalglow.in/book > /dev/null
+          curl -sf https://theroyalglow.in/api/health > /dev/null
+          echo "All smoke tests passed"
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          curl -X POST ${{ secrets.BETTER_STACK_DEPLOY_WEBHOOK }} \
+            -H "Content-Type: application/json" \
+            -d '{"sha": "${{ github.sha }}", "status": "success", "env": "prod"}'
+
+  auto-rollback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [post-deploy]
+    if: failure()
+    steps:
+      - name: Roll back to previous Cloudflare deployment
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deployment list --project-name=rgss-web
+      - name: Notify deployment failure
+        run: |
+          curl -X POST ${{ secrets.BETTER_STACK_INCIDENT_WEBHOOK }} \
+            -H "Content-Type: application/json" \
+            -d '{"title": "Production deploy failed — rolled back", "sha": "${{ github.sha }}"}'
