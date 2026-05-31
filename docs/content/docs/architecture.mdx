@@ -1,0 +1,50 @@
+---
+title: Architecture
+description: High-level architecture of the Royal Glow Salon & Spa platform.
+---
+
+# Architecture
+
+## Layered monorepo
+
+The codebase enforces a strict dependency direction so business rules stay
+testable and framework-agnostic.
+
+| Layer | Location | May import | Must not import |
+| --- | --- | --- | --- |
+| Presentation | `apps/web/app`, `apps/web/components` | business, db, types, errors | — |
+| API (thin) | `apps/web/app/api` | business, db, types, errors | UI components |
+| Business logic | `packages/business` | types, errors | db, framework, UI |
+| Data access | `packages/db` | types | business, framework, UI |
+| Types / validation | `packages/types` | — | everything else |
+
+API routes are thin orchestrators: parse, validate with Zod, call business
+logic, return JSON. No database queries live in route handlers.
+
+## Hosting topology
+
+- **Edge:** Cloudflare Pages + Workers serve the customer site globally.
+- **SSR origin / CMS:** Render (Singapore) hosts the heavier SSR fallback and
+  the Payload CMS — both Node.js runtimes.
+- **Database:** a single Neon project with four branches (`main`, `preprod`,
+  `test`, `dev`); the CMS owns its own tables, disjoint from the app's Drizzle
+  schema.
+- **Media:** Cloudflare R2 (S3-compatible, zero egress).
+- **Cache + queue:** Upstash Redis + QStash. **Realtime:** Ably.
+
+## Observability
+
+Five layers, each on a free tier: Sentry (errors), BetterStack (uptime, status
+page, job heartbeats, logs), PostHog (product analytics + feature flags),
+Microsoft Clarity (heatmaps + session replay), and Checkly (synthetic browser
+monitoring). All third-party browser scripts load only after explicit cookie
+consent and only when their keys are configured.
+
+## Conventions
+
+- Money is stored as integer **paise**; never floating point.
+- Timestamps are `timestamptz` (stored UTC, displayed IST).
+- Dates display as DD/MM/YYYY and currency in Indian grouping (₹1,00,000.00).
+- Every external integration is a guarded extension point: with no key
+  configured it no-ops and logs, so the whole monorepo builds and runs locally
+  without secrets.

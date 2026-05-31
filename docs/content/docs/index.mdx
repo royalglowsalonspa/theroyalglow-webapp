@@ -1,0 +1,42 @@
+---
+title: Overview
+description: Engineering documentation for the Royal Glow Salon & Spa platform.
+---
+
+# Royal Glow Salon & Spa — Platform Docs
+
+Royal Glow Salon & Spa is a full-stack digital operations platform for a premium
+beauty and wellness business in Bengaluru, India. It covers the customer website,
+booking system, admin portal, CRM, billing, memberships, loyalty, marketing
+automation, analytics, and the supporting backend automations.
+
+## What's in the monorepo
+
+The project is a Turborepo + Bun workspace with three apps and a set of shared
+packages:
+
+- **`apps/web`** — the Next.js 16 (App Router) customer site and admin portal,
+  served at `theroyalglow.in`. Edge-first on Cloudflare Pages with a Render SSR
+  origin.
+- **`apps/cms`** — Payload CMS v3 for marketing content (blog, gallery, team,
+  banners, FAQ), served at `admin.theroyalglow.in`.
+- **`docs`** — this Fumadocs site, served at `docs.theroyalglow.in`.
+- **`packages/*`** — shared `db` (Drizzle + Neon), `business` (pure logic),
+  `types` (Zod), `errors`, and `logger`.
+
+## Core stack
+
+- **Runtime / language:** Bun, TypeScript (strict).
+- **Framework:** Next.js 16 App Router.
+- **Database:** Neon PostgreSQL 16 via Drizzle ORM (edge-native).
+- **Auth:** Better Auth (Google OAuth, RBAC — six roles).
+- **UI:** React + shadcn/ui + Tailwind CSS v4.
+- **Infra:** Cloudflare (Pages, Workers, KV, R2), Upstash (Redis + QStash),
+  Ably (realtime), Resend + Brevo (email).
+
+## Next steps
+
+- Read the [Architecture](/docs/architecture) overview for how the pieces fit
+  together.
+- See the [API Reference](/docs/api-reference) for the agent-friendly REST
+  endpoints.

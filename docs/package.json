@@ -1,5 +1,29 @@
 {
   "name": "@rgss/docs",
   "private": true,
-  "version": "0.0.0"
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "postinstall": "fumadocs-mdx",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "next": "16.2.6",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "fumadocs-ui": "^16.9.3",
+    "fumadocs-core": "^16.9.3",
+    "fumadocs-mdx": "^15.0.10"
+  },
+  "devDependencies": {
+    "@types/mdx": "^2.0.13",
+    "@types/node": "^25.9.1",
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.6",
+    "typescript": "^5.7.3"
+  }
 }
