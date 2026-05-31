@@ -1,5 +1,6 @@
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
+import { enqueueJob } from '@/lib/jobs/enqueue'
 import {
   addGemsTransaction,
   createInvoiceWithItems,
@@ -199,6 +200,15 @@ export const POST = withErrorHandler(
         today,
       )
     }
+
+    // Best-effort: schedule the post-service follow-up to run +24h. enqueueJob
+    // never throws and no-ops without QSTASH_TOKEN, so this can never break the
+    // completion flow or change its response.
+    await enqueueJob(
+      '/api/jobs/post-service-followup',
+      { bookingId: id },
+      24 * 60 * 60,
+    )
 
     return apiSuccess({
       booking: completed,

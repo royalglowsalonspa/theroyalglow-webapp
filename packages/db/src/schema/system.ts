@@ -14,6 +14,12 @@ export const dailySalesSummary = pgTable('daily_sales_summary', {
   noShowBookings: integer('no_show_bookings').notNull().default(0),
   walkinBookings: integer('walkin_bookings').notNull().default(0),
   totalRevenuePaise: integer('total_revenue_paise').notNull().default(0),
+  // Service-type revenue split (Phase 6, additive + nullable). Populated by the
+  // nightly sales summary job so /admin/reports can show salon vs spa vs
+  // membership revenue. Nullable for backward compatibility with existing rows.
+  salonRevenuePaise: integer('salon_revenue_paise'),
+  spaRevenuePaise: integer('spa_revenue_paise'),
+  membershipRevenuePaise: integer('membership_revenue_paise'),
   cashRevenuePaise: integer('cash_revenue_paise').notNull().default(0),
   upiRevenuePaise: integer('upi_revenue_paise').notNull().default(0),
   cardRevenuePaise: integer('card_revenue_paise').notNull().default(0),

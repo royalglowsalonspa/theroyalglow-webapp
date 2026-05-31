@@ -1,5 +1,6 @@
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
+import { enqueueJob } from '@/lib/jobs/enqueue'
 import {
   computeExpiry,
   generateInvoiceNumber,
@@ -98,6 +99,21 @@ export const POST = withErrorHandler(async (req: Request) => {
     totalAmountPaise: totalPaise,
     paymentMethod: data.paymentMethod,
   })
+
+  // Best-effort: schedule the final expiry notice to run +1h after the
+  // membership expires. enqueueJob never throws and no-ops without QSTASH_TOKEN,
+  // so this can never break membership creation or change its response. Guard
+  // the delay so a non-positive value (already-expired edge) is skipped.
+  const expiredNoticeDelaySeconds = Math.floor(
+    (expiresAt.getTime() + 60 * 60 * 1000 - Date.now()) / 1000,
+  )
+  if (expiredNoticeDelaySeconds >= 0) {
+    await enqueueJob(
+      '/api/jobs/membership-expired-notice',
+      { membershipId: result.membership.id },
+      expiredNoticeDelaySeconds,
+    )
+  }
 
   return apiSuccess(result, undefined, 201)
 })

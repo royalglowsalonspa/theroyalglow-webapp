@@ -21,6 +21,15 @@ export const env = createEnv({
     QSTASH_CURRENT_SIGNING_KEY: z.string().min(1),
     QSTASH_NEXT_SIGNING_KEY: z.string().min(1),
     WEB_PUSH_PRIVATE_KEY: z.string().min(1),
+    // Background jobs (Phase 6) — all optional so the build never requires them
+    WEB_PUSH_SUBJECT: z.string().optional(),
+    SLACK_WEBHOOK_URL: z.string().url().optional(),
+    DAILY_REPORT_EMAIL_RECIPIENTS: z.string().optional(),
+    BETTER_STACK_HEARTBEAT_NIGHTLY_SALES: z.string().url().optional(),
+    BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY: z.string().url().optional(),
+    BETTER_STACK_HEARTBEAT_SESSION_CLEANUP: z.string().url().optional(),
+    BETTER_STACK_HEARTBEAT_PREPROD_SYNC: z.string().url().optional(),
+    BETTER_STACK_HEARTBEAT_REMINDERS: z.string().url().optional(),
   },
   client: {
     NEXT_PUBLIC_APP_URL: z.string().url(),
@@ -49,6 +58,19 @@ export const env = createEnv({
     QSTASH_CURRENT_SIGNING_KEY: process.env.QSTASH_CURRENT_SIGNING_KEY,
     QSTASH_NEXT_SIGNING_KEY: process.env.QSTASH_NEXT_SIGNING_KEY,
     WEB_PUSH_PRIVATE_KEY: process.env.WEB_PUSH_PRIVATE_KEY,
+    WEB_PUSH_SUBJECT: process.env.WEB_PUSH_SUBJECT,
+    SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL,
+    DAILY_REPORT_EMAIL_RECIPIENTS: process.env.DAILY_REPORT_EMAIL_RECIPIENTS,
+    BETTER_STACK_HEARTBEAT_NIGHTLY_SALES:
+      process.env.BETTER_STACK_HEARTBEAT_NIGHTLY_SALES,
+    BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY:
+      process.env.BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY,
+    BETTER_STACK_HEARTBEAT_SESSION_CLEANUP:
+      process.env.BETTER_STACK_HEARTBEAT_SESSION_CLEANUP,
+    BETTER_STACK_HEARTBEAT_PREPROD_SYNC:
+      process.env.BETTER_STACK_HEARTBEAT_PREPROD_SYNC,
+    BETTER_STACK_HEARTBEAT_REMINDERS:
+      process.env.BETTER_STACK_HEARTBEAT_REMINDERS,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NEXT_PUBLIC_ABLY_KEY: process.env.NEXT_PUBLIC_ABLY_KEY,
     NEXT_PUBLIC_META_PIXEL_ID: process.env.NEXT_PUBLIC_META_PIXEL_ID,
