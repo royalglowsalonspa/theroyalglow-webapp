@@ -1,0 +1,492 @@
+---
+title: Customers & CRM
+description: Admin endpoints for the customer directory, profiles, notes, tags, and tag management.
+---
+
+# Customers & CRM
+
+Admin CRM endpoints covering the customer directory, individual profiles,
+free-text notes, and the customer-tag system. Every endpoint calls
+`requireRole(...)`, which resolves the Better Auth session
+(`UNAUTHENTICATED` 401 when there is none) and checks the caller's role against
+the hierarchy `customer < staff < receptionist < manager < owner < developer`
+(`FORBIDDEN` 403 when the level is too low).
+
+<Callout type="info">
+  Most endpoints require **`receptionist`**; profile overrides
+  (`PATCH /api/admin/customers/[id]`) and tag creation
+  (`POST /api/admin/tags`) require **`manager`**. Money is an integer in
+  **paise**; `dateOfBirth` is `YYYY-MM-DD`; timestamps are ISO-8601 UTC. A
+  "customer" id is the underlying `user` id.
+</Callout>
+
+## GET /api/admin/customers
+
+Paginated, searchable, sortable customer directory. Returns `user` rows with
+role `customer` that have a `customer_profile`, each enriched with KPIs, the
+loyalty gems balance (LEFT JOined — `null` when no account exists), and tag
+chips. This endpoint paginates and includes `meta`.
+
+**Minimum role:** `receptionist` (`requireRole('receptionist')`)
+
+```http
+GET /api/admin/customers?q=aarav&sort=ltv&page=1&pageSize=20&tag=vip
+```
+
+### Query parameters
+
+Validated by `customerListQuerySchema` (`@rgss/types`).
+
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `q` | string | Optional | Free-text search, trimmed, max 120 chars. Matched (case-insensitive) against name, phone, and email. |
+| `sort` | enum | Optional | One of `ltv`, `visits`, `last_visit`, `name`, `gems`, `noshows`. Defaults to `ltv`. |
+| `page` | number | Optional | Integer ≥ 1. Coerced from string. Defaults to `1`. |
+| `pageSize` | number | Optional | Integer 1–100. Coerced from string. Defaults to `20`. |
+| `tag` | string | Optional | Tag **slug** filter. An unknown slug matches nobody (empty result). |
+
+### Response
+
+`meta` carries pagination. `totalPages` is `max(1, ceil(totalCount / pageSize))`.
+
+```json
+{
+  "success": true,
+  "data": {
+    "customers": [
+      {
+        "id": "usr_abc123",
+        "name": "Aarav Sharma",
+        "email": "aarav@example.com",
+        "phone": "+919812345678",
+        "totalVisits": 12,
+        "totalSpentPaise": 4560000,
+        "noshowCount": 0,
+        "firstVisitAt": "2025-09-10T05:30:00.000Z",
+        "lastVisitAt": "2026-05-28T09:15:00.000Z",
+        "gemsBalance": 320,
+        "createdAt": "2025-09-01T04:00:00.000Z",
+        "tags": [
+          { "slug": "vip", "name": "VIP", "color": "#d4af37" }
+        ]
+      }
+    ]
+  },
+  "meta": {
+    "page": 1,
+    "totalPages": 3,
+    "totalCount": 48
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Caller's role is below `receptionist`. |
+| `VALIDATION_ERROR` | 400 | Query fails `customerListQuerySchema` (e.g. `pageSize` > 100, invalid `sort`). `details` carries field errors. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## GET /api/admin/customers/[id]
+
+Returns a single customer profile: user identity plus `customer_profile` KPIs,
+the gems balance (`null` when no loyalty account), and tag chips.
+
+**Minimum role:** `receptionist` (`requireRole('receptionist')`)
+
+```http
+GET /api/admin/customers/usr_abc123
+```
+
+| Parameter | In | Type | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | path | string | Required | The customer (`user`) id. |
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "customer": {
+      "id": "usr_abc123",
+      "name": "Aarav Sharma",
+      "email": "aarav@example.com",
+      "role": "customer",
+      "image": "https://lh3.googleusercontent.com/a/avatar.jpg",
+      "phone": "+919812345678",
+      "gender": "male",
+      "dateOfBirth": "1994-03-22",
+      "totalVisits": 12,
+      "totalSpentPaise": 4560000,
+      "noshowCount": 0,
+      "lateCancellationCount": 1,
+      "bookingRequiresApproval": false,
+      "firstVisitAt": "2025-09-10T05:30:00.000Z",
+      "lastVisitAt": "2026-05-28T09:15:00.000Z",
+      "gemsBalance": 320,
+      "createdAt": "2025-09-01T04:00:00.000Z",
+      "tags": [
+        { "slug": "vip", "name": "VIP", "color": "#d4af37" }
+      ]
+    }
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Caller's role is below `receptionist`. |
+| `NOT_FOUND` | 404 | No user with that id has a customer profile. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## PATCH /api/admin/customers/[id]
+
+Manager-level override of profile gates — e.g. reset the no-show count or toggle
+the booking-approval requirement. Both fields are optional; an empty body is a
+no-op that returns the current profile.
+
+**Minimum role:** `manager` (`requireRole('manager')`)
+
+```http
+PATCH /api/admin/customers/usr_abc123
+Content-Type: application/json
+```
+
+| Parameter | In | Type | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | path | string | Required | The customer (`user`) id. |
+
+### Request body
+
+Validated by an inline Zod schema in the handler.
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `noshowCount` | number | Optional | Integer ≥ 0. Overrides the stored no-show count. |
+| `bookingRequiresApproval` | boolean | Optional | Toggles the booking-approval gate. |
+
+```json
+{
+  "noshowCount": 0,
+  "bookingRequiresApproval": false
+}
+```
+
+### Response
+
+Returns the updated `customer_profile` row.
+
+```json
+{
+  "success": true,
+  "data": {
+    "customer": {
+      "id": "cp_7g2k9",
+      "userId": "usr_abc123",
+      "phone": "+919812345678",
+      "gender": "male",
+      "dateOfBirth": "1994-03-22",
+      "marketingConsent": true,
+      "marketingConsentAt": "2025-09-01T04:05:00.000Z",
+      "appointmentRemindersEnabled": true,
+      "membershipAlertsEnabled": true,
+      "acquisitionSource": "gmb",
+      "utmCampaign": null,
+      "utmMedium": null,
+      "utmSource": "gmb",
+      "firstVisitAt": "2025-09-10T05:30:00.000Z",
+      "lastVisitAt": "2026-05-28T09:15:00.000Z",
+      "totalVisits": 12,
+      "totalSpentPaise": 4560000,
+      "noshowCount": 0,
+      "lateCancellationCount": 1,
+      "consecutiveCompletedBookings": 3,
+      "bookingRequiresApproval": false,
+      "createdAt": "2025-09-01T04:00:00.000Z",
+      "updatedAt": "2026-05-30T10:00:00.000Z"
+    }
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Caller's role is below `manager`. |
+| `VALIDATION_ERROR` | 400 | Body fails validation (e.g. negative `noshowCount`). `details` carries field errors. |
+| `NOT_FOUND` | 404 | No user with that id has a customer profile. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## POST /api/admin/customers/[id]/notes
+
+Adds a free-text note to a customer, optionally linked to a booking. The author
+(the signed-in user) and a timestamp are persisted automatically.
+
+**Minimum role:** `receptionist` (`requireRole('receptionist')`)
+
+```http
+POST /api/admin/customers/usr_abc123/notes
+Content-Type: application/json
+```
+
+| Parameter | In | Type | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | path | string | Required | The customer (`user`) id. |
+
+### Request body
+
+Validated by `addCustomerNoteSchema` (`@rgss/types`).
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `content` | string | Required | Trimmed, 1–1000 characters. |
+| `bookingId` | string | Optional | Links the note to a specific booking. |
+
+```json
+{
+  "content": "Prefers Priya as stylist. Allergic to ammonia-based dyes.",
+  "bookingId": "bk_8f2a1c9e4d"
+}
+```
+
+### Response
+
+Returns `201 Created` with the created note row.
+
+```json
+{
+  "success": true,
+  "data": {
+    "note": {
+      "id": "note_5h3j2",
+      "customerId": "usr_abc123",
+      "authorId": "usr_staff09",
+      "bookingId": "bk_8f2a1c9e4d",
+      "content": "Prefers Priya as stylist. Allergic to ammonia-based dyes.",
+      "createdAt": "2026-05-30T10:15:00.000Z"
+    }
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Caller's role is below `receptionist`. |
+| `VALIDATION_ERROR` | 400 | Body fails `addCustomerNoteSchema` (empty/too-long `content`). `details` carries field errors. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## POST /api/admin/customers/[id]/tags
+
+Assigns an existing tag to a customer. Idempotent: re-assigning a tag the
+customer already has is a silent no-op (the composite primary key absorbs the
+conflict). The assigning user is recorded.
+
+**Minimum role:** `receptionist` (`requireRole('receptionist')`)
+
+```http
+POST /api/admin/customers/usr_abc123/tags
+Content-Type: application/json
+```
+
+| Parameter | In | Type | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | path | string | Required | The customer (`user`) id. |
+
+### Request body
+
+Validated by `assignTagSchema` (`@rgss/types`).
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `tagId` | string | Required | Non-empty id of an existing `customer_tag`. |
+
+```json
+{
+  "tagId": "tag_vip01"
+}
+```
+
+### Response
+
+Returns `201 Created`.
+
+```json
+{
+  "success": true,
+  "data": {
+    "ok": true
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Caller's role is below `receptionist`. |
+| `VALIDATION_ERROR` | 400 | Body fails `assignTagSchema` (missing/empty `tagId`). `details` carries field errors. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## DELETE /api/admin/customers/[id]/tags/[tagId]
+
+Removes a tag assignment from a customer. No-op if the assignment does not exist
+(still returns success).
+
+**Minimum role:** `receptionist` (`requireRole('receptionist')`)
+
+```http
+DELETE /api/admin/customers/usr_abc123/tags/tag_vip01
+```
+
+| Parameter | In | Type | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | path | string | Required | The customer (`user`) id. |
+| `tagId` | path | string | Required | The tag id to unassign. |
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "ok": true
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Caller's role is below `receptionist`. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## GET /api/admin/tags
+
+Lists all customer tags, alphabetical by name — used to populate the tag picker.
+
+**Minimum role:** `receptionist` (`requireRole('receptionist')`)
+
+```http
+GET /api/admin/tags
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "tags": [
+      {
+        "id": "tag_noshow01",
+        "name": "No-Show Risk",
+        "slug": "no-show-risk",
+        "color": "#e11d48",
+        "description": null,
+        "createdAt": "2025-08-15T04:00:00.000Z"
+      },
+      {
+        "id": "tag_vip01",
+        "name": "VIP",
+        "slug": "vip",
+        "color": "#d4af37",
+        "description": null,
+        "createdAt": "2025-08-15T04:00:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Caller's role is below `receptionist`. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## POST /api/admin/tags
+
+Creates a new customer tag. The `slug` is derived from `name` in the query layer
+(lowercased, whitespace runs collapsed to hyphens).
+
+**Minimum role:** `manager` (`requireRole('manager')`)
+
+```http
+POST /api/admin/tags
+Content-Type: application/json
+```
+
+### Request body
+
+Validated by `createTagSchema` (`@rgss/types`).
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `name` | string | Required | Trimmed, 1–40 characters. |
+| `color` | string | Optional | Hex colour matching `^#[0-9a-fA-F]{6}$` (e.g. `#d4af37`). |
+
+```json
+{
+  "name": "VIP",
+  "color": "#d4af37"
+}
+```
+
+### Response
+
+Returns `201 Created` with the created tag row.
+
+```json
+{
+  "success": true,
+  "data": {
+    "tag": {
+      "id": "tag_vip01",
+      "name": "VIP",
+      "slug": "vip",
+      "color": "#d4af37",
+      "description": null,
+      "createdAt": "2026-05-30T10:20:00.000Z"
+    }
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Caller's role is below `manager`. |
+| `VALIDATION_ERROR` | 400 | Body fails `createTagSchema` (empty/too-long `name`, malformed `color`). `details` carries field errors. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |

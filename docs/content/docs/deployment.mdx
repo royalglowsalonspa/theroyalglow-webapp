@@ -1,0 +1,105 @@
+---
+title: Deployment
+description: Branch strategy, hosting, CI/CD workflows, feature-flag releases, rollback tiers, and backups for Royal Glow.
+---
+
+# Deployment
+
+Royal Glow ships through a four-stage Git pipeline with progressively stricter
+gates, deploys to Cloudflare's edge, and decouples **deploy** from **release**
+using PostHog feature flags. The whole platform runs at **₹0/month** on free
+tiers at launch.
+
+<Callout type="info">
+  **Deploy ≠ release.** Code goes live on the edge on every merge to `prod`;
+  a feature only becomes visible when its PostHog flag is turned on. A bug means
+  flipping a flag off — no rollback required.
+</Callout>
+
+## Branch strategy
+
+Four persistent branches, each mapped to an environment and a Neon DB branch.
+Work flows in one direction: `dev → test → pprd → prod`. There are **no direct
+pushes to `prod`**.
+
+| Branch | Environment | Neon branch | Protection / gates |
+| --- | --- | --- | --- |
+| `dev` | Development | `dev` | Lint + type check + unit tests |
+| `test` | QA / CI | `test` | + integration + Playwright E2E + Lighthouse CI |
+| `pprd` | Pre-production | `preprod` | + k6 load test + smoke suite + dependency audit |
+| `prod` | Production | `main` | + manual approval → deploy + health check |
+
+The `preprod` branch is **reset from `main` every 24h** via the Neon Branch Reset
+API (a near-instant copy-on-write operation), then a PII-anonymisation script
+scrubs names, phones, and emails so UAT has realistic data without real customer
+PII. `pg_cron` jobs run on `main` only.
+
+## Hosting topology
+
+- **Edge:** Cloudflare Pages + Workers serve the customer site globally (deploy near India — Mumbai / Singapore).
+- **SSR origin + CMS:** Render (Singapore, free tier) hosts the heavier Node.js SSR fallback and Payload CMS.
+- **Database:** a single Neon PostgreSQL 16 project with four branches.
+- **Media:** Cloudflare R2 (S3-compatible, zero egress). **Cache + queue:** Upstash Redis + QStash. **Realtime:** Ably.
+
+## GitHub Actions workflows
+
+Four workflows enforce the gates above and handle production deploys.
+
+| Workflow | File | Triggers on | Does |
+| --- | --- | --- | --- |
+| CI | `ci.yml` | PRs to all branches + push to `dev` | Lint + typecheck, unit tests, build, Trivy + Socket.dev audit |
+| Integration & E2E | `integration.yml` | PRs to `test`/`pprd`/`prod` | Integration tests, Playwright E2E, Lighthouse CI |
+| Load & Security | `load-test.yml` | PRs to `pprd`/`prod` | k6 load test, Trivy fs scan, OWASP ZAP baseline |
+| Deploy Production | `deploy-prod.yml` | Push to `prod` | Pre-deploy checks → build + Sentry source maps → Cloudflare Pages deploy → migrations → health check + smoke tests |
+
+Lighthouse gates require performance ≥ 95 and accessibility, best-practices, and
+SEO = 100.
+
+## Feature-flag release strategy
+
+Every feature ships to prod behind a PostHog flag and is exposed gradually:
+
+```text
+1. Deploy to prod with the flag OFF
+2. Flag ON for role = developer        (self-test in prod)
+3. Flag ON for role = owner | manager  (stakeholder preview)
+4. Flag ON for 10% of customers        (watch Sentry)
+5. Flag ON for 100%                    (full release)
+6. Remove flag + dead code after 2 weeks stable
+```
+
+## Rollback tiers
+
+| Tier | Scenario | Action | Time |
+| --- | --- | --- | --- |
+| Flag | UI bug after deploy | PostHog flag OFF | < 10 sec |
+| 1 | App crash / 500s | Cloudflare Pages rollback to previous deployment | < 30 sec |
+| 2 | Bad migration, data corrupted | Neon PITR to a pre-migration point-in-time branch | < 5 min |
+| 3 | Neon outage | Emergency DB restored from the weekly R2 backup | < 30 min |
+
+Cloudflare keeps every deployment as an immutable artifact, and the post-deploy
+job auto-rolls back if the health check fails.
+
+## Health check
+
+`GET /api/health` probes the database, Redis, and R2 in parallel and returns a
+`HealthStatus` contract: `healthy` / `degraded` / `unhealthy`. It responds `200`
+for healthy or degraded and `503` for unhealthy, always with
+`Cache-Control: no-store`. BetterStack polls it every ~3 minutes and opens an
+incident on `status.theroyalglow.in` if it fails.
+
+## Backups
+
+| Type | Frequency | Retention | Storage | RPO |
+| --- | --- | --- | --- | --- |
+| Neon PITR (automatic) | Continuous WAL | 7 days | Neon infrastructure | ~0 sec |
+| Weekly `pg_dump` | Sun 7:30 AM IST | 8 weeks | Cloudflare R2 | ≤ 7 days |
+| Monthly restore test | 1st of month | — | Temporary Neon branch | Validates integrity |
+
+## Related pages
+
+<Cards>
+  <Card title="Architecture" href="/docs/architecture" description="Hosting topology and observability layers" />
+  <Card title="Background Jobs" href="/docs/background-jobs" description="Scheduled work and heartbeat monitoring" />
+  <Card title="Data Model" href="/docs/data-model" description="What the migrations and backups protect" />
+</Cards>

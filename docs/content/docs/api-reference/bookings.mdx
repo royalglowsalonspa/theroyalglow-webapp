@@ -1,0 +1,295 @@
+---
+title: Bookings
+description: Customer endpoints to create, list, view, and cancel bookings.
+---
+
+# Bookings
+
+Customer-facing booking endpoints. Every endpoint here calls `requireSession`,
+so a valid Better Auth session cookie is required. Bookings are scoped to the
+signed-in customer — you can only read or cancel your own.
+
+<Callout type="info">
+  **Minimum role: `customer`** on all endpoints below (any authenticated user
+  is at least a customer). Money is an integer in **paise**; dates are
+  `YYYY-MM-DD`; times are `HH:mm` (24-hour). Requests without a session return
+  `UNAUTHENTICATED` (401).
+</Callout>
+
+## POST /api/bookings
+
+Creates a booking request for the signed-in customer. The booking is created
+with status `pending` and a generated booking number. Pricing and total
+duration are computed server-side from the selected services (GST-inclusive
+paise), and `endTime` is derived from `startTime` + total duration.
+
+**Minimum role:** `customer` (`requireSession`)
+
+```http
+POST /api/bookings
+Content-Type: application/json
+```
+
+### Request body
+
+Validated by `createBookingSchema` (`@rgss/types`).
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `branchId` | string | Required | Non-empty. Branch must exist and have status `operational`. |
+| `serviceType` | enum | Required | `salon` or `spa`. All selected services must match this type. |
+| `bookingDate` | string | Required | `YYYY-MM-DD`. |
+| `startTime` | string | Required | `HH:mm` (24-hour). |
+| `serviceIds` | string[] | Required | At least one non-empty id. De-duplicated server-side; every id must be an existing, active service of the matching `serviceType`. |
+| `notes` | string | Optional | Max 500 characters. |
+| `leadId` | string | Optional | Optional Meta-ad lead id for attribution. |
+
+```json
+{
+  "branchId": "br_rayasandra01",
+  "serviceType": "salon",
+  "bookingDate": "2026-06-15",
+  "startTime": "11:00",
+  "serviceIds": ["svc_haircut001", "svc_beardtrim01"],
+  "notes": "Prefer a window seat if available."
+}
+```
+
+### Response
+
+Returns `201 Created`. The payload contains the new booking's id, generated
+booking number, and status.
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "bk_8f2a1c9e4d",
+    "bookingNumber": "BK-RS-2606-H-38291",
+    "status": "pending"
+  }
+}
+```
+
+The booking number format is `BK-{branchCode}-{YYMM}-{H|S}-{5 digits}` —
+`H` for salon, `S` for spa.
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `VALIDATION_ERROR` | 400 | Body fails `createBookingSchema`; branch not found or not operational; a service id is unknown, inactive, or a type mismatch; or no active staff is available. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+<Callout type="info">
+  All pre-condition failures (branch state, service existence/activeness, type
+  mismatch, no available staff) are raised as `badRequest`, so they surface as
+  `VALIDATION_ERROR` with a 400 — not as booking-domain codes.
+</Callout>
+
+---
+
+## GET /api/bookings
+
+Lists all bookings for the signed-in customer, newest first. Each booking
+includes its `services` (the `booking_service` snapshot rows, ordered by
+`displayOrder`).
+
+**Minimum role:** `customer` (`requireSession`)
+
+```http
+GET /api/bookings
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "bookings": [
+      {
+        "id": "bk_8f2a1c9e4d",
+        "bookingNumber": "BK-RS-2606-H-38291",
+        "branchId": "br_rayasandra01",
+        "customerId": "usr_abc123",
+        "status": "pending",
+        "serviceType": "salon",
+        "bookingDate": "2026-06-15",
+        "startTime": "11:00:00",
+        "endTime": "12:00:00",
+        "totalAmountPaise": 130000,
+        "totalDurationMinutes": 60,
+        "notes": "Prefer a window seat if available.",
+        "isWalkin": false,
+        "isMembershipSession": false,
+        "offerId": null,
+        "spaMembershipId": null,
+        "confirmedAt": null,
+        "completedAt": null,
+        "cancellationReason": null,
+        "cancelledAt": null,
+        "rejectionReason": null,
+        "rejectedAt": null,
+        "rescheduleCount": 0,
+        "createdAt": "2026-06-01T06:15:00.000Z",
+        "updatedAt": "2026-06-01T06:15:00.000Z",
+        "services": [
+          {
+            "id": "bs_1",
+            "bookingId": "bk_8f2a1c9e4d",
+            "serviceId": "svc_haircut001",
+            "staffId": "stf_default01",
+            "serviceNameSnapshot": "Signature Haircut",
+            "priceAtBookingPaise": 80000,
+            "durationMinutes": 45,
+            "displayOrder": 0
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## GET /api/bookings/[id]
+
+Returns a single booking (with its `services`) owned by the signed-in customer.
+
+**Minimum role:** `customer` (`requireSession`)
+
+```http
+GET /api/bookings/bk_8f2a1c9e4d
+```
+
+| Parameter | In | Type | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | path | string | Required | The booking id. |
+
+<Callout type="info">
+  If the booking does not exist **or** belongs to another customer, the handler
+  returns `404 NOT_FOUND` (not 403) so it never reveals which booking ids exist.
+</Callout>
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "booking": {
+      "id": "bk_8f2a1c9e4d",
+      "bookingNumber": "BK-RS-2606-H-38291",
+      "branchId": "br_rayasandra01",
+      "customerId": "usr_abc123",
+      "status": "confirmed",
+      "serviceType": "salon",
+      "bookingDate": "2026-06-15",
+      "startTime": "11:00:00",
+      "endTime": "12:00:00",
+      "totalAmountPaise": 130000,
+      "totalDurationMinutes": 60,
+      "notes": null,
+      "isWalkin": false,
+      "isMembershipSession": false,
+      "offerId": null,
+      "spaMembershipId": null,
+      "confirmedAt": "2026-06-01T07:00:00.000Z",
+      "completedAt": null,
+      "cancellationReason": null,
+      "cancelledAt": null,
+      "rejectionReason": null,
+      "rejectedAt": null,
+      "rescheduleCount": 0,
+      "createdAt": "2026-06-01T06:15:00.000Z",
+      "updatedAt": "2026-06-01T07:00:00.000Z",
+      "services": [
+        {
+          "id": "bs_1",
+          "bookingId": "bk_8f2a1c9e4d",
+          "serviceId": "svc_haircut001",
+          "staffId": "stf_default01",
+          "serviceNameSnapshot": "Signature Haircut",
+          "priceAtBookingPaise": 80000,
+          "durationMinutes": 45,
+          "displayOrder": 0
+        }
+      ]
+    }
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `NOT_FOUND` | 404 | Booking does not exist or is not owned by the caller. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## POST /api/bookings/[id]/cancel
+
+Cancels a booking owned by the signed-in customer. Only bookings in status
+`pending` or `confirmed` can be cancelled. Sets status to `cancelled` and
+records the reason and timestamp.
+
+**Minimum role:** `customer` (`requireSession`)
+
+```http
+POST /api/bookings/bk_8f2a1c9e4d/cancel
+Content-Type: application/json
+```
+
+| Parameter | In | Type | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | path | string | Required | The booking id. |
+
+### Request body
+
+The body is optional and validated by `cancelBookingSchema`. An empty or missing
+body is accepted.
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `reason` | string | Optional | Max 500 characters. Stored as the cancellation reason. |
+
+```json
+{
+  "reason": "Plans changed, will rebook next week."
+}
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "bk_8f2a1c9e4d",
+    "status": "cancelled",
+    "cancelledAt": "2026-06-02T09:20:00.000Z"
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `NOT_FOUND` | 404 | Booking does not exist or is not owned by the caller. |
+| `BOOKING_ALREADY_CANCELLED` | 409 | Booking is not in a cancellable status (`pending` or `confirmed`) — e.g. already `cancelled`, `completed`, `in_progress`, `no_show`, or `rejected`. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |

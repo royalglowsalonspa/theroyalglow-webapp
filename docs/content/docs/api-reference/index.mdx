@@ -1,0 +1,49 @@
+---
+title: API Reference
+description: REST API for the Royal Glow platform — envelope, auth, and endpoint groups.
+---
+
+# API Reference
+
+The Royal Glow API is a set of Next.js route handlers under `/api`. All
+endpoints share one JSON envelope, human-readable RESTful paths, and stable
+error codes — so both browsers and AI agents can call them predictably.
+
+<Callout type="info">
+  This reference is hand-authored from the actual route handlers and the shared
+  Zod schemas in `packages/types`. It reflects the code at authoring time; when
+  a route's schema changes, update the corresponding page (or regenerate this
+  section).
+</Callout>
+
+## Base & envelope
+
+- **Base URL:** `https://theroyalglow.in` (local: `http://localhost:3000`)
+- **Success:** `{ "success": true, "data": <T>, "meta"?: {...} }`
+- **Error:** `{ "success": false, "error": { code, message, statusCode, requestId, retryable?, details? } }`
+
+See [Conventions](/docs/conventions) for the full envelope, money/date rules,
+and the error-code table, and [Authentication](/docs/authentication) for the
+session/role model.
+
+## Authentication
+
+Most endpoints require a Better Auth session cookie. Each endpoint below notes
+its **minimum role**. Public endpoints need no auth: `GET /api/services`,
+`GET /api/services/[slug]`, `GET /api/availability`, `POST /api/leads`,
+`GET /api/health`.
+
+## Endpoint groups
+
+<Cards>
+  <Card title="Services & Availability" href="/docs/api-reference/services" description="Catalogue, service detail, slot availability" />
+  <Card title="Bookings (customer)" href="/docs/api-reference/bookings" description="Create, view, cancel a booking" />
+  <Card title="Admin — Bookings" href="/docs/api-reference/admin-bookings" description="Approve, assign, complete, no-show" />
+  <Card title="Customers & CRM" href="/docs/api-reference/customers-crm" description="Directory, profiles, notes, tags" />
+  <Card title="Leads" href="/docs/api-reference/leads" description="Lead capture + admin pipeline" />
+  <Card title="Memberships" href="/docs/api-reference/memberships" description="Customer view + admin management" />
+  <Card title="Loyalty & Offers" href="/docs/api-reference/loyalty-offers" description="Gems and promotional offers" />
+  <Card title="Notifications & Realtime" href="/docs/api-reference/notifications" description="In-app, push, Ably token" />
+  <Card title="Background Jobs" href="/docs/api-reference/jobs" description="QStash-triggered job routes" />
+  <Card title="Health" href="/docs/api-reference/health" description="Liveness + dependency checks" />
+</Cards>

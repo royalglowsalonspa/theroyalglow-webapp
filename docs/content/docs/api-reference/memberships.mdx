@@ -1,0 +1,586 @@
+---
+title: Memberships
+description: Customer SPA membership view plus the admin endpoints to create, list, inspect, cancel, and record sessions against memberships.
+---
+
+# Memberships
+
+SPA memberships are hour-based: a customer buys a tier (e.g. Silver 8hrs, Gold
+15hrs) valid for a fixed number of days, and each SPA session deducts its
+duration from the remaining hours. There is one customer-facing read endpoint
+(`GET /api/membership`); everything else lives under `/api/admin` and is
+role-gated.
+
+<Callout type="info">
+  Roles are hierarchical: `customer` < `staff` < `receptionist` < `manager` <
+  `owner` < `developer`. Money is an integer in **paise** (₹10,000 = `1000000`).
+  **Hours are stored as minutes** — the `*HoursMinutes` fields hold minutes, so
+  Silver 8hrs = `480` and Gold 15hrs = `900`. Dates in request bodies are
+  `YYYY-MM-DD`; timestamps in responses are UTC ISO strings. Membership status
+  is one of `active`, `expired`, `cancelled`. Membership numbers use the format
+  `RG-MEM-{YY}-{branchNumber}-{5 random}`.
+</Callout>
+
+## GET /api/membership
+
+Returns the signed-in customer's own membership data: the single `active`
+membership (if any), an array of `past` (expired/cancelled) memberships, and the
+`sessions` history for the active membership. Strictly scoped to the
+authenticated customer — it never exposes another customer's data. When there is
+no active membership, `active` is `null` and `sessions` is an empty array.
+
+**Minimum role:** `customer` (`requireSession`)
+
+```http
+GET /api/membership
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "active": {
+      "id": "mem_9aZ2bYc31",
+      "membershipNumber": "RG-MEM-26-1-90872",
+      "customerId": "usr_abc123",
+      "tierId": "tier_gold",
+      "tierNameSnapshot": "Gold",
+      "totalHoursMinutes": 900,
+      "usedHoursMinutes": 120,
+      "pricePaidPaise": 1500000,
+      "startsAt": "2026-06-01T00:00:00.000Z",
+      "expiresAt": "2026-08-30T18:29:59.999Z",
+      "status": "active",
+      "createdBy": "usr_reception01",
+      "invoiceId": "inv_3kP9qWx20",
+      "notes": null,
+      "createdAt": "2026-06-01T05:30:00.000Z",
+      "updatedAt": "2026-06-10T07:00:00.000Z"
+    },
+    "past": [],
+    "sessions": [
+      {
+        "id": "bk_77aa11bb22",
+        "bookingNumber": "BK-RS-2606-S-44120-M",
+        "branchId": "branch_rayasandra",
+        "customerId": "usr_abc123",
+        "status": "completed",
+        "serviceType": "spa",
+        "bookingDate": "2026-06-10",
+        "startTime": "15:30:00",
+        "endTime": "17:30:00",
+        "totalAmountPaise": 0,
+        "totalDurationMinutes": 120,
+        "isMembershipSession": true,
+        "spaMembershipId": "mem_9aZ2bYc31",
+        "completedAt": "2026-06-10T07:00:00.000Z",
+        "createdAt": "2026-06-10T07:00:00.000Z",
+        "services": [
+          {
+            "bookingId": "bk_77aa11bb22",
+            "serviceId": "svc_aromamassage",
+            "serviceNameSnapshot": "Aromatherapy Massage",
+            "durationMinutes": 120,
+            "staffId": "stf_therapist01",
+            "staffName": "Anita R.",
+            "displayOrder": 0
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## GET /api/admin/membership-tiers
+
+Lists active membership tiers, ordered by `displayOrder` — used to populate the
+create-membership form / tier picker. Hours and validity prefill the create
+form but remain overridable.
+
+**Minimum role:** `receptionist` (`requireRole('receptionist')`)
+
+```http
+GET /api/admin/membership-tiers
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "tier_silver",
+      "name": "Silver",
+      "slug": "silver",
+      "description": "8 hours of SPA services, valid 90 days.",
+      "defaultHoursMinutes": 480,
+      "defaultPricePaise": 1000000,
+      "defaultValidityDays": 90,
+      "isActive": true,
+      "displayOrder": 0,
+      "createdAt": "2026-05-01T00:00:00.000Z",
+      "updatedAt": "2026-05-01T00:00:00.000Z"
+    },
+    {
+      "id": "tier_gold",
+      "name": "Gold",
+      "slug": "gold",
+      "description": "15 hours of SPA services, valid 90 days.",
+      "defaultHoursMinutes": 900,
+      "defaultPricePaise": 1500000,
+      "defaultValidityDays": 90,
+      "isActive": true,
+      "displayOrder": 1
+    }
+  ]
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Session role is below `receptionist`. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## GET /api/admin/memberships
+
+Lists memberships, newest first, each flattened with the customer name and tier
+name. Optional query filters narrow by tier id and/or status. The payload is the
+array itself (no wrapping object).
+
+**Minimum role:** `receptionist` (`requireRole('receptionist')`)
+
+```http
+GET /api/admin/memberships?status=active&tier=tier_gold
+```
+
+| Parameter | In | Type | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `tier` | query | string | Optional | A tier **id** to filter by. |
+| `status` | query | string | Optional | One of `active`, `expired`, `cancelled`. |
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "mem_9aZ2bYc31",
+      "membershipNumber": "RG-MEM-26-1-90872",
+      "customerId": "usr_abc123",
+      "tierId": "tier_gold",
+      "tierNameSnapshot": "Gold",
+      "totalHoursMinutes": 900,
+      "usedHoursMinutes": 120,
+      "pricePaidPaise": 1500000,
+      "startsAt": "2026-06-01T00:00:00.000Z",
+      "expiresAt": "2026-08-30T18:29:59.999Z",
+      "status": "active",
+      "createdBy": "usr_reception01",
+      "invoiceId": "inv_3kP9qWx20",
+      "notes": null,
+      "createdAt": "2026-06-01T05:30:00.000Z",
+      "updatedAt": "2026-06-10T07:00:00.000Z",
+      "customerName": "Priya Sharma",
+      "tierName": "Gold"
+    }
+  ]
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Session role is below `receptionist`. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## POST /api/admin/memberships
+
+Creates a SPA membership and its `membership_purchase` invoice atomically. The
+handler enforces one active membership per customer (a friendly 409 ahead of the
+DB partial-unique index), resolves the tier for its name snapshot, computes the
+expiry from `startDate` + `validityDays`, and splits the GST-inclusive price into
+base + GST on the invoice. No gems are earned on purchase. A best-effort expiry
+notice job is scheduled but never affects the response.
+
+**Minimum role:** `receptionist` (`requireRole('receptionist')`)
+
+```http
+POST /api/admin/memberships
+Content-Type: application/json
+```
+
+### Request body
+
+Validated by `createMembershipSchema` (`@rgss/types`).
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `customerId` | string | Required | Non-empty user id of the customer. |
+| `tierId` | string | Required | Non-empty tier id; must resolve to an active tier. |
+| `hoursMinutes` | integer | Required | Positive. Total membership hours **in minutes** (Silver `480`, Gold `900`). |
+| `pricePaise` | integer | Required | Non-negative. GST-inclusive price in paise. |
+| `startDate` | string | Required | `YYYY-MM-DD`. |
+| `validityDays` | integer | Required | Positive. Days from `startDate` until expiry. |
+| `paymentMethod` | enum | Required | `cash`, `upi`, or `card`. |
+| `notes` | string | Optional | Max 500 characters. |
+
+```json
+{
+  "customerId": "usr_abc123",
+  "tierId": "tier_gold",
+  "hoursMinutes": 900,
+  "pricePaise": 1500000,
+  "startDate": "2026-06-01",
+  "validityDays": 90,
+  "paymentMethod": "upi",
+  "notes": "Anniversary gift package."
+}
+```
+
+### Response
+
+Returns `201 Created` with the created membership and its purchase invoice.
+
+```json
+{
+  "success": true,
+  "data": {
+    "membership": {
+      "id": "mem_9aZ2bYc31",
+      "membershipNumber": "RG-MEM-26-1-90872",
+      "customerId": "usr_abc123",
+      "tierId": "tier_gold",
+      "tierNameSnapshot": "Gold",
+      "totalHoursMinutes": 900,
+      "usedHoursMinutes": 0,
+      "pricePaidPaise": 1500000,
+      "startsAt": "2026-06-01T00:00:00.000Z",
+      "expiresAt": "2026-08-30T18:29:59.999Z",
+      "status": "active",
+      "createdBy": "usr_reception01",
+      "invoiceId": "inv_3kP9qWx20",
+      "notes": "Anniversary gift package.",
+      "createdAt": "2026-06-01T05:30:00.000Z",
+      "updatedAt": "2026-06-01T05:30:00.000Z"
+    },
+    "invoice": {
+      "id": "inv_3kP9qWx20",
+      "invoiceNumber": "INV-1-2627-92921",
+      "branchId": "branch_rayasandra",
+      "bookingId": null,
+      "customerId": "usr_abc123",
+      "subtotalPaise": 1271186,
+      "taxableValuePaise": 1271186,
+      "gstAmountPaise": 228814,
+      "totalAmountPaise": 1500000,
+      "invoiceType": "membership_purchase",
+      "paymentMethod": "upi",
+      "paymentStatus": "paid",
+      "gemsEarned": 0,
+      "paidAt": "2026-06-01T05:30:00.000Z"
+    }
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Session role is below `receptionist`. |
+| `VALIDATION_ERROR` | 400 | Body fails `createMembershipSchema`, or the selected tier does not exist / is inactive. |
+| `MEMBERSHIP_ALREADY_ACTIVE` | 409 | The customer already has an active membership. |
+| `NOT_FOUND` | 404 | The primary branch could not be resolved. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## GET /api/admin/memberships/[id]
+
+Returns a single membership enriched with `customerName`, `customerEmail`, the
+full `tier` object, and its completed-session history (`sessions`, each with its
+`booking_service` snapshot rows).
+
+**Minimum role:** `receptionist` (`requireRole('receptionist')`)
+
+```http
+GET /api/admin/memberships/mem_9aZ2bYc31
+```
+
+| Parameter | In | Type | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | path | string | Required | The membership id. |
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "mem_9aZ2bYc31",
+    "membershipNumber": "RG-MEM-26-1-90872",
+    "customerId": "usr_abc123",
+    "tierId": "tier_gold",
+    "tierNameSnapshot": "Gold",
+    "totalHoursMinutes": 900,
+    "usedHoursMinutes": 120,
+    "pricePaidPaise": 1500000,
+    "startsAt": "2026-06-01T00:00:00.000Z",
+    "expiresAt": "2026-08-30T18:29:59.999Z",
+    "status": "active",
+    "createdBy": "usr_reception01",
+    "invoiceId": "inv_3kP9qWx20",
+    "notes": null,
+    "createdAt": "2026-06-01T05:30:00.000Z",
+    "updatedAt": "2026-06-10T07:00:00.000Z",
+    "customerName": "Priya Sharma",
+    "customerEmail": "priya@example.com",
+    "tier": {
+      "id": "tier_gold",
+      "name": "Gold",
+      "slug": "gold",
+      "description": "15 hours of SPA services, valid 90 days.",
+      "defaultHoursMinutes": 900,
+      "defaultPricePaise": 1500000,
+      "defaultValidityDays": 90,
+      "isActive": true,
+      "displayOrder": 1
+    },
+    "sessions": [
+      {
+        "id": "bk_77aa11bb22",
+        "bookingNumber": "BK-RS-2606-S-44120-M",
+        "status": "completed",
+        "serviceType": "spa",
+        "bookingDate": "2026-06-10",
+        "startTime": "15:30:00",
+        "endTime": "17:30:00",
+        "totalAmountPaise": 0,
+        "totalDurationMinutes": 120,
+        "isMembershipSession": true,
+        "spaMembershipId": "mem_9aZ2bYc31",
+        "services": [
+          {
+            "bookingId": "bk_77aa11bb22",
+            "serviceId": "svc_aromamassage",
+            "serviceNameSnapshot": "Aromatherapy Massage",
+            "durationMinutes": 120,
+            "staffId": "stf_therapist01",
+            "staffName": "Anita R.",
+            "displayOrder": 0
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Session role is below `receptionist`. |
+| `NOT_FOUND` | 404 | No membership with that id. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## POST /api/admin/memberships/[id]/sessions
+
+Records a SPA session against a membership. Each service line deducts its
+duration from the remaining hours. The handler guards membership state and
+remaining hours **before** any writes, validates that every service id exists,
+snapshots service and staff names, then atomically creates a completed ₹0
+booking flagged as a membership session (booking number suffixed `-M`), its
+`booking_service` rows, a ₹0 `membership_session` invoice (zero gems), and
+increments the membership's used minutes. `bookingDate` defaults to today (IST).
+
+**Minimum role:** `receptionist` (`requireRole('receptionist')`)
+
+```http
+POST /api/admin/memberships/mem_9aZ2bYc31/sessions
+Content-Type: application/json
+```
+
+| Parameter | In | Type | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | path | string | Required | The membership id. |
+
+### Request body
+
+Validated by `recordSessionSchema` (`@rgss/types`).
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `services` | array | Required | At least one service line (see below). |
+| `services[].serviceId` | string | Required | Non-empty; must be an existing service. |
+| `services[].staffId` | string | Optional | Staff member assigned to this line. |
+| `services[].durationMinutes` | integer | Required | Positive. Minutes to deduct for this line. |
+| `bookingDate` | string | Optional | `YYYY-MM-DD`. Defaults to today (IST). |
+
+```json
+{
+  "services": [
+    {
+      "serviceId": "svc_aromamassage",
+      "staffId": "stf_therapist01",
+      "durationMinutes": 120
+    }
+  ],
+  "bookingDate": "2026-06-10"
+}
+```
+
+### Response
+
+Returns `201 Created` with the created booking, the ₹0 session invoice, and the
+membership's remaining minutes after the deduction.
+
+```json
+{
+  "success": true,
+  "data": {
+    "booking": {
+      "id": "bk_77aa11bb22",
+      "bookingNumber": "BK-RS-2606-S-44120-M",
+      "branchId": "branch_rayasandra",
+      "customerId": "usr_abc123",
+      "status": "completed",
+      "serviceType": "spa",
+      "bookingDate": "2026-06-10",
+      "startTime": "15:30:00",
+      "endTime": "17:30:00",
+      "totalAmountPaise": 0,
+      "totalDurationMinutes": 120,
+      "isMembershipSession": true,
+      "spaMembershipId": "mem_9aZ2bYc31",
+      "completedAt": "2026-06-10T07:00:00.000Z"
+    },
+    "invoice": {
+      "id": "inv_55cc66dd77",
+      "invoiceNumber": "INV-1-2627-71044",
+      "branchId": "branch_rayasandra",
+      "bookingId": "bk_77aa11bb22",
+      "customerId": "usr_abc123",
+      "subtotalPaise": 0,
+      "taxableValuePaise": 0,
+      "gstAmountPaise": 0,
+      "totalAmountPaise": 0,
+      "invoiceType": "membership_session",
+      "paymentStatus": "paid",
+      "gemsEarned": 0,
+      "paidAt": "2026-06-10T07:00:00.000Z"
+    },
+    "remainingMinutes": 780
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Session role is below `receptionist`. |
+| `VALIDATION_ERROR` | 400 | Body fails `recordSessionSchema`, or one or more selected services do not exist. |
+| `NOT_FOUND` | 404 | No membership with that id, or the primary branch could not be resolved. |
+| `MEMBERSHIP_EXPIRED` | 409 | The membership is not `active` or is past its expiry. |
+| `MEMBERSHIP_INSUFFICIENT_HOURS` | 409 | The requested duration exceeds the remaining membership hours. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## POST /api/admin/memberships/[id]/cancel
+
+Cancels a membership: sets status to `cancelled` and appends the reason to the
+membership's notes. This is the only membership endpoint that requires
+`manager`.
+
+**Minimum role:** `manager` (`requireRole('manager')`)
+
+```http
+POST /api/admin/memberships/mem_9aZ2bYc31/cancel
+Content-Type: application/json
+```
+
+| Parameter | In | Type | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | path | string | Required | The membership id. |
+
+### Request body
+
+Validated by `cancelMembershipSchema` (`@rgss/types`).
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `reason` | string | Required | Trimmed, 1–500 characters. Appended to the membership notes as `Cancelled: {reason}`. |
+
+```json
+{
+  "reason": "Customer relocated out of the city."
+}
+```
+
+### Response
+
+Returns the updated membership row.
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "mem_9aZ2bYc31",
+    "membershipNumber": "RG-MEM-26-1-90872",
+    "customerId": "usr_abc123",
+    "tierId": "tier_gold",
+    "tierNameSnapshot": "Gold",
+    "totalHoursMinutes": 900,
+    "usedHoursMinutes": 120,
+    "pricePaidPaise": 1500000,
+    "startsAt": "2026-06-01T00:00:00.000Z",
+    "expiresAt": "2026-08-30T18:29:59.999Z",
+    "status": "cancelled",
+    "createdBy": "usr_reception01",
+    "invoiceId": "inv_3kP9qWx20",
+    "notes": "Cancelled: Customer relocated out of the city.",
+    "createdAt": "2026-06-01T05:30:00.000Z",
+    "updatedAt": "2026-06-12T08:00:00.000Z"
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Session role is below `manager`. |
+| `VALIDATION_ERROR` | 400 | Body fails `cancelMembershipSchema` (missing or over-long `reason`). |
+| `NOT_FOUND` | 404 | No membership with that id. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |

@@ -1,0 +1,63 @@
+---
+title: Authentication & Roles
+description: Better Auth (Google OAuth) and the six-tier RBAC model.
+---
+
+# Authentication & Roles
+
+## Better Auth + Google OAuth
+
+Authentication uses **Better Auth** with **Google OAuth** as the only sign-in
+method. Sessions are stored in Neon (HttpOnly, Secure, SameSite=Lax cookies).
+The auth routes are mounted at `/api/auth/[...all]`.
+
+First sign-in routes a new user to `/onboarding` to collect phone, DOB, gender,
+and consents; `POST /api/onboarding/complete` finalises the profile. UTM and
+booking context survive the OAuth redirect via `sessionStorage`.
+
+## RBAC — six roles
+
+Roles are hierarchical: a higher role satisfies any lower-role requirement.
+
+| Role | Level | Typical access |
+| --- | --- | --- |
+| `customer` | 0 | Own bookings, profile, gems, membership |
+| `staff` | 1 | Own schedule + leave (`/staff/*`) |
+| `receptionist` | 2 | Bookings, customers, leads, billing |
+| `manager` | 3 | + services, offers, staff, schedule, reports |
+| `owner` | 4 | + users, branches |
+| `developer` | 5 | + integrations, logs |
+
+## Enforcing access in API routes
+
+Two helpers guard server routes:
+
+```ts
+import { requireSession, requireRole } from '@/lib/api/session'
+
+// Any signed-in user
+const session = await requireSession()
+
+// Minimum role (throws 403 FORBIDDEN if below)
+const session = await requireRole('receptionist')
+```
+
+- `requireSession()` throws `401 UNAUTHENTICATED` when there is no session.
+- `requireRole(minRole)` throws `403 FORBIDDEN` when the user's role level is
+  below the required minimum.
+
+Each API page in the reference notes the minimum role for every endpoint.
+
+## Route → role guidance
+
+| Route group | Minimum role |
+| --- | --- |
+| `/api/bookings`, `/api/membership`, `/api/gems`, `/api/notifications` | `customer` |
+| `/api/staff/*` | `staff` |
+| `/api/admin/bookings`, `/customers`, `/leads`, `/billing` | `receptionist` |
+| `/api/admin/services`, `/offers`, `/staff`, `/schedule`, `/memberships` | `manager` |
+| `/api/admin/users`, branches | `owner` |
+| `/api/admin/integrations`, logs | `developer` |
+
+Public (no auth) endpoints: `GET /api/services`, `GET /api/services/[slug]`,
+`GET /api/availability`, `POST /api/leads`, `GET /api/health`.

@@ -1,0 +1,491 @@
+---
+title: Loyalty & Offers
+description: Customer gems balance and catalogue, public active offers, and admin offer management.
+---
+
+# Loyalty & Offers
+
+Two related areas: the **gems** loyalty programme (a customer's own balance,
+transaction history, and the redeemable-services catalogue) and **offers**
+(a public list of active promotions plus manager-only CRUD).
+
+<Callout type="info">
+  Money is an integer in **paise** (₹1,000.00 = `100000`). Calendar dates are
+  `YYYY-MM-DD` on input; `date`-mode columns serialise back as UTC-midnight ISO
+  strings (e.g. `"2026-06-30T00:00:00.000Z"`). The role hierarchy is
+  `customer < staff < receptionist < manager < owner < developer`.
+</Callout>
+
+<Callout type="info">
+  **Gems rules.** Customers earn **1 gem per ₹100 invoiced** (floor), on service
+  invoices only — never on membership purchases or sessions. Gems **expire 365
+  days** after they are earned. Redemption is **against specific catalogue
+  services**, not a rupee discount, and gems **cannot be combined** with an offer
+  on the same booking.
+</Callout>
+
+## GET /api/gems
+
+Returns the signed-in customer's own loyalty summary, a paginated transaction
+history, and the redeemable-services catalogue. Strictly scoped to
+`session.user.id` — it never exposes another customer's data. A loyalty account
+is created on first call, so a brand-new customer sees zeros rather than an
+error.
+
+**Minimum role:** `customer` (`requireSession`)
+
+```http
+GET /api/gems?page=1&pageSize=20
+```
+
+### Query parameters
+
+| Parameter | In | Type | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `page` | query | integer | Optional | Defaults to `1`. Non-integer or `< 1` values fall back to the default. |
+| `pageSize` | query | integer | Optional | Defaults to `20`, clamped to a maximum of `100`. Invalid values fall back to the default. |
+
+### Response
+
+`data.summary` is the balance plus lifetime totals (zeros if the account was
+just created). `data.transactions` are newest-first; `invoiceNumber` is `null`
+for non-invoice transactions (e.g. `expired`/`adjusted`). `data.redeemable` is
+the active gems-redeemable services catalogue. `meta` carries `page` and
+`totalPages` — there is no separate count query, so `totalPages` is `page + 1`
+whenever a full page is returned (there may be more), otherwise `page`.
+
+```json
+{
+  "success": true,
+  "data": {
+    "summary": {
+      "balance": 240,
+      "totalEarned": 310,
+      "totalRedeemed": 70
+    },
+    "transactions": [
+      {
+        "id": "lt_9c1f2a7b3d",
+        "type": "earned",
+        "gemsAmount": 13,
+        "description": "Earned on invoice INV-1-2627-92921",
+        "expiresAt": "2027-06-01T06:30:00.000Z",
+        "createdAt": "2026-06-01T06:30:00.000Z",
+        "invoiceNumber": "INV-1-2627-92921"
+      },
+      {
+        "id": "lt_5a8d0e2c4f",
+        "type": "redeemed",
+        "gemsAmount": -70,
+        "description": "Redeemed against Classic Manicure",
+        "expiresAt": null,
+        "createdAt": "2026-05-20T11:05:00.000Z",
+        "invoiceNumber": null
+      }
+    ],
+    "redeemable": [
+      {
+        "id": "svc_manicure01",
+        "name": "Classic Manicure",
+        "gemsRequired": 70,
+        "pricePaise": 70000
+      }
+    ]
+  },
+  "meta": {
+    "page": 1,
+    "totalPages": 1
+  }
+}
+```
+
+`loyalty_tx_type` is one of `earned`, `redeemed`, `expired`, `adjusted`.
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## GET /api/offers
+
+Public list of active offers for the customer offers page. **No auth.** Returns
+only offers whose `isActive` flag is true and whose calendar date range includes
+today, ordered by `displayOrder`. Each offer carries its linked services.
+
+**Minimum role:** Public (no session required)
+
+```http
+GET /api/offers
+```
+
+### Response
+
+Each offer is the full offer row plus `services` (`{ id, name }[]`) and the
+convenience arrays `serviceIds` and `serviceNames`. The discount field that is
+populated depends on `offerType`:
+
+- `percentage` → `discountPercentage` (1–100)
+- `flat` → `discountAmountPaise` (paise)
+- `combo_price` → `comboPricePaise` (paise)
+
+```json
+{
+  "success": true,
+  "data": {
+    "offers": [
+      {
+        "id": "of_3b7e1d9a2c",
+        "name": "Monsoon Glow 20% Off",
+        "slug": "monsoon-glow-20-off-a1b2c3",
+        "description": "20% off select salon services this monsoon.",
+        "offerType": "percentage",
+        "discountPercentage": 20,
+        "discountAmountPaise": null,
+        "comboPricePaise": null,
+        "startDate": "2026-06-01T00:00:00.000Z",
+        "endDate": "2026-06-30T00:00:00.000Z",
+        "isActive": true,
+        "terms": "One offer per customer per day. Cannot combine with gems.",
+        "imageUrl": null,
+        "displayOrder": 0,
+        "createdAt": "2026-05-28T09:00:00.000Z",
+        "updatedAt": "2026-05-28T09:00:00.000Z",
+        "services": [
+          { "id": "svc_haircut001", "name": "Signature Haircut" }
+        ],
+        "serviceIds": ["svc_haircut001"],
+        "serviceNames": ["Signature Haircut"]
+      }
+    ]
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## GET /api/admin/offers
+
+Lists all offers (admin view), newest first, each with its linked services.
+
+**Minimum role:** `manager` (`requireRole('manager')`)
+
+```http
+GET /api/admin/offers
+```
+
+### Response
+
+Same per-offer shape as `GET /api/offers`, but unfiltered (includes inactive and
+out-of-range offers), ordered by `createdAt` descending.
+
+```json
+{
+  "success": true,
+  "data": {
+    "offers": [
+      {
+        "id": "of_3b7e1d9a2c",
+        "name": "Monsoon Glow 20% Off",
+        "slug": "monsoon-glow-20-off-a1b2c3",
+        "description": "20% off select salon services this monsoon.",
+        "offerType": "percentage",
+        "discountPercentage": 20,
+        "discountAmountPaise": null,
+        "comboPricePaise": null,
+        "startDate": "2026-06-01T00:00:00.000Z",
+        "endDate": "2026-06-30T00:00:00.000Z",
+        "isActive": true,
+        "terms": "One offer per customer per day.",
+        "imageUrl": null,
+        "displayOrder": 0,
+        "createdAt": "2026-05-28T09:00:00.000Z",
+        "updatedAt": "2026-05-28T09:00:00.000Z",
+        "services": [{ "id": "svc_haircut001", "name": "Signature Haircut" }],
+        "serviceIds": ["svc_haircut001"],
+        "serviceNames": ["Signature Haircut"]
+      }
+    ]
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Caller's role is below `manager`. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## POST /api/admin/offers
+
+Creates an offer and its service links. The slug is derived server-side from the
+name (lowercased, hyphenated, with a short nanoid suffix so duplicate names never
+collide). The calendar dates are converted to UTC-midnight `Date`s.
+
+**Minimum role:** `manager` (`requireRole('manager')`)
+
+```http
+POST /api/admin/offers
+Content-Type: application/json
+```
+
+### Request body
+
+Validated by `createOfferSchema` (`@rgss/types`). The discount field that
+matches `offerType` is **required**, and `endDate` must be on or after
+`startDate` (both enforced via `superRefine`, surfaced as field-level errors).
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `name` | string | Required | Trimmed, 1–120 characters. |
+| `offerType` | enum | Required | `percentage`, `flat`, or `combo_price`. |
+| `startDate` | string | Required | `YYYY-MM-DD`. |
+| `endDate` | string | Required | `YYYY-MM-DD`. Must be on or after `startDate`. |
+| `serviceIds` | string[] | Required | At least one non-empty service id. |
+| `discountPercentage` | integer | Conditional | Required when `offerType` is `percentage`. Integer 1–100. |
+| `discountAmountPaise` | integer | Conditional | Required when `offerType` is `flat`. Positive integer (paise). |
+| `comboPricePaise` | integer | Conditional | Required when `offerType` is `combo_price`. Positive integer (paise). |
+| `description` | string | Optional | Max 1000 characters. |
+| `terms` | string | Optional | Max 1000 characters. |
+
+A `percentage` offer (requires `discountPercentage`):
+
+```json
+{
+  "name": "Monsoon Glow 20% Off",
+  "offerType": "percentage",
+  "discountPercentage": 20,
+  "startDate": "2026-06-01",
+  "endDate": "2026-06-30",
+  "serviceIds": ["svc_haircut001"],
+  "description": "20% off select salon services this monsoon.",
+  "terms": "One offer per customer per day. Cannot combine with gems."
+}
+```
+
+A `flat` offer (requires `discountAmountPaise`):
+
+```json
+{
+  "name": "Flat ₹500 Off Styling",
+  "offerType": "flat",
+  "discountAmountPaise": 50000,
+  "startDate": "2026-07-01",
+  "endDate": "2026-07-15",
+  "serviceIds": ["svc_haircut001", "svc_blowdry01"]
+}
+```
+
+A `combo_price` offer (requires `comboPricePaise`):
+
+```json
+{
+  "name": "Haircut + Beard Combo ₹999",
+  "offerType": "combo_price",
+  "comboPricePaise": 99900,
+  "startDate": "2026-07-01",
+  "endDate": "2026-07-31",
+  "serviceIds": ["svc_haircut001", "svc_beardtrim01"]
+}
+```
+
+### Response
+
+Returns `201 Created` with the created offer (the raw offer row).
+
+```json
+{
+  "success": true,
+  "data": {
+    "offer": {
+      "id": "of_3b7e1d9a2c",
+      "name": "Monsoon Glow 20% Off",
+      "slug": "monsoon-glow-20-off-a1b2c3",
+      "description": "20% off select salon services this monsoon.",
+      "offerType": "percentage",
+      "discountPercentage": 20,
+      "discountAmountPaise": null,
+      "comboPricePaise": null,
+      "startDate": "2026-06-01T00:00:00.000Z",
+      "endDate": "2026-06-30T00:00:00.000Z",
+      "isActive": true,
+      "terms": "One offer per customer per day. Cannot combine with gems.",
+      "imageUrl": null,
+      "displayOrder": 0,
+      "createdAt": "2026-05-28T09:00:00.000Z",
+      "updatedAt": "2026-05-28T09:00:00.000Z"
+    }
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Caller's role is below `manager`. |
+| `VALIDATION_ERROR` | 400 | Body fails `createOfferSchema` — e.g. missing the discount field for the chosen `offerType`, `endDate` before `startDate`, empty `serviceIds`, or a malformed date. `details` carries field-level errors. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## GET /api/admin/offers/[id]
+
+Returns a single offer with its linked services.
+
+**Minimum role:** `manager` (`requireRole('manager')`)
+
+```http
+GET /api/admin/offers/of_3b7e1d9a2c
+```
+
+| Parameter | In | Type | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | path | string | Required | The offer id. |
+
+### Response
+
+Same per-offer shape as the list endpoints (offer row plus `services`,
+`serviceIds`, `serviceNames`).
+
+```json
+{
+  "success": true,
+  "data": {
+    "offer": {
+      "id": "of_3b7e1d9a2c",
+      "name": "Monsoon Glow 20% Off",
+      "slug": "monsoon-glow-20-off-a1b2c3",
+      "offerType": "percentage",
+      "discountPercentage": 20,
+      "discountAmountPaise": null,
+      "comboPricePaise": null,
+      "startDate": "2026-06-01T00:00:00.000Z",
+      "endDate": "2026-06-30T00:00:00.000Z",
+      "isActive": true,
+      "services": [{ "id": "svc_haircut001", "name": "Signature Haircut" }],
+      "serviceIds": ["svc_haircut001"],
+      "serviceNames": ["Signature Haircut"]
+    }
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Caller's role is below `manager`. |
+| `NOT_FOUND` | 404 | No offer exists with that id. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## PATCH /api/admin/offers/[id]
+
+Updates offer fields or toggles `isActive`. A bare `{ "isActive": false }` (with
+no other fields) deactivates via the dedicated query; any other combination maps
+the provided fields (dates converted to `Date`) and updates. When `serviceIds`
+is supplied, the offer's service set is fully replaced.
+
+**Minimum role:** `manager` (`requireRole('manager')`)
+
+```http
+PATCH /api/admin/offers/of_3b7e1d9a2c
+Content-Type: application/json
+```
+
+| Parameter | In | Type | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | path | string | Required | The offer id. |
+
+### Request body
+
+Validated by `updateOfferSchema` — every field from `createOfferSchema` is
+optional, plus an optional `isActive` boolean. The conditional discount/date
+refinements that apply on create are **not** re-run here (the base object is made
+partial).
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `name` | string | Optional | Trimmed, 1–120 characters. |
+| `description` | string | Optional | Max 1000 characters. |
+| `offerType` | enum | Optional | `percentage`, `flat`, or `combo_price`. |
+| `discountPercentage` | integer | Optional | Integer 1–100. |
+| `discountAmountPaise` | integer | Optional | Positive integer (paise). |
+| `comboPricePaise` | integer | Optional | Positive integer (paise). |
+| `startDate` | string | Optional | `YYYY-MM-DD`. |
+| `endDate` | string | Optional | `YYYY-MM-DD`. |
+| `serviceIds` | string[] | Optional | At least one id when present; fully replaces the linked-service set. |
+| `terms` | string | Optional | Max 1000 characters. |
+| `isActive` | boolean | Optional | `false` alone deactivates the offer. |
+
+Deactivate the offer (`isActive: false` alone):
+
+```json
+{
+  "isActive": false
+}
+```
+
+Update fields:
+
+```json
+{
+  "name": "Monsoon Glow 25% Off",
+  "discountPercentage": 25,
+  "endDate": "2026-07-15"
+}
+```
+
+### Response
+
+Returns the updated offer row.
+
+```json
+{
+  "success": true,
+  "data": {
+    "offer": {
+      "id": "of_3b7e1d9a2c",
+      "name": "Monsoon Glow 25% Off",
+      "slug": "monsoon-glow-20-off-a1b2c3",
+      "offerType": "percentage",
+      "discountPercentage": 25,
+      "discountAmountPaise": null,
+      "comboPricePaise": null,
+      "startDate": "2026-06-01T00:00:00.000Z",
+      "endDate": "2026-07-15T00:00:00.000Z",
+      "isActive": true,
+      "displayOrder": 0,
+      "createdAt": "2026-05-28T09:00:00.000Z",
+      "updatedAt": "2026-06-05T10:00:00.000Z"
+    }
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Caller's role is below `manager`. |
+| `VALIDATION_ERROR` | 400 | Body fails `updateOfferSchema`. `details` carries field-level errors. |
+| `NOT_FOUND` | 404 | No offer exists with that id (on both the deactivation and update paths). |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |

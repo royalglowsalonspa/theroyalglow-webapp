@@ -1,0 +1,73 @@
+---
+title: Getting Started
+description: Local development setup for the Royal Glow monorepo.
+---
+
+# Getting Started
+
+## Prerequisites
+
+- **Bun** 1.3+ (runtime and package manager)
+- **Node.js** 20.9+ (Payload CMS / Render origin)
+- A **Neon** PostgreSQL connection string (or any Postgres URL for local dev)
+
+## Install
+
+```bash
+bun install
+```
+
+This installs every workspace: `apps/web`, `apps/cms`, `docs`, and the shared
+`packages/*`.
+
+## Environment
+
+Copy the template and fill in what you have. Every external integration is a
+**guarded extension point** — with a key absent it no-ops and logs, so the app
+builds and runs without secrets.
+
+```bash
+cp .env.example apps/web/.env.local
+cp apps/cms/.env.example apps/cms/.env.local
+```
+
+While keys are incomplete, keep `SKIP_ENV_VALIDATION=1` in `apps/web/.env.local`
+to bypass build-time env validation. See `environment-variables.md` for the full
+canonical list.
+
+## Run
+
+```bash
+# Customer site + admin (apps/web) on http://localhost:3000
+bun run dev --filter=@rgss/web
+
+# Payload CMS (apps/cms)
+bun run dev --filter=@rgss/cms
+
+# This documentation site (docs)
+bun run dev --filter=@rgss/docs
+```
+
+## Quality gates
+
+```bash
+bun run typecheck     # tsc --noEmit across all packages
+bun run lint          # Biome
+bun run test:unit     # Vitest unit + property-based tests
+bun run build         # turbo build (all apps)
+```
+
+All of these pass with **no environment keys** configured.
+
+## Repository layout
+
+```
+apps/web    Next.js 16 customer site + admin portal  (theroyalglow.in)
+apps/cms    Payload CMS v3 (marketing content)        (admin.theroyalglow.in)
+docs        This Fumadocs site                         (docs.theroyalglow.in)
+packages/db        Drizzle schema + Neon client + queries
+packages/business  Pure business logic (no I/O)
+packages/types     Shared Zod schemas + TypeScript types
+packages/errors    AppError + error-code registry
+packages/logger    Structured JSON logger
+```
