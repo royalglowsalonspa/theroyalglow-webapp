@@ -15,6 +15,13 @@ export type AnalyticsEvent =
   | 'AddToCart'
   | 'Booking'
   | 'CompleteRegistration'
+  // Product funnel events (observability.md "Key events to track"). These are
+  // NOT Meta standard events, so they route via fbq('trackCustom', ...).
+  | 'booking_started'
+  | 'booking_step_completed'
+  | 'booking_request_submitted'
+  | 'lead_form_submitted'
+  | 'offer_clicked'
 
 /**
  * Meta Pixel standard events. Anything in this set is forwarded to `fbq` via

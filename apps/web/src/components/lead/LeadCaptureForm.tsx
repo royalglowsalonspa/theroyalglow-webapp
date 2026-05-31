@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
+import { track } from '@/lib/analytics/events'
 
 // Mirrors getServiceInterestOptions() rows.
 type ServiceOption = {
@@ -102,6 +103,7 @@ export function LeadCaptureForm({
 
       const leadId = json.data.leadId as string
       setState('success')
+      track('lead_form_submitted')
       // Brief thank-you, then hand off to the homepage booking dialog.
       setTimeout(() => {
         router.push(`/?book=1&leadId=${encodeURIComponent(leadId)}`)

@@ -9,9 +9,10 @@ import { useEffect } from 'react'
  * Mounted once in the root layout. On mount and on every `CONSENT_EVENT` it
  * re-reads consent and (re)evaluates whether to load each provider:
  *   - PostHog  → analytics consent + `NEXT_PUBLIC_POSTHOG_KEY`
+ *   - Microsoft Clarity → analytics consent + `NEXT_PUBLIC_CLARITY_ID`
  *   - Meta Pixel → marketing consent + `NEXT_PUBLIC_META_PIXEL_ID`
  *
- * Both providers are double-gated (consent AND a configured key), loaded at
+ * Every provider is double-gated (consent AND a configured key), loaded at
  * most once, and every path is wrapped so analytics can never throw into the
  * app. Renders no visible UI.
  */
@@ -36,12 +37,20 @@ type FbqInstance = FbqFn & {
   version: string
 }
 
+type ClarityFn = (...args: unknown[]) => void
+
+type ClarityInstance = ClarityFn & {
+  q: unknown[]
+}
+
 // `window.posthog` and `window.fbq` are already declared in `lib/analytics/events.ts`.
-// Only augment the additional `_fbq` alias the Meta Pixel bootstrap sets, to
-// avoid a conflicting re-declaration of the existing properties.
+// Only augment the additional `_fbq` alias the Meta Pixel bootstrap sets and the
+// `clarity` queue shim, to avoid a conflicting re-declaration of the existing
+// `posthog`/`fbq` properties.
 declare global {
   interface Window {
     _fbq?: Window['fbq']
+    clarity?: (...args: unknown[]) => void
   }
 }
 
@@ -54,6 +63,7 @@ function logDevError(scope: string, error: unknown): void {
 }
 
 let posthogLoading = false
+let clarityLoading = false
 
 async function loadPostHog(): Promise<void> {
   if (typeof window === 'undefined' || window.posthog || posthogLoading) {
@@ -141,12 +151,52 @@ function loadMetaPixel(): void {
   }
 }
 
+function loadClarity(): void {
+  if (typeof window === 'undefined' || window.clarity || clarityLoading) {
+    return
+  }
+
+  const clarityId = process.env.NEXT_PUBLIC_CLARITY_ID
+  if (!clarityId) {
+    return
+  }
+
+  clarityLoading = true
+
+  try {
+    // Standard Microsoft Clarity bootstrap, typed instead of the vendor's
+    // `eval`-based `any` snippet. Equivalent to:
+    //   (function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[])
+    //     .push(arguments)};t=l.createElement(r);t.async=1;
+    //     t.src="https://www.clarity.ms/tag/"+i;
+    //     y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    //   })(window, document, 'clarity', 'script', clarityId)
+    const clarity = ((...args: unknown[]): void => {
+      clarity.q.push(args)
+    }) as ClarityInstance
+    clarity.q = []
+
+    window.clarity = clarity
+
+    const script = document.createElement('script')
+    script.async = true
+    script.src = `https://www.clarity.ms/tag/${clarityId}`
+    const first = document.getElementsByTagName('script')[0]
+    first?.parentNode?.insertBefore(script, first)
+  } catch (error) {
+    logDevError('clarity init failed', error)
+  } finally {
+    clarityLoading = false
+  }
+}
+
 function evaluateConsent(): void {
   try {
     const consent = getConsent()
 
     if (consent.analytics) {
       void loadPostHog()
+      loadClarity()
     }
 
     if (consent.marketing) {

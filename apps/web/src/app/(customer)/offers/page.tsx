@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { formatINR } from '@rgss/business'
 import { getActiveOffers } from '@rgss/db/queries'
+import { OfferBookButton } from '@/components/offers/OfferBookButton'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd } from '@/lib/seo/jsonld'
@@ -138,12 +138,7 @@ export default async function OffersPage() {
                     )}
 
                     {/* CTA */}
-                    <Link
-                      href="/?book=1"
-                      className="inline-flex items-center gap-1 font-ui text-xs uppercase tracking-[0.5px] text-royal-gold mt-6 hover:text-canvas-white transition-colors duration-200"
-                    >
-                      Book Now <span aria-hidden="true">→</span>
-                    </Link>
+                    <OfferBookButton offerId={offer.id} />
                   </article>
                 )
               })}

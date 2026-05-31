@@ -1,0 +1,51 @@
+---
+title: API Reference
+description: Agent-friendly REST endpoints for the Royal Glow platform.
+---
+
+# API Reference
+
+The public API uses clean, human-readable RESTful URLs with a consistent JSON
+envelope, so both browsers and AI agents can discover and call them.
+
+## Response shape
+
+```json
+// success
+{ "success": true, "data": {}, "meta": {} }
+
+// error
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid request data",
+    "statusCode": 400,
+    "requestId": "req_xxx"
+  }
+}
+```
+
+## Key endpoints
+
+| Action | Method | Path |
+| --- | --- | --- |
+| List services | GET | `/api/services` |
+| Check availability | GET | `/api/availability?service={slug}&date={YYYY-MM-DD}` |
+| Submit booking request | POST | `/api/bookings` |
+| Get booking status | GET | `/api/bookings/{id}` |
+| Submit campaign lead | POST | `/api/leads` |
+| Health check | GET | `/api/health` |
+
+## AI-discovery files
+
+- `/llms.txt` — concise site summary with live service names.
+- `/llms-full.txt` — full menu with prices, durations, policies, and FAQs.
+- `/sitemap.xml` and `/robots.txt` — crawler discovery (all major AI crawlers
+  allowed).
+
+<Callout type="info">
+  A complete, auto-generated reference (via `fumadocs-openapi` from a published
+  OpenAPI spec) is a planned follow-up. This page documents the stable,
+  agent-facing surface in the meantime.
+</Callout>

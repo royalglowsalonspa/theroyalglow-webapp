@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useSession } from '@/lib/auth-client'
+import { track } from '@/lib/analytics/events'
 
 // --- Types (mirror GET /api/services response) ---
 type ServiceType = 'salon' | 'spa'
@@ -133,6 +134,13 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
     }
     return () => {
       document.body.style.overflow = ''
+    }
+  }, [isOpen])
+
+  // Funnel: dialog opened. Fire once per open transition (not on every render).
+  useEffect(() => {
+    if (isOpen) {
+      track('booking_started')
     }
   }, [isOpen])
 
@@ -404,6 +412,9 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
       }
       setBookingNumber(json.data.bookingNumber as string)
       setIsSubmitted(true)
+      track('booking_request_submitted', {
+        bookingId: json.data.bookingNumber as string,
+      })
     } catch (err: unknown) {
       setSubmitError(
         err instanceof Error
@@ -549,7 +560,10 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
             {step < 4 ? (
               <button
                 type="button"
-                onClick={() => setStep((s) => s + 1)}
+                onClick={() => {
+                  track('booking_step_completed', { step })
+                  setStep((s) => s + 1)
+                }}
                 disabled={
                   (step === 1 && !canNext1) ||
                   (step === 2 && !canNext2) ||

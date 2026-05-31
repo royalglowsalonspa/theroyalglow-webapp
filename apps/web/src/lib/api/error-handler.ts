@@ -1,4 +1,5 @@
 import { AppError } from '@rgss/errors'
+import * as Sentry from '@sentry/nextjs'
 import { nanoid } from 'nanoid'
 
 type RouteHandler = (req: Request, ctx: any) => Promise<Response>
@@ -27,6 +28,9 @@ export function withErrorHandler(handler: RouteHandler): RouteHandler {
       }
       // Unknown error → 500. Treated as retryable: assumed transient (DB/timeout).
       console.error(`[${requestId}] Unhandled error:`, error)
+      // Report unexpected errors to Sentry. No-op when Sentry is uninitialised
+      // (no NEXT_PUBLIC_SENTRY_DSN). Expected AppErrors are not reported here.
+      Sentry.captureException(error)
       return Response.json(
         {
           success: false,
