@@ -1,0 +1,303 @@
+---
+title: Notifications & Realtime
+description: In-app notification feed, Web Push subscription management, and Ably realtime token requests.
+---
+
+# Notifications & Realtime
+
+Endpoints for the in-app notification feed, the browser Web Push subscription
+lifecycle, and issuing scoped Ably token requests for live updates.
+
+<Callout type="info">
+  Every endpoint here calls `requireSession`, so a valid Better Auth session
+  cookie is required. All reads and writes are scoped to `session.user.id` — a
+  caller can only ever see or modify their own notifications and subscriptions.
+  The role hierarchy is `customer < staff < receptionist < manager < owner <
+  developer`.
+</Callout>
+
+## GET /api/notifications
+
+Returns the signed-in user's notification feed (newest first, paginated) plus
+the count of their unread notifications. Strictly scoped to `session.user.id`.
+
+**Minimum role:** `customer` (`requireSession`)
+
+```http
+GET /api/notifications?page=1&pageSize=20
+```
+
+### Query parameters
+
+| Parameter | In | Type | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `page` | query | integer | Optional | Defaults to `1`. Non-integer or `< 1` values fall back to the default. |
+| `pageSize` | query | integer | Optional | Defaults to `20`, clamped to a maximum of `100`. Invalid values fall back to the default. |
+
+### Response
+
+`data.notifications` are the full notification rows, newest first.
+`data.unreadCount` is the number of the caller's notifications with `readAt`
+still null. `meta` carries `page` and `totalPages` — there is no separate count
+query, so `totalPages` is `page + 1` whenever a full page is returned (there may
+be more), otherwise `page`.
+
+```json
+{
+  "success": true,
+  "data": {
+    "notifications": [
+      {
+        "id": "ntf_7d2c9a1f3b",
+        "userId": "usr_abc123",
+        "bookingId": "bk_8f2a1c9e4d",
+        "type": "booking_confirmed",
+        "title": "Your booking is confirmed",
+        "body": "Booking BK-RS-2606-H-38291 is confirmed for 15/06/2026 at 11:00.",
+        "channel": "push",
+        "status": "sent",
+        "sentAt": "2026-06-01T07:00:05.000Z",
+        "readAt": null,
+        "createdAt": "2026-06-01T07:00:00.000Z"
+      }
+    ],
+    "unreadCount": 1
+  },
+  "meta": {
+    "page": 1,
+    "totalPages": 1
+  }
+}
+```
+
+`type` is one of the `notification_type` enum values (e.g. `reminder_24h`,
+`reminder_1h`, `booking_confirmed`, `booking_rescheduled`, `booking_cancelled`,
+`booking_rejected`, `membership_created`, `gems_expiry_7d`, `gems_expired`, …).
+`channel` is `push` or `email`; `status` is `pending`, `sent`, or `failed`.
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## PATCH /api/notifications
+
+Marks the caller's notifications as read. With `ids`, only those notifications
+are marked; omit `ids` (or send an empty/missing body) to mark **all** of the
+caller's unread notifications read. Scoped to `session.user.id`, so one user can
+never mark another user's notifications.
+
+**Minimum role:** `customer` (`requireSession`)
+
+```http
+PATCH /api/notifications
+Content-Type: application/json
+```
+
+### Request body
+
+The body is optional and validated by `markReadSchema` (`@rgss/types`). A missing
+or empty body is treated as "mark all read".
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `ids` | string[] | Optional | Notification ids to mark read (each non-empty). Omit to mark all unread read. |
+
+Mark specific notifications read:
+
+```json
+{
+  "ids": ["ntf_7d2c9a1f3b", "ntf_4e8b0c2d6a"]
+}
+```
+
+Mark all unread read (empty or omitted body):
+
+```json
+{}
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "ok": true
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `VALIDATION_ERROR` | 400 | Body fails `markReadSchema` (e.g. `ids` is not an array of non-empty strings). `details` carries field-level errors. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## POST /api/push/subscribe
+
+Stores a Web Push subscription for the caller. The subscription is upserted by
+`endpoint` and bound to `session.user.id` (re-binding and reactivating an
+existing row for that endpoint, or inserting a fresh one).
+
+**Minimum role:** `customer` (`requireSession`)
+
+```http
+POST /api/push/subscribe
+Content-Type: application/json
+```
+
+### Request body
+
+Validated by `pushSubscribeSchema` (`@rgss/types`) — the shape a browser
+`PushManager` subscription serialises to.
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `endpoint` | string (URL) | Required | The push service endpoint URL. |
+| `keys.p256dh` | string | Required | Non-empty client public key. |
+| `keys.auth` | string | Required | Non-empty client auth secret. |
+
+```json
+{
+  "endpoint": "https://fcm.googleapis.com/fcm/send/abc123",
+  "keys": {
+    "p256dh": "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM",
+    "auth": "tBHItJI5svbpez7KI4CCXg"
+  }
+}
+```
+
+### Response
+
+Returns `201 Created`.
+
+```json
+{
+  "success": true,
+  "data": {
+    "ok": true
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `VALIDATION_ERROR` | 400 | Body fails `pushSubscribeSchema` — e.g. `endpoint` is not a valid URL, or a key is missing/empty. `details` carries field-level errors. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## DELETE /api/push/subscribe
+
+Deactivates the caller's push subscription for a given endpoint (soft
+unsubscribe — sets `isActive` to false). The endpoint is read from the JSON body.
+Scoped to `session.user.id`, so one user can never deactivate another's
+subscription.
+
+**Minimum role:** `customer` (`requireSession`)
+
+```http
+DELETE /api/push/subscribe
+Content-Type: application/json
+```
+
+### Request body
+
+Not a Zod schema — the handler requires a non-empty string `endpoint` directly.
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `endpoint` | string | Required | Non-empty. The push endpoint to deactivate. |
+
+```json
+{
+  "endpoint": "https://fcm.googleapis.com/fcm/send/abc123"
+}
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "ok": true
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `VALIDATION_ERROR` | 400 | `endpoint` is missing or not a non-empty string (raised as `badRequest`). |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## POST /api/ably/token
+
+Issues an [Ably](https://ably.com) token request scoped to the caller's own
+channels. The token is always granted `subscribe` on `customer:{userId}:*`;
+callers whose role is `receptionist` or above additionally receive `subscribe`
+on `admin:*`. The `clientId` on the token request is the caller's user id.
+
+**Minimum role:** `customer` (`requireSession`)
+
+<Callout type="warn">
+  Realtime degrades gracefully. When `ABLY_PRIVATE_KEY` is **not configured**
+  (or the optional `ably` module is unavailable), the server helper returns
+  `null` and this endpoint answers **`503 SERVICE_UNAVAILABLE`** so the client
+  can fall back to polling.
+</Callout>
+
+```http
+POST /api/ably/token
+```
+
+This endpoint takes no request body.
+
+### Response
+
+The payload is the Ably token request object produced by
+`client.auth.createTokenRequest(...)` — passed straight through as `data`. Its
+fields are defined by Ably; the example below is illustrative.
+
+```json
+{
+  "success": true,
+  "data": {
+    "keyName": "abcDef.ghiJkl",
+    "clientId": "usr_abc123",
+    "ttl": 3600000,
+    "capability": "{\"customer:usr_abc123:*\":[\"subscribe\"]}",
+    "timestamp": 1717225200000,
+    "nonce": "8b1c0a3e7f2d4c6a",
+    "mac": "Base64HmacSignature=="
+  }
+}
+```
+
+For an admin caller (`receptionist`+), `capability` also includes
+`"admin:*":["subscribe"]`.
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `SERVICE_UNAVAILABLE` | 503 | `ABLY_PRIVATE_KEY` is not configured (or the `ably` module is unavailable); realtime is not yet provisioned. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |

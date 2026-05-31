@@ -1,0 +1,114 @@
+---
+title: Health
+description: Liveness and dependency-check endpoint for uptime monitors, CI, and load balancers.
+---
+
+# Health
+
+A liveness/health probe used by BetterStack, CI, and load balancers.
+
+<Callout type="info">
+  **Minimum role: Public.** Unlike every other endpoint, `GET /api/health` does
+  **not** use the `{ success, data }` envelope — it returns its own documented
+  `HealthStatus` contract and its own status codes. The response always sends
+  `Cache-Control: no-store` and an `X-Health-Status` header.
+</Callout>
+
+## GET /api/health
+
+Runs three independent dependency checks (database, Redis, R2) in parallel and
+reports an overall status. The handler is fully guarded — each check is wrapped
+so the endpoint never throws.
+
+**Minimum role:** Public
+
+```http
+GET /api/health
+```
+
+This endpoint takes no parameters.
+
+### Response shape
+
+```json
+{
+  "status": "healthy",
+  "timestamp": "2026-06-02T09:20:00.000Z",
+  "version": "a1b2c3d",
+  "uptime": 12345.67,
+  "checks": {
+    "database": { "status": "pass", "latencyMs": 12 },
+    "redis": { "status": "skip", "latencyMs": 0, "message": "Redis not configured" },
+    "r2": { "status": "skip", "latencyMs": 0, "message": "R2 not configured" }
+  }
+}
+```
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `status` | enum | Overall status: `healthy`, `degraded`, or `unhealthy`. |
+| `timestamp` | string | ISO-8601 timestamp of the check. |
+| `version` | string | Commit SHA from `COMMIT_SHA`, or `"unknown"` if unset. |
+| `uptime` | number | Process uptime in seconds (`0` if unavailable). |
+| `checks.database` | object | `{ status, latencyMs, message? }`. |
+| `checks.redis` | object | `{ status, latencyMs, message? }`. |
+| `checks.r2` | object | `{ status, latencyMs, message? }`. |
+
+Each component check is `{ status: "pass" | "fail" | "skip", latencyMs: number, message?: string }`.
+
+- `pass` — the dependency responded successfully.
+- `fail` — the dependency is configured but unreachable or errored. A `message` explains why.
+- `skip` — the dependency is not configured, so it was not checked. **Redis** reports `skip` when `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` are unset; **R2** reports `skip` when `NEXT_PUBLIC_R2_PUBLIC_URL` is unset.
+
+### Overall status rules
+
+The **database is the only hard dependency**. A `skip` never degrades the
+overall status.
+
+| Condition | Overall `status` | HTTP code |
+| --- | --- | --- |
+| `database.status === "fail"` | `unhealthy` | **503** |
+| Database passes, but `redis` or `r2` is `fail` | `degraded` | **200** |
+| Database passes; Redis/R2 `pass` or `skip` | `healthy` | **200** |
+
+So a no-keys local/dev environment (Redis and R2 unconfigured → `skip`) reports
+`healthy` with a `200`. Only a failing database produces a `503`.
+
+### Degraded example (Redis configured but unreachable)
+
+```json
+{
+  "status": "degraded",
+  "timestamp": "2026-06-02T09:20:00.000Z",
+  "version": "a1b2c3d",
+  "uptime": 12345.67,
+  "checks": {
+    "database": { "status": "pass", "latencyMs": 12 },
+    "redis": { "status": "fail", "latencyMs": 51, "message": "Redis unreachable" },
+    "r2": { "status": "skip", "latencyMs": 0, "message": "R2 not configured" }
+  }
+}
+```
+
+### Unhealthy example (database down → 503)
+
+```json
+{
+  "status": "unhealthy",
+  "timestamp": "2026-06-02T09:20:00.000Z",
+  "version": "a1b2c3d",
+  "uptime": 12345.67,
+  "checks": {
+    "database": { "status": "fail", "latencyMs": 2003, "message": "DB unreachable" },
+    "redis": { "status": "skip", "latencyMs": 0, "message": "Redis not configured" },
+    "r2": { "status": "skip", "latencyMs": 0, "message": "R2 not configured" }
+  }
+}
+```
+
+### Headers
+
+| Header | Value |
+| --- | --- |
+| `Cache-Control` | `no-store` |
+| `X-Health-Status` | The overall `status` (`healthy` / `degraded` / `unhealthy`). |

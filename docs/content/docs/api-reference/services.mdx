@@ -1,0 +1,173 @@
+---
+title: Services & Availability
+description: Public endpoints for the service catalogue, single service lookup, and slot availability.
+---
+
+# Services & Availability
+
+These endpoints expose the public service catalogue and the booking-slot
+schedule. All three are **Public** — none of them call `requireSession` or
+`requireRole`, so no session cookie is needed.
+
+<Callout type="info">
+  Money is an integer in **paise** (`pricePaise: 250000` = ₹2,500.00). Durations
+  are whole minutes. All responses use the standard envelope
+  `{ "success": true, "data": ... }`.
+</Callout>
+
+## GET /api/services
+
+Returns the full catalogue: every active service category (ordered by
+`displayOrder`) with its active services nested under `services`.
+
+**Minimum role:** Public
+
+```http
+GET /api/services
+```
+
+This endpoint takes no path or query parameters.
+
+### Response
+
+`data.categories` is an array of category objects. Each category carries its own
+columns plus a `services` array of the active services that belong to it.
+
+```json
+{
+  "success": true,
+  "data": {
+    "categories": [
+      {
+        "id": "cat_haircare01",
+        "name": "Hair Care",
+        "slug": "hair-care",
+        "description": "Cuts, colour, and treatments",
+        "serviceType": "salon",
+        "displayOrder": 0,
+        "isActive": true,
+        "createdAt": "2026-05-01T04:30:00.000Z",
+        "updatedAt": "2026-05-01T04:30:00.000Z",
+        "services": [
+          {
+            "id": "svc_haircut001",
+            "categoryId": "cat_haircare01",
+            "name": "Signature Haircut",
+            "slug": "signature-haircut",
+            "description": "Consultation, wash, cut, and style",
+            "durationMinutes": 45,
+            "bufferMinutes": 0,
+            "pricePaise": 80000,
+            "isActive": true,
+            "imageUrl": "https://cdn.theroyalglow.in/services/haircut.webp",
+            "displayOrder": 0,
+            "gemsRedeemable": false,
+            "gemsRequired": null,
+            "gemsCatalogueOrder": null,
+            "createdAt": "2026-05-01T04:30:00.000Z",
+            "updatedAt": "2026-05-01T04:30:00.000Z"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure (e.g. database unreachable). `retryable: true`. |
+
+---
+
+## GET /api/services/[slug]
+
+Returns a single service matched by its unique `slug`.
+
+**Minimum role:** Public
+
+```http
+GET /api/services/signature-haircut
+```
+
+| Parameter | In | Type | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `slug` | path | string | Required | The service's unique slug (e.g. `signature-haircut`). |
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "service": {
+      "id": "svc_haircut001",
+      "categoryId": "cat_haircare01",
+      "name": "Signature Haircut",
+      "slug": "signature-haircut",
+      "description": "Consultation, wash, cut, and style",
+      "durationMinutes": 45,
+      "bufferMinutes": 0,
+      "pricePaise": 80000,
+      "isActive": true,
+      "imageUrl": "https://cdn.theroyalglow.in/services/haircut.webp",
+      "displayOrder": 0,
+      "gemsRedeemable": false,
+      "gemsRequired": null,
+      "gemsCatalogueOrder": null,
+      "createdAt": "2026-05-01T04:30:00.000Z",
+      "updatedAt": "2026-05-01T04:30:00.000Z"
+    }
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `NOT_FOUND` | 404 | No service exists for the given `slug`. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## GET /api/availability
+
+Returns the bookable time slots for a single date. Slots are a fixed
+30-minute schedule from **10:00 to 21:00** (first slot starts `10:00`, last slot
+starts `20:30` and ends `21:00`). Every slot is currently reported as
+`available: true`.
+
+**Minimum role:** Public
+
+```http
+GET /api/availability?date=2026-06-15
+```
+
+| Parameter | In | Type | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `date` | query | string | Required | Calendar date in `YYYY-MM-DD` format. Must be a real date and not earlier than today (compared in IST, UTC+5:30). |
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "slots": [
+      { "startTime": "10:00", "endTime": "10:30", "available": true },
+      { "startTime": "10:30", "endTime": "11:00", "available": true },
+      { "startTime": "20:30", "endTime": "21:00", "available": true }
+    ]
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `VALIDATION_ERROR` | 400 | `date` is missing, not `YYYY-MM-DD`, not a real calendar date, or in the past. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |

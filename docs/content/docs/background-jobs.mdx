@@ -1,0 +1,97 @@
+---
+title: Background Jobs
+description: The 19 scheduled and event-driven jobs that keep Royal Glow running — 7 pg_cron, 8 QStash scheduled, 4 QStash triggered.
+---
+
+# Background Jobs
+
+Royal Glow runs **19 background jobs** across two complementary tools. The split
+rule is simple: **if a job only touches the database it runs on pg_cron; if it
+needs an HTTP call** (email, push, Slack, Ably) it runs on QStash.
+
+| Tool | Runs inside | Use for |
+| --- | --- | --- |
+| **pg_cron** | Neon PostgreSQL (`main` branch) | Pure SQL — scans, aggregations, status updates |
+| **QStash** | Upstash HTTP queue → Next.js API routes | Anything needing external services |
+
+<Callout type="info">
+  Every QStash job calls a `POST /api/jobs/...` route and is auto-retried (3x,
+  exponential backoff) on a non-2xx response. Every job pings a BetterStack
+  heartbeat on success so silent failures get detected. All schedules are in UTC;
+  the salon operates IST (UTC+5:30).
+</Callout>
+
+## Not jobs (synchronous / external)
+
+Three time-critical actions deliberately run **in-request**, not as jobs:
+
+- **Invoice email + PDF** — fired immediately when the receptionist marks payment received.
+- **Gems-earned push** — fired in the same request as invoice completion.
+- **Re-engagement email** — handled inside Brevo automations (marketing), not counted here.
+
+## pg_cron jobs (7)
+
+Pure-SQL maintenance that runs closest to the data, in the early IST hours when
+traffic is zero. Job 5 runs via GitHub Actions cron (branch reset) plus SQL
+anonymisation, the rest are native pg_cron.
+
+| # | Job | Schedule (UTC) | IST | Purpose |
+| --- | --- | --- | --- | --- |
+| 1 | Nightly sales summary | `0 18 * * *` | 11:30 PM | Aggregate the day's invoices into `daily_sales_summary` |
+| 2 | Membership auto-expire | `30 18 * * *` | 12:00 AM | Flip `spa_membership` from `active` → `expired` past `expires_at` |
+| 3 | Offer auto-expire | `35 18 * * *` | 12:05 AM | Deactivate offers whose `end_date` has passed |
+| 7 | Gems auto-expire | `40 18 * * *` | 12:10 AM | Deduct gems 365 days after they were earned |
+| 6 | Monthly GST summary | `30 19 1 * *` | 1:00 AM (1st) | Aggregate prior month into `monthly_gst_summary` (SAC 999721) |
+| 5 | Preprod DB sync | `30 19 * * *` | 1:00 AM | GitHub Actions resets `preprod` from `main`, then strips PII |
+| 4 | Session cleanup | `0 21 * * 0` | 2:30 AM Sun | Delete expired Better Auth `session` rows |
+
+## QStash scheduled jobs (8)
+
+HTTP-triggered application jobs on a fixed cadence.
+
+| # | Job | Cadence | Endpoint | External calls |
+| --- | --- | --- | --- | --- |
+| 8 | Appointment reminders | Every 15 min (8 AM–10 PM IST) | `/api/jobs/appointment-reminders` | web-push + Resend |
+| 9 | Membership expiry alerts | Daily 12:30 AM IST | `/api/jobs/membership-expiry` | web-push + Resend |
+| 10 | Birthday emails | Daily 9:30 AM IST | `/api/jobs/birthday-emails` | Brevo + web-push |
+| 11 | Membership usage nudges | Daily randomized batch | `/api/jobs/membership-usage-nudges` | web-push + Resend |
+| 12 | Lead follow-up reminders | Daily 10:30 AM IST | `/api/jobs/lead-followups` | web-push |
+| 13 | Daily sales report | Daily 10:30 PM IST | `/api/jobs/daily-sales-report` | Slack + Resend |
+| 14 | Weekly summary report | Mon 9:00 AM IST | `/api/jobs/weekly-report` | Slack + Resend |
+| 15 | Gems expiry reminder | Daily 10:30 AM IST | `/api/jobs/gems-expiry-reminder` | web-push only |
+
+Reminders fire only when the customer has the relevant preference enabled
+(`appointment_reminders_enabled`, `membership_alerts_enabled`) or
+`marketing_consent` for birthday/marketing sends. Each job writes a
+`notification` row for idempotency so the same alert is never sent twice.
+
+## QStash triggered jobs (4)
+
+Event-driven — enqueued with a delay by an API route when a business event
+occurs, not on a fixed schedule.
+
+| # | Job | Trigger | Delay | Endpoint | External calls |
+| --- | --- | --- | --- | --- | --- |
+| 16 | Post-service follow-up | `booking.status` → `completed` | +24h | `/api/jobs/post-service-followup` | Brevo |
+| 17 | Stale pending booking alert | Booking created `pending` | +2h | `/api/jobs/stale-booking-alert` | web-push |
+| 18 | No-show check | Booking `end_time` reached | +15min | `/api/jobs/noshow-check` | web-push |
+| 19 | Membership expired notice | `spa_membership.expires_at` passes | +1h | `/api/jobs/membership-expired-notice` | Resend |
+
+<Callout type="info">
+  Job 18 never auto-marks a no-show — a receptionist may have extended the
+  session without updating the system, so it always alerts a human to confirm.
+  Job 17 escalates to an auto-reject (with apology to the customer) if a booking
+  is still pending after 24 hours.
+</Callout>
+
+## Inventory at a glance
+
+**19 jobs total — 7 pg_cron + 8 QStash scheduled + 4 QStash triggered.**
+
+## Related pages
+
+<Cards>
+  <Card title="Jobs API" href="/docs/api-reference/jobs" description="The QStash-triggered /api/jobs/* route contracts" />
+  <Card title="Data Model" href="/docs/data-model" description="The tables these jobs scan and update" />
+  <Card title="Deployment" href="/docs/deployment" description="How jobs are monitored via BetterStack heartbeats" />
+</Cards>

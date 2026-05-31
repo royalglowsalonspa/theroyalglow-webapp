@@ -1,0 +1,190 @@
+---
+title: "Background Jobs"
+description: Machine-invoked QStash job routes under /api/jobs — signature-verified POST endpoints that run scheduled and event-triggered automations.
+---
+
+# Background Jobs
+
+The routes under `/api/jobs/*` are **machine-invoked endpoints**, not part of the
+customer/admin API. They are called by [Upstash QStash](https://upstash.com/docs/qstash)
+— either on a fixed schedule or enqueued with a delay when a business event
+occurs — and they perform the platform's background automations: reminders,
+report emails, nudges, follow-ups, and stale-state checks.
+
+<Callout type="info">
+  These are **`POST` endpoints invoked by QStash**, not by browsers or API
+  clients. Each route reads the raw request body once, verifies the
+  `Upstash-Signature` header via `verifyQStashSignature`, and returns **`401
+  Unauthorized`** if verification fails. They deliberately do **not** use the
+  `{ success, data }` envelope or `withErrorHandler` — instead they return a
+  minimal `{ "success": true, ... }` JSON on success and a **non-2xx** on
+  failure so QStash retries. On success each route pings a BetterStack
+  heartbeat. External integrations (Resend, Brevo, web-push, Slack) are
+  **guarded extension points** — when their keys are absent the send is a no-op
+  + log, and the job still completes and returns `200`.
+</Callout>
+
+## Job summary
+
+All 12 routes are `POST`. "Scheduled" jobs are fired by a QStash schedule;
+"Triggered" jobs are enqueued with a delay by an application event. Schedules
+and cadences are from [`background-jobs.md`](https://github.com/royalglowsalonspa); times shown in IST.
+
+| Route | Trigger | Schedule / cadence | What it does |
+| --- | --- | --- | --- |
+| `POST /api/jobs/appointment-reminders` | Scheduled | Every 15 min, 8:00 AM–10:00 PM IST | Notifies customers of `confirmed` bookings entering the 24h or 1h reminder window (push + email). One send per booking + window. |
+| `POST /api/jobs/membership-expiry` | Scheduled | Daily 12:30 AM IST (`0 19 * * *` UTC) | Push-notifies the owning customer of active memberships expiring in exactly 30, 7, or 1 days. |
+| `POST /api/jobs/birthday-emails` | Scheduled | Daily 9:30 AM IST (`0 4 * * *` UTC) | Sends a birthday offer (email + in-app) to customers whose DOB is today and who have marketing consent. |
+| `POST /api/jobs/lead-followups` | Scheduled | Daily 10:30 AM IST (`0 5 * * *` UTC) | Pushes a follow-up reminder to the assigned staff for `follow_up` leads not contacted in 48h. Unassigned leads are skipped. |
+| `POST /api/jobs/gems-expiry-reminder` | Scheduled | Daily 10:30 AM IST (`0 5 * * *` UTC) | Push-only reminder to customers whose earned gems expire in exactly 7 days (one combined total per customer). |
+| `POST /api/jobs/membership-usage-nudges` | Scheduled | Daily randomized batch (`30 5 * * *` UTC = 11:00 AM IST) | Picks a random subset (max 20/run) of active members with unused hours and nudges them (push) to use their SPA time. |
+| `POST /api/jobs/daily-sales-report` | Scheduled | Daily 10:30 PM IST (`0 17 * * *` UTC) | Builds the day's sales report from paid invoices/bookings and posts it to Slack + emails the report recipients. |
+| `POST /api/jobs/weekly-report` | Scheduled | Monday 9:00 AM IST (`30 3 * * 1` UTC) | Same as the daily report over the last 7 days, plus a week-over-week comparison. Slack + email. |
+| `POST /api/jobs/post-service-followup` | Triggered | +24h after `booking` → `completed` | Sends a review-request email (Brevo/Resend) — only when the booking completed and the customer has marketing consent. |
+| `POST /api/jobs/stale-booking-alert` | Triggered | +2h after booking created | If still `pending`: older than 24h → auto-reject + notify customer; otherwise alert every receptionist. |
+| `POST /api/jobs/noshow-check` | Triggered | +15 min after booking `end_time` | If the booking is still `confirmed` past its end, alert receptionists to review. Never auto-marks a no-show. |
+| `POST /api/jobs/membership-expired-notice` | Triggered | +1h after `spa_membership.expires_at` | Sends a final "membership expired" renewal email to the owning customer. |
+
+## Invocation contract
+
+Every job route follows the same thin orchestration shape:
+
+1. **Method:** `POST`.
+2. **Signature verification:** the raw body is read once, then
+   `verifyQStashSignature(req, bodyText)` validates the `Upstash-Signature`
+   header against the QStash signing keys. On failure the route returns
+   `401 Unauthorized` and does **no work**.
+3. **Success:** the route does its work, pings its BetterStack heartbeat
+   (`pingHeartbeat(...)`), and returns `200` with a small JSON body.
+4. **Failure:** on any internal error the route returns a **non-2xx** (`500
+   Job failed`). QStash treats non-2xx as a failure and **retries with
+   exponential backoff** (up to 3 retries by default), so heavy lifting must be
+   idempotent.
+5. **Idempotency:** scheduled notification jobs dedupe via a `notification` log
+   row keyed by recipient + type (+ booking where relevant), so re-runs and
+   QStash retries never double-send.
+
+```http
+POST /api/jobs/appointment-reminders
+Upstash-Signature: <qstash-signature>
+Content-Type: application/json
+```
+
+<Callout type="info">
+  **Not for direct client use.** These endpoints are intended to be called only
+  by QStash. Requests without a valid `Upstash-Signature` are rejected with
+  `401`. There is no session/role check and no `{ success, data }` envelope —
+  do not call them from the web app or from API integrations.
+</Callout>
+
+### Signature verification & local fallback
+
+`verifyQStashSignature` reads the signing keys directly from the environment so
+the app builds without them. It **never throws** — any verification error fails
+closed (returns `false` → `401`).
+
+- **Configured:** when `QSTASH_CURRENT_SIGNING_KEY` and
+  `QSTASH_NEXT_SIGNING_KEY` are set, the `Upstash-Signature` header is verified
+  with the `@upstash/qstash` `Receiver`. A missing header is rejected.
+- **Internal token fallback:** if signing keys are absent but
+  `INTERNAL_JOB_TOKEN` is set, the request is allowed only when it carries a
+  matching `x-internal-job-token` header.
+- **Non-production bypass:** with no signing keys and no internal token, the
+  request is allowed **outside production** (with a warning) so jobs can be run
+  locally, and **rejected in production**.
+
+### Heartbeats
+
+On success each route calls `pingHeartbeat(name)`, which fetches
+`process.env['BETTER_STACK_HEARTBEAT_' + name]`. If that variable is unset the
+ping is a **no-op** (the job still succeeds); the helper never throws.
+
+| Route | Heartbeat name | Env var |
+| --- | --- | --- |
+| `appointment-reminders` | `REMINDERS` | `BETTER_STACK_HEARTBEAT_REMINDERS` |
+| `membership-expiry` | `MEMBERSHIP_EXPIRY` | `BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY` |
+| `birthday-emails` | `BIRTHDAY` | `BETTER_STACK_HEARTBEAT_BIRTHDAY` |
+| `lead-followups` | `LEAD_FOLLOWUPS` | `BETTER_STACK_HEARTBEAT_LEAD_FOLLOWUPS` |
+| `gems-expiry-reminder` | `GEMS_EXPIRY` | `BETTER_STACK_HEARTBEAT_GEMS_EXPIRY` |
+| `membership-usage-nudges` | `MEMBERSHIP_NUDGES` | `BETTER_STACK_HEARTBEAT_MEMBERSHIP_NUDGES` |
+| `daily-sales-report` | `NIGHTLY_SALES` | `BETTER_STACK_HEARTBEAT_NIGHTLY_SALES` |
+| `weekly-report` | `NIGHTLY_SALES` (shared) | `BETTER_STACK_HEARTBEAT_NIGHTLY_SALES` |
+| `post-service-followup` | `POST_SERVICE_FOLLOWUP` | `BETTER_STACK_HEARTBEAT_POST_SERVICE_FOLLOWUP` |
+| `stale-booking-alert` | `STALE_BOOKING_ALERT` | `BETTER_STACK_HEARTBEAT_STALE_BOOKING_ALERT` |
+| `noshow-check` | `NOSHOW_CHECK` | `BETTER_STACK_HEARTBEAT_NOSHOW_CHECK` |
+| `membership-expired-notice` | `MEMBERSHIP_EXPIRED_NOTICE` | `BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRED_NOTICE` |
+
+## Response shapes
+
+Scheduled jobs that iterate records return a `processed` count of how many
+notifications were sent in that run:
+
+```json
+{ "success": true, "processed": 3 }
+```
+
+The report jobs (`daily-sales-report`, `weekly-report`) return only success:
+
+```json
+{ "success": true }
+```
+
+Triggered jobs return an action/outcome flag describing what they did for the
+single record in the payload:
+
+```json
+{ "success": true, "sent": true }
+```
+
+```json
+{ "success": true, "notified": 2 }
+```
+
+`stale-booking-alert` reports both the action it took and how many people were
+notified:
+
+```json
+{ "success": true, "action": "rejected", "notified": 1 }
+```
+
+`action` is one of `none` (booking no longer pending), `rejected` (still
+pending past 24h → auto-rejected, customer notified), or `alerted` (still
+pending under 24h → receptionists alerted).
+
+A verification failure on any route returns a plain `401`:
+
+```http
+HTTP/1.1 401 Unauthorized
+
+Unauthorized
+```
+
+An internal failure returns a plain `500`, which QStash retries:
+
+```http
+HTTP/1.1 500 Internal Server Error
+
+Job failed
+```
+
+## Triggered job payloads
+
+The four triggered jobs are enqueued with a JSON body identifying the single
+record to act on. The body is parsed defensively — a missing or malformed
+payload yields `{}`, and the route simply does nothing (still `200`) rather
+than erroring.
+
+| Route | Request body |
+| --- | --- |
+| `POST /api/jobs/post-service-followup` | `{ "bookingId": "<id>" }` |
+| `POST /api/jobs/stale-booking-alert` | `{ "bookingId": "<id>" }` |
+| `POST /api/jobs/noshow-check` | `{ "bookingId": "<id>" }` |
+| `POST /api/jobs/membership-expired-notice` | `{ "membershipId": "<id>" }` |
+
+```json
+{ "bookingId": "bk_8f1c9a2e7d04" }
+```
+
+Scheduled jobs take **no meaningful body** — they query the database for the
+records due in the current run, so the request body is empty (the raw text is
+still read for signature verification).

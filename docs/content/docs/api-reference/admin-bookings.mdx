@@ -1,0 +1,482 @@
+---
+title: Admin — Bookings
+description: Admin endpoints to list, view, approve, reject, assign, complete, and no-show bookings.
+---
+
+# Admin — Bookings
+
+Admin-side booking management. Every endpoint here calls `requireRole(...)`,
+which first resolves the Better Auth session (`UNAUTHENTICATED` 401 when there
+is none) and then checks the caller's role against the hierarchy
+`customer < staff < receptionist < manager < owner < developer`
+(`FORBIDDEN` 403 when the level is too low).
+
+<Callout type="info">
+  **Minimum role: `receptionist`** on every endpoint on this page. Money is an
+  integer in **paise**; `bookingDate` filters use `YYYY-MM-DD`; stored times
+  render as `HH:mm:ss`. Timestamps are ISO-8601 UTC.
+</Callout>
+
+## GET /api/admin/bookings
+
+Lists all bookings across customers (admin view), newest first
+(`bookingDate` then `createdAt` descending). Each booking is returned with the
+customer's name and email and its `booking_service` snapshot rows (ordered by
+`displayOrder`). Optional query filters narrow the result set; this endpoint
+returns the full filtered list and does **not** paginate (no `meta`).
+
+**Minimum role:** `receptionist` (`requireRole('receptionist')`)
+
+```http
+GET /api/admin/bookings?status=pending&serviceType=salon&date=2026-06-15
+```
+
+### Query parameters
+
+All optional. Filters are applied with exact equality; omitting a parameter
+skips that filter.
+
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `status` | string | Optional | Booking status, e.g. `pending`, `confirmed`, `in_progress`, `completed`, `cancelled`, `no_show`, `rejected`. |
+| `serviceType` | string | Optional | `salon` or `spa`. |
+| `date` | string | Optional | `YYYY-MM-DD`. Matches the `bookingDate` exactly. |
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "bookings": [
+      {
+        "id": "bk_8f2a1c9e4d",
+        "bookingNumber": "BK-RS-2606-H-38291",
+        "branchId": "br_rayasandra01",
+        "customerId": "usr_abc123",
+        "status": "pending",
+        "serviceType": "salon",
+        "bookingDate": "2026-06-15",
+        "startTime": "11:00:00",
+        "endTime": "12:00:00",
+        "totalAmountPaise": 130000,
+        "totalDurationMinutes": 60,
+        "notes": "Prefer a window seat if available.",
+        "isWalkin": false,
+        "isMembershipSession": false,
+        "offerId": null,
+        "spaMembershipId": null,
+        "confirmedAt": null,
+        "completedAt": null,
+        "cancellationReason": null,
+        "cancelledAt": null,
+        "rejectionReason": null,
+        "rejectedAt": null,
+        "rescheduleCount": 0,
+        "createdAt": "2026-06-01T06:15:00.000Z",
+        "updatedAt": "2026-06-01T06:15:00.000Z",
+        "customerName": "Aarav Sharma",
+        "customerEmail": "aarav@example.com",
+        "services": [
+          {
+            "id": "bs_1",
+            "bookingId": "bk_8f2a1c9e4d",
+            "serviceId": "svc_haircut001",
+            "staffId": null,
+            "serviceNameSnapshot": "Signature Haircut",
+            "priceAtBookingPaise": 80000,
+            "durationMinutes": 45,
+            "displayOrder": 0
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Caller's role is below `receptionist`. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## GET /api/admin/bookings/[id]
+
+Returns a single booking (any customer) with the customer's name and email and
+its `services` snapshot rows.
+
+**Minimum role:** `receptionist` (`requireRole('receptionist')`)
+
+```http
+GET /api/admin/bookings/bk_8f2a1c9e4d
+```
+
+| Parameter | In | Type | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | path | string | Required | The booking id. |
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "booking": {
+      "id": "bk_8f2a1c9e4d",
+      "bookingNumber": "BK-RS-2606-H-38291",
+      "branchId": "br_rayasandra01",
+      "customerId": "usr_abc123",
+      "status": "confirmed",
+      "serviceType": "salon",
+      "bookingDate": "2026-06-15",
+      "startTime": "11:00:00",
+      "endTime": "12:00:00",
+      "totalAmountPaise": 130000,
+      "totalDurationMinutes": 60,
+      "notes": null,
+      "isWalkin": false,
+      "isMembershipSession": false,
+      "offerId": null,
+      "spaMembershipId": null,
+      "confirmedAt": "2026-06-01T07:00:00.000Z",
+      "completedAt": null,
+      "cancellationReason": null,
+      "cancelledAt": null,
+      "rejectionReason": null,
+      "rejectedAt": null,
+      "rescheduleCount": 0,
+      "createdAt": "2026-06-01T06:15:00.000Z",
+      "updatedAt": "2026-06-01T07:00:00.000Z",
+      "customerName": "Aarav Sharma",
+      "customerEmail": "aarav@example.com",
+      "services": [
+        {
+          "id": "bs_1",
+          "bookingId": "bk_8f2a1c9e4d",
+          "serviceId": "svc_haircut001",
+          "staffId": "stf_priya01",
+          "serviceNameSnapshot": "Signature Haircut",
+          "priceAtBookingPaise": 80000,
+          "durationMinutes": 45,
+          "displayOrder": 0
+        }
+      ]
+    }
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Caller's role is below `receptionist`. |
+| `NOT_FOUND` | 404 | No booking with that id. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## PATCH /api/admin/bookings/[id]
+
+A single endpoint that performs one of three actions, selected by the `action`
+discriminator. The body is validated by `adminBookingActionSchema`
+(`@rgss/types`), a discriminated union over `action`:
+
+- **`approve`** — only valid on a `pending` booking. Assigns `staffId` to every
+  service on the booking, then transitions `pending → confirmed` and stamps
+  `confirmedAt`.
+- **`reject`** — only valid on a `pending` booking. Transitions
+  `pending → rejected`, storing `rejectionReason` and `rejectedAt`.
+- **`assign`** — (re)assigns `staffId` to every service on the booking,
+  regardless of status.
+
+**Minimum role:** `receptionist` (`requireRole('receptionist')`)
+
+```http
+PATCH /api/admin/bookings/bk_8f2a1c9e4d
+Content-Type: application/json
+```
+
+| Parameter | In | Type | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | path | string | Required | The booking id. |
+
+### Request body
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `action` | enum | Required | `approve`, `reject`, or `assign`. Determines which other fields are required. |
+| `staffId` | string | Required for `approve` and `assign` | Non-empty staff_profile id assigned to all services. |
+| `rejectionReason` | string | Required for `reject` | 1–500 characters. Customer-facing reason. |
+
+```json
+{
+  "action": "approve",
+  "staffId": "stf_priya01"
+}
+```
+
+```json
+{
+  "action": "reject",
+  "rejectionReason": "No therapist available for the requested slot."
+}
+```
+
+```json
+{
+  "action": "assign",
+  "staffId": "stf_priya01"
+}
+```
+
+### Response
+
+For `approve` and `reject`, the updated booking row is returned:
+
+```json
+{
+  "success": true,
+  "data": {
+    "booking": {
+      "id": "bk_8f2a1c9e4d",
+      "bookingNumber": "BK-RS-2606-H-38291",
+      "branchId": "br_rayasandra01",
+      "customerId": "usr_abc123",
+      "status": "confirmed",
+      "serviceType": "salon",
+      "bookingDate": "2026-06-15",
+      "startTime": "11:00:00",
+      "endTime": "12:00:00",
+      "totalAmountPaise": 130000,
+      "totalDurationMinutes": 60,
+      "notes": null,
+      "isWalkin": false,
+      "isMembershipSession": false,
+      "offerId": null,
+      "spaMembershipId": null,
+      "confirmedAt": "2026-06-01T07:00:00.000Z",
+      "completedAt": null,
+      "cancellationReason": null,
+      "cancelledAt": null,
+      "rejectionReason": null,
+      "rejectedAt": null,
+      "rescheduleCount": 0,
+      "createdAt": "2026-06-01T06:15:00.000Z",
+      "updatedAt": "2026-06-01T07:00:00.000Z"
+    }
+  }
+}
+```
+
+For `assign`, the booking id and the updated `booking_service` rows are returned:
+
+```json
+{
+  "success": true,
+  "data": {
+    "bookingId": "bk_8f2a1c9e4d",
+    "services": [
+      {
+        "id": "bs_1",
+        "bookingId": "bk_8f2a1c9e4d",
+        "serviceId": "svc_haircut001",
+        "staffId": "stf_priya01",
+        "serviceNameSnapshot": "Signature Haircut",
+        "priceAtBookingPaise": 80000,
+        "durationMinutes": 45,
+        "displayOrder": 0
+      }
+    ]
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Caller's role is below `receptionist`. |
+| `VALIDATION_ERROR` | 400 | Body fails `adminBookingActionSchema` (unknown action, missing `staffId`/`rejectionReason`, etc.). `details` carries field errors. |
+| `NOT_FOUND` | 404 | No booking with that id. |
+| `BOOKING_INVALID_STATUS_TRANSITION` | 409 | `approve`/`reject` attempted on a booking that is not `pending`. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## POST /api/admin/bookings/[id]/complete
+
+Completes a booking at the counter: collects the in-person payment method,
+transitions the booking to `completed`, generates a GST-inclusive service
+invoice, awards loyalty gems, and (optionally) applies an offer. Only
+`confirmed` or `in_progress` bookings can be completed.
+
+**Minimum role:** `receptionist` (`requireRole('receptionist')`)
+
+```http
+POST /api/admin/bookings/bk_8f2a1c9e4d/complete
+Content-Type: application/json
+```
+
+| Parameter | In | Type | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | path | string | Required | The booking id. |
+
+### Request body
+
+`paymentMethod` is validated by `completeBookingSchema` (`@rgss/types`). The
+offer/gems fields are read defensively from the raw body alongside the parsed
+payload.
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `paymentMethod` | enum | Required | `cash`, `upi`, or `card`. |
+| `offerId` | string | Optional | Apply a salon-only offer to the total. Validated as active and within its date range; cannot be combined with gems; one offer per customer per day. |
+| `gemsRedeemedServiceId` | string | Optional | Presence signals a gems redemption on this booking. Mutually exclusive with `offerId`. |
+| `redeemGems` | boolean | Optional | Truthy value also signals a gems redemption (mutually exclusive with `offerId`). |
+
+```json
+{
+  "paymentMethod": "upi",
+  "offerId": "off_monsoon20"
+}
+```
+
+### Response
+
+Returns the completed booking plus an invoice summary, gems earned, and any
+discount applied (all amounts in paise).
+
+```json
+{
+  "success": true,
+  "data": {
+    "booking": {
+      "id": "bk_8f2a1c9e4d",
+      "bookingNumber": "BK-RS-2606-H-38291",
+      "branchId": "br_rayasandra01",
+      "customerId": "usr_abc123",
+      "status": "completed",
+      "serviceType": "salon",
+      "bookingDate": "2026-06-15",
+      "startTime": "11:00:00",
+      "endTime": "12:00:00",
+      "totalAmountPaise": 130000,
+      "totalDurationMinutes": 60,
+      "notes": null,
+      "isWalkin": false,
+      "isMembershipSession": false,
+      "offerId": null,
+      "spaMembershipId": null,
+      "confirmedAt": "2026-06-01T07:00:00.000Z",
+      "completedAt": "2026-06-15T06:30:00.000Z",
+      "cancellationReason": null,
+      "cancelledAt": null,
+      "rejectionReason": null,
+      "rejectedAt": null,
+      "rescheduleCount": 0,
+      "createdAt": "2026-06-01T06:15:00.000Z",
+      "updatedAt": "2026-06-15T06:30:00.000Z"
+    },
+    "invoice": {
+      "invoiceNumber": "INV-1-2627-92921",
+      "totalPaise": 104000,
+      "gstPaise": 15864
+    },
+    "gemsEarned": 10,
+    "discountPaise": 26000
+  }
+}
+```
+
+<Callout type="info">
+  Gems are earned on the discounted total at 1 gem per ₹100 (floor) and expire
+  365 days from earn date. The invoice subtotal is the original (pre-discount)
+  base; the taxable value and GST are split from the discounted total. With no
+  `offerId`, `discountPaise` is `0` and the total is unchanged.
+</Callout>
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Caller's role is below `receptionist`. |
+| `VALIDATION_ERROR` | 400 | Body fails `completeBookingSchema` (invalid/missing `paymentMethod`). `details` carries field errors. |
+| `NOT_FOUND` | 404 | Booking not found, its branch not found, or a supplied `offerId` not found. |
+| `BOOKING_INVALID_STATUS_TRANSITION` | 409 | Booking is not `confirmed` or `in_progress`. |
+| `OFFER_EXPIRED` | 409 | Supplied offer is inactive or outside its date range. |
+| `OFFER_NOT_APPLICABLE` | 409 | Offer applied to a spa booking, combined with a gems redemption, or the customer already redeemed an offer today. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+
+---
+
+## POST /api/admin/bookings/[id]/noshow
+
+Marks a booking as `no_show`. Only a `confirmed` booking can be marked no-show
+(intended for use after the appointment window). No request body is required.
+No-show tier escalation is handled separately by a background job.
+
+**Minimum role:** `receptionist` (`requireRole('receptionist')`)
+
+```http
+POST /api/admin/bookings/bk_8f2a1c9e4d/noshow
+```
+
+| Parameter | In | Type | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | path | string | Required | The booking id. |
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "booking": {
+      "id": "bk_8f2a1c9e4d",
+      "bookingNumber": "BK-RS-2606-H-38291",
+      "branchId": "br_rayasandra01",
+      "customerId": "usr_abc123",
+      "status": "no_show",
+      "serviceType": "salon",
+      "bookingDate": "2026-06-15",
+      "startTime": "11:00:00",
+      "endTime": "12:00:00",
+      "totalAmountPaise": 130000,
+      "totalDurationMinutes": 60,
+      "notes": null,
+      "isWalkin": false,
+      "isMembershipSession": false,
+      "offerId": null,
+      "spaMembershipId": null,
+      "confirmedAt": "2026-06-01T07:00:00.000Z",
+      "completedAt": null,
+      "cancellationReason": null,
+      "cancelledAt": null,
+      "rejectionReason": null,
+      "rejectedAt": null,
+      "rescheduleCount": 0,
+      "createdAt": "2026-06-01T06:15:00.000Z",
+      "updatedAt": "2026-06-15T07:00:00.000Z"
+    }
+  }
+}
+```
+
+### Errors
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | No active session. |
+| `FORBIDDEN` | 403 | Caller's role is below `receptionist`. |
+| `NOT_FOUND` | 404 | No booking with that id. |
+| `BOOKING_INVALID_STATUS_TRANSITION` | 409 | Booking is not in `confirmed` status. |
+| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |

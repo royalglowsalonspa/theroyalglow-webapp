@@ -1,0 +1,111 @@
+---
+title: Conventions
+description: Money, dates, layering, and the API response envelope used across the platform.
+---
+
+# Conventions
+
+These rules are enforced across the codebase. Follow them in any new work.
+
+## Money — integer paise
+
+All monetary values are stored and computed as **integer paise** (₹1 = 100
+paise). Never use floating point for money.
+
+```ts
+// ₹1,499.00 is stored as:
+const pricePaise = 149900
+```
+
+Formatting to rupees happens only at display time, in Indian digit grouping:
+
+```ts
+formatINR(149900) // → "₹1,499.00"
+```
+
+GST is 18% and **inclusive** — back-calculated from the displayed price:
+
+```ts
+const base = Math.round(inclusivePaise / 1.18)
+const gst = inclusivePaise - base
+```
+
+## Dates & time
+
+- Stored as `timestamptz` (UTC); displayed in **IST** (UTC+5:30).
+- Display format is **DD/MM/YYYY** via `formatDateIN`.
+- API payloads use ISO-8601 strings.
+
+## Layer rules (strict)
+
+| Layer | Location | May import | Must not import |
+| --- | --- | --- | --- |
+| Presentation | `apps/web/app`, `components` | business, db, types, errors | — |
+| API (thin) | `apps/web/app/api` | business, db, types, errors | UI components |
+| Business logic | `packages/business` | types, errors | db, framework, UI |
+| Data access | `packages/db` | types | business, framework, UI |
+| Types | `packages/types` | — | everything else |
+
+API routes are **thin orchestrators**: parse → Zod `safeParse` → call business
+logic / queries → return JSON. No DB queries live in route handlers' own logic
+beyond calling the query layer.
+
+## API response envelope
+
+Every JSON API responds with one of two shapes.
+
+### Success
+
+```json
+{
+  "success": true,
+  "data": { },
+  "meta": { "page": 1, "totalPages": 5, "totalCount": 92 }
+}
+```
+
+`meta` is present only on paginated list endpoints.
+
+### Error
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid request data",
+    "statusCode": 400,
+    "requestId": "req_a1b2c3d4e5f6",
+    "retryable": false,
+    "details": { }
+  }
+}
+```
+
+- `code` — a stable machine-readable code from the error registry.
+- `requestId` — `req_` + nanoid, for log correlation.
+- `retryable` — present when the caller may safely retry (e.g. transient 5xx).
+- `details` — present on validation errors (field → message map).
+
+> Background-job routes (`/api/jobs/*`) are the exception: they return a minimal
+> `{ processed }` body and a non-2xx status on failure so QStash can retry. They
+> do not use the success/error envelope.
+
+## Error codes
+
+Codes come from a central registry (`@rgss/errors`). Common ones:
+
+| Code | HTTP | Meaning |
+| --- | --- | --- |
+| `VALIDATION_ERROR` | 400 | Zod validation failed (`details` has field errors) |
+| `UNAUTHENTICATED` | 401 | No valid session |
+| `FORBIDDEN` | 403 | Authenticated but insufficient role |
+| `NOT_FOUND` | 404 | Resource does not exist |
+| `CONFLICT` | 409 | State conflict (e.g. double-book) |
+| `BUSINESS_RULE_VIOLATION` | 409/422 | A domain rule was violated |
+| `RATE_LIMITED` | 429 | Too many requests |
+| `SERVICE_UNAVAILABLE` | 503 | A dependency (e.g. Ably) is not configured |
+| `INTERNAL_ERROR` | 500 | Unexpected error (retryable) |
+
+Domain-specific codes exist for booking, membership, invoice, gems, offer, and
+branch rules — see each API page for which codes an endpoint can return.

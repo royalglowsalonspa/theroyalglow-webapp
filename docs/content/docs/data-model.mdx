@@ -1,0 +1,155 @@
+---
+title: Data Model
+description: The 38-table Drizzle schema for Royal Glow — conventions, table groupings, enums, and ID formats.
+---
+
+# Data Model
+
+Royal Glow runs on **Neon PostgreSQL 16** with **Drizzle ORM** (pure TypeScript,
+edge-native). The schema lives in `packages/db/src/schema/` as **15 files**
+defining **38 tables** that cover auth, profiles, services, scheduling,
+bookings, billing, memberships, offers, CRM, leads, loyalty, notifications,
+branches, and system operations.
+
+<Callout type="info">
+  Every monetary value is an **integer in paise** (₹1 = 100 paise) — never a
+  float. Every timestamp is `timestamptz` (stored UTC, displayed IST). Prices
+  are GST-inclusive at 18%.
+</Callout>
+
+## Conventions
+
+These rules are mandatory across every table.
+
+| Convention | Rule |
+| --- | --- |
+| Primary keys | `text`, app-generated via `nanoid()` (or `cuid2()`). No auto-increment serials — prevents enumeration attacks. |
+| Money | `integer` in **paise** (₹1,000.00 = `100000`). No floating point; round at display only. |
+| Timestamps | `timestamptz` everywhere. Stored UTC, displayed IST (UTC+5:30). |
+| Date display | `DD/MM/YYYY` via `Intl.DateTimeFormat('en-IN')`. |
+| Currency display | Indian grouping `₹1,00,000.00` via `Intl.NumberFormat('en-IN')`, always 2 decimals. |
+| Naming | `snake_case` columns and tables. **Singular** table names (`booking`, not `bookings`). |
+| Enums | PostgreSQL native `CREATE TYPE` enums, centralised in `enums.ts`. |
+| Deletes | **Hard deletes** — no soft-delete columns. Tracked via `audit_log`. |
+| Foreign keys | Explicit `ON DELETE` (CASCADE for children, RESTRICT for references). Indexed on all FK columns. |
+| Snapshots | Price + service/staff name frozen on `booking_service` and `invoice_item` so historical records never drift. |
+| GST | All prices GST-inclusive (18%, SAC 999721). Back-calc: `base = round(price ÷ 1.18)`. |
+
+## Schema files & table groupings
+
+The 15 schema files in `packages/db/src/schema/` map to the following 38 tables.
+Table names below are the actual `pgTable` names defined in the codebase.
+
+| Domain (file) | Tables | Count |
+| --- | --- | --- |
+| `auth.ts` | `user`, `session`, `account`, `verification` | 4 |
+| `profile.ts` | `customer_profile`, `staff_profile` | 2 |
+| `service.ts` | `service_category`, `service`, `staff_service` | 3 |
+| `schedule.ts` | `staff_schedule`, `staff_time_off`, `business_hour`, `holiday` | 4 |
+| `booking.ts` | `booking`, `booking_service`, `booking_status_log`, `waitlist` | 4 |
+| `invoice.ts` | `invoice`, `invoice_item` | 2 |
+| `membership.ts` | `spa_membership_tier`, `spa_membership` | 2 |
+| `offer.ts` | `offer`, `offer_service`, `offer_redemption` | 3 |
+| `lead.ts` | `lead`, `lead_note` | 2 |
+| `crm.ts` | `customer_tag`, `customer_tag_assignment`, `customer_note` | 3 |
+| `loyalty.ts` | `loyalty_account`, `loyalty_transaction` | 2 |
+| `notification.ts` | `notification`, `push_subscription` | 2 |
+| `branch.ts` | `branch` | 1 |
+| `system.ts` | `daily_sales_summary`, `monthly_gst_summary`, `audit_log`, `system_setting` | 4 |
+| **Total** | | **38** |
+
+<Callout type="info">
+  The `auth.ts` tables (`user`, `session`, `account`, `verification`) are owned
+  by Better Auth's Drizzle adapter. Don't add custom columns to them — extend
+  via `customer_profile` / `staff_profile` instead. Enums are defined separately
+  in `enums.ts` (not counted as a table).
+</Callout>
+
+## Key enums
+
+Defined natively in PostgreSQL via `enums.ts`.
+
+| Enum | Values |
+| --- | --- |
+| `booking_status` | `pending`, `confirmed`, `rejected`, `in_progress`, `completed`, `cancelled`, `no_show`, `rescheduled` |
+| `lead_status` | `new`, `contacted`, `follow_up`, `booked`, `won`, `lost` |
+| `payment_status` | `pending`, `paid`, `refunded` |
+| `payment_method` | `cash`, `upi`, `card`, `online` |
+| `invoice_type` | `service`, `membership_purchase`, `membership_session` |
+| `service_type` | `salon`, `spa` |
+| `discount_type` | `percentage`, `flat`, `combo_price` |
+| `spa_membership_status` | `active`, `expired`, `cancelled` |
+| `waitlist_status` | `waiting`, `notified`, `booked`, `expired`, `cancelled` |
+| `loyalty_tx_type` | `earned`, `redeemed`, `expired`, `adjusted` |
+| `leave_approval_status` | `pending`, `approved`, `rejected` |
+| `leave_type` | `sick`, `casual`, `personal`, `other` |
+| `staff_designation` | `receptionist`, `stylist`, `therapist`, `manager` |
+| `gender` | `male`, `female`, `other`, `prefer_not_to_say` |
+| `branch_status` | `operational`, `temporarily_closed`, `opens_soon`, `shutdown` |
+| `audit_action` | `create`, `update`, `delete`, `status_change` |
+| `notification_channel` | `push`, `email` |
+| `notification_status` | `pending`, `sent`, `failed` |
+
+## ID & number formats
+
+| Entity | Format | Example |
+| --- | --- | --- |
+| Booking | `BK-{branch_code}-{YYMM}-{H\|S}-{5_random}[-M]` | `BK-RS-2605-H-38291` |
+| Invoice | `INV-{branch_number}-{financial_year}-{5_random}` | `INV-1-2627-92921` |
+| Membership | `RG-MEM-{YY}-{branch_number}-{5_random}` | `RG-MEM-26-1-90872` |
+
+`H` = salon (hair/beauty), `S` = spa. The `-M` suffix marks a membership
+session booking.
+
+## GST (18% inclusive)
+
+Customer-facing prices already include GST. The invoice back-calculates the base
+and tax from the inclusive amount.
+
+```ts
+const GST_RATE = 0.18
+
+function splitGST(inclusivePaise: number) {
+  const basePaise = Math.round(inclusivePaise / (1 + GST_RATE))
+  const gstPaise = inclusivePaise - basePaise
+  return { basePaise, gstPaise, totalPaise: inclusivePaise }
+}
+
+// splitGST(118000) → { basePaise: 100000, gstPaise: 18000, totalPaise: 118000 }
+// ₹1,180.00 inclusive = ₹1,000.00 base + ₹180.00 GST
+```
+
+## Loyalty (gems) rules
+
+- **Earn:** 1 gem per ₹100 invoiced (floor), on `invoice_type = 'service'` only.
+- **No gems** on `membership_purchase` or `membership_session` invoices.
+- **Expiry:** 365 days from earn date, auto-deducted by a pg_cron job.
+- **Redemption:** against specific catalogue services — not a ₹ discount.
+- **Cannot combine** with an offer on the same booking.
+
+## Booking lifecycle
+
+```text
+pending → confirmed/rejected → in_progress → completed
+                                            ↘ cancelled    (from pending/confirmed)
+                                            ↘ no_show       (from confirmed, +15min after end_time)
+                                            ↘ rescheduled   (from confirmed)
+```
+
+Walk-ins skip `pending` and go straight to `confirmed`. Status transitions are
+recorded in `booking_status_log`.
+
+## Business rules enforced at the DB level
+
+- **One offer per customer per day** — unique constraint on `offer_redemption` (customer + date).
+- **One active membership per customer** — partial unique index on `spa_membership` where `status = 'active'`.
+- **One service type per booking** — a booking is salon OR spa, never mixed.
+- **Snapshot pricing** — `booking_service.price_at_booking_paise` and `invoice_item.unit_price_paise` are frozen copies.
+
+## Related pages
+
+<Cards>
+  <Card title="Conventions" href="/docs/conventions" description="Money, dates, layering, and the API response envelope" />
+  <Card title="Background Jobs" href="/docs/background-jobs" description="The cron + QStash jobs that maintain this data" />
+  <Card title="API Reference" href="/docs/api-reference" description="Endpoints that read and write these tables" />
+</Cards>
