@@ -1,0 +1,11 @@
+# OWASP ZAP baseline rule tuning for the Royal Glow public site.
+# Format: <ruleId>\t<action: WARN|IGNORE|FAIL>\t<comment>
+# Informational/low-signal alerts that don't apply to a server-rendered,
+# consent-gated marketing site are downgraded to WARN so the baseline scan
+# stays signal-rich and does not block on noise.
+10015	WARN	Re-examine Cache-control Directives
+10027	WARN	Information Disclosure - Suspicious Comments
+10096	WARN	Timestamp Disclosure
+10109	WARN	Modern Web Application
+10063	WARN	Permissions Policy Header Not Set
+10037	WARN	Server Leaks Information via X-Powered-By

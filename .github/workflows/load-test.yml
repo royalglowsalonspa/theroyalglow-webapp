@@ -1,0 +1,35 @@
+name: Load & Security
+
+on:
+  pull_request:
+    branches: [pprd, prod]
+
+jobs:
+  k6-load-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: grafana/setup-k6-action@v1
+      - name: Run k6 load test
+        run: k6 run tests/load/booking-flow.js
+        env:
+          K6_TARGET_URL: ${{ secrets.PPRD_URL }}
+
+  security-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+      - name: OWASP ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.13.0
+        with:
+          target: ${{ secrets.PPRD_URL }}
+          rules_file_name: 'zap-rules.tsv'

@@ -46,3 +46,8 @@ Desktop.ini
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# ─── Graphify (knowledge graph) ───────────────────────────────
+graphify-out/
+.graphify_*.json
+.graphify_*.txt
