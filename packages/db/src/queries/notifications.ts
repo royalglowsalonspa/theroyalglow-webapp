@@ -1,8 +1,10 @@
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '../index'
+import { user } from '../schema/auth'
 import { notification, pushSubscription } from '../schema/notification'
 
 type NotificationType = (typeof notification.$inferSelect)['type']
+type NotificationStatus = (typeof notification.$inferSelect)['status']
 type NewNotification = typeof notification.$inferInsert
 
 type CreateNotificationParams = {
@@ -128,4 +130,34 @@ export async function getActivePushSubscriptions(userId: string) {
     .where(
       and(eq(pushSubscription.userId, userId), eq(pushSubscription.isActive, true)),
     )
+}
+
+// Update a notification's delivery outcome. Called by the dispatch layer after
+// attempting Web Push / email delivery: sets `status` ('sent' | 'failed') and,
+// when delivery succeeded, stamps `sent_at`. Scoped to the notification id.
+export async function markNotificationDelivery(
+  id: string,
+  status: NotificationStatus,
+  sentAt?: Date,
+) {
+  await db
+    .update(notification)
+    .set({
+      status,
+      sentAt: status === 'sent' ? (sentAt ?? new Date()) : null,
+    })
+    .where(eq(notification.id, id))
+}
+
+// Resolve the contact details (email + display name) for a user. Returns null
+// when the user no longer exists, so the dispatch layer can skip email delivery
+// gracefully without throwing.
+export async function getUserContact(userId: string) {
+  const rows = await db
+    .select({ email: user.email, name: user.name })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1)
+
+  return rows[0] ?? null
 }

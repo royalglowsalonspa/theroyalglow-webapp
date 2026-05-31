@@ -1,5 +1,6 @@
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireSession } from '@/lib/api/session'
+import { enqueueJob } from '@/lib/jobs/enqueue'
 import {
   createBookingWithServices,
   getBookingsByCustomer,
@@ -110,6 +111,30 @@ export const POST = withErrorHandler(async (req: Request) => {
     },
     serviceRows,
   )
+
+  // Best-effort triggered-job enqueues. enqueueJob never throws and no-ops
+  // without QSTASH_TOKEN, so these can never break booking creation or change
+  // its response.
+  // 1. Stale-pending alert at +2h.
+  await enqueueJob(
+    '/api/jobs/stale-booking-alert',
+    { bookingId: created.id },
+    2 * 60 * 60,
+  )
+  // 2. No-show check 15 minutes after the appointment's end. The end instant is
+  //    the IST wall-clock (the salon's timezone) of bookingDate + endTime; only
+  //    enqueue when that instant is still in the future.
+  const endInstantMs = new Date(`${bookingDate}T${endTime}:00+05:30`).getTime()
+  const noShowDelaySeconds = Math.floor(
+    (endInstantMs + 15 * 60 * 1000 - Date.now()) / 1000,
+  )
+  if (Number.isFinite(noShowDelaySeconds) && noShowDelaySeconds > 0) {
+    await enqueueJob(
+      '/api/jobs/noshow-check',
+      { bookingId: created.id },
+      noShowDelaySeconds,
+    )
+  }
 
   return apiSuccess(
     {
