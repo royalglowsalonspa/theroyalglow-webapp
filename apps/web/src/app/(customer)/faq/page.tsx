@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { JsonLd } from '@/components/seo/JsonLd'
-import { FAQS, SITE_URL } from '@/lib/seo/business'
+import { resolveFaqs } from '@/lib/cms/faqs'
+import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, faqPageJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
 
@@ -11,66 +12,17 @@ export const metadata: Metadata = buildMetadata({
   path: '/faq',
 })
 
-const faqs = [
-  {
-    question: 'What services do you offer?',
-    answer:
-      'We offer a comprehensive range of salon services including haircuts, styling, colouring, facials, waxing, manicure, pedicure, and bridal makeup. Our SPA menu features aromatherapy, deep tissue massage, Swedish massage, and premium body treatments across Standard, Premium, and VVIP tiers.',
-  },
-  {
-    question: 'How do I book an appointment?',
-    answer:
-      'You can book instantly through our website by clicking the "Book Now" button on any page. Select your preferred date, time slot, and services — you\'ll receive a confirmation once our team approves your booking. You can also call us at +91 63601 35720 to book over the phone.',
-  },
-  {
-    question: 'What payment methods do you accept?',
-    answer:
-      'We accept cash, UPI (Google Pay, PhonePe, Paytm), and all major credit and debit cards. Payment is collected at the salon after your service is completed.',
-  },
-  {
-    question: 'Where are you located?',
-    answer:
-      'We are located at 1st Floor, Narmada Complex, 48/3, Rayasandra Main Road, Above SBI Bank, Naganathapura, Parappana Agrahara, Bengaluru, Karnataka 560100. Look for the SBI Bank building — we are on the first floor.',
-  },
-  {
-    question: 'What is your cancellation policy?',
-    answer:
-      'You can cancel or reschedule your booking at any time before your appointment through your bookings page. We appreciate advance notice so we can offer the slot to other clients. Repeated no-shows may require future bookings to be pre-approved.',
-  },
-  {
-    question: 'Do you offer memberships?',
-    answer:
-      'Yes! We offer SPA memberships in Silver, Gold, and Platinum tiers. Memberships give you a bank of hours to use across all SPA services at a discounted rate. Visit the salon or contact us to learn more about current membership plans and pricing.',
-  },
-  {
-    question: 'Do you accept walk-ins?',
-    answer:
-      'Walk-ins are always welcome, subject to availability. However, we recommend booking in advance — especially on weekends and evenings — to guarantee your preferred time slot and avoid waiting.',
-  },
-  {
-    question: 'Is parking available?',
-    answer:
-      'Yes, there is parking available near Narmada Complex. Two-wheeler parking is available directly outside the building, and car parking is available on the adjacent road. The area is well-connected by public transport as well.',
-  },
-  {
-    question: 'What are your working hours?',
-    answer:
-      'We are open Monday to Friday from 10:00 AM to 9:00 PM, and Saturday to Sunday from 10:00 AM to 10:00 PM. We are open on most public holidays — check our social media for any special closures.',
-  },
-  {
-    question: 'What is the Royal Glow Gems loyalty programme?',
-    answer:
-      'Every time you complete a service at Royal Glow, you earn Gems (1 gem per ₹100 spent). Accumulated gems can be redeemed against select services from our catalogue. Gems are valid for 365 days from the date earned.',
-  },
-]
+export const revalidate = 3600
 
-export default function FAQPage() {
+export default async function FAQPage() {
+  const faqs = await resolveFaqs()
+
   return (
     <>
       {/* JSON-LD Structured Data */}
       <JsonLd
         data={[
-          faqPageJsonLd(FAQS),
+          faqPageJsonLd(faqs),
           breadcrumbJsonLd([
             { name: 'Home', url: SITE_URL },
             { name: 'FAQ' },

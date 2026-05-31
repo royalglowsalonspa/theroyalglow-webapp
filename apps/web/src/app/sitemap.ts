@@ -1,3 +1,4 @@
+import { getAllPostSlugs } from '@/lib/cms/client'
 import { SITE_URL } from '@/lib/seo/business'
 import { getAllServicesGrouped } from '@rgss/db/queries'
 import type { MetadataRoute } from 'next'
@@ -7,7 +8,8 @@ import type { MetadataRoute } from 'next'
  *
  * Static entries use the priorities / change frequencies from `seo.md` Part 3.
  * Dynamic entries are one per active service slug, pulled from
- * `getAllServicesGrouped()`. The DB read is wrapped in try/catch so the route
+ * `getAllServicesGrouped()`, plus one per published blog slug from
+ * `getAllPostSlugs()`. Both dynamic reads are wrapped in try/catch so the route
  * always returns at least the static entries and never throws.
  *
  * Private surfaces (`/admin`, `/api`, `/profile`, `/staff`, `/book`,
@@ -27,6 +29,8 @@ const STATIC_ROUTES: readonly {
   { path: '/contact', changeFrequency: 'monthly', priority: 0.6 },
   { path: '/faq', changeFrequency: 'monthly', priority: 0.5 },
   { path: '/offers', changeFrequency: 'weekly', priority: 0.6 },
+  { path: '/blog', changeFrequency: 'weekly', priority: 0.7 },
+  { path: '/gallery', changeFrequency: 'monthly', priority: 0.5 },
   { path: '/privacy', changeFrequency: 'yearly', priority: 0.3 },
   { path: '/terms', changeFrequency: 'yearly', priority: 0.3 },
   { path: '/refund-policy', changeFrequency: 'yearly', priority: 0.3 },
@@ -42,18 +46,41 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: route.priority,
   }))
 
+  const entries: MetadataRoute.Sitemap = [...staticEntries]
+
   try {
     const categories = await getAllServicesGrouped()
-    const serviceEntries: MetadataRoute.Sitemap = categories.flatMap((category) =>
-      category.services.map((service) => ({
-        url: `${SITE_URL}/services/${service.slug}`,
-        lastModified,
-        changeFrequency: 'monthly' as const,
-        priority: 0.8,
-      }))
-    )
-    return [...staticEntries, ...serviceEntries]
+    for (const category of categories) {
+      for (const service of category.services) {
+        entries.push({
+          url: `${SITE_URL}/services/${service.slug}`,
+          lastModified,
+          changeFrequency: 'monthly',
+          priority: 0.8,
+        })
+      }
+    }
   } catch {
-    return staticEntries
+    // Service catalogue read failed — keep the static entries and carry on.
   }
+
+  // Phase 8: one entry per published blog slug. `getAllPostSlugs()` already
+  // swallows errors (returns `[]` when the CMS is unconfigured/unreachable),
+  // so this guard is belt-and-braces — an empty/failed read leaves the output
+  // identical to the Phase 7 sitemap.
+  try {
+    const slugs = await getAllPostSlugs()
+    for (const slug of slugs) {
+      entries.push({
+        url: `${SITE_URL}/blog/${slug}`,
+        lastModified,
+        changeFrequency: 'monthly',
+        priority: 0.7,
+      })
+    }
+  } catch {
+    // getAllPostSlugs already swallows; belt-and-braces.
+  }
+
+  return entries
 }
