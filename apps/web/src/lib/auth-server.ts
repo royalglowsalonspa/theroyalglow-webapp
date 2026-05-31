@@ -18,8 +18,8 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3000',
   socialProviders: {
     google: {
-      clientId: process.env.GOOGLE_CLIENT_ID ?? '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+      clientId: process.env.GOOGLE_OAUTH_CLIENT_ID ?? '',
+      clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? '',
     },
   },
   plugins: [dash()],

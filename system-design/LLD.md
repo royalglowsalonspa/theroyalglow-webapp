@@ -976,7 +976,7 @@ async function rateLimitCheck(req: Request, pathname: string) {
 import Ably from 'ably'
 import { getSession } from '@/lib/auth'
 
-const ably = new Ably.Rest(process.env.ABLY_API_KEY!)
+const ably = new Ably.Rest(process.env.ABLY_PRIVATE_KEY!)
 
 export async function POST(req: Request) {
   // 1. Validate session
@@ -1084,7 +1084,7 @@ function BookingsPage() {
 
 import Ably from 'ably'
 
-const ably = new Ably.Rest(process.env.ABLY_API_KEY!)
+const ably = new Ably.Rest(process.env.ABLY_PRIVATE_KEY!)
 
 interface PublishBookingStatusEvent {
   bookingId: string

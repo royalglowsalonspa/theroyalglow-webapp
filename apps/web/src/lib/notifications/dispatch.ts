@@ -43,7 +43,7 @@ export async function dispatchNotification(
 
   // Read provider keys directly from `process.env` (guarded) so this seam never
   // triggers `env.ts` build-time validation when the keys are absent.
-  const hasWebPush = Boolean(process.env.WEB_PUSH_PRIVATE_KEY)
+  const hasWebPush = Boolean(process.env.VAPID_PRIVATE_KEY)
   const hasResend = Boolean(process.env.RESEND_API_KEY)
 
   // No provider keys configured → nothing to deliver. The notification row is

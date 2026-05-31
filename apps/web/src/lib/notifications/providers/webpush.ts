@@ -91,9 +91,9 @@ export async function sendWebPush(
   payload: WebPushPayload,
   onGone?: (endpoint: string) => Promise<void>,
 ): Promise<WebPushResult> {
-  const privateKey = process.env.WEB_PUSH_PRIVATE_KEY
-  const publicKey = process.env.NEXT_PUBLIC_WEB_PUSH_PUBLIC_KEY
-  const subject = process.env.WEB_PUSH_SUBJECT ?? DEFAULT_SUBJECT
+  const privateKey = process.env.VAPID_PRIVATE_KEY
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+  const subject = process.env.VAPID_SUBJECT ?? DEFAULT_SUBJECT
 
   // Not configured → no-op (Property 10). Nothing was sent.
   if (!(privateKey && publicKey)) {
