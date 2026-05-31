@@ -9,6 +9,7 @@ export const metadata: Metadata = {
     template: '%s | Staff | Royal Glow',
     default: 'Staff | Royal Glow',
   },
+  robots: { index: false, follow: false },
 }
 
 // Minimal chrome for the staff self-service area (schedule + leave). Access is

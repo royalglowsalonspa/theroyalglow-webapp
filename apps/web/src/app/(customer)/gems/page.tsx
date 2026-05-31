@@ -13,6 +13,7 @@ import {
 export const metadata: Metadata = {
   title: 'My Gems',
   description: 'Track your Royal Glow loyalty gems, history and rewards.',
+  robots: { index: false, follow: false },
 }
 
 const PAGE_SIZE = 20

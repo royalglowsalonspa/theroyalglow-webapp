@@ -2,21 +2,17 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { formatINR } from '@rgss/business'
 import { getActiveOffers } from '@rgss/db/queries'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { SITE_URL } from '@/lib/seo/business'
+import { breadcrumbJsonLd } from '@/lib/seo/jsonld'
+import { buildMetadata } from '@/lib/seo/metadata'
 
-export const metadata: Metadata = {
-  title: 'Special Offers | Royal Glow Salon & Spa',
+export const metadata: Metadata = buildMetadata({
+  title: 'Special Offers',
   description:
     'Explore exclusive offers and discounts at Royal Glow Salon & Spa. Save on facials, spa treatments, and more at our Bengaluru salon.',
-  openGraph: {
-    title: 'Special Offers | Royal Glow Salon & Spa',
-    description:
-      'Explore exclusive offers and discounts at Royal Glow Salon & Spa in Bengaluru.',
-    url: 'https://theroyalglow.in/offers',
-    siteName: 'Royal Glow Salon & Spa',
-    locale: 'en_IN',
-    type: 'website',
-  },
-}
+  path: '/offers',
+})
 
 // Re-fetch active offers on each request so newly published/expired offers
 // surface promptly (no stale ISR cache for a promotions surface).
@@ -62,6 +58,12 @@ export default async function OffersPage() {
 
   return (
     <div className="flex flex-col gap-20">
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: 'Home', url: SITE_URL },
+          { name: 'Offers' },
+        ])}
+      />
       {/* HEADING */}
       <section aria-labelledby="offers-heading" className="px-5">
         <div className="mx-auto max-w-[1278px] mt-6 lg:mt-10">

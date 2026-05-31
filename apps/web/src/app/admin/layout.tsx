@@ -6,6 +6,7 @@ export const metadata: Metadata = {
     template: '%s | Admin | Royal Glow',
     default: 'Admin | Royal Glow',
   },
+  robots: { index: false, follow: false },
 }
 
 export default function AdminLayout({
