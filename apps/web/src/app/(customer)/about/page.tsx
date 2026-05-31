@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { JsonLd } from '@/components/seo/JsonLd'
+import { getTeamMembers } from '@/lib/cms/client'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, localBusinessJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
@@ -11,6 +12,8 @@ export const metadata: Metadata = buildMetadata({
     'Learn about Royal Glow Salon & Spa — a premium beauty and wellness destination in Bengaluru, founded by Roshini with a passion for exceptional service.',
   path: '/about',
 })
+
+export const revalidate = 3600
 
 const values = [
   {
@@ -51,7 +54,10 @@ const team = [
   },
 ]
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const cmsTeam = await getTeamMembers()
+  const teamMembers = cmsTeam.length > 0 ? cmsTeam : team
+
   return (
     <div className="flex flex-col gap-20">
       <JsonLd
@@ -142,7 +148,7 @@ export default function AboutPage() {
           </p>
 
           <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-            {team.map((member) => (
+            {teamMembers.map((member) => (
               <article
                 key={member.name}
                 className="bg-canvas-white border border-cloud-gray rounded-[6px] p-6 motion-safe:transition-all motion-safe:duration-250 hover:border-golden-mist hover:-translate-y-[2px] hover:shadow-card-hover"

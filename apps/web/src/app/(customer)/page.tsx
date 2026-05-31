@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { JsonLd } from '@/components/seo/JsonLd'
-import { FAQS } from '@/lib/seo/business'
+import { resolveFaqs } from '@/lib/cms/faqs'
 import {
   faqPageJsonLd,
   localBusinessJsonLd,
@@ -16,6 +16,8 @@ export const metadata: Metadata = buildMetadata({
     'Experience premium salon and spa services in Bengaluru. Expert haircuts, facials, body therapies, and luxury SPA treatments. Book your appointment today.',
   path: '/',
 })
+
+export const revalidate = 3600
 
 const serviceHighlights = [
   {
@@ -106,7 +108,9 @@ const brandLogos = [
   'MOROCCANOIL',
 ]
 
-export default function HomePage() {
+export default async function HomePage() {
+  const faqList = await resolveFaqs()
+
   return (
     <>
       {/* JSON-LD Structured Data */}
@@ -115,7 +119,7 @@ export default function HomePage() {
           localBusinessJsonLd(),
           organizationJsonLd(),
           websiteJsonLd(),
-          faqPageJsonLd(FAQS),
+          faqPageJsonLd(faqList),
         ]}
       />
 

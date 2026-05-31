@@ -162,3 +162,77 @@ export function faqPageJsonLd(faqs: readonly Faq[]): JsonLd {
     })),
   }
 }
+
+/**
+ * BlogPosting structured data for `/blog/[slug]`. Date inputs are ISO-8601
+ * strings (used verbatim per Schema.org). `publisher` is an Organization
+ * derived from `BUSINESS`; `author` is a Person when `authorName` is supplied,
+ * otherwise it falls back to the publisher Organization. `image` is included
+ * only when a cover image is present.
+ */
+export function blogPostingJsonLd(post: {
+  title: string
+  description: string
+  slug: string
+  coverImageUrl?: string
+  authorName?: string
+  publishedAt: string
+  updatedAt?: string
+}): JsonLd {
+  const url = `${BUSINESS.url}/blog/${post.slug}`
+  const publisher: JsonLd = {
+    '@type': 'Organization',
+    name: BUSINESS.name,
+    logo: {
+      '@type': 'ImageObject',
+      url: BUSINESS.logo,
+    },
+  }
+  const jsonLd: JsonLd = {
+    '@context': SCHEMA_CONTEXT,
+    '@type': 'BlogPosting',
+    headline: post.title,
+    description: post.description,
+    mainEntityOfPage: url,
+    url,
+    datePublished: post.publishedAt,
+    dateModified: post.updatedAt ?? post.publishedAt,
+    publisher,
+    author: post.authorName
+      ? { '@type': 'Person', name: post.authorName }
+      : { '@type': 'Organization', name: BUSINESS.name },
+  }
+  if (post.coverImageUrl) {
+    jsonLd.image = post.coverImageUrl
+  }
+  return jsonLd
+}
+
+/**
+ * ImageObject structured data for a gallery image. The image's `alt` text is
+ * carried into both `name` and the `caption` fallback. `width`/`height` are
+ * included only when provided.
+ */
+export function imageObjectJsonLd(image: {
+  url: string
+  caption?: string
+  alt: string
+  width?: number
+  height?: number
+}): JsonLd {
+  const jsonLd: JsonLd = {
+    '@context': SCHEMA_CONTEXT,
+    '@type': 'ImageObject',
+    contentUrl: image.url,
+    url: image.url,
+    name: image.alt,
+    caption: image.caption ?? image.alt,
+  }
+  if (image.width !== undefined) {
+    jsonLd.width = image.width
+  }
+  if (image.height !== undefined) {
+    jsonLd.height = image.height
+  }
+  return jsonLd
+}
