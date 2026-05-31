@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.0",
+    "@rgss/errors": "workspace:*",
     "@rgss/types": "workspace:*",
     "drizzle-orm": "^0.38.0",
     "nanoid": "^5.1.11"

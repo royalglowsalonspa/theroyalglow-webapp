@@ -151,6 +151,28 @@ export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
                 My Bookings
               </Link>
               <Link
+                href="/membership"
+                onClick={onClose}
+                className={`font-ui text-sm uppercase tracking-[0.5px] py-3 px-3 rounded-[6px] transition-colors duration-200 ${
+                  pathname === '/membership'
+                    ? 'text-deep-gold bg-golden-mist'
+                    : 'text-cocoa-dark hover:bg-cloud-gray'
+                }`}
+              >
+                Membership
+              </Link>
+              <Link
+                href="/gems"
+                onClick={onClose}
+                className={`font-ui text-sm uppercase tracking-[0.5px] py-3 px-3 rounded-[6px] transition-colors duration-200 ${
+                  pathname === '/gems'
+                    ? 'text-deep-gold bg-golden-mist'
+                    : 'text-cocoa-dark hover:bg-cloud-gray'
+                }`}
+              >
+                Gems
+              </Link>
+              <Link
                 href="/profile"
                 onClick={onClose}
                 className={`font-ui text-sm uppercase tracking-[0.5px] py-3 px-3 rounded-[6px] transition-colors duration-200 ${

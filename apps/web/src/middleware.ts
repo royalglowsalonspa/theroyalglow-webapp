@@ -72,6 +72,7 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/admin/:path*',
+    '/staff/:path*',
     '/onboarding',
     '/profile',
     '/bookings/:path*',

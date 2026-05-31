@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { formatINR } from '@rgss/business'
+import { getActiveOffers } from '@rgss/db/queries'
 
 export const metadata: Metadata = {
   title: 'Special Offers | Royal Glow Salon & Spa',
@@ -16,66 +18,51 @@ export const metadata: Metadata = {
   },
 }
 
-const offers = [
-  {
-    id: 'facial-20-off',
-    type: 'percentage' as const,
-    badge: 'Percentage Discount',
-    name: '20% OFF All Facials',
-    description:
-      'Treat your skin to our premium facial treatments — Hydrafacial, Cleanup, Gold Facial, and more — at a special discounted price.',
-    validFrom: '20/05/2026',
-    validTo: '31/05/2026',
-    terms: [
-      'Max 1 per customer per day',
-      'Cannot combine with other offers or gems',
-      'Valid at Rayasandra branch only',
-    ],
-  },
-  {
-    id: 'first-visit-200',
-    type: 'flat' as const,
-    badge: 'Flat Discount',
-    name: '₹200 OFF Your First Visit',
-    description:
-      'New to Royal Glow? Enjoy a flat ₹200 discount on your first completed booking. Applicable on all services ₹500 and above.',
-    validFrom: 'Ongoing',
-    validTo: 'New customers only',
-    terms: [
-      'First completed booking only',
-      'Minimum spend ₹500 before discount',
-      'Cannot combine with other offers',
-    ],
-  },
-  {
-    id: 'free-head-massage',
-    type: 'complimentary' as const,
-    badge: 'Complimentary Add-on',
-    name: 'Free Head Massage with SPA Booking',
-    description:
-      'Book any SPA service and enjoy a complimentary 15-minute head massage. Pure relaxation, on the house.',
-    validFrom: '01/06/2026',
-    validTo: '30/06/2026',
-    terms: [
-      'Auto-applied at checkout',
-      '15-minute add-on (no extra charge)',
-      'Valid with all SPA services',
-    ],
-  },
-]
+// Re-fetch active offers on each request so newly published/expired offers
+// surface promptly (no stale ISR cache for a promotions surface).
+export const dynamic = 'force-dynamic'
 
-const badgeEmoji: Record<string, string> = {
-  percentage: '🎉',
-  flat: '💎',
-  complimentary: '🎁',
+type ActiveOffer = Awaited<ReturnType<typeof getActiveOffers>>[number]
+
+const OFFER_BADGE: Record<string, { emoji: string; label: string }> = {
+  percentage: { emoji: '🎉', label: 'Percentage Discount' },
+  flat: { emoji: '💎', label: 'Flat Discount' },
+  combo_price: { emoji: '🎁', label: 'Combo Price' },
 }
 
-export default function OffersPage() {
+// "2026-05-24T00:00:00.000Z" | Date | "2026-05-24" → "24/05/2026".
+function formatDate(value: Date | string): string {
+  const iso = value instanceof Date ? value.toISOString() : value
+  const [y, m, d] = iso.slice(0, 10).split('-')
+  return y && m && d ? `${d}/${m}/${y}` : iso
+}
+
+// Human-readable discount label per offer type.
+function discountLabel(offer: ActiveOffer): string {
+  switch (offer.offerType) {
+    case 'percentage':
+      return offer.discountPercentage != null
+        ? `${offer.discountPercentage}% OFF`
+        : 'Special discount'
+    case 'flat':
+      return offer.discountAmountPaise != null
+        ? `${formatINR(offer.discountAmountPaise)} OFF`
+        : 'Flat discount'
+    case 'combo_price':
+      return offer.comboPricePaise != null
+        ? `Combo at ${formatINR(offer.comboPricePaise)}`
+        : 'Combo offer'
+    default:
+      return 'Special offer'
+  }
+}
+
+export default async function OffersPage() {
+  const offers = await getActiveOffers()
+
   return (
     <div className="flex flex-col gap-20">
-      {/* ═══════════════════════════════════════════════════════ */}
       {/* HEADING */}
-      {/* ═══════════════════════════════════════════════════════ */}
       <section aria-labelledby="offers-heading" className="px-5">
         <div className="mx-auto max-w-[1278px] mt-6 lg:mt-10">
           <h1
@@ -90,68 +77,74 @@ export default function OffersPage() {
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════ */}
       {/* OFFER CARDS */}
-      {/* ═══════════════════════════════════════════════════════ */}
       <section aria-label="Current offers" className="px-5 pb-20">
         <div className="mx-auto max-w-[1278px]">
           {offers.length > 0 ? (
             <div className="grid grid-cols-1 gap-6">
-              {offers.map((offer) => (
-                <article
-                  key={offer.id}
-                  className="bg-rich-chocolate text-canvas-white border-l-4 border-deep-gold rounded-[6px] p-8"
-                >
-                  {/* Badge */}
-                  <div className="flex items-center gap-2 mb-3">
-                    <span aria-hidden="true">{badgeEmoji[offer.type]}</span>
-                    <span className="font-ui text-[11px] uppercase tracking-[2px] text-warm-stone">
-                      {offer.badge}
-                    </span>
-                  </div>
-
-                  {/* Offer Name */}
-                  <h2 className="font-display text-canvas-white text-xl lg:text-2xl">
-                    {offer.name}
-                  </h2>
-
-                  {/* Description */}
-                  <p className="font-sans text-[15px] leading-[1.55] text-dusty-gray mt-3 max-w-[600px]">
-                    {offer.description}
-                  </p>
-
-                  {/* Validity */}
-                  <p className="font-sans text-sm text-warm-stone mt-4">
-                    Valid: {offer.validFrom} – {offer.validTo}
-                  </p>
-
-                  {/* Terms */}
-                  <div className="mt-4">
-                    <p className="font-ui text-[11px] uppercase tracking-[1px] text-warm-stone mb-2">
-                      Terms
-                    </p>
-                    <ul className="space-y-1">
-                      {offer.terms.map((term) => (
-                        <li
-                          key={term}
-                          className="font-sans text-sm text-dusty-gray flex items-start gap-2"
-                        >
-                          <span className="text-deep-gold mt-0.5" aria-hidden="true">•</span>
-                          {term}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {/* CTA */}
-                  <Link
-                    href="/?book=1"
-                    className="inline-flex items-center gap-1 font-ui text-xs uppercase tracking-[0.5px] text-royal-gold mt-6 hover:text-canvas-white transition-colors duration-200"
+              {offers.map((offer) => {
+                const badge = OFFER_BADGE[offer.offerType] ?? {
+                  emoji: '✨',
+                  label: 'Offer',
+                }
+                return (
+                  <article
+                    key={offer.id}
+                    className="bg-rich-chocolate text-canvas-white border-l-4 border-deep-gold rounded-[6px] p-8"
                   >
-                    Book Now <span aria-hidden="true">→</span>
-                  </Link>
-                </article>
-              ))}
+                    {/* Badge */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <span aria-hidden="true">{badge.emoji}</span>
+                      <span className="font-ui text-[11px] uppercase tracking-[2px] text-warm-stone">
+                        {badge.label}
+                      </span>
+                    </div>
+
+                    {/* Discount label + name */}
+                    <p className="font-ui text-[13px] uppercase tracking-[1px] text-royal-gold mb-1">
+                      {discountLabel(offer)}
+                    </p>
+                    <h2 className="font-display text-canvas-white text-xl lg:text-2xl">
+                      {offer.name}
+                    </h2>
+
+                    {/* Description */}
+                    {offer.description && (
+                      <p className="font-sans text-[15px] leading-[1.55] text-dusty-gray mt-3 max-w-[600px]">
+                        {offer.description}
+                      </p>
+                    )}
+
+                    {/* Applicable services */}
+                    {offer.services.length > 0 && (
+                      <p className="font-sans text-sm text-warm-stone mt-4">
+                        <span className="text-dusty-gray">Applies to: </span>
+                        {offer.services.map((s) => s.name).join(', ')}
+                      </p>
+                    )}
+
+                    {/* Validity */}
+                    <p className="font-sans text-sm text-warm-stone mt-2">
+                      Valid: {formatDate(offer.startDate)} – {formatDate(offer.endDate)}
+                    </p>
+
+                    {/* Terms */}
+                    {offer.terms && (
+                      <p className="font-sans text-sm text-dusty-gray mt-4 max-w-[600px]">
+                        {offer.terms}
+                      </p>
+                    )}
+
+                    {/* CTA */}
+                    <Link
+                      href="/?book=1"
+                      className="inline-flex items-center gap-1 font-ui text-xs uppercase tracking-[0.5px] text-royal-gold mt-6 hover:text-canvas-white transition-colors duration-200"
+                    >
+                      Book Now <span aria-hidden="true">→</span>
+                    </Link>
+                  </article>
+                )
+              })}
             </div>
           ) : (
             /* Empty state */

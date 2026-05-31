@@ -1,0 +1,88 @@
+import { createLogger } from '@rgss/logger'
+
+// Server-side helper that builds a scoped Ably token request for the realtime
+// token route. Phase 5 ships the token endpoint only; server-side publishing is
+// a later phase.
+//
+// We read `ABLY_API_KEY` straight from `process.env` (NOT from `env.ts`) on
+// purpose: `env.ts` types it as a required string and would fail validation
+// when it is absent, but this helper must degrade gracefully (return null so
+// the caller can answer 503) when realtime is not yet configured. `ably` is an
+// optional, lazily imported dependency — it need not be installed until the key
+// is provisioned, so a missing module simply yields null.
+
+const logger = createLogger({
+  service: 'web:realtime:ably',
+  environment: process.env.NODE_ENV ?? 'development',
+})
+
+// Ably capability map: channel/namespace → allowed operations.
+type Capability = Record<string, string[]>
+
+// Minimal slice of the optional `ably` module surface we rely on. Modeled
+// locally so this file compiles without the package (or its types) installed.
+type TokenParams = { capability: string; clientId?: string }
+
+type AblyRestClient = {
+  auth: {
+    createTokenRequest(params: TokenParams): Promise<unknown>
+  }
+}
+
+type AblyRestConstructor = new (options: { key: string }) => AblyRestClient
+
+function resolveAblyRest(mod: unknown): AblyRestConstructor | null {
+  if (typeof mod !== 'object' || mod === null) {
+    return null
+  }
+  const candidate = mod as { Rest?: unknown; default?: { Rest?: unknown } }
+  if (typeof candidate.Rest === 'function') {
+    return candidate.Rest as AblyRestConstructor
+  }
+  if (candidate.default && typeof candidate.default.Rest === 'function') {
+    return candidate.default.Rest as AblyRestConstructor
+  }
+  return null
+}
+
+export async function createAblyTokenRequest(params: {
+  userId: string
+  isAdmin: boolean
+}): Promise<unknown | null> {
+  const apiKey = process.env.ABLY_API_KEY
+  // Not configured → caller turns this into a 503 SERVICE_UNAVAILABLE.
+  if (!apiKey) {
+    return null
+  }
+
+  try {
+    // Lazy, catchable import keeps `ably` an optional dependency. Use a
+    // non-literal specifier so the type checker does not require it installed.
+    const mod: unknown = await import('ably' as string).catch(() => null)
+    const Rest = resolveAblyRest(mod)
+    if (!Rest) {
+      logger.debug('ably module unavailable; cannot issue token request')
+      return null
+    }
+
+    const capability: Capability = {
+      [`customer:${params.userId}:*`]: ['subscribe'],
+    }
+    if (params.isAdmin) {
+      capability['admin:*'] = ['subscribe']
+    }
+
+    const client = new Rest({ key: apiKey })
+    const tokenRequest = await client.auth.createTokenRequest({
+      capability: JSON.stringify(capability),
+      clientId: params.userId,
+    })
+
+    return tokenRequest
+  } catch (error) {
+    logger.error('createAblyTokenRequest failed', {
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return null
+  }
+}
