@@ -8,6 +8,7 @@ import { redirect } from 'next/navigation'
 export const metadata: Metadata = {
   title: 'My SPA Membership',
   description: 'Track your Royal Glow SPA membership hours, validity and session history.',
+  robots: { index: false, follow: false },
 }
 
 const SALON_PHONE = '+916360135720'

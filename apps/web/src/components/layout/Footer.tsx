@@ -1,3 +1,4 @@
+import { CookiePreferencesButton } from '@/components/consent/CookiePreferencesButton'
 import Link from 'next/link'
 
 export function Footer() {
@@ -126,13 +127,7 @@ export function Footer() {
               </Link>
             </nav>
 
-            <button
-              type="button"
-              className="mt-6 font-sans text-[15px] text-dusty-gray hover:text-canvas-white transition-colors duration-200"
-              aria-label="Manage cookie preferences"
-            >
-              🍪 Cookie Preferences
-            </button>
+            <CookiePreferencesButton />
           </div>
         </div>
 

@@ -1,0 +1,51 @@
+import { SITE_URL } from '@/lib/seo/business'
+import type { MetadataRoute } from 'next'
+
+/**
+ * robots.txt for the public site.
+ *
+ * The default `*` agent is allowed everywhere except the private surfaces.
+ * Every AI crawler user-agent listed in `seo.md` Part 9 gets an explicit
+ * allow rule (so the salon stays maximally citable in AI answers). The
+ * sitemap is referenced absolutely from `SITE_URL`.
+ */
+
+/** Paths hidden from every crawler. Mirrors the sitemap exclusions. */
+const DISALLOWED_PATHS = ['/admin/', '/api/', '/profile/', '/staff/', '/book']
+
+/** AI crawler user-agents to explicitly allow (verbatim from `seo.md` Part 9). */
+const AI_CRAWLERS = [
+  'Googlebot',
+  'Googlebot-Extended',
+  'Google-Extended',
+  'GPTBot',
+  'ChatGPT-User',
+  'PerplexityBot',
+  'Claude-Web',
+  'ClaudeBot',
+  'anthropic-ai',
+  'Bingbot',
+  'FacebookBot',
+  'Applebot',
+  'Applebot-Extended',
+  'CCBot',
+  'cohere-ai',
+]
+
+export default function robots(): MetadataRoute.Robots {
+  return {
+    rules: [
+      {
+        userAgent: '*',
+        allow: '/',
+        disallow: DISALLOWED_PATHS,
+      },
+      ...AI_CRAWLERS.map((userAgent) => ({
+        userAgent,
+        allow: '/',
+      })),
+    ],
+    sitemap: `${SITE_URL}/sitemap.xml`,
+    host: SITE_URL,
+  }
+}

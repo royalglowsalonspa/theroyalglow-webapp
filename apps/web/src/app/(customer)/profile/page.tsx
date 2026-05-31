@@ -7,6 +7,7 @@ import { SignOutButton } from './sign-out-button'
 export const metadata: Metadata = {
   title: 'My Profile',
   description: 'Manage your Royal Glow account.',
+  robots: { index: false, follow: false },
 }
 
 function formatMemberSince(value: Date | string | null | undefined): string {

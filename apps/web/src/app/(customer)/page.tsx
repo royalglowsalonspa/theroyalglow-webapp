@@ -1,20 +1,21 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { FAQS } from '@/lib/seo/business'
+import {
+  faqPageJsonLd,
+  localBusinessJsonLd,
+  organizationJsonLd,
+  websiteJsonLd,
+} from '@/lib/seo/jsonld'
+import { buildMetadata } from '@/lib/seo/metadata'
 
-export const metadata: Metadata = {
-  title: 'Royal Glow Salon & Spa — Premium Beauty & Wellness in Bengaluru',
+export const metadata: Metadata = buildMetadata({
+  title: 'Premium Salon & Spa in Bengaluru',
   description:
     'Experience premium salon and spa services in Bengaluru. Expert haircuts, facials, body therapies, and luxury SPA treatments. Book your appointment today.',
-  openGraph: {
-    title: 'Royal Glow Salon & Spa — Premium Beauty & Wellness in Bengaluru',
-    description:
-      'Experience premium salon and spa services in Bengaluru. Expert haircuts, facials, body therapies, and luxury SPA treatments.',
-    url: 'https://theroyalglow.in',
-    siteName: 'Royal Glow Salon & Spa',
-    locale: 'en_IN',
-    type: 'website',
-  },
-}
+  path: '/',
+})
 
 const serviceHighlights = [
   {
@@ -106,82 +107,16 @@ const brandLogos = [
 ]
 
 export default function HomePage() {
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@graph': [
-      {
-        '@type': ['LocalBusiness', 'BeautySalon'],
-        '@id': 'https://theroyalglow.in/#business',
-        name: 'Royal Glow Salon & Spa',
-        image: 'https://theroyalglow.in/og-image.jpg',
-        url: 'https://theroyalglow.in',
-        telephone: '+916360135720',
-        email: 'hello@theroyalglow.in',
-        address: {
-          '@type': 'PostalAddress',
-          streetAddress:
-            '1st Floor, Narmada Complex, 48/3, Rayasandra Main Rd, Above SBI Bank',
-          addressLocality: 'Bengaluru',
-          addressRegion: 'Karnataka',
-          postalCode: '560100',
-          addressCountry: 'IN',
-        },
-        geo: {
-          '@type': 'GeoCoordinates',
-          latitude: 12.8845,
-          longitude: 77.648,
-        },
-        openingHoursSpecification: [
-          {
-            '@type': 'OpeningHoursSpecification',
-            dayOfWeek: [
-              'Monday',
-              'Tuesday',
-              'Wednesday',
-              'Thursday',
-              'Friday',
-            ],
-            opens: '10:00',
-            closes: '21:00',
-          },
-          {
-            '@type': 'OpeningHoursSpecification',
-            dayOfWeek: ['Saturday', 'Sunday'],
-            opens: '10:00',
-            closes: '22:00',
-          },
-        ],
-        aggregateRating: {
-          '@type': 'AggregateRating',
-          ratingValue: '4.9',
-          reviewCount: '86',
-        },
-        priceRange: '₹₹',
-        sameAs: [
-          'https://instagram.com/theroyalglow',
-          'https://facebook.com/theroyalglow',
-        ],
-      },
-      {
-        '@type': 'FAQPage',
-        mainEntity: faqs.map((faq) => ({
-          '@type': 'Question',
-          name: faq.question,
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: faq.answer,
-          },
-        })),
-      },
-    ],
-  }
-
   return (
     <>
       {/* JSON-LD Structured Data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      <JsonLd
+        data={[
+          localBusinessJsonLd(),
+          organizationJsonLd(),
+          websiteJsonLd(),
+          faqPageJsonLd(FAQS),
+        ]}
       />
 
       <div className="flex flex-col gap-20 lg:gap-28">

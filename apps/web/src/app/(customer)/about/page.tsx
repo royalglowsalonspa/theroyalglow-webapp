@@ -1,20 +1,16 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { SITE_URL } from '@/lib/seo/business'
+import { breadcrumbJsonLd, localBusinessJsonLd } from '@/lib/seo/jsonld'
+import { buildMetadata } from '@/lib/seo/metadata'
 
-export const metadata: Metadata = {
-  title: 'About Us | Royal Glow Salon & Spa',
+export const metadata: Metadata = buildMetadata({
+  title: 'About Us',
   description:
     'Learn about Royal Glow Salon & Spa — a premium beauty and wellness destination in Bengaluru, founded by Roshini with a passion for exceptional service.',
-  openGraph: {
-    title: 'About Us | Royal Glow Salon & Spa',
-    description:
-      'Learn about Royal Glow Salon & Spa — a premium beauty and wellness destination in Bengaluru.',
-    url: 'https://theroyalglow.in/about',
-    siteName: 'Royal Glow Salon & Spa',
-    locale: 'en_IN',
-    type: 'website',
-  },
-}
+  path: '/about',
+})
 
 const values = [
   {
@@ -58,6 +54,15 @@ const team = [
 export default function AboutPage() {
   return (
     <div className="flex flex-col gap-20">
+      <JsonLd
+        data={[
+          localBusinessJsonLd(),
+          breadcrumbJsonLd([
+            { name: 'Home', url: SITE_URL },
+            { name: 'About' },
+          ]),
+        ]}
+      />
       {/* ═══════════════════════════════════════════════════════ */}
       {/* HERO SECTION */}
       {/* ═══════════════════════════════════════════════════════ */}

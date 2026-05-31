@@ -1,70 +1,28 @@
 import type { Metadata } from 'next'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { SITE_URL } from '@/lib/seo/business'
+import { breadcrumbJsonLd, localBusinessJsonLd } from '@/lib/seo/jsonld'
+import { buildMetadata } from '@/lib/seo/metadata'
 
-export const metadata: Metadata = {
-  title: 'Contact Us | Royal Glow Salon & Spa',
+export const metadata: Metadata = buildMetadata({
+  title: 'Contact Us',
   description:
     'Get in touch with Royal Glow Salon & Spa. Visit us at Narmada Complex, Rayasandra Main Road, Bengaluru or call +91 63601 35720.',
-  openGraph: {
-    title: 'Contact Us | Royal Glow Salon & Spa',
-    description:
-      'Get in touch with Royal Glow Salon & Spa. Visit us in Bengaluru or call +91 63601 35720.',
-    url: 'https://theroyalglow.in/contact',
-    siteName: 'Royal Glow Salon & Spa',
-    locale: 'en_IN',
-    type: 'website',
-  },
-}
+  path: '/contact',
+})
 
 export default function ContactPage() {
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': ['LocalBusiness', 'BeautySalon'],
-    '@id': 'https://theroyalglow.in/#business',
-    name: 'Royal Glow Salon & Spa',
-    image: 'https://theroyalglow.in/og-image.jpg',
-    url: 'https://theroyalglow.in',
-    telephone: '+916360135720',
-    email: 'hello@theroyalglow.in',
-    address: {
-      '@type': 'PostalAddress',
-      streetAddress: '1st Floor, Narmada Complex, 48/3, Rayasandra Main Rd, Above SBI Bank',
-      addressLocality: 'Bengaluru',
-      addressRegion: 'Karnataka',
-      postalCode: '560100',
-      addressCountry: 'IN',
-    },
-    geo: {
-      '@type': 'GeoCoordinates',
-      latitude: 12.8845,
-      longitude: 77.6480,
-    },
-    openingHoursSpecification: [
-      {
-        '@type': 'OpeningHoursSpecification',
-        dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-        opens: '10:00',
-        closes: '21:00',
-      },
-      {
-        '@type': 'OpeningHoursSpecification',
-        dayOfWeek: ['Saturday', 'Sunday'],
-        opens: '10:00',
-        closes: '22:00',
-      },
-    ],
-    priceRange: '₹₹',
-    sameAs: [
-      'https://instagram.com/theroyalglow',
-      'https://facebook.com/theroyalglow',
-    ],
-  }
-
   return (
     <>
       {/* JSON-LD Structured Data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      <JsonLd
+        data={[
+          localBusinessJsonLd(),
+          breadcrumbJsonLd([
+            { name: 'Home', url: SITE_URL },
+            { name: 'Contact' },
+          ]),
+        ]}
       />
 
       <div className="flex flex-col gap-20">

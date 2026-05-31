@@ -4,6 +4,7 @@ import { BookingsList } from './bookings-list'
 export const metadata: Metadata = {
   title: 'My Bookings',
   description: 'View and manage your Royal Glow appointments.',
+  robots: { index: false, follow: false },
 }
 
 export default function BookingsPage() {

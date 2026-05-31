@@ -1,19 +1,15 @@
 import type { Metadata } from 'next'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { FAQS, SITE_URL } from '@/lib/seo/business'
+import { breadcrumbJsonLd, faqPageJsonLd } from '@/lib/seo/jsonld'
+import { buildMetadata } from '@/lib/seo/metadata'
 
-export const metadata: Metadata = {
-  title: 'FAQ | Royal Glow Salon & Spa',
+export const metadata: Metadata = buildMetadata({
+  title: 'FAQ',
   description:
     'Find answers to frequently asked questions about Royal Glow Salon & Spa — services, booking, payments, location, memberships, and more.',
-  openGraph: {
-    title: 'FAQ | Royal Glow Salon & Spa',
-    description:
-      'Find answers to frequently asked questions about Royal Glow Salon & Spa.',
-    url: 'https://theroyalglow.in/faq',
-    siteName: 'Royal Glow Salon & Spa',
-    locale: 'en_IN',
-    type: 'website',
-  },
-}
+  path: '/faq',
+})
 
 const faqs = [
   {
@@ -69,25 +65,17 @@ const faqs = [
 ]
 
 export default function FAQPage() {
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    mainEntity: faqs.map((faq) => ({
-      '@type': 'Question',
-      name: faq.question,
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: faq.answer,
-      },
-    })),
-  }
-
   return (
     <>
       {/* JSON-LD Structured Data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      <JsonLd
+        data={[
+          faqPageJsonLd(FAQS),
+          breadcrumbJsonLd([
+            { name: 'Home', url: SITE_URL },
+            { name: 'FAQ' },
+          ]),
+        ]}
       />
 
       <div className="flex flex-col gap-20">
