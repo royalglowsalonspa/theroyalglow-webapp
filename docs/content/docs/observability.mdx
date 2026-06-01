@@ -1,0 +1,163 @@
+---
+title: Observability
+description: Five-layer observability stack for Royal Glow — Sentry, BetterStack, PostHog, Clarity, and Checkly.
+---
+
+# Observability
+
+Royal Glow uses five distinct observability layers, each answering a different question. Total monthly cost: **₹0**.
+
+| Layer | Question It Answers | Tool |
+| --- | --- | --- |
+| Error Monitoring | What broke and why? Stack traces, error context | **Sentry** |
+| Uptime + Status + Logs + Jobs | Is the site up? Did scheduled jobs run? | **BetterStack** |
+| Product Analytics | How do users behave? Where do they drop off? | **PostHog** |
+| Heatmaps + Session Replay | What did the user actually do on screen? | **Microsoft Clarity** |
+| Synthetic Monitoring | Does the app actually work from a real browser? | **Checkly** |
+
+## Layer 1 — Error Monitoring: Sentry
+
+**Free tier:** 5,000 errors/month — more than sufficient at launch.
+
+Sentry captures errors from both Cloudflare Workers (edge) and Render (Node.js/Payload CMS). Source maps are uploaded during build so errors point to original TypeScript lines, not minified output.
+
+**What Sentry captures:**
+- Unhandled API route exceptions
+- Client-side React errors (via Error Boundaries)
+- Edge Worker errors (Cloudflare)
+- Performance traces (slow DB queries, slow API responses)
+
+**Alert rules:**
+
+| Rule | Condition | Action |
+| --- | --- | --- |
+| Critical | Any new `error` level issue | Slack `#alerts-critical` + Email |
+| High frequency | >10 same error in 5 min | Slack `#alerts-critical` |
+| External service down | >3 upstream errors in 5 min | Slack `#alerts-infra` |
+
+**What is NOT sent to Sentry:**
+- Business rule violations (4xx errors) — these are expected
+- Validation errors (400) — these are expected
+- Rate limit exceeded (429) — these are expected
+
+## Layer 2 — Uptime, Status Page, Logs & Job Monitoring: BetterStack
+
+BetterStack replaces three separate tools (UptimeRobot + Cronitor + a log tool) in one platform.
+
+### Uptime Monitors (10 of 10 free slots)
+
+| Monitor | Endpoint |
+| --- | --- |
+| Homepage | `theroyalglow.in` |
+| GMB booking deep link | `theroyalglow.in/?book=1&utm_source=gmb` |
+| In-store QR deep link | `theroyalglow.in/?book=1&utm_source=walkin` |
+| Campaign lead page | `theroyalglow.in/book` |
+| API health | `theroyalglow.in/api/health` |
+| Payload CMS admin | `admin.theroyalglow.in` |
+| Neon DB probe | Via API health endpoint |
+| Ably connectivity | Via test endpoint |
+| Upstash Redis probe | Via API probe |
+| Cloudflare R2 probe | Via test asset endpoint |
+
+Check interval: 3 minutes (free tier). Average detection time ~1.5 minutes.
+
+### Heartbeat Monitors for Scheduled Jobs
+
+Scheduled work pings a BetterStack heartbeat URL on successful completion. If BetterStack doesn't receive the ping within the expected window, it fires an alert.
+
+| Heartbeat | Jobs Covered |
+| --- | --- |
+| `BETTER_STACK_HEARTBEAT_NIGHTLY_SALES` | Daily sales, offer expiry, monthly GST, gems auto-expire |
+| `BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY` | Membership auto-expire + expiry alerts |
+| `BETTER_STACK_HEARTBEAT_SESSION_CLEANUP` | Session cleanup |
+| `BETTER_STACK_HEARTBEAT_PREPROD_SYNC` | Prod → preprod branch reset + PII anonymization |
+| `BETTER_STACK_HEARTBEAT_REMINDERS` | Appointment reminders (every 15 min) |
+
+### Status Page
+
+Public status page at `status.theroyalglow.in` — customers can check during outages. Free, custom domain supported.
+
+## Layer 3 — Product Analytics: PostHog
+
+**Free tier:** 1 million events/month.
+
+PostHog covers the full funnel: page views → service browsing → booking → conversion. It also provides feature flags for A/B testing offers without deploying new code.
+
+### Key Events
+
+| Event | Trigger |
+| --- | --- |
+| `page_view` | Every page |
+| `booking_started` | Customer opens the homepage booking dialog |
+| `booking_step_completed` | Each step of booking flow |
+| `booking_request_submitted` | Customer submits booking; row created as `pending` |
+| `booking_confirmed` | Receptionist/manager approves the booking |
+| `booking_completed` | Service completed and invoice generated |
+| `booking_abandoned` | Left booking mid-flow |
+| `lead_form_submitted` | Meta/Instagram landing form submitted |
+| `lead_converted_to_booking` | Captured lead later links to a booking |
+
+### Funnels to Build
+
+1. Organic → Homepage → Book Now → Dialog → Booking submitted → Confirmed
+2. GMB → `/?book=1&utm_source=gmb` → Dialog auto-opened → Booking submitted
+3. In-store QR → `/?book=1&utm_source=walkin` → Sign in → Booking submitted
+4. Meta ad → `/book` lead form → Homepage dialog → Lead converted to booking
+
+### Why Not Google Analytics
+
+Google Analytics sends data to Google — a concern under India's DPDP Act 2023. PostHog is self-hostable and DPDP-compliant.
+
+## Layer 4 — Heatmaps & Session Replay: Microsoft Clarity
+
+**Free tier:** Completely free, no event caps, no session limits.
+
+Clarity complements PostHog — it's better at visual heatmaps, PostHog is better at funnel analytics.
+
+**What Clarity reveals:**
+- Are users clicking the booking CTA or ignoring it?
+- How far do users scroll on the services page?
+- Where do users get confused on the booking form?
+- Which parts of the homepage get the most attention?
+- Rage clicks and dead clicks
+
+## Layer 5 — Synthetic Monitoring: Checkly
+
+**Free tier:** 5 checks, 10,000 check runs/month.
+
+BetterStack answers "Is the server responding?" Checkly answers "Does the app actually work?" — it runs real Playwright scripts against production on a schedule.
+
+### RGSS Checkly Checks
+
+| Check | Schedule | Validates |
+| --- | --- | --- |
+| Homepage loads + services render | Every 10 min | CDN + SSR |
+| Booking dialog: slots load for tomorrow | Every 15 min | API + DB |
+| Sign-in page renders | Every 30 min | Auth system |
+| Admin dashboard loads (with auth) | Every 30 min | Protected routes |
+| API health + response < 500ms | Every 5 min | System health |
+
+## Complete Stack Summary
+
+| Tool | Layer | Free Tier | Monthly Cost |
+| --- | --- | --- | --- |
+| **Sentry** | Error monitoring | 5k errors/mo | ₹0 |
+| **BetterStack** | Uptime + status + jobs + logs | 10 monitors, 1 GB logs | ₹0 |
+| **PostHog** | Product analytics + feature flags | 1M events/mo | ₹0 |
+| **Microsoft Clarity** | Heatmaps + session recordings | Unlimited | ₹0 |
+| **Checkly** | Synthetic monitoring | 5 checks, 10K runs/mo | ₹0 |
+| **Total** | | | **₹0/mo** |
+
+## Upgrade Path
+
+| When | Upgrade |
+| --- | --- |
+| Errors exceed 5k/mo | Sentry Team $26/mo |
+| Need <30s uptime checks | BetterStack Starter $24/mo |
+| Need unlimited analytics | PostHog paid (scales by event volume) |
+
+All upgrades are triggered by growth — not required at launch.
+
+## Consent Gating
+
+All third-party browser scripts (PostHog, Clarity, Meta Pixel) load **only after explicit cookie consent** and only when their keys are configured. The cookie consent banner is a custom two-tier implementation — no paid consent management tool needed.

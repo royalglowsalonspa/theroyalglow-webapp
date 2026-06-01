@@ -1,0 +1,191 @@
+---
+title: Pages & Routes
+description: Complete map of all 104 pages and API routes in the Royal Glow platform.
+---
+
+# Pages & Routes
+
+The platform has ~104 pages across four route groups plus the admin portal, staff portal, and API layer.
+
+## Route Groups
+
+Next.js App Router uses route groups (folders in parentheses) to share layouts without affecting the URL:
+
+| Group | URL Pattern | Layout | Auth |
+| --- | --- | --- | --- |
+| `(customer)` | `/`, `/services`, `/bookings`, etc. | Header + footer + nav | Optional |
+| `(auth)` | `/sign-in`, `/onboarding` | Minimal centered card | — |
+| `(landing)` | `/book` | No nav — conversion-optimised | — |
+| `(legal)` | `/privacy`, `/terms`, `/refund-policy` | Minimal | — |
+| `admin/` | `/admin/*` | Sidebar + RBAC | Required (receptionist+) |
+| `staff/` | `/staff/*` | Minimal | Required (staff+) |
+
+## Customer Pages
+
+### Public (No Auth Required)
+
+| Route | Page | Rendering | Notes |
+| --- | --- | --- | --- |
+| `/` | Homepage | SSR | Hero, services overview, reviews, booking CTA |
+| `/services` | Services | SSR | Salon/SPA toggle, category filter, service cards |
+| `/services/[slug]` | Service Detail | SSG + ISR | Individual service with booking CTA |
+| `/about` | About | SSG | Story, team gallery |
+| `/contact` | Contact | SSG | Map, phone, email, contact form |
+| `/faq` | FAQ | SSG | FAQPage JSON-LD, accordion |
+| `/gallery` | Gallery | SSR | Photo grid from Payload CMS |
+| `/offers` | Offers | SSR | Active offers and combos |
+| `/blog` | Blog | SSR + ISR | Posts from Payload CMS |
+| `/blog/[slug]` | Blog Post | SSG + ISR | Individual post with BlogPosting JSON-LD |
+| `/offline` | Offline | Static | PWA offline fallback page |
+
+### Authenticated (Customer)
+
+| Route | Page | Notes |
+| --- | --- | --- |
+| `/bookings` | My Bookings | Upcoming + past, cancel/reschedule |
+| `/bookings/[id]` | Booking Detail | Status timeline, services, invoice link |
+| `/membership` | My Membership | Tier, hours remaining, session history |
+| `/gems` | Gems | Balance, transaction history, catalogue |
+| `/profile` | Profile | Editable fields, notification preferences |
+
+### Auth Pages
+
+| Route | Page | Notes |
+| --- | --- | --- |
+| `/sign-in` | Sign In | Google OAuth button |
+| `/onboarding` | Onboarding | First-time profile setup (name, phone, DOB, gender, consents) |
+
+### Landing Pages
+
+| Route | Page | Notes |
+| --- | --- | --- |
+| `/book` | Lead Capture | Meta/Instagram ad landing page — 3-field form, no nav |
+
+### Legal Pages (SSG)
+
+| Route | Page |
+| --- | --- |
+| `/privacy` | Privacy Policy |
+| `/terms` | Terms of Service |
+| `/refund-policy` | Refund & Cancellation Policy |
+
+## Admin Portal
+
+All admin routes require authentication with minimum role `receptionist`.
+
+| Route | Min. Role | Page |
+| --- | --- | --- |
+| `/admin` | Receptionist | Dashboard — today's bookings, revenue, pending actions |
+| `/admin/bookings` | Receptionist | Booking list with filters |
+| `/admin/bookings/[id]` | Receptionist | Booking detail — approve/reject/assign/complete |
+| `/admin/bookings/new` | Receptionist | Walk-in booking creation |
+| `/admin/customers` | Receptionist | Customer list — search, filter, sort by LTV |
+| `/admin/customers/[id]` | Receptionist | Customer profile — history, notes, tags |
+| `/admin/leads` | Receptionist | Lead pipeline — kanban view |
+| `/admin/leads/[id]` | Receptionist | Lead detail — notes, UTM, WhatsApp link |
+| `/admin/memberships` | Receptionist | Membership list |
+| `/admin/memberships/[id]` | Receptionist | Membership detail — session recording |
+| `/admin/memberships/new` | Receptionist | Create new membership |
+| `/admin/billing` | Receptionist | Invoice list and detail |
+| `/admin/leave` | Receptionist | Leave request queue — approve/reject |
+| `/admin/services` | Manager | Service catalog management |
+| `/admin/offers` | Manager | Offer creation and management |
+| `/admin/staff` | Manager | Staff list and profiles |
+| `/admin/schedule` | Manager | Weekly staff availability grid |
+| `/admin/reports` | Manager | Revenue, bookings, staff performance |
+| `/admin/settings` | Manager | System settings |
+| `/admin/branches` | Owner | Branch management |
+| `/admin/users` | Owner | User management and role assignment |
+| `/admin/integrations` | Developer | Integration configuration |
+| `/admin/logs` | Developer | Audit logs |
+
+## Staff Portal
+
+| Route | Min. Role | Page |
+| --- | --- | --- |
+| `/staff/schedule` | Staff | Own weekly schedule |
+| `/staff/leave` | Staff | Submit and view own leave requests |
+
+## API Routes
+
+### Public (No Auth)
+
+| Endpoint | Method | Description |
+| --- | --- | --- |
+| `/api/services` | GET | All categories + services (KV cached, 5-min TTL) |
+| `/api/services/[slug]` | GET | Single service detail |
+| `/api/availability` | GET | Available slots for date + service |
+| `/api/leads` | POST | Campaign lead capture from `/book` form |
+| `/api/health` | GET | System health check |
+
+### Authenticated (Customer)
+
+| Endpoint | Method | Description |
+| --- | --- | --- |
+| `/api/bookings` | GET, POST | List bookings / create booking |
+| `/api/bookings/[id]` | GET | Booking detail |
+| `/api/bookings/[id]/cancel` | POST | Cancel booking |
+| `/api/bookings/[id]/reschedule` | POST | Reschedule booking |
+| `/api/membership` | GET | Customer's active membership |
+| `/api/gems` | GET | Gems balance + catalogue |
+| `/api/notifications` | GET, PATCH | Notifications list + mark read |
+| `/api/push/subscribe` | POST | Register push subscription |
+| `/api/push/subscribe` | DELETE | Remove push subscription |
+| `/api/ably/token` | POST | Scoped Ably JWT (Token Auth) |
+| `/api/onboarding/complete` | POST | Save onboarding data |
+
+### Admin (Role-Gated)
+
+| Endpoint | Method | Min. Role | Description |
+| --- | --- | --- | --- |
+| `/api/admin/bookings` | GET, POST | Receptionist | List / create booking |
+| `/api/admin/bookings/[id]` | PATCH | Receptionist | Approve, reject, assign staff |
+| `/api/admin/bookings/[id]/complete` | POST | Receptionist | Mark completed + invoice + gems |
+| `/api/admin/bookings/[id]/noshow` | POST | Receptionist | Mark no-show |
+| `/api/admin/customers` | GET | Receptionist | Customer list with search/filter |
+| `/api/admin/customers/[id]` | GET | Receptionist | Customer detail |
+| `/api/admin/customers/[id]/notes` | POST | Receptionist | Add CRM note |
+| `/api/admin/customers/[id]/tags` | POST, DELETE | Receptionist | Manage tags |
+| `/api/admin/leads` | GET, POST | Receptionist | Lead list / create manual lead |
+| `/api/admin/leads/[id]` | PATCH | Receptionist | Update lead status |
+| `/api/admin/leads/[id]/notes` | POST | Receptionist | Add lead note |
+| `/api/admin/memberships` | GET, POST | Receptionist | List / create membership |
+| `/api/admin/memberships/[id]` | GET | Receptionist | Membership detail |
+| `/api/admin/memberships/[id]/sessions` | POST | Receptionist | Record session |
+| `/api/admin/memberships/[id]/cancel` | POST | Manager | Cancel membership |
+| `/api/admin/offers` | GET, POST | Manager | List / create offer |
+| `/api/admin/offers/[id]` | PATCH, DELETE | Manager | Update / delete offer |
+| `/api/admin/leave` | GET, POST | Receptionist | Leave queue / submit leave |
+| `/api/admin/leave/[id]` | PATCH | Receptionist | Approve / reject leave |
+| `/api/admin/schedule` | GET | Receptionist | Staff schedule for date |
+| `/api/admin/staff` | GET | Manager | Staff list |
+| `/api/admin/tags` | GET | Receptionist | Available CRM tags |
+
+### Background Jobs (QStash Signature Required)
+
+| Endpoint | Trigger | Description |
+| --- | --- | --- |
+| `/api/jobs/appointment-reminders` | QStash scheduled | 24h + 1h push + email reminders |
+| `/api/jobs/membership-expiry` | QStash scheduled | 30d/7d/1d expiry alerts |
+| `/api/jobs/birthday-emails` | QStash scheduled | Birthday offer emails |
+| `/api/jobs/membership-usage-nudges` | QStash scheduled | Usage nudge emails |
+| `/api/jobs/lead-followups` | QStash scheduled | Stale lead alerts |
+| `/api/jobs/daily-sales-report` | QStash scheduled | Slack + email daily report |
+| `/api/jobs/weekly-report` | QStash scheduled | Weekly summary |
+| `/api/jobs/gems-expiry-reminder` | QStash scheduled | 7-day gems expiry push |
+| `/api/jobs/post-service-followup` | QStash triggered | Review request +24h after completion |
+| `/api/jobs/stale-booking-alert` | QStash triggered | Alert +2h after pending booking |
+| `/api/jobs/noshow-check` | QStash triggered | No-show check +15min after end time |
+| `/api/jobs/membership-expired-notice` | QStash triggered | Expired notice +1h after expiry |
+
+## Special Routes
+
+| Route | Description |
+| --- | --- |
+| `/api/auth/[...all]` | Better Auth catch-all (login, callback, session, sign-out) |
+| `/llms.txt` | AI agent discovery file |
+| `/llms-full.txt` | Detailed AI agent file with full service list |
+| `/sitemap.xml` | Auto-generated by Next.js |
+| `/robots.txt` | Auto-generated by Next.js |
+| `/manifest.json` | PWA manifest |
+| `/sw.js` | Service worker (PWA offline support) |

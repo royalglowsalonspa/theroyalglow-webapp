@@ -1,0 +1,232 @@
+---
+title: Error Handling
+description: API error patterns, error codes, AppError class, and Sentry integration for Royal Glow.
+---
+
+# Error Handling
+
+## Design Principles
+
+1. **Never leak internals** — No stack traces, DB column names, or internal IDs in client responses
+2. **Structured, predictable responses** — Every error follows the same JSON shape
+3. **Machine-readable codes** — Clients can programmatically handle specific errors
+4. **Human-readable messages** — Users see meaningful text, not "Something went wrong"
+5. **Correlation everywhere** — Every error carries a `requestId` for Sentry cross-referencing
+6. **Fail gracefully** — Operational errors return proper HTTP codes; programmer errors trigger alerts
+
+## Standard Response Shapes
+
+### Error Response
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "BOOKING_SLOT_UNAVAILABLE",
+    "message": "This time slot is no longer available. Please choose another.",
+    "statusCode": 409,
+    "requestId": "req_m8n3k5p2w",
+    "retryable": false
+  }
+}
+```
+
+### Success Response
+
+```json
+{
+  "success": true,
+  "data": { ... },
+  "meta": { "page": 1, "totalPages": 5, "totalCount": 47 }
+}
+```
+
+## HTTP Status Code Map
+
+| Code | Error Code | When Used |
+| --- | --- | --- |
+| `400` | `VALIDATION_ERROR` | Zod validation fails, malformed JSON |
+| `401` | `UNAUTHENTICATED` | No session, expired session |
+| `403` | `FORBIDDEN` | Authenticated but lacks permission |
+| `404` | `NOT_FOUND` | Resource doesn't exist |
+| `409` | `CONFLICT` / domain-specific | Slot taken, duplicate booking |
+| `422` | `BUSINESS_RULE_VIOLATION` | Valid data but violates business rule |
+| `429` | `RATE_LIMITED` | Upstash Ratelimit threshold exceeded |
+| `500` | `INTERNAL_ERROR` | Unhandled exception, DB failure |
+| `502` | `UPSTREAM_ERROR` | Resend API down, PDF service unreachable |
+| `503` | `SERVICE_UNAVAILABLE` | Neon DB in maintenance |
+
+## Error Classification
+
+### Operational Errors (Expected, Handled)
+
+Logged at `warn` level. No Sentry alert.
+
+| Category | Examples |
+| --- | --- |
+| Validation | Invalid phone, missing required field, bad date format |
+| Auth | Expired session, insufficient role |
+| Business rules | Slot already booked, membership expired, max reschedules reached |
+| Rate limits | Too many API calls |
+| Not found | Booking ID doesn't exist |
+
+### Programmer Errors (Unexpected, Alerted)
+
+Logged at `error` level. Sentry captures with full context.
+
+| Category | Examples |
+| --- | --- |
+| Unhandled exceptions | TypeError, null reference, missing env var |
+| DB errors | Connection pool exhausted, constraint violation |
+| External service failures | Resend 5xx, Ably connection lost, Neon timeout |
+
+## Error Code Registry
+
+All error codes are centralised in `packages/errors/codes.ts` — no magic strings:
+
+```ts
+export const ErrorCode = {
+  // Generic
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+  UNAUTHENTICATED: 'UNAUTHENTICATED',
+  FORBIDDEN: 'FORBIDDEN',
+  NOT_FOUND: 'NOT_FOUND',
+  RATE_LIMITED: 'RATE_LIMITED',
+  UPSTREAM_ERROR: 'UPSTREAM_ERROR',
+
+  // Booking domain
+  BOOKING_SLOT_UNAVAILABLE: 'BOOKING_SLOT_UNAVAILABLE',
+  BOOKING_ALREADY_CANCELLED: 'BOOKING_ALREADY_CANCELLED',
+  BOOKING_MAX_RESCHEDULES: 'BOOKING_MAX_RESCHEDULES',
+  BOOKING_CANCEL_WINDOW_PASSED: 'BOOKING_CANCEL_WINDOW_PASSED',
+
+  // Membership domain
+  MEMBERSHIP_EXPIRED: 'MEMBERSHIP_EXPIRED',
+  MEMBERSHIP_INSUFFICIENT_HOURS: 'MEMBERSHIP_INSUFFICIENT_HOURS',
+  MEMBERSHIP_ALREADY_ACTIVE: 'MEMBERSHIP_ALREADY_ACTIVE',
+
+  // Gems domain
+  GEMS_INSUFFICIENT_BALANCE: 'GEMS_INSUFFICIENT_BALANCE',
+  GEMS_SERVICE_NOT_REDEEMABLE: 'GEMS_SERVICE_NOT_REDEEMABLE',
+
+  // Offer domain
+  OFFER_EXPIRED: 'OFFER_EXPIRED',
+  OFFER_NOT_APPLICABLE: 'OFFER_NOT_APPLICABLE',
+} as const
+```
+
+## AppError Class
+
+```ts
+// packages/errors/app-error.ts
+
+export class AppError extends Error {
+  readonly code: ErrorCode
+  readonly statusCode: number
+  readonly isOperational: boolean
+  readonly retryable: boolean
+  readonly details?: unknown
+
+  constructor(params: {
+    code: ErrorCode
+    message: string
+    statusCode: number
+    isOperational?: boolean  // default: true
+    retryable?: boolean      // default: false
+    details?: unknown
+    cause?: Error
+  }) { ... }
+}
+
+// Convenience factories
+export function notFound(message = 'Resource not found') { ... }
+export function forbidden(message = '...') { ... }
+export function conflict(code: ErrorCode, message: string) { ... }
+export function badRequest(message: string, details?: unknown) { ... }
+export function serviceUnavailable(service: string, cause?: Error) { ... }
+```
+
+## API Route Pattern
+
+All API routes are wrapped with `withErrorHandler`:
+
+```ts
+// apps/web/src/app/api/bookings/route.ts
+export const POST = withErrorHandler(async (req: Request) => {
+  const body = await req.json()
+  const parsed = createBookingSchema.safeParse(body)
+
+  if (!parsed.success) {
+    throw new AppError({
+      code: 'VALIDATION_ERROR',
+      message: 'Invalid request data',
+      statusCode: 400,
+      details: parsed.error.flatten().fieldErrors,
+    })
+  }
+
+  const result = await createBooking(parsed.data)
+  return Response.json({ success: true, data: result }, { status: 201 })
+})
+```
+
+## Business Layer Pattern
+
+Business logic **throws AppError** — never catches it. The handler layer above decides what to do:
+
+```ts
+// packages/business/booking/create.ts
+export async function createBooking(input: CreateBookingInput) {
+  const isAvailable = await checkSlotAvailable(input.branchId, input.date, input.time)
+  if (!isAvailable) {
+    throw conflict('BOOKING_SLOT_UNAVAILABLE', 'This time slot is no longer available.')
+  }
+  // ...
+}
+```
+
+## Request ID Correlation
+
+Every request gets a unique ID attached in middleware:
+
+```ts
+const requestId = `req_${nanoid(12)}`
+requestHeaders.set('x-request-id', requestId)
+response.headers.set('x-request-id', requestId)
+```
+
+This ID appears in every error response, every Sentry event, and every log line — making it trivial to trace a specific request across all systems.
+
+## Sentry Integration
+
+| Error Type | Sentry Level | Alert |
+| --- | --- | --- |
+| Unhandled exception (500) | `error` | Slack + Email immediately |
+| External service failure (502/503) | `warning` | Slack if >3 in 5 min |
+| Business rule violation (4xx) | Not sent | — |
+| Validation error (400) | Not sent | — |
+| Rate limit exceeded (429) | Not sent | — |
+
+## Rate Limiting
+
+All rate limiting runs in Next.js middleware via `@upstash/ratelimit` backed by Upstash Redis. Applied **before** auth checks or any business logic.
+
+| Endpoint | Window | Limit |
+| --- | --- | --- |
+| `POST /api/bookings` | 1 min | 5 |
+| `POST /api/leads` | 1 min | 3 |
+| `GET /api/availability` | 10s | 10 |
+| `GET /api/services` | 10s | 20 |
+| `GET /api/health` | 10s | 30 |
+
+## Client-Side Error Handling
+
+```ts
+// On UNAUTHENTICATED → redirect to sign-in
+// On RATE_LIMITED → show toast "Too many requests. Please wait."
+// On VALIDATION_ERROR → let the form handle field-level errors
+// On anything else → show error.message in a toast
+```
+
+React Error Boundaries catch rendering errors at the route level. Each route group has its own `error.tsx` that reports to Sentry and shows a retry button.

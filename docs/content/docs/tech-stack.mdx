@@ -1,0 +1,132 @@
+---
+title: Tech Stack
+description: Every technology used in the Royal Glow platform and why it was chosen.
+---
+
+# Tech Stack
+
+Royal Glow is built for scale (20k–50k users), premium feel, and long-term maintainability by a single developer. Every technology choice is made with that constraint in mind.
+
+<Callout type="info">
+  **Total monthly infrastructure cost at launch: ₹0.** Every service runs on a free tier that is generous enough for a salon at this scale.
+</Callout>
+
+## Core Stack
+
+| Layer | Technology | Why |
+| --- | --- | --- |
+| Runtime | **Bun** | Faster than Node.js for installs, test runs, and scripts |
+| Language | **TypeScript** (strict) | Type safety across the full stack — catches ~40% of bugs before tests run |
+| Framework | **Next.js 16.2.6** (App Router) | SSR, SSG, API routes, edge-ready. `params`/`searchParams` are Promises in v16. |
+| UI | **React** | Component model, ecosystem |
+| Styling | **Tailwind CSS v4** | Utility-first, design tokens, fast iteration |
+| Components | **shadcn/ui** | Copy-paste Radix-based components — fully owned, zero runtime overhead |
+| Animation | **motion** (motion.dev) | Page transitions, staggered reveals, micro-interactions — free tier |
+| Monorepo | **Turborepo + Bun workspaces** | Bun manages packages; Turborepo handles task orchestration + incremental caching |
+
+## Database & ORM
+
+| Tool | Role |
+| --- | --- |
+| **Neon PostgreSQL 16** | Serverless Postgres with branching — 1 project, 4 environment branches, free tier |
+| **Drizzle ORM** | Pure TypeScript, no binary — edge-native, runs on Cloudflare Workers without adapters |
+
+**Why Drizzle over Prisma:** Prisma's Rust query engine binary cannot run in a V8 isolate (Cloudflare Workers) without workarounds or paid Prisma Accelerate. Drizzle is pure TypeScript and works everywhere.
+
+## Authentication
+
+| Tool | Role |
+| --- | --- |
+| **Better Auth** | Primary auth library — Google OAuth, RBAC plugin, session management |
+| **Better Auth Cloud** | Free dashboard, audit logs, user management UI |
+
+Google OAuth only — no email/password. This eliminates credential stuffing, weak passwords, and reset flows. All salon customers in India have Google accounts.
+
+## Infrastructure & Hosting
+
+| Layer | Technology |
+| --- | --- |
+| Edge Hosting | **Cloudflare Pages + Workers** |
+| SSR Origin + CMS | **Render** (Singapore, free tier) |
+| Database | **Neon DB** (PostgreSQL, 4 branches, pg_cron) |
+| Realtime | **Ably** (6M messages/mo free) |
+| File Storage | **Cloudflare R2** (10 GB free, zero egress) |
+| Cache + Queue | **Upstash Redis + QStash** |
+| Edge Cache | **Cloudflare KV** (service catalog, 5-min TTL) |
+| CMS | **Payload CMS v3** (self-hosted on Render, media to R2) |
+| Documentation | **Fumadocs** — `docs.theroyalglow.in` |
+
+## Email
+
+| Tool | Role |
+| --- | --- |
+| **Resend** | Transactional emails (invoices, booking confirmations) |
+| **React Email** | Email templates in React/TypeScript |
+| **Brevo** | Marketing/bulk emails with unsubscribe management |
+
+## Testing & Code Quality
+
+| Tool | Purpose |
+| --- | --- |
+| **Biome + Ultracite** | Linting + formatting (replaces ESLint + Prettier — 100x faster) |
+| **Vitest** | Unit & integration testing |
+| **React Testing Library** | Component testing |
+| **Playwright** | End-to-end testing (5 browsers) |
+| **MSW** | API mocking (network-level, works in browser + Node) |
+| **k6** | Load testing (target: 50 concurrent on preprod) |
+| **Lighthouse CI** | Performance gate — ≥95 score required to merge |
+| **Trivy + Semgrep + Socket.dev** | Security scanning (deps, SAST, supply chain) |
+| **Husky + lint-staged** | Pre-commit hooks (lint + format on staged files) |
+| **Checkly** | Synthetic monitoring (real Playwright scripts in prod) |
+
+## Observability & Analytics
+
+| Layer | Tool | Free Tier |
+| --- | --- | --- |
+| Error monitoring | **Sentry** | 5k errors/mo |
+| Uptime + status + jobs + logs | **BetterStack** | 10 monitors, 1 GB logs/mo |
+| Product analytics | **PostHog** | 1M events/mo |
+| Heatmaps + session recordings | **Microsoft Clarity** | Free forever |
+
+## CRM & Lead Tracking
+
+| Tool | Role |
+| --- | --- |
+| **AiSensy** | WhatsApp lead management — shared team inbox, Meta Click-to-WhatsApp |
+| **Meta Pixel** | Browser-side event tracking |
+| **Meta Conversions API (CAPI)** | Server-side event tracking — reliable, unaffected by iOS privacy |
+| **Custom `/admin/leads`** | In-house lead pipeline — reads directly from Neon DB |
+
+**Why no external CRM:** All customer and booking data lives in Neon DB. An external CRM would require a continuous sync pipeline, creating two sources of truth. The CRM is built as admin views inside the app.
+
+## UI Component Library
+
+| Side | Stack | Notes |
+| --- | --- | --- |
+| Customer-facing | shadcn/ui + Tailwind v4 + **motion** | Restyled for premium brand feel |
+| Admin | shadcn/ui + Tailwind v4 | Functional and consistent |
+| CMS | Payload built-in UI | Payload ships its own admin UI |
+
+**Why shadcn/ui:** Components are copy-pasted into your repo — you own 100% of the code. Built on Radix UI primitives for production-tested accessibility. Zero runtime overhead.
+
+## Design Principles
+
+- **Lighthouse gates:** performance ≥ 95; accessibility, best practices, and SEO = 100
+- **Premium feel** — rich, high-end aesthetic matching the brand
+- **Edge-first** — sub-100ms response times globally via Cloudflare
+- **Single developer** — tooling must minimise ops overhead
+- **₹0/month at launch** — every service on a free tier
+
+## Technology Decision Log
+
+Key decisions where alternatives were seriously considered:
+
+| Decision | Chosen | Rejected | Reason |
+| --- | --- | --- | --- |
+| Auth | Better Auth | Clerk, Auth.js | Self-hosted, Google consent shows YOUR domain, built-in RBAC |
+| ORM | Drizzle | Prisma | Prisma binary can't run on CF Workers V8 isolate |
+| Database | Neon | Supabase, PlanetScale | Branching (10 free), pg_cron native, serverless |
+| Hosting | Cloudflare Pages | Vercel | Generous free tier, no bandwidth surprises, R2/KV/Workers in one |
+| Realtime | Ably | Pusher | 6M messages/mo vs 200k/day free |
+| Analytics | PostHog | Google Analytics | DPDP Act concern with GA; PostHog has 1M events/mo + feature flags |
+| Linting | Biome | ESLint + Prettier | 100x faster, single config file, native TypeScript |

@@ -1,0 +1,161 @@
+---
+title: Git Workflow
+description: Branch strategy, CI/CD pipeline, commit conventions, and database-per-environment for Royal Glow.
+---
+
+# Git Workflow
+
+## Branch Strategy
+
+Single developer workflow with **4 persistent branches**, each mapped to an environment:
+
+| Branch | Environment | Neon Branch | Purpose |
+| --- | --- | --- | --- |
+| `prod` | Production | `main` | Live traffic — real customers |
+| `pprd` | Pre-production | `preprod` | Final validation before going live |
+| `test` | Test / QA | `test` | Integration tests, CI |
+| `dev` | Development | `dev` | Active development work |
+
+**Flow direction:** `dev → test → pprd → prod`
+
+Work happens on `dev` (or short-lived feature branches off `dev`). Code must pass all CI gates at each stage before being promoted. **No direct pushes to `prod`.**
+
+## Branch Protection Rules
+
+| Branch | Protection |
+| --- | --- |
+| `prod` | Require manual approval + all CI checks passing |
+| `pprd` | Require all CI checks (lint, test, Playwright, Lighthouse, k6) |
+| `test` | Require lint + unit + integration + Playwright + Lighthouse CI |
+| `dev` | Require lint + type check + unit tests |
+
+## Database Per Environment
+
+All environments use **Neon DB branches** within a single Neon project — no separate paid projects needed.
+
+| Branch | Neon Branch | Reset Policy |
+| --- | --- | --- |
+| `prod` | `main` | Never reset — live customer data |
+| `pprd` | `preprod` | Auto-reset daily from `main` + PII stripped |
+| `test` | `test` | Wiped and reseeded before each CI run |
+| `dev` | `dev` | Developer sandbox, scales to zero when idle |
+
+## Prod → Preprod Data Replication
+
+Every 24 hours, a GitHub Actions cron job uses the **Neon Branch Reset API** to sync preprod from prod:
+
+1. Calls the Neon API to reset the `preprod` branch from `main`
+2. Runs a PII anonymisation script (names, phone numbers, emails replaced with fake data)
+3. Preprod is now a clean, realistic copy of prod without real customer data
+
+This is faster than `pg_dump` / `pg_restore` because Neon branching is a near-instant copy-on-write operation at the storage layer.
+
+```yaml
+# .github/workflows/replicate-prod-to-pprd.yml
+on:
+  schedule:
+    - cron: '0 1 * * *'  # 1 AM UTC daily
+```
+
+## CI/CD Pipeline
+
+### On PR to `dev`
+
+```
+✅ Lint + Format (Biome + Ultracite)
+✅ Type check (tsc --noEmit)
+✅ Unit tests (Vitest)
+```
+
+### On PR to `test`
+
+```
+✅ Lint + Format
+✅ Type check
+✅ Unit tests
+✅ Integration tests (Neon test branch)
+✅ Playwright E2E tests
+✅ Lighthouse CI (performance ≥ 95; accessibility, best practices, SEO = 100)
+```
+
+### On PR to `pprd`
+
+```
+✅ All tests from test branch
+✅ k6 load test against pprd environment
+✅ OWASP ZAP security scan
+✅ Smoke test Playwright suite
+```
+
+### On PR to `prod`
+
+```
+✅ All CI gates passing
+✅ Manual approval required
+🚀 Deploy to Cloudflare Pages
+```
+
+## Commit Conventions
+
+Use **Conventional Commits** for clean history and automatic changelog generation:
+
+```
+feat: add booking confirmation email
+fix: correct availability calculation for same-day slots
+chore: update dependencies
+docs: update testing plan
+test: add E2E test for admin booking flow
+refactor: extract pricing logic to service layer
+perf: cache service catalog in Cloudflare KV
+security: add rate limiting to /api/leads
+```
+
+## Pre-Commit Hooks
+
+Every `git commit` automatically runs **Biome** lint + format on staged files via Husky + lint-staged:
+
+```bash
+# What runs on every commit (~200ms):
+biome check --write --staged
+```
+
+This catches formatting issues and obvious lint errors **before they ever reach CI** — saving pipeline minutes and avoiding "fix lint" commits.
+
+## Secrets Management
+
+| Secret | Where Stored |
+| --- | --- |
+| `DATABASE_URL_PROD/PPRD/TEST/DEV` | GitHub Actions encrypted secrets |
+| `DATABASE_URL_UNPOOLED_*` | GitHub Actions encrypted secrets |
+| `RESEND_API_KEY` | GitHub Actions encrypted secret |
+| `BETTER_AUTH_SECRET` | GitHub Actions encrypted secret |
+| `GOOGLE_OAUTH_CLIENT_ID/SECRET` | GitHub Actions encrypted secret |
+
+**Rule: Never commit secrets to git.** Use `.env.local` locally (gitignored) and GitHub Actions secrets in CI.
+
+## Deployment
+
+### Cloudflare Pages (Customer Site)
+
+- Automatic deployment on push to `prod` branch
+- Preview deployments on every PR (unique URL per PR)
+- Rollback: instant via Cloudflare Pages dashboard
+
+### Render (CMS + SSR Origin)
+
+- Auto-deploy on push to `prod` branch
+- Zero-downtime deploys via Render's rolling restart
+
+## Weekly Backup
+
+Every Sunday at 2 AM UTC, a GitHub Actions workflow:
+1. Runs `pg_dump` against the Neon `main` branch
+2. Uploads the compressed dump to Cloudflare R2 (`backups/weekly/`)
+3. Retains 8 weeks of backups
+4. Pings the BetterStack heartbeat on success
+
+## Related
+
+- [Testing](/docs/testing) — Full CI gate specifications
+- [Deployment](/docs/deployment) — Platform configuration details
+- [Environment Variables](/docs/environment-variables) — All secrets and their purpose

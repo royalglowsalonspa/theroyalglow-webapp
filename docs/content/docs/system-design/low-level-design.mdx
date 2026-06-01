@@ -1,0 +1,286 @@
+---
+title: Low-Level Design
+description: Database schema details, booking state machine, background job specifications, and sequence diagrams for Royal Glow.
+---
+
+# Low-Level Design
+
+## Booking State Machine
+
+```
+pending
+  ├── confirmed   (receptionist approves + assigns staff)
+  ├── rejected    (receptionist rejects)
+  └── cancelled   (customer cancels before confirmation)
+
+confirmed
+  ├── in_progress  (service started)
+  ├── cancelled    (customer cancels, within window)
+  ├── rescheduled  (customer reschedules)
+  └── no_show      (customer didn't arrive, +15min after end_time)
+
+in_progress
+  └── completed    (service done, invoice generated, gems awarded)
+```
+
+**Walk-ins skip `pending`** — they go directly to `confirmed`.
+
+**Booking status log:** Every status transition is recorded in `booking_status_log` with timestamp, actor (user ID), and reason.
+
+## Booking Number Format
+
+```
+BK-{branch_code}-{YYMM}-{H|S}-{5_random}[-M]
+
+Examples:
+  BK-RS-2605-H-38291    ← Salon booking, Rayasandra, May 2026
+  BK-RS-2605-S-72841    ← SPA booking
+  BK-RS-2605-S-91023-M  ← SPA membership session
+```
+
+- `H` = salon (hair/beauty)
+- `S` = spa
+- `-M` suffix = membership session
+
+## Invoice Number Format
+
+```
+INV-{branch_number}-{financial_year}-{5_digit_random}
+
+Example: INV-1-2627-92921
+  ← Branch 1, Financial Year 2026-27, random 92921
+```
+
+Indian financial year runs April–March. A date in May 2026 → FY "2627". A date in February 2026 → FY "2526".
+
+## GST Calculation
+
+All prices are GST-inclusive (18%, SAC 999721). Back-calculate the taxable base:
+
+```typescript
+const GST_RATE = 0.18
+
+function splitGST(inclusivePaise: number) {
+  const basePaise = Math.round(inclusivePaise / (1 + GST_RATE))
+  const gstPaise = inclusivePaise - basePaise
+  const cgstPaise = Math.floor(gstPaise / 2)   // CGST = half of GST
+  const sgstPaise = gstPaise - cgstPaise         // SGST = remainder
+  return { basePaise, gstPaise, cgstPaise, sgstPaise, totalPaise: inclusivePaise }
+}
+```
+
+CGST and SGST are equal halves (intra-state, Karnataka). The base is rounded; GST is the remainder — so `base + gst` always reconstructs the original inclusive amount exactly.
+
+## Gems (Loyalty) Calculation
+
+```typescript
+// Earn rate: 1 gem per ₹100 invoiced (floor)
+function calculateGemsEarned(invoiceTotalPaise: number): number {
+  return Math.floor(invoiceTotalPaise / 10000)  // 10000 paise = ₹100
+}
+
+// Only on invoice_type = 'service'
+// NOT on membership purchases or membership sessions
+// Gems expire 365 days from earn date
+```
+
+## No-Show Policy Logic
+
+```
+no_show_count (within last 90 days):
+  1–3:  CRM tag "No-Show Risk", no booking restriction
+  4+:   booking_requires_approval = true on customer_profile
+        → Manager must approve future bookings
+
+Recovery:
+  3 consecutive completed bookings → reset no_show_count
+  Walk-in no-shows do NOT count
+```
+
+## Background Jobs (19 Total)
+
+### pg_cron Jobs (7) — Run Inside Neon DB
+
+| Job | Schedule (UTC) | What It Does |
+| --- | --- | --- |
+| 1. Nightly sales summary | `0 18 * * *` (11:30 PM IST) | Aggregates daily revenue into `daily_sales_summary` |
+| 2. Membership auto-expire | `30 18 * * *` (midnight IST) | Sets `status = 'expired'` on memberships past `expires_at` |
+| 3. Offer auto-expire | `0 18 * * *` | Sets `is_active = false` on offers past `end_date` |
+| 4. Session cleanup | `0 21 * * 0` (2:30 AM IST Sunday) | Deletes expired Better Auth sessions |
+| 5. Preprod sync | `30 19 * * *` (1 AM IST) | Triggers GitHub Actions to reset preprod from prod |
+| 6. Monthly GST summary | `0 18 1 * *` (11:30 PM IST, 1st of month) | Aggregates monthly GST into `monthly_gst_summary` |
+| 7. Gems auto-expire | `0 18 * * *` | Offsets earned transactions older than 365 days |
+
+### QStash Scheduled Jobs (8) — HTTP Callbacks
+
+| Job | Schedule | What It Does |
+| --- | --- | --- |
+| 8. Appointment reminders | Every 15 min | Sends push + email for bookings in next 24h and 1h |
+| 9. Membership expiry alerts | Daily | Sends alerts at 30d/7d/1d before expiry |
+| 10. Birthday emails | Daily | Sends birthday offer to customers with birthday today |
+| 11. Membership usage nudges | Weekly | Nudges members with >50% hours unused |
+| 12. Lead follow-ups | Every 4h | Alerts receptionist about leads with no contact in 48h |
+| 13. Daily sales report | Daily 9 PM IST | Sends Slack + email report to owner/manager |
+| 14. Weekly report | Monday 9 AM IST | Sends weekly summary |
+| 15. Gems expiry reminder | Daily | Push notification 7 days before gems expire |
+
+### QStash Triggered Jobs (4) — Fired by API Routes
+
+| Job | Trigger | Delay | What It Does |
+| --- | --- | --- | --- |
+| 16. Post-service follow-up | Booking completed | +24h | Sends review request email/WhatsApp |
+| 17. Stale booking alert | Booking created (pending) | +2h | Alerts receptionist if still pending |
+| 18. No-show check | Booking confirmed | +15min after end_time | Marks no-show if customer didn't arrive |
+| 19. Membership expired notice | Membership expires | +1h | Sends expiry notice to customer |
+
+## Realtime Channels (Ably)
+
+| Channel | Who Subscribes | Events |
+| --- | --- | --- |
+| `booking:{bookingId}` | Customer | `status_changed` |
+| `admin:bookings:{branchId}` | Receptionist/Manager | `booking_created`, `booking_updated` |
+| `admin:schedule:{date}` | Manager | `schedule_updated`, `leave_approved` |
+
+**Token Auth:** Clients receive a scoped Ably JWT from `POST /api/ably/token`. The token is scoped to only the channels the user is allowed to subscribe to (based on their role and user ID).
+
+## Booking Creation Sequence
+
+```
+Customer submits booking form
+    │
+    ▼
+POST /api/bookings
+    │
+    ├── 1. Validate session (requireSession)
+    ├── 2. Zod validate request body
+    ├── 3. Check slot availability (Redis cache → DB)
+    ├── 4. Validate all service IDs exist and are active
+    ├── 5. Get default staff for each service
+    ├── 6. Generate booking number (BK-RS-YYMM-H/S-XXXXX)
+    ├── 7. INSERT booking row (status: pending)
+    ├── 8. INSERT booking_service rows (price snapshot)
+    ├── 9. Enqueue QStash job 17 (stale booking alert, +2h)
+    ├── 10. Invalidate Redis slot cache
+    ├── 11. Publish Ably event to admin:bookings:{branchId}
+    └── 12. Return { success: true, data: { bookingId, bookingNumber } }
+```
+
+## Booking Completion Sequence
+
+```
+Receptionist clicks "Mark Complete"
+    │
+    ▼
+POST /api/admin/bookings/{id}/complete
+    │
+    ├── 1. Validate session (requireRole: receptionist+)
+    ├── 2. Validate booking exists and is in_progress
+    ├── 3. Calculate invoice total (sum of booking_service prices)
+    ├── 4. splitGST(totalPaise) → base, CGST, SGST
+    ├── 5. Generate invoice number (INV-1-YYZZ-XXXXX)
+    ├── 6. INSERT invoice row
+    ├── 7. INSERT invoice_item rows (price + name snapshot)
+    ├── 8. UPDATE booking status → completed
+    ├── 9. Calculate gems earned (floor(total / 10000))
+    ├── 10. UPSERT loyalty_account, INSERT loyalty_transaction
+    ├── 11. Generate PDF (React Email → PDF → R2 upload)
+    ├── 12. Send invoice email via Resend (synchronous)
+    ├── 13. Fire Meta CAPI Purchase event (server-side)
+    ├── 14. Enqueue QStash job 16 (post-service follow-up, +24h)
+    ├── 15. Publish Ably event to booking:{bookingId}
+    └── 16. Return { success: true, data: { invoiceId, invoiceNumber } }
+```
+
+## Membership Session Recording Sequence
+
+```
+Receptionist records SPA session
+    │
+    ▼
+POST /api/admin/memberships/{id}/sessions
+    │
+    ├── 1. Validate session (requireRole: receptionist+)
+    ├── 2. Validate membership is active and has sufficient hours
+    ├── 3. Validate service is a SPA service
+    ├── 4. Deduct hours from spa_membership.used_hours_minutes
+    ├── 5. INSERT booking row (status: completed, total: ₹0)
+    ├── 6. INSERT booking_service row
+    ├── 7. INSERT invoice row (type: membership_session, total: ₹0)
+    ├── 8. INSERT invoice_item row
+    ├── 9. NO gems awarded (membership sessions don't earn gems)
+    └── 10. Return { success: true, data: { bookingId, remainingMinutes } }
+```
+
+## Lead Capture Sequence
+
+```
+Customer submits /book form (Meta ad landing page)
+    │
+    ▼
+POST /api/leads
+    │
+    ├── 1. Rate limit check (3 per minute per IP)
+    ├── 2. Zod validate (name, phone, serviceInterestedId)
+    ├── 3. Normalise Indian phone number (+91XXXXXXXXXX)
+    ├── 4. INSERT lead row (status: new, source: meta_ad)
+    ├── 5. Fire Meta CAPI Lead event (server-side)
+    ├── 6. Enqueue QStash job 12 (lead follow-up, +48h)
+    └── 7. Redirect to /?book=1&leadId={id}
+         → Customer can now book normally
+         → When booking created, lead.converted_booking_id is set
+         → lead.status → booked
+```
+
+## Database Indexes
+
+Key indexes for query performance:
+
+```sql
+-- Booking queries
+CREATE INDEX idx_booking_customer ON booking(customer_id);
+CREATE INDEX idx_booking_branch_date ON booking(branch_id, booking_date);
+CREATE INDEX idx_booking_status ON booking(status);
+
+-- Availability queries
+CREATE INDEX idx_booking_staff_date ON booking(assigned_staff_id, booking_date)
+  WHERE status IN ('confirmed', 'in_progress');
+
+-- Membership queries
+CREATE INDEX idx_membership_customer_active ON spa_membership(customer_id)
+  WHERE status = 'active';
+
+-- Loyalty queries
+CREATE INDEX idx_loyalty_tx_account ON loyalty_transaction(loyalty_account_id);
+CREATE INDEX idx_loyalty_tx_expiry ON loyalty_transaction(expires_at)
+  WHERE transaction_type = 'earn' AND is_expired = false;
+
+-- Lead queries
+CREATE INDEX idx_lead_status ON lead(status);
+CREATE INDEX idx_lead_source ON lead(source);
+```
+
+## Security Implementation
+
+### Input Validation
+
+Every API route validates input with Zod `.safeParse()` before any business logic runs. Raw client input never reaches the database.
+
+### Rate Limiting
+
+`@upstash/ratelimit` with sliding window algorithm. Applied in Next.js middleware before auth checks.
+
+### CSP Headers
+
+Strict Content-Security-Policy with nonce-based script loading. Configured in `next.config.ts`.
+
+### SQL Injection Prevention
+
+Drizzle ORM uses parameterized queries exclusively. No raw SQL string concatenation anywhere in the codebase.
+
+### CORS
+
+Exact origin matching (`theroyalglow.in` only). No wildcard `*`.
+
+### Webhook Verification
+
+All inbound webhooks (QStash, Meta, AiSensy) verify HMAC signatures before processing.

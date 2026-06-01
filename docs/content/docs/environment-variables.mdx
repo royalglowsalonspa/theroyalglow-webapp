@@ -1,0 +1,243 @@
+---
+title: Environment Variables
+description: All 55 environment variables for the Royal Glow platform — what they do, where they go, and how they're validated.
+---
+
+# Environment Variables
+
+Royal Glow runs a monorepo with two Next.js apps (`apps/web`, `apps/cms`), deployed across two platforms (Cloudflare Pages + Render), and relies on ~15 external services.
+
+<Callout type="warn">
+  Environment variables are **validated at build time** using `@t3-oss/env-nextjs` + Zod. If any required variable is missing or malformed, the build fails immediately. Never use `process.env` directly — always import from `apps/web/src/env.ts`.
+</Callout>
+
+## Quick Start
+
+```bash
+# 1. Copy templates
+cp apps/web/.env.example apps/web/.env.local
+cp apps/cms/.env.example apps/cms/.env.local
+
+# 2. Fill in values from your service dashboards
+
+# 3. Generate VAPID keys (one-time only)
+bunx web-push generate-vapid-keys
+
+# 4. Validate — build fails fast if anything is missing
+cd apps/web && bun run build
+```
+
+## File Structure
+
+```
+rgss_solutions/
+├── .env.example               # Root template (committed)
+├── .env.local                 # Local dev secrets — NEVER commit
+├── apps/web/.env.example      # web-specific vars (committed)
+├── apps/web/.env.local        # Local overrides (gitignored)
+└── apps/cms/.env.example      # cms-specific vars (committed)
+```
+
+## Complete Variable Reference
+
+### Database (Neon)
+
+| Variable | Apps | Description |
+| --- | --- | --- |
+| `DATABASE_URL` | web, cms | Pooled connection via Neon pgBouncer — used by all app queries |
+| `DATABASE_URL_UNPOOLED` | web | Direct connection — for migrations only |
+
+> **Per-environment branches:** Use GitHub Environments so `DATABASE_URL` points to the correct Neon branch per environment (`main` / `preprod` / `test` / `dev`).
+
+### Auth — Better Auth
+
+| Variable | Description |
+| --- | --- |
+| `BETTER_AUTH_SECRET` | Random string min 32 chars — signs sessions and tokens |
+| `BETTER_AUTH_URL` | Public app origin: `https://theroyalglow.in` |
+| `GOOGLE_OAUTH_CLIENT_ID` | Google OAuth 2.0 client ID |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Google OAuth 2.0 client secret |
+
+### Email — Transactional (Resend)
+
+| Variable | Description |
+| --- | --- |
+| `RESEND_API_KEY` | Starts with `re_` — transactional emails (invoices, confirmations) |
+| `RESEND_FROM_EMAIL` | Default From header: `Royal Glow <contact@theroyalglow.in>` |
+
+### Email — Marketing (Brevo)
+
+| Variable | Description |
+| --- | --- |
+| `BREVO_API_KEY` | Bulk/marketing email sends (offers, birthday, re-engagement) |
+
+### Realtime — Ably
+
+| Variable | Visibility | Description |
+| --- | --- | --- |
+| `NEXT_PUBLIC_ABLY_KEY` | **Public** | Publishable key — sent to browser for client-side subscriptions |
+| `ABLY_PRIVATE_KEY` | Private | Server-only key — used in API routes for publishing events |
+
+### File Storage — Cloudflare R2
+
+| Variable | Description |
+| --- | --- |
+| `R2_ACCOUNT_ID` | Cloudflare account ID |
+| `R2_ACCESS_KEY_ID` | R2 S3-compatible access key |
+| `R2_SECRET_ACCESS_KEY` | R2 S3-compatible secret key |
+| `R2_BUCKET_NAME` | Bucket name: `theroyalglow-uploads` |
+| `NEXT_PUBLIC_R2_PUBLIC_URL` | Public CDN URL: `https://uploads.theroyalglow.in` |
+
+### Cache — Upstash Redis
+
+| Variable | Description |
+| --- | --- |
+| `UPSTASH_REDIS_REST_URL` | Upstash Redis REST endpoint |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis auth token |
+
+### Queue — Upstash QStash
+
+| Variable | Description |
+| --- | --- |
+| `QSTASH_TOKEN` | Publishing token — used to enqueue jobs |
+| `QSTASH_CURRENT_SIGNING_KEY` | Verifies incoming QStash callbacks — current key |
+| `QSTASH_NEXT_SIGNING_KEY` | Verifies incoming QStash callbacks — rotated key |
+
+### Web Push — VAPID Keys
+
+| Variable | Visibility | Description |
+| --- | --- | --- |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | **Public** | Sent to browser to create push subscription |
+| `VAPID_PRIVATE_KEY` | Private | Used server-side to send push notifications |
+| `VAPID_SUBJECT` | Private | `mailto:contact@theroyalglow.in` |
+
+Generate once: `bunx web-push generate-vapid-keys`. These never change unless you intentionally rotate (which invalidates all existing push subscriptions).
+
+### Cloudflare — KV + CI/CD
+
+| Variable | Description |
+| --- | --- |
+| `CLOUDFLARE_ACCOUNT_ID` | Required for `wrangler deploy` and KV REST API writes |
+| `CLOUDFLARE_API_TOKEN` | Token with Pages + Workers + KV permissions |
+| `CLOUDFLARE_KV_NAMESPACE_ID` | KV namespace ID for edge-cached service listings |
+
+### Observability — Sentry
+
+| Variable | Description |
+| --- | --- |
+| `NEXT_PUBLIC_SENTRY_DSN` | Sentry DSN — browser-side error capture |
+| `SENTRY_AUTH_TOKEN` | CI/CD only — uploads source maps during build |
+| `SENTRY_ORG` | Your Sentry organisation slug |
+| `SENTRY_PROJECT` | Your Sentry project slug: `rgss` |
+
+### Observability — BetterStack
+
+| Variable | Description |
+| --- | --- |
+| `BETTER_STACK_TOKEN` | Log drain source token |
+| `BETTER_STACK_HEARTBEAT_NIGHTLY_SALES` | Heartbeat for nightly sales/GST/offer/gems jobs |
+| `BETTER_STACK_HEARTBEAT_PREPROD_SYNC` | GitHub Actions: preprod DB sync |
+| `BETTER_STACK_HEARTBEAT_REMINDERS` | QStash: appointment reminder scheduler |
+| `BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY` | pg_cron + QStash: membership expiry |
+| `BETTER_STACK_HEARTBEAT_SESSION_CLEANUP` | pg_cron: session cleanup |
+| `BETTER_STACK_HEARTBEAT_BACKUP` | GitHub Actions: weekly R2 backup |
+| `BETTER_STACK_DEPLOY_WEBHOOK` | Deployment marker webhook |
+| `BETTER_STACK_INCIDENT_WEBHOOK` | Incident webhook on deploy/backup failure |
+
+### Analytics — PostHog & Clarity
+
+| Variable | Visibility | Description |
+| --- | --- | --- |
+| `NEXT_PUBLIC_POSTHOG_KEY` | **Public** | PostHog project API key: `phc_xxx` |
+| `NEXT_PUBLIC_POSTHOG_HOST` | **Public** | `https://us.i.posthog.com` |
+| `NEXT_PUBLIC_CLARITY_ID` | **Public** | Microsoft Clarity project ID |
+
+### Ads & Tracking — Meta
+
+| Variable | Visibility | Description |
+| --- | --- | --- |
+| `NEXT_PUBLIC_META_PIXEL_ID` | **Public** | Meta Pixel ID |
+| `META_PIXEL_ACCESS_TOKEN` | Private | Conversions API (CAPI) access token |
+| `META_CAPI_WEBHOOK_TOKEN` | Private | Verifies incoming Meta webhook payloads |
+| `META_TEST_EVENT_CODE` | Private, dev/pprd only | Routes CAPI events to test panel — omit in production |
+
+### Reporting
+
+| Variable | Description |
+| --- | --- |
+| `SLACK_WEBHOOK_URL` | Slack incoming webhook — daily/weekly sales reports |
+| `DAILY_REPORT_EMAIL_RECIPIENTS` | Comma-separated emails for reports |
+
+### CRM — AiSensy
+
+| Variable | Description |
+| --- | --- |
+| `AISENSY_API_KEY` | AiSensy API key for WhatsApp integration |
+| `AISENSY_WEBHOOK_SECRET` | Verifies incoming AiSensy webhook payloads |
+
+### CMS — Payload
+
+| Variable | Apps | Description |
+| --- | --- | --- |
+| `PAYLOAD_SECRET` | cms | Random secret used by Payload to encrypt tokens and cookies |
+
+### App Configuration
+
+| Variable | Visibility | Dev value | Prod value |
+| --- | --- | --- | --- |
+| `APP_ENV` | Private | `dev` | `prod` |
+| `NEXT_PUBLIC_APP_URL` | **Public** | `http://localhost:3000` | `https://theroyalglow.in` |
+| `NEXT_PUBLIC_CMS_URL` | **Public** | `http://localhost:3001` | `https://admin.theroyalglow.in` |
+
+> **`NODE_ENV` vs `APP_ENV`:** `NODE_ENV` is always `development` or `production` (Next.js convention). `APP_ENV` distinguishes between our 4 deployment environments: `dev`, `test`, `pprd`, `prod`. Use `APP_ENV` for environment-specific logic.
+
+## Variable Count Summary
+
+| Category | Count |
+| --- | --- |
+| Database | 2 |
+| Auth | 4 |
+| Email (transactional + marketing) | 3 |
+| Realtime (Ably) | 2 |
+| File Storage (R2) | 5 |
+| Cache (Redis) | 2 |
+| Queue (QStash) | 3 |
+| Web Push (VAPID) | 3 |
+| Cloudflare KV + CI/CD | 3 |
+| Sentry | 4 |
+| BetterStack | 9 |
+| Analytics | 3 |
+| Meta Pixel + CAPI | 4 |
+| Reporting | 2 |
+| AiSensy | 2 |
+| Payload | 1 |
+| App Config | 3 |
+| **Total** | **55** |
+
+## Platform Injection
+
+| Platform | Where to set | Applied to |
+| --- | --- | --- |
+| **Cloudflare Pages** | Pages → Settings → Environment Variables | `apps/web` (edge) |
+| **Render** | Service → Environment tab | `apps/web` (SSR origin) + `apps/cms` |
+
+Both platforms inject vars at runtime — no `.env` file is needed or present in production.
+
+## GitHub Secrets
+
+```
+Repository Settings → Secrets and variables → Actions
+├── DATABASE_URL_DEV / TEST / PPRD / PROD
+├── DATABASE_URL_UNPOOLED_DEV / TEST / PPRD / PROD
+├── BETTER_AUTH_SECRET
+├── GOOGLE_OAUTH_CLIENT_ID / SECRET
+└── ... (all other secrets)
+```
+
+Reference in GitHub Actions:
+
+```yaml
+env:
+  DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
+  BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+```

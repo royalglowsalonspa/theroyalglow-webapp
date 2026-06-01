@@ -1,0 +1,174 @@
+---
+title: Favourite Services
+description: Customers can heart services to mark them as favourites, which appear first in the booking dialog.
+---
+
+# Favourite Services
+
+Customers can "heart" services to mark them as favourites. Favourited services appear first in the booking dialog (Step 3) on subsequent bookings, reducing friction for repeat customers.
+
+## Problem
+
+Repeat customers at Royal Glow typically book the same 2–4 services every visit. Currently, they must scroll through all services each time. This adds unnecessary friction to the booking flow.
+
+## Solution
+
+Add a heart icon on every service card. Tapping toggles the favourite state. On subsequent bookings, favourited services are shown in a "Your Favourites" section above the regular service list in Step 3 of the booking dialog.
+
+## Database Schema
+
+```sql
+CREATE TABLE favourite_service (
+  user_id       TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+  service_id    TEXT NOT NULL REFERENCES service(id) ON DELETE CASCADE,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  PRIMARY KEY (user_id, service_id)
+);
+
+CREATE INDEX idx_favourite_service_user ON favourite_service(user_id);
+```
+
+**Design decisions:**
+- Composite primary key prevents duplicate favourites
+- CASCADE delete: if user or service is deleted, favourites are cleaned up
+- `created_at` allows future sorting by "most recently favourited"
+- No limit on favourites — with 20–40 services, no practical reason to limit
+
+## API Endpoints
+
+### `GET /api/favourites` — List user's favourites
+
+**Auth:** Required (customer+)
+**Response:** `{ success: true, data: { favourites: string[] } }` (array of service IDs)
+
+### `POST /api/favourites` — Add a favourite
+
+**Auth:** Required (customer+)
+**Body:** `{ serviceId: string }`
+**Response:** `{ success: true }`
+**Conflict handling:** If already favourited, returns success silently (idempotent)
+
+### `DELETE /api/favourites` — Remove a favourite
+
+**Auth:** Required (customer+)
+**Body:** `{ serviceId: string }`
+**Response:** `{ success: true }`
+**Not-found handling:** If not favourited, returns success silently (idempotent)
+
+## UI Implementation
+
+### Heart Icon Component
+
+```tsx
+'use client'
+import { useOptimistic } from 'react'
+
+export function FavouriteHeart({ serviceId, isFavourited }) {
+  const [optimistic, setOptimistic] = useOptimistic(isFavourited)
+
+  const toggle = async () => {
+    setOptimistic(!optimistic)  // Instant UI update
+
+    if (optimistic) {
+      await fetch('/api/favourites', { method: 'DELETE', body: JSON.stringify({ serviceId }) })
+    } else {
+      await fetch('/api/favourites', { method: 'POST', body: JSON.stringify({ serviceId }) })
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={optimistic ? 'Remove from favourites' : 'Add to favourites'}
+      aria-pressed={optimistic}
+    >
+      {optimistic ? '❤️' : '♡'}
+    </button>
+  )
+}
+```
+
+### Booking Dialog Step 3 — Service Ordering
+
+```tsx
+function sortServices(services: Service[], favouriteIds: string[]) {
+  const favouriteSet = new Set(favouriteIds)
+  const favourites = services.filter(s => favouriteSet.has(s.id))
+  const rest = services.filter(s => !favouriteSet.has(s.id))
+  return { favourites, rest }
+}
+
+// Render:
+// {favourites.length > 0 && (
+//   <section>
+//     <h3>Your Favourites</h3>
+//     {favourites.map(s => <ServiceCard key={s.id} service={s} favourited />)}
+//   </section>
+// )}
+// <section>
+//   <h3>All Services</h3>
+//   {rest.map(s => <ServiceCard key={s.id} service={s} />)}
+// </section>
+```
+
+## Data Flow
+
+```
+Page load (/services or booking dialog):
+  ├── GET /api/services (public, KV cached)
+  └── GET /api/favourites (auth required)
+      → Client merges: marks hearts, splits "Your Favourites" + "All Services"
+
+Toggle favourite:
+  ├── Optimistic UI update (heart fills/empties instantly)
+  ├── POST or DELETE /api/favourites (background)
+  └── On error: revert optimistic state + show toast
+```
+
+## Edge Cases
+
+| Edge Case | Handling |
+| --- | --- |
+| User not signed in | Heart icon hidden — favourites require auth |
+| Service deactivated after being favourited | CASCADE delete removes it; filter out inactive services client-side |
+| User has 0 favourites | "Your Favourites" section not shown |
+| Network error on toggle | Revert optimistic state, show error toast |
+| Same service favourited from /services and booking dialog | Same API, same DB row — no conflict |
+
+## Accessibility
+
+- `aria-label="Add to favourites"` / `"Remove from favourites"` on the heart button
+- `aria-pressed="true/false"` for toggle state
+- Keyboard: Enter/Space toggles
+- Visible focus ring on tab navigation
+- Colour is not the only indicator (filled vs outline shape)
+
+## Analytics Events
+
+| Event | When | Properties |
+| --- | --- | --- |
+| `service_favourited` | User taps empty heart | `serviceId`, `serviceName`, `category` |
+| `service_unfavourited` | User taps filled heart | `serviceId`, `serviceName` |
+
+## Where It Appears
+
+| Location | Behaviour |
+| --- | --- |
+| Booking Dialog Step 3 | "Your Favourites" section above "All Services" |
+| `/services` page | Heart icon on each service card (Phase 2) |
+| `/profile` page | "My Favourite Services" list (Phase 2) |
+
+## Implementation Priority
+
+**Phase 1 (Launch):**
+- DB table + migration
+- 3 API endpoints (GET, POST, DELETE)
+- Heart icon on booking dialog Step 3
+- "Your Favourites" section ordering in booking
+
+**Phase 2 (Post-launch):**
+- Heart icon on `/services` page
+- "My Favourites" section on `/profile`
+- Analytics events
