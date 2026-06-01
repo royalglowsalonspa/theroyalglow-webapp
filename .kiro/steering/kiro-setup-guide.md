@@ -41,12 +41,12 @@ kiro auth login
 
 ```bash
 # Create your actual implementation repo (separate from this docs repo)
-mkdir rgss_solutions
-cd rgss_solutions
+mkdir theroyalglow-webapp
+cd theroyalglow-webapp
 
 # Initialize git
 git init
-git remote add origin git@github.com:royalglowsalonspa/rgss_solutions.git
+git remote add origin git@github.com:royalglowsalonspa/theroyalglow-webapp.git
 ```
 
 ---
@@ -124,15 +124,15 @@ npx skills list
 The steering files we created in this docs repo need to be in your implementation repo too:
 
 ```bash
-# From your implementation repo root (rgss_solutions/)
+# From your implementation repo root (theroyalglow-webapp/)
 mkdir -p .kiro/steering
 
 # Copy from docs repo (adjust path as needed)
-cp /path/to/rgss_solutions_kiro/.kiro/steering/*.md .kiro/steering/
+cp /path/to/theroyalglow-webapp/.kiro/steering/*.md .kiro/steering/
 ```
 
 Or recreate them — they're already pushed to GitHub at:
-`https://github.com/royalglowsalonspa/rgss_solutions_kiro/tree/feat/kiro-steering-setup/.kiro/steering/`
+`https://github.com/royalglowsalonspa/theroyalglow-webapp/tree/prod/.kiro/steering/`
 
 ---
 
@@ -188,7 +188,7 @@ Or recreate them — they're already pushed to GitHub at:
 ### Phase 0: Scaffolding (Day 1)
 
 ```bash
-# In your rgss_solutions/ directory:
+# In your theroyalglow-webapp/ directory:
 
 kiro "Scaffold the monorepo using Turborepo + Bun workspaces. 
 Create apps/web (Next.js 16), packages/db (Drizzle ORM), 
@@ -390,7 +390,7 @@ Create `.kiro/hooks/` for automatic actions:
 
 ```bash
 # 1. Create implementation repo
-mkdir rgss_solutions && cd rgss_solutions && git init
+mkdir theroyalglow-webapp && cd theroyalglow-webapp && git init
 
 # 2. Copy steering files
 mkdir -p .kiro/steering

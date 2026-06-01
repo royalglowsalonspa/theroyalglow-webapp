@@ -215,7 +215,7 @@ Tool split: **Bun workspaces** (package management) + **Turborepo** (task orches
 | **Turborepo** | Runs `build`, `dev`, `lint`, `test` in parallel across apps with incremental caching. Defined in `turbo.json`. |
 
 ```
-rgss_solutions/
+theroyalglow-webapp/
 ├── apps/
 │   ├── web/          # Next.js 16.2.6 — theroyalglow.in (customer + admin)
 │   └── cms/          # Payload CMS v3 — admin.theroyalglow.in (marketing CMS)
