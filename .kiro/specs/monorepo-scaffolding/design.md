@@ -171,7 +171,7 @@ Enforcement mechanism: TypeScript module resolution fails if a dependency is not
 
 ```jsonc
 {
-  "name": "rgss-solutions",
+  "name": "theroyalglow-webapp",
   "private": true,
   "type": "module",
   "workspaces": ["apps/*", "packages/*", "docs"],

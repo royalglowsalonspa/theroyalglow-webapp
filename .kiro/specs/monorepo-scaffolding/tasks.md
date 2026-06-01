@@ -8,7 +8,7 @@ Scaffold the complete Royal Glow Salon & Spa monorepo foundation using Turborepo
 
 - [x] 1. Initialize root monorepo configuration
   - [x] 1.1 Create root `package.json` with Bun workspaces, ESM, and Turborepo scripts
-    - Create `package.json` with `"name": "rgss-solutions"`, `"private": true`, `"type": "module"`, `"workspaces": ["apps/*", "packages/*", "docs"]`
+    - Create `package.json` with `"name": "theroyalglow-webapp"`, `"private": true`, `"type": "module"`, `"workspaces": ["apps/*", "packages/*", "docs"]`
     - Add root scripts: `build`, `dev`, `lint`, `typecheck`, `test`, `clean`, `prepare` (all delegating to Turborepo)
     - Add devDependencies: `turbo`, `typescript`, `@biomejs/biome`, `husky`, `lint-staged`
     - Add `lint-staged` config for `*.{ts,tsx,json,css}` → `biome check --write`
