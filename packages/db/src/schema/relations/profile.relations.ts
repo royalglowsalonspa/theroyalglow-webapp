@@ -1,10 +1,10 @@
 import { relations } from 'drizzle-orm'
-import { customerProfile, staffProfile } from '../profile'
 import { user } from '../auth'
-import { loyaltyAccount } from '../loyalty'
-import { staffService } from '../service'
-import { staffSchedule, staffTimeOff } from '../schedule'
 import { bookingService } from '../booking'
+import { loyaltyAccount } from '../loyalty'
+import { customerProfile, staffProfile } from '../profile'
+import { staffSchedule, staffTimeOff } from '../schedule'
+import { staffService } from '../service'
 
 export const customerProfileRelations = relations(customerProfile, ({ one }) => ({
   user: one(user, { fields: [customerProfile.userId], references: [user.id] }),

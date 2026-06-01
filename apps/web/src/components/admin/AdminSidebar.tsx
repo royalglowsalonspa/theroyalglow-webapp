@@ -1,7 +1,7 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 type NavItem = {
   label: string
@@ -101,10 +101,12 @@ export function AdminSidebar({
     <>
       {/* Mobile overlay */}
       {open && (
-        <div
+        <button
+          type="button"
           className="fixed inset-0 z-40 bg-black/30 lg:hidden"
           onClick={onClose}
-          aria-hidden="true"
+          aria-label="Close navigation menu"
+          tabIndex={-1}
         />
       )}
 
@@ -116,9 +118,7 @@ export function AdminSidebar({
       >
         {/* Logo */}
         <div className="flex items-center gap-2 px-5 py-5 border-b border-outline-gray">
-          <span className="font-display text-lg text-cocoa-dark tracking-tight">
-            Royal Glow
-          </span>
+          <span className="font-display text-lg text-cocoa-dark tracking-tight">Royal Glow</span>
           <span className="inline-flex items-center rounded-full bg-cocoa-dark text-canvas-white text-[10px] font-ui uppercase tracking-wider px-2 py-0.5">
             Admin
           </span>
@@ -127,9 +127,7 @@ export function AdminSidebar({
         {/* Navigation */}
         <nav className="px-3 py-4" aria-label="Admin navigation">
           {NAV_SECTIONS.map((section) => {
-            const visibleItems = section.items.filter((item) =>
-              hasAccess(item.minRole)
-            )
+            const visibleItems = section.items.filter((item) => hasAccess(item.minRole))
             if (visibleItems.length === 0) return null
 
             return (

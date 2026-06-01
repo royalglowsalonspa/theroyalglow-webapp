@@ -139,8 +139,7 @@ export async function sendWebPush(
           // Prune the dead subscription; pruning failures must not break the loop.
           await onGone(sub.endpoint).catch((pruneError) => {
             logger.warn('failed to prune gone push subscription', {
-              error:
-                pruneError instanceof Error ? pruneError.message : String(pruneError),
+              error: pruneError instanceof Error ? pruneError.message : String(pruneError),
             })
           })
         } else {

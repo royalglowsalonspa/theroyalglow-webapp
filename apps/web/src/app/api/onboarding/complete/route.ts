@@ -1,8 +1,8 @@
-import { headers } from 'next/headers'
 import { auth } from '@/lib/auth-server'
 import { db } from '@rgss/db'
 import { customerProfile } from '@rgss/db/schema'
 import { eq } from 'drizzle-orm'
+import { headers } from 'next/headers'
 import { z } from 'zod'
 
 const onboardingSchema = z.object({
@@ -101,10 +101,10 @@ export async function POST(request: Request) {
     })
     .returning({ id: customerProfile.id })
 
-  const profile = result[0]!
+  const profile = result[0]
+  if (!profile) {
+    throw new Error('Profile insert returned no rows.')
+  }
 
-  return Response.json(
-    { success: true, data: { profileId: profile.id } },
-    { status: 201 },
-  )
+  return Response.json({ success: true, data: { profileId: profile.id } }, { status: 201 })
 }

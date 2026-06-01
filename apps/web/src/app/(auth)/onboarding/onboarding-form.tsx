@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 
 const AUTH_CONTEXT_KEY = 'rgss_auth_context'
 const COOKIE_CONSENT_KEY = 'rgss_cookie_consent'
@@ -128,12 +128,8 @@ export function OnboardingForm({ userName, userEmail }: OnboardingFormProps) {
   return (
     <form onSubmit={handleSubmit} className="w-full space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="text-xl font-semibold text-stone-900">
-          Complete Your Profile
-        </h1>
-        <p className="text-sm text-stone-500">
-          Tell us a bit about yourself to get started.
-        </p>
+        <h1 className="text-xl font-semibold text-stone-900">Complete Your Profile</h1>
+        <p className="text-sm text-stone-500">Tell us a bit about yourself to get started.</p>
       </div>
 
       {/* Name */}
@@ -249,9 +245,7 @@ export function OnboardingForm({ userName, userEmail }: OnboardingFormProps) {
             onChange={(e) => setAnalyticsConsent(e.target.checked)}
             className="mt-0.5 h-4 w-4 rounded border-stone-300"
           />
-          <span className="text-sm text-stone-600">
-            Allow analytics to improve your experience
-          </span>
+          <span className="text-sm text-stone-600">Allow analytics to improve your experience</span>
         </label>
 
         <label className="flex items-start gap-2">
@@ -268,9 +262,7 @@ export function OnboardingForm({ userName, userEmail }: OnboardingFormProps) {
       </div>
 
       {/* Server Error */}
-      {serverError && (
-        <p className="text-sm text-red-600">{serverError}</p>
-      )}
+      {serverError && <p className="text-sm text-red-600">{serverError}</p>}
 
       {/* Submit */}
       <button

@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
 import { formatDateDDMMYYYY, formatTime12h } from '@/lib/admin/bookings'
+import { useCallback, useEffect, useState } from 'react'
 
 // ─── API shapes (mirror GET /api/admin/leave + PATCH /api/admin/leave/[id]) ───
 
@@ -53,9 +53,7 @@ export function LeaveQueue() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   // Conflicts surfaced after a successful approval, keyed by leave id.
-  const [conflictsById, setConflictsById] = useState<
-    Record<string, ConflictBooking[]>
-  >({})
+  const [conflictsById, setConflictsById] = useState<Record<string, ConflictBooking[]>>({})
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -69,9 +67,7 @@ export function LeaveQueue() {
       }
       setLeave(json.data.leave as LeaveRequest[])
     } catch (err: unknown) {
-      setError(
-        err instanceof Error ? err.message : 'Could not load leave requests.',
-      )
+      setError(err instanceof Error ? err.message : 'Could not load leave requests.')
     } finally {
       setLoading(false)
     }
@@ -89,12 +85,10 @@ export function LeaveQueue() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-display text-2xl text-cocoa-dark tracking-tight">
-          Leave Requests
-        </h1>
+        <h1 className="font-display text-2xl text-cocoa-dark tracking-tight">Leave Requests</h1>
         <p className="font-sans text-sm text-dusty-gray mt-0.5">
-          Approve or reject staff time off. Approving surfaces any confirmed
-          bookings that need reassigning.
+          Approve or reject staff time off. Approving surfaces any confirmed bookings that need
+          reassigning.
         </p>
       </div>
 
@@ -138,9 +132,7 @@ export function LeaveQueue() {
               <LeaveCard
                 request={request}
                 conflicts={conflictsById[request.id]}
-                onApproved={(conflicts) =>
-                  handleApproved(request.id, conflicts)
-                }
+                onApproved={(conflicts) => handleApproved(request.id, conflicts)}
                 onRejected={load}
               />
             </li>
@@ -190,9 +182,7 @@ function LeaveCard({
         onRejected()
       }
     } catch (err: unknown) {
-      setActionError(
-        err instanceof Error ? err.message : 'Could not update the request.',
-      )
+      setActionError(err instanceof Error ? err.message : 'Could not update the request.')
     } finally {
       setBusy(false)
     }
@@ -218,14 +208,10 @@ function LeaveCard({
             </span>
           </h2>
           <p className="font-sans text-sm text-warm-gray mt-0.5">
-            <time dateTime={request.date}>
-              {formatDateDDMMYYYY(request.date)}
-            </time>
+            <time dateTime={request.date}>{formatDateDDMMYYYY(request.date)}</time>
           </p>
           {request.reason && (
-            <p className="font-sans text-sm text-dusty-gray mt-1.5">
-              “{request.reason}”
-            </p>
+            <p className="font-sans text-sm text-dusty-gray mt-1.5">“{request.reason}”</p>
           )}
         </div>
 
@@ -247,9 +233,7 @@ function LeaveCard({
         </p>
       )}
 
-      {conflicts !== undefined && (
-        <ConflictWarning conflicts={conflicts} date={request.date} />
-      )}
+      {conflicts !== undefined && <ConflictWarning conflicts={conflicts} date={request.date} />}
 
       {actionError && (
         <p className="font-sans text-sm text-error mt-3" role="alert">
@@ -338,17 +322,13 @@ function ConflictWarning({
   if (conflicts.length === 0) {
     return (
       <p className="font-sans text-sm text-emerald-700 mt-3 border-t border-cloud-gray pt-3">
-        ✓ Leave approved — no confirmed bookings on{' '}
-        {formatDateDDMMYYYY(date)}.
+        ✓ Leave approved — no confirmed bookings on {formatDateDDMMYYYY(date)}.
       </p>
     )
   }
 
   return (
-    <div
-      className="mt-3 rounded-[6px] border border-amber-300 bg-amber-50 px-4 py-3"
-      role="alert"
-    >
+    <div className="mt-3 rounded-[6px] border border-amber-300 bg-amber-50 px-4 py-3" role="alert">
       <p className="font-ui text-[12px] uppercase tracking-[0.5px] text-amber-800 mb-1.5">
         ⚠ {conflicts.length} confirmed booking
         {conflicts.length === 1 ? '' : 's'} on {formatDateDDMMYYYY(date)}
@@ -358,19 +338,13 @@ function ConflictWarning({
       </p>
       <ul className="space-y-1">
         {conflicts.map((c) => (
-          <li
-            key={c.bookingId}
-            className="font-sans text-[13px] text-amber-900"
-          >
+          <li key={c.bookingId} className="font-sans text-[13px] text-amber-900">
             <span className="font-ui">{formatTime12h(c.startTime)}</span>
             {' — '}
             {c.customerName}
             {' · '}
             {c.serviceNames.join(', ')}
-            <span className="text-amber-700">
-              {' '}
-              (#{c.bookingNumber})
-            </span>
+            <span className="text-amber-700"> (#{c.bookingNumber})</span>
           </li>
         ))}
       </ul>
@@ -380,16 +354,13 @@ function ConflictWarning({
 
 function LoadingState() {
   return (
-    <div
+    <output
       className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      role="status"
       aria-live="polite"
     >
       <Spinner />
-      <span className="font-sans text-sm text-dusty-gray">
-        Loading leave requests…
-      </span>
-    </div>
+      <span className="font-sans text-sm text-dusty-gray">Loading leave requests…</span>
+    </output>
   )
 }
 
@@ -420,12 +391,8 @@ function EmptyState({ tab }: { tab: TabValue }) {
   const label = tab === 'all' ? '' : tab
   return (
     <div className="border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 text-center">
-      <p className="font-sans text-sm text-cocoa-dark mb-1">
-        No {label} leave requests
-      </p>
-      <p className="font-sans text-xs text-dusty-gray">
-        Staff leave requests will appear here.
-      </p>
+      <p className="font-sans text-sm text-cocoa-dark mb-1">No {label} leave requests</p>
+      <p className="font-sans text-xs text-dusty-gray">Staff leave requests will appear here.</p>
     </div>
   )
 }
@@ -439,14 +406,7 @@ function Spinner() {
       viewBox="0 0 24 24"
       aria-hidden="true"
     >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path
         className="opacity-75"
         fill="currentColor"

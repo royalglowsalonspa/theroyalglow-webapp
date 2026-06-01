@@ -1,5 +1,5 @@
-import Link from 'next/link'
 import { BUSINESS } from '@/lib/seo/business'
+import Link from 'next/link'
 
 /**
  * Minimal, distraction-free chrome for the static legal pages
@@ -45,10 +45,7 @@ export default function LegalLayout({
 
       <footer className="mt-auto bg-cocoa-dark text-canvas-white">
         <div className="mx-auto max-w-[760px] px-5 py-12">
-          <Link
-            href="/"
-            className="font-display text-xl text-canvas-white tracking-tight"
-          >
+          <Link href="/" className="font-display text-xl text-canvas-white tracking-tight">
             Royal Glow
           </Link>
 

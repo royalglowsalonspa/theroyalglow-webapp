@@ -37,17 +37,11 @@ export type FlagKey = (typeof FLAGS)[keyof typeof FLAGS]
 // Minimal slice of the optional `posthog-node` PostHog client surface we rely
 // on. Modeled locally so this file compiles without the package installed.
 type PostHogClient = {
-  isFeatureEnabled(
-    flag: string,
-    distinctId: string,
-  ): Promise<boolean | undefined>
+  isFeatureEnabled(flag: string, distinctId: string): Promise<boolean | undefined>
   shutdown?(): Promise<void>
 }
 
-type PostHogConstructor = new (
-  apiKey: string,
-  options?: { host?: string },
-) => PostHogClient
+type PostHogConstructor = new (apiKey: string, options?: { host?: string }) => PostHogClient
 
 function resolvePostHog(mod: unknown): PostHogConstructor | null {
   if (typeof mod !== 'object' || mod === null) {

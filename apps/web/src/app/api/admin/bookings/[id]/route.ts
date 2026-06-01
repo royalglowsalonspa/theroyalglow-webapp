@@ -1,11 +1,7 @@
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
-import {
-  assignStaffToAllServices,
-  getBookingForAdmin,
-  updateBookingStatus,
-} from '@rgss/db/queries'
-import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
+import { assignStaffToAllServices, getBookingForAdmin, updateBookingStatus } from '@rgss/db/queries'
+import { ERROR_CODES, badRequest, conflict, notFound } from '@rgss/errors'
 import { adminBookingActionSchema } from '@rgss/types'
 
 export const GET = withErrorHandler(

@@ -2,13 +2,16 @@ export const systemSettings = [
   { key: 'salon_name', value: 'Royal Glow Salon & Spa' },
   { key: 'salon_phone', value: '+91 63601 35720' },
   { key: 'salon_email', value: 'hello@theroyalglow.in' },
-  { key: 'salon_address', value: {
-    line1: '1st Floor, Narmada Complex, 48/3, Rayasandra Main Rd',
-    line2: 'Above SBI Bank, Naganathapura, Parappana Agrahara',
-    city: 'Bengaluru',
-    state: 'Karnataka',
-    pincode: '560100',
-  }},
+  {
+    key: 'salon_address',
+    value: {
+      line1: '1st Floor, Narmada Complex, 48/3, Rayasandra Main Rd',
+      line2: 'Above SBI Bank, Naganathapura, Parappana Agrahara',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      pincode: '560100',
+    },
+  },
   { key: 'salon_lat', value: '12.877734987033477' },
   { key: 'salon_lng', value: '77.66642516860671' },
   { key: 'gst_number', value: 'XXAAACR1234X1ZX' },

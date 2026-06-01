@@ -2,9 +2,9 @@ import { AppError } from '@rgss/errors'
 import * as Sentry from '@sentry/nextjs'
 import { nanoid } from 'nanoid'
 
-type RouteHandler = (req: Request, ctx: any) => Promise<Response>
+type RouteHandler<Ctx = unknown> = (req: Request, ctx: Ctx) => Promise<Response>
 
-export function withErrorHandler(handler: RouteHandler): RouteHandler {
+export function withErrorHandler<Ctx = unknown>(handler: RouteHandler<Ctx>): RouteHandler<Ctx> {
   return async (req, ctx) => {
     const requestId = req.headers.get('x-request-id') ?? `req_${nanoid(12)}`
     try {
@@ -23,7 +23,7 @@ export function withErrorHandler(handler: RouteHandler): RouteHandler {
               ...(error.details ? { details: error.details } : {}),
             },
           },
-          { status: error.statusCode }
+          { status: error.statusCode },
         )
       }
       // Unknown error → 500. Treated as retryable: assumed transient (DB/timeout).
@@ -42,7 +42,7 @@ export function withErrorHandler(handler: RouteHandler): RouteHandler {
             retryable: true,
           },
         },
-        { status: 500 }
+        { status: 500 },
       )
     }
   }
@@ -51,7 +51,7 @@ export function withErrorHandler(handler: RouteHandler): RouteHandler {
 export function apiSuccess<T>(
   data: T,
   meta?: { page?: number; totalPages?: number; totalCount?: number },
-  status = 200
+  status = 200,
 ): Response {
   return Response.json({ success: true, data, ...(meta ? { meta } : {}) }, { status })
 }

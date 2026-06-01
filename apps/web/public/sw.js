@@ -9,9 +9,7 @@ const OFFLINE_URL = '/offline'
 const BYPASS_PREFIXES = ['/api', '/admin', '/sign-in']
 
 function isBypassed(pathname) {
-  return BYPASS_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-  )
+  return BYPASS_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
 }
 
 self.addEventListener('install', (event) => {
@@ -28,9 +26,7 @@ self.addEventListener('activate', (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(
-          keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)),
-        ),
+        Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))),
       )
       .then(() => self.clients.claim()),
   )
@@ -53,9 +49,7 @@ self.addEventListener('fetch', (event) => {
 
   // Only handle navigation requests: network-first, offline fallback on failure.
   if (request.mode === 'navigation') {
-    event.respondWith(
-      fetch(request).catch(() => caches.match(OFFLINE_URL)),
-    )
+    event.respondWith(fetch(request).catch(() => caches.match(OFFLINE_URL)))
     return
   }
 

@@ -1,7 +1,7 @@
 import { relations } from 'drizzle-orm'
-import { customerTag, customerTagAssignment, customerNote } from '../crm'
 import { user } from '../auth'
 import { booking } from '../booking'
+import { customerNote, customerTag, customerTagAssignment } from '../crm'
 
 export const customerTagRelations = relations(customerTag, ({ many }) => ({
   assignments: many(customerTagAssignment),

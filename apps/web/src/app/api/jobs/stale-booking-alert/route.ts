@@ -1,14 +1,14 @@
+import { pingHeartbeat } from '@/lib/jobs/heartbeat'
+import { verifyQStashSignature } from '@/lib/jobs/verify'
+import { dispatchNotification } from '@/lib/notifications/dispatch'
+import { buildNotificationContent, formatDateIN } from '@rgss/business'
 import {
   createNotification,
   getPendingBooking,
   getReceptionistUserIds,
   updateBookingStatus,
 } from '@rgss/db/queries'
-import { buildNotificationContent, formatDateIN } from '@rgss/business'
 import { createLogger } from '@rgss/logger'
-import { pingHeartbeat } from '@/lib/jobs/heartbeat'
-import { dispatchNotification } from '@/lib/notifications/dispatch'
-import { verifyQStashSignature } from '@/lib/jobs/verify'
 
 // Job 17 — Stale pending booking alert (QStash triggered, enqueued +2h by
 // booking creation). If the booking is no longer pending → nothing to do. If it
@@ -43,8 +43,7 @@ export const POST = async (req: Request) => {
 
   try {
     const payload = parseBody(bodyText)
-    const bookingId =
-      typeof payload.bookingId === 'string' ? payload.bookingId : null
+    const bookingId = typeof payload.bookingId === 'string' ? payload.bookingId : null
 
     let action: 'none' | 'rejected' | 'alerted' = 'none'
     let notified = 0

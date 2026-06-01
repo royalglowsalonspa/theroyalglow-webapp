@@ -54,10 +54,7 @@ function resolveReceiver(mod: unknown): QStashReceiverConstructor | null {
   return null
 }
 
-export async function verifyQStashSignature(
-  req: Request,
-  bodyText: string,
-): Promise<boolean> {
+export async function verifyQStashSignature(req: Request, bodyText: string): Promise<boolean> {
   const currentSigningKey = process.env.QSTASH_CURRENT_SIGNING_KEY
   const nextSigningKey = process.env.QSTASH_NEXT_SIGNING_KEY
 
@@ -99,9 +96,7 @@ export async function verifyQStashSignature(
 
   // No keys and no internal token: allow only outside production.
   if (process.env.NODE_ENV !== 'production') {
-    logger.warn(
-      'QStash verification bypassed (no signing keys / internal token; non-production)',
-    )
+    logger.warn('QStash verification bypassed (no signing keys / internal token; non-production)')
     return true
   }
 

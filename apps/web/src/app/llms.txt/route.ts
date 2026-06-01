@@ -95,7 +95,7 @@ export async function GET(): Promise<Response> {
   try {
     const categories = await getAllServicesGrouped()
     const serviceNames = categories.flatMap((category) =>
-      category.services.map((service) => service.name)
+      category.services.map((service) => service.name),
     )
     return new Response(renderBody(serviceNames), { headers: TEXT_HEADERS })
   } catch {

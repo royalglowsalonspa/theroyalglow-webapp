@@ -1,25 +1,17 @@
 'use client'
 
-import Link from 'next/link'
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
 import { StatusBadge } from '@/components/admin/StatusBadge'
 import {
-  daysUntil,
-  formatDateDDMMYYYY,
   type MembershipDetailData,
   type MembershipSessionRow,
-  minutesToHM,
   type ServiceOption,
   type StaffOption,
+  daysUntil,
+  formatDateDDMMYYYY,
+  minutesToHM,
 } from '@/lib/admin/memberships'
+import Link from 'next/link'
+import { type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
 export function MembershipDetail({ membershipId }: { membershipId: string }) {
   const [data, setData] = useState<MembershipDetailData | null>(null)
@@ -39,9 +31,7 @@ export function MembershipDetail({ membershipId }: { membershipId: string }) {
       }
       setData(json.data as MembershipDetailData)
     } catch (err: unknown) {
-      setError(
-        err instanceof Error ? err.message : 'Could not load this membership.',
-      )
+      setError(err instanceof Error ? err.message : 'Could not load this membership.')
     } finally {
       setLoading(false)
     }
@@ -76,9 +66,7 @@ export function MembershipDetail({ membershipId }: { membershipId: string }) {
         <div>
           <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">
             Membership{' '}
-            <span className="font-mono text-lg text-warm-gray">
-              #{data.membershipNumber}
-            </span>
+            <span className="font-mono text-lg text-warm-gray">#{data.membershipNumber}</span>
           </h1>
           <p className="mt-1 text-sm font-sans text-warm-gray">
             <Link
@@ -106,18 +94,15 @@ export function MembershipDetail({ membershipId }: { membershipId: string }) {
         </h2>
 
         {/* The bar is decorative; the dl below conveys the numbers to AT. */}
-        <div
-          className="h-3 w-full overflow-hidden rounded-full bg-cloud-gray"
-          aria-hidden="true"
-        >
+        <div className="h-3 w-full overflow-hidden rounded-full bg-cloud-gray" aria-hidden="true">
           <div
             className="h-full rounded-full bg-royal-gold motion-safe:transition-[width] duration-500"
             style={{ width: `${usedPct}%` }}
           />
         </div>
         <p className="sr-only">
-          {minutesToHM(used)} used, {minutesToHM(remaining)} remaining of{' '}
-          {minutesToHM(total)} total.
+          {minutesToHM(used)} used, {minutesToHM(remaining)} remaining of {minutesToHM(total)}{' '}
+          total.
         </p>
 
         <dl className="mt-4 grid grid-cols-3 gap-3">
@@ -129,9 +114,7 @@ export function MembershipDetail({ membershipId }: { membershipId: string }) {
         <p className="mt-4 text-sm font-sans text-warm-gray">
           Expires {formatDateDDMMYYYY(data.expiresAt)}
           {isActive ? (
-            <span
-              className={`ml-1 ${days <= 7 && days >= 0 ? 'text-error' : 'text-dusty-gray'}`}
-            >
+            <span className={`ml-1 ${days <= 7 && days >= 0 ? 'text-error' : 'text-dusty-gray'}`}>
               ({expiryHint(data.expiresAt)})
             </span>
           ) : null}
@@ -158,9 +141,9 @@ export function MembershipDetail({ membershipId }: { membershipId: string }) {
         </button>
       </div>
       {!canRecord && isActive ? (
-        <p className="text-sm font-sans text-error" role="status">
+        <output className="block text-sm font-sans text-error">
           This membership has expired — sessions can no longer be recorded.
-        </p>
+        </output>
       ) : null}
 
       {/* Session history */}
@@ -210,9 +193,7 @@ function expiryHint(expiresAt: string): string {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-[6px] bg-warm-cream px-4 py-3">
-      <dt className="font-ui text-[11px] uppercase tracking-wider text-warm-stone mb-1">
-        {label}
-      </dt>
+      <dt className="font-ui text-[11px] uppercase tracking-wider text-warm-stone mb-1">{label}</dt>
       <dd className="font-display text-xl text-cocoa-dark">{value}</dd>
     </div>
   )
@@ -240,8 +221,7 @@ function SessionHistory({
           Session History
         </h2>
         <span className="text-xs font-sans text-dusty-gray">
-          {sessions.length} session{sessions.length === 1 ? '' : 's'} ·{' '}
-          {minutesToHM(used)} used
+          {sessions.length} session{sessions.length === 1 ? '' : 's'} · {minutesToHM(used)} used
         </span>
       </div>
 
@@ -264,9 +244,7 @@ function SessionHistory({
               {sessions.map((s) => {
                 const staffNames = [
                   ...new Set(
-                    s.services
-                      .map((svc) => svc.staffName)
-                      .filter((n): n is string => Boolean(n)),
+                    s.services.map((svc) => svc.staffName).filter((n): n is string => Boolean(n)),
                   ),
                 ]
                 return (
@@ -381,18 +359,15 @@ function RecordSessionModal({
     })
   }, [])
 
-  const updateSelected = useCallback(
-    (serviceId: string, patch: Partial<SelectedService>) => {
-      setSelected((prev) => {
-        const current = prev[serviceId]
-        if (!current) {
-          return prev
-        }
-        return { ...prev, [serviceId]: { ...current, ...patch } }
-      })
-    },
-    [],
-  )
+  const updateSelected = useCallback((serviceId: string, patch: Partial<SelectedService>) => {
+    setSelected((prev) => {
+      const current = prev[serviceId]
+      if (!current) {
+        return prev
+      }
+      return { ...prev, [serviceId]: { ...current, ...patch } }
+    })
+  }, [])
 
   const totalMinutes = useMemo(
     () =>
@@ -407,8 +382,7 @@ function RecordSessionModal({
   const afterRemaining = remainingMinutes - totalMinutes
   // Client-side mirror of the server's assertSessionRecordable guard.
   const insufficient = totalMinutes > remainingMinutes
-  const canSubmit =
-    selectedCount > 0 && totalMinutes > 0 && !insufficient && !submitting
+  const canSubmit = selectedCount > 0 && totalMinutes > 0 && !insufficient && !submitting
 
   const submit = useCallback(async () => {
     if (!canSubmit) {
@@ -435,9 +409,7 @@ function RecordSessionModal({
       }
       onRecorded()
     } catch (err: unknown) {
-      setSubmitError(
-        err instanceof Error ? err.message : 'Could not record this session.',
-      )
+      setSubmitError(err instanceof Error ? err.message : 'Could not record this session.')
       setSubmitting(false)
     }
   }, [canSubmit, selected, membershipId, onRecorded])
@@ -445,10 +417,7 @@ function RecordSessionModal({
   return (
     <Modal title="Record Membership Session" onClose={onClose}>
       <p className="text-sm font-sans text-warm-gray">
-        {memberName}{' '}
-        <span className="font-mono text-xs text-dusty-gray">
-          #{membershipNumber}
-        </span>{' '}
+        {memberName} <span className="font-mono text-xs text-dusty-gray">#{membershipNumber}</span>{' '}
         · {tierName}
       </p>
       <p className="mt-1 text-sm font-sans text-cocoa-dark">
@@ -467,18 +436,13 @@ function RecordSessionModal({
         ) : services === null ? (
           <p className="text-sm text-dusty-gray font-sans">Loading services…</p>
         ) : services.length === 0 ? (
-          <p className="text-sm text-dusty-gray font-sans">
-            No SPA services are available.
-          </p>
+          <p className="text-sm text-dusty-gray font-sans">No SPA services are available.</p>
         ) : (
           <ul className="space-y-2 max-h-64 overflow-y-auto pr-1">
             {services.map((svc) => {
               const chosen = selected[svc.id]
               return (
-                <li
-                  key={svc.id}
-                  className="rounded-[6px] border border-cloud-gray p-2.5"
-                >
+                <li key={svc.id} className="rounded-[6px] border border-cloud-gray p-2.5">
                   <label className="flex items-center gap-2 text-sm font-sans text-cocoa-dark cursor-pointer">
                     <input
                       type="checkbox"
@@ -494,9 +458,7 @@ function RecordSessionModal({
                       <DurationField
                         serviceId={svc.id}
                         value={chosen.durationMinutes}
-                        onChange={(durationMinutes) =>
-                          updateSelected(svc.id, { durationMinutes })
-                        }
+                        onChange={(durationMinutes) => updateSelected(svc.id, { durationMinutes })}
                       />
                       <StaffField
                         serviceId={svc.id}
@@ -519,8 +481,7 @@ function RecordSessionModal({
           Total duration: <strong>{minutesToHM(totalMinutes)}</strong>
         </p>
         <p className={insufficient ? 'text-error' : 'text-warm-gray'}>
-          After session:{' '}
-          <strong>{minutesToHM(Math.max(0, afterRemaining))}</strong> remaining
+          After session: <strong>{minutesToHM(Math.max(0, afterRemaining))}</strong> remaining
         </p>
       </div>
 
@@ -532,8 +493,7 @@ function RecordSessionModal({
           <p className="text-sm font-ui text-error">Insufficient hours</p>
           <p className="text-xs font-sans text-error/90 mt-0.5">
             Requested {minutesToHM(totalMinutes)} exceeds the remaining{' '}
-            {minutesToHM(remainingMinutes)}. Reduce the duration or record a
-            shorter session.
+            {minutesToHM(remainingMinutes)}. Reduce the duration or record a shorter session.
           </p>
         </div>
       ) : null}
@@ -680,19 +640,13 @@ function CancelMembershipModal({
       const json = await res.json()
       if (!res.ok || !json.success) {
         if (res.status === 403) {
-          throw new Error(
-            'Only a manager or above can cancel a membership.',
-          )
+          throw new Error('Only a manager or above can cancel a membership.')
         }
-        throw new Error(
-          json?.error?.message ?? 'Could not cancel this membership.',
-        )
+        throw new Error(json?.error?.message ?? 'Could not cancel this membership.')
       }
       onCancelled()
     } catch (err: unknown) {
-      setSubmitError(
-        err instanceof Error ? err.message : 'Could not cancel this membership.',
-      )
+      setSubmitError(err instanceof Error ? err.message : 'Could not cancel this membership.')
       setSubmitting(false)
     }
   }, [reason, submitting, membershipId, onCancelled])
@@ -701,11 +655,8 @@ function CancelMembershipModal({
     <Modal title="Cancel Membership" onClose={onClose}>
       <p className="text-sm font-sans text-warm-gray">
         You are about to cancel membership{' '}
-        <span className="font-mono text-xs text-dusty-gray">
-          #{membershipNumber}
-        </span>
-        . Unused hours are forfeited and this cannot be undone. Refunds are
-        handled offline.
+        <span className="font-mono text-xs text-dusty-gray">#{membershipNumber}</span>. Unused hours
+        are forfeited and this cannot be undone. Refunds are handled offline.
       </p>
 
       <div className="mt-4 flex flex-col gap-1">
@@ -821,7 +772,7 @@ function Modal({
         className="absolute inset-0 bg-cocoa-dark/50 motion-safe:transition-opacity"
       />
 
-      {/* Panel */}
+      {/* Panel — custom modal: focus trap + aria-modal + Escape key. Rule useSemanticElements is off for this file via biome.json overrides. */}
       <div
         ref={panelRef}
         role="dialog"
@@ -830,10 +781,7 @@ function Modal({
         className="relative z-10 w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-[12px] sm:rounded-[12px] bg-canvas-white shadow-xl"
       >
         <div className="flex items-center justify-between gap-2 border-b border-cloud-gray px-5 py-3.5">
-          <h2
-            id={titleId}
-            className="font-display text-lg text-cocoa-dark tracking-tight"
-          >
+          <h2 id={titleId} className="font-display text-lg text-cocoa-dark tracking-tight">
             {title}
           </h2>
           <button
@@ -886,14 +834,13 @@ function Th({ children }: { children: ReactNode }) {
 
 function LoadingState() {
   return (
-    <div
+    <output
       className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      role="status"
       aria-live="polite"
     >
       <Spinner />
       <span className="font-sans text-sm text-dusty-gray">Loading membership…</span>
-    </div>
+    </output>
   )
 }
 
@@ -932,14 +879,7 @@ function Spinner() {
       viewBox="0 0 24 24"
       aria-hidden="true"
     >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path
         className="opacity-75"
         fill="currentColor"

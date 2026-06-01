@@ -1,5 +1,5 @@
-import { and, asc, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm'
 import type { CustomerListQuery } from '@rgss/types'
+import { and, asc, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm'
 import { db } from '../index'
 import { user } from '../schema/auth'
 import { booking } from '../schema/booking'
@@ -188,10 +188,7 @@ type UpdateCustomerProfilePatch = {
   bookingRequiresApproval?: boolean | undefined
 }
 
-export async function updateCustomerProfile(
-  userId: string,
-  patch: UpdateCustomerProfilePatch,
-) {
+export async function updateCustomerProfile(userId: string, patch: UpdateCustomerProfilePatch) {
   const values: Partial<typeof customerProfile.$inferInsert> = {}
   if (patch.noshowCount !== undefined) {
     values.noshowCount = patch.noshowCount
@@ -316,10 +313,7 @@ export async function removeTag(customerId: string, tagId: string) {
   await db
     .delete(customerTagAssignment)
     .where(
-      and(
-        eq(customerTagAssignment.customerId, customerId),
-        eq(customerTagAssignment.tagId, tagId),
-      ),
+      and(eq(customerTagAssignment.customerId, customerId), eq(customerTagAssignment.tagId, tagId)),
     )
 }
 

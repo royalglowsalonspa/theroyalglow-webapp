@@ -1,11 +1,11 @@
-import type { Metadata } from 'next'
-import { formatINR } from '@rgss/business'
-import { getActiveOffers } from '@rgss/db/queries'
 import { OfferBookButton } from '@/components/offers/OfferBookButton'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
+import { formatINR } from '@rgss/business'
+import { getActiveOffers } from '@rgss/db/queries'
+import type { Metadata } from 'next'
 
 export const metadata: Metadata = buildMetadata({
   title: 'Special Offers',
@@ -58,12 +58,7 @@ export default async function OffersPage() {
 
   return (
     <div className="flex flex-col gap-20">
-      <JsonLd
-        data={breadcrumbJsonLd([
-          { name: 'Home', url: SITE_URL },
-          { name: 'Offers' },
-        ])}
-      />
+      <JsonLd data={breadcrumbJsonLd([{ name: 'Home', url: SITE_URL }, { name: 'Offers' }])} />
       {/* HEADING */}
       <section aria-labelledby="offers-heading" className="px-5">
         <div className="mx-auto max-w-[1278px] mt-6 lg:mt-10">

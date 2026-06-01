@@ -162,8 +162,7 @@ export const FAQS: readonly Faq[] = [
   },
   {
     question: "What are Royal Glow's opening hours?",
-    answer:
-      'Monday to Friday 10:00 AM – 9:00 PM, and Saturday to Sunday 10:00 AM – 10:00 PM.',
+    answer: 'Monday to Friday 10:00 AM – 9:00 PM, and Saturday to Sunday 10:00 AM – 10:00 PM.',
   },
   {
     question: 'Does Royal Glow offer bridal packages?',

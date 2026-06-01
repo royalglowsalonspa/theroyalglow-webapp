@@ -1,5 +1,3 @@
-import type { Metadata } from 'next'
-import Link from 'next/link'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { resolveFaqs } from '@/lib/cms/faqs'
 import {
@@ -9,6 +7,8 @@ import {
   websiteJsonLd,
 } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
+import type { Metadata } from 'next'
+import Link from 'next/link'
 
 export const metadata: Metadata = buildMetadata({
   title: 'Premium Salon & Spa in Bengaluru',
@@ -99,14 +99,7 @@ const categories = [
   { name: 'GROOMING', active: false },
 ]
 
-const brandLogos = [
-  "L'ORÉAL",
-  'SCHWARZKOPF',
-  'LAKMÉ',
-  'OLAPLEX',
-  'WELLA',
-  'MOROCCANOIL',
-]
+const brandLogos = ["L'ORÉAL", 'SCHWARZKOPF', 'LAKMÉ', 'OLAPLEX', 'WELLA', 'MOROCCANOIL']
 
 export default async function HomePage() {
   const faqList = await resolveFaqs()
@@ -148,9 +141,8 @@ export default async function HomePage() {
 
                   {/* Body */}
                   <p className="font-sans text-[17px] leading-[1.6] text-dusty-gray mt-6 max-w-[520px]">
-                    A premium salon and spa experience in Bengaluru. Hair, skin,
-                    nails and signature rituals — crafted by master artists in a
-                    calm, golden sanctuary.
+                    A premium salon and spa experience in Bengaluru. Hair, skin, nails and signature
+                    rituals — crafted by master artists in a calm, golden sanctuary.
                   </p>
 
                   {/* Buttons */}
@@ -177,9 +169,7 @@ export default async function HomePage() {
                     <span
                       key={cat.name}
                       className={`font-ui text-xs tracking-[0.5px] ${
-                        cat.active
-                          ? 'text-deep-gold font-bold'
-                          : 'text-dusty-gray'
+                        cat.active ? 'text-deep-gold font-bold' : 'text-dusty-gray'
                       }`}
                     >
                       {cat.name}
@@ -192,9 +182,7 @@ export default async function HomePage() {
               <div className="flex flex-col gap-6">
                 {/* Placeholder Image */}
                 <div className="bg-warm-cream rounded-[6px] aspect-[3/4] flex items-center justify-center">
-                  <span className="font-sans text-warm-gray text-sm">
-                    Salon Interior
-                  </span>
+                  <span className="font-sans text-warm-gray text-sm">Salon Interior</span>
                 </div>
 
                 {/* Location Bar */}
@@ -225,10 +213,7 @@ export default async function HomePage() {
         <section aria-label="Social proof" className="px-5">
           <div className="mx-auto max-w-[1278px] text-center">
             <p className="font-sans text-[17px] leading-[1.6] text-warm-gray">
-              Trusted by over{' '}
-              <strong className="text-cocoa-dark font-medium">
-                12,000 guests
-              </strong>{' '}
+              Trusted by over <strong className="text-cocoa-dark font-medium">12,000 guests</strong>{' '}
               across Bengaluru.{' '}
               <Link
                 href="#testimonials-heading"
@@ -337,12 +322,9 @@ export default async function HomePage() {
                   <span className="w-10 h-10 rounded-full bg-royal-gold/20 text-cocoa-dark font-ui text-sm flex items-center justify-center">
                     1
                   </span>
-                  <h3 className="font-sans font-medium text-cocoa-dark">
-                    Tell us your needs.
-                  </h3>
+                  <h3 className="font-sans font-medium text-cocoa-dark">Tell us your needs.</h3>
                   <p className="font-sans text-[15px] leading-[1.55] text-warm-gray">
-                    Hair, skin, spa, bridal — share what you&apos;re looking
-                    for.
+                    Hair, skin, spa, bridal — share what you&apos;re looking for.
                   </p>
                 </div>
 
@@ -351,9 +333,7 @@ export default async function HomePage() {
                   <span className="w-10 h-10 rounded-full bg-royal-gold/20 text-cocoa-dark font-ui text-sm flex items-center justify-center">
                     2
                   </span>
-                  <h3 className="font-sans font-medium text-cocoa-dark">
-                    Pick your slot.
-                  </h3>
+                  <h3 className="font-sans font-medium text-cocoa-dark">Pick your slot.</h3>
                   <p className="font-sans text-[15px] leading-[1.55] text-warm-gray">
                     Choose your artist, date and a time that suits you.
                   </p>
@@ -364,9 +344,7 @@ export default async function HomePage() {
                   <span className="w-10 h-10 rounded-full bg-royal-gold/20 text-cocoa-dark font-ui text-sm flex items-center justify-center">
                     3
                   </span>
-                  <h3 className="font-sans font-medium text-cocoa-dark">
-                    Step into royalty.
-                  </h3>
+                  <h3 className="font-sans font-medium text-cocoa-dark">Step into royalty.</h3>
                   <p className="font-sans text-[15px] leading-[1.55] text-warm-gray">
                     Arrive, unwind and let our team take care of the rest.
                   </p>
@@ -418,7 +396,8 @@ export default async function HomePage() {
                   >
                     {[...Array(review.stars)].map((_, i) => (
                       <svg
-                        key={i}
+                        // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length star array; items are identical and never reorder.
+                        key={`star-${i}`}
                         width="16"
                         height="16"
                         viewBox="0 0 24 24"
@@ -501,8 +480,7 @@ export default async function HomePage() {
                 Your glow awaits.
               </h2>
               <p className="font-sans text-[17px] leading-[1.6] text-dusty-gray mt-4 max-w-[440px] mx-auto">
-                Book your appointment today and experience the royal treatment
-                you deserve.
+                Book your appointment today and experience the royal treatment you deserve.
               </p>
               <Link
                 href="/?book=1"

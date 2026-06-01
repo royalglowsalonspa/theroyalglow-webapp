@@ -1,7 +1,7 @@
+import { auth } from '@/lib/auth-server'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { auth } from '@/lib/auth-server'
 import { SignOutButton } from './sign-out-button'
 
 export const metadata: Metadata = {
@@ -29,9 +29,7 @@ export default async function ProfilePage() {
   }
 
   const { user } = session
-  const memberSince = formatMemberSince(
-    (user as { createdAt?: Date | string }).createdAt
-  )
+  const memberSince = formatMemberSince((user as { createdAt?: Date | string }).createdAt)
   const initial = user.name?.trim().charAt(0).toUpperCase() || 'G'
 
   return (
@@ -50,11 +48,7 @@ export default async function ProfilePage() {
         <div className="flex items-center gap-4 mb-6">
           {user.image ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={user.image}
-              alt=""
-              className="w-16 h-16 rounded-full object-cover"
-            />
+            <img src={user.image} alt="" className="w-16 h-16 rounded-full object-cover" />
           ) : (
             <div
               className="w-16 h-16 rounded-full bg-royal-gold flex items-center justify-center font-display text-[24px] text-cocoa-dark"

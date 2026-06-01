@@ -10,9 +10,7 @@ test('GET /sitemap.xml returns 200 XML', async ({ request }) => {
   expect(res.headers()['content-type']).toContain('xml')
 })
 
-test('GET /robots.txt returns 200 and lists the sitemap', async ({
-  request,
-}) => {
+test('GET /robots.txt returns 200 and lists the sitemap', async ({ request }) => {
   const res = await request.get('/robots.txt')
   expect(res.status()).toBe(200)
   const body = await res.text()

@@ -25,8 +25,7 @@ describe('splitGST', () => {
   it('is integral and conserving for arbitrary paise (PBT)', () => {
     for (let i = 0; i < 2000; i++) {
       const p = Math.floor(Math.random() * 100_000_000)
-      const { basePaise, gstPaise, cgstPaise, sgstPaise, totalPaise } =
-        splitGST(p)
+      const { basePaise, gstPaise, cgstPaise, sgstPaise, totalPaise } = splitGST(p)
       expect(Number.isInteger(basePaise)).toBe(true)
       expect(Number.isInteger(gstPaise)).toBe(true)
       expect(Number.isInteger(cgstPaise)).toBe(true)

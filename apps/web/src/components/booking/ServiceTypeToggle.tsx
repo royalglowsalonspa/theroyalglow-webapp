@@ -16,6 +16,7 @@ export function ServiceTypeToggle({ value, onChange }: ServiceTypeToggleProps) {
     >
       <button
         type="button"
+        // biome-ignore lint/a11y/useSemanticElements: intentional ARIA radiogroup of styled pill buttons; native <input type="radio"> cannot carry this pill styling.
         role="radio"
         aria-checked={value === 'salon'}
         onClick={() => onChange('salon')}
@@ -29,6 +30,7 @@ export function ServiceTypeToggle({ value, onChange }: ServiceTypeToggleProps) {
       </button>
       <button
         type="button"
+        // biome-ignore lint/a11y/useSemanticElements: intentional ARIA radiogroup of styled pill buttons; native <input type="radio"> cannot carry this pill styling.
         role="radio"
         aria-checked={value === 'spa'}
         onClick={() => onChange('spa')}

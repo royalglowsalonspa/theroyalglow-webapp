@@ -101,9 +101,7 @@ async function checkR2(): Promise<ComponentHealth> {
   }
 }
 
-function settled(
-  result: PromiseSettledResult<ComponentHealth>,
-): ComponentHealth {
+function settled(result: PromiseSettledResult<ComponentHealth>): ComponentHealth {
   return result.status === 'fulfilled'
     ? result.value
     : { status: 'fail', latencyMs: 0, message: 'Check threw' }

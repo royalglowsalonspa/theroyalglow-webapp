@@ -41,10 +41,7 @@ function ConsentSwitch({
   return (
     <div className="flex items-start justify-between gap-4 py-3">
       <div className="min-w-0">
-        <span
-          id={labelId}
-          className="block font-ui text-sm text-canvas-white"
-        >
+        <span id={labelId} className="block font-ui text-sm text-canvas-white">
           {label}
         </span>
         <span
@@ -70,14 +67,14 @@ function ConsentSwitch({
             ? 'cursor-not-allowed border-white/20 bg-white/20'
             : 'cursor-pointer border-transparent',
           !disabled && checked ? 'bg-royal-gold' : '',
-          !disabled && !checked ? 'bg-white/15' : ''
+          !disabled && !checked ? 'bg-white/15' : '',
         )}
       >
         <span
           aria-hidden="true"
           className={cn(
             'inline-block h-4 w-4 transform rounded-full bg-canvas-white shadow-sm motion-safe:transition-transform motion-safe:duration-200',
-            checked ? 'translate-x-6' : 'translate-x-1'
+            checked ? 'translate-x-6' : 'translate-x-1',
           )}
         />
       </button>
@@ -116,8 +113,7 @@ export function CookieConsent() {
     }
 
     window.addEventListener(OPEN_PREFERENCES_EVENT, handleOpenPreferences)
-    return () =>
-      window.removeEventListener(OPEN_PREFERENCES_EVENT, handleOpenPreferences)
+    return () => window.removeEventListener(OPEN_PREFERENCES_EVENT, handleOpenPreferences)
   }, [])
 
   // Drive the entry transition once the banner is mounted.
@@ -176,7 +172,7 @@ export function CookieConsent() {
           'pointer-events-auto w-full max-w-[1278px] rounded-[14px] border border-white/10 bg-cocoa-dark text-canvas-white shadow-elevated',
           'p-5 sm:p-6 lg:p-7',
           'motion-safe:transition-all motion-safe:duration-300 motion-safe:ease-out',
-          entered ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+          entered ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
         )}
       >
         <div className="lg:flex lg:items-start lg:justify-between lg:gap-10">
@@ -191,9 +187,9 @@ export function CookieConsent() {
               id={descriptionId}
               className="mt-2 font-sans text-[15px] leading-[1.55] text-dusty-gray"
             >
-              We use necessary cookies to make this site work. With your consent
-              we also use analytics and marketing cookies to understand how the
-              site is used and to improve our services. Read more in our{' '}
+              We use necessary cookies to make this site work. With your consent we also use
+              analytics and marketing cookies to understand how the site is used and to improve our
+              services. Read more in our{' '}
               <Link
                 href="/privacy"
                 className="text-royal-gold underline underline-offset-2 transition-colors duration-200 hover:text-warm-gold"
@@ -232,10 +228,7 @@ export function CookieConsent() {
         </div>
 
         {showCustomise ? (
-          <div
-            id={`${headingId}-options`}
-            className="mt-5 border-t border-white/10 pt-4"
-          >
+          <div id={`${headingId}-options`} className="mt-5 border-t border-white/10 pt-4">
             <div className="divide-y divide-white/10">
               <ConsentSwitch
                 id="consent-necessary"

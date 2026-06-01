@@ -1,8 +1,8 @@
-import type { Metadata } from 'next'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, localBusinessJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
+import type { Metadata } from 'next'
 import { ServicesContent } from './services-content'
 
 export const metadata: Metadata = buildMetadata({
@@ -22,10 +22,7 @@ export default function ServicesPage() {
       <JsonLd
         data={[
           localBusinessJsonLd(),
-          breadcrumbJsonLd([
-            { name: 'Home', url: SITE_URL },
-            { name: 'Services' },
-          ]),
+          breadcrumbJsonLd([{ name: 'Home', url: SITE_URL }, { name: 'Services' }]),
         ]}
       />
       <ServicesContent />

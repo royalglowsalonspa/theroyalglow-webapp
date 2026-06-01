@@ -16,10 +16,7 @@ export async function getOrCreateLoyaltyAccount(customerId: string) {
     return existing[0]
   }
 
-  const [created] = await db
-    .insert(loyaltyAccount)
-    .values({ customerId })
-    .returning()
+  const [created] = await db.insert(loyaltyAccount).values({ customerId }).returning()
 
   return created as typeof loyaltyAccount.$inferSelect
 }
@@ -77,11 +74,7 @@ export async function getLoyaltySummary(customerId: string) {
 
 // A customer's gems transactions, newest first, each LEFT JOINed to its invoice
 // for the human-readable invoice number (null for non-invoice transactions).
-export async function getLoyaltyTransactions(
-  customerId: string,
-  limit: number,
-  offset: number,
-) {
+export async function getLoyaltyTransactions(customerId: string, limit: number, offset: number) {
   return db
     .select({
       id: loyaltyTransaction.id,
@@ -93,10 +86,7 @@ export async function getLoyaltyTransactions(
       invoiceNumber: invoice.invoiceNumber,
     })
     .from(loyaltyTransaction)
-    .innerJoin(
-      loyaltyAccount,
-      eq(loyaltyTransaction.loyaltyAccountId, loyaltyAccount.id),
-    )
+    .innerJoin(loyaltyAccount, eq(loyaltyTransaction.loyaltyAccountId, loyaltyAccount.id))
     .leftJoin(invoice, eq(loyaltyTransaction.invoiceId, invoice.id))
     .where(eq(loyaltyAccount.customerId, customerId))
     .orderBy(desc(loyaltyTransaction.createdAt))

@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
+import { useState } from 'react'
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -40,9 +40,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               </svg>
             </button>
             <nav aria-label="Breadcrumb">
-              <span className="text-sm text-dusty-gray font-sans">
-                Admin
-              </span>
+              <span className="text-sm text-dusty-gray font-sans">Admin</span>
             </nav>
           </div>
 
@@ -69,9 +67,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Scrollable content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-          {children}
-        </main>
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
       </div>
     </div>
   )

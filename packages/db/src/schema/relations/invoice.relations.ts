@@ -1,16 +1,19 @@
 import { relations } from 'drizzle-orm'
-import { invoice, invoiceItem } from '../invoice'
-import { branch } from '../branch'
-import { booking } from '../booking'
 import { user } from '../auth'
-import { service } from '../service'
+import { booking } from '../booking'
+import { branch } from '../branch'
+import { invoice, invoiceItem } from '../invoice'
 import { loyaltyTransaction } from '../loyalty'
+import { service } from '../service'
 
 export const invoiceRelations = relations(invoice, ({ one, many }) => ({
   branch: one(branch, { fields: [invoice.branchId], references: [branch.id] }),
   booking: one(booking, { fields: [invoice.bookingId], references: [booking.id] }),
   customer: one(user, { fields: [invoice.customerId], references: [user.id] }),
-  gemsRedeemedService: one(service, { fields: [invoice.gemsRedeemedServiceId], references: [service.id] }),
+  gemsRedeemedService: one(service, {
+    fields: [invoice.gemsRedeemedServiceId],
+    references: [service.id],
+  }),
   items: many(invoiceItem),
   loyaltyTransactions: many(loyaltyTransaction),
 }))

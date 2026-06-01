@@ -43,11 +43,7 @@ function resolveClient(mod: unknown): QStashClientConstructor | null {
   return null
 }
 
-export async function enqueueJob(
-  path: string,
-  body: unknown,
-  delaySeconds: number,
-): Promise<void> {
+export async function enqueueJob(path: string, body: unknown, delaySeconds: number): Promise<void> {
   const token = process.env.QSTASH_TOKEN
 
   // Not configured → no-op + log (Property 10).

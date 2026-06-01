@@ -107,8 +107,7 @@ export const MEMBERSHIP_PAYMENT_METHODS = [
   { value: 'card', label: 'Card' },
 ] as const
 
-export type MembershipPaymentMethod =
-  (typeof MEMBERSHIP_PAYMENT_METHODS)[number]['value']
+export type MembershipPaymentMethod = (typeof MEMBERSHIP_PAYMENT_METHODS)[number]['value']
 
 // Minutes → "Xh Ym" (e.g. 90 → "1h 30m", 480 → "8h 0m"). Never negative.
 export function minutesToHM(minutes: number): string {
@@ -128,10 +127,7 @@ export function daysUntil(expiresAt: string, now: Date = new Date()): number {
 
 // Preview the expiry date for the create form: startDate (YYYY-MM-DD) + validityDays.
 // Returns a DD/MM/YYYY string, or null when inputs are incomplete/invalid.
-export function previewExpiryDDMMYYYY(
-  startDate: string,
-  validityDays: number,
-): string | null {
+export function previewExpiryDDMMYYYY(startDate: string, validityDays: number): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !Number.isFinite(validityDays)) {
     return null
   }

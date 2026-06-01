@@ -56,10 +56,7 @@ export function cmsBaseUrl(): string | null {
  *
  * `path` is expected to begin with `/api/...` (relative to the CMS base URL).
  */
-export async function cmsFetch<T>(
-  path: string,
-  init?: { revalidate?: number },
-): Promise<T | null> {
+export async function cmsFetch<T>(path: string, init?: { revalidate?: number }): Promise<T | null> {
   const base = cmsBaseUrl()
   if (base === null) {
     return null

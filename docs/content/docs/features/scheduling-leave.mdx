@@ -1,0 +1,182 @@
+---
+title: Staff Scheduling & Leave
+description: How the salon sees who is working when, and how staff request, withdraw, and get approval for time off — including same-day mark-offs and booking conflict handling.
+---
+
+# Staff Scheduling & Leave
+
+Scheduling is how Royal Glow knows who is available to take appointments, and
+when. The schedule grid shows every staff member's day at a glance — their
+bookings, their buffers, and their time off. Leave management is the other half:
+staff ask for time off, and a receptionist or manager approves or rejects it.
+Together they keep the salon from double-booking a stylist who isn't there.
+
+<Callout type="info">
+  Only **approved** leave blocks a staff member's availability. A request that is
+  still `pending` never removes anyone from the booking scheduler — so a request
+  sitting in the queue can't accidentally lose the salon a booking.
+</Callout>
+
+## What it is
+
+Two connected tools in the admin portal:
+
+- **The schedule** (`/admin/schedule`) — a grid of staff against time, viewable
+  by day or by week, that shows who is booked, who is free, who is on a buffer
+  between appointments, and who is on leave.
+- **Leave management** (`/admin/leave`) — where staff submit time-off requests
+  and where receptionists and managers review them. Staff also see their own
+  schedule and leave history in their own view.
+
+## How it works — the schedule grid
+
+The schedule has two views:
+
+1. **Daily view** — staff down the side, time slots across the top (10:00 to
+   20:00, in 30-minute columns). Each cell shows one of four states: available,
+   booked (with the customer's name), a 15-minute buffer between bookings, or on
+   leave.
+2. **Weekly view** — staff down the side, days across the top, with a per-day
+   booking count, working hours, and a capacity bar. The bar turns green below
+   50% utilisation, amber between 50–80%, and red above 80%, so a manager can
+   spot an overloaded or quiet day instantly.
+
+A receptionist can click a booked slot to open the booking detail, or click an
+available slot to start a walk-in booking pre-filled with that time and staff
+member. The grid updates live as bookings come and go.
+
+<Callout type="info">
+  The grid updates in **real time** over Ably — when a slot is booked, released,
+  or reassigned, the cell animates without a page refresh. See
+  [Realtime](/docs/realtime) for the channels and events involved.
+</Callout>
+
+## How it works — leave requests
+
+Staff submit leave for themselves, and an approver decides:
+
+1. **Submit** — a staff member opens their leave form, picks a leave type and a
+   date or date range, and optionally adds a reason. If they have confirmed
+   bookings on those dates, the form warns them upfront.
+2. **Notify** — the request is created as `pending`, and a push notification plus
+   email goes to all receptionists and the manager.
+3. **Review** — an approver opens `/admin/leave`, sees the request (and any
+   booking conflicts flagged in red), and approves or rejects it.
+4. **Decide** — on approval, the dates block the staff member's availability and
+   any conflicting bookings are flagged for reassignment. On rejection, a reason
+   is required and the staff member is notified.
+
+### Leave states
+
+The request follows a simple state machine.
+
+| Status | Availability impact | Who sets it |
+| --- | --- | --- |
+| `pending` | None — the request does not block any slot. | Staff (on submit) |
+| `approved` | The dates block the staff member's availability. | Receptionist / Manager |
+| `rejected` | None. A rejection reason is stored and sent to the staff member. | Receptionist / Manager |
+| `withdrawn` | None. The staff member cancelled the request before a decision. | Staff |
+
+**Leave types:** Sick, Casual, Personal, and Other.
+
+Allowed transitions:
+
+```
+pending → approved     Receptionist/Manager approves
+pending → rejected     Receptionist/Manager rejects (reason required)
+pending → withdrawn    Staff cancels their own request before a decision
+```
+
+Once a request is `withdrawn` it can no longer be approved or rejected. Once a
+request is `approved`, staff cannot withdraw it themselves — cancelling approved
+leave is a manager-only action.
+
+## How it works — same-day mark-off
+
+When a staff member calls in sick or doesn't show up and there was no prior
+request, a receptionist or manager records it directly from the schedule with
+**Mark Off Today**. This is a direct admin action, so:
+
+- The leave entry is created already `approved` — there is no `pending` step.
+- The staff member's slots for the day are immediately blocked on the grid.
+- Any confirmed bookings that day are flagged so they can be reassigned to
+  another available staff member or cancelled.
+
+## Booking conflicts
+
+Approving leave (or marking someone off) can collide with bookings that are
+already confirmed for that staff member. The system does not resolve this
+silently — it surfaces the conflict and makes someone decide.
+
+When a conflict is found, the approver gets a blocking alert listing each
+affected booking. It appears as a modal right after approval, persists as a
+banner on the schedule, and cannot be dismissed until every conflict is
+resolved. There are two ways to resolve each one:
+
+| Resolution | What happens |
+| --- | --- |
+| **Reassign** | Pick another available staff member. The booking stays `confirmed`, and the customer gets a "your stylist has changed" notification. |
+| **Cancel** | The booking moves to `cancelled` with reason `staff_unavailable`. The customer gets a push and an email with a "Book Again" link. |
+
+<Callout type="warn">
+  A salon-side cancellation here is treated as the salon's fault, not the
+  customer's — it never counts as a no-show against the customer. See the
+  [No-Show Policy](/docs/features/no-show-policy).
+</Callout>
+
+## What staff can and cannot see
+
+The staff view (`/staff/schedule`) is deliberately limited to protect customer
+privacy and other staff's information.
+
+<Tabs items={['Staff can see', 'Staff cannot see']}>
+  <Tab value="Staff can see">
+    - Their own bookings for the day (customer name, service, time)
+    - Their own leave history and each request's status
+    - A button to request new leave
+    - The option to withdraw a request that is still `pending`
+  </Tab>
+  <Tab value="Staff cannot see">
+    - Other staff members' schedules
+    - Customer phone numbers or email addresses
+    - Any booking financial details or prices
+    - Other staff members' leave requests
+    - Any approve / reject controls
+  </Tab>
+</Tabs>
+
+## Who can do what
+
+Scheduling and leave permissions follow the role hierarchy.
+
+| Action | Min. role |
+| --- | --- |
+| View all staff schedules (`/admin/schedule`) | Receptionist |
+| Edit staff schedules | Manager |
+| Approve / reject leave requests | Receptionist |
+| Mark a staff member off for the day | Receptionist |
+| Submit own leave request | Staff |
+| View own leave history | Staff |
+
+## Realtime schedule events
+
+The schedule listens on the `admin:schedule` channel. These are the events that
+move cells around live:
+
+| Event | Trigger | UI effect |
+| --- | --- | --- |
+| `slot.booked` | A booking is confirmed and assigned to a slot | The cell fills with the customer's name |
+| `slot.released` | A booking is cancelled or rescheduled away | The cell returns to available |
+| `staff.marked_off` | Leave approved or a same-day mark-off | The staff member's row switches to the leave state |
+| `leave.approved` | A future leave request is approved | Future dates in view are pre-marked |
+| `slot.reassigned` | A booking is moved to a different staff member | The old slot releases and the new one fills together |
+
+## Related links
+
+<Cards>
+  <Card title="Booking System" href="/docs/features/booking" description="How bookings fill the slots that appear on the schedule." />
+  <Card title="No-Show Policy" href="/docs/features/no-show-policy" description="Why a salon-side cancellation never counts against the customer." />
+  <Card title="Notifications & Email" href="/docs/features/notifications" description="The push and email messages sent on leave and reassignment." />
+  <Card title="Realtime" href="/docs/realtime" description="The Ably channels and events that update the schedule live." />
+  <Card title="Data Model" href="/docs/data-model" description="The staff_schedule, staff_time_off, and holiday tables." />
+</Cards>

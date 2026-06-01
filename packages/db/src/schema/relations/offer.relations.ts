@@ -1,8 +1,8 @@
 import { relations } from 'drizzle-orm'
-import { offer, offerService, offerRedemption } from '../offer'
-import { service } from '../service'
 import { user } from '../auth'
 import { booking } from '../booking'
+import { offer, offerRedemption, offerService } from '../offer'
+import { service } from '../service'
 
 export const offerRelations = relations(offer, ({ many }) => ({
   offerServices: many(offerService),

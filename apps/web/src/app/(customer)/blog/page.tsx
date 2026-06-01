@@ -1,10 +1,10 @@
-import type { Metadata } from 'next'
 import { PostCard } from '@/components/blog/PostCard'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { getPublishedPosts } from '@/lib/cms/client'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, localBusinessJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
+import type { Metadata } from 'next'
 
 // ISR: revalidate the listing roughly hourly (architecture.md ~1h window).
 export const revalidate = 3600
@@ -35,10 +35,7 @@ export default async function BlogPage() {
         <section aria-labelledby="blog-page-heading" className="px-5">
           <div className="mx-auto max-w-[1278px] mt-6 lg:mt-10">
             <div className="flex items-center gap-2 mb-6">
-              <span
-                className="w-2 h-2 rounded-full bg-royal-gold"
-                aria-hidden="true"
-              />
+              <span className="w-2 h-2 rounded-full bg-royal-gold" aria-hidden="true" />
               <span className="font-ui text-[11px] uppercase tracking-[2px] text-deep-gold">
                 Journal
               </span>
@@ -50,8 +47,7 @@ export default async function BlogPage() {
               The Royal Glow Journal
             </h1>
             <p className="font-sans text-[17px] leading-[1.6] text-warm-gray mt-4 max-w-[520px]">
-              Beauty and wellness tips, guides, and news from our team in
-              Bengaluru.
+              Beauty and wellness tips, guides, and news from our team in Bengaluru.
             </p>
           </div>
         </section>
@@ -67,8 +63,8 @@ export default async function BlogPage() {
                   No articles yet — check back soon.
                 </p>
                 <p className="font-sans text-[15px] leading-[1.55] text-warm-gray mt-3 max-w-[420px] mx-auto">
-                  We&apos;re busy crafting beauty and wellness stories. In the
-                  meantime, explore our services or book a visit.
+                  We&apos;re busy crafting beauty and wellness stories. In the meantime, explore our
+                  services or book a visit.
                 </p>
               </div>
             ) : (

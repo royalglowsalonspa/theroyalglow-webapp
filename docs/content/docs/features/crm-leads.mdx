@@ -1,0 +1,122 @@
+---
+title: CRM & Lead Pipeline
+description: Customer profiles, tags, notes, and lifetime value, plus the Meta-ad lead pipeline that turns ad clicks into booked customers.
+---
+
+# CRM & Lead Pipeline
+
+The CRM is how Royal Glow understands and nurtures every relationship — both the
+customers it already has and the prospects ("leads") that come in from Meta and
+Instagram ads. One side is about knowing your regulars; the other is about
+converting cold ad traffic into paying customers.
+
+<Callout type="info">
+  **Lead vs customer.** A *lead* is a prospect captured from a Meta/Instagram ad
+  via the `/book` page — no slot, no sign-in. A *customer* books through the
+  homepage dialog (organic, GMB, in-store QR) or as a receptionist walk-in. The
+  two live in different tables (`lead` vs `booking`).
+</Callout>
+
+## What it is
+
+Two connected things:
+
+- **Customer management** — a rich profile for each customer: contact details,
+  visit history, tags, staff notes, and lifetime value (LTV).
+- **Lead pipeline** — a kanban board that tracks ad-sourced prospects from first
+  contact to a booked, paying customer.
+
+## How it works — customer profiles
+
+Each customer has a profile that staff use to give a personal, informed service:
+
+- **Identity** — name, phone, email, gender, "member since" date.
+- **Tags** — short labels for segmentation. Some are assigned automatically
+  (e.g. `vip`, `loyal`, `spa_lover`, `dormant`); others are added manually by
+  staff (e.g. `bridal`, `corporate`).
+- **Notes** — free-text notes staff add after visits (e.g. "allergic to
+  ammonia").
+- **KPIs** — visits, lifetime value (total spend), average spend, no-show count,
+  and gems balance.
+
+The customer list can be searched and sorted by LTV, visits, last visit, gems,
+or no-show count, so staff can quickly find their best (or at-risk) customers.
+
+## How it works — the Meta-ad lead pipeline
+
+This is the paid-acquisition funnel, designed for maximum conversion from cold
+ad traffic:
+
+```
+Meta / Instagram ad
+   ↓
+theroyalglow.in/book   (distraction-free landing page)
+   ↓
+3-field form: name, phone, service interested in
+   ↓
+POST /api/leads → lead row created (source: meta_ad) + CAPI Lead event
+   ↓
+Redirect to /?book=1&leadId={id}   (into the homepage booking dialog)
+   ↓
+Customer signs in / onboards, then submits the booking
+   ↓
+lead.converted_booking_id is set → lead status becomes "booked"
+```
+
+The `/book` page is deliberately minimal — no navigation, no sign-in prompt,
+trust signals (4.9★, reviews, city) above a 3-field form, and a "Continue to
+Booking" button. It exists only for ad traffic; the homepage, GMB, Google Maps,
+and in-store QR all use `/?book=1` instead so attribution stays clean.
+
+<Callout type="info">
+  If a lead submits the form but never completes a booking, a background job
+  flags it as stale after 48 hours and the receptionist follows up by phone or
+  WhatsApp from `/admin/leads`.
+</Callout>
+
+### Lead status pipeline
+
+A lead moves through a fixed set of statuses:
+
+```
+new → contacted → follow_up → booked → won
+                                    ↘ lost
+```
+
+| Status | Meaning |
+| --- | --- |
+| `new` | Just captured; no contact yet. |
+| `contacted` | Receptionist has called or messaged. |
+| `follow_up` | Needs more nurturing; appointment not yet set. |
+| `booked` | A booking was created and linked to the lead. |
+| `won` | The booking was completed and paid — revenue attributed. |
+| `lost` | Unreachable or declined; a reason is recorded. |
+
+A lead automatically becomes `won` when its linked booking is completed. Marking
+a lead `lost` requires a reason.
+
+## Rules
+
+- **First-touch attribution** — a customer's acquisition source (`organic`,
+  `meta_ad`, `gmb`, `walkin`) is stored once and never overwritten by later
+  visits.
+- **Phone normalisation** — phone numbers are normalised to canonical
+  `+91XXXXXXXXXX` before storage.
+- **Public lead capture is rate-limited** — `POST /api/leads` is the only
+  unauthenticated write endpoint and is rate-limited per IP.
+- **Tags cap** — a customer can carry up to 10 tags; automatic tags cannot be
+  removed by hand.
+- **WhatsApp follow-up** — lead conversations are handled through AiSensy; when a
+  status changes there, a webhook updates Neon so the database stays the single
+  source of truth.
+- **Manual leads** — leads created from inside the admin portal are forced to
+  `source = manual` (versus `meta_ad` for ad traffic).
+
+## Related links
+
+<Cards>
+  <Card title="Leads API" href="/docs/api-reference/leads" description="Public lead capture plus the admin pipeline (list, detail, status, notes)." />
+  <Card title="Customers & CRM API" href="/docs/api-reference/customers-crm" description="Customer directory, profiles, notes, and tags." />
+  <Card title="Booking System" href="/docs/features/booking" description="How a lead's booking links back for attribution." />
+  <Card title="Data Model" href="/docs/data-model" description="The lead, lead_note, customer_tag, and customer_note tables." />
+</Cards>

@@ -40,7 +40,10 @@ export const rejectLeaveSchema = z.object({
 })
 
 // A leave decision is either an approval or a rejection (which requires a reason).
-export const leaveDecisionSchema = z.discriminatedUnion('action', [approveLeaveSchema, rejectLeaveSchema])
+export const leaveDecisionSchema = z.discriminatedUnion('action', [
+  approveLeaveSchema,
+  rejectLeaveSchema,
+])
 export type LeaveDecisionInput = z.infer<typeof leaveDecisionSchema>
 
 // Leave approval state machine, mirroring the DB `leave_approval_status` enum

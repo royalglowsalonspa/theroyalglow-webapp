@@ -1,8 +1,8 @@
 'use client'
 
+import { formatDateDDMMYYYY, formatINR } from '@/lib/admin/bookings'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
-import { formatDateDDMMYYYY, formatINR } from '@/lib/admin/bookings'
 
 interface CustomerTagChip {
   slug: string
@@ -129,9 +129,7 @@ export function CustomersTable() {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">
-          Customers
-        </h1>
+        <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">Customers</h1>
       </div>
 
       {/* Filter bar */}
@@ -231,10 +229,7 @@ export function CustomersTable() {
                 </thead>
                 <tbody className="divide-y divide-cloud-gray">
                   {rows.map((row) => (
-                    <tr
-                      key={row.id}
-                      className="hover:bg-cloud-gray/30 transition-colors"
-                    >
+                    <tr key={row.id} className="hover:bg-cloud-gray/30 transition-colors">
                       <td className="px-4 py-3 font-sans text-cocoa-dark whitespace-nowrap">
                         <Link
                           href={`/admin/customers/${row.id}`}
@@ -267,9 +262,7 @@ export function CustomersTable() {
                         {row.gemsBalance ?? 0}
                       </td>
                       <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
-                        {row.lastVisitAt
-                          ? formatDateDDMMYYYY(row.lastVisitAt)
-                          : '—'}
+                        {row.lastVisitAt ? formatDateDDMMYYYY(row.lastVisitAt) : '—'}
                       </td>
                     </tr>
                   ))}
@@ -333,14 +326,13 @@ function Th({ children }: { children: React.ReactNode }) {
 
 function LoadingState() {
   return (
-    <div
+    <output
       className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      role="status"
       aria-live="polite"
     >
       <Spinner />
       <span className="font-sans text-sm text-dusty-gray">Loading customers…</span>
-    </div>
+    </output>
   )
 }
 
@@ -371,9 +363,7 @@ function EmptyState() {
   return (
     <div className="border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 text-center">
       <p className="font-sans text-sm text-cocoa-dark mb-1">No customers found</p>
-      <p className="font-sans text-xs text-dusty-gray">
-        Try adjusting your search or filters.
-      </p>
+      <p className="font-sans text-xs text-dusty-gray">Try adjusting your search or filters.</p>
     </div>
   )
 }
@@ -387,14 +377,7 @@ function Spinner() {
       viewBox="0 0 24 24"
       aria-hidden="true"
     >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path
         className="opacity-75"
         fill="currentColor"

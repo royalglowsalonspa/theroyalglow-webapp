@@ -160,6 +160,7 @@ export function NotificationBell() {
       </button>
 
       {open && (
+        // biome-ignore lint/a11y/useSemanticElements: non-modal notification popover; native <dialog> implies modal showModal() semantics which are wrong for a dropdown.
         <div
           role="dialog"
           aria-label="Notifications"
@@ -188,10 +189,7 @@ export function NotificationBell() {
                 {notifications.map((n) => {
                   const unread = n.readAt === null
                   return (
-                    <li
-                      key={n.id}
-                      className={`px-4 py-3 ${unread ? 'bg-golden-mist/30' : ''}`}
-                    >
+                    <li key={n.id} className={`px-4 py-3 ${unread ? 'bg-golden-mist/30' : ''}`}>
                       <div className="flex items-start gap-2">
                         {unread && (
                           <span
@@ -205,9 +203,7 @@ export function NotificationBell() {
                           >
                             {n.title}
                           </p>
-                          <p className="font-sans text-xs text-warm-gray mt-0.5">
-                            {n.body}
-                          </p>
+                          <p className="font-sans text-xs text-warm-gray mt-0.5">{n.body}</p>
                           <p className="font-sans text-[11px] text-dusty-gray mt-1">
                             {relativeTime(n.createdAt)}
                           </p>

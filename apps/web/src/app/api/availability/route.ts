@@ -42,11 +42,7 @@ export const GET = withErrorHandler(async (req: Request) => {
   }
 
   const slots: { startTime: string; endTime: string; available: boolean }[] = []
-  for (
-    let start = OPEN_MINUTES;
-    start <= LAST_SLOT_START_MINUTES;
-    start += SLOT_DURATION_MINUTES
-  ) {
+  for (let start = OPEN_MINUTES; start <= LAST_SLOT_START_MINUTES; start += SLOT_DURATION_MINUTES) {
     slots.push({
       startTime: toTimeString(start),
       endTime: toTimeString(start + SLOT_DURATION_MINUTES),

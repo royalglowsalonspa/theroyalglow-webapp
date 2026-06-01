@@ -2,6 +2,14 @@ import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { enqueueJob } from '@/lib/jobs/enqueue'
 import {
+  assertOfferActive,
+  assertOfferSalonOnly,
+  calculateGemsEarned,
+  computeOfferDiscount,
+  generateInvoiceNumber,
+  splitGST,
+} from '@rgss/business'
+import {
   addGemsTransaction,
   createInvoiceWithItems,
   getBookingForAdmin,
@@ -13,15 +21,7 @@ import {
   recordOfferRedemption,
   updateBookingStatus,
 } from '@rgss/db/queries'
-import {
-  assertOfferActive,
-  assertOfferSalonOnly,
-  calculateGemsEarned,
-  computeOfferDiscount,
-  generateInvoiceNumber,
-  splitGST,
-} from '@rgss/business'
-import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
+import { ERROR_CODES, badRequest, conflict, notFound } from '@rgss/errors'
 import { completeBookingSchema } from '@rgss/types'
 
 const COMPLETABLE_STATUSES = new Set(['confirmed', 'in_progress'])
@@ -48,9 +48,7 @@ export const POST = withErrorHandler(
       redeemGems?: unknown
     }
     const offerId =
-      typeof extras.offerId === 'string' && extras.offerId.length > 0
-        ? extras.offerId
-        : null
+      typeof extras.offerId === 'string' && extras.offerId.length > 0 ? extras.offerId : null
     const requestsGemsRedemption =
       Boolean(extras.gemsRedeemedServiceId) || Boolean(extras.redeemGems)
 
@@ -102,10 +100,7 @@ export const POST = withErrorHandler(
       }
       // One offer per customer per day — friendly pre-check before the DB
       // unique constraint would fire.
-      const priorRedemption = await getOfferRedemptionForCustomerOnDate(
-        existing.customerId,
-        today,
-      )
+      const priorRedemption = await getOfferRedemptionForCustomerOnDate(existing.customerId, today)
       if (priorRedemption) {
         throw conflict(
           ERROR_CODES.OFFER_NOT_APPLICABLE,
@@ -136,9 +131,7 @@ export const POST = withErrorHandler(
     // Snapshot staff names onto each invoice item.
     const staffIds = [
       ...new Set(
-        existing.services
-          .map((s) => s.staffId)
-          .filter((sid): sid is string => Boolean(sid)),
+        existing.services.map((s) => s.staffId).filter((sid): sid is string => Boolean(sid)),
       ),
     ]
     const staffNames = await getStaffNamesByIds(staffIds)
@@ -179,9 +172,7 @@ export const POST = withErrorHandler(
     // 4. Award gems (only when any were earned).
     if (gemsEarned > 0) {
       const account = await getOrCreateLoyaltyAccount(existing.customerId)
-      const expiresAt = new Date(
-        now.getTime() + GEMS_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
-      )
+      const expiresAt = new Date(now.getTime() + GEMS_EXPIRY_DAYS * 24 * 60 * 60 * 1000)
       await addGemsTransaction(
         account.id,
         gemsEarned,
@@ -193,22 +184,13 @@ export const POST = withErrorHandler(
 
     // 5. Record the offer redemption (one-per-customer-per-day, DB-enforced).
     if (appliedOfferId) {
-      await recordOfferRedemption(
-        appliedOfferId,
-        existing.customerId,
-        existing.id,
-        today,
-      )
+      await recordOfferRedemption(appliedOfferId, existing.customerId, existing.id, today)
     }
 
     // Best-effort: schedule the post-service follow-up to run +24h. enqueueJob
     // never throws and no-ops without QSTASH_TOKEN, so this can never break the
     // completion flow or change its response.
-    await enqueueJob(
-      '/api/jobs/post-service-followup',
-      { bookingId: id },
-      24 * 60 * 60,
-    )
+    await enqueueJob('/api/jobs/post-service-followup', { bookingId: id }, 24 * 60 * 60)
 
     return apiSuccess({
       booking: completed,

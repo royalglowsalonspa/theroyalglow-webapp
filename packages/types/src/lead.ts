@@ -5,10 +5,7 @@ import { z } from 'zod'
 const indianPhone = z
   .string()
   .trim()
-  .regex(
-    /^(?:\+?91|0)?[6-9]\d{9}$/,
-    'Enter a valid 10-digit Indian mobile number',
-  )
+  .regex(/^(?:\+?91|0)?[6-9]\d{9}$/, 'Enter a valid 10-digit Indian mobile number')
 
 export const createLeadSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -30,14 +27,7 @@ export const manualLeadSchema = createLeadSchema.extend({
 })
 export type ManualLeadInput = z.infer<typeof manualLeadSchema>
 
-export const LEAD_STATUSES = [
-  'new',
-  'contacted',
-  'follow_up',
-  'booked',
-  'won',
-  'lost',
-] as const
+export const LEAD_STATUSES = ['new', 'contacted', 'follow_up', 'booked', 'won', 'lost'] as const
 export type LeadStatus = (typeof LEAD_STATUSES)[number]
 
 export const updateLeadStatusSchema = z.object({

@@ -1,7 +1,7 @@
 import { relations } from 'drizzle-orm'
-import { branch } from '../branch'
 import { user } from '../auth'
 import { booking } from '../booking'
+import { branch } from '../branch'
 import { invoice } from '../invoice'
 import { dailySalesSummary } from '../system'
 

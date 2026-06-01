@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useId, useState } from 'react'
 import { formatDateDDMMYYYY } from '@/lib/admin/bookings'
+import { useCallback, useEffect, useId, useState } from 'react'
 
 // ─── API shapes (mirror GET/POST /api/staff/leave + DELETE /api/staff/leave/[id]) ───
 
@@ -138,9 +138,7 @@ function RequestLeaveForm({ onSubmitted }: { onSubmitted: () => void }) {
         setSuccess(true)
         onSubmitted()
       } catch (err: unknown) {
-        setFormError(
-          err instanceof Error ? err.message : 'Could not submit your request.',
-        )
+        setFormError(err instanceof Error ? err.message : 'Could not submit your request.')
       } finally {
         setSubmitting(false)
       }
@@ -219,9 +217,9 @@ function RequestLeaveForm({ onSubmitted }: { onSubmitted: () => void }) {
           </p>
         )}
         {success && (
-          <p className="font-sans text-sm text-emerald-700" role="status">
+          <output className="block font-sans text-sm text-emerald-700">
             Leave request submitted.
-          </p>
+          </output>
         )}
 
         <button
@@ -260,9 +258,7 @@ function LeaveItem({
       }
       onWithdrawn()
     } catch (err: unknown) {
-      setActionError(
-        err instanceof Error ? err.message : 'Could not withdraw the request.',
-      )
+      setActionError(err instanceof Error ? err.message : 'Could not withdraw the request.')
       setBusy(false)
     }
   }, [row.id, onWithdrawn])
@@ -278,9 +274,7 @@ function LeaveItem({
               <time dateTime={row.date}>{formatDateDDMMYYYY(row.date)}</time>
             </span>
           </p>
-          {row.reason && (
-            <p className="font-sans text-sm text-dusty-gray mt-1">“{row.reason}”</p>
-          )}
+          {row.reason && <p className="font-sans text-sm text-dusty-gray mt-1">“{row.reason}”</p>}
           {row.approvalStatus === 'rejected' && row.rejectionReason && (
             <p className="font-sans text-sm text-red-700 mt-1.5">
               <span className="font-ui text-[11px] uppercase tracking-[0.5px] text-red-600 mr-1.5">
@@ -323,14 +317,13 @@ function LeaveItem({
 
 function LoadingState() {
   return (
-    <div
+    <output
       className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-12 justify-center"
-      role="status"
       aria-live="polite"
     >
       <Spinner />
       <span className="font-sans text-sm text-dusty-gray">Loading your leave…</span>
-    </div>
+    </output>
   )
 }
 
@@ -361,9 +354,7 @@ function EmptyState() {
   return (
     <div className="border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-12 text-center">
       <p className="font-sans text-sm text-cocoa-dark mb-1">No leave requests yet</p>
-      <p className="font-sans text-xs text-dusty-gray">
-        Use the form above to request time off.
-      </p>
+      <p className="font-sans text-xs text-dusty-gray">Use the form above to request time off.</p>
     </div>
   )
 }
@@ -377,14 +368,7 @@ function Spinner() {
       viewBox="0 0 24 24"
       aria-hidden="true"
     >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path
         className="opacity-75"
         fill="currentColor"

@@ -1,17 +1,17 @@
 'use client'
 
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import {
   type CustomerSearchRow,
-  formatINR,
   MEMBERSHIP_PAYMENT_METHODS,
   type MembershipPaymentMethod,
   type MembershipTier,
+  formatINR,
   previewExpiryDDMMYYYY,
   todayISTDateString,
 } from '@/lib/admin/memberships'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 
 export function CreateMembershipForm() {
   const router = useRouter()
@@ -20,8 +20,7 @@ export function CreateMembershipForm() {
   const [tiers, setTiers] = useState<MembershipTier[] | null>(null)
   const [tiersError, setTiersError] = useState<string | null>(null)
 
-  const [selectedCustomer, setSelectedCustomer] =
-    useState<CustomerSearchRow | null>(null)
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerSearchRow | null>(null)
   const [selectedTierId, setSelectedTierId] = useState<string | null>(null)
 
   // Editable inputs. `hours` and `price` are collected in human units (hours,
@@ -30,8 +29,7 @@ export function CreateMembershipForm() {
   const [price, setPrice] = useState('')
   const [validityDays, setValidityDays] = useState('')
   const [startDate, setStartDate] = useState(() => todayISTDateString())
-  const [paymentMethod, setPaymentMethod] =
-    useState<MembershipPaymentMethod>('cash')
+  const [paymentMethod, setPaymentMethod] = useState<MembershipPaymentMethod>('cash')
   const [notes, setNotes] = useState('')
 
   const [submitting, setSubmitting] = useState(false)
@@ -110,17 +108,11 @@ export function CreateMembershipForm() {
       })
       const json = await res.json()
       if (!res.ok || !json.success) {
-        throw new Error(
-          json?.error?.message ?? 'Could not create this membership.',
-        )
+        throw new Error(json?.error?.message ?? 'Could not create this membership.')
       }
       router.push(`/admin/memberships/${json.data.membership.id}`)
     } catch (err: unknown) {
-      setSubmitError(
-        err instanceof Error
-          ? err.message
-          : 'Could not create this membership.',
-      )
+      setSubmitError(err instanceof Error ? err.message : 'Could not create this membership.')
       setSubmitting(false)
     }
   }, [
@@ -153,10 +145,7 @@ export function CreateMembershipForm() {
       >
         {/* Customer search */}
         <Section title="Customer">
-          <CustomerSearch
-            selected={selectedCustomer}
-            onSelect={setSelectedCustomer}
-          />
+          <CustomerSearch selected={selectedCustomer} onSelect={setSelectedCustomer} />
         </Section>
 
         {/* Tier cards */}
@@ -179,6 +168,7 @@ export function CreateMembershipForm() {
                   <button
                     key={tier.id}
                     type="button"
+                    // biome-ignore lint/a11y/useSemanticElements: intentional ARIA radiogroup of styled card buttons; native <input type="radio"> cannot carry this card layout.
                     role="radio"
                     aria-checked={active}
                     onClick={() => selectTier(tier)}
@@ -188,12 +178,9 @@ export function CreateMembershipForm() {
                         : 'border-cloud-gray bg-canvas-white hover:bg-cloud-gray/40'
                     }`}
                   >
-                    <p className="font-ui text-sm text-cocoa-dark">
-                      {tier.name}
-                    </p>
+                    <p className="font-ui text-sm text-cocoa-dark">{tier.name}</p>
                     <p className="text-xs font-sans text-warm-gray mt-1">
-                      {tier.defaultHoursMinutes / 60} hrs ·{' '}
-                      {formatINR(tier.defaultPricePaise)}
+                      {tier.defaultHoursMinutes / 60} hrs · {formatINR(tier.defaultPricePaise)}
                     </p>
                     <p className="text-[11px] font-sans text-dusty-gray">
                       {tier.defaultValidityDays} days
@@ -419,9 +406,7 @@ function CustomerSearch({
     return (
       <div className="flex items-center justify-between gap-3 rounded-[6px] border border-cloud-gray bg-cloud-gray/30 px-3 py-2.5">
         <div className="min-w-0">
-          <p className="text-sm font-sans text-cocoa-dark truncate">
-            {selected.name}
-          </p>
+          <p className="text-sm font-sans text-cocoa-dark truncate">{selected.name}</p>
           <p className="text-xs font-sans text-dusty-gray truncate">
             {selected.email}
             {selected.phone ? ` · ${selected.phone}` : ''}
@@ -485,9 +470,7 @@ function CustomerSearch({
                     }}
                     className="w-full text-left px-3 py-2 hover:bg-cloud-gray/40 transition-colors focus:outline-none focus:bg-cloud-gray/40"
                   >
-                    <span className="block text-sm font-sans text-cocoa-dark">
-                      {c.name}
-                    </span>
+                    <span className="block text-sm font-sans text-cocoa-dark">{c.name}</span>
                     <span className="block text-xs font-sans text-dusty-gray">
                       {c.email}
                       {c.phone ? ` · ${c.phone}` : ''}
@@ -512,9 +495,7 @@ function Section({
 }) {
   return (
     <section className="border border-cloud-gray rounded-[6px] bg-canvas-white p-4">
-      <h2 className="text-xs font-ui uppercase tracking-wider text-dusty-gray mb-3">
-        {title}
-      </h2>
+      <h2 className="text-xs font-ui uppercase tracking-wider text-dusty-gray mb-3">{title}</h2>
       {children}
     </section>
   )

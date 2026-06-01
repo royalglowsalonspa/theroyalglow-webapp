@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
 import { signIn } from '@/lib/auth-client'
+import { useState } from 'react'
 
 const AUTH_CONTEXT_KEY = 'rgss_auth_context'
 
@@ -19,7 +19,14 @@ export function SignInCard() {
       if (typeof window !== 'undefined') {
         const params = new URLSearchParams(window.location.search)
         const context: Record<string, string> = {}
-        for (const key of ['book', 'utm_source', 'utm_campaign', 'utm_medium', 'leadId', 'service']) {
+        for (const key of [
+          'book',
+          'utm_source',
+          'utm_campaign',
+          'utm_medium',
+          'leadId',
+          'service',
+        ]) {
           const value = params.get(key)
           if (value) context[key] = value
         }
@@ -39,17 +46,13 @@ export function SignInCard() {
     <div className="w-full space-y-6 text-center">
       {/* Logo */}
       <div className="flex flex-col items-center gap-2">
-        <div className="text-3xl font-bold tracking-tight text-stone-900">
-          Royal Glow
-        </div>
+        <div className="text-3xl font-bold tracking-tight text-stone-900">Royal Glow</div>
         <p className="text-sm text-stone-500">Salon & Spa</p>
       </div>
 
       {/* Heading */}
       <div className="space-y-2">
-        <h1 className="text-xl font-semibold text-stone-900">
-          Sign in to Royal Glow
-        </h1>
+        <h1 className="text-xl font-semibold text-stone-900">Sign in to Royal Glow</h1>
         <p className="text-sm text-stone-500">
           Continue with your Google account to book appointments and manage your profile.
         </p>
@@ -64,9 +67,28 @@ export function SignInCard() {
       >
         {state === 'redirecting' ? (
           <>
-            <svg className="h-5 w-5 animate-spin text-stone-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            <svg
+              className="h-5 w-5 animate-spin text-stone-400"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              role="img"
+              aria-label="Loading"
+            >
+              <title>Loading</title>
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
             </svg>
             <span>Redirecting…</span>
           </>

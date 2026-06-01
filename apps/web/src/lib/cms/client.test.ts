@@ -1,12 +1,7 @@
+import { server } from '@/test/msw-server'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { server } from '@/test/msw-server'
-import {
-  getActiveBanners,
-  getAllPostSlugs,
-  getPostBySlug,
-  getPublishedPosts,
-} from './client'
+import { getActiveBanners, getAllPostSlugs, getPostBySlug, getPublishedPosts } from './client'
 
 // `lib/cms` reads `process.env.NEXT_PUBLIC_CMS_URL` directly (NOT `@/env`) so it
 // degrades gracefully when the CMS is unconfigured. Every exported read is
@@ -76,11 +71,7 @@ describe('cms client — configured (MSW-backed)', () => {
   })
 
   it('getPublishedPosts maps a Payload doc into a BlogListItem', async () => {
-    server.use(
-      http.get(`${CMS_URL}/api/blog`, () =>
-        HttpResponse.json({ docs: [blogDoc()] }),
-      ),
-    )
+    server.use(http.get(`${CMS_URL}/api/blog`, () => HttpResponse.json({ docs: [blogDoc()] })))
 
     const posts = await getPublishedPosts()
     expect(posts).toHaveLength(1)
@@ -91,9 +82,7 @@ describe('cms client — configured (MSW-backed)', () => {
 
   it('getPublishedPosts returns [] on a 500 (total)', async () => {
     server.use(
-      http.get(`${CMS_URL}/api/blog`, () =>
-        HttpResponse.json({ error: 'boom' }, { status: 500 }),
-      ),
+      http.get(`${CMS_URL}/api/blog`, () => HttpResponse.json({ error: 'boom' }, { status: 500 })),
     )
 
     await expect(getPublishedPosts()).resolves.toEqual([])

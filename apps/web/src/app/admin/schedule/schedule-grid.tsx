@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
 import { formatTime12h } from '@/lib/admin/bookings'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 // ─── API shapes (mirror GET /api/admin/schedule → apiSuccess({ dates, staff })) ───
 
@@ -152,19 +152,14 @@ export function ScheduleGrid() {
       {/* Header + week navigator */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl text-cocoa-dark tracking-tight">
-            Schedule
-          </h1>
+          <h1 className="font-display text-2xl text-cocoa-dark tracking-tight">Schedule</h1>
           <p className="font-sans text-sm text-dusty-gray mt-0.5">
             Week of {formatRangeLabel(weekStart)}
           </p>
         </div>
 
-        <div
-          className="flex items-center gap-1"
-          role="group"
-          aria-label="Change week"
-        >
+        <fieldset className="flex items-center gap-1 border-0 p-0 m-0 min-w-0">
+          <legend className="sr-only">Change week</legend>
           <button
             type="button"
             onClick={goPrev}
@@ -186,7 +181,7 @@ export function ScheduleGrid() {
           >
             Next →
           </button>
-        </div>
+        </fieldset>
       </div>
 
       {loading ? (
@@ -212,9 +207,7 @@ export function ScheduleGrid() {
                         key={date}
                         className="px-3 py-2.5 font-ui text-xs uppercase tracking-wider text-dusty-gray text-center whitespace-nowrap"
                       >
-                        <span className="block text-cocoa-dark">
-                          {DAY_SHORT[dow]}
-                        </span>
+                        <span className="block text-cocoa-dark">{DAY_SHORT[dow]}</span>
                         <span className="block font-sans text-[11px] normal-case tracking-normal text-warm-stone">
                           {dayNum}
                         </span>
@@ -359,16 +352,12 @@ function ScheduleEditor({
   onCancel: () => void
   onSaved: () => void
 }) {
-  const [entries, setEntries] = useState<EditorEntry[]>(() =>
-    buildEditorEntries(initialSchedule),
-  )
+  const [entries, setEntries] = useState<EditorEntry[]>(() => buildEditorEntries(initialSchedule))
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
   const updateEntry = (day: number, patch: Partial<EditorEntry>) => {
-    setEntries((prev) =>
-      prev.map((entry, idx) => (idx === day ? { ...entry, ...patch } : entry)),
-    )
+    setEntries((prev) => prev.map((entry, idx) => (idx === day ? { ...entry, ...patch } : entry)))
   }
 
   // Mirror the server-side rule (assertValidScheduleEntry): a working day needs a
@@ -425,9 +414,7 @@ function ScheduleEditor({
 
   return (
     <div className="space-y-4">
-      <h3 className="font-ui text-sm text-cocoa-dark">
-        Edit weekly schedule — {staffName}
-      </h3>
+      <h3 className="font-ui text-sm text-cocoa-dark">Edit weekly schedule — {staffName}</h3>
 
       <ul className="space-y-2">
         {entries.map((entry, day) => (
@@ -505,14 +492,13 @@ function ScheduleEditor({
 
 function LoadingState() {
   return (
-    <div
+    <output
       className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      role="status"
       aria-live="polite"
     >
       <Spinner />
       <span className="font-sans text-sm text-dusty-gray">Loading schedule…</span>
-    </div>
+    </output>
   )
 }
 
@@ -559,14 +545,7 @@ function Spinner() {
       viewBox="0 0 24 24"
       aria-hidden="true"
     >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path
         className="opacity-75"
         fill="currentColor"

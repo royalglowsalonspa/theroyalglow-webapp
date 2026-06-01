@@ -80,9 +80,7 @@ async function loadPostHog(): Promise<void> {
   try {
     // Guarded dynamic import: `posthog-js` is an optional dependency and need
     // not be installed for the build to pass.
-    const mod = (await import('posthog-js' as string).catch(
-      () => null
-    )) as PostHogModule | null
+    const mod = (await import('posthog-js' as string).catch(() => null)) as PostHogModule | null
 
     if (!mod) {
       return
@@ -95,8 +93,7 @@ async function loadPostHog(): Promise<void> {
     }
 
     instance.init(key, {
-      api_host:
-        process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://app.posthog.com',
+      api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://app.posthog.com',
       capture_pageview: true,
       persistence: 'localStorage',
     })

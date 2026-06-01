@@ -65,9 +65,7 @@ function formatServices(services: ReportService[]): string {
   }
 
   const sorted = [...services].sort((a, b) => b.revenuePaise - a.revenuePaise)
-  const lines = sorted.map((s) =>
-    labelLine(`${s.qty}x ${s.name}`, formatINR(s.revenuePaise)),
-  )
+  const lines = sorted.map((s) => labelLine(`${s.qty}x ${s.name}`, formatINR(s.revenuePaise)))
   return ['🛎️ Services Performed', ...lines].join('\n')
 }
 
@@ -149,10 +147,7 @@ function formatSigned(paise: number): string {
 
 // Weekly report body (job 14): the daily format over a 7-day period plus a
 // week-over-week comparison line against the previous week's totals.
-export function formatWeeklyReport(
-  data: WeeklyReportData,
-  previous: WeeklyReportData,
-): string {
+export function formatWeeklyReport(data: WeeklyReportData, previous: WeeklyReportData): string {
   const header = [
     '📊 Royal Glow — Weekly Sales Report',
     `Week: ${formatDateIN(data.periodStart)} – ${formatDateIN(data.periodEnd)}`,
@@ -165,11 +160,9 @@ export function formatWeeklyReport(
     previous.revenue.totalPaise,
   )
   const sign = pct >= 0 ? '+' : ''
-  const wow = [
-    '',
-    DIVIDER,
-    `📈 Week-over-week: ${formatSigned(deltaPaise)} (${sign}${pct}%)`,
-  ].join('\n')
+  const wow = ['', DIVIDER, `📈 Week-over-week: ${formatSigned(deltaPaise)} (${sign}${pct}%)`].join(
+    '\n',
+  )
 
   return header + formatBody(data) + wow
 }

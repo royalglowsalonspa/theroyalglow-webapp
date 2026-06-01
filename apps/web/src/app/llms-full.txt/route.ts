@@ -70,7 +70,7 @@ function menuSection(categories: ServiceMenu): string {
       const lines = category.services
         .map(
           (service) =>
-            `- ${service.name} — ${formatINR(service.pricePaise)} — ${service.durationMinutes} min`
+            `- ${service.name} — ${formatINR(service.pricePaise)} — ${service.durationMinutes} min`,
         )
         .join('\n')
       return `### ${category.name}\n${lines}`

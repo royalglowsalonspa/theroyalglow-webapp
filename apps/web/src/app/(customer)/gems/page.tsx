@@ -1,6 +1,3 @@
-import type { Metadata } from 'next'
-import { headers } from 'next/headers'
-import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth-server'
 import { formatDateIN, formatINR } from '@rgss/business'
 import {
@@ -9,6 +6,9 @@ import {
   getOrCreateLoyaltyAccount,
   getRedeemableServices,
 } from '@rgss/db/queries'
+import type { Metadata } from 'next'
+import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 
 export const metadata: Metadata = {
   title: 'My Gems',
@@ -23,10 +23,7 @@ type PageProps = {
 }
 
 // Earned/adjusted gems add to the balance; redeemed/expired remove from it.
-const TX_META: Record<
-  string,
-  { label: string; sign: '+' | '-'; tone: string }
-> = {
+const TX_META: Record<string, { label: string; sign: '+' | '-'; tone: string }> = {
   earned: { label: 'Earned', sign: '+', tone: 'text-emerald-700' },
   redeemed: { label: 'Redeemed', sign: '-', tone: 'text-deep-gold' },
   expired: { label: 'Expired', sign: '-', tone: 'text-dusty-gray' },
@@ -95,9 +92,7 @@ export default async function GemsPage({ searchParams }: PageProps) {
           >
             {balance.balance.toLocaleString('en-IN')}
           </span>
-          <span className="font-ui text-[13px] uppercase tracking-[1px] text-deep-gold">
-            gems
-          </span>
+          <span className="font-ui text-[13px] uppercase tracking-[1px] text-deep-gold">gems</span>
         </div>
 
         <dl className="grid grid-cols-2 gap-4">
@@ -129,8 +124,7 @@ export default async function GemsPage({ searchParams }: PageProps) {
           Redeem your gems
         </h2>
         <p className="font-sans text-[13px] text-dusty-gray mb-5">
-          Redeem at your next visit — ask our team at the counter. No online
-          redemption.
+          Redeem at your next visit — ask our team at the counter. No online redemption.
         </p>
 
         {redeemable.length === 0 ? (
@@ -140,14 +134,11 @@ export default async function GemsPage({ searchParams }: PageProps) {
         ) : (
           <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {redeemable.map((item) => {
-              const affordable =
-                item.gemsRequired != null && balance.balance >= item.gemsRequired
+              const affordable = item.gemsRequired != null && balance.balance >= item.gemsRequired
               return (
                 <li key={item.id}>
                   <article className="h-full rounded-[6px] border border-cloud-gray bg-canvas-white p-5 motion-safe:transition-all duration-200 hover:border-golden-mist hover:shadow-card-hover">
-                    <h3 className="font-sans text-[16px] text-cocoa-dark mb-2">
-                      {item.name}
-                    </h3>
+                    <h3 className="font-sans text-[16px] text-cocoa-dark mb-2">{item.name}</h3>
                     <p className="font-ui text-[14px] text-deep-gold mb-1">
                       {item.gemsRequired != null
                         ? `${item.gemsRequired.toLocaleString('en-IN')} gems`
@@ -161,9 +152,7 @@ export default async function GemsPage({ searchParams }: PageProps) {
                         affordable ? 'text-emerald-700' : 'text-warm-stone'
                       }`}
                     >
-                      {affordable
-                        ? 'Ready to redeem'
-                        : 'Redeem at your next visit'}
+                      {affordable ? 'Ready to redeem' : 'Redeem at your next visit'}
                     </p>
                   </article>
                 </li>
@@ -217,9 +206,7 @@ export default async function GemsPage({ searchParams }: PageProps) {
                           : ''}
                       </p>
                     </div>
-                    <span
-                      className={`font-ui text-[15px] whitespace-nowrap ${meta.tone}`}
-                    >
+                    <span className={`font-ui text-[15px] whitespace-nowrap ${meta.tone}`}>
                       {meta.sign}
                       {Math.abs(tx.gemsAmount).toLocaleString('en-IN')}
                     </span>
@@ -264,8 +251,8 @@ export default async function GemsPage({ searchParams }: PageProps) {
       <section className="rounded-[6px] border border-cloud-gray bg-warm-cream px-5 py-4">
         <p className="font-sans text-[13px] text-warm-gray">
           <span className="font-ui text-deep-gold">How gems work · </span>
-          Earn 1 gem per ₹100 spent on salon services. Gems expire 365 days after
-          they are earned, so redeem them on your next visit.
+          Earn 1 gem per ₹100 spent on salon services. Gems expire 365 days after they are earned,
+          so redeem them on your next visit.
         </p>
       </section>
     </div>

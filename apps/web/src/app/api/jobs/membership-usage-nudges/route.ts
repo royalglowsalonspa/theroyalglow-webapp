@@ -63,9 +63,7 @@ export const POST = async (req: Request) => {
   }
 
   try {
-    const eligible = (await getNudgeEligibleMemberships()).filter(
-      (m) => m.membershipAlertsEnabled,
-    )
+    const eligible = (await getNudgeEligibleMemberships()).filter((m) => m.membershipAlertsEnabled)
     const batch = shuffle(eligible).slice(0, MAX_PER_BATCH)
     let processed = 0
 

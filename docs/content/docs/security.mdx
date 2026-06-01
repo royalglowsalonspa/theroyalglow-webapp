@@ -1,0 +1,227 @@
+---
+title: Security
+description: How Royal Glow protects customer data — input validation, rate limiting, security headers, file uploads, webhooks, consent, and role-based access.
+---
+
+# Security
+
+Royal Glow handles real people's personal details — names, phone numbers,
+dates of birth, booking history, and invoices. Keeping that data safe is not an
+afterthought; it is built into every layer of the platform. This page explains,
+in plain terms first and then in technical detail, the controls that protect the
+site and the people who use it.
+
+<Callout type="info">
+  Security is layered. No single control is relied upon on its own — validation,
+  rate limits, headers, access checks, and consent all work together so that one
+  gap does not become a breach.
+</Callout>
+
+## The short version
+
+- Every piece of data sent to the server is checked before it is trusted.
+- Visitors cannot hammer the site with requests — each endpoint has a limit.
+- The browser is told exactly which scripts and origins are allowed.
+- Uploaded files are restricted to safe types and a sensible size.
+- Messages from outside services are verified before they are acted on.
+- People only see and do what their role allows.
+- We ask for consent before collecting analytics or marketing data, as required
+  by India's Digital Personal Data Protection (DPDP) Act.
+
+## Input validation — Zod on every API input
+
+Nothing from a client is trusted until it has been validated. Every API route
+parses its input through a [Zod](https://zod.dev) schema with `safeParse()`
+before any business logic runs. Schemas live in `packages/types`, shared between
+the client form and the server, so the contract is defined in exactly one place.
+
+```ts
+export const POST = withErrorHandler(async (req: Request) => {
+  const body = await req.json()
+  const parsed = createBookingSchema.safeParse(body)
+
+  if (!parsed.success) {
+    throw new AppError({
+      code: 'VALIDATION_ERROR',
+      message: 'Invalid request data',
+      statusCode: 400,
+      details: parsed.error.flatten().fieldErrors,
+    })
+  }
+
+  // parsed.data is now fully typed and trusted
+})
+```
+
+<Callout type="warn">
+  Use `safeParse()`, never `parse()`. `parse()` throws an unstructured error;
+  `safeParse()` lets the route return a clean `VALIDATION_ERROR` with field-level
+  `details`. Raw client input must never be used past the API boundary.
+</Callout>
+
+This also defends against **mass assignment** — extra fields a caller might try
+to sneak in are simply not part of the schema, so they are dropped.
+
+## Rate limiting — Upstash sliding windows
+
+Every API endpoint is rate limited in Next.js middleware using
+[`@upstash/ratelimit`](https://github.com/upstash/ratelimit) backed by Upstash
+Redis. Limits use a **sliding window** keyed by `${ip}:${pathname}`, and run
+**before** auth checks or business logic so abusive traffic is rejected as early
+as possible.
+
+Limits are tuned per endpoint to the work they do:
+
+| Endpoint | Method | Window | Limit | Why |
+| --- | --- | --- | --- | --- |
+| `/api/services` | GET | 10s | 20 | Public catalog — generous for page loads |
+| `/api/availability` | GET | 10s | 10 | Prevents slot scraping |
+| `/api/leads` | POST | 1 min | 3 | Lead-form spam prevention |
+| `/api/auth/sign-in/*` | POST | 1 min | 10 | Brute-force protection |
+| `/api/bookings` | POST | 1 min | 5 | Normal customer booking rate |
+| `/api/webhooks/ably` | POST | 1s | 100 | Server-to-server burst tolerance |
+
+When a caller exceeds a window, the API returns `429` with the `RATE_LIMITED`
+code and `retryable: true`. Sensible fallbacks apply to any route not listed
+explicitly (for example, other `POST /api/*` routes default to 10 per minute).
+
+## Security headers — CSP with a nonce
+
+The app sets a strict **Content-Security-Policy** so the browser only executes
+scripts the server explicitly trusts. Each response carries a per-request
+**nonce**, and inline scripts must present that nonce to run — this neutralises
+most cross-site scripting (XSS) attempts even if malicious markup slips through.
+
+<Callout type="info">
+  The nonce is generated fresh per request (alongside the request ID) and
+  injected into both the CSP header and the allowed `<script>` tags. A static
+  nonce would defeat the purpose.
+</Callout>
+
+## CORS — exact-origin matching
+
+Cross-origin requests are checked against an **exact** allowed origin —
+`theroyalglow.in`. Wildcards (`*`) are never used for credentialed endpoints.
+Anything from another origin is rejected rather than reflected back.
+
+## File uploads — type whitelist and size cap
+
+Uploads (such as customer or content images and PDF documents) are constrained
+on two axes:
+
+| Control | Rule |
+| --- | --- |
+| Allowed types | `jpg`, `png`, `webp`, `pdf` only (a whitelist, not a blacklist) |
+| Maximum size | 10 MB per file |
+
+Files are stored in Cloudflare R2 and served from a dedicated public CDN host,
+never executed by the application.
+
+## Webhook verification — HMAC signatures
+
+Inbound webhooks come from external services (QStash, Brevo, Ably, Meta,
+AiSensy). Each is verified with an **HMAC signature check** before its payload is
+acted on, so a forged request cannot trigger real work.
+
+```ts
+// QStash callbacks are verified with the current + next signing keys
+const receiver = new Receiver({
+  currentSigningKey: env.QSTASH_CURRENT_SIGNING_KEY,
+  nextSigningKey: env.QSTASH_NEXT_SIGNING_KEY,
+})
+
+const isValid = await receiver.verify({ signature, body })
+if (!isValid) {
+  throw new AppError({ code: 'UNAUTHENTICATED', message: 'Invalid signature', statusCode: 401 })
+}
+```
+
+Each provider has its own verifying secret — for example `META_CAPI_WEBHOOK_TOKEN`
+and `AISENSY_WEBHOOK_SECRET`. See [Environment Variables](/docs/environment-variables)
+for the full list.
+
+## Output safety — no unsanitised HTML
+
+The codebase does **not** use `dangerouslySetInnerHTML` without sanitisation.
+This is enforced by the linter (`noDangerouslySetInnerHtml` is an error in the
+Biome + Ultracite config), so risky markup injection cannot reach production
+unnoticed.
+
+## Consent & privacy — DPDP Act (India)
+
+Royal Glow operates under India's **Digital Personal Data Protection (DPDP) Act**.
+Data is stored on Indian servers and is not shared with third-party
+organisations. Consent is explicit and granular:
+
+- **Required at onboarding** — agreement to the Privacy Policy.
+- **Optional — analytics** — anonymous usage analytics (PostHog + Clarity) load
+  only when the customer opts in.
+- **Optional — marketing** — offers and promotions (Meta Pixel + CAPI) fire only
+  when the customer opts in.
+
+<Callout type="info">
+  Consent choices captured at onboarding seed the `rgss_cookie_consent` store, so
+  the cookie banner does not re-ask for categories the customer has already
+  decided on. See [Authentication](/docs/authentication) for the onboarding flow.
+</Callout>
+
+## Access control — six RBAC roles
+
+Authorisation uses Better Auth's roles plugin with six concrete roles in a strict
+hierarchy. Each role inherits the access of those below it.
+
+```
+customer < staff < receptionist < manager < owner < developer
+```
+
+| Role | Typical access |
+| --- | --- |
+| `customer` | Public site, own bookings, profile, invoices |
+| `staff` | Own schedule, assigned booking notes, leave requests |
+| `receptionist` | Bookings, check-in, billing, memberships, leave approvals |
+| `manager` | Staff, services, reports, scheduling, settings |
+| `owner` | Full business access, including `/admin/users` |
+| `developer` | Everything, plus integrations and log surfaces |
+
+A request that is authenticated but lacks the required role receives `403` with
+the `FORBIDDEN` code — distinct from `401 UNAUTHENTICATED`, which means no valid
+session at all.
+
+## Session cookies — HttpOnly, Secure, SameSite=Lax
+
+Sessions are managed by Better Auth and stored in **Neon** (PostgreSQL), not in a
+third-party service. The session cookie is hardened:
+
+| Attribute | Value | Effect |
+| --- | --- | --- |
+| `HttpOnly` | true | JavaScript cannot read the cookie (XSS cannot steal it) |
+| `Secure` | true | Sent only over HTTPS |
+| `SameSite` | `Lax` | Not sent on cross-site requests (CSRF defence) |
+
+Because Google OAuth runs on Royal Glow's own domain, the callback at
+`theroyalglow.in/api/auth/callback/google` keeps the session first-party. See
+[Authentication](/docs/authentication) for the full sign-in design.
+
+## Security checklist
+
+Every new API route and feature is held to this list:
+
+- [ ] Zod validation on **every** input, via `safeParse()`
+- [ ] Per-endpoint `@upstash/ratelimit` sliding window applied in middleware
+- [ ] CSP header with a per-request nonce
+- [ ] CORS restricted to the exact `theroyalglow.in` origin
+- [ ] File uploads limited to `jpg`/`png`/`webp`/`pdf`, 10 MB max
+- [ ] HMAC signature verified on all inbound webhooks
+- [ ] No `dangerouslySetInnerHTML` without sanitisation
+- [ ] DPDP consent respected before analytics/marketing load
+- [ ] Role checked against the six-role hierarchy
+- [ ] Session cookies set `HttpOnly`, `Secure`, `SameSite=Lax`
+
+## Related links
+
+<Cards>
+  <Card title="Authentication" href="/docs/authentication" description="Google OAuth, the six RBAC roles, sessions, and onboarding consent." />
+  <Card title="Error Handling" href="/docs/error-handling" description="How validation, auth, and rate-limit failures are returned to clients." />
+  <Card title="Conventions" href="/docs/conventions" description="The API response envelope and the central error-code registry." />
+  <Card title="Environment Variables" href="/docs/environment-variables" description="The webhook secrets and keys that back these controls." />
+</Cards>

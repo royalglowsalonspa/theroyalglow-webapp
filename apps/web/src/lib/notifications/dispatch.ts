@@ -36,9 +36,7 @@ type DispatchableNotification = {
   body: string
 }
 
-export async function dispatchNotification(
-  notification: DispatchableNotification,
-): Promise<void> {
+export async function dispatchNotification(notification: DispatchableNotification): Promise<void> {
   const { id, userId, type, channel, title, body } = notification
 
   // Read provider keys directly from `process.env` (guarded) so this seam never

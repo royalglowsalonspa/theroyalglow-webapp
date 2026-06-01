@@ -1,2 +1,7 @@
-@import 'fumadocs-ui/css/neutral.css';
-@import 'fumadocs-ui/css/preset.css';
+@import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+
+/* Scan the Fumadocs UI package so Tailwind generates the utility classes
+   its components use. Path is relative to this CSS file. */
+@source '../node_modules/fumadocs-ui/dist/**/*.js';

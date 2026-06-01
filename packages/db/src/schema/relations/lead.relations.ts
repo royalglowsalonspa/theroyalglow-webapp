@@ -1,8 +1,8 @@
 import { relations } from 'drizzle-orm'
-import { lead, leadNote } from '../lead'
-import { service } from '../service'
 import { user } from '../auth'
 import { booking } from '../booking'
+import { lead, leadNote } from '../lead'
+import { service } from '../service'
 
 export const leadRelations = relations(lead, ({ one, many }) => ({
   serviceInterested: one(service, { fields: [lead.serviceInterestedId], references: [service.id] }),

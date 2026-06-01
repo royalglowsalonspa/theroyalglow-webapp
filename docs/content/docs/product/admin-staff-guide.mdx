@@ -1,0 +1,274 @@
+---
+title: Admin & Staff Guide
+description: For the salon team — the six roles and what each can do, plus daily operations from approving bookings to billing, memberships, leads, schedules, and policies.
+---
+
+# Admin & Staff Guide
+
+This guide is for the people who run Royal Glow — the front desk, stylists and
+therapists, managers, and owners. It explains who can do what, then walks
+through the everyday tasks: handling bookings, taking payment, recording
+membership sessions, looking after customers, working the lead pipeline, running
+offers, and managing staff schedules. The internal tool is the **admin portal**,
+reached at `theroyalglow.in/admin`.
+
+## The six roles
+
+Access is organised into six levels. Each level can do everything the one below
+it can, plus more. This keeps the front desk focused and sensitive areas (like
+pricing and reports) limited to the right people.
+
+```
+Customer  <  Staff  <  Receptionist  <  Manager  <  Owner  <  Developer
+```
+
+| Role | Who they are | What they focus on |
+| --- | --- | --- |
+| **Customer** | The end user. | Booking and managing their own appointments — no admin access at all. |
+| **Staff** (Stylist / Therapist) | Performs services. | Their own appointments and their own leave. Nothing else. |
+| **Receptionist** | The front desk. | The daily engine — bookings, billing, memberships, CRM, leads, leave approvals. |
+| **Manager** | Operations lead. | Everything reception does, plus prices, services, offers, reports, staff, and settings. |
+| **Owner** | The business owner. | Everything a manager does, plus managing user accounts and branches. |
+| **Developer** | Maintains the software. | Full access, plus integrations and system logs. |
+
+### What each role can access
+
+This matrix is the quick answer to "can this person do that?" A ✅ means yes.
+
+| Capability | Staff | Receptionist | Manager | Owner | Developer |
+| --- | :---: | :---: | :---: | :---: | :---: |
+| View own bookings & submit own leave | ✅ | ✅ | ✅ | ✅ | ✅ |
+| View all bookings | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Approve / reject / assign bookings | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Create walk-ins, mark status, checkout | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Generate invoices & take payment | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Create memberships & record sessions | ❌ | ✅ | ✅ | ✅ | ✅ |
+| CRM notes, tags, lead pipeline | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Approve / reject leave | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Edit service prices & catalogue | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Create / edit offers | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Cancel a membership / edit tier defaults | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Financial reports & analytics | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Edit staff schedules & system settings | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Add / remove staff & receptionists | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Manage user accounts & roles | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Add / edit branches | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Integrations & error logs | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+<Callout type="info">
+  **Receptionists cannot change prices.** They take payment and apply offers,
+  but editing the price list is a Manager-and-above task. This protects pricing
+  integrity at the front desk.
+</Callout>
+
+A note on staff: a Stylist or Therapist sees only their **own** assigned
+appointments and the service notes attached to them (for example, "allergic to
+ammonia"). They cannot see other staff's bookings, customer phone numbers or
+emails, prices, or any CRM data.
+
+## Daily operations
+
+### Approving and assigning bookings
+
+New online bookings arrive as **Pending** and appear live on the dashboard and
+the bookings list. To handle one:
+
+1. Open the booking from the dashboard or **Bookings** list.
+2. Review the customer, services, date, and time.
+3. **Assign a staff member** to each service (a dropdown per service).
+4. Click **Approve** to confirm it, or **Reject** and give a reason.
+
+When you approve, the customer is notified and the booking becomes
+**Confirmed**. When you reject, the customer sees the reason you typed and can
+book again, so write something helpful (for example, "Staff unavailable at 3:30
+PM — please try 4:00 PM").
+
+### Walk-ins
+
+When a customer arrives without booking, create a walk-in:
+
+1. Click **+ Walk-in**.
+2. Search for the customer (or create a new one).
+3. Pick the service type, services, and assign staff.
+4. Set the time (defaults to now) and save.
+
+Walk-ins skip "pending" and are **confirmed immediately**, because the customer
+is already in front of you.
+
+<Callout type="info">
+  A no-show on a walk-in **never** counts against the customer — a walk-in is
+  only created when they're physically present, so there's no slot to miss.
+</Callout>
+
+### Completing a booking → invoice → gems
+
+When the service is finished, the same checkout flow handles payment, the
+invoice, and loyalty gems in one go:
+
+1. On the confirmed booking, mark it **In Progress** when the customer checks in.
+2. When the service is done, click **Mark Completed** to open checkout.
+3. Optionally apply **one offer** (max one per customer per day).
+4. Choose the payment method: **Cash, UPI, or Card**.
+5. Review the invoice preview (line items, GST split, total).
+6. Click **Complete & Generate Invoice**.
+
+The system then, in a single step:
+
+- Marks the booking **Completed**
+- Creates a **GST-compliant invoice** (18% GST, shown as CGST 9% + SGST 9%)
+- Generates a branded **PDF** and **emails it** to the customer
+- Awards **gems** — 1 gem per ₹100 on the bill (rounded down)
+- Updates the customer's visit count, lifetime value, and the day's revenue
+
+<Callout type="info">
+  **Prices on an invoice are frozen.** Each line item stores the service name
+  and price as they were at the time of sale. Changing a price later never
+  alters past invoices.
+</Callout>
+
+### Recording a membership session
+
+When a member comes in for a spa session, you record it against their hours
+instead of taking payment:
+
+1. Open the membership from **Memberships** (or the customer's profile).
+2. Click **Record Session**.
+3. Select the service(s) performed and confirm the duration.
+4. Save.
+
+This deducts the time from their balance, creates a **₹0 invoice** as a usage
+record, and emails a session confirmation. If the requested time is more than
+the hours remaining, the system blocks it and suggests a shorter session or
+paying per-service for the extra time. Membership sessions earn **no gems**.
+
+### Managing customers (CRM)
+
+The **Customers** area is the salon's memory of every client.
+
+- **Find anyone** by name, phone, or email; sort by lifetime value, visits, or
+  recent activity.
+- Each profile shows visit history, invoices, membership, gems, and notes.
+- **Notes** let the team record useful context (preferences, allergies,
+  conversations). Add a note from the customer's profile.
+- **Tags** group customers. Some are applied **automatically** (for example
+  `vip` for high spenders, `loyal` for frequent visitors, `dormant` for those
+  who haven't visited in a while). Others are **manual** (for example `bridal`,
+  `corporate`, `influencer`). Auto tags can't be removed; manual ones can.
+
+### The lead pipeline
+
+Leads are prospects who came from **Meta / Instagram ads** (via the `/book` ad
+landing page or a Meta lead form). They're different from bookings — a lead
+hasn't reserved a slot yet, they've just expressed interest. The **Leads** area
+shows them as a board you move across stages:
+
+```
+New → Contacted → Follow-up → Booked → Won / Lost
+```
+
+| Stage | Meaning |
+| --- | --- |
+| **New** | Just captured. Not yet contacted. |
+| **Contacted** | You've reached out (call or WhatsApp). |
+| **Follow-up** | Interested but not booked yet — needs nurturing. |
+| **Booked** | They've made a booking linked to this lead. |
+| **Won** | The booking was completed and paid — revenue attributed. |
+| **Lost** | They didn't convert (record a reason). |
+
+Each lead card shows the name, phone (tap to call or open WhatsApp), service
+interest, and which campaign brought them in. Leads with no contact for 48 hours
+are flagged as **stale** so nothing slips through. When a lead books and
+completes a paid visit, it moves to **Won** automatically.
+
+<Callout type="info">
+  A customer who finds you through Google, the in-salon QR code, or by typing
+  the website directly is a normal **booking/customer**, not a lead. The lead
+  pipeline is specifically for paid-ad prospects.
+</Callout>
+
+### Creating offers
+
+Managers and above create promotions in the **Offers** area. There are three
+types:
+
+| Type | Example |
+| --- | --- |
+| **Percentage off** | "20% off all facials this week" |
+| **Flat discount** | "₹500 off any hair treatment" |
+| **Combo price** | "Hair + Facial + Manicure = ₹2,999" |
+
+Offers have start and end dates and activate or expire automatically. The rules:
+one offer per customer per day, applied by the receptionist at checkout, can't
+be combined with gems, and they apply to salon services (not spa memberships).
+
+### Staff schedules and leave
+
+The **Schedule** area shows every staff member's working hours and booked slots
+as a grid. Bookings only land on staff who are available, so keeping schedules
+accurate matters.
+
+Leave follows a clear **request → review → decision** flow:
+
+1. A staff member submits a leave request for a future date. It starts as
+   **Pending**.
+2. Receptionists and the manager are notified and review it in **Leave**.
+3. They **Approve** (which blocks that staff member's availability for the date)
+   or **Reject** with a reason.
+
+| Leave status | Effect on availability | Who sets it |
+| --- | --- | --- |
+| **Pending** | None — bookings are unaffected | Staff (self-submit) |
+| **Approved** | Blocks that day for that staff member | Receptionist / Manager |
+| **Rejected** | None | Receptionist / Manager |
+
+Leave types are Sick, Casual, Personal, and Other. Staff can withdraw a request
+while it's still pending, but an approved leave must be changed by a manager. If
+an approved leave clashes with existing confirmed bookings, the system warns the
+team to reassign them — it doesn't block the approval.
+
+### The no-show policy
+
+A no-show is a confirmed booking the customer didn't attend and didn't cancel.
+The policy is gentle for occasional misses and firmer for repeat offenders:
+
+| No-shows | What happens |
+| --- | --- |
+| **1 to 3** | A "No-Show Risk" note/tag is added to the customer. No restriction. |
+| **4 or more within 90 days** | Future bookings need **manager approval** before they're confirmed. The customer is notified. |
+
+**Recovery:** a customer who completes **3 bookings in a row** without a no-show
+has the approval requirement and the risk tag removed. Any new no-show resets
+that recovery count. As noted above, walk-in no-shows never count toward this
+tally.
+
+## A day at the front desk, in order
+
+1. Check the **dashboard** — pending bookings, today's appointments, stale leads.
+2. **Approve or reject** pending bookings and assign staff.
+3. Create **walk-ins** as customers arrive.
+4. Mark bookings **In Progress** at check-in.
+5. **Checkout** completed services — payment, invoice, gems.
+6. **Record membership sessions** for spa members.
+7. Work the **lead pipeline** — call and follow up.
+8. Update **customer notes and tags** as you learn things.
+9. Review and action **leave requests**.
+
+## Where to go next
+
+<Cards>
+  <Card
+    title="Business Overview"
+    href="/docs/product/business-overview"
+    description="The big-picture view of the business, its modules, and how it makes money."
+  />
+  <Card
+    title="Customer Guide"
+    href="/docs/product/customer-guide"
+    description="See exactly what your customers experience when they book online."
+  />
+  <Card
+    title="Features"
+    href="/docs/features"
+    description="Deeper reference for any module — billing, memberships, CRM, scheduling, and more."
+  />
+</Cards>

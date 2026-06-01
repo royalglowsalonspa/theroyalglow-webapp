@@ -1,10 +1,6 @@
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireSession } from '@/lib/api/session'
-import {
-  getNotificationsForUser,
-  getUnreadCount,
-  markNotificationsRead,
-} from '@rgss/db/queries'
+import { getNotificationsForUser, getUnreadCount, markNotificationsRead } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { markReadSchema } from '@rgss/types'
 
@@ -14,11 +10,7 @@ const MAX_PAGE_SIZE = 100
 
 // Parse a positive integer query param, falling back to a default and clamping
 // to a maximum where supplied. Invalid/missing values use the default.
-function parsePositiveInt(
-  value: string | null,
-  fallback: number,
-  max?: number,
-): number {
+function parsePositiveInt(value: string | null, fallback: number, max?: number): number {
   const parsed = Number(value)
   if (!Number.isInteger(parsed) || parsed < 1) {
     return fallback

@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useBookingDialog } from '@/components/booking/BookingDialogProvider'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 // --- Types (mirror GET /api/bookings response) ---
 interface BookingServiceRow {
@@ -134,14 +134,12 @@ export function BookingsList() {
         }
         await load()
       } catch (err: unknown) {
-        setCancelError(
-          err instanceof Error ? err.message : 'Could not cancel this booking.'
-        )
+        setCancelError(err instanceof Error ? err.message : 'Could not cancel this booking.')
       } finally {
         setCancellingId(null)
       }
     },
-    [load]
+    [load],
   )
 
   const { upcoming, past } = useMemo(() => {
@@ -156,10 +154,10 @@ export function BookingsList() {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-3 py-16" role="status" aria-live="polite">
+      <output className="flex items-center gap-3 py-16" aria-live="polite">
         <Spinner />
         <span className="font-sans text-[15px] text-dusty-gray">Loading your bookings…</span>
-      </div>
+      </output>
     )
   }
 
@@ -189,7 +187,11 @@ export function BookingsList() {
   return (
     <div className="space-y-6">
       {/* Tabs */}
-      <div className="inline-flex gap-1 rounded-full bg-cloud-gray p-1" role="tablist" aria-label="Booking filter">
+      <div
+        className="inline-flex gap-1 rounded-full bg-cloud-gray p-1"
+        role="tablist"
+        aria-label="Booking filter"
+      >
         {(['upcoming', 'past'] as const).map((t) => (
           <button
             key={t}
@@ -198,7 +200,9 @@ export function BookingsList() {
             aria-selected={tab === t}
             onClick={() => setTab(t)}
             className={`font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-5 py-2 motion-safe:transition-colors duration-200 ${
-              tab === t ? 'bg-royal-gold text-cocoa-dark' : 'bg-cloud-gray text-cocoa-dark hover:bg-golden-mist'
+              tab === t
+                ? 'bg-royal-gold text-cocoa-dark'
+                : 'bg-cloud-gray text-cocoa-dark hover:bg-golden-mist'
             }`}
           >
             {t === 'upcoming' ? `Upcoming (${upcoming.length})` : `Past (${past.length})`}

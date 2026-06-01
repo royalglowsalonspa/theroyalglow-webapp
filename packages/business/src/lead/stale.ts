@@ -13,10 +13,6 @@ export function hoursSince(createdAt: Date, now: Date = new Date()): number {
 }
 
 // True iff the lead is still 'new' and was created at least 48 hours ago.
-export function isLeadStale(
-  status: LeadStatus,
-  createdAt: Date,
-  now: Date = new Date(),
-): boolean {
+export function isLeadStale(status: LeadStatus, createdAt: Date, now: Date = new Date()): boolean {
   return status === 'new' && hoursSince(createdAt, now) >= STALE_THRESHOLD_HOURS
 }

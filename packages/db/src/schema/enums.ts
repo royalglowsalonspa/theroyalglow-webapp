@@ -20,18 +20,9 @@ export const leadStatusEnum = pgEnum('lead_status', [
   'lost',
 ])
 
-export const paymentStatusEnum = pgEnum('payment_status', [
-  'pending',
-  'paid',
-  'refunded',
-])
+export const paymentStatusEnum = pgEnum('payment_status', ['pending', 'paid', 'refunded'])
 
-export const paymentMethodEnum = pgEnum('payment_method', [
-  'cash',
-  'upi',
-  'card',
-  'online',
-])
+export const paymentMethodEnum = pgEnum('payment_method', ['cash', 'upi', 'card', 'online'])
 
 export const waitlistStatusEnum = pgEnum('waitlist_status', [
   'waiting',
@@ -68,16 +59,9 @@ export const notificationTypeEnum = pgEnum('notification_type', [
   'gems_expired',
 ])
 
-export const notificationChannelEnum = pgEnum('notification_channel', [
-  'push',
-  'email',
-])
+export const notificationChannelEnum = pgEnum('notification_channel', ['push', 'email'])
 
-export const notificationStatusEnum = pgEnum('notification_status', [
-  'pending',
-  'sent',
-  'failed',
-])
+export const notificationStatusEnum = pgEnum('notification_status', ['pending', 'sent', 'failed'])
 
 export const loyaltyTxTypeEnum = pgEnum('loyalty_tx_type', [
   'earned',
@@ -93,12 +77,7 @@ export const staffDesignationEnum = pgEnum('staff_designation', [
   'manager',
 ])
 
-export const genderEnum = pgEnum('gender', [
-  'male',
-  'female',
-  'other',
-  'prefer_not_to_say',
-])
+export const genderEnum = pgEnum('gender', ['male', 'female', 'other', 'prefer_not_to_say'])
 
 export const auditActionEnum = pgEnum('audit_action', [
   'create',
@@ -107,16 +86,9 @@ export const auditActionEnum = pgEnum('audit_action', [
   'status_change',
 ])
 
-export const serviceTypeEnum = pgEnum('service_type', [
-  'salon',
-  'spa',
-])
+export const serviceTypeEnum = pgEnum('service_type', ['salon', 'spa'])
 
-export const discountTypeEnum = pgEnum('discount_type', [
-  'percentage',
-  'flat',
-  'combo_price',
-])
+export const discountTypeEnum = pgEnum('discount_type', ['percentage', 'flat', 'combo_price'])
 
 export const spaMembershipStatusEnum = pgEnum('spa_membership_status', [
   'active',
@@ -136,12 +108,7 @@ export const leaveApprovalStatusEnum = pgEnum('leave_approval_status', [
   'rejected',
 ])
 
-export const leaveTypeEnum = pgEnum('leave_type', [
-  'sick',
-  'casual',
-  'personal',
-  'other',
-])
+export const leaveTypeEnum = pgEnum('leave_type', ['sick', 'casual', 'personal', 'other'])
 
 export const branchStatusEnum = pgEnum('branch_status', [
   'operational',

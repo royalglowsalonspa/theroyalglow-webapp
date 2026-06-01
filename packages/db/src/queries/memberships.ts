@@ -1,5 +1,5 @@
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { ERROR_CODES, conflict } from '@rgss/errors'
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { db } from '../index'
 import { user } from '../schema/auth'
@@ -356,9 +356,7 @@ export async function cancelMembership(id: string, reason: string) {
   }
 
   const cancellationNote = `Cancelled: ${reason}`
-  const updatedNotes = existing.notes
-    ? `${existing.notes}\n${cancellationNote}`
-    : cancellationNote
+  const updatedNotes = existing.notes ? `${existing.notes}\n${cancellationNote}` : cancellationNote
 
   const [updated] = await db
     .update(spaMembership)

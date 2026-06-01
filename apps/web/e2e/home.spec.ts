@@ -9,13 +9,9 @@ import { expect, test } from '@playwright/test'
 test('homepage renders the hero and a Book Now CTA', async ({ page }) => {
   await page.goto('/')
 
-  await expect(
-    page.getByRole('heading', { name: 'Where beauty meets royalty.' }),
-  ).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Where beauty meets royalty.' })).toBeVisible()
 
-  await expect(
-    page.getByRole('link', { name: /book now/i }).first(),
-  ).toBeVisible()
+  await expect(page.getByRole('link', { name: /book now/i }).first()).toBeVisible()
 })
 
 test('the /?book=1 deep-link opens the booking dialog', async ({ page }) => {
@@ -23,7 +19,5 @@ test('the /?book=1 deep-link opens the booking dialog', async ({ page }) => {
 
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
-  await expect(
-    dialog.getByRole('heading', { name: 'Book Appointment' }),
-  ).toBeVisible()
+  await expect(dialog.getByRole('heading', { name: 'Book Appointment' })).toBeVisible()
 })

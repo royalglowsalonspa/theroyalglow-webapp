@@ -1,0 +1,53 @@
+# ═══════════════════════════════════════════════════════════════
+# Royal Glow Salon & Spa — Git attributes
+# Enforce LF line endings in the working tree on ALL platforms so
+# Biome (which formats to LF) stays consistent on Windows/macOS/Linux.
+# ═══════════════════════════════════════════════════════════════
+
+# Default: treat as text, normalise to LF in the repo AND check out as LF.
+* text=auto eol=lf
+
+# Explicit text files (defensive — covers the toolchain)
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.js    text eol=lf
+*.jsx   text eol=lf
+*.mjs   text eol=lf
+*.cjs   text eol=lf
+*.json  text eol=lf
+*.jsonc text eol=lf
+*.css   text eol=lf
+*.scss  text eol=lf
+*.md    text eol=lf
+*.mdx   text eol=lf
+*.mdc   text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.toml  text eol=lf
+*.svg   text eol=lf
+*.html  text eol=lf
+*.sql   text eol=lf
+*.sh    text eol=lf
+*.env*  text eol=lf
+
+# Lockfile: leave bytes untouched (Bun manages it)
+bun.lock      -text
+bun.lockb     binary
+
+# Binary assets — never touch line endings
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.avif  binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.eot   binary
+*.pdf   binary
+*.zst   binary
+*.gz    binary
+*.zip   binary

@@ -1,6 +1,6 @@
+import type { BlogListItem } from '@/lib/cms/types'
 import { formatDateIN } from '@rgss/business'
 import Link from 'next/link'
-import type { BlogListItem } from '@/lib/cms/types'
 
 // Presentation-only listing card for a single published post. All data is
 // pre-resolved by `lib/cms` — this component contains no fetch/business logic.
@@ -32,10 +32,7 @@ export function PostCard({ post }: PostCardProps) {
             className="absolute inset-0 h-full w-full object-cover"
           />
         ) : (
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 flex items-center justify-center"
-          >
+          <div aria-hidden="true" className="absolute inset-0 flex items-center justify-center">
             <span className="font-display text-3xl text-deep-gold/40">RG</span>
           </div>
         )}
@@ -58,9 +55,7 @@ export function PostCard({ post }: PostCardProps) {
         </h3>
 
         {excerpt ? (
-          <p className="font-sans text-[15px] leading-[1.55] text-warm-gray mt-3">
-            {excerpt}
-          </p>
+          <p className="font-sans text-[15px] leading-[1.55] text-warm-gray mt-3">{excerpt}</p>
         ) : null}
 
         {publishedAt ? (

@@ -37,9 +37,7 @@ const STATUS_CONFIG: Record<string, { bg: string; text: string; dot: string }> =
 }
 
 function formatStatus(status: string): string {
-  return status
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase())
+  return status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 export function StatusBadge({ status }: { status: string }) {

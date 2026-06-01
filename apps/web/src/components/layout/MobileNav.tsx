@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
+import { useCallback, useEffect, useRef } from 'react'
 
 const navLinks = [
   { href: '/', label: 'Home' },
@@ -33,7 +33,7 @@ export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
       if (e.key !== 'Tab' || !navRef.current) return
 
       const focusableElements = navRef.current.querySelectorAll<HTMLElement>(
-        'a[href], button, [tabindex]:not([tabindex="-1"])'
+        'a[href], button, [tabindex]:not([tabindex="-1"])',
       )
       const firstElement = focusableElements[0]
       const lastElement = focusableElements[focusableElements.length - 1]
@@ -50,7 +50,7 @@ export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
         }
       }
     },
-    [onClose]
+    [onClose],
   )
 
   useEffect(() => {
@@ -72,12 +72,14 @@ export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
   return (
     <>
       {/* Backdrop overlay */}
-      <div
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label="Close navigation menu"
         className={`fixed inset-0 bg-cocoa-dark/50 z-40 motion-safe:transition-opacity motion-safe:duration-250 ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={onClose}
-        aria-hidden="true"
       />
 
       {/* Slide-in panel */}
@@ -204,11 +206,7 @@ export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
             >
               {user.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={user.image}
-                  alt=""
-                  className="w-6 h-6 rounded-full object-cover"
-                />
+                <img src={user.image} alt="" className="w-6 h-6 rounded-full object-cover" />
               ) : (
                 <span
                   className="w-6 h-6 rounded-full bg-royal-gold flex items-center justify-center text-[11px]"
@@ -217,7 +215,9 @@ export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
                   {user.name?.trim().charAt(0).toUpperCase() || 'G'}
                 </span>
               )}
-              <span className="max-w-[140px] truncate">{user.name?.split(' ')[0] ?? 'Profile'}</span>
+              <span className="max-w-[140px] truncate">
+                {user.name?.split(' ')[0] ?? 'Profile'}
+              </span>
             </Link>
           ) : (
             <Link
