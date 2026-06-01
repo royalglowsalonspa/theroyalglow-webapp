@@ -117,9 +117,7 @@ export async function removePushSubscription(userId: string, endpoint: string) {
   await db
     .update(pushSubscription)
     .set({ isActive: false })
-    .where(
-      and(eq(pushSubscription.userId, userId), eq(pushSubscription.endpoint, endpoint)),
-    )
+    .where(and(eq(pushSubscription.userId, userId), eq(pushSubscription.endpoint, endpoint)))
 }
 
 // All of the caller's active push subscriptions, used by the dispatch seam.
@@ -127,9 +125,7 @@ export async function getActivePushSubscriptions(userId: string) {
   return db
     .select()
     .from(pushSubscription)
-    .where(
-      and(eq(pushSubscription.userId, userId), eq(pushSubscription.isActive, true)),
-    )
+    .where(and(eq(pushSubscription.userId, userId), eq(pushSubscription.isActive, true)))
 }
 
 // Update a notification's delivery outcome. Called by the dispatch layer after

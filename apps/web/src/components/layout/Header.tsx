@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
+import { useSession } from '@/lib/auth-client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useSession } from '@/lib/auth-client'
-import { NotificationBell } from '@/components/notifications/NotificationBell'
+import { useEffect, useState } from 'react'
 import { MobileNav } from './MobileNav'
 
 const navLinks = [

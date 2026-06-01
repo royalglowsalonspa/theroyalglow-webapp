@@ -1,16 +1,16 @@
 'use client'
 
-import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
 import { StatusBadge } from '@/components/admin/StatusBadge'
 import {
   type AdminBooking,
+  SERVICE_TYPE_LABEL,
+  type StaffMember,
   formatDateDDMMYYYY,
   formatINRWithPaise,
   formatTime12h,
-  SERVICE_TYPE_LABEL,
-  type StaffMember,
 } from '@/lib/admin/bookings'
+import Link from 'next/link'
+import { useCallback, useEffect, useState } from 'react'
 
 const PAYMENT_METHODS = [
   { value: 'cash', label: 'Cash' },
@@ -54,14 +54,10 @@ export function BookingDetail({ bookingId }: { bookingId: string }) {
 
   if (loading) {
     return (
-      <div
-        className="flex items-center gap-3 py-16 justify-center"
-        role="status"
-        aria-live="polite"
-      >
+      <output className="flex items-center gap-3 py-16 justify-center" aria-live="polite">
         <Spinner />
         <span className="font-sans text-sm text-dusty-gray">Loading booking…</span>
-      </div>
+      </output>
     )
   }
 
@@ -158,12 +154,8 @@ export function BookingDetail({ bookingId }: { bookingId: string }) {
                 <tbody className="divide-y divide-cloud-gray">
                   {booking.services.map((s) => (
                     <tr key={s.id}>
-                      <td className="py-2.5 font-sans text-cocoa-dark">
-                        {s.serviceNameSnapshot}
-                      </td>
-                      <td className="py-2.5 font-sans text-warm-gray">
-                        {s.durationMinutes} min
-                      </td>
+                      <td className="py-2.5 font-sans text-cocoa-dark">{s.serviceNameSnapshot}</td>
+                      <td className="py-2.5 font-sans text-warm-gray">{s.durationMinutes} min</td>
                       <td className="py-2.5 font-ui text-cocoa-dark text-right">
                         {formatINRWithPaise(s.priceAtBookingPaise)}
                       </td>
@@ -224,17 +216,11 @@ function ActionPanel({
 }) {
   return (
     <div className="border border-cloud-gray rounded-[6px] bg-canvas-white p-4 lg:sticky lg:top-4">
-      <h2 className="text-xs font-ui uppercase tracking-wider text-dusty-gray mb-3">
-        Actions
-      </h2>
+      <h2 className="text-xs font-ui uppercase tracking-wider text-dusty-gray mb-3">Actions</h2>
       {booking.status === 'pending' ? (
         <PendingActions booking={booking} onChanged={onChanged} />
       ) : booking.status === 'confirmed' ? (
-        <ConfirmedActions
-          booking={booking}
-          onChanged={onChanged}
-          onCompleted={onCompleted}
-        />
+        <ConfirmedActions booking={booking} onChanged={onChanged} onCompleted={onCompleted} />
       ) : booking.status === 'completed' ? (
         <CompletedState completion={completion} />
       ) : (
@@ -295,9 +281,7 @@ function PendingActions({
       }
       onChanged()
     } catch (err: unknown) {
-      setActionError(
-        err instanceof Error ? err.message : 'Could not approve this booking.'
-      )
+      setActionError(err instanceof Error ? err.message : 'Could not approve this booking.')
     } finally {
       setSubmitting(false)
     }
@@ -322,9 +306,7 @@ function PendingActions({
       }
       onChanged()
     } catch (err: unknown) {
-      setActionError(
-        err instanceof Error ? err.message : 'Could not reject this booking.'
-      )
+      setActionError(err instanceof Error ? err.message : 'Could not reject this booking.')
     } finally {
       setSubmitting(false)
     }
@@ -348,9 +330,7 @@ function PendingActions({
               onChange={(e) => setStaffId(e.target.value)}
               className="h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
             >
-              <option value="">
-                {staff === null ? 'Loading staff…' : 'Select staff…'}
-              </option>
+              <option value="">{staff === null ? 'Loading staff…' : 'Select staff…'}</option>
               {(staff ?? []).map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name} ({s.designation})
@@ -479,9 +459,7 @@ function ConfirmedActions({
       })
       onChanged()
     } catch (err: unknown) {
-      setActionError(
-        err instanceof Error ? err.message : 'Could not complete this booking.'
-      )
+      setActionError(err instanceof Error ? err.message : 'Could not complete this booking.')
     } finally {
       setSubmitting(false)
     }
@@ -500,11 +478,7 @@ function ConfirmedActions({
       }
       onChanged()
     } catch (err: unknown) {
-      setActionError(
-        err instanceof Error
-          ? err.message
-          : 'Could not mark this booking as no-show.'
-      )
+      setActionError(err instanceof Error ? err.message : 'Could not mark this booking as no-show.')
     } finally {
       setSubmitting(false)
     }
@@ -566,9 +540,7 @@ function ConfirmedActions({
           </fieldset>
 
           <div className="flex items-center justify-between pt-2 border-t border-cloud-gray text-sm">
-            <span className="font-ui text-xs uppercase tracking-wider text-dusty-gray">
-              Total
-            </span>
+            <span className="font-ui text-xs uppercase tracking-wider text-dusty-gray">Total</span>
             <span className="font-ui text-cocoa-dark font-medium">
               {formatINRWithPaise(booking.totalAmountPaise)}
             </span>
@@ -615,8 +587,7 @@ function CompletedState({ completion }: { completion: CompletionResult | null })
         {completion ? (
           <ul className="space-y-1 text-sm font-sans text-emerald-700">
             <li>
-              ✓ Invoice{' '}
-              <span className="font-mono">{completion.invoiceNumber}</span> generated
+              ✓ Invoice <span className="font-mono">{completion.invoiceNumber}</span> generated
             </li>
             <li>✓ +{completion.gemsEarned} gems awarded</li>
           </ul>
@@ -656,9 +627,7 @@ function TerminalState({ booking }: { booking: AdminBooking }) {
           <p className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray mb-0.5">
             Reason
           </p>
-          <p className="text-sm font-sans text-warm-gray whitespace-pre-wrap">
-            {reason}
-          </p>
+          <p className="text-sm font-sans text-warm-gray whitespace-pre-wrap">{reason}</p>
         </div>
       ) : null}
     </div>
@@ -675,9 +644,7 @@ function Section({
 }) {
   return (
     <section className="border border-cloud-gray rounded-[6px] bg-canvas-white p-4">
-      <h2 className="text-xs font-ui uppercase tracking-wider text-dusty-gray mb-3">
-        {title}
-      </h2>
+      <h2 className="text-xs font-ui uppercase tracking-wider text-dusty-gray mb-3">{title}</h2>
       {children}
     </section>
   )
@@ -686,9 +653,7 @@ function Section({
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray">
-        {label}
-      </dt>
+      <dt className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray">{label}</dt>
       <dd className="font-sans text-cocoa-dark">{value}</dd>
     </div>
   )
@@ -714,14 +679,7 @@ function Spinner() {
       viewBox="0 0 24 24"
       aria-hidden="true"
     >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path
         className="opacity-75"
         fill="currentColor"
@@ -730,4 +688,3 @@ function Spinner() {
     </svg>
   )
 }
-

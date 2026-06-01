@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
+import { useState } from 'react'
 
 // ─── Types ───────────────────────────────────────────────────────────
 type ServiceType = 'salon' | 'spa'
@@ -65,12 +65,48 @@ const salonCategories: SalonCategory[] = [
     name: 'Haircut & Styling',
     slug: 'haircut-styling',
     services: [
-      { id: 'svc_haircut_basic', name: 'Haircut (Basic)', slug: 'haircut-basic', durationMinutes: 30, pricePaise: 50000 },
-      { id: 'svc_haircut_advanced', name: 'Haircut (Advanced / Layered)', slug: 'haircut-advanced', durationMinutes: 45, pricePaise: 80000 },
-      { id: 'svc_wash_blowdry', name: 'Hair Wash & Blow Dry', slug: 'wash-blowdry', durationMinutes: 30, pricePaise: 40000 },
-      { id: 'svc_straightening_temp', name: 'Hair Straightening (Temporary)', slug: 'straightening-temp', durationMinutes: 60, pricePaise: 150000 },
-      { id: 'svc_hair_ironing', name: 'Hair Ironing', slug: 'hair-ironing', durationMinutes: 30, pricePaise: 60000 },
-      { id: 'svc_bridal_hair', name: 'Bridal Hair Styling', slug: 'bridal-hair', durationMinutes: 90, pricePaise: 500000 },
+      {
+        id: 'svc_haircut_basic',
+        name: 'Haircut (Basic)',
+        slug: 'haircut-basic',
+        durationMinutes: 30,
+        pricePaise: 50000,
+      },
+      {
+        id: 'svc_haircut_advanced',
+        name: 'Haircut (Advanced / Layered)',
+        slug: 'haircut-advanced',
+        durationMinutes: 45,
+        pricePaise: 80000,
+      },
+      {
+        id: 'svc_wash_blowdry',
+        name: 'Hair Wash & Blow Dry',
+        slug: 'wash-blowdry',
+        durationMinutes: 30,
+        pricePaise: 40000,
+      },
+      {
+        id: 'svc_straightening_temp',
+        name: 'Hair Straightening (Temporary)',
+        slug: 'straightening-temp',
+        durationMinutes: 60,
+        pricePaise: 150000,
+      },
+      {
+        id: 'svc_hair_ironing',
+        name: 'Hair Ironing',
+        slug: 'hair-ironing',
+        durationMinutes: 30,
+        pricePaise: 60000,
+      },
+      {
+        id: 'svc_bridal_hair',
+        name: 'Bridal Hair Styling',
+        slug: 'bridal-hair',
+        durationMinutes: 90,
+        pricePaise: 500000,
+      },
     ],
   },
   {
@@ -78,11 +114,41 @@ const salonCategories: SalonCategory[] = [
     name: 'Hair Colouring / Treatment',
     slug: 'hair-colouring-treatment',
     services: [
-      { id: 'svc_colour_global_short', name: 'Global Colour (Short Hair)', slug: 'colour-global-short', durationMinutes: 90, pricePaise: 250000 },
-      { id: 'svc_colour_global_long', name: 'Global Colour (Long Hair)', slug: 'colour-global-long', durationMinutes: 120, pricePaise: 400000 },
-      { id: 'svc_highlights', name: 'Highlights / Balayage', slug: 'highlights', durationMinutes: 120, pricePaise: 350000 },
-      { id: 'svc_root_touchup', name: 'Root Touch-Up', slug: 'root-touchup', durationMinutes: 45, pricePaise: 150000 },
-      { id: 'svc_keratin', name: 'Keratin Treatment', slug: 'keratin', durationMinutes: 180, pricePaise: 600000 },
+      {
+        id: 'svc_colour_global_short',
+        name: 'Global Colour (Short Hair)',
+        slug: 'colour-global-short',
+        durationMinutes: 90,
+        pricePaise: 250000,
+      },
+      {
+        id: 'svc_colour_global_long',
+        name: 'Global Colour (Long Hair)',
+        slug: 'colour-global-long',
+        durationMinutes: 120,
+        pricePaise: 400000,
+      },
+      {
+        id: 'svc_highlights',
+        name: 'Highlights / Balayage',
+        slug: 'highlights',
+        durationMinutes: 120,
+        pricePaise: 350000,
+      },
+      {
+        id: 'svc_root_touchup',
+        name: 'Root Touch-Up',
+        slug: 'root-touchup',
+        durationMinutes: 45,
+        pricePaise: 150000,
+      },
+      {
+        id: 'svc_keratin',
+        name: 'Keratin Treatment',
+        slug: 'keratin',
+        durationMinutes: 180,
+        pricePaise: 600000,
+      },
     ],
   },
   {
@@ -90,11 +156,41 @@ const salonCategories: SalonCategory[] = [
     name: 'Facial & Skincare',
     slug: 'facial-skincare',
     services: [
-      { id: 'svc_facial_classic', name: 'Classic Facial', slug: 'facial-classic', durationMinutes: 45, pricePaise: 80000 },
-      { id: 'svc_facial_gold', name: 'Gold Facial', slug: 'facial-gold', durationMinutes: 60, pricePaise: 150000 },
-      { id: 'svc_facial_diamond', name: 'Diamond Facial', slug: 'facial-diamond', durationMinutes: 60, pricePaise: 200000 },
-      { id: 'svc_detan', name: 'De-Tan Pack', slug: 'detan', durationMinutes: 30, pricePaise: 60000 },
-      { id: 'svc_cleanup_basic', name: 'Cleanup (Basic)', slug: 'cleanup-basic', durationMinutes: 30, pricePaise: 50000 },
+      {
+        id: 'svc_facial_classic',
+        name: 'Classic Facial',
+        slug: 'facial-classic',
+        durationMinutes: 45,
+        pricePaise: 80000,
+      },
+      {
+        id: 'svc_facial_gold',
+        name: 'Gold Facial',
+        slug: 'facial-gold',
+        durationMinutes: 60,
+        pricePaise: 150000,
+      },
+      {
+        id: 'svc_facial_diamond',
+        name: 'Diamond Facial',
+        slug: 'facial-diamond',
+        durationMinutes: 60,
+        pricePaise: 200000,
+      },
+      {
+        id: 'svc_detan',
+        name: 'De-Tan Pack',
+        slug: 'detan',
+        durationMinutes: 30,
+        pricePaise: 60000,
+      },
+      {
+        id: 'svc_cleanup_basic',
+        name: 'Cleanup (Basic)',
+        slug: 'cleanup-basic',
+        durationMinutes: 30,
+        pricePaise: 50000,
+      },
     ],
   },
   {
@@ -102,11 +198,41 @@ const salonCategories: SalonCategory[] = [
     name: 'Waxing',
     slug: 'waxing',
     services: [
-      { id: 'svc_wax_full_arms', name: 'Full Arms Waxing', slug: 'wax-full-arms', durationMinutes: 30, pricePaise: 40000 },
-      { id: 'svc_wax_full_legs', name: 'Full Legs Waxing', slug: 'wax-full-legs', durationMinutes: 45, pricePaise: 60000 },
-      { id: 'svc_wax_underarms', name: 'Underarms Waxing', slug: 'wax-underarms', durationMinutes: 15, pricePaise: 15000 },
-      { id: 'svc_wax_full_body', name: 'Full Body Waxing', slug: 'wax-full-body', durationMinutes: 90, pricePaise: 200000 },
-      { id: 'svc_wax_face', name: 'Upper Lip / Eyebrows', slug: 'wax-face', durationMinutes: 15, pricePaise: 10000 },
+      {
+        id: 'svc_wax_full_arms',
+        name: 'Full Arms Waxing',
+        slug: 'wax-full-arms',
+        durationMinutes: 30,
+        pricePaise: 40000,
+      },
+      {
+        id: 'svc_wax_full_legs',
+        name: 'Full Legs Waxing',
+        slug: 'wax-full-legs',
+        durationMinutes: 45,
+        pricePaise: 60000,
+      },
+      {
+        id: 'svc_wax_underarms',
+        name: 'Underarms Waxing',
+        slug: 'wax-underarms',
+        durationMinutes: 15,
+        pricePaise: 15000,
+      },
+      {
+        id: 'svc_wax_full_body',
+        name: 'Full Body Waxing',
+        slug: 'wax-full-body',
+        durationMinutes: 90,
+        pricePaise: 200000,
+      },
+      {
+        id: 'svc_wax_face',
+        name: 'Upper Lip / Eyebrows',
+        slug: 'wax-face',
+        durationMinutes: 15,
+        pricePaise: 10000,
+      },
     ],
   },
   {
@@ -114,11 +240,41 @@ const salonCategories: SalonCategory[] = [
     name: 'Manicure & Pedicure',
     slug: 'manicure-pedicure',
     services: [
-      { id: 'svc_manicure_classic', name: 'Classic Manicure', slug: 'manicure-classic', durationMinutes: 30, pricePaise: 50000 },
-      { id: 'svc_manicure_spa', name: 'Spa Manicure', slug: 'manicure-spa', durationMinutes: 45, pricePaise: 80000 },
-      { id: 'svc_pedicure_classic', name: 'Classic Pedicure', slug: 'pedicure-classic', durationMinutes: 30, pricePaise: 50000 },
-      { id: 'svc_pedicure_spa', name: 'Spa Pedicure', slug: 'pedicure-spa', durationMinutes: 45, pricePaise: 80000 },
-      { id: 'svc_gel_nails', name: 'Gel Nails', slug: 'gel-nails', durationMinutes: 60, pricePaise: 150000 },
+      {
+        id: 'svc_manicure_classic',
+        name: 'Classic Manicure',
+        slug: 'manicure-classic',
+        durationMinutes: 30,
+        pricePaise: 50000,
+      },
+      {
+        id: 'svc_manicure_spa',
+        name: 'Spa Manicure',
+        slug: 'manicure-spa',
+        durationMinutes: 45,
+        pricePaise: 80000,
+      },
+      {
+        id: 'svc_pedicure_classic',
+        name: 'Classic Pedicure',
+        slug: 'pedicure-classic',
+        durationMinutes: 30,
+        pricePaise: 50000,
+      },
+      {
+        id: 'svc_pedicure_spa',
+        name: 'Spa Pedicure',
+        slug: 'pedicure-spa',
+        durationMinutes: 45,
+        pricePaise: 80000,
+      },
+      {
+        id: 'svc_gel_nails',
+        name: 'Gel Nails',
+        slug: 'gel-nails',
+        durationMinutes: 60,
+        pricePaise: 150000,
+      },
     ],
   },
   {
@@ -126,10 +282,34 @@ const salonCategories: SalonCategory[] = [
     name: 'Makeup Services',
     slug: 'makeup-services',
     services: [
-      { id: 'svc_makeup_party', name: 'Party Makeup', slug: 'makeup-party', durationMinutes: 60, pricePaise: 250000 },
-      { id: 'svc_makeup_bridal', name: 'Bridal Makeup', slug: 'makeup-bridal', durationMinutes: 120, pricePaise: 1500000 },
-      { id: 'svc_makeup_engagement', name: 'Engagement / Reception Makeup', slug: 'makeup-engagement', durationMinutes: 90, pricePaise: 800000 },
-      { id: 'svc_saree_draping', name: 'Saree Draping', slug: 'saree-draping', durationMinutes: 30, pricePaise: 100000 },
+      {
+        id: 'svc_makeup_party',
+        name: 'Party Makeup',
+        slug: 'makeup-party',
+        durationMinutes: 60,
+        pricePaise: 250000,
+      },
+      {
+        id: 'svc_makeup_bridal',
+        name: 'Bridal Makeup',
+        slug: 'makeup-bridal',
+        durationMinutes: 120,
+        pricePaise: 1500000,
+      },
+      {
+        id: 'svc_makeup_engagement',
+        name: 'Engagement / Reception Makeup',
+        slug: 'makeup-engagement',
+        durationMinutes: 90,
+        pricePaise: 800000,
+      },
+      {
+        id: 'svc_saree_draping',
+        name: 'Saree Draping',
+        slug: 'saree-draping',
+        durationMinutes: 30,
+        pricePaise: 100000,
+      },
     ],
   },
   {
@@ -137,10 +317,34 @@ const salonCategories: SalonCategory[] = [
     name: 'Hair SPA & Head Therapies',
     slug: 'hair-spa-head-therapies',
     services: [
-      { id: 'svc_hair_spa_basic', name: 'Hair Spa (Basic)', slug: 'hair-spa-basic', durationMinutes: 45, pricePaise: 80000 },
-      { id: 'svc_hair_spa_premium', name: "Hair Spa (Premium / L'Oréal)", slug: 'hair-spa-premium', durationMinutes: 60, pricePaise: 150000 },
-      { id: 'svc_head_massage_oil', name: 'Head Massage (Oil)', slug: 'head-massage-oil', durationMinutes: 30, pricePaise: 50000 },
-      { id: 'svc_scalp_treatment', name: 'Scalp Treatment', slug: 'scalp-treatment', durationMinutes: 45, pricePaise: 120000 },
+      {
+        id: 'svc_hair_spa_basic',
+        name: 'Hair Spa (Basic)',
+        slug: 'hair-spa-basic',
+        durationMinutes: 45,
+        pricePaise: 80000,
+      },
+      {
+        id: 'svc_hair_spa_premium',
+        name: "Hair Spa (Premium / L'Oréal)",
+        slug: 'hair-spa-premium',
+        durationMinutes: 60,
+        pricePaise: 150000,
+      },
+      {
+        id: 'svc_head_massage_oil',
+        name: 'Head Massage (Oil)',
+        slug: 'head-massage-oil',
+        durationMinutes: 30,
+        pricePaise: 50000,
+      },
+      {
+        id: 'svc_scalp_treatment',
+        name: 'Scalp Treatment',
+        slug: 'scalp-treatment',
+        durationMinutes: 45,
+        pricePaise: 120000,
+      },
     ],
   },
 ]
@@ -152,9 +356,33 @@ const spaCategories: SpaCategory[] = [
     name: 'Standard SPA',
     slug: 'standard-spa',
     therapies: [
-      { name: 'Swedish Therapy', slug60: 'swedish-60', slug90: 'swedish-90', id60: 'svc_swedish_60', id90: 'svc_swedish_90', price60Paise: 200000, price90Paise: 300000 },
-      { name: 'Thai Therapy', slug60: 'thai-60', slug90: 'thai-90', id60: 'svc_thai_60', id90: 'svc_thai_90', price60Paise: 250000, price90Paise: 350000 },
-      { name: 'Aroma Therapy', slug60: 'aroma-60', slug90: 'aroma-90', id60: 'svc_aroma_60', id90: 'svc_aroma_90', price60Paise: 250000, price90Paise: 350000 },
+      {
+        name: 'Swedish Therapy',
+        slug60: 'swedish-60',
+        slug90: 'swedish-90',
+        id60: 'svc_swedish_60',
+        id90: 'svc_swedish_90',
+        price60Paise: 200000,
+        price90Paise: 300000,
+      },
+      {
+        name: 'Thai Therapy',
+        slug60: 'thai-60',
+        slug90: 'thai-90',
+        id60: 'svc_thai_60',
+        id90: 'svc_thai_90',
+        price60Paise: 250000,
+        price90Paise: 350000,
+      },
+      {
+        name: 'Aroma Therapy',
+        slug60: 'aroma-60',
+        slug90: 'aroma-90',
+        id60: 'svc_aroma_60',
+        id90: 'svc_aroma_90',
+        price60Paise: 250000,
+        price90Paise: 350000,
+      },
     ],
   },
   {
@@ -162,9 +390,33 @@ const spaCategories: SpaCategory[] = [
     name: 'Premium SPA',
     slug: 'premium-spa',
     therapies: [
-      { name: 'Lomi Lomi Spa', slug60: 'lomi-lomi-60', slug90: 'lomi-lomi-90', id60: 'svc_lomi_lomi_60', id90: 'svc_lomi_lomi_90', price60Paise: 350000, price90Paise: 450000 },
-      { name: 'Balinese Therapy', slug60: 'balinese-60', slug90: 'balinese-90', id60: 'svc_balinese_60', id90: 'svc_balinese_90', price60Paise: 300000, price90Paise: 400000 },
-      { name: 'Deep Tissue Therapy', slug60: 'deep-tissue-60', slug90: 'deep-tissue-90', id60: 'svc_deep_tissue_60', id90: 'svc_deep_tissue_90', price60Paise: 350000, price90Paise: 450000 },
+      {
+        name: 'Lomi Lomi Spa',
+        slug60: 'lomi-lomi-60',
+        slug90: 'lomi-lomi-90',
+        id60: 'svc_lomi_lomi_60',
+        id90: 'svc_lomi_lomi_90',
+        price60Paise: 350000,
+        price90Paise: 450000,
+      },
+      {
+        name: 'Balinese Therapy',
+        slug60: 'balinese-60',
+        slug90: 'balinese-90',
+        id60: 'svc_balinese_60',
+        id90: 'svc_balinese_90',
+        price60Paise: 300000,
+        price90Paise: 400000,
+      },
+      {
+        name: 'Deep Tissue Therapy',
+        slug60: 'deep-tissue-60',
+        slug90: 'deep-tissue-90',
+        id60: 'svc_deep_tissue_60',
+        id90: 'svc_deep_tissue_90',
+        price60Paise: 350000,
+        price90Paise: 450000,
+      },
     ],
   },
   {
@@ -172,16 +424,70 @@ const spaCategories: SpaCategory[] = [
     name: 'VVIP SPA',
     slug: 'vvip-spa',
     therapies: [
-      { name: 'Hot Stone Massage', slug60: 'hot-stone-60', slug90: 'hot-stone-90', id60: 'svc_hot_stone_60', id90: 'svc_hot_stone_90', price60Paise: 350000, price90Paise: 450000 },
-      { name: 'Kerala Potli Massage', slug60: 'kerala-potli-60', slug90: 'kerala-potli-90', id60: 'svc_kerala_potli_60', id90: 'svc_kerala_potli_90', price60Paise: 350000, price90Paise: 450000 },
-      { name: 'Synchronic Massage', slug60: 'synchronic-60', slug90: 'synchronic-90', id60: 'svc_synchronic_60', id90: 'svc_synchronic_90', price60Paise: 450000, price90Paise: 550000 },
+      {
+        name: 'Hot Stone Massage',
+        slug60: 'hot-stone-60',
+        slug90: 'hot-stone-90',
+        id60: 'svc_hot_stone_60',
+        id90: 'svc_hot_stone_90',
+        price60Paise: 350000,
+        price90Paise: 450000,
+      },
+      {
+        name: 'Kerala Potli Massage',
+        slug60: 'kerala-potli-60',
+        slug90: 'kerala-potli-90',
+        id60: 'svc_kerala_potli_60',
+        id90: 'svc_kerala_potli_90',
+        price60Paise: 350000,
+        price90Paise: 450000,
+      },
+      {
+        name: 'Synchronic Massage',
+        slug60: 'synchronic-60',
+        slug90: 'synchronic-90',
+        id60: 'svc_synchronic_60',
+        id90: 'svc_synchronic_90',
+        price60Paise: 450000,
+        price90Paise: 550000,
+      },
     ],
     services: [
-      { id: 'svc_body_polish_60', name: 'Body Polish Massage', slug: 'body-polish-60', durationMinutes: 60, pricePaise: 300000 },
-      { id: 'svc_body_scrub_normal', name: 'Body Scrub & Cleansing – Normal', slug: 'body-scrub-normal', durationMinutes: 60, pricePaise: 260000 },
-      { id: 'svc_body_scrub_fruit', name: 'Body Scrub & Cleansing – Fruit', slug: 'body-scrub-fruit', durationMinutes: 60, pricePaise: 280000 },
-      { id: 'svc_body_scrub_coffee', name: 'Body Scrub & Cleansing – Coffee', slug: 'body-scrub-coffee', durationMinutes: 60, pricePaise: 280000 },
-      { id: 'svc_body_scrub_almond', name: 'Body Scrub & Cleansing – Almond / Coconut', slug: 'body-scrub-almond', durationMinutes: 60, pricePaise: 300000 },
+      {
+        id: 'svc_body_polish_60',
+        name: 'Body Polish Massage',
+        slug: 'body-polish-60',
+        durationMinutes: 60,
+        pricePaise: 300000,
+      },
+      {
+        id: 'svc_body_scrub_normal',
+        name: 'Body Scrub & Cleansing – Normal',
+        slug: 'body-scrub-normal',
+        durationMinutes: 60,
+        pricePaise: 260000,
+      },
+      {
+        id: 'svc_body_scrub_fruit',
+        name: 'Body Scrub & Cleansing – Fruit',
+        slug: 'body-scrub-fruit',
+        durationMinutes: 60,
+        pricePaise: 280000,
+      },
+      {
+        id: 'svc_body_scrub_coffee',
+        name: 'Body Scrub & Cleansing – Coffee',
+        slug: 'body-scrub-coffee',
+        durationMinutes: 60,
+        pricePaise: 280000,
+      },
+      {
+        id: 'svc_body_scrub_almond',
+        name: 'Body Scrub & Cleansing – Almond / Coconut',
+        slug: 'body-scrub-almond',
+        durationMinutes: 60,
+        pricePaise: 300000,
+      },
     ],
   },
 ]
@@ -209,17 +515,11 @@ function PlusIcon({ className }: { className?: string }) {
 function SalonServiceCard({ service }: { service: SalonService }) {
   return (
     <article className="border border-cloud-gray rounded-[6px] p-4 motion-safe:transition-all motion-safe:duration-250 hover:border-golden-mist hover:-translate-y-[2px] hover:shadow-card-hover">
-      <h4 className="font-sans text-[15px] text-cocoa-dark font-medium">
-        {service.name}
-      </h4>
+      <h4 className="font-sans text-[15px] text-cocoa-dark font-medium">{service.name}</h4>
       <div className="flex items-center justify-between mt-3">
         <div className="flex items-center gap-3">
-          <span className="font-sans text-sm text-dusty-gray">
-            {service.durationMinutes} min
-          </span>
-          <span className="text-deep-gold font-ui text-sm">
-            {formatINR(service.pricePaise)}
-          </span>
+          <span className="font-sans text-sm text-dusty-gray">{service.durationMinutes} min</span>
+          <span className="text-deep-gold font-ui text-sm">{formatINR(service.pricePaise)}</span>
         </div>
         <Link
           href={`/?book=1&service=${service.slug}`}
@@ -240,9 +540,7 @@ function SpaTherapyCard({ therapy }: { therapy: SpaTherapy }) {
 
   return (
     <article className="border border-cloud-gray rounded-[6px] p-4 motion-safe:transition-all motion-safe:duration-250 hover:border-golden-mist hover:-translate-y-[2px] hover:shadow-card-hover">
-      <h4 className="font-sans text-[15px] text-cocoa-dark font-medium">
-        {therapy.name}
-      </h4>
+      <h4 className="font-sans text-[15px] text-cocoa-dark font-medium">{therapy.name}</h4>
       <div className="flex items-center gap-2 mt-3">
         <button
           type="button"
@@ -272,9 +570,7 @@ function SpaTherapyCard({ therapy }: { therapy: SpaTherapy }) {
         </button>
       </div>
       <div className="flex items-center justify-between mt-3">
-        <span className="text-deep-gold font-ui text-sm">
-          {formatINR(price)}
-        </span>
+        <span className="text-deep-gold font-ui text-sm">{formatINR(price)}</span>
         <Link
           href={`/?book=1&service=${slug}`}
           className="font-ui text-xs uppercase tracking-[0.5px] text-deep-gold hover:text-cocoa-dark motion-safe:transition-colors motion-safe:duration-200"
@@ -289,17 +585,11 @@ function SpaTherapyCard({ therapy }: { therapy: SpaTherapy }) {
 function SpaFixedServiceCard({ service }: { service: SpaService }) {
   return (
     <article className="border border-cloud-gray rounded-[6px] p-4 motion-safe:transition-all motion-safe:duration-250 hover:border-golden-mist hover:-translate-y-[2px] hover:shadow-card-hover">
-      <h4 className="font-sans text-[15px] text-cocoa-dark font-medium">
-        {service.name}
-      </h4>
+      <h4 className="font-sans text-[15px] text-cocoa-dark font-medium">{service.name}</h4>
       <div className="flex items-center justify-between mt-3">
         <div className="flex items-center gap-3">
-          <span className="font-sans text-sm text-dusty-gray">
-            {service.durationMinutes} min
-          </span>
-          <span className="text-deep-gold font-ui text-sm">
-            {formatINR(service.pricePaise)}
-          </span>
+          <span className="font-sans text-sm text-dusty-gray">{service.durationMinutes} min</span>
+          <span className="text-deep-gold font-ui text-sm">{formatINR(service.pricePaise)}</span>
         </div>
         <Link
           href={`/?book=1&service=${service.slug}`}
@@ -325,12 +615,17 @@ export function ServicesContent() {
             Our Services
           </h1>
           <p className="font-sans text-[17px] leading-[1.6] text-warm-gray mt-3 max-w-[520px] mx-auto">
-            From expert haircuts to rejuvenating spa therapies — explore our full menu of premium beauty services.
+            From expert haircuts to rejuvenating spa therapies — explore our full menu of premium
+            beauty services.
           </p>
         </header>
 
         {/* Salon / SPA Toggle */}
-        <div className="flex items-center justify-center gap-2 mb-10" role="tablist" aria-label="Service type">
+        <div
+          className="flex items-center justify-center gap-2 mb-10"
+          role="tablist"
+          aria-label="Service type"
+        >
           <button
             type="button"
             role="tab"
@@ -365,9 +660,7 @@ export function ServicesContent() {
             {salonCategories.map((category) => (
               <details key={category.id} className="group" open>
                 <summary className="flex items-center justify-between cursor-pointer list-none py-4 border-b border-outline-gray">
-                  <h2 className="font-display text-lg text-cocoa-dark">
-                    {category.name}
-                  </h2>
+                  <h2 className="font-display text-lg text-cocoa-dark">{category.name}</h2>
                   <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full border border-outline-gray text-cocoa-dark group-open:rotate-45 motion-safe:transition-transform motion-safe:duration-200">
                     <PlusIcon />
                   </span>
@@ -388,9 +681,7 @@ export function ServicesContent() {
             {spaCategories.map((category) => (
               <details key={category.id} className="group" open>
                 <summary className="flex items-center justify-between cursor-pointer list-none py-4 border-b border-outline-gray">
-                  <h2 className="font-display text-lg text-cocoa-dark">
-                    {category.name}
-                  </h2>
+                  <h2 className="font-display text-lg text-cocoa-dark">{category.name}</h2>
                   <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full border border-outline-gray text-cocoa-dark group-open:rotate-45 motion-safe:transition-transform motion-safe:duration-200">
                     <PlusIcon />
                   </span>

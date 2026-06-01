@@ -1,0 +1,90 @@
+---
+title: SPA Memberships
+description: Hour-based SPA membership tiers — what customers buy, how sessions deduct hours, and the rules that govern purchase, usage, and expiry.
+---
+
+# SPA Memberships
+
+A SPA membership lets a customer buy a block of SPA hours up front at a better
+rate, then draw down those hours session by session. It is the salon's way of
+rewarding regular SPA-goers and securing revenue in advance.
+
+<Callout type="info">
+  Memberships are **hours-based**, not visit-based or rupee-based. Every tier
+  unlocks **all** SPA services — the only thing that limits the customer is how
+  many hours they have left.
+</Callout>
+
+## What it is
+
+Think of a membership as a prepaid pool of SPA time. The customer pays once for
+a tier (say, 15 hours), and from then on each SPA session simply subtracts its
+duration from the pool. There is no per-session charge — the booking is recorded
+at ₹0 because it was already paid for at purchase.
+
+## How it works
+
+1. **Purchase (admin only)** — a receptionist creates the membership for a
+   customer from the admin portal, picks a tier, and takes payment. This
+   generates a `membership_purchase` invoice and emails it with a welcome
+   message.
+2. **Use it** — when the customer comes in for a SPA service, a receptionist
+   records the session. The session's duration is deducted from the remaining
+   hours, a ₹0 booking (flagged as a membership session) and a ₹0
+   `membership_session` invoice are created.
+3. **Stay informed** — the customer can see their tier, hours used, hours
+   remaining, expiry date, and full session history on their `/membership` page.
+4. **Expiry** — when the validity period ends, the membership expires and any
+   unused hours are forfeited. Reminders go out at 30, 7, and 1 day before.
+
+### The tiers
+
+| Tier | Hours | Price | Validity |
+| --- | --- | --- | --- |
+| 🥈 Silver | 8 hours | ₹10,000 | 90 days |
+| 🥇 Gold | 15 hours | ₹15,000 | 90 days |
+| 💎 Platinum | Custom | Negotiated | Custom |
+
+All tiers access every SPA service (Standard, Premium, and VVIP). Hours and
+price are prefilled from the tier but remain overridable at creation, so staff
+can honour a negotiated deal.
+
+<Callout type="info">
+  Internally, hours are stored as **minutes**. Silver's 8 hours is `480` and
+  Gold's 15 hours is `900`. The customer always sees hours; the database always
+  works in minutes.
+</Callout>
+
+## Rules
+
+- **Hours are the only constraint** — no service is off-limits within a tier.
+- **One active membership per customer** — enforced by a database constraint. A
+  customer cannot hold two active memberships at once.
+- **Sessions deduct hours** — recording a session creates a ₹0 booking plus a
+  `membership_session` invoice and reduces the remaining hours by the session's
+  duration. A session cannot be recorded if it exceeds the hours left.
+- **No gems on memberships** — neither the purchase nor the sessions earn loyalty
+  gems. See [Loyalty — Gems](/docs/features/loyalty-gems).
+- **Hard expiry** — when the validity ends the membership moves to `expired` and
+  unused hours are lost. There is no rollover, pause, or transfer.
+- **Salon-cancelled sessions don't cost hours** — if the salon cancels a
+  membership session, the hours are not deducted.
+- **Reminders** — automated alerts fire at 30 days, 7 days, and 1 day before
+  expiry, plus an immediate alert when less than 1 hour remains.
+
+### Membership number format
+
+```
+RG-MEM-{YY}-{branch_number}-{5_random}
+```
+
+For example, `RG-MEM-26-1-90872`.
+
+## Related links
+
+<Cards>
+  <Card title="Memberships API" href="/docs/api-reference/memberships" description="Customer view plus admin create, list, inspect, cancel, and record-session endpoints." />
+  <Card title="Booking System" href="/docs/features/booking" description="How sessions become bookings (with the -M suffix)." />
+  <Card title="Billing & Invoicing" href="/docs/features/billing-invoicing" description="The membership_purchase and membership_session invoice types." />
+  <Card title="Data Model" href="/docs/data-model" description="The spa_membership and spa_membership_tier tables." />
+</Cards>

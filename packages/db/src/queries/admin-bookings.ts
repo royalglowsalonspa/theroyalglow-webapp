@@ -119,10 +119,7 @@ export async function updateBookingStatus(
 }
 
 // Assign a staff member to a single booking_service row.
-export async function assignStaffToBookingService(
-  bookingServiceId: string,
-  staffId: string,
-) {
+export async function assignStaffToBookingService(bookingServiceId: string, staffId: string) {
   const [updated] = await db
     .update(bookingService)
     .set({ staffId })
@@ -197,10 +194,7 @@ export async function createInvoiceWithItems(
     invoiceId,
   }))
 
-  const [invoiceResult] = await db.batch([
-    insertInvoice,
-    db.insert(invoiceItem).values(itemValues),
-  ])
+  const [invoiceResult] = await db.batch([insertInvoice, db.insert(invoiceItem).values(itemValues)])
 
   return invoiceResult[0] as typeof invoice.$inferSelect
 }

@@ -29,8 +29,8 @@ export default function OfflinePage() {
 
           {/* Message */}
           <p className="font-sans text-[17px] leading-[1.6] text-dusty-gray mt-6 max-w-[480px] mx-auto">
-            We can't reach Royal Glow right now. Check your connection and try
-            again — your appointments and offers will be waiting for you.
+            We can't reach Royal Glow right now. Check your connection and try again — your
+            appointments and offers will be waiting for you.
           </p>
 
           {/* Retry + contact */}

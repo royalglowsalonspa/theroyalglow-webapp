@@ -1,9 +1,9 @@
-import type { Metadata } from 'next'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { resolveFaqs } from '@/lib/cms/faqs'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, faqPageJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
+import type { Metadata } from 'next'
 
 export const metadata: Metadata = buildMetadata({
   title: 'FAQ',
@@ -23,10 +23,7 @@ export default async function FAQPage() {
       <JsonLd
         data={[
           faqPageJsonLd(faqs),
-          breadcrumbJsonLd([
-            { name: 'Home', url: SITE_URL },
-            { name: 'FAQ' },
-          ]),
+          breadcrumbJsonLd([{ name: 'Home', url: SITE_URL }, { name: 'FAQ' }]),
         ]}
       />
 
@@ -43,13 +40,15 @@ export default async function FAQPage() {
               Frequently Asked Questions
             </h1>
             <p className="font-sans text-[17px] leading-[1.6] text-warm-gray mt-4 max-w-[520px]">
-              Everything you need to know about Royal Glow Salon & Spa. Can&apos;t find your answer? Feel free to{' '}
+              Everything you need to know about Royal Glow Salon & Spa. Can&apos;t find your answer?
+              Feel free to{' '}
               <a
                 href="/contact"
                 className="text-deep-gold hover:text-cocoa-dark transition-colors duration-200 underline underline-offset-2"
               >
                 contact us
-              </a>.
+              </a>
+              .
             </p>
           </div>
         </section>

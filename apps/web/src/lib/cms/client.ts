@@ -1,14 +1,7 @@
 import { cmsFetch } from './config'
 import { resolveMedia } from './media'
 import { lexicalToHtml } from './richtext'
-import type {
-  Banner,
-  BlogListItem,
-  BlogPost,
-  CmsFaq,
-  GalleryImage,
-  TeamMember,
-} from './types'
+import type { Banner, BlogListItem, BlogPost, CmsFaq, GalleryImage, TeamMember } from './types'
 
 // The single read seam between the web app and Payload's REST API. Every
 // exported function is TOTAL: it leans on `cmsFetch` (which already returns
@@ -328,9 +321,7 @@ export async function getGalleryImages(opts?: {
     typeof category === 'string' && category.trim() !== ''
       ? `&where[category][equals]=${encodeURIComponent(category)}`
       : ''
-  const response = await cmsFetch<unknown>(
-    `/api/gallery?depth=1&sort=order${categoryClause}`,
-  )
+  const response = await cmsFetch<unknown>(`/api/gallery?depth=1&sort=order${categoryClause}`)
   const images: GalleryImage[] = []
   for (const doc of extractDocs(response)) {
     const image = mapGalleryImage(doc)
@@ -355,9 +346,7 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
 }
 
 /** Active banners whose `[startAt, endAt]` window contains `now`. */
-export async function getActiveBanners(now: Date = new Date()): Promise<
-  Banner[]
-> {
+export async function getActiveBanners(now: Date = new Date()): Promise<Banner[]> {
   const response = await cmsFetch<unknown>(
     '/api/banner?where[active][equals]=true&depth=1&sort=order',
   )

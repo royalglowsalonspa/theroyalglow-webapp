@@ -36,8 +36,7 @@ export const PATCH = withErrorHandler(
     const nextStatus = decision.action === 'approve' ? 'approved' : 'rejected'
     assertLeaveTransition(existing.approvalStatus, nextStatus)
 
-    const rejectionReason =
-      decision.action === 'reject' ? decision.rejectionReason : undefined
+    const rejectionReason = decision.action === 'reject' ? decision.rejectionReason : undefined
 
     const updated = await updateLeaveStatus(id, nextStatus, session.user.id, rejectionReason)
 
@@ -45,8 +44,7 @@ export const PATCH = withErrorHandler(
       decision.action === 'approve' ? 'leave_approved' : 'leave_rejected',
       { date: existing.date, reason: rejectionReason ?? '' },
     )
-    const notificationType =
-      decision.action === 'approve' ? 'leave_approved' : 'leave_rejected'
+    const notificationType = decision.action === 'approve' ? 'leave_approved' : 'leave_rejected'
     const notif = await createNotification({
       userId: existing.staffUserId,
       type: notificationType,

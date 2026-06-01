@@ -1,0 +1,152 @@
+---
+title: Business Overview
+description: What Royal Glow is, the problem the platform solves, every module, who uses it, and how the business works — for any reader.
+---
+
+# Business Overview
+
+Royal Glow Salon & Spa is a premium salon and spa in Bengaluru, India. This
+platform is its complete digital operations system: the customer website, the
+online booking, the staff and admin portal, billing, memberships, loyalty, the
+customer database, marketing, and the automation behind all of it. This page is
+the plain-language map of the whole thing — no code, just what each part does
+and why it exists.
+
+## What Royal Glow is
+
+A high-end beauty and wellness business offering salon services (hair, skin,
+nails, makeup) and spa services (massages and body therapies). The brand is
+premium, so the digital experience is built to feel the same way — fast,
+polished, and trustworthy.
+
+| Fact | Detail |
+| --- | --- |
+| Business | Royal Glow Salon & Spa |
+| Location | Rayasandra, Bengaluru, Karnataka, India (single branch at launch, multi-branch ready) |
+| Website | theroyalglow.in |
+| Reputation | 4.9★ on Google with 86 reviews |
+| Hours | Mon–Fri 10:00–21:00, Sat–Sun 10:00–22:00 |
+
+## The problem it solves
+
+Most salons juggle a notebook for bookings, a separate billing app, a
+spreadsheet for customers, and WhatsApp for marketing. Information lives in
+different places, nothing reconciles, and reporting is guesswork.
+
+Royal Glow replaces all of that with **one connected platform**. When a service
+is completed, the same action confirms the booking, creates a GST-compliant
+invoice, awards loyalty points, updates the customer's lifetime value, and feeds
+the day's revenue report. There is a single source of truth, so the owner can
+trust the numbers and the team spends less time on admin.
+
+<Callout type="info">
+  The guiding principle: a customer or staff member should never have to enter
+  the same information twice, and the business should never have two different
+  answers to the same question.
+</Callout>
+
+## The modules
+
+The platform is made of modules that work together. Each one is a clear part of
+the business.
+
+| Module | What it does in plain language |
+| --- | --- |
+| **Customer website** | The public face — homepage, services, prices, offers, about, contact, blog, FAQ. Where customers discover the salon and start a booking. |
+| **Booking** | The online appointment system. Customers book through a simple 4-step dialog; staff confirm and assign it. |
+| **Admin portal** | The internal tool the team uses to run the day — managing bookings, customers, billing, and everything else. Access depends on your role. |
+| **CRM** | The customer database — profiles, visit history, spend, tags, and notes. Helps the team understand and look after each customer. |
+| **Billing & invoicing** | Generates branded, GST-compliant invoices, emails them as PDFs, and keeps records ready for the accountant. |
+| **SPA memberships** | Prepaid packages of spa hours (Silver, Gold, Platinum) that customers buy and draw down over time. |
+| **Loyalty (gems)** | A rewards programme. Customers earn "gems" on what they spend and redeem them against catalogue services. |
+| **Marketing & leads** | Captures prospects from Meta/Instagram ads, tracks them through a pipeline, and connects to WhatsApp for follow-up. |
+| **Scheduling** | Staff working hours and leave requests, so bookings only land on available people. |
+| **Notifications** | Keeps customers and staff informed by web push and email (confirmations, reminders, alerts). |
+| **Analytics** | Reports on revenue, services, spa, staff performance, and where customers come from. |
+
+Each of these has a full reference in the [Features](/docs/features) section.
+
+## Who uses it
+
+There are two broad groups of people: **customers** and the **salon team**. The
+team is split into roles, and each role sees only what it needs.
+
+### Customers
+
+Anyone who books a service. They use the website and their own account to browse
+services, book appointments, manage memberships, and track loyalty gems. They
+never see the admin portal.
+
+### The team (six roles)
+
+The platform uses six access levels, each with more capability than the one
+before it.
+
+| Role | In plain language | Typical access |
+| --- | --- | --- |
+| **Customer** | The end user booking services. | Public website + their own account |
+| **Staff** (Stylist / Therapist) | Performs the services. | Only their own appointments and their own leave |
+| **Receptionist** | Runs the front desk and the day. | Bookings, billing, memberships, CRM, leads, leave approvals |
+| **Manager** | Oversees operations. | Everything a receptionist can do, plus prices, offers, reports, staff, and settings |
+| **Owner** | Runs the business. | Everything a manager can do, plus managing user accounts |
+| **Developer** | Maintains the software. | Full access, plus integrations and system logs |
+
+The full breakdown of what each role can and cannot do is in the
+[Admin & Staff Guide](/docs/product/admin-staff-guide).
+
+## How the business works
+
+### What customers pay for
+
+| Source | How it works |
+| --- | --- |
+| **Services** | The core income — haircuts, facials, massages, and so on. Paid at the counter after the service (cash, UPI, or card). There is no online payment gateway at launch. |
+| **SPA memberships** | Customers buy a block of spa hours upfront (e.g. 15 hours for ₹15,000) and use them across multiple visits over 90 days. |
+| **Loyalty (gems)** | Not a payment, but a retention tool — customers earn gems on spend and redeem them for services, encouraging repeat visits. |
+
+### How a typical visit flows
+
+1. A customer books online (or walks in, and the receptionist creates the booking).
+2. The front desk confirms the booking and assigns the right staff member.
+3. The service is performed.
+4. At checkout, the receptionist takes payment, and the system generates the invoice and awards gems.
+5. The invoice is emailed to the customer; their profile and the day's reports update automatically.
+
+## Key facts to remember
+
+These rules apply everywhere in the product. They reflect that Royal Glow is an
+India-first business.
+
+| Fact | What it means |
+| --- | --- |
+| **Currency is INR** | All prices are in Indian Rupees. Internally money is stored in **paise** (₹1 = 100 paise) to avoid rounding errors; it's only converted to rupees for display. |
+| **Prices include GST** | Every price shown to a customer already includes **18% GST**. The invoice shows the tax split, but the customer pays exactly the displayed price. |
+| **Indian formatting** | Money shows in Indian grouping (₹1,00,000.00) and dates as DD/MM/YYYY. |
+| **IST timezone** | All times are Indian Standard Time. Timestamps are stored in UTC and displayed in IST. |
+| **₹0/month infrastructure at launch** | The platform runs entirely on free service tiers, so there are no monthly software bills when the business starts. |
+
+<Callout type="info">
+  **Why paise, not rupees?** Storing money as whole paise means the system never
+  loses a fraction of a rupee to rounding. Customers always see clean rupee
+  amounts; the precision is handled behind the scenes.
+</Callout>
+
+## Where to go next
+
+<Cards>
+  <Card
+    title="Customer Guide"
+    href="/docs/product/customer-guide"
+    description="See the platform from a customer's point of view, step by step."
+  />
+  <Card
+    title="Admin & Staff Guide"
+    href="/docs/product/admin-staff-guide"
+    description="See how the team runs day-to-day operations and what each role can do."
+  />
+  <Card
+    title="Features"
+    href="/docs/features"
+    description="Go deeper into any single module — booking, memberships, gems, billing, and more."
+  />
+</Cards>

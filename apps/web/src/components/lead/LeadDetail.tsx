@@ -1,17 +1,17 @@
 'use client'
 
-import { formatDateIN } from '@rgss/business'
-import Link from 'next/link'
-import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import {
   ALLOWED_LEAD_TRANSITIONS,
-  formatDaysSince,
-  formatLeadDateTime,
   LEAD_STATUS_META,
   LEAD_TRANSITION_LABEL,
   type LeadNoteRow,
   type LeadStatus,
+  formatDaysSince,
+  formatLeadDateTime,
 } from '@/lib/admin/leads'
+import { formatDateIN } from '@rgss/business'
+import Link from 'next/link'
+import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 
 // The lead record returned by GET /api/admin/leads/[id] (the lead row joined
 // with its service-interest name, assigned-to name, and converted booking
@@ -156,9 +156,7 @@ function InfoCard({
         setLostReason('')
         onChanged()
       } catch (err: unknown) {
-        setActionError(
-          err instanceof Error ? err.message : 'Could not update the lead.',
-        )
+        setActionError(err instanceof Error ? err.message : 'Could not update the lead.')
       } finally {
         setBusyStatus(null)
       }
@@ -179,9 +177,7 @@ function InfoCard({
     <section className="rounded-[6px] border border-cloud-gray bg-canvas-white p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl text-cocoa-dark tracking-tight">
-            {lead.name}
-          </h1>
+          <h1 className="font-display text-2xl text-cocoa-dark tracking-tight">{lead.name}</h1>
           <a
             href={`tel:${lead.phone}`}
             className="mt-1.5 inline-flex items-center gap-1.5 font-sans text-sm text-warm-gray hover:text-deep-gold motion-safe:transition-colors"
@@ -202,18 +198,13 @@ function InfoCard({
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium font-ui ${meta.badge}`}
           >
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${meta.dot}`}
-              aria-hidden="true"
-            />
+            <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} aria-hidden="true" />
             {meta.label}
           </span>
           <p className="font-sans text-xs text-dusty-gray">
             Created {formatDateIN(new Date(lead.createdAt))}
           </p>
-          <p className="font-sans text-xs text-dusty-gray">
-            {formatDaysSince(days)}
-          </p>
+          <p className="font-sans text-xs text-dusty-gray">{formatDaysSince(days)}</p>
         </div>
       </div>
 
@@ -265,10 +256,7 @@ function InfoCard({
       {/* Inline "mark lost" reason form */}
       {lostOpen && (
         <form onSubmit={submitLost} className="mt-3 space-y-2">
-          <label
-            htmlFor={reasonId}
-            className="block font-ui text-sm font-medium text-warm-gray"
-          >
+          <label htmlFor={reasonId} className="block font-ui text-sm font-medium text-warm-gray">
             Reason for marking lost
           </label>
           <textarea
@@ -327,16 +315,12 @@ function AttributionPanel({ lead }: { lead: LeadRecord }) {
 
   return (
     <section className="rounded-[6px] border border-cloud-gray bg-canvas-white p-5">
-      <h2 className="font-ui text-xs uppercase tracking-wider text-dusty-gray">
-        Attribution
-      </h2>
+      <h2 className="font-ui text-xs uppercase tracking-wider text-dusty-gray">Attribution</h2>
       <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
         {rows.map((row) => (
           <div key={row.label} className="flex items-baseline justify-between gap-3">
             <dt className="font-sans text-sm text-dusty-gray">{row.label}</dt>
-            <dd className="font-sans text-sm text-cocoa-dark text-right">
-              {row.value ?? '—'}
-            </dd>
+            <dd className="font-sans text-sm text-cocoa-dark text-right">{row.value ?? '—'}</dd>
           </div>
         ))}
       </dl>
@@ -389,9 +373,7 @@ function NotesTimeline({
 
   return (
     <section className="rounded-[6px] border border-cloud-gray bg-canvas-white p-5">
-      <h2 className="font-ui text-xs uppercase tracking-wider text-dusty-gray">
-        Notes
-      </h2>
+      <h2 className="font-ui text-xs uppercase tracking-wider text-dusty-gray">Notes</h2>
 
       <form onSubmit={addNote} className="mt-3 space-y-2">
         <label htmlFor={fieldId} className="sr-only">
@@ -450,14 +432,13 @@ function NotesTimeline({
 
 function LoadingState() {
   return (
-    <div
+    <output
       className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      role="status"
       aria-live="polite"
     >
       <Spinner />
       <span className="font-sans text-sm text-dusty-gray">Loading lead…</span>
-    </div>
+    </output>
   )
 }
 
@@ -504,14 +485,7 @@ function Spinner() {
       viewBox="0 0 24 24"
       aria-hidden="true"
     >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path
         className="opacity-75"
         fill="currentColor"

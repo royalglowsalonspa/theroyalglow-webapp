@@ -1,0 +1,170 @@
+---
+title: Realtime (Ably)
+description: Live booking status, schedule, and leave updates pushed to customers and staff over Ably — scoped per role with server-only publishing and Token Auth.
+---
+
+# Realtime (Ably)
+
+When a receptionist approves a booking, the customer sitting on their bookings
+page should see the badge flip from "Pending" to "Confirmed" on its own — no
+refresh, no reload. Royal Glow does this with [Ably](https://ably.com), which
+holds an open WebSocket connection in the browser and pushes each change to
+everyone who should see it in roughly 50ms.
+
+<Callout type="info">
+  Ably is a **guarded extension point**. The server helper reads
+  `ABLY_PRIVATE_KEY` directly behind a truthy guard. With the key absent it
+  returns `null`, `POST /api/ably/token` answers `503`, and the client falls
+  back to its normal data fetch. The app builds and runs with no realtime
+  configured — live updates simply switch on once the key is present.
+</Callout>
+
+## What it is
+
+A thin live layer over the normal app. The page still loads its data the usual
+way; Ably only delivers the _changes_ that happen while the page is open. Two
+audiences benefit:
+
+- **Customers** see their booking cards update in place — status, date, and the
+  assigned stylist — without touching anything.
+- **Staff and admins** see new bookings drop into the pending queue, the
+  schedule grid fill and free up, and leave requests appear as they are made.
+
+Ably's free tier covers **6 million messages per month**, comfortably more than
+a single-branch salon generates.
+
+## How it works
+
+1. **Page mounts** — a `useEffect` opens an Ably connection using an
+   `authCallback` that fetches a token from our own API.
+2. **Token is issued** — `POST /api/ably/token` returns a short-lived, scoped
+   Ably JWT for the signed-in user (see [Token Auth](#token-auth)).
+3. **Subscribe** — the page subscribes to exactly the channels it is allowed to
+   read and updates React state when a message arrives.
+4. **Server publishes** — after a state-changing API route commits its database
+   write, it publishes to every relevant channel using `ABLY_PRIVATE_KEY`.
+5. **Page unmounts** — the connection is cleaned up. Ably handles reconnect on
+   network loss and calls `authCallback` again when the token expires.
+
+<Callout type="info">
+  **All publishing is server-side only.** Browsers never hold a key with publish
+  capability — they receive a subscribe-only token. This prevents anyone from
+  spoofing a status change or publishing to a channel from the client.
+</Callout>
+
+## Channels
+
+Channels follow a predictable naming convention so a token can be scoped with
+wildcards.
+
+```text
+Shared channels:   {namespace}:{topic}
+Scoped channels:   {namespace}:{identifier}:{sub-topic}
+```
+
+| Channel | Audience | Carries |
+| --- | --- | --- |
+| `customer:{userId}:bookings` | A single customer's browser | All of that customer's booking card updates (created, status changed, rescheduled, cancelled, staff assigned) |
+| `booking:{bookingId}` | Customer + admins + assigned staff | One booking's detail: status changes, staff notes, services added/removed |
+| `admin:bookings:{branchId}` | Developer, Owner, Manager, Receptionist | New bookings, status changes, walk-ins, cancellations, no-shows for a branch's dashboard |
+| `admin:schedule:{date}` | Schedule viewers (date-scoped, `YYYY-MM-DD`) | Slots booked/released, staff marked off, leave approved for that day |
+| `staff:{staffId}:schedule` | One staff member | Their assignments, unassignments, and leave request outcomes |
+
+The customer always subscribes to `customer:{userId}:bookings` on the bookings
+list, and to `booking:{bookingId}` on a booking detail. Admin dashboards
+subscribe to `admin:bookings:{branchId}`; the schedule page subscribes to
+`admin:schedule:{selectedDate}`.
+
+### Example events
+
+A representative slice of the events flowing over these channels:
+
+| Channel | Event | UI effect |
+| --- | --- | --- |
+| `customer:{userId}:bookings` | `booking.status_changed` | Status badge animates to the new state in place |
+| `booking:{bookingId}` | `note.added` | A staff note appears live on the admin booking detail |
+| `admin:bookings:{branchId}` | `booking.new` | A new card slides into the top of the pending queue |
+| `admin:schedule:{date}` | `slot.booked` | The time slot turns blocked in the grid |
+| `staff:{staffId}:schedule` | `booking.assigned` | A new appointment appears on the staff member's day |
+
+## Token Auth
+
+Every client uses **Token Auth** — never a raw key. The server mints a
+short-lived Ably JWT per authenticated user, scoped to exactly the channels that
+user's role may read. `POST /api/ably/token` is a session-protected route; the
+`clientId` on the token is the caller's user id.
+
+<Tabs items={["Customer", "Admin", "Staff"]}>
+  <Tab value="Customer">
+
+A customer is granted `subscribe` on their own namespace only, plus the specific
+booking channels they own. They never receive a wildcard over all `booking:*`
+channels, so they cannot watch another customer's booking.
+
+```text
+subscribe: ["customer:usr_abc123:*", "booking:bkg_xyz789"]
+publish:   []   ← never
+```
+
+  </Tab>
+  <Tab value="Admin">
+
+Roles `receptionist` and above additionally receive `subscribe` on the `admin:*`
+namespace, covering the branch dashboard, schedule, and leave channels.
+
+```text
+subscribe: ["customer:usr_abc123:*", "admin:*", "booking:*"]
+publish:   []   ← never
+```
+
+  </Tab>
+  <Tab value="Staff">
+
+A staff member is scoped to their own schedule channel and only the booking
+channels they are assigned to view.
+
+```text
+subscribe: ["staff:stf_def456:schedule", "booking:bkg_xyz789"]
+publish:   []   ← never
+```
+
+  </Tab>
+</Tabs>
+
+<Callout type="warn">
+  Realtime degrades gracefully. When `ABLY_PRIVATE_KEY` is not configured (or the
+  optional `ably` module is unavailable), `POST /api/ably/token` responds with
+  **`503 SERVICE_UNAVAILABLE`** and the client keeps working off its initial data
+  fetch. No screen breaks just because realtime is off.
+</Callout>
+
+## Publishing flow
+
+State-changing API routes publish to every relevant channel _after_ the database
+write commits, so a subscriber never sees a change that did not actually persist.
+
+```text
+POST /api/admin/bookings/:id/approve
+  → DB: booking.status = 'confirmed'
+  → Ably publish:
+      customer:{userId}:bookings   →  booking.status_changed  { toStatus: 'confirmed' }
+      booking:{bookingId}          →  status.changed
+      admin:bookings:{branchId}    →  booking.status_changed
+      staff:{staffId}:schedule     →  booking.assigned
+      admin:schedule:{date}        →  slot.booked
+```
+
+A customer cancellation fans out the same way — releasing the slot on
+`admin:schedule:{date}`, removing the appointment on the staff channel, and
+moving the card on `admin:bookings:{branchId}`. Because each publish is
+fire-and-forget after the commit, a realtime hiccup never blocks or fails the
+underlying booking action.
+
+## Related links
+
+<Cards>
+  <Card title="Notifications & Realtime API" href="/docs/api-reference/notifications" description="The POST /api/ably/token route and its scoped capabilities." />
+  <Card title="Notifications & Email" href="/docs/features/notifications" description="Web Push and email — the other half of the communication layer." />
+  <Card title="Background Jobs" href="/docs/background-jobs" description="Scheduled work that also drives realtime and push updates." />
+  <Card title="Environment Variables" href="/docs/environment-variables" description="ABLY_PRIVATE_KEY and the rest of the realtime config." />
+</Cards>

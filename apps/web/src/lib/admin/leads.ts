@@ -2,13 +2,7 @@
 // Mirrors the GET /api/admin/leads (list) and /api/admin/leads/[id] (detail)
 // responses, which both use the standard { success, data } envelope.
 
-export type LeadStatus =
-  | 'new'
-  | 'contacted'
-  | 'follow_up'
-  | 'booked'
-  | 'won'
-  | 'lost'
+export type LeadStatus = 'new' | 'contacted' | 'follow_up' | 'booked' | 'won' | 'lost'
 
 // A row returned by GET /api/admin/leads — a flattened lead joined with its
 // service-interest name, plus the server-computed pipeline helpers. Timestamps
@@ -79,10 +73,7 @@ export interface LeadDetailData {
 }
 
 // Presentation metadata per status (label + Tailwind classes for the badge).
-export const LEAD_STATUS_META: Record<
-  LeadStatus,
-  { label: string; badge: string; dot: string }
-> = {
+export const LEAD_STATUS_META: Record<LeadStatus, { label: string; badge: string; dot: string }> = {
   new: { label: 'New', badge: 'bg-blue-50 text-blue-700', dot: 'bg-blue-500' },
   contacted: {
     label: 'Contacted',

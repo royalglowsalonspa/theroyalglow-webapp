@@ -1,11 +1,11 @@
 import { relations } from 'drizzle-orm'
-import { user, session, account } from '../auth'
-import { customerProfile, staffProfile } from '../profile'
+import { account, session, user } from '../auth'
 import { booking } from '../booking'
-import { notification } from '../notification'
-import { leadNote } from '../lead'
-import { customerNote } from '../crm'
 import { bookingStatusLog } from '../booking'
+import { customerNote } from '../crm'
+import { leadNote } from '../lead'
+import { notification } from '../notification'
+import { customerProfile, staffProfile } from '../profile'
 
 export const userRelations = relations(user, ({ one, many }) => ({
   customerProfile: one(customerProfile),

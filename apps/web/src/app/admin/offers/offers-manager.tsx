@@ -1,8 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
 import { formatDateDDMMYYYY } from '@/lib/admin/bookings'
 import type { OfferType } from '@rgss/types'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 // ─── Types (mirror GET /api/admin/offers + /api/services) ────────────────────
 interface OfferServiceRef {
@@ -124,35 +124,30 @@ export function OffersManager() {
     loadServices()
   }, [loadOffers, loadServices])
 
-  const toggleActive = useCallback(
-    async (offer: AdminOffer) => {
-      setTogglingId(offer.id)
-      try {
-        const res = await fetch(`/api/admin/offers/${offer.id}`, {
-          method: 'PATCH',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ isActive: !offer.isActive }),
-        })
-        const json = await res.json()
-        if (!res.ok || !json.success) {
-          throw new Error(json?.error?.message ?? 'Could not update this offer.')
-        }
-        const updated = json.data.offer as AdminOffer
-        setOffers((prev) =>
-          prev
-            ? prev.map((o) =>
-                o.id === offer.id ? { ...o, isActive: updated.isActive } : o,
-              )
-            : prev,
-        )
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Could not update this offer.')
-      } finally {
-        setTogglingId(null)
+  const toggleActive = useCallback(async (offer: AdminOffer) => {
+    setTogglingId(offer.id)
+    try {
+      const res = await fetch(`/api/admin/offers/${offer.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ isActive: !offer.isActive }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        throw new Error(json?.error?.message ?? 'Could not update this offer.')
       }
-    },
-    [],
-  )
+      const updated = json.data.offer as AdminOffer
+      setOffers((prev) =>
+        prev
+          ? prev.map((o) => (o.id === offer.id ? { ...o, isActive: updated.isActive } : o))
+          : prev,
+      )
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Could not update this offer.')
+    } finally {
+      setTogglingId(null)
+    }
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -188,9 +183,7 @@ export function OffersManager() {
                 <tbody className="divide-y divide-cloud-gray">
                   {offers.map((offer) => (
                     <tr key={offer.id} className="hover:bg-cloud-gray/30 transition-colors">
-                      <td className="px-4 py-3 font-sans text-cocoa-dark">
-                        {offer.name}
-                      </td>
+                      <td className="px-4 py-3 font-sans text-cocoa-dark">{offer.name}</td>
                       <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
                         {OFFER_TYPE_LABEL[offer.offerType]}
                       </td>
@@ -198,8 +191,7 @@ export function OffersManager() {
                         {discountSummary(offer)}
                       </td>
                       <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
-                        {formatDateDDMMYYYY(offer.startDate)} –{' '}
-                        {formatDateDDMMYYYY(offer.endDate)}
+                        {formatDateDDMMYYYY(offer.startDate)} – {formatDateDDMMYYYY(offer.endDate)}
                       </td>
                       <td className="px-4 py-3 font-sans text-warm-gray max-w-[220px] truncate">
                         {offer.services.map((s) => s.name).join(', ') || '—'}
@@ -273,9 +265,7 @@ function CreateOfferForm({
   }, [services])
 
   const toggleService = useCallback((id: string) => {
-    setServiceIds((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
-    )
+    setServiceIds((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]))
   }, [])
 
   const resetForm = useCallback(() => {
@@ -364,9 +354,7 @@ function CreateOfferForm({
 
   return (
     <section className="border border-cloud-gray rounded-[6px] bg-canvas-white p-5">
-      <h2 className="text-lg font-display text-cocoa-dark tracking-tight mb-4">
-        Create offer
-      </h2>
+      <h2 className="text-lg font-display text-cocoa-dark tracking-tight mb-4">Create offer</h2>
       <form onSubmit={submit} className="space-y-4" noValidate>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Name */}
@@ -538,9 +526,7 @@ function CreateOfferForm({
           </p>
         )}
         {success && (
-          <p className="text-sm text-emerald-700 font-sans" role="status">
-            Offer created.
-          </p>
+          <output className="block text-sm text-emerald-700 font-sans">Offer created.</output>
         )}
 
         <button
@@ -572,9 +558,7 @@ function ServiceGroup({
   }
   return (
     <div className="border border-cloud-gray rounded-[6px] p-3">
-      <p className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray mb-2">
-        {title}
-      </p>
+      <p className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray mb-2">{title}</p>
       <ul className="space-y-1.5 max-h-48 overflow-y-auto">
         {options.map((opt) => (
           <li key={opt.id}>
@@ -642,14 +626,13 @@ function Th({ children }: { children: React.ReactNode }) {
 
 function LoadingState() {
   return (
-    <div
+    <output
       className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      role="status"
       aria-live="polite"
     >
       <Spinner />
       <span className="font-sans text-sm text-dusty-gray">Loading offers…</span>
-    </div>
+    </output>
   )
 }
 
@@ -690,14 +673,7 @@ function Spinner() {
       viewBox="0 0 24 24"
       aria-hidden="true"
     >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path
         className="opacity-75"
         fill="currentColor"

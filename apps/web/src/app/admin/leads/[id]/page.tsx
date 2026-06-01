@@ -1,5 +1,5 @@
-import type { Metadata } from 'next'
 import { LeadDetail } from '@/components/lead/LeadDetail'
+import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Lead Detail',

@@ -1,13 +1,9 @@
-import {
-  createNotification,
-  getBookingForNoShow,
-  getReceptionistUserIds,
-} from '@rgss/db/queries'
-import { buildNotificationContent, formatDateIN } from '@rgss/business'
-import { createLogger } from '@rgss/logger'
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
-import { dispatchNotification } from '@/lib/notifications/dispatch'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
+import { dispatchNotification } from '@/lib/notifications/dispatch'
+import { buildNotificationContent, formatDateIN } from '@rgss/business'
+import { createNotification, getBookingForNoShow, getReceptionistUserIds } from '@rgss/db/queries'
+import { createLogger } from '@rgss/logger'
 
 // Job 18 — No-show check (QStash triggered, enqueued +15m after the booking's
 // end time by booking confirmation). If the booking is STILL 'confirmed' past
@@ -37,8 +33,7 @@ export const POST = async (req: Request) => {
 
   try {
     const payload = parseBody(bodyText)
-    const bookingId =
-      typeof payload.bookingId === 'string' ? payload.bookingId : null
+    const bookingId = typeof payload.bookingId === 'string' ? payload.bookingId : null
 
     let notified = 0
 

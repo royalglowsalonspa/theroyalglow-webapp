@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { useSession } from '@/lib/auth-client'
 import { track } from '@/lib/analytics/events'
+import { useSession } from '@/lib/auth-client'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 // --- Types (mirror GET /api/services response) ---
 type ServiceType = 'salon' | 'spa'
@@ -153,11 +153,13 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
     return () => document.removeEventListener('keydown', handleKey)
   }, [isOpen, onClose])
 
-  // Focus trap
+  // Focus trap — intentionally re-runs when step/isSubmitted/servicesLoading/slotsLoading
+  // change so the focus trap re-queries focusable elements after content changes.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: extra deps intentionally trigger re-init of the focus trap when dialog content changes.
   useEffect(() => {
     if (!isOpen || !dialogRef.current) return
     const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])'
+      'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])',
     )
     if (focusable.length) focusable[0]?.focus()
 
@@ -197,9 +199,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setServicesError(
-            err instanceof Error ? err.message : 'Could not load services.'
-          )
+          setServicesError(err instanceof Error ? err.message : 'Could not load services.')
         }
       })
       .finally(() => {
@@ -253,9 +253,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setSlotsError(
-            err instanceof Error ? err.message : 'Could not load slots.'
-          )
+          setSlotsError(err instanceof Error ? err.message : 'Could not load slots.')
         }
       })
       .finally(() => {
@@ -291,13 +289,10 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
   // Derived data
   const visibleCategories = useMemo(
     () => (categories ?? []).filter((c) => c.serviceType === serviceType),
-    [categories, serviceType]
+    [categories, serviceType],
   )
 
-  const allServices = useMemo(
-    () => (categories ?? []).flatMap((c) => c.services),
-    [categories]
-  )
+  const allServices = useMemo(() => (categories ?? []).flatMap((c) => c.services), [categories])
 
   const servicesById = useMemo(() => {
     const map = new Map<string, ApiService>()
@@ -308,25 +303,18 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
   // Services grouped under their (selected) category, for step 3.
   const groupedSelectedCategories = useMemo(
     () => visibleCategories.filter((c) => selectedCategoryIds.includes(c.id)),
-    [visibleCategories, selectedCategoryIds]
+    [visibleCategories, selectedCategoryIds],
   )
 
   const totalPaise = useMemo(
-    () =>
-      selectedServiceIds.reduce(
-        (sum, id) => sum + (servicesById.get(id)?.pricePaise ?? 0),
-        0
-      ),
-    [selectedServiceIds, servicesById]
+    () => selectedServiceIds.reduce((sum, id) => sum + (servicesById.get(id)?.pricePaise ?? 0), 0),
+    [selectedServiceIds, servicesById],
   )
 
   const totalDuration = useMemo(
     () =>
-      selectedServiceIds.reduce(
-        (sum, id) => sum + (servicesById.get(id)?.durationMinutes ?? 0),
-        0
-      ),
-    [selectedServiceIds, servicesById]
+      selectedServiceIds.reduce((sum, id) => sum + (servicesById.get(id)?.durationMinutes ?? 0), 0),
+    [selectedServiceIds, servicesById],
   )
 
   const setServiceTypeAndReset = (t: ServiceType) => {
@@ -337,9 +325,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
 
   const toggleCategory = (id: string) => {
     setSelectedCategoryIds((prev) => {
-      const next = prev.includes(id)
-        ? prev.filter((c) => c !== id)
-        : [...prev, id]
+      const next = prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
       // Drop any selected services whose category is no longer selected.
       if (!next.includes(id)) {
         const cat = visibleCategories.find((c) => c.id === id)
@@ -354,7 +340,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
 
   const toggleService = (id: string) => {
     setSelectedServiceIds((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
     )
   }
 
@@ -369,14 +355,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
       notes,
     }
     sessionStorage.setItem(BOOKING_INTENT_KEY, JSON.stringify(intent))
-  }, [
-    selectedDate,
-    selectedTime,
-    serviceType,
-    selectedCategoryIds,
-    selectedServiceIds,
-    notes,
-  ])
+  }, [selectedDate, selectedTime, serviceType, selectedCategoryIds, selectedServiceIds, notes])
 
   const handleSubmit = async () => {
     if (!selectedDate || !selectedTime || selectedServiceIds.length === 0) return
@@ -406,9 +385,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
       })
       const json = await res.json()
       if (!res.ok || !json.success) {
-        throw new Error(
-          json?.error?.message ?? "Your booking couldn't be submitted."
-        )
+        throw new Error(json?.error?.message ?? "Your booking couldn't be submitted.")
       }
       setBookingNumber(json.data.bookingNumber as string)
       setIsSubmitted(true)
@@ -419,7 +396,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
       setSubmitError(
         err instanceof Error
           ? err.message
-          : "Your booking couldn't be submitted. Please try again."
+          : "Your booking couldn't be submitted. Please try again.",
       )
     } finally {
       setSubmitting(false)
@@ -435,15 +412,18 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
+      // biome-ignore lint/a11y/useSemanticElements: custom modal with focus trap, aria-modal and Escape handling; native <dialog> would require showModal()/close() and break the overlay + animation.
       role="dialog"
       aria-modal="true"
       aria-labelledby="booking-dialog-title"
     >
       {/* Overlay */}
-      <div
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label="Close booking dialog"
         className="absolute inset-0 bg-cocoa-dark/60 backdrop-blur-sm"
         onClick={handleClose}
-        aria-hidden="true"
       />
 
       {/* Modal */}
@@ -466,7 +446,12 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
             aria-label="Close booking dialog"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <path
+                d="M4 4l8 8M12 4l-8 8"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
             </svg>
           </button>
         </div>
@@ -581,11 +566,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
                 aria-busy={submitting}
                 className="font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-6 py-2.5 bg-royal-gold text-cocoa-dark hover:bg-deep-gold hover:-translate-y-px motion-safe:transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
               >
-                {submitting
-                  ? 'Submitting…'
-                  : session?.user
-                    ? 'Submit Booking'
-                    : 'Sign in to Book'}
+                {submitting ? 'Submitting…' : session?.user ? 'Submit Booking' : 'Sign in to Book'}
               </button>
             )}
           </div>
@@ -655,10 +636,10 @@ function Step1({
             Pick a date to see available times.
           </p>
         ) : slotsLoading ? (
-          <div className="flex items-center gap-2 py-4" role="status" aria-live="polite">
+          <output className="flex items-center gap-2 py-4" aria-live="polite">
             <Spinner />
             <span className="font-sans text-[14px] text-dusty-gray">Loading available times…</span>
-          </div>
+          </output>
         ) : slotsError ? (
           <p className="font-sans text-[14px] text-error" role="alert">
             {slotsError}
@@ -730,6 +711,7 @@ function Step2({
             <button
               key={t}
               type="button"
+              // biome-ignore lint/a11y/useSemanticElements: intentional ARIA radiogroup of styled pill buttons; native <input type="radio"> cannot carry this pill styling.
               role="radio"
               aria-checked={serviceType === t}
               onClick={() => onServiceTypeChange(t)}
@@ -751,10 +733,10 @@ function Step2({
         </h3>
 
         {loading ? (
-          <div className="flex items-center gap-2 py-4" role="status" aria-live="polite">
+          <output className="flex items-center gap-2 py-4" aria-live="polite">
             <Spinner />
             <span className="font-sans text-[14px] text-dusty-gray">Loading categories…</span>
-          </div>
+          </output>
         ) : error ? (
           <p className="font-sans text-[14px] text-error" role="alert">
             {error}
@@ -771,7 +753,9 @@ function Step2({
                 <label
                   key={cat.id}
                   className={`flex items-center gap-3 p-3 rounded-[6px] border cursor-pointer motion-safe:transition-all duration-200 ${
-                    isChecked ? 'border-deep-gold bg-warm-cream' : 'border-cloud-gray hover:border-golden-mist'
+                    isChecked
+                      ? 'border-deep-gold bg-warm-cream'
+                      : 'border-cloud-gray hover:border-golden-mist'
                   }`}
                 >
                   <input
@@ -818,14 +802,18 @@ function Step3({
 
       {groupedCategories.map((cat) => (
         <div key={cat.id} className="space-y-2">
-          <h4 className="font-ui text-[11px] uppercase tracking-[1px] text-cocoa-dark">{cat.name}</h4>
+          <h4 className="font-ui text-[11px] uppercase tracking-[1px] text-cocoa-dark">
+            {cat.name}
+          </h4>
           {cat.services.map((svc) => {
             const isChecked = selectedServiceIds.includes(svc.id)
             return (
               <label
                 key={svc.id}
                 className={`flex items-center justify-between gap-3 p-3 rounded-[6px] border cursor-pointer motion-safe:transition-all duration-200 ${
-                  isChecked ? 'border-deep-gold bg-warm-cream' : 'border-cloud-gray hover:border-golden-mist'
+                  isChecked
+                    ? 'border-deep-gold bg-warm-cream'
+                    : 'border-cloud-gray hover:border-golden-mist'
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -842,7 +830,9 @@ function Step3({
                     </span>
                   </div>
                 </div>
-                <span className="font-ui text-[13px] text-cocoa-dark">{formatINR(svc.pricePaise)}</span>
+                <span className="font-ui text-[13px] text-cocoa-dark">
+                  {formatINR(svc.pricePaise)}
+                </span>
               </label>
             )
           })}
@@ -895,7 +885,9 @@ function Step4({
         </div>
         <div className="flex justify-between font-sans text-[14px]">
           <span className="text-dusty-gray">Time</span>
-          <span className="text-cocoa-dark">{selectedTime ? formatTime12h(selectedTime) : '—'}</span>
+          <span className="text-cocoa-dark">
+            {selectedTime ? formatTime12h(selectedTime) : '—'}
+          </span>
         </div>
         <div className="flex justify-between font-sans text-[14px]">
           <span className="text-dusty-gray">Type</span>
@@ -912,10 +904,7 @@ function Step4({
       <div className="space-y-2">
         <h4 className="font-ui text-[11px] uppercase tracking-[1px] text-warm-stone">Services</h4>
         {selectedServices.map((svc) => (
-          <div
-            key={svc.id}
-            className="flex justify-between font-sans text-[14px] text-cocoa-dark"
-          >
+          <div key={svc.id} className="flex justify-between font-sans text-[14px] text-cocoa-dark">
             <span>{svc.name}</span>
             <span>{formatINR(svc.pricePaise)}</span>
           </div>
@@ -951,9 +940,7 @@ function Step4({
           aria-live="polite"
         >
           <p className="font-sans text-[14px] text-error">{submitError}</p>
-          <p className="font-sans text-[12px] text-dusty-gray mt-1">
-            Or call us: +91 63601 35720
-          </p>
+          <p className="font-sans text-[12px] text-dusty-gray mt-1">Or call us: +91 63601 35720</p>
         </div>
       )}
 
@@ -996,7 +983,9 @@ function SuccessView({
           <span className="block font-ui text-[10px] uppercase tracking-[1px] text-warm-stone mb-1">
             Booking Number
           </span>
-          <span className="font-ui text-[16px] text-cocoa-dark tracking-[0.5px]">{bookingNumber}</span>
+          <span className="font-ui text-[16px] text-cocoa-dark tracking-[0.5px]">
+            {bookingNumber}
+          </span>
         </div>
       )}
 

@@ -1,0 +1,16 @@
+{
+  "title": "Features",
+  "pages": [
+    "index",
+    "booking",
+    "memberships",
+    "loyalty-gems",
+    "offers",
+    "crm-leads",
+    "scheduling-leave",
+    "billing-invoicing",
+    "notifications",
+    "no-show-policy",
+    "favourite-services"
+  ]
+}

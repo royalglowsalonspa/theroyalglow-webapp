@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
 import { track } from '@/lib/analytics/events'
+import Link from 'next/link'
 
 /**
  * Offer "Book Now" CTA. Client-only wrapper around the booking deep-link so we

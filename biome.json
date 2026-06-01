@@ -1,5 +1,10 @@
 {
   "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
   "organizeImports": {
     "enabled": true
   },
@@ -7,7 +12,8 @@
     "enabled": true,
     "indentStyle": "space",
     "indentWidth": 2,
-    "lineWidth": 100
+    "lineWidth": 100,
+    "lineEnding": "lf"
   },
   "javascript": {
     "formatter": {
@@ -20,6 +26,9 @@
     "enabled": true,
     "rules": {
       "recommended": true,
+      "a11y": {
+        "useSemanticElements": "warn"
+      },
       "suspicious": {
         "noExplicitAny": "error"
       },
@@ -34,6 +43,17 @@
     }
   },
   "files": {
-    "ignore": ["node_modules", ".next", "dist", "migrations", "*.gen.ts", "design"]
+    "ignore": [
+      "node_modules",
+      ".next",
+      "dist",
+      "migrations",
+      "*.gen.ts",
+      "design",
+      ".source",
+      "next-env.d.ts",
+      ".turbo",
+      "coverage"
+    ]
   }
 }

@@ -1,14 +1,14 @@
 'use client'
 
-import Link from 'next/link'
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
-  formatDaysSince,
   LEAD_COLUMNS,
   type LeadPipelineRow,
   type LeadStatus,
+  formatDaysSince,
   leadCampaignLabel,
 } from '@/lib/admin/leads'
+import Link from 'next/link'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
 type ServiceOption = {
   id: string
@@ -66,9 +66,7 @@ export function LeadKanban() {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">
-          Lead Pipeline
-        </h1>
+        <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">Lead Pipeline</h1>
         <button
           type="button"
           onClick={() => setDialogOpen(true)}
@@ -90,20 +88,13 @@ export function LeadKanban() {
           <div className="overflow-x-auto pb-2">
             <div className="flex gap-4 min-w-max lg:min-w-0">
               {columns.map((col) => (
-                <KanbanColumn
-                  key={col.key}
-                  label={col.label}
-                  items={col.items}
-                />
+                <KanbanColumn key={col.key} label={col.label} items={col.items} />
               ))}
             </div>
           </div>
 
           <p className="flex items-center gap-2 text-xs text-dusty-gray font-sans">
-            <span
-              className="inline-block h-2 w-2 rounded-full bg-error"
-              aria-hidden="true"
-            />
+            <span className="inline-block h-2 w-2 rounded-full bg-error" aria-hidden="true" />
             Stale — no contact in 48h+. Cards show days since capture.
           </p>
         </>
@@ -135,9 +126,7 @@ function KanbanColumn({
       className="flex flex-col w-[260px] shrink-0 rounded-[6px] border border-cloud-gray bg-cloud-gray/30"
     >
       <header className="flex items-center justify-between px-3 py-2.5 border-b border-cloud-gray">
-        <h2 className="text-xs font-ui uppercase tracking-wider text-dusty-gray">
-          {label}
-        </h2>
+        <h2 className="text-xs font-ui uppercase tracking-wider text-dusty-gray">{label}</h2>
         <span className="text-xs font-ui font-medium text-warm-gray tabular-nums">
           {items.length}
         </span>
@@ -145,9 +134,7 @@ function KanbanColumn({
 
       <div className="flex flex-col gap-2.5 p-2.5 min-h-[80px]">
         {items.length === 0 ? (
-          <p className="px-1 py-3 text-center text-xs font-sans text-dusty-gray">
-            No leads
-          </p>
+          <p className="px-1 py-3 text-center text-xs font-sans text-dusty-gray">No leads</p>
         ) : (
           items.map((lead) => <LeadCard key={lead.id} lead={lead} />)
         )}
@@ -186,9 +173,7 @@ function LeadCard({ lead }: { lead: LeadPipelineRow }) {
       </a>
 
       {lead.serviceName && (
-        <p className="mt-1.5 font-sans text-xs text-cocoa-dark">
-          {lead.serviceName}
-        </p>
+        <p className="mt-1.5 font-sans text-xs text-cocoa-dark">{lead.serviceName}</p>
       )}
 
       <p className="mt-0.5 font-sans text-[11px] text-dusty-gray truncate">
@@ -217,9 +202,7 @@ function ManualLeadDialog({
   const [serviceInterestedId, setServiceInterestedId] = useState('')
   const [services, setServices] = useState<ServiceOption[] | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [fieldError, setFieldError] = useState<{ name?: string; phone?: string }>(
-    {},
-  )
+  const [fieldError, setFieldError] = useState<{ name?: string; phone?: string }>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   // Escape to close.
@@ -284,7 +267,7 @@ function ManualLeadDialog({
       .filter((group) => group.options.length > 0)
   }, [services])
 
-  function validate(): boolean {
+  const validate = useCallback((): boolean => {
     const next: { name?: string; phone?: string } = {}
     if (!name.trim()) {
       next.name = 'Name is required'
@@ -294,7 +277,7 @@ function ManualLeadDialog({
     }
     setFieldError(next)
     return Object.keys(next).length === 0
-  }
+  }, [name, phone])
 
   const submit = useCallback(
     async (e: React.FormEvent) => {
@@ -321,27 +304,28 @@ function ManualLeadDialog({
         }
         onCreated()
       } catch (err: unknown) {
-        setSubmitError(
-          err instanceof Error ? err.message : 'Could not create the lead.',
-        )
+        setSubmitError(err instanceof Error ? err.message : 'Could not create the lead.')
       } finally {
         setSubmitting(false)
       }
     },
-    [name, phone, serviceInterestedId, onCreated],
+    [name, phone, serviceInterestedId, onCreated, validate],
   )
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      // biome-ignore lint/a11y/useSemanticElements: custom modal with focus trap, aria-modal and Escape handling; native <dialog> would require showModal()/close() and break the backdrop + animation.
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
     >
-      <div
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label="Close dialog"
         className="absolute inset-0 bg-cocoa-dark/60 backdrop-blur-sm"
         onClick={onClose}
-        aria-hidden="true"
       />
 
       <div
@@ -349,10 +333,7 @@ function ManualLeadDialog({
         className="relative z-10 w-full max-w-md rounded-[6px] bg-canvas-white shadow-elevated"
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-cloud-gray">
-          <h2
-            id={titleId}
-            className="font-display text-lg text-cocoa-dark tracking-tight"
-          >
+          <h2 id={titleId} className="font-display text-lg text-cocoa-dark tracking-tight">
             New Manual Lead
           </h2>
           <button
@@ -394,11 +375,7 @@ function ManualLeadDialog({
               className="min-h-[44px] w-full rounded-[8px] border border-outline-gray px-3 py-2.5 font-sans text-base text-cocoa-dark placeholder:text-dusty-gray focus:border-deep-gold focus:outline-none focus:ring-1 focus:ring-deep-gold disabled:opacity-60 aria-[invalid=true]:border-error"
             />
             {fieldError.name && (
-              <p
-                id="manual-lead-name-error"
-                className="font-sans text-xs text-error"
-                role="alert"
-              >
+              <p id="manual-lead-name-error" className="font-sans text-xs text-error" role="alert">
                 {fieldError.name}
               </p>
             )}
@@ -425,25 +402,17 @@ function ManualLeadDialog({
                 inputMode="numeric"
                 autoComplete="tel-national"
                 value={phone}
-                onChange={(e) =>
-                  setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))
-                }
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                 disabled={submitting}
                 placeholder="9876543210"
                 aria-required="true"
                 aria-invalid={Boolean(fieldError.phone)}
-                aria-describedby={
-                  fieldError.phone ? 'manual-lead-phone-error' : undefined
-                }
+                aria-describedby={fieldError.phone ? 'manual-lead-phone-error' : undefined}
                 className="min-h-[44px] w-full rounded-r-[8px] border border-outline-gray px-3 py-2.5 font-sans text-base text-cocoa-dark placeholder:text-dusty-gray focus:border-deep-gold focus:outline-none focus:ring-1 focus:ring-deep-gold disabled:opacity-60 aria-[invalid=true]:border-error"
               />
             </div>
             {fieldError.phone && (
-              <p
-                id="manual-lead-phone-error"
-                className="font-sans text-xs text-error"
-                role="alert"
-              >
+              <p id="manual-lead-phone-error" className="font-sans text-xs text-error" role="alert">
                 {fieldError.phone}
               </p>
             )}
@@ -511,14 +480,13 @@ function ManualLeadDialog({
 
 function LoadingState() {
   return (
-    <div
+    <output
       className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      role="status"
       aria-live="polite"
     >
       <Spinner />
       <span className="font-sans text-sm text-dusty-gray">Loading leads…</span>
-    </div>
+    </output>
   )
 }
 
@@ -565,14 +533,7 @@ function Spinner() {
       viewBox="0 0 24 24"
       aria-hidden="true"
     >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path
         className="opacity-75"
         fill="currentColor"

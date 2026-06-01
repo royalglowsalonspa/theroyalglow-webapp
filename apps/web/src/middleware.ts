@@ -3,10 +3,10 @@ import type { NextRequest } from 'next/server'
 
 /**
  * Lightweight middleware that checks for session cookie presence.
- * 
+ *
  * We do NOT import auth-server here because Better Auth's internals
  * pull in kysely which is incompatible with the Edge runtime.
- * 
+ *
  * Instead, we check for the session cookie and validate roles
  * via a lightweight API call to our own auth endpoint.
  */

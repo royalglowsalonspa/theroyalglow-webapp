@@ -1,6 +1,6 @@
 export function ok<T>(
   data: T,
-  meta?: { page?: number; totalPages?: number; totalCount?: number }
+  meta?: { page?: number; totalPages?: number; totalCount?: number },
 ): Response {
   return Response.json({ success: true, data, ...(meta && { meta }) }, { status: 200 })
 }

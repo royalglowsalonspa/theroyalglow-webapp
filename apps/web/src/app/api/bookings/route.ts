@@ -1,6 +1,7 @@
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireSession } from '@/lib/api/session'
 import { enqueueJob } from '@/lib/jobs/enqueue'
+import { addMinutesToTime, calculateBookingTotal, generateBookingNumber } from '@rgss/business'
 import {
   createBookingWithServices,
   getBookingsByCustomer,
@@ -9,11 +10,6 @@ import {
   getServicesByIds,
 } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
-import {
-  addMinutesToTime,
-  calculateBookingTotal,
-  generateBookingNumber,
-} from '@rgss/business'
 import { createBookingSchema } from '@rgss/types'
 
 export const GET = withErrorHandler(async () => {
@@ -31,8 +27,7 @@ export const POST = withErrorHandler(async (req: Request) => {
     throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
   }
 
-  const { branchId, serviceType, bookingDate, startTime, serviceIds, notes } =
-    parsed.data
+  const { branchId, serviceType, bookingDate, startTime, serviceIds, notes } = parsed.data
 
   // Branch must exist and be operational.
   const branch = await getBranchById(branchId)
@@ -69,9 +64,11 @@ export const POST = withErrorHandler(async (req: Request) => {
   // Preserve the requested service order for snapshots + staff assignment.
   // booking_service.staff_id is NOT NULL; pending bookings get an auto-assigned
   // active staff member that the admin reassigns on approval.
-  const orderedServices = uniqueServiceIds.map(
-    (id) => services.find((s) => s.id === id)!,
-  )
+  const orderedServices = uniqueServiceIds.map((id) => {
+    const svc = services.find((s) => s.id === id)
+    if (!svc) throw badRequest(`Service ${id} not found.`)
+    return svc
+  })
   const serviceRows = await Promise.all(
     orderedServices.map(async (svc, index) => {
       const staffId = await getDefaultStaffForService(svc.id)
@@ -116,24 +113,14 @@ export const POST = withErrorHandler(async (req: Request) => {
   // without QSTASH_TOKEN, so these can never break booking creation or change
   // its response.
   // 1. Stale-pending alert at +2h.
-  await enqueueJob(
-    '/api/jobs/stale-booking-alert',
-    { bookingId: created.id },
-    2 * 60 * 60,
-  )
+  await enqueueJob('/api/jobs/stale-booking-alert', { bookingId: created.id }, 2 * 60 * 60)
   // 2. No-show check 15 minutes after the appointment's end. The end instant is
   //    the IST wall-clock (the salon's timezone) of bookingDate + endTime; only
   //    enqueue when that instant is still in the future.
   const endInstantMs = new Date(`${bookingDate}T${endTime}:00+05:30`).getTime()
-  const noShowDelaySeconds = Math.floor(
-    (endInstantMs + 15 * 60 * 1000 - Date.now()) / 1000,
-  )
+  const noShowDelaySeconds = Math.floor((endInstantMs + 15 * 60 * 1000 - Date.now()) / 1000)
   if (Number.isFinite(noShowDelaySeconds) && noShowDelaySeconds > 0) {
-    await enqueueJob(
-      '/api/jobs/noshow-check',
-      { bookingId: created.id },
-      noShowDelaySeconds,
-    )
+    await enqueueJob('/api/jobs/noshow-check', { bookingId: created.id }, noShowDelaySeconds)
   }
 
   return apiSuccess(

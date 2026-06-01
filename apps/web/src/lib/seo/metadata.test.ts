@@ -37,10 +37,7 @@ describe('buildMetadata', () => {
       const depth = 1 + Math.floor(Math.random() * 3)
       const path = `/${Array.from({ length: depth }, () => segments[Math.floor(Math.random() * segments.length)]).join('/')}`
       const meta = buildMetadata({ title: 'T', description: 'd', path })
-      const canonical = String(meta.alternates?.canonical).replace(
-        'https://',
-        '',
-      )
+      const canonical = String(meta.alternates?.canonical).replace('https://', '')
       expect(canonical).not.toContain('//')
     }
   })

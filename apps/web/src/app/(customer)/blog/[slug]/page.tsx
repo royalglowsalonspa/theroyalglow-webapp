@@ -1,13 +1,13 @@
-import { formatDateIN } from '@rgss/business'
-import type { Metadata } from 'next'
-import Link from 'next/link'
-import { notFound } from 'next/navigation'
 import { RichText } from '@/components/blog/RichText'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { getAllPostSlugs, getPostBySlug } from '@/lib/cms/client'
 import { SITE_URL } from '@/lib/seo/business'
 import { blogPostingJsonLd, breadcrumbJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
+import { formatDateIN } from '@rgss/business'
+import type { Metadata } from 'next'
+import Link from 'next/link'
+import { notFound } from 'next/navigation'
 
 // ISR: revalidate each article roughly hourly (architecture.md ~1h window).
 export const revalidate = 3600
@@ -23,9 +23,7 @@ export async function generateStaticParams(): Promise<{ slug: string }[]> {
   return slugs.map((slug) => ({ slug }))
 }
 
-export async function generateMetadata({
-  params,
-}: BlogPostPageProps): Promise<Metadata> {
+export async function generateMetadata({ params }: BlogPostPageProps): Promise<Metadata> {
   const { slug } = await params
   const post = await getPostBySlug(slug)
 
@@ -108,9 +106,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-5">
               {post.author ? (
-                <span className="font-sans text-[15px] text-warm-gray">
-                  By {post.author.name}
-                </span>
+                <span className="font-sans text-[15px] text-warm-gray">By {post.author.name}</span>
               ) : null}
               {post.author && post.publishedAt ? (
                 <span className="text-dusty-gray" aria-hidden="true">

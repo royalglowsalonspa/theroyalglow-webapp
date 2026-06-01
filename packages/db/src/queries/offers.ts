@@ -178,9 +178,7 @@ export async function updateOffer(id: string, patch: UpdateOfferData) {
     if (serviceIds.length > 0) {
       await db.batch([
         db.delete(offerService).where(eq(offerService.offerId, id)),
-        db
-          .insert(offerService)
-          .values(serviceIds.map((serviceId) => ({ offerId: id, serviceId }))),
+        db.insert(offerService).values(serviceIds.map((serviceId) => ({ offerId: id, serviceId }))),
       ])
     } else {
       await db.delete(offerService).where(eq(offerService.offerId, id))

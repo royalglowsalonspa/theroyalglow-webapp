@@ -1,16 +1,16 @@
 'use client'
 
-import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
 import { StatusBadge } from '@/components/admin/StatusBadge'
 import {
-  daysUntil,
-  formatDateDDMMYYYY,
   MEMBERSHIP_STATUS_OPTIONS,
   type MembershipListRow,
   type MembershipTier,
+  daysUntil,
+  formatDateDDMMYYYY,
   minutesToHM,
 } from '@/lib/admin/memberships'
+import Link from 'next/link'
+import { useCallback, useEffect, useState } from 'react'
 
 export function MembershipsList() {
   const [memberships, setMemberships] = useState<MembershipListRow[] | null>(null)
@@ -71,9 +71,7 @@ export function MembershipsList() {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">
-          Memberships
-        </h1>
+        <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">Memberships</h1>
         <Link
           href="/admin/memberships/new"
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
@@ -155,10 +153,7 @@ export function MembershipsList() {
                 </thead>
                 <tbody className="divide-y divide-cloud-gray">
                   {memberships.map((m) => (
-                    <tr
-                      key={m.id}
-                      className="hover:bg-cloud-gray/30 transition-colors"
-                    >
+                    <tr key={m.id} className="hover:bg-cloud-gray/30 transition-colors">
                       <td className="px-4 py-3 font-mono text-xs text-cocoa-dark whitespace-nowrap">
                         {m.membershipNumber}
                       </td>
@@ -169,8 +164,7 @@ export function MembershipsList() {
                         {m.tierName}
                       </td>
                       <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
-                        {minutesToHM(m.usedHoursMinutes)} /{' '}
-                        {minutesToHM(m.totalHoursMinutes)}
+                        {minutesToHM(m.usedHoursMinutes)} / {minutesToHM(m.totalHoursMinutes)}
                       </td>
                       <td className="px-4 py-3">
                         <StatusBadge status={m.status} />
@@ -230,16 +224,13 @@ function Th({ children }: { children: React.ReactNode }) {
 
 function LoadingState() {
   return (
-    <div
+    <output
       className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      role="status"
       aria-live="polite"
     >
       <Spinner />
-      <span className="font-sans text-sm text-dusty-gray">
-        Loading memberships…
-      </span>
-    </div>
+      <span className="font-sans text-sm text-dusty-gray">Loading memberships…</span>
+    </output>
   )
 }
 
@@ -269,9 +260,7 @@ function ErrorState({
 function EmptyState() {
   return (
     <div className="border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 text-center">
-      <p className="font-sans text-sm text-cocoa-dark mb-1">
-        No memberships found
-      </p>
+      <p className="font-sans text-sm text-cocoa-dark mb-1">No memberships found</p>
       <p className="font-sans text-xs text-dusty-gray">
         Try adjusting the filters, or create a new membership.
       </p>
@@ -288,14 +277,7 @@ function Spinner() {
       viewBox="0 0 24 24"
       aria-hidden="true"
     >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path
         className="opacity-75"
         fill="currentColor"

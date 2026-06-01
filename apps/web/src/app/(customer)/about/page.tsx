@@ -1,10 +1,10 @@
-import type { Metadata } from 'next'
-import Link from 'next/link'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { getTeamMembers } from '@/lib/cms/client'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, localBusinessJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
+import type { Metadata } from 'next'
+import Link from 'next/link'
 
 export const metadata: Metadata = buildMetadata({
   title: 'About Us',
@@ -20,7 +20,7 @@ const values = [
     icon: '✨',
     title: 'Premium Quality',
     description:
-      'We use only the finest products from trusted brands like L\'Oréal, Schwarzkopf, and Olaplex to deliver results that exceed expectations.',
+      "We use only the finest products from trusted brands like L'Oréal, Schwarzkopf, and Olaplex to deliver results that exceed expectations.",
   },
   {
     icon: '👑',
@@ -63,10 +63,7 @@ export default async function AboutPage() {
       <JsonLd
         data={[
           localBusinessJsonLd(),
-          breadcrumbJsonLd([
-            { name: 'Home', url: SITE_URL },
-            { name: 'About' },
-          ]),
+          breadcrumbJsonLd([{ name: 'Home', url: SITE_URL }, { name: 'About' }]),
         ]}
       />
       {/* ═══════════════════════════════════════════════════════ */}
@@ -93,7 +90,11 @@ export default async function AboutPage() {
 
             {/* Description */}
             <p className="font-sans text-[17px] leading-[1.6] text-dusty-gray mt-6 max-w-[560px]">
-              Royal Glow Salon & Spa was born from a simple belief — that everyone deserves to feel like royalty. Founded by Roshini in Bengaluru, we set out to create a premium beauty and wellness destination where expert care meets a truly relaxing experience. Every detail, from the products we use to the ambiance we craft, is designed to make your visit exceptional.
+              Royal Glow Salon & Spa was born from a simple belief — that everyone deserves to feel
+              like royalty. Founded by Roshini in Bengaluru, we set out to create a premium beauty
+              and wellness destination where expert care meets a truly relaxing experience. Every
+              detail, from the products we use to the ambiance we craft, is designed to make your
+              visit exceptional.
             </p>
           </div>
         </div>
@@ -120,9 +121,7 @@ export default async function AboutPage() {
                 <span className="text-3xl" aria-hidden="true">
                   {value.icon}
                 </span>
-                <h3 className="font-display text-cocoa-dark text-lg mt-3">
-                  {value.title}
-                </h3>
+                <h3 className="font-display text-cocoa-dark text-lg mt-3">{value.title}</h3>
                 <p className="font-sans text-[15px] leading-[1.55] text-warm-gray mt-2">
                   {value.description}
                 </p>
@@ -159,9 +158,7 @@ export default async function AboutPage() {
                     {member.name.charAt(0)}
                   </span>
                 </div>
-                <h3 className="font-display text-cocoa-dark text-lg mt-4">
-                  {member.name}
-                </h3>
+                <h3 className="font-display text-cocoa-dark text-lg mt-4">{member.name}</h3>
                 <p className="font-ui text-[11px] uppercase tracking-[2px] text-deep-gold mt-1">
                   {member.role}
                 </p>

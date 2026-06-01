@@ -53,9 +53,7 @@ export const POST = withErrorHandler(
     // Snapshot staff names where a staff member is assigned to a line.
     const staffIds = [
       ...new Set(
-        sessionServices
-          .map((s) => s.staffId)
-          .filter((sid): sid is string => Boolean(sid)),
+        sessionServices.map((s) => s.staffId).filter((sid): sid is string => Boolean(sid)),
       ),
     ]
     const staffNames = await getStaffNamesByIds(staffIds)

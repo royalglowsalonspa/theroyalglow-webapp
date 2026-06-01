@@ -12,18 +12,18 @@
 import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
 import { branch } from '../src/schema/branch'
-import { serviceCategory, service } from '../src/schema/service'
-import { spaMembershipTier } from '../src/schema/membership'
-import { systemSetting } from '../src/schema/system'
 import { customerTag } from '../src/schema/crm'
+import { spaMembershipTier } from '../src/schema/membership'
+import { service, serviceCategory } from '../src/schema/service'
+import { systemSetting } from '../src/schema/system'
 
 import { branches } from './data/branches'
 import { categories } from './data/categories'
+import { customerTags } from './data/customer-tags'
+import { membershipTiers } from './data/membership-tiers'
 import { salonServices } from './data/services-salon'
 import { spaServices } from './data/services-spa'
-import { membershipTiers } from './data/membership-tiers'
 import { systemSettings } from './data/settings'
-import { customerTags } from './data/customer-tags'
 
 const DATABASE_URL = process.env.DATABASE_URL
 if (!DATABASE_URL) {
@@ -61,7 +61,9 @@ async function seedServices() {
   console.log('  → Seeding services...')
   const allServices = [...salonServices, ...spaServices]
   await db.insert(service).values(allServices).onConflictDoNothing()
-  console.log(`    ✓ ${allServices.length} services (${salonServices.length} salon + ${spaServices.length} spa)`)
+  console.log(
+    `    ✓ ${allServices.length} services (${salonServices.length} salon + ${spaServices.length} spa)`,
+  )
 }
 
 async function seedMembershipTiers() {

@@ -1,8 +1,8 @@
-import type { Metadata } from 'next'
 import { Analytics } from '@/components/analytics/Analytics'
 import { CookieConsent } from '@/components/consent/CookieConsent'
 import { ServiceWorkerRegistrar } from '@/components/pwa/ServiceWorkerRegistrar'
 import { SITE_URL } from '@/lib/seo/business'
+import type { Metadata } from 'next'
 import '@/styles/globals.css'
 
 const DESCRIPTION =

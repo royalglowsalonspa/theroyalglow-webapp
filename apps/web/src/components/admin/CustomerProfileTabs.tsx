@@ -267,9 +267,7 @@ function TagSection({
         throw new Error(json?.error?.message ?? 'Could not create this tag.')
       }
       const created = json.data.tag as TagOption
-      setCatalogue((prev) =>
-        prev.some((t) => t.id === created.id) ? prev : [...prev, created],
-      )
+      setCatalogue((prev) => (prev.some((t) => t.id === created.id) ? prev : [...prev, created]))
       await assign(created)
     } catch (err: unknown) {
       setTagError(err instanceof Error ? err.message : 'Could not create this tag.')

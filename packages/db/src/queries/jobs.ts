@@ -230,7 +230,11 @@ export async function buildDailySalesSummary(dateISO: string) {
     .from(invoice)
     .leftJoin(booking, eq(invoice.bookingId, booking.id))
     .where(
-      and(eq(invoice.paymentStatus, 'paid'), gte(invoice.createdAt, start), lt(invoice.createdAt, end)),
+      and(
+        eq(invoice.paymentStatus, 'paid'),
+        gte(invoice.createdAt, start),
+        lt(invoice.createdAt, end),
+      ),
     )
     .groupBy(invoice.branchId)
 

@@ -1,0 +1,73 @@
+---
+title: Loyalty — Gems
+description: How customers earn gems on what they spend and redeem them for specific catalogue services — the rules behind earning, expiry, and redemption.
+---
+
+# Loyalty — Gems
+
+Gems are Royal Glow's loyalty currency. Customers earn them automatically when
+they pay for services, and spend them on specific services from a redeemable
+catalogue. It is a simple "spend a little, get a little back" programme that
+rewards repeat visits.
+
+<Callout type="info">
+  Gems are **not** a rupee discount. A customer redeems gems **against a specific
+  service** (e.g. "70 gems for a Classic Manicure"), not as money off a bill.
+</Callout>
+
+## What it is
+
+A way to turn regular spending into free services over time. Every paid service
+visit quietly adds gems to the customer's balance. Once they have enough, they
+can claim a service from the gems catalogue without paying for it.
+
+## How it works
+
+1. **Earn** — when a service booking is completed and invoiced, the customer
+   earns **1 gem for every ₹100 invoiced**, rounded down (floor). A ₹1,300
+   service invoice earns 13 gems.
+2. **See the balance** — the customer's gems balance, lifetime totals, and
+   transaction history appear on their `/gems` page, alongside the catalogue of
+   services they can redeem.
+3. **Redeem** — the customer picks a catalogue service their balance covers; the
+   gems are deducted and the service is theirs.
+4. **Expire** — gems expire 365 days after they are earned. A background job
+   sweeps expired gems automatically.
+
+### A quick example
+
+| Action | Gems |
+| --- | --- |
+| Pays a ₹1,300 service invoice | +13 |
+| Pays a ₹2,500 service invoice | +25 |
+| Redeems a Classic Manicure | −70 |
+
+Earning always rounds down: a ₹1,099 invoice earns 10 gems, not 10.99.
+
+## Rules
+
+- **Earn rate** — 1 gem per ₹100 invoiced, floored.
+- **Service invoices only** — gems are earned on `service` invoices. **No gems**
+  are earned on membership purchases or membership sessions. See
+  [SPA Memberships](/docs/features/memberships).
+- **365-day expiry** — gems expire one year after they are earned, handled by a
+  scheduled background job.
+- **Redeem against services, not rupees** — redemption claims a specific
+  catalogue service, not a discount on the total.
+- **Cannot combine with offers** — gems and an [offer](/docs/features/offers)
+  cannot both be applied to the same booking.
+
+<Callout type="info">
+  Loyalty transactions are typed `earned`, `redeemed`, `expired`, or `adjusted`.
+  A brand-new customer's loyalty account is created on first read, so they see a
+  zero balance rather than an error.
+</Callout>
+
+## Related links
+
+<Cards>
+  <Card title="Loyalty & Offers API" href="/docs/api-reference/loyalty-offers" description="The gems balance, transaction history, and redeemable catalogue endpoints." />
+  <Card title="Offers & Combos" href="/docs/features/offers" description="Why gems and offers cannot be combined on one booking." />
+  <Card title="Billing & Invoicing" href="/docs/features/billing-invoicing" description="Service invoices are what earn gems." />
+  <Card title="Data Model" href="/docs/data-model" description="The loyalty_account and loyalty_transaction tables." />
+</Cards>

@@ -1,10 +1,12 @@
-import { boolean, date, index, integer, numeric, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+import { boolean, date, integer, numeric, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'
-import { branchStatusEnum } from './enums'
 import { user } from './auth'
+import { branchStatusEnum } from './enums'
 
 export const branch = pgTable('branch', {
-  id: text('id').primaryKey().$defaultFn(() => nanoid()),
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => nanoid()),
   number: integer('number').notNull().unique(),
   code: text('code').notNull().unique(),
   name: text('name').notNull(),
@@ -27,5 +29,8 @@ export const branch = pgTable('branch', {
   displayOrder: integer('display_order').notNull().default(0),
   createdBy: text('created_by').references(() => user.id, { onDelete: 'restrict' }),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow().$onUpdate(() => new Date()),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
 })

@@ -1,8 +1,8 @@
 'use client'
 
+import { track } from '@/lib/analytics/events'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
-import { track } from '@/lib/analytics/events'
 
 // Mirrors getServiceInterestOptions() rows.
 type ServiceOption = {

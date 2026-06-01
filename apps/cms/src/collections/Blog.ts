@@ -66,7 +66,8 @@ export const Blog: CollectionConfig = {
       type: 'textarea',
       required: true,
       admin: {
-        description: 'Used in the listing and as the meta-description fallback (≤ 200 chars recommended).',
+        description:
+          'Used in the listing and as the meta-description fallback (≤ 200 chars recommended).',
       },
     },
     {

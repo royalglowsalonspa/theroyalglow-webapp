@@ -19,9 +19,7 @@ export function computeOfferDiscount(
   let discountPaise: number
   switch (offer.offerType) {
     case 'percentage':
-      discountPaise = Math.floor(
-        (subtotalPaise * (offer.discountPercentage ?? 0)) / 100,
-      )
+      discountPaise = Math.floor((subtotalPaise * (offer.discountPercentage ?? 0)) / 100)
       break
     case 'flat':
       discountPaise = Math.min(offer.discountAmountPaise ?? 0, subtotalPaise)

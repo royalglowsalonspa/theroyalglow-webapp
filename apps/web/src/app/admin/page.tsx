@@ -30,9 +30,7 @@ export default function AdminDashboardPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">
-          {getGreeting()} 👋
-        </h1>
+        <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">{getGreeting()} 👋</h1>
         <p className="text-sm text-dusty-gray font-sans mt-0.5">{getTodayIST()}</p>
       </div>
 

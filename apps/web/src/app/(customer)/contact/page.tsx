@@ -1,8 +1,8 @@
-import type { Metadata } from 'next'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, localBusinessJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
+import type { Metadata } from 'next'
 
 export const metadata: Metadata = buildMetadata({
   title: 'Contact Us',
@@ -18,10 +18,7 @@ export default function ContactPage() {
       <JsonLd
         data={[
           localBusinessJsonLd(),
-          breadcrumbJsonLd([
-            { name: 'Home', url: SITE_URL },
-            { name: 'Contact' },
-          ]),
+          breadcrumbJsonLd([{ name: 'Home', url: SITE_URL }, { name: 'Contact' }]),
         ]}
       />
 
@@ -72,9 +69,12 @@ export default function ContactPage() {
                     Address
                   </h2>
                   <p className="font-sans text-[15px] leading-[1.55] text-cocoa-dark">
-                    1st Floor, Narmada Complex, 48/3,<br />
-                    Rayasandra Main Rd, Above SBI Bank,<br />
-                    Naganathapura, Parappana Agrahara,<br />
+                    1st Floor, Narmada Complex, 48/3,
+                    <br />
+                    Rayasandra Main Rd, Above SBI Bank,
+                    <br />
+                    Naganathapura, Parappana Agrahara,
+                    <br />
                     Bengaluru, Karnataka 560100, India
                   </p>
                 </div>
@@ -127,7 +127,8 @@ export default function ContactPage() {
                 Send us a message
               </h2>
               <p className="font-sans text-[15px] leading-[1.55] text-warm-gray mt-2">
-                Have a question or want to book a group session? Drop us a message and we&apos;ll get back to you shortly.
+                Have a question or want to book a group session? Drop us a message and we&apos;ll
+                get back to you shortly.
               </p>
 
               <form className="mt-8 space-y-6" aria-label="Contact form">

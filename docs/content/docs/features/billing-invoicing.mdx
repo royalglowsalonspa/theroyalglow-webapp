@@ -1,0 +1,175 @@
+---
+title: Billing & Invoicing
+description: How a completed booking becomes a GST-compliant invoice — checkout, the three invoice types, GST back-calculation, the PDF and email, and CA export.
+---
+
+# Billing & Invoicing
+
+Every paid visit at Royal Glow ends with an invoice. When a receptionist marks a
+booking complete at the counter, the system records the payment, generates a
+GST-compliant tax invoice, saves it as a PDF, emails it to the customer, and
+awards loyalty gems — all in one step. This page explains what happens, the
+rules behind the numbers, and the three kinds of invoice the salon produces.
+
+<Callout type="info">
+  All prices in the system are **GST-inclusive**. The price a customer sees is
+  the final price they pay — GST is back-calculated out of it, never added on
+  top.
+</Callout>
+
+## What it is
+
+A billing flow that turns a finished service into a proper tax document. The
+receptionist doesn't do any maths: they apply an optional offer, pick the
+payment method, and confirm. The system handles the GST split, the invoice
+number, the PDF, the email, and the gems.
+
+## How it works — checkout to invoice
+
+At the counter, the receptionist opens the checkout panel on the booking and
+works through three short steps:
+
+1. **Apply an offer** (optional) — choose one eligible offer for the customer,
+   or none. The limit is one offer per customer per day.
+2. **Select payment method** — Cash, UPI, or Card. Payment is taken in person;
+   there is no online gateway in Phase 1.
+3. **Review** — the panel shows each service and price, the subtotal before GST,
+   the GST amount, the GST-inclusive total, and the gems about to be awarded.
+
+On **Complete & Generate Invoice**, the server runs a single transaction:
+
+1. The booking status moves to `completed`.
+2. An invoice row is inserted, with each line item snapshotted (name and price
+   frozen at this moment).
+3. The customer's gems balance is increased.
+4. A PDF is generated and uploaded to Cloudflare R2 storage.
+5. The PDF's URL is saved on the invoice.
+6. The invoice email is sent via Resend with the PDF attached.
+7. A Meta CAPI Purchase event fires if the booking came from a lead.
+8. Realtime `booking.completed` and `invoice.created` events are published.
+
+<Callout type="info">
+  Because line items are **snapshots**, changing a service's price in the
+  catalogue later never alters an invoice that was already issued. The invoice is
+  a permanent record of what was charged on the day.
+</Callout>
+
+## How it works — GST calculation
+
+GST is 18% and is built into every price. To produce a compliant invoice the
+system back-calculates the base amount and the tax from the inclusive total.
+
+```
+Base amount = Total ÷ 1.18
+GST amount  = Total − Base amount
+```
+
+Worked example for a ₹1,300.00 total:
+
+| Line | Amount |
+| --- | --- |
+| Total (GST-inclusive) | ₹1,300.00 |
+| Base amount (₹1,300 ÷ 1.18) | ₹1,101.69 |
+| CGST @ 9% | ₹99.15 |
+| SGST @ 9% | ₹99.16 |
+
+For an intra-state sale (Karnataka to Karnataka) the 18% splits evenly into 9%
+CGST and 9% SGST. The remainder from rounding goes to SGST so the parts always
+add back to the exact total: ₹1,101.69 + ₹99.15 + ₹99.16 = ₹1,300.00.
+
+<Callout type="info">
+  Money is stored as integer **paise** (₹1,300.00 is `130000`), never as a
+  floating-point number, so totals never drift. Rounding happens only at display
+  time. The SAC code for these services is **999721**, and the salon's GSTIN
+  appears on every invoice.
+</Callout>
+
+## The three invoice types
+
+Not every invoice is a paid service. The system produces three types, driven by
+what triggered them.
+
+<Tabs items={['Service', 'Membership purchase', 'Membership session']}>
+  <Tab value="Service">
+    - **Trigger:** a booking is marked completed at checkout.
+    - **Line items:** the individual services performed (snapshotted).
+    - **Amount:** the sum of service prices, GST-inclusive.
+    - **Payment:** Cash, UPI, or Card.
+    - **Gems:** 1 gem per ₹100 invoiced (floored).
+    - **Email:** invoice receipt with a Google review link.
+  </Tab>
+  <Tab value="Membership purchase">
+    - **Trigger:** a SPA membership record is created.
+    - **Line items:** a single line, e.g. "Gold Membership — 15 hrs · 90 days".
+    - **Amount:** the membership price, GST-inclusive.
+    - **Payment:** Cash, UPI, or Card.
+    - **Gems:** none — memberships never earn gems.
+    - **Email:** invoice plus a welcome message.
+  </Tab>
+  <Tab value="Membership session">
+    - **Trigger:** a session is recorded against an active membership.
+    - **Line items:** the services performed (snapshotted).
+    - **Amount:** always ₹0.00 — "covered by membership".
+    - **Payment:** none.
+    - **Gems:** none.
+    - **Email:** a session confirmation showing hours remaining.
+  </Tab>
+</Tabs>
+
+<Callout type="info">
+  Gems are awarded **only** on `service` invoices. Membership purchases and
+  membership sessions never earn gems. See [Loyalty — Gems](/docs/features/loyalty-gems).
+</Callout>
+
+## Invoice number format
+
+Every invoice gets a sequential, human-readable number:
+
+```
+INV-{branch_number}-{financial_year}-{5_digit_random}
+```
+
+For example, `INV-1-2627-92921` is an invoice from branch 1 in financial year
+2026–27. Dates are shown in DD/MM/YYYY and times in IST.
+
+## The PDF and email
+
+The PDF is an A4, branded tax invoice carrying the salon name and address, the
+GSTIN, the invoice and booking numbers, the bill-to details, the line items, the
+GST breakdown (CGST and SGST), the grand total, the amount in words, the gems
+earned, and a footer with a Google review link and terms. It is generated with
+`@react-pdf/renderer` on a dedicated Node.js service (it cannot run on the edge),
+uploaded to R2, and kept permanently.
+
+The email is sent through Resend from `hello@theroyalglow.in` with the PDF
+attached. If Resend returns an error, delivery is retried up to three times with
+exponential backoff via QStash. The PDF is always available in the admin panel
+regardless of email status, and a receptionist can re-send it from the invoice
+detail page at any time.
+
+<Callout type="warn">
+  Invoice receipts and booking confirmations are **transactional** emails — they
+  are always sent and cannot be fully switched off in notification preferences.
+  Only marketing emails respect opt-out. See [Notifications & Email](/docs/features/notifications).
+</Callout>
+
+## Export for the accountant
+
+From `/admin/invoices`, an owner or manager can export invoices as a CSV for a
+chosen date range (with quick presets for this month, last month, this quarter,
+and the financial year). They can choose whether to include membership-session
+(₹0) invoices. The CSV includes the invoice number, date, customer name and
+phone, type, payment method, base amount, CGST, SGST, total, the services and
+staff, the booking number, the branch, and gems awarded — everything a CA needs
+for filing.
+
+## Related links
+
+<Cards>
+  <Card title="Booking System" href="/docs/features/booking" description="How a booking reaches the completed state that triggers an invoice." />
+  <Card title="SPA Memberships" href="/docs/features/memberships" description="The purchase and session invoices and how hours are tracked." />
+  <Card title="Loyalty — Gems" href="/docs/features/loyalty-gems" description="How gems are earned on service invoices only." />
+  <Card title="Offers & Combos" href="/docs/features/offers" description="How an applied offer changes the invoice total." />
+  <Card title="Admin — Bookings API" href="/docs/api-reference/admin-bookings" description="The complete endpoint that generates the invoice and awards gems." />
+  <Card title="Data Model" href="/docs/data-model" description="The invoice and invoice_item tables." />
+</Cards>

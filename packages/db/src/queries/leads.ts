@@ -102,21 +102,14 @@ export async function getLeadsForPipeline(filters: LeadPipelineFilters = {}) {
 // Update a lead's mutable fields (status, lastContactedAt, convertedBookingId,
 // assignedTo) and return the updated row, or null if no lead matched.
 export async function updateLead(id: string, patch: LeadPatch) {
-  const [updated] = await db
-    .update(lead)
-    .set(patch)
-    .where(eq(lead.id, id))
-    .returning()
+  const [updated] = await db.update(lead).set(patch).where(eq(lead.id, id)).returning()
 
   return updated ?? null
 }
 
 // Add a note to a lead and return it. The id auto-defaults in schema.
 export async function addLeadNote(leadId: string, authorId: string, content: string) {
-  const [created] = await db
-    .insert(leadNote)
-    .values({ leadId, authorId, content })
-    .returning()
+  const [created] = await db.insert(leadNote).values({ leadId, authorId, content }).returning()
 
   return created as typeof leadNote.$inferSelect
 }

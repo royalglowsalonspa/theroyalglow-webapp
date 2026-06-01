@@ -33,10 +33,7 @@ function toAbsoluteUrl(url: string): string {
   }
 
   const r2Base = process.env.NEXT_PUBLIC_R2_PUBLIC_URL
-  const base =
-    typeof r2Base === 'string' && r2Base.trim() !== ''
-      ? r2Base.trim()
-      : cmsBaseUrl()
+  const base = typeof r2Base === 'string' && r2Base.trim() !== '' ? r2Base.trim() : cmsBaseUrl()
 
   if (base === null) {
     // No base to resolve against — return the relative URL as-is rather than

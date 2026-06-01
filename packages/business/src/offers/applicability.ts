@@ -1,4 +1,4 @@
-import { conflict, ERROR_CODES } from '@rgss/errors'
+import { ERROR_CODES, conflict } from '@rgss/errors'
 
 // Reduce any Date or ISO-ish string to its IST calendar date (YYYY-MM-DD).
 // Offer ranges are compared by calendar date, inclusive, so the time-of-day is
@@ -24,10 +24,7 @@ export function assertOfferActive(
   const end = toCalendarDate(offer.endDate)
 
   if (!offer.isActive || today < start || today > end) {
-    throw conflict(
-      ERROR_CODES.OFFER_EXPIRED,
-      'This offer is not currently active',
-    )
+    throw conflict(ERROR_CODES.OFFER_EXPIRED, 'This offer is not currently active')
   }
 }
 
@@ -35,9 +32,6 @@ export function assertOfferActive(
 // OFFER_NOT_APPLICABLE (409) if any service in the booking is a spa service.
 export function assertOfferSalonOnly(serviceTypes: string[]): void {
   if (serviceTypes.some((type) => type === 'spa')) {
-    throw conflict(
-      ERROR_CODES.OFFER_NOT_APPLICABLE,
-      'Offers apply to salon services only',
-    )
+    throw conflict(ERROR_CODES.OFFER_NOT_APPLICABLE, 'Offers apply to salon services only')
   }
 }

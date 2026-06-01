@@ -11,10 +11,10 @@ import {
   createMembershipWithInvoice,
   getActiveMembershipForCustomer,
   getBranchByIdAdmin,
-  getMemberships,
   getMembershipTiers,
+  getMemberships,
 } from '@rgss/db/queries'
-import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
+import { ERROR_CODES, badRequest, conflict, notFound } from '@rgss/errors'
 import { createMembershipSchema } from '@rgss/types'
 
 // The single operational branch (seed: number=1, code="RS"). Memberships and

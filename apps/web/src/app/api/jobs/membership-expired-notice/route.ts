@@ -1,9 +1,9 @@
-import { getMembershipById } from '@rgss/db/queries'
-import { buildNotificationContent } from '@rgss/business'
-import { createLogger } from '@rgss/logger'
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
-import { sendEmail } from '@/lib/notifications/providers/email'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
+import { sendEmail } from '@/lib/notifications/providers/email'
+import { buildNotificationContent } from '@rgss/business'
+import { getMembershipById } from '@rgss/db/queries'
+import { createLogger } from '@rgss/logger'
 
 // Job 19 — Membership expired notice (QStash triggered, enqueued +1h after the
 // membership's expiry by membership creation). Sends a final renewal email to
@@ -33,8 +33,7 @@ export const POST = async (req: Request) => {
 
   try {
     const payload = parseBody(bodyText)
-    const membershipId =
-      typeof payload.membershipId === 'string' ? payload.membershipId : null
+    const membershipId = typeof payload.membershipId === 'string' ? payload.membershipId : null
 
     let sent = false
     if (membershipId) {

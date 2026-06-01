@@ -10,5 +10,5 @@ export const GET = withErrorHandler(
       throw notFound('Service not found.')
     }
     return apiSuccess({ service })
-  }
+  },
 )

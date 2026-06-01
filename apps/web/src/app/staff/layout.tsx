@@ -1,8 +1,8 @@
-import type { Metadata } from 'next'
-import Link from 'next/link'
-import { headers } from 'next/headers'
-import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth-server'
+import type { Metadata } from 'next'
+import { headers } from 'next/headers'
+import Link from 'next/link'
+import { redirect } from 'next/navigation'
 
 export const metadata: Metadata = {
   title: {

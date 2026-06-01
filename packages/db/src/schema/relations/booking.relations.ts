@@ -1,19 +1,22 @@
 import { relations } from 'drizzle-orm'
-import { booking, bookingService, bookingStatusLog, waitlist } from '../booking'
 import { user } from '../auth'
+import { booking, bookingService, bookingStatusLog, waitlist } from '../booking'
 import { branch } from '../branch'
-import { service } from '../service'
-import { staffProfile } from '../profile'
-import { offer, offerRedemption } from '../offer'
-import { spaMembership } from '../membership'
 import { invoice } from '../invoice'
+import { spaMembership } from '../membership'
 import { notification } from '../notification'
+import { offer, offerRedemption } from '../offer'
+import { staffProfile } from '../profile'
+import { service } from '../service'
 
 export const bookingRelations = relations(booking, ({ one, many }) => ({
   customer: one(user, { fields: [booking.customerId], references: [user.id] }),
   branch: one(branch, { fields: [booking.branchId], references: [branch.id] }),
   offer: one(offer, { fields: [booking.offerId], references: [offer.id] }),
-  spaMembership: one(spaMembership, { fields: [booking.spaMembershipId], references: [spaMembership.id] }),
+  spaMembership: one(spaMembership, {
+    fields: [booking.spaMembershipId],
+    references: [spaMembership.id],
+  }),
   services: many(bookingService),
   statusLogs: many(bookingStatusLog),
   invoice: one(invoice),
@@ -35,5 +38,8 @@ export const bookingStatusLogRelations = relations(bookingStatusLog, ({ one }) =
 export const waitlistRelations = relations(waitlist, ({ one }) => ({
   customer: one(user, { fields: [waitlist.customerId], references: [user.id] }),
   service: one(service, { fields: [waitlist.serviceId], references: [service.id] }),
-  preferredStaff: one(staffProfile, { fields: [waitlist.preferredStaffId], references: [staffProfile.id] }),
+  preferredStaff: one(staffProfile, {
+    fields: [waitlist.preferredStaffId],
+    references: [staffProfile.id],
+  }),
 }))

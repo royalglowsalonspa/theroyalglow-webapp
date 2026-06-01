@@ -1,9 +1,9 @@
-import { getBookingForFollowup } from '@rgss/db/queries'
-import { buildNotificationContent } from '@rgss/business'
-import { createLogger } from '@rgss/logger'
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
-import { sendEmail } from '@/lib/notifications/providers/email'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
+import { sendEmail } from '@/lib/notifications/providers/email'
+import { buildNotificationContent } from '@rgss/business'
+import { getBookingForFollowup } from '@rgss/db/queries'
+import { createLogger } from '@rgss/logger'
 
 // Job 16 — Post-service follow-up (QStash triggered, enqueued +24h by booking
 // completion). Sends a review-request email to the customer, but ONLY when the
@@ -35,8 +35,7 @@ export const POST = async (req: Request) => {
 
   try {
     const payload = parseBody(bodyText)
-    const bookingId =
-      typeof payload.bookingId === 'string' ? payload.bookingId : null
+    const bookingId = typeof payload.bookingId === 'string' ? payload.bookingId : null
 
     let sent = false
     if (bookingId) {

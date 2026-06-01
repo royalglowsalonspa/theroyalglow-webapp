@@ -1,4 +1,4 @@
-import { conflict, ERROR_CODES } from '@rgss/errors'
+import { ERROR_CODES, conflict } from '@rgss/errors'
 
 // Remaining minutes on a membership. Pure arithmetic; the caller ensures
 // non-negative inputs.
@@ -21,10 +21,7 @@ export function assertSessionRecordable(
   now: Date = new Date(),
 ): void {
   if (m.status !== 'active' || now > m.expiresAt) {
-    throw conflict(
-      ERROR_CODES.MEMBERSHIP_EXPIRED,
-      'This membership is not active or has expired',
-    )
+    throw conflict(ERROR_CODES.MEMBERSHIP_EXPIRED, 'This membership is not active or has expired')
   }
 
   if (m.usedHoursMinutes + requestedMinutes > m.totalHoursMinutes) {

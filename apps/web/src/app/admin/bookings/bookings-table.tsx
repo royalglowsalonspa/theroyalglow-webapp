@@ -1,7 +1,5 @@
 'use client'
 
-import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
 import { StatusBadge } from '@/components/admin/StatusBadge'
 import {
   type AdminBooking,
@@ -9,6 +7,8 @@ import {
   formatINR,
   formatTime12h,
 } from '@/lib/admin/bookings'
+import Link from 'next/link'
+import { useCallback, useEffect, useState } from 'react'
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All' },
@@ -71,9 +71,7 @@ export function BookingsTable() {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">
-          Bookings
-        </h1>
+        <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">Bookings</h1>
       </div>
 
       {/* Filter bar */}
@@ -131,11 +129,10 @@ export function BookingsTable() {
 
         {/* Service type toggle */}
         <div className="flex flex-col gap-1">
-          <span className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray">
-            Type
-          </span>
+          <span className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray">Type</span>
           <div
             className="flex rounded-[6px] border border-outline-gray overflow-hidden"
+            // biome-ignore lint/a11y/useSemanticElements: segmented toggle of <button aria-pressed> controls; role="group" is the correct grouping here without a native <fieldset> reset.
             role="group"
             aria-label="Service type filter"
           >
@@ -187,10 +184,7 @@ export function BookingsTable() {
                 </thead>
                 <tbody className="divide-y divide-cloud-gray">
                   {bookings.map((booking) => (
-                    <tr
-                      key={booking.id}
-                      className="hover:bg-cloud-gray/30 transition-colors"
-                    >
+                    <tr key={booking.id} className="hover:bg-cloud-gray/30 transition-colors">
                       <td className="px-4 py-3 font-mono text-xs text-cocoa-dark whitespace-nowrap">
                         {booking.bookingNumber}
                       </td>
@@ -204,9 +198,7 @@ export function BookingsTable() {
                         {formatTime12h(booking.startTime)}
                       </td>
                       <td className="px-4 py-3 font-sans text-warm-gray max-w-[200px] truncate">
-                        {booking.services
-                          .map((s) => s.serviceNameSnapshot)
-                          .join(', ') || '—'}
+                        {booking.services.map((s) => s.serviceNameSnapshot).join(', ') || '—'}
                       </td>
                       <td className="px-4 py-3">
                         <StatusBadge status={booking.status} />
@@ -249,14 +241,13 @@ function Th({ children }: { children: React.ReactNode }) {
 
 function LoadingState() {
   return (
-    <div
+    <output
       className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      role="status"
       aria-live="polite"
     >
       <Spinner />
       <span className="font-sans text-sm text-dusty-gray">Loading bookings…</span>
-    </div>
+    </output>
   )
 }
 
@@ -287,9 +278,7 @@ function EmptyState() {
   return (
     <div className="border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 text-center">
       <p className="font-sans text-sm text-cocoa-dark mb-1">No bookings found</p>
-      <p className="font-sans text-xs text-dusty-gray">
-        Try adjusting the filters above.
-      </p>
+      <p className="font-sans text-xs text-dusty-gray">Try adjusting the filters above.</p>
     </div>
   )
 }
@@ -303,14 +292,7 @@ function Spinner() {
       viewBox="0 0 24 24"
       aria-hidden="true"
     >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path
         className="opacity-75"
         fill="currentColor"

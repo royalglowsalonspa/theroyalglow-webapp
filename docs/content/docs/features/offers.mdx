@@ -1,0 +1,71 @@
+---
+title: Offers & Combos
+description: Promotional offers — percentage, flat, and combo-price — applied at checkout by the receptionist, with the rules that govern them.
+---
+
+# Offers & Combos
+
+Offers are the salon's promotions: a percentage off a service, a flat rupee
+discount, or a bundle of services at one combo price. They are displayed to
+customers and applied at the counter when the customer pays.
+
+<Callout type="info">
+  Offers are applied **at checkout by a receptionist** — they are not
+  self-service during booking. This keeps control of discounts with staff and
+  prevents stacking.
+</Callout>
+
+## What it is
+
+A flexible way to run promotions that drive visits — "20% off all Facials this
+week", "₹500 off any Hair Treatment", or "Hair + Facial + Manicure = ₹2,999".
+Customers see the active offers on the `/offers` page; staff apply the right one
+when ringing up the bill.
+
+## How it works
+
+1. **Create** — a manager creates an offer in the admin portal, choosing its
+   type, the services it applies to, and a start and end date.
+2. **Display** — while active and within its date range, the offer appears on the
+   public `/offers` page with its terms.
+3. **Apply** — at checkout, the receptionist applies a single eligible offer to
+   the customer's booking before taking payment.
+4. **Expire** — when the end date passes, the offer auto-expires via a scheduled
+   background job and drops off the public list.
+
+### Offer types
+
+| Type | Example | How it works |
+| --- | --- | --- |
+| `percentage` | "20% off all Facials" | A percentage (1–100) off the linked services. |
+| `flat` | "₹500 off any Hair Treatment" | A fixed rupee amount deducted. |
+| `combo_price` | "Hair + Facial + Manicure = ₹2,999" | A bundle price replaces the individual service prices. |
+
+## Rules
+
+- **One offer per customer per day** — enforced in the database with a unique
+  constraint on customer + date.
+- **Applied at checkout by a receptionist** — not chosen by the customer during
+  booking.
+- **Cannot combine with gems** — an offer and a [gems](/docs/features/loyalty-gems)
+  redemption cannot both apply to the same booking.
+- **Salon only** — offers apply to salon services. They do **not** apply to SPA
+  memberships. See [SPA Memberships](/docs/features/memberships).
+- **Date-bound** — every offer has a start and end date; it auto-activates and
+  auto-expires (the expiry is run by a `pg_cron` job).
+- **Terms shown per offer** — each offer card carries its own terms (e.g. "Valid
+  on weekdays only").
+
+<Callout type="info">
+  If the salon cancels a booking that had an offer applied, the offer is
+  reinstated for the customer's next booking rather than being lost.
+</Callout>
+
+## Related links
+
+<Cards>
+  <Card title="Loyalty & Offers API" href="/docs/api-reference/loyalty-offers" description="Public active offers plus manager-only offer CRUD." />
+  <Card title="Loyalty — Gems" href="/docs/features/loyalty-gems" description="Why an offer and gems cannot be combined." />
+  <Card title="Billing & Invoicing" href="/docs/features/billing-invoicing" description="How an applied offer affects the invoice total." />
+  <Card title="Data Model" href="/docs/data-model" description="The offer, offer_service, and offer_redemption tables." />
+</Cards>

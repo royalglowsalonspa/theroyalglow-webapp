@@ -1,7 +1,7 @@
 import { relations } from 'drizzle-orm'
-import { notification, pushSubscription } from '../notification'
 import { user } from '../auth'
 import { booking } from '../booking'
+import { notification, pushSubscription } from '../notification'
 
 export const notificationRelations = relations(notification, ({ one }) => ({
   user: one(user, { fields: [notification.userId], references: [user.id] }),

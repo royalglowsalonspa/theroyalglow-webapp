@@ -6,7 +6,7 @@ import {
   getStaffProfileByUserId,
   submitLeave,
 } from '@rgss/db/queries'
-import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
+import { ERROR_CODES, badRequest, conflict, notFound } from '@rgss/errors'
 import { submitLeaveSchema } from '@rgss/types'
 
 // GET /api/staff/leave — the caller's own leave history. Strictly scoped to the
@@ -43,10 +43,7 @@ export const POST = withErrorHandler(async (req: Request) => {
 
   const existing = await getLeaveForStaffOnDate(staff.id, parsed.data.date)
   if (existing) {
-    throw conflict(
-      ERROR_CODES.CONFLICT,
-      'You already have a leave request for this date.',
-    )
+    throw conflict(ERROR_CODES.CONFLICT, 'You already have a leave request for this date.')
   }
 
   const leave = await submitLeave(staff.id, parsed.data)

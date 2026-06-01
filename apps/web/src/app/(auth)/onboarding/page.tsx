@@ -1,6 +1,6 @@
+import { auth } from '@/lib/auth-server'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { auth } from '@/lib/auth-server'
 import { OnboardingForm } from './onboarding-form'
 
 export const metadata = {
@@ -17,10 +17,5 @@ export default async function OnboardingPage() {
     redirect('/sign-in')
   }
 
-  return (
-    <OnboardingForm
-      userName={session.user.name}
-      userEmail={session.user.email}
-    />
-  )
+  return <OnboardingForm userName={session.user.name} userEmail={session.user.email} />
 }

@@ -11,9 +11,6 @@ export function gemsExpiredMarker(txId: string): string {
 
 // Dedupe key for an appointment reminder (job 8) so a given booking is reminded
 // at most once per window (24h / 1h).
-export function reminderDedupeKey(
-  bookingId: string,
-  kind: ReminderWindow,
-): string {
+export function reminderDedupeKey(bookingId: string, kind: ReminderWindow): string {
   return `reminder_${kind}:${bookingId}`
 }

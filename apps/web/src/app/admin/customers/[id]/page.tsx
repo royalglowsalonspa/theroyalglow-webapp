@@ -131,7 +131,9 @@ export default async function CustomerProfilePage({ params }: PageProps) {
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-sans text-warm-gray">
           <span>📞 {profile.phone ?? '—'}</span>
           <span>✉️ {profile.email}</span>
-          {profile.gender && <span className="capitalize">{profile.gender.replace(/_/g, ' ')}</span>}
+          {profile.gender && (
+            <span className="capitalize">{profile.gender.replace(/_/g, ' ')}</span>
+          )}
           <span>Since {sinceDate ? formatDateDDMMYYYY(sinceDate) : '—'}</span>
         </div>
       </header>

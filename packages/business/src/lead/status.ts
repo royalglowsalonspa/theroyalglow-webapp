@@ -17,11 +17,7 @@ export const ALLOWED_LEAD_TRANSITIONS: Record<LeadStatus, LeadStatus[]> = {
 // reason (VALIDATION_ERROR, 400). Any move not present in the allowed map is an
 // illegal transition (BUSINESS_RULE_VIOLATION, 409). Same-status moves are not
 // in the map and are therefore rejected.
-export function assertLeadTransition(
-  from: LeadStatus,
-  to: LeadStatus,
-  reason?: string,
-): void {
+export function assertLeadTransition(from: LeadStatus, to: LeadStatus, reason?: string): void {
   if (to === 'lost' && (reason === undefined || reason.trim().length === 0)) {
     throw badRequest('A reason is required when marking a lead as lost')
   }

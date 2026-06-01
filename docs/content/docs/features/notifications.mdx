@@ -1,0 +1,152 @@
+---
+title: Notifications
+description: How Royal Glow keeps customers and staff informed — browser push notifications, transactional and marketing email, the admin notification bell, and customer preferences.
+---
+
+# Notifications
+
+Notifications are how Royal Glow tells people what's happening — a customer that
+their booking is confirmed, a staff member that their leave was approved, an
+owner that the day's summary is ready. There are two channels: **browser push
+notifications** and **email**. This page explains both, what gets sent, and how
+customers control what reaches them.
+
+<Callout type="info">
+  Push and email are separate channels with separate switches. A customer can
+  turn off push reminders but still receive their invoice by email, because some
+  emails are transactional and always sent.
+</Callout>
+
+## What it is
+
+Two delivery channels working together:
+
+- **Web Push** — native browser notifications that work even when the site isn't
+  open, delivered through a service worker.
+- **Email** — sent through two services: **Resend** for transactional mail
+  (confirmations, invoices, reminders) and **Brevo** for marketing mail
+  (follow-ups, promotions, re-engagement).
+
+## How it works — web push
+
+Push notifications follow a four-stage flow:
+
+1. **Permission** — the browser's permission prompt is shown at a considered
+   moment (after the customer's first successful booking, not on first load).
+   The customer can grant, deny, or dismiss it.
+2. **Subscribe** — once granted, the service worker subscribes with the VAPID
+   public key and produces a subscription object.
+3. **Store** — the subscription (endpoint and keys) is saved to the
+   `push_subscription` table against the user via `POST /api/push/subscribe`.
+4. **Send** — when an event occurs, the server looks up the user's
+   subscription(s) and sends the notification through the push service, which the
+   service worker displays.
+
+### What gets pushed
+
+| Type | Sent when | Opens |
+| --- | --- | --- |
+| `booking_confirmed` | A receptionist approves a booking | The booking detail |
+| `reminder_24h` | 24 hours before the appointment | The booking detail |
+| `reminder_1h` | 1 hour before the appointment | Google Maps directions |
+| `booking_rescheduled` | A booking is moved | The booking detail |
+| `booking_rejected` | A booking is rejected | A new booking |
+| `gems_earned` | An invoice awards gems | The gems catalogue |
+| `staff_changed` | A booking is reassigned to new staff | The booking detail |
+
+## How it works — email
+
+Email is split across two services for good reasons — instant one-to-one
+delivery and bulk sending are different problems.
+
+<Tabs items={['Resend (transactional)', 'Brevo (marketing)']}>
+  <Tab value="Resend (transactional)">
+    - **Use for:** welcome emails, booking confirmations, invoices, reminders.
+    - **Why:** built for instant, reliable one-to-one delivery, with first-class
+      PDF attachment support for invoices.
+    - **Always sent:** transactional emails are essential records and cannot be
+      fully disabled.
+    - **From:** `hello@theroyalglow.in`.
+  </Tab>
+  <Tab value="Brevo (marketing)">
+    - **Use for:** post-service follow-ups, promotions, seasonal offers,
+      re-engagement, renewal nudges.
+    - **Why:** built for bulk sending, with automatic unsubscribe management.
+    - **Consent required:** only customers who ticked the marketing consent box at
+      onboarding are added to Brevo lists.
+    - **Legally bound:** every marketing email carries an unsubscribe link
+      (CAN-SPAM, GDPR, India DPDP Act).
+  </Tab>
+</Tabs>
+
+<Callout type="warn">
+  Because sign-in is **Google OAuth only**, the salon sends **zero** auth emails
+  — no password resets, no magic links. Every email is a business event handled
+  by application code.
+</Callout>
+
+### Email triggers
+
+A sample of the transactional emails and what fires them:
+
+| Trigger | Template | Recipient |
+| --- | --- | --- |
+| Booking confirmed | `booking-approved.tsx` | Customer |
+| Booking rejected | `booking-rejected.tsx` | Customer |
+| Appointment reminder (24h / 1h) | `appointment-reminder.tsx` | Customer |
+| Invoice generated | `invoice-service.tsx` | Customer (+ PDF) |
+| Membership created | `invoice-membership-purchase.tsx` | Customer (+ PDF) |
+| Membership session recorded | `invoice-membership-session.tsx` | Customer (+ PDF) |
+| Membership expiry (30d / 7d / 1d) | `membership-expiry-reminder.tsx` | Customer |
+| Leave approved / rejected | `leave-approved.tsx` / `leave-rejected.tsx` | Staff member |
+| Daily summary | `daily-summary.tsx` | Owner / Manager |
+
+## How it works — the notification bell
+
+Inside the admin portal, a bell icon in the header shows unread notifications
+with a count badge (capped at "9+"). Clicking it opens a dropdown listing recent
+events — new bookings, stale leads, leave requests, completed bookings, the
+daily summary — with unread items marked. New notifications arrive live over the
+`admin:notifications` Ably channel, and the bell gives a small bounce as the
+count ticks up.
+
+<Callout type="info">
+  The bell and other live updates are powered by Ably channels. See
+  [Realtime](/docs/realtime) for the full channel list and connection lifecycle.
+</Callout>
+
+## Customer preferences
+
+On `/profile`, a customer controls both channels independently. They can enable
+or disable browser push entirely, then fine-tune categories (booking
+confirmations, reminders, changes, gems, membership alerts, offers) for push and
+for email separately.
+
+<Callout type="info">
+  Invoice receipts and booking confirmations **cannot be fully disabled** by
+  email — they are transactional. For those categories the toggle only controls
+  the push notification, not the email record.
+</Callout>
+
+## Reminder scheduling
+
+When a booking is confirmed, reminders are scheduled with QStash:
+
+- If the appointment is more than 24 hours away, both a 24-hour and a 1-hour
+  reminder are scheduled.
+- If it is 24 hours away or less, only the 1-hour reminder is scheduled.
+
+When QStash fires the job, the server verifies the request signature, re-checks
+that the booking is still confirmed (skipping cancelled ones), checks the
+customer's preferences, and then sends the push and/or email accordingly.
+
+## Related links
+
+<Cards>
+  <Card title="Notifications API" href="/docs/api-reference/notifications" description="Push subscription and notification endpoints." />
+  <Card title="Notifications & Email" href="/docs/notifications-email" description="The full email strategy, templates, and provider setup." />
+  <Card title="Realtime" href="/docs/realtime" description="The Ably channels behind the bell and live updates." />
+  <Card title="Background Jobs" href="/docs/background-jobs" description="The QStash jobs that schedule reminders and digests." />
+  <Card title="Booking System" href="/docs/features/booking" description="The status changes that trigger most customer notifications." />
+  <Card title="Data Model" href="/docs/data-model" description="The notification and push_subscription tables." />
+</Cards>

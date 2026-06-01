@@ -97,9 +97,7 @@ export function websiteJsonLd(): JsonLd {
  * BreadcrumbList structured data. Positions are 1-based; the `item` field is
  * omitted for crumbs without a URL (e.g. the current/last crumb).
  */
-export function breadcrumbJsonLd(
-  items: { name: string; url?: string }[]
-): JsonLd {
+export function breadcrumbJsonLd(items: { name: string; url?: string }[]): JsonLd {
   return {
     '@context': SCHEMA_CONTEXT,
     '@type': 'BreadcrumbList',

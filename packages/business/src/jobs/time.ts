@@ -55,10 +55,7 @@ export function isSameISTDay(a: Date, b: Date): boolean {
 // Classify a booking start against the reminder windows. Returns '24h' when the
 // start falls in [now+24h, now+24h+15min), '1h' when in [now+1h, now+1h+15min),
 // else null. The two windows are far apart, so at most one matches.
-export function reminderWindowMatch(
-  startsAt: Date,
-  now: Date = new Date(),
-): ReminderWindow | null {
+export function reminderWindowMatch(startsAt: Date, now: Date = new Date()): ReminderWindow | null {
   const diff = startsAt.getTime() - now.getTime()
   if (diff >= MS_PER_HOUR && diff < MS_PER_HOUR + SLOT_MS) {
     return '1h'

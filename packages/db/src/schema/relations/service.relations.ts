@@ -1,16 +1,19 @@
 import { relations } from 'drizzle-orm'
-import { serviceCategory, service, staffService } from '../service'
-import { staffProfile } from '../profile'
 import { bookingService } from '../booking'
-import { offerService } from '../offer'
 import { invoiceItem } from '../invoice'
+import { offerService } from '../offer'
+import { staffProfile } from '../profile'
+import { service, serviceCategory, staffService } from '../service'
 
 export const serviceCategoryRelations = relations(serviceCategory, ({ many }) => ({
   services: many(service),
 }))
 
 export const serviceRelations = relations(service, ({ one, many }) => ({
-  category: one(serviceCategory, { fields: [service.categoryId], references: [serviceCategory.id] }),
+  category: one(serviceCategory, {
+    fields: [service.categoryId],
+    references: [serviceCategory.id],
+  }),
   staffServices: many(staffService),
   bookingServices: many(bookingService),
   offerServices: many(offerService),

@@ -1,42 +1,63 @@
 ---
 title: Overview
-description: Engineering documentation for the Royal Glow Salon & Spa platform.
+description: The complete documentation for the Royal Glow Salon & Spa platform — for engineers, operators, and anyone in the organisation.
 ---
 
-# Royal Glow Salon & Spa — Platform Docs
+# Royal Glow Salon & Spa — Documentation
 
-Royal Glow Salon & Spa is a full-stack digital operations platform for a premium
-beauty and wellness business in Bengaluru, India. It covers the customer website,
-booking system, admin portal, CRM, billing, memberships, loyalty, marketing
-automation, analytics, and the supporting backend automations.
+Welcome. This is the complete reference for the Royal Glow Salon & Spa platform —
+the software that runs the salon's website, bookings, billing, customer
+relationships, memberships, loyalty, marketing, and day-to-day operations.
 
-## What's in the monorepo
+It is written for **everyone**: a new engineer joining the project, an operator
+running the salon, or anyone in the organisation who simply wants to understand
+how things work. Each page opens with a plain-language summary before going into
+technical detail, so you can read as deep as you need.
 
-The project is a Turborepo + Bun workspace with three apps and a set of shared
-packages:
+## What is Royal Glow?
 
-- **`apps/web`** — the Next.js 16 (App Router) customer site and admin portal,
-  served at `theroyalglow.in`. Edge-first on Cloudflare Pages with a Render SSR
-  origin.
-- **`apps/cms`** — Payload CMS v3 for marketing content (blog, gallery, team,
-  banners, FAQ), served at `admin.theroyalglow.in`.
-- **`docs`** — this Fumadocs site, served at `docs.theroyalglow.in`.
-- **`packages/*`** — shared `db` (Drizzle + Neon), `business` (pure logic),
-  `types` (Zod), `errors`, and `logger`.
+Royal Glow Salon & Spa is a premium beauty and wellness business in Bengaluru,
+India. This platform is its full digital operations system — a single,
+integrated product covering the customer-facing website and booking experience,
+the staff/admin portal, and all the automation behind the scenes.
 
-## Core stack
+<Callout type="info">
+  **New here?** Start with [Business Overview](/docs/product/business-overview)
+  for the non-technical picture, or [Getting Started](/docs/getting-started) to
+  run the project locally.
+</Callout>
 
-- **Runtime / language:** Bun, TypeScript (strict).
-- **Framework:** Next.js 16 App Router.
-- **Database:** Neon PostgreSQL 16 via Drizzle ORM (edge-native).
-- **Auth:** Better Auth (Google OAuth, RBAC — six roles).
-- **UI:** React + shadcn/ui + Tailwind CSS v4.
-- **Infra:** Cloudflare (Pages, Workers, KV, R2), Upstash (Redis + QStash),
-  Ably (realtime), Resend + Brevo (email).
+## Find your way around
 
-## Next steps
+<Cards>
+  <Card title="Product" href="/docs/product" description="What the platform does, who uses it, and how — in plain language." />
+  <Card title="Features" href="/docs/features" description="Every feature explained: booking, memberships, gems, offers, CRM, billing, and more." />
+  <Card title="Getting Started" href="/docs/getting-started" description="Set up and run the project on your machine." />
+  <Card title="Tech Stack" href="/docs/tech-stack" description="Every technology used and why it was chosen." />
+  <Card title="Architecture" href="/docs/architecture" description="How the system is structured and hosted." />
+  <Card title="System Design" href="/docs/system-design" description="High-level and low-level design — diagrams, flows, and decisions." />
+  <Card title="API Reference" href="/docs/api-reference" description="Every API endpoint, with requests, responses, and error codes." />
+  <Card title="Data Model" href="/docs/data-model" description="The 38-table database — tables, enums, and conventions." />
+  <Card title="Security & Compliance" href="/docs/security" description="How customer data is protected and India's DPDP Act is honoured." />
+  <Card title="Operations" href="/docs/operations" description="Running, monitoring, deploying, and recovering the platform." />
+  <Card title="Glossary" href="/docs/glossary" description="Plain-language definitions of every term used here." />
+  <Card title="FAQ" href="/docs/faq" description="Quick answers to common questions." />
+</Cards>
 
-- Read the [Architecture](/docs/architecture) overview for how the pieces fit
-  together.
-- See the [API Reference](/docs/api-reference) for the agent-friendly REST
-  endpoints.
+## How this documentation is organised
+
+| Section | For whom | What it covers |
+| --- | --- | --- |
+| **Product** | Everyone | The business, the people who use it, and how they use it |
+| **Engineering** | Developers | Setup, stack, architecture, design, APIs, data, pages, frontend |
+| **Platform** | Developers / ops | Background jobs, realtime, notifications, email, SEO, analytics, monitoring |
+| **Quality & Security** | Developers / ops | Security, compliance, error handling, testing, configuration |
+| **Operations** | Ops / on-call | Deployment, branching, seeding, launch, runbook |
+| **Reference** | Everyone | Glossary and FAQ |
+
+## At a glance
+
+- **Three apps** — the customer site + admin portal (`apps/web`), the marketing CMS (`apps/cms`), and this documentation site (`docs`).
+- **Edge-first** — served globally from Cloudflare's edge with a Node.js origin for heavier work.
+- **India-first** — INR pricing in paise, GST 18% inclusive, IST timezone, DPDP Act compliance, DD/MM/YYYY dates.
+- **₹0/month at launch** — every external service runs on a free tier.
