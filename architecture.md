@@ -145,7 +145,7 @@ status.theroyalglow.in
 > Micro-frontend architecture was evaluated and rejected: designed for multi-team enterprise orgs, adds module federation complexity, cross-app routing overhead, and shared state problems with zero benefit for a solo developer on a single stack.
 
 ```
-rgss_solutions/
+theroyalglow-webapp/
 │
 ├── apps/
 │   ├── web/                              ← Next.js 16 application (Cloudflare Pages + Workers)

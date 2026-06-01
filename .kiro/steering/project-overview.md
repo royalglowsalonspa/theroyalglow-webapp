@@ -13,7 +13,7 @@ Full-stack digital operations platform for **Royal Glow Salon & Spa** — a prem
 ### Monorepo Structure (Turborepo + Bun Workspaces)
 
 ```
-rgss_solutions/
+theroyalglow-webapp/
 ├── apps/
 │   ├── web/           ← Next.js 16.2.6 (App Router) — theroyalglow.in
 │   └── cms/           ← Payload CMS v3 — admin.theroyalglow.in

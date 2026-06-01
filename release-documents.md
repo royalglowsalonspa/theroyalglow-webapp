@@ -725,7 +725,7 @@ interface CreateResourceResponse {
 
 | # | Step | Command / Action | Verify |
 |---|------|-----------------|--------|
-| 1 | Merge pprd → main | `git merge pprd --no-ff && git push` | GitHub Actions triggered |
+| 1 | Merge pprd → prod | `git merge pprd --no-ff && git push` | GitHub Actions triggered |
 | 2 | Monitor CI | Watch GitHub Actions | All checks green |
 | 3 | Migration runs | Automated in workflow | No errors in logs |
 | 4 | Health check | `curl https://theroyalglow.in/api/health` | 200 + all green |

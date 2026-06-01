@@ -28,7 +28,7 @@ graph TD
 ### Directory Structure
 
 ```
-rgss_solutions/
+theroyalglow-webapp/
 ├── .husky/
 │   └── pre-commit                 # lint-staged trigger
 ├── apps/

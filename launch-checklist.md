@@ -636,10 +636,10 @@ Create these dashboards before launch:
 ### Production Deploy
 
 ```bash
-# 1. Merge pprd → main (this triggers deploy-prod workflow)
-git checkout main
+# 1. Merge pprd → prod (this triggers deploy-prod workflow)
+git checkout prod
 git merge pprd --no-ff
-git push origin main
+git push origin prod
 
 # 2. GitHub Actions runs:
 #    - CI checks (lint, typecheck, unit tests)

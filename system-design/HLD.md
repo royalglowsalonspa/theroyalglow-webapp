@@ -1280,4 +1280,4 @@ status.theroyalglow.in       BetterStack public status page
 > **Document End**  
 > This HLD was prepared following MAANG/FAANG system design review standards.  
 > For detailed implementation specifications, refer to the individual documentation files  
-> linked throughout this document within the `rgss_solutions_kiro/` documentation repository.
+> linked throughout this document within the `theroyalglow-webapp/` documentation repository.

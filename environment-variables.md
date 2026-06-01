@@ -14,7 +14,7 @@ Royal Glow Salon & Spa runs a monorepo with two Next.js apps (`apps/web`, `apps/
 ## File Structure
 
 ```
-rgss_solutions/
+theroyalglow-webapp/
 ├── .env.example               # Root template — lists all vars with descriptions (committed)
 ├── .env.local                 # Local dev secrets — NEVER commit
 ├── .env.development           # Shared dev non-secret defaults (can commit)
