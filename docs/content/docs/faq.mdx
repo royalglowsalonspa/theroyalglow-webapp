@@ -1,0 +1,123 @@
+---
+title: FAQ
+description: Quick answers to common questions about the Royal Glow platform — for developers, operators, and business stakeholders.
+---
+
+# Frequently Asked Questions
+
+## For Everyone
+
+**What is this platform?**
+It's the complete digital operations system for Royal Glow Salon & Spa — covering the customer website, online booking, admin portal, billing, memberships, loyalty programme, CRM, and all the automation behind the scenes.
+
+**Who built this?**
+Single developer project. The entire platform — 38 database tables, 104 pages, 35 APIs, 19 background jobs — was built by one developer using AI-assisted development tools.
+
+**How much does it cost to run?**
+₹0/month at launch. Every external service (Cloudflare, Neon, Ably, Upstash, Resend, PostHog, Sentry, BetterStack) runs on a free tier that is generous enough for a salon at this scale.
+
+**What happens when the business grows and free tiers aren't enough?**
+Each service has a clear upgrade path. The first upgrades needed would be Sentry ($26/mo) and BetterStack ($24/mo) — triggered by growth, not required at launch.
+
+---
+
+## For Business Stakeholders
+
+**How do customers book appointments?**
+Customers click "Book Now" on the homepage, which opens a 4-step booking dialog. They can also book via the Google Maps listing (which uses a special link that tracks the source) or by scanning the in-store QR code.
+
+**What happens after a customer books?**
+The booking is created with status "Pending". The receptionist sees it in the admin portal, assigns a staff member, and confirms it. The customer gets a confirmation notification. 15 minutes before the appointment, they get a reminder.
+
+**How does the SPA membership work?**
+A customer buys a membership (Silver: 8 hrs/₹10k, Gold: 15 hrs/₹15k, Platinum: custom). Each SPA session deducts hours from their balance. The membership expires after 90 days regardless of remaining hours. Reminders are sent at 30, 7, and 1 day before expiry.
+
+**How does the loyalty programme work?**
+Customers earn 1 gem per ₹100 spent on services (floor, not rounded). Gems expire after 365 days. They can be redeemed against specific catalogue services — not as a general discount. Gems cannot be combined with offers.
+
+**How are Meta/Instagram ad leads handled?**
+Customers who click a Meta ad land on `/book` — a simple 3-field form (name, phone, service interest). This creates a lead in the CRM. The receptionist follows up via WhatsApp (AiSensy). When the lead books, the lead is marked as converted.
+
+**How are invoices generated?**
+When a receptionist marks a booking as completed, the system automatically generates a GST-compliant invoice (18% inclusive, SAC 999721), creates a PDF, uploads it to Cloudflare R2, and emails it to the customer via Resend — all within the same API request.
+
+**Can the platform handle multiple branches?**
+Yes. The database is designed for multi-branch from day one. Each booking, invoice, and staff member is scoped to a branch. A second branch (Marathahalli) is already in the seed data with status "Opens Soon".
+
+---
+
+## For Developers
+
+**How do I run the project locally?**
+See [Getting Started](/docs/getting-started). Short version: `bun install`, copy `.env.example` to `.env.local`, fill in the keys, `bun run dev --filter=@rgss/web`.
+
+**Do I need all 55 environment variables to run locally?**
+No. Every external integration is a guarded extension point — with a key absent it no-ops and logs. Set `SKIP_ENV_VALIDATION=1` to bypass build-time validation while you're getting started. You only need `DATABASE_URL` and `BETTER_AUTH_SECRET` for core functionality.
+
+**Why is money stored as integers?**
+To avoid floating-point errors. ₹1,000.00 is stored as `100000` (paise). All calculations happen in integers. Rounding only happens at display time.
+
+**Why are all primary keys text (not auto-increment integers)?**
+`nanoid()` generates random text IDs that prevent enumeration attacks (a user can't guess `booking/1`, `booking/2`, etc.) and work across distributed systems without coordination.
+
+**Why does the booking dialog open over the homepage instead of navigating to `/book`?**
+`/book` is the Meta ad lead capture page — a distraction-free 3-field form for people who clicked an Instagram ad. The booking dialog is for customers who are already on the website. Mixing these two flows would confuse both audiences and break attribution tracking.
+
+**How do I add a new API route?**
+1. Create the file in `apps/web/src/app/api/`
+2. Wrap the handler with `withErrorHandler`
+3. Validate input with a Zod schema from `packages/types/`
+4. Call business logic from `packages/business/`
+5. Return `apiSuccess(data)` or throw `AppError`
+
+**How do I add a new background job?**
+1. Create the route in `apps/web/src/app/api/jobs/`
+2. Verify the QStash signature using `verifyQStashSignature`
+3. Do the work, ping the BetterStack heartbeat on success
+4. Schedule it in QStash (or add a pg_cron job for DB-only work)
+5. Add the heartbeat URL to `environment-variables.md`
+
+**Why is there no `packages/types` import in `packages/business`?**
+There is — `packages/business` can import from `packages/types` and `packages/errors`. What it cannot import is `packages/db`, any framework code, or UI components. This keeps business logic pure and testable.
+
+**How do I run just the unit tests?**
+`bun run test:unit` — runs Vitest excluding integration tests and E2E.
+
+**How do I check if my changes break the build?**
+`bun run typecheck && bun run lint && bun run test:unit` — these are the three gates that run on every PR to `dev`.
+
+**What's the difference between `APP_ENV` and `NODE_ENV`?**
+`NODE_ENV` is always `development` or `production` (Next.js convention). `APP_ENV` is `dev`, `test`, `pprd`, or `prod` — our four deployment environments. Use `APP_ENV` for environment-specific logic like data seeding guards.
+
+**How do I add a new database table?**
+1. Add the schema in `packages/db/src/schema/`
+2. Add relations in `packages/db/src/schema/relations/`
+3. Export from `packages/db/src/schema/index.ts`
+4. Run `bunx drizzle-kit generate` to create the migration
+5. Apply with `bunx drizzle-kit migrate`
+6. Add seed data if needed
+
+**Why does the docs site use Fumadocs instead of Docusaurus or Nextra?**
+Fumadocs is Next.js-native, TypeScript-first, and has a premium look out of the box. It fits the existing stack perfectly — no context switching between frameworks.
+
+---
+
+## For Operations
+
+**How do I know if the site is down?**
+BetterStack monitors all key endpoints and sends alerts via Slack and email. The public status page is at `status.theroyalglow.in`.
+
+**How do I know if a scheduled job failed?**
+BetterStack heartbeat monitors alert if a job doesn't ping within its expected window. Check the BetterStack dashboard for heartbeat status.
+
+**How do I roll back a bad deployment?**
+Cloudflare Pages: go to the Deployments tab and click "Rollback to this deployment" on the last known-good deploy. Takes ~30 seconds.
+
+**How do I restore the database from backup?**
+Weekly backups are stored in Cloudflare R2 (`backups/weekly/`). Download the backup, restore to a new Neon branch, verify the data, then swap the connection string. See [Operations](/docs/operations) for the full procedure.
+
+**How do I add a new staff member?**
+Sign in to the admin portal at `/admin/users` (requires Owner role). Create the user, assign the appropriate role. The staff member signs in with their Google account.
+
+**How do I update service prices?**
+Sign in to the admin portal at `/admin/services` (requires Manager role). Edit the service price. The new price applies to all future bookings. Existing bookings and invoices are unaffected (prices are snapshotted at booking time).

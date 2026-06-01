@@ -1,0 +1,200 @@
+---
+title: Frontend
+description: Component architecture, design system, styling conventions, and accessibility standards for Royal Glow.
+---
+
+# Frontend
+
+## Component Architecture
+
+The frontend follows a strict server-first approach. Components are Server Components by default — `'use client'` is added only when browser APIs, state, or event handlers are needed.
+
+```
+apps/web/src/
+├── app/                    ← Next.js App Router pages and layouts
+│   ├── (customer)/         ← Public + authenticated customer pages
+│   ├── (auth)/             ← Sign-in, onboarding
+│   ├── (landing)/          ← /book — Meta ad lead capture
+│   ├── (legal)/            ← Privacy, terms, refund policy
+│   └── admin/              ← Admin portal (RBAC-gated)
+├── components/
+│   ├── ui/                 ← shadcn/ui primitives (copy-pasted, fully owned)
+│   ├── layout/             ← Header, Footer, MobileNav
+│   ├── booking/            ← BookingDialog, ServiceTypeToggle, BookingDialogProvider
+│   ├── admin/              ← AdminSidebar, StatusBadge, CustomerProfileTabs
+│   ├── lead/               ← LeadCaptureForm, LeadKanban, LeadDetail
+│   ├── notifications/      ← NotificationBell
+│   ├── consent/            ← CookieConsent, CookiePreferencesButton
+│   ├── seo/                ← JsonLd
+│   ├── analytics/          ← Analytics (PostHog + Clarity loader)
+│   ├── blog/               ← PostCard, RichText
+│   ├── gallery/            ← GalleryGrid
+│   ├── offers/             ← OfferBookButton
+│   └── pwa/                ← ServiceWorkerRegistrar
+└── lib/
+    ├── auth-client.ts      ← Better Auth client
+    ├── auth-server.ts      ← Better Auth server
+    ├── api/                ← withErrorHandler, rate-limit, response helpers, session
+    ├── admin/              ← Admin data fetching helpers
+    ├── cms/                ← Payload CMS client
+    ├── seo/                ← JSON-LD generators, metadata helpers
+    ├── realtime/           ← Ably client
+    ├── jobs/               ← QStash enqueue, heartbeat, verify
+    └── notifications/      ← Dispatch, email/webpush providers
+```
+
+## Design System
+
+### Design Tokens
+
+Tailwind CSS v4 design tokens are defined in `apps/web/src/styles/globals.css`. Key tokens:
+
+| Token | Value | Usage |
+| --- | --- | --- |
+| `royal-gold` | `#C8A961` | Primary CTA, active states, accents |
+| `deep-gold` | `#A8893F` | Hover state for gold elements |
+| `cocoa-dark` | `#2C1810` | Primary text, headings |
+| `canvas-white` | `#FAFAF8` | Page background |
+| `cloud-gray` | `#F0EDE8` | Card backgrounds, subtle fills |
+| `warm-gray` | `#8B7D74` | Secondary text |
+| `dusty-gray` | `#A09590` | Placeholder text, captions |
+| `error` | `#DC2626` | Error states |
+
+### Typography
+
+| Class | Font | Usage |
+| --- | --- | --- |
+| `font-display` | Playfair Display | Headings, logo, premium feel |
+| `font-sans` | Inter | Body text, descriptions |
+| `font-ui` | Inter (uppercase tracking) | Labels, buttons, navigation |
+| `font-mono` | JetBrains Mono | Booking numbers, invoice numbers |
+
+### Spacing & Layout
+
+- Max content width: `1278px` (`max-w-[1278px]`)
+- Horizontal padding: `px-5` (20px) on mobile, `px-8` on desktop
+- Mobile-first: customer pages designed for 375px–428px first
+
+## shadcn/ui Components
+
+Components are copy-pasted into `components/ui/` — you own 100% of the code. Built on Radix UI primitives for production-tested accessibility.
+
+Key components in use:
+- `Button`, `Input`, `Label`, `Select`, `Textarea`
+- `Dialog`, `Sheet`, `Popover`, `Tooltip`
+- `Badge`, `Card`, `Separator`, `Skeleton`
+- `Tabs`, `Accordion`
+- `Calendar`, `DatePicker`
+
+## Booking Dialog
+
+The booking dialog is a 4-step modal that opens over the homepage. It is **never a separate page** — it's always a modal overlay.
+
+```
+Step 1: Branch + Date + Time slot picker
+Step 2: Salon/SPA toggle + category selection
+Step 3: Service multi-select with running total
+Step 4: Summary + submission
+```
+
+**Entry points:**
+- Homepage "Book Now" button
+- `/?book=1` deep-link (auto-opens dialog)
+- `/?book=1&utm_source=gmb` (dialog + GMB attribution)
+- `/?book=1&utm_source=walkin` (dialog + walk-in attribution)
+
+The dialog has a full focus trap, `aria-modal="true"`, and Escape key handling. It uses `BookingDialogProvider` (React context) to share open/close state across the page.
+
+## Animation
+
+**motion** (motion.dev) handles all animations:
+
+```tsx
+import { motion } from 'motion/react'
+
+// Page transitions
+<motion.div
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.4, ease: 'easeOut' }}
+>
+
+// Staggered list reveals
+const container = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+}
+```
+
+All animations respect `prefers-reduced-motion`:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  /* motion handles this automatically via its built-in hook */
+}
+```
+
+## Accessibility Standards
+
+WCAG 2.1 AA compliance is non-negotiable. Lighthouse Accessibility = 100 is a hard CI gate.
+
+### Required on Every Interactive Element
+
+- `<button>` for actions (never `<div onClick>`)
+- `type="button"` on all buttons not inside a form
+- `aria-label` on icon-only buttons
+- Visible focus ring (`focus-visible:ring-2`)
+- Keyboard navigation support
+
+### Required on Every Form
+
+- Every `<input>` has a `<label>` with matching `htmlFor`/`id`
+- `aria-required="true"` on required fields
+- `aria-describedby` linking input to error message
+- `<fieldset>` + `<legend>` for grouped fields
+
+### Required on Dynamic Content
+
+- `aria-live="polite"` on booking availability updates
+- `aria-live="polite"` on loading states (use `<output>` element)
+- `role="alert"` on error messages
+- Focus management on modal open/close
+
+### Colour Contrast
+
+- Normal text: 4.5:1 minimum
+- Large text (18px+ or 14px+ bold): 3:1 minimum
+- UI components and graphical objects: 3:1 minimum
+
+## PWA
+
+The app is installable as a Progressive Web App:
+
+- `manifest.ts` — app name, icons, theme colour, display mode
+- `sw.js` — service worker for offline support
+- `ServiceWorkerRegistrar` — registers the service worker on first load
+- Offline page at `/offline` — shows when user is offline
+
+Offline capabilities:
+- Service menu and prices (cached on first visit)
+- Contact information and address
+- Booking history (cached)
+
+## Performance Targets
+
+| Metric | Target | How |
+| --- | --- | --- |
+| LCP | < 2.5s | SSR/SSG, `<Image priority>` on hero |
+| CLS | < 0.1 | Explicit `width`/`height` on all images |
+| INP | < 200ms | Minimal client JS, deferred non-critical scripts |
+| Lighthouse Performance | ≥ 95 | CI gate |
+| JS bundle (initial) | < 150 KB gzipped | `@next/bundle-analyzer` monitoring |
+
+## Coding Conventions
+
+- **Files:** `kebab-case.ts` for utilities, `PascalCase.tsx` for React components
+- **Server Components by default** — only add `'use client'` when needed
+- **Zero business logic in components** — presentation only
+- **No `any`** — TypeScript strict mode enforced by Biome
+- **Single quotes, no semicolons** — Biome formatter
+- **Import sorting** — handled automatically by Biome

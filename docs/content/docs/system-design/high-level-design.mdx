@@ -1,0 +1,223 @@
+---
+title: High-Level Design
+description: Architecture overview, technology decisions matrix, data model, auth design, and API patterns for Royal Glow.
+---
+
+# High-Level Design
+
+## Executive Summary
+
+Royal Glow Salon & Spa is a premium beauty and wellness establishment in Bengaluru, India. This document describes the high-level design of the full-stack digital operations platform.
+
+### Scale Targets
+
+| Metric | Target |
+| --- | --- |
+| Registered users | 20,000–50,000 |
+| Daily active users | 50–200 |
+| Concurrent users (peak) | 50 |
+| Application routes | ~104 pages |
+| Database tables | 38 |
+| API endpoints | 35 |
+| Background jobs | 19 |
+
+### Key Constraints
+
+| Constraint | Impact |
+| --- | --- |
+| **Solo developer** | No microservices, minimal ops overhead, single consistent stack |
+| **₹0/month infrastructure** | All free tiers at launch |
+| **India-first** | DPDP Act, IST timezone, INR (paise), GST 18% |
+| **Premium brand** | Lighthouse ≥95 performance, 100 accessibility/SEO |
+
+## Architecture Overview
+
+### Layered Monorepo
+
+```
+Presentation  →  API (thin)  →  Business Logic  →  Data Access  →  Database
+apps/web/app     apps/web/api    packages/business   packages/db     Neon PostgreSQL
+```
+
+| Layer | Location | May Import | Must Not Import |
+| --- | --- | --- | --- |
+| Presentation | `apps/web/app/`, `apps/web/components/` | business, db, types, errors | — |
+| API (thin) | `apps/web/app/api/` | business, db, types, errors | UI components |
+| Business Logic | `packages/business/` | types, errors | db, framework, UI |
+| Data Access | `packages/db/` | types | business, framework, UI |
+| Types/Validation | `packages/types/` | — | everything else |
+
+### Hosting Topology
+
+```
+Browser/PWA
+    │ HTTPS
+    ▼
+Cloudflare (DNS + DDoS + WAF)
+    │
+    ├── Cloudflare Pages (static CDN)
+    ├── Cloudflare Workers (edge SSR + API, <50ms CPU)
+    └── Cloudflare KV (service catalog cache, 5-min TTL)
+         │
+         ├── Render Singapore (heavy SSR + Payload CMS)
+         ├── Neon PostgreSQL (4 branches: dev/test/pprd/prod)
+         ├── Upstash Redis + QStash (cache + queue)
+         ├── Cloudflare R2 (images, PDFs, backups)
+         └── Ably (realtime WebSocket, 6 channels)
+```
+
+## Technology Decisions Matrix
+
+| Category | Choice | Key Reason |
+| --- | --- | --- |
+| Framework | Next.js 16 (App Router) | SSR + SSG + API routes + edge-ready |
+| Runtime | Bun | 3x faster installs, native TypeScript |
+| Database | Neon PostgreSQL 16 | Branching, pg_cron, serverless |
+| ORM | Drizzle ORM | Pure TypeScript, runs on CF Workers V8 |
+| Auth | Better Auth | Self-hosted, Google OAuth, RBAC plugin |
+| Edge Hosting | Cloudflare Pages + Workers | Generous free tier, global edge |
+| Origin Hosting | Render (Singapore) | Free tier, closest to India |
+| Realtime | Ably | 6M messages/mo free vs Pusher's 200k/day |
+| CMS | Payload CMS v3 | Self-hosted Next.js plugin, zero vendor lock-in |
+| Email (transactional) | Resend | Modern DX, React Email templates |
+| Email (marketing) | Brevo | Unsubscribe management, DPDP-compliant |
+| Cache | Upstash Redis | Serverless, works on CF Workers |
+| File Storage | Cloudflare R2 | S3-compatible, zero egress fees |
+| Analytics | PostHog | 1M events/mo, feature flags, DPDP-compliant |
+| Error Monitoring | Sentry | Industry standard, CF Workers support |
+| Validation | Zod | TypeScript-native inference, industry standard |
+| Styling | Tailwind CSS v4 | Utility-first, design tokens |
+| Components | shadcn/ui + Radix | Copy-paste ownership, Radix accessibility |
+
+## Data Architecture
+
+### Database Strategy
+
+**Neon PostgreSQL 16** with Git-like branching:
+
+| Neon Branch | Environment | Reset Policy |
+| --- | --- | --- |
+| `main` | Production | Never reset |
+| `preprod` | Pre-production | Auto-reset daily from `main` + PII stripped |
+| `test` | QA / CI | Wiped and reseeded every CI run |
+| `dev` | Development | Developer sandbox |
+
+### Data Model Overview (38 tables)
+
+| Domain | Tables | Key Entities |
+| --- | --- | --- |
+| Auth | 4 | `user`, `session`, `account`, `verification` |
+| Profiles | 2 | `customer_profile`, `staff_profile` |
+| Services | 3 | `service_category`, `service`, `service_staff` |
+| Scheduling | 4 | `staff_schedule`, `staff_time_off`, `holiday`, `waitlist` |
+| Bookings | 4 | `booking`, `booking_service`, `booking_note`, `booking_history` |
+| Billing | 2 | `invoice`, `invoice_item` |
+| SPA Memberships | 2 | `spa_membership`, `spa_membership_tier` |
+| Offers | 3 | `offer`, `offer_service`, `offer_redemption` |
+| CRM/Leads | 5 | `lead`, `lead_note`, `customer_tag`, `customer_tag_assignment`, `customer_note` |
+| Loyalty | 2 | `loyalty_account`, `loyalty_transaction` |
+| Notifications | 2 | `notification`, `push_subscription` |
+| Branches | 1 | `branch` |
+| System | 5 | `daily_sales_summary`, `monthly_gst_summary`, `audit_log`, `system_setting`, `feature_flag_override` |
+
+### Key Data Conventions
+
+| Convention | Implementation |
+| --- | --- |
+| Primary keys | `text` via `nanoid()` — prevents enumeration attacks |
+| Money | `integer` in paise (₹1,000.00 = `100000`) |
+| Timestamps | `timestamptz` stored UTC, displayed IST |
+| Date display | DD/MM/YYYY (`en-IN` locale) |
+| Currency display | Indian numbering: ₹1,00,000.00 |
+| Soft deletes | Not used — hard deletes with `audit_log` |
+| Naming | `snake_case`, singular table names |
+| Enums | PostgreSQL native `CREATE TYPE` |
+| Snapshots | Price/name frozen on `invoice_item` and `booking_service` |
+| GST | All prices GST-inclusive; base = price ÷ 1.18 |
+
+### Three-Layer Cache Hierarchy
+
+| Layer | Store | TTL | What's Cached |
+| --- | --- | --- | --- |
+| L1 (Edge) | Cloudflare KV | 5 min | Service catalog, categories |
+| L2 (Regional) | Upstash Redis | 5 min | Slot availability per date/branch |
+| L3 (Source) | Neon PostgreSQL | Persistent | All business data |
+
+## Authentication & Authorization
+
+### Auth Architecture
+
+- **Provider:** Google OAuth 2.0 only (no email/password)
+- **Sessions:** PostgreSQL `session` table (HttpOnly, Secure, SameSite=Lax cookies)
+- **CSRF:** Built-in via Better Auth
+- **Token type:** Session-based (not JWT) — revocable, server-validated
+
+### RBAC Model (6 roles)
+
+```
+Customer → Staff → Receptionist → Manager → Owner → Developer
+```
+
+| Role | Access |
+| --- | --- |
+| Customer | Public pages, own bookings/profile/gems |
+| Staff | Own schedule, assigned booking notes, leave requests |
+| Receptionist | Lowest admin role — bookings, billing, memberships, leave approvals |
+| Manager | Full operational access — staff, services, reports, settings |
+| Owner | Full business access including `/admin/users` |
+| Developer | Everything + `/admin/integrations`, `/admin/logs` |
+
+### OAuth Flow
+
+1. User clicks "Sign in with Google"
+2. Redirect to Google consent screen (shows "Royal Glow Salon & Spa")
+3. User grants consent → callback with auth code
+4. Better Auth exchanges code for tokens, creates/finds user in DB
+5. Session created, HttpOnly cookie set
+6. Check: has `customer_profile`? YES → homepage. NO → `/onboarding`
+
+## API Design
+
+### Thin API Layer Pattern
+
+```
+Request → Parse → Zod Validate → Business Logic → Response
+```
+
+API routes are thin orchestrators. No database queries in route handlers.
+
+### Standard Response Shape
+
+```typescript
+// Success
+{ success: true, data: T, meta?: { page, totalPages, totalCount } }
+
+// Error
+{ success: false, error: { code, message, statusCode, requestId, retryable?, details? } }
+```
+
+### API Groups
+
+| Group | Count | Auth |
+| --- | --- | --- |
+| Auth | 1 | Public |
+| Customer | 13 | Authenticated |
+| Admin | 7 | Role-gated |
+| Background Jobs | 12 | QStash signature |
+| Webhooks | 2 | Signature-verified |
+
+## Non-Functional Requirements
+
+| Category | Requirement | Target |
+| --- | --- | --- |
+| Latency | Global response time | < 100ms |
+| Availability | Uptime | 99.9% |
+| Security | Privacy compliance | India DPDP Act 2023 |
+| Performance | Lighthouse Performance | ≥ 95 |
+| Performance | Lighthouse Accessibility | 100 |
+| Performance | Lighthouse SEO | 100 |
+| Cost | Monthly infrastructure | ₹0 |
+| Scalability | Concurrent users | 50 |
+| RPO | Recovery Point Objective | ~0 seconds (Neon PITR) |
+| RTO | Recovery Time Objective | < 5 minutes |
+| Accessibility | WCAG compliance | 2.1 AA |

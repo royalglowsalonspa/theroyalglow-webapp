@@ -1,0 +1,246 @@
+---
+title: Glossary
+description: Plain-language definitions of every term used in the Royal Glow platform documentation.
+---
+
+# Glossary
+
+Plain-language definitions of every term used in this documentation. Written for both technical and non-technical readers.
+
+## A
+
+**Ably**
+The realtime messaging service used to push live updates to browsers — for example, when a booking status changes from "Pending" to "Confirmed", the customer's screen updates instantly without refreshing.
+
+**acquisition_source**
+Where a customer first came from when they signed up. Values: `organic` (found the website themselves), `gmb` (clicked from Google Maps), `walkin` (scanned the in-store QR code), `meta_ad` (came from a Meta/Instagram advertisement).
+
+**Admin Portal**
+The staff-facing section of the website at `/admin`. Only accessible to staff with the right role. Used for managing bookings, customers, billing, memberships, and more.
+
+**AppError**
+A custom error class in `packages/errors/` that carries a machine-readable code, a human-readable message, and an HTTP status code. Used throughout the codebase to represent expected business errors.
+
+**App Router**
+The modern Next.js routing system (introduced in Next.js 13) that uses the `app/` directory. Royal Glow uses Next.js 16 with App Router.
+
+## B
+
+**Better Auth**
+The authentication library used for sign-in. Handles Google OAuth, session management, and role-based access control (RBAC).
+
+**Biome**
+The linting and formatting tool used instead of ESLint + Prettier. Written in Rust — about 100x faster than ESLint.
+
+**Booking Dialog**
+The 4-step modal that opens over the homepage when a customer clicks "Book Now". It is never a separate page — always a modal overlay.
+
+**Booking Number**
+A human-readable identifier for each booking. Format: `BK-{branch_code}-{YYMM}-{H|S}-{5_random}`. Example: `BK-RS-2605-H-38291`. H = salon (hair/beauty), S = spa.
+
+**Branch**
+A physical salon location. Currently one branch: Rayasandra (code: `RS`). All bookings, invoices, and staff are scoped to a branch.
+
+**Bun**
+The JavaScript runtime and package manager used instead of Node.js + npm/yarn. Faster installs, faster test runs, native TypeScript support.
+
+## C
+
+**CAPI (Conversions API)**
+Meta's server-side event tracking API. Sends purchase and lead events from the Next.js server directly to Meta — more reliable than browser-side tracking because it's unaffected by ad blockers or iOS privacy restrictions.
+
+**Cloudflare KV**
+A key-value store at Cloudflare's edge. Used to cache the service catalog so it loads in milliseconds globally without hitting the database.
+
+**Cloudflare Pages**
+The hosting platform for the customer website. Serves static assets and runs Next.js at Cloudflare's global edge network.
+
+**Cloudflog R2**
+Cloudflare's file storage service (S3-compatible). Used for service images, gallery photos, PDF invoices, and database backups. Zero egress fees.
+
+**CMS (Content Management System)**
+The Payload CMS v3 instance at `admin.theroyalglow.in`. Used only for marketing content: blog posts, gallery, team bios, homepage banners, and FAQ. The service catalog, bookings, and billing are managed in the custom admin portal — not in the CMS.
+
+**Conventional Commits**
+A commit message format: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, etc. Used for clean git history and automatic changelog generation.
+
+## D
+
+**DPDP Act**
+India's Digital Personal Data Protection Act 2023. Governs how personal data of Indian citizens must be collected, stored, and used. Royal Glow complies by collecting only necessary data, providing a Privacy Policy, and gating analytics behind cookie consent.
+
+**Drizzle ORM**
+The database query library used to interact with PostgreSQL. Pure TypeScript — no binary dependencies, works on Cloudflare Workers.
+
+## E
+
+**Edge**
+Cloudflare's global network of servers. When a customer visits the website, their request is handled by the nearest Cloudflare server (one of 200+ worldwide) rather than a single server in one location. This makes the site fast globally.
+
+**E-E-A-T**
+Experience, Expertise, Authoritativeness, Trustworthiness — Google's framework for evaluating content quality. Relevant for SEO and AI search visibility.
+
+## F
+
+**Feature Flag**
+A switch that enables or disables a feature without deploying new code. Used via PostHog to gradually roll out new features or A/B test offers.
+
+**Financial Year**
+India's financial year runs April–March. Used in invoice numbers: `INV-1-2627-92921` means branch 1, financial year 2026–27.
+
+**Fumadocs**
+The documentation framework used for this docs site. Built on Next.js — TypeScript-native, fast, and premium out of the box.
+
+## G
+
+**Gems**
+The loyalty currency. Customers earn 1 gem per ₹100 spent on services (floor, not rounded). Gems expire after 365 days. Redeemable against specific catalogue services — not a general ₹ discount.
+
+**GMB (Google My Business)**
+The Google business listing for Royal Glow. Customers find the salon on Google Maps and can click through to book. The booking link uses `?utm_source=gmb` for attribution.
+
+**GST**
+Goods and Services Tax — India's indirect tax. Royal Glow charges 18% GST (SAC code 999721) on all services. All prices are GST-inclusive. Back-calculation: `base = price ÷ 1.18`.
+
+## H
+
+**Heartbeat**
+A ping sent to BetterStack when a scheduled job completes successfully. If BetterStack doesn't receive the ping within the expected window, it fires an alert. Used to monitor all 19 background jobs.
+
+## I
+
+**Invoice Number**
+Format: `INV-{branch_number}-{financial_year}-{5_digit_random}`. Example: `INV-1-2627-92921`.
+
+**IST (Indian Standard Time)**
+UTC+5:30. All timestamps are stored in UTC in the database and displayed in IST to users.
+
+## J
+
+**JSON-LD**
+A format for embedding structured data in web pages. Used for LocalBusiness, Service, FAQPage, and other schema.org types. Helps Google understand the page content and show rich results.
+
+## L
+
+**Lead**
+A potential customer who submitted the `/book` form from a Meta/Instagram ad. Leads are tracked in the CRM pipeline: New → Contacted → Follow-up → Booked → Won/Lost.
+
+**Lighthouse**
+Google's tool for measuring web page quality. Royal Glow requires: Performance ≥ 95, Accessibility = 100, Best Practices = 100, SEO = 100. These are enforced as CI gates.
+
+**llms.txt**
+A plain-text file at the site root that helps AI systems (ChatGPT, Perplexity, Claude) understand the site quickly. The "robots.txt for AI models".
+
+## M
+
+**Membership**
+A SPA membership that gives a customer a block of hours to use across SPA services. Three tiers: Silver (8 hrs/₹10k), Gold (15 hrs/₹15k), Platinum (custom). Valid for 90 days.
+
+**Membership Session**
+When a SPA member uses their membership hours for a service. Recorded as a completed booking with ₹0 invoice. Hours are deducted from the membership balance.
+
+**Monorepo**
+A single Git repository containing multiple apps and packages. Royal Glow's monorepo contains `apps/web`, `apps/cms`, `docs`, and shared `packages/`.
+
+**MSW (Mock Service Worker)**
+A library for mocking API calls in tests. Works at the network level — tests don't know they're hitting a mock.
+
+## N
+
+**NAP**
+Name, Address, Phone — the three pieces of contact information that must be identical across all platforms (website, Google My Business, social media, directories) for local SEO.
+
+**Neon**
+The PostgreSQL database provider. Serverless, auto-scaling, with Git-like branching. Royal Glow uses one Neon project with four branches: `main` (prod), `preprod`, `test`, `dev`.
+
+**No-Show**
+When a customer doesn't arrive for a confirmed booking. After 4 no-shows within 90 days, future bookings require manager approval. Walk-in no-shows don't count.
+
+## O
+
+**Onboarding**
+The first-time setup flow after a new customer signs in with Google. Collects: phone number, date of birth, gender, and consent preferences. Redirects to `/onboarding` automatically.
+
+## P
+
+**Paise**
+The smallest unit of Indian currency (₹1 = 100 paise). All money in the database is stored as integers in paise to avoid floating-point errors. ₹1,000 = `100000` paise.
+
+**Payload CMS**
+The content management system for marketing content. A Next.js plugin — self-hosted on Render, stores data in Neon, media in Cloudflare R2.
+
+**pg_cron**
+A PostgreSQL extension that runs scheduled SQL jobs inside the database. Used for 7 nightly/weekly/monthly jobs: sales summaries, membership expiry, offer expiry, session cleanup, preprod sync, GST summary, gems expiry.
+
+**PostHog**
+The product analytics platform. Tracks user behaviour, booking funnels, feature flags, and session replays. 1 million events/month free.
+
+**PWA (Progressive Web App)**
+A web app that can be installed on a phone like a native app. Royal Glow's PWA supports offline viewing of the service menu and booking history.
+
+## Q
+
+**QStash**
+Upstash's message queue service. Used to schedule and trigger background jobs: appointment reminders, birthday emails, lead follow-ups, sales reports, and more.
+
+## R
+
+**RBAC (Role-Based Access Control)**
+The permission system. Six roles in hierarchy: Customer < Staff < Receptionist < Manager < Owner < Developer. Each role can only access routes and actions appropriate to their level.
+
+**Render**
+The cloud hosting platform for the Payload CMS and the heavy SSR fallback. Free tier, Singapore region (closest to India).
+
+**requestId**
+A unique identifier (`req_abc123xyz`) attached to every API request. Appears in error responses, Sentry events, and log lines — making it easy to trace a specific request across all systems.
+
+## S
+
+**SAC Code**
+Service Accounting Code — India's GST classification for services. Royal Glow uses SAC 999721 (Beauty treatment services).
+
+**Sentry**
+The error monitoring platform. Captures unhandled exceptions with full stack traces, user context, and request details. 5,000 errors/month free.
+
+**Server Component**
+A React component that renders on the server and sends HTML to the browser. No JavaScript is sent for the component itself. The default in Next.js App Router.
+
+**shadcn/ui**
+A component library where components are copy-pasted into your codebase (not installed as a dependency). Built on Radix UI primitives for accessibility.
+
+**Snapshot**
+A frozen copy of a value at a point in time. `booking_service.price_at_booking_paise` and `invoice_item.unit_price_paise` are snapshots — they preserve the price at the time of booking/invoicing, even if the service price changes later.
+
+## T
+
+**Tailwind CSS v4**
+The utility-first CSS framework used for styling. v4 uses native CSS cascade layers and design tokens.
+
+**Turborepo**
+The monorepo task orchestration tool. Runs `build`, `dev`, `lint`, `test` in parallel across apps with incremental caching.
+
+## U
+
+**Upstash**
+The serverless Redis and queue provider. Used for rate limiting (Redis) and background job scheduling (QStash).
+
+**UTM Parameters**
+URL parameters that track where traffic comes from. Example: `?utm_source=gmb&utm_campaign=spring-offers`. Persisted through the OAuth redirect via `sessionStorage`.
+
+## V
+
+**VAPID Keys**
+Voluntary Application Server Identification keys — used to authenticate Web Push notifications. Generated once with `bunx web-push generate-vapid-keys`. Never change unless you intentionally rotate (which invalidates all existing push subscriptions).
+
+## W
+
+**Walk-in**
+A customer who arrives at the salon without a prior booking. Walk-in bookings are created by the receptionist and skip the "Pending" status — they go directly to "Confirmed".
+
+**withErrorHandler**
+A wrapper function that wraps API route handlers to catch errors and return standardised JSON error responses. All API routes use this wrapper.
+
+## Z
+
+**Zod**
+The TypeScript schema validation library. Used to validate all API inputs at the system boundary. `.safeParse()` is used everywhere — never `.parse()` which throws unstructured errors.

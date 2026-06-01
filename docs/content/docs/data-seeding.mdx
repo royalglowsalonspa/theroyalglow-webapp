@@ -1,0 +1,171 @@
+---
+title: Data Seeding
+description: Seed scripts, demo data, and environment-specific seeding strategy for Royal Glow.
+---
+
+# Data Seeding
+
+Seed scripts provision production essentials in every environment and add realistic demo data in non-production environments for development, testing, and stakeholder demos. Seeds are **idempotent** — running twice produces the same result (upsert, not duplicate insert).
+
+## Seeding by Environment
+
+| Environment | What Gets Seeded | Purpose |
+| --- | --- | --- |
+| **prod** | Branch, categories, services, settings, membership tiers, customer tags | Production bootstrap — real data added by staff |
+| **pprd** | **Not seeded** — receives daily data from prod via Neon branch reset + PII anonymization | UAT with real-shaped data |
+| **dev** | Prod essentials + demo staff, customers, bookings, offers, memberships, leads, loyalty | Developer testing, UI development |
+| **test** | Prod essentials + all roles/designations + deterministic fixtures with known IDs | CI assertions, integration tests, RBAC testing |
+
+<Callout type="warn">
+  **Preprod is never seeded.** It receives real (anonymized) data via nightly Neon branch reset from prod. See [Git Workflow](/docs/git-workflow) for the replication process.
+</Callout>
+
+## Commands
+
+```bash
+# Seed everything for current environment (reads APP_ENV)
+bun run scripts/seed.ts
+
+# Seed specific modules
+bun run scripts/seed.ts --only=services,staff,offers
+
+# Reset and reseed (TRUNCATES all data first — dev/test only)
+bun run scripts/seed.ts --reset
+
+# Seed production essentials (safe — upserts only, no demo data)
+bun run scripts/seed-prod.ts
+```
+
+**Safety guard:** `--reset` is blocked on `prod` — the script checks `APP_ENV` and exits with an error if you try.
+
+## Seed Execution Order
+
+Dependencies matter — FK constraints require specific insertion order:
+
+```
+1.  branch
+2.  system_setting
+3.  service_category
+4.  service
+5.  spa_membership_tier
+6.  customer_tag
+7.  user (staff)
+8.  user (customers)          ← dev/test only
+9.  customer_tag_assignment
+10. offer + offer_service
+11. booking + booking_service
+12. invoice + invoice_item
+13. spa_membership
+14. loyalty_account + loyalty_transaction
+15. lead + lead_note
+16. notification
+```
+
+## Production Essentials
+
+These are seeded in **all environments** including production.
+
+### Branch
+
+The Rayasandra branch is the primary branch. A second branch (Marathahalli) is seeded with `status: 'opens_soon'` for future expansion.
+
+### Service Categories (10)
+
+| Category | Type |
+| --- | --- |
+| Haircut & Styling | salon |
+| Hair Colouring / Treatment | salon |
+| Facial & Skincare | salon |
+| Waxing | salon |
+| Manicure & Pedicure | salon |
+| Makeup Services | salon |
+| Hair SPA & Head Therapies | salon |
+| Standard SPA Service | spa |
+| Premium SPA Service | spa |
+| VVIP SPA Service | spa |
+
+### SPA Services (23)
+
+Three tiers of SPA services, each available in 60-minute and 90-minute durations:
+
+**Standard SPA:** Swedish Therapy, Thai Therapy, Aroma Therapy
+
+**Premium SPA:** Lomi Lomi Spa, Balinese Therapy, Deep Tissue Therapy
+
+**VVIP SPA:** Hot Stone Massage, Kerala Potli Massage, Synchronic Massage, Body Polish Massage, Body Scrub & Cleansing (4 variants)
+
+### Salon Services (~40)
+
+Covering all 7 salon categories: haircuts, colouring/treatments, facials, waxing, manicure/pedicure, makeup, and hair spa.
+
+### Membership Tiers
+
+| Tier | Hours | Price | Validity |
+| --- | --- | --- | --- |
+| Silver | 8 hours | ₹10,000 | 90 days |
+| Gold | 15 hours | ₹15,000 | 90 days |
+| Platinum | Custom | Custom | 90 days |
+
+### System Settings
+
+Key-value pairs stored in `system_setting` table:
+
+- GST rate: 18% (SAC code 999721)
+- Gems earn rate: 1% (1 gem per ₹100)
+- Gems expiry: 365 days
+- Cancellation window: 4 hours
+- Reschedule limit: 2 per booking
+- No-show approval threshold: 4 no-shows in 90 days
+
+### Customer Tags
+
+VIP, Frequent Visitor, Inactive 60d+, Bridal, No-Show Risk, SPA Member, Referred
+
+## Demo Data (Dev & Test Only)
+
+### Demo Staff (8 users — all roles covered)
+
+| Name | Role | Designation |
+| --- | --- | --- |
+| Siddharth Fernandes | developer | — |
+| Roshini Verma | owner | — |
+| Kavitha Nair | manager | — |
+| Divya Sharma | receptionist | — |
+| Anjali Reddy | staff | stylist (Senior — Bridal, Keratin) |
+| Priya Menon | staff | stylist |
+| Meera Iyer | staff | therapist (Senior — Deep tissue, Hot stone) |
+| Lakshmi Krishnan | staff | therapist |
+
+### Demo Customers (15 in dev, 5 in test)
+
+Realistic Indian women's names — target demographic. All demo emails use `@demo.test` domain — never accidentally sent real emails.
+
+Acquisition source coverage is intentional: organic root, GMB deep-link, in-store QR, and converted Meta ad leads are all represented.
+
+### Demo Bookings — All Statuses Represented
+
+| Status | Count | Notes |
+| --- | --- | --- |
+| `pending` | 2 | Awaiting receptionist confirmation |
+| `confirmed` | 2 | Upcoming appointments |
+| `completed` | 3 | Past bookings with invoices |
+| `cancelled` | 1 | Customer-cancelled |
+| `rejected` | 1 | Staff unavailable |
+| `no_show` | 1 | Customer didn't arrive |
+| `completed` (membership) | 1 | ₹0 membership session |
+
+### Demo Memberships
+
+- Active Gold — 5 hours used, 10 hours remaining
+- Active Silver — almost expired (7 days left), 2 hours remaining
+- Expired Gold — 6 hours forfeited (for testing expiry UI)
+
+## Verify Seed
+
+After seeding, run the verification script to check row counts and FK integrity:
+
+```bash
+bun run scripts/verify-seed.ts
+```
+
+This checks that all expected tables have the correct row counts and that no FK constraints are violated.

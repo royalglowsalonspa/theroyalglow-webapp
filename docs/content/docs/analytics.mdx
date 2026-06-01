@@ -1,0 +1,144 @@
+---
+title: Analytics
+description: Product analytics, event tracking, funnels, and attribution for Royal Glow.
+---
+
+# Analytics
+
+Royal Glow uses **PostHog** as the primary product analytics platform and **Microsoft Clarity** for heatmaps and session recordings. Both are free and DPDP Act compliant.
+
+<Callout type="info">
+  All analytics scripts load **only after explicit cookie consent** from the user. The cookie consent banner is a custom two-tier implementation — no paid consent management tool needed.
+</Callout>
+
+## PostHog
+
+**Free tier:** 1 million events/month — won't hit this limit for a very long time at salon scale.
+
+PostHog covers the full funnel: page views → service browsing → booking → conversion. It also provides:
+- **Session replay** — watch exactly what a user did before dropping off
+- **Feature flags** — A/B test offers without deploying new code
+- **Funnels** — identify drop-off in the booking flow
+- **Cohort analysis** — customers by acquisition source (Meta / GMB / organic / walk-in)
+
+### Event Taxonomy
+
+| Event | Trigger | Key Properties |
+| --- | --- | --- |
+| `page_view` | Every page navigation | `path`, `referrer` |
+| `service_viewed` | Customer opens a service detail | `serviceId`, `serviceName`, `category`, `type` |
+| `booking_started` | Customer opens the homepage booking dialog | `source` (gmb/walkin/organic) |
+| `booking_step_completed` | Each step of booking flow | `step` (1–4) |
+| `booking_request_submitted` | Customer submits booking | `serviceType`, `totalPaise`, `serviceCount` |
+| `booking_confirmed` | Receptionist/manager approves | `bookingId`, `staffId` |
+| `booking_completed` | Service completed, invoice generated | `bookingId`, `totalPaise`, `paymentMethod` |
+| `booking_abandoned` | Left booking mid-flow | `step`, `reason` |
+| `lead_form_submitted` | Meta/Instagram landing form submitted | `source`, `serviceInterested` |
+| `lead_converted_to_booking` | Captured lead links to a booking | `leadId`, `bookingId`, `daysSinceCapture` |
+| `offer_clicked` | Any promotional banner click | `offerId`, `offerName`, `discountType` |
+| `membership_purchased` | New SPA membership created | `tier`, `pricePaise`, `hoursMinutes` |
+| `gems_redeemed` | Customer redeems gems at checkout | `gemsUsed`, `serviceId` |
+
+### Funnels
+
+**Funnel 1 — Organic Booking**
+Homepage → Book Now clicked → Dialog opened → Step 1 → Step 2 → Step 3 → Step 4 → Booking submitted → Booking confirmed
+
+**Funnel 2 — GMB Booking**
+`/?book=1&utm_source=gmb` → Dialog auto-opened → Booking submitted → Confirmed
+
+**Funnel 3 — Meta Ad Lead → Booking**
+`/book` lead form → Lead created → Homepage dialog → Booking submitted → Lead converted
+
+**Funnel 4 — Walk-in QR**
+`/?book=1&utm_source=walkin` → Sign in/onboarding → Dialog → Booking submitted
+
+### Feature Flags
+
+PostHog feature flags are used to:
+- A/B test homepage hero copy
+- Gradually roll out new features (e.g., favourite services)
+- Enable/disable offers for specific customer cohorts
+- Test new booking flow steps without full deployment
+
+```ts
+// Usage in Next.js
+import { useFeatureFlagEnabled } from 'posthog-js/react'
+
+const showNewHero = useFeatureFlagEnabled('new-hero-v2')
+```
+
+## Microsoft Clarity
+
+**Free tier:** Completely free, no event caps, no session limits.
+
+Clarity complements PostHog — it's better at visual heatmaps, PostHog is better at funnel analytics.
+
+**What Clarity reveals:**
+- Are users clicking the booking CTA or ignoring it?
+- How far do users scroll on the services page?
+- Where do users get confused on the booking form?
+- Rage clicks (frustrated rapid clicking) and dead clicks (clicking non-interactive elements)
+- Session recordings of real user journeys
+
+## Meta Attribution
+
+### Meta Pixel (Browser-Side)
+
+Fires on key events:
+- `PageView` — every page
+- `ViewContent` — service detail pages
+- `Lead` — `/book` form submission
+- `CompleteRegistration` — onboarding completion
+- `Purchase` — booking completion with invoice
+
+### Meta Conversions API (CAPI — Server-Side)
+
+Server-side events sent from Next.js API routes. These are reliable and unaffected by iOS privacy restrictions or ad blockers.
+
+Key CAPI events:
+- `Lead` — fired from `POST /api/leads` when a Meta ad lead is captured
+- `CompleteRegistration` — fired from `POST /api/onboarding/complete`
+- `Purchase` — fired from `POST /api/admin/bookings/[id]/complete`
+
+CAPI events include hashed customer data (email, phone) for better match rates.
+
+## UTM Attribution
+
+All booking entry points carry UTM parameters that are persisted through the OAuth redirect via `sessionStorage`:
+
+| Source | Entry URL | `acquisition_source` |
+| --- | --- | --- |
+| Google Maps / GMB | `/?book=1&utm_source=gmb` | `gmb` |
+| In-store QR code | `/?book=1&utm_source=walkin` | `walkin` |
+| Meta/Instagram ad | `/book?utm_source=meta&utm_campaign=...` | `meta_ad` |
+| Organic (root domain) | `/` | `organic` |
+
+The `acquisition_source` is stored on the `customer_profile` row at onboarding and on every `booking` row — enabling lifetime value analysis by acquisition channel.
+
+## Consent Management
+
+Analytics scripts are gated behind the cookie consent banner:
+
+| Script | Consent Required | Default |
+| --- | --- | --- |
+| PostHog | Analytics consent | Off |
+| Microsoft Clarity | Analytics consent | Off |
+| Meta Pixel | Marketing consent | Off |
+| Meta CAPI | Marketing consent | Off |
+
+Consent preference is stored in `localStorage` (`rgss_cookie_consent`) for 365 days.
+
+## Monitoring AI Search Performance
+
+Track whether Royal Glow appears in Google AI Overviews:
+
+1. **Google Search Console** — "AI Overview" impressions appear in the Performance report
+2. **Manual search audits** — weekly: search target queries in incognito, check AI answer inclusion
+3. **PostHog referrer tracking** — track visits where `referrer` contains `google.com`
+
+Queries to monitor weekly:
+- "best salon in Bengaluru"
+- "luxury spa near me" (from your city)
+- "[service name] price in Bengaluru"
+- "Royal Glow Salon"

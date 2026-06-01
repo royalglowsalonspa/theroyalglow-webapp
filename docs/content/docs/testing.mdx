@@ -1,0 +1,224 @@
+---
+title: Testing
+description: The complete testing strategy for Royal Glow — tools, layers, CI gates, and quality standards.
+---
+
+# Testing
+
+## Philosophy
+
+Royal Glow uses a **testing diamond** (not the traditional pyramid) because the integration boundary is where most bugs live in a fullstack app:
+
+```
+        ┌─────┐
+       │ E2E  │  ← Critical paths only (golden path verification)
+      ┌┴───────┴┐
+     │Integration│ ← MOST tests live here (API + DB + services)
+      └┬───────┬┘
+       │ Unit  │  ← Pure logic only (no mocking infrastructure)
+        └─────┘
+       ┌───────┐
+      │AI-Powered│ ← Autonomous regression detection (Meticulous)
+       └───────┘
+```
+
+**Core principles:**
+1. Tests are production code — same quality, same review rigor, same TypeScript strictness
+2. Test behaviour, not implementation — if you refactor and tests break, the tests were wrong
+3. Deterministic or nothing — flaky tests get quarantined immediately, fixed within 24h, or deleted
+4. Fast feedback loop — unit tests < 10s, integration < 60s, E2E < 5 min (local)
+
+## Testing Layers
+
+| Layer | Tool | Scope | Hard Gate? |
+| --- | --- | --- | --- |
+| Static Analysis | **TypeScript 5.8** strict | Type safety | ✅ CI blocks |
+| Linting + Format | **Biome + Ultracite** | Code style, bugs, a11y | ✅ CI blocks |
+| Unit | **Vitest** | Pure functions, business logic | ✅ CI blocks |
+| Integration | **Vitest** + Neon test branch | API routes, DB queries | ✅ CI blocks |
+| Component | **Vitest** + React Testing Library | UI components | ✅ CI blocks |
+| End-to-End | **Playwright** | Critical user journeys | ✅ CI blocks |
+| Visual Regression | **Meticulous AI** | Pixel-perfect UI diff | ⚠️ Warn (review) |
+| Accessibility | **axe-core** + Lighthouse | WCAG 2.1 AA | ✅ CI blocks |
+| Performance | **Lighthouse CI** | Core Web Vitals | ✅ CI blocks |
+| Load & Stress | **k6** | Concurrent user simulation | ✅ CI blocks (pprd+) |
+| Security (SAST) | **Trivy** + **Semgrep** | Dependency vulns + code | ✅ CI blocks |
+| Security (DAST) | **OWASP ZAP** | Runtime vulnerability scan | ✅ CI blocks (pprd+) |
+| Synthetic Monitoring | **BetterStack** + **Checkly** | Production health | 🚨 Alert |
+
+## Tool Decisions
+
+### Locked-In Stack
+
+```
+STATIC:      TypeScript strict + Biome + Ultracite
+UNIT:        Vitest + @faker-js/faker
+COMPONENT:   Vitest + React Testing Library + MSW
+INTEGRATION: Vitest + Neon test branch + MSW
+E2E:         Playwright (5 browsers) + axe-core
+VISUAL:      Meticulous AI (zero-effort, session replay)
+PERF:        Lighthouse CI + Unlighthouse + @next/bundle-analyzer
+LOAD:        k6 (local execution)
+SECURITY:    Trivy + Semgrep + OWASP ZAP + Socket.dev
+MONITORING:  BetterStack (uptime) + Checkly (synthetic) + Sentry (errors)
+MUTATION:    Stryker (quarterly)
+TOTAL COST:  $0/month (all free tiers)
+```
+
+### Tools Rejected
+
+| Tool | Reason |
+| --- | --- |
+| **Cypress** | Slower than Playwright, no WebKit, worse Next.js App Router support |
+| **Jest** | Vitest is drop-in replacement, 10x faster with Bun |
+| **Chromatic** | Requires Storybook — RGSS doesn't use Storybook |
+| **Datadog** | $31/host/mo — BetterStack + Sentry covers all needs at $0 |
+| **Snyk** | Trivy + Socket.dev covers same ground for free |
+
+## Unit Testing (Vitest)
+
+What to unit test:
+
+| Module | What to Test |
+| --- | --- |
+| `packages/business/invoicing/gst.ts` | GST back-calculation, CGST/SGST split |
+| `packages/business/loyalty/gems.ts` | Earning rules, redemption rules, balance validation |
+| `packages/business/offers/discount.ts` | Percentage, flat, combo discount calculations |
+| `packages/business/utils/currency.ts` | Indian number formatting (₹1,00,000.00) |
+| `packages/business/utils/date.ts` | IST timezone handling, DD/MM/YYYY formatting |
+| `packages/business/booking/booking-number.ts` | Booking number format generation |
+| `packages/business/invoicing/invoice-number.ts` | Financial year calculation, invoice number format |
+
+## Integration Testing
+
+Integration tests run against the **Neon `test` branch** — a real database with seeded fixtures. The test branch is wiped and reseeded before each CI run.
+
+```ts
+// tests/integration/api/bookings.test.ts
+describe('POST /api/bookings', () => {
+  it('creates a booking and returns 201', async () => {
+    const res = await fetch('/api/bookings', {
+      method: 'POST',
+      body: JSON.stringify({ serviceIds: ['haircut-basic'], date: '2026-06-15', time: '10:00' }),
+    })
+    expect(res.status).toBe(201)
+    const json = await res.json()
+    expect(json.success).toBe(true)
+    expect(json.data.bookingNumber).toMatch(/^BK-RS-/)
+  })
+})
+```
+
+## E2E Testing (Playwright)
+
+Critical paths covered:
+
+1. Homepage loads → Book Now opens dialog → 4-step booking flow → submission
+2. Sign in with Google → onboarding → profile complete
+3. Admin dashboard → approve booking → mark complete → invoice generated
+4. Customer views booking history → cancels upcoming booking
+5. Admin creates membership → customer views membership page
+
+```bash
+# Run E2E tests
+bun run test:e2e
+
+# Run with UI (headed mode)
+bunx playwright test --ui
+```
+
+## Accessibility Testing
+
+- **axe-core** integrated into Playwright E2E tests — runs on every page
+- **Lighthouse CI** — Accessibility score = 100 required to merge
+- **Keyboard navigation** — booking flow completable via keyboard only
+- **Screen reader** — manual testing with VoiceOver (macOS) before each release
+
+## Performance Testing
+
+### Lighthouse CI
+
+```json
+// lighthouserc.json
+{
+  "ci": {
+    "assert": {
+      "assertions": {
+        "categories:performance": ["error", { "minScore": 0.95 }],
+        "categories:accessibility": ["error", { "minScore": 1 }],
+        "categories:best-practices": ["error", { "minScore": 1 }],
+        "categories:seo": ["error", { "minScore": 1 }]
+      }
+    }
+  }
+}
+```
+
+### k6 Load Testing
+
+Target: 50 concurrent users on preprod. Runs on every PR to `pprd`.
+
+```js
+// tests/load/booking-flow.js
+export const options = {
+  vus: 50,
+  duration: '2m',
+  thresholds: {
+    http_req_duration: ['p(95)<500'],  // 95% of requests under 500ms
+    http_req_failed: ['rate<0.01'],    // Less than 1% failure rate
+  },
+}
+```
+
+## Security Testing
+
+| Tool | What It Catches | When |
+| --- | --- | --- |
+| **Trivy** | Known CVEs in dependencies | Every PR |
+| **Semgrep** | SQL injection, XSS patterns, hardcoded secrets | Every PR |
+| **OWASP ZAP** | Runtime XSS, CSRF, injection | PR to pprd+ |
+| **Socket.dev** | Malicious npm packages, typosquatting | Every PR |
+
+## CI Pipeline Integration
+
+### On PR to `dev`
+- Lint + Format (Biome)
+- Type check (tsc --noEmit)
+- Unit tests (Vitest)
+
+### On PR to `test`
+- All above + Integration tests + Playwright E2E + Lighthouse CI
+
+### On PR to `pprd`
+- All above + k6 load test + OWASP ZAP + smoke test suite
+
+### On PR to `prod`
+- All CI gates passing + manual approval required
+
+## Coverage Requirements
+
+| Module | Statements | Branches | Functions |
+| --- | --- | --- | --- |
+| `packages/business/` | 95% | 90% | 95% |
+| `apps/web/src/lib/` | 95% | 90% | 95% |
+| `apps/web/src/app/api/` | 90% | 85% | 90% |
+
+## Commands
+
+```bash
+bun run test              # Unit tests (excludes integration + E2E)
+bun run test:unit         # Unit tests only
+bun run test:integration  # Integration tests (requires Neon test branch)
+bun run test:e2e          # Playwright E2E
+bun run test:coverage     # Unit tests with coverage report
+```
+
+## Meticulous AI — Visual Regression
+
+Meticulous records real user sessions on preprod, then replays them as visual regression tests on every PR. Zero test code required — it learns from real usage.
+
+**What Meticulous catches that Playwright doesn't:**
+- Subtle font rendering changes
+- 1px layout shifts after CSS changes
+- Colour/spacing regressions in components you didn't touch
+- Responsive breakpoint issues on real device viewports

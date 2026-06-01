@@ -1,0 +1,50 @@
+---
+title: System Design
+description: High-level and low-level design documents for the Royal Glow platform.
+---
+
+# System Design
+
+This section contains the formal system design documentation for the Royal Glow Salon & Spa platform — written to staff-engineer review standard.
+
+<Cards>
+  <Card title="High-Level Design" href="/docs/system-design/high-level-design" description="Architecture overview, technology decisions, data model, auth design, and API patterns." />
+  <Card title="Low-Level Design" href="/docs/system-design/low-level-design" description="Database schema details, state machines, sequence diagrams, and implementation specifics." />
+</Cards>
+
+## At a Glance
+
+| Metric | Value |
+| --- | --- |
+| Application routes | ~104 pages |
+| Database tables | 38 |
+| API endpoints | 35 |
+| Background jobs | 19 |
+| Registered users (target) | 20,000–50,000 |
+| Concurrent users (peak) | 50 |
+| Monthly infrastructure cost | ₹0 |
+
+## Architecture Style
+
+**Monolithic modular architecture** — not microservices.
+
+The codebase uses strict layer separation within a monorepo to achieve the modularity benefits of microservices without the operational burden. Each layer has explicit import boundaries enforced by the package structure.
+
+```
+Presentation → API (thin) → Business Logic → Data Access → Database
+```
+
+No database queries in API routes. No framework dependencies in business logic. No I/O in pure functions.
+
+## Key Design Decisions
+
+| Decision | Choice | Why |
+| --- | --- | --- |
+| Architecture | Monolithic modular | Solo developer — no team boundaries to split on |
+| Database | Neon PostgreSQL | Branching, pg_cron, serverless, free tier |
+| ORM | Drizzle | Pure TypeScript, runs on Cloudflare Workers |
+| Auth | Better Auth | Self-hosted, Google OAuth, built-in RBAC |
+| Edge | Cloudflare Pages + Workers | Global edge, generous free tier |
+| Realtime | Ably | 6M messages/mo free, Token Auth |
+| Money | Integer paise | No floating-point errors |
+| IDs | nanoid() text | Prevents enumeration attacks |
