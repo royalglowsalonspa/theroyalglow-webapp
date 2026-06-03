@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : GET|POST /api/staff/leave
+ * Scope        : API — Staff Leave
+ *
+ * Description  : Staff leave self-service endpoints. GET returns the caller's
+ *                own leave history; POST submits a new leave request.
+ *
+ * Responsibilities :
+ * - Return the authenticated staff member's leave history
+ * - Validate and submit new leave requests (single date)
+ * - Prevent duplicate leave requests for the same date
+ *
+ * Features / Functionality :
+ * - Staff-scoped leave history (GET)
+ * - Leave request submission with date conflict check (POST)
+ * - Friendly 409 on duplicate date (not raw DB violation)
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/db/queries,
+ *                @rgss/errors, @rgss/types
+ *
+ * Notes        :
+ * - Requires min role: staff.
+ * - Leave requests start as pending, approved/rejected by admin.
+ ************************************************************/
+
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import {

@@ -1,3 +1,37 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : loyalty
+ * Scope        : Data Access — Loyalty
+ *
+ * Description  : Query functions for the Gems loyalty program including account
+ *                management, transactions, and redeemable service catalogue.
+ *
+ * Responsibilities :
+ * - Get or create loyalty account for a customer
+ * - Record earned gems transactions with balance updates
+ * - Fetch loyalty summary (balance + lifetime totals)
+ * - Fetch paginated transaction history with invoice links
+ * - Fetch redeemable services catalogue for gems redemption
+ *
+ * Features / Functionality :
+ * - Atomic gems earning via db.batch() (insert tx + update balance)
+ * - Lazy loyalty account creation on first gems event
+ * - Transaction history with invoice number LEFT JOINed
+ * - Redeemable catalogue ordered by gems_catalogue_order
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm, ../index, ../schema/invoice, ../schema/loyalty,
+ *                ../schema/service
+ *
+ * Notes        : Gems are earned at 1 per ₹100 (floor) on service invoices only.
+ *                No gems on membership purchases or sessions.
+ ************************************************************/
+
 import { and, desc, eq, sql } from 'drizzle-orm'
 import { db } from '../index'
 import { invoice } from '../schema/invoice'

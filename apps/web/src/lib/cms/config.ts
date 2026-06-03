@@ -1,3 +1,32 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : config
+ * Scope        : CMS Integration
+ *
+ * Description  : Thin, guarded seam between the web app and Payload CMS REST API.
+ *                Provides safe fetch with ISR caching and graceful degradation.
+ *
+ * Responsibilities :
+ * - Determine if CMS is configured (non-empty, valid URL)
+ * - Provide guarded cmsFetch() that returns null on any failure
+ * - Apply Next.js ISR revalidation to CMS requests
+ *
+ * Features / Functionality :
+ * - isCmsConfigured() — validate NEXT_PUBLIC_CMS_URL presence
+ * - cmsBaseUrl() — normalised base URL or null
+ * - cmsFetch() — guarded fetch with ISR (default 1h revalidation)
+ *
+ * Tech Stack   : TypeScript, Next.js (ISR)
+ * Layer        : Configuration
+ *
+ * Dependencies : @rgss/logger
+ *
+ * Notes        : Reads process.env directly (not @/env) for graceful degradation
+ ************************************************************/
+
 import { createLogger } from '@rgss/logger'
 
 // Thin, guarded seam between the web app and the Payload CMS REST API.

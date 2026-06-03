@@ -1,3 +1,36 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : settings
+ * Scope        : Seed Data — System Settings
+ *
+ * Description  : System settings seed data defining application-wide configuration
+ *                including contact info, GST rules, gems policies, and booking rules.
+ *
+ * Responsibilities :
+ * - Define salon identity settings (name, phone, email, address)
+ * - Define GST configuration (number, SAC code, rate)
+ * - Define gems/loyalty rules (earn rate, value, expiry)
+ * - Define booking policies (cancellation window, reschedule limits)
+ * - Define no-show thresholds and recovery rules
+ *
+ * Features / Functionality :
+ * - JSON values for structured settings (address object)
+ * - Numeric values stored as-is (rate, threshold, days)
+ * - Deterministic keys for programmatic access
+ * - All 19 core business rules in one configuration set
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM
+ * Layer        : Data Access
+ *
+ * Dependencies : None
+ *
+ * Notes        : Settings are stored in system_setting table with JSONB values.
+ *                Updated by admin via /admin/settings UI.
+ ************************************************************/
+
 export const systemSettings = [
   { key: 'salon_name', value: 'Royal Glow Salon & Spa' },
   { key: 'salon_phone', value: '+91 63601 35720' },

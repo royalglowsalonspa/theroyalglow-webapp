@@ -1,3 +1,31 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : leave-status
+ * Scope        : Business Logic — Scheduling
+ *
+ * Description  : Leave approval state machine (pending → approved/rejected)
+ *                with guard function.
+ *
+ * Responsibilities :
+ * - Define allowed leave status transitions
+ * - Guard illegal transitions with AppError (409)
+ *
+ * Features / Functionality :
+ * - ALLOWED_LEAVE_TRANSITIONS map
+ * - assertLeaveTransition(from, to) — throws on invalid move
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Business Logic
+ *
+ * Dependencies : @rgss/errors, @rgss/types
+ *
+ * Notes        :
+ * - Terminal statuses: approved, rejected
+ * - No 'withdrawn' in DB enum — handled at query layer
+ ************************************************************/
 import { ERROR_CODES, conflict } from '@rgss/errors'
 import type { LeaveStatus } from '@rgss/types'
 

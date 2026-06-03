@@ -1,3 +1,31 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : customer (types)
+ * Scope        : Shared Types & Validation
+ *
+ * Description  : Zod schemas for CRM customer operations — listing,
+ *                tagging, and note-taking.
+ *
+ * Responsibilities :
+ * - Validate customer list queries (search, sort, pagination)
+ * - Validate tag creation and assignment
+ * - Validate customer note creation
+ *
+ * Features / Functionality :
+ * - customerListQuerySchema — sortable by LTV, visits, gems, no-shows
+ * - assignTagSchema / createTagSchema — CRM tagging
+ * - addCustomerNoteSchema — free-text notes linked to bookings
+ *
+ * Tech Stack   : TypeScript, Zod
+ * Layer        : Shared Package
+ *
+ * Dependencies : zod
+ *
+ * Notes        : Tag slug is derived server-side from the name
+ ************************************************************/
 import { z } from 'zod'
 
 // Sort keys for the admin customer directory. Mapped to columns in the query layer.

@@ -1,3 +1,32 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : offer.relations
+ * Scope        : Database Relations — Offer
+ *
+ * Description  : Defines Drizzle ORM relations for offer entities connecting
+ *                offers to services, redemptions, and bookings.
+ *
+ * Responsibilities :
+ * - Define offer relations to offer_services, redemptions, and bookings
+ * - Define offerService relations to offer and service
+ * - Define offerRedemption relations to offer, customer, and booking
+ *
+ * Features / Functionality :
+ * - Offer has many linked services and redemption records
+ * - Offer links to bookings that applied it
+ * - Redemption tracks which customer used which offer on which booking
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM, PostgreSQL
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm, ../auth, ../booking, ../offer, ../service
+ *
+ * Notes        : None
+ ************************************************************/
+
 import { relations } from 'drizzle-orm'
 import { user } from '../auth'
 import { booking } from '../booking'

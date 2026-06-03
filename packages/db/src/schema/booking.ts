@@ -1,3 +1,36 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : booking
+ * Scope        : Database Schema — Booking
+ *
+ * Description  : Defines the booking domain tables including the main booking
+ *                table, booking-service junction, status log, and waitlist.
+ *
+ * Responsibilities :
+ * - Define booking table with full lifecycle status tracking
+ * - Define booking_service junction with price/name snapshots
+ * - Define booking_status_log for audit trail of status transitions
+ * - Define waitlist table for preferred slot notifications
+ *
+ * Features / Functionality :
+ * - Booking number format: BK-{branch}-{YYMM}-{H|S}-{random}
+ * - Partial indexes on active booking statuses for query performance
+ * - Composite indexes for common admin query patterns
+ * - Snapshot pricing frozen at booking time (price_at_booking_paise)
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM, PostgreSQL
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm, drizzle-orm/pg-core, nanoid, ./auth, ./branch,
+ *                ./enums, ./membership, ./offer, ./profile, ./service
+ *
+ * Notes        : A booking is always one service_type (salon OR spa, never mixed).
+ *                Walk-ins skip 'pending' and go directly to 'confirmed'.
+ ************************************************************/
+
 import { sql } from 'drizzle-orm'
 import { boolean, date, index, integer, pgTable, text, time, timestamp } from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'

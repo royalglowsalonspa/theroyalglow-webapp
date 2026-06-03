@@ -1,3 +1,36 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : service
+ * Scope        : Database Schema — Service
+ *
+ * Description  : Defines service catalog tables including categories, services,
+ *                and the staff-service capability mapping.
+ *
+ * Responsibilities :
+ * - Define service_category with salon/spa type classification
+ * - Define service table with pricing, duration, and gems eligibility
+ * - Define staff_service junction mapping staff to their capabilities
+ * - Support gems redemption catalogue with required gems and ordering
+ *
+ * Features / Functionality :
+ * - Service type inherited from category (salon vs spa)
+ * - Pricing in paise with GST-inclusive amounts
+ * - Gems redeemable flag and required gems for loyalty catalogue
+ * - Partial index on gems-redeemable active services
+ * - Display order for UI listing within categories
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM, PostgreSQL
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm, drizzle-orm/pg-core, nanoid, ./enums, ./profile
+ *
+ * Notes        : Services are soft-toggled via isActive flag, never deleted.
+ *                Price changes take effect on new bookings only (snapshots frozen).
+ ************************************************************/
+
 import { sql } from 'drizzle-orm'
 import { boolean, index, integer, pgTable, primaryKey, text, timestamp } from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'

@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : POST /api/jobs/membership-usage-nudges
+ * Scope        : API — Background Jobs
+ *
+ * Description  : QStash-scheduled job (daily) that nudges a random batch of
+ *                active SPA members with unused hours to book a session.
+ *
+ * Responsibilities :
+ * - Find active memberships with unused hours
+ * - Select a random daily batch (max 20)
+ * - Send push nudge with remaining hours info
+ *
+ * Features / Functionality :
+ * - Random daily subset selection (Fisher-Yates shuffle)
+ * - Remaining hours formatting (Xh Ym)
+ * - Customer preference respect (membershipAlertsEnabled)
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/jobs/heartbeat, @/lib/jobs/verify, @/lib/notifications/dispatch,
+ *                @rgss/business, @rgss/db/queries, @rgss/logger
+ *
+ * Notes        :
+ * - Max 20 members nudged per batch to stay within provider budgets.
+ * - Each member is nudged at most once (simple dedupe, not recency-windowed).
+ ************************************************************/
+
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
 import { dispatchNotification } from '@/lib/notifications/dispatch'

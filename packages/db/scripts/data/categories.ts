@@ -1,3 +1,32 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : categories
+ * Scope        : Seed Data — Categories
+ *
+ * Description  : Service category seed data defining the salon and SPA service
+ *                groupings with display ordering and type classification.
+ *
+ * Responsibilities :
+ * - Define 7 salon categories (haircut, colour, facial, waxing, etc.)
+ * - Define 3 SPA categories (standard, premium, VVIP)
+ * - Set display order for consistent UI rendering
+ *
+ * Features / Functionality :
+ * - Deterministic IDs (cat_*) for service FK references
+ * - URL-safe slugs for category page routing
+ * - Service type classification (salon vs spa)
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM
+ * Layer        : Data Access
+ *
+ * Dependencies : None
+ *
+ * Notes        : Categories are referenced by services via categoryId FK.
+ ************************************************************/
+
 export const categories = [
   {
     id: 'cat_haircut',

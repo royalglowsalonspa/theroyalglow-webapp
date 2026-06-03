@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : POST /api/jobs/daily-sales-report
+ * Scope        : API — Background Jobs
+ *
+ * Description  : QStash-scheduled job (10:30 PM IST daily) that generates the
+ *                daily sales report and posts it to Slack + emails recipients.
+ *
+ * Responsibilities :
+ * - Query today's paid invoices and booking metrics
+ * - Format plain-text sales report
+ * - Post to Slack and email to configured recipients
+ *
+ * Features / Functionality :
+ * - Daily revenue, booking count, and service breakdown
+ * - Slack webhook integration (guarded no-op without key)
+ * - Email delivery to owner/manager (guarded no-op without key)
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/jobs/heartbeat, @/lib/jobs/verify, @/lib/notifications/providers/email,
+ *                @/lib/reports/slack, @rgss/business, @rgss/db/queries, @rgss/logger
+ *
+ * Notes        :
+ * - Gracefully no-ops Slack/email when provider keys are absent.
+ * - Report covers today (IST), not yesterday.
+ ************************************************************/
+
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
 import { sendEmail } from '@/lib/notifications/providers/email'

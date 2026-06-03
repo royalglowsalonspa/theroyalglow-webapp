@@ -1,3 +1,32 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : metadata.test
+ * Scope        : SEO — Metadata Tests
+ *
+ * Description  : Unit tests for the buildMetadata helper verifying canonical
+ *                URL construction, robots directives, and double-slash prevention.
+ *
+ * Responsibilities :
+ * - Verify canonical URL has no double slash
+ * - Test robots index/follow defaults and overrides
+ * - Property-based test for arbitrary path combinations (no //)
+ *
+ * Features / Functionality :
+ * - Canonical URL correctness assertions
+ * - robotsIndex=false → noindex/nofollow
+ * - PBT: 200 random paths never produce double slashes
+ *
+ * Tech Stack   : TypeScript, Vitest
+ * Layer        : Testing
+ *
+ * Dependencies : vitest, ./metadata
+ *
+ * Notes        : None
+ ************************************************************/
+
 import { describe, expect, it } from 'vitest'
 import { buildMetadata } from './metadata'
 

@@ -1,3 +1,30 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : faqs
+ * Scope        : CMS Integration — FAQ
+ *
+ * Description  : Resolves FAQ list from CMS with a static fallback. Ensures
+ *                FAQPage JSON-LD always has content regardless of CMS state.
+ *
+ * Responsibilities :
+ * - Fetch CMS-managed FAQs via getCmsFaqs()
+ * - Fall back to static FAQS constant when CMS returns empty
+ * - Guarantee non-empty result for SEO structured data
+ *
+ * Features / Functionality :
+ * - resolveFaqs() — async FAQ resolution with CMS-first, static-fallback
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Data Fetching
+ *
+ * Dependencies : @/lib/seo/business, ./client
+ *
+ * Notes        : Never throws; getCmsFaqs() is total
+ ************************************************************/
+
 import { FAQS, type Faq } from '@/lib/seo/business'
 import { getCmsFaqs } from './client'
 

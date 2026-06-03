@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : invoice.relations
+ * Scope        : Database Relations — Invoice
+ *
+ * Description  : Defines Drizzle ORM relations for invoice entities connecting
+ *                invoices to branches, bookings, customers, and line items.
+ *
+ * Responsibilities :
+ * - Define invoice relations to branch, booking, customer, items
+ * - Define invoiceItem relations to invoice and service
+ * - Link invoice to loyalty transactions for gems tracking
+ *
+ * Features / Functionality :
+ * - Invoice connects to gems-redeemed service reference
+ * - Invoice has many items and loyalty transactions
+ * - InvoiceItem links back to the service catalogue entry
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM, PostgreSQL
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm, ../auth, ../booking, ../branch, ../invoice,
+ *                ../loyalty, ../service
+ *
+ * Notes        : None
+ ************************************************************/
+
 import { relations } from 'drizzle-orm'
 import { user } from '../auth'
 import { booking } from '../booking'

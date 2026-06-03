@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : client
+ * Scope        : CMS Integration
+ *
+ * Description  : Single read seam between the web app and Payload CMS REST API.
+ *                Maps raw Payload documents into stable view-models defensively.
+ *
+ * Responsibilities :
+ * - Fetch and map blog posts, gallery images, team, banners, and FAQs
+ * - Normalise Payload docs into typed view-models (never leak Payload types)
+ * - Handle graceful degradation when CMS is unconfigured or unreachable
+ *
+ * Features / Functionality :
+ * - getPublishedPosts() / getPostBySlug() / getAllPostSlugs()
+ * - getGalleryImages() / getTeamMembers() / getActiveBanners()
+ * - getCmsFaqs() — CMS-managed FAQ entries with static fallback
+ * - All functions are TOTAL (never throw, return [] or null)
+ *
+ * Tech Stack   : TypeScript, Payload CMS REST API
+ * Layer        : Data Fetching
+ *
+ * Dependencies : ./config, ./media, ./richtext, ./types
+ *
+ * Notes        : Never imports from `payload` package directly
+ ************************************************************/
+
 import { cmsFetch } from './config'
 import { resolveMedia } from './media'
 import { lexicalToHtml } from './richtext'

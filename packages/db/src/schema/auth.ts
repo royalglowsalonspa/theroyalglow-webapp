@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : auth
+ * Scope        : Database Schema — Authentication
+ *
+ * Description  : Defines the core authentication tables managed by Better Auth
+ *                including users, sessions, accounts, and verification tokens.
+ *
+ * Responsibilities :
+ * - Define user table with RBAC role, ban status, and timestamps
+ * - Define session table with token-based session management
+ * - Define account table for OAuth provider linkage (Google)
+ * - Define verification table for email/token verification flows
+ *
+ * Features / Functionality :
+ * - Nanoid-based primary keys for all auth entities
+ * - Timestamptz columns stored in UTC for global consistency
+ * - Indexed foreign keys for efficient session/account lookups
+ * - Unique constraints on email and session token
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM, PostgreSQL
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm/pg-core, nanoid
+ *
+ * Notes        : These tables are managed by Better Auth library.
+ *                Schema matches Better Auth's expected structure.
+ ************************************************************/
+
 import { boolean, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'
 

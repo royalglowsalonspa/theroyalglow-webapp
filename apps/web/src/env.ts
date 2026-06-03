@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : env
+ * Scope        : Environment Configuration
+ *
+ * Description  : Build-time validated environment variables using t3-env
+ *                with Zod schemas for both server and client variables.
+ *
+ * Responsibilities :
+ * - Define and validate all server-side env vars at build time
+ * - Define and validate all NEXT_PUBLIC_ client-side env vars
+ * - Provide a single typed import for the entire app
+ *
+ * Features / Functionality :
+ * - 30+ server vars (DB, OAuth, APIs, jobs, monitoring)
+ * - 6 client vars (URLs, keys for browser-side SDKs)
+ * - SKIP_ENV_VALIDATION escape hatch for CI/Docker builds
+ *
+ * Tech Stack   : @t3-oss/env-nextjs, Zod
+ * Layer        : Infrastructure (Configuration)
+ *
+ * Dependencies : @t3-oss/env-nextjs, zod
+ *
+ * Notes        :
+ * - Never use process.env directly — always import from this file
+ * - Background job vars are optional so builds never fail without them
+ ************************************************************/
 import { createEnv } from '@t3-oss/env-nextjs'
 import { z } from 'zod'
 

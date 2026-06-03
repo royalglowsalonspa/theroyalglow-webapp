@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : LegalLayout
+ * Scope        : Legal Pages
+ *
+ * Description  : Minimal layout for static legal pages (privacy, terms, refund-policy).
+ *                Provides a wordmark header, centred prose column, and compact footer with NAP.
+ *
+ * Responsibilities :
+ * - Render a minimal header with wordmark linking to home
+ * - Provide a readable, centred content column for legal text
+ * - Display footer with canonical business info and legal page links
+ *
+ * Features / Functionality :
+ * - Skip-to-content accessibility link
+ * - Compact footer with NAP (name, address, phone) from BUSINESS constant
+ * - Legal page cross-links in footer navigation
+ *
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4
+ * Layer        : Presentation
+ *
+ * Dependencies : BUSINESS, next/link
+ *
+ * Notes        :
+ * - Server component only (SSG) — no client interactivity
+ ************************************************************/
+
 import { BUSINESS } from '@/lib/seo/business'
 import Link from 'next/link'
 

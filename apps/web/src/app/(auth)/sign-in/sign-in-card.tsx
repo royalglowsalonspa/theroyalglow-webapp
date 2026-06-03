@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : SignInCard
+ * Scope        : Authentication UI
+ *
+ * Description  : Client component rendering Google OAuth sign-in button
+ *                with sessionStorage context preservation across redirect.
+ *
+ * Responsibilities :
+ * - Render Google OAuth sign-in button with brand styling
+ * - Preserve URL context (UTM, booking, leadId) in sessionStorage
+ * - Handle loading/error states during OAuth redirect
+ *
+ * Features / Functionality :
+ * - Google brand SVG icon
+ * - Redirecting spinner state
+ * - Error recovery with retry
+ * - Legal links (Privacy Policy, Terms of Service)
+ *
+ * Tech Stack   : React, Better Auth (client), Tailwind CSS v4
+ * Layer        : Presentation (Component)
+ *
+ * Dependencies : @/lib/auth-client, react
+ *
+ * Notes        :
+ * - sessionStorage key: rgss_auth_context
+ * - Preserves: book, utm_source, utm_campaign, utm_medium, leadId, service
+ ************************************************************/
 'use client'
 
 import { signIn } from '@/lib/auth-client'

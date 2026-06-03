@@ -1,3 +1,36 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : GET|PUT /api/admin/schedule
+ * Scope        : API — Admin Schedule
+ *
+ * Description  : Admin staff schedule management. GET returns the weekly grid;
+ *                PUT upserts a staff member's 7-day schedule.
+ *
+ * Responsibilities :
+ * - Return weekly staff availability grid with conflicts (GET)
+ * - Validate and upsert staff schedule entries (PUT)
+ * - Enforce schedule entry business rules (start < end)
+ *
+ * Features / Functionality :
+ * - Weekly schedule grid (7 days, all active staff)
+ * - Approved leave and booking conflict indicators
+ * - Full schedule upsert for a staff member (7 day entries)
+ * - Schedule entry validation (working hours logic)
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/business,
+ *                @rgss/db/queries, @rgss/errors, @rgss/types
+ *
+ * Notes        :
+ * - Requires min role: manager.
+ * - Defaults to current week (Sunday start) when weekStart param is absent.
+ ************************************************************/
+
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { assertValidScheduleEntry } from '@rgss/business'

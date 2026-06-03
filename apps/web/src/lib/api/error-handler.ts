@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : error-handler
+ * Scope        : API Infrastructure
+ *
+ * Description  : Centralised error-handling wrapper for API route handlers.
+ *                Catches AppError and unexpected errors, returns standardised
+ *                JSON error responses with request IDs.
+ *
+ * Responsibilities :
+ * - Wrap route handlers with try/catch error handling
+ * - Format AppError instances into structured JSON responses
+ * - Log and report unexpected errors to Sentry
+ * - Attach unique request IDs to every error response
+ *
+ * Features / Functionality :
+ * - withErrorHandler() — HOF that wraps any route handler
+ * - apiSuccess() — convenience helper for success responses with optional meta
+ *
+ * Tech Stack   : TypeScript, Sentry, nanoid
+ * Layer        : API
+ *
+ * Dependencies : @rgss/errors, @sentry/nextjs, nanoid
+ *
+ * Notes        : None
+ ************************************************************/
+
 import { AppError } from '@rgss/errors'
 import * as Sentry from '@sentry/nextjs'
 import { nanoid } from 'nanoid'

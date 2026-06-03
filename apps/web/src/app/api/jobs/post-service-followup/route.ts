@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : POST /api/jobs/post-service-followup
+ * Scope        : API — Background Jobs
+ *
+ * Description  : QStash-triggered job (enqueued +24h after booking completion)
+ *                that sends a review-request email to the customer.
+ *
+ * Responsibilities :
+ * - Parse bookingId from QStash payload
+ * - Verify booking completed and customer has marketing consent
+ * - Send follow-up/review email via Resend
+ *
+ * Features / Functionality :
+ * - Post-service review request email
+ * - Marketing consent enforcement
+ * - Best-effort delivery (no-op without Resend key)
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/jobs/heartbeat, @/lib/jobs/verify, @/lib/notifications/providers/email,
+ *                @rgss/business, @rgss/db/queries, @rgss/logger
+ *
+ * Notes        :
+ * - Only sends to completed bookings with consenting customers.
+ * - Returns 200 even on email no-op to avoid QStash retries.
+ ************************************************************/
+
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
 import { sendEmail } from '@/lib/notifications/providers/email'

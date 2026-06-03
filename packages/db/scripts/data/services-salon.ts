@@ -1,3 +1,38 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : services-salon
+ * Scope        : Seed Data — Salon Services
+ *
+ * Description  : Salon service seed data covering all hair, face, body, and
+ *                beauty services with pricing, duration, and categorization.
+ *
+ * Responsibilities :
+ * - Define Haircut & Styling services (6 services)
+ * - Define Hair Colouring / Treatment services (5 services)
+ * - Define Facial & Skincare services (5 services)
+ * - Define Waxing services (5 services)
+ * - Define Manicure & Pedicure services (5 services)
+ * - Define Makeup services (4 services)
+ * - Define Hair SPA & Head Therapies services (4 services)
+ *
+ * Features / Functionality :
+ * - Deterministic IDs (svc_*) for booking and offer references
+ * - URL-safe slugs for service detail pages
+ * - Pricing in paise (₹500 = 50000 paise, GST inclusive)
+ * - Duration in minutes for slot calculation
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM
+ * Layer        : Data Access
+ *
+ * Dependencies : None
+ *
+ * Notes        : Prices are GST-inclusive (18%, SAC 999721). Back-calculation
+ *                splits base and GST at invoice time.
+ ************************************************************/
+
 export const salonServices = [
   // Haircut & Styling
   {

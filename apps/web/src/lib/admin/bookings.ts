@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : bookings
+ * Scope        : Admin — Bookings
+ *
+ * Description  : Shared types and formatting helpers for the admin booking
+ *                management pages. Mirrors the booking API response shapes.
+ *
+ * Responsibilities :
+ * - Define TypeScript interfaces for admin booking data
+ * - Provide INR currency formatting (Indian numbering system)
+ * - Provide date and time formatting helpers (DD/MM/YYYY, 12h)
+ *
+ * Features / Functionality :
+ * - AdminBooking / AdminBookingServiceRow / StaffMember types
+ * - formatINR() / formatINRWithPaise() — Indian currency display
+ * - formatDateDDMMYYYY() / formatTime12h() — date/time formatting
+ * - SERVICE_TYPE_LABEL constant
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Data Fetching
+ *
+ * Dependencies : None
+ *
+ * Notes        : None
+ ************************************************************/
+
 // Shared types + formatting helpers for the admin booking pages.
 // Mirrors the GET /api/admin/bookings + /api/admin/bookings/[id] responses.
 

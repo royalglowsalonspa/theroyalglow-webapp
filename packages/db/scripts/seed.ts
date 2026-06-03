@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : seed
+ * Scope        : Database Seeding
+ *
+ * Description  : Master seed orchestrator that reads APP_ENV and runs the
+ *                appropriate seed modules with safety guards for production.
+ *
+ * Responsibilities :
+ * - Orchestrate production essentials seeding (all environments)
+ * - Gate demo data seeding to dev/test environments only
+ * - Prevent --reset on production environments
+ * - Block seeding on preprod (syncs from prod via Neon branch reset)
+ *
+ * Features / Functionality :
+ * - Environment-aware seeding (dev/test/prod)
+ * - Safety guard: --reset NEVER allowed on prod
+ * - Phase 1: Production essentials (branch, settings, categories, services)
+ * - Phase 2: Demo data (dev/test only — staff, customers, bookings)
+ * - Performance timing for seed execution
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM
+ * Layer        : Data Access
+ *
+ * Dependencies : util (parseArgs), ./seed-prod
+ *
+ * Notes        : Usage: APP_ENV=dev bun run scripts/seed.ts [--reset]
+ ************************************************************/
+
 /**
  * Master seed orchestrator.
  *

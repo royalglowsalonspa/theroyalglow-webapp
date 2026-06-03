@@ -1,3 +1,31 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : types
+ * Scope        : CMS Integration — Types
+ *
+ * Description  : View-model types the web app renders. Stable contract between
+ *                lib/cms and pages/components. Payload types never leak past this.
+ *
+ * Responsibilities :
+ * - Define typed view-models for blog posts, gallery, team, banners, FAQs
+ * - Provide the ResolvedMedia type for resolved image references
+ *
+ * Features / Functionality :
+ * - ResolvedMedia — absolute URL + a11y/CLS metadata
+ * - BlogListItem / BlogPost — blog listing and detail models
+ * - GalleryImage / TeamMember / Banner / CmsFaq types
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Types
+ *
+ * Dependencies : None
+ *
+ * Notes        : None
+ ************************************************************/
+
 // View-model types the web app renders. These are the stable contract between
 // `lib/cms` and the pages/components — Payload's generated document types never
 // leak past this layer. Every raw Payload doc is normalised into one of these

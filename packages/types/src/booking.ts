@@ -1,3 +1,30 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : booking (types)
+ * Scope        : Shared Types & Validation
+ *
+ * Description  : Zod schemas for customer-facing booking operations
+ *                (create and cancel).
+ *
+ * Responsibilities :
+ * - Validate booking creation input (branch, date, services)
+ * - Validate cancellation reason
+ *
+ * Features / Functionality :
+ * - createBookingSchema — date, time, service IDs, optional lead link
+ * - cancelBookingSchema — optional cancellation reason
+ *
+ * Tech Stack   : TypeScript, Zod
+ * Layer        : Shared Package
+ *
+ * Dependencies : zod
+ *
+ * Notes        :
+ * - serviceType enforces salon OR spa per booking (never mixed)
+ ************************************************************/
 import { z } from 'zod'
 
 export const createBookingSchema = z.object({

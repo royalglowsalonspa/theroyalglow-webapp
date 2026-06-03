@@ -1,6 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : discount
+ * Scope        : Business Logic — Offers
+ *
+ * Description  : Computes offer discounts against a subtotal.
+ *                All integer paise math — no floating point.
+ *
+ * Responsibilities :
+ * - Calculate discount amount based on offer type
+ * - Clamp discount to valid range (0 ≤ discount ≤ subtotal)
+ *
+ * Features / Functionality :
+ * - computeOfferDiscount(offer, subtotalPaise) → { discountPaise, finalPaise }
+ * - Supports: percentage, flat, combo_price offer types
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Business Logic
+ *
+ * Dependencies : @rgss/types (OfferType)
+ *
+ * Notes        :
+ * - percentage: floor(subtotal * pct / 100)
+ * - flat: min(amount, subtotal)
+ * - combo_price: max(0, subtotal - comboPrice)
+ ************************************************************/
 import type { OfferType } from '@rgss/types'
-
-// Compute an offer's discount against a subtotal. All integer paise math — no
 // floats are ever stored. The three offer types each derive a raw discount:
 //   percentage  → floor(subtotal * pct / 100)   (never exceeds the subtotal)
 //   flat        → min(amount, subtotal)          (capped at the subtotal)

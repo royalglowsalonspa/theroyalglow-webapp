@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : GET|POST /api/admin/leads
+ * Scope        : API — Admin Leads
+ *
+ * Description  : Admin lead pipeline endpoint. GET returns all leads with stale
+ *                indicators; POST creates a manual lead (receptionist entry).
+ *
+ * Responsibilities :
+ * - Return lead pipeline with staleness and days-since metrics (GET)
+ * - Create manual leads with phone normalisation (POST)
+ * - Support status filtering for pipeline views
+ *
+ * Features / Functionality :
+ * - Lead list with computed staleness and age
+ * - Optional status filter for kanban views
+ * - Manual lead creation by receptionist (source: manual)
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/business,
+ *                @rgss/db/queries, @rgss/errors, @rgss/types
+ *
+ * Notes        :
+ * - Requires min role: receptionist.
+ * - Staleness is computed from business rules (not stored).
+ ************************************************************/
+
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { hoursSince, isLeadStale, normaliseIndianPhone } from '@rgss/business'

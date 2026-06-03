@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : consent
+ * Scope        : Cookie Consent
+ *
+ * Description  : Cookie consent core logic (2-tier: necessary always-on +
+ *                opt-in analytics/marketing). Pure and SSR-safe.
+ *
+ * Responsibilities :
+ * - Read/write consent state from localStorage
+ * - Dispatch custom event on consent changes for provider loading
+ * - Provide accept-all / reject-all convenience methods
+ * - Guarantee SSR safety (no bare window/localStorage access)
+ *
+ * Features / Functionality :
+ * - getConsent() / setConsent() — read/persist consent state
+ * - acceptAll() / rejectNonEssential() — bulk consent actions
+ * - CONSENT_EVENT — custom window event for consent change listeners
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Frontend
+ *
+ * Dependencies : None
+ *
+ * Notes        : SSR-safe — no window/localStorage access at module top level
+ ************************************************************/
+
 /**
  * Cookie consent core (2-tier: necessary always-on + opt-in analytics/marketing).
  *

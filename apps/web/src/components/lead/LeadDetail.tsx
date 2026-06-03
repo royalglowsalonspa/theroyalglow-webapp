@@ -1,3 +1,36 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : LeadDetail
+ * Scope        : Lead Management UI
+ *
+ * Description  : Admin lead detail page with contact actions, status transitions,
+ *                attribution panel, and notes timeline.
+ *
+ * Responsibilities :
+ * - Fetch and display full lead detail from API
+ * - Provide call/WhatsApp/status transition actions
+ * - Show UTM attribution and conversion data
+ * - Render notes timeline with add-note form
+ * - Handle "Mark Lost" with required reason
+ *
+ * Features / Functionality :
+ * - InfoCard with contact buttons and status badges
+ * - Allowed status transitions from current state
+ * - Mark Lost inline form with reason input
+ * - Attribution panel (source, UTMs, assigned-to, converted booking)
+ * - Notes timeline with add/save functionality
+ *
+ * Tech Stack   : React, TypeScript, Tailwind CSS, Next.js
+ * Layer        : Frontend
+ *
+ * Dependencies : @/lib/admin/leads, @rgss/business, next/link
+ *
+ * Notes        : None
+ ************************************************************/
+
 'use client'
 
 import {

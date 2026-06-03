@@ -1,3 +1,37 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : GET|POST /api/admin/memberships
+ * Scope        : API — Admin Membership
+ *
+ * Description  : Admin membership management. GET lists all memberships with
+ *                filters; POST creates a new SPA membership with purchase invoice.
+ *
+ * Responsibilities :
+ * - Return filtered membership list (tier, status) (GET)
+ * - Create new membership with tier validation and invoice (POST)
+ * - Enforce one-active-membership-per-customer constraint
+ * - Schedule membership expired notice job
+ *
+ * Features / Functionality :
+ * - Membership list with tier/status filters
+ * - Full membership creation flow (number gen, invoice, expiry)
+ * - GST-compliant purchase invoice generation
+ * - QStash job scheduling for expiry notice
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/api/error-handler, @/lib/api/session, @/lib/jobs/enqueue,
+ *                @rgss/business, @rgss/db/queries, @rgss/errors, @rgss/types
+ *
+ * Notes        :
+ * - One active membership per customer (DB-enforced partial unique index).
+ * - No gems earned on membership purchase or sessions.
+ ************************************************************/
+
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { enqueueJob } from '@/lib/jobs/enqueue'

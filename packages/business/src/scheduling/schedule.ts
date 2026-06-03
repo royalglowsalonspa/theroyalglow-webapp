@@ -1,3 +1,30 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : schedule
+ * Scope        : Business Logic — Scheduling
+ *
+ * Description  : Validation helpers for staff weekly schedule
+ *                entries and day-of-week labeling.
+ *
+ * Responsibilities :
+ * - Validate working day requires start < end times
+ * - Map day index (0-6) to label (Sunday-Saturday)
+ *
+ * Features / Functionality :
+ * - assertValidScheduleEntry(entry) — throws on invalid working day
+ * - dayOfWeekLabel(n) → "Monday", "Tuesday", etc.
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Business Logic
+ *
+ * Dependencies : @rgss/errors
+ *
+ * Notes        :
+ * - Times are HH:MM 24h — lexical comparison works for ordering
+ ************************************************************/
 import { badRequest } from '@rgss/errors'
 
 const DAY_LABELS = [

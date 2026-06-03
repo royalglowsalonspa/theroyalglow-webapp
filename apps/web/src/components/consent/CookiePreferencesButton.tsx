@@ -1,3 +1,30 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : CookiePreferencesButton
+ * Scope        : Cookie Consent UI
+ *
+ * Description  : Client wrapper for the footer "Cookie Preferences" control.
+ *                Dispatches event to re-open the consent banner.
+ *
+ * Responsibilities :
+ * - Dispatch OPEN_PREFERENCES_EVENT on window when clicked
+ * - Keep the Footer component a server component
+ *
+ * Features / Functionality :
+ * - "Cookie Preferences" button with emoji and hover styling
+ * - Event dispatch to re-open CookieConsent banner
+ *
+ * Tech Stack   : React, TypeScript, Tailwind CSS
+ * Layer        : Frontend
+ *
+ * Dependencies : @/components/consent/CookieConsent
+ *
+ * Notes        : None
+ ************************************************************/
+
 'use client'
 
 import { OPEN_PREFERENCES_EVENT } from '@/components/consent/CookieConsent'

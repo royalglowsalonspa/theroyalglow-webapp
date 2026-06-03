@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : offer (types)
+ * Scope        : Shared Types & Validation
+ *
+ * Description  : Zod schemas for offer/promo management — creation,
+ *                updates, and application at checkout.
+ *
+ * Responsibilities :
+ * - Validate offer creation with type-specific discount fields
+ * - Validate partial updates and activation toggle
+ * - Validate offer application to a booking
+ *
+ * Features / Functionality :
+ * - createOfferSchema — percentage / flat / combo_price with cross-field validation
+ * - updateOfferSchema — partial updates + isActive toggle
+ * - applyOfferSchema — link offer to checkout
+ * - superRefine enforces type↔discount field match + date ordering
+ *
+ * Tech Stack   : TypeScript, Zod
+ * Layer        : Shared Package
+ *
+ * Dependencies : zod
+ *
+ * Notes        :
+ * - Only 1 offer per customer per day (enforced at DB level)
+ * - Cannot combine with gems on same booking
+ ************************************************************/
 import { z } from 'zod'
 
 export const OFFER_TYPES = ['percentage', 'flat', 'combo_price'] as const

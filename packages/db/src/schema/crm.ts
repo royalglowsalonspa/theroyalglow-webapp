@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : crm
+ * Scope        : Database Schema — CRM
+ *
+ * Description  : Defines CRM tables for customer tagging, tag assignments,
+ *                and customer notes linked to bookings.
+ *
+ * Responsibilities :
+ * - Define customer_tag table for reusable tag definitions
+ * - Define customer_tag_assignment junction with composite PK
+ * - Define customer_note table with author and optional booking link
+ *
+ * Features / Functionality :
+ * - Composite primary key on tag assignments (customer + tag)
+ * - Slug-based unique tags for URL-safe filtering
+ * - Notes linked to specific bookings for contextual history
+ * - Partial index on booking_id for efficient note lookups
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM, PostgreSQL
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm, drizzle-orm/pg-core, nanoid, ./auth, ./booking
+ *
+ * Notes        : Tags like VIP, No-Show Risk, SPA Member are auto-assigned
+ *                by background jobs based on customer behavior.
+ ************************************************************/
+
 import { sql } from 'drizzle-orm'
 import { index, pgTable, primaryKey, text, timestamp } from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'

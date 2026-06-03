@@ -1,7 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : membership (types)
+ * Scope        : Shared Types & Validation
+ *
+ * Description  : Zod schemas for SPA membership management —
+ *                creation, session recording, and cancellation.
+ *
+ * Responsibilities :
+ * - Validate membership creation (tier, hours, price in paise)
+ * - Validate session recording (service lines with durations)
+ * - Validate cancellation with required reason
+ *
+ * Features / Functionality :
+ * - createMembershipSchema — Silver/Gold/Platinum tier params
+ * - recordSessionSchema — deduct minutes from remaining hours
+ * - cancelMembershipSchema — mandatory reason
+ *
+ * Tech Stack   : TypeScript, Zod
+ * Layer        : Shared Package
+ *
+ * Dependencies : zod
+ *
+ * Notes        :
+ * - Money fields are integer paise (₹1 = 100 paise)
+ * - hoursMinutes is total minutes (not hours)
+ ************************************************************/
 import { z } from 'zod'
 
-// Create a SPA membership. Hours/price/validity are prefilled from the tier in
-// the UI but remain overridable by the admin. Money is integer paise.
 export const createMembershipSchema = z.object({
   customerId: z.string().min(1),
   tierId: z.string().min(1),

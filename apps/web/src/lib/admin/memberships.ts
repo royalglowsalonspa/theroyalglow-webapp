@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : memberships
+ * Scope        : Admin — Memberships
+ *
+ * Description  : Shared types, formatting helpers, and constants for the admin
+ *                SPA membership management pages and record-session modal.
+ *
+ * Responsibilities :
+ * - Define TypeScript interfaces for membership list/detail/session data
+ * - Provide time-based helpers (minutesToHM, daysUntil, previewExpiry)
+ * - Provide filter and payment method option constants
+ *
+ * Features / Functionality :
+ * - MembershipListRow / MembershipDetailData / MembershipTier types
+ * - minutesToHM() / daysUntil() / previewExpiryDDMMYYYY()
+ * - todayISTDateString() for default form values
+ * - MEMBERSHIP_STATUS_OPTIONS / MEMBERSHIP_PAYMENT_METHODS
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Data Fetching
+ *
+ * Dependencies : ./bookings (formatINR, formatDateDDMMYYYY)
+ *
+ * Notes        : None
+ ************************************************************/
+
 // Shared types + formatting helpers for the admin membership pages.
 // Mirrors the GET /api/admin/memberships, /api/admin/memberships/[id], and
 // /api/admin/membership-tiers responses.

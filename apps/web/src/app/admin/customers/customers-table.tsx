@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : Customers Table
+ * Scope        : Admin Portal — Customer Management
+ *
+ * Description  : Interactive customer directory with search, sort,
+ *                tag filtering, and pagination. Displays LTV, visit
+ *                count, gems, and tag chips per customer.
+ *
+ * Responsibilities :
+ * - Debounced search by name, email, or phone
+ * - Sort by LTV, visits, last visit, name, gems, or no-shows
+ * - Filter by CRM tags with dynamic tag options
+ *
+ * Features / Functionality :
+ * - Paginated table (20 per page) with prev/next navigation
+ * - Tag chips with custom colors rendered inline
+ * - Loading, error, and empty states with retry capability
+ *
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript
+ * Layer        : Presentation (Data Table Component)
+ *
+ * Dependencies : admin bookings lib, next/link, React hooks
+ *
+ * Notes        :
+ * - Search debounces at 350ms to reduce API calls
+ ************************************************************/
+
 'use client'
 
 import { formatDateDDMMYYYY, formatINR } from '@/lib/admin/bookings'

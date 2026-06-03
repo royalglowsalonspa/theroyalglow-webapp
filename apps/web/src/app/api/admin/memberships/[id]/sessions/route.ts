@@ -1,3 +1,37 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : POST /api/admin/memberships/[id]/sessions
+ * Scope        : API — Admin Membership
+ *
+ * Description  : Records a SPA membership session, deducting hours from the
+ *                membership and creating a ₹0 booking + session invoice.
+ *
+ * Responsibilities :
+ * - Validate membership state and sufficient remaining hours
+ * - Create completed booking with -M suffix number
+ * - Deduct session hours from membership balance
+ * - Generate ₹0 session invoice for audit trail
+ *
+ * Features / Functionality :
+ * - Session recordability guard (active, not expired, enough hours)
+ * - Multi-service session recording with staff assignment
+ * - ₹0 membership_session invoice generation
+ * - Booking number with -M membership suffix
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/business,
+ *                @rgss/db/queries, @rgss/errors, @rgss/types
+ *
+ * Notes        :
+ * - No gems earned on membership sessions.
+ * - Booking is created directly as completed (skip pending/confirmed).
+ ************************************************************/
+
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import {

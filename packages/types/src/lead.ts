@@ -1,7 +1,36 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : lead (types)
+ * Scope        : Shared Types & Validation
+ *
+ * Description  : Zod schemas for lead capture pipeline — creation,
+ *                status transitions, and note-taking.
+ *
+ * Responsibilities :
+ * - Validate lead creation from Meta ad forms
+ * - Validate manual lead entry
+ * - Validate status transitions and notes
+ *
+ * Features / Functionality :
+ * - createLeadSchema — name, phone, UTM attribution
+ * - manualLeadSchema — admin-created leads
+ * - updateLeadStatusSchema — pipeline status machine
+ * - addLeadNoteSchema — CRM notes
+ * - Indian phone validation (+91 / 0 prefix, 10 digits)
+ *
+ * Tech Stack   : TypeScript, Zod
+ * Layer        : Shared Package
+ *
+ * Dependencies : zod
+ *
+ * Notes        :
+ * - Phone normalised to +91XXXXXXXXXX in business layer
+ ************************************************************/
 import { z } from 'zod'
 
-// Indian 10-digit mobile, optionally +91 / 0 prefixed. Normalised in the
-// business layer to canonical +91XXXXXXXXXX before storage.
 const indianPhone = z
   .string()
   .trim()

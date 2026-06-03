@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : POST|DELETE /api/push/subscribe
+ * Scope        : API — Customer Notifications
+ *
+ * Description  : Manages Web Push subscriptions for the authenticated user.
+ *                POST upserts a subscription; DELETE deactivates it.
+ *
+ * Responsibilities :
+ * - Store new Web Push subscriptions (upsert by endpoint)
+ * - Deactivate existing subscriptions on unsubscribe
+ * - Scope all operations to the authenticated user
+ *
+ * Features / Functionality :
+ * - Web Push PushSubscription storage (endpoint, keys, auth)
+ * - Upsert semantics (re-subscribe updates existing)
+ * - User-scoped deletion (cannot remove other users' subscriptions)
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/db/queries,
+ *                @rgss/errors, @rgss/types
+ *
+ * Notes        :
+ * - Subscription is bound to user + endpoint (composite uniqueness).
+ * - Used for booking status push notifications and admin alerts.
+ ************************************************************/
+
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireSession } from '@/lib/api/session'
 import { removePushSubscription, savePushSubscription } from '@rgss/db/queries'

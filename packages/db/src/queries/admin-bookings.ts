@@ -1,3 +1,38 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : admin-bookings
+ * Scope        : Data Access — Admin Bookings
+ *
+ * Description  : Query functions for admin booking management including listing,
+ *                status updates, staff assignment, and invoice generation.
+ *
+ * Responsibilities :
+ * - Fetch all bookings with filters (status, serviceType, date)
+ * - Fetch single booking detail with customer info and services
+ * - Update booking status with associated timestamps
+ * - Assign staff to booking services (individual or bulk)
+ * - Create invoices with line items atomically
+ *
+ * Features / Functionality :
+ * - Filtered, paginated admin booking list with customer names
+ * - Staff assignment to individual or all services in a booking
+ * - Active staff listing for assignment pickers
+ * - Atomic invoice + invoice_item creation via db.batch()
+ * - Staff name resolution for invoice item snapshots
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm, nanoid, ../index, ../schema/auth, ../schema/booking,
+ *                ../schema/branch, ../schema/invoice, ../schema/profile
+ *
+ * Notes        : Uses db.batch() for atomic operations since neon-http does not
+ *                support interactive transactions.
+ ************************************************************/
+
 import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { db } from '../index'

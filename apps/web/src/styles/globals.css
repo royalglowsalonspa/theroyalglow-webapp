@@ -1,3 +1,36 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : globals
+ * Scope        : Global Styles
+ *
+ * Description  : Global CSS with Tailwind v4 import, design token theme, and
+ *                base layer styles including focus rings and reduced motion.
+ *
+ * Responsibilities :
+ * - Import Tailwind CSS v4
+ * - Define custom colour, font, radius, and shadow design tokens
+ * - Set shadcn/ui CSS custom properties (HSL colours)
+ * - Configure global focus-visible ring and reduced motion
+ *
+ * Features / Functionality :
+ * - Complete brand colour palette (royal-gold, cocoa-dark, etc.)
+ * - Custom font families (Cabinet Grotesk, Clash Grotesk, Plus Jakarta Sans)
+ * - Card/button/pill border radius tokens
+ * - Shadow tokens (card-hover, elevated)
+ * - Accessible focus ring (deep-gold, 2px offset)
+ * - prefers-reduced-motion: instant transitions/animations
+ *
+ * Tech Stack   : Tailwind CSS v4, PostCSS
+ * Layer        : Frontend
+ *
+ * Dependencies : tailwindcss
+ *
+ * Notes        : None
+ ************************************************************/
+
 @import "tailwindcss";
 
 @theme {

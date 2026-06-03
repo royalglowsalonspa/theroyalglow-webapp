@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : Memberships List
+ * Scope        : Admin Portal — Membership Management
+ *
+ * Description  : Interactive SPA memberships list with tier and
+ *                status filtering. Displays hours usage, expiry
+ *                countdown, and links to detail/create pages.
+ *
+ * Responsibilities :
+ * - Fetch memberships with tier and status filter params
+ * - Render tier/status filter bar with dynamic tier options
+ * - Display memberships in a data table with expiry hints
+ *
+ * Features / Functionality :
+ * - Tier and status dropdown filters
+ * - Hours used/total display with human-friendly formatting
+ * - Expiry countdown labels (days left, expires today, expired)
+ *
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript
+ * Layer        : Presentation (Data Table Component)
+ *
+ * Dependencies : StatusBadge, admin memberships lib, next/link, React hooks
+ *
+ * Notes        :
+ * - Tier options are fetched once on mount from /api/admin/membership-tiers
+ ************************************************************/
+
 'use client'
 
 import { StatusBadge } from '@/components/admin/StatusBadge'

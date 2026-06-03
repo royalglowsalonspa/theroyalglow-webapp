@@ -1,3 +1,37 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : offers
+ * Scope        : Data Access — Offers
+ *
+ * Description  : Query functions for offer/promotion management including
+ *                CRUD, service linking, activation, and redemption tracking.
+ *
+ * Responsibilities :
+ * - Fetch active offers for customer-facing display
+ * - Fetch all offers for admin management
+ * - Create and update offers with service linkage atomically
+ * - Track offer redemptions with one-per-customer-per-day enforcement
+ * - Deactivate offers (soft-disable)
+ *
+ * Features / Functionality :
+ * - Offers enriched with linked service names and IDs
+ * - Active offer filtering by date range and isActive flag
+ * - Atomic offer + offer_service creation via db.batch()
+ * - Full service set replacement on offer update
+ * - Redemption pre-check and recording with date scoping
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm, nanoid, ../index, ../schema/offer, ../schema/service
+ *
+ * Notes        : Offers apply to salon services only. One offer per customer
+ *                per day is enforced by DB unique constraint.
+ ************************************************************/
+
 import { and, asc, desc, eq, gte, inArray, lte } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { db } from '../index'

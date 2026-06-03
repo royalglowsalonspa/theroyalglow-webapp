@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : BookingsList
+ * Scope        : Booking Management
+ *
+ * Description  : Client component that fetches, displays, and manages the
+ *                customer's bookings with upcoming/past tabs and cancel functionality.
+ *
+ * Responsibilities :
+ * - Fetch bookings from GET /api/bookings and display them
+ * - Provide upcoming/past tab filtering with counts
+ * - Handle booking cancellation via POST /api/bookings/[id]/cancel
+ *
+ * Features / Functionality :
+ * - Tab-based filtering (upcoming vs past bookings)
+ * - Cancel action with loading/error states per booking card
+ * - Empty state with "Book Now" CTA using the booking dialog
+ *
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4
+ * Layer        : Presentation
+ *
+ * Dependencies : useBookingDialog, React (useCallback, useEffect, useMemo, useState)
+ *
+ * Notes        :
+ * - Status colours follow the design spec: pending=amber, confirmed=green, etc.
+ ************************************************************/
+
 'use client'
 
 import { useBookingDialog } from '@/components/booking/BookingDialogProvider'

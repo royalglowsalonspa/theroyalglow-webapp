@@ -1,3 +1,32 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : verify
+ * Scope        : Background Jobs
+ *
+ * Description  : QStash signature verification for public job routes.
+ *                Security backbone ensuring only genuine QStash requests execute.
+ *
+ * Responsibilities :
+ * - Verify QStash HMAC signatures on inbound job requests
+ * - Fall back to internal token auth when QStash keys are absent
+ * - Allow non-production bypass for local development
+ * - Never throw — verification error fails closed (returns false)
+ *
+ * Features / Functionality :
+ * - verifyQStashSignature(req, bodyText) — async boolean verification
+ * - Multi-tier fallback: QStash → internal token → dev bypass
+ *
+ * Tech Stack   : TypeScript, @upstash/qstash (optional)
+ * Layer        : API Infrastructure
+ *
+ * Dependencies : @rgss/logger, @upstash/qstash (optional)
+ *
+ * Notes        : Consumes request body — routes must read body text first
+ ************************************************************/
+
 import { createLogger } from '@rgss/logger'
 
 // QStash signature verification — the security backbone for the public job

@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : StaffLayout
+ * Scope        : Staff Portal
+ *
+ * Description  : Layout for the staff self-service area (schedule + leave).
+ *                Provides minimal chrome with RBAC session gating and compact navigation.
+ *
+ * Responsibilities :
+ * - Validate staff session via Better Auth (redirect if unauthenticated)
+ * - Render the staff header with wordmark and navigation (Schedule, Leave)
+ * - Provide accessible skip-link and main content area
+ *
+ * Features / Functionality :
+ * - Session-gated layout (min role: staff via middleware)
+ * - Compact header with Schedule and Leave nav links
+ * - No admin sidebar — staff see only their own surfaces
+ *
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, Better Auth
+ * Layer        : Presentation
+ *
+ * Dependencies : auth, next (Metadata, headers, redirect), next/link
+ *
+ * Notes        :
+ * - Access is also gated by RBAC middleware at the route level
+ ************************************************************/
+
 import { auth } from '@/lib/auth-server'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'

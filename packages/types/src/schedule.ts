@@ -1,6 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : schedule (types)
+ * Scope        : Shared Types & Validation
+ *
+ * Description  : Zod schemas for staff scheduling and leave
+ *                management operations.
+ *
+ * Responsibilities :
+ * - Validate weekly schedule upserts (7-day entries per staff)
+ * - Validate leave requests and approve/reject decisions
+ *
+ * Features / Functionality :
+ * - upsertScheduleSchema — 7-day working/off schedule with times
+ * - submitLeaveSchema — sick/casual/personal/other with date+reason
+ * - leaveDecisionSchema — discriminated union approve | reject
+ *
+ * Tech Stack   : TypeScript, Zod
+ * Layer        : Shared Package
+ *
+ * Dependencies : zod
+ *
+ * Notes        :
+ * - Leave status machine: pending → approved | rejected
+ * - One leave row per (staff, date) — DB unique constraint
+ ************************************************************/
 import { z } from 'zod'
 
-// A weekly schedule row per (staff, dayOfWeek 0–6). Times are HH:MM 24h.
 export const upsertScheduleSchema = z.object({
   staffId: z.string().min(1),
   entries: z

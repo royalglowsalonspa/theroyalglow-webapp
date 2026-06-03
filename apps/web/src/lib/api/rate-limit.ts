@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : rate-limit
+ * Scope        : API Infrastructure
+ *
+ * Description  : Lightweight in-memory sliding-window rate limiter for
+ *                public API endpoints. Best-effort guard per-IP.
+ *
+ * Responsibilities :
+ * - Track request counts per key within a sliding time window
+ * - Throw AppError(RATE_LIMITED, 429) when budget is exceeded
+ * - Extract client IP from standard proxy headers
+ * - Sweep stale entries to prevent unbounded memory growth
+ *
+ * Features / Functionality :
+ * - enforceRateLimit() — throws 429 when limit exceeded
+ * - getClientIp() — extracts IP from x-forwarded-for / x-real-ip
+ * - Configurable limit and window duration
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : API
+ *
+ * Dependencies : @rgss/errors
+ *
+ * Notes        : In-memory only; TODO: swap to @upstash/ratelimit for distributed
+ ************************************************************/
+
 import { AppError, ERROR_CODES } from '@rgss/errors'
 
 // Lightweight in-memory, per-IP sliding-window rate limiter.

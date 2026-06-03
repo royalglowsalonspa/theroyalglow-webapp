@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : BlogPage
+ * Scope        : Customer Pages
+ *
+ * Description  : Blog listing page that displays all published articles
+ *                from the CMS in a responsive grid with empty state handling.
+ *
+ * Responsibilities :
+ * - Fetch published posts from Payload CMS
+ * - Render posts in a responsive grid using PostCard components
+ * - Display an empty state when no articles are available
+ *
+ * Features / Functionality :
+ * - ISR with 1-hour revalidation for fresh blog content
+ * - Responsive 1/2/3-column grid layout
+ * - JSON-LD breadcrumb structured data for SEO
+ *
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, JSON-LD, Payload CMS
+ * Layer        : Presentation
+ *
+ * Dependencies : PostCard, JsonLd, getPublishedPosts, SITE_URL, breadcrumbJsonLd, localBusinessJsonLd, buildMetadata
+ *
+ * Notes        :
+ * - Posts are fetched server-side; no client-side data fetching on this page
+ ************************************************************/
+
 import { PostCard } from '@/components/blog/PostCard'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { getPublishedPosts } from '@/lib/cms/client'

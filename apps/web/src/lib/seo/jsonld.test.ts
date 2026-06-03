@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : jsonld.test
+ * Scope        : SEO — JSON-LD Tests
+ *
+ * Description  : Unit tests for JSON-LD builder functions verifying correct
+ *                Schema.org output, NAP consistency, and price calculations.
+ *
+ * Responsibilities :
+ * - Verify localBusinessJsonLd contains required NAP fields
+ * - Verify serviceJsonLd produces correct INR Offer from paise
+ * - Verify breadcrumbJsonLd numbering and item omission
+ * - Verify faqPageJsonLd and blogPostingJsonLd structure
+ *
+ * Features / Functionality :
+ * - Tests for all JSON-LD builder functions
+ * - Price conversion verification (paise → whole rupees)
+ * - Schema.org @context and @type assertions
+ *
+ * Tech Stack   : TypeScript, Vitest
+ * Layer        : Testing
+ *
+ * Dependencies : vitest, ./jsonld
+ *
+ * Notes        : None
+ ************************************************************/
+
 import { describe, expect, it } from 'vitest'
 import {
   blogPostingJsonLd,

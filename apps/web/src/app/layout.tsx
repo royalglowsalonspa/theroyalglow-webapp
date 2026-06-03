@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : RootLayout
+ * Scope        : Application Shell
+ *
+ * Description  : Root layout providing global metadata, analytics,
+ *                cookie consent, and PWA service worker registration.
+ *
+ * Responsibilities :
+ * - Set global HTML metadata (title, OG, Twitter)
+ * - Mount consent-gated Analytics component
+ * - Mount CookieConsent banner
+ * - Register service worker for PWA
+ *
+ * Features / Functionality :
+ * - Brand title template (%s | Royal Glow Salon & Spa)
+ * - Open Graph + Twitter Card meta tags
+ * - en_IN locale targeting
+ *
+ * Tech Stack   : Next.js 16 (App Router), React
+ * Layer        : Presentation (Layout)
+ *
+ * Dependencies : @/components/analytics, @/components/consent,
+ *                @/components/pwa, @/lib/seo/business
+ *
+ * Notes        :
+ * - suppressHydrationWarning for dark-mode/extension compatibility
+ ************************************************************/
 import { Analytics } from '@/components/analytics/Analytics'
 import { CookieConsent } from '@/components/consent/CookieConsent'
 import { ServiceWorkerRegistrar } from '@/components/pwa/ServiceWorkerRegistrar'

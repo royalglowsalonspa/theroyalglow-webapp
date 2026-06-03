@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : GalleryPage
+ * Scope        : Customer Pages
+ *
+ * Description  : Gallery page displaying salon interior and work photos
+ *                fetched from the CMS with ImageObject JSON-LD for each image.
+ *
+ * Responsibilities :
+ * - Fetch gallery images from Payload CMS
+ * - Render images in a responsive grid via GalleryGrid component
+ * - Emit ImageObject JSON-LD per image for rich search results
+ *
+ * Features / Functionality :
+ * - ISR with 1-hour revalidation for gallery content
+ * - Empty state placeholder when no images are published
+ * - Breadcrumb JSON-LD for navigation context
+ *
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, JSON-LD, Payload CMS
+ * Layer        : Presentation
+ *
+ * Dependencies : GalleryGrid, JsonLd, getGalleryImages, SITE_URL, breadcrumbJsonLd, imageObjectJsonLd, buildMetadata
+ *
+ * Notes        :
+ * - Images are served from Cloudflare R2 via CMS upload
+ ************************************************************/
+
 import { GalleryGrid } from '@/components/gallery/GalleryGrid'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { getGalleryImages } from '@/lib/cms/client'

@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : AboutPage
+ * Scope        : Customer Pages
+ *
+ * Description  : About Us page showcasing the brand story, core values, and
+ *                team members of Royal Glow Salon & Spa.
+ *
+ * Responsibilities :
+ * - Present the brand story and founding narrative
+ * - Display core values (Premium Quality, Expert Team, Relaxing Ambiance)
+ * - Render team member cards from CMS with fallback data
+ *
+ * Features / Functionality :
+ * - Hero section with brand narrative
+ * - Values grid with hover card effects
+ * - Team section with CMS-driven or fallback team data
+ *
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, JSON-LD
+ * Layer        : Presentation
+ *
+ * Dependencies : JsonLd, getTeamMembers, SITE_URL, breadcrumbJsonLd, localBusinessJsonLd, buildMetadata, next/link
+ *
+ * Notes        :
+ * - ISR with 1-hour revalidation for team member content from CMS
+ ************************************************************/
+
 import { JsonLd } from '@/components/seo/JsonLd'
 import { getTeamMembers } from '@/lib/cms/client'
 import { SITE_URL } from '@/lib/seo/business'

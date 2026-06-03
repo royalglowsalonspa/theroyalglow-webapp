@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : dispatch
+ * Scope        : Notifications
+ *
+ * Description  : Notification delivery dispatcher. Delivers via Web Push and/or
+ *                email after the notification row is persisted. Best-effort, never throws.
+ *
+ * Responsibilities :
+ * - Route notifications to Web Push and/or email providers
+ * - Update notification row status (sent/failed) after delivery
+ * - Skip delivery gracefully when provider keys are absent
+ * - Never throw to the caller (delivery is best-effort)
+ *
+ * Features / Functionality :
+ * - dispatchNotification() — multi-channel delivery orchestration
+ * - Channel routing based on notification.channel (push/email)
+ * - Dead subscription pruning on Web Push 404/410
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : API Infrastructure
+ *
+ * Dependencies : @rgss/db/queries, @rgss/logger, ./providers/email, ./providers/webpush
+ *
+ * Notes        : Reads process.env directly for graceful degradation
+ ************************************************************/
+
 import {
   getActivePushSubscriptions,
   getUserContact,

@@ -1,3 +1,36 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : NotificationBell
+ * Scope        : Notifications UI
+ *
+ * Description  : Header notification bell with unread badge, dropdown panel,
+ *                polling, and mark-all-read functionality.
+ *
+ * Responsibilities :
+ * - Poll GET /api/notifications every 30s for updates
+ * - Display unread count badge on bell icon
+ * - Render dropdown with notification list and timestamps
+ * - Provide mark-all-read action via PATCH
+ * - Close dropdown on outside click and Escape
+ *
+ * Features / Functionality :
+ * - Unread badge with 9+ cap
+ * - Relative timestamp formatting (just now, Xm, Xh, Xd, DD/MM/YYYY)
+ * - Unread highlighting with golden-mist background
+ * - Auto-hide until first successful authenticated fetch
+ * - 30-second polling interval
+ *
+ * Tech Stack   : React, TypeScript, Tailwind CSS
+ * Layer        : Frontend
+ *
+ * Dependencies : None
+ *
+ * Notes        : None
+ ************************************************************/
+
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'

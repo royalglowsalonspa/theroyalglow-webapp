@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : OffersPage
+ * Scope        : Customer Pages
+ *
+ * Description  : Displays currently active promotional offers with discount
+ *                details, applicable services, validity dates, and booking CTAs.
+ *
+ * Responsibilities :
+ * - Fetch active offers from the database in real-time (force-dynamic)
+ * - Render offer cards with type badges, discount labels, and terms
+ * - Provide "Book Now" CTA per offer linked to the booking dialog
+ *
+ * Features / Functionality :
+ * - Supports percentage, flat, and combo_price offer types
+ * - Real-time data (no stale ISR cache) for promotions
+ * - Empty state when no active offers exist
+ *
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, Drizzle ORM
+ * Layer        : Presentation
+ *
+ * Dependencies : OfferBookButton, JsonLd, SITE_URL, breadcrumbJsonLd, buildMetadata, formatINR, getActiveOffers
+ *
+ * Notes        :
+ * - Uses force-dynamic to ensure newly published/expired offers are reflected immediately
+ ************************************************************/
+
 import { OfferBookButton } from '@/components/offers/OfferBookButton'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { SITE_URL } from '@/lib/seo/business'

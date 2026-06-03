@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : logger
+ * Scope        : Observability
+ *
+ * Description  : Structured JSON logger for consistent log output
+ *                across all services and packages.
+ *
+ * Responsibilities :
+ * - Define log levels (debug, info, warn, error, fatal)
+ * - Output structured JSON log entries to stdout
+ * - Include service name, environment, and timestamp metadata
+ *
+ * Features / Functionality :
+ * - createLogger(config) factory
+ * - JSON-formatted log entries for aggregation tools
+ * - Optional data payload per log entry
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Shared Package
+ *
+ * Dependencies : None
+ *
+ * Notes        :
+ * - Designed for BetterStack/Sentry ingestion
+ * - No external dependencies — zero-overhead
+ ************************************************************/
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'fatal'
 
 export interface LogEntry {

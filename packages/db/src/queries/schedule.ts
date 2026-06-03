@@ -1,3 +1,38 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : schedule
+ * Scope        : Data Access — Schedule
+ *
+ * Description  : Query functions for staff scheduling, leave management,
+ *                and weekly grid display with booking counts.
+ *
+ * Responsibilities :
+ * - Fetch and upsert staff weekly schedules
+ * - Build weekly grid with staff, schedules, leave, and booking counts
+ * - Submit, approve, reject, and withdraw leave requests
+ * - Fetch confirmed bookings for a staff member on a date
+ * - Resolve staff profile from user ID
+ *
+ * Features / Functionality :
+ * - Weekly schedule grid with 7-day date computation
+ * - Bulk schedule upsert via db.batch() with conflict handling
+ * - Leave approval workflow (pending → approved/rejected)
+ * - Leave withdrawal (hard delete of own pending requests)
+ * - Per-staff per-date booking counts for capacity visualization
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm, @rgss/types, ../index, ../schema/auth,
+ *                ../schema/booking, ../schema/profile, ../schema/schedule
+ *
+ * Notes        : Staff schedules use unique (staff_id, day_of_week) constraint.
+ *                Leave uses unique (staff_id, date) constraint.
+ ************************************************************/
+
 import type { SubmitLeaveInput, UpsertScheduleInput } from '@rgss/types'
 import { and, asc, countDistinct, desc, eq, inArray } from 'drizzle-orm'
 import { db } from '../index'

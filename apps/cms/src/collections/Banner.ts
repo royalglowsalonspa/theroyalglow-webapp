@@ -1,3 +1,31 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : Banner
+ * Scope        : CMS Collections
+ *
+ * Description  : Payload CMS collection for homepage promotional banners
+ *                with time-window activation and ordering.
+ *
+ * Responsibilities :
+ * - Define banner schema (headline, image, CTA, scheduling)
+ * - Enforce access control (world-readable, admin writable)
+ *
+ * Features / Functionality :
+ * - Headline + image + CTA link
+ * - Active/inactive toggle with optional date window
+ * - Display ordering field
+ *
+ * Tech Stack   : Payload CMS v3
+ * Layer        : CMS (Collection)
+ *
+ * Dependencies : payload, ../access/published
+ *
+ * Notes        :
+ * - Active-window filtering (startAt/endAt) is applied client-side by web app
+ ************************************************************/
 import type { CollectionConfig } from 'payload'
 import { adminsWrite, anyoneReads } from '../access/published'
 

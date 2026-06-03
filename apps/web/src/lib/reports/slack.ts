@@ -1,3 +1,30 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : slack
+ * Scope        : Reports — Slack
+ *
+ * Description  : Slack incoming webhook poster for daily/weekly report jobs.
+ *                Best-effort delivery that never fails the calling job.
+ *
+ * Responsibilities :
+ * - Post report messages to Slack via incoming webhook
+ * - No-op when SLACK_WEBHOOK_URL is not configured
+ * - Never throw — delivery failure is logged and returns false
+ *
+ * Features / Functionality :
+ * - postToSlack(text) — async boolean webhook post
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : API Infrastructure
+ *
+ * Dependencies : @rgss/logger
+ *
+ * Notes        : Reads process.env directly (optional key)
+ ************************************************************/
+
 import { createLogger } from '@rgss/logger'
 
 // Slack incoming-webhook poster for the daily/weekly report jobs.

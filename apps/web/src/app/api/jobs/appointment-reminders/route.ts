@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : POST /api/jobs/appointment-reminders
+ * Scope        : API — Background Jobs
+ *
+ * Description  : QStash-scheduled job (every 15 min, 8am–10pm IST) that sends
+ *                24h and 1h appointment reminders to customers with confirmed bookings.
+ *
+ * Responsibilities :
+ * - Find confirmed bookings entering 24h or 1h reminder windows
+ * - Send push notifications respecting customer preferences
+ * - Maintain idempotency via notification deduplication rows
+ *
+ * Features / Functionality :
+ * - Dual reminder windows (24h and 1h before appointment)
+ * - Customer preference respect (appointmentRemindersEnabled)
+ * - Idempotent across re-runs and QStash retries
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/jobs/heartbeat, @/lib/jobs/verify, @/lib/notifications/dispatch,
+ *                @rgss/business, @rgss/db/queries, @rgss/logger
+ *
+ * Notes        :
+ * - QStash signature verification required (401 on fail).
+ * - Does NOT use withErrorHandler; 500 triggers QStash retry.
+ ************************************************************/
+
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
 import { dispatchNotification } from '@/lib/notifications/dispatch'

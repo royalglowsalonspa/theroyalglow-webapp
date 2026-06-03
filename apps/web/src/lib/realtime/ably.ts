@@ -1,3 +1,32 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : ably
+ * Scope        : Realtime
+ *
+ * Description  : Server-side Ably token request builder for realtime features.
+ *                Issues scoped tokens for customer and admin channels.
+ *
+ * Responsibilities :
+ * - Build scoped Ably token requests with capability restrictions
+ * - Scope customer channels to their user ID
+ * - Grant admin wildcard subscribe when user is admin
+ * - Return null when Ably is not configured (caller returns 503)
+ *
+ * Features / Functionality :
+ * - createAblyTokenRequest({ userId, isAdmin }) — scoped token issue
+ * - Lazy ably module import (optional dependency)
+ *
+ * Tech Stack   : TypeScript, Ably (optional)
+ * Layer        : API Infrastructure
+ *
+ * Dependencies : @rgss/logger, ably (optional)
+ *
+ * Notes        : Reads process.env directly for graceful degradation
+ ************************************************************/
+
 import { createLogger } from '@rgss/logger'
 
 // Server-side helper that builds a scoped Ably token request for the realtime

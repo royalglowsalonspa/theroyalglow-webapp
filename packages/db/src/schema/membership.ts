@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : membership
+ * Scope        : Database Schema — Membership
+ *
+ * Description  : Defines SPA membership tables including tier definitions
+ *                and individual customer memberships with hour tracking.
+ *
+ * Responsibilities :
+ * - Define spa_membership_tier table with defaults for Silver/Gold/Platinum
+ * - Define spa_membership table with hour usage and expiry tracking
+ * - Enforce one active membership per customer via partial unique index
+ * - Track membership lifecycle: active → expired/cancelled
+ *
+ * Features / Functionality :
+ * - Hour-based sessions stored in minutes for precision
+ * - Membership number format: RG-MEM-{YY}-{branch}-{random}
+ * - Tier name snapshot frozen at purchase time
+ * - Partial unique index ensures single active membership per customer
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM, PostgreSQL
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm, drizzle-orm/pg-core, nanoid, ./auth, ./enums
+ *
+ * Notes        : No gems earned on membership purchase or sessions.
+ *                Hard expiry with reminder notifications at 30d/7d/1d.
+ ************************************************************/
+
 import { sql } from 'drizzle-orm'
 import { boolean, index, integer, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'

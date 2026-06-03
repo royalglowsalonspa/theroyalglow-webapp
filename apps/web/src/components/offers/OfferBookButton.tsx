@@ -1,3 +1,31 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : OfferBookButton
+ * Scope        : Offers UI
+ *
+ * Description  : Offer "Book Now" CTA that emits an analytics event on click
+ *                while navigating to the homepage booking dialog.
+ *
+ * Responsibilities :
+ * - Render offer booking CTA link
+ * - Fire offer_clicked analytics event with offerId on click
+ *
+ * Features / Functionality :
+ * - Link to /?book=1 (booking dialog deep-link)
+ * - Fire-and-forget analytics tracking
+ * - Gold-coloured text with hover transition
+ *
+ * Tech Stack   : React, TypeScript, Tailwind CSS, Next.js
+ * Layer        : Frontend
+ *
+ * Dependencies : @/lib/analytics/events, next/link
+ *
+ * Notes        : None
+ ************************************************************/
+
 'use client'
 
 import { track } from '@/lib/analytics/events'

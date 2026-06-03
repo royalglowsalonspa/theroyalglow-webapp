@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : BlogPostPage
+ * Scope        : Customer Pages
+ *
+ * Description  : Dynamic blog post detail page. Fetches a single article by slug
+ *                from CMS and renders the full content with cover image, metadata, and CTA.
+ *
+ * Responsibilities :
+ * - Resolve a post by slug with ISR and static param generation
+ * - Render article header, cover image, rich-text body, and booking CTA
+ * - Emit BlogPosting + Breadcrumb JSON-LD for SEO
+ *
+ * Features / Functionality :
+ * - generateStaticParams for build-time pre-rendering of known slugs
+ * - Dynamic metadata with OG images from CMS
+ * - Rich text body rendering via RichText component
+ *
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, JSON-LD, Payload CMS
+ * Layer        : Presentation
+ *
+ * Dependencies : RichText, JsonLd, getAllPostSlugs, getPostBySlug, SITE_URL, blogPostingJsonLd, breadcrumbJsonLd, buildMetadata, formatDateIN, next/link, next/navigation
+ *
+ * Notes        :
+ * - Returns 404 via notFound() when slug is not found in CMS
+ ************************************************************/
+
 import { RichText } from '@/components/blog/RichText'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { getAllPostSlugs, getPostBySlug } from '@/lib/cms/client'

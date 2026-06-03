@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : POST /api/admin/bookings/[id]/noshow
+ * Scope        : API — Admin Booking
+ *
+ * Description  : Marks a confirmed booking as no-show. Only confirmed bookings
+ *                can transition to no_show status.
+ *
+ * Responsibilities :
+ * - Validate booking exists and is in confirmed state
+ * - Transition booking status to no_show
+ * - Return updated booking data
+ *
+ * Features / Functionality :
+ * - Status guard (only confirmed → no_show)
+ * - Conflict error for invalid status transitions
+ * - No-show tier escalation handled by background job
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/db/queries, @rgss/errors
+ *
+ * Notes        :
+ * - Requires min role: receptionist.
+ * - No-show count escalation is handled by the noshow-check background job.
+ ************************************************************/
+
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { getBookingForAdmin, updateBookingStatus } from '@rgss/db/queries'

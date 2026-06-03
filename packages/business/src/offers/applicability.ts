@@ -1,6 +1,31 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : applicability
+ * Scope        : Business Logic — Offers
+ *
+ * Description  : Guard functions for offer applicability checks
+ *                at checkout time.
+ *
+ * Responsibilities :
+ * - Validate offer is active and within date range
+ * - Enforce salon-only restriction for offers
+ *
+ * Features / Functionality :
+ * - assertOfferActive(offer, now) — throws OFFER_EXPIRED if invalid
+ * - assertOfferSalonOnly(serviceTypes) — throws OFFER_NOT_APPLICABLE for spa
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Business Logic
+ *
+ * Dependencies : @rgss/errors
+ *
+ * Notes        :
+ * - Date comparison is by IST calendar day (YYYY-MM-DD), inclusive
+ ************************************************************/
 import { ERROR_CODES, conflict } from '@rgss/errors'
-
-// Reduce any Date or ISO-ish string to its IST calendar date (YYYY-MM-DD).
 // Offer ranges are compared by calendar date, inclusive, so the time-of-day is
 // irrelevant — only the day matters. String inputs are already date-shaped
 // (the offer's startDate/endDate are stored as YYYY-MM-DD text); Dates are

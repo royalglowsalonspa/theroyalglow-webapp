@@ -1,3 +1,37 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : BookingDialog
+ * Scope        : Booking UI
+ *
+ * Description  : 4-step booking dialog modal over the homepage. Handles service
+ *                selection, date/slot picking, summary, and submission with
+ *                session persistence across OAuth redirect.
+ *
+ * Responsibilities :
+ * - Render 4-step booking flow (date → categories → services → summary)
+ * - Fetch services and availability from API
+ * - Persist booking intent to sessionStorage for OAuth redirect
+ * - Submit booking with analytics tracking
+ * - Provide accessible modal with focus trap, escape, and scroll lock
+ *
+ * Features / Functionality :
+ * - 4-step wizard with back/next navigation
+ * - Salon/SPA toggle with category and service multi-select
+ * - Running total with INR formatting
+ * - Session intent restoration after sign-in redirect
+ * - Full accessibility: focus trap, aria-modal, keyboard navigation
+ *
+ * Tech Stack   : React, TypeScript, Tailwind CSS
+ * Layer        : Frontend
+ *
+ * Dependencies : @/lib/analytics/events, @/lib/auth-client
+ *
+ * Notes        : None
+ ************************************************************/
+
 'use client'
 
 import { track } from '@/lib/analytics/events'

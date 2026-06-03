@@ -1,3 +1,31 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : enqueue
+ * Scope        : Background Jobs
+ *
+ * Description  : QStash publish helper for triggered background jobs.
+ *                Best-effort enqueue that never throws into the caller.
+ *
+ * Responsibilities :
+ * - Schedule delayed job execution via QStash publishJSON
+ * - No-op gracefully when QSTASH_TOKEN is not configured
+ * - Log enqueue failures without affecting the calling transaction
+ *
+ * Features / Functionality :
+ * - enqueueJob(path, body, delaySeconds) — best-effort QStash publish
+ * - Lazy @upstash/qstash import (optional dependency)
+ *
+ * Tech Stack   : TypeScript, @upstash/qstash (optional)
+ * Layer        : API Infrastructure
+ *
+ * Dependencies : @rgss/logger, @upstash/qstash (optional)
+ *
+ * Notes        : Reads process.env directly for graceful degradation
+ ************************************************************/
+
 import { createLogger } from '@rgss/logger'
 
 // QStash publish helper for the 4 triggered jobs (post-service, stale-pending,

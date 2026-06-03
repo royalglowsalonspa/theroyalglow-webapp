@@ -1,3 +1,36 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : invoice
+ * Scope        : Database Schema — Invoice
+ *
+ * Description  : Defines invoice and invoice_item tables for GST-compliant
+ *                billing with payment tracking and PDF generation support.
+ *
+ * Responsibilities :
+ * - Define invoice table with GST breakdown (subtotal, taxable, GST, total)
+ * - Define invoice_item table with service name/price snapshots
+ * - Track payment status, method, and gems earned/redeemed
+ * - Support three invoice types: service, membership_purchase, membership_session
+ *
+ * Features / Functionality :
+ * - All monetary values stored in paise (integer, no floating point)
+ * - GST 18% inclusive pricing with back-calculation fields
+ * - Invoice number format: INV-{branch}-{FY}-{random}
+ * - Partial index on paid invoices for revenue reporting
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM, PostgreSQL
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm, drizzle-orm/pg-core, nanoid, ./auth, ./booking,
+ *                ./branch, ./enums, ./service
+ *
+ * Notes        : Membership purchase invoices have no booking (bookingId null).
+ *                Gems are NOT earned on membership purchases or sessions.
+ ************************************************************/
+
 import { sql } from 'drizzle-orm'
 import { index, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'

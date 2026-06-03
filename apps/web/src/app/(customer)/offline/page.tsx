@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : OfflinePage
+ * Scope        : Customer Pages
+ *
+ * Description  : PWA offline fallback page shown when the user has no network
+ *                connection. Provides a retry link and salon phone number.
+ *
+ * Responsibilities :
+ * - Display a friendly "You're offline" message
+ * - Provide a retry (home) link to re-check connectivity
+ * - Show the salon phone number for urgent contact
+ *
+ * Features / Functionality :
+ * - Branded dark card with offline messaging
+ * - Retry CTA linking back to homepage
+ * - Direct phone link for immediate assistance
+ *
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4
+ * Layer        : Presentation
+ *
+ * Dependencies : next (Metadata), next/link
+ *
+ * Notes        :
+ * - Served by the service worker when all network requests fail
+ ************************************************************/
+
 import type { Metadata } from 'next'
 import Link from 'next/link'
 

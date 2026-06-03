@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : GalleryGrid
+ * Scope        : Gallery UI
+ *
+ * Description  : Responsive grid of gallery images with captions. Uses plain
+ *                <img> for R2/CMS remote hosts, reserving space for CLS prevention.
+ *
+ * Responsibilities :
+ * - Render responsive 1/2/3 column grid of gallery images
+ * - Display optional captions in figcaption elements
+ * - Handle images with and without known dimensions
+ * - Prevent layout shift via aspect-ratio boxes
+ *
+ * Features / Functionality :
+ * - Responsive grid (1 col mobile → 3 col desktop)
+ * - Semantic figure/figcaption elements
+ * - Lazy loading for all images
+ * - Fallback aspect-ratio box when dimensions unknown
+ *
+ * Tech Stack   : React, TypeScript, Tailwind CSS
+ * Layer        : Frontend
+ *
+ * Dependencies : @/lib/cms/types
+ *
+ * Notes        : Uses plain <img> to avoid next/image remote host config
+ ************************************************************/
+
 import type { GalleryImage } from '@/lib/cms/types'
 
 // Presentation-only responsive grid of gallery images. Data is pre-resolved by

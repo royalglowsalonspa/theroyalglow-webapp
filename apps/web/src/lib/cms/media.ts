@@ -1,3 +1,31 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : media
+ * Scope        : CMS Integration — Media
+ *
+ * Description  : Resolves Payload media fields into typed image references
+ *                with absolute URLs, alt text, and optional dimensions.
+ *
+ * Responsibilities :
+ * - Parse various Payload media field shapes (populated, bare ID, null)
+ * - Resolve relative URLs against R2 public base or CMS base
+ * - Return null for unresolvable media (safe for UI fallback)
+ *
+ * Features / Functionality :
+ * - resolveMedia() — Payload upload field → ResolvedMedia | null
+ * - Automatic URL absolutisation (R2 or CMS base)
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Data Fetching
+ *
+ * Dependencies : ./config, ./types
+ *
+ * Notes        : None
+ ************************************************************/
+
 import { cmsBaseUrl } from './config'
 import type { ResolvedMedia } from './types'
 

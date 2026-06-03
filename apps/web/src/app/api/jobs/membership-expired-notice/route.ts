@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : POST /api/jobs/membership-expired-notice
+ * Scope        : API — Background Jobs
+ *
+ * Description  : QStash-triggered job (enqueued +1h after membership expiry)
+ *                that sends a final renewal email to the membership owner.
+ *
+ * Responsibilities :
+ * - Parse membershipId from QStash payload
+ * - Send renewal email to the membership's customer
+ * - Handle missing email/membership gracefully
+ *
+ * Features / Functionality :
+ * - Final post-expiry renewal email
+ * - Best-effort delivery (no-op without Resend key)
+ * - Payload-driven single-membership processing
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/jobs/heartbeat, @/lib/jobs/verify, @/lib/notifications/providers/email,
+ *                @rgss/business, @rgss/db/queries, @rgss/logger
+ *
+ * Notes        :
+ * - Triggered per-membership (not batch); enqueued at membership creation.
+ * - Returns 200 even on email no-op to avoid unnecessary retries.
+ ************************************************************/
+
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
 import { sendEmail } from '@/lib/notifications/providers/email'

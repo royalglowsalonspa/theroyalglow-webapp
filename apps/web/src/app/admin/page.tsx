@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : Admin Dashboard Page
+ * Scope        : Admin Portal — Dashboard
+ *
+ * Description  : Main admin dashboard page displaying IST-aware
+ *                greeting, today's date, live KPIs, and quick actions.
+ *
+ * Responsibilities :
+ * - Render time-of-day greeting based on IST timezone
+ * - Display today's date in DD/MM/YYYY Indian format
+ * - Provide quick-action navigation links to key admin sections
+ *
+ * Features / Functionality :
+ * - IST-aware greeting (morning/afternoon/evening)
+ * - DashboardOverview component with today's stats
+ * - Quick action buttons for bookings, schedule, and reports
+ *
+ * Tech Stack   : Next.js 16 (App Router), React, TypeScript
+ * Layer        : Presentation (Page)
+ *
+ * Dependencies : next (Metadata, Link), DashboardOverview component
+ *
+ * Notes        :
+ * - Server Component — IST calculation runs on the server
+ ************************************************************/
+
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { DashboardOverview } from './dashboard-overview'

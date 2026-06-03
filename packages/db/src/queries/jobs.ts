@@ -1,3 +1,42 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : jobs
+ * Scope        : Data Access — Background Jobs
+ *
+ * Description  : Query functions for all 19 background jobs — pg_cron mirrors
+ *                and QStash data reads for scheduled/triggered automation.
+ *
+ * Responsibilities :
+ * - pg_cron TS mirrors: expire memberships, offers, gems, sessions
+ * - Build daily sales summary and monthly GST summary (idempotent upserts)
+ * - QStash reads: upcoming bookings, expiring memberships, birthdays
+ * - QStash reads: nudge-eligible memberships, stale leads, gems expiry
+ * - Report data aggregation (daily and weekly)
+ * - Notification idempotency checks and staff resolution
+ *
+ * Features / Functionality :
+ * - All pg_cron functions are idempotent (safe to re-run)
+ * - IST calendar-aware date matching for India timezone
+ * - Daily sales summary with revenue split by payment/service type
+ * - Monthly GST summary for filing compliance
+ * - Shared report aggregation for daily/weekly email reports
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm, ../index, ../schema/auth, ../schema/booking,
+ *                ../schema/invoice, ../schema/lead, ../schema/loyalty,
+ *                ../schema/membership, ../schema/notification, ../schema/offer,
+ *                ../schema/profile, ../schema/system
+ *
+ * Notes        : This layer intentionally re-derives IST helpers to avoid
+ *                importing @rgss/business (strict layer rule). Routes use
+ *                @rgss/business/jobs/time.ts for the richer IST utilities.
+ ************************************************************/
+
 import { and, asc, desc, eq, gt, gte, inArray, isNotNull, lt, lte, sql } from 'drizzle-orm'
 import { db } from '../index'
 import { session, user } from '../schema/auth'

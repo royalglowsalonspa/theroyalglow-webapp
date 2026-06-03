@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : auth.relations
+ * Scope        : Database Relations — Auth
+ *
+ * Description  : Defines Drizzle ORM relations for authentication entities
+ *                (user, session, account) enabling relational queries.
+ *
+ * Responsibilities :
+ * - Define user relations to profiles, sessions, bookings, notifications
+ * - Define session-to-user relation
+ * - Define account-to-user relation
+ *
+ * Features / Functionality :
+ * - User has one customerProfile and one staffProfile
+ * - User has many sessions, accounts, bookings, notifications
+ * - Enables nested relational queries via Drizzle's query builder
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM, PostgreSQL
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm, ../auth, ../booking, ../crm, ../lead,
+ *                ../notification, ../profile
+ *
+ * Notes        : None
+ ************************************************************/
+
 import { relations } from 'drizzle-orm'
 import { account, session, user } from '../auth'
 import { booking } from '../booking'

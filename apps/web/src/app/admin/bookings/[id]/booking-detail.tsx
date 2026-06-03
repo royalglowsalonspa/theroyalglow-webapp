@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : Booking Detail
+ * Scope        : Admin Portal — Booking Management
+ *
+ * Description  : Full booking detail view with action panels for
+ *                approve/reject, assign staff, complete & checkout,
+ *                and mark no-show workflows.
+ *
+ * Responsibilities :
+ * - Fetch and display single booking details (customer, services, totals)
+ * - Provide approve/reject workflow with staff assignment
+ * - Handle complete & checkout flow with payment method selection
+ *
+ * Features / Functionality :
+ * - Status-dependent action panels (pending, confirmed, completed, terminal)
+ * - Staff picker for approval with dynamic loading
+ * - Invoice generation + gems award on completion
+ *
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript
+ * Layer        : Presentation (Detail View Component)
+ *
+ * Dependencies : StatusBadge, admin bookings lib, next/link, React hooks
+ *
+ * Notes        :
+ * - Action panels mutate booking state via PATCH/POST API calls
+ ************************************************************/
+
 'use client'
 
 import { StatusBadge } from '@/components/admin/StatusBadge'

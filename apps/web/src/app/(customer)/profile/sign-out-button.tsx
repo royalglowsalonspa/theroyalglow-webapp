@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : SignOutButton
+ * Scope        : Customer Pages
+ *
+ * Description  : Client-side sign-out button that calls Better Auth's signOut
+ *                and redirects the user to the homepage on completion.
+ *
+ * Responsibilities :
+ * - Trigger sign-out via Better Auth client SDK
+ * - Show loading state while sign-out is in progress
+ * - Force-redirect to homepage on success or failure
+ *
+ * Features / Functionality :
+ * - Disabled state during sign-out to prevent double-clicks
+ * - aria-busy attribute for screen reader feedback
+ * - Graceful fallback redirect even if signOut throws
+ *
+ * Tech Stack   : React, Better Auth
+ * Layer        : Presentation
+ *
+ * Dependencies : signOut (auth-client), React (useState)
+ *
+ * Notes        :
+ * - Uses window.location.href for a hard redirect to clear all client state
+ ************************************************************/
+
 'use client'
 
 import { signOut } from '@/lib/auth-client'

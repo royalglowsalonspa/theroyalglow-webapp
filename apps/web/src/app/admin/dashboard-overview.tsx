@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : Dashboard Overview
+ * Scope        : Admin Portal — Dashboard KPIs & Bookings
+ *
+ * Description  : Client component that fetches and displays live
+ *                dashboard KPIs (today's bookings, revenue, pending)
+ *                and a recent bookings table.
+ *
+ * Responsibilities :
+ * - Fetch all bookings from admin API on mount
+ * - Compute today's KPIs (bookings count, revenue, pending)
+ * - Render recent bookings in a responsive data table
+ *
+ * Features / Functionality :
+ * - Real-time KPI cards (today's bookings, pending, revenue, total)
+ * - Recent bookings table with status badges and action links
+ * - Loading, error, and empty state handling with retry
+ *
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript
+ * Layer        : Presentation (Dashboard Widget)
+ *
+ * Dependencies : StatusBadge, admin bookings lib, next/link, React hooks
+ *
+ * Notes        :
+ * - IST date comparison uses Intl.DateTimeFormat('en-CA') for YYYY-MM-DD
+ ************************************************************/
+
 'use client'
 
 import { StatusBadge } from '@/components/admin/StatusBadge'

@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : HomePage
+ * Scope        : Customer Pages
+ *
+ * Description  : Main homepage of theroyalglow.in. Renders the hero section,
+ *                service highlights, testimonials, FAQ, CTAs, and JSON-LD structured data.
+ *
+ * Responsibilities :
+ * - Display the hero section with brand messaging and booking CTAs
+ * - Render service highlights, testimonials, and FAQ sections
+ * - Emit JSON-LD (LocalBusiness, Organization, Website, FAQPage) for SEO
+ *
+ * Features / Functionality :
+ * - Hero with "Book Now" deep-link support (?book=1)
+ * - Service highlights grid with pricing
+ * - Social proof bar, brand logos, testimonials, and FAQ accordion
+ *
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, JSON-LD
+ * Layer        : Presentation
+ *
+ * Dependencies : JsonLd, resolveFaqs, localBusinessJsonLd, organizationJsonLd, websiteJsonLd, faqPageJsonLd, buildMetadata, next/link
+ *
+ * Notes        :
+ * - ISR with 1-hour revalidation for FAQ content from CMS
+ ************************************************************/
+
 import { JsonLd } from '@/components/seo/JsonLd'
 import { resolveFaqs } from '@/lib/cms/faqs'
 import {

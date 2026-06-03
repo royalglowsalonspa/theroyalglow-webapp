@@ -1,3 +1,31 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : status (lead)
+ * Scope        : Business Logic — Lead Pipeline
+ *
+ * Description  : Lead status state machine with allowed transitions
+ *                and guard function for validation.
+ *
+ * Responsibilities :
+ * - Define allowed lead status transitions
+ * - Guard illegal transitions with AppError
+ * - Enforce mandatory reason for 'lost' status
+ *
+ * Features / Functionality :
+ * - ALLOWED_LEAD_TRANSITIONS map
+ * - assertLeadTransition(from, to, reason) — throws on invalid move
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Business Logic
+ *
+ * Dependencies : @rgss/errors, @rgss/types
+ *
+ * Notes        :
+ * - Terminal statuses: won, lost (no outgoing moves)
+ ************************************************************/
 import { ERROR_CODES, badRequest, conflict } from '@rgss/errors'
 import type { LeadStatus } from '@rgss/types'
 

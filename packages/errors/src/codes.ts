@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : codes
+ * Scope        : Error Handling
+ *
+ * Description  : Central registry of all application error codes.
+ *                No magic strings — every error code is defined here.
+ *
+ * Responsibilities :
+ * - Define all error codes as a const object
+ * - Export ErrorCode union type for type safety
+ *
+ * Features / Functionality :
+ * - Generic HTTP errors (validation, auth, rate limit, timeout)
+ * - Booking domain errors (slot, cancel, reschedule)
+ * - Membership domain errors (expired, insufficient hours)
+ * - Invoice domain errors
+ * - Gems (loyalty) domain errors
+ * - Offer domain errors
+ * - Branch domain errors
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Shared Package
+ *
+ * Dependencies : None
+ *
+ * Notes        : Add new codes here when introducing new domains
+ ************************************************************/
 export const ERROR_CODES = {
   // Generic
   VALIDATION_ERROR: 'VALIDATION_ERROR',

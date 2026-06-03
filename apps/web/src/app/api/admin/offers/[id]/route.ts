@@ -1,3 +1,36 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : GET|PATCH /api/admin/offers/[id]
+ * Scope        : API — Admin Offers
+ *
+ * Description  : Admin offer detail and update. GET returns a single offer;
+ *                PATCH updates fields or toggles active status.
+ *
+ * Responsibilities :
+ * - Return single offer with linked services (GET)
+ * - Update offer fields and service links (PATCH)
+ * - Support offer deactivation toggle
+ *
+ * Features / Functionality :
+ * - Offer detail retrieval with service links
+ * - Partial update (name, dates, discount, services, active flag)
+ * - Quick deactivation via `{ isActive: false }` shorthand
+ * - Date conversion for start/end date fields
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/db/queries,
+ *                @rgss/errors, @rgss/types
+ *
+ * Notes        :
+ * - Requires min role: manager.
+ * - Deactivated offers stop appearing on the public /api/offers endpoint.
+ ************************************************************/
+
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { deactivateOffer, getOfferById, updateOffer } from '@rgss/db/queries'

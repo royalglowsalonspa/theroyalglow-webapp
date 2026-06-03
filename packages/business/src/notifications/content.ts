@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : content (notifications)
+ * Scope        : Business Logic — Notifications
+ *
+ * Description  : Notification content builders — maps notification
+ *                types to { title, body } pairs for in-app/push display.
+ *
+ * Responsibilities :
+ * - Build notification title and body from type + dynamic data
+ * - Cover all 24 notification types exhaustively
+ *
+ * Features / Functionality :
+ * - buildNotificationContent(type, data) → { title, body }
+ * - Handles: reminders, booking status, membership lifecycle,
+ *   birthday, follow-ups, leave, leads, gems, no-show checks
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Business Logic
+ *
+ * Dependencies : None
+ *
+ * Notes        :
+ * - Total function: always returns non-empty title AND body
+ * - Self-contained (no db import) — mirrors notification_type PG enum
+ ************************************************************/
+
 // Notification content builders. Pure functions that map a notification type
 // plus a flat string payload to a { title, body } pair, mirroring the catalog
 // in design/notifications-realtime.md §2 where a type matches and using concise

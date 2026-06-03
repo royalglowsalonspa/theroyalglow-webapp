@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : AdminSidebar
+ * Scope        : Admin UI
+ *
+ * Description  : Responsive admin sidebar navigation with role-based menu items,
+ *                mobile overlay, and active route highlighting.
+ *
+ * Responsibilities :
+ * - Render sectioned navigation items filtered by RBAC role
+ * - Highlight active route with visual indicator
+ * - Provide responsive behaviour (slide-in on mobile, static on desktop)
+ * - Handle mobile overlay close on backdrop click
+ *
+ * Features / Functionality :
+ * - Role-based menu item visibility (customer → developer hierarchy)
+ * - Active route detection with pathname matching
+ * - Mobile slide-in panel with backdrop overlay
+ * - Accessible navigation landmarks and aria-current
+ *
+ * Tech Stack   : React, TypeScript, Tailwind CSS, Next.js
+ * Layer        : Frontend
+ *
+ * Dependencies : next/link, next/navigation
+ *
+ * Notes        : CURRENT_ROLE placeholder — production reads from session context
+ ************************************************************/
+
 'use client'
 
 import Link from 'next/link'

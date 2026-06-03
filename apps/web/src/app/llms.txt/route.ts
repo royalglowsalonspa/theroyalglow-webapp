@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : llms.txt
+ * Scope        : AI Discovery (SEO)
+ *
+ * Description  : Concise AI-discovery file ("robots.txt for AI models")
+ *                with live service names, NAP, and booking endpoints.
+ *
+ * Responsibilities :
+ * - Render business info from canonical BUSINESS constant
+ * - Pull live service names from database
+ * - Provide structured API endpoints for agent integrations
+ * - Gracefully degrade to static fallback on DB errors
+ *
+ * Features / Functionality :
+ * - Live service name list from DB
+ * - Key pages directory for AI citation
+ * - API endpoint documentation for agents
+ * - Contact block with opening hours
+ *
+ * Tech Stack   : Next.js 16 (Route Handler), force-dynamic
+ * Layer        : Infrastructure (SEO)
+ *
+ * Dependencies : @/lib/seo/business, @rgss/db/queries
+ *
+ * Notes        :
+ * - Always returns 200 (never 500s)
+ * - Cached for 1 hour via Cache-Control header
+ ************************************************************/
 import { BUSINESS, SITE_URL } from '@/lib/seo/business'
 import { getAllServicesGrouped } from '@rgss/db/queries'
 

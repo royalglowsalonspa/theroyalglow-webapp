@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : client.test
+ * Scope        : CMS Integration — Tests
+ *
+ * Description  : Unit tests for the CMS client layer. Verifies graceful
+ *                degradation when unconfigured and correct mapping of Payload
+ *                docs when MSW-backed.
+ *
+ * Responsibilities :
+ * - Test unconfigured CMS returns safe defaults with no network calls
+ * - Test configured CMS maps Payload docs into view-model types
+ * - Test error handling (500 responses → empty results)
+ * - Test banner time-window filtering
+ *
+ * Features / Functionality :
+ * - Unconfigured: getPublishedPosts → [], getPostBySlug → null
+ * - Configured: maps blogDoc/bannerDoc into typed results
+ * - Active banner window filtering (startAt/endAt)
+ *
+ * Tech Stack   : TypeScript, Vitest, MSW
+ * Layer        : Testing
+ *
+ * Dependencies : @/test/msw-server, msw, vitest, ./client
+ *
+ * Notes        : Uses vi.stubEnv for per-test env var control
+ ************************************************************/
+
 import { server } from '@/test/msw-server'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

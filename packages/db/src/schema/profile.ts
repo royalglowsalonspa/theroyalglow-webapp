@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : profile
+ * Scope        : Database Schema — Profile
+ *
+ * Description  : Defines customer and staff profile tables extending the base
+ *                user table with domain-specific fields and KPIs.
+ *
+ * Responsibilities :
+ * - Define customer_profile with visit stats, spend tracking, and preferences
+ * - Define staff_profile with designation, specialization, and activity status
+ * - Track no-show behavior and booking approval requirements
+ * - Store marketing consent and notification preferences
+ *
+ * Features / Functionality :
+ * - One profile per user (unique constraint on user_id)
+ * - Customer KPIs: total visits, total spent, no-show count, LTV
+ * - UTM acquisition source tracking for marketing attribution
+ * - Consecutive completed bookings counter for no-show recovery
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM, PostgreSQL
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm/pg-core, nanoid, ./auth, ./enums
+ *
+ * Notes        : customer_profile is created during onboarding flow.
+ *                staff_profile is created by admin when adding staff.
+ ************************************************************/
+
 import { boolean, date, index, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'
 import { user } from './auth'

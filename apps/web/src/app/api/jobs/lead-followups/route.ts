@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : POST /api/jobs/lead-followups
+ * Scope        : API — Background Jobs
+ *
+ * Description  : QStash-scheduled job (daily 10:30am IST) that reminds assigned
+ *                staff about leads in follow_up status not contacted in 48+ hours.
+ *
+ * Responsibilities :
+ * - Find follow_up leads stale for 48+ hours
+ * - Send push reminder to the assigned staff member
+ * - Skip unassigned leads (no valid recipient)
+ *
+ * Features / Functionality :
+ * - 48-hour staleness threshold for follow-up leads
+ * - Staff-targeted push notification
+ * - Unassigned lead skip (avoids misdirected notifications)
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/jobs/heartbeat, @/lib/jobs/verify, @/lib/notifications/dispatch,
+ *                @rgss/business, @rgss/db/queries, @rgss/logger
+ *
+ * Notes        :
+ * - Idempotent via per-(assignee, 'lead_follow_up_due') notification row.
+ * - Only notifies assigned staff, not all receptionists.
+ ************************************************************/
+
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
 import { dispatchNotification } from '@/lib/notifications/dispatch'

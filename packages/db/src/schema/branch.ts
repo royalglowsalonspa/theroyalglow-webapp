@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : branch
+ * Scope        : Database Schema — Branch
+ *
+ * Description  : Defines the branch table representing physical salon/spa
+ *                locations with address, geo-coordinates, and operational status.
+ *
+ * Responsibilities :
+ * - Define branch table with full address and contact details
+ * - Store geo-coordinates for Google Maps integration
+ * - Track branch operational status and lifecycle dates
+ * - Support multi-branch expansion with unique codes and numbers
+ *
+ * Features / Functionality :
+ * - Unique branch code (e.g., RS, MH) for booking number generation
+ * - Branch status enum (operational, temporarily_closed, opens_soon, shutdown)
+ * - Primary branch flag for default selection
+ * - Display order for UI listing
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM, PostgreSQL
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm/pg-core, nanoid, ./auth, ./enums
+ *
+ * Notes        : Currently two branches: Rayasandra (operational) and
+ *                Marathahalli (opens_soon).
+ ************************************************************/
+
 import { boolean, date, integer, numeric, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'
 import { user } from './auth'

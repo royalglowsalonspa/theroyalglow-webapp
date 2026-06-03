@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : ProfilePage
+ * Scope        : Customer Pages
+ *
+ * Description  : User profile page displaying account info, avatar, member-since
+ *                date, notification preferences, and sign-out action.
+ *
+ * Responsibilities :
+ * - Fetch authenticated session and display user identity card
+ * - Show notification preference toggles (UI-only, not yet persisted)
+ * - Mount the SignOutButton client component
+ *
+ * Features / Functionality :
+ * - Avatar from Google OAuth or initial-letter fallback
+ * - Read-only email display with "read-only" badge
+ * - Notification preferences with disabled toggles (coming soon)
+ *
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, Better Auth
+ * Layer        : Presentation
+ *
+ * Dependencies : auth, next (Metadata, headers, redirect), SignOutButton
+ *
+ * Notes        :
+ * - Protected route; redirects to /sign-in if no session
+ ************************************************************/
+
 import { auth } from '@/lib/auth-server'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
