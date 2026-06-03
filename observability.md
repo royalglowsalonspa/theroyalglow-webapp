@@ -71,14 +71,14 @@ All free BetterStack HTTP monitor slots are used at launch. If another productio
 
 ### Heartbeat Monitors for Scheduled Jobs
 
-Scheduled work pings a BetterStack heartbeat URL on successful completion. This covers DB-only pg_cron jobs, QStash schedulers, and the GitHub Actions preprod sync. If BetterStack doesn't receive the ping within the expected window, it fires an alert.
+Scheduled work pings a BetterStack heartbeat URL on successful completion. This covers DB-only pg_cron jobs, QStash schedulers, and the GitHub Actions pprd sync. If BetterStack doesn't receive the ping within the expected window, it fires an alert.
 
 | Heartbeat | Jobs Covered | Expected Window |
 |-----------|--------------|----------------|
 | `BETTER_STACK_HEARTBEAT_NIGHTLY_SALES` | Daily sales, offer expiry, monthly GST, gems auto-expire | Nightly/monthly after scheduled run |
 | `BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY` | Membership auto-expire + expiry alerts | Daily after scheduled run |
 | `BETTER_STACK_HEARTBEAT_SESSION_CLEANUP` | Session cleanup | Weekly after scheduled run |
-| `BETTER_STACK_HEARTBEAT_PREPROD_SYNC` | Prod → preprod branch reset + PII anonymization | Daily after GitHub Actions run |
+| `BETTER_STACK_HEARTBEAT_PPRD_SYNC` | Prod → pprd branch reset + PII anonymization | Daily after GitHub Actions run |
 | `BETTER_STACK_HEARTBEAT_REMINDERS` | Appointment reminders | Every 15 min |
 
 ### Check Interval: 3 Minutes

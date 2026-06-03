@@ -26,7 +26,7 @@ logic, return JSON. No database queries live in route handlers.
 - **Edge:** Cloudflare Pages + Workers serve the customer site globally.
 - **SSR origin / CMS:** Render (Singapore) hosts the heavier SSR fallback and
   the Payload CMS — both Node.js runtimes.
-- **Database:** a single Neon project with four branches (`main`, `preprod`,
+- **Database:** a single Neon project with four branches (`prod`, `pprd`,
   `test`, `dev`); the CMS owns its own tables, disjoint from the app's Drizzle
   schema.
 - **Media:** Cloudflare R2 (S3-compatible, zero egress).

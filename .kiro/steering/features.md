@@ -114,7 +114,7 @@ Walk-in no-shows do NOT count toward the tier.
 
 ## Background Jobs (19 Total)
 
-**pg_cron (7):** Nightly sales summary, membership expire, offer expire, session cleanup, preprod sync, monthly GST, gems expire
+**pg_cron (7):** Nightly sales summary, membership expire, offer expire, session cleanup, pprd sync, monthly GST, gems expire
 
 **QStash Scheduled (8):** Appointment reminders (15min), membership expiry alerts, birthday emails, membership usage nudges, lead follow-ups, daily sales report, weekly report, gems expiry reminder
 

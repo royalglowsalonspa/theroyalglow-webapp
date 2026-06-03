@@ -47,7 +47,7 @@ theroyalglow-webapp/
 | `DATABASE_URL` | web, cms | Pooled connection via Neon pgBouncer — used by all app queries |
 | `DATABASE_URL_UNPOOLED` | web | Direct connection — for migrations only |
 
-> **Per-environment branches:** Use GitHub Environments so `DATABASE_URL` points to the correct Neon branch per environment (`main` / `preprod` / `test` / `dev`).
+> **Per-environment branches:** Use GitHub Environments so `DATABASE_URL` points to the correct Neon branch per environment (`prod` / `pprd` / `test` / `dev`).
 
 ### Auth — Better Auth
 
@@ -136,7 +136,7 @@ Generate once: `bunx web-push generate-vapid-keys`. These never change unless yo
 | --- | --- |
 | `BETTER_STACK_TOKEN` | Log drain source token |
 | `BETTER_STACK_HEARTBEAT_NIGHTLY_SALES` | Heartbeat for nightly sales/GST/offer/gems jobs |
-| `BETTER_STACK_HEARTBEAT_PREPROD_SYNC` | GitHub Actions: preprod DB sync |
+| `BETTER_STACK_HEARTBEAT_PPRD_SYNC` | GitHub Actions: pprd DB sync |
 | `BETTER_STACK_HEARTBEAT_REMINDERS` | QStash: appointment reminder scheduler |
 | `BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY` | pg_cron + QStash: membership expiry |
 | `BETTER_STACK_HEARTBEAT_SESSION_CLEANUP` | pg_cron: session cleanup |

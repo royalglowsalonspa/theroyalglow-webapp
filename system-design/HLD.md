@@ -119,7 +119,7 @@ This document describes the high-level design of a **full-stack digital operatio
 | **Performance** | Lighthouse Accessibility score | 100 |
 | **Performance** | Lighthouse SEO score | 100 |
 | **Cost** | Monthly infrastructure budget at launch | ₹0 |
-| **Scalability** | Concurrent user support (preprod load test) | 50 users |
+| **Scalability** | Concurrent user support (pprd load test) | 50 users |
 | **Recoverability** | Recovery Point Objective (RPO) | ~0 seconds |
 | **Recoverability** | Recovery Time Objective (RTO) | < 5 minutes |
 | **Compliance** | Cookie consent | 2-tier banner (Necessary + opt-in Analytics/Marketing) |
@@ -251,8 +251,8 @@ The architecture uses **strict layer separation** within a monorepo to achieve t
 
 | Neon Branch | Environment | Purpose | Reset Policy |
 |-------------|-------------|---------|--------------|
-| `main` | Production | Live customer data, pg_cron runs here | Never reset |
-| `preprod` | Pre-production | UAT with anonymised prod data | Auto-reset daily from `main` + PII stripped |
+| `prod` | Production | Live customer data, pg_cron runs here | Never reset |
+| `pprd` | Pre-production | UAT with anonymised prod data | Auto-reset daily from `prod` + PII stripped |
 | `test` | QA / CI | Seeded fixtures for automated tests | Wiped and reseeded every CI run |
 | `dev` | Development | Developer sandbox | Scales to zero when idle |
 
@@ -690,7 +690,7 @@ No page reload. No user action. ~50ms from admin click to customer UI change.
 | 2 | Membership auto-expire | `30 18 * * *` | 12:00 AM |
 | 3 | Offer auto-expire | `35 18 * * *` | 12:05 AM |
 | 4 | Session cleanup | `0 21 * * 0` | 2:30 AM Sunday |
-| 5 | Preprod DB sync (GitHub Actions) | `30 19 * * *` | 1:00 AM |
+| 5 | pprd DB sync (GitHub Actions) | `30 19 * * *` | 1:00 AM |
 | 6 | Monthly GST summary | `30 19 1 * *` | 1:00 AM (1st) |
 | 7 | Gems auto-expire | `40 18 * * *` | 12:10 AM |
 
@@ -760,8 +760,8 @@ feature/* ──▶ dev ──▶ test ──▶ pprd ──▶ prod
 | `feature/*` | Local dev | — | `dev` |
 | `dev` | Development | On merge | `dev` |
 | `test` | QA / CI | On merge | `test` |
-| `pprd` | Pre-production | On merge | `preprod` |
-| `prod` | Production | After manual approval | `main` |
+| `pprd` | Pre-production | On merge | `pprd` |
+| `prod` | Production | After manual approval | `prod` |
 
 ### 9.2 Pipeline Stages
 

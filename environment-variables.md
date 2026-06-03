@@ -44,7 +44,7 @@ Custom files like `.env.pprd` are **not** auto-loaded by Next.js. Use them only 
 | `DATABASE_URL` | web, cms | Private | Pooled connection via Neon pgBouncer — used by all app queries |
 | `DATABASE_URL_UNPOOLED` | web | Private | Direct (non-pooled) connection — recommended for migrations and admin tasks that need a direct connection |
 
-> **Per-environment branches:** Neon provides 4 branches (`main`, `preprod`, `test`, `dev`). Use GitHub Environments so `DATABASE_URL` points to the correct branch per environment — same variable name, different values.
+> **Per-environment branches:** Neon provides 4 branches (`prod`, `pprd`, `test`, `dev`). Use GitHub Environments so `DATABASE_URL` points to the correct branch per environment — same variable name, different values.
 
 ---
 
@@ -174,7 +174,7 @@ Store the output. These never change unless you intentionally rotate (which inva
 |----------|---------|------------|-------------|
 | `BETTER_STACK_TOKEN` | web | Private | Log drain source token — server logs streamed to BetterStack |
 | `BETTER_STACK_HEARTBEAT_NIGHTLY_SALES` | web | Private | Shared heartbeat for DB-only sales/GST/offer/gems summary jobs |
-| `BETTER_STACK_HEARTBEAT_PREPROD_SYNC` | CI/CD | Private | GitHub Actions cron: preprod DB sync (`30 19 * * *` UTC) |
+| `BETTER_STACK_HEARTBEAT_PPRD_SYNC` | CI/CD | Private | GitHub Actions cron: pprd DB sync (`30 19 * * *` UTC) |
 | `BETTER_STACK_HEARTBEAT_REMINDERS` | web | Private | QStash: appointment reminder scheduler (every 15 min) |
 | `BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY` | web | Private | pg_cron + QStash: membership auto-expire + expiry alerts (`30 18 * * *` UTC) |
 | `BETTER_STACK_HEARTBEAT_SESSION_CLEANUP` | web | Private | pg_cron: session cleanup (`0 21 * * 0` UTC) |
@@ -201,7 +201,7 @@ Store the output. These never change unless you intentionally rotate (which inva
 | `NEXT_PUBLIC_META_PIXEL_ID` | web | **Public** | Meta Pixel ID — browser-side PageView, ViewContent events |
 | `META_PIXEL_ACCESS_TOKEN` | web | Private | Conversions API (CAPI) access token — server-side Purchase events |
 | `META_CAPI_WEBHOOK_TOKEN` | web | Private | Verifies incoming Meta webhook payloads |
-| `META_TEST_EVENT_CODE` | web | Private, **dev/pprd only** | Test event code from Meta Events Manager → Test Events tab. Set in dev and preprod only. Omit in production. Routes CAPI events to the test panel without polluting real data. |
+| `META_TEST_EVENT_CODE` | web | Private, **dev/pprd only** | Test event code from Meta Events Manager → Test Events tab. Set in dev and pprd only. Omit in production. Routes CAPI events to the test panel without polluting real data. |
 
 ---
 
@@ -380,7 +380,7 @@ export const env = createEnv({
 });
 ```
 
-CI-only secrets like `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `BETTER_STACK_HEARTBEAT_PREPROD_SYNC`, `BETTER_STACK_HEARTBEAT_BACKUP`, `BETTER_STACK_DEPLOY_WEBHOOK`, and `BETTER_STACK_INCIDENT_WEBHOOK` are **not** part of `apps/web/src/env.ts`; validate them in the workflow or script that uses them.
+CI-only secrets like `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `BETTER_STACK_HEARTBEAT_PPRD_SYNC`, `BETTER_STACK_HEARTBEAT_BACKUP`, `BETTER_STACK_DEPLOY_WEBHOOK`, and `BETTER_STACK_INCIDENT_WEBHOOK` are **not** part of `apps/web/src/env.ts`; validate them in the workflow or script that uses them.
 
 **If any variable is missing or fails validation → build fails immediately.** Import `env` from this file everywhere instead of using `process.env` directly.
 
@@ -394,11 +394,11 @@ Runtime code always reads generic names like `DATABASE_URL` and `DATABASE_URL_UN
 Repository Settings → Secrets and variables → Actions
 ├── DATABASE_URL_DEV                 → neon.tech/.../dev
 ├── DATABASE_URL_TEST                → neon.tech/.../test
-├── DATABASE_URL_PPRD                → neon.tech/.../preprod
-├── DATABASE_URL_PROD                → neon.tech/.../main
+├── DATABASE_URL_PPRD                → neon.tech/.../pprd
+├── DATABASE_URL_PROD                → neon.tech/.../prod
 ├── DATABASE_URL_UNPOOLED_DEV        → direct Neon URL for dev
 ├── DATABASE_URL_UNPOOLED_TEST       → direct Neon URL for test
-├── DATABASE_URL_UNPOOLED_PPRD       → direct Neon URL for preprod
+├── DATABASE_URL_UNPOOLED_PPRD       → direct Neon URL for pprd
 └── DATABASE_URL_UNPOOLED_PROD       → direct Neon URL for prod
 ```
 

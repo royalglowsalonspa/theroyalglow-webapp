@@ -84,7 +84,7 @@ Royal Glow Salon & Spa is built for scale (20k–50k users), premium feel, and l
 | **React Testing Library** | Component testing |
 | **Playwright** | End-to-end testing (5 browsers) |
 | **MSW** | API mocking (network-level, works in browser + Node) |
-| **k6** | Load testing (target: 50 concurrent on preprod) |
+| **k6** | Load testing (target: 50 concurrent on pprd) |
 | **Lighthouse CI** | Performance gate — 95+ score required to merge |
 | **Meticulous AI** | Zero-effort visual regression (records real sessions) |
 | **Trivy + Semgrep + Socket.dev** | Security scanning (deps, SAST, supply chain) |

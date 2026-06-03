@@ -149,17 +149,17 @@ DATABASE_URL=$DATABASE_URL_PROD bunx drizzle-kit migrate
 # Create a new branch for a feature (via Neon console or API)
 # Branches are instant copy-on-write — no data copying needed
 
-# Reset preprod from prod (normally done by GitHub Actions nightly)
-curl -X POST https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$PREPROD_BRANCH_ID/restore \
+# Reset pprd from prod (normally done by GitHub Actions nightly)
+curl -X POST https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$PPRD_BRANCH_ID/restore \
   -H "Authorization: Bearer $NEON_API_KEY" \
-  -d '{"source_branch_id": "$MAIN_BRANCH_ID"}'
+  -d '{"source_branch_id": "$PROD_BRANCH_ID"}'
 ```
 
 ### Point-in-Time Restore
 
 If a bad migration or data corruption occurs on prod:
 
-1. Go to Neon console → Project → Branches → `main`
+1. Go to Neon console → Project → Branches → `prod`
 2. Click "Restore" → select a point in time before the incident
 3. This creates a new branch — verify data is correct
 4. Swap the connection string to point to the restored branch
@@ -170,7 +170,7 @@ If a bad migration or data corruption occurs on prod:
 ### Weekly Backups
 
 Every Sunday at 2 AM UTC, GitHub Actions:
-1. Runs `pg_dump` against Neon `main` branch
+1. Runs `pg_dump` against Neon `prod` branch
 2. Uploads compressed dump to Cloudflare R2 (`backups/weekly/`)
 3. Retains 8 weeks of backups
 4. Pings BetterStack heartbeat on success

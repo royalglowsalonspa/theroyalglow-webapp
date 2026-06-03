@@ -1,7 +1,7 @@
 # Ops-activated: requires Neon API key + project/branch IDs to run.
-# Resets the preprod branch from main (near-instant copy-on-write) then strips
-# PII. Mirrors git-workflow.md "Prod -> Preprod Data Replication".
-name: Replicate Prod to Preprod (Daily)
+# Resets the pprd branch from prod (near-instant copy-on-write) then strips
+# PII. Mirrors git-workflow.md "Prod → pprd Data Replication".
+name: Replicate Prod to pprd (Daily)
 
 on:
   schedule:
@@ -16,18 +16,18 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
 
-      - name: Reset preprod branch from main
+      - name: Reset pprd branch from prod
         run: |
           curl -X POST \
-            "https://console.neon.tech/api/v2/projects/${{ secrets.NEON_PROJECT_ID }}/branches/${{ secrets.NEON_PREPROD_BRANCH_ID }}/restore" \
+            "https://console.neon.tech/api/v2/projects/${{ secrets.NEON_PROJECT_ID }}/branches/${{ secrets.NEON_PPRD_BRANCH_ID }}/restore" \
             -H "Authorization: Bearer ${{ secrets.NEON_API_KEY }}" \
             -H "Content-Type: application/json" \
-            -d '{"source_branch_id": "${{ secrets.NEON_MAIN_BRANCH_ID }}"}'
+            -d '{"source_branch_id": "${{ secrets.NEON_PROD_BRANCH_ID }}"}'
 
-      - name: Anonymize PII in preprod
+      - name: Anonymize PII in pprd
         run: bun run scripts/anonymize-preprod.ts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_PPRD }}
 
       - name: Ping BetterStack heartbeat
-        run: curl -sf "${{ secrets.BETTER_STACK_HEARTBEAT_PREPROD_SYNC }}"
+        run: curl -sf "${{ secrets.BETTER_STACK_HEARTBEAT_PPRD_SYNC }}"

@@ -26,13 +26,13 @@ pushes to `prod`**.
 | --- | --- | --- | --- |
 | `dev` | Development | `dev` | Lint + type check + unit tests |
 | `test` | QA / CI | `test` | + integration + Playwright E2E + Lighthouse CI |
-| `pprd` | Pre-production | `preprod` | + k6 load test + smoke suite + dependency audit |
-| `prod` | Production | `main` | + manual approval → deploy + health check |
+| `pprd` | Pre-production | `pprd` | + k6 load test + smoke suite + dependency audit |
+| `prod` | Production | `prod` | + manual approval → deploy + health check |
 
-The `preprod` branch is **reset from `main` every 24h** via the Neon Branch Reset
+The `pprd` branch is **reset from `prod` every 24h** via the Neon Branch Reset
 API (a near-instant copy-on-write operation), then a PII-anonymisation script
 scrubs names, phones, and emails so UAT has realistic data without real customer
-PII. `pg_cron` jobs run on `main` only.
+PII. `pg_cron` jobs run on `prod` only.
 
 ## Hosting topology
 

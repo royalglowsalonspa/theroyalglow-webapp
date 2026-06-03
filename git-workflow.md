@@ -42,27 +42,27 @@ All environments use **Neon DB branches** within a single Neon project — no se
 
 | Branch | Neon Branch | Notes |
 |--------|------------|-------|
-| `prod` | `main` | Live customer data — pg_cron jobs run here |
-| `pprd` | `preprod` | Reset from `main` every 24h via Neon branch reset API (PII stripped) |
+| `prod` | `prod` | Live customer data — pg_cron jobs run here |
+| `pprd` | `pprd` | Reset from `prod` every 24h via Neon branch reset API (PII stripped) |
 | `test` | `test` | Isolated, seeded with fixtures, wiped before each CI run |
 | `dev` | `dev` | Developer sandbox with fake data |
 
 ---
 
-## Prod → Preprod Data Replication
+## Prod → pprd Data Replication
 
-Every **24 hours**, a GitHub Actions cron job uses the **Neon Branch Reset API** to sync preprod from prod:
+Every **24 hours**, a GitHub Actions cron job uses the **Neon Branch Reset API** to sync pprd from prod:
 
-1. Calls the Neon API to reset the `preprod` branch from `main`
-2. Runs a PII anonymisation script against `preprod` (names, phone numbers, emails replaced with fake data)
-3. Preprod is now a clean, realistic copy of prod without real customer data
+1. Calls the Neon API to reset the `pprd` branch from `prod`
+2. Runs a PII anonymisation script against `pprd` (names, phone numbers, emails replaced with fake data)
+3. pprd is now a clean, realistic copy of prod without real customer data
 
 > This approach is simpler and faster than `pg_dump` / `pg_restore` because Neon branching is a near-instant copy-on-write operation at the storage layer.
 
 ### GitHub Actions Cron (concept)
 ```yaml
 # .github/workflows/replicate-prod-to-pprd.yml
-name: Replicate Prod → Preprod (Daily)
+name: Replicate Prod → pprd (Daily)
 
 on:
   schedule:
@@ -72,21 +72,21 @@ jobs:
   replicate:
     runs-on: ubuntu-latest
     steps:
-      - name: Reset preprod branch from main
+      - name: Reset pprd branch from prod
         run: |
-          curl -X POST https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$PREPROD_BRANCH_ID/restore \
+          curl -X POST https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$PPRD_BRANCH_ID/restore \
             -H "Authorization: Bearer $NEON_API_KEY" \
             -H "Content-Type: application/json" \
-            -d '{"source_branch_id": "$MAIN_BRANCH_ID"}'
+            -d '{"source_branch_id": "$PROD_BRANCH_ID"}'
 
-      - name: Anonymize PII in preprod
+      - name: Anonymize PII in pprd
         run: node scripts/anonymize-preprod.mjs
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_PPRD }}
 ```
 
 ### Database Branching Decision
-Neon branch reset is the locked strategy for environment isolation. Supabase branching is not used because the project standardizes on one Neon PostgreSQL project with `main`, `preprod`, `test`, and `dev` branches.
+Neon branch reset is the locked strategy for environment isolation. Supabase branching is not used because the project standardizes on one Neon PostgreSQL project with `prod`, `pprd`, `test`, and `dev` branches.
 
 ---
 

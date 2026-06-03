@@ -8,7 +8,7 @@ Seed scripts provision production essentials in every environment and add realis
 **ORM:** Drizzle (same schema used by the app)
 **Environments seeded:** `prod` (essentials only), `dev`, `test` (with environment-specific profiles)
 
-> **Preprod (`pprd`) is NOT seeded** — it receives daily data from prod via Neon branch reset + PII anonymization.
+> **pprd (`pprd`) is NOT seeded** — it receives daily data from prod via Neon branch reset + PII anonymization.
 
 ---
 
@@ -69,7 +69,7 @@ bun run scripts/seed.ts --reset
 # Seed production essentials (safe — upserts only, no demo data)
 bun run scripts/seed-prod.ts
 
-# Preprod is NOT seeded — it syncs from prod nightly (Neon branch reset + anonymize)
+# pprd is NOT seeded — it syncs from prod nightly (Neon branch reset + anonymize)
 # See .github/workflows/nightly-pprd-reset.yml
 ```
 
@@ -373,7 +373,7 @@ export const customerTags = [
 
 ## Demo Data — Dev & Test Only
 
-> **Preprod does NOT get demo seeds.** It receives real (anonymized) data via nightly Neon branch reset from prod. See CI/CD section below.
+> **pprd does NOT get demo seeds.** It receives real (anonymized) data via nightly Neon branch reset from prod. See CI/CD section below.
 
 ### Demo Staff (8 users — all roles + designations covered)
 
@@ -1046,12 +1046,12 @@ export async function resetDatabase() {
     DATABASE_URL: ${{ secrets.DATABASE_URL_TEST }}
 ```
 
-### Preprod (Nightly Reset)
+### pprd (Nightly Reset)
 
 ```yaml
 # .github/workflows/nightly-pprd-reset.yml
 
-name: Nightly Preprod Reset
+name: Nightly pprd Reset
 on:
   schedule:
     - cron: '0 20 * * *'  # 01:30 IST (20:00 UTC)
@@ -1063,7 +1063,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install
-      - name: Reset preprod from prod + anonymize PII
+      - name: Reset pprd from prod + anonymize PII
         run: bun run scripts/anonymize-preprod.ts
         env:
           APP_ENV: pprd
@@ -1093,7 +1093,7 @@ jobs:
 | System settings | 20 | 20 |
 | Customer tags | 7 | 7 |
 
-> **Preprod** is not in this table — it gets real (anonymized) production data via nightly Neon branch reset. Volume mirrors prod.
+> **pprd** is not in this table — it gets real (anonymized) production data via nightly Neon branch reset. Volume mirrors prod.
 
 ---
 

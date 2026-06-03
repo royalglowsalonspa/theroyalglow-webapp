@@ -620,8 +620,8 @@ theroyalglow-webapp/
 
 | Environment | Neon Branch | Purpose |
 |-------------|-------------|--------|
-| `prod` | `main` | Live production traffic — pg_cron runs here |
-| `pprd` | `preprod` | Pre-production / UAT — auto-reset from `main` every 24h, PII stripped |
+| `prod` | `prod` | Live production traffic — pg_cron runs here |
+| `pprd` | `pprd` | Pre-production / UAT — auto-reset from `prod` every 24h, PII stripped |
 | `test` | `test` | Integration testing — seeded fixtures, wiped on each CI run |
 | `dev` | `dev` | Local development — free-form sandbox |
 

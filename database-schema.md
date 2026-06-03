@@ -2380,7 +2380,7 @@ The schema depends on several scheduling mechanisms, but the detailed operationa
 |-----------|----------|--------------|
 | **pg_cron** | Sales summaries, membership/offer expiry, session cleanup, GST summaries, gems expiry | `daily_sales_summary`, `monthly_gst_summary`, `spa_membership`, `offer`, `session`, `loyalty_*` |
 | **QStash scheduled** | Appointment reminders, membership expiry alerts, birthday offers, membership usage nudges, reports, gems reminders | `notification`, API routes, email/push queues |
-| **GitHub Actions cron** | Preprod DB sync + anonymisation | `preprod` Neon branch copy |
+| **GitHub Actions cron** | pprd DB sync + anonymisation | `pprd` Neon branch copy |
 | **Triggered jobs** | Post-service follow-up, stale pending booking alerts, no-show checks, membership expired notices | `notification`, `audit_log`, booking status workflows |
 
 > See [background-jobs.md](./background-jobs.md) for the authoritative job-by-job schedule, endpoints, heartbeats, and ownership.

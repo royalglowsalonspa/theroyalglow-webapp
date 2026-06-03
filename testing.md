@@ -2402,8 +2402,8 @@ Mutation testing modifies your source code (introduces bugs) and checks if tests
 |--------|------------|---------|-----------|-----------------|
 | `dev` | `dev` | Local development | Full seed (15 customers, all services) | On demand |
 | `test` | `test` | CI testing | Deterministic fixtures (known IDs) | Every CI run |
-| `pprd` | `preprod` | UAT + load testing | Realistic data (~50 customers, PII stripped) | Daily (from prod snapshot) |
-| `prod` | `main` | Production | Real customer data | Never reset |
+| `pprd` | `pprd` | UAT + load testing | Realistic data (~50 customers, PII stripped) | Daily (from prod snapshot) |
+| `prod` | `prod` | Production | Real customer data | Never reset |
 
 ### Test Isolation Rules
 

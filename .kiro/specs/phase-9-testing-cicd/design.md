@@ -24,7 +24,7 @@ Consistent with every prior phase, everything must run **with no external keys**
 - **Running k6 against a live pprd URL** — the load script and thresholds are delivered; executing it requires the deployed environment and is a CI-time/ops action.
 - **Sentry runtime initialisation** — error monitoring init and source-map upload at runtime belong to Phase 10 (Observability). `deploy-prod.yml` includes the source-map upload step per `deployment.md`, but the `@sentry/nextjs` runtime wiring is Phase 10.
 - **Visual regression (Meticulous), TestSprite, and mutation testing** — `testing.md` lists these as future/quarterly; out of scope here.
-- **The monthly backup-restore test and prod→preprod replication crons** — included as delivered workflow files where low-risk, but they are ops-activated; the design notes them explicitly.
+- **The monthly backup-restore test and prod→pprd replication crons** — included as delivered workflow files where low-risk, but they are ops-activated; the design notes them explicitly.
 
 ## Architecture
 

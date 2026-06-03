@@ -151,7 +151,7 @@ A library for mocking API calls in tests. Works at the network level — tests d
 Name, Address, Phone — the three pieces of contact information that must be identical across all platforms (website, Google My Business, social media, directories) for local SEO.
 
 **Neon**
-The PostgreSQL database provider. Serverless, auto-scaling, with Git-like branching. Royal Glow uses one Neon project with four branches: `main` (prod), `preprod`, `test`, `dev`.
+The PostgreSQL database provider. Serverless, auto-scaling, with Git-like branching. Royal Glow uses one Neon project with four branches: `prod`, `pprd`, `test`, `dev`.
 
 **No-Show**
 When a customer doesn't arrive for a confirmed booking. After 4 no-shows within 90 days, future bookings require manager approval. Walk-in no-shows don't count.
@@ -170,7 +170,7 @@ The smallest unit of Indian currency (₹1 = 100 paise). All money in the databa
 The content management system for marketing content. A Next.js plugin — self-hosted on Render, stores data in Neon, media in Cloudflare R2.
 
 **pg_cron**
-A PostgreSQL extension that runs scheduled SQL jobs inside the database. Used for 7 nightly/weekly/monthly jobs: sales summaries, membership expiry, offer expiry, session cleanup, preprod sync, GST summary, gems expiry.
+A PostgreSQL extension that runs scheduled SQL jobs inside the database. Used for 7 nightly/weekly/monthly jobs: sales summaries, membership expiry, offer expiry, session cleanup, pprd sync, GST summary, gems expiry.
 
 **PostHog**
 The product analytics platform. Tracks user behaviour, booking funnels, feature flags, and session replays. 1 million events/month free.

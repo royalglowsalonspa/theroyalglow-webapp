@@ -156,7 +156,7 @@ bunx playwright test --ui
 
 ### k6 Load Testing
 
-Target: 50 concurrent users on preprod. Runs on every PR to `pprd`.
+Target: 50 concurrent users on pprd. Runs on every PR to `pprd`.
 
 ```js
 // tests/load/booking-flow.js
@@ -215,7 +215,7 @@ bun run test:coverage     # Unit tests with coverage report
 
 ## Meticulous AI — Visual Regression
 
-Meticulous records real user sessions on preprod, then replays them as visual regression tests on every PR. Zero test code required — it learns from real usage.
+Meticulous records real user sessions on pprd, then replays them as visual regression tests on every PR. Zero test code required — it learns from real usage.
 
 **What Meticulous catches that Playwright doesn't:**
 - Subtle font rendering changes
