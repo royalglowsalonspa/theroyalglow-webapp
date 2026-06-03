@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : schedule
+ * Scope        : Database Schema — Schedule
+ *
+ * Description  : Defines staff scheduling tables including weekly schedules,
+ *                time-off/leave requests, business hours, and holidays.
+ *
+ * Responsibilities :
+ * - Define staff_schedule for recurring weekly availability
+ * - Define staff_time_off for leave requests with approval workflow
+ * - Define business_hour for salon operating hours per day of week
+ * - Define holiday table for branch-wide closure dates
+ *
+ * Features / Functionality :
+ * - Unique constraint on (staff, day_of_week) for schedule
+ * - Leave approval workflow: pending → approved/rejected
+ * - Leave types: sick, casual, personal, other
+ * - Unique constraint on (staff, date) preventing duplicate leave requests
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM, PostgreSQL
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm/pg-core, nanoid, ./auth, ./enums, ./profile
+ *
+ * Notes        : Business hours and holidays are shared across all staff.
+ *                Staff schedules are per-staff-member weekly patterns.
+ ************************************************************/
+
 import {
   boolean,
   index,

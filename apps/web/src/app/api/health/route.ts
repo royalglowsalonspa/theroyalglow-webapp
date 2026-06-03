@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : GET /api/health
+ * Scope        : API — Public
+ *
+ * Description  : Liveness/health check endpoint probed by BetterStack, CI, and
+ *                load balancers. Checks DB, Redis, and R2 connectivity.
+ *
+ * Responsibilities :
+ * - Check primary database (Neon) connectivity
+ * - Check Upstash Redis availability (optional)
+ * - Check Cloudflare R2 availability (optional)
+ *
+ * Features / Functionality :
+ * - Multi-component health status (healthy/degraded/unhealthy)
+ * - Latency measurement per component
+ * - Graceful skip for unconfigured optional services
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @rgss/db, drizzle-orm
+ *
+ * Notes        :
+ * - DB is the only hard dependency; Redis/R2 failures yield "degraded" not "unhealthy".
+ * - Returns its own response format (not the standard {success, data} envelope).
+ ************************************************************/
+
 import { db } from '@rgss/db'
 import { sql } from 'drizzle-orm'
 

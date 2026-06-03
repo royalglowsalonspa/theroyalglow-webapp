@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : RefundPolicyPage
+ * Scope        : Legal Pages
+ *
+ * Description  : Refund & Cancellation Policy page covering appointment cancellation,
+ *                rescheduling, no-shows, membership expiry, and refund procedures.
+ *
+ * Responsibilities :
+ * - Document cancellation and rescheduling rules for appointments
+ * - Explain no-show consequences and membership hour expiry
+ * - Detail refund request process and processing timelines
+ *
+ * Features / Functionality :
+ * - 8-section legal document with semantic headings
+ * - Accessible section navigation via aria-labelledby
+ * - Contact details for refund enquiries from BUSINESS constant
+ *
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4
+ * Layer        : Presentation
+ *
+ * Dependencies : BUSINESS, buildMetadata
+ *
+ * Notes        :
+ * - Statically generated (SSG) — no runtime data fetching
+ ************************************************************/
+
 import { BUSINESS } from '@/lib/seo/business'
 import { buildMetadata } from '@/lib/seo/metadata'
 

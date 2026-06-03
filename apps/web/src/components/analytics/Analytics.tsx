@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : Analytics
+ * Scope        : Analytics UI
+ *
+ * Description  : Consent-gated, key-guarded analytics loader mounted once in
+ *                root layout. Loads PostHog, Clarity, and Meta Pixel on consent.
+ *
+ * Responsibilities :
+ * - Evaluate consent state on mount and on consent change events
+ * - Load PostHog when analytics consent + key are present
+ * - Load Microsoft Clarity when analytics consent + key are present
+ * - Load Meta Pixel when marketing consent + key are present
+ *
+ * Features / Functionality :
+ * - Double-gated provider loading (consent AND key required)
+ * - Each provider loaded at most once per session
+ * - All paths wrapped so analytics never throws into the app
+ * - Renders no visible UI (returns null)
+ *
+ * Tech Stack   : React, TypeScript, PostHog, Meta Pixel, Microsoft Clarity
+ * Layer        : Frontend
+ *
+ * Dependencies : @/lib/consent/consent, posthog-js (optional)
+ *
+ * Notes        : posthog-js is an optional dependency (lazy import)
+ ************************************************************/
+
 'use client'
 
 import { CONSENT_EVENT, getConsent } from '@/lib/consent/consent'

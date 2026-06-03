@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : GET /api/availability
+ * Scope        : API — Public
+ *
+ * Description  : Returns available time slots for a given date. Generates
+ *                30-minute slots from 10:00–20:30 IST with availability flags.
+ *
+ * Responsibilities :
+ * - Validate the requested date parameter (format, past-date rejection)
+ * - Generate static 30-minute time slots for the business hours
+ * - Return slot availability for the booking dialog
+ *
+ * Features / Functionality :
+ * - 30-minute slot generation (10:00–21:00 window)
+ * - IST-aware past-date validation
+ * - YYYY-MM-DD format enforcement
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/api/error-handler, @rgss/errors
+ *
+ * Notes        :
+ * - Currently returns all slots as available (static schedule).
+ * - Will integrate with booking + staff_schedule tables for real availability.
+ ************************************************************/
+
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { badRequest } from '@rgss/errors'
 

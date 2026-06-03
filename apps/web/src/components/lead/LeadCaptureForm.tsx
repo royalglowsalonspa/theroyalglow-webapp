@@ -1,3 +1,37 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : LeadCaptureForm
+ * Scope        : Lead Capture UI
+ *
+ * Description  : Meta ad lead capture form (3 fields: name, phone, service).
+ *                Submits to POST /api/leads and redirects to booking dialog.
+ *
+ * Responsibilities :
+ * - Render accessible 3-field lead capture form
+ * - Validate name and phone (10-digit Indian mobile)
+ * - Submit lead with UTM parameters
+ * - Show success/error states with retry option
+ * - Fire lead_form_submitted analytics event
+ * - Redirect to /?book=1&leadId={id} after success
+ *
+ * Features / Functionality :
+ * - Trust signals (brand, rating, reviews)
+ * - Grouped service dropdown (Salon/SPA optgroups)
+ * - +91 prefix UI for phone input
+ * - Client-side validation with field error display
+ * - Success card with auto-redirect to booking
+ *
+ * Tech Stack   : React, TypeScript, Tailwind CSS, Next.js
+ * Layer        : Frontend
+ *
+ * Dependencies : @/lib/analytics/events, next/navigation
+ *
+ * Notes        : Designed for Meta ad landing page (/book)
+ ************************************************************/
+
 'use client'
 
 import { track } from '@/lib/analytics/events'

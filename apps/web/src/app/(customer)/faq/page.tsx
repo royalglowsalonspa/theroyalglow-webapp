@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : FAQPage
+ * Scope        : Customer Pages
+ *
+ * Description  : Frequently Asked Questions page rendering CMS-driven FAQs
+ *                in an accessible accordion with FAQPage JSON-LD schema.
+ *
+ * Responsibilities :
+ * - Fetch FAQ entries from CMS via resolveFaqs()
+ * - Render an accessible accordion using native <details>/<summary>
+ * - Emit FAQPage JSON-LD structured data for rich snippet eligibility
+ *
+ * Features / Functionality :
+ * - ISR with 1-hour revalidation for FAQ content
+ * - Animated plus/cross icon on toggle
+ * - Breadcrumb JSON-LD for search engine navigation
+ *
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, JSON-LD
+ * Layer        : Presentation
+ *
+ * Dependencies : JsonLd, resolveFaqs, SITE_URL, breadcrumbJsonLd, faqPageJsonLd, buildMetadata
+ *
+ * Notes        :
+ * - FAQ content sourced from Payload CMS with local fallback
+ ************************************************************/
+
 import { JsonLd } from '@/components/seo/JsonLd'
 import { resolveFaqs } from '@/lib/cms/faqs'
 import { SITE_URL } from '@/lib/seo/business'

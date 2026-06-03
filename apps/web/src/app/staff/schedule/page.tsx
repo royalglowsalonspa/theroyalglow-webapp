@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : StaffSchedulePage
+ * Scope        : Staff Portal
+ *
+ * Description  : Displays the authenticated staff member's weekly working schedule.
+ *                Shows each day of the week with start/end times or "Off" status.
+ *
+ * Responsibilities :
+ * - Authenticate the staff session and resolve the staff profile
+ * - Fetch the weekly schedule from database and render by day
+ * - Display a "no profile" state when the user account isn't linked
+ *
+ * Features / Functionality :
+ * - 7-day schedule display (Sun–Sat) with 12-hour time formatting
+ * - Empty state for staff without a linked profile
+ * - Informational note directing schedule changes to the front desk
+ *
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, Better Auth, Drizzle ORM
+ * Layer        : Presentation
+ *
+ * Dependencies : formatTime12h, auth, dayOfWeekLabel, getStaffProfileByUserId, getStaffSchedule
+ *
+ * Notes        :
+ * - Schedule is read-only for staff; changes go through manager/admin
+ ************************************************************/
+
 import { formatTime12h } from '@/lib/admin/bookings'
 import { auth } from '@/lib/auth-server'
 import { dayOfWeekLabel } from '@rgss/business'

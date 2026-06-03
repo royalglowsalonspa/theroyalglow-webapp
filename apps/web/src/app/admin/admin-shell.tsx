@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : Admin Shell
+ * Scope        : Admin Portal — Shell & Navigation
+ *
+ * Description  : Client-side shell component providing the admin
+ *                portal's sidebar, top bar, and responsive layout.
+ *
+ * Responsibilities :
+ * - Render collapsible sidebar navigation (AdminSidebar)
+ * - Provide top bar with hamburger toggle, breadcrumb, notifications
+ * - Manage mobile sidebar open/close state
+ *
+ * Features / Functionality :
+ * - Responsive sidebar (persistent on desktop, overlay on mobile)
+ * - Mobile hamburger menu toggle with accessible label
+ * - Notification bell + user avatar in top bar
+ *
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript
+ * Layer        : Presentation (Shell / Layout Component)
+ *
+ * Dependencies : AdminSidebar, NotificationBell, React useState
+ *
+ * Notes        :
+ * - 'use client' required for interactive sidebar state
+ ************************************************************/
+
 'use client'
 
 import { AdminSidebar } from '@/components/admin/AdminSidebar'

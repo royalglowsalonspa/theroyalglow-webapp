@@ -1,3 +1,36 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : notification
+ * Scope        : Database Schema — Notification
+ *
+ * Description  : Defines notification and push subscription tables for
+ *                Web Push API and email notification delivery.
+ *
+ * Responsibilities :
+ * - Define notification table with type, channel, and delivery status
+ * - Define push_subscription table for Web Push API endpoints
+ * - Track notification read/sent timestamps for user engagement
+ * - Support both push and email notification channels
+ *
+ * Features / Functionality :
+ * - 24 notification types covering all booking/membership/lead events
+ * - Partial index on pending notifications for dispatch queue
+ * - Active push subscription tracking with user-scoped deactivation
+ * - Optional booking linkage for contextual notifications
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM, PostgreSQL
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm, drizzle-orm/pg-core, nanoid, ./auth, ./booking,
+ *                ./enums
+ *
+ * Notes        : Notifications are idempotent — duplicate sends are prevented
+ *                by checking existing notification rows before dispatch.
+ ************************************************************/
+
 import { sql } from 'drizzle-orm'
 import { boolean, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'

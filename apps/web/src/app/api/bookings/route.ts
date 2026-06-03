@@ -1,3 +1,36 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : GET|POST /api/bookings
+ * Scope        : API — Customer Booking
+ *
+ * Description  : Customer booking endpoints. GET returns the authenticated user's
+ *                bookings; POST creates a new booking with full validation.
+ *
+ * Responsibilities :
+ * - List authenticated customer's bookings (GET)
+ * - Validate and create new bookings with service snapshots (POST)
+ * - Enqueue triggered jobs (stale-pending alert, no-show check)
+ *
+ * Features / Functionality :
+ * - Multi-service booking with duration and pricing calculation
+ * - Booking number generation (BK-{branch}-{YYMM}-{type}-{random})
+ * - Auto staff assignment for pending bookings
+ * - Triggered job enqueue (stale-booking-alert, noshow-check)
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/api/error-handler, @/lib/api/session, @/lib/jobs/enqueue,
+ *                @rgss/business, @rgss/db/queries, @rgss/errors, @rgss/types
+ *
+ * Notes        :
+ * - POST enqueues background jobs best-effort; failures never break booking creation.
+ * - All prices are GST-inclusive in paise (integer math only).
+ ************************************************************/
+
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireSession } from '@/lib/api/session'
 import { enqueueJob } from '@/lib/jobs/enqueue'

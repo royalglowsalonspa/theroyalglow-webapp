@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : services-spa
+ * Scope        : Seed Data — SPA Services
+ *
+ * Description  : SPA service seed data covering standard, premium, and VVIP
+ *                therapy services with 60/90 minute duration variants.
+ *
+ * Responsibilities :
+ * - Define Standard SPA services (Swedish, Thai, Aroma — 6 services)
+ * - Define Premium SPA services (Lomi Lomi, Balinese, Deep Tissue — 6 services)
+ * - Define VVIP SPA services (Hot Stone, Kerala Potli, etc. — 9 services)
+ *
+ * Features / Functionality :
+ * - Deterministic IDs (svc_*) for booking and membership references
+ * - 60-minute and 90-minute variants for each therapy type
+ * - Pricing in paise (GST inclusive)
+ * - Body scrub variants (Normal, Fruit, Coffee, Almond/Coconut)
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM
+ * Layer        : Data Access
+ *
+ * Dependencies : None
+ *
+ * Notes        : All SPA services are accessible to any membership tier.
+ *                Hours are deducted from the membership balance per session.
+ ************************************************************/
+
 export const spaServices = [
   // Standard SPA
   {

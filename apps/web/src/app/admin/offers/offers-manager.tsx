@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : Offers Manager
+ * Scope        : Admin Portal — Offer Management
+ *
+ * Description  : Full CRUD interface for promotional offers.
+ *                Includes create form with validation, offer list
+ *                table, and activate/deactivate toggle actions.
+ *
+ * Responsibilities :
+ * - Create new offers (percentage, flat, combo types) with service selection
+ * - Display all offers in a filterable data table
+ * - Toggle offer active/inactive status via PATCH API
+ *
+ * Features / Functionality :
+ * - Create form with dynamic type-specific discount fields
+ * - Service multi-select grouped by salon/spa categories
+ * - Inline field validation errors from API response
+ *
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript
+ * Layer        : Presentation (CRUD Management Component)
+ *
+ * Dependencies : admin bookings lib, @rgss/types (OfferType), React hooks
+ *
+ * Notes        :
+ * - Rupee inputs are converted to paise at submit boundary
+ ************************************************************/
+
 'use client'
 
 import { formatDateDDMMYYYY } from '@/lib/admin/bookings'

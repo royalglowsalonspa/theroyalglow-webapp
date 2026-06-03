@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : PrivacyPolicyPage
+ * Scope        : Legal Pages
+ *
+ * Description  : Privacy Policy page compliant with India's Digital Personal Data
+ *                Protection Act, 2023. Details data collection, usage, rights, and grievances.
+ *
+ * Responsibilities :
+ * - Explain what personal data is collected and why
+ * - Detail lawful basis, cookies policy, and retention periods
+ * - Document data principal rights and grievance procedures under DPDP Act
+ *
+ * Features / Functionality :
+ * - 11-section legal document with semantic HTML headings
+ * - Accessible section navigation via aria-labelledby
+ * - Canonical contact details pulled from BUSINESS constant
+ *
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4
+ * Layer        : Presentation
+ *
+ * Dependencies : BUSINESS, buildMetadata
+ *
+ * Notes        :
+ * - Statically generated (SSG) — no runtime data fetching
+ ************************************************************/
+
 import { BUSINESS } from '@/lib/seo/business'
 import { buildMetadata } from '@/lib/seo/metadata'
 

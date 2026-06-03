@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : GET /api/gems
+ * Scope        : API — Customer Loyalty
+ *
+ * Description  : Returns the authenticated customer's loyalty (gems) balance,
+ *                paginated transaction history, and redeemable services catalogue.
+ *
+ * Responsibilities :
+ * - Retrieve or create the customer's loyalty account
+ * - Return balance summary (earned, redeemed, current)
+ * - Paginate transaction history with configurable page size
+ *
+ * Features / Functionality :
+ * - Auto-create loyalty account for new customers
+ * - Paginated transaction history (default 20, max 100)
+ * - Redeemable services catalogue
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/db/queries
+ *
+ * Notes        :
+ * - Gems earn at 1 per ₹100 (floor). 365-day expiry enforced by pg_cron.
+ * - No separate count query; uses full-page heuristic for pagination.
+ ************************************************************/
+
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireSession } from '@/lib/api/session'
 import {

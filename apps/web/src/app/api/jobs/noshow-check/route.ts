@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : POST /api/jobs/noshow-check
+ * Scope        : API — Background Jobs
+ *
+ * Description  : QStash-triggered job (enqueued +15min after booking end time)
+ *                that alerts receptionists if a confirmed booking was never checked in.
+ *
+ * Responsibilities :
+ * - Parse bookingId from QStash payload
+ * - Check if booking is still in confirmed status post-appointment
+ * - Alert all receptionists to review (never auto-marks no-show)
+ *
+ * Features / Functionality :
+ * - Post-appointment confirmed-status detection
+ * - Multi-receptionist notification fan-out
+ * - Human-in-the-loop (alerts only, no auto-status change)
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/jobs/heartbeat, @/lib/jobs/verify, @/lib/notifications/dispatch,
+ *                @rgss/business, @rgss/db/queries, @rgss/logger
+ *
+ * Notes        :
+ * - NEVER auto-marks no-show; a human receptionist decides.
+ * - Ignores bookings already in completed/cancelled/no_show status.
+ ************************************************************/
+
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
 import { dispatchNotification } from '@/lib/notifications/dispatch'

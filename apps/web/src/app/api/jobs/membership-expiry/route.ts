@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : POST /api/jobs/membership-expiry
+ * Scope        : API — Background Jobs
+ *
+ * Description  : QStash-scheduled job (daily 12:30am IST) that sends expiry
+ *                alerts at 30-day, 7-day, and 1-day milestones before membership end.
+ *
+ * Responsibilities :
+ * - Find active memberships expiring at 30/7/1 day milestones
+ * - Send push notifications respecting customer preferences
+ * - Maintain idempotency via notification deduplication
+ *
+ * Features / Functionality :
+ * - Three-tier expiry alerts (30d, 7d, 1d)
+ * - Customer preference respect (membershipAlertsEnabled)
+ * - Per-(user, tier-type) deduplication
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/jobs/heartbeat, @/lib/jobs/verify, @/lib/notifications/dispatch,
+ *                @rgss/business, @rgss/db/queries, @rgss/logger
+ *
+ * Notes        :
+ * - Each membership matches at most one tier per run (30d, 7d, or 1d).
+ * - Hard expiry is enforced by pg_cron; this job only notifies.
+ ************************************************************/
+
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
 import { dispatchNotification } from '@/lib/notifications/dispatch'

@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : GET|PATCH /api/notifications
+ * Scope        : API — Customer Notifications
+ *
+ * Description  : User notification feed and mark-read operations. GET returns
+ *                paginated notifications with unread count; PATCH marks as read.
+ *
+ * Responsibilities :
+ * - Return paginated notification feed (newest first)
+ * - Provide unread notification count
+ * - Mark specific or all notifications as read
+ *
+ * Features / Functionality :
+ * - Paginated notification list (default 20, max 100)
+ * - Unread count in response metadata
+ * - Bulk or selective mark-as-read via PATCH
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/db/queries,
+ *                @rgss/errors, @rgss/types
+ *
+ * Notes        :
+ * - Strictly scoped to the authenticated user; never exposes other users' notifications.
+ * - Empty/missing PATCH body marks ALL unread as read.
+ ************************************************************/
+
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireSession } from '@/lib/api/session'
 import { getNotificationsForUser, getUnreadCount, markNotificationsRead } from '@rgss/db/queries'

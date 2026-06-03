@@ -1,3 +1,32 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : robots
+ * Scope        : SEO Configuration
+ *
+ * Description  : robots.txt configuration allowing public crawling while
+ *                hiding admin/API surfaces, with explicit AI crawler permits.
+ *
+ * Responsibilities :
+ * - Disallow private paths (admin, API, profile, staff, book)
+ * - Explicitly allow 15+ AI crawler user-agents
+ * - Reference the XML sitemap
+ *
+ * Features / Functionality :
+ * - Default allow + selective disallow
+ * - AI-friendly: GPTBot, ClaudeBot, PerplexityBot, etc.
+ * - Dynamic sitemap URL from SITE_URL constant
+ *
+ * Tech Stack   : Next.js 16 (MetadataRoute.Robots)
+ * Layer        : Infrastructure (SEO)
+ *
+ * Dependencies : next, @/lib/seo/business
+ *
+ * Notes        :
+ * - AI crawler list from seo.md Part 9
+ ************************************************************/
 import { SITE_URL } from '@/lib/seo/business'
 import type { MetadataRoute } from 'next'
 

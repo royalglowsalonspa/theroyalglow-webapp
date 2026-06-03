@@ -1,3 +1,36 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : CookieConsent
+ * Scope        : Cookie Consent UI
+ *
+ * Description  : Cookie consent banner with 2-tier opt-in (analytics/marketing).
+ *                Supports accept-all, reject, and per-category customisation.
+ *
+ * Responsibilities :
+ * - Show consent banner for undecided visitors
+ * - Provide accept-all, reject, and customise options
+ * - Render accessible toggle switches for each consent category
+ * - Re-open via OPEN_PREFERENCES_EVENT from footer button
+ * - Animate entry/exit with translate+opacity transition
+ *
+ * Features / Functionality :
+ * - 2-tier consent: necessary (always on) + analytics + marketing
+ * - Customise panel with accessible role=switch toggles
+ * - Animated banner entry (translate-y-4 → translate-y-0)
+ * - Privacy Policy link in description
+ * - Persistent state via lib/consent/consent.ts
+ *
+ * Tech Stack   : React, TypeScript, Tailwind CSS
+ * Layer        : Frontend
+ *
+ * Dependencies : @/lib/consent/consent, @/lib/utils, next/link
+ *
+ * Notes        : None
+ ************************************************************/
+
 'use client'
 
 import {

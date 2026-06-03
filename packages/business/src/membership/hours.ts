@@ -1,3 +1,30 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : hours
+ * Scope        : Business Logic — Membership
+ *
+ * Description  : Membership hour tracking and session recording
+ *                guard logic.
+ *
+ * Responsibilities :
+ * - Calculate remaining minutes on a membership
+ * - Guard session recording (expired/insufficient hours)
+ *
+ * Features / Functionality :
+ * - remainingMinutes(total, used) → integer
+ * - assertSessionRecordable(m, requestedMinutes) — throws on violation
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Business Logic
+ *
+ * Dependencies : @rgss/errors
+ *
+ * Notes        :
+ * - Throws MEMBERSHIP_EXPIRED or MEMBERSHIP_INSUFFICIENT_HOURS (409)
+ ************************************************************/
 import { ERROR_CODES, conflict } from '@rgss/errors'
 
 // Remaining minutes on a membership. Pure arithmetic; the caller ensures

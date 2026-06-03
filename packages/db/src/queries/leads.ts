@@ -1,3 +1,37 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : leads
+ * Scope        : Data Access — Leads
+ *
+ * Description  : Query functions for lead pipeline management including
+ *                creation, retrieval, notes, and status updates.
+ *
+ * Responsibilities :
+ * - Create leads from Meta ad /book form submissions
+ * - Fetch single lead with service interest and assignment details
+ * - Fetch all leads for kanban pipeline view with filtering
+ * - Update lead status, assignment, and conversion tracking
+ * - Manage lead notes and service interest options
+ *
+ * Features / Functionality :
+ * - Lead creation with auto-defaulting 'new' status and 'meta_ad' source
+ * - Rich lead detail with LEFT JOINed service, assignee, booking info
+ * - Pipeline view with optional status filtering
+ * - Service interest dropdown data for /book form
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm, ../index, ../schema/auth, ../schema/booking,
+ *                ../schema/lead, ../schema/service
+ *
+ * Notes        : Lead conversion sets converted_booking_id when customer
+ *                completes a booking after the lead was captured.
+ ************************************************************/
+
 import { and, asc, desc, eq } from 'drizzle-orm'
 import { db } from '../index'
 import { user } from '../schema/auth'

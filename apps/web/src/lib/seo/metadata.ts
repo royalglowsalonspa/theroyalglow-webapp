@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : metadata
+ * Scope        : SEO — Metadata
+ *
+ * Description  : Shared page-metadata helper. Produces Next.js Metadata objects
+ *                with brand-suffixed titles, canonical URLs, OG/Twitter cards.
+ *
+ * Responsibilities :
+ * - Build consistent Next.js Metadata for every public page
+ * - Append brand suffix to page titles automatically
+ * - Generate absolute canonical URLs without double slashes
+ * - Set OpenGraph, Twitter card, and robots directives
+ *
+ * Features / Functionality :
+ * - buildMetadata() — complete Metadata from title/description/path
+ * - Automatic brand suffixing (| Royal Glow Salon & Spa)
+ * - Canonical URL normalisation (no double slashes)
+ *
+ * Tech Stack   : TypeScript, Next.js
+ * Layer        : Frontend
+ *
+ * Dependencies : @/lib/seo/business, next (Metadata type)
+ *
+ * Notes        : None
+ ************************************************************/
+
 /**
  * Shared page-metadata helper.
  *

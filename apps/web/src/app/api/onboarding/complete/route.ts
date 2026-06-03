@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : POST /api/onboarding/complete
+ * Scope        : API — Customer Onboarding
+ *
+ * Description  : Completes the post-OAuth onboarding flow by collecting the
+ *                customer's phone, DOB, gender, and consent preferences.
+ *
+ * Responsibilities :
+ * - Validate onboarding payload (phone, DOB, gender, consents)
+ * - Prevent duplicate profile creation (409 on existing)
+ * - Persist customer_profile with acquisition source attribution
+ *
+ * Features / Functionality :
+ * - Indian phone validation (10-digit, starts with 6-9)
+ * - UTM/lead-based acquisition source resolution
+ * - Marketing, analytics, and privacy consent capture
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/auth-server, @rgss/db, @rgss/db/schema, drizzle-orm,
+ *                next/headers, zod
+ *
+ * Notes        :
+ * - Called once per user after first Google OAuth sign-in.
+ * - Returns 409 if profile already exists (idempotency guard).
+ ************************************************************/
+
 import { auth } from '@/lib/auth-server'
 import { db } from '@rgss/db'
 import { customerProfile } from '@rgss/db/schema'

@@ -1,3 +1,37 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : notifications
+ * Scope        : Data Access — Notifications
+ *
+ * Description  : Query functions for notification management including creation,
+ *                delivery tracking, push subscriptions, and user feed.
+ *
+ * Responsibilities :
+ * - Create notification records for push/email delivery
+ * - Fetch user notification feed (paginated, newest first)
+ * - Track unread counts and mark notifications as read
+ * - Manage Web Push subscriptions (save, remove, list active)
+ * - Update notification delivery status (sent/failed)
+ *
+ * Features / Functionality :
+ * - User-scoped notification feed (own rows only)
+ * - Bulk or selective mark-as-read with user scoping
+ * - Push subscription upsert by endpoint (reactivation on re-subscribe)
+ * - Delivery status tracking with sent_at timestamp
+ * - User contact resolution for email dispatch
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm, ../index, ../schema/auth, ../schema/notification
+ *
+ * Notes        : Notifications are created with status 'pending'. The dispatch
+ *                layer handles actual delivery and updates status to sent/failed.
+ ************************************************************/
+
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '../index'
 import { user } from '../schema/auth'

@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : RichText
+ * Scope        : Blog UI
+ *
+ * Description  : Renders pre-sanitised Lexical article body HTML with
+ *                premium typographic styling via descendant selectors.
+ *
+ * Responsibilities :
+ * - Render sanitised HTML from lib/cms/richtext.ts via dangerouslySetInnerHTML
+ * - Apply typographic styles to whitelisted tags (p, h2-h4, ul/ol, a, etc.)
+ * - Return null for empty HTML content
+ *
+ * Features / Functionality :
+ * - Typography-aware rendering with project design tokens
+ * - Heading hierarchy (h2-h4) with display font
+ * - Styled links with gold colour and underline
+ * - List styling (disc/decimal) with proper spacing
+ *
+ * Tech Stack   : React, TypeScript, Tailwind CSS
+ * Layer        : Frontend
+ *
+ * Dependencies : None
+ *
+ * Notes        : HTML is pre-sanitised by lib/cms/richtext.ts (safe for innerHTML)
+ ************************************************************/
+
 // Renders the serialised Lexical article body.
 //
 // The `html` prop is produced by `lib/cms/richtext.ts#lexicalToHtml`, which

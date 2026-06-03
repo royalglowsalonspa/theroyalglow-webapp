@@ -1,3 +1,37 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : MobileNav
+ * Scope        : Layout
+ *
+ * Description  : Slide-in mobile navigation panel with focus trap, escape key
+ *                handling, and authenticated user account links.
+ *
+ * Responsibilities :
+ * - Render full-screen slide-in navigation with backdrop
+ * - Trap focus within the panel when open
+ * - Close on Escape key or backdrop click
+ * - Show navigation links with active route highlighting
+ * - Display account links for authenticated users
+ * - Provide Book Now and Sign In/Profile CTAs
+ *
+ * Features / Functionality :
+ * - Accessible modal dialog with aria-modal
+ * - Focus trap with Tab/Shift+Tab cycling
+ * - Slide transition (translate-x-full → translate-x-0)
+ * - Body scroll lock when open
+ * - Auth-aware: account links for signed-in users
+ *
+ * Tech Stack   : React, TypeScript, Tailwind CSS, Next.js
+ * Layer        : Frontend
+ *
+ * Dependencies : next/link
+ *
+ * Notes        : None
+ ************************************************************/
+
 'use client'
 
 import Link from 'next/link'

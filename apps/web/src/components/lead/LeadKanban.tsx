@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : LeadKanban
+ * Scope        : Lead Management UI
+ *
+ * Description  : Admin lead pipeline kanban board with 5 columns, lead cards,
+ *                stale indicators, and a manual lead creation dialog.
+ *
+ * Responsibilities :
+ * - Fetch and display all leads in kanban column layout
+ * - Bucket leads into status-based columns (New → Won/Lost)
+ * - Render lead cards with contact info and stale indicators
+ * - Provide manual lead creation dialog with validation
+ *
+ * Features / Functionality :
+ * - 5-column kanban: New, Contacted, Follow-up, Booked, Won/Lost
+ * - LeadCard with phone link, service, campaign label, days-since
+ * - Stale lead indicator (red dot for 48h+ no contact)
+ * - Manual lead creation modal with name/phone/service
+ * - Horizontal scroll on mobile, full width on desktop
+ *
+ * Tech Stack   : React, TypeScript, Tailwind CSS, Next.js
+ * Layer        : Frontend
+ *
+ * Dependencies : @/lib/admin/leads, next/link
+ *
+ * Notes        : None
+ ************************************************************/
+
 'use client'
 
 import {

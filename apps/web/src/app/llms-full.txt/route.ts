@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : llms-full.txt
+ * Scope        : AI Discovery (SEO)
+ *
+ * Description  : Detailed AI-discovery file with full service menu,
+ *                prices, durations, cancellation policy, and FAQ.
+ *
+ * Responsibilities :
+ * - Render full service menu with prices (INR) and durations
+ * - Include cancellation/rescheduling policy
+ * - Include FAQ section from business constants
+ * - Gracefully degrade to pointer URL on DB errors
+ *
+ * Features / Functionality :
+ * - Per-category service listing (name, price, duration)
+ * - INR formatting via formatINR (paise → ₹)
+ * - Contact block with opening hours
+ * - Booking and social links
+ *
+ * Tech Stack   : Next.js 16 (Route Handler), force-dynamic
+ * Layer        : Infrastructure (SEO)
+ *
+ * Dependencies : @/lib/seo/business, @rgss/business, @rgss/db/queries
+ *
+ * Notes        :
+ * - Always returns 200 (never 500s)
+ * - Extends llms.txt with full menu detail
+ ************************************************************/
 import { BUSINESS, FAQS, SITE_URL } from '@/lib/seo/business'
 import { formatINR } from '@rgss/business'
 import { getAllServicesGrouped } from '@rgss/db/queries'

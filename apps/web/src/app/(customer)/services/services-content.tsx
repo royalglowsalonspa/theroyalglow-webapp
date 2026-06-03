@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : ServicesContent
+ * Scope        : Customer Pages
+ *
+ * Description  : Client component rendering the full service catalogue with
+ *                Salon/SPA toggle, category accordions, and service cards with booking links.
+ *
+ * Responsibilities :
+ * - Render the Salon/SPA type toggle tabs
+ * - Display service categories as expandable accordions
+ * - Show individual service and therapy cards with pricing and "Book This" links
+ *
+ * Features / Functionality :
+ * - Salon: 7 categories with 35+ services (name, duration, price)
+ * - SPA: Standard/Premium/VVIP tiers with 60/90-min duration toggles
+ * - Deep-link booking via /?book=1&service={slug}
+ *
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4
+ * Layer        : Presentation
+ *
+ * Dependencies : next/link, React (useState)
+ *
+ * Notes        :
+ * - Service data is currently hardcoded; will migrate to server-fetched data
+ ************************************************************/
+
 'use client'
 
 import Link from 'next/link'

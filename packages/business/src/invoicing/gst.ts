@@ -1,3 +1,32 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : gst
+ * Scope        : Business Logic — Invoicing
+ *
+ * Description  : GST calculation utility for splitting inclusive
+ *                prices into base + CGST + SGST (intra-state Karnataka).
+ *
+ * Responsibilities :
+ * - Back-calculate taxable base from GST-inclusive price
+ * - Split GST into equal CGST/SGST halves
+ * - Maintain integer paise precision (no floating point)
+ *
+ * Features / Functionality :
+ * - splitGST(inclusivePaise) → { basePaise, gstPaise, cgstPaise, sgstPaise }
+ * - Exact reconstruction: base + gst === original amount
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Business Logic
+ *
+ * Dependencies : None
+ *
+ * Notes        :
+ * - GST rate: 18% (SAC 999721 — beauty/wellness services)
+ * - All prices stored as GST-inclusive in DB
+ ************************************************************/
 const GST_RATE = 0.18
 
 // Prices are stored GST-inclusive (18%, SAC 999721). Back-calculate the taxable

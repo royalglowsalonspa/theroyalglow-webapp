@@ -1,3 +1,38 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : seed-prod
+ * Scope        : Database Seeding — Production
+ *
+ * Description  : Production seed script that inserts essential operational data
+ *                needed for the app to function. Idempotent via onConflictDoNothing.
+ *
+ * Responsibilities :
+ * - Seed branch records (Rayasandra, Marathahalli)
+ * - Seed system settings (GST, gems rules, cancellation policies)
+ * - Seed service categories (salon + spa)
+ * - Seed all services (salon 34 + spa 21)
+ * - Seed SPA membership tiers (Silver, Gold, Platinum)
+ * - Seed customer tags (VIP, Frequent, No-Show Risk, etc.)
+ *
+ * Features / Functionality :
+ * - Fully idempotent (safe to run multiple times)
+ * - Respects FK constraints via ordered execution
+ * - Direct Neon connection (independent of app db instance)
+ * - Performance timing for seed execution
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM
+ * Layer        : Data Access
+ *
+ * Dependencies : @neondatabase/serverless, drizzle-orm/neon-http,
+ *                ../src/schema/*, ./data/*
+ *
+ * Notes        : Execution order: branch → settings → categories → services
+ *                → tiers → tags (FK dependency chain).
+ ************************************************************/
+
 /**
  * Production seed script — seeds essential data that the app needs to function.
  * Safe to run multiple times (idempotent — uses onConflictDoNothing).

@@ -1,3 +1,36 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : loyalty
+ * Scope        : Database Schema — Loyalty
+ *
+ * Description  : Defines loyalty (Gems) program tables for earning, redeeming,
+ *                and expiring customer reward points.
+ *
+ * Responsibilities :
+ * - Define loyalty_account table with balance and lifetime totals
+ * - Define loyalty_transaction table for all gems movements
+ * - Support 4 transaction types: earned, redeemed, expired, adjusted
+ * - Track gem expiration dates (365-day expiry from earn date)
+ *
+ * Features / Functionality :
+ * - One loyalty account per customer (unique constraint)
+ * - Composite index on account + created_at for transaction history
+ * - Partial index on expirable earned transactions for cron job
+ * - Gems earned at 1 per ₹100 (floor) on service invoices only
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM, PostgreSQL
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm, drizzle-orm/pg-core, nanoid, ./auth, ./enums,
+ *                ./invoice
+ *
+ * Notes        : Gems cannot be combined with offers on the same booking.
+ *                Redemption is against specific catalogue services, not ₹ discount.
+ ************************************************************/
+
 import { sql } from 'drizzle-orm'
 import { index, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'

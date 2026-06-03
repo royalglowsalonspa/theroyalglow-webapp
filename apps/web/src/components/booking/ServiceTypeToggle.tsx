@@ -1,3 +1,32 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : ServiceTypeToggle
+ * Scope        : Booking UI
+ *
+ * Description  : Accessible Salon/SPA toggle component using pill-styled
+ *                radio buttons. Used in booking and services UI.
+ *
+ * Responsibilities :
+ * - Render a two-option radio group for Salon vs SPA selection
+ * - Communicate selection changes via onChange callback
+ * - Provide proper ARIA radiogroup semantics
+ *
+ * Features / Functionality :
+ * - Pill-styled toggle with active/inactive visual states
+ * - Accessible radiogroup with aria-checked
+ * - Motion-safe colour transitions
+ *
+ * Tech Stack   : React, TypeScript, Tailwind CSS
+ * Layer        : Frontend
+ *
+ * Dependencies : None
+ *
+ * Notes        : None
+ ************************************************************/
+
 'use client'
 
 type ServiceType = 'salon' | 'spa'

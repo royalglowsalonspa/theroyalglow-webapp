@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : OnboardingForm
+ * Scope        : Authentication UI
+ *
+ * Description  : Client form for collecting phone, DOB, gender, and
+ *                consent preferences during first-time user onboarding.
+ *
+ * Responsibilities :
+ * - Collect and validate profile fields (phone, DOB, gender)
+ * - Collect privacy/analytics/marketing consent
+ * - Submit to /api/onboarding/complete
+ * - Persist consent to localStorage, clear sessionStorage context
+ *
+ * Features / Functionality :
+ * - Indian phone validation (10 digits, starts with 6-9)
+ * - Gender select with prefer-not-to-say option
+ * - 3-tier consent checkboxes (privacy required, analytics/marketing optional)
+ * - UTM context forwarding from sessionStorage
+ *
+ * Tech Stack   : React, Next.js (client), Tailwind CSS v4
+ * Layer        : Presentation (Component)
+ *
+ * Dependencies : react, next/navigation
+ *
+ * Notes        :
+ * - Writes consent to localStorage key: rgss_cookie_consent
+ * - Clears auth context from sessionStorage after successful submit
+ ************************************************************/
 'use client'
 
 import { useRouter } from 'next/navigation'

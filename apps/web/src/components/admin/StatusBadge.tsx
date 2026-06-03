@@ -1,3 +1,32 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : StatusBadge
+ * Scope        : Admin UI
+ *
+ * Description  : Reusable status badge component with colour-coded dot and
+ *                label for booking/payment/membership statuses.
+ *
+ * Responsibilities :
+ * - Render colour-coded badge for any status string
+ * - Format snake_case status into human-readable label
+ * - Fall back to neutral grey for unknown statuses
+ *
+ * Features / Functionality :
+ * - StatusBadge component with configurable status prop
+ * - Colour map for pending, confirmed, in_progress, completed, etc.
+ * - Automatic status text formatting (snake_case → Title Case)
+ *
+ * Tech Stack   : React, TypeScript, Tailwind CSS
+ * Layer        : Frontend
+ *
+ * Dependencies : None
+ *
+ * Notes        : None
+ ************************************************************/
+
 const STATUS_CONFIG: Record<string, { bg: string; text: string; dot: string }> = {
   pending: {
     bg: 'bg-amber-50',

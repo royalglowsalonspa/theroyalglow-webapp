@@ -1,3 +1,31 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : pricing
+ * Scope        : Business Logic — Booking
+ *
+ * Description  : Booking pricing utilities — total calculation
+ *                and time arithmetic for end-time derivation.
+ *
+ * Responsibilities :
+ * - Sum service prices and durations for a booking
+ * - Add minutes to a HH:MM time string
+ *
+ * Features / Functionality :
+ * - calculateBookingTotal(services) → { totalAmountPaise, totalDurationMinutes }
+ * - addMinutesToTime("10:00", 90) → "11:30"
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Business Logic
+ *
+ * Dependencies : None
+ *
+ * Notes        :
+ * - All amounts in integer paise
+ * - Time wraps at 24h boundary
+ ************************************************************/
 export function calculateBookingTotal(
   services: { pricePaise: number; durationMinutes: number }[],
 ): {

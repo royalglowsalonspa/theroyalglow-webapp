@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : Blog
+ * Scope        : CMS Collections
+ *
+ * Description  : Payload CMS collection for blog posts with auto-slug
+ *                generation, SEO fields, and draft/published status.
+ *
+ * Responsibilities :
+ * - Define blog post schema (title, body, cover, SEO, category)
+ * - Auto-generate slug from title (kebab-case)
+ * - Gate anonymous reads to published posts only
+ *
+ * Features / Functionality :
+ * - Rich text body via Lexical editor
+ * - Cover image (R2), author relationship, tags
+ * - SEO group (metaTitle, metaDescription, ogImage)
+ * - Draft/Published lifecycle
+ *
+ * Tech Stack   : Payload CMS v3, Lexical Editor
+ * Layer        : CMS (Collection)
+ *
+ * Dependencies : payload, ../access/published
+ *
+ * Notes        :
+ * - Blog posts fetched by web app via ISR (1h revalidation)
+ * - Slug is auto-generated but editable by content team
+ ************************************************************/
 import type { CollectionConfig, FieldHook } from 'payload'
 import { adminsWrite, anyoneReadsPublished } from '../access/published'
 

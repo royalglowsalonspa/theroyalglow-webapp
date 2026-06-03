@@ -1,7 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : admin-booking (types)
+ * Scope        : Shared Types & Validation
+ *
+ * Description  : Zod schemas for admin-side booking actions —
+ *                approve, reject, assign staff, and complete.
+ *
+ * Responsibilities :
+ * - Validate booking approval with staff assignment
+ * - Validate rejection with customer-facing reason
+ * - Validate staff reassignment
+ * - Validate completion with payment method
+ *
+ * Features / Functionality :
+ * - adminBookingActionSchema — discriminated union (approve/reject/assign)
+ * - completeBookingSchema — payment method for invoice generation
+ *
+ * Tech Stack   : TypeScript, Zod
+ * Layer        : Shared Package
+ *
+ * Dependencies : zod
+ *
+ * Notes        :
+ * - Completion triggers invoice generation + gems award
+ ************************************************************/
 import { z } from 'zod'
 
-// Approve a pending booking: assign one staff member to every service, then
-// transition pending → confirmed.
 export const approveBookingSchema = z.object({
   action: z.literal('approve'),
   staffId: z.string().min(1),

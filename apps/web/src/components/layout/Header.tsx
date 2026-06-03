@@ -1,3 +1,36 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : Header
+ * Scope        : Layout
+ *
+ * Description  : Site-wide header with logo, desktop navigation, auth state,
+ *                notification bell, and mobile hamburger trigger.
+ *
+ * Responsibilities :
+ * - Render main navigation links with active route highlighting
+ * - Show authenticated user controls (bookings, membership, gems, profile)
+ * - Display notification bell for signed-in users
+ * - Toggle mobile navigation panel
+ * - Add scroll-triggered shadow on scroll
+ *
+ * Features / Functionality :
+ * - Fixed position header with scroll shadow
+ * - Desktop nav with active route underline
+ * - Auth-aware: sign-in link vs user avatar + nav
+ * - Mobile hamburger with MobileNav panel
+ * - NotificationBell integration
+ *
+ * Tech Stack   : React, TypeScript, Tailwind CSS, Next.js
+ * Layer        : Frontend
+ *
+ * Dependencies : @/components/notifications/NotificationBell, @/lib/auth-client, next/link, next/navigation, ./MobileNav
+ *
+ * Notes        : None
+ ************************************************************/
+
 'use client'
 
 import { NotificationBell } from '@/components/notifications/NotificationBell'

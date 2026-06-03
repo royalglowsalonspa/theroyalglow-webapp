@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : Leave Queue
+ * Scope        : Admin Portal — Leave Management
+ *
+ * Description  : Interactive leave request queue with approve/reject
+ *                workflows. Surfaces booking conflicts when approving
+ *                leave on dates with confirmed appointments.
+ *
+ * Responsibilities :
+ * - Fetch and display leave requests filtered by status tab
+ * - Provide approve/reject actions with rejection reason input
+ * - Surface conflicting bookings after approval for reassignment
+ *
+ * Features / Functionality :
+ * - Status tabs (pending, approved, rejected, all)
+ * - Conflict detection warning on approval (shows affected bookings)
+ * - Leave type labels and status badge styling
+ *
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript
+ * Layer        : Presentation (Queue Management Component)
+ *
+ * Dependencies : admin bookings lib (formatDateDDMMYYYY, formatTime12h), React hooks
+ *
+ * Notes        :
+ * - Conflicts are returned by the PATCH API after approval
+ ************************************************************/
+
 'use client'
 
 import { formatDateDDMMYYYY, formatTime12h } from '@/lib/admin/bookings'

@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : Bookings Table
+ * Scope        : Admin Portal — Booking Management
+ *
+ * Description  : Interactive bookings list with status, date, and
+ *                service type filters. Fetches from admin API with
+ *                query params and renders a paginated data table.
+ *
+ * Responsibilities :
+ * - Fetch bookings with filter parameters (status, date, serviceType)
+ * - Render filter bar with dropdowns, date picker, and toggle group
+ * - Display bookings in a sortable table with status badges
+ *
+ * Features / Functionality :
+ * - Multi-filter support (status, date, salon/spa type)
+ * - Responsive table with booking details and action links
+ * - Loading, error, and empty states with retry capability
+ *
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript
+ * Layer        : Presentation (Data Table Component)
+ *
+ * Dependencies : StatusBadge, admin bookings lib, next/link, React hooks
+ *
+ * Notes        :
+ * - Filters trigger re-fetch via useEffect dependency array
+ ************************************************************/
+
 'use client'
 
 import { StatusBadge } from '@/components/admin/StatusBadge'

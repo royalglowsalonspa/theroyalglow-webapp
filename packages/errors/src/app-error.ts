@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : AppError
+ * Scope        : Error Handling
+ *
+ * Description  : Custom error class for structured, operational error
+ *                handling across the entire application stack.
+ *
+ * Responsibilities :
+ * - Define AppError with code, statusCode, retryable, details
+ * - Provide factory functions for common HTTP error patterns
+ * - Distinguish operational vs programmer errors
+ *
+ * Features / Functionality :
+ * - notFound() — 404
+ * - forbidden() — 403
+ * - badRequest() — 400 with validation details
+ * - conflict() — 409
+ * - serviceUnavailable() — 502 (retryable)
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Shared Package
+ *
+ * Dependencies : ./codes
+ *
+ * Notes        :
+ * - isOperational = true means safe to expose to client
+ * - retryable hints upstream callers to retry
+ ************************************************************/
 import { ERROR_CODES, type ErrorCode } from './codes'
 
 export class AppError extends Error {

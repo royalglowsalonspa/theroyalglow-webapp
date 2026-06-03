@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : report
+ * Scope        : Business Logic — Background Jobs
+ *
+ * Description  : Plain-text report formatting for daily and weekly
+ *                sales summary jobs (jobs 13 & 14).
+ *
+ * Responsibilities :
+ * - Format daily sales report body with services, revenue, bookings
+ * - Format weekly report with week-over-week delta
+ * - Compute percentage change for comparison
+ *
+ * Features / Functionality :
+ * - formatDailyReport(data) → plain-text daily summary
+ * - formatWeeklyReport(data, previous) → weekly + WoW comparison
+ * - weekOverWeekDelta(current, previous) → { deltaPaise, pct }
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Business Logic
+ *
+ * Dependencies : ../utils/currency, ../utils/date
+ *
+ * Notes        :
+ * - All figures arrive as integer paise
+ * - Output is deterministic for a given input (sorted, stable)
+ ************************************************************/
 import { formatINR } from '../utils/currency'
 import { formatDateIN } from '../utils/date'
 

@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : CustomerProfileTabs
+ * Scope        : Admin UI — CRM
+ *
+ * Description  : Tabbed customer profile view showing bookings, invoices,
+ *                membership, gems, notes, and tag management.
+ *
+ * Responsibilities :
+ * - Render tabbed interface for customer detail data
+ * - Manage CRM tags (assign, create, remove) via API
+ * - Display booking/invoice/membership history tables
+ * - Support inline note creation with optimistic UI
+ *
+ * Features / Functionality :
+ * - Accessible tab panel with aria-selected/aria-controls
+ * - Tag chips with search/create/remove functionality
+ * - Membership progress bar with hours visualisation
+ * - Gems balance display and notes timeline
+ *
+ * Tech Stack   : React, TypeScript, Tailwind CSS, shadcn/ui
+ * Layer        : Frontend
+ *
+ * Dependencies : @/components/admin/StatusBadge, @/lib/admin/bookings, next/link
+ *
+ * Notes        : None
+ ************************************************************/
+
 'use client'
 
 import { StatusBadge } from '@/components/admin/StatusBadge'

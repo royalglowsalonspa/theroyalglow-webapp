@@ -1,3 +1,32 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : published
+ * Scope        : CMS Access Control
+ *
+ * Description  : Access control helpers for Payload CMS collections,
+ *                gating anonymous reads and admin writes.
+ *
+ * Responsibilities :
+ * - Allow authenticated users full read access
+ * - Restrict anonymous reads to published documents
+ * - Gate write operations to authenticated Payload admins
+ *
+ * Features / Functionality :
+ * - anyoneReadsPublished — status filter for anonymous
+ * - anyoneReads — unrestricted public read
+ * - adminsWrite — require authenticated user for mutations
+ *
+ * Tech Stack   : Payload CMS v3
+ * Layer        : CMS (Access)
+ *
+ * Dependencies : payload (types)
+ *
+ * Notes        :
+ * - Used by Blog (status-gated) and all other collections (world-readable)
+ ************************************************************/
 import type { Access } from 'payload'
 
 /**

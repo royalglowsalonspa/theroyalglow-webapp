@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : GET|PATCH /api/admin/leads/[id]
+ * Scope        : API — Admin Leads
+ *
+ * Description  : Admin lead detail and status update. GET returns lead with
+ *                notes; PATCH transitions lead through the pipeline.
+ *
+ * Responsibilities :
+ * - Return full lead detail with associated notes (GET)
+ * - Validate and execute lead status transitions (PATCH)
+ * - Enforce lead state machine rules
+ *
+ * Features / Functionality :
+ * - Lead detail with notes history
+ * - Status transition with business rule validation
+ * - Auto-stamp lastContactedAt on "contacted" transition
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/business,
+ *                @rgss/db/queries, @rgss/errors, @rgss/types
+ *
+ * Notes        :
+ * - Requires min role: receptionist.
+ * - Lead status transitions enforced by assertLeadTransition business rule.
+ ************************************************************/
+
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { assertLeadTransition } from '@rgss/business'

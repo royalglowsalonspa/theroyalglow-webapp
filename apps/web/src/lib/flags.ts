@@ -1,3 +1,32 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : flags
+ * Scope        : Feature Flags
+ *
+ * Description  : Server-side PostHog feature flag helper for kill-switches
+ *                and feature gates. Degrades gracefully when PostHog is absent.
+ *
+ * Responsibilities :
+ * - Evaluate feature flags via PostHog server-side SDK
+ * - Provide safe defaults when PostHog is unconfigured
+ * - Never throw — flag evaluation is best-effort
+ *
+ * Features / Functionality :
+ * - isFeatureEnabled() — total async flag check with safe default
+ * - FLAGS constant — typed registry of all known flag keys
+ * - Lazy PostHog client initialisation (optional dependency)
+ *
+ * Tech Stack   : TypeScript, posthog-node (optional)
+ * Layer        : Frontend
+ *
+ * Dependencies : @rgss/logger, posthog-node (optional)
+ *
+ * Notes        : Reads process.env directly (not @/env) for graceful degradation
+ ************************************************************/
+
 import { createLogger } from '@rgss/logger'
 
 // Server-side PostHog feature-flags helper.

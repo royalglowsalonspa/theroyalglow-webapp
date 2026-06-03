@@ -1,3 +1,37 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : time
+ * Scope        : Business Logic — Background Jobs
+ *
+ * Description  : IST (Asia/Kolkata, UTC+5:30) time helpers for
+ *                background jobs — date math, reminder windows,
+ *                and financial period keys.
+ *
+ * Responsibilities :
+ * - Convert UTC instants to IST calendar days
+ * - Classify booking starts into reminder windows (24h / 1h)
+ * - Compute days-until for membership expiry checks
+ * - Generate monthly GST period keys
+ *
+ * Features / Functionality :
+ * - istToday, istDateInDays, isSameISTDay
+ * - reminderWindowMatch (15-min slot at +24h or +1h)
+ * - monthKeyIST (previous month YYYY-MM)
+ * - daysUntilIST (calendar-day difference)
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Business Logic
+ *
+ * Dependencies : None
+ *
+ * Notes        :
+ * - Pure and deterministic — accepts optional `now` for testing
+ * - Salon operates on IST calendar boundaries
+ ************************************************************/
+
 // IST (Asia/Kolkata, UTC+5:30) window helpers for the background jobs layer.
 // All functions are pure and deterministic: they accept an optional `now` so
 // callers (and tests) can pin the clock. The salon operates on IST calendar

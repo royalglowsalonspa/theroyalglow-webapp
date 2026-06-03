@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : leads
+ * Scope        : Admin — Leads
+ *
+ * Description  : Shared types, formatting helpers, and pipeline constants for
+ *                the admin lead management pages and kanban board.
+ *
+ * Responsibilities :
+ * - Define TypeScript interfaces for lead pipeline data
+ * - Provide lead status metadata (labels, badge colours)
+ * - Define allowed status transitions and kanban columns
+ * - Format dates, times, and WhatsApp-compatible phone numbers
+ *
+ * Features / Functionality :
+ * - LeadPipelineRow / LeadDetailData / LeadNoteRow types
+ * - LEAD_STATUS_META / ALLOWED_LEAD_TRANSITIONS / LEAD_COLUMNS
+ * - formatLeadDate() / formatLeadDateTime() / formatDaysSince()
+ * - toWhatsAppNumber() / leadCampaignLabel()
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Data Fetching
+ *
+ * Dependencies : None
+ *
+ * Notes        : None
+ ************************************************************/
+
 // Shared types + formatting helpers for the admin lead pipeline pages.
 // Mirrors the GET /api/admin/leads (list) and /api/admin/leads/[id] (detail)
 // responses, which both use the standard { success, data } envelope.

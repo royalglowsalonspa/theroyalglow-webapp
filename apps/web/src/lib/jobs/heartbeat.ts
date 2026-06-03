@@ -1,3 +1,31 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : heartbeat
+ * Scope        : Background Jobs
+ *
+ * Description  : BetterStack heartbeat ping helper. Each job pings its monitor
+ *                URL on success so silent failures trip the monitor.
+ *
+ * Responsibilities :
+ * - Ping BetterStack heartbeat URL on successful job completion
+ * - No-op when heartbeat URL is not configured
+ * - Never throw — heartbeat failure must not fail the calling job
+ *
+ * Features / Functionality :
+ * - pingHeartbeat(name) — best-effort HTTP GET to monitor URL
+ * - Dynamic URL resolution from BETTER_STACK_HEARTBEAT_{name} env var
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : API Infrastructure
+ *
+ * Dependencies : @rgss/logger
+ *
+ * Notes        : Reads process.env directly for graceful degradation
+ ************************************************************/
+
 import { createLogger } from '@rgss/logger'
 
 // BetterStack heartbeat ping. Each job pings its monitor URL on success so a

@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : ContactPage
+ * Scope        : Customer Pages
+ *
+ * Description  : Contact page displaying salon location, NAP info, Google Maps embed,
+ *                business hours, and a message form for enquiries.
+ *
+ * Responsibilities :
+ * - Render address, phone, email, and operating hours
+ * - Embed Google Maps iframe showing salon location
+ * - Provide a contact form for name, phone, and message
+ *
+ * Features / Functionality :
+ * - Two-column layout: map + NAP info on left, contact form on right
+ * - Google Maps embed with lazy loading
+ * - Accessible form with validation and ARIA attributes
+ *
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, JSON-LD
+ * Layer        : Presentation
+ *
+ * Dependencies : JsonLd, SITE_URL, breadcrumbJsonLd, localBusinessJsonLd, buildMetadata
+ *
+ * Notes        :
+ * - Form submission handler not yet wired to API; UI-only in Phase 1
+ ************************************************************/
+
 import { JsonLd } from '@/components/seo/JsonLd'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, localBusinessJsonLd } from '@/lib/seo/jsonld'

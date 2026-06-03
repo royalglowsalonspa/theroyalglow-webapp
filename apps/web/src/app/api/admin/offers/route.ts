@@ -1,3 +1,36 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : GET|POST /api/admin/offers
+ * Scope        : API — Admin Offers
+ *
+ * Description  : Admin offers management. GET lists all offers (newest first);
+ *                POST creates a new offer with linked services.
+ *
+ * Responsibilities :
+ * - Return all offers with linked services for admin view (GET)
+ * - Create new offer with discount rules and service links (POST)
+ * - Generate URL-safe slug from offer name
+ *
+ * Features / Functionality :
+ * - Admin offer list with service associations
+ * - Offer creation (percentage, flat, combo_price types)
+ * - Auto-generated unique slug (name + nanoid suffix)
+ * - Date range for offer validity period
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/db/queries,
+ *                @rgss/errors, @rgss/types, nanoid
+ *
+ * Notes        :
+ * - Requires min role: manager.
+ * - Offers are salon-only (not SPA memberships).
+ ************************************************************/
+
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { createOfferWithServices, getAllOffersAdmin } from '@rgss/db/queries'

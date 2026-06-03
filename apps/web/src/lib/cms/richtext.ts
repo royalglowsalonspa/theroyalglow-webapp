@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : richtext
+ * Scope        : CMS Integration — Rich Text
+ *
+ * Description  : Serialises Payload Lexical rich-text JSON into safe HTML.
+ *                Only emits whitelisted tags with escaped text content.
+ *
+ * Responsibilities :
+ * - Parse Lexical JSON nodes into sanitised HTML string
+ * - Escape all text content to prevent XSS
+ * - Validate link hrefs (allow only http/s, mailto, tel, relative)
+ * - Provide plain-text extraction for meta descriptions
+ *
+ * Features / Functionality :
+ * - lexicalToHtml() — Lexical root → sanitised HTML string
+ * - lexicalToPlainText() — Lexical root → plain text (truncated)
+ * - Inline formatting (bold, italic, underline) via bitmask
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Data Fetching
+ *
+ * Dependencies : None
+ *
+ * Notes        : Output is safe for dangerouslySetInnerHTML (pre-sanitised)
+ ************************************************************/
+
 // Serialises Payload's Lexical rich-text JSON into a SAFE subset of HTML.
 //
 // Lexical content is authored by trusted admins, but the output of

@@ -1,3 +1,39 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : customers
+ * Scope        : Data Access — Customers
+ *
+ * Description  : Query functions for CRM customer management including search,
+ *                profiles, tags, notes, bookings, invoices, and memberships.
+ *
+ * Responsibilities :
+ * - Paginated, searchable, sortable customer directory
+ * - Single customer profile with KPIs and tag chips
+ * - Customer bookings, invoices, and membership lookups
+ * - Tag CRUD (create, assign, remove) and note management
+ * - Admin profile overrides (no-show reset, approval toggle)
+ *
+ * Features / Functionality :
+ * - Multi-field search (name, phone, email) with ilike
+ * - Sort by LTV, visits, last visit, gems, no-shows, or name
+ * - Tag-based filtering via JOIN on customer_tag_assignment
+ * - Separate count query for accurate pagination metadata
+ * - Customer notes with author names and optional booking links
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm, @rgss/types, ../index, ../schema/auth,
+ *                ../schema/booking, ../schema/crm, ../schema/invoice,
+ *                ../schema/loyalty, ../schema/membership, ../schema/profile
+ *
+ * Notes        : Customers are user rows with role 'customer' that have a
+ *                customer_profile. Loyalty balance is LEFT JOINed (nullable).
+ ************************************************************/
+
 import type { CustomerListQuery } from '@rgss/types'
 import { and, asc, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm'
 import { db } from '../index'

@@ -1,3 +1,31 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : Faq
+ * Scope        : CMS Collections
+ *
+ * Description  : Payload CMS collection for FAQ entries, serving as the
+ *                preferred source over the static fallback list.
+ *
+ * Responsibilities :
+ * - Define FAQ schema (question, answer, category, order)
+ * - Provide world-readable access, admin-only writes
+ *
+ * Features / Functionality :
+ * - Categorised FAQs (Booking, Pricing, Services, Policies)
+ * - Ordering field for display control
+ * - Drives FAQPage JSON-LD on /faq
+ *
+ * Tech Stack   : Payload CMS v3
+ * Layer        : CMS (Collection)
+ *
+ * Dependencies : payload, ../access/published
+ *
+ * Notes        :
+ * - Web app uses CMS FAQs first, static fallback if CMS unavailable
+ ************************************************************/
 import type { CollectionConfig } from 'payload'
 import { adminsWrite, anyoneReads } from '../access/published'
 

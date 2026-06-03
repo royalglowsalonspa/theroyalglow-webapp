@@ -1,3 +1,32 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : JsonLd
+ * Scope        : SEO UI
+ *
+ * Description  : Server-only component that embeds Schema.org JSON-LD into the
+ *                page via script tags. Escapes < to prevent XSS.
+ *
+ * Responsibilities :
+ * - Serialise JSON-LD objects into script[type=application/ld+json] tags
+ * - Escape < characters to prevent script tag injection
+ * - Support single or array of JSON-LD objects
+ *
+ * Features / Functionality :
+ * - JsonLd component with data prop (object or object[])
+ * - Safe serialisation with < → \u003c escaping
+ * - Server-rendered only (no 'use client')
+ *
+ * Tech Stack   : React, TypeScript
+ * Layer        : Frontend
+ *
+ * Dependencies : None
+ *
+ * Notes        : Must be server-rendered per seo.md — never inject client-side
+ ************************************************************/
+
 /**
  * Server-only component that embeds Schema.org JSON-LD into the page.
  *

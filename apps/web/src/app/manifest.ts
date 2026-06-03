@@ -1,3 +1,32 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : manifest
+ * Scope        : PWA Configuration
+ *
+ * Description  : Web App Manifest for Progressive Web App capabilities
+ *                including installability, theme, and icon definitions.
+ *
+ * Responsibilities :
+ * - Define PWA name, icons, display mode, and theme colors
+ * - Enable Add-to-Home-Screen on mobile devices
+ *
+ * Features / Functionality :
+ * - Standalone display mode
+ * - Brand colors (cocoa-dark theme, white background)
+ * - 192px, 512px, and maskable icon variants
+ * - en-IN locale, lifestyle/health categories
+ *
+ * Tech Stack   : Next.js 16 (MetadataRoute.Manifest)
+ * Layer        : Infrastructure (PWA)
+ *
+ * Dependencies : next
+ *
+ * Notes        :
+ * - Icons must exist in /public/icons/ directory
+ ************************************************************/
 import type { MetadataRoute } from 'next'
 
 // Royal Glow brand tokens (from apps/web/src/styles/globals.css):

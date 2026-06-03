@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : webpush
+ * Scope        : Notifications — Web Push
+ *
+ * Description  : Web Push delivery provider using VAPID auth. Sends push
+ *                notifications and prunes dead subscriptions.
+ *
+ * Responsibilities :
+ * - Send push notifications to active subscriptions via VAPID
+ * - No-op when VAPID keys are not configured
+ * - Prune gone (404/410) subscriptions via onGone callback
+ * - Never throw to caller (catch all errors, return result)
+ *
+ * Features / Functionality :
+ * - sendWebPush(subscriptions, payload, onGone) — multi-sub delivery
+ * - Per-subscription error isolation (one failure doesn't stop loop)
+ * - WebPushResult with sent/failed counts
+ *
+ * Tech Stack   : TypeScript, web-push (optional)
+ * Layer        : API Infrastructure
+ *
+ * Dependencies : @rgss/logger, web-push (optional)
+ *
+ * Notes        : Reads process.env directly for graceful degradation
+ ************************************************************/
+
 import { createLogger } from '@rgss/logger'
 
 // Web Push delivery provider. Sends a payload to a set of the recipient's

@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : business
+ * Scope        : SEO — Business Data
+ *
+ * Description  : Single source of truth for Royal Glow NAP, geo, opening hours,
+ *                amenities, socials, and AI-discovery FAQs used across all SEO
+ *                surfaces.
+ *
+ * Responsibilities :
+ * - Define canonical business facts (name, address, phone, geo)
+ * - Provide opening hours, payment methods, amenities
+ * - Store FAQ list for FAQPage JSON-LD and llms.txt
+ * - Export SITE_URL for canonical URL construction
+ *
+ * Features / Functionality :
+ * - BUSINESS constant — all NAP/geo/hours/amenity data
+ * - FAQS constant — AI-discovery FAQ entries
+ * - SITE_URL / SOCIAL_LINKS exports
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Frontend
+ *
+ * Dependencies : None
+ *
+ * Notes        : Verbatim from seo.md Part 1 / Part 2 / Part 7
+ ************************************************************/
+
 /**
  * Canonical business facts for Royal Glow Salon & Spa.
  *

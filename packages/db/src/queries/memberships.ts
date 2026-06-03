@@ -1,3 +1,39 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : memberships
+ * Scope        : Data Access — Memberships
+ *
+ * Description  : Query functions for SPA membership management including
+ *                creation, session recording, and administrative operations.
+ *
+ * Responsibilities :
+ * - Fetch membership tiers, individual memberships, and member sessions
+ * - Create membership with purchase invoice atomically
+ * - Record membership sessions (booking + invoice + hour deduction)
+ * - Enforce one active membership per customer
+ * - Cancel memberships with reason tracking
+ *
+ * Features / Functionality :
+ * - Atomic membership + invoice creation via db.batch()
+ * - Session recording creates ₹0 booking + ₹0 invoice + deducts hours
+ * - Pre-check for existing active membership (throws 409 conflict)
+ * - Admin membership list with tier/status filtering
+ * - Customer-facing active/past membership split
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm, nanoid, @rgss/errors, ../index, ../schema/auth,
+ *                ../schema/booking, ../schema/invoice, ../schema/membership,
+ *                ../schema/profile
+ *
+ * Notes        : Membership purchase invoices have no booking (bookingId null)
+ *                and earn zero gems. Session bookings are always status 'completed'.
+ ************************************************************/
+
 import { ERROR_CODES, conflict } from '@rgss/errors'
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'

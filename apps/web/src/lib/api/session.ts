@@ -1,3 +1,32 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : session
+ * Scope        : API Infrastructure
+ *
+ * Description  : Session validation and RBAC helpers for API routes.
+ *                Provides requireSession, getOptionalSession, and requireRole.
+ *
+ * Responsibilities :
+ * - Validate authenticated sessions via Better Auth
+ * - Enforce role-based access control with hierarchical levels
+ * - Throw typed AppError for unauthenticated/forbidden access
+ *
+ * Features / Functionality :
+ * - requireSession() — throws 401 if no session
+ * - getOptionalSession() — returns session or null
+ * - requireRole() — throws 403 if role level insufficient
+ *
+ * Tech Stack   : TypeScript, Better Auth, Next.js
+ * Layer        : API
+ *
+ * Dependencies : @/lib/auth-server, @rgss/errors, next/headers
+ *
+ * Notes        : None
+ ************************************************************/
+
 import { auth } from '@/lib/auth-server'
 import { AppError, ERROR_CODES } from '@rgss/errors'
 import { headers } from 'next/headers'

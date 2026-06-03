@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : consent.test
+ * Scope        : Cookie Consent — Tests
+ *
+ * Description  : Unit tests for the cookie consent module verifying
+ *                round-trip persistence, default state, and reject behaviour.
+ *
+ * Responsibilities :
+ * - Verify undecided default state when nothing is stored
+ * - Test round-trip of consent choices via localStorage
+ * - Test rejectNonEssential behaviour
+ * - Property-based test for arbitrary boolean pairs
+ *
+ * Features / Functionality :
+ * - Default state assertion (decided: false)
+ * - setConsent/getConsent round-trip verification
+ * - rejectNonEssential verification
+ * - PBT for 200 random analytics/marketing boolean combinations
+ *
+ * Tech Stack   : TypeScript, Vitest
+ * Layer        : Testing
+ *
+ * Dependencies : vitest, ./consent
+ *
+ * Notes        : None
+ ************************************************************/
+
 import { beforeEach, describe, expect, it } from 'vitest'
 import { getConsent, rejectNonEssential, setConsent } from './consent'
 

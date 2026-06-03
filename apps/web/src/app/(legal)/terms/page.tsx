@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : TermsOfServicePage
+ * Scope        : Legal Pages
+ *
+ * Description  : Terms of Service page governing website use, bookings, payments,
+ *                memberships, loyalty programme, conduct, IP, and jurisdiction.
+ *
+ * Responsibilities :
+ * - Define acceptance terms, service descriptions, and booking rules
+ * - Document pricing, payment, and cancellation policies
+ * - Cover loyalty/membership terms, conduct expectations, and governing law
+ *
+ * Features / Functionality :
+ * - 12-section legal document with semantic headings
+ * - Cross-link to Refund & Cancellation Policy
+ * - Contact details for enquiries from BUSINESS constant
+ *
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4
+ * Layer        : Presentation
+ *
+ * Dependencies : BUSINESS, buildMetadata
+ *
+ * Notes        :
+ * - Statically generated (SSG) — no runtime data fetching
+ ************************************************************/
+
 import { BUSINESS } from '@/lib/seo/business'
 import { buildMetadata } from '@/lib/seo/metadata'
 

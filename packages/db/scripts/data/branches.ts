@@ -1,3 +1,31 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : branches
+ * Scope        : Seed Data — Branches
+ *
+ * Description  : Branch seed data defining the physical salon/spa locations
+ *                with address, contact, geo-coordinates, and status.
+ *
+ * Responsibilities :
+ * - Define Rayasandra branch (primary, operational)
+ * - Define Marathahalli branch (upcoming, opens_soon)
+ *
+ * Features / Functionality :
+ * - Deterministic IDs for cross-reference in other seed data
+ * - Complete address with geo-coordinates for Google Maps
+ * - Branch codes (RS, MH) used in booking number generation
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM
+ * Layer        : Data Access
+ *
+ * Dependencies : None
+ *
+ * Notes        : Marathahalli branch details are TBD pending lease finalization.
+ ************************************************************/
+
 export const branches = [
   {
     id: 'branch_rayasandra',

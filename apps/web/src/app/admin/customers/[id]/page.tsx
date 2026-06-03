@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : Customer Profile Page
+ * Scope        : Admin Portal — Customer Management
+ *
+ * Description  : Server-rendered customer profile page with KPIs,
+ *                tag management, booking/invoice/membership history
+ *                tabs, and internal notes.
+ *
+ * Responsibilities :
+ * - Fetch customer profile, bookings, invoices, membership, and notes
+ * - Compute derived KPIs (LTV, avg spend, gems balance)
+ * - Serialize data into plain DTOs for client tabs component
+ *
+ * Features / Functionality :
+ * - Parallel data fetching via Promise.all for performance
+ * - KPI cards (visits, LTV, avg spend, no-shows, gems)
+ * - Interactive tab panel via CustomerProfileTabs client component
+ *
+ * Tech Stack   : Next.js 16 (App Router), React, TypeScript, Drizzle ORM
+ * Layer        : Presentation (Page with Server-Side Data Fetching)
+ *
+ * Dependencies : @rgss/db queries, CustomerProfileTabs, admin bookings lib
+ *
+ * Notes        :
+ * - Data is serialized to ISO strings for safe client hydration
+ ************************************************************/
+
 import { CustomerProfileTabs } from '@/components/admin/CustomerProfileTabs'
 import { formatDateDDMMYYYY, formatINR } from '@/lib/admin/bookings'
 import {

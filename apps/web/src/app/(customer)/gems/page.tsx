@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : GemsPage
+ * Scope        : Loyalty Programme
+ *
+ * Description  : Customer loyalty (gems) dashboard showing balance, redeemable
+ *                catalogue, and paginated transaction history.
+ *
+ * Responsibilities :
+ * - Display the customer's current gems balance and lifetime stats
+ * - Render the redeemable services catalogue with affordability status
+ * - Show paginated transaction history with type/date/amount details
+ *
+ * Features / Functionality :
+ * - Auto-creates loyalty account for first-time visitors
+ * - Colour-coded transaction types (earned, redeemed, expired, adjusted)
+ * - Server-side pagination with prev/next navigation
+ *
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, Better Auth, Drizzle ORM
+ * Layer        : Presentation
+ *
+ * Dependencies : auth, formatDateIN, formatINR, getLoyaltySummary, getLoyaltyTransactions, getOrCreateLoyaltyAccount, getRedeemableServices
+ *
+ * Notes        :
+ * - Protected route; redirects to /sign-in if no session
+ ************************************************************/
+
 import { auth } from '@/lib/auth-server'
 import { formatDateIN, formatINR } from '@rgss/business'
 import {

@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : POST /api/jobs/weekly-report
+ * Scope        : API — Background Jobs
+ *
+ * Description  : QStash-scheduled job (Monday 9:00 AM IST) that generates the
+ *                weekly sales report with week-over-week comparison.
+ *
+ * Responsibilities :
+ * - Query last 7 days of paid invoices and booking metrics
+ * - Compare with previous 7 days for week-over-week trends
+ * - Post to Slack and email to configured recipients
+ *
+ * Features / Functionality :
+ * - 7-day revenue and booking summary
+ * - Week-over-week comparison (current vs previous 7 days)
+ * - Slack and email delivery (both guarded no-ops without keys)
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/jobs/heartbeat, @/lib/jobs/verify, @/lib/notifications/providers/email,
+ *                @/lib/reports/slack, @rgss/business, @rgss/db/queries, @rgss/logger
+ *
+ * Notes        :
+ * - Shares DAILY_REPORT_EMAIL_RECIPIENTS with the daily report job.
+ * - Gracefully no-ops Slack/email when provider keys are absent.
+ ************************************************************/
+
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
 import { sendEmail } from '@/lib/notifications/providers/email'

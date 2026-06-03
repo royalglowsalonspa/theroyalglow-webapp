@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : Create Membership Form
+ * Scope        : Admin Portal — Membership Management
+ *
+ * Description  : Multi-section form for creating new SPA memberships.
+ *                Includes customer search, tier selection, editable
+ *                details, payment method, and side-effects preview.
+ *
+ * Responsibilities :
+ * - Debounced customer search against admin customers API
+ * - Tier card selection with auto-prefill of hours/price/validity
+ * - Validate and submit membership creation with payment method
+ *
+ * Features / Functionality :
+ * - Customer search with live results and selection state
+ * - Tier radio-card group with overridable prefilled values
+ * - Expiry preview calculation and payment method selection
+ *
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript
+ * Layer        : Presentation (Form Component)
+ *
+ * Dependencies : admin memberships lib, next/link, next/navigation, React hooks
+ *
+ * Notes        :
+ * - Hours/price are collected in human units and converted to minutes/paise at submit
+ ************************************************************/
+
 'use client'
 
 import {

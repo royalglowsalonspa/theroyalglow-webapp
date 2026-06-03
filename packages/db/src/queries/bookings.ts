@@ -1,3 +1,37 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : bookings
+ * Scope        : Data Access — Bookings
+ *
+ * Description  : Query functions for customer-facing booking operations including
+ *                creation, retrieval, cancellation, and service lookups.
+ *
+ * Responsibilities :
+ * - Fetch customer's bookings with services (newest first)
+ * - Fetch single booking by ID with service details
+ * - Create booking + booking_service rows atomically
+ * - Cancel a booking with reason and timestamp
+ * - Lookup services by IDs and resolve default staff
+ *
+ * Features / Functionality :
+ * - Atomic booking creation with snapshot rows via db.batch()
+ * - Service lookup includes category's service_type for validation
+ * - Default staff assignment for pending bookings (placeholder)
+ * - Branch lookup for booking validation
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm, nanoid, ../index, ../schema/booking,
+ *                ../schema/branch, ../schema/profile, ../schema/service
+ *
+ * Notes        : booking_service.staff_id is nullable — pending bookings get
+ *                a placeholder staff that the admin reassigns on approval.
+ ************************************************************/
+
 import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { db } from '../index'

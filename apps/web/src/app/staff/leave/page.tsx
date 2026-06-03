@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : StaffLeavePage
+ * Scope        : Staff Portal
+ *
+ * Description  : Staff leave request page. Renders the page header and mounts
+ *                the StaffLeavePanel client component for leave management.
+ *
+ * Responsibilities :
+ * - Provide page metadata and header for the leave section
+ * - Mount the StaffLeavePanel component for form submission and history
+ * - Keep the server component lightweight with no data fetching
+ *
+ * Features / Functionality :
+ * - Static page metadata (title + description)
+ * - Clean header with eyebrow label and heading
+ * - Delegates all interactivity to StaffLeavePanel client component
+ *
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4
+ * Layer        : Presentation
+ *
+ * Dependencies : next (Metadata), StaffLeavePanel
+ *
+ * Notes        :
+ * - Leave data is fetched client-side within StaffLeavePanel
+ ************************************************************/
+
 import type { Metadata } from 'next'
 import { StaffLeavePanel } from './staff-leave-panel'
 

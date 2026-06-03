@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : MembershipPage
+ * Scope        : SPA Memberships
+ *
+ * Description  : Customer SPA membership dashboard showing active membership
+ *                status, hours balance, session history, and past memberships.
+ *
+ * Responsibilities :
+ * - Display active membership card with hours used/remaining/total
+ * - Show urgency banners when membership is nearing expiry
+ * - Render session history and collapsed past memberships section
+ *
+ * Features / Functionality :
+ * - Visual progress bar for hours consumption
+ * - Urgency alerts at 30-day and 7-day thresholds
+ * - Empty state with call-to-action for non-members
+ *
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, Better Auth, Drizzle ORM
+ * Layer        : Presentation
+ *
+ * Dependencies : auth, formatDateIN, getCustomerMembership, getMembershipSessions
+ *
+ * Notes        :
+ * - Protected route; redirects to /sign-in if no session
+ ************************************************************/
+
 import { auth } from '@/lib/auth-server'
 import { formatDateIN } from '@rgss/business'
 import { getCustomerMembership, getMembershipSessions } from '@rgss/db/queries'

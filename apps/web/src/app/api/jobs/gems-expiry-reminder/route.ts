@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : POST /api/jobs/gems-expiry-reminder
+ * Scope        : API — Background Jobs
+ *
+ * Description  : QStash-scheduled job (daily 10:30am IST) that notifies
+ *                customers whose gems are expiring in exactly 7 days.
+ *
+ * Responsibilities :
+ * - Find customers with gems expiring in 7 IST calendar days
+ * - Send push notification with expiring gems count
+ * - Maintain idempotency via notification deduplication
+ *
+ * Features / Functionality :
+ * - 7-day advance expiry warning
+ * - Combined total across multiple expiring batches per customer
+ * - Push-only notification (engagement mechanic, not critical alert)
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/jobs/heartbeat, @/lib/jobs/verify, @/lib/notifications/dispatch,
+ *                @rgss/business, @rgss/db/queries, @rgss/logger
+ *
+ * Notes        :
+ * - Gems have a 365-day expiry; this is the only pre-expiry reminder.
+ * - Idempotent via per-(customer, 'gems_expiry_7d') notification row.
+ ************************************************************/
+
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
 import { dispatchNotification } from '@/lib/notifications/dispatch'

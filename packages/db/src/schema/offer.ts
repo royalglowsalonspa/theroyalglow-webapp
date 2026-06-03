@@ -1,3 +1,36 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : offer
+ * Scope        : Database Schema — Offer
+ *
+ * Description  : Defines offer tables for promotions, discounts, and combo
+ *                pricing with per-customer-per-day redemption enforcement.
+ *
+ * Responsibilities :
+ * - Define offer table with percentage/flat/combo discount types
+ * - Define offer_service junction for applicable services
+ * - Define offer_redemption with unique constraint (customer + date)
+ * - Track offer active status, date range, and display ordering
+ *
+ * Features / Functionality :
+ * - Three discount types: percentage, flat amount, combo price
+ * - One offer per customer per day enforced via DB unique constraint
+ * - Partial index on active offers for customer-facing queries
+ * - Auto-expiry via pg_cron job deactivating past-end-date offers
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM, PostgreSQL
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm, drizzle-orm/pg-core, nanoid, ./auth, ./enums,
+ *                ./service
+ *
+ * Notes        : Offers apply to salon services only (not SPA memberships).
+ *                Cannot combine with gems redemption on the same booking.
+ ************************************************************/
+
 import { sql } from 'drizzle-orm'
 import {
   boolean,

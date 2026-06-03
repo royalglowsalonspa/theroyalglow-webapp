@@ -1,3 +1,37 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : POST /api/admin/bookings/[id]/complete
+ * Scope        : API — Admin Booking
+ *
+ * Description  : Marks a confirmed/in-progress booking as completed, generates
+ *                a GST invoice, awards loyalty gems, and applies optional offers.
+ *
+ * Responsibilities :
+ * - Validate booking is in completable state (confirmed/in_progress)
+ * - Generate GST-compliant invoice with line items
+ * - Award loyalty gems based on final amount
+ * - Apply and validate optional offer discount
+ *
+ * Features / Functionality :
+ * - Full invoice generation (GST split, payment method, staff snapshots)
+ * - Loyalty gems earning (1 gem per ₹100, 365-day expiry)
+ * - Offer application with conflict checks (1/customer/day, no gems+offer)
+ * - Post-service follow-up job enqueue (+24h)
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/api/error-handler, @/lib/api/session, @/lib/jobs/enqueue,
+ *                @rgss/business, @rgss/db/queries, @rgss/errors, @rgss/types
+ *
+ * Notes        :
+ * - All prices are GST-inclusive in paise (integer math only).
+ * - Offers cannot be combined with gems redemption on the same booking.
+ ************************************************************/
+
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { enqueueJob } from '@/lib/jobs/enqueue'

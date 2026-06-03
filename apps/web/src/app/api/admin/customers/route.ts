@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : GET /api/admin/customers
+ * Scope        : API — Admin CRM
+ *
+ * Description  : Paginated, searchable, and sortable customer directory for
+ *                the admin CRM module. Receptionist+ access.
+ *
+ * Responsibilities :
+ * - Validate query parameters (search, sort, pagination)
+ * - Return paginated customer list with total count
+ * - Support search and sort by LTV, name, etc.
+ *
+ * Features / Functionality :
+ * - Full-text customer search
+ * - Sortable by LTV, created date, name
+ * - Paginated response with meta (page, totalPages, totalCount)
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/db/queries,
+ *                @rgss/errors, @rgss/types
+ *
+ * Notes        :
+ * - Requires min role: receptionist.
+ * - Query params are Zod-validated via customerListQuerySchema.
+ ************************************************************/
+
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { getCustomers } from '@rgss/db/queries'

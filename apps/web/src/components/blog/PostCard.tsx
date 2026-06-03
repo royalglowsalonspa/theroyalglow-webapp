@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : PostCard
+ * Scope        : Blog UI
+ *
+ * Description  : Presentation-only listing card for a single published blog post.
+ *                Renders cover image, category, title, excerpt, and date.
+ *
+ * Responsibilities :
+ * - Render blog post card with responsive image and text content
+ * - Display category label, title link, excerpt, and publish date
+ * - Reserve space for images to prevent layout shift (CLS)
+ *
+ * Features / Functionality :
+ * - Cover image with fallback placeholder (RG monogram)
+ * - Category label in gold uppercase
+ * - Linked title with hover colour transition
+ * - Indian date formatting via formatDateIN
+ *
+ * Tech Stack   : React, TypeScript, Tailwind CSS
+ * Layer        : Frontend
+ *
+ * Dependencies : @/lib/cms/types, @rgss/business, next/link
+ *
+ * Notes        : Uses plain <img> to avoid next/image remote host config
+ ************************************************************/
+
 import type { BlogListItem } from '@/lib/cms/types'
 import { formatDateIN } from '@rgss/business'
 import Link from 'next/link'

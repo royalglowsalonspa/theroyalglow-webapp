@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : Schedule Grid
+ * Scope        : Admin Portal — Schedule Management
+ *
+ * Description  : Interactive weekly staff schedule grid with week
+ *                navigation, inline schedule editing, leave overlays,
+ *                and booking count indicators per day.
+ *
+ * Responsibilities :
+ * - Fetch weekly schedule data (staff, working hours, leave, bookings)
+ * - Render 7-column grid with staff rows and day columns
+ * - Provide inline schedule editor (per-day working hours toggle)
+ *
+ * Features / Functionality :
+ * - Week navigation (prev/next/today) with range label
+ * - Per-staff inline edit mode with time inputs and validation
+ * - Leave day indicators and booking counts per cell
+ *
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript
+ * Layer        : Presentation (Schedule Grid Component)
+ *
+ * Dependencies : admin bookings lib (formatTime12h), React hooks
+ *
+ * Notes        :
+ * - All date arithmetic uses UTC to prevent timezone drift
+ ************************************************************/
+
 'use client'
 
 import { formatTime12h } from '@/lib/admin/bookings'

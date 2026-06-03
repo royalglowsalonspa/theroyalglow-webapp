@@ -1,6 +1,31 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : stale
+ * Scope        : Business Logic — Lead Pipeline
+ *
+ * Description  : Detects stale leads that have remained in 'new'
+ *                status beyond the 48-hour threshold.
+ *
+ * Responsibilities :
+ * - Compute elapsed hours since lead creation
+ * - Determine if a lead qualifies as stale
+ *
+ * Features / Functionality :
+ * - hoursSince(createdAt, now) → elapsed hours
+ * - isLeadStale(status, createdAt, now) → boolean
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Business Logic
+ *
+ * Dependencies : @rgss/types (LeadStatus)
+ *
+ * Notes        :
+ * - Threshold: 48 hours untouched in 'new' status
+ ************************************************************/
 import type { LeadStatus } from '@rgss/types'
-
-// A lead is considered "stale" once it has sat untouched in the 'new' status
 // for 48 hours or more. The threshold is expressed in hours so callers can also
 // surface the elapsed time directly.
 const STALE_THRESHOLD_HOURS = 48

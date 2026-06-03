@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : enums
+ * Scope        : Database Schema — Enums
+ *
+ * Description  : Defines all PostgreSQL native enums used across the database
+ *                schema for type-safe status fields and categorizations.
+ *
+ * Responsibilities :
+ * - Define booking lifecycle status enum
+ * - Define lead pipeline status enum
+ * - Define payment, notification, loyalty, and staff enums
+ * - Define service type, discount type, and membership status enums
+ *
+ * Features / Functionality :
+ * - PostgreSQL native CREATE TYPE enums via Drizzle pgEnum
+ * - Type-safe enum values for all domain status fields
+ * - Centralized enum definitions shared across all schema files
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM, PostgreSQL
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm/pg-core
+ *
+ * Notes        : All enums are exported and imported by other schema files
+ *                that reference these status/type columns.
+ ************************************************************/
+
 import { pgEnum } from 'drizzle-orm/pg-core'
 
 export const bookingStatusEnum = pgEnum('booking_status', [

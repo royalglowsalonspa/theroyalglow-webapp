@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : auth-server
+ * Scope        : Authentication
+ *
+ * Description  : Server-side Better Auth configuration with Google OAuth,
+ *                Drizzle adapter, RBAC dash plugin, and session management.
+ *
+ * Responsibilities :
+ * - Configure Better Auth with Drizzle ORM + Neon PostgreSQL
+ * - Set up Google OAuth social provider
+ * - Enable admin dashboard plugin
+ * - Export typed Session type for server-side usage
+ *
+ * Features / Functionality :
+ * - Google OAuth authentication
+ * - Cookie-based session caching (5-min TTL)
+ * - Admin dashboard via @better-auth/infra dash plugin
+ *
+ * Tech Stack   : TypeScript, Better Auth, Drizzle ORM, Neon PostgreSQL
+ * Layer        : API Infrastructure
+ *
+ * Dependencies : @better-auth/infra, @rgss/db, better-auth, better-auth/adapters/drizzle
+ *
+ * Notes        : None
+ ************************************************************/
+
 import { dash } from '@better-auth/infra'
 import { db } from '@rgss/db'
 import * as schema from '@rgss/db/schema'

@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : POST /api/jobs/birthday-emails
+ * Scope        : API — Background Jobs
+ *
+ * Description  : QStash-scheduled job (daily 9:30am IST) that sends birthday
+ *                offer emails to customers whose birthday is today.
+ *
+ * Responsibilities :
+ * - Find customers with today's birthday who have marketing consent
+ * - Send birthday offer via email and in-app notification
+ * - Maintain idempotency via notification deduplication
+ *
+ * Features / Functionality :
+ * - Birthday match by month+day in IST
+ * - Marketing consent enforcement
+ * - Idempotent (one birthday email per customer per year)
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/jobs/heartbeat, @/lib/jobs/verify, @/lib/notifications/dispatch,
+ *                @rgss/business, @rgss/db/queries, @rgss/logger
+ *
+ * Notes        :
+ * - QStash signature verification required (401 on fail).
+ * - Dedupe by (user, 'birthday_offer') type; one send per birthday per year.
+ ************************************************************/
+
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
 import { dispatchNotification } from '@/lib/notifications/dispatch'

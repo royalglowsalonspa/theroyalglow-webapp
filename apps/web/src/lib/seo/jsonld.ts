@@ -1,3 +1,33 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : jsonld
+ * Scope        : SEO — JSON-LD
+ *
+ * Description  : Pure JSON-LD builder functions for Schema.org structured data.
+ *                All builders return plain serialisable objects from BUSINESS.
+ *
+ * Responsibilities :
+ * - Build LocalBusiness/BeautySalon/DaySpa JSON-LD from canonical data
+ * - Build Organization, WebSite, BreadcrumbList, Service, FAQPage
+ * - Build BlogPosting and ImageObject JSON-LD
+ * - Ensure output matches seo.md Part 2 specifications
+ *
+ * Features / Functionality :
+ * - localBusinessJsonLd() / organizationJsonLd() / websiteJsonLd()
+ * - breadcrumbJsonLd() / serviceJsonLd() / faqPageJsonLd()
+ * - blogPostingJsonLd() / imageObjectJsonLd()
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Frontend
+ *
+ * Dependencies : @/lib/seo/business
+ *
+ * Notes        : Pure functions — no I/O, trivially unit-testable
+ ************************************************************/
+
 /**
  * Pure JSON-LD builder functions for Schema.org structured data.
  *

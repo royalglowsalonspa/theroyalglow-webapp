@@ -1,3 +1,32 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : events
+ * Scope        : Analytics
+ *
+ * Description  : Typed, no-op-safe analytics event helper. Forwards funnel events
+ *                to PostHog and Meta Pixel when loaded, never throws.
+ *
+ * Responsibilities :
+ * - Define typed analytics event names for the funnel
+ * - Forward events to PostHog capture and Meta Pixel fbq
+ * - Silently no-op when no provider or no window is present
+ *
+ * Features / Functionality :
+ * - track() — fire-and-forget analytics event dispatch
+ * - AnalyticsEvent union type for type-safe event names
+ * - Automatic Meta standard vs. custom event routing
+ *
+ * Tech Stack   : TypeScript
+ * Layer        : Frontend
+ *
+ * Dependencies : None (reads window.posthog / window.fbq at runtime)
+ *
+ * Notes        : None
+ ************************************************************/
+
 /**
  * Typed analytics event helper.
  *

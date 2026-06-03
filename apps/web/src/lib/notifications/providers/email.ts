@@ -1,3 +1,32 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : email
+ * Scope        : Notifications — Email
+ *
+ * Description  : Transactional email delivery provider via Resend.
+ *                Optional dependency — no-op when API key is absent.
+ *
+ * Responsibilities :
+ * - Send transactional emails via Resend API
+ * - No-op gracefully when RESEND_API_KEY is not configured
+ * - Never throw to caller (return false on failure)
+ *
+ * Features / Functionality :
+ * - sendEmail({ to, subject, html }) — async boolean delivery
+ * - Lazy resend module import (optional dependency)
+ * - Configurable from address via RESEND_FROM_EMAIL
+ *
+ * Tech Stack   : TypeScript, Resend (optional)
+ * Layer        : API Infrastructure
+ *
+ * Dependencies : @rgss/logger, resend (optional)
+ *
+ * Notes        : Reads process.env directly for graceful degradation
+ ************************************************************/
+
 import { createLogger } from '@rgss/logger'
 
 // Transactional email delivery provider (Resend).

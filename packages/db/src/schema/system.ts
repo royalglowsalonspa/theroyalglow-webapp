@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : system
+ * Scope        : Database Schema — System
+ *
+ * Description  : Defines system-level tables for daily/monthly reporting,
+ *                audit logging, and application configuration settings.
+ *
+ * Responsibilities :
+ * - Define daily_sales_summary for nightly revenue aggregation
+ * - Define monthly_gst_summary for GST filing support
+ * - Define audit_log for tracking all entity mutations
+ * - Define system_setting for application-wide configuration (JSON values)
+ *
+ * Features / Functionality :
+ * - Revenue split by payment method and service type (salon/spa/membership)
+ * - Unique constraint on (date, branch) for idempotent daily summary upserts
+ * - Audit log captures old/new values as JSONB for full change history
+ * - System settings store structured config (GST rate, gems rules, etc.)
+ *
+ * Tech Stack   : TypeScript, Drizzle ORM, PostgreSQL
+ * Layer        : Data Access
+ *
+ * Dependencies : drizzle-orm/pg-core, nanoid, ./auth, ./branch, ./enums
+ *
+ * Notes        : Daily summaries are built by pg_cron Job 1 nightly.
+ *                Monthly GST summaries are built by pg_cron Job 6 monthly.
+ ************************************************************/
+
 import { date, index, integer, jsonb, pgTable, text, timestamp, unique } from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'
 import { user } from './auth'

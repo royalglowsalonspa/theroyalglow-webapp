@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : Membership Detail
+ * Scope        : Admin Portal — Membership Management
+ *
+ * Description  : Full membership detail view with hours balance bar,
+ *                session recording modal, cancellation modal, and
+ *                session history table.
+ *
+ * Responsibilities :
+ * - Display membership info, hours balance, and expiry status
+ * - Provide record-session flow (service picker, duration, staff)
+ * - Handle membership cancellation with reason and confirmation
+ *
+ * Features / Functionality :
+ * - Visual progress bar for hours used vs total
+ * - Record Session modal with SPA service multi-select
+ * - Cancel Membership modal with reason and role guard
+ *
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript
+ * Layer        : Presentation (Detail View Component)
+ *
+ * Dependencies : StatusBadge, admin memberships lib, next/link, React hooks
+ *
+ * Notes        :
+ * - Session recording creates a ₹0 membership_session invoice (no gems)
+ ************************************************************/
+
 'use client'
 
 import { StatusBadge } from '@/components/admin/StatusBadge'

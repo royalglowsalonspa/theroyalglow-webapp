@@ -1,3 +1,34 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : sitemap
+ * Scope        : SEO Configuration
+ *
+ * Description  : XML sitemap generator combining static routes with dynamic
+ *                service slugs and blog post slugs from DB/CMS.
+ *
+ * Responsibilities :
+ * - Define static route priorities and change frequencies
+ * - Fetch dynamic service URLs from database
+ * - Fetch dynamic blog URLs from CMS
+ * - Gracefully degrade if DB/CMS reads fail
+ *
+ * Features / Functionality :
+ * - 11 static routes with SEO priorities
+ * - Dynamic per-service entries (priority 0.8)
+ * - Dynamic per-blog-post entries (priority 0.7)
+ * - Never-throws design (returns static entries on failure)
+ *
+ * Tech Stack   : Next.js 16 (MetadataRoute.Sitemap)
+ * Layer        : Infrastructure (SEO)
+ *
+ * Dependencies : next, @/lib/cms/client, @/lib/seo/business, @rgss/db
+ *
+ * Notes        :
+ * - Excludes: /admin, /api, /profile, /staff, /book, /sign-in
+ ************************************************************/
 import { getAllPostSlugs } from '@/lib/cms/client'
 import { SITE_URL } from '@/lib/seo/business'
 import { getAllServicesGrouped } from '@rgss/db/queries'

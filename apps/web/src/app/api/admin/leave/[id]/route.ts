@@ -1,3 +1,37 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : PATCH /api/admin/leave/[id]
+ * Scope        : API — Admin Leave
+ *
+ * Description  : Approves or rejects a pending leave request. Notifies the
+ *                staff member and returns any booking conflicts on approval.
+ *
+ * Responsibilities :
+ * - Validate leave decision (approve/reject with reason)
+ * - Execute leave state machine transition
+ * - Notify staff member via push notification
+ * - Return booking conflicts on approval for reassignment
+ *
+ * Features / Functionality :
+ * - Leave approve/reject with state machine guard
+ * - Push notification dispatch to affected staff
+ * - Booking conflict detection on approval
+ * - Rejection reason capture (required for rejections)
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/api/error-handler, @/lib/api/session, @/lib/notifications/dispatch,
+ *                @rgss/business, @rgss/db/queries, @rgss/errors, @rgss/types
+ *
+ * Notes        :
+ * - Requires min role: receptionist.
+ * - Booking conflicts returned on approval for manual staff reassignment.
+ ************************************************************/
+
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { dispatchNotification } from '@/lib/notifications/dispatch'

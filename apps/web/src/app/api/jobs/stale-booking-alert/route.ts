@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : POST /api/jobs/stale-booking-alert
+ * Scope        : API — Background Jobs
+ *
+ * Description  : QStash-triggered job (enqueued +2h after booking creation) that
+ *                alerts receptionists of stale pending bookings or auto-rejects after 24h.
+ *
+ * Responsibilities :
+ * - Check if booking is still pending (skip if already actioned)
+ * - Auto-reject bookings pending for 24+ hours with notification
+ * - Alert receptionists for bookings pending 2h-24h
+ *
+ * Features / Functionality :
+ * - Two-tier stale detection (2h alert vs 24h auto-reject)
+ * - Customer notification on auto-rejection
+ * - Multi-receptionist alert fan-out for review
+ *
+ * Tech Stack   : Next.js 16 (Route Handler)
+ * Layer        : API (Thin Orchestrator)
+ *
+ * Dependencies : @/lib/jobs/heartbeat, @/lib/jobs/verify, @/lib/notifications/dispatch,
+ *                @rgss/business, @rgss/db/queries, @rgss/logger
+ *
+ * Notes        :
+ * - Auto-reject only fires while booking is still pending (idempotent).
+ * - Rejected booking notifies the customer; stale alert notifies receptionists.
+ ************************************************************/
+
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
 import { dispatchNotification } from '@/lib/notifications/dispatch'

@@ -1,3 +1,35 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : Footer
+ * Scope        : Layout
+ *
+ * Description  : Site-wide footer with NAP address, opening hours, social links,
+ *                legal navigation, and cookie preferences button.
+ *
+ * Responsibilities :
+ * - Display business address, phone, and email (semantic <address>)
+ * - Show opening hours (Mon-Fri / Sat-Sun)
+ * - Render social media icon links (Instagram, Facebook, YouTube, Maps)
+ * - Provide legal page navigation (Privacy, Terms, Refund)
+ * - Include cookie preferences re-open button
+ *
+ * Features / Functionality :
+ * - 3-column responsive grid layout
+ * - Semantic address element for NAP data
+ * - Social icons with accessible labels
+ * - Copyright notice in bottom bar
+ *
+ * Tech Stack   : React, TypeScript, Tailwind CSS, Next.js
+ * Layer        : Frontend
+ *
+ * Dependencies : @/components/consent/CookiePreferencesButton, next/link
+ *
+ * Notes        : Server component (no 'use client')
+ ************************************************************/
+
 import { CookiePreferencesButton } from '@/components/consent/CookiePreferencesButton'
 import Link from 'next/link'
 

@@ -1,15 +1,36 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : middleware
+ * Scope        : Authentication & Authorization
+ *
+ * Description  : Edge-compatible middleware for session validation
+ *                and role-based access control across protected routes.
+ *
+ * Responsibilities :
+ * - Check session cookie presence on protected routes
+ * - Redirect unauthenticated users to /sign-in
+ * - Validate RBAC roles for admin routes via internal API
+ * - Return 403 for insufficient permissions
+ *
+ * Features / Functionality :
+ * - Lightweight edge-safe session check (no kysely/DB imports)
+ * - Role hierarchy enforcement (receptionist+ for /admin)
+ * - Route matcher for protected paths (/admin, /staff, /profile, etc.)
+ *
+ * Tech Stack   : Next.js 16 Middleware, Edge Runtime
+ * Layer        : Infrastructure (Edge)
+ *
+ * Dependencies : next/server
+ *
+ * Notes        :
+ * - Better Auth's auth-server cannot be imported here (kysely incompatible with Edge)
+ * - Role validation done via fetch to /api/auth/get-session
+ ************************************************************/
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-
-/**
- * Lightweight middleware that checks for session cookie presence.
- *
- * We do NOT import auth-server here because Better Auth's internals
- * pull in kysely which is incompatible with the Edge runtime.
- *
- * Instead, we check for the session cookie and validate roles
- * via a lightweight API call to our own auth endpoint.
- */
 
 const ROLE_LEVELS: Record<string, number> = {
   customer: 0,
