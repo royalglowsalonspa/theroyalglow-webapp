@@ -8,7 +8,7 @@ This phase is the explicit exception to the project's "no test files unless requ
 
 Everything must run with no external keys: the health endpoint degrades gracefully (DB is the only hard dependency locally; Redis and R2 checks are guarded and report `skip`), the unit tests are pure and offline, and the whole monorepo continues to typecheck, lint, and build. CI workflows reference GitHub Secrets by their canonical names, but provisioning those secrets (and the Cloudflare Pages project, Neon API keys, BetterStack monitors) is a deploy-time ops step.
 
-Out of scope (deferred): provisioning real infrastructure and secrets; 100% coverage; running k6 against a live pprd URL; Sentry runtime initialisation (Phase 10); visual regression, TestSprite, and mutation testing; activation of the backup-restore and prod→preprod replication crons (the files are delivered but ops-activated).
+Out of scope (deferred): provisioning real infrastructure and secrets; 100% coverage; running k6 against a live pprd URL; Sentry runtime initialisation (Phase 10); visual regression, TestSprite, and mutation testing; activation of the backup-restore and prod→pprd replication crons (the files are delivered but ops-activated).
 
 ## Glossary
 

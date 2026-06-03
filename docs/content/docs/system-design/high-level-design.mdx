@@ -97,8 +97,8 @@ Cloudflare (DNS + DDoS + WAF)
 
 | Neon Branch | Environment | Reset Policy |
 | --- | --- | --- |
-| `main` | Production | Never reset |
-| `preprod` | Pre-production | Auto-reset daily from `main` + PII stripped |
+| `prod` | Production | Never reset |
+| `pprd` | Pre-production | Auto-reset daily from `prod` + PII stripped |
 | `test` | QA / CI | Wiped and reseeded every CI run |
 | `dev` | Development | Developer sandbox |
 

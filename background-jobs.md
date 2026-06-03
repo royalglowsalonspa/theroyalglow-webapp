@@ -67,7 +67,7 @@ This is marketing automation, so it is **not counted** in the background-job inv
 
 ## Jobs 1-6 — Core Nightly Operations
 
-Jobs 1-4 and 6 run via `pg_cron` inside Neon DB. Job 5 (`Preprod DB Sync`) runs via GitHub Actions cron, then applies SQL anonymisation on the target Neon branch.
+Jobs 1-4 and 6 run via `pg_cron` inside Neon DB. Job 5 (`pprd DB Sync`) runs via GitHub Actions cron, then applies SQL anonymisation on the target Neon branch.
 
 All times are UTC. Salon operates IST (UTC+5:30). All jobs run in the early hours IST when traffic is zero.
 
@@ -160,20 +160,20 @@ DELETE FROM session WHERE expires_at < NOW();
 
 ---
 
-### Job 5 — Preprod DB Sync
+### Job 5 — pprd DB Sync
 
 | Field | Value |
 |-------|-------|
 | **Type** | GitHub Actions cron + SQL anonymisation |
 | **Schedule** | `30 19 * * *` UTC = 1:00 AM IST |
-| **Heartbeat** | `BETTER_STACK_HEARTBEAT_PREPROD_SYNC` |
+| **Heartbeat** | `BETTER_STACK_HEARTBEAT_PPRD_SYNC` |
 
-**What it does:** Resets the `preprod` Neon branch from `main`, then anonymises copied customer data so UAT has realistic records without exposing real PII.
+**What it does:** Resets the `pprd` Neon branch from `prod`, then anonymises copied customer data so UAT has realistic records without exposing real PII.
 
 **Why:** Pre-production validation needs realistic booking patterns, scheduling edge cases, and membership scenarios. It must never expose real customer phone numbers or emails.
 
 ```sql
--- Run on preprod branch after data copy:
+-- Run on pprd branch after data copy:
 UPDATE customer_profile SET
   phone = 'XXXXX' || SUBSTRING(phone, -5),
   utm_campaign = NULL,
@@ -510,7 +510,7 @@ These are not on a schedule. They are enqueued by API routes with a delay when a
 | 2 | Membership auto-expire | pg_cron | `30 18 * * *` UTC | None |
 | 3 | Offer auto-expire | pg_cron | `35 18 * * *` UTC | None |
 | 4 | Session cleanup | pg_cron | `0 21 * * 0` UTC | None |
-| 5 | Preprod DB sync | GitHub Actions cron | `30 19 * * *` UTC | None |
+| 5 | pprd DB sync | GitHub Actions cron | `30 19 * * *` UTC | None |
 | 6 | Monthly GST summary | pg_cron | `30 19 1 * *` UTC | None |
 | 7 | Gems auto-expire | pg_cron | `40 18 * * *` UTC | None |
 | 8 | Appointment reminders | QStash | Every 15 min | web-push + Resend |

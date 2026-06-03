@@ -47,7 +47,7 @@ theroyalglow-webapp/
 |-------|-----------|
 | Edge Hosting | Cloudflare Pages + Workers |
 | SSR Origin + CMS | Render (Singapore, free tier) |
-| Primary DB | Neon PostgreSQL 16 (4 branches: main/preprod/test/dev) |
+| Primary DB | Neon PostgreSQL 16 (4 branches: prod/pprd/test/dev) |
 | ORM | Drizzle ORM (pure TypeScript, edge-native) |
 | Auth | Better Auth (Google OAuth only, RBAC plugin) |
 | Realtime | Ably (6M messages/mo free) |
@@ -101,8 +101,8 @@ theroyalglow-webapp/
 |--------|-------------|-------------|
 | `dev` | Development | `dev` |
 | `test` | QA/CI | `test` |
-| `pprd` | Pre-production | `preprod` |
-| `prod` | Production | `main` |
+| `pprd` | Pre-production | `pprd` |
+| `prod` | Production | `prod` |
 
 Flow: `dev → test → pprd → prod`
 Commits: Conventional Commits (`feat:`, `fix:`, `chore:`, etc.)

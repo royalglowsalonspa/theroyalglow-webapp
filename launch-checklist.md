@@ -208,7 +208,7 @@
 | # | Task | Verify |
 |---|------|--------|
 | 1 | Create Neon project `rgss-production` | Project created |
-| 2 | Create branches: `main` (prod), `pprd`, `test`, `dev` | All 4 branches exist |
+| 2 | Create branches: `prod`, `pprd`, `test`, `dev` | All 4 branches exist |
 | 3 | Note connection strings for each branch | Strings stored |
 | 4 | Store `DATABASE_URL` (prod) in Cloudflare Pages (Production env) | Stored |
 | 5 | Store all branch URLs in GitHub Secrets | Stored |

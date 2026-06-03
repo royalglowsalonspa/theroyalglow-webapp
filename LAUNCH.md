@@ -21,7 +21,7 @@ and runs without secrets.
 | Synthetic | Checkly scripts (`tests/synthetic/*.check.ts`) | Checkly account + `npx checkly deploy` |
 | Docs | Fumadocs site (`docs/`) | `docs.theroyalglow.in` DNS + deploy |
 | Backups | `weekly-backup.yml` (pg_dump → R2) | R2 buckets + `R2_*` + Neon URLs + heartbeat |
-| Data | seed scripts | Run seed against the Neon `main` branch |
+| Data | seed scripts | Run seed against the Neon `prod` branch |
 
 ## Timeline
 
@@ -35,7 +35,7 @@ GitHub Secrets + Cloudflare Pages env:
 - Start DNS propagation: `theroyalglow.in`, `www`, `admin`, `status`, `docs`.
 
 ### T-48h — Data + monitoring (ops + code)
-- Seed production data against Neon `main` (branches → categories → services →
+- Seed production data against Neon `prod` (branches → categories → services →
   staff → membership tiers → loyalty). Verify counts; confirm 0 customers/bookings.
 - Create the first admin user; confirm Google sign-in → admin dashboard.
 - Verify Sentry captures a test error, PostHog receives events, Clarity records a

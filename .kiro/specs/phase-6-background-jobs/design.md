@@ -22,9 +22,9 @@ Consistent with Phases 4–5, **all external sends are behind guarded extension 
 
 ### Non-Goals
 
-- **Provisioning the actual QStash schedules / Neon pg_cron in production** — this phase ships the SQL migration file and a documented `qstash-schedules` setup script/manifest, but registering them against the live Upstash account and Neon `main` branch is a deploy-time operation the user performs with their keys. The routes and SQL are complete and correct; wiring them to the live scheduler is an ops step.
+- **Provisioning the actual QStash schedules / Neon pg_cron in production** — this phase ships the SQL migration file and a documented `qstash-schedules` setup script/manifest, but registering them against the live Upstash account and Neon `prod` branch is a deploy-time operation the user performs with their keys. The routes and SQL are complete and correct; wiring them to the live scheduler is an ops step.
 - **Brevo marketing automation** (re-engagement) — handled inside Brevo, not a job (per design doc).
-- **Job 5 (Preprod DB sync)** GitHub Actions workflow — the anonymisation SQL is provided, but the CI workflow YAML belongs to Phase 9 (CI/CD). This phase delivers the SQL.
+- **Job 5 (pprd DB sync)** GitHub Actions workflow — the anonymisation SQL is provided, but the CI workflow YAML belongs to Phase 9 (CI/CD). This phase delivers the SQL.
 - **PDF invoice generation internals** — the invoice email job references the existing invoice; PDF rendering is its own concern (billing phase) and is treated as an extension point.
 - **Real-time Ably publishing** remains a Phase-deferred extension point (started in Phase 5).
 

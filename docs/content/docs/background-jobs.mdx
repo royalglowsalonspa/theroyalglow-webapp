@@ -11,7 +11,7 @@ needs an HTTP call** (email, push, Slack, Ably) it runs on QStash.
 
 | Tool | Runs inside | Use for |
 | --- | --- | --- |
-| **pg_cron** | Neon PostgreSQL (`main` branch) | Pure SQL — scans, aggregations, status updates |
+| **pg_cron** | Neon PostgreSQL (`prod` branch) | Pure SQL — scans, aggregations, status updates |
 | **QStash** | Upstash HTTP queue → Next.js API routes | Anything needing external services |
 
 <Callout type="info">
@@ -42,7 +42,7 @@ anonymisation, the rest are native pg_cron.
 | 3 | Offer auto-expire | `35 18 * * *` | 12:05 AM | Deactivate offers whose `end_date` has passed |
 | 7 | Gems auto-expire | `40 18 * * *` | 12:10 AM | Deduct gems 365 days after they were earned |
 | 6 | Monthly GST summary | `30 19 1 * *` | 1:00 AM (1st) | Aggregate prior month into `monthly_gst_summary` (SAC 999721) |
-| 5 | Preprod DB sync | `30 19 * * *` | 1:00 AM | GitHub Actions resets `preprod` from `main`, then strips PII |
+| 5 | pprd DB sync | `30 19 * * *` | 1:00 AM | GitHub Actions resets `pprd` from `prod`, then strips PII |
 | 4 | Session cleanup | `0 21 * * 0` | 2:30 AM Sun | Delete expired Better Auth `session` rows |
 
 ## QStash scheduled jobs (8)

@@ -107,7 +107,7 @@ Recovery:
 | 2. Membership auto-expire | `30 18 * * *` (midnight IST) | Sets `status = 'expired'` on memberships past `expires_at` |
 | 3. Offer auto-expire | `0 18 * * *` | Sets `is_active = false` on offers past `end_date` |
 | 4. Session cleanup | `0 21 * * 0` (2:30 AM IST Sunday) | Deletes expired Better Auth sessions |
-| 5. Preprod sync | `30 19 * * *` (1 AM IST) | Triggers GitHub Actions to reset preprod from prod |
+| 5. pprd sync | `30 19 * * *` (1 AM IST) | Triggers GitHub Actions to reset pprd from prod |
 | 6. Monthly GST summary | `0 18 1 * *` (11:30 PM IST, 1st of month) | Aggregates monthly GST into `monthly_gst_summary` |
 | 7. Gems auto-expire | `0 18 * * *` | Offsets earned transactions older than 365 days |
 

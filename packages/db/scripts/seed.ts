@@ -13,7 +13,7 @@
  * - Orchestrate production essentials seeding (all environments)
  * - Gate demo data seeding to dev/test environments only
  * - Prevent --reset on production environments
- * - Block seeding on preprod (syncs from prod via Neon branch reset)
+ * - Block seeding on pprd (syncs from prod via Neon branch reset)
  *
  * Features / Functionality :
  * - Environment-aware seeding (dev/test/prod)
@@ -64,7 +64,7 @@ if (flags.reset && env === 'prod') {
 }
 
 if (env === 'pprd') {
-  console.error('❌ Preprod is NOT seeded — it syncs from prod via Neon branch reset.')
+  console.error('❌ pprd is NOT seeded — it syncs from prod via Neon branch reset.')
   process.exit(1)
 }
 

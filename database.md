@@ -12,8 +12,8 @@ The single killer feature is **branching** — Neon treats database environments
 
 | Neon Branch | Environment | Purpose |
 |-------------|-------------|---------|
-| `main` | prod | Live data, protected, pg_cron runs here |
-| `preprod` | pre-production | Auto-reset from main every 24h via GitHub Actions + Neon API, PII stripped |
+| `prod` | prod | Live data, protected, pg_cron runs here |
+| `pprd` | pre-production | Auto-reset from prod every 24h via GitHub Actions + Neon API, PII stripped |
 | `test` | QA / CI | Seeded fixtures, wiped and reseeded on every CI run |
 | `dev` | development | Developer sandbox, scales to zero when idle |
 
@@ -125,8 +125,8 @@ RGSS uses multiple scheduling mechanisms. `pg_cron` is only one of them, so this
 
 | Mechanism | Examples | Why |
 |-----------|----------|-----|
-| **pg_cron in Neon (`main`)** | Nightly sales summary, membership auto-expire, offer auto-expire, session cleanup, monthly GST summary, gems auto-expire | SQL-first maintenance jobs run closest to the data |
-| **GitHub Actions cron** | Preprod DB sync + PII anonymisation | Best place for branch reset and operational workflows outside the database |
+| **pg_cron in Neon (`prod`)** | Nightly sales summary, membership auto-expire, offer auto-expire, session cleanup, monthly GST summary, gems auto-expire | SQL-first maintenance jobs run closest to the data |
+| **GitHub Actions cron** | pprd DB sync + PII anonymisation | Best place for branch reset and operational workflows outside the database |
 | **QStash scheduled jobs** | Appointment reminders, membership alerts, birthday offers, membership usage nudges | HTTP-triggered application jobs with retries and signatures |
 | **Triggered jobs** | Post-service follow-up, stale pending booking alerts, no-show checks, membership expired notices | Fired from business events instead of a fixed schedule |
 

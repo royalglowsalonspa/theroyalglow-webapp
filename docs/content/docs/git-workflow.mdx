@@ -11,8 +11,8 @@ Single developer workflow with **4 persistent branches**, each mapped to an envi
 
 | Branch | Environment | Neon Branch | Purpose |
 | --- | --- | --- | --- |
-| `prod` | Production | `main` | Live traffic — real customers |
-| `pprd` | Pre-production | `preprod` | Final validation before going live |
+| `prod` | Production | `prod` | Live traffic — real customers |
+| `pprd` | Pre-production | `pprd` | Final validation before going live |
 | `test` | Test / QA | `test` | Integration tests, CI |
 | `dev` | Development | `dev` | Active development work |
 
@@ -35,18 +35,18 @@ All environments use **Neon DB branches** within a single Neon project — no se
 
 | Branch | Neon Branch | Reset Policy |
 | --- | --- | --- |
-| `prod` | `main` | Never reset — live customer data |
-| `pprd` | `preprod` | Auto-reset daily from `main` + PII stripped |
+| `prod` | `prod` | Never reset — live customer data |
+| `pprd` | `pprd` | Auto-reset daily from `prod` + PII stripped |
 | `test` | `test` | Wiped and reseeded before each CI run |
 | `dev` | `dev` | Developer sandbox, scales to zero when idle |
 
-## Prod → Preprod Data Replication
+## Prod → pprd Data Replication
 
-Every 24 hours, a GitHub Actions cron job uses the **Neon Branch Reset API** to sync preprod from prod:
+Every 24 hours, a GitHub Actions cron job uses the **Neon Branch Reset API** to sync pprd from prod:
 
-1. Calls the Neon API to reset the `preprod` branch from `main`
+1. Calls the Neon API to reset the `pprd` branch from `prod`
 2. Runs a PII anonymisation script (names, phone numbers, emails replaced with fake data)
-3. Preprod is now a clean, realistic copy of prod without real customer data
+3. pprd is now a clean, realistic copy of prod without real customer data
 
 This is faster than `pg_dump` / `pg_restore` because Neon branching is a near-instant copy-on-write operation at the storage layer.
 
@@ -149,7 +149,7 @@ This catches formatting issues and obvious lint errors **before they ever reach 
 ## Weekly Backup
 
 Every Sunday at 2 AM UTC, a GitHub Actions workflow:
-1. Runs `pg_dump` against the Neon `main` branch
+1. Runs `pg_dump` against the Neon `prod` branch
 2. Uploads the compressed dump to Cloudflare R2 (`backups/weekly/`)
 3. Retains 8 weeks of backups
 4. Pings the BetterStack heartbeat on success

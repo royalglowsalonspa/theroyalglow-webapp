@@ -81,14 +81,14 @@ Covers: website, CRM, customer management, marketing automation, database, creat
 ## Background Jobs (Locked)
 - **Source of truth:** [background-jobs.md](./background-jobs.md)
 - **Total: 19 jobs — 7 pg_cron + 8 QStash scheduled + 4 QStash triggered**
-- **pg_cron (7 — pure SQL, run inside Neon `main`):**
+- **pg_cron (7 — pure SQL, run inside Neon `prod`):**
   1. Nightly sales summary — `0 18 * * *` UTC (11:30 PM IST)
   2. Membership auto-expire — `30 18 * * *` UTC (12:00 AM IST)
   3. Offer auto-expire — `35 18 * * *` UTC (12:05 AM IST)
   4. Session cleanup — `0 21 * * 0` UTC (2:30 AM IST Sunday)
   5. Monthly GST summary — `30 19 1 * *` UTC (1:00 AM IST, 1st of month)
   6. Gems auto-expire — `40 18 * * *` UTC (12:10 AM IST)
-  7. Preprod DB sync — GitHub Actions cron `30 19 * * *` UTC (1:00 AM IST) + PII anonymisation
+  7. pprd DB sync — GitHub Actions cron `30 19 * * *` UTC (1:00 AM IST) + PII anonymisation
 - **QStash scheduled (8 — HTTP → Next.js API routes):** appointment reminders (every 15min), membership expiry alerts, birthday emails, membership usage nudges, lead follow-up reminders, daily sales report, weekly summary report, gems expiry reminder
 - **QStash triggered (4 — event-driven with delay):** post-service follow-up (+24h), stale pending booking alert (+2h), no-show check (+15min after end_time), membership expired notice (+1h after expires_at)
 - All jobs ping BetterStack heartbeat URLs on success. Silent failure is detected and alerted.
@@ -198,10 +198,10 @@ Service catalog, bookings, memberships, billing → all in custom admin (`theroy
 
 ## Branch Strategy (Single Developer)
 - **Git branches:** `prod`, `pprd`, `test`, `dev` (NOT `main` for git)
-- **Neon DB branches:** `main` (prod), `preprod` (pprd), `test`, `dev`
-- Prod → Preprod replication: GitHub Actions cron every 24h using **Neon Branch Reset API** (copy-on-write, near-instant) then PII anonymisation script
+- **Neon DB branches:** `prod`, `pprd`, `test`, `dev`
+- Prod → pprd replication: GitHub Actions cron every 24h using **Neon Branch Reset API** (copy-on-write, near-instant) then PII anonymisation script
 - No `pg_dump`/restore needed — Neon branching handles it at storage layer
-- **Canonical branch mapping:** Git branches = `dev`, `test`, `pprd`, `prod`; Neon branches = `dev`, `test`, `preprod`, `main`
+- **Canonical branch mapping:** Git branches = `dev`, `test`, `pprd`, `prod`; Neon branches = `dev`, `test`, `pprd`, `prod`
 - **Canonical DB secret names:** `DATABASE_URL_DEV`, `DATABASE_URL_TEST`, `DATABASE_URL_PPRD`, `DATABASE_URL_PROD`
 - **Background job source of truth:** [background-jobs.md](./background-jobs.md); summary docs should link there instead of duplicating full job inventories
 

@@ -378,7 +378,7 @@ jobs:
           # Check Neon's latest backup timestamp is within last 24h
           LATEST_BACKUP=$(curl -s -H "Authorization: Bearer ${{ secrets.NEON_API_KEY }}" \
             "https://console.neon.tech/api/v2/projects/${{ secrets.NEON_PROJECT_ID }}/branches" \
-            | jq -r '.branches[] | select(.name == "main") | .updated_at')
+            | jq -r '.branches[] | select(.name == "prod") | .updated_at')
           echo "Latest branch update: $LATEST_BACKUP"
 
       - name: Notify deployment success
@@ -1201,9 +1201,9 @@ LIMIT 20;
 ┌──────────────────────────────────────────────────────────────┐
 │  Cloudflare Pages → Settings → Environment Variables         │
 ├──────────────────────────────────────────────────────────────┤
-│  Production (`prod` git branch → Neon `main`):               │
+│  Production (`prod` git branch → Neon `prod`):               │
 │    APP_ENV=prod                                              │
-│    DATABASE_URL=postgres://...neon.tech/main                 │
+│    DATABASE_URL=postgres://...neon.tech/prod                 │
 │    RESEND_API_KEY=re_xxxx                                    │
 │    BREVO_API_KEY=xkeysib-xxxx                                │
 │    NEXT_PUBLIC_SENTRY_DSN=https://xxxx@sentry.io/xxxx        │
@@ -1212,7 +1212,7 @@ LIMIT 20;
 │                                                              │
 │  Preview (all other branches):                               │
 │    APP_ENV=pprd (or test/dev based on branch)                │
-│    DATABASE_URL=postgres://...neon.tech/preprod              │
+│    DATABASE_URL=postgres://...neon.tech/pprd              │
 │    RESEND_API_KEY=re_test_xxxx                               │
 │    NEXT_PUBLIC_SENTRY_DSN=<same DSN, different env tag>      │
 │                                                              │
@@ -1326,7 +1326,7 @@ bun run db:migrate    # → drizzle-kit migrate
 
 ```
 Migration fails mid-apply?
-  → Neon PITR: restore main branch to T-1 minute
+  → Neon PITR: restore prod branch to T-1 minute
   → Cloudflare rollback: previous deploy (still works with old schema)
   → Fix migration SQL
   → Re-deploy
@@ -1772,7 +1772,7 @@ psql $DATABASE_URL_UNPOOLED_PROD -c "SELECT 1"
 # Create Neon PITR branch (restore to specific time)
 curl -X POST "https://console.neon.tech/api/v2/projects/$PROJECT_ID/branches" \
   -H "Authorization: Bearer $NEON_API_KEY" \
-  -d '{"branch":{"name":"recovery","parent_id":"main","parent_timestamp":"2026-05-23T10:00:00Z"}}'
+  -d '{"branch":{"name":"recovery","parent_id":"prod","parent_timestamp":"2026-05-23T10:00:00Z"}}'
 
 # Check rate limit status for a user
 # (via Upstash Redis CLI)
@@ -1830,7 +1830,7 @@ export const db = drizzle(pool)
 
 | Environment | Neon Limit | Our Max Pool | Headroom |
 |-------------|-----------|-------------|----------|
-| prod (main) | 20 connections | 5 (Render) + stateless (CF Workers) | ~15 spare |
+| prod | 20 connections | 5 (Render) + stateless (CF Workers) | ~15 spare |
 | pprd | 20 connections | 5 | ~15 spare |
 | test | 20 connections | 5 | ~15 spare |
 | dev | 20 connections | 1 | ~19 spare |
