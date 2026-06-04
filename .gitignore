@@ -54,3 +54,5 @@ graphify-out/
 
 # ─── Kiro MCP settings (contains API keys) ───────────────────
 .kiro/settings/
+# Added by code-review-graph
+.code-review-graph/

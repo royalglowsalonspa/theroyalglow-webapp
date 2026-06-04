@@ -2,4 +2,32 @@
 inclusion: always
 ---
 
-graphify: A knowledge graph of this project lives in `graphify-out/`. For codebase, architecture, or dependency questions, when `graphify-out/graph.json` exists, first run `graphify query "<question>"` (or `graphify path "<A>" "<B>"` / `graphify explain "<concept>"`). These return a scoped subgraph, usually much smaller than `GRAPH_REPORT.md` or raw grep output. Read `GRAPH_REPORT.md` only for broad architecture review or when those commands do not surface enough context.
+## Knowledge Graphs: graphify + code-review-graph
+
+This project uses **two complementary knowledge graph tools** for codebase intelligence:
+
+### code-review-graph (MCP — primary for AI agents)
+
+The MCP server `code-review-graph` provides 30+ tools directly accessible to AI agents. **Use these first** for any codebase exploration, code review, or architecture question. The graph lives in `.code-review-graph/` and auto-updates incrementally.
+
+Key use cases:
+- `semantic_search_nodes` — find functions/classes by name or keyword
+- `query_graph` — trace callers, callees, imports, tests, dependencies
+- `detect_changes` — risk-scored code review analysis
+- `get_impact_radius` — blast radius of a change
+- `get_architecture_overview` — high-level codebase structure
+
+### graphify (CLI — supplementary)
+
+A knowledge graph of this project also lives in `graphify-out/`. For codebase, architecture, or dependency questions where code-review-graph MCP tools don't surface enough context, fall back to:
+- `graphify query "<question>"` — scoped subgraph query
+- `graphify path "<A>" "<B>"` — find connection between two concepts
+- `graphify explain "<concept>"` — explain a concept in context
+
+Read `GRAPH_REPORT.md` only for broad architecture review or when neither tool surfaces enough context.
+
+### Priority Order
+
+1. **code-review-graph MCP tools** (structural, incremental, token-efficient)
+2. **graphify CLI** (when MCP tools don't cover it)
+3. **Grep/Glob/Read** (last resort for file-level scanning)
