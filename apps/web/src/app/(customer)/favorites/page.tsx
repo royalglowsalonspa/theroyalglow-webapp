@@ -25,7 +25,7 @@
  * Dependencies : auth, next (Metadata), next/headers, next/navigation, next/link
  *
  * Notes        :
- * - Protected route; redirects to /sign-in if no session
+ * - Protected route; redirects to / (homepage) if no session
  ************************************************************/
 
 import { auth } from '@/lib/auth-server'
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
 export default async function FavoritesPage() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) {
-    redirect('/sign-in')
+    redirect('/')
   }
 
   return (

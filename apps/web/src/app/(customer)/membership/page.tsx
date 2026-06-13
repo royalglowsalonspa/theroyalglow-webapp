@@ -25,7 +25,7 @@
  * Dependencies : auth, formatDateIN, getCustomerMembership, getMembershipSessions
  *
  * Notes        :
- * - Protected route; redirects to /sign-in if no session
+ * - Protected route; redirects to / (homepage) if no session
  ************************************************************/
 
 import { auth } from '@/lib/auth-server'
@@ -82,7 +82,7 @@ function daysUntil(expiresAt: Date, now: Date): number {
 export default async function MembershipPage() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) {
-    redirect('/sign-in')
+    redirect('/')
   }
 
   const customerId = session.user.id

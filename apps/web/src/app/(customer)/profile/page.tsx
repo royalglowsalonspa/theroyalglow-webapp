@@ -25,7 +25,7 @@
  * Dependencies : auth, next (Metadata, headers, redirect), SignOutButton
  *
  * Notes        :
- * - Protected route; redirects to /sign-in if no session
+ * - Protected route; redirects to / (homepage) if no session
  ************************************************************/
 
 import { auth } from '@/lib/auth-server'
@@ -55,7 +55,7 @@ export default async function ProfilePage() {
   const session = await auth.api.getSession({ headers: await headers() })
 
   if (!session) {
-    redirect('/sign-in')
+    redirect('/')
   }
 
   const { user } = session

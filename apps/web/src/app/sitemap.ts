@@ -27,7 +27,7 @@
  * Dependencies : next, @/lib/cms/client, @/lib/seo/business, @rgss/db
  *
  * Notes        :
- * - Excludes: /admin, /api, /profile, /staff, /book, /sign-in
+ * - Excludes: /admin, /api, /profile, /staff, /book
  ************************************************************/
 import { getAllPostSlugs } from '@/lib/cms/client'
 import { SITE_URL } from '@/lib/seo/business'
@@ -43,8 +43,8 @@ import type { MetadataRoute } from 'next'
  * `getAllPostSlugs()`. Both dynamic reads are wrapped in try/catch so the route
  * always returns at least the static entries and never throws.
  *
- * Private surfaces (`/admin`, `/api`, `/profile`, `/staff`, `/book`,
- * `/sign-in`) are deliberately never listed.
+ * Private surfaces (`/admin`, `/api`, `/profile`, `/staff`, `/book`)
+ * are deliberately never listed.
  */
 
 type SitemapEntry = MetadataRoute.Sitemap[number]

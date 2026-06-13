@@ -191,3 +191,34 @@
     animation: none !important;
   }
 }
+
+/* ── Infinite horizontal marquee (BrandLogosSection mobile) ──
+   The track is 2 × brand-row wide. We translate -50% so it shifts exactly
+   one brand-row to the left, then jumps back to 0 — completely seamless. */
+@keyframes rg-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.rg-marquee-track {
+  animation: rg-marquee 20s linear infinite;
+}
+
+/* Pause on hover / focus so users can read each brand clearly */
+.rg-marquee-track:hover,
+.rg-marquee-track:focus-within {
+  animation-play-state: paused;
+}
+
+/* Reduced-motion: stop the animation; all brands remain visible */
+@media (prefers-reduced-motion: reduce) {
+  .rg-marquee-track {
+    animation: none !important;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}

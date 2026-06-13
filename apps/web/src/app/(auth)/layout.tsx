@@ -24,7 +24,7 @@
  * Dependencies : React
  *
  * Notes        :
- * - Used by (auth) route group: /sign-in, /onboarding
+ * - Used by (auth) route group: /onboarding
  ************************************************************/
 export default function AuthLayout({
   children,

@@ -6,39 +6,41 @@
  * Module Name  : MobileNav
  * Scope        : Layout
  *
- * Description  : Slide-in mobile navigation panel with focus trap, escape key
- *                handling, authenticated account links, and direct Google
- *                sign-in / sign-out actions.
+ * Description  : Full-height mobile navigation drawer rendered through a body
+ *                portal so it sits above the header and announcement bar. Gives
+ *                mobile full feature parity with the desktop navbar + account
+ *                menu, plus direct Google sign-in / sign-out.
  *
  * Responsibilities :
- * - Render full-screen slide-in navigation with backdrop
- * - Trap focus within the panel when open
- * - Close on Escape key or backdrop click
- * - Show navigation links with active route highlighting
- * - Display account links + Logout for authenticated users
- * - Launch Google OAuth directly for signed-out users
+ * - Portal an opaque, accessible slide-in drawer above all page chrome
+ * - Render primary navigation + (when signed in) the full account menu
+ * - Surface live Gems balance and unread notification count as badges
+ * - Launch Google OAuth directly (signed out) or sign out (signed in)
+ * - Trap focus, lock body scroll, and close on Escape / backdrop tap
  *
  * Features / Functionality :
- * - Accessible modal dialog with aria-modal
- * - Focus trap with Tab/Shift+Tab cycling
- * - Slide transition (translate-x-full → translate-x-0)
- * - Body scroll lock when open
- * - Auth-aware: account links + Logout, or "Sign in with Google" CTA
+ * - createPortal to document.body at z-[100] (escapes header stacking context)
+ * - Account card (avatar, name, email) + iconised account links
+ * - Prominent white "Continue with Google" button when signed out
+ * - 48px+ touch targets, active-route highlighting, reduced-motion safe
  *
- * Tech Stack   : React, TypeScript, Tailwind CSS, Next.js
+ * Tech Stack   : React, TypeScript, Next.js, Tailwind CSS v4
  * Layer        : Presentation (Layout)
  *
- * Dependencies : next/link, @/lib/auth-client, @/lib/google-signin
+ * Dependencies : react-dom (createPortal), next/link, @/lib/auth-client,
+ *                @/lib/google-signin, @/lib/utils
  *
- * Notes        : None
+ * Notes        : Badges fetch lazily when the drawer opens for a signed-in user.
  ************************************************************/
 
 'use client'
 
 import { signOut } from '@/lib/auth-client'
 import { startGoogleSignIn } from '@/lib/google-signin'
+import { cn } from '@/lib/utils'
 import Link from 'next/link'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 const navLinks = [
   { href: '/', label: 'Home' },
@@ -46,14 +48,135 @@ const navLinks = [
   { href: '/offers', label: 'Offers' },
   { href: '/about', label: 'About' },
   { href: '/contact', label: 'Contact' },
+  { href: '/blog', label: 'Blog' },
 ]
 
-const accountLinks = [
-  { href: '/bookings', label: 'Bookings' },
-  { href: '/membership', label: 'Membership' },
-  { href: '/gems', label: 'Gems' },
-  { href: '/favorites', label: 'Favorites' },
-  { href: '/profile', label: 'Profile' },
+const ICON =
+  'h-[20px] w-[20px] shrink-0 text-warm-gray group-hover:text-deep-gold transition-colors'
+
+type AccountLink = {
+  href: string
+  label: string
+  icon: React.ReactNode
+  badge?: 'gems' | 'notifications'
+}
+
+const accountLinks: AccountLink[] = [
+  {
+    href: '/notifications',
+    label: 'Notifications',
+    badge: 'notifications',
+    icon: (
+      <svg
+        className={ICON}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+      </svg>
+    ),
+  },
+  {
+    href: '/bookings',
+    label: 'Bookings',
+    icon: (
+      <svg
+        className={ICON}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <rect x="3" y="4" width="18" height="18" rx="2" />
+        <path d="M16 2v4M8 2v4M3 10h18" />
+      </svg>
+    ),
+  },
+  {
+    href: '/membership',
+    label: 'Membership',
+    icon: (
+      <svg
+        className={ICON}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M5 16 3 5l5.5 4L12 4l3.5 5L21 5l-2 11z" />
+        <path d="M5 20h14" />
+      </svg>
+    ),
+  },
+  {
+    href: '/gems',
+    label: 'Gems',
+    badge: 'gems',
+    icon: (
+      <svg
+        className={ICON}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M6 3h12l4 6-10 12L2 9z" />
+        <path d="M2 9h20M12 21 8 9l2-6M12 21l4-12-2-6" />
+      </svg>
+    ),
+  },
+  {
+    href: '/favorites',
+    label: 'Favorites',
+    icon: (
+      <svg
+        className={ICON}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" />
+      </svg>
+    ),
+  },
+  {
+    href: '/profile',
+    label: 'Profile',
+    icon: (
+      <svg
+        className={ICON}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+        <circle cx="12" cy="7" r="4" />
+      </svg>
+    ),
+  },
 ]
 
 interface MobileNavProps {
@@ -66,12 +189,43 @@ interface MobileNavProps {
 export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
   const navRef = useRef<HTMLDivElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const [mounted, setMounted] = useState(false)
+  const [gems, setGems] = useState<number | null>(null)
+  const [unread, setUnread] = useState(0)
+
+  // Portal target only exists on the client.
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Lazily load account badges the first time the drawer opens for a user.
+  useEffect(() => {
+    if (!isOpen || !user) {
+      return
+    }
+    let cancelled = false
+    fetch('/api/gems', { headers: { accept: 'application/json' } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!cancelled && j?.success) setGems(j.data.summary.balance as number)
+      })
+      .catch(() => {})
+    fetch('/api/notifications', { headers: { accept: 'application/json' } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!cancelled && j?.success) setUnread(j.data.unreadCount as number)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen, user])
 
   async function handleSignIn() {
     try {
       await startGoogleSignIn()
     } catch {
-      /* swallow — Better Auth surfaces its own error UI on redirect failure */
+      /* Better Auth surfaces its own error UI on redirect failure */
     }
   }
 
@@ -89,32 +243,26 @@ export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
     }
   }
 
-  // Focus trap
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onClose()
         return
       }
-
       if (e.key !== 'Tab' || !navRef.current) return
-
-      const focusableElements = navRef.current.querySelectorAll<HTMLElement>(
+      const focusable = navRef.current.querySelectorAll<HTMLElement>(
         'a[href], button, [tabindex]:not([tabindex="-1"])',
       )
-      const firstElement = focusableElements[0]
-      const lastElement = focusableElements[focusableElements.length - 1]
-
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
       if (e.shiftKey) {
-        if (document.activeElement === firstElement) {
+        if (document.activeElement === first) {
           e.preventDefault()
-          lastElement?.focus()
+          last?.focus()
         }
-      } else {
-        if (document.activeElement === lastElement) {
-          e.preventDefault()
-          firstElement?.focus()
-        }
+      } else if (document.activeElement === last) {
+        e.preventDefault()
+        first?.focus()
       }
     },
     [onClose],
@@ -124,49 +272,69 @@ export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
     if (isOpen) {
       document.body.style.overflow = 'hidden'
       document.addEventListener('keydown', handleKeyDown)
-      // Focus the close button when menu opens
-      setTimeout(() => closeButtonRef.current?.focus(), 100)
-    } else {
-      document.body.style.overflow = ''
+      const t = setTimeout(() => closeButtonRef.current?.focus(), 120)
+      return () => {
+        clearTimeout(t)
+        document.body.style.overflow = ''
+        document.removeEventListener('keydown', handleKeyDown)
+      }
     }
-
-    return () => {
-      document.body.style.overflow = ''
-      document.removeEventListener('keydown', handleKeyDown)
-    }
+    document.body.style.overflow = ''
+    document.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, handleKeyDown])
 
-  return (
-    <>
-      {/* Backdrop overlay */}
+  if (!mounted) {
+    return null
+  }
+
+  const firstName = user?.name?.split(' ')[0] ?? null
+
+  function navItemClass(active: boolean) {
+    return cn(
+      'group flex items-center gap-3 rounded-xl px-3.5 min-h-[48px] font-ui text-[15px] transition-colors duration-150',
+      active ? 'bg-golden-mist text-deep-gold font-bold' : 'text-cocoa-dark hover:bg-cloud-gray',
+    )
+  }
+
+  return createPortal(
+    <div
+      className={cn(
+        'fixed inset-0 z-[100] md:hidden',
+        isOpen ? 'pointer-events-auto' : 'pointer-events-none',
+      )}
+      aria-hidden={!isOpen}
+    >
+      {/* Backdrop */}
       <button
         type="button"
         tabIndex={-1}
         aria-label="Close navigation menu"
-        className={`fixed inset-0 bg-cocoa-dark/50 z-40 motion-safe:transition-opacity motion-safe:duration-250 ${
-          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
         onClick={onClose}
+        className={cn(
+          'absolute inset-0 bg-cocoa-dark/60 backdrop-blur-[2px] motion-safe:transition-opacity motion-safe:duration-300',
+          isOpen ? 'opacity-100' : 'opacity-0',
+        )}
       />
 
-      {/* Slide-in panel */}
+      {/* Drawer */}
       <div
         ref={navRef}
         id="mobile-nav"
         role="dialog"
         aria-modal="true"
-        aria-label="Mobile navigation menu"
-        className={`fixed top-0 right-0 bottom-0 w-[280px] max-w-[80vw] bg-canvas-white z-50 shadow-xl motion-safe:transition-transform motion-safe:duration-250 motion-safe:ease-out ${
-          isOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
+        aria-label="Navigation menu"
+        className={cn(
+          'absolute inset-y-0 right-0 flex w-full max-w-[360px] flex-col bg-canvas-white shadow-elevated motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-[cubic-bezier(0.32,0.72,0,1)]',
+          isOpen ? 'translate-x-0' : 'translate-x-full',
+        )}
       >
-        {/* Close button */}
+        {/* Header row */}
         <div className="flex items-center justify-between h-16 px-5 border-b border-cloud-gray">
           <span className="flex flex-col leading-none">
             <span className="font-display font-black text-lg text-cocoa-dark tracking-tight">
               Royal Glow
             </span>
-            <span className="font-ui font-semibold text-[9px] uppercase tracking-[0.22em] text-warm-gray mt-0.5">
+            <span className="font-ui font-semibold text-[9px] uppercase tracking-[0.22em] text-warm-gray mt-1">
               Salon &amp; Spa
             </span>
           </span>
@@ -174,7 +342,7 @@ export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
             ref={closeButtonRef}
             type="button"
             onClick={onClose}
-            className="flex items-center justify-center w-10 h-10 text-cocoa-dark"
+            className="flex items-center justify-center w-10 h-10 -mr-2 rounded-full text-cocoa-dark hover:bg-cloud-gray transition-colors active:scale-95"
             aria-label="Close navigation menu"
           >
             <svg
@@ -193,98 +361,136 @@ export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
           </button>
         </div>
 
-        {/* Nav links */}
-        <nav aria-label="Mobile navigation" className="flex flex-col px-5 py-6 gap-1">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={onClose}
-              className={`font-ui text-sm uppercase tracking-[0.5px] py-3 px-3 rounded-[6px] transition-colors duration-200 ${
-                pathname === link.href
-                  ? 'text-deep-gold bg-golden-mist'
-                  : 'text-cocoa-dark hover:bg-cloud-gray'
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
-
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto overscroll-contain px-3 py-4">
+          {/* Account card (signed in) */}
           {user && (
-            <>
-              <span className="mt-3 mb-1 px-3 font-ui text-[10px] uppercase tracking-[1px] text-warm-stone">
-                Account
-              </span>
-              {accountLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={onClose}
-                  className={`font-ui text-sm uppercase tracking-[0.5px] py-3 px-3 rounded-[6px] transition-colors duration-200 ${
-                    pathname === link.href
-                      ? 'text-deep-gold bg-golden-mist'
-                      : 'text-cocoa-dark hover:bg-cloud-gray'
-                  }`}
+            <Link
+              href="/profile"
+              onClick={onClose}
+              className="mb-2 flex items-center gap-3 rounded-2xl bg-warm-cream px-4 py-3.5 transition-colors hover:bg-golden-mist"
+            >
+              {user.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={user.image}
+                  alt=""
+                  className="h-11 w-11 rounded-full object-cover border border-outline-gray"
+                />
+              ) : (
+                <span
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-warm-gold font-ui font-bold text-cocoa-dark"
+                  aria-hidden="true"
                 >
-                  {link.label}
-                </Link>
-              ))}
-            </>
-          )}
-        </nav>
-
-        {/* Bottom actions */}
-        <div className="absolute bottom-0 left-0 right-0 p-5 border-t border-cloud-gray space-y-3">
-          <Link
-            href="/?book=1"
-            onClick={onClose}
-            className="bg-royal-gold text-cocoa-dark font-ui text-xs uppercase tracking-[0.5px] rounded-full h-10 flex items-center justify-center hover:bg-deep-gold motion-safe:transition-all motion-safe:duration-200"
-          >
-            Book Now
-          </Link>
-          {user ? (
-            <>
-              <Link
-                href="/profile"
-                onClick={onClose}
-                className="bg-cloud-gray text-cocoa-dark font-ui text-xs uppercase tracking-[0.5px] rounded-full h-10 flex items-center justify-center gap-2 hover:bg-golden-mist motion-safe:transition-all motion-safe:duration-200"
-              >
-                {user.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={user.image} alt="" className="w-6 h-6 rounded-full object-cover" />
-                ) : (
-                  <span
-                    className="w-6 h-6 rounded-full bg-royal-gold flex items-center justify-center text-[11px]"
-                    aria-hidden="true"
-                  >
-                    {user.name?.trim().charAt(0).toUpperCase() || 'G'}
+                  {user.name?.trim().charAt(0).toUpperCase() ?? 'G'}
+                </span>
+              )}
+              <span className="min-w-0">
+                <span className="block font-ui font-bold text-sm text-cocoa-dark truncate">
+                  {user.name ?? 'Account'}
+                </span>
+                {user.email && (
+                  <span className="block font-sans text-xs text-dusty-gray truncate">
+                    {user.email}
                   </span>
                 )}
-                <span className="max-w-[140px] truncate">
-                  {user.name?.split(' ')[0] ?? 'Profile'}
-                </span>
-              </Link>
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="w-full text-error font-ui text-xs uppercase tracking-[0.5px] rounded-full h-10 flex items-center justify-center gap-2 hover:bg-error/8 motion-safe:transition-all motion-safe:duration-200"
+              </span>
+            </Link>
+          )}
+
+          {/* Account links (signed in) */}
+          {user && (
+            <>
+              <p className="px-3.5 pt-3 pb-1 font-ui text-[11px] font-bold uppercase tracking-[1.5px] text-warm-stone">
+                Account
+              </p>
+              <nav aria-label="Account" className="flex flex-col gap-0.5">
+                {accountLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={onClose}
+                    className={navItemClass(pathname === link.href)}
+                  >
+                    {link.icon}
+                    <span className="flex-1">{link.label}</span>
+                    {link.badge === 'gems' && gems !== null && (
+                      <span className="rounded-pill bg-golden-mist px-2 py-0.5 font-ui text-[11px] font-bold text-deep-gold tabular-nums">
+                        {gems.toLocaleString('en-IN')} pts
+                      </span>
+                    )}
+                    {link.badge === 'notifications' && unread > 0 && (
+                      <span className="inline-flex min-w-5 items-center justify-center rounded-pill bg-error px-1.5 py-0.5 font-ui text-[11px] font-bold text-canvas-white tabular-nums">
+                        {unread > 9 ? '9+' : unread}
+                      </span>
+                    )}
+                  </Link>
+                ))}
+              </nav>
+            </>
+          )}
+
+          {/* Primary navigation */}
+          <p className="px-3.5 pt-4 pb-1 font-ui text-[11px] font-bold uppercase tracking-[1.5px] text-warm-stone">
+            Explore
+          </p>
+          <nav aria-label="Primary" className="flex flex-col gap-0.5">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={onClose}
+                className={navItemClass(pathname === link.href)}
               >
+                <span className="flex-1">{link.label}</span>
                 <svg
-                  className="h-4 w-4"
+                  className="h-4 w-4 text-outline-gray"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="1.75"
+                  strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   aria-hidden="true"
                 >
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <path d="m16 17 5-5-5-5M21 12H9" />
+                  <path d="m9 18 6-6-6-6" />
                 </svg>
-                Logout
-              </button>
-            </>
+              </Link>
+            ))}
+          </nav>
+        </div>
+
+        {/* Sticky footer actions */}
+        <div className="border-t border-cloud-gray p-4 space-y-3">
+          <Link
+            href="/?book=1"
+            onClick={onClose}
+            className="flex h-12 items-center justify-center gap-2 rounded-xl bg-warm-gold font-ui font-bold text-sm text-cocoa-dark transition-all duration-200 hover:bg-deep-gold active:scale-[0.98]"
+          >
+            Book Now <span aria-hidden="true">→</span>
+          </Link>
+
+          {user ? (
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-error/30 font-ui font-bold text-sm text-error transition-colors duration-200 hover:bg-error/8 active:scale-[0.98]"
+            >
+              <svg
+                className="h-[18px] w-[18px]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <path d="m16 17 5-5-5-5M21 12H9" />
+              </svg>
+              Logout{firstName ? ` (${firstName})` : ''}
+            </button>
           ) : (
             <button
               type="button"
@@ -292,9 +498,9 @@ export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
                 onClose()
                 void handleSignIn()
               }}
-              className="w-full bg-warm-gold text-cocoa-dark font-ui text-xs uppercase tracking-[0.5px] rounded-full h-10 flex items-center justify-center gap-2 hover:bg-deep-gold active:scale-[0.98] motion-safe:transition-all motion-safe:duration-200"
+              className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-outline-gray bg-canvas-white font-ui font-bold text-sm text-cocoa-dark shadow-[0_1px_2px_rgba(26,15,10,0.08)] transition-all duration-200 hover:bg-cloud-gray active:scale-[0.98]"
             >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+              <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                   fill="#4285F4"
@@ -312,11 +518,12 @@ export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
                   fill="#EA4335"
                 />
               </svg>
-              Sign in with Google
+              Continue with Google
             </button>
           )}
         </div>
       </div>
-    </>
+    </div>,
+    document.body,
   )
 }
