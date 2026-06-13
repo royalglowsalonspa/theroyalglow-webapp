@@ -33,23 +33,31 @@
 import { oneTapClient } from 'better-auth/client/plugins'
 import { createAuthClient } from 'better-auth/react'
 
+// Resolve the API base to whatever origin is actually serving the page. In the
+// browser this is window.location.origin, so the same build works on
+// localhost, an ngrok tunnel (real-device testing), and production without any
+// env juggling — the One Tap credential always posts back to the right origin.
+// On the server we fall back to the configured public URL.
+const baseURL =
+  typeof window !== 'undefined'
+    ? window.location.origin
+    : (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000')
+
 export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+  baseURL,
   plugins: [
     oneTapClient({
       clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '',
       // Don't silently auto-pick an account; let the user confirm in the prompt.
       autoSelect: false,
-      // Dismiss when the user taps outside (requires FedCM disabled, below).
-      cancelOnTapOutside: true,
       context: 'signin',
-      // FedCM's get() aborts noisily ("AbortError: signal is aborted without
-      // reason") on re-render/navigation and is flaky with the credential
-      // hand-off. The classic GIS prompt is stable here, so opt out of FedCM.
+      // FedCM is left enabled (the browser default). It powers the native
+      // bottom-sheet One Tap on Android/mobile Chrome — the best experience for
+      // our mobile-first audience — and modern Chrome enforces it regardless.
       promptOptions: {
-        fedCM: false,
-        // One gentle attempt; if dismissed we fall back to the Sign in button.
-        maxAttempts: 1,
+        // A few gentle attempts so the prompt reliably surfaces on mobile,
+        // then we fall back to the explicit Google button.
+        maxAttempts: 3,
       },
     }),
   ],

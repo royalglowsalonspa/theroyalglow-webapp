@@ -56,7 +56,7 @@ function displayTime(value: string | null): string | null {
 export default async function StaffSchedulePage() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) {
-    redirect('/sign-in')
+    redirect('/')
   }
 
   const staff = await getStaffProfileByUserId(session.user.id)

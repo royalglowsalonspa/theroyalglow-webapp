@@ -1,23 +1,26 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 07-06-2026 & Updated - 07-06-2026
+ * Date         : Created - 07-06-2026 & Updated - 08-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : GoogleOneTap
  * Scope        : Authentication
  *
  * Description  : Headless component that shows the Google One Tap prompt for
- *                signed-out visitors. Renders nothing visible; Google injects
- *                its own prompt UI in the top-right of the viewport.
+ *                signed-out visitors on every viewport. Renders nothing
+ *                visible; Google injects its own prompt UI (a top card on
+ *                desktop, a native bottom sheet on mobile via FedCM).
  *
  * Responsibilities :
- * - Trigger the One Tap prompt once per session for signed-out users
+ * - Trigger the One Tap prompt once per page load for signed-out users
  * - Preserve booking/UTM context so it survives the credential exchange
+ * - Filter Google's benign GSI diagnostics out of the dev error overlay
  * - Stay silent (no nagging) once dismissed or when already authenticated
  *
  * Features / Functionality :
- * - Skips entirely while the session is loading or the user is signed in
- * - Guards against duplicate prompts within the same page session
+ * - Works on mobile + desktop (mobile-first audience) via FedCM
+ * - Module-level once-guard survives React StrictMode dev remounts
+ * - Visible-tab guard; skips while session loading or user signed in
  *
  * Tech Stack   : React, TypeScript, Better Auth (One Tap client)
  * Layer        : Presentation (Auth)
@@ -32,17 +35,55 @@
 
 import { oneTap, useSession } from '@/lib/auth-client'
 import { preserveAuthContext } from '@/lib/google-signin'
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
+
+// Module-level guards survive React StrictMode's dev remounts (a component ref
+// would not). They ensure the prompt is requested at most once per page load
+// and the console filter is installed at most once.
+let oneTapRequested = false
+let gsiNoiseSilenced = false
+
+/**
+ * Google's GSI client (accounts.google.com/gsi/client) logs its own
+ * diagnostics through `console.error` with a "[GSI_LOGGER]" prefix — FedCM
+ * aborts, transient "NetworkError: Error retrieving a token", and
+ * "origin not allowed" while developing locally. None originate in our code
+ * and all are non-actionable at runtime, yet Next's dev overlay surfaces every
+ * console.error as a blocking "Console Error". We downgrade GSI's own logs to a
+ * warning (still visible in the console, never in the overlay) and let all
+ * other errors through untouched.
+ */
+function silenceGsiConsoleNoise() {
+  if (gsiNoiseSilenced || typeof window === 'undefined') {
+    return
+  }
+  gsiNoiseSilenced = true
+  const original = console.error
+  console.error = (...args: unknown[]) => {
+    const text = args
+      .map((a) => (typeof a === 'string' ? a : ((a as Error)?.message ?? '')))
+      .join(' ')
+    if (text.includes('[GSI_LOGGER]') || (text.includes('FedCM') && text.includes('Error'))) {
+      console.warn(...args)
+      return
+    }
+    original.apply(console, args)
+  }
+}
 
 export function GoogleOneTap() {
   const { data: session, isPending } = useSession()
-  const triggered = useRef(false)
 
   useEffect(() => {
-    if (isPending || session?.user || triggered.current) {
+    if (isPending || session?.user || oneTapRequested) {
       return
     }
-    triggered.current = true
+    // Only prompt on a visible tab (avoids aborted background prompts).
+    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+      return
+    }
+    oneTapRequested = true
+    silenceGsiConsoleNoise()
 
     // Keep booking/UTM context across the One Tap credential exchange.
     preserveAuthContext()
@@ -56,20 +97,18 @@ export function GoogleOneTap() {
           window.location.reload()
         },
         onError: (ctx) => {
-          // Surface the credential-exchange failure so a failed "Continue"
-          // (e.g. unauthorized JS origin / audience mismatch) is diagnosable,
-          // and allow the prompt to be retried.
           if (process.env.NODE_ENV !== 'production') {
-            console.error('[OneTap] sign-in failed:', ctx?.error)
+            console.warn('[OneTap] prompt not completed:', ctx?.error)
           }
-          triggered.current = false
+          // Allow a fresh attempt on a later page load.
+          oneTapRequested = false
         },
       },
     }).catch(() => {
-      // Prompt failed to display (not an explicit dismissal). Allow a later
-      // retry after navigation rather than spamming the prompt now.
-      triggered.current = false
+      oneTapRequested = false
     })
+    // No cleanup cancel(): cancelling a pending FedCM request is itself what
+    // triggers the AbortError. We let the prompt resolve naturally instead.
   }, [isPending, session])
 
   return null

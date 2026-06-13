@@ -10,7 +10,7 @@
  *                and renders the profile completion form.
  *
  * Responsibilities :
- * - Validate user session (redirect to /sign-in if absent)
+ * - Validate user session (redirect to / if absent)
  * - Pass user name/email to OnboardingForm
  *
  * Features / Functionality :
@@ -42,7 +42,7 @@ export default async function OnboardingPage() {
   })
 
   if (!session) {
-    redirect('/sign-in')
+    redirect('/')
   }
 
   return <OnboardingForm userName={session.user.name} userEmail={session.user.email} />

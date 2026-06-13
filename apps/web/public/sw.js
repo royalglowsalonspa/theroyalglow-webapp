@@ -6,7 +6,7 @@ const CACHE = 'rgss-v1'
 const OFFLINE_URL = '/offline'
 
 // Paths that must never be cached or served from cache.
-const BYPASS_PREFIXES = ['/api', '/admin', '/sign-in']
+const BYPASS_PREFIXES = ['/api', '/admin']
 
 function isBypassed(pathname) {
   return BYPASS_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))

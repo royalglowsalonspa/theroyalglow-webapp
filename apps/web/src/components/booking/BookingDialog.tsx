@@ -36,6 +36,7 @@
 
 import { track } from '@/lib/analytics/events'
 import { useSession } from '@/lib/auth-client'
+import { startGoogleSignIn } from '@/lib/google-signin'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 // --- Types (mirror GET /api/services response) ---
@@ -394,11 +395,12 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
   const handleSubmit = async () => {
     if (!selectedDate || !selectedTime || selectedServiceIds.length === 0) return
 
-    // Not signed in → preserve intent and route through sign-in. Pass book=1
-    // so the sign-in flow captures it and the dialog can auto-reopen on return.
+    // Not signed in → preserve intent and launch Google sign-in directly.
+    // callbackURL reopens the booking dialog (?book=1) after the OAuth round
+    // trip, where the persisted intent restores the user's selections.
     if (!session?.user) {
       persistIntent()
-      window.location.href = '/sign-in?book=1'
+      void startGoogleSignIn('/?book=1')
       return
     }
 

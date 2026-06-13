@@ -14,7 +14,7 @@
  * Responsibilities :
  * - Display brand name, address (Rayasandra), opening hours
  * - Render Explore column: Services, Offers, Gems Catalogue, Blog, About, Contact, FAQ
- * - Render Account column: Sign in, Book Now, Bookings, Membership, Favorites, Profile
+ * - Render Account column: Book Now, Bookings, Membership, Favorites, Profile
  * - Render Follow Us: Instagram, Facebook, YouTube, LinkedIn social icons
  * - Display Email Us link (hello@theroyalglow.in)
  * - Bottom bar: copyright, Legal, Privacy Policy, Terms, Refund, Cookie Preferences
@@ -41,11 +41,10 @@ const exploreLinks = [
 ]
 
 const accountLinks = [
-  { href: '/sign-in', label: 'Sign in' },
   { href: '/?book=1', label: 'Book Now' },
   { href: '/bookings', label: 'Bookings' },
   { href: '/membership', label: 'Membership' },
-  { href: '/profile', label: 'Favorites' },
+  { href: '/favorites', label: 'Favorites' },
   { href: '/profile', label: 'Profile' },
 ]
 

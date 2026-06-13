@@ -44,7 +44,7 @@ export const metadata: Metadata = {
 
 // Minimal chrome for the staff self-service area (schedule + leave). Access is
 // gated by middleware (min role 'staff'); we also resolve the session here so a
-// missing/expired session falls back to /sign-in rather than rendering an empty
+// missing/expired session falls back to the homepage rather than rendering an empty
 // shell. No admin sidebar — staff see only their own surfaces.
 export default async function StaffLayout({
   children,
@@ -53,7 +53,7 @@ export default async function StaffLayout({
 }) {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) {
-    redirect('/sign-in')
+    redirect('/')
   }
 
   return (

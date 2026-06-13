@@ -11,7 +11,7 @@
  *
  * Responsibilities :
  * - Check session cookie presence on protected routes
- * - Redirect unauthenticated users to /sign-in
+ * - Redirect unauthenticated users to the homepage (One Tap + Google sign-in)
  * - Validate RBAC roles for admin routes via internal API
  * - Return 403 for insufficient permissions
  *
@@ -52,10 +52,11 @@ export async function middleware(request: NextRequest) {
   // Check for session cookie
   const sessionToken = request.cookies.get(SESSION_COOKIE)?.value
 
-  // Unauthenticated → redirect to /sign-in
+  // Unauthenticated → redirect to the homepage, where Google One Tap and the
+  // explicit "Sign in" button live (there is no dedicated /sign-in page).
   if (!sessionToken) {
-    const signInUrl = new URL('/sign-in', request.url)
-    return NextResponse.redirect(signInUrl)
+    const homeUrl = new URL('/', request.url)
+    return NextResponse.redirect(homeUrl)
   }
 
   // For admin routes, validate role via internal API call
@@ -69,8 +70,8 @@ export async function middleware(request: NextRequest) {
       })
 
       if (!sessionRes.ok) {
-        const signInUrl = new URL('/sign-in', request.url)
-        return NextResponse.redirect(signInUrl)
+        const homeUrl = new URL('/', request.url)
+        return NextResponse.redirect(homeUrl)
       }
 
       const session = await sessionRes.json()
@@ -81,9 +82,9 @@ export async function middleware(request: NextRequest) {
         return new NextResponse('Forbidden', { status: 403 })
       }
     } catch {
-      // If session validation fails, redirect to sign-in
-      const signInUrl = new URL('/sign-in', request.url)
-      return NextResponse.redirect(signInUrl)
+      // If session validation fails, redirect to the homepage.
+      const homeUrl = new URL('/', request.url)
+      return NextResponse.redirect(homeUrl)
     }
   }
 

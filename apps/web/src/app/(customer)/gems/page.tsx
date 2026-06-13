@@ -25,7 +25,7 @@
  * Dependencies : auth, formatDateIN, formatINR, getLoyaltySummary, getLoyaltyTransactions, getOrCreateLoyaltyAccount, getRedeemableServices
  *
  * Notes        :
- * - Protected route; redirects to /sign-in if no session
+ * - Protected route; redirects to / (homepage) if no session
  ************************************************************/
 
 import { auth } from '@/lib/auth-server'
@@ -75,7 +75,7 @@ function toDate(value: Date | string | null): Date | null {
 export default async function GemsPage({ searchParams }: PageProps) {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) {
-    redirect('/sign-in')
+    redirect('/')
   }
 
   const customerId = session.user.id
