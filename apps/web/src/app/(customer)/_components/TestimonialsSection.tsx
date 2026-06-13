@@ -189,10 +189,10 @@ export function TestimonialsSection() {
         </div>
       </div>
 
-      {/* Carousel track */}
+      {/* Carousel track — overflow-y must be visible so hover lift is not clipped */}
       <div
         ref={trackRef}
-        className="flex overflow-x-auto gap-5 snap-x snap-mandatory scrollbar-hide pb-1"
+        className="flex overflow-x-auto overflow-y-visible gap-5 snap-x snap-mandatory scrollbar-hide pb-1 py-2"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
         onFocusCapture={() => setPaused(true)}
