@@ -55,12 +55,15 @@ export function HeroSection() {
               </span>
             </div>
 
-            {/* Headline */}
+            {/* Headline — intentional two-line split for desktop rhythm:
+                "Where beauty" / "meets Royalty." */}
             <h1
               id="hero-heading"
-              className="font-display font-black text-canvas-white text-[clamp(40px,5.5vw,68px)] leading-[1.05] tracking-[-0.03em]"
+              className="font-display font-black text-canvas-white text-[clamp(42px,6vw,72px)] leading-[1.05] tracking-[-0.03em]"
             >
-              Where beauty meets Royalty.
+              Where beauty
+              <br />
+              meets Royalty.
             </h1>
 
             {/* Body */}
