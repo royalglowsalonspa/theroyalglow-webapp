@@ -17,6 +17,7 @@
  *
  * Features / Functionality :
  * - Google OAuth authentication
+ * - Google One Tap sign-in (verifies the GSI ID token server-side)
  * - Cookie-based session caching (5-min TTL)
  * - Admin dashboard via @better-auth/infra dash plugin
  *
@@ -33,6 +34,7 @@ import { db } from '@rgss/db'
 import * as schema from '@rgss/db/schema'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
+import { oneTap } from 'better-auth/plugins'
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -52,7 +54,7 @@ export const auth = betterAuth({
       clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? '',
     },
   },
-  plugins: [dash()],
+  plugins: [dash(), oneTap()],
   session: {
     cookieCache: {
       enabled: true,

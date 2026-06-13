@@ -31,10 +31,8 @@
  ************************************************************/
 'use client'
 
-import { signIn } from '@/lib/auth-client'
+import { startGoogleSignIn } from '@/lib/google-signin'
 import { useState } from 'react'
-
-const AUTH_CONTEXT_KEY = 'rgss_auth_context'
 
 type SignInState = 'idle' | 'redirecting' | 'error'
 
@@ -45,28 +43,7 @@ export function SignInCard() {
   async function handleSignIn() {
     try {
       setState('redirecting')
-
-      // Save any URL context to sessionStorage before OAuth redirect
-      if (typeof window !== 'undefined') {
-        const params = new URLSearchParams(window.location.search)
-        const context: Record<string, string> = {}
-        for (const key of [
-          'book',
-          'utm_source',
-          'utm_campaign',
-          'utm_medium',
-          'leadId',
-          'service',
-        ]) {
-          const value = params.get(key)
-          if (value) context[key] = value
-        }
-        if (Object.keys(context).length > 0) {
-          sessionStorage.setItem(AUTH_CONTEXT_KEY, JSON.stringify(context))
-        }
-      }
-
-      await signIn.social({ provider: 'google' })
+      await startGoogleSignIn()
     } catch {
       setState('error')
       setErrorMessage('Sign-in failed. Please try again.')

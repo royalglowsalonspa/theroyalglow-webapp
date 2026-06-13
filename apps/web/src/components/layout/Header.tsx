@@ -1,44 +1,41 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 08-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : Header
  * Scope        : Layout
  *
- * Description  : Site-wide header with logo, desktop navigation, auth state,
- *                notification bell, and mobile hamburger trigger.
+ * Description  : Site-wide header. White/90 glass background, logo (image +
+ *                wordmark), desktop nav links, and an auth-aware right side:
+ *                a direct "Sign in" button (launches Google OAuth instantly,
+ *                no /sign-in page) when logged out, or the account menu when
+ *                logged in. Also mounts the Google One Tap prompt for guests.
  *
  * Responsibilities :
- * - Render main navigation links with active route highlighting
- * - Show authenticated user controls (bookings, membership, gems, profile)
- * - Display notification bell for signed-in users
- * - Toggle mobile navigation panel
- * - Add scroll-triggered shadow on scroll
+ * - Render logo (40×40 image + Cabinet Grotesk wordmark)
+ * - Render desktop nav: Services, Offers, About, Contact, Blog
+ * - Logged out: "Sign in" button → Google OAuth directly + One Tap prompt
+ * - Logged in: UserMenu dropdown (notifications, bookings, etc. live inside it)
+ * - Add scroll-triggered border shadow
+ * - Toggle mobile nav panel
  *
- * Features / Functionality :
- * - Fixed position header with scroll shadow
- * - Desktop nav with active route underline
- * - Auth-aware: sign-in link vs user avatar + nav
- * - Mobile hamburger with MobileNav panel
- * - NotificationBell integration
+ * Tech Stack   : React, TypeScript, Next.js, Tailwind CSS v4
+ * Layer        : Presentation (Layout)
  *
- * Tech Stack   : React, TypeScript, Tailwind CSS, Next.js
- * Layer        : Frontend
- *
- * Dependencies : @/components/notifications/NotificationBell, @/lib/auth-client, next/link, next/navigation, ./MobileNav
- *
- * Notes        : None
+ * Dependencies : UserMenu, GoogleOneTap, useSession, startGoogleSignIn, MobileNav
  ************************************************************/
 
 'use client'
 
-import { NotificationBell } from '@/components/notifications/NotificationBell'
+import { GoogleOneTap } from '@/components/auth/GoogleOneTap'
 import { useSession } from '@/lib/auth-client'
+import { startGoogleSignIn } from '@/lib/google-signin'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { MobileNav } from './MobileNav'
+import { UserMenu } from './UserMenu'
 
 const navLinks = [
   { href: '/services', label: 'Services' },
@@ -46,14 +43,14 @@ const navLinks = [
   { href: '/about', label: 'About' },
   { href: '/contact', label: 'Contact' },
   { href: '/blog', label: 'Blog' },
-  { href: '/faq', label: 'FAQ' },
 ]
 
 export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
+  const [isSigningIn, setIsSigningIn] = useState(false)
   const pathname = usePathname()
-  const { data: session } = useSession()
+  const { data: session, isPending } = useSession()
   const user = session?.user ?? null
 
   useEffect(() => {
@@ -64,29 +61,50 @@ export function Header() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
+  async function handleSignIn() {
+    try {
+      setIsSigningIn(true)
+      await startGoogleSignIn()
+    } catch {
+      setIsSigningIn(false)
+    }
+  }
+
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-shadow duration-200 bg-canvas-white ${
-        isScrolled ? 'shadow-md' : ''
+      className={`fixed left-0 right-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100 transition-all duration-200 ${
+        isScrolled ? 'top-0 shadow-md' : 'top-9'
       }`}
     >
-      <div className="mx-auto max-w-[1278px] px-5 flex items-center justify-between h-16 lg:h-[72px]">
-        {/* Logo */}
-        <Link
-          href="/"
-          className="font-display text-cocoa-dark text-xl lg:text-2xl tracking-tight"
-          aria-label="Royal Glow — Go to homepage"
-        >
-          Royal Glow
+      <div className="container mx-auto px-4 md:px-8 flex items-center justify-between h-20 max-w-[1280px]">
+        {/* ── Logo ── */}
+        <Link href="/" className="flex items-center gap-3" aria-label="Royal Glow — Go to homepage">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt="Royal Glow logo"
+            width={40}
+            height={40}
+            className="h-10 w-10 object-contain"
+          />
+          {/* Two-line brand lockup: wordmark + Salon & Spa descriptor */}
+          <span className="flex flex-col leading-none">
+            <span className="font-display font-black text-[19px] text-cocoa-dark tracking-tight">
+              Royal Glow
+            </span>
+            <span className="font-ui font-semibold text-[10px] uppercase tracking-[0.22em] text-warm-gray mt-1">
+              Salon &amp; Spa
+            </span>
+          </span>
         </Link>
 
-        {/* Desktop Navigation */}
-        <nav aria-label="Main navigation" className="hidden lg:flex items-center gap-8">
+        {/* ── Desktop Nav ── */}
+        <nav aria-label="Main navigation" className="hidden md:flex items-center gap-8">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className={`font-ui text-xs uppercase tracking-[0.5px] text-cocoa-dark hover:text-deep-gold transition-colors duration-200 relative py-1 ${
+              className={`font-ui font-bold text-sm text-cocoa-dark hover:text-deep-gold transition-colors duration-200 relative py-1 ${
                 pathname === link.href
                   ? 'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-deep-gold'
                   : ''
@@ -97,78 +115,64 @@ export function Header() {
           ))}
         </nav>
 
-        {/* Auth section */}
-        {user ? (
-          <div className="hidden lg:flex items-center gap-6">
-            <NotificationBell />
-            <Link
-              href="/bookings"
-              className={`font-ui text-xs uppercase tracking-[0.5px] text-cocoa-dark hover:text-deep-gold transition-colors duration-200 relative py-1 ${
-                pathname === '/bookings'
-                  ? 'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-deep-gold'
-                  : ''
-              }`}
-            >
-              My Bookings
-            </Link>
-            <Link
-              href="/membership"
-              className={`font-ui text-xs uppercase tracking-[0.5px] text-cocoa-dark hover:text-deep-gold transition-colors duration-200 relative py-1 ${
-                pathname === '/membership'
-                  ? 'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-deep-gold'
-                  : ''
-              }`}
-            >
-              Membership
-            </Link>
-            <Link
-              href="/gems"
-              className={`font-ui text-xs uppercase tracking-[0.5px] text-cocoa-dark hover:text-deep-gold transition-colors duration-200 relative py-1 ${
-                pathname === '/gems'
-                  ? 'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-deep-gold'
-                  : ''
-              }`}
-            >
-              Gems
-            </Link>
-            <Link
-              href="/profile"
-              className="flex items-center gap-2 group"
-              aria-label="Go to your profile"
-            >
-              {user.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={user.image}
-                  alt=""
-                  className="w-8 h-8 rounded-full object-cover border border-cloud-gray"
-                />
-              ) : (
-                <span
-                  className="w-8 h-8 rounded-full bg-royal-gold flex items-center justify-center font-ui text-xs text-cocoa-dark"
-                  aria-hidden="true"
-                >
-                  {user.name?.trim().charAt(0).toUpperCase() || 'G'}
-                </span>
-              )}
-              <span className="font-ui text-xs uppercase tracking-[0.5px] text-cocoa-dark group-hover:text-deep-gold transition-colors duration-200 max-w-[120px] truncate">
-                {user.name?.split(' ')[0] ?? 'Profile'}
-              </span>
-            </Link>
+        {/* ── Auth CTA ── */}
+        {isPending ? (
+          // Reserve space + show a neutral skeleton so the "Sign in" button
+          // never flashes before the session resolves on refresh.
+          <div className="hidden md:flex items-center" aria-hidden="true">
+            <div className="h-10 w-10 rounded-full bg-cloud-gray motion-safe:animate-pulse" />
+          </div>
+        ) : user ? (
+          <div className="hidden md:flex items-center">
+            <UserMenu
+              user={{
+                name: user.name ?? null,
+                email: user.email ?? null,
+                image: user.image ?? null,
+              }}
+            />
           </div>
         ) : (
-          <Link
-            href="/sign-in"
-            className="hidden lg:inline-flex font-ui text-xs uppercase tracking-[0.5px] text-cocoa-dark hover:text-deep-gold transition-colors duration-200"
+          <button
+            type="button"
+            onClick={handleSignIn}
+            disabled={isSigningIn}
+            className="hidden md:inline-flex items-center gap-2 bg-warm-gold text-cocoa-dark font-ui font-bold text-sm px-8 py-3 rounded-xl shadow-[0_1px_2px_rgba(26,15,10,0.08)] transition-all duration-200 hover:bg-deep-gold active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-70"
           >
-            Sign In
-          </Link>
+            {isSigningIn ? (
+              <>
+                <svg
+                  className="h-4 w-4 animate-spin"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
+                </svg>
+                <span>Signing in…</span>
+              </>
+            ) : (
+              <span>Sign in</span>
+            )}
+          </button>
         )}
 
-        {/* Mobile Hamburger */}
+        {/* ── Mobile Hamburger ── */}
         <button
           type="button"
-          className="lg:hidden flex items-center justify-center w-10 h-10 text-cocoa-dark"
+          className="md:hidden flex items-center justify-center w-10 h-10 text-cocoa-dark"
           onClick={() => setIsMobileMenuOpen(true)}
           aria-label="Open navigation menu"
           aria-expanded={isMobileMenuOpen}
@@ -191,12 +195,19 @@ export function Header() {
         </button>
       </div>
 
+      {/* Google One Tap — only for confirmed signed-out guests */}
+      {!isPending && !user && <GoogleOneTap />}
+
       {/* Mobile Navigation */}
       <MobileNav
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
         pathname={pathname}
-        user={user ? { name: user.name ?? null, image: user.image ?? null } : null}
+        user={
+          user
+            ? { name: user.name ?? null, email: user.email ?? null, image: user.image ?? null }
+            : null
+        }
       />
     </header>
   )

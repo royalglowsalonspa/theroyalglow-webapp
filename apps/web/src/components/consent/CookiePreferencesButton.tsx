@@ -42,7 +42,7 @@ export function CookiePreferencesButton() {
     <button
       type="button"
       onClick={() => window.dispatchEvent(new Event(OPEN_PREFERENCES_EVENT))}
-      className="mt-6 font-sans text-[15px] text-dusty-gray hover:text-canvas-white transition-colors duration-200"
+      className="flex items-center gap-1 hover:text-deep-gold transition-colors duration-200 uppercase"
       aria-label="Manage cookie preferences"
     >
       🍪 Cookie Preferences

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@better-auth/infra": "^0.2.11",
+    "@radix-ui/react-dropdown-menu": "^2.1.17",
     "@rgss/business": "workspace:*",
     "@rgss/db": "workspace:*",
     "@rgss/errors": "workspace:*",
@@ -24,6 +25,7 @@
     "clsx": "^2.1.1",
     "drizzle-orm": "0.38.4",
     "kysely": "0.27.4",
+    "motion": "^12.40.0",
     "nanoid": "^5.1.11",
     "next": "16.2.6",
     "postcss": "^8.5.4",
