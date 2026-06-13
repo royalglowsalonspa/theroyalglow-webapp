@@ -55,15 +55,15 @@ export function HeroSection() {
               </span>
             </div>
 
-            {/* Headline — intentional two-line split for desktop rhythm:
-                "Where beauty" / "meets Royalty." */}
+            {/* Headline — each phrase is a non-wrapping block so it always
+                renders as exactly two lines: "Where beauty" / "meets Royalty."
+                The font scales down on narrow columns so neither line overflows. */}
             <h1
               id="hero-heading"
-              className="font-display font-black text-canvas-white text-[clamp(42px,6vw,72px)] leading-[1.05] tracking-[-0.03em]"
+              className="font-display font-black text-canvas-white text-[clamp(34px,4.5vw,58px)] leading-[1.05] tracking-[-0.03em]"
             >
-              Where beauty
-              <br />
-              meets Royalty.
+              <span className="block whitespace-nowrap">Where beauty</span>
+              <span className="block whitespace-nowrap">meets Royalty.</span>
             </h1>
 
             {/* Body */}
