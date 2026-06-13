@@ -8,18 +8,18 @@
  *
  * Description  : Homepage "See what Royal Glow can do for you" section — a
  *                horizontally scrollable row of service category cards with a
- *                subtle swipe affordance instead of a native scrollbar.
+ *                minimal bare-arrow scroll hint (no white fade, no circle).
  *
  * Responsibilities :
  * - Render the section heading + "View all services" links
  * - Render service category cards (image, name, from-price, Book link)
  * - Provide a horizontal snap-scroll row with the native scrollbar hidden
- * - Hint scrollability on touch viewports via a small nudging arrow
+ * - Hint scrollability on touch viewports via a small nudging arrow only
  *
  * Features / Functionality :
  * - Snap-mandatory horizontal scroll (touch + trackpad friendly)
  * - Hidden scrollbar (scrollbar-hide) for a clean premium look
- * - Right-edge fade + nudging chevron affordance on mobile/tablet
+ * - Bare nudging gold chevron affordance on mobile/tablet — no fade, no circle
  * - Hover image zoom + gap-grow Book affordance
  *
  * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4
@@ -28,7 +28,9 @@
  * Dependencies : next/link
  *
  * Notes        :
- * - Arrow affordance is decorative (aria-hidden) and respects reduced motion.
+ * - The bare arrow is intentionally minimal per premium salon UX standards.
+ *   A white fade or circle container would add visual noise and obscure the
+ *   card edges. The small animated chevron is sufficient to signal scrollability.
  ************************************************************/
 import Link from 'next/link'
 
@@ -93,9 +95,11 @@ export function ServicesSection() {
         </Link>
       </div>
 
-      {/* Horizontal scroll container — native scrollbar hidden, swipe to scroll */}
+      {/* Horizontal scroll — cards start flush with the heading's left edge.
+          No negative-margin tricks here; the section already provides the
+          horizontal padding so the scroll track just needs to fill full width. */}
       <div className="relative">
-        <div className="flex overflow-x-auto gap-5 snap-x snap-mandatory pb-1 -mx-4 px-4 md:-mx-8 md:px-8 scrollbar-hide">
+        <div className="flex overflow-x-auto gap-5 snap-x snap-mandatory pb-1 scrollbar-hide">
           {services.map((service) => (
             <article
               key={service.name}
@@ -120,26 +124,25 @@ export function ServicesSection() {
           ))}
         </div>
 
-        {/* Swipe affordance (touch viewports) — replaces the ugly scrollbar.
-            A gentle right-fade + nudging chevron hints the row scrolls. */}
+        {/* Minimal bare-arrow scroll hint — no white fade, no circle container.
+            Just a small gold animated chevron positioned at the right edge.
+            Visible only on touch viewports where the 4th card peeks in. */}
         <div
           aria-hidden="true"
-          className="lg:hidden pointer-events-none absolute right-0 top-0 bottom-1 flex items-center pl-10 pr-1 bg-gradient-to-l from-canvas-white via-canvas-white/80 to-transparent"
+          className="lg:hidden pointer-events-none absolute right-0 top-1/2 -translate-y-1/2"
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-canvas-white text-deep-gold shadow-card-hover">
-            <svg
-              className="rg-scroll-hint h-4 w-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.25"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="m9 18 6-6-6-6" />
-            </svg>
-          </span>
+          <svg
+            className="rg-scroll-hint h-5 w-5 text-deep-gold"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m9 18 6-6-6-6" />
+          </svg>
         </div>
       </div>
 
