@@ -124,20 +124,29 @@ export function TestimonialsSection() {
     ? Math.max(1, testimonials.length - DESKTOP_VISIBLE + 1)
     : testimonials.length
 
-  const scrollTo = useCallback((index: number) => {
-    const el = itemRefs.current[index]
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' })
-    }
+  /**
+   * Scroll the carousel track to a given card index by setting scrollLeft
+   * directly on the container element. This ONLY moves the scroll position
+   * inside the carousel — it never touches the page scroll position, so it
+   * cannot hijack or jump the user away from where they are on the page.
+   * (scrollIntoView was the previous approach and caused the page-hijack bug.)
+   */
+  const scrollToIndex = useCallback((index: number) => {
+    const track = trackRef.current
+    const card = itemRefs.current[index]
+    if (!track || !card) return
+    // scrollLeft = card's offset from the start of the track container
+    track.scrollTo({ left: card.offsetLeft - track.offsetLeft, behavior: 'smooth' })
     setActiveIndex(index)
   }, [])
 
   const advance = useCallback(() => {
     setActiveIndex((prev) => {
       const next = (prev + 1) % dotCount
-      const el = itemRefs.current[next]
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' })
+      const track = trackRef.current
+      const card = itemRefs.current[next]
+      if (track && card) {
+        track.scrollTo({ left: card.offsetLeft - track.offsetLeft, behavior: 'smooth' })
       }
       return next
     })
@@ -227,7 +236,7 @@ export function TestimonialsSection() {
             role="tab"
             aria-selected={activeIndex === i}
             aria-label={`Go to review ${i + 1}`}
-            onClick={() => scrollTo(i)}
+            onClick={() => scrollToIndex(i)}
             className={`h-2 rounded-full transition-all duration-300 motion-safe:transition-all ${
               activeIndex === i ? 'w-6 bg-deep-gold' : 'w-2 bg-outline-gray hover:bg-warm-stone'
             }`}
