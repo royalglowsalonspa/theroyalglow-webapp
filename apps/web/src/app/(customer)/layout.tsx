@@ -44,21 +44,19 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
         Skip to content
       </a>
 
-      {/* Announcement Bar */}
-      <div className="bg-cocoa-dark text-canvas-white text-center font-sans text-xs py-2 px-4">
-        <span className="font-ui text-royal-gold">NEW</span>
-        {' · '}
-        Monsoon Glow offers — up to 30% off signature rituals{' '}
-        <a
-          href="/offers"
-          className="underline underline-offset-2 hover:text-royal-gold transition-colors duration-200"
-        >
-          →
+      {/* Announcement Bar — matches Stitch golden warm bar */}
+      <div
+        className="relative z-50 text-center font-ui font-bold text-xs py-2 px-4"
+        style={{ backgroundColor: '#FFF8E7', color: '#1A0F0A' }}
+      >
+        <a href="/offers" className="hover:underline" style={{ color: '#1A0F0A' }}>
+          ✨ NEW · Monsoon Glow offers — up to 30% off signature rituals →
         </a>
       </div>
 
       <Header />
-      <main id="main-content" className="pt-16 lg:pt-[72px]">
+      {/* pt = announcement bar (36px) + header (80px) = 116px */}
+      <main id="main-content" className="pt-[116px]">
         {children}
       </main>
       <Footer />

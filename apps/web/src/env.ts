@@ -63,6 +63,7 @@ export const env = createEnv({
   },
   client: {
     NEXT_PUBLIC_APP_URL: z.string().url(),
+    NEXT_PUBLIC_GOOGLE_CLIENT_ID: z.string().min(1),
     NEXT_PUBLIC_ABLY_KEY: z.string().min(1),
     NEXT_PUBLIC_META_PIXEL_ID: z.string().min(1),
     NEXT_PUBLIC_POSTHOG_KEY: z.string().startsWith('phc_'),
@@ -97,6 +98,7 @@ export const env = createEnv({
     BETTER_STACK_HEARTBEAT_PPRD_SYNC: process.env.BETTER_STACK_HEARTBEAT_PPRD_SYNC,
     BETTER_STACK_HEARTBEAT_REMINDERS: process.env.BETTER_STACK_HEARTBEAT_REMINDERS,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+    NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
     NEXT_PUBLIC_ABLY_KEY: process.env.NEXT_PUBLIC_ABLY_KEY,
     NEXT_PUBLIC_META_PIXEL_ID: process.env.NEXT_PUBLIC_META_PIXEL_ID,
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,

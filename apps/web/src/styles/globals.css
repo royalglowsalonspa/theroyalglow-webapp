@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 08-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : globals
@@ -14,6 +14,8 @@
  * - Define custom colour, font, radius, and shadow design tokens
  * - Set shadcn/ui CSS custom properties (HSL colours)
  * - Configure global focus-visible ring and reduced motion
+ * - Reserve the scrollbar gutter so overlays never shift fixed chrome
+ * - Provide scrollbar-hide + horizontal scroll-hint affordance utilities
  *
  * Features / Functionality :
  * - Complete brand colour palette (royal-gold, cocoa-dark, etc.)
@@ -22,6 +24,7 @@
  * - Shadow tokens (card-hover, elevated)
  * - Accessible focus ring (deep-gold, 2px offset)
  * - prefers-reduced-motion: instant transitions/animations
+ * - scrollbar-gutter: stable to kill layout shift when menus/dialogs open
  *
  * Tech Stack   : Tailwind CSS v4, PostCSS
  * Layer        : Frontend
@@ -30,6 +33,12 @@
  *
  * Notes        : None
  ************************************************************/
+
+/* Fontshare - Cabinet Grotesk & Clash Grotesk */
+@import url("https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@800,900&f[]=clash-grotesk@400,500,600,700&display=swap");
+
+/* Google Fonts - Plus Jakarta Sans */
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
 
 @import "tailwindcss";
 
@@ -81,10 +90,26 @@
     --ring: 43 42% 60%;
   }
 
+  /* Always reserve the vertical scrollbar gutter. When a menu/dialog hides
+     page overflow, the gutter stays, so the fixed header + page content never
+     jump sideways. */
+  html {
+    scrollbar-gutter: stable;
+  }
+
   body {
     font-family: var(--font-sans);
     color: var(--color-cocoa-dark);
     background-color: var(--color-canvas-white);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display);
   }
 
   *:focus-visible {
@@ -99,5 +124,70 @@
       animation-duration: 0.01ms !important;
       transition-duration: 0.01ms !important;
     }
+  }
+}
+
+/* ── Radix dropdown (account menu) — origin-aware scale-in ──
+   Scales from the trigger via Radix's transform-origin var, never from
+   scale(0). Exit is faster than enter. Reduced-motion is handled by the
+   global block above (durations collapse to ~0). */
+@keyframes rg-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes rg-menu-out {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+}
+
+.rg-menu[data-state="open"] {
+  animation: rg-menu-in 180ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.rg-menu[data-state="closed"] {
+  animation: rg-menu-out 130ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* ── Hide native scrollbars on horizontal carousels (keep scrollability) ── */
+@utility scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ── Horizontal scroll affordance — a gentle "swipe right" nudge on the
+   carousel arrow hint. Motivated motion: signals the row is scrollable. ── */
+@keyframes rg-nudge-x {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+}
+
+.rg-scroll-hint {
+  animation: rg-nudge-x 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rg-scroll-hint {
+    animation: none !important;
   }
 }
