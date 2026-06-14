@@ -10,7 +10,7 @@
  *                rendered in its closest available Google Font equivalent so the
  *                letterforms match the actual product packaging typography.
  *                Desktop: centred flex row. Mobile: infinite auto-scrolling
- *                marquee so all 6 brands fit on one continuous line.
+ *                marquee so all 7 brands fit on one continuous, seamless line.
  *
  * Responsibilities :
  * - Display the trusted-product brand wall with per-brand typography
@@ -20,7 +20,7 @@
  *
  * Features / Functionality :
  * - Research-matched fonts per brand (see notes)
- * - Double-row duplication for seamless marquee loop
+ * - Two identical back-to-back groups + uniform seam gap → glitch-free loop
  * - prefers-reduced-motion: marquee stops (no content hidden)
  *
  * Tech Stack   : React, Next.js 16 (next/font/google), Tailwind CSS v4
@@ -38,6 +38,7 @@
  *              geometric, angular, slightly tech)
  * - MOROCCANOIL → Syne ExtraBold (ITC Bauhaus-inspired geometric, wide,
  *                retro-modern)
+ * - TRESEMMÉ → Prata (elegant high-contrast Didone serif wordmark)
  ************************************************************/
 
 import {
@@ -46,6 +47,7 @@ import {
   Josefin_Sans,
   Oxanium,
   Playfair_Display,
+  Prata,
   Syne,
 } from 'next/font/google'
 
@@ -92,6 +94,13 @@ const syne = Syne({
   display: 'swap',
 })
 
+// TRESemmé — elegant high-contrast Didone serif wordmark
+const prata = Prata({
+  subsets: ['latin'],
+  weight: ['400'],
+  display: 'swap',
+})
+
 // ── Brand definitions ───────────────────────────────────────
 const brands = [
   {
@@ -128,6 +137,11 @@ const brands = [
     fontClass: syne.className,
     style: { letterSpacing: '0.08em', fontSize: '1rem' } as React.CSSProperties,
   },
+  {
+    name: 'TRESEMMÉ',
+    fontClass: prata.className,
+    style: { letterSpacing: '0.1em', fontSize: '1.2rem' } as React.CSSProperties,
+  },
 ]
 
 // ── Component ───────────────────────────────────────────────
@@ -151,13 +165,13 @@ export function BrandLogosSection() {
         ))}
       </div>
 
-      {/* Mobile / tablet: infinite scrolling marquee */}
-      {/* Duplicate the row so the loop is seamless */}
-      <div
-        className="lg:hidden flex items-center opacity-60 grayscale hover:grayscale-0 hover:opacity-100 transition-all duration-500"
-        aria-hidden="false"
-      >
-        {/* Outer mask — fades edges so the scroll feels infinite */}
+      {/* Mobile / tablet: infinite scrolling marquee.
+          Two IDENTICAL groups sit back-to-back. Each group carries its own
+          trailing gap (pr-14) equal to the internal gap (gap-x-14), so the
+          spacing at the seam matches the spacing everywhere else. The track
+          animates by exactly -50% (one full group), giving a perfectly
+          seamless, glitch-free loop. */}
+      <div className="lg:hidden flex items-center opacity-60 grayscale hover:grayscale-0 hover:opacity-100 transition-all duration-500">
         <div
           className="relative w-full overflow-hidden"
           style={{
@@ -167,34 +181,25 @@ export function BrandLogosSection() {
               'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)',
           }}
         >
-          {/* The animated track — two copies for seamless loop */}
-          <div className="rg-marquee-track flex items-center gap-x-14 w-max">
-            {/* First copy */}
-            {brands.map((brand) => (
-              <span
-                key={`a-${brand.name}`}
-                className={`${brand.fontClass} text-cocoa-dark leading-none whitespace-nowrap`}
-                style={brand.style}
-                aria-hidden="false"
+          <div className="rg-marquee-track flex w-max">
+            {/* Two identical groups — duplicate keeps the loop seamless */}
+            {[0, 1].map((copy) => (
+              <div
+                key={`copy-${copy}`}
+                className="flex shrink-0 items-center gap-x-14 pr-14"
+                aria-hidden={copy === 1}
               >
-                {brand.name}
-              </span>
+                {brands.map((brand) => (
+                  <span
+                    key={`${copy}-${brand.name}`}
+                    className={`${brand.fontClass} text-cocoa-dark leading-none whitespace-nowrap`}
+                    style={brand.style}
+                  >
+                    {brand.name}
+                  </span>
+                ))}
+              </div>
             ))}
-            {/* Spacer between first and second copy */}
-            <span className="w-14 shrink-0" aria-hidden="true" />
-            {/* Second copy (makes the loop seamless) */}
-            {brands.map((brand) => (
-              <span
-                key={`b-${brand.name}`}
-                className={`${brand.fontClass} text-cocoa-dark leading-none whitespace-nowrap`}
-                style={brand.style}
-                aria-hidden="true"
-              >
-                {brand.name}
-              </span>
-            ))}
-            {/* Trailing spacer */}
-            <span className="w-14 shrink-0" aria-hidden="true" />
           </div>
         </div>
       </div>
