@@ -1,0 +1,207 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 08-06-2026 & Updated - 08-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : TestimonialsCarousel
+ * Scope        : Customer Pages
+ *
+ * Description  : Client-side auto-advancing testimonials carousel. Receives a
+ *                pre-resolved list of reviews (CMS-driven or fallback) from the
+ *                TestimonialsSection server component and renders them. Desktop
+ *                shows 3 cards side-by-side; mobile/tablet shows 1 card at a
+ *                time in a horizontal scroll-snap row (never stacks vertically).
+ *
+ * Responsibilities :
+ * - Render the testimonials section header + carousel track + dot indicators
+ * - Auto-advance the carousel on a 4-second interval
+ * - Render functional dot indicators that reflect and control position
+ * - Pause auto-advance while the user hovers or focuses the carousel
+ *
+ * Features / Functionality :
+ * - scrollLeft-based scroll (never scrollIntoView — avoids page-scroll hijack)
+ * - Auto-advance timer paused on mouseenter / focusin events
+ * - Active dot highlights current card; clicking a dot jumps to that card
+ * - prefers-reduced-motion: auto-advance disabled, manual scroll still works
+ *
+ * Tech Stack   : React (client), Next.js 16 (App Router), Tailwind CSS v4
+ * Layer        : Presentation (Component)
+ *
+ * Dependencies : next/link, react, @/lib/cms/types
+ *
+ * Notes        :
+ * - Data (CMS-first + fallback) is resolved by the parent server component.
+ * - On desktop (md+) 3 cards are visible; dot count = total - 2.
+ * - On mobile 1 card is visible; dot count = total cards.
+ ************************************************************/
+
+'use client'
+
+import type { Testimonial } from '@/lib/cms/types'
+import Link from 'next/link'
+import { useCallback, useEffect, useRef, useState } from 'react'
+
+// How many cards are visible at once (used for dot/page count calculation)
+const DESKTOP_VISIBLE = 3
+
+function StarRating({ count }: { count: number }) {
+  return (
+    <div className="flex items-center gap-0.5" aria-label={`${count} out of 5 stars`}>
+      {Array.from({ length: count }).map((_, i) => (
+        <svg
+          // biome-ignore lint/suspicious/noArrayIndexKey: fixed star array, order never changes
+          key={`star-${i}`}
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="#D4AF37"
+          aria-hidden="true"
+        >
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+        </svg>
+      ))}
+    </div>
+  )
+}
+
+export function TestimonialsCarousel({ reviews }: { reviews: Testimonial[] }) {
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [paused, setPaused] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(false)
+  const trackRef = useRef<HTMLDivElement>(null)
+  const itemRefs = useRef<(HTMLElement | null)[]>([])
+
+  // Detect desktop breakpoint (md = 768px)
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)')
+    const handle = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
+    setIsDesktop(mq.matches)
+    mq.addEventListener('change', handle)
+    return () => mq.removeEventListener('change', handle)
+  }, [])
+
+  // How many dots/positions exist for the current viewport
+  const dotCount = isDesktop ? Math.max(1, reviews.length - DESKTOP_VISIBLE + 1) : reviews.length
+
+  /**
+   * Scroll the carousel track to a given card index by setting scrollLeft
+   * directly on the container element. This ONLY moves the scroll position
+   * inside the carousel — it never touches the page scroll position, so it
+   * cannot hijack or jump the user away from where they are on the page.
+   */
+  const scrollToIndex = useCallback((index: number) => {
+    const track = trackRef.current
+    const card = itemRefs.current[index]
+    if (!track || !card) return
+    track.scrollTo({ left: card.offsetLeft - track.offsetLeft, behavior: 'smooth' })
+    setActiveIndex(index)
+  }, [])
+
+  const advance = useCallback(() => {
+    setActiveIndex((prev) => {
+      const next = (prev + 1) % dotCount
+      const track = trackRef.current
+      const card = itemRefs.current[next]
+      if (track && card) {
+        track.scrollTo({ left: card.offsetLeft - track.offsetLeft, behavior: 'smooth' })
+      }
+      return next
+    })
+  }, [dotCount])
+
+  // Auto-advance — disabled when paused or when reduced-motion is preferred
+  useEffect(() => {
+    if (paused) return
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reducedMotion) return
+    const id = setInterval(advance, 4000)
+    return () => clearInterval(id)
+  }, [paused, advance])
+
+  return (
+    <section
+      aria-labelledby="testimonials-heading"
+      className="px-4 md:px-8 py-16 mx-auto w-full max-w-[1280px]"
+    >
+      {/* Header */}
+      <div className="mb-10">
+        <p className="font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-deep-gold mb-2">
+          Testimonials
+        </p>
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3">
+          <h2
+            id="testimonials-heading"
+            className="font-display font-black text-cocoa-dark text-[clamp(28px,4vw,40px)] tracking-tight leading-[1.1]"
+          >
+            Real reviews from real people
+          </h2>
+          <Link
+            href="https://maps.google.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-ui font-bold text-sm flex items-center gap-1 text-cocoa-dark hover:text-deep-gold transition-colors duration-200 whitespace-nowrap"
+          >
+            See all on Google <span aria-hidden="true">→</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* Carousel track — overflow-y must be visible so hover lift is not clipped */}
+      <div
+        ref={trackRef}
+        className="flex overflow-x-auto overflow-y-visible gap-5 snap-x snap-mandatory scrollbar-hide pb-1 py-2"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+        onFocusCapture={() => setPaused(true)}
+        onBlurCapture={() => setPaused(false)}
+        aria-live="polite"
+      >
+        {reviews.map((review, i) => (
+          <article
+            key={`${review.reviewerName}-${i}`}
+            ref={(el) => {
+              itemRefs.current[i] = el
+            }}
+            className="flex-shrink-0 w-[85vw] sm:w-[380px] md:w-[calc(33.333%-14px)] snap-start border border-outline-gray rounded-2xl p-7 hover:border-deep-gold hover:-translate-y-[2px] hover:shadow-card-hover motion-safe:transition-all motion-safe:duration-200"
+            aria-label={`Review by ${review.reviewerName}`}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-sans font-bold text-cocoa-dark">{review.reviewerName}</h3>
+              <StarRating count={review.rating} />
+            </div>
+            <blockquote className="font-sans text-sm leading-relaxed text-warm-gray mb-5">
+              {review.reviewText}
+            </blockquote>
+            {review.timeLabel !== '' && (
+              <p className="font-ui text-[10px] font-bold uppercase tracking-widest opacity-30">
+                {review.timeLabel}
+              </p>
+            )}
+          </article>
+        ))}
+      </div>
+
+      {/* Dot indicators */}
+      <div
+        className="flex justify-center gap-2 mt-6"
+        role="tablist"
+        aria-label="Testimonial navigation"
+      >
+        {Array.from({ length: dotCount }).map((_, i) => (
+          <button
+            // biome-ignore lint/suspicious/noArrayIndexKey: positional dots, order never changes
+            key={`dot-${i}`}
+            type="button"
+            role="tab"
+            aria-selected={activeIndex === i}
+            aria-label={`Go to review ${i + 1}`}
+            onClick={() => scrollToIndex(i)}
+            className={`h-2 rounded-full transition-all duration-300 motion-safe:transition-all ${
+              activeIndex === i ? 'w-6 bg-deep-gold' : 'w-2 bg-outline-gray hover:bg-warm-stone'
+            }`}
+          />
+        ))}
+      </div>
+    </section>
+  )
+}

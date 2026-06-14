@@ -1,41 +1,44 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 08-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : OffersPage
  * Scope        : Customer Pages
  *
- * Description  : Displays currently active promotional offers with discount
- *                details, applicable services, validity dates, and booking CTAs.
+ * Description  : Lists active marketing offers from Payload CMS with optional
+ *                category filtering. Falls back to curated offers when the CMS
+ *                is unconfigured, unreachable, or empty.
  *
  * Responsibilities :
- * - Fetch active offers from the database in real-time (force-dynamic)
- * - Render offer cards with type badges, discount labels, and terms
- * - Provide "Book Now" CTA per offer linked to the booking dialog
+ * - Fetch active CMS offers (validity-window filtered)
+ * - Render offer cards with discount badges and booking CTAs
+ * - Support optional category filter via search params
  *
  * Features / Functionality :
- * - Supports percentage, flat, and combo_price offer types
- * - Real-time data (no stale ISR cache) for promotions
- * - Empty state when no active offers exist
+ * - CMS-first content with curated fallback
+ * - Category filter (Salon / SPA / Bridal / etc.)
+ * - Empty state when no offers match the filter
  *
- * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, Drizzle ORM
+ * Tech Stack   : React (server), Next.js 16 (App Router), Tailwind CSS v4
  * Layer        : Presentation
  *
- * Dependencies : OfferBookButton, JsonLd, SITE_URL, breadcrumbJsonLd, buildMetadata, formatINR, getActiveOffers
+ * Dependencies : OfferBookButton, JsonLd, SITE_URL, breadcrumbJsonLd, buildMetadata,
+ *                @/lib/cms/client
  *
  * Notes        :
- * - Uses force-dynamic to ensure newly published/expired offers are reflected immediately
+ * - Marketing offers from Payload; separate from Drizzle booking redemptions.
  ************************************************************/
 
 import { OfferBookButton } from '@/components/offers/OfferBookButton'
 import { JsonLd } from '@/components/seo/JsonLd'
+import { FALLBACK_OFFERS, getActiveOffers } from '@/lib/cms/client'
+import type { Offer } from '@/lib/cms/types'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
-import { formatINR } from '@rgss/business'
-import { getActiveOffers } from '@rgss/db/queries'
 import type { Metadata } from 'next'
+import Link from 'next/link'
 
 export const metadata: Metadata = buildMetadata({
   title: 'Special Offers',
@@ -44,52 +47,52 @@ export const metadata: Metadata = buildMetadata({
   path: '/offers',
 })
 
-// Re-fetch active offers on each request so newly published/expired offers
-// surface promptly (no stale ISR cache for a promotions surface).
-export const dynamic = 'force-dynamic'
+const CATEGORY_FILTERS = [
+  { value: 'all', label: 'All' },
+  { value: 'salon', label: 'Salon' },
+  { value: 'spa', label: 'SPA' },
+  { value: 'bridal', label: 'Bridal' },
+  { value: 'nails', label: 'Nails' },
+  { value: 'skincare', label: 'Skincare' },
+] as const
 
-type ActiveOffer = Awaited<ReturnType<typeof getActiveOffers>>[number]
+type CategoryFilter = (typeof CATEGORY_FILTERS)[number]['value']
 
-const OFFER_BADGE: Record<string, { emoji: string; label: string }> = {
-  percentage: { emoji: '🎉', label: 'Percentage Discount' },
-  flat: { emoji: '💎', label: 'Flat Discount' },
-  combo_price: { emoji: '🎁', label: 'Combo Price' },
+function formatDate(value: string): string {
+  const [y, m, d] = value.slice(0, 10).split('-')
+  return y && m && d ? `${d}/${m}/${y}` : value
 }
 
-// "2026-05-24T00:00:00.000Z" | Date | "2026-05-24" → "24/05/2026".
-function formatDate(value: Date | string): string {
-  const iso = value instanceof Date ? value.toISOString() : value
-  const [y, m, d] = iso.slice(0, 10).split('-')
-  return y && m && d ? `${d}/${m}/${y}` : iso
-}
-
-// Human-readable discount label per offer type.
-function discountLabel(offer: ActiveOffer): string {
-  switch (offer.offerType) {
-    case 'percentage':
-      return offer.discountPercentage != null
-        ? `${offer.discountPercentage}% OFF`
-        : 'Special discount'
-    case 'flat':
-      return offer.discountAmountPaise != null
-        ? `${formatINR(offer.discountAmountPaise)} OFF`
-        : 'Flat discount'
-    case 'combo_price':
-      return offer.comboPricePaise != null
-        ? `Combo at ${formatINR(offer.comboPricePaise)}`
-        : 'Combo offer'
-    default:
-      return 'Special offer'
+function filterByCategory(offers: Offer[], category: CategoryFilter): Offer[] {
+  if (category === 'all') {
+    return offers
   }
+  return offers.filter((offer) => offer.category === category || offer.category === 'all')
 }
 
-export default async function OffersPage() {
-  const offers = await getActiveOffers()
+function categoryLabel(value: string): string {
+  const match = CATEGORY_FILTERS.find((item) => item.value === value)
+  return match?.label ?? value
+}
+
+export default async function OffersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string }>
+}) {
+  const { category: rawCategory } = await searchParams
+  const category: CategoryFilter = CATEGORY_FILTERS.some((item) => item.value === rawCategory)
+    ? (rawCategory as CategoryFilter)
+    : 'all'
+
+  const cmsOffers = await getActiveOffers()
+  const allOffers = cmsOffers.length > 0 ? cmsOffers : FALLBACK_OFFERS
+  const offers = filterByCategory(allOffers, category)
 
   return (
     <div className="flex flex-col gap-20">
       <JsonLd data={breadcrumbJsonLd([{ name: 'Home', url: SITE_URL }, { name: 'Offers' }])} />
-      {/* HEADING */}
+
       <section aria-labelledby="offers-heading" className="px-5">
         <div className="mx-auto max-w-[1278px] mt-6 lg:mt-10">
           <h1
@@ -101,78 +104,83 @@ export default async function OffersPage() {
           <p className="font-sans text-[17px] leading-[1.6] text-warm-gray mt-4 max-w-[520px]">
             Exclusive deals on our premium salon and spa services. Grab them before they expire.
           </p>
+
+          <nav aria-label="Filter offers by category" className="flex flex-wrap gap-2 mt-8">
+            {CATEGORY_FILTERS.map((item) => {
+              const isActive = category === item.value
+              const href = item.value === 'all' ? '/offers' : `/offers?category=${item.value}`
+              return (
+                <Link
+                  key={item.value}
+                  href={href}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`font-ui text-xs uppercase tracking-[0.12em] px-4 py-2 rounded-full border transition-colors duration-200 ${
+                    isActive
+                      ? 'bg-cocoa-dark text-canvas-white border-cocoa-dark'
+                      : 'bg-transparent text-cocoa-dark border-warm-stone hover:border-deep-gold hover:text-deep-gold'
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              )
+            })}
+          </nav>
         </div>
       </section>
 
-      {/* OFFER CARDS */}
       <section aria-label="Current offers" className="px-5 pb-20">
         <div className="mx-auto max-w-[1278px]">
           {offers.length > 0 ? (
-            <div className="grid grid-cols-1 gap-6">
-              {offers.map((offer) => {
-                const badge = OFFER_BADGE[offer.offerType] ?? {
-                  emoji: '✨',
-                  label: 'Offer',
-                }
-                return (
-                  <article
-                    key={offer.id}
-                    className="bg-rich-chocolate text-canvas-white border-l-4 border-deep-gold rounded-[6px] p-8"
-                  >
-                    {/* Badge */}
-                    <div className="flex items-center gap-2 mb-3">
-                      <span aria-hidden="true">{badge.emoji}</span>
-                      <span className="font-ui text-[11px] uppercase tracking-[2px] text-warm-stone">
-                        {badge.label}
-                      </span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {offers.map((offer) => (
+                <article
+                  key={offer.id}
+                  className="group relative h-[360px] md:h-[420px] rounded-xl overflow-hidden"
+                >
+                  <img
+                    src={offer.image.url}
+                    alt={offer.image.alt}
+                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent flex flex-col justify-end p-8">
+                    <div className="flex items-center gap-2 mb-2">
+                      {offer.discountLabel && (
+                        <span className="font-ui text-[11px] font-bold uppercase tracking-[0.15em] text-warm-gold">
+                          {offer.discountLabel}
+                        </span>
+                      )}
+                      {offer.category !== 'all' && (
+                        <span className="font-ui text-[10px] uppercase tracking-[0.12em] text-white/60">
+                          {categoryLabel(offer.category)}
+                        </span>
+                      )}
                     </div>
-
-                    {/* Discount label + name */}
-                    <p className="font-ui text-[13px] uppercase tracking-[1px] text-royal-gold mb-1">
-                      {discountLabel(offer)}
-                    </p>
-                    <h2 className="font-display text-canvas-white text-xl lg:text-2xl">
-                      {offer.name}
+                    <h2 className="font-display font-bold text-2xl text-white mb-2 leading-tight">
+                      {offer.title}
                     </h2>
-
-                    {/* Description */}
                     {offer.description && (
-                      <p className="font-sans text-[15px] leading-[1.55] text-dusty-gray mt-3 max-w-[600px]">
+                      <p className="font-sans text-white/80 mb-3 max-w-[520px]">
                         {offer.description}
                       </p>
                     )}
-
-                    {/* Applicable services */}
-                    {offer.services.length > 0 && (
-                      <p className="font-sans text-sm text-warm-stone mt-4">
-                        <span className="text-dusty-gray">Applies to: </span>
-                        {offer.services.map((s) => s.name).join(', ')}
+                    {offer.validUntil && (
+                      <p className="font-sans text-sm text-white/60 mb-4">
+                        Valid until {formatDate(offer.validUntil)}
                       </p>
                     )}
-
-                    {/* Validity */}
-                    <p className="font-sans text-sm text-warm-stone mt-2">
-                      Valid: {formatDate(offer.startDate)} – {formatDate(offer.endDate)}
-                    </p>
-
-                    {/* Terms */}
-                    {offer.terms && (
-                      <p className="font-sans text-sm text-dusty-gray mt-4 max-w-[600px]">
-                        {offer.terms}
-                      </p>
-                    )}
-
-                    {/* CTA */}
-                    <OfferBookButton offerId={offer.id} />
-                  </article>
-                )
-              })}
+                    <OfferBookButton
+                      offerId={offer.id}
+                      href={offer.ctaHref}
+                      label={offer.ctaLabel}
+                    />
+                  </div>
+                </article>
+              ))}
             </div>
           ) : (
-            /* Empty state */
             <div className="text-center py-16">
               <p className="font-sans text-[17px] leading-[1.6] text-warm-gray">
-                No active offers right now. Check back soon!
+                No offers in this category right now. Try another filter or check back soon!
               </p>
             </div>
           )}

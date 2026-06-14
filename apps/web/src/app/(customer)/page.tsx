@@ -79,7 +79,7 @@ export default async function HomePage() {
         <ServicesSection />
         <OffersSection />
         <TestimonialsSection />
-        <FaqSection />
+        <FaqSection faqs={faqList} />
         <BookingCTASection />
       </div>
     </>

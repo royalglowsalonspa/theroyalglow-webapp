@@ -4,10 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start",
     "generate:types": "payload generate:types",
+    "migrate:create": "node scripts/create-migration.mjs",
+    "migrate": "payload migrate",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -19,7 +21,8 @@
     "next": "16.2.6",
     "payload": "^3.85.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "sharp": "^0.35.1"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",

@@ -28,10 +28,22 @@
  * Notes        : Never imports from `payload` package directly
  ************************************************************/
 
+import { formatINR } from '@rgss/business'
 import { cmsFetch } from './config'
 import { resolveMedia } from './media'
 import { lexicalToHtml } from './richtext'
-import type { Banner, BlogListItem, BlogPost, CmsFaq, GalleryImage, TeamMember } from './types'
+import type {
+  Banner,
+  BlogListItem,
+  BlogPost,
+  CmsFaq,
+  GalleryImage,
+  Offer,
+  Service,
+  ServiceCardItem,
+  TeamMember,
+  Testimonial,
+} from './types'
 
 // The single read seam between the web app and Payload's REST API. Every
 // exported function is TOTAL: it leans on `cmsFetch` (which already returns
@@ -269,6 +281,138 @@ function mapCmsFaq(doc: unknown): CmsFaq | null {
     question,
     answer,
     category: asString(doc.category),
+  }
+}
+
+/** Clamp a rating into the inclusive 1–5 star range. */
+function clampRating(value: unknown): number {
+  const raw = asNumber(value, 5)
+  if (raw < 1) {
+    return 1
+  }
+  if (raw > 5) {
+    return 5
+  }
+  return Math.round(raw)
+}
+
+function mapTestimonial(doc: unknown): Testimonial | null {
+  if (!isRecord(doc)) {
+    return null
+  }
+  const reviewerName = asString(doc.reviewerName)
+  const reviewText = asString(doc.reviewText)
+  if (reviewerName === null || reviewText === null) {
+    return null
+  }
+  return {
+    reviewerName,
+    rating: clampRating(doc.rating),
+    reviewText,
+    timeLabel: asString(doc.timeLabel) ?? '',
+  }
+}
+
+function mapOffer(doc: unknown): Offer | null {
+  if (!isRecord(doc)) {
+    return null
+  }
+  const title = asString(doc.title)
+  if (title === null) {
+    return null
+  }
+  const image = resolveMedia(doc.image)
+  if (image === null) {
+    return null
+  }
+  const id = asId(doc.id)
+  return {
+    id: id !== '' ? id : title,
+    title,
+    description: asString(doc.description) ?? '',
+    discountLabel: asString(doc.discountLabel),
+    image,
+    ctaLabel: asString(doc.ctaLabel) ?? 'Book Now',
+    ctaHref: asString(doc.ctaHref) ?? '/?book=1',
+    category: asString(doc.category) ?? 'all',
+    validUntil: asString(doc.validUntil),
+  }
+}
+
+/**
+ * An offer is shown only when `now` falls within its `[validFrom, validUntil]`
+ * window; an absent bound is treated as open-ended.
+ */
+function isWithinValidityWindow(doc: unknown, now: Date): boolean {
+  if (!isRecord(doc)) {
+    return true
+  }
+  const start = parseDate(doc.validFrom)
+  const end = parseDate(doc.validUntil)
+  const at = now.getTime()
+  if (start !== null && start.getTime() > at) {
+    return false
+  }
+  if (end !== null && at > end.getTime()) {
+    return false
+  }
+  return true
+}
+
+function mapServiceCard(doc: unknown): ServiceCardItem | null {
+  if (!isRecord(doc)) {
+    return null
+  }
+  const name = asString(doc.name)
+  const fromPrice = asString(doc.fromPrice)
+  if (name === null || fromPrice === null) {
+    return null
+  }
+  const image = resolveMedia(doc.image)
+  if (image === null) {
+    return null
+  }
+  const id = asId(doc.id)
+  const imageAlt = asString(doc.imageAlt) ?? image.alt ?? `${name} at Royal Glow`
+  return {
+    id: id !== '' ? id : name,
+    name,
+    fromPrice,
+    image: { ...image, alt: imageAlt },
+    imageAlt,
+    bookingHref: asString(doc.bookingHref) ?? '/?book=1',
+  }
+}
+
+function mapService(doc: unknown): Service | null {
+  if (!isRecord(doc)) {
+    return null
+  }
+  const name = asString(doc.name)
+  const type = asString(doc.type)
+  if (name === null || (type !== 'salon' && type !== 'spa')) {
+    return null
+  }
+  const image = resolveMedia(doc.image)
+  if (image === null) {
+    return null
+  }
+  const durationMinutes = asNumber(doc.durationMinutes, 0)
+  const pricePaise = asNumber(doc.pricePaise, -1)
+  if (durationMinutes <= 0 || pricePaise < 0) {
+    return null
+  }
+  const id = asId(doc.id)
+  return {
+    id: id !== '' ? id : name,
+    name,
+    type,
+    category: asString(doc.category),
+    image,
+    description: asString(doc.description) ?? '',
+    durationMinutes,
+    priceFormatted: formatINR(pricePaise),
+    bookingRef: asString(doc.bookingRef),
   }
 }
 
@@ -693,4 +837,173 @@ export async function getCmsFaqs(): Promise<CmsFaq[]> {
     }
   }
   return faqs
+}
+
+/**
+ * Active customer testimonials in display order for the homepage carousel.
+ * Empty when the CMS is unconfigured/unreachable/empty, which lets the caller
+ * fall back to the curated hardcoded reviews.
+ */
+export async function getTestimonials(): Promise<Testimonial[]> {
+  const response = await cmsFetch<unknown>(
+    '/api/testimonial?where[active][equals]=true&depth=0&sort=order&limit=20',
+  )
+  const testimonials: Testimonial[] = []
+  for (const doc of extractDocs(response)) {
+    const testimonial = mapTestimonial(doc)
+    if (testimonial !== null) {
+      testimonials.push(testimonial)
+    }
+  }
+  return testimonials
+}
+
+/** Curated homepage offers shown when the CMS is unconfigured/unreachable/empty. */
+export const FALLBACK_OFFERS: Offer[] = [
+  {
+    id: 'fallback-facials',
+    title: '20% OFF All Facials — This week only!',
+    description: 'Refresh your glow with our signature skincare rituals.',
+    discountLabel: '20% OFF',
+    image: {
+      url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuChf_-S9qaSgh4ChgD4vHvHOXi0JaNdY6sbENglW-QFs2Y4_PxRHayjVgKBYvET6H1oc_jFCq-SpkAlMqZvATcX4vqOf_4Qv7lowJ0Z-yUpijd-prJwrxZL009WIpMoejD5h8E1v_-VX8fFsNU1Xw-qZCSpfkKGZXC8nFE4r2FGwMDV6aDAqywKydJi6rijlY3TMDjBOuQh3RIWyVZSVNguwgQ-dDaXeufdUkyJX6-zPdZ_AFn-rgIWM6Tpw4_aG2tbZyj4RDWqDmM',
+      alt: '20% off facials at Royal Glow — skincare treatment',
+      width: null,
+      height: null,
+    },
+    ctaLabel: 'Book Now',
+    ctaHref: '/?book=1',
+    category: 'skincare',
+    validUntil: null,
+  },
+  {
+    id: 'fallback-head-massage',
+    title: 'Free Head Massage with any SPA booking',
+    description: 'Unwind a little deeper, on the house.',
+    discountLabel: 'Free add-on',
+    image: {
+      url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDHedetGHswV5AvpWgVH4EwLo9_l2a4jGr_COWOvJIYh1S1t5nt6KYk_ERnSYzSlgQFVu-dClz4Ywcr6J5hT3fvWKZPoUQWt8Bw0Q7rDOmZp_8GxX0DDyqmt5p2yXE9RjXHzB6TRqveNgRpqTQS5VvXUcjda0g2-Nv3jDjp14f5HQW8rHnmgy3OXM3DCbhgWiuFZVF_Kk3EQ5GnGqLP0xBGMo-qR8C6yIgSEaPMB3L000XhYHYhsEj-8VEuCjzHXntthSt61iFilQA',
+      alt: 'Free head massage offer at Royal Glow Spa',
+      width: null,
+      height: null,
+    },
+    ctaLabel: 'Book Now',
+    ctaHref: '/?book=1',
+    category: 'spa',
+    validUntil: null,
+  },
+]
+
+/**
+ * Active marketing offers within their validity window, in display order.
+ * Empty when the CMS is unconfigured/unreachable/empty.
+ */
+export async function getActiveOffers(now: Date = new Date()): Promise<Offer[]> {
+  const response = await cmsFetch<unknown>(
+    '/api/offer?where[active][equals]=true&depth=1&sort=order',
+  )
+  const offers: Offer[] = []
+  for (const doc of extractDocs(response)) {
+    if (!isWithinValidityWindow(doc, now)) {
+      continue
+    }
+    const offer = mapOffer(doc)
+    if (offer !== null) {
+      offers.push(offer)
+    }
+  }
+  return offers
+}
+
+/** Curated homepage service cards shown when the CMS is unconfigured/unreachable/empty. */
+export const FALLBACK_SERVICE_CARDS: ServiceCardItem[] = [
+  {
+    id: 'fallback-hair',
+    name: 'Hair',
+    fromPrice: '₹500',
+    bookingHref: '/services#haircut',
+    imageAlt: 'Professional hair styling at Royal Glow Salon',
+    image: {
+      url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAFTeivZU8LWDtg3w4QyhdnYdO7ClTd0NMYng9j-WdftV_EAGAci_BRb0riH6AP1ozu-uu7yf8HecmVVIYfeoqsO8bUS-L1tmeLpT4R2aY2MFBcDEcBJfHUb5OsACUndPHplAIEtT3ViZ6GAgUjH6LpaTyEhhdZ8f-mSdd4-dK05Ch7ovDP-PbhmhPMdqwMS0kdMK4llg45nS_JOWUf9jat6Rf_F3TLkfAUZmy1WgFGiHD9qFIQJ98SZJCEceMxxRY5cr4YY88T-gY',
+      alt: 'Professional hair styling at Royal Glow Salon',
+      width: null,
+      height: null,
+    },
+  },
+  {
+    id: 'fallback-spa',
+    name: 'Spa',
+    fromPrice: '₹1,499',
+    bookingHref: '/services#spa',
+    imageAlt: 'Luxury spa treatment at Royal Glow',
+    image: {
+      url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDZasmXlzNTRSrg_OR0jZFSrGXvcLd9jTCCEs2zzuTKxivasTAvIz-_UG6LI1C2u-L9kqDTvL3H9V9NQkNpahwhy0nqtTy42b7WG79I_OBeVID5PdpO8RrepTsicR84S-3WBVjyV9vSuFS52O8VrXC3QAzeUFmgmSXJ_qKV34NXixljTGYUIvjNqmctILdgFykX2jJ-mmC8bAv9V9X5e9pTcLMvHchNWPoiGq_xWWiRv2tt2TcmENwrkhdFNE5VXC02go2i_W_PxTs',
+      alt: 'Luxury spa treatment at Royal Glow',
+      width: null,
+      height: null,
+    },
+  },
+  {
+    id: 'fallback-bridal',
+    name: 'Bridal',
+    fromPrice: '₹2,500',
+    bookingHref: '/services#bridal',
+    imageAlt: 'Elegant Indian bridal makeup at Royal Glow',
+    image: {
+      url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC8w_Rdj8cu_NrcFjxGQmzAH61tYak6FEB5RtbTOEvIMQd50thOeF0TQvIWR-Am9y_lMXtdsy-C2x85kkH66qkTupeAYgLFRLlqM7Pj34dtR_dWcP5UejQAXH68ym48EYh4Ksms64FYgykRmLPSEGO9sxNkrAWnPzLRiJU4qTLOhjxRNTQkZ5IY3tHBadUiD7O4eLsgNIdsdL7r4T8WrOHB1phWjtrf8Z2ECbVbPj-EskCq641BsEDa4REkm6QrFvIJdPdhan1Hjx8',
+      alt: 'Elegant Indian bridal makeup at Royal Glow',
+      width: null,
+      height: null,
+    },
+  },
+  {
+    id: 'fallback-nails',
+    name: 'Nails',
+    fromPrice: '₹800',
+    bookingHref: '/services#nails',
+    imageAlt: 'Premium nail art at Royal Glow Salon',
+    image: {
+      url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB1DUVyiMfSF07pyFdu4aNeoXPdm72DWD40kVE9iIScW17pYqaWTs6-Lf_VP7vhCNV8SwsBozQkfOR__it01_TLzLm6UiSEZgIm3iRZuH9cMLd1SG0etrkuaQVQSYj-w28ww5QhXEF3AFYa9-CcJd5aDjSmtUpH_ioR3P8pz_ckCwpWTzaGiaIPejTI4RYbK2ZhOjwOLboHAHYXjlC1rn0cd9uXzfA_QEgA8xBQYQbYGpITgYHogc5SDypjmc4Rp2XwHTsbCKeq92c',
+      alt: 'Premium nail art at Royal Glow Salon',
+      width: null,
+      height: null,
+    },
+  },
+]
+
+/**
+ * Active homepage service category cards in display order.
+ * Empty when the CMS is unconfigured/unreachable/empty.
+ */
+export async function getServiceCards(): Promise<ServiceCardItem[]> {
+  const response = await cmsFetch<unknown>(
+    '/api/service-card?where[active][equals]=true&depth=1&sort=order',
+  )
+  const cards: ServiceCardItem[] = []
+  for (const doc of extractDocs(response)) {
+    const card = mapServiceCard(doc)
+    if (card !== null) {
+      cards.push(card)
+    }
+  }
+  return cards
+}
+
+/**
+ * Active catalogue services for /services, optionally filtered by type.
+ * Empty when the CMS is unconfigured/unreachable/empty.
+ */
+export async function getServices(type?: 'salon' | 'spa'): Promise<Service[]> {
+  const typeFilter = type !== undefined ? `&where[type][equals]=${encodeURIComponent(type)}` : ''
+  const response = await cmsFetch<unknown>(
+    `/api/service?where[active][equals]=true&depth=1&sort=order${typeFilter}`,
+  )
+  const services: Service[] = []
+  for (const doc of extractDocs(response)) {
+    const service = mapService(doc)
+    if (service !== null) {
+      services.push(service)
+    }
+  }
+  return services
 }

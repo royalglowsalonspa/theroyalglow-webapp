@@ -30,6 +30,7 @@
 
 import { JsonLd } from '@/components/seo/JsonLd'
 import { getTeamMembers } from '@/lib/cms/client'
+import type { TeamMember } from '@/lib/cms/types'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, localBusinessJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
@@ -66,21 +67,27 @@ const values = [
   },
 ]
 
-const team = [
+const team: TeamMember[] = [
   {
     name: 'Roshini',
     role: 'Owner & Founder',
     bio: 'With a vision to bring premium beauty experiences to Bengaluru, Roshini founded Royal Glow to create a space where every client feels like royalty.',
+    photo: null,
+    specializations: [],
   },
   {
     name: 'Anjali',
     role: 'Senior Stylist',
     bio: 'Specialising in precision cuts and creative colouring, Anjali brings over 8 years of experience and a keen eye for detail to every appointment.',
+    photo: null,
+    specializations: [],
   },
   {
     name: 'Meera',
     role: 'Senior Therapist',
     bio: 'A certified spa therapist with expertise in aromatherapy and deep tissue techniques, Meera ensures every session leaves you feeling rejuvenated.',
+    photo: null,
+    specializations: [],
   },
 ]
 
@@ -182,16 +189,38 @@ export default async function AboutPage() {
                 key={member.name}
                 className="bg-canvas-white border border-cloud-gray rounded-[6px] p-6 motion-safe:transition-all motion-safe:duration-250 hover:border-golden-mist hover:-translate-y-[2px] hover:shadow-card-hover"
               >
-                {/* Avatar placeholder */}
-                <div className="w-16 h-16 rounded-full bg-warm-cream flex items-center justify-center">
-                  <span className="font-display text-xl text-cocoa-dark">
-                    {member.name.charAt(0)}
-                  </span>
-                </div>
+                {member.photo ? (
+                  <img
+                    src={member.photo.url}
+                    alt={member.photo.alt}
+                    className="w-16 h-16 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-warm-cream flex items-center justify-center">
+                    <span className="font-display text-xl text-cocoa-dark">
+                      {member.name.charAt(0)}
+                    </span>
+                  </div>
+                )}
                 <h3 className="font-display text-cocoa-dark text-lg mt-4">{member.name}</h3>
                 <p className="font-ui text-[11px] uppercase tracking-[2px] text-deep-gold mt-1">
                   {member.role}
                 </p>
+                {member.specializations.length > 0 && (
+                  <ul
+                    className="flex flex-wrap gap-2 mt-3"
+                    aria-label={`${member.name} specializations`}
+                  >
+                    {member.specializations.map((spec) => (
+                      <li
+                        key={spec}
+                        className="font-ui text-[10px] uppercase tracking-[0.08em] text-warm-gray bg-warm-cream px-2 py-1 rounded-full"
+                      >
+                        {spec}
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 <p className="font-sans text-[15px] leading-[1.55] text-warm-gray mt-3">
                   {member.bio}
                 </p>

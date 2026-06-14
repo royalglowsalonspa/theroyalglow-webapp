@@ -94,3 +94,47 @@ export type CmsFaq = {
   answer: string
   category: string | null
 }
+
+/** A customer testimonial rendered in the homepage carousel. */
+export type Testimonial = {
+  reviewerName: string
+  rating: number
+  reviewText: string
+  timeLabel: string
+}
+
+/** A marketing offer card from Payload (homepage + /offers). */
+export type Offer = {
+  id: string
+  title: string
+  description: string
+  discountLabel: string | null
+  image: ResolvedMedia
+  ctaLabel: string
+  ctaHref: string
+  category: string
+  validUntil: string | null
+}
+
+/** A homepage service category card ("Hair", "Spa", etc.). */
+export type ServiceCardItem = {
+  id: string
+  name: string
+  fromPrice: string
+  image: ResolvedMedia
+  imageAlt: string
+  bookingHref: string
+}
+
+/** A detailed service on the /services catalogue page. */
+export type Service = {
+  id: string
+  name: string
+  type: 'salon' | 'spa'
+  category: string | null
+  image: ResolvedMedia
+  description: string
+  durationMinutes: number
+  priceFormatted: string
+  bookingRef: string | null
+}

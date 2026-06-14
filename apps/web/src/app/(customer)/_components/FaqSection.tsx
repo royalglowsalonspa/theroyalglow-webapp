@@ -7,41 +7,42 @@
  * Scope        : Customer Pages
  *
  * Description  : Homepage FAQ block — editorial heading column beside an
- *                expandable list of the most common customer questions.
+ *                expandable list of customer questions. Receives a pre-resolved
+ *                FAQ list from the homepage server component (CMS-first via
+ *                resolveFaqs, static fallback otherwise).
  *
  * Responsibilities :
- * - Present the most frequently asked questions
+ * - Present the most frequently asked questions with answers
  * - Provide an editorial intro with a WhatsApp support mention
  * - Offer an accessible accordion-style question list
  *
  * Features / Functionality :
  * - Two-column editorial + accordion layout
  * - Bordered rows with gold hover affordance
+ * - Shows up to five FAQs from the resolved list
  *
  * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4
  * Layer        : Presentation (Component)
  *
- * Dependencies : None
+ * Dependencies : @/lib/seo/business
  *
- * Notes        : None
+ * Notes        :
+ * - Data is resolved on the server; this component is presentational only.
  ************************************************************/
 
-const faqs = [
-  { question: 'What is Royal Glow?' },
-  { question: 'Do you take walk-ins or appointments only?' },
-  { question: 'What payment methods are accepted?' },
-  { question: 'Are your products and treatments safe?' },
-  { question: 'Do you offer bridal and group bookings?' },
-]
+import type { Faq } from '@/lib/seo/business'
 
-export function FaqSection() {
+const HOMEPAGE_FAQ_LIMIT = 5
+
+export function FaqSection({ faqs }: { faqs: Faq[] }) {
+  const visibleFaqs = faqs.slice(0, HOMEPAGE_FAQ_LIMIT)
+
   return (
     <section
       aria-labelledby="faq-heading"
       className="px-4 md:px-8 py-16 mx-auto w-full max-w-[1280px]"
     >
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-        {/* Left — Editorial text */}
         <div className="flex flex-col justify-center">
           <p className="font-ui text-[10px] font-bold uppercase tracking-[0.2em] opacity-60 mb-2">
             Got a question?
@@ -64,9 +65,8 @@ export function FaqSection() {
           </p>
         </div>
 
-        {/* Right — Accordion */}
         <div className="space-y-0">
-          {faqs.map((faq) => (
+          {visibleFaqs.map((faq) => (
             <details key={faq.question} className="group border-b border-outline-gray">
               <summary className="flex justify-between items-center cursor-pointer list-none py-5 gap-4">
                 <span className="font-sans font-bold text-lg text-cocoa-dark group-hover:text-deep-gold transition-colors duration-200">
@@ -77,7 +77,7 @@ export function FaqSection() {
                 </span>
               </summary>
               <p className="font-sans text-warm-gray text-sm leading-relaxed pb-5 pr-8">
-                Please contact us for more details about this topic.
+                {faq.answer}
               </p>
             </details>
           ))}
