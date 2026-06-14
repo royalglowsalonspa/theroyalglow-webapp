@@ -37,14 +37,22 @@ import Link from 'next/link'
  * unchanged — the link still routes to the homepage booking dialog. The
  * `track()` call is fire-and-forget and a no-op without a loaded provider.
  */
-export function OfferBookButton({ offerId }: { offerId: string }) {
+export function OfferBookButton({
+  offerId,
+  href = '/?book=1',
+  label = 'Book Now',
+}: {
+  offerId: string
+  href?: string
+  label?: string
+}) {
   return (
     <Link
-      href="/?book=1"
+      href={href}
       onClick={() => track('offer_clicked', { offerId })}
-      className="inline-flex items-center gap-1 font-ui text-xs uppercase tracking-[0.5px] text-royal-gold mt-6 hover:text-canvas-white transition-colors duration-200"
+      className="inline-flex items-center gap-1 font-ui text-xs uppercase tracking-[0.5px] text-royal-gold mt-2 hover:text-canvas-white transition-colors duration-200 md:mt-0"
     >
-      Book Now <span aria-hidden="true">→</span>
+      {label} <span aria-hidden="true">→</span>
     </Link>
   )
 }

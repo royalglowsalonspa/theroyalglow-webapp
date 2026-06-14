@@ -33,6 +33,7 @@ import { BookingDialogTrigger } from '@/components/booking/BookingDialogTrigger'
 import { Footer } from '@/components/layout/Footer'
 import { Header } from '@/components/layout/Header'
 import { Suspense } from 'react'
+import { AnnouncementBar } from './_components/AnnouncementBar'
 
 export default function CustomerLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -44,15 +45,7 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
         Skip to content
       </a>
 
-      {/* Announcement Bar — matches Stitch golden warm bar */}
-      <div
-        className="relative z-50 text-center font-ui font-bold text-xs py-2 px-4"
-        style={{ backgroundColor: '#FFF8E7', color: '#1A0F0A' }}
-      >
-        <a href="/offers" className="hover:underline" style={{ color: '#1A0F0A' }}>
-          ✨ NEW · Monsoon Glow offers — up to 30% off signature rituals →
-        </a>
-      </div>
+      <AnnouncementBar />
 
       <Header />
       {/* pt = announcement bar (36px) + header (80px) = 116px */}
