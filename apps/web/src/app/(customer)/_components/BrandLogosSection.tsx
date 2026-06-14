@@ -114,13 +114,6 @@ const brands = [
     style: { letterSpacing: '0.14em', fontSize: '1.3rem', fontWeight: 700 } as React.CSSProperties,
   },
   {
-    name: 'GARNIER',
-    logo: '/brands/garnier.svg',
-    heightClass: 'h-[32px]',
-    fontClass: archivo.className,
-    style: { letterSpacing: '0.12em', fontSize: '1.2rem', fontWeight: 700 } as React.CSSProperties,
-  },
-  {
     name: 'TRESemmé',
     logo: '/brands/tresemme.svg',
     heightClass: 'h-[38px]',
