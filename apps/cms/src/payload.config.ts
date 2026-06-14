@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 08-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : payload.config
@@ -18,7 +18,8 @@
  * - Configure CORS/CSRF for web app domain
  *
  * Features / Functionality :
- * - 7 collections: Users, Media, Blog, Gallery, Team, Banner, Faq
+ * - 10 collections: Users, Media, Blog, Gallery, Team, Banner, Faq,
+ *                   Testimonial, Offer, ServiceCard
  * - S3 storage (R2) for media uploads
  * - TypeScript type generation
  *
@@ -43,7 +44,10 @@ import { Blog } from './collections/Blog'
 import { Faq } from './collections/Faq'
 import { Gallery } from './collections/Gallery'
 import { Media } from './collections/Media'
+import { Offer } from './collections/Offer'
+import { ServiceCard } from './collections/ServiceCard'
 import { Team } from './collections/Team'
+import { Testimonial } from './collections/Testimonial'
 import { Users } from './collections/Users'
 
 const filename = fileURLToPath(import.meta.url)
@@ -63,7 +67,7 @@ export default buildConfig({
       connectionString: process.env.DATABASE_URL ?? '',
     },
   }),
-  collections: [Users, Media, Blog, Gallery, Team, Banner, Faq],
+  collections: [Users, Media, Blog, Gallery, Team, Banner, Faq, Testimonial, Offer, ServiceCard],
   cors: [webAppUrl],
   csrf: [webAppUrl],
   plugins: [
