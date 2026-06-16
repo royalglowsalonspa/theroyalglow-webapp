@@ -31,6 +31,7 @@
  ************************************************************/
 import type { CollectionConfig, FieldHook } from 'payload'
 import { adminsWrite, anyoneReadsPublished } from '../access/published'
+import { revalidateHooks } from '../hooks/revalidate'
 
 /** Convert an arbitrary string into a kebab-case slug. */
 const slugify = (value: string): string =>
@@ -63,6 +64,7 @@ const formatSlug: FieldHook = ({ value, data }) => {
  */
 export const Blog: CollectionConfig = {
   slug: 'blog',
+  hooks: revalidateHooks('blog'),
   access: {
     read: anyoneReadsPublished,
     create: adminsWrite,

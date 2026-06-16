@@ -28,6 +28,7 @@
  ************************************************************/
 import type { CollectionConfig } from 'payload'
 import { adminsWrite, anyoneReads } from '../access/published'
+import { revalidateHooks } from '../hooks/revalidate'
 
 /**
  * Homepage promo banners. World-readable; the active-window check
@@ -35,6 +36,7 @@ import { adminsWrite, anyoneReads } from '../access/published'
  */
 export const Banner: CollectionConfig = {
   slug: 'banner',
+  hooks: revalidateHooks('banner'),
   access: {
     read: anyoneReads,
     create: adminsWrite,

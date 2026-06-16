@@ -31,9 +31,11 @@
  ************************************************************/
 import type { CollectionConfig } from 'payload'
 import { adminsWrite, anyoneReads } from '../access/published'
+import { revalidateHooks } from '../hooks/revalidate'
 
 export const Testimonial: CollectionConfig = {
   slug: 'testimonial',
+  hooks: revalidateHooks('testimonial'),
   access: {
     read: anyoneReads,
     create: adminsWrite,

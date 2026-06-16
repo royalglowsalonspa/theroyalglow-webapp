@@ -28,10 +28,12 @@
  ************************************************************/
 import type { CollectionConfig } from 'payload'
 import { adminsWrite, anyoneReads } from '../access/published'
+import { revalidateHooks } from '../hooks/revalidate'
 
 /** CMS-managed FAQ entries — the preferred source over the static FAQS list. */
 export const Faq: CollectionConfig = {
   slug: 'faq',
+  hooks: revalidateHooks('faq'),
   access: {
     read: anyoneReads,
     create: adminsWrite,
