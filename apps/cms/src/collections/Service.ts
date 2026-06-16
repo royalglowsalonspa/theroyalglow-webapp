@@ -33,9 +33,11 @@
  ************************************************************/
 import type { CollectionConfig } from 'payload'
 import { adminsWrite, anyoneReads } from '../access/published'
+import { revalidateHooks } from '../hooks/revalidate'
 
 export const Service: CollectionConfig = {
   slug: 'service',
+  hooks: revalidateHooks('service'),
   access: {
     read: anyoneReads,
     create: adminsWrite,

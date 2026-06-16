@@ -28,10 +28,12 @@
  ************************************************************/
 import type { CollectionConfig } from 'payload'
 import { adminsWrite, anyoneReads } from '../access/published'
+import { revalidateHooks } from '../hooks/revalidate'
 
 /** Gallery images shown on `/gallery`. World-readable; admin writes. */
 export const Gallery: CollectionConfig = {
   slug: 'gallery',
+  hooks: revalidateHooks('gallery'),
   access: {
     read: anyoneReads,
     create: adminsWrite,

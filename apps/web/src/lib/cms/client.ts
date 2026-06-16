@@ -727,6 +727,7 @@ export async function getPublishedPosts(opts?: {
   const page = opts?.page ?? DEFAULT_POST_PAGE
   const response = await cmsFetch<unknown>(
     `/api/blog?where[status][equals]=published&sort=-publishedAt&depth=1&limit=${limit}&page=${page}`,
+    { tags: ['blog'] },
   )
   const items: BlogListItem[] = []
   for (const doc of extractDocs(response)) {
@@ -745,6 +746,7 @@ export async function getPublishedPosts(opts?: {
 export async function getPostBySlug(slug: string): Promise<BlogPost | null> {
   const response = await cmsFetch<unknown>(
     `/api/blog?where[slug][equals]=${encodeURIComponent(slug)}&where[status][equals]=published&depth=1&limit=1`,
+    { tags: ['blog'] },
   )
   const [first] = extractDocs(response)
   const post = first === undefined ? null : mapBlogPost(first)
@@ -758,6 +760,7 @@ export async function getPostBySlug(slug: string): Promise<BlogPost | null> {
 export async function getAllPostSlugs(): Promise<string[]> {
   const response = await cmsFetch<unknown>(
     `/api/blog?where[status][equals]=published&depth=0&limit=${ALL_SLUGS_LIMIT}&select[slug]=true`,
+    { tags: ['blog'] },
   )
   const slugs: string[] = []
   for (const doc of extractDocs(response)) {
@@ -783,7 +786,9 @@ export async function getGalleryImages(opts?: {
     typeof category === 'string' && category.trim() !== ''
       ? `&where[category][equals]=${encodeURIComponent(category)}`
       : ''
-  const response = await cmsFetch<unknown>(`/api/gallery?depth=1&sort=order${categoryClause}`)
+  const response = await cmsFetch<unknown>(`/api/gallery?depth=1&sort=order${categoryClause}`, {
+    tags: ['gallery'],
+  })
   const images: GalleryImage[] = []
   for (const doc of extractDocs(response)) {
     const image = mapGalleryImage(doc)
@@ -796,7 +801,7 @@ export async function getGalleryImages(opts?: {
 
 /** Team members in display order, for the optional `/about` surface. */
 export async function getTeamMembers(): Promise<TeamMember[]> {
-  const response = await cmsFetch<unknown>('/api/team?depth=1&sort=order')
+  const response = await cmsFetch<unknown>('/api/team?depth=1&sort=order', { tags: ['team'] })
   const members: TeamMember[] = []
   for (const doc of extractDocs(response)) {
     const member = mapTeamMember(doc)
@@ -811,6 +816,7 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
 export async function getActiveBanners(now: Date = new Date()): Promise<Banner[]> {
   const response = await cmsFetch<unknown>(
     '/api/banner?where[active][equals]=true&depth=1&sort=order',
+    { tags: ['banner'] },
   )
   const banners: Banner[] = []
   for (const doc of extractDocs(response)) {
@@ -828,7 +834,7 @@ export async function getActiveBanners(now: Date = new Date()): Promise<Banner[]
  * which lets callers fall back to the static `FAQS` list.
  */
 export async function getCmsFaqs(): Promise<CmsFaq[]> {
-  const response = await cmsFetch<unknown>('/api/faq?depth=0&sort=order')
+  const response = await cmsFetch<unknown>('/api/faq?depth=0&sort=order', { tags: ['faq'] })
   const faqs: CmsFaq[] = []
   for (const doc of extractDocs(response)) {
     const faq = mapCmsFaq(doc)
@@ -847,6 +853,7 @@ export async function getCmsFaqs(): Promise<CmsFaq[]> {
 export async function getTestimonials(): Promise<Testimonial[]> {
   const response = await cmsFetch<unknown>(
     '/api/testimonial?where[active][equals]=true&depth=0&sort=order&limit=20',
+    { tags: ['testimonial'] },
   )
   const testimonials: Testimonial[] = []
   for (const doc of extractDocs(response)) {
@@ -901,6 +908,7 @@ export const FALLBACK_OFFERS: Offer[] = [
 export async function getActiveOffers(now: Date = new Date()): Promise<Offer[]> {
   const response = await cmsFetch<unknown>(
     '/api/offer?where[active][equals]=true&depth=1&sort=order',
+    { tags: ['offer'] },
   )
   const offers: Offer[] = []
   for (const doc of extractDocs(response)) {
@@ -978,6 +986,7 @@ export const FALLBACK_SERVICE_CARDS: ServiceCardItem[] = [
 export async function getServiceCards(): Promise<ServiceCardItem[]> {
   const response = await cmsFetch<unknown>(
     '/api/service-card?where[active][equals]=true&depth=1&sort=order',
+    { tags: ['service-card'] },
   )
   const cards: ServiceCardItem[] = []
   for (const doc of extractDocs(response)) {
@@ -997,6 +1006,7 @@ export async function getServices(type?: 'salon' | 'spa'): Promise<Service[]> {
   const typeFilter = type !== undefined ? `&where[type][equals]=${encodeURIComponent(type)}` : ''
   const response = await cmsFetch<unknown>(
     `/api/service?where[active][equals]=true&depth=1&sort=order${typeFilter}`,
+    { tags: ['service'] },
   )
   const services: Service[] = []
   for (const doc of extractDocs(response)) {

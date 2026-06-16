@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
     // NEXT_PUBLIC_R2_PUBLIC_URL (R2 CDN) in prod, or the CMS origin in dev.
     remotePatterns: [
       // Cloudflare R2 public media host (matches NEXT_PUBLIC_R2_PUBLIC_URL)
-      { protocol: 'https', hostname: 'uploads.theroyalglow.in' },
+      { protocol: 'https', hostname: 'pub-40c9806a7ea146c9b0469960f8b84d94.r2.dev' },
       // Payload CMS origin (prod) — fallback when media served from CMS
       { protocol: 'https', hostname: 'admin.theroyalglow.in' },
       // Payload CMS origin (local dev)

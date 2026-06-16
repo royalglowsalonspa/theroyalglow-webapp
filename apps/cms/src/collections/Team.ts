@@ -28,10 +28,12 @@
  ************************************************************/
 import type { CollectionConfig } from 'payload'
 import { adminsWrite, anyoneReads } from '../access/published'
+import { revalidateHooks } from '../hooks/revalidate'
 
 /** Team member bios, optionally surfaced on `/about`. World-readable. */
 export const Team: CollectionConfig = {
   slug: 'team',
+  hooks: revalidateHooks('team'),
   access: {
     read: anyoneReads,
     create: adminsWrite,
