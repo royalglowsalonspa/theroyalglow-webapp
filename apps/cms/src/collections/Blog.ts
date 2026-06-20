@@ -74,6 +74,7 @@ export const Blog: CollectionConfig = {
   admin: {
     useAsTitle: 'title',
     defaultColumns: ['title', 'status', 'publishedAt'],
+    group: 'Content',
   },
   fields: [
     {

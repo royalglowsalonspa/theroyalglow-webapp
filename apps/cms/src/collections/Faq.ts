@@ -43,6 +43,7 @@ export const Faq: CollectionConfig = {
   admin: {
     useAsTitle: 'question',
     defaultColumns: ['question', 'category', 'order'],
+    group: 'Content',
   },
   fields: [
     {

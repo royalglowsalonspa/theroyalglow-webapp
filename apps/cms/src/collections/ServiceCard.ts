@@ -48,6 +48,7 @@ export const ServiceCard: CollectionConfig = {
     useAsTitle: 'name',
     defaultColumns: ['name', 'fromPrice', 'active', 'order'],
     description: 'Homepage service category cards (Hair, Spa, Bridal, Nails, etc.).',
+    group: 'Marketing',
   },
   fields: [
     {

@@ -43,6 +43,7 @@ export const Team: CollectionConfig = {
   admin: {
     useAsTitle: 'name',
     defaultColumns: ['name', 'role', 'order'],
+    group: 'People',
   },
   fields: [
     {
