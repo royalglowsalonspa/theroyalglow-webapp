@@ -31,7 +31,7 @@
 import { formatINR } from '@rgss/business'
 import { cmsFetch } from './config'
 import { resolveMedia } from './media'
-import { lexicalToHtml } from './richtext'
+import { lexicalToHtml, lexicalToPlainText } from './richtext'
 import type {
   Banner,
   BlogListItem,
@@ -157,6 +157,19 @@ function extractDocs(response: unknown): unknown[] {
 // Doc → view-model mappers (each returns null when a required field is missing)
 // ---------------------------------------------------------------------------
 
+const WORDS_PER_MINUTE = 200
+
+/** Reading time in minutes from a word count (min 1). */
+function readingMinutesFromText(text: string): number {
+  const words = text.trim().split(/\s+/).filter(Boolean).length
+  return Math.max(1, Math.round(words / WORDS_PER_MINUTE))
+}
+
+/** Reading time from an HTML string (tags stripped). Used for mock fallbacks. */
+function readingMinutesFromHtml(html: string): number {
+  return readingMinutesFromText(html.replace(/<[^>]+>/g, ' '))
+}
+
 function mapBlogListItem(doc: unknown): BlogListItem | null {
   if (!isRecord(doc)) {
     return null
@@ -173,6 +186,8 @@ function mapBlogListItem(doc: unknown): BlogListItem | null {
     coverImage: resolveMedia(doc.coverImage),
     category: asString(doc.category),
     publishedAt: asDateString(doc.publishedAt),
+    // Computed from the full body (CMS-driven; no manual field needed).
+    readingMinutes: readingMinutesFromText(lexicalToPlainText(doc.body, 0)),
   }
 }
 
@@ -440,7 +455,7 @@ function isWithinWindow(doc: unknown, now: Date): boolean {
 // Mock Data Fallbacks (used when CMS is unconfigured or unreachable)
 // ---------------------------------------------------------------------------
 
-const MOCK_POSTS: BlogPost[] = [
+const MOCK_POSTS_RAW: Omit<BlogPost, 'readingMinutes'>[] = [
   {
     slug: 'hair-color-stay-longer',
     title: 'How to make hair color stay longer: Expert Secrets',
@@ -713,6 +728,12 @@ const MOCK_POSTS: BlogPost[] = [
     `,
   },
 ]
+
+// Mock posts with reading time derived from their HTML body.
+const MOCK_POSTS: BlogPost[] = MOCK_POSTS_RAW.map((post) => ({
+  ...post,
+  readingMinutes: readingMinutesFromHtml(post.bodyHtml),
+}))
 
 // ---------------------------------------------------------------------------
 // Public read functions

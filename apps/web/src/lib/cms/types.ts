@@ -47,6 +47,8 @@ export type BlogListItem = {
   coverImage: ResolvedMedia | null
   category: string | null
   publishedAt: string
+  /** Estimated reading time in minutes (computed from the body, min 1). */
+  readingMinutes: number
 }
 
 /** A full blog post as rendered on `/blog/[slug]`. */
