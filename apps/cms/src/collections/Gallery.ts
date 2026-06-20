@@ -43,6 +43,7 @@ export const Gallery: CollectionConfig = {
   admin: {
     useAsTitle: 'alt',
     defaultColumns: ['alt', 'category', 'order'],
+    group: 'Media',
   },
   fields: [
     {

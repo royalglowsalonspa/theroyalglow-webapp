@@ -45,6 +45,9 @@ export const Media: CollectionConfig = {
     update: adminsWrite,
     delete: adminsWrite,
   },
+  admin: {
+    group: 'Media',
+  },
   upload: {
     mimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
     imageSizes: [

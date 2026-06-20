@@ -46,6 +46,7 @@ export const Testimonial: CollectionConfig = {
     useAsTitle: 'reviewerName',
     defaultColumns: ['reviewerName', 'rating', 'active', 'order'],
     description: 'Customer reviews displayed on the homepage carousel.',
+    group: 'Content',
   },
   fields: [
     {

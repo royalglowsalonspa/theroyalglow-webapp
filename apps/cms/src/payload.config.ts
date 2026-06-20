@@ -107,7 +107,12 @@ export default buildConfig({
     s3Storage({
       enabled: isR2Configured,
       collections: {
-        media: true,
+        // All Payload-managed media is stored under the `cms/` key prefix
+        // (R2 "folder") to keep it separate from other app uploads
+        // (e.g. future `website/`, `invoices/` prefixes used outside Payload).
+        media: {
+          prefix: 'cms',
+        },
       },
       bucket: process.env.R2_BUCKET_NAME ?? '',
       config: {

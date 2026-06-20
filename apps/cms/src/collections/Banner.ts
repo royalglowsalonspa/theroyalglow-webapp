@@ -46,6 +46,7 @@ export const Banner: CollectionConfig = {
   admin: {
     useAsTitle: 'headline',
     defaultColumns: ['headline', 'active', 'order'],
+    group: 'Marketing',
   },
   fields: [
     {

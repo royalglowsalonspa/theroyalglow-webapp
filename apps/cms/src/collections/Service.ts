@@ -48,6 +48,7 @@ export const Service: CollectionConfig = {
     useAsTitle: 'name',
     defaultColumns: ['name', 'type', 'category', 'active', 'order'],
     description: 'Detailed service catalogue for the /services page (Salon and SPA).',
+    group: 'Services',
   },
   fields: [
     {

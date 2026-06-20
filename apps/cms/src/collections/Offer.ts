@@ -50,6 +50,7 @@ export const Offer: CollectionConfig = {
     useAsTitle: 'title',
     defaultColumns: ['title', 'discountLabel', 'category', 'active', 'validUntil'],
     description: 'Promotional offer cards shown on homepage and /offers page.',
+    group: 'Marketing',
   },
   fields: [
     {
