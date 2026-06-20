@@ -45,13 +45,26 @@ const navLinks = [
   { href: '/blog', label: 'Blog' },
 ]
 
-export function Header() {
+type HeaderUser = { name: string | null; email: string | null; image: string | null }
+
+export function Header({ initialUser = null }: { initialUser?: HeaderUser | null }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [isSigningIn, setIsSigningIn] = useState(false)
   const pathname = usePathname()
   const { data: session, isPending } = useSession()
-  const user = session?.user ?? null
+  // First paint uses the server-resolved user (no signed-out → avatar flash on
+  // refresh); once the client session resolves we trust it so live sign-in /
+  // sign-out still update the header without a reload.
+  const user: HeaderUser | null = isPending
+    ? initialUser
+    : session?.user
+      ? {
+          name: session.user.name ?? null,
+          email: session.user.email ?? null,
+          image: session.user.image ?? null,
+        }
+      : null
 
   useEffect(() => {
     function handleScroll() {
@@ -116,21 +129,9 @@ export function Header() {
         </nav>
 
         {/* ── Auth CTA ── */}
-        {isPending ? (
-          // Reserve space + show a neutral skeleton so the "Sign in" button
-          // never flashes before the session resolves on refresh.
-          <div className="hidden md:flex items-center" aria-hidden="true">
-            <div className="h-10 w-10 rounded-full bg-cloud-gray motion-safe:animate-pulse" />
-          </div>
-        ) : user ? (
+        {user ? (
           <div className="hidden md:flex items-center">
-            <UserMenu
-              user={{
-                name: user.name ?? null,
-                email: user.email ?? null,
-                image: user.image ?? null,
-              }}
-            />
+            <UserMenu user={user} />
           </div>
         ) : (
           <button
@@ -169,45 +170,97 @@ export function Header() {
           </button>
         )}
 
-        {/* ── Mobile Hamburger ── */}
-        <button
-          type="button"
-          className="md:hidden flex items-center justify-center w-10 h-10 text-cocoa-dark"
-          onClick={() => setIsMobileMenuOpen(true)}
-          aria-label="Open navigation menu"
-          aria-expanded={isMobileMenuOpen}
-          aria-controls="mobile-nav"
-        >
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            aria-hidden="true"
-          >
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <line x1="3" y1="18" x2="21" y2="18" />
-          </svg>
-        </button>
+        {/* ── Mobile right side ── */}
+        <div className="flex items-center gap-2 md:hidden">
+          {user ? (
+            // Logged in: avatar button opens the drawer (account + nav inside).
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen(true)}
+              aria-label="Open account menu"
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="mobile-nav"
+              className="flex items-center gap-1 rounded-full py-0.5 pr-1 pl-0.5 hover:bg-cloud-gray transition-colors active:scale-95"
+            >
+              {user.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={user.image}
+                  alt=""
+                  className="h-9 w-9 rounded-full object-cover border border-outline-gray"
+                />
+              ) : (
+                <span
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-warm-gold font-ui font-bold text-sm text-cocoa-dark"
+                  aria-hidden="true"
+                >
+                  {user.name?.trim().charAt(0).toUpperCase() ?? 'G'}
+                </span>
+              )}
+              <svg
+                className="h-4 w-4 text-warm-gray"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+          ) : (
+            // Logged out: explicit Sign in CTA (fallback when One Tap doesn't prompt).
+            <button
+              type="button"
+              onClick={handleSignIn}
+              disabled={isSigningIn}
+              className="inline-flex items-center rounded-lg bg-warm-gold px-4 py-2 font-ui font-bold text-sm text-cocoa-dark transition-colors hover:bg-deep-gold active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isSigningIn ? 'Signing in…' : 'Sign in'}
+            </button>
+          )}
+
+          {/* Hamburger — shown while signed out / loading; hidden once signed in
+              (the avatar opens the same drawer). */}
+          {!user && (
+            <button
+              type="button"
+              className="flex items-center justify-center w-10 h-10 text-cocoa-dark"
+              onClick={() => setIsMobileMenuOpen(true)}
+              aria-label="Open navigation menu"
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="mobile-nav"
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Google One Tap — only for confirmed signed-out guests */}
-      {!isPending && !user && <GoogleOneTap />}
+      {!user && <GoogleOneTap />}
 
       {/* Mobile Navigation */}
       <MobileNav
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
         pathname={pathname}
-        user={
-          user
-            ? { name: user.name ?? null, email: user.email ?? null, image: user.image ?? null }
-            : null
-        }
+        user={user}
       />
     </header>
   )
