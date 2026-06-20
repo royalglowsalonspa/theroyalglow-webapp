@@ -39,161 +39,111 @@ type BlogFeedProps = {
 
 const CATEGORIES = ['All', 'Skincare', 'Hair', 'Spa & Wellness', 'Bridal', 'Nails', 'Tips & Tricks']
 
-const POSTS_PER_PAGE = 4
+// Page 1 shows a featured (2-col) card + 4 uniform = 5. Page 2+ are a plain
+// 3×3 uniform grid (9 per page), no featured card.
+const FIRST_PAGE_SIZE = 5
+const REST_PAGE_SIZE = 9
 
-/* ── Individual Bento Grid Card Component ── */
-interface BentoCardProps {
-  post: BlogListItem
-  index: number // 0, 1, 2, or 3
+/* ── Shared metadata row: date • read time ── */
+function CardMeta({
+  publishedAt,
+  readingMinutes,
+}: {
+  publishedAt: string
+  readingMinutes: number
+}) {
+  return (
+    <div className="flex items-center gap-2 text-xs font-ui text-dusty-gray font-semibold tracking-wider">
+      {publishedAt && <span>{formatDateIN(new Date(publishedAt))}</span>}
+      {publishedAt && <span aria-hidden="true">•</span>}
+      <span>{readingMinutes} min read</span>
+    </div>
+  )
 }
 
-export function BentoCard({ post, index }: BentoCardProps) {
-  const { slug, title, excerpt, coverImage, category, publishedAt } = post
+/* ── Blog card — uniform metadata; `featured` spans 2 cols, horizontal on web ── */
+interface BlogCardProps {
+  post: BlogListItem
+  featured?: boolean
+}
+
+export function BlogCard({ post, featured = false }: BlogCardProps) {
+  const { slug, title, excerpt, coverImage, category, publishedAt, readingMinutes } = post
   const href = `/blog/${slug}`
 
-  // 1. First card: Wide, vertical stack (lg:col-span-2)
-  if (index === 0) {
-    return (
-      <article className="group lg:col-span-2 bg-canvas-white border border-outline-gray/15 rounded-xl overflow-hidden flex flex-col hover:shadow-card-hover hover:border-deep-gold/30 transition-all duration-300">
-        <div className="relative w-full aspect-[21/10] overflow-hidden bg-warm-cream">
-          {coverImage ? (
-            <img
-              src={coverImage.url}
-              alt={coverImage.alt}
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center font-display text-4xl text-deep-gold/30">
-              RG
-            </div>
-          )}
-          {category && (
-            <span className="absolute top-4 left-4 bg-[#FFF8E7] text-[#1A0F0A] font-ui text-[9px] uppercase tracking-wider font-bold px-2.5 py-1 rounded shadow-sm">
-              {category}
-            </span>
-          )}
+  const cover = (
+    <div className="relative h-full w-full overflow-hidden bg-warm-cream">
+      {coverImage ? (
+        <img
+          src={coverImage.url}
+          alt={coverImage.alt}
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center font-display text-4xl text-deep-gold/30">
+          RG
         </div>
-        <div className="p-6 sm:p-8 flex-1 flex flex-col justify-between">
+      )}
+      {category && (
+        <span className="absolute top-4 left-4 bg-[#FFF8E7] text-[#1A0F0A] font-ui text-[9px] uppercase tracking-wider font-bold px-2.5 py-1 rounded shadow-sm">
+          {category}
+        </span>
+      )}
+    </div>
+  )
+
+  const readMore = (
+    <Link
+      href={href}
+      className="font-ui font-bold text-xs uppercase tracking-wider text-cocoa-dark hover:text-deep-gold transition-colors"
+    >
+      Read Article{' '}
+      <span className="inline-block group-hover:translate-x-1 transition-transform">→</span>
+    </Link>
+  )
+
+  // Featured: wide (2 cols), image + content side-by-side on web, stacked on mobile.
+  if (featured) {
+    return (
+      <article className="group lg:col-span-2 bg-canvas-white border border-outline-gray/15 rounded-xl overflow-hidden grid grid-cols-1 sm:grid-cols-2 hover:shadow-card-hover hover:border-deep-gold/30 transition-all duration-300">
+        <div className="relative w-full aspect-[16/10] sm:aspect-auto sm:min-h-[300px]">
+          {cover}
+        </div>
+        <div className="p-6 sm:p-8 flex flex-col justify-between">
           <div>
-            <div className="flex items-center gap-2 text-xs font-ui text-dusty-gray font-semibold tracking-wider">
-              {publishedAt && <span>{formatDateIN(new Date(publishedAt))}</span>}
-              <span>•</span>
-              <span>5 min read</span>
-            </div>
-            <h2 className="font-display font-black text-cocoa-dark text-2xl lg:text-3xl leading-snug tracking-tight mt-3 group-hover:text-deep-gold transition-colors duration-200">
+            <CardMeta publishedAt={publishedAt} readingMinutes={readingMinutes} />
+            <h2 className="font-display font-black text-cocoa-dark text-2xl lg:text-[28px] leading-snug tracking-tight mt-3 group-hover:text-deep-gold transition-colors duration-200">
               <Link href={href}>{title}</Link>
             </h2>
             {excerpt && (
-              <p className="font-sans text-sm text-warm-gray mt-3 leading-relaxed max-w-2xl">
+              <p className="font-sans text-sm text-warm-gray mt-3 leading-relaxed line-clamp-4">
                 {excerpt}
               </p>
             )}
           </div>
-          <div className="mt-6">
-            <Link
-              href={href}
-              className="font-ui font-bold text-xs uppercase tracking-wider text-cocoa-dark hover:text-deep-gold transition-colors"
-            >
-              Read Article{' '}
-              <span className="inline-block group-hover:translate-x-1 transition-transform">→</span>
-            </Link>
-          </div>
+          <div className="mt-6">{readMore}</div>
         </div>
       </article>
     )
   }
 
-  // 2. Second & Third cards: Narrow, vertical stack (lg:col-span-1)
-  if (index === 1 || index === 2) {
-    return (
-      <article className="group lg:col-span-1 bg-canvas-white border border-outline-gray/15 rounded-xl overflow-hidden flex flex-col hover:shadow-card-hover hover:border-deep-gold/30 transition-all duration-300">
-        <div className="relative w-full aspect-[16/10] overflow-hidden bg-warm-cream">
-          {coverImage ? (
-            <img
-              src={coverImage.url}
-              alt={coverImage.alt}
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center font-display text-2xl text-deep-gold/30">
-              RG
-            </div>
-          )}
-          {category && (
-            <span className="absolute top-4 left-4 bg-[#FFF8E7] text-[#1A0F0A] font-ui text-[9px] uppercase tracking-wider font-bold px-2.5 py-1 rounded shadow-sm">
-              {category}
-            </span>
-          )}
-        </div>
-        <div className="p-6 flex-1 flex flex-col justify-between">
-          <div>
-            <h3 className="font-display font-black text-cocoa-dark text-xl leading-snug tracking-tight group-hover:text-deep-gold transition-colors duration-200">
-              <Link href={href}>{title}</Link>
-            </h3>
-            {excerpt && (
-              <p className="font-sans text-[13px] text-warm-gray mt-2.5 leading-relaxed line-clamp-3">
-                {excerpt}
-              </p>
-            )}
-          </div>
-          <div className="mt-6 pt-4 border-t border-outline-gray/10 flex items-center justify-between text-xs text-dusty-gray font-ui font-semibold">
-            {publishedAt && <span>{formatDateIN(new Date(publishedAt))}</span>}
-            <Link
-              href={href}
-              className="text-cocoa-dark hover:text-deep-gold text-sm transition-colors font-bold"
-            >
-              →
-            </Link>
-          </div>
-        </div>
-      </article>
-    )
-  }
-
-  // 3. Fourth card: Wide, horizontal split (lg:col-span-2)
+  // Standard: uniform vertical card (1 col).
   return (
-    <article className="group lg:col-span-2 bg-canvas-white border border-outline-gray/15 rounded-xl overflow-hidden grid grid-cols-1 sm:grid-cols-2 hover:shadow-card-hover hover:border-deep-gold/30 transition-all duration-300">
-      <div className="relative w-full h-full min-h-[240px] sm:min-h-0 overflow-hidden bg-warm-cream">
-        {coverImage ? (
-          <img
-            src={coverImage.url}
-            alt={coverImage.alt}
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center font-display text-4xl text-deep-gold/30">
-            RG
-          </div>
-        )}
-        {category && (
-          <span className="absolute top-4 left-4 bg-[#FFF8E7] text-[#1A0F0A] font-ui text-[9px] uppercase tracking-wider font-bold px-2.5 py-1 rounded shadow-sm">
-            {category}
-          </span>
-        )}
-      </div>
-      <div className="p-6 sm:p-8 flex flex-col justify-between">
+    <article className="group lg:col-span-1 bg-canvas-white border border-outline-gray/15 rounded-xl overflow-hidden flex flex-col hover:shadow-card-hover hover:border-deep-gold/30 transition-all duration-300">
+      <div className="relative w-full aspect-[16/10]">{cover}</div>
+      <div className="p-6 flex-1 flex flex-col justify-between">
         <div>
-          <div className="flex items-center gap-2 text-xs font-ui text-dusty-gray font-semibold tracking-wider">
-            {publishedAt && <span>{formatDateIN(new Date(publishedAt))}</span>}
-            <span>•</span>
-            <span>7 min read</span>
-          </div>
-          <h2 className="font-display font-black text-cocoa-dark text-2xl leading-snug tracking-tight mt-3 group-hover:text-deep-gold transition-colors duration-200">
+          <CardMeta publishedAt={publishedAt} readingMinutes={readingMinutes} />
+          <h3 className="font-display font-black text-cocoa-dark text-xl leading-snug tracking-tight mt-3 group-hover:text-deep-gold transition-colors duration-200">
             <Link href={href}>{title}</Link>
-          </h2>
+          </h3>
           {excerpt && (
-            <p className="font-sans text-sm text-warm-gray mt-3 leading-relaxed">{excerpt}</p>
+            <p className="font-sans text-[13px] text-warm-gray mt-2.5 leading-relaxed line-clamp-3">
+              {excerpt}
+            </p>
           )}
         </div>
-        <div className="mt-6">
-          <Link
-            href={href}
-            className="font-ui font-bold text-xs uppercase tracking-wider text-cocoa-dark hover:text-deep-gold transition-colors"
-          >
-            Read Article{' '}
-            <span className="inline-block group-hover:translate-x-1 transition-transform">→</span>
-          </Link>
-        </div>
+        <div className="mt-6 pt-4 border-t border-outline-gray/10">{readMore}</div>
       </div>
     </article>
   )
@@ -245,15 +195,20 @@ export function BlogFeed({ initialPosts }: BlogFeedProps) {
     })
   }, [initialPosts, activeCategory, searchQuery])
 
-  // Pagination calculation
+  // Pagination calculation — page 1 holds FIRST_PAGE_SIZE, pages 2+ hold
+  // REST_PAGE_SIZE each.
   const totalPages = useMemo(() => {
-    return Math.ceil(filteredPosts.length / POSTS_PER_PAGE)
+    const rest = Math.max(0, filteredPosts.length - FIRST_PAGE_SIZE)
+    return 1 + Math.ceil(rest / REST_PAGE_SIZE)
   }, [filteredPosts.length])
 
   // Get current page items
   const paginatedPosts = useMemo(() => {
-    const startIndex = (currentPage - 1) * POSTS_PER_PAGE
-    return filteredPosts.slice(startIndex, startIndex + POSTS_PER_PAGE)
+    if (currentPage === 1) {
+      return filteredPosts.slice(0, FIRST_PAGE_SIZE)
+    }
+    const start = FIRST_PAGE_SIZE + (currentPage - 2) * REST_PAGE_SIZE
+    return filteredPosts.slice(start, start + REST_PAGE_SIZE)
   }, [filteredPosts, currentPage])
 
   // Scroll to top of feed on page change
@@ -328,10 +283,10 @@ export function BlogFeed({ initialPosts }: BlogFeedProps) {
         </div>
       ) : (
         <div className="flex flex-col gap-12">
-          {/* ── Bento Grid (Neto Grid) ── */}
+          {/* ── Blog grid: featured (2-col) + uniform cards ── */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {paginatedPosts.map((post, idx) => (
-              <BentoCard key={post.slug} post={post} index={idx} />
+              <BlogCard key={post.slug} post={post} featured={currentPage === 1 && idx === 0} />
             ))}
           </div>
 

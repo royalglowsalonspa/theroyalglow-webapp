@@ -151,6 +151,12 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                   {formatDateIN(new Date(post.publishedAt))}
                 </time>
               ) : null}
+              <span className="text-dusty-gray" aria-hidden="true">
+                ·
+              </span>
+              <span className="font-ui text-xs uppercase tracking-[1px] text-dusty-gray">
+                {post.readingMinutes} min read
+              </span>
             </div>
           </div>
         </header>
