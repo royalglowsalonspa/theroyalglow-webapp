@@ -1,0 +1,99 @@
+name: Deploy Admin Production
+
+on:
+  push:
+    branches: [prod]
+    paths:
+      - 'apps/admin/**'
+      - 'packages/**'
+
+jobs:
+  pre-deploy-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify all CI checks passed
+        run: |
+          gh api repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs \
+            --jq '.check_runs | map(select(.conclusion != "success")) | length' \
+            | grep -q "^0$"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [pre-deploy-checks]
+    environment:
+      name: production-admin
+      url: https://admin.theroyalglow.in
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Build admin app
+        run: bunx turbo run build --filter=@rgss/admin
+
+      - name: Upload source maps to Sentry (admin project)
+        run: |
+          bunx @sentry/cli sourcemaps upload \
+            --org ${{ secrets.SENTRY_ORG }} \
+            --project ${{ secrets.SENTRY_ADMIN_PROJECT }} \
+            --release ${{ github.sha }} \
+            apps/admin/.next/static
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_ADMIN_AUTH_TOKEN }}
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/admin/.next --project-name=rgss-admin --branch=prod
+
+  post-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [deploy]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Health check (retry 3x with 10s delay)
+        run: |
+          for i in 1 2 3; do
+            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 30 https://admin.theroyalglow.in/api/health || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "Health check passed (attempt $i)"
+              exit 0
+            fi
+            echo "Health check failed (attempt $i, status: $STATUS). Retrying in 10s..."
+            sleep 10
+          done
+          echo "Health check failed after 3 attempts"
+          exit 1
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          curl -X POST ${{ secrets.BETTER_STACK_DEPLOY_WEBHOOK }} \
+            -H "Content-Type: application/json" \
+            -d '{"sha": "${{ github.sha }}", "status": "success", "env": "prod", "app": "admin"}'
+
+  auto-rollback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [post-deploy]
+    if: failure()
+    steps:
+      - name: Roll back to previous Cloudflare deployment
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deployment list --project-name=rgss-admin
+      - name: Notify deployment failure
+        run: |
+          curl -X POST ${{ secrets.BETTER_STACK_INCIDENT_WEBHOOK }} \
+            -H "Content-Type: application/json" \
+            -d '{"title": "Admin production deploy failed — rolled back", "sha": "${{ github.sha }}"}'

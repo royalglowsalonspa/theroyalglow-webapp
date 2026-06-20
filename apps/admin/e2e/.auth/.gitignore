@@ -1,0 +1,3 @@
+# Seeded role storageState files (contain live session cookies) — never commit.
+*
+!.gitignore

@@ -1,0 +1,40 @@
+/************************************************************
+ * Author       : KATABATHUNI BOSE
+ * Date         : Created - 08-06-2026 & Updated - 08-06-2026
+ *
+ * Project      : theroyalglow-webapp
+ * Module Name  : ui/styles/globals
+ * Scope        : Shared Global Stylesheet (Tailwind v4)
+ *
+ * Description  : Turn-key global stylesheet for apps that want the complete
+ *                Royal Glow base in one import. Loads Tailwind CSS v4, the
+ *                shared design-token theme, and generic layout/utility
+ *                affordances. Apps may instead import only `@rgss/ui/theme.css`
+ *                into their own global stylesheet.
+ *
+ * Responsibilities :
+ * - Import Tailwind CSS v4
+ * - Import the shared design-token theme (single source of truth)
+ * - Provide generic scrollbar-hide utility
+ *
+ * Tech Stack   : Tailwind CSS v4, PostCSS
+ * Layer        : Shared Package (UI)
+ *
+ * Dependencies : tailwindcss (peer, provided by the consuming app), ./theme.css
+ *
+ * Notes        : App-specific component animations (account menus, brand
+ *                marquees, scroll hints) intentionally remain in each app's
+ *                own global stylesheet rather than this shared bundle.
+ ************************************************************/
+
+@import "tailwindcss";
+@import "./theme.css";
+
+/* ── Hide native scrollbars on horizontal carousels (keep scrollability) ── */
+@utility scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

@@ -27,4 +27,27 @@ export default defineWorkspace([
       setupFiles: ['./apps/web/src/test/setup.ts'],
     },
   },
+  {
+    plugins: [react()],
+    resolve: {
+      alias: {
+        '@': resolve(__dirname, 'apps/admin/src'),
+        // React is installed in apps/admin/node_modules (not hoisted to the
+        // workspace root), and the jsdom `admin` project's root is the
+        // workspace root. Point the JSX runtime + react/react-dom at the admin
+        // install so component (.tsx) smoke tests resolve `react/jsx-dev-runtime`.
+        react: resolve(__dirname, 'apps/admin/node_modules/react'),
+        'react-dom': resolve(__dirname, 'apps/admin/node_modules/react-dom'),
+      },
+    },
+    test: {
+      name: 'admin',
+      environment: 'jsdom',
+      include: ['apps/admin/**/*.test.{ts,tsx}'],
+      // jest-dom matchers for component smoke tests. Per-file
+      // `@vitest-environment node` overrides (e.g. env.test.ts) still apply;
+      // this import only extends `expect` and is safe in node too.
+      setupFiles: ['./apps/admin/src/test/setup.ts'],
+    },
+  },
 ])

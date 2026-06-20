@@ -78,19 +78,24 @@
 
 ---
 
-## Phase 3: Admin Portal — Core Operations
+## Phase 3: Admin Portal — Core Operations (Admin_App · `admin.theroyalglow.in`)
+
+> The admin portal is the standalone **Admin_App** at `apps/admin/`, served from
+> `admin.theroyalglow.in`. Routes use the Root-Path Convention (no `/admin`
+> prefix — the subdomain provides the namespace). API routes live at
+> `apps/admin/app/api/`.
 
 ### 3.1 Admin Layout & Dashboard
-- [ ] Admin layout: sidebar navigation, role-based menu items
-- [ ] Admin middleware: RBAC check per route
-- [ ] Dashboard (`/admin`) — today's bookings, revenue, pending actions
+- [ ] Admin layout: sidebar navigation, role-based menu items (`apps/admin/app/`)
+- [ ] Admin middleware: RBAC check per route (`apps/admin/src/middleware.ts`)
+- [ ] Dashboard (`/`) — today's bookings, revenue, pending actions
 
 ### 3.2 Booking Management
-- [ ] `/admin/bookings` — list, filter by status/date/staff/type
-- [ ] `/admin/bookings/[id]` — approve/reject, assign staff, mark status
-- [ ] `/admin/bookings/new` — walk-in creation (skip pending)
-- [ ] `PATCH /api/admin/bookings/[id]` — approve, reject, assign
-- [ ] `POST /api/admin/bookings/[id]/complete` — mark completed + generate invoice + award gems
+- [ ] `/bookings` — list, filter by status/date/staff/type
+- [ ] `/bookings/[id]` — approve/reject, assign staff, mark status
+- [ ] `/bookings/new` — walk-in creation (skip pending)
+- [ ] `PATCH /api/bookings/[id]` — approve, reject, assign (`apps/admin/app/api/`)
+- [ ] `POST /api/bookings/[id]/complete` — mark completed + generate invoice + award gems
 
 ### 3.3 Billing & Invoicing
 - [ ] Create scheduling tables: `staff_schedule`, `staff_time_off`, `holiday`
@@ -99,7 +104,7 @@
 - [ ] Invoice generation logic in `packages/business/invoicing/`
 - [ ] PDF invoice generation (React Email template → PDF)
 - [ ] Invoice email delivery via Resend (synchronous)
-- [ ] `/admin/billing` — invoice list, detail view
+- [ ] `/billing` — invoice list, detail view
 
 ---
 

@@ -1,0 +1,26 @@
+/************************************************************
+ * Project      : theroyalglow-webapp (admin)
+ * Module Name  : globals
+ * Scope        : Global Styles
+ *
+ * Description  : Global stylesheet for the admin app. Imports Tailwind CSS v4
+ *                and the shared @rgss/ui design-token theme (single source of
+ *                truth for brand colours, fonts, radii, shadows, shadcn/ui
+ *                custom props, and the accessible base layer) so the admin
+ *                portal renders with the same tokens as the customer site.
+ *
+ * Tech Stack   : Tailwind CSS v4, PostCSS
+ * Layer        : Frontend
+ *
+ * Dependencies : tailwindcss, @rgss/ui (theme.css)
+ *
+ * Notes        : Design tokens live once in @rgss/ui/theme.css. Do NOT
+ *                redefine brand colours/fonts/radii here — edit the shared
+ *                theme so apps/web and apps/admin stay in sync. Admin-specific
+ *                component animations (if any) go below this import.
+ ************************************************************/
+
+@import url("https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@800,900&f[]=clash-grotesk@400,500,600,700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+@import "tailwindcss";
+@import "@rgss/ui/theme.css";

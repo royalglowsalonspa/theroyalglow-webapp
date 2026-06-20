@@ -398,6 +398,93 @@ jobs:
 
 ---
 
+### Workflow 5: Deploy Admin App (`admin.theroyalglow.in`)
+
+The **Admin_App** (`apps/admin`) deploys independently from the customer site to
+its own Cloudflare Pages project. It is triggered on `prod` pushes that touch
+`apps/admin/**` or `packages/**`, so admin and web deploys never block each other.
+
+| Setting | Value |
+|---------|-------|
+| Cloudflare Pages project | `rgss-admin` |
+| Deploy workflow | `.github/workflows/deploy-admin-prod.yml` |
+| Build command | `turbo run build --filter=@rgss/admin` |
+| Output directory | `apps/admin/.next` |
+| Health check endpoint | `/api/health` (`https://admin.theroyalglow.in/api/health`) |
+| Sentry project | separate admin project (source maps uploaded per deploy) |
+| DNS | proxied CNAME `admin.theroyalglow.in` → `rgss-admin.pages.dev` |
+
+```yaml
+# .github/workflows/deploy-admin-prod.yml
+name: Deploy Admin Production
+
+on:
+  push:
+    branches: [prod]
+    paths:
+      - 'apps/admin/**'
+      - 'packages/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: production-admin
+      url: https://admin.theroyalglow.in
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Build admin app
+        run: turbo run build --filter=@rgss/admin
+
+      - name: Upload source maps to Sentry (admin project)
+        run: |
+          bunx @sentry/cli sourcemaps upload \
+            --org royal-glow \
+            --project rgss-admin \
+            --release ${{ github.sha }} \
+            apps/admin/.next/static
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/admin/.next --project-name=rgss-admin --branch=prod
+
+  post-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [deploy]
+    steps:
+      - name: Health check (retry 3x with 10s delay, 200 within 30s)
+        run: |
+          for i in 1 2 3; do
+            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" https://admin.theroyalglow.in/api/health)
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Admin health check passed (attempt $i)"
+              exit 0
+            fi
+            echo "⏳ Admin health check failed (attempt $i, status: $STATUS). Retrying in 10s..."
+            sleep 10
+          done
+          echo "❌ Admin health check failed after 3 attempts"
+          exit 1
+
+      - name: Notify deployment failure
+        if: failure()
+        run: |
+          curl -X POST ${{ secrets.BETTER_STACK_INCIDENT_WEBHOOK }} \
+            -H "Content-Type: application/json" \
+            -d '{"title": "Admin deploy failed", "sha": "${{ github.sha }}"}'
+```
+
+---
+
 ## Health Check Endpoint
 
 ### Implementation
@@ -1477,7 +1564,7 @@ Upstash Ratelimit (application layer):
 const ALLOWED_ORIGINS = {
   prod: ['https://theroyalglow.in', 'https://www.theroyalglow.in'],
   pprd: ['https://pprd.theroyalglow.in', 'http://localhost:3000'],
-  dev: ['http://localhost:3000', 'http://localhost:3001'],
+  dev: ['http://localhost:3000', 'http://localhost:3002'],
   test: ['http://localhost:3000'],
 }
 

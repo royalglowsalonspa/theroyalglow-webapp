@@ -30,6 +30,7 @@
  ************************************************************/
 
 import { dash } from '@better-auth/infra'
+import { buildCrossSubdomainAdvanced } from '@rgss/business'
 import { db } from '@rgss/db'
 import * as schema from '@rgss/db/schema'
 import { betterAuth } from 'better-auth'
@@ -55,6 +56,7 @@ export const auth = betterAuth({
     },
   },
   plugins: [dash(), oneTap()],
+  advanced: buildCrossSubdomainAdvanced(process.env.COOKIE_DOMAIN, process.env.NODE_ENV),
   session: {
     cookieCache: {
       enabled: true,

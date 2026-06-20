@@ -44,6 +44,13 @@ Format: `BK-{branch_code}-{YYMM}-{H|S}-{5_random}[-M]`
 
 ## Admin Portal (RBAC)
 
+> **Served from `admin.theroyalglow.in` (standalone Admin_App).** Admin routes use
+> the Root-Path Convention — they drop the `/admin` prefix because the subdomain
+> provides the admin namespace (e.g. `admin.theroyalglow.in/bookings`, not
+> `theroyalglow.in/admin/bookings`). Legacy `theroyalglow.in/admin/*` paths
+> 301-redirect to the subdomain. The route table below lists the root paths as
+> served on the admin subdomain.
+
 ### Role Hierarchy
 
 ```
@@ -52,18 +59,20 @@ Developer → Owner → Manager → Receptionist → Staff → Customer
 
 ### Key Route → Role Mapping
 
+Routes are relative to `admin.theroyalglow.in` (root paths, no `/admin` prefix).
+
 | Route | Min. Role |
 |-------|-----------|
-| `/admin` (dashboard) | Receptionist |
-| `/admin/bookings` | Receptionist |
-| `/admin/customers`, `/admin/leads` | Receptionist |
-| `/admin/billing` | Receptionist |
-| `/admin/services`, `/admin/offers` | Manager |
-| `/admin/staff`, `/admin/schedule` | Manager |
-| `/admin/reports` | Manager |
-| `/admin/settings`, `/admin/branches` | Manager (branches: Owner) |
-| `/admin/users` | Owner |
-| `/admin/integrations`, `/admin/logs` | Developer |
+| `/` (dashboard) | Receptionist |
+| `/bookings` | Receptionist |
+| `/customers`, `/leads` | Receptionist |
+| `/billing` | Receptionist |
+| `/services`, `/offers` | Manager |
+| `/staff`, `/schedule` | Manager |
+| `/reports` | Manager |
+| `/settings`, `/branches` | Manager (branches: Owner) |
+| `/users` | Owner |
+| `/integrations`, `/logs` | Developer |
 
 ---
 
