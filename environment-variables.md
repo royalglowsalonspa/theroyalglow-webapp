@@ -238,7 +238,7 @@ Store the output. These never change unless you intentionally rotate (which inva
 | `NODE_ENV` | web, cms | — | `development` | `production` |
 | `APP_ENV` | web | Private | `dev` | `prod` |
 | `NEXT_PUBLIC_APP_URL` | web | **Public** | `http://localhost:3000` | `https://theroyalglow.in` |
-| `NEXT_PUBLIC_CMS_URL` | web | **Public** | `http://localhost:3001` | `https://admin.theroyalglow.in` |
+| `NEXT_PUBLIC_CMS_URL` | web | **Public** | `http://localhost:3002` | `https://admin.theroyalglow.in` |
 
 > **`NODE_ENV` vs `APP_ENV`:** `NODE_ENV` is always `development` or `production` (Next.js convention). `APP_ENV` distinguishes between our 4 deployment environments: `dev`, `test`, `pprd`, `prod`. Use `APP_ENV` for environment-specific logic like data seeding guards.
 

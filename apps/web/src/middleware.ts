@@ -10,44 +10,42 @@
  *                and role-based access control across protected routes.
  *
  * Responsibilities :
- * - Check session cookie presence on protected routes
+ * - Permanently (301) redirect legacy /admin/* paths to the admin subdomain
+ * - Check session cookie presence on customer-protected routes
  * - Redirect unauthenticated users to the homepage (One Tap + Google sign-in)
- * - Validate RBAC roles for admin routes via internal API
- * - Return 403 for insufficient permissions
  *
  * Features / Functionality :
  * - Lightweight edge-safe session check (no kysely/DB imports)
- * - Role hierarchy enforcement (receptionist+ for /admin)
- * - Route matcher for protected paths (/admin, /staff, /profile, etc.)
+ * - Route matcher for protected customer paths (/staff, /profile, etc.)
+ * - Route matcher for legacy /admin/* paths (cutover 301 to admin.theroyalglow.in)
  *
  * Tech Stack   : Next.js 16 Middleware, Edge Runtime
  * Layer        : Infrastructure (Edge)
  *
- * Dependencies : next/server
+ * Dependencies : next/server, ./lib/admin-redirect
  *
  * Notes        :
  * - Better Auth's auth-server cannot be imported here (kysely incompatible with Edge)
- * - Role validation done via fetch to /api/auth/get-session
+ * - Admin routes/RBAC moved to apps/admin (admin.theroyalglow.in) during the
+ *   admin-subdomain migration; this app no longer serves /admin. The /admin
+ *   matcher below exists ONLY to 301-redirect old links (no role checks).
  ************************************************************/
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-
-const ROLE_LEVELS: Record<string, number> = {
-  customer: 0,
-  staff: 1,
-  receptionist: 2,
-  manager: 3,
-  owner: 4,
-  developer: 5,
-}
-
-const ADMIN_MIN_LEVEL = 2 // receptionist
+import { mapAdminRedirect } from './lib/admin-redirect'
 
 // Better Auth session cookie name
 const SESSION_COOKIE = 'better-auth.session_token'
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
+  const { pathname, search } = request.nextUrl
+
+  // Legacy admin paths permanently moved to admin.theroyalglow.in. Redirect
+  // FIRST (before any session logic) so it applies to unauthenticated users
+  // too, and emit a strict 301 (permanent) preserving the sub-path + query.
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+    return NextResponse.redirect(mapAdminRedirect(pathname, search), 301)
+  }
 
   // Check for session cookie
   const sessionToken = request.cookies.get(SESSION_COOKIE)?.value
@@ -59,40 +57,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(homeUrl)
   }
 
-  // For admin routes, validate role via internal API call
-  if (pathname.startsWith('/admin')) {
-    try {
-      const baseUrl = request.nextUrl.origin
-      const sessionRes = await fetch(`${baseUrl}/api/auth/get-session`, {
-        headers: {
-          cookie: `${SESSION_COOKIE}=${sessionToken}`,
-        },
-      })
-
-      if (!sessionRes.ok) {
-        const homeUrl = new URL('/', request.url)
-        return NextResponse.redirect(homeUrl)
-      }
-
-      const session = await sessionRes.json()
-      const role = session?.user?.role ?? 'customer'
-      const userLevel = ROLE_LEVELS[role] ?? 0
-
-      if (userLevel < ADMIN_MIN_LEVEL) {
-        return new NextResponse('Forbidden', { status: 403 })
-      }
-    } catch {
-      // If session validation fails, redirect to the homepage.
-      const homeUrl = new URL('/', request.url)
-      return NextResponse.redirect(homeUrl)
-    }
-  }
-
   return NextResponse.next()
 }
 
 export const config = {
   matcher: [
+    '/admin',
     '/admin/:path*',
     '/staff/:path*',
     '/onboarding',

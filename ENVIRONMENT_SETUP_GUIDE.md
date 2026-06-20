@@ -16,9 +16,9 @@ For the Payload integration (your current priority), only a tiny subset matters:
 |----------|----------|------|--------|----------------|
 | 🔴 BLOCKER | `PAYLOAD_SECRET` | `apps/cms/.env.local` | ✅ **NOW SET** (I generated a 32-byte secret) | Payload refuses to run / is insecure without it |
 | 🟢 done | `DATABASE_URL` | `apps/cms/.env.local` | ✅ set (dev branch) | Payload stores its `cms_*` tables here |
-| 🟢 done | `PAYLOAD_PUBLIC_SERVER_URL` | `apps/cms/.env.local` | ✅ `http://localhost:3001` | admin/API base URL |
+| 🟢 done | `PAYLOAD_PUBLIC_SERVER_URL` | `apps/cms/.env.local` | ✅ `http://localhost:3002` | admin/API base URL |
 | 🟢 done | `WEB_APP_URL` | `apps/cms/.env.local` | ✅ `http://localhost:3000` | CORS/CSRF allow-list |
-| 🟢 done | `NEXT_PUBLIC_CMS_URL` | `apps/web/.env.local` | ✅ `http://localhost:3001` | web app reads CMS from here |
+| 🟢 done | `NEXT_PUBLIC_CMS_URL` | `apps/web/.env.local` | ✅ `http://localhost:3002` | web app reads CMS from here |
 | 🟡 later | `NEXT_PUBLIC_R2_PUBLIC_URL` | both | ⚪ empty | only needed for **R2-hosted** images (see §4) |
 | 🟡 later | `R2_*` (bucket/endpoint/keys) | both | ⚪ empty | uploads use **local disk** until set — fine for dev |
 
@@ -36,7 +36,7 @@ they do NOT share automatically:
 | File | Loaded by | Purpose |
 |------|-----------|---------|
 | `apps/web/.env.local` | Next.js web app (port 3000) | All web-app runtime vars |
-| `apps/cms/.env.local` | Payload CMS (port 3001) | CMS-only vars |
+| `apps/cms/.env.local` | Payload CMS (port 3002) | CMS-only vars |
 | `packages/db/.env` | `drizzle-kit` (migrations) | DB connection for schema migrations |
 | `.env.example` (root) | template only | Canonical list of ALL vars — copy from here |
 | `apps/cms/.env.example` | template only | CMS-only subset template |
@@ -56,7 +56,7 @@ silently breaks it rather than failing a nice validation step.
 |----------|-----------|--------|-------|
 | `PAYLOAD_SECRET` | **required** | ✅ set now | min 32 chars; signs/encrypts sessions |
 | `DATABASE_URL` | **required** | ✅ set | same Neon dev branch as web; Payload owns `cms_*` tables |
-| `PAYLOAD_PUBLIC_SERVER_URL` | **required** | ✅ set | `http://localhost:3001` |
+| `PAYLOAD_PUBLIC_SERVER_URL` | **required** | ✅ set | `http://localhost:3002` |
 | `WEB_APP_URL` | **required** | ✅ set | `http://localhost:3000` — drives CORS/CSRF |
 | `R2_BUCKET_NAME` | for R2 | ✅ set (`theroyalglow-uploads`) | name only; needs the keys below to work |
 | `R2_ENDPOINT` | for R2 | ⚪ empty | uploads fall back to local disk until set |
@@ -67,7 +67,7 @@ silently breaks it rather than failing a nice validation step.
 **Run the CMS locally:**
 ```
 cd apps/cms
-bun run dev        # serves http://localhost:3001/admin
+bun run dev        # serves http://localhost:3002/admin
 ```
 First run will create the admin user. Add content in the collections, then the web app
 (once wired per PAYLOAD_INTEGRATION_PLAN.md) reads it via `NEXT_PUBLIC_CMS_URL`.
@@ -121,9 +121,9 @@ like this:
 3. Else fall back to `NEXT_PUBLIC_CMS_URL` (the CMS origin).
 
 So:
-- **Local dev (no R2):** uploads are served from the CMS origin (`localhost:3001`). Images
+- **Local dev (no R2):** uploads are served from the CMS origin (`localhost:3002`). Images
   work WITHOUT R2 — you just need `next.config.ts` `images.remotePatterns` to allow
-  `localhost:3001` (see PAYLOAD_INTEGRATION_PLAN.md §2). This block is currently MISSING in
+  `localhost:3002` (see PAYLOAD_INTEGRATION_PLAN.md §2). This block is currently MISSING in
   `next.config.ts` and must be added if you use `next/image`.
 - **Production:** set up R2 (`R2_*` + `NEXT_PUBLIC_R2_PUBLIC_URL`) so media is served from a
   fast CDN domain instead of the Render-hosted CMS origin.

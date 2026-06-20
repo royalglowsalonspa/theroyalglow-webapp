@@ -2,7 +2,14 @@ import { withSentryConfig } from '@sentry/nextjs'
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  transpilePackages: ['@rgss/business', '@rgss/db', '@rgss/errors', '@rgss/logger', '@rgss/types'],
+  transpilePackages: [
+    '@rgss/business',
+    '@rgss/db',
+    '@rgss/errors',
+    '@rgss/logger',
+    '@rgss/types',
+    '@rgss/ui',
+  ],
   images: {
     // Hosts that next/image is allowed to load from. CMS media resolves via
     // NEXT_PUBLIC_R2_PUBLIC_URL (R2 CDN) in prod, or the CMS origin in dev.
@@ -10,9 +17,9 @@ const nextConfig: NextConfig = {
       // Cloudflare R2 public media host (matches NEXT_PUBLIC_R2_PUBLIC_URL)
       { protocol: 'https', hostname: 'pub-40c9806a7ea146c9b0469960f8b84d94.r2.dev' },
       // Payload CMS origin (prod) — fallback when media served from CMS
-      { protocol: 'https', hostname: 'admin.theroyalglow.in' },
+      { protocol: 'https', hostname: 'cms.theroyalglow.in' },
       // Payload CMS origin (local dev)
-      { protocol: 'http', hostname: 'localhost', port: '3001' },
+      { protocol: 'http', hostname: 'localhost', port: '3002' },
       // Mock/blog fallback imagery
       { protocol: 'https', hostname: 'images.unsplash.com' },
       { protocol: 'https', hostname: 'lh3.googleusercontent.com' },

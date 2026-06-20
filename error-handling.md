@@ -1202,7 +1202,7 @@ const ALLOWED_ORIGINS: Record<string, string[]> = {
   prod: ['https://theroyalglow.in', 'https://www.theroyalglow.in'],
   pprd: ['https://pprd.theroyalglow.in'],
   test: ['https://test.theroyalglow.in'],
-  dev:  ['http://localhost:3000', 'http://localhost:3001'],
+  dev:  ['http://localhost:3000', 'http://localhost:3002'],
 }
 
 function handleCors(req: NextRequest, res: NextResponse): NextResponse {

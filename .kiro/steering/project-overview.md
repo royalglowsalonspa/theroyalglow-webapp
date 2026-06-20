@@ -16,7 +16,8 @@ Full-stack digital operations platform for **Royal Glow Salon & Spa** — a prem
 theroyalglow-webapp/
 ├── apps/
 │   ├── web/           ← Next.js 16.2.6 (App Router) — theroyalglow.in
-│   └── cms/           ← Payload CMS v3 — admin.theroyalglow.in
+│   ├── admin/         ← Next.js 16 (App Router) — admin.theroyalglow.in
+│   └── cms/           ← Payload CMS v3 — cms.theroyalglow.in
 ├── docs/              ← Fumadocs — docs.theroyalglow.in
 ├── packages/
 │   ├── db/            ← Drizzle ORM schemas, queries, migrations
@@ -29,12 +30,26 @@ theroyalglow-webapp/
 └── bun.lockb
 ```
 
+### Subdomain Map
+
+| Subdomain | Application | Hosting |
+|-----------|-------------|---------|
+| `theroyalglow.in` | `apps/web` — customer website | Cloudflare Pages (`rgss-web`) |
+| `admin.theroyalglow.in` | `apps/admin` — admin portal | Cloudflare Pages (`rgss-admin`) |
+| `cms.theroyalglow.in` | `apps/cms` — Payload CMS (marketing content) | Render |
+| `docs.theroyalglow.in` | `docs/` — Fumadocs documentation | Cloudflare Pages |
+| `r2.theroyalglow.in` | Cloudflare R2 object storage | Cloudflare R2 |
+
+The admin portal is served from `admin.theroyalglow.in` at root paths (no `/admin` prefix — the subdomain provides the admin namespace). Sessions are shared across subdomains via a `.theroyalglow.in` scoped cookie.
+
 ### Layer Rules (STRICT)
 
 | Layer | Location | Can Import | Cannot Import |
 |-------|----------|-----------|---------------|
 | Presentation | `apps/web/app/`, `apps/web/components/` | business, db, types, errors | — |
 | API (Thin) | `apps/web/app/api/` | business, db, types, errors | UI components |
+| Presentation (Admin) | `apps/admin/app/`, `apps/admin/components/` | business, db, types, errors | — |
+| API (Admin, Thin) | `apps/admin/app/api/` | business, db, types, errors | UI components |
 | Business Logic | `packages/business/` | types, errors | db, framework, UI |
 | Data Access | `packages/db/` | types | business, framework, UI |
 | Types/Validation | `packages/types/` | — | Everything else |

@@ -26,6 +26,7 @@
  ************************************************************/
 export { formatINR } from './utils/currency'
 export { formatDateIN } from './utils/date'
+export * from './auth/index'
 export * from './booking/index'
 export * from './invoicing/index'
 export * from './jobs/index'

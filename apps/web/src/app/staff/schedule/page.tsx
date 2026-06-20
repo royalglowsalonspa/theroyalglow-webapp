@@ -28,8 +28,8 @@
  * - Schedule is read-only for staff; changes go through manager/admin
  ************************************************************/
 
-import { formatTime12h } from '@/lib/admin/bookings'
 import { auth } from '@/lib/auth-server'
+import { formatTime12h } from '@/lib/format'
 import { dayOfWeekLabel } from '@rgss/business'
 import { getStaffProfileByUserId, getStaffSchedule } from '@rgss/db/queries'
 import type { Metadata } from 'next'

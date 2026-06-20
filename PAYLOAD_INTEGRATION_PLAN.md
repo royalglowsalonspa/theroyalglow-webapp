@@ -3,7 +3,7 @@
 **Project:** theroyalglow-webapp (Royal Glow Salon & Spa)
 **Goal:** Let the owner/manager (non-technical) manage all marketing content of the
 customer website (`localhost:3000` in dev, `theroyalglow.in` in prod) from the
-Payload CMS admin (`localhost:3001/admin` in dev, `admin.theroyalglow.in` in prod) —
+Payload CMS admin (`localhost:3002/admin` in dev, `admin.theroyalglow.in` in prod) —
 with **zero developer involvement** for day-to-day content changes.
 
 This document is a complete, self-contained brief. Any agent can pick it up and
@@ -36,7 +36,7 @@ empty state) so the site never breaks if the CMS is down or empty.
 
 ### 1.1 Monorepo layout
 - `apps/web/` — Next.js 16 customer site (port 3000).
-- `apps/cms/` — Payload CMS v3 (port 3001), Postgres (Neon) + R2 storage.
+- `apps/cms/` — Payload CMS v3 (port 3002), Postgres (Neon) + R2 storage.
 - Shared packages in `packages/*` (db, business, types, errors, logger).
 
 ### 1.2 CMS collections (in `apps/cms/src/collections/`)
@@ -107,7 +107,7 @@ Before wiring, confirm/set these (do NOT commit secrets):
 
 ### apps/web/.env.local
 ```
-NEXT_PUBLIC_CMS_URL=http://localhost:3001   # dev. Prod: https://admin.theroyalglow.in
+NEXT_PUBLIC_CMS_URL=http://localhost:3002   # dev. Prod: https://admin.theroyalglow.in
 NEXT_PUBLIC_R2_PUBLIC_URL=<R2 public bucket base URL>   # e.g. https://media.theroyalglow.in
 ```
 - `cmsFetch` is a no-op (returns null → fallbacks render) until `NEXT_PUBLIC_CMS_URL` is set.
@@ -121,7 +121,7 @@ NEXT_PUBLIC_R2_PUBLIC_URL=<R2 public bucket base URL>   # e.g. https://media.the
 ```
 DATABASE_URL=<Neon pooled connection>
 PAYLOAD_SECRET=<32+ char secret>
-PAYLOAD_PUBLIC_SERVER_URL=http://localhost:3001
+PAYLOAD_PUBLIC_SERVER_URL=http://localhost:3002
 WEB_APP_URL=http://localhost:3000           # used for CORS/CSRF
 R2_BUCKET_NAME / R2_ENDPOINT / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY
 ```
@@ -149,7 +149,7 @@ const nextConfig: NextConfig = {
       // CMS host (fallback when media URLs are served from the CMS origin)
       { protocol: 'https', hostname: 'admin.theroyalglow.in' },
       // Dev CMS origin — only needed if you point next/image at localhost uploads
-      { protocol: 'http', hostname: 'localhost', port: '3001' },
+      { protocol: 'http', hostname: 'localhost', port: '3002' },
       // Mock fallbacks currently use Unsplash (see MOCK_POSTS in client.ts)
       { protocol: 'https', hostname: 'images.unsplash.com' },
     ],
@@ -501,7 +501,7 @@ If on-demand revalidation is deferred, document the 1h delay for the owner and k
 8. **Features F + H (FAQ, Gallery, Blog) — verify/fix wiring.**
 9. **Feature in §5 (on-demand revalidation).**
 10. **QA pass:** typecheck (web + cms), biome, Lighthouse, manual CRUD test of each
-    collection from `localhost:3001/admin` → confirm `localhost:3000` reflects changes.
+    collection from `localhost:3002/admin` → confirm `localhost:3000` reflects changes.
 11. **Seed:** optionally add a Payload seed script with the current hardcoded content so
     the CMS starts populated (testimonials, the 2 offers, the 4 service cards, services,
     team). Until seeded, fallbacks render.

@@ -11,6 +11,107 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Path filter — decides which per-app jobs run (Req 10.2, 10.3, 10.4).
+  # `admin` / `web` are true when that app OR any shared package changed,
+  # since packages/** affect both apps.
+  # ---------------------------------------------------------------------------
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      admin: ${{ steps.filter.outputs.admin }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            admin:
+              - 'apps/admin/**'
+              - 'packages/**'
+            web:
+              - 'apps/web/**'
+              - 'packages/**'
+
+  # ---------------------------------------------------------------------------
+  # Per-app CI: lint + typecheck + test + build scoped via turbo filters.
+  # Each job reports its own pass/fail independently (Req 10.1, 10.7) and a
+  # failed app build blocks only that app's deploy — the other app's job is
+  # unaffected because they have no `needs` relationship between them.
+  # ---------------------------------------------------------------------------
+  admin-ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [changes]
+    if: needs.changes.outputs.admin == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Lint, typecheck, test, build (admin)
+        run: bunx turbo run lint typecheck test build --filter=@rgss/admin
+        env:
+          SKIP_ENV_VALIDATION: '1'
+      - name: Upload admin build artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-build-output
+          path: apps/admin/.next/
+          retention-days: 1
+
+  web-ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [changes]
+    if: needs.changes.outputs.web == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Lint, typecheck, test, build (web)
+        run: bunx turbo run lint typecheck test build --filter=@rgss/web
+        env:
+          SKIP_ENV_VALIDATION: '1'
+      - name: Upload web build artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build-output
+          path: apps/web/.next/
+          retention-days: 1
+
+  # ---------------------------------------------------------------------------
+  # Lighthouse CI against admin.theroyalglow.in (Req 10.6).
+  # Runs only when admin changed and its CI passed. Thresholds are enforced in
+  # .github/lighthouse/lighthouserc.json (perf >= 90, a11y = 100, bp >= 95);
+  # the job fails if any threshold is not met.
+  # NOTE: this targets the deployed admin URL, so it asserts against the live
+  # subdomain — the deploy must exist for meaningful results.
+  # ---------------------------------------------------------------------------
+  lighthouse-admin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [admin-ci]
+    if: needs.changes.outputs.admin == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          urls: |
+            https://admin.theroyalglow.in/
+          configPath: .github/lighthouse/lighthouserc.json
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+
+  # ---------------------------------------------------------------------------
+  # Repo-wide quality gates (cover shared packages and run on every PR).
+  # Kept lean and parallel to the per-app jobs so the total workflow stays
+  # within the 15-minute budget (Req 10.1).
+  # ---------------------------------------------------------------------------
   lint-typecheck:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -39,24 +140,6 @@ jobs:
           path: coverage/
           retention-days: 7
 
-  build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: [lint-typecheck]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
-      - run: bun run build
-        env:
-          SKIP_ENV_VALIDATION: '1'
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-output
-          path: apps/web/.next/
-          retention-days: 1
-
   dependency-audit:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -73,3 +156,40 @@ jobs:
       - name: Socket.dev supply chain check
         uses: SocketDev/socket-security-action@v1
         continue-on-error: true
+
+  # ---------------------------------------------------------------------------
+  # Cutover guards (admin-subdomain-migration) — Req 2.2, 2.7, 9.1, 9.2, 14.5,
+  # 15.4. A required check on every PR/push: a violation FAILS this job and,
+  # because it is a required status check, BLOCKS merge and deploy.
+  #
+  #   1. Path assertion — zero admin artifacts under apps/web and no admin
+  #      RBAC / role-gating in the web middleware (a /admin 301-redirect branch
+  #      is allowed; ROLE_LEVELS / get-session role-gating is not).
+  #   2. Migration-diff — no new DB migration is introduced relative to the
+  #      base branch (this feature adds no schema changes). The filename scan
+  #      inside the guard catches admin-subdomain-named migrations; the
+  #      git-diff step below catches ANY newly added migration .sql file so a
+  #      stray schema change cannot slip through.
+  # ---------------------------------------------------------------------------
+  cutover-guards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+      - name: Assert no admin artifacts / no admin RBAC in web / no admin migration
+        run: bun run check:cutover
+      - name: Migration-diff — no new DB migrations vs base branch
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          ADDED=$(git diff --name-only --diff-filter=A "$BASE_SHA"...HEAD -- 'packages/db/migrations/**/*.sql' || true)
+          if [ -n "$ADDED" ]; then
+            echo "✖ New DB migration(s) introduced — this feature must add no schema changes (Req 14.5):"
+            echo "$ADDED" | sed 's/^/  • /'
+            exit 1
+          fi
+          echo "✔ No new DB migrations introduced vs base branch."

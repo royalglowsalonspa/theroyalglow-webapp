@@ -30,7 +30,7 @@
 
 'use client'
 
-import { formatDateDDMMYYYY } from '@/lib/admin/bookings'
+import { formatDateDDMMYYYY } from '@/lib/format'
 import { useCallback, useEffect, useId, useState } from 'react'
 
 // ─── API shapes (mirror GET/POST /api/staff/leave + DELETE /api/staff/leave/[id]) ───

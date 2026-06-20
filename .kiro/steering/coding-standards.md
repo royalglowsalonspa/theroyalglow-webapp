@@ -52,7 +52,19 @@ export default async function Page({ params, searchParams }: PageProps) {
 - `(auth)` — Auth pages (minimal chrome, centered card)
 - `(landing)` — Distraction-free pages (no nav, conversion-optimised)
 - `(legal)` — Static legal pages (SSG)
-- `admin/` — Admin portal (sidebar, RBAC-gated)
+
+#### Root-Path Convention (Admin App)
+
+Admin routes live in the standalone `apps/admin` application served from
+`admin.theroyalglow.in` and **omit the `/admin` prefix** — the subdomain itself
+provides the admin namespace. Define admin routes at root paths:
+
+- ✅ `apps/admin/app/bookings/page.tsx` → `admin.theroyalglow.in/bookings`
+- ❌ `apps/admin/app/admin/bookings/page.tsx` → `admin.theroyalglow.in/admin/bookings`
+
+The dashboard lives at `apps/admin/app/page.tsx` (`admin.theroyalglow.in/`).
+The legacy `theroyalglow.in/admin/*` paths 301-redirect to the subdomain with the
+`/admin` prefix dropped (e.g. `/admin/bookings` → `admin.theroyalglow.in/bookings`).
 
 ### Component Architecture
 

@@ -1,0 +1,17 @@
+# shadcn/ui primitives live here
+
+This directory is the single source of truth for shadcn/ui primitives shared by
+`apps/web` and `apps/admin` (see Requirement 13.2).
+
+Add primitives with the shadcn CLI from the package root (`packages/ui`), e.g.:
+
+    bunx shadcn@latest add button
+
+Each primitive imports the shared `cn` helper from `@rgss/ui/lib/utils` and is
+re-exported from `packages/ui/src/index.ts` so consumers can do:
+
+    import { Button } from '@rgss/ui'
+
+No primitives existed in `apps/web/src/components/ui` at migration time (only a
+`.gitkeep`); this package is therefore established as the source of truth so all
+future primitives land here once and are consumed by both apps.
