@@ -32,10 +32,23 @@ import { BookingDialogProvider } from '@/components/booking/BookingDialogProvide
 import { BookingDialogTrigger } from '@/components/booking/BookingDialogTrigger'
 import { Footer } from '@/components/layout/Footer'
 import { Header } from '@/components/layout/Header'
+import { auth } from '@/lib/auth-server'
+import { headers } from 'next/headers'
 import { Suspense } from 'react'
 import { AnnouncementBar } from './_components/AnnouncementBar'
 
-export default function CustomerLayout({ children }: { children: React.ReactNode }) {
+export default async function CustomerLayout({ children }: { children: React.ReactNode }) {
+  // Resolve the session on the server so the header renders the correct
+  // auth state on first paint — no signed-out → avatar flash on refresh.
+  const session = await auth.api.getSession({ headers: await headers() })
+  const initialUser = session?.user
+    ? {
+        name: session.user.name ?? null,
+        email: session.user.email ?? null,
+        image: session.user.image ?? null,
+      }
+    : null
+
   return (
     <BookingDialogProvider>
       <a
@@ -47,7 +60,7 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
 
       <AnnouncementBar />
 
-      <Header />
+      <Header initialUser={initialUser} />
       {/* pt = announcement bar (36px) + header (80px) = 116px */}
       <main id="main-content" className="pt-[116px]">
         {children}

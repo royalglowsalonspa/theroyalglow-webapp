@@ -34,7 +34,7 @@ import { FALLBACK_OFFERS, getActiveOffers } from '@/lib/cms/client'
 import type { Offer } from '@/lib/cms/types'
 import Link from 'next/link'
 
-const HOMEPAGE_OFFER_LIMIT = 4
+const HOMEPAGE_OFFER_LIMIT = 2
 
 function OfferCard({ offer }: { offer: Offer }) {
   return (
@@ -77,17 +77,34 @@ export async function OffersSection() {
       aria-labelledby="offers-heading"
       className="px-4 md:px-8 py-16 mx-auto w-full max-w-[1280px]"
     >
-      <h2
-        id="offers-heading"
-        className="font-display font-black text-cocoa-dark text-[clamp(28px,4vw,40px)] tracking-tight leading-[1.1] mb-10"
-      >
-        Special Offers
-      </h2>
+      <div className="flex justify-between items-end mb-10">
+        <h2
+          id="offers-heading"
+          className="font-display font-black text-cocoa-dark text-[clamp(28px,4vw,40px)] tracking-tight leading-[1.1]"
+        >
+          Special Offers
+        </h2>
+        <Link
+          href="/offers"
+          className="hidden sm:flex items-center gap-1 font-ui font-bold text-sm text-cocoa-dark hover:text-deep-gold transition-colors duration-200 whitespace-nowrap"
+        >
+          View all offers <span aria-hidden="true">→</span>
+        </Link>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {offers.map((offer) => (
           <OfferCard key={offer.id} offer={offer} />
         ))}
+      </div>
+
+      <div className="mt-6 sm:hidden">
+        <Link
+          href="/offers"
+          className="font-ui font-bold text-sm text-deep-gold hover:text-cocoa-dark transition-colors duration-200"
+        >
+          View all offers →
+        </Link>
       </div>
     </section>
   )
