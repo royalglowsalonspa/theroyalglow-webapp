@@ -53,7 +53,7 @@ The application uses **six concrete RBAC roles** via Better Auth:
 ### 2. Staff (`staff`)
 - Stylist / Therapist role
 - Access: own schedule, assigned booking notes, leave requests
-- No access to `/admin/*`
+- No access to admin app (`admin.theroyalglow.in`)
 
 ### 3. Receptionist (`receptionist`)
 - Lowest admin role
@@ -63,7 +63,7 @@ The application uses **six concrete RBAC roles** via Better Auth:
 - Full operational access across staff, services, reports, scheduling, and settings
 
 ### 5. Owner (`owner`)
-- Full business access, including `/admin/users`
+- Full business access, including `admin.theroyalglow.in/users`
 
 ### 6. Developer (`developer`)
 - Full access to everything
@@ -202,7 +202,7 @@ Architecture: Better Auth Cloud is a **hosted cloud service by Better Auth — y
 
 ## Custom Admin User Management Panel
 
-Since the Better Auth Cloud dashboard is generic (not branded), expose day-to-day user management through the custom `/admin/users` page in the Royal Glow admin portal:
+Since the Better Auth Cloud dashboard is generic (not branded), expose day-to-day user management through the custom `/users` page in the Royal Glow admin portal (`admin.theroyalglow.in/users`):
 
 ```ts
 // List all users
@@ -232,7 +232,7 @@ Canonical application role values: `customer` · `staff` · `receptionist` · `m
 | Owner | `manager`, `receptionist`, `staff` |
 | Manager | `receptionist`, `staff` |
 
-> The `/admin/users` page enforces this hierarchy in the UI — a Manager's role-picker only shows options they are allowed to assign.
+> The `admin.theroyalglow.in/users` page enforces this hierarchy in the UI — a Manager's role-picker only shows options they are allowed to assign.
 
 This gives a **branded, in-product user management UI** that matches the premium feel of the rest of the site.
 
@@ -242,7 +242,7 @@ This gives a **branded, in-product user management UI** that matches the premium
 
 | Trade-off | Mitigation |
 |-----------|-----------|
-| No built-in visual admin dashboard (vs Clerk/WorkOS) | Build `/admin/users` page — one afternoon of work |
+| No built-in visual admin dashboard (vs Clerk/WorkOS) | Build `admin.theroyalglow.in/users` page — one afternoon of work |
 | Newer library — less community history than Auth.js | Better Auth is actively maintained and TypeScript-native; lower real risk |
 | Self-managed security updates | Monitor Better Auth releases; GitHub Dependabot handles this automatically |
 

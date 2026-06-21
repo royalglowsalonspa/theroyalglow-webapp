@@ -46,63 +46,64 @@ theroyalglow.in
 │   └── /refund-policy (Refund & Cancellation Policy)
 │
 
-├── ADMIN PORTAL (RBAC-gated, sidebar layout)
-│   ├── /admin (Dashboard — today's overview, pending actions)
+├── ADMIN PORTAL (RBAC-gated, separate app at admin.theroyalglow.in, sidebar layout)
+│   │   Routes use Root-Path Convention — no /admin prefix (subdomain is the namespace)
+│   ├── / (Dashboard — today's overview, pending actions)
 │   │   └── [Staff sees limited "My Schedule" view only]
 │   │
-│   ├── /admin/bookings (All Bookings — filters, search, table)
-│   │   ├── /admin/bookings/new (Create Walk-in Booking)
-│   │   └── /admin/bookings/[id] (Booking Detail — approve/reject/checkout)
+│   ├── /bookings (All Bookings — filters, search, table)
+│   │   ├── /bookings/new (Create Walk-in Booking)
+│   │   └── /bookings/[id] (Booking Detail — approve/reject/checkout)
 │   │
-│   ├── /admin/waitlist (Waitlist — promote to booking)
+│   ├── /waitlist (Waitlist — promote to booking)
 │   │
-│   ├── /admin/customers (Customer List — CRM, tags, LTV)
-│   │   └── /admin/customers/[id] (Customer 360° Profile)
+│   ├── /customers (Customer List — CRM, tags, LTV)
+│   │   └── /customers/[id] (Customer 360° Profile)
 │   │
-│   ├── /admin/leads (Lead Pipeline — Kanban/table view)
-│   │   └── /admin/leads/[id] (Lead Detail — notes, attribution)
+│   ├── /leads (Lead Pipeline — Kanban/table view)
+│   │   └── /leads/[id] (Lead Detail — notes, attribution)
 │   │
-│   ├── /admin/staff (Staff List) [Manager+]
-│   │   ├── /admin/staff/new (Add Staff Member)
-│   │   └── /admin/staff/[id] (Staff Profile — schedule, performance)
+│   ├── /staff (Staff List) [Manager+]
+│   │   ├── /staff/new (Add Staff Member)
+│   │   └── /staff/[id] (Staff Profile — schedule, performance)
 │   │
-│   ├── /admin/schedule (Staff Schedule — daily/weekly grid)
+│   ├── /schedule (Staff Schedule — daily/weekly grid)
 │   │
-│   ├── /admin/leave (Leave Management — approve/reject)
+│   ├── /leave (Leave Management — approve/reject)
 │   │   └── [Staff sees own leave history + submit form only]
 │   │
-│   ├── /admin/services (Service Catalogue) [Manager+]
-│   │   ├── /admin/services/new (Add Service)
-│   │   └── /admin/services/[id] (Edit Service)
+│   ├── /services (Service Catalogue) [Manager+]
+│   │   ├── /services/new (Add Service)
+│   │   └── /services/[id] (Edit Service)
 │   │
-│   ├── /admin/offers (Offers & Promotions) [Manager+]
-│   │   ├── /admin/offers/new (Create Offer)
-│   │   └── /admin/offers/[id] (Edit Offer)
+│   ├── /offers (Offers & Promotions) [Manager+]
+│   │   ├── /offers/new (Create Offer)
+│   │   └── /offers/[id] (Edit Offer)
 │   │
-│   ├── /admin/memberships (All SPA Memberships)
-│   │   ├── /admin/memberships/new (Create Membership)
-│   │   └── /admin/memberships/[id] (Membership Detail — sessions, cancel)
+│   ├── /memberships (All SPA Memberships)
+│   │   ├── /memberships/new (Create Membership)
+│   │   └── /memberships/[id] (Membership Detail — sessions, cancel)
 │   │
-│   ├── /admin/billing (All Invoices — filter, export)
-│   │   └── /admin/billing/[id] (Invoice Detail — PDF, GST breakdown)
+│   ├── /billing (All Invoices — filter, export)
+│   │   └── /billing/[id] (Invoice Detail — PDF, GST breakdown)
 │   │
-│   ├── /admin/reports (Reports Overview — KPI dashboard) [Manager+]
-│   │   ├── /admin/reports/financial (Revenue, GST, payment breakdown)
-│   │   ├── /admin/reports/salon (Salon service analytics)
-│   │   ├── /admin/reports/spa (SPA membership analytics)
-│   │   ├── /admin/reports/staff (Staff performance & utilisation)
-│   │   └── /admin/reports/leads (Lead funnel & campaign ROAS)
+│   ├── /reports (Reports Overview — KPI dashboard) [Manager+]
+│   │   ├── /reports/financial (Revenue, GST, payment breakdown)
+│   │   ├── /reports/salon (Salon service analytics)
+│   │   ├── /reports/spa (SPA membership analytics)
+│   │   ├── /reports/staff (Staff performance & utilisation)
+│   │   └── /reports/leads (Lead funnel & campaign ROAS)
 │   │
-│   ├── /admin/settings (System Settings — hours, policies, gems) [Manager+]
+│   ├── /settings (System Settings — hours, policies, gems) [Manager+]
 │   │
-│   ├── /admin/branches (Branch Management) [Owner+]
-│   │   └── /admin/branches/[id] (Edit Branch)
+│   ├── /branches (Branch Management) [Owner+]
+│   │   └── /branches/[id] (Edit Branch)
 │   │
-│   ├── /admin/users (User Management — roles, suspend/ban) [Owner+]
+│   ├── /users (User Management — roles, suspend/ban) [Owner+]
 │   │
-│   ├── /admin/integrations (Integrations Dashboard) [Developer only]
+│   ├── /integrations (Integrations Dashboard) [Developer only]
 │   │
-│   └── /admin/logs (Error Logs — Sentry feed) [Developer only]
+│   └── /logs (Error Logs — Sentry feed) [Developer only]
 │
 
 ├── API ROUTES (/api/*)
@@ -125,14 +126,14 @@ theroyalglow.in
 │   │   ├── /api/push/unsubscribe (DELETE — remove push sub)
 │   │   └── /api/ably/token (POST — scoped Ably JWT token)
 │   │
-│   ├── Admin API
-│   │   ├── /api/admin/bookings/[id] (PATCH — approve/reject/assign)
-│   │   ├── /api/admin/bookings/[id]/complete (POST — checkout + invoice)
-│   │   ├── /api/admin/bookings/[id]/noshow (POST — mark no-show)
-│   │   ├── /api/admin/memberships (POST — create membership)
-│   │   ├── /api/admin/memberships/[id]/session (POST — record session)
-│   │   ├── /api/admin/leave (POST — submit leave request)
-│   │   └── /api/admin/leave/[id] (PATCH — approve/reject leave)
+│   ├── Admin API (served at admin.theroyalglow.in/api/*)
+│   │   ├── /api/bookings/[id] (PATCH — approve/reject/assign)
+│   │   ├── /api/bookings/[id]/complete (POST — checkout + invoice)
+│   │   ├── /api/bookings/[id]/noshow (POST — mark no-show)
+│   │   ├── /api/memberships (POST — create membership)
+│   │   ├── /api/memberships/[id]/session (POST — record session)
+│   │   ├── /api/leave (POST — submit leave request)
+│   │   └── /api/leave/[id] (PATCH — approve/reject leave)
 │   │
 │   ├── Background Jobs (QStash-triggered)
 │   │   ├── /api/jobs/appointment-reminders (every 15 min)
@@ -154,13 +155,14 @@ theroyalglow.in
 │
 
 ├── EXTERNAL SUBDOMAINS
-│   ├── admin.theroyalglow.in (Payload CMS — blog, gallery, FAQs)
+│   ├── admin.theroyalglow.in (Admin portal — standalone Next.js app, RBAC-gated)
+│   ├── cms.theroyalglow.in (Payload CMS — blog, gallery, FAQs)
 │   ├── docs.theroyalglow.in (Fumadocs — developer documentation)
 │   └── status.theroyalglow.in (BetterStack — public uptime status)
 │
 └── SPECIAL FILES & ENDPOINTS
     ├── /sitemap.xml (Generated — static + dynamic blog routes)
-    ├── /robots.txt (Generated — AI crawlers allowed, /admin/ blocked)
+    ├── /robots.txt (Generated — AI crawlers allowed, /api/ and /profile/ blocked; admin portal is at admin.theroyalglow.in — separate app, separate robots)
     ├── /llms.txt (AI agent discovery — site description, services)
     ├── /llms-full.txt (Extended — full menu, prices, booking instructions)
     ├── /manifest.json (PWA manifest — branding, icons, standalone)
@@ -325,8 +327,8 @@ Page                            Breadcrumbs
 /privacy                        Home > Privacy Policy
 /terms                          Home > Terms of Service
 /refund-policy                  Home > Refund Policy
-/admin                          Admin
-/admin/bookings                 Admin > Bookings
+/admin                          Admin (admin.theroyalglow.in)
+/admin/bookings                 Admin > Bookings (note: served as /bookings at admin.theroyalglow.in)
 /admin/bookings/new             Admin > Bookings > Create Walk-in
 /admin/bookings/[id]            Admin > Bookings > #BKRS...
 /admin/customers                Admin > Customers
@@ -372,9 +374,9 @@ Page                            Breadcrumbs
 | **0** | 0 | `/` (Homepage) |
 | **1** | 1 | `/services`, `/offers`, `/about`, `/contact`, `/blog`, `/faq`, `/profile`, `/bookings`, `/membership`, `/gems`, `/sign-in`, `/privacy`, `/terms`, `/refund-policy`, `/?book=1` |
 | **2** | 2 | `/blog/[slug]`, `/bookings/[id]`, `/onboarding`, `/book` (via ad click) |
-| **3** | 1 (direct nav) | `/admin` (dashboard) |
-| **3** | 2 | `/admin/bookings`, `/admin/customers`, `/admin/leads`, `/admin/staff`, `/admin/schedule`, `/admin/leave`, `/admin/services`, `/admin/offers`, `/admin/memberships`, `/admin/billing`, `/admin/reports`, `/admin/settings`, `/admin/branches`, `/admin/users`, `/admin/integrations`, `/admin/logs`, `/admin/waitlist` |
-| **4** | 3 | `/admin/bookings/[id]`, `/admin/bookings/new`, `/admin/customers/[id]`, `/admin/leads/[id]`, `/admin/staff/[id]`, `/admin/staff/new`, `/admin/services/[id]`, `/admin/services/new`, `/admin/offers/[id]`, `/admin/offers/new`, `/admin/memberships/[id]`, `/admin/memberships/new`, `/admin/billing/[id]`, `/admin/branches/[id]`, `/admin/reports/financial`, `/admin/reports/salon`, `/admin/reports/spa`, `/admin/reports/staff`, `/admin/reports/leads` |
+| **3** | 1 (direct nav) | `/admin` → `admin.theroyalglow.in/` (dashboard) |
+| **3** | 2 | `admin.theroyalglow.in/bookings`, `/customers`, `/leads`, `/staff`, `/schedule`, `/leave`, `/services`, `/offers`, `/memberships`, `/billing`, `/reports`, `/settings`, `/branches`, `/users`, `/integrations`, `/logs`, `/waitlist` |
+| **4** | 3 | `admin.theroyalglow.in/bookings/[id]`, `/bookings/new`, `/customers/[id]`, `/leads/[id]`, `/staff/[id]`, `/staff/new`, `/services/[id]`, `/services/new`, `/offers/[id]`, `/offers/new`, `/memberships/[id]`, `/memberships/new`, `/billing/[id]`, `/branches/[id]`, `/reports/financial`, `/reports/salon`, `/reports/spa`, `/reports/staff`, `/reports/leads` |
 
 **Notes:**
 - Admin pages count from their own entry point (`/admin` = Level 3 from homepage, but Level 0 within admin context)
@@ -458,14 +460,14 @@ Page                            Breadcrumbs
 
 ```
 ┌──────────────┐     ┌────────────────────┐     ┌─────────────────┐
-│              │     │  /admin             │     │ /admin/bookings  │
-│  Sign in     │────▶│  (Dashboard)        │────▶│ (pending filter) │
+│              │     │  admin.theroyalglow │     │ /bookings        │
+│  Sign in     │────▶│  .in/ (Dashboard)   │────▶│ (pending filter) │
 │              │     │  See pending count   │     │                  │
 └──────────────┘     └────────────────────┘     └────────┬─────────┘
                                                           │
                                                           ▼
 ┌──────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│ /admin/billing   │     │  Checkout flow    │     │ /admin/bookings │
+│ /billing         │     │  Checkout flow    │     │ /bookings       │
 │ /[id] (invoice)  │◀────│  (on complete)    │◀────│ /[id] (approve  │
 │                  │     │  Payment + PDF    │     │  assign staff)  │
 └──────────────────┘     └──────────────────┘     └─────────────────┘
@@ -475,13 +477,13 @@ Page                            Breadcrumbs
 
 ```
 ┌──────────────┐     ┌─────────────────────┐     ┌───────────────────┐
-│              │     │  /admin              │     │  View today's      │
-│  Sign in     │────▶│  (My Schedule view)  │────▶│  assigned          │
+│              │     │  admin.theroyalglow  │     │  View today's      │
+│  Sign in     │────▶│  .in/ (My Schedule) │────▶│  assigned          │
 │              │     │  Today's appointments│     │  appointments      │
 └──────────────┘     └─────────────────────┘     └──────────┬────────┘
                                                              │
                               ┌───────────────────┐          │
-                              │  /admin/leave      │          │
+                              │  /leave            │          │
                               │  (Submit request)  │◀─────────┘
                               │  View own history  │    (if needed)
                               └───────────────────┘
@@ -517,26 +519,28 @@ Page                            Breadcrumbs
 
 ### 5.3 Admin Pages — Outgoing Links
 
+> All paths below are relative to `admin.theroyalglow.in`.
+
 | Source Page | Links To |
 |-------------|----------|
-| `/admin` | `/admin/bookings` (pending), `/admin/bookings/new`, `/admin/schedule`, `/admin/leads` |
-| `/admin/bookings` | `/admin/bookings/[id]`, `/admin/bookings/new` |
-| `/admin/bookings/[id]` | `/admin/customers/[id]`, `/admin/billing/[id]` (invoice after complete), `/admin/bookings` |
-| `/admin/customers` | `/admin/customers/[id]` |
-| `/admin/customers/[id]` | `/admin/bookings/[id]` (booking history rows), `/admin/leads/[id]` (if from lead), `/admin/memberships/[id]` |
-| `/admin/leads` | `/admin/leads/[id]` |
-| `/admin/leads/[id]` | `/admin/bookings/[id]` (if converted), `/admin/customers/[id]`, AiSensy (external) |
-| `/admin/staff` | `/admin/staff/[id]`, `/admin/staff/new` |
-| `/admin/memberships` | `/admin/memberships/[id]`, `/admin/memberships/new` |
-| `/admin/memberships/[id]` | `/admin/customers/[id]`, `/admin/billing/[id]` (purchase invoice) |
-| `/admin/billing` | `/admin/billing/[id]` |
-| `/admin/billing/[id]` | `/admin/bookings/[id]` (linked booking), `/admin/customers/[id]` |
-| `/admin/reports` | `/admin/reports/financial`, `/admin/reports/salon`, `/admin/reports/spa`, `/admin/reports/staff`, `/admin/reports/leads` |
-| `/admin/branches` | `/admin/branches/[id]` |
-| `/admin/services` | `/admin/services/[id]`, `/admin/services/new` |
-| `/admin/offers` | `/admin/offers/[id]`, `/admin/offers/new` |
-| `/admin/integrations` | Sentry (external), BetterStack (external) |
-| `/admin/logs` | Sentry dashboard (external) |
+| `/` (dashboard) | `/bookings` (pending), `/bookings/new`, `/schedule`, `/leads` |
+| `/bookings` | `/bookings/[id]`, `/bookings/new` |
+| `/bookings/[id]` | `/customers/[id]`, `/billing/[id]` (invoice after complete), `/bookings` |
+| `/customers` | `/customers/[id]` |
+| `/customers/[id]` | `/bookings/[id]` (booking history rows), `/leads/[id]` (if from lead), `/memberships/[id]` |
+| `/leads` | `/leads/[id]` |
+| `/leads/[id]` | `/bookings/[id]` (if converted), `/customers/[id]`, AiSensy (external) |
+| `/staff` | `/staff/[id]`, `/staff/new` |
+| `/memberships` | `/memberships/[id]`, `/memberships/new` |
+| `/memberships/[id]` | `/customers/[id]`, `/billing/[id]` (purchase invoice) |
+| `/billing` | `/billing/[id]` |
+| `/billing/[id]` | `/bookings/[id]` (linked booking), `/customers/[id]` |
+| `/reports` | `/reports/financial`, `/reports/salon`, `/reports/spa`, `/reports/staff`, `/reports/leads` |
+| `/branches` | `/branches/[id]` |
+| `/services` | `/services/[id]`, `/services/new` |
+| `/offers` | `/offers/[id]`, `/offers/new` |
+| `/integrations` | Sentry (external), BetterStack (external) |
+| `/logs` | Sentry dashboard (external) |
 
 ### 5.4 Auth Flow Cross-links
 
@@ -579,12 +583,12 @@ Page                            Breadcrumbs
 |-------|---------|----------|
 | Customer pages | `/noun` (short, clean, SEO-friendly) | `/services`, `/offers`, `/bookings`, `/profile`, `/gems` |
 | Customer detail | `/noun/[id]` or `/noun/[slug]` | `/bookings/[id]`, `/blog/[slug]` |
-| Admin list pages | `/admin/noun` | `/admin/bookings`, `/admin/customers`, `/admin/leads` |
-| Admin detail pages | `/admin/noun/[id]` | `/admin/bookings/[id]`, `/admin/customers/[id]` |
-| Admin create pages | `/admin/noun/new` | `/admin/bookings/new`, `/admin/services/new`, `/admin/staff/new` |
-| Admin sub-reports | `/admin/reports/topic` | `/admin/reports/financial`, `/admin/reports/salon` |
+| Admin list pages | `subdomain/noun` (at `admin.theroyalglow.in`) | `/bookings`, `/customers`, `/leads` |
+| Admin detail pages | `subdomain/noun/[id]` | `/bookings/[id]`, `/customers/[id]` |
+| Admin create pages | `subdomain/noun/new` | `/bookings/new`, `/services/new`, `/staff/new` |
+| Admin sub-reports | `subdomain/reports/topic` | `/reports/financial`, `/reports/salon` |
 | API — customer | `/api/noun` or `/api/noun/[id]/action` | `/api/bookings`, `/api/bookings/[id]/cancel` |
-| API — admin | `/api/admin/noun/[id]` or `/api/admin/noun/[id]/action` | `/api/admin/bookings/[id]`, `/api/admin/bookings/[id]/complete` |
+| API — admin | `/api/noun/[id]` or `/api/noun/[id]/action` (at `admin.theroyalglow.in/api/`) | `/api/bookings/[id]`, `/api/bookings/[id]/complete` |
 | API — jobs | `/api/jobs/descriptive-name` | `/api/jobs/appointment-reminders`, `/api/jobs/membership-expiry` |
 | API — webhooks | `/api/webhooks/source` | `/api/webhooks/meta-leads`, `/api/webhooks/aisensy` |
 | Legal | `/noun-noun` (hyphenated) | `/privacy`, `/terms`, `/refund-policy` |
@@ -608,7 +612,7 @@ Page                            Breadcrumbs
 | `?utm_source=X` | String | `/`, `/book` | Acquisition source tracking (gmb, walkin, meta) |
 | `?utm_campaign=X` | String | `/book` | Meta campaign name |
 | `?utm_content=X` | String | `/book` | Ad creative identifier |
-| `?status=X` | Enum | `/admin/bookings` | Filter bookings by status |
+| `?status=X` | Enum | `admin.theroyalglow.in/bookings` | Filter bookings by status |
 | `?page=X` | Number | Lists | Pagination parameter |
 
 ### 7.4 URL Formatting Rules
@@ -632,17 +636,17 @@ Page                            Breadcrumbs
 ├─────────────────────────────────────────────────────────────────────┤
 │                              │                                      │
 │  Non-existent page           │  → Custom 404 page                   │
-│  (e.g., /xyz, /admin/xyz)   │    "Page not found"                  │
+│  (e.g., /xyz)               │    "Page not found"                  │
 │                              │    [Go to Homepage] button            │
 │                              │    Royal Glow branding                │
 │                              │                                      │
 │  Unauthenticated access      │  → Redirect to /sign-in             │
-│  (e.g., /profile, /bookings │    returnTo param preserved          │
-│   /admin/*)                  │    After sign-in → redirect back     │
+│  (e.g., /profile, /bookings)│    returnTo param preserved          │
+│                              │    After sign-in → redirect back     │
 │                              │                                      │
-│  Insufficient role           │  → Redirect to /admin               │
-│  (e.g., Staff → /admin/     │    Toast: "Access denied. You        │
-│   reports)                   │    don't have permission."           │
+│  Insufficient role           │  → Redirect to admin.theroyalglow.in│
+│  (e.g., Staff → /reports)   │    Toast: "Access denied. You        │
+│                              │    don't have permission."           │
 │                              │                                      │
 │  Expired/invalid booking ID  │  → "Booking not found"              │
 │  (/bookings/[invalid-id])    │    [Back to My Bookings] link        │
@@ -653,10 +657,12 @@ Page                            Breadcrumbs
 │  (/blog/[invalid-slug])      │    [Back to Blog] link               │
 │                              │                                      │
 │  Expired/invalid customer ID │  → "Customer not found"             │
-│  (/admin/customers/[bad-id]) │    [Back to Customers] link          │
+│  (admin.theroyalglow.in/    │    [Back to Customers] link          │
+│   customers/[bad-id])        │                                      │
 │                              │                                      │
 │  Expired/invalid lead ID     │  → "Lead not found"                 │
-│  (/admin/leads/[bad-id])     │    [Back to Leads] link              │
+│  (admin.theroyalglow.in/    │    [Back to Leads] link              │
+│   leads/[bad-id])            │                                      │
 │                              │                                      │
 │  Server error (500)          │  → Custom 500 page                   │
 │                              │    "Something went wrong"             │
@@ -688,7 +694,7 @@ Page                            Breadcrumbs
 | Not signed in | Any auth-gated page | `/sign-in?returnTo={current}` | Server redirect (middleware) |
 | Profile incomplete | Any page (post-OAuth) | `/onboarding` | Server redirect |
 | Profile already complete | `/onboarding` | `/` | Server redirect |
-| Role insufficient | Admin page above user's role | `/admin` + toast | Client redirect |
+| Role insufficient | Admin page above user's role | `admin.theroyalglow.in/` + toast | Client redirect |
 | Already signed in | `/sign-in` | `/` | Server redirect |
 | Post-onboarding | `/onboarding` (submit) | `/` (with ?book=1 if in sessionStorage) | Client redirect |
 | Post-lead-capture | `/book` (submit) | `/?book=1&leadId={id}` | Client redirect |

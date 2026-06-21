@@ -7,7 +7,7 @@
 | Path | Type | Purpose | Update Frequency |
 |------|------|---------|-----------------|
 | `/sitemap.xml` | Generated (Next.js `app/sitemap.ts`) | Static routes + dynamic blog posts from Payload API. Submitted to Google Search Console. | On build + ISR |
-| `/robots.txt` | Generated | AI crawlers explicitly allowed (GPTBot, Claude-Web, PerplexityBot, Googlebot-Extended, Applebot, etc.). Disallows `/admin/`, `/api/`, `/profile/`. | Static |
+| `/robots.txt` | Generated | AI crawlers explicitly allowed (GPTBot, Claude-Web, PerplexityBot, Googlebot-Extended, Applebot, etc.). Disallows `/api/`, `/profile/`. Admin portal lives at `admin.theroyalglow.in` (separate app) — it is not listed here; the admin app handles its own noindex response headers. | Static |
 | `/llms.txt` | Static or API-driven | AI agent discovery: site description, key pages, services, contact, API endpoints. Emerging standard. | Updated when services/prices change |
 | `/llms-full.txt` | Static or API-driven | Extended version: complete service menu with prices, staff specializations, full booking instructions. | Updated when services change |
 | `/manifest.json` | Static | PWA manifest: Royal Glow branding, theme colour (`#gold`), icons (192px, 512px), start_url: `/`, display: `standalone` | Rarely |

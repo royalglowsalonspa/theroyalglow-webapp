@@ -1,6 +1,6 @@
 # Admin Portal Pages
 
-> All 37 admin routes are RBAC-gated. Unauthenticated or under-privileged requests redirect to `/sign-in`. Layout: persistent sidebar navigation (collapsible on mobile) + top bar with user name, role badge, and notification bell.
+> All 37 admin routes are served at `admin.theroyalglow.in` (Root-Path Convention — no `/admin` prefix). RBAC-gated: unauthenticated or under-privileged requests redirect to the sign-in page. Layout: persistent sidebar navigation (collapsible on mobile) + top bar with user name, role badge, and notification bell.
 
 **Shared admin layout components:**
 - Sidebar nav: grouped sections (Dashboard, Bookings, CRM, Leads, Staff, Schedule, Services, Offers, Memberships, Billing, Reports, Settings, Branches, Users, Integrations, Logs) — items shown/hidden based on role
@@ -11,11 +11,12 @@
 
 ---
 
-## 7.1 `/admin` — Dashboard
+## 7.1 `/` — Dashboard
 
 | Property | Detail |
 |----------|--------|
 | **Title** | Admin Dashboard |
+| **URL** | `admin.theroyalglow.in/` |
 | **Min. Role** | Receptionist (Staff sees limited "My Schedule" view) |
 | **Purpose** | Today's operational overview with pending actions and quick-access buttons. |
 
@@ -47,7 +48,7 @@
 
 ---
 
-## 7.2 `/admin/bookings` — All Bookings
+## 7.2 `/bookings` — All Bookings
 
 | Property | Detail |
 |----------|--------|
@@ -67,7 +68,7 @@
 - Data table:
   - Columns: Booking #, Customer, Date/Time, Services (truncated), Status (badge), Staff, Total, Type, Actions
   - Sortable columns: date, status, total
-  - Row click → navigates to `/admin/bookings/[id]`
+  - Row click → navigates to `/bookings/[id]`
 - Pagination: 25 per page with page navigation
 - Bulk actions: none (each booking handled individually)
 
@@ -82,7 +83,7 @@
 
 ---
 
-## 7.3 `/admin/bookings/new` — Create Walk-in
+## 7.3 `/bookings/new` — Create Walk-in
 
 | Property | Detail |
 |----------|--------|
@@ -103,11 +104,11 @@
 **States:**
 - Validation: customer required, at least 1 service, staff assignment required
 - Submitting: button spinner
-- Success: redirect to `/admin/bookings/[newId]` with success toast
+- Success: redirect to `/bookings/[newId]` with success toast
 
 ---
 
-## 7.4 `/admin/bookings/[id]` — Booking Detail (Admin)
+## 7.4 `/bookings/[id]` — Booking Detail (Admin)
 
 | Property | Detail |
 |----------|--------|
@@ -158,7 +159,7 @@
 
 ---
 
-## 7.5 `/admin/waitlist` — Waitlist
+## 7.5 `/waitlist` — Waitlist
 
 | Property | Detail |
 |----------|--------|
@@ -177,7 +178,7 @@
 
 ---
 
-## 7.6 `/admin/customers` — Customer List (CRM)
+## 7.6 `/customers` — Customer List (CRM)
 
 | Property | Detail |
 |----------|--------|
@@ -191,7 +192,7 @@
 - Sort options: LTV (descending), Visit Count, No-Show Count, Last Visit, Signup Date
 - Customer table:
   - Columns: Name, Phone, Email, Visits, LTV (₹), Last Visit, Tags, Status
-  - Row click → navigates to `/admin/customers/[id]`
+  - Row click → navigates to `/customers/[id]`
 - Pagination: 50 per page
 
 **States:**
@@ -201,7 +202,7 @@
 
 ---
 
-## 7.7 `/admin/customers/[id]` — Customer Profile (CRM)
+## 7.7 `/customers/[id]` — Customer Profile (CRM)
 
 | Property | Detail |
 |----------|--------|
@@ -229,7 +230,7 @@
 
 ---
 
-## 7.8 `/admin/leads` — Lead Pipeline
+## 7.8 `/leads` — Lead Pipeline
 
 | Property | Detail |
 |----------|--------|
@@ -246,7 +247,7 @@
 - Filters: campaign, date range, assigned staff, status
 - Lead count badges on each column header
 - "Stale" indicator: red dot on leads not contacted within 48h
-- Click any lead → navigates to `/admin/leads/[id]`
+- Click any lead → navigates to `/leads/[id]`
 
 **States:**
 - Loading: skeleton kanban cards
@@ -254,7 +255,7 @@
 
 ---
 
-## 7.9 `/admin/leads/[id]` — Lead Detail
+## 7.9 `/leads/[id]` — Lead Detail
 
 | Property | Detail |
 |----------|--------|
@@ -268,7 +269,7 @@
 - Status selector: dropdown to change pipeline stage
 - Assigned to: dropdown to assign receptionist
 - AiSensy WhatsApp link: "Open in AiSensy" button (deep link to WhatsApp thread)
-- Converted booking link: if lead converted → link to `/admin/bookings/[id]`
+- Converted booking link: if lead converted → link to `/bookings/[id]`
 - Notes timeline: chronological notes (call notes, preferences, follow-up reminders) + "Add Note" input
 - Quick actions: "Create Booking from Lead" | "Mark Won" | "Mark Lost" (with reason)
 
@@ -279,7 +280,7 @@
 
 ---
 
-## 7.10 `/admin/staff` — Staff List
+## 7.10 `/staff` — Staff List
 
 | Property | Detail |
 |----------|--------|
@@ -290,12 +291,12 @@
 **UI Components:**
 - Staff cards/table: name, photo, designation (Stylist/Therapist/Receptionist/Manager), active status, today's booking count
 - Filter: by designation, active/inactive
-- Row click → navigates to `/admin/staff/[id]`
-- "Add Staff" button → navigates to `/admin/staff/new`
+- Row click → navigates to `/staff/[id]`
+- "Add Staff" button → navigates to `/staff/new`
 
 ---
 
-## 7.11 `/admin/staff/new` — Add Staff
+## 7.11 `/staff/new` — Add Staff
 
 | Property | Detail |
 |----------|--------|
@@ -313,7 +314,7 @@
 
 ---
 
-## 7.12 `/admin/staff/[id]` — Staff Profile
+## 7.12 `/staff/[id]` — Staff Profile
 
 | Property | Detail |
 |----------|--------|
@@ -332,7 +333,7 @@
 
 ---
 
-## 7.13 `/admin/schedule` — Staff Schedule
+## 7.13 `/schedule` — Staff Schedule
 
 | Property | Detail |
 |----------|--------|
@@ -363,7 +364,7 @@
 
 ---
 
-## 7.14 `/admin/leave` — Leave Management
+## 7.14 `/leave` — Leave Management
 
 | Property | Detail |
 |----------|--------|
@@ -396,7 +397,7 @@
 
 ---
 
-## 7.15 `/admin/services` — All Services
+## 7.15 `/services` — All Services
 
 | Property | Detail |
 |----------|--------|
@@ -409,13 +410,13 @@
 - Service cards within each category:
   - Name, price (₹), duration, active/inactive toggle, gems config
   - Drag handle for reorder (within category)
-- "Add Service" button → navigates to `/admin/services/new`
-- Click service → navigates to `/admin/services/[id]`
+- "Add Service" button → navigates to `/services/new`
+- Click service → navigates to `/services/[id]`
 - Inactive services: dimmed with "Inactive" badge (hidden from customer-facing pages)
 
 ---
 
-## 7.16 `/admin/services/new` — Add Service
+## 7.16 `/services/new` — Add Service
 
 | Property | Detail |
 |----------|--------|
@@ -432,7 +433,7 @@
 
 ---
 
-## 7.17 `/admin/services/[id]` — Edit Service
+## 7.17 `/services/[id]` — Edit Service
 
 | Property | Detail |
 |----------|--------|
@@ -445,7 +446,7 @@
 
 ---
 
-## 7.18 `/admin/offers` — All Offers
+## 7.18 `/offers` — All Offers
 
 | Property | Detail |
 |----------|--------|
@@ -456,12 +457,12 @@
 **UI Components:**
 - Status tabs: Active | Scheduled | Expired
 - Offer cards: name, type badge (Percentage/Flat/Combo), discount value, linked services, validity dates, redemption count
-- "Create Offer" button → navigates to `/admin/offers/new`
-- Click offer → navigates to `/admin/offers/[id]`
+- "Create Offer" button → navigates to `/offers/new`
+- Click offer → navigates to `/offers/[id]`
 
 ---
 
-## 7.19 `/admin/offers/new` — Create Offer
+## 7.19 `/offers/new` — Create Offer
 
 | Property | Detail |
 |----------|--------|
@@ -472,7 +473,7 @@
 
 ---
 
-## 7.20 `/admin/offers/[id]` — Edit Offer
+## 7.20 `/offers/[id]` — Edit Offer
 
 | Property | Detail |
 |----------|--------|
@@ -483,7 +484,7 @@
 
 ---
 
-## 7.21 `/admin/memberships` — All Memberships
+## 7.21 `/memberships` — All Memberships
 
 | Property | Detail |
 |----------|--------|
@@ -494,12 +495,12 @@
 **UI Components:**
 - Filters: status (Active/Expired/Cancelled), tier (Silver/Gold/Platinum), customer search
 - Membership table: customer name, membership ID, tier badge, hours used/remaining, expiry date, status badge
-- Row click → navigates to `/admin/memberships/[id]`
-- "Create Membership" button → navigates to `/admin/memberships/new`
+- Row click → navigates to `/memberships/[id]`
+- "Create Membership" button → navigates to `/memberships/new`
 
 ---
 
-## 7.22 `/admin/memberships/new` — Create Membership
+## 7.22 `/memberships/new` — Create Membership
 
 | Property | Detail |
 |----------|--------|
@@ -518,7 +519,7 @@
 
 ---
 
-## 7.23 `/admin/memberships/[id]` — Membership Detail
+## 7.23 `/memberships/[id]` — Membership Detail
 
 | Property | Detail |
 |----------|--------|
@@ -538,7 +539,7 @@
 
 ---
 
-## 7.24 `/admin/billing` — All Invoices
+## 7.24 `/billing` — All Invoices
 
 | Property | Detail |
 |----------|--------|
@@ -550,13 +551,13 @@
 - Filters: type (service / membership_purchase / membership_session), date range, payment method (Cash/UPI/Card), customer search
 - Invoice table:
   - Columns: Invoice #, Customer, Type badge, Date, Total (₹), Payment Method, Status
-  - Row click → navigates to `/admin/billing/[id]`
+  - Row click → navigates to `/billing/[id]`
 - Export button: "Export CSV" for accountant/CA use (filtered data)
 - Pagination: 50 per page
 
 ---
 
-## 7.25 `/admin/billing/[id]` — Invoice Detail
+## 7.25 `/billing/[id]` — Invoice Detail
 
 | Property | Detail |
 |----------|--------|
@@ -580,11 +581,11 @@
 - Gems awarded: "+X gems" (if applicable)
 - PDF preview: embedded viewer or "Download PDF" button
 - Actions: "Resend Email" button (re-sends via Resend with PDF attachment), "Download PDF"
-- Linked booking: link to `/admin/bookings/[id]`
+- Linked booking: link to `/bookings/[id]`
 
 ---
 
-## 7.26 `/admin/reports` — Reports Overview
+## 7.26 `/reports` — Reports Overview
 
 | Property | Detail |
 |----------|--------|
@@ -599,7 +600,7 @@
 
 ---
 
-## 7.27 `/admin/reports/financial` — Financial Report
+## 7.27 `/reports/financial` — Financial Report
 
 | Property | Detail |
 |----------|--------|
@@ -616,7 +617,7 @@
 
 ---
 
-## 7.28 `/admin/reports/salon` — Salon Analytics
+## 7.28 `/reports/salon` — Salon Analytics
 
 | Property | Detail |
 |----------|--------|
@@ -632,7 +633,7 @@
 
 ---
 
-## 7.29 `/admin/reports/spa` — SPA Analytics
+## 7.29 `/reports/spa` — SPA Analytics
 
 | Property | Detail |
 |----------|--------|
@@ -649,7 +650,7 @@
 
 ---
 
-## 7.30 `/admin/reports/staff` — Staff Performance
+## 7.30 `/reports/staff` — Staff Performance
 
 | Property | Detail |
 |----------|--------|
@@ -665,7 +666,7 @@
 
 ---
 
-## 7.31 `/admin/reports/leads` — Lead Analytics
+## 7.31 `/reports/leads` — Lead Analytics
 
 | Property | Detail |
 |----------|--------|
@@ -683,7 +684,7 @@
 
 ---
 
-## 7.32 `/admin/settings` — System Settings
+## 7.32 `/settings` — System Settings
 
 | Property | Detail |
 |----------|--------|
@@ -706,7 +707,7 @@
 
 ---
 
-## 7.33 `/admin/branches` — Branch Management
+## 7.33 `/branches` — Branch Management
 
 | Property | Detail |
 |----------|--------|
@@ -716,11 +717,11 @@
 **UI Components:**
 - Branch cards: name, address (truncated), status badge (operational/temporarily_closed/opens_soon/shutdown), primary flag
 - "Add Branch" button (opens form)
-- Click branch → navigates to `/admin/branches/[id]`
+- Click branch → navigates to `/branches/[id]`
 
 ---
 
-## 7.34 `/admin/branches/[id]` — Edit Branch
+## 7.34 `/branches/[id]` — Edit Branch
 
 | Property | Detail |
 |----------|--------|
@@ -731,7 +732,7 @@
 
 ---
 
-## 7.35 `/admin/users` — User Management
+## 7.35 `/users` — User Management
 
 | Property | Detail |
 |----------|--------|
@@ -753,7 +754,7 @@
 
 ---
 
-## 7.36 `/admin/integrations` — Integrations (Developer Only)
+## 7.36 `/integrations` — Integrations (Developer Only)
 
 | Property | Detail |
 |----------|--------|
@@ -772,7 +773,7 @@
 
 ---
 
-## 7.37 `/admin/logs` — Error Logs (Developer Only)
+## 7.37 `/logs` — Error Logs (Developer Only)
 
 | Property | Detail |
 |----------|--------|

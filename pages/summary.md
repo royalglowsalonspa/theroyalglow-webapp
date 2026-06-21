@@ -16,10 +16,10 @@
 | Legal pages | 3 | Privacy, terms, refund policy |
 | Admin pages | 37 | Dashboard, bookings (4), CRM (2), leads (2), staff (3), schedule (2), services (3), offers (3), memberships (3), billing (2), reports (6), settings (1), branches (2), users (1), integrations (1), logs (1) |
 | Customer API routes | 13 | Auth, services, availability, bookings, leads, onboarding, push, ably |
-| Admin API routes | 7 | Booking actions, memberships, leave |
+| Admin API routes | 7 | Booking actions, memberships, leave (served at admin.theroyalglow.in/api/*) |
 | Background job endpoints | 12 | QStash-triggered scheduled work |
 | Webhook endpoints | 2 | Meta Leads, AiSensy |
-| External subdomains | 3 | Payload CMS, Fumadocs, BetterStack |
+| External subdomains | 4 | Admin portal, Payload CMS, Fumadocs, BetterStack |
 | Special files/endpoints | 10 | Sitemap, robots, llms.txt, manifest, SW, OG, favicon, apple-icon, health |
 | **Total unique routes/endpoints** | **~104** | |
 
@@ -33,23 +33,23 @@ Quick reference: which roles can access which page sections.
 |---------|:--------:|:-----:|:------------:|:-------:|:-----:|:---------:|
 | Public pages (`/`, `/services`, etc.) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Auth pages (`/profile`, `/bookings`, `/membership`, `/gems`) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `/admin` dashboard | — | 🔒 Limited | ✅ Full | ✅ Full | ✅ Full | ✅ Full |
-| `/admin/bookings/*` | — | — | ✅ | ✅ | ✅ | ✅ |
-| `/admin/customers/*` | — | — | ✅ | ✅ | ✅ | ✅ |
-| `/admin/leads/*` | — | — | ✅ | ✅ | ✅ | ✅ |
-| `/admin/memberships/*` | — | — | ✅ | ✅ | ✅ | ✅ |
-| `/admin/billing/*` | — | — | ✅ | ✅ | ✅ | ✅ |
-| `/admin/schedule` | — | — | ✅ | ✅ | ✅ | ✅ |
-| `/admin/leave` | — | 🔒 Own only | ✅ | ✅ | ✅ | ✅ |
-| `/admin/staff/*` | — | — | — | ✅ | ✅ | ✅ |
-| `/admin/services/*` | — | — | — | ✅ | ✅ | ✅ |
-| `/admin/offers/*` | — | — | — | ✅ | ✅ | ✅ |
-| `/admin/reports/*` | — | — | — | ✅ | ✅ | ✅ |
-| `/admin/settings` | — | — | — | ✅ | ✅ | ✅ |
-| `/admin/branches/*` | — | — | — | — | ✅ | ✅ |
-| `/admin/users` | — | — | — | — | ✅ | ✅ |
-| `/admin/integrations` | — | — | — | — | — | ✅ |
-| `/admin/logs` | — | — | — | — | — | ✅ |
+| `/admin` dashboard (admin.theroyalglow.in) | — | 🔒 Limited | ✅ Full | ✅ Full | ✅ Full | ✅ Full |
+| `/bookings/*` (admin) | — | — | ✅ | ✅ | ✅ | ✅ |
+| `/customers/*` (admin) | — | — | ✅ | ✅ | ✅ | ✅ |
+| `/leads/*` (admin) | — | — | ✅ | ✅ | ✅ | ✅ |
+| `/memberships/*` (admin) | — | — | ✅ | ✅ | ✅ | ✅ |
+| `/billing/*` (admin) | — | — | ✅ | ✅ | ✅ | ✅ |
+| `/schedule` (admin) | — | — | ✅ | ✅ | ✅ | ✅ |
+| `/leave` (admin) | — | 🔒 Own only | ✅ | ✅ | ✅ | ✅ |
+| `/staff/*` (admin) | — | — | — | ✅ | ✅ | ✅ |
+| `/services/*` (admin) | — | — | — | ✅ | ✅ | ✅ |
+| `/offers/*` (admin) | — | — | — | ✅ | ✅ | ✅ |
+| `/reports/*` (admin) | — | — | — | ✅ | ✅ | ✅ |
+| `/settings` (admin) | — | — | — | ✅ | ✅ | ✅ |
+| `/branches/*` (admin) | — | — | — | — | ✅ | ✅ |
+| `/users` (admin) | — | — | — | — | ✅ | ✅ |
+| `/integrations` (admin) | — | — | — | — | — | ✅ |
+| `/logs` (admin) | — | — | — | — | — | ✅ |
 
 
 **🔒 Legend:**
@@ -69,11 +69,11 @@ Which pages subscribe to which Ably channels for live updates.
 |------|---------|----------------|-----------|
 | `/bookings` | `customer:{userId}:bookings` | `booking.created`, `booking.status_changed`, `booking.rescheduled`, `booking.cancelled`, `booking.staff_assigned` | Status badges animate, cards appear/move |
 | `/bookings/[id]` | `booking:{bookingId}` | `status.changed`, `note.added`, `service.added`, `service.removed` | Timeline extends, notes appear live |
-| `/admin` (dashboard) | `admin:bookings` | `booking.new`, `booking.status_changed`, `booking.walkin_created`, `booking.cancelled`, `booking.no_show` | Pending count updates, feed refreshes |
-| `/admin/bookings` | `admin:bookings` | Same as above | Table rows update in-place |
-| `/admin/bookings/[id]` | `booking:{bookingId}` | `status.changed`, `note.added` | Detail panel live-updates |
-| `/admin/schedule` | `admin:schedule:{YYYY-MM-DD}` | `slot.booked`, `slot.released`, `staff.marked_off`, `leave.approved` | Grid slots fill/release live |
-| `/admin/leave` | `admin:leave` | `leave.requested`, `leave.withdrawn` | Queue updates without refresh |
+| `admin.theroyalglow.in/` (dashboard) | `admin:bookings` | `booking.new`, `booking.status_changed`, `booking.walkin_created`, `booking.cancelled`, `booking.no_show` | Pending count updates, feed refreshes |
+| `admin.theroyalglow.in/bookings` | `admin:bookings` | Same as above | Table rows update in-place |
+| `admin.theroyalglow.in/bookings/[id]` | `booking:{bookingId}` | `status.changed`, `note.added` | Detail panel live-updates |
+| `admin.theroyalglow.in/schedule` | `admin:schedule:{YYYY-MM-DD}` | `slot.booked`, `slot.released`, `staff.marked_off`, `leave.approved` | Grid slots fill/release live |
+| `admin.theroyalglow.in/leave` | `admin:leave` | `leave.requested`, `leave.withdrawn` | Queue updates without refresh |
 | Staff dashboard | `staff:{staffId}:schedule` | `booking.assigned`, `booking.unassigned`, `leave.approved`, `leave.rejected` | Schedule updates live |
 
 ---
