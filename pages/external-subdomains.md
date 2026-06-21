@@ -1,14 +1,38 @@
 # External Subdomains
 
-> Separate deployments not part of the main Next.js app. Each runs on its own infrastructure and serves a distinct purpose.
+> Separate deployments not part of the main Next.js customer app (`apps/web`). Each runs on its own infrastructure and serves a distinct purpose.
 
 ---
 
-## 9.1 `admin.theroyalglow.in` — Payload CMS
+## 9.1 `admin.theroyalglow.in` — Admin Portal
 
 | Property | Detail |
 |----------|--------|
-| **Platform** | Payload CMS v3 on Render (Node.js) |
+| **Platform** | Next.js 16 (App Router) on Cloudflare Pages (`rgss-admin`) |
+| **App** | `apps/admin/` in monorepo |
+| **Purpose** | RBAC-gated admin portal: booking management, CRM, lead pipeline, billing, staff scheduling, reports, memberships, system settings |
+| **Access** | Staff, Receptionist, Manager, Owner, Developer roles |
+| **Routing** | Root-Path Convention — routes drop the `/admin` prefix (subdomain is the namespace). E.g. `admin.theroyalglow.in/bookings`, not `/admin/bookings`. |
+| **Auth** | Shared Better Auth session via `.theroyalglow.in`-scoped cookie |
+| **Redirects** | Legacy `theroyalglow.in/admin/*` paths 301-redirect here with `/admin` prefix dropped |
+
+**Key routes:**
+- `/` — Dashboard
+- `/bookings`, `/bookings/[id]`, `/bookings/new`
+- `/customers`, `/customers/[id]`
+- `/leads`, `/leads/[id]`
+- `/staff`, `/schedule`, `/leave`
+- `/services`, `/offers`, `/memberships`, `/billing`
+- `/reports/*`, `/settings`, `/branches`, `/users`
+- `/integrations`, `/logs` (Developer only)
+
+---
+
+## 9.2 `cms.theroyalglow.in` — Payload CMS
+
+| Property | Detail |
+|----------|--------|
+| **Platform** | Payload CMS v3 on Render (Node.js, Singapore region) |
 | **Database** | Separate Payload Postgres (not main Neon DB) |
 | **Purpose** | Marketing content management: blog posts, gallery photos, team bios, homepage banners, FAQ items, about page content |
 | **Access** | Manager + Owner (2 seats on free tier) |
@@ -23,7 +47,7 @@
 
 ---
 
-## 9.2 `docs.theroyalglow.in` — Technical Docs
+## 9.3 `docs.theroyalglow.in` — Technical Docs
 
 | Property | Detail |
 |----------|--------|
@@ -33,7 +57,7 @@
 
 ---
 
-## 9.3 `status.theroyalglow.in` — Status Page
+## 9.4 `status.theroyalglow.in` — Status Page
 
 | Property | Detail |
 |----------|--------|

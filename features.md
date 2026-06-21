@@ -272,7 +272,7 @@ Manage the full customer relationship — existing customers, normal bookings, a
 - Revenue per customer (total spend across all visits)
 - Acquisition source stored per customer (`organic`, `meta_ad`, `gmb`, `walkin`) with UTM fields when campaign data exists. This is first-touch attribution and should not be overwritten by later visits.
 
-#### 3b. Lead Pipeline — `/admin/leads`
+#### 3b. Lead Pipeline — `admin.theroyalglow.in/leads`
 For prospects captured from Meta/Instagram ads through `/book` or Meta native lead webhooks. A normal customer who books through organic search/root-domain discovery, GMB, the in-store QR link, or direct navigation is a booking/customer, not a lead.
 
 **Lead vs Booking — key distinction:**
@@ -314,7 +314,7 @@ POST /api/bookings → Booking row saved as `pending`
     ↓
 lead.converted_booking_id set → lead status = 'booked'
     ↓
-If the customer drops off, receptionist follows up from /admin/leads using phone/WhatsApp
+If the customer drops off, receptionist follows up from `admin.theroyalglow.in/leads` using phone/WhatsApp
 ```
 
 **The `/book` page — design rules:**
@@ -359,10 +359,10 @@ Meta sends lead data via webhook → POST /api/webhooks/meta-leads
     → Lead row saved to Neon (same schema as Option B)
 CAPI Lead event fires (confirms receipt back to Meta)
     ↓
-Same lead pipeline in /admin/leads; if the customer books on the website later, the lead is linked through `converted_booking_id`
+Same lead pipeline in `admin.theroyalglow.in/leads`; if the customer books on the website later, the lead is linked through `converted_booking_id`
 ```
 
-The Neon schema, `/admin/leads` pipeline, and AiSensy workflow are **identical for both options** — only the data entry point differs (form submission vs Meta webhook).
+The Neon schema, `admin.theroyalglow.in/leads` pipeline, and AiSensy workflow are **identical for both options** — only the data entry point differs (form submission vs Meta webhook).
 
 **Lead status pipeline:**
 `New Lead → Contacted → Follow-up → Booked → Won / Lost`
@@ -401,7 +401,9 @@ When lead status changes in AiSensy → webhook fires → Neon DB updated. Singl
 
 ### 4. Admin Portal
 
-Internal tool for staff. Role-based access control (RBAC). URL: `theroyalglow.in/admin`
+Internal tool for staff. Role-based access control (RBAC). URL: `admin.theroyalglow.in`
+
+> Routes use the **Root-Path Convention** — the subdomain provides the admin namespace, so routes drop the `/admin` prefix (e.g. `admin.theroyalglow.in/bookings`, not `theroyalglow.in/admin/bookings`). Legacy `theroyalglow.in/admin/*` paths 301-redirect to the subdomain.
 
 #### Role Hierarchy
 ```
@@ -455,7 +457,7 @@ Developer
 | View customer profiles | ✅ | ✅ | ✅ | ✅ | ❌ |
 | Add customer notes | ✅ | ✅ | ✅ | ✅ | ❌ |
 | Tag customers | ✅ | ✅ | ✅ | ✅ | ❌ |
-| View leads (/admin/leads) | ✅ | ✅ | ✅ | ✅ | ❌ |
+| View leads (`admin.theroyalglow.in/leads`) | ✅ | ✅ | ✅ | ✅ | ❌ |
 | Manage lead pipeline | ✅ | ✅ | ✅ | ✅ | ❌ |
 | **Scheduling & Leave** | | | | | |
 | View all staff schedules | ✅ | ✅ | ✅ | ✅ | ❌ |
@@ -542,7 +544,7 @@ Staff submits leave request for a date
     ↓ approval_status = 'pending'
     ↓ Push + email → all Receptionists and Manager: "New leave request from [Name] for [date]"
     ↓
-Receptionist / Manager reviews in /admin/leave
+Receptionist / Manager reviews in `admin.theroyalglow.in/leave`
     ├── Approve
     │       ↓ approval_status = 'approved'
     │       ↓ Date now blocks staff availability in booking scheduler
@@ -567,61 +569,61 @@ When a Receptionist/Manager directly creates a leave entry (e.g., marking a sick
 - Can submit leave for any future date
 - Can **withdraw** a `pending` request (before review) — sets status to withdrawn, no notification needed
 - Cannot withdraw or cancel an `approved` leave — must contact Manager
-- `/admin/leave` shows own leave history with full status trail
+- `admin.theroyalglow.in/leave` shows own leave history with full status trail
 
 #### Admin Route Map
 
-All admin routes are under `theroyalglow.in/admin`. Access to each route is enforced by the RBAC matrix above — unauthenticated or under-privileged requests redirect to `/admin/login`.
+All admin routes are served from `admin.theroyalglow.in` (Root-Path Convention — no `/admin` prefix). Access to each route is enforced by the RBAC matrix above — unauthenticated or under-privileged requests redirect to the sign-in page.
 
 | Route | Page | Min. Role |
 |-------|------|-----------|
-| `/admin` | Dashboard — today's overview: bookings, revenue, pending actions | Receptionist |
+| `/` | Dashboard — today's overview: bookings, revenue, pending actions | Receptionist |
 | **Bookings** | | |
-| `/admin/bookings` | All bookings list — filterable by status, date, staff, type (Salon/SPA) | Receptionist |
-| `/admin/bookings/new` | Create walk-in booking | Receptionist |
-| `/admin/bookings/[id]` | Booking detail — approve/reject, assign staff, mark status, view notes | Receptionist |
-| `/admin/waitlist` | Waitlist management — promote to booking when slot opens | Receptionist |
+| `/bookings` | All bookings list — filterable by status, date, staff, type (Salon/SPA) | Receptionist |
+| `/bookings/new` | Create walk-in booking | Receptionist |
+| `/bookings/[id]` | Booking detail — approve/reject, assign staff, mark status, view notes | Receptionist |
+| `/waitlist` | Waitlist management — promote to booking when slot opens | Receptionist |
 | **Customers (CRM)** | | |
-| `/admin/customers` | Customer list — search, filter by tag, sort by LTV / visit count / no-show count | Receptionist |
-| `/admin/customers/[id]` | Customer profile — booking history, invoices, notes, tags, no-show tier, membership | Receptionist |
+| `/customers` | Customer list — search, filter by tag, sort by LTV / visit count / no-show count | Receptionist |
+| `/customers/[id]` | Customer profile — booking history, invoices, notes, tags, no-show tier, membership | Receptionist |
 | **Leads** | | |
-| `/admin/leads` | Lead pipeline — New → Contacted → Follow-up → Booked → Won/Lost | Receptionist |
-| `/admin/leads/[id]` | Lead detail — notes, UTM source, WhatsApp thread link, linked booking | Receptionist |
+| `/leads` | Lead pipeline — New → Contacted → Follow-up → Booked → Won/Lost | Receptionist |
+| `/leads/[id]` | Lead detail — notes, UTM source, WhatsApp thread link, linked booking | Receptionist |
 | **Staff** | | |
-| `/admin/staff` | Staff list with designation, schedule status | Manager |
-| `/admin/staff/new` | Add new staff member | Manager |
-| `/admin/staff/[id]` | Staff profile — schedule, leave history, performance summary | Manager |
+| `/staff` | Staff list with designation, schedule status | Manager |
+| `/staff/new` | Add new staff member | Manager |
+| `/staff/[id]` | Staff profile — schedule, leave history, performance summary | Manager |
 | **Schedule & Leave** | | |
-| `/admin/schedule` | Weekly/daily staff schedule view — all staff availability at a glance | Receptionist |
-| `/admin/leave` | Leave requests — approve/reject, view all staff leave calendar | Receptionist |
+| `/schedule` | Weekly/daily staff schedule view — all staff availability at a glance | Receptionist |
+| `/leave` | Leave requests — approve/reject, view all staff leave calendar | Receptionist |
 | **Service Catalog** | | |
-| `/admin/services` | All services grouped by category — Salon and SPA | Manager |
-| `/admin/services/new` | Add new service (name, category, price, duration, gems config) | Manager |
-| `/admin/services/[id]` | Edit service — price, duration, gems redeemable/required/catalogue order | Manager |
+| `/services` | All services grouped by category — Salon and SPA | Manager |
+| `/services/new` | Add new service (name, category, price, duration, gems config) | Manager |
+| `/services/[id]` | Edit service — price, duration, gems redeemable/required/catalogue order | Manager |
 | **Offers & Promotions** | | |
-| `/admin/offers` | All offers list — active, scheduled, expired | Manager |
-| `/admin/offers/new` | Create offer (percentage, flat, combo price) with linked services and validity | Manager |
-| `/admin/offers/[id]` | Edit or deactivate offer | Manager |
+| `/offers` | All offers list — active, scheduled, expired | Manager |
+| `/offers/new` | Create offer (percentage, flat, combo price) with linked services and validity | Manager |
+| `/offers/[id]` | Edit or deactivate offer | Manager |
 | **SPA Memberships** | | |
-| `/admin/memberships` | All memberships — active, expired, cancelled. Filter by tier. | Receptionist |
-| `/admin/memberships/new` | Create membership for a customer — tier, hours, price, start date | Receptionist |
-| `/admin/memberships/[id]` | Membership detail — session history, hours used/remaining, record session, cancel | Receptionist |
+| `/memberships` | All memberships — active, expired, cancelled. Filter by tier. | Receptionist |
+| `/memberships/new` | Create membership for a customer — tier, hours, price, start date | Receptionist |
+| `/memberships/[id]` | Membership detail — session history, hours used/remaining, record session, cancel | Receptionist |
 | **Billing & Invoicing** | | |
-| `/admin/billing` | All invoices — filterable by type (service, membership_purchase, membership_session), date | Receptionist |
-| `/admin/billing/[id]` | Invoice detail — line items, GST breakdown, PDF preview, resend email | Receptionist |
+| `/billing` | All invoices — filterable by type (service, membership_purchase, membership_session), date | Receptionist |
+| `/billing/[id]` | Invoice detail — line items, GST breakdown, PDF preview, resend email | Receptionist |
 | **Reports & Analytics** | | |
-| `/admin/reports` | Analytics overview — revenue KPIs, top services, busiest slots | Manager |
-| `/admin/reports/financial` | Financial report — daily/monthly revenue, GST summary, Cash / UPI / Card breakdown | Manager |
-| `/admin/reports/salon` | Salon analytics — service breakdown, category performance | Manager |
-| `/admin/reports/spa` | SPA analytics — membership utilisation, session frequency, tier distribution | Manager |
-| `/admin/reports/staff` | Staff performance — bookings per staff, revenue attributed, utilisation rate | Manager |
-| `/admin/reports/leads` | Lead analytics — conversion rate, revenue per Meta campaign, pipeline funnel | Manager |
+| `/reports` | Analytics overview — revenue KPIs, top services, busiest slots | Manager |
+| `/reports/financial` | Financial report — daily/monthly revenue, GST summary, Cash / UPI / Card breakdown | Manager |
+| `/reports/salon` | Salon analytics — service breakdown, category performance | Manager |
+| `/reports/spa` | SPA analytics — membership utilisation, session frequency, tier distribution | Manager |
+| `/reports/staff` | Staff performance — bookings per staff, revenue attributed, utilisation rate | Manager |
+| `/reports/leads` | Lead analytics — conversion rate, revenue per Meta campaign, pipeline funnel | Manager |
 | **Settings** | | |
-| `/admin/settings` | System settings — salon info, GST number, business hours, policy config keys (cancellation window, no-show thresholds etc.) | Manager |
-| `/admin/users` | User management — list all users, assign/change roles, suspend/ban, view sessions | Owner |
+| `/settings` | System settings — salon info, GST number, business hours, policy config keys (cancellation window, no-show thresholds etc.) | Manager |
+| `/users` | User management — list all users, assign/change roles, suspend/ban, view sessions | Owner |
 | **Developer only** | | |
-| `/admin/integrations` | Integration management — Ably, AiSensy, Meta Pixel/CAPI, Sentry config | Developer |
-| `/admin/logs` | Error log viewer — Sentry-sourced, filterable by severity | Developer |
+| `/integrations` | Integration management — Ably, AiSensy, Meta Pixel/CAPI, Sentry config | Developer |
+| `/logs` | Error log viewer — Sentry-sourced, filterable by severity | Developer |
 
 ---
 
@@ -695,7 +697,7 @@ All tiers give access to **all SPA services** (Standard, Premium, VVIP). Hours a
 **Branch-locked:** Membership sessions can only be recorded at the branch where the membership was purchased. If a customer wants SPA hours at a different branch, they need a separate membership for that branch.
 
 **Creating a membership:**
-- Admin (Receptionist/Manager/Owner/Developer) goes to `/admin/memberships/new`
+- Admin (Receptionist/Manager/Owner/Developer) goes to `admin.theroyalglow.in/memberships/new`
 - Selects customer, selects tier
 - Hours and price are pre-filled from tier defaults — **fully overridable** at creation (negotiated deals)
 - Sets start date (defaults to today)
@@ -706,7 +708,7 @@ All tiers give access to **all SPA services** (Standard, Premium, VVIP). Hours a
 - **No gems earned on membership purchase**
 
 **Recording a session:**
-- Admin goes to `/admin/memberships` → find customer → Record Session
+- Admin goes to `admin.theroyalglow.in/memberships` → find customer → Record Session
 - Selects service(s) performed, confirms duration
 - System validates remaining hours before allowing
 - Booking record created (status: `completed`, total: ₹0, `is_membership_session: true`)
@@ -760,7 +762,7 @@ All tiers give access to **all SPA services** (Standard, Premium, VVIP). Hours a
 ---
 
 ### 9. User Management (Admin)
-Custom `/admin/users` page built on Better Auth admin APIs.
+Custom `admin.theroyalglow.in/users` page built on Better Auth admin APIs.
 
 **Features:**
 - List all users (customers + staff)
@@ -866,7 +868,7 @@ WCAG 2.1 AA compliant across the entire site. Required for Lighthouse 100% Acces
 
 Multi-branch support for future expansion. Currently single-branch (Rayasandra).
 
-**Admin page:** `/admin/branches` (Owner + Developer only)
+**Admin page:** `admin.theroyalglow.in/branches` (Owner + Developer only)
 
 **Branch fields:**
 | Field | Description |

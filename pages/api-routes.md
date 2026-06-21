@@ -34,17 +34,17 @@
 
 ## 8c. Admin API
 
-All routes require min. Receptionist role unless noted.
+All routes are served at `admin.theroyalglow.in/api/*`. Min. Receptionist role unless noted.
 
 | Route | Method | Summary | Min. Role | Side Effects |
 |-------|--------|---------|-----------|--------------|
-| `/api/admin/bookings/[id]` | PATCH | Approve (assign staff), reject (with reason), or update booking. Body: `{ action: 'approve'|'reject'|'assign', staffAssignments?, rejectionReason? }` | Receptionist | Ably publish to customer + admin channels, email notification, calendar event (on approve) |
-| `/api/admin/bookings/[id]/complete` | POST | Mark completed + checkout. Body: `{ paymentMethod, offerId? }`. Generates invoice, awards gems, emails PDF. | Receptionist | Invoice PDF generated (Render API), stored in R2, emailed (Resend), gems awarded, Meta CAPI `Purchase`, Brevo attributes updated, Ably publish |
-| `/api/admin/bookings/[id]/noshow` | POST | Mark no-show. Increments `noshow_count`, checks tier threshold. | Receptionist | CRM tag applied if threshold reached, customer notified |
-| `/api/admin/memberships` | POST | Create membership. Body: `{ customerId, tier, hours?, price?, startDate? }`. | Receptionist | `membership_purchase` invoice generated + emailed, customer notified |
-| `/api/admin/memberships/[id]/session` | POST | Record session. Body: `{ serviceIds[], durationMinutes }`. Validates remaining hours. | Receptionist | Hours deducted, `membership_session` invoice (₹0) generated + emailed, booking row created |
-| `/api/admin/leave` | POST | Submit leave request (staff self-service). Body: `{ date, leaveType, reason }`. | Staff | Push + email to receptionists/manager |
-| `/api/admin/leave/[id]` | PATCH | Approve or reject leave. Body: `{ action: 'approve'|'reject', rejectionReason? }`. | Receptionist | Ably publish to staff channel, email notification, schedule slot blocked (if approved) |
+| `/api/bookings/[id]` | PATCH | Approve (assign staff), reject (with reason), or update booking. Body: `{ action: 'approve'|'reject'|'assign', staffAssignments?, rejectionReason? }` | Receptionist | Ably publish to customer + admin channels, email notification, calendar event (on approve) |
+| `/api/bookings/[id]/complete` | POST | Mark completed + checkout. Body: `{ paymentMethod, offerId? }`. Generates invoice, awards gems, emails PDF. | Receptionist | Invoice PDF generated (Render API), stored in R2, emailed (Resend), gems awarded, Meta CAPI `Purchase`, Brevo attributes updated, Ably publish |
+| `/api/bookings/[id]/noshow` | POST | Mark no-show. Increments `noshow_count`, checks tier threshold. | Receptionist | CRM tag applied if threshold reached, customer notified |
+| `/api/memberships` | POST | Create membership. Body: `{ customerId, tier, hours?, price?, startDate? }`. | Receptionist | `membership_purchase` invoice generated + emailed, customer notified |
+| `/api/memberships/[id]/session` | POST | Record session. Body: `{ serviceIds[], durationMinutes }`. Validates remaining hours. | Receptionist | Hours deducted, `membership_session` invoice (₹0) generated + emailed, booking row created |
+| `/api/leave` | POST | Submit leave request (staff self-service). Body: `{ date, leaveType, reason }`. | Staff | Push + email to receptionists/manager |
+| `/api/leave/[id]` | PATCH | Approve or reject leave. Body: `{ action: 'approve'|'reject', rejectionReason? }`. | Receptionist | Ably publish to staff channel, email notification, schedule slot blocked (if approved) |
 
 
 ---

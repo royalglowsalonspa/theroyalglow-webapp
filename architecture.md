@@ -14,7 +14,7 @@
 Render serves two purposes in this stack:
 
 1. **SSR fallback origin** — some SSR workloads exceed Cloudflare Workers' 50ms CPU wall time. Render handles those requests behind Cloudflare.
-2. **Payload CMS admin host** — Payload requires Node.js 20.9+ and cannot run on Cloudflare Workers (V8 isolate, not Node.js). Render hosts the admin panel at `admin.theroyalglow.in`.
+2. **Payload CMS admin host** — Payload requires Node.js 20.9+ and cannot run on Cloudflare Workers (V8 isolate, not Node.js). Render hosts the CMS at `cms.theroyalglow.in`.
 
 **Plan: Free tier** — only 2 admin users, content changes every ~2 months. The ~30–60s cold start on first access is acceptable for internal use.
 **Region: Singapore** — closest Render region to India for lower admin panel latency.
@@ -24,26 +24,30 @@ Render serves two purposes in this stack:
 
 ## Admin Portal & Blog Routing
 
-### Admin Portal — `/admin/*` (Same Next.js App)
+### Admin Portal — Separate App at `admin.theroyalglow.in`
 
-**Decision: Use `/admin/*` routes in the same Next.js application (not a separate subdomain).**
+**Decision: Serve the admin portal as a separate Next.js app (`apps/admin`) at `admin.theroyalglow.in`, NOT as routes under the main web app.**
 
-**Admin routes:**
+Admin routes use the **Root-Path Convention** — the subdomain provides the admin namespace, so routes drop the `/admin` prefix:
+
 ```
-theroyalglow.in/admin/bookings
-theroyalglow.in/admin/leads
-theroyalglow.in/admin/billing
-theroyalglow.in/admin/staff
-theroyalglow.in/admin/settings
+admin.theroyalglow.in/           (dashboard)
+admin.theroyalglow.in/bookings
+admin.theroyalglow.in/leads
+admin.theroyalglow.in/billing
+admin.theroyalglow.in/staff
+admin.theroyalglow.in/settings
 ```
 
-**Security:** All `/admin/*` routes are gated by Better Auth RBAC — role check in middleware before any admin page renders. Receptionist is the lowest admin role. Manager+ can access `/admin/settings`, and non-admin Staff cannot access `/admin/*` at all.
+Legacy `theroyalglow.in/admin/*` paths 301-redirect to the subdomain with the `/admin` prefix dropped (e.g. `/admin/bookings` → `admin.theroyalglow.in/bookings`).
+
+**Security:** All routes in `apps/admin` are gated by Better Auth RBAC — role check in middleware before any admin page renders. Receptionist is the lowest admin role. Manager+ can access `/settings`, and non-admin Staff cannot access the admin app at all.
 
 ### Blog — Payload CMS + `/blog/*`
 
 **Decision: Manage blogs in Payload CMS, serve at `/blog/*` on the main domain.**
 
-- Blog content managed at: `admin.theroyalglow.in` (Payload CMS)
+- Blog content managed at: `cms.theroyalglow.in` (Payload CMS)
 - Blog posts rendered at: `theroyalglow.in/blog/*` (Next.js fetches from Payload API)
 
 **Why:** Blogs are part of the main site marketing content, so serving them on the main domain improves local SEO ranking.
@@ -80,10 +84,28 @@ theroyalglow.in (root domain)
 ├─ /onboarding          (first-time setup — auth required)
 ├─ /privacy             (DPDP Act — SSG)
 ├─ /terms               (SSG)
-├─ /refund-policy       (SSG)
-└─ /admin/*             (RBAC gated — admin roles only)
+└─ /refund-policy       (SSG)
 
-admin.theroyalglow.in
+admin.theroyalglow.in (admin portal — standalone Next.js app, RBAC gated)
+├─ /                    (dashboard — today's overview)
+├─ /bookings            (booking management)
+├─ /leads               (lead pipeline)
+├─ /customers           (CRM)
+├─ /staff               (staff management)
+├─ /schedule            (staff schedule)
+├─ /leave               (leave management)
+├─ /services            (service catalogue)
+├─ /offers              (offers & promotions)
+├─ /memberships         (SPA memberships)
+├─ /billing             (invoices)
+├─ /reports             (analytics)
+├─ /settings            (system settings)
+├─ /branches            (branch management)
+├─ /users               (user management)
+├─ /integrations        (Developer only)
+└─ /logs                (Developer only)
+
+cms.theroyalglow.in
 └─ Payload CMS (blog, gallery, team, banners, FAQ)
 
 docs.theroyalglow.in
@@ -121,7 +143,7 @@ status.theroyalglow.in
        ┌────────────▼────────────┐   ┌───────────────▼──────────┐
        │  Cloudflare Workers     │   │  Render (Singapore)      │
        │  (Edge SSR / API routes)│   │  SSR fallback +          │
-       │                         │   │  Payload CMS /admin      │
+       │                         │   │  Payload CMS /cms        │
        └────────────┬────────────┘   └───────────────┬──────────┘
                     │                                 │
                     └────────────────┬────────────────┘
@@ -211,99 +233,7 @@ theroyalglow-webapp/
 │   │   │   │   └── refund-policy/
 │   │   │   │       └── page.tsx         ← /refund-policy
 │   │   │   │
-│   │   │   ├── admin/                   ← Admin portal (/admin/*) — RBAC gated
-│   │   │   │   ├── layout.tsx           ← Admin layout: sidebar nav, role check middleware
-│   │   │   │   ├── loading.tsx          ← Admin loading skeleton (sidebar persists, content streams)
-│   │   │   │   ├── error.tsx            ← Admin error boundary (sidebar persists, error in content area)
-│   │   │   │   ├── not-found.tsx        ← Admin 404 (invalid /admin/* path)
-│   │   │   │   ├── page.tsx             ← /admin (dashboard — today's overview)
-│   │   │   │   │
-│   │   │   │   ├── bookings/            ← Booking management
-│   │   │   │   │   ├── page.tsx         ← /admin/bookings (list, filter by status/date/staff)
-│   │   │   │   │   ├── new/
-│   │   │   │   │   │   └── page.tsx     ← /admin/bookings/new (walk-in creation)
-│   │   │   │   │   └── [id]/
-│   │   │   │   │       └── page.tsx     ← /admin/bookings/[id] (approve, assign, mark status)
-│   │   │   │   ├── waitlist/
-│   │   │   │   │   └── page.tsx         ← /admin/waitlist (promote to booking)
-│   │   │   │   │
-│   │   │   │   ├── customers/           ← CRM
-│   │   │   │   │   ├── page.tsx         ← /admin/customers (search, filter by tag, sort LTV)
-│   │   │   │   │   └── [id]/
-│   │   │   │   │       └── page.tsx     ← /admin/customers/[id] (history, notes, tags, no-show tier)
-│   │   │   │   │
-│   │   │   │   ├── leads/               ← Lead pipeline
-│   │   │   │   │   ├── page.tsx         ← /admin/leads (pipeline: New→Contacted→Follow-up→Booked→Won/Lost)
-│   │   │   │   │   └── [id]/
-│   │   │   │   │       └── page.tsx     ← /admin/leads/[id] (notes, UTM, WhatsApp link)
-│   │   │   │   │
-│   │   │   │   ├── staff/               ← Staff management
-│   │   │   │   │   ├── page.tsx         ← /admin/staff (list with designation, schedule)
-│   │   │   │   │   ├── new/
-│   │   │   │   │   │   └── page.tsx     ← /admin/staff/new (add staff member)
-│   │   │   │   │   └── [id]/
-│   │   │   │   │       └── page.tsx     ← /admin/staff/[id] (schedule, leave, performance)
-│   │   │   │   │
-│   │   │   │   ├── schedule/
-│   │   │   │   │   └── page.tsx         ← /admin/schedule (weekly/daily staff availability)
-│   │   │   │   ├── leave/
-│   │   │   │   │   └── page.tsx         ← /admin/leave (approve/reject, staff leave calendar)
-│   │   │   │   │
-│   │   │   │   ├── services/            ← Service catalog
-│   │   │   │   │   ├── page.tsx         ← /admin/services (all services by category)
-│   │   │   │   │   ├── new/
-│   │   │   │   │   │   └── page.tsx     ← /admin/services/new (add service)
-│   │   │   │   │   └── [id]/
-│   │   │   │   │       └── page.tsx     ← /admin/services/[id] (edit price, duration, gems)
-│   │   │   │   │
-│   │   │   │   ├── offers/              ← Offers & promotions
-│   │   │   │   │   ├── page.tsx         ← /admin/offers (active, scheduled, expired)
-│   │   │   │   │   ├── new/
-│   │   │   │   │   │   └── page.tsx     ← /admin/offers/new (create offer)
-│   │   │   │   │   └── [id]/
-│   │   │   │   │       └── page.tsx     ← /admin/offers/[id] (edit/deactivate)
-│   │   │   │   │
-│   │   │   │   ├── memberships/         ← SPA memberships
-│   │   │   │   │   ├── page.tsx         ← /admin/memberships (all, filter by tier/status)
-│   │   │   │   │   ├── new/
-│   │   │   │   │   │   └── page.tsx     ← /admin/memberships/new (create for customer)
-│   │   │   │   │   └── [id]/
-│   │   │   │   │       └── page.tsx     ← /admin/memberships/[id] (sessions, record, cancel)
-│   │   │   │   │
-│   │   │   │   ├── billing/             ← Invoicing
-│   │   │   │   │   ├── page.tsx         ← /admin/billing (all invoices, filter by type/date)
-│   │   │   │   │   └── [id]/
-│   │   │   │   │       └── page.tsx     ← /admin/billing/[id] (line items, GST, PDF, resend)
-│   │   │   │   │
-│   │   │   │   ├── reports/             ← Analytics & reports
-│   │   │   │   │   ├── page.tsx         ← /admin/reports (overview KPIs)
-│   │   │   │   │   ├── financial/
-│   │   │   │   │   │   └── page.tsx     ← /admin/reports/financial (revenue, GST)
-│   │   │   │   │   ├── salon/
-│   │   │   │   │   │   └── page.tsx     ← /admin/reports/salon (service breakdown)
-│   │   │   │   │   ├── spa/
-│   │   │   │   │   │   └── page.tsx     ← /admin/reports/spa (membership utilisation)
-│   │   │   │   │   ├── staff/
-│   │   │   │   │   │   └── page.tsx     ← /admin/reports/staff (performance, utilisation)
-│   │   │   │   │   └── leads/
-│   │   │   │   │       └── page.tsx     ← /admin/reports/leads (conversion, Meta campaign ROAS)
-│   │   │   │   │
-│   │   │   │   ├── settings/
-│   │   │   │   │   └── page.tsx         ← /admin/settings (salon info, GST, hours, policies)
-│   │   │   │   ├── branches/
-│   │   │   │   │   ├── page.tsx         ← /admin/branches (list/add branches — Owner/Developer only)
-│   │   │   │   │   └── [id]/
-│   │   │   │   │       └── page.tsx     ← /admin/branches/[id] (edit branch details)
-│   │   │   │   ├── users/
-│   │   │   │   │   └── page.tsx         ← /admin/users (roles, suspend/ban, sessions)
-│   │   │   │   │
-│   │   │   │   └── (developer)/         ← Developer-only routes (extra role check)
-│   │   │   │       ├── integrations/
-│   │   │   │       │   └── page.tsx     ← /admin/integrations (Ably, Meta, Sentry config)
-│   │   │   │       └── logs/
-│   │   │   │           └── page.tsx     ← /admin/logs (Sentry error viewer)
-│   │   │   │
-│   │   │   └── api/                     ← API routes (thin layer — parse, validate, delegate)
+│   │   │   └── api/                     ← Customer API routes (thin layer — parse, validate, delegate)
 │   │   │       ├── auth/
 │   │   │       │   └── [...betterauth]/
 │   │   │       │       └── route.ts     ← Better Auth catch-all (login, callback, session)
@@ -334,16 +264,6 @@ theroyalglow-webapp/
 │   │   │       ├── ably/
 │   │   │       │   └── token/
 │   │   │       │       └── route.ts     ← POST: Ably Token Auth (scoped per role)
-│   │   │       ├── admin/               ← Admin-only API routes (role-checked)
-│   │   │       │   ├── bookings/
-│   │   │       │   │   └── [id]/
-│   │   │       │   │       ├── complete/
-│   │   │       │   │       │   └── route.ts  ← POST: mark completed, invoice, gems, CAPI Purchase
-│   │   │       │   │       └── route.ts      ← PATCH: approve, reject, assign staff
-│   │   │       │   ├── memberships/
-│   │   │       │   │   └── route.ts     ← POST: create membership + invoice
-│   │   │       │   └── leave/
-│   │   │       │       └── route.ts     ← POST/PATCH: submit, approve, reject leave
 │   │   │       ├── jobs/                ← QStash job endpoints (called by Upstash scheduler)
 │   │   │       │   ├── appointment-reminders/
 │   │   │       │   │   └── route.ts     ← POST: send 24h/1h push + email reminders
@@ -362,8 +282,7 @@ theroyalglow-webapp/
 │   │   ├── components/                  ← UI only — zero business logic
 │   │   │   ├── ui/                      ← shadcn/ui primitives (Button, Input, Dialog, etc.)
 │   │   │   ├── booking/                 ← Booking dialog steps, service cards, slot picker
-│   │   │   ├── admin/                   ← Admin dashboard widgets, data tables, charts
-│   │   │   ├── layout/                  ← Header, Footer, CustomerNav, AdminSidebar
+│   │   │   ├── layout/                  ← Header, Footer, CustomerNav
 │   │   │   └── shared/                  ← Consent banner, PWA prompt, loading states
 │   │   │
 │   │   ├── lib/                         ← App-level utilities (framework-aware)
@@ -375,14 +294,46 @@ theroyalglow-webapp/
 │   │   │   ├── ably.ts                 ← Ably client setup + channel subscriptions
 │   │   │   └── push.ts                 ← Web Push subscription management
 │   │   │
-│   │   ├── middleware.ts                ← RBAC check, rate limiting, CORS, CSP nonce
+│   │   ├── middleware.ts                ← Rate limiting, CORS, CSP nonce (no admin RBAC — lives in apps/admin)
 │   │   ├── instrumentation.ts          ← OpenTelemetry + Sentry init (runs once on cold start)
 │   │   ├── env.ts                       ← @t3-oss/env-nextjs validation (Zod)
 │   │   ├── next.config.ts               ← Next.js configuration
 │   │   ├── tsconfig.json                ← TypeScript config (extends root)
 │   │   └── next-env.d.ts               ← Auto-generated type declarations (do not edit/commit)
 │   │
-│   └── cms/                             ← Payload CMS (deployed on Render)
+│   ├── admin/                           ← Next.js 16 app (Cloudflare Pages — admin.theroyalglow.in)
+│   │   │                                  Root-Path Convention: no /admin prefix in routes
+│   │   ├── app/
+│   │   │   ├── page.tsx                 ← / → admin.theroyalglow.in/ (dashboard)
+│   │   │   ├── bookings/                ← admin.theroyalglow.in/bookings
+│   │   │   ├── waitlist/                ← admin.theroyalglow.in/waitlist
+│   │   │   ├── customers/               ← admin.theroyalglow.in/customers
+│   │   │   ├── leads/                   ← admin.theroyalglow.in/leads
+│   │   │   ├── staff/                   ← admin.theroyalglow.in/staff
+│   │   │   ├── schedule/                ← admin.theroyalglow.in/schedule
+│   │   │   ├── leave/                   ← admin.theroyalglow.in/leave
+│   │   │   ├── services/                ← admin.theroyalglow.in/services
+│   │   │   ├── offers/                  ← admin.theroyalglow.in/offers
+│   │   │   ├── memberships/             ← admin.theroyalglow.in/memberships
+│   │   │   ├── billing/                 ← admin.theroyalglow.in/billing
+│   │   │   ├── reports/                 ← admin.theroyalglow.in/reports
+│   │   │   ├── settings/                ← admin.theroyalglow.in/settings
+│   │   │   ├── branches/                ← admin.theroyalglow.in/branches
+│   │   │   ├── users/                   ← admin.theroyalglow.in/users
+│   │   │   ├── (developer)/
+│   │   │   │   ├── integrations/        ← admin.theroyalglow.in/integrations
+│   │   │   │   └── logs/                ← admin.theroyalglow.in/logs
+│   │   │   └── api/                     ← Admin API routes (thin layer)
+│   │   │       ├── bookings/[id]/route.ts          ← PATCH: approve, reject, assign
+│   │   │       ├── bookings/[id]/complete/route.ts  ← POST: checkout + invoice
+│   │   │       ├── memberships/route.ts             ← POST: create membership
+│   │   │       └── leave/route.ts                   ← POST/PATCH: leave CRUD
+│   │   ├── middleware.ts                ← RBAC check, rate limiting, CORS, CSP nonce
+│   │   ├── env.ts
+│   │   ├── next.config.ts
+│   │   └── tsconfig.json
+│   │
+│   └── cms/                             ← Payload CMS (deployed on Render — cms.theroyalglow.in)
 │       ├── payload.config.ts
 │       └── collections/
 │           ├── blog.ts                  ← Blog posts (title, slug, body, featured image)
@@ -422,7 +373,7 @@ theroyalglow-webapp/
 │   │   ├── push-notifications.mdx       ← POST /api/push/subscribe + DELETE /api/push/unsubscribe
 │   │   ├── onboarding.mdx               ← POST /api/onboarding/complete (name, phone, DOB, consent)
 │   │   ├── admin-bookings.mdx           ← PATCH approve/assign/reject, POST mark-complete
-│   │   ├── admin-memberships.mdx        ← POST /api/admin/memberships (create + invoice)
+│   │   ├── admin-memberships.mdx        ← POST /api/memberships (create + invoice) — admin app
 │   │   ├── admin-leave.mdx              ← POST submit, PATCH approve/reject staff leave
 │   │   └── webhooks.mdx                 ← POST /api/webhooks/meta-leads + /api/webhooks/aisensy
 │   │
@@ -569,7 +520,7 @@ theroyalglow-webapp/
 | `components/` | Zero business logic. Receives data via props, emits events. Never imports from `packages/business/` directly. |
 | `lib/` | Framework-aware utilities (Meta Pixel, Ably, push). Thin wrappers — no business decisions. |
 | `app/api/` routes | Thin layer only — parse request → Zod validate → call business function → return response. No logic inline. |
-| `app/admin/` pages | Protected by RBAC in `middleware.ts` before any admin page renders; layouts assume the request is already role-checked. |
+| `apps/admin/` pages | Protected by RBAC in `apps/admin/middleware.ts` before any admin page renders; layouts assume the request is already role-checked. |
 | `packages/business/` | Zero framework imports. No `next`, no `react`. Pure TypeScript functions. Fully testable with `bun test` in isolation. |
 | `packages/db/` | Only Drizzle schema and queries. No business rules. Queries return data — they don't decide what to do with it. |
 | `packages/types/` | Zod schemas + TypeScript types. Imported by both `business/` and `app/api/`. Single source of truth for input shapes. |
@@ -860,7 +811,7 @@ Retry-After: 60  (only on 429)
 const allowedOrigins = [
   'https://theroyalglow.in',
   'https://www.theroyalglow.in',
-  'https://admin.theroyalglow.in',   // Payload CMS admin
+  'https://admin.theroyalglow.in',   // Admin portal
 ]
 
 // Development additions (never in prod)
