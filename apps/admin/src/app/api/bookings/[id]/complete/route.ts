@@ -35,9 +35,11 @@
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { enqueueJob } from '@/lib/jobs/enqueue'
+import { sendEmail } from '@/lib/notifications/providers/email'
 import {
   assertOfferActive,
   assertOfferSalonOnly,
+  buildInvoiceEmailHtml,
   calculateGemsEarned,
   computeOfferDiscount,
   generateInvoiceNumber,
@@ -219,6 +221,30 @@ export const POST = withErrorHandler(
     // 5. Record the offer redemption (one-per-customer-per-day, DB-enforced).
     if (appliedOfferId) {
       await recordOfferRedemption(appliedOfferId, existing.customerId, existing.id, today)
+    }
+
+    // Best-effort: email the customer a GST invoice / booking confirmation.
+    // sendEmail no-ops without RESEND_API_KEY and never throws, so this can
+    // never break completion or change its response. Skipped if no email.
+    if (existing.customerEmail) {
+      const { subject, html } = buildInvoiceEmailHtml({
+        customerName: existing.customerName ?? 'Guest',
+        invoiceNumber,
+        bookingNumber: existing.bookingNumber,
+        items: existing.services.map((s) => ({
+          name: s.serviceNameSnapshot,
+          staff: s.staffId ? (staffNameById.get(s.staffId) ?? null) : null,
+          pricePaise: s.priceAtBookingPaise,
+        })),
+        subtotalPaise,
+        discountPaise,
+        gstPaise,
+        totalPaise: finalPaise,
+        gemsEarned,
+        paymentMethod,
+        issuedAt: now,
+      })
+      await sendEmail({ to: existing.customerEmail, subject, html })
     }
 
     // Best-effort: schedule the post-service follow-up to run +24h. enqueueJob
