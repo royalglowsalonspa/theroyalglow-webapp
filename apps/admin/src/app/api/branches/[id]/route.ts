@@ -19,6 +19,7 @@
  *                temporarily_closed instead. `code`/`number` are immutable.
  ************************************************************/
 
+import { audit } from '@/lib/api/audit'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { getBranchById, updateBranch } from '@rgss/db/queries'
@@ -27,7 +28,7 @@ import { branchUpdateSchema } from '@rgss/types'
 
 export const PATCH = withErrorHandler(
   async (req: Request, ctx: { params: Promise<{ id: string }> }) => {
-    await requireRole('owner')
+    const session = await requireRole('owner')
     const { id } = await ctx.params
 
     const body = await req.json().catch(() => null)
@@ -42,6 +43,13 @@ export const PATCH = withErrorHandler(
     }
 
     const updated = await updateBranch(id, parsed.data)
+    await audit(req, session, {
+      action: 'update',
+      entityType: 'branch',
+      entityId: id,
+      oldValues: existing,
+      newValues: parsed.data,
+    })
     return apiSuccess({ branch: updated })
   },
 )

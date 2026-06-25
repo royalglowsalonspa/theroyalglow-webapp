@@ -25,6 +25,7 @@
  *                the admin origin). POST requires Manager+.
  ************************************************************/
 
+import { audit } from '@/lib/api/audit'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { createService, getAllServicesGrouped, getServiceCategoryById } from '@rgss/db/queries'
@@ -39,7 +40,7 @@ export const GET = withErrorHandler(async () => {
 
 // POST /api/services — create a service. Manager+.
 export const POST = withErrorHandler(async (req: Request) => {
-  await requireRole('manager')
+  const session = await requireRole('manager')
 
   const body = await req.json().catch(() => null)
   const parsed = serviceCreateSchema.safeParse(body)
@@ -63,5 +64,14 @@ export const POST = withErrorHandler(async (req: Request) => {
   }
 
   const created = await createService(parsed.data)
+  if (!created) {
+    throw new Error('Failed to create service.')
+  }
+  await audit(req, session, {
+    action: 'create',
+    entityType: 'service',
+    entityId: created.id,
+    newValues: parsed.data,
+  })
   return apiSuccess({ service: created }, undefined, 201)
 })

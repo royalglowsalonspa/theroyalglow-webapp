@@ -33,6 +33,7 @@
  *   (the sign-in creates their `user` row). A 404 is returned otherwise.
  ************************************************************/
 
+import { audit } from '@/lib/api/audit'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { ROLE_LEVELS, resolveRoleLevel } from '@/lib/rbac'
@@ -98,6 +99,14 @@ export const POST = withErrorHandler(async (req: Request) => {
     // Race: row vanished between lookup and update. Treat as not found.
     throw notFound('No account found with that email.')
   }
+
+  await audit(req, session, {
+    action: 'status_change',
+    entityType: 'user',
+    entityId: updated.id,
+    oldValues: { role: existing.role },
+    newValues: { role },
+  })
 
   return apiSuccess({ user: updated })
 })

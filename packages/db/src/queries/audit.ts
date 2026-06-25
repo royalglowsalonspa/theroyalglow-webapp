@@ -18,11 +18,36 @@
  * Notes        : Indexed on (entityType, entityId) and (actorId, createdAt).
  ************************************************************/
 
-import type { AuditLogQuery } from '@rgss/types'
+import type { AuditAction, AuditLogQuery } from '@rgss/types'
 import { and, desc, eq, ilike, sql } from 'drizzle-orm'
 import { db } from '../index'
 import { user } from '../schema/auth'
 import { auditLog } from '../schema/system'
+
+/**
+ * Append an audit-trail entry. Best-effort by contract — callers wrap this so a
+ * failed audit never breaks the primary operation. Stores old/new snapshots as
+ * JSONB for full change history.
+ */
+export async function recordAudit(entry: {
+  actorId: string
+  action: AuditAction
+  entityType: string
+  entityId: string
+  oldValues?: unknown
+  newValues?: unknown
+  ipAddress?: string | null
+}): Promise<void> {
+  await db.insert(auditLog).values({
+    actorId: entry.actorId,
+    action: entry.action,
+    entityType: entry.entityType,
+    entityId: entry.entityId,
+    oldValues: entry.oldValues ?? null,
+    newValues: entry.newValues ?? null,
+    ipAddress: entry.ipAddress ?? null,
+  })
+}
 
 export async function getAuditLogs(query: AuditLogQuery) {
   const conditions = []

@@ -33,6 +33,7 @@
  * - Staff are deactivated (isActive=false), never hard-deleted.
  ************************************************************/
 
+import { audit } from '@/lib/api/audit'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { createStaffProfile, getActiveStaff } from '@rgss/db/queries'
@@ -59,7 +60,7 @@ export const GET = withErrorHandler(async () => {
 // in first. A 409 is returned when the account is already a staff member. On
 // success the account is promoted to 'staff' if its role ranks lower. Manager+.
 export const POST = withErrorHandler(async (req: Request) => {
-  await requireRole('manager')
+  const session = await requireRole('manager')
 
   const body = await req.json().catch(() => null)
   const parsed = staffCreateSchema.safeParse(body)
@@ -76,6 +77,13 @@ export const POST = withErrorHandler(async (req: Request) => {
     }
     throw conflict(ERROR_CODES.CONFLICT, 'This account is already a staff member.')
   }
+
+  await audit(req, session, {
+    action: 'create',
+    entityType: 'staff_profile',
+    entityId: result.staff.id,
+    newValues: { email: parsed.data.email, designation: parsed.data.designation },
+  })
 
   return apiSuccess({ staff: result.staff }, undefined, 201)
 })

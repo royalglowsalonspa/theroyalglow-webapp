@@ -26,6 +26,7 @@
  *                key/value store, so writes are one-section-at-a-time upserts.
  ************************************************************/
 
+import { audit } from '@/lib/api/audit'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { SETTING_KEYS, getSettings, upsertSetting } from '@rgss/db/queries'
@@ -52,6 +53,13 @@ export const PUT = withErrorHandler(async (req: Request) => {
 
   const { section, value } = parsed.data
   const saved = await upsertSetting(SETTING_KEYS[section], value, session.user.id)
+
+  await audit(req, session, {
+    action: 'update',
+    entityType: 'system_setting',
+    entityId: section,
+    newValues: value,
+  })
 
   return apiSuccess({ section, value: saved.value })
 })

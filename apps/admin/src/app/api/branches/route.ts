@@ -23,6 +23,7 @@
  * Notes        : Branches are never hard-deleted — status drives lifecycle.
  ************************************************************/
 
+import { audit } from '@/lib/api/audit'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { createBranch, getBranches } from '@rgss/db/queries'
@@ -38,7 +39,7 @@ export const GET = withErrorHandler(async () => {
 
 // POST /api/branches — create a branch. Owner+.
 export const POST = withErrorHandler(async (req: Request) => {
-  await requireRole('owner')
+  const session = await requireRole('owner')
 
   const body = await req.json().catch(() => null)
   const parsed = branchCreateSchema.safeParse(body)
@@ -47,5 +48,14 @@ export const POST = withErrorHandler(async (req: Request) => {
   }
 
   const created = await createBranch(parsed.data)
+  if (!created) {
+    throw new Error('Failed to create branch.')
+  }
+  await audit(req, session, {
+    action: 'create',
+    entityType: 'branch',
+    entityId: created.id,
+    newValues: parsed.data,
+  })
   return apiSuccess({ branch: created }, undefined, 201)
 })

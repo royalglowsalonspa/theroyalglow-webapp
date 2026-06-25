@@ -30,6 +30,7 @@
  *                status-transitioned, never hard-deleted.
  ************************************************************/
 
+import { audit } from '@/lib/api/audit'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { getWaitlistEntryById, updateWaitlistStatus } from '@rgss/db/queries'
@@ -43,7 +44,7 @@ import { assertWaitlistTransition } from '../state-machine'
 // layer.
 export const PATCH = withErrorHandler(
   async (req: Request, ctx: { params: Promise<{ id: string }> }) => {
-    await requireRole('receptionist')
+    const session = await requireRole('receptionist')
     const { id } = await ctx.params
 
     const body = await req.json().catch(() => null)
@@ -60,6 +61,13 @@ export const PATCH = withErrorHandler(
     assertWaitlistTransition(existing.status, parsed.data.status)
 
     const updated = await updateWaitlistStatus(id, parsed.data.status)
+    await audit(req, session, {
+      action: 'status_change',
+      entityType: 'waitlist',
+      entityId: id,
+      oldValues: { status: existing.status },
+      newValues: { status: parsed.data.status },
+    })
     return apiSuccess({ entry: updated })
   },
 )
