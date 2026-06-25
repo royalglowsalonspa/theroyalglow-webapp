@@ -30,11 +30,19 @@
  ************************************************************/
 
 import { auth } from '@/lib/auth-server'
+import { getDevImpersonatedSession } from '@/lib/dev-auth'
 import { AppError, ERROR_CODES } from '@rgss/errors'
 import { headers } from 'next/headers'
 import { enforceRateLimit } from './rate-limit'
 
 export async function requireSession() {
+  // LOCAL DEV ONLY — operate as a real user by email without OAuth. Hard
+  // production guard lives in getDevImpersonatedSession (returns null in prod).
+  const dev = await getDevImpersonatedSession()
+  if (dev) {
+    return dev as unknown as NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>
+  }
+
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) {
     throw new AppError({
@@ -52,6 +60,10 @@ export async function requireSession() {
 }
 
 export async function getOptionalSession() {
+  const dev = await getDevImpersonatedSession()
+  if (dev) {
+    return dev as unknown as Awaited<ReturnType<typeof auth.api.getSession>>
+  }
   return auth.api.getSession({ headers: await headers() })
 }
 

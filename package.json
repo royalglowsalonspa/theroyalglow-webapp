@@ -16,6 +16,7 @@
     "test:coverage": "vitest run --coverage --exclude '**/*.integration.test.*' --exclude '**/e2e/**'",
     "clean": "turbo run clean",
     "check:cutover": "node scripts/assert-no-admin-artifacts.mjs",
+    "set-role": "bun run packages/db/scripts/set-role.ts",
     "prepare": "husky"
   },
   "devDependencies": {

@@ -26,6 +26,10 @@
  ************************************************************/
 
 export * from './services'
+export * from './branches'
+// `getBranchById` is also star-exported by ./bookings (identical behaviour).
+// Explicitly re-export the branches version to resolve the barrel ambiguity.
+export { getBranchById } from './branches'
 export * from './bookings'
 export * from './admin-bookings'
 export * from './customers'
@@ -35,4 +39,12 @@ export * from './loyalty'
 export * from './schedule'
 export * from './notifications'
 export * from './offers'
+export * from './reports'
 export * from './jobs'
+export * from './users'
+export * from './invoices'
+export * from './staff'
+export * from './waitlist'
+export * from './settings'
+export * from './audit'
+export * from './audit'

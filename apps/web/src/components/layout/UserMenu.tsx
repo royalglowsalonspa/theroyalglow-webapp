@@ -31,6 +31,7 @@
 'use client'
 
 import { signOut } from '@/lib/auth-client'
+import { adminPortalUrl, isAdminRole } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import Link from 'next/link'
@@ -41,6 +42,7 @@ interface UserMenuProps {
     name: string | null
     email: string | null
     image: string | null
+    role: string | null
   }
 }
 
@@ -287,6 +289,41 @@ export function UserMenu({ user }: UserMenuProps) {
           </div>
 
           <DropdownMenu.Separator className="my-1 h-px bg-cloud-gray" />
+
+          {/* Admin Portal — only for staff and above (never customers). Links
+              cross-origin to admin.theroyalglow.in, so it's a plain anchor. */}
+          {isAdminRole(user.role) && (
+            <>
+              <DropdownMenu.Item asChild>
+                <a
+                  href={adminPortalUrl()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex items-center gap-3 rounded-xl px-3 py-2.5 font-ui text-sm text-cocoa-dark outline-none transition-colors duration-150 data-[highlighted]:bg-golden-mist focus-visible:bg-golden-mist"
+                >
+                  <svg
+                    className={ICON}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 2 4 5v6c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V5l-8-3Z" />
+                    <path d="m9 12 2 2 4-4" />
+                  </svg>
+                  <span className="flex-1">Admin Portal</span>
+                  <span className="rounded-pill bg-cocoa-dark/90 px-2 py-0.5 font-ui text-[10px] font-bold uppercase tracking-[0.5px] text-canvas-white">
+                    {user.role}
+                  </span>
+                </a>
+              </DropdownMenu.Item>
+
+              <DropdownMenu.Separator className="my-1 h-px bg-cloud-gray" />
+            </>
+          )}
 
           {/* Notifications — relocated from the navbar into the account menu */}
           <DropdownMenu.Item asChild>

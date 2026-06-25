@@ -1,5 +1,6 @@
 import { AdminShell } from '@/components/layout/admin-shell'
 import { auth } from '@/lib/auth-server'
+import { getDevImpersonatedSession } from '@/lib/dev-auth'
 /************************************************************
  * Author       : KATABATHUNI BOSE
  * Project      : theroyalglow-webapp (admin)
@@ -58,10 +59,31 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  // LOCAL DEV ONLY — when the middleware auth bypass is active, there is no
+  // shared session on localhost, so assume a Developer role to render the full
+  // sidebar. This branch can never run in a production build (NODE_ENV guard).
+  const devBypass =
+    process.env.NODE_ENV !== 'production' && process.env.ADMIN_DEV_BYPASS_AUTH === '1'
+
+  if (devBypass) {
+    const devRole = 'developer'
+    return (
+      <html lang="en" suppressHydrationWarning>
+        <body suppressHydrationWarning>
+          <AdminShell role={devRole} userName="Dev (bypass)" userInitials="DV">
+            {children}
+          </AdminShell>
+        </body>
+      </html>
+    )
+  }
+
   // Resolve the session on the server so the shell renders the correct role and
   // user details on first paint (no flash). Access is already gated by the edge
-  // middleware before this layout runs.
-  const session = await auth.api.getSession({ headers: await headers() })
+  // middleware before this layout runs. In local dev, an optional impersonated
+  // session (ADMIN_DEV_IMPERSONATE_EMAIL) takes precedence — never in prod.
+  const session =
+    (await getDevImpersonatedSession()) ?? (await auth.api.getSession({ headers: await headers() }))
   const user = session?.user
   const role = (user as { role?: string } | undefined)?.role ?? 'customer'
   const userName = user?.name ?? 'Admin User'

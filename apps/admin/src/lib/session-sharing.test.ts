@@ -138,8 +138,9 @@ describe('session sharing: shared-secret invariant', () => {
   it('both auth-server configs read BETTER_AUTH_SECRET from env', () => {
     expect(adminSrc).toMatch(/BETTER_AUTH_SECRET/)
     expect(webSrc).toMatch(/BETTER_AUTH_SECRET/)
-    // Each passes that secret to betterAuth via the `secret:` option.
-    expect(adminSrc).toMatch(/secret:\s*env\.BETTER_AUTH_SECRET/)
+    // Each passes that secret to betterAuth via the `secret:` option. Both apps
+    // read it from process.env so one shared secret signs/validates the token.
+    expect(adminSrc).toMatch(/secret:\s*process\.env\.BETTER_AUTH_SECRET/)
     expect(webSrc).toMatch(/secret:\s*process\.env\.BETTER_AUTH_SECRET/)
   })
 

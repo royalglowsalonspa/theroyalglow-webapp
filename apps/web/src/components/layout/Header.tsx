@@ -45,12 +45,18 @@ const navLinks = [
   { href: '/blog', label: 'Blog' },
 ]
 
-type HeaderUser = { name: string | null; email: string | null; image: string | null }
+type HeaderUser = {
+  name: string | null
+  email: string | null
+  image: string | null
+  role: string | null
+}
 
 export function Header({ initialUser = null }: { initialUser?: HeaderUser | null }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [isSigningIn, setIsSigningIn] = useState(false)
+  const [signInError, setSignInError] = useState<string | null>(null)
   const pathname = usePathname()
   const { data: session, isPending } = useSession()
   // First paint uses the server-resolved user (no signed-out → avatar flash on
@@ -63,6 +69,9 @@ export function Header({ initialUser = null }: { initialUser?: HeaderUser | null
           name: session.user.name ?? null,
           email: session.user.email ?? null,
           image: session.user.image ?? null,
+          // Preserve the server-resolved role across hydration in case the
+          // client session payload omits the custom role field.
+          role: (session.user as { role?: string | null }).role ?? initialUser?.role ?? null,
         }
       : null
 
@@ -77,9 +86,14 @@ export function Header({ initialUser = null }: { initialUser?: HeaderUser | null
   async function handleSignIn() {
     try {
       setIsSigningIn(true)
+      setSignInError(null)
       await startGoogleSignIn()
-    } catch {
+    } catch (err) {
+      // Surface the failure instead of silently resetting — a swallowed error
+      // here is what makes the button look like it "does nothing".
       setIsSigningIn(false)
+      setSignInError(err instanceof Error ? err.message : 'Sign in failed. Please try again.')
+      console.error('[auth] Google sign-in failed:', err)
     }
   }
 
@@ -254,6 +268,19 @@ export function Header({ initialUser = null }: { initialUser?: HeaderUser | null
 
       {/* Google One Tap — only for confirmed signed-out guests */}
       {!user && <GoogleOneTap />}
+
+      {/* Sign-in failure banner — keeps a failed OAuth launch visible instead
+          of leaving the button looking inert. */}
+      {signInError && (
+        <div className="container mx-auto px-4 md:px-8 max-w-[1280px]">
+          <p
+            role="alert"
+            className="mt-1 mb-2 rounded-lg bg-red-50 px-4 py-2 font-ui text-sm text-red-700 border border-red-200"
+          >
+            {signInError}
+          </p>
+        </div>
+      )}
 
       {/* Mobile Navigation */}
       <MobileNav

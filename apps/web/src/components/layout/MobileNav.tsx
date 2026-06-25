@@ -37,6 +37,7 @@
 
 import { signOut } from '@/lib/auth-client'
 import { startGoogleSignIn } from '@/lib/google-signin'
+import { adminPortalUrl, isAdminRole } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -183,7 +184,12 @@ interface MobileNavProps {
   isOpen: boolean
   onClose: () => void
   pathname: string
-  user?: { name: string | null; email?: string | null; image: string | null } | null
+  user?: {
+    name: string | null
+    email?: string | null
+    image: string | null
+    role?: string | null
+  } | null
 }
 
 export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
@@ -224,8 +230,10 @@ export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
   async function handleSignIn() {
     try {
       await startGoogleSignIn()
-    } catch {
-      /* Better Auth surfaces its own error UI on redirect failure */
+    } catch (err) {
+      // The drawer has already closed here, so there's no inline slot to show
+      // an error — but log it so a failed OAuth launch isn't fully invisible.
+      console.error('[auth] Google sign-in failed:', err)
     }
   }
 
@@ -396,6 +404,36 @@ export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
                 )}
               </span>
             </Link>
+          )}
+
+          {/* Admin Portal — staff and above only (never customers). Cross-origin
+              link to admin.theroyalglow.in. */}
+          {user && isAdminRole(user.role) && (
+            <a
+              href={adminPortalUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={onClose}
+              className="mb-2 flex items-center gap-3 rounded-2xl bg-cocoa-dark px-4 py-3.5 text-canvas-white transition-colors hover:bg-warm-gray"
+            >
+              <svg
+                className="h-5 w-5 shrink-0"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 2 4 5v6c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V5l-8-3Z" />
+                <path d="m9 12 2 2 4-4" />
+              </svg>
+              <span className="flex-1 font-ui font-bold text-sm">Admin Portal</span>
+              <span className="rounded-pill bg-canvas-white/15 px-2 py-0.5 font-ui text-[10px] font-bold uppercase tracking-[0.5px]">
+                {user.role}
+              </span>
+            </a>
           )}
 
           {/* Account links (signed in) */}
