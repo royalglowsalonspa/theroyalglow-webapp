@@ -8,6 +8,7 @@
  *
  * Description  : Marks a confirmed/in-progress booking as completed, generates
  *                a GST invoice, awards loyalty gems, and applies optional offers.
+ *                Persists the completion atomically via completeBookingWithInvoice.
  *
  * Responsibilities :
  * - Validate booking is in completable state (confirmed/in_progress)
@@ -46,26 +47,22 @@ import {
   splitGST,
 } from '@rgss/business'
 import {
-  addGemsTransaction,
-  createInvoiceWithItems,
+  completeBookingWithInvoice,
   getBookingForAdmin,
   getBranchByIdAdmin,
   getOfferById,
   getOfferRedemptionForCustomerOnDate,
-  getOrCreateLoyaltyAccount,
   getStaffNamesByIds,
   recordOfferRedemption,
-  updateBookingStatus,
 } from '@rgss/db/queries'
 import { ERROR_CODES, badRequest, conflict, notFound } from '@rgss/errors'
 import { completeBookingSchema } from '@rgss/types'
 
 const COMPLETABLE_STATUSES = new Set(['confirmed', 'in_progress'])
-const GEMS_EXPIRY_DAYS = 365
 
 export const POST = withErrorHandler(
   async (req: Request, ctx: { params: Promise<{ id: string }> }) => {
-    await requireRole('receptionist')
+    const session = await requireRole('receptionist')
     const { id } = await ctx.params
 
     const body = await req.json().catch(() => null)
@@ -150,19 +147,16 @@ export const POST = withErrorHandler(
       appliedOfferId = offer.id
     }
 
-    // 1. Mark the booking completed.
-    const completed = await updateBookingStatus(id, 'completed', {
-      completedAt: now,
-    })
-
-    // 2. Build the invoice. Prices are GST-inclusive paise. The subtotal is the
-    //    original (pre-discount) base; the taxable value + GST are split from the
-    //    discounted total so they reconstruct `finalPaise` exactly.
+    // Pre-compute the monetary values in the business/route layer (the db layer
+    // must not import @rgss/business). Prices are GST-inclusive paise.
+    //  - subtotal: the original (pre-discount) base value
+    //  - taxable value + GST: split from the discounted total so they
+    //    reconstruct `finalPaise` exactly (Req 12.2)
+    //  - gems: floor of rupees on the discounted total, but exactly 0 for a
+    //    membership session (Req 12.3, 12.4)
     const { basePaise: subtotalPaise } = splitGST(existing.totalAmountPaise)
     const { basePaise: taxableValuePaise, gstPaise } = splitGST(finalPaise)
-
-    // 3. Gems are earned on service invoices only, on the discounted total.
-    const gemsEarned = calculateGemsEarned(finalPaise)
+    const gemsEarned = calculateGemsEarned(finalPaise, existing.isMembershipSession)
 
     // Snapshot staff names onto each invoice item.
     const staffIds = [
@@ -175,11 +169,15 @@ export const POST = withErrorHandler(
 
     const invoiceNumber = generateInvoiceNumber(branch.number, now)
 
-    const invoice = await createInvoiceWithItems(
-      {
+    // Persist atomically (Req 12.1): booking → completed + service invoice (with
+    // the pre-computed GST split) + invoice items + gems credit + status log in a
+    // single db.batch(). The query layer only persists the values supplied here.
+    const result = await completeBookingWithInvoice({
+      bookingId: id,
+      changedById: session.user.id,
+      invoice: {
         invoiceNumber,
         branchId: existing.branchId,
-        bookingId: existing.id,
         customerId: existing.customerId,
         subtotalPaise,
         discountAmountPaise: discountPaise,
@@ -188,11 +186,9 @@ export const POST = withErrorHandler(
         totalAmountPaise: finalPaise,
         invoiceType: 'service',
         paymentMethod,
-        paymentStatus: 'paid',
         gemsEarned,
-        paidAt: now,
       },
-      existing.services.map((s, index) => ({
+      items: existing.services.map((s, index) => ({
         serviceId: s.serviceId,
         serviceNameSnapshot: s.serviceNameSnapshot,
         staffNameSnapshot: s.staffId
@@ -203,22 +199,15 @@ export const POST = withErrorHandler(
         totalPricePaise: s.priceAtBookingPaise,
         displayOrder: index,
       })),
-    )
+    })
 
-    // 4. Award gems (only when any were earned).
-    if (gemsEarned > 0) {
-      const account = await getOrCreateLoyaltyAccount(existing.customerId)
-      const expiresAt = new Date(now.getTime() + GEMS_EXPIRY_DAYS * 24 * 60 * 60 * 1000)
-      await addGemsTransaction(
-        account.id,
-        gemsEarned,
-        invoice.id,
-        `Earned on invoice ${invoiceNumber}`,
-        expiresAt,
-      )
+    if (!result) {
+      // Booking vanished between the read and the write — surface as not-found.
+      throw notFound('Booking not found.')
     }
 
-    // 5. Record the offer redemption (one-per-customer-per-day, DB-enforced).
+    // Record the offer redemption (one-per-customer-per-day, DB-enforced). Kept
+    // outside the completion batch as it belongs to the offers feature.
     if (appliedOfferId) {
       await recordOfferRedemption(appliedOfferId, existing.customerId, existing.id, today)
     }
@@ -253,9 +242,9 @@ export const POST = withErrorHandler(
     await enqueueJob('/api/jobs/post-service-followup', { bookingId: id }, 24 * 60 * 60)
 
     return apiSuccess({
-      booking: completed,
+      booking: result.booking,
       invoice: {
-        invoiceNumber: invoice.invoiceNumber,
+        invoiceNumber,
         totalPaise: finalPaise,
         gstPaise,
       },

@@ -170,6 +170,7 @@
         "nanoid": "^5.1.11",
       },
       "devDependencies": {
+        "fast-check": "^3.23.1",
         "typescript": "^5.7.3",
       },
     },
@@ -185,6 +186,7 @@
       },
       "devDependencies": {
         "drizzle-kit": "^0.30.0",
+        "fast-check": "^3.23.1",
       },
     },
     "packages/errors": {

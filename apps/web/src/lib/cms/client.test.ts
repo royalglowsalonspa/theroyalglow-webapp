@@ -11,13 +11,13 @@
  *                docs when MSW-backed.
  *
  * Responsibilities :
- * - Test unconfigured CMS returns safe defaults with no network calls
+ * - Test unconfigured CMS returns the seeded MOCK_POSTS fallback with no network calls
  * - Test configured CMS maps Payload docs into view-model types
- * - Test error handling (500 responses → empty results)
+ * - Test error handling (500 responses → seeded fallback, never throws)
  * - Test banner time-window filtering
  *
  * Features / Functionality :
- * - Unconfigured: getPublishedPosts → [], getPostBySlug → null
+ * - Unconfigured: getPublishedPosts → seeded fallback, getAllPostSlugs → seeded slugs, getPostBySlug → null
  * - Configured: maps blogDoc/bannerDoc into typed results
  * - Active banner window filtering (startAt/endAt)
  *
@@ -79,16 +79,29 @@ describe('cms client — unconfigured (no NEXT_PUBLIC_CMS_URL)', () => {
     vi.unstubAllEnvs()
   })
 
-  it('getPublishedPosts returns [] with no network call', async () => {
-    await expect(getPublishedPosts()).resolves.toEqual([])
+  it('getPublishedPosts returns the seeded fallback with no network call', async () => {
+    // Unconfigured → cmsFetch yields null → no request made (MSW
+    // `onUnhandledRequest: 'error'` would flag any leaked call). Documented
+    // "graceful degradation": the listing serves the seeded MOCK_POSTS so the
+    // /blog page is never empty.
+    const posts = await getPublishedPosts()
+    expect(posts.length).toBeGreaterThan(0)
+    // Every item is a well-formed BlogListItem (slug + title present).
+    expect(posts.every((p) => p.slug !== '' && p.title !== '')).toBe(true)
+    // Seeded content, not CMS content.
+    expect(posts.some((p) => p.slug === 'hair-color-stay-longer')).toBe(true)
   })
 
   it('getPostBySlug returns null with no network call', async () => {
+    // Unconfigured falls back to MOCK_POSTS.find; an unknown slug stays null.
     await expect(getPostBySlug('anything')).resolves.toBeNull()
   })
 
-  it('getAllPostSlugs returns [] with no network call', async () => {
-    await expect(getAllPostSlugs()).resolves.toEqual([])
+  it('getAllPostSlugs returns the seeded slugs with no network call', async () => {
+    // Unconfigured → no request made; falls back to the seeded MOCK_POSTS slugs.
+    const slugs = await getAllPostSlugs()
+    expect(slugs.length).toBeGreaterThan(0)
+    expect(slugs).toContain('hair-color-stay-longer')
   })
 })
 
@@ -111,12 +124,15 @@ describe('cms client — configured (MSW-backed)', () => {
     expect(posts[0]?.publishedAt).toBe('2026-05-30T00:00:00.000Z')
   })
 
-  it('getPublishedPosts returns [] on a 500 (total)', async () => {
+  it('getPublishedPosts returns the seeded fallback on a 500 (total)', async () => {
     server.use(
       http.get(`${CMS_URL}/api/blog`, () => HttpResponse.json({ error: 'boom' }, { status: 500 })),
     )
 
-    await expect(getPublishedPosts()).resolves.toEqual([])
+    // cmsFetch maps the non-2xx to null → no docs → seeded fallback (never throws).
+    const posts = await getPublishedPosts()
+    expect(posts.length).toBeGreaterThan(0)
+    expect(posts.some((p) => p.slug === 'hair-color-stay-longer')).toBe(true)
   })
 
   it('getActiveBanners returns only the in-window banner', async () => {

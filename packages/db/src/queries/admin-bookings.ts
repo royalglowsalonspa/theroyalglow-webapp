@@ -15,6 +15,9 @@
  * - Update booking status with associated timestamps
  * - Assign staff to booking services (individual or bulk)
  * - Create invoices with line items atomically
+ * - Approve / reject / (re)assign bookings with status-log audit entries
+ * - Complete a booking atomically: status → completed + service invoice (GST
+ *   split) + invoice items + gems credit + status log, in one db.batch()
  *
  * Features / Functionality :
  * - Filtered, paginated admin booking list with customer names
@@ -33,19 +36,26 @@
  *                support interactive transactions.
  ************************************************************/
 
-import { and, asc, desc, eq, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
+import type { BatchItem } from 'drizzle-orm/batch'
 import { nanoid } from 'nanoid'
 import { db } from '../index'
 import { user } from '../schema/auth'
-import { booking, bookingService } from '../schema/booking'
+import { booking, bookingService, bookingStatusLog } from '../schema/booking'
 import { branch } from '../schema/branch'
 import { invoice, invoiceItem } from '../schema/invoice'
+import { loyaltyAccount, loyaltyTransaction } from '../schema/loyalty'
 import { staffProfile } from '../schema/profile'
+import { getOrCreateLoyaltyAccount } from './loyalty'
 
 type BookingStatus = (typeof booking.$inferSelect)['status']
 type ServiceType = (typeof booking.$inferSelect)['serviceType']
 type NewInvoice = typeof invoice.$inferInsert
 type NewInvoiceItem = typeof invoiceItem.$inferInsert
+
+// Gems earned on a service invoice expire 365 days from the earn date
+// (auto-swept by pg_cron Job 7). Mirrors the loyalty-domain expiry constant.
+const LOYALTY_EXPIRY_DAYS = 365
 
 type BookingFilters = {
   status?: string
@@ -94,6 +104,68 @@ export async function getAllBookings(filters: BookingFilters = {}) {
     customerName: r.customerName,
     customerEmail: r.customerEmail,
     services: services.filter((s) => s.bookingId === r.booking.id),
+  }))
+}
+
+// Cross-customer admin booking listing (Requirements 10.2–10.5). Returns every
+// booking — newest first — with the owning customer's name/email, its
+// booking_service rows (each carrying the assigned staff member's name, or null
+// when none is assigned yet), and the booking status. The optional status,
+// date, and service-type filters are applied conditionally as parameterized
+// equality predicates in the WHERE clause; an absent filter widens the result.
+export async function listBookings(filters: BookingFilters = {}) {
+  const conditions = []
+  if (filters.status) {
+    conditions.push(eq(booking.status, filters.status as BookingStatus))
+  }
+  if (filters.serviceType) {
+    conditions.push(eq(booking.serviceType, filters.serviceType as ServiceType))
+  }
+  if (filters.date) {
+    conditions.push(eq(booking.bookingDate, new Date(`${filters.date}T00:00:00.000Z`)))
+  }
+
+  const rows = await db
+    .select({
+      booking,
+      customerName: user.name,
+      customerEmail: user.email,
+    })
+    .from(booking)
+    .innerJoin(user, eq(booking.customerId, user.id))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(booking.bookingDate), desc(booking.createdAt))
+
+  if (rows.length === 0) {
+    return []
+  }
+
+  const bookingIds = rows.map((r) => r.booking.id)
+
+  // Resolve each booking_service row's assigned staff name via the
+  // staff_profile → user chain. LEFT JOINs keep services whose staff is unset
+  // (pending bookings are assigned staff only on approval).
+  const services = await db
+    .select({
+      service: bookingService,
+      staffName: user.name,
+    })
+    .from(bookingService)
+    .leftJoin(staffProfile, eq(bookingService.staffId, staffProfile.id))
+    .leftJoin(user, eq(staffProfile.userId, user.id))
+    .where(inArray(bookingService.bookingId, bookingIds))
+    .orderBy(asc(bookingService.displayOrder))
+
+  const servicesWithStaff = services.map((s) => ({
+    ...s.service,
+    staffName: s.staffName,
+  }))
+
+  return rows.map((r) => ({
+    ...r.booking,
+    customerName: r.customerName,
+    customerEmail: r.customerEmail,
+    services: servicesWithStaff.filter((s) => s.bookingId === r.booking.id),
   }))
 }
 
@@ -232,4 +304,239 @@ export async function createInvoiceWithItems(
   const [invoiceResult] = await db.batch([insertInvoice, db.insert(invoiceItem).values(itemValues)])
 
   return invoiceResult[0] as typeof invoice.$inferSelect
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Admin mutation queries (Requirements 11.1, 11.2, 11.4, 12.1)
+//
+// LAYER NOTE: packages/db must not import packages/business (the STRICT layer
+// rule — @rgss/business is not a dependency of @rgss/db). The monetary GST split
+// (splitGST), the gems award (calculateGemsEarned) and the invoice number
+// (generateInvoiceNumber) are therefore computed by the admin route/business
+// layer and passed in as already-resolved values; this layer only persists them
+// atomically. Status-transition guards (e.g. approve/reject require `pending`,
+// completion requires `confirmed`/`in_progress`) are likewise enforced by the
+// route before these writers run — the prior status is read here solely to
+// stamp the booking_status_log `fromStatus`, mirroring cancelBooking /
+// rescheduleBooking in queries/bookings.ts.
+//
+// neon-http has no interactive transactions (db.transaction throws), so each
+// multi-statement write uses db.batch() — a single atomic, server-side
+// transaction round-trip.
+// ────────────────────────────────────────────────────────────────────────────
+
+// Approve a pending booking: set status → `confirmed` (+ confirmedAt), assign the
+// chosen staff member to every booking_service row, and append a status-log entry
+// capturing the prior → confirmed transition with the acting user (Req 11.1, 11.4).
+// Returns the updated booking, or null when the booking does not exist.
+export async function approveBooking(id: string, changedById: string, staffId: string) {
+  const rows = await db
+    .select({ status: booking.status })
+    .from(booking)
+    .where(eq(booking.id, id))
+    .limit(1)
+  const current = rows[0]
+  if (!current) {
+    return null
+  }
+
+  const updateStmt = db
+    .update(booking)
+    .set({ status: 'confirmed', confirmedAt: new Date() })
+    .where(eq(booking.id, id))
+    .returning()
+
+  const assignStmt = db
+    .update(bookingService)
+    .set({ staffId })
+    .where(eq(bookingService.bookingId, id))
+
+  const logStmt = db.insert(bookingStatusLog).values({
+    bookingId: id,
+    fromStatus: current.status,
+    toStatus: 'confirmed',
+    changedById,
+    notes: 'Approved',
+  })
+
+  const [updateResult] = await db.batch([updateStmt, assignStmt, logStmt])
+  return (updateResult[0] as typeof booking.$inferSelect | undefined) ?? null
+}
+
+// Reject a pending booking: set status → `rejected` (+ rejectedAt), store the
+// customer-facing rejection reason, and append a status-log entry capturing the
+// prior → rejected transition with the acting user (Req 11.2, 11.4). Returns the
+// updated booking, or null when the booking does not exist.
+export async function rejectBooking(id: string, changedById: string, rejectionReason: string) {
+  const rows = await db
+    .select({ status: booking.status })
+    .from(booking)
+    .where(eq(booking.id, id))
+    .limit(1)
+  const current = rows[0]
+  if (!current) {
+    return null
+  }
+
+  const updateStmt = db
+    .update(booking)
+    .set({ status: 'rejected', rejectionReason, rejectedAt: new Date() })
+    .where(eq(booking.id, id))
+    .returning()
+
+  const logStmt = db.insert(bookingStatusLog).values({
+    bookingId: id,
+    fromStatus: current.status,
+    toStatus: 'rejected',
+    changedById,
+    notes: `Rejected: ${rejectionReason}`,
+  })
+
+  const [updateResult] = await db.batch([updateStmt, logStmt])
+  return (updateResult[0] as typeof booking.$inferSelect | undefined) ?? null
+}
+
+// (Re)assign a staff member to every booking_service row of a booking, regardless
+// of the booking's lifecycle status (Req 11 — assign action). No status change and
+// no status-log entry: this only moves the resource allocation. Returns the updated
+// booking_service rows (empty array when the booking has no services or is absent).
+export async function assignStaff(bookingId: string, staffId: string) {
+  return db
+    .update(bookingService)
+    .set({ staffId })
+    .where(eq(bookingService.bookingId, bookingId))
+    .returning()
+}
+
+type CompleteBookingInvoice = {
+  invoiceNumber: string
+  branchId: string
+  customerId: string
+  subtotalPaise: number
+  // Pre-computed offer discount applied to the total (paise). Already resolved by
+  // the route via computeOfferDiscount; this layer only persists it. Defaults 0.
+  discountAmountPaise?: number
+  taxableValuePaise: number
+  gstAmountPaise: number
+  totalAmountPaise: number
+  paymentMethod: NewInvoice['paymentMethod']
+  invoiceType?: NewInvoice['invoiceType']
+  // Gems to credit. Computed by the caller via calculateGemsEarned — already 0
+  // for membership sessions (Req 12.3, 12.4). When 0, no loyalty rows are written.
+  gemsEarned: number
+}
+
+// Complete a booking and bill it in ONE atomic db.batch() (Req 12.1): set the
+// booking status → `completed` (+ completedAt), create the service invoice (with
+// the caller-supplied GST split and a `paid` payment status), insert the invoice
+// line items, credit gems to the customer's loyalty account when any are earned,
+// and append a status-log entry capturing the prior → completed transition.
+//
+// The GST split (splitGST), gems amount (calculateGemsEarned) and invoice number
+// (generateInvoiceNumber) are computed by the route/business layer and passed in
+// (see LAYER NOTE above). The loyalty account is resolved/created before the batch
+// because neon-http cannot read-then-conditionally-create inside a single batch;
+// the gems transaction + balance update are still written inside the same atomic
+// batch as the booking and invoice. Returns the updated booking and created
+// invoice, or null when the booking does not exist.
+export async function completeBookingWithInvoice(params: {
+  bookingId: string
+  changedById: string
+  invoice: CompleteBookingInvoice
+  items: Omit<NewInvoiceItem, 'invoiceId'>[]
+}) {
+  const { bookingId, changedById, invoice: inv, items } = params
+
+  const rows = await db
+    .select({ status: booking.status })
+    .from(booking)
+    .where(eq(booking.id, bookingId))
+    .limit(1)
+  const current = rows[0]
+  if (!current) {
+    return null
+  }
+
+  const now = new Date()
+  const invoiceId = nanoid()
+
+  // Resolve the loyalty account up-front (read + lazy create) so the gems credit
+  // can join the atomic batch below. Only needed when gems are actually earned.
+  const loyaltyAccountId =
+    inv.gemsEarned > 0 ? (await getOrCreateLoyaltyAccount(inv.customerId)).id : null
+
+  const invoiceValues: NewInvoice = {
+    id: invoiceId,
+    invoiceNumber: inv.invoiceNumber,
+    branchId: inv.branchId,
+    bookingId,
+    customerId: inv.customerId,
+    subtotalPaise: inv.subtotalPaise,
+    discountAmountPaise: inv.discountAmountPaise ?? 0,
+    taxableValuePaise: inv.taxableValuePaise,
+    gstAmountPaise: inv.gstAmountPaise,
+    totalAmountPaise: inv.totalAmountPaise,
+    invoiceType: inv.invoiceType ?? 'service',
+    paymentMethod: inv.paymentMethod,
+    paymentStatus: 'paid',
+    gemsEarned: inv.gemsEarned,
+    paidAt: now,
+  }
+
+  const updateBookingStmt = db
+    .update(booking)
+    .set({ status: 'completed', completedAt: now })
+    .where(eq(booking.id, bookingId))
+    .returning()
+
+  const insertInvoiceStmt = db.insert(invoice).values(invoiceValues).returning()
+
+  const logStmt = db.insert(bookingStatusLog).values({
+    bookingId,
+    fromStatus: current.status,
+    toStatus: 'completed',
+    changedById,
+    notes: `Completed — invoice ${inv.invoiceNumber}`,
+  })
+
+  // Assemble the atomic batch. Order: [booking update, invoice insert, (items),
+  // (gems tx + balance), status log]. Only the first two carry `.returning()`,
+  // so they sit at fixed indices 0 and 1.
+  const statements: BatchItem<'pg'>[] = [updateBookingStmt, insertInvoiceStmt]
+
+  if (items.length > 0) {
+    const itemValues: NewInvoiceItem[] = items.map((item) => ({ ...item, invoiceId }))
+    statements.push(db.insert(invoiceItem).values(itemValues))
+  }
+
+  if (loyaltyAccountId) {
+    const expiresAt = new Date(now.getTime() + LOYALTY_EXPIRY_DAYS * 24 * 60 * 60 * 1000)
+    statements.push(
+      db.insert(loyaltyTransaction).values({
+        loyaltyAccountId,
+        type: 'earned',
+        gemsAmount: inv.gemsEarned,
+        invoiceId,
+        description: `Earned on invoice ${inv.invoiceNumber}`,
+        expiresAt,
+      }),
+    )
+    statements.push(
+      db
+        .update(loyaltyAccount)
+        .set({
+          gemsBalance: sql`${loyaltyAccount.gemsBalance} + ${inv.gemsEarned}`,
+          totalGemsEarned: sql`${loyaltyAccount.totalGemsEarned} + ${inv.gemsEarned}`,
+        })
+        .where(eq(loyaltyAccount.id, loyaltyAccountId)),
+    )
+  }
+
+  statements.push(logStmt)
+
+  const results = await db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]])
+  const updatedBooking = (results[0] as (typeof booking.$inferSelect)[])[0]
+  const createdInvoice = (results[1] as (typeof invoice.$inferSelect)[])[0]
+
+  return { booking: updatedBooking, invoice: createdInvoice }
 }

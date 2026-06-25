@@ -6,37 +6,34 @@
  * Module Name  : ServicesPage
  * Scope        : Customer Pages
  *
- * Description  : Services index page that fetches the catalogue from Payload
- *                CMS and renders JSON-LD structured data. Falls back to the
- *                hardcoded catalogue in ServicesContent when CMS is empty.
+ * Description  : Services index page that renders JSON-LD structured data and
+ *                mounts the client catalogue, which sources categories and
+ *                services from GET /api/services with loading and error states.
  *
  * Responsibilities :
  * - Emit LocalBusiness and Breadcrumb JSON-LD for SEO
- * - Fetch active services via getServices()
- * - Mount ServicesContent with CMS data or hardcoded fallback
+ * - Mount ServicesCatalogue (sources data from GET /api/services)
  *
  * Features / Functionality :
- * - ISR-cached CMS reads (1h default)
- * - Salon/SPA toggle delegated to ServicesContent / CmsServicesCatalogue
+ * - Live catalogue from the Services API (loading + error/retry states)
+ * - Salon/SPA toggle delegated to ServicesCatalogue
  *
  * Tech Stack   : React (server), Next.js 16 (App Router), Tailwind CSS v4, JSON-LD
  * Layer        : Presentation
  *
- * Dependencies : JsonLd, getServices, SITE_URL, breadcrumbJsonLd, localBusinessJsonLd,
- *                buildMetadata, ServicesContent
+ * Dependencies : JsonLd, SITE_URL, breadcrumbJsonLd, localBusinessJsonLd,
+ *                buildMetadata, ServicesCatalogue
  *
  * Notes        :
  * - Per-service JSON-LD can be added when per-slug service pages land.
  ************************************************************/
 
 import { JsonLd } from '@/components/seo/JsonLd'
-import { getCatalogueServices } from '@/lib/catalogue'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, localBusinessJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
 import type { Metadata } from 'next'
-import { CmsServicesCatalogue } from './CmsServicesCatalogue'
-import { ServicesContent } from './services-content'
+import { ServicesCatalogue } from './services-catalogue'
 
 export const metadata: Metadata = buildMetadata({
   title: 'Our Services',
@@ -45,11 +42,7 @@ export const metadata: Metadata = buildMetadata({
   path: '/services',
 })
 
-export const revalidate = 3600
-
-export default async function ServicesPage() {
-  const cmsServices = await getCatalogueServices()
-
+export default function ServicesPage() {
   return (
     <>
       <JsonLd
@@ -58,11 +51,7 @@ export default async function ServicesPage() {
           breadcrumbJsonLd([{ name: 'Home', url: SITE_URL }, { name: 'Services' }]),
         ]}
       />
-      {cmsServices.length > 0 ? (
-        <CmsServicesCatalogue services={cmsServices} />
-      ) : (
-        <ServicesContent />
-      )}
+      <ServicesCatalogue />
     </>
   )
 }

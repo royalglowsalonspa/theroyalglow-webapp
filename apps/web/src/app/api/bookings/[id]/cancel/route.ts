@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 05-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : POST /api/bookings/[id]/cancel
@@ -17,7 +17,8 @@
  * Features / Functionality :
  * - Status guard (only pending/confirmed → cancelled)
  * - Optional cancellation reason capture
- * - Conflict error for non-cancellable statuses
+ * - Already-cancelled → BOOKING_ALREADY_CANCELLED (409); other terminal
+ *   states → BOOKING_INVALID_STATUS_TRANSITION (409)
  *
  * Tech Stack   : Next.js 16 (Route Handler)
  * Layer        : API (Thin Orchestrator)
@@ -32,7 +33,7 @@
 
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireSession } from '@/lib/api/session'
-import { cancelBooking, getBookingById } from '@rgss/db/queries'
+import { cancelBooking, getBookingByIdForCustomer } from '@rgss/db/queries'
 import { ERROR_CODES, conflict, notFound } from '@rgss/errors'
 import { cancelBookingSchema } from '@rgss/types'
 
@@ -43,15 +44,23 @@ export const POST = withErrorHandler(
     const session = await requireSession()
     const { id } = await ctx.params
 
-    const existing = await getBookingById(id)
-    // Return 404 rather than 403 so we don't reveal which booking ids exist.
-    if (!existing || existing.customerId !== session.user.id) {
+    const existing = await getBookingByIdForCustomer(id, session.user.id)
+    // Ownership is part of the query's WHERE clause, so a cross-customer lookup
+    // is indistinguishable from a missing row — both map to 404 and never reveal
+    // which booking ids exist.
+    if (!existing) {
       throw notFound('Booking not found.')
     }
 
     if (!CANCELLABLE_STATUSES.has(existing.status)) {
+      // Already-cancelled is its own conflict; every other terminal/active
+      // state (completed, in_progress, no_show, rejected, rescheduled) is an
+      // invalid status transition.
+      if (existing.status === 'cancelled') {
+        throw conflict(ERROR_CODES.BOOKING_ALREADY_CANCELLED, 'Booking is already cancelled.')
+      }
       throw conflict(
-        ERROR_CODES.BOOKING_ALREADY_CANCELLED,
+        ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION,
         `Booking cannot be cancelled from status "${existing.status}".`,
       )
     }
@@ -61,7 +70,7 @@ export const POST = withErrorHandler(
     const parsed = cancelBookingSchema.safeParse(raw ?? {})
     const reason = parsed.success ? (parsed.data.reason ?? null) : null
 
-    const updated = await cancelBooking(id, reason)
+    const updated = await cancelBooking(id, session.user.id, reason)
     if (!updated) {
       throw notFound('Booking not found.')
     }

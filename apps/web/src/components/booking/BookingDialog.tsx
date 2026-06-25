@@ -215,7 +215,12 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
     return () => document.removeEventListener('keydown', trap)
   }, [isOpen, step, isSubmitted, servicesLoading, slotsLoading])
 
-  // Fetch services when the dialog opens (once).
+  // Fetch services when the dialog opens (once). Only re-run on open
+  // transitions: the inner `categories`/`servicesLoading` guard and the
+  // `cancelled` flag prevent duplicate fetches, and including `servicesLoading`
+  // here would re-run the effect the moment it is set true, cancelling the
+  // in-flight request before it can resolve.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional open-only trigger; see comment above.
   useEffect(() => {
     if (!isOpen || categories || servicesLoading) return
     let cancelled = false
@@ -243,7 +248,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
     return () => {
       cancelled = true
     }
-  }, [isOpen, categories, servicesLoading])
+  }, [isOpen])
 
   // Restore a saved booking intent (e.g. after returning from sign-in) once
   // services are available so the summary can render service names.

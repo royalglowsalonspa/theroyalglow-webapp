@@ -27,30 +27,42 @@
  * Notes        :
  * - Requires min role: receptionist.
  * - Used by the admin bookings list page and dashboard widgets.
+ * - Uses listBookings (not getAllBookings) so each booking_service row carries
+ *   its assigned staff member's name in the projection.
  ************************************************************/
 
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
-import { getAllBookings } from '@rgss/db/queries'
+import { listBookings } from '@rgss/db/queries'
+import { badRequest } from '@rgss/errors'
+import { adminBookingListQuerySchema } from '@rgss/types'
 
 export const GET = withErrorHandler(async (req: Request) => {
   await requireRole('receptionist')
 
   const { searchParams } = new URL(req.url)
-  const filters: { status?: string; serviceType?: string; date?: string } = {}
-  const status = searchParams.get('status')
-  const serviceType = searchParams.get('serviceType')
-  const date = searchParams.get('date')
-  if (status) {
-    filters.status = status
-  }
-  if (serviceType) {
-    filters.serviceType = serviceType
-  }
-  if (date) {
-    filters.date = date
+  const parsed = adminBookingListQuerySchema.safeParse({
+    status: searchParams.get('status') ?? undefined,
+    serviceType: searchParams.get('serviceType') ?? undefined,
+    date: searchParams.get('date') ?? undefined,
+  })
+  if (!parsed.success) {
+    throw badRequest('Invalid filter parameters', parsed.error.flatten().fieldErrors)
   }
 
-  const bookings = await getAllBookings(filters)
+  // Build the filter object with only the supplied keys so an absent filter
+  // widens the result (exactOptionalPropertyTypes forbids explicit undefined).
+  const filters: { status?: string; serviceType?: string; date?: string } = {}
+  if (parsed.data.status) {
+    filters.status = parsed.data.status
+  }
+  if (parsed.data.serviceType) {
+    filters.serviceType = parsed.data.serviceType
+  }
+  if (parsed.data.date) {
+    filters.date = parsed.data.date
+  }
+
+  const bookings = await listBookings(filters)
   return apiSuccess({ bookings })
 })

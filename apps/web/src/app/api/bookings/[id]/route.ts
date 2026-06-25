@@ -1,36 +1,35 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 25-06-2026 & Updated - 25-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : GET /api/bookings/[id]
  * Scope        : API — Customer Booking
  *
- * Description  : Returns a single booking detail for the authenticated customer.
- *                Returns 404 for non-existent or non-owned bookings.
+ * Description  : Returns a single booking owned by the authenticated customer,
+ *                including its service snapshot rows and lifecycle timestamps.
  *
  * Responsibilities :
- * - Authenticate the caller and extract booking ID from params
- * - Verify booking ownership (customer can only see their own)
- * - Return full booking detail with services and status
+ * - Validate session and booking ownership
+ * - Return the full booking with services for the detail page
  *
  * Features / Functionality :
- * - Ownership-scoped booking retrieval
- * - 404 instead of 403 to avoid ID enumeration
- * - Full booking detail with service snapshots
+ * - Ownership check returns 404 (not 403) to avoid leaking booking-id existence
+ * - Includes status timestamps (confirmed/completed/cancelled/rejected) for the
+ *   client-rendered status timeline
  *
  * Tech Stack   : Next.js 16 (Route Handler)
  * Layer        : API (Thin Orchestrator)
  *
- * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/db/queries, @rgss/errors
+ * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/db/queries,
+ *                @rgss/errors
  *
- * Notes        :
- * - Returns 404 (not 403) for other users' bookings to prevent ID enumeration.
+ * Notes        : Read-only. Mutations live in ./cancel and ./reschedule.
  ************************************************************/
 
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireSession } from '@/lib/api/session'
-import { getBookingById } from '@rgss/db/queries'
+import { getBookingByIdForCustomer } from '@rgss/db/queries'
 import { notFound } from '@rgss/errors'
 
 export const GET = withErrorHandler(
@@ -38,12 +37,14 @@ export const GET = withErrorHandler(
     const session = await requireSession()
     const { id } = await ctx.params
 
-    const booking = await getBookingById(id)
-    // Return 404 rather than 403 so we don't reveal which booking ids exist.
-    if (!booking || booking.customerId !== session.user.id) {
+    // Ownership is enforced in the WHERE clause, so a cross-customer lookup is
+    // indistinguishable from a missing row — both map to 404 and never reveal
+    // which booking ids exist.
+    const existing = await getBookingByIdForCustomer(id, session.user.id)
+    if (!existing) {
       throw notFound('Booking not found.')
     }
 
-    return apiSuccess({ booking })
+    return apiSuccess({ booking: existing })
   },
 )

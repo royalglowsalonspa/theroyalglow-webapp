@@ -14,10 +14,30 @@ export default defineWorkspace([
     },
   },
   {
+    test: {
+      name: 'types',
+      environment: 'node',
+      include: ['packages/types/**/*.test.ts'],
+    },
+  },
+  {
+    test: {
+      name: 'db',
+      environment: 'node',
+      include: ['packages/db/**/*.test.ts'],
+    },
+  },
+  {
     plugins: [react()],
     resolve: {
       alias: {
         '@': resolve(__dirname, 'apps/web/src'),
+        // React is installed in apps/web/node_modules (not hoisted to the
+        // workspace root, which is the jsdom `web` project's root). Point the
+        // JSX runtime + react/react-dom at the web install so component (.tsx)
+        // tests resolve `react/jsx-dev-runtime`.
+        react: resolve(__dirname, 'apps/web/node_modules/react'),
+        'react-dom': resolve(__dirname, 'apps/web/node_modules/react-dom'),
       },
     },
     test: {

@@ -1,3 +1,4 @@
+import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import { calculateGemsEarned } from './gems'
 
@@ -18,5 +19,27 @@ describe('calculateGemsEarned', () => {
       const p = Math.floor(Math.random() * 100_000_000)
       expect(calculateGemsEarned(p)).toBe(Math.floor(p / 10_000))
     }
+  })
+})
+
+// Feature: backend-api, Property 28: Gems award is floor of rupees, zero for membership sessions
+// Validates: Requirements 12.3, 12.4
+describe('calculateGemsEarned — Property 28: floor of rupees, zero for membership sessions', () => {
+  it('awards floor(totalPaise/10000) for non-membership sessions', () => {
+    fc.assert(
+      fc.property(fc.nat(), (totalPaise) => {
+        expect(calculateGemsEarned(totalPaise, false)).toBe(Math.floor(totalPaise / 10_000))
+      }),
+      { numRuns: 100 },
+    )
+  })
+
+  it('awards zero gems for membership sessions regardless of total', () => {
+    fc.assert(
+      fc.property(fc.nat(), (totalPaise) => {
+        expect(calculateGemsEarned(totalPaise, true)).toBe(0)
+      }),
+      { numRuns: 100 },
+    )
   })
 })
