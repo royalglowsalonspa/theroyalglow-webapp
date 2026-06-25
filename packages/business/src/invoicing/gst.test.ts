@@ -1,5 +1,8 @@
+import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import { splitGST } from './gst'
+
+const GST_RATE = 0.18
 
 describe('splitGST', () => {
   it('reconstructs the inclusive total exactly (base + gst === total)', () => {
@@ -44,5 +47,25 @@ describe('splitGST', () => {
       sgstPaise: 0,
       totalPaise: 0,
     })
+  })
+
+  // Feature: backend-api, Property 27: GST split reconstructs the total exactly
+  // Validates: Requirements 12.2
+  it('Property 27: GST split reconstructs the total exactly', () => {
+    fc.assert(
+      fc.property(fc.nat(), (total) => {
+        const { basePaise, gstPaise, cgstPaise, sgstPaise } = splitGST(total)
+        // taxable === round(total / 1.18)
+        expect(basePaise).toBe(Math.round(total / (1 + GST_RATE)))
+        // gst === total - taxable
+        expect(gstPaise).toBe(total - basePaise)
+        // taxable + gst === total exactly
+        expect(basePaise + gstPaise).toBe(total)
+        // cgst + sgst === gst with cgst === floor(gst / 2)
+        expect(cgstPaise).toBe(Math.floor(gstPaise / 2))
+        expect(cgstPaise + sgstPaise).toBe(gstPaise)
+      }),
+      { numRuns: 100 },
+    )
   })
 })

@@ -1,85 +1,97 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 25-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : GET /api/availability
  * Scope        : API — Public
  *
- * Description  : Returns available time slots for a given date. Generates
- *                30-minute slots from 10:00–20:30 IST with availability flags.
+ * Description  : Returns available time slots for a given date and branch.
+ *                Thin orchestrator: parse → Zod validate → call the pure
+ *                generateAvailability business function → standard envelope.
  *
  * Responsibilities :
- * - Validate the requested date parameter (format, past-date rejection)
- * - Generate static 30-minute time slots for the business hours
+ * - Validate the `date` (YYYY-MM-DD) and `branchId` query params with Zod
+ * - Delegate slot generation + past-date rejection to @rgss/business
  * - Return slot availability for the booking dialog
  *
  * Features / Functionality :
- * - 30-minute slot generation (10:00–21:00 window)
- * - IST-aware past-date validation
- * - YYYY-MM-DD format enforcement
+ * - 30-minute slot grid within branch business hours (10:00–21:00)
+ * - IST-aware past-date validation (VALIDATION_ERROR 400)
+ * - Availability flags for outside-hours, holidays, and past-today slots
  *
  * Tech Stack   : Next.js 16 (Route Handler)
  * Layer        : API (Thin Orchestrator)
  *
- * Dependencies : @/lib/api/error-handler, @rgss/errors
+ * Dependencies : @/lib/api/error-handler, @rgss/business, @rgss/errors,
+ *                @rgss/types
  *
  * Notes        :
- * - Currently returns all slots as available (static schedule).
- * - Will integrate with booking + staff_schedule tables for real availability.
+ * - Public endpoint (no auth).
+ * - generateAvailability is pure and throws AppError(400) for past/malformed
+ *   dates. Business hours are sourced from the system settings query layer
+ *   (per weekday); a closed day flags every slot unavailable. No per-branch
+ *   holiday query exists yet, so holidays are not sourced here.
  ************************************************************/
 
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { generateAvailability } from '@rgss/business'
+import { getSettings } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
+import { type DayHours, availabilityQuerySchema } from '@rgss/types'
 
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+// Weekday index (Date.getUTCDay: 0=Sun … 6=Sat) → the DayKey used by the
+// business-hours settings object.
+const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
 
-// Static schedule: 30-min slots from 10:00 to 20:30 (last slot ends 21:00).
-const OPEN_MINUTES = 10 * 60 // 10:00
-const LAST_SLOT_START_MINUTES = 20 * 60 + 30 // 20:30
-const SLOT_DURATION_MINUTES = 30
-
-function toTimeString(totalMinutes: number): string {
-  const hours = Math.floor(totalMinutes / 60)
-  const minutes = totalMinutes % 60
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+// "HH:MM" → minutes since midnight.
+function timeToMinutes(time: string): number {
+  const [h, m] = time.split(':')
+  return Number(h) * 60 + Number(m)
 }
 
-// Current calendar date in IST (UTC+5:30), as YYYY-MM-DD.
-function todayInIST(): string {
-  const istNow = new Date(Date.now() + 5.5 * 60 * 60 * 1000)
-  return istNow.toISOString().slice(0, 10)
+// Resolve the open/close window (in minutes since midnight) for a "YYYY-MM-DD"
+// calendar date from the configured weekday hours. A closed day (or a day
+// missing open/close) collapses to an empty window so every slot is flagged
+// unavailable.
+function resolveBusinessHours(
+  date: string,
+  hoursByDay: Record<(typeof DAY_KEYS)[number], DayHours>,
+): { openMinutes: number; closeMinutes: number } {
+  const [yPart, moPart, dPart] = date.split('-')
+  const weekday = new Date(Date.UTC(Number(yPart), Number(moPart) - 1, Number(dPart))).getUTCDay()
+  const dayKey = DAY_KEYS[weekday] ?? 'mon'
+  const day = hoursByDay[dayKey]
+
+  if (day.closed || day.open === null || day.close === null) {
+    return { openMinutes: 0, closeMinutes: 0 }
+  }
+
+  return { openMinutes: timeToMinutes(day.open), closeMinutes: timeToMinutes(day.close) }
 }
 
 export const GET = withErrorHandler(async (req: Request) => {
-  const date = new URL(req.url).searchParams.get('date')
+  const { searchParams } = new URL(req.url)
+  const parsed = availabilityQuerySchema.safeParse({
+    date: searchParams.get('date') ?? undefined,
+    branchId: searchParams.get('branchId') ?? undefined,
+  })
 
-  if (!date) {
-    throw badRequest('Query parameter "date" is required (YYYY-MM-DD).')
-  }
-  if (!DATE_PATTERN.test(date)) {
-    throw badRequest('Query parameter "date" must be in YYYY-MM-DD format.')
-  }
-
-  // Validate it is a real calendar date.
-  const parsed = new Date(`${date}T00:00:00.000Z`)
-  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) {
-    throw badRequest('Query parameter "date" is not a valid date.')
+  if (!parsed.success) {
+    throw badRequest('Invalid availability query', parsed.error.flatten().fieldErrors)
   }
 
-  // Reject dates in the past (compared against today in IST).
-  if (date < todayInIST()) {
-    throw badRequest('Cannot fetch availability for a past date.')
-  }
+  // Load the configured business hours from the settings query layer and map
+  // the requested weekday's open/close window for slot flagging.
+  const { businessHours } = await getSettings()
+  const dayHours = resolveBusinessHours(parsed.data.date, businessHours)
 
-  const slots: { startTime: string; endTime: string; available: boolean }[] = []
-  for (let start = OPEN_MINUTES; start <= LAST_SLOT_START_MINUTES; start += SLOT_DURATION_MINUTES) {
-    slots.push({
-      startTime: toTimeString(start),
-      endTime: toTimeString(start + SLOT_DURATION_MINUTES),
-      available: true,
-    })
-  }
+  // Pure business function: rejects past/malformed dates (400) before
+  // generating the 30-minute slot grid with availability flags.
+  const slots = generateAvailability({
+    date: parsed.data.date,
+    businessHours: dayHours,
+  })
 
   return apiSuccess({ slots })
 })

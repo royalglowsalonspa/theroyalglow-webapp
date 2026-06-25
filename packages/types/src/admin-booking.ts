@@ -16,6 +16,7 @@
  * - Validate completion with payment method
  *
  * Features / Functionality :
+ * - adminBookingListQuerySchema — optional status/date/service-type filters
  * - adminBookingActionSchema — discriminated union (approve/reject/assign)
  * - completeBookingSchema — payment method for invoice generation
  *
@@ -28,6 +29,21 @@
  * - Completion triggers invoice generation + gems award
  ************************************************************/
 import { z } from 'zod'
+import { bookingStatusSchema } from './booking'
+
+// Query params for GET /api/bookings (admin). All filters are optional; when
+// omitted the listing returns every booking. `status` reuses the booking
+// lifecycle enum, `serviceType` is salon|spa, and `date` is a YYYY-MM-DD
+// calendar date. Validated here so the route stays a thin orchestrator.
+export const adminBookingListQuerySchema = z.object({
+  status: bookingStatusSchema.optional(),
+  serviceType: z.enum(['salon', 'spa']).optional(),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format')
+    .optional(),
+})
+export type AdminBookingListQuery = z.infer<typeof adminBookingListQuerySchema>
 
 export const approveBookingSchema = z.object({
   action: z.literal('approve'),

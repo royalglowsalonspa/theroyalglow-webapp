@@ -13,7 +13,7 @@
  * - Calculate gems earned from an invoice total in paise
  *
  * Features / Functionality :
- * - calculateGemsEarned(totalPaise) → integer gems count
+ * - calculateGemsEarned(totalPaise, isMembershipSession?) → integer gems count
  *
  * Tech Stack   : TypeScript
  * Layer        : Business Logic
@@ -22,12 +22,16 @@
  *
  * Notes        :
  * - Only for invoice_type = 'service' (not memberships)
+ * - Membership sessions earn exactly 0 gems
  * - ₹100 = 10000 paise threshold
  ************************************************************/
 
 // Gems are earned at 1 gem per ₹100 invoiced (floor). ₹100 = 10000 paise.
-// Only applies to invoice_type = 'service' — never membership purchases/sessions
-// (the caller enforces that; this is pure arithmetic).
-export function calculateGemsEarned(totalPaise: number): number {
+// Only applies to invoice_type = 'service' — membership purchases/sessions
+// earn nothing. Pass isMembershipSession=true to enforce the zero-gem rule.
+export function calculateGemsEarned(totalPaise: number, isMembershipSession = false): number {
+  if (isMembershipSession) {
+    return 0
+  }
   return Math.floor(totalPaise / 10000)
 }

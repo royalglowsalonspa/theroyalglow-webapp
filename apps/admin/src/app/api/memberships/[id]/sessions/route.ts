@@ -108,11 +108,12 @@ export const POST = withErrorHandler(
     const endTime = addMinutesToTime(startTime, totalMinutes)
 
     // Membership-session booking number: SPA, with the -M membership suffix.
-    const bookingNumber = `${generateBookingNumber(
+    const bookingNumber = generateBookingNumber(
       branch.code,
       'spa',
       new Date(`${bookingDateStr}T00:00:00.000Z`),
-    )}-M`
+      true,
+    )
 
     const result = await recordMembershipSession({
       membershipId: id,

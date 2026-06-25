@@ -34,7 +34,12 @@
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireSession } from '@/lib/api/session'
 import { enqueueJob } from '@/lib/jobs/enqueue'
-import { addMinutesToTime, calculateBookingTotal, generateBookingNumber } from '@rgss/business'
+import {
+  addMinutesToTime,
+  calculateBookingTotal,
+  generateBookingNumber,
+  isBookableSlotStart,
+} from '@rgss/business'
 import {
   createBookingWithServices,
   getBookingsByCustomer,
@@ -42,12 +47,24 @@ import {
   getDefaultStaffForService,
   getServicesByIds,
 } from '@rgss/db/queries'
-import { badRequest } from '@rgss/errors'
-import { createBookingSchema } from '@rgss/types'
+import { badRequest, conflict } from '@rgss/errors'
+import { bookingStatusSchema, createBookingSchema } from '@rgss/types'
 
-export const GET = withErrorHandler(async () => {
+export const GET = withErrorHandler(async (req: Request) => {
   const session = await requireSession()
-  const bookings = await getBookingsByCustomer(session.user.id)
+
+  // Optional ?status filter — validate against the lifecycle enum before use.
+  const statusParam = new URL(req.url).searchParams.get('status')
+  let statusFilter: ReturnType<typeof bookingStatusSchema.parse> | undefined
+  if (statusParam !== null) {
+    const parsedStatus = bookingStatusSchema.safeParse(statusParam)
+    if (!parsedStatus.success) {
+      throw badRequest('Invalid status filter.', parsedStatus.error.flatten().formErrors)
+    }
+    statusFilter = parsedStatus.data
+  }
+
+  const bookings = await getBookingsByCustomer(session.user.id, statusFilter)
   return apiSuccess({ bookings })
 })
 
@@ -60,7 +77,7 @@ export const POST = withErrorHandler(async (req: Request) => {
     throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
   }
 
-  const { branchId, serviceType, bookingDate, startTime, serviceIds, notes } = parsed.data
+  const { branchId, serviceType, bookingDate, startTime, serviceIds, notes, isWalkin } = parsed.data
 
   // Branch must exist and be operational.
   const branch = await getBranchById(branchId)
@@ -94,6 +111,12 @@ export const POST = withErrorHandler(async (req: Request) => {
   )
   const endTime = addMinutesToTime(startTime, totalDurationMinutes)
 
+  // The requested start must sit on the 30-min grid within open hours and the
+  // full duration must finish before close, else the slot is unavailable (409).
+  if (!isBookableSlotStart(startTime, totalDurationMinutes)) {
+    throw conflict('BOOKING_SLOT_UNAVAILABLE', 'The requested time slot is not available.')
+  }
+
   // Preserve the requested service order for snapshots + staff assignment.
   // booking_service.staff_id is NOT NULL; pending bookings get an auto-assigned
   // active staff member that the admin reassigns on approval.
@@ -125,18 +148,22 @@ export const POST = withErrorHandler(async (req: Request) => {
     new Date(`${bookingDate}T00:00:00.000Z`),
   )
 
+  // Walk-ins skip the pending queue and are confirmed immediately (Req 5.9).
+  const status = isWalkin ? 'confirmed' : 'pending'
+
   const created = await createBookingWithServices(
     {
       bookingNumber,
       branchId,
       customerId: session.user.id,
-      status: 'pending',
+      status,
       serviceType,
       bookingDate: new Date(`${bookingDate}T00:00:00.000Z`),
       startTime,
       endTime,
       totalAmountPaise,
       totalDurationMinutes,
+      isWalkin: isWalkin ?? false,
       notes: notes ?? null,
     },
     serviceRows,

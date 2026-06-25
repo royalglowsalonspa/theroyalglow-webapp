@@ -47,6 +47,7 @@ const sessionMocks = vi.hoisted(() => ({
 const dbMocks = vi.hoisted(() => ({
   // bookings
   getAllBookings: vi.fn(),
+  listBookings: vi.fn(),
   // customers
   getCustomers: vi.fn(),
   // membership-tiers
@@ -120,18 +121,18 @@ beforeEach(() => {
 // ===========================================================================
 describe('Response envelope — success path', () => {
   it('GET /api/bookings returns { success:true, data:{ bookings } }', async () => {
-    dbMocks.getAllBookings.mockResolvedValue([{ id: 'bk1' }, { id: 'bk2' }])
+    dbMocks.listBookings.mockResolvedValue([{ id: 'bk1' }, { id: 'bk2' }])
 
     const res = await bookingsGET(new Request('https://admin.theroyalglow.in/api/bookings'))
     const body = await res.json()
 
     expect(res.status).toBe(200)
     expect(body).toEqual({ success: true, data: { bookings: [{ id: 'bk1' }, { id: 'bk2' }] } })
-    expect(dbMocks.getAllBookings).toHaveBeenCalledOnce()
+    expect(dbMocks.listBookings).toHaveBeenCalledOnce()
   })
 
   it('GET /api/bookings forwards status/serviceType/date filters to the query', async () => {
-    dbMocks.getAllBookings.mockResolvedValue([])
+    dbMocks.listBookings.mockResolvedValue([])
 
     const res = await bookingsGET(
       new Request(
@@ -140,7 +141,7 @@ describe('Response envelope — success path', () => {
     )
     await res.json()
 
-    expect(dbMocks.getAllBookings).toHaveBeenCalledWith({
+    expect(dbMocks.listBookings).toHaveBeenCalledWith({
       status: 'pending',
       serviceType: 'spa',
       date: '2026-06-04',
@@ -322,7 +323,7 @@ describe('Auth guard — requireRole enforcement', () => {
       requestId: expect.any(String),
     })
     // The guard short-circuits before any data access.
-    expect(dbMocks.getAllBookings).not.toHaveBeenCalled()
+    expect(dbMocks.listBookings).not.toHaveBeenCalled()
     expect(dbMocks.getCustomers).not.toHaveBeenCalled()
     expect(dbMocks.getMembershipTiers).not.toHaveBeenCalled()
     expect(dbMocks.createLead).not.toHaveBeenCalled()

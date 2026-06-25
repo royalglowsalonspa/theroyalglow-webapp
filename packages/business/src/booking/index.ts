@@ -13,13 +13,17 @@
  *
  * Features / Functionality :
  * - generateBookingNumber, calculateBookingTotal, addMinutesToTime
+ * - checkReschedulable, isBookableSlotStart (reschedule policy)
+ * - generateAvailability (slot grid + past-date rejection)
  *
  * Tech Stack   : TypeScript
  * Layer        : Business Logic
  *
- * Dependencies : ./booking-number, ./pricing
+ * Dependencies : ./booking-number, ./pricing, ./reschedule, ./availability
  *
  * Notes        : None
  ************************************************************/
+export * from './availability'
 export * from './booking-number'
 export * from './pricing'
+export * from './reschedule'

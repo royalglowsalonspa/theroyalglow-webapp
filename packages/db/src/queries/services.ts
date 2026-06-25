@@ -33,7 +33,7 @@ import type {
   ServiceCreateInput,
   ServiceUpdateInput,
 } from '@rgss/types'
-import { asc, eq, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { db } from '../index'
 import { service, serviceCategory } from '../schema/service'
@@ -58,8 +58,95 @@ export async function getAllServicesGrouped() {
   }))
 }
 
+// Active catalogue: active categories ordered by displayOrder, each carrying its
+// active services (ordered by displayOrder) with the full read projection used by
+// the booking/services surfaces. Services are joined to their category so each
+// row carries the category name. Pure read — no side effects (KV-cacheable).
+export async function getActiveCatalogue() {
+  const categories = await db
+    .select({
+      id: serviceCategory.id,
+      name: serviceCategory.name,
+      serviceType: serviceCategory.serviceType,
+      displayOrder: serviceCategory.displayOrder,
+    })
+    .from(serviceCategory)
+    .where(eq(serviceCategory.isActive, true))
+    .orderBy(asc(serviceCategory.displayOrder))
+
+  const services = await db
+    .select({
+      id: service.id,
+      categoryId: service.categoryId,
+      categoryName: serviceCategory.name,
+      serviceType: serviceCategory.serviceType,
+      name: service.name,
+      slug: service.slug,
+      durationMinutes: service.durationMinutes,
+      pricePaise: service.pricePaise,
+      gemsRedeemable: service.gemsRedeemable,
+      gemsRequired: service.gemsRequired,
+    })
+    .from(service)
+    .innerJoin(serviceCategory, eq(service.categoryId, serviceCategory.id))
+    .where(and(eq(service.isActive, true), eq(serviceCategory.isActive, true)))
+    .orderBy(asc(service.displayOrder))
+
+  return categories.map((cat) => ({
+    ...cat,
+    services: services.filter((s) => s.categoryId === cat.id),
+  }))
+}
+
+// Fetch services by an array of ids (empty input → empty result). Includes the
+// owning category's service_type since booking callers validate salon/spa
+// against it, plus isActive so inactive services can be rejected, and the full
+// read projection (category name, price paise, duration, gem fields).
+export async function getServicesByIds(ids: string[]) {
+  if (ids.length === 0) {
+    return []
+  }
+  return db
+    .select({
+      id: service.id,
+      categoryId: service.categoryId,
+      categoryName: serviceCategory.name,
+      serviceType: serviceCategory.serviceType,
+      name: service.name,
+      slug: service.slug,
+      durationMinutes: service.durationMinutes,
+      pricePaise: service.pricePaise,
+      isActive: service.isActive,
+      gemsRedeemable: service.gemsRedeemable,
+      gemsRequired: service.gemsRequired,
+    })
+    .from(service)
+    .innerJoin(serviceCategory, eq(service.categoryId, serviceCategory.id))
+    .where(inArray(service.id, ids))
+}
+
+// Fetch a single active service by slug with its category name and the full read
+// projection (duration, price paise, gem-redemption fields). Returns null when no
+// active service matches the slug (unknown or inactive → caller maps to 404).
 export async function getServiceBySlug(slug: string) {
-  const rows = await db.select().from(service).where(eq(service.slug, slug)).limit(1)
+  const rows = await db
+    .select({
+      id: service.id,
+      categoryId: service.categoryId,
+      categoryName: serviceCategory.name,
+      serviceType: serviceCategory.serviceType,
+      name: service.name,
+      slug: service.slug,
+      description: service.description,
+      durationMinutes: service.durationMinutes,
+      pricePaise: service.pricePaise,
+      gemsRedeemable: service.gemsRedeemable,
+      gemsRequired: service.gemsRequired,
+    })
+    .from(service)
+    .innerJoin(serviceCategory, eq(service.categoryId, serviceCategory.id))
+    .where(and(eq(service.slug, slug), eq(service.isActive, true)))
+    .limit(1)
   return rows[0] ?? null
 }
 

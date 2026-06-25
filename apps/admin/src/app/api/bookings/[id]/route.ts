@@ -30,11 +30,13 @@
  * Notes        :
  * - Requires min role: receptionist.
  * - Staff reassignment is allowed regardless of booking status.
+ * - approve/reject delegate to approveBooking/rejectBooking, which persist a
+ *   booking_status_log entry (prior → new status + acting user) atomically.
  ************************************************************/
 
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
-import { assignStaffToAllServices, getBookingForAdmin, updateBookingStatus } from '@rgss/db/queries'
+import { approveBooking, assignStaff, getBookingForAdmin, rejectBooking } from '@rgss/db/queries'
 import { ERROR_CODES, badRequest, conflict, notFound } from '@rgss/errors'
 import { adminBookingActionSchema } from '@rgss/types'
 
@@ -54,7 +56,9 @@ export const GET = withErrorHandler(
 
 export const PATCH = withErrorHandler(
   async (req: Request, ctx: { params: Promise<{ id: string }> }) => {
-    await requireRole('receptionist')
+    // requireRole returns the session — the acting user stamps every status log.
+    const session = await requireRole('receptionist')
+    const changedById = session.user.id
     const { id } = await ctx.params
 
     const body = await req.json().catch(() => null)
@@ -71,7 +75,8 @@ export const PATCH = withErrorHandler(
     const action = parsed.data
 
     if (action.action === 'approve') {
-      // pending → confirmed: assign staff to every service, stamp confirmedAt.
+      // pending → confirmed only (Req 11.1, 11.3). Guard the transition in the
+      // route before the writer runs.
       if (existing.status !== 'pending') {
         throw conflict(
           ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION,
@@ -79,16 +84,15 @@ export const PATCH = withErrorHandler(
         )
       }
 
-      await assignStaffToAllServices(id, action.staffId)
-      const updated = await updateBookingStatus(id, 'confirmed', {
-        confirmedAt: new Date(),
-      })
-
+      // approveBooking atomically: status → confirmed (+ confirmedAt), assigns
+      // staff to every service, and writes a status-log entry capturing the
+      // prior → confirmed transition with the acting user (Req 11.1, 11.4).
+      const updated = await approveBooking(id, changedById, action.staffId)
       return apiSuccess({ booking: updated })
     }
 
     if (action.action === 'reject') {
-      // pending → rejected with reason.
+      // pending → rejected only (Req 11.2, 11.3).
       if (existing.status !== 'pending') {
         throw conflict(
           ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION,
@@ -96,16 +100,16 @@ export const PATCH = withErrorHandler(
         )
       }
 
-      const updated = await updateBookingStatus(id, 'rejected', {
-        rejectionReason: action.rejectionReason,
-        rejectedAt: new Date(),
-      })
-
+      // rejectBooking atomically: status → rejected (+ rejectedAt), stores the
+      // reason, and writes a status-log entry capturing the prior → rejected
+      // transition with the acting user (Req 11.2, 11.4).
+      const updated = await rejectBooking(id, changedById, action.rejectionReason)
       return apiSuccess({ booking: updated })
     }
 
-    // assign: (re)assign staff to all services regardless of status.
-    const services = await assignStaffToAllServices(id, action.staffId)
+    // assign: (re)assign staff to all services regardless of status — no status
+    // change, so no status-log entry is written.
+    const services = await assignStaff(id, action.staffId)
     return apiSuccess({ bookingId: id, services })
   },
 )
