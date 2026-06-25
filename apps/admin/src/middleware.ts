@@ -122,6 +122,21 @@ async function classify(request: NextRequest): Promise<AuthState> {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // ── LOCAL DEV ONLY — auth bypass / impersonation ───────────────────────
+  // Skip the edge session/RBAC check when either:
+  //   • ADMIN_DEV_BYPASS_AUTH=1   → view the portal with no session, or
+  //   • ADMIN_DEV_IMPERSONATE_EMAIL is set → operate as a real user by email.
+  // The edge runtime cannot reach the DB, so role-accurate enforcement for the
+  // impersonation case happens server-side (requireRole / layout). Both are
+  // gated on NODE_ENV !== production and can NEVER activate in a prod build.
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    (process.env.ADMIN_DEV_BYPASS_AUTH === '1' ||
+      (process.env.ADMIN_DEV_IMPERSONATE_EMAIL ?? '').trim() !== '')
+  ) {
+    return NextResponse.next()
+  }
+
   const state = await classify(request)
   const routeMin = routeMinLevel(pathname)
   const decision = decide(state, routeMin)

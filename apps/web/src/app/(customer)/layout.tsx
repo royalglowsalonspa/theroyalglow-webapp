@@ -46,6 +46,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
         name: session.user.name ?? null,
         email: session.user.email ?? null,
         image: session.user.image ?? null,
+        role: (session.user as { role?: string | null }).role ?? null,
       }
     : null
 

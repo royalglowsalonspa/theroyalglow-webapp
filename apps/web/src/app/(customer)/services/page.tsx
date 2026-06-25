@@ -30,7 +30,7 @@
  ************************************************************/
 
 import { JsonLd } from '@/components/seo/JsonLd'
-import { getServices } from '@/lib/cms/client'
+import { getCatalogueServices } from '@/lib/catalogue'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, localBusinessJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
@@ -48,7 +48,7 @@ export const metadata: Metadata = buildMetadata({
 export const revalidate = 3600
 
 export default async function ServicesPage() {
-  const cmsServices = await getServices()
+  const cmsServices = await getCatalogueServices()
 
   return (
     <>

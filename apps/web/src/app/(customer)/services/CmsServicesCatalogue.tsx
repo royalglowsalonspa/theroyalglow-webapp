@@ -77,7 +77,16 @@ function groupByCategory(services: Service[]): [string, Service[]][] {
 function ServiceCard({ service }: { service: Service }) {
   return (
     <article className="border border-cloud-gray rounded-[6px] overflow-hidden motion-safe:transition-all motion-safe:duration-250 hover:border-golden-mist hover:-translate-y-[2px] hover:shadow-card-hover">
-      <img src={service.image.url} alt={service.image.alt} className="w-full h-32 object-cover" />
+      {service.image.url ? (
+        <img src={service.image.url} alt={service.image.alt} className="w-full h-32 object-cover" />
+      ) : (
+        <div
+          className="flex h-32 w-full items-center justify-center bg-golden-mist font-display text-3xl text-deep-gold"
+          aria-hidden="true"
+        >
+          {service.name.trim().charAt(0).toUpperCase()}
+        </div>
+      )}
       <div className="p-4">
         <h4 className="font-sans text-[15px] text-cocoa-dark font-medium">{service.name}</h4>
         {service.description && (

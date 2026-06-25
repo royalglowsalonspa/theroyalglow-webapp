@@ -38,7 +38,6 @@
  *   and OMITTED in local dev so cookies still bind to `localhost`.
  ************************************************************/
 
-import { env } from '@/env'
 import { dash } from '@better-auth/infra'
 import { buildCrossSubdomainAdvanced } from '@rgss/business'
 import { db } from '@rgss/db'
@@ -57,12 +56,28 @@ export const auth = betterAuth({
       verification: schema.verification,
     },
   }),
-  secret: env.BETTER_AUTH_SECRET,
-  baseURL: env.BETTER_AUTH_URL,
+  // Read directly from process.env (mirrors apps/web) so BOTH apps sign and
+  // verify the session cookie with the SAME secret — required for the shared
+  // cross-subdomain (and cross-port, on localhost) session to validate here.
+  secret: process.env.BETTER_AUTH_SECRET,
+  baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3001',
+  // Expose the custom `role` column on the session user (same as apps/web).
+  // Without this the admin RBAC (requireRole) reads an undefined role and
+  // treats everyone as a customer. `input: false` blocks self-assignment.
+  user: {
+    additionalFields: {
+      role: {
+        type: 'string',
+        required: false,
+        input: false,
+        defaultValue: 'customer',
+      },
+    },
+  },
   socialProviders: {
     google: {
-      clientId: env.GOOGLE_OAUTH_CLIENT_ID,
-      clientSecret: env.GOOGLE_OAUTH_CLIENT_SECRET,
+      clientId: process.env.GOOGLE_OAUTH_CLIENT_ID ?? '',
+      clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? '',
     },
   },
   plugins: [dash(), oneTap()],

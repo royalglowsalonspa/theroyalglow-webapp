@@ -49,6 +49,20 @@ export const auth = betterAuth({
   }),
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3000',
+  // Expose the custom `role` column on the session user. Without this, Better
+  // Auth returns only its built-in fields and `session.user.role` is undefined
+  // — which silently breaks RBAC and the "Admin Portal" menu gate. `input:
+  // false` stops clients setting their own role; new users default to customer.
+  user: {
+    additionalFields: {
+      role: {
+        type: 'string',
+        required: false,
+        input: false,
+        defaultValue: 'customer',
+      },
+    },
+  },
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_OAUTH_CLIENT_ID ?? '',
