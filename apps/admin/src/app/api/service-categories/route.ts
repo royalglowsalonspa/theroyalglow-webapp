@@ -19,6 +19,7 @@
  *                rule for its services.
  ************************************************************/
 
+import { audit } from '@/lib/api/audit'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { createServiceCategory, getServiceCategoriesAll } from '@rgss/db/queries'
@@ -32,7 +33,7 @@ export const GET = withErrorHandler(async () => {
 })
 
 export const POST = withErrorHandler(async (req: Request) => {
-  await requireRole('manager')
+  const session = await requireRole('manager')
 
   const body = await req.json().catch(() => null)
   const parsed = serviceCategoryCreateSchema.safeParse(body)
@@ -41,5 +42,14 @@ export const POST = withErrorHandler(async (req: Request) => {
   }
 
   const created = await createServiceCategory(parsed.data)
+  if (!created) {
+    throw new Error('Failed to create category.')
+  }
+  await audit(req, session, {
+    action: 'create',
+    entityType: 'service_category',
+    entityId: created.id,
+    newValues: parsed.data,
+  })
   return apiSuccess({ category: created }, undefined, 201)
 })

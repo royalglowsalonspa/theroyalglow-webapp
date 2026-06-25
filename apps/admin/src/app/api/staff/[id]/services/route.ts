@@ -25,6 +25,7 @@
  *                before the atomic db.batch replacement runs in the query layer.
  ************************************************************/
 
+import { audit } from '@/lib/api/audit'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { getServicesByIds, getStaffProfileById, setStaffServices } from '@rgss/db/queries'
@@ -34,7 +35,7 @@ import { staffServiceAssignmentSchema } from '@rgss/types'
 // PUT /api/staff/[id]/services — replace service capabilities. Manager+.
 export const PUT = withErrorHandler(
   async (req: Request, ctx: { params: Promise<{ id: string }> }) => {
-    await requireRole('manager')
+    const session = await requireRole('manager')
     const { id } = await ctx.params
 
     const body = await req.json().catch(() => null)
@@ -59,6 +60,12 @@ export const PUT = withErrorHandler(
     }
 
     const serviceIds = await setStaffServices(id, parsed.data.serviceIds)
+    await audit(req, session, {
+      action: 'update',
+      entityType: 'staff_services',
+      entityId: id,
+      newValues: { serviceIds },
+    })
     return apiSuccess({ staffId: id, serviceIds })
   },
 )
