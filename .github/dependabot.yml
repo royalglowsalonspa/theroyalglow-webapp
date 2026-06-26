@@ -1,0 +1,110 @@
+# Dependabot configuration for theroyalglow-webapp (Bun + Turborepo monorepo).
+#
+# What this does
+# - Watches every workspace manifest (root, apps/*, packages/*, docs) plus the
+#   GitHub Actions used in CI, and opens dependency-update PRs on a schedule.
+# - Opens PRs against the `dev` branch only (matches the git flow
+#   dev -> test -> pprd -> prod). You review/merge into dev, then promote the
+#   change up the branch chain like any other commit.
+# - GROUPS routine minor + patch bumps into a small number of PRs (low-risk,
+#   easy to merge). MAJOR version bumps are deliberately left OUT of the groups
+#   so each one arrives as its own PR for individual review — nothing risky is
+#   ever bundled into the "safe" batch.
+# - Dependabot only proposes published stable releases; it does NOT propose
+#   beta/canary/rc pre-releases unless the project already uses one.
+#
+# Docs: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+version: 2
+
+updates:
+  # ---------------------------------------------------------------------------
+  # JavaScript/TypeScript dependencies across the whole Bun workspace.
+  # The `bun` ecosystem reads bun.lock and understands Bun workspaces.
+  # `directories` (glob) covers the root manifest and every workspace package.
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: "bun"
+    directories:
+      - "/"
+      - "/apps/*"
+      - "/packages/*"
+      - "/docs"
+    target-branch: "dev"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    commit-message:
+      # Conventional Commits, matching the repo's commit style.
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    groups:
+      # One PR for all production-dependency minor + patch bumps.
+      production-minor-patch:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      # One PR for all dev-dependency minor + patch bumps.
+      development-minor-patch:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # Framework-critical, intentionally-pinned packages: ignore MAJOR bumps so
+      # Dependabot never proposes a breaking jump automatically. Minor/patch for
+      # these still flow through the groups above. Bump these majors manually,
+      # deliberately, with a dedicated spec/PR when you choose to.
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "drizzle-orm"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "drizzle-kit"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "kysely"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "zod"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "better-auth"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "payload"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@payloadcms/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@tailwindcss/*"
+        update-types: ["version-update:semver-major"]
+
+  # ---------------------------------------------------------------------------
+  # GitHub Actions used in the CI/CD workflows under .github/workflows.
+  # Keeps action versions (checkout, setup-bun, upload-artifact, etc.) current.
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "dev"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
