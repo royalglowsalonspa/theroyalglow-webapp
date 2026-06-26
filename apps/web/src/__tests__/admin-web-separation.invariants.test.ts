@@ -12,7 +12,9 @@
  *                  - no apps/web source references the relocated staff modules
  *                    or removed `/api/staff` paths (Req 9.3)
  *                  - kept public surfaces still exist (Req 6.1, 6.2)
- *                  - no new database migration was introduced (Req 9.7)
+ *                  - the admin/web-separation feature adds no migration of its
+ *                    own; the committed canonical baseline + pg_cron are intact
+ *                    (Req 9.7, updated for schema-drift-remediation discipline)
  *
  * Tech Stack   : Vitest + node:fs
  * Layer        : Test (static verification)
@@ -100,18 +102,40 @@ describe('admin-web-separation: kept public surfaces remain in apps/web (Req 6.1
   })
 })
 
-describe('admin-web-separation: no new database migration (Req 9.7)', () => {
-  it('the migrations directory holds only the pre-existing migration', () => {
-    const migrationsDir = join(REPO_ROOT, 'packages', 'db', 'migrations')
-    expect(existsSync(migrationsDir)).toBe(true)
+describe('admin-web-separation: no admin/web-separation migration (Req 9.7)', () => {
+  // NOTE (schema-drift-remediation, task 13.1): the project has since adopted
+  // `drizzle-kit generate` with committed SQL migrations. A canonical Baseline_
+  // Migration (`0000_*.sql`) now lives alongside the special hand-written
+  // `0001_pg_cron_jobs.sql`. The admin/web-separation feature itself still
+  // introduces NO schema change, so the invariant is restated as: the special
+  // pg_cron migration is preserved and no migration is attributable to the
+  // admin/web-separation work.
+  const migrationsDir = join(REPO_ROOT, 'packages', 'db', 'migrations')
 
-    const sqlFiles = readdirSync(migrationsDir)
+  const sqlFiles = () =>
+    readdirSync(migrationsDir)
       .filter((name) => name.endsWith('.sql'))
       .filter((name) => statSync(join(migrationsDir, name)).isFile())
       .sort()
 
-    // This feature introduces no schema change, so the migration set is
-    // unchanged from its baseline.
-    expect(sqlFiles).toEqual(['0001_pg_cron_jobs.sql'])
+  it('preserves the special pg_cron migration', () => {
+    expect(existsSync(migrationsDir)).toBe(true)
+    expect(sqlFiles()).toContain('0001_pg_cron_jobs.sql')
+  })
+
+  it('contains the canonical baseline migration ordered before pg_cron', () => {
+    const files = sqlFiles()
+    const baseline = files.find((name) => name.startsWith('0000_'))
+    expect(baseline).toBeDefined()
+    // Baseline (0000_*) must sort before the pg_cron migration (0001_*) so the
+    // forward-only migration history applies the canonical schema first.
+    expect((baseline as string) < '0001_pg_cron_jobs.sql').toBe(true)
+  })
+
+  it('introduces no migration attributable to the admin/web-separation feature', () => {
+    const offending = sqlFiles().filter((name) =>
+      /admin[_-](?:web|subdomain|separation)/i.test(name),
+    )
+    expect(offending).toEqual([])
   })
 })

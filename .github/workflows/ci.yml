@@ -165,11 +165,16 @@ jobs:
   #   1. Path assertion — zero admin artifacts under apps/web and no admin
   #      RBAC / role-gating in the web middleware (a /admin 301-redirect branch
   #      is allowed; ROLE_LEVELS / get-session role-gating is not).
-  #   2. Migration-diff — no new DB migration is introduced relative to the
-  #      base branch (this feature adds no schema changes). The filename scan
-  #      inside the guard catches admin-subdomain-named migrations; the
-  #      git-diff step below catches ANY newly added migration .sql file so a
-  #      stray schema change cannot slip through.
+  #   2. Migration-diff — no new ADMIN-SUBDOMAIN DB migration is introduced
+  #      relative to the base branch (the admin-subdomain feature adds no schema
+  #      changes). The filename scan inside `check:cutover` catches
+  #      admin-subdomain-named migrations; the git-diff step below mirrors that
+  #      pattern, failing only on newly added migrations whose FILENAME matches
+  #      the admin/subdomain marker. General "schema must match a committed
+  #      migration" discipline is owned by the `drift-gate` job + the
+  #      migration-discipline steering doc, so legitimate generated/committed
+  #      migrations (e.g. the schema-drift-remediation baseline) are NOT blocked
+  #      here — only stray admin-subdomain schema changes are.
   # ---------------------------------------------------------------------------
   cutover-guards:
     runs-on: ubuntu-latest
@@ -181,15 +186,79 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - name: Assert no admin artifacts / no admin RBAC in web / no admin migration
         run: bun run check:cutover
-      - name: Migration-diff — no new DB migrations vs base branch
+      - name: Migration-diff — no new admin-subdomain DB migrations vs base branch
         if: github.event_name == 'pull_request'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           ADDED=$(git diff --name-only --diff-filter=A "$BASE_SHA"...HEAD -- 'packages/db/migrations/**/*.sql' || true)
-          if [ -n "$ADDED" ]; then
-            echo "✖ New DB migration(s) introduced — this feature must add no schema changes (Req 14.5):"
-            echo "$ADDED" | sed 's/^/  • /'
+          # Mirror check:cutover's MIGRATION_NAME_MARKERS — only fail on migrations
+          # whose FILENAME marks them as admin-subdomain schema changes. Legitimate
+          # baseline/forward migrations are allowed; the drift-gate job enforces that
+          # any such migration actually matches the committed schema.
+          OFFENDING=$(printf '%s\n' "$ADDED" | grep -Ei 'admin[_-]subdomain|admin[_-]migration' || true)
+          if [ -n "$OFFENDING" ]; then
+            echo "✖ New admin-subdomain DB migration(s) introduced — the admin-subdomain feature must add no schema changes (Req 14.5):"
+            echo "$OFFENDING" | sed 's/^/  • /'
             exit 1
           fi
-          echo "✔ No new DB migrations introduced vs base branch."
+          echo "✔ No new admin-subdomain DB migrations introduced vs base branch."
+          echo "  (General schema/migration discipline is enforced by the drift-gate job.)"
+
+  # ---------------------------------------------------------------------------
+  # Drift gate (schema-drift-remediation) — Req 12.4, 12.5. Runs on every PR
+  # (covers the shared packages/db). DB-FREE: CI has no Neon branch, so the gate
+  # never connects to a database — it asserts that the code schema and the
+  # committed migration history have not diverged. A PR that changes
+  # packages/db/src/schema without a matching committed migration (and
+  # regenerated reference) FAILS here and BLOCKS merge.
+  #
+  #   1. drizzle-kit check — validates the migration journal/snapshot integrity.
+  #   2. Canonical fingerprint reference test — re-derives the fingerprint from
+  #      the committed drizzle snapshot and asserts it equals the committed
+  #      reference artifact; fails if the schema/snapshot moved without
+  #      regenerating the reference.
+  #   3. Schema-vs-migration divergence — runs drizzle-kit generate and asserts
+  #      it produced no new/changed migration files (an uncommitted generated
+  #      migration means a schema change has no committed migration).
+  # ---------------------------------------------------------------------------
+  drift-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Validate migration journal/snapshot integrity (drizzle-kit check)
+        working-directory: packages/db
+        env:
+          SKIP_ENV_VALIDATION: '1'
+        run: bunx drizzle-kit check
+      - name: Canonical fingerprint reference test (DB-free drift gate)
+        env:
+          SKIP_ENV_VALIDATION: '1'
+        run: bunx vitest run packages/db/scripts/drift/__tests__/canonical-reference.test.ts
+      - name: Schema-vs-migration divergence — no uncommitted generated migration
+        env:
+          SKIP_ENV_VALIDATION: '1'
+        run: |
+          # drizzle-kit generate is DB-free: it diffs packages/db/src/schema vs
+          # the committed snapshot. If the schema moved without a committed
+          # migration, it emits a new migration .sql + rewrites meta/_journal.json
+          # (a tracked file) → non-empty diff under packages/db/migrations.
+          ( cd packages/db && bunx drizzle-kit generate --name ci_drift_probe )
+          if ! git diff --exit-code -- packages/db/migrations; then
+            echo ""
+            echo "✖ Code schema diverges from the committed migration history."
+            echo "  A change under packages/db/src/schema has no matching committed migration."
+            echo "  Fix: in packages/db run 'bun run generate' then 'bun run drift:reference',"
+            echo "       review the emitted SQL, and commit the migration + reference artifact."
+            # Restore tracked files and drop the untracked probe artifacts so the
+            # only signal this step produces is the pass/fail above.
+            git checkout -- packages/db/migrations 2>/dev/null || true
+            git clean -fd packages/db/migrations 2>/dev/null || true
+            exit 1
+          fi
+          echo "✔ No schema/migration divergence — code schema matches committed migrations."
+          # Clean any untracked probe artifacts even on the success path.
+          git clean -fd packages/db/migrations >/dev/null 2>&1 || true

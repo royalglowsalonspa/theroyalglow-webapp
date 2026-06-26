@@ -1,0 +1,3640 @@
+{
+  "_comment": "AUTHORITATIVE DB-free canonical reference derived from the committed drizzle snapshot (migrations/meta/0000_snapshot.json). Regenerate with `bun run drift:reference` after an intentional schema change captured by `drizzle-kit generate`, then commit this file with the migration.",
+  "version": 1,
+  "hash": "53171d1896564a65b7d214943c6d17e0f58dade2b006ae5561e8cbdf56f6e929",
+  "fingerprint": {
+    "enums": [
+      {
+        "name": "audit_action",
+        "labels": ["create", "update", "delete", "status_change"]
+      },
+      {
+        "name": "booking_status",
+        "labels": [
+          "pending",
+          "confirmed",
+          "rejected",
+          "in_progress",
+          "completed",
+          "cancelled",
+          "no_show",
+          "rescheduled"
+        ]
+      },
+      {
+        "name": "branch_status",
+        "labels": ["operational", "temporarily_closed", "opens_soon", "shutdown"]
+      },
+      {
+        "name": "discount_type",
+        "labels": ["percentage", "flat", "combo_price"]
+      },
+      {
+        "name": "gender",
+        "labels": ["male", "female", "other", "prefer_not_to_say"]
+      },
+      {
+        "name": "invoice_type",
+        "labels": ["service", "membership_purchase", "membership_session"]
+      },
+      {
+        "name": "lead_status",
+        "labels": ["new", "contacted", "follow_up", "booked", "won", "lost"]
+      },
+      {
+        "name": "leave_approval_status",
+        "labels": ["pending", "approved", "rejected"]
+      },
+      {
+        "name": "leave_type",
+        "labels": ["sick", "casual", "personal", "other"]
+      },
+      {
+        "name": "loyalty_tx_type",
+        "labels": ["earned", "redeemed", "expired", "adjusted"]
+      },
+      {
+        "name": "notification_channel",
+        "labels": ["push", "email"]
+      },
+      {
+        "name": "notification_status",
+        "labels": ["pending", "sent", "failed"]
+      },
+      {
+        "name": "notification_type",
+        "labels": [
+          "reminder_24h",
+          "reminder_1h",
+          "booking_confirmed",
+          "booking_rescheduled",
+          "booking_cancelled",
+          "booking_rejected",
+          "membership_created",
+          "membership_session_recorded",
+          "membership_expiry_30d",
+          "membership_expiry_7d",
+          "membership_expiry_1d",
+          "membership_expired",
+          "membership_hours_low",
+          "membership_usage_nudge",
+          "birthday_offer",
+          "post_service_followup",
+          "leave_submitted",
+          "leave_approved",
+          "leave_rejected",
+          "lead_follow_up_due",
+          "stale_pending_booking",
+          "no_show_check",
+          "gems_expiry_7d",
+          "gems_expired"
+        ]
+      },
+      {
+        "name": "payment_method",
+        "labels": ["cash", "upi", "card", "online"]
+      },
+      {
+        "name": "payment_status",
+        "labels": ["pending", "paid", "refunded"]
+      },
+      {
+        "name": "service_type",
+        "labels": ["salon", "spa"]
+      },
+      {
+        "name": "spa_membership_status",
+        "labels": ["active", "expired", "cancelled"]
+      },
+      {
+        "name": "staff_designation",
+        "labels": ["receptionist", "stylist", "therapist", "manager"]
+      },
+      {
+        "name": "waitlist_status",
+        "labels": ["waiting", "notified", "booked", "expired", "cancelled"]
+      }
+    ],
+    "tables": [
+      {
+        "name": "account",
+        "columns": [
+          {
+            "name": "access_token",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "access_token_expires_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "account_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "id_token",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "password",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "provider_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "refresh_token",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "refresh_token_expires_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "scope",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "user_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["user_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["user_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "audit_log",
+        "columns": [
+          {
+            "name": "action",
+            "type": "audit_action",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "actor_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "entity_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "entity_type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "ip_address",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "new_values",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "old_values",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["actor_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["actor_id", "created_at"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["entity_id", "entity_type"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "booking",
+        "columns": [
+          {
+            "name": "booking_date",
+            "type": "date",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "booking_number",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "branch_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "cancellation_reason",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "cancelled_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "completed_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "confirmed_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "customer_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "end_time",
+            "type": "time",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "gems_redeemed",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "is_gems_redemption",
+            "type": "boolean",
+            "nullable": false,
+            "default": "false"
+          },
+          {
+            "name": "is_membership_session",
+            "type": "boolean",
+            "nullable": false,
+            "default": "false"
+          },
+          {
+            "name": "is_walkin",
+            "type": "boolean",
+            "nullable": false,
+            "default": "false"
+          },
+          {
+            "name": "notes",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "offer_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "redemption_key",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "rejected_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "rejection_reason",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "reschedule_count",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "service_type",
+            "type": "service_type",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "spa_membership_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "start_time",
+            "type": "time",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "status",
+            "type": "booking_status",
+            "nullable": false,
+            "default": "'pending'"
+          },
+          {
+            "name": "total_amount_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "total_duration_minutes",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "booking_booking_number_unique",
+            "columns": ["booking_number"]
+          }
+        ],
+        "foreignKeys": [
+          {
+            "columns": ["branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["customer_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["offer_id"],
+            "refTable": "offer",
+            "refColumns": ["id"],
+            "onDelete": "set null",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["spa_membership_id"],
+            "refTable": "spa_membership",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["booking_date", "branch_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["booking_date", "service_type"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["booking_date"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["customer_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["offer_id"],
+            "unique": false,
+            "predicate": "offer_id IS NOT NULL",
+            "method": "btree"
+          },
+          {
+            "columns": ["redemption_key"],
+            "unique": true,
+            "predicate": "redemption_key IS NOT NULL",
+            "method": "btree"
+          },
+          {
+            "columns": ["spa_membership_id"],
+            "unique": false,
+            "predicate": "spa_membership_id IS NOT NULL",
+            "method": "btree"
+          },
+          {
+            "columns": ["status"],
+            "unique": false,
+            "predicate": "status NOT IN ('completed', 'cancelled', 'no_show')",
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "booking_service",
+        "columns": [
+          {
+            "name": "booking_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "display_order",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "duration_minutes",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "price_at_booking_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "service_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "service_name_snapshot",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "staff_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["booking_id"],
+            "refTable": "booking",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["service_id"],
+            "refTable": "service",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["staff_id"],
+            "refTable": "staff_profile",
+            "refColumns": ["id"],
+            "onDelete": "set null",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["staff_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "booking_status_log",
+        "columns": [
+          {
+            "name": "booking_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "changed_by_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "from_status",
+            "type": "booking_status",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "notes",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "to_status",
+            "type": "booking_status",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["booking_id"],
+            "refTable": "booking",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["changed_by_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": []
+      },
+      {
+        "name": "branch",
+        "columns": [
+          {
+            "name": "address_line1",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "address_line2",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "city",
+            "type": "text",
+            "nullable": false,
+            "default": "'Bengaluru'"
+          },
+          {
+            "name": "closing_date",
+            "type": "date",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "code",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "created_by",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "display_order",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "email",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "google_maps_place_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "google_maps_url",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "is_primary",
+            "type": "boolean",
+            "nullable": false,
+            "default": "false"
+          },
+          {
+            "name": "latitude",
+            "type": "numeric(10, 7)",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "longitude",
+            "type": "numeric(10, 7)",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "name",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "number",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "opening_date",
+            "type": "date",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "phone",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "pincode",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "state",
+            "type": "text",
+            "nullable": false,
+            "default": "'Karnataka'"
+          },
+          {
+            "name": "status",
+            "type": "branch_status",
+            "nullable": false,
+            "default": "'operational'"
+          },
+          {
+            "name": "temporary_close_reason",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "branch_code_unique",
+            "columns": ["code"]
+          },
+          {
+            "name": "branch_number_unique",
+            "columns": ["number"]
+          }
+        ],
+        "foreignKeys": [
+          {
+            "columns": ["created_by"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": []
+      },
+      {
+        "name": "business_hour",
+        "columns": [
+          {
+            "name": "close_time",
+            "type": "time",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "day_of_week",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "is_open",
+            "type": "boolean",
+            "nullable": false,
+            "default": "true"
+          },
+          {
+            "name": "open_time",
+            "type": "time",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "business_hour_day_of_week_unique",
+            "columns": ["day_of_week"]
+          }
+        ],
+        "foreignKeys": [],
+        "indexes": []
+      },
+      {
+        "name": "customer_note",
+        "columns": [
+          {
+            "name": "author_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "booking_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "content",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "customer_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["author_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["booking_id"],
+            "refTable": "booking",
+            "refColumns": ["id"],
+            "onDelete": "set null",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["customer_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["booking_id"],
+            "unique": false,
+            "predicate": "booking_id IS NOT NULL",
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "customer_profile",
+        "columns": [
+          {
+            "name": "acquisition_source",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "appointment_reminders_enabled",
+            "type": "boolean",
+            "nullable": false,
+            "default": "true"
+          },
+          {
+            "name": "booking_requires_approval",
+            "type": "boolean",
+            "nullable": false,
+            "default": "false"
+          },
+          {
+            "name": "consecutive_completed_bookings",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "date_of_birth",
+            "type": "date",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "first_visit_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "gender",
+            "type": "gender",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "last_visit_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "late_cancellation_count",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "marketing_consent",
+            "type": "boolean",
+            "nullable": false,
+            "default": "false"
+          },
+          {
+            "name": "marketing_consent_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "membership_alerts_enabled",
+            "type": "boolean",
+            "nullable": false,
+            "default": "true"
+          },
+          {
+            "name": "noshow_count",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "phone",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "total_spent_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "total_visits",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "user_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "utm_campaign",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "utm_medium",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "utm_source",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "customer_profile_user_id_unique",
+            "columns": ["user_id"]
+          }
+        ],
+        "foreignKeys": [
+          {
+            "columns": ["user_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["user_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "customer_tag",
+        "columns": [
+          {
+            "name": "color",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "name",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "slug",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "customer_tag_slug_unique",
+            "columns": ["slug"]
+          }
+        ],
+        "foreignKeys": [],
+        "indexes": []
+      },
+      {
+        "name": "customer_tag_assignment",
+        "columns": [
+          {
+            "name": "assigned_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "assigned_by",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "customer_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "tag_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["customer_id", "tag_id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["assigned_by"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["customer_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["tag_id"],
+            "refTable": "customer_tag",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["tag_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "daily_sales_summary",
+        "columns": [
+          {
+            "name": "branch_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "cancelled_bookings",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "card_revenue_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "cash_revenue_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "completed_bookings",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "date",
+            "type": "date",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "discount_given_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "gems_redeemed_count",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "membership_revenue_paise",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "new_customers",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "no_show_bookings",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "online_revenue_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "salon_revenue_paise",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "spa_revenue_paise",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "total_bookings",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "total_revenue_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "upi_revenue_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "walkin_bookings",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "daily_sales_summary_date_branch_id_unique",
+            "columns": ["branch_id", "date"]
+          }
+        ],
+        "foreignKeys": [
+          {
+            "columns": ["branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": []
+      },
+      {
+        "name": "holiday",
+        "columns": [
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "date",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "name",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "holiday_date_unique",
+            "columns": ["date"]
+          }
+        ],
+        "foreignKeys": [],
+        "indexes": []
+      },
+      {
+        "name": "invoice",
+        "columns": [
+          {
+            "name": "booking_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "branch_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "customer_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "discount_amount_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "gems_earned",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "gems_redeemed",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "gems_redeemed_service_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "gst_amount_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "invoice_number",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "invoice_type",
+            "type": "invoice_type",
+            "nullable": false,
+            "default": "'service'"
+          },
+          {
+            "name": "notes",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "paid_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "payment_method",
+            "type": "payment_method",
+            "nullable": false,
+            "default": "'cash'"
+          },
+          {
+            "name": "payment_reference",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "payment_status",
+            "type": "payment_status",
+            "nullable": false,
+            "default": "'pending'"
+          },
+          {
+            "name": "pdf_url",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "subtotal_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "taxable_value_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "total_amount_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "invoice_invoice_number_unique",
+            "columns": ["invoice_number"]
+          }
+        ],
+        "foreignKeys": [
+          {
+            "columns": ["booking_id"],
+            "refTable": "booking",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["customer_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["gems_redeemed_service_id"],
+            "refTable": "service",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["branch_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["customer_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["paid_at"],
+            "unique": false,
+            "predicate": "payment_status = 'paid'",
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "invoice_item",
+        "columns": [
+          {
+            "name": "display_order",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "invoice_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "quantity",
+            "type": "integer",
+            "nullable": false,
+            "default": "1"
+          },
+          {
+            "name": "service_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "service_name_snapshot",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "staff_name_snapshot",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "total_price_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "unit_price_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["invoice_id"],
+            "refTable": "invoice",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["service_id"],
+            "refTable": "service",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": []
+      },
+      {
+        "name": "lead",
+        "columns": [
+          {
+            "name": "assigned_to",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "converted_booking_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "email",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "last_contacted_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "name",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "phone",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "service_interested_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "source",
+            "type": "text",
+            "nullable": false,
+            "default": "'meta_ad'"
+          },
+          {
+            "name": "status",
+            "type": "lead_status",
+            "nullable": false,
+            "default": "'new'"
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "utm_campaign",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "utm_content",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "utm_medium",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "utm_source",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "utm_term",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["assigned_to"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "set null",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["converted_booking_id"],
+            "refTable": "booking",
+            "refColumns": ["id"],
+            "onDelete": "set null",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["service_interested_id"],
+            "refTable": "service",
+            "refColumns": ["id"],
+            "onDelete": "set null",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["assigned_to"],
+            "unique": false,
+            "predicate": "status NOT IN ('won', 'lost')",
+            "method": "btree"
+          },
+          {
+            "columns": ["status"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["utm_campaign"],
+            "unique": false,
+            "predicate": "utm_campaign IS NOT NULL",
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "lead_note",
+        "columns": [
+          {
+            "name": "author_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "content",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "lead_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["author_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["lead_id"],
+            "refTable": "lead",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": []
+      },
+      {
+        "name": "loyalty_account",
+        "columns": [
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "customer_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "gems_balance",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "total_gems_earned",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "total_gems_redeemed",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "loyalty_account_customer_id_unique",
+            "columns": ["customer_id"]
+          }
+        ],
+        "foreignKeys": [
+          {
+            "columns": ["customer_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": []
+      },
+      {
+        "name": "loyalty_transaction",
+        "columns": [
+          {
+            "name": "booking_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "expires_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "gems_amount",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "invoice_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "loyalty_account_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "loyalty_tx_type",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["booking_id"],
+            "refTable": "booking",
+            "refColumns": ["id"],
+            "onDelete": "set null",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["invoice_id"],
+            "refTable": "invoice",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["loyalty_account_id"],
+            "refTable": "loyalty_account",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["created_at", "loyalty_account_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["expires_at"],
+            "unique": false,
+            "predicate": "type = 'earned' AND expires_at IS NOT NULL",
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "monthly_gst_summary",
+        "columns": [
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "gst_amount_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "invoice_count",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "month",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "sac_code",
+            "type": "text",
+            "nullable": false,
+            "default": "'999721'"
+          },
+          {
+            "name": "taxable_value_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "monthly_gst_summary_month_unique",
+            "columns": ["month"]
+          }
+        ],
+        "foreignKeys": [],
+        "indexes": []
+      },
+      {
+        "name": "notification",
+        "columns": [
+          {
+            "name": "body",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "booking_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "channel",
+            "type": "notification_channel",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "read_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "sent_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "status",
+            "type": "notification_status",
+            "nullable": false,
+            "default": "'pending'"
+          },
+          {
+            "name": "title",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "notification_type",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "user_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["booking_id"],
+            "refTable": "booking",
+            "refColumns": ["id"],
+            "onDelete": "set null",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["user_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["created_at", "status"],
+            "unique": false,
+            "predicate": "status = 'pending'",
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "offer",
+        "columns": [
+          {
+            "name": "combo_price_paise",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "discount_amount_paise",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "discount_percentage",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "display_order",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "end_date",
+            "type": "date",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "image_url",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "is_active",
+            "type": "boolean",
+            "nullable": false,
+            "default": "true"
+          },
+          {
+            "name": "name",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "offer_type",
+            "type": "discount_type",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "slug",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "start_date",
+            "type": "date",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "terms",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "offer_slug_unique",
+            "columns": ["slug"]
+          }
+        ],
+        "foreignKeys": [],
+        "indexes": [
+          {
+            "columns": ["display_order"],
+            "unique": false,
+            "predicate": "is_active = true",
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "offer_redemption",
+        "columns": [
+          {
+            "name": "booking_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "customer_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "offer_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "redeemed_date",
+            "type": "date",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "offer_redemption_customer_id_redeemed_date_unique",
+            "columns": ["customer_id", "redeemed_date"]
+          }
+        ],
+        "foreignKeys": [
+          {
+            "columns": ["customer_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["offer_id"],
+            "refTable": "offer",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["customer_id", "redeemed_date"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["offer_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "offer_service",
+        "columns": [
+          {
+            "name": "offer_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "service_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["offer_id", "service_id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["offer_id"],
+            "refTable": "offer",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["service_id"],
+            "refTable": "service",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": []
+      },
+      {
+        "name": "push_subscription",
+        "columns": [
+          {
+            "name": "auth_key",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "endpoint",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "is_active",
+            "type": "boolean",
+            "nullable": false,
+            "default": "true"
+          },
+          {
+            "name": "p256dh_key",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "user_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["user_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["user_id"],
+            "unique": false,
+            "predicate": "is_active = true",
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "service",
+        "columns": [
+          {
+            "name": "buffer_minutes",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "category_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "display_order",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "duration_minutes",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "gems_catalogue_order",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "gems_redeemable",
+            "type": "boolean",
+            "nullable": false,
+            "default": "false"
+          },
+          {
+            "name": "gems_required",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "image_url",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "is_active",
+            "type": "boolean",
+            "nullable": false,
+            "default": "true"
+          },
+          {
+            "name": "name",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "price_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "slug",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "service_slug_unique",
+            "columns": ["slug"]
+          }
+        ],
+        "foreignKeys": [
+          {
+            "columns": ["category_id"],
+            "refTable": "service_category",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["category_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["id"],
+            "unique": false,
+            "predicate": "gems_redeemable = true AND is_active = true",
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "service_category",
+        "columns": [
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "display_order",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "is_active",
+            "type": "boolean",
+            "nullable": false,
+            "default": "true"
+          },
+          {
+            "name": "name",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "service_type",
+            "type": "service_type",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "slug",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "service_category_slug_unique",
+            "columns": ["slug"]
+          }
+        ],
+        "foreignKeys": [],
+        "indexes": []
+      },
+      {
+        "name": "session",
+        "columns": [
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "expires_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "ip_address",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "token",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "user_agent",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "user_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "session_token_unique",
+            "columns": ["token"]
+          }
+        ],
+        "foreignKeys": [
+          {
+            "columns": ["user_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["user_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "spa_membership",
+        "columns": [
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "created_by",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "customer_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "expires_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "invoice_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "membership_number",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "notes",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "price_paid_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "starts_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "status",
+            "type": "spa_membership_status",
+            "nullable": false,
+            "default": "'active'"
+          },
+          {
+            "name": "tier_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "tier_name_snapshot",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "total_hours_minutes",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "used_hours_minutes",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "spa_membership_membership_number_unique",
+            "columns": ["membership_number"]
+          }
+        ],
+        "foreignKeys": [
+          {
+            "columns": ["created_by"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["customer_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["tier_id"],
+            "refTable": "spa_membership_tier",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["customer_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["customer_id"],
+            "unique": true,
+            "predicate": "status = 'active'",
+            "method": "btree"
+          },
+          {
+            "columns": ["expires_at"],
+            "unique": false,
+            "predicate": "status = 'active'",
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "spa_membership_tier",
+        "columns": [
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "default_hours_minutes",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "default_price_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "default_validity_days",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "display_order",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "is_active",
+            "type": "boolean",
+            "nullable": false,
+            "default": "true"
+          },
+          {
+            "name": "name",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "slug",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "spa_membership_tier_name_unique",
+            "columns": ["name"]
+          },
+          {
+            "name": "spa_membership_tier_slug_unique",
+            "columns": ["slug"]
+          }
+        ],
+        "foreignKeys": [],
+        "indexes": []
+      },
+      {
+        "name": "staff_profile",
+        "columns": [
+          {
+            "name": "bio",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "designation",
+            "type": "staff_designation",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "hire_date",
+            "type": "date",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "is_active",
+            "type": "boolean",
+            "nullable": false,
+            "default": "true"
+          },
+          {
+            "name": "phone",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "specialization",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "user_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "staff_profile_user_id_unique",
+            "columns": ["user_id"]
+          }
+        ],
+        "foreignKeys": [
+          {
+            "columns": ["user_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["user_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "staff_schedule",
+        "columns": [
+          {
+            "name": "day_of_week",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "end_time",
+            "type": "time",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "is_working",
+            "type": "boolean",
+            "nullable": false,
+            "default": "true"
+          },
+          {
+            "name": "staff_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "start_time",
+            "type": "time",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "staff_schedule_staff_id_day_of_week_unique",
+            "columns": ["day_of_week", "staff_id"]
+          }
+        ],
+        "foreignKeys": [
+          {
+            "columns": ["staff_id"],
+            "refTable": "staff_profile",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["day_of_week", "staff_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "staff_service",
+        "columns": [
+          {
+            "name": "service_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "staff_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["staff_id", "service_id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["service_id"],
+            "refTable": "service",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["staff_id"],
+            "refTable": "staff_profile",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": []
+      },
+      {
+        "name": "staff_time_off",
+        "columns": [
+          {
+            "name": "approval_status",
+            "type": "leave_approval_status",
+            "nullable": false,
+            "default": "'pending'"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "date",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "leave_type",
+            "type": "leave_type",
+            "nullable": false,
+            "default": "'personal'"
+          },
+          {
+            "name": "reason",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "rejection_reason",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "reviewed_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "reviewed_by",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "staff_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "staff_time_off_staff_id_date_unique",
+            "columns": ["date", "staff_id"]
+          }
+        ],
+        "foreignKeys": [
+          {
+            "columns": ["reviewed_by"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "set null",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["staff_id"],
+            "refTable": "staff_profile",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["date", "staff_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "system_setting",
+        "columns": [
+          {
+            "name": "description",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "key",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "updated_by",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "value",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "system_setting_key_unique",
+            "columns": ["key"]
+          }
+        ],
+        "foreignKeys": [
+          {
+            "columns": ["updated_by"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "set null",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": []
+      },
+      {
+        "name": "user",
+        "columns": [
+          {
+            "name": "ban_expires",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "ban_reason",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "banned",
+            "type": "boolean",
+            "nullable": true,
+            "default": "false"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "email",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "email_verified",
+            "type": "boolean",
+            "nullable": false,
+            "default": "false"
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "image",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "name",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "role",
+            "type": "text",
+            "nullable": true,
+            "default": "'customer'"
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "user_email_unique",
+            "columns": ["email"]
+          }
+        ],
+        "foreignKeys": [],
+        "indexes": []
+      },
+      {
+        "name": "verification",
+        "columns": [
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "expires_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "identifier",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "value",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [],
+        "foreignKeys": [],
+        "indexes": []
+      },
+      {
+        "name": "waitlist",
+        "columns": [
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "customer_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "notified_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "preferred_date",
+            "type": "date",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "preferred_staff_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "preferred_time_end",
+            "type": "time",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "preferred_time_start",
+            "type": "time",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "service_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "status",
+            "type": "waitlist_status",
+            "nullable": false,
+            "default": "'waiting'"
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["customer_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["preferred_staff_id"],
+            "refTable": "staff_profile",
+            "refColumns": ["id"],
+            "onDelete": "set null",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["service_id"],
+            "refTable": "service",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": []
+      }
+    ],
+    "version": 1
+  }
+}
