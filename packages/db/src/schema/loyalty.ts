@@ -35,6 +35,7 @@ import { sql } from 'drizzle-orm'
 import { index, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'
 import { user } from './auth'
+import { booking } from './booking'
 import { loyaltyTxTypeEnum } from './enums'
 import { invoice } from './invoice'
 
@@ -68,6 +69,9 @@ export const loyaltyTransaction = pgTable(
     type: loyaltyTxTypeEnum('type').notNull(),
     gemsAmount: integer('gems_amount').notNull(),
     invoiceId: text('invoice_id').references(() => invoice.id, { onDelete: 'restrict' }),
+    // Links a 'redeemed' transaction to the ₹0 booking it created (null for
+    // earned/expired/adjusted). Lazy () => reference avoids a circular import.
+    bookingId: text('booking_id').references(() => booking.id, { onDelete: 'set null' }),
     description: text('description'),
     expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),

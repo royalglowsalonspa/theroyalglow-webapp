@@ -28,8 +28,9 @@
  * - Protected route; redirects to / (homepage) if no session
  ************************************************************/
 
+import { RedeemFlow } from '@/components/gems/RedeemFlow'
 import { auth } from '@/lib/auth-server'
-import { formatDateIN, formatINR } from '@rgss/business'
+import { computeAffordability, formatDateIN } from '@rgss/business'
 import {
   getLoyaltySummary,
   getLoyaltyTransactions,
@@ -96,6 +97,19 @@ export default async function GemsPage({ searchParams }: PageProps) {
   const hasPrev = page > 1
   const hasNext = transactions.length === PAGE_SIZE
 
+  // Drop services without a gem price (Req 1.3), then flag affordability (Req 2)
+  // so the client RedeemFlow renders the catalogue without any business logic.
+  const catalogue = computeAffordability(
+    balance.balance,
+    redeemable.filter((item) => item.gemsRequired != null),
+  ).map((item) => ({
+    id: item.id,
+    name: item.name,
+    gemsRequired: item.gemsRequired as number,
+    pricePaise: item.pricePaise,
+    affordable: item.affordable,
+  }))
+
   return (
     <div className="mx-auto max-w-[800px] px-5 py-10 lg:py-14">
       <header className="mb-8">
@@ -154,42 +168,11 @@ export default async function GemsPage({ searchParams }: PageProps) {
           Redeem your gems
         </h2>
         <p className="font-sans text-[13px] text-dusty-gray mb-5">
-          Redeem at your next visit — ask our team at the counter. No online redemption.
+          Spend your gems on a reward service — pick a date and time, and we'll confirm your
+          appointment. Each reward is fully covered by gems.
         </p>
 
-        {redeemable.length === 0 ? (
-          <p className="font-sans text-[15px] text-dusty-gray py-4">
-            No rewards are available right now. Check back soon.
-          </p>
-        ) : (
-          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {redeemable.map((item) => {
-              const affordable = item.gemsRequired != null && balance.balance >= item.gemsRequired
-              return (
-                <li key={item.id}>
-                  <article className="h-full rounded-[6px] border border-cloud-gray bg-canvas-white p-5 motion-safe:transition-all duration-200 hover:border-golden-mist hover:shadow-card-hover">
-                    <h3 className="font-sans text-[16px] text-cocoa-dark mb-2">{item.name}</h3>
-                    <p className="font-ui text-[14px] text-deep-gold mb-1">
-                      {item.gemsRequired != null
-                        ? `${item.gemsRequired.toLocaleString('en-IN')} gems`
-                        : 'Ask in store'}
-                    </p>
-                    <p className="font-sans text-[12px] text-dusty-gray mb-3">
-                      Worth {formatINR(item.pricePaise)}
-                    </p>
-                    <p
-                      className={`font-ui text-[11px] uppercase tracking-[0.5px] ${
-                        affordable ? 'text-emerald-700' : 'text-warm-stone'
-                      }`}
-                    >
-                      {affordable ? 'Ready to redeem' : 'Redeem at your next visit'}
-                    </p>
-                  </article>
-                </li>
-              )
-            })}
-          </ul>
-        )}
+        <RedeemFlow balance={balance.balance} catalogue={catalogue} />
       </section>
 
       {/* Transaction history */}

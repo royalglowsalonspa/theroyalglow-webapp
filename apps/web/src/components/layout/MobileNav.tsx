@@ -213,7 +213,7 @@ export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
     fetch('/api/gems', { headers: { accept: 'application/json' } })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
-        if (!cancelled && j?.success) setGems(j.data.summary.balance as number)
+        if (!cancelled && j?.success) setGems(j.data.balance as number)
       })
       .catch(() => {})
     fetch('/api/notifications', { headers: { accept: 'application/json' } })
