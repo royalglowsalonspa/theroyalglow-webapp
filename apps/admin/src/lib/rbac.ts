@@ -65,6 +65,11 @@ export const ROUTE_MIN_LEVEL: ReadonlyArray<readonly [string, number]> = [
   ['/billing', 2],
   ['/leave', 2],
   ['/memberships', 2],
+  // Staff self-service namespace (relocated from apps/web/staff/* during the
+  // admin-web-separation feature). Level 1 = `staff`. Does NOT collide with the
+  // manager-level `/staff` (level 3) prefix — `/me` and `/staff` share no path
+  // segment, so longest-prefix matching keeps them independent.
+  ['/me', 1],
   ['/', 2], // dashboard root — matched last (shortest prefix)
 ] as const
 
@@ -167,6 +172,16 @@ export type NavSection = {
  * derived from `ROUTE_MIN_LEVEL` so the sidebar and the middleware agree.
  */
 export const ADMIN_NAV: ReadonlyArray<NavSection> = [
+  {
+    // Staff self-service (relocated from apps/web/staff/*). Visible from level 1
+    // (`staff`) up, so a staff user sees ONLY this section; receptionist+ also
+    // see it (managing their own leave is harmless).
+    title: 'Self-Service',
+    items: [
+      { label: 'My Schedule', href: '/me/schedule', minLevel: 1 },
+      { label: 'My Leave', href: '/me/leave', minLevel: 1 },
+    ],
+  },
   {
     title: 'Operations',
     items: [
