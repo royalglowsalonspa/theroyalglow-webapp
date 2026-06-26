@@ -278,3 +278,147 @@ describe('Property 1: RBAC access decision is correct and monotonic in role leve
     )
   })
 })
+
+// Feature: admin-web-separation, Property 5: Staff is granted access to exactly the self-service routes
+//
+// Property 5: Staff is granted access to exactly the self-service routes
+// Validates: Requirements 3.2, 3.3, 3.5
+//
+// For any path in the admin route table, a valid session at the `staff`
+// Role_Level (1) is allowed by decide(routeMinLevel(path)) iff that path
+// resolves under the `/me` namespace (routeMinLevel === 1); for the dashboard
+// root and every route whose minimum level is receptionist (2) or higher, the
+// same staff session is forbidden.
+
+describe('Property 5: Staff is granted access to exactly the self-service routes', () => {
+  const staffState: AuthState = { kind: 'valid', roleLevel: ROLE_LEVELS.staff }
+
+  // A non-empty, slash-free path segment (deep links under a prefix).
+  const segArb = fc.string({ minLength: 1, maxLength: 8 }).filter((s) => !s.includes('/'))
+
+  // Sample paths from the known route prefixes, optionally with deep sub-paths,
+  // plus the self-service routes and known higher-level routes as fixed seeds.
+  const knownPrefixes = ROUTE_MIN_LEVEL.map(([prefix]) => prefix)
+  const tablePathArb: fc.Arbitrary<string> = fc.oneof(
+    fc.constantFrom(...knownPrefixes),
+    fc
+      .tuple(fc.constantFrom(...knownPrefixes), fc.array(segArb, { minLength: 1, maxLength: 3 }))
+      .map(([prefix, segs]) => {
+        const base = prefix === '/' ? '' : prefix
+        return `${base}/${segs.join('/')}`
+      }),
+    fc.constantFrom('/me/schedule', '/me/leave', '/', '/bookings', '/staff', '/staff/123'),
+  )
+
+  it('allows staff iff the route resolves under /me, forbids the rest', () => {
+    fc.assert(
+      fc.property(tablePathArb, (path) => {
+        const min = routeMinLevel(path)
+        const decision = decide(staffState, min)
+
+        // Staff (level 1) may pass only routes whose minimum level is <= 1, which
+        // in the admin table is exactly the `/me` self-service namespace.
+        const resolvesUnderMe = path === '/me' || path.startsWith('/me/')
+        const allowed = decision.action === 'allow'
+
+        expect(allowed).toBe(min <= ROLE_LEVELS.staff)
+        // Routes that resolve under /me are exactly the level-1 routes.
+        expect(min <= ROLE_LEVELS.staff).toBe(resolvesUnderMe)
+
+        // Receptionist-or-higher routes (and the dashboard root) forbid staff.
+        if (min >= ROLE_LEVELS.receptionist) {
+          expect(decision.action).toBe('forbid')
+        }
+      }),
+      { numRuns: 200 },
+    )
+  })
+})
+
+// Feature: admin-web-separation, Property 6: Adding /me does not weaken the manager-level /staff route
+//
+// Property 6: Adding `/me` does not weaken the manager-level `/staff` route
+// Validates: Requirements 3.4
+//
+// For any path under the `/staff` namespace (`/staff` or any `/staff/`-prefixed
+// path), routeMinLevel(path) equals 3 (manager) — longest-prefix matching keeps
+// `/me` and `/staff` independent.
+
+describe('Property 6: Adding /me does not weaken the manager-level /staff route', () => {
+  const segArb = fc.string({ minLength: 1, maxLength: 8 }).filter((s) => !s.includes('/'))
+
+  const staffNamespacePathArb: fc.Arbitrary<string> = fc.oneof(
+    fc.constantFrom('/staff', '/staff/'),
+    fc.array(segArb, { minLength: 1, maxLength: 4 }).map((segs) => `/staff/${segs.join('/')}`),
+  )
+
+  it('resolves every /staff* path to manager level (3)', () => {
+    fc.assert(
+      fc.property(staffNamespacePathArb, (path) => {
+        expect(routeMinLevel(path)).toBe(ROLE_LEVELS.manager)
+      }),
+      { numRuns: 200 },
+    )
+  })
+})
+
+// Feature: admin-web-separation, Property 7: Self-service navigation visibility matches role level
+//
+// Property 7: Self-service navigation visibility matches role level
+// Validates: Requirements 3.6
+//
+// For any role level, filterNavByLevel(ADMIN_NAV, level) includes the
+// `My Schedule` and `My Leave` self-service entries iff level >= 1, and for a
+// staff user (level 1) the filtered result contains ONLY the Self-Service
+// section.
+
+describe('Property 7: Self-service navigation visibility matches role level', () => {
+  const SELF_SERVICE_HREFS = ['/me/schedule', '/me/leave']
+
+  const flattenHrefs = (sections: NavSection[]): string[] =>
+    sections.flatMap((section) => section.items.map((item) => item.href))
+
+  it('shows self-service entries iff level >= 1', () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 0, max: 5 }), (level) => {
+        const hrefs = flattenHrefs(filterNavByLevel(ADMIN_NAV, level))
+        const hasSelfService = SELF_SERVICE_HREFS.every((href) => hrefs.includes(href))
+        expect(hasSelfService).toBe(level >= ROLE_LEVELS.staff)
+      }),
+      { numRuns: 200 },
+    )
+  })
+
+  it('yields ONLY the Self-Service section for a staff user (level 1)', () => {
+    const result = filterNavByLevel(ADMIN_NAV, ROLE_LEVELS.staff)
+    expect(result).toHaveLength(1)
+    const [section] = result
+    expect(section?.title).toBe('Self-Service')
+    expect(section?.items.map((item) => item.href).sort()).toEqual([...SELF_SERVICE_HREFS].sort())
+  })
+})
+
+// RBAC access-matrix example assertions for the staff role.
+// Validates: Requirements 3.2, 3.3, 9.6
+describe('Admin RBAC staff access matrix (examples)', () => {
+  const staffState: AuthState = { kind: 'valid', roleLevel: ROLE_LEVELS.staff }
+  const receptionistState: AuthState = { kind: 'valid', roleLevel: ROLE_LEVELS.receptionist }
+
+  const staffDecisionFor = (path: string) => decide(staffState, routeMinLevel(path)).action
+
+  it('allows staff on the self-service routes', () => {
+    expect(staffDecisionFor('/me/schedule')).toBe('allow')
+    expect(staffDecisionFor('/me/leave')).toBe('allow')
+  })
+
+  it('forbids staff on the dashboard root and receptionist+/manager routes', () => {
+    expect(staffDecisionFor('/')).toBe('forbid')
+    expect(staffDecisionFor('/bookings')).toBe('forbid')
+    expect(staffDecisionFor('/staff')).toBe('forbid')
+  })
+
+  it('allows receptionist (level 2) on the self-service routes too', () => {
+    expect(decide(receptionistState, routeMinLevel('/me/schedule')).action).toBe('allow')
+    expect(decide(receptionistState, routeMinLevel('/me/leave')).action).toBe('allow')
+  })
+})

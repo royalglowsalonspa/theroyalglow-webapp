@@ -1,35 +1,28 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Project      : theroyalglow-webapp (apps/admin)
+ * Module Name  : MeSchedulePage (staff self-service)
+ * Scope        : Admin Portal — Staff Self-Service
  *
- * Project      : theroyalglow-webapp
- * Module Name  : StaffSchedulePage
- * Scope        : Staff Portal
- *
- * Description  : Displays the authenticated staff member's weekly working schedule.
- *                Shows each day of the week with start/end times or "Off" status.
+ * Description  : Displays the authenticated staff member's weekly working
+ *                schedule (read-only). Relocated from apps/web/staff/schedule
+ *                during the admin-web-separation feature. Shows each day of the
+ *                week with start/end times or "Off".
  *
  * Responsibilities :
  * - Authenticate the staff session and resolve the staff profile
- * - Fetch the weekly schedule from database and render by day
- * - Display a "no profile" state when the user account isn't linked
+ * - Fetch the weekly schedule and render by day
+ * - Display a "no profile" state when the account isn't linked
  *
- * Features / Functionality :
- * - 7-day schedule display (Sun–Sat) with 12-hour time formatting
- * - Empty state for staff without a linked profile
- * - Informational note directing schedule changes to the front desk
- *
- * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, Better Auth, Drizzle ORM
+ * Tech Stack   : React, Next.js 16 (App Router), Better Auth, Drizzle ORM
  * Layer        : Presentation
  *
- * Dependencies : formatTime12h, auth, dayOfWeekLabel, getStaffProfileByUserId, getStaffSchedule
- *
  * Notes        :
- * - Schedule is read-only for staff; changes go through manager/admin
+ * - Schedule is read-only for staff; changes go through manager/admin (/schedule).
  ************************************************************/
 
+import { formatTime12h } from '@/lib/admin/bookings'
 import { auth } from '@/lib/auth-server'
-import { formatTime12h } from '@/lib/format'
 import { dayOfWeekLabel } from '@rgss/business'
 import { getStaffProfileByUserId, getStaffSchedule } from '@rgss/db/queries'
 import type { Metadata } from 'next'
@@ -53,10 +46,10 @@ function displayTime(value: string | null): string | null {
   return formatTime12h(value)
 }
 
-export default async function StaffSchedulePage() {
+export default async function MeSchedulePage() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) {
-    redirect('/')
+    redirect('https://theroyalglow.in')
   }
 
   const staff = await getStaffProfileByUserId(session.user.id)
@@ -68,7 +61,7 @@ export default async function StaffSchedulePage() {
   }
 
   return (
-    <div>
+    <div className="mx-auto max-w-[960px]">
       <header className="mb-8">
         <p className="font-ui text-[11px] uppercase tracking-[2px] text-warm-stone mb-2">
           Your working hours

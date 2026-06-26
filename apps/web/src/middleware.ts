@@ -33,6 +33,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { mapAdminRedirect } from './lib/admin-redirect'
+import { mapStaffRedirect } from './lib/staff-redirect'
 
 // Better Auth session cookie name
 const SESSION_COOKIE = 'better-auth.session_token'
@@ -45,6 +46,15 @@ export async function middleware(request: NextRequest) {
   // too, and emit a strict 301 (permanent) preserving the sub-path + query.
   if (pathname === '/admin' || pathname.startsWith('/admin/')) {
     return NextResponse.redirect(mapAdminRedirect(pathname, search), 301)
+  }
+
+  // Legacy staff self-service paths moved to the admin subdomain's `/me/*`
+  // namespace (admin.theroyalglow.in/me/schedule, /me/leave) during the
+  // admin-web-separation feature. Redirect FIRST (before any session logic) so
+  // it applies to unauthenticated users too; 301 (permanent), preserving the
+  // sub-path + query. Canonical surfaces live in apps/admin, NOT here.
+  if (pathname === '/staff' || pathname.startsWith('/staff/')) {
+    return NextResponse.redirect(mapStaffRedirect(pathname, search), 301)
   }
 
   // Check for session cookie
@@ -64,6 +74,7 @@ export const config = {
   matcher: [
     '/admin',
     '/admin/:path*',
+    '/staff',
     '/staff/:path*',
     '/onboarding',
     '/profile',

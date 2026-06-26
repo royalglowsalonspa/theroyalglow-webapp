@@ -1,39 +1,26 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Project      : theroyalglow-webapp (apps/admin)
+ * Module Name  : MeLeavePanel (staff self-service)
+ * Scope        : Admin Portal — Staff Self-Service
  *
- * Project      : theroyalglow-webapp
- * Module Name  : StaffLeavePanel
- * Scope        : Staff Portal
- *
- * Description  : Client component providing leave request form and leave history.
- *                Staff can submit new leave requests and withdraw pending ones.
- *
- * Responsibilities :
- * - Render leave request form with type, date, and optional reason fields
- * - Fetch and display leave history from GET /api/staff/leave
- * - Allow withdrawal of pending requests via DELETE /api/staff/leave/[id]
- *
- * Features / Functionality :
- * - Leave type selector (sick, casual, personal, other)
- * - Form submission with validation and success/error feedback
- * - Per-item withdraw action for pending leave requests
+ * Description  : Client component providing the leave request form and history.
+ *                Staff submit new leave requests and withdraw pending ones.
+ *                Relocated from apps/web/staff/leave/staff-leave-panel during the
+ *                admin-web-separation feature; fetch URLs retargeted to /api/me/*.
  *
  * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4
  * Layer        : Presentation
  *
- * Dependencies : formatDateDDMMYYYY (admin/bookings), React (useCallback, useEffect, useId, useState)
- *
- * Notes        :
- * - Approval/rejection is handled by managers in the admin portal
+ * Notes        : Approval/rejection is handled by managers at /leave.
  ************************************************************/
 
 'use client'
 
-import { formatDateDDMMYYYY } from '@/lib/format'
+import { formatDateDDMMYYYY } from '@/lib/admin/bookings'
 import { useCallback, useEffect, useId, useState } from 'react'
 
-// ─── API shapes (mirror GET/POST /api/staff/leave + DELETE /api/staff/leave/[id]) ───
+// ─── API shapes (mirror GET/POST /api/me/leave + DELETE /api/me/leave/[id]) ───
 
 interface LeaveRow {
   id: string
@@ -65,7 +52,7 @@ const STATUS_STYLES: Record<string, string> = {
   rejected: 'bg-red-100 text-red-700',
 }
 
-export function StaffLeavePanel() {
+export function MeLeavePanel() {
   const [leave, setLeave] = useState<LeaveRow[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -74,7 +61,7 @@ export function StaffLeavePanel() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/staff/leave')
+      const res = await fetch('/api/me/leave')
       const json = await res.json()
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not load your leave.')
@@ -153,7 +140,7 @@ function RequestLeaveForm({ onSubmitted }: { onSubmitted: () => void }) {
         if (reason.trim()) {
           body.reason = reason.trim()
         }
-        const res = await fetch('/api/staff/leave', {
+        const res = await fetch('/api/me/leave', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(body),
@@ -281,7 +268,7 @@ function LeaveItem({
     setBusy(true)
     setActionError(null)
     try {
-      const res = await fetch(`/api/staff/leave/${row.id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/me/leave/${row.id}`, { method: 'DELETE' })
       const json = await res.json()
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not withdraw the request.')
