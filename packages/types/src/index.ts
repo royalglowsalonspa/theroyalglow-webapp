@@ -27,6 +27,7 @@
 export * from './api'
 export * from './audit'
 export * from './booking'
+export * from './loyalty'
 export * from './branch'
 export * from './admin-booking'
 export * from './membership'

@@ -190,7 +190,7 @@ export function UserMenu({ user }: UserMenuProps) {
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
         if (!cancelled && json?.success) {
-          setGems(json.data.summary.balance as number)
+          setGems(json.data.balance as number)
         }
       })
       .catch(() => {

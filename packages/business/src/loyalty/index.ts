@@ -17,8 +17,9 @@
  * Tech Stack   : TypeScript
  * Layer        : Business Logic
  *
- * Dependencies : ./gems
+ * Dependencies : ./gems, ./redeem
  *
  * Notes        : None
  ************************************************************/
 export * from './gems'
+export * from './redeem'

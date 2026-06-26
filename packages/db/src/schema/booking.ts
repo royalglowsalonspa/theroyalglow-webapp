@@ -32,7 +32,17 @@
  ************************************************************/
 
 import { sql } from 'drizzle-orm'
-import { boolean, date, index, integer, pgTable, text, time, timestamp } from 'drizzle-orm/pg-core'
+import {
+  boolean,
+  date,
+  index,
+  integer,
+  pgTable,
+  text,
+  time,
+  timestamp,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'
 import { user } from './auth'
 import { branch } from './branch'
@@ -69,6 +79,15 @@ export const booking = pgTable(
     spaMembershipId: text('spa_membership_id').references(() => spaMembership.id, {
       onDelete: 'restrict',
     }),
+    // Gems redemption (additive, nullable/defaulted — existing bookings unaffected).
+    // Marks a ₹0 gems-redemption booking that earns zero gems and never combines
+    // with an offer.
+    isGemsRedemption: boolean('is_gems_redemption').notNull().default(false),
+    // Gems spent to create this redemption booking (null for normal bookings).
+    gemsRedeemed: integer('gems_redeemed'),
+    // Client idempotency key for redemption (null for normal bookings). Partial
+    // unique index de-dupes retried submissions.
+    redemptionKey: text('redemption_key'),
     confirmedAt: timestamp('confirmed_at', { withTimezone: true, mode: 'date' }),
     completedAt: timestamp('completed_at', { withTimezone: true, mode: 'date' }),
     cancellationReason: text('cancellation_reason'),
@@ -94,6 +113,9 @@ export const booking = pgTable(
     index('booking_spa_membership_id_idx')
       .on(table.spaMembershipId)
       .where(sql`spa_membership_id IS NOT NULL`),
+    uniqueIndex('booking_redemption_key_uidx')
+      .on(table.redemptionKey)
+      .where(sql`redemption_key IS NOT NULL`),
   ],
 )
 
