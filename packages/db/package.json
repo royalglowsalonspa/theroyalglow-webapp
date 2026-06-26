@@ -11,6 +11,7 @@
   "scripts": {
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
+    "drift:reference": "bun run scripts/drift/regenerate-reference.ts",
     "seed": "bun run scripts/seed.ts",
     "seed:prod": "bun run scripts/seed-prod.ts"
   },
@@ -22,6 +23,7 @@
     "nanoid": "^5.1.11"
   },
   "devDependencies": {
+    "@types/node": "^25.9.1",
     "drizzle-kit": "^0.30.0",
     "fast-check": "^3.23.1"
   }
