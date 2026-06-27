@@ -56,3 +56,15 @@ graphify-out/
 .kiro/settings/
 # Added by code-review-graph
 .code-review-graph/
+
+# ─── OpenNext (Cloudflare Workers adapter) ────────────────────
+# `opennextjs-cloudflare build` emits the Worker bundle + transformed
+# assets here. It is a derived build artifact (like .next/) and must never
+# be committed — CI/Cloudflare regenerate it on every deploy.
+.open-next/
+# Wrangler local state + the generated typed-env ambient declaration.
+.wrangler/
+cloudflare-env.d.ts
+# Local Workers dev secrets (mirrors .env.local; never commit).
+.dev.vars
+.dev.vars.*

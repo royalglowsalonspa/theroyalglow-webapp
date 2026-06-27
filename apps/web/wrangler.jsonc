@@ -1,0 +1,83 @@
+// ============================================================================
+//  apps/web — Cloudflare Worker configuration (OpenNext adapter)
+//  Project: theroyalglow-webapp · Customer site (theroyalglow.in)
+// ============================================================================
+//
+//  WHY THIS FILE EXISTS
+//  --------------------
+//  The customer site is a full-SSR Next.js 16 (App Router) app with API route
+//  handlers, middleware, and ISR. We deploy it to **Cloudflare Workers** via
+//  the OpenNext adapter (`@opennextjs/cloudflare`), NOT Cloudflare Pages and
+//  NOT `next-on-pages`. OpenNext runs Next.js on the Workers runtime using the
+//  Node.js compatibility layer, so far more of the App Router / middleware /
+//  Node API surface works than under the legacy Pages adapter.
+//
+//  BUILD -> DEPLOY FLOW
+//  -------------------
+//    bun run cf:build      -> `opennextjs-cloudflare build` runs `next build`
+//                            then transforms it into `.open-next/worker.js`
+//                            (the Worker entry) + `.open-next/assets/` (static
+//                            assets served by the ASSETS binding below).
+//    bun run preview       -> build + run it locally in the real workerd runtime
+//                            (validates Workers behaviour, not just `next dev`).
+//    bun run deploy        -> build + `wrangler deploy` (used by CI per branch).
+//
+//  `.open-next/` is a derived artifact (git-ignored). Cloudflare/CI regenerate
+//  it on every deploy -- never commit it.
+//
+//  SECRETS & ENV (IMPORTANT)
+//  -------------------------
+//  Do NOT put secrets in this file. Runtime secrets (DATABASE_URL,
+//  BETTER_AUTH_SECRET, RESEND_API_KEY, ABLY_PRIVATE_KEY, QSTASH_*, R2_*,
+//  UPSTASH_*, etc. -- see environment-variables.md) are provisioned per-Worker
+//  via `wrangler secret put <NAME>` or the Cloudflare dashboard, and per-branch
+//  via the deploy workflow's env. NEXT_PUBLIC_* values are inlined at build
+//  time by `next build`, so they must be present in the build environment
+//  (CI build vars), not here.
+//
+//  CUSTOM DOMAIN
+//  -------------
+//  `theroyalglow.in` is attached to this Worker as a Custom Domain in the
+//  Cloudflare dashboard (Workers -> rgss-web -> Settings -> Domains & Routes).
+//  This is a one-time manual step during the Pages->Workers cutover.
+// ============================================================================
+{
+  // Worker name. Keep stable -- it is the deploy target referenced by the CI
+  // workflow (`wrangler deploy`) and owns the custom-domain binding.
+  "name": "rgss-web",
+
+  // The OpenNext-generated Worker entrypoint (produced by `cf:build`).
+  "main": ".open-next/worker.js",
+
+  // Pin a recent compatibility date. MUST be >= 2024-09-23 for Next.js on
+  // Workers to function. Bump deliberately (and re-test) -- never blindly.
+  "compatibility_date": "2025-03-25",
+
+  // `nodejs_compat` is REQUIRED by OpenNext: it provides the Node.js APIs
+  // (Buffer, async_hooks, etc.) that Next.js server code and our Node-runtime
+  // route handlers rely on.
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Static assets (`.open-next/assets`) are served directly by the Workers
+  // Assets platform via this binding; the Worker only runs for dynamic routes.
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+
+  // Workers observability: request/Tail logs + metrics in the dashboard. Cheap
+  // and invaluable for a production salon booking system.
+  "observability": {
+    "enabled": true
+  }
+
+  // -- OPTIONAL (recommended next): persistent ISR/data cache on R2 ----------
+  // OpenNext can back Next.js incremental cache (ISR, `revalidate`,
+  // `use cache`) with an R2 bucket so cache survives across Worker instances
+  // and deploys. To enable: create an R2 bucket, add the binding below, and
+  // switch `open-next.config.ts` to `r2IncrementalCache`.
+  //
+  // "r2_buckets": [
+  //   { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "rgss-web-cache" }
+  // ]
+}

@@ -16,19 +16,23 @@
     "test:coverage": "vitest run --coverage --exclude '**/*.integration.test.*' --exclude '**/e2e/**'",
     "clean": "turbo run clean",
     "check:cutover": "node scripts/assert-no-admin-artifacts.mjs",
+    "check:admin-no-literals": "node scripts/admin-design/no-brand-literals.mjs",
+    "check:admin-path-allowlist": "node scripts/admin-design/path-allowlist.mjs",
+    "check:admin-root-path": "node scripts/admin-design/root-path-convention.mjs",
+    "check:no-emoji": "node scripts/assert-no-emoji-icons.mjs",
     "set-role": "bun run packages/db/scripts/set-role.ts",
     "prepare": "husky"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "@playwright/test": "^1.49.1",
-    "@vitejs/plugin-react": "^4.3.4",
-    "checkly": "^8.5.0",
+    "@playwright/test": "^1.61.1",
+    "@vitejs/plugin-react": "^4.7.0",
+    "checkly": "^8.10.0",
     "husky": "^9.1.7",
-    "lint-staged": "^15.2.11",
-    "turbo": "^2.3.3",
-    "typescript": "^5.7.3",
-    "vitest": "^2.1.8"
+    "lint-staged": "^15.5.2",
+    "turbo": "^2.10.0",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
   },
   "overrides": {
     "kysely": "0.27.4",
