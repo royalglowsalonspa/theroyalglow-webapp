@@ -36,6 +36,7 @@
  *                support interactive transactions.
  ************************************************************/
 
+import { AppError, ERROR_CODES } from '@rgss/errors'
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { BatchItem } from 'drizzle-orm/batch'
 import { nanoid } from 'nanoid'
@@ -424,6 +425,14 @@ type CompleteBookingInvoice = {
   // Gems to credit. Computed by the caller via calculateGemsEarned — already 0
   // for membership sessions (Req 12.3, 12.4). When 0, no loyalty rows are written.
   gemsEarned: number
+  // Gems REDEEMED for one of this booking's services (optional). When present,
+  // the same atomic batch deducts `gemsRequired` from the customer's loyalty
+  // balance behind a `balance >= gemsRequired` guard, writes a 'redeemed'
+  // loyalty_transaction, and stamps invoice.gemsRedeemed / gemsRedeemedServiceId.
+  // The gem amount is the server-computed cost (assertRedeemable) — never client
+  // input. A 0-row guard (balance raced below the cost) aborts the WHOLE
+  // completion (nothing persists) via GEMS_INSUFFICIENT_BALANCE.
+  gemsRedemption?: { serviceId: string; gemsRequired: number } | null
 }
 
 // Complete a booking and bill it in ONE atomic db.batch() (Req 12.1): set the
@@ -446,6 +455,7 @@ export async function completeBookingWithInvoice(params: {
   items: Omit<NewInvoiceItem, 'invoiceId'>[]
 }) {
   const { bookingId, changedById, invoice: inv, items } = params
+  const redemption = inv.gemsRedemption ?? null
 
   const rows = await db
     .select({ status: booking.status })
@@ -461,9 +471,10 @@ export async function completeBookingWithInvoice(params: {
   const invoiceId = nanoid()
 
   // Resolve the loyalty account up-front (read + lazy create) so the gems credit
-  // can join the atomic batch below. Only needed when gems are actually earned.
+  // AND/OR the guarded redemption deduction can join the atomic batch below. Only
+  // needed when gems are earned or redeemed on this booking.
   const loyaltyAccountId =
-    inv.gemsEarned > 0 ? (await getOrCreateLoyaltyAccount(inv.customerId)).id : null
+    inv.gemsEarned > 0 || redemption ? (await getOrCreateLoyaltyAccount(inv.customerId)).id : null
 
   const invoiceValues: NewInvoice = {
     id: invoiceId,
@@ -480,6 +491,10 @@ export async function completeBookingWithInvoice(params: {
     paymentMethod: inv.paymentMethod,
     paymentStatus: 'paid',
     gemsEarned: inv.gemsEarned,
+    // Stamp the redemption onto the invoice (persist the redeemed amount + which
+    // service it covered). Zero / null when no redemption took place.
+    gemsRedeemed: redemption?.gemsRequired ?? 0,
+    gemsRedeemedServiceId: redemption?.serviceId ?? null,
     paidAt: now,
   }
 
@@ -500,8 +515,9 @@ export async function completeBookingWithInvoice(params: {
   })
 
   // Assemble the atomic batch. Order: [booking update, invoice insert, (items),
-  // (gems tx + balance), status log]. Only the first two carry `.returning()`,
-  // so they sit at fixed indices 0 and 1.
+  // (guarded gems redemption deduction + redeemed tx), (earned gems tx + credit),
+  // status log]. Only the first two carry `.returning()`, so they sit at fixed
+  // indices 0 and 1.
   const statements: BatchItem<'pg'>[] = [updateBookingStmt, insertInvoiceStmt]
 
   if (items.length > 0) {
@@ -509,7 +525,43 @@ export async function completeBookingWithInvoice(params: {
     statements.push(db.insert(invoiceItem).values(itemValues))
   }
 
-  if (loyaltyAccountId) {
+  // Guarded gems redemption (Req: atomic deduction). Mirrors the guarded-CTE
+  // semantics of redeemServiceWithGems: the UPDATE only deducts when the balance
+  // still covers the cost; the trailing `1 / count(*)` over the guard CTE divides
+  // by zero (SQLSTATE 22012) when the guard matched 0 rows, which aborts the
+  // ENTIRE batch transaction so nothing — booking, invoice, items, gems — is
+  // persisted. `count(*)` is a runtime aggregate (never constant-folded), so the
+  // abort fires only on a real insufficient-balance race. The deduction runs
+  // BEFORE the earned-gems credit below so gems earned on THIS booking can never
+  // fund its own redemption.
+  if (loyaltyAccountId && redemption) {
+    statements.push(
+      db.execute(sql`
+        WITH guard AS (
+          UPDATE loyalty_account
+             SET gems_balance        = gems_balance - ${redemption.gemsRequired},
+                 total_gems_redeemed = total_gems_redeemed + ${redemption.gemsRequired},
+                 updated_at          = now()
+           WHERE id = ${loyaltyAccountId}
+             AND gems_balance >= ${redemption.gemsRequired}
+          RETURNING id
+        )
+        SELECT 1 / count(*)::int AS ok FROM guard
+      `),
+    )
+    statements.push(
+      db.insert(loyaltyTransaction).values({
+        loyaltyAccountId,
+        type: 'redeemed',
+        gemsAmount: redemption.gemsRequired,
+        invoiceId,
+        bookingId,
+        description: `Redeemed on invoice ${inv.invoiceNumber}`,
+      }),
+    )
+  }
+
+  if (loyaltyAccountId && inv.gemsEarned > 0) {
     const expiresAt = new Date(now.getTime() + LOYALTY_EXPIRY_DAYS * 24 * 60 * 60 * 1000)
     statements.push(
       db.insert(loyaltyTransaction).values({
@@ -534,9 +586,41 @@ export async function completeBookingWithInvoice(params: {
 
   statements.push(logStmt)
 
-  const results = await db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]])
+  let results: unknown[]
+  try {
+    results = await db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]])
+  } catch (error) {
+    // The guarded redemption deduction aborted the transaction because the
+    // balance raced below the cost (0-row guard → division by zero). The whole
+    // batch rolled back — booking, invoice, items and gems all un-persisted —
+    // preserving the all-or-nothing guarantee. Surface as a clean 409.
+    if (redemption && isInsufficientBalanceAbort(error)) {
+      throw new AppError({
+        code: ERROR_CODES.GEMS_INSUFFICIENT_BALANCE,
+        message: 'You do not have enough gems to redeem this service.',
+        statusCode: 409,
+      })
+    }
+    throw error
+  }
+
   const updatedBooking = (results[0] as (typeof booking.$inferSelect)[])[0]
   const createdInvoice = (results[1] as (typeof invoice.$inferSelect)[])[0]
 
   return { booking: updatedBooking, invoice: createdInvoice }
+}
+
+// Narrow an unknown driver error to the guard-abort signal raised by the gems
+// redemption CTE: a `division_by_zero` (Postgres SQLSTATE 22012) produced by
+// `1 / count(*)` when the balance guard matched 0 rows. Neon surfaces the
+// SQLSTATE on `.code`; fall back to a message match so the path never leaks a 500.
+function isInsufficientBalanceAbort(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) {
+    return false
+  }
+  const e = error as { code?: unknown; message?: unknown }
+  if (e.code === '22012') {
+    return true
+  }
+  return typeof e.message === 'string' && e.message.toLowerCase().includes('division by zero')
 }
