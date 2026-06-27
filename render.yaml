@@ -1,0 +1,118 @@
+# ============================================================================
+# Render Blueprint — Royal Glow Salon & Spa CMS (apps/cms)
+# ----------------------------------------------------------------------------
+# This file MUST live at the repository ROOT. Render reads `render.yaml` from
+# the repo root when you create a Blueprint (New + > Blueprint), regardless of
+# where the deployed service's code actually lives inside the monorepo.
+#
+# It defines a SINGLE web service that hosts the Payload CMS v3 app
+# (Next.js 16 wrapped with withPayload) at cms.theroyalglow.in.
+#
+# Stack specifics this Blueprint accounts for:
+#   - Bun monorepo (Turborepo + Bun workspaces). Deps for every workspace are
+#     installed once from the repo root, so the build runs `bun install` at the
+#     root, then builds only the @rgss/cms workspace.
+#   - Neon PostgreSQL (pooled DATABASE_URL) for Payload's `cms` schema.
+#   - Cloudflare R2 via @payloadcms/storage-s3 for media uploads.
+#
+# Secrets are NEVER committed: every sensitive var is declared `sync: false`,
+# which makes Render prompt for it in the dashboard (and keeps it out of git).
+# ============================================================================
+
+services:
+  # --------------------------------------------------------------------------
+  # CMS web service
+  # --------------------------------------------------------------------------
+  - type: web
+    name: rgss-cms
+    runtime: node # Bun is invoked manually in the commands below; Render's
+    # node runtime gives us a Linux box with build tooling. Bun is provided on
+    # Render's native node runtime via the BUN_VERSION env var (see envVars).
+    region: singapore # Free tier, closest to the India-first audience.
+    plan: free
+    branch: prod # Auto-deploy from the `prod` branch (matches git flow:
+    # dev -> test -> pprd -> prod). Change in the dashboard if needed.
+
+    # ----- Build -----------------------------------------------------------
+    # Bun workspaces hoist all deps to the root node_modules, so we install
+    # once at the repo root with the committed lockfile, then build ONLY the
+    # CMS workspace via Turborepo's --filter. This avoids building sibling apps
+    # (web/admin/docs) we don't deploy here.
+    #
+    # `bun run --filter=@rgss/cms build` is the Bun-native workspace filter and
+    # works from the repo root; it resolves the workspace by its package name
+    # (`@rgss/cms` from apps/cms/package.json) and runs its `build` script
+    # (`next build`). The `^build` Turbo dep means workspace packages it relies
+    # on (packages/*) are built first.
+    buildCommand: bun install --frozen-lockfile && bun run --filter=@rgss/cms build
+
+    # ----- Start -----------------------------------------------------------
+    # Render injects $PORT and expects the service to bind to it. The default
+    # apps/cms `start` (`next start`) uses a fixed port, so we use the added
+    # `start:prod` script which runs `next start -p ${PORT:-3002}`. We cd into
+    # the workspace because `next start` must run from the app dir (reads its
+    # .next build output). Never hardcode 3002 in production.
+    startCommand: cd apps/cms && bun run start:prod
+
+    # ----- Release / pre-deploy migration ----------------------------------
+    # Runs AFTER a successful build and BEFORE the new instance goes live.
+    # Applies committed Payload migrations to Neon over DATABASE_URL. If this
+    # fails, the deploy is aborted and the old instance keeps serving.
+    preDeployCommand: cd apps/cms && bun run migrate
+
+    # ----- Health check ----------------------------------------------------
+    # `/` redirects to `/admin`; `/admin` serves the Payload admin login (HTTP
+    # 200) even when unauthenticated, so it is a reliable liveness signal that
+    # the Next.js server + Payload mounted correctly. Render treats any 2xx/3xx
+    # as healthy.
+    healthCheckPath: /admin
+
+    # ----- Environment variables -------------------------------------------
+    envVars:
+      # Pin the Bun version Render uses on the node runtime. Matches the repo's
+      # packageManager (bun@1.3.13 in root package.json). Bump together.
+      - key: BUN_VERSION
+        value: 1.3.13
+
+      # Node prod mode (Next.js production build/runtime).
+      - key: NODE_ENV
+        value: production
+
+      # --- Secrets / per-environment (set in Render dashboard; never committed) ---
+
+      # Neon pooled connection string (Payload owns the `cms` schema).
+      - key: DATABASE_URL
+        sync: false
+
+      # Payload signing/encryption secret (min 32 chars in production).
+      - key: PAYLOAD_SECRET
+        sync: false
+
+      # Public URL where the Payload admin/API is served. For this deploy:
+      # https://cms.theroyalglow.in (custom domain attached in dashboard).
+      - key: PAYLOAD_PUBLIC_SERVER_URL
+        sync: false
+
+      # Web app origin allowed to read the REST API (CORS + CSRF allowlist).
+      # e.g. https://theroyalglow.in
+      - key: WEB_APP_URL
+        sync: false
+
+      # --- Cloudflare R2 (S3-compatible) media storage ---
+      # These exact names are what apps/cms/src/payload.config.ts reads. The
+      # storage-s3 adapter is only enabled when ALL four are present; otherwise
+      # Payload falls back to local-disk media. Region is hardcoded to "auto"
+      # in payload.config.ts (R2 convention), so there is NO region env var.
+      - key: R2_BUCKET_NAME
+        sync: false
+      - key: R2_ENDPOINT
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+
+      # Public base URL for serving R2 media (read client-side). e.g.
+      # https://r2.theroyalglow.in
+      - key: NEXT_PUBLIC_R2_PUBLIC_URL
+        sync: false

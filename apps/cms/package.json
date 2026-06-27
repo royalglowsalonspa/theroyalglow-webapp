@@ -7,6 +7,7 @@
     "dev": "next dev -p 3002",
     "build": "next build",
     "start": "next start",
+    "start:prod": "next start -p ${PORT:-3002}",
     "generate:types": "payload generate:types",
     "migrate:create": "node scripts/create-migration.mjs",
     "migrate": "payload migrate",
