@@ -44,6 +44,7 @@
 
 import { DataTable, type RowAction } from '@/components/ui/data-table'
 import { FilterBar } from '@/components/ui/filter-bar'
+import { Icon } from '@/components/ui/icon'
 import { SlideOverPanel } from '@/components/ui/slide-over-panel'
 import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
@@ -54,7 +55,6 @@ import { formatINRWithPaise } from '@/lib/admin/format'
 import { SPA_DURATIONS, type ServiceTypeValue } from '@rgss/types'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Gem, Pencil, Power, Sparkles, Tag } from 'lucide-react'
-import { Icon } from '@/components/ui/icon'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 interface AdminService {
@@ -232,9 +232,7 @@ export function ServicesManager() {
         id: 'status',
         header: 'Status',
         accessorFn: (s) => (s.isActive ? 'active' : 'inactive'),
-        cell: ({ row }) => (
-          <StatusBadge status={row.original.isActive ? 'active' : 'inactive'} />
-        ),
+        cell: ({ row }) => <StatusBadge status={row.original.isActive ? 'active' : 'inactive'} />,
       },
     ],
     [],
@@ -270,9 +268,7 @@ export function ServicesManager() {
         id: 'status',
         header: 'Status',
         accessorFn: (c) => (c.isActive ? 'active' : 'inactive'),
-        cell: ({ row }) => (
-          <StatusBadge status={row.original.isActive ? 'active' : 'inactive'} />
-        ),
+        cell: ({ row }) => <StatusBadge status={row.original.isActive ? 'active' : 'inactive'} />,
       },
     ],
     [],
@@ -333,7 +329,10 @@ export function ServicesManager() {
       </div>
 
       {actionError ? (
-        <p className="rounded-cards border border-error/40 bg-error/5 px-4 py-2.5 font-sans text-sm text-error" role="alert">
+        <p
+          className="rounded-cards border border-error/40 bg-error/5 px-4 py-2.5 font-sans text-sm text-error"
+          role="alert"
+        >
           {actionError}
         </p>
       ) : null}
@@ -346,7 +345,10 @@ export function ServicesManager() {
         <div className="space-y-8">
           {/* Categories */}
           <section className="space-y-3" aria-labelledby="categories-heading">
-            <h2 id="categories-heading" className="font-display text-lg tracking-tight text-cocoa-dark">
+            <h2
+              id="categories-heading"
+              className="font-display text-lg tracking-tight text-cocoa-dark"
+            >
               Categories
             </h2>
             {categories.length === 0 ? (
@@ -368,7 +370,10 @@ export function ServicesManager() {
 
           {/* Services */}
           <section className="space-y-3" aria-labelledby="services-heading">
-            <h2 id="services-heading" className="font-display text-lg tracking-tight text-cocoa-dark">
+            <h2
+              id="services-heading"
+              className="font-display text-lg tracking-tight text-cocoa-dark"
+            >
               Services
             </h2>
             <FilterBar

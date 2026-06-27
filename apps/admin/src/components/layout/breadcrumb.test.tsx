@@ -56,9 +56,7 @@ describe('Breadcrumb accessibility (Req 5.4, 5.5, 5.7)', () => {
     mockPathname.value = '/bookings/123'
     render(<Breadcrumb />)
 
-    expect(
-      screen.getByRole('navigation', { name: 'Breadcrumb' }),
-    ).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toBeInTheDocument()
   })
 
   it('renders an ancestor crumb as a link to its route href (Req 5.5)', () => {

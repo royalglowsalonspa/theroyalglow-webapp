@@ -79,6 +79,7 @@ afterEach(() => {
 
 function renderShell() {
   return render(
+    // biome-ignore lint/a11y/useValidAriaRole: `role` here is AdminShell's RBAC prop (the user's role), not a DOM ARIA role attribute
     <AdminShell role="owner" userName="Asha Rao" userInitials="AR">
       <div>Page content region</div>
     </AdminShell>,

@@ -51,8 +51,8 @@
 
 'use client'
 
-import { Icon } from '@/components/ui/icon'
 import { DEFAULT_PAGE_SIZE, PAGE_SIZES, type PageSize } from '@/components/ui/data-table-model'
+import { Icon } from '@/components/ui/icon'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { cn } from '@rgss/ui/lib/utils'
 import {
@@ -292,11 +292,7 @@ export function DataTable<T>({
               }}
               className="flex h-7 w-7 items-center justify-center rounded-cards text-warm-gray transition-colors duration-150 hover:bg-cloud-gray motion-reduce:transition-none"
             >
-              <Icon
-                icon={row.getIsExpanded() ? ChevronDown : ChevronRight}
-                decorative
-                size={16}
-              />
+              <Icon icon={row.getIsExpanded() ? ChevronDown : ChevronRight} decorative size={16} />
             </button>
           ) : null,
       })
@@ -401,9 +397,7 @@ export function DataTable<T>({
         className="overflow-x-auto rounded-cards border border-cloud-gray"
       >
         <table className="w-full border-collapse text-left">
-          <caption className="sr-only">
-            {caption ?? `Data table ${tableId}`}
-          </caption>
+          <caption className="sr-only">{caption ?? `Data table ${tableId}`}</caption>
 
           <thead className="border-b border-cloud-gray bg-cloud-gray/30">
             {table.getHeaderGroups().map((headerGroup) => (
@@ -518,52 +512,52 @@ export function DataTable<T>({
           pager drives navigation (hidePaginationFooter). */}
       {hidePaginationFooter ? null : (
         <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <label
-            htmlFor={`${tableId}-page-size`}
-            className="font-ui text-xs font-medium text-warm-gray"
-          >
-            Rows per page
-          </label>
-          <select
-            id={`${tableId}-page-size`}
-            value={table.getState().pagination.pageSize}
-            onChange={(event) => table.setPageSize(Number(event.target.value))}
-            className="rounded-cards border border-cloud-gray bg-canvas-white px-2 py-1 font-ui text-sm text-cocoa-dark"
-          >
-            {PAGE_SIZES.map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <span className="font-ui text-xs font-medium text-warm-gray" aria-live="polite">
-            Page {currentPage} of {resolvedPageCount}
-          </span>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-              aria-label="Previous page"
-              className="flex h-8 w-8 items-center justify-center rounded-cards border border-cloud-gray text-warm-gray transition-colors duration-150 hover:bg-cloud-gray disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none"
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor={`${tableId}-page-size`}
+              className="font-ui text-xs font-medium text-warm-gray"
             >
-              <Icon icon={ChevronUp} decorative size={16} className="-rotate-90" />
-            </button>
-            <button
-              type="button"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-              aria-label="Next page"
-              className="flex h-8 w-8 items-center justify-center rounded-cards border border-cloud-gray text-warm-gray transition-colors duration-150 hover:bg-cloud-gray disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none"
+              Rows per page
+            </label>
+            <select
+              id={`${tableId}-page-size`}
+              value={table.getState().pagination.pageSize}
+              onChange={(event) => table.setPageSize(Number(event.target.value))}
+              className="rounded-cards border border-cloud-gray bg-canvas-white px-2 py-1 font-ui text-sm text-cocoa-dark"
             >
-              <Icon icon={ChevronDown} decorative size={16} className="-rotate-90" />
-            </button>
+              {PAGE_SIZES.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
+
+          <div className="flex items-center gap-3">
+            <span className="font-ui text-xs font-medium text-warm-gray" aria-live="polite">
+              Page {currentPage} of {resolvedPageCount}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+                aria-label="Previous page"
+                className="flex h-8 w-8 items-center justify-center rounded-cards border border-cloud-gray text-warm-gray transition-colors duration-150 hover:bg-cloud-gray disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none"
+              >
+                <Icon icon={ChevronUp} decorative size={16} className="-rotate-90" />
+              </button>
+              <button
+                type="button"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+                aria-label="Next page"
+                className="flex h-8 w-8 items-center justify-center rounded-cards border border-cloud-gray text-warm-gray transition-colors duration-150 hover:bg-cloud-gray disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none"
+              >
+                <Icon icon={ChevronDown} decorative size={16} className="-rotate-90" />
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

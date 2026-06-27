@@ -17,7 +17,7 @@
 
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { labelForStatus, STATUS_LABEL_PLACEHOLDER } from './status-badge'
+import { STATUS_LABEL_PLACEHOLDER, labelForStatus } from './status-badge'
 import type { BadgeVariant } from './status-badge'
 import { STATUS_VARIANT, variantForStatus } from './status-badge'
 
@@ -74,12 +74,10 @@ describe('Property 12: Status label is Title-Cased and always non-empty', () => 
         }
 
         // (e) The label is exactly the segments, capitalised, space-joined.
-        const expected = segments
-          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-          .join(' ')
+        const expected = segments.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
         expect(result).toBe(expected)
       }),
-      { numRuns: 25 }
+      { numRuns: 25 },
     )
   })
 
@@ -94,7 +92,7 @@ describe('Property 12: Status label is Title-Cased and always non-empty', () => 
           minLength: 1,
           maxLength: 8,
         })
-        .map((parts) => parts.join(''))
+        .map((parts) => parts.join('')),
     )
 
     fc.assert(
@@ -103,7 +101,7 @@ describe('Property 12: Status label is Title-Cased and always non-empty', () => 
         expect(result).toBe(STATUS_LABEL_PLACEHOLDER)
         expect(result.length).toBeGreaterThan(0)
       }),
-      { numRuns: 25 }
+      { numRuns: 25 },
     )
   })
 
@@ -121,7 +119,7 @@ describe('Property 12: Status label is Title-Cased and always non-empty', () => 
           expect(result).not.toContain('_')
         }
       }),
-      { numRuns: 25 }
+      { numRuns: 25 },
     )
   })
 
@@ -185,7 +183,7 @@ describe('Property 11: Status variant mapping with neutral fallback', () => {
       fc.property(fc.constantFrom(...RECOGNISED_STATUSES), (status) => {
         expect(variantForStatus(status)).toBe(STATUS_VARIANT[status])
       }),
-      { numRuns: 25 }
+      { numRuns: 25 },
     )
   })
 
@@ -195,7 +193,7 @@ describe('Property 11: Status variant mapping with neutral fallback', () => {
         fc.pre(!Object.hasOwn(STATUS_VARIANT, status))
         expect(variantForStatus(status)).toBe('neutral')
       }),
-      { numRuns: 25 }
+      { numRuns: 25 },
     )
   })
 
@@ -211,13 +209,13 @@ describe('Property 11: Status variant mapping with neutral fallback', () => {
               minLength: 1,
               maxLength: 10,
             })
-            .map((chars) => chars.join(''))
+            .map((chars) => chars.join('')),
         ),
         (status) => {
           expect(variantForStatus(status)).toBe('neutral')
-        }
+        },
       ),
-      { numRuns: 25 }
+      { numRuns: 25 },
     )
   })
 
@@ -226,7 +224,7 @@ describe('Property 11: Status variant mapping with neutral fallback', () => {
       fc.property(fc.constantFrom(...PROTOTYPE_KEYS), (status) => {
         expect(variantForStatus(status)).toBe('neutral')
       }),
-      { numRuns: 25 }
+      { numRuns: 25 },
     )
   })
 
@@ -238,13 +236,13 @@ describe('Property 11: Status variant mapping with neutral fallback', () => {
           fc.constantFrom(...RECOGNISED_STATUSES),
           fc.constantFrom(...PROTOTYPE_KEYS),
           fc.constant<string | null | undefined>(null),
-          fc.constant<string | null | undefined>(undefined)
+          fc.constant<string | null | undefined>(undefined),
         ),
         (status) => {
           expect(VALID_VARIANTS).toContain(variantForStatus(status))
-        }
+        },
       ),
-      { numRuns: 25 }
+      { numRuns: 25 },
     )
   })
 })

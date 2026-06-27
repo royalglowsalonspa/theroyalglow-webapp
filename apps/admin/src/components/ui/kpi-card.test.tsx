@@ -29,8 +29,8 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { IndianRupee } from 'lucide-react'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { formatINRWithPaise } from '@/lib/admin/format'
 import { KPICard } from '@/components/ui/kpi-card'
+import { formatINRWithPaise } from '@/lib/admin/format'
 
 afterEach(cleanup)
 

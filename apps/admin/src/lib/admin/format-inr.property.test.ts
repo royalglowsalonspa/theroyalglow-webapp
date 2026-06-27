@@ -18,9 +18,9 @@
  *                does not modify the helper (Req 15.1, 10.6).
  ************************************************************/
 
+import { formatINRWithPaise } from '@/lib/admin/format'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { formatINRWithPaise } from '@/lib/admin/format'
 
 // Feature: admin-portal-redesign, Property 16: INR formatting round-trips with Indian grouping
 //

@@ -121,10 +121,7 @@ function discountSummary(offer: AdminOffer): string {
 // Fetch the offers list and the service options together. Service options are
 // non-fatal — the create form simply shows none available on failure.
 async function fetchOffersData(): Promise<OffersData> {
-  const [offersRes, servicesRes] = await Promise.all([
-    fetch('/api/offers'),
-    fetch('/api/services'),
-  ])
+  const [offersRes, servicesRes] = await Promise.all([fetch('/api/offers'), fetch('/api/services')])
   const offersJson = await offersRes.json()
   if (!offersRes.ok || !offersJson.success) {
     throw new Error(offersJson?.error?.message ?? 'Could not load offers.')
@@ -191,8 +188,7 @@ export function OffersManager() {
     return offers.filter(
       (o) =>
         (typeFilter === 'all' || o.offerType === typeFilter) &&
-        (statusFilter === 'all' ||
-          (statusFilter === 'active' ? o.isActive : !o.isActive)) &&
+        (statusFilter === 'all' || (statusFilter === 'active' ? o.isActive : !o.isActive)) &&
         (term === '' || o.name.toLowerCase().includes(term)),
     )
   }, [offers, search, typeFilter, statusFilter])
@@ -225,7 +221,8 @@ export function OffersManager() {
         accessorFn: (o) => o.startDate,
         cell: ({ row }) => (
           <span className="whitespace-nowrap font-sans text-warm-gray">
-            {formatDateDDMMYYYY(row.original.startDate)} – {formatDateDDMMYYYY(row.original.endDate)}
+            {formatDateDDMMYYYY(row.original.startDate)} –{' '}
+            {formatDateDDMMYYYY(row.original.endDate)}
           </span>
         ),
       },
@@ -243,9 +240,7 @@ export function OffersManager() {
         id: 'status',
         header: 'Status',
         accessorFn: (o) => (o.isActive ? 'active' : 'inactive'),
-        cell: ({ row }) => (
-          <StatusBadge status={row.original.isActive ? 'active' : 'inactive'} />
-        ),
+        cell: ({ row }) => <StatusBadge status={row.original.isActive ? 'active' : 'inactive'} />,
       },
     ],
     [],
@@ -277,7 +272,10 @@ export function OffersManager() {
       </div>
 
       {actionError ? (
-        <p className="rounded-cards border border-error/40 bg-error/5 px-4 py-2.5 font-sans text-sm text-error" role="alert">
+        <p
+          className="rounded-cards border border-error/40 bg-error/5 px-4 py-2.5 font-sans text-sm text-error"
+          role="alert"
+        >
           {actionError}
         </p>
       ) : null}

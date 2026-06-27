@@ -17,9 +17,9 @@
  *                build the zero-padded input string. Requirements 15.2.
  ************************************************************/
 
+import { formatDateDDMMYYYY } from '@/lib/admin/format'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { formatDateDDMMYYYY } from '@/lib/admin/format'
 
 // Feature: admin-portal-redesign, Property 17: Date formatting is DD/MM/YYYY and round-trips
 //
@@ -68,7 +68,10 @@ const leapFeb29Arb: fc.Arbitrary<{ y: number; m: number; d: number }> = fc
   .constantFrom(2000, 2004, 2024, 2028, 2400)
   .map((y) => ({ y, m: 2, d: 29 }))
 
-const dateArb = fc.oneof({ weight: 4, arbitrary: validDateArb }, { weight: 1, arbitrary: leapFeb29Arb })
+const dateArb = fc.oneof(
+  { weight: 4, arbitrary: validDateArb },
+  { weight: 1, arbitrary: leapFeb29Arb },
+)
 
 function check({ y, m, d }: { y: number; m: number; d: number }): void {
   const yyyy = pad4(y)
@@ -96,10 +99,7 @@ function check({ y, m, d }: { y: number; m: number; d: number }): void {
 
 describe('Property 17: Date formatting is DD/MM/YYYY and round-trips', () => {
   it('formats any valid date as zero-padded DD/MM/YYYY whose components round-trip', () => {
-    fc.assert(
-      fc.property(dateArb, check),
-      { numRuns: 25 },
-    )
+    fc.assert(fc.property(dateArb, check), { numRuns: 25 })
   })
 
   it('handles leap-year February 29 explicitly', () => {

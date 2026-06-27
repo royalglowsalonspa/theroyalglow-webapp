@@ -17,9 +17,9 @@
  *                does not modify any formatting logic. Requirements 15.5.
  ************************************************************/
 
+import { formatTime24hIST } from '@/lib/admin/format'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { formatTime24hIST } from '@/lib/admin/format'
 
 // Feature: admin-portal-redesign, Property 19: Time formatting is 24-hour HH:MM in IST
 //

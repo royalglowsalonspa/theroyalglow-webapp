@@ -48,7 +48,7 @@
 'use client'
 
 import { DataTable, type RowAction } from '@/components/ui/data-table'
-import { FilterBar, type ColumnToggle } from '@/components/ui/filter-bar'
+import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
 import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'

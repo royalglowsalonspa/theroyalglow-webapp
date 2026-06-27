@@ -47,7 +47,7 @@
 'use client'
 
 import { DataTable, type RowAction } from '@/components/ui/data-table'
-import { FilterBar, type ColumnToggle } from '@/components/ui/filter-bar'
+import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
 import { SlideOverPanel } from '@/components/ui/slide-over-panel'
 import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
@@ -142,6 +142,7 @@ export function WaitlistQueue() {
 
   // Re-request when the tab changes; the hook owns the initial mount fetch.
   const didMount = useRef(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `tab` is an intentional re-run trigger (useAsyncData holds the latest fetcher closure in a ref and does not auto-re-run on its identity change)
   useEffect(() => {
     if (!didMount.current) {
       didMount.current = true
@@ -161,9 +162,7 @@ export function WaitlistQueue() {
         id: 'serviceName',
         accessorKey: 'serviceName',
         header: 'Service',
-        cell: ({ row }) => (
-          <span className="text-warm-gray">{row.original.serviceName}</span>
-        ),
+        cell: ({ row }) => <span className="text-warm-gray">{row.original.serviceName}</span>,
       },
       {
         id: 'serviceType',
@@ -179,9 +178,7 @@ export function WaitlistQueue() {
         id: 'categoryName',
         accessorKey: 'categoryName',
         header: 'Category',
-        cell: ({ row }) => (
-          <span className="text-warm-gray">{row.original.categoryName}</span>
-        ),
+        cell: ({ row }) => <span className="text-warm-gray">{row.original.categoryName}</span>,
       },
       {
         id: 'preferredDate',
@@ -195,8 +192,7 @@ export function WaitlistQueue() {
       },
       {
         id: 'timeWindow',
-        accessorFn: (entry) =>
-          formatTimeWindow(entry.preferredTimeStart, entry.preferredTimeEnd),
+        accessorFn: (entry) => formatTimeWindow(entry.preferredTimeStart, entry.preferredTimeEnd),
         header: 'Window',
         cell: ({ row }) => {
           const window = formatTimeWindow(
@@ -359,9 +355,7 @@ function WaitlistDetailPanel({
   const canNotify = entry?.status === 'waiting'
   const canBook = entry?.status === 'notified'
   const canCancel = entry?.status === 'waiting' || entry?.status === 'notified'
-  const timeWindow = entry
-    ? formatTimeWindow(entry.preferredTimeStart, entry.preferredTimeEnd)
-    : ''
+  const timeWindow = entry ? formatTimeWindow(entry.preferredTimeStart, entry.preferredTimeEnd) : ''
 
   return (
     <SlideOverPanel

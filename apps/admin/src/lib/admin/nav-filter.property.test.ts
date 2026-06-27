@@ -17,8 +17,6 @@
  *                does not change RBAC logic (Req 16.3).
  ************************************************************/
 
-import fc from 'fast-check'
-import { describe, expect, it } from 'vitest'
 import {
   ADMIN_NAV,
   MIN_ROLE_LEVEL,
@@ -26,6 +24,8 @@ import {
   filterNavByLevel,
   resolveRoleLevel,
 } from '@/lib/rbac'
+import fc from 'fast-check'
+import { describe, expect, it } from 'vitest'
 
 // Feature: admin-portal-redesign, Property 4: Navigation filtering respects role level with no empty sections
 //
@@ -55,7 +55,10 @@ const roleLevelArb: fc.Arbitrary<number> = fc.oneof(
 
 /** Defensive deep copy of the production config to detect any mutation. */
 const cloneAdminNav = (): NavSection[] =>
-  ADMIN_NAV.map((section) => ({ title: section.title, items: section.items.map((i) => ({ ...i })) }))
+  ADMIN_NAV.map((section) => ({
+    title: section.title,
+    items: section.items.map((i) => ({ ...i })),
+  }))
 
 describe('Property 4: Navigation filtering respects role level with no empty sections', () => {
   it('renders exactly the items with minLevel <= roleLevel and drops empty sections', () => {
@@ -97,7 +100,12 @@ describe('Property 4: Navigation filtering respects role level with no empty sec
     // Arbitrary role values: unknown strings plus the null/undefined cases. None
     // of these are recognised roles, so all must resolve to MIN_ROLE_LEVEL (0).
     const unknownRoleArb: fc.Arbitrary<string | null | undefined> = fc.oneof(
-      fc.string().filter((s) => !['customer', 'staff', 'receptionist', 'manager', 'owner', 'developer'].includes(s)),
+      fc
+        .string()
+        .filter(
+          (s) =>
+            !['customer', 'staff', 'receptionist', 'manager', 'owner', 'developer'].includes(s),
+        ),
       fc.constantFrom(null, undefined, '', 'ADMIN', 'Owner', 'root', 'superuser'),
     )
 

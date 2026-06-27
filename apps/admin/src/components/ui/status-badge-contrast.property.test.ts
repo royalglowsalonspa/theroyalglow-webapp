@@ -19,9 +19,9 @@
  *                any colour library.
  ************************************************************/
 
+import type { BadgeVariant } from '@/lib/admin/status-badge'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import type { BadgeVariant } from '@/lib/admin/status-badge'
 
 // Feature: admin-portal-redesign, Property 13: Every status-badge variant meets AA contrast
 //
@@ -108,11 +108,7 @@ function channelToLinear(value255: number): number {
 
 /** WCAG 2.1 relative luminance of an sRGB colour. */
 function relativeLuminance({ r, g, b }: RGB): number {
-  return (
-    0.2126 * channelToLinear(r) +
-    0.7152 * channelToLinear(g) +
-    0.0722 * channelToLinear(b)
-  )
+  return 0.2126 * channelToLinear(r) + 0.7152 * channelToLinear(g) + 0.0722 * channelToLinear(b)
 }
 
 /** WCAG 2.1 contrast ratio between two colours (always >= 1). */
@@ -144,10 +140,10 @@ describe('Property 13: Every status-badge variant meets AA contrast', () => {
         // status-badge.tsx. Never loosen 4.5:1 (WCAG 2.1 AA, normal text).
         expect(
           ratio,
-          `variant "${variant}" contrast ${ratio.toFixed(3)}:1 is below AA ${AA_NORMAL_TEXT}:1`
+          `variant "${variant}" contrast ${ratio.toFixed(3)}:1 is below AA ${AA_NORMAL_TEXT}:1`,
         ).toBeGreaterThanOrEqual(AA_NORMAL_TEXT)
       }),
-      { numRuns: 25 }
+      { numRuns: 25 },
     )
   })
 

@@ -32,6 +32,7 @@
 
 'use client'
 
+import { Icon } from '@/components/ui/icon'
 import {
   LEAD_COLUMNS,
   type LeadPipelineRow,
@@ -39,7 +40,6 @@ import {
   formatDaysSince,
   leadCampaignLabel,
 } from '@/lib/admin/leads'
-import { Icon } from '@/components/ui/icon'
 import { Phone } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'

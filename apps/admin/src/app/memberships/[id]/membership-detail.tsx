@@ -589,7 +589,10 @@ function RecordSessionPanel({
       </div>
 
       {insufficient ? (
-        <div className="mt-3 rounded-cards border border-error/40 bg-error/5 px-3 py-2.5" role="alert">
+        <div
+          className="mt-3 rounded-cards border border-error/40 bg-error/5 px-3 py-2.5"
+          role="alert"
+        >
           <p className="font-ui text-sm text-error">Insufficient hours</p>
           <p className="mt-0.5 font-sans text-xs text-error/90">
             Requested {minutesToHM(totalMinutes)} exceeds the remaining{' '}

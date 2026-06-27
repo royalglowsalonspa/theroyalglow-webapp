@@ -20,9 +20,9 @@
  *                for this property — see the gap note below. Requirements 15.4.
  ************************************************************/
 
+import { PLACEHOLDER, formatDateTimeIST, formatTime24hIST } from '@/lib/admin/format'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { PLACEHOLDER, formatDateTimeIST, formatTime24hIST } from '@/lib/admin/format'
 
 // Feature: admin-portal-redesign, Property 20: Formatters reject invalid input with a fixed placeholder
 //

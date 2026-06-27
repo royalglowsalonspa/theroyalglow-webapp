@@ -50,9 +50,7 @@ describe('EmptyState rendering (Req 12.2)', () => {
   })
 
   it('renders without an icon when none is supplied', () => {
-    const { container } = render(
-      <EmptyState message="Nothing to show here." title="All clear" />,
-    )
+    const { container } = render(<EmptyState message="Nothing to show here." title="All clear" />)
 
     // No decorative icon is rendered when the icon prop is omitted.
     expect(container.querySelector('svg')).toBeNull()
@@ -70,11 +68,7 @@ describe('EmptyState rendering (Req 12.2)', () => {
 
   it('has zero accessibility violations', async () => {
     const { container } = render(
-      <EmptyState
-        icon={CalendarX}
-        message="No leads in this pipeline stage."
-        title="No leads"
-      />,
+      <EmptyState icon={CalendarX} message="No leads in this pipeline stage." title="No leads" />,
     )
 
     const results = await axe(container)

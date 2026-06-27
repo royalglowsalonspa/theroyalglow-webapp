@@ -18,19 +18,19 @@ import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import {
   type ColumnVisibility,
+  PAGE_SIZES,
+  type PageSize,
+  type SortState,
   defaultComparator,
   getPaginationState,
   isColumnVisible,
   nextPage,
-  type PageSize,
-  PAGE_SIZES,
   pageSlice,
   prevPage,
-  type SortState,
   sortRows,
   toggleColumnVisibility,
-  totalPageCount,
   toggleSort,
+  totalPageCount,
   visibleToggleableColumns,
 } from './data-table-model'
 
@@ -48,9 +48,7 @@ import {
 
 describe('Property 6: Column-visibility invariant — never empty, preserved across ops', () => {
   /** A single non-empty, slash-free column id. */
-  const columnIdArb = fc
-    .string({ minLength: 1, maxLength: 6 })
-    .filter((s) => s.trim() !== '')
+  const columnIdArb = fc.string({ minLength: 1, maxLength: 6 }).filter((s) => s.trim() !== '')
 
   /** A non-empty set of unique toggleable data-column ids. */
   const toggleableIdsArb = fc.uniqueArray(columnIdArb, { minLength: 1, maxLength: 6 })
@@ -109,9 +107,7 @@ describe('Property 6: Column-visibility invariant — never empty, preserved acr
                 const wasVisible = isColumnVisible(before, op.columnId)
                 const visibleBefore = visibleToggleableColumns(before, toggleableIds)
                 const isLastVisible =
-                  toggleableIds.includes(op.columnId) &&
-                  wasVisible &&
-                  visibleBefore.length <= 1
+                  toggleableIds.includes(op.columnId) && wasVisible && visibleBefore.length <= 1
 
                 visibility = toggleColumnVisibility(before, op.columnId, toggleableIds)
 
@@ -200,9 +196,7 @@ describe('Property 7: Pagination stays in bounds with correct slice and control 
     let page = getPaginationState(totalRows, pageSize, startPage).page
     for (const step of steps) {
       page =
-        step === 'next'
-          ? nextPage(page, totalRows, pageSize)
-          : prevPage(page, totalRows, pageSize)
+        step === 'next' ? nextPage(page, totalRows, pageSize) : prevPage(page, totalRows, pageSize)
     }
     return page
   }

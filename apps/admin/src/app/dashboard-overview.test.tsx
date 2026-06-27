@@ -113,9 +113,17 @@ describe('DashboardOverview (Req 10)', () => {
   it('composes ≥4 KPI cards, a chart card, and a recent-activity table (10.1/10.2/10.3/10.6)', async () => {
     const bookings = [
       sampleBooking(),
-      sampleBooking({ id: 'bk_2', bookingNumber: 'BK-RS-2606-S-11222', status: 'pending', customerName: 'Meera Nair' }),
+      sampleBooking({
+        id: 'bk_2',
+        bookingNumber: 'BK-RS-2606-S-11222',
+        status: 'pending',
+        customerName: 'Meera Nair',
+      }),
     ]
-    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(ok(bookings))))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(ok(bookings))),
+    )
 
     const { container } = render(<DashboardOverview />)
 
@@ -143,7 +151,10 @@ describe('DashboardOverview (Req 10)', () => {
 
   it('renders loading skeleton placeholders while data is in flight (10.4)', () => {
     // A never-resolving fetch keeps the dashboard in its loading state.
-    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => {})))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise<Response>(() => {})),
+    )
 
     render(<DashboardOverview />)
 
@@ -153,7 +164,10 @@ describe('DashboardOverview (Req 10)', () => {
   })
 
   it('renders an empty-state presenter when there are no bookings (10.7)', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(ok([]))))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(ok([]))),
+    )
 
     render(<DashboardOverview />)
 
@@ -166,7 +180,10 @@ describe('DashboardOverview (Req 10)', () => {
   })
 
   it('renders an error presenter with a retry control when the request fails (10.5)', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('Could not load dashboard data.'))))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new Error('Could not load dashboard data.'))),
+    )
 
     render(<DashboardOverview />)
 
@@ -178,7 +195,10 @@ describe('DashboardOverview (Req 10)', () => {
   it('renders the error presenter after a 10-second timeout (10.8)', async () => {
     vi.useFakeTimers()
     // A fetch that never settles, so only the timeout deadline resolves it.
-    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => {})))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise<Response>(() => {})),
+    )
 
     render(<DashboardOverview />)
 

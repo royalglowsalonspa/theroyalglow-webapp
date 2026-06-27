@@ -110,8 +110,7 @@ export function MembershipsList() {
   const filtered = useMemo(
     () =>
       memberships.filter(
-        (m) =>
-          (tier === 'all' || m.tierId === tier) && (status === 'all' || m.status === status),
+        (m) => (tier === 'all' || m.tierId === tier) && (status === 'all' || m.status === status),
       ),
     [memberships, tier, status],
   )
@@ -172,10 +171,7 @@ export function MembershipsList() {
   )
 
   const tierOptions = useMemo(
-    () => [
-      { value: 'all', label: 'All' },
-      ...tiers.map((t) => ({ value: t.id, label: t.name })),
-    ],
+    () => [{ value: 'all', label: 'All' }, ...tiers.map((t) => ({ value: t.id, label: t.name }))],
     [tiers],
   )
 

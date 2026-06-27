@@ -44,7 +44,7 @@
 
 'use client'
 
-import { ChartCard, CHART_COLORS } from '@/components/ui/chart-card'
+import { CHART_COLORS, ChartCard } from '@/components/ui/chart-card'
 import { DataTable } from '@/components/ui/data-table'
 import { FilterBar } from '@/components/ui/filter-bar'
 import { KPICard } from '@/components/ui/kpi-card'
@@ -63,16 +63,7 @@ import type {
 import type { ColumnDef } from '@tanstack/react-table'
 import { CalendarRange, Gem, IndianRupee, Receipt, TrendingUp } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from 'recharts'
 
 const RANGE_OPTIONS: { value: ReportRange; label: string }[] = [
   { value: '7d', label: 'Last 7 days' },
@@ -133,6 +124,7 @@ export function ReportsDashboard() {
   // Re-request when the range changes; the initial mount fetch is owned by the
   // hook, so skip the very first effect run to avoid a duplicate request.
   const didMount = useRef(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `range` is an intentional re-run trigger (useAsyncData holds the latest fetcher closure in a ref and does not auto-re-run on its identity change)
   useEffect(() => {
     if (!didMount.current) {
       didMount.current = true
@@ -195,10 +187,18 @@ export function ReportsDashboard() {
 function KpiCards({ data }: { data: ReportsResponse }) {
   const { summary } = data
   const cards = [
-    { label: 'Revenue (range)', value: formatINRWithPaise(summary.rangeRevenuePaise), icon: IndianRupee },
+    {
+      label: 'Revenue (range)',
+      value: formatINRWithPaise(summary.rangeRevenuePaise),
+      icon: IndianRupee,
+    },
     { label: 'Bookings (range)', value: String(summary.bookingCount), icon: Receipt },
     { label: 'Avg ticket', value: formatINRWithPaise(summary.avgTicketPaise), icon: Gem },
-    { label: 'Month to date', value: formatINRWithPaise(summary.mtdRevenuePaise), icon: TrendingUp },
+    {
+      label: 'Month to date',
+      value: formatINRWithPaise(summary.mtdRevenuePaise),
+      icon: TrendingUp,
+    },
   ]
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -218,9 +218,7 @@ function RevenueTrendChart({
 }) {
   const hasData = points.some((p) => p.revenuePaise > 0)
   if (!hasData) {
-    return (
-      <EmptyChartCard title="Revenue trend" message="No paid revenue in this range yet." />
-    )
+    return <EmptyChartCard title="Revenue trend" message="No paid revenue in this range yet." />
   }
   return (
     <ChartCard title="Revenue trend">
@@ -277,9 +275,7 @@ function BookingsStatusChart({
     [points],
   )
   if (chartData.length === 0) {
-    return (
-      <EmptyChartCard title="Bookings by status" message="No bookings in this range yet." />
-    )
+    return <EmptyChartCard title="Bookings by status" message="No bookings in this range yet." />
   }
   return (
     <ChartCard title="Bookings by status">
@@ -349,9 +345,7 @@ function TopServicesTable({ rows }: { rows: TopServiceRow[] }) {
   )
 
   if (rows.length === 0) {
-    return (
-      <EmptyChartCard title="Top services" message="No services sold in this range yet." />
-    )
+    return <EmptyChartCard title="Top services" message="No services sold in this range yet." />
   }
 
   return (

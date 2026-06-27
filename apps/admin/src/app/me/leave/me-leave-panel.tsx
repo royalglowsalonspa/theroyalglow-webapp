@@ -167,7 +167,9 @@ function RequestLeaveForm({ onSubmitted }: { onSubmitted: () => void }) {
 
   return (
     <section className="rounded-cards border border-cloud-gray bg-canvas-white p-5">
-      <h2 className="mb-4 font-display text-[20px] tracking-tight text-cocoa-dark">Request leave</h2>
+      <h2 className="mb-4 font-display text-[20px] tracking-tight text-cocoa-dark">
+        Request leave
+      </h2>
       <form onSubmit={submit} className="space-y-4" noValidate>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1">

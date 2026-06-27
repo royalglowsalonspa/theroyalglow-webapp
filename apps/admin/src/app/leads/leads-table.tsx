@@ -62,11 +62,7 @@ import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { useAsyncData } from '@/components/ui/use-async-data'
-import {
-  type LeadPipelineRow,
-  formatDaysSince,
-  leadCampaignLabel,
-} from '@/lib/admin/leads'
+import { type LeadPipelineRow, formatDaysSince, leadCampaignLabel } from '@/lib/admin/leads'
 import type { ColumnDef, ColumnFiltersState, VisibilityState } from '@tanstack/react-table'
 import { MessageCircle, Phone, Plus, Users } from 'lucide-react'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
@@ -209,28 +205,25 @@ export function LeadsTable() {
     [],
   )
 
-  const rowActions = useCallback(
-    (row: { original: LeadPipelineRow }): RowAction[] => {
-      const lead = row.original
-      const phoneDigits = lead.phone.replace(/\s/g, '')
-      return [
-        { label: 'Open', icon: Users, onSelect: () => setActiveLeadId(lead.id) },
-        {
-          label: 'Call',
-          icon: Phone,
-          onSelect: () => {
-            window.location.href = `tel:${phoneDigits}`
-          },
+  const rowActions = useCallback((row: { original: LeadPipelineRow }): RowAction[] => {
+    const lead = row.original
+    const phoneDigits = lead.phone.replace(/\s/g, '')
+    return [
+      { label: 'Open', icon: Users, onSelect: () => setActiveLeadId(lead.id) },
+      {
+        label: 'Call',
+        icon: Phone,
+        onSelect: () => {
+          window.location.href = `tel:${phoneDigits}`
         },
-        {
-          label: 'WhatsApp',
-          icon: MessageCircle,
-          onSelect: () => window.open(toWhatsAppLink(lead.phone), '_blank', 'noopener'),
-        },
-      ]
-    },
-    [],
-  )
+      },
+      {
+        label: 'WhatsApp',
+        icon: MessageCircle,
+        onSelect: () => window.open(toWhatsAppLink(lead.phone), '_blank', 'noopener'),
+      },
+    ]
+  }, [])
 
   const columnFilters: ColumnFiltersState =
     status === 'all' ? [] : [{ id: 'status', value: status }]

@@ -60,7 +60,7 @@ describe('Property 2: Avatar initials are at most two uppercase letters', () => 
           expect(result).toBe(expected)
         }
       }),
-      { numRuns: 25 }
+      { numRuns: 25 },
     )
   })
 
@@ -82,7 +82,7 @@ describe('Property 2: Avatar initials are at most two uppercase letters', () => 
         expect(result).toBe(expected)
         expect(result.length).toBeLessThanOrEqual(2)
       }),
-      { numRuns: 25 }
+      { numRuns: 25 },
     )
   })
 

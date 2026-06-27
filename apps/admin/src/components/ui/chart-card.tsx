@@ -72,12 +72,7 @@ type ChartCardProps = {
  * so it fills the available width. When `loading`, the chart area becomes a
  * chart-shaped loading placeholder announced via `aria-busy` / `aria-live`.
  */
-export function ChartCard({
-  title,
-  children,
-  loading = false,
-  className,
-}: ChartCardProps) {
+export function ChartCard({ title, children, loading = false, className }: ChartCardProps) {
   return (
     <section
       className={cn(

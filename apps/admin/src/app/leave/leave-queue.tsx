@@ -115,6 +115,7 @@ export function LeaveQueue() {
   // Re-request when the tab changes; the initial mount fetch is owned by the
   // hook, so skip the very first effect run to avoid a duplicate request.
   const didMount = useRef(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `tab` is an intentional re-run trigger (useAsyncData holds the latest fetcher closure in a ref and does not auto-re-run on its identity change)
   useEffect(() => {
     if (!didMount.current) {
       didMount.current = true
@@ -354,7 +355,10 @@ function ConflictWarning({
   }
 
   return (
-    <div className="mt-3 rounded-cards border border-warning/40 bg-warning/10 px-4 py-3" role="alert">
+    <div
+      className="mt-3 rounded-cards border border-warning/40 bg-warning/10 px-4 py-3"
+      role="alert"
+    >
       <p className="mb-1.5 flex items-center gap-1.5 font-ui text-xs uppercase tracking-[0.5px] text-warm-gray">
         <Icon icon={TriangleAlert} decorative size={14} />
         {conflicts.length} confirmed booking

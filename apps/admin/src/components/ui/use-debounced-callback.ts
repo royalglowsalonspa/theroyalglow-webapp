@@ -60,7 +60,7 @@ type Callback<Args extends unknown[]> = (...args: Args) => void
  */
 export function useDebouncedCallback<Args extends unknown[]>(
   callback: Callback<Args>,
-  delayMs: number = DEFAULT_DEBOUNCE_MS
+  delayMs: number = DEFAULT_DEBOUNCE_MS,
 ): Callback<Args> {
   const callbackRef = useRef(callback)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -91,6 +91,6 @@ export function useDebouncedCallback<Args extends unknown[]>(
         callbackRef.current(...args)
       }, delayMs)
     },
-    [delayMs]
+    [delayMs],
   )
 }

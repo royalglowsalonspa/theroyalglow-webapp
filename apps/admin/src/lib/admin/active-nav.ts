@@ -65,10 +65,7 @@ export function matchesHrefPrefix(pathname: string, href: string): boolean {
  *
  * Pure function: no I/O, no side effects; the input array is not mutated.
  */
-export function resolveActiveHref(
-  pathname: string,
-  hrefs: readonly string[],
-): string | null {
+export function resolveActiveHref(pathname: string, hrefs: readonly string[]): string | null {
   let active: string | null = null
   let bestLength = -1
 
@@ -89,11 +86,7 @@ export function resolveActiveHref(
  *
  * Pure function: no I/O, no side effects.
  */
-export function isActive(
-  pathname: string,
-  href: string,
-  hrefs: readonly string[],
-): boolean {
+export function isActive(pathname: string, href: string, hrefs: readonly string[]): boolean {
   return resolveActiveHref(pathname, hrefs) === href
 }
 
