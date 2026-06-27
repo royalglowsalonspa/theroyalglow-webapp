@@ -41,27 +41,18 @@
 
 'use client'
 
-import { ChartCard, CHART_COLORS } from '@/components/ui/chart-card'
+import { StatusBadge } from '@/components/admin/StatusBadge'
+import { CHART_COLORS, ChartCard } from '@/components/ui/chart-card'
 import { DataTable } from '@/components/ui/data-table'
 import { KPICard } from '@/components/ui/kpi-card'
 import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
-import {
-  DASHBOARD_ASYNC_TIMEOUT_MS,
-  useAsyncData,
-} from '@/components/ui/use-async-data'
-import { StatusBadge } from '@/components/admin/StatusBadge'
+import { DASHBOARD_ASYNC_TIMEOUT_MS, useAsyncData } from '@/components/ui/use-async-data'
 import { type AdminBooking, formatTime12h } from '@/lib/admin/bookings'
 import { formatINRWithPaise } from '@/lib/admin/format'
 import type { ColumnDef } from '@tanstack/react-table'
-import {
-  CalendarDays,
-  Clock,
-  IndianRupee,
-  ListChecks,
-  type LucideIcon,
-} from 'lucide-react'
+import { CalendarDays, Clock, IndianRupee, ListChecks, type LucideIcon } from 'lucide-react'
 import Link from 'next/link'
 import { useMemo } from 'react'
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from 'recharts'
@@ -129,17 +120,13 @@ const RECENT_COLUMNS: ColumnDef<AdminBooking, unknown>[] = [
     accessorKey: 'bookingNumber',
     header: 'Booking #',
     cell: ({ row }) => (
-      <span className="font-mono text-xs text-cocoa-dark">
-        {row.original.bookingNumber}
-      </span>
+      <span className="font-mono text-xs text-cocoa-dark">{row.original.bookingNumber}</span>
     ),
   },
   {
     accessorKey: 'customerName',
     header: 'Customer',
-    cell: ({ row }) => (
-      <span className="text-cocoa-dark">{row.original.customerName}</span>
-    ),
+    cell: ({ row }) => <span className="text-cocoa-dark">{row.original.customerName}</span>,
   },
   {
     id: 'services',
@@ -222,7 +209,11 @@ export function DashboardOverview() {
       kpis: [
         { label: "Today's Bookings", value: String(todaysBookings.length), icon: CalendarDays },
         { label: 'Pending Approval', value: String(pending.length), icon: Clock },
-        { label: "Today's Revenue", value: formatINRWithPaise(todaysRevenuePaise), icon: IndianRupee },
+        {
+          label: "Today's Revenue",
+          value: formatINRWithPaise(todaysRevenuePaise),
+          icon: IndianRupee,
+        },
         { label: 'Total Bookings', value: String(bookings.length), icon: ListChecks },
       ] satisfies Kpi[],
       chartData: chart,

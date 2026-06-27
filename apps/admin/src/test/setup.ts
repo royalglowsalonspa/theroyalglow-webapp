@@ -50,4 +50,3 @@ if (typeof window !== 'undefined' && typeof window.matchMedia === 'undefined') {
     dispatchEvent: () => false,
   })) as unknown as typeof window.matchMedia
 }
-

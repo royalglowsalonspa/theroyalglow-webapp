@@ -30,10 +30,10 @@
  *                are registered locally via expect.extend(toHaveNoViolations).
  ************************************************************/
 
+import { StatusBadge } from '@/components/ui/status-badge'
 import { cleanup, render, screen } from '@testing-library/react'
 import { axe, toHaveNoViolations } from 'jest-axe'
 import { afterEach, describe, expect, it } from 'vitest'
-import { StatusBadge } from '@/components/ui/status-badge'
 
 expect.extend(toHaveNoViolations)
 

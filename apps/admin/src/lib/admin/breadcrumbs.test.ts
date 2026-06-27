@@ -13,9 +13,9 @@
  *                overwrite sibling property tests.
  ************************************************************/
 
+import { ADMIN_NAV, type NavSection } from '@/lib/rbac'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { ADMIN_NAV, type NavSection } from '@/lib/rbac'
 import { type Crumb, deriveBreadcrumbs } from './breadcrumbs'
 
 // Feature: admin-portal-redesign, Property 5: Breadcrumb derivation is well-formed
@@ -32,9 +32,7 @@ import { type Crumb, deriveBreadcrumbs } from './breadcrumbs'
 
 describe('Property 5: Breadcrumb derivation is well-formed', () => {
   /** Every Root-Path href defined in the production ADMIN_NAV config. */
-  const NAV_HREFS: string[] = ADMIN_NAV.flatMap((section) =>
-    section.items.map((item) => item.href),
-  )
+  const NAV_HREFS: string[] = ADMIN_NAV.flatMap((section) => section.items.map((item) => item.href))
 
   /** Non-root nav hrefs (suitable bases for synthesised detail sub-routes). */
   const NON_ROOT_NAV_HREFS = NAV_HREFS.filter((href) => href !== '/')

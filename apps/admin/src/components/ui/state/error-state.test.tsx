@@ -80,9 +80,7 @@ describe('ErrorState retry callback (Req 12.4, 12.5)', () => {
 
 describe('ErrorState accessibility (Req 12.8)', () => {
   it('has zero accessibility violations', async () => {
-    const { container } = render(
-      <ErrorState message="Could not load data." onRetry={() => {}} />,
-    )
+    const { container } = render(<ErrorState message="Could not load data." onRetry={() => {}} />)
 
     const results = await axe(container)
     expect(results).toHaveNoViolations()

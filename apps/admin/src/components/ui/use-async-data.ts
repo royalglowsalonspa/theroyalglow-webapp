@@ -130,11 +130,7 @@ export function useAsyncData<T>(
 ): { state: AdminAsyncState<T>; retry: () => void } {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_ASYNC_TIMEOUT_MS
 
-  const [state, dispatch] = useReducer(
-    asyncDataReducer<T>,
-    undefined,
-    initialAsyncState<T>,
-  )
+  const [state, dispatch] = useReducer(asyncDataReducer<T>, undefined, initialAsyncState<T>)
 
   // Keep the latest fetcher without forcing a re-run when its identity changes.
   const fetcherRef = useRef(fetcher)

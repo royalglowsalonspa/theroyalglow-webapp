@@ -18,11 +18,11 @@
  *                `React.createElement` so it runs under the admin jsdom project.
  ************************************************************/
 
+import { FilterBar, SEARCH_MAX_LENGTH } from '@/components/ui/filter-bar'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import fc from 'fast-check'
 import { createElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { FilterBar, SEARCH_MAX_LENGTH } from '@/components/ui/filter-bar'
 
 // Feature: admin-portal-redesign, Property 10: Search term is emitted trimmed
 //
@@ -45,13 +45,9 @@ const SEARCH_CONFIG = {
 function emitFor(raw: string): { emitted: string; calls: number } {
   const onSearchChange = vi.fn<(trimmed: string) => void>()
 
-  const { container } = render(
-    createElement(FilterBar, { config: SEARCH_CONFIG, onSearchChange }),
-  )
+  const { container } = render(createElement(FilterBar, { config: SEARCH_CONFIG, onSearchChange }))
 
-  const input = container.querySelector(
-    'input[type="search"]',
-  ) as HTMLInputElement
+  const input = container.querySelector('input[type="search"]') as HTMLInputElement
 
   // fireEvent.change sets the value programmatically (maxLength is enforced only
   // for user-originated input in jsdom), so the component's onChange receives
@@ -130,22 +126,19 @@ describe('Property 10: Search term is emitted trimmed (Req 8.2)', () => {
 
   it('does not crash and still emits input.trim() for over-long input (> SEARCH_MAX_LENGTH)', () => {
     fc.assert(
-      fc.property(
-        fc.string({ minLength: SEARCH_MAX_LENGTH, maxLength: 120 }),
-        (raw) => {
-          vi.useFakeTimers()
-          try {
-            const { emitted } = emitFor(raw)
-            // The property is about the trim of what the control emits; the
-            // emit is driven by the change value, so it equals raw.trim().
-            expect(emitted).toBe(raw.trim())
-          } finally {
-            cleanup()
-            vi.clearAllTimers()
-            vi.useRealTimers()
-          }
-        },
-      ),
+      fc.property(fc.string({ minLength: SEARCH_MAX_LENGTH, maxLength: 120 }), (raw) => {
+        vi.useFakeTimers()
+        try {
+          const { emitted } = emitFor(raw)
+          // The property is about the trim of what the control emits; the
+          // emit is driven by the change value, so it equals raw.trim().
+          expect(emitted).toBe(raw.trim())
+        } finally {
+          cleanup()
+          vi.clearAllTimers()
+          vi.useRealTimers()
+        }
+      }),
       { numRuns: 25 },
     )
   })

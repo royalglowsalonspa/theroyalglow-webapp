@@ -28,8 +28,8 @@
  *                and message carry the accessible content.
  ************************************************************/
 
-import type { LucideIcon } from 'lucide-react'
 import { cn } from '@rgss/ui/lib/utils'
+import type { LucideIcon } from 'lucide-react'
 import { Icon } from '../icon'
 
 type EmptyStateProps = {
@@ -54,12 +54,7 @@ type EmptyStateProps = {
  * @param props - {@link EmptyStateProps}
  * @returns The rendered empty state.
  */
-export function EmptyState({
-  title,
-  message,
-  icon,
-  className,
-}: EmptyStateProps) {
+export function EmptyState({ title, message, icon, className }: EmptyStateProps) {
   return (
     <div
       className={cn(
@@ -67,9 +62,7 @@ export function EmptyState({
         className,
       )}
     >
-      {icon ? (
-        <Icon className="text-dusty-gray" decorative icon={icon} size={32} />
-      ) : null}
+      {icon ? <Icon className="text-dusty-gray" decorative icon={icon} size={32} /> : null}
       <p className="font-ui text-base font-medium text-cocoa-dark">{title}</p>
       <p className="max-w-prose font-sans text-sm text-warm-gray">{message}</p>
     </div>

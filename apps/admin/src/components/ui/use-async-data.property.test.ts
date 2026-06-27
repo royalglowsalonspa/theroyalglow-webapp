@@ -78,11 +78,7 @@ describe('Property 15: Async timeout outcome is deterministic', () => {
         fc.integer({ min: 1, max: 120_000 }),
         fc.integer(),
         (resolveDelay, timeoutMs, data) => {
-          const { afterFirst, afterSecond, resolveFirst } = runRace(
-            resolveDelay,
-            timeoutMs,
-            data
-          )
+          const { afterFirst, afterSecond, resolveFirst } = runRace(resolveDelay, timeoutMs, data)
 
           if (resolveFirst) {
             expect(afterFirst.status).toBe('success')
@@ -98,9 +94,9 @@ describe('Property 15: Async timeout outcome is deterministic', () => {
           // First-wins: the later opposite event does NOT change the terminal
           // state.
           expect(afterSecond).toEqual(afterFirst)
-        }
+        },
       ),
-      { numRuns: 25 }
+      { numRuns: 25 },
     )
   })
 
@@ -115,9 +111,9 @@ describe('Property 15: Async timeout outcome is deterministic', () => {
           // retry: error/success -> loading.
           const retried = asyncDataReducer(afterSecond, { type: 'request' })
           expect(retried).toEqual({ status: 'loading' })
-        }
+        },
       ),
-      { numRuns: 25 }
+      { numRuns: 25 },
     )
   })
 

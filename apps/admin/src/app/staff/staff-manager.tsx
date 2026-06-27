@@ -47,7 +47,7 @@
 'use client'
 
 import { DataTable, type RowAction } from '@/components/ui/data-table'
-import { FilterBar, type ColumnToggle } from '@/components/ui/filter-bar'
+import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
 import { Icon } from '@/components/ui/icon'
 import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
@@ -55,8 +55,8 @@ import { Skeleton } from '@/components/ui/state/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { useAsyncData } from '@/components/ui/use-async-data'
 import * as Dialog from '@radix-ui/react-dialog'
-import { cn } from '@rgss/ui/lib/utils'
 import { STAFF_DESIGNATIONS, type StaffDesignation } from '@rgss/types'
+import { cn } from '@rgss/ui/lib/utils'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Pencil, Scissors, UserPlus } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -144,9 +144,7 @@ export function StaffManager() {
         id: 'isActive',
         accessorKey: 'isActive',
         header: 'Status',
-        cell: ({ row }) => (
-          <StatusBadge status={row.original.isActive ? 'active' : 'inactive'} />
-        ),
+        cell: ({ row }) => <StatusBadge status={row.original.isActive ? 'active' : 'inactive'} />,
       },
     ],
     [],
@@ -176,8 +174,8 @@ export function StaffManager() {
         <div>
           <h1 className="font-display text-2xl tracking-tight text-cocoa-dark">Staff</h1>
           <p className="mt-0.5 font-sans text-sm text-dusty-gray">
-            Manage staff designations and the services each member can perform. Service
-            capabilities drive booking availability.
+            Manage staff designations and the services each member can perform. Service capabilities
+            drive booking availability.
           </p>
         </div>
         <button

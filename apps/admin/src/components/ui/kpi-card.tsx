@@ -62,13 +62,7 @@ type KPICardProps = {
  * decorative icon. When `loading`, the value area becomes a KPI-shaped loading
  * placeholder announced via `aria-busy` / `aria-live`.
  */
-export function KPICard({
-  label,
-  value,
-  icon,
-  loading = false,
-  className,
-}: KPICardProps) {
+export function KPICard({ label, value, icon, loading = false, className }: KPICardProps) {
   return (
     <div
       className={cn(
@@ -78,9 +72,7 @@ export function KPICard({
     >
       <div className="flex items-center justify-between gap-2">
         <span className="font-sans text-sm text-dusty-gray">{label}</span>
-        {icon ? (
-          <Icon icon={icon} decorative className="text-deep-gold" />
-        ) : null}
+        {icon ? <Icon icon={icon} decorative className="text-deep-gold" /> : null}
       </div>
 
       {loading ? (

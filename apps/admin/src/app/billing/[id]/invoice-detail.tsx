@@ -104,7 +104,9 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
       {
         accessorKey: 'serviceNameSnapshot',
         header: 'Item',
-        cell: ({ row }) => <span className="text-cocoa-dark">{row.original.serviceNameSnapshot}</span>,
+        cell: ({ row }) => (
+          <span className="text-cocoa-dark">{row.original.serviceNameSnapshot}</span>
+        ),
       },
       {
         accessorKey: 'staffNameSnapshot',
@@ -117,7 +119,9 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
         accessorKey: 'quantity',
         header: 'Qty',
         cell: ({ row }) => (
-          <span className="block text-right tabular-nums text-warm-gray">{row.original.quantity}</span>
+          <span className="block text-right tabular-nums text-warm-gray">
+            {row.original.quantity}
+          </span>
         ),
       },
       {

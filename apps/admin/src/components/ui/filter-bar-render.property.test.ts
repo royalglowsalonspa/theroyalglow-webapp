@@ -18,10 +18,6 @@
  *                `React.createElement` so it runs under the admin jsdom project.
  ************************************************************/
 
-import { cleanup, render, within } from '@testing-library/react'
-import fc from 'fast-check'
-import { createElement } from 'react'
-import { afterEach, describe, expect, it } from 'vitest'
 import {
   type ColumnToggle,
   FilterBar,
@@ -29,6 +25,10 @@ import {
   type FilterDropdown,
   type TabOption,
 } from '@/components/ui/filter-bar'
+import { cleanup, render, within } from '@testing-library/react'
+import fc from 'fast-check'
+import { createElement } from 'react'
+import { afterEach, describe, expect, it } from 'vitest'
 
 // Feature: admin-portal-redesign, Property 9: FilterBar renders exactly the
 // configured controls
@@ -56,9 +56,7 @@ function tabsPresent(container: HTMLElement): boolean {
 }
 
 function columnVisibilityPresent(container: HTMLElement): boolean {
-  return (
-    container.querySelector(`[aria-label="${COLUMN_TRIGGER_LABEL}"]`) != null
-  )
+  return container.querySelector(`[aria-label="${COLUMN_TRIGGER_LABEL}"]`) != null
 }
 
 /* ----------------------------------------------------------------------------
@@ -102,9 +100,7 @@ const columnsArb: fc.Arbitrary<ColumnToggle[]> = fc
     }),
     { minLength: 1, maxLength: 4 },
   )
-  .map((raw) =>
-    raw.map((c, i) => ({ id: `col-${i}`, label: `Column ${i}`, visible: c.visible })),
-  )
+  .map((raw) => raw.map((c, i) => ({ id: `col-${i}`, label: `Column ${i}`, visible: c.visible })))
 
 type Scenario = {
   props: FilterBarProps
@@ -197,10 +193,7 @@ describe('Property 9: FilterBar renders exactly the configured controls (Req 8.1
 
           // When nothing is configured the component renders null (empty container).
           const anyConfigured =
-            want.search ||
-            want.tabs ||
-            want.columnVisibility ||
-            (want.dropdowns?.length ?? 0) > 0
+            want.search || want.tabs || want.columnVisibility || (want.dropdowns?.length ?? 0) > 0
           if (!anyConfigured) {
             expect(container.firstChild).toBeNull()
           }

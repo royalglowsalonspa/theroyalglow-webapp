@@ -45,12 +45,12 @@
 
 'use client'
 
-import { Icon } from '@/components/ui/icon'
 import {
   type ColumnVisibility,
   toggleColumnVisibility,
   visibleToggleableColumns,
 } from '@/components/ui/data-table-model'
+import { Icon } from '@/components/ui/icon'
 import { useDebouncedCallback } from '@/components/ui/use-debounced-callback'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { cn } from '@rgss/ui/lib/utils'
@@ -167,8 +167,7 @@ export function FilterBar({
   const hasSearch = config.search != null
   const hasDropdowns = (config.dropdowns?.length ?? 0) > 0
   const hasTabs = (config.tabs?.options.length ?? 0) > 0
-  const hasColumnVisibility =
-    config.columnVisibility === true && (columns?.length ?? 0) > 0
+  const hasColumnVisibility = config.columnVisibility === true && (columns?.length ?? 0) > 0
 
   // Render nothing when no controls are configured (Req 8.1).
   if (!(hasSearch || hasDropdowns || hasTabs || hasColumnVisibility)) {
@@ -176,12 +175,7 @@ export function FilterBar({
   }
 
   return (
-    <div
-      className={cn(
-        'flex flex-wrap items-center gap-3 font-ui',
-        className,
-      )}
-    >
+    <div className={cn('flex flex-wrap items-center gap-3 font-ui', className)}>
       {hasSearch ? (
         <SearchControl
           config={config.search as { placeholder: string; ariaLabel: string }}
@@ -281,9 +275,7 @@ function TabControl({
   config: { ariaLabel: string; options: TabOption[]; value?: string }
   onTabChange?: ((value: string) => void) | undefined
 }) {
-  const [active, setActive] = useState(
-    config.value ?? config.options[0]?.value ?? '',
-  )
+  const [active, setActive] = useState(config.value ?? config.options[0]?.value ?? '')
 
   function handleSelect(value: string) {
     setActive(value)
@@ -333,9 +325,7 @@ function DropdownControl({
   onFilterChange?: ((id: string, value: string) => void) | undefined
 }) {
   const selectId = useId()
-  const [value, setValue] = useState(
-    dropdown.value ?? dropdown.options[0]?.value ?? '',
-  )
+  const [value, setValue] = useState(dropdown.value ?? dropdown.options[0]?.value ?? '')
 
   function handleChange(event: React.ChangeEvent<HTMLSelectElement>) {
     const next = event.target.value
@@ -463,11 +453,7 @@ function ColumnVisibilityControl({
           })}
 
           {blocked ? (
-            <p
-              className="px-2 py-1.5 font-ui text-xs text-warm-gray"
-              id={hintId}
-              role="status"
-            >
+            <p className="px-2 py-1.5 font-ui text-xs text-warm-gray" id={hintId} role="status">
               {LAST_COLUMN_HINT}
             </p>
           ) : null}

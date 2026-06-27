@@ -32,8 +32,8 @@
  *                caller's retry handler (e.g. `useAsyncData`).
  ************************************************************/
 
-import { RotateCcw } from 'lucide-react'
 import { cn } from '@rgss/ui/lib/utils'
+import { RotateCcw } from 'lucide-react'
 import { Icon } from '../icon'
 
 type ErrorStateProps = {

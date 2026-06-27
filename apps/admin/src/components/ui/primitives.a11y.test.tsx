@@ -45,15 +45,11 @@
 import { cleanup, render } from '@testing-library/react'
 import { axe, toHaveNoViolations } from 'jest-axe'
 import { CalendarDays } from 'lucide-react'
-import { afterEach, describe, expect, it } from 'vitest'
 import { Bar, BarChart, XAxis, YAxis } from 'recharts'
+import { afterEach, describe, expect, it } from 'vitest'
 
-import { ChartCard, CHART_COLORS } from '@/components/ui/chart-card'
-import {
-  type ColumnToggle,
-  FilterBar,
-  type FilterBarProps,
-} from '@/components/ui/filter-bar'
+import { CHART_COLORS, ChartCard } from '@/components/ui/chart-card'
+import { type ColumnToggle, FilterBar, type FilterBarProps } from '@/components/ui/filter-bar'
 import { KPICard } from '@/components/ui/kpi-card'
 import { SlideOverPanel } from '@/components/ui/slide-over-panel'
 import { EmptyState } from '@/components/ui/state/empty-state'
@@ -129,9 +125,7 @@ describe('KPICard accessibility (Req 13.1)', () => {
   })
 
   it('has zero violations in the loading state', async () => {
-    const { container } = render(
-      <KPICard label="Today's Bookings" value="—" loading />,
-    )
+    const { container } = render(<KPICard label="Today's Bookings" value="—" loading />)
 
     const results = await axe(container)
     expect(results).toHaveNoViolations()
@@ -144,7 +138,11 @@ describe('KPICard accessibility (Req 13.1)', () => {
 
 describe('ChartCard accessibility (Req 13.1)', () => {
   it('has zero violations in the loading state', async () => {
-    const { container } = render(<ChartCard title="Bookings" loading><div /></ChartCard>)
+    const { container } = render(
+      <ChartCard title="Bookings" loading>
+        <div />
+      </ChartCard>,
+    )
 
     const results = await axe(container)
     expect(results).toHaveNoViolations()

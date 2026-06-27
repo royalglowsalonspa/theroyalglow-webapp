@@ -97,21 +97,9 @@ export function Icon({
 }: IconProps) {
   if (decorative) {
     return (
-      <IconComponent
-        aria-hidden="true"
-        className={cn(className)}
-        focusable={false}
-        size={size}
-      />
+      <IconComponent aria-hidden="true" className={cn(className)} focusable={false} size={size} />
     )
   }
 
-  return (
-    <IconComponent
-      aria-label={label}
-      className={cn(className)}
-      role="img"
-      size={size}
-    />
-  )
+  return <IconComponent aria-label={label} className={cn(className)} role="img" size={size} />
 }

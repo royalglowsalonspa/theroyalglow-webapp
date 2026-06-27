@@ -202,9 +202,7 @@ export function LogsTable() {
       <FilterBar
         config={{
           search: { placeholder: 'Filter by entity type…', ariaLabel: 'Filter by entity type' },
-          dropdowns: [
-            { id: 'action', label: 'Action', options: ACTION_OPTIONS, value: action },
-          ],
+          dropdowns: [{ id: 'action', label: 'Action', options: ACTION_OPTIONS, value: action }],
           columnVisibility: true,
         }}
         search={entity}

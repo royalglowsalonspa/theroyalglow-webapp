@@ -31,11 +31,7 @@
  *                ≥4.5:1 per the design variant → token table (Req 9.5).
  ************************************************************/
 
-import {
-  type BadgeVariant,
-  labelForStatus,
-  variantForStatus,
-} from '@/lib/admin/status-badge'
+import { type BadgeVariant, labelForStatus, variantForStatus } from '@/lib/admin/status-badge'
 import { cn } from '@rgss/ui/lib/utils'
 
 /**

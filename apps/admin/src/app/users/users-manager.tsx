@@ -439,7 +439,7 @@ function RoleEditorPanel({
       open={user !== null}
       onOpenChange={(open) => !open && onClose()}
       title="Change role"
-      description={user ? (user.name || user.email) : undefined}
+      description={user ? user.name || user.email : undefined}
       footer={
         <div className="flex items-center justify-end gap-2">
           <button
@@ -470,9 +470,7 @@ function RoleEditorPanel({
             </div>
             <div className="flex items-center gap-2">
               <dt className="text-dusty-gray">Current</dt>
-              <dd>
-                {user.role ? <StatusBadge status={user.role} /> : <span>No role</span>}
-              </dd>
+              <dd>{user.role ? <StatusBadge status={user.role} /> : <span>No role</span>}</dd>
             </div>
           </dl>
 

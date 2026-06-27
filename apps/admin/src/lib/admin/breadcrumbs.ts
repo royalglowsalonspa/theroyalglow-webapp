@@ -83,9 +83,7 @@ function humaniseSegment(segment: string): string {
     }
   })()
 
-  return decoded
-    .replace(/[-_]+/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase())
+  return decoded.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 /**
@@ -128,10 +126,7 @@ function findLongestPrefixItem(
  * The returned list is always non-empty. A top-level route (e.g. `/`) yields a
  * single current-only crumb (Req 5.6).
  */
-export function deriveBreadcrumbs(
-  pathname: string,
-  nav: ReadonlyArray<NavSection>,
-): Crumb[] {
+export function deriveBreadcrumbs(pathname: string, nav: ReadonlyArray<NavSection>): Crumb[] {
   const path = normalisePathname(pathname)
   const matched = findLongestPrefixItem(path, nav)
 

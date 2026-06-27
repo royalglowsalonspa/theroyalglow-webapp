@@ -198,9 +198,7 @@ export function BranchesManager() {
         accessorKey: 'email',
         header: 'Email',
         enableSorting: false,
-        cell: ({ row }) => (
-          <span className="text-warm-gray">{row.original.email ?? '—'}</span>
-        ),
+        cell: ({ row }) => <span className="text-warm-gray">{row.original.email ?? '—'}</span>,
       },
     ],
     [],

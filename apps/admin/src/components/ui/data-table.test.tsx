@@ -24,9 +24,9 @@
  *   (pointer capture, scrollIntoView, ResizeObserver); these are stubbed below.
  ************************************************************/
 
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { axe, toHaveNoViolations } from 'jest-axe'
 import type { ColumnDef, Row } from '@tanstack/react-table'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { axe, toHaveNoViolations } from 'jest-axe'
 import { Pencil, Trash2 } from 'lucide-react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -86,7 +86,14 @@ describe('DataTable inline row actions (Req 6.5)', () => {
       { label: 'Edit', icon: Pencil, onSelect: () => {} },
     ]
 
-    render(<DataTable<Person> columns={COLUMNS} data={PEOPLE} tableId="people" rowActions={rowActions} />)
+    render(
+      <DataTable<Person>
+        columns={COLUMNS}
+        data={PEOPLE}
+        tableId="people"
+        rowActions={rowActions}
+      />,
+    )
 
     const triggers = screen.getAllByRole('button', { name: 'Row actions' })
     expect(triggers).toHaveLength(PEOPLE.length)
@@ -100,7 +107,14 @@ describe('DataTable inline row actions (Req 6.5)', () => {
       { label: 'Delete', icon: Trash2, onSelect: onDelete, destructive: true },
     ]
 
-    render(<DataTable<Person> columns={COLUMNS} data={PEOPLE} tableId="people" rowActions={rowActions} />)
+    render(
+      <DataTable<Person>
+        columns={COLUMNS}
+        data={PEOPLE}
+        tableId="people"
+        rowActions={rowActions}
+      />,
+    )
 
     const [trigger] = screen.getAllByRole('button', { name: 'Row actions' })
     if (!trigger) {
@@ -192,7 +206,9 @@ describe('DataTable accessibility + keyboard operability (Req 6.10)', () => {
   })
 
   it('renders a sortable header as a <button> and toggles aria-sort on activation', () => {
-    const { container } = render(<DataTable<Person> columns={COLUMNS} data={PEOPLE} tableId="people" />)
+    const { container } = render(
+      <DataTable<Person> columns={COLUMNS} data={PEOPLE} tableId="people" />,
+    )
 
     const nameHeaderButton = screen.getByRole('button', { name: /name/i })
     expect(nameHeaderButton.tagName).toBe('BUTTON')

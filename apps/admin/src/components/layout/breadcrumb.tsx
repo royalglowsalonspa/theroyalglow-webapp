@@ -53,10 +53,7 @@ export function Breadcrumb() {
           return (
             <li key={crumb.href} className="flex items-center gap-1.5">
               {!isFirst && (
-                <ChevronRight
-                  className="size-3.5 text-dusty-gray shrink-0"
-                  aria-hidden="true"
-                />
+                <ChevronRight className="size-3.5 text-dusty-gray shrink-0" aria-hidden="true" />
               )}
               {crumb.current ? (
                 <span className="text-cocoa-dark font-medium" aria-current="page">

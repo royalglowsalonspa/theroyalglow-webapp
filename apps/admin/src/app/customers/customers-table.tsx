@@ -214,9 +214,7 @@ export function CustomersTable() {
         accessorKey: 'phone',
         header: 'Phone',
         enableSorting: false,
-        cell: ({ row }) => (
-          <span className="text-warm-gray">{row.original.phone ?? '—'}</span>
-        ),
+        cell: ({ row }) => <span className="text-warm-gray">{row.original.phone ?? '—'}</span>,
       },
       {
         id: 'tags',
@@ -254,9 +252,7 @@ export function CustomersTable() {
         accessorKey: 'gemsBalance',
         header: 'Gems',
         enableSorting: false,
-        cell: ({ row }) => (
-          <span className="text-warm-gray">{row.original.gemsBalance ?? 0}</span>
-        ),
+        cell: ({ row }) => <span className="text-warm-gray">{row.original.gemsBalance ?? 0}</span>,
       },
       {
         id: 'lastVisit',
@@ -301,7 +297,10 @@ export function CustomersTable() {
       {/* Controls: FilterBar (search, sort, tag, columns) */}
       <FilterBar
         config={{
-          search: { placeholder: 'Search by name, phone, or email…', ariaLabel: 'Search customers' },
+          search: {
+            placeholder: 'Search by name, phone, or email…',
+            ariaLabel: 'Search customers',
+          },
           dropdowns: [
             { id: 'sort', label: 'Sort', options: SORT_OPTIONS, value: sort },
             { id: 'tag', label: 'Tag', options: tagDropdownOptions, value: tag },
