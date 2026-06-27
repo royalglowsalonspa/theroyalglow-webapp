@@ -33,6 +33,7 @@
 
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireSession } from '@/lib/api/session'
+import { publishBookingEvent } from '@/lib/realtime/publish'
 import { cancelBooking, getBookingByIdForCustomer } from '@rgss/db/queries'
 import { ERROR_CODES, conflict, notFound } from '@rgss/errors'
 import { cancelBookingSchema } from '@rgss/types'
@@ -74,6 +75,17 @@ export const POST = withErrorHandler(
     if (!updated) {
       throw notFound('Booking not found.')
     }
+
+    // Best-effort realtime publish: notify the booking channel and the per-branch
+    // admin feed of the status change. publishBookingEvent no-ops without
+    // ABLY_PRIVATE_KEY and never throws, so it can never break the cancel flow or
+    // change its response. branchId comes from the owned booking row read above.
+    await publishBookingEvent({
+      bookingId: updated.id,
+      branchId: existing.branchId,
+      event: 'status_changed',
+      data: { status: updated.status },
+    })
 
     return apiSuccess({
       id: updated.id,

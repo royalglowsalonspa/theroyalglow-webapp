@@ -52,6 +52,7 @@
 
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
+import { publishBookingEvent } from '@/lib/realtime/publish'
 import {
   addMinutesToTime,
   calculateBookingTotal,
@@ -183,6 +184,17 @@ export const POST = withErrorHandler(async (req: Request) => {
     },
     serviceRows,
   )
+
+  // Best-effort realtime publish: announce the walk-in (created confirmed) on the
+  // booking channel + per-branch admin feed so the admin dashboard updates live.
+  // publishBookingEvent no-ops without ABLY_PRIVATE_KEY and never throws, so it
+  // can never break walk-in creation or change its response.
+  await publishBookingEvent({
+    bookingId: created.id,
+    branchId,
+    event: 'created',
+    data: { status: created.status },
+  })
 
   return apiSuccess(
     {
