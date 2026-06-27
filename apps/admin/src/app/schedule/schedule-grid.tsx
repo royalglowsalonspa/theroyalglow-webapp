@@ -1,38 +1,59 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 21-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : Schedule Grid
  * Scope        : Admin Portal — Schedule Management
  *
- * Description  : Interactive weekly staff schedule grid with week
- *                navigation, inline schedule editing, leave overlays,
- *                and booking count indicators per day.
+ * Description  : Weekly staff schedule grid rebuilt on the admin design-system
+ *                primitives. The schedule is a staff × day matrix (not a record
+ *                list), so it keeps its purpose-built grid while adopting the
+ *                shared state presenters for loading / empty / error, the
+ *                StatusBadge for the on-leave indicator, and useAsyncData for
+ *                fetch orchestration + timeout. Inline schedule editing, week
+ *                navigation, leave overlays, and booking counts are preserved.
+ *                Consumes GET/PUT /api/schedule as-is.
  *
  * Responsibilities :
  * - Fetch weekly schedule data (staff, working hours, leave, bookings)
- * - Render 7-column grid with staff rows and day columns
- * - Provide inline schedule editor (per-day working hours toggle)
+ * - Render the 7-column grid with staff rows and day columns
+ * - Provide the inline schedule editor (per-day working hours toggle)
  *
  * Features / Functionality :
  * - Week navigation (prev/next/today) with range label
  * - Per-staff inline edit mode with time inputs and validation
- * - Leave day indicators and booking counts per cell
+ * - Leave-day StatusBadge indicators and booking counts per cell
  *
- * Tech Stack   : Next.js 16, React (Client Component), TypeScript
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript,
+ *                Tailwind CSS v4 (Brand Tokens), lucide-react
  * Layer        : Presentation (Schedule Grid Component)
  *
- * Dependencies : admin bookings lib (formatTime12h), React hooks
+ * Dependencies : @/components/ui/state/*, @/components/ui/status-badge,
+ *                @/components/ui/use-async-data, @/components/ui/icon,
+ *                @/lib/admin/bookings (formatTime12h), React hooks
  *
- * Notes        :
- * - All date arithmetic uses UTC to prevent timezone drift
+ * Notes        : Presentation-layer only — no API/RBAC/data-model/business-logic
+ *                changes. Uses ONLY semantic Brand-Token utilities and lucide
+ *                icons via the Icon wrapper — no emoji / hex / raw-palette
+ *                literals. All date arithmetic uses UTC to prevent timezone
+ *                drift. Every pre-redesign field and action is preserved
+ *                (Req 17.6, 17.7).
+ *
+ * Requirements : 17.1, 17.2, 17.3, 17.4, 17.5, 17.6, 17.7
  ************************************************************/
 
 'use client'
 
+import { Icon } from '@/components/ui/icon'
+import { EmptyState } from '@/components/ui/state/empty-state'
+import { ErrorState } from '@/components/ui/state/error-state'
+import { Skeleton } from '@/components/ui/state/skeleton'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { useAsyncData } from '@/components/ui/use-async-data'
 import { formatTime12h } from '@/lib/admin/bookings'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { CalendarRange, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 // ─── API shapes (mirror GET /api/schedule → apiSuccess({ dates, staff })) ───
 
@@ -146,33 +167,33 @@ function buildEditorEntries(schedule: ScheduleEntry[]): EditorEntry[] {
   })
 }
 
+async function fetchSchedule(weekStart: string): Promise<GridData> {
+  const res = await fetch(`/api/schedule?weekStart=${weekStart}`)
+  const json = await res.json()
+  if (!res.ok || !json.success) {
+    throw new Error(json?.error?.message ?? 'Could not load the schedule.')
+  }
+  return json.data as GridData
+}
+
 export function ScheduleGrid() {
   const [weekStart, setWeekStart] = useState(() => startOfWeekISO(todayISO()))
-  const [data, setData] = useState<GridData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch(`/api/schedule?weekStart=${weekStart}`)
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error?.message ?? 'Could not load the schedule.')
-      }
-      setData(json.data as GridData)
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not load the schedule.')
-    } finally {
-      setLoading(false)
-    }
-  }, [weekStart])
+  const fetcher = useCallback(() => fetchSchedule(weekStart), [weekStart])
+  const { state, retry } = useAsyncData(fetcher)
 
+  // Re-request when the week changes; the initial mount fetch is owned by the
+  // hook, so skip the very first effect run to avoid a duplicate request.
+  const didMount = useRef(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: weekStart is the re-fetch trigger; retry reads the latest fetcher via ref
   useEffect(() => {
-    load()
-  }, [load])
+    if (!didMount.current) {
+      didMount.current = true
+      return
+    }
+    retry()
+  }, [weekStart, retry])
 
   const goToday = () => setWeekStart(startOfWeekISO(todayISO()))
   const goPrev = () => setWeekStart((w) => addDaysISO(w, -7))
@@ -183,60 +204,67 @@ export function ScheduleGrid() {
       {/* Header + week navigator */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl text-cocoa-dark tracking-tight">Schedule</h1>
-          <p className="font-sans text-sm text-dusty-gray mt-0.5">
+          <h1 className="font-display text-2xl tracking-tight text-cocoa-dark">Schedule</h1>
+          <p className="mt-0.5 font-sans text-sm text-dusty-gray">
             Week of {formatRangeLabel(weekStart)}
           </p>
         </div>
 
-        <fieldset className="flex items-center gap-1 border-0 p-0 m-0 min-w-0">
+        <fieldset className="m-0 flex min-w-0 items-center gap-1 border-0 p-0">
           <legend className="sr-only">Change week</legend>
           <button
             type="button"
             onClick={goPrev}
-            className="h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-ui text-warm-gray hover:bg-cloud-gray transition-colors"
+            className="inline-flex h-9 items-center gap-1 rounded-buttons border border-outline-gray bg-canvas-white px-3 font-ui text-sm text-warm-gray transition-colors hover:bg-cloud-gray motion-reduce:transition-none"
           >
-            ← Prev
+            <Icon icon={ChevronLeft} decorative size={16} />
+            Prev
           </button>
           <button
             type="button"
             onClick={goToday}
-            className="h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-ui text-cocoa-dark hover:bg-cloud-gray transition-colors"
+            className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-3 font-ui text-sm text-cocoa-dark transition-colors hover:bg-cloud-gray motion-reduce:transition-none"
           >
             Today
           </button>
           <button
             type="button"
             onClick={goNext}
-            className="h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-ui text-warm-gray hover:bg-cloud-gray transition-colors"
+            className="inline-flex h-9 items-center gap-1 rounded-buttons border border-outline-gray bg-canvas-white px-3 font-ui text-sm text-warm-gray transition-colors hover:bg-cloud-gray motion-reduce:transition-none"
           >
-            Next →
+            Next
+            <Icon icon={ChevronRight} decorative size={16} />
           </button>
         </fieldset>
       </div>
 
-      {loading ? (
-        <LoadingState />
-      ) : error ? (
-        <ErrorState message={error} onRetry={load} />
-      ) : !data || data.staff.length === 0 ? (
-        <EmptyState />
+      {state.status === 'loading' ? (
+        <Skeleton rows={6} variant="table" />
+      ) : state.status === 'error' ? (
+        <ErrorState message={state.message} onRetry={retry} />
+      ) : state.data.staff.length === 0 ? (
+        <EmptyState
+          icon={CalendarRange}
+          title="No active staff"
+          message="Add staff members to manage their weekly schedules."
+        />
       ) : (
-        <div className="border border-cloud-gray rounded-[6px] overflow-hidden">
+        <div className="overflow-hidden rounded-cards border border-cloud-gray">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
+            <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="bg-cloud-gray/60">
-                  <th className="text-left px-4 py-2.5 font-ui text-xs uppercase tracking-wider text-dusty-gray sticky left-0 bg-cloud-gray/60 z-10">
+                  <th className="sticky left-0 z-10 bg-cloud-gray/60 px-4 py-2.5 text-left font-ui text-xs uppercase tracking-wider text-dusty-gray">
                     Staff
                   </th>
-                  {data.dates.map((date) => {
+                  {state.data.dates.map((date) => {
                     const dow = dayOfWeekOf(date)
                     const dayNum = new Date(`${date}T00:00:00.000Z`).getUTCDate()
                     return (
                       <th
                         key={date}
-                        className="px-3 py-2.5 font-ui text-xs uppercase tracking-wider text-dusty-gray text-center whitespace-nowrap"
+                        scope="col"
+                        className="whitespace-nowrap px-3 py-2.5 text-center font-ui text-xs uppercase tracking-wider text-dusty-gray"
                       >
                         <span className="block text-cocoa-dark">{DAY_SHORT[dow]}</span>
                         <span className="block font-sans text-[11px] normal-case tracking-normal text-warm-stone">
@@ -248,17 +276,17 @@ export function ScheduleGrid() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-cloud-gray">
-                {data.staff.map((row) => (
+                {state.data.staff.map((row) => (
                   <StaffRow
                     key={row.staff.id}
                     row={row}
-                    dates={data.dates}
+                    dates={state.data.dates}
                     isEditing={editingStaffId === row.staff.id}
                     onEdit={() => setEditingStaffId(row.staff.id)}
                     onCancel={() => setEditingStaffId(null)}
                     onSaved={() => {
                       setEditingStaffId(null)
-                      load()
+                      retry()
                     }}
                   />
                 ))}
@@ -298,10 +326,10 @@ function StaffRow({
 
   return (
     <>
-      <tr className="hover:bg-cloud-gray/30 transition-colors align-top">
+      <tr className="align-top transition-colors hover:bg-cloud-gray/30 motion-reduce:transition-none">
         <th
           scope="row"
-          className="text-left px-4 py-3 font-sans text-cocoa-dark whitespace-nowrap sticky left-0 bg-canvas-white z-10"
+          className="sticky left-0 z-10 whitespace-nowrap bg-canvas-white px-4 py-3 text-left font-sans text-cocoa-dark"
         >
           <div className="flex items-center justify-between gap-3">
             <span>{row.staff.name}</span>
@@ -309,7 +337,7 @@ function StaffRow({
               <button
                 type="button"
                 onClick={onEdit}
-                className="text-deep-gold hover:text-cocoa-dark text-xs font-ui transition-colors"
+                className="font-ui text-xs text-deep-gold transition-colors hover:text-cocoa-dark motion-reduce:transition-none"
                 aria-label={`Edit schedule for ${row.staff.name}`}
               >
                 Edit
@@ -328,15 +356,9 @@ function StaffRow({
           return (
             <td key={date} className="px-3 py-3 text-center align-top">
               <div className="flex flex-col items-center gap-1">
-                {onLeave && (
-                  <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-ui uppercase tracking-[0.5px] text-red-700">
-                    Leave
-                  </span>
-                )}
+                {onLeave && <StatusBadge status="leave" />}
                 {hours ? (
-                  <span className="font-ui text-[12px] text-deep-gold whitespace-nowrap">
-                    {hours}
-                  </span>
+                  <span className="whitespace-nowrap font-ui text-xs text-deep-gold">{hours}</span>
                 ) : (
                   <span className="font-ui text-[11px] uppercase tracking-[0.5px] text-warm-stone">
                     Off
@@ -355,7 +377,7 @@ function StaffRow({
 
       {isEditing && (
         <tr>
-          <td colSpan={dates.length + 1} className="px-4 py-4 bg-warm-cream/40">
+          <td colSpan={dates.length + 1} className="bg-warm-cream/40 px-4 py-4">
             <ScheduleEditor
               staffId={row.staff.id}
               staffName={row.staff.name}
@@ -451,12 +473,12 @@ function ScheduleEditor({
         {entries.map((entry, day) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: index IS the dayOfWeek (0..6), a stable key
           <li key={day} className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 w-[150px] shrink-0 font-sans text-sm text-cocoa-dark">
+            <label className="flex w-[150px] shrink-0 items-center gap-2 font-sans text-sm text-cocoa-dark">
               <input
                 type="checkbox"
                 checked={entry.isWorking}
                 onChange={(e) => updateEntry(day, { isWorking: e.target.checked })}
-                className="h-4 w-4 rounded border-outline-gray text-deep-gold focus:ring-deep-gold"
+                className="h-4 w-4 rounded-cards border-outline-gray accent-deep-gold focus:ring-deep-gold"
               />
               {DAY_LONG[day]}
             </label>
@@ -471,7 +493,7 @@ function ScheduleEditor({
                   value={entry.startTime}
                   disabled={!entry.isWorking}
                   onChange={(e) => updateEntry(day, { startTime: e.target.value })}
-                  className="h-9 px-2 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-2 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold disabled:cursor-not-allowed disabled:opacity-40"
                   aria-label={`${DAY_LONG[day]} start time`}
                 />
               </label>
@@ -484,7 +506,7 @@ function ScheduleEditor({
                   value={entry.endTime}
                   disabled={!entry.isWorking}
                   onChange={(e) => updateEntry(day, { endTime: e.target.value })}
-                  className="h-9 px-2 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-2 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold disabled:cursor-not-allowed disabled:opacity-40"
                   aria-label={`${DAY_LONG[day]} end time`}
                 />
               </label>
@@ -504,7 +526,7 @@ function ScheduleEditor({
           type="button"
           onClick={save}
           disabled={saving}
-          className="h-9 px-4 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          className="h-9 rounded-buttons bg-cocoa-dark px-4 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none"
         >
           {saving ? 'Saving…' : 'Save schedule'}
         </button>
@@ -512,76 +534,11 @@ function ScheduleEditor({
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="h-9 px-4 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-ui text-warm-gray hover:bg-cloud-gray transition-colors disabled:opacity-60"
+          className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-4 font-ui text-sm text-warm-gray transition-colors hover:bg-cloud-gray disabled:opacity-60 motion-reduce:transition-none"
         >
           Cancel
         </button>
       </div>
     </div>
-  )
-}
-
-function LoadingState() {
-  return (
-    <output
-      className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      aria-live="polite"
-    >
-      <Spinner />
-      <span className="font-sans text-sm text-dusty-gray">Loading schedule…</span>
-    </output>
-  )
-}
-
-function ErrorState({
-  message,
-  onRetry,
-}: {
-  message: string
-  onRetry: () => void
-}) {
-  return (
-    <div className="border border-error/40 bg-error/5 rounded-[6px] px-5 py-10 text-center">
-      <p className="font-sans text-sm text-error mb-3" role="alert">
-        {message}
-      </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
-      >
-        Try Again
-      </button>
-    </div>
-  )
-}
-
-function EmptyState() {
-  return (
-    <div className="border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 text-center">
-      <p className="font-sans text-sm text-cocoa-dark mb-1">No active staff</p>
-      <p className="font-sans text-xs text-dusty-gray">
-        Add staff members to manage their weekly schedules.
-      </p>
-    </div>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-5 w-5 animate-spin text-deep-gold"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
   )
 }

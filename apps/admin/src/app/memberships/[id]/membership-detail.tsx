@@ -1,14 +1,17 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 21-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : Membership Detail
  * Scope        : Admin Portal — Membership Management
  *
- * Description  : Full membership detail view with hours balance bar,
- *                session recording modal, cancellation modal, and
- *                session history table.
+ * Description  : Full membership detail view rebuilt on the admin design-system
+ *                primitives. Shows the hours balance bar, a session-history
+ *                DataTable, and uses right-side SlideOverPanels for the record-
+ *                session and cancellation flows. Loading / error use the shared
+ *                State_Presenter components; status uses the StatusBadge
+ *                primitive.
  *
  * Responsibilities :
  * - Display membership info, hours balance, and expiry status
@@ -17,21 +20,31 @@
  *
  * Features / Functionality :
  * - Visual progress bar for hours used vs total
- * - Record Session modal with SPA service multi-select
- * - Cancel Membership modal with reason and role guard
+ * - Record Session slide-over with SPA service multi-select
+ * - Cancel Membership slide-over with reason and role guard
+ * - Session history rendered via the DataTable primitive
  *
- * Tech Stack   : Next.js 16, React (Client Component), TypeScript
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript,
+ *                @tanstack/react-table, Radix Dialog (SlideOverPanel)
  * Layer        : Presentation (Detail View Component)
  *
- * Dependencies : StatusBadge, admin memberships lib, next/link, React hooks
+ * Dependencies : DataTable, SlideOverPanel, StatusBadge, state presenters,
+ *                @/lib/admin/memberships, @/lib/admin/format, next/link
  *
- * Notes        :
- * - Session recording creates a ₹0 membership_session invoice (no gems)
+ * Notes        : Presentation-layer only; consumes GET /api/memberships/[id],
+ *                /api/services, /api/staff, POST .../sessions, .../cancel as-is.
+ *                Session recording creates a ₹0 membership_session invoice (no
+ *                gems). All pre-redesign fields and actions are preserved.
  ************************************************************/
 
 'use client'
 
-import { StatusBadge } from '@/components/admin/StatusBadge'
+import { DataTable } from '@/components/ui/data-table'
+import { SlideOverPanel } from '@/components/ui/slide-over-panel'
+import { ErrorState } from '@/components/ui/state/error-state'
+import { Skeleton } from '@/components/ui/state/skeleton'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { formatDateTimeIST } from '@/lib/admin/format'
 import {
   type MembershipDetailData,
   type MembershipSessionRow,
@@ -41,8 +54,10 @@ import {
   formatDateDDMMYYYY,
   minutesToHM,
 } from '@/lib/admin/memberships'
+import type { ColumnDef } from '@tanstack/react-table'
+import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
-import { type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 
 export function MembershipDetail({ membershipId }: { membershipId: string }) {
   const [data, setData] = useState<MembershipDetailData | null>(null)
@@ -73,10 +88,20 @@ export function MembershipDetail({ membershipId }: { membershipId: string }) {
   }, [load])
 
   if (loading) {
-    return <LoadingState />
+    return (
+      <div className="space-y-4">
+        <BackLink />
+        <Skeleton variant="card" rows={3} />
+      </div>
+    )
   }
   if (error || !data) {
-    return <ErrorState message={error ?? 'Membership not found.'} onRetry={load} />
+    return (
+      <div className="space-y-4">
+        <BackLink />
+        <ErrorState message={error ?? 'Membership not found.'} onRetry={load} />
+      </div>
+    )
   }
 
   const total = data.totalHoursMinutes
@@ -95,18 +120,18 @@ export function MembershipDetail({ membershipId }: { membershipId: string }) {
       {/* Header */}
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">
+          <h1 className="font-display text-2xl tracking-tight text-cocoa-dark">
             Membership{' '}
             <span className="font-mono text-lg text-warm-gray">#{data.membershipNumber}</span>
           </h1>
-          <p className="mt-1 text-sm font-sans text-warm-gray">
+          <p className="mt-1 font-sans text-sm text-warm-gray">
             <Link
               href={`/customers/${data.customerId}`}
-              className="text-deep-gold hover:text-cocoa-dark transition-colors"
+              className="text-deep-gold transition-colors hover:text-cocoa-dark"
             >
               {data.customerName}
             </Link>{' '}
-            · {data.tierNameSnapshot} · Created {formatDateDDMMYYYY(data.createdAt)}
+            · {data.tierNameSnapshot} · Created {formatDateTimeIST(data.createdAt)}
           </p>
         </div>
         <StatusBadge status={data.status} />
@@ -114,20 +139,20 @@ export function MembershipDetail({ membershipId }: { membershipId: string }) {
 
       {/* Hours balance */}
       <section
-        className="rounded-[6px] border border-cloud-gray bg-canvas-white p-5"
+        className="rounded-cards border border-cloud-gray bg-canvas-white p-5"
         aria-labelledby="hours-balance-heading"
       >
         <h2
           id="hours-balance-heading"
-          className="text-xs font-ui uppercase tracking-wider text-dusty-gray mb-3"
+          className="mb-3 font-ui text-xs uppercase tracking-wider text-dusty-gray"
         >
           Hours Balance
         </h2>
 
         {/* The bar is decorative; the dl below conveys the numbers to AT. */}
-        <div className="h-3 w-full overflow-hidden rounded-full bg-cloud-gray" aria-hidden="true">
+        <div className="h-3 w-full overflow-hidden rounded-pill bg-cloud-gray" aria-hidden="true">
           <div
-            className="h-full rounded-full bg-royal-gold motion-safe:transition-[width] duration-500"
+            className="h-full rounded-pill bg-royal-gold duration-500 motion-safe:transition-[width]"
             style={{ width: `${usedPct}%` }}
           />
         </div>
@@ -142,7 +167,7 @@ export function MembershipDetail({ membershipId }: { membershipId: string }) {
           <Stat label="Total" value={minutesToHM(total)} />
         </dl>
 
-        <p className="mt-4 text-sm font-sans text-warm-gray">
+        <p className="mt-4 font-sans text-sm text-warm-gray">
           Expires {formatDateDDMMYYYY(data.expiresAt)}
           {isActive ? (
             <span className={`ml-1 ${days <= 7 && days >= 0 ? 'text-error' : 'text-dusty-gray'}`}>
@@ -158,7 +183,7 @@ export function MembershipDetail({ membershipId }: { membershipId: string }) {
           type="button"
           onClick={() => setRecordOpen(true)}
           disabled={!canRecord}
-          className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="rounded-buttons bg-cocoa-dark px-4 py-2 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray disabled:cursor-not-allowed disabled:opacity-50"
         >
           Record Session
         </button>
@@ -166,13 +191,13 @@ export function MembershipDetail({ membershipId }: { membershipId: string }) {
           type="button"
           onClick={() => setCancelOpen(true)}
           disabled={!isActive}
-          className="px-4 py-2 rounded-[6px] border border-error/50 text-error text-sm font-ui hover:bg-error/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="rounded-buttons border border-error/50 px-4 py-2 font-ui text-sm text-error transition-colors hover:bg-error/5 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Cancel Membership
         </button>
       </div>
       {!canRecord && isActive ? (
-        <output className="block text-sm font-sans text-error">
+        <output className="block font-sans text-sm text-error">
           This membership has expired — sessions can no longer be recorded.
         </output>
       ) : null}
@@ -180,32 +205,30 @@ export function MembershipDetail({ membershipId }: { membershipId: string }) {
       {/* Session history */}
       <SessionHistory sessions={data.sessions} used={used} />
 
-      {recordOpen ? (
-        <RecordSessionModal
-          membershipId={membershipId}
-          memberName={data.customerName}
-          membershipNumber={data.membershipNumber}
-          tierName={data.tierNameSnapshot}
-          remainingMinutes={remaining}
-          onClose={() => setRecordOpen(false)}
-          onRecorded={() => {
-            setRecordOpen(false)
-            load()
-          }}
-        />
-      ) : null}
+      <RecordSessionPanel
+        open={recordOpen}
+        membershipId={membershipId}
+        memberName={data.customerName}
+        membershipNumber={data.membershipNumber}
+        tierName={data.tierNameSnapshot}
+        remainingMinutes={remaining}
+        onClose={() => setRecordOpen(false)}
+        onRecorded={() => {
+          setRecordOpen(false)
+          load()
+        }}
+      />
 
-      {cancelOpen ? (
-        <CancelMembershipModal
-          membershipId={membershipId}
-          membershipNumber={data.membershipNumber}
-          onClose={() => setCancelOpen(false)}
-          onCancelled={() => {
-            setCancelOpen(false)
-            load()
-          }}
-        />
-      ) : null}
+      <CancelMembershipPanel
+        open={cancelOpen}
+        membershipId={membershipId}
+        membershipNumber={data.membershipNumber}
+        onClose={() => setCancelOpen(false)}
+        onCancelled={() => {
+          setCancelOpen(false)
+          load()
+        }}
+      />
     </div>
   )
 }
@@ -223,14 +246,14 @@ function expiryHint(expiresAt: string): string {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[6px] bg-warm-cream px-4 py-3">
-      <dt className="font-ui text-[11px] uppercase tracking-wider text-warm-stone mb-1">{label}</dt>
+    <div className="rounded-cards bg-warm-cream px-4 py-3">
+      <dt className="mb-1 font-ui text-[11px] uppercase tracking-wider text-warm-stone">{label}</dt>
       <dd className="font-display text-xl text-cocoa-dark">{value}</dd>
     </div>
   )
 }
 
-// --- Session history table ------------------------------------------------
+// --- Session history table (DataTable) ------------------------------------
 
 function SessionHistory({
   sessions,
@@ -239,75 +262,95 @@ function SessionHistory({
   sessions: MembershipSessionRow[]
   used: number
 }) {
+  const columns = useMemo<ColumnDef<MembershipSessionRow, unknown>[]>(
+    () => [
+      {
+        accessorKey: 'bookingDate',
+        header: 'Date',
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap font-sans text-cocoa-dark">
+            {formatDateDDMMYYYY(row.original.bookingDate)}
+          </span>
+        ),
+      },
+      {
+        id: 'services',
+        header: 'Service(s)',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span className="font-sans text-cocoa-dark">
+            {row.original.services.map((svc) => svc.serviceNameSnapshot).join(', ')}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'totalDurationMinutes',
+        header: 'Duration',
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap font-sans text-warm-gray">
+            {minutesToHM(row.original.totalDurationMinutes)}
+          </span>
+        ),
+      },
+      {
+        id: 'staff',
+        header: 'Staff',
+        enableSorting: false,
+        cell: ({ row }) => {
+          const staffNames = [
+            ...new Set(
+              row.original.services
+                .map((svc) => svc.staffName)
+                .filter((n): n is string => Boolean(n)),
+            ),
+          ]
+          return (
+            <span className="whitespace-nowrap font-sans text-warm-gray">
+              {staffNames.length > 0 ? staffNames.join(', ') : '—'}
+            </span>
+          )
+        },
+      },
+    ],
+    [],
+  )
+
   return (
-    <section
-      className="rounded-[6px] border border-cloud-gray overflow-hidden"
-      aria-labelledby="session-history-heading"
-    >
-      <div className="flex items-center justify-between gap-2 bg-cloud-gray/60 px-4 py-2.5">
+    <section className="space-y-2" aria-labelledby="session-history-heading">
+      <div className="flex items-center justify-between gap-2">
         <h2
           id="session-history-heading"
-          className="text-xs font-ui uppercase tracking-wider text-dusty-gray"
+          className="font-ui text-xs uppercase tracking-wider text-dusty-gray"
         >
           Session History
         </h2>
-        <span className="text-xs font-sans text-dusty-gray">
+        <span className="font-sans text-xs text-dusty-gray">
           {sessions.length} session{sessions.length === 1 ? '' : 's'} · {minutesToHM(used)} used
         </span>
       </div>
 
       {sessions.length === 0 ? (
-        <p className="bg-canvas-white px-4 py-10 text-center text-sm font-sans text-dusty-gray">
+        <p className="rounded-cards border border-cloud-gray bg-canvas-white px-4 py-10 text-center font-sans text-sm text-dusty-gray">
           No sessions recorded yet.
         </p>
       ) : (
-        <div className="overflow-x-auto bg-canvas-white">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-cloud-gray">
-                <Th>Date</Th>
-                <Th>Service(s)</Th>
-                <Th>Duration</Th>
-                <Th>Staff</Th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-cloud-gray">
-              {sessions.map((s) => {
-                const staffNames = [
-                  ...new Set(
-                    s.services.map((svc) => svc.staffName).filter((n): n is string => Boolean(n)),
-                  ),
-                ]
-                return (
-                  <tr key={s.id} className="hover:bg-cloud-gray/30 transition-colors">
-                    <td className="px-4 py-3 font-sans text-cocoa-dark whitespace-nowrap">
-                      {formatDateDDMMYYYY(s.bookingDate)}
-                    </td>
-                    <td className="px-4 py-3 font-sans text-cocoa-dark">
-                      {s.services.map((svc) => svc.serviceNameSnapshot).join(', ')}
-                    </td>
-                    <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
-                      {minutesToHM(s.totalDurationMinutes)}
-                    </td>
-                    <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
-                      {staffNames.length > 0 ? staffNames.join(', ') : '—'}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={columns}
+          data={sessions}
+          tableId="membership-sessions"
+          caption="Recorded membership sessions with date, services, duration, and staff"
+        />
       )}
     </section>
   )
 }
 
-// --- Record session modal -------------------------------------------------
+// --- Record session slide-over --------------------------------------------
 
 type SelectedService = { durationMinutes: number; staffId: string }
 
-function RecordSessionModal({
+function RecordSessionPanel({
+  open,
   membershipId,
   memberName,
   membershipNumber,
@@ -316,6 +359,7 @@ function RecordSessionModal({
   onClose,
   onRecorded,
 }: {
+  open: boolean
   membershipId: string
   memberName: string
   membershipNumber: string
@@ -331,9 +375,17 @@ function RecordSessionModal({
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
-  // Load SPA services + staff once when the modal opens.
+  // Load SPA services + staff each time the panel opens; reset selections.
   useEffect(() => {
+    if (!open) {
+      return
+    }
     let active = true
+    setServices(null)
+    setStaff([])
+    setLoadError(null)
+    setSelected({})
+    setSubmitError(null)
     Promise.all([
       fetch('/api/services').then((res) => res.json()),
       fetch('/api/staff').then((res) => res.json()),
@@ -345,11 +397,7 @@ function RecordSessionModal({
         if (servicesJson?.success) {
           const categories = servicesJson.data.categories as Array<{
             serviceType: string
-            services: Array<{
-              id: string
-              name: string
-              durationMinutes: number
-            }>
+            services: Array<{ id: string; name: string; durationMinutes: number }>
           }>
           const spaServices: ServiceOption[] = categories
             .filter((c) => c.serviceType === 'spa')
@@ -376,7 +424,7 @@ function RecordSessionModal({
     return () => {
       active = false
     }
-  }, [])
+  }, [open])
 
   const toggleService = useCallback((svc: ServiceOption) => {
     setSelected((prev) => {
@@ -446,35 +494,59 @@ function RecordSessionModal({
   }, [canSubmit, selected, membershipId, onRecorded])
 
   return (
-    <Modal title="Record Membership Session" onClose={onClose}>
-      <p className="text-sm font-sans text-warm-gray">
+    <SlideOverPanel
+      open={open}
+      onOpenChange={(o) => !o && onClose()}
+      title="Record Membership Session"
+      footer={
+        <div className="flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-buttons border border-cloud-gray px-4 py-2 font-ui text-sm text-warm-gray transition-colors hover:bg-cloud-gray/40"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!canSubmit}
+            aria-busy={submitting}
+            className="rounded-buttons bg-cocoa-dark px-4 py-2 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {submitting ? 'Recording…' : 'Record Session'}
+          </button>
+        </div>
+      }
+    >
+      <p className="font-sans text-sm text-warm-gray">
         {memberName} <span className="font-mono text-xs text-dusty-gray">#{membershipNumber}</span>{' '}
         · {tierName}
       </p>
-      <p className="mt-1 text-sm font-sans text-cocoa-dark">
+      <p className="mt-1 font-sans text-sm text-cocoa-dark">
         Remaining: <strong>{minutesToHM(remainingMinutes)}</strong>
       </p>
 
       <div className="mt-4">
-        <h3 className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray mb-2">
+        <h3 className="mb-2 font-ui text-[10px] uppercase tracking-wider text-dusty-gray">
           Service(s) performed
         </h3>
 
         {loadError ? (
-          <p className="text-sm text-error font-sans" role="alert">
+          <p className="font-sans text-sm text-error" role="alert">
             {loadError}
           </p>
         ) : services === null ? (
-          <p className="text-sm text-dusty-gray font-sans">Loading services…</p>
+          <p className="font-sans text-sm text-dusty-gray">Loading services…</p>
         ) : services.length === 0 ? (
-          <p className="text-sm text-dusty-gray font-sans">No SPA services are available.</p>
+          <p className="font-sans text-sm text-dusty-gray">No SPA services are available.</p>
         ) : (
-          <ul className="space-y-2 max-h-64 overflow-y-auto pr-1">
+          <ul className="max-h-64 space-y-2 overflow-y-auto pr-1">
             {services.map((svc) => {
               const chosen = selected[svc.id]
               return (
-                <li key={svc.id} className="rounded-[6px] border border-cloud-gray p-2.5">
-                  <label className="flex items-center gap-2 text-sm font-sans text-cocoa-dark cursor-pointer">
+                <li key={svc.id} className="rounded-cards border border-cloud-gray p-2.5">
+                  <label className="flex cursor-pointer items-center gap-2 font-sans text-sm text-cocoa-dark">
                     <input
                       type="checkbox"
                       checked={Boolean(chosen)}
@@ -507,7 +579,7 @@ function RecordSessionModal({
       </div>
 
       {/* Totals + after-session preview */}
-      <div className="mt-4 rounded-[6px] bg-cloud-gray/40 px-3 py-2.5 text-sm font-sans">
+      <div className="mt-4 rounded-cards bg-cloud-gray/40 px-3 py-2.5 font-sans text-sm">
         <p className="text-cocoa-dark">
           Total duration: <strong>{minutesToHM(totalMinutes)}</strong>
         </p>
@@ -517,23 +589,20 @@ function RecordSessionModal({
       </div>
 
       {insufficient ? (
-        <div
-          className="mt-3 rounded-[6px] border border-error/40 bg-error/5 px-3 py-2.5"
-          role="alert"
-        >
-          <p className="text-sm font-ui text-error">Insufficient hours</p>
-          <p className="text-xs font-sans text-error/90 mt-0.5">
+        <div className="mt-3 rounded-cards border border-error/40 bg-error/5 px-3 py-2.5" role="alert">
+          <p className="font-ui text-sm text-error">Insufficient hours</p>
+          <p className="mt-0.5 font-sans text-xs text-error/90">
             Requested {minutesToHM(totalMinutes)} exceeds the remaining{' '}
             {minutesToHM(remainingMinutes)}. Reduce the duration or record a shorter session.
           </p>
         </div>
       ) : null}
 
-      <div className="mt-3 rounded-[6px] bg-cloud-gray/40 border border-cloud-gray px-3 py-2.5">
-        <p className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray mb-1">
+      <div className="mt-3 rounded-cards border border-cloud-gray bg-cloud-gray/40 px-3 py-2.5">
+        <p className="mb-1 font-ui text-[10px] uppercase tracking-wider text-dusty-gray">
           This will
         </p>
-        <ul className="space-y-0.5 text-xs font-sans text-warm-gray">
+        <ul className="space-y-0.5 font-sans text-xs text-warm-gray">
           <li>• Deduct {minutesToHM(totalMinutes)} from membership hours</li>
           <li>• Create a ₹0 membership_session invoice</li>
           <li>• Earn no gems</li>
@@ -541,30 +610,11 @@ function RecordSessionModal({
       </div>
 
       {submitError ? (
-        <p className="mt-3 text-sm text-error font-sans" role="alert">
+        <p className="mt-3 font-sans text-sm text-error" role="alert">
           {submitError}
         </p>
       ) : null}
-
-      <div className="mt-4 flex justify-end gap-3">
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-4 py-2 rounded-[6px] border border-cloud-gray text-sm font-ui text-warm-gray hover:bg-cloud-gray/40 transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={submit}
-          disabled={!canSubmit}
-          aria-busy={submitting}
-          className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {submitting ? 'Recording…' : 'Record Session'}
-        </button>
-      </div>
-    </Modal>
+    </SlideOverPanel>
   )
 }
 
@@ -582,7 +632,7 @@ function DurationField({
     <div className="flex flex-col gap-1">
       <label
         htmlFor={`${id}-${serviceId}-duration`}
-        className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray"
+        className="font-ui text-[10px] uppercase tracking-wider text-dusty-gray"
       >
         Duration (min)
       </label>
@@ -594,7 +644,7 @@ function DurationField({
         inputMode="numeric"
         value={Number.isFinite(value) ? value : ''}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="h-9 w-28 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
+        className="h-9 w-28 rounded-buttons border border-outline-gray bg-canvas-white px-3 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
       />
     </div>
   )
@@ -616,7 +666,7 @@ function StaffField({
     <div className="flex flex-col gap-1">
       <label
         htmlFor={`${id}-${serviceId}-staff`}
-        className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray"
+        className="font-ui text-[10px] uppercase tracking-wider text-dusty-gray"
       >
         Staff (optional)
       </label>
@@ -624,7 +674,7 @@ function StaffField({
         id={`${id}-${serviceId}-staff`}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
+        className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-3 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
       >
         <option value="">Unassigned</option>
         {staff.map((s) => (
@@ -637,14 +687,16 @@ function StaffField({
   )
 }
 
-// --- Cancel membership modal ----------------------------------------------
+// --- Cancel membership slide-over -----------------------------------------
 
-function CancelMembershipModal({
+function CancelMembershipPanel({
+  open,
   membershipId,
   membershipNumber,
   onClose,
   onCancelled,
 }: {
+  open: boolean
   membershipId: string
   membershipNumber: string
   onClose: () => void
@@ -654,6 +706,15 @@ function CancelMembershipModal({
   const [reason, setReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+
+  // Reset the form each time the panel opens.
+  useEffect(() => {
+    if (open) {
+      setReason('')
+      setSubmitError(null)
+      setSubmitting(false)
+    }
+  }, [open])
 
   const submit = useCallback(async () => {
     const trimmed = reason.trim()
@@ -683,8 +744,32 @@ function CancelMembershipModal({
   }, [reason, submitting, membershipId, onCancelled])
 
   return (
-    <Modal title="Cancel Membership" onClose={onClose}>
-      <p className="text-sm font-sans text-warm-gray">
+    <SlideOverPanel
+      open={open}
+      onOpenChange={(o) => !o && onClose()}
+      title="Cancel Membership"
+      footer={
+        <div className="flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-buttons border border-cloud-gray px-4 py-2 font-ui text-sm text-warm-gray transition-colors hover:bg-cloud-gray/40"
+          >
+            Keep Membership
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!reason.trim() || submitting}
+            aria-busy={submitting}
+            className="rounded-buttons bg-error px-4 py-2 font-ui text-sm text-canvas-white transition-colors hover:bg-error/90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {submitting ? 'Cancelling…' : 'Cancel Membership'}
+          </button>
+        </div>
+      }
+    >
+      <p className="font-sans text-sm text-warm-gray">
         You are about to cancel membership{' '}
         <span className="font-mono text-xs text-dusty-gray">#{membershipNumber}</span>. Unused hours
         are forfeited and this cannot be undone. Refunds are handled offline.
@@ -693,7 +778,7 @@ function CancelMembershipModal({
       <div className="mt-4 flex flex-col gap-1">
         <label
           htmlFor={reasonId}
-          className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray"
+          className="font-ui text-[10px] uppercase tracking-wider text-dusty-gray"
         >
           Reason (required)
         </label>
@@ -704,141 +789,16 @@ function CancelMembershipModal({
           rows={3}
           maxLength={500}
           placeholder="Why is this membership being cancelled?"
-          className="w-full px-3 py-2 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold resize-none"
+          className="w-full resize-none rounded-buttons border border-outline-gray bg-canvas-white px-3 py-2 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
         />
       </div>
 
       {submitError ? (
-        <p className="mt-3 text-sm text-error font-sans" role="alert">
+        <p className="mt-3 font-sans text-sm text-error" role="alert">
           {submitError}
         </p>
       ) : null}
-
-      <div className="mt-4 flex justify-end gap-3">
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-4 py-2 rounded-[6px] border border-cloud-gray text-sm font-ui text-warm-gray hover:bg-cloud-gray/40 transition-colors"
-        >
-          Keep Membership
-        </button>
-        <button
-          type="button"
-          onClick={submit}
-          disabled={!reason.trim() || submitting}
-          aria-busy={submitting}
-          className="px-4 py-2 rounded-[6px] bg-error text-canvas-white text-sm font-ui hover:bg-error/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {submitting ? 'Cancelling…' : 'Cancel Membership'}
-        </button>
-      </div>
-    </Modal>
-  )
-}
-
-// --- Accessible modal shell (focus trap + escape, mirrors MobileNav) -------
-
-function Modal({
-  title,
-  onClose,
-  children,
-}: {
-  title: string
-  onClose: () => void
-  children: ReactNode
-}) {
-  const panelRef = useRef<HTMLDivElement>(null)
-  const titleId = useId()
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose()
-        return
-      }
-      if (e.key !== 'Tab' || !panelRef.current) {
-        return
-      }
-      const focusable = panelRef.current.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      )
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      if (e.shiftKey) {
-        if (document.activeElement === first) {
-          e.preventDefault()
-          last?.focus()
-        }
-      } else if (document.activeElement === last) {
-        e.preventDefault()
-        first?.focus()
-      }
-    },
-    [onClose],
-  )
-
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    document.addEventListener('keydown', handleKeyDown)
-    const timer = setTimeout(() => {
-      const focusable = panelRef.current?.querySelector<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])',
-      )
-      focusable?.focus()
-    }, 50)
-    return () => {
-      document.body.style.overflow = ''
-      document.removeEventListener('keydown', handleKeyDown)
-      clearTimeout(timer)
-    }
-  }, [handleKeyDown])
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      {/* Backdrop */}
-      <button
-        type="button"
-        aria-label="Close dialog"
-        onClick={onClose}
-        className="absolute inset-0 bg-cocoa-dark/50 motion-safe:transition-opacity"
-      />
-
-      {/* Panel — custom modal: focus trap + aria-modal + Escape key. Rule useSemanticElements is off for this file via biome.json overrides. */}
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className="relative z-10 w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-[12px] sm:rounded-[12px] bg-canvas-white shadow-xl"
-      >
-        <div className="flex items-center justify-between gap-2 border-b border-cloud-gray px-5 py-3.5">
-          <h2 id={titleId} className="font-display text-lg text-cocoa-dark tracking-tight">
-            {title}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close dialog"
-            className="flex h-8 w-8 items-center justify-center rounded-[6px] text-warm-gray hover:bg-cloud-gray transition-colors"
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              aria-hidden="true"
-            >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
-        <div className="px-5 py-4">{children}</div>
-      </div>
-    </div>
+    </SlideOverPanel>
   )
 }
 
@@ -848,74 +808,9 @@ function BackLink() {
   return (
     <Link
       href="/memberships"
-      className="inline-flex items-center gap-1.5 text-sm font-ui text-warm-gray hover:text-cocoa-dark transition-colors"
+      className="inline-flex items-center gap-1.5 font-ui text-sm text-warm-gray transition-colors hover:text-cocoa-dark"
     >
-      ← Back to Memberships
+      <ArrowLeft size={16} aria-hidden="true" /> Back to Memberships
     </Link>
-  )
-}
-
-function Th({ children }: { children: ReactNode }) {
-  return (
-    <th className="text-left px-4 py-2.5 font-ui text-xs uppercase tracking-wider text-dusty-gray">
-      {children}
-    </th>
-  )
-}
-
-function LoadingState() {
-  return (
-    <output
-      className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      aria-live="polite"
-    >
-      <Spinner />
-      <span className="font-sans text-sm text-dusty-gray">Loading membership…</span>
-    </output>
-  )
-}
-
-function ErrorState({
-  message,
-  onRetry,
-}: {
-  message: string
-  onRetry: () => void
-}) {
-  return (
-    <div className="space-y-4">
-      <BackLink />
-      <div className="border border-error/40 bg-error/5 rounded-[6px] px-5 py-10 text-center">
-        <p className="font-sans text-sm text-error mb-3" role="alert">
-          {message}
-        </p>
-        <button
-          type="button"
-          onClick={onRetry}
-          className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
-        >
-          Try Again
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-5 w-5 animate-spin text-deep-gold"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
   )
 }

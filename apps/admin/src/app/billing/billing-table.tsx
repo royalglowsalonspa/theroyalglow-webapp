@@ -6,32 +6,59 @@
  * Module Name  : Billing Table
  * Scope        : Admin Portal — Billing
  *
- * Description  : Interactive invoice ledger with search, status/type filters,
- *                and pagination. Each row links to the invoice detail view.
+ * Description  : Interactive invoice ledger rebuilt on the admin design-system
+ *                primitives. Renders the list via the reusable DataTable, its
+ *                controls via the FilterBar, payment statuses via StatusBadge,
+ *                and loading / empty / error conditions via the shared state
+ *                presenters. Fetch orchestration + timeout is delegated to the
+ *                useAsyncData hook. Consumes GET /api/billing as-is.
  *
  * Responsibilities :
- * - Debounced search by invoice number / customer name / email
- * - Filter by payment status and invoice type
- * - Paginated table with prev/next navigation
+ * - Load the full invoice ledger by walking the paginated API (consumed as-is)
+ * - Render the FilterBar (search, payment-status + invoice-type dropdowns,
+ *   column visibility) emitting to shared page state
+ * - Render invoices in the DataTable with INR amounts + status badges
+ * - Provide the per-row "View invoice" action linking to the detail page
+ * - Surface loading / empty / error states via the state presenters
  *
  * Features / Functionality :
- * - Status + type badges; INR amounts; DD/MM/YYYY dates
- * - Loading / error / empty states with retry
+ * - Client-side search over invoice number, customer name, and email (Req 8.2)
+ * - Status + type dropdown filters over the loaded set
+ * - Lifted column-visibility shared between DataTable and FilterBar (Req 7.5)
  *
- * Tech Stack   : Next.js 16, React (Client Component), TypeScript
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript,
+ *                @tanstack/react-table
  * Layer        : Presentation (Data Table Component)
  *
- * Dependencies : admin bookings lib (formatINR, formatDateDDMMYYYY), next/link,
- *                React hooks
+ * Dependencies : @/components/ui/data-table, @/components/ui/filter-bar,
+ *                @/components/ui/status-badge, @/components/ui/state/*,
+ *                @/components/ui/use-async-data, @/lib/admin/format, next/navigation
  *
- * Notes        : Read-only ledger. Search debounces at 350ms.
+ * Notes        :
+ * - Presentation-layer only: no API/RBAC/data-model/business-logic changes.
+ * - The original page paginated server-side (pageSize cap 100); to adopt the
+ *   cohesive DataTable pagination/search/filter while preserving access to the
+ *   ENTIRE ledger, the fetcher walks every server page once and hands the full
+ *   set to the DataTable. Every pre-redesign field (Invoice, Customer, Type,
+ *   Amount, Status, Date) and the detail link action are preserved.
+ *
+ * Requirements : 17.1, 17.2, 17.3, 17.4, 17.5, 17.6, 17.7
  ************************************************************/
 
 'use client'
 
-import { formatDateDDMMYYYY, formatINR } from '@/lib/admin/bookings'
-import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
+import { DataTable, type RowAction } from '@/components/ui/data-table'
+import { FilterBar, type ColumnToggle } from '@/components/ui/filter-bar'
+import { EmptyState } from '@/components/ui/state/empty-state'
+import { ErrorState } from '@/components/ui/state/error-state'
+import { Skeleton } from '@/components/ui/state/skeleton'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { useAsyncData } from '@/components/ui/use-async-data'
+import { formatDateTimeIST, formatINRWithPaise } from '@/lib/admin/format'
+import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
+import { Eye, ReceiptText } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useCallback, useMemo, useState } from 'react'
 
 interface InvoiceRow {
   id: string
@@ -47,31 +74,19 @@ interface InvoiceRow {
   paidAt: string | null
 }
 
-interface PaginationMeta {
-  page: number
-  totalPages: number
-  totalCount: number
-}
-
 const STATUS_OPTIONS = [
-  { value: '', label: 'All statuses' },
+  { value: 'all', label: 'All statuses' },
   { value: 'paid', label: 'Paid' },
   { value: 'pending', label: 'Pending' },
   { value: 'refunded', label: 'Refunded' },
-] as const
+]
 
 const TYPE_OPTIONS = [
-  { value: '', label: 'All types' },
+  { value: 'all', label: 'All types' },
   { value: 'service', label: 'Service' },
   { value: 'membership_purchase', label: 'Membership purchase' },
   { value: 'membership_session', label: 'Membership session' },
-] as const
-
-const STATUS_STYLES: Record<string, string> = {
-  paid: 'bg-emerald-100 text-emerald-700',
-  pending: 'bg-amber-100 text-amber-800',
-  refunded: 'bg-red-100 text-red-700',
-}
+]
 
 const TYPE_LABEL: Record<string, string> = {
   service: 'Service',
@@ -79,305 +94,219 @@ const TYPE_LABEL: Record<string, string> = {
   membership_session: 'Session',
 }
 
-const PAGE_SIZE = 20
+/** Toggleable data columns surfaced to the FilterBar column-visibility control. */
+const COLUMN_META: { id: string; label: string }[] = [
+  { id: 'invoiceNumber', label: 'Invoice' },
+  { id: 'customer', label: 'Customer' },
+  { id: 'invoiceType', label: 'Type' },
+  { id: 'totalAmountPaise', label: 'Amount' },
+  { id: 'paymentStatus', label: 'Status' },
+  { id: 'createdAt', label: 'Date' },
+]
+
+// Server page size — the maximum the API accepts (Req: consume as-is).
+const FETCH_PAGE_SIZE = 100
+
+// Walk every server page of the ledger once and return the full invoice set, so
+// the DataTable can own search / filter / pagination client-side without losing
+// access to invoices beyond the first server page.
+async function fetchAllInvoices(): Promise<InvoiceRow[]> {
+  const fetchPage = async (page: number) => {
+    const params = new URLSearchParams({
+      page: String(page),
+      pageSize: String(FETCH_PAGE_SIZE),
+    })
+    const res = await fetch(`/api/billing?${params.toString()}`)
+    const json = await res.json()
+    if (!res.ok || !json.success) {
+      throw new Error(json?.error?.message ?? 'Could not load invoices.')
+    }
+    return {
+      invoices: json.data.invoices as InvoiceRow[],
+      totalPages: (json.meta?.totalPages as number | undefined) ?? 1,
+    }
+  }
+
+  const first = await fetchPage(1)
+  if (first.totalPages <= 1) {
+    return first.invoices
+  }
+
+  const restPages = Array.from({ length: first.totalPages - 1 }, (_, index) => index + 2)
+  const rest = await Promise.all(restPages.map((page) => fetchPage(page)))
+  return rest.reduce((all, chunk) => all.concat(chunk.invoices), first.invoices)
+}
 
 export function BillingTable() {
-  const [rows, setRows] = useState<InvoiceRow[] | null>(null)
-  const [meta, setMeta] = useState<PaginationMeta | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
+  const { state, retry } = useAsyncData(fetchAllInvoices)
 
-  const [searchInput, setSearchInput] = useState('')
-  const [q, setQ] = useState('')
-  const [status, setStatus] = useState('')
-  const [type, setType] = useState('')
-  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const [status, setStatus] = useState('all')
+  const [type, setType] = useState('all')
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
 
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      setQ(searchInput.trim())
-      setPage(1)
-    }, 350)
-    return () => clearTimeout(handle)
-  }, [searchInput])
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const params = new URLSearchParams()
-      if (q) {
-        params.set('q', q)
-      }
-      if (status) {
-        params.set('status', status)
-      }
-      if (type) {
-        params.set('type', type)
-      }
-      params.set('page', String(page))
-      params.set('pageSize', String(PAGE_SIZE))
-      const res = await fetch(`/api/billing?${params.toString()}`)
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error?.message ?? 'Could not load invoices.')
-      }
-      setRows(json.data.invoices as InvoiceRow[])
-      setMeta((json.meta as PaginationMeta | undefined) ?? null)
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not load invoices.')
-    } finally {
-      setLoading(false)
+  const handleFilterChange = useCallback((id: string, value: string) => {
+    if (id === 'status') {
+      setStatus(value)
+    } else if (id === 'type') {
+      setType(value)
     }
-  }, [q, status, type, page])
+  }, [])
 
-  useEffect(() => {
-    load()
-  }, [load])
+  const invoices = state.status === 'success' ? state.data : []
 
-  const totalCount = meta?.totalCount ?? 0
-  const totalPages = meta?.totalPages ?? 1
-  const currentPage = meta?.page ?? page
-  const rangeStart = totalCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
-  const rangeEnd = Math.min(currentPage * PAGE_SIZE, totalCount)
+  const filtered = useMemo(
+    () =>
+      invoices.filter(
+        (invoice) =>
+          (status === 'all' || invoice.paymentStatus === status) &&
+          (type === 'all' || invoice.invoiceType === type),
+      ),
+    [invoices, status, type],
+  )
+
+  const columns = useMemo<ColumnDef<InvoiceRow, unknown>[]>(
+    () => [
+      {
+        id: 'invoiceNumber',
+        accessorKey: 'invoiceNumber',
+        header: 'Invoice',
+        cell: ({ row }) => (
+          <span className="font-mono text-xs text-deep-gold">{row.original.invoiceNumber}</span>
+        ),
+      },
+      {
+        id: 'customer',
+        // Combine name + email so the global search matches either (preserves
+        // the original server-side search across customer name and email).
+        accessorFn: (invoice) => `${invoice.customerName} ${invoice.customerEmail}`,
+        header: 'Customer',
+        cell: ({ row }) => (
+          <span className="block">
+            <span className="block text-cocoa-dark">{row.original.customerName}</span>
+            <span className="block text-[11px] text-dusty-gray">{row.original.customerEmail}</span>
+          </span>
+        ),
+      },
+      {
+        id: 'invoiceType',
+        accessorKey: 'invoiceType',
+        header: 'Type',
+        cell: ({ row }) => (
+          <span className="text-warm-gray">
+            {TYPE_LABEL[row.original.invoiceType] ?? row.original.invoiceType}
+          </span>
+        ),
+      },
+      {
+        id: 'totalAmountPaise',
+        accessorKey: 'totalAmountPaise',
+        header: 'Amount',
+        cell: ({ row }) => (
+          <span className="font-ui text-cocoa-dark">
+            {formatINRWithPaise(row.original.totalAmountPaise)}
+          </span>
+        ),
+      },
+      {
+        id: 'paymentStatus',
+        accessorKey: 'paymentStatus',
+        header: 'Status',
+        cell: ({ row }) => <StatusBadge status={row.original.paymentStatus} />,
+      },
+      {
+        id: 'createdAt',
+        accessorKey: 'createdAt',
+        header: 'Date',
+        cell: ({ row }) => (
+          <span className="text-warm-gray">{formatDateTimeIST(row.original.createdAt)}</span>
+        ),
+      },
+    ],
+    [],
+  )
+
+  const rowActions = useCallback(
+    (row: { original: InvoiceRow }): RowAction[] => [
+      {
+        label: 'View invoice',
+        icon: Eye,
+        onSelect: () => router.push(`/billing/${row.original.id}`),
+      },
+    ],
+    [router],
+  )
+
+  const columnToggles: ColumnToggle[] = COLUMN_META.map((meta) => ({
+    id: meta.id,
+    label: meta.label,
+    visible: columnVisibility[meta.id] !== false,
+  }))
 
   return (
     <div className="space-y-5">
+      {/* Header */}
       <div>
-        <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">Billing</h1>
-        <p className="font-sans text-sm text-dusty-gray mt-0.5">
+        <h1 className="font-display text-2xl tracking-tight text-cocoa-dark">Billing</h1>
+        <p className="mt-0.5 font-sans text-sm text-dusty-gray">
           GST-compliant invoices from completed bookings and memberships.
         </p>
       </div>
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-end gap-3 p-3 border border-cloud-gray rounded-[6px] bg-cloud-gray/30">
-        <div className="flex flex-col gap-1 flex-1 min-w-[220px]">
-          <label
-            htmlFor="invoice-search"
-            className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray"
-          >
-            Search
-          </label>
-          <input
-            id="invoice-search"
-            type="search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Invoice number, customer name, or email…"
-            className="h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor="invoice-status"
-            className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray"
-          >
-            Status
-          </label>
-          <select
-            id="invoice-status"
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value)
-              setPage(1)
-            }}
-            className="h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
-          >
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor="invoice-type"
-            className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray"
-          >
-            Type
-          </label>
-          <select
-            id="invoice-type"
-            value={type}
-            onChange={(e) => {
-              setType(e.target.value)
-              setPage(1)
-            }}
-            className="h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
-          >
-            {TYPE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {loading ? (
-        <LoadingState />
-      ) : error ? (
-        <ErrorState message={error} onRetry={load} />
-      ) : !rows || rows.length === 0 ? (
-        <EmptyState />
+      {state.status === 'loading' ? (
+        <Skeleton rows={8} variant="table" />
+      ) : state.status === 'error' ? (
+        <ErrorState message={state.message} onRetry={retry} />
       ) : (
         <>
-          <div className="border border-cloud-gray rounded-[6px] overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-cloud-gray/60">
-                    <Th>Invoice</Th>
-                    <Th>Customer</Th>
-                    <Th>Type</Th>
-                    <Th>Amount</Th>
-                    <Th>Status</Th>
-                    <Th>Date</Th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-cloud-gray">
-                  {rows.map((row) => (
-                    <tr key={row.id} className="hover:bg-cloud-gray/30 transition-colors">
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <Link
-                          href={`/billing/${row.id}`}
-                          className="font-ui text-deep-gold hover:text-cocoa-dark transition-colors"
-                        >
-                          {row.invoiceNumber}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 font-sans text-cocoa-dark whitespace-nowrap">
-                        {row.customerName}
-                      </td>
-                      <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
-                        {TYPE_LABEL[row.invoiceType] ?? row.invoiceType}
-                      </td>
-                      <td className="px-4 py-3 font-ui text-cocoa-dark whitespace-nowrap">
-                        {formatINR(row.totalAmountPaise)}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <StatusBadge status={row.paymentStatus} />
-                      </td>
-                      <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
-                        {formatDateDDMMYYYY(row.createdAt)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <FilterBar
+            config={{
+              search: {
+                placeholder: 'Invoice number, customer name, or email…',
+                ariaLabel: 'Search invoices',
+              },
+              dropdowns: [
+                { id: 'status', label: 'Filter by status', options: STATUS_OPTIONS, value: status },
+                { id: 'type', label: 'Filter by type', options: TYPE_OPTIONS, value: type },
+              ],
+              columnVisibility: true,
+            }}
+            search={search}
+            onSearchChange={setSearch}
+            onFilterChange={handleFilterChange}
+            columns={columnToggles}
+            onColumnToggle={(id, visible) =>
+              setColumnVisibility((current) => ({ ...current, [id]: visible }))
+            }
+          />
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-dusty-gray font-sans">
-              Showing {rangeStart}–{rangeEnd} of {totalCount} invoice
-              {totalCount === 1 ? '' : 's'}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage <= 1}
-                className="h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-ui text-cocoa-dark hover:bg-cloud-gray transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-deep-gold"
-              >
-                ← Prev
-              </button>
-              <span className="text-sm font-sans text-warm-gray">
-                Page {currentPage} of {totalPages}
-              </span>
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage >= totalPages}
-                className="h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-ui text-cocoa-dark hover:bg-cloud-gray transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-deep-gold"
-              >
-                Next →
-              </button>
-            </div>
-          </div>
+          {filtered.length === 0 ? (
+            <EmptyState
+              icon={ReceiptText}
+              title="No invoices found"
+              message="Invoices appear here once bookings are completed or memberships are sold. Try adjusting the filters above."
+            />
+          ) : (
+            <>
+              <DataTable
+                columns={columns}
+                data={filtered}
+                tableId="billing"
+                caption="GST-compliant invoices with customer, type, amount, status, and date"
+                globalFilter={search}
+                rowActions={rowActions}
+                onRowClick={(invoice) => router.push(`/billing/${invoice.id}`)}
+                columnVisibility={columnVisibility}
+                onColumnVisibilityChange={setColumnVisibility}
+              />
+              <p className="font-sans text-sm text-dusty-gray">
+                Showing {filtered.length} invoice{filtered.length === 1 ? '' : 's'}
+              </p>
+            </>
+          )}
         </>
       )}
     </div>
-  )
-}
-
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-ui uppercase tracking-[0.5px] ${
-        STATUS_STYLES[status] ?? 'bg-cloud-gray text-warm-gray'
-      }`}
-    >
-      {status}
-    </span>
-  )
-}
-
-function Th({ children }: { children: React.ReactNode }) {
-  return (
-    <th className="text-left px-4 py-2.5 font-ui text-xs uppercase tracking-wider text-dusty-gray">
-      {children}
-    </th>
-  )
-}
-
-function LoadingState() {
-  return (
-    <output
-      className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      aria-live="polite"
-    >
-      <Spinner />
-      <span className="font-sans text-sm text-dusty-gray">Loading invoices…</span>
-    </output>
-  )
-}
-
-function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div className="border border-error/40 bg-error/5 rounded-[6px] px-5 py-10 text-center">
-      <p className="font-sans text-sm text-error mb-3" role="alert">
-        {message}
-      </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
-      >
-        Try Again
-      </button>
-    </div>
-  )
-}
-
-function EmptyState() {
-  return (
-    <div className="border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 text-center">
-      <p className="font-sans text-sm text-cocoa-dark mb-1">No invoices found</p>
-      <p className="font-sans text-xs text-dusty-gray">
-        Invoices appear here once bookings are completed or memberships are sold.
-      </p>
-    </div>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-5 w-5 animate-spin text-deep-gold"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
   )
 }

@@ -1,36 +1,57 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 21-06-2026 & Updated - 21-06-2026
+ * Date         : Created - 21-06-2026 & Updated - 04-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : Branches Manager
  * Scope        : Admin Portal — Branch management
  *
- * Description  : Full CRUD for physical salon/spa branches. Lists branches as
- *                cards with name, code, colour-coded status badge, address
- *                summary and contact. Create/edit via a Radix dialog covering
- *                every editable field plus the operational status select.
- *                Multi-branch-ready — any number of branches, each by id.
+ * Description  : Full CRUD for physical salon/spa branches, rebuilt on the
+ *                admin design-system primitives. Branches are listed in the
+ *                reusable DataTable (name + primary chip, code, colour-coded
+ *                Status_Badge, location, contact), filtered via the FilterBar
+ *                (search + status), with loading / empty / error routed through
+ *                the shared state presenters. Create / edit happen in a Radix
+ *                dialog covering every editable field plus the operational
+ *                status. Multi-branch-ready — any number of branches, each by id.
  *
  * Responsibilities :
- * - List branches from GET /api/branches
+ * - List branches from GET /api/branches via useAsyncData
  * - Create/edit branches (POST /api/branches, PATCH /api/branches/[id])
- * - Surface loading / error / empty states; keep the UI accessible
+ * - Render operational status via the StatusBadge primitive
+ * - Filter the list (search + status) client-side over the single fetch
+ * - Surface loading / empty / error states via the state presenters
  *
- * Tech Stack   : Next.js 16, React (Client Component), Radix Dialog, Tailwind
+ * Tech Stack   : Next.js 16, React (Client Component), @tanstack/react-table,
+ *                @radix-ui/react-dialog, Tailwind
  * Layer        : Presentation (Management Component)
  *
- * Dependencies : @radix-ui/react-dialog, @rgss/types (BRANCH_STATUSES), React
+ * Dependencies : @/components/ui/data-table, @/components/ui/filter-bar,
+ *                @/components/ui/status-badge, @/components/ui/state/*,
+ *                @/components/ui/use-async-data, @radix-ui/react-dialog,
+ *                @rgss/types (BRANCH_STATUSES), React
  *
  * Notes        : `code` + `number` are generated server-side and not editable.
  *                Branches are never hard-deleted — status drives lifecycle.
+ *                Presentation-layer only — no API / RBAC / data-model changes.
+ *                Uses ONLY semantic Brand-Token utilities (Req 1.2).
+ *                Requirements 17.1–17.7.
  ************************************************************/
 
 'use client'
 
+import { DataTable } from '@/components/ui/data-table'
+import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
+import { EmptyState } from '@/components/ui/state/empty-state'
+import { ErrorState } from '@/components/ui/state/error-state'
+import { Skeleton } from '@/components/ui/state/skeleton'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { useAsyncData } from '@/components/ui/use-async-data'
 import * as Dialog from '@radix-ui/react-dialog'
 import { BRANCH_STATUSES, type BranchStatusValue } from '@rgss/types'
-import { useCallback, useEffect, useState } from 'react'
+import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
+import { Building2, Pencil } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 interface AdminBranch {
   id: string
@@ -56,13 +77,6 @@ interface AdminBranch {
   displayOrder: number
 }
 
-const STATUS_BADGE: Record<BranchStatusValue, string> = {
-  operational: 'bg-emerald-100 text-emerald-700',
-  temporarily_closed: 'bg-amber-100 text-amber-800',
-  opens_soon: 'bg-indigo-100 text-indigo-800',
-  shutdown: 'bg-rose-100 text-rose-700',
-}
-
 const STATUS_LABEL: Record<BranchStatusValue, string> = {
   operational: 'Operational',
   temporarily_closed: 'Temporarily closed',
@@ -70,42 +84,140 @@ const STATUS_LABEL: Record<BranchStatusValue, string> = {
   shutdown: 'Shutdown',
 }
 
+/** Status filter options for the FilterBar dropdown. */
+const STATUS_FILTER_OPTIONS = [
+  { value: '', label: 'All statuses' },
+  ...BRANCH_STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] })),
+]
+
+/** Toggleable data columns surfaced to the FilterBar column-visibility control. */
+const COLUMN_META: { id: string; label: string }[] = [
+  { id: 'name', label: 'Name' },
+  { id: 'code', label: 'Code' },
+  { id: 'status', label: 'Status' },
+  { id: 'location', label: 'Location' },
+  { id: 'phone', label: 'Phone' },
+  { id: 'email', label: 'Email' },
+]
+
+async function fetchBranches(): Promise<AdminBranch[]> {
+  const res = await fetch('/api/branches')
+  const json = await res.json()
+  if (!res.ok || !json.success) {
+    throw new Error(json?.error?.message ?? 'Could not load branches.')
+  }
+  return json.data.branches as AdminBranch[]
+}
+
 export function BranchesManager() {
-  const [branches, setBranches] = useState<AdminBranch[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [dialog, setDialog] = useState<{ open: boolean; editing: AdminBranch | null }>({
     open: false,
     editing: null,
   })
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch('/api/branches')
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error?.message ?? 'Could not load branches.')
-      }
-      setBranches(json.data.branches as AdminBranch[])
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not load branches.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const fetcher = useCallback(() => fetchBranches(), [])
+  const { state, retry } = useAsyncData(fetcher)
 
-  useEffect(() => {
-    load()
-  }, [load])
+  const branches = state.status === 'success' ? state.data : []
+
+  // Client-side filter over the single fetch (search across name / code / city,
+  // exact status match). Presentation-only shaping — no business logic.
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    return branches.filter((b) => {
+      if (statusFilter && b.status !== statusFilter) {
+        return false
+      }
+      if (!term) {
+        return true
+      }
+      return (
+        b.name.toLowerCase().includes(term) ||
+        b.code.toLowerCase().includes(term) ||
+        b.city.toLowerCase().includes(term)
+      )
+    })
+  }, [branches, search, statusFilter])
+
+  const columns = useMemo<ColumnDef<AdminBranch, unknown>[]>(
+    () => [
+      {
+        id: 'name',
+        accessorKey: 'name',
+        header: 'Name',
+        cell: ({ row }) => (
+          <span className="inline-flex items-center gap-2">
+            <span className="font-ui font-medium text-cocoa-dark">{row.original.name}</span>
+            {row.original.isPrimary && (
+              <span className="inline-flex items-center rounded-pill bg-deep-gold/15 px-2 py-0.5 font-ui text-[10px] uppercase tracking-[0.5px] text-deep-gold">
+                Primary
+              </span>
+            )}
+          </span>
+        ),
+      },
+      {
+        id: 'code',
+        accessorKey: 'code',
+        header: 'Code',
+        cell: ({ row }) => (
+          <span className="font-ui text-[11px] uppercase tracking-[1px] text-dusty-gray">
+            {row.original.code} · #{row.original.number}
+          </span>
+        ),
+      },
+      {
+        id: 'status',
+        accessorKey: 'status',
+        header: 'Status',
+        enableSorting: false,
+        cell: ({ row }) => <StatusBadge status={row.original.status} />,
+      },
+      {
+        id: 'location',
+        header: 'Location',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span className="text-warm-gray">
+            {row.original.city}, {row.original.state} {row.original.pincode}
+          </span>
+        ),
+      },
+      {
+        id: 'phone',
+        accessorKey: 'phone',
+        header: 'Phone',
+        enableSorting: false,
+        cell: ({ row }) => <span className="text-warm-gray">{row.original.phone}</span>,
+      },
+      {
+        id: 'email',
+        accessorKey: 'email',
+        header: 'Email',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span className="text-warm-gray">{row.original.email ?? '—'}</span>
+        ),
+      },
+    ],
+    [],
+  )
+
+  const columnToggles: ColumnToggle[] = COLUMN_META.map((meta) => ({
+    id: meta.id,
+    label: meta.label,
+    visible: columnVisibility[meta.id] !== false,
+  }))
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">Branches</h1>
-          <p className="font-sans text-sm text-dusty-gray mt-0.5">
+          <h1 className="font-display text-2xl tracking-tight text-cocoa-dark">Branches</h1>
+          <p className="mt-0.5 font-sans text-sm text-dusty-gray">
             Physical salon &amp; spa locations. Create new branches and manage address, contact and
             operational status.
           </p>
@@ -113,78 +225,63 @@ export function BranchesManager() {
         <button
           type="button"
           onClick={() => setDialog({ open: true, editing: null })}
-          className="h-9 px-4 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
+          className="h-9 rounded-buttons bg-cocoa-dark px-4 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray"
         >
           + Branch
         </button>
       </div>
 
-      {loading ? (
-        <LoadingState />
-      ) : error ? (
-        <ErrorState message={error} onRetry={load} />
-      ) : branches.length === 0 ? (
-        <EmptyHint>No branches yet. Click “+ Branch” to add your first location.</EmptyHint>
+      <FilterBar
+        config={{
+          search: { placeholder: 'Search by name, code, or city…', ariaLabel: 'Search branches' },
+          dropdowns: [
+            { id: 'status', label: 'Status', options: STATUS_FILTER_OPTIONS, value: statusFilter },
+          ],
+          columnVisibility: true,
+        }}
+        search={search}
+        onSearchChange={setSearch}
+        onFilterChange={(id, value) => {
+          if (id === 'status') {
+            setStatusFilter(value)
+          }
+        }}
+        columns={columnToggles}
+        onColumnToggle={(id, visible) =>
+          setColumnVisibility((current) => ({ ...current, [id]: visible }))
+        }
+      />
+
+      {state.status === 'loading' ? (
+        <Skeleton rows={6} variant="table" />
+      ) : state.status === 'error' ? (
+        <ErrorState message={state.message} onRetry={retry} />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={Building2}
+          title={branches.length === 0 ? 'No branches yet' : 'No branches match those filters'}
+          message={
+            branches.length === 0
+              ? 'Click “+ Branch” to add your first location.'
+              : 'Try adjusting your search or status filter.'
+          }
+        />
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2">
-          {branches.map((b) => (
-            <li
-              key={b.id}
-              className="rounded-[10px] border border-cloud-gray bg-canvas-white p-4 shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-display text-lg text-cocoa-dark tracking-tight truncate">
-                    {b.name}
-                    {b.isPrimary && (
-                      <span className="ml-2 inline-flex items-center rounded-full bg-deep-gold/15 px-2 py-0.5 text-[10px] font-ui uppercase tracking-[0.5px] text-deep-gold align-middle">
-                        Primary
-                      </span>
-                    )}
-                  </p>
-                  <p className="font-ui text-[11px] uppercase tracking-[1px] text-dusty-gray mt-0.5">
-                    {b.code} · #{b.number}
-                  </p>
-                </div>
-                <span
-                  className={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-ui ${STATUS_BADGE[b.status]}`}
-                >
-                  {STATUS_LABEL[b.status]}
-                </span>
-              </div>
-
-              <address className="mt-3 not-italic font-sans text-sm text-warm-gray">
-                {b.addressLine1}
-                {b.addressLine2 ? `, ${b.addressLine2}` : ''}
-                <br />
-                {b.city}, {b.state} {b.pincode}
-              </address>
-
-              <dl className="mt-3 space-y-1 font-sans text-sm text-cocoa-dark">
-                <div className="flex gap-2">
-                  <dt className="text-dusty-gray">Phone</dt>
-                  <dd>{b.phone}</dd>
-                </div>
-                {b.email && (
-                  <div className="flex gap-2 min-w-0">
-                    <dt className="text-dusty-gray">Email</dt>
-                    <dd className="truncate">{b.email}</dd>
-                  </div>
-                )}
-              </dl>
-
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setDialog({ open: true, editing: b })}
-                  className="text-sm font-ui text-deep-gold hover:text-cocoa-dark transition-colors"
-                >
-                  Edit
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <DataTable
+          columns={columns}
+          data={filtered}
+          tableId="branches"
+          caption="Branches"
+          columnVisibility={columnVisibility}
+          onColumnVisibilityChange={setColumnVisibility}
+          rowActions={(row) => [
+            {
+              label: 'Edit',
+              icon: Pencil,
+              onSelect: () => setDialog({ open: true, editing: row.original }),
+            },
+          ]}
+        />
       )}
 
       <BranchDialog
@@ -192,7 +289,7 @@ export function BranchesManager() {
         onClose={() => setDialog({ open: false, editing: null })}
         onSaved={() => {
           setDialog({ open: false, editing: null })
-          load()
+          retry()
         }}
       />
     </div>
@@ -478,7 +575,7 @@ function BranchDialog({
             type="checkbox"
             checked={isPrimary}
             onChange={(e) => setIsPrimary(e.target.checked)}
-            className="h-4 w-4 rounded border-outline-gray text-deep-gold focus:ring-deep-gold"
+            className="h-4 w-4 rounded-cards border-outline-gray text-deep-gold focus:ring-deep-gold"
           />
           Primary branch (default selection)
         </label>
@@ -498,7 +595,7 @@ function BranchDialog({
 /* ── Shared primitives ──────────────────────────────────────────────────── */
 
 const inputClass =
-  'w-full px-3 py-2 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold'
+  'w-full rounded-buttons border border-outline-gray bg-canvas-white px-3 py-2 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold'
 
 function FormDialog({
   open,
@@ -514,9 +611,9 @@ function FormDialog({
   return (
     <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-cocoa-dark/40 backdrop-blur-[2px]" />
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-cocoa-dark/40 backdrop-blur-sm" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-cloud-gray bg-canvas-white p-5 shadow-elevated focus:outline-none">
-          <Dialog.Title className="font-display text-lg text-cocoa-dark tracking-tight mb-3">
+          <Dialog.Title className="mb-3 font-display text-lg tracking-tight text-cocoa-dark">
             {title}
           </Dialog.Title>
           {children}
@@ -541,14 +638,14 @@ function DialogActions({
         type="button"
         onClick={onClose}
         disabled={busy}
-        className="h-9 px-4 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-ui text-warm-gray hover:bg-cloud-gray transition-colors disabled:opacity-60"
+        className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-4 font-ui text-sm text-warm-gray transition-colors hover:bg-cloud-gray disabled:opacity-60"
       >
         Cancel
       </button>
       <button
         type="submit"
         disabled={busy}
-        className="h-9 px-4 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+        className="h-9 rounded-buttons bg-cocoa-dark px-4 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray disabled:cursor-not-allowed disabled:opacity-60"
       >
         {busy ? 'Saving…' : submitLabel}
       </button>
@@ -560,66 +657,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return (
     // biome-ignore lint/a11y/noLabelWithoutControl: the control is provided via children (implicit label association)
     <label className="block">
-      <span className="block font-ui text-[11px] uppercase tracking-wider text-dusty-gray mb-1">
+      <span className="mb-1 block font-ui text-[11px] uppercase tracking-wider text-dusty-gray">
         {label}
       </span>
       {children}
     </label>
-  )
-}
-
-function EmptyHint({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-10 text-center">
-      <p className="font-sans text-sm text-dusty-gray">{children}</p>
-    </div>
-  )
-}
-
-function LoadingState() {
-  return (
-    <output
-      className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      aria-live="polite"
-    >
-      <Spinner />
-      <span className="font-sans text-sm text-dusty-gray">Loading branches…</span>
-    </output>
-  )
-}
-
-function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div className="border border-error/40 bg-error/5 rounded-[6px] px-5 py-10 text-center">
-      <p className="font-sans text-sm text-error mb-3" role="alert">
-        {message}
-      </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
-      >
-        Try Again
-      </button>
-    </div>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-5 w-5 animate-spin text-deep-gold"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
   )
 }

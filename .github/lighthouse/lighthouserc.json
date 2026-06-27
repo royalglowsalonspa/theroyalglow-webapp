@@ -1,7 +1,43 @@
 {
+  "//": [
+    "Lighthouse CI config for the admin portal (admin-portal-redesign Req 13.7, 13.8).",
+    "collect.url lists every redesigned admin route so the accessibility = 100 gate",
+    "is enforced PER ROUTE: Lighthouse CI reports each URL separately, so a score",
+    "< 100 on ANY audited route fails `categories:accessibility` and blocks merge,",
+    "identifying the offending URL in the report.",
+    "",
+    "AUTH LIMITATION (no fabricated auth): all admin routes below are RBAC-gated",
+    "(min role Receptionist, including `/`). Audited against the live subdomain",
+    "WITHOUT a session, each route 30x/redirects to the sign-in page, so an",
+    "unauthenticated run effectively audits the sign-in page under each URL label",
+    "rather than the real route content. The gate therefore guarantees a11y = 100",
+    "on whatever each URL renders unauthenticated (at minimum `/`). To obtain true",
+    "per-route authenticated scores, supply a session to LHCI (e.g. a",
+    "collect.puppeteerScript that signs in, or pre-set session cookies/headers) —",
+    "intentionally NOT wired here because no real credentials are fabricated.",
+    "The full route list is kept so the per-route gate activates automatically once",
+    "authenticated auditing is provided."
+  ],
   "ci": {
     "collect": {
-      "url": ["https://admin.theroyalglow.in/"],
+      "url": [
+        "https://admin.theroyalglow.in/",
+        "https://admin.theroyalglow.in/bookings",
+        "https://admin.theroyalglow.in/customers",
+        "https://admin.theroyalglow.in/leads",
+        "https://admin.theroyalglow.in/billing",
+        "https://admin.theroyalglow.in/reports",
+        "https://admin.theroyalglow.in/services",
+        "https://admin.theroyalglow.in/offers",
+        "https://admin.theroyalglow.in/memberships",
+        "https://admin.theroyalglow.in/staff",
+        "https://admin.theroyalglow.in/schedule",
+        "https://admin.theroyalglow.in/users",
+        "https://admin.theroyalglow.in/branches",
+        "https://admin.theroyalglow.in/settings",
+        "https://admin.theroyalglow.in/integrations",
+        "https://admin.theroyalglow.in/logs"
+      ],
       "numberOfRuns": 3,
       "settings": {
         "preset": "desktop"

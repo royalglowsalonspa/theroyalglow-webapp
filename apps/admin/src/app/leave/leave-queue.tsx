@@ -1,14 +1,19 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 21-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : Leave Queue
  * Scope        : Admin Portal — Leave Management
  *
- * Description  : Interactive leave request queue with approve/reject
- *                workflows. Surfaces booking conflicts when approving
- *                leave on dates with confirmed appointments.
+ * Description  : Leave request queue rebuilt on the admin design-system
+ *                primitives. Status filtering uses the FilterBar tabbed
+ *                control, request statuses render via StatusBadge, and loading
+ *                / empty / error conditions use the shared state presenters.
+ *                Fetch orchestration + timeout is delegated to useAsyncData.
+ *                The approve/reject workflow (with rejection reason) and the
+ *                booking-conflict surfacing are preserved unchanged. Consumes
+ *                GET /api/leave + PATCH /api/leave/[id] as-is.
  *
  * Responsibilities :
  * - Fetch and display leave requests filtered by status tab
@@ -16,23 +21,40 @@
  * - Surface conflicting bookings after approval for reassignment
  *
  * Features / Functionality :
- * - Status tabs (pending, approved, rejected, all)
+ * - Status tabs (pending, approved, rejected, all) via the FilterBar
  * - Conflict detection warning on approval (shows affected bookings)
- * - Leave type labels and status badge styling
+ * - Leave type labels and StatusBadge status pills
  *
- * Tech Stack   : Next.js 16, React (Client Component), TypeScript
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript,
+ *                Tailwind CSS v4 (Brand Tokens), lucide-react
  * Layer        : Presentation (Queue Management Component)
  *
- * Dependencies : admin bookings lib (formatDateDDMMYYYY, formatTime12h), React hooks
+ * Dependencies : @/components/ui/filter-bar, @/components/ui/status-badge,
+ *                @/components/ui/state/*, @/components/ui/use-async-data,
+ *                @/components/ui/icon, @/lib/admin/bookings, React hooks
  *
- * Notes        :
- * - Conflicts are returned by the PATCH API after approval
+ * Notes        : Presentation-layer only — no API/RBAC/data-model/business-logic
+ *                changes. Uses ONLY semantic Brand-Token utilities and lucide
+ *                icons via the Icon wrapper — no emoji / hex / raw-palette
+ *                literals. Conflicts are returned by the PATCH API after
+ *                approval. Every pre-redesign field and action is preserved
+ *                (Req 17.6, 17.7).
+ *
+ * Requirements : 17.1, 17.2, 17.3, 17.4, 17.5, 17.6, 17.7
  ************************************************************/
 
 'use client'
 
+import { FilterBar } from '@/components/ui/filter-bar'
+import { Icon } from '@/components/ui/icon'
+import { EmptyState } from '@/components/ui/state/empty-state'
+import { ErrorState } from '@/components/ui/state/error-state'
+import { Skeleton } from '@/components/ui/state/skeleton'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { useAsyncData } from '@/components/ui/use-async-data'
 import { formatDateDDMMYYYY, formatTime12h } from '@/lib/admin/bookings'
-import { useCallback, useEffect, useState } from 'react'
+import { CheckCircle2, Palmtree, TriangleAlert } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 // ─── API shapes (mirror GET /api/leave + PATCH /api/leave/[id]) ───
 
@@ -72,99 +94,77 @@ const LEAVE_TYPE_LABEL: Record<string, string> = {
   other: 'Other',
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  pending: 'bg-amber-100 text-amber-800',
-  approved: 'bg-emerald-100 text-emerald-700',
-  rejected: 'bg-red-100 text-red-700',
+async function fetchLeave(tab: TabValue): Promise<LeaveRequest[]> {
+  const qs = tab === 'all' ? '' : `?status=${tab}`
+  const res = await fetch(`/api/leave${qs}`)
+  const json = await res.json()
+  if (!res.ok || !json.success) {
+    throw new Error(json?.error?.message ?? 'Could not load leave requests.')
+  }
+  return json.data.leave as LeaveRequest[]
 }
 
 export function LeaveQueue() {
   const [tab, setTab] = useState<TabValue>('pending')
-  const [leave, setLeave] = useState<LeaveRequest[] | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   // Conflicts surfaced after a successful approval, keyed by leave id.
   const [conflictsById, setConflictsById] = useState<Record<string, ConflictBooking[]>>({})
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const qs = tab === 'all' ? '' : `?status=${tab}`
-      const res = await fetch(`/api/leave${qs}`)
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error?.message ?? 'Could not load leave requests.')
-      }
-      setLeave(json.data.leave as LeaveRequest[])
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not load leave requests.')
-    } finally {
-      setLoading(false)
-    }
-  }, [tab])
+  const fetcher = useCallback(() => fetchLeave(tab), [tab])
+  const { state, retry } = useAsyncData(fetcher)
 
+  // Re-request when the tab changes; the initial mount fetch is owned by the
+  // hook, so skip the very first effect run to avoid a duplicate request.
+  const didMount = useRef(false)
   useEffect(() => {
-    load()
-  }, [load])
+    if (!didMount.current) {
+      didMount.current = true
+      return
+    }
+    retry()
+  }, [tab, retry])
 
   const handleApproved = (leaveId: string, conflicts: ConflictBooking[]) => {
     setConflictsById((prev) => ({ ...prev, [leaveId]: conflicts }))
-    load()
+    retry()
   }
 
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-display text-2xl text-cocoa-dark tracking-tight">Leave Requests</h1>
-        <p className="font-sans text-sm text-dusty-gray mt-0.5">
+        <h1 className="font-display text-2xl tracking-tight text-cocoa-dark">Leave Requests</h1>
+        <p className="mt-0.5 font-sans text-sm text-dusty-gray">
           Approve or reject staff time off. Approving surfaces any confirmed bookings that need
           reassigning.
         </p>
       </div>
 
       {/* Status tabs */}
-      <div
-        className="flex flex-wrap gap-1 border-b border-cloud-gray"
-        role="tablist"
-        aria-label="Leave status"
-      >
-        {TABS.map((t) => {
-          const active = tab === t.value
-          return (
-            <button
-              key={t.value}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setTab(t.value)}
-              className={`-mb-px px-4 py-2 text-sm font-ui transition-colors border-b-2 ${
-                active
-                  ? 'border-deep-gold text-cocoa-dark'
-                  : 'border-transparent text-warm-gray hover:text-cocoa-dark'
-              }`}
-            >
-              {t.label}
-            </button>
-          )
-        })}
-      </div>
+      <FilterBar
+        config={{
+          tabs: { ariaLabel: 'Leave status', options: [...TABS], value: tab },
+        }}
+        onTabChange={(value) => setTab(value as TabValue)}
+      />
 
-      {loading ? (
-        <LoadingState />
-      ) : error ? (
-        <ErrorState message={error} onRetry={load} />
-      ) : !leave || leave.length === 0 ? (
-        <EmptyState tab={tab} />
+      {state.status === 'loading' ? (
+        <Skeleton rows={5} variant="card" />
+      ) : state.status === 'error' ? (
+        <ErrorState message={state.message} onRetry={retry} />
+      ) : state.data.length === 0 ? (
+        <EmptyState
+          icon={Palmtree}
+          title={`No ${tab === 'all' ? '' : tab} leave requests`.replace('  ', ' ')}
+          message="Staff leave requests will appear here."
+        />
       ) : (
         <ul className="space-y-3">
-          {leave.map((request) => (
+          {state.data.map((request) => (
             <li key={request.id}>
               <LeaveCard
                 request={request}
                 conflicts={conflictsById[request.id]}
                 onApproved={(conflicts) => handleApproved(request.id, conflicts)}
-                onRejected={load}
+                onRejected={retry}
               />
             </li>
           ))}
@@ -228,7 +228,7 @@ function LeaveCard({
   }
 
   return (
-    <article className="rounded-[6px] border border-cloud-gray bg-canvas-white p-4">
+    <article className="rounded-cards border border-cloud-gray bg-canvas-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="font-sans text-[15px] text-cocoa-dark">
@@ -238,26 +238,20 @@ function LeaveCard({
               {LEAVE_TYPE_LABEL[request.leaveType] ?? request.leaveType}
             </span>
           </h2>
-          <p className="font-sans text-sm text-warm-gray mt-0.5">
+          <p className="mt-0.5 font-sans text-sm text-warm-gray">
             <time dateTime={request.date}>{formatDateDDMMYYYY(request.date)}</time>
           </p>
           {request.reason && (
-            <p className="font-sans text-sm text-dusty-gray mt-1.5">“{request.reason}”</p>
+            <p className="mt-1.5 font-sans text-sm text-dusty-gray">“{request.reason}”</p>
           )}
         </div>
 
-        <span
-          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-ui uppercase tracking-[0.5px] whitespace-nowrap ${
-            STATUS_STYLES[request.approvalStatus] ?? 'bg-cloud-gray text-warm-gray'
-          }`}
-        >
-          {request.approvalStatus}
-        </span>
+        <StatusBadge status={request.approvalStatus} className="whitespace-nowrap" />
       </div>
 
       {request.approvalStatus === 'rejected' && request.rejectionReason && (
-        <p className="font-sans text-sm text-red-700 mt-3 border-t border-cloud-gray pt-3">
-          <span className="font-ui text-[11px] uppercase tracking-[0.5px] text-red-600 mr-1.5">
+        <p className="mt-3 border-t border-cloud-gray pt-3 font-sans text-sm text-error">
+          <span className="mr-1.5 font-ui text-[11px] uppercase tracking-[0.5px] text-error">
             Reason
           </span>
           {request.rejectionReason}
@@ -267,7 +261,7 @@ function LeaveCard({
       {conflicts !== undefined && <ConflictWarning conflicts={conflicts} date={request.date} />}
 
       {actionError && (
-        <p className="font-sans text-sm text-error mt-3" role="alert">
+        <p className="mt-3 font-sans text-sm text-error" role="alert">
           {actionError}
         </p>
       )}
@@ -289,7 +283,7 @@ function LeaveCard({
                 rows={2}
                 required
                 aria-required="true"
-                className="w-full px-3 py-2 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
+                className="w-full rounded-buttons border border-outline-gray bg-canvas-white px-3 py-2 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
                 placeholder="Let the staff member know why."
               />
               <div className="flex items-center gap-2">
@@ -297,7 +291,7 @@ function LeaveCard({
                   type="button"
                   onClick={confirmReject}
                   disabled={busy}
-                  className="h-9 px-4 rounded-[6px] bg-red-600 text-white text-sm font-ui hover:bg-red-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="h-9 rounded-buttons bg-error px-4 font-ui text-sm text-canvas-white transition-colors hover:bg-error/90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {busy ? 'Rejecting…' : 'Confirm Reject'}
                 </button>
@@ -308,7 +302,7 @@ function LeaveCard({
                     setActionError(null)
                   }}
                   disabled={busy}
-                  className="h-9 px-4 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-ui text-warm-gray hover:bg-cloud-gray transition-colors disabled:opacity-60"
+                  className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-4 font-ui text-sm text-warm-gray transition-colors hover:bg-cloud-gray disabled:opacity-60"
                 >
                   Cancel
                 </button>
@@ -320,7 +314,7 @@ function LeaveCard({
                 type="button"
                 onClick={() => decide({ action: 'approve' })}
                 disabled={busy}
-                className="h-9 px-4 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                className="h-9 rounded-buttons bg-cocoa-dark px-4 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {busy ? 'Working…' : 'Approve'}
               </button>
@@ -331,7 +325,7 @@ function LeaveCard({
                   setActionError(null)
                 }}
                 disabled={busy}
-                className="h-9 px-4 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-ui text-warm-gray hover:bg-cloud-gray transition-colors disabled:opacity-60"
+                className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-4 font-ui text-sm text-warm-gray transition-colors hover:bg-cloud-gray disabled:opacity-60"
               >
                 Reject
               </button>
@@ -352,97 +346,35 @@ function ConflictWarning({
 }) {
   if (conflicts.length === 0) {
     return (
-      <p className="font-sans text-sm text-emerald-700 mt-3 border-t border-cloud-gray pt-3">
-        ✓ Leave approved — no confirmed bookings on {formatDateDDMMYYYY(date)}.
+      <p className="mt-3 flex items-center gap-1.5 border-t border-cloud-gray pt-3 font-sans text-sm text-success-dark">
+        <Icon icon={CheckCircle2} decorative size={16} />
+        Leave approved — no confirmed bookings on {formatDateDDMMYYYY(date)}.
       </p>
     )
   }
 
   return (
-    <div className="mt-3 rounded-[6px] border border-amber-300 bg-amber-50 px-4 py-3" role="alert">
-      <p className="font-ui text-[12px] uppercase tracking-[0.5px] text-amber-800 mb-1.5">
-        ⚠ {conflicts.length} confirmed booking
+    <div className="mt-3 rounded-cards border border-warning/40 bg-warning/10 px-4 py-3" role="alert">
+      <p className="mb-1.5 flex items-center gap-1.5 font-ui text-xs uppercase tracking-[0.5px] text-warm-gray">
+        <Icon icon={TriangleAlert} decorative size={14} />
+        {conflicts.length} confirmed booking
         {conflicts.length === 1 ? '' : 's'} on {formatDateDDMMYYYY(date)}
       </p>
-      <p className="font-sans text-[13px] text-amber-800 mb-2">
+      <p className="mb-2 font-sans text-[13px] text-warm-gray">
         Reassign these to another staff member from the booking detail.
       </p>
       <ul className="space-y-1">
         {conflicts.map((c) => (
-          <li key={c.bookingId} className="font-sans text-[13px] text-amber-900">
+          <li key={c.bookingId} className="font-sans text-[13px] text-cocoa-dark">
             <span className="font-ui">{formatTime12h(c.startTime)}</span>
             {' — '}
             {c.customerName}
             {' · '}
             {c.serviceNames.join(', ')}
-            <span className="text-amber-700"> (#{c.bookingNumber})</span>
+            <span className="text-dusty-gray"> (#{c.bookingNumber})</span>
           </li>
         ))}
       </ul>
     </div>
-  )
-}
-
-function LoadingState() {
-  return (
-    <output
-      className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      aria-live="polite"
-    >
-      <Spinner />
-      <span className="font-sans text-sm text-dusty-gray">Loading leave requests…</span>
-    </output>
-  )
-}
-
-function ErrorState({
-  message,
-  onRetry,
-}: {
-  message: string
-  onRetry: () => void
-}) {
-  return (
-    <div className="border border-error/40 bg-error/5 rounded-[6px] px-5 py-10 text-center">
-      <p className="font-sans text-sm text-error mb-3" role="alert">
-        {message}
-      </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
-      >
-        Try Again
-      </button>
-    </div>
-  )
-}
-
-function EmptyState({ tab }: { tab: TabValue }) {
-  const label = tab === 'all' ? '' : tab
-  return (
-    <div className="border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 text-center">
-      <p className="font-sans text-sm text-cocoa-dark mb-1">No {label} leave requests</p>
-      <p className="font-sans text-xs text-dusty-gray">Staff leave requests will appear here.</p>
-    </div>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-5 w-5 animate-spin text-deep-gold"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
   )
 }

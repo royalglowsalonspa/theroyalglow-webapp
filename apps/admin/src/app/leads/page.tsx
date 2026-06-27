@@ -7,34 +7,34 @@
  * Scope        : Admin Portal — Lead Management
  *
  * Description  : Server page for the lead pipeline. Sets metadata
- *                and renders the LeadKanban board component.
+ *                and renders the LeadsTable list component.
  *
  * Responsibilities :
  * - Define page-level metadata (title: "Leads")
- * - Render the LeadKanban component for pipeline visualization
+ * - Render the LeadsTable component for the lead pipeline
  * - Serve as the route entry point for /leads
  *
  * Features / Functionality :
  * - Next.js metadata API for tab title
- * - Delegates lead pipeline to LeadKanban (kanban board)
+ * - Delegates the lead list to LeadsTable (DataTable + FilterBar primitives)
  * - Clean separation of server metadata from client interactivity
  *
  * Tech Stack   : Next.js 16 (App Router), React, TypeScript
  * Layer        : Presentation (Page)
  *
- * Dependencies : next (Metadata), LeadKanban component
+ * Dependencies : next (Metadata), LeadsTable component
  *
  * Notes        :
- * - Server Component — kanban interactivity lives in LeadKanban
+ * - Server Component — list interactivity lives in LeadsTable
  ************************************************************/
 
-import { LeadKanban } from '@/components/lead/LeadKanban'
 import type { Metadata } from 'next'
+import { LeadsTable } from './leads-table'
 
 export const metadata: Metadata = {
   title: 'Leads',
 }
 
 export default function LeadsPage() {
-  return <LeadKanban />
+  return <LeadsTable />
 }

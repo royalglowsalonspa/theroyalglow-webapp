@@ -26,6 +26,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AdminBooking } from '@/lib/admin/bookings'
 import { BookingsTable } from './bookings-table'
 
+// The migrated table uses next/navigation's useRouter for the row "View
+// details" action. There is no App Router context in jsdom, so stub the
+// navigation hooks with no-ops (the tests assert on fetch wiring, not routing).
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn(), back: vi.fn() }),
+}))
+
 function sampleBooking(): AdminBooking {
   return {
     id: 'bk_1',
@@ -95,7 +102,7 @@ describe('BookingsTable UI wiring (Req 15)', () => {
     expect(String(fetchMock.mock.calls[1]?.[0])).toContain('status=confirmed')
 
     // Change the service-type filter → another request carrying that param too.
-    fireEvent.click(screen.getByRole('button', { name: 'Salon' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Salon' }))
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3))
     expect(String(fetchMock.mock.calls[2]?.[0])).toContain('serviceType=salon')
@@ -113,10 +120,11 @@ describe('BookingsTable UI wiring (Req 15)', () => {
 
     render(<BookingsTable />)
 
-    expect(screen.getByText('Loading bookings…')).toBeInTheDocument()
+    // The shared Skeleton presenter announces loading via an sr-only label.
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
 
     // Resolve and confirm the loading state clears.
     resolveFetch(ok({ bookings: [] }))
-    await waitFor(() => expect(screen.queryByText('Loading bookings…')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
   })
 })

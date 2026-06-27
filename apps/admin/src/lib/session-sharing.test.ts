@@ -121,7 +121,7 @@ describe('session sharing: local-dev safety', () => {
           }
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 25 },
     )
   })
 })

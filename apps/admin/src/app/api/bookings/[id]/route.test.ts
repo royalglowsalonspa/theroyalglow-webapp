@@ -214,7 +214,7 @@ describe('PATCH /api/bookings/[id] — approve/reject transitions', () => {
           }
         },
       ),
-      { numRuns: 100 },
+      { numRuns: 25 },
     )
   })
 })

@@ -6,34 +6,53 @@
  * Module Name  : Reports Dashboard
  * Scope        : Admin Portal — Reports / Analytics
  *
- * Description  : Interactive analytics dashboard. A range selector drives a
- *                single fetch of GET /api/reports; the response feeds KPI cards,
- *                a recharts revenue-trend area chart, a recharts bookings-by-
- *                status bar chart, and a @tanstack/react-table Top Services table.
+ * Description  : Interactive analytics dashboard rebuilt on the admin design-
+ *                system primitives. A range selector (via the FilterBar) drives
+ *                a single fetch of GET /api/reports; the response feeds KPICard
+ *                summaries, two ChartCard visualisations (a recharts revenue-
+ *                trend area chart and a bookings-by-status bar chart), and a
+ *                DataTable Top Services list. Loading / empty / error states use
+ *                the shared state presenters; the fetch + timeout is delegated
+ *                to useAsyncData.
  *
  * Responsibilities :
- * - Select a date range (7d / 30d / 90d / MTD) and fetch the combined payload
- * - Render KPI cards, two charts, and a sortable services table
+ * - Select a date range (7d / 30d / 90d / MTD) and re-fetch the payload
+ * - Render KPICards, two ChartCards, and a sortable DataTable of services
  * - Handle loading / error / empty states accessibly
  *
  * Features / Functionality :
- * - recharts ResponsiveContainer charts; bar + area
- * - @tanstack/react-table sortable Top Services table
- * - INR amounts via formatINR; respects prefers-reduced-motion (no chart anim)
+ * - recharts ResponsiveContainer charts hosted by the ChartCard primitive
+ * - DataTable Top Services table (sortable, INR amounts)
+ * - INR figures via formatINRWithPaise; respects prefers-reduced-motion
+ * - Brand-token chart colours via CHART_COLORS / CSS variables (no hex)
  *
  * Tech Stack   : Next.js 16, React (Client Component), recharts,
  *                @tanstack/react-table, TypeScript
  * Layer        : Presentation (Data Dashboard Component)
  *
- * Dependencies : recharts, @tanstack/react-table, admin bookings lib (formatINR),
- *                React hooks, @rgss/types (view-model types)
+ * Dependencies : @/components/ui/{kpi-card,chart-card,data-table,filter-bar},
+ *                @/components/ui/state/*, @/components/ui/use-async-data,
+ *                @/lib/admin/format, recharts, @rgss/types (view-model types)
  *
- * Notes        : Read-only. All aggregation happens server-side in SQL.
+ * Notes        :
+ * - Presentation-layer only. All aggregation happens server-side in SQL; the
+ *   report figures are rendered verbatim. Every pre-redesign figure and the
+ *   range selector are preserved.
+ *
+ * Requirements : 17.1, 17.2, 17.3, 17.4, 17.5, 17.6, 17.7
  ************************************************************/
 
 'use client'
 
-import { formatINR } from '@/lib/admin/bookings'
+import { ChartCard, CHART_COLORS } from '@/components/ui/chart-card'
+import { DataTable } from '@/components/ui/data-table'
+import { FilterBar } from '@/components/ui/filter-bar'
+import { KPICard } from '@/components/ui/kpi-card'
+import { EmptyState } from '@/components/ui/state/empty-state'
+import { ErrorState } from '@/components/ui/state/error-state'
+import { Skeleton } from '@/components/ui/state/skeleton'
+import { useAsyncData } from '@/components/ui/use-async-data'
+import { formatINR, formatINRWithPaise } from '@/lib/admin/format'
 import type {
   BookingsByStatusPoint,
   ReportRange,
@@ -41,22 +60,15 @@ import type {
   RevenueTrendPoint,
   TopServiceRow,
 } from '@rgss/types'
-import {
-  type ColumnDef,
-  type SortingState,
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from '@tanstack/react-table'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { ColumnDef } from '@tanstack/react-table'
+import { CalendarRange, Gem, IndianRupee, Receipt, TrendingUp } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Area,
   AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -80,6 +92,11 @@ const STATUS_LABEL: Record<string, string> = {
   rescheduled: 'Rescheduled',
 }
 
+// Shared recharts presentation constants (brand-token colour references, never
+// hex literals) so axes / grids / tooltips stay on-brand.
+const AXIS_TICK = { fontSize: 11, fill: CHART_COLORS.axis } as const
+const TOOLTIP_STYLE = { fontSize: 12, borderRadius: 6, borderColor: CHART_COLORS.grid } as const
+
 // SSR-safe prefers-reduced-motion hook. Disables chart animations when the user
 // has requested reduced motion.
 function usePrefersReducedMotion(): boolean {
@@ -97,81 +114,78 @@ function usePrefersReducedMotion(): boolean {
   return reduced
 }
 
+async function fetchReports(range: ReportRange): Promise<ReportsResponse> {
+  const res = await fetch(`/api/reports?range=${range}`)
+  const json = await res.json()
+  if (!res.ok || !json.success) {
+    throw new Error(json?.error?.message ?? 'Could not load reports.')
+  }
+  return json.data as ReportsResponse
+}
+
 export function ReportsDashboard() {
   const [range, setRange] = useState<ReportRange>('30d')
-  const [data, setData] = useState<ReportsResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const reducedMotion = usePrefersReducedMotion()
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch(`/api/reports?range=${range}`)
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error?.message ?? 'Could not load reports.')
-      }
-      setData(json.data as ReportsResponse)
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not load reports.')
-    } finally {
-      setLoading(false)
-    }
-  }, [range])
+  const fetcher = useCallback(() => fetchReports(range), [range])
+  const { state, retry } = useAsyncData(fetcher)
 
+  // Re-request when the range changes; the initial mount fetch is owned by the
+  // hook, so skip the very first effect run to avoid a duplicate request.
+  const didMount = useRef(false)
   useEffect(() => {
-    load()
-  }, [load])
+    if (!didMount.current) {
+      didMount.current = true
+      return
+    }
+    retry()
+  }, [range, retry])
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">Reports</h1>
-          <p className="font-sans text-sm text-dusty-gray mt-0.5">
+          <h1 className="font-display text-2xl tracking-tight text-cocoa-dark">Reports</h1>
+          <p className="mt-0.5 font-sans text-sm text-dusty-gray">
             Revenue, bookings, and top services across your chosen date range.
           </p>
         </div>
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor="report-range"
-            className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray"
-          >
-            Date range
-          </label>
-          <select
-            id="report-range"
-            value={range}
-            onChange={(e) => setRange(e.target.value as ReportRange)}
-            className="h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
-          >
-            {RANGE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <FilterBar
+          config={{
+            dropdowns: [
+              {
+                id: 'range',
+                label: 'Date range',
+                options: RANGE_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label })),
+                value: range,
+              },
+            ],
+          }}
+          onFilterChange={(id, value) => {
+            if (id === 'range') {
+              setRange(value as ReportRange)
+            }
+          }}
+        />
       </div>
 
-      {loading ? (
-        <LoadingState />
-      ) : error ? (
-        <ErrorState message={error} onRetry={load} />
-      ) : !data ? (
-        <EmptyState />
+      {state.status === 'loading' ? (
+        <Skeleton rows={4} variant="kpi" />
+      ) : state.status === 'error' ? (
+        <ErrorState message={state.message} onRetry={retry} />
       ) : (
         <div className="space-y-6">
-          <KpiCards data={data} />
+          <KpiCards data={state.data} />
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <RevenueTrendChart points={data.revenueTrend} reducedMotion={reducedMotion} />
-            <BookingsStatusChart points={data.bookingsByStatus} reducedMotion={reducedMotion} />
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <RevenueTrendChart points={state.data.revenueTrend} reducedMotion={reducedMotion} />
+            <BookingsStatusChart
+              points={state.data.bookingsByStatus}
+              reducedMotion={reducedMotion}
+            />
           </div>
 
-          <TopServicesTable rows={data.topServices} />
+          <TopServicesTable rows={state.data.topServices} />
         </div>
       )}
     </div>
@@ -181,37 +195,17 @@ export function ReportsDashboard() {
 function KpiCards({ data }: { data: ReportsResponse }) {
   const { summary } = data
   const cards = [
-    { label: 'Revenue (range)', value: formatINR(summary.rangeRevenuePaise) },
-    { label: 'Bookings (range)', value: String(summary.bookingCount) },
-    { label: 'Avg ticket', value: formatINR(summary.avgTicketPaise) },
-    { label: 'Month to date', value: formatINR(summary.mtdRevenuePaise) },
+    { label: 'Revenue (range)', value: formatINRWithPaise(summary.rangeRevenuePaise), icon: IndianRupee },
+    { label: 'Bookings (range)', value: String(summary.bookingCount), icon: Receipt },
+    { label: 'Avg ticket', value: formatINRWithPaise(summary.avgTicketPaise), icon: Gem },
+    { label: 'Month to date', value: formatINRWithPaise(summary.mtdRevenuePaise), icon: TrendingUp },
   ]
   return (
-    <dl className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {cards.map((card) => (
-        <div
-          key={card.label}
-          className="border border-cloud-gray rounded-[6px] bg-canvas-white px-4 py-3.5"
-        >
-          <dt className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray">
-            {card.label}
-          </dt>
-          <dd className="mt-1 text-xl font-display text-cocoa-dark tracking-tight">{card.value}</dd>
-        </div>
+        <KPICard key={card.label} label={card.label} value={card.value} icon={card.icon} />
       ))}
-    </dl>
-  )
-}
-
-function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section
-      className="border border-cloud-gray rounded-[6px] bg-canvas-white p-4"
-      aria-label={title}
-    >
-      <h2 className="text-sm font-ui uppercase tracking-wider text-dusty-gray mb-3">{title}</h2>
-      {children}
-    </section>
+    </div>
   )
 }
 
@@ -223,53 +217,50 @@ function RevenueTrendChart({
   reducedMotion: boolean
 }) {
   const hasData = points.some((p) => p.revenuePaise > 0)
+  if (!hasData) {
+    return (
+      <EmptyChartCard title="Revenue trend" message="No paid revenue in this range yet." />
+    )
+  }
   return (
     <ChartCard title="Revenue trend">
-      {hasData ? (
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={points} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
-              <defs>
-                <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#bfa05a" stopOpacity={0.5} />
-                  <stop offset="100%" stopColor="#bfa05a" stopOpacity={0.05} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#ece7df" vertical={false} />
-              <XAxis
-                dataKey="date"
-                tickFormatter={(v: string) => v.slice(5)}
-                tick={{ fontSize: 11, fill: '#9a9388' }}
-                tickLine={false}
-                axisLine={{ stroke: '#ece7df' }}
-                minTickGap={24}
-              />
-              <YAxis
-                tickFormatter={(v: number) => formatINR(v)}
-                tick={{ fontSize: 11, fill: '#9a9388' }}
-                tickLine={false}
-                axisLine={false}
-                width={72}
-              />
-              <Tooltip
-                formatter={(value: unknown) => [formatINR(Number(value)), 'Revenue']}
-                labelFormatter={(label: unknown) => `Date: ${String(label)}`}
-                contentStyle={{ fontSize: 12, borderRadius: 6, borderColor: '#ece7df' }}
-              />
-              <Area
-                type="monotone"
-                dataKey="revenuePaise"
-                stroke="#bfa05a"
-                strokeWidth={2}
-                fill="url(#revenueFill)"
-                isAnimationActive={!reducedMotion}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      ) : (
-        <ChartEmpty message="No paid revenue in this range yet." />
-      )}
+      <AreaChart data={points} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+        <defs>
+          <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={CHART_COLORS.primary} stopOpacity={0.5} />
+            <stop offset="100%" stopColor={CHART_COLORS.primary} stopOpacity={0.05} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
+        <XAxis
+          dataKey="date"
+          tickFormatter={(v: string) => v.slice(5)}
+          tick={AXIS_TICK}
+          tickLine={false}
+          axisLine={{ stroke: CHART_COLORS.grid }}
+          minTickGap={24}
+        />
+        <YAxis
+          tickFormatter={(v: number) => formatINR(v)}
+          tick={AXIS_TICK}
+          tickLine={false}
+          axisLine={false}
+          width={72}
+        />
+        <Tooltip
+          formatter={(value: unknown) => [formatINRWithPaise(Number(value)), 'Revenue']}
+          labelFormatter={(label: unknown) => `Date: ${String(label)}`}
+          contentStyle={TOOLTIP_STYLE}
+        />
+        <Area
+          type="monotone"
+          dataKey="revenuePaise"
+          stroke={CHART_COLORS.primary}
+          strokeWidth={2}
+          fill="url(#revenueFill)"
+          isAnimationActive={!reducedMotion}
+        />
+      </AreaChart>
     </ChartCard>
   )
 }
@@ -285,76 +276,71 @@ function BookingsStatusChart({
     () => points.map((p) => ({ ...p, label: STATUS_LABEL[p.status] ?? p.status })),
     [points],
   )
+  if (chartData.length === 0) {
+    return (
+      <EmptyChartCard title="Bookings by status" message="No bookings in this range yet." />
+    )
+  }
   return (
     <ChartCard title="Bookings by status">
-      {chartData.length > 0 ? (
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#ece7df" vertical={false} />
-              <XAxis
-                dataKey="label"
-                tick={{ fontSize: 11, fill: '#9a9388' }}
-                tickLine={false}
-                axisLine={{ stroke: '#ece7df' }}
-                interval={0}
-                angle={-20}
-                textAnchor="end"
-                height={48}
-              />
-              <YAxis
-                allowDecimals={false}
-                tick={{ fontSize: 11, fill: '#9a9388' }}
-                tickLine={false}
-                axisLine={false}
-                width={32}
-              />
-              <Tooltip
-                formatter={(value: unknown) => [String(value), 'Bookings']}
-                contentStyle={{ fontSize: 12, borderRadius: 6, borderColor: '#ece7df' }}
-                cursor={{ fill: '#f5f1ea' }}
-              />
-              <Bar
-                dataKey="count"
-                fill="#8a6d3b"
-                radius={[4, 4, 0, 0]}
-                isAnimationActive={!reducedMotion}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      ) : (
-        <ChartEmpty message="No bookings in this range yet." />
-      )}
+      <BarChart data={chartData} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
+        <XAxis
+          dataKey="label"
+          tick={AXIS_TICK}
+          tickLine={false}
+          axisLine={{ stroke: CHART_COLORS.grid }}
+          interval={0}
+          angle={-20}
+          textAnchor="end"
+          height={48}
+        />
+        <YAxis
+          allowDecimals={false}
+          tick={AXIS_TICK}
+          tickLine={false}
+          axisLine={false}
+          width={32}
+        />
+        <Tooltip
+          formatter={(value: unknown) => [String(value), 'Bookings']}
+          contentStyle={TOOLTIP_STYLE}
+          cursor={{ fill: 'var(--color-cloud-gray)' }}
+        />
+        <Bar
+          dataKey="count"
+          fill={CHART_COLORS.secondary}
+          radius={[4, 4, 0, 0]}
+          isAnimationActive={!reducedMotion}
+        />
+      </BarChart>
     </ChartCard>
   )
 }
 
 function TopServicesTable({ rows }: { rows: TopServiceRow[] }) {
-  const [sorting, setSorting] = useState<SortingState>([{ id: 'revenuePaise', desc: true }])
-
-  const columns = useMemo<ColumnDef<TopServiceRow>[]>(
+  const columns = useMemo<ColumnDef<TopServiceRow, unknown>[]>(
     () => [
       {
         accessorKey: 'name',
         header: 'Service',
-        cell: (info) => (
-          <span className="font-sans text-cocoa-dark">{info.getValue<string>()}</span>
-        ),
+        cell: ({ row }) => <span className="text-cocoa-dark">{row.original.name}</span>,
       },
       {
         accessorKey: 'bookings',
         header: 'Bookings',
-        cell: (info) => (
-          <span className="font-ui text-warm-gray tabular-nums">{info.getValue<number>()}</span>
+        cell: ({ row }) => (
+          <span className="block text-right font-ui tabular-nums text-warm-gray">
+            {row.original.bookings}
+          </span>
         ),
       },
       {
         accessorKey: 'revenuePaise',
         header: 'Revenue',
-        cell: (info) => (
-          <span className="font-ui text-cocoa-dark tabular-nums">
-            {formatINR(info.getValue<number>())}
+        cell: ({ row }) => (
+          <span className="block text-right font-ui tabular-nums text-cocoa-dark">
+            {formatINRWithPaise(row.original.revenuePaise)}
           </span>
         ),
       },
@@ -362,132 +348,32 @@ function TopServicesTable({ rows }: { rows: TopServiceRow[] }) {
     [],
   )
 
-  const table = useReactTable({
-    data: rows,
-    columns,
-    state: { sorting },
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  })
+  if (rows.length === 0) {
+    return (
+      <EmptyChartCard title="Top services" message="No services sold in this range yet." />
+    )
+  }
 
   return (
-    <ChartCard title="Top services">
-      {rows.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id} className="bg-cloud-gray/60">
-                  {headerGroup.headers.map((header) => {
-                    const sorted = header.column.getIsSorted()
-                    return (
-                      <th
-                        key={header.id}
-                        className="text-left px-4 py-2.5 font-ui text-xs uppercase tracking-wider text-dusty-gray"
-                        aria-sort={
-                          sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : 'none'
-                        }
-                      >
-                        <button
-                          type="button"
-                          onClick={header.column.getToggleSortingHandler()}
-                          className="inline-flex items-center gap-1 hover:text-cocoa-dark transition-colors focus:outline-none focus:ring-2 focus:ring-deep-gold rounded-[4px]"
-                        >
-                          {flexRender(header.column.columnDef.header, header.getContext())}
-                          <span aria-hidden="true" className="text-[10px]">
-                            {sorted === 'asc' ? '▲' : sorted === 'desc' ? '▼' : '↕'}
-                          </span>
-                        </button>
-                      </th>
-                    )
-                  })}
-                </tr>
-              ))}
-            </thead>
-            <tbody className="divide-y divide-cloud-gray">
-              {table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className="hover:bg-cloud-gray/30 transition-colors">
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-4 py-3 whitespace-nowrap">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <ChartEmpty message="No services sold in this range yet." />
-      )}
-    </ChartCard>
-  )
-}
-
-function ChartEmpty({ message }: { message: string }) {
-  return (
-    <div className="flex items-center justify-center h-40 text-center">
-      <p className="font-sans text-sm text-dusty-gray">{message}</p>
-    </div>
-  )
-}
-
-function LoadingState() {
-  return (
-    <output
-      className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      aria-live="polite"
-    >
-      <Spinner />
-      <span className="font-sans text-sm text-dusty-gray">Loading reports…</span>
-    </output>
-  )
-}
-
-function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div className="border border-error/40 bg-error/5 rounded-[6px] px-5 py-10 text-center">
-      <p className="font-sans text-sm text-error mb-3" role="alert">
-        {message}
-      </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
-      >
-        Try Again
-      </button>
-    </div>
-  )
-}
-
-function EmptyState() {
-  return (
-    <div className="border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 text-center">
-      <p className="font-sans text-sm text-cocoa-dark mb-1">No report data</p>
-      <p className="font-sans text-xs text-dusty-gray">
-        Reports populate as bookings are completed and invoices are paid.
-      </p>
-    </div>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-5 w-5 animate-spin text-deep-gold"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+    <section className="flex flex-col gap-4 rounded-cards border border-outline-gray bg-canvas-white p-5">
+      <h3 className="font-display text-base text-cocoa-dark">Top services</h3>
+      <DataTable
+        columns={columns}
+        data={rows}
+        tableId="top-services"
+        caption="Top services by revenue for the selected range"
       />
-    </svg>
+    </section>
+  )
+}
+
+// Titled card chrome matching ChartCard, used to present the empty-state for a
+// chart slot via the shared EmptyState presenter (Req 17.4).
+function EmptyChartCard({ title, message }: { title: string; message: string }) {
+  return (
+    <section className="flex flex-col gap-4 rounded-cards border border-outline-gray bg-canvas-white p-5">
+      <h3 className="font-display text-base text-cocoa-dark">{title}</h3>
+      <EmptyState icon={CalendarRange} title="Nothing to show yet" message={message} />
+    </section>
   )
 }

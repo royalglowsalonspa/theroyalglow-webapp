@@ -33,9 +33,13 @@
 
 'use client'
 
+import { Icon } from '@/components/ui/icon'
+import { EmptyState } from '@/components/ui/state/empty-state'
+import { ErrorState } from '@/components/ui/state/error-state'
+import { Skeleton } from '@/components/ui/state/skeleton'
+import { StatusBadge } from '@/components/ui/status-badge'
 import {
   ALLOWED_LEAD_TRANSITIONS,
-  LEAD_STATUS_META,
   LEAD_TRANSITION_LABEL,
   type LeadNoteRow,
   type LeadStatus,
@@ -43,6 +47,7 @@ import {
   formatLeadDateTime,
 } from '@/lib/admin/leads'
 import { formatDateIN } from '@rgss/business'
+import { ArrowLeft, MessageCircle, Phone, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 
@@ -93,7 +98,7 @@ function toWhatsAppLink(phone: string): string {
   return `https://wa.me/91${digits}`
 }
 
-export function LeadDetail({ leadId }: { leadId: string }) {
+export function LeadDetail({ leadId, embedded = false }: { leadId: string; embedded?: boolean }) {
   const [lead, setLead] = useState<LeadRecord | null>(null)
   const [notes, setNotes] = useState<LeadNoteRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -123,15 +128,17 @@ export function LeadDetail({ leadId }: { leadId: string }) {
 
   return (
     <div className="space-y-5">
-      <Link
-        href="/leads"
-        className="inline-flex items-center gap-1 font-ui text-sm text-warm-gray hover:text-deep-gold motion-safe:transition-colors"
-      >
-        <span aria-hidden="true">←</span> Back to Pipeline
-      </Link>
+      {embedded ? null : (
+        <Link
+          href="/leads"
+          className="inline-flex items-center gap-1 font-ui text-sm text-warm-gray hover:text-deep-gold motion-safe:transition-colors"
+        >
+          <Icon icon={ArrowLeft} decorative size={16} /> Back to Pipeline
+        </Link>
+      )}
 
       {loading ? (
-        <LoadingState />
+        <Skeleton rows={4} variant="card" />
       ) : error ? (
         <ErrorState message={error} onRetry={load} />
       ) : lead ? (
@@ -141,7 +148,10 @@ export function LeadDetail({ leadId }: { leadId: string }) {
           <NotesTimeline leadId={leadId} notes={notes} onAdded={load} />
         </>
       ) : (
-        <EmptyState />
+        <EmptyState
+          title="Lead not found"
+          message="It may have been removed. Head back to the pipeline."
+        />
       )}
     </div>
   )
@@ -160,7 +170,6 @@ function InfoCard({
   const [lostReason, setLostReason] = useState('')
   const reasonId = useId()
 
-  const meta = LEAD_STATUS_META[lead.status]
   const days = daysSinceCapture(lead.createdAt)
   const whatsAppHref = toWhatsAppLink(lead.phone)
 
@@ -216,7 +225,7 @@ function InfoCard({
             className="mt-1.5 inline-flex items-center gap-1.5 font-sans text-sm text-warm-gray hover:text-deep-gold motion-safe:transition-colors"
             aria-label={`Call ${lead.name} at ${lead.phone}`}
           >
-            <span aria-hidden="true">📞</span>
+            <Icon icon={Phone} decorative size={15} />
             {lead.phone}
             <span className="text-xs text-dusty-gray">(tap to call)</span>
           </a>
@@ -228,12 +237,7 @@ function InfoCard({
         </div>
 
         <div className="flex flex-col items-end gap-1.5">
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium font-ui ${meta.badge}`}
-          >
-            <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} aria-hidden="true" />
-            {meta.label}
-          </span>
+          <StatusBadge status={lead.status} />
           <p className="font-sans text-xs text-dusty-gray">
             Created {formatDateIN(new Date(lead.createdAt))}
           </p>
@@ -247,7 +251,7 @@ function InfoCard({
           href={`tel:${lead.phone}`}
           className="inline-flex items-center gap-1.5 rounded-[8px] border border-outline-gray px-3.5 py-2 font-ui text-sm text-cocoa-dark hover:bg-cloud-gray motion-safe:transition-colors"
         >
-          <span aria-hidden="true">📞</span> Call
+          <Icon icon={Phone} decorative size={15} /> Call
         </a>
         <a
           href={whatsAppHref}
@@ -255,7 +259,7 @@ function InfoCard({
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 rounded-[8px] border border-outline-gray px-3.5 py-2 font-ui text-sm text-cocoa-dark hover:bg-cloud-gray motion-safe:transition-colors"
         >
-          <span aria-hidden="true">💬</span> WhatsApp
+          <Icon icon={MessageCircle} decorative size={15} /> WhatsApp
         </a>
 
         {transitions.map((status) => (
@@ -281,7 +285,7 @@ function InfoCard({
             disabled={busyStatus !== null}
             className="inline-flex items-center gap-1.5 rounded-[8px] border border-error/40 px-3.5 py-2 font-ui text-sm text-error hover:bg-error/5 motion-safe:transition-colors disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <span aria-hidden="true">🗑</span> Mark Lost
+            <Icon icon={Trash2} decorative size={15} /> Mark Lost
           </button>
         )}
       </div>
@@ -463,67 +467,3 @@ function NotesTimeline({
   )
 }
 
-function LoadingState() {
-  return (
-    <output
-      className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      aria-live="polite"
-    >
-      <Spinner />
-      <span className="font-sans text-sm text-dusty-gray">Loading lead…</span>
-    </output>
-  )
-}
-
-function ErrorState({
-  message,
-  onRetry,
-}: {
-  message: string
-  onRetry: () => void
-}) {
-  return (
-    <div className="border border-error/40 bg-error/5 rounded-[6px] px-5 py-10 text-center">
-      <p className="font-sans text-sm text-error mb-3" role="alert">
-        {message}
-      </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray motion-safe:transition-colors"
-      >
-        Try Again
-      </button>
-    </div>
-  )
-}
-
-function EmptyState() {
-  return (
-    <div className="border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 text-center">
-      <p className="font-sans text-sm text-cocoa-dark mb-1">Lead not found</p>
-      <p className="font-sans text-xs text-dusty-gray">
-        It may have been removed. Head back to the pipeline.
-      </p>
-    </div>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-5 w-5 motion-safe:animate-spin text-deep-gold"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
-  )
-}

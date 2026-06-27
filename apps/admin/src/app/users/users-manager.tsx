@@ -1,41 +1,65 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 21-06-2026 & Updated - 21-06-2026
+ * Date         : Created - 21-06-2026 & Updated - 04-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : Users Manager
  * Scope        : Admin Portal — User / RBAC administration
  *
- * Description  : Owner-facing screen to assign RBAC roles. An assignment form
- *                (email + role) sits above a searchable directory of every
- *                account, each showing its current role with a quick "Change
- *                role" inline action.
+ * Description  : Owner-facing role-management screen rebuilt on the admin
+ *                design-system primitives. An assign-role form (email + role)
+ *                sits above a searchable account directory rendered with the
+ *                reusable DataTable. Each account shows its current role and
+ *                access state as semantic Status_Badge pills, and a per-row
+ *                "Change role" action opens a SlideOverPanel role editor.
+ *                Consumes GET|POST /api/users as-is.
  *
  * Responsibilities :
- * - Assign a role to a user by the email they signed in with
- * - List/search all accounts and surface their current role
- * - Provide inline role changes from any directory row
+ * - Assign a role to a user by the email they signed in with (POST /api/users)
+ * - List/search all accounts via GET /api/users (server-side search)
+ * - Render role + active state via the StatusBadge primitive
+ * - Provide a SlideOverPanel role editor per directory row
  * - Surface API guard errors (self-edit, privilege ceiling, unknown email)
+ * - Route loading / empty / error through the shared state presenters
  *
  * Features / Functionality :
  * - Assign-role form with role <select> and live validation feedback
- * - Debounced search across name + email
- * - Per-row inline role editor with optimistic reload after success
+ * - FilterBar search (debounced + trimmed) + column-visibility control
+ * - DataTable directory with avatar, name, email, role, status, joined
+ * - SlideOverPanel inline role editor with optimistic reload after success
  * - Accessible status messaging (role="alert" / aria-live)
  *
- * Tech Stack   : Next.js 16, React (Client Component), TypeScript
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript,
+ *                @tanstack/react-table
  * Layer        : Presentation (Management Component)
  *
- * Dependencies : @rgss/types (ASSIGNABLE_ROLES), React hooks
+ * Dependencies : @/components/ui/data-table, @/components/ui/filter-bar,
+ *                @/components/ui/status-badge, @/components/ui/slide-over-panel,
+ *                @/components/ui/state/*, @/components/ui/use-async-data,
+ *                @/lib/admin/bookings, @rgss/types (ASSIGNABLE_ROLES), React
  *
  * Notes        : All mutations go through POST /api/users; the server enforces
  *                the real privilege guards. This UI is a convenience layer.
+ *                Presentation-layer only — no API / RBAC / data-model changes.
+ *                Uses ONLY semantic Brand-Token utilities (Req 1.2); lucide
+ *                icons via the Icon wrapper (Req 2). Requirements 17.1–17.7.
  ************************************************************/
 
 'use client'
 
+import { DataTable } from '@/components/ui/data-table'
+import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
+import { SlideOverPanel } from '@/components/ui/slide-over-panel'
+import { EmptyState } from '@/components/ui/state/empty-state'
+import { ErrorState } from '@/components/ui/state/error-state'
+import { Skeleton } from '@/components/ui/state/skeleton'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { useAsyncData } from '@/components/ui/use-async-data'
+import { formatDateDDMMYYYY } from '@/lib/admin/bookings'
 import { ASSIGNABLE_ROLES, type AssignableRole } from '@rgss/types'
-import { useCallback, useEffect, useState } from 'react'
+import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
+import { KeyRound, Users } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 interface AdminUser {
   id: string
@@ -47,7 +71,7 @@ interface AdminUser {
   createdAt: string
 }
 
-// Human labels + badge styling per role (lowest → highest privilege).
+// Human labels per role (lowest → highest privilege).
 const ROLE_LABEL: Record<AssignableRole, string> = {
   customer: 'Customer',
   staff: 'Staff',
@@ -57,14 +81,14 @@ const ROLE_LABEL: Record<AssignableRole, string> = {
   developer: 'Developer',
 }
 
-const ROLE_BADGE: Record<string, string> = {
-  customer: 'bg-cloud-gray text-warm-gray',
-  staff: 'bg-sky-100 text-sky-800',
-  receptionist: 'bg-teal-100 text-teal-800',
-  manager: 'bg-indigo-100 text-indigo-800',
-  owner: 'bg-amber-100 text-amber-800',
-  developer: 'bg-purple-100 text-purple-800',
-}
+/** Toggleable data columns surfaced to the FilterBar column-visibility control. */
+const COLUMN_META: { id: string; label: string }[] = [
+  { id: 'user', label: 'User' },
+  { id: 'email', label: 'Email' },
+  { id: 'role', label: 'Role' },
+  { id: 'status', label: 'Status' },
+  { id: 'joined', label: 'Joined' },
+]
 
 function roleLabel(role: string | null): string {
   if (role && role in ROLE_LABEL) {
@@ -73,84 +97,182 @@ function roleLabel(role: string | null): string {
   return 'No role'
 }
 
+async function fetchUsers(term: string): Promise<AdminUser[]> {
+  const qs = term.trim() ? `?search=${encodeURIComponent(term.trim())}` : ''
+  const res = await fetch(`/api/users${qs}`)
+  const json = await res.json()
+  if (!res.ok || !json.success) {
+    throw new Error(json?.error?.message ?? 'Could not load users.')
+  }
+  return json.data.users as AdminUser[]
+}
+
 export function UsersManager() {
   const [search, setSearch] = useState('')
-  const [users, setUsers] = useState<AdminUser[] | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [editing, setEditing] = useState<AdminUser | null>(null)
 
-  const load = useCallback(async (term: string) => {
-    setLoading(true)
-    setError(null)
-    try {
-      const qs = term.trim() ? `?search=${encodeURIComponent(term.trim())}` : ''
-      const res = await fetch(`/api/users${qs}`)
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error?.message ?? 'Could not load users.')
-      }
-      setUsers(json.data.users as AdminUser[])
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not load users.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const fetcher = useCallback(() => fetchUsers(search), [search])
+  const { state, retry } = useAsyncData(fetcher)
 
-  // Debounce the search so we don't fire a request per keystroke.
+  // Re-request when the search term changes; the initial mount fetch is owned
+  // by the hook, so skip the first effect run to avoid a duplicate request.
+  const didMount = useRef(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-fetch only when search changes; retry() reads the latest term through the fetcher closure.
   useEffect(() => {
-    const t = setTimeout(() => load(search), 300)
-    return () => clearTimeout(t)
-  }, [search, load])
+    if (!didMount.current) {
+      didMount.current = true
+      return
+    }
+    retry()
+  }, [search, retry])
 
-  const refresh = useCallback(() => load(search), [load, search])
+  const columns = useMemo<ColumnDef<AdminUser, unknown>[]>(
+    () => [
+      {
+        id: 'user',
+        accessorKey: 'name',
+        header: 'User',
+        cell: ({ row }) => {
+          const u = row.original
+          return (
+            <div className="flex items-center gap-3">
+              {u.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={u.image}
+                  alt=""
+                  className="h-9 w-9 shrink-0 rounded-pill border border-outline-gray object-cover"
+                />
+              ) : (
+                <span
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-pill bg-cloud-gray font-ui text-sm font-bold text-warm-gray"
+                  aria-hidden="true"
+                >
+                  {(u.name || u.email).trim().charAt(0).toUpperCase()}
+                </span>
+              )}
+              <span className="font-ui font-medium text-cocoa-dark">{u.name || '—'}</span>
+            </div>
+          )
+        },
+      },
+      {
+        id: 'email',
+        accessorKey: 'email',
+        header: 'Email',
+        cell: ({ row }) => <span className="text-warm-gray">{row.original.email}</span>,
+      },
+      {
+        id: 'role',
+        accessorKey: 'role',
+        header: 'Role',
+        enableSorting: false,
+        cell: ({ row }) =>
+          row.original.role ? (
+            <StatusBadge status={row.original.role} />
+          ) : (
+            <span className="text-dusty-gray">No role</span>
+          ),
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        enableSorting: false,
+        cell: ({ row }) => <StatusBadge status={row.original.banned ? 'banned' : 'active'} />,
+      },
+      {
+        id: 'joined',
+        accessorKey: 'createdAt',
+        header: 'Joined',
+        cell: ({ row }) => (
+          <span className="text-warm-gray">{formatDateDDMMYYYY(row.original.createdAt)}</span>
+        ),
+      },
+    ],
+    [],
+  )
+
+  const columnToggles: ColumnToggle[] = COLUMN_META.map((meta) => ({
+    id: meta.id,
+    label: meta.label,
+    visible: columnVisibility[meta.id] !== false,
+  }))
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-2xl text-cocoa-dark tracking-tight">Users &amp; Roles</h1>
-        <p className="font-sans text-sm text-dusty-gray mt-0.5">
+        <h1 className="font-display text-2xl tracking-tight text-cocoa-dark">Users &amp; Roles</h1>
+        <p className="mt-0.5 font-sans text-sm text-dusty-gray">
           Assign access levels. A person must sign in on theroyalglow.in once before you can give
           them a role — that first sign-in creates their account.
         </p>
       </div>
 
-      <AssignRoleForm onAssigned={refresh} />
+      <AssignRoleForm onAssigned={retry} />
 
       <section className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="font-display text-lg text-cocoa-dark tracking-tight">Directory</h2>
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search name or email…"
-            aria-label="Search users by name or email"
-            className="w-64 max-w-[60vw] px-3 py-2 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-display text-lg tracking-tight text-cocoa-dark">Directory</h2>
+          <FilterBar
+            config={{
+              search: {
+                placeholder: 'Search name or email…',
+                ariaLabel: 'Search users by name or email',
+              },
+              columnVisibility: true,
+            }}
+            search={search}
+            onSearchChange={setSearch}
+            columns={columnToggles}
+            onColumnToggle={(id, visible) =>
+              setColumnVisibility((current) => ({ ...current, [id]: visible }))
+            }
           />
         </div>
 
-        {loading ? (
-          <LoadingState />
-        ) : error ? (
-          <ErrorState message={error} onRetry={refresh} />
-        ) : !users || users.length === 0 ? (
-          <EmptyState search={search} />
+        {state.status === 'loading' ? (
+          <Skeleton rows={6} variant="table" />
+        ) : state.status === 'error' ? (
+          <ErrorState message={state.message} onRetry={retry} />
+        ) : state.data.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title={search.trim() ? 'No users match that search' : 'No users yet'}
+            message="Accounts appear here after their first sign-in on theroyalglow.in."
+          />
         ) : (
-          <ul className="divide-y divide-cloud-gray rounded-[6px] border border-cloud-gray bg-canvas-white">
-            {users.map((u) => (
-              <li key={u.id}>
-                <UserRow user={u} onChanged={refresh} />
-              </li>
-            ))}
-          </ul>
+          <DataTable
+            columns={columns}
+            data={state.data}
+            tableId="users"
+            caption="User directory"
+            columnVisibility={columnVisibility}
+            onColumnVisibilityChange={setColumnVisibility}
+            rowActions={(row) => [
+              {
+                label: 'Change role',
+                icon: KeyRound,
+                onSelect: () => setEditing(row.original),
+              },
+            ]}
+          />
         )}
       </section>
+
+      <RoleEditorPanel
+        user={editing}
+        onClose={() => setEditing(null)}
+        onChanged={() => {
+          setEditing(null)
+          retry()
+        }}
+      />
     </div>
   )
 }
 
-// ─── Assign-role form (email + role) ───
+/* ── Assign-role form (email + role) ────────────────────────────────────── */
 
 function AssignRoleForm({ onAssigned }: { onAssigned: () => void }) {
   const [email, setEmail] = useState('')
@@ -196,14 +318,14 @@ function AssignRoleForm({ onAssigned }: { onAssigned: () => void }) {
   return (
     <form
       onSubmit={submit}
-      className="rounded-[6px] border border-cloud-gray bg-canvas-white p-4 space-y-3"
+      className="space-y-3 rounded-cards border border-cloud-gray bg-canvas-white p-4"
     >
-      <h2 className="font-display text-lg text-cocoa-dark tracking-tight">Assign a role</h2>
-      <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
-        <div className="flex-1 min-w-0">
+      <h2 className="font-display text-lg tracking-tight text-cocoa-dark">Assign a role</h2>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="min-w-0 flex-1">
           <label
             htmlFor="assign-email"
-            className="block font-ui text-[11px] uppercase tracking-wider text-dusty-gray mb-1"
+            className="mb-1 block font-ui text-[11px] uppercase tracking-wider text-dusty-gray"
           >
             Email
           </label>
@@ -215,13 +337,13 @@ function AssignRoleForm({ onAssigned }: { onAssigned: () => void }) {
             required
             aria-required="true"
             placeholder="person@gmail.com"
-            className="w-full px-3 py-2 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
+            className={inputClass}
           />
         </div>
         <div className="sm:w-52">
           <label
             htmlFor="assign-role"
-            className="block font-ui text-[11px] uppercase tracking-wider text-dusty-gray mb-1"
+            className="mb-1 block font-ui text-[11px] uppercase tracking-wider text-dusty-gray"
           >
             Role
           </label>
@@ -229,7 +351,7 @@ function AssignRoleForm({ onAssigned }: { onAssigned: () => void }) {
             id="assign-role"
             value={role}
             onChange={(e) => setRole(e.target.value as AssignableRole)}
-            className="w-full px-3 py-2 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
+            className={inputClass}
           >
             {ASSIGNABLE_ROLES.map((r) => (
               <option key={r} value={r}>
@@ -241,7 +363,7 @@ function AssignRoleForm({ onAssigned }: { onAssigned: () => void }) {
         <button
           type="submit"
           disabled={busy}
-          className="h-[38px] px-5 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          className="h-[38px] rounded-buttons bg-cocoa-dark px-5 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray disabled:cursor-not-allowed disabled:opacity-60"
         >
           {busy ? 'Assigning…' : 'Assign role'}
         </button>
@@ -249,7 +371,7 @@ function AssignRoleForm({ onAssigned }: { onAssigned: () => void }) {
 
       {message && (
         <p
-          className={`font-sans text-sm ${message.kind === 'ok' ? 'text-emerald-700' : 'text-error'}`}
+          className={`font-sans text-sm ${message.kind === 'ok' ? 'text-success' : 'text-error'}`}
           role={message.kind === 'err' ? 'alert' : undefined}
           aria-live="polite"
         >
@@ -260,19 +382,38 @@ function AssignRoleForm({ onAssigned }: { onAssigned: () => void }) {
   )
 }
 
-// ─── Directory row with inline role editor ───
+/* ── SlideOverPanel role editor ─────────────────────────────────────────── */
 
-function UserRow({ user, onChanged }: { user: AdminUser; onChanged: () => void }) {
-  const [editing, setEditing] = useState(false)
-  const [role, setRole] = useState<AssignableRole>(
-    (user.role && (ASSIGNABLE_ROLES as readonly string[]).includes(user.role)
-      ? user.role
-      : 'customer') as AssignableRole,
-  )
+function RoleEditorPanel({
+  user,
+  onClose,
+  onChanged,
+}: {
+  user: AdminUser | null
+  onClose: () => void
+  onChanged: () => void
+}) {
+  const [role, setRole] = useState<AssignableRole>('customer')
   const [busy, setBusy] = useState(false)
   const [rowError, setRowError] = useState<string | null>(null)
 
+  // Seed the editor whenever a user is selected.
+  useEffect(() => {
+    if (!user) {
+      return
+    }
+    setRole(
+      (user.role && (ASSIGNABLE_ROLES as readonly string[]).includes(user.role)
+        ? user.role
+        : 'customer') as AssignableRole,
+    )
+    setRowError(null)
+  }, [user])
+
   const save = async () => {
+    if (!user) {
+      return
+    }
     setBusy(true)
     setRowError(null)
     try {
@@ -285,7 +426,6 @@ function UserRow({ user, onChanged }: { user: AdminUser; onChanged: () => void }
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not update the role.')
       }
-      setEditing(false)
       onChanged()
     } catch (err: unknown) {
       setRowError(err instanceof Error ? err.message : 'Could not update the role.')
@@ -295,147 +435,77 @@ function UserRow({ user, onChanged }: { user: AdminUser; onChanged: () => void }
   }
 
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3">
-      <div className="flex items-center gap-3 min-w-0">
-        {user.image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={user.image}
-            alt=""
-            className="h-9 w-9 rounded-full object-cover border border-outline-gray shrink-0"
-          />
-        ) : (
-          <span
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-cloud-gray font-ui font-bold text-sm text-warm-gray shrink-0"
-            aria-hidden="true"
+    <SlideOverPanel
+      open={user !== null}
+      onOpenChange={(open) => !open && onClose()}
+      title="Change role"
+      description={user ? (user.name || user.email) : undefined}
+      footer={
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-4 font-ui text-sm text-warm-gray transition-colors hover:bg-cloud-gray disabled:opacity-60"
           >
-            {(user.name || user.email).trim().charAt(0).toUpperCase()}
-          </span>
-        )}
-        <div className="min-w-0">
-          <p className="font-sans text-[15px] text-cocoa-dark truncate">{user.name || '—'}</p>
-          <p className="font-sans text-sm text-warm-gray truncate">{user.email}</p>
-          {rowError && (
-            <p className="font-sans text-xs text-error mt-0.5" role="alert">
-              {rowError}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {editing ? (
-        <div className="flex items-center gap-2 shrink-0">
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value as AssignableRole)}
-            aria-label={`Role for ${user.email}`}
-            className="px-2 py-1.5 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
-          >
-            {ASSIGNABLE_ROLES.map((r) => (
-              <option key={r} value={r}>
-                {ROLE_LABEL[r]}
-              </option>
-            ))}
-          </select>
+            Cancel
+          </button>
           <button
             type="button"
             onClick={save}
             disabled={busy}
-            className="h-8 px-3 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors disabled:opacity-60"
+            className="h-9 rounded-buttons bg-cocoa-dark px-4 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray disabled:cursor-not-allowed disabled:opacity-60"
           >
             {busy ? 'Saving…' : 'Save'}
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              setEditing(false)
-              setRowError(null)
-            }}
-            disabled={busy}
-            className="h-8 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-ui text-warm-gray hover:bg-cloud-gray transition-colors disabled:opacity-60"
-          >
-            Cancel
-          </button>
         </div>
-      ) : (
-        <div className="flex items-center gap-3 shrink-0">
-          <span
-            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-ui uppercase tracking-[0.5px] ${
-              ROLE_BADGE[user.role ?? ''] ?? 'bg-cloud-gray text-warm-gray'
-            }`}
-          >
-            {roleLabel(user.role)}
-          </span>
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="text-sm font-ui text-deep-gold hover:text-cocoa-dark transition-colors"
-          >
-            Change role
-          </button>
+      }
+    >
+      {user ? (
+        <div className="space-y-4">
+          <dl className="space-y-2 font-sans text-sm text-cocoa-dark">
+            <div className="flex gap-2">
+              <dt className="text-dusty-gray">Email</dt>
+              <dd className="truncate">{user.email}</dd>
+            </div>
+            <div className="flex items-center gap-2">
+              <dt className="text-dusty-gray">Current</dt>
+              <dd>
+                {user.role ? <StatusBadge status={user.role} /> : <span>No role</span>}
+              </dd>
+            </div>
+          </dl>
+
+          <label className="block">
+            <span className="mb-1 block font-ui text-[11px] uppercase tracking-wider text-dusty-gray">
+              New role
+            </span>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value as AssignableRole)}
+              aria-label={`Role for ${user.email}`}
+              className={inputClass}
+            >
+              {ASSIGNABLE_ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {ROLE_LABEL[r]}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {rowError && (
+            <p className="font-sans text-sm text-error" role="alert">
+              {rowError}
+            </p>
+          )}
         </div>
-      )}
-    </div>
+      ) : null}
+    </SlideOverPanel>
   )
 }
 
-function LoadingState() {
-  return (
-    <output
-      className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      aria-live="polite"
-    >
-      <Spinner />
-      <span className="font-sans text-sm text-dusty-gray">Loading users…</span>
-    </output>
-  )
-}
+/* ── Shared primitives ──────────────────────────────────────────────────── */
 
-function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div className="border border-error/40 bg-error/5 rounded-[6px] px-5 py-10 text-center">
-      <p className="font-sans text-sm text-error mb-3" role="alert">
-        {message}
-      </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
-      >
-        Try Again
-      </button>
-    </div>
-  )
-}
-
-function EmptyState({ search }: { search: string }) {
-  return (
-    <div className="border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 text-center">
-      <p className="font-sans text-sm text-cocoa-dark mb-1">
-        {search.trim() ? 'No users match that search' : 'No users yet'}
-      </p>
-      <p className="font-sans text-xs text-dusty-gray">
-        Accounts appear here after their first sign-in on theroyalglow.in.
-      </p>
-    </div>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-5 w-5 animate-spin text-deep-gold"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
-  )
-}
+const inputClass =
+  'w-full rounded-buttons border border-outline-gray bg-canvas-white px-3 py-2 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold'

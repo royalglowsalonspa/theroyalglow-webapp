@@ -6,33 +6,52 @@
  * Module Name  : Invoice Detail
  * Scope        : Admin Portal — Billing
  *
- * Description  : Read-only invoice view: header (number, status, customer),
- *                line items, and the GST-inclusive money breakdown. Links to the
- *                stored PDF when one exists.
+ * Description  : Read-only invoice view rebuilt on the admin design-system
+ *                primitives. Renders the header (number, status, customer),
+ *                line items via the reusable DataTable, the GST-inclusive money
+ *                breakdown, gems, and notes. Loading / error conditions use the
+ *                shared state presenters and the payment status uses StatusBadge.
+ *                Consumes GET /api/billing/[id] as-is.
  *
  * Responsibilities :
- * - Fetch the invoice + items from GET /api/billing/[id]
- * - Render line items and the subtotal / discount / taxable / GST / total split
- * - Surface gems earned/redeemed and payment method/reference
+ * - Fetch the invoice + items via useAsyncData
+ * - Render line items through the DataTable primitive
+ * - Render the subtotal / discount / taxable / GST / total split
+ * - Surface gems earned/redeemed, payment method/reference, and the PDF link
  *
  * Features / Functionality :
- * - INR (paise) money formatting; DD/MM/YYYY dates
- * - Loading / error / not-found states
+ * - INR (paise) money formatting via formatINRWithPaise; IST date-times
+ * - Loading (skeleton) / error / not-found states via the state presenters
+ * - Payment status via the StatusBadge primitive
  *
- * Tech Stack   : Next.js 16, React (Client Component), TypeScript
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript,
+ *                @tanstack/react-table
  * Layer        : Presentation (Detail Component)
  *
- * Dependencies : admin bookings lib (formatINR, formatDateDDMMYYYY), next/link,
- *                React hooks
+ * Dependencies : @/components/ui/data-table, @/components/ui/status-badge,
+ *                @/components/ui/state/*, @/components/ui/use-async-data,
+ *                @/lib/admin/format, next/link
  *
- * Notes        : Read-only. All money is paise from the API.
+ * Notes        :
+ * - Presentation-layer only. All money is paise from the API. Every
+ *   pre-redesign field and the Download PDF action are preserved.
+ *
+ * Requirements : 17.1, 17.2, 17.3, 17.4, 17.5, 17.6, 17.7
  ************************************************************/
 
 'use client'
 
-import { formatDateDDMMYYYY, formatINR } from '@/lib/admin/bookings'
+import { DataTable } from '@/components/ui/data-table'
+import { ErrorState } from '@/components/ui/state/error-state'
+import { Skeleton } from '@/components/ui/state/skeleton'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { useAsyncData } from '@/components/ui/use-async-data'
+import { PLACEHOLDER, formatDateTimeIST, formatINRWithPaise } from '@/lib/admin/format'
+import { cn } from '@rgss/ui/lib/utils'
+import type { ColumnDef } from '@tanstack/react-table'
+import { ArrowLeft, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 
 interface InvoiceItem {
   id: string
@@ -68,162 +87,161 @@ interface Invoice {
   items: InvoiceItem[]
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  paid: 'bg-emerald-100 text-emerald-700',
-  pending: 'bg-amber-100 text-amber-800',
-  refunded: 'bg-red-100 text-red-700',
-}
-
 export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
-  const [invoice, setInvoice] = useState<Invoice | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch(`/api/billing/${invoiceId}`)
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error?.message ?? 'Could not load the invoice.')
-      }
-      setInvoice(json.data.invoice as Invoice)
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not load the invoice.')
-    } finally {
-      setLoading(false)
+  const fetchInvoice = useCallback(async (): Promise<Invoice> => {
+    const res = await fetch(`/api/billing/${invoiceId}`)
+    const json = await res.json()
+    if (!res.ok || !json.success) {
+      throw new Error(json?.error?.message ?? 'Could not load the invoice.')
     }
+    return json.data.invoice as Invoice
   }, [invoiceId])
 
-  useEffect(() => {
-    load()
-  }, [load])
+  const { state, retry } = useAsyncData(fetchInvoice)
+
+  const columns = useMemo<ColumnDef<InvoiceItem, unknown>[]>(
+    () => [
+      {
+        accessorKey: 'serviceNameSnapshot',
+        header: 'Item',
+        cell: ({ row }) => <span className="text-cocoa-dark">{row.original.serviceNameSnapshot}</span>,
+      },
+      {
+        accessorKey: 'staffNameSnapshot',
+        header: 'Staff',
+        cell: ({ row }) => (
+          <span className="text-warm-gray">{row.original.staffNameSnapshot ?? PLACEHOLDER}</span>
+        ),
+      },
+      {
+        accessorKey: 'quantity',
+        header: 'Qty',
+        cell: ({ row }) => (
+          <span className="block text-right tabular-nums text-warm-gray">{row.original.quantity}</span>
+        ),
+      },
+      {
+        accessorKey: 'unitPricePaise',
+        header: 'Unit',
+        cell: ({ row }) => (
+          <span className="block text-right tabular-nums text-warm-gray">
+            {formatINRWithPaise(row.original.unitPricePaise)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'totalPricePaise',
+        header: 'Total',
+        cell: ({ row }) => (
+          <span className="block text-right font-ui tabular-nums text-cocoa-dark">
+            {formatINRWithPaise(row.original.totalPricePaise)}
+          </span>
+        ),
+      },
+    ],
+    [],
+  )
 
   return (
     <div className="space-y-5">
       <Link
         href="/billing"
-        className="inline-flex items-center gap-1 font-ui text-sm text-warm-gray hover:text-cocoa-dark transition-colors"
+        className="inline-flex items-center gap-1.5 font-ui text-sm text-warm-gray transition-colors hover:text-cocoa-dark"
       >
-        ← Back to billing
+        <ArrowLeft aria-hidden="true" size={16} />
+        Back to billing
       </Link>
 
-      {loading ? (
-        <LoadingState />
-      ) : error ? (
-        <ErrorState message={error} onRetry={load} />
-      ) : !invoice ? (
-        <ErrorState message="Invoice not found." onRetry={load} />
+      {state.status === 'loading' ? (
+        <Skeleton rows={3} variant="card" />
+      ) : state.status === 'error' ? (
+        <ErrorState message={state.message} onRetry={retry} />
       ) : (
-        <div className="space-y-5">
-          {/* Header */}
-          <div className="flex flex-wrap items-start justify-between gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white p-5">
-            <div>
-              <h1 className="font-display text-2xl text-cocoa-dark tracking-tight">
-                {invoice.invoiceNumber}
-              </h1>
-              <p className="font-sans text-sm text-warm-gray mt-1">
-                {invoice.customerName} · {invoice.customerEmail}
-              </p>
-              <p className="font-sans text-xs text-dusty-gray mt-0.5">
-                Issued {formatDateDDMMYYYY(invoice.createdAt)}
-                {invoice.paidAt ? ` · Paid ${formatDateDDMMYYYY(invoice.paidAt)}` : ''}
-              </p>
-            </div>
-            <div className="flex flex-col items-end gap-2">
-              <span
-                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-ui uppercase tracking-[0.5px] ${
-                  STATUS_STYLES[invoice.paymentStatus] ?? 'bg-cloud-gray text-warm-gray'
-                }`}
-              >
-                {invoice.paymentStatus}
-              </span>
-              <span className="font-ui text-[11px] uppercase tracking-[0.5px] text-dusty-gray">
-                {invoice.paymentMethod}
-                {invoice.paymentReference ? ` · ${invoice.paymentReference}` : ''}
-              </span>
-              {invoice.pdfUrl && (
-                <a
-                  href={invoice.pdfUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-ui text-sm text-deep-gold hover:text-cocoa-dark transition-colors"
-                >
-                  Download PDF ↗
-                </a>
-              )}
-            </div>
-          </div>
-
-          {/* Line items */}
-          <div className="border border-cloud-gray rounded-[6px] overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-cloud-gray/60">
-                    <Th>Item</Th>
-                    <Th>Staff</Th>
-                    <Th className="text-right">Qty</Th>
-                    <Th className="text-right">Unit</Th>
-                    <Th className="text-right">Total</Th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-cloud-gray">
-                  {invoice.items.map((item) => (
-                    <tr key={item.id}>
-                      <td className="px-4 py-3 font-sans text-cocoa-dark">
-                        {item.serviceNameSnapshot}
-                      </td>
-                      <td className="px-4 py-3 font-sans text-warm-gray">
-                        {item.staffNameSnapshot ?? '—'}
-                      </td>
-                      <td className="px-4 py-3 font-sans text-warm-gray text-right">
-                        {item.quantity}
-                      </td>
-                      <td className="px-4 py-3 font-sans text-warm-gray text-right">
-                        {formatINR(item.unitPricePaise)}
-                      </td>
-                      <td className="px-4 py-3 font-ui text-cocoa-dark text-right">
-                        {formatINR(item.totalPricePaise)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Money breakdown (GST 18% inclusive) */}
-          <div className="border border-cloud-gray rounded-[6px] bg-canvas-white p-5 ml-auto max-w-sm space-y-2">
-            <Row label="Subtotal" value={formatINR(invoice.subtotalPaise)} />
-            {invoice.discountAmountPaise > 0 && (
-              <Row label="Discount" value={`− ${formatINR(invoice.discountAmountPaise)}`} />
-            )}
-            <Row label="Taxable value" value={formatINR(invoice.taxableValuePaise)} muted />
-            <Row label="GST (18%)" value={formatINR(invoice.gstAmountPaise)} muted />
-            <div className="border-t border-cloud-gray pt-2 mt-2">
-              <Row label="Total" value={formatINR(invoice.totalAmountPaise)} bold />
-            </div>
-            {(invoice.gemsEarned > 0 || invoice.gemsRedeemed > 0) && (
-              <p className="font-sans text-xs text-dusty-gray pt-2">
-                {invoice.gemsEarned > 0 ? `+${invoice.gemsEarned} gems earned` : ''}
-                {invoice.gemsEarned > 0 && invoice.gemsRedeemed > 0 ? ' · ' : ''}
-                {invoice.gemsRedeemed > 0 ? `${invoice.gemsRedeemed} gems redeemed` : ''}
-              </p>
-            )}
-          </div>
-
-          {invoice.notes && (
-            <p className="font-sans text-sm text-warm-gray border border-cloud-gray rounded-[6px] bg-canvas-white p-4">
-              <span className="font-ui text-[11px] uppercase tracking-[0.5px] text-dusty-gray mr-2">
-                Notes
-              </span>
-              {invoice.notes}
-            </p>
-          )}
-        </div>
+        <InvoiceBody invoice={state.data} columns={columns} />
       )}
+    </div>
+  )
+}
+
+function InvoiceBody({
+  invoice,
+  columns,
+}: {
+  invoice: Invoice
+  columns: ColumnDef<InvoiceItem, unknown>[]
+}) {
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-cards border border-cloud-gray bg-canvas-white p-5">
+        <div>
+          <h1 className="font-display text-2xl tracking-tight text-cocoa-dark">
+            {invoice.invoiceNumber}
+          </h1>
+          <p className="mt-1 font-sans text-sm text-warm-gray">
+            {invoice.customerName} · {invoice.customerEmail}
+          </p>
+          <p className="mt-0.5 font-sans text-xs text-dusty-gray">
+            Issued {formatDateTimeIST(invoice.createdAt)}
+            {invoice.paidAt ? ` · Paid ${formatDateTimeIST(invoice.paidAt)}` : ''}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <StatusBadge status={invoice.paymentStatus} />
+          <span className="font-ui text-[11px] uppercase tracking-[0.5px] text-dusty-gray">
+            {invoice.paymentMethod}
+            {invoice.paymentReference ? ` · ${invoice.paymentReference}` : ''}
+          </span>
+          {invoice.pdfUrl ? (
+            <a
+              href={invoice.pdfUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 font-ui text-sm text-deep-gold transition-colors hover:text-cocoa-dark"
+            >
+              Download PDF
+              <ExternalLink aria-hidden="true" size={14} />
+            </a>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Line items */}
+      <DataTable
+        columns={columns}
+        data={invoice.items}
+        tableId="invoice-items"
+        caption={`Line items for invoice ${invoice.invoiceNumber}`}
+      />
+
+      {/* Money breakdown (GST 18% inclusive) */}
+      <div className="ml-auto max-w-sm space-y-2 rounded-cards border border-cloud-gray bg-canvas-white p-5">
+        <Row label="Subtotal" value={formatINRWithPaise(invoice.subtotalPaise)} />
+        {invoice.discountAmountPaise > 0 ? (
+          <Row label="Discount" value={`− ${formatINRWithPaise(invoice.discountAmountPaise)}`} />
+        ) : null}
+        <Row label="Taxable value" value={formatINRWithPaise(invoice.taxableValuePaise)} muted />
+        <Row label="GST (18%)" value={formatINRWithPaise(invoice.gstAmountPaise)} muted />
+        <div className="mt-2 border-t border-cloud-gray pt-2">
+          <Row label="Total" value={formatINRWithPaise(invoice.totalAmountPaise)} bold />
+        </div>
+        {invoice.gemsEarned > 0 || invoice.gemsRedeemed > 0 ? (
+          <p className="pt-2 font-sans text-xs text-dusty-gray">
+            {invoice.gemsEarned > 0 ? `+${invoice.gemsEarned} gems earned` : ''}
+            {invoice.gemsEarned > 0 && invoice.gemsRedeemed > 0 ? ' · ' : ''}
+            {invoice.gemsRedeemed > 0 ? `${invoice.gemsRedeemed} gems redeemed` : ''}
+          </p>
+        ) : null}
+      </div>
+
+      {invoice.notes ? (
+        <p className="rounded-cards border border-cloud-gray bg-canvas-white p-4 font-sans text-sm text-warm-gray">
+          <span className="mr-2 font-ui text-[11px] uppercase tracking-[0.5px] text-dusty-gray">
+            Notes
+          </span>
+          {invoice.notes}
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -242,77 +260,22 @@ function Row({
   return (
     <div className="flex items-center justify-between">
       <span
-        className={`font-sans text-sm ${muted ? 'text-dusty-gray' : 'text-warm-gray'} ${
-          bold ? 'font-ui text-cocoa-dark' : ''
-        }`}
+        className={cn(
+          'font-sans text-sm',
+          muted ? 'text-dusty-gray' : 'text-warm-gray',
+          bold && 'font-ui text-cocoa-dark',
+        )}
       >
         {label}
       </span>
       <span
-        className={`tabular-nums ${
-          bold ? 'font-ui text-base text-cocoa-dark' : 'font-sans text-sm text-cocoa-dark'
-        }`}
+        className={cn(
+          'tabular-nums',
+          bold ? 'font-ui text-base text-cocoa-dark' : 'font-sans text-sm text-cocoa-dark',
+        )}
       >
         {value}
       </span>
     </div>
-  )
-}
-
-function Th({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return (
-    <th
-      className={`px-4 py-2.5 font-ui text-xs uppercase tracking-wider text-dusty-gray ${className || 'text-left'}`}
-    >
-      {children}
-    </th>
-  )
-}
-
-function LoadingState() {
-  return (
-    <output
-      className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      aria-live="polite"
-    >
-      <Spinner />
-      <span className="font-sans text-sm text-dusty-gray">Loading invoice…</span>
-    </output>
-  )
-}
-
-function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div className="border border-error/40 bg-error/5 rounded-[6px] px-5 py-10 text-center">
-      <p className="font-sans text-sm text-error mb-3" role="alert">
-        {message}
-      </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
-      >
-        Try Again
-      </button>
-    </div>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-5 w-5 animate-spin text-deep-gold"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
   )
 }

@@ -39,6 +39,8 @@ import {
   formatDaysSince,
   leadCampaignLabel,
 } from '@/lib/admin/leads'
+import { Icon } from '@/components/ui/icon'
+import { Phone } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
@@ -200,7 +202,7 @@ function LeadCard({ lead }: { lead: LeadPipelineRow }) {
         className="mt-1.5 inline-flex items-center gap-1 font-sans text-xs text-warm-gray hover:text-deep-gold motion-safe:transition-colors"
         aria-label={`Call ${lead.name} at ${lead.phone}`}
       >
-        <span aria-hidden="true">📞</span>
+        <Icon icon={Phone} decorative size={14} />
         {lead.phone}
       </a>
 

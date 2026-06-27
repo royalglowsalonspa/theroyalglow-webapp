@@ -6,33 +6,56 @@
  * Module Name  : Services Manager
  * Scope        : Admin Portal — Service & Category management
  *
- * Description  : Full CRUD for the operational catalogue: services grouped by
- *                category (incl. inactive), plus category management. Create/edit
- *                via Radix dialogs; activate/deactivate inline. Single source of
- *                truth for bookings and the customer /services page.
+ * Description  : Full CRUD for the operational catalogue, rebuilt on the admin
+ *                design-system primitives (DataTable, FilterBar, StatusBadge,
+ *                state presenters, useAsyncData, SlideOverPanel). Services and
+ *                categories (active + inactive) are listed in DataTables;
+ *                create/edit happen in right-side SlideOverPanels; activate /
+ *                deactivate runs inline via the row-action menu. Single source
+ *                of truth for bookings and the customer /services page.
  *
  * Responsibilities :
  * - List categories + services (active and inactive) from GET /api/services/all
  * - Create/edit services (POST /api/services, PATCH /api/services/[id])
  * - Create/edit categories (POST/PATCH /api/service-categories)
+ * - Activate / deactivate services and categories inline
  * - Enforce the slot-length rule in the form (SPA 30/60, Salon 5-min steps)
  *
- * Tech Stack   : Next.js 16, React (Client Component), Radix Dialog, Tailwind
+ * Features / Functionality :
+ * - Service search + category filter + Salon/SPA type tabs via FilterBar
+ * - Status pills via StatusBadge; money via formatINRWithPaise
+ * - Loading / empty / error via the State_Presenter components + useAsyncData
+ *
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript,
+ *                @tanstack/react-table, Radix Dialog (SlideOverPanel)
  * Layer        : Presentation (Management Component)
  *
- * Dependencies : @radix-ui/react-dialog, admin bookings lib (formatINR),
- *                @rgss/types (SERVICE_TYPES, SPA_DURATIONS), React hooks
+ * Dependencies : DataTable, FilterBar, StatusBadge, SlideOverPanel, state
+ *                presenters, useAsyncData, @/lib/admin/format, @rgss/types
  *
- * Notes        : Price is entered in rupees and stored as paise. Services and
- *                categories are deactivated, never hard-deleted.
+ * Notes        : Presentation-layer only; consumes GET /api/services/all,
+ *                /api/services, /api/service-categories as-is. Price is entered
+ *                in rupees and stored as paise. Services and categories are
+ *                deactivated, never hard-deleted. All pre-redesign fields and
+ *                actions are preserved.
  ************************************************************/
 
 'use client'
 
-import { formatINR } from '@/lib/admin/bookings'
-import * as Dialog from '@radix-ui/react-dialog'
+import { DataTable, type RowAction } from '@/components/ui/data-table'
+import { FilterBar } from '@/components/ui/filter-bar'
+import { SlideOverPanel } from '@/components/ui/slide-over-panel'
+import { EmptyState } from '@/components/ui/state/empty-state'
+import { ErrorState } from '@/components/ui/state/error-state'
+import { Skeleton } from '@/components/ui/state/skeleton'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { useAsyncData } from '@/components/ui/use-async-data'
+import { formatINRWithPaise } from '@/lib/admin/format'
 import { SPA_DURATIONS, type ServiceTypeValue } from '@rgss/types'
-import { useCallback, useEffect, useState } from 'react'
+import type { ColumnDef } from '@tanstack/react-table'
+import { Gem, Pencil, Power, Sparkles, Tag } from 'lucide-react'
+import { Icon } from '@/components/ui/icon'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 interface AdminService {
   id: string
@@ -61,18 +84,37 @@ interface AdminCategory {
   isActive: boolean
 }
 
-const TYPE_BADGE: Record<string, string> = {
-  salon: 'bg-indigo-100 text-indigo-800',
-  spa: 'bg-teal-100 text-teal-800',
+interface ServicesData {
+  services: AdminService[]
+  categories: AdminCategory[]
+}
+
+// Load the full catalogue (active + inactive) in one request, mirroring the
+// pre-redesign GET /api/services/all consumption.
+async function fetchServicesData(): Promise<ServicesData> {
+  const res = await fetch('/api/services/all')
+  const json = await res.json()
+  if (!res.ok || !json.success) {
+    throw new Error(json?.error?.message ?? 'Could not load services.')
+  }
+  return {
+    services: json.data.services as AdminService[],
+    categories: json.data.categories as AdminCategory[],
+  }
 }
 
 export function ServicesManager() {
-  const [services, setServices] = useState<AdminService[]>([])
-  const [categories, setCategories] = useState<AdminCategory[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { state, retry } = useAsyncData(fetchServicesData)
 
-  // Dialog state: which form is open and the row being edited (null = create).
+  // Mutation-level error surfaced as a banner (distinct from the load error).
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  // Filters emitted by the FilterBar (client-side over the loaded set).
+  const [search, setSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState('all')
+
+  // SlideOverPanel state: which form is open and the row being edited.
   const [serviceDialog, setServiceDialog] = useState<{
     open: boolean
     editing: AdminService | null
@@ -82,58 +124,191 @@ export function ServicesManager() {
     editing: AdminCategory | null
   }>({ open: false, editing: null })
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch('/api/services/all')
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error?.message ?? 'Could not load services.')
+  const services = state.status === 'success' ? state.data.services : []
+  const categories = state.status === 'success' ? state.data.categories : []
+
+  const reload = useCallback(() => {
+    setActionError(null)
+    retry()
+  }, [retry])
+
+  const toggleService = useCallback(
+    async (svc: AdminService) => {
+      setActionError(null)
+      try {
+        const res = await fetch(`/api/services/${svc.id}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ isActive: !svc.isActive }),
+        })
+        const json = await res.json()
+        if (!res.ok || !json.success) {
+          throw new Error(json?.error?.message ?? 'Could not update this service.')
+        }
+        retry()
+      } catch (err: unknown) {
+        setActionError(err instanceof Error ? err.message : 'Could not update this service.')
       }
-      setServices(json.data.services as AdminService[])
-      setCategories(json.data.categories as AdminCategory[])
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not load services.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+    },
+    [retry],
+  )
 
-  useEffect(() => {
-    load()
-  }, [load])
+  const toggleCategory = useCallback(
+    async (cat: AdminCategory) => {
+      setActionError(null)
+      try {
+        const res = await fetch(`/api/service-categories/${cat.id}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ isActive: !cat.isActive }),
+        })
+        const json = await res.json()
+        if (!res.ok || !json.success) {
+          throw new Error(json?.error?.message ?? 'Could not update this category.')
+        }
+        retry()
+      } catch (err: unknown) {
+        setActionError(err instanceof Error ? err.message : 'Could not update this category.')
+      }
+    },
+    [retry],
+  )
 
-  const toggleService = async (svc: AdminService) => {
-    await fetch(`/api/services/${svc.id}`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ isActive: !svc.isActive }),
-    })
-    load()
-  }
+  const filteredServices = useMemo(() => {
+    const term = search.toLowerCase()
+    return services.filter(
+      (s) =>
+        (categoryFilter === 'all' || s.categoryId === categoryFilter) &&
+        (typeFilter === 'all' || s.serviceType === typeFilter) &&
+        (term === '' || s.name.toLowerCase().includes(term)),
+    )
+  }, [services, search, categoryFilter, typeFilter])
 
-  const toggleCategory = async (cat: AdminCategory) => {
-    await fetch(`/api/service-categories/${cat.id}`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ isActive: !cat.isActive }),
-    })
-    load()
-  }
+  const serviceColumns = useMemo<ColumnDef<AdminService, unknown>[]>(
+    () => [
+      {
+        accessorKey: 'name',
+        header: 'Service',
+        cell: ({ row }) => (
+          <span className="font-sans text-cocoa-dark">
+            {row.original.name}
+            {row.original.gemsRedeemable ? (
+              <span className="ml-2 inline-flex items-center gap-1 align-middle font-ui text-[11px] text-deep-gold">
+                <Icon icon={Gem} decorative size={12} /> gems
+              </span>
+            ) : null}
+          </span>
+        ),
+      },
+      { accessorKey: 'categoryName', header: 'Category' },
+      {
+        accessorKey: 'serviceType',
+        header: 'Type',
+        cell: ({ row }) => (
+          <span className="font-sans capitalize text-warm-gray">{row.original.serviceType}</span>
+        ),
+      },
+      {
+        id: 'duration',
+        header: 'Duration',
+        accessorFn: (s) => s.durationMinutes,
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap font-sans text-warm-gray">
+            {row.original.durationMinutes} min
+            {row.original.bufferMinutes > 0 ? ` (+${row.original.bufferMinutes})` : ''}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'pricePaise',
+        header: 'Price',
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap font-ui text-cocoa-dark">
+            {formatINRWithPaise(row.original.pricePaise)}
+          </span>
+        ),
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        accessorFn: (s) => (s.isActive ? 'active' : 'inactive'),
+        cell: ({ row }) => (
+          <StatusBadge status={row.original.isActive ? 'active' : 'inactive'} />
+        ),
+      },
+    ],
+    [],
+  )
 
-  // Group services under their category for display (categories first).
-  const grouped = categories.map((cat) => ({
-    category: cat,
-    items: services.filter((s) => s.categoryId === cat.id),
-  }))
+  const serviceRowActions = useCallback(
+    (svc: AdminService): RowAction[] => [
+      {
+        label: 'Edit',
+        icon: Pencil,
+        onSelect: () => setServiceDialog({ open: true, editing: svc }),
+      },
+      {
+        label: svc.isActive ? 'Deactivate' : 'Activate',
+        icon: Power,
+        onSelect: () => toggleService(svc),
+      },
+    ],
+    [toggleService],
+  )
+
+  const categoryColumns = useMemo<ColumnDef<AdminCategory, unknown>[]>(
+    () => [
+      { accessorKey: 'name', header: 'Category' },
+      {
+        accessorKey: 'serviceType',
+        header: 'Type',
+        cell: ({ row }) => (
+          <span className="font-sans capitalize text-warm-gray">{row.original.serviceType}</span>
+        ),
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        accessorFn: (c) => (c.isActive ? 'active' : 'inactive'),
+        cell: ({ row }) => (
+          <StatusBadge status={row.original.isActive ? 'active' : 'inactive'} />
+        ),
+      },
+    ],
+    [],
+  )
+
+  const categoryRowActions = useCallback(
+    (cat: AdminCategory): RowAction[] => [
+      {
+        label: 'Edit',
+        icon: Pencil,
+        onSelect: () => setCategoryDialog({ open: true, editing: cat }),
+      },
+      {
+        label: cat.isActive ? 'Deactivate' : 'Activate',
+        icon: Power,
+        onSelect: () => toggleCategory(cat),
+      },
+    ],
+    [toggleCategory],
+  )
+
+  const categoryOptions = useMemo(
+    () => [
+      { value: 'all', label: 'All categories' },
+      ...categories.map((c) => ({ value: c.id, label: c.name })),
+    ],
+    [categories],
+  )
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">Services</h1>
-          <p className="font-sans text-sm text-dusty-gray mt-0.5">
+          <h1 className="font-display text-2xl tracking-tight text-cocoa-dark">Services</h1>
+          <p className="mt-0.5 font-sans text-sm text-dusty-gray">
             The catalogue that powers bookings and the customer website. SPA services are 30 or 60
             minutes; Salon durations are free.
           </p>
@@ -142,7 +317,7 @@ export function ServicesManager() {
           <button
             type="button"
             onClick={() => setCategoryDialog({ open: true, editing: null })}
-            className="h-9 px-4 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-ui text-cocoa-dark hover:bg-cloud-gray transition-colors"
+            className="inline-flex h-9 items-center gap-1.5 rounded-buttons border border-outline-gray bg-canvas-white px-4 font-ui text-sm text-cocoa-dark transition-colors hover:bg-cloud-gray"
           >
             + Category
           </button>
@@ -150,176 +325,124 @@ export function ServicesManager() {
             type="button"
             onClick={() => setServiceDialog({ open: true, editing: null })}
             disabled={categories.length === 0}
-            className="h-9 px-4 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex h-9 items-center gap-1.5 rounded-buttons bg-cocoa-dark px-4 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray disabled:cursor-not-allowed disabled:opacity-50"
           >
             + Service
           </button>
         </div>
       </div>
 
-      {loading ? (
-        <LoadingState />
-      ) : error ? (
-        <ErrorState message={error} onRetry={load} />
+      {actionError ? (
+        <p className="rounded-cards border border-error/40 bg-error/5 px-4 py-2.5 font-sans text-sm text-error" role="alert">
+          {actionError}
+        </p>
+      ) : null}
+
+      {state.status === 'loading' ? (
+        <Skeleton variant="table" rows={6} />
+      ) : state.status === 'error' ? (
+        <ErrorState message={state.message} onRetry={reload} />
       ) : (
         <div className="space-y-8">
-          {/* Categories panel */}
-          <section className="space-y-3">
-            <h2 className="font-display text-lg text-cocoa-dark tracking-tight">Categories</h2>
+          {/* Categories */}
+          <section className="space-y-3" aria-labelledby="categories-heading">
+            <h2 id="categories-heading" className="font-display text-lg tracking-tight text-cocoa-dark">
+              Categories
+            </h2>
             {categories.length === 0 ? (
-              <EmptyHint>Create a category (Salon or SPA) before adding services.</EmptyHint>
+              <EmptyState
+                title="No categories yet"
+                message="Create a category (Salon or SPA) before adding services."
+                icon={Tag}
+              />
             ) : (
-              <ul className="divide-y divide-cloud-gray rounded-[6px] border border-cloud-gray bg-canvas-white">
-                {categories.map((cat) => (
-                  <li key={cat.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                    <div className="min-w-0">
-                      <p className="font-sans text-[15px] text-cocoa-dark truncate">
-                        {cat.name}{' '}
-                        <span
-                          className={`ml-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-ui uppercase tracking-[0.5px] ${TYPE_BADGE[cat.serviceType]}`}
-                        >
-                          {cat.serviceType}
-                        </span>
-                        {!cat.isActive && (
-                          <span className="ml-1 inline-flex items-center rounded-full bg-cloud-gray px-2 py-0.5 text-[10px] font-ui uppercase tracking-[0.5px] text-warm-gray">
-                            inactive
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => toggleCategory(cat)}
-                        className="text-sm font-ui text-warm-gray hover:text-cocoa-dark transition-colors"
-                      >
-                        {cat.isActive ? 'Deactivate' : 'Activate'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCategoryDialog({ open: true, editing: cat })}
-                        className="text-sm font-ui text-deep-gold hover:text-cocoa-dark transition-colors"
-                      >
-                        Edit
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <DataTable
+                columns={categoryColumns}
+                data={categories}
+                tableId="service-categories"
+                rowActions={({ original }) => categoryRowActions(original)}
+                caption="Service categories with type and status"
+              />
             )}
           </section>
 
-          {/* Services grouped by category */}
-          <section className="space-y-4">
-            <h2 className="font-display text-lg text-cocoa-dark tracking-tight">Services</h2>
-            {grouped.every((g) => g.items.length === 0) ? (
-              <EmptyHint>No services yet. Click “+ Service” to add one.</EmptyHint>
+          {/* Services */}
+          <section className="space-y-3" aria-labelledby="services-heading">
+            <h2 id="services-heading" className="font-display text-lg tracking-tight text-cocoa-dark">
+              Services
+            </h2>
+            <FilterBar
+              config={{
+                search: { placeholder: 'Search services…', ariaLabel: 'Search services by name' },
+                tabs: {
+                  ariaLabel: 'Filter by service type',
+                  options: [
+                    { value: 'all', label: 'All' },
+                    { value: 'salon', label: 'Salon' },
+                    { value: 'spa', label: 'SPA' },
+                  ],
+                },
+                dropdowns: [
+                  {
+                    id: 'category',
+                    label: 'Filter by category',
+                    options: categoryOptions,
+                    value: categoryFilter,
+                  },
+                ],
+              }}
+              search={search}
+              onSearchChange={setSearch}
+              onTabChange={setTypeFilter}
+              onFilterChange={(id, value) => {
+                if (id === 'category') {
+                  setCategoryFilter(value)
+                }
+              }}
+            />
+            {filteredServices.length === 0 ? (
+              <EmptyState
+                title="No services found"
+                message="Adjust the filters above, or click “+ Service” to add one."
+                icon={Sparkles}
+              />
             ) : (
-              grouped.map(
-                ({ category, items }) =>
-                  items.length > 0 && (
-                    <div key={category.id} className="space-y-2">
-                      <h3 className="font-ui text-[11px] uppercase tracking-[1px] text-dusty-gray">
-                        {category.name}
-                      </h3>
-                      <div className="border border-cloud-gray rounded-[6px] overflow-hidden">
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="bg-cloud-gray/60">
-                                <Th>Service</Th>
-                                <Th className="text-right">Duration</Th>
-                                <Th className="text-right">Price</Th>
-                                <Th>Status</Th>
-                                <Th className="text-right">Actions</Th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-cloud-gray">
-                              {items.map((svc) => (
-                                <tr
-                                  key={svc.id}
-                                  className="hover:bg-cloud-gray/30 transition-colors"
-                                >
-                                  <td className="px-4 py-3 font-sans text-cocoa-dark">
-                                    {svc.name}
-                                    {svc.gemsRedeemable && (
-                                      <span className="ml-2 text-[11px] text-deep-gold">
-                                        ◆ gems
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3 font-sans text-warm-gray text-right whitespace-nowrap">
-                                    {svc.durationMinutes} min
-                                    {svc.bufferMinutes > 0 ? ` (+${svc.bufferMinutes})` : ''}
-                                  </td>
-                                  <td className="px-4 py-3 font-ui text-cocoa-dark text-right whitespace-nowrap">
-                                    {formatINR(svc.pricePaise)}
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    {svc.isActive ? (
-                                      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-ui text-emerald-700">
-                                        Active
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center rounded-full bg-cloud-gray px-2 py-0.5 text-[11px] font-ui text-warm-gray">
-                                        Inactive
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleService(svc)}
-                                      className="text-sm font-ui text-warm-gray hover:text-cocoa-dark transition-colors mr-3"
-                                    >
-                                      {svc.isActive ? 'Deactivate' : 'Activate'}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => setServiceDialog({ open: true, editing: svc })}
-                                      className="text-sm font-ui text-deep-gold hover:text-cocoa-dark transition-colors"
-                                    >
-                                      Edit
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
-                  ),
-              )
+              <DataTable
+                columns={serviceColumns}
+                data={filteredServices}
+                tableId="services"
+                rowActions={({ original }) => serviceRowActions(original)}
+                caption="Service catalogue with category, type, duration, price, and status"
+              />
             )}
           </section>
         </div>
       )}
 
-      <ServiceDialog
+      <ServiceForm
         state={serviceDialog}
         categories={categories}
         onClose={() => setServiceDialog({ open: false, editing: null })}
         onSaved={() => {
           setServiceDialog({ open: false, editing: null })
-          load()
+          reload()
         }}
       />
-      <CategoryDialog
+      <CategoryForm
         state={categoryDialog}
         onClose={() => setCategoryDialog({ open: false, editing: null })}
         onSaved={() => {
           setCategoryDialog({ open: false, editing: null })
-          load()
+          reload()
         }}
       />
     </div>
   )
 }
 
-/* ── Service create/edit dialog ─────────────────────────────────────────── */
+/* ── Service create/edit form (SlideOverPanel) ──────────────────────────── */
 
-function ServiceDialog({
+function ServiceForm({
   state,
   categories,
   onClose,
@@ -340,7 +463,7 @@ function ServiceDialog({
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
-  // Seed the form whenever the dialog opens (edit → row values; create → defaults).
+  // Seed the form whenever the panel opens (edit → row values; create → defaults).
   useEffect(() => {
     if (!state.open) {
       return
@@ -410,9 +533,9 @@ function ServiceDialog({
   }
 
   return (
-    <FormDialog
+    <SlideOverPanel
       open={state.open}
-      onClose={onClose}
+      onOpenChange={(o) => !o && onClose()}
       title={editing ? 'Edit service' : 'New service'}
     >
       <form onSubmit={submit} className="space-y-3">
@@ -494,26 +617,26 @@ function ServiceDialog({
             type="checkbox"
             checked={gemsRedeemable}
             onChange={(e) => setGemsRedeemable(e.target.checked)}
-            className="h-4 w-4 rounded border-outline-gray text-deep-gold focus:ring-deep-gold"
+            className="h-4 w-4 rounded-cards border-outline-gray accent-deep-gold"
           />
           Redeemable with gems
         </label>
 
-        {formError && (
+        {formError ? (
           <p className="font-sans text-sm text-error" role="alert">
             {formError}
           </p>
-        )}
+        ) : null}
 
         <DialogActions busy={busy} onClose={onClose} submitLabel={editing ? 'Save' : 'Create'} />
       </form>
-    </FormDialog>
+    </SlideOverPanel>
   )
 }
 
-/* ── Category create/edit dialog ────────────────────────────────────────── */
+/* ── Category create/edit form (SlideOverPanel) ─────────────────────────── */
 
-function CategoryDialog({
+function CategoryForm({
   state,
   onClose,
   onSaved,
@@ -573,9 +696,9 @@ function CategoryDialog({
   }
 
   return (
-    <FormDialog
+    <SlideOverPanel
       open={state.open}
-      onClose={onClose}
+      onOpenChange={(o) => !o && onClose()}
       title={editing ? 'Edit category' : 'New category'}
     >
       <form onSubmit={submit} className="space-y-3">
@@ -600,54 +723,28 @@ function CategoryDialog({
             <option value="spa">SPA</option>
           </select>
         </Field>
-        {editing && (
+        {editing ? (
           <p className="font-sans text-xs text-dusty-gray">
             Type can’t change after creation — it governs the slot-length rule of its services.
           </p>
-        )}
+        ) : null}
 
-        {formError && (
+        {formError ? (
           <p className="font-sans text-sm text-error" role="alert">
             {formError}
           </p>
-        )}
+        ) : null}
 
         <DialogActions busy={busy} onClose={onClose} submitLabel={editing ? 'Save' : 'Create'} />
       </form>
-    </FormDialog>
+    </SlideOverPanel>
   )
 }
 
-/* ── Shared primitives ──────────────────────────────────────────────────── */
+/* ── Shared form primitives ─────────────────────────────────────────────── */
 
 const inputClass =
-  'w-full px-3 py-2 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold'
-
-function FormDialog({
-  open,
-  onClose,
-  title,
-  children,
-}: {
-  open: boolean
-  onClose: () => void
-  title: string
-  children: React.ReactNode
-}) {
-  return (
-    <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-cocoa-dark/40 backdrop-blur-[2px]" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-cloud-gray bg-canvas-white p-5 shadow-elevated focus:outline-none">
-          <Dialog.Title className="font-display text-lg text-cocoa-dark tracking-tight mb-3">
-            {title}
-          </Dialog.Title>
-          {children}
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
-  )
-}
+  'w-full px-3 py-2 rounded-buttons border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold'
 
 function DialogActions({
   busy,
@@ -664,14 +761,14 @@ function DialogActions({
         type="button"
         onClick={onClose}
         disabled={busy}
-        className="h-9 px-4 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-ui text-warm-gray hover:bg-cloud-gray transition-colors disabled:opacity-60"
+        className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-4 font-ui text-sm text-warm-gray transition-colors hover:bg-cloud-gray disabled:opacity-60"
       >
         Cancel
       </button>
       <button
         type="submit"
         disabled={busy}
-        className="h-9 px-4 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+        className="h-9 rounded-buttons bg-cocoa-dark px-4 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray disabled:cursor-not-allowed disabled:opacity-60"
       >
         {busy ? 'Saving…' : submitLabel}
       </button>
@@ -683,76 +780,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return (
     // biome-ignore lint/a11y/noLabelWithoutControl: the control is provided via children (implicit label association)
     <label className="block">
-      <span className="block font-ui text-[11px] uppercase tracking-wider text-dusty-gray mb-1">
+      <span className="mb-1 block font-ui text-[11px] uppercase tracking-wider text-dusty-gray">
         {label}
       </span>
       {children}
     </label>
-  )
-}
-
-function EmptyHint({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-10 text-center">
-      <p className="font-sans text-sm text-dusty-gray">{children}</p>
-    </div>
-  )
-}
-
-function LoadingState() {
-  return (
-    <output
-      className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      aria-live="polite"
-    >
-      <Spinner />
-      <span className="font-sans text-sm text-dusty-gray">Loading services…</span>
-    </output>
-  )
-}
-
-function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div className="border border-error/40 bg-error/5 rounded-[6px] px-5 py-10 text-center">
-      <p className="font-sans text-sm text-error mb-3" role="alert">
-        {message}
-      </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
-      >
-        Try Again
-      </button>
-    </div>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-5 w-5 animate-spin text-deep-gold"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
-  )
-}
-
-function Th({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return (
-    <th
-      className={`px-4 py-2.5 font-ui text-xs uppercase tracking-wider text-dusty-gray ${className || 'text-left'}`}
-    >
-      {children}
-    </th>
   )
 }

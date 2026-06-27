@@ -6,33 +6,60 @@
  * Module Name  : Staff Manager
  * Scope        : Admin Portal — Staff management
  *
- * Description  : Interactive staff roster with an edit dialog that updates a
+ * Description  : Interactive staff roster rebuilt on the admin design-system
+ *                primitives. Renders the list via the reusable DataTable, its
+ *                controls via the FilterBar, the active/inactive state via
+ *                StatusBadge, and loading / empty / error conditions via the
+ *                shared state presenters. Fetch orchestration + timeout is
+ *                delegated to the useAsyncData hook. The edit dialog updates a
  *                staff member's profile fields AND replaces their service
  *                capabilities (the staff_service mapping that drives booking
- *                availability). Manager+.
+ *                availability). Consumes the existing staff APIs as-is. Manager+.
  *
  * Responsibilities :
  * - List staff (name, email, designation, # services, active status) from
- *   GET /api/staff/all
+ *   GET /api/staff/all via useAsyncData
  * - Edit profile fields (PATCH /api/staff/[id]) + services
  *   (PUT /api/staff/[id]/services) in one save
+ * - Add a staff member by linking an existing account (POST /api/staff)
  * - Multi-select services grouped by category, loaded from GET /api/services/all
  *
- * Tech Stack   : Next.js 16, React (Client Component), Radix Dialog, Tailwind
- * Layer        : Presentation (Management Component)
+ * Tech Stack   : Next.js 16, React (Client Component), @tanstack/react-table,
+ *                Radix Dialog, Tailwind CSS v4 (Brand Tokens)
+ * Layer        : Presentation (Data Table Component)
  *
- * Dependencies : @radix-ui/react-dialog, @rgss/types (STAFF_DESIGNATIONS),
- *                React hooks
+ * Dependencies : @/components/ui/data-table, @/components/ui/filter-bar,
+ *                @/components/ui/status-badge, @/components/ui/state/*,
+ *                @/components/ui/use-async-data, @/components/ui/icon,
+ *                @radix-ui/react-dialog, @rgss/types, lucide-react, React hooks
  *
- * Notes        : Staff are deactivated (isActive=false), never hard-deleted.
- *                Loading / error / empty states mirror the billing table.
+ * Notes        : Presentation-layer only — no API/RBAC/data-model/business-logic
+ *                changes. Uses ONLY semantic Brand-Token utilities and lucide
+ *                icons via the Icon wrapper — no emoji / hex / raw-palette
+ *                literals. Staff are deactivated (isActive=false), never
+ *                hard-deleted. Every pre-redesign field (Name, Email,
+ *                Designation, Services, Status) and action (Add, Edit + service
+ *                capabilities) is preserved (Req 17.6, 17.7).
+ *
+ * Requirements : 17.1, 17.2, 17.3, 17.4, 17.5, 17.6, 17.7
  ************************************************************/
 
 'use client'
 
+import { DataTable, type RowAction } from '@/components/ui/data-table'
+import { FilterBar, type ColumnToggle } from '@/components/ui/filter-bar'
+import { Icon } from '@/components/ui/icon'
+import { EmptyState } from '@/components/ui/state/empty-state'
+import { ErrorState } from '@/components/ui/state/error-state'
+import { Skeleton } from '@/components/ui/state/skeleton'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { useAsyncData } from '@/components/ui/use-async-data'
 import * as Dialog from '@radix-ui/react-dialog'
+import { cn } from '@rgss/ui/lib/utils'
 import { STAFF_DESIGNATIONS, type StaffDesignation } from '@rgss/types'
-import { useCallback, useEffect, useState } from 'react'
+import type { ColumnDef } from '@tanstack/react-table'
+import { Pencil, Scissors, UserPlus } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 interface StaffRow {
   id: string
@@ -59,13 +86,6 @@ interface CatalogueService {
   isActive: boolean
 }
 
-const DESIGNATION_BADGE: Record<string, string> = {
-  manager: 'bg-indigo-100 text-indigo-800',
-  therapist: 'bg-teal-100 text-teal-800',
-  stylist: 'bg-amber-100 text-amber-800',
-  receptionist: 'bg-cloud-gray text-warm-gray',
-}
-
 const DESIGNATION_LABEL: Record<StaffDesignation, string> = {
   receptionist: 'Receptionist',
   stylist: 'Stylist',
@@ -73,120 +93,140 @@ const DESIGNATION_LABEL: Record<StaffDesignation, string> = {
   manager: 'Manager',
 }
 
+/** Toggleable data columns surfaced to the FilterBar column-visibility control. */
+const COLUMN_META: { id: string; label: string }[] = [
+  { id: 'name', label: 'Name' },
+  { id: 'email', label: 'Email' },
+  { id: 'designation', label: 'Designation' },
+  { id: 'serviceCount', label: 'Services' },
+  { id: 'isActive', label: 'Status' },
+]
+
+async function fetchStaff(): Promise<StaffRow[]> {
+  const res = await fetch('/api/staff/all')
+  const json = await res.json()
+  if (!res.ok || !json.success) {
+    throw new Error(json?.error?.message ?? 'Could not load staff.')
+  }
+  return json.data.staff as StaffRow[]
+}
+
 export function StaffManager() {
-  const [staff, setStaff] = useState<StaffRow[] | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({})
   const [editing, setEditing] = useState<StaffRow | null>(null)
   const [creating, setCreating] = useState(false)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch('/api/staff/all')
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error?.message ?? 'Could not load staff.')
-      }
-      setStaff(json.data.staff as StaffRow[])
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not load staff.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const { state, retry } = useAsyncData(fetchStaff)
 
-  useEffect(() => {
-    load()
-  }, [load])
+  const columns = useMemo<ColumnDef<StaffRow, unknown>[]>(
+    () => [
+      { id: 'name', accessorKey: 'name', header: 'Name' },
+      {
+        id: 'email',
+        accessorKey: 'email',
+        header: 'Email',
+        cell: ({ row }) => <span className="text-warm-gray">{row.original.email}</span>,
+      },
+      {
+        id: 'designation',
+        accessorKey: 'designation',
+        header: 'Designation',
+        cell: ({ row }) => <DesignationPill designation={row.original.designation} />,
+      },
+      {
+        id: 'serviceCount',
+        accessorKey: 'serviceCount',
+        header: 'Services',
+        cell: ({ row }) => <span className="font-ui">{row.original.serviceCount}</span>,
+      },
+      {
+        id: 'isActive',
+        accessorKey: 'isActive',
+        header: 'Status',
+        cell: ({ row }) => (
+          <StatusBadge status={row.original.isActive ? 'active' : 'inactive'} />
+        ),
+      },
+    ],
+    [],
+  )
+
+  const rowActions = useCallback(
+    (row: { original: StaffRow }): RowAction[] => [
+      {
+        label: 'Edit',
+        icon: Pencil,
+        onSelect: () => setEditing(row.original),
+      },
+    ],
+    [],
+  )
+
+  const columnToggles: ColumnToggle[] = COLUMN_META.map((meta) => ({
+    id: meta.id,
+    label: meta.label,
+    visible: columnVisibility[meta.id] !== false,
+  }))
 
   return (
     <div className="space-y-5">
+      {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">Staff</h1>
-          <p className="font-sans text-sm text-dusty-gray mt-0.5">
-            Manage staff designations and the services each member can perform. Service capabilities
-            drive booking availability.
+          <h1 className="font-display text-2xl tracking-tight text-cocoa-dark">Staff</h1>
+          <p className="mt-0.5 font-sans text-sm text-dusty-gray">
+            Manage staff designations and the services each member can perform. Service
+            capabilities drive booking availability.
           </p>
         </div>
         <button
           type="button"
           onClick={() => setCreating(true)}
-          className="h-9 px-4 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
+          className="inline-flex h-9 items-center gap-2 rounded-buttons bg-cocoa-dark px-4 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray motion-reduce:transition-none"
         >
-          + Add staff
+          <Icon icon={UserPlus} decorative size={16} />
+          Add staff
         </button>
       </div>
 
-      {loading ? (
-        <LoadingState />
-      ) : error ? (
-        <ErrorState message={error} onRetry={load} />
-      ) : !staff || staff.length === 0 ? (
-        <EmptyState />
+      {/* Controls */}
+      <FilterBar
+        config={{
+          search: { placeholder: 'Search staff…', ariaLabel: 'Search staff' },
+          columnVisibility: true,
+        }}
+        search={search}
+        onSearchChange={setSearch}
+        columns={columnToggles}
+        onColumnToggle={(id, visible) =>
+          setColumnVisibility((current) => ({ ...current, [id]: visible }))
+        }
+      />
+
+      {/* Table / states */}
+      {state.status === 'loading' ? (
+        <Skeleton rows={6} variant="table" />
+      ) : state.status === 'error' ? (
+        <ErrorState message={state.message} onRetry={retry} />
+      ) : state.data.length === 0 ? (
+        <EmptyState
+          icon={Scissors}
+          title="No staff found"
+          message="Staff appear here once their profiles are created."
+        />
       ) : (
-        <div className="border border-cloud-gray rounded-[6px] overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-cloud-gray/60">
-                  <Th>Name</Th>
-                  <Th>Email</Th>
-                  <Th>Designation</Th>
-                  <Th className="text-right">Services</Th>
-                  <Th>Status</Th>
-                  <Th className="text-right">Actions</Th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-cloud-gray">
-                {staff.map((row) => (
-                  <tr key={row.id} className="hover:bg-cloud-gray/30 transition-colors">
-                    <td className="px-4 py-3 font-sans text-cocoa-dark whitespace-nowrap">
-                      {row.name}
-                    </td>
-                    <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
-                      {row.email}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-ui uppercase tracking-[0.5px] ${
-                          DESIGNATION_BADGE[row.designation] ?? 'bg-cloud-gray text-warm-gray'
-                        }`}
-                      >
-                        {DESIGNATION_LABEL[row.designation] ?? row.designation}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-ui text-cocoa-dark text-right whitespace-nowrap">
-                      {row.serviceCount}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {row.isActive ? (
-                        <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-ui text-emerald-700">
-                          Active
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center rounded-full bg-cloud-gray px-2 py-0.5 text-[11px] font-ui text-warm-gray">
-                          Inactive
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => setEditing(row)}
-                        className="text-sm font-ui text-deep-gold hover:text-cocoa-dark transition-colors"
-                      >
-                        Edit
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <DataTable
+          columns={columns}
+          data={state.data}
+          tableId="staff"
+          caption="Staff"
+          globalFilter={search}
+          rowActions={rowActions}
+          onRowClick={(staff) => setEditing(staff)}
+          columnVisibility={columnVisibility}
+          onColumnVisibilityChange={setColumnVisibility}
+        />
       )}
 
       <StaffDialog
@@ -194,7 +234,7 @@ export function StaffManager() {
         onClose={() => setEditing(null)}
         onSaved={() => {
           setEditing(null)
-          load()
+          retry()
         }}
       />
       <CreateStaffDialog
@@ -202,10 +242,19 @@ export function StaffManager() {
         onClose={() => setCreating(false)}
         onSaved={() => {
           setCreating(false)
-          load()
+          retry()
         }}
       />
     </div>
+  )
+}
+
+/** Neutral, token-styled designation pill (designation is a label, not a status). */
+function DesignationPill({ designation }: { designation: StaffDesignation }) {
+  return (
+    <span className="inline-flex items-center rounded-pill bg-cloud-gray px-2.5 py-0.5 font-ui text-xs font-medium uppercase tracking-wide text-warm-gray">
+      {DESIGNATION_LABEL[designation] ?? designation}
+    </span>
   )
 }
 
@@ -284,7 +333,7 @@ function CreateStaffDialog({
             required
           />
         </Field>
-        <p className="font-sans text-xs text-dusty-gray -mt-1">
+        <p className="-mt-1 font-sans text-xs text-dusty-gray">
           The person must have signed in at least once. We link their existing account.
         </p>
         <div className="grid grid-cols-2 gap-3">
@@ -522,7 +571,7 @@ function StaffDialog({
           <textarea
             value={bio}
             onChange={(e) => setBio(e.target.value)}
-            className={`${inputClass} min-h-[72px] resize-y`}
+            className={cn(inputClass, 'min-h-[72px] resize-y')}
             placeholder="Short internal bio (optional)"
           />
         </Field>
@@ -531,30 +580,30 @@ function StaffDialog({
             type="checkbox"
             checked={isActive}
             onChange={(e) => setIsActive(e.target.checked)}
-            className="h-4 w-4 rounded border-outline-gray text-deep-gold focus:ring-deep-gold"
+            className="h-4 w-4 rounded-cards border-outline-gray accent-deep-gold focus:ring-deep-gold"
           />
           Active (available for bookings)
         </label>
 
         <div className="pt-1">
-          <span className="block font-ui text-[11px] uppercase tracking-wider text-dusty-gray mb-1.5">
+          <span className="mb-1.5 block font-ui text-xs uppercase tracking-wider text-dusty-gray">
             Services this member can perform
           </span>
           {loadingDetail ? (
-            <div className="border border-cloud-gray rounded-[6px] bg-cloud-gray/30 px-4 py-6 text-center">
+            <div className="rounded-cards border border-cloud-gray bg-cloud-gray/30 px-4 py-6 text-center">
               <span className="font-sans text-sm text-dusty-gray">Loading services…</span>
             </div>
           ) : grouped.length === 0 ? (
-            <div className="border border-cloud-gray rounded-[6px] bg-cloud-gray/30 px-4 py-6 text-center">
+            <div className="rounded-cards border border-cloud-gray bg-cloud-gray/30 px-4 py-6 text-center">
               <span className="font-sans text-sm text-dusty-gray">
                 No active services available.
               </span>
             </div>
           ) : (
-            <div className="max-h-56 overflow-y-auto rounded-[6px] border border-cloud-gray divide-y divide-cloud-gray">
+            <div className="max-h-56 divide-y divide-cloud-gray overflow-y-auto rounded-cards border border-cloud-gray">
               {grouped.map((group) => (
                 <fieldset key={group.categoryId} className="px-3 py-2">
-                  <legend className="font-ui text-[10px] uppercase tracking-[1px] text-dusty-gray mb-1.5">
+                  <legend className="mb-1.5 font-ui text-[10px] uppercase tracking-[1px] text-dusty-gray">
                     {group.categoryName}
                   </legend>
                   <div className="space-y-1.5">
@@ -567,7 +616,7 @@ function StaffDialog({
                           type="checkbox"
                           checked={selected.has(svc.id)}
                           onChange={() => toggleService(svc.id)}
-                          className="h-4 w-4 rounded border-outline-gray text-deep-gold focus:ring-deep-gold"
+                          className="h-4 w-4 rounded-cards border-outline-gray accent-deep-gold focus:ring-deep-gold"
                         />
                         {svc.name}
                       </label>
@@ -577,7 +626,7 @@ function StaffDialog({
               ))}
             </div>
           )}
-          <p className="font-sans text-xs text-dusty-gray mt-1.5">
+          <p className="mt-1.5 font-sans text-xs text-dusty-gray">
             {selected.size} service{selected.size === 1 ? '' : 's'} selected
           </p>
         </div>
@@ -594,10 +643,10 @@ function StaffDialog({
   )
 }
 
-/* ── Shared primitives (mirrors services-manager.tsx) ───────────────────── */
+/* ── Shared dialog primitives ───────────────────────────────────────────── */
 
 const inputClass =
-  'w-full px-3 py-2 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold'
+  'w-full rounded-buttons border border-outline-gray bg-canvas-white px-3 py-2 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold'
 
 function FormDialog({
   open,
@@ -614,8 +663,8 @@ function FormDialog({
     <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-cocoa-dark/40 backdrop-blur-[2px]" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-cloud-gray bg-canvas-white p-5 shadow-elevated focus:outline-none max-h-[90vh] overflow-y-auto">
-          <Dialog.Title className="font-display text-lg text-cocoa-dark tracking-tight mb-3">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-cards border border-cloud-gray bg-canvas-white p-5 shadow-elevated focus:outline-none">
+          <Dialog.Title className="mb-3 font-display text-lg tracking-tight text-cocoa-dark">
             {title}
           </Dialog.Title>
           {children}
@@ -640,14 +689,14 @@ function DialogActions({
         type="button"
         onClick={onClose}
         disabled={busy}
-        className="h-9 px-4 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-ui text-warm-gray hover:bg-cloud-gray transition-colors disabled:opacity-60"
+        className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-4 font-ui text-sm text-warm-gray transition-colors hover:bg-cloud-gray disabled:opacity-60"
       >
         Cancel
       </button>
       <button
         type="submit"
         disabled={busy}
-        className="h-9 px-4 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+        className="h-9 rounded-buttons bg-cocoa-dark px-4 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray disabled:cursor-not-allowed disabled:opacity-60"
       >
         {busy ? 'Saving…' : submitLabel}
       </button>
@@ -659,79 +708,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return (
     // biome-ignore lint/a11y/noLabelWithoutControl: control provided via children
     <label className="block">
-      <span className="block font-ui text-[11px] uppercase tracking-wider text-dusty-gray mb-1">
+      <span className="mb-1 block font-ui text-[11px] uppercase tracking-wider text-dusty-gray">
         {label}
       </span>
       {children}
     </label>
-  )
-}
-
-function Th({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return (
-    <th
-      className={`px-4 py-2.5 font-ui text-xs uppercase tracking-wider text-dusty-gray ${className || 'text-left'}`}
-    >
-      {children}
-    </th>
-  )
-}
-
-function LoadingState() {
-  return (
-    <output
-      className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      aria-live="polite"
-    >
-      <Spinner />
-      <span className="font-sans text-sm text-dusty-gray">Loading staff…</span>
-    </output>
-  )
-}
-
-function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div className="border border-error/40 bg-error/5 rounded-[6px] px-5 py-10 text-center">
-      <p className="font-sans text-sm text-error mb-3" role="alert">
-        {message}
-      </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
-      >
-        Try Again
-      </button>
-    </div>
-  )
-}
-
-function EmptyState() {
-  return (
-    <div className="border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 text-center">
-      <p className="font-sans text-sm text-cocoa-dark mb-1">No staff found</p>
-      <p className="font-sans text-xs text-dusty-gray">
-        Staff appear here once their profiles are created.
-      </p>
-    </div>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-5 w-5 animate-spin text-deep-gold"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
   )
 }
