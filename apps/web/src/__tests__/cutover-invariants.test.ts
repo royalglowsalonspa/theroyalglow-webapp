@@ -116,8 +116,16 @@ describe('admin-subdomain cutover invariants (static / filesystem)', () => {
       expect(source).toContain('301')
     })
 
-    it("matcher includes '/admin/:path*'", () => {
-      expect(source).toContain('/admin/:path*')
+    it('middleware runs on /admin paths so the 301 redirect fires', () => {
+      // The middleware matcher became site-wide (it now also stamps a
+      // per-request nonce CSP on every document route), so it no longer lists
+      // the literal '/admin/:path*'. The cutover invariant is unchanged: the
+      // matcher must still COVER /admin paths and the redirect branch must
+      // handle them. The site-wide matcher only excludes api/_next/favicon, so
+      // /admin is covered; assert that and the explicit /admin redirect branch.
+      expect(source).toContain('matcher')
+      expect(source).not.toMatch(/matcher[\s\S]*?_next[\s\S]*?\badmin\b/) // /admin not excluded
+      expect(source).toMatch(/pathname\.startsWith\(\s*['"]\/admin\//)
     })
   })
 
