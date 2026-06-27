@@ -36,6 +36,7 @@
 
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
+import { publishBookingEvent } from '@/lib/realtime/publish'
 import { approveBooking, assignStaff, getBookingForAdmin, rejectBooking } from '@rgss/db/queries'
 import { ERROR_CODES, badRequest, conflict, notFound } from '@rgss/errors'
 import { adminBookingActionSchema } from '@rgss/types'
@@ -88,6 +89,24 @@ export const PATCH = withErrorHandler(
       // staff to every service, and writes a status-log entry capturing the
       // prior → confirmed transition with the acting user (Req 11.1, 11.4).
       const updated = await approveBooking(id, changedById, action.staffId)
+
+      // Best-effort realtime publish: approval is a status change AND a staff
+      // assignment, so emit both verbs to the booking channel + per-branch admin
+      // feed. publishBookingEvent no-ops without ABLY_PRIVATE_KEY and never
+      // throws, so it can never break approval or change its response.
+      await publishBookingEvent({
+        bookingId: id,
+        branchId: existing.branchId,
+        event: 'status_changed',
+        data: { status: 'confirmed' },
+      })
+      await publishBookingEvent({
+        bookingId: id,
+        branchId: existing.branchId,
+        event: 'assigned',
+        data: { staffId: action.staffId },
+      })
+
       return apiSuccess({ booking: updated })
     }
 
@@ -104,12 +123,32 @@ export const PATCH = withErrorHandler(
       // reason, and writes a status-log entry capturing the prior → rejected
       // transition with the acting user (Req 11.2, 11.4).
       const updated = await rejectBooking(id, changedById, action.rejectionReason)
+
+      // Best-effort realtime publish: notify the booking channel + per-branch
+      // admin feed of the status change. Never throws / no-ops without the key.
+      await publishBookingEvent({
+        bookingId: id,
+        branchId: existing.branchId,
+        event: 'status_changed',
+        data: { status: 'rejected' },
+      })
+
       return apiSuccess({ booking: updated })
     }
 
     // assign: (re)assign staff to all services regardless of status — no status
     // change, so no status-log entry is written.
     const services = await assignStaff(id, action.staffId)
+
+    // Best-effort realtime publish: announce the staff (re)assignment on the
+    // booking channel + per-branch admin feed. Never throws / no-ops without key.
+    await publishBookingEvent({
+      bookingId: id,
+      branchId: existing.branchId,
+      event: 'assigned',
+      data: { staffId: action.staffId },
+    })
+
     return apiSuccess({ bookingId: id, services })
   },
 )

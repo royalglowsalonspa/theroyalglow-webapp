@@ -34,6 +34,7 @@
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireSession } from '@/lib/api/session'
 import { enqueueJob } from '@/lib/jobs/enqueue'
+import { publishBookingEvent } from '@/lib/realtime/publish'
 import {
   addMinutesToTime,
   calculateBookingTotal,
@@ -182,6 +183,17 @@ export const POST = withErrorHandler(async (req: Request) => {
   if (Number.isFinite(noShowDelaySeconds) && noShowDelaySeconds > 0) {
     await enqueueJob('/api/jobs/noshow-check', { bookingId: created.id }, noShowDelaySeconds)
   }
+
+  // Best-effort realtime publish: announce the new booking on the booking's own
+  // channel and the per-branch admin feed. publishBookingEvent no-ops without
+  // ABLY_PRIVATE_KEY and never throws, so it can never break booking creation or
+  // change its response (same contract as the enqueueJob calls above).
+  await publishBookingEvent({
+    bookingId: created.id,
+    branchId,
+    event: 'created',
+    data: { status: created.status },
+  })
 
   return apiSuccess(
     {

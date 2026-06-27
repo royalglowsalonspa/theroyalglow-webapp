@@ -33,6 +33,7 @@
 
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireSession } from '@/lib/api/session'
+import { publishBookingEvent } from '@/lib/realtime/publish'
 import { addMinutesToTime, checkReschedulable, isBookableSlotStart } from '@rgss/business'
 import { getBookingByIdForCustomer, rescheduleBooking } from '@rgss/db/queries'
 import { ERROR_CODES, badRequest, conflict, notFound } from '@rgss/errors'
@@ -103,6 +104,17 @@ export const POST = withErrorHandler(
     if (!updated) {
       throw notFound('Booking not found.')
     }
+
+    // Best-effort realtime publish: notify the booking channel and the per-branch
+    // admin feed of the reschedule (a status-relevant change). publishBookingEvent
+    // no-ops without ABLY_PRIVATE_KEY and never throws, so it can never break the
+    // reschedule flow or change its response. branchId comes from the owned row.
+    await publishBookingEvent({
+      bookingId: updated.id,
+      branchId: existing.branchId,
+      event: 'status_changed',
+      data: { status: updated.status },
+    })
 
     return apiSuccess({
       id: updated.id,

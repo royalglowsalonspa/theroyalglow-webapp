@@ -37,6 +37,7 @@ import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { enqueueJob } from '@/lib/jobs/enqueue'
 import { sendEmail } from '@/lib/notifications/providers/email'
+import { publishBookingEvent } from '@/lib/realtime/publish'
 import {
   assertOfferActive,
   assertOfferSalonOnly,
@@ -305,6 +306,17 @@ export const POST = withErrorHandler(
     // never throws and no-ops without QSTASH_TOKEN, so this can never break the
     // completion flow or change its response.
     await enqueueJob('/api/jobs/post-service-followup', { bookingId: id }, 24 * 60 * 60)
+
+    // Best-effort realtime publish: announce completion on the booking channel +
+    // per-branch admin feed. publishBookingEvent no-ops without ABLY_PRIVATE_KEY
+    // and never throws, so it can never break completion or change its response
+    // (same contract as the sendEmail / enqueueJob best-effort calls above).
+    await publishBookingEvent({
+      bookingId: id,
+      branchId: existing.branchId,
+      event: 'completed',
+      data: { status: 'completed' },
+    })
 
     return apiSuccess({
       booking: result.booking,
