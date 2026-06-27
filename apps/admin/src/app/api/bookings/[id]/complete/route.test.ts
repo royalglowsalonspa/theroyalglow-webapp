@@ -66,6 +66,7 @@ type CapturedInvoice = {
   invoiceType: string
   paymentMethod: string
   gemsEarned: number
+  gemsRedemption?: { serviceId: string; gemsRequired: number } | null
 }
 
 const harness = vi.hoisted(() => ({
@@ -105,6 +106,11 @@ const dbMocks = vi.hoisted(() => {
     getOfferById: vi.fn(async () => null),
     getOfferRedemptionForCustomerOnDate: vi.fn(async () => null),
     recordOfferRedemption: vi.fn(async () => {}),
+    // Gems-redemption-at-checkout helpers. Default to "no redeemable service /
+    // zero balance" so tests that don't opt in are unaffected; the redemption
+    // suite overrides these per-case.
+    getRedeemableServiceById: vi.fn(async () => null),
+    getLoyaltySummary: vi.fn(async () => ({ balance: 0 })),
     completeBookingWithInvoice: vi.fn(
       async (params: {
         bookingId: string
@@ -120,11 +126,20 @@ const dbMocks = vi.hoisted(() => {
         bk.status = 'completed'
         if (s) {
           s.lastInvoice = params.invoice
-          // Credit gems to the customer's loyalty balance (zero is a no-op).
+          // Credit gems earned to the customer's loyalty balance (zero is a no-op).
           if (params.invoice.gemsEarned > 0) {
             s.ledger.set(
               bk.customerId,
               (s.ledger.get(bk.customerId) ?? 0) + params.invoice.gemsEarned,
+            )
+          }
+          // Deduct any gems redeemed at checkout (mirrors the real guarded
+          // atomic deduction; the fake assumes the balance was already gated).
+          const redemption = params.invoice.gemsRedemption
+          if (redemption) {
+            s.ledger.set(
+              bk.customerId,
+              (s.ledger.get(bk.customerId) ?? 0) - redemption.gemsRequired,
             )
           }
         }
@@ -310,4 +325,106 @@ describe('POST /api/bookings/[id]/complete — completion happy path (integratio
       expect(harness.ledger.get('cust_1') ?? 0).toBe(c.expectedGems)
     })
   }
+})
+
+describe('POST /api/bookings/[id]/complete — gems redemption at checkout', () => {
+  // A two-service salon booking (₹2,500 + ₹1,000 = ₹3,500). The receptionist
+  // redeems gems for the ₹1,000 service: that service leaves the money total,
+  // so the payable amount is ₹2,500 and gems are EARNED on that reduced total.
+  function seedTwoService(): void {
+    seed({
+      totalAmountPaise: 350000,
+      services: [
+        {
+          serviceId: 'svc_1',
+          serviceNameSnapshot: 'Hair Spa',
+          staffId: 'stf_1',
+          priceAtBookingPaise: 250000,
+        },
+        {
+          serviceId: 'svc_2',
+          serviceNameSnapshot: 'Head Massage',
+          staffId: 'stf_1',
+          priceAtBookingPaise: 100000,
+        },
+      ],
+    })
+  }
+
+  function completeWith(body: Record<string, unknown>): Request {
+    return new Request(`https://admin.theroyalglow.in/api/bookings/${BOOKING_ID}/complete`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  }
+
+  it('excludes the gems-covered service from the money total and earns gems on the rest', async () => {
+    seedTwoService()
+    // svc_2 is redeemable for 50 gems; the customer has enough balance.
+    dbMocks.getRedeemableServiceById.mockResolvedValue({
+      id: 'svc_2',
+      isActive: true,
+      gemsRedeemable: true,
+      gemsRequired: 50,
+    } as never)
+    dbMocks.getLoyaltySummary.mockResolvedValue({ balance: 100 } as never)
+
+    const res = await POST(
+      completeWith({ paymentMethod: 'cash', gemsRedeemedServiceId: 'svc_2' }),
+      ctx,
+    )
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.success).toBe(true)
+    // Payable total excludes the ₹1,000 redeemed service → ₹2,500.
+    expect(json.data.invoice.totalPaise).toBe(250000)
+    // Gems earned on the reduced PAID total: floor(250000/10000) = 25.
+    expect(json.data.gemsEarned).toBe(25)
+    // The redemption is reported + persisted (server-computed cost, never client).
+    expect(json.data.gemsRedeemed).toBe(50)
+    expect(json.data.gemsRedeemedServiceId).toBe('svc_2')
+    expect(harness.lastInvoice?.gemsRedemption).toEqual({ serviceId: 'svc_2', gemsRequired: 50 })
+    // GST split reconstructs the PAYABLE total exactly.
+    expect(
+      (harness.lastInvoice as CapturedInvoice).taxableValuePaise +
+        (harness.lastInvoice as CapturedInvoice).gstAmountPaise,
+    ).toBe(250000)
+  })
+
+  it('rejects redeeming gems for a service that is not part of the booking (400)', async () => {
+    seedTwoService()
+    const res = await POST(
+      completeWith({ paymentMethod: 'cash', gemsRedeemedServiceId: 'svc_not_here' }),
+      ctx,
+    )
+    const json = await res.json()
+    expect(res.status).toBe(400)
+    expect(json.success).toBe(false)
+    expect(dbMocks.completeBookingWithInvoice).not.toHaveBeenCalled()
+  })
+
+  it('rejects combining an offer with a gems redemption on the same booking (409)', async () => {
+    seedTwoService()
+    dbMocks.getOfferById.mockResolvedValue({
+      id: 'off_1',
+      isActive: true,
+      discountType: 'percentage',
+      discountValue: 10,
+      serviceType: 'salon',
+      startDate: '2020-01-01',
+      endDate: '2999-01-01',
+    } as never)
+
+    const res = await POST(
+      completeWith({ paymentMethod: 'cash', offerId: 'off_1', gemsRedeemedServiceId: 'svc_2' }),
+      ctx,
+    )
+    const json = await res.json()
+    expect(res.status).toBe(409)
+    expect(json.success).toBe(false)
+    expect(json.error.code).toBe(ERROR_CODES.OFFER_NOT_APPLICABLE)
+    expect(dbMocks.completeBookingWithInvoice).not.toHaveBeenCalled()
+  })
 })

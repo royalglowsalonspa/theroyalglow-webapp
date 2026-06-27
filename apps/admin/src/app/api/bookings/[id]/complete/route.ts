@@ -40,6 +40,7 @@ import { sendEmail } from '@/lib/notifications/providers/email'
 import {
   assertOfferActive,
   assertOfferSalonOnly,
+  assertRedeemable,
   buildInvoiceEmailHtml,
   calculateGemsEarned,
   computeOfferDiscount,
@@ -50,8 +51,10 @@ import {
   completeBookingWithInvoice,
   getBookingForAdmin,
   getBranchByIdAdmin,
+  getLoyaltySummary,
   getOfferById,
   getOfferRedemptionForCustomerOnDate,
+  getRedeemableServiceById,
   getStaffNamesByIds,
   recordOfferRedemption,
 } from '@rgss/db/queries'
@@ -70,20 +73,21 @@ export const POST = withErrorHandler(
     if (!parsed.success) {
       throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
     }
-    const { paymentMethod } = parsed.data
+    const {
+      paymentMethod,
+      offerId: offerIdRaw,
+      gemsRedeemedServiceId: gemsServiceIdRaw,
+      redeemGems,
+    } = parsed.data
 
-    // Optional offer application rides alongside the existing completion payload.
-    // Read these defensively from the raw body so the established
-    // completeBookingSchema parse is never widened or broken.
-    const extras = (body ?? {}) as {
-      offerId?: unknown
-      gemsRedeemedServiceId?: unknown
-      redeemGems?: unknown
-    }
-    const offerId =
-      typeof extras.offerId === 'string' && extras.offerId.length > 0 ? extras.offerId : null
-    const requestsGemsRedemption =
-      Boolean(extras.gemsRedeemedServiceId) || Boolean(extras.redeemGems)
+    // Optional, mutually-exclusive checkout adjustments. Normalise the parsed
+    // values to nulls. A redemption is requested when a service id is supplied
+    // (or the legacy `redeemGems` flag is truthy). The gem amount is NEVER taken
+    // from the client — the server computes it from live catalogue + balance.
+    const offerId = offerIdRaw && offerIdRaw.length > 0 ? offerIdRaw : null
+    const gemsRedeemedServiceId =
+      gemsServiceIdRaw && gemsServiceIdRaw.length > 0 ? gemsServiceIdRaw : null
+    const requestsGemsRedemption = Boolean(gemsRedeemedServiceId) || Boolean(redeemGems)
 
     const existing = await getBookingForAdmin(id)
     if (!existing) {
@@ -147,14 +151,66 @@ export const POST = withErrorHandler(
       appliedOfferId = offer.id
     }
 
+    // Gems redemption (optional, salon or spa). When a service id is supplied the
+    // receptionist is redeeming gems for ONE service that is part of THIS booking:
+    // that service is covered by gems and removed from the payable money total,
+    // while the customer still earns gems on the remaining paid portion (this is
+    // NOT an offer). The gem cost is read server-side from live catalogue + the
+    // customer's CURRENT balance — any client-supplied amount is ignored.
+    let gemsRedemption: { serviceId: string; gemsRequired: number } | null = null
+    let gemsCoveredPaise = 0
+
+    if (gemsRedeemedServiceId) {
+      // Offers cannot be combined with a gems redemption on the same booking.
+      // (Also caught in the offer branch above; repeated here for the
+      // gems-without-offer entry path so the rule holds either way.)
+      if (appliedOfferId) {
+        throw conflict(
+          ERROR_CODES.OFFER_NOT_APPLICABLE,
+          'An offer cannot be combined with gems on the same booking.',
+        )
+      }
+
+      // The redeemed service must be one of THIS booking's services. Its frozen
+      // snapshot price is what gets excluded from the money total.
+      const bookedService = existing.services.find((s) => s.serviceId === gemsRedeemedServiceId)
+      if (!bookedService) {
+        throw badRequest('The selected service is not part of this booking.')
+      }
+
+      // Live re-read as a redeemable catalogue service + gate against the
+      // customer's CURRENT balance. assertRedeemable throws
+      // GEMS_SERVICE_NOT_REDEEMABLE (400) when not redeemable and
+      // GEMS_INSUFFICIENT_BALANCE (409) when the balance is short, and returns
+      // the server-side gem cost.
+      const service = await getRedeemableServiceById(gemsRedeemedServiceId)
+      if (!service) {
+        throw badRequest('The selected service is not part of this booking.')
+      }
+      const summary = await getLoyaltySummary(existing.customerId)
+      const balance = summary?.balance ?? 0
+      const gemsRequired = assertRedeemable(service, balance)
+
+      gemsRedemption = { serviceId: gemsRedeemedServiceId, gemsRequired }
+      gemsCoveredPaise = bookedService.priceAtBookingPaise
+      // The redeemed service's snapshot price leaves the payable money total.
+      finalPaise = existing.totalAmountPaise - gemsCoveredPaise
+    }
+
     // Pre-compute the monetary values in the business/route layer (the db layer
     // must not import @rgss/business). Prices are GST-inclusive paise.
-    //  - subtotal: the original (pre-discount) base value
-    //  - taxable value + GST: split from the discounted total so they
+    //  - subtotal: the payable base value. For an offer it is the original
+    //    (pre-discount) base so the invoice reads Subtotal → Discount → Total.
+    //    For a gems redemption the covered service is excluded entirely (it is
+    //    not a discount), so the subtotal is the base of the reduced total.
+    //  - taxable value + GST: split from the final payable total so they
     //    reconstruct `finalPaise` exactly (Req 12.2)
-    //  - gems: floor of rupees on the discounted total, but exactly 0 for a
-    //    membership session (Req 12.3, 12.4)
-    const { basePaise: subtotalPaise } = splitGST(existing.totalAmountPaise)
+    //  - gems EARNED: floor of rupees on the final PAID total (after removing any
+    //    gems-covered service), but exactly 0 for a membership session
+    //    (Req 12.3, 12.4)
+    const { basePaise: subtotalPaise } = splitGST(
+      gemsRedemption ? finalPaise : existing.totalAmountPaise,
+    )
     const { basePaise: taxableValuePaise, gstPaise } = splitGST(finalPaise)
     const gemsEarned = calculateGemsEarned(finalPaise, existing.isMembershipSession)
 
@@ -187,18 +243,25 @@ export const POST = withErrorHandler(
         invoiceType: 'service',
         paymentMethod,
         gemsEarned,
+        gemsRedemption,
       },
-      items: existing.services.map((s, index) => ({
-        serviceId: s.serviceId,
-        serviceNameSnapshot: s.serviceNameSnapshot,
-        staffNameSnapshot: s.staffId
-          ? (staffNameById.get(s.staffId) ?? 'Unassigned')
-          : 'Unassigned',
-        quantity: 1,
-        unitPricePaise: s.priceAtBookingPaise,
-        totalPricePaise: s.priceAtBookingPaise,
-        displayOrder: index,
-      })),
+      items: existing.services.map((s, index) => {
+        // The gems-covered service stays on the invoice for the record but
+        // contributes 0 to the money total: keep its name + unit-price snapshot,
+        // bill the line at 0. Sum of line totals therefore equals finalPaise.
+        const isGemsCovered = gemsRedemption?.serviceId === s.serviceId
+        return {
+          serviceId: s.serviceId,
+          serviceNameSnapshot: s.serviceNameSnapshot,
+          staffNameSnapshot: s.staffId
+            ? (staffNameById.get(s.staffId) ?? 'Unassigned')
+            : 'Unassigned',
+          quantity: 1,
+          unitPricePaise: s.priceAtBookingPaise,
+          totalPricePaise: isGemsCovered ? 0 : s.priceAtBookingPaise,
+          displayOrder: index,
+        }
+      }),
     })
 
     if (!result) {
@@ -223,7 +286,9 @@ export const POST = withErrorHandler(
         items: existing.services.map((s) => ({
           name: s.serviceNameSnapshot,
           staff: s.staffId ? (staffNameById.get(s.staffId) ?? null) : null,
-          pricePaise: s.priceAtBookingPaise,
+          // Gems-covered line shows ₹0 so the emailed totals reconcile to the
+          // payable amount (gemsRedeemedServiceId on the invoice records which).
+          pricePaise: gemsRedemption?.serviceId === s.serviceId ? 0 : s.priceAtBookingPaise,
         })),
         subtotalPaise,
         discountPaise,
@@ -250,6 +315,8 @@ export const POST = withErrorHandler(
       },
       gemsEarned,
       discountPaise,
+      gemsRedeemed: gemsRedemption?.gemsRequired ?? 0,
+      gemsRedeemedServiceId: gemsRedemption?.serviceId ?? null,
     })
   },
 )

@@ -77,8 +77,23 @@ export type AdminBookingActionInput = z.infer<typeof adminBookingActionSchema>
 
 // Complete a booking at the counter: payment is collected in person and the
 // method recorded before the invoice is generated.
+//
+// Two OPTIONAL, mutually-exclusive checkout adjustments ride alongside the
+// payment method (the route enforces "offer XOR gems" — they cannot combine on
+// the same booking):
+//   - `offerId`              — apply a salon offer discount to the money total.
+//   - `gemsRedeemedServiceId`— redeem gems for ONE redeemable service that is
+//                              part of this booking; that service is then
+//                              covered by gems and excluded from the money total.
+// `redeemGems` is the legacy boolean flag kept for backward compatibility (a
+// truthy value signals a redemption is requested). The server ALWAYS computes
+// the gem amount itself from live catalogue + balance data — a client-supplied
+// gem AMOUNT is never accepted here.
 export const completeBookingSchema = z.object({
   paymentMethod: z.enum(['cash', 'upi', 'card']),
+  offerId: z.string().min(1).optional(),
+  gemsRedeemedServiceId: z.string().min(1).optional(),
+  redeemGems: z.boolean().optional(),
 })
 export type CompleteBookingInput = z.infer<typeof completeBookingSchema>
 
