@@ -25,7 +25,7 @@
  * Dependencies : JsonLd, SITE_URL, breadcrumbJsonLd, localBusinessJsonLd, buildMetadata
  *
  * Notes        :
- * - Form submission handler not yet wired to API; UI-only in Phase 1
+ * - Form is wired to POST /api/contact via the ContactForm client component
  ************************************************************/
 
 import { JsonLd } from '@/components/seo/JsonLd'
@@ -33,6 +33,7 @@ import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, localBusinessJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
 import type { Metadata } from 'next'
+import { ContactForm } from './ContactForm'
 
 export const metadata: Metadata = buildMetadata({
   title: 'Contact Us',
@@ -161,78 +162,8 @@ export default function ContactPage() {
                 get back to you shortly.
               </p>
 
-              <form className="mt-8 space-y-6" aria-label="Contact form">
-                {/* Name */}
-                <div>
-                  <label
-                    htmlFor="contact-name"
-                    className="block font-ui text-xs uppercase tracking-[0.5px] text-cocoa-dark mb-2"
-                  >
-                    Name
-                  </label>
-                  <input
-                    type="text"
-                    id="contact-name"
-                    name="name"
-                    required
-                    aria-required="true"
-                    placeholder="Your full name"
-                    className="w-full h-10 px-4 font-sans text-[15px] text-cocoa-dark bg-canvas-white border border-cloud-gray rounded-[6px] placeholder:text-dusty-gray focus:outline-2 focus:outline-deep-gold focus:outline-offset-2 transition-colors duration-200"
-                  />
-                </div>
-
-                {/* Phone */}
-                <div>
-                  <label
-                    htmlFor="contact-phone"
-                    className="block font-ui text-xs uppercase tracking-[0.5px] text-cocoa-dark mb-2"
-                  >
-                    Phone
-                  </label>
-                  <div className="flex">
-                    <span className="inline-flex items-center px-3 h-10 font-sans text-[15px] text-warm-gray bg-cloud-gray border border-r-0 border-cloud-gray rounded-l-[6px]">
-                      +91
-                    </span>
-                    <input
-                      type="tel"
-                      id="contact-phone"
-                      name="phone"
-                      required
-                      aria-required="true"
-                      placeholder="63601 35720"
-                      pattern="[0-9]{10}"
-                      className="w-full h-10 px-4 font-sans text-[15px] text-cocoa-dark bg-canvas-white border border-cloud-gray rounded-r-[6px] placeholder:text-dusty-gray focus:outline-2 focus:outline-deep-gold focus:outline-offset-2 transition-colors duration-200"
-                    />
-                  </div>
-                </div>
-
-                {/* Message */}
-                <div>
-                  <label
-                    htmlFor="contact-message"
-                    className="block font-ui text-xs uppercase tracking-[0.5px] text-cocoa-dark mb-2"
-                  >
-                    Message
-                  </label>
-                  <textarea
-                    id="contact-message"
-                    name="message"
-                    required
-                    aria-required="true"
-                    rows={5}
-                    placeholder="How can we help you?"
-                    className="w-full px-4 py-3 font-sans text-[15px] text-cocoa-dark bg-canvas-white border border-cloud-gray rounded-[6px] placeholder:text-dusty-gray resize-y focus:outline-2 focus:outline-deep-gold focus:outline-offset-2 transition-colors duration-200"
-                  />
-                </div>
-
-                {/* Submit */}
-                <button
-                  type="submit"
-                  className="bg-royal-gold text-cocoa-dark font-ui text-xs uppercase tracking-[0.5px] rounded-full px-8 h-10 inline-flex items-center justify-center hover:bg-deep-gold hover:-translate-y-px motion-safe:transition-all motion-safe:duration-200"
-                >
-                  Send Message
-                </button>
-              </form>
+              {/* Interactive enquiry form — client component wired to POST /api/contact */}
+              <ContactForm />
             </div>
           </div>
         </section>

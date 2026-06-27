@@ -15,7 +15,7 @@
  * - Never throw to caller (return false on failure)
  *
  * Features / Functionality :
- * - sendEmail({ to, subject, html }) — async boolean delivery
+ * - sendEmail({ to, subject, html, replyTo? }) — async boolean delivery
  * - Lazy resend module import (optional dependency)
  * - Configurable from address via RESEND_FROM_EMAIL
  *
@@ -53,6 +53,10 @@ export type SendEmailParams = {
   to: string | string[]
   subject: string
   html: string
+  // Optional Reply-To. When set, a recipient's reply is routed here instead of
+  // the `from` address — e.g. the contact form sends FROM our verified domain
+  // but routes replies back to the customer who submitted the enquiry.
+  replyTo?: string | string[]
 }
 
 // Minimal slice of the optional `resend` module surface we rely on. Modeled
@@ -62,6 +66,8 @@ type ResendSendPayload = {
   to: string | string[]
   subject: string
   html: string
+  // Resend SDK (v3+) accepts camelCase `replyTo`. Optional — only sent when set.
+  replyTo?: string | string[]
 }
 
 type ResendClient = {
@@ -114,6 +120,8 @@ export async function sendEmail(params: SendEmailParams): Promise<boolean> {
       to: params.to,
       subject: params.subject,
       html: params.html,
+      // Only include replyTo when provided; keeps the payload minimal otherwise.
+      ...(params.replyTo ? { replyTo: params.replyTo } : {}),
     })
 
     return true

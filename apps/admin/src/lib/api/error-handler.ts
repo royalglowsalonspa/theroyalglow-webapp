@@ -33,6 +33,11 @@ import { AppError, ERROR_CODES } from '@rgss/errors'
 import * as Sentry from '@sentry/nextjs'
 import { nanoid } from 'nanoid'
 import { RATE_LIMIT_RETRY_AFTER_KEY } from './rate-limit'
+// Side-effect import: bootstraps the server/edge Sentry SDK on first server
+// use. This replaces the Sentry.init() that the deleted root instrumentation.ts
+// used to run via register(). instrumentation.ts is intentionally absent
+// because it breaks the OpenNext build — see sentry-server-init.ts for details.
+import './sentry-server-init'
 
 // Extract a positive integer Retry-After (seconds) carried in a RATE_LIMITED
 // AppError's `details`. Returns null when absent or malformed.
@@ -89,8 +94,13 @@ export function withErrorHandler<Ctx = unknown>(
       }
       // Unknown error → 500. Treated as retryable: assumed transient (DB/timeout).
       console.error(`[${requestId}] Unhandled error:`, error)
-      // Report unexpected errors to Sentry. No-op when Sentry is uninitialised
-      // (no NEXT_PUBLIC_SENTRY_DSN). Expected AppErrors are not reported here.
+      // Report unexpected errors to Sentry. This is the server-side capture path
+      // that replaces the lost instrumentation.ts onRequestError =
+      // Sentry.captureRequestError hook (instrumentation.ts is intentionally
+      // absent — it breaks the OpenNext build). Sentry is initialised via the
+      // ./sentry-server-init side-effect import above; this is a no-op when
+      // Sentry is uninitialised (no DSN / not production). Expected AppErrors
+      // (4xx business errors) are deliberately NOT reported here.
       Sentry.captureException(error)
       return Response.json(
         {
