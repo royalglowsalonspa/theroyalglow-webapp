@@ -32,6 +32,7 @@
 
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { enforceRateLimit, getClientIp } from '@/lib/api/rate-limit'
+import { sendLeadCapiEvent } from '@/lib/meta/capi'
 import { normaliseIndianPhone } from '@rgss/business'
 import { createLead } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
@@ -42,9 +43,9 @@ import { createLeadSchema } from '@rgss/types'
 // rate-limited per-IP and strictly Zod-validated. No PII is echoed back beyond
 // the created leadId.
 export const POST = withErrorHandler(async (req: Request) => {
-  // Per-IP rate-limit guard. In-memory best-effort today; see rate-limit.ts for
-  // the Upstash wiring TODO.
-  enforceRateLimit(`leads:${getClientIp(req)}`)
+  // Per-IP rate-limit guard. Distributed via Upstash when configured, falling
+  // back to an in-memory window otherwise (see rate-limit.ts).
+  await enforceRateLimit(`leads:${getClientIp(req)}`)
 
   const body = await req.json().catch(() => null)
   const parsed = createLeadSchema.safeParse(body)
@@ -59,7 +60,20 @@ export const POST = withErrorHandler(async (req: Request) => {
     source: parsed.data.source ?? 'meta_ad',
   })
 
-  // Extension point (Phase 7): fire Meta CAPI 'Lead' event here.
+  // Fire the Meta CAPI 'Lead' event (best-effort). event_id = lead id so this
+  // server-side event deduplicates against the browser Pixel's 'Lead'. The
+  // client IP / User-Agent improve match quality; PII is SHA-256 hashed inside
+  // the client. This NEVER throws and no-ops without the access token, so it
+  // can never break or block the lead-creation response above.
+  await sendLeadCapiEvent({
+    eventId: lead.id,
+    name: parsed.data.name,
+    email: parsed.data.email,
+    phone,
+    clientIpAddress: getClientIp(req),
+    clientUserAgent: req.headers.get('user-agent'),
+    eventSourceUrl: req.headers.get('referer'),
+  })
 
   return apiSuccess({ leadId: lead.id }, undefined, 201)
 })

@@ -47,7 +47,8 @@
 'use client'
 
 import { DataTable, type RowAction } from '@/components/ui/data-table'
-import { FilterBar, type ColumnToggle } from '@/components/ui/filter-bar'
+import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
+import { Icon } from '@/components/ui/icon'
 import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
@@ -60,7 +61,8 @@ import {
   formatTime12h,
 } from '@/lib/admin/bookings'
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
-import { CalendarDays, Eye } from 'lucide-react'
+import { CalendarDays, Eye, Plus } from 'lucide-react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
@@ -132,7 +134,12 @@ export function BookingsTable() {
 
   // Re-request when a filter changes; the initial mount fetch is owned by the
   // hook, so skip the very first effect run to avoid a duplicate request.
+  // NOTE: status/serviceType/date are intentional re-run TRIGGERS, not direct
+  // references — useAsyncData holds the latest `fetcher` (which closes over
+  // these values) in a ref and does NOT auto-re-run on fetcher identity change,
+  // so this effect must depend on the raw filter values to re-issue via retry().
   const didMount = useRef(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: filter values are intentional re-run triggers (see note above)
   useEffect(() => {
     if (!didMount.current) {
       didMount.current = true
@@ -147,9 +154,7 @@ export function BookingsTable() {
         id: 'bookingNumber',
         accessorKey: 'bookingNumber',
         header: 'Booking #',
-        cell: ({ row }) => (
-          <span className="font-mono text-xs">{row.original.bookingNumber}</span>
-        ),
+        cell: ({ row }) => <span className="font-mono text-xs">{row.original.bookingNumber}</span>,
       },
       {
         id: 'customerName',
@@ -161,9 +166,7 @@ export function BookingsTable() {
         accessorKey: 'bookingDate',
         header: 'Date',
         cell: ({ row }) => (
-          <span className="text-warm-gray">
-            {formatDateDDMMYYYY(row.original.bookingDate)}
-          </span>
+          <span className="text-warm-gray">{formatDateDDMMYYYY(row.original.bookingDate)}</span>
         ),
       },
       {
@@ -230,6 +233,14 @@ export function BookingsTable() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl tracking-tight text-cocoa-dark">Bookings</h1>
+        {/* Entry point to the walk-in creation flow (root-path link, lucide icon). */}
+        <Link
+          href="/bookings/new"
+          className="inline-flex items-center gap-1.5 rounded-buttons bg-cocoa-dark px-4 py-2 font-ui text-sm text-canvas-white transition-colors hover:bg-cocoa-dark/90 motion-reduce:transition-none"
+        >
+          <Icon icon={Plus} decorative size={16} />
+          New walk-in
+        </Link>
       </div>
 
       {/* Controls: FilterBar (search, status, type tabs, columns) + date filter */}

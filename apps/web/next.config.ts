@@ -25,6 +25,28 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
     ],
   },
+  // Static security headers applied to all routes. The per-request, nonce-based
+  // Content-Security-Policy is owned by the edge middleware (`src/middleware.ts`)
+  // so it is intentionally NOT set here — a static `script-src` would otherwise
+  // conflict with the middleware nonce policy.
+  //
+  // NOTE: unlike the admin portal, the public customer site MUST stay indexable,
+  // so NO `X-Robots-Tag: noindex` is emitted here.
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          // Clickjacking protection (complements CSP `frame-ancestors 'none'`).
+          { key: 'X-Frame-Options', value: 'DENY' },
+          // Disallow MIME-type sniffing.
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          // Minimise referrer leakage to other origins.
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        ],
+      },
+    ]
+  },
 }
 
 // Source-map upload is a no-op without SENTRY_ORG/SENTRY_PROJECT/SENTRY_AUTH_TOKEN (CI-only).
