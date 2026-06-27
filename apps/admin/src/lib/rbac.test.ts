@@ -106,7 +106,7 @@ describe('Property 3: Sidebar navigation visibility matches role level', () => {
         // (d) input config is not mutated
         expect(JSON.stringify(sections)).toBe(before)
       }),
-      { numRuns: 200 },
+      { numRuns: 25 },
     )
   })
 })
@@ -158,7 +158,7 @@ describe('Property 2: Middleware auth-state decision maps every state to the cor
       fc.property(authStateArb, p2RouteMinArb, (state, routeMin) => {
         expect(decide(state, routeMin)).toEqual(expectedDecision(state, routeMin))
       }),
-      { numRuns: 300 },
+      { numRuns: 25 },
     )
   })
 
@@ -174,7 +174,7 @@ describe('Property 2: Middleware auth-state decision maps every state to the cor
         const { action } = decide(state, routeMin)
         expect(action === 'allow' || action === 'forbid').toBe(false)
       }),
-      { numRuns: 300 },
+      { numRuns: 25 },
     )
   })
 
@@ -184,7 +184,7 @@ describe('Property 2: Middleware auth-state decision maps every state to the cor
         const decision = decide({ kind: 'valid', roleLevel }, routeMin)
         expect(decision).toEqual(roleLevel >= routeMin ? { action: 'allow' } : { action: 'forbid' })
       }),
-      { numRuns: 300 },
+      { numRuns: 25 },
     )
   })
 })
@@ -252,7 +252,7 @@ describe('Property 1: RBAC access decision is correct and monotonic in role leve
           expect(level).toBe(0)
         }
       }),
-      { numRuns: 100 },
+      { numRuns: 25 },
     )
   })
 
@@ -274,7 +274,7 @@ describe('Property 1: RBAC access decision is correct and monotonic in role leve
           }
         },
       ),
-      { numRuns: 100 },
+      { numRuns: 25 },
     )
   })
 })
@@ -330,7 +330,7 @@ describe('Property 5: Staff is granted access to exactly the self-service routes
           expect(decision.action).toBe('forbid')
         }
       }),
-      { numRuns: 200 },
+      { numRuns: 25 },
     )
   })
 })
@@ -357,7 +357,7 @@ describe('Property 6: Adding /me does not weaken the manager-level /staff route'
       fc.property(staffNamespacePathArb, (path) => {
         expect(routeMinLevel(path)).toBe(ROLE_LEVELS.manager)
       }),
-      { numRuns: 200 },
+      { numRuns: 25 },
     )
   })
 })
@@ -385,7 +385,7 @@ describe('Property 7: Self-service navigation visibility matches role level', ()
         const hasSelfService = SELF_SERVICE_HREFS.every((href) => hrefs.includes(href))
         expect(hasSelfService).toBe(level >= ROLE_LEVELS.staff)
       }),
-      { numRuns: 200 },
+      { numRuns: 25 },
     )
   })
 

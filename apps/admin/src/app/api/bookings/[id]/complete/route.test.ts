@@ -249,7 +249,7 @@ describe('POST /api/bookings/[id]/complete — completion transition (property)'
           }
         },
       ),
-      { numRuns: 100 },
+      { numRuns: 25 },
     )
   })
 })

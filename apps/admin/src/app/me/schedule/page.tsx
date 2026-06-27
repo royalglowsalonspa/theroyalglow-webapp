@@ -21,10 +21,12 @@
  * - Schedule is read-only for staff; changes go through manager/admin (/schedule).
  ************************************************************/
 
+import { EmptyState } from '@/components/ui/state/empty-state'
 import { formatTime12h } from '@/lib/admin/bookings'
 import { auth } from '@/lib/auth-server'
 import { dayOfWeekLabel } from '@rgss/business'
 import { getStaffProfileByUserId, getStaffSchedule } from '@rgss/db/queries'
+import { UserX } from 'lucide-react'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
@@ -72,7 +74,11 @@ export default async function MeSchedulePage() {
       </header>
 
       {!staff ? (
-        <NoProfileState />
+        <EmptyState
+          icon={UserX}
+          title="No staff profile found"
+          message="Your account isn't linked to a staff profile yet. Ask your manager to set this up so your schedule and leave appear here."
+        />
       ) : (
         <section aria-labelledby="weekly-schedule-heading">
           <h2 id="weekly-schedule-heading" className="sr-only">
@@ -88,7 +94,7 @@ export default async function MeSchedulePage() {
 
               return (
                 <li key={dayIndex}>
-                  <article className="flex items-center justify-between gap-3 rounded-[6px] border border-cloud-gray bg-canvas-white px-4 py-3">
+                  <article className="flex items-center justify-between gap-3 rounded-cards border border-cloud-gray bg-canvas-white px-4 py-3">
                     <span className="font-sans text-[15px] text-cocoa-dark">
                       {dayOfWeekLabel(dayIndex)}
                     </span>
@@ -113,17 +119,5 @@ export default async function MeSchedulePage() {
         </section>
       )}
     </div>
-  )
-}
-
-function NoProfileState() {
-  return (
-    <section className="flex flex-col items-center justify-center rounded-[6px] border border-cloud-gray bg-canvas-white py-16 px-6 text-center">
-      <p className="font-sans text-[16px] text-cocoa-dark mb-2">No staff profile found</p>
-      <p className="font-sans text-[14px] text-dusty-gray max-w-[420px]">
-        Your account isn't linked to a staff profile yet. Ask your manager to set this up so your
-        schedule and leave appear here.
-      </p>
-    </section>
   )
 }

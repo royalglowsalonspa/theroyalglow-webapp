@@ -30,6 +30,7 @@
  ************************************************************/
 
 import { CustomerProfileTabs } from '@/components/admin/CustomerProfileTabs'
+import { Icon } from '@/components/ui/icon'
 import { formatDateDDMMYYYY, formatINR } from '@/lib/admin/bookings'
 import {
   getAllTags,
@@ -39,6 +40,7 @@ import {
   getCustomerNotes,
   getCustomerProfile,
 } from '@rgss/db/queries'
+import { ArrowLeft, Mail, Phone } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
@@ -153,15 +155,21 @@ export default async function CustomerProfilePage({ params }: PageProps) {
         href="/customers"
         className="inline-flex items-center gap-1.5 text-sm font-ui text-warm-gray hover:text-cocoa-dark transition-colors"
       >
-        ← Back to Customers
+        <Icon icon={ArrowLeft} decorative size={16} /> Back to Customers
       </Link>
 
       {/* Header */}
       <header className="border border-cloud-gray rounded-[6px] bg-canvas-white p-5 space-y-1">
         <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">{profile.name}</h1>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-sans text-warm-gray">
-          <span>📞 {profile.phone ?? '—'}</span>
-          <span>✉️ {profile.email}</span>
+          <span className="inline-flex items-center gap-1.5">
+            <Icon icon={Phone} decorative size={14} />
+            {profile.phone ?? '—'}
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <Icon icon={Mail} decorative size={14} />
+            {profile.email}
+          </span>
           {profile.gender && (
             <span className="capitalize">{profile.gender.replace(/_/g, ' ')}</span>
           )}
@@ -212,7 +220,7 @@ function NotFoundCard() {
         href="/customers"
         className="inline-flex items-center gap-1.5 text-sm font-ui text-warm-gray hover:text-cocoa-dark transition-colors"
       >
-        ← Back to Customers
+        <Icon icon={ArrowLeft} decorative size={16} /> Back to Customers
       </Link>
       <div className="border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 text-center">
         <p className="font-sans text-sm text-cocoa-dark mb-1">Customer not found</p>

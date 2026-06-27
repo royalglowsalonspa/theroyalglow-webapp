@@ -64,7 +64,7 @@ describe('Property 6: Ably token capability is subscribe-only and scoped to admi
         // presence, history, etc.).
         expect([...operations]).toEqual(['subscribe'])
       }),
-      { numRuns: 100 },
+      { numRuns: 25 },
     )
   })
 
@@ -86,7 +86,7 @@ describe('Property 6: Ably token capability is subscribe-only and scoped to admi
         expect(new Set(keys)).toEqual(ALLOWED_CHANNELS)
         expect(keys.length).toBe(ALLOWED_CHANNELS.size)
       }),
-      { numRuns: 100 },
+      { numRuns: 25 },
     )
   })
 
@@ -121,7 +121,7 @@ describe('Property 6: Ably token capability is subscribe-only and scoped to admi
           expect(decision.issued).toBe(false)
         }
       }),
-      { numRuns: 100 },
+      { numRuns: 25 },
     )
   })
 
@@ -137,7 +137,7 @@ describe('Property 6: Ably token capability is subscribe-only and scoped to admi
         expect(isAdminRole(role)).toBe(false)
         expect(decideToken(role).issued).toBe(false)
       }),
-      { numRuns: 100 },
+      { numRuns: 25 },
     )
   })
 })

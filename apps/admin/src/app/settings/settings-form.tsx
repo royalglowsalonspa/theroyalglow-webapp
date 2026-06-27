@@ -28,6 +28,8 @@
 
 'use client'
 
+import { ErrorState } from '@/components/ui/state/error-state'
+import { Skeleton } from '@/components/ui/state/skeleton'
 import {
   type BookingRules,
   type BusinessHours,
@@ -85,7 +87,7 @@ export function SettingsForm() {
       </header>
 
       {loading ? (
-        <LoadingState />
+        <Skeleton variant="card" rows={3} />
       ) : error ? (
         <ErrorState message={error} onRetry={load} />
       ) : (
@@ -159,7 +161,7 @@ function BusinessHoursSection({
       title="Business Hours"
       description="Opening and closing times per day (IST, 24-hour). Toggle a day closed to disable bookings."
     >
-      <div className="border border-cloud-gray rounded-[6px] overflow-hidden">
+      <div className="border border-cloud-gray rounded-cards overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -271,7 +273,7 @@ function GstSection({
           />
         </label>
         <div className="flex items-end">
-          <span className="inline-flex items-center rounded-full bg-teal-100 px-3 py-1 text-[11px] font-ui uppercase tracking-[0.5px] text-teal-800">
+          <span className="inline-flex items-center rounded-pill bg-deep-gold/15 px-3 py-1 font-ui text-[11px] uppercase tracking-[0.5px] text-deep-gold">
             Price-inclusive
           </span>
         </div>
@@ -354,10 +356,10 @@ function BookingRulesSection({
 /* ── Shared primitives ──────────────────────────────────────────────────── */
 
 const inputClass =
-  'w-full px-3 py-2 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold disabled:opacity-50 disabled:cursor-not-allowed'
+  'w-full px-3 py-2 rounded-buttons border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold disabled:opacity-50 disabled:cursor-not-allowed'
 
 const timeInputClass =
-  'px-3 py-2 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold disabled:opacity-50 disabled:cursor-not-allowed'
+  'px-3 py-2 rounded-buttons border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold disabled:opacity-50 disabled:cursor-not-allowed'
 
 function NumberField({
   label,
@@ -404,7 +406,7 @@ function SectionCard({
   children: React.ReactNode
 }) {
   return (
-    <section className="space-y-4 border border-cloud-gray rounded-[6px] bg-canvas-white p-5">
+    <section className="space-y-4 border border-cloud-gray rounded-cards bg-canvas-white p-5">
       <div>
         <h2 className="font-display text-lg text-cocoa-dark tracking-tight">{title}</h2>
         <p className="font-sans text-sm text-dusty-gray mt-0.5">{description}</p>
@@ -433,7 +435,7 @@ function SectionFooter({
         </p>
       )}
       {saved && !saveError && (
-        <output className="mr-auto font-sans text-sm text-emerald-600" aria-live="polite">
+        <output className="mr-auto font-sans text-sm text-success" aria-live="polite">
           Saved.
         </output>
       )}
@@ -441,59 +443,11 @@ function SectionFooter({
         type="button"
         onClick={onSave}
         disabled={busy}
-        className="h-9 px-4 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+        className="h-9 px-4 rounded-buttons bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {busy ? 'Saving…' : 'Save'}
       </button>
     </div>
-  )
-}
-
-function LoadingState() {
-  return (
-    <output
-      className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      aria-live="polite"
-    >
-      <Spinner />
-      <span className="font-sans text-sm text-dusty-gray">Loading settings…</span>
-    </output>
-  )
-}
-
-function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div className="border border-error/40 bg-error/5 rounded-[6px] px-5 py-10 text-center">
-      <p className="font-sans text-sm text-error mb-3" role="alert">
-        {message}
-      </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
-      >
-        Try Again
-      </button>
-    </div>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-5 w-5 animate-spin text-deep-gold"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
   )
 }
 

@@ -1,48 +1,71 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 21-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : Bookings Table
  * Scope        : Admin Portal — Booking Management
  *
- * Description  : Interactive bookings list with status, date, and
- *                service type filters. Fetches from admin API with
- *                query params and renders a paginated data table.
+ * Description  : Interactive bookings list rebuilt on the admin design-system
+ *                primitives. Renders the list via the reusable DataTable, its
+ *                controls via the FilterBar, statuses via StatusBadge, and
+ *                loading / empty / error conditions via the shared state
+ *                presenters. Fetch orchestration + timeout is delegated to the
+ *                useAsyncData hook. Consumes GET /api/bookings as-is.
  *
  * Responsibilities :
  * - Fetch bookings with filter parameters (status, date, serviceType)
- * - Render filter bar with dropdowns, date picker, and toggle group
- * - Display bookings in a sortable table with status badges
+ * - Render the FilterBar (status dropdown, salon/spa tabs, column visibility,
+ *   client-side search) plus a preserved date filter control
+ * - Render bookings in the DataTable with sortable columns + status badges
+ * - Provide the per-row "View details" action linking to the detail page
+ * - Surface loading / empty / error states via the state presenters
  *
  * Features / Functionality :
- * - Multi-filter support (status, date, salon/spa type)
- * - Responsive table with booking details and action links
- * - Loading, error, and empty states with retry capability
+ * - Multi-filter support (status, date, salon/spa type) — unchanged effects
+ * - Lifted column-visibility shared between DataTable and FilterBar (Req 7.5)
+ * - Client-side global search over the rendered rows (Req 8.2)
  *
- * Tech Stack   : Next.js 16, React (Client Component), TypeScript
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript,
+ *                @tanstack/react-table
  * Layer        : Presentation (Data Table Component)
  *
- * Dependencies : StatusBadge, admin bookings lib, next/link, React hooks
+ * Dependencies : @/components/ui/data-table, @/components/ui/filter-bar,
+ *                @/components/ui/status-badge, @/components/ui/state/*,
+ *                @/components/ui/use-async-data, @/lib/admin/bookings,
+ *                next/navigation
  *
  * Notes        :
- * - Filters trigger re-fetch via useEffect dependency array
+ * - Presentation-layer only: no API/RBAC/data-model/business-logic changes.
+ * - Uses ONLY semantic Brand-Token utilities — no hex / raw radius literals.
+ * - Every pre-redesign field (Booking #, Customer, Date, Time, Services,
+ *   Status, Total) and the "View details" action are preserved (Req 17.6, 17.7).
+ *
+ * Requirements : 17.1, 17.2, 17.3, 17.4, 17.5, 17.6, 17.7
  ************************************************************/
 
 'use client'
 
-import { StatusBadge } from '@/components/admin/StatusBadge'
+import { DataTable, type RowAction } from '@/components/ui/data-table'
+import { FilterBar, type ColumnToggle } from '@/components/ui/filter-bar'
+import { EmptyState } from '@/components/ui/state/empty-state'
+import { ErrorState } from '@/components/ui/state/error-state'
+import { Skeleton } from '@/components/ui/state/skeleton'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { useAsyncData } from '@/components/ui/use-async-data'
 import {
   type AdminBooking,
   formatDateDDMMYYYY,
   formatINR,
   formatTime12h,
 } from '@/lib/admin/bookings'
-import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
+import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
+import { CalendarDays, Eye } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 const STATUS_OPTIONS = [
-  { value: 'all', label: 'All' },
+  { value: 'all', label: 'All statuses' },
   { value: 'pending', label: 'Pending' },
   { value: 'confirmed', label: 'Confirmed' },
   { value: 'in_progress', label: 'In Progress' },
@@ -58,277 +81,249 @@ const SERVICE_TYPE_OPTIONS = [
   { value: 'spa', label: 'SPA' },
 ]
 
+/** Toggleable data columns surfaced to the FilterBar column-visibility control. */
+const COLUMN_META: { id: string; label: string }[] = [
+  { id: 'bookingNumber', label: 'Booking #' },
+  { id: 'customerName', label: 'Customer' },
+  { id: 'bookingDate', label: 'Date' },
+  { id: 'startTime', label: 'Time' },
+  { id: 'services', label: 'Services' },
+  { id: 'status', label: 'Status' },
+  { id: 'totalAmountPaise', label: 'Total' },
+]
+
+async function fetchBookings(
+  status: string,
+  serviceType: string,
+  date: string,
+): Promise<AdminBooking[]> {
+  const params = new URLSearchParams()
+  if (status !== 'all') {
+    params.set('status', status)
+  }
+  if (serviceType !== 'all') {
+    params.set('serviceType', serviceType)
+  }
+  if (date) {
+    params.set('date', date)
+  }
+  const qs = params.toString()
+  const res = await fetch(`/api/bookings${qs ? `?${qs}` : ''}`)
+  const json = await res.json()
+  if (!res.ok || !json.success) {
+    throw new Error(json?.error?.message ?? 'Could not load bookings.')
+  }
+  return json.data.bookings as AdminBooking[]
+}
+
 export function BookingsTable() {
-  const [bookings, setBookings] = useState<AdminBooking[] | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
   const [status, setStatus] = useState('all')
   const [serviceType, setServiceType] = useState('all')
   const [date, setDate] = useState('')
+  const [search, setSearch] = useState('')
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const params = new URLSearchParams()
-      if (status !== 'all') {
-        params.set('status', status)
-      }
-      if (serviceType !== 'all') {
-        params.set('serviceType', serviceType)
-      }
-      if (date) {
-        params.set('date', date)
-      }
-      const qs = params.toString()
-      const res = await fetch(`/api/bookings${qs ? `?${qs}` : ''}`)
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error?.message ?? 'Could not load bookings.')
-      }
-      setBookings(json.data.bookings as AdminBooking[])
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not load bookings.')
-    } finally {
-      setLoading(false)
-    }
-  }, [status, serviceType, date])
+  const fetcher = useCallback(
+    () => fetchBookings(status, serviceType, date),
+    [status, serviceType, date],
+  )
+  const { state, retry } = useAsyncData(fetcher)
 
+  // Re-request when a filter changes; the initial mount fetch is owned by the
+  // hook, so skip the very first effect run to avoid a duplicate request.
+  const didMount = useRef(false)
   useEffect(() => {
-    load()
-  }, [load])
+    if (!didMount.current) {
+      didMount.current = true
+      return
+    }
+    retry()
+  }, [status, serviceType, date, retry])
+
+  const columns = useMemo<ColumnDef<AdminBooking, unknown>[]>(
+    () => [
+      {
+        id: 'bookingNumber',
+        accessorKey: 'bookingNumber',
+        header: 'Booking #',
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">{row.original.bookingNumber}</span>
+        ),
+      },
+      {
+        id: 'customerName',
+        accessorKey: 'customerName',
+        header: 'Customer',
+      },
+      {
+        id: 'bookingDate',
+        accessorKey: 'bookingDate',
+        header: 'Date',
+        cell: ({ row }) => (
+          <span className="text-warm-gray">
+            {formatDateDDMMYYYY(row.original.bookingDate)}
+          </span>
+        ),
+      },
+      {
+        id: 'startTime',
+        accessorKey: 'startTime',
+        header: 'Time',
+        cell: ({ row }) => (
+          <span className="text-warm-gray">{formatTime12h(row.original.startTime)}</span>
+        ),
+      },
+      {
+        id: 'services',
+        accessorFn: (booking) =>
+          booking.services.map((service) => service.serviceNameSnapshot).join(', '),
+        header: 'Services',
+        cell: ({ row }) => {
+          const names = row.original.services
+            .map((service) => service.serviceNameSnapshot)
+            .join(', ')
+          return (
+            <span className="block max-w-[200px] truncate text-warm-gray" title={names}>
+              {names || '—'}
+            </span>
+          )
+        },
+      },
+      {
+        id: 'status',
+        accessorKey: 'status',
+        header: 'Status',
+        cell: ({ row }) => <StatusBadge status={row.original.status} />,
+      },
+      {
+        id: 'totalAmountPaise',
+        accessorKey: 'totalAmountPaise',
+        header: 'Total',
+        cell: ({ row }) => (
+          <span className="font-ui">{formatINR(row.original.totalAmountPaise)}</span>
+        ),
+      },
+    ],
+    [],
+  )
+
+  const rowActions = useCallback(
+    (row: { original: AdminBooking }): RowAction[] => [
+      {
+        label: 'View details',
+        icon: Eye,
+        onSelect: () => router.push(`/bookings/${row.original.id}`),
+      },
+    ],
+    [router],
+  )
+
+  const columnToggles: ColumnToggle[] = COLUMN_META.map((meta) => ({
+    id: meta.id,
+    label: meta.label,
+    visible: columnVisibility[meta.id] !== false,
+  }))
 
   return (
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">Bookings</h1>
+        <h1 className="font-display text-2xl tracking-tight text-cocoa-dark">Bookings</h1>
       </div>
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-end gap-3 p-3 border border-cloud-gray rounded-[6px] bg-cloud-gray/30">
-        {/* Status dropdown */}
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor="status-filter"
-            className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray"
-          >
-            Status
-          </label>
-          <select
-            id="status-filter"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
-          >
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
+      {/* Controls: FilterBar (search, status, type tabs, columns) + date filter */}
+      <div className="flex flex-wrap items-center gap-3">
+        <FilterBar
+          config={{
+            search: { placeholder: 'Search bookings…', ariaLabel: 'Search bookings' },
+            dropdowns: [
+              {
+                id: 'status',
+                label: 'Status',
+                options: STATUS_OPTIONS,
+                value: status,
+              },
+            ],
+            tabs: {
+              ariaLabel: 'Service type filter',
+              options: SERVICE_TYPE_OPTIONS,
+              value: serviceType,
+            },
+            columnVisibility: true,
+          }}
+          search={search}
+          onSearchChange={setSearch}
+          onFilterChange={(id, value) => {
+            if (id === 'status') {
+              setStatus(value)
+            }
+          }}
+          onTabChange={setServiceType}
+          columns={columnToggles}
+          onColumnToggle={(id, visible) =>
+            setColumnVisibility((current) => ({ ...current, [id]: visible }))
+          }
+        />
 
-        {/* Date picker */}
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor="date-filter"
-            className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray"
-          >
-            Date
+        {/* Date filter — preserved control (FilterBar has no date input). */}
+        <div className="flex items-center gap-1">
+          <label htmlFor="booking-date-filter" className="sr-only">
+            Filter by date
           </label>
-          <div className="flex items-center gap-1">
+          <div className="relative">
+            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-dusty-gray">
+              <CalendarDays aria-hidden="true" size={16} />
+            </span>
             <input
-              id="date-filter"
+              id="booking-date-filter"
               type="date"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
+              onChange={(event) => setDate(event.target.value)}
+              className="h-9 rounded-buttons border border-outline-gray bg-canvas-white pl-8 pr-3 font-ui text-sm text-cocoa-dark focus:border-cocoa-dark focus:outline-none focus:ring-2 focus:ring-cocoa-dark/20"
             />
-            {date && (
-              <button
-                type="button"
-                onClick={() => setDate('')}
-                className="h-9 px-2 rounded-[6px] text-xs font-ui text-dusty-gray hover:text-cocoa-dark hover:bg-cloud-gray transition-colors"
-                aria-label="Clear date filter"
-              >
-                Clear
-              </button>
-            )}
           </div>
-        </div>
-
-        {/* Service type toggle */}
-        <div className="flex flex-col gap-1">
-          <span className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray">Type</span>
-          <div
-            className="flex rounded-[6px] border border-outline-gray overflow-hidden"
-            // biome-ignore lint/a11y/useSemanticElements: segmented toggle of <button aria-pressed> controls; role="group" is the correct grouping here without a native <fieldset> reset.
-            role="group"
-            aria-label="Service type filter"
-          >
-            {SERVICE_TYPE_OPTIONS.map((opt, i) => {
-              const active = serviceType === opt.value
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setServiceType(opt.value)}
-                  aria-pressed={active}
-                  className={`h-9 px-3 text-sm font-ui transition-colors ${
-                    active
-                      ? 'bg-cocoa-dark text-canvas-white'
-                      : 'bg-canvas-white text-warm-gray hover:bg-cloud-gray'
-                  } ${i > 0 ? 'border-l border-outline-gray' : ''}`}
-                >
-                  {opt.label}
-                </button>
-              )
-            })}
-          </div>
+          {date ? (
+            <button
+              type="button"
+              onClick={() => setDate('')}
+              className="h-9 rounded-buttons px-2 font-ui text-xs text-dusty-gray transition-colors hover:bg-cloud-gray hover:text-cocoa-dark"
+            >
+              Clear
+            </button>
+          ) : null}
         </div>
       </div>
 
       {/* Table / states */}
-      {loading ? (
-        <LoadingState />
-      ) : error ? (
-        <ErrorState message={error} onRetry={load} />
-      ) : !bookings || bookings.length === 0 ? (
-        <EmptyState />
+      {state.status === 'loading' ? (
+        <Skeleton rows={8} variant="table" />
+      ) : state.status === 'error' ? (
+        <ErrorState message={state.message} onRetry={retry} />
+      ) : state.data.length === 0 ? (
+        <EmptyState
+          icon={CalendarDays}
+          title="No bookings found"
+          message="Try adjusting the filters above."
+        />
       ) : (
         <>
-          <div className="border border-cloud-gray rounded-[6px] overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-cloud-gray/60">
-                    <Th>Booking #</Th>
-                    <Th>Customer</Th>
-                    <Th>Date</Th>
-                    <Th>Time</Th>
-                    <Th>Services</Th>
-                    <Th>Status</Th>
-                    <Th>Total</Th>
-                    <Th>Actions</Th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-cloud-gray">
-                  {bookings.map((booking) => (
-                    <tr key={booking.id} className="hover:bg-cloud-gray/30 transition-colors">
-                      <td className="px-4 py-3 font-mono text-xs text-cocoa-dark whitespace-nowrap">
-                        {booking.bookingNumber}
-                      </td>
-                      <td className="px-4 py-3 font-sans text-cocoa-dark whitespace-nowrap">
-                        {booking.customerName}
-                      </td>
-                      <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
-                        {formatDateDDMMYYYY(booking.bookingDate)}
-                      </td>
-                      <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
-                        {formatTime12h(booking.startTime)}
-                      </td>
-                      <td className="px-4 py-3 font-sans text-warm-gray max-w-[200px] truncate">
-                        {booking.services.map((s) => s.serviceNameSnapshot).join(', ') || '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={booking.status} />
-                      </td>
-                      <td className="px-4 py-3 font-ui text-cocoa-dark whitespace-nowrap">
-                        {formatINR(booking.totalAmountPaise)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Link
-                          href={`/bookings/${booking.id}`}
-                          className="text-deep-gold hover:text-cocoa-dark text-sm font-ui transition-colors"
-                          aria-label={`View details for booking ${booking.bookingNumber}`}
-                        >
-                          View →
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <p className="text-sm text-dusty-gray font-sans">
-            Showing {bookings.length} booking{bookings.length === 1 ? '' : 's'}
+          <DataTable
+            columns={columns}
+            data={state.data}
+            tableId="bookings"
+            caption="Bookings"
+            globalFilter={search}
+            rowActions={rowActions}
+            onRowClick={(booking) => router.push(`/bookings/${booking.id}`)}
+            columnVisibility={columnVisibility}
+            onColumnVisibilityChange={setColumnVisibility}
+          />
+          <p className="font-sans text-sm text-dusty-gray">
+            Showing {state.data.length} booking{state.data.length === 1 ? '' : 's'}
           </p>
         </>
       )}
     </div>
-  )
-}
-
-function Th({ children }: { children: React.ReactNode }) {
-  return (
-    <th className="text-left px-4 py-2.5 font-ui text-xs uppercase tracking-wider text-dusty-gray">
-      {children}
-    </th>
-  )
-}
-
-function LoadingState() {
-  return (
-    <output
-      className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      aria-live="polite"
-    >
-      <Spinner />
-      <span className="font-sans text-sm text-dusty-gray">Loading bookings…</span>
-    </output>
-  )
-}
-
-function ErrorState({
-  message,
-  onRetry,
-}: {
-  message: string
-  onRetry: () => void
-}) {
-  return (
-    <div className="border border-error/40 bg-error/5 rounded-[6px] px-5 py-10 text-center">
-      <p className="font-sans text-sm text-error mb-3" role="alert">
-        {message}
-      </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
-      >
-        Try Again
-      </button>
-    </div>
-  )
-}
-
-function EmptyState() {
-  return (
-    <div className="border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 text-center">
-      <p className="font-sans text-sm text-cocoa-dark mb-1">No bookings found</p>
-      <p className="font-sans text-xs text-dusty-gray">Try adjusting the filters above.</p>
-    </div>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-5 w-5 animate-spin text-deep-gold"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
   )
 }

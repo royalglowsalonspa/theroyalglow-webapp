@@ -61,6 +61,11 @@
   --color-outline-gray: #cccccc;
   --color-cloud-gray: #f4f5f9;
   --color-success: #3f7d5c;
+  /* Additive admin-only token (Req 9.5): darker success green for AA-contrast
+     pill TEXT over the bg-success/10-over-white effective background. As text
+     it computes ~6.59:1 (≥4.5:1). Do NOT change --color-success above —
+     other code depends on it; this token is purely additive. */
+  --color-success-dark: #2f5e45;
   --color-warning: #c8a961;
   --color-error: #b5482e;
   --color-accent-pink: #f8c8d8;

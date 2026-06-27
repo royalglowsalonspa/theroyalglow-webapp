@@ -75,7 +75,15 @@ function generateNonce(): string {
  */
 function allowWithCspNonce(request: NextRequest): NextResponse {
   const nonce = generateNonce()
-  const csp = `default-src 'self'; script-src 'self' 'nonce-${nonce}'`
+  // In development, Next.js + Turbopack's React Server Components client uses
+  // `eval()` for dev-only debugging (e.g. reconstructing cross-environment
+  // callstacks), so the dev CSP must include `'unsafe-eval'`. Production keeps
+  // the strict nonce-only policy with no eval (Req 7.3).
+  const scriptSrc =
+    process.env.NODE_ENV === 'production'
+      ? `script-src 'self' 'nonce-${nonce}'`
+      : `script-src 'self' 'nonce-${nonce}' 'unsafe-eval'`
+  const csp = `default-src 'self'; ${scriptSrc}`
 
   // Inject the nonce onto the forwarded request headers so the app can read it.
   const requestHeaders = new Headers(request.headers)

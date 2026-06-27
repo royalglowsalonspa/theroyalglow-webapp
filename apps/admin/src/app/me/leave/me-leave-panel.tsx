@@ -4,21 +4,39 @@
  * Module Name  : MeLeavePanel (staff self-service)
  * Scope        : Admin Portal — Staff Self-Service
  *
- * Description  : Client component providing the leave request form and history.
- *                Staff submit new leave requests and withdraw pending ones.
- *                Relocated from apps/web/staff/leave/staff-leave-panel during the
- *                admin-web-separation feature; fetch URLs retargeted to /api/me/*.
+ * Description  : Client component providing the leave request form and history,
+ *                rebuilt on the admin design-system primitives. Request
+ *                statuses render via StatusBadge, and the history loading /
+ *                empty / error conditions use the shared state presenters with
+ *                useAsyncData driving fetch orchestration + timeout. Staff
+ *                submit new leave requests and withdraw pending ones. Consumes
+ *                GET/POST /api/me/leave + DELETE /api/me/leave/[id] as-is.
  *
- * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4 (Brand Tokens)
  * Layer        : Presentation
  *
- * Notes        : Approval/rejection is handled by managers at /leave.
+ * Dependencies : @/components/ui/status-badge, @/components/ui/state/*,
+ *                @/components/ui/use-async-data, @/lib/admin/bookings, React hooks
+ *
+ * Notes        : Presentation-layer only — no API/RBAC/data-model/business-logic
+ *                changes. Uses ONLY semantic Brand-Token utilities — no emoji /
+ *                hex / raw-palette literals. Approval/rejection is handled by
+ *                managers at /leave. Every pre-redesign field and action is
+ *                preserved (Req 17.6, 17.7).
+ *
+ * Requirements : 17.1, 17.2, 17.3, 17.4, 17.5, 17.6, 17.7
  ************************************************************/
 
 'use client'
 
+import { EmptyState } from '@/components/ui/state/empty-state'
+import { ErrorState } from '@/components/ui/state/error-state'
+import { Skeleton } from '@/components/ui/state/skeleton'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { useAsyncData } from '@/components/ui/use-async-data'
 import { formatDateDDMMYYYY } from '@/lib/admin/bookings'
-import { useCallback, useEffect, useId, useState } from 'react'
+import { Palmtree } from 'lucide-react'
+import { useCallback, useId, useState } from 'react'
 
 // ─── API shapes (mirror GET/POST /api/me/leave + DELETE /api/me/leave/[id]) ───
 
@@ -46,61 +64,45 @@ const LEAVE_TYPE_LABEL: Record<string, string> = {
   other: 'Other',
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  pending: 'bg-amber-100 text-amber-800',
-  approved: 'bg-emerald-100 text-emerald-700',
-  rejected: 'bg-red-100 text-red-700',
+async function fetchMyLeave(): Promise<LeaveRow[]> {
+  const res = await fetch('/api/me/leave')
+  const json = await res.json()
+  if (!res.ok || !json.success) {
+    throw new Error(json?.error?.message ?? 'Could not load your leave.')
+  }
+  return json.data.leave as LeaveRow[]
 }
 
 export function MeLeavePanel() {
-  const [leave, setLeave] = useState<LeaveRow[] | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch('/api/me/leave')
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error?.message ?? 'Could not load your leave.')
-      }
-      setLeave(json.data.leave as LeaveRow[])
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not load your leave.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    load()
-  }, [load])
+  const { state, retry } = useAsyncData(fetchMyLeave)
 
   return (
     <div className="space-y-6">
-      <RequestLeaveForm onSubmitted={load} />
+      <RequestLeaveForm onSubmitted={retry} />
 
       <section aria-labelledby="leave-history-heading">
         <h2
           id="leave-history-heading"
-          className="font-display text-[20px] text-cocoa-dark tracking-tight mb-4"
+          className="mb-4 font-display text-[20px] tracking-tight text-cocoa-dark"
         >
           Leave history
         </h2>
 
-        {loading ? (
-          <LoadingState />
-        ) : error ? (
-          <ErrorState message={error} onRetry={load} />
-        ) : !leave || leave.length === 0 ? (
-          <EmptyState />
+        {state.status === 'loading' ? (
+          <Skeleton rows={4} variant="card" />
+        ) : state.status === 'error' ? (
+          <ErrorState message={state.message} onRetry={retry} />
+        ) : state.data.length === 0 ? (
+          <EmptyState
+            icon={Palmtree}
+            title="No leave requests yet"
+            message="Use the form above to request time off."
+          />
         ) : (
           <ul className="space-y-3">
-            {leave.map((row) => (
+            {state.data.map((row) => (
               <li key={row.id}>
-                <LeaveItem row={row} onWithdrawn={load} />
+                <LeaveItem row={row} onWithdrawn={retry} />
               </li>
             ))}
           </ul>
@@ -164,12 +166,10 @@ function RequestLeaveForm({ onSubmitted }: { onSubmitted: () => void }) {
   )
 
   return (
-    <section className="rounded-[6px] border border-cloud-gray bg-canvas-white p-5">
-      <h2 className="font-display text-[20px] text-cocoa-dark tracking-tight mb-4">
-        Request leave
-      </h2>
+    <section className="rounded-cards border border-cloud-gray bg-canvas-white p-5">
+      <h2 className="mb-4 font-display text-[20px] tracking-tight text-cocoa-dark">Request leave</h2>
       <form onSubmit={submit} className="space-y-4" noValidate>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1">
             <label
               htmlFor={typeId}
@@ -181,7 +181,7 @@ function RequestLeaveForm({ onSubmitted }: { onSubmitted: () => void }) {
               id={typeId}
               value={leaveType}
               onChange={(e) => setLeaveType(e.target.value)}
-              className="h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
+              className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-3 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
             >
               {LEAVE_TYPE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -205,7 +205,7 @@ function RequestLeaveForm({ onSubmitted }: { onSubmitted: () => void }) {
               onChange={(e) => setDate(e.target.value)}
               required
               aria-required="true"
-              className="h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
+              className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-3 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
             />
           </div>
         </div>
@@ -223,7 +223,7 @@ function RequestLeaveForm({ onSubmitted }: { onSubmitted: () => void }) {
             onChange={(e) => setReason(e.target.value)}
             rows={2}
             maxLength={500}
-            className="w-full px-3 py-2 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold resize-none"
+            className="w-full resize-none rounded-buttons border border-outline-gray bg-canvas-white px-3 py-2 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
             placeholder="Add any context for your manager."
           />
         </div>
@@ -234,7 +234,7 @@ function RequestLeaveForm({ onSubmitted }: { onSubmitted: () => void }) {
           </p>
         )}
         {success && (
-          <output className="block font-sans text-sm text-emerald-700">
+          <output className="block font-sans text-sm text-success-dark">
             Leave request submitted.
           </output>
         )}
@@ -243,7 +243,7 @@ function RequestLeaveForm({ onSubmitted }: { onSubmitted: () => void }) {
           type="submit"
           disabled={submitting}
           aria-busy={submitting}
-          className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="rounded-buttons bg-cocoa-dark px-4 py-2 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
         >
           {submitting ? 'Submitting…' : 'Submit request'}
         </button>
@@ -281,7 +281,7 @@ function LeaveItem({
   }, [row.id, onWithdrawn])
 
   return (
-    <article className="rounded-[6px] border border-cloud-gray bg-canvas-white p-4">
+    <article className="rounded-cards border border-cloud-gray bg-canvas-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-sans text-[15px] text-cocoa-dark">
@@ -291,10 +291,10 @@ function LeaveItem({
               <time dateTime={row.date}>{formatDateDDMMYYYY(row.date)}</time>
             </span>
           </p>
-          {row.reason && <p className="font-sans text-sm text-dusty-gray mt-1">“{row.reason}”</p>}
+          {row.reason && <p className="mt-1 font-sans text-sm text-dusty-gray">“{row.reason}”</p>}
           {row.approvalStatus === 'rejected' && row.rejectionReason && (
-            <p className="font-sans text-sm text-red-700 mt-1.5">
-              <span className="font-ui text-[11px] uppercase tracking-[0.5px] text-red-600 mr-1.5">
+            <p className="mt-1.5 font-sans text-sm text-error">
+              <span className="mr-1.5 font-ui text-[11px] uppercase tracking-[0.5px] text-error">
                 Reason
               </span>
               {row.rejectionReason}
@@ -302,20 +302,14 @@ function LeaveItem({
           )}
         </div>
 
-        <div className="flex flex-col items-end gap-2 shrink-0">
-          <span
-            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-ui uppercase tracking-[0.5px] ${
-              STATUS_STYLES[row.approvalStatus] ?? 'bg-cloud-gray text-warm-gray'
-            }`}
-          >
-            {row.approvalStatus}
-          </span>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <StatusBadge status={row.approvalStatus} />
           {isPending && (
             <button
               type="button"
               onClick={withdraw}
               disabled={busy}
-              className="font-ui text-xs text-warm-gray hover:text-error transition-colors disabled:opacity-50"
+              className="font-ui text-xs text-warm-gray transition-colors hover:text-error disabled:opacity-50 motion-reduce:transition-none"
             >
               {busy ? 'Withdrawing…' : 'Withdraw'}
             </button>
@@ -324,73 +318,10 @@ function LeaveItem({
       </div>
 
       {actionError && (
-        <p className="font-sans text-sm text-error mt-2" role="alert">
+        <p className="mt-2 font-sans text-sm text-error" role="alert">
           {actionError}
         </p>
       )}
     </article>
-  )
-}
-
-function LoadingState() {
-  return (
-    <output
-      className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-12 justify-center"
-      aria-live="polite"
-    >
-      <Spinner />
-      <span className="font-sans text-sm text-dusty-gray">Loading your leave…</span>
-    </output>
-  )
-}
-
-function ErrorState({
-  message,
-  onRetry,
-}: {
-  message: string
-  onRetry: () => void
-}) {
-  return (
-    <div className="border border-error/40 bg-error/5 rounded-[6px] px-5 py-10 text-center">
-      <p className="font-sans text-sm text-error mb-3" role="alert">
-        {message}
-      </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
-      >
-        Try Again
-      </button>
-    </div>
-  )
-}
-
-function EmptyState() {
-  return (
-    <div className="border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-12 text-center">
-      <p className="font-sans text-sm text-cocoa-dark mb-1">No leave requests yet</p>
-      <p className="font-sans text-xs text-dusty-gray">Use the form above to request time off.</p>
-    </div>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-5 w-5 animate-spin text-deep-gold"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
   )
 }

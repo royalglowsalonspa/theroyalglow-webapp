@@ -1,39 +1,57 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 21-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : Offers Manager
  * Scope        : Admin Portal — Offer Management
  *
- * Description  : Full CRUD interface for promotional offers.
- *                Includes create form with validation, offer list
- *                table, and activate/deactivate toggle actions.
+ * Description  : Full CRUD interface for promotional offers, rebuilt on the
+ *                admin design-system primitives (DataTable, FilterBar,
+ *                StatusBadge, state presenters, useAsyncData, SlideOverPanel).
+ *                Offers are listed in a DataTable with type/status filters;
+ *                creation happens in a right-side SlideOverPanel; activate /
+ *                deactivate runs inline via the row-action menu.
  *
  * Responsibilities :
  * - Create new offers (percentage, flat, combo types) with service selection
- * - Display all offers in a filterable data table
+ * - Display all offers in a DataTable with search + type/status filters
  * - Toggle offer active/inactive status via PATCH API
  *
  * Features / Functionality :
- * - Create form with dynamic type-specific discount fields
+ * - Create form with dynamic type-specific discount fields (in a SlideOverPanel)
  * - Service multi-select grouped by salon/spa categories
  * - Inline field validation errors from API response
  *
- * Tech Stack   : Next.js 16, React (Client Component), TypeScript
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript,
+ *                @tanstack/react-table, Radix Dialog (SlideOverPanel)
  * Layer        : Presentation (CRUD Management Component)
  *
- * Dependencies : admin bookings lib, @rgss/types (OfferType), React hooks
+ * Dependencies : DataTable, FilterBar, StatusBadge, SlideOverPanel, state
+ *                presenters, useAsyncData, @/lib/admin/format, @rgss/types
  *
- * Notes        :
- * - Rupee inputs are converted to paise at submit boundary
+ * Notes        : Presentation-layer only; consumes GET /api/offers,
+ *                /api/services, POST/PATCH /api/offers as-is. Rupee inputs are
+ *                converted to paise at the submit boundary; money is displayed
+ *                via formatINRWithPaise. All pre-redesign fields and actions are
+ *                preserved.
  ************************************************************/
 
 'use client'
 
-import { formatDateDDMMYYYY } from '@/lib/admin/bookings'
+import { DataTable, type RowAction } from '@/components/ui/data-table'
+import { FilterBar } from '@/components/ui/filter-bar'
+import { SlideOverPanel } from '@/components/ui/slide-over-panel'
+import { EmptyState } from '@/components/ui/state/empty-state'
+import { ErrorState } from '@/components/ui/state/error-state'
+import { Skeleton } from '@/components/ui/state/skeleton'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { useAsyncData } from '@/components/ui/use-async-data'
+import { formatDateDDMMYYYY, formatINRWithPaise } from '@/lib/admin/format'
 import type { OfferType } from '@rgss/types'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { ColumnDef } from '@tanstack/react-table'
+import { Power, Tag } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
 
 // ─── Types (mirror GET /api/offers + /api/services) ──────────────────────────
 interface OfferServiceRef {
@@ -67,6 +85,11 @@ interface ServiceCategoryResponse {
   services: { id: string; name: string }[]
 }
 
+interface OffersData {
+  offers: AdminOffer[]
+  services: ServiceOption[]
+}
+
 type FieldErrors = Record<string, string[] | undefined>
 
 const OFFER_TYPE_OPTIONS: { value: OfferType; label: string }[] = [
@@ -81,196 +104,270 @@ const OFFER_TYPE_LABEL: Record<OfferType, string> = {
   combo_price: 'Combo',
 }
 
-// Whole-rupee Indian formatting for clean discount labels (offers are whole ₹).
-function formatRupees(paise: number): string {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(paise / 100)
-}
-
-// Human-readable discount summary for a row.
+// Human-readable discount summary for a row. Money via formatINRWithPaise.
 function discountSummary(offer: AdminOffer): string {
   if (offer.offerType === 'percentage' && offer.discountPercentage != null) {
     return `${offer.discountPercentage}% off`
   }
   if (offer.offerType === 'flat' && offer.discountAmountPaise != null) {
-    return `${formatRupees(offer.discountAmountPaise)} off`
+    return `${formatINRWithPaise(offer.discountAmountPaise)} off`
   }
   if (offer.offerType === 'combo_price' && offer.comboPricePaise != null) {
-    return `Combo ${formatRupees(offer.comboPricePaise)}`
+    return `Combo ${formatINRWithPaise(offer.comboPricePaise)}`
   }
   return '—'
 }
 
+// Fetch the offers list and the service options together. Service options are
+// non-fatal — the create form simply shows none available on failure.
+async function fetchOffersData(): Promise<OffersData> {
+  const [offersRes, servicesRes] = await Promise.all([
+    fetch('/api/offers'),
+    fetch('/api/services'),
+  ])
+  const offersJson = await offersRes.json()
+  if (!offersRes.ok || !offersJson.success) {
+    throw new Error(offersJson?.error?.message ?? 'Could not load offers.')
+  }
+
+  let services: ServiceOption[] = []
+  try {
+    const servicesJson = await servicesRes.json()
+    if (servicesRes.ok && servicesJson.success) {
+      const categories = servicesJson.data.categories as ServiceCategoryResponse[]
+      services = categories.flatMap((cat) =>
+        cat.services.map((s) => ({ id: s.id, name: s.name, serviceType: cat.serviceType })),
+      )
+    }
+  } catch {
+    /* form shows no services */
+  }
+
+  return { offers: offersJson.data.offers as AdminOffer[], services }
+}
+
 export function OffersManager() {
-  const [offers, setOffers] = useState<AdminOffer[] | null>(null)
-  const [services, setServices] = useState<ServiceOption[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [togglingId, setTogglingId] = useState<string | null>(null)
+  const { state, retry } = useAsyncData(fetchOffersData)
 
-  const loadOffers = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch('/api/offers')
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error?.message ?? 'Could not load offers.')
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [createOpen, setCreateOpen] = useState(false)
+
+  // Filters emitted by the FilterBar (client-side over the loaded set).
+  const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
+
+  const offers = state.status === 'success' ? state.data.offers : []
+  const services = state.status === 'success' ? state.data.services : []
+
+  const reload = useCallback(() => {
+    setActionError(null)
+    retry()
+  }, [retry])
+
+  const toggleActive = useCallback(
+    async (offer: AdminOffer) => {
+      setActionError(null)
+      try {
+        const res = await fetch(`/api/offers/${offer.id}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ isActive: !offer.isActive }),
+        })
+        const json = await res.json()
+        if (!res.ok || !json.success) {
+          throw new Error(json?.error?.message ?? 'Could not update this offer.')
+        }
+        retry()
+      } catch (err: unknown) {
+        setActionError(err instanceof Error ? err.message : 'Could not update this offer.')
       }
-      setOffers(json.data.offers as AdminOffer[])
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not load offers.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+    },
+    [retry],
+  )
 
-  const loadServices = useCallback(async () => {
-    try {
-      const res = await fetch('/api/services')
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        return
-      }
-      const categories = json.data.categories as ServiceCategoryResponse[]
-      const options: ServiceOption[] = categories.flatMap((cat) =>
-        cat.services.map((s) => ({
-          id: s.id,
-          name: s.name,
-          serviceType: cat.serviceType,
-        })),
-      )
-      setServices(options)
-    } catch {
-      // Service options are non-fatal; the form simply shows none available.
-    }
-  }, [])
+  const filtered = useMemo(() => {
+    const term = search.toLowerCase()
+    return offers.filter(
+      (o) =>
+        (typeFilter === 'all' || o.offerType === typeFilter) &&
+        (statusFilter === 'all' ||
+          (statusFilter === 'active' ? o.isActive : !o.isActive)) &&
+        (term === '' || o.name.toLowerCase().includes(term)),
+    )
+  }, [offers, search, typeFilter, statusFilter])
 
-  useEffect(() => {
-    loadOffers()
-    loadServices()
-  }, [loadOffers, loadServices])
+  const columns = useMemo<ColumnDef<AdminOffer, unknown>[]>(
+    () => [
+      { accessorKey: 'name', header: 'Name' },
+      {
+        accessorKey: 'offerType',
+        header: 'Type',
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap font-sans text-warm-gray">
+            {OFFER_TYPE_LABEL[row.original.offerType]}
+          </span>
+        ),
+      },
+      {
+        id: 'discount',
+        header: 'Discount',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap font-ui text-cocoa-dark">
+            {discountSummary(row.original)}
+          </span>
+        ),
+      },
+      {
+        id: 'valid',
+        header: 'Valid',
+        accessorFn: (o) => o.startDate,
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap font-sans text-warm-gray">
+            {formatDateDDMMYYYY(row.original.startDate)} – {formatDateDDMMYYYY(row.original.endDate)}
+          </span>
+        ),
+      },
+      {
+        id: 'services',
+        header: 'Services',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span className="block max-w-xs truncate font-sans text-warm-gray">
+            {row.original.services.map((s) => s.name).join(', ') || '—'}
+          </span>
+        ),
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        accessorFn: (o) => (o.isActive ? 'active' : 'inactive'),
+        cell: ({ row }) => (
+          <StatusBadge status={row.original.isActive ? 'active' : 'inactive'} />
+        ),
+      },
+    ],
+    [],
+  )
 
-  const toggleActive = useCallback(async (offer: AdminOffer) => {
-    setTogglingId(offer.id)
-    try {
-      const res = await fetch(`/api/offers/${offer.id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ isActive: !offer.isActive }),
-      })
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error?.message ?? 'Could not update this offer.')
-      }
-      const updated = json.data.offer as AdminOffer
-      setOffers((prev) =>
-        prev
-          ? prev.map((o) => (o.id === offer.id ? { ...o, isActive: updated.isActive } : o))
-          : prev,
-      )
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not update this offer.')
-    } finally {
-      setTogglingId(null)
-    }
-  }, [])
+  const rowActions = useCallback(
+    (offer: AdminOffer): RowAction[] => [
+      {
+        label: offer.isActive ? 'Deactivate' : 'Activate',
+        icon: Power,
+        onSelect: () => toggleActive(offer),
+      },
+    ],
+    [toggleActive],
+  )
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">Offers</h1>
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-2xl tracking-tight text-cocoa-dark">Offers</h1>
+        <button
+          type="button"
+          onClick={() => setCreateOpen(true)}
+          className="inline-flex h-9 items-center gap-1.5 rounded-buttons bg-cocoa-dark px-4 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray"
+        >
+          + Create Offer
+        </button>
       </div>
 
-      <CreateOfferForm services={services} onCreated={loadOffers} />
+      {actionError ? (
+        <p className="rounded-cards border border-error/40 bg-error/5 px-4 py-2.5 font-sans text-sm text-error" role="alert">
+          {actionError}
+        </p>
+      ) : null}
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-display text-cocoa-dark tracking-tight">All offers</h2>
-        {loading ? (
-          <LoadingState />
-        ) : error ? (
-          <ErrorState message={error} onRetry={loadOffers} />
-        ) : !offers || offers.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div className="border border-cloud-gray rounded-[6px] overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-cloud-gray/60">
-                    <Th>Name</Th>
-                    <Th>Type</Th>
-                    <Th>Discount</Th>
-                    <Th>Valid</Th>
-                    <Th>Services</Th>
-                    <Th>Status</Th>
-                    <Th>Action</Th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-cloud-gray">
-                  {offers.map((offer) => (
-                    <tr key={offer.id} className="hover:bg-cloud-gray/30 transition-colors">
-                      <td className="px-4 py-3 font-sans text-cocoa-dark">{offer.name}</td>
-                      <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
-                        {OFFER_TYPE_LABEL[offer.offerType]}
-                      </td>
-                      <td className="px-4 py-3 font-ui text-cocoa-dark whitespace-nowrap">
-                        {discountSummary(offer)}
-                      </td>
-                      <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
-                        {formatDateDDMMYYYY(offer.startDate)} – {formatDateDDMMYYYY(offer.endDate)}
-                      </td>
-                      <td className="px-4 py-3 font-sans text-warm-gray max-w-[220px] truncate">
-                        {offer.services.map((s) => s.name).join(', ') || '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-ui uppercase tracking-wider ${
-                            offer.isActive
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-cloud-gray text-dusty-gray'
-                          }`}
-                        >
-                          {offer.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <button
-                          type="button"
-                          onClick={() => toggleActive(offer)}
-                          disabled={togglingId === offer.id}
-                          aria-busy={togglingId === offer.id}
-                          className="px-3 py-1.5 rounded-[6px] border border-outline-gray text-xs font-ui text-cocoa-dark hover:border-deep-gold hover:text-deep-gold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {togglingId === offer.id
-                            ? 'Saving…'
-                            : offer.isActive
-                              ? 'Deactivate'
-                              : 'Activate'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </section>
+      {state.status === 'loading' ? (
+        <Skeleton variant="table" rows={6} />
+      ) : state.status === 'error' ? (
+        <ErrorState message={state.message} onRetry={reload} />
+      ) : (
+        <>
+          <FilterBar
+            config={{
+              search: { placeholder: 'Search offers…', ariaLabel: 'Search offers by name' },
+              dropdowns: [
+                {
+                  id: 'type',
+                  label: 'Filter by type',
+                  options: [
+                    { value: 'all', label: 'All types' },
+                    ...OFFER_TYPE_OPTIONS.map((o) => ({
+                      value: o.value,
+                      label: OFFER_TYPE_LABEL[o.value],
+                    })),
+                  ],
+                  value: typeFilter,
+                },
+                {
+                  id: 'status',
+                  label: 'Filter by status',
+                  options: [
+                    { value: 'all', label: 'All statuses' },
+                    { value: 'active', label: 'Active' },
+                    { value: 'inactive', label: 'Inactive' },
+                  ],
+                  value: statusFilter,
+                },
+              ],
+            }}
+            search={search}
+            onSearchChange={setSearch}
+            onFilterChange={(id, value) => {
+              if (id === 'type') {
+                setTypeFilter(value)
+              } else if (id === 'status') {
+                setStatusFilter(value)
+              }
+            }}
+          />
+
+          {filtered.length === 0 ? (
+            <EmptyState
+              title="No offers found"
+              message="Adjust the filters above, or create a new offer."
+              icon={Tag}
+            />
+          ) : (
+            <DataTable
+              columns={columns}
+              data={filtered}
+              tableId="offers"
+              rowActions={({ original }) => rowActions(original)}
+              caption="Promotional offers with type, discount, validity, services, and status"
+            />
+          )}
+        </>
+      )}
+
+      <CreateOfferPanel
+        open={createOpen}
+        services={services}
+        onClose={() => setCreateOpen(false)}
+        onCreated={() => {
+          setCreateOpen(false)
+          reload()
+        }}
+      />
     </div>
   )
 }
 
-// ─── Create form ─────────────────────────────────────────────────────────────
-function CreateOfferForm({
+// ─── Create form (SlideOverPanel) ────────────────────────────────────────────
+function CreateOfferPanel({
+  open,
   services,
+  onClose,
   onCreated,
 }: {
+  open: boolean
   services: ServiceOption[]
+  onClose: () => void
   onCreated: () => void
 }) {
   const [name, setName] = useState('')
@@ -287,7 +384,6 @@ function CreateOfferForm({
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
-  const [success, setSuccess] = useState(false)
 
   const groupedServices = useMemo(() => {
     const salon = services.filter((s) => s.serviceType === 'salon')
@@ -310,6 +406,8 @@ function CreateOfferForm({
     setEndDate('')
     setServiceIds([])
     setTerms('')
+    setFieldErrors({})
+    setFormError(null)
   }, [])
 
   const submit = useCallback(
@@ -318,7 +416,6 @@ function CreateOfferForm({
       setSubmitting(true)
       setFormError(null)
       setFieldErrors({})
-      setSuccess(false)
 
       // Build a body matching createOfferSchema. Rupee inputs convert to paise
       // once here at the client boundary; percentage stays an integer 1–100.
@@ -359,7 +456,6 @@ function CreateOfferForm({
           throw new Error(json?.error?.message ?? 'Could not create this offer.')
         }
         resetForm()
-        setSuccess(true)
         onCreated()
       } catch (err: unknown) {
         setFormError(err instanceof Error ? err.message : 'Could not create this offer.')
@@ -384,97 +480,101 @@ function CreateOfferForm({
   )
 
   return (
-    <section className="border border-cloud-gray rounded-[6px] bg-canvas-white p-5">
-      <h2 className="text-lg font-display text-cocoa-dark tracking-tight mb-4">Create offer</h2>
+    <SlideOverPanel
+      open={open}
+      onOpenChange={(o) => !o && onClose()}
+      title="Create offer"
+      description="Configure a promotional offer and the services it applies to."
+    >
       <form onSubmit={submit} className="space-y-4" noValidate>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Name */}
-          <Field label="Name" htmlFor="offer-name" errors={fieldErrors.name} required>
+        {/* Name */}
+        <Field label="Name" htmlFor="offer-name" errors={fieldErrors.name} required>
+          <input
+            id="offer-name"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={120}
+            required
+            className={inputClass(fieldErrors.name)}
+          />
+        </Field>
+
+        {/* Offer type */}
+        <Field label="Type" htmlFor="offer-type" errors={fieldErrors.offerType} required>
+          <select
+            id="offer-type"
+            value={offerType}
+            onChange={(e) => setOfferType(e.target.value as OfferType)}
+            className={inputClass()}
+          >
+            {OFFER_TYPE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        {/* Type-specific discount field */}
+        {offerType === 'percentage' ? (
+          <Field
+            label="Discount %"
+            htmlFor="offer-pct"
+            errors={fieldErrors.discountPercentage}
+            required
+          >
             <input
-              id="offer-name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={120}
-              required
-              className={inputClass(fieldErrors.name)}
+              id="offer-pct"
+              type="number"
+              min={1}
+              max={100}
+              step={1}
+              value={percentage}
+              onChange={(e) => setPercentage(e.target.value)}
+              className={inputClass(fieldErrors.discountPercentage)}
             />
           </Field>
-
-          {/* Offer type */}
-          <Field label="Type" htmlFor="offer-type" errors={fieldErrors.offerType} required>
-            <select
-              id="offer-type"
-              value={offerType}
-              onChange={(e) => setOfferType(e.target.value as OfferType)}
-              className={inputClass()}
-            >
-              {OFFER_TYPE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+        ) : null}
+        {offerType === 'flat' ? (
+          <Field
+            label="Discount (₹)"
+            htmlFor="offer-flat"
+            errors={fieldErrors.discountAmountPaise}
+            required
+          >
+            <input
+              id="offer-flat"
+              type="number"
+              min={1}
+              step="0.01"
+              value={flatRupees}
+              onChange={(e) => setFlatRupees(e.target.value)}
+              className={inputClass(fieldErrors.discountAmountPaise)}
+            />
           </Field>
+        ) : null}
+        {offerType === 'combo_price' ? (
+          <Field
+            label="Combo price (₹)"
+            htmlFor="offer-combo"
+            errors={fieldErrors.comboPricePaise}
+            required
+          >
+            <input
+              id="offer-combo"
+              type="number"
+              min={1}
+              step="0.01"
+              value={comboRupees}
+              onChange={(e) => setComboRupees(e.target.value)}
+              className={inputClass(fieldErrors.comboPricePaise)}
+            />
+          </Field>
+        ) : null}
 
-          {/* Type-specific discount field */}
-          {offerType === 'percentage' && (
-            <Field
-              label="Discount %"
-              htmlFor="offer-pct"
-              errors={fieldErrors.discountPercentage}
-              required
-            >
-              <input
-                id="offer-pct"
-                type="number"
-                min={1}
-                max={100}
-                step={1}
-                value={percentage}
-                onChange={(e) => setPercentage(e.target.value)}
-                className={inputClass(fieldErrors.discountPercentage)}
-              />
-            </Field>
-          )}
-          {offerType === 'flat' && (
-            <Field
-              label="Discount (₹)"
-              htmlFor="offer-flat"
-              errors={fieldErrors.discountAmountPaise}
-              required
-            >
-              <input
-                id="offer-flat"
-                type="number"
-                min={1}
-                step="0.01"
-                value={flatRupees}
-                onChange={(e) => setFlatRupees(e.target.value)}
-                className={inputClass(fieldErrors.discountAmountPaise)}
-              />
-            </Field>
-          )}
-          {offerType === 'combo_price' && (
-            <Field
-              label="Combo price (₹)"
-              htmlFor="offer-combo"
-              errors={fieldErrors.comboPricePaise}
-              required
-            >
-              <input
-                id="offer-combo"
-                type="number"
-                min={1}
-                step="0.01"
-                value={comboRupees}
-                onChange={(e) => setComboRupees(e.target.value)}
-                className={inputClass(fieldErrors.comboPricePaise)}
-              />
-            </Field>
-          )}
-
-          {/* Dates */}
+        {/* Dates */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Start date" htmlFor="offer-start" errors={fieldErrors.startDate} required>
             <input
               id="offer-start"
@@ -511,13 +611,13 @@ function CreateOfferForm({
 
         {/* Service multi-select */}
         <fieldset>
-          <legend className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray mb-2">
+          <legend className="mb-2 font-ui text-[10px] uppercase tracking-wider text-dusty-gray">
             Applicable services
           </legend>
           {services.length === 0 ? (
-            <p className="text-sm text-dusty-gray font-sans">No services available.</p>
+            <p className="font-sans text-sm text-dusty-gray">No services available.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <ServiceGroup
                 title="Salon"
                 options={groupedServices.salon}
@@ -532,11 +632,11 @@ function CreateOfferForm({
               />
             </div>
           )}
-          {fieldErrors.serviceIds && (
-            <p className="text-xs text-error font-sans mt-1" role="alert">
+          {fieldErrors.serviceIds ? (
+            <p className="mt-1 font-sans text-xs text-error" role="alert">
               {fieldErrors.serviceIds.join(' ')}
             </p>
-          )}
+          ) : null}
         </fieldset>
 
         {/* Terms */}
@@ -551,25 +651,32 @@ function CreateOfferForm({
           />
         </Field>
 
-        {formError && (
-          <p className="text-sm text-error font-sans" role="alert">
+        {formError ? (
+          <p className="font-sans text-sm text-error" role="alert">
             {formError}
           </p>
-        )}
-        {success && (
-          <output className="block text-sm text-emerald-700 font-sans">Offer created.</output>
-        )}
+        ) : null}
 
-        <button
-          type="submit"
-          disabled={submitting}
-          aria-busy={submitting}
-          className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {submitting ? 'Creating…' : 'Create Offer'}
-        </button>
+        <div className="flex items-center justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-4 font-ui text-sm text-warm-gray transition-colors hover:bg-cloud-gray disabled:opacity-60"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={submitting}
+            aria-busy={submitting}
+            className="h-9 rounded-buttons bg-cocoa-dark px-4 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {submitting ? 'Creating…' : 'Create Offer'}
+          </button>
+        </div>
       </form>
-    </section>
+    </SlideOverPanel>
   )
 }
 
@@ -588,17 +695,17 @@ function ServiceGroup({
     return null
   }
   return (
-    <div className="border border-cloud-gray rounded-[6px] p-3">
-      <p className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray mb-2">{title}</p>
-      <ul className="space-y-1.5 max-h-48 overflow-y-auto">
+    <div className="rounded-cards border border-cloud-gray p-3">
+      <p className="mb-2 font-ui text-[10px] uppercase tracking-wider text-dusty-gray">{title}</p>
+      <ul className="max-h-48 space-y-1.5 overflow-y-auto">
         {options.map((opt) => (
           <li key={opt.id}>
-            <label className="flex items-center gap-2 text-sm font-sans text-cocoa-dark cursor-pointer">
+            <label className="flex cursor-pointer items-center gap-2 font-sans text-sm text-cocoa-dark">
               <input
                 type="checkbox"
                 checked={selected.includes(opt.id)}
                 onChange={() => onToggle(opt.id)}
-                className="h-4 w-4 rounded border-outline-gray text-deep-gold focus:ring-deep-gold"
+                className="h-4 w-4 rounded-cards border-outline-gray accent-deep-gold"
               />
               {opt.name}
             </label>
@@ -626,90 +733,23 @@ function Field({
     <div className="flex flex-col gap-1">
       <label
         htmlFor={htmlFor}
-        className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray"
+        className="font-ui text-[10px] uppercase tracking-wider text-dusty-gray"
       >
         {label}
-        {required && <span className="text-error"> *</span>}
+        {required ? <span className="text-error"> *</span> : null}
       </label>
       {children}
-      {errors && errors.length > 0 && (
-        <p className="text-xs text-error font-sans" role="alert">
+      {errors && errors.length > 0 ? (
+        <p className="font-sans text-xs text-error" role="alert">
           {errors.join(' ')}
         </p>
-      )}
+      ) : null}
     </div>
   )
 }
 
 function inputClass(errors?: string[]): string {
-  return `h-9 px-3 rounded-[6px] border bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold ${
+  return `h-9 px-3 rounded-buttons border bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold ${
     errors && errors.length > 0 ? 'border-error' : 'border-outline-gray'
   }`
-}
-
-function Th({ children }: { children: React.ReactNode }) {
-  return (
-    <th className="text-left px-4 py-2.5 font-ui text-xs uppercase tracking-wider text-dusty-gray">
-      {children}
-    </th>
-  )
-}
-
-function LoadingState() {
-  return (
-    <output
-      className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      aria-live="polite"
-    >
-      <Spinner />
-      <span className="font-sans text-sm text-dusty-gray">Loading offers…</span>
-    </output>
-  )
-}
-
-function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div className="border border-error/40 bg-error/5 rounded-[6px] px-5 py-10 text-center">
-      <p className="font-sans text-sm text-error mb-3" role="alert">
-        {message}
-      </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
-      >
-        Try Again
-      </button>
-    </div>
-  )
-}
-
-function EmptyState() {
-  return (
-    <div className="border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 text-center">
-      <p className="font-sans text-sm text-cocoa-dark mb-1">No offers yet</p>
-      <p className="font-sans text-xs text-dusty-gray">
-        Create your first offer using the form above.
-      </p>
-    </div>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-5 w-5 animate-spin text-deep-gold"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
-  )
 }

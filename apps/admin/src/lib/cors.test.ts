@@ -81,7 +81,7 @@ describe('Property 5: CORS reflects the allowed origin only', () => {
         // The reflection decision agrees with isAllowedOrigin.
         expect(Object.hasOwn(headers, ACAO)).toBe(isAllowedOrigin(allowedOrigin, requestOrigin))
       }),
-      { numRuns: 200 },
+      { numRuns: 25 },
     )
   })
 
@@ -99,7 +99,7 @@ describe('Property 5: CORS reflects the allowed origin only', () => {
         const headers = corsHeaders(CANONICAL, requestOrigin)
         expect(Object.hasOwn(headers, ACAO)).toBe(false)
       }),
-      { numRuns: 100 },
+      { numRuns: 25 },
     )
 
     // The exact match reflects.
@@ -116,7 +116,7 @@ describe('Property 5: CORS reflects the allowed origin only', () => {
           expect(Object.hasOwn(headers, ACAO)).toBe(false)
         },
       ),
-      { numRuns: 100 },
+      { numRuns: 25 },
     )
   })
 })

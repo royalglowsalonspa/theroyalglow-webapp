@@ -1,37 +1,51 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 21-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : Memberships List
  * Scope        : Admin Portal — Membership Management
  *
- * Description  : Interactive SPA memberships list with tier and
- *                status filtering. Displays hours usage, expiry
- *                countdown, and links to detail/create pages.
+ * Description  : Interactive SPA memberships list with tier and status
+ *                filtering, rebuilt on the admin design-system primitives
+ *                (DataTable, FilterBar, StatusBadge, state presenters,
+ *                useAsyncData). Displays hours usage, expiry countdown, and a
+ *                link to the detail page; preserves the create-membership
+ *                action.
  *
  * Responsibilities :
- * - Fetch memberships with tier and status filter params
- * - Render tier/status filter bar with dynamic tier options
- * - Display memberships in a data table with expiry hints
+ * - Fetch memberships + tiers once via useAsyncData
+ * - Render tier/status filters through the FilterBar primitive (client-side)
+ * - Render memberships through the DataTable primitive with StatusBadge
+ * - Present loading / empty / error via the State_Presenter components
  *
  * Features / Functionality :
- * - Tier and status dropdown filters
+ * - Tier and status dropdown filters (client-side over the loaded set)
  * - Hours used/total display with human-friendly formatting
  * - Expiry countdown labels (days left, expires today, expired)
  *
- * Tech Stack   : Next.js 16, React (Client Component), TypeScript
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript,
+ *                @tanstack/react-table
  * Layer        : Presentation (Data Table Component)
  *
- * Dependencies : StatusBadge, admin memberships lib, next/link, React hooks
+ * Dependencies : DataTable, FilterBar, StatusBadge, state presenters,
+ *                useAsyncData, admin memberships lib, next/link
  *
  * Notes        :
- * - Tier options are fetched once on mount from /api/membership-tiers
+ * - Presentation-layer only; consumes GET /api/memberships +
+ *   /api/membership-tiers as-is. All pre-redesign fields and the create
+ *   action are preserved.
  ************************************************************/
 
 'use client'
 
-import { StatusBadge } from '@/components/admin/StatusBadge'
+import { DataTable } from '@/components/ui/data-table'
+import { FilterBar } from '@/components/ui/filter-bar'
+import { EmptyState } from '@/components/ui/state/empty-state'
+import { ErrorState } from '@/components/ui/state/error-state'
+import { Skeleton } from '@/components/ui/state/skeleton'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { useAsyncData } from '@/components/ui/use-async-data'
 import {
   MEMBERSHIP_STATUS_OPTIONS,
   type MembershipListRow,
@@ -40,194 +54,181 @@ import {
   formatDateDDMMYYYY,
   minutesToHM,
 } from '@/lib/admin/memberships'
+import type { ColumnDef } from '@tanstack/react-table'
 import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
+
+// Both list datasets resolved together so the page renders in a single pass.
+interface MembershipsData {
+  memberships: MembershipListRow[]
+  tiers: MembershipTier[]
+}
+
+// Fetch the memberships list and the tier catalogue in parallel. The list API
+// returns every membership when no tier/status params are sent, so filtering is
+// applied client-side over this set (same user-visible result).
+async function fetchMemberships(): Promise<MembershipsData> {
+  const [listRes, tiersRes] = await Promise.all([
+    fetch('/api/memberships'),
+    fetch('/api/membership-tiers'),
+  ])
+  const listJson = await listRes.json()
+  if (!listRes.ok || !listJson.success) {
+    throw new Error(listJson?.error?.message ?? 'Could not load memberships.')
+  }
+  // Tier options are non-fatal; the filter falls back to status-only on failure.
+  let tiers: MembershipTier[] = []
+  try {
+    const tiersJson = await tiersRes.json()
+    if (tiersRes.ok && tiersJson.success) {
+      tiers = tiersJson.data as MembershipTier[]
+    }
+  } catch {
+    /* status-only filtering still works */
+  }
+  return { memberships: listJson.data as MembershipListRow[], tiers }
+}
 
 export function MembershipsList() {
-  const [memberships, setMemberships] = useState<MembershipListRow[] | null>(null)
-  const [tiers, setTiers] = useState<MembershipTier[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { state, retry } = useAsyncData(fetchMemberships)
+
+  // Client-side filter selections, emitted by the FilterBar.
   const [tier, setTier] = useState('all')
   const [status, setStatus] = useState('all')
 
-  // Tiers populate the filter dropdown; load once.
-  useEffect(() => {
-    let active = true
-    fetch('/api/membership-tiers')
-      .then((res) => res.json())
-      .then((json) => {
-        if (active && json?.success) {
-          setTiers(json.data as MembershipTier[])
-        }
-      })
-      .catch(() => {
-        /* filter falls back to status-only */
-      })
-    return () => {
-      active = false
+  const handleFilterChange = useCallback((id: string, value: string) => {
+    if (id === 'tier') {
+      setTier(value)
+    } else if (id === 'status') {
+      setStatus(value)
     }
   }, [])
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const params = new URLSearchParams()
-      if (tier !== 'all') {
-        params.set('tier', tier)
-      }
-      if (status !== 'all') {
-        params.set('status', status)
-      }
-      const qs = params.toString()
-      const res = await fetch(`/api/memberships${qs ? `?${qs}` : ''}`)
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error?.message ?? 'Could not load memberships.')
-      }
-      setMemberships(json.data as MembershipListRow[])
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not load memberships.')
-    } finally {
-      setLoading(false)
-    }
-  }, [tier, status])
+  const memberships = state.status === 'success' ? state.data.memberships : []
+  const tiers = state.status === 'success' ? state.data.tiers : []
 
-  useEffect(() => {
-    load()
-  }, [load])
+  const filtered = useMemo(
+    () =>
+      memberships.filter(
+        (m) =>
+          (tier === 'all' || m.tierId === tier) && (status === 'all' || m.status === status),
+      ),
+    [memberships, tier, status],
+  )
+
+  const columns = useMemo<ColumnDef<MembershipListRow, unknown>[]>(
+    () => [
+      {
+        accessorKey: 'membershipNumber',
+        header: 'Membership #',
+        cell: ({ row }) => (
+          <span className="font-mono text-xs text-cocoa-dark">{row.original.membershipNumber}</span>
+        ),
+      },
+      { accessorKey: 'customerName', header: 'Customer' },
+      { accessorKey: 'tierName', header: 'Tier' },
+      {
+        id: 'hours',
+        header: 'Hours',
+        accessorFn: (m) => m.usedHoursMinutes,
+        cell: ({ row }) =>
+          `${minutesToHM(row.original.usedHoursMinutes)} / ${minutesToHM(row.original.totalHoursMinutes)}`,
+      },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        cell: ({ row }) => <StatusBadge status={row.original.status} />,
+      },
+      {
+        accessorKey: 'expiresAt',
+        header: 'Expires',
+        cell: ({ row }) => (
+          <span>
+            {formatDateDDMMYYYY(row.original.expiresAt)}
+            {row.original.status === 'active' ? (
+              <span className="block text-[11px] text-dusty-gray">
+                {expiryHint(row.original.expiresAt)}
+              </span>
+            ) : null}
+          </span>
+        ),
+      },
+      {
+        id: 'view',
+        header: 'View',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <Link
+            href={`/memberships/${row.original.id}`}
+            className="font-ui text-sm text-deep-gold transition-colors hover:text-cocoa-dark"
+            aria-label={`View details for membership ${row.original.membershipNumber}`}
+          >
+            View →
+          </Link>
+        ),
+      },
+    ],
+    [],
+  )
+
+  const tierOptions = useMemo(
+    () => [
+      { value: 'all', label: 'All' },
+      ...tiers.map((t) => ({ value: t.id, label: t.name })),
+    ],
+    [tiers],
+  )
 
   return (
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">Memberships</h1>
+        <h1 className="font-display text-2xl tracking-tight text-cocoa-dark">Memberships</h1>
         <Link
           href="/memberships/new"
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-buttons bg-cocoa-dark px-4 py-2 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray"
         >
           + Create Membership
         </Link>
       </div>
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-end gap-3 p-3 border border-cloud-gray rounded-[6px] bg-cloud-gray/30">
-        {/* Tier dropdown */}
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor="tier-filter"
-            className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray"
-          >
-            Tier
-          </label>
-          <select
-            id="tier-filter"
-            value={tier}
-            onChange={(e) => setTier(e.target.value)}
-            className="h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
-          >
-            <option value="all">All</option>
-            {tiers.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Status dropdown */}
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor="status-filter"
-            className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray"
-          >
-            Status
-          </label>
-          <select
-            id="status-filter"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
-          >
-            {MEMBERSHIP_STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Table / states */}
-      {loading ? (
-        <LoadingState />
-      ) : error ? (
-        <ErrorState message={error} onRetry={load} />
-      ) : !memberships || memberships.length === 0 ? (
-        <EmptyState />
+      {state.status === 'loading' ? (
+        <Skeleton variant="table" rows={6} />
+      ) : state.status === 'error' ? (
+        <ErrorState message={state.message} onRetry={retry} />
       ) : (
         <>
-          <div className="border border-cloud-gray rounded-[6px] overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-cloud-gray/60">
-                    <Th>Membership #</Th>
-                    <Th>Customer</Th>
-                    <Th>Tier</Th>
-                    <Th>Hours</Th>
-                    <Th>Status</Th>
-                    <Th>Expires</Th>
-                    <Th>Actions</Th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-cloud-gray">
-                  {memberships.map((m) => (
-                    <tr key={m.id} className="hover:bg-cloud-gray/30 transition-colors">
-                      <td className="px-4 py-3 font-mono text-xs text-cocoa-dark whitespace-nowrap">
-                        {m.membershipNumber}
-                      </td>
-                      <td className="px-4 py-3 font-sans text-cocoa-dark whitespace-nowrap">
-                        {m.customerName}
-                      </td>
-                      <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
-                        {m.tierName}
-                      </td>
-                      <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
-                        {minutesToHM(m.usedHoursMinutes)} / {minutesToHM(m.totalHoursMinutes)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={m.status} />
-                      </td>
-                      <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
-                        {formatDateDDMMYYYY(m.expiresAt)}
-                        {m.status === 'active' ? (
-                          <span className="block text-[11px] text-dusty-gray">
-                            {expiryHint(m.expiresAt)}
-                          </span>
-                        ) : null}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Link
-                          href={`/memberships/${m.id}`}
-                          className="text-deep-gold hover:text-cocoa-dark text-sm font-ui transition-colors"
-                          aria-label={`View details for membership ${m.membershipNumber}`}
-                        >
-                          View →
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <FilterBar
+            config={{
+              dropdowns: [
+                { id: 'tier', label: 'Filter by tier', options: tierOptions, value: tier },
+                {
+                  id: 'status',
+                  label: 'Filter by status',
+                  options: MEMBERSHIP_STATUS_OPTIONS.map((o) => ({
+                    value: o.value,
+                    label: o.label,
+                  })),
+                  value: status,
+                },
+              ],
+            }}
+            onFilterChange={handleFilterChange}
+          />
 
-          <p className="text-sm text-dusty-gray font-sans">
-            Showing {memberships.length} membership
-            {memberships.length === 1 ? '' : 's'}
-          </p>
+          {filtered.length === 0 ? (
+            <EmptyState
+              title="No memberships found"
+              message="Try adjusting the filters, or create a new membership."
+            />
+          ) : (
+            <DataTable
+              columns={columns}
+              data={filtered}
+              tableId="memberships"
+              caption="SPA memberships with tier, hours usage, status, and expiry"
+            />
+          )}
         </>
       )}
     </div>
@@ -243,77 +244,4 @@ function expiryHint(expiresAt: string): string {
     return 'Expires today'
   }
   return `${days} day${days === 1 ? '' : 's'} left`
-}
-
-function Th({ children }: { children: React.ReactNode }) {
-  return (
-    <th className="text-left px-4 py-2.5 font-ui text-xs uppercase tracking-wider text-dusty-gray">
-      {children}
-    </th>
-  )
-}
-
-function LoadingState() {
-  return (
-    <output
-      className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      aria-live="polite"
-    >
-      <Spinner />
-      <span className="font-sans text-sm text-dusty-gray">Loading memberships…</span>
-    </output>
-  )
-}
-
-function ErrorState({
-  message,
-  onRetry,
-}: {
-  message: string
-  onRetry: () => void
-}) {
-  return (
-    <div className="border border-error/40 bg-error/5 rounded-[6px] px-5 py-10 text-center">
-      <p className="font-sans text-sm text-error mb-3" role="alert">
-        {message}
-      </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
-      >
-        Try Again
-      </button>
-    </div>
-  )
-}
-
-function EmptyState() {
-  return (
-    <div className="border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 text-center">
-      <p className="font-sans text-sm text-cocoa-dark mb-1">No memberships found</p>
-      <p className="font-sans text-xs text-dusty-gray">
-        Try adjusting the filters, or create a new membership.
-      </p>
-    </div>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-5 w-5 animate-spin text-deep-gold"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
-  )
 }

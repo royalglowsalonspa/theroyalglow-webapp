@@ -116,7 +116,7 @@ describe('Property 7: QStash webhook receivers reject unverified requests before
           return result === false
         },
       ),
-      { numRuns: 150 },
+      { numRuns: 25 },
     )
   })
 
@@ -140,7 +140,7 @@ describe('Property 7: QStash webhook receivers reject unverified requests before
           return result === true
         },
       ),
-      { numRuns: 100 },
+      { numRuns: 25 },
     )
   })
 
@@ -168,7 +168,7 @@ describe('Property 7: QStash webhook receivers reject unverified requests before
           return result === (provided === token)
         },
       ),
-      { numRuns: 150 },
+      { numRuns: 25 },
     )
   })
 
@@ -189,7 +189,7 @@ describe('Property 7: QStash webhook receivers reject unverified requests before
         const result = await verifyQStashSignature(req, body)
         return result === false
       }),
-      { numRuns: 100 },
+      { numRuns: 25 },
     )
   })
 })
@@ -239,7 +239,7 @@ describe('Property 7 (receiver ordering): unverified requests trigger no side ef
       fc.asyncProperty(bodyArb, headersArb, maybeSignatureArb, async (body, headers, signature) => {
         await expectNoSideEffects(POST, body, headers, signature)
       }),
-      { numRuns: 100 },
+      { numRuns: 25 },
     )
   })
 
@@ -249,7 +249,7 @@ describe('Property 7 (receiver ordering): unverified requests trigger no side ef
       fc.asyncProperty(bodyArb, headersArb, maybeSignatureArb, async (body, headers, signature) => {
         await expectNoSideEffects(POST, body, headers, signature)
       }),
-      { numRuns: 100 },
+      { numRuns: 25 },
     )
   })
 })

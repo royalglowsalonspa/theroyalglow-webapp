@@ -22,12 +22,17 @@
  * Tech Stack   : Next.js 16 (App Router), React, TypeScript
  * Layer        : Presentation (Page)
  *
- * Dependencies : next (Metadata, Link), DashboardOverview component
+ * Dependencies : next (Metadata, Link), DashboardOverview component,
+ *                Icon wrapper + lucide-react icons
  *
  * Notes        :
  * - Server Component — IST calculation runs on the server
+ * - Uses ONLY semantic Brand-Token utilities and lucide icons via the Icon
+ *   wrapper — no emoji glyphs and no hex / px / radius literals (Req 1.2, 2.3)
  ************************************************************/
 
+import { Icon } from '@/components/ui/icon'
+import { CalendarDays, ClipboardList, Hand, TrendingUp } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { DashboardOverview } from './dashboard-overview'
@@ -60,7 +65,10 @@ export default function AdminDashboardPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">{getGreeting()} 👋</h1>
+        <h1 className="text-2xl font-display text-cocoa-dark tracking-tight inline-flex items-center gap-2">
+          {getGreeting()}
+          <Icon icon={Hand} decorative className="text-deep-gold" />
+        </h1>
         <p className="text-sm text-dusty-gray font-sans mt-0.5">{getTodayIST()}</p>
       </div>
 
@@ -73,23 +81,23 @@ export default function AdminDashboardPage() {
         <div className="flex flex-wrap gap-3">
           <Link
             href="/bookings"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-buttons bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
           >
-            <span aria-hidden="true">📋</span>
+            <Icon icon={ClipboardList} decorative size={16} />
             View Bookings
           </Link>
           <button
             type="button"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[6px] border border-cloud-gray bg-canvas-white text-cocoa-dark text-sm font-ui hover:bg-cloud-gray transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-buttons border border-cloud-gray bg-canvas-white text-cocoa-dark text-sm font-ui hover:bg-cloud-gray transition-colors"
           >
-            <span aria-hidden="true">🗓️</span>
+            <Icon icon={CalendarDays} decorative size={16} />
             View Schedule
           </button>
           <button
             type="button"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[6px] border border-cloud-gray bg-canvas-white text-cocoa-dark text-sm font-ui hover:bg-cloud-gray transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-buttons border border-cloud-gray bg-canvas-white text-cocoa-dark text-sm font-ui hover:bg-cloud-gray transition-colors"
           >
-            <span aria-hidden="true">📈</span>
+            <Icon icon={TrendingUp} decorative size={16} />
             Generate Report
           </button>
         </div>

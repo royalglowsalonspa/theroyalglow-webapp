@@ -25,3 +25,29 @@
  ************************************************************/
 
 import '@testing-library/jest-dom/vitest'
+
+// jsdom implements neither ResizeObserver nor matchMedia, both of which are
+// touched by redesigned primitives during render (recharts ResponsiveContainer
+// in ChartCard observes its container; reduced-motion consumers read
+// matchMedia). Provide inert polyfills so component renders settle cleanly.
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver
+}
+
+if (typeof window !== 'undefined' && typeof window.matchMedia === 'undefined') {
+  window.matchMedia = ((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia
+}
+

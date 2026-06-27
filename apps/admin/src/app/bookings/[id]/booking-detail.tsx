@@ -1,19 +1,25 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 21-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : Booking Detail
  * Scope        : Admin Portal — Booking Management
  *
- * Description  : Full booking detail view with action panels for
- *                approve/reject, assign staff, complete & checkout,
- *                and mark no-show workflows.
+ * Description  : Full booking detail view rebuilt on the admin design-system
+ *                conventions. Renders the booking detail and the
+ *                approve/reject, assign-staff, complete-&-checkout, and
+ *                mark-no-show action panels. Loading / error conditions render
+ *                via the shared state presenters; iconography uses the lucide
+ *                Icon wrapper (no emoji); all colour / radius come from
+ *                semantic Brand-Token utilities (no hex / raw-palette / px
+ *                literals). Consumes the existing booking APIs as-is.
  *
  * Responsibilities :
  * - Fetch and display single booking details (customer, services, totals)
  * - Provide approve/reject workflow with staff assignment
  * - Handle complete & checkout flow with payment method selection
+ * - Surface loading / error via the shared state presenters
  *
  * Features / Functionality :
  * - Status-dependent action panels (pending, confirmed, completed, terminal)
@@ -23,15 +29,27 @@
  * Tech Stack   : Next.js 16, React (Client Component), TypeScript
  * Layer        : Presentation (Detail View Component)
  *
- * Dependencies : StatusBadge, admin bookings lib, next/link, React hooks
+ * Dependencies : @/components/admin/StatusBadge, @/components/ui/icon,
+ *                @/components/ui/state/*, @/lib/admin/bookings, next/link,
+ *                lucide-react, React hooks
  *
  * Notes        :
- * - Action panels mutate booking state via PATCH/POST API calls
+ * - Presentation-layer only: no API/RBAC/data-model/business-logic changes.
+ * - Uses ONLY semantic Brand-Token utilities — no hex / raw-palette / px
+ *   literals. Icons render through the Icon wrapper (no emoji).
+ * - Every pre-redesign field and every action (approve / reject / assign /
+ *   complete / no-show) are preserved with their original effects and the
+ *   same API calls (Req 17.6, 17.7).
+ *
+ * Requirements : 17.1, 17.2, 17.3, 17.4, 17.5, 17.6, 17.7
  ************************************************************/
 
 'use client'
 
 import { StatusBadge } from '@/components/admin/StatusBadge'
+import { Icon } from '@/components/ui/icon'
+import { ErrorState } from '@/components/ui/state/error-state'
+import { Skeleton } from '@/components/ui/state/skeleton'
 import {
   type AdminBooking,
   SERVICE_TYPE_LABEL,
@@ -40,6 +58,7 @@ import {
   formatINRWithPaise,
   formatTime12h,
 } from '@/lib/admin/bookings'
+import { ArrowLeft, Check, X } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 
@@ -85,29 +104,18 @@ export function BookingDetail({ bookingId }: { bookingId: string }) {
 
   if (loading) {
     return (
-      <output className="flex items-center gap-3 py-16 justify-center" aria-live="polite">
-        <Spinner />
-        <span className="font-sans text-sm text-dusty-gray">Loading booking…</span>
-      </output>
+      <div className="max-w-4xl space-y-5">
+        <BackLink />
+        <Skeleton rows={3} variant="card" />
+      </div>
     )
   }
 
   if (error || !booking) {
     return (
-      <div className="space-y-4">
+      <div className="max-w-4xl space-y-4">
         <BackLink />
-        <div className="border border-error/40 bg-error/5 rounded-[6px] px-5 py-10 text-center">
-          <p className="font-sans text-sm text-error mb-3" role="alert">
-            {error ?? 'Booking not found.'}
-          </p>
-          <button
-            type="button"
-            onClick={load}
-            className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
-          >
-            Try Again
-          </button>
-        </div>
+        <ErrorState message={error ?? 'Booking not found.'} onRetry={load} />
       </div>
     )
   }
@@ -115,19 +123,19 @@ export function BookingDetail({ bookingId }: { bookingId: string }) {
   const total = booking.totalAmountPaise
 
   return (
-    <div className="space-y-5 max-w-4xl">
+    <div className="max-w-4xl space-y-5">
       <BackLink />
 
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-display text-cocoa-dark tracking-tight font-mono">
+          <h1 className="font-display font-mono text-2xl tracking-tight text-cocoa-dark">
             {booking.bookingNumber}
           </h1>
           <StatusBadge status={booking.status} />
         </div>
         <span
-          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-ui ${
+          className={`inline-flex items-center rounded-pill px-2.5 py-0.5 font-ui text-xs ${
             booking.serviceType === 'spa'
               ? 'bg-warm-cream text-deep-gold'
               : 'bg-golden-mist text-warm-gray'
@@ -140,10 +148,10 @@ export function BookingDetail({ bookingId }: { bookingId: string }) {
       {/* Two-column layout: details + action panel */}
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Details */}
-        <div className="lg:col-span-2 space-y-5">
+        <div className="space-y-5 lg:col-span-2">
           {/* Customer */}
           <Section title="Customer">
-            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
               <Field label="Name" value={booking.customerName} />
               <Field label="Email" value={booking.customerEmail} />
             </dl>
@@ -151,7 +159,7 @@ export function BookingDetail({ bookingId }: { bookingId: string }) {
 
           {/* Booking info */}
           <Section title="Booking">
-            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
               <Field label="Date" value={formatDateDDMMYYYY(booking.bookingDate)} />
               <Field
                 label="Time"
@@ -171,13 +179,13 @@ export function BookingDetail({ bookingId }: { bookingId: string }) {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-cloud-gray">
-                    <th className="text-left py-2 font-ui text-xs uppercase tracking-wider text-dusty-gray">
+                    <th className="py-2 text-left font-ui text-xs uppercase tracking-wider text-dusty-gray">
                       Service
                     </th>
-                    <th className="text-left py-2 font-ui text-xs uppercase tracking-wider text-dusty-gray">
+                    <th className="py-2 text-left font-ui text-xs uppercase tracking-wider text-dusty-gray">
                       Duration
                     </th>
-                    <th className="text-right py-2 font-ui text-xs uppercase tracking-wider text-dusty-gray">
+                    <th className="py-2 text-right font-ui text-xs uppercase tracking-wider text-dusty-gray">
                       Price
                     </th>
                   </tr>
@@ -187,7 +195,7 @@ export function BookingDetail({ bookingId }: { bookingId: string }) {
                     <tr key={s.id}>
                       <td className="py-2.5 font-sans text-cocoa-dark">{s.serviceNameSnapshot}</td>
                       <td className="py-2.5 font-sans text-warm-gray">{s.durationMinutes} min</td>
-                      <td className="py-2.5 font-ui text-cocoa-dark text-right">
+                      <td className="py-2.5 text-right font-ui text-cocoa-dark">
                         {formatINRWithPaise(s.priceAtBookingPaise)}
                       </td>
                     </tr>
@@ -201,7 +209,7 @@ export function BookingDetail({ bookingId }: { bookingId: string }) {
                     >
                       Total (incl. GST)
                     </td>
-                    <td className="py-2.5 font-ui text-cocoa-dark text-right font-medium">
+                    <td className="py-2.5 text-right font-ui font-medium text-cocoa-dark">
                       {formatINRWithPaise(total)}
                     </td>
                   </tr>
@@ -213,7 +221,7 @@ export function BookingDetail({ bookingId }: { bookingId: string }) {
           {/* Notes */}
           {booking.notes ? (
             <Section title="Notes">
-              <p className="text-sm font-sans text-warm-gray whitespace-pre-wrap">
+              <p className="whitespace-pre-wrap font-sans text-sm text-warm-gray">
                 {booking.notes}
               </p>
             </Section>
@@ -246,8 +254,8 @@ function ActionPanel({
   onCompleted: (result: CompletionResult) => void
 }) {
   return (
-    <div className="border border-cloud-gray rounded-[6px] bg-canvas-white p-4 lg:sticky lg:top-4">
-      <h2 className="text-xs font-ui uppercase tracking-wider text-dusty-gray mb-3">Actions</h2>
+    <div className="rounded-cards border border-cloud-gray bg-canvas-white p-4 lg:sticky lg:top-4">
+      <h2 className="mb-3 font-ui text-xs uppercase tracking-wider text-dusty-gray">Actions</h2>
       {booking.status === 'pending' ? (
         <PendingActions booking={booking} onChanged={onChanged} />
       ) : booking.status === 'confirmed' ? (
@@ -351,7 +359,7 @@ function PendingActions({
           <div className="flex flex-col gap-1">
             <label
               htmlFor="staff-picker"
-              className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray"
+              className="font-ui text-[10px] uppercase tracking-wider text-dusty-gray"
             >
               Assign Staff
             </label>
@@ -359,7 +367,7 @@ function PendingActions({
               id="staff-picker"
               value={staffId}
               onChange={(e) => setStaffId(e.target.value)}
-              className="h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
+              className="h-9 rounded-cards border border-outline-gray bg-canvas-white px-3 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
             >
               <option value="">{staff === null ? 'Loading staff…' : 'Select staff…'}</option>
               {(staff ?? []).map((s) => (
@@ -371,7 +379,7 @@ function PendingActions({
           </div>
 
           {actionError && (
-            <p className="text-xs text-error font-sans" role="alert">
+            <p className="font-sans text-xs text-error" role="alert">
               {actionError}
             </p>
           )}
@@ -381,9 +389,10 @@ function PendingActions({
             onClick={approve}
             disabled={submitting}
             aria-busy={submitting}
-            className="w-full px-4 py-2.5 rounded-[6px] bg-emerald-600 text-canvas-white text-sm font-ui hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-buttons bg-success px-4 py-2.5 font-ui text-sm text-canvas-white transition-colors hover:bg-success-dark disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
           >
-            {submitting ? 'Approving…' : 'Approve ✓'}
+            {submitting ? 'Approving…' : 'Approve'}
+            {submitting ? null : <Icon icon={Check} decorative size={16} />}
           </button>
           <button
             type="button"
@@ -392,9 +401,10 @@ function PendingActions({
               setActionError(null)
             }}
             disabled={submitting}
-            className="w-full px-4 py-2.5 rounded-[6px] border border-red-300 text-red-700 text-sm font-ui hover:bg-red-50 transition-colors disabled:opacity-50"
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-buttons border border-error/40 px-4 py-2.5 font-ui text-sm text-error transition-colors hover:bg-error/5 disabled:opacity-50 motion-reduce:transition-none"
           >
-            Reject ✕
+            Reject
+            <Icon icon={X} decorative size={16} />
           </button>
         </>
       )}
@@ -404,7 +414,7 @@ function PendingActions({
           <div className="flex flex-col gap-1">
             <label
               htmlFor="reject-reason"
-              className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray"
+              className="font-ui text-[10px] uppercase tracking-wider text-dusty-gray"
             >
               Rejection Reason
             </label>
@@ -415,16 +425,16 @@ function PendingActions({
               rows={4}
               maxLength={500}
               placeholder="Reason shown to the customer…"
-              className="px-3 py-2 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold resize-none"
+              className="resize-none rounded-cards border border-outline-gray bg-canvas-white px-3 py-2 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
             />
           </div>
 
-          <p className="text-[11px] text-dusty-gray font-sans">
+          <p className="font-sans text-[11px] text-dusty-gray">
             The customer will see this reason in their booking detail and email.
           </p>
 
           {actionError && (
-            <p className="text-xs text-error font-sans" role="alert">
+            <p className="font-sans text-xs text-error" role="alert">
               {actionError}
             </p>
           )}
@@ -434,7 +444,7 @@ function PendingActions({
             onClick={reject}
             disabled={submitting}
             aria-busy={submitting}
-            className="w-full px-4 py-2.5 rounded-[6px] bg-red-600 text-canvas-white text-sm font-ui hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full rounded-buttons bg-error px-4 py-2.5 font-ui text-sm text-canvas-white transition-colors hover:bg-error/90 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
           >
             {submitting ? 'Rejecting…' : 'Confirm Rejection'}
           </button>
@@ -446,7 +456,7 @@ function PendingActions({
               setActionError(null)
             }}
             disabled={submitting}
-            className="w-full px-4 py-2.5 rounded-[6px] border border-cloud-gray text-cocoa-dark text-sm font-ui hover:bg-cloud-gray transition-colors disabled:opacity-50"
+            className="w-full rounded-buttons border border-cloud-gray px-4 py-2.5 font-ui text-sm text-cocoa-dark transition-colors hover:bg-cloud-gray disabled:opacity-50 motion-reduce:transition-none"
           >
             Cancel
           </button>
@@ -520,7 +530,7 @@ function ConfirmedActions({
       {mode === 'idle' && (
         <>
           {actionError && (
-            <p className="text-xs text-error font-sans" role="alert">
+            <p className="font-sans text-xs text-error" role="alert">
               {actionError}
             </p>
           )}
@@ -530,7 +540,7 @@ function ConfirmedActions({
               setMode('checkout')
               setActionError(null)
             }}
-            className="w-full px-4 py-2.5 rounded-[6px] bg-emerald-600 text-canvas-white text-sm font-ui hover:bg-emerald-700 transition-colors"
+            className="w-full rounded-buttons bg-success px-4 py-2.5 font-ui text-sm text-canvas-white transition-colors hover:bg-success-dark motion-reduce:transition-none"
           >
             Complete & Checkout
           </button>
@@ -539,7 +549,7 @@ function ConfirmedActions({
             onClick={markNoShow}
             disabled={submitting}
             aria-busy={submitting}
-            className="w-full px-4 py-2.5 rounded-[6px] border border-red-300 text-red-700 text-sm font-ui hover:bg-red-50 transition-colors disabled:opacity-50"
+            className="w-full rounded-buttons border border-error/40 px-4 py-2.5 font-ui text-sm text-error transition-colors hover:bg-error/5 disabled:opacity-50 motion-reduce:transition-none"
           >
             {submitting ? 'Working…' : 'Mark No-Show'}
           </button>
@@ -549,13 +559,13 @@ function ConfirmedActions({
       {mode === 'checkout' && (
         <>
           <fieldset className="flex flex-col gap-2">
-            <legend className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray mb-1">
+            <legend className="mb-1 font-ui text-[10px] uppercase tracking-wider text-dusty-gray">
               Payment Method
             </legend>
             {PAYMENT_METHODS.map((pm) => (
               <label
                 key={pm.value}
-                className="flex items-center gap-2 text-sm font-sans text-cocoa-dark cursor-pointer"
+                className="flex cursor-pointer items-center gap-2 font-sans text-sm text-cocoa-dark"
               >
                 <input
                   type="radio"
@@ -570,15 +580,15 @@ function ConfirmedActions({
             ))}
           </fieldset>
 
-          <div className="flex items-center justify-between pt-2 border-t border-cloud-gray text-sm">
+          <div className="flex items-center justify-between border-t border-cloud-gray pt-2 text-sm">
             <span className="font-ui text-xs uppercase tracking-wider text-dusty-gray">Total</span>
-            <span className="font-ui text-cocoa-dark font-medium">
+            <span className="font-ui font-medium text-cocoa-dark">
               {formatINRWithPaise(booking.totalAmountPaise)}
             </span>
           </div>
 
           {actionError && (
-            <p className="text-xs text-error font-sans" role="alert">
+            <p className="font-sans text-xs text-error" role="alert">
               {actionError}
             </p>
           )}
@@ -588,7 +598,7 @@ function ConfirmedActions({
             onClick={complete}
             disabled={submitting}
             aria-busy={submitting}
-            className="w-full px-4 py-2.5 rounded-[6px] bg-emerald-600 text-canvas-white text-sm font-ui hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full rounded-buttons bg-success px-4 py-2.5 font-ui text-sm text-canvas-white transition-colors hover:bg-success-dark disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
           >
             {submitting ? 'Generating invoice…' : 'Complete & Generate Invoice'}
           </button>
@@ -599,7 +609,7 @@ function ConfirmedActions({
               setActionError(null)
             }}
             disabled={submitting}
-            className="w-full px-4 py-2.5 rounded-[6px] border border-cloud-gray text-cocoa-dark text-sm font-ui hover:bg-cloud-gray transition-colors disabled:opacity-50"
+            className="w-full rounded-buttons border border-cloud-gray px-4 py-2.5 font-ui text-sm text-cocoa-dark transition-colors hover:bg-cloud-gray disabled:opacity-50 motion-reduce:transition-none"
           >
             Cancel
           </button>
@@ -613,17 +623,23 @@ function ConfirmedActions({
 function CompletedState({ completion }: { completion: CompletionResult | null }) {
   return (
     <div className="space-y-3">
-      <div className="rounded-[6px] bg-emerald-50 border border-emerald-200 px-3 py-3">
-        <p className="text-sm font-ui text-emerald-800 mb-1">Booking completed</p>
+      <div className="rounded-cards border border-success/30 bg-success/10 px-3 py-3">
+        <p className="mb-1 font-ui text-sm text-success-dark">Booking completed</p>
         {completion ? (
-          <ul className="space-y-1 text-sm font-sans text-emerald-700">
-            <li>
-              ✓ Invoice <span className="font-mono">{completion.invoiceNumber}</span> generated
+          <ul className="space-y-1 font-sans text-sm text-success-dark">
+            <li className="flex items-center gap-1.5">
+              <Icon icon={Check} decorative size={14} />
+              <span>
+                Invoice <span className="font-mono">{completion.invoiceNumber}</span> generated
+              </span>
             </li>
-            <li>✓ +{completion.gemsEarned} gems awarded</li>
+            <li className="flex items-center gap-1.5">
+              <Icon icon={Check} decorative size={14} />
+              <span>+{completion.gemsEarned} gems awarded</span>
+            </li>
           </ul>
         ) : (
-          <p className="text-sm font-sans text-emerald-700">
+          <p className="font-sans text-sm text-success-dark">
             This booking has been completed and an invoice was generated.
           </p>
         )}
@@ -652,13 +668,13 @@ function TerminalState({ booking }: { booking: AdminBooking }) {
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-sans text-cocoa-dark">{label}</p>
+      <p className="font-sans text-sm text-cocoa-dark">{label}</p>
       {reason ? (
-        <div className="rounded-[6px] bg-cloud-gray/40 border border-cloud-gray px-3 py-2">
-          <p className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray mb-0.5">
+        <div className="rounded-cards border border-cloud-gray bg-cloud-gray/40 px-3 py-2">
+          <p className="mb-0.5 font-ui text-[10px] uppercase tracking-wider text-dusty-gray">
             Reason
           </p>
-          <p className="text-sm font-sans text-warm-gray whitespace-pre-wrap">{reason}</p>
+          <p className="whitespace-pre-wrap font-sans text-sm text-warm-gray">{reason}</p>
         </div>
       ) : null}
     </div>
@@ -674,8 +690,8 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <section className="border border-cloud-gray rounded-[6px] bg-canvas-white p-4">
-      <h2 className="text-xs font-ui uppercase tracking-wider text-dusty-gray mb-3">{title}</h2>
+    <section className="rounded-cards border border-cloud-gray bg-canvas-white p-4">
+      <h2 className="mb-3 font-ui text-xs uppercase tracking-wider text-dusty-gray">{title}</h2>
       {children}
     </section>
   )
@@ -684,7 +700,7 @@ function Section({
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray">{label}</dt>
+      <dt className="font-ui text-[10px] uppercase tracking-wider text-dusty-gray">{label}</dt>
       <dd className="font-sans text-cocoa-dark">{value}</dd>
     </div>
   )
@@ -694,28 +710,10 @@ function BackLink() {
   return (
     <Link
       href="/bookings"
-      className="inline-flex items-center gap-1.5 text-sm font-ui text-warm-gray hover:text-cocoa-dark transition-colors"
+      className="inline-flex items-center gap-1.5 font-ui text-sm text-warm-gray transition-colors hover:text-cocoa-dark motion-reduce:transition-none"
     >
-      ← Back to Bookings
+      <Icon icon={ArrowLeft} decorative size={16} />
+      Back to Bookings
     </Link>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-5 w-5 animate-spin text-deep-gold"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
   )
 }

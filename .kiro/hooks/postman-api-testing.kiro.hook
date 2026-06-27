@@ -1,0 +1,23 @@
+{
+  "enabled": true,
+  "name": "API Postman Testing",
+  "description": "Monitors API route and schema changes across the monorepo and automatically runs Postman collection tests to validate functionality",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "apps/web/app/api/**/*.ts",
+      "apps/admin/app/api/**/*.ts",
+      "packages/business/**/*.ts",
+      "packages/db/schema/**/*.ts",
+      "packages/types/**/*.ts",
+      "**/openapi.yaml",
+      "**/openapi.yml",
+      "package.json"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "API source code or configuration has been modified. Please retrieve the contents of the .postman.json file. If the file does not exist or is empty, create a Postman collection for the API. If it exists, get the collection ID and run the collection, showing me the results and propose fixes for any errors found."
+  }
+}
