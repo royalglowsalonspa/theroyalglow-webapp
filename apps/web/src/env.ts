@@ -34,7 +34,12 @@ import { z } from 'zod'
 export const env = createEnv({
   server: {
     DATABASE_URL: z.string().url(),
-    BETTER_AUTH_SECRET: z.string().min(32).optional(),
+    // REQUIRED (Tier 0 #0.7): Better Auth signs/encrypts sessions with this.
+    // If it were optional/undefined, Better Auth would fall back to an
+    // ephemeral/insecure secret — sessions would not survive a restart and
+    // would be forgeable. Must be the SAME value as apps/admin so the shared
+    // `.theroyalglow.in` session cookie validates across both Workers.
+    BETTER_AUTH_SECRET: z.string().min(32),
     BETTER_AUTH_URL: z.string().url(),
     BETTER_AUTH_API_KEY: z.string().min(1).optional(),
     GOOGLE_OAUTH_CLIENT_ID: z.string().min(1),
