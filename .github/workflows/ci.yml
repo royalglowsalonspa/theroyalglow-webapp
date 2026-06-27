@@ -23,8 +23,8 @@ jobs:
       admin: ${{ steps.filter.outputs.admin }}
       web: ${{ steps.filter.outputs.web }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@v4
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
@@ -47,7 +47,7 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.admin == 'true'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - name: Lint, typecheck, test, build (admin)
@@ -56,7 +56,7 @@ jobs:
           SKIP_ENV_VALIDATION: '1'
       - name: Upload admin build artifact
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: admin-build-output
           path: apps/admin/.next/
@@ -68,7 +68,7 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.web == 'true'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - name: Lint, typecheck, test, build (web)
@@ -77,19 +77,30 @@ jobs:
           SKIP_ENV_VALIDATION: '1'
       - name: Upload web build artifact
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: web-build-output
           path: apps/web/.next/
           retention-days: 1
 
   # ---------------------------------------------------------------------------
-  # Lighthouse CI against admin.theroyalglow.in (Req 10.6).
+  # Lighthouse CI against admin.theroyalglow.in (Req 10.6, 13.7, 13.8).
   # Runs only when admin changed and its CI passed. Thresholds are enforced in
   # .github/lighthouse/lighthouserc.json (perf >= 90, a11y = 100, bp >= 95);
   # the job fails if any threshold is not met.
+  #
+  # The route list is the `collect.url` array in lighthouserc.json (the single
+  # source of truth) — it enumerates every redesigned admin route so the
+  # accessibility = 100 gate is enforced PER ROUTE: Lighthouse CI reports each
+  # URL separately, so a score < 100 on ANY audited route fails the gate and
+  # blocks merge, naming the offending URL. The `urls:` action input is
+  # intentionally omitted so it does NOT override that list.
+  #
   # NOTE: this targets the deployed admin URL, so it asserts against the live
-  # subdomain — the deploy must exist for meaningful results.
+  # subdomain — the deploy must exist for meaningful results. Admin routes are
+  # RBAC-gated (incl. `/`); unauthenticated runs redirect to sign-in, so true
+  # per-route scores require supplying LHCI a session (not fabricated here —
+  # see the "//" note in lighthouserc.json).
   # ---------------------------------------------------------------------------
   lighthouse-admin:
     runs-on: ubuntu-latest
@@ -97,12 +108,10 @@ jobs:
     needs: [admin-ci]
     if: needs.changes.outputs.admin == 'true'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - name: Run Lighthouse CI
         uses: treosh/lighthouse-ci-action@v12
         with:
-          urls: |
-            https://admin.theroyalglow.in/
           configPath: .github/lighthouse/lighthouserc.json
           uploadArtifacts: true
           temporaryPublicStorage: true
@@ -116,7 +125,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run lint
@@ -128,13 +137,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run test:coverage
       - name: Upload coverage
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: coverage
           path: coverage/
@@ -144,7 +153,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - name: Trivy vulnerability scan
@@ -180,7 +189,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
@@ -206,6 +215,72 @@ jobs:
           echo "  (General schema/migration discipline is enforced by the drift-gate job.)"
 
   # ---------------------------------------------------------------------------
+  # Admin static gates (admin-portal-redesign) — presentation-layer guards over
+  # apps/admin source. Node-only (no install/build), so it stays well within the
+  # workflow budget. A violation FAILS this job and, as a required status check,
+  # BLOCKS merge.
+  #
+  #   • No emoji icons (Req 2.3) — assert no Unicode emoji glyph is rendered as
+  #     an icon anywhere in the admin presentation source (App_Shell, Sidebar,
+  #     Dashboard, and every other admin component/page). The redesign replaced
+  #     the legacy emoji NAV_ICONS / KPI icons with lucide-react components; this
+  #     gate prevents emoji from creeping back in.
+  #
+  #   • Root-Path Convention (Req 4.9) — assert every ADMIN_NAV href in
+  #     apps/admin/src/lib/rbac.ts omits the `/admin` prefix. The admin app is
+  #     served from the admin.theroyalglow.in subdomain (which provides the
+  #     admin namespace), so nav hrefs must be root paths (e.g. `/bookings`).
+  # ---------------------------------------------------------------------------
+  admin-static-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: No emoji icons in admin presentation source (Req 2.3)
+        run: node scripts/assert-no-emoji-icons.mjs
+      # -----------------------------------------------------------------------
+      # Path-allowlist gate (admin-portal-redesign · task 11.4) — Req 16.1–16.3,
+      # 16.6–16.8. The redesign is presentation-layer ONLY; this gate inspects
+      # the PR diff vs the base branch (BASE_SHA, mirroring the cutover-guards
+      # migration-diff step) and FAILS when an admin presentation change reaches
+      # past its boundary into a PROTECTED path: packages/db/(src/)schema,
+      # packages/db/migrations, an admin API route contract, apps/admin/src/lib/
+      # rbac.ts, or the committed drift fingerprint reference. A protected-path
+      # change made WITHOUT admin presentation changes is out of this gate's
+      # scope (owned by drift-gate / cutover-guards) and passes here.
+      # -----------------------------------------------------------------------
+      - name: Admin presentation stays within its path boundary (Req 16)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/admin-design/path-allowlist.mjs
+      - name: Root-Path Convention — ADMIN_NAV omits the /admin prefix (Req 4.9)
+        run: node scripts/admin-design/root-path-convention.mjs
+
+  # ---------------------------------------------------------------------------
+  # Admin design-system static gates (admin-portal-redesign) — Req 1.1, 1.2.
+  # A required check on every PR/push: a violation FAILS this job and, because
+  # it is a required status check, BLOCKS merge and deploy.
+  #
+  #   no-brand-literals — asserts zero hard-coded hex / rgb() / rgba() / hsl()
+  #     colour literals and zero raw Tailwind colour-PALETTE utilities
+  #     (e.g. bg-amber-50) in admin component source
+  #     (apps/admin/src/components/**, apps/admin/src/app/**). All colour, font,
+  #     radius, and shadow values must come from the shared @rgss/ui Brand
+  #     Tokens via named Tailwind utilities or var(--color-…) references.
+  # ---------------------------------------------------------------------------
+  admin-design-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: No brand literals in admin component source
+        run: bun run check:admin-no-literals
+
+  # ---------------------------------------------------------------------------
   # Drift gate (schema-drift-remediation) — Req 12.4, 12.5. Runs on every PR
   # (covers the shared packages/db). DB-FREE: CI has no Neon branch, so the gate
   # never connects to a database — it asserts that the code schema and the
@@ -226,7 +301,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - name: Validate migration journal/snapshot integrity (drizzle-kit check)
