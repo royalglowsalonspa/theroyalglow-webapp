@@ -17,6 +17,8 @@
  *
  * Features / Functionality :
  * - DB / auth / OAuth / realtime / rate-limit / webhook-signing vars
+ * - Background-job runtime vars (QStash publish token, invoice-pdf render
+ *   service URL + HMAC secret) for the relocated /api/jobs surface
  * - Client vars (admin origin URL, Sentry DSN, Google + Ably keys)
  * - SKIP_ENV_VALIDATION escape hatch for CI/Docker builds
  *
@@ -53,6 +55,17 @@ export const env = createEnv({
     // Webhook HMAC verification (QStash)
     QSTASH_CURRENT_SIGNING_KEY: z.string().min(1),
     QSTASH_NEXT_SIGNING_KEY: z.string().min(1),
+    // QStash publish token — used by the relocated background-job runtime:
+    // schedule registration (scripts/register-schedules.ts) and the triggered
+    // enqueue helper (lib/jobs/enqueue.ts) both publish with this. Required so
+    // the admin Worker can register/enqueue jobs (mirrors apps/web).
+    QSTASH_TOKEN: z.string().min(1),
+    // Invoice PDF render service (Cloud Run, apps/invoicing). OPTIONAL so the
+    // app builds/runs without it — the relocated invoice-pdf job degrades
+    // gracefully to a no-attachment email when either of these is unset
+    // (mirrors apps/web/src/env.ts).
+    INVOICING_SERVICE_URL: z.string().url().optional(),
+    INVOICE_PDF_HMAC_SECRET: z.string().min(1).optional(),
   },
   client: {
     // Admin origin (https://admin.theroyalglow.in in prod — Req 12.3)
@@ -76,6 +89,9 @@ export const env = createEnv({
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
     QSTASH_CURRENT_SIGNING_KEY: process.env.QSTASH_CURRENT_SIGNING_KEY,
     QSTASH_NEXT_SIGNING_KEY: process.env.QSTASH_NEXT_SIGNING_KEY,
+    QSTASH_TOKEN: process.env.QSTASH_TOKEN,
+    INVOICING_SERVICE_URL: process.env.INVOICING_SERVICE_URL,
+    INVOICE_PDF_HMAC_SECRET: process.env.INVOICE_PDF_HMAC_SECRET,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
     NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,

@@ -1154,7 +1154,7 @@ export async function publishBookingStatusChange(event: PublishBookingStatusEven
 ### 7.1 QStash Job Pattern
 
 ```typescript
-// Location: apps/web/app/api/jobs/appointment-reminders/route.ts
+// Location: apps/admin/app/api/jobs/appointment-reminders/route.ts
 
 import { verifySignatureAppRouter } from '@upstash/qstash/nextjs'
 import { getBookingsNeedingReminder } from '@/packages/business/booking/reminders'

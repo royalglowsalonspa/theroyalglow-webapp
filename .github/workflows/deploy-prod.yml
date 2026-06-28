@@ -31,10 +31,12 @@
 #  REQUIRED GITHUB SECRETS
 #    CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID,
 #    SENTRY_ORG, SENTRY_PROJECT, SENTRY_AUTH_TOKEN,
-#    DATABASE_URL_UNPOOLED_PROD (DDL migrations + pg_cron over the direct conn),
-#    QSTASH_TOKEN (post-deploy QStash schedule registration — Tier 0 #0.3),
+#    DATABASE_URL_UNPOOLED_PROD (DDL migrations over the direct conn),
 #    BETTER_STACK_DEPLOY_WEBHOOK, BETTER_STACK_INCIDENT_WEBHOOK
-#  (NEXT_PUBLIC_APP_URL is a GitHub *var*, reused by the QStash registration.)
+#  NOTE: QStash schedule registration was MOVED to deploy-admin-prod.yml (the
+#  jobs surface now lives in apps/admin). This workflow no longer needs the
+#  QSTASH_TOKEN GitHub secret; the web Worker still carries QSTASH_TOKEN as a
+#  RUNTIME secret (via `wrangler secret`) for its best-effort booking enqueue.
 # ============================================================================
 name: Deploy Production
 
@@ -191,19 +193,13 @@ jobs:
           echo "All smoke tests passed"
 
       # ----------------------------------------------------------------------
-      # Tier 0 #0.3 — register the 8 QStash scheduled jobs. This runs AFTER the
-      # deploy + health check so QStash's destination URLs (https://theroyalglow.in
-      # /api/jobs/*) are live and reachable (QStash cannot POST to localhost).
-      # The script is idempotent: it deletes any existing schedule pointing at
-      # the same destination, then recreates it from JOB_SCHEDULES — so running
-      # on every prod deploy converges QStash to the committed source of truth.
+      # NOTE: QStash schedule registration was MOVED to deploy-admin-prod.yml.
+      # The background-jobs surface now lives in apps/admin (served from
+      # admin.theroyalglow.in/api/jobs/*), so the schedules must be registered
+      # against the admin origin from the admin deploy. The web Worker keeps its
+      # QSTASH_TOKEN runtime secret only for the best-effort booking enqueue
+      # (POST /api/bookings → triggered jobs on the admin origin).
       # ----------------------------------------------------------------------
-      - name: Register QStash schedules (idempotent)
-        working-directory: apps/web
-        run: bun run register-schedules
-        env:
-          QSTASH_TOKEN: ${{ secrets.QSTASH_TOKEN }}
-          NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
 
       - name: Notify deployment success
         if: success()

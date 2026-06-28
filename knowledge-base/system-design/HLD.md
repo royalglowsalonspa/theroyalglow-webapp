@@ -508,7 +508,7 @@ API routes (`apps/web/app/api/`) are thin orchestrators. They:
 | **Auth** | 1 | Public | Better Auth catch-all (`/api/auth/[...betterauth]`) |
 | **Customer** | 13 | Authenticated | Services, availability, bookings, leads, onboarding, push, ably token |
 | **Admin** | 7 | Role-gated | Booking management, memberships, leave, staff ops |
-| **Background Jobs** | 12 | QStash signature | Scheduled/triggered work (appointment reminders, reports, alerts) |
+| **Background Jobs** | 12 | QStash signature | Scheduled/triggered work (appointment reminders, reports, alerts) — hosted in `apps/admin`, served from `admin.theroyalglow.in/api/jobs/*` |
 | **Webhooks** | 2 | Signature-verified | Meta Lead Gen Forms, AiSensy status changes |
 | **Total** | **35** | | |
 
@@ -535,6 +535,7 @@ API routes (`apps/web/app/api/`) are thin orchestrators. They:
 /api/admin/memberships                  ← POST: create membership + invoice
 /api/admin/leave                        ← POST: submit leave | PATCH: approve/reject
 
+# Background jobs — hosted in apps/admin, served from admin.theroyalglow.in/api/jobs/*
 /api/jobs/appointment-reminders         ← POST (QStash): 24h/1h push + email
 /api/jobs/membership-expiry             ← POST (QStash): 30d/7d/1d alerts
 /api/jobs/birthday-emails               ← POST (QStash): birthday offer

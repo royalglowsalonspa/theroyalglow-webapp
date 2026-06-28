@@ -29,7 +29,9 @@ runs on GitHub Actions cron.
   Every QStash job calls a `POST /api/jobs/...` route and is auto-retried (3x,
   exponential backoff) on a non-2xx response. Every job pings a BetterStack
   heartbeat on success so silent failures get detected. All schedules are in UTC;
-  the salon operates IST (UTC+5:30).
+  the salon operates IST (UTC+5:30). The `/api/jobs/*` routes are hosted in
+  `apps/admin` and served from `admin.theroyalglow.in/api/jobs/*`; QStash schedules
+  are registered from the admin deploy.
 </Callout>
 
 ## Not jobs (synchronous / external)
