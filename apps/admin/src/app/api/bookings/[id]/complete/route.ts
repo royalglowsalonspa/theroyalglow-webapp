@@ -36,13 +36,11 @@
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { enqueueJob } from '@/lib/jobs/enqueue'
-import { sendEmail } from '@/lib/notifications/providers/email'
 import { publishBookingEvent } from '@/lib/realtime/publish'
 import {
   assertOfferActive,
   assertOfferSalonOnly,
   assertRedeemable,
-  buildInvoiceEmailHtml,
   calculateGemsEarned,
   computeOfferDiscount,
   generateInvoiceNumber,
@@ -276,30 +274,14 @@ export const POST = withErrorHandler(
       await recordOfferRedemption(appliedOfferId, existing.customerId, existing.id, today)
     }
 
-    // Best-effort: email the customer a GST invoice / booking confirmation.
-    // sendEmail no-ops without RESEND_API_KEY and never throws, so this can
-    // never break completion or change its response. Skipped if no email.
-    if (existing.customerEmail) {
-      const { subject, html } = buildInvoiceEmailHtml({
-        customerName: existing.customerName ?? 'Guest',
-        invoiceNumber,
-        bookingNumber: existing.bookingNumber,
-        items: existing.services.map((s) => ({
-          name: s.serviceNameSnapshot,
-          staff: s.staffId ? (staffNameById.get(s.staffId) ?? null) : null,
-          // Gems-covered line shows ₹0 so the emailed totals reconcile to the
-          // payable amount (gemsRedeemedServiceId on the invoice records which).
-          pricePaise: gemsRedemption?.serviceId === s.serviceId ? 0 : s.priceAtBookingPaise,
-        })),
-        subtotalPaise,
-        discountPaise,
-        gstPaise,
-        totalPaise: finalPaise,
-        gemsEarned,
-        paymentMethod,
-        issuedAt: now,
-      })
-      await sendEmail({ to: existing.customerEmail, subject, html })
+    // Best-effort: durably enqueue the invoice-pdf job (runs on apps/web). It
+    // renders the GST invoice PDF via the Cloud Run service and emails the
+    // customer their invoice WITH the PDF attached — so the invoice email now
+    // originates from the job, not inline here. enqueueJob never throws and
+    // no-ops without QSTASH_TOKEN, so this can never break completion or change
+    // its response (same contract as the post-service-followup enqueue below).
+    if (result.invoice) {
+      await enqueueJob('/api/jobs/invoice-pdf', { invoiceId: result.invoice.id }, 0)
     }
 
     // Best-effort: schedule the post-service follow-up to run +24h. enqueueJob

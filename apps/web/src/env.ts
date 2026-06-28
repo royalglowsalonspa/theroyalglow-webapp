@@ -76,6 +76,11 @@ export const env = createEnv({
     BETTER_STACK_HEARTBEAT_OFFER_EXPIRE: z.string().url().optional(),
     BETTER_STACK_HEARTBEAT_GEMS_EXPIRE: z.string().url().optional(),
     BETTER_STACK_HEARTBEAT_MONTHLY_GST: z.string().url().optional(),
+    // Invoice PDF render service (Cloud Run, apps/invoicing). OPTIONAL so the
+    // app builds/runs without it — the invoice-pdf job degrades gracefully to a
+    // no-attachment email when either of these is unset.
+    INVOICING_SERVICE_URL: z.string().url().optional(),
+    INVOICE_PDF_HMAC_SECRET: z.string().min(1).optional(),
   },
   client: {
     NEXT_PUBLIC_APP_URL: z.string().url(),
@@ -120,6 +125,8 @@ export const env = createEnv({
     BETTER_STACK_HEARTBEAT_OFFER_EXPIRE: process.env.BETTER_STACK_HEARTBEAT_OFFER_EXPIRE,
     BETTER_STACK_HEARTBEAT_GEMS_EXPIRE: process.env.BETTER_STACK_HEARTBEAT_GEMS_EXPIRE,
     BETTER_STACK_HEARTBEAT_MONTHLY_GST: process.env.BETTER_STACK_HEARTBEAT_MONTHLY_GST,
+    INVOICING_SERVICE_URL: process.env.INVOICING_SERVICE_URL,
+    INVOICE_PDF_HMAC_SECRET: process.env.INVOICE_PDF_HMAC_SECRET,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NEXT_PUBLIC_ADMIN_URL: process.env.NEXT_PUBLIC_ADMIN_URL,
     NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,

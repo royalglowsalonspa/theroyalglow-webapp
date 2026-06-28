@@ -57,6 +57,10 @@ export type SendEmailParams = {
   // the `from` address — e.g. the contact form sends FROM our verified domain
   // but routes replies back to the customer who submitted the enquiry.
   replyTo?: string | string[]
+  // Optional file attachments (e.g. the GST invoice PDF). Resend accepts a
+  // base64-encoded `content` string per attachment. Only forwarded when present
+  // so the payload stays minimal for ordinary text emails.
+  attachments?: { filename: string; content: string }[]
 }
 
 // Minimal slice of the optional `resend` module surface we rely on. Modeled
@@ -68,6 +72,8 @@ type ResendSendPayload = {
   html: string
   // Resend SDK (v3+) accepts camelCase `replyTo`. Optional — only sent when set.
   replyTo?: string | string[]
+  // Base64 attachments — only sent when provided.
+  attachments?: { filename: string; content: string }[]
 }
 
 type ResendClient = {
@@ -122,6 +128,10 @@ export async function sendEmail(params: SendEmailParams): Promise<boolean> {
       html: params.html,
       // Only include replyTo when provided; keeps the payload minimal otherwise.
       ...(params.replyTo ? { replyTo: params.replyTo } : {}),
+      // Only include attachments when provided (keeps text emails minimal).
+      ...(params.attachments && params.attachments.length > 0
+        ? { attachments: params.attachments }
+        : {}),
     })
 
     return true
