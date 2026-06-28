@@ -2,7 +2,7 @@
 
 ## Overview
 
-This design covers the complete foundation scaffold for the Royal Glow Salon & Spa monorepo. The goal is a fully buildable, lintable, type-safe monorepo skeleton using Turborepo + Bun workspaces, with Next.js 16.2.6 as the primary web application, shared packages for business logic, database, types, errors, and logging, and a fully integrated design token system via Tailwind CSS v4 + shadcn/ui.
+This design covers the complete foundation scaffold for the Royal Glow Salon & Spa monorepo. The goal is a fully buildable, lintable, type-safe monorepo skeleton using Turborepo + Bun workspaces, with Next.js 16.2.9 as the primary web application, shared packages for business logic, database, types, errors, and logging, and a fully integrated design token system via Tailwind CSS v4 + shadcn/ui.
 
 The scaffold produces zero runtime functionality — it establishes the architectural skeleton, tooling configuration, and dependency graph that all subsequent phases build upon.
 
@@ -32,7 +32,7 @@ theroyalglow-webapp/
 ├── .husky/
 │   └── pre-commit                 # lint-staged trigger
 ├── apps/
-│   ├── web/                       # Next.js 16.2.6 — theroyalglow.in
+│   ├── web/                       # Next.js 16.2.9 — theroyalglow.in
 │   │   ├── public/
 │   │   ├── src/
 │   │   │   ├── app/

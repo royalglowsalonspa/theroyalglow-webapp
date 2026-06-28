@@ -10,13 +10,13 @@ Out of scope for this phase (deferred to Phase 6 / later): actual Web Push and e
 
 ## Glossary
 
-- **Schedule_Service**: The API and logic for defining and reading staff weekly schedules (`/api/admin/schedule`).
-- **Leave_Service**: The API and logic for leave submission, withdrawal, and approval (`/api/admin/leave`, `/api/staff/leave`).
+- **Schedule_Service**: The API and logic for defining and reading staff weekly schedules (`/api/schedule`).
+- **Leave_Service**: The API and logic for leave submission, withdrawal, and approval (`/api/leave`, `/api/staff/leave`).
 - **Leave_Lifecycle**: The leave state machine: `pending → approved | rejected | withdrawn`, with approved/rejected/withdrawn terminal.
 - **Notification_Service**: The API and logic for the in-app notification feed, unread count, and mark-read (`/api/notifications`).
 - **Push_Service**: The API for storing and removing Web Push subscriptions (`/api/push/subscribe`).
 - **Realtime_Token_Service**: The endpoint issuing scoped Ably token requests (`/api/ably/token`).
-- **Offer_Service**: The API and logic for offer management and the public active-offers list (`/api/admin/offers`, `/api/offers`).
+- **Offer_Service**: The API and logic for offer management and the public active-offers list (`/api/offers`, `/api/offers`).
 - **Offer_Application**: The integration that applies an offer to a booking at completion, computing the discount and recording a redemption.
 - **Dispatch_Extension_Point**: The single `dispatchNotification` seam between persisting a notification record and delivering it via push/email; a no-op until provider keys are configured.
 - **Staff_Member**: A user whose role is at least Staff and who has an associated `staff_profile`.

@@ -348,7 +348,7 @@
     <div class="route-card">
         <div class="route-row">
             <span class="method-badge method-PATCH">PATCH</span>
-            <span class="route-path">/api/admin/bookings/[id]</span>
+            <span class="route-path">/api/bookings/[id]</span>
             <span class="route-desc">Approve, reject, or assign staff to booking</span>
             <div class="route-tags">
                 <span class="tag tag-auth">🔒 Receptionist+</span>
@@ -366,7 +366,7 @@
     <div class="route-card">
         <div class="route-row">
             <span class="method-badge method-POST">POST</span>
-            <span class="route-path">/api/admin/bookings/[id]/complete</span>
+            <span class="route-path">/api/bookings/[id]/complete</span>
             <span class="route-desc">Checkout: invoice, gems, analytics</span>
             <div class="route-tags">
                 <span class="tag tag-auth">🔒 Receptionist+</span>
@@ -387,7 +387,7 @@
     <div class="route-card">
         <div class="route-row">
             <span class="method-badge method-POST">POST</span>
-            <span class="route-path">/api/admin/bookings/[id]/noshow</span>
+            <span class="route-path">/api/bookings/[id]/noshow</span>
             <span class="route-desc">Mark no-show. Increments count, checks tier threshold.</span>
             <div class="route-tags">
                 <span class="tag tag-auth">🔒 Receptionist+</span>
@@ -403,7 +403,7 @@
     <div class="route-card">
         <div class="route-row">
             <span class="method-badge method-POST">POST</span>
-            <span class="route-path">/api/admin/memberships</span>
+            <span class="route-path">/api/memberships</span>
             <span class="route-desc">Create membership for customer</span>
             <div class="route-tags">
                 <span class="tag tag-auth">🔒 Receptionist+</span>
@@ -419,7 +419,7 @@
     <div class="route-card">
         <div class="route-row">
             <span class="method-badge method-POST">POST</span>
-            <span class="route-path">/api/admin/memberships/[id]/session</span>
+            <span class="route-path">/api/memberships/[id]/session</span>
             <span class="route-desc">Record session usage. Deducts hours.</span>
             <div class="route-tags">
                 <span class="tag tag-auth">🔒 Receptionist+</span>
@@ -435,7 +435,7 @@
     <div class="route-card">
         <div class="route-row">
             <span class="method-badge method-POST">POST</span>
-            <span class="route-path">/api/admin/leave</span>
+            <span class="route-path">/api/leave</span>
             <span class="route-desc">Submit leave request (staff self-service)</span>
             <div class="route-tags">
                 <span class="tag tag-auth">🔒 Staff+</span>
@@ -451,7 +451,7 @@
     <div class="route-card">
         <div class="route-row">
             <span class="method-badge method-PATCH">PATCH</span>
-            <span class="route-path">/api/admin/leave/[id]</span>
+            <span class="route-path">/api/leave/[id]</span>
             <span class="route-desc">Approve or reject leave request</span>
             <div class="route-tags">
                 <span class="tag tag-auth">🔒 Receptionist+</span>

@@ -44,11 +44,11 @@ Phase 0 foundation scaffolding for the Royal Glow Salon & Spa monorepo. This spe
 
 ### Requirement 2: Next.js Web Application Setup
 
-**User Story:** As a developer, I want the `apps/web/` application scaffolded with Next.js 16.2.6 using App Router, so that I have a working development server with correct TypeScript configuration and route structure.
+**User Story:** As a developer, I want the `apps/web/` application scaffolded with Next.js 16.2.9 using App Router, so that I have a working development server with correct TypeScript configuration and route structure.
 
 #### Acceptance Criteria
 
-1. THE Web_App SHALL use Next.js version 16.2.6 with the App Router paradigm
+1. THE Web_App SHALL use Next.js version 16.2.9 with the App Router paradigm
 2. THE Web_App SHALL have a `next.config.ts` file exporting a typed configuration object
 3. THE Web_App SHALL have an `app/` directory with a root `layout.tsx` and `page.tsx` that render without errors
 4. THE Web_App SHALL configure `params` and `searchParams` as Promise types in all page components, following Next.js 16 conventions

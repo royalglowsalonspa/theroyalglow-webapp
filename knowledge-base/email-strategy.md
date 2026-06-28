@@ -26,7 +26,7 @@ This means the email stack is completely independent of the auth library choice.
 | **Post-service follow-up** | 2 days after booking completed | Brevo template | Brevo |
 | **Re-engagement** | Customer inactive 60+ days | Brevo template | Brevo |
 | **Seasonal / Festival offer** | Manual blast (Diwali, summer, etc.) | Brevo template | Brevo |
-| **New offer announcement** | Owner publishes offer on `/admin/offers` | Brevo template | Brevo |
+| **New offer announcement** | Owner publishes offer on `admin.theroyalglow.in/offers` | Brevo template | Brevo |
 | **Membership renewal nudge** | 7 days after membership expired | Brevo template | Brevo |
 
 ---
@@ -85,15 +85,15 @@ Applicable laws: **CAN-SPAM** (US), **GDPR** (EU), **India DPDP Act**
 ## PDF Invoice Generation
 
 **Library:** `@react-pdf/renderer` v4
-**Runtime:** Node.js API deployed on **Render** (or Railway)
+**Runtime:** Standalone Node.js service (`@rgss/invoicing`, Hono) deployed on **Google Cloud Run** (`rgss-invoicing`, region `asia-south1`)
 
-### Why a separate Node.js API
-`@react-pdf/renderer` requires a full Node.js runtime — it cannot run on Cloudflare Workers (edge). Since the Next.js app is deployed on Cloudflare Pages, invoice PDF generation runs on a dedicated Render service and is called via internal HTTP.
+### Why a separate Node.js service
+`@react-pdf/renderer` requires a full Node.js runtime — it cannot run on Cloudflare Workers (edge). Since the Next.js apps are deployed on Cloudflare Workers (OpenNext), invoice PDF generation runs on a dedicated Google Cloud Run service (`@rgss/invoicing`) and is called via HMAC-signed internal HTTP.
 
 ### Flow
 ```
 Booking moves to completed (Next.js on Cloudflare)
-  → POST /invoices/generate  (Render Node.js API)
+  → POST /v1/invoices  (Google Cloud Run service, HMAC-verified)
       ↓
   PDF generated with @react-pdf/renderer v4
       ↓
@@ -1151,7 +1151,7 @@ Walk-ins welcome | Advance booking recommended
 
 ### 4. New Offer Announcement
 
-**Trigger:** Manual or semi-automated — when Owner adds a new offer on `/admin/offers`
+**Trigger:** Manual or semi-automated — when Owner adds a new offer on `admin.theroyalglow.in/offers`
 **Automation option:** API call to Brevo on offer publish → triggers campaign
 **Audience:** "All Customers" list
 **Subject:** `New at Royal Glow: [Offer Name] — [X]% OFF 🎁`
@@ -1188,7 +1188,7 @@ Classic Facial combo at an unbeatable price"]
 
 **Semi-automated flow:**
 ```
-Owner publishes offer on /admin/offers
+Owner publishes offer on admin.theroyalglow.in/offers
   → App calls Brevo API: create campaign from template
   → Owner reviews in Brevo dashboard
   → Owner clicks "Send" (manual approval gate)
