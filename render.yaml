@@ -52,13 +52,27 @@ services:
     # `start:prod` script which runs `next start -p ${PORT:-3002}`. We cd into
     # the workspace because `next start` must run from the app dir (reads its
     # .next build output). Never hardcode 3002 in production.
-    startCommand: cd apps/cms && bun run start:prod
+    #
+    # FREE-TIER MIGRATION: `preDeployCommand` only runs on PAID Render instance
+    # types, so on the free plan migrations would never apply and the `cms`
+    # schema stays empty (relation "cms.users" does not exist -> 500 on /admin).
+    # We therefore run `payload migrate` here, before `start:prod`. `payload
+    # migrate` is idempotent (it records applied migrations in a Payload
+    # migrations table), so re-running it on every cold start is safe and a
+    # no-op once applied. DATABASE_URL MUST be the Neon UNPOOLED host (no
+    # "-pooler") — Payload's DDL hangs over pgBouncer. When you upgrade to a
+    # paid instance, move this back to `preDeployCommand` below and drop the
+    # `bun run migrate &&` prefix here.
+    startCommand: cd apps/cms && bun run migrate && bun run start:prod
 
-    # ----- Release / pre-deploy migration ----------------------------------
+    # ----- Release / pre-deploy migration (PAID instances only) ------------
     # Runs AFTER a successful build and BEFORE the new instance goes live.
     # Applies committed Payload migrations to Neon over DATABASE_URL. If this
     # fails, the deploy is aborted and the old instance keeps serving.
-    preDeployCommand: cd apps/cms && bun run migrate
+    # DISABLED on the free plan (pre-deploy is a paid-only feature). Migration
+    # currently happens in `startCommand` above. Re-enable this and remove the
+    # migrate prefix from startCommand after upgrading to a paid instance type.
+    # preDeployCommand: cd apps/cms && bun run migrate
 
     # ----- Health check ----------------------------------------------------
     # `/` redirects to `/admin`; `/admin` serves the Payload admin login (HTTP
@@ -80,7 +94,10 @@ services:
 
       # --- Secrets / per-environment (set in Render dashboard; never committed) ---
 
-      # Neon pooled connection string (Payload owns the `cms` schema).
+      # Neon connection string (Payload owns the `cms` schema). MUST be the
+      # UNPOOLED/direct host (NO "-pooler" in the hostname). Payload runs
+      # session-level DDL on migrate and boot, which hangs over Neon's
+      # pgBouncer pooled endpoint. Use sslmode=verify-full&channel_binding=require.
       - key: DATABASE_URL
         sync: false
 
