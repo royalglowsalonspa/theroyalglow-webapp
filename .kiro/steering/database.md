@@ -143,4 +143,4 @@ Walk-ins skip `pending` → directly `confirmed`.
 ## Reference
 
 - #[[file:knowledge-base/database-schema.md]] — Full table definitions, column specs, all indexes
-- #[[file:system-design/LLD.md]] — Detailed SQL, state machines, sequence diagrams
+- #[[file:knowledge-base/system-design/LLD.md]] — Detailed SQL, state machines, sequence diagrams

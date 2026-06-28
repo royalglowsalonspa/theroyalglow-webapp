@@ -15,13 +15,17 @@ Every information / planning document lives here. Only `README.md` remains in th
 | [database-schema.md](./database-schema.md) | Full schema — all 38 tables, columns, indexes, ERD |
 | [data-seeding.md](./data-seeding.md) | Data seeding strategy |
 | [error-handling.md](./error-handling.md) | API error handling strategy & error codes |
+| [system-design/HLD.md](./system-design/HLD.md) | High-Level Design — architecture overview, tech decisions, data model |
+| [system-design/LLD.md](./system-design/LLD.md) | Low-Level Design — detailed SQL, state machines, sequence diagrams |
 
 ## Features & Product
 
 | Document | Description |
 |----------|-------------|
 | [features.md](./features.md) | Features & application scope |
+| [features/favourite-services.md](./features/favourite-services.md) | Favourite services — per-feature specification |
 | [design.md](./design.md) | Design brief — UI/UX direction |
+| [pages/README.md](./pages/README.md) | Pages & routes — complete route/page specification map |
 | [sitemap.md](./sitemap.md) | Complete information architecture & site hierarchy |
 | [authentication.md](./authentication.md) | Auth design & RBAC |
 | [background-jobs.md](./background-jobs.md) | All 19 background jobs — QStash + GitHub Actions |

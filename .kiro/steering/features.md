@@ -173,4 +173,4 @@ Walk-in no-shows do NOT count toward the tier.
 - #[[file:knowledge-base/background-jobs.md]] — All 19 jobs with SQL/schedules
 - #[[file:knowledge-base/authentication.md]] — Auth & RBAC design
 - #[[file:design/README.md]] — UI wireframes and design specs
-- #[[file:features/favourite-services.md]] — Favourite services feature spec
+- #[[file:knowledge-base/features/favourite-services.md]] — Favourite services feature spec
