@@ -78,23 +78,22 @@ export default function ContactPage() {
           <div className="mx-auto max-w-[1278px] grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
             {/* LEFT COLUMN: Map + NAP */}
             <div>
-              {/* Google Maps embed — keyless iframe (no Maps Embed API key).
-                  Centred on the branch's exact GPS coordinates with a labelled
-                  marker. Coordinate-based `output=embed` is the reliable keyless
-                  form; `q=place_id:` is NOT supported by the keyless embed and
-                  falls back to a default map. For the full Business-Profile card
-                  (reviews/photos), swap this src for the official "Share → Embed
-                  a map" pb-URL, or use the Maps Embed API with a key. */}
+              {/* Google Maps embed — official keyless "Embed a map" iframe for
+                  the real Royal Glow Salon & Spa Business Profile (feature ID
+                  0x3bae6d5cd0552b29:0xb87793c64005049e). No Maps Embed API key
+                  required; allowed by the middleware CSP frame-src
+                  (https://www.google.com). Width is responsive (100%); height
+                  fixed to the contact-card design. */}
               <div className="rounded-[6px] overflow-hidden border border-cloud-gray">
                 <iframe
                   title="Royal Glow Salon & Spa location on Google Maps"
-                  src="https://maps.google.com/maps?q=12.8777350,77.6664252(Royal+Glow+Salon+%26+Spa)&z=16&hl=en&output=embed"
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3889.5204681262835!2d77.66475897572211!3d12.874219217004518!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bae6d5cd0552b29%3A0xb87793c64005049e!2sROYAL%20GLOW%20SALON%20%26%20SPA!5e0!3m2!1sen!2sin!4v1782664203581!5m2!1sen!2sin"
                   width="100%"
                   height="300"
                   style={{ border: 0 }}
                   allowFullScreen
                   loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
+                  referrerPolicy="strict-origin-when-cross-origin"
                   className="w-full"
                 />
               </div>
