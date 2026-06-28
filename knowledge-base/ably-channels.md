@@ -4,7 +4,7 @@
 
 Royal Glow customers and staff see booking status changes, schedule updates, and leave notifications **instantly — without any page reload or manual refresh**. Ably maintains a persistent WebSocket connection in the browser. When the server publishes an event, Ably pushes it to all subscribers in ~50ms. React state updates in response — the UI changes in place.
 
-**Example:** Receptionist approves a booking in `/admin`. The customer is sitting on `/bookings`. Their status badge changes from "Pending" to "Confirmed" automatically, with no interaction required on their end.
+**Example:** Receptionist approves a booking in the admin app (`admin.theroyalglow.in`). The customer is sitting on `/bookings`. Their status badge changes from "Pending" to "Confirmed" automatically, with no interaction required on their end.
 
 ---
 
@@ -63,7 +63,7 @@ Fine-grained channel per booking. Customer subscribes when viewing a booking det
 
 ### 3. `admin:bookings`
 
-Broadcast channel — all admin roles with booking access (`Developer`, `Owner`, `Manager`, `Receptionist`) subscribe on `/admin` dashboard and `/admin/bookings`. Every status-changing action anywhere in the system publishes here.
+Broadcast channel — all admin roles with booking access (`Developer`, `Owner`, `Manager`, `Receptionist`) subscribe on the admin dashboard (`admin.theroyalglow.in/`) and `admin.theroyalglow.in/bookings`. Every status-changing action anywhere in the system publishes here.
 
 | Event | Payload | UI effect |
 |-------|---------|-----------|
@@ -90,7 +90,7 @@ Date-scoped channel. Subscribe when viewing a specific date in the schedule. Slo
 
 ### 5. `admin:leave`
 
-All admin roles with leave-review access (`Developer`, `Owner`, `Manager`, `Receptionist`) subscribe on `/admin/leave`. New leave requests appear without refreshing the page.
+All admin roles with leave-review access (`Developer`, `Owner`, `Manager`, `Receptionist`) subscribe on `admin.theroyalglow.in/leave`. New leave requests appear without refreshing the page.
 
 | Event | Payload | UI effect |
 |-------|---------|-----------|
@@ -144,7 +144,7 @@ Every server action that changes state publishes to all relevant channels atomic
 
 **Example — Receptionist approves booking:**
 ```
-POST /api/admin/bookings/:id/approve
+POST /api/bookings/:id/approve
     → DB: booking.status = 'confirmed'
     → Ably publish:
         customer:{userId}:bookings  →  booking.status_changed  { toStatus: 'confirmed' }
@@ -167,7 +167,7 @@ POST /api/bookings/:id/cancel
 
 **Example — Admin approves leave request:**
 ```
-POST /api/admin/leave/:id/approve
+POST /api/leave/:id/approve
     → DB: staff_time_off.approval_status = 'approved'
     → Ably publish:
         staff:{staffId}:schedule    →  leave.approved
@@ -183,9 +183,9 @@ POST /api/admin/leave/:id/approve
 |------|-------------|-------------------|
 | `/bookings` | `customer:{userId}:bookings` | All booking card status badges, dates, staff assignments |
 | `/bookings/:id` | `booking:{bookingId}` | Full detail panel — status, notes, services |
-| `/admin` (dashboard) | `admin:bookings` | Pending queue count, today's booking feed |
-| `/admin/bookings` | `admin:bookings` | Full booking list, status column |
-| `/admin/bookings/:id` | `booking:{bookingId}` | Detail panel, notes, status timeline |
-| `/admin/schedule` | `admin:schedule:{selectedDate}` | Slot grid, staff availability columns |
-| `/admin/leave` | `admin:leave` | Pending leave request queue |
+| `admin.theroyalglow.in/` (dashboard) | `admin:bookings` | Pending queue count, today's booking feed |
+| `admin.theroyalglow.in/bookings` | `admin:bookings` | Full booking list, status column |
+| `admin.theroyalglow.in/bookings/:id` | `booking:{bookingId}` | Detail panel, notes, status timeline |
+| `admin.theroyalglow.in/schedule` | `admin:schedule:{selectedDate}` | Slot grid, staff availability columns |
+| `admin.theroyalglow.in/leave` | `admin:leave` | Pending leave request queue |
 | Staff dashboard | `staff:{staffId}:schedule` | Today's appointments, leave request status |

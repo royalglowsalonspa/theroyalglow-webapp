@@ -2,7 +2,7 @@
 
 ## Overview
 
-Royal Glow Salon & Spa runs a monorepo with two Next.js apps (`apps/web`, `apps/cms`), deployed across two platforms (Cloudflare Pages + Render), and relies on ~15 external services. Environment variables are:
+Royal Glow Salon & Spa runs a monorepo with four apps (`apps/web`, `apps/admin`, `apps/cms`, `apps/invoicing`), deployed across three platforms (Cloudflare Workers via OpenNext + Render + Google Cloud Run), and relies on ~15 external services. Environment variables are:
 
 - **Validated at build time** using `@t3-oss/env-nextjs` + Zod — build fails if a required var is missing or malformed
 - **Never committed** to Git — `.env.local` is gitignored
@@ -69,11 +69,11 @@ Custom files like `.env.pprd` are **not** auto-loaded by Next.js. Use them only 
 
 ---
 
-### PDF Invoice Service (Render)
+### PDF Invoice Service (Google Cloud Run)
 
 | Variable | Used by | Visibility | Description |
 |----------|---------|------------|-------------|
-| `PDF_API_URL` | web | Private | Internal URL of the Render PDF service — `https://rgss-pdf-api.onrender.com` |
+| `PDF_API_URL` | web | Private | URL of the `rgss-invoicing` PDF service on Google Cloud Run (asia-south1) — `https://rgss-invoicing-<hash>.asia-south1.run.app` |
 
 ---
 
@@ -426,8 +426,9 @@ jobs:
 
 | Platform | Where to set | Applied to |
 |----------|-------------|-----------|
-| **Cloudflare Pages** | Pages → Settings → Environment Variables | `apps/web` (edge) |
-| **Render** | Service → Environment tab | `apps/web` (SSR origin) + `apps/cms` |
+| **Cloudflare Workers (OpenNext)** | Workers & Pages → Settings → Variables | `apps/web`, `apps/admin` (edge) |
+| **Render** | Service → Environment tab | `apps/cms` |
+| **Google Cloud Run** | Service → Variables & Secrets | `apps/invoicing` |
 
 Both platforms inject vars at runtime — no `.env` file is needed or present in production.
 

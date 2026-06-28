@@ -166,7 +166,7 @@
 │       │                                                                  │
 │       │              ┌─────────────────────────────────────────┐        │
 │       │              │                                          │        │
-│       │              │  Server: POST /api/admin/bookings/       │        │
+│       │              │  Server: POST /api/bookings/             │        │
 │       │              │          [id]/approve                    │        │
 │       │              │                                          │        │
 │       │              │  1. UPDATE booking SET status='confirmed'│        │

@@ -490,7 +490,7 @@ code {
     <div class="summary-grid">
       <div class="summary-item">
         <div class="label">Routes</div>
-        <div class="value">/admin/bookings, /admin/bookings/[id]</div>
+        <div class="value">/bookings, /bookings/[id]</div>
       </div>
       <div class="summary-item">
         <div class="label">Purpose</div>
@@ -693,7 +693,7 @@ code {
 
       <!-- Row 3: Booking Detail (PENDING) -->
       <rect class="node-rect" x="280" y="180" width="340" height="60" fill="#FEF3C7" stroke="#F59E0B"/>
-      <text x="450" y="202" text-anchor="middle" font-weight="600" fill="#92400E">/admin/bookings/[id] — PENDING</text>
+      <text x="450" y="202" text-anchor="middle" font-weight="600" fill="#92400E">/bookings/[id] — PENDING</text>
       <text x="450" y="217" text-anchor="middle" font-size="9" fill="#92400E">Review details • Assign staff • Approve or Reject</text>
       <text x="450" y="232" text-anchor="middle" font-size="9" fill="#92400E">NEW &lt; 5min | ⚠️ Stale &gt; 2hrs</text>
 
@@ -981,7 +981,7 @@ code {
       <p><strong>Entry:</strong> Customer completes booking wizard → status = <code>PENDING</code></p>
       <p><strong>Admin UI:</strong></p>
       <ul style="margin: 0.5rem 0 0.5rem 1.5rem; font-size: 0.85rem;">
-        <li>Booking appears in <code>/admin/bookings</code> list with amber badge</li>
+        <li>Booking appears in <code>/bookings</code> list with amber badge</li>
         <li><span class="badge badge-new">NEW</span> badge shown if booking is &lt; 5 minutes old</li>
         <li><span class="badge badge-stale">⚠️ STALE</span> indicator if pending &gt; 2 hours (QStash check)</li>
         <li>Ably real-time: row appears instantly without refresh</li>
@@ -1033,7 +1033,7 @@ if (!allServicesHaveStaff) {
         <li>Admin confirms manually (no auto-transition)</li>
       </ul>
       <pre><code>// QStash no-show check (runs 15min after booking.end_time)
-POST /api/admin/bookings/[id]/no-show-check
+POST /api/bookings/[id]/no-show-check
 {
   "booking_id": "uuid",
   "scheduled_end": "2025-01-15T12:30:00",
@@ -1199,7 +1199,7 @@ const walkInBooking = await createBooking({
         <li>SMS: "Your booking at Royal Glow was not confirmed. Reason: [reason]"</li>
       </ul>
       <pre><code>// Rejection payload
-POST /api/admin/bookings/[id]/reject
+POST /api/bookings/[id]/reject
 {
   "reason_code": "staff_unavailable",
   "reason_text": "All stylists booked for this time slot",
@@ -1234,7 +1234,7 @@ POST /api/admin/bookings/[id]/reject
         <li>No negative impact on customer record (no no-show count)</li>
       </ul>
       <pre><code>// Salon-initiated cancellation
-POST /api/admin/bookings/[id]/cancel
+POST /api/bookings/[id]/cancel
 {
   "initiated_by": "salon",
   "reason": "Staff emergency — Rekha on medical leave",
@@ -1599,67 +1599,67 @@ const NO_SHOW_TIERS = {
       <tbody>
         <tr>
           <td><span class="badge" style="background: var(--blue-light); color: #1E40AF;">GET</span></td>
-          <td><code>/api/admin/bookings</code></td>
+          <td><code>/api/bookings</code></td>
           <td>List all bookings (filterable by status, date, staff)</td>
           <td>admin</td>
         </tr>
         <tr>
           <td><span class="badge" style="background: var(--blue-light); color: #1E40AF;">GET</span></td>
-          <td><code>/api/admin/bookings/[id]</code></td>
+          <td><code>/api/bookings/[id]</code></td>
           <td>Get booking detail with customer &amp; services</td>
           <td>admin</td>
         </tr>
         <tr>
           <td><span class="badge" style="background: var(--green-light); color: var(--green-dark);">POST</span></td>
-          <td><code>/api/admin/bookings/[id]/approve</code></td>
+          <td><code>/api/bookings/[id]/approve</code></td>
           <td>Approve pending booking (assign staff)</td>
           <td>admin</td>
         </tr>
         <tr>
           <td><span class="badge" style="background: var(--green-light); color: var(--green-dark);">POST</span></td>
-          <td><code>/api/admin/bookings/[id]/reject</code></td>
+          <td><code>/api/bookings/[id]/reject</code></td>
           <td>Reject with reason</td>
           <td>admin</td>
         </tr>
         <tr>
           <td><span class="badge" style="background: var(--green-light); color: var(--green-dark);">POST</span></td>
-          <td><code>/api/admin/bookings/[id]/checkin</code></td>
+          <td><code>/api/bookings/[id]/checkin</code></td>
           <td>Mark as IN_PROGRESS</td>
           <td>admin</td>
         </tr>
         <tr>
           <td><span class="badge" style="background: var(--green-light); color: var(--green-dark);">POST</span></td>
-          <td><code>/api/admin/bookings/[id]/checkout</code></td>
+          <td><code>/api/bookings/[id]/checkout</code></td>
           <td>Complete with invoice generation</td>
           <td>admin</td>
         </tr>
         <tr>
           <td><span class="badge" style="background: var(--green-light); color: var(--green-dark);">POST</span></td>
-          <td><code>/api/admin/bookings/[id]/noshow</code></td>
+          <td><code>/api/bookings/[id]/noshow</code></td>
           <td>Mark as no-show</td>
           <td>admin</td>
         </tr>
         <tr>
           <td><span class="badge" style="background: var(--green-light); color: var(--green-dark);">POST</span></td>
-          <td><code>/api/admin/bookings/[id]/cancel</code></td>
+          <td><code>/api/bookings/[id]/cancel</code></td>
           <td>Salon-initiated cancellation</td>
           <td>admin</td>
         </tr>
         <tr>
           <td><span class="badge" style="background: var(--green-light); color: var(--green-dark);">POST</span></td>
-          <td><code>/api/admin/bookings/walk-in</code></td>
+          <td><code>/api/bookings/walk-in</code></td>
           <td>Create walk-in booking (direct confirmed)</td>
           <td>admin</td>
         </tr>
         <tr>
           <td><span class="badge" style="background: var(--blue-light); color: #1E40AF;">GET</span></td>
-          <td><code>/api/admin/bookings/[id]/invoice</code></td>
+          <td><code>/api/bookings/[id]/invoice</code></td>
           <td>Get/download invoice PDF</td>
           <td>admin</td>
         </tr>
         <tr>
           <td><span class="badge" style="background: var(--blue-light); color: #1E40AF;">GET</span></td>
-          <td><code>/api/admin/staff/available</code></td>
+          <td><code>/api/staff/available</code></td>
           <td>Get available staff for service + time</td>
           <td>admin</td>
         </tr>

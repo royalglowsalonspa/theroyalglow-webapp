@@ -120,7 +120,7 @@ Neon branch reset is the locked strategy for environment isolation. Supabase bra
 ```
 ✅ All CI gates passing
 ✅ Manual approval required
-🚀 Deploy to Cloudflare Pages
+🚀 Deploy to Cloudflare Workers (OpenNext)
 ```
 
 ---
