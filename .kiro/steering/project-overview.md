@@ -127,14 +127,14 @@ Commits: Conventional Commits (`feat:`, `fix:`, `chore:`, etc.)
 ## Key Documentation References
 
 - #[[file:README.md]] — Complete project context
-- #[[file:architecture.md]] — Infrastructure & routing decisions
-- #[[file:tech-stack.md]] — Technology choices with rationale
-- #[[file:database-schema.md]] — All 38 tables, conventions, ERD
-- #[[file:features.md]] — Full feature specifications
-- #[[file:authentication.md]] — Auth design & RBAC
+- #[[file:knowledge-base/architecture.md]] — Infrastructure & routing decisions
+- #[[file:knowledge-base/tech-stack.md]] — Technology choices with rationale
+- #[[file:knowledge-base/database-schema.md]] — All 38 tables, conventions, ERD
+- #[[file:knowledge-base/features.md]] — Full feature specifications
+- #[[file:knowledge-base/authentication.md]] — Auth design & RBAC
 - #[[file:system-design/HLD.md]] — High-level design
 - #[[file:system-design/LLD.md]] — Low-level design
-- #[[file:error-handling.md]] — Error patterns & codes
-- #[[file:background-jobs.md]] — All 19 background jobs
-- #[[file:deployment.md]] — CI/CD pipeline & deployment
-- #[[file:environment-variables.md]] — All 55 env vars
+- #[[file:knowledge-base/error-handling.md]] — Error patterns & codes
+- #[[file:knowledge-base/background-jobs.md]] — All 19 background jobs
+- #[[file:knowledge-base/deployment.md]] — CI/CD pipeline & deployment
+- #[[file:knowledge-base/environment-variables.md]] — All 55 env vars
