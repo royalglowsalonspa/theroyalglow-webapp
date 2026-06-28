@@ -15,16 +15,18 @@ Full-stack digital operations platform for **Royal Glow Salon & Spa** — a prem
 ```
 theroyalglow-webapp/
 ├── apps/
-│   ├── web/           ← Next.js 16.2.6 (App Router) — theroyalglow.in
-│   ├── admin/         ← Next.js 16 (App Router) — admin.theroyalglow.in
-│   └── cms/           ← Payload CMS v3 — cms.theroyalglow.in
+│   ├── web/           ← Next.js 16.2.9 (App Router) — theroyalglow.in
+│   ├── admin/         ← Next.js 16.2.9 (App Router) — admin.theroyalglow.in
+│   ├── cms/           ← Payload CMS v3 — cms.theroyalglow.in
+│   └── invoicing/     ← Node.js (Hono) + @react-pdf/renderer — Google Cloud Run (rgss-invoicing)
 ├── docs/              ← Fumadocs — docs.theroyalglow.in
 ├── packages/
 │   ├── db/            ← Drizzle ORM schemas, queries, migrations
 │   ├── business/      ← Pure business logic functions (NO I/O, NO framework deps)
 │   ├── types/         ← Shared Zod schemas + TypeScript types
 │   ├── errors/        ← AppError class, error codes registry
-│   └── logger/        ← Structured JSON logger
+│   ├── logger/        ← Structured JSON logger
+│   └── ui/            ← Shared React UI components (@rgss/ui)
 ├── turbo.json
 ├── package.json       ← Root Bun workspaces config
 └── bun.lockb
@@ -34,10 +36,10 @@ theroyalglow-webapp/
 
 | Subdomain | Application | Hosting |
 |-----------|-------------|---------|
-| `theroyalglow.in` | `apps/web` — customer website | Cloudflare Pages (`rgss-web`) |
-| `admin.theroyalglow.in` | `apps/admin` — admin portal | Cloudflare Pages (`rgss-admin`) |
+| `theroyalglow.in` | `apps/web` — customer website | Cloudflare Workers (`rgss-web`) |
+| `admin.theroyalglow.in` | `apps/admin` — admin portal | Cloudflare Workers (`rgss-admin`) |
 | `cms.theroyalglow.in` | `apps/cms` — Payload CMS (marketing content) | Render |
-| `docs.theroyalglow.in` | `docs/` — Fumadocs documentation | Cloudflare Pages |
+| `docs.theroyalglow.in` | `docs/` — Fumadocs documentation | Cloudflare Workers |
 | `r2.theroyalglow.in` | Cloudflare R2 object storage | Cloudflare R2 |
 
 The admin portal is served from `admin.theroyalglow.in` at root paths (no `/admin` prefix — the subdomain provides the admin namespace). Sessions are shared across subdomains via a `.theroyalglow.in` scoped cookie.
@@ -60,7 +62,7 @@ The admin portal is served from `admin.theroyalglow.in` at root paths (no `/admi
 
 | Layer | Technology |
 |-------|-----------|
-| Edge Hosting | Cloudflare Pages + Workers |
+| Edge Hosting | Cloudflare Workers (OpenNext adapter) |
 | SSR Origin + CMS | Render (Singapore, free tier) |
 | Primary DB | Neon PostgreSQL 16 (4 branches: prod/pprd/test/dev) |
 | ORM | Drizzle ORM (pure TypeScript, edge-native) |
@@ -90,7 +92,7 @@ The admin portal is served from `admin.theroyalglow.in` at root paths (no `/admi
 |----------|--------|
 | Runtime | Bun |
 | Language | TypeScript (strict mode) |
-| Framework | Next.js 16.2.6 (App Router) — `params`/`searchParams` are Promises |
+| Framework | Next.js 16.2.9 (App Router) — `params`/`searchParams` are Promises |
 | UI | React + shadcn/ui + Radix primitives |
 | Styling | Tailwind CSS v4 |
 | Animation | motion (motion.dev) |

@@ -107,7 +107,7 @@ details .details-content { padding: 1rem; border: 1px solid var(--grey-200); bor
   <div class="card">
     <h3>📋 Quick Summary</h3>
     <div class="summary-grid">
-      <div class="summary-item"><div class="label">Route</div><div class="value">/admin/invoices</div></div>
+      <div class="summary-item"><div class="label">Route</div><div class="value">/invoices</div></div>
       <div class="summary-item"><div class="label">Min Role</div><div class="value">Receptionist</div></div>
       <div class="summary-item"><div class="label">Invoice Types</div><div class="value">3 (service, mem-purchase, mem-session)</div></div>
       <div class="summary-item"><div class="label">GST Rate</div><div class="value">18% (9% CGST + 9% SGST)</div></div>
@@ -183,7 +183,7 @@ details .details-content { padding: 1rem; border: 1px solid var(--grey-200); bor
         <text x="862" y="97" text-anchor="middle" font-weight="bold" font-size="10" fill="#1E40AF">Meta</text>
         <text x="862" y="112" text-anchor="middle" font-size="9" fill="#1E40AF">CAPI</text>
         <!-- Labels -->
-        <text x="475" y="30" text-anchor="middle" font-size="12" font-weight="bold" fill="var(--dark)">Single Transaction Pipeline (POST /api/admin/bookings/[id]/complete)</text>
+        <text x="475" y="30" text-anchor="middle" font-size="12" font-weight="bold" fill="var(--dark)">Single Transaction Pipeline (POST /api/bookings/[id]/complete)</text>
         <text x="475" y="180" text-anchor="middle" font-size="10" fill="#999">All steps in single API call — rollback on failure</text>
       </svg>
     </div>
@@ -341,11 +341,11 @@ details .details-content { padding: 1rem; border: 1px solid var(--grey-200); bor
     <h3>🔌 API Endpoints</h3>
     <table class="data-table">
       <tr><th>Method</th><th>Endpoint</th><th>Purpose</th><th>Role</th></tr>
-      <tr><td>POST</td><td>/api/admin/bookings/[id]/complete</td><td>Checkout + invoice creation pipeline</td><td>Receptionist</td></tr>
-      <tr><td>GET</td><td>/api/admin/invoices</td><td>List invoices (filterable)</td><td>Receptionist</td></tr>
-      <tr><td>GET</td><td>/api/admin/invoices/[id]</td><td>Invoice detail + PDF link</td><td>Receptionist</td></tr>
-      <tr><td>POST</td><td>/api/admin/invoices/[id]/resend</td><td>Resend email to customer</td><td>Receptionist</td></tr>
-      <tr><td>GET</td><td>/api/admin/invoices/export</td><td>CSV export for accountant</td><td>Manager/Owner</td></tr>
+      <tr><td>POST</td><td>/api/bookings/[id]/complete</td><td>Checkout + invoice creation pipeline</td><td>Receptionist</td></tr>
+      <tr><td>GET</td><td>/api/invoices</td><td>List invoices (filterable)</td><td>Receptionist</td></tr>
+      <tr><td>GET</td><td>/api/invoices/[id]</td><td>Invoice detail + PDF link</td><td>Receptionist</td></tr>
+      <tr><td>POST</td><td>/api/invoices/[id]/resend</td><td>Resend email to customer</td><td>Receptionist</td></tr>
+      <tr><td>GET</td><td>/api/invoices/export</td><td>CSV export for accountant</td><td>Manager/Owner</td></tr>
     </table>
   </div>
 

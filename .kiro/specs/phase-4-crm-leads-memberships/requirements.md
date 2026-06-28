@@ -11,13 +11,13 @@ Out of scope for this phase (deferred to later phases): Meta Pixel / CAPI events
 ## Glossary
 
 - **Lead_Service**: The API and logic for capturing and persisting marketing leads (`/api/leads`).
-- **Lead_Pipeline**: The admin endpoints and kanban UI for managing leads through their status lifecycle (`/admin/leads`).
+- **Lead_Pipeline**: The admin endpoints and kanban UI for managing leads through their status lifecycle (`/leads`).
 - **Lead_Lifecycle**: The lead status state machine: `new → contacted → follow_up → booked → won/lost`, with the allowed transitions defined in the design.
 - **Stale_Lead**: A lead in status `new` whose creation time is 48 hours or more in the past.
-- **CRM_Service**: The admin endpoints and pages for the customer directory and per-customer profiles (`/admin/customers`).
+- **CRM_Service**: The admin endpoints and pages for the customer directory and per-customer profiles (`/customers`).
 - **Customer**: A `user` row with role `customer` that has an associated `customer_profile`.
 - **Customer_Tag**: A label (manual in this phase) assignable to a customer for segmentation.
-- **Membership_Service**: The admin endpoints and logic for creating SPA memberships and recording sessions (`/api/admin/memberships`).
+- **Membership_Service**: The admin endpoints and logic for creating SPA memberships and recording sessions (`/api/memberships`).
 - **Membership_Session**: A completed, ₹0 booking that deducts hours from an active membership and produces a `membership_session` invoice.
 - **Membership_Number_Generator**: The pure function producing a membership number in the format `RG-MEM-{YY}-{branchNumber}-{5random}`.
 - **Loyalty_Service**: The customer-facing endpoint and page exposing the gems balance, history, and redeemable catalogue (`/api/gems`, `/gems`).

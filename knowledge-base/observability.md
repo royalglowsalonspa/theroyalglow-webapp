@@ -61,7 +61,7 @@ BetterStack replaces three separate tools (UptimeRobot + Cronitor + a log tool) 
 | In-store QR booking dialog deep link | `theroyalglow.in/?book=1&utm_source=walkin` | HTTP |
 | Campaign lead page | `theroyalglow.in/book` | HTTP |
 | API health | `theroyalglow.in/api/health` | HTTP |
-| Payload CMS admin | `admin.theroyalglow.in` | HTTP |
+| Payload CMS | `cms.theroyalglow.in` | HTTP |
 | Neon DB probe | Via API health endpoint | HTTP |
 | Ably connectivity | Via test endpoint | HTTP |
 | Upstash Redis probe | Via API probe | HTTP |

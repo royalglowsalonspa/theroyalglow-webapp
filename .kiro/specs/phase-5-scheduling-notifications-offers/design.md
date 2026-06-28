@@ -31,15 +31,15 @@ All underlying tables already exist and are pushed to Neon (`staff_schedule`, `s
 ### Layer Boundaries (unchanged)
 
 ```
-apps/web/src/app/admin/schedule/          ← weekly staff grid (manager)
-apps/web/src/app/admin/leave/             ← leave approval queue (receptionist)
+apps/web/src/app/schedule/          ← weekly staff grid (manager)
+apps/web/src/app/leave/             ← leave approval queue (receptionist)
 apps/web/src/app/staff/schedule/          ← staff's own schedule + leave (staff)
-apps/web/src/app/admin/offers/            ← offer management (manager)
+apps/admin/src/app/offers/          ← offer management (manager)
 apps/web/src/app/(customer)/offers/       ← active offers (already exists; wire to live data)
-apps/web/src/app/api/admin/schedule/      ← schedule CRUD
-apps/web/src/app/api/admin/leave/         ← leave list + approve/reject
-apps/web/src/app/api/staff/leave/         ← staff submit/withdraw/list own
-apps/web/src/app/api/admin/offers/        ← offer CRUD
+apps/admin/src/app/api/schedule/    ← schedule CRUD
+apps/admin/src/app/api/leave/       ← leave list + approve/reject
+apps/admin/src/app/api/me/leave/    ← staff submit/withdraw/list own
+apps/admin/src/app/api/offers/      ← offer CRUD
 apps/web/src/app/api/offers/              ← public active offers
 apps/web/src/app/api/notifications/       ← caller's feed + mark-read
 apps/web/src/app/api/push/subscribe/      ← store/remove push subscription
@@ -64,18 +64,18 @@ Rules hold exactly as before: thin API routes (`parse → safeParse → business
 
 | Surface | Min role |
 |---------|----------|
-| `/admin/schedule`, `/api/admin/schedule` | manager |
-| `/admin/leave` (approve/reject), `/api/admin/leave` | receptionist |
+| `/schedule`, `/api/schedule` | manager |
+| `/leave` (approve/reject), `/api/leave` | receptionist |
 | `/staff/leave` submit/withdraw, `/api/staff/leave` | staff |
-| `/admin/offers`, `/api/admin/offers` | manager |
+| `/offers`, `/api/offers` | manager |
 | `/api/offers` (public active offers) | none |
 | `/api/notifications`, `/api/push/subscribe`, `/api/ably/token` | session (any authenticated) |
-| Offer application at checkout (`/api/admin/bookings/[id]/complete` extension) | receptionist |
+| Offer application at checkout (`/api/bookings/[id]/complete` extension) | receptionist |
 
 ### Request Flow (example: approve leave with conflict detection)
 
 ```
-PATCH /api/admin/leave/[id]
+PATCH /api/leave/[id]
   │
   ├─ requireRole('receptionist')                        (session.ts)
   ├─ approveLeaveSchema.safeParse(body)                 (@rgss/types)
@@ -158,18 +158,18 @@ getStaffProfileByUserId(userId): Promise<{ id } | null>        // resolve staff_
 
 | Route | Method | Auth | Purpose |
 |-------|--------|------|---------|
-| `/api/admin/schedule` | GET | manager | Weekly grid (`?weekStart=YYYY-MM-DD`). |
-| `/api/admin/schedule` | PUT | manager | Upsert a staff member's 7-day schedule. |
-| `/api/admin/leave` | GET | receptionist | Leave queue (`?status=`). |
-| `/api/admin/leave/[id]` | PATCH | receptionist | Approve/reject (reject needs reason); returns conflicts on approve. |
+| `/api/schedule` | GET | manager | Weekly grid (`?weekStart=YYYY-MM-DD`). |
+| `/api/schedule` | PUT | manager | Upsert a staff member's 7-day schedule. |
+| `/api/leave` | GET | receptionist | Leave queue (`?status=`). |
+| `/api/leave/[id]` | PATCH | receptionist | Approve/reject (reject needs reason); returns conflicts on approve. |
 | `/api/staff/leave` | GET | staff | Caller's own leave history. |
 | `/api/staff/leave` | POST | staff | Submit a leave request. |
 | `/api/staff/leave/[id]` | DELETE | staff | Withdraw own pending request. |
 
 #### 1.5 Pages
 
-- **`/admin/schedule/page.tsx`** — week navigator (prev/today/next via `?weekStart=`), staff × 7-day grid showing working hours, leave badges, and booking counts. A per-staff "Edit schedule" panel does the PUT upsert. (Realtime slot animation from the design doc is deferred with Ably publishing; the grid reflects live DB on load/refetch.)
-- **`/admin/leave/page.tsx`** — pending/approved/rejected tabs; each pending card shows staff, dates, reason, and a conflict warning (confirmed bookings on that date) with Approve/Reject (reject → reason). On approve, surfaces remaining conflicts for manual reassignment via the existing admin booking detail.
+- **`/schedule/page.tsx`** — week navigator (prev/today/next via `?weekStart=`), staff × 7-day grid showing working hours, leave badges, and booking counts. A per-staff "Edit schedule" panel does the PUT upsert. (Realtime slot animation from the design doc is deferred with Ably publishing; the grid reflects live DB on load/refetch.)
+- **`/leave/page.tsx`** — pending/approved/rejected tabs; each pending card shows staff, dates, reason, and a conflict warning (confirmed bookings on that date) with Approve/Reject (reject → reason). On approve, surfaces remaining conflicts for manual reassignment via the existing admin booking detail.
 - **`/staff/schedule/page.tsx`** (+ `/staff/leave`) — staff sees their own weekly schedule (read-only) and leave history, can submit a new leave request and withdraw a pending one. A new `staff/` route group/layout gated to role ≥ staff.
 
 ### 2. Notifications & Realtime
@@ -290,16 +290,16 @@ recordOfferRedemption(offerId, customerId, bookingId, dateISO): Promise<OfferRed
 | Route | Method | Auth | Purpose |
 |-------|--------|------|---------|
 | `/api/offers` | GET | none | Active offers for the customer offers page. |
-| `/api/admin/offers` | GET | manager | All offers. |
-| `/api/admin/offers` | POST | manager | Create offer + service links. |
-| `/api/admin/offers/[id]` | GET | manager | Offer detail. |
-| `/api/admin/offers/[id]` | PATCH | manager | Update / toggle active. |
+| `/api/offers` | GET | manager | All offers. |
+| `/api/offers` | POST | manager | Create offer + service links. |
+| `/api/offers/[id]` | GET | manager | Offer detail. |
+| `/api/offers/[id]` | PATCH | manager | Update / toggle active. |
 
-Offer application is integrated into the existing **booking completion** route as an optional extension: when an `offerId` is supplied to `POST /api/admin/bookings/[id]/complete`, the route validates active + salon-only + one-per-day (no active gems redemption on the same booking), computes the discounted total via `computeOfferDiscount`, writes the invoice `discountAmountPaise`, and records an `offer_redemption`. Gems are then earned on the **discounted** total.
+Offer application is integrated into the existing **booking completion** route as an optional extension: when an `offerId` is supplied to `POST /api/bookings/[id]/complete`, the route validates active + salon-only + one-per-day (no active gems redemption on the same booking), computes the discounted total via `computeOfferDiscount`, writes the invoice `discountAmountPaise`, and records an `offer_redemption`. Gems are then earned on the **discounted** total.
 
 #### 3.5 Pages
 
-- **`/admin/offers/page.tsx`** — list + create/edit form (type-specific fields, service multi-select, date range, active toggle).
+- **`/offers/page.tsx`** — list + create/edit form (type-specific fields, service multi-select, date range, active toggle).
 - **`/(customer)/offers/page.tsx`** — already exists with placeholder content; wire it to `GET /api/offers` (loading/error/empty states), showing each active offer with its discount and applicable services.
 
 ### Navigation Integration
@@ -372,7 +372,7 @@ Per coding standards, no test files are committed unless requested. Verification
 2. **External sends are extension points, not implementations.** `ABLY_API_KEY`, `WEB_PUSH_PRIVATE_KEY`, and `RESEND_API_KEY` are declared in `env.ts` but empty in `.env.local`. Building the full backend + UI with a single `dispatchNotification` seam and a graceful `503` on the Ably token route keeps the whole phase buildable and testable today; Phase 6 fills the seam. This mirrors the Phase 4 rate-limit approach.
 3. **Realtime: token endpoint now, publishing later.** The Ably token-auth endpoint and client subscription scaffolding are low-risk and unblock the bell. Server-side `publish` on every mutation is deferred to avoid coupling core flows to an unverified realtime pipeline; the UI degrades to polling.
 4. **Leave is single-day rows.** The `staff_time_off` table has a unique `(staff_id, date)` constraint, so a multi-day request is submitted as one row per day (the UI can expand a range into rows). This matches the schema exactly and keeps conflict detection per-date simple.
-5. **Offer application rides the existing completion route.** Offers apply at checkout (receptionist), so extending `POST /api/admin/bookings/[id]/complete` with an optional `offerId` is cohesive and avoids a parallel checkout path. The one-per-day unique index + salon-only + no-gems rules are enforced there.
+5. **Offer application rides the existing completion route.** Offers apply at checkout (receptionist), so extending `POST /api/bookings/[id]/complete` with an optional `offerId` is cohesive and avoids a parallel checkout path. The one-per-day unique index + salon-only + no-gems rules are enforced there.
 6. **Same-day mark-off + auto-reassignment deferred.** Detecting conflicts on leave approval is in scope and valuable immediately; the automated reassignment + customer-notify pipeline depends on the notification *send* layer and is naturally a Phase 6 concern.
 7. **`db.batch()` for all multi-row writes**; pre-generate parent IDs so children reference them — the established neon-http pattern.
 

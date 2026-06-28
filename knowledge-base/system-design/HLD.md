@@ -161,8 +161,8 @@ The architecture uses **strict layer separation** within a monorepo to achieve t
 │                           EDGE LAYER (Cloudflare)                                 │
 │                                                                                   │
 │    ┌──────────────┐    ┌──────────────────┐    ┌────────────────────────┐        │
-│    │ Cloudflare   │    │ Cloudflare Pages │    │ Cloudflare Workers     │        │
-│    │ DNS + DDoS   │───▶│ (Static CDN)     │───▶│ (Edge SSR + API)       │        │
+│    │ Cloudflare   │    │ CF Workers       │    │ Cloudflare Workers     │        │
+│    │ DNS + DDoS   │───▶│ (OpenNext)       │───▶│ (Edge SSR + API)       │        │
 │    │ + WAF        │    │                  │    │ 50ms CPU wall time     │        │
 │    └──────────────┘    └──────────────────┘    └──────────┬─────────────┘        │
 │                                                            │                      │
@@ -203,7 +203,7 @@ The architecture uses **strict layer separation** within a monorepo to achieve t
 | Layer | Location | Responsibility | Key Constraint |
 |-------|----------|---------------|----------------|
 | **Presentation** | `apps/web/app/` | React Server/Client Components, layouts, pages | Zero business logic |
-| **UI Components** | `apps/web/components/` | shadcn/ui primitives, booking dialog, admin widgets | Pure presentation |
+| **UI Components** | `apps/web/components/` | shadcn/ui primitives, booking dialog (admin widgets live in `apps/admin/components/`) | Pure presentation |
 | **API (Thin)** | `apps/web/app/api/` | Parse request → Zod validate → delegate → JSON response | No DB queries here |
 | **Business Logic** | `packages/business/` | Pure functions, domain rules, calculations | No I/O, no framework deps |
 | **Data Access** | `packages/db/` | Drizzle ORM schemas, query builders, migrations | Only package that imports Drizzle |
@@ -221,7 +221,7 @@ The architecture uses **strict layer separation** within a monorepo to achieve t
 | **Database** | Neon PostgreSQL 16 | Supabase (2 free projects only), PlanetScale (removed free tier), Turso (SQLite limits), Xata (no cron) | Branching (10 free = 4 environments), serverless auto-scaling, Drizzle-native; all scheduled jobs via QStash HTTP routes |
 | **ORM** | Drizzle ORM | Prisma (binary can't run on CF Workers), Kysely (less schema-first) | Pure TypeScript, zero binary, runs natively on Cloudflare Workers V8 isolate, excellent DX |
 | **Auth** | Better Auth | Clerk ($$ for custom domain), Auth.js (no RBAC plugin), Supabase Auth (branding on free tier) | Self-hosted, Google OAuth shows YOUR domain on consent screen, built-in RBAC plugin, sessions in your DB |
-| **Hosting (Edge)** | Cloudflare Pages + Workers | Vercel (expensive at scale), Netlify (less edge compute) | Generous free tier, global edge, no bandwidth overage surprises, R2/KV/Workers all in one platform |
+| **Hosting (Edge)** | Cloudflare Workers (OpenNext) | Vercel (expensive at scale), Netlify (less edge compute) | Generous free tier, global edge, no bandwidth overage surprises, R2/KV/Workers all in one platform |
 | **Hosting (Origin)** | Render (Singapore) | Railway, Fly.io | Free tier sufficient for CMS + heavy SSR fallback, closest free-tier region to India |
 | **Realtime** | Ably | Pusher (200k/day vs 6M/month), Socket.io (self-hosted infra), Supabase Realtime (coupled to Supabase DB) | 6M messages/month free, 200 concurrent, edge-compatible SDK, Token Auth |
 | **CMS** | Payload CMS v3 | Sanity (vendor lock-in), Strapi (heavier), Contentful (limited free tier) | Self-hosted Next.js plugin, media to R2, schema in TypeScript, zero vendor lock-in |
@@ -530,10 +530,11 @@ API routes (`apps/web/app/api/`) are thin orchestrators. They:
 /api/push/unsubscribe                   ← DELETE: remove push subscription
 /api/ably/token                         ← POST: scoped Ably JWT (Token Auth)
 
-/api/admin/bookings/[id]                ← PATCH: approve, reject, assign staff
-/api/admin/bookings/[id]/complete       ← POST: mark completed + invoice + gems + CAPI
-/api/admin/memberships                  ← POST: create membership + invoice
-/api/admin/leave                        ← POST: submit leave | PATCH: approve/reject
+# Admin API — hosted in apps/admin, served from admin.theroyalglow.in/api/* (no /admin prefix)
+/api/bookings/[id]                      ← PATCH: approve, reject, assign staff
+/api/bookings/[id]/complete             ← POST: mark completed + invoice + gems + CAPI
+/api/memberships                        ← POST: create membership + invoice
+/api/leave                              ← POST: submit leave | PATCH: approve/reject
 
 # Background jobs — hosted in apps/admin, served from admin.theroyalglow.in/api/jobs/*
 /api/jobs/appointment-reminders         ← POST (QStash): 24h/1h push + email
@@ -599,9 +600,9 @@ API routes (`apps/web/app/api/`) are thin orchestrators. They:
 |----------------|---------|-------------------|
 | `customer:{userId}:bookings` | Individual customer | Mount `/bookings` page |
 | `booking:{bookingId}` | Customer + Admin + Assigned Staff | Mount booking detail view |
-| `admin:bookings` | Developer, Owner, Manager, Receptionist | Mount `/admin` or `/admin/bookings` |
+| `admin:bookings` | Developer, Owner, Manager, Receptionist | Mount dashboard `/` or `/bookings` (admin.theroyalglow.in) |
 | `admin:schedule:{YYYY-MM-DD}` | Admin roles with schedule access | View specific date in schedule |
-| `admin:leave` | Admin roles with leave-review access | Mount `/admin/leave` |
+| `admin:leave` | Admin roles with leave-review access | Mount `/leave` (admin.theroyalglow.in) |
 | `staff:{staffId}:schedule` | Individual staff member | Mount staff dashboard |
 
 **Token Capability Scoping:**
@@ -630,7 +631,7 @@ Staff token:
 │ (/admin)       │    │ Route            │    │          │    │                  │
 └───────┬────────┘    └────────┬─────────┘    └────┬─────┘    └────────┬─────────┘
         │                      │                    │                   │
-        │ POST /api/admin/     │                    │                   │
+        │ POST /api/           │                    │                   │
         │ bookings/:id/approve │                    │                   │
         │─────────────────────▶│                    │                   │
         │                      │                    │                   │
@@ -778,7 +779,7 @@ feature/* ──▶ dev ──▶ test ──▶ pprd ──▶ prod
 | → `dev` | Lint (Biome) + Unit Tests (Vitest) + Type Check (tsc) + Build + Dependency Audit (Trivy + Socket.dev) | Fast feedback on code quality |
 | → `test` | All above + Integration Tests + Playwright E2E (Chromium) + Lighthouse CI (score gates) | Functional correctness verification |
 | → `pprd` | All above + k6 Load Test (50 concurrent) + OWASP ZAP Security Scan + Smoke Tests | Performance and security gates |
-| → `prod` | All above + Manual Approval → Deploy to Cloudflare Pages → DB Migrations → Health Check → Post-deploy Smoke Tests + Backup Verify | Production release with safety net |
+| → `prod` | All above + Manual Approval → Deploy to Cloudflare Workers (OpenNext) → DB Migrations → Health Check → Post-deploy Smoke Tests + Backup Verify | Production release with safety net |
 
 **Pipeline Visualization:**
 
@@ -1032,7 +1033,7 @@ const showNewFeature = await posthog.isFeatureEnabled('new-booking-flow', sessio
 | Component | Scaling Model | Mechanism |
 |-----------|--------------|-----------|
 | **Cloudflare Workers** | Auto-scale globally | Runs on 200+ edge PoPs; new instances spawn per-request |
-| **Cloudflare Pages** | Static CDN | Cached at every edge node; infinite horizontal scale for static assets |
+| **Cloudflare Workers (OpenNext)** | Static CDN | Cached at every edge node; infinite horizontal scale for static assets |
 | **Neon DB** | Serverless auto-scale | Compute scales up on demand, scales to zero on idle (dev/test branches) |
 | **Upstash Redis** | Serverless | Per-request pricing, no provisioned capacity |
 | **Ably** | Managed | Handles 200 concurrent connections on free tier; auto-scales on paid |
@@ -1123,7 +1124,7 @@ wrangler pages deployments rollback --project-name=rgss-web --deployment-id=<pre
 # Create branch from specific timestamp (before corruption)
 curl -X POST "https://console.neon.tech/api/v2/projects/$PROJECT_ID/branches" \
   -H "Authorization: Bearer $API_KEY" \
-  -d '{"branch": {"name": "recovery-YYYY-MM-DD", "parent_id": "main", "parent_timestamp": "2026-05-23T10:00:00Z"}}'
+  -d '{"branch": {"name": "recovery-YYYY-MM-DD", "parent_id": "prod", "parent_timestamp": "2026-05-23T10:00:00Z"}}'
 
 # Update app DATABASE_URL to point to recovery branch
 # Fix migration, apply to recovery branch, then swap back
@@ -1134,7 +1135,7 @@ curl -X POST "https://console.neon.tech/api/v2/projects/$PROJECT_ID/branches" \
 1. Download latest weekly backup from R2
 2. Provision emergency Neon project (or branch in alternate region)
 3. Restore pg_dump to emergency DB
-4. Update DATABASE_URL in Cloudflare Pages environment variables
+4. Update DATABASE_URL in Cloudflare Workers (OpenNext) environment variables
 5. Trigger redeploy — app now points to emergency DB
 6. Once primary recovered: sync data, switch back, decommission emergency
 ```
@@ -1218,7 +1219,7 @@ curl -X POST "https://console.neon.tech/api/v2/projects/$PROJECT_ID/branches" \
 
 | Service | Free Tier | Paid Threshold | First Paid Plan |
 |---------|-----------|---------------|-----------------|
-| Cloudflare Pages + Workers | 100K req/day | High traffic | Pro $20/mo |
+| Cloudflare Workers (OpenNext) | 100K req/day | High traffic | Pro $20/mo |
 | Neon DB | 0.5 GB, 3 GB transfer | Storage > 0.5 GB | Launch $19/mo |
 | Upstash Redis | 10K req/day | Higher throughput | Pro $10/mo |
 | Upstash QStash | 500 msg/day | More jobs | Pro (included with Redis) |

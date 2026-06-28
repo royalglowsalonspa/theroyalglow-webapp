@@ -66,7 +66,7 @@
 | 4 | Set authorized redirect URI: `https://theroyalglow.in/api/auth/callback/google` | URI saved |
 | 5 | Set authorized JavaScript origin: `https://theroyalglow.in` | Origin saved |
 | 6 | Request OAuth consent screen verification (production) | Submitted |
-| 7 | Store `GOOGLE_OAUTH_CLIENT_ID` + `GOOGLE_OAUTH_CLIENT_SECRET` | In Cloudflare Pages env vars |
+| 7 | Store `GOOGLE_OAUTH_CLIENT_ID` + `GOOGLE_OAUTH_CLIENT_SECRET` | In Cloudflare Workers env / secrets |
 
 ### Email — Resend
 
@@ -77,7 +77,7 @@
 | 3 | Verify domain (DKIM, SPF, DMARC) | Status: Verified ✅ |
 | 4 | Set sending address: `Royal Glow <hello@theroyalglow.in>` | Test email received |
 | 5 | Generate production API key | Key stored securely |
-| 6 | Store `RESEND_API_KEY` | In Cloudflare Pages env vars |
+| 6 | Store `RESEND_API_KEY` | In Cloudflare Workers env / secrets |
 | 7 | Configure webhook URL: `https://theroyalglow.in/api/webhooks/resend` | Webhook active |
 
 ### Email Marketing — Brevo
@@ -90,7 +90,7 @@
 | 4 | Set up automation workflows (birthday, re-engagement, etc.) | Workflows active |
 | 5 | Create contact lists (All, Active, VIP, Dormant, Birthdays) | Lists created |
 | 6 | Generate API key | Key stored |
-| 7 | Store `BREVO_API_KEY` | In Cloudflare Pages env vars |
+| 7 | Store `BREVO_API_KEY` | In Cloudflare Workers env / secrets |
 | 8 | Configure webhook URL: `https://theroyalglow.in/api/webhooks/brevo` | Webhook active |
 
 ### Realtime — Ably
@@ -101,8 +101,8 @@
 | 2 | Note API key (root key for server-side) | Key generated |
 | 3 | Configure channel rules: `bookings:*`, `notifications:*`, `queue:*` | Rules set |
 | 4 | Set capability restrictions (publish/subscribe per channel) | Capabilities locked |
-| 5 | Store `ABLY_PRIVATE_KEY` | In Cloudflare Pages env vars |
-| 6 | Store `NEXT_PUBLIC_ABLY_KEY` (subscribe-only key) | In Cloudflare Pages env vars |
+| 5 | Store `ABLY_PRIVATE_KEY` | In Cloudflare Workers env / secrets |
+| 6 | Store `NEXT_PUBLIC_ABLY_KEY` (subscribe-only key) | In Cloudflare Workers env / secrets |
 
 ### WhatsApp — AiSensy
 
@@ -112,7 +112,7 @@
 | 2 | Register WhatsApp Business number | Number verified |
 | 3 | Create message templates (booking confirm, reminder, feedback) | Templates approved by Meta |
 | 4 | Generate API key | Key stored |
-| 5 | Store `AISENSY_API_KEY` | In Cloudflare Pages env vars |
+| 5 | Store `AISENSY_API_KEY` | In Cloudflare Workers env / secrets |
 | 6 | Test WhatsApp delivery to test number | Message received |
 
 ### Analytics — PostHog
@@ -121,7 +121,7 @@
 |---|------|--------|
 | 1 | Create PostHog project `rgss-production` | Project created |
 | 2 | Note project API key | Key generated |
-| 3 | Store `NEXT_PUBLIC_POSTHOG_KEY` + `NEXT_PUBLIC_POSTHOG_HOST` | In Cloudflare Pages env vars |
+| 3 | Store `NEXT_PUBLIC_POSTHOG_KEY` + `NEXT_PUBLIC_POSTHOG_HOST` | In Cloudflare Workers env / secrets |
 | 4 | Create feature flags (all OFF initially) | Flags created |
 | 5 | Set up dashboards: Bookings, Revenue, User Funnel | Dashboards created |
 | 6 | Configure session recording (opt-in, exclude admin pages) | Recording configured |
@@ -132,7 +132,7 @@
 | # | Task | Verify |
 |---|------|--------|
 | 1 | Create Clarity project | Project ID generated |
-| 2 | Store `NEXT_PUBLIC_CLARITY_ID` | In Cloudflare Pages env vars |
+| 2 | Store `NEXT_PUBLIC_CLARITY_ID` | In Cloudflare Workers env / secrets |
 | 3 | Set up masking rules (PII fields: phone, email, name) | Rules active |
 | 4 | Verify recording (test from pprd) | Session visible in Clarity |
 
@@ -141,7 +141,7 @@
 | # | Task | Verify |
 |---|------|--------|
 | 1 | Create Meta Pixel in Business Manager | Pixel ID generated |
-| 2 | Store `NEXT_PUBLIC_META_PIXEL_ID` | In Cloudflare Pages env vars |
+| 2 | Store `NEXT_PUBLIC_META_PIXEL_ID` | In Cloudflare Workers env / secrets |
 | 3 | Configure Conversions API (CAPI) for server-side events | CAPI token stored |
 | 4 | Set up standard events: ViewContent, Lead, Schedule, Purchase | Events mapped |
 | 5 | Verify with Meta Pixel Helper extension | Events firing |
@@ -152,7 +152,7 @@
 |---|------|--------|
 | 1 | Create Sentry project `rgss-web` (Next.js) | Project created |
 | 2 | Note DSN | DSN generated |
-| 3 | Store `NEXT_PUBLIC_SENTRY_DSN` + `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` | In Cloudflare Pages + GH Actions |
+| 3 | Store `NEXT_PUBLIC_SENTRY_DSN` + `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` | In Cloudflare Workers secrets + GH Actions |
 | 4 | Configure alert rules (see error-handling.md) | Alerts created |
 | 5 | Set up source map uploads in deploy workflow | Working in CI |
 | 6 | Test error capture (throw test error on pprd) | Error appears in Sentry |
@@ -166,7 +166,7 @@
 | 3 | Add uptime monitor: `https://admin.theroyalglow.in` (5 min interval) | Monitor green |
 | 4 | Create status page: `status.theroyalglow.in` | Page accessible |
 | 5 | Set up heartbeat URLs for cron jobs | Heartbeat IDs generated |
-| 6 | Store heartbeat URLs in Cloudflare env vars | Stored |
+| 6 | Store heartbeat URLs in Cloudflare Workers env / secrets | Stored |
 | 7 | Configure alert escalation (push → SMS after 5 min) | Tested |
 | 8 | Connect Sentry integration | Sentry errors visible in BetterStack |
 
@@ -177,7 +177,7 @@
 | 1 | Create R2 bucket: `rgss-invoices` | Bucket created |
 | 2 | Create R2 bucket: `rgss-backups` | Bucket created |
 | 3 | Generate R2 API tokens (read/write for invoices, write for backups) | Tokens generated |
-| 4 | Store `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | In Cloudflare Pages env vars |
+| 4 | Store `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | In Cloudflare Workers env / secrets |
 | 5 | Configure CORS on `rgss-invoices` (allow theroyalglow.in) | CORS set |
 | 6 | Set lifecycle rule on `rgss-backups`: delete after 90 days | Rule active |
 
@@ -186,22 +186,22 @@
 | # | Task | Verify |
 |---|------|--------|
 | 1 | Create Upstash Redis database (region: ap-south-1) | DB created |
-| 2 | Store `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | In Cloudflare Pages env vars |
+| 2 | Store `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | In Cloudflare Workers env / secrets |
 | 3 | Create QStash topic for async jobs | Topic created |
 | 4 | Store `QSTASH_TOKEN` + `QSTASH_CURRENT_SIGNING_KEY` + `QSTASH_NEXT_SIGNING_KEY` | Stored |
 | 5 | Test rate limiting from pprd | 429 returned correctly |
 
-### PDF Generation — Render
+### PDF Generation — Google Cloud Run (`@rgss/invoicing`)
 
 | # | Task | Verify |
 |---|------|--------|
-| 1 | Create Render web service `rgss-pdf-api` | Service running |
-| 2 | Set environment: Node.js, region: Singapore (nearest to Bengaluru) | Configured |
-| 3 | Set env vars: `DATABASE_URL`, `R2_*` keys | In Render dashboard |
-| 4 | Configure health check: `/health` | Green |
-| 5 | Set auto-deploy: OFF (manual deploy only) | Manual mode |
-| 6 | Store `PDF_API_URL` | In Cloudflare Pages env vars |
-| 7 | Test invoice PDF generation from pprd | PDF generated + stored in R2 |
+| 1 | Deploy Cloud Run service `rgss-invoicing` (`gcloud run deploy --source .`, repo-root Docker context) | Service running |
+| 2 | Set region: `asia-south1` (Mumbai), `--min-instances 0` (scale to zero), `--port 8080` | Configured |
+| 3 | Mount secrets via Secret Manager: `INVOICE_PDF_HMAC_SECRET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`; env: `R2_BUCKET_NAME`, `R2_ENDPOINT`, `R2_PUBLIC_BASE_URL` | Set |
+| 4 | Configure health check: `/healthz` | Green |
+| 5 | CI: `.github/workflows/deploy-invoicing.yml` (WIF, deploys on push to `prod` touching `apps/invoicing/**`) | Workflow green |
+| 6 | Store `PDF_API_URL` (Cloud Run URL) | In Cloudflare Workers env / secrets |
+| 7 | Test invoice PDF generation (`POST /v1/invoices`, HMAC) from pprd | PDF generated + stored in R2 |
 
 ### Database — Neon
 
@@ -210,7 +210,7 @@
 | 1 | Create Neon project `rgss-production` | Project created |
 | 2 | Create branches: `prod`, `pprd`, `test`, `dev` | All 4 branches exist |
 | 3 | Note connection strings for each branch | Strings stored |
-| 4 | Store `DATABASE_URL` (prod) in Cloudflare Pages (Production env) | Stored |
+| 4 | Store `DATABASE_URL` (prod) on Cloudflare Workers (OpenNext) via `wrangler secret` | Stored |
 | 5 | Store all branch URLs in GitHub Secrets | Stored |
 | 6 | Run initial migration: `bun run db:migrate` | Schema created |
 | 7 | Verify PITR (Point-in-Time Recovery) enabled | Enabled (7-day window) |
@@ -228,7 +228,7 @@ GOOGLE_OAUTH_CLIENT_ID=<from Google Cloud Console>
 GOOGLE_OAUTH_CLIENT_SECRET=<from Google Cloud Console>
 
 # Database
-DATABASE_URL_PROD=<Neon main branch>
+DATABASE_URL_PROD=<Neon prod branch>
 DATABASE_URL_PPRD=<Neon pprd branch>
 DATABASE_URL_TEST=<Neon test branch>
 
@@ -251,13 +251,17 @@ RENDER_API_KEY=<from Render dashboard>
 BETTERSTACK_API_TOKEN=<from BetterStack>
 ```
 
-### Cloudflare Pages — Production Environment Variables
+### Cloudflare Workers — Production Environment Variables (secrets)
+
+> Set via `wrangler secret put <NAME>` per Worker (`rgss-web`, `rgss-admin`), or
+> from the GitHub Actions deploy env. `NEXT_PUBLIC_*` values are build-time vars
+> in `wrangler.toml`/`[vars]`; all other values are encrypted Worker secrets.
 
 ```
 # App
 APP_ENV=prod
 NEXT_PUBLIC_APP_URL=https://theroyalglow.in
-NEXT_PUBLIC_CMS_URL=https://admin.theroyalglow.in
+NEXT_PUBLIC_CMS_URL=https://cms.theroyalglow.in
 
 # Auth
 GOOGLE_OAUTH_CLIENT_ID=<value>
@@ -293,8 +297,8 @@ QSTASH_TOKEN=<value>
 QSTASH_CURRENT_SIGNING_KEY=<value>
 QSTASH_NEXT_SIGNING_KEY=<value>
 
-# PDF Service
-PDF_API_URL=https://rgss-pdf-api.onrender.com
+# PDF Service (Google Cloud Run — @rgss/invoicing)
+PDF_API_URL=https://rgss-invoicing-<hash>.asia-south1.run.app
 
 # Analytics & Tracking
 NEXT_PUBLIC_POSTHOG_KEY=<value>
@@ -312,32 +316,30 @@ BETTERSTACK_HEARTBEAT_BREVO_SYNC=<URL>
 BETTERSTACK_HEARTBEAT_BACKUP=<URL>
 ```
 
-### Cloudflare Pages — Project Configuration
+### Cloudflare Workers (OpenNext) — Configuration
 
 | Setting | Value |
 |---------|-------|
-| Project name | `rgss-web` |
-| Production branch | `prod` (git branch that Cloudflare Pages watches for production deploys) |
-| Preview branches | `dev`, `test`, `pprd` |
-| Build command | `bun run build` |
-| Build output directory | `.next` |
-| Root directory | `apps/web` |
-| Node.js version | `20.x` |
+| Worker names | `rgss-web` (customer site), `rgss-admin` (admin portal) |
+| Deploy trigger | GitHub Actions on push to `prod` (`deploy-prod.yml`, `deploy-admin-prod.yml`) |
+| Build command | `bunx opennextjs-cloudflare build` (per app) |
+| Deploy command | `cloudflare/wrangler-action` → `command: deploy` (workingDirectory `apps/web` / `apps/admin`) |
+| Wrangler config | `apps/web/wrangler.jsonc`, `apps/admin/wrangler.jsonc` (main = `.open-next/worker.js`) |
 | Compatibility flags | `nodejs_compat` |
-| Custom domains | `theroyalglow.in`, `www.theroyalglow.in` |
+| Custom domains | `theroyalglow.in`, `www.theroyalglow.in` (rgss-web); `admin.theroyalglow.in` (rgss-admin) |
 
-### Render — PDF API Service Configuration
+### Google Cloud Run — PDF Invoice Service (`@rgss/invoicing`)
 
 | Setting | Value |
 |---------|-------|
-| Service name | `rgss-pdf-api` |
-| Environment | Node.js |
-| Region | Singapore |
-| Instance type | Starter ($7/mo) |
-| Build command | `bun install && bun run build` |
-| Start command | `bun run start` |
-| Health check path | `/health` |
-| Auto-deploy | OFF |
+| Service name | `rgss-invoicing` |
+| Runtime | Node.js container (Hono + `@react-pdf/renderer`) |
+| Region | `asia-south1` (Mumbai) |
+| Scaling | `--min-instances 0` (scale to zero, ₹0 idle) |
+| Port | `8080` |
+| Deploy | `.github/workflows/deploy-invoicing.yml` (Workload Identity Federation) |
+| Health check path | `/healthz` |
+| Auth | HMAC-SHA256 on `POST /v1/invoices` (+ Cloud Run IAM) |
 
 ---
 
@@ -644,7 +646,7 @@ git push origin prod
 # 2. GitHub Actions runs:
 #    - CI checks (lint, typecheck, unit tests)
 #    - Build
-#    - Deploy to Cloudflare Pages
+#    - Deploy to Cloudflare Workers (OpenNext)
 #    - Run migrations on prod DB
 #    - Upload source maps to Sentry
 #    - Health check + smoke tests
