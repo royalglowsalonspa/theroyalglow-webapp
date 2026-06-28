@@ -62,7 +62,7 @@ Royal Glow Salon & Spa is built for scale (20k–50k users), premium feel, and l
 |-------|-----------|
 | Edge Hosting | **Cloudflare Pages + Workers** |
 | Node.js Origin / CMS Host | **Render** — heavy SSR fallback + Payload CMS admin panel (free tier, Singapore region) |
-| Primary Database | **Neon DB** (PostgreSQL, 4 branches, pg_cron) |
+| Primary Database | **Neon DB** (PostgreSQL, 4 branches) |
 | Realtime | **Ably** (live push — booking status, queue board) |
 | File Storage | **Cloudflare R2** (photos, invoices) |
 | Cache + Queue | **Upstash Redis + QStash** |
@@ -116,7 +116,7 @@ Royal Glow Salon & Spa is built for scale (20k–50k users), premium feel, and l
 | Layer | Tool | Free Tier |
 |-------|------|-----------|
 | **Error monitoring** | **Sentry** | 5k errors/mo — stack traces, Cloudflare Workers + Render supported |
-| **Uptime + status page + jobs + logs** | **BetterStack** | 10 monitors · `status.theroyalglow.in` · heartbeats for pg_cron, QStash, and GitHub Actions jobs · 1 GB logs/mo |
+| **Uptime + status page + jobs + logs** | **BetterStack** | 10 monitors · `status.theroyalglow.in` · heartbeats for QStash and GitHub Actions jobs · 1 GB logs/mo |
 | **Product analytics** | **PostHog** | 1M events/mo — funnels, feature flags, session replay, cohorts |
 | **Heatmaps + session recordings** | **Microsoft Clarity** | Free forever — visual heatmaps, rage click detection |
 

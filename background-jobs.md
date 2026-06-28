@@ -1,15 +1,49 @@
-# Background Jobs — pg_cron & QStash
+# Background Jobs — QStash (+ GitHub Actions)
+
+## Architecture Decision: pg_cron → QStash (RATIFIED)
+
+**All scheduled jobs run on QStash** (HTTP → Next.js `/api/jobs/*` routes). pg_cron
+is **not used**. Originally 7 jobs were planned on pg_cron inside Neon; they were
+migrated to QStash and the hand-written `0001_pg_cron_jobs.sql` migration was
+removed.
+
+**Why:** the free-tier prod Neon compute scales to zero after ~5 min idle
+(`suspend_timeout_seconds: 0`), and **pg_cron only fires while the compute is
+awake**. The migrated jobs run between 11:30 PM–2:30 AM IST — exactly when there
+is no customer traffic to keep the DB warm — so pg_cron would silently miss most
+nights (silent data drift, worse than an obvious absence). Disabling scale-to-zero
+fixes it but costs money and contradicts the project's ₹0 philosophy. QStash POSTs
+an endpoint that **wakes** the compute, so each job runs reliably at ₹0.
+
+The migrated job SQL bodies were ported verbatim into typed query functions in
+`packages/db/src/queries/jobs.ts` (section 3) and are invoked by these QStash
+routes. Every body is idempotent, so QStash at-least-once retries are safe.
+
+| Migrated job | Route | Cron (UTC) | IST |
+|---|---|---|---|
+| Nightly sales summary | `/api/jobs/nightly-sales-summary` | `0 18 * * *` | 11:30 PM |
+| Membership auto-expire | `/api/jobs/membership-auto-expire` | `30 18 * * *` | 12:00 AM |
+| Offer auto-expire | `/api/jobs/offer-auto-expire` | `35 18 * * *` | 12:05 AM |
+| Gems auto-expire | `/api/jobs/gems-auto-expire` | `40 18 * * *` | 12:10 AM |
+| Session cleanup | `/api/jobs/session-cleanup` | `0 21 * * 0` | 2:30 AM Sun |
+| Monthly GST summary | `/api/jobs/monthly-gst-summary` | `30 19 1 * *` | 1:00 AM (1st) |
+
+Only **Job 5 (pprd DB sync)** remains off QStash — it runs on **GitHub Actions
+cron** (it resets a Neon branch, which is a control-plane op, not in-DB SQL).
 
 ## Overview
 
-Royal Glow uses two complementary tools for all scheduled and event-driven background work:
+Royal Glow uses two tools for scheduled and event-driven background work:
 
 | Tool | Runs inside | Use for | Free tier |
 |------|------------|---------|-----------|
-| **pg_cron** | Neon PostgreSQL | Pure SQL — bulk scans, aggregations, status updates | Unlimited |
-| **QStash** | Upstash HTTP queue | Anything requiring HTTP calls — email, push, Slack, webhooks | 500 messages/day |
+| **QStash** | Upstash HTTP queue → Next.js `/api/jobs/*` | ALL scheduled + triggered jobs (DB maintenance, email, push, Slack, webhooks) | 500 messages/day |
+| **GitHub Actions cron** | GitHub CI | Control-plane ops only (Neon `pprd` branch reset + PII strip — Job 5) | 2,000 min/mo |
 
-**Split rule:** If the job only touches the database → pg_cron. If the job needs to call Resend, web-push, Slack, Ably, or any external service → QStash.
+**Routing rule:** every scheduled or event-driven job is a QStash message that
+POSTs a `/api/jobs/...` route — including the pure-SQL maintenance jobs (which run
+their idempotent SQL via `@rgss/db` query functions). The only exception is Job 5,
+which manipulates a Neon branch rather than running in-DB SQL.
 
 **All QStash jobs call Next.js API routes** (`POST /api/jobs/...`) which perform DB reads and external service calls. QStash automatically retries on non-2xx responses with exponential backoff (up to 3 retries by default).
 
@@ -67,7 +101,13 @@ This is marketing automation, so it is **not counted** in the background-job inv
 
 ## Jobs 1-6 — Core Nightly Operations
 
-Jobs 1-4 and 6 run via `pg_cron` inside Neon DB. Job 5 (`pprd DB Sync`) runs via GitHub Actions cron, then applies SQL anonymisation on the target Neon branch.
+Jobs 1-4, 6 and 7 are the migrated maintenance jobs — they now run as **QStash
+scheduled** HTTP jobs (see the Architecture Decision above), each POSTing its
+`/api/jobs/...` route which executes the idempotent SQL via a `@rgss/db` query
+function. The "Type" rows below still name `pg_cron` for historical context, but
+the live implementation is QStash at the same UTC time. Job 5 (`pprd DB Sync`)
+runs via GitHub Actions cron, then applies SQL anonymisation on the target Neon
+branch.
 
 All times are UTC. Salon operates IST (UTC+5:30). All jobs run in the early hours IST when traffic is zero.
 
@@ -506,13 +546,13 @@ These are not on a schedule. They are enqueued by API routes with a delay when a
 
 | # | Job | Tool | Schedule / Trigger | External calls |
 |---|-----|------|-------------------|----------------|
-| 1 | Nightly sales summary | pg_cron | `0 18 * * *` UTC | None |
-| 2 | Membership auto-expire | pg_cron | `30 18 * * *` UTC | None |
-| 3 | Offer auto-expire | pg_cron | `35 18 * * *` UTC | None |
-| 4 | Session cleanup | pg_cron | `0 21 * * 0` UTC | None |
+| 1 | Nightly sales summary | QStash | `0 18 * * *` UTC | None |
+| 2 | Membership auto-expire | QStash | `30 18 * * *` UTC | None |
+| 3 | Offer auto-expire | QStash | `35 18 * * *` UTC | None |
+| 4 | Session cleanup | QStash | `0 21 * * 0` UTC | None |
 | 5 | pprd DB sync | GitHub Actions cron | `30 19 * * *` UTC | None |
-| 6 | Monthly GST summary | pg_cron | `30 19 1 * *` UTC | None |
-| 7 | Gems auto-expire | pg_cron | `40 18 * * *` UTC | None |
+| 6 | Monthly GST summary | QStash | `30 19 1 * *` UTC | None |
+| 7 | Gems auto-expire | QStash | `40 18 * * *` UTC | None |
 | 8 | Appointment reminders | QStash | Every 15 min | web-push + Resend |
 | 9 | Membership expiry alerts | QStash | Daily 12:30 AM IST | web-push + Resend |
 | 10 | Birthday emails | QStash | Daily 9:30 AM IST | Brevo + web-push |
@@ -526,7 +566,7 @@ These are not on a schedule. They are enqueued by API routes with a delay when a
 | 18 | No-show check | QStash triggered | +15min after `end_time` | web-push |
 | 19 | Membership expired notice | QStash triggered | +1h after `expires_at` | Resend |
 
-**Total: 19 jobs — 7 pg_cron + 8 QStash scheduled + 4 QStash triggered**
+**Total: 19 jobs — 14 QStash scheduled + 4 QStash triggered + 1 GitHub Actions cron (Job 5)**
 
 ---
 

@@ -24,7 +24,7 @@ Run `migrate` per branch in order: `dev`, then `test`, then `pprd`, then `prod`.
 |------|--------|
 | **Forward-only** | Only add new migrations. NEVER edit, reorder, or delete a committed migration. Fix mistakes with a new forward migration. |
 | **Baseline migration** | The committed Baseline_Migration represents the canonical schema. All later migrations build forward from it. |
-| **Preserve `0001_pg_cron_jobs.sql`** | This special migration is kept as-is — never regenerate over it or drop it. |
+| **No pg_cron migration** | pg_cron was RETIRED (see background-jobs.md "Architecture Decision: pg_cron → QStash"). The old hand-written `0001_pg_cron_jobs.sql` has been removed; its jobs now run as QStash scheduled HTTP jobs. Do not reintroduce a pg_cron / `cron.schedule` migration. |
 | **`push` is local-only** | `drizzle-kit push` is RESERVED for throwaway local experimentation ONLY. NEVER run it against shared branches (`dev`/`test`/`pprd`/`prod`) — it partial-applies and caused the `42P16` drift this discipline remediates. |
 | **Unpooled for DDL** | Migrations use `DATABASE_URL_UNPOOLED` (direct connection). The pooled connection is for app queries only. |
 

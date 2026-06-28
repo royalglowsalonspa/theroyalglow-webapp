@@ -39,7 +39,8 @@ export interface JobSchedule {
   description: string
 }
 
-// The 8 QStash scheduled jobs. Crons are UTC; the comment gives the IST intent.
+// The QStash scheduled jobs (8 original + 6 migrated from pg_cron). Crons are
+// UTC; the comment gives the IST intent.
 export const JOB_SCHEDULES: readonly JobSchedule[] = [
   {
     key: 'appointment-reminders',
@@ -88,5 +89,48 @@ export const JOB_SCHEDULES: readonly JobSchedule[] = [
     path: '/api/jobs/gems-expiry-reminder',
     cron: '0 4 * * *',
     description: 'Daily 09:30 IST — gems expiry reminders.',
+  },
+  // ── pg_cron → QStash migrated jobs ──────────────────────────────────────
+  // The 6 entries below replace the pg_cron schedules in
+  // migrations/0001_pg_cron_jobs.sql. pg_cron only runs while the Neon compute
+  // is awake, but the free-tier prod compute scales to zero after ~5 min idle,
+  // so these late-night jobs would silently never fire. Running them as QStash
+  // HTTP jobs wakes the compute so they run reliably at ₹0. The crons below are
+  // the IDENTICAL UTC expressions the pg_cron jobs used.
+  {
+    key: 'nightly-sales-summary',
+    path: '/api/jobs/nightly-sales-summary',
+    cron: '0 18 * * *',
+    description: 'Daily 23:30 IST — nightly sales summary (was pg_cron).',
+  },
+  {
+    key: 'membership-auto-expire',
+    path: '/api/jobs/membership-auto-expire',
+    cron: '30 18 * * *',
+    description: 'Daily 00:00 IST — membership auto-expire (was pg_cron).',
+  },
+  {
+    key: 'offer-auto-expire',
+    path: '/api/jobs/offer-auto-expire',
+    cron: '35 18 * * *',
+    description: 'Daily 00:05 IST — offer auto-expire (was pg_cron).',
+  },
+  {
+    key: 'gems-auto-expire',
+    path: '/api/jobs/gems-auto-expire',
+    cron: '40 18 * * *',
+    description: 'Daily 00:10 IST — gems auto-expire (was pg_cron).',
+  },
+  {
+    key: 'session-cleanup',
+    path: '/api/jobs/session-cleanup',
+    cron: '0 21 * * 0',
+    description: 'Sunday 02:30 IST — expired session cleanup (was pg_cron).',
+  },
+  {
+    key: 'monthly-gst-summary',
+    path: '/api/jobs/monthly-gst-summary',
+    cron: '30 19 1 * *',
+    description: 'Monthly 01:00 IST on the 1st — monthly GST summary (was pg_cron).',
   },
 ] as const
