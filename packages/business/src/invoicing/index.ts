@@ -24,3 +24,4 @@
 export * from './gst'
 export * from './invoice-number'
 export * from './email'
+export * from './amount-in-words'
