@@ -135,7 +135,7 @@ theroyalglow.in
 │   │   ├── /api/leave (POST — submit leave request)
 │   │   └── /api/leave/[id] (PATCH — approve/reject leave)
 │   │
-│   ├── Background Jobs (QStash-triggered)
+│   ├── Background Jobs (QStash — served at admin.theroyalglow.in/api/jobs/*, hosted in apps/admin)
 │   │   ├── /api/jobs/appointment-reminders (every 15 min)
 │   │   ├── /api/jobs/membership-expiry (daily 12:30 AM IST)
 │   │   ├── /api/jobs/birthday-emails (daily 9:30 AM IST)

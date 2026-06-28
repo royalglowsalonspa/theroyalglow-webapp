@@ -50,6 +50,10 @@ const VALID_ENV: Record<string, string> = {
   UPSTASH_REDIS_REST_TOKEN: 'redis-token',
   QSTASH_CURRENT_SIGNING_KEY: 'qstash-current-signing-key',
   QSTASH_NEXT_SIGNING_KEY: 'qstash-next-signing-key',
+  // QStash publish token — required by the relocated background-job runtime
+  // (schedule registration + triggered enqueue). Added with the admin job
+  // wiring (mirrors apps/web).
+  QSTASH_TOKEN: 'qstash-publish-token',
   // client
   NEXT_PUBLIC_APP_URL: 'https://admin.theroyalglow.in',
   NEXT_PUBLIC_SENTRY_DSN: 'https://examplePublicKey@o0.ingest.sentry.io/0',

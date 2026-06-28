@@ -49,6 +49,12 @@ which manipulates a Neon branch rather than running in-DB SQL.
 
 **All jobs ping a BetterStack heartbeat URL on success** — silent failure is detected and alerted. See [observability.md](./observability.md) for heartbeat monitor configuration.
 
+**Where they run:** all `/api/jobs/*` routes are hosted in `apps/admin` and served
+from `admin.theroyalglow.in/api/jobs/*`. QStash scheduled crons are registered from
+the admin deploy (`deploy-admin-prod.yml` runs `register-schedules` against the
+admin origin); triggered jobs are enqueued (with a delay) against the same admin
+origin.
+
 ---
 
 ## Invoice Email — Not a Job

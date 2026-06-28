@@ -51,7 +51,7 @@ All routes are served at `admin.theroyalglow.in/api/*`. Min. Receptionist role u
 
 ## 8d. Background Job Endpoints (QStash)
 
-Called by Upstash QStash scheduler. Verified via `Upstash-Signature` header. Never called directly by browser.
+All job routes are hosted in `apps/admin` and served at `admin.theroyalglow.in/api/jobs/*`. Called by Upstash QStash scheduler. Verified via `Upstash-Signature` header. Never called directly by browser.
 
 | Route | Schedule | Summary | On Failure |
 |-------|----------|---------|------------|

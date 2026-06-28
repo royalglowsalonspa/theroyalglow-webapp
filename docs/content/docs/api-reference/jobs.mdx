@@ -9,7 +9,8 @@ The routes under `/api/jobs/*` are **machine-invoked endpoints**, not part of th
 customer/admin API. They are called by [Upstash QStash](https://upstash.com/docs/qstash)
 — either on a fixed schedule or enqueued with a delay when a business event
 occurs — and they perform the platform's background automations: reminders,
-report emails, nudges, follow-ups, and stale-state checks.
+report emails, nudges, follow-ups, and stale-state checks. They are hosted in
+`apps/admin` and served from `admin.theroyalglow.in/api/jobs/*`.
 
 <Callout type="info">
   These are **`POST` endpoints invoked by QStash**, not by browsers or API

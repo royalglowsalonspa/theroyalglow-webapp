@@ -32,9 +32,11 @@ import { createLogger } from '@rgss/logger'
 // no-show, membership-expired). The originating business event calls this to
 // schedule a delayed job run.
 //
-// We read `QSTASH_TOKEN` / `NEXT_PUBLIC_APP_URL` straight from `process.env`
-// (NOT from `@/env`) so the app builds without them. `@upstash/qstash` is an
-// optional, lazily imported dependency.
+// The triggered job routes this enqueues (`/api/jobs/*`) now live ONLY in
+// apps/admin, so the destination is built from the ADMIN origin. We read
+// `QSTASH_TOKEN` / `NEXT_PUBLIC_ADMIN_URL` straight from `process.env` (NOT from
+// `@/env`) so the app builds without them. `@upstash/qstash` is an optional,
+// lazily imported dependency.
 //
 // No-op + log without config (Property 10) and NEVER throws — enqueuing is
 // best-effort, so core transactional flows (booking complete/create, membership
@@ -91,10 +93,10 @@ export async function enqueueJob(path: string, body: unknown, delaySeconds: numb
       return
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+    const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL ?? ''
     const client = new Client({ token })
     await client.publishJSON({
-      url: `${appUrl}${path}`,
+      url: `${adminUrl}${path}`,
       body,
       delay: delaySeconds,
     })
