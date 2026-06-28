@@ -590,7 +590,7 @@ details .detail-content {
       </div>
       <div class="summary-item">
         <div class="label">Expiry Engine</div>
-        <div class="value">pg_cron + QStash</div>
+        <div class="value">QStash scheduled jobs</div>
       </div>
     </div>
   </div>
@@ -777,7 +777,7 @@ details .detail-content {
 
         <!-- Yes path (left) - EXPIRED -->
         <line x1="340" y1="760" x2="200" y2="760" stroke="#EF4444" stroke-width="2" marker-end="url(#arrowhead-red)"/>
-        <text x="270" y="750" text-anchor="middle" font-size="10" fill="#EF4444" font-weight="bold">Yes (pg_cron)</text>
+        <text x="270" y="750" text-anchor="middle" font-size="10" fill="#EF4444" font-weight="bold">Yes (QStash)</text>
         <rect class="node-rect" x="70" y="735" width="130" height="52" fill="#FEE2E2" stroke="#EF4444" stroke-width="3"/>
         <text x="135" y="757" text-anchor="middle" font-weight="bold" font-size="12" fill="#991B1B">EXPIRED</text>
         <text x="135" y="772" text-anchor="middle" font-size="9" fill="#6B6B6B">Hours forfeited</text>
@@ -1022,8 +1022,8 @@ details .detail-content {
   <details>
     <summary><span class="badge badge-expired">Expired</span> Expired State — Membership ended</summary>
     <div class="detail-content">
-      <p><strong>Condition:</strong> <code>status = 'expired'</code> (set by pg_cron when <code>expires_at &lt;= now()</code>)</p>
-      <p style="margin-top:0.5rem"><strong>Transition:</strong> Automated via <code>pg_cron</code> job running daily at midnight IST.</p>
+      <p><strong>Condition:</strong> <code>status = 'expired'</code> (set by QStash membership-auto-expire job when <code>expires_at &lt;= now()</code>)</p>
+      <p style="margin-top:0.5rem"><strong>Transition:</strong> Automated via QStash scheduled job running daily at midnight IST.</p>
       <p style="margin-top:0.5rem"><strong>Actions:</strong></p>
       <ul style="margin:0.5rem 0 0 1.5rem;font-size:0.9rem">
         <li>Status updated to 'expired' in database</li>
@@ -1221,7 +1221,7 @@ details .detail-content {
   <!-- Expiry Notification Schedule -->
   <div class="card">
     <h3>Expiry Notification Schedule</h3>
-    <p style="font-size:0.85rem;color:var(--grey-500);margin-bottom:1rem">Automated notifications handled by pg_cron (status transition) and QStash (email/push delivery).</p>
+    <p style="font-size:0.85rem;color:var(--grey-500);margin-bottom:1rem">Automated notifications handled by QStash (status transition + email/push delivery).</p>
     <table class="data-table">
       <thead>
         <tr><th>Trigger</th><th>Channel</th><th>Job</th><th>Template</th></tr>
@@ -1254,7 +1254,7 @@ details .detail-content {
         <tr>
           <td><code>expires_at reached</code></td>
           <td>Email</td>
-          <td>pg_cron daily midnight</td>
+          <td>QStash daily midnight job</td>
           <td><code>membership-expired-renewal</code></td>
         </tr>
       </tbody>
@@ -1297,7 +1297,7 @@ details .detail-content {
       <tbody>
         <tr>
           <td>No rollover</td>
-          <td>pg_cron sets status='expired' at midnight</td>
+          <td>QStash job sets status='expired' at midnight</td>
           <td>N/A (automated)</td>
         </tr>
         <tr>

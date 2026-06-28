@@ -169,8 +169,8 @@ The smallest unit of Indian currency (₹1 = 100 paise). All money in the databa
 **Payload CMS**
 The content management system for marketing content. A Next.js plugin — self-hosted on Render, stores data in Neon, media in Cloudflare R2.
 
-**pg_cron**
-A PostgreSQL extension that runs scheduled SQL jobs inside the database. Used for 7 nightly/weekly/monthly jobs: sales summaries, membership expiry, offer expiry, session cleanup, pprd sync, GST summary, gems expiry.
+**QStash scheduled jobs**
+All 14 scheduled background jobs (nightly sales summaries, membership/offer/gems expiry, session cleanup, GST summary, appointment reminders, etc.) run as QStash HTTP POST jobs that wake the Neon compute and execute their SQL. pg_cron was retired because the free-tier compute sleeps and would silently skip late-night runs.
 
 **PostHog**
 The product analytics platform. Tracks user behaviour, booking funnels, feature flags, and session replays. 1 million events/month free.

@@ -60,14 +60,14 @@ This document describes the high-level design of a **full-stack digital operatio
 #### FR-2: SPA Membership Management
 - Three tiers: Silver / Gold / Platinum
 - Hour-based session tracking with deduction on service completion
-- Auto-expiry on membership end date (pg_cron Job 2)
+- Auto-expiry on membership end date (QStash job)
 - Renewal prompts at 30/7/1 day milestones
 
 #### FR-3: Loyalty & Gems System
 - Earn rate: 1 gem per ₹100 invoiced (floor, awarded at invoice generation)
 - Expiry: 365 days from earn date (1-year rolling window)
 - Redemption against a service catalogue
-- Auto-expiry job (pg_cron Job 7), reminder push 7 days before (QStash Job 15)
+- Auto-expiry job (QStash job), reminder push 7 days before (QStash Job 15)
 
 #### FR-4: Admin Portal with RBAC
 - 6 hierarchical roles: Customer < Staff < Receptionist < Manager < Owner < Developer
@@ -87,7 +87,7 @@ This document describes the high-level design of a **full-stack digital operatio
 - GST-inclusive pricing: back-calculate base = price ÷ 1.18
 - PDF generation inline on booking completion
 - Email delivery via Resend (synchronous — customer still at counter)
-- Monthly GST summary aggregation (pg_cron Job 6)
+- Monthly GST summary aggregation (QStash job)
 
 #### FR-7: Staff Scheduling & Leave Management
 - Weekly recurring schedules per staff member
@@ -179,9 +179,9 @@ The architecture uses **strict layer separation** within a monorepo to achieve t
 │  Render (Singapore)              │  │  Neon DB (PostgreSQL 16)   │  │  Upstash          │
 │  ├── Heavy SSR fallback          │  │  ├── 4 branches:           │  │  ├── Redis         │
 │  │   (exceeds 50ms CPU)          │  │  │   dev/test/pprd/prod    │  │  │   (cache, rate   │
-│  └── Payload CMS v3              │  │  ├── pg_cron (7 jobs)      │  │  │    limiting)     │
+│  └── Payload CMS v3              │  │  ├── QStash (14 sched jobs) │  │  │    limiting)     │
 │      (admin.theroyalglow.in)     │  │  ├── Drizzle ORM           │  │  └── QStash        │
-│                                  │  │  └── Connection pooling     │  │      (12 HTTP jobs)│
+│                                  │  │  └── Connection pooling     │  │      (4 event jobs)│
 └──────────────────────────────────┘  └────────────────────────────┘  └──────────────────┘
                                                                                 │
                               ┌──────────────────────────────────────────────────┘
@@ -218,7 +218,7 @@ The architecture uses **strict layer separation** within a monorepo to achieve t
 |----------|--------|------------------------|-----------------|
 | **Framework** | Next.js 16 (App Router) | Remix, SvelteKit, Astro | SSR + SSG + API routes in one; edge-ready via `@cloudflare/next-on-pages`; React ecosystem; largest community |
 | **Runtime** | Bun | Node.js, Deno | 3x faster installs, native TypeScript, faster test runs, drop-in Node.js compatibility |
-| **Database** | Neon PostgreSQL 16 | Supabase (2 free projects only), PlanetScale (removed free tier), Turso (SQLite limits), Xata (no cron) | Branching (10 free = 4 environments), pg_cron native, serverless auto-scaling, Drizzle-native |
+| **Database** | Neon PostgreSQL 16 | Supabase (2 free projects only), PlanetScale (removed free tier), Turso (SQLite limits), Xata (no cron) | Branching (10 free = 4 environments), serverless auto-scaling, Drizzle-native; all scheduled jobs via QStash HTTP routes |
 | **ORM** | Drizzle ORM | Prisma (binary can't run on CF Workers), Kysely (less schema-first) | Pure TypeScript, zero binary, runs natively on Cloudflare Workers V8 isolate, excellent DX |
 | **Auth** | Better Auth | Clerk ($$ for custom domain), Auth.js (no RBAC plugin), Supabase Auth (branding on free tier) | Self-hosted, Google OAuth shows YOUR domain on consent screen, built-in RBAC plugin, sessions in your DB |
 | **Hosting (Edge)** | Cloudflare Pages + Workers | Vercel (expensive at scale), Netlify (less edge compute) | Generous free tier, global edge, no bandwidth overage surprises, R2/KV/Workers all in one platform |
@@ -868,7 +868,7 @@ const showNewFeature = await posthog.isFeatureEnabled('new-booking-flow', sessio
 │  Layer 2: BETTERSTACK — Uptime + Status + Logs + Job Monitoring             │
 │  ├── 10 HTTP monitors (all critical endpoints)                               │
 │  ├── Public status page: status.theroyalglow.in                              │
-│  ├── Heartbeat monitors: pg_cron, QStash, GitHub Actions jobs                │
+│  ├── Heartbeat monitors: QStash scheduled jobs, GitHub Actions jobs            │
 │  ├── Log aggregation: 1 GB/month (Cloudflare Workers + Render)               │
 │  └── Free: all of the above                                                  │
 │                                                                               │
@@ -1151,7 +1151,7 @@ curl -X POST "https://console.neon.tech/api/v2/projects/$PROJECT_ID/branches" \
 | 5 | **Better Auth over Clerk** | Less polished admin dashboard, newer library | Custom `/admin/users` page; actively maintained; full control over session data |
 | 6 | **Session-based auth (not JWT)** | Requires DB lookup per request | Sessions are cacheable; DB lookup is < 5ms on Neon; sessions are revocable (critical for banning users) |
 | 7 | **Ably over SSE** | External dependency for realtime | SSE incompatible with CF Workers' CPU limits for long-lived connections; Ably free tier is 120x above usage |
-| 8 | **pg_cron over external scheduler** | Jobs tied to Neon availability | Neon's 99.95% SLA; BetterStack heartbeat alerts on missed runs; jobs are idempotent |
+| 8 | **QStash over pg_cron** | All jobs via QStash HTTP routes (pg_cron retired) | Neon free-tier compute scales to zero after ~5 min idle — pg_cron only fires while awake. QStash wakes compute via HTTP POST so jobs run reliably at ₹0. BetterStack heartbeat alerts on missed runs; jobs are idempotent |
 | 9 | **Drizzle over Prisma** | Smaller community, fewer tutorials | Prisma binary cannot run on CF Workers (V8 isolate); Drizzle is pure TS, growing fast |
 | 10 | **No Redis on day one (availability cache)** | Slightly higher DB load initially | Neon handles 50 DAU easily; add Redis cache in week 2-4 when traffic grows (~30 min implementation) |
 | 11 | **nanoid PKs over auto-increment** | Slightly larger index size | Prevents enumeration attacks; no sequential IDs exposed in URLs |

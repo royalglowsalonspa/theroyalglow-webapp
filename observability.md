@@ -49,7 +49,7 @@ BetterStack replaces three separate tools (UptimeRobot + Cronitor + a log tool) 
 |--------------------|-------------|-----------|
 | **Uptime** | HTTP monitors for every endpoint | 10 monitors |
 | **Status Page** | Public `status.theroyalglow.in` — customers see it during outages | ✅ Free, custom domain |
-| **Heartbeats** | Scheduled job monitoring — alert if pg_cron, QStash, or GitHub Actions jobs miss their window | ✅ Free |
+| **Heartbeats** | Scheduled job monitoring — alert if QStash or GitHub Actions jobs miss their window | ✅ Free |
 | **Logs** | Ship Cloudflare Workers + Render logs, searchable | 1 GB/mo free |
 
 ### Monitors Required (10 of 10 free slots used)
@@ -71,7 +71,7 @@ All free BetterStack HTTP monitor slots are used at launch. If another productio
 
 ### Heartbeat Monitors for Scheduled Jobs
 
-Scheduled work pings a BetterStack heartbeat URL on successful completion. This covers DB-only pg_cron jobs, QStash schedulers, and the GitHub Actions pprd sync. If BetterStack doesn't receive the ping within the expected window, it fires an alert.
+Scheduled work pings a BetterStack heartbeat URL on successful completion. This covers QStash scheduled jobs, QStash triggered jobs, and the GitHub Actions pprd sync. If BetterStack doesn't receive the ping within the expected window, it fires an alert.
 
 | Heartbeat | Jobs Covered | Expected Window |
 |-----------|--------------|----------------|

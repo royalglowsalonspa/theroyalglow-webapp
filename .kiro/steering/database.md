@@ -2,7 +2,7 @@
 
 ## Technology
 
-- **Database:** Neon PostgreSQL 16 (serverless, branching, pg_cron)
+- **Database:** Neon PostgreSQL 16 (serverless, branching)
 - **ORM:** Drizzle ORM (pure TypeScript, edge-native, no binary)
 - **Schema location:** `packages/db/schema/`
 - **Migrations:** `packages/db/migrations/` (drizzle-kit generated)
@@ -111,7 +111,7 @@ function splitGST(inclusivePaise: number) {
 
 - **Earn:** 1 gem per ₹100 invoiced (floor). Only on `invoice_type = 'service'`.
 - **NO gems** on membership purchases or membership sessions.
-- **Expiry:** 365 days from earn date. Auto-expired by pg_cron Job 7.
+- **Expiry:** 365 days from earn date. Auto-expired by QStash gems-auto-expire job.
 - **Redemption:** Against specific catalogue services only, NOT a ₹ discount.
 - **Cannot combine** with offers on the same booking.
 

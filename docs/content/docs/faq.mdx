@@ -74,7 +74,7 @@ To avoid floating-point errors. ₹1,000.00 is stored as `100000` (paise). All c
 1. Create the route in `apps/web/src/app/api/jobs/`
 2. Verify the QStash signature using `verifyQStashSignature`
 3. Do the work, ping the BetterStack heartbeat on success
-4. Schedule it in QStash (or add a pg_cron job for DB-only work)
+4. Schedule it in QStash (all jobs run as QStash HTTP routes)
 5. Add the heartbeat URL to `environment-variables.md`
 
 **Why is there no `packages/types` import in `packages/business`?**

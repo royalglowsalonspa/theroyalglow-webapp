@@ -38,7 +38,7 @@ Conventions enforced throughout (per steering and design): the audit phase is st
 
 - [x] 3. Pure fingerprinter (`fingerprint.ts`)
   - [x] 3.1 Implement `build`, `serialize`, and `hash`
-    - `build(rows)` normalizes type spelling (`int4`→`integer`, canonical `timestamptz`), default expressions, and nullability; sorts tables/columns/constraints/index-members by name while preserving ordinal order for PK columns, FK column↔refColumn pairings, and enum labels; excludes constraint names, OIDs, comment timestamps, and `pg_cron` rows
+    - `build(rows)` normalizes type spelling (`int4`→`integer`, canonical `timestamptz`), default expressions, and nullability; sorts tables/columns/constraints/index-members by name while preserving ordinal order for PK columns, FK column↔refColumn pairings, and enum labels; excludes constraint names, OIDs, comment timestamps, and retired `pg_cron` rows
     - `serialize` produces stable canonical JSON; `hash` returns the `sha256` of `serialize`
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
   - [ ]* 3.2 Write property test for fingerprint determinism / order-independence
@@ -134,7 +134,7 @@ Conventions enforced throughout (per steering and design): the audit phase is st
 
 - [x] 13. Migration discipline baseline
   - [x] 13.1 Establish the committed Baseline_Migration
-    - Adopt `drizzle-kit generate` with committed SQL migrations under `packages/db/migrations/`; generate the baseline migration representing the Canonical_Schema while preserving the existing special `0001_pg_cron_jobs.sql`; add only forward-only migrations thereafter
+    - Adopt `drizzle-kit generate` with committed SQL migrations under `packages/db/migrations/`; generate the baseline migration representing the Canonical_Schema (the old `0001_pg_cron_jobs.sql` has been removed — pg_cron retired); add only forward-only migrations thereafter
     - _Requirements: 12.1, 12.2, 12.3_
 
 - [x] 14. CI drift gate

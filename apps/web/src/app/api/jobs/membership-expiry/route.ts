@@ -27,7 +27,7 @@
  *
  * Notes        :
  * - Each membership matches at most one tier per run (30d, 7d, or 1d).
- * - Hard expiry is enforced by pg_cron; this job only notifies.
+ * - Hard expiry is enforced by QStash membership-auto-expire job; this job only notifies.
  ************************************************************/
 
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'

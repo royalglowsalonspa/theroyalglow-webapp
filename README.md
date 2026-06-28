@@ -12,7 +12,7 @@ Covers: website, CRM, customer management, marketing automation, database, creat
 | Styling | Tailwind CSS v4 |
 | Framework | Next.js 16.2.6 (App Router) |
 | UI | React |
-| **Primary DB** | **Neon DB** (PostgreSQL, 4 branches, pg_cron, Drizzle ORM) |
+| **Primary DB** | **Neon DB** (PostgreSQL, 4 branches, Drizzle ORM) |
 | **Realtime** | **Ably** (6M messages/mo free — booking status, queue board, staff availability) |
 | **File Storage** | **Cloudflare R2** (10 GB free — photos, invoices) |
 | **Cache + Queue** | **Upstash Redis + QStash** |
@@ -80,8 +80,8 @@ Covers: website, CRM, customer management, marketing automation, database, creat
 
 ## Background Jobs (Locked)
 - **Source of truth:** [background-jobs.md](./background-jobs.md)
-- **Total: 19 jobs — 7 pg_cron + 8 QStash scheduled + 4 QStash triggered**
-- **pg_cron (7 — pure SQL, run inside Neon `prod`):**
+- **Total: 19 jobs — 14 QStash scheduled + 4 QStash triggered + 1 GitHub Actions cron**
+- **QStash scheduled (14 — HTTP routes that run SQL, previously 7 were pg_cron):**
   1. Nightly sales summary — `0 18 * * *` UTC (11:30 PM IST)
   2. Membership auto-expire — `30 18 * * *` UTC (12:00 AM IST)
   3. Offer auto-expire — `35 18 * * *` UTC (12:05 AM IST)
@@ -99,7 +99,7 @@ Covers: website, CRM, customer management, marketing automation, database, creat
 - **Creation:** Receptionist/Manager/Owner/Developer. No approval needed. Hours + price overridable at creation for negotiated deals.
 - **Session recording:** Admin records session → booking(completed, ₹0, is_membership_session:true) + membership_session invoice (₹0) → hours deducted.
 - **No gems** on purchase OR on sessions.
-- **Expiry:** Hard expire. Reminders at 30d/7d/1d. Auto-expire by pg_cron. No rollover.
+- **Expiry:** Hard expire. Reminders at 30d/7d/1d. Auto-expire by QStash job. No rollover.
 - **One active membership per customer** (DB-level UNIQUE index on customer_id WHERE status='active').
 - **Customer sees:** /membership page — tier, hours remaining, expiry, session history.
 
@@ -171,7 +171,7 @@ Service catalog, bookings, memberships, billing → all in custom admin (`theroy
 
 ## Observability & Analytics (Locked)
 - **Sentry** — error monitoring. 5k errors/mo free. Next.js + Cloudflare Workers SDK.
-- **BetterStack** — uptime (10 monitors) + `status.theroyalglow.in` + heartbeats for pg_cron/QStash/GitHub Actions jobs + 1 GB logs/mo. Replaces UptimeRobot + Cronitor.
+- **BetterStack** — uptime (10 monitors) + `status.theroyalglow.in` + heartbeats for QStash/GitHub Actions jobs + 1 GB logs/mo. Replaces UptimeRobot + Cronitor.
 - **PostHog** — product analytics. 1M events/mo free. Funnels, feature flags, session replay, cohorts.
 - **Microsoft Clarity** — heatmaps + session recordings. Free forever.
 - **Checkly** — synthetic monitoring. Real Playwright scripts in prod. 5 checks free.
@@ -187,7 +187,7 @@ Service catalog, bookings, memberships, billing → all in custom admin (`theroy
 - AiSensy webhook → Neon DB when lead status changes
 
 ## Data Stack (Locked)
-- **Neon DB** — primary DB. Free forever. 4 branches = 4 envs. pg_cron. Drizzle ORM + Better Auth native.
+- **Neon DB** — primary DB. Free forever. 4 branches = 4 envs. Drizzle ORM + Better Auth native. All scheduled jobs via QStash HTTP routes.
 - **Ably** — realtime push (booking status, queue board, staff availability). 6M messages/mo free. API publishes to Ably channel after writing to Neon.
 - **Cloudflare R2** — file storage. 10 GB free. Photos, service images, PDF invoices. No egress fees.
 - **Upstash Redis + QStash** — cache + queue. Booking slot cache, API rate limiting, background jobs.

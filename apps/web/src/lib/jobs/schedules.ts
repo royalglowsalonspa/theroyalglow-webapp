@@ -90,13 +90,12 @@ export const JOB_SCHEDULES: readonly JobSchedule[] = [
     cron: '0 4 * * *',
     description: 'Daily 09:30 IST — gems expiry reminders.',
   },
-  // ── pg_cron → QStash migrated jobs ──────────────────────────────────────
-  // The 6 entries below replace the pg_cron schedules in
-  // migrations/0001_pg_cron_jobs.sql. pg_cron only runs while the Neon compute
-  // is awake, but the free-tier prod compute scales to zero after ~5 min idle,
-  // so these late-night jobs would silently never fire. Running them as QStash
-  // HTTP jobs wakes the compute so they run reliably at ₹0. The crons below are
-  // the IDENTICAL UTC expressions the pg_cron jobs used.
+  // ── Former pg_cron jobs (now QStash) ─────────────────────────────────────
+  // The 6 entries below are the DB-maintenance jobs that were originally planned
+  // as pg_cron. pg_cron was retired because the free-tier Neon compute scales to
+  // zero after ~5 min idle, so late-night jobs would silently never fire. Running
+  // them as QStash HTTP jobs wakes the compute so they run reliably at ₹0. The
+  // crons below are the IDENTICAL UTC expressions originally specified.
   {
     key: 'nightly-sales-summary',
     path: '/api/jobs/nightly-sales-summary',

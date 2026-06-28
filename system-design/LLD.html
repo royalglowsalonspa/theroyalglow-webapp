@@ -360,8 +360,8 @@
   <tr><td>Customer booking history</td><td><code>idx_booking_customer_date(customer_id, date DESC)</code></td><td><code>WHERE customer_id = ? ORDER BY date DESC</code></td></tr>
   <tr><td>Branch daily schedule</td><td><code>idx_booking_branch_date(branch_id, date, start_time)</code></td><td><code>WHERE branch_id = ? AND date = ?</code></td></tr>
   <tr><td>Active bookings filter</td><td><code>idx_booking_status(status) WHERE status IN ('pending','confirmed')</code></td><td>Partial index — only active bookings</td></tr>
-  <tr><td>Active memberships to expire</td><td><code>idx_membership_expires(expires_at) WHERE status = 'active'</code></td><td>pg_cron auto-expire query</td></tr>
-  <tr><td>Gems pending expiry</td><td><code>idx_loyalty_tx_expires(expires_at) WHERE type='earn' AND expired=false</code></td><td>pg_cron gems expiry scan</td></tr>
+  <tr><td>Active memberships to expire</td><td><code>idx_membership_expires(expires_at) WHERE status = 'active'</code></td><td>QStash membership-auto-expire job query</td></tr>
+  <tr><td>Gems pending expiry</td><td><code>idx_loyalty_tx_expires(expires_at) WHERE type='earn' AND expired=false</code></td><td>QStash gems-auto-expire job scan</td></tr>
   <tr><td>Lead pipeline view</td><td><code>idx_lead_status(status) WHERE status NOT IN ('won','lost')</code></td><td>Active leads only</td></tr>
   <tr><td>Lead follow-up queue</td><td><code>idx_lead_follow_up(follow_up_at) WHERE status='follow_up'</code></td><td>Follow-up reminder job</td></tr>
 </table>
@@ -447,7 +447,7 @@
 └─────────┘  └───────────┘
 (terminal)    (terminal)
 
-<span class="cm">Expire: pg_cron nightly → WHERE expires_at &lt; NOW() AND status = 'active'</span>
+<span class="cm">Expire: QStash nightly job → WHERE expires_at &lt; NOW() AND status = 'active'</span>
 <span class="cm">Cancel: Manager action → cancellation_reason required</span>
 </code></pre>
 
@@ -820,7 +820,7 @@
 }
 </code></pre>
 
-<h3>7.2 pg_cron Job Patterns (SQL)</h3>
+<h3>7.2 Scheduled Job SQL Patterns (QStash Routes)</h3>
 <pre><code><span class="cm">-- Job 1: Nightly Sales Summary (11:30 PM IST)</span>
 <span class="kw">SELECT</span> cron.<span class="fn">schedule</span>(<span class="str">'nightly-sales-summary'</span>, <span class="str">'0 18 * * *'</span>,
 $$

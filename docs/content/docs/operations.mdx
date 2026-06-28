@@ -72,7 +72,7 @@ git merge prod
 | --- | --- | --- |
 | Site down | BetterStack | Check Cloudflare status, check Render logs |
 | API health failing | BetterStack | Check Neon DB connection, check Render |
-| Scheduled job missed | BetterStack heartbeat | Check QStash dashboard, check pg_cron logs |
+| Scheduled job missed | BetterStack heartbeat | Check QStash dashboard for delivery logs |
 | New error spike | Sentry | Check error details, deploy fix or rollback |
 | Slow response (P95 > 3s) | Sentry performance | Check DB query times, check Neon metrics |
 

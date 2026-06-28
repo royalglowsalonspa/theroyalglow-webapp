@@ -130,7 +130,7 @@ two schemas compare equal exactly when they are structurally identical.
    name, while preserving ordinal order for primary-key columns, foreign-key
    column-to-reference pairings, and enum labels.
 4. THE Fingerprinter SHALL exclude constraint names, OIDs, comment timestamps, and
-   `pg_cron` job rows from structural equality.
+   retired `pg_cron` job rows (if any remain) from structural equality.
 5. WHEN two Schema_Fingerprints have equal hashes, THE Schema_Drift_System SHALL
    treat the schemas as structurally identical across tables, columns, types,
    nullability, defaults, primary keys, uniques, foreign keys with on-delete,
@@ -294,8 +294,8 @@ drift gate, so that schema drift cannot recur after reconciliation.
 
 1. THE Schema_Drift_System SHALL adopt `drizzle-kit generate` with committed,
    version-controlled SQL migrations under `packages/db/migrations/`.
-2. THE Schema_Drift_System SHALL preserve the existing special
-   `0001_pg_cron_jobs.sql` migration.
+2. THE Schema_Drift_System SHALL note that the old `0001_pg_cron_jobs.sql`
+   migration has been removed (pg_cron retired — all jobs now run as QStash HTTP routes).
 3. THE Schema_Drift_System SHALL establish a committed Baseline_Migration
    representing the Canonical_Schema and add only forward-only migrations
    thereafter.

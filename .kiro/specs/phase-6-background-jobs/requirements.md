@@ -2,16 +2,16 @@
 
 ## Introduction
 
-Phase 6 delivers the automation layer of the Royal Glow Salon & Spa (RGSS) platform: the 19 background jobs defined in `background-jobs.md`, plus the notification delivery layer left as a seam in Phase 5. Jobs split across two runtimes per the project rule — **pg_cron** (7 pure-SQL jobs running inside Neon) and **QStash** (12 jobs that need external HTTP calls, delivered as `/api/jobs/...` Next.js routes). Scheduled QStash jobs run on a fixed cadence; triggered QStash jobs are enqueued with a delay by the business event that fires them.
+Phase 6 delivers the automation layer of the Royal Glow Salon & Spa (RGSS) platform: the 19 background jobs defined in `background-jobs.md`, plus the notification delivery layer left as a seam in Phase 5. All jobs run as **QStash** HTTP-triggered routes (14 scheduled + 4 triggered, delivered as `/api/jobs/...` Next.js routes), plus 1 GitHub Actions cron job. pg_cron was retired (Neon free-tier compute sleeps — QStash wakes it via HTTP POST). Scheduled QStash jobs run on a fixed cadence; triggered QStash jobs are enqueued with a delay by the business event that fires them.
 
 Consistent with Phases 4–5, every external integration (QStash publish/verify, Web Push, Resend email, Slack webhook, BetterStack heartbeats) is behind a guarded extension point: with no provider keys configured, each job runs its database logic, logs the intended send, pings its (no-op) heartbeat, and returns success — so the whole phase builds, typechecks, and runs. When keys are configured the same code delivers for real.
 
-Out of scope (deferred): provisioning the live QStash schedules and Neon pg_cron registrations (a deploy-time ops step using the user's keys), the Job 5 GitHub Actions workflow YAML (Phase 9 CI/CD — the anonymisation SQL is delivered), PDF invoice rendering internals, Brevo marketing automation, and real-time Ably publishing.
+Out of scope (deferred): provisioning the live QStash schedules (a deploy-time ops step using the user's keys), the Job 5 GitHub Actions workflow YAML (Phase 9 CI/CD — the anonymisation SQL is delivered), PDF invoice rendering internals, Brevo marketing automation, and real-time Ably publishing.
 
 ## Glossary
 
 - **Job_Route**: A Next.js API route under `/api/jobs/...` invoked by QStash, which verifies the request signature, performs DB work, and calls external services.
-- **PgCron_Job**: A pure-SQL job registered in Neon via `cron.schedule`, with an equivalent TypeScript query function for on-demand invocation.
+- **PgCron_Job**: A QStash-invoked job route that executes pure-SQL maintenance logic (originally planned as pg_cron, now running as a QStash HTTP route with equivalent TypeScript query functions).
 - **QStash**: The Upstash HTTP message queue that triggers scheduled and delayed jobs and retries on non-2xx responses.
 - **Signature_Verification**: The check that an incoming Job_Route request genuinely originated from QStash (or a documented internal-token fallback).
 - **Dispatch_Layer**: The `dispatchNotification` function plus the Web Push and email provider helpers that deliver a persisted notification.
@@ -24,7 +24,7 @@ Out of scope (deferred): provisioning the live QStash schedules and Neon pg_cron
 
 ## Requirements
 
-### Requirement 1: pg_cron Database Jobs
+### Requirement 1: Database Maintenance Jobs (QStash Routes)
 
 **User Story:** As the business owner, I want nightly database jobs to maintain state and pre-aggregate reporting data, so that the system stays correct and reports load instantly.
 
@@ -35,7 +35,7 @@ Out of scope (deferred): provisioning the live QStash schedules and Neon pg_cron
 3. WHEN the offer auto-expire job runs, THE PgCron_Job SHALL set the active flag to false for exactly the offers whose active flag is true and whose end date is in the past.
 4. WHEN the gems auto-expire job runs, THE PgCron_Job SHALL, for each expired earned gems transaction not already offset, insert one offsetting expired transaction and decrement the loyalty account balance by the same amount.
 5. WHEN the monthly GST summary job runs for a month, THE PgCron_Job SHALL upsert a Monthly_Gst_Summary row whose taxable value, GST amount, and invoice count equal the aggregate of that month's paid service and membership-purchase invoices.
-6. WHEN any pg_cron job runs a second time over the same data, THE PgCron_Job SHALL produce no additional changes beyond the first run.
+6. WHEN any database maintenance job runs a second time over the same data, THE PgCron_Job SHALL produce no additional changes beyond the first run.
 
 ### Requirement 2: QStash Scheduled Notification Jobs
 

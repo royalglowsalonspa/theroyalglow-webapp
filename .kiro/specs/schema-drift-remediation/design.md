@@ -18,8 +18,8 @@ from `prod` but have since diverged. An audit of the `public` schema shows the s
 constraints) and almost certainly relative to the Drizzle code. `test` and `pprd`
 are archived with unknown (presumed-divergent) state. The current change mechanism
 is `drizzle-kit push` (`drizzle.config.ts`, schema at `src/schema/index.ts`,
-`out=./migrations`); the `migrations/` directory holds only the special
-`0001_pg_cron_jobs.sql`. `drizzle-kit push` currently **fails mid-way** with
+`out=./migrations`); the `migrations/` directory previously held the now-removed
+`0001_pg_cron_jobs.sql` (pg_cron retired — jobs run via QStash). `drizzle-kit push` currently **fails mid-way** with
 `42P16: column "id" is in a primary key` while trying to drop/redefine constraints
 to reconcile the drift — proving push is unsafe here and partial-applies.
 
@@ -140,7 +140,7 @@ interface Fingerprinter {
 - Normalize ordering (sort tables, columns, constraints, index members by name).
 - Normalize type spelling (`int4`→`integer`, `timestamptz` canonical form),
   default expressions, and `NOT NULL` flags.
-- Exclude environment-specific noise (OIDs, comment timestamps, `pg_cron` job rows).
+- Exclude environment-specific noise (OIDs, comment timestamps, retired `pg_cron` job rows if any remain).
 
 ### Component 2: `catalog-queries`
 
@@ -553,8 +553,8 @@ Suggested layout: `packages/db/scripts/drift/__tests__/*.property.test.ts`.
 
 1. **Adopt `drizzle-kit generate` + committed migrations.** Replace ad-hoc
    `drizzle-kit push` with generated, version-controlled SQL migrations under
-   `packages/db/migrations/` (preserving the existing special
-   `0001_pg_cron_jobs.sql`). Establish a committed **baseline migration**
+   `packages/db/migrations/` (the old `0001_pg_cron_jobs.sql` has been removed —
+   pg_cron retired). Establish a committed **baseline migration**
    representing the canonical schema, then forward-only migrations thereafter.
 2. **CI drift gate** (above) — `drizzle-kit check` + fingerprint reference test
    fail the build on divergence.

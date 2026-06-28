@@ -650,7 +650,7 @@ No online payment gateway at launch. Payment is collected physically by the rece
 - Email invoice automatically to customer via Resend (with PDF attachment)
 - Invoice includes: service(s), staff, duration, amount (GST-inclusive), payment mode, date, Royal Glow branding
 - Revenue tracking per service / staff member / day
-- Daily sales summary emailed to owner via pg_cron nightly job (includes Cash / UPI / Card breakdown)
+- Daily sales summary emailed to owner via QStash nightly job (includes Cash / UPI / Card breakdown)
 
 #### 5b. SPA Billing — Non-Member
 Identical to Salon billing. Per-service individual pricing (see SPA Service Seed Data in database-schema.md). Gems earned normally.

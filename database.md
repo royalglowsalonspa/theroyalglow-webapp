@@ -12,7 +12,7 @@ The single killer feature is **branching** — Neon treats database environments
 
 | Neon Branch | Environment | Purpose |
 |-------------|-------------|---------|
-| `prod` | prod | Live data, protected, pg_cron runs here |
+| `prod` | prod | Live data, protected, QStash scheduled jobs target here |
 | `pprd` | pre-production | Auto-reset from prod every 24h via GitHub Actions + Neon API, PII stripped |
 | `test` | QA / CI | Seeded fixtures, wiped and reseeded on every CI run |
 | `dev` | development | Developer sandbox, scales to zero when idle |
@@ -27,8 +27,8 @@ The single killer feature is **branching** — Neon treats database environments
 
 | Database | Engine | Branching | Cron | Drizzle Fit | Verdict |
 |----------|--------|-----------|------|-------------|---------|
-| **Neon DB** | PostgreSQL | ✅ 10 branches free | pg_cron native | ✅ Excellent | **Winner** |
-| Supabase | PostgreSQL | ❌ 2 free projects only | pg_cron | ✅ Excellent | Eliminated as primary — R2 + Ably replace storage/realtime |
+| **Neon DB** | PostgreSQL | ✅ 10 branches free | QStash HTTP jobs | ✅ Excellent | **Winner** |
+| Supabase | PostgreSQL | ❌ 2 free projects only | QStash HTTP jobs | ✅ Excellent | Eliminated as primary — R2 + Ably replace storage/realtime |
 | Xata | PostgreSQL-compatible | ✅ Unlimited branches | ❌ None | ✅ Good | Strong alt, but no native cron |
 | Turso | SQLite | ✅ 500 DBs | ❌ None | ✅ Good | SQLite limits complex booking/reporting queries |
 | PlanetScale | MySQL | ❌ Free tier removed (2024) | ❌ | ✅ Good | Eliminated |
@@ -121,13 +121,13 @@ Receptionist confirms booking for June 15th at 10:00
 
 ## Scheduled Data & Operations Jobs
 
-RGSS uses multiple scheduling mechanisms. `pg_cron` is only one of them, so this document keeps the summary high-level and treats [background-jobs.md](./background-jobs.md) as the detailed source of truth.
+RGSS uses multiple scheduling mechanisms. All scheduled jobs now run via QStash HTTP routes (pg_cron retired — Neon free-tier compute sleeps and would silently skip late-night runs). This document keeps the summary high-level and treats [background-jobs.md](./background-jobs.md) as the detailed source of truth.
 
 | Mechanism | Examples | Why |
 |-----------|----------|-----|
-| **pg_cron in Neon (`prod`)** | Nightly sales summary, membership auto-expire, offer auto-expire, session cleanup, monthly GST summary, gems auto-expire | SQL-first maintenance jobs run closest to the data |
+| **QStash scheduled (14 jobs)** | Nightly sales summary, membership auto-expire, offer auto-expire, session cleanup, monthly GST summary, gems auto-expire, appointment reminders, membership alerts, birthday offers, membership usage nudges | QStash wakes Neon compute via HTTP POST — runs reliably at ₹0 even when compute sleeps |
 | **GitHub Actions cron** | pprd DB sync + PII anonymisation | Best place for branch reset and operational workflows outside the database |
-| **QStash scheduled jobs** | Appointment reminders, membership alerts, birthday offers, membership usage nudges | HTTP-triggered application jobs with retries and signatures |
+| **QStash triggered (4 jobs)** | Post-service follow-up, stale booking alert, no-show check, membership expired notice | Event-driven HTTP jobs with retries and signatures |
 | **Triggered jobs** | Post-service follow-up, stale pending booking alerts, no-show checks, membership expired notices | Fired from business events instead of a fixed schedule |
 
 > See [background-jobs.md](./background-jobs.md) for the full job inventory, schedules, endpoints, and heartbeat mapping.
@@ -195,7 +195,7 @@ Next.js API route
 
 | Layer | Technology | Plan | Details |
 |-------|-----------|------|---------|
-| **Primary DB** | Neon DB | Free forever | All business data · 4 branches = 4 environments · pg_cron for DB-only scheduled jobs · Drizzle ORM + Better Auth native |
+| **Primary DB** | Neon DB | Free forever | All business data · 4 branches = 4 environments · Drizzle ORM + Better Auth native · all scheduled jobs via QStash HTTP routes |
 | **Realtime** | Ably | Free tier | Live booking status, queue board, staff availability push — 6M messages/mo + 200 concurrent connections |
 | **File storage** | Cloudflare R2 | 10 GB free | Photos · service images · generated PDF invoices — no egress fees unlike AWS S3 |
 | **Cache + queue** | Upstash Redis + QStash | Free tier | Booking slot cache · API rate limiting · QStash job queue — serverless, zero infra |

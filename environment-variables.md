@@ -176,8 +176,8 @@ Store the output. These never change unless you intentionally rotate (which inva
 | `BETTER_STACK_HEARTBEAT_NIGHTLY_SALES` | web | Private | Shared heartbeat for DB-only sales/GST/offer/gems summary jobs |
 | `BETTER_STACK_HEARTBEAT_PPRD_SYNC` | CI/CD | Private | GitHub Actions cron: pprd DB sync (`30 19 * * *` UTC) |
 | `BETTER_STACK_HEARTBEAT_REMINDERS` | web | Private | QStash: appointment reminder scheduler (every 15 min) |
-| `BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY` | web | Private | pg_cron + QStash: membership auto-expire + expiry alerts (`30 18 * * *` UTC) |
-| `BETTER_STACK_HEARTBEAT_SESSION_CLEANUP` | web | Private | pg_cron: session cleanup (`0 21 * * 0` UTC) |
+| `BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY` | web | Private | QStash: membership auto-expire + expiry alerts (`30 18 * * *` UTC) |
+| `BETTER_STACK_HEARTBEAT_SESSION_CLEANUP` | web | Private | QStash: session cleanup (`0 21 * * 0` UTC) |
 | `BETTER_STACK_HEARTBEAT_BACKUP` | CI/CD | Private | GitHub Actions cron: weekly R2 backup verification |
 | `BETTER_STACK_DEPLOY_WEBHOOK` | CI/CD | Private | Deployment marker webhook called by GitHub Actions after prod deploy |
 | `BETTER_STACK_INCIDENT_WEBHOOK` | CI/CD | Private | Incident webhook called by GitHub Actions on deploy/backup failure |

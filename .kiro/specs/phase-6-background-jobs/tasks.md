@@ -2,7 +2,7 @@
 
 ## Overview
 
-Implement the 19 background jobs (7 pg_cron + 8 QStash scheduled + 4 QStash triggered) and fill the Phase 5 notification-delivery seam. Every external integration (QStash verify/publish, Web Push, Resend, Slack, BetterStack heartbeats) is a guarded extension point that no-ops without keys, so the whole phase builds, typechecks, and runs today. One additive migration adds service-split columns to `daily_sales_summary`. Verification uses `SKIP_ENV_VALIDATION=1 bun run typecheck` and `bun run lint` (Biome).
+Implement the 19 background jobs (14 QStash scheduled + 4 QStash triggered + 1 GitHub Actions cron) and fill the Phase 5 notification-delivery seam. Every external integration (QStash verify/publish, Web Push, Resend, Slack, BetterStack heartbeats) is a guarded extension point that no-ops without keys, so the whole phase builds, typechecks, and runs today. One additive migration adds service-split columns to `daily_sales_summary`. Verification uses `SKIP_ENV_VALIDATION=1 bun run typecheck` and `bun run lint` (Biome).
 
 ## Tasks
 
@@ -16,12 +16,12 @@ Implement the 19 background jobs (7 pg_cron + 8 QStash scheduled + 4 QStash trig
 
 - [x] 2. daily_sales_summary additive columns + migration
   - Add nullable `salonRevenuePaise`, `spaRevenuePaise`, `membershipRevenuePaise` (integer) to `daily_sales_summary` in `packages/db/src/schema/system.ts`; run `cd packages/db && bunx drizzle-kit push`
-  - Create `packages/db/migrations/0001_pg_cron_jobs.sql`: idempotent `CREATE OR REPLACE FUNCTION` per pg_cron job (1 sales summary, 2 membership expire, 3 offer expire, 4 session cleanup, 6 monthly GST, 7 gems expire) mapping to the REAL column names, plus `SELECT cron.schedule(...)` registrations using the doc's UTC cron expressions. Include the Job 5 anonymisation SQL as a commented block (not scheduled). Add a header comment that this is applied to Neon at deploy time
+  - Create the QStash job routes for DB-maintenance jobs (1 sales summary, 2 membership expire, 3 offer expire, 4 session cleanup, 6 monthly GST, 7 gems expire) using idempotent query functions mapping to the REAL column names. Include the Job 5 anonymisation SQL as a commented block (not scheduled). Add a header comment documenting the QStash schedule manifest for deploy-time setup
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6_
 
-- [x] 3. Job query layer (pg_cron TS equivalents + QStash data reads)
+- [x] 3. Job query layer (DB-maintenance TS functions + QStash data reads)
   - Create `packages/db/src/queries/jobs.ts`:
-    - pg_cron TS equivalents: `expireMemberships(now?)`, `expireOffers(now?)`, `expireGems(now?)` (db.batch offset tx + balance), `buildDailySalesSummary(dateISO)` (upsert on (date,branch)), `buildMonthlyGstSummary(monthISO)` (upsert on month), `cleanupExpiredSessions(now?)`
+    - DB-maintenance functions (formerly pg_cron): `expireMemberships(now?)`, `expireOffers(now?)`, `expireGems(now?)` (db.batch offset tx + balance), `buildDailySalesSummary(dateISO)` (upsert on (date,branch)), `buildMonthlyGstSummary(monthISO)` (upsert on month), `cleanupExpiredSessions(now?)`
     - QStash reads: `getBookingsForReminder(window)` (confirmed, in 24h/1h, no matching notification), `getMembershipsExpiringInDays(days)`, `getBirthdayCustomers(istToday)`, `getNudgeEligibleMemberships(excludeRecentlyNudged)`, `getStaleFollowUpLeads(hours)`, `getGemsExpiringInDays(days)` (grouped by customer), `getDailyReportData(dateISO)` (+ services breakdown), `getWeeklyReportData(startISO,endISO)`, `getPendingBooking(id)`, `getBookingForNoShow(id)`, `hasNotification(userId, type, bookingId?)` (idempotency check)
   - Re-export `./jobs` from `packages/db/src/queries/index.ts` (append)
   - _Requirements: 1.1–1.6, 2.1, 2.2, 2.5, 5.1, 5.2, 6.2, 6.3_
@@ -72,9 +72,9 @@ Implement the 19 background jobs (7 pg_cron + 8 QStash scheduled + 4 QStash trig
 - External integrations are guarded extension points — `QSTASH_*`, `WEB_PUSH_PRIVATE_KEY` + VAPID, `RESEND_API_KEY`, `SLACK_WEBHOOK_URL`, `BETTER_STACK_HEARTBEAT_*`. Read from `process.env` behind truthy guards; no-op + log when absent. No core flow depends on them being live.
 - Job routes do NOT use `withErrorHandler`/`apiSuccess` — they return a minimal job-response shape and non-2xx on failure so QStash retries work. Signature verification (401 on fail) is mandatory on every route.
 - Reuse existing helpers: `buildNotificationContent`, `createNotification`, `getActivePushSubscriptions`, `removePushSubscription`, `splitGST`, `formatINR`/`formatDateIN`, `getOrCreateLoyaltyAccount`.
-- Use `db.batch()` for multi-row writes; pg_cron SQL functions are `CREATE OR REPLACE` + summaries `ON CONFLICT DO UPDATE` for idempotency.
-- Money is integer paise; date windows computed in IST via `packages/business/src/jobs/time.ts`. pg_cron crons are UTC.
-- Provisioning the live QStash schedules and Neon pg_cron registrations is a deploy-time ops step (the SQL migration + a documented schedule manifest are delivered here).
+- Use `db.batch()` for multi-row writes; query functions use `ON CONFLICT DO UPDATE` for idempotency.
+- Money is integer paise; date windows computed in IST via `packages/business/src/jobs/time.ts`. QStash crons are UTC.
+- Provisioning the live QStash schedules is a deploy-time ops step (a documented schedule manifest is delivered here).
 
 ## Task Dependency Graph
 

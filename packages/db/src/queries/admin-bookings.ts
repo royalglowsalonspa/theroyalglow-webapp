@@ -55,7 +55,7 @@ type NewInvoice = typeof invoice.$inferInsert
 type NewInvoiceItem = typeof invoiceItem.$inferInsert
 
 // Gems earned on a service invoice expire 365 days from the earn date
-// (auto-swept by pg_cron Job 7). Mirrors the loyalty-domain expiry constant.
+// (auto-swept by QStash gems-auto-expire job). Mirrors the loyalty-domain expiry constant.
 const LOYALTY_EXPIRY_DAYS = 365
 
 type BookingFilters = {

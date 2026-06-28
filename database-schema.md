@@ -261,7 +261,7 @@ CREATE TYPE discount_type AS ENUM (
 -- SPA membership lifecycle
 CREATE TYPE spa_membership_status AS ENUM (
   'active',        -- currently valid, hours remaining
-  'expired',       -- auto-set by pg_cron after expires_at
+  'expired',       -- auto-set by QStash membership-auto-expire job after expires_at
   'cancelled'      -- manually cancelled by admin
 );
 
@@ -1457,13 +1457,13 @@ On each session:
   → Invoice + session summary emailed to customer
   → Customer sees session in /bookings and /membership
 
-Expiry reminders (pg_cron → QStash → Resend):
+Expiry reminders (QStash → Resend):
   → 30 days before expires_at: "Your membership expires in 30 days. X hours remaining."
   → 7 days before expires_at:  "Urgent: Expires in 7 days. Book your remaining hours!"
   → 1 day before expires_at:   "Last chance: Expires tomorrow. Unused hours forfeited."
   → When used_hours_minutes leaves < 60 min remaining: "Less than 1 hour left on your membership."
 
-Auto-expiry (pg_cron daily 00:30 IST):
+Auto-expiry (QStash daily 00:30 IST):
   → UPDATE spa_membership SET status = 'expired'
     WHERE expires_at < CURRENT_DATE AND status = 'active'
   → Notification: "Your membership has expired. Unused hours have been forfeited."
@@ -1629,7 +1629,7 @@ One account per customer. Created on first completed booking.
 | `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
 | `updated_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
 
-**Invariant:** `gems_balance = total_gems_earned - total_gems_redeemed` (enforced in business logic, verified by reconciliation pg_cron job)
+**Invariant:** `gems_balance = total_gems_earned - total_gems_redeemed` (enforced in business logic, verified by reconciliation QStash job)
 
 #### `loyalty_transaction`
 
@@ -1643,7 +1643,7 @@ Every gem earn, redeem, expiry, or manual adjustment. Immutable ledger — inser
 | `gems_amount` | `integer` | NOT NULL | Positive for earn/adjust-up, negative for redeem/expire |
 | `invoice_id` | `text` | nullable, FK → `invoice.id` ON DELETE RESTRICT | Which invoice triggered this (null for manual adjustments) |
 | `description` | `text` | nullable | "Earned from invoice #INV1262792921", "Redeemed on booking" |
-| `expires_at` | `timestamptz` | nullable | Set to `created_at + gems_expiry_days` (365 days / 1 year) for `type = 'earned'` only. `null` for redeemed / expired / adjusted rows. pg_cron scans this column nightly to expire gems. |
+| `expires_at` | `timestamptz` | nullable | Set to `created_at + gems_expiry_days` (365 days / 1 year) for `type = 'earned'` only. `null` for redeemed / expired / adjusted rows. QStash gems-auto-expire job scans this column nightly to expire gems. |
 | `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
 
 ---
@@ -1818,7 +1818,7 @@ async function generateWithRetry(
 
 #### `daily_sales_summary`
 
-Materialized daily aggregate — populated by pg_cron nightly at 00:30 IST. Powers the owner dashboard without expensive real-time aggregation queries.
+Materialized daily aggregate — populated by QStash nightly-sales-summary job at 00:30 IST. Powers the owner dashboard without expensive real-time aggregation queries.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
@@ -1847,7 +1847,7 @@ CREATE UNIQUE INDEX idx_daily_sales_branch_date ON daily_sales_summary (date, br
 
 #### `monthly_gst_summary`
 
-Monthly aggregate for GST filing support. Populated by pg_cron on the 1st of each month for the previous month.
+Monthly aggregate for GST filing support. Populated by QStash monthly-gst-summary job on the 1st of each month for the previous month.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
@@ -1971,11 +1971,11 @@ CREATE INDEX idx_lead_campaign ON lead (utm_campaign)
 
 -- ══════ NOTIFICATIONS ══════
 
--- pg_cron job: "Find pending notifications to send"
+-- QStash job: "Find pending notifications to send"
 CREATE INDEX idx_notification_pending ON notification (status, created_at)
   WHERE status = 'pending';
 
--- "Find bookings needing reminders" (pg_cron)
+-- "Find bookings needing reminders" (QStash appointment-reminder job)
 CREATE INDEX idx_booking_reminder ON booking (booking_date, start_time)
   WHERE status = 'confirmed';
 
@@ -1987,7 +1987,7 @@ CREATE INDEX idx_booking_reminder ON booking (booking_date, start_time)
 -- "Transaction history for account"
 CREATE INDEX idx_loyalty_tx_account ON loyalty_transaction (loyalty_account_id, created_at DESC);
 
--- "Find gems expiring soon" (gems-expiry-reminder QStash job + gems-auto-expire pg_cron)
+-- "Find gems expiring soon" (gems-expiry-reminder QStash job + gems-auto-expire QStash job)
 CREATE INDEX idx_loyalty_tx_expiry ON loyalty_transaction (expires_at)
   WHERE type = 'earned' AND expires_at IS NOT NULL;
 
@@ -2064,7 +2064,7 @@ CREATE INDEX idx_booking_service_type ON booking (service_type, booking_date);
 -- "Active membership for customer" (fast lookup at booking time)
 -- Covered by UNIQUE INDEX idx_membership_one_active (customer_id) WHERE status = 'active'
 
--- "Memberships expiring soon" (pg_cron reminder job)
+-- "Memberships expiring soon" (QStash membership-auto-expire job)
 CREATE INDEX idx_membership_expiry ON spa_membership (expires_at)
   WHERE status = 'active';
 
@@ -2366,7 +2366,7 @@ A separate page at `/gems` (customer-facing) and `/admin/gems-catalogue` (admin 
 - **Only one catalogue service redeemable per booking**
 - Gems are all-or-nothing per catalogue item — no partial redemption
 - Customer must have ≥ `service.gems_required` gems to unlock that item
-- Gems expire **1 year (365 days)** after earning. `expires_at = created_at + INTERVAL '365 days'`. Auto-expired nightly by pg_cron Job 7. Customer notified 7 days before via QStash Job 15.
+- Gems expire **1 year (365 days)** after earning. `expires_at = created_at + INTERVAL '365 days'`. Auto-expired nightly by QStash gems-auto-expire job. Customer notified 7 days before via QStash gems-expiry-reminder job.
 - Admin can manually adjust gems via `type: 'adjusted'` with reason in `description`
 - Catalogue is managed by owner/manager only — receptionists cannot change it
 
@@ -2378,8 +2378,7 @@ The schema depends on several scheduling mechanisms, but the detailed operationa
 
 | Mechanism | Examples | Data Touched |
 |-----------|----------|--------------|
-| **pg_cron** | Sales summaries, membership/offer expiry, session cleanup, GST summaries, gems expiry | `daily_sales_summary`, `monthly_gst_summary`, `spa_membership`, `offer`, `session`, `loyalty_*` |
-| **QStash scheduled** | Appointment reminders, membership expiry alerts, birthday offers, membership usage nudges, reports, gems reminders | `notification`, API routes, email/push queues |
+| **QStash scheduled** | Sales summaries, membership/offer/gems expiry, session cleanup, GST summaries, appointment reminders, membership alerts, birthday offers, membership usage nudges | `daily_sales_summary`, `monthly_gst_summary`, `spa_membership`, `offer`, `session`, `loyalty_*`, `notification` |
 | **GitHub Actions cron** | pprd DB sync + anonymisation | `pprd` Neon branch copy |
 | **Triggered jobs** | Post-service follow-up, stale pending booking alerts, no-show checks, membership expired notices | `notification`, `audit_log`, booking status workflows |
 
