@@ -116,10 +116,11 @@ export const BUSINESS = {
     addressCountry: 'IN',
   } satisfies PostalAddress,
   geo: {
-    latitude: '12.877734987033477',
-    longitude: '77.66642516860671',
+    latitude: '12.874219217004518',
+    longitude: '77.66475897572211',
   } satisfies GeoCoordinates,
-  hasMap: 'https://plus.codes/VMF8+MW',
+  hasMap:
+    'https://www.google.com/maps/search/?api=1&query=Royal%20Glow%20Salon%20%26%20Spa&query_place_id=ChIJKStV0FxtrjsRngQFQMaTd7g',
   openingHours: [
     {
       days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
