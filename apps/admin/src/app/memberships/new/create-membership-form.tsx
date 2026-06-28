@@ -411,7 +411,7 @@ function CustomerSearch({
         .then((res) => res.json())
         .then((json) => {
           if (json?.success) {
-            setResults(json.data as CustomerSearchRow[])
+            setResults((json.data?.customers ?? []) as CustomerSearchRow[])
           } else {
             setSearchError(json?.error?.message ?? 'Search failed.')
           }
