@@ -1899,9 +1899,9 @@ Key-value configuration editable from Owner View → System Settings.
 | `salon_phone` | `"+91 63601 35720"` | Primary contact |
 | `salon_email` | `"hello@theroyalglow.in"` | Business email |
 | `salon_address` | `{"line1":"1st Floor, Narmada Complex, 48/3, Rayasandra Main Rd","line2":"Above SBI Bank, Naganathapura, Parappana Agrahara","city":"Bengaluru","state":"Karnataka","pincode":"560100"}` | Full address (JSON) |
-| `salon_lat` | `"12.877734987033477"` | GPS latitude (Google Maps) |
-| `salon_lng` | `"77.66642516860671"` | GPS longitude (Google Maps) |
-| `salon_plus_code` | `"VMF8+MW"` | Google Plus Code |
+| `salon_lat` | `"12.874219217004518"` | GPS latitude (Google Maps) |
+| `salon_lng` | `"77.66475897572211"` | GPS longitude (Google Maps) |
+| `salon_plus_code` | `"VMF7+MW"` | Google Plus Code |
 | `gmb_website_pending` | `"royalglowsalonspa.netlify.app"` | Current GMB website — update website to `https://theroyalglow.in` and booking/action link to `https://theroyalglow.in/?book=1&utm_source=gmb` on launch |
 | `gst_number` | `"XXAAACR1234X1ZX"` | GSTIN for invoices |
 | `sac_code` | `"999721"` | SAC code for salon services (GST) |
