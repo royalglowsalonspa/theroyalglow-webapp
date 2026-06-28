@@ -39,7 +39,9 @@ export const branches = [
     pincode: '560100',
     phone: '+91 63601 35720',
     email: 'hello@theroyalglow.in',
-    googleMapsUrl: 'https://maps.app.goo.gl/xxxxx',
+    googleMapsUrl:
+      'https://www.google.com/maps/search/?api=1&query=Royal%20Glow%20Salon%20%26%20Spa&query_place_id=ChIJKStV0FxtrjsRngQFQMaTd7g',
+    googleMapsPlaceId: 'ChIJKStV0FxtrjsRngQFQMaTd7g',
     latitude: '12.8777350',
     longitude: '77.6664252',
     status: 'operational' as const,
