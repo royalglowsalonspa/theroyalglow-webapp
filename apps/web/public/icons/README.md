@@ -1,35 +1,44 @@
 # Icon & OG Asset Manifest — Royal Glow Salon & Spa
 
-These raster assets are **design deliverables**. The PWA manifest
-(`apps/web/src/app/manifest.ts`) and page metadata already reference the stable
-paths below, so the art can be dropped in later without any code change.
+Status of the brand raster assets and where each one lives.
 
-All files live under `apps/web/public/` and are served from the site root
-(e.g. `public/icons/icon-192.png` → `https://theroyalglow.in/icons/icon-192.png`).
+## PWA manifest icons — PRESENT ✅
 
-## Required assets
+Referenced by `apps/web/src/app/manifest.ts` (served from the site root).
 
 | File | Size | Format | Purpose |
 |------|------|--------|---------|
-| `icons/icon-192.png` | 192×192 | PNG | PWA manifest icon (home screen, small) |
-| `icons/icon-512.png` | 512×512 | PNG | PWA manifest icon (splash / large) |
-| `icons/icon-512-maskable.png` | 512×512 | PNG | Maskable icon — keep key content inside the [maskable safe zone](https://web.dev/articles/maskable-icon) (centre 80% / ~40px padding) |
-| `icons/apple-touch-icon.png` | 180×180 | PNG | iOS home-screen icon |
-| `og-default.jpg` | 1200×630 | JPG | Default OpenGraph / social share image |
-| `logo.png` | — | PNG | Brand logo (Organization JSON-LD / header) |
-| `favicon.ico` | 16/32/48 | ICO | Browser tab favicon (multi-resolution) |
+| `icons/icon-192.png` | 192×192 | PNG | PWA manifest icon (`any maskable`) |
+| `icons/icon-512.png` | 512×512 | PNG | PWA manifest icon (`any maskable`) |
 
-## Brand colours (for the artwork)
+## Browser / tab / iOS icons — PRESENT ✅ (Next.js app/ convention)
 
-- Cocoa dark `#1a0f0a` — primary background / theme colour
+These live in `apps/web/src/app/` and are auto-emitted by Next.js 16 metadata
+file conventions — no manual `<link>` wiring required:
+
+| File | Emits |
+|------|-------|
+| `app/favicon.ico` | `<link rel="icon">` (legacy/tab) |
+| `app/icon0.svg` | `<link rel="icon" type="image/svg+xml">` |
+| `app/icon1.png` | `<link rel="icon" type="image/png">` |
+| `app/apple-icon.png` | `<link rel="apple-touch-icon">` |
+
+## Still pending ❌
+
+| File | Path | Size | Used by |
+|------|------|------|---------|
+| `og-default.jpg` | `apps/web/public/og-default.jpg` | 1200×630 (1.91:1) | Default OpenGraph / social share image (referenced by `src/lib/seo/metadata.ts` as `/og-default.jpg`). Until supplied, social link previews have no image. |
+
+## Brand colours (for artwork)
+
+- Cocoa dark `#1a0f0a` — theme colour
 - Canvas white `#ffffff` — manifest background colour
 - Royal gold `#f4e09b` / Deep gold `#c8a961` — accent
 
 ## Notes
 
-- Maskable icons must survive aggressive platform masking (circle, squircle,
-  rounded rect). Keep the logo well within the safe zone.
-- `og-default.jpg` should be 1.91:1 (1200×630) for correct rendering on
-  Facebook, WhatsApp, X, and LinkedIn.
-- Until the final art lands, these paths will 404 — that is expected and does
-  not break the manifest/metadata, which only reference the paths.
+- The OG image should be 1.91:1 (1200×630) for correct rendering on Facebook,
+  WhatsApp, X, and LinkedIn.
+- `app/icon0.svg` is a large vector (~2 MB). Optional optimisation: minify/flatten
+  it, or drop it and keep only `icon1.png` + `favicon.ico` if tab-icon payload
+  matters.

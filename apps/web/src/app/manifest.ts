@@ -45,21 +45,22 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: 'en-IN',
     categories: ['lifestyle', 'health'],
     icons: [
+      // Declared `any maskable` so the same asset serves both the standard
+      // home-screen icon AND adaptive/maskable launchers (the generated icons
+      // carry the maskable safe-zone). favicon.ico, icon0.svg, icon1.png, and
+      // apple-icon.png live in app/ and are auto-emitted by Next's metadata
+      // file conventions (not part of this web-app manifest).
       {
         src: '/icons/icon-192.png',
         sizes: '192x192',
         type: 'image/png',
+        purpose: 'any maskable',
       },
       {
         src: '/icons/icon-512.png',
         sizes: '512x512',
         type: 'image/png',
-      },
-      {
-        src: '/icons/icon-512-maskable.png',
-        sizes: '512x512',
-        type: 'image/png',
-        purpose: 'maskable',
+        purpose: 'any maskable',
       },
     ],
   }
