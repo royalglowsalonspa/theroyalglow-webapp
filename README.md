@@ -79,7 +79,7 @@ Covers: website, CRM, customer management, marketing automation, database, creat
 - See database-schema.md for full ERD, column definitions, indexes, SPA seed data.
 
 ## Background Jobs (Locked)
-- **Source of truth:** [background-jobs.md](./background-jobs.md)
+- **Source of truth:** [background-jobs.md](./knowledge-base/background-jobs.md)
 - **Total: 19 jobs — 14 QStash scheduled + 4 QStash triggered + 1 GitHub Actions cron**
 - **QStash scheduled (14 — HTTP routes that run SQL, previously 7 were pg_cron):**
   1. Nightly sales summary — `0 18 * * *` UTC (11:30 PM IST)
@@ -203,7 +203,7 @@ Service catalog, bookings, memberships, billing → all in custom admin (`theroy
 - No `pg_dump`/restore needed — Neon branching handles it at storage layer
 - **Canonical branch mapping:** Git branches = `dev`, `test`, `pprd`, `prod`; Neon branches = `dev`, `test`, `pprd`, `prod`
 - **Canonical DB secret names:** `DATABASE_URL_DEV`, `DATABASE_URL_TEST`, `DATABASE_URL_PPRD`, `DATABASE_URL_PROD`
-- **Background job source of truth:** [background-jobs.md](./background-jobs.md); summary docs should link there instead of duplicating full job inventories
+- **Background job source of truth:** [background-jobs.md](./knowledge-base/background-jobs.md); summary docs should link there instead of duplicating full job inventories
 
 ## Key Decisions Log
 - Supabase fully replaced. Better Auth vs Neon Auth compared — Better Auth wins on RBAC maturity.

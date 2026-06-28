@@ -225,7 +225,7 @@
 
 ## Reference
 
-- #[[file:deployment.md]] — Full CI/CD pipeline specification
-- #[[file:git-workflow.md]] — Branch strategy and protection rules
-- #[[file:launch-checklist.md]] — Pre-launch verification checklist
-- #[[file:testing.md]] — Complete testing strategy
+- #[[file:knowledge-base/deployment.md]] — Full CI/CD pipeline specification
+- #[[file:knowledge-base/git-workflow.md]] — Branch strategy and protection rules
+- #[[file:knowledge-base/launch-checklist.md]] — Pre-launch verification checklist
+- #[[file:knowledge-base/testing.md]] — Complete testing strategy

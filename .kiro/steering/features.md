@@ -128,7 +128,7 @@ Walk-in no-shows do NOT count toward the tier.
 > scales to zero after ~5 min idle and pg_cron only fires while the compute is
 > awake, so the late-night windows would silently never run. QStash POSTs an
 > endpoint that wakes the compute, so they run reliably at ₹0. See
-> #[[file:background-jobs.md]].
+> #[[file:knowledge-base/background-jobs.md]].
 
 **GitHub Actions cron (1):** pprd DB sync (reset `pprd` from `prod` + strip PII)
 
@@ -169,8 +169,8 @@ Walk-in no-shows do NOT count toward the tier.
 
 ## Reference
 
-- #[[file:features.md]] — Complete feature specifications
-- #[[file:background-jobs.md]] — All 19 jobs with SQL/schedules
-- #[[file:authentication.md]] — Auth & RBAC design
+- #[[file:knowledge-base/features.md]] — Complete feature specifications
+- #[[file:knowledge-base/background-jobs.md]] — All 19 jobs with SQL/schedules
+- #[[file:knowledge-base/authentication.md]] — Auth & RBAC design
 - #[[file:design/README.md]] — UI wireframes and design specs
 - #[[file:features/favourite-services.md]] — Favourite services feature spec
