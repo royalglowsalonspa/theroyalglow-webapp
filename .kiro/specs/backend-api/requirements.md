@@ -8,7 +8,7 @@ The system follows the established RGSS architecture: API routes are thin orches
 
 This feature covers four layers built in priority order: the API foundation (error handler, response helpers, Zod schemas), the query layer, the business logic layer, customer-facing API routes, admin API routes, and finally the wiring of three existing UI surfaces (services page, booking dialog, admin bookings page) to the new endpoints.
 
-Out of scope: background jobs (QStash/pg_cron), webhooks, realtime (Ably) publishing implementation, PDF generation internals, email delivery internals, and payment gateway integration. Where these are side effects of an endpoint, the API exposes an extension point but does not implement the external integration in this feature.
+Out of scope: background jobs (QStash scheduled/triggered), webhooks, realtime (Ably) publishing implementation, PDF generation internals, email delivery internals, and payment gateway integration. Where these are side effects of an endpoint, the API exposes an extension point but does not implement the external integration in this feature.
 
 ## Glossary
 

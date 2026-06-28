@@ -24,7 +24,7 @@ All underlying tables already exist and are pushed to Neon (`staff_schedule`, `s
 - **QStash scheduled/triggered jobs** (reminders, no-show checks, expiry sweeps) — Phase 6.
 - **Ably server-side publishing** of realtime events — this phase ships the **token auth endpoint** and the client subscription pattern; publishing on mutations is an extension point until `ABLY_API_KEY` is confirmed working end-to-end (Phase 6 / observability).
 - **Same-day mark-off with automatic booking reassignment + customer notification** (design doc §6) — the leave model and conflict *detection* are in scope; the automated reassignment+notify pipeline is deferred to Phase 6 with the jobs.
-- **pg_cron offer auto-expiry** (Job 3) — Phase 6. This phase computes "active" by date range at read time and supports a manual deactivate toggle.
+- **QStash offer auto-expiry job** (Job 3) — Phase 6. This phase computes "active" by date range at read time and supports a manual deactivate toggle.
 
 ## Architecture
 

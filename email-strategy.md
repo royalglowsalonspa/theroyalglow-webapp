@@ -21,7 +21,7 @@ This means the email stack is completely independent of the auth library choice.
 | **Invoice — membership purchase** | `spa_membership` record created | `invoice-membership-purchase.tsx` | Resend |
 | **Invoice — membership session** | Membership session recorded by admin | `invoice-membership-session.tsx` | Resend |
 | **Membership expiry reminder** | 30d / 7d / 1d before expiry | `membership-expiry-reminder.tsx` | Resend |
-| **Membership expired** | Auto-expire pg_cron runs | `membership-expired.tsx` | Resend |
+| **Membership expired** | QStash membership-auto-expire job runs | `membership-expired.tsx` | Resend |
 | **Membership hours update** | Weekly batch to active members | `membership-hours-update.tsx` | Resend |
 | **Post-service follow-up** | 2 days after booking completed | Brevo template | Brevo |
 | **Re-engagement** | Customer inactive 60+ days | Brevo template | Brevo |
@@ -471,7 +471,7 @@ Booking confirmed:
 
 ### 6. Membership Expiry Reminder (30d / 7d / 1d)
 
-**Trigger:** pg_cron daily at 09:00 IST → finds active memberships where `expires_at = today + 30` / `+ 7` / `+ 1`
+**Trigger:** QStash membership-expiry job daily at 09:00 IST → finds active memberships where `expires_at = today + 30` / `+ 7` / `+ 1`
 **Template:** `membership-expiry-reminder.tsx`
 **Subject (30d):** `[First Name], 30 days left on your SPA membership`
 **Subject (7d):** `Only 7 days left — don't let your hours expire ⏳`
@@ -539,7 +539,7 @@ Or visit:
 
 ### 7. Membership Expired
 
-**Trigger:** pg_cron auto-expire job sets `status = 'expired'`
+**Trigger:** QStash membership-auto-expire job sets `status = 'expired'`
 **Template:** `membership-expired.tsx`
 **Subject:** `[First Name], your SPA membership has expired — let's renew`
 
@@ -1314,7 +1314,7 @@ export async function trackBrevoEvent(
 | Event Name | When | Properties |
 |-----------|------|------------|
 | `booking_completed` | After invoice generated | `booking_date`, `services`, `total_amount_paise`, `branch` |
-| `membership_expired` | pg_cron auto-expire | `tier`, `expired_at`, `hours_forfeited` |
+| `membership_expired` | QStash auto-expire job | `tier`, `expired_at`, `hours_forfeited` |
 | `offer_published` | Owner publishes offer | `offer_name`, `offer_url`, `valid_until` |
 
 ### Webhook: Brevo → App

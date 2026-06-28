@@ -48,7 +48,7 @@ Google OAuth only — no email/password. This eliminates credential stuffing, we
 | --- | --- |
 | Edge Hosting | **Cloudflare Pages + Workers** |
 | SSR Origin + CMS | **Render** (Singapore, free tier) |
-| Database | **Neon DB** (PostgreSQL, 4 branches, pg_cron) |
+| Database | **Neon DB** (PostgreSQL, 4 branches) |
 | Realtime | **Ably** (6M messages/mo free) |
 | File Storage | **Cloudflare R2** (10 GB free, zero egress) |
 | Cache + Queue | **Upstash Redis + QStash** |
@@ -125,7 +125,7 @@ Key decisions where alternatives were seriously considered:
 | --- | --- | --- | --- |
 | Auth | Better Auth | Clerk, Auth.js | Self-hosted, Google consent shows YOUR domain, built-in RBAC |
 | ORM | Drizzle | Prisma | Prisma binary can't run on CF Workers V8 isolate |
-| Database | Neon | Supabase, PlanetScale | Branching (10 free), pg_cron native, serverless |
+| Database | Neon | Supabase, PlanetScale | Branching (10 free), serverless, all jobs via QStash HTTP routes |
 | Hosting | Cloudflare Pages | Vercel | Generous free tier, no bandwidth surprises, R2/KV/Workers in one |
 | Realtime | Ably | Pusher | 6M messages/mo vs 200k/day free |
 | Analytics | PostHog | Google Analytics | DPDP Act concern with GA; PostHog has 1M events/mo + feature flags |

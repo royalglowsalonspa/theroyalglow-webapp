@@ -308,7 +308,7 @@ Skills are Markdown files in `.kiro/skills/` that Kiro auto-activates based on c
 | **turborepo-monorepo** | Manage Turborepo tasks, caching, and filtering | Create `.kiro/skills/turborepo-monorepo.md` |
 | **payload-cms** | Work with Payload CMS v3 collections, hooks, and API | Create `.kiro/skills/payload-cms.md` |
 | **upstash-redis** | Use Upstash Redis + QStash for caching, rate limiting, and jobs | Create `.kiro/skills/upstash-redis.md` |
-| **neon-db** | Neon DB branching, pg_cron, and connection pooling patterns | Create `.kiro/skills/neon-db.md` |
+| **neon-db** | Neon DB branching, connection pooling, and Drizzle ORM patterns | Create `.kiro/skills/neon-db.md` |
 | **fumadocs** | Write and organize documentation with Fumadocs | Create `.kiro/skills/fumadocs.md` |
 | **pwa-service-worker** | Build Progressive Web App features — offline, push, install prompt | Create `.kiro/skills/pwa-service-worker.md` |
 | **refero-design** | Research-first design — references, typography, color, spacing, motion, icons, copy | `npx skills add https://github.com/referodesign/refero_skill` |

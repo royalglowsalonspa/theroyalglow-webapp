@@ -26,8 +26,8 @@
  *
  * Dependencies : drizzle-orm/pg-core, nanoid, ./auth, ./branch, ./enums
  *
- * Notes        : Daily summaries are built by pg_cron Job 1 nightly.
- *                Monthly GST summaries are built by pg_cron Job 6 monthly.
+ * Notes        : Daily summaries are built by QStash nightly-sales-summary job.
+ *                Monthly GST summaries are built by QStash monthly-gst-summary job.
  ************************************************************/
 
 import { date, index, integer, jsonb, pgTable, text, timestamp, unique } from 'drizzle-orm/pg-core'

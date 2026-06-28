@@ -24,7 +24,7 @@ All four areas reuse the database schema already defined and pushed to Neon (`le
 
 - Meta Pixel browser events and CAPI server events (Phase 7) — the lead API exposes the data needed but does not fire pixel/CAPI calls.
 - Automatic CRM tag assignment (`vip`, `loyal`, `no_show_*`, etc.) driven by background jobs (Phase 6) — this phase implements **manual** tagging and the tag data model; auto-tags are out of scope.
-- Membership expiry reminders / auto-expiry via pg_cron + QStash (Phase 6).
+- Membership expiry reminders / auto-expiry via QStash scheduled jobs (Phase 6).
 - Gems redemption at checkout (the redemption *flow* in the booking/billing path) — this phase ships the read-only customer gems page and the catalogue listing; redemption write-path is deferred with the offers/checkout work.
 - Email delivery internals (Resend templates) — membership/lead emails expose a logging extension point but do not send real email in this phase.
 - Lead → customer linkage automation on sign-in (matching lead phone to a new user). The `convertedBookingId` linkage on booking creation IS in scope (already partially wired via `leadId` in the booking schema).

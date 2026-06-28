@@ -24,7 +24,7 @@ Admin creates membership for customer
        │          ├── 1 day before expiry → "Last chance!" alert
        │          └── Hours < 60 min → "Less than 1 hour left"
        │
-       ├─── expires_at reached (auto by pg_cron):
+       ├─── expires_at reached (auto by QStash membership-auto-expire job):
        │    ▼
        │    ┌──────────────┐
        │    │   EXPIRED    │ → Unused hours forfeited
@@ -281,7 +281,7 @@ URGENCY STATES:
                      │    → immediate push notification    │
                      │                                    │
                      │                                    ▼
-                     │                              pg_cron runs:
+                     │                              QStash job runs:
                      │                              status → 'expired'
                      │                              +1h: final email
                      │                              with renewal CTA

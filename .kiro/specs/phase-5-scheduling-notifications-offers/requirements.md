@@ -6,7 +6,7 @@ Phase 5 delivers the operational layer of the Royal Glow Salon & Spa (RGSS) plat
 
 All work follows the established layered architecture: API routes are thin orchestrators (parse → Zod validate → call business logic / query layer → return the standard envelope), business rules are pure functions in `packages/business` that throw `AppError`, and all database access is isolated in `packages/db/queries`. Every response conforms to the single envelope shape and every route is wrapped with `withErrorHandler()`. The underlying tables already exist and are pushed to Neon; the only schema change is one additive nullable column (`notification.read_at`) to support the in-app unread bell.
 
-Out of scope for this phase (deferred to Phase 6 / later): actual Web Push and email delivery (a single `dispatchNotification` extension point is provided), QStash scheduled/triggered jobs, server-side Ably event publishing on mutations, automated same-day mark-off reassignment with customer notification, and pg_cron offer auto-expiry. Where these are side effects, the API exposes an extension point but does not implement the external integration here.
+Out of scope for this phase (deferred to Phase 6 / later): actual Web Push and email delivery (a single `dispatchNotification` extension point is provided), QStash scheduled/triggered jobs, server-side Ably event publishing on mutations, automated same-day mark-off reassignment with customer notification, and QStash offer auto-expiry. Where these are side effects, the API exposes an extension point but does not implement the external integration here.
 
 ## Glossary
 

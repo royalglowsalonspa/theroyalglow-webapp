@@ -154,7 +154,8 @@ status.theroyalglow.in
 │      Neon DB         │  │   Cloudflare R2        │  │  Upstash Redis       │
 │  (Primary Postgres   │  │   (File storage:       │  │  (Cache, rate limit, │
 │   4 branches,        │  │    photos, invoices)   │  │   QStash job queue)  │
-│   pg_cron, Drizzle) │  └────────────────────────┘  └─────────────────────┘
+│   pg_cron retired,    │  │    photos, invoices)   │  │  (Cache, rate limit, │
+│   Drizzle)           │  └────────────────────────┘  └─────────────────────┘
 └─────────────────────┘
 ```
 
@@ -352,9 +353,9 @@ theroyalglow-webapp/
 │   ├── architecture/                    ← System design, infra, integrations, security
 │   │   ├── overview.mdx                 ← High-level design, infra diagram, hosting rationale
 │   │   ├── monorepo-structure.mdx       ← Turborepo layers, layer rules, folder map
-│   │   ├── database.mdx                 ← Neon DB rationale, 4-branch strategy, pg_cron, Drizzle
+│   │   ├── database.mdx                 ← Neon DB rationale, 4-branch strategy, Drizzle
 │   │   ├── database-schema.mdx          ← Full table reference (all 20+ tables + enums)
-│   │   ├── background-jobs.mdx          ← All 19 jobs: pg_cron (7) + QStash (12), triggers, endpoints
+│   │   ├── background-jobs.mdx          ← All 19 jobs: QStash scheduled (14) + QStash triggered (4) + GitHub Actions (1)
 │   │   ├── authentication.mdx           ← Better Auth, Google OAuth, RBAC roles, session management
 │   │   ├── email-strategy.mdx           ← Resend (transactional) vs Brevo (marketing) split + templates
 │   │   ├── ably-channels.mdx            ← Realtime channel design, events, presence, free tier
@@ -552,7 +553,7 @@ theroyalglow-webapp/
 
 | Layer | Technology | Usage |
 |-------|-----------|-------|
-| **Primary DB** | Neon DB | All business data, 4 branches, pg_cron, Drizzle ORM, Better Auth sessions |
+| **Primary DB** | Neon DB | All business data, 4 branches, Drizzle ORM, Better Auth sessions |
 | **Realtime** | **Ably** | Live booking status push, queue board, staff availability (6M messages/mo free) |
 | **File storage** | Cloudflare R2 | Profile photos, service images, PDF invoices (10 GB free) |
 | **Cache + queuing** | Upstash Redis | Availability slot cache, rate limiting, QStash async jobs |
@@ -562,7 +563,7 @@ theroyalglow-webapp/
 ### Why Neon over Supabase as Primary
 - Supabase only provides **2 free projects** — not enough for 4 environments
 - Neon provides **10 branches** on the free plan, one per environment, in a single project
-- `pg_cron` is natively available in Neon for all scheduled business jobs
+- `pg_cron` is no longer used (retired — Neon free-tier compute sleeps); all scheduled jobs run via QStash HTTP routes
 - Cloudflare R2 replaces Supabase Storage (10 GB free vs 1 GB)
 
 ---
@@ -571,7 +572,7 @@ theroyalglow-webapp/
 
 | Environment | Neon Branch | Purpose |
 |-------------|-------------|--------|
-| `prod` | `prod` | Live production traffic — pg_cron runs here |
+| `prod` | `prod` | Live production traffic — QStash scheduled jobs target here |
 | `pprd` | `pprd` | Pre-production / UAT — auto-reset from `prod` every 24h, PII stripped |
 | `test` | `test` | Integration testing — seeded fixtures, wiped on each CI run |
 | `dev` | `dev` | Local development — free-form sandbox |

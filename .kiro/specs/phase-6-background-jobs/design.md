@@ -4,16 +4,16 @@
 
 Phase 6 delivers the automation layer that runs the platform without manual intervention: the 19 background jobs from `background-jobs.md`. It also fills the notification *delivery* seam left open in Phase 5, so notifications actually go out via Web Push and email once provider keys are configured.
 
-The jobs split across two runtimes per the project's rule:
+The jobs run as QStash HTTP routes (pg_cron retired — Neon free-tier compute sleeps):
 
-- **pg_cron (7 jobs, jobs 1–7)** — pure SQL that only touches the database (sales/GST aggregation, status sweeps, cleanup, gems expiry). These are delivered as **idempotent SQL functions** plus a single migration that registers the `cron.schedule(...)` entries in Neon. Equivalent **query-layer functions** are also provided so the logic is callable/testable from TypeScript and re-runnable on demand.
-- **QStash (12 jobs, jobs 8–19)** — anything needing an HTTP/external call (push, email, Slack). Each is a Next.js API route under `/api/jobs/...` that verifies the QStash signature, performs DB reads, and calls the relevant external service. Scheduled jobs (8–15) are registered with QStash schedules; triggered jobs (16–19) are enqueued with a delay by the business event that fires them.
+- **QStash scheduled (14 jobs, jobs 1–15)** — all 19 jobs (including the 7 former pg_cron pure-SQL jobs) run as Next.js API routes under `/api/jobs/...` invoked by QStash. The former pg_cron jobs (1–7: sales/GST aggregation, status sweeps, cleanup, gems expiry) are delivered as **idempotent query-layer functions** in TypeScript. The remaining scheduled jobs (8–15) add external calls (push, email, Slack) on top of DB reads.
+- **QStash triggered (4 jobs, jobs 16–19)** — event-driven jobs enqueued with a delay by the business event that fires them.
 
 Consistent with Phases 4–5, **all external sends are behind guarded extension points** (`process.env` checks). With no keys configured, every job route runs its DB logic, logs what it *would* send, pings its heartbeat, and returns `200` — so the entire phase is buildable, typechecks, and runs today. When keys land, the same routes deliver for real with no structural change.
 
 ### Goals
 
-- Implement the 7 pg_cron SQL jobs as idempotent SQL + TS query equivalents, registered via a migration.
+- Implement the 7 DB-maintenance jobs (formerly pg_cron) as idempotent TS query functions, invoked by their QStash route.
 - Implement the 12 QStash job routes (8 scheduled + 4 triggered) with signature verification, idempotent DB reads, and guarded external sends.
 - Implement the real notification delivery layer (`webpush` + `email` providers) behind the existing `dispatchNotification` seam.
 - Provide a job-enqueue helper so booking/membership events can schedule the 4 triggered jobs (post-service, stale-pending, no-show, membership-expired).
@@ -22,7 +22,7 @@ Consistent with Phases 4–5, **all external sends are behind guarded extension 
 
 ### Non-Goals
 
-- **Provisioning the actual QStash schedules / Neon pg_cron in production** — this phase ships the SQL migration file and a documented `qstash-schedules` setup script/manifest, but registering them against the live Upstash account and Neon `prod` branch is a deploy-time operation the user performs with their keys. The routes and SQL are complete and correct; wiring them to the live scheduler is an ops step.
+- **Provisioning the actual QStash schedules in production** — this phase ships the job routes and a documented `qstash-schedules` setup script/manifest, but registering them against the live Upstash account is a deploy-time operation the user performs with their keys. The routes are complete and correct; wiring them to the live scheduler is an ops step.
 - **Brevo marketing automation** (re-engagement) — handled inside Brevo, not a job (per design doc).
 - **Job 5 (pprd DB sync)** GitHub Actions workflow — the anonymisation SQL is provided, but the CI workflow YAML belongs to Phase 9 (CI/CD). This phase delivers the SQL.
 - **PDF invoice generation internals** — the invoice email job references the existing invoice; PDF rendering is its own concern (billing phase) and is treated as an extension point.
@@ -34,8 +34,8 @@ Consistent with Phases 4–5, **all external sends are behind guarded extension 
 
 ```
 packages/business/src/jobs/            ← pure helpers: report formatting, window math, idempotency keys
-packages/db/src/queries/jobs.ts        ← all job DB reads/writes (pg_cron TS equivalents + QStash data)
-packages/db/migrations/0001_pg_cron_jobs.sql  ← SQL functions + cron.schedule registrations (jobs 1–7)
+packages/db/src/queries/jobs.ts        ← all job DB reads/writes (DB-maintenance TS equivalents + QStash data)
+apps/web/src/app/api/jobs/*/route.ts   ← all 14 scheduled + 4 triggered QStash job routes
 apps/web/src/lib/jobs/verify.ts        ← QStash signature verification (guarded)
 apps/web/src/lib/jobs/heartbeat.ts     ← BetterStack heartbeat ping (guarded)
 apps/web/src/lib/jobs/enqueue.ts       ← QStash publish helper for triggered jobs (guarded)
@@ -87,9 +87,9 @@ createNotification(row)            ← persists (Phase 5, unchanged)
 
 ## Components and Interfaces
 
-### 1. pg_cron jobs (1–7) — SQL + TS equivalents
+### 1. DB-maintenance jobs (1–7) — QStash routes + TS query functions
 
-#### 1.1 Migration — `packages/db/migrations/0001_pg_cron_jobs.sql`
+#### 1.1 Query layer — `packages/db/src/queries/jobs.ts`
 
 Defines an idempotent SQL function per job and registers each with `cron.schedule`. Functions are `CREATE OR REPLACE` so the migration is re-runnable. Example:
 
@@ -182,15 +182,15 @@ sendEmail({ to, subject, html }): Promise<boolean>
 
 All tables exist. The one additive change:
 
-- `daily_sales_summary`: add nullable `salon_revenue_paise`, `spa_revenue_paise`, `membership_revenue_paise` (integer) so the sales summary job stores the service-type split the daily report needs. Additive, backward-compatible; pushed via `drizzle-kit push` (and mirrored in the pg_cron migration).
+- `daily_sales_summary`: add nullable `salon_revenue_paise`, `spa_revenue_paise`, `membership_revenue_paise` (integer) so the sales summary job stores the service-type split the daily report needs. Additive, backward-compatible; pushed via `drizzle-kit push`.
 
 Touch summary:
 
 | Job group | Reads | Writes |
 |-----------|-------|--------|
-| pg_cron 1,6 | invoice, booking | daily_sales_summary, monthly_gst_summary |
-| pg_cron 2,3,7 | spa_membership, offer, loyalty_transaction/account | same (status/expiry updates) |
-| pg_cron 4 | session | session (delete) |
+| DB-maintenance 1,6 | invoice, booking | daily_sales_summary, monthly_gst_summary |
+| DB-maintenance 2,3,7 | spa_membership, offer, loyalty_transaction/account | same (status/expiry updates) |
+| DB-maintenance 4 | session | session (delete) |
 | QStash 8,9,11,15,16,19 | booking, spa_membership, loyalty_transaction, customer_profile, push_subscription | notification |
 | QStash 10,12,13,14,17,18 | customer_profile, lead, invoice, booking, user | notification |
 
@@ -198,7 +198,7 @@ Touch summary:
 
 - All money integer paise. Report figures formatted with `formatINR` at the presentation/Slack-message boundary only.
 - Date windows computed in **IST** (the salon's timezone): "today", "expiring in 7 days", "DOB = today (month+day)", and the 24h/1h reminder windows all normalise to `Asia/Kolkata` calendar boundaries. A pure `packages/business/src/jobs/time.ts` helper centralises IST window math so it is testable.
-- pg_cron schedules are expressed in UTC (Neon runs UTC) per the doc's cron expressions.
+- QStash schedules use UTC cron expressions per the doc's convention.
 
 ## Error Handling
 
@@ -227,7 +227,7 @@ Per coding standards, no test files committed unless requested. Verification per
 ## Design Decisions & Rationale
 
 1. **All external integrations are guarded extension points.** Keys (`QSTASH_*`, `WEB_PUSH_PRIVATE_KEY`, VAPID, `RESEND_API_KEY`, `SLACK_WEBHOOK_URL`, heartbeats) are empty in `.env.local`. Reading them from `process.env` behind truthy guards lets the whole phase build, typecheck, and run — every job executes its DB logic and logs intended sends. Real delivery activates when keys land, no code change. This is the established Phases 4–5 pattern, now applied to the whole automation layer.
-2. **pg_cron jobs ship as SQL migration + TS equivalents.** The SQL is the production runtime (registered in Neon). The TS query equivalents make the same logic invocable on demand (e.g. a future "rebuild summary" admin action) and reviewable in the typed codebase. Belt and suspenders, no duplication of truth (both are thin over the same tables).
+2. **DB-maintenance jobs ship as TS query functions invoked by QStash routes.** The query functions make the logic invocable on demand (e.g. a future "rebuild summary" admin action) and reviewable in the typed codebase. pg_cron was retired (Neon free-tier compute sleeps).
 3. **QStash routes are not provisioned here.** Registering schedules against the live Upstash account is a deploy step requiring the user's token. The phase delivers correct, verified routes + a documented schedule manifest; provisioning is ops. This keeps the phase self-contained and avoids coupling the build to an external account.
 4. **One additive migration** (`daily_sales_summary` service-split columns) reconciles the doc's Job 1 SQL with the real Phase 1 schema. Nullable + backward-compatible.
 5. **Triggered-job enqueues are best-effort at the event site.** Adding `enqueueJob(...)` to booking-complete/create and membership-create as guarded no-op-without-keys calls means the core transactional flows never gain a hard dependency on QStash.

@@ -19,7 +19,7 @@
  * - Three discount types: percentage, flat amount, combo price
  * - One offer per customer per day enforced via DB unique constraint
  * - Partial index on active offers for customer-facing queries
- * - Auto-expiry via pg_cron job deactivating past-end-date offers
+ * - Auto-expiry via QStash offer-auto-expire job deactivating past-end-date offers
  *
  * Tech Stack   : TypeScript, Drizzle ORM, PostgreSQL
  * Layer        : Data Access

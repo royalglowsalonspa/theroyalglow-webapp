@@ -162,8 +162,7 @@
 
 ## Phase 6: Background Jobs & Automation
 
-- [ ] Set up pg_cron jobs (7): nightly sales, membership expire, offer expire, session cleanup, pprd sync, monthly GST, gems expire
-- [ ] Set up QStash scheduled jobs (8): reminders, birthday, nudges, reports, follow-ups
+- [ ] Set up QStash scheduled jobs (14): nightly sales, membership expire, offer expire, session cleanup, monthly GST, gems expire, reminders, birthday, nudges, reports, follow-ups, membership alerts, daily/weekly reports
 - [ ] Set up QStash triggered jobs (4): post-service, stale booking, no-show, expired notice
 - [ ] BetterStack heartbeat integration for all jobs
 

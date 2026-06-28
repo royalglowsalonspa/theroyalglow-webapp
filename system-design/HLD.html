@@ -230,7 +230,7 @@
 <ul>
   <li>Three tiers: Silver / Gold / Platinum</li>
   <li>Hour-based session tracking with deduction on service completion</li>
-  <li>Auto-expiry on membership end date (pg_cron Job 2)</li>
+  <li>Auto-expiry on membership end date (QStash job)</li>
   <li>Renewal prompts at 30/7/1 day milestones</li>
 </ul>
 
@@ -239,7 +239,7 @@
   <li>Earn rate: 1 gem per ₹100 invoiced (floor, awarded at invoice generation)</li>
   <li>Expiry: 365 days from earn date (1-year rolling window)</li>
   <li>Redemption against a service catalogue</li>
-  <li>Auto-expiry job (pg_cron Job 7), reminder push 7 days before (QStash Job 15)</li>
+  <li>Auto-expiry job (QStash job), reminder push 7 days before (QStash Job 15)</li>
 </ul>
 
 <h4>FR-4: Admin Portal with RBAC</h4>
@@ -344,9 +344,9 @@
 │  Render (Singapore)              │  │  Neon DB (PostgreSQL 16)   │  │  Upstash          │
 │  ├── Heavy SSR fallback          │  │  ├── 4 branches:           │  │  ├── Redis         │
 │  └── Payload CMS v3              │  │  │   dev/test/pprd/prod    │  │  │   (cache, rate   │
-│      (admin.theroyalglow.in)     │  │  ├── pg_cron (7 jobs)      │  │  │    limiting)     │
+│      (admin.theroyalglow.in)     │  │  ├── QStash (14 sched jobs) │  │  │    limiting)     │
 │                                  │  │  └── Drizzle ORM           │  │  └── QStash        │
-└──────────────────────────────────┘  └────────────────────────────┘  │      (12 HTTP jobs)│
+└──────────────────────────────────┘  └────────────────────────────┘  │      (4 event jobs)│
                                                                        └──────────────────┘
               ┌───────────────────────────────────────────────────────┐
               ▼                     ▼                                 ▼
@@ -374,7 +374,7 @@
   <tr><th>Category</th><th>Choice</th><th>Alternatives Considered</th><th>Why This Choice</th></tr>
   <tr><td>Framework</td><td>Next.js 16 (App Router)</td><td>Remix, SvelteKit, Astro</td><td>SSR + SSG + API in one; edge-ready; React ecosystem; largest community</td></tr>
   <tr><td>Runtime</td><td>Bun</td><td>Node.js, Deno</td><td>3x faster installs, native TS, faster test runs</td></tr>
-  <tr><td>Database</td><td>Neon PostgreSQL 16</td><td>Supabase, PlanetScale, Turso, Xata</td><td>Branching (4 environments free), pg_cron native, serverless</td></tr>
+  <tr><td>Database</td><td>Neon PostgreSQL 16</td><td>Supabase, PlanetScale, Turso, Xata</td><td>Branching (4 environments free), serverless; all scheduled jobs via QStash HTTP routes</td></tr>
   <tr><td>ORM</td><td>Drizzle ORM</td><td>Prisma (binary can't run on CF Workers)</td><td>Pure TypeScript, zero binary, runs on V8 isolate</td></tr>
   <tr><td>Auth</td><td>Better Auth</td><td>Clerk, Auth.js, Supabase Auth</td><td>Self-hosted, YOUR domain on Google consent, built-in RBAC</td></tr>
   <tr><td>Hosting (Edge)</td><td>Cloudflare Pages + Workers</td><td>Vercel, Netlify</td><td>Generous free tier, global edge, no bandwidth surprises</td></tr>
@@ -402,7 +402,7 @@
 
 <table>
   <tr><th>Neon Branch</th><th>Environment</th><th>Purpose</th><th>Reset Policy</th></tr>
-  <tr><td><code>main</code></td><td>Production</td><td>Live customer data, pg_cron runs here</td><td>Never reset</td></tr>
+  <tr><td><code>main</code></td><td>Production</td><td>Live customer data, QStash scheduled jobs target here</td><td>Never reset</td></tr>
   <tr><td><code>preprod</code></td><td>Pre-production</td><td>UAT with anonymised prod data</td><td>Auto-reset daily + PII stripped</td></tr>
   <tr><td><code>test</code></td><td>QA / CI</td><td>Seeded fixtures for automated tests</td><td>Wiped every CI run</td></tr>
   <tr><td><code>dev</code></td><td>Development</td><td>Developer sandbox</td><td>Scales to zero when idle</td></tr>
@@ -571,21 +571,20 @@ Developer    → Everything + /admin/integrations, /admin/logs</code></pre>
 <h3>8.1 Dual-Engine Design</h3>
 <table>
   <tr><th>Engine</th><th>Location</th><th>Use For</th><th>Free Tier</th></tr>
-  <tr><td><strong>pg_cron</strong></td><td>Inside Neon DB</td><td>Pure SQL — aggregations, status updates, cleanup</td><td>Unlimited</td></tr>
-  <tr><td><strong>QStash</strong></td><td>Upstash HTTP queue</td><td>External HTTP calls — email, push, Slack</td><td>500 msg/day</td></tr>
+  <tr><td><strong>QStash</strong></td><td>Upstash HTTP queue</td><td>All scheduled jobs — SQL aggregations, status updates, cleanup, email, push</td><td>500 msg/day</td></tr>
 </table>
-<p><strong>Split Rule:</strong> DB-only = pg_cron · External calls = QStash</p>
+<p><strong>Architecture:</strong> All jobs run as QStash scheduled HTTP routes (pg_cron retired — Neon free-tier compute sleeps, QStash wakes it via POST)</p>
 
 <h3>8.2 Complete Job Inventory (19 Total)</h3>
 <table>
   <tr><th>#</th><th>Job</th><th>Tool</th><th>Schedule / Trigger</th><th>External Calls</th></tr>
-  <tr><td>1</td><td>Nightly sales summary</td><td>pg_cron</td><td>11:30 PM IST</td><td>None</td></tr>
-  <tr><td>2</td><td>Membership auto-expire</td><td>pg_cron</td><td>12:00 AM IST</td><td>None</td></tr>
-  <tr><td>3</td><td>Offer auto-expire</td><td>pg_cron</td><td>12:05 AM IST</td><td>None</td></tr>
-  <tr><td>4</td><td>Session cleanup</td><td>pg_cron</td><td>2:30 AM Sun IST</td><td>None</td></tr>
+  <tr><td>1</td><td>Nightly sales summary</td><td>QStash</td><td>11:30 PM IST</td><td>None</td></tr>
+  <tr><td>2</td><td>Membership auto-expire</td><td>QStash</td><td>12:00 AM IST</td><td>None</td></tr>
+  <tr><td>3</td><td>Offer auto-expire</td><td>QStash</td><td>12:05 AM IST</td><td>None</td></tr>
+  <tr><td>4</td><td>Session cleanup</td><td>QStash</td><td>2:30 AM Sun IST</td><td>None</td></tr>
   <tr><td>5</td><td>Preprod DB sync</td><td>GitHub Actions</td><td>1:00 AM IST</td><td>None</td></tr>
-  <tr><td>6</td><td>Monthly GST summary</td><td>pg_cron</td><td>1:00 AM 1st IST</td><td>None</td></tr>
-  <tr><td>7</td><td>Gems auto-expire</td><td>pg_cron</td><td>12:10 AM IST</td><td>None</td></tr>
+  <tr><td>6</td><td>Monthly GST summary</td><td>QStash</td><td>1:00 AM 1st IST</td><td>None</td></tr>
+  <tr><td>7</td><td>Gems auto-expire</td><td>QStash</td><td>12:10 AM IST</td><td>None</td></tr>
   <tr><td>8</td><td>Appointment reminders</td><td>QStash</td><td>Every 15 min</td><td>web-push + Resend</td></tr>
   <tr><td>9</td><td>Membership expiry alerts</td><td>QStash</td><td>12:30 AM IST</td><td>web-push + Resend</td></tr>
   <tr><td>10</td><td>Birthday emails</td><td>QStash</td><td>9:30 AM IST</td><td>Brevo + web-push</td></tr>

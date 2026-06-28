@@ -42,7 +42,7 @@ All environments use **Neon DB branches** within a single Neon project — no se
 
 | Branch | Neon Branch | Notes |
 |--------|------------|-------|
-| `prod` | `prod` | Live customer data — pg_cron jobs run here |
+| `prod` | `prod` | Live customer data — QStash scheduled jobs target here |
 | `pprd` | `pprd` | Reset from `prod` every 24h via Neon branch reset API (PII stripped) |
 | `test` | `test` | Isolated, seeded with fixtures, wiped before each CI run |
 | `dev` | `dev` | Developer sandbox with fake data |

@@ -26,7 +26,7 @@
  *
  * Notes        :
  * - Salon offers only (SPA memberships are separate).
- * - Offers auto-expire via pg_cron Job 3.
+ * - Offers auto-expire via QStash offer-auto-expire job.
  ************************************************************/
 
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'

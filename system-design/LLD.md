@@ -192,7 +192,7 @@ CREATE TABLE spa_membership (
   price_paid_paise        INTEGER NOT NULL,
   -- Dates
   starts_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  expires_at              TIMESTAMPTZ NOT NULL,          -- pg_cron checks this nightly
+  expires_at              TIMESTAMPTZ NOT NULL,          -- QStash membership-auto-expire job checks this nightly
   cancelled_at            TIMESTAMPTZ,
   cancellation_reason     TEXT,                          -- Required if cancelled
   -- Metadata
@@ -226,7 +226,7 @@ CREATE TABLE loyalty_transaction (
   description             TEXT NOT NULL,                  -- Human-readable: "Earned 12 gems for INV2605RS001"
   -- Expiry tracking (for earn transactions)
   expires_at              TIMESTAMPTZ,                    -- 365 days from earn date (only for type='earn')
-  expired                 BOOLEAN NOT NULL DEFAULT false, -- Marked true by pg_cron expiry job
+  expired                 BOOLEAN NOT NULL DEFAULT false, -- Marked by the QStash gems-auto-expire job
   remaining_gems          INTEGER,                       -- Tracks partial redemptions against this earn
   -- Metadata
   created_by              TEXT REFERENCES "user"(id),    -- Staff who triggered (null for system)
@@ -297,8 +297,8 @@ CREATE INDEX idx_lead_phone ON lead(phone);
 | Branch daily schedule | `idx_booking_branch_date(branch_id, date, start_time)` | `WHERE branch_id = ? AND date = ? ORDER BY start_time` |
 | Active bookings filter | `idx_booking_status(status) WHERE status IN ('pending','confirmed')` | Partial index — only indexes active bookings |
 | Invoice lookup by customer | `idx_invoice_customer(customer_id, created_at DESC)` | Customer invoice history |
-| Active memberships to expire | `idx_membership_expires(expires_at) WHERE status = 'active'` | pg_cron auto-expire query |
-| Gems pending expiry | `idx_loyalty_tx_expires(expires_at) WHERE type='earn' AND expired=false` | pg_cron gems expiry scan |
+| Active memberships to expire | `idx_membership_expires(expires_at) WHERE status = 'active'` | QStash membership-auto-expire job query |
+| Gems pending expiry | `idx_loyalty_tx_expires(expires_at) WHERE type='earn' AND expired=false` | QStash gems-auto-expire job scan |
 | Lead pipeline view | `idx_lead_status(status) WHERE status NOT IN ('won','lost')` | Active leads only |
 | Lead follow-up queue | `idx_lead_follow_up(follow_up_at) WHERE status='follow_up'` | Follow-up reminder job |
 
@@ -428,7 +428,7 @@ if (newCount >= 4) {
 └─────────┘  └───────────┘
  (terminal)   (terminal)
 
-Expire trigger: pg_cron nightly check → WHERE expires_at < NOW() AND status = 'active'
+Expire trigger: QStash nightly job → WHERE expires_at < NOW() AND status = 'active'
 Cancel trigger: Manager action → cancellation_reason required
 ```
 
@@ -706,7 +706,7 @@ packages/business/
 │   ├── create.ts              ← createMembership(input): Membership
 │   ├── record-session.ts      ← recordSession(membershipId, minutes): void
 │   ├── cancel.ts              ← cancelMembership(id, reason): void
-│   └── check-expiry.ts        ← Used by pg_cron job
+│   └── check-expiry.ts        ← Used by QStash membership-auto-expire job
 │
 ├── invoicing/
 │   ├── generate.ts            ← generateInvoice(bookingId, offer?, payment): Invoice
@@ -722,7 +722,7 @@ packages/business/
 │   ├── redeem-gems.ts         ← redeemGems(userId, gems, reason): void
 │   │                             └── FIFO expiry: oldest earned gems redeemed first
 │   └── expire-gems.ts         ← expireGems(): ExpireResult
-│                                  └── Called by pg_cron, inserts 'expire' transactions
+│                                  └── Called by QStash gems-auto-expire job, inserts 'expire' transactions
 │
 ├── lead/
 │   ├── capture.ts             ← captureLead(input): Lead
@@ -1207,7 +1207,7 @@ async function handler(req: Request) {
 export const POST = verifySignatureAppRouter(handler)
 ```
 
-### 7.2 pg_cron Job Patterns (SQL)
+### 7.2 Scheduled Job SQL Patterns (QStash Routes)
 
 ```sql
 -- Job 1: Nightly Sales Summary (11:30 PM IST)

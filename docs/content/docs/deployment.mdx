@@ -32,7 +32,7 @@ pushes to `prod`**.
 The `pprd` branch is **reset from `prod` every 24h** via the Neon Branch Reset
 API (a near-instant copy-on-write operation), then a PII-anonymisation script
 scrubs names, phones, and emails so UAT has realistic data without real customer
-PII. `pg_cron` jobs run on `prod` only.
+PII. QStash scheduled jobs target `prod` only.
 
 ## Hosting topology
 

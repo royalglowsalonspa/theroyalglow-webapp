@@ -123,7 +123,7 @@ function splitGST(inclusivePaise: number) {
 
 - **Earn:** 1 gem per ₹100 invoiced (floor), on `invoice_type = 'service'` only.
 - **No gems** on `membership_purchase` or `membership_session` invoices.
-- **Expiry:** 365 days from earn date, auto-deducted by a pg_cron job.
+- **Expiry:** 365 days from earn date, auto-deducted by the QStash gems-auto-expire job.
 - **Redemption:** against specific catalogue services — not a ₹ discount.
 - **Cannot combine** with an offer on the same booking.
 
