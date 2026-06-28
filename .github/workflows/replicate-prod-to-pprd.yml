@@ -28,6 +28,9 @@ jobs:
         run: bun run scripts/anonymize-preprod.ts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_PPRD }}
+          # Explicit opt-in guard — the script refuses to overwrite PII unless
+          # this is set, so it can only ever target pprd (never prod/dev).
+          PPRD_ANONYMIZE: '1'
 
       - name: Ping BetterStack heartbeat
         run: curl -sf "${{ secrets.BETTER_STACK_HEARTBEAT_PPRD_SYNC }}"

@@ -30,8 +30,8 @@
 import { createLogger } from '@rgss/logger'
 
 // Server-side helper that builds a scoped Ably token request for the realtime
-// token route. Phase 5 ships the token endpoint only; server-side publishing is
-// a later phase.
+// token route. Server-side publishing lives in `./publish.ts`
+// (publishBookingEvent), which POSTs booking events to the Ably REST API.
 //
 // We read `ABLY_PRIVATE_KEY` straight from `process.env` (NOT from `env.ts`) on
 // purpose: `env.ts` types it as a required string and would fail validation
