@@ -1,8 +1,7 @@
 # @rgss/cms
 
-Payload CMS v3 — Phase 8 placeholder.
-
-This application will host the headless CMS for marketing content (blog, gallery, team, banners, FAQ) at `admin.theroyalglow.in`.
+Payload CMS v3 — marketing content service (deployed to Render at
+`cms.theroyalglow.in`).
 
 ## Setup (Phase 8)
 
