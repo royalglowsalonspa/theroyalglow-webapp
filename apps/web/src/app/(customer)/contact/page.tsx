@@ -78,14 +78,17 @@ export default function ContactPage() {
           <div className="mx-auto max-w-[1278px] grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
             {/* LEFT COLUMN: Map + NAP */}
             <div>
-              {/* Google Maps embed — keyless iframe centred on the real
-                  Royal Glow listing via its Place ID (no Maps Embed API key
-                  required). `output=embed` resolves the place_id to the
-                  business pin + label. */}
+              {/* Google Maps embed — keyless iframe (no Maps Embed API key).
+                  Centred on the branch's exact GPS coordinates with a labelled
+                  marker. Coordinate-based `output=embed` is the reliable keyless
+                  form; `q=place_id:` is NOT supported by the keyless embed and
+                  falls back to a default map. For the full Business-Profile card
+                  (reviews/photos), swap this src for the official "Share → Embed
+                  a map" pb-URL, or use the Maps Embed API with a key. */}
               <div className="rounded-[6px] overflow-hidden border border-cloud-gray">
                 <iframe
                   title="Royal Glow Salon & Spa location on Google Maps"
-                  src="https://www.google.com/maps?q=place_id:ChIJKStV0FxtrjsRngQFQMaTd7g&output=embed"
+                  src="https://maps.google.com/maps?q=12.8777350,77.6664252(Royal+Glow+Salon+%26+Spa)&z=16&hl=en&output=embed"
                   width="100%"
                   height="300"
                   style={{ border: 0 }}
