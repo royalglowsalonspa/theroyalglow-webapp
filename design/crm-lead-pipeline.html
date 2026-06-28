@@ -141,7 +141,7 @@ details .details-content { padding: 1rem; border: 1px solid var(--grey-200); bor
   <div class="card">
     <h3>📋 Quick Summary</h3>
     <div class="summary-grid">
-      <div class="summary-item"><div class="label">Route</div><div class="value">/admin/leads</div></div>
+      <div class="summary-item"><div class="label">Route</div><div class="value">/leads</div></div>
       <div class="summary-item"><div class="label">Min Role</div><div class="value">Receptionist</div></div>
       <div class="summary-item"><div class="label">Pipeline Stages</div><div class="value">5 (New → Won)</div></div>
       <div class="summary-item"><div class="label">Stale Alert</div><div class="value">48h no contact</div></div>
@@ -354,7 +354,7 @@ details .details-content { padding: 1rem; border: 1px solid var(--grey-200); bor
         <li>Tag auto-assigned: <code>no_show_{count}</code> (replaces previous tier tag)</li>
         <li>Recovery tracked via <code>consecutive_completed_count</code> (resets on new no-show)</li>
         <li>Block enforcement: booking API returns 403 if noshow_count ≥ 5</li>
-        <li>Owner override: <code>PATCH /api/admin/customers/[id] { noshow_count: 0 }</code></li>
+        <li>Owner override: <code>PATCH /api/customers/[id] { noshow_count: 0 }</code></li>
       </ul>
     </div>
   </details>
@@ -434,13 +434,13 @@ details .details-content { padding: 1rem; border: 1px solid var(--grey-200); bor
     <h3>🔌 API Endpoints</h3>
     <table class="data-table">
       <tr><th>Method</th><th>Endpoint</th><th>Purpose</th><th>Role</th></tr>
-      <tr><td>GET</td><td>/api/admin/leads</td><td>List all leads (filterable by status)</td><td>Receptionist</td></tr>
-      <tr><td>POST</td><td>/api/admin/leads</td><td>Create manual lead</td><td>Receptionist</td></tr>
-      <tr><td>PATCH</td><td>/api/admin/leads/[id]</td><td>Update lead status/notes</td><td>Receptionist</td></tr>
-      <tr><td>GET</td><td>/api/admin/customers</td><td>List customers with filters</td><td>Receptionist</td></tr>
-      <tr><td>GET</td><td>/api/admin/customers/[id]</td><td>Customer 360° profile</td><td>Receptionist</td></tr>
-      <tr><td>PATCH</td><td>/api/admin/customers/[id]</td><td>Update tags, noshow_count reset</td><td>Manager/Owner</td></tr>
-      <tr><td>GET</td><td>/api/admin/revenue-by-source</td><td>Attribution dashboard data</td><td>Owner</td></tr>
+      <tr><td>GET</td><td>/api/leads</td><td>List all leads (filterable by status)</td><td>Receptionist</td></tr>
+      <tr><td>POST</td><td>/api/leads</td><td>Create manual lead</td><td>Receptionist</td></tr>
+      <tr><td>PATCH</td><td>/api/leads/[id]</td><td>Update lead status/notes</td><td>Receptionist</td></tr>
+      <tr><td>GET</td><td>/api/customers</td><td>List customers with filters</td><td>Receptionist</td></tr>
+      <tr><td>GET</td><td>/api/customers/[id]</td><td>Customer 360° profile</td><td>Receptionist</td></tr>
+      <tr><td>PATCH</td><td>/api/customers/[id]</td><td>Update tags, noshow_count reset</td><td>Manager/Owner</td></tr>
+      <tr><td>GET</td><td>/api/revenue-by-source</td><td>Attribution dashboard data</td><td>Owner</td></tr>
     </table>
   </div>
 

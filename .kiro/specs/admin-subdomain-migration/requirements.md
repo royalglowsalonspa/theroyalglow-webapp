@@ -103,9 +103,9 @@ This migration is part of a broader subdomain architecture:
 
 #### Acceptance Criteria
 
-1. THE Subdomain_Router SHALL route `admin.theroyalglow.in` traffic to the Admin_App Cloudflare Pages project via a proxied CNAME DNS record pointing to the `rgss-admin.pages.dev` deployment
-2. THE Admin_App SHALL be deployed as a separate Cloudflare Pages project (project name: `rgss-admin`)
-3. WHEN a push to the `prod` branch includes changes under `apps/admin/` or `packages/`, THE Admin_App deployment workflow (`deploy-admin-prod.yml`) SHALL trigger a build and deploy of the Admin_App to the `rgss-admin` Cloudflare Pages project
+1. THE Subdomain_Router SHALL route `admin.theroyalglow.in` traffic to the Admin_App Cloudflare Workers (OpenNext) worker via a proxied CNAME DNS record pointing to the `rgss-admin.workers.dev` deployment
+2. THE Admin_App SHALL be deployed as a separate Cloudflare Workers (OpenNext) worker (worker name: `rgss-admin`)
+3. WHEN a push to the `prod` branch includes changes under `apps/admin/` or `packages/`, THE Admin_App deployment workflow (`deploy-admin-prod.yml`) SHALL trigger a build and deploy of the Admin_App to the `rgss-admin` Cloudflare Workers (OpenNext) worker
 4. WHEN the Admin_App deployment completes, THE deployment workflow SHALL perform a health check by sending an HTTP GET request to `https://admin.theroyalglow.in/api/health` and SHALL consider the deployment successful only if the endpoint returns HTTP 200 within 30 seconds, retrying up to 3 attempts with a 10-second delay between attempts
 5. IF the health check fails after all 3 retry attempts, THEN THE deployment workflow SHALL mark the deployment as failed and send a failure notification
 6. THE Admin_App SHALL have its own Sentry project for error monitoring, separate from the Web_App Sentry project, with source maps uploaded during each deployment
@@ -172,7 +172,7 @@ This migration is part of a broader subdomain architecture:
 2. THE coding-standards steering file SHALL document the Root-Path Convention under the "Route Groups" section, specifying that routes within `apps/admin/` omit the `admin/` prefix since the subdomain provides the admin namespace
 3. THE implementation-tasks steering file SHALL update all Phase 3 task paths from `apps/web/app/admin/` to `apps/admin/app/` and update the Phase 3 section title to reference the standalone Admin_App
 4. THE features steering file SHALL document under the "Admin Portal (RBAC)" section that admin routes are served from `admin.theroyalglow.in` (root paths) instead of the `/admin` path on `theroyalglow.in`
-5. THE deployment documentation SHALL include a dedicated Admin_App section covering: the Cloudflare Pages project name, the GitHub Actions deploy workflow file name, the build command, the output directory, and the health check endpoint path
+5. THE deployment documentation SHALL include a dedicated Admin_App section covering: the Cloudflare Workers (OpenNext) worker name, the GitHub Actions deploy workflow file name, the build command, the output directory, and the health check endpoint path
 6. THE project-overview Layer Rules table SHALL show `apps/admin/` as a Presentation and API layer with the same import permissions as `apps/web/`
 
 ### Requirement 12: Environment Variable Isolation

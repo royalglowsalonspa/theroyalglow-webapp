@@ -144,9 +144,9 @@ Scaffold the complete Royal Glow Salon & Spa monorepo foundation using Turborepo
 - [x] 8. Checkpoint - Verify all packages build and typecheck
   - Run `bun run typecheck` from root. All packages should resolve dependencies correctly with zero type errors. Ensure all tests pass, ask the user if questions arise.
 
-- [x] 9. Set up `apps/web/` — Next.js 16.2.6 application
-  - [x] 9.1 Scaffold `apps/web/` with Next.js 16.2.6 and package configuration
-    - Create `apps/web/package.json` with `"name": "@rgss/web"`, Next.js 16.2.6, React 19, scripts for `dev`, `build`, `start`, `typecheck`, `lint`
+- [x] 9. Set up `apps/web/` — Next.js 16.2.9 application
+  - [x] 9.1 Scaffold `apps/web/` with Next.js 16.2.9 and package configuration
+    - Create `apps/web/package.json` with `"name": "@rgss/web"`, Next.js 16.2.9, React 19, scripts for `dev`, `build`, `start`, `typecheck`, `lint`
     - Add dependencies on `@rgss/business`, `@rgss/db`, `@rgss/types`, `@rgss/errors`, `@rgss/logger`
     - Add dependencies: `tailwindcss`, `@tailwindcss/postcss`, `clsx`, `tailwind-merge`, `zod`, `@t3-oss/env-nextjs`
     - Create `apps/web/next.config.ts` with typed configuration (transpilePackages for internal packages)

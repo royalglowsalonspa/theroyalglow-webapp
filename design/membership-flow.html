@@ -570,7 +570,7 @@ details .detail-content {
     <div class="summary-grid">
       <div class="summary-item">
         <div class="label">Admin Route</div>
-        <div class="value">/admin/memberships</div>
+        <div class="value">/memberships</div>
       </div>
       <div class="summary-item">
         <div class="label">Customer Route</div>
@@ -951,7 +951,7 @@ details .detail-content {
         <li>Sessions can be recorded against this membership</li>
         <li>Progress bar shows hours used vs total</li>
         <li>Customer can view session history on /membership</li>
-        <li>Admin can record sessions and view full detail on /admin/memberships/[id]</li>
+        <li>Admin can record sessions and view full detail on /memberships/[id]</li>
       </ul>
     </div>
   </details>
@@ -1164,7 +1164,7 @@ details .detail-content {
 
     <div class="endpoint">
       <span class="method method-post">POST</span>
-      <span class="path">/admin/memberships</span>
+      <span class="path">/memberships</span>
       <div class="desc">Create a new membership for a customer. Requires admin/manager role.</div>
       <div style="margin-top:0.5rem;font-size:0.8rem;color:var(--grey-700)">
         <strong>Body:</strong> <code>{ customer_id, tier, total_hours, price, start_date, payment_method }</code>
@@ -1176,7 +1176,7 @@ details .detail-content {
 
     <div class="endpoint">
       <span class="method method-get">GET</span>
-      <span class="path">/admin/memberships/[id]</span>
+      <span class="path">/memberships/[id]</span>
       <div class="desc">Get full membership detail with session history. Requires admin role.</div>
       <div style="margin-top:0.25rem;font-size:0.8rem;color:var(--grey-700)">
         <strong>Response:</strong> <code>200 { membership, sessions[] }</code> | <code>404 { not_found }</code>
@@ -1185,7 +1185,7 @@ details .detail-content {
 
     <div class="endpoint">
       <span class="method method-post">POST</span>
-      <span class="path">/admin/memberships/[id]/record-session</span>
+      <span class="path">/memberships/[id]/record-session</span>
       <div class="desc">Record a session against an active membership. Validates hours balance.</div>
       <div style="margin-top:0.5rem;font-size:0.8rem;color:var(--grey-700)">
         <strong>Body:</strong> <code>{ service, duration_min, staff_id, notes? }</code>
@@ -1197,7 +1197,7 @@ details .detail-content {
 
     <div class="endpoint">
       <span class="method method-post">POST</span>
-      <span class="path">/admin/memberships/[id]/cancel</span>
+      <span class="path">/memberships/[id]/cancel</span>
       <div class="desc">Cancel a membership. Manager/Owner only. Requires cancel_reason.</div>
       <div style="margin-top:0.5rem;font-size:0.8rem;color:var(--grey-700)">
         <strong>Body:</strong> <code>{ cancel_reason }</code>

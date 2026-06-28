@@ -491,7 +491,7 @@
 <h3>3.2 Booking Completion (Checkout) Flow</h3>
 <pre><code>Admin             API Route          Business Logic       Database           External
    │                  │                    │                  │                  │
-   │ POST /api/admin/ │                    │                  │                  │
+   │ POST /api/       │                    │                  │                  │
    │ bookings/:id/    │                    │                  │                  │
    │ complete         │                    │                  │                  │
    │─────────────────▶│                    │                  │                  │
@@ -919,7 +919,7 @@ $$);
   <tr><td>4</td><td><code>splitGST(taxableValue)</code></td><td>base, CGST, SGST breakdown</td></tr>
   <tr><td>5</td><td>Generate invoice number: <code>INV{DDMM}{BRANCH}{SEQ}</code></td><td>e.g., <code>INV2605RS001</code></td></tr>
   <tr><td>6</td><td>INSERT invoice + invoice_items (transaction)</td><td>Invoice record</td></tr>
-  <tr><td>7</td><td>Generate PDF via Render API</td><td>PDF buffer</td></tr>
+  <tr><td>7</td><td>Generate PDF via Cloud Run (rgss-invoicing)</td><td>PDF buffer</td></tr>
   <tr><td>8</td><td>Upload PDF to Cloudflare R2</td><td>Signed URL</td></tr>
   <tr><td>9</td><td>Send email via Resend with PDF attachment</td><td>Email delivered</td></tr>
   <tr><td>10</td><td>Award gems: <code>floor(total_paise / 10000)</code></td><td>Gems credited (service invoices only)</td></tr>
@@ -1176,7 +1176,7 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
   <span class="str">"data"</span>: { <span class="str">"invoiceId"</span>: <span class="str">"inv_xyz"</span>, <span class="str">"statusCode"</span>: <span class="num">502</span> },
   <span class="str">"error"</span>: {
     <span class="str">"name"</span>: <span class="str">"FetchError"</span>,
-    <span class="str">"message"</span>: <span class="str">"Render API timeout"</span>,
+    <span class="str">"message"</span>: <span class="str">"Cloud Run (rgss-invoicing) timeout"</span>,
     <span class="str">"stack"</span>: <span class="str">"..."</span>
   }
 }

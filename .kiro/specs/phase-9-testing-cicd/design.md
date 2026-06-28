@@ -6,7 +6,7 @@ Phase 9 establishes the automated quality and delivery backbone for Royal Glow: 
 
 This phase is the **explicit exception** to the project's "no test files unless requested" rule: the tests *are* the deliverable. The goal is a working harness plus meaningful, representative coverage of the riskiest pure logic (money/GST/date math, SEO builders, consent and CMS-client guards) and a couple of integration + E2E smoke paths — not 100% coverage, which is a continuous effort that grows with the codebase.
 
-Consistent with every prior phase, everything must run **with no external keys**. The health endpoint degrades gracefully (DB is the only hard dependency locally; Redis/R2 checks are guarded and report `skipped`/`degraded` rather than crashing), the unit tests are pure and need no network, and the whole monorepo continues to `typecheck`, `lint`, and `build` cleanly. The CI workflows reference GitHub Secrets by their canonical names but provisioning those secrets (and the Cloudflare Pages project, Neon API keys, BetterStack monitors) is a deploy-time ops step, not a code deliverable.
+Consistent with every prior phase, everything must run **with no external keys**. The health endpoint degrades gracefully (DB is the only hard dependency locally; Redis/R2 checks are guarded and report `skipped`/`degraded` rather than crashing), the unit tests are pure and need no network, and the whole monorepo continues to `typecheck`, `lint`, and `build` cleanly. The CI workflows reference GitHub Secrets by their canonical names but provisioning those secrets (and the Cloudflare Workers project, Neon API keys, BetterStack monitors) is a deploy-time ops step, not a code deliverable.
 
 ### Goals
 
@@ -19,7 +19,7 @@ Consistent with every prior phase, everything must run **with no external keys**
 
 ### Non-Goals (deferred)
 
-- **Provisioning real infrastructure** — GitHub repo secrets, the Cloudflare Pages project, Neon API keys, and BetterStack monitors are deploy-time ops. The workflows reference the secret names; wiring is later.
+- **Provisioning real infrastructure** — GitHub repo secrets, the Cloudflare Workers project, Neon API keys, and BetterStack monitors are deploy-time ops. The workflows reference the secret names; wiring is later.
 - **100% coverage** — this phase delivers the harness plus representative, meaningful tests. Coverage grows continuously as features change.
 - **Running k6 against a live pprd URL** — the load script and thresholds are delivered; executing it requires the deployed environment and is a CI-time/ops action.
 - **Sentry runtime initialisation** — error monitoring init and source-map upload at runtime belong to Phase 10 (Observability). `deploy-prod.yml` includes the source-map upload step per `deployment.md`, but the `@sentry/nextjs` runtime wiring is Phase 10.
@@ -42,7 +42,7 @@ flowchart TD
     PR_prod --> INT
     PR_prod --> LOAD
     PR_prod --> APPROVE{manual approval}
-    push_prod[push to prod] --> DEPLOY[deploy-prod.yml<br/>build • sourcemaps • CF Pages • migrate]
+    push_prod[push to prod] --> DEPLOY[deploy-prod.yml<br/>build • sourcemaps • CF Workers (OpenNext) • migrate]
     DEPLOY --> POST[post-deploy<br/>health check • smoke • backup verify • notify]
     POST -->|fail| RB[auto-rollback<br/>CF previous deployment]
     CRON[schedule] --> BACKUP[weekly-backup.yml<br/>pg_dump → R2 → verify → heartbeat]
@@ -191,7 +191,7 @@ Five workflow files mirroring `deployment.md` verbatim in structure (Bun via `ov
 - **`ci.yml`** — jobs `lint-typecheck`, `unit-tests` (`bun run test:unit --coverage` + upload), `build` (needs lint-typecheck, uploads `.next`), `dependency-audit` (Trivy fs HIGH/CRITICAL exit-1 + Socket). Triggers: PR to `[dev,test,pprd,prod]` + push to `dev`.
 - **`integration.yml`** — `integration-tests` (seed test DB, `bun run test:integration`, `DATABASE_URL: secrets.DATABASE_URL_TEST`, `APP_ENV: test`), `playwright-e2e` (install chromium, build+start, `wait-on`, `bun run test:e2e`, upload report), `lighthouse-ci` (`bunx @lhci/cli autorun`). Triggers: PR to `[test,pprd,prod]`.
 - **`load-test.yml`** — `k6-load-test` (`grafana/setup-k6-action`, run `tests/load/booking-flow.js`, `K6_TARGET_URL: secrets.PPRD_URL`), `security-scan` (Trivy fs CRITICAL/HIGH exit-1 + `zaproxy/action-baseline` against `secrets.PPRD_URL` with `zap-rules.tsv`). Triggers: PR to `[pprd,prod]`.
-- **`deploy-prod.yml`** — `pre-deploy-checks` (verify check-runs all success via `gh api`), `deploy` (`environment: production`, build, Sentry sourcemaps upload, `cloudflare/wrangler-action` pages deploy, `bun run db:migrate` with `DATABASE_URL_UNPOOLED_PROD`), `post-deploy` (health check retry 3×, smoke curls of `/`, `/?book=1&utm_source=gmb`, `/services`, `/book`, `/api/health`, backup-exists check, BetterStack deploy/incident webhooks, auto-rollback on failure via `wrangler pages deployments rollback`). Trigger: push to `prod`.
+- **`deploy-prod.yml`** — `pre-deploy-checks` (verify check-runs all success via `gh api`), `deploy` (`environment: production`, build via `bunx opennextjs-cloudflare build`, Sentry sourcemaps upload, `cloudflare/wrangler-action` with `command: deploy` (workingDirectory `apps/web`), `bun run db:migrate` with `DATABASE_URL_UNPOOLED_PROD`), `post-deploy` (health check retry 3×, smoke curls of `/`, `/?book=1&utm_source=gmb`, `/services`, `/book`, `/api/health`, backup-exists check, BetterStack deploy/incident webhooks, auto-rollback on failure via `wrangler rollback`). Trigger: push to `prod`.
 - **`weekly-backup.yml`** — cron `0 2 * * 0`: `pg_dump` (`DATABASE_URL_UNPOOLED_PROD`) → gzip → `aws s3 cp` to R2 (`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`/`R2_ACCOUNT_ID` endpoint) → verify (`gunzip -t`) → keep-last-8 cleanup → `BETTER_STACK_HEARTBEAT_BACKUP` ping → incident webhook on failure.
 
 `monthly-backup-test.yml` and `replicate-prod-to-pprd.yml` are delivered per `deployment.md`/`git-workflow.md` and clearly marked as ops-activated (they need Neon + R2 secrets to run).
@@ -286,7 +286,7 @@ The workflow trigger sets satisfy the matrix: `ci.yml` runs for PRs to all of `d
 **Validates: Requirements 4.1, 4.2, 4.3, 4.4**
 
 ### Property 7: Production deploy is gated and self-verifying
-`deploy-prod.yml` runs the build, uploads source maps, deploys to Cloudflare Pages, runs migrations, then performs a retrying health check and critical-path smoke tests, and auto-rolls-back to the previous Cloudflare deployment if the post-deploy health check fails.
+`deploy-prod.yml` runs the build, uploads source maps, deploys to Cloudflare Workers (OpenNext), runs migrations, then performs a retrying health check and critical-path smoke tests, and auto-rolls-back to the previous Cloudflare deployment if the post-deploy health check fails.
 **Validates: Requirements 4.4, 5.1, 5.2**
 
 ### Property 8: Lighthouse and k6 thresholds enforce the budgets

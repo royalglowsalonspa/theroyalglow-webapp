@@ -24,7 +24,7 @@ On the free plan, Google OAuth callback runs through `*.supabase.co` — so Goog
 - OAuth callback runs on **your own server** (`theroyalglow.in/api/auth/callback/google`)
 - Google consent screen shows **"Royal Glow Salon & Spa"** with your domain
 - Built-in **roles & permissions plugin** (RBAC)
-- TypeScript-first, clean architecture for Bun + Next.js 16.2.6 App Router
+- TypeScript-first, clean architecture for Bun + Next.js 16.2.9 App Router
 - All user data (sessions, accounts, verifications) stored in **your own Neon DB** (PostgreSQL, managed by Drizzle ORM)
 - Better Auth Cloud free tier provides dashboard + audit logs
 

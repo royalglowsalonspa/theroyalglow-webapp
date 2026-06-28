@@ -27,11 +27,11 @@ and runs without secrets.
 
 ### T-72h — External service onboarding (ops)
 Provision and store keys (canonical names per `environment-variables.md`) in
-GitHub Secrets + Cloudflare Pages env:
+GitHub Secrets + Cloudflare Workers (OpenNext) env:
 - Google OAuth, Neon (4 branches), Resend + Brevo (domain verified), Ably,
   Upstash (Redis + QStash), Cloudflare R2 (`rgss-invoices`, `rgss-backups`),
   Sentry, BetterStack (10 monitors + heartbeats + status page), PostHog,
-  Clarity, Meta Pixel, Render (PDF API), AiSensy.
+  Clarity, Meta Pixel, Google Cloud Run (PDF API), AiSensy.
 - Start DNS propagation: `theroyalglow.in`, `www`, `admin`, `status`, `docs`.
 
 ### T-48h — Data + monitoring (ops + code)
@@ -53,7 +53,7 @@ GitHub Secrets + Cloudflare Pages env:
 - Final pprd smoke test (sign-in, browse services, test booking → invoice → PDF
   in R2 → no Sentry errors).
 - Merge `pprd → prod` → `deploy-prod.yml` runs: build → Sentry source maps →
-  Cloudflare Pages deploy → DB migrate → health check + smoke → notify.
+  Cloudflare Workers (OpenNext) deploy → DB migrate → health check + smoke → notify.
 - Configure PostHog feature flags (core kill-switches ON; `whatsapp` staged).
 - **Go/No-Go Gate 3.**
 
