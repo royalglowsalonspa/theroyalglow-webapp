@@ -39,7 +39,7 @@ graph TD
     PayloadApp -->|@payloadcms/db-postgres| Neon[(Neon Postgres<br/>Payload-owned tables)]
     PayloadApp -->|S3 storage adapter| R2[(Cloudflare R2<br/>media bucket)]
 
-    Visitor[Site visitor] -->|/blog, /blog/slug, /gallery| Web[apps/web — Next.js 16<br/>Cloudflare Pages + Render origin]
+    Visitor[Site visitor] -->|/blog, /blog/slug, /gallery| Web[apps/web — Next.js 16<br/>Cloudflare Workers (OpenNext) + Render origin]
     Web -->|lib/cms client<br/>REST fetch, ISR ~1h| PayloadREST[Payload REST API<br/>CMS_URL/api/*]
     PayloadREST --> PayloadApp
     Web -->|img src| R2pub[R2 public URL / cdn.theroyalglow.in]

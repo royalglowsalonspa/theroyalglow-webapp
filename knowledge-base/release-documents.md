@@ -793,11 +793,10 @@ curl -X PATCH https://us.i.posthog.com/api/feature_flags/[ID] \
 
 ```bash
 # List recent deployments
-wrangler pages deployments list --project-name=rgss-web
+wrangler deployments list
 
 # Rollback to previous deployment
-wrangler pages deployments rollback --project-name=rgss-web \
-  --deployment-id=[previous-deployment-id]
+wrangler rollback [previous-deployment-id]
 ```
 
 ## Tier 3: Database Migration Revert (if needed)
@@ -813,7 +812,7 @@ bun run db:revert --to=[previous-migration-id]
 # Restore to timestamp BEFORE migration ran
 curl -X POST "https://console.neon.tech/api/v2/projects/$PROJECT_ID/branches" \
   -H "Authorization: Bearer $NEON_API_KEY" \
-  -d '{"branch":{"name":"recovery-[date]","parent_id":"main","parent_timestamp":"[ISO-timestamp]"}}'
+  -d '{"branch":{"name":"recovery-[date]","parent_id":"prod","parent_timestamp":"[ISO-timestamp]"}}'
 
 # Then update DATABASE_URL to point to recovery branch
 ```
@@ -1182,7 +1181,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - Google OAuth authentication
 - Membership plans (Silver, Gold, Platinum)
 - Gems loyalty program
-- Invoice generation (PDF via Render)
+- Invoice generation (PDF via Cloud Run — @rgss/invoicing)
 - Email notifications (Resend — 11 transactional templates)
 - Real-time updates (Ably)
 - Admin dashboard
@@ -1190,7 +1189,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - Offer/promotion engine
 
 ### Infrastructure
-- Cloudflare Pages + Workers deployment
+- Cloudflare Workers (OpenNext) deployment
 - Neon PostgreSQL with Drizzle ORM
 - BetterStack monitoring
 - Sentry error tracking

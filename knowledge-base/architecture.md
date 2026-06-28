@@ -2,11 +2,11 @@
 
 ## Hosting Decision
 
-**Choice: Cloudflare Pages + Workers**
+**Choice: Cloudflare Workers (OpenNext)**
 
 ### Why Cloudflare over Vercel
 - Vercel's billing scales quickly past 20k monthly users (bandwidth + function invocations add up fast)
-- Cloudflare Pages + Workers handles massive scale at a fraction of the cost
+- Cloudflare Workers (OpenNext) handles massive scale at a fraction of the cost
 - Next.js app runs at the **edge globally** — users in Mumbai, London, and New York all get sub-100ms responses
 - Cloudflare's free tier is very generous for a solo developer
 
@@ -133,10 +133,10 @@ status.theroyalglow.in
                         │   + DDoS Protection      │
                         └────────────┬────────────┘
                                      │
-                        ┌────────────▼────────────┐
-                        │  Cloudflare Pages        │
-                        │  (Static assets + CDN)   │
-                        └────────────┬────────────┘
+                     ┌───────────────▼───────────────┐
+                     │ Cloudflare Workers (OpenNext) │
+                     │ (Static assets + CDN)         │
+                     └───────────────┬───────────────┘
                                      │
                     ┌────────────────┼────────────────┐
                     │                                 │
@@ -171,7 +171,7 @@ status.theroyalglow.in
 theroyalglow-webapp/
 │
 ├── apps/
-│   ├── web/                              ← Next.js 16 application (Cloudflare Pages + Workers)
+│   ├── web/                              ← Next.js 16 application (Cloudflare Workers (OpenNext))
 │   │   ├── app/                          ← App Router (file-system based routing)
 │   │   │   ├── layout.tsx               ← Root layout (<html>, <body>, providers, fonts)
 │   │   │   ├── global-error.tsx         ← Global error boundary (catches root layout errors)
@@ -302,7 +302,7 @@ theroyalglow-webapp/
 │   │   ├── tsconfig.json                ← TypeScript config (extends root)
 │   │   └── next-env.d.ts               ← Auto-generated type declarations (do not edit/commit)
 │   │
-│   ├── admin/                           ← Next.js 16 app (Cloudflare Pages — admin.theroyalglow.in)
+│   ├── admin/                           ← Next.js 16 app (Cloudflare Workers (OpenNext) — admin.theroyalglow.in)
 │   │   │                                  Root-Path Convention: no /admin prefix in routes
 │   │   ├── app/
 │   │   │   ├── page.tsx                 ← / → admin.theroyalglow.in/ (dashboard)
@@ -334,6 +334,7 @@ theroyalglow-webapp/
 │   │   ├── next.config.ts
 │   │   └── tsconfig.json
 │   │
+│   ├── invoicing/                       ← @rgss/invoicing — Node.js (Hono) + @react-pdf/renderer (Google Cloud Run, asia-south1)
 │   └── cms/                             ← Payload CMS (deployed on Render — cms.theroyalglow.in)
 │       ├── payload.config.ts
 │       └── collections/
@@ -380,7 +381,7 @@ theroyalglow-webapp/
 │   │
 │   ├── guides/                          ← Step-by-step how-to walkthroughs
 │   │   ├── local-development.mdx        ← Clone, Bun install, Neon dev branch, env vars, dev server
-│   │   ├── deployment.mdx               ← Cloudflare Pages deploy, Render CMS, CI/CD pipeline
+│   │   ├── deployment.mdx               ← Cloudflare Workers (OpenNext) deploy, Render CMS, CI/CD pipeline
 │   │   ├── git-workflow.mdx             ← Branch strategy: feature → dev → test → pprd → prod
 │   │   ├── data-seeding.mdx             ← Seed scripts (services, staff, SPA tiers), PII anonymisation
 │   │   ├── testing.mdx                  ← Vitest unit, Playwright E2E, Lighthouse CI, test gates
@@ -473,6 +474,10 @@ theroyalglow-webapp/
 │   │   ├── notification.ts             ← NotificationType, NotificationChannel
 │   │   └── api.ts                       ← API response shapes, error format
 │   │
+│   ├── errors/                          ← AppError class + error code registry (codes.ts)
+│   ├── logger/                          ← Structured JSON logger
+│   ├── ui/                              ← @rgss/ui — shared React UI components
+│   │
 │   └── email/                           ← React Email templates (Resend)
 │       ├── invoice.tsx                  ← Invoice + PDF attachment
 │       ├── booking-confirmed.tsx        ← Booking confirmation
@@ -504,8 +509,8 @@ theroyalglow-webapp/
 └── .github/
     └── workflows/
         ├── ci.yml                       ← Lint, typecheck, Vitest, Playwright, Lighthouse CI
-        ├── deploy-prod.yml              ← Deploy to Cloudflare Pages (on push to prod)
-        ├── deploy-pprd.yml              ← Deploy to Cloudflare Pages preview (on push to pprd)
+        ├── deploy-prod.yml              ← Deploy to Cloudflare Workers (OpenNext) (on push to prod)
+        ├── deploy-pprd.yml              ← Deploy to Cloudflare Workers (OpenNext) preview (on push to pprd)
         └── replicate-prod-to-pprd.yml   ← Neon branch reset + PII anonymisation (daily cron)
 ```
 

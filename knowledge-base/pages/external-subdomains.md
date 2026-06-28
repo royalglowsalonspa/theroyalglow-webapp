@@ -8,7 +8,7 @@
 
 | Property | Detail |
 |----------|--------|
-| **Platform** | Next.js 16 (App Router) on Cloudflare Pages (`rgss-admin`) |
+| **Platform** | Next.js 16 (App Router) on Cloudflare Workers via OpenNext (`rgss-admin`) |
 | **App** | `apps/admin/` in monorepo |
 | **Purpose** | RBAC-gated admin portal: booking management, CRM, lead pipeline, billing, staff scheduling, reports, memberships, system settings |
 | **Access** | Staff, Receptionist, Manager, Owner, Developer roles |
@@ -51,7 +51,7 @@
 
 | Property | Detail |
 |----------|--------|
-| **Platform** | Fumadocs (Next.js) on Vercel or Cloudflare Pages |
+| **Platform** | Fumadocs (Next.js) on Cloudflare Workers (OpenNext) |
 | **Purpose** | Developer documentation: architecture, API reference (auto-generated from OpenAPI spec via fumadocs-openapi), business logic guides, changelog |
 | **Access** | Public (developer reference) |
 

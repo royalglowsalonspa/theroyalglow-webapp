@@ -672,7 +672,7 @@ export async function enrichSentryContext() {
 ### Source Maps
 
 ```yaml
-# Uploaded during Cloudflare Pages build
+# Uploaded during Cloudflare Workers (OpenNext) build
 # wrangler.toml or build script
 sentry-cli sourcemaps upload \
   --org royal-glow \
@@ -992,16 +992,16 @@ All rate limiting runs in Next.js middleware via **`@upstash/ratelimit`** backed
 
 | Endpoint | Method | Window | Limit | Rationale |
 |----------|--------|--------|-------|-----------|
-| `/api/admin/bookings` | GET | 10s | 30 | Admin lists — higher for dashboard |
-| `/api/admin/bookings` | POST | 1 min | 10 | Receptionist-created bookings from approved leads/walk-ins |
-| `/api/admin/bookings/[id]/complete` | POST | 1 min | 10 | Completing bookings (batch workflows) |
-| `/api/admin/bookings/[id]/approve` | POST | 1 min | 10 | Approving bookings |
-| `/api/admin/invoices/generate` | POST | 1 min | 10 | Invoice generation |
-| `/api/admin/members` | POST | 1 min | 5 | Membership creation |
-| `/api/admin/offers` | POST | 1 min | 5 | Offer creation |
-| `/api/admin/staff` | POST | 1 min | 5 | Staff management |
-| `/api/admin/branches` | POST | 1 min | 3 | Branch management (rare) |
-| `/api/admin/reports/*` | GET | 10s | 10 | Report generation |
+| `admin.theroyalglow.in/api/bookings` | GET | 10s | 30 | Admin lists — higher for dashboard |
+| `admin.theroyalglow.in/api/bookings` | POST | 1 min | 10 | Receptionist-created bookings from approved leads/walk-ins |
+| `admin.theroyalglow.in/api/bookings/[id]/complete` | POST | 1 min | 10 | Completing bookings (batch workflows) |
+| `admin.theroyalglow.in/api/bookings/[id]/approve` | POST | 1 min | 10 | Approving bookings |
+| `admin.theroyalglow.in/api/invoices/generate` | POST | 1 min | 10 | Invoice generation |
+| `admin.theroyalglow.in/api/members` | POST | 1 min | 5 | Membership creation |
+| `admin.theroyalglow.in/api/offers` | POST | 1 min | 5 | Offer creation |
+| `admin.theroyalglow.in/api/staff` | POST | 1 min | 5 | Staff management |
+| `admin.theroyalglow.in/api/branches` | POST | 1 min | 3 | Branch management (rare) |
+| `admin.theroyalglow.in/api/reports/*` | GET | 10s | 10 | Report generation |
 
 #### Webhook Endpoints (Server-to-Server)
 
