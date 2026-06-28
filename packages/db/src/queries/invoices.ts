@@ -33,7 +33,10 @@ import type { InvoiceListQuery } from '@rgss/types'
 import { and, asc, desc, eq, ilike, or, sql } from 'drizzle-orm'
 import { db } from '../index'
 import { user } from '../schema/auth'
+import { booking } from '../schema/booking'
+import { branch } from '../schema/branch'
 import { invoice, invoiceItem } from '../schema/invoice'
+import { customerProfile } from '../schema/profile'
 
 // Paginated, searchable, filterable invoice ledger. Returns rows joined to the
 // customer's identity plus a total count for pagination.
@@ -139,4 +142,117 @@ export async function getInvoiceById(id: string) {
     .orderBy(asc(invoiceItem.displayOrder))
 
   return { ...found, items }
+}
+
+// Everything the invoice-pdf job needs to (a) build the InvoicePdfPayload sent
+// to the render service and (b) compose the invoice email. One header read
+// joined to the customer identity + phone, the seller branch, and the booking
+// number; plus the line items (newest displayOrder first → asc). Returns null
+// when the invoice does not exist (the job then no-ops without a retry loop).
+//
+// NOTE: the branch table has no GSTIN / SAC columns, so the job sources the SAC
+// from a project-wide constant and leaves GSTIN undefined (optional in the
+// render contract). The seller address is composed from the branch columns.
+export async function getInvoiceForPdf(invoiceId: string) {
+  const rows = await db
+    .select({
+      // Invoice header
+      id: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      paymentMethod: invoice.paymentMethod,
+      createdAt: invoice.createdAt,
+      subtotalPaise: invoice.subtotalPaise,
+      discountAmountPaise: invoice.discountAmountPaise,
+      taxableValuePaise: invoice.taxableValuePaise,
+      gstAmountPaise: invoice.gstAmountPaise,
+      totalAmountPaise: invoice.totalAmountPaise,
+      gemsEarned: invoice.gemsEarned,
+      gemsRedeemed: invoice.gemsRedeemed,
+      gemsRedeemedServiceId: invoice.gemsRedeemedServiceId,
+      notes: invoice.notes,
+      bookingId: invoice.bookingId,
+      // Customer identity
+      customerName: user.name,
+      customerEmail: user.email,
+      customerPhone: customerProfile.phone,
+      // Seller (branch)
+      branchName: branch.name,
+      branchAddressLine1: branch.addressLine1,
+      branchAddressLine2: branch.addressLine2,
+      branchCity: branch.city,
+      branchState: branch.state,
+      branchPincode: branch.pincode,
+      branchPhone: branch.phone,
+      branchEmail: branch.email,
+      // Booking number (invoice may have no booking — membership purchase)
+      bookingNumber: booking.bookingNumber,
+    })
+    .from(invoice)
+    .innerJoin(user, eq(invoice.customerId, user.id))
+    .innerJoin(branch, eq(invoice.branchId, branch.id))
+    .leftJoin(customerProfile, eq(customerProfile.userId, invoice.customerId))
+    .leftJoin(booking, eq(invoice.bookingId, booking.id))
+    .where(eq(invoice.id, invoiceId))
+    .limit(1)
+
+  const found = rows[0]
+  if (!found) {
+    return null
+  }
+
+  const items = await db
+    .select({
+      serviceId: invoiceItem.serviceId,
+      serviceNameSnapshot: invoiceItem.serviceNameSnapshot,
+      staffNameSnapshot: invoiceItem.staffNameSnapshot,
+      quantity: invoiceItem.quantity,
+      unitPricePaise: invoiceItem.unitPricePaise,
+      totalPricePaise: invoiceItem.totalPricePaise,
+      displayOrder: invoiceItem.displayOrder,
+    })
+    .from(invoiceItem)
+    .where(eq(invoiceItem.invoiceId, invoiceId))
+    .orderBy(asc(invoiceItem.displayOrder))
+
+  return {
+    invoice: {
+      id: found.id,
+      invoiceNumber: found.invoiceNumber,
+      paymentMethod: found.paymentMethod,
+      createdAt: found.createdAt,
+      subtotalPaise: found.subtotalPaise,
+      discountAmountPaise: found.discountAmountPaise,
+      taxableValuePaise: found.taxableValuePaise,
+      gstAmountPaise: found.gstAmountPaise,
+      totalAmountPaise: found.totalAmountPaise,
+      gemsEarned: found.gemsEarned,
+      gemsRedeemed: found.gemsRedeemed,
+      gemsRedeemedServiceId: found.gemsRedeemedServiceId,
+      notes: found.notes,
+      bookingId: found.bookingId,
+    },
+    items,
+    branch: {
+      name: found.branchName,
+      addressLine1: found.branchAddressLine1,
+      addressLine2: found.branchAddressLine2,
+      city: found.branchCity,
+      state: found.branchState,
+      pincode: found.branchPincode,
+      phone: found.branchPhone,
+      email: found.branchEmail,
+    },
+    customer: {
+      name: found.customerName,
+      email: found.customerEmail,
+      phone: found.customerPhone,
+    },
+    bookingNumber: found.bookingNumber,
+  }
+}
+
+// Persist the rendered PDF's stored URL onto the invoice row. The pdf_url column
+// already exists; this is a single-row update keyed by invoice id.
+export async function setInvoicePdfUrl(invoiceId: string, pdfUrl: string) {
+  await db.update(invoice).set({ pdfUrl }).where(eq(invoice.id, invoiceId))
 }
