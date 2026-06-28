@@ -31,6 +31,7 @@
  ************************************************************/
 import { Analytics } from '@/components/analytics/Analytics'
 import { CookieConsent } from '@/components/consent/CookieConsent'
+import { InstallPrompt } from '@/components/pwa/InstallPrompt'
 import { ServiceWorkerRegistrar } from '@/components/pwa/ServiceWorkerRegistrar'
 import { SITE_URL } from '@/lib/seo/business'
 import type { Metadata } from 'next'
@@ -73,6 +74,7 @@ export default function RootLayout({
         <Analytics />
         <CookieConsent />
         <ServiceWorkerRegistrar />
+        <InstallPrompt />
       </body>
     </html>
   )

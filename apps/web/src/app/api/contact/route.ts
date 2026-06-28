@@ -33,8 +33,8 @@
  * Notes        :
  * - sendEmail no-ops without RESEND_API_KEY and never throws, so a missing key
  *   (or a Resend outage) can never break this endpoint's success response.
- * - The destination inbox is a constant placeholder until a dedicated env var
- *   is provisioned — see SALON_INBOX_EMAIL TODO below.
+ * - The destination inbox is the optional CONTACT_INBOX_EMAIL server var when
+ *   provisioned, falling back to the public address shown on the /contact page.
  ************************************************************/
 
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
@@ -50,11 +50,15 @@ const logger = createLogger({
   environment: process.env.NODE_ENV ?? 'development',
 })
 
-// TODO: replace with a dedicated env var (e.g. CONTACT_INBOX_EMAIL) once the
-// salon's routing inbox is provisioned and added to apps/web/src/env.ts. Until
-// then enquiries route to this constant address, which matches the public
-// address shown on the /contact page.
-const SALON_INBOX_EMAIL = 'hello@theroyalglow.in'
+// Public fallback address shown on the /contact page. Used when the optional
+// CONTACT_INBOX_EMAIL server var is not provisioned.
+const DEFAULT_SALON_INBOX_EMAIL = 'hello@theroyalglow.in'
+
+// Resolve the salon's routing inbox: the optional CONTACT_INBOX_EMAIL env var
+// (validated as an email in apps/web/src/env.ts) when present, else the public
+// fallback. Read from process.env directly to keep this a graceful optional —
+// the var is optional so it must never make the route depend on its presence.
+const SALON_INBOX_EMAIL = process.env.CONTACT_INBOX_EMAIL ?? DEFAULT_SALON_INBOX_EMAIL
 
 // Escape the five HTML-significant characters so a submitter's name / message /
 // email can never break the email markup or inject content. (Same approach as

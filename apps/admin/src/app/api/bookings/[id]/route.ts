@@ -97,12 +97,14 @@ export const PATCH = withErrorHandler(
       await publishBookingEvent({
         bookingId: id,
         branchId: existing.branchId,
+        customerId: existing.customerId,
         event: 'status_changed',
         data: { status: 'confirmed' },
       })
       await publishBookingEvent({
         bookingId: id,
         branchId: existing.branchId,
+        customerId: existing.customerId,
         event: 'assigned',
         data: { staffId: action.staffId },
       })
@@ -129,6 +131,7 @@ export const PATCH = withErrorHandler(
       await publishBookingEvent({
         bookingId: id,
         branchId: existing.branchId,
+        customerId: existing.customerId,
         event: 'status_changed',
         data: { status: 'rejected' },
       })
@@ -145,6 +148,7 @@ export const PATCH = withErrorHandler(
     await publishBookingEvent({
       bookingId: id,
       branchId: existing.branchId,
+      customerId: existing.customerId,
       event: 'assigned',
       data: { staffId: action.staffId },
     })

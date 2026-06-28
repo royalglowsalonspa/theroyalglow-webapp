@@ -35,6 +35,7 @@
 
 'use client'
 
+import { useBookingStatus } from '@/components/realtime/RealtimeProvider'
 import { checkReschedulable, formatINR } from '@rgss/business'
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 
@@ -177,7 +178,13 @@ function buildTimeline(booking: Booking): TimelineEntry[] {
   return entries
 }
 
-export function BookingDetail({ id }: { id: string }) {
+export function BookingDetail({
+  id,
+  viewerUserId,
+}: {
+  id: string
+  viewerUserId?: string | null
+}) {
   const [booking, setBooking] = useState<Booking | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -216,6 +223,17 @@ export function BookingDetail({ id }: { id: string }) {
   useEffect(() => {
     load()
   }, [load])
+
+  // Live updates: the server publishes booking events to the viewer's own
+  // `customer:{userId}:bookings` channel (the channel the customer token
+  // authorises), each stamped with `data.bookingId`. The hook subscribes to
+  // that channel, filters to THIS booking, and re-fetches the authoritative
+  // detail so the status badge + timeline update in place. No-ops when realtime
+  // is unavailable or the viewer id is absent — the page already loads via fetch
+  // and the user can still refresh manually.
+  useBookingStatus(viewerUserId, id, () => {
+    load()
+  })
 
   const handleCancel = useCallback(async () => {
     setCancelling(true)

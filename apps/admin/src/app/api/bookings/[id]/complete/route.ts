@@ -314,6 +314,7 @@ export const POST = withErrorHandler(
     await publishBookingEvent({
       bookingId: id,
       branchId: existing.branchId,
+      customerId: existing.customerId,
       event: 'completed',
       data: { status: 'completed' },
     })

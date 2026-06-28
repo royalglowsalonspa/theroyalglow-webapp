@@ -112,6 +112,7 @@ export const POST = withErrorHandler(
     await publishBookingEvent({
       bookingId: updated.id,
       branchId: existing.branchId,
+      customerId: session.user.id,
       event: 'status_changed',
       data: { status: updated.status },
     })

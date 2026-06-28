@@ -94,6 +94,17 @@ export async function createAblyTokenRequest(params: {
       return null
     }
 
+    // Capability scoping (see ably-channels.md):
+    // - `customer:{userId}:bookings` is where customer booking live-status flows.
+    //   The server publishes booking events there (publish.ts), each stamped
+    //   with `data.bookingId` so a per-booking view filters to the right one.
+    //   This wildcard grant (`customer:{userId}:*`) authorises exactly that and
+    //   nothing else — a customer can never read another customer's channel.
+    // - `booking:{id}` is the per-booking channel (admin + assigned staff feed);
+    //   it is deliberately NOT granted here (no `booking:*`) so a customer token
+    //   cannot read arbitrary bookings.
+    // - `admin:*` (admins only) covers the admin feeds incl.
+    //   `admin:bookings:{branchId}`.
     const capability: Capability = {
       [`customer:${params.userId}:*`]: ['subscribe'],
     }

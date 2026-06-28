@@ -192,6 +192,7 @@ export const POST = withErrorHandler(async (req: Request) => {
   await publishBookingEvent({
     bookingId: created.id,
     branchId,
+    customerId,
     event: 'created',
     data: { status: created.status },
   })

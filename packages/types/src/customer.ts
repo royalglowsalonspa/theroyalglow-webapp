@@ -64,3 +64,18 @@ export const addCustomerNoteSchema = z.object({
   bookingId: z.string().optional(),
 })
 export type AddCustomerNoteInput = z.infer<typeof addCustomerNoteSchema>
+
+// Customer-facing notification preference toggles, mapped to boolean columns on
+// customer_profile. Every flag is optional so the client can PATCH a partial
+// update (only the toggles that changed). `marketingConsent` additionally drives
+// the marketing_consent_at timestamp in the query layer.
+export const updateNotificationPreferencesSchema = z
+  .object({
+    appointmentRemindersEnabled: z.boolean().optional(),
+    membershipAlertsEnabled: z.boolean().optional(),
+    marketingConsent: z.boolean().optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one preference must be supplied.',
+  })
+export type UpdateNotificationPreferencesInput = z.infer<typeof updateNotificationPreferencesSchema>

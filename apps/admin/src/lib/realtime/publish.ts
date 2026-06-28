@@ -8,12 +8,18 @@
  *
  * Description  : Best-effort server-side Ably publisher for booking-status
  *                realtime events from the admin portal. Publishes the same event
- *                to a booking's own channel and the per-branch admin dashboard
- *                feed so customer and admin UIs update live (see ably-channels.md).
+ *                to a booking's own channel, the per-branch admin dashboard
+ *                feed, and (when the owning customer is known) the customer's own
+ *                bookings channel so customer and admin UIs update live
+ *                (see ably-channels.md).
  *
  * Responsibilities :
- * - Publish a booking event to `booking:{bookingId}` and the per-branch admin
- *   feed (`admin:bookings:{branchId}`) via the Ably REST HTTP API
+ * - Publish a booking event to `booking:{bookingId}`, the per-branch admin
+ *   feed (`admin:bookings:{branchId}`), and (when customerId is given) the
+ *   customer's own channel (`customer:{customerId}:bookings`) via the Ably REST
+ *   HTTP API
+ * - Stamp `bookingId` into the event payload so per-customer subscribers can
+ *   filter the shared customer channel down to the booking they are viewing
  * - Never throw / never block the originating request (best-effort)
  * - No-op gracefully when realtime is not configured
  *
@@ -40,7 +46,7 @@
  *   when realtime is not yet provisioned. Absent key → silent no-op.
  ************************************************************/
 
-import { adminBookingsChannel } from '@/lib/realtime/channels'
+import { adminBookingsChannel, customerBookingsChannel } from '@/lib/realtime/channels'
 import { createLogger } from '@rgss/logger'
 
 const logger = createLogger({
@@ -53,11 +59,17 @@ const logger = createLogger({
 export type BookingEvent = 'created' | 'status_changed' | 'completed' | 'assigned'
 
 type PublishBookingEventInput = {
-  // The booking this event is about. When present, publishes to `booking:{id}`.
+  // The booking this event is about. When present, publishes to `booking:{id}`
+  // and is stamped into the event payload as `data.bookingId` so subscribers on
+  // the shared customer channel can filter to the right booking.
   bookingId?: string | null
   // The branch the booking belongs to. When present, publishes to the admin
   // dashboard feed `admin:bookings:{branchId}`.
   branchId?: string | null
+  // The owning customer's user id. When present, ALSO publishes to that
+  // customer's own channel `customer:{customerId}:bookings` — the only booking
+  // channel a customer token authorises (token grants `customer:{userId}:*`).
+  customerId?: string | null
   // Short event verb, e.g. 'created' | 'status_changed' | 'completed' | 'assigned'.
   event: BookingEvent
   // Minimal JSON-serialisable payload (e.g. { status }). Kept small on purpose —
@@ -118,8 +130,9 @@ async function publishToChannel(
   }
 }
 
-// Best-effort: publish a booking event to BOTH the booking's own channel and the
-// per-branch admin feed. Awaiting this is safe — it resolves quietly whether or
+// Best-effort: publish a booking event to the booking's own channel, the
+// per-branch admin feed, and (when the owning customer is known) the customer's
+// own bookings channel. Awaiting this is safe — it resolves quietly whether or
 // not the publish succeeded and NEVER throws, so callers can await it inline at
 // a status-transition point without a failure ever changing the API response.
 //
@@ -132,7 +145,11 @@ export async function publishBookingEvent(input: PublishBookingEventInput): Prom
     return
   }
 
-  const data = input.data ?? {}
+  // Stamp bookingId into the payload so subscribers on the shared per-customer
+  // channel can filter to the booking they are viewing (data.bookingId === id).
+  const data: Record<string, unknown> = input.bookingId
+    ? { ...input.data, bookingId: input.bookingId }
+    : { ...input.data }
 
   const channels: string[] = []
   if (input.bookingId) {
@@ -142,11 +159,15 @@ export async function publishBookingEvent(input: PublishBookingEventInput): Prom
     // Reuse the single source of truth for admin channel naming (channels.ts).
     channels.push(adminBookingsChannel(input.branchId))
   }
+  if (input.customerId) {
+    // The owning customer's own channel — the channel their token authorises.
+    channels.push(customerBookingsChannel(input.customerId))
+  }
   if (channels.length === 0) {
     return
   }
 
-  // Publish to both channels concurrently. Promise.allSettled can never reject,
+  // Publish to all channels concurrently. Promise.allSettled can never reject,
   // reinforcing the never-throw contract even though publishToChannel already
   // swallows its own errors.
   await Promise.allSettled(

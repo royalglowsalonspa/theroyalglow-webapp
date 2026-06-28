@@ -252,6 +252,69 @@ export async function updateCustomerProfile(userId: string, patch: UpdateCustome
   return updated ?? null
 }
 
+// Read the caller's notification preference flags from their customer_profile.
+// Returns null when the user has no profile yet (e.g. onboarding incomplete);
+// the caller is responsible for choosing sensible defaults in that case.
+export async function getNotificationPreferences(userId: string) {
+  const rows = await db
+    .select({
+      appointmentRemindersEnabled: customerProfile.appointmentRemindersEnabled,
+      membershipAlertsEnabled: customerProfile.membershipAlertsEnabled,
+      marketingConsent: customerProfile.marketingConsent,
+    })
+    .from(customerProfile)
+    .where(eq(customerProfile.userId, userId))
+    .limit(1)
+
+  return rows[0] ?? null
+}
+
+// Update only the supplied notification preference flags on the caller's own
+// customer_profile (scoped by userId). Toggling `marketingConsent` also stamps
+// (or clears) `marketingConsentAt` to keep the consent audit trail consistent
+// with the onboarding flow. Returns the updated row, or null when the user has
+// no customer_profile.
+type UpdateNotificationPreferencesPatch = {
+  appointmentRemindersEnabled?: boolean | undefined
+  membershipAlertsEnabled?: boolean | undefined
+  marketingConsent?: boolean | undefined
+}
+
+export async function updateNotificationPreferences(
+  userId: string,
+  prefs: UpdateNotificationPreferencesPatch,
+) {
+  const values: Partial<typeof customerProfile.$inferInsert> = {}
+  if (prefs.appointmentRemindersEnabled !== undefined) {
+    values.appointmentRemindersEnabled = prefs.appointmentRemindersEnabled
+  }
+  if (prefs.membershipAlertsEnabled !== undefined) {
+    values.membershipAlertsEnabled = prefs.membershipAlertsEnabled
+  }
+  if (prefs.marketingConsent !== undefined) {
+    values.marketingConsent = prefs.marketingConsent
+    values.marketingConsentAt = prefs.marketingConsent ? new Date() : null
+  }
+
+  // Nothing to change → return the current row unchanged.
+  if (Object.keys(values).length === 0) {
+    const current = await db
+      .select()
+      .from(customerProfile)
+      .where(eq(customerProfile.userId, userId))
+      .limit(1)
+    return current[0] ?? null
+  }
+
+  const [updated] = await db
+    .update(customerProfile)
+    .set(values)
+    .where(eq(customerProfile.userId, userId))
+    .returning()
+
+  return updated ?? null
+}
+
 // A customer's bookings, newest first, paginated.
 export async function getCustomerBookings(userId: string, limit: number, offset: number) {
   return db

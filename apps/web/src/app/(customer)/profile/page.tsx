@@ -11,27 +11,33 @@
  *
  * Responsibilities :
  * - Fetch authenticated session and display user identity card
- * - Show notification preference toggles (UI-only, not yet persisted)
+ * - Read persisted notification preferences and pass them to the client form
  * - Mount the SignOutButton client component
  *
  * Features / Functionality :
  * - Avatar from Google OAuth or initial-letter fallback
  * - Read-only email display with "read-only" badge
- * - Notification preferences with disabled toggles (coming soon)
+ * - Functional notification preference toggles (NotificationPreferencesForm)
  *
  * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, Better Auth
  * Layer        : Presentation
  *
- * Dependencies : auth, next (Metadata, headers, redirect), SignOutButton
+ * Dependencies : auth, @rgss/db/queries, next (Metadata, headers, redirect),
+ *                NotificationPreferencesForm, SignOutButton
  *
  * Notes        :
  * - Protected route; redirects to / (homepage) if no session
  ************************************************************/
 
 import { auth } from '@/lib/auth-server'
+import { getNotificationPreferences } from '@rgss/db/queries'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import {
+  type NotificationPreferences,
+  NotificationPreferencesForm,
+} from './NotificationPreferencesForm'
 import { SignOutButton } from './sign-out-button'
 
 export const metadata: Metadata = {
@@ -61,6 +67,15 @@ export default async function ProfilePage() {
   const { user } = session
   const memberSince = formatMemberSince((user as { createdAt?: Date | string }).createdAt)
   const initial = user.name?.trim().charAt(0).toUpperCase() || 'G'
+
+  // Read the persisted preference flags. Falls back to the schema defaults when
+  // the profile is missing (e.g. onboarding not yet completed).
+  const savedPrefs = await getNotificationPreferences(user.id)
+  const initialPrefs: NotificationPreferences = {
+    appointmentRemindersEnabled: savedPrefs?.appointmentRemindersEnabled ?? true,
+    membershipAlertsEnabled: savedPrefs?.membershipAlertsEnabled ?? true,
+    marketingConsent: savedPrefs?.marketingConsent ?? false,
+  }
 
   return (
     <div className="mx-auto max-w-[800px] px-5 py-10 lg:py-14">
@@ -120,7 +135,7 @@ export default async function ProfilePage() {
         </dl>
       </section>
 
-      {/* Notification preferences (UI only) */}
+      {/* Notification preferences */}
       <section className="rounded-[6px] border border-cloud-gray bg-canvas-white p-6 mb-6">
         <h2 className="font-display text-[20px] text-cocoa-dark tracking-tight mb-1">
           Notification Preferences
@@ -129,47 +144,7 @@ export default async function ProfilePage() {
           Choose how you would like to hear from us.
         </p>
 
-        <ul className="space-y-4">
-          {[
-            {
-              id: 'pref-booking',
-              label: 'Booking updates',
-              desc: 'Confirmations, reminders and status changes.',
-              checked: true,
-            },
-            {
-              id: 'pref-offers',
-              label: 'Offers & promotions',
-              desc: 'Seasonal deals and members-only offers.',
-              checked: false,
-            },
-            {
-              id: 'pref-birthday',
-              label: 'Birthday treats',
-              desc: 'A little something on your special day.',
-              checked: true,
-            },
-          ].map((pref) => (
-            <li key={pref.id} className="flex items-start justify-between gap-4">
-              <label htmlFor={pref.id} className="flex-1 cursor-pointer">
-                <span className="block font-sans text-[15px] text-cocoa-dark">{pref.label}</span>
-                <span className="block font-sans text-[13px] text-dusty-gray">{pref.desc}</span>
-              </label>
-              <input
-                id={pref.id}
-                type="checkbox"
-                defaultChecked={pref.checked}
-                disabled
-                className="mt-1 w-4 h-4 accent-deep-gold"
-                aria-label={pref.label}
-              />
-            </li>
-          ))}
-        </ul>
-
-        <p className="mt-5 font-sans text-[12px] text-dusty-gray">
-          Preference management is coming soon.
-        </p>
+        <NotificationPreferencesForm initial={initialPrefs} />
       </section>
 
       {/* Sign out */}
