@@ -45,6 +45,10 @@ export const env = createEnv({
     GOOGLE_OAUTH_CLIENT_ID: z.string().min(1),
     GOOGLE_OAUTH_CLIENT_SECRET: z.string().min(1),
     RESEND_API_KEY: z.string().startsWith('re_'),
+    // OPTIONAL: destination inbox for /contact enquiries. When unset the
+    // contact route falls back to the public address shown on the page, so the
+    // build never requires it (mirrors the other optional server vars).
+    CONTACT_INBOX_EMAIL: z.string().email().optional(),
     ABLY_PRIVATE_KEY: z.string().min(1),
     UPSTASH_REDIS_REST_URL: z.string().url(),
     UPSTASH_REDIS_REST_TOKEN: z.string().min(1),
@@ -91,6 +95,7 @@ export const env = createEnv({
     GOOGLE_OAUTH_CLIENT_ID: process.env.GOOGLE_OAUTH_CLIENT_ID,
     GOOGLE_OAUTH_CLIENT_SECRET: process.env.GOOGLE_OAUTH_CLIENT_SECRET,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
+    CONTACT_INBOX_EMAIL: process.env.CONTACT_INBOX_EMAIL,
     ABLY_PRIVATE_KEY: process.env.ABLY_PRIVATE_KEY,
     UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,

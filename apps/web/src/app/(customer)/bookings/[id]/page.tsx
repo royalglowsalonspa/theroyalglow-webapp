@@ -27,6 +27,8 @@
  * Notes        : params is a Promise in Next.js 16 — await before use.
  ************************************************************/
 
+import { RealtimeProvider } from '@/components/realtime/RealtimeProvider'
+import { getOptionalSession } from '@/lib/api/session'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { BookingDetail } from './booking-detail'
@@ -44,6 +46,14 @@ type PageProps = {
 export default async function BookingDetailPage({ params }: PageProps) {
   const { id } = await params
 
+  // The viewer's own user id authorises their `customer:{userId}:bookings`
+  // realtime channel. Read it server-side (optional — the page renders for the
+  // session owner regardless) and pass it to the client so the realtime hook can
+  // subscribe to the token-authorised customer channel. Null → realtime no-ops
+  // and the client's normal fetch still drives status.
+  const session = await getOptionalSession()
+  const viewerUserId = session?.user.id ?? null
+
   return (
     <div className="mx-auto max-w-[800px] px-5 py-10 lg:py-14">
       <Link
@@ -53,7 +63,12 @@ export default async function BookingDetailPage({ params }: PageProps) {
         ← Back to My Bookings
       </Link>
 
-      <BookingDetail id={id} />
+      {/* Scope the Ably connection to this booking view only — no global
+          connection. The provider degrades gracefully (children render and the
+          page fetches status normally) when realtime is unavailable. */}
+      <RealtimeProvider>
+        <BookingDetail id={id} viewerUserId={viewerUserId} />
+      </RealtimeProvider>
     </div>
   )
 }

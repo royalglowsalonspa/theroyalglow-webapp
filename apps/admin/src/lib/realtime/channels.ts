@@ -21,6 +21,7 @@
  * Features / Functionality :
  * - adminBookingsChannel(branchId) — `admin:bookings:{branchId}`
  * - adminScheduleChannel(date)     — `admin:schedule:{YYYY-MM-DD}`
+ * - customerBookingsChannel(userId) — `customer:{userId}:bookings`
  * - ADMIN_LEAVE_CHANNEL            — `admin:leave`
  *
  * Tech Stack   : TypeScript
@@ -41,6 +42,16 @@ export const ADMIN_LEAVE_CHANNEL = 'admin:leave' as const
 // Per-branch bookings channel. Matches the token capability `admin:bookings:*`.
 export function adminBookingsChannel(branchId: string): string {
   return `admin:bookings:${branchId}`
+}
+
+// Per-customer bookings channel — the channel a customer token authorises (the
+// customer token grants `customer:{userId}:*`). Admin booking publishers ALSO
+// fan booking events out here so the owning customer's view receives live
+// status over a channel its token permits. Each event carries `data.bookingId`
+// so a per-booking subscriber can filter to the booking it is showing. NOT an
+// admin-subscribed channel — admins use adminBookingsChannel + `booking:*`.
+export function customerBookingsChannel(userId: string): string {
+  return `customer:${userId}:bookings`
 }
 
 // Per-date schedule channel keyed by an ISO `YYYY-MM-DD` date. Matches the
