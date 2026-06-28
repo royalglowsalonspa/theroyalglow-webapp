@@ -330,8 +330,8 @@
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                           EDGE LAYER (Cloudflare)                                 │
 │    ┌──────────────┐    ┌──────────────────┐    ┌────────────────────────┐        │
-│    │ Cloudflare   │    │ Cloudflare Pages │    │ Cloudflare Workers     │        │
-│    │ DNS + DDoS   │───▶│ (Static CDN)     │───▶│ (Edge SSR + API)       │        │
+│    │ Cloudflare   │    │ CF Workers       │    │ Cloudflare Workers     │        │
+│    │ DNS + DDoS   │───▶│ (OpenNext)       │───▶│ (Edge SSR + API)       │        │
 │    │ + WAF        │    │                  │    │ 50ms CPU wall time     │        │
 │    └──────────────┘    └──────────────────┘    └──────────┬─────────────┘        │
 │    ┌──────────────────┐                                    │                      │
@@ -377,7 +377,7 @@
   <tr><td>Database</td><td>Neon PostgreSQL 16</td><td>Supabase, PlanetScale, Turso, Xata</td><td>Branching (4 environments free), serverless; all scheduled jobs via QStash HTTP routes</td></tr>
   <tr><td>ORM</td><td>Drizzle ORM</td><td>Prisma (binary can't run on CF Workers)</td><td>Pure TypeScript, zero binary, runs on V8 isolate</td></tr>
   <tr><td>Auth</td><td>Better Auth</td><td>Clerk, Auth.js, Supabase Auth</td><td>Self-hosted, YOUR domain on Google consent, built-in RBAC</td></tr>
-  <tr><td>Hosting (Edge)</td><td>Cloudflare Pages + Workers</td><td>Vercel, Netlify</td><td>Generous free tier, global edge, no bandwidth surprises</td></tr>
+  <tr><td>Hosting (Edge)</td><td>Cloudflare Workers (OpenNext)</td><td>Vercel, Netlify</td><td>Generous free tier, global edge, no bandwidth surprises</td></tr>
   <tr><td>Hosting (Origin)</td><td>Render (Singapore)</td><td>Railway, Fly.io</td><td>Free tier, closest region to India</td></tr>
   <tr><td>Realtime</td><td>Ably</td><td>Pusher, Socket.io, Supabase Realtime</td><td>6M msg/mo free, 200 concurrent, edge SDK, Token Auth</td></tr>
   <tr><td>CMS</td><td>Payload CMS v3</td><td>Sanity, Strapi, Contentful</td><td>Self-hosted Next.js plugin, zero vendor lock-in</td></tr>
@@ -789,7 +789,7 @@ Developer    → Everything + /admin/integrations, /admin/logs</code></pre>
 <h2>Appendix A: Infrastructure Cost Summary</h2>
 <table>
   <tr><th>Service</th><th>Free Tier</th><th>First Paid Plan</th></tr>
-  <tr><td>Cloudflare Pages + Workers</td><td>100K req/day</td><td>Pro $20/mo</td></tr>
+  <tr><td>Cloudflare Workers (OpenNext)</td><td>100K req/day</td><td>Pro $20/mo</td></tr>
   <tr><td>Neon DB</td><td>0.5 GB, 3 GB transfer</td><td>Launch $19/mo</td></tr>
   <tr><td>Upstash Redis + QStash</td><td>10K req/day, 500 msg/day</td><td>Pro $10/mo</td></tr>
   <tr><td>Cloudflare R2</td><td>10 GB, 10M ops</td><td>Pay-as-you-go</td></tr>

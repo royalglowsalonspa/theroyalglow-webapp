@@ -6,7 +6,7 @@ Phase 9 builds the automated quality and delivery backbone for Royal Glow Salon 
 
 This phase is the explicit exception to the project's "no test files unless requested" rule: the tests are the deliverable. The goal is a working harness plus meaningful, representative coverage of the riskiest pure logic (money/GST/date math, SEO builders, consent and CMS-client guards) and a few integration + E2E smoke paths — not 100% coverage, which grows continuously.
 
-Everything must run with no external keys: the health endpoint degrades gracefully (DB is the only hard dependency locally; Redis and R2 checks are guarded and report `skip`), the unit tests are pure and offline, and the whole monorepo continues to typecheck, lint, and build. CI workflows reference GitHub Secrets by their canonical names, but provisioning those secrets (and the Cloudflare Pages project, Neon API keys, BetterStack monitors) is a deploy-time ops step.
+Everything must run with no external keys: the health endpoint degrades gracefully (DB is the only hard dependency locally; Redis and R2 checks are guarded and report `skip`), the unit tests are pure and offline, and the whole monorepo continues to typecheck, lint, and build. CI workflows reference GitHub Secrets by their canonical names, but provisioning those secrets (and the Cloudflare Workers project, Neon API keys, BetterStack monitors) is a deploy-time ops step.
 
 Out of scope (deferred): provisioning real infrastructure and secrets; 100% coverage; running k6 against a live pprd URL; Sentry runtime initialisation (Phase 10); visual regression, TestSprite, and mutation testing; activation of the backup-restore and prod→pprd replication crons (the files are delivered but ops-activated).
 
@@ -66,9 +66,9 @@ Out of scope (deferred): provisioning real infrastructure and secrets; 100% cove
 
 #### Acceptance Criteria
 
-1. WHEN the production deploy runs, THE deploy workflow SHALL build the app, upload source maps, deploy to Cloudflare Pages, and run database migrations against the production unpooled connection.
+1. WHEN the production deploy runs, THE deploy workflow SHALL build the app, upload source maps, deploy to Cloudflare Workers (OpenNext), and run database migrations against the production unpooled connection.
 2. WHEN the deploy completes, THE post-deploy job SHALL perform a retrying health check and smoke-test the critical paths (`/`, `/?book=1&utm_source=gmb`, `/services`, `/book`, `/api/health`).
-3. IF the post-deploy health check fails, THEN THE deploy workflow SHALL roll back to the previous Cloudflare Pages deployment, AND SHALL notify the incident webhook.
+3. IF the post-deploy health check fails, THEN THE deploy workflow SHALL roll back to the previous Cloudflare Workers deployment, AND SHALL notify the incident webhook.
 
 ### Requirement 5: Backup & Recovery
 

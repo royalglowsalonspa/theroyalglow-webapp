@@ -42,7 +42,7 @@ Receptionist marks booking "Completed" (checkout panel)
 │                                                                           │
 └──────────────────────────────────────────────────────────────────────────┘
     │
-    │  API: POST /api/admin/bookings/[id]/complete
+    │  API: POST /api/bookings/[id]/complete
     ▼
 ┌──────────────────────────────────────────────────────────────────────────┐
 │  SERVER PIPELINE (single transaction):                                    │
@@ -369,7 +369,7 @@ BKRS2605H38291, Rayasandra, 13
 ## 8. Email Delivery Flow
 
 ```
-Invoice created (POST /api/admin/bookings/[id]/complete)
+Invoice created (POST /api/bookings/[id]/complete)
     │
     ▼
 ┌──────────────────────────────────────────────────────────────────┐

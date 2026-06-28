@@ -110,7 +110,7 @@ details .details-content { padding: 1rem; border: 1px solid var(--grey-200); bor
   <div class="card">
     <h3>📋 Quick Summary</h3>
     <div class="summary-grid">
-      <div class="summary-item"><div class="label">Route</div><div class="value">/admin/schedule</div></div>
+      <div class="summary-item"><div class="label">Route</div><div class="value">/schedule</div></div>
       <div class="summary-item"><div class="label">Min Role</div><div class="value">Receptionist</div></div>
       <div class="summary-item"><div class="label">Views</div><div class="value">Daily + Weekly grid</div></div>
       <div class="summary-item"><div class="label">Slot Duration</div><div class="value">30-min increments</div></div>
@@ -362,13 +362,13 @@ details .details-content { padding: 1rem; border: 1px solid var(--grey-200); bor
     <h3>🔌 API Endpoints</h3>
     <table class="data-table">
       <tr><th>Method</th><th>Endpoint</th><th>Purpose</th><th>Role</th></tr>
-      <tr><td>GET</td><td>/api/admin/schedule?date=&view=</td><td>Schedule grid data</td><td>Receptionist</td></tr>
-      <tr><td>GET</td><td>/api/admin/leave</td><td>List leave requests</td><td>Receptionist</td></tr>
+      <tr><td>GET</td><td>/api/schedule?date=&view=</td><td>Schedule grid data</td><td>Receptionist</td></tr>
+      <tr><td>GET</td><td>/api/leave</td><td>List leave requests</td><td>Receptionist</td></tr>
       <tr><td>POST</td><td>/api/staff/leave</td><td>Submit leave request</td><td>Staff</td></tr>
-      <tr><td>PATCH</td><td>/api/admin/leave/[id]/approve</td><td>Approve leave</td><td>Receptionist</td></tr>
-      <tr><td>PATCH</td><td>/api/admin/leave/[id]/reject</td><td>Reject leave (reason req)</td><td>Receptionist</td></tr>
+      <tr><td>PATCH</td><td>/api/leave/[id]/approve</td><td>Approve leave</td><td>Receptionist</td></tr>
+      <tr><td>PATCH</td><td>/api/leave/[id]/reject</td><td>Reject leave (reason req)</td><td>Receptionist</td></tr>
       <tr><td>PATCH</td><td>/api/staff/leave/[id]/withdraw</td><td>Withdraw own request</td><td>Staff</td></tr>
-      <tr><td>POST</td><td>/api/admin/schedule/mark-off</td><td>Same-day mark-off + reassign</td><td>Receptionist</td></tr>
+      <tr><td>POST</td><td>/api/schedule/mark-off</td><td>Same-day mark-off + reassign</td><td>Receptionist</td></tr>
     </table>
   </div>
 
@@ -388,7 +388,7 @@ details .details-content { padding: 1rem; border: 1px solid var(--grey-200); bor
   <details>
     <summary>Ably Channel: admin:schedule</summary>
     <div class="details-content">
-      <p style="margin-bottom:0.5rem;">All admin users viewing /admin/schedule subscribe to this channel.</p>
+      <p style="margin-bottom:0.5rem;">All admin users viewing /schedule subscribe to this channel.</p>
       <code style="font-size:0.8rem; display:block; background:var(--grey-100); padding:0.75rem; border-radius:6px; line-height:1.8;">
         {<br>
         &nbsp;&nbsp;"event": "slot.booked",<br>

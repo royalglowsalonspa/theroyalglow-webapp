@@ -38,7 +38,7 @@ difference is called out so the spec stays executable.
   lives on its own subdomain, `admin.theroyalglow.in` is **free** and available
   for the new admin app. The admin DNS cutover (Req 6) is therefore **no longer
   blocked** by any external/CMS-move spec — it can proceed directly once the
-  admin app passes health and smoke checks on `rgss-admin.pages.dev`. The one
+  admin app passes health and smoke checks on `rgss-admin.workers.dev`. The one
   remaining correction owned by this spec is the web `next.config.ts` image
   `remotePatterns` host, which still points at `admin.theroyalglow.in` and must
   be changed to `cms.theroyalglow.in` so the customer site loads CMS/Payload
@@ -79,7 +79,7 @@ graph TD
   U["User browser"] -->|"DNS"| CF["Cloudflare (proxied)"]
 
   CF -->|"theroyalglow.in"| WEB["apps/web — rgss-web<br/>customer site"]
-  CF -->|"admin.theroyalglow.in<br/>CNAME -> rgss-admin.pages.dev"| ADM["apps/admin — rgss-admin<br/>admin portal"]
+  CF -->|"admin.theroyalglow.in<br/>CNAME -> rgss-admin.workers.dev"| ADM["apps/admin — rgss-admin<br/>admin portal"]
   CF -->|"cms.theroyalglow.in"| CMS["apps/cms — Payload CMS"]
   CF -->|"docs.theroyalglow.in"| DOCS["docs/ — Fumadocs"]
 
@@ -92,7 +92,7 @@ graph TD
   WEB -.->|"301 /admin/* -> admin.theroyalglow.in/*"| ADM
 ```
 
-The admin app is a sibling Cloudflare Pages project (`rgss-admin`). It shares the
+The admin app is a sibling Cloudflare Workers (OpenNext) worker (`rgss-admin`). It shares the
 session cookie scope `.theroyalglow.in` with the customer site so a user signed
 in on `theroyalglow.in` is recognised on `admin.theroyalglow.in` without
 re-authenticating. The admin app never renders its own sign-in; unauthenticated
@@ -204,7 +204,7 @@ apps/admin/
   }
   // dependencies: @rgss/{business,db,errors,logger,types} workspace:*,
   // better-auth, @better-auth/infra, @t3-oss/env-nextjs, @sentry/nextjs,
-  // @upstash/ratelimit, @upstash/redis, next 16.2.6, react 19, tailwindcss v4,
+  // @upstash/ratelimit, @upstash/redis, next 16.2.9, react 19, tailwindcss v4,
   // shadcn deps. Dev: vitest, @playwright/test, testing-library, faker, msw.
 }
 ```
@@ -418,16 +418,16 @@ CSP nonce:
 
 ### 8. DNS & deployment
 
-- Cloudflare Pages project `rgss-admin`; proxied CNAME
-  `admin.theroyalglow.in → rgss-admin.pages.dev` (Req 6.1, 6.2). The subdomain is
+- Cloudflare Workers (OpenNext) worker `rgss-admin`; proxied CNAME
+  `admin.theroyalglow.in → rgss-admin.workers.dev` (Req 6.1, 6.2). The subdomain is
   free for the admin app — CMS already lives at `cms.theroyalglow.in` on Render
   (unchanged by this spec) — so the DNS cutover has **no external blocker** (C1
-  resolved). The admin app is validated on its `rgss-admin.pages.dev` URL during
+  resolved). The admin app is validated on its `rgss-admin.workers.dev` URL during
   phases 1–4, then cut over to `admin.theroyalglow.in` directly.
 - New workflow `.github/workflows/deploy-admin-prod.yml` triggers on pushes to
   `prod` touching `apps/admin/**` or `packages/**`; builds with
-  `turbo run build --filter=@rgss/admin`, uploads source maps to a **separate
-  admin Sentry project**, deploys `apps/admin/.next` to `rgss-admin`, then runs a
+  `bunx opennextjs-cloudflare build` (workingDirectory `apps/admin`), uploads source maps to a **separate
+  admin Sentry project**, deploys via `cloudflare/wrangler-action` (`command: deploy`) to the `rgss-admin` worker, then runs a
   health check against `https://admin.theroyalglow.in/api/health` (200 within
   30s, up to 3 attempts, 10s apart; fail → failure notification) (Req 6.3–6.6).
 
