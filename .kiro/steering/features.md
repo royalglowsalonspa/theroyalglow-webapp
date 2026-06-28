@@ -105,7 +105,7 @@ Meta ad → theroyalglow.in/book → 3-field form (name, phone, service)
 - **Types:** percentage, flat, combo_price
 - **Rules:** 1 offer/customer/day, applied at checkout by receptionist, cannot combine with gems
 - **Salon only** (not SPA memberships)
-- Auto-expire via pg_cron Job 3
+- Auto-expire via QStash scheduled job (`offer-auto-expire`, was pg_cron Job 3)
 
 ---
 
@@ -123,9 +123,16 @@ Walk-in no-shows do NOT count toward the tier.
 
 ## Background Jobs (19 Total)
 
-**pg_cron (7):** Nightly sales summary, membership expire, offer expire, session cleanup, pprd sync, monthly GST, gems expire
+> **Architecture decision (pg_cron → QStash):** the 6 jobs originally planned as
+> pg_cron now run as QStash scheduled HTTP jobs. The free-tier prod Neon compute
+> scales to zero after ~5 min idle and pg_cron only fires while the compute is
+> awake, so the late-night windows would silently never run. QStash POSTs an
+> endpoint that wakes the compute, so they run reliably at ₹0. See
+> #[[file:background-jobs.md]].
 
-**QStash Scheduled (8):** Appointment reminders (15min), membership expiry alerts, birthday emails, membership usage nudges, lead follow-ups, daily sales report, weekly report, gems expiry reminder
+**GitHub Actions cron (1):** pprd DB sync (reset `pprd` from `prod` + strip PII)
+
+**QStash Scheduled (14):** Appointment reminders (15min), membership expiry alerts, birthday emails, membership usage nudges, lead follow-ups, daily sales report, weekly report, gems expiry reminder, nightly sales summary, membership auto-expire, offer auto-expire, gems auto-expire, session cleanup, monthly GST summary
 
 **QStash Triggered (4):** Post-service follow-up (+24h), stale pending alert (+2h), no-show check (+15min), membership expired notice (+1h)
 

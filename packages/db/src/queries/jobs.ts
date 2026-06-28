@@ -764,3 +764,291 @@ export async function getReceptionistUserIds(): Promise<string[]> {
 
   return rows.map((r) => r.id)
 }
+
+// ============================================================================
+// 3. pg_cron → QStash VERBATIM SQL ports (Phase 6 migration)
+// ----------------------------------------------------------------------------
+// WHY THESE EXIST
+//   The 6 functions below were MIGRATED OUT of pg_cron
+//   (migrations/0001_pg_cron_jobs.sql). pg_cron only runs while the Neon
+//   compute is awake, but the free-tier prod compute scales to zero after
+//   ~5 min idle, so the late-night pg_cron windows would silently never fire.
+//   QStash instead POSTs an HTTP endpoint that WAKES the compute, so each job
+//   runs reliably at the same UTC time at ₹0. Each route below calls exactly
+//   one of these query functions.
+//
+// WHY RAW SQL (db.execute(sql`...`)) RATHER THAN THE TYPED MIRRORS ABOVE
+//   The pg_cron function BODIES are the canonical, reviewed, idempotent source
+//   of truth. To guarantee the QStash port behaves byte-for-byte like the
+//   pg_cron job it replaces, each body is ported VERBATIM here — the SQL is the
+//   same statement pg_cron executed (CTE + ON CONFLICT upserts, status-guarded
+//   UPDATEs, the gems `expired:<id>` marker). The typed Drizzle mirrors in
+//   section 1 remain for on-demand/admin use; these raw ports are what the
+//   scheduled routes invoke.
+//
+// IDEMPOTENCY / AT-LEAST-ONCE SAFETY
+//   QStash delivers at-least-once and retries on any non-2xx, so a job body may
+//   run more than once over the same data. Every body below is idempotent:
+//     - nightly sales / monthly GST  → INSERT ... ON CONFLICT DO UPDATE (re-run
+//       recomputes the same row),
+//     - membership / offer auto-expire → status-guarded UPDATE (re-run matches
+//       zero rows),
+//     - session cleanup → DELETE of already-gone rows is a no-op,
+//     - gems auto-expire → the `expired:<txId>` marker + NOT EXISTS guard makes
+//       a re-run offset nothing twice and conserve balance.
+//
+// All cron windows are UTC (Postgres/Neon runs UTC); calendar-day boundaries
+// are converted to 'Asia/Kolkata' inside the SQL exactly as pg_cron did.
+// ============================================================================
+
+// Job 1 — Nightly Sales Summary (route: /api/jobs/nightly-sales-summary,
+// heartbeat SALES_SUMMARY, 0 18 * * * UTC = 11:30 PM IST). Aggregates the
+// PREVIOUS IST day's PAID invoices + that day's bookings into one
+// daily_sales_summary row per branch. Idempotent via the (date, branch_id)
+// unique constraint → ON CONFLICT DO UPDATE. Ported verbatim from
+// job_nightly_sales_summary() in migrations/0001_pg_cron_jobs.sql.
+export async function jobNightlySalesSummary(): Promise<void> {
+  await db.execute(sql`
+    WITH target AS (
+      SELECT (((NOW() AT TIME ZONE 'Asia/Kolkata')::date) - INTERVAL '1 day')::date AS ist_date
+    ),
+    inv AS (
+      SELECT
+        i.branch_id,
+        SUM(i.total_amount_paise)::int AS total_revenue_paise,
+        SUM(CASE WHEN i.invoice_type = 'service' AND b.service_type = 'salon'
+                 THEN i.total_amount_paise ELSE 0 END)::int AS salon_revenue_paise,
+        SUM(CASE WHEN i.invoice_type = 'service' AND b.service_type = 'spa'
+                 THEN i.total_amount_paise ELSE 0 END)::int AS spa_revenue_paise,
+        SUM(CASE WHEN i.invoice_type = 'membership_purchase'
+                 THEN i.total_amount_paise ELSE 0 END)::int AS membership_revenue_paise,
+        SUM(CASE WHEN i.payment_method = 'cash'   THEN i.total_amount_paise ELSE 0 END)::int AS cash_revenue_paise,
+        SUM(CASE WHEN i.payment_method = 'upi'    THEN i.total_amount_paise ELSE 0 END)::int AS upi_revenue_paise,
+        SUM(CASE WHEN i.payment_method = 'card'   THEN i.total_amount_paise ELSE 0 END)::int AS card_revenue_paise,
+        SUM(CASE WHEN i.payment_method = 'online' THEN i.total_amount_paise ELSE 0 END)::int AS online_revenue_paise,
+        SUM(i.discount_amount_paise)::int AS discount_given_paise,
+        SUM(i.gems_redeemed)::int AS gems_redeemed_count
+      FROM invoice i
+      LEFT JOIN booking b ON i.booking_id = b.id
+      CROSS JOIN target t
+      WHERE i.payment_status = 'paid'
+        AND (i.created_at AT TIME ZONE 'Asia/Kolkata')::date = t.ist_date
+      GROUP BY i.branch_id
+    ),
+    bk AS (
+      SELECT
+        b.branch_id,
+        COUNT(*)::int AS total_bookings,
+        COUNT(*) FILTER (WHERE b.status = 'completed')::int AS completed_bookings,
+        COUNT(*) FILTER (WHERE b.status = 'cancelled')::int AS cancelled_bookings,
+        COUNT(*) FILTER (WHERE b.status = 'no_show')::int   AS no_show_bookings,
+        COUNT(*) FILTER (WHERE b.is_walkin = true)::int     AS walkin_bookings
+      FROM booking b
+      CROSS JOIN target t
+      WHERE b.booking_date = t.ist_date
+      GROUP BY b.branch_id
+    ),
+    first_booking AS (
+      SELECT b.customer_id, b.branch_id, b.booking_date,
+             ROW_NUMBER() OVER (PARTITION BY b.customer_id ORDER BY b.created_at ASC) AS rn
+      FROM booking b
+    ),
+    newc AS (
+      SELECT fb.branch_id, COUNT(*)::int AS new_customers
+      FROM first_booking fb
+      CROSS JOIN target t
+      WHERE fb.rn = 1 AND fb.booking_date = t.ist_date
+      GROUP BY fb.branch_id
+    ),
+    branches AS (
+      SELECT branch_id FROM inv
+      UNION
+      SELECT branch_id FROM bk
+    )
+    INSERT INTO daily_sales_summary (
+      id, date, branch_id,
+      total_bookings, completed_bookings, cancelled_bookings, no_show_bookings, walkin_bookings,
+      total_revenue_paise, salon_revenue_paise, spa_revenue_paise, membership_revenue_paise,
+      cash_revenue_paise, upi_revenue_paise, card_revenue_paise, online_revenue_paise,
+      discount_given_paise, gems_redeemed_count, new_customers
+    )
+    SELECT
+      md5(t.ist_date::text || ':' || br.branch_id),
+      t.ist_date,
+      br.branch_id,
+      COALESCE(bk.total_bookings, 0),
+      COALESCE(bk.completed_bookings, 0),
+      COALESCE(bk.cancelled_bookings, 0),
+      COALESCE(bk.no_show_bookings, 0),
+      COALESCE(bk.walkin_bookings, 0),
+      COALESCE(inv.total_revenue_paise, 0),
+      COALESCE(inv.salon_revenue_paise, 0),
+      COALESCE(inv.spa_revenue_paise, 0),
+      COALESCE(inv.membership_revenue_paise, 0),
+      COALESCE(inv.cash_revenue_paise, 0),
+      COALESCE(inv.upi_revenue_paise, 0),
+      COALESCE(inv.card_revenue_paise, 0),
+      COALESCE(inv.online_revenue_paise, 0),
+      COALESCE(inv.discount_given_paise, 0),
+      COALESCE(inv.gems_redeemed_count, 0),
+      COALESCE(newc.new_customers, 0)
+    FROM branches br
+    CROSS JOIN target t
+    LEFT JOIN inv  ON inv.branch_id  = br.branch_id
+    LEFT JOIN bk   ON bk.branch_id   = br.branch_id
+    LEFT JOIN newc ON newc.branch_id = br.branch_id
+    ON CONFLICT (date, branch_id) DO UPDATE SET
+      total_bookings           = EXCLUDED.total_bookings,
+      completed_bookings       = EXCLUDED.completed_bookings,
+      cancelled_bookings       = EXCLUDED.cancelled_bookings,
+      no_show_bookings         = EXCLUDED.no_show_bookings,
+      walkin_bookings          = EXCLUDED.walkin_bookings,
+      total_revenue_paise      = EXCLUDED.total_revenue_paise,
+      salon_revenue_paise      = EXCLUDED.salon_revenue_paise,
+      spa_revenue_paise        = EXCLUDED.spa_revenue_paise,
+      membership_revenue_paise = EXCLUDED.membership_revenue_paise,
+      cash_revenue_paise       = EXCLUDED.cash_revenue_paise,
+      upi_revenue_paise        = EXCLUDED.upi_revenue_paise,
+      card_revenue_paise       = EXCLUDED.card_revenue_paise,
+      online_revenue_paise     = EXCLUDED.online_revenue_paise,
+      discount_given_paise     = EXCLUDED.discount_given_paise,
+      gems_redeemed_count      = EXCLUDED.gems_redeemed_count,
+      new_customers            = EXCLUDED.new_customers
+  `)
+}
+
+// Job 2 — Membership Auto-Expire (route: /api/jobs/membership-auto-expire,
+// heartbeat MEMBERSHIP_EXPIRE, 30 18 * * * UTC = 12:00 AM IST). Flips active
+// memberships past their expiry to 'expired'. Status-guarded → idempotent (a
+// re-run matches zero rows). Ported verbatim from job_membership_auto_expire().
+export async function jobMembershipAutoExpire(): Promise<void> {
+  await db.execute(sql`
+    UPDATE spa_membership
+    SET status = 'expired', updated_at = NOW()
+    WHERE status = 'active'
+      AND expires_at < NOW()
+  `)
+}
+
+// Job 3 — Offer Auto-Expire (route: /api/jobs/offer-auto-expire, heartbeat
+// OFFER_EXPIRE, 35 18 * * * UTC = 12:05 AM IST). Deactivates offers whose
+// end_date (a DATE) has passed the current IST calendar date. Status-guarded →
+// idempotent. Ported verbatim from job_offer_auto_expire().
+export async function jobOfferAutoExpire(): Promise<void> {
+  await db.execute(sql`
+    UPDATE offer
+    SET is_active = false, updated_at = NOW()
+    WHERE is_active = true
+      AND end_date < (NOW() AT TIME ZONE 'Asia/Kolkata')::date
+  `)
+}
+
+// Job 4 — Session Cleanup (route: /api/jobs/session-cleanup, heartbeat
+// SESSION_CLEANUP, 0 21 * * 0 UTC = 2:30 AM IST Sunday). Deletes expired Better
+// Auth session rows. Idempotent: a re-run deletes zero rows. Ported verbatim
+// from job_session_cleanup().
+export async function jobSessionCleanup(): Promise<void> {
+  await db.execute(sql`
+    DELETE FROM session
+    WHERE expires_at < NOW()
+  `)
+}
+
+// Job 6 — Monthly GST Summary (route: /api/jobs/monthly-gst-summary, heartbeat
+// MONTHLY_GST, 30 19 1 * * UTC = 1:00 AM IST on the 1st). Aggregates the
+// PREVIOUS IST month's paid service + membership_purchase invoices into
+// monthly_gst_summary (month stored as TEXT 'YYYY-MM'). Idempotent via
+// ON CONFLICT (month) DO UPDATE. Ported verbatim from job_monthly_gst_summary().
+export async function jobMonthlyGstSummary(): Promise<void> {
+  await db.execute(sql`
+    WITH target AS (
+      SELECT
+        to_char(
+          (date_trunc('month', (NOW() AT TIME ZONE 'Asia/Kolkata')) - INTERVAL '1 month'),
+          'YYYY-MM'
+        ) AS month_key
+    ),
+    agg AS (
+      SELECT
+        t.month_key,
+        COALESCE(SUM(i.taxable_value_paise), 0)::int AS taxable_value_paise,
+        COALESCE(SUM(i.gst_amount_paise), 0)::int    AS gst_amount_paise,
+        COUNT(*)::int                                AS invoice_count
+      FROM invoice i
+      CROSS JOIN target t
+      WHERE i.payment_status = 'paid'
+        AND i.invoice_type IN ('service', 'membership_purchase')
+        AND to_char((i.created_at AT TIME ZONE 'Asia/Kolkata'), 'YYYY-MM') = t.month_key
+      GROUP BY t.month_key
+    )
+    INSERT INTO monthly_gst_summary (id, month, taxable_value_paise, gst_amount_paise, invoice_count, sac_code)
+    SELECT
+      md5(month_key),
+      month_key,
+      taxable_value_paise,
+      gst_amount_paise,
+      invoice_count,
+      '999721'
+    FROM agg
+    ON CONFLICT (month) DO UPDATE SET
+      taxable_value_paise = EXCLUDED.taxable_value_paise,
+      gst_amount_paise    = EXCLUDED.gst_amount_paise,
+      invoice_count       = EXCLUDED.invoice_count,
+      sac_code            = EXCLUDED.sac_code
+  `)
+}
+
+// Job 7 — Gems Auto-Expire (route: /api/jobs/gems-auto-expire, heartbeat
+// GEMS_EXPIRE, 40 18 * * * UTC = 12:10 AM IST). For each EARNED
+// loyalty_transaction whose gems have expired and which has NOT already been
+// offset, insert one offsetting 'expired' transaction (gems_amount = -original)
+// marked `expired:<txId>` and decrement the owning loyalty_account.gems_balance
+// by the same amount.
+//
+// PL/pgSQL → CTE PORT: the original job_gems_auto_expire() was PL/pgSQL with a
+// per-row FOR loop. This is ported as a SINGLE data-modifying CTE statement that
+// achieves the IDENTICAL effect (the migration explicitly allows this):
+//   1. `expired_tx` selects the same candidate rows, including the same
+//      `expired:<id>` NOT EXISTS idempotency guard — so already-offset
+//      transactions are skipped and a re-run offsets nothing twice.
+//   2. `ins` inserts one offset row per candidate with the SAME id
+//      (md5('expired:' || id)), type 'expired', gems_amount = -original, and the
+//      `expired:<id>` description marker.
+//   3. the final UPDATE decrements each account's balance by the SUM of its
+//      candidates' original gems — equal to applying each loop iteration's
+//      single-row decrement, but folded per account.
+// All CTEs see the same snapshot of `expired_tx`, so the inserted offsets and
+// the balance decrements always correspond. This touches money/balances, so the
+// idempotency marker is preserved exactly. (Mirrors expireGems() in section 1.)
+export async function jobGemsAutoExpire(): Promise<void> {
+  await db.execute(sql`
+    WITH expired_tx AS (
+      SELECT lt.id, lt.loyalty_account_id, lt.gems_amount
+      FROM loyalty_transaction lt
+      WHERE lt.type = 'earned'
+        AND lt.gems_amount > 0
+        AND lt.expires_at IS NOT NULL
+        AND lt.expires_at < NOW()
+        AND NOT EXISTS (
+          SELECT 1 FROM loyalty_transaction lt2
+          WHERE lt2.type = 'expired'
+            AND lt2.description = 'expired:' || lt.id
+        )
+    ),
+    ins AS (
+      INSERT INTO loyalty_transaction (id, loyalty_account_id, type, gems_amount, description, created_at)
+      SELECT md5('expired:' || e.id), e.loyalty_account_id, 'expired', -e.gems_amount, 'expired:' || e.id, NOW()
+      FROM expired_tx e
+      RETURNING 1
+    ),
+    bal AS (
+      SELECT e.loyalty_account_id, SUM(e.gems_amount) AS total
+      FROM expired_tx e
+      GROUP BY e.loyalty_account_id
+    )
+    UPDATE loyalty_account la
+    SET gems_balance = la.gems_balance - bal.total, updated_at = NOW()
+    FROM bal
+    WHERE la.id = bal.loyalty_account_id
+  `)
+}

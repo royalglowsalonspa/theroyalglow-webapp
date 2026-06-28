@@ -1,18 +1,29 @@
 ---
 title: Background Jobs
-description: The 19 scheduled and event-driven jobs that keep Royal Glow running — 7 pg_cron, 8 QStash scheduled, 4 QStash triggered.
+description: The 19 scheduled and event-driven jobs that keep Royal Glow running — 14 QStash scheduled, 4 QStash triggered, 1 GitHub Actions cron.
 ---
 
 # Background Jobs
 
-Royal Glow runs **19 background jobs** across two complementary tools. The split
-rule is simple: **if a job only touches the database it runs on pg_cron; if it
-needs an HTTP call** (email, push, Slack, Ably) it runs on QStash.
+Royal Glow runs **19 background jobs**. **All scheduled and event-driven jobs run
+on QStash** (HTTP → Next.js API routes) — including the pure-SQL maintenance jobs,
+which execute their idempotent SQL via `@rgss/db` query functions. The single
+exception is the `pprd` branch reset (Job 5), which is a Neon control-plane op and
+runs on GitHub Actions cron.
+
+<Callout type="warn">
+  **pg_cron is not used.** The 6 DB-maintenance jobs were originally planned on
+  pg_cron, but the free-tier prod Neon compute scales to zero after ~5 min idle
+  and pg_cron only fires while the compute is awake — the late-night windows
+  (11:30 PM–2:30 AM IST) would silently never run. QStash POSTs an endpoint that
+  *wakes* the compute, so the jobs run reliably at ₹0. The job SQL was ported
+  verbatim into `packages/db/src/queries/jobs.ts`.
+</Callout>
 
 | Tool | Runs inside | Use for |
 | --- | --- | --- |
-| **pg_cron** | Neon PostgreSQL (`prod` branch) | Pure SQL — scans, aggregations, status updates |
-| **QStash** | Upstash HTTP queue → Next.js API routes | Anything needing external services |
+| **QStash** | Upstash HTTP queue → Next.js API routes | ALL scheduled + triggered jobs (DB maintenance + external services) |
+| **GitHub Actions cron** | GitHub CI | Control-plane only — Neon `pprd` branch reset + PII strip (Job 5) |
 
 <Callout type="info">
   Every QStash job calls a `POST /api/jobs/...` route and is auto-retried (3x,
@@ -29,11 +40,12 @@ Three time-critical actions deliberately run **in-request**, not as jobs:
 - **Gems-earned push** — fired in the same request as invoice completion.
 - **Re-engagement email** — handled inside Brevo automations (marketing), not counted here.
 
-## pg_cron jobs (7)
+## Scheduled DB-maintenance jobs (7)
 
-Pure-SQL maintenance that runs closest to the data, in the early IST hours when
-traffic is zero. Job 5 runs via GitHub Actions cron (branch reset) plus SQL
-anonymisation, the rest are native pg_cron.
+These run in the early IST hours when traffic is zero. **Jobs 1–4, 6 and 7 run on
+QStash** (each POSTs its `/api/jobs/...` route, which runs the idempotent SQL via
+a `@rgss/db` query function) — *not* pg_cron (see the callout above). Job 5 runs
+via GitHub Actions cron (Neon branch reset) plus SQL anonymisation.
 
 | # | Job | Schedule (UTC) | IST | Purpose |
 | --- | --- | --- | --- | --- |
@@ -45,9 +57,10 @@ anonymisation, the rest are native pg_cron.
 | 5 | pprd DB sync | `30 19 * * *` | 1:00 AM | GitHub Actions resets `pprd` from `prod`, then strips PII |
 | 4 | Session cleanup | `0 21 * * 0` | 2:30 AM Sun | Delete expired Better Auth `session` rows |
 
-## QStash scheduled jobs (8)
+## QStash scheduled jobs — application (8)
 
-HTTP-triggered application jobs on a fixed cadence.
+HTTP-triggered application jobs on a fixed cadence (the 6 DB-maintenance jobs
+above are also QStash-scheduled, for 14 QStash-scheduled jobs in total).
 
 | # | Job | Cadence | Endpoint | External calls |
 | --- | --- | --- | --- | --- |
@@ -86,7 +99,7 @@ occurs, not on a fixed schedule.
 
 ## Inventory at a glance
 
-**19 jobs total — 7 pg_cron + 8 QStash scheduled + 4 QStash triggered.**
+**19 jobs total — 14 QStash scheduled + 4 QStash triggered + 1 GitHub Actions cron (Job 5).**
 
 ## Related pages
 

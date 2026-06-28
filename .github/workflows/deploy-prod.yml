@@ -82,27 +82,15 @@ jobs:
           DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_PROD }}
           DATABASE_URL: ${{ secrets.DATABASE_URL_UNPOOLED_PROD }}
 
-      # ----------------------------------------------------------------------
-      # Tier 0 #0.2 — apply the hand-written pg_cron migration.
-      # `0001_pg_cron_jobs.sql` is intentionally NOT in the drizzle journal
-      # (drizzle-kit must never regenerate over it), so `bun run migrate` does
-      # NOT apply it. Apply it explicitly here over the unpooled connection.
-      # It is fully idempotent (CREATE OR REPLACE FUNCTION + cron.schedule()
-      # upserts by job name), so re-running on every deploy is safe.
-      #
-      # ONE-TIME MANUAL PREREQUISITE (Neon, elevated privilege, per project):
-      #     CREATE EXTENSION IF NOT EXISTS pg_cron;
-      # pg_cron is enabled per-project on Neon; without the extension the
-      # `SELECT cron.schedule(...)` statements fail and this step (correctly)
-      # blocks the deploy until the extension is enabled.
-      # ----------------------------------------------------------------------
-      - name: Install PostgreSQL client (for pg_cron apply)
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
-      - name: Apply pg_cron jobs + schedules (idempotent)
-        working-directory: packages/db
-        run: psql "$DATABASE_URL_UNPOOLED" -v ON_ERROR_STOP=1 -f migrations/0001_pg_cron_jobs.sql
-        env:
-          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_PROD }}
+      # NOTE: there is no pg_cron apply step. The 6 jobs that were originally
+      # planned as pg_cron (nightly sales summary, membership/offer/gems
+      # auto-expire, session cleanup, monthly GST summary) now run as QStash
+      # scheduled HTTP jobs (registered by the post-deploy "Register QStash
+      # schedules" step) instead. Reason: the free-tier prod compute scales to
+      # zero after ~5 min idle, and pg_cron only fires while the compute is
+      # awake — the late-night windows would silently never run. QStash POSTs an
+      # endpoint that WAKES the compute, so the jobs run reliably at ₹0. See
+      # background-jobs.md (Architecture Decision: pg_cron → QStash).
 
   # --------------------------------------------------------------------------
   # Build the OpenNext Worker bundle and deploy it to Cloudflare Workers.

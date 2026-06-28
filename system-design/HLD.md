@@ -251,7 +251,7 @@ The architecture uses **strict layer separation** within a monorepo to achieve t
 
 | Neon Branch | Environment | Purpose | Reset Policy |
 |-------------|-------------|---------|--------------|
-| `prod` | Production | Live customer data, pg_cron runs here | Never reset |
+| `prod` | Production | Live customer data, QStash jobs target here | Never reset |
 | `pprd` | Pre-production | UAT with anonymised prod data | Auto-reset daily from `prod` + PII stripped |
 | `test` | QA / CI | Seeded fixtures for automated tests | Wiped and reseeded every CI run |
 | `dev` | Development | Developer sandbox | Scales to zero when idle |
@@ -671,18 +671,25 @@ No page reload. No user action. ~50ms from admin click to customer UI change.
 
 ### 8.1 Dual-Engine Design
 
+> **Decision update (pg_cron → QStash):** pg_cron is no longer used. All
+> scheduled jobs run on QStash; only the `pprd` branch reset (Job 5) runs on
+> GitHub Actions cron. The free-tier prod Neon compute scales to zero after
+> ~5 min idle and pg_cron only fires while the compute is awake, so the
+> late-night windows would silently never run. QStash wakes the compute via an
+> HTTP POST, so the jobs run reliably at ₹0. See `background-jobs.md`.
+
 | Engine | Location | Use For | Free Tier |
 |--------|----------|---------|-----------|
-| **pg_cron** | Inside Neon DB (PostgreSQL extension) | Pure SQL operations — aggregations, status updates, cleanup | Unlimited |
-| **QStash** | Upstash HTTP queue | Anything requiring external HTTP calls — email, push, Slack, webhooks | 500 messages/day |
+| **QStash** | Upstash HTTP queue → Next.js `/api/jobs/*` | ALL scheduled + triggered jobs (DB maintenance via `@rgss/db` query fns + external HTTP: email, push, Slack) | 500 messages/day |
+| **GitHub Actions cron** | GitHub CI | Control-plane only — Neon `pprd` branch reset + PII strip (Job 5) | 2,000 min/mo |
 
-**Split Rule:**
-- Job only touches the database → **pg_cron** (runs closest to data, zero latency)
-- Job needs external services (Resend, web-push, Slack, Ably) → **QStash** (HTTP-triggered)
+**Routing Rule:** every scheduled/triggered job is a QStash message POSTing a
+`/api/jobs/...` route — including the pure-SQL maintenance jobs. Only Job 5
+(Neon branch reset, a control-plane op) lives in GitHub Actions.
 
 ### 8.2 Job Categories
 
-**Nightly Maintenance (pg_cron — 7 jobs):**
+**Nightly Maintenance (QStash scheduled — 6 jobs; + Job 5 on GitHub Actions):**
 
 | # | Job | Schedule (UTC) | IST Equivalent |
 |---|-----|---------------|----------------|
