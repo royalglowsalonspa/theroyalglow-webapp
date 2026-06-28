@@ -161,8 +161,11 @@ function buildCsp(nonce: string, isDev: boolean): string {
     .filter(Boolean)
     .join(' ')
 
-  // frame-src: only the consent/sign-in surfaces that legitimately iframe.
-  const frameSrc = "frame-src 'self' https://accounts.google.com https://www.facebook.com"
+  // frame-src: consent/sign-in surfaces that legitimately iframe, plus the
+  // Google Maps embed on the contact page (served from www.google.com /
+  // maps.google.com).
+  const frameSrc =
+    "frame-src 'self' https://accounts.google.com https://www.facebook.com https://www.google.com https://maps.google.com"
 
   // font-src: next/font self-hosts; data: covers inline fonts; gstatic for GSI.
   const fontSrc = "font-src 'self' data: https://fonts.gstatic.com"
