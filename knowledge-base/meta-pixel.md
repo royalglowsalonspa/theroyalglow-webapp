@@ -580,7 +580,7 @@ export async function POST(req: NextRequest) {
 The `Purchase` event fires from the admin API when the receptionist marks payment received. Since the receptionist is logged in on the admin app, there's no browser Pixel here — CAPI only.
 
 ```ts
-// apps/web/app/api/admin/bookings/[id]/complete/route.ts
+// apps/admin/app/api/bookings/[id]/complete/route.ts
 import { capiPurchase } from '@/lib/meta-capi'
 import { extractMetaSignals } from '@/lib/meta-signals'
 import { randomUUID } from 'crypto'
@@ -845,7 +845,7 @@ Meta Events Manager → Overview → check:
 | Signal extractor | `apps/web/lib/meta-signals.ts` |
 | Consent manager | `apps/web/lib/consent.ts` |
 | Lead API (Lead CAPI) | `apps/web/app/api/leads/route.ts` |
-| Invoice API (Purchase CAPI) | `apps/web/app/api/admin/bookings/[id]/complete/route.ts` |
+| Invoice API (Purchase CAPI) | `apps/admin/app/api/bookings/[id]/complete/route.ts` |
 | Onboarding API (Registration CAPI) | `apps/web/app/api/onboarding/complete/route.ts` |
 
 ---
@@ -856,7 +856,7 @@ Meta Events Manager → Overview → check:
 |------|------|------|
 | 1 | Pre-launch | Create Meta Pixel in Business Manager, get Pixel ID |
 | 2 | Pre-launch | Create System User, generate access token |
-| 3 | Pre-launch | Add 3 env vars to GitHub Secrets + Cloudflare Pages |
+| 3 | Pre-launch | Add 3 env vars to GitHub Secrets + Cloudflare Workers (OpenNext) |
 | 4 | Dev | Implement 4 helper files above |
 | 5 | Dev | Wire events into booking flow, onboarding, service pages |
 | 6 | Dev | Test all events in Meta Test Events tab |

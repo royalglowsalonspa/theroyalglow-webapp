@@ -10,7 +10,7 @@ Covers: website, CRM, customer management, marketing automation, database, creat
 | Runtime | Bun |
 | Language | TypeScript + JavaScript |
 | Styling | Tailwind CSS v4 |
-| Framework | Next.js 16.2.6 (App Router) |
+| Framework | Next.js 16.2.9 (App Router) |
 | UI | React |
 | **Primary DB** | **Neon DB** (PostgreSQL, 4 branches, Drizzle ORM) |
 | **Realtime** | **Ably** (6M messages/mo free — booking status, queue board, staff availability) |
@@ -19,8 +19,8 @@ Covers: website, CRM, customer management, marketing automation, database, creat
 | **Edge Cache** | **Cloudflare KV** |
 | **Search** | Postgres FTS / pg_trgm in Neon (upgrade to Algolia later) |
 | **CMS** | **Payload CMS v3** — self-hosted on Render, writes to Neon DB, media to Cloudflare R2 |
-| Hosting | Cloudflare Pages + Workers (edge) |
-| Origin / CMS Host | Render (SSR fallback + Payload CMS admin — free tier, Singapore region) |
+| Hosting | Cloudflare Workers (OpenNext adapter — `rgss-web`, `rgss-admin`) |
+| Origin / CMS Host | Render (Payload CMS — `rgss-cms`, free tier, Singapore region) |
 | Auth | **Better Auth** |
 | Transactional Email | **Resend** + React Email |
 | Marketing Email | **Brevo** |
@@ -50,7 +50,7 @@ Covers: website, CRM, customer management, marketing automation, database, creat
 
 ## Business Info (Locked)
 - **Domain:** theroyalglow.in
-- **Subdomains:** admin.theroyalglow.in (Payload CMS), status.theroyalglow.in (BetterStack), docs.theroyalglow.in (Fumadocs)
+- **Subdomains:** admin.theroyalglow.in (admin portal — `apps/admin`), cms.theroyalglow.in (Payload CMS), status.theroyalglow.in (BetterStack), docs.theroyalglow.in (Fumadocs)
 - **Email:** hello@theroyalglow.in
 - **Phone:** +91 63601 35720
 - **Address:** 1st Floor, Narmada Complex, 48/3, Rayasandra Main Rd, Above SBI Bank, Naganathapura, Parappana Agrahara, Bengaluru, Karnataka 560100, India

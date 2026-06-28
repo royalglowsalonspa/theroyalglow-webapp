@@ -142,7 +142,7 @@ the matching Neon branch and live service URLs:
 - Google OAuth → add the prod redirect URI `https://theroyalglow.in/api/auth/callback/google`
 - All the "currently empty required" web vars → must be filled.
 
-Web app is hosted on Cloudflare Pages; CMS + SSR origin on Render. Set these in each
+Web app is hosted on Cloudflare Workers (OpenNext); CMS on Render. Set these in each
 platform's environment settings (not in committed files).
 
 ---

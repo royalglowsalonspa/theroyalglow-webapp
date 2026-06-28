@@ -27,15 +27,15 @@ Implement the customer-relationship layer on top of the Phase 3 booking backend:
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.7, 9.1, 9.2, 9.3_
 
 - [x] 4. Admin lead pipeline API
-  - Create `apps/web/src/app/api/admin/leads/route.ts`: GET (`requireRole('receptionist')`, optional `?status=` filter, returns rows with `daysSinceCapture` + `isStale`); POST (manual lead, `source='manual'`)
-  - Create `apps/web/src/app/api/admin/leads/[id]/route.ts`: GET detail; PATCH (`updateLeadStatusSchema` → `assertLeadTransition` → `updateLead`, set `lastContactedAt` on `contacted`)
-  - Create `apps/web/src/app/api/admin/leads/[id]/notes/route.ts`: POST add note
+  - Create `apps/admin/src/app/api/leads/route.ts`: GET (`requireRole('receptionist')`, optional `?status=` filter, returns rows with `daysSinceCapture` + `isStale`); POST (manual lead, `source='manual'`)
+  - Create `apps/admin/src/app/api/leads/[id]/route.ts`: GET detail; PATCH (`updateLeadStatusSchema` → `assertLeadTransition` → `updateLead`, set `lastContactedAt` on `contacted`)
+  - Create `apps/admin/src/app/api/leads/[id]/notes/route.ts`: POST add note
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 9.1, 9.2_
 
 - [x] 5. Admin lead pipeline pages
-  - Create `apps/web/src/app/admin/leads/page.tsx`: server-fetch pipeline rows, render client `LeadKanban`
+  - Create `apps/admin/src/app/leads/page.tsx`: server-fetch pipeline rows, render client `LeadKanban`
   - Create `apps/web/src/components/lead/LeadKanban.tsx`: 5 columns (New / Contacted / Follow-up / Booked / Won+Lost); cards show name, tap-to-call phone, service interest, campaign, days-since, stale dot; "+ Manual Lead" dialog
-  - Create `apps/web/src/app/admin/leads/[id]/page.tsx` + `LeadDetail` client component: info card (Call / WhatsApp `https://wa.me/91...` / status actions / Mark Lost with reason), attribution panel, notes timeline with add-note box
+  - Create `apps/admin/src/app/leads/[id]/page.tsx` + `LeadDetail` client component: info card (Call / WhatsApp `https://wa.me/91...` / status actions / Mark Lost with reason), attribution panel, notes timeline with add-note box
   - _Requirements: 2.1, 2.4, 2.5, 2.6_
 
 - [x] 6. CRM types and query layer
@@ -45,16 +45,16 @@ Implement the customer-relationship layer on top of the Phase 3 booking backend:
   - _Requirements: 3.2, 3.3, 3.4, 3.5, 3.6, 4.1, 4.2, 4.3, 4.5_
 
 - [x] 7. CRM API routes
-  - Create `apps/web/src/app/api/admin/customers/route.ts` GET (`requireRole('receptionist')`, paginated with `meta`)
-  - Create `apps/web/src/app/api/admin/customers/[id]/route.ts` GET (profile detail) + PATCH (`requireRole('manager')`, e.g. reset noshowCount)
-  - Create `apps/web/src/app/api/admin/customers/[id]/tags/route.ts` POST (assign) and `.../tags/[tagId]/route.ts` DELETE (remove)
-  - Create `apps/web/src/app/api/admin/customers/[id]/notes/route.ts` POST
-  - Create `apps/web/src/app/api/admin/tags/route.ts` GET (receptionist) + POST (`requireRole('manager')`)
+  - Create `apps/admin/src/app/api/customers/route.ts` GET (`requireRole('receptionist')`, paginated with `meta`)
+  - Create `apps/admin/src/app/api/customers/[id]/route.ts` GET (profile detail) + PATCH (`requireRole('manager')`, e.g. reset noshowCount)
+  - Create `apps/admin/src/app/api/customers/[id]/tags/route.ts` POST (assign) and `.../tags/[tagId]/route.ts` DELETE (remove)
+  - Create `apps/admin/src/app/api/customers/[id]/notes/route.ts` POST
+  - Create `apps/admin/src/app/api/tags/route.ts` GET (receptionist) + POST (`requireRole('manager')`)
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 4.1, 4.2, 4.3, 4.4, 4.5, 9.1, 9.2_
 
 - [x] 8. CRM pages
-  - Create `apps/web/src/app/admin/customers/page.tsx` + client `CustomersTable`: search box, sort dropdown, tag filter, paginated table (Name, Phone, Tags, Visits, LTV, Gems, Last Visit) using `meta.page/totalPages`
-  - Create `apps/web/src/app/admin/customers/[id]/page.tsx` + client `CustomerProfile`: header (contact, since, tag chips add/remove), KPI cards (Visits, LTV, Avg Spend, No-shows, Gems), tabs (Bookings / Invoices / Membership / Gems / Notes)
+  - Create `apps/admin/src/app/customers/page.tsx` + client `CustomersTable`: search box, sort dropdown, tag filter, paginated table (Name, Phone, Tags, Visits, LTV, Gems, Last Visit) using `meta.page/totalPages`
+  - Create `apps/admin/src/app/customers/[id]/page.tsx` + client `CustomerProfile`: header (contact, since, tag chips add/remove), KPI cards (Visits, LTV, Avg Spend, No-shows, Gems), tabs (Bookings / Invoices / Membership / Gems / Notes)
   - _Requirements: 3.6, 4.1, 4.2, 4.5_
 
 - [x] 9. Membership types and business logic
@@ -71,17 +71,17 @@ Implement the customer-relationship layer on top of the Phase 3 booking backend:
   - _Requirements: 5.1, 5.4, 5.5, 5.6, 6.1, 6.2, 6.4_
 
 - [x] 11. Membership admin API routes
-  - Create `apps/web/src/app/api/admin/memberships/route.ts`: GET list (filter tier/status) + POST create (`requireRole('receptionist')`, pre-check `MEMBERSHIP_ALREADY_ACTIVE`, generate membership + invoice numbers, gems 0, `splitGST` for purchase total)
-  - Create `apps/web/src/app/api/admin/memberships/[id]/route.ts` GET detail
-  - Create `apps/web/src/app/api/admin/memberships/[id]/sessions/route.ts` POST (`assertSessionRecordable` → `recordMembershipSession`)
-  - Create `apps/web/src/app/api/admin/memberships/[id]/cancel/route.ts` POST (`requireRole('manager')`)
-  - Create `apps/web/src/app/api/admin/membership-tiers/route.ts` GET
+  - Create `apps/admin/src/app/api/memberships/route.ts`: GET list (filter tier/status) + POST create (`requireRole('receptionist')`, pre-check `MEMBERSHIP_ALREADY_ACTIVE`, generate membership + invoice numbers, gems 0, `splitGST` for purchase total)
+  - Create `apps/admin/src/app/api/memberships/[id]/route.ts` GET detail
+  - Create `apps/admin/src/app/api/memberships/[id]/sessions/route.ts` POST (`assertSessionRecordable` → `recordMembershipSession`)
+  - Create `apps/admin/src/app/api/memberships/[id]/cancel/route.ts` POST (`requireRole('manager')`)
+  - Create `apps/admin/src/app/api/membership-tiers/route.ts` GET
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 6.1, 6.2, 6.3, 6.4, 6.5, 9.1, 9.2_
 
 - [x] 12. Membership admin pages
-  - Create `apps/web/src/app/admin/memberships/page.tsx` + `MembershipsList`: tier/status filters, "+ Create Membership"
-  - Create `apps/web/src/app/admin/memberships/new/page.tsx` + `CreateMembershipForm`: customer search, tier cards (prefill hours/price/validity, overridable), start date + auto expiry preview, payment method, side-effects note (invoice, no gems)
-  - Create `apps/web/src/app/admin/memberships/[id]/page.tsx` + `MembershipDetail`: hours-balance bar, expiry/days-left, session history, Record Session modal (validate duration ≤ remaining), Cancel Membership (manager+)
+  - Create `apps/admin/src/app/memberships/page.tsx` + `MembershipsList`: tier/status filters, "+ Create Membership"
+  - Create `apps/admin/src/app/memberships/new/page.tsx` + `CreateMembershipForm`: customer search, tier cards (prefill hours/price/validity, overridable), start date + auto expiry preview, payment method, side-effects note (invoice, no gems)
+  - Create `apps/admin/src/app/memberships/[id]/page.tsx` + `MembershipDetail`: hours-balance bar, expiry/days-left, session history, Record Session modal (validate duration ≤ remaining), Cancel Membership (manager+)
   - _Requirements: 5.1, 6.1, 6.3_
 
 - [x] 13. Customer membership view (API + page)

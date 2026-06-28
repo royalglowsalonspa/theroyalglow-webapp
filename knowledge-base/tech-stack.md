@@ -12,7 +12,7 @@ Royal Glow Salon & Spa is built for scale (20k–50k users), premium feel, and l
 |-------|-----------|--------|
 | Runtime | **Bun** | Faster than Node.js for installs, test runs, and scripts |
 | Language | **TypeScript + JavaScript** | Type safety across the full stack |
-| Framework | **Next.js 16.2.6** (App Router) | SSR, SSG, API routes, edge-ready — `params`/`searchParams` are Promises, `PageProps<>` / `LayoutProps<>` global type helpers |
+| Framework | **Next.js 16.2.9** (App Router) | SSR, SSG, API routes, edge-ready — `params`/`searchParams` are Promises, `PageProps<>` / `LayoutProps<>` global type helpers |
 | UI Library | **React** | Component model, ecosystem |
 | Styling | **Tailwind CSS v4** | Utility-first, consistent design tokens, fast iteration |
 | Component Library | **shadcn/ui** | Copy-paste Radix-based components — fully owned, zero runtime overhead |
@@ -60,8 +60,8 @@ Royal Glow Salon & Spa is built for scale (20k–50k users), premium feel, and l
 
 | Layer | Technology |
 |-------|-----------|
-| Edge Hosting | **Cloudflare Pages + Workers** |
-| Node.js Origin / CMS Host | **Render** — heavy SSR fallback + Payload CMS admin panel (free tier, Singapore region) |
+| Edge Hosting | **Cloudflare Workers via OpenNext** (`@opennextjs/cloudflare`) — `rgss-web`, `rgss-admin` |
+| Node.js Origin / CMS Host | **Render** — Payload CMS admin panel (`rgss-cms`, free tier, Singapore region) |
 | Primary Database | **Neon DB** (PostgreSQL, 4 branches) |
 | Realtime | **Ably** (live push — booking status, queue board) |
 | File Storage | **Cloudflare R2** (photos, invoices) |
@@ -217,8 +217,10 @@ Tool split: **Bun workspaces** (package management) + **Turborepo** (task orches
 ```
 theroyalglow-webapp/
 ├── apps/
-│   ├── web/          # Next.js 16.2.6 — theroyalglow.in (customer + admin)
-│   └── cms/          # Payload CMS v3 — admin.theroyalglow.in (marketing CMS)
+│   ├── web/          # Next.js 16.2.9 — theroyalglow.in (customer)
+│   ├── admin/        # Next.js 16.2.9 — admin.theroyalglow.in (admin portal)
+│   ├── cms/          # Payload CMS v3 — cms.theroyalglow.in (marketing CMS)
+│   └── invoicing/    # @rgss/invoicing — Node.js (Hono) PDF service on Google Cloud Run
 ├── docs/             # Fumadocs — docs.theroyalglow.in
 ├── packages/
 │   └── types/        # Shared TypeScript types (add when needed)
@@ -238,7 +240,7 @@ Split by audience — same underlying library, different styling focus.
 | Side | Library Stack | Notes |
 |------|--------------|-------|
 | **Customer-facing** (`apps/web` — public pages) | shadcn/ui + Tailwind v4 + **motion** | Restyled components for premium brand feel. Motion handles page transitions, staggered reveals, hero animations. |
-| **Admin** (`apps/web` — `/admin` routes) | shadcn/ui + Tailwind v4 | Functional and consistent. No heavy animations needed. |
+| **Admin** (`apps/admin` — `admin.theroyalglow.in`) | shadcn/ui + Tailwind v4 | Functional and consistent. No heavy animations needed. |
 | **CMS** (`apps/cms`) | Payload built-in UI | Payload ships its own admin UI — no custom components needed. |
 
 **Why shadcn/ui for both sides:**

@@ -44,11 +44,11 @@ Implement the operational layer on top of Phases 3–4: Staff Scheduling & Leave
   - _Requirements: 4.4, 5.4, 5.5_
 
 - [x] 7. Scheduling & Leave API routes
-  - Create `apps/web/src/app/api/admin/schedule/route.ts`: GET (`requireRole('manager')`, `?weekStart=` → `getWeeklyScheduleGrid`) + PUT (`requireRole('manager')`, `upsertScheduleSchema` → validate each entry via `assertValidScheduleEntry` → `upsertStaffSchedule`)
-  - Create `apps/web/src/app/api/admin/leave/route.ts`: GET (`requireRole('receptionist')`, `?status=` → `getLeaveRequests`)
-  - Create `apps/web/src/app/api/admin/leave/[id]/route.ts`: PATCH (`requireRole('receptionist')`, `leaveDecisionSchema` → `getLeaveById` notFound → `assertLeaveTransition` → `updateLeaveStatus`; on approve fetch + return `getConfirmedBookingsForStaffOnDate` conflicts; create `leave_approved`/`leave_rejected` notification + dispatch)
-  - Create `apps/web/src/app/api/staff/leave/route.ts`: GET (`requireRole('staff')`, resolve staffProfile from session, `getLeaveForStaff`) + POST (`submitLeave`, friendly 409 on duplicate date)
-  - Create `apps/web/src/app/api/staff/leave/[id]/route.ts`: DELETE (`withdrawLeave(id, staffId)`, 404/403 if not own/pending)
+  - Create `apps/admin/src/app/api/schedule/route.ts`: GET (`requireRole('manager')`, `?weekStart=` → `getWeeklyScheduleGrid`) + PUT (`requireRole('manager')`, `upsertScheduleSchema` → validate each entry via `assertValidScheduleEntry` → `upsertStaffSchedule`)
+  - Create `apps/admin/src/app/api/leave/route.ts`: GET (`requireRole('receptionist')`, `?status=` → `getLeaveRequests`)
+  - Create `apps/admin/src/app/api/leave/[id]/route.ts`: PATCH (`requireRole('receptionist')`, `leaveDecisionSchema` → `getLeaveById` notFound → `assertLeaveTransition` → `updateLeaveStatus`; on approve fetch + return `getConfirmedBookingsForStaffOnDate` conflicts; create `leave_approved`/`leave_rejected` notification + dispatch)
+  - Create `apps/admin/src/app/api/me/leave/route.ts`: GET (`requireRole('staff')`, resolve staffProfile from session, `getLeaveForStaff`) + POST (`submitLeave`, friendly 409 on duplicate date)
+  - Create `apps/admin/src/app/api/me/leave/[id]/route.ts`: DELETE (`withdrawLeave(id, staffId)`, 404/403 if not own/pending)
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 6.1, 6.2_
 
 - [x] 8. Notifications, Push & Ably API routes
@@ -59,20 +59,20 @@ Implement the operational layer on top of Phases 3–4: Staff Scheduling & Leave
 
 - [x] 9. Offers API routes + checkout application
   - Create `apps/web/src/app/api/offers/route.ts`: GET (public, `getActiveOffers`)
-  - Create `apps/web/src/app/api/admin/offers/route.ts`: GET (`requireRole('manager')`, `getAllOffersAdmin`) + POST (`createOfferSchema` → `createOfferWithServices`)
-  - Create `apps/web/src/app/api/admin/offers/[id]/route.ts`: GET (`getOfferById`) + PATCH (`updateOfferSchema` → `updateOffer`/`deactivateOffer`)
-  - Extend `apps/web/src/app/api/admin/bookings/[id]/complete/route.ts`: accept optional `offerId`; when present, load offer → `assertOfferActive` → `assertOfferSalonOnly` (from booking service types) → pre-check `getOfferRedemptionForCustomerOnDate` (409) → reject if gems redemption also requested (`OFFER_NOT_APPLICABLE`) → `computeOfferDiscount` → set invoice `discountAmountPaise` + recompute taxable/gst on discounted total → `recordOfferRedemption` → gems on discounted total. Preserve existing behaviour when no offerId
+  - Create `apps/admin/src/app/api/offers/route.ts`: GET (`requireRole('manager')`, `getAllOffersAdmin`) + POST (`createOfferSchema` → `createOfferWithServices`)
+  - Create `apps/admin/src/app/api/offers/[id]/route.ts`: GET (`getOfferById`) + PATCH (`updateOfferSchema` → `updateOffer`/`deactivateOffer`)
+  - Extend `apps/admin/src/app/api/bookings/[id]/complete/route.ts`: accept optional `offerId`; when present, load offer → `assertOfferActive` → `assertOfferSalonOnly` (from booking service types) → pre-check `getOfferRedemptionForCustomerOnDate` (409) → reject if gems redemption also requested (`OFFER_NOT_APPLICABLE`) → `computeOfferDiscount` → set invoice `discountAmountPaise` + recompute taxable/gst on discounted total → `recordOfferRedemption` → gems on discounted total. Preserve existing behaviour when no offerId
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 6.1, 6.2_
 
 - [x] 10. Scheduling & Leave pages
-  - Create `apps/web/src/app/admin/schedule/page.tsx` (+ client grid): week navigator (`?weekStart=`), staff × 7-day grid (working hours, leave badges, booking counts), per-staff edit panel calling PUT
-  - Create `apps/web/src/app/admin/leave/page.tsx` (+ client queue): pending/approved/rejected tabs, conflict warning per pending card, Approve/Reject (reject → reason); on approve surface conflicts
-  - Create `apps/web/src/app/staff/layout.tsx` (gated role ≥ staff) + `apps/web/src/app/staff/schedule/page.tsx` (own read-only schedule) + `apps/web/src/app/staff/leave/page.tsx` (own leave history + submit + withdraw pending)
+  - Create `apps/admin/src/app/schedule/page.tsx` (+ client grid): week navigator (`?weekStart=`), staff × 7-day grid (working hours, leave badges, booking counts), per-staff edit panel calling PUT
+  - Create `apps/admin/src/app/leave/page.tsx` (+ client queue): pending/approved/rejected tabs, conflict warning per pending card, Approve/Reject (reject → reason); on approve surface conflicts
+  - Create `apps/admin/src/app/staff/layout.tsx` (gated role ≥ staff) + `apps/admin/src/app/staff/schedule/page.tsx` (own read-only schedule) + `apps/admin/src/app/staff/leave/page.tsx` (own leave history + submit + withdraw pending)
   - Add `/staff` to middleware protected paths (min role staff) in `apps/web/src/middleware.ts`
   - _Requirements: 1.1, 1.4, 2.2, 2.6, 2.7, 6.4_
 
 - [x] 11. Offers pages + notification bell
-  - Create `apps/web/src/app/admin/offers/page.tsx` (+ client): list + create/edit form (type-specific fields, service multi-select, date range, active toggle)
+  - Create `apps/admin/src/app/offers/page.tsx` (+ client): list + create/edit form (type-specific fields, service multi-select, date range, active toggle)
   - Wire `apps/web/src/app/(customer)/offers/page.tsx` to `GET /api/offers` (loading/error/empty), showing each active offer with discount + applicable services
   - Create `apps/web/src/components/notifications/NotificationBell.tsx` (`'use client'`): unread badge + dropdown feed, polls `/api/notifications`, mark-all-read; mount in the admin shell header and the customer `Header`
   - _Requirements: 3.2, 3.3, 3.4, 4.4, 5.4, 6.3_

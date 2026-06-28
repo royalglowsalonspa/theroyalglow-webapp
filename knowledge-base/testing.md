@@ -347,7 +347,7 @@ function doEverything() { /* 20 branches */ }  // → "noExcessiveCognitiveCompl
 │     • Captures screenshots at every interaction step           │
 │                                                                  │
 │  3. DIFF (automated)                                            │
-│     • Pixel-level comparison with baseline (main branch)       │
+│     • Pixel-level comparison with baseline (prod branch)       │
 │     • Highlights visual changes: layout shifts, color, text    │
 │     • Filters out dynamic content (timestamps, random IDs)     │
 │                                                                  │
@@ -1072,11 +1072,11 @@ describe('Acquisition attribution', () => {
 // tests/integration/api/invoices.test.ts
 import { describe, it, expect } from 'vitest'
 
-describe('POST /api/admin/invoices/generate', () => {
+describe('POST /api/invoices/generate', () => {
   it('generates invoice PDF and stores in R2', async () => {
     const booking = await createCompletedBooking()
 
-    const res = await app.post('/api/admin/invoices/generate', {
+    const res = await app.post('/api/invoices/generate', {
       body: { bookingId: booking.id, paymentMethod: 'upi' },
       auth: adminUser,
     })
@@ -1093,7 +1093,7 @@ describe('POST /api/admin/invoices/generate', () => {
   })
 
   it('prevents non-admin from generating invoices', async () => {
-    const res = await app.post('/api/admin/invoices/generate', {
+    const res = await app.post('/api/invoices/generate', {
       body: { bookingId: 'booking-1', paymentMethod: 'cash' },
       auth: customerUser,  // Customer, not admin
     })
@@ -1821,7 +1821,7 @@ describe('Lead API Contract', () => {
 | Resend API down | Booking succeeds, email queued in QStash for retry | Integration test |
 | Ably disconnected | UI shows "reconnecting", no data loss | E2E test (network intercept) |
 | Upstash Redis down | Rate limiting disabled (allow all), logging warning | Integration test |
-| Render PDF API down | Invoice marked "pending_pdf", retried via QStash | Integration test |
+| Cloud Run PDF service (`@rgss/invoicing`) down | Invoice marked "pending_pdf", retried via QStash | Integration test |
 | Cloudflare R2 down | PDF upload queued for retry, invoice still created in DB | Integration test |
 
 ### Implementation
@@ -1837,7 +1837,7 @@ describe('Resilience: Resend email failure', () => {
       new Error('Service Unavailable')
     )
 
-    const res = await app.post('/api/admin/bookings/booking_123/complete', {
+    const res = await app.post('/api/bookings/booking_123/complete', {
       body: { paymentMethod: 'cash' },
       auth: receptionist,
     })
@@ -1895,8 +1895,8 @@ export const handlers = [
     return HttpResponse.json({ status: 'sent' }, { status: 200 })
   }),
 
-  // Render PDF API
-  http.post('https://rgss-pdf-api.onrender.com/generate', () => {
+  // Cloud Run invoicing service (@rgss/invoicing)
+  http.post('https://rgss-invoicing-<hash>.asia-south1.run.app/v1/invoices', () => {
     return HttpResponse.arrayBuffer(new ArrayBuffer(1024), {
       status: 200,
       headers: { 'Content-Type': 'application/pdf' },
@@ -1950,7 +1950,7 @@ it('handles email service outage gracefully', async () => {
     })
   )
 
-  const res = await app.post('/api/admin/bookings/booking_123/complete', {
+  const res = await app.post('/api/bookings/booking_123/complete', {
     body: { paymentMethod: 'cash' },
     auth: receptionist,
   })
