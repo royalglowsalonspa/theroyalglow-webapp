@@ -132,8 +132,8 @@ Commits: Conventional Commits (`feat:`, `fix:`, `chore:`, etc.)
 - #[[file:knowledge-base/database-schema.md]] — All 38 tables, conventions, ERD
 - #[[file:knowledge-base/features.md]] — Full feature specifications
 - #[[file:knowledge-base/authentication.md]] — Auth design & RBAC
-- #[[file:system-design/HLD.md]] — High-level design
-- #[[file:system-design/LLD.md]] — Low-level design
+- #[[file:knowledge-base/system-design/HLD.md]] — High-level design
+- #[[file:knowledge-base/system-design/LLD.md]] — Low-level design
 - #[[file:knowledge-base/error-handling.md]] — Error patterns & codes
 - #[[file:knowledge-base/background-jobs.md]] — All 19 background jobs
 - #[[file:knowledge-base/deployment.md]] — CI/CD pipeline & deployment

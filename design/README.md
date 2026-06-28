@@ -119,10 +119,10 @@ Feed any file directly to a design agent (Figma AI, Stitch, v0, Galileo) as cont
 
 ## Cross-References
 
-- [pages/](../pages/) — Full page specs with components, states, SEO, accessibility
-- [features.md](../features.md) — Business rules and logic
-- [authentication.md](../authentication.md) — Auth flow and role hierarchy
-- [database-schema.md](../database-schema.md) — Data model
-- [ably-channels.md](../ably-channels.md) — Realtime event structure
-- [email-strategy.md](../email-strategy.md) — Email templates and triggers
-- [meta-pixel.md](../meta-pixel.md) — Analytics event triggers
+- [pages/](../knowledge-base/pages/) — Full page specs with components, states, SEO, accessibility
+- [features.md](../knowledge-base/features.md) — Business rules and logic
+- [authentication.md](../knowledge-base/authentication.md) — Auth flow and role hierarchy
+- [database-schema.md](../knowledge-base/database-schema.md) — Data model
+- [ably-channels.md](../knowledge-base/ably-channels.md) — Realtime event structure
+- [email-strategy.md](../knowledge-base/email-strategy.md) — Email templates and triggers
+- [meta-pixel.md](../knowledge-base/meta-pixel.md) — Analytics event triggers
