@@ -23,11 +23,11 @@ file conventions — no manual `<link>` wiring required:
 | `app/icon1.png` | `<link rel="icon" type="image/png">` |
 | `app/apple-icon.png` | `<link rel="apple-touch-icon">` |
 
-## Still pending ❌
+## Social share (OpenGraph) image — PRESENT ✅
 
 | File | Path | Size | Used by |
 |------|------|------|---------|
-| `og-default.jpg` | `apps/web/public/og-default.jpg` | 1200×630 (1.91:1) | Default OpenGraph / social share image (referenced by `src/lib/seo/metadata.ts` as `/og-default.jpg`). Until supplied, social link previews have no image. |
+| `og-default.jpg` | `apps/web/public/og-default.jpg` | 1200×630 | Default OG/Twitter image — set on the root layout (`app/layout.tsx`) and as the `buildMetadata()` default (`src/lib/seo/metadata.ts`). Pages may override per-page. |
 
 ## Brand colours (for artwork)
 
