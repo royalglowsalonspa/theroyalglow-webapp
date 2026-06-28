@@ -364,7 +364,7 @@ IMPLEMENTATION NOTES:
 • Recovery tracked via consecutive_completed_count (resets on new no-show)
 • Deposit collection: manual (receptionist marks "deposit received" on booking)
 • Block enforcement: booking API returns 403 if noshow_count >= 5
-• Owner override: PATCH /api/admin/customers/[id] { noshow_count: 0 }
+• Owner override: PATCH /api/customers/[id] { noshow_count: 0 }
 ```
 
 ---

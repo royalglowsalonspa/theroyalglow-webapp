@@ -6,11 +6,11 @@
 
 | Strategy | Verdict | Reason |
 |----------|---------|--------|
-| Blue/Green | ❌ Overkill | Requires 2x infrastructure. Cloudflare Pages already does atomic deploys with instant rollback — you get Blue/Green semantics for free. |
+| Blue/Green | ❌ Overkill | Requires 2x infrastructure. Cloudflare Workers (OpenNext) already does atomic deploys with instant rollback — you get Blue/Green semantics for free. |
 | Canary | ❌ Not applicable | Canary releases need traffic splitting infra + large user base for statistical significance. A salon with <1,000 DAU can't canary meaningfully. |
 | A/B Testing | ✅ Via PostHog | Not a deployment strategy — it's a product experimentation tool. Already in the stack via PostHog feature flags. |
 | **Feature Flags** | ✅ **Primary strategy** | Ship code to prod anytime, control exposure via PostHog flags. Zero-downtime. Decouple deploy from release. |
-| Rolling | ✅ Automatic | Cloudflare Pages already does rolling deploys across edge nodes globally. No action needed. |
+| Rolling | ✅ Automatic | Cloudflare Workers (OpenNext) already does rolling deploys across edge nodes globally. No action needed. |
 
 ### Why This Fits RGSS
 
@@ -330,12 +330,14 @@ jobs:
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy to Cloudflare Workers (OpenNext)
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy .next --project-name=rgss-web --branch=prod
+          workingDirectory: apps/web
+          packageManager: bun
+          command: deploy
 
       - name: Run database migrations
         run: bun run db:migrate
@@ -401,18 +403,18 @@ jobs:
 ### Workflow 5: Deploy Admin App (`admin.theroyalglow.in`)
 
 The **Admin_App** (`apps/admin`) deploys independently from the customer site to
-its own Cloudflare Pages project. It is triggered on `prod` pushes that touch
+its own Cloudflare Workers (OpenNext) project. It is triggered on `prod` pushes that touch
 `apps/admin/**` or `packages/**`, so admin and web deploys never block each other.
 
 | Setting | Value |
 |---------|-------|
-| Cloudflare Pages project | `rgss-admin` |
+| Cloudflare Workers (OpenNext) project | `rgss-admin` |
 | Deploy workflow | `.github/workflows/deploy-admin-prod.yml` |
 | Build command | `turbo run build --filter=@rgss/admin` |
 | Output directory | `apps/admin/.next` |
 | Health check endpoint | `/api/health` (`https://admin.theroyalglow.in/api/health`) |
 | Sentry project | separate admin project (source maps uploaded per deploy) |
-| DNS | proxied CNAME `admin.theroyalglow.in` → `rgss-admin.pages.dev` |
+| DNS | Custom domain `admin.theroyalglow.in` attached to Worker `rgss-admin` (Workers → rgss-admin → Settings → Domains & Routes) |
 
 ```yaml
 # .github/workflows/deploy-admin-prod.yml
@@ -449,12 +451,14 @@ jobs:
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy to Cloudflare Workers (OpenNext)
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy apps/admin/.next --project-name=rgss-admin --branch=prod
+          workingDirectory: apps/admin
+          packageManager: bun
+          command: deploy
 
   post-deploy:
     runs-on: ubuntu-latest
@@ -765,14 +769,14 @@ jobs:
 
 ### Tier 1: Instant Rollback (< 30 seconds)
 
-Cloudflare Pages keeps every deployment as an immutable artifact. Rolling back = promoting a previous deployment:
+Cloudflare Workers (OpenNext) keeps every deployment as an immutable artifact. Rolling back = promoting a previous deployment:
 
 ```bash
 # List recent deployments
-wrangler pages deployments list --project-name=rgss-web
+wrangler deployments list
 
-# Rollback to previous deployment
-wrangler pages deployments rollback --project-name=rgss-web --deployment-id=<previous_id>
+# Roll back the Worker to its previous version
+wrangler rollback
 ```
 
 **Automated rollback trigger:**
@@ -781,10 +785,8 @@ wrangler pages deployments rollback --project-name=rgss-web --deployment-id=<pre
 - name: Auto-rollback on health check failure
   if: failure()
   run: |
-    echo "🚨 Health check failed — rolling back to previous deployment"
-    PREV_DEPLOY=$(wrangler pages deployments list --project-name=rgss-web --json \
-      | jq -r '.[1].id')
-    wrangler pages deployments rollback --project-name=rgss-web --deployment-id=$PREV_DEPLOY
+    echo "🚨 Health check failed — rolling back the Worker to its previous version"
+    wrangler rollback --message "Auto-rollback: prod health/smoke failed"
   env:
     CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
     CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -801,7 +803,7 @@ curl -X POST "https://console.neon.tech/api/v2/projects/$PROJECT_ID/branches" \
   -d '{
     "branch": {
       "name": "recovery-2026-05-23",
-      "parent_id": "main",
+      "parent_id": "prod",
       "parent_timestamp": "2026-05-23T10:00:00Z"
     }
   }'
@@ -818,7 +820,7 @@ If Neon infrastructure is down:
 1. Retrieve latest weekly backup from Cloudflare R2
 2. Provision an emergency Neon project or temporary Neon branch in a separate region
 3. Restore pg_dump to emergency DB
-4. Update DATABASE_URL in Cloudflare Pages env vars
+4. Update DATABASE_URL in Cloudflare Workers (OpenNext) env vars
 5. Redeploy — app points to emergency DB
 6. Once Neon is back: sync data and switch back
 ```
@@ -841,16 +843,16 @@ If Neon infrastructure is down:
 
 Cloudflare Workers are stateless and ephemeral — no graceful shutdown needed. Each request is isolated. If a Worker is evicted, in-flight requests complete normally (Workers have a 30-second grace period).
 
-### Render Services (PDF API + Payload CMS)
+### PDF Invoice Service (Google Cloud Run) + Payload CMS (Render)
 
 ```ts
-// apps/pdf-api/src/server.ts (Render Node.js)
+// apps/invoicing/src/server.ts (Google Cloud Run — Node.js)
 
 import { serve } from '@hono/node-server'
 
-const server = serve({ fetch: app.fetch, port: 3001 })
+const server = serve({ fetch: app.fetch, port: 8080 })
 
-// Graceful shutdown for Render deploys
+// Graceful shutdown for Cloud Run deploys
 const shutdown = async (signal: string) => {
   console.log(`\n${signal} received. Shutting down gracefully...`)
 
@@ -1138,7 +1140,7 @@ const result = await db
 CREATE INDEX idx_booking_customer_date
   ON booking (customer_id, booking_date DESC);
 
--- Admin booking list: /admin/bookings (filtered by status)
+-- Admin booking list: admin.theroyalglow.in/bookings (filtered by status)
 CREATE INDEX idx_booking_status_date
   ON booking (status, booking_date DESC);
 
@@ -1282,11 +1284,11 @@ LIMIT 20;
 
 ## Environment Variable Management
 
-### Per-Environment Variables (Cloudflare Pages)
+### Per-Environment Variables (Cloudflare Workers (OpenNext))
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  Cloudflare Pages → Settings → Environment Variables         │
+│  Cloudflare Workers (OpenNext) → Settings → Environment Variables         │
 ├──────────────────────────────────────────────────────────────┤
 │  Production (`prod` git branch → Neon `prod`):               │
 │    APP_ENV=prod                                              │
@@ -1310,9 +1312,9 @@ LIMIT 20;
 
 | Secret | Storage Location |
 |--------|-----------------|
-| Production DB URL | Cloudflare Pages env + GitHub Actions secret |
-| API keys (Resend, Brevo, Ably) | Cloudflare Pages env + GitHub Actions secret |
-| Google OAuth credentials | Cloudflare Pages env |
+| Production DB URL | Cloudflare Workers (OpenNext) env + GitHub Actions secret |
+| API keys (Resend, Brevo, Ably) | Cloudflare Workers (OpenNext) env + GitHub Actions secret |
+| Google OAuth credentials | Cloudflare Workers (OpenNext) env |
 | Neon API key (for backups) | GitHub Actions secret only |
 | R2 access keys (for backups) | GitHub Actions secret only |
 | Sentry auth token (for source maps) | GitHub Actions secret only |
@@ -1512,12 +1514,12 @@ const limiters = {
 | `POST /api/leads` | lead | 3/min | IP/userId | Prevent campaign lead form spam |
 | `POST /api/bookings` | booking | 5/min | userId | Prevent normal booking spam |
 | `PATCH /api/bookings/*/cancel` | booking | 5/min | userId | Prevent abuse |
-| `POST /api/admin/bookings` | adminWrite | 30/min | userId | Receptionist-created bookings |
+| `POST /api/bookings` (admin subdomain) | adminWrite | 30/min | userId | Receptionist-created bookings |
 | `GET /api/services` | search | 120/min | IP | High-frequency page loads |
 | `GET /api/availability/*` | search | 120/min | IP | Calendar slot checks |
-| `POST /api/admin/bookings/*/complete` | adminWrite | 30/min | userId | Admin operations |
-| `POST /api/admin/invoices/generate` | adminWrite | 30/min | userId | Invoice generation |
-| `POST /api/admin/memberships` | adminWrite | 30/min | userId | Membership creation |
+| `POST /api/bookings/*/complete` (admin subdomain) | adminWrite | 30/min | userId | Admin operations |
+| `POST /api/invoices/generate` (admin subdomain) | adminWrite | 30/min | userId | Invoice generation |
+| `POST /api/memberships` (admin subdomain) | adminWrite | 30/min | userId | Membership creation |
 | `POST /api/webhooks/*` | webhook | 200/min | IP | External service callbacks |
 | `GET /api/health` | — | No limit | — | Must always respond |
 | `*` (all other) | general | 60/min | userId or IP | Catch-all |
@@ -1599,7 +1601,7 @@ if (req.method === 'OPTIONS') {
 
 ## Preview Deployments (PR Previews)
 
-Cloudflare Pages automatically deploys every PR to a unique preview URL:
+Cloudflare Workers (OpenNext) automatically deploys every PR to a unique preview URL:
 
 ```
 PR #42 → https://42.rgss-web.pages.dev
@@ -1736,7 +1738,7 @@ Preview deployments use:
 
 | Secret | Rotation Frequency | How to Rotate |
 |--------|-------------------|---------------|
-| Resend API key | Every 6 months | Generate new key in Resend dashboard → update CF Pages + GH Actions → verify email sends → revoke old key |
+| Resend API key | Every 6 months | Generate new key in Resend dashboard → update Cloudflare Workers (OpenNext) + GH Actions → verify email sends → revoke old key |
 | Brevo API key | Every 6 months | Same pattern |
 | Google OAuth secret | Every 12 months | Google Cloud Console → new secret → update → test login |
 | Neon API key | Every 6 months | Neon dashboard → regenerate → update GH Actions |
@@ -1749,7 +1751,7 @@ Preview deployments use:
 
 ```
 1. Generate NEW key (old key still active)
-2. Update Cloudflare Pages env var with new key
+2. Update Cloudflare Workers (OpenNext) env var with new key
 3. Trigger a preview deploy — verify new key works
 4. Update GitHub Actions secrets
 5. Trigger full CI — verify all workflows pass
@@ -1850,8 +1852,8 @@ jobs:
 curl -sf https://theroyalglow.in/api/health | jq .
 
 # Rollback Cloudflare deployment
-wrangler pages deployments list --project-name=rgss-web
-wrangler pages deployments rollback --project-name=rgss-web --deployment-id=<ID>
+wrangler deployments list
+wrangler rollback
 
 # Check Neon DB connectivity
 psql $DATABASE_URL_UNPOOLED_PROD -c "SELECT 1"
@@ -1891,16 +1893,16 @@ export const db = drizzle(sql)
 | Driver | Use Case | Why |
 |--------|----------|-----|
 | `@neondatabase/serverless` (HTTP) | Cloudflare Workers (edge) | Stateless, no connection pool needed, sub-5ms cold start |
-| `@neondatabase/serverless` (WebSocket) | Long-running Node.js (Render) | Persistent connection, lower per-query latency |
+| `@neondatabase/serverless` (WebSocket) | Long-running Node.js (Google Cloud Run) | Persistent connection, lower per-query latency |
 
 ```ts
-// apps/pdf-api/src/db.ts (Render — Node.js, long-running)
+// apps/invoicing/src/db.ts (Google Cloud Run — Node.js, long-running)
 
 import { Pool } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-serverless'
 import ws from 'ws'
 
-// WebSocket pool for Render services (persistent connections)
+// WebSocket pool for Cloud Run service (persistent connections)
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 5,  // Max 5 concurrent connections (Neon free tier allows ~20)
@@ -1986,7 +1988,7 @@ export const db = drizzle(pool)
 │     └─ Manual: stakeholder demo / UAT                                   │
 │                                                                          │
 │  4. PR: pprd → prod (requires manual approval)                           │
-│     └─ Deploy: Cloudflare Pages + source maps to Sentry                 │
+│     └─ Deploy: Cloudflare Workers (OpenNext) + source maps to Sentry                 │
 │     └─ Migrate: Drizzle migrations on prod DB                           │
 │     └─ Verify: health check + smoke tests + backup check                │
 │     └─ Rollback: auto-rollback if health check fails                    │

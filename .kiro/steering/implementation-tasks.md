@@ -5,7 +5,7 @@
 ### 0.1 Monorepo Setup
 - [ ] Initialize root `package.json` with Bun workspaces: `apps/*`, `packages/*`, `docs`
 - [ ] Create `turbo.json` with task pipeline: `build`, `dev`, `lint`, `typecheck`, `test`
-- [ ] Set up `apps/web/` — Next.js 16.2.6 with App Router, `next.config.ts`
+- [ ] Set up `apps/web/` — Next.js 16.2.9 with App Router, `next.config.ts`
 - [ ] Set up Tailwind CSS v4 with design tokens from `design/UIUX_Design/`
 - [ ] Install and configure shadcn/ui (Radix primitives)
 - [ ] Set up Biome + Ultracite (linting/formatting)
@@ -124,7 +124,7 @@
 
 ### 4.3 SPA Memberships
 - [ ] Create membership tables: `spa_membership`, `spa_membership_tier`
-- [ ] `POST /api/admin/memberships` — create membership + invoice
+- [ ] `POST /api/memberships` — create membership + invoice (served at admin.theroyalglow.in)
 - [ ] `/admin/memberships` — list, filter by tier/status
 - [ ] `/membership` (customer) — tier, hours remaining, session history
 - [ ] Session recording flow (admin marks session → deduct hours)
@@ -142,7 +142,7 @@
 ### 5.1 Staff Scheduling & Leave
 - [ ] `/admin/schedule` — weekly/daily staff availability grid
 - [ ] `/admin/leave` — submit, approve, reject leave requests
-- [ ] `POST /api/admin/leave` — leave CRUD
+- [ ] `POST /api/leave` — leave CRUD (served at admin.theroyalglow.in)
 - [ ] Staff view: own schedule + leave history
 
 ### 5.2 Notifications & Realtime
@@ -194,7 +194,7 @@
 - [ ] GitHub Actions: CI workflow (lint, typecheck, unit tests, build)
 - [ ] GitHub Actions: Integration + E2E (Playwright, Lighthouse CI)
 - [ ] GitHub Actions: Load test + security (k6, Trivy, OWASP ZAP)
-- [ ] GitHub Actions: Deploy to prod (Cloudflare Pages)
+- [ ] GitHub Actions: Deploy to prod (Cloudflare Workers — OpenNext)
 - [ ] Health check endpoint (`GET /api/health`)
 - [ ] Weekly backup workflow (pg_dump → R2)
 
@@ -207,7 +207,7 @@
 - [ ] PostHog funnels + feature flags
 - [ ] Checkly synthetic monitoring
 - [ ] Launch checklist verification
-- [ ] DNS: point theroyalglow.in → Cloudflare Pages
+- [ ] DNS: point theroyalglow.in → Cloudflare Workers (`rgss-web`)
 - [ ] Fumadocs documentation site at docs.theroyalglow.in
 
 ---

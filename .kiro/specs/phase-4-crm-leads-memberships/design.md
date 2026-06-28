@@ -9,7 +9,7 @@ Phase 4 builds the customer-relationship layer of the RGSS platform on top of th
 3. **SPA Memberships** — admin-created hour-based memberships (Silver/Gold/Platinum), session recording that deducts hours and generates ₹0 invoices, and a customer-facing membership view.
 4. **Loyalty (Gems)** — a customer-facing gems balance + transaction history page, building on the gem-earning logic already wired into booking completion.
 
-All four areas reuse the database schema already defined and pushed to Neon (`lead`, `lead_note`, `spa_membership`, `spa_membership_tier`, `loyalty_account`, `loyalty_transaction`, `customer_tag`, `customer_tag_assignment`, `customer_note`). No schema migrations are required for the core feature set; one small additive column is proposed for membership-session linkage (see Design Decisions). The admin sidebar already links to `/admin/customers`, `/admin/leads`, and `/admin/memberships` — these routes are 404 today and this phase makes them real.
+All four areas reuse the database schema already defined and pushed to Neon (`lead`, `lead_note`, `spa_membership`, `spa_membership_tier`, `loyalty_account`, `loyalty_transaction`, `customer_tag`, `customer_tag_assignment`, `customer_note`). No schema migrations are required for the core feature set; one small additive column is proposed for membership-session linkage (see Design Decisions). The admin sidebar already links to `/customers`, `/leads`, and `/memberships` — these routes are 404 today and this phase makes them real.
 
 ### Goals
 
@@ -37,13 +37,13 @@ All four areas reuse the database schema already defined and pushed to Neon (`le
 apps/web/src/app/(landing)/book/        ← /book lead-capture page (no auth, noindex)
 apps/web/src/app/(customer)/membership/ ← customer membership view
 apps/web/src/app/(customer)/gems/       ← customer gems view
-apps/web/src/app/admin/leads/           ← lead kanban + detail
-apps/web/src/app/admin/customers/       ← customer directory + profile
-apps/web/src/app/admin/memberships/     ← membership list + create + detail
+apps/admin/src/app/leads/         ← lead kanban + detail
+apps/admin/src/app/customers/     ← customer directory + profile
+apps/admin/src/app/memberships/   ← membership list + create + detail
 apps/web/src/app/api/leads/             ← public lead capture
-apps/web/src/app/api/admin/leads/       ← admin lead management
-apps/web/src/app/api/admin/customers/   ← admin CRM
-apps/web/src/app/api/admin/memberships/ ← admin membership ops
+apps/admin/src/app/api/leads/           ← admin lead management
+apps/admin/src/app/api/customers/       ← admin CRM
+apps/admin/src/app/api/memberships/     ← admin membership ops
 apps/web/src/app/api/membership/        ← customer's own membership read
 apps/web/src/app/api/gems/              ← customer's own gems read
 
@@ -67,7 +67,7 @@ The rules hold exactly as in Phase 3:
 ### Request Flow (example: record a membership session)
 
 ```
-POST /api/admin/memberships/[id]/sessions
+POST /api/memberships/[id]/sessions
   │
   ├─ requireRole('receptionist')                         (session.ts)
   ├─ recordSessionSchema.safeParse(body)                 (@rgss/types)
@@ -170,11 +170,11 @@ getServiceInterestOptions(): Promise<{id,name,serviceType}[]>  // active service
 | Route | Method | Auth | Purpose |
 |-------|--------|------|---------|
 | `/api/leads` | POST | none (public) | Create lead from `/book`. Defaults `source='meta_ad'`. Returns `{ leadId }`. Rate-limited (see Security). |
-| `/api/admin/leads` | GET | receptionist | Pipeline list (optional `?status=` filter). |
-| `/api/admin/leads` | POST | receptionist | Manual lead entry (`source='manual'`). |
-| `/api/admin/leads/[id]` | GET | receptionist | Lead detail with notes + attribution. |
-| `/api/admin/leads/[id]` | PATCH | receptionist | Update status (state-machine guarded) / assign. |
-| `/api/admin/leads/[id]/notes` | POST | receptionist | Add a note. |
+| `/api/leads` | GET | receptionist | Pipeline list (optional `?status=` filter). |
+| `/api/leads` | POST | receptionist | Manual lead entry (`source='manual'`). |
+| `/api/leads/[id]` | GET | receptionist | Lead detail with notes + attribution. |
+| `/api/leads/[id]` | PATCH | receptionist | Update status (state-machine guarded) / assign. |
+| `/api/leads/[id]/notes` | POST | receptionist | Add a note. |
 
 Lead capture handler shape (thin orchestrator):
 
@@ -198,8 +198,8 @@ export const POST = withErrorHandler(async (req: Request) => {
 #### 1.5 Pages
 
 - **`apps/web/src/app/(landing)/book/page.tsx`** — server component that fetches service-interest options, renders a client `LeadCaptureForm`. Route group `(landing)` gets a minimal layout (no header/footer/nav). `metadata = { robots: { index:false, follow:false } }`. The form reads `utm_*` from `searchParams` (a Promise in Next 16) and passes them as hidden values. On success it shows the 1.5s "Thank you" state then `router.push('/?book=1&leadId=' + id)`. Phone field shows `+91` prefix; 10-digit validation; "Continue to Booking" CTA.
-- **`apps/web/src/app/admin/leads/page.tsx`** — server component fetches pipeline rows, renders client `LeadKanban` (5 columns, cards show name, phone tap-to-call, service interest, campaign, days-since, stale dot). "+ Manual Lead" opens a dialog.
-- **`apps/web/src/app/admin/leads/[id]/page.tsx`** — info card with actions (Call, WhatsApp deep link `https://wa.me/91...`, status transitions, Mark Lost with reason), attribution panel (source, utm, fbp/fbc shown if present, linked customer/booking), and a notes timeline with an add-note box.
+- **`apps/web/src/app/leads/page.tsx`** — server component fetches pipeline rows, renders client `LeadKanban` (5 columns, cards show name, phone tap-to-call, service interest, campaign, days-since, stale dot). "+ Manual Lead" opens a dialog.
+- **`apps/web/src/app/leads/[id]/page.tsx`** — info card with actions (Call, WhatsApp deep link `https://wa.me/91...`, status transitions, Mark Lost with reason), attribution panel (source, utm, fbp/fbc shown if present, linked customer/booking), and a notes timeline with an add-note box.
 
 ### 2. CRM (Customers)
 
@@ -235,7 +235,7 @@ export const addCustomerNoteSchema = z.object({
 // loyalty_account gems balance and a tags aggregate.
 getCustomers(query): Promise<{ rows: CustomerListRow[]; totalCount: number }>
 
-// Profile aggregation for /admin/customers/[id]:
+// Profile aggregation for /customers/[id]:
 getCustomerProfile(userId): Promise<CustomerProfileDetail | null>
 //   → user (name/email/role), customer_profile KPIs, tags[], gems balance
 getCustomerBookings(userId, limit, offset)       // history tab
@@ -267,19 +267,19 @@ Search: case-insensitive `ILIKE` across `user.name`, `customer_profile.phone`, `
 
 | Route | Method | Auth | Purpose |
 |-------|--------|------|---------|
-| `/api/admin/customers` | GET | receptionist | Paginated directory (`meta` pagination). |
-| `/api/admin/customers/[id]` | GET | receptionist | Profile detail (KPIs, tags, gems). |
-| `/api/admin/customers/[id]` | PATCH | manager | Owner override (e.g. reset `noshowCount`). |
-| `/api/admin/customers/[id]/tags` | POST | receptionist | Assign tag. |
-| `/api/admin/customers/[id]/tags/[tagId]` | DELETE | receptionist | Remove tag. |
-| `/api/admin/customers/[id]/notes` | POST | receptionist | Add note. |
-| `/api/admin/tags` | GET | receptionist | List tags (autocomplete). |
-| `/api/admin/tags` | POST | manager | Create tag. |
+| `/api/customers` | GET | receptionist | Paginated directory (`meta` pagination). |
+| `/api/customers/[id]` | GET | receptionist | Profile detail (KPIs, tags, gems). |
+| `/api/customers/[id]` | PATCH | manager | Owner override (e.g. reset `noshowCount`). |
+| `/api/customers/[id]/tags` | POST | receptionist | Assign tag. |
+| `/api/customers/[id]/tags/[tagId]` | DELETE | receptionist | Remove tag. |
+| `/api/customers/[id]/notes` | POST | receptionist | Add note. |
+| `/api/tags` | GET | receptionist | List tags (autocomplete). |
+| `/api/tags` | POST | manager | Create tag. |
 
 #### 2.4 Pages
 
-- **`/admin/customers/page.tsx`** — search box, sort dropdown, tag filter, paginated table (Name, Phone, Tags, Visits, LTV, Gems, Last Visit). Pagination controls use `meta.page/totalPages`.
-- **`/admin/customers/[id]/page.tsx`** — header (name, contact, since date, tag chips with add/remove), KPI cards (Visits, LTV, Avg Spend, No-shows, Gems), and tabs (Bookings / Invoices / Membership / Gems / Notes). Tabs lazy-load via their respective endpoints or are server-rendered on first paint.
+- **`/customers/page.tsx`** — search box, sort dropdown, tag filter, paginated table (Name, Phone, Tags, Visits, LTV, Gems, Last Visit). Pagination controls use `meta.page/totalPages`.
+- **`/customers/[id]/page.tsx`** — header (name, contact, since date, tag chips with add/remove), KPI cards (Visits, LTV, Avg Spend, No-shows, Gems), and tabs (Bookings / Invoices / Membership / Gems / Notes). Tabs lazy-load via their respective endpoints or are server-rendered on first paint.
 
 ### 3. SPA Memberships
 
@@ -365,19 +365,19 @@ The one-active-per-customer rule is also enforced at the DB level by the existin
 
 | Route | Method | Auth | Purpose |
 |-------|--------|------|---------|
-| `/api/admin/memberships` | GET | receptionist | List (filter `?tier=&status=`). |
-| `/api/admin/memberships` | POST | receptionist | Create membership + invoice. |
-| `/api/admin/memberships/[id]` | GET | receptionist | Detail + sessions. |
-| `/api/admin/memberships/[id]/sessions` | POST | receptionist | Record session. |
-| `/api/admin/memberships/[id]/cancel` | POST | manager | Cancel membership. |
-| `/api/admin/membership-tiers` | GET | receptionist | Tiers for the create form. |
+| `/api/memberships` | GET | receptionist | List (filter `?tier=&status=`). |
+| `/api/memberships` | POST | receptionist | Create membership + invoice. |
+| `/api/memberships/[id]` | GET | receptionist | Detail + sessions. |
+| `/api/memberships/[id]/sessions` | POST | receptionist | Record session. |
+| `/api/memberships/[id]/cancel` | POST | manager | Cancel membership. |
+| `/api/membership-tiers` | GET | receptionist | Tiers for the create form. |
 | `/api/membership` | GET | session (customer) | Caller's own active + past memberships. |
 
 #### 3.5 Pages
 
-- **`/admin/memberships/page.tsx`** — list with tier/status filters; "+ Create Membership" → `/admin/memberships/new`.
-- **`/admin/memberships/new/page.tsx`** — customer search, tier cards (prefill hours/price/validity, overridable), start date with auto-computed expiry preview, payment method, "Create Membership". Shows the side-effects note (invoice generated, no gems).
-- **`/admin/memberships/[id]/page.tsx`** — hours-balance bar (used/remaining/total), expiry + days-left, session history table, "Record Session" (modal) and "Cancel Membership" (manager+). Record-session modal validates requested duration ≤ remaining.
+- **`/memberships/page.tsx`** — list with tier/status filters; "+ Create Membership" → `/memberships/new`.
+- **`/memberships/new/page.tsx`** — customer search, tier cards (prefill hours/price/validity, overridable), start date with auto-computed expiry preview, payment method, "Create Membership". Shows the side-effects note (invoice generated, no gems).
+- **`/memberships/[id]/page.tsx`** — hours-balance bar (used/remaining/total), expiry + days-left, session history table, "Record Session" (modal) and "Cancel Membership" (manager+). Record-session modal validates requested duration ≤ remaining.
 - **`/(customer)/membership/page.tsx`** — customer's active membership card (tier, number, hours bar, validity, urgency banner ≤30d / ≤7d), session history, collapsible past memberships. If none active: empty state with a "call us" CTA.
 
 ### 4. Loyalty (Gems)

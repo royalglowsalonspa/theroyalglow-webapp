@@ -327,42 +327,43 @@ Page                            Breadcrumbs
 /privacy                        Home > Privacy Policy
 /terms                          Home > Terms of Service
 /refund-policy                  Home > Refund Policy
-/admin                          Admin (admin.theroyalglow.in)
-/admin/bookings                 Admin > Bookings (note: served as /bookings at admin.theroyalglow.in)
-/admin/bookings/new             Admin > Bookings > Create Walk-in
-/admin/bookings/[id]            Admin > Bookings > #BKRS...
-/admin/customers                Admin > Customers
-/admin/customers/[id]           Admin > Customers > [Name]
-/admin/leads                    Admin > Leads
-/admin/leads/[id]               Admin > Leads > [Name]
-/admin/staff                    Admin > Staff
-/admin/staff/new                Admin > Staff > Add Staff
-/admin/staff/[id]               Admin > Staff > [Name]
-/admin/schedule                 Admin > Schedule
-/admin/leave                    Admin > Leave
-/admin/services                 Admin > Services
-/admin/services/new             Admin > Services > Add Service
-/admin/services/[id]            Admin > Services > [Name]
-/admin/offers                   Admin > Offers
-/admin/offers/new               Admin > Offers > Create Offer
-/admin/offers/[id]              Admin > Offers > [Name]
-/admin/memberships              Admin > Memberships
-/admin/memberships/new          Admin > Memberships > Create
-/admin/memberships/[id]         Admin > Memberships > #RGMEM...
-/admin/billing                  Admin > Billing
-/admin/billing/[id]             Admin > Billing > #INV...
-/admin/reports                  Admin > Reports
-/admin/reports/financial        Admin > Reports > Financial
-/admin/reports/salon            Admin > Reports > Salon
-/admin/reports/spa              Admin > Reports > SPA
-/admin/reports/staff            Admin > Reports > Staff
-/admin/reports/leads            Admin > Reports > Leads
-/admin/settings                 Admin > Settings
-/admin/branches                 Admin > Branches
-/admin/branches/[id]            Admin > Branches > [Name]
-/admin/users                    Admin > Users
-/admin/integrations             Admin > Integrations
-/admin/logs                     Admin > Logs
+# Admin app — served at admin.theroyalglow.in (Root-Path Convention, no /admin prefix)
+/                               Admin > Dashboard
+/bookings                       Admin > Bookings
+/bookings/new                   Admin > Bookings > Create Walk-in
+/bookings/[id]                  Admin > Bookings > #BKRS...
+/customers                      Admin > Customers
+/customers/[id]                 Admin > Customers > [Name]
+/leads                          Admin > Leads
+/leads/[id]                     Admin > Leads > [Name]
+/staff                          Admin > Staff
+/staff/new                      Admin > Staff > Add Staff
+/staff/[id]                     Admin > Staff > [Name]
+/schedule                       Admin > Schedule
+/leave                          Admin > Leave
+/services                       Admin > Services
+/services/new                   Admin > Services > Add Service
+/services/[id]                  Admin > Services > [Name]
+/offers                         Admin > Offers
+/offers/new                     Admin > Offers > Create Offer
+/offers/[id]                    Admin > Offers > [Name]
+/memberships                    Admin > Memberships
+/memberships/new                Admin > Memberships > Create
+/memberships/[id]               Admin > Memberships > #RGMEM...
+/billing                        Admin > Billing
+/billing/[id]                   Admin > Billing > #INV...
+/reports                        Admin > Reports
+/reports/financial              Admin > Reports > Financial
+/reports/salon                  Admin > Reports > Salon
+/reports/spa                    Admin > Reports > SPA
+/reports/staff                  Admin > Reports > Staff
+/reports/leads                  Admin > Reports > Leads
+/settings                       Admin > Settings
+/branches                       Admin > Branches
+/branches/[id]                  Admin > Branches > [Name]
+/users                          Admin > Users
+/integrations                   Admin > Integrations
+/logs                           Admin > Logs
 ```
 
 ---

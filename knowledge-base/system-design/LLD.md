@@ -530,7 +530,7 @@ Customer (Browser)          API Route                  Business Logic           
 ```
 Admin (Browser)             API Route                  Business Logic             Database              External Services
        │                       │                           │                       │                       │
-       │  POST /api/admin/     │                           │                       │                       │
+       │  POST /api/           │                           │                       │                       │
        │  bookings/:id/complete│                           │                       │                       │
        │──────────────────────▶│                           │                       │                       │
        │                       │  Validate + RBAC check    │                       │                       │
@@ -552,7 +552,7 @@ Admin (Browser)             API Route                  Business Logic           
        │                       │                           │──────────────────────▶│                       │
        │                       │                           │                       │                       │
        │                       │                           │  5. Generate PDF      │                       │
-       │                       │                           │──────────────────────────────────────────────▶│ Render API
+       │                       │                           │──────────────────────────────────────────────▶│ Cloud Run (rgss-invoicing)
        │                       │                           │                       │                       │
        │                       │                           │  6. Upload PDF to R2  │                       │
        │                       │                           │──────────────────────────────────────────────▶│ Cloudflare R2
@@ -711,7 +711,7 @@ packages/business/
 ├── invoicing/
 │   ├── generate.ts            ← generateInvoice(bookingId, offer?, payment): Invoice
 │   ├── pdf.ts                 ← generatePdf(invoiceId): Buffer
-│   │                             └── Calls Render API with HTML template
+│   │                             └── Calls Cloud Run invoicing service (POST /v1/invoices)
 │   ├── gst.ts                 ← splitGST(inclusivePaise): GSTBreakdown
 │   └── number.ts              ← generateInvoiceNumber(branchId): string
 │                                  └── Format: INV{DDMM}{BRANCH}{SEQUENCE}
@@ -1491,7 +1491,7 @@ export async function generateInvoice(input: GenerateInvoiceInput): Promise<Invo
     return inv
   })
   
-  // 7. Generate PDF (Render API)
+  // 7. Generate PDF (Cloud Run invoicing service)
   const pdfBuffer = await generatePdf(invoice.id)
   
   // 8. Upload PDF to R2

@@ -57,7 +57,7 @@ Implement the 19 background jobs (14 QStash scheduled + 4 QStash triggered + 1 G
   - Create `/api/jobs/stale-booking-alert/route.ts` (job 17): if still pending → notify receptionists; if >24h → auto-reject (only when still pending) + notify customer
   - Create `/api/jobs/noshow-check/route.ts` (job 18): if still confirmed past end → notify receptionists (never auto-mark)
   - Create `/api/jobs/membership-expired-notice/route.ts` (job 19): final renewal email
-  - Wire guarded `enqueueJob(...)` calls at the event sites: booking completion (`/api/admin/bookings/[id]/complete` → post-service +24h), booking creation (`/api/bookings` → stale +2h; no-show after end_time), membership creation (`/api/admin/memberships` → expired notice +1h). All best-effort/no-throw
+  - Wire guarded `enqueueJob(...)` calls at the event sites: booking completion (`/api/bookings/[id]/complete` → post-service +24h), booking creation (`/api/bookings` → stale +2h; no-show after end_time), membership creation (`/api/memberships` → expired notice +1h). All best-effort/no-throw
   - _Requirements: 4.1, 4.2, 6.1, 6.2, 6.3, 6.4_
 
 - [x] 8. Verification — typecheck and lint
