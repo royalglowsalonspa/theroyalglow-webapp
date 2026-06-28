@@ -1,0 +1,158 @@
+# ============================================================================
+#  Deploy Invoicing — PDF render service (apps/invoicing → Google Cloud Run)
+#  Service: rgss-invoicing   ·   Region: asia-south1 (Mumbai)
+# ============================================================================
+#
+#  WHAT THIS DOES
+#  --------------
+#  Builds the @rgss/invoicing container from the Dockerfile (repo ROOT build
+#  context — the multi-stage build needs the workspace @rgss/* packages), pushes
+#  it to Artifact Registry, and deploys it to Cloud Run. The service renders GST
+#  invoice PDFs and is called by the web Worker over HMAC-signed HTTPS.
+#
+#  WHY BUILD THE IMAGE OURSELVES (not `gcloud run deploy --source`)
+#  ---------------------------------------------------------------
+#  apps/invoicing/Dockerfile does `COPY . .` and bundles the workspace packages,
+#  so it REQUIRES the repo root as the build context with the Dockerfile passed
+#  via `-f`. `--source` would use apps/invoicing/ as the context and miss the
+#  rest of the monorepo. So we `docker build -f apps/invoicing/Dockerfile .` from
+#  the root, push, then `gcloud run deploy --image`.
+#
+#  AUTH: keyless via Workload Identity Federation (no long-lived SA JSON key).
+#
+#  ONE-TIME GCP SETUP (before the first deploy)
+#  --------------------------------------------
+#   1. Enable APIs: run.googleapis.com, artifactregistry.googleapis.com,
+#      secretmanager.googleapis.com.
+#   2. Create an Artifact Registry Docker repo (name = vars.GCP_AR_REPO), e.g.:
+#        gcloud artifacts repositories create rgss \
+#          --repository-format=docker --location=asia-south1
+#   3. Create a deployer service account with roles: run.admin,
+#      iam.serviceAccountUser, artifactregistry.writer, secretmanager.secretAccessor.
+#   4. Configure Workload Identity Federation for this GitHub repo and allow the
+#      SA to be impersonated by it (github.com/google-github-actions/auth#setup).
+#   5. Store the runtime secrets in Secret Manager (names referenced below):
+#        invoice-pdf-hmac-secret  (SAME value as the web Worker's INVOICE_PDF_HMAC_SECRET)
+#        r2-access-key-id
+#        r2-secret-access-key
+#      The non-secret R2 config (bucket/endpoint/public URL) is passed as plain
+#      env vars from GitHub repo/environment `vars` (see the deploy step).
+#
+#  REQUIRED GITHUB CONFIG
+#    Secrets: GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT
+#    Vars:    GCP_PROJECT_ID, GCP_AR_REPO,
+#             INVOICING_R2_BUCKET_NAME, INVOICING_R2_ENDPOINT,
+#             INVOICING_R2_PUBLIC_BASE_URL
+#
+#  NOTE on access: the service is deployed `--no-allow-unauthenticated`. HMAC is
+#  enforced in-app on every request; Cloud Run IAM is an additional outer layer.
+#  The web Worker must therefore call it with an identity token, OR you can
+#  switch to `--allow-unauthenticated` and rely on HMAC alone — see the comment
+#  at the deploy step.
+# ============================================================================
+name: Deploy Invoicing
+
+on:
+  push:
+    branches: [prod]
+    paths:
+      - 'apps/invoicing/**'
+      - 'packages/**'
+      - '.github/workflows/deploy-invoicing.yml'
+  # Manual trigger for re-deploys without a code change.
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-invoicing-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SERVICE: rgss-invoicing
+  REGION: asia-south1
+  IMAGE_NAME: rgss-invoicing
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Required for keyless auth (Workload Identity Federation mints an OIDC token).
+    permissions:
+      contents: read
+      id-token: write
+    environment:
+      name: production
+    steps:
+      - uses: actions/checkout@v4
+
+      # ----- Authenticate to Google Cloud (keyless WIF) ---------------------
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      # ----- Build + push the image (repo ROOT build context) ---------------
+      # The image registry path: {region}-docker.pkg.dev/{project}/{repo}/{image}
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push image
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_AR_REPO }}/${IMAGE_NAME}"
+          docker build \
+            -f apps/invoicing/Dockerfile \
+            -t "${IMAGE}:${GITHUB_SHA}" \
+            -t "${IMAGE}:latest" \
+            .
+          docker push "${IMAGE}:${GITHUB_SHA}"
+          docker push "${IMAGE}:latest"
+          echo "IMAGE=${IMAGE}:${GITHUB_SHA}" >> "$GITHUB_ENV"
+
+      # ----- Deploy to Cloud Run --------------------------------------------
+      # Runtime config:
+      #   - secrets pulled from Secret Manager (--set-secrets)
+      #   - non-secret R2 config + NODE_ENV passed as plain env vars
+      #   - --min-instances 0 → scale to zero (₹0 idle); --port 8080
+      #   - --no-allow-unauthenticated → HMAC still enforced in-app (outer IAM
+      #     layer). To make it publicly reachable by the Cloudflare Worker
+      #     WITHOUT minting GCP identity tokens, change this to
+      #     `--allow-unauthenticated` (HMAC remains the real auth gate).
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy "${SERVICE}" \
+            --image "${IMAGE}" \
+            --region "${REGION}" \
+            --platform managed \
+            --port 8080 \
+            --min-instances 0 \
+            --max-instances 4 \
+            --no-allow-unauthenticated \
+            --set-env-vars "NODE_ENV=production,R2_BUCKET_NAME=${{ vars.INVOICING_R2_BUCKET_NAME }},R2_ENDPOINT=${{ vars.INVOICING_R2_ENDPOINT }},R2_PUBLIC_BASE_URL=${{ vars.INVOICING_R2_PUBLIC_BASE_URL }}" \
+            --set-secrets "INVOICE_PDF_HMAC_SECRET=invoice-pdf-hmac-secret:latest,R2_ACCESS_KEY_ID=r2-access-key-id:latest,R2_SECRET_ACCESS_KEY=r2-secret-access-key:latest"
+
+      # ----- Post-deploy liveness check -------------------------------------
+      # /healthz is unauthenticated-safe content but the service requires IAM;
+      # describe the URL and probe it with an identity token so the check works
+      # under --no-allow-unauthenticated.
+      - name: Health check
+        run: |
+          URL=$(gcloud run services describe "${SERVICE}" --region "${REGION}" --format 'value(status.url)')
+          echo "Service URL: ${URL}"
+          TOKEN=$(gcloud auth print-identity-token --audiences="${URL}")
+          for i in 1 2 3; do
+            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 30 \
+              -H "Authorization: Bearer ${TOKEN}" "${URL}/healthz" || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "Health check passed (attempt $i)"
+              exit 0
+            fi
+            echo "Health check failed (attempt $i, status: ${STATUS}). Retrying in 10s..."
+            sleep 10
+          done
+          echo "Health check failed after 3 attempts"
+          exit 1

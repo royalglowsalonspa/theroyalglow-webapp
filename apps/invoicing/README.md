@@ -120,6 +120,15 @@ gcloud run deploy rgss-invoicing \
 - `--no-allow-unauthenticated` → HMAC is still enforced in-app; Cloud Run IAM is
   an additional outer layer.
 
+### Automated deploy (CI)
+
+`.github/workflows/deploy-invoicing.yml` builds the image (repo-root Docker
+context), pushes it to Artifact Registry, and deploys to Cloud Run on every push
+to `prod` that touches `apps/invoicing/**` or `packages/**` (and on manual
+`workflow_dispatch`). It authenticates keylessly via Workload Identity
+Federation and mounts the runtime secrets from Secret Manager. See that file's
+header for the one-time GCP setup and the required GitHub secrets/vars.
+
 ### Secrets via Secret Manager
 
 Store secrets in Secret Manager and mount them as env vars:
