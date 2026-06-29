@@ -5,42 +5,94 @@ description: High-level architecture of the Royal Glow Salon & Spa platform.
 
 # Architecture
 
+<Callout type="info">
+  Royal Glow is a **monolithic modular** monorepo, not microservices. Strict layer boundaries give the modularity of microservices without the ops burden — and three hard conventions hold everywhere: **money is integer paise**, **IDs are app-generated text**, and **business logic never imports the database or framework**.
+</Callout>
+
 ## Layered monorepo
 
+The Bun + Turborepo workspace holds five apps/packages workspaces:
+
+<TypeTable
+  type={{
+    '@rgss/web': { type: 'theroyalglow.in', description: 'Customer Next.js site — Cloudflare Worker rgss-web (dev port 3000).' },
+    '@rgss/admin': { type: 'admin.theroyalglow.in', description: 'Admin portal Next.js app — Cloudflare Worker rgss-admin (dev port 3001).' },
+    '@rgss/cms': { type: 'cms.theroyalglow.in', description: 'Payload CMS v3 — Render service rgss-cms (dev port 3002).' },
+    '@rgss/invoicing': { type: 'Cloud Run', description: 'PDF invoice render service.' },
+    '@rgss/docs': { type: 'docs.theroyalglow.in', description: 'This Fumadocs site (dev port 3003).' },
+  }}
+/>
+
 The codebase enforces a strict dependency direction so business rules stay
-testable and framework-agnostic.
+testable and framework-agnostic. Each layer may only import inward.
 
-| Layer | Location | May import | Must not import |
-| --- | --- | --- | --- |
-| Presentation | `apps/web/app`, `apps/web/components` | business, db, types, errors | — |
-| API (thin) | `apps/web/app/api` | business, db, types, errors | UI components |
-| Business logic | `packages/business` | types, errors | db, framework, UI |
-| Data access | `packages/db` | types | business, framework, UI |
-| Types / validation | `packages/types` | — | everything else |
+<TypeTable
+  type={{
+    Presentation: { type: 'apps/web + apps/admin (app, components)', description: 'May import: business, db, types, errors. Must not import: nothing restricted.' },
+    'API (thin)': { type: 'apps/web/app/api + apps/admin/app/api', description: 'May import: business, db, types, errors. Must not import: UI components.' },
+    'Business logic': { type: 'packages/business', description: 'May import: types, errors. Must not import: db, framework, UI.' },
+    'Data access': { type: 'packages/db', description: 'May import: types. Must not import: business, framework, UI.' },
+    'Types / validation': { type: 'packages/types', description: 'May import: nothing. Must not import: everything else.' },
+  }}
+/>
 
-API routes are thin orchestrators: parse, validate with Zod, call business
-logic, return JSON. No database queries live in route handlers.
+<Callout type="warn">
+  **API routes are thin orchestrators:** parse → validate with Zod → call business logic → return JSON. No database queries live in route handlers.
+</Callout>
 
 ## Hosting topology
 
-- **Edge:** Cloudflare Pages + Workers serve the customer site globally.
-- **SSR origin / CMS:** Render (Singapore) hosts the heavier SSR fallback and
-  the Payload CMS — both Node.js runtimes.
-- **Database:** a single Neon project with four branches (`prod`, `pprd`,
-  `test`, `dev`); the CMS owns its own tables, disjoint from the app's Drizzle
-  schema.
-- **Media:** Cloudflare R2 (S3-compatible, zero egress).
-- **Cache + queue:** Upstash Redis + QStash. **Realtime:** Ably.
+The platform spans Cloudflare's edge, a Render origin, and a Cloud Run service, backed by Neon. Pick a concern below.
+
+<Tabs items={['Edge', 'Origin & CMS', 'Database', 'Media & Queue']}>
+
+<Tab value="Edge">
+
+**Cloudflare Workers** (deployed via the **OpenNext** adapter, `@opennextjs/cloudflare` — not Pages, not next-on-pages) run the customer site (`rgss-web`) and admin portal (`rgss-admin`) globally, with **Cloudflare KV** caching the service catalog (5-min TTL) at the edge. Sub-100ms responses worldwide. Deploy with `wrangler deploy` / `opennextjs-cloudflare deploy`.
+
+</Tab>
+
+<Tab value="Origin & CMS">
+
+**Render (Singapore)** hosts the **Payload CMS** (`rgss-cms`) — a Node.js runtime, closest free region to India. The **`@rgss/invoicing`** PDF render service runs on **Cloud Run**.
+
+</Tab>
+
+<Tab value="Database">
+
+A single **Neon** project with four branches (`prod`, `pprd`, `test`, `dev`). The CMS owns its own tables, disjoint from the app's Drizzle schema.
+
+</Tab>
+
+<Tab value="Media & Queue">
+
+**Cloudflare R2** for media (S3-compatible, zero egress). **Upstash Redis + QStash** for cache and queue. **Ably** for realtime.
+
+</Tab>
+
+</Tabs>
 
 ## Observability
 
-Five layers, each on a free tier: Sentry (errors), BetterStack (uptime, status
-page, job heartbeats, logs), PostHog (product analytics + feature flags),
-Microsoft Clarity (heatmaps + session replay), and Checkly (synthetic browser
-monitoring). All third-party browser scripts load only after explicit cookie
-consent and only when their keys are configured.
+Five layers, each on a free tier.
+
+<TypeTable
+  type={{
+    Sentry: { type: 'errors', description: 'Application + Worker error monitoring.' },
+    BetterStack: { type: 'uptime', description: 'Uptime, status page, job heartbeats, and logs.' },
+    PostHog: { type: 'product analytics', description: 'Product analytics plus feature flags.' },
+    'Microsoft Clarity': { type: 'UX', description: 'Heatmaps and session replay.' },
+    Checkly: { type: 'synthetic', description: 'Synthetic browser monitoring.' },
+  }}
+/>
+
+All third-party browser scripts load only after explicit cookie consent and only when their keys are configured.
 
 ## Conventions
+
+<Callout type="info">
+  These hold across the whole monorepo and are covered in depth on the [Conventions](/docs/conventions) page.
+</Callout>
 
 - Money is stored as integer **paise**; never floating point.
 - Timestamps are `timestamptz` (stored UTC, displayed IST).
@@ -48,3 +100,11 @@ consent and only when their keys are configured.
 - Every external integration is a guarded extension point: with no key
   configured it no-ops and logs, so the whole monorepo builds and runs locally
   without secrets.
+
+## Related Pages
+
+<Cards>
+  <Card title="Conventions" href="/docs/conventions" description="Money, dates, layering, and the API response envelope" />
+  <Card title="Tech Stack" href="/docs/tech-stack" description="Every technology and why it was chosen" />
+  <Card title="System Design" href="/docs/system-design" description="Formal HLD and LLD documents" />
+</Cards>

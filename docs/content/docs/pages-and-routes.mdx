@@ -5,11 +5,13 @@ description: Complete map of all 104 pages and API routes in the Royal Glow plat
 
 # Pages & Routes
 
-The platform has ~104 pages across four route groups plus the admin portal, staff portal, and API layer.
+The platform spans two Next.js apps: the customer site `@rgss/web` (`theroyalglow.in`) and the admin portal `@rgss/admin` (`admin.theroyalglow.in`). Together they cover ~104 pages plus the API layer.
 
-## Route Groups
+<Callout type="info">
+  The customer site uses Next.js App Router **route groups** (folders in parentheses) to share a layout without affecting the URL. The admin portal is a **separate app** served from `admin.theroyalglow.in` at root paths — the subdomain provides the admin namespace, so there is no `/admin` prefix. Legacy `theroyalglow.in/admin/*` paths 301-redirect to the subdomain. Staff self-service lives at `/me/*` within the admin app. Admin routes are RBAC-gated; everything else is public or customer-authenticated.
+</Callout>
 
-Next.js App Router uses route groups (folders in parentheses) to share layouts without affecting the URL:
+## Route Groups (`@rgss/web` — `theroyalglow.in`)
 
 | Group | URL Pattern | Layout | Auth |
 | --- | --- | --- | --- |
@@ -17,10 +19,16 @@ Next.js App Router uses route groups (folders in parentheses) to share layouts w
 | `(auth)` | `/sign-in`, `/onboarding` | Minimal centered card | — |
 | `(landing)` | `/book` | No nav — conversion-optimised | — |
 | `(legal)` | `/privacy`, `/terms`, `/refund-policy` | Minimal | — |
-| `admin/` | `/admin/*` | Sidebar + RBAC | Required (receptionist+) |
-| `staff/` | `/staff/*` | Minimal | Required (staff+) |
 
-## Customer Pages
+The admin portal (`@rgss/admin`, `admin.theroyalglow.in`) is a standalone app: admin pages at root paths under a sidebar + RBAC layout (`receptionist+`), and staff self-service pages at `/me/*` (`staff+`).
+
+## Page & API Map
+
+Select an area of the platform.
+
+<Tabs items={['Customer', 'Admin Portal', 'Staff Portal', 'API', 'Background Jobs', 'Special']}>
+
+<Tab value="Customer">
 
 ### Public (No Auth Required)
 
@@ -46,6 +54,8 @@ Next.js App Router uses route groups (folders in parentheses) to share layouts w
 | `/bookings/[id]` | Booking Detail | Status timeline, services, invoice link |
 | `/membership` | My Membership | Tier, hours remaining, session history |
 | `/gems` | Gems | Balance, transaction history, catalogue |
+| `/favorites` | Favourites | Saved favourite services |
+| `/notifications` | Notifications | Notification list, mark read |
 | `/profile` | Profile | Editable fields, notification preferences |
 
 ### Auth Pages
@@ -55,60 +65,67 @@ Next.js App Router uses route groups (folders in parentheses) to share layouts w
 | `/sign-in` | Sign In | Google OAuth button |
 | `/onboarding` | Onboarding | First-time profile setup (name, phone, DOB, gender, consents) |
 
-### Landing Pages
+### Landing & Legal (SSG)
 
 | Route | Page | Notes |
 | --- | --- | --- |
 | `/book` | Lead Capture | Meta/Instagram ad landing page — 3-field form, no nav |
+| `/privacy` | Privacy Policy | DPDP Act 2023 |
+| `/terms` | Terms of Service | — |
+| `/refund-policy` | Refund & Cancellation Policy | — |
 
-### Legal Pages (SSG)
+</Tab>
 
-| Route | Page |
-| --- | --- |
-| `/privacy` | Privacy Policy |
-| `/terms` | Terms of Service |
-| `/refund-policy` | Refund & Cancellation Policy |
+<Tab value="Admin Portal">
 
-## Admin Portal
-
-All admin routes require authentication with minimum role `receptionist`.
+All admin routes are served from `admin.theroyalglow.in` at **root paths** (no `/admin` prefix) and require authentication with minimum role `receptionist`. The paths below are relative to `admin.theroyalglow.in`.
 
 | Route | Min. Role | Page |
 | --- | --- | --- |
-| `/admin` | Receptionist | Dashboard — today's bookings, revenue, pending actions |
-| `/admin/bookings` | Receptionist | Booking list with filters |
-| `/admin/bookings/[id]` | Receptionist | Booking detail — approve/reject/assign/complete |
-| `/admin/bookings/new` | Receptionist | Walk-in booking creation |
-| `/admin/customers` | Receptionist | Customer list — search, filter, sort by LTV |
-| `/admin/customers/[id]` | Receptionist | Customer profile — history, notes, tags |
-| `/admin/leads` | Receptionist | Lead pipeline — kanban view |
-| `/admin/leads/[id]` | Receptionist | Lead detail — notes, UTM, WhatsApp link |
-| `/admin/memberships` | Receptionist | Membership list |
-| `/admin/memberships/[id]` | Receptionist | Membership detail — session recording |
-| `/admin/memberships/new` | Receptionist | Create new membership |
-| `/admin/billing` | Receptionist | Invoice list and detail |
-| `/admin/leave` | Receptionist | Leave request queue — approve/reject |
-| `/admin/services` | Manager | Service catalog management |
-| `/admin/offers` | Manager | Offer creation and management |
-| `/admin/staff` | Manager | Staff list and profiles |
-| `/admin/schedule` | Manager | Weekly staff availability grid |
-| `/admin/reports` | Manager | Revenue, bookings, staff performance |
-| `/admin/settings` | Manager | System settings |
-| `/admin/branches` | Owner | Branch management |
-| `/admin/users` | Owner | User management and role assignment |
-| `/admin/integrations` | Developer | Integration configuration |
-| `/admin/logs` | Developer | Audit logs |
+| `/` | Receptionist | Dashboard — today's bookings, revenue, pending actions |
+| `/bookings` | Receptionist | Booking list with filters |
+| `/bookings/[id]` | Receptionist | Booking detail — approve/reject/assign/complete |
+| `/bookings/new` | Receptionist | Walk-in booking creation |
+| `/customers` | Receptionist | Customer list — search, filter, sort by LTV |
+| `/customers/[id]` | Receptionist | Customer profile — history, notes, tags |
+| `/leads` | Receptionist | Lead pipeline — kanban view |
+| `/leads/[id]` | Receptionist | Lead detail — notes, UTM, WhatsApp link |
+| `/memberships` | Receptionist | Membership list |
+| `/memberships/[id]` | Receptionist | Membership detail — session recording |
+| `/memberships/new` | Receptionist | Create new membership |
+| `/billing` | Receptionist | Invoice list and detail |
+| `/billing/[id]` | Receptionist | Invoice detail |
+| `/leave` | Receptionist | Leave request queue — approve/reject |
+| `/waitlist` | Receptionist | Waitlist management |
+| `/services` | Manager | Service catalog management |
+| `/offers` | Manager | Offer creation and management |
+| `/staff` | Manager | Staff list and profiles |
+| `/schedule` | Manager | Weekly staff availability grid |
+| `/reports` | Manager | Revenue, bookings, staff performance |
+| `/settings` | Manager | System settings |
+| `/branches` | Owner | Branch management |
+| `/users` | Owner | User management and role assignment |
+| `/integrations` | Developer | Integration configuration |
+| `/logs` | Developer | Audit logs |
 
-## Staff Portal
+</Tab>
+
+<Tab value="Staff Portal">
+
+Staff self-service pages live at `/me/*` within the admin app (`admin.theroyalglow.in`).
 
 | Route | Min. Role | Page |
 | --- | --- | --- |
-| `/staff/schedule` | Staff | Own weekly schedule |
-| `/staff/leave` | Staff | Submit and view own leave requests |
+| `/me/schedule` | Staff | Own weekly schedule |
+| `/me/leave` | Staff | Submit and view own leave requests |
 
-## API Routes
+</Tab>
 
-### Public (No Auth)
+<Tab value="API">
+
+Customer API routes (below) are served from `theroyalglow.in/api/*` by `@rgss/web`. Admin API routes are served from `admin.theroyalglow.in/api/*` by `@rgss/admin` — there is **no `/api/admin/` segment**.
+
+### Public (No Auth) — `theroyalglow.in`
 
 | Endpoint | Method | Description |
 | --- | --- | --- |
@@ -118,7 +135,7 @@ All admin routes require authentication with minimum role `receptionist`.
 | `/api/leads` | POST | Campaign lead capture from `/book` form |
 | `/api/health` | GET | System health check |
 
-### Authenticated (Customer)
+### Authenticated (Customer) — `theroyalglow.in`
 
 | Endpoint | Method | Description |
 | --- | --- | --- |
@@ -128,59 +145,119 @@ All admin routes require authentication with minimum role `receptionist`.
 | `/api/bookings/[id]/reschedule` | POST | Reschedule booking |
 | `/api/membership` | GET | Customer's active membership |
 | `/api/gems` | GET | Gems balance + catalogue |
+| `/api/gems/redeem` | POST | Redeem gems against a catalogue service |
+| `/api/offers` | GET | Active offers for the customer |
+| `/api/contact` | POST | Contact form submission |
 | `/api/notifications` | GET, PATCH | Notifications list + mark read |
+| `/api/profile/preferences` | PATCH | Update notification preferences |
 | `/api/push/subscribe` | POST | Register push subscription |
 | `/api/push/subscribe` | DELETE | Remove push subscription |
 | `/api/ably/token` | POST | Scoped Ably JWT (Token Auth) |
 | `/api/onboarding/complete` | POST | Save onboarding data |
+| `/api/revalidate` | POST | On-demand ISR revalidation |
 
-### Admin (Role-Gated)
+### Admin (Role-Gated) — `admin.theroyalglow.in`
+
+Served from `admin.theroyalglow.in/api/*`. There is no `/api/admin/` segment — the subdomain is the namespace. Paths below are relative to `admin.theroyalglow.in`.
 
 | Endpoint | Method | Min. Role | Description |
 | --- | --- | --- | --- |
-| `/api/admin/bookings` | GET, POST | Receptionist | List / create booking |
-| `/api/admin/bookings/[id]` | PATCH | Receptionist | Approve, reject, assign staff |
-| `/api/admin/bookings/[id]/complete` | POST | Receptionist | Mark completed + invoice + gems |
-| `/api/admin/bookings/[id]/noshow` | POST | Receptionist | Mark no-show |
-| `/api/admin/customers` | GET | Receptionist | Customer list with search/filter |
-| `/api/admin/customers/[id]` | GET | Receptionist | Customer detail |
-| `/api/admin/customers/[id]/notes` | POST | Receptionist | Add CRM note |
-| `/api/admin/customers/[id]/tags` | POST, DELETE | Receptionist | Manage tags |
-| `/api/admin/leads` | GET, POST | Receptionist | Lead list / create manual lead |
-| `/api/admin/leads/[id]` | PATCH | Receptionist | Update lead status |
-| `/api/admin/leads/[id]/notes` | POST | Receptionist | Add lead note |
-| `/api/admin/memberships` | GET, POST | Receptionist | List / create membership |
-| `/api/admin/memberships/[id]` | GET | Receptionist | Membership detail |
-| `/api/admin/memberships/[id]/sessions` | POST | Receptionist | Record session |
-| `/api/admin/memberships/[id]/cancel` | POST | Manager | Cancel membership |
-| `/api/admin/offers` | GET, POST | Manager | List / create offer |
-| `/api/admin/offers/[id]` | PATCH, DELETE | Manager | Update / delete offer |
-| `/api/admin/leave` | GET, POST | Receptionist | Leave queue / submit leave |
-| `/api/admin/leave/[id]` | PATCH | Receptionist | Approve / reject leave |
-| `/api/admin/schedule` | GET | Receptionist | Staff schedule for date |
-| `/api/admin/staff` | GET | Manager | Staff list |
-| `/api/admin/tags` | GET | Receptionist | Available CRM tags |
+| `/api/bookings` | GET, POST | Receptionist | List / create booking |
+| `/api/bookings/new` | POST | Receptionist | Walk-in booking creation |
+| `/api/bookings/[id]` | PATCH | Receptionist | Approve, reject, assign staff |
+| `/api/bookings/[id]/complete` | POST | Receptionist | Mark completed + invoice + gems |
+| `/api/bookings/[id]/noshow` | POST | Receptionist | Mark no-show |
+| `/api/customers` | GET | Receptionist | Customer list with search/filter |
+| `/api/customers/[id]` | GET | Receptionist | Customer detail |
+| `/api/customers/[id]/notes` | POST | Receptionist | Add CRM note |
+| `/api/customers/[id]/tags` | POST | Receptionist | Add tag |
+| `/api/customers/[id]/tags/[tagId]` | DELETE | Receptionist | Remove tag |
+| `/api/leads` | GET, POST | Receptionist | Lead list / create manual lead |
+| `/api/leads/[id]` | PATCH | Receptionist | Update lead status |
+| `/api/leads/[id]/notes` | POST | Receptionist | Add lead note |
+| `/api/billing` | GET | Receptionist | Invoice list |
+| `/api/billing/[id]` | GET | Receptionist | Invoice detail |
+| `/api/memberships` | GET, POST | Receptionist | List / create membership |
+| `/api/memberships/[id]` | GET | Receptionist | Membership detail |
+| `/api/memberships/[id]/sessions` | POST | Receptionist | Record session |
+| `/api/memberships/[id]/cancel` | POST | Manager | Cancel membership |
+| `/api/membership-tiers` | GET | Receptionist | SPA membership tiers |
+| `/api/leave` | GET, POST | Receptionist | Leave queue / submit leave |
+| `/api/leave/[id]` | PATCH | Receptionist | Approve / reject leave |
+| `/api/me/leave` | GET, POST | Staff | Own leave list / submit |
+| `/api/me/leave/[id]` | PATCH | Staff | Update own leave |
+| `/api/me/schedule` | GET | Staff | Own schedule |
+| `/api/schedule` | GET | Receptionist | Staff schedule for date |
+| `/api/waitlist` | GET, POST | Receptionist | Waitlist list / add |
+| `/api/waitlist/[id]` | PATCH, DELETE | Receptionist | Update / remove waitlist entry |
+| `/api/tags` | GET | Receptionist | Available CRM tags |
+| `/api/notifications` | GET, PATCH | Receptionist | Notifications list + mark read |
+| `/api/offers` | GET, POST | Manager | List / create offer |
+| `/api/offers/[id]` | PATCH, DELETE | Manager | Update / delete offer |
+| `/api/services` | GET, POST | Manager | Service list / create |
+| `/api/services/all` | GET | Manager | All services (incl. inactive) |
+| `/api/services/[id]` | PATCH, DELETE | Manager | Update / delete service |
+| `/api/service-categories` | GET, POST | Manager | Category list / create |
+| `/api/service-categories/[id]` | PATCH, DELETE | Manager | Update / delete category |
+| `/api/staff` | GET, POST | Manager | Staff list / create |
+| `/api/staff/all` | GET | Manager | All staff |
+| `/api/staff/[id]` | GET, PATCH | Manager | Staff detail / update |
+| `/api/staff/[id]/services` | GET, PATCH | Manager | Staff service assignments |
+| `/api/reports` | GET | Manager | Reports data |
+| `/api/branches` | GET | Manager | Branch list |
+| `/api/branches/[id]` | PATCH | Owner | Update branch |
+| `/api/settings` | GET, PATCH | Manager | System settings |
+| `/api/users` | GET | Owner | User list / role management |
+| `/api/integrations` | GET | Developer | Integration configuration |
+| `/api/logs` | GET | Developer | Audit logs |
+| `/api/health` | GET | — | Admin health check |
+| `/api/ably/token` | POST | Receptionist | Scoped Ably JWT (Token Auth) |
 
-### Background Jobs (QStash Signature Required)
+</Tab>
 
-Hosted in `apps/admin` and served from `admin.theroyalglow.in/api/jobs/*`.
+<Tab value="Background Jobs">
+
+QStash signature required. Hosted in `@rgss/admin` and served from `admin.theroyalglow.in/api/jobs/*`. **19 jobs total: 14 QStash scheduled + 4 QStash triggered + 1 GitHub Actions cron.**
+
+#### Scheduled (14 — QStash)
+
+| Endpoint | Description |
+| --- | --- |
+| `/api/jobs/appointment-reminders` | 24h + 1h push + email reminders |
+| `/api/jobs/membership-expiry` | 30d/7d/1d expiry alerts |
+| `/api/jobs/birthday-emails` | Birthday offer emails |
+| `/api/jobs/membership-usage-nudges` | Usage nudge emails |
+| `/api/jobs/lead-followups` | Stale lead alerts |
+| `/api/jobs/daily-sales-report` | Daily report |
+| `/api/jobs/weekly-report` | Weekly summary |
+| `/api/jobs/gems-expiry-reminder` | 7-day gems expiry push |
+| `/api/jobs/nightly-sales-summary` | Nightly sales rollup |
+| `/api/jobs/membership-auto-expire` | Hard-expire lapsed memberships |
+| `/api/jobs/offer-auto-expire` | Expire ended offers |
+| `/api/jobs/gems-auto-expire` | Expire gems past 365 days |
+| `/api/jobs/session-cleanup` | Purge stale auth sessions |
+| `/api/jobs/monthly-gst-summary` | Monthly GST summary |
+
+#### Triggered (4 — QStash, event-driven with delay)
 
 | Endpoint | Trigger | Description |
 | --- | --- | --- |
-| `/api/jobs/appointment-reminders` | QStash scheduled | 24h + 1h push + email reminders |
-| `/api/jobs/membership-expiry` | QStash scheduled | 30d/7d/1d expiry alerts |
-| `/api/jobs/birthday-emails` | QStash scheduled | Birthday offer emails |
-| `/api/jobs/membership-usage-nudges` | QStash scheduled | Usage nudge emails |
-| `/api/jobs/lead-followups` | QStash scheduled | Stale lead alerts |
-| `/api/jobs/daily-sales-report` | QStash scheduled | Slack + email daily report |
-| `/api/jobs/weekly-report` | QStash scheduled | Weekly summary |
-| `/api/jobs/gems-expiry-reminder` | QStash scheduled | 7-day gems expiry push |
-| `/api/jobs/post-service-followup` | QStash triggered | Review request +24h after completion |
-| `/api/jobs/stale-booking-alert` | QStash triggered | Alert +2h after pending booking |
-| `/api/jobs/noshow-check` | QStash triggered | No-show check +15min after end time |
-| `/api/jobs/membership-expired-notice` | QStash triggered | Expired notice +1h after expiry |
+| `/api/jobs/post-service-followup` | +24h after completion | Review request |
+| `/api/jobs/stale-booking-alert` | +2h after pending | Stale pending booking alert |
+| `/api/jobs/noshow-check` | +15min after end time | No-show check |
+| `/api/jobs/membership-expired-notice` | +1h after expiry | Expired notice |
 
-## Special Routes
+#### GitHub Actions cron (1)
+
+`pprd` DB sync — resets the `pprd` Neon branch from `prod` and strips PII. Runs in GitHub Actions, not as an HTTP route.
+
+<Callout type="info">
+  An internal `/api/jobs/invoice-pdf` route also exists: it hands invoice rendering to the `@rgss/invoicing` Cloud Run PDF service. It is a support route, not one of the 19 scheduled/triggered business jobs.
+</Callout>
+
+</Tab>
+
+<Tab value="Special">
 
 | Route | Description |
 | --- | --- |
@@ -191,3 +268,15 @@ Hosted in `apps/admin` and served from `admin.theroyalglow.in/api/jobs/*`.
 | `/robots.txt` | Auto-generated by Next.js |
 | `/manifest.json` | PWA manifest |
 | `/sw.js` | Service worker (PWA offline support) |
+
+</Tab>
+
+</Tabs>
+
+## Related Pages
+
+<Cards>
+  <Card title="Frontend" href="/docs/frontend" description="Component architecture and design system behind these pages" />
+  <Card title="API Reference" href="/docs/api-reference" description="Full request/response contracts per endpoint" />
+  <Card title="Background Jobs" href="/docs/background-jobs" description="Schedules and behaviour of all 19 jobs" />
+</Cards>

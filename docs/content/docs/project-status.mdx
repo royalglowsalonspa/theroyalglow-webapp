@@ -1,0 +1,163 @@
+---
+title: Project Status
+description: Live snapshot of build progress and production-readiness — what's done, what's in flight, and the path to launch.
+---
+
+# Project Status
+
+A candid, current snapshot of where the platform stands. Use this before
+planning a release or onboarding someone new.
+
+<Callout type="warn">
+  **Not launch-ready from the current working tree yet.** The codebase is
+  feature-complete through Phase 10, but an in-flight refactor must land and be
+  verified before promotion to production. Details below.
+</Callout>
+
+## Build at a glance
+
+<Cards>
+  <Card title="Codebase" description="Feature-complete through Phase 10 — all 38 tables, both apps, CMS, docs, jobs, CI." />
+  <Card title="Branch" description="Active development on `dev`. Promotion flow: dev → test → pprd → prod." />
+  <Card title="Blocker" description="web → admin background-job relocation is mid-refactor and uncommitted." />
+  <Card title="Payments" description="Phase 1 = cash / UPI / card at the counter. No online gateway by design." />
+</Cards>
+
+## What's built
+
+<Steps>
+
+<Step>
+
+### Data & domain
+
+All **38 tables** across 13 domains in `packages/db` — schema, relations, and a
+full typed query layer.
+
+</Step>
+
+<Step>
+
+### Customer app (`apps/web`)
+
+Homepage, services, the 4-step booking dialog, bookings, profile, membership,
+gems, offers, blog, gallery, legal pages, auth/onboarding, PWA, SEO, and consent.
+
+</Step>
+
+<Step>
+
+### Admin app (`apps/admin`)
+
+Dashboard, bookings, billing, customers, leads, staff, schedule, leave,
+memberships, offers, services, branches, users, reports, logs, integrations —
+plus the full admin API surface.
+
+</Step>
+
+<Step>
+
+### Platform
+
+CMS (`apps/cms`), this docs site, the invoicing service, **19 background jobs**,
+CI + deploy workflows, and a large unit/property test suite.
+
+</Step>
+
+</Steps>
+
+## What blocks production right now
+
+<Callout type="error">
+  These are sequenced — finish them in order before promoting to `prod`.
+</Callout>
+
+<Accordions type="single">
+
+<Accordion title="1 · The web → admin job refactor is mid-flight (uncommitted)">
+
+The `web-admin-separation-cleanup` work relocates all 19 background-job routes
+from `apps/web` to `apps/admin`. In the working tree, the web routes are deleted
+(uncommitted) and the new admin copies are untracked, alongside modified deploy
+workflows, `package.json`, and `env.ts`. **Nothing is committed**, so the build
+is in an indeterminate state until this lands.
+
+</Accordion>
+
+<Accordion title="2 · The refactor's final verification gate is unchecked">
+
+In that spec's `tasks.md`, tasks through 3.8 are complete, but **task 4 — the
+final checkpoint — is still open**. Task 4 requires: *typecheck + build BOTH
+apps green (no dangling `@/lib/*` imports) and both Workers' health checks pass.*
+That confirmation has not happened.
+
+</Accordion>
+
+<Accordion title="3 · Possible schema ↔ migration drift">
+
+There is a single baseline migration. Some schema files were edited after it was
+generated. The CI **Drift Gate** rejects schema changes without a matching
+committed migration. Run `bun run generate` + `drizzle-kit check`; migrate any
+emitted SQL before `prod`.
+
+</Accordion>
+
+</Accordions>
+
+## Before you can launch (ops checklist)
+
+<Callout type="info">
+  None of this is code-blocked — every integration no-ops without a key. This is
+  provisioning + verification. See the full
+  [Launch Runbook](/docs/operations) and [Deployment](/docs/deployment).
+</Callout>
+
+| Area | Action |
+| --- | --- |
+| **Secrets** | All keys in GitHub + Cloudflare env (canonical names in [Environment Variables](/docs/environment-variables)) |
+| **DNS** | `theroyalglow.in`, `www`, `admin`, `status`, `docs` + SSL |
+| **OAuth** | Google consent-screen approval (can take days — start early) |
+| **Data** | Seed the Neon `prod` branch; create the first Owner |
+| **CI gates** | lint · typecheck · unit · E2E · Lighthouse (a11y = 100) · k6 · security |
+| **Monitoring** | BetterStack monitors + job heartbeats live, or crons fail silently |
+| **Backups** | `weekly-backup.yml` wired to R2 buckets + secrets |
+
+## Path to launch
+
+<Steps>
+
+<Step>
+
+### Land the refactor
+
+Commit the web → admin job relocation; confirm both apps typecheck and build
+green (closes task 4).
+
+</Step>
+
+<Step>
+
+### Clear schema drift
+
+`bun run generate` + `drizzle-kit check`; commit any new migration.
+
+</Step>
+
+<Step>
+
+### Provision
+
+Keys, DNS, email-domain verification, Google OAuth approval; seed `prod`.
+
+</Step>
+
+<Step>
+
+### Pass the gates & promote
+
+Green CI at the T-24h gate, then promote `dev → test → pprd → prod` following the
+[Launch Runbook](/docs/operations).
+
+</Step>
+
+</Steps>

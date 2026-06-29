@@ -13,8 +13,9 @@ report emails, nudges, follow-ups, and stale-state checks. They are hosted in
 `apps/admin` and served from `admin.theroyalglow.in/api/jobs/*`.
 
 <Callout type="info">
-  These are **`POST` endpoints invoked by QStash**, not by browsers or API
-  clients. Each route reads the raw request body once, verifies the
+  **Base URL:** `admin.theroyalglow.in` · **Auth:** `Upstash-Signature` header
+  (no session). These are **`POST` endpoints invoked by QStash**, not by browsers
+  or API clients. Each route reads the raw request body once, verifies the
   `Upstash-Signature` header via `verifyQStashSignature`, and returns **`401
   Unauthorized`** if verification fails. They deliberately do **not** use the
   `{ success, data }` envelope or `withErrorHandler` — instead they return a
@@ -27,43 +28,90 @@ report emails, nudges, follow-ups, and stale-state checks. They are hosted in
 
 ## Job summary
 
-All 12 routes are `POST`. "Scheduled" jobs are fired by a QStash schedule;
-"Triggered" jobs are enqueued with a delay by an application event. Schedules
-and cadences are from [`background-jobs.md`](https://github.com/royalglowsalonspa); times shown in IST.
+All 19 routes are `POST`. "Scheduled" jobs are fired by a QStash schedule;
+"Triggered" jobs are enqueued with a delay by an application event. There are
+**14 scheduled** and **5 triggered** QStash routes under `/api/jobs/*`. One
+further automation — the **`pprd` DB sync** — runs as a **GitHub Actions cron**
+(not an HTTP route, so it is not listed here). Schedules and cadences are from
+[`background-jobs.md`](https://github.com/royalglowsalonspa); times shown in IST.
 
-| Route | Trigger | Schedule / cadence | What it does |
-| --- | --- | --- | --- |
-| `POST /api/jobs/appointment-reminders` | Scheduled | Every 15 min, 8:00 AM–10:00 PM IST | Notifies customers of `confirmed` bookings entering the 24h or 1h reminder window (push + email). One send per booking + window. |
-| `POST /api/jobs/membership-expiry` | Scheduled | Daily 12:30 AM IST (`0 19 * * *` UTC) | Push-notifies the owning customer of active memberships expiring in exactly 30, 7, or 1 days. |
-| `POST /api/jobs/birthday-emails` | Scheduled | Daily 9:30 AM IST (`0 4 * * *` UTC) | Sends a birthday offer (email + in-app) to customers whose DOB is today and who have marketing consent. |
-| `POST /api/jobs/lead-followups` | Scheduled | Daily 10:30 AM IST (`0 5 * * *` UTC) | Pushes a follow-up reminder to the assigned staff for `follow_up` leads not contacted in 48h. Unassigned leads are skipped. |
-| `POST /api/jobs/gems-expiry-reminder` | Scheduled | Daily 10:30 AM IST (`0 5 * * *` UTC) | Push-only reminder to customers whose earned gems expire in exactly 7 days (one combined total per customer). |
-| `POST /api/jobs/membership-usage-nudges` | Scheduled | Daily randomized batch (`30 5 * * *` UTC = 11:00 AM IST) | Picks a random subset (max 20/run) of active members with unused hours and nudges them (push) to use their SPA time. |
-| `POST /api/jobs/daily-sales-report` | Scheduled | Daily 10:30 PM IST (`0 17 * * *` UTC) | Builds the day's sales report from paid invoices/bookings and posts it to Slack + emails the report recipients. |
-| `POST /api/jobs/weekly-report` | Scheduled | Monday 9:00 AM IST (`30 3 * * 1` UTC) | Same as the daily report over the last 7 days, plus a week-over-week comparison. Slack + email. |
-| `POST /api/jobs/post-service-followup` | Triggered | +24h after `booking` → `completed` | Sends a review-request email (Brevo/Resend) — only when the booking completed and the customer has marketing consent. |
-| `POST /api/jobs/stale-booking-alert` | Triggered | +2h after booking created | If still `pending`: older than 24h → auto-reject + notify customer; otherwise alert every receptionist. |
-| `POST /api/jobs/noshow-check` | Triggered | +15 min after booking `end_time` | If the booking is still `confirmed` past its end, alert receptionists to review. Never auto-marks a no-show. |
-| `POST /api/jobs/membership-expired-notice` | Triggered | +1h after `spa_membership.expires_at` | Sends a final "membership expired" renewal email to the owning customer. |
+<Tabs items={['Scheduled', 'Triggered']}>
+<Tab value="Scheduled">
+
+| Route | Schedule / cadence | What it does |
+| --- | --- | --- |
+| `POST /api/jobs/appointment-reminders` | Every 15 min, 8:00 AM–10:00 PM IST | Notifies customers of `confirmed` bookings entering the 24h or 1h reminder window (push + email). One send per booking + window. |
+| `POST /api/jobs/membership-expiry` | Daily 12:30 AM IST (`0 19 * * *` UTC) | Push-notifies the owning customer of active memberships expiring in exactly 30, 7, or 1 days. |
+| `POST /api/jobs/birthday-emails` | Daily 9:30 AM IST (`0 4 * * *` UTC) | Sends a birthday offer (email + in-app) to customers whose DOB is today and who have marketing consent. |
+| `POST /api/jobs/lead-followups` | Daily 10:30 AM IST (`0 5 * * *` UTC) | Pushes a follow-up reminder to the assigned staff for `follow_up` leads not contacted in 48h. Unassigned leads are skipped. |
+| `POST /api/jobs/gems-expiry-reminder` | Daily 10:30 AM IST (`0 5 * * *` UTC) | Push-only reminder to customers whose earned gems expire in exactly 7 days (one combined total per customer). |
+| `POST /api/jobs/membership-usage-nudges` | Daily randomized batch (`30 5 * * *` UTC = 11:00 AM IST) | Picks a random subset (max 20/run) of active members with unused hours and nudges them (push) to use their SPA time. |
+| `POST /api/jobs/daily-sales-report` | Daily 10:30 PM IST (`0 17 * * *` UTC) | Builds the day's sales report from paid invoices/bookings and posts it to Slack + emails the report recipients. |
+| `POST /api/jobs/weekly-report` | Monday 9:00 AM IST (`30 3 * * 1` UTC) | Same as the daily report over the last 7 days, plus a week-over-week comparison. Slack + email. |
+| `POST /api/jobs/nightly-sales-summary` | Daily 11:30 PM IST (`0 18 * * *` UTC) | Aggregates the previous IST day's paid invoices + bookings into one `daily_sales_summary` row per branch. Idempotent upsert. |
+| `POST /api/jobs/membership-auto-expire` | Daily 12:00 AM IST (`30 18 * * *` UTC) | Flips active SPA memberships past their expiry to `expired` (hard expiry). Status-guarded UPDATE. |
+| `POST /api/jobs/offer-auto-expire` | Daily 12:05 AM IST (`35 18 * * *` UTC) | Deactivates offers whose `end_date` has passed the current IST calendar date. |
+| `POST /api/jobs/gems-auto-expire` | Daily 12:10 AM IST (`40 18 * * *` UTC) | Expires earned gems past their 365-day window, writing an offsetting `expired` transaction and decrementing the balance. Idempotent via an `expired:<id>` marker. |
+| `POST /api/jobs/session-cleanup` | Sunday 2:30 AM IST (`0 21 * * 0` UTC) | Deletes expired Better Auth session rows from the Neon-backed session store. |
+| `POST /api/jobs/monthly-gst-summary` | 1st of month 1:00 AM IST (`30 19 1 * *` UTC) | Aggregates the previous IST month's paid `service` + `membership_purchase` invoices into `monthly_gst_summary` (SAC 999721). |
+
+</Tab>
+<Tab value="Triggered">
+
+| Route | Delay | What it does |
+| --- | --- | --- |
+| `POST /api/jobs/post-service-followup` | +24h after `booking` → `completed` | Sends a review-request email (Brevo/Resend) — only when the booking completed and the customer has marketing consent. |
+| `POST /api/jobs/stale-booking-alert` | +2h after booking created | If still `pending`: older than 24h → auto-reject + notify customer; otherwise alert every receptionist. |
+| `POST /api/jobs/noshow-check` | +15 min after booking `end_time` | If the booking is still `confirmed` past its end, alert receptionists to review. Never auto-marks a no-show. |
+| `POST /api/jobs/membership-expired-notice` | +1h after `spa_membership.expires_at` | Sends a final "membership expired" renewal email to the owning customer. |
+| `POST /api/jobs/invoice-pdf` | Enqueued at booking completion | Renders the GST invoice PDF via the standalone Cloud Run invoicing service (`@rgss/invoicing`) over HMAC-signed HTTP, stores the PDF URL on the invoice, and emails the customer their invoice with the PDF attached. Degrades to a no-attachment email when the service is unconfigured/errors. |
+
+</Tab>
+</Tabs>
 
 ## Invocation contract
 
 Every job route follows the same thin orchestration shape:
 
-1. **Method:** `POST`.
-2. **Signature verification:** the raw body is read once, then
-   `verifyQStashSignature(req, bodyText)` validates the `Upstash-Signature`
-   header against the QStash signing keys. On failure the route returns
-   `401 Unauthorized` and does **no work**.
-3. **Success:** the route does its work, pings its BetterStack heartbeat
-   (`pingHeartbeat(...)`), and returns `200` with a small JSON body.
-4. **Failure:** on any internal error the route returns a **non-2xx** (`500
-   Job failed`). QStash treats non-2xx as a failure and **retries with
-   exponential backoff** (up to 3 retries by default), so heavy lifting must be
-   idempotent.
-5. **Idempotency:** scheduled notification jobs dedupe via a `notification` log
-   row keyed by recipient + type (+ booking where relevant), so re-runs and
-   QStash retries never double-send.
+<Steps>
+<Step>
+### Method
+
+The route accepts only `POST`.
+
+</Step>
+<Step>
+### Signature verification
+
+The raw body is read once, then `verifyQStashSignature(req, bodyText)` validates
+the `Upstash-Signature` header against the QStash signing keys. On failure the
+route returns `401 Unauthorized` and does **no work**.
+
+</Step>
+<Step>
+### Success
+
+The route does its work, pings its BetterStack heartbeat (`pingHeartbeat(...)`),
+and returns `200` with a small JSON body.
+
+</Step>
+<Step>
+### Failure
+
+On any internal error the route returns a **non-2xx** (`500 Job failed`). QStash
+treats non-2xx as a failure and **retries with exponential backoff** (up to 3
+retries by default), so heavy lifting must be idempotent.
+
+</Step>
+<Step>
+### Idempotency
+
+Scheduled notification jobs dedupe via a `notification` log row keyed by
+recipient + type (+ booking where relevant), so re-runs and QStash retries never
+double-send.
+
+</Step>
+</Steps>
 
 ```http
 POST /api/jobs/appointment-reminders
@@ -84,15 +132,28 @@ Content-Type: application/json
 the app builds without them. It **never throws** — any verification error fails
 closed (returns `false` → `401`).
 
-- **Configured:** when `QSTASH_CURRENT_SIGNING_KEY` and
-  `QSTASH_NEXT_SIGNING_KEY` are set, the `Upstash-Signature` header is verified
-  with the `@upstash/qstash` `Receiver`. A missing header is rejected.
-- **Internal token fallback:** if signing keys are absent but
-  `INTERNAL_JOB_TOKEN` is set, the request is allowed only when it carries a
-  matching `x-internal-job-token` header.
-- **Non-production bypass:** with no signing keys and no internal token, the
-  request is allowed **outside production** (with a warning) so jobs can be run
-  locally, and **rejected in production**.
+<Accordions type="single">
+<Accordion title="Configured — verify with the QStash Receiver">
+
+When `QSTASH_CURRENT_SIGNING_KEY` and `QSTASH_NEXT_SIGNING_KEY` are set, the
+`Upstash-Signature` header is verified with the `@upstash/qstash` `Receiver`. A
+missing header is rejected.
+
+</Accordion>
+<Accordion title="Internal token fallback">
+
+If signing keys are absent but `INTERNAL_JOB_TOKEN` is set, the request is
+allowed only when it carries a matching `x-internal-job-token` header.
+
+</Accordion>
+<Accordion title="Non-production bypass">
+
+With no signing keys and no internal token, the request is allowed **outside
+production** (with a warning) so jobs can be run locally, and **rejected in
+production**.
+
+</Accordion>
+</Accordions>
 
 ### Heartbeats
 
@@ -100,22 +161,94 @@ On success each route calls `pingHeartbeat(name)`, which fetches
 `process.env['BETTER_STACK_HEARTBEAT_' + name]`. If that variable is unset the
 ping is a **no-op** (the job still succeeds); the helper never throws.
 
-| Route | Heartbeat name | Env var |
-| --- | --- | --- |
-| `appointment-reminders` | `REMINDERS` | `BETTER_STACK_HEARTBEAT_REMINDERS` |
-| `membership-expiry` | `MEMBERSHIP_EXPIRY` | `BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY` |
-| `birthday-emails` | `BIRTHDAY` | `BETTER_STACK_HEARTBEAT_BIRTHDAY` |
-| `lead-followups` | `LEAD_FOLLOWUPS` | `BETTER_STACK_HEARTBEAT_LEAD_FOLLOWUPS` |
-| `gems-expiry-reminder` | `GEMS_EXPIRY` | `BETTER_STACK_HEARTBEAT_GEMS_EXPIRY` |
-| `membership-usage-nudges` | `MEMBERSHIP_NUDGES` | `BETTER_STACK_HEARTBEAT_MEMBERSHIP_NUDGES` |
-| `daily-sales-report` | `NIGHTLY_SALES` | `BETTER_STACK_HEARTBEAT_NIGHTLY_SALES` |
-| `weekly-report` | `NIGHTLY_SALES` (shared) | `BETTER_STACK_HEARTBEAT_NIGHTLY_SALES` |
-| `post-service-followup` | `POST_SERVICE_FOLLOWUP` | `BETTER_STACK_HEARTBEAT_POST_SERVICE_FOLLOWUP` |
-| `stale-booking-alert` | `STALE_BOOKING_ALERT` | `BETTER_STACK_HEARTBEAT_STALE_BOOKING_ALERT` |
-| `noshow-check` | `NOSHOW_CHECK` | `BETTER_STACK_HEARTBEAT_NOSHOW_CHECK` |
-| `membership-expired-notice` | `MEMBERSHIP_EXPIRED_NOTICE` | `BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRED_NOTICE` |
+<TypeTable
+  type={{
+    'appointment-reminders': {
+      type: 'REMINDERS',
+      description: 'Env var: BETTER_STACK_HEARTBEAT_REMINDERS',
+    },
+    'membership-expiry': {
+      type: 'MEMBERSHIP_EXPIRY',
+      description: 'Env var: BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY',
+    },
+    'birthday-emails': {
+      type: 'BIRTHDAY',
+      description: 'Env var: BETTER_STACK_HEARTBEAT_BIRTHDAY',
+    },
+    'lead-followups': {
+      type: 'LEAD_FOLLOWUPS',
+      description: 'Env var: BETTER_STACK_HEARTBEAT_LEAD_FOLLOWUPS',
+    },
+    'gems-expiry-reminder': {
+      type: 'GEMS_EXPIRY',
+      description: 'Env var: BETTER_STACK_HEARTBEAT_GEMS_EXPIRY',
+    },
+    'membership-usage-nudges': {
+      type: 'MEMBERSHIP_NUDGES',
+      description: 'Env var: BETTER_STACK_HEARTBEAT_MEMBERSHIP_NUDGES',
+    },
+    'daily-sales-report': {
+      type: 'NIGHTLY_SALES',
+      description: 'Env var: BETTER_STACK_HEARTBEAT_NIGHTLY_SALES',
+    },
+    'weekly-report': {
+      type: 'NIGHTLY_SALES (shared)',
+      description: 'Env var: BETTER_STACK_HEARTBEAT_NIGHTLY_SALES',
+    },
+    'post-service-followup': {
+      type: 'POST_SERVICE_FOLLOWUP',
+      description: 'Env var: BETTER_STACK_HEARTBEAT_POST_SERVICE_FOLLOWUP',
+    },
+    'stale-booking-alert': {
+      type: 'STALE_BOOKING_ALERT',
+      description: 'Env var: BETTER_STACK_HEARTBEAT_STALE_BOOKING_ALERT',
+    },
+    'noshow-check': {
+      type: 'NOSHOW_CHECK',
+      description: 'Env var: BETTER_STACK_HEARTBEAT_NOSHOW_CHECK',
+    },
+    'membership-expired-notice': {
+      type: 'MEMBERSHIP_EXPIRED_NOTICE',
+      description: 'Env var: BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRED_NOTICE',
+    },
+    'nightly-sales-summary': {
+      type: 'SALES_SUMMARY',
+      description: 'Env var: BETTER_STACK_HEARTBEAT_SALES_SUMMARY',
+    },
+    'membership-auto-expire': {
+      type: 'MEMBERSHIP_EXPIRE',
+      description: 'Env var: BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRE',
+    },
+    'offer-auto-expire': {
+      type: 'OFFER_EXPIRE',
+      description: 'Env var: BETTER_STACK_HEARTBEAT_OFFER_EXPIRE',
+    },
+    'gems-auto-expire': {
+      type: 'GEMS_EXPIRE',
+      description: 'Env var: BETTER_STACK_HEARTBEAT_GEMS_EXPIRE',
+    },
+    'session-cleanup': {
+      type: 'SESSION_CLEANUP',
+      description: 'Env var: BETTER_STACK_HEARTBEAT_SESSION_CLEANUP',
+    },
+    'monthly-gst-summary': {
+      type: 'MONTHLY_GST',
+      description: 'Env var: BETTER_STACK_HEARTBEAT_MONTHLY_GST',
+    },
+  }}
+/>
+
+<Callout type="info">
+  `invoice-pdf` is the exception — it does **not** ping a heartbeat. Instead it
+  returns a `200` with an outcome flag (`attached`, `reason`, `sent`) describing
+  whether the PDF was rendered and attached, falling back to a no-attachment
+  invoice email when the Cloud Run render service is unconfigured or errors.
+</Callout>
 
 ## Response shapes
+
+<Tabs items={['Scheduled (processed)', 'Reports', 'Triggered', 'stale-booking-alert', 'Failures']}>
+<Tab value="Scheduled (processed)">
 
 Scheduled jobs that iterate records return a `processed` count of how many
 notifications were sent in that run:
@@ -124,11 +257,17 @@ notifications were sent in that run:
 { "success": true, "processed": 3 }
 ```
 
+</Tab>
+<Tab value="Reports">
+
 The report jobs (`daily-sales-report`, `weekly-report`) return only success:
 
 ```json
 { "success": true }
 ```
+
+</Tab>
+<Tab value="Triggered">
 
 Triggered jobs return an action/outcome flag describing what they did for the
 single record in the payload:
@@ -141,6 +280,9 @@ single record in the payload:
 { "success": true, "notified": 2 }
 ```
 
+</Tab>
+<Tab value="stale-booking-alert">
+
 `stale-booking-alert` reports both the action it took and how many people were
 notified:
 
@@ -151,6 +293,9 @@ notified:
 `action` is one of `none` (booking no longer pending), `rejected` (still
 pending past 24h → auto-rejected, customer notified), or `alerted` (still
 pending under 24h → receptionists alerted).
+
+</Tab>
+<Tab value="Failures">
 
 A verification failure on any route returns a plain `401`:
 
@@ -168,19 +313,40 @@ HTTP/1.1 500 Internal Server Error
 Job failed
 ```
 
+</Tab>
+</Tabs>
+
 ## Triggered job payloads
 
-The four triggered jobs are enqueued with a JSON body identifying the single
+The five triggered jobs are enqueued with a JSON body identifying the single
 record to act on. The body is parsed defensively — a missing or malformed
 payload yields `{}`, and the route simply does nothing (still `200`) rather
 than erroring.
 
-| Route | Request body |
-| --- | --- |
-| `POST /api/jobs/post-service-followup` | `{ "bookingId": "<id>" }` |
-| `POST /api/jobs/stale-booking-alert` | `{ "bookingId": "<id>" }` |
-| `POST /api/jobs/noshow-check` | `{ "bookingId": "<id>" }` |
-| `POST /api/jobs/membership-expired-notice` | `{ "membershipId": "<id>" }` |
+<TypeTable
+  type={{
+    'post-service-followup': {
+      type: 'object',
+      description: 'Request body: { "bookingId": "<id>" }',
+    },
+    'stale-booking-alert': {
+      type: 'object',
+      description: 'Request body: { "bookingId": "<id>" }',
+    },
+    'noshow-check': {
+      type: 'object',
+      description: 'Request body: { "bookingId": "<id>" }',
+    },
+    'membership-expired-notice': {
+      type: 'object',
+      description: 'Request body: { "membershipId": "<id>" }',
+    },
+    'invoice-pdf': {
+      type: 'object',
+      description: 'Request body: { "invoiceId": "<id>" }',
+    },
+  }}
+/>
 
 ```json
 { "bookingId": "bk_8f1c9a2e7d04" }

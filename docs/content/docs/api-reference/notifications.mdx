@@ -9,11 +9,14 @@ Endpoints for the in-app notification feed, the browser Web Push subscription
 lifecycle, and issuing scoped Ably token requests for live updates.
 
 <Callout type="info">
-  Every endpoint here calls `requireSession`, so a valid Better Auth session
-  cookie is required. All reads and writes are scoped to `session.user.id` — a
-  caller can only ever see or modify their own notifications and subscriptions.
-  The role hierarchy is `customer < staff < receptionist < manager < owner <
-  developer`.
+  **Base URL:** `https://theroyalglow.in` · **Auth:** every endpoint here calls
+  `requireSession`, so a valid Better Auth session cookie is required. All reads
+  and writes are scoped to `session.user.id` — a caller can only ever see or
+  modify their own notifications and subscriptions. The role hierarchy is
+  `customer < staff < receptionist < manager < owner < developer`. The admin app
+  exposes its own counterparts on `admin.theroyalglow.in` (e.g.
+  `admin.theroyalglow.in/api/notifications`, `.../api/ably/token`); this page
+  documents the customer surface on `theroyalglow.in`.
 </Callout>
 
 ## GET /api/notifications
@@ -29,10 +32,22 @@ GET /api/notifications?page=1&pageSize=20
 
 ### Query parameters
 
-| Parameter | In | Type | Required | Notes |
-| --- | --- | --- | --- | --- |
-| `page` | query | integer | Optional | Defaults to `1`. Non-integer or `< 1` values fall back to the default. |
-| `pageSize` | query | integer | Optional | Defaults to `20`, clamped to a maximum of `100`. Invalid values fall back to the default. |
+<TypeTable
+  type={{
+    page: {
+      type: 'integer',
+      description: 'Query. Non-integer or values below 1 fall back to the default.',
+      required: false,
+      default: '1',
+    },
+    pageSize: {
+      type: 'integer',
+      description: 'Query. Clamped to a maximum of 100. Invalid values fall back to the default.',
+      required: false,
+      default: '20',
+    },
+  }}
+/>
 
 ### Response
 
@@ -77,10 +92,18 @@ be more), otherwise `page`.
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
@@ -103,11 +126,18 @@ Content-Type: application/json
 The body is optional and validated by `markReadSchema` (`@rgss/types`). A missing
 or empty body is treated as "mark all read".
 
-| Field | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `ids` | string[] | Optional | Notification ids to mark read (each non-empty). Omit to mark all unread read. |
+<TypeTable
+  type={{
+    ids: {
+      type: 'string[]',
+      description: 'Notification ids to mark read (each non-empty). Omit to mark all unread read.',
+      required: false,
+    },
+  }}
+/>
 
-Mark specific notifications read:
+<Tabs items={['Mark specific', 'Mark all read']}>
+<Tab value="Mark specific">
 
 ```json
 {
@@ -115,11 +145,17 @@ Mark specific notifications read:
 }
 ```
 
-Mark all unread read (empty or omitted body):
+</Tab>
+<Tab value="Mark all read">
+
+Empty or omitted body marks all the caller's unread notifications read.
 
 ```json
 {}
 ```
+
+</Tab>
+</Tabs>
 
 ### Response
 
@@ -134,11 +170,24 @@ Mark all unread read (empty or omitted body):
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `VALIDATION_ERROR` | 400 | Body fails `markReadSchema` (e.g. `ids` is not an array of non-empty strings). `details` carries field-level errors. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="VALIDATION_ERROR — 400">
+
+Body fails `markReadSchema` (e.g. `ids` is not an array of non-empty strings).
+`details` carries field-level errors.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
@@ -160,11 +209,25 @@ Content-Type: application/json
 Validated by `pushSubscribeSchema` (`@rgss/types`) — the shape a browser
 `PushManager` subscription serialises to.
 
-| Field | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `endpoint` | string (URL) | Required | The push service endpoint URL. |
-| `keys.p256dh` | string | Required | Non-empty client public key. |
-| `keys.auth` | string | Required | Non-empty client auth secret. |
+<TypeTable
+  type={{
+    endpoint: {
+      type: 'string (URL)',
+      description: 'The push service endpoint URL.',
+      required: true,
+    },
+    'keys.p256dh': {
+      type: 'string',
+      description: 'Non-empty client public key.',
+      required: true,
+    },
+    'keys.auth': {
+      type: 'string',
+      description: 'Non-empty client auth secret.',
+      required: true,
+    },
+  }}
+/>
 
 ```json
 {
@@ -191,11 +254,24 @@ Returns `201 Created`.
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `VALIDATION_ERROR` | 400 | Body fails `pushSubscribeSchema` — e.g. `endpoint` is not a valid URL, or a key is missing/empty. `details` carries field-level errors. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="VALIDATION_ERROR — 400">
+
+Body fails `pushSubscribeSchema` — e.g. `endpoint` is not a valid URL, or a key
+is missing/empty. `details` carries field-level errors.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
@@ -217,9 +293,15 @@ Content-Type: application/json
 
 Not a Zod schema — the handler requires a non-empty string `endpoint` directly.
 
-| Field | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `endpoint` | string | Required | Non-empty. The push endpoint to deactivate. |
+<TypeTable
+  type={{
+    endpoint: {
+      type: 'string',
+      description: 'Non-empty. The push endpoint to deactivate.',
+      required: true,
+    },
+  }}
+/>
 
 ```json
 {
@@ -240,11 +322,23 @@ Not a Zod schema — the handler requires a non-empty string `endpoint` directly
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `VALIDATION_ERROR` | 400 | `endpoint` is missing or not a non-empty string (raised as `badRequest`). |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="VALIDATION_ERROR — 400">
+
+`endpoint` is missing or not a non-empty string (raised as `badRequest`).
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
@@ -296,8 +390,21 @@ For an admin caller (`receptionist`+), `capability` also includes
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `SERVICE_UNAVAILABLE` | 503 | `ABLY_PRIVATE_KEY` is not configured (or the `ably` module is unavailable); realtime is not yet provisioned. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="SERVICE_UNAVAILABLE — 503">
+
+`ABLY_PRIVATE_KEY` is not configured (or the `ably` module is unavailable);
+realtime is not yet provisioned.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>

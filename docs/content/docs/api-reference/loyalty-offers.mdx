@@ -10,10 +10,17 @@ transaction history, and the redeemable-services catalogue) and **offers**
 (a public list of active promotions plus manager-only CRUD).
 
 <Callout type="info">
-  Money is an integer in **paise** (₹1,000.00 = `100000`). Calendar dates are
-  `YYYY-MM-DD` on input; `date`-mode columns serialise back as UTC-midnight ISO
-  strings (e.g. `"2026-06-30T00:00:00.000Z"`). The role hierarchy is
-  `customer < staff < receptionist < manager < owner < developer`.
+  **Base URLs:** the customer endpoints (`GET /api/gems`, public
+  `GET /api/offers`) are served from `https://theroyalglow.in`. The admin offer
+  management endpoints are served from `https://admin.theroyalglow.in` with **no
+  `/api/admin/` segment** — the subdomain is the namespace (e.g.
+  `admin.theroyalglow.in/api/offers`). Note `/api/offers` therefore exists in
+  **both** apps: a public read on `theroyalglow.in` and role-gated CRUD on
+  `admin.theroyalglow.in`. Money is an integer in **paise** (₹1,000.00 =
+  `100000`). Calendar dates are `YYYY-MM-DD` on input; `date`-mode columns
+  serialise back as UTC-midnight ISO strings (e.g. `"2026-06-30T00:00:00.000Z"`).
+  The role hierarchy is `customer < staff < receptionist < manager < owner <
+  developer`.
 </Callout>
 
 <Callout type="info">
@@ -24,7 +31,7 @@ transaction history, and the redeemable-services catalogue) and **offers**
   on the same booking.
 </Callout>
 
-## GET /api/gems
+## GET `theroyalglow.in/api/gems`
 
 Returns the signed-in customer's own loyalty summary, a paginated transaction
 history, and the redeemable-services catalogue. Strictly scoped to
@@ -40,10 +47,22 @@ GET /api/gems?page=1&pageSize=20
 
 ### Query parameters
 
-| Parameter | In | Type | Required | Notes |
-| --- | --- | --- | --- | --- |
-| `page` | query | integer | Optional | Defaults to `1`. Non-integer or `< 1` values fall back to the default. |
-| `pageSize` | query | integer | Optional | Defaults to `20`, clamped to a maximum of `100`. Invalid values fall back to the default. |
+<TypeTable
+  type={{
+    page: {
+      type: 'integer',
+      description: 'Query. Non-integer or values below 1 fall back to the default.',
+      required: false,
+      default: '1',
+    },
+    pageSize: {
+      type: 'integer',
+      description: 'Query. Clamped to a maximum of 100. Invalid values fall back to the default.',
+      required: false,
+      default: '20',
+    },
+  }}
+/>
 
 ### Response
 
@@ -103,14 +122,22 @@ whenever a full page is returned (there may be more), otherwise `page`.
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
-## GET /api/offers
+## GET `theroyalglow.in/api/offers`
 
 Public list of active offers for the customer offers page. **No auth.** Returns
 only offers whose `isActive` flag is true and whose calendar date range includes
@@ -167,20 +194,24 @@ populated depends on `offerType`:
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
-## GET /api/admin/offers
+## GET `admin.theroyalglow.in/api/offers`
 
 Lists all offers (admin view), newest first, each with its linked services.
 
 **Minimum role:** `manager` (`requireRole('manager')`)
 
 ```http
-GET /api/admin/offers
+GET /api/offers
 ```
 
 ### Response
@@ -221,15 +252,27 @@ out-of-range offers), ordered by `createdAt` descending.
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `FORBIDDEN` | 403 | Caller's role is below `manager`. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="FORBIDDEN — 403">
+
+Caller's role is below `manager`.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
-## POST /api/admin/offers
+## POST `admin.theroyalglow.in/api/offers`
 
 Creates an offer and its service links. The slug is derived server-side from the
 name (lowercased, hyphenated, with a short nanoid suffix so duplicate names never
@@ -238,7 +281,7 @@ collide). The calendar dates are converted to UTC-midnight `Date`s.
 **Minimum role:** `manager` (`requireRole('manager')`)
 
 ```http
-POST /api/admin/offers
+POST /api/offers
 Content-Type: application/json
 ```
 
@@ -248,20 +291,65 @@ Validated by `createOfferSchema` (`@rgss/types`). The discount field that
 matches `offerType` is **required**, and `endDate` must be on or after
 `startDate` (both enforced via `superRefine`, surfaced as field-level errors).
 
-| Field | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `name` | string | Required | Trimmed, 1–120 characters. |
-| `offerType` | enum | Required | `percentage`, `flat`, or `combo_price`. |
-| `startDate` | string | Required | `YYYY-MM-DD`. |
-| `endDate` | string | Required | `YYYY-MM-DD`. Must be on or after `startDate`. |
-| `serviceIds` | string[] | Required | At least one non-empty service id. |
-| `discountPercentage` | integer | Conditional | Required when `offerType` is `percentage`. Integer 1–100. |
-| `discountAmountPaise` | integer | Conditional | Required when `offerType` is `flat`. Positive integer (paise). |
-| `comboPricePaise` | integer | Conditional | Required when `offerType` is `combo_price`. Positive integer (paise). |
-| `description` | string | Optional | Max 1000 characters. |
-| `terms` | string | Optional | Max 1000 characters. |
+<TypeTable
+  type={{
+    name: {
+      type: 'string',
+      description: 'Trimmed, 1–120 characters.',
+      required: true,
+    },
+    offerType: {
+      type: 'enum',
+      description: 'percentage, flat, or combo_price.',
+      required: true,
+    },
+    startDate: {
+      type: 'string',
+      description: 'YYYY-MM-DD.',
+      required: true,
+    },
+    endDate: {
+      type: 'string',
+      description: 'YYYY-MM-DD. Must be on or after startDate.',
+      required: true,
+    },
+    serviceIds: {
+      type: 'string[]',
+      description: 'At least one non-empty service id.',
+      required: true,
+    },
+    discountPercentage: {
+      type: 'integer',
+      description: 'Required when offerType is percentage. Integer 1–100.',
+      required: false,
+    },
+    discountAmountPaise: {
+      type: 'integer',
+      description: 'Required when offerType is flat. Positive integer (paise).',
+      required: false,
+    },
+    comboPricePaise: {
+      type: 'integer',
+      description: 'Required when offerType is combo_price. Positive integer (paise).',
+      required: false,
+    },
+    description: {
+      type: 'string',
+      description: 'Max 1000 characters.',
+      required: false,
+    },
+    terms: {
+      type: 'string',
+      description: 'Max 1000 characters.',
+      required: false,
+    },
+  }}
+/>
 
-A `percentage` offer (requires `discountPercentage`):
+<Tabs items={['percentage', 'flat', 'combo_price']}>
+<Tab value="percentage">
+
+Requires `discountPercentage`.
 
 ```json
 {
@@ -276,7 +364,10 @@ A `percentage` offer (requires `discountPercentage`):
 }
 ```
 
-A `flat` offer (requires `discountAmountPaise`):
+</Tab>
+<Tab value="flat">
+
+Requires `discountAmountPaise`.
 
 ```json
 {
@@ -289,7 +380,10 @@ A `flat` offer (requires `discountAmountPaise`):
 }
 ```
 
-A `combo_price` offer (requires `comboPricePaise`):
+</Tab>
+<Tab value="combo_price">
+
+Requires `comboPricePaise`.
 
 ```json
 {
@@ -301,6 +395,9 @@ A `combo_price` offer (requires `comboPricePaise`):
   "serviceIds": ["svc_haircut001", "svc_beardtrim01"]
 }
 ```
+
+</Tab>
+</Tabs>
 
 ### Response
 
@@ -334,28 +431,54 @@ Returns `201 Created` with the created offer (the raw offer row).
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `FORBIDDEN` | 403 | Caller's role is below `manager`. |
-| `VALIDATION_ERROR` | 400 | Body fails `createOfferSchema` — e.g. missing the discount field for the chosen `offerType`, `endDate` before `startDate`, empty `serviceIds`, or a malformed date. `details` carries field-level errors. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="FORBIDDEN — 403">
+
+Caller's role is below `manager`.
+
+</Accordion>
+<Accordion title="VALIDATION_ERROR — 400">
+
+Body fails `createOfferSchema` — e.g. missing the discount field for the chosen
+`offerType`, `endDate` before `startDate`, empty `serviceIds`, or a malformed
+date. `details` carries field-level errors.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
-## GET /api/admin/offers/[id]
+## GET `admin.theroyalglow.in/api/offers/[id]`
 
 Returns a single offer with its linked services.
 
 **Minimum role:** `manager` (`requireRole('manager')`)
 
 ```http
-GET /api/admin/offers/of_3b7e1d9a2c
+GET /api/offers/of_3b7e1d9a2c
 ```
 
-| Parameter | In | Type | Required | Notes |
-| --- | --- | --- | --- | --- |
-| `id` | path | string | Required | The offer id. |
+### Path parameters
+
+<TypeTable
+  type={{
+    id: {
+      type: 'string',
+      description: 'Path. The offer id.',
+      required: true,
+    },
+  }}
+/>
 
 ### Response
 
@@ -387,16 +510,32 @@ Same per-offer shape as the list endpoints (offer row plus `services`,
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `FORBIDDEN` | 403 | Caller's role is below `manager`. |
-| `NOT_FOUND` | 404 | No offer exists with that id. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="FORBIDDEN — 403">
+
+Caller's role is below `manager`.
+
+</Accordion>
+<Accordion title="NOT_FOUND — 404">
+
+No offer exists with that id.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
-## PATCH /api/admin/offers/[id]
+## PATCH `admin.theroyalglow.in/api/offers/[id]`
 
 Updates offer fields or toggles `isActive`. A bare `{ "isActive": false }` (with
 no other fields) deactivates via the dedicated query; any other combination maps
@@ -406,13 +545,21 @@ is supplied, the offer's service set is fully replaced.
 **Minimum role:** `manager` (`requireRole('manager')`)
 
 ```http
-PATCH /api/admin/offers/of_3b7e1d9a2c
+PATCH /api/offers/of_3b7e1d9a2c
 Content-Type: application/json
 ```
 
-| Parameter | In | Type | Required | Notes |
-| --- | --- | --- | --- | --- |
-| `id` | path | string | Required | The offer id. |
+### Path parameters
+
+<TypeTable
+  type={{
+    id: {
+      type: 'string',
+      description: 'Path. The offer id.',
+      required: true,
+    },
+  }}
+/>
 
 ### Request body
 
@@ -421,21 +568,70 @@ optional, plus an optional `isActive` boolean. The conditional discount/date
 refinements that apply on create are **not** re-run here (the base object is made
 partial).
 
-| Field | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `name` | string | Optional | Trimmed, 1–120 characters. |
-| `description` | string | Optional | Max 1000 characters. |
-| `offerType` | enum | Optional | `percentage`, `flat`, or `combo_price`. |
-| `discountPercentage` | integer | Optional | Integer 1–100. |
-| `discountAmountPaise` | integer | Optional | Positive integer (paise). |
-| `comboPricePaise` | integer | Optional | Positive integer (paise). |
-| `startDate` | string | Optional | `YYYY-MM-DD`. |
-| `endDate` | string | Optional | `YYYY-MM-DD`. |
-| `serviceIds` | string[] | Optional | At least one id when present; fully replaces the linked-service set. |
-| `terms` | string | Optional | Max 1000 characters. |
-| `isActive` | boolean | Optional | `false` alone deactivates the offer. |
+<TypeTable
+  type={{
+    name: {
+      type: 'string',
+      description: 'Trimmed, 1–120 characters.',
+      required: false,
+    },
+    description: {
+      type: 'string',
+      description: 'Max 1000 characters.',
+      required: false,
+    },
+    offerType: {
+      type: 'enum',
+      description: 'percentage, flat, or combo_price.',
+      required: false,
+    },
+    discountPercentage: {
+      type: 'integer',
+      description: 'Integer 1–100.',
+      required: false,
+    },
+    discountAmountPaise: {
+      type: 'integer',
+      description: 'Positive integer (paise).',
+      required: false,
+    },
+    comboPricePaise: {
+      type: 'integer',
+      description: 'Positive integer (paise).',
+      required: false,
+    },
+    startDate: {
+      type: 'string',
+      description: 'YYYY-MM-DD.',
+      required: false,
+    },
+    endDate: {
+      type: 'string',
+      description: 'YYYY-MM-DD.',
+      required: false,
+    },
+    serviceIds: {
+      type: 'string[]',
+      description: 'At least one id when present; fully replaces the linked-service set.',
+      required: false,
+    },
+    terms: {
+      type: 'string',
+      description: 'Max 1000 characters.',
+      required: false,
+    },
+    isActive: {
+      type: 'boolean',
+      description: 'false alone deactivates the offer.',
+      required: false,
+    },
+  }}
+/>
 
-Deactivate the offer (`isActive: false` alone):
+<Tabs items={['Deactivate', 'Update fields']}>
+<Tab value="Deactivate">
+
+`isActive: false` alone deactivates the offer.
 
 ```json
 {
@@ -443,7 +639,8 @@ Deactivate the offer (`isActive: false` alone):
 }
 ```
 
-Update fields:
+</Tab>
+<Tab value="Update fields">
 
 ```json
 {
@@ -452,6 +649,9 @@ Update fields:
   "endDate": "2026-07-15"
 }
 ```
+
+</Tab>
+</Tabs>
 
 ### Response
 
@@ -482,10 +682,30 @@ Returns the updated offer row.
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `FORBIDDEN` | 403 | Caller's role is below `manager`. |
-| `VALIDATION_ERROR` | 400 | Body fails `updateOfferSchema`. `details` carries field-level errors. |
-| `NOT_FOUND` | 404 | No offer exists with that id (on both the deactivation and update paths). |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="FORBIDDEN — 403">
+
+Caller's role is below `manager`.
+
+</Accordion>
+<Accordion title="VALIDATION_ERROR — 400">
+
+Body fails `updateOfferSchema`. `details` carries field-level errors.
+
+</Accordion>
+<Accordion title="NOT_FOUND — 404">
+
+No offer exists with that id (on both the deactivation and update paths).
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
