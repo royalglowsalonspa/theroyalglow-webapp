@@ -5,6 +5,13 @@ description: Five-layer observability stack for Royal Glow — Sentry, BetterSta
 
 # Observability
 
+<Callout type="info">
+  **In one line:** Five layers, each answering a different question, all on free
+  tiers at **₹0/month** — Sentry (errors), BetterStack (uptime + status + jobs +
+  logs), PostHog (product analytics), Microsoft Clarity (heatmaps + replay), and
+  Checkly (synthetic monitoring).
+</Callout>
+
 Royal Glow uses five distinct observability layers, each answering a different question. Total monthly cost: **₹0**.
 
 | Layer | Question It Answers | Tool |
@@ -15,13 +22,17 @@ Royal Glow uses five distinct observability layers, each answering a different q
 | Heatmaps + Session Replay | What did the user actually do on screen? | **Microsoft Clarity** |
 | Synthetic Monitoring | Does the app actually work from a real browser? | **Checkly** |
 
-## Layer 1 — Error Monitoring: Sentry
+## The five layers
 
-**Free tier:** 5,000 errors/month — more than sufficient at launch.
+<Tabs items={['Sentry', 'BetterStack', 'PostHog', 'Clarity', 'Checkly']}>
+<Tab value="Sentry">
+
+**Layer 1 — Error Monitoring. Free tier:** 5,000 errors/month — more than sufficient at launch.
 
 Sentry captures errors from both Cloudflare Workers (edge) and Render (Node.js/Payload CMS). Source maps are uploaded during build so errors point to original TypeScript lines, not minified output.
 
 **What Sentry captures:**
+
 - Unhandled API route exceptions
 - Client-side React errors (via Error Boundaries)
 - Edge Worker errors (Cloudflare)
@@ -36,13 +47,15 @@ Sentry captures errors from both Cloudflare Workers (edge) and Render (Node.js/P
 | External service down | >3 upstream errors in 5 min | Slack `#alerts-infra` |
 
 **What is NOT sent to Sentry:**
+
 - Business rule violations (4xx errors) — these are expected
 - Validation errors (400) — these are expected
 - Rate limit exceeded (429) — these are expected
 
-## Layer 2 — Uptime, Status Page, Logs & Job Monitoring: BetterStack
+</Tab>
+<Tab value="BetterStack">
 
-BetterStack replaces three separate tools (UptimeRobot + Cronitor + a log tool) in one platform.
+**Layer 2 — Uptime, Status Page, Logs & Job Monitoring.** BetterStack replaces three separate tools (UptimeRobot + Cronitor + a log tool) in one platform.
 
 ### Uptime Monitors (10 of 10 free slots)
 
@@ -53,7 +66,7 @@ BetterStack replaces three separate tools (UptimeRobot + Cronitor + a log tool) 
 | In-store QR deep link | `theroyalglow.in/?book=1&utm_source=walkin` |
 | Campaign lead page | `theroyalglow.in/book` |
 | API health | `theroyalglow.in/api/health` |
-| Payload CMS admin | `admin.theroyalglow.in` |
+| Payload CMS | `cms.theroyalglow.in` |
 | Neon DB probe | Via API health endpoint |
 | Ably connectivity | Via test endpoint |
 | Upstash Redis probe | Via API probe |
@@ -77,9 +90,10 @@ Scheduled work pings a BetterStack heartbeat URL on successful completion. If Be
 
 Public status page at `status.theroyalglow.in` — customers can check during outages. Free, custom domain supported.
 
-## Layer 3 — Product Analytics: PostHog
+</Tab>
+<Tab value="PostHog">
 
-**Free tier:** 1 million events/month.
+**Layer 3 — Product Analytics. Free tier:** 1 million events/month.
 
 PostHog covers the full funnel: page views → service browsing → booking → conversion. It also provides feature flags for A/B testing offers without deploying new code.
 
@@ -108,22 +122,25 @@ PostHog covers the full funnel: page views → service browsing → booking → 
 
 Google Analytics sends data to Google — a concern under India's DPDP Act 2023. PostHog is self-hostable and DPDP-compliant.
 
-## Layer 4 — Heatmaps & Session Replay: Microsoft Clarity
+</Tab>
+<Tab value="Clarity">
 
-**Free tier:** Completely free, no event caps, no session limits.
+**Layer 4 — Heatmaps & Session Replay. Free tier:** Completely free, no event caps, no session limits.
 
 Clarity complements PostHog — it's better at visual heatmaps, PostHog is better at funnel analytics.
 
 **What Clarity reveals:**
+
 - Are users clicking the booking CTA or ignoring it?
 - How far do users scroll on the services page?
 - Where do users get confused on the booking form?
 - Which parts of the homepage get the most attention?
 - Rage clicks and dead clicks
 
-## Layer 5 — Synthetic Monitoring: Checkly
+</Tab>
+<Tab value="Checkly">
 
-**Free tier:** 5 checks, 10,000 check runs/month.
+**Layer 5 — Synthetic Monitoring. Free tier:** 5 checks, 10,000 check runs/month.
 
 BetterStack answers "Is the server responding?" Checkly answers "Does the app actually work?" — it runs real Playwright scripts against production on a schedule.
 
@@ -135,7 +152,10 @@ BetterStack answers "Is the server responding?" Checkly answers "Does the app ac
 | Booking dialog: slots load for tomorrow | Every 15 min | API + DB |
 | Sign-in page renders | Every 30 min | Auth system |
 | Admin dashboard loads (with auth) | Every 30 min | Protected routes |
-| API health + response < 500ms | Every 5 min | System health |
+| API health + response `< 500ms` | Every 5 min | System health |
+
+</Tab>
+</Tabs>
 
 ## Complete Stack Summary
 
@@ -153,7 +173,7 @@ BetterStack answers "Is the server responding?" Checkly answers "Does the app ac
 | When | Upgrade |
 | --- | --- |
 | Errors exceed 5k/mo | Sentry Team $26/mo |
-| Need &lt;30s uptime checks | BetterStack Starter $24/mo |
+| Need `<30s` uptime checks | BetterStack Starter $24/mo |
 | Need unlimited analytics | PostHog paid (scales by event volume) |
 
 All upgrades are triggered by growth — not required at launch.

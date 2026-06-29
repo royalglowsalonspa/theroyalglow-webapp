@@ -23,16 +23,33 @@ can claim a service from the gems catalogue without paying for it.
 
 ## How it works
 
-1. **Earn** — when a service booking is completed and invoiced, the customer
-   earns **1 gem for every ₹100 invoiced**, rounded down (floor). A ₹1,300
-   service invoice earns 13 gems.
-2. **See the balance** — the customer's gems balance, lifetime totals, and
-   transaction history appear on their `/gems` page, alongside the catalogue of
-   services they can redeem.
-3. **Redeem** — the customer picks a catalogue service their balance covers; the
-   gems are deducted and the service is theirs.
-4. **Expire** — gems expire 365 days after they are earned. A background job
-   sweeps expired gems automatically.
+<Steps>
+<Step>
+### Earn
+
+When a service booking is completed and invoiced, the customer earns **1 gem for
+every ₹100 invoiced**, rounded down (floor). A ₹1,300 service invoice earns 13
+gems.
+</Step>
+<Step>
+### See the balance
+
+The customer's gems balance, lifetime totals, and transaction history appear on
+their `/gems` page, alongside the catalogue of services they can redeem.
+</Step>
+<Step>
+### Redeem
+
+The customer picks a catalogue service their balance covers; the gems are
+deducted and the service is theirs.
+</Step>
+<Step>
+### Expire
+
+Gems expire 365 days after they are earned. A background job sweeps expired gems
+automatically.
+</Step>
+</Steps>
 
 ### A quick example
 
@@ -46,16 +63,30 @@ Earning always rounds down: a ₹1,099 invoice earns 10 gems, not 10.99.
 
 ## Rules
 
-- **Earn rate** — 1 gem per ₹100 invoiced, floored.
-- **Service invoices only** — gems are earned on `service` invoices. **No gems**
-  are earned on membership purchases or membership sessions. See
-  [SPA Memberships](/docs/features/memberships).
-- **365-day expiry** — gems expire one year after they are earned, handled by a
-  scheduled background job.
-- **Redeem against services, not rupees** — redemption claims a specific
-  catalogue service, not a discount on the total.
-- **Cannot combine with offers** — gems and an [offer](/docs/features/offers)
-  cannot both be applied to the same booking.
+<Callout type="warn">
+  **Gems cannot combine with offers.** Gems and an
+  [offer](/docs/features/offers) cannot both be applied to the same booking — a
+  customer uses one or the other, never both.
+</Callout>
+
+<Accordions type="single">
+<Accordion title="What is the earn rate?">
+1 gem per ₹100 invoiced, floored. Earning always rounds down — a ₹1,099 invoice
+earns 10 gems, not 10.99.
+</Accordion>
+<Accordion title="Which invoices earn gems?">
+Service invoices only. Gems are earned on `service` invoices. **No gems** are
+earned on membership purchases or membership sessions. See
+[SPA Memberships](/docs/features/memberships).
+</Accordion>
+<Accordion title="When do gems expire?">
+365 days after they are earned, handled by a scheduled background job.
+</Accordion>
+<Accordion title="Are gems a rupee discount?">
+No. Redemption claims a specific catalogue service (e.g. "70 gems for a Classic
+Manicure"), not a discount on the bill total.
+</Accordion>
+</Accordions>
 
 <Callout type="info">
   Loyalty transactions are typed `earned`, `redeemed`, `expired`, or `adjusted`.

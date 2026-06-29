@@ -5,191 +5,489 @@ description: All 55 environment variables for the Royal Glow platform — what t
 
 # Environment Variables
 
-Royal Glow runs a monorepo with two Next.js apps (`apps/web`, `apps/cms`), deployed across two platforms (Cloudflare Pages + Render), and relies on ~15 external services.
+Royal Glow runs a monorepo with three Next.js apps (`apps/web`, `apps/admin`, `apps/cms`) plus the `apps/invoicing` PDF render service, deployed across Cloudflare Workers (`rgss-web`, `rgss-admin` — via the OpenNext adapter `@opennextjs/cloudflare`), Render (`rgss-cms`), and Cloud Run (`apps/invoicing`), and relies on ~15 external services.
 
 <Callout type="warn">
   Environment variables are **validated at build time** using `@t3-oss/env-nextjs` + Zod. If any required variable is missing or malformed, the build fails immediately. Never use `process.env` directly — always import from `apps/web/src/env.ts`.
 </Callout>
 
+<Callout type="info">
+  **Guarded-no-op pattern.** Optional integrations (Redis, R2, Resend, Brevo, web-push, Ably, Slack, QStash heartbeats) degrade gracefully. When their keys are absent the related call becomes a **no-op + log** instead of throwing: the health probe reports `skip` rather than `fail`, the Ably token route returns `503` so the client falls back to polling, and background jobs still complete and return `200`. This is why the app builds and runs with an incomplete `.env` — only the truly required core (database, auth) is hard-validated.
+</Callout>
+
 ## Quick Start
 
+<Steps>
+<Step>
+### Copy templates
+
 ```bash
-# 1. Copy templates
 cp apps/web/.env.example apps/web/.env.local
+cp apps/admin/.env.example apps/admin/.env.local
 cp apps/cms/.env.example apps/cms/.env.local
+```
 
-# 2. Fill in values from your service dashboards
+</Step>
+<Step>
+### Fill in values
 
-# 3. Generate VAPID keys (one-time only)
+Populate each `.env.local` with values from your service dashboards.
+
+</Step>
+<Step>
+### Generate VAPID keys (one-time only)
+
+```bash
 bunx web-push generate-vapid-keys
+```
 
-# 4. Validate — build fails fast if anything is missing
+</Step>
+<Step>
+### Validate
+
+The build fails fast if anything required is missing or malformed.
+
+```bash
 cd apps/web && bun run build
 ```
 
+</Step>
+</Steps>
+
 ## File Structure
 
-```
-theroyalglow-webapp/
-├── .env.example               # Root template (committed)
-├── .env.local                 # Local dev secrets — NEVER commit
-├── apps/web/.env.example      # web-specific vars (committed)
-├── apps/web/.env.local        # Local overrides (gitignored)
-└── apps/cms/.env.example      # cms-specific vars (committed)
-```
+<Files>
+  <File name=".env.example — root template (committed)" />
+  <File name=".env.local — local dev secrets, NEVER commit" />
+  <Folder name="apps/web" defaultOpen>
+    <File name=".env.example — web-specific vars (committed)" />
+    <File name=".env.local — local overrides (gitignored)" />
+  </Folder>
+  <Folder name="apps/admin" defaultOpen>
+    <File name=".env.example — admin-specific vars (committed)" />
+  </Folder>
+  <Folder name="apps/cms" defaultOpen>
+    <File name=".env.example — cms-specific vars (committed)" />
+  </Folder>
+</Files>
 
 ## Complete Variable Reference
 
 ### Database (Neon)
 
-| Variable | Apps | Description |
-| --- | --- | --- |
-| `DATABASE_URL` | web, cms | Pooled connection via Neon pgBouncer — used by all app queries |
-| `DATABASE_URL_UNPOOLED` | web | Direct connection — for migrations only |
+<TypeTable
+  type={{
+    DATABASE_URL: {
+      type: 'Secret · web, cms',
+      description: 'Pooled connection via Neon pgBouncer — used by all app queries.',
+      required: true,
+    },
+    DATABASE_URL_UNPOOLED: {
+      type: 'Secret · web',
+      description: 'Direct connection — for migrations only.',
+      required: true,
+    },
+  }}
+/>
 
-> **Per-environment branches:** Use GitHub Environments so `DATABASE_URL` points to the correct Neon branch per environment (`prod` / `pprd` / `test` / `dev`).
+<Callout type="info">
+  **Per-environment branches:** Use GitHub Environments so `DATABASE_URL` points to the correct Neon branch per environment (`prod` / `pprd` / `test` / `dev`).
+</Callout>
 
 ### Auth — Better Auth
 
-| Variable | Description |
-| --- | --- |
-| `BETTER_AUTH_SECRET` | Random string min 32 chars — signs sessions and tokens |
-| `BETTER_AUTH_URL` | Public app origin: `https://theroyalglow.in` |
-| `GOOGLE_OAUTH_CLIENT_ID` | Google OAuth 2.0 client ID |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | Google OAuth 2.0 client secret |
+<TypeTable
+  type={{
+    BETTER_AUTH_SECRET: {
+      type: 'Secret',
+      description: 'Random string min 32 chars — signs sessions and tokens.',
+      required: true,
+    },
+    BETTER_AUTH_URL: {
+      type: 'string',
+      description: 'Public app origin: https://theroyalglow.in',
+      required: true,
+    },
+    GOOGLE_OAUTH_CLIENT_ID: {
+      type: 'Secret',
+      description: 'Google OAuth 2.0 client ID.',
+      required: true,
+    },
+    GOOGLE_OAUTH_CLIENT_SECRET: {
+      type: 'Secret',
+      description: 'Google OAuth 2.0 client secret.',
+      required: true,
+    },
+  }}
+/>
 
 ### Email — Transactional (Resend)
 
-| Variable | Description |
-| --- | --- |
-| `RESEND_API_KEY` | Starts with `re_` — transactional emails (invoices, confirmations) |
-| `RESEND_FROM_EMAIL` | Default From header: `Royal Glow <contact@theroyalglow.in>` |
+<TypeTable
+  type={{
+    RESEND_API_KEY: {
+      type: 'Secret',
+      description: 'Starts with re_ — transactional emails (invoices, confirmations).',
+      required: true,
+    },
+    RESEND_FROM_EMAIL: {
+      type: 'string',
+      description: 'Default From header: Royal Glow <contact@theroyalglow.in>',
+      required: true,
+    },
+  }}
+/>
 
 ### Email — Marketing (Brevo)
 
-| Variable | Description |
-| --- | --- |
-| `BREVO_API_KEY` | Bulk/marketing email sends (offers, birthday, re-engagement) |
+<TypeTable
+  type={{
+    BREVO_API_KEY: {
+      type: 'Secret',
+      description: 'Bulk/marketing email sends (offers, birthday, re-engagement).',
+      required: true,
+    },
+  }}
+/>
 
 ### Realtime — Ably
 
-| Variable | Visibility | Description |
-| --- | --- | --- |
-| `NEXT_PUBLIC_ABLY_KEY` | **Public** | Publishable key — sent to browser for client-side subscriptions |
-| `ABLY_PRIVATE_KEY` | Private | Server-only key — used in API routes for publishing events |
+<TypeTable
+  type={{
+    NEXT_PUBLIC_ABLY_KEY: {
+      type: 'Public',
+      description: 'Publishable key — sent to browser for client-side subscriptions.',
+      required: true,
+    },
+    ABLY_PRIVATE_KEY: {
+      type: 'Secret',
+      description: 'Server-only key — used in API routes for publishing events.',
+      required: true,
+    },
+  }}
+/>
 
 ### File Storage — Cloudflare R2
 
-| Variable | Description |
-| --- | --- |
-| `R2_ACCOUNT_ID` | Cloudflare account ID |
-| `R2_ACCESS_KEY_ID` | R2 S3-compatible access key |
-| `R2_SECRET_ACCESS_KEY` | R2 S3-compatible secret key |
-| `R2_BUCKET_NAME` | Bucket name: `theroyalglow-uploads` |
-| `NEXT_PUBLIC_R2_PUBLIC_URL` | Public CDN URL: `https://uploads.theroyalglow.in` |
+<TypeTable
+  type={{
+    R2_ACCOUNT_ID: {
+      type: 'Secret',
+      description: 'Cloudflare account ID.',
+      required: true,
+    },
+    R2_ACCESS_KEY_ID: {
+      type: 'Secret',
+      description: 'R2 S3-compatible access key.',
+      required: true,
+    },
+    R2_SECRET_ACCESS_KEY: {
+      type: 'Secret',
+      description: 'R2 S3-compatible secret key.',
+      required: true,
+    },
+    R2_BUCKET_NAME: {
+      type: 'string',
+      description: 'Bucket name: theroyalglow-uploads',
+      required: true,
+    },
+    NEXT_PUBLIC_R2_PUBLIC_URL: {
+      type: 'Public',
+      description: 'Public CDN URL: https://uploads.theroyalglow.in',
+      required: true,
+    },
+  }}
+/>
 
 ### Cache — Upstash Redis
 
-| Variable | Description |
-| --- | --- |
-| `UPSTASH_REDIS_REST_URL` | Upstash Redis REST endpoint |
-| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis auth token |
+<TypeTable
+  type={{
+    UPSTASH_REDIS_REST_URL: {
+      type: 'Secret',
+      description: 'Upstash Redis REST endpoint.',
+      required: true,
+    },
+    UPSTASH_REDIS_REST_TOKEN: {
+      type: 'Secret',
+      description: 'Upstash Redis auth token.',
+      required: true,
+    },
+  }}
+/>
 
 ### Queue — Upstash QStash
 
-| Variable | Description |
-| --- | --- |
-| `QSTASH_TOKEN` | Publishing token — used to enqueue jobs |
-| `QSTASH_CURRENT_SIGNING_KEY` | Verifies incoming QStash callbacks — current key |
-| `QSTASH_NEXT_SIGNING_KEY` | Verifies incoming QStash callbacks — rotated key |
+<TypeTable
+  type={{
+    QSTASH_TOKEN: {
+      type: 'Secret',
+      description: 'Publishing token — used to enqueue jobs.',
+      required: true,
+    },
+    QSTASH_CURRENT_SIGNING_KEY: {
+      type: 'Secret',
+      description: 'Verifies incoming QStash callbacks — current key.',
+      required: true,
+    },
+    QSTASH_NEXT_SIGNING_KEY: {
+      type: 'Secret',
+      description: 'Verifies incoming QStash callbacks — rotated key.',
+      required: true,
+    },
+  }}
+/>
 
 ### Web Push — VAPID Keys
 
-| Variable | Visibility | Description |
-| --- | --- | --- |
-| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | **Public** | Sent to browser to create push subscription |
-| `VAPID_PRIVATE_KEY` | Private | Used server-side to send push notifications |
-| `VAPID_SUBJECT` | Private | `mailto:contact@theroyalglow.in` |
+<TypeTable
+  type={{
+    NEXT_PUBLIC_VAPID_PUBLIC_KEY: {
+      type: 'Public',
+      description: 'Sent to browser to create push subscription.',
+      required: true,
+    },
+    VAPID_PRIVATE_KEY: {
+      type: 'Secret',
+      description: 'Used server-side to send push notifications.',
+      required: true,
+    },
+    VAPID_SUBJECT: {
+      type: 'string',
+      description: 'mailto:contact@theroyalglow.in',
+      required: true,
+    },
+  }}
+/>
 
-Generate once: `bunx web-push generate-vapid-keys`. These never change unless you intentionally rotate (which invalidates all existing push subscriptions).
+<Callout type="info">
+  Generate once: `bunx web-push generate-vapid-keys`. These never change unless you intentionally rotate (which invalidates all existing push subscriptions).
+</Callout>
 
 ### Cloudflare — KV + CI/CD
 
-| Variable | Description |
-| --- | --- |
-| `CLOUDFLARE_ACCOUNT_ID` | Required for `wrangler deploy` and KV REST API writes |
-| `CLOUDFLARE_API_TOKEN` | Token with Pages + Workers + KV permissions |
-| `CLOUDFLARE_KV_NAMESPACE_ID` | KV namespace ID for edge-cached service listings |
+<TypeTable
+  type={{
+    CLOUDFLARE_ACCOUNT_ID: {
+      type: 'Secret',
+      description: 'Required for wrangler deploy and KV REST API writes.',
+      required: true,
+    },
+    CLOUDFLARE_API_TOKEN: {
+      type: 'Secret',
+      description: 'Token with Workers + KV permissions.',
+      required: true,
+    },
+    CLOUDFLARE_KV_NAMESPACE_ID: {
+      type: 'string',
+      description: 'KV namespace ID for edge-cached service listings.',
+      required: true,
+    },
+  }}
+/>
 
 ### Observability — Sentry
 
-| Variable | Description |
-| --- | --- |
-| `NEXT_PUBLIC_SENTRY_DSN` | Sentry DSN — browser-side error capture |
-| `SENTRY_AUTH_TOKEN` | CI/CD only — uploads source maps during build |
-| `SENTRY_ORG` | Your Sentry organisation slug |
-| `SENTRY_PROJECT` | Your Sentry project slug: `rgss` |
+<TypeTable
+  type={{
+    NEXT_PUBLIC_SENTRY_DSN: {
+      type: 'Public',
+      description: 'Sentry DSN — browser-side error capture.',
+      required: true,
+    },
+    SENTRY_AUTH_TOKEN: {
+      type: 'Secret',
+      description: 'CI/CD only — uploads source maps during build.',
+      required: true,
+    },
+    SENTRY_ORG: {
+      type: 'string',
+      description: 'Your Sentry organisation slug.',
+      required: true,
+    },
+    SENTRY_PROJECT: {
+      type: 'string',
+      description: 'Your Sentry project slug: rgss',
+      required: true,
+    },
+  }}
+/>
 
 ### Observability — BetterStack
 
-| Variable | Description |
-| --- | --- |
-| `BETTER_STACK_TOKEN` | Log drain source token |
-| `BETTER_STACK_HEARTBEAT_NIGHTLY_SALES` | Heartbeat for nightly sales/GST/offer/gems jobs |
-| `BETTER_STACK_HEARTBEAT_PPRD_SYNC` | GitHub Actions: pprd DB sync |
-| `BETTER_STACK_HEARTBEAT_REMINDERS` | QStash: appointment reminder scheduler |
-| `BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY` | QStash: membership auto-expire + expiry alerts |
-| `BETTER_STACK_HEARTBEAT_SESSION_CLEANUP` | QStash: session cleanup |
-| `BETTER_STACK_HEARTBEAT_BACKUP` | GitHub Actions: weekly R2 backup |
-| `BETTER_STACK_DEPLOY_WEBHOOK` | Deployment marker webhook |
-| `BETTER_STACK_INCIDENT_WEBHOOK` | Incident webhook on deploy/backup failure |
+<TypeTable
+  type={{
+    BETTER_STACK_TOKEN: {
+      type: 'Secret',
+      description: 'Log drain source token.',
+      required: true,
+    },
+    BETTER_STACK_HEARTBEAT_NIGHTLY_SALES: {
+      type: 'string',
+      description: 'Heartbeat for nightly sales/GST/offer/gems jobs.',
+      required: false,
+    },
+    BETTER_STACK_HEARTBEAT_PPRD_SYNC: {
+      type: 'string',
+      description: 'GitHub Actions: pprd DB sync.',
+      required: false,
+    },
+    BETTER_STACK_HEARTBEAT_REMINDERS: {
+      type: 'string',
+      description: 'QStash: appointment reminder scheduler.',
+      required: false,
+    },
+    BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY: {
+      type: 'string',
+      description: 'QStash: membership auto-expire + expiry alerts.',
+      required: false,
+    },
+    BETTER_STACK_HEARTBEAT_SESSION_CLEANUP: {
+      type: 'string',
+      description: 'QStash: session cleanup.',
+      required: false,
+    },
+    BETTER_STACK_HEARTBEAT_BACKUP: {
+      type: 'string',
+      description: 'GitHub Actions: weekly R2 backup.',
+      required: false,
+    },
+    BETTER_STACK_DEPLOY_WEBHOOK: {
+      type: 'string',
+      description: 'Deployment marker webhook.',
+      required: false,
+    },
+    BETTER_STACK_INCIDENT_WEBHOOK: {
+      type: 'string',
+      description: 'Incident webhook on deploy/backup failure.',
+      required: false,
+    },
+  }}
+/>
 
 ### Analytics — PostHog & Clarity
 
-| Variable | Visibility | Description |
-| --- | --- | --- |
-| `NEXT_PUBLIC_POSTHOG_KEY` | **Public** | PostHog project API key: `phc_xxx` |
-| `NEXT_PUBLIC_POSTHOG_HOST` | **Public** | `https://us.i.posthog.com` |
-| `NEXT_PUBLIC_CLARITY_ID` | **Public** | Microsoft Clarity project ID |
+<TypeTable
+  type={{
+    NEXT_PUBLIC_POSTHOG_KEY: {
+      type: 'Public',
+      description: 'PostHog project API key: phc_xxx',
+      required: true,
+    },
+    NEXT_PUBLIC_POSTHOG_HOST: {
+      type: 'Public',
+      description: 'https://us.i.posthog.com',
+      required: true,
+    },
+    NEXT_PUBLIC_CLARITY_ID: {
+      type: 'Public',
+      description: 'Microsoft Clarity project ID.',
+      required: true,
+    },
+  }}
+/>
 
 ### Ads & Tracking — Meta
 
-| Variable | Visibility | Description |
-| --- | --- | --- |
-| `NEXT_PUBLIC_META_PIXEL_ID` | **Public** | Meta Pixel ID |
-| `META_PIXEL_ACCESS_TOKEN` | Private | Conversions API (CAPI) access token |
-| `META_CAPI_WEBHOOK_TOKEN` | Private | Verifies incoming Meta webhook payloads |
-| `META_TEST_EVENT_CODE` | Private, dev/pprd only | Routes CAPI events to test panel — omit in production |
+<TypeTable
+  type={{
+    NEXT_PUBLIC_META_PIXEL_ID: {
+      type: 'Public',
+      description: 'Meta Pixel ID.',
+      required: true,
+    },
+    META_PIXEL_ACCESS_TOKEN: {
+      type: 'Secret',
+      description: 'Conversions API (CAPI) access token.',
+      required: true,
+    },
+    META_CAPI_WEBHOOK_TOKEN: {
+      type: 'Secret',
+      description: 'Verifies incoming Meta webhook payloads.',
+      required: true,
+    },
+    META_TEST_EVENT_CODE: {
+      type: 'Secret · dev/pprd only',
+      description: 'Routes CAPI events to test panel — omit in production.',
+      required: false,
+    },
+  }}
+/>
 
 ### Reporting
 
-| Variable | Description |
-| --- | --- |
-| `SLACK_WEBHOOK_URL` | Slack incoming webhook — daily/weekly sales reports |
-| `DAILY_REPORT_EMAIL_RECIPIENTS` | Comma-separated emails for reports |
+<TypeTable
+  type={{
+    SLACK_WEBHOOK_URL: {
+      type: 'Secret',
+      description: 'Slack incoming webhook — daily/weekly sales reports.',
+      required: false,
+    },
+    DAILY_REPORT_EMAIL_RECIPIENTS: {
+      type: 'string',
+      description: 'Comma-separated emails for reports.',
+      required: false,
+    },
+  }}
+/>
 
 ### CRM — AiSensy
 
-| Variable | Description |
-| --- | --- |
-| `AISENSY_API_KEY` | AiSensy API key for WhatsApp integration |
-| `AISENSY_WEBHOOK_SECRET` | Verifies incoming AiSensy webhook payloads |
+<TypeTable
+  type={{
+    AISENSY_API_KEY: {
+      type: 'Secret',
+      description: 'AiSensy API key for WhatsApp integration.',
+      required: false,
+    },
+    AISENSY_WEBHOOK_SECRET: {
+      type: 'Secret',
+      description: 'Verifies incoming AiSensy webhook payloads.',
+      required: false,
+    },
+  }}
+/>
 
 ### CMS — Payload
 
-| Variable | Apps | Description |
-| --- | --- | --- |
-| `PAYLOAD_SECRET` | cms | Random secret used by Payload to encrypt tokens and cookies |
+<TypeTable
+  type={{
+    PAYLOAD_SECRET: {
+      type: 'Secret · cms',
+      description: 'Random secret used by Payload to encrypt tokens and cookies.',
+      required: true,
+    },
+  }}
+/>
 
 ### App Configuration
 
-| Variable | Visibility | Dev value | Prod value |
-| --- | --- | --- | --- |
-| `APP_ENV` | Private | `dev` | `prod` |
-| `NEXT_PUBLIC_APP_URL` | **Public** | `http://localhost:3000` | `https://theroyalglow.in` |
-| `NEXT_PUBLIC_CMS_URL` | **Public** | `http://localhost:3001` | `https://admin.theroyalglow.in` |
+<TypeTable
+  type={{
+    APP_ENV: {
+      type: 'Private',
+      description: 'Distinguishes the 4 deployment environments: dev / test / pprd / prod.',
+      required: true,
+      default: 'dev',
+    },
+    NEXT_PUBLIC_APP_URL: {
+      type: 'Public',
+      description: 'Prod: https://theroyalglow.in (dev: http://localhost:3000).',
+      required: true,
+      default: 'http://localhost:3000',
+    },
+    NEXT_PUBLIC_ADMIN_URL: {
+      type: 'Public',
+      description: 'Admin portal origin — Prod: https://admin.theroyalglow.in (dev: http://localhost:3001).',
+      required: false,
+      default: 'http://localhost:3001',
+    },
+  }}
+/>
 
-> **`NODE_ENV` vs `APP_ENV`:** `NODE_ENV` is always `development` or `production` (Next.js convention). `APP_ENV` distinguishes between our 4 deployment environments: `dev`, `test`, `pprd`, `prod`. Use `APP_ENV` for environment-specific logic.
+<Callout type="info">
+  **`NODE_ENV` vs `APP_ENV`:** `NODE_ENV` is always `development` or `production` (Next.js convention). `APP_ENV` distinguishes between our 4 deployment environments: `dev`, `test`, `pprd`, `prod`. Use `APP_ENV` for environment-specific logic.
+</Callout>
 
 ## Variable Count Summary
 
@@ -218,21 +516,23 @@ Generate once: `bunx web-push generate-vapid-keys`. These never change unless yo
 
 | Platform | Where to set | Applied to |
 | --- | --- | --- |
-| **Cloudflare Pages** | Pages → Settings → Environment Variables | `apps/web` (edge) |
-| **Render** | Service → Environment tab | `apps/web` (SSR origin) + `apps/cms` |
+| **Cloudflare Workers** | `wrangler secret` / Workers & Pages → Settings → Variables | `apps/web` + `apps/admin` (edge) |
+| **Render** | Service → Environment tab | `apps/cms` (Payload CMS) |
+| **Cloud Run** | Service → Variables & Secrets | `apps/invoicing` (PDF render) |
 
-Both platforms inject vars at runtime — no `.env` file is needed or present in production.
+All platforms inject vars at runtime — no `.env` file is needed or present in production.
 
 ## GitHub Secrets
 
-```
-Repository Settings → Secrets and variables → Actions
-├── DATABASE_URL_DEV / TEST / PPRD / PROD
-├── DATABASE_URL_UNPOOLED_DEV / TEST / PPRD / PROD
-├── BETTER_AUTH_SECRET
-├── GOOGLE_OAUTH_CLIENT_ID / SECRET
-└── ... (all other secrets)
-```
+Set under **Repository Settings → Secrets and variables → Actions**:
+
+<Files>
+  <File name="DATABASE_URL_DEV / TEST / PPRD / PROD" />
+  <File name="DATABASE_URL_UNPOOLED_DEV / TEST / PPRD / PROD" />
+  <File name="BETTER_AUTH_SECRET" />
+  <File name="GOOGLE_OAUTH_CLIENT_ID / SECRET" />
+  <File name="... (all other secrets)" />
+</Files>
 
 Reference in GitHub Actions:
 

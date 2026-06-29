@@ -2,6 +2,7 @@
   "title": "Documentation",
   "pages": [
     "index",
+    "project-status",
     "---Product---",
     "product",
     "features",

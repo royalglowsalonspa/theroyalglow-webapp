@@ -10,9 +10,10 @@ so a valid Better Auth session cookie is required. Bookings are scoped to the
 signed-in customer — you can only read or cancel your own.
 
 <Callout type="info">
-  **Minimum role: `customer`** on all endpoints below (any authenticated user
-  is at least a customer). Money is an integer in **paise**; dates are
-  `YYYY-MM-DD`; times are `HH:mm` (24-hour). Requests without a session return
+  **Base URL:** `https://theroyalglow.in` · **Auth:** Better Auth session;
+  **minimum role `customer`** on all endpoints below (any authenticated user is
+  at least a customer). Money is an integer in **paise**; dates are `YYYY-MM-DD`;
+  times are `HH:mm` (24-hour). Requests without a session return
   `UNAUTHENTICATED` (401).
 </Callout>
 
@@ -34,15 +35,45 @@ Content-Type: application/json
 
 Validated by `createBookingSchema` (`@rgss/types`).
 
-| Field | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `branchId` | string | Required | Non-empty. Branch must exist and have status `operational`. |
-| `serviceType` | enum | Required | `salon` or `spa`. All selected services must match this type. |
-| `bookingDate` | string | Required | `YYYY-MM-DD`. |
-| `startTime` | string | Required | `HH:mm` (24-hour). |
-| `serviceIds` | string[] | Required | At least one non-empty id. De-duplicated server-side; every id must be an existing, active service of the matching `serviceType`. |
-| `notes` | string | Optional | Max 500 characters. |
-| `leadId` | string | Optional | Optional Meta-ad lead id for attribution. |
+<TypeTable
+  type={{
+    branchId: {
+      type: 'string',
+      description: 'Non-empty. Branch must exist and have status operational.',
+      required: true,
+    },
+    serviceType: {
+      type: 'enum',
+      description: 'salon or spa. All selected services must match this type.',
+      required: true,
+    },
+    bookingDate: {
+      type: 'string',
+      description: 'YYYY-MM-DD.',
+      required: true,
+    },
+    startTime: {
+      type: 'string',
+      description: 'HH:mm (24-hour).',
+      required: true,
+    },
+    serviceIds: {
+      type: 'string[]',
+      description: 'At least one non-empty id. De-duplicated server-side; every id must be an existing, active service of the matching serviceType.',
+      required: true,
+    },
+    notes: {
+      type: 'string',
+      description: 'Max 500 characters.',
+      required: false,
+    },
+    leadId: {
+      type: 'string',
+      description: 'Optional Meta-ad lead id for attribution.',
+      required: false,
+    },
+  }}
+/>
 
 ```json
 {
@@ -76,11 +107,24 @@ The booking number format is `BK-{branchCode}-{YYMM}-{H|S}-{5 digits}` —
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `VALIDATION_ERROR` | 400 | Body fails `createBookingSchema`; branch not found or not operational; a service id is unknown, inactive, or a type mismatch; or no active staff is available. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="VALIDATION_ERROR — 400">
+
+Body fails `createBookingSchema`; branch not found or not operational; a service
+id is unknown, inactive, or a type mismatch; or no active staff is available.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 <Callout type="info">
   All pre-condition failures (branch state, service existence/activeness, type
@@ -155,10 +199,18 @@ GET /api/bookings
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
@@ -172,9 +224,17 @@ Returns a single booking (with its `services`) owned by the signed-in customer.
 GET /api/bookings/bk_8f2a1c9e4d
 ```
 
-| Parameter | In | Type | Required | Notes |
-| --- | --- | --- | --- | --- |
-| `id` | path | string | Required | The booking id. |
+### Path parameters
+
+<TypeTable
+  type={{
+    id: {
+      type: 'string',
+      description: 'Path. The booking id.',
+      required: true,
+    },
+  }}
+/>
 
 <Callout type="info">
   If the booking does not exist **or** belongs to another customer, the handler
@@ -232,11 +292,23 @@ GET /api/bookings/bk_8f2a1c9e4d
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `NOT_FOUND` | 404 | Booking does not exist or is not owned by the caller. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="NOT_FOUND — 404">
+
+Booking does not exist or is not owned by the caller.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
@@ -253,18 +325,32 @@ POST /api/bookings/bk_8f2a1c9e4d/cancel
 Content-Type: application/json
 ```
 
-| Parameter | In | Type | Required | Notes |
-| --- | --- | --- | --- | --- |
-| `id` | path | string | Required | The booking id. |
+### Path parameters
+
+<TypeTable
+  type={{
+    id: {
+      type: 'string',
+      description: 'Path. The booking id.',
+      required: true,
+    },
+  }}
+/>
 
 ### Request body
 
 The body is optional and validated by `cancelBookingSchema`. An empty or missing
 body is accepted.
 
-| Field | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `reason` | string | Optional | Max 500 characters. Stored as the cancellation reason. |
+<TypeTable
+  type={{
+    reason: {
+      type: 'string',
+      description: 'Max 500 characters. Stored as the cancellation reason.',
+      required: false,
+    },
+  }}
+/>
 
 ```json
 {
@@ -287,9 +373,26 @@ body is accepted.
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `NOT_FOUND` | 404 | Booking does not exist or is not owned by the caller. |
-| `BOOKING_ALREADY_CANCELLED` | 409 | Booking is not in a cancellable status (`pending` or `confirmed`) — e.g. already `cancelled`, `completed`, `in_progress`, `no_show`, or `rejected`. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="NOT_FOUND — 404">
+
+Booking does not exist or is not owned by the caller.
+
+</Accordion>
+<Accordion title="BOOKING_ALREADY_CANCELLED — 409">
+
+Booking is not in a cancellable status (`pending` or `confirmed`) — e.g. already
+`cancelled`, `completed`, `in_progress`, `no_show`, or `rejected`.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>

@@ -7,6 +7,10 @@ description: High-level and low-level design documents for the Royal Glow platfo
 
 This section contains the formal system design documentation for the Royal Glow Salon & Spa platform — written to staff-engineer review standard.
 
+<Callout type="info">
+  Royal Glow is a **monolithic modular** monorepo targeting 20k–50k registered users at **₹0/month** infrastructure cost. Read the High-Level Design for architecture and decisions; the Low-Level Design for state machines, sequences, and schema detail.
+</Callout>
+
 <Cards>
   <Card title="High-Level Design" href="/docs/system-design/high-level-design" description="Architecture overview, technology decisions, data model, auth design, and API patterns." />
   <Card title="Low-Level Design" href="/docs/system-design/low-level-design" description="Database schema details, state machines, sequence diagrams, and implementation specifics." />
@@ -14,15 +18,17 @@ This section contains the formal system design documentation for the Royal Glow 
 
 ## At a Glance
 
-| Metric | Value |
-| --- | --- |
-| Application routes | ~104 pages |
-| Database tables | 38 |
-| API endpoints | 35 |
-| Background jobs | 19 |
-| Registered users (target) | 20,000–50,000 |
-| Concurrent users (peak) | 50 |
-| Monthly infrastructure cost | ₹0 |
+<TypeTable
+  type={{
+    'Application routes': { type: '~104 pages', description: 'Customer (web), admin (incl. staff self-service), and API layers' },
+    'Database tables': { type: '38', description: 'Across 15 Drizzle schema files' },
+    'API endpoints': { type: '~90 route handlers', description: 'Thin orchestrators across web + admin + jobs' },
+    'Background jobs': { type: '19', description: '14 scheduled + 4 triggered + 1 GitHub Actions' },
+    'Registered users (target)': { type: '20,000–50,000', description: 'Future-proof scale target' },
+    'Concurrent users (peak)': { type: '50', description: 'Load-test target on pprd' },
+    'Monthly infrastructure cost': { type: '₹0', description: 'All free tiers at launch' },
+  }}
+/>
 
 ## Architecture Style
 
@@ -30,7 +36,7 @@ This section contains the formal system design documentation for the Royal Glow 
 
 The codebase uses strict layer separation within a monorepo to achieve the modularity benefits of microservices without the operational burden. Each layer has explicit import boundaries enforced by the package structure.
 
-```
+```text
 Presentation → API (thin) → Business Logic → Data Access → Database
 ```
 
@@ -38,13 +44,38 @@ No database queries in API routes. No framework dependencies in business logic. 
 
 ## Key Design Decisions
 
-| Decision | Choice | Why |
-| --- | --- | --- |
-| Architecture | Monolithic modular | Solo developer — no team boundaries to split on |
-| Database | Neon PostgreSQL | Branching, serverless, free tier |
-| ORM | Drizzle | Pure TypeScript, runs on Cloudflare Workers |
-| Auth | Better Auth | Self-hosted, Google OAuth, built-in RBAC |
-| Edge | Cloudflare Pages + Workers | Global edge, generous free tier |
-| Realtime | Ably | 6M messages/mo free, Token Auth |
-| Money | Integer paise | No floating-point errors |
-| IDs | nanoid() text | Prevents enumeration attacks |
+<Accordions type="single">
+
+<Accordion title="Architecture → Monolithic modular">
+Solo developer — there are no team boundaries to split a microservice topology along. Strict layers give the modularity without the ops cost.
+</Accordion>
+
+<Accordion title="Database → Neon PostgreSQL">
+Git-like branching, serverless scale-to-zero, and a generous free tier.
+</Accordion>
+
+<Accordion title="ORM → Drizzle">
+Pure TypeScript — runs on the Cloudflare Workers V8 isolate where Prisma's binary cannot.
+</Accordion>
+
+<Accordion title="Auth → Better Auth">
+Self-hosted, Google OAuth with your own domain on the consent screen, and built-in RBAC.
+</Accordion>
+
+<Accordion title="Edge → Cloudflare Workers (OpenNext)">
+Global edge delivery with a generous free tier. Both Next.js apps deploy to Cloudflare Workers via the OpenNext adapter (`@opennextjs/cloudflare`) — not Pages.
+</Accordion>
+
+<Accordion title="Realtime → Ably">
+6M messages/mo free, with Token Auth for per-role channel scoping.
+</Accordion>
+
+<Accordion title="Money → integer paise">
+Eliminates floating-point rounding errors in billing and GST.
+</Accordion>
+
+<Accordion title="IDs → nanoid() text">
+App-generated text keys prevent enumeration attacks.
+</Accordion>
+
+</Accordions>

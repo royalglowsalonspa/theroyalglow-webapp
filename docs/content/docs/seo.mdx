@@ -5,6 +5,13 @@ description: Local SEO, structured data, AI search optimisation, and agent-frien
 
 # SEO & AI Visibility
 
+<Callout type="info">
+  **In one line:** Every page is built to rank locally (GMB + NAP consistency),
+  pass 100% Lighthouse SEO, carry server-side JSON-LD, follow an answer-first
+  content pattern, and be fully readable by AI crawlers via `llms.txt` and
+  agent-friendly API routes.
+</Callout>
+
 Royal Glow is a location-based premium business — local search is the primary customer acquisition channel alongside Meta ads. Every page is built to rank locally, pass 100% Lighthouse SEO, and be fully readable by AI agents and search crawlers from day one.
 
 <Callout type="warn">
@@ -13,7 +20,8 @@ Royal Glow is a location-based premium business — local search is the primary 
 
 ## Local SEO Strategy
 
-### Google My Business
+<Tabs items={['Google My Business', 'NAP Consistency', 'Local Keywords']}>
+<Tab value="Google My Business">
 
 - Fully complete the GMB listing: name, address, phone, hours, category (Beauty Salon / Day Spa), photos
 - GMB booking link points to `https://theroyalglow.in/?book=1&utm_source=gmb` — Google Maps users open the homepage booking dialog with source attribution
@@ -21,11 +29,12 @@ Royal Glow is a location-based premium business — local search is the primary 
 - Respond to all Google reviews within 24h
 - Post weekly GMB updates (offers, new services, events)
 
-### NAP Consistency
+</Tab>
+<Tab value="NAP Consistency">
 
 NAP (Name, Address, Phone) must be **identical** across every platform:
 
-```
+```text
 Name:    Royal Glow Salon & Spa
 Address: 1st Floor, Narmada Complex, 48/3, Rayasandra Main Rd,
          Above SBI Bank, Naganathapura, Parappana Agrahara,
@@ -36,13 +45,17 @@ Website: https://theroyalglow.in
 
 Any mismatch hurts local ranking. Use the `<address>` HTML tag on every page that shows contact info.
 
-### Local Keywords
+</Tab>
+<Tab value="Local Keywords">
 
 | Page | Primary Keyword | Secondary |
 | --- | --- | --- |
 | Homepage | `luxury salon in Bengaluru` | `premium spa Bengaluru` |
 | Services | `[service name] in Bengaluru` | `best [service] near me` |
 | Booking | `book salon appointment Bengaluru` | `online salon booking Bengaluru` |
+
+</Tab>
+</Tabs>
 
 ## Structured Data (JSON-LD)
 
@@ -122,32 +135,55 @@ Google AI Overviews pull from pages that directly answer questions in the first 
 
 ### Answer-First Content Pattern
 
-Every public page follows this pattern:
+Every public page leads with a direct answer, not a marketing intro.
 
-```
-❌ WRONG (marketing-first):
+<Tabs items={['Wrong — marketing-first', 'Correct — answer-first']}>
+<Tab value="Wrong — marketing-first">
+
+```text
 "Welcome to Royal Glow Salon & Spa, where beauty meets luxury..."
+```
 
-✅ CORRECT (answer-first):
+Buries the facts an AI Overview needs behind brand fluff.
+
+</Tab>
+<Tab value="Correct — answer-first">
+
+```text
 "Royal Glow Salon & Spa is a premium beauty salon and spa in Bengaluru,
 offering haircuts, facials, massages, and bridal packages.
 Book online at theroyalglow.in/?book=1 or call +91 63601 35720.
 Open Monday–Friday 10am–9pm, Saturday–Sunday 10am–10pm."
 ```
 
+States what, where, how to book, and hours in the first three sentences.
+
+</Tab>
+</Tabs>
+
 ### FAQ Strategy
 
-FAQs have the highest citation rate in AI Overviews. Required topics:
+FAQs have the highest citation rate in AI Overviews. Each FAQ is also marked up in
+`FAQPage` JSON-LD — this triggers Google's FAQ rich result AND feeds AI Overviews.
+Required topics and their answer patterns:
 
-| Question | Answer Pattern |
-| --- | --- |
-| "What services does Royal Glow offer?" | Concise list with prices |
-| "How do I book at Royal Glow?" | Online link + phone + QR |
-| "Does Royal Glow take walk-ins?" | Direct yes/no + policy |
-| "Where is Royal Glow located?" | Full address + landmark |
-| "What are Royal Glow's opening hours?" | Days + times |
-
-Each FAQ is also marked up in `FAQPage` JSON-LD — this triggers Google's FAQ rich result AND feeds AI Overviews.
+<Accordions type="single">
+<Accordion title="What services does Royal Glow offer?">
+Answer pattern: a concise list with prices.
+</Accordion>
+<Accordion title="How do I book at Royal Glow?">
+Answer pattern: online link + phone + QR.
+</Accordion>
+<Accordion title="Does Royal Glow take walk-ins?">
+Answer pattern: a direct yes/no + the policy.
+</Accordion>
+<Accordion title="Where is Royal Glow located?">
+Answer pattern: full address + landmark.
+</Accordion>
+<Accordion title="What are Royal Glow's opening hours?">
+Answer pattern: days + times.
+</Accordion>
+</Accordions>
 
 ## `llms.txt` — AI Agent Discovery
 
@@ -192,19 +228,29 @@ export const metadata: Metadata = {
 
 Google AI Overviews heavily weight Experience, Expertise, Authoritativeness, Trustworthiness:
 
-- **Experience:** Gallery with real service photos (not stock), staff profiles with real photos
-- **Expertise:** Detailed service descriptions — what it involves, who it's for, aftercare advice
-- **Authoritativeness:** Google Reviews, NAP consistency across directories, local backlinks
-- **Trustworthiness:** HTTPS everywhere, Privacy Policy page, real contact info on every page
+<Accordions type="single">
+<Accordion title="Experience">
+Gallery with real service photos (not stock), staff profiles with real photos.
+</Accordion>
+<Accordion title="Expertise">
+Detailed service descriptions — what it involves, who it's for, aftercare advice.
+</Accordion>
+<Accordion title="Authoritativeness">
+Google Reviews, NAP consistency across directories, local backlinks.
+</Accordion>
+<Accordion title="Trustworthiness">
+HTTPS everywhere, Privacy Policy page, real contact info on every page.
+</Accordion>
+</Accordions>
 
 ## Performance & Core Web Vitals
 
 | Target | Value |
 | --- | --- |
-| LCP | < 2.5s |
-| CLS | < 0.1 |
-| INP | < 200ms |
+| LCP | `< 2.5s` |
+| CLS | `< 0.1` |
+| INP | `< 200ms` |
 | Lighthouse SEO | 100 (CI gate) |
-| Lighthouse Performance | ≥ 95 (CI gate) |
+| Lighthouse Performance | `≥ 95` (CI gate) |
 
 All public pages are server-rendered or statically generated. Core content is readable without JavaScript.

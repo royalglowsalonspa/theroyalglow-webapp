@@ -54,11 +54,17 @@ Once a customer crosses the 4th-no-show threshold, two things happen together:
 The policy is designed to forgive. A flagged customer earns their way back
 automatically:
 
-- Completing **3 consecutive bookings** with no no-show in between clears the
-  flag: `booking_requires_approval` returns to `false` and the "No-Show Risk" tag
-  is removed.
-- Any no-show **resets** the streak — `consecutive_completed_bookings` goes back
-  to `0` — so the three completed bookings must be unbroken.
+<Accordions type="single">
+<Accordion title="How does a customer clear the No-Show Risk flag?">
+Completing **3 consecutive bookings** with no no-show in between clears the flag:
+`booking_requires_approval` returns to `false` and the "No-Show Risk" tag is
+removed.
+</Accordion>
+<Accordion title="What happens if they miss again during recovery?">
+Any no-show **resets** the streak — `consecutive_completed_bookings` goes back to
+`0` — so the three completed bookings must be unbroken.
+</Accordion>
+</Accordions>
 
 <Callout type="info">
   Recovery is hands-off. No one at the salon has to manually clear the flag — the
@@ -92,7 +98,7 @@ is handled separately and never carries a fee.
 ## Where the thresholds live
 
 The no-show thresholds and the cancellation window are configuration keys, not
-hard-coded values. A manager can adjust them under `/admin/settings`, alongside
+hard-coded values. A manager can adjust them under `admin.theroyalglow.in/settings`, alongside
 other policy settings like the GST number and business hours.
 
 ## Related links

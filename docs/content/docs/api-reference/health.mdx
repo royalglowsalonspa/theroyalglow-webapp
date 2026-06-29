@@ -8,10 +8,13 @@ description: Liveness and dependency-check endpoint for uptime monitors, CI, and
 A liveness/health probe used by BetterStack, CI, and load balancers.
 
 <Callout type="info">
-  **Minimum role: Public.** Unlike every other endpoint, `GET /api/health` does
-  **not** use the `{ success, data }` envelope — it returns its own documented
-  `HealthStatus` contract and its own status codes. The response always sends
-  `Cache-Control: no-store` and an `X-Health-Status` header.
+  **Base URL:** `https://theroyalglow.in` · **Auth:** Public. Unlike every other
+  endpoint, `GET /api/health` does **not** use the `{ success, data }` envelope —
+  it returns its own documented `HealthStatus` contract and its own status codes.
+  The response always sends `Cache-Control: no-store` and an `X-Health-Status`
+  header. The admin app exposes an identical probe at
+  `admin.theroyalglow.in/api/health`; this page documents the customer probe on
+  `theroyalglow.in`.
 </Callout>
 
 ## GET /api/health
@@ -44,21 +47,69 @@ This endpoint takes no parameters.
 }
 ```
 
-| Field | Type | Notes |
-| --- | --- | --- |
-| `status` | enum | Overall status: `healthy`, `degraded`, or `unhealthy`. |
-| `timestamp` | string | ISO-8601 timestamp of the check. |
-| `version` | string | Commit SHA from `COMMIT_SHA`, or `"unknown"` if unset. |
-| `uptime` | number | Process uptime in seconds (`0` if unavailable). |
-| `checks.database` | object | `{ status, latencyMs, message? }`. |
-| `checks.redis` | object | `{ status, latencyMs, message? }`. |
-| `checks.r2` | object | `{ status, latencyMs, message? }`. |
+### Response fields
+
+<TypeTable
+  type={{
+    status: {
+      type: 'enum',
+      description: 'Overall status: healthy, degraded, or unhealthy.',
+      required: true,
+    },
+    timestamp: {
+      type: 'string',
+      description: 'ISO-8601 timestamp of the check.',
+      required: true,
+    },
+    version: {
+      type: 'string',
+      description: 'Commit SHA from COMMIT_SHA, or "unknown" if unset.',
+      required: true,
+    },
+    uptime: {
+      type: 'number',
+      description: 'Process uptime in seconds (0 if unavailable).',
+      required: true,
+    },
+    'checks.database': {
+      type: 'object',
+      description: 'The database component check: { status, latencyMs, message? }.',
+      required: true,
+    },
+    'checks.redis': {
+      type: 'object',
+      description: 'The Redis component check: { status, latencyMs, message? }.',
+      required: true,
+    },
+    'checks.r2': {
+      type: 'object',
+      description: 'The R2 component check: { status, latencyMs, message? }.',
+      required: true,
+    },
+  }}
+/>
 
 Each component check is `{ status: "pass" | "fail" | "skip", latencyMs: number, message?: string }`.
 
-- `pass` — the dependency responded successfully.
-- `fail` — the dependency is configured but unreachable or errored. A `message` explains why.
-- `skip` — the dependency is not configured, so it was not checked. **Redis** reports `skip` when `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` are unset; **R2** reports `skip` when `NEXT_PUBLIC_R2_PUBLIC_URL` is unset.
+<Accordions type="single">
+<Accordion title="pass — dependency responded successfully">
+
+The dependency responded successfully within the check window.
+
+</Accordion>
+<Accordion title="fail — configured but unreachable or errored">
+
+The dependency is configured but unreachable or errored. A `message` explains why.
+
+</Accordion>
+<Accordion title="skip — not configured, so not checked">
+
+The dependency is not configured, so it was not checked. **Redis** reports
+`skip` when `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` are unset; **R2**
+reports `skip` when `NEXT_PUBLIC_R2_PUBLIC_URL` is unset.
+
+</Accordion>
+</Accordions>
 
 ### Overall status rules
 
@@ -74,7 +125,31 @@ overall status.
 So a no-keys local/dev environment (Redis and R2 unconfigured → `skip`) reports
 `healthy` with a `200`. Only a failing database produces a `503`.
 
-### Degraded example (Redis configured but unreachable)
+### Status examples
+
+<Tabs items={['Healthy', 'Degraded', 'Unhealthy']}>
+<Tab value="Healthy">
+
+Redis and R2 unconfigured (`skip`); database passes → `200`.
+
+```json
+{
+  "status": "healthy",
+  "timestamp": "2026-06-02T09:20:00.000Z",
+  "version": "a1b2c3d",
+  "uptime": 12345.67,
+  "checks": {
+    "database": { "status": "pass", "latencyMs": 12 },
+    "redis": { "status": "skip", "latencyMs": 0, "message": "Redis not configured" },
+    "r2": { "status": "skip", "latencyMs": 0, "message": "R2 not configured" }
+  }
+}
+```
+
+</Tab>
+<Tab value="Degraded">
+
+Redis configured but unreachable; database still passes → `200`.
 
 ```json
 {
@@ -90,7 +165,10 @@ So a no-keys local/dev environment (Redis and R2 unconfigured → `skip`) report
 }
 ```
 
-### Unhealthy example (database down → 503)
+</Tab>
+<Tab value="Unhealthy">
+
+Database down → `503`.
 
 ```json
 {
@@ -106,9 +184,22 @@ So a no-keys local/dev environment (Redis and R2 unconfigured → `skip`) report
 }
 ```
 
+</Tab>
+</Tabs>
+
 ### Headers
 
-| Header | Value |
-| --- | --- |
-| `Cache-Control` | `no-store` |
-| `X-Health-Status` | The overall `status` (`healthy` / `degraded` / `unhealthy`). |
+<TypeTable
+  type={{
+    'Cache-Control': {
+      type: 'string',
+      description: 'Always no-store.',
+      required: true,
+    },
+    'X-Health-Status': {
+      type: 'string',
+      description: 'The overall status (healthy / degraded / unhealthy).',
+      required: true,
+    },
+  }}
+/>

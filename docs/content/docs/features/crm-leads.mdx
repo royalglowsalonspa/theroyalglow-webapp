@@ -71,7 +71,7 @@ and in-store QR all use `/?book=1` instead so attribution stays clean.
 <Callout type="info">
   If a lead submits the form but never completes a booking, a background job
   flags it as stale after 48 hours and the receptionist follows up by phone or
-  WhatsApp from `/admin/leads`.
+  WhatsApp from `admin.theroyalglow.in/leads`.
 </Callout>
 
 ### Lead status pipeline
@@ -97,20 +97,34 @@ a lead `lost` requires a reason.
 
 ## Rules
 
-- **First-touch attribution** — a customer's acquisition source (`organic`,
-  `meta_ad`, `gmb`, `walkin`) is stored once and never overwritten by later
-  visits.
-- **Phone normalisation** — phone numbers are normalised to canonical
-  `+91XXXXXXXXXX` before storage.
-- **Public lead capture is rate-limited** — `POST /api/leads` is the only
-  unauthenticated write endpoint and is rate-limited per IP.
-- **Tags cap** — a customer can carry up to 10 tags; automatic tags cannot be
-  removed by hand.
-- **WhatsApp follow-up** — lead conversations are handled through AiSensy; when a
-  status changes there, a webhook updates Neon so the database stays the single
-  source of truth.
-- **Manual leads** — leads created from inside the admin portal are forced to
-  `source = manual` (versus `meta_ad` for ad traffic).
+<Callout type="warn">
+  **First-touch attribution is permanent.** A customer's acquisition source
+  (`organic`, `meta_ad`, `gmb`, `walkin`) is stored once on first contact and is
+  **never** overwritten by later visits — this keeps revenue attribution honest.
+</Callout>
+
+<Accordions type="single">
+<Accordion title="How are phone numbers stored?">
+Phone numbers are normalised to canonical `+91XXXXXXXXXX` before storage, so the
+same number is never duplicated under two formats.
+</Accordion>
+<Accordion title="Is the public lead form protected?">
+Yes. `POST /api/leads` is the only unauthenticated write endpoint and is
+rate-limited per IP to prevent abuse.
+</Accordion>
+<Accordion title="How many tags can a customer have?">
+Up to 10 tags. Automatic tags (e.g. `vip`, `loyal`, `spa_lover`, `dormant`)
+cannot be removed by hand.
+</Accordion>
+<Accordion title="How does WhatsApp follow-up stay in sync?">
+Lead conversations are handled through AiSensy. When a status changes there, a
+webhook updates Neon so the database stays the single source of truth.
+</Accordion>
+<Accordion title="What source do admin-created leads get?">
+Leads created from inside the admin portal are forced to `source = manual`
+(versus `meta_ad` for ad traffic).
+</Accordion>
+</Accordions>
 
 ## Related links
 
