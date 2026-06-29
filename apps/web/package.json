@@ -33,6 +33,7 @@
     "ably": "^2.23.0",
     "better-auth": "^1.6.22",
     "clsx": "^2.1.1",
+    "@neondatabase/serverless": "^1.1.0",
     "drizzle-orm": "0.45.2",
     "kysely": "0.29.2",
     "motion": "^12.42.0",
