@@ -18,7 +18,7 @@
     "@rgss/errors": "workspace:*",
     "@rgss/logger": "workspace:*",
     "@rgss/types": "workspace:*",
-    "@sentry/node": "^8.40.0",
+    "@sentry/node": "^10.62.0",
     "hono": "^4.9.0",
     "react": "^19.1.0",
     "zod": "^3.24.0"
