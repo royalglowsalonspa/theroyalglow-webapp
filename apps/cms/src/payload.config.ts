@@ -78,13 +78,18 @@ const isEmailConfigured = resendApiKey !== ''
 export default buildConfig({
   serverURL: process.env.PAYLOAD_PUBLIC_SERVER_URL ?? '',
   secret: process.env.PAYLOAD_SECRET ?? '',
-  email: isEmailConfigured
-    ? resendAdapter({
-        defaultFromAddress: process.env.RESEND_FROM_ADDRESS ?? 'contact@theroyalglow.in',
-        defaultFromName: process.env.RESEND_FROM_NAME ?? 'Royal Glow Salon & Spa',
-        apiKey: resendApiKey,
-      })
-    : undefined,
+  // Spread the `email` key only when configured. Under
+  // `exactOptionalPropertyTypes`, an optional property cannot be set to an
+  // explicit `undefined`, so omit it entirely when email is disabled.
+  ...(isEmailConfigured
+    ? {
+        email: resendAdapter({
+          defaultFromAddress: process.env.RESEND_FROM_ADDRESS ?? 'contact@theroyalglow.in',
+          defaultFromName: process.env.RESEND_FROM_NAME ?? 'Royal Glow Salon & Spa',
+          apiKey: resendApiKey,
+        }),
+      }
+    : {}),
   admin: {
     user: Users.slug,
   },
