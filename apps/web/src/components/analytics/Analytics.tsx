@@ -124,7 +124,7 @@ async function loadPostHog(): Promise<void> {
     }
 
     instance.init(key, {
-      api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://app.posthog.com',
+      api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://eu.i.posthog.com',
       capture_pageview: true,
       persistence: 'localStorage',
     })
