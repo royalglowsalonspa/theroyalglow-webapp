@@ -1,54 +1,97 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 30-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : CookieConsent
  * Scope        : Cookie Consent UI
  *
- * Description  : Cookie consent banner with 2-tier opt-in (analytics/marketing).
- *                Supports accept-all, reject, and per-category customisation.
+ * Description  : Cookie consent banner — a slim, brand-aligned bottom bar
+ *                (adapted from the shadcn-space "cookie-consent-01" block).
+ *                The collapsed bar is accept-forward: a cookie chip + short
+ *                consent sentence on the left, a settings (preferences) icon
+ *                button + a single "Accept" button on the right. There is NO
+ *                prominent "Reject all" button; granular opt-out (analytics /
+ *                marketing) remains available behind the settings button so the
+ *                2-tier DPDP consent model is preserved.
  *
  * Responsibilities :
- * - Show consent banner for undecided visitors
- * - Provide accept-all, reject, and customise options
- * - Render accessible toggle switches for each consent category
- * - Re-open via OPEN_PREFERENCES_EVENT from footer button
- * - Animate entry/exit with translate+opacity transition
+ * - Show the bar for undecided visitors; animate entry (translate+opacity)
+ * - Accept-all from the bar; per-category opt-in via the settings panel
+ * - Re-open (with the settings panel) via OPEN_PREFERENCES_EVENT (footer button)
+ * - Render accessible role=switch toggles for each consent category
  *
  * Features / Functionality :
  * - 2-tier consent: necessary (always on) + analytics + marketing
- * - Customise panel with accessible role=switch toggles
- * - Animated banner entry (translate-y-4 → translate-y-0)
- * - Privacy Policy link in description
+ * - Settings panel with accessible toggles + "Save selection"
+ * - Privacy Policy link in the bar copy
  * - Persistent state via lib/consent/consent.ts
  *
- * Tech Stack   : React, TypeScript, Tailwind CSS
+ * Tech Stack   : React, TypeScript, Tailwind CSS (brand tokens, no extra deps)
  * Layer        : Frontend
  *
  * Dependencies : @/lib/consent/consent, @/lib/utils, next/link
  *
- * Notes        : None
+ * Notes        : Icons are inlined SVGs (the web app does not depend on
+ *                lucide-react). Colours use Royal Glow Brand Tokens only.
  ************************************************************/
 
 'use client'
 
-import {
-  type ConsentState,
-  acceptAll,
-  getConsent,
-  rejectNonEssential,
-  setConsent,
-} from '@/lib/consent/consent'
+import { type ConsentState, acceptAll, getConsent, setConsent } from '@/lib/consent/consent'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { useEffect, useId, useRef, useState } from 'react'
 
 /**
  * Custom `window` event the footer "Cookie Preferences" button dispatches to
- * re-open this banner after a choice has already been made.
+ * re-open this banner (with the settings panel) after a choice has been made.
  */
 export const OPEN_PREFERENCES_EVENT = 'rgss:open-cookie-preferences'
+
+/** Inline cookie glyph (lucide "cookie" geometry) — sized via `className`. */
+function CookieIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5" />
+      <path d="M8.5 8.5v.01" />
+      <path d="M16 15.5v.01" />
+      <path d="M12 12v.01" />
+      <path d="M11 17v.01" />
+      <path d="M7 14v.01" />
+    </svg>
+  )
+}
+
+/** Inline sliders glyph (lucide "settings-2" geometry) — sized via `className`. */
+function SettingsIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M20 7h-9" />
+      <path d="M14 17H5" />
+      <circle cx="17" cy="17" r="3" />
+      <circle cx="7" cy="7" r="3" />
+    </svg>
+  )
+}
 
 type SwitchProps = {
   id: string
@@ -59,7 +102,7 @@ type SwitchProps = {
   onToggle?: (next: boolean) => void
 }
 
-/** A small accessible on/off switch built from a real `<button>`. */
+/** A small accessible on/off switch built from a real `<button>` (light theme). */
 function ConsentSwitch({
   id,
   label,
@@ -74,12 +117,12 @@ function ConsentSwitch({
   return (
     <div className="flex items-start justify-between gap-4 py-3">
       <div className="min-w-0">
-        <span id={labelId} className="block font-ui text-sm text-canvas-white">
+        <span id={labelId} className="block font-ui text-sm text-cocoa-dark">
           {label}
         </span>
         <span
           id={descriptionId}
-          className="mt-0.5 block font-sans text-[13px] leading-[1.5] text-dusty-gray"
+          className="mt-0.5 block font-sans text-[13px] leading-[1.5] text-warm-gray"
         >
           {description}
         </span>
@@ -97,10 +140,10 @@ function ConsentSwitch({
           'relative mt-1 inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-200',
           'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-deep-gold',
           disabled
-            ? 'cursor-not-allowed border-white/20 bg-white/20'
+            ? 'cursor-not-allowed border-transparent bg-royal-gold/40'
             : 'cursor-pointer border-transparent',
           !disabled && checked ? 'bg-royal-gold' : '',
-          !disabled && !checked ? 'bg-white/15' : '',
+          !disabled && !checked ? 'border-outline-gray bg-cloud-gray' : '',
         )}
       >
         <span
@@ -178,13 +221,8 @@ export function CookieConsent() {
     setShowCustomise(false)
   }
 
-  const handleAcceptAll = () => {
+  const handleAccept = () => {
     acceptAll()
-    close()
-  }
-
-  const handleReject = () => {
-    rejectNonEssential()
     close()
   }
 
@@ -202,67 +240,56 @@ export function CookieConsent() {
         aria-describedby={descriptionId}
         tabIndex={-1}
         className={cn(
-          'pointer-events-auto w-full max-w-[1278px] rounded-[14px] border border-white/10 bg-cocoa-dark text-canvas-white shadow-elevated',
-          'p-5 sm:p-6 lg:p-7',
+          'pointer-events-auto w-full max-w-[1278px] rounded-2xl border border-outline-gray bg-canvas-white text-cocoa-dark shadow-elevated',
+          'px-5 py-4 sm:px-6 sm:py-5',
           'motion-safe:transition-all motion-safe:duration-300 motion-safe:ease-out',
           entered ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
         )}
       >
-        <div className="lg:flex lg:items-start lg:justify-between lg:gap-10">
-          <div className="lg:max-w-2xl">
-            <h2
-              id={headingId}
-              className="font-display text-lg tracking-tight text-canvas-white sm:text-xl"
-            >
-              We value your privacy
-            </h2>
-            <p
-              id={descriptionId}
-              className="mt-2 font-sans text-[15px] leading-[1.55] text-dusty-gray"
-            >
-              We use necessary cookies to make this site work. With your consent we also use
-              analytics and marketing cookies to understand how the site is used and to improve our
-              services. Read more in our{' '}
+        <h2 id={headingId} className="sr-only">
+          Cookie consent
+        </h2>
+
+        <div className="flex flex-wrap items-center justify-between gap-4 md:flex-nowrap">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-cloud-gray">
+              <CookieIcon className="size-4 text-warm-gray" />
+            </span>
+            <p id={descriptionId} className="font-sans text-sm text-warm-gray sm:text-base">
+              By clicking accept, you consent to our use of cookies.{' '}
               <Link
                 href="/privacy"
                 className="text-royal-gold underline underline-offset-2 transition-colors duration-200 hover:text-warm-gold"
               >
-                Privacy Policy
+                Learn more
               </Link>
-              .
             </p>
           </div>
 
-          <div className="mt-5 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap lg:mt-0 lg:shrink-0 lg:flex-col">
-            <button
-              type="button"
-              onClick={handleAcceptAll}
-              className="inline-flex items-center justify-center rounded-full bg-royal-gold px-6 py-2.5 font-ui text-xs uppercase tracking-[0.5px] text-cocoa-dark transition-colors duration-200 hover:bg-warm-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-deep-gold"
-            >
-              Accept all
-            </button>
-            <button
-              type="button"
-              onClick={handleReject}
-              className="inline-flex items-center justify-center rounded-full border border-white/25 px-6 py-2.5 font-ui text-xs uppercase tracking-[0.5px] text-canvas-white transition-colors duration-200 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-deep-gold"
-            >
-              Reject non-essential
-            </button>
+          <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
               aria-expanded={showCustomise}
               aria-controls={`${headingId}-options`}
+              aria-label="Cookie settings"
               onClick={() => setShowCustomise((prev) => !prev)}
-              className="inline-flex items-center justify-center rounded-full px-6 py-2.5 font-ui text-xs uppercase tracking-[0.5px] text-dusty-gray transition-colors duration-200 hover:text-canvas-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-deep-gold"
+              className="inline-flex size-10 items-center justify-center rounded-full text-warm-gray transition-colors duration-200 hover:bg-cloud-gray hover:text-cocoa-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-deep-gold"
             >
-              {showCustomise ? 'Hide options' : 'Customise'}
+              <SettingsIcon className="size-4" />
+            </button>
+            <button
+              type="button"
+              onClick={handleAccept}
+              className="inline-flex h-10 items-center justify-center rounded-full bg-cocoa-dark px-6 font-ui text-sm font-medium text-canvas-white transition-colors duration-200 hover:bg-cocoa-dark/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-deep-gold"
+            >
+              Accept
             </button>
           </div>
         </div>
 
         {showCustomise ? (
-          <div id={`${headingId}-options`} className="mt-5 border-t border-white/10 pt-4">
-            <div className="divide-y divide-white/10">
+          <div id={`${headingId}-options`} className="mt-4 border-t border-outline-gray pt-4">
+            <div className="divide-y divide-outline-gray">
               <ConsentSwitch
                 id="consent-necessary"
                 label="Strictly necessary"
@@ -290,7 +317,7 @@ export function CookieConsent() {
               <button
                 type="button"
                 onClick={handleSave}
-                className="inline-flex items-center justify-center rounded-full bg-royal-gold px-6 py-2.5 font-ui text-xs uppercase tracking-[0.5px] text-cocoa-dark transition-colors duration-200 hover:bg-warm-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-deep-gold"
+                className="inline-flex h-10 items-center justify-center rounded-full border border-outline-gray px-6 font-ui text-sm font-medium text-cocoa-dark transition-colors duration-200 hover:bg-cloud-gray focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-deep-gold"
               >
                 Save selection
               </button>
