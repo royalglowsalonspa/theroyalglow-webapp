@@ -5,6 +5,13 @@ description: How Royal Glow reaches customers and staff — transactional email 
 
 # Notifications & Email
 
+<Callout type="info">
+  **In one line:** Royal Glow reaches people through **email** (the durable
+  record — Resend for transactional, Brevo for marketing) and **Web Push** (the
+  instant nudge). All three are guarded extension points: with a key absent the
+  send is a no-op that logs and returns cleanly.
+</Callout>
+
 Royal Glow keeps people informed through two channels: **email** (the durable
 record — confirmations, invoices, reminders, offers) and **Web Push** (the
 instant nudge that lands on a phone or laptop even when the site is closed).
@@ -33,41 +40,49 @@ services.
 | Unsubscribe management | Not required | **Legally required** |
 | Deliverability focus | Individual inbox | Bulk sender reputation |
 
-## Email strategy
+## Email providers
 
 **Resend** handles transactional mail; **Brevo** handles marketing. The split is
 strict — invoices and confirmations never go through the marketing pipeline, and
 promotional blasts never go through the transactional one.
 
-| Email | Service | Triggered by |
-| --- | --- | --- |
-| Welcome / onboarding | Resend | Onboarding completed |
-| Booking confirmation (pending) | Resend | Booking created |
-| Booking approved / rejected | Resend | Receptionist confirms or rejects |
-| Appointment reminder (24h / 1h) | Resend | Scheduled reminder job |
-| Invoice — service | Resend | Booking moves to `completed` (+ PDF) |
-| Invoice — membership purchase / session | Resend | Membership created / session recorded (+ PDF) |
-| Membership expiry reminder (30d / 7d / 1d) | Resend | Daily expiry job |
-| Membership expired | Resend | Auto-expire job |
-| Post-service follow-up | Brevo | 2 days after a completed booking |
-| Re-engagement (inactive 60+ days) | Brevo | Brevo automation |
-| Seasonal / festival offer | Brevo | Manual campaign |
-| New offer announcement | Brevo | Owner publishes an offer |
-| Membership renewal nudge | Brevo | 7 days after a membership expired |
-
-### Resend — transactional
+<Tabs items={['Resend — transactional', 'Brevo — marketing']}>
+<Tab value="Resend — transactional">
 
 Resend is built for instant, reliable 1-to-1 delivery, has first-class support
 for PDF attachments (invoices), and integrates natively with React Email. Its
 free tier — **3,000 emails/month, 100/day** — covers the entire launch phase.
 All transactional mail is sent `from` `hello@theroyalglow.in`.
 
-### Brevo — marketing
+| Email | Triggered by |
+| --- | --- |
+| Welcome / onboarding | Onboarding completed |
+| Booking confirmation (pending) | Booking created |
+| Booking approved / rejected | Receptionist confirms or rejects |
+| Appointment reminder (24h / 1h) | Scheduled reminder job |
+| Invoice — service | Booking moves to `completed` (+ PDF) |
+| Invoice — membership purchase / session | Membership created / session recorded (+ PDF) |
+| Membership expiry reminder (30d / 7d / 1d) | Daily expiry job |
+| Membership expired | Auto-expire job |
+
+</Tab>
+<Tab value="Brevo — marketing">
 
 Brevo is built for bulk sending to subscriber lists and, critically, manages
 **unsubscribe automatically** — a legal requirement for marketing email under
 CAN-SPAM, GDPR, and India's DPDP Act. Its free tier is **300 emails/day with
 unlimited contacts**.
+
+| Email | Triggered by |
+| --- | --- |
+| Post-service follow-up | 2 days after a completed booking |
+| Re-engagement (inactive 60+ days) | Brevo automation |
+| Seasonal / festival offer | Manual campaign |
+| New offer announcement | Owner publishes an offer |
+| Membership renewal nudge | 7 days after a membership expired |
+
+</Tab>
+</Tabs>
 
 <Callout type="warn">
   Marketing email requires explicit consent. A customer is only added to Brevo
@@ -83,20 +98,21 @@ components in `packages/emails/`, styled in Royal Glow's brand. They receive
 strongly typed props (money as integer **paise**, dates as **DD/MM/YYYY**) and
 render to HTML at send time.
 
-```text
-packages/emails/
-  ├── welcome.tsx                      ← Onboarding complete
-  ├── booking-confirmation.tsx         ← Booking pending
-  ├── booking-approved.tsx             ← Confirmed — staff, pricing, calendar
-  ├── booking-rejected.tsx             ← Rejected — reason + rebook CTA
-  ├── appointment-reminder.tsx         ← 24h / 1h reminder
-  ├── invoice-service.tsx              ← Service invoice (Salon + SPA non-member)
-  ├── invoice-membership-purchase.tsx  ← Membership enrolment invoice
-  ├── invoice-membership-session.tsx   ← ₹0 session confirmation
-  ├── membership-expiry-reminder.tsx   ← 30d / 7d / 1d expiry warning
-  ├── membership-expired.tsx           ← Expired — renewal CTA
-  └── membership-hours-update.tsx      ← Periodic hours-remaining nudge
-```
+<Files>
+  <Folder name="packages/emails" defaultOpen>
+    <File name="welcome.tsx — Onboarding complete" />
+    <File name="booking-confirmation.tsx — Booking pending" />
+    <File name="booking-approved.tsx — Confirmed: staff, pricing, calendar" />
+    <File name="booking-rejected.tsx — Rejected: reason + rebook CTA" />
+    <File name="appointment-reminder.tsx — 24h / 1h reminder" />
+    <File name="invoice-service.tsx — Service invoice (Salon + SPA non-member)" />
+    <File name="invoice-membership-purchase.tsx — Membership enrolment invoice" />
+    <File name="invoice-membership-session.tsx — ₹0 session confirmation" />
+    <File name="membership-expiry-reminder.tsx — 30d / 7d / 1d expiry warning" />
+    <File name="membership-expired.tsx — Expired: renewal CTA" />
+    <File name="membership-hours-update.tsx — Periodic hours-remaining nudge" />
+  </Folder>
+</Files>
 
 A typical send generates the invoice PDF, then hands the React component and the
 attachment to Resend:
@@ -129,29 +145,48 @@ involved.
 
 ### Subscription flow
 
-1. **Permission** — the browser's native prompt is shown _after_ the customer's
-   first successful booking, not on first load.
-2. **Subscribe** — once granted, the service worker calls
-   `pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: VAPID_PUBLIC_KEY })`,
-   returning a `PushSubscription`.
-3. **Store** — the client posts it to `POST /api/push/subscribe`, which upserts
-   a row in the `push_subscription` table keyed by `endpoint` and bound to the
-   signed-in user.
-4. **Send** — when an event fires, the server fetches the user's subscriptions
-   and the `web-push` library signs and delivers the payload; the service worker
-   shows the notification.
+<Steps>
+<Step>
+### Permission
+
+The browser's native prompt is shown _after_ the customer's first successful
+booking, not on first load.
+</Step>
+<Step>
+### Subscribe
+
+Once granted, the service worker calls
+`pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: VAPID_PUBLIC_KEY })`,
+returning a `PushSubscription`.
+</Step>
+<Step>
+### Store
+
+The client posts it to `POST /api/push/subscribe`, which upserts a row in the
+`push_subscription` table keyed by `endpoint` and bound to the signed-in user.
+</Step>
+<Step>
+### Send
+
+When an event fires, the server fetches the user's subscriptions and the
+`web-push` library signs and delivers the payload; the service worker shows the
+notification.
+</Step>
+</Steps>
 
 ### Storage
 
 `POST /api/push/subscribe` persists the subscription serialised by the browser's
 `PushManager`:
 
-| Field | Notes |
-| --- | --- |
-| `endpoint` | Push service URL — the upsert key |
-| `keys.p256dh` | Client public key |
-| `keys.auth` | Client auth secret |
-| `userId` | Bound to the session user |
+<TypeTable
+  type={{
+    endpoint: { type: 'string', description: 'Push service URL — the upsert key', required: true },
+    'keys.p256dh': { type: 'string', description: 'Client public key', required: true },
+    'keys.auth': { type: 'string', description: 'Client auth secret', required: true },
+    userId: { type: 'string', description: 'Bound to the session user', required: true },
+  }}
+/>
 
 `DELETE /api/push/subscribe` soft-unsubscribes by deactivating the row for a
 given endpoint. Both routes are session-scoped, so one user can never touch

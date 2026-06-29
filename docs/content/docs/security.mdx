@@ -5,6 +5,13 @@ description: How Royal Glow protects customer data — input validation, rate li
 
 # Security
 
+<Callout type="info">
+  **In one line:** Security is layered — Zod validation, Upstash rate limits,
+  nonce-based CSP, exact-origin CORS, file-type whitelisting, HMAC webhook
+  verification, DPDP consent, six-role RBAC, and hardened session cookies all work
+  together so one gap never becomes a breach.
+</Callout>
+
 Royal Glow handles real people's personal details — names, phone numbers,
 dates of birth, booking history, and invoices. Keeping that data safe is not an
 afterthought; it is built into every layer of the platform. This page explains,
@@ -109,10 +116,12 @@ Anything from another origin is rejected rather than reflected back.
 Uploads (such as customer or content images and PDF documents) are constrained
 on two axes:
 
-| Control | Rule |
-| --- | --- |
-| Allowed types | `jpg`, `png`, `webp`, `pdf` only (a whitelist, not a blacklist) |
-| Maximum size | 10 MB per file |
+<TypeTable
+  type={{
+    allowedTypes: { type: 'whitelist', description: 'jpg, png, webp, pdf only (a whitelist, not a blacklist)', required: true },
+    maxSize: { type: 'limit', description: 'Maximum size per file', default: '10 MB' },
+  }}
+/>
 
 Files are stored in Cloudflare R2 and served from a dedicated public CDN host,
 never executed by the application.
@@ -170,7 +179,7 @@ organisations. Consent is explicit and granular:
 Authorisation uses Better Auth's roles plugin with six concrete roles in a strict
 hierarchy. Each role inherits the access of those below it.
 
-```
+```text
 customer < staff < receptionist < manager < owner < developer
 ```
 
@@ -180,7 +189,7 @@ customer < staff < receptionist < manager < owner < developer
 | `staff` | Own schedule, assigned booking notes, leave requests |
 | `receptionist` | Bookings, check-in, billing, memberships, leave approvals |
 | `manager` | Staff, services, reports, scheduling, settings |
-| `owner` | Full business access, including `/admin/users` |
+| `owner` | Full business access, including `admin.theroyalglow.in/users` |
 | `developer` | Everything, plus integrations and log surfaces |
 
 A request that is authenticated but lacks the required role receives `403` with
@@ -192,11 +201,13 @@ session at all.
 Sessions are managed by Better Auth and stored in **Neon** (PostgreSQL), not in a
 third-party service. The session cookie is hardened:
 
-| Attribute | Value | Effect |
-| --- | --- | --- |
-| `HttpOnly` | true | JavaScript cannot read the cookie (XSS cannot steal it) |
-| `Secure` | true | Sent only over HTTPS |
-| `SameSite` | `Lax` | Not sent on cross-site requests (CSRF defence) |
+<TypeTable
+  type={{
+    HttpOnly: { type: 'true', description: 'JavaScript cannot read the cookie (XSS cannot steal it)', default: 'true' },
+    Secure: { type: 'true', description: 'Sent only over HTTPS', default: 'true' },
+    SameSite: { type: 'Lax', description: 'Not sent on cross-site requests (CSRF defence)', default: 'Lax' },
+  }}
+/>
 
 Because Google OAuth runs on Royal Glow's own domain, the callback at
 `theroyalglow.in/api/auth/callback/google` keeps the session first-party. See

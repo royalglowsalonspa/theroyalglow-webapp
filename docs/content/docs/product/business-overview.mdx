@@ -5,6 +5,13 @@ description: What Royal Glow is, the problem the platform solves, every module, 
 
 # Business Overview
 
+<Callout type="info">
+  **In plain language:** Royal Glow is a premium salon and spa in Bengaluru. This
+  platform is its complete digital operations system — website, booking, admin
+  portal, billing, memberships, loyalty, CRM, marketing, and automation — all in
+  one connected product with a single source of truth.
+</Callout>
+
 Royal Glow Salon & Spa is a premium salon and spa in Bengaluru, India. This
 platform is its complete digital operations system: the customer website, the
 online booking, the staff and admin portal, billing, memberships, loyalty, the
@@ -106,24 +113,59 @@ The full breakdown of what each role can and cannot do is in the
 
 ### How a typical visit flows
 
-1. A customer books online (or walks in, and the receptionist creates the booking).
-2. The front desk confirms the booking and assigns the right staff member.
-3. The service is performed.
-4. At checkout, the receptionist takes payment, and the system generates the invoice and awards gems.
-5. The invoice is emailed to the customer; their profile and the day's reports update automatically.
+<Steps>
+<Step>
+### Book
+
+A customer books online (or walks in, and the receptionist creates the booking).
+</Step>
+<Step>
+### Confirm
+
+The front desk confirms the booking and assigns the right staff member.
+</Step>
+<Step>
+### Service
+
+The service is performed.
+</Step>
+<Step>
+### Checkout
+
+At checkout, the receptionist takes payment, and the system generates the invoice and awards gems.
+</Step>
+<Step>
+### After
+
+The invoice is emailed to the customer; their profile and the day's reports update automatically.
+</Step>
+</Steps>
 
 ## Key facts to remember
 
 These rules apply everywhere in the product. They reflect that Royal Glow is an
 India-first business.
 
-| Fact | What it means |
-| --- | --- |
-| **Currency is INR** | All prices are in Indian Rupees. Internally money is stored in **paise** (₹1 = 100 paise) to avoid rounding errors; it's only converted to rupees for display. |
-| **Prices include GST** | Every price shown to a customer already includes **18% GST**. The invoice shows the tax split, but the customer pays exactly the displayed price. |
-| **Indian formatting** | Money shows in Indian grouping (₹1,00,000.00) and dates as DD/MM/YYYY. |
-| **IST timezone** | All times are Indian Standard Time. Timestamps are stored in UTC and displayed in IST. |
-| **₹0/month infrastructure at launch** | The platform runs entirely on free service tiers, so there are no monthly software bills when the business starts. |
+<Accordions type="single">
+<Accordion title="Currency is INR (stored in paise)">
+All prices are in Indian Rupees. Internally money is stored in **paise** (₹1 =
+100 paise) to avoid rounding errors; it's only converted to rupees for display.
+</Accordion>
+<Accordion title="Prices include GST">
+Every price shown to a customer already includes **18% GST**. The invoice shows
+the tax split, but the customer pays exactly the displayed price.
+</Accordion>
+<Accordion title="Indian formatting">
+Money shows in Indian grouping (₹1,00,000.00) and dates as DD/MM/YYYY.
+</Accordion>
+<Accordion title="IST timezone">
+All times are Indian Standard Time. Timestamps are stored in UTC and displayed in IST.
+</Accordion>
+<Accordion title="₹0/month infrastructure at launch">
+The platform runs entirely on free service tiers, so there are no monthly
+software bills when the business starts.
+</Accordion>
+</Accordions>
 
 <Callout type="info">
   **Why paise, not rupees?** Storing money as whole paise means the system never

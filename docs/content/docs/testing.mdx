@@ -5,11 +5,18 @@ description: The complete testing strategy for Royal Glow — tools, layers, CI 
 
 # Testing
 
+<Callout type="info">
+  **In one line:** Royal Glow follows a testing *diamond* — most tests at the
+  integration boundary — across 13 layers, all on free tiers at **$0/month**. CI
+  gates get stricter from `dev` to `prod`, and Lighthouse requires performance ≥
+  95 with accessibility/best-practices/SEO = 100.
+</Callout>
+
 ## Philosophy
 
 Royal Glow uses a **testing diamond** (not the traditional pyramid) because the integration boundary is where most bugs live in a fullstack app:
 
-```
+```text
         ┌─────┐
        │ E2E  │  ← Critical paths only (golden path verification)
       ┌┴───────┴┐
@@ -23,6 +30,7 @@ Royal Glow uses a **testing diamond** (not the traditional pyramid) because the 
 ```
 
 **Core principles:**
+
 1. Tests are production code — same quality, same review rigor, same TypeScript strictness
 2. Test behaviour, not implementation — if you refactor and tests break, the tests were wrong
 3. Deterministic or nothing — flaky tests get quarantined immediately, fixed within 24h, or deleted
@@ -50,7 +58,7 @@ Royal Glow uses a **testing diamond** (not the traditional pyramid) because the 
 
 ### Locked-In Stack
 
-```
+```text
 STATIC:      TypeScript strict + Biome + Ultracite
 UNIT:        Vitest + @faker-js/faker
 COMPONENT:   Vitest + React Testing Library + MSW
@@ -67,13 +75,23 @@ TOTAL COST:  $0/month (all free tiers)
 
 ### Tools Rejected
 
-| Tool | Reason |
-| --- | --- |
-| **Cypress** | Slower than Playwright, no WebKit, worse Next.js App Router support |
-| **Jest** | Vitest is drop-in replacement, 10x faster with Bun |
-| **Chromatic** | Requires Storybook — RGSS doesn't use Storybook |
-| **Datadog** | $31/host/mo — BetterStack + Sentry covers all needs at $0 |
-| **Snyk** | Trivy + Socket.dev covers same ground for free |
+<Accordions type="single">
+<Accordion title="Cypress">
+Slower than Playwright, no WebKit, worse Next.js App Router support.
+</Accordion>
+<Accordion title="Jest">
+Vitest is a drop-in replacement, 10x faster with Bun.
+</Accordion>
+<Accordion title="Chromatic">
+Requires Storybook — RGSS doesn't use Storybook.
+</Accordion>
+<Accordion title="Datadog">
+$31/host/mo — BetterStack + Sentry covers all needs at $0.
+</Accordion>
+<Accordion title="Snyk">
+Trivy + Socket.dev covers the same ground for free.
+</Accordion>
+</Accordions>
 
 ## Unit Testing (Vitest)
 
@@ -181,19 +199,32 @@ export const options = {
 
 ## CI Pipeline Integration
 
-### On PR to `dev`
+Gates are cumulative — each stage adds checks on top of the previous one.
+
+<Tabs items={['PR to dev', 'PR to test', 'PR to pprd', 'PR to prod']}>
+<Tab value="PR to dev">
+
 - Lint + Format (Biome)
 - Type check (tsc --noEmit)
 - Unit tests (Vitest)
 
-### On PR to `test`
-- All above + Integration tests + Playwright E2E + Lighthouse CI
+</Tab>
+<Tab value="PR to test">
 
-### On PR to `pprd`
-- All above + k6 load test + OWASP ZAP + smoke test suite
+- All `dev` checks + Integration tests + Playwright E2E + Lighthouse CI
 
-### On PR to `prod`
+</Tab>
+<Tab value="PR to pprd">
+
+- All `test` checks + k6 load test + OWASP ZAP + smoke test suite
+
+</Tab>
+<Tab value="PR to prod">
+
 - All CI gates passing + manual approval required
+
+</Tab>
+</Tabs>
 
 ## Coverage Requirements
 
@@ -218,6 +249,7 @@ bun run test:coverage     # Unit tests with coverage report
 Meticulous records real user sessions on pprd, then replays them as visual regression tests on every PR. Zero test code required — it learns from real usage.
 
 **What Meticulous catches that Playwright doesn't:**
+
 - Subtle font rendering changes
 - 1px layout shifts after CSS changes
 - Colour/spacing regressions in components you didn't touch

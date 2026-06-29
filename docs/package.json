@@ -9,7 +9,9 @@
     "start": "next start",
     "postinstall": "fumadocs-mdx",
     "typecheck": "tsc --noEmit",
-    "lint": "biome check ."
+    "lint": "biome check .",
+    "test": "vitest",
+    "test:run": "vitest --run"
   },
   "dependencies": {
     "next": "16.2.9",
@@ -21,11 +23,20 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.8",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/jest-axe": "^3.5.9",
     "@types/mdx": "^2.0.13",
     "@types/node": "^25.9.1",
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.7.0",
+    "fast-check": "^3.23.1",
+    "jest-axe": "^9",
+    "jsdom": "^25.0.1",
     "tailwindcss": "^4.1.8",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.9"
   }
 }
