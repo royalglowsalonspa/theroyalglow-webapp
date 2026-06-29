@@ -78,6 +78,14 @@ export function GoogleOneTap() {
     if (isPending || session?.user || oneTapRequested) {
       return
     }
+    // Local dev: skip the One Tap auto-prompt. Google's One Tap library emits
+    // benign but noisy `[GSI_LOGGER]` FedCM deprecation warnings, and One Tap
+    // only displays when the exact origin (http://localhost:3000) is
+    // allow-listed on the OAuth client. Use the explicit "Sign in" button for
+    // local testing; One Tap stays enabled in production.
+    if (process.env.NODE_ENV !== 'production') {
+      return
+    }
     // Only prompt on a visible tab (avoids aborted background prompts).
     if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
       return
