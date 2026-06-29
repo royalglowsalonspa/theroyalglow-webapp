@@ -5,6 +5,13 @@ description: Live booking status, schedule, and leave updates pushed to customer
 
 # Realtime (Ably)
 
+<Callout type="info">
+  **In one line:** Ably holds an open WebSocket in the browser and pushes each
+  change to everyone who should see it in ~50ms — booking status, schedule, and
+  leave. Publishing is **server-side only**; clients get subscribe-only Token Auth
+  scoped to their role. It degrades gracefully when `ABLY_PRIVATE_KEY` is absent.
+</Callout>
+
 When a receptionist approves a booking, the customer sitting on their bookings
 page should see the badge flip from "Pending" to "Confirmed" on its own — no
 refresh, no reload. Royal Glow does this with [Ably](https://ably.com), which
@@ -35,16 +42,38 @@ a single-branch salon generates.
 
 ## How it works
 
-1. **Page mounts** — a `useEffect` opens an Ably connection using an
-   `authCallback` that fetches a token from our own API.
-2. **Token is issued** — `POST /api/ably/token` returns a short-lived, scoped
-   Ably JWT for the signed-in user (see [Token Auth](#token-auth)).
-3. **Subscribe** — the page subscribes to exactly the channels it is allowed to
-   read and updates React state when a message arrives.
-4. **Server publishes** — after a state-changing API route commits its database
-   write, it publishes to every relevant channel using `ABLY_PRIVATE_KEY`.
-5. **Page unmounts** — the connection is cleaned up. Ably handles reconnect on
-   network loss and calls `authCallback` again when the token expires.
+<Steps>
+<Step>
+### Page mounts
+
+A `useEffect` opens an Ably connection using an `authCallback` that fetches a
+token from our own API.
+</Step>
+<Step>
+### Token is issued
+
+`POST /api/ably/token` returns a short-lived, scoped Ably JWT for the signed-in
+user (see [Token Auth](#token-auth)).
+</Step>
+<Step>
+### Subscribe
+
+The page subscribes to exactly the channels it is allowed to read and updates
+React state when a message arrives.
+</Step>
+<Step>
+### Server publishes
+
+After a state-changing API route commits its database write, it publishes to
+every relevant channel using `ABLY_PRIVATE_KEY`.
+</Step>
+<Step>
+### Page unmounts
+
+The connection is cleaned up. Ably handles reconnect on network loss and calls
+`authCallback` again when the token expires.
+</Step>
+</Steps>
 
 <Callout type="info">
   **All publishing is server-side only.** Browsers never hold a key with publish
@@ -94,8 +123,8 @@ short-lived Ably JWT per authenticated user, scoped to exactly the channels that
 user's role may read. `POST /api/ably/token` is a session-protected route; the
 `clientId` on the token is the caller's user id.
 
-<Tabs items={["Customer", "Admin", "Staff"]}>
-  <Tab value="Customer">
+<Tabs items={['Customer', 'Admin', 'Staff']}>
+<Tab value="Customer">
 
 A customer is granted `subscribe` on their own namespace only, plus the specific
 booking channels they own. They never receive a wildcard over all `booking:*`
@@ -106,8 +135,8 @@ subscribe: ["customer:usr_abc123:*", "booking:bkg_xyz789"]
 publish:   []   ← never
 ```
 
-  </Tab>
-  <Tab value="Admin">
+</Tab>
+<Tab value="Admin">
 
 Roles `receptionist` and above additionally receive `subscribe` on the `admin:*`
 namespace, covering the branch dashboard, schedule, and leave channels.
@@ -117,8 +146,8 @@ subscribe: ["customer:usr_abc123:*", "admin:*", "booking:*"]
 publish:   []   ← never
 ```
 
-  </Tab>
-  <Tab value="Staff">
+</Tab>
+<Tab value="Staff">
 
 A staff member is scoped to their own schedule channel and only the booking
 channels they are assigned to view.
@@ -128,7 +157,7 @@ subscribe: ["staff:stf_def456:schedule", "booking:bkg_xyz789"]
 publish:   []   ← never
 ```
 
-  </Tab>
+</Tab>
 </Tabs>
 
 <Callout type="warn">
@@ -144,7 +173,7 @@ State-changing API routes publish to every relevant channel _after_ the database
 write commits, so a subscriber never sees a change that did not actually persist.
 
 ```text
-POST /api/admin/bookings/:id/approve
+PATCH admin.theroyalglow.in/api/bookings/:id   (action: approve)
   → DB: booking.status = 'confirmed'
   → Ably publish:
       customer:{userId}:bookings   →  booking.status_changed  { toStatus: 'confirmed' }

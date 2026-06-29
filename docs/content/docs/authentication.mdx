@@ -22,7 +22,7 @@ Roles are hierarchical: a higher role satisfies any lower-role requirement.
 | Role | Level | Typical access |
 | --- | --- | --- |
 | `customer` | 0 | Own bookings, profile, gems, membership |
-| `staff` | 1 | Own schedule + leave (`/staff/*`) |
+| `staff` | 1 | Own schedule + leave (`admin.theroyalglow.in/me/*`) |
 | `receptionist` | 2 | Bookings, customers, leads, billing |
 | `manager` | 3 | + services, offers, staff, schedule, reports |
 | `owner` | 4 | + users, branches |
@@ -50,14 +50,19 @@ Each API page in the reference notes the minimum role for every endpoint.
 
 ## Route → role guidance
 
+Customer endpoints live on `theroyalglow.in`; admin endpoints live on the
+`admin.theroyalglow.in` subdomain at root paths (there is **no** `/api/admin/`
+segment — the subdomain is the namespace).
+
 | Route group | Minimum role |
 | --- | --- |
-| `/api/bookings`, `/api/membership`, `/api/gems`, `/api/notifications` | `customer` |
-| `/api/staff/*` | `staff` |
-| `/api/admin/bookings`, `/customers`, `/leads`, `/billing` | `receptionist` |
-| `/api/admin/services`, `/offers`, `/staff`, `/schedule`, `/memberships` | `manager` |
-| `/api/admin/users`, branches | `owner` |
-| `/api/admin/integrations`, logs | `developer` |
+| `theroyalglow.in/api/bookings`, `/api/membership`, `/api/gems`, `/api/notifications` | `customer` |
+| `admin.theroyalglow.in/api/me/*` (own schedule + leave) | `staff` |
+| `admin.theroyalglow.in/api/bookings`, `/api/customers`, `/api/leads`, `/api/billing`, `/api/memberships` | `receptionist` |
+| `admin.theroyalglow.in/api/services`, `/api/offers`, `/api/staff`, `/api/schedule`, `/api/reports` | `manager` |
+| `admin.theroyalglow.in/api/users`, `/api/branches` | `owner` |
+| `admin.theroyalglow.in/api/integrations`, `/api/logs` | `developer` |
 
-Public (no auth) endpoints: `GET /api/services`, `GET /api/services/[slug]`,
-`GET /api/availability`, `POST /api/leads`, `GET /api/health`.
+Public (no auth) customer endpoints: `GET theroyalglow.in/api/services`,
+`GET /api/services/[slug]`, `GET /api/availability`, `POST /api/leads`,
+`GET /api/health`.

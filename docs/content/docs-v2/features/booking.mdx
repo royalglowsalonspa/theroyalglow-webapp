@@ -1,0 +1,23 @@
+---
+title: Booking System
+description: Legacy v2 description of the Royal Glow booking flow. Preserved for reference — see the latest docs for the current behaviour.
+---
+
+# Booking System (v2 — Legacy)
+
+<Callout type="warn">
+  This is the **legacy v2** booking documentation. For the current flow see the
+  [latest docs](/docs/features).
+</Callout>
+
+The booking experience is a multi-step dialog opened over the homepage. Customers
+pick a date and slot, choose a service type, select services, and review a summary
+before submitting.
+
+## Lifecycle
+
+```text
+pending → confirmed/rejected → in_progress → completed
+```
+
+Walk-ins skip `pending` and go straight to `confirmed`.

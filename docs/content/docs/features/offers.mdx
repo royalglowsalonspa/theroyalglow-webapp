@@ -24,42 +24,90 @@ when ringing up the bill.
 
 ## How it works
 
-1. **Create** — a manager creates an offer in the admin portal, choosing its
-   type, the services it applies to, and a start and end date.
-2. **Display** — while active and within its date range, the offer appears on the
-   public `/offers` page with its terms.
-3. **Apply** — at checkout, the receptionist applies a single eligible offer to
-   the customer's booking before taking payment.
-4. **Expire** — when the end date passes, the offer auto-expires via a scheduled
-   background job and drops off the public list.
+<Steps>
+<Step>
+### Create
+
+A manager creates an offer in the admin portal, choosing its type, the services
+it applies to, and a start and end date.
+</Step>
+<Step>
+### Display
+
+While active and within its date range, the offer appears on the public
+`/offers` page with its terms.
+</Step>
+<Step>
+### Apply
+
+At checkout, the receptionist applies a single eligible offer to the customer's
+booking before taking payment.
+</Step>
+<Step>
+### Expire
+
+When the end date passes, the offer auto-expires via a scheduled background job
+and drops off the public list.
+</Step>
+</Steps>
 
 ### Offer types
 
-| Type | Example | How it works |
-| --- | --- | --- |
-| `percentage` | "20% off all Facials" | A percentage (1–100) off the linked services. |
-| `flat` | "₹500 off any Hair Treatment" | A fixed rupee amount deducted. |
-| `combo_price` | "Hair + Facial + Manicure = ₹2,999" | A bundle price replaces the individual service prices. |
+<Tabs items={['Percentage', 'Flat', 'Combo price']}>
+<Tab value="Percentage">
+**Type:** `percentage`
+
+A percentage (1–100) off the linked services.
+
+**Example:** "20% off all Facials".
+</Tab>
+<Tab value="Flat">
+**Type:** `flat`
+
+A fixed rupee amount deducted from the bill.
+
+**Example:** "₹500 off any Hair Treatment".
+</Tab>
+<Tab value="Combo price">
+**Type:** `combo_price`
+
+A single bundle price replaces the individual service prices.
+
+**Example:** "Hair + Facial + Manicure = ₹2,999".
+</Tab>
+</Tabs>
 
 ## Rules
 
-- **One offer per customer per day** — enforced in the database with a unique
+<Callout type="warn">
+  **One offer per customer per day** and **offers cannot combine with gems** — an
+  offer and a [gems](/docs/features/loyalty-gems) redemption cannot both apply to
+  the same booking. The daily limit is enforced in the database with a unique
   constraint on customer + date.
-- **Applied at checkout by a receptionist** — not chosen by the customer during
-  booking.
-- **Cannot combine with gems** — an offer and a [gems](/docs/features/loyalty-gems)
-  redemption cannot both apply to the same booking.
-- **Salon only** — offers apply to salon services. They do **not** apply to SPA
-  memberships. See [SPA Memberships](/docs/features/memberships).
-- **Date-bound** — every offer has a start and end date; it auto-activates and
-  auto-expires (the expiry is run by a QStash scheduled job).
-- **Terms shown per offer** — each offer card carries its own terms (e.g. "Valid
-  on weekdays only").
-
-<Callout type="info">
-  If the salon cancels a booking that had an offer applied, the offer is
-  reinstated for the customer's next booking rather than being lost.
 </Callout>
+
+<Accordions type="single">
+<Accordion title="Who applies an offer?">
+A receptionist, at checkout — not the customer during booking. This keeps
+control of discounts with staff and prevents stacking.
+</Accordion>
+<Accordion title="Do offers apply to SPA memberships?">
+No. Offers are **salon only**. They do not apply to SPA memberships. See
+[SPA Memberships](/docs/features/memberships).
+</Accordion>
+<Accordion title="How are offers activated and expired?">
+Every offer is date-bound with a start and end date. It auto-activates and
+auto-expires — the expiry is run by a QStash scheduled job.
+</Accordion>
+<Accordion title="Where are an offer's terms shown?">
+Each offer card carries its own terms (e.g. "Valid on weekdays only"), displayed
+to the customer on the `/offers` page.
+</Accordion>
+<Accordion title="What happens to an offer if the salon cancels the booking?">
+If the salon cancels a booking that had an offer applied, the offer is
+reinstated for the customer's next booking rather than being lost.
+</Accordion>
+</Accordions>
 
 ## Related links
 

@@ -16,7 +16,7 @@ The realtime messaging service used to push live updates to browsers — for exa
 Where a customer first came from when they signed up. Values: `organic` (found the website themselves), `gmb` (clicked from Google Maps), `walkin` (scanned the in-store QR code), `meta_ad` (came from a Meta/Instagram advertisement).
 
 **Admin Portal**
-The staff-facing section of the website at `/admin`. Only accessible to staff with the right role. Used for managing bookings, customers, billing, memberships, and more.
+The staff-facing app at `admin.theroyalglow.in` — a separate Next.js app (`@rgss/admin`) served at root paths (no `/admin` prefix; the subdomain is the namespace). Only accessible to staff with the right role. Used for managing bookings, customers, billing, memberships, and more.
 
 **AppError**
 A custom error class in `packages/errors/` that carries a machine-readable code, a human-readable message, and an HTTP status code. Used throughout the codebase to represent expected business errors.
@@ -52,14 +52,14 @@ Meta's server-side event tracking API. Sends purchase and lead events from the N
 **Cloudflare KV**
 A key-value store at Cloudflare's edge. Used to cache the service catalog so it loads in milliseconds globally without hitting the database.
 
-**Cloudflare Pages**
-The hosting platform for the customer website. Serves static assets and runs Next.js at Cloudflare's global edge network.
+**Cloudflare Workers**
+The hosting platform for both Next.js apps (customer site `rgss-web` and admin portal `rgss-admin`). They deploy to Cloudflare Workers via the OpenNext adapter (`@opennextjs/cloudflare`) — not Cloudflare Pages — and run at Cloudflare's global edge network. Deploy with `wrangler deploy` / `opennextjs-cloudflare deploy`.
 
-**Cloudflog R2**
+**Cloudflare R2**
 Cloudflare's file storage service (S3-compatible). Used for service images, gallery photos, PDF invoices, and database backups. Zero egress fees.
 
 **CMS (Content Management System)**
-The Payload CMS v3 instance at `admin.theroyalglow.in`. Used only for marketing content: blog posts, gallery, team bios, homepage banners, and FAQ. The service catalog, bookings, and billing are managed in the custom admin portal — not in the CMS.
+The Payload CMS v3 instance at `cms.theroyalglow.in`. Used only for marketing content: blog posts, gallery, team bios, homepage banners, and FAQ. The service catalog, bookings, and billing are managed in the custom admin portal (`admin.theroyalglow.in`) — not in the CMS.
 
 **Conventional Commits**
 A commit message format: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, etc. Used for clean git history and automatic changelog generation.
@@ -140,7 +140,7 @@ A SPA membership that gives a customer a block of hours to use across SPA servic
 When a SPA member uses their membership hours for a service. Recorded as a completed booking with ₹0 invoice. Hours are deducted from the membership balance.
 
 **Monorepo**
-A single Git repository containing multiple apps and packages. Royal Glow's monorepo contains `apps/web`, `apps/cms`, `docs`, and shared `packages/`.
+A single Git repository containing multiple apps and packages. Royal Glow's monorepo contains five workspaces — `apps/web` (customer site), `apps/admin` (admin portal), `apps/cms` (Payload CMS), `apps/invoicing` (Cloud Run PDF service), and `docs` (this Fumadocs site) — plus shared `packages/`.
 
 **MSW (Mock Service Worker)**
 A library for mocking API calls in tests. Works at the network level — tests don't know they're hitting a mock.
@@ -189,7 +189,7 @@ Upstash's message queue service. Used to schedule and trigger background jobs: a
 The permission system. Six roles in hierarchy: Customer < Staff < Receptionist < Manager < Owner < Developer. Each role can only access routes and actions appropriate to their level.
 
 **Render**
-The cloud hosting platform for the Payload CMS and the heavy SSR fallback. Free tier, Singapore region (closest to India).
+The cloud hosting platform for the Payload CMS (`cms.theroyalglow.in`). Free tier, Singapore region (closest to India).
 
 **requestId**
 A unique identifier (`req_abc123xyz`) attached to every API request. Appears in error responses, Sentry events, and log lines — making it easy to trace a specific request across all systems.
