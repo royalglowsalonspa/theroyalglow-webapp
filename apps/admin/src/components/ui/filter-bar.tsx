@@ -447,9 +447,9 @@ function ColumnVisibilityControl({
         })}
 
         {blocked ? (
-          <p className="px-2 py-1.5 font-ui text-xs text-warm-gray" id={hintId} role="status">
+          <output className="block px-2 py-1.5 font-ui text-xs text-warm-gray" id={hintId}>
             {LAST_COLUMN_HINT}
-          </p>
+          </output>
         ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
