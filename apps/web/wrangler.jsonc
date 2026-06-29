@@ -88,6 +88,11 @@
     "pprd": {
       "name": "rgss-web-pprd",
       "routes": [{ "pattern": "pprd.theroyalglow.in", "custom_domain": true }],
+      // COOKIE_DOMAIN override: the Worker runs with NODE_ENV=production, which
+      // would otherwise default the auth cookie to `.theroyalglow.in` and clash
+      // with prod. Scoping it to `.pprd.theroyalglow.in` isolates pprd sessions
+      // (read at runtime by buildCrossSubdomainAdvanced in both apps).
+      "vars": { "COOKIE_DOMAIN": ".pprd.theroyalglow.in" },
       "observability": { "enabled": true }
     }
   }

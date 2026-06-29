@@ -75,6 +75,10 @@
     "pprd": {
       "name": "rgss-admin-pprd",
       "routes": [{ "pattern": "admin.pprd.theroyalglow.in", "custom_domain": true }],
+      // COOKIE_DOMAIN override (NODE_ENV=production on the Worker would else
+      // default to `.theroyalglow.in`). `.pprd.theroyalglow.in` is shared with
+      // the web pprd Worker so web+admin share one isolated pprd session cookie.
+      "vars": { "COOKIE_DOMAIN": ".pprd.theroyalglow.in" },
       "observability": { "enabled": true }
     }
   }
