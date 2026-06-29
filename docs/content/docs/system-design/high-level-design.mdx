@@ -9,57 +9,67 @@ description: Architecture overview, technology decisions matrix, data model, aut
 
 Royal Glow Salon & Spa is a premium beauty and wellness establishment in Bengaluru, India. This document describes the high-level design of the full-stack digital operations platform.
 
+<Callout type="info">
+  A **monolithic modular** monorepo on Next.js 16 + Neon + Cloudflare's edge, designed for 20k–50k users at **₹0/month**, India-first (DPDP, IST, paise, GST 18%), with Lighthouse ≥95 performance and 100 accessibility/SEO.
+</Callout>
+
 ### Scale Targets
 
-| Metric | Target |
-| --- | --- |
-| Registered users | 20,000–50,000 |
-| Daily active users | 50–200 |
-| Concurrent users (peak) | 50 |
-| Application routes | ~104 pages |
-| Database tables | 38 |
-| API endpoints | 35 |
-| Background jobs | 19 |
+<TypeTable
+  type={{
+    'Registered users': { type: '20,000–50,000', description: 'Future-proof target' },
+    'Daily active users': { type: '50–200', description: 'Expected steady state' },
+    'Concurrent users (peak)': { type: '50', description: 'Load-test target' },
+    'Application routes': { type: '~104 pages', description: 'Customer (web) + admin (incl. staff self-service) + API' },
+    'Database tables': { type: '38', description: '15 Drizzle schema files' },
+    'API endpoints': { type: '~90 route handlers', description: 'Thin orchestrators across web + admin + jobs' },
+    'Background jobs': { type: '19', description: 'Scheduled + triggered + cron' },
+  }}
+/>
 
 ### Key Constraints
 
-| Constraint | Impact |
-| --- | --- |
-| **Solo developer** | No microservices, minimal ops overhead, single consistent stack |
-| **₹0/month infrastructure** | All free tiers at launch |
-| **India-first** | DPDP Act, IST timezone, INR (paise), GST 18% |
-| **Premium brand** | Lighthouse ≥95 performance, 100 accessibility/SEO |
+<TypeTable
+  type={{
+    'Solo developer': { type: 'constraint', description: 'No microservices, minimal ops overhead, single consistent stack' },
+    '₹0/month infrastructure': { type: 'constraint', description: 'All free tiers at launch' },
+    'India-first': { type: 'constraint', description: 'DPDP Act, IST timezone, INR (paise), GST 18%' },
+    'Premium brand': { type: 'constraint', description: 'Lighthouse ≥95 performance, 100 accessibility/SEO' },
+  }}
+/>
 
 ## Architecture Overview
 
 ### Layered Monorepo
 
-```
+```text
 Presentation  →  API (thin)  →  Business Logic  →  Data Access  →  Database
-apps/web/app     apps/web/api    packages/business   packages/db     Neon PostgreSQL
+apps/{web,admin}  apps/{web,admin}/api  packages/business  packages/db  Neon PostgreSQL
 ```
 
-| Layer | Location | May Import | Must Not Import |
-| --- | --- | --- | --- |
-| Presentation | `apps/web/app/`, `apps/web/components/` | business, db, types, errors | — |
-| API (thin) | `apps/web/app/api/` | business, db, types, errors | UI components |
-| Business Logic | `packages/business/` | types, errors | db, framework, UI |
-| Data Access | `packages/db/` | types | business, framework, UI |
-| Types/Validation | `packages/types/` | — | everything else |
+<TypeTable
+  type={{
+    Presentation: { type: 'apps/web + apps/admin (app, components)', description: 'May import: business, db, types, errors. Must not import: nothing restricted.' },
+    'API (thin)': { type: 'apps/web/app/api + apps/admin/app/api', description: 'May import: business, db, types, errors. Must not import: UI components.' },
+    'Business Logic': { type: 'packages/business', description: 'May import: types, errors. Must not import: db, framework, UI.' },
+    'Data Access': { type: 'packages/db', description: 'May import: types. Must not import: business, framework, UI.' },
+    'Types/Validation': { type: 'packages/types', description: 'May import: nothing. Must not import: everything else.' },
+  }}
+/>
 
 ### Hosting Topology
 
-```
+```text
 Browser/PWA
     │ HTTPS
     ▼
 Cloudflare (DNS + DDoS + WAF)
     │
-    ├── Cloudflare Pages (static CDN)
-    ├── Cloudflare Workers (edge SSR + API, <50ms CPU)
+    ├── Cloudflare Workers (web + admin via OpenNext adapter, edge SSR + API)
     └── Cloudflare KV (service catalog cache, 5-min TTL)
          │
-         ├── Render Singapore (heavy SSR + Payload CMS)
+         ├── Render Singapore (Payload CMS)
+         ├── Cloud Run (@rgss/invoicing PDF render service)
          ├── Neon PostgreSQL (4 branches: dev/test/pprd/prod)
          ├── Upstash Redis + QStash (cache + queue)
          ├── Cloudflare R2 (images, PDFs, backups)
@@ -75,7 +85,7 @@ Cloudflare (DNS + DDoS + WAF)
 | Database | Neon PostgreSQL 16 | Branching, serverless, all jobs via QStash |
 | ORM | Drizzle ORM | Pure TypeScript, runs on CF Workers V8 |
 | Auth | Better Auth | Self-hosted, Google OAuth, RBAC plugin |
-| Edge Hosting | Cloudflare Pages + Workers | Generous free tier, global edge |
+| Edge Hosting | Cloudflare Workers (OpenNext) | Generous free tier, global edge |
 | Origin Hosting | Render (Singapore) | Free tier, closest to India |
 | Realtime | Ably | 6M messages/mo free vs Pusher's 200k/day |
 | CMS | Payload CMS v3 | Self-hosted Next.js plugin, zero vendor lock-in |
@@ -93,14 +103,16 @@ Cloudflare (DNS + DDoS + WAF)
 
 ### Database Strategy
 
-**Neon PostgreSQL 16** with Git-like branching:
+**Neon PostgreSQL 16** with Git-like branching.
 
-| Neon Branch | Environment | Reset Policy |
-| --- | --- | --- |
-| `prod` | Production | Never reset |
-| `pprd` | Pre-production | Auto-reset daily from `prod` + PII stripped |
-| `test` | QA / CI | Wiped and reseeded every CI run |
-| `dev` | Development | Developer sandbox |
+<TypeTable
+  type={{
+    prod: { type: 'Production', description: 'Never reset' },
+    pprd: { type: 'Pre-production', description: 'Auto-reset daily from prod + PII stripped' },
+    test: { type: 'QA / CI', description: 'Wiped and reseeded every CI run' },
+    dev: { type: 'Development', description: 'Developer sandbox' },
+  }}
+/>
 
 ### Data Model Overview (38 tables)
 
@@ -122,39 +134,51 @@ Cloudflare (DNS + DDoS + WAF)
 
 ### Key Data Conventions
 
-| Convention | Implementation |
-| --- | --- |
-| Primary keys | `text` via `nanoid()` — prevents enumeration attacks |
-| Money | `integer` in paise (₹1,000.00 = `100000`) |
-| Timestamps | `timestamptz` stored UTC, displayed IST |
-| Date display | DD/MM/YYYY (`en-IN` locale) |
-| Currency display | Indian numbering: ₹1,00,000.00 |
-| Soft deletes | Not used — hard deletes with `audit_log` |
-| Naming | `snake_case`, singular table names |
-| Enums | PostgreSQL native `CREATE TYPE` |
-| Snapshots | Price/name frozen on `invoice_item` and `booking_service` |
-| GST | All prices GST-inclusive; base = price ÷ 1.18 |
+<TypeTable
+  type={{
+    'Primary keys': { type: 'text via nanoid()', description: 'Prevents enumeration attacks' },
+    Money: { type: 'integer (paise)', description: '₹1,000.00 = 100000' },
+    Timestamps: { type: 'timestamptz', description: 'Stored UTC, displayed IST' },
+    'Date display': { type: 'DD/MM/YYYY', description: "en-IN locale" },
+    'Currency display': { type: '₹1,00,000.00', description: 'Indian numbering' },
+    'Soft deletes': { type: 'not used', description: 'Hard deletes with audit_log' },
+    Naming: { type: 'snake_case', description: 'Singular table names' },
+    Enums: { type: 'native CREATE TYPE', description: 'PostgreSQL enums' },
+    Snapshots: { type: 'frozen', description: 'Price/name on invoice_item and booking_service' },
+    GST: { type: '18% inclusive', description: 'base = price ÷ 1.18' },
+  }}
+/>
 
 ### Three-Layer Cache Hierarchy
 
-| Layer | Store | TTL | What's Cached |
-| --- | --- | --- | --- |
-| L1 (Edge) | Cloudflare KV | 5 min | Service catalog, categories |
-| L2 (Regional) | Upstash Redis | 5 min | Slot availability per date/branch |
-| L3 (Source) | Neon PostgreSQL | Persistent | All business data |
+<TypeTable
+  type={{
+    'L1 (Edge)': { type: 'Cloudflare KV', description: 'TTL 5 min — service catalog, categories' },
+    'L2 (Regional)': { type: 'Upstash Redis', description: 'TTL 5 min — slot availability per date/branch' },
+    'L3 (Source)': { type: 'Neon PostgreSQL', description: 'Persistent — all business data' },
+  }}
+/>
 
 ## Authentication & Authorization
 
 ### Auth Architecture
+
+<Tabs items={['Provider & Sessions', 'RBAC Model', 'OAuth Flow']}>
+
+<Tab value="Provider & Sessions">
 
 - **Provider:** Google OAuth 2.0 only (no email/password)
 - **Sessions:** PostgreSQL `session` table (HttpOnly, Secure, SameSite=Lax cookies)
 - **CSRF:** Built-in via Better Auth
 - **Token type:** Session-based (not JWT) — revocable, server-validated
 
-### RBAC Model (6 roles)
+</Tab>
 
-```
+<Tab value="RBAC Model">
+
+Six roles in ascending privilege:
+
+```text
 Customer → Staff → Receptionist → Manager → Owner → Developer
 ```
 
@@ -164,23 +188,62 @@ Customer → Staff → Receptionist → Manager → Owner → Developer
 | Staff | Own schedule, assigned booking notes, leave requests |
 | Receptionist | Lowest admin role — bookings, billing, memberships, leave approvals |
 | Manager | Full operational access — staff, services, reports, settings |
-| Owner | Full business access including `/admin/users` |
-| Developer | Everything + `/admin/integrations`, `/admin/logs` |
+| Owner | Full business access including `admin.theroyalglow.in/users` |
+| Developer | Everything + `admin.theroyalglow.in/integrations`, `admin.theroyalglow.in/logs` |
 
-### OAuth Flow
+</Tab>
 
-1. User clicks "Sign in with Google"
-2. Redirect to Google consent screen (shows "Royal Glow Salon & Spa")
-3. User grants consent → callback with auth code
-4. Better Auth exchanges code for tokens, creates/finds user in DB
-5. Session created, HttpOnly cookie set
-6. Check: has `customer_profile`? YES → homepage. NO → `/onboarding`
+<Tab value="OAuth Flow">
+
+<Steps>
+
+<Step>
+### Initiate
+
+User clicks "Sign in with Google".
+</Step>
+
+<Step>
+### Consent
+
+Redirect to the Google consent screen (shows "Royal Glow Salon & Spa").
+</Step>
+
+<Step>
+### Callback
+
+User grants consent and Google calls back with an auth code.
+</Step>
+
+<Step>
+### Exchange
+
+Better Auth exchanges the code for tokens and creates/finds the user in the DB.
+</Step>
+
+<Step>
+### Session
+
+A session is created and an HttpOnly cookie is set.
+</Step>
+
+<Step>
+### Route
+
+Has a `customer_profile`? YES → homepage. NO → `/onboarding`.
+</Step>
+
+</Steps>
+
+</Tab>
+
+</Tabs>
 
 ## API Design
 
 ### Thin API Layer Pattern
 
-```
+```text
 Request → Parse → Zod Validate → Business Logic → Response
 ```
 
@@ -198,26 +261,38 @@ API routes are thin orchestrators. No database queries in route handlers.
 
 ### API Groups
 
-| Group | Count | Auth |
-| --- | --- | --- |
-| Auth | 1 | Public |
-| Customer | 13 | Authenticated |
-| Admin | 7 | Role-gated |
-| Background Jobs | 12 | QStash signature |
-| Webhooks | 2 | Signature-verified |
+<TypeTable
+  type={{
+    Auth: { type: 'catch-all per app', description: 'Better Auth on web + admin (`/api/auth/[...all]`)' },
+    Customer: { type: '~20 endpoints', description: 'theroyalglow.in/api — authenticated + public' },
+    Admin: { type: '~50 endpoints', description: 'admin.theroyalglow.in/api — role-gated' },
+    'Background Jobs': { type: '19 jobs', description: 'admin.theroyalglow.in/api/jobs — QStash signature' },
+    Webhooks: { type: 'signature-verified', description: 'Inbound integration webhooks' },
+  }}
+/>
 
 ## Non-Functional Requirements
 
-| Category | Requirement | Target |
-| --- | --- | --- |
-| Latency | Global response time | < 100ms |
-| Availability | Uptime | 99.9% |
-| Security | Privacy compliance | India DPDP Act 2023 |
-| Performance | Lighthouse Performance | ≥ 95 |
-| Performance | Lighthouse Accessibility | 100 |
-| Performance | Lighthouse SEO | 100 |
-| Cost | Monthly infrastructure | ₹0 |
-| Scalability | Concurrent users | 50 |
-| RPO | Recovery Point Objective | ~0 seconds (Neon PITR) |
-| RTO | Recovery Time Objective | < 5 minutes |
-| Accessibility | WCAG compliance | 2.1 AA |
+<TypeTable
+  type={{
+    Latency: { type: '< 100ms', description: 'Global response time' },
+    Availability: { type: '99.9%', description: 'Uptime' },
+    Security: { type: 'DPDP Act 2023', description: 'India privacy compliance' },
+    'Lighthouse Performance': { type: '≥ 95', description: 'CI gate' },
+    'Lighthouse Accessibility': { type: '100', description: 'CI gate' },
+    'Lighthouse SEO': { type: '100', description: 'CI gate' },
+    Cost: { type: '₹0/month', description: 'Infrastructure' },
+    Scalability: { type: '50 concurrent', description: 'Peak users' },
+    RPO: { type: '~0 seconds', description: 'Neon PITR' },
+    RTO: { type: '< 5 minutes', description: 'Recovery time objective' },
+    Accessibility: { type: 'WCAG 2.1 AA', description: 'Compliance level' },
+  }}
+/>
+
+## Related Pages
+
+<Cards>
+  <Card title="Low-Level Design" href="/docs/system-design/low-level-design" description="State machines, sequences, indexes, and security implementation" />
+  <Card title="Data Model" href="/docs/data-model" description="All 38 tables, enums, and ID formats" />
+  <Card title="Architecture" href="/docs/architecture" description="Condensed architecture overview" />
+</Cards>

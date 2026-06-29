@@ -21,74 +21,81 @@ branches, and system operations.
 
 These rules are mandatory across every table.
 
-| Convention | Rule |
-| --- | --- |
-| Primary keys | `text`, app-generated via `nanoid()` (or `cuid2()`). No auto-increment serials — prevents enumeration attacks. |
-| Money | `integer` in **paise** (₹1,000.00 = `100000`). No floating point; round at display only. |
-| Timestamps | `timestamptz` everywhere. Stored UTC, displayed IST (UTC+5:30). |
-| Date display | `DD/MM/YYYY` via `Intl.DateTimeFormat('en-IN')`. |
-| Currency display | Indian grouping `₹1,00,000.00` via `Intl.NumberFormat('en-IN')`, always 2 decimals. |
-| Naming | `snake_case` columns and tables. **Singular** table names (`booking`, not `bookings`). |
-| Enums | PostgreSQL native `CREATE TYPE` enums, centralised in `enums.ts`. |
-| Deletes | **Hard deletes** — no soft-delete columns. Tracked via `audit_log`. |
-| Foreign keys | Explicit `ON DELETE` (CASCADE for children, RESTRICT for references). Indexed on all FK columns. |
-| Snapshots | Price + service/staff name frozen on `booking_service` and `invoice_item` so historical records never drift. |
-| GST | All prices GST-inclusive (18%, SAC 999721). Back-calc: `base = round(price ÷ 1.18)`. |
+<TypeTable
+  type={{
+    'Primary keys': { type: 'text', description: 'App-generated via nanoid() (or cuid2()). No auto-increment serials — prevents enumeration attacks.' },
+    Money: { type: 'integer (paise)', description: '₹1,000.00 = 100000. No floating point; round at display only.' },
+    Timestamps: { type: 'timestamptz', description: 'Everywhere. Stored UTC, displayed IST (UTC+5:30).' },
+    'Date display': { type: 'DD/MM/YYYY', description: "Via Intl.DateTimeFormat('en-IN')." },
+    'Currency display': { type: '₹1,00,000.00', description: "Indian grouping via Intl.NumberFormat('en-IN'), always 2 decimals." },
+    Naming: { type: 'snake_case', description: 'Singular table names (booking, not bookings).' },
+    Enums: { type: 'native CREATE TYPE', description: 'Centralised in enums.ts.' },
+    Deletes: { type: 'hard delete', description: 'No soft-delete columns. Tracked via audit_log.' },
+    'Foreign keys': { type: 'explicit ON DELETE', description: 'CASCADE for children, RESTRICT for references. Indexed on all FK columns.' },
+    Snapshots: { type: 'frozen copies', description: 'Price + service/staff name frozen on booking_service and invoice_item so historical records never drift.' },
+    GST: { type: '18% inclusive', description: 'SAC 999721. Back-calc: base = round(price ÷ 1.18).' },
+  }}
+/>
 
 ## Schema files & table groupings
 
-The 15 schema files in `packages/db/src/schema/` map to the following 38 tables.
-Table names below are the actual `pgTable` names defined in the codebase.
+The 15 schema files in `packages/db/src/schema/` map to 38 tables. The tree below
+lists the actual `pgTable` names defined in each file.
 
-| Domain (file) | Tables | Count |
-| --- | --- | --- |
-| `auth.ts` | `user`, `session`, `account`, `verification` | 4 |
-| `profile.ts` | `customer_profile`, `staff_profile` | 2 |
-| `service.ts` | `service_category`, `service`, `staff_service` | 3 |
-| `schedule.ts` | `staff_schedule`, `staff_time_off`, `business_hour`, `holiday` | 4 |
-| `booking.ts` | `booking`, `booking_service`, `booking_status_log`, `waitlist` | 4 |
-| `invoice.ts` | `invoice`, `invoice_item` | 2 |
-| `membership.ts` | `spa_membership_tier`, `spa_membership` | 2 |
-| `offer.ts` | `offer`, `offer_service`, `offer_redemption` | 3 |
-| `lead.ts` | `lead`, `lead_note` | 2 |
-| `crm.ts` | `customer_tag`, `customer_tag_assignment`, `customer_note` | 3 |
-| `loyalty.ts` | `loyalty_account`, `loyalty_transaction` | 2 |
-| `notification.ts` | `notification`, `push_subscription` | 2 |
-| `branch.ts` | `branch` | 1 |
-| `system.ts` | `daily_sales_summary`, `monthly_gst_summary`, `audit_log`, `system_setting` | 4 |
-| **Total** | | **38** |
+<Files>
+  <Folder name="packages/db/src/schema" defaultOpen>
+    <File name="enums.ts — all PostgreSQL enums (not a table)" />
+    <File name="auth.ts — user, session, account, verification (4)" />
+    <File name="profile.ts — customer_profile, staff_profile (2)" />
+    <File name="service.ts — service_category, service, staff_service (3)" />
+    <File name="schedule.ts — staff_schedule, staff_time_off, business_hour, holiday (4)" />
+    <File name="booking.ts — booking, booking_service, booking_status_log, waitlist (4)" />
+    <File name="invoice.ts — invoice, invoice_item (2)" />
+    <File name="membership.ts — spa_membership_tier, spa_membership (2)" />
+    <File name="offer.ts — offer, offer_service, offer_redemption (3)" />
+    <File name="lead.ts — lead, lead_note (2)" />
+    <File name="crm.ts — customer_tag, customer_tag_assignment, customer_note (3)" />
+    <File name="loyalty.ts — loyalty_account, loyalty_transaction (2)" />
+    <File name="notification.ts — notification, push_subscription (2)" />
+    <File name="branch.ts — branch (1)" />
+    <File name="system.ts — daily_sales_summary, monthly_gst_summary, audit_log, system_setting (4)" />
+  </Folder>
+</Files>
 
 <Callout type="info">
   The `auth.ts` tables (`user`, `session`, `account`, `verification`) are owned
   by Better Auth's Drizzle adapter. Don't add custom columns to them — extend
   via `customer_profile` / `staff_profile` instead. Enums are defined separately
-  in `enums.ts` (not counted as a table).
+  in `enums.ts` (not counted as a table). Totals: **15 files**, **38 tables**.
 </Callout>
 
 ## Key enums
 
 Defined natively in PostgreSQL via `enums.ts`.
 
-| Enum | Values |
-| --- | --- |
-| `booking_status` | `pending`, `confirmed`, `rejected`, `in_progress`, `completed`, `cancelled`, `no_show`, `rescheduled` |
-| `lead_status` | `new`, `contacted`, `follow_up`, `booked`, `won`, `lost` |
-| `payment_status` | `pending`, `paid`, `refunded` |
-| `payment_method` | `cash`, `upi`, `card`, `online` |
-| `invoice_type` | `service`, `membership_purchase`, `membership_session` |
-| `service_type` | `salon`, `spa` |
-| `discount_type` | `percentage`, `flat`, `combo_price` |
-| `spa_membership_status` | `active`, `expired`, `cancelled` |
-| `waitlist_status` | `waiting`, `notified`, `booked`, `expired`, `cancelled` |
-| `loyalty_tx_type` | `earned`, `redeemed`, `expired`, `adjusted` |
-| `leave_approval_status` | `pending`, `approved`, `rejected` |
-| `leave_type` | `sick`, `casual`, `personal`, `other` |
-| `staff_designation` | `receptionist`, `stylist`, `therapist`, `manager` |
-| `gender` | `male`, `female`, `other`, `prefer_not_to_say` |
-| `branch_status` | `operational`, `temporarily_closed`, `opens_soon`, `shutdown` |
-| `audit_action` | `create`, `update`, `delete`, `status_change` |
-| `notification_channel` | `push`, `email` |
-| `notification_status` | `pending`, `sent`, `failed` |
+<TypeTable
+  type={{
+    booking_status: { type: 'enum', description: 'pending, confirmed, rejected, in_progress, completed, cancelled, no_show, rescheduled' },
+    lead_status: { type: 'enum', description: 'new, contacted, follow_up, booked, won, lost' },
+    payment_status: { type: 'enum', description: 'pending, paid, refunded' },
+    payment_method: { type: 'enum', description: 'cash, upi, card, online' },
+    invoice_type: { type: 'enum', description: 'service, membership_purchase, membership_session' },
+    service_type: { type: 'enum', description: 'salon, spa' },
+    discount_type: { type: 'enum', description: 'percentage, flat, combo_price' },
+    spa_membership_status: { type: 'enum', description: 'active, expired, cancelled' },
+    waitlist_status: { type: 'enum', description: 'waiting, notified, booked, expired, cancelled' },
+    loyalty_tx_type: { type: 'enum', description: 'earned, redeemed, expired, adjusted' },
+    leave_approval_status: { type: 'enum', description: 'pending, approved, rejected' },
+    leave_type: { type: 'enum', description: 'sick, casual, personal, other' },
+    staff_designation: { type: 'enum', description: 'receptionist, stylist, therapist, manager' },
+    gender: { type: 'enum', description: 'male, female, other, prefer_not_to_say' },
+    branch_status: { type: 'enum', description: 'operational, temporarily_closed, opens_soon, shutdown' },
+    audit_action: { type: 'enum', description: 'create, update, delete, status_change' },
+    notification_type: { type: 'enum', description: '24 values — reminder_24h, reminder_1h, booking_confirmed, booking_rescheduled, booking_cancelled, booking_rejected, membership_created, membership_session_recorded, membership_expiry_30d/7d/1d, membership_expired, membership_hours_low, membership_usage_nudge, birthday_offer, post_service_followup, leave_submitted/approved/rejected, lead_follow_up_due, stale_pending_booking, no_show_check, gems_expiry_7d, gems_expired' },
+    notification_channel: { type: 'enum', description: 'push, email' },
+    notification_status: { type: 'enum', description: 'pending, sent, failed' },
+  }}
+/>
 
 ## ID & number formats
 
@@ -141,10 +148,25 @@ recorded in `booking_status_log`.
 
 ## Business rules enforced at the DB level
 
-- **One offer per customer per day** — unique constraint on `offer_redemption` (customer + date).
-- **One active membership per customer** — partial unique index on `spa_membership` where `status = 'active'`.
-- **One service type per booking** — a booking is salon OR spa, never mixed.
-- **Snapshot pricing** — `booking_service.price_at_booking_paise` and `invoice_item.unit_price_paise` are frozen copies.
+<Accordions type="single">
+
+<Accordion title="One offer per customer per day">
+Unique constraint on `offer_redemption` (customer + date).
+</Accordion>
+
+<Accordion title="One active membership per customer">
+Partial unique index on `spa_membership` where `status = 'active'`.
+</Accordion>
+
+<Accordion title="One service type per booking">
+A booking is salon OR spa, never mixed.
+</Accordion>
+
+<Accordion title="Snapshot pricing">
+`booking_service.price_at_booking_paise` and `invoice_item.unit_price_paise` are frozen copies.
+</Accordion>
+
+</Accordions>
 
 ## Related pages
 

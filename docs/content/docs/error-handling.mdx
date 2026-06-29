@@ -5,6 +5,13 @@ description: API error patterns, error codes, AppError class, and Sentry integra
 
 # Error Handling
 
+<Callout type="info">
+  **In one line:** Every error follows one structured JSON shape with a
+  machine-readable `code`, a human message, and a `requestId` for Sentry
+  correlation. Operational (expected) errors are logged at `warn`; programmer
+  (unexpected) errors are logged at `error` and alert via Sentry.
+</Callout>
+
 ## Design Principles
 
 1. **Never leak internals** — No stack traces, DB column names, or internal IDs in client responses
@@ -16,7 +23,8 @@ description: API error patterns, error codes, AppError class, and Sentry integra
 
 ## Standard Response Shapes
 
-### Error Response
+<Tabs items={['Error', 'Success']}>
+<Tab value="Error">
 
 ```json
 {
@@ -31,7 +39,8 @@ description: API error patterns, error codes, AppError class, and Sentry integra
 }
 ```
 
-### Success Response
+</Tab>
+<Tab value="Success">
 
 ```json
 {
@@ -40,6 +49,9 @@ description: API error patterns, error codes, AppError class, and Sentry integra
   "meta": { "page": 1, "totalPages": 5, "totalCount": 47 }
 }
 ```
+
+</Tab>
+</Tabs>
 
 ## HTTP Status Code Map
 
@@ -58,7 +70,8 @@ description: API error patterns, error codes, AppError class, and Sentry integra
 
 ## Error Classification
 
-### Operational Errors (Expected, Handled)
+<Tabs items={['Operational (expected)', 'Programmer (unexpected)']}>
+<Tab value="Operational (expected)">
 
 Logged at `warn` level. No Sentry alert.
 
@@ -70,7 +83,8 @@ Logged at `warn` level. No Sentry alert.
 | Rate limits | Too many API calls |
 | Not found | Booking ID doesn't exist |
 
-### Programmer Errors (Unexpected, Alerted)
+</Tab>
+<Tab value="Programmer (unexpected)">
 
 Logged at `error` level. Sentry captures with full context.
 
@@ -79,6 +93,9 @@ Logged at `error` level. Sentry captures with full context.
 | Unhandled exceptions | TypeError, null reference, missing env var |
 | DB errors | Connection pool exhausted, constraint violation |
 | External service failures | Resend 5xx, Ably connection lost, Neon timeout |
+
+</Tab>
+</Tabs>
 
 ## Error Code Registry
 
@@ -222,11 +239,21 @@ All rate limiting runs in Next.js middleware via `@upstash/ratelimit` backed by 
 
 ## Client-Side Error Handling
 
-```ts
-// On UNAUTHENTICATED → redirect to sign-in
-// On RATE_LIMITED → show toast "Too many requests. Please wait."
-// On VALIDATION_ERROR → let the form handle field-level errors
-// On anything else → show error.message in a toast
-```
+The client switches on the error `code` to decide what the user sees:
+
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED → redirect to sign-in">
+The session is missing or expired — send the user to the sign-in page.
+</Accordion>
+<Accordion title="RATE_LIMITED → show a wait toast">
+Show a toast: "Too many requests. Please wait."
+</Accordion>
+<Accordion title="VALIDATION_ERROR → let the form handle it">
+Let the form surface field-level errors from `details`.
+</Accordion>
+<Accordion title="Anything else → show error.message in a toast">
+Fall back to displaying `error.message` in a toast.
+</Accordion>
+</Accordions>
 
 React Error Boundaries catch rendering errors at the route level. Each route group has its own `error.tsx` that reports to Sentry and shows a retry button.

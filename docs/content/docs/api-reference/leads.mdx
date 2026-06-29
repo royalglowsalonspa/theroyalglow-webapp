@@ -5,21 +5,27 @@ description: Public Meta-ad lead capture plus the admin lead pipeline (list, det
 
 # Leads
 
-The lead surface has two halves. `POST /api/leads` is the **only**
-unauthenticated write endpoint in this phase — it backs the `/book` Meta-ad
-landing page. Everything under `/api/admin/leads` is the receptionist-facing
-pipeline and requires a Better Auth session with at least the `receptionist`
-role.
+The lead surface has two halves. `POST /api/leads` on the customer site
+(`theroyalglow.in`) is the **only** unauthenticated write endpoint in this
+phase — it backs the `/book` Meta-ad landing page. The admin lead pipeline is a
+separate app served from `admin.theroyalglow.in` (its endpoints are
+`admin.theroyalglow.in/api/leads*`, with **no `/admin` path prefix** — the
+subdomain is the namespace) and requires a Better Auth session with at least the
+`receptionist` role.
 
 <Callout type="info">
-  Roles are hierarchical: `customer` < `staff` < `receptionist` < `manager` <
-  `owner` < `developer`. A handler that calls `requireRole('receptionist')`
-  also admits `manager`, `owner`, and `developer`. Phone numbers are normalised
-  to canonical `+91XXXXXXXXXX` in the business layer before storage. Lead
-  pipeline: `new → contacted → follow_up → booked → won/lost`.
+  **Base URLs:** customer capture is `https://theroyalglow.in/api/leads`; the
+  admin pipeline endpoints are served from `https://admin.theroyalglow.in`
+  (e.g. `admin.theroyalglow.in/api/leads`, `.../api/leads/[id]`). There is **no
+  `/api/admin/` segment** anywhere. Roles are hierarchical: `customer` <
+  `staff` < `receptionist` < `manager` < `owner` < `developer`. A handler that
+  calls `requireRole('receptionist')` also admits `manager`, `owner`, and
+  `developer`. Phone numbers are normalised to canonical `+91XXXXXXXXXX` in the
+  business layer before storage. Lead pipeline:
+  `new → contacted → follow_up → booked → won/lost`.
 </Callout>
 
-## POST /api/leads
+## POST `theroyalglow.in/api/leads`
 
 Public lead capture from the Meta-ad landing page. The endpoint is per-IP
 rate-limited and strictly Zod-validated. It deliberately echoes back nothing
@@ -38,18 +44,61 @@ Content-Type: application/json
 
 Validated by `createLeadSchema` (`@rgss/types`).
 
-| Field | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `name` | string | Required | Trimmed, 1–120 characters. |
-| `phone` | string | Required | Indian 10-digit mobile, optionally `+91`/`0`-prefixed (`/^(?:\+?91\|0)?[6-9]\d{9}$/`). Normalised to `+91XXXXXXXXXX`. |
-| `email` | string | Optional | Must be a valid email if present. |
-| `serviceInterestedId` | string | Optional | Non-empty service id the lead is interested in. |
-| `source` | string | Optional | Max 40 chars. Defaults to `meta_ad` in the handler. |
-| `utmSource` | string | Optional | Max 120 chars. |
-| `utmMedium` | string | Optional | Max 120 chars. |
-| `utmCampaign` | string | Optional | Max 120 chars. |
-| `utmContent` | string | Optional | Max 120 chars. |
-| `utmTerm` | string | Optional | Max 120 chars. |
+<TypeTable
+  type={{
+    name: {
+      type: 'string',
+      description: 'Trimmed, 1–120 characters.',
+      required: true,
+    },
+    phone: {
+      type: 'string',
+      description: 'Indian 10-digit mobile, optionally +91 or 0 prefixed. Normalised to +91XXXXXXXXXX.',
+      required: true,
+    },
+    email: {
+      type: 'string',
+      description: 'Must be a valid email if present.',
+      required: false,
+    },
+    serviceInterestedId: {
+      type: 'string',
+      description: 'Non-empty service id the lead is interested in.',
+      required: false,
+    },
+    source: {
+      type: 'string',
+      description: 'Max 40 chars.',
+      required: false,
+      default: 'meta_ad',
+    },
+    utmSource: {
+      type: 'string',
+      description: 'Max 120 chars.',
+      required: false,
+    },
+    utmMedium: {
+      type: 'string',
+      description: 'Max 120 chars.',
+      required: false,
+    },
+    utmCampaign: {
+      type: 'string',
+      description: 'Max 120 chars.',
+      required: false,
+    },
+    utmContent: {
+      type: 'string',
+      description: 'Max 120 chars.',
+      required: false,
+    },
+    utmTerm: {
+      type: 'string',
+      description: 'Max 120 chars.',
+      required: false,
+    },
+  }}
+/>
 
 ```json
 {
@@ -80,15 +129,27 @@ Returns `201 Created` with only the new lead id.
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `RATE_LIMITED` | 429 | More than 5 requests from the same IP within the 60s window. `retryable: true`. |
-| `VALIDATION_ERROR` | 400 | Body fails `createLeadSchema`. `details` carries the per-field errors. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="RATE_LIMITED — 429">
+
+More than 5 requests from the same IP within the 60s window. `retryable: true`.
+
+</Accordion>
+<Accordion title="VALIDATION_ERROR — 400">
+
+Body fails `createLeadSchema`. `details` carries the per-field errors.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
-## GET /api/admin/leads
+## GET `admin.theroyalglow.in/api/leads`
 
 Returns the lead pipeline, newest first. Each row is a flat lead enriched with
 the service-interest name plus two computed fields: `daysSinceCapture` (whole
@@ -99,12 +160,20 @@ the kanban board.
 **Minimum role:** `receptionist` (`requireRole('receptionist')`)
 
 ```http
-GET /api/admin/leads?status=new
+GET /api/leads?status=new
 ```
 
-| Parameter | In | Type | Required | Notes |
-| --- | --- | --- | --- | --- |
-| `status` | query | string | Optional | One of `new`, `contacted`, `follow_up`, `booked`, `won`, `lost`. Omit for all leads. |
+### Query parameters
+
+<TypeTable
+  type={{
+    status: {
+      type: 'string',
+      description: 'One of new, contacted, follow_up, booked, won, lost. Omit for all leads.',
+      required: false,
+    },
+  }}
+/>
 
 ### Response
 
@@ -142,15 +211,27 @@ GET /api/admin/leads?status=new
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `FORBIDDEN` | 403 | Session role is below `receptionist`. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="FORBIDDEN — 403">
+
+Session role is below `receptionist`.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
-## POST /api/admin/leads
+## POST `admin.theroyalglow.in/api/leads`
 
 Creates a lead manually from inside the admin portal (e.g. a phone enquiry).
 Identical body to the public endpoint, but `source` is fixed to `manual` by
@@ -159,7 +240,7 @@ Identical body to the public endpoint, but `source` is fixed to `manual` by
 **Minimum role:** `receptionist` (`requireRole('receptionist')`)
 
 ```http
-POST /api/admin/leads
+POST /api/leads
 Content-Type: application/json
 ```
 
@@ -168,14 +249,41 @@ Content-Type: application/json
 Validated by `manualLeadSchema` (`@rgss/types`) — extends `createLeadSchema`
 with `source: 'manual'` (literal, defaults to `manual`).
 
-| Field | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `name` | string | Required | Trimmed, 1–120 characters. |
-| `phone` | string | Required | Indian 10-digit mobile. Normalised to `+91XXXXXXXXXX`. |
-| `email` | string | Optional | Valid email if present. |
-| `serviceInterestedId` | string | Optional | Non-empty service id. |
-| `source` | `"manual"` | Optional | Literal; defaults to `manual` and is forced to `manual` by the handler. |
-| `utmSource` / `utmMedium` / `utmCampaign` / `utmContent` / `utmTerm` | string | Optional | Max 120 chars each. |
+<TypeTable
+  type={{
+    name: {
+      type: 'string',
+      description: 'Trimmed, 1–120 characters.',
+      required: true,
+    },
+    phone: {
+      type: 'string',
+      description: 'Indian 10-digit mobile. Normalised to +91XXXXXXXXXX.',
+      required: true,
+    },
+    email: {
+      type: 'string',
+      description: 'Valid email if present.',
+      required: false,
+    },
+    serviceInterestedId: {
+      type: 'string',
+      description: 'Non-empty service id.',
+      required: false,
+    },
+    source: {
+      type: '"manual"',
+      description: 'Literal; defaults to manual and is forced to manual by the handler.',
+      required: false,
+      default: 'manual',
+    },
+    'utm* fields': {
+      type: 'string',
+      description: 'utmSource / utmMedium / utmCampaign / utmContent / utmTerm — max 120 chars each.',
+      required: false,
+    },
+  }}
+/>
 
 ```json
 {
@@ -200,16 +308,32 @@ Returns `201 Created` with the new lead id.
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `FORBIDDEN` | 403 | Session role is below `receptionist`. |
-| `VALIDATION_ERROR` | 400 | Body fails `manualLeadSchema`. `details` carries per-field errors. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="FORBIDDEN — 403">
+
+Session role is below `receptionist`.
+
+</Accordion>
+<Accordion title="VALIDATION_ERROR — 400">
+
+Body fails `manualLeadSchema`. `details` carries per-field errors.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
-## GET /api/admin/leads/[id]
+## GET `admin.theroyalglow.in/api/leads/[id]`
 
 Returns a single lead enriched with its service-interest name, assigned-to user
 name, and the converted booking number (each `null` when absent), together with
@@ -218,12 +342,20 @@ its notes (newest first).
 **Minimum role:** `receptionist` (`requireRole('receptionist')`)
 
 ```http
-GET /api/admin/leads/ld_7Qx2aMce91
+GET /api/leads/ld_7Qx2aMce91
 ```
 
-| Parameter | In | Type | Required | Notes |
-| --- | --- | --- | --- | --- |
-| `id` | path | string | Required | The lead id. |
+### Path parameters
+
+<TypeTable
+  type={{
+    id: {
+      type: 'string',
+      description: 'Path. The lead id.',
+      required: true,
+    },
+  }}
+/>
 
 ### Response
 
@@ -269,16 +401,32 @@ GET /api/admin/leads/ld_7Qx2aMce91
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `FORBIDDEN` | 403 | Session role is below `receptionist`. |
-| `NOT_FOUND` | 404 | No lead with that id. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="FORBIDDEN — 403">
+
+Session role is below `receptionist`.
+
+</Accordion>
+<Accordion title="NOT_FOUND — 404">
+
+No lead with that id.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
-## PATCH /api/admin/leads/[id]
+## PATCH `admin.theroyalglow.in/api/leads/[id]`
 
 Updates a lead's status, enforcing the pipeline state machine. When the new
 status is `contacted`, the handler also stamps `lastContactedAt`. Marking a lead
@@ -300,22 +448,40 @@ The allowed transitions (`assertLeadTransition`) are:
 Same-status moves are not in the map and are therefore rejected.
 
 ```http
-PATCH /api/admin/leads/ld_7Qx2aMce91
+PATCH /api/leads/ld_7Qx2aMce91
 Content-Type: application/json
 ```
 
-| Parameter | In | Type | Required | Notes |
-| --- | --- | --- | --- | --- |
-| `id` | path | string | Required | The lead id. |
+### Path parameters
+
+<TypeTable
+  type={{
+    id: {
+      type: 'string',
+      description: 'Path. The lead id.',
+      required: true,
+    },
+  }}
+/>
 
 ### Request body
 
 Validated by `updateLeadStatusSchema` (`@rgss/types`).
 
-| Field | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `status` | enum | Required | One of `new`, `contacted`, `follow_up`, `booked`, `won`, `lost`. |
-| `reason` | string | Conditional | Max 500 chars. **Required** (non-empty) when `status` is `lost`. |
+<TypeTable
+  type={{
+    status: {
+      type: 'enum',
+      description: 'One of new, contacted, follow_up, booked, won, lost.',
+      required: true,
+    },
+    reason: {
+      type: 'string',
+      description: 'Max 500 chars. Required (non-empty) when status is lost.',
+      required: false,
+    },
+  }}
+/>
 
 ```json
 {
@@ -357,18 +523,44 @@ Returns the updated lead row.
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `FORBIDDEN` | 403 | Session role is below `receptionist`. |
-| `VALIDATION_ERROR` | 400 | Body fails `updateLeadStatusSchema`, or `status` is `lost` without a non-empty `reason`. |
-| `NOT_FOUND` | 404 | No lead with that id. |
-| `BUSINESS_RULE_VIOLATION` | 409 | Illegal status transition (move not allowed by the state machine, including same-status moves). |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="FORBIDDEN — 403">
+
+Session role is below `receptionist`.
+
+</Accordion>
+<Accordion title="VALIDATION_ERROR — 400">
+
+Body fails `updateLeadStatusSchema`, or `status` is `lost` without a non-empty
+`reason`.
+
+</Accordion>
+<Accordion title="NOT_FOUND — 404">
+
+No lead with that id.
+
+</Accordion>
+<Accordion title="BUSINESS_RULE_VIOLATION — 409">
+
+Illegal status transition (move not allowed by the state machine, including
+same-status moves).
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
-## POST /api/admin/leads/[id]/notes
+## POST `admin.theroyalglow.in/api/leads/[id]/notes`
 
 Appends a note to a lead. The note's author is taken from the session, not the
 request body.
@@ -376,21 +568,35 @@ request body.
 **Minimum role:** `receptionist` (`requireRole('receptionist')`)
 
 ```http
-POST /api/admin/leads/ld_7Qx2aMce91/notes
+POST /api/leads/ld_7Qx2aMce91/notes
 Content-Type: application/json
 ```
 
-| Parameter | In | Type | Required | Notes |
-| --- | --- | --- | --- | --- |
-| `id` | path | string | Required | The lead id. |
+### Path parameters
+
+<TypeTable
+  type={{
+    id: {
+      type: 'string',
+      description: 'Path. The lead id.',
+      required: true,
+    },
+  }}
+/>
 
 ### Request body
 
 Validated by `addLeadNoteSchema` (`@rgss/types`).
 
-| Field | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `content` | string | Required | Trimmed, 1–1000 characters. |
+<TypeTable
+  type={{
+    content: {
+      type: 'string',
+      description: 'Trimmed, 1–1000 characters.',
+      required: true,
+    },
+  }}
+/>
 
 ```json
 {
@@ -419,15 +625,31 @@ Returns `201 Created` with the new note.
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `FORBIDDEN` | 403 | Session role is below `receptionist`. |
-| `VALIDATION_ERROR` | 400 | Body fails `addLeadNoteSchema` (empty or over-long content). |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="FORBIDDEN — 403">
+
+Session role is below `receptionist`.
+
+</Accordion>
+<Accordion title="VALIDATION_ERROR — 400">
+
+Body fails `addLeadNoteSchema` (empty or over-long content).
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 <Callout type="warn">
-  Unlike `GET`/`PATCH` on `/api/admin/leads/[id]`, this handler does **not**
+  Unlike `GET`/`PATCH` on `/api/leads/[id]`, this handler does **not**
   pre-check that the lead exists. Posting a note for a non-existent `id` fails on
   the foreign-key constraint and surfaces as `INTERNAL_ERROR` (500) rather than
   `NOT_FOUND`.
