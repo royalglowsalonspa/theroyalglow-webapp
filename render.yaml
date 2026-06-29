@@ -97,7 +97,10 @@ services:
       # Neon connection string (Payload owns the `cms` schema). MUST be the
       # UNPOOLED/direct host (NO "-pooler" in the hostname). Payload runs
       # session-level DDL on migrate and boot, which hangs over Neon's
-      # pgBouncer pooled endpoint. Use sslmode=verify-full&channel_binding=require.
+      # pgBouncer pooled endpoint.
+      # IMPORTANT: use sslmode=verify-full (NOT sslmode=require) — `require`
+      # triggers a pg v9 deprecation warning on every boot/migrate. Example:
+      # postgresql://USER:PASS@ep-xxx.ap-southeast-1.aws.neon.tech/neondb?sslmode=verify-full&channel_binding=require
       - key: DATABASE_URL
         sync: false
 
@@ -132,4 +135,21 @@ services:
       # Public base URL for serving R2 media (read client-side). e.g.
       # https://r2.theroyalglow.in
       - key: NEXT_PUBLIC_R2_PUBLIC_URL
+        sync: false
+
+      # --- Email (Resend) ---
+      # Powers Payload admin emails (password reset, user invites). The email
+      # adapter in payload.config.ts only activates when RESEND_API_KEY is set;
+      # otherwise Payload logs to console ("No email adapter provided" warning).
+      # RESEND_FROM_ADDRESS must be on a Resend-verified domain (theroyalglow.in).
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_ADDRESS
+        sync: false
+      - key: RESEND_FROM_NAME
+        sync: false
+
+      # Shared secret authenticating CMS -> web on-demand revalidation pings
+      # (POST WEB_APP_URL/api/revalidate). MUST match the web app's value.
+      - key: REVALIDATE_SECRET
         sync: false
