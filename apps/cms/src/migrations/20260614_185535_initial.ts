@@ -3,7 +3,8 @@ import { sql } from '@payloadcms/db-postgres'
 
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   await db.execute(sql`
-   CREATE TYPE "cms"."enum_blog_category" AS ENUM('skincare', 'hair', 'spa', 'bridal', 'tips');
+   CREATE SCHEMA IF NOT EXISTS "cms";
+  CREATE TYPE "cms"."enum_blog_category" AS ENUM('skincare', 'hair', 'spa', 'bridal', 'tips');
   CREATE TYPE "cms"."enum_blog_status" AS ENUM('draft', 'published');
   CREATE TYPE "cms"."enum_gallery_category" AS ENUM('salon', 'spa', 'interior', 'team', 'work');
   CREATE TYPE "cms"."enum_faq_category" AS ENUM('booking', 'pricing', 'services', 'policies');

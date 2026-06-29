@@ -36,6 +36,7 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { postgresAdapter } from '@payloadcms/db-postgres'
+import { resendAdapter } from '@payloadcms/email-resend'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import { s3Storage } from '@payloadcms/storage-s3'
 import { buildConfig } from 'payload'
@@ -66,9 +67,29 @@ const isR2Configured =
   (process.env.R2_ACCESS_KEY_ID ?? '') !== '' &&
   (process.env.R2_SECRET_ACCESS_KEY ?? '') !== ''
 
+// Resend email is only enabled when RESEND_API_KEY is present. Without it,
+// Payload falls back to the console "no email adapter" transport (fine for
+// local dev) — password resets / admin invites just print to the log instead
+// of being delivered. defaultFromAddress MUST be on a Resend-verified domain
+// (theroyalglow.in) or sends will be rejected.
+const resendApiKey = process.env.RESEND_API_KEY ?? ''
+const isEmailConfigured = resendApiKey !== ''
+
 export default buildConfig({
   serverURL: process.env.PAYLOAD_PUBLIC_SERVER_URL ?? '',
   secret: process.env.PAYLOAD_SECRET ?? '',
+  // Spread the `email` key only when configured. Under
+  // `exactOptionalPropertyTypes`, an optional property cannot be set to an
+  // explicit `undefined`, so omit it entirely when email is disabled.
+  ...(isEmailConfigured
+    ? {
+        email: resendAdapter({
+          defaultFromAddress: process.env.RESEND_FROM_ADDRESS ?? 'contact@theroyalglow.in',
+          defaultFromName: process.env.RESEND_FROM_NAME ?? 'Royal Glow Salon & Spa',
+          apiKey: resendApiKey,
+        }),
+      }
+    : {}),
   admin: {
     user: Users.slug,
   },
