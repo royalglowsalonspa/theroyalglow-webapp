@@ -28,8 +28,13 @@
  *                and message carry the accessible content.
  ************************************************************/
 
+'use client'
+
+import { emphasisPop } from '@/components/ui/motion/motion-variants'
+import { usePrefersReducedMotion } from '@/components/ui/motion/use-reduced-motion'
 import { cn } from '@rgss/ui/lib/utils'
 import type { LucideIcon } from 'lucide-react'
+import { motion } from 'motion/react'
 import { Icon } from '../icon'
 
 type EmptyStateProps = {
@@ -55,16 +60,20 @@ type EmptyStateProps = {
  * @returns The rendered empty state.
  */
 export function EmptyState({ title, message, icon, className }: EmptyStateProps) {
+  const reduced = usePrefersReducedMotion()
   return (
-    <div
+    <motion.div
+      variants={emphasisPop}
+      initial={reduced ? false : 'hidden'}
+      animate="visible"
       className={cn(
-        'flex flex-col items-center justify-center gap-2 rounded-[6px] border border-cloud-gray px-6 py-12 text-center',
+        'flex flex-col items-center justify-center gap-2 rounded-cards border border-cloud-gray bg-card px-6 py-12 text-center',
         className,
       )}
     >
       {icon ? <Icon className="text-dusty-gray" decorative icon={icon} size={32} /> : null}
       <p className="font-ui text-base font-medium text-cocoa-dark">{title}</p>
       <p className="max-w-prose font-sans text-sm text-warm-gray">{message}</p>
-    </div>
+    </motion.div>
   )
 }

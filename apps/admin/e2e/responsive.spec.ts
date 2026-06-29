@@ -29,6 +29,27 @@ import { hasRoleState, roleStatePath } from './fixtures/auth'
  * The redesign uses a 1024px (Tailwind `lg`) breakpoint between the persistent
  * rail and the overlay drawer (design.md §"Responsive"), so the band is split
  * at MOBILE (<1024) vs DESKTOP (≥1024) widths below.
+ *
+ * REQUIREMENT MAPPING (current requirements.md numbering — Requirement 19,
+ * "Responsive Behaviour"). The per-test titles below retain the historical
+ * draft numbers (3.4/3.5/14.x) for continuity; they map onto Req 19 as:
+ *   - Req 19.1 → table-only horizontal scroll, no page overflow, 375–1023px
+ *     (titled "Req 14.1").
+ *   - Req 19.2 → user-name text hidden below 1024px, avatar retained/operable
+ *     (titled "Req 14.2").
+ *   - Req 19.3 → no horizontal PAGE overflow across the full 375→1920px band
+ *     (titled "Req 14.3").
+ *   - Req 19.4 → avatar + user-name both shown at ≥1024px (titled "Req 14.4").
+ *   - Req 19.5 → interactive controls present a ≥44×44 CSS-px touch target
+ *     below 1024px (the dedicated test block below + the avatar check in 19.2).
+ *   - Sidebar persistent rail ≥1024px / overlay drawer <1024px is the
+ *     App_Shell responsive criterion (titled "Req 3.4"/"Req 3.5").
+ *
+ * PREREQUISITE: Playwright browsers must be installed once per environment
+ * (`bunx playwright install chromium`). `bunx playwright test --list` enumerates
+ * the suite WITHOUT launching a browser, so collection/typecheck succeed even
+ * when browsers are absent; an actual run additionally needs a built admin
+ * server (see playwright.config.ts `webServer`) and a seeded role session.
  ************************************************************/
 
 /** Representative redesigned route: a DataTable list page inside AdminShell. */
@@ -206,6 +227,32 @@ test.describe('admin portal responsive behaviour', () => {
 
       await expect(page.getByTestId('user-identity-text')).toBeVisible()
       await expect(page.locator('button[aria-label*=","]').first()).toBeVisible()
+    })
+  }
+
+  // ── Req 19.5: shell tap affordances meet the ≥44×44px touch target <1024px ───
+  // Below 1024px every interactive control must present a ≥44×44 CSS-px touch
+  // target. The App_Shell's persistent mobile chrome exposes two such controls
+  // on every authenticated route regardless of dataset — the sidebar toggle
+  // (`size-11`) and the user-identity avatar trigger (`min-h-11 min-w-11`) — so
+  // they are asserted directly here as the reachable-surface gate for Req 19.5.
+  for (const width of MOBILE_WIDTHS) {
+    test(`shell tap affordances are ≥44×44px at ${width}px (Req 19.5)`, async ({ page }) => {
+      await page.setViewportSize({ width, height: VIEWPORT_HEIGHT })
+      await gotoRoute(page)
+
+      const controls = [
+        page.getByRole('button', { name: 'Open navigation menu' }),
+        page.locator('button[aria-label*=","]').first(),
+      ]
+
+      for (const control of controls) {
+        await expect(control).toBeVisible()
+        const box = await control.boundingBox()
+        expect(box, 'interactive control must have a measurable box').not.toBeNull()
+        expect(box?.width ?? 0, `control width ≥ 44px at ${width}px`).toBeGreaterThanOrEqual(44)
+        expect(box?.height ?? 0, `control height ≥ 44px at ${width}px`).toBeGreaterThanOrEqual(44)
+      }
     })
   }
 })

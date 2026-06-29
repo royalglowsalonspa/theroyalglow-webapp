@@ -95,10 +95,12 @@ describe('session sharing: local-dev safety', () => {
       expect(advanced.crossSubDomainCookies).toEqual({ enabled: false })
       expect('domain' in advanced.crossSubDomainCookies).toBe(false)
 
-      // Cookie attributes stay secure-by-default even in dev config shape.
+      // Cookie attributes: secure is OFF in local dev (no shared domain) so the
+      // cookie is storable/sendable over http://localhost across ports; sameSite
+      // and httpOnly are unchanged.
       expect(advanced.defaultCookieAttributes).toEqual({
         sameSite: 'lax',
-        secure: true,
+        secure: false,
         httpOnly: true,
       })
     }

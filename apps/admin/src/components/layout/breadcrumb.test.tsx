@@ -69,27 +69,31 @@ describe('Breadcrumb accessibility (Req 5.4, 5.5, 5.7)', () => {
     expect(ancestor).toHaveAttribute('href', '/bookings')
   })
 
-  it('marks the current crumb aria-current="page" and is not a link (Req 5.4)', () => {
+  it('marks the current crumb aria-current="page" and is not a navigable link (Req 5.4)', () => {
     mockPathname.value = '/bookings/123'
-    render(<Breadcrumb />)
+    const { container } = render(<Breadcrumb />)
 
-    // The trailing detail segment is the current page: non-interactive text
-    // marked aria-current="page".
+    // The trailing detail segment is the current page: non-interactive,
+    // marked aria-current="page". The shadcn BreadcrumbPage exposes
+    // role="link" + aria-disabled="true" (a disabled link), so it must NOT be
+    // a navigable anchor.
     const current = screen.getByText('123')
     expect(current).toHaveAttribute('aria-current', 'page')
+    expect(current).toHaveAttribute('aria-disabled', 'true')
+    expect(current.tagName).not.toBe('A')
 
-    // It must NOT be a link.
-    expect(screen.queryByRole('link', { name: '123' })).not.toBeInTheDocument()
+    // There is no navigable anchor pointing at the current detail segment.
+    expect(container.querySelector('a[href="/bookings/123"]')).toBeNull()
   })
 
   it('renders a single current-only crumb for a top-level route (Req 5.4)', () => {
     mockPathname.value = '/bookings'
-    render(<Breadcrumb />)
+    const { container } = render(<Breadcrumb />)
 
     const current = screen.getByText('Bookings')
     expect(current).toHaveAttribute('aria-current', 'page')
-    // A top-level route has no ancestor link.
-    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    // A top-level route has no ancestor anchor.
+    expect(container.querySelector('a')).toBeNull()
   })
 
   it('has zero accessibility violations (Req 5.7)', async () => {

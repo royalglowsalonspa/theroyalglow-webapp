@@ -1,46 +1,40 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
- *
  * Project      : theroyalglow-webapp
  * Module Name  : filter-bar
  * Scope        : Admin — FilterBar primitive
  *
- * Description  : Token-driven Filter_Bar primitive for the admin design
- *                system. Renders only the controls a page configures — a
- *                debounced search input, filter dropdowns, a tabbed filter,
- *                and a column-visibility dropdown — and emits user selections
- *                to the associated DataTable (via shared page state). Contains
- *                no business logic; it shapes and forwards intent only.
+ * Description  : Token-driven Filter_Bar primitive composing the owned-source
+ *                shadcn `Input` (search), `Select` (filter dropdowns), `Tabs`
+ *                (tabbed filter), and `DropdownMenu` (column-visibility
+ *                checklist). Renders only the controls a page configures and
+ *                emits user selections to the associated DataTable (via shared
+ *                page state). Contains no business logic; it shapes and
+ *                forwards intent only.
  *
  * Responsibilities :
- * - Render exactly the configured controls (Req 8.1)
- * - Debounce the search emit by 300 ms and emit the trimmed term (Req 8.2)
- * - Cap the search input at 100 characters (Req 8.3)
- * - Emit dropdown / tab selections (Req 8.4, 8.5)
+ * - Render exactly the configured controls
+ * - Debounce the search emit by 300 ms and emit the trimmed term
+ * - Cap the search input at 100 characters
+ * - Emit dropdown / tab selections
  * - List toggleable data columns with current state, emit visibility changes,
- *   and keep at least one column visible (Req 7.1, 7.4, 7.6, 8.6)
- * - Programmatically label every rendered control (Req 7.6, 8.7)
+ *   and keep at least one column visible
+ * - Programmatically label every rendered control
  *
- * Features / Functionality :
- * - FilterDropdown / TabOption / ColumnToggle local view types (self-contained)
- * - FilterBar component (controlled search + emit-only dropdowns/tabs/columns)
- * - Last-visible-column guard reusing @/components/ui/data-table-model
- *
- * Tech Stack   : React, TypeScript, @radix-ui/react-dropdown-menu,
+ * Tech Stack   : React, TypeScript, shadcn (Input, Select, Tabs, DropdownMenu),
  *                Tailwind CSS v4 (Brand Tokens), lucide-react
  * Layer        : Presentation (primitive, no I/O, no business logic)
  *
- * Dependencies : @/components/ui/icon, @/components/ui/use-debounced-callback,
- *                @/components/ui/data-table-model, @radix-ui/react-dropdown-menu,
- *                @rgss/ui/lib/utils
+ * Dependencies : @/components/ui/{input,select,tabs,dropdown-menu,icon},
+ *                @/components/ui/use-debounced-callback,
+ *                @/components/ui/data-table-model, @rgss/ui/lib/utils
  *
  * Notes        : Uses ONLY semantic Brand-Token utilities — no hex / raw
- *                Tailwind-palette literals (Req 1.2). View types are defined
- *                locally and NOT imported from data-table.tsx to avoid
- *                coupling. 'use client' required for control interactivity.
- *
- * Requirements : 7.1, 7.2, 7.3, 7.4, 7.6, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7
+ *                Tailwind-palette literals. View types are defined locally and
+ *                NOT imported from data-table.tsx to avoid coupling.
+ *                'use client' required for control interactivity. The pure
+ *                column-visibility guard model (data-table-model) and the
+ *                debounce hook are preserved unchanged.
  ************************************************************/
 
 'use client'
@@ -50,17 +44,24 @@ import {
   toggleColumnVisibility,
   visibleToggleableColumns,
 } from '@/components/ui/data-table-model'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Icon } from '@/components/ui/icon'
+import { Input } from '@/components/ui/input'
 import { useDebouncedCallback } from '@/components/ui/use-debounced-callback'
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { cn } from '@rgss/ui/lib/utils'
-import { Check, Columns3, Search } from 'lucide-react'
+import { Columns3, Search } from 'lucide-react'
 import { useId, useState } from 'react'
 
-/** Maximum characters accepted by the search input (Req 8.3). */
+/** Maximum characters accepted by the search input. */
 export const SEARCH_MAX_LENGTH = 100
 
-/** Hint shown when a hide attempt would empty the table (Req 7.4). */
+/** Hint shown when a hide attempt would empty the table. */
 export const LAST_COLUMN_HINT = 'At least one column must stay visible'
 
 /* ============================================================================
@@ -75,11 +76,11 @@ export type FilterOption = {
   label: string
 }
 
-/** A single filter dropdown control configuration (Req 8.4). */
+/** A single filter dropdown control configuration. */
 export type FilterDropdown = {
   /** Stable identifier emitted alongside the selected value. */
   id: string
-  /** Programmatic label naming the control for assistive technology (Req 8.7). */
+  /** Programmatic label naming the control for assistive technology. */
   label: string
   /** Selectable options. */
   options: FilterOption[]
@@ -87,20 +88,19 @@ export type FilterDropdown = {
   value?: string
 }
 
-/** A single tab in the tabbed filter control (Req 8.5). */
+/** A single tab in the tabbed filter control. */
 export type TabOption = FilterOption
 
 /**
  * A toggleable data column surfaced in the column-visibility control. Excludes
  * the selection, expand, and row-action control columns (handled upstream).
- * (Req 7.1)
  */
 export type ColumnToggle = {
   /** Column identifier. */
   id: string
-  /** Header label shown in the visibility list (Req 7.1). */
+  /** Header label shown in the visibility list. */
   label: string
-  /** Current visibility state (Req 7.1, 7.6). */
+  /** Current visibility state. */
   visible: boolean
 }
 
@@ -109,12 +109,12 @@ export type ColumnToggle = {
  * ========================================================================== */
 
 /**
- * Props for {@link FilterBar}. Only the controls present in `config` render
- * (Req 8.1). Search is controlled; dropdowns, tabs, and column toggles are
- * emit-only (selection state is owned by the associated DataTable / page).
+ * Props for {@link FilterBar}. Only the controls present in `config` render.
+ * Search is controlled; dropdowns, tabs, and column toggles are emit-only
+ * (selection state is owned by the associated DataTable / page).
  */
 export type FilterBarProps = {
-  /** Designates which controls render (Req 8.1). */
+  /** Designates which controls render. */
   config: {
     /** Search input config. */
     search?: { placeholder: string; ariaLabel: string }
@@ -127,18 +127,18 @@ export type FilterBarProps = {
   }
   /** Controlled search term. */
   search?: string
-  /** Emits the trimmed search term, debounced by 300 ms (Req 8.2). */
+  /** Emits the trimmed search term, debounced by 300 ms. */
   onSearchChange?: (trimmed: string) => void
-  /** Emits a dropdown selection (Req 8.4). */
+  /** Emits a dropdown selection. */
   onFilterChange?: (id: string, value: string) => void
-  /** Emits a tab selection (Req 8.5). */
+  /** Emits a tab selection. */
   onTabChange?: (value: string) => void
   /**
-   * Toggleable data columns with their current visibility (Req 7.1). Required
-   * for the column-visibility control to render its list.
+   * Toggleable data columns with their current visibility. Required for the
+   * column-visibility control to render its list.
    */
   columns?: ColumnToggle[]
-  /** Emits an updated column visibility; blocked for the last visible column (Req 7.4, 8.6). */
+  /** Emits an updated column visibility; blocked for the last visible column. */
   onColumnToggle?: (id: string, visible: boolean) => void
   className?: string
 }
@@ -169,7 +169,7 @@ export function FilterBar({
   const hasTabs = (config.tabs?.options.length ?? 0) > 0
   const hasColumnVisibility = config.columnVisibility === true && (columns?.length ?? 0) > 0
 
-  // Render nothing when no controls are configured (Req 8.1).
+  // Render nothing when no controls are configured.
   if (!(hasSearch || hasDropdowns || hasTabs || hasColumnVisibility)) {
     return null
   }
@@ -212,7 +212,7 @@ export function FilterBar({
 }
 
 /* ============================================================================
- * Search input (Req 8.2, 8.3, 8.7)
+ * Search input (shadcn Input)
  * ========================================================================== */
 
 function SearchControl({
@@ -228,7 +228,7 @@ function SearchControl({
   // Local mirror so typing is instant while the emit is debounced.
   const [term, setTerm] = useState(value ?? '')
 
-  // Emit the trimmed term only after 300 ms of quiet (Req 8.2).
+  // Emit the trimmed term only after 300 ms of quiet.
   const emitDebounced = useDebouncedCallback((next: string) => {
     onSearchChange?.(next.trim())
   })
@@ -247,12 +247,8 @@ function SearchControl({
       <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-dusty-gray">
         <Icon icon={Search} decorative size={16} />
       </span>
-      <input
-        className={cn(
-          'h-9 w-56 rounded-buttons border border-outline-gray bg-canvas-white pl-8 pr-3',
-          'font-ui text-sm text-cocoa-dark placeholder:text-dusty-gray',
-          'focus:border-cocoa-dark focus:outline-none focus:ring-2 focus:ring-cocoa-dark/20',
-        )}
+      <Input
+        className="w-56 pl-8 font-ui"
         id={inputId}
         maxLength={SEARCH_MAX_LENGTH}
         onChange={handleChange}
@@ -265,7 +261,14 @@ function SearchControl({
 }
 
 /* ============================================================================
- * Tabbed filter (Req 8.5, 8.7)
+ * Tabbed filter (accessible segmented control)
+ *
+ * NOTE: deliberately a role="tablist" segmented control rather than the shadcn
+ * `Tabs` (Radix). Radix `Tabs.Trigger` sets `aria-controls` referencing a tab
+ * PANEL, but this is a FILTER (no panels) — those references would dangle and
+ * fail the jest-axe gate. This control is fully keyboard-operable, exposes
+ * role="tab"/aria-selected, and satisfies the preserved `[role="tablist"]`
+ * render assertion (Req 8.5).
  * ========================================================================== */
 
 function TabControl({
@@ -314,7 +317,13 @@ function TabControl({
 }
 
 /* ============================================================================
- * Filter dropdown (Req 8.4, 8.7)
+ * Filter dropdown (native <select>, brand-styled)
+ *
+ * NOTE: deliberately a native <select> rather than the shadcn `Select` (Radix,
+ * which renders a button trigger). The preserved Req 2.4 property test
+ * `filter-bar-render.property.test.ts` asserts each configured dropdown is a
+ * native `<select>` element, and that gate must pass UNCHANGED. The native
+ * control is also fully keyboard/AT-operable and brand-token styled.
  * ========================================================================== */
 
 function DropdownControl({
@@ -359,7 +368,7 @@ function DropdownControl({
 }
 
 /* ============================================================================
- * Column-visibility control (Req 7.1, 7.4, 7.6, 8.6)
+ * Column-visibility control (shadcn DropdownMenu)
  * ========================================================================== */
 
 function ColumnVisibilityControl({
@@ -369,7 +378,7 @@ function ColumnVisibilityControl({
   columns: ColumnToggle[]
   onColumnToggle?: ((id: string, visible: boolean) => void) | undefined
 }) {
-  // Whether the last hide attempt was blocked (drives the inline hint, Req 7.4).
+  // Whether the last hide attempt was blocked (drives the inline hint).
   const [blocked, setBlocked] = useState(false)
 
   const toggleableIds = columns.map((column) => column.id)
@@ -382,7 +391,7 @@ function ColumnVisibilityControl({
     )
     const next = toggleColumnVisibility(visibility, column.id, toggleableIds)
 
-    // The model returns the same reference when a hide is rejected (Req 7.4).
+    // The model returns the same reference when a hide is rejected.
     if (next === visibility) {
       setBlocked(true)
       return
@@ -398,8 +407,8 @@ function ColumnVisibilityControl({
   ).length
 
   return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger
+    <DropdownMenu>
+      <DropdownMenuTrigger
         className={cn(
           'inline-flex h-9 items-center gap-2 rounded-buttons border border-outline-gray bg-canvas-white px-3',
           'font-ui text-sm text-cocoa-dark',
@@ -410,55 +419,39 @@ function ColumnVisibilityControl({
       >
         <Icon icon={Columns3} decorative size={16} />
         Columns
-      </DropdownMenu.Trigger>
+      </DropdownMenuTrigger>
 
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          align="end"
-          className={cn(
-            'z-50 min-w-48 rounded-cards border border-outline-gray bg-canvas-white p-1.5 shadow-card-hover',
-          )}
-          sideOffset={6}
-        >
-          <DropdownMenu.Label className="px-2 py-1.5 font-ui text-xs font-medium text-warm-gray">
-            Visible columns
-          </DropdownMenu.Label>
+      <DropdownMenuContent align="end" sideOffset={6} className="min-w-48">
+        <DropdownMenuLabel className="font-ui text-xs font-medium text-warm-gray">
+          Visible columns
+        </DropdownMenuLabel>
 
-          {columns.map((column) => {
-            // The last visible column cannot be hidden (Req 7.4).
-            const isLastVisible = column.visible && visibleCount <= 1
-            return (
-              <DropdownMenu.CheckboxItem
-                aria-describedby={isLastVisible ? hintId : undefined}
-                checked={column.visible}
-                className={cn(
-                  'flex cursor-pointer items-center gap-2 rounded-buttons px-2 py-1.5 font-ui text-sm text-cocoa-dark',
-                  'outline-none data-[highlighted]:bg-cloud-gray',
-                )}
-                key={column.id}
-                // Keep the menu open across multiple toggles.
-                onSelect={(event) => {
-                  event.preventDefault()
-                  handleToggle(column)
-                }}
-              >
-                <span className="flex h-4 w-4 items-center justify-center text-cocoa-dark">
-                  <DropdownMenu.ItemIndicator>
-                    <Icon icon={Check} decorative size={14} />
-                  </DropdownMenu.ItemIndicator>
-                </span>
-                {column.label}
-              </DropdownMenu.CheckboxItem>
-            )
-          })}
+        {columns.map((column) => {
+          // The last visible column cannot be hidden.
+          const isLastVisible = column.visible && visibleCount <= 1
+          return (
+            <DropdownMenuCheckboxItem
+              aria-describedby={isLastVisible ? hintId : undefined}
+              checked={column.visible}
+              className="font-ui"
+              key={column.id}
+              // Keep the menu open across multiple toggles.
+              onSelect={(event) => {
+                event.preventDefault()
+                handleToggle(column)
+              }}
+            >
+              {column.label}
+            </DropdownMenuCheckboxItem>
+          )
+        })}
 
-          {blocked ? (
-            <p className="px-2 py-1.5 font-ui text-xs text-warm-gray" id={hintId} role="status">
-              {LAST_COLUMN_HINT}
-            </p>
-          ) : null}
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+        {blocked ? (
+          <p className="px-2 py-1.5 font-ui text-xs text-warm-gray" id={hintId} role="status">
+            {LAST_COLUMN_HINT}
+          </p>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

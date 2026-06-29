@@ -32,8 +32,14 @@
  *                caller's retry handler (e.g. `useAsyncData`).
  ************************************************************/
 
+'use client'
+
+import { Button } from '@/components/ui/button'
+import { emphasisPop } from '@/components/ui/motion/motion-variants'
+import { usePrefersReducedMotion } from '@/components/ui/motion/use-reduced-motion'
 import { cn } from '@rgss/ui/lib/utils'
 import { RotateCcw } from 'lucide-react'
+import { motion } from 'motion/react'
 import { Icon } from '../icon'
 
 type ErrorStateProps = {
@@ -58,23 +64,23 @@ type ErrorStateProps = {
  * @returns The rendered error state.
  */
 export function ErrorState({ message, onRetry, className }: ErrorStateProps) {
+  const reduced = usePrefersReducedMotion()
   return (
-    <div
+    <motion.div
+      variants={emphasisPop}
+      initial={reduced ? false : 'hidden'}
+      animate="visible"
       className={cn(
-        'flex flex-col items-center justify-center gap-3 rounded-[6px] border border-error/30 bg-error/5 px-6 py-12 text-center',
+        'flex flex-col items-center justify-center gap-3 rounded-cards border border-error/30 bg-error/5 px-6 py-12 text-center',
         className,
       )}
       role="alert"
     >
       <p className="max-w-prose font-sans text-sm text-warm-gray">{message}</p>
-      <button
-        className="inline-flex items-center gap-2 rounded-[8px] border border-outline-gray bg-canvas-white px-4 py-2 font-ui text-sm text-cocoa-dark transition-colors hover:bg-cloud-gray"
-        onClick={onRetry}
-        type="button"
-      >
+      <Button type="button" variant="outline" onClick={onRetry} className="gap-2 font-ui">
         <Icon decorative icon={RotateCcw} size={16} />
         Retry
-      </button>
-    </div>
+      </Button>
+    </motion.div>
   )
 }

@@ -5,72 +5,74 @@
  * Scope        : Admin UI — App Shell / Top_Bar
  *
  * Description  : Renders the hierarchical breadcrumb trail for the admin
- *                Top_Bar. The trail itself is derived by the pure, I/O-free
+ *                Top_Bar by composing the owned-source shadcn `Breadcrumb`
+ *                components. The trail itself is derived by the pure, I/O-free
  *                `deriveBreadcrumbs` helper (`@/lib/admin/breadcrumbs`) from the
  *                current pathname and the shared ADMIN_NAV config so it agrees
  *                with the sidebar and edge middleware.
  *
  * Responsibilities :
  * - Read the current route via `usePathname()` and derive the ordered trail.
- * - Wrap the trail in a `<nav aria-label="Breadcrumb">` landmark (Req 5.7).
- * - Render every ancestor crumb as a link to its route (Req 5.1, 5.2, 5.3, 5.5).
- * - Render the current (last) crumb as non-interactive text marked
- *   `aria-current="page"` (Req 5.4, 5.6).
- * - Place a decorative `ChevronRight` separator between crumbs (aria-hidden).
+ * - Wrap the trail in the shadcn `Breadcrumb` `<nav aria-label="Breadcrumb">`.
+ * - Render every ancestor crumb as a `BreadcrumbLink` to its route.
+ * - Render the current (last) crumb as a non-interactive `BreadcrumbPage`
+ *   marked `aria-current="page"`.
+ * - Place a decorative `BreadcrumbSeparator` between crumbs.
  *
- * Tech Stack   : React (Client Component), TypeScript, Tailwind CSS, Next.js
+ * Tech Stack   : React (Client Component), TypeScript, shadcn Breadcrumb,
+ *                Next.js
  * Layer        : Presentation (App Shell)
  *
- * Dependencies : next/link, next/navigation, lucide-react,
+ * Dependencies : next/link, next/navigation, @/components/ui/breadcrumb,
  *                @/lib/admin/breadcrumbs, @/lib/rbac
  *
- * Notes        : Marked `'use client'` because `usePathname()` is a client hook
- *                in the App Router; the derivation logic remains a pure,
- *                separately tested helper. Presentation-layer only — no data,
- *                API, RBAC, or business-logic changes. Brand-Token Tailwind
- *                utilities only (no colour/size literals).
+ * Notes        : `'use client'` because `usePathname()` is a client hook; the
+ *                derivation logic remains a pure, separately tested helper
+ *                (`breadcrumbs.ts`) which is preserved unchanged.
  *
- * Requirements : 5.1, 5.2, 5.3, 5.4, 5.5, 5.7
+ * Requirements : 8.1, 8.2, 8.3, 8.4, 8.5, 8.7
  ************************************************************/
 
 'use client'
 
+import {
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  Breadcrumb as BreadcrumbRoot,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
 import { deriveBreadcrumbs } from '@/lib/admin/breadcrumbs'
 import { ADMIN_NAV } from '@/lib/rbac'
-import { ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { Fragment } from 'react'
 
 export function Breadcrumb() {
   const pathname = usePathname()
   const crumbs = deriveBreadcrumbs(pathname, ADMIN_NAV)
 
   return (
-    <nav aria-label="Breadcrumb">
-      <ol className="flex items-center gap-1.5 text-sm font-sans">
-        {crumbs.map((crumb, index) => {
-          const isFirst = index === 0
-          return (
-            <li key={crumb.href} className="flex items-center gap-1.5">
-              {!isFirst && (
-                <ChevronRight className="size-3.5 text-dusty-gray shrink-0" aria-hidden="true" />
-              )}
+    <BreadcrumbRoot aria-label="Breadcrumb">
+      <BreadcrumbList className="font-sans text-sm">
+        {crumbs.map((crumb, index) => (
+          <Fragment key={crumb.href}>
+            {index > 0 ? <BreadcrumbSeparator className="text-dusty-gray" /> : null}
+            <BreadcrumbItem>
               {crumb.current ? (
-                <span className="text-cocoa-dark font-medium" aria-current="page">
+                <BreadcrumbPage className="font-medium text-cocoa-dark">
                   {crumb.label}
-                </span>
+                </BreadcrumbPage>
               ) : (
-                <Link
-                  href={crumb.href}
-                  className="text-warm-gray rounded-[4px] transition-colors duration-150 hover:text-cocoa-dark"
-                >
-                  {crumb.label}
-                </Link>
+                <BreadcrumbLink asChild className="text-warm-gray hover:text-cocoa-dark">
+                  <Link href={crumb.href}>{crumb.label}</Link>
+                </BreadcrumbLink>
               )}
-            </li>
-          )
-        })}
-      </ol>
-    </nav>
+            </BreadcrumbItem>
+          </Fragment>
+        ))}
+      </BreadcrumbList>
+    </BreadcrumbRoot>
   )
 }

@@ -68,7 +68,7 @@ export default async function RootLayout({
   if (devBypass) {
     const devRole = 'developer'
     return (
-      <html lang="en" suppressHydrationWarning>
+      <html lang="en" translate="no" suppressHydrationWarning>
         <body suppressHydrationWarning>
           <AdminShell role={devRole} userName="Dev (bypass)" userInitials="DV">
             {children}
@@ -90,7 +90,7 @@ export default async function RootLayout({
   const userInitials = toInitials(user?.name ?? '')
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" translate="no" suppressHydrationWarning>
       <body suppressHydrationWarning>
         <AdminShell role={role} userName={userName} userInitials={userInitials}>
           {children}

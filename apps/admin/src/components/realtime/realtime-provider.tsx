@@ -152,6 +152,18 @@ export function RealtimeProvider({
     let hasConnected = false
 
     async function connect() {
+      // Realtime is opt-in. When no public Ably key is configured (local dev,
+      // or a self-host without realtime), skip the client entirely: the token
+      // route returns 503 in that case and Ably would otherwise retry it every
+      // couple of seconds forever, spamming the logs. Polling (NotificationBell
+      // etc.) keeps working without it.
+      if (!process.env.NEXT_PUBLIC_ABLY_KEY) {
+        if (!cancelled) {
+          setStatus('unavailable')
+        }
+        return
+      }
+
       const Realtime = await loadAblyRealtime()
       // Optional dependency missing → degrade gracefully (polling continues).
       if (!Realtime || cancelled) {
@@ -189,7 +201,17 @@ export function RealtimeProvider({
               callback(null, json.data)
             })
             .catch((error) => {
+              // A 503 means realtime is intentionally not configured
+              // (ABLY_PRIVATE_KEY unset). Stop Ably's retry storm: report the
+              // auth failure, then close the client so it does not keep
+              // re-requesting the token every couple of seconds.
               callback(error, null)
+              if (String((error as Error)?.message ?? '').includes('503')) {
+                if (!cancelled) {
+                  setStatus('unavailable')
+                }
+                clientRef.current?.close()
+              }
             })
         },
       })
