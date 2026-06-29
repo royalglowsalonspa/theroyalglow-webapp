@@ -53,6 +53,30 @@
   // Request/Tail logs + metrics for the private admin Worker.
   "observability": {
     "enabled": true
+  },
+
+  // -- ENVIRONMENTS ----------------------------------------------------------
+  // Top-level config above is PRODUCTION (Worker `rgss-admin`, custom domain
+  // `admin.theroyalglow.in`, deployed by deploy-admin-prod.yml on push to
+  // `prod`).
+  //
+  // `pprd` is the pre-production staging tier (deployed by deploy-admin-pprd.yml
+  // on push to the `pprd` branch via `wrangler deploy --env pprd`). It is a
+  // separate Worker (`rgss-admin-pprd`) served at `admin.pprd.theroyalglow.in`
+  // — nested UNDER the web pprd domain so web+admin share ONE pprd session
+  // cookie scoped to `.pprd.theroyalglow.in`, fully isolated from the prod
+  // `.theroyalglow.in` cookie. BETTER_AUTH_SECRET must match the web pprd
+  // Worker (same shared-cookie rule as prod).
+  //
+  // NOTE: scheduled QStash jobs are NOT registered for pprd (they run prod-only
+  // against the prod admin origin; registering pprd would double-fire). pprd is
+  // for app validation, not for running the live job schedule.
+  "env": {
+    "pprd": {
+      "name": "rgss-admin-pprd",
+      "routes": [{ "pattern": "admin.pprd.theroyalglow.in", "custom_domain": true }],
+      "observability": { "enabled": true }
+    }
   }
 
   // -- OPTIONAL (later): R2-backed incremental cache (see apps/web/wrangler.jsonc)

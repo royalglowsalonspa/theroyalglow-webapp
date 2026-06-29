@@ -1,0 +1,116 @@
+# ============================================================================
+#  Deploy Pre-Production (pprd) — Admin portal (apps/admin → Cloudflare Workers)
+#  Target: https://admin.pprd.theroyalglow.in   ·   Worker: rgss-admin-pprd
+# ============================================================================
+#
+#  PURPOSE
+#  -------
+#  Pre-production staging tier for the admin portal. Mirrors
+#  deploy-admin-prod.yml but deploys to the isolated `pprd` Worker
+#  (`wrangler deploy --env pprd`, config in apps/admin/wrangler.jsonc).
+#
+#  ISOLATION + COOKIE SCOPE
+#  ------------------------
+#  Served at `admin.pprd.theroyalglow.in`, nested under the web pprd domain
+#  (`pprd.theroyalglow.in`) so web+admin share ONE pprd session cookie scoped
+#  to `.pprd.theroyalglow.in` — fully isolated from the prod `.theroyalglow.in`
+#  cookie. BETTER_AUTH_SECRET on rgss-admin-pprd MUST match rgss-web-pprd.
+#
+#  MIGRATIONS: the web pprd workflow (deploy-pprd.yml) owns the `migrate` job
+#  against the pprd Neon branch (shared packages/db). This workflow does NOT
+#  re-run migrations.
+#
+#  SCHEDULED JOBS: NOT registered for pprd. The QStash schedule is prod-only
+#  (registered by deploy-admin-prod.yml against the prod admin origin).
+#  Registering pprd would double-fire the live jobs. pprd validates the app
+#  surface, not the live schedule.
+#
+#  ONE-TIME SETUP (before the first admin pprd deploy)
+#  ---------------------------------------------------
+#   1. First `wrangler deploy --env pprd` creates `rgss-admin-pprd`; attach the
+#      custom domain `admin.pprd.theroyalglow.in` to it.
+#   2. Provision RUNTIME secrets on rgss-admin-pprd (DB → pprd Neon branch):
+#      DATABASE_URL, BETTER_AUTH_SECRET (match rgss-web-pprd), ABLY_PRIVATE_KEY,
+#      UPSTASH_*, RESEND_API_KEY, QSTASH_TOKEN, INVOICING_SERVICE_URL,
+#      INVOICE_PDF_HMAC_SECRET, etc.
+#   3. Use the GitHub Environment `pprd` (shared with the web pprd workflow).
+#
+#  REQUIRED GITHUB SECRETS
+#    CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, BETTER_STACK_DEPLOY_WEBHOOK (opt)
+# ============================================================================
+name: Deploy Pre-Production (admin)
+
+on:
+  push:
+    branches: [pprd]
+    paths:
+      - 'apps/admin/**'
+      - 'packages/**'
+      - '.github/workflows/deploy-admin-pprd.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: pprd
+      url: https://admin.pprd.theroyalglow.in
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+
+      - name: Build (OpenNext → Cloudflare Worker)
+        working-directory: apps/admin
+        run: bunx opennextjs-cloudflare build
+        env:
+          NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_ADMIN_URL: ${{ vars.NEXT_PUBLIC_ADMIN_URL }}
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
+          NEXT_PUBLIC_ABLY_KEY: ${{ vars.NEXT_PUBLIC_ABLY_KEY }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
+          SKIP_ENV_VALIDATION: '1'
+
+      - name: Deploy to Cloudflare Workers (pprd)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/admin
+          packageManager: bun
+          command: deploy --env pprd
+
+  post-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [deploy]
+    steps:
+      - name: Health check (retry 3x with 10s delay)
+        run: |
+          for i in 1 2 3; do
+            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 30 https://admin.pprd.theroyalglow.in/api/health || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "Health check passed (attempt $i)"
+              exit 0
+            fi
+            echo "Health check failed (attempt $i, status: $STATUS). Retrying in 10s..."
+            sleep 10
+          done
+          echo "Health check failed after 3 attempts"
+          exit 1
+
+  auto-rollback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [post-deploy]
+    if: failure()
+    steps:
+      - uses: actions/checkout@v4
+      - name: Roll back the admin pprd Worker to its previous version
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/admin
+          packageManager: bun
+          command: rollback --env pprd --message "Auto-rollback: admin pprd health failed for ${{ github.sha }}"
