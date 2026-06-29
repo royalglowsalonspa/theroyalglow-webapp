@@ -16,7 +16,7 @@
     "seed:prod": "bun run scripts/seed-prod.ts"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^0.10.0",
+    "@neondatabase/serverless": "^1.1.0",
     "@rgss/errors": "workspace:*",
     "@rgss/types": "workspace:*",
     "drizzle-orm": "^0.45.2",
