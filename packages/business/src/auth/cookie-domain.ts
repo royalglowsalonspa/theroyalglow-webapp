@@ -18,8 +18,9 @@
  * - Derive COOKIE_DOMAIN from env: explicit `COOKIE_DOMAIN`, else
  *   `.theroyalglow.in` in production, else undefined (local dev).
  * - Build the `advanced` block: enable cross-subdomain cookies only when a
- *   domain is resolved, and always set sameSite=lax / secure / httpOnly so the
- *   session cookie is shareable across `*.theroyalglow.in` (Req 4.1, 4.8).
+ *   domain is resolved, set sameSite=lax / httpOnly always, and `secure` only
+ *   when a shared domain is in effect (prod/https) so the session cookie is
+ *   shareable across `*.theroyalglow.in` yet still works on local http (Req 4.1, 4.8).
  *
  * Tech Stack   : TypeScript
  * Layer        : Business Logic
@@ -47,7 +48,7 @@ export type CrossSubdomainAdvanced = {
   crossSubDomainCookies: { enabled: true; domain: string } | { enabled: false }
   defaultCookieAttributes: {
     sameSite: 'lax'
-    secure: true
+    secure: boolean
     httpOnly: true
   }
 }
@@ -84,8 +85,11 @@ export function resolveCookieDomain(
  * When no domain is resolved (local dev / test):
  *   `crossSubDomainCookies = { enabled: false }` (no domain key)
  *
- * `defaultCookieAttributes` is always `{ sameSite: 'lax', secure: true,
- * httpOnly: true }` which, combined with the resolved domain, yields:
+ * `defaultCookieAttributes` is `{ sameSite: 'lax', secure: <domain !==
+ * undefined>, httpOnly: true }` — `secure` is true only when a shared domain is
+ * resolved (production / explicit COOKIE_DOMAIN, always https) and false in
+ * local dev (http://localhost) so the cookie is not dropped. With a resolved
+ * domain this yields:
  *   `Set-Cookie: …; Domain=.theroyalglow.in; SameSite=Lax; Secure; HttpOnly`
  * (Req 4.1, 4.8).
  *
@@ -102,7 +106,16 @@ export function buildCrossSubdomainAdvanced(
     crossSubDomainCookies: domain !== undefined ? { enabled: true, domain } : { enabled: false },
     defaultCookieAttributes: {
       sameSite: 'lax',
-      secure: true,
+      // `Secure` ONLY when a shared cross-subdomain domain is in effect
+      // (production / explicit COOKIE_DOMAIN — always served over https). In
+      // local dev there is no domain and both apps run on `http://localhost`,
+      // where a `Secure` cookie is dropped by stricter browsers and by
+      // non-localhost hosts (`127.0.0.1` / LAN IP). A dropped cookie means the
+      // admin app never receives the session and bounces the user back to the
+      // customer site — so gate `secure` off in dev to keep the cookie storable
+      // and shared across the 3000 ↔ 3001 ports. In production `secure` is true,
+      // which is also what makes Better Auth emit the `__Secure-` cookie name.
+      secure: domain !== undefined,
       httpOnly: true,
     },
   }
