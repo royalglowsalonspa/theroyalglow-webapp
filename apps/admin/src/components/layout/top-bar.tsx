@@ -4,89 +4,92 @@
  * Module Name  : TopBar
  * Scope        : Admin Portal — App Shell / Top_Bar
  *
- * Description  : Presentation-only horizontal Top_Bar for the admin App_Shell.
- *                Renders the responsive sidebar toggle control, the breadcrumb
- *                trail, the notification bell, and the user identity block.
- *                Extracted from the inline markup previously embedded in
- *                admin-shell.tsx so the shell composes a single Top_Bar unit.
+ * Description  : Horizontal Top_Bar for the admin App_Shell, modelled on the
+ *                canonical shadcn `sidebar-07` header. Holds the shadcn
+ *                `SidebarTrigger` (toggles the icon rail on desktop / opens the
+ *                overlay drawer on mobile), a vertical `Separator`, the
+ *                Breadcrumb trail, and the right-hand actions (Command palette
+ *                ⌘K + NotificationBell).
+ *
+ *                The header height animates from `h-16` to `h-12` when the
+ *                sidebar collapses to the icon rail
+ *                (`group-has-data-[collapsible=icon]/sidebar-wrapper:h-12` +
+ *                `transition-[width,height] ease-linear`), giving the smooth,
+ *                responsive collapse the sidebar-07 reference shows. The brand
+ *                and user menu live in the Sidebar (header + footer), so the
+ *                brand appears exactly once.
  *
  * Responsibilities :
- * - Render an icon-only sidebar toggle (lg:hidden) that calls onToggleSidebar
+ * - Render the sidebar toggle labelled "Open navigation menu"
  * - Render the Breadcrumb_Trail (current-route hierarchy)
- * - Render the existing NotificationBell unchanged
- * - Render the UserIdentity block (avatar + name + role)
+ * - Render the Command-palette trigger + the NotificationBell
  *
- * Features / Functionality :
- * - Toggle uses the Icon wrapper over lucide `Menu` with a non-empty accessible
- *   label (icon-only control → labelled, not decorative) (Req 2.5)
- * - Brand-token Tailwind utilities only (no colour / size literals) (Req 1.2)
- *
- * Tech Stack   : Next.js 16, React (Client Component), TypeScript, Tailwind CSS
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript, shadcn
  * Layer        : Presentation (App Shell / Layout Component)
  *
- * Dependencies : @/components/layout/breadcrumb,
- *                @/components/layout/user-identity,
- *                @/components/notifications/notification-bell,
- *                @/components/ui/icon, lucide-react
- *
- * Notes        : Presentation-layer only — no data, API, RBAC, or
- *                business-logic changes. Consumed by AdminShell.
- *
- * Requirements : 3.2
+ * Requirements : 6.2
  ************************************************************/
 
 'use client'
 
 import { Breadcrumb } from '@/components/layout/breadcrumb'
+import { CommandPalette } from '@/components/layout/command-palette'
 import { UserIdentity } from '@/components/layout/user-identity'
-import { NotificationBell } from '@/components/notifications/notification-bell'
-import { Icon } from '@/components/ui/icon'
-import { Menu } from 'lucide-react'
+import { Separator } from '@/components/ui/separator'
+import { SidebarTrigger } from '@/components/ui/sidebar'
 
 type TopBarProps = {
-  /** Signed-in user's display name shown in the user identity block. */
-  userName: string
+  /** Resolved numeric role level (drives the command-palette destinations). */
+  roleLevel: number
+  /** Signed-in user's display name (top-right user menu). */
+  userName?: string
   /** Human-readable role label for the signed-in user. */
-  role: string
-  /** Opens the sidebar overlay drawer (invoked by the toggle control). */
-  onToggleSidebar: () => void
-  /**
-   * Ref to the sidebar toggle button. The shell uses it to return keyboard
-   * focus to the toggle when the overlay drawer closes (Req 3.9).
-   */
-  toggleRef?: React.Ref<HTMLButtonElement>
+  roleLabel?: string
+  /** Signed-in user's email (Gmail), shown in the user dropdown. */
+  email?: string
+  /** Up-to-two-letter avatar initials. */
+  userInitials?: string
 }
 
 /**
  * Top_Bar for the admin App_Shell.
  *
- * Renders (left → right): the sidebar toggle (hidden at >=1024px where the
- * sidebar is persistent), the breadcrumb trail, the notification bell, and the
- * user identity block (Req 3.2).
+ * Left → right: the sidebar toggle, a divider, the breadcrumb trail, then the
+ * command-palette trigger and — in the top-right corner — the signed-in user
+ * menu (name + role + Account / Log out). Height transitions to `h-12` when the
+ * sidebar collapses (Req 6.2).
  *
  * @param props - {@link TopBarProps}
  * @returns The rendered Top_Bar header element.
  */
-export function TopBar({ userName, role, onToggleSidebar, toggleRef }: TopBarProps) {
+export function TopBar({
+  roleLevel,
+  userName = 'Admin User',
+  roleLabel = 'Member',
+  email,
+  userInitials,
+}: TopBarProps) {
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-cloud-gray bg-canvas-white px-4 lg:px-6">
-      {/* Left: sidebar toggle + breadcrumb */}
-      <div className="flex items-center gap-3">
-        <button
-          ref={toggleRef}
-          type="button"
-          onClick={onToggleSidebar}
-          className="flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-[6px] text-warm-gray transition-colors hover:bg-cloud-gray focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cocoa-dark lg:hidden"
-        >
-          <Icon icon={Menu} label="Open navigation menu" size={20} />
-        </button>
-        <Breadcrumb />
-      </div>
+    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b border-outline-gray bg-canvas-white/90 backdrop-blur-md transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+      <div className="flex w-full items-center gap-2 px-3 lg:px-4">
+        <SidebarTrigger aria-label="Open navigation menu" className="-ml-1 text-warm-gray" />
+        <Separator
+          orientation="vertical"
+          className="mr-1 data-[orientation=vertical]:h-4 bg-outline-gray"
+        />
+        <div className="min-w-0">
+          <Breadcrumb />
+        </div>
 
-      {/* Right: notifications + user identity */}
-      <div className="flex items-center gap-3">
-        <NotificationBell />
-        <UserIdentity userName={userName} role={role} />
+        <div className="ml-auto flex shrink-0 items-center gap-2 lg:gap-3">
+          <CommandPalette roleLevel={roleLevel} />
+          <UserIdentity
+            userName={userName}
+            role={roleLabel}
+            email={email}
+            initials={userInitials}
+          />
+        </div>
       </div>
     </header>
   )

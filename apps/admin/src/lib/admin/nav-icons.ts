@@ -29,7 +29,9 @@ import {
   CalendarDays,
   CalendarRange,
   CircleDot,
+  CircleUserRound,
   Clock,
+  Contact,
   Gem,
   KeyRound,
   LayoutDashboard,
@@ -45,6 +47,7 @@ import {
   Target,
   TrendingUp,
   Users,
+  Wallet,
 } from 'lucide-react'
 
 /** Per-route icon map keyed by Root-Path href (Req 2.2). */
@@ -86,4 +89,30 @@ export const DEFAULT_NAV_ICON: LucideIcon = CircleDot
 export function navIconFor(href: string): LucideIcon {
   const icon = Object.hasOwn(NAV_ICON_MAP, href) ? NAV_ICON_MAP[href] : undefined
   return icon ?? DEFAULT_NAV_ICON
+}
+
+/**
+ * Per-section icon map keyed by the ADMIN_NAV section title. Used by the
+ * collapsible sidebar navigation to give each section's collapsible parent
+ * (the `sidebar-07` NavMain pattern) a single lucide icon.
+ */
+export const SECTION_ICON_MAP: Record<string, LucideIcon> = {
+  'Self-Service': CircleUserRound,
+  Operations: LayoutDashboard,
+  CRM: Contact,
+  Staff: Users,
+  Catalog: Sparkles,
+  Finance: Wallet,
+  System: Settings,
+}
+
+/**
+ * Resolve a nav SECTION title to its collapsible-parent lucide icon.
+ *
+ * Total function: returns the mapped icon for a known section title, or the
+ * single predefined {@link DEFAULT_NAV_ICON} fallback for any unmapped title.
+ * Pure — no I/O, no side effects.
+ */
+export function sectionIconFor(title: string): LucideIcon {
+  return SECTION_ICON_MAP[title] ?? DEFAULT_NAV_ICON
 }

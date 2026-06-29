@@ -31,6 +31,7 @@
  *   wrapper — no emoji glyphs and no hex / px / radius literals (Req 1.2, 2.3)
  ************************************************************/
 
+import { Button } from '@/components/ui/button'
 import { Icon } from '@/components/ui/icon'
 import { CalendarDays, ClipboardList, Hand, TrendingUp } from 'lucide-react'
 import type { Metadata } from 'next'
@@ -79,27 +80,24 @@ export default function AdminDashboardPage() {
       <section>
         <h2 className="text-lg font-display text-cocoa-dark mb-3">Quick Actions</h2>
         <div className="flex flex-wrap gap-3">
-          <Link
-            href="/bookings"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-buttons bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors"
-          >
-            <Icon icon={ClipboardList} decorative size={16} />
-            View Bookings
-          </Link>
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-buttons border border-cloud-gray bg-canvas-white text-cocoa-dark text-sm font-ui hover:bg-cloud-gray transition-colors"
-          >
-            <Icon icon={CalendarDays} decorative size={16} />
-            View Schedule
-          </button>
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-buttons border border-cloud-gray bg-canvas-white text-cocoa-dark text-sm font-ui hover:bg-cloud-gray transition-colors"
-          >
-            <Icon icon={TrendingUp} decorative size={16} />
-            Generate Report
-          </button>
+          <Button asChild className="font-ui">
+            <Link href="/bookings">
+              <Icon icon={ClipboardList} decorative size={16} />
+              View Bookings
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="font-ui">
+            <Link href="/schedule">
+              <Icon icon={CalendarDays} decorative size={16} />
+              View Schedule
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="font-ui">
+            <Link href="/reports">
+              <Icon icon={TrendingUp} decorative size={16} />
+              Generate Report
+            </Link>
+          </Button>
         </div>
       </section>
     </div>

@@ -71,4 +71,27 @@ describe('admin middleware — CSP nonce on the allow branch (Req 7.3)', () => {
     // Per-request nonce → the two CSP strings must differ.
     expect(csp1).not.toBe(csp2)
   })
+
+  // Regression guard: the brand fonts (Cabinet Grotesk + Clash Grotesk from
+  // Fontshare, Plus Jakarta Sans from Google) load via @import in globals.css.
+  // The strict admin CSP MUST permit those CDN origins (stylesheet hosts in
+  // style-src, font-file hosts in font-src) or the portal renders in a fallback
+  // system font under the real auth flow. If anyone drops these, this fails.
+  it('permits the brand font CDN origins so the typography is never blocked', async () => {
+    stubValidSession('owner')
+
+    const csp = (await middleware(makeAuthorizedRequest('/bookings'))).headers.get(
+      'Content-Security-Policy',
+    )
+
+    expect(csp).toBeTruthy()
+    // Stylesheet hosts (the @import targets).
+    expect(csp).toContain('style-src')
+    expect(csp).toContain('https://fonts.googleapis.com')
+    expect(csp).toContain('https://api.fontshare.com')
+    // Font-file hosts (the @font-face src targets).
+    expect(csp).toContain('font-src')
+    expect(csp).toContain('https://fonts.gstatic.com')
+    expect(csp).toContain('https://cdn.fontshare.com')
+  })
 })

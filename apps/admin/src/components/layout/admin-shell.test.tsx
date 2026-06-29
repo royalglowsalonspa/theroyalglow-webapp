@@ -26,11 +26,20 @@
  ************************************************************/
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 // Deterministic route so the sidebar + breadcrumb derive a stable trail.
+// `useRouter` is required by the Top_Bar's command palette.
 vi.mock('next/navigation', () => ({
   usePathname: () => '/',
+  useRouter: () => ({
+    push: () => {},
+    replace: () => {},
+    prefetch: () => {},
+    back: () => {},
+    forward: () => {},
+    refresh: () => {},
+  }),
 }))
 
 // Render next/link as a plain anchor — avoids needing an App Router context and
@@ -59,6 +68,13 @@ vi.mock('next/link', () => ({
   ),
 }))
 
+// next/image needs image-optimization + preload plumbing that isn't meaningful
+// under jsdom. Stub it to an inert, accessible placeholder (the shell's brand
+// logo) so the drawer renders deterministically in the component test.
+vi.mock('next/image', () => ({
+  default: ({ alt }: { alt: string }) => <span role="img" aria-label={alt} />,
+}))
+
 // RealtimeProvider pulls in Ably + the /api/ably/token route — stub to a no-op
 // pass-through so the shell renders in jsdom with no network access.
 vi.mock('@/components/realtime/realtime-provider', () => ({
@@ -70,7 +86,27 @@ vi.mock('@/components/notifications/notification-bell', () => ({
   NotificationBell: () => null,
 }))
 
+// The shadcn SidebarProvider switches between the persistent rail and the
+// mobile Sheet drawer via useIsMobile(). Pin it to mobile so the toggle opens
+// the overlay drawer (a Radix Dialog) the Req 3.6–3.9 tests exercise.
+vi.mock('@/hooks/use-mobile', () => ({
+  useIsMobile: () => true,
+}))
+
 import { AdminShell } from './admin-shell'
+
+// Radix Dialog (the mobile Sheet drawer) touches pointer-capture + PointerEvent
+// APIs jsdom does not implement; provide inert stand-ins so the drawer opens,
+// closes, and manages focus during tests.
+beforeAll(() => {
+  Element.prototype.scrollIntoView = () => {}
+  Element.prototype.hasPointerCapture = () => false
+  Element.prototype.setPointerCapture = () => {}
+  Element.prototype.releasePointerCapture = () => {}
+  if (typeof window.PointerEvent === 'undefined') {
+    window.PointerEvent = window.MouseEvent as unknown as typeof PointerEvent
+  }
+})
 
 afterEach(() => {
   cleanup()

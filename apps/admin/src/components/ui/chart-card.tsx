@@ -38,6 +38,8 @@
 
 'use client'
 
+import { Card } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@rgss/ui/lib/utils'
 import type { ReactNode } from 'react'
 import { ResponsiveContainer } from 'recharts'
@@ -49,9 +51,9 @@ import { ResponsiveContainer } from 'recharts'
  * props (e.g. `<Bar fill={CHART_COLORS.primary} />`).
  */
 export const CHART_COLORS = {
-  primary: 'var(--color-deep-gold)',
-  secondary: 'var(--color-warm-stone)',
-  accent: 'var(--color-accent-pink)',
+  primary: 'var(--chart-1)',
+  secondary: 'var(--chart-2)',
+  accent: 'var(--chart-3)',
   grid: 'var(--color-outline-gray)',
   axis: 'var(--color-dusty-gray)',
 } as const
@@ -74,20 +76,12 @@ type ChartCardProps = {
  */
 export function ChartCard({ title, children, loading = false, className }: ChartCardProps) {
   return (
-    <section
-      className={cn(
-        'flex flex-col gap-4 rounded-cards border border-outline-gray bg-canvas-white p-5',
-        className,
-      )}
-    >
+    <Card className={cn('gap-4 rounded-cards border-outline-gray p-5', className)}>
       <h3 className="font-display text-base text-cocoa-dark">{title}</h3>
 
       {loading ? (
-        <div
-          aria-busy="true"
-          aria-live="polite"
-          className="h-72 w-full animate-pulse rounded-cards bg-cloud-gray"
-        >
+        <div aria-busy="true" aria-live="polite">
+          <Skeleton className="h-72 w-full rounded-cards bg-cloud-gray" />
           <span className="sr-only">Loading chart</span>
         </div>
       ) : (
@@ -97,6 +91,6 @@ export function ChartCard({ title, children, loading = false, className }: Chart
           </ResponsiveContainer>
         </div>
       )}
-    </section>
+    </Card>
   )
 }

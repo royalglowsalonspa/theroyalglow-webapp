@@ -33,6 +33,7 @@
  *                (Req 13.6).
  ************************************************************/
 
+import { Skeleton as ShadcnSkeleton } from '@/components/ui/skeleton'
 import { cn } from '@rgss/ui/lib/utils'
 
 /** Hard upper bound on rendered skeleton rows (Req 12.1). */
@@ -75,8 +76,8 @@ type SkeletonProps = {
   className?: string
 }
 
-/** Shared pulsing bar styling for a single placeholder element. */
-const BAR = 'animate-pulse motion-reduce:animate-none rounded-[6px] bg-cloud-gray'
+/** Shared bar styling layered onto the shadcn Skeleton (brand surface). */
+const BAR = 'rounded-cards bg-cloud-gray'
 
 /**
  * Render the placeholder body for a single skeleton row, shaped per variant.
@@ -84,19 +85,19 @@ const BAR = 'animate-pulse motion-reduce:animate-none rounded-[6px] bg-cloud-gra
 function SkeletonRow({ variant }: { variant: SkeletonVariant }) {
   if (variant === 'kpi') {
     return (
-      <div className="flex flex-col gap-3 rounded-[6px] border border-cloud-gray p-5">
-        <div className={cn(BAR, 'h-3 w-24')} />
-        <div className={cn(BAR, 'h-7 w-32')} />
+      <div className="flex flex-col gap-3 rounded-cards border border-cloud-gray p-5">
+        <ShadcnSkeleton className={cn(BAR, 'h-3 w-24')} />
+        <ShadcnSkeleton className={cn(BAR, 'h-7 w-32')} />
       </div>
     )
   }
 
   if (variant === 'card') {
     return (
-      <div className="flex flex-col gap-3 rounded-[6px] border border-cloud-gray p-5">
-        <div className={cn(BAR, 'h-4 w-2/3')} />
-        <div className={cn(BAR, 'h-3 w-full')} />
-        <div className={cn(BAR, 'h-3 w-5/6')} />
+      <div className="flex flex-col gap-3 rounded-cards border border-cloud-gray p-5">
+        <ShadcnSkeleton className={cn(BAR, 'h-4 w-2/3')} />
+        <ShadcnSkeleton className={cn(BAR, 'h-3 w-full')} />
+        <ShadcnSkeleton className={cn(BAR, 'h-3 w-5/6')} />
       </div>
     )
   }
@@ -104,10 +105,10 @@ function SkeletonRow({ variant }: { variant: SkeletonVariant }) {
   // table
   return (
     <div className="flex items-center gap-4 border-b border-cloud-gray px-4 py-3">
-      <div className={cn(BAR, 'h-4 w-1/4')} />
-      <div className={cn(BAR, 'h-4 w-1/4')} />
-      <div className={cn(BAR, 'h-4 w-1/6')} />
-      <div className={cn(BAR, 'ml-auto h-4 w-16')} />
+      <ShadcnSkeleton className={cn(BAR, 'h-4 w-1/4')} />
+      <ShadcnSkeleton className={cn(BAR, 'h-4 w-1/4')} />
+      <ShadcnSkeleton className={cn(BAR, 'h-4 w-1/6')} />
+      <ShadcnSkeleton className={cn(BAR, 'ml-auto h-4 w-16')} />
     </div>
   )
 }

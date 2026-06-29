@@ -146,14 +146,16 @@ describe('DataTable row selection (Req 6.6)', () => {
   it('selects every row when the select-all checkbox is toggled', () => {
     render(<DataTable<Person> columns={COLUMNS} data={PEOPLE} tableId="people" enableSelection />)
 
-    const selectAll = screen.getByLabelText('Select all rows') as HTMLInputElement
-    expect(selectAll.checked).toBe(false)
+    // shadcn Checkbox is a Radix button (role="checkbox"), not a native input,
+    // so selection state is read from aria-checked rather than `.checked`.
+    const selectAll = screen.getByRole('checkbox', { name: 'Select all rows' })
+    expect(selectAll).toHaveAttribute('aria-checked', 'false')
 
     fireEvent.click(selectAll)
 
-    expect(selectAll.checked).toBe(true)
-    for (const box of screen.getAllByLabelText('Select row') as HTMLInputElement[]) {
-      expect(box.checked).toBe(true)
+    expect(selectAll).toHaveAttribute('aria-checked', 'true')
+    for (const box of screen.getAllByRole('checkbox', { name: 'Select row' })) {
+      expect(box).toHaveAttribute('aria-checked', 'true')
     }
   })
 })
@@ -223,7 +225,7 @@ describe('DataTable accessibility + keyboard operability (Req 6.10)', () => {
     expect(nameTh).toHaveAttribute('aria-sort', 'descending')
   })
 
-  it('exposes pagination controls as native, keyboard-operable buttons and a select', () => {
+  it('exposes pagination controls as keyboard-operable buttons and a labelled select', () => {
     render(<DataTable<Person> columns={COLUMNS} data={PEOPLE} tableId="people" />)
 
     const prev = screen.getByRole('button', { name: 'Previous page' })
@@ -231,8 +233,10 @@ describe('DataTable accessibility + keyboard operability (Req 6.10)', () => {
     expect(prev.tagName).toBe('BUTTON')
     expect(next.tagName).toBe('BUTTON')
 
-    const pageSize = screen.getByLabelText('Rows per page')
-    expect(pageSize.tagName).toBe('SELECT')
+    // The rows-per-page control is the shadcn Select (a Radix combobox trigger),
+    // labelled via aria-labelledby; it is keyboard-operable.
+    const pageSize = screen.getByRole('combobox', { name: 'Rows per page' })
+    expect(pageSize.tagName).toBe('BUTTON')
   })
 
   it('has no detectable accessibility violations with selection, expansion, and actions enabled', async () => {

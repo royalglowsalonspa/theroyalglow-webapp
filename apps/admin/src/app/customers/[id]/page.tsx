@@ -159,7 +159,7 @@ export default async function CustomerProfilePage({ params }: PageProps) {
       </Link>
 
       {/* Header */}
-      <header className="border border-cloud-gray rounded-[6px] bg-canvas-white p-5 space-y-1">
+      <header className="border border-cloud-gray rounded-cards bg-canvas-white p-5 space-y-1">
         <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">{profile.name}</h1>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-sans text-warm-gray">
           <span className="inline-flex items-center gap-1.5">
@@ -206,7 +206,7 @@ export default async function CustomerProfilePage({ params }: PageProps) {
 
 function KpiCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border border-cloud-gray rounded-[6px] bg-canvas-white p-4">
+    <div className="border border-cloud-gray rounded-cards bg-canvas-white p-4">
       <p className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray mb-1">{label}</p>
       <p className="text-xl font-display text-cocoa-dark">{value}</p>
     </div>
@@ -222,7 +222,7 @@ function NotFoundCard() {
       >
         <Icon icon={ArrowLeft} decorative size={16} /> Back to Customers
       </Link>
-      <div className="border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 text-center">
+      <div className="border border-cloud-gray rounded-cards bg-canvas-white px-5 py-16 text-center">
         <p className="font-sans text-sm text-cocoa-dark mb-1">Customer not found</p>
         <p className="font-sans text-xs text-dusty-gray">
           This customer may have been removed, or the link is incorrect.

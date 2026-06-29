@@ -45,6 +45,21 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 // Deterministic route so the breadcrumb + sidebar derive a stable trail.
 vi.mock('next/navigation', () => ({
   usePathname: () => '/bookings',
+  useRouter: () => ({
+    push: () => {},
+    replace: () => {},
+    prefetch: () => {},
+    back: () => {},
+    forward: () => {},
+    refresh: () => {},
+  }),
+}))
+
+// The shadcn SidebarProvider reads useIsMobile (matchMedia) on mount; pin it to
+// the desktop rail branch so the shell primitives render deterministically in
+// jsdom without a matchMedia polyfill.
+vi.mock('@/hooks/use-mobile', () => ({
+  useIsMobile: () => false,
 }))
 
 // Render next/link as a plain anchor — avoids needing an App Router context.
@@ -81,6 +96,7 @@ vi.mock('@/components/notifications/notification-bell', () => ({
 import { AdminSidebar } from '@/components/layout/admin-sidebar'
 import { TopBar } from '@/components/layout/top-bar'
 import { UserIdentity } from '@/components/layout/user-identity'
+import { SidebarProvider } from '@/components/ui/sidebar'
 
 expect.extend(toHaveNoViolations)
 
@@ -91,8 +107,12 @@ describe('TopBar accessibility (Req 13.1, 13.3)', () => {
     // Props supplied via spread so the domain `role` prop is not authored as a
     // literal JSX `role=` attribute (which the a11y linter treats as an ARIA
     // role rather than a component prop).
-    const topBarProps = { userName: 'Asha Rao', role: 'Owner', onToggleSidebar: () => {} }
-    const { container } = render(<TopBar {...topBarProps} />)
+    const topBarProps = { roleLevel: 4 }
+    const { container } = render(
+      <SidebarProvider>
+        <TopBar {...topBarProps} />
+      </SidebarProvider>,
+    )
 
     const results = await axe(container)
     expect(results).toHaveNoViolations()
@@ -112,14 +132,22 @@ describe('UserIdentity accessibility (Req 13.1, 13.2)', () => {
 describe('AdminSidebar accessibility (Req 13.1, 13.3)', () => {
   it('has zero violations rendering the role-filtered navigation landmark', async () => {
     // Owner-level (5) surfaces the full nav; the active route is highlighted.
-    const { container } = render(<AdminSidebar roleLevel={5} />)
+    const { container } = render(
+      <SidebarProvider>
+        <AdminSidebar roleLevel={5} />
+      </SidebarProvider>,
+    )
 
     const results = await axe(container)
     expect(results).toHaveNoViolations()
   })
 
   it('has zero violations for a minimal (Receptionist) role level', async () => {
-    const { container } = render(<AdminSidebar roleLevel={1} />)
+    const { container } = render(
+      <SidebarProvider>
+        <AdminSidebar roleLevel={1} />
+      </SidebarProvider>,
+    )
 
     const results = await axe(container)
     expect(results).toHaveNoViolations()

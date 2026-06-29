@@ -203,7 +203,7 @@ export function CreateMembershipForm() {
                     role="radio"
                     aria-checked={active}
                     onClick={() => selectTier(tier)}
-                    className={`text-left rounded-[6px] border p-3 transition-colors focus:outline-none focus:ring-2 focus:ring-deep-gold ${
+                    className={`text-left rounded-cards border p-3 transition-colors focus:outline-none focus:ring-2 focus:ring-deep-gold ${
                       active
                         ? 'border-deep-gold bg-warm-cream'
                         : 'border-cloud-gray bg-canvas-white hover:bg-cloud-gray/40'
@@ -241,7 +241,7 @@ export function CreateMembershipForm() {
                 inputMode="decimal"
                 value={hours}
                 onChange={(e) => setHours(e.target.value)}
-                className="h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
+                className="h-9 px-3 rounded-cards border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
               />
               <span className="text-[11px] font-sans text-dusty-gray">
                 Prefilled from tier · overridable for negotiated deals
@@ -263,7 +263,7 @@ export function CreateMembershipForm() {
                 inputMode="numeric"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                className="h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
+                className="h-9 px-3 rounded-cards border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
               />
             </div>
 
@@ -282,7 +282,7 @@ export function CreateMembershipForm() {
                 inputMode="numeric"
                 value={validityDays}
                 onChange={(e) => setValidityDays(e.target.value)}
-                className="h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
+                className="h-9 px-3 rounded-cards border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
               />
             </div>
 
@@ -298,7 +298,7 @@ export function CreateMembershipForm() {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
+                className="h-9 px-3 rounded-cards border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
               />
             </div>
           </div>
@@ -342,12 +342,12 @@ export function CreateMembershipForm() {
             maxLength={500}
             aria-label="Membership notes"
             placeholder="Any internal notes about this membership…"
-            className="w-full px-3 py-2 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold resize-none"
+            className="w-full px-3 py-2 rounded-cards border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold resize-none"
           />
         </Section>
 
         {/* Side-effects note */}
-        <div className="rounded-[6px] bg-cloud-gray/40 border border-cloud-gray px-3 py-3">
+        <div className="rounded-cards bg-cloud-gray/40 border border-cloud-gray px-3 py-3">
           <p className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray mb-1">
             This will
           </p>
@@ -367,7 +367,7 @@ export function CreateMembershipForm() {
           type="submit"
           disabled={!canSubmit || submitting}
           aria-busy={submitting}
-          className="w-full px-4 py-2.5 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-4 py-2.5 rounded-cards bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {submitting ? 'Creating…' : 'Create Membership'}
         </button>
@@ -435,7 +435,7 @@ function CustomerSearch({
 
   if (selected) {
     return (
-      <div className="flex items-center justify-between gap-3 rounded-[6px] border border-cloud-gray bg-cloud-gray/30 px-3 py-2.5">
+      <div className="flex items-center justify-between gap-3 rounded-cards border border-cloud-gray bg-cloud-gray/30 px-3 py-2.5">
         <div className="min-w-0">
           <p className="text-sm font-sans text-cocoa-dark truncate">{selected.name}</p>
           <p className="text-xs font-sans text-dusty-gray truncate">
@@ -449,7 +449,7 @@ function CustomerSearch({
             onSelect(null)
             setQuery('')
           }}
-          className="shrink-0 px-2.5 py-1 rounded-[6px] text-xs font-ui text-dusty-gray hover:text-cocoa-dark hover:bg-cloud-gray transition-colors"
+          className="shrink-0 px-2.5 py-1 rounded-cards text-xs font-ui text-dusty-gray hover:text-cocoa-dark hover:bg-cloud-gray transition-colors"
         >
           Change
         </button>
@@ -472,7 +472,7 @@ function CustomerSearch({
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search by name, email, or phone…"
         autoComplete="off"
-        className="w-full h-9 px-3 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
+        className="w-full h-9 px-3 rounded-cards border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
       />
 
       {searchError && (
@@ -490,7 +490,7 @@ function CustomerSearch({
               No customers match “{query.trim()}”.
             </p>
           ) : (
-            <ul className="border border-cloud-gray rounded-[6px] divide-y divide-cloud-gray overflow-hidden">
+            <ul className="border border-cloud-gray rounded-cards divide-y divide-cloud-gray overflow-hidden">
               {results.map((c) => (
                 <li key={c.id}>
                   <button
@@ -525,7 +525,7 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <section className="border border-cloud-gray rounded-[6px] bg-canvas-white p-4">
+    <section className="border border-cloud-gray rounded-cards bg-canvas-white p-4">
       <h2 className="text-xs font-ui uppercase tracking-wider text-dusty-gray mb-3">{title}</h2>
       {children}
     </section>

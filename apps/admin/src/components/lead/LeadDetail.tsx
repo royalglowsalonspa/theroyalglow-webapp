@@ -33,6 +33,7 @@
 
 'use client'
 
+import { Button } from '@/components/ui/button'
 import { Icon } from '@/components/ui/icon'
 import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
@@ -216,7 +217,7 @@ function InfoCard({
   }
 
   return (
-    <section className="rounded-[6px] border border-cloud-gray bg-canvas-white p-5">
+    <section className="rounded-cards border border-cloud-gray bg-canvas-white p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl text-cocoa-dark tracking-tight">{lead.name}</h1>
@@ -247,46 +248,45 @@ function InfoCard({
 
       {/* Actions */}
       <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-cloud-gray pt-4">
-        <a
-          href={`tel:${lead.phone}`}
-          className="inline-flex items-center gap-1.5 rounded-[8px] border border-outline-gray px-3.5 py-2 font-ui text-sm text-cocoa-dark hover:bg-cloud-gray motion-safe:transition-colors"
-        >
-          <Icon icon={Phone} decorative size={15} /> Call
-        </a>
-        <a
-          href={whatsAppHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 rounded-[8px] border border-outline-gray px-3.5 py-2 font-ui text-sm text-cocoa-dark hover:bg-cloud-gray motion-safe:transition-colors"
-        >
-          <Icon icon={MessageCircle} decorative size={15} /> WhatsApp
-        </a>
+        <Button asChild variant="outline" size="sm" className="font-ui">
+          <a href={`tel:${lead.phone}`}>
+            <Icon icon={Phone} decorative size={15} /> Call
+          </a>
+        </Button>
+        <Button asChild variant="outline" size="sm" className="font-ui">
+          <a href={whatsAppHref} target="_blank" rel="noopener noreferrer">
+            <Icon icon={MessageCircle} decorative size={15} /> WhatsApp
+          </a>
+        </Button>
 
         {transitions.map((status) => (
-          <button
+          <Button
             key={status}
             type="button"
+            size="sm"
             onClick={() => patchStatus(status)}
             disabled={busyStatus !== null}
             aria-busy={busyStatus === status}
-            className="inline-flex items-center gap-1.5 rounded-[8px] bg-royal-gold px-3.5 py-2 font-ui text-sm font-semibold text-cocoa-dark hover:bg-deep-gold motion-safe:transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+            className="font-ui"
           >
             {busyStatus === status ? 'Saving…' : LEAD_TRANSITION_LABEL[status]}
-          </button>
+          </Button>
         ))}
 
         {canMarkLost && !lostOpen && (
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => {
               setLostOpen(true)
               setActionError(null)
             }}
             disabled={busyStatus !== null}
-            className="inline-flex items-center gap-1.5 rounded-[8px] border border-error/40 px-3.5 py-2 font-ui text-sm text-error hover:bg-error/5 motion-safe:transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+            className="border-error/40 font-ui text-error hover:bg-error/5 hover:text-error"
           >
             <Icon icon={Trash2} decorative size={15} /> Mark Lost
-          </button>
+          </Button>
         )}
       </div>
 
@@ -303,29 +303,33 @@ function InfoCard({
             rows={2}
             aria-required="true"
             placeholder="e.g. Unreachable after 5 attempts, chose another salon…"
-            className="w-full rounded-[8px] border border-outline-gray px-3 py-2 font-sans text-sm text-cocoa-dark placeholder:text-dusty-gray focus:border-deep-gold focus:outline-none focus:ring-1 focus:ring-deep-gold"
+            className="w-full rounded-buttons border border-outline-gray px-3 py-2 font-sans text-sm text-cocoa-dark placeholder:text-dusty-gray focus:border-deep-gold focus:outline-none focus:ring-1 focus:ring-deep-gold"
           />
           <div className="flex items-center gap-2">
-            <button
+            <Button
               type="submit"
+              variant="destructive"
+              size="sm"
               disabled={busyStatus !== null}
               aria-busy={busyStatus === 'lost'}
-              className="inline-flex items-center gap-1.5 rounded-[8px] bg-error px-3.5 py-2 font-ui text-sm font-semibold text-canvas-white hover:bg-error/90 motion-safe:transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+              className="font-ui"
             >
               {busyStatus === 'lost' ? 'Saving…' : 'Confirm Lost'}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => {
                 setLostOpen(false)
                 setLostReason('')
                 setActionError(null)
               }}
               disabled={busyStatus !== null}
-              className="rounded-[8px] border border-cloud-gray px-3.5 py-2 font-ui text-sm text-cocoa-dark hover:bg-cloud-gray motion-safe:transition-colors disabled:opacity-50"
+              className="font-ui"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
       )}
@@ -351,7 +355,7 @@ function AttributionPanel({ lead }: { lead: LeadRecord }) {
   ]
 
   return (
-    <section className="rounded-[6px] border border-cloud-gray bg-canvas-white p-5">
+    <section className="rounded-cards border border-cloud-gray bg-canvas-white p-5">
       <h2 className="font-ui text-xs uppercase tracking-wider text-dusty-gray">Attribution</h2>
       <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
         {rows.map((row) => (
@@ -409,7 +413,7 @@ function NotesTimeline({
   )
 
   return (
-    <section className="rounded-[6px] border border-cloud-gray bg-canvas-white p-5">
+    <section className="rounded-cards border border-cloud-gray bg-canvas-white p-5">
       <h2 className="font-ui text-xs uppercase tracking-wider text-dusty-gray">Notes</h2>
 
       <form onSubmit={addNote} className="mt-3 space-y-2">
@@ -423,17 +427,18 @@ function NotesTimeline({
           rows={2}
           disabled={saving}
           placeholder="Add a note…"
-          className="w-full rounded-[8px] border border-outline-gray px-3 py-2 font-sans text-sm text-cocoa-dark placeholder:text-dusty-gray focus:border-deep-gold focus:outline-none focus:ring-1 focus:ring-deep-gold disabled:opacity-60"
+          className="w-full rounded-buttons border border-outline-gray px-3 py-2 font-sans text-sm text-cocoa-dark placeholder:text-dusty-gray focus:border-deep-gold focus:outline-none focus:ring-1 focus:ring-deep-gold disabled:opacity-60"
         />
         <div className="flex items-center justify-end">
-          <button
+          <Button
             type="submit"
+            size="sm"
             disabled={saving || !content.trim()}
             aria-busy={saving}
-            className="rounded-[8px] bg-royal-gold px-4 py-2 font-ui text-sm font-semibold text-cocoa-dark hover:bg-deep-gold motion-safe:transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+            className="font-ui"
           >
             {saving ? 'Saving…' : 'Save'}
-          </button>
+          </Button>
         </div>
       </form>
 
@@ -450,7 +455,7 @@ function NotesTimeline({
           notes.map((note) => (
             <li
               key={note.id}
-              className="rounded-[6px] border border-cloud-gray bg-cloud-gray/20 p-3"
+              className="rounded-cards border border-cloud-gray bg-cloud-gray/20 p-3"
             >
               <p className="font-sans text-[11px] text-dusty-gray">
                 {formatLeadDateTime(note.createdAt)}

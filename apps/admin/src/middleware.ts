@@ -1,3 +1,4 @@
+import { getCookieCache } from 'better-auth/cookies'
 /************************************************************
  * Author       : KATABATHUNI BOSE
  * Project      : theroyalglow-webapp (apps/admin)
@@ -45,6 +46,17 @@ import { type AuthState, decide, resolveRoleLevel, routeMinLevel } from './lib/r
 const SESSION_COOKIE = 'better-auth.session_token'
 
 /**
+ * Better Auth prefixes the cookie name with `__Secure-` whenever it issues a
+ * secure cookie — which it does over https (production, `admin.theroyalglow.in`
+ * / `theroyalglow.in`). So the real production cookie name is
+ * `__Secure-better-auth.session_token`, while local dev (http) uses the bare
+ * name. Better Auth's own readers try BOTH names; this middleware must do the
+ * same or it sees `no_cookie` in production and bounces every authenticated
+ * admin straight back to the customer site. (better-auth/cookies, v1.6.x.)
+ */
+const SECURE_SESSION_COOKIE = `__Secure-${SESSION_COOKIE}`
+
+/**
  * Customer-site origin to bounce unauthenticated / invalid / errored visitors
  * to (Req 4.7). Design specifies `https://theroyalglow.in`; for local dev the
  * origin can be overridden via `NEXT_PUBLIC_WEB_ORIGIN` so `localhost` works.
@@ -79,11 +91,27 @@ function allowWithCspNonce(request: NextRequest): NextResponse {
   // `eval()` for dev-only debugging (e.g. reconstructing cross-environment
   // callstacks), so the dev CSP must include `'unsafe-eval'`. Production keeps
   // the strict nonce-only policy with no eval (Req 7.3).
-  const scriptSrc =
-    process.env.NODE_ENV === 'production'
-      ? `script-src 'self' 'nonce-${nonce}'`
-      : `script-src 'self' 'nonce-${nonce}' 'unsafe-eval'`
-  const csp = `default-src 'self'; ${scriptSrc}`
+  const isDev = process.env.NODE_ENV !== 'production'
+  const scriptSrc = isDev
+    ? `script-src 'self' 'nonce-${nonce}' 'unsafe-eval'`
+    : `script-src 'self' 'nonce-${nonce}'`
+
+  // Brand fonts — Cabinet Grotesk + Clash Grotesk (Fontshare) and Plus Jakarta
+  // Sans (Google Fonts) — are loaded via `@import url(...)` in globals.css.
+  // Without explicit `style-src`/`font-src` they fall back to `default-src
+  // 'self'`, which BLOCKS the external font stylesheets + font files, stripping
+  // the brand typography so the portal renders in a fallback system font. Allow
+  // exactly the font CDNs (stylesheet hosts in style-src, file hosts in
+  // font-src) so the brand fonts load under the strict CSP in BOTH dev and prod.
+  // `img-src` is declared so same-origin/optimised images and inline data/blob
+  // URLs keep working once the explicit fetch directives are present.
+  const styleSrc =
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com"
+  const fontSrc =
+    "font-src 'self' data: https://fonts.gstatic.com https://api.fontshare.com https://cdn.fontshare.com"
+  const imgSrc = "img-src 'self' data: blob: https:"
+
+  const csp = [`default-src 'self'`, scriptSrc, styleSrc, fontSrc, imgSrc].join('; ')
 
   // Inject the nonce onto the forwarded request headers so the app can read it.
   const requestHeaders = new Headers(request.headers)
@@ -101,18 +129,58 @@ function allowWithCspNonce(request: NextRequest): NextResponse {
  * - lookup non-2xx       → { kind: 'invalid' }
  * - lookup throws        → { kind: 'error' }
  * - lookup ok            → { kind: 'valid', roleLevel }
+ *
+ * Two-stage resolution:
+ *  1. EDGE-NATIVE FAST PATH — verify Better Auth's signed `session_data` cache
+ *     cookie locally with the shared secret (Web Crypto HMAC, no network, no
+ *     DB). When it yields an admin role (level > 0) we allow immediately. This
+ *     is the reliable path for the "just signed in on :3000, open the portal on
+ *     :3001" flow and is immune to the self-fetch flakiness that previously
+ *     bounced authenticated admins back to the customer site.
+ *  2. DB-BACKED FALLBACK — when the cache cookie is absent/expired (its TTL is
+ *     5 min) or resolved to a non-admin, defer to the admin's own
+ *     /api/auth/get-session for the authoritative role.
  */
 async function classify(request: NextRequest): Promise<AuthState> {
-  const sessionToken = request.cookies.get(SESSION_COOKIE)?.value
+  // Prefix-tolerant read: production cookies carry the `__Secure-` prefix, local
+  // dev cookies do not — mirror Better Auth's own dual-name lookup.
+  const sessionToken =
+    request.cookies.get(SESSION_COOKIE)?.value ?? request.cookies.get(SECURE_SESSION_COOKIE)?.value
 
   if (!sessionToken) {
     return { kind: 'no_cookie' }
   }
 
+  // ── Stage 1: verify the signed session-cache cookie at the edge ──────────
+  const secret = process.env.BETTER_AUTH_SECRET
+  if (secret) {
+    try {
+      // The cache cookie is named `better-auth.session_data` over http (dev)
+      // and `__Secure-better-auth.session_data` over https (prod). Try both
+      // names so the same code path works in every environment.
+      const cached =
+        (await getCookieCache(request, { secret, isSecure: false })) ??
+        (await getCookieCache(request, { secret, isSecure: true }))
+      const cachedRole = (cached?.user as { role?: string } | undefined)?.role
+      const cachedLevel = resolveRoleLevel(cachedRole)
+      if (cached?.user && cachedLevel > 0) {
+        return { kind: 'valid', roleLevel: cachedLevel }
+      }
+    } catch {
+      // Verification failure (bad signature / version) → fall through to the
+      // authoritative DB-backed lookup rather than failing the request here.
+    }
+  }
+
+  // ── Stage 2: authoritative same-origin get-session (DB-backed) ───────────
   try {
-    // Same-origin lookup against the admin's OWN auth route, forwarding the cookie.
+    // Forward the FULL incoming cookie header so get-session sees the token
+    // under whichever name the browser sent (bare or `__Secure-` prefixed) plus
+    // the Better Auth cookie-cache cookie; fall back to a reconstructed pair if,
+    // somehow, no raw cookie header is present.
+    const cookieHeader = request.headers.get('cookie') ?? `${SESSION_COOKIE}=${sessionToken}`
     const sessionRes = await fetch(`${request.nextUrl.origin}/api/auth/get-session`, {
-      headers: { cookie: `${SESSION_COOKIE}=${sessionToken}` },
+      headers: { cookie: cookieHeader },
     })
 
     if (!sessionRes.ok) {
@@ -120,7 +188,12 @@ async function classify(request: NextRequest): Promise<AuthState> {
     }
 
     const session = await sessionRes.json()
-    return { kind: 'valid', roleLevel: resolveRoleLevel(session?.user?.role) }
+    // A 200 with no user means the token no longer maps to a live session
+    // (expired / revoked) — treat it as invalid so the stale cookie is cleared.
+    if (!session?.user) {
+      return { kind: 'invalid' }
+    }
+    return { kind: 'valid', roleLevel: resolveRoleLevel(session.user.role) }
   } catch {
     // Network / server failure during the lookup — fail closed (Req 4.6, 5.6).
     return { kind: 'error' }
@@ -149,15 +222,32 @@ export async function middleware(request: NextRequest) {
   const routeMin = routeMinLevel(pathname)
   const decision = decide(state, routeMin)
 
+  // ── LOCAL DEV ONLY — diagnose the admin-access bounce ──────────────────
+  // Prints exactly which AuthState branch fired and the resulting action to
+  // the admin dev terminal, so a still-bouncing session can be pinned to a
+  // concrete cause (no_cookie / invalid / error / forbid) instead of guessed.
+  // Prod-gated: never logs in a production build.
+  if (process.env.NODE_ENV !== 'production') {
+    const hasBare = request.cookies.has(SESSION_COOKIE)
+    const hasSecure = request.cookies.has(SECURE_SESSION_COOKIE)
+    const roleLevel = state.kind === 'valid' ? state.roleLevel : 'n/a'
+    console.log(
+      `[admin-mw] ${pathname} state=${state.kind} roleLevel=${roleLevel} routeMin=${routeMin} action=${decision.action} cookie(bare=${hasBare},secure=${hasSecure})`,
+    )
+  }
+
   switch (decision.action) {
     case 'redirect':
       // No cookie or lookup error → bounce to the customer site (Req 4.4, 4.6, 5.5, 5.6).
       return NextResponse.redirect(WEB_ORIGIN)
 
     case 'clear_and_redirect': {
-      // Invalid / expired session → clear the stale cookie, then redirect (Req 4.5).
+      // Invalid / expired session → clear the stale cookie(s), then redirect
+      // (Req 4.5). Delete both the bare and `__Secure-` prefixed names so the
+      // stale cookie is cleared in every environment.
       const response = NextResponse.redirect(WEB_ORIGIN)
       response.cookies.delete(SESSION_COOKIE)
+      response.cookies.delete(SECURE_SESSION_COOKIE)
       return response
     }
 
@@ -178,5 +268,10 @@ export const config = {
   // RBAC middleware would otherwise redirect those webhooks to the customer
   // site. The job routes perform their own QStash HMAC verification
   // (verifyQStashSignature), so they are safe to exclude from RBAC.
-  matcher: ['/((?!_next|favicon.ico|api/health|api/auth|api/jobs).*)'],
+  //
+  // `logo.png` (and any other root static asset) is excluded so the
+  // next/image optimiser can fetch the source file — otherwise the gate
+  // redirects the image request and next/image receives a non-image response
+  // ("isn't a valid image … received null").
+  matcher: ['/((?!_next|favicon.ico|logo.png|api/health|api/auth|api/jobs).*)'],
 }

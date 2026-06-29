@@ -24,3 +24,9 @@
 @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
 @import "@rgss/ui/theme.css";
+@import "./shadcn-theme.css";
+
+/* shadcn dark-variant hook. Admin is light-only (no theme toggle mounted), so
+   no `.dark` palette is defined — the variant is declared for component
+   compatibility and resolves to the `:root` Brand-Token bindings. */
+@custom-variant dark (&:is(.dark *));

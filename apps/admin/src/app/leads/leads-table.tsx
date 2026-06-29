@@ -53,7 +53,16 @@
 'use client'
 
 import { LeadDetail } from '@/components/lead/LeadDetail'
+import { Button } from '@/components/ui/button'
 import { DataTable, type RowAction } from '@/components/ui/data-table'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { FilterBar } from '@/components/ui/filter-bar'
 import { Icon } from '@/components/ui/icon'
 import { SlideOverPanel } from '@/components/ui/slide-over-panel'
@@ -65,7 +74,7 @@ import { useAsyncData } from '@/components/ui/use-async-data'
 import { type LeadPipelineRow, formatDaysSince, leadCampaignLabel } from '@/lib/admin/leads'
 import type { ColumnDef, ColumnFiltersState, VisibilityState } from '@tanstack/react-table'
 import { MessageCircle, Phone, Plus, Users } from 'lucide-react'
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 type ServiceOption = {
   id: string
@@ -238,14 +247,10 @@ export function LeadsTable() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-2xl tracking-tight text-cocoa-dark">Leads</h1>
-        <button
-          type="button"
-          onClick={() => setDialogOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-buttons bg-royal-gold px-4 py-2 font-ui text-sm font-semibold text-cocoa-dark transition-colors hover:bg-deep-gold motion-reduce:transition-none"
-        >
+        <Button type="button" onClick={() => setDialogOpen(true)} className="font-ui">
           <Icon icon={Plus} decorative size={16} />
           Manual Lead
-        </button>
+        </Button>
       </div>
 
       {/* Controls: FilterBar (search, status, columns) */}
@@ -342,9 +347,6 @@ function ManualLeadDialog({
   onClose: () => void
   onCreated: () => void
 }) {
-  const titleId = useId()
-  const dialogRef = useRef<HTMLDivElement>(null)
-
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [serviceInterestedId, setServiceInterestedId] = useState('')
@@ -352,28 +354,6 @@ function ManualLeadDialog({
   const [submitting, setSubmitting] = useState(false)
   const [fieldError, setFieldError] = useState<{ name?: string; phone?: string }>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
-
-  // Escape to close.
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        onClose()
-      }
-    }
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
-  }, [onClose])
-
-  // Body scroll lock + initial focus.
-  useEffect(() => {
-    const previous = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    const firstField = dialogRef.current?.querySelector<HTMLElement>('input, select')
-    firstField?.focus()
-    return () => {
-      document.body.style.overflow = previous
-    }
-  }, [])
 
   // Fetch service options (best-effort; the field stays optional if it fails).
   useEffect(() => {
@@ -461,40 +441,25 @@ function ManualLeadDialog({
   )
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      // biome-ignore lint/a11y/useSemanticElements: custom modal with focus trap, aria-modal and Escape handling; native <dialog> would require showModal()/close() and break the backdrop + animation.
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose()
+        }
+      }}
     >
-      <button
-        type="button"
-        tabIndex={-1}
-        aria-label="Close dialog"
-        className="absolute inset-0 bg-cocoa-dark/60"
-        onClick={onClose}
-      />
-
-      <div
-        ref={dialogRef}
-        className="relative z-10 w-full max-w-md rounded-cards bg-canvas-white shadow-elevated"
-      >
-        <div className="flex items-center justify-between border-b border-cloud-gray px-5 py-4">
-          <h2 id={titleId} className="font-display text-lg tracking-tight text-cocoa-dark">
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-display text-lg tracking-tight text-cocoa-dark">
             New Manual Lead
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-pill text-warm-gray transition-colors hover:bg-cloud-gray motion-reduce:transition-none"
-            aria-label="Close dialog"
-          >
-            <Icon icon={Plus} decorative size={16} className="rotate-45" />
-          </button>
-        </div>
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            Create a lead by entering a name and phone number.
+          </DialogDescription>
+        </DialogHeader>
 
-        <form onSubmit={submit} className="space-y-4 p-5" noValidate>
+        <form onSubmit={submit} className="space-y-4" noValidate>
           {/* Name */}
           <div className="space-y-1.5">
             <label
@@ -595,26 +560,22 @@ function ManualLeadDialog({
             </p>
           )}
 
-          <div className="flex items-center justify-end gap-2 pt-1">
-            <button
+          <DialogFooter>
+            <Button
               type="button"
+              variant="outline"
               onClick={onClose}
               disabled={submitting}
-              className="rounded-buttons border border-cloud-gray px-4 py-2.5 font-ui text-sm text-cocoa-dark transition-colors hover:bg-cloud-gray motion-reduce:transition-none disabled:opacity-50"
+              className="font-ui"
             >
               Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              aria-busy={submitting}
-              className="rounded-buttons bg-royal-gold px-4 py-2.5 font-ui text-sm font-semibold text-cocoa-dark transition-colors hover:bg-deep-gold motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60"
-            >
+            </Button>
+            <Button type="submit" disabled={submitting} aria-busy={submitting} className="font-ui">
               {submitting ? 'Creating…' : 'Create Lead'}
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

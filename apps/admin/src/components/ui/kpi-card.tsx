@@ -36,7 +36,9 @@
  *                once available.
  ************************************************************/
 
+import { Card } from '@/components/ui/card'
 import { Icon } from '@/components/ui/icon'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@rgss/ui/lib/utils'
 import type { LucideIcon } from 'lucide-react'
 
@@ -64,28 +66,20 @@ type KPICardProps = {
  */
 export function KPICard({ label, value, icon, loading = false, className }: KPICardProps) {
   return (
-    <div
-      className={cn(
-        'flex flex-col gap-2 rounded-cards border border-outline-gray bg-canvas-white p-5',
-        className,
-      )}
-    >
+    <Card className={cn('gap-2 rounded-cards border-outline-gray p-5', className)}>
       <div className="flex items-center justify-between gap-2">
         <span className="font-sans text-sm text-dusty-gray">{label}</span>
         {icon ? <Icon icon={icon} decorative className="text-deep-gold" /> : null}
       </div>
 
       {loading ? (
-        <div
-          aria-busy="true"
-          aria-live="polite"
-          className="h-8 w-2/3 animate-pulse rounded-cards bg-cloud-gray"
-        >
+        <div aria-busy="true" aria-live="polite">
+          <Skeleton className="h-8 w-2/3 rounded-cards bg-cloud-gray" />
           <span className="sr-only">Loading</span>
         </div>
       ) : (
         <span className="font-display text-2xl text-cocoa-dark">{value}</span>
       )}
-    </div>
+    </Card>
   )
 }

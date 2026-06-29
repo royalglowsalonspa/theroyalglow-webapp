@@ -31,6 +31,7 @@
  *                ≥4.5:1 per the design variant → token table (Req 9.5).
  ************************************************************/
 
+import { Badge } from '@/components/ui/badge'
 import { type BadgeVariant, labelForStatus, variantForStatus } from '@/lib/admin/status-badge'
 import { cn } from '@rgss/ui/lib/utils'
 
@@ -64,15 +65,16 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
   const classes = VARIANT_CLASSES[variant]
 
   return (
-    <span
+    <Badge
+      variant="outline"
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-pill px-2.5 py-0.5 font-ui text-xs font-medium',
+        'gap-1.5 rounded-pill border-transparent px-2.5 py-0.5 font-ui text-xs font-medium',
         classes.pill,
         className,
       )}
     >
       <span className={cn('h-1.5 w-1.5 rounded-pill', classes.dot)} aria-hidden="true" />
       {label}
-    </span>
+    </Badge>
   )
 }

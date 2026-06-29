@@ -32,7 +32,10 @@
 'use client'
 
 import { StatusBadge } from '@/components/admin/StatusBadge'
+import { Button } from '@/components/ui/button'
+import { Icon } from '@/components/ui/icon'
 import { formatDateDDMMYYYY, formatINR } from '@/lib/admin/bookings'
+import { X } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useMemo, useState } from 'react'
 
@@ -156,7 +159,7 @@ export function CustomerProfileTabs({
                 aria-selected={active}
                 aria-controls={`panel-${t.id}`}
                 onClick={() => setTab(t.id)}
-                className={`px-4 py-2 text-sm font-ui transition-colors border-b-2 -mb-px focus:outline-none focus:ring-2 focus:ring-deep-gold rounded-t-[4px] ${
+                className={`px-4 py-2 text-sm font-ui transition-colors border-b-2 -mb-px focus:outline-none focus:ring-2 focus:ring-deep-gold rounded-t-cards ${
                   active
                     ? 'border-deep-gold text-cocoa-dark'
                     : 'border-transparent text-dusty-gray hover:text-cocoa-dark'
@@ -307,7 +310,7 @@ function TagSection({
   }, [query, assign])
 
   return (
-    <section className="border border-cloud-gray rounded-[6px] bg-canvas-white p-5 space-y-2">
+    <section className="border border-cloud-gray rounded-cards bg-canvas-white p-5 space-y-2">
       <span className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray">Tags</span>
       <div className="flex flex-wrap items-center gap-2">
         {tags.length === 0 ? (
@@ -327,7 +330,7 @@ function TagSection({
                 aria-label={`Remove tag ${t.name}`}
                 className="ml-0.5 rounded-full hover:text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold disabled:opacity-50"
               >
-                ✕
+                <Icon icon={X} decorative size={12} />
               </button>
             </span>
           ))
@@ -343,7 +346,7 @@ function TagSection({
               // biome-ignore lint/a11y/noAutofocus: focus the field when the picker opens
               autoFocus
               aria-label="Add a tag"
-              className="h-8 px-2.5 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
+              className="h-8 px-2.5 rounded-cards border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
             />
             <button
               type="button"
@@ -357,7 +360,7 @@ function TagSection({
               Cancel
             </button>
             {(suggestions.length > 0 || (query.trim() && !exactMatch)) && (
-              <ul className="absolute z-10 mt-1 w-56 max-h-56 overflow-y-auto rounded-[6px] border border-cloud-gray bg-canvas-white shadow-sm py-1">
+              <ul className="absolute z-10 mt-1 w-56 max-h-56 overflow-y-auto rounded-cards border border-cloud-gray bg-canvas-white shadow-sm py-1">
                 {suggestions.map((s) => (
                   <li key={s.id}>
                     <button
@@ -410,7 +413,7 @@ function BookingsPanel({ bookings }: { bookings: BookingRow[] }) {
     return <EmptyPanel message="No bookings yet." />
   }
   return (
-    <div className="border border-cloud-gray rounded-[6px] overflow-hidden">
+    <div className="border border-cloud-gray rounded-cards overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -461,7 +464,7 @@ function InvoicesPanel({ invoices }: { invoices: InvoiceRow[] }) {
     return <EmptyPanel message="No invoices yet." />
   }
   return (
-    <div className="border border-cloud-gray rounded-[6px] overflow-hidden">
+    <div className="border border-cloud-gray rounded-cards overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -539,7 +542,7 @@ function MembershipCard({
 
   return (
     <div
-      className={`border rounded-[6px] bg-canvas-white p-4 ${
+      className={`border rounded-cards bg-canvas-white p-4 ${
         highlight ? 'border-deep-gold/50' : 'border-cloud-gray'
       }`}
     >
@@ -571,7 +574,7 @@ function MembershipCard({
 // --- Gems tab ---
 function GemsPanel({ gemsBalance }: { gemsBalance: number }) {
   return (
-    <div className="border border-cloud-gray rounded-[6px] bg-canvas-white p-5">
+    <div className="border border-cloud-gray rounded-cards bg-canvas-white p-5">
       <p className="text-[10px] font-ui uppercase tracking-wider text-dusty-gray mb-1">
         Gems Balance
       </p>
@@ -648,22 +651,22 @@ function NotesPanel({
           rows={3}
           maxLength={1000}
           placeholder="Add a note about this customer…"
-          className="w-full px-3 py-2 rounded-[6px] border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold resize-none"
+          className="w-full px-3 py-2 rounded-cards border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold resize-none"
         />
         {noteError && (
           <p className="text-xs text-error font-sans" role="alert">
             {noteError}
           </p>
         )}
-        <button
+        <Button
           type="button"
           onClick={addNote}
           disabled={submitting}
           aria-busy={submitting}
-          className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="font-ui"
         >
           {submitting ? 'Saving…' : 'Save Note'}
-        </button>
+        </Button>
       </div>
 
       <div className="space-y-3">
@@ -671,7 +674,7 @@ function NotesPanel({
           <p className="text-sm text-dusty-gray font-sans">No notes yet.</p>
         ) : (
           notes.map((n) => (
-            <div key={n.id} className="border border-cloud-gray rounded-[6px] bg-canvas-white p-3">
+            <div key={n.id} className="border border-cloud-gray rounded-cards bg-canvas-white p-3">
               <p className="text-[11px] font-ui uppercase tracking-wider text-dusty-gray mb-1">
                 {n.createdAt ? formatDateDDMMYYYY(n.createdAt) : '—'} · {n.authorName}
               </p>
@@ -695,7 +698,7 @@ function Th({ children }: { children: React.ReactNode }) {
 
 function EmptyPanel({ message }: { message: string }) {
   return (
-    <div className="border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-12 text-center">
+    <div className="border border-cloud-gray rounded-cards bg-canvas-white px-5 py-12 text-center">
       <p className="font-sans text-sm text-dusty-gray">{message}</p>
     </div>
   )

@@ -1,13 +1,16 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
- *
  * Project      : theroyalglow-webapp
  * Module Name  : LeadKanban
  * Scope        : Lead Management UI
  *
  * Description  : Admin lead pipeline kanban board with 5 columns, lead cards,
- *                stale indicators, and a manual lead creation dialog.
+ *                stale indicators, and a manual lead-creation dialog. Migrated
+ *                onto the admin design-system primitives: shared state
+ *                presenters (Skeleton / EmptyState / ErrorState), shadcn
+ *                `Button`, shadcn `Dialog` (Radix — focus trap / Esc / backdrop
+ *                / scroll lock), and brand radius tokens. All lead/form logic
+ *                (fetch, bucketing, validation, submit) is preserved.
  *
  * Responsibilities :
  * - Fetch and display all leads in kanban column layout
@@ -15,24 +18,34 @@
  * - Render lead cards with contact info and stale indicators
  * - Provide manual lead creation dialog with validation
  *
- * Features / Functionality :
- * - 5-column kanban: New, Contacted, Follow-up, Booked, Won/Lost
- * - LeadCard with phone link, service, campaign label, days-since
- * - Stale lead indicator (red dot for 48h+ no contact)
- * - Manual lead creation modal with name/phone/service
- * - Horizontal scroll on mobile, full width on desktop
+ * Tech Stack   : React (Client Component), TypeScript, shadcn (Button, Dialog),
+ *                Tailwind CSS v4 (Brand Tokens), Next.js
+ * Layer        : Presentation
  *
- * Tech Stack   : React, TypeScript, Tailwind CSS, Next.js
- * Layer        : Frontend
+ * Dependencies : @/components/ui/{button,dialog,icon,state/*}, @/lib/admin/leads,
+ *                next/link
  *
- * Dependencies : @/lib/admin/leads, next/link
- *
- * Notes        : None
+ * Notes        : Horizontal scroll on mobile, full width on desktop. The
+ *                creation dialog composes shadcn Dialog, so the previous manual
+ *                Escape / scroll-lock / focus-trap effects are removed (Radix
+ *                provides them).
  ************************************************************/
 
 'use client'
 
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Icon } from '@/components/ui/icon'
+import { EmptyState } from '@/components/ui/state/empty-state'
+import { ErrorState } from '@/components/ui/state/error-state'
+import { Skeleton } from '@/components/ui/state/skeleton'
 import {
   LEAD_COLUMNS,
   type LeadPipelineRow,
@@ -40,9 +53,9 @@ import {
   formatDaysSince,
   leadCampaignLabel,
 } from '@/lib/admin/leads'
-import { Phone } from 'lucide-react'
+import { Inbox, Phone } from 'lucide-react'
 import Link from 'next/link'
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 type ServiceOption = {
   id: string
@@ -100,35 +113,35 @@ export function LeadKanban() {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">Lead Pipeline</h1>
-        <button
-          type="button"
-          onClick={() => setDialogOpen(true)}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[8px] bg-royal-gold text-cocoa-dark text-sm font-ui font-semibold motion-safe:transition-colors hover:bg-deep-gold"
-        >
+        <h1 className="font-display text-2xl tracking-tight text-cocoa-dark">Lead Pipeline</h1>
+        <Button type="button" onClick={() => setDialogOpen(true)} className="font-ui">
           + Manual Lead
-        </button>
+        </Button>
       </div>
 
       {loading ? (
-        <LoadingState />
+        <Skeleton variant="card" rows={4} />
       ) : error ? (
         <ErrorState message={error} onRetry={load} />
       ) : totalCount === 0 ? (
-        <EmptyState />
+        <EmptyState
+          icon={Inbox}
+          title="No leads yet"
+          message="New leads from the /book page and manual entries will appear here."
+        />
       ) : (
         <>
           {/* Horizontal scroll on small screens; columns are regions. */}
           <div className="overflow-x-auto pb-2">
-            <div className="flex gap-4 min-w-max lg:min-w-0">
+            <div className="flex min-w-max gap-4 lg:min-w-0">
               {columns.map((col) => (
                 <KanbanColumn key={col.key} label={col.label} items={col.items} />
               ))}
             </div>
           </div>
 
-          <p className="flex items-center gap-2 text-xs text-dusty-gray font-sans">
-            <span className="inline-block h-2 w-2 rounded-full bg-error" aria-hidden="true" />
+          <p className="flex items-center gap-2 font-sans text-xs text-dusty-gray">
+            <span className="inline-block h-2 w-2 rounded-pill bg-error" aria-hidden="true" />
             Stale — no contact in 48h+. Cards show days since capture.
           </p>
         </>
@@ -157,18 +170,18 @@ function KanbanColumn({
   return (
     <section
       aria-label={`${label} leads`}
-      className="flex flex-col w-[260px] shrink-0 rounded-[6px] border border-cloud-gray bg-cloud-gray/30"
+      className="flex w-[260px] shrink-0 flex-col rounded-cards border border-cloud-gray bg-cloud-gray/30"
     >
-      <header className="flex items-center justify-between px-3 py-2.5 border-b border-cloud-gray">
-        <h2 className="text-xs font-ui uppercase tracking-wider text-dusty-gray">{label}</h2>
-        <span className="text-xs font-ui font-medium text-warm-gray tabular-nums">
+      <header className="flex items-center justify-between border-b border-cloud-gray px-3 py-2.5">
+        <h2 className="font-ui text-xs uppercase tracking-wider text-dusty-gray">{label}</h2>
+        <span className="font-ui text-xs font-medium tabular-nums text-warm-gray">
           {items.length}
         </span>
       </header>
 
-      <div className="flex flex-col gap-2.5 p-2.5 min-h-[80px]">
+      <div className="flex min-h-[80px] flex-col gap-2.5 p-2.5">
         {items.length === 0 ? (
-          <p className="px-1 py-3 text-center text-xs font-sans text-dusty-gray">No leads</p>
+          <p className="px-1 py-3 text-center font-sans text-xs text-dusty-gray">No leads</p>
         ) : (
           items.map((lead) => <LeadCard key={lead.id} lead={lead} />)
         )}
@@ -180,17 +193,17 @@ function KanbanColumn({
 function LeadCard({ lead }: { lead: LeadPipelineRow }) {
   const phoneDigits = lead.phone.replace(/\s/g, '')
   return (
-    <article className="rounded-[6px] border border-cloud-gray bg-canvas-white p-3 shadow-sm motion-safe:transition-shadow hover:shadow-card-hover">
+    <article className="rounded-cards border border-cloud-gray bg-canvas-white p-3 shadow-sm motion-safe:transition-shadow hover:shadow-card-hover">
       <div className="flex items-start justify-between gap-2">
         <Link
           href={`/leads/${lead.id}`}
-          className="font-ui text-sm font-medium text-cocoa-dark hover:text-deep-gold motion-safe:transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-deep-gold rounded-[4px]"
+          className="rounded-cards font-ui text-sm font-medium text-cocoa-dark hover:text-deep-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-deep-gold motion-safe:transition-colors"
         >
           {lead.name}
         </Link>
         {lead.isStale && (
           <span
-            className="mt-1 inline-block h-2 w-2 shrink-0 rounded-full bg-error"
+            className="mt-1 inline-block h-2 w-2 shrink-0 rounded-pill bg-error"
             role="img"
             aria-label="Stale lead — no contact in 48 hours or more"
           />
@@ -210,7 +223,7 @@ function LeadCard({ lead }: { lead: LeadPipelineRow }) {
         <p className="mt-1.5 font-sans text-xs text-cocoa-dark">{lead.serviceName}</p>
       )}
 
-      <p className="mt-0.5 font-sans text-[11px] text-dusty-gray truncate">
+      <p className="mt-0.5 truncate font-sans text-[11px] text-dusty-gray">
         {leadCampaignLabel(lead)}
       </p>
 
@@ -228,9 +241,6 @@ function ManualLeadDialog({
   onClose: () => void
   onCreated: () => void
 }) {
-  const titleId = useId()
-  const dialogRef = useRef<HTMLDivElement>(null)
-
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [serviceInterestedId, setServiceInterestedId] = useState('')
@@ -238,28 +248,6 @@ function ManualLeadDialog({
   const [submitting, setSubmitting] = useState(false)
   const [fieldError, setFieldError] = useState<{ name?: string; phone?: string }>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
-
-  // Escape to close.
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        onClose()
-      }
-    }
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
-  }, [onClose])
-
-  // Body scroll lock + initial focus.
-  useEffect(() => {
-    const previous = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    const firstField = dialogRef.current?.querySelector<HTMLElement>('input, select')
-    firstField?.focus()
-    return () => {
-      document.body.style.overflow = previous
-    }
-  }, [])
 
   // Fetch service options (best-effort; the field stays optional if it fails).
   useEffect(() => {
@@ -347,47 +335,25 @@ function ManualLeadDialog({
   )
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      // biome-ignore lint/a11y/useSemanticElements: custom modal with focus trap, aria-modal and Escape handling; native <dialog> would require showModal()/close() and break the backdrop + animation.
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose()
+        }
+      }}
     >
-      <button
-        type="button"
-        tabIndex={-1}
-        aria-label="Close dialog"
-        className="absolute inset-0 bg-cocoa-dark/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
-
-      <div
-        ref={dialogRef}
-        className="relative z-10 w-full max-w-md rounded-[6px] bg-canvas-white shadow-elevated"
-      >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-cloud-gray">
-          <h2 id={titleId} className="font-display text-lg text-cocoa-dark tracking-tight">
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-display text-lg tracking-tight text-cocoa-dark">
             New Manual Lead
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-cloud-gray motion-safe:transition-colors"
-            aria-label="Close dialog"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path
-                d="M4 4l8 8M12 4l-8 8"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            </svg>
-          </button>
-        </div>
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            Create a lead by entering a name and phone number.
+          </DialogDescription>
+        </DialogHeader>
 
-        <form onSubmit={submit} className="space-y-4 p-5" noValidate>
+        <form onSubmit={submit} className="space-y-4" noValidate>
           {/* Name */}
           <div className="space-y-1.5">
             <label
@@ -406,7 +372,7 @@ function ManualLeadDialog({
               aria-required="true"
               aria-invalid={Boolean(fieldError.name)}
               aria-describedby={fieldError.name ? 'manual-lead-name-error' : undefined}
-              className="min-h-[44px] w-full rounded-[8px] border border-outline-gray px-3 py-2.5 font-sans text-base text-cocoa-dark placeholder:text-dusty-gray focus:border-deep-gold focus:outline-none focus:ring-1 focus:ring-deep-gold disabled:opacity-60 aria-[invalid=true]:border-error"
+              className="min-h-11 w-full rounded-buttons border border-outline-gray px-3 py-2.5 font-sans text-base text-cocoa-dark placeholder:text-dusty-gray focus:border-deep-gold focus:outline-none focus:ring-1 focus:ring-deep-gold disabled:opacity-60 aria-[invalid=true]:border-error"
             />
             {fieldError.name && (
               <p id="manual-lead-name-error" className="font-sans text-xs text-error" role="alert">
@@ -425,7 +391,7 @@ function ManualLeadDialog({
             </label>
             <div className="flex items-stretch">
               <span
-                className="inline-flex min-h-[44px] items-center rounded-l-[8px] border border-r-0 border-outline-gray bg-cloud-gray px-3 font-sans text-base text-warm-gray"
+                className="inline-flex min-h-11 items-center rounded-l-buttons border border-r-0 border-outline-gray bg-cloud-gray px-3 font-sans text-base text-warm-gray"
                 aria-hidden="true"
               >
                 +91
@@ -442,7 +408,7 @@ function ManualLeadDialog({
                 aria-required="true"
                 aria-invalid={Boolean(fieldError.phone)}
                 aria-describedby={fieldError.phone ? 'manual-lead-phone-error' : undefined}
-                className="min-h-[44px] w-full rounded-r-[8px] border border-outline-gray px-3 py-2.5 font-sans text-base text-cocoa-dark placeholder:text-dusty-gray focus:border-deep-gold focus:outline-none focus:ring-1 focus:ring-deep-gold disabled:opacity-60 aria-[invalid=true]:border-error"
+                className="min-h-11 w-full rounded-r-buttons border border-outline-gray px-3 py-2.5 font-sans text-base text-cocoa-dark placeholder:text-dusty-gray focus:border-deep-gold focus:outline-none focus:ring-1 focus:ring-deep-gold disabled:opacity-60 aria-[invalid=true]:border-error"
               />
             </div>
             {fieldError.phone && (
@@ -465,7 +431,7 @@ function ManualLeadDialog({
               value={serviceInterestedId}
               onChange={(e) => setServiceInterestedId(e.target.value)}
               disabled={submitting}
-              className="min-h-[44px] w-full rounded-[8px] border border-outline-gray bg-canvas-white px-3 py-2.5 font-sans text-base text-cocoa-dark focus:border-deep-gold focus:outline-none focus:ring-1 focus:ring-deep-gold disabled:opacity-60"
+              className="min-h-11 w-full rounded-buttons border border-outline-gray bg-canvas-white px-3 py-2.5 font-sans text-base text-cocoa-dark focus:border-deep-gold focus:outline-none focus:ring-1 focus:ring-deep-gold disabled:opacity-60"
             >
               <option value="">
                 {services === null ? 'Loading services…' : 'Select service…'}
@@ -488,91 +454,22 @@ function ManualLeadDialog({
             </p>
           )}
 
-          <div className="flex items-center justify-end gap-2 pt-1">
-            <button
+          <DialogFooter>
+            <Button
               type="button"
+              variant="outline"
               onClick={onClose}
               disabled={submitting}
-              className="px-4 py-2.5 rounded-[8px] border border-cloud-gray text-cocoa-dark text-sm font-ui hover:bg-cloud-gray motion-safe:transition-colors disabled:opacity-50"
+              className="font-ui"
             >
               Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              aria-busy={submitting}
-              className="px-4 py-2.5 rounded-[8px] bg-royal-gold text-cocoa-dark text-sm font-ui font-semibold hover:bg-deep-gold motion-safe:transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-            >
+            </Button>
+            <Button type="submit" disabled={submitting} aria-busy={submitting} className="font-ui">
               {submitting ? 'Creating…' : 'Create Lead'}
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
-  )
-}
-
-function LoadingState() {
-  return (
-    <output
-      className="flex items-center gap-3 border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 justify-center"
-      aria-live="polite"
-    >
-      <Spinner />
-      <span className="font-sans text-sm text-dusty-gray">Loading leads…</span>
-    </output>
-  )
-}
-
-function ErrorState({
-  message,
-  onRetry,
-}: {
-  message: string
-  onRetry: () => void
-}) {
-  return (
-    <div className="border border-error/40 bg-error/5 rounded-[6px] px-5 py-10 text-center">
-      <p className="font-sans text-sm text-error mb-3" role="alert">
-        {message}
-      </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="px-4 py-2 rounded-[6px] bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray motion-safe:transition-colors"
-      >
-        Try Again
-      </button>
-    </div>
-  )
-}
-
-function EmptyState() {
-  return (
-    <div className="border border-cloud-gray rounded-[6px] bg-canvas-white px-5 py-16 text-center">
-      <p className="font-sans text-sm text-cocoa-dark mb-1">No leads yet</p>
-      <p className="font-sans text-xs text-dusty-gray">
-        New leads from the /book page and manual entries will appear here.
-      </p>
-    </div>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-5 w-5 motion-safe:animate-spin text-deep-gold"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
+      </DialogContent>
+    </Dialog>
   )
 }
