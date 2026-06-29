@@ -21,6 +21,7 @@
     "check:admin-root-path": "node scripts/admin-design/root-path-convention.mjs",
     "check:no-emoji": "node scripts/assert-no-emoji-icons.mjs",
     "set-role": "bun run packages/db/scripts/set-role.ts",
+    "provision:betterstack": "bun run scripts/provision-betterstack.ts",
     "prepare": "husky"
   },
   "devDependencies": {
