@@ -69,6 +69,27 @@
   // and invaluable for a production salon booking system.
   "observability": {
     "enabled": true
+  },
+
+  // -- ENVIRONMENTS ----------------------------------------------------------
+  // The top-level config above is PRODUCTION (Worker `rgss-web`, custom domain
+  // `theroyalglow.in`, deployed by deploy-prod.yml on push to `prod`).
+  //
+  // `pprd` is the pre-production staging tier (deployed by deploy-pprd.yml on
+  // push to the `pprd` branch via `wrangler deploy --env pprd`). It is a
+  // separate Worker (`rgss-web-pprd`) on an isolated subdomain so its
+  // `.pprd.theroyalglow.in`-scoped session cookie can NEVER collide with prod's
+  // `.theroyalglow.in` cookie. Admin pprd nests UNDER this domain
+  // (`admin.pprd.theroyalglow.in`) so web+admin share one pprd cookie scope.
+  //
+  // One-time: attach `pprd.theroyalglow.in` to the `rgss-web-pprd` Worker and
+  // provision its runtime secrets (DATABASE_URL → pprd Neon branch, etc.).
+  "env": {
+    "pprd": {
+      "name": "rgss-web-pprd",
+      "routes": [{ "pattern": "pprd.theroyalglow.in", "custom_domain": true }],
+      "observability": { "enabled": true }
+    }
   }
 
   // -- OPTIONAL (recommended next): persistent ISR/data cache on R2 ----------
