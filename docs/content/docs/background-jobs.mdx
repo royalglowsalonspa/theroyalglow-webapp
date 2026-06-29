@@ -5,6 +5,14 @@ description: The 19 scheduled and event-driven jobs that keep Royal Glow running
 
 # Background Jobs
 
+<Callout type="info">
+  **19 jobs total — 14 QStash scheduled + 4 QStash triggered + 1 GitHub Actions cron.**
+  All scheduled and event-driven jobs run on QStash (HTTP → Next.js API routes
+  hosted in `apps/admin`, served from `admin.theroyalglow.in/api/jobs/*`). The
+  single exception is the `pprd` branch reset (Job 5), a Neon control-plane op on
+  GitHub Actions cron. Every job pings a BetterStack heartbeat on success.
+</Callout>
+
 Royal Glow runs **19 background jobs**. **All scheduled and event-driven jobs run
 on QStash** (HTTP → Next.js API routes) — including the pure-SQL maintenance jobs,
 which execute their idempotent SQL via `@rgss/db` query functions. The single
@@ -20,18 +28,31 @@ runs on GitHub Actions cron.
   verbatim into `packages/db/src/queries/jobs.ts`.
 </Callout>
 
-| Tool | Runs inside | Use for |
-| --- | --- | --- |
-| **QStash** | Upstash HTTP queue → Next.js API routes | ALL scheduled + triggered jobs (DB maintenance + external services) |
-| **GitHub Actions cron** | GitHub CI | Control-plane only — Neon `pprd` branch reset + PII strip (Job 5) |
+## Where jobs run
+
+<Tabs items={['QStash', 'GitHub Actions cron']}>
+<Tab value="QStash">
+
+Upstash HTTP queue → Next.js API routes in `apps/admin`. Use for **ALL** scheduled
+and triggered jobs (DB maintenance + external services).
+
+Every QStash job calls a `POST /api/jobs/...` route and is auto-retried (3x,
+exponential backoff) on a non-2xx response. Every job pings a BetterStack
+heartbeat on success so silent failures get detected. The `/api/jobs/*` routes are
+served from `admin.theroyalglow.in/api/jobs/*`; QStash schedules are registered
+from the admin deploy.
+
+</Tab>
+<Tab value="GitHub Actions cron">
+
+GitHub CI. Control-plane **only** — Neon `pprd` branch reset + PII strip (Job 5).
+A Neon Branch Reset API call cannot run inside a normal request, so it lives in CI.
+
+</Tab>
+</Tabs>
 
 <Callout type="info">
-  Every QStash job calls a `POST /api/jobs/...` route and is auto-retried (3x,
-  exponential backoff) on a non-2xx response. Every job pings a BetterStack
-  heartbeat on success so silent failures get detected. All schedules are in UTC;
-  the salon operates IST (UTC+5:30). The `/api/jobs/*` routes are hosted in
-  `apps/admin` and served from `admin.theroyalglow.in/api/jobs/*`; QStash schedules
-  are registered from the admin deploy.
+  All schedules are in UTC; the salon operates IST (UTC+5:30).
 </Callout>
 
 ## Not jobs (synchronous / external)
@@ -42,66 +63,104 @@ Three time-critical actions deliberately run **in-request**, not as jobs:
 - **Gems-earned push** — fired in the same request as invoice completion.
 - **Re-engagement email** — handled inside Brevo automations (marketing), not counted here.
 
-## Scheduled DB-maintenance jobs (7)
+## Job inventory
+
+<Tabs items={['Scheduled — DB maintenance (7)', 'Scheduled — application (8)', 'Triggered (4)']}>
+<Tab value="Scheduled — DB maintenance (7)">
 
 These run in the early IST hours when traffic is zero. **Jobs 1–4, 6 and 7 run on
 QStash** (each POSTs its `/api/jobs/...` route, which runs the idempotent SQL via
-a `@rgss/db` query function) — *not* pg_cron (see the callout above). Job 5 runs
-via GitHub Actions cron (Neon branch reset) plus SQL anonymisation.
+a `@rgss/db` query function) — *not* pg_cron. Job 5 runs via GitHub Actions cron
+(Neon branch reset) plus SQL anonymisation.
 
-| # | Job | Schedule (UTC) | IST | Purpose |
-| --- | --- | --- | --- | --- |
-| 1 | Nightly sales summary | `0 18 * * *` | 11:30 PM | Aggregate the day's invoices into `daily_sales_summary` |
-| 2 | Membership auto-expire | `30 18 * * *` | 12:00 AM | Flip `spa_membership` from `active` → `expired` past `expires_at` |
-| 3 | Offer auto-expire | `35 18 * * *` | 12:05 AM | Deactivate offers whose `end_date` has passed |
-| 7 | Gems auto-expire | `40 18 * * *` | 12:10 AM | Deduct gems 365 days after they were earned |
-| 6 | Monthly GST summary | `30 19 1 * *` | 1:00 AM (1st) | Aggregate prior month into `monthly_gst_summary` (SAC 999721) |
-| 5 | pprd DB sync | `30 19 * * *` | 1:00 AM | GitHub Actions resets `pprd` from `prod`, then strips PII |
-| 4 | Session cleanup | `0 21 * * 0` | 2:30 AM Sun | Delete expired Better Auth `session` rows |
+<Accordions type="single">
+<Accordion title="Job 1 — Nightly sales summary · 0 18 * * * UTC · 11:30 PM IST">
+Aggregate the day's invoices into `daily_sales_summary`. Runs on QStash.
+</Accordion>
+<Accordion title="Job 2 — Membership auto-expire · 30 18 * * * UTC · 12:00 AM IST">
+Flip `spa_membership` from `active` to `expired` past `expires_at`. Runs on QStash.
+</Accordion>
+<Accordion title="Job 3 — Offer auto-expire · 35 18 * * * UTC · 12:05 AM IST">
+Deactivate offers whose `end_date` has passed. Runs on QStash.
+</Accordion>
+<Accordion title="Job 7 — Gems auto-expire · 40 18 * * * UTC · 12:10 AM IST">
+Deduct gems 365 days after they were earned. Runs on QStash.
+</Accordion>
+<Accordion title="Job 6 — Monthly GST summary · 30 19 1 * * UTC · 1:00 AM IST (1st)">
+Aggregate the prior month into `monthly_gst_summary` (SAC 999721). Runs on QStash.
+</Accordion>
+<Accordion title="Job 5 — pprd DB sync · 30 19 * * * UTC · 1:00 AM IST">
+GitHub Actions resets `pprd` from `prod`, then strips PII. Control-plane op.
+</Accordion>
+<Accordion title="Job 4 — Session cleanup · 0 21 * * 0 UTC · 2:30 AM IST Sunday">
+Delete expired Better Auth `session` rows. Runs on QStash.
+</Accordion>
+</Accordions>
 
-## QStash scheduled jobs — application (8)
+</Tab>
+<Tab value="Scheduled — application (8)">
 
-HTTP-triggered application jobs on a fixed cadence (the 6 DB-maintenance jobs
-above are also QStash-scheduled, for 14 QStash-scheduled jobs in total).
+HTTP-triggered application jobs on a fixed cadence (the 6 DB-maintenance jobs are
+also QStash-scheduled, for 14 QStash-scheduled jobs in total).
 
-| # | Job | Cadence | Endpoint | External calls |
-| --- | --- | --- | --- | --- |
-| 8 | Appointment reminders | Every 15 min (8 AM–10 PM IST) | `/api/jobs/appointment-reminders` | web-push + Resend |
-| 9 | Membership expiry alerts | Daily 12:30 AM IST | `/api/jobs/membership-expiry` | web-push + Resend |
-| 10 | Birthday emails | Daily 9:30 AM IST | `/api/jobs/birthday-emails` | Brevo + web-push |
-| 11 | Membership usage nudges | Daily randomized batch | `/api/jobs/membership-usage-nudges` | web-push + Resend |
-| 12 | Lead follow-up reminders | Daily 10:30 AM IST | `/api/jobs/lead-followups` | web-push |
-| 13 | Daily sales report | Daily 10:30 PM IST | `/api/jobs/daily-sales-report` | Slack + Resend |
-| 14 | Weekly summary report | Mon 9:00 AM IST | `/api/jobs/weekly-report` | Slack + Resend |
-| 15 | Gems expiry reminder | Daily 10:30 AM IST | `/api/jobs/gems-expiry-reminder` | web-push only |
+<Accordions type="single">
+<Accordion title="Job 8 — Appointment reminders · every 15 min (8 AM–10 PM IST)">
+Endpoint `/api/jobs/appointment-reminders`. External calls: web-push + Resend.
+</Accordion>
+<Accordion title="Job 9 — Membership expiry alerts · daily 12:30 AM IST">
+Endpoint `/api/jobs/membership-expiry`. External calls: web-push + Resend.
+</Accordion>
+<Accordion title="Job 10 — Birthday emails · daily 9:30 AM IST">
+Endpoint `/api/jobs/birthday-emails`. External calls: Brevo + web-push.
+</Accordion>
+<Accordion title="Job 11 — Membership usage nudges · daily randomized batch">
+Endpoint `/api/jobs/membership-usage-nudges`. External calls: web-push + Resend.
+</Accordion>
+<Accordion title="Job 12 — Lead follow-up reminders · daily 10:30 AM IST">
+Endpoint `/api/jobs/lead-followups`. External calls: web-push.
+</Accordion>
+<Accordion title="Job 13 — Daily sales report · daily 10:30 PM IST">
+Endpoint `/api/jobs/daily-sales-report`. External calls: Slack + Resend.
+</Accordion>
+<Accordion title="Job 14 — Weekly summary report · Mon 9:00 AM IST">
+Endpoint `/api/jobs/weekly-report`. External calls: Slack + Resend.
+</Accordion>
+<Accordion title="Job 15 — Gems expiry reminder · daily 10:30 AM IST">
+Endpoint `/api/jobs/gems-expiry-reminder`. External calls: web-push only.
+</Accordion>
+</Accordions>
 
 Reminders fire only when the customer has the relevant preference enabled
 (`appointment_reminders_enabled`, `membership_alerts_enabled`) or
 `marketing_consent` for birthday/marketing sends. Each job writes a
 `notification` row for idempotency so the same alert is never sent twice.
 
-## QStash triggered jobs (4)
+</Tab>
+<Tab value="Triggered (4)">
 
 Event-driven — enqueued with a delay by an API route when a business event
 occurs, not on a fixed schedule.
 
-| # | Job | Trigger | Delay | Endpoint | External calls |
-| --- | --- | --- | --- | --- | --- |
-| 16 | Post-service follow-up | `booking.status` → `completed` | +24h | `/api/jobs/post-service-followup` | Brevo |
-| 17 | Stale pending booking alert | Booking created `pending` | +2h | `/api/jobs/stale-booking-alert` | web-push |
-| 18 | No-show check | Booking `end_time` reached | +15min | `/api/jobs/noshow-check` | web-push |
-| 19 | Membership expired notice | `spa_membership.expires_at` passes | +1h | `/api/jobs/membership-expired-notice` | Resend |
+<Accordions type="single">
+<Accordion title="Job 16 — Post-service follow-up · trigger booking.status → completed · +24h">
+Endpoint `/api/jobs/post-service-followup`. External calls: Brevo.
+</Accordion>
+<Accordion title="Job 17 — Stale pending booking alert · trigger booking created pending · +2h">
+Endpoint `/api/jobs/stale-booking-alert`. External calls: web-push. Escalates to an
+auto-reject (with apology to the customer) if a booking is still pending after 24 hours.
+</Accordion>
+<Accordion title="Job 18 — No-show check · trigger booking end_time reached · +15min">
+Endpoint `/api/jobs/noshow-check`. External calls: web-push. Never auto-marks a
+no-show — a receptionist may have extended the session without updating the system,
+so it always alerts a human to confirm.
+</Accordion>
+<Accordion title="Job 19 — Membership expired notice · trigger spa_membership.expires_at passes · +1h">
+Endpoint `/api/jobs/membership-expired-notice`. External calls: Resend.
+</Accordion>
+</Accordions>
 
-<Callout type="info">
-  Job 18 never auto-marks a no-show — a receptionist may have extended the
-  session without updating the system, so it always alerts a human to confirm.
-  Job 17 escalates to an auto-reject (with apology to the customer) if a booking
-  is still pending after 24 hours.
-</Callout>
-
-## Inventory at a glance
-
-**19 jobs total — 14 QStash scheduled + 4 QStash triggered + 1 GitHub Actions cron (Job 5).**
+</Tab>
+</Tabs>
 
 ## Related pages
 

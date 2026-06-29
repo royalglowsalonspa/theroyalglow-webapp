@@ -8,20 +8,25 @@ description: Customer SPA membership view plus the admin endpoints to create, li
 SPA memberships are hour-based: a customer buys a tier (e.g. Silver 8hrs, Gold
 15hrs) valid for a fixed number of days, and each SPA session deducts its
 duration from the remaining hours. There is one customer-facing read endpoint
-(`GET /api/membership`); everything else lives under `/api/admin` and is
-role-gated.
+(`theroyalglow.in/api/membership`, singular); everything else is an admin
+endpoint served from `admin.theroyalglow.in` (e.g.
+`admin.theroyalglow.in/api/memberships`, plural) and is role-gated.
 
 <Callout type="info">
-  Roles are hierarchical: `customer` < `staff` < `receptionist` < `manager` <
-  `owner` < `developer`. Money is an integer in **paise** (₹10,000 = `1000000`).
-  **Hours are stored as minutes** — the `*HoursMinutes` fields hold minutes, so
-  Silver 8hrs = `480` and Gold 15hrs = `900`. Dates in request bodies are
-  `YYYY-MM-DD`; timestamps in responses are UTC ISO strings. Membership status
-  is one of `active`, `expired`, `cancelled`. Membership numbers use the format
-  `RG-MEM-{YY}-{branchNumber}-{5 random}`.
+  **Base URLs:** the customer read endpoint is `https://theroyalglow.in`; the
+  admin endpoints are served from `https://admin.theroyalglow.in` with **no
+  `/api/admin/` segment** — the subdomain is the namespace (e.g.
+  `admin.theroyalglow.in/api/memberships`, `.../api/membership-tiers`). Roles
+  are hierarchical: `customer` < `staff` <
+  `receptionist` < `manager` < `owner` < `developer`. Money is an integer in
+  **paise** (₹10,000 = `1000000`). **Hours are stored as minutes** — the
+  `*HoursMinutes` fields hold minutes, so Silver 8hrs = `480` and Gold 15hrs =
+  `900`. Dates in request bodies are `YYYY-MM-DD`; timestamps in responses are
+  UTC ISO strings. Membership status is one of `active`, `expired`, `cancelled`.
+  Membership numbers use the format `RG-MEM-{YY}-{branchNumber}-{5 random}`.
 </Callout>
 
-## GET /api/membership
+## GET `theroyalglow.in/api/membership`
 
 Returns the signed-in customer's own membership data: the single `active`
 membership (if any), an array of `past` (expired/cancelled) memberships, and the
@@ -96,14 +101,22 @@ GET /api/membership
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
-## GET /api/admin/membership-tiers
+## GET `admin.theroyalglow.in/api/membership-tiers`
 
 Lists active membership tiers, ordered by `displayOrder` — used to populate the
 create-membership form / tier picker. Hours and validity prefill the create
@@ -112,7 +125,7 @@ form but remain overridable.
 **Minimum role:** `receptionist` (`requireRole('receptionist')`)
 
 ```http
-GET /api/admin/membership-tiers
+GET /api/membership-tiers
 ```
 
 ### Response
@@ -151,15 +164,27 @@ GET /api/admin/membership-tiers
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `FORBIDDEN` | 403 | Session role is below `receptionist`. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="FORBIDDEN — 403">
+
+Session role is below `receptionist`.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
-## GET /api/admin/memberships
+## GET `admin.theroyalglow.in/api/memberships`
 
 Lists memberships, newest first, each flattened with the customer name and tier
 name. Optional query filters narrow by tier id and/or status. The payload is the
@@ -168,13 +193,25 @@ array itself (no wrapping object).
 **Minimum role:** `receptionist` (`requireRole('receptionist')`)
 
 ```http
-GET /api/admin/memberships?status=active&tier=tier_gold
+GET /api/memberships?status=active&tier=tier_gold
 ```
 
-| Parameter | In | Type | Required | Notes |
-| --- | --- | --- | --- | --- |
-| `tier` | query | string | Optional | A tier **id** to filter by. |
-| `status` | query | string | Optional | One of `active`, `expired`, `cancelled`. |
+### Query parameters
+
+<TypeTable
+  type={{
+    tier: {
+      type: 'string',
+      description: 'A tier id to filter by.',
+      required: false,
+    },
+    status: {
+      type: 'string',
+      description: 'One of active, expired, cancelled.',
+      required: false,
+    },
+  }}
+/>
 
 ### Response
 
@@ -208,15 +245,27 @@ GET /api/admin/memberships?status=active&tier=tier_gold
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `FORBIDDEN` | 403 | Session role is below `receptionist`. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="FORBIDDEN — 403">
+
+Session role is below `receptionist`.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
-## POST /api/admin/memberships
+## POST `admin.theroyalglow.in/api/memberships`
 
 Creates a SPA membership and its `membership_purchase` invoice atomically. The
 handler enforces one active membership per customer (a friendly 409 ahead of the
@@ -228,7 +277,7 @@ notice job is scheduled but never affects the response.
 **Minimum role:** `receptionist` (`requireRole('receptionist')`)
 
 ```http
-POST /api/admin/memberships
+POST /api/memberships
 Content-Type: application/json
 ```
 
@@ -236,16 +285,50 @@ Content-Type: application/json
 
 Validated by `createMembershipSchema` (`@rgss/types`).
 
-| Field | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `customerId` | string | Required | Non-empty user id of the customer. |
-| `tierId` | string | Required | Non-empty tier id; must resolve to an active tier. |
-| `hoursMinutes` | integer | Required | Positive. Total membership hours **in minutes** (Silver `480`, Gold `900`). |
-| `pricePaise` | integer | Required | Non-negative. GST-inclusive price in paise. |
-| `startDate` | string | Required | `YYYY-MM-DD`. |
-| `validityDays` | integer | Required | Positive. Days from `startDate` until expiry. |
-| `paymentMethod` | enum | Required | `cash`, `upi`, or `card`. |
-| `notes` | string | Optional | Max 500 characters. |
+<TypeTable
+  type={{
+    customerId: {
+      type: 'string',
+      description: 'Non-empty user id of the customer.',
+      required: true,
+    },
+    tierId: {
+      type: 'string',
+      description: 'Non-empty tier id; must resolve to an active tier.',
+      required: true,
+    },
+    hoursMinutes: {
+      type: 'integer',
+      description: 'Positive. Total membership hours in minutes (Silver 480, Gold 900).',
+      required: true,
+    },
+    pricePaise: {
+      type: 'integer',
+      description: 'Non-negative. GST-inclusive price in paise.',
+      required: true,
+    },
+    startDate: {
+      type: 'string',
+      description: 'YYYY-MM-DD.',
+      required: true,
+    },
+    validityDays: {
+      type: 'integer',
+      description: 'Positive. Days from startDate until expiry.',
+      required: true,
+    },
+    paymentMethod: {
+      type: 'enum',
+      description: 'cash, upi, or card.',
+      required: true,
+    },
+    notes: {
+      type: 'string',
+      description: 'Max 500 characters.',
+      required: false,
+    },
+  }}
+/>
 
 ```json
 {
@@ -308,18 +391,43 @@ Returns `201 Created` with the created membership and its purchase invoice.
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `FORBIDDEN` | 403 | Session role is below `receptionist`. |
-| `VALIDATION_ERROR` | 400 | Body fails `createMembershipSchema`, or the selected tier does not exist / is inactive. |
-| `MEMBERSHIP_ALREADY_ACTIVE` | 409 | The customer already has an active membership. |
-| `NOT_FOUND` | 404 | The primary branch could not be resolved. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="FORBIDDEN — 403">
+
+Session role is below `receptionist`.
+
+</Accordion>
+<Accordion title="VALIDATION_ERROR — 400">
+
+Body fails `createMembershipSchema`, or the selected tier does not exist / is
+inactive.
+
+</Accordion>
+<Accordion title="MEMBERSHIP_ALREADY_ACTIVE — 409">
+
+The customer already has an active membership.
+
+</Accordion>
+<Accordion title="NOT_FOUND — 404">
+
+The primary branch could not be resolved.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
-## GET /api/admin/memberships/[id]
+## GET `admin.theroyalglow.in/api/memberships/[id]`
 
 Returns a single membership enriched with `customerName`, `customerEmail`, the
 full `tier` object, and its completed-session history (`sessions`, each with its
@@ -328,12 +436,20 @@ full `tier` object, and its completed-session history (`sessions`, each with its
 **Minimum role:** `receptionist` (`requireRole('receptionist')`)
 
 ```http
-GET /api/admin/memberships/mem_9aZ2bYc31
+GET /api/memberships/mem_9aZ2bYc31
 ```
 
-| Parameter | In | Type | Required | Notes |
-| --- | --- | --- | --- | --- |
-| `id` | path | string | Required | The membership id. |
+### Path parameters
+
+<TypeTable
+  type={{
+    id: {
+      type: 'string',
+      description: 'Path. The membership id.',
+      required: true,
+    },
+  }}
+/>
 
 ### Response
 
@@ -402,16 +518,32 @@ GET /api/admin/memberships/mem_9aZ2bYc31
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `FORBIDDEN` | 403 | Session role is below `receptionist`. |
-| `NOT_FOUND` | 404 | No membership with that id. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="FORBIDDEN — 403">
+
+Session role is below `receptionist`.
+
+</Accordion>
+<Accordion title="NOT_FOUND — 404">
+
+No membership with that id.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
-## POST /api/admin/memberships/[id]/sessions
+## POST `admin.theroyalglow.in/api/memberships/[id]/sessions`
 
 Records a SPA session against a membership. Each service line deducts its
 duration from the remaining hours. The handler guards membership state and
@@ -424,25 +556,55 @@ increments the membership's used minutes. `bookingDate` defaults to today (IST).
 **Minimum role:** `receptionist` (`requireRole('receptionist')`)
 
 ```http
-POST /api/admin/memberships/mem_9aZ2bYc31/sessions
+POST /api/memberships/mem_9aZ2bYc31/sessions
 Content-Type: application/json
 ```
 
-| Parameter | In | Type | Required | Notes |
-| --- | --- | --- | --- | --- |
-| `id` | path | string | Required | The membership id. |
+### Path parameters
+
+<TypeTable
+  type={{
+    id: {
+      type: 'string',
+      description: 'Path. The membership id.',
+      required: true,
+    },
+  }}
+/>
 
 ### Request body
 
 Validated by `recordSessionSchema` (`@rgss/types`).
 
-| Field | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `services` | array | Required | At least one service line (see below). |
-| `services[].serviceId` | string | Required | Non-empty; must be an existing service. |
-| `services[].staffId` | string | Optional | Staff member assigned to this line. |
-| `services[].durationMinutes` | integer | Required | Positive. Minutes to deduct for this line. |
-| `bookingDate` | string | Optional | `YYYY-MM-DD`. Defaults to today (IST). |
+<TypeTable
+  type={{
+    services: {
+      type: 'array',
+      description: 'At least one service line (see fields below).',
+      required: true,
+    },
+    'services[].serviceId': {
+      type: 'string',
+      description: 'Non-empty; must be an existing service.',
+      required: true,
+    },
+    'services[].staffId': {
+      type: 'string',
+      description: 'Staff member assigned to this line.',
+      required: false,
+    },
+    'services[].durationMinutes': {
+      type: 'integer',
+      description: 'Positive. Minutes to deduct for this line.',
+      required: true,
+    },
+    bookingDate: {
+      type: 'string',
+      description: 'YYYY-MM-DD. Defaults to today (IST).',
+      required: false,
+    },
+  }}
+/>
 
 ```json
 {
@@ -504,19 +666,47 @@ membership's remaining minutes after the deduction.
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `FORBIDDEN` | 403 | Session role is below `receptionist`. |
-| `VALIDATION_ERROR` | 400 | Body fails `recordSessionSchema`, or one or more selected services do not exist. |
-| `NOT_FOUND` | 404 | No membership with that id, or the primary branch could not be resolved. |
-| `MEMBERSHIP_EXPIRED` | 409 | The membership is not `active` or is past its expiry. |
-| `MEMBERSHIP_INSUFFICIENT_HOURS` | 409 | The requested duration exceeds the remaining membership hours. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="FORBIDDEN — 403">
+
+Session role is below `receptionist`.
+
+</Accordion>
+<Accordion title="VALIDATION_ERROR — 400">
+
+Body fails `recordSessionSchema`, or one or more selected services do not exist.
+
+</Accordion>
+<Accordion title="NOT_FOUND — 404">
+
+No membership with that id, or the primary branch could not be resolved.
+
+</Accordion>
+<Accordion title="MEMBERSHIP_EXPIRED — 409">
+
+The membership is not `active` or is past its expiry.
+
+</Accordion>
+<Accordion title="MEMBERSHIP_INSUFFICIENT_HOURS — 409">
+
+The requested duration exceeds the remaining membership hours.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
-## POST /api/admin/memberships/[id]/cancel
+## POST `admin.theroyalglow.in/api/memberships/[id]/cancel`
 
 Cancels a membership: sets status to `cancelled` and appends the reason to the
 membership's notes. This is the only membership endpoint that requires
@@ -525,21 +715,35 @@ membership's notes. This is the only membership endpoint that requires
 **Minimum role:** `manager` (`requireRole('manager')`)
 
 ```http
-POST /api/admin/memberships/mem_9aZ2bYc31/cancel
+POST /api/memberships/mem_9aZ2bYc31/cancel
 Content-Type: application/json
 ```
 
-| Parameter | In | Type | Required | Notes |
-| --- | --- | --- | --- | --- |
-| `id` | path | string | Required | The membership id. |
+### Path parameters
+
+<TypeTable
+  type={{
+    id: {
+      type: 'string',
+      description: 'Path. The membership id.',
+      required: true,
+    },
+  }}
+/>
 
 ### Request body
 
 Validated by `cancelMembershipSchema` (`@rgss/types`).
 
-| Field | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `reason` | string | Required | Trimmed, 1–500 characters. Appended to the membership notes as `Cancelled: {reason}`. |
+<TypeTable
+  type={{
+    reason: {
+      type: 'string',
+      description: 'Trimmed, 1–500 characters. Appended to the membership notes as "Cancelled: {reason}".',
+      required: true,
+    },
+  }}
+/>
 
 ```json
 {
@@ -577,10 +781,30 @@ Returns the updated membership row.
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `FORBIDDEN` | 403 | Session role is below `manager`. |
-| `VALIDATION_ERROR` | 400 | Body fails `cancelMembershipSchema` (missing or over-long `reason`). |
-| `NOT_FOUND` | 404 | No membership with that id. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="FORBIDDEN — 403">
+
+Session role is below `manager`.
+
+</Accordion>
+<Accordion title="VALIDATION_ERROR — 400">
+
+Body fails `cancelMembershipSchema` (missing or over-long `reason`).
+
+</Accordion>
+<Accordion title="NOT_FOUND — 404">
+
+No membership with that id.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>

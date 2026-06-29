@@ -5,6 +5,13 @@ description: Branch strategy, CI/CD pipeline, commit conventions, and database-p
 
 # Git Workflow
 
+<Callout type="info">
+  **In one line:** Single-developer workflow with four persistent branches
+  (`dev → test → pprd → prod`), each mapped to a Neon DB branch. Gates get
+  stricter at every stage, **no direct pushes to `prod`**, and commits follow
+  Conventional Commits.
+</Callout>
+
 ## Branch Strategy
 
 Single developer workflow with **4 persistent branches**, each mapped to an environment:
@@ -42,11 +49,25 @@ All environments use **Neon DB branches** within a single Neon project — no se
 
 ## Prod → pprd Data Replication
 
-Every 24 hours, a GitHub Actions cron job uses the **Neon Branch Reset API** to sync pprd from prod:
+Every 24 hours, a GitHub Actions cron job uses the **Neon Branch Reset API** to sync pprd from prod.
 
-1. Calls the Neon API to reset the `pprd` branch from `prod`
-2. Runs a PII anonymisation script (names, phone numbers, emails replaced with fake data)
-3. pprd is now a clean, realistic copy of prod without real customer data
+<Steps>
+<Step>
+### Reset the branch
+
+Call the Neon API to reset the `pprd` branch from `prod`.
+</Step>
+<Step>
+### Anonymise PII
+
+Run a PII anonymisation script — names, phone numbers, and emails are replaced with fake data.
+</Step>
+<Step>
+### Ready for UAT
+
+pprd is now a clean, realistic copy of prod without real customer data.
+</Step>
+</Steps>
 
 This is faster than `pg_dump` / `pg_restore` because Neon branching is a near-instant copy-on-write operation at the storage layer.
 
@@ -59,17 +80,21 @@ on:
 
 ## CI/CD Pipeline
 
-### On PR to `dev`
+Gates are cumulative — each stage adds checks on top of the previous one.
 
-```
+<Tabs items={['PR to dev', 'PR to test', 'PR to pprd', 'PR to prod']}>
+<Tab value="PR to dev">
+
+```text
 ✅ Lint + Format (Biome + Ultracite)
 ✅ Type check (tsc --noEmit)
 ✅ Unit tests (Vitest)
 ```
 
-### On PR to `test`
+</Tab>
+<Tab value="PR to test">
 
-```
+```text
 ✅ Lint + Format
 ✅ Type check
 ✅ Unit tests
@@ -78,28 +103,33 @@ on:
 ✅ Lighthouse CI (performance ≥ 95; accessibility, best practices, SEO = 100)
 ```
 
-### On PR to `pprd`
+</Tab>
+<Tab value="PR to pprd">
 
-```
+```text
 ✅ All tests from test branch
 ✅ k6 load test against pprd environment
 ✅ OWASP ZAP security scan
 ✅ Smoke test Playwright suite
 ```
 
-### On PR to `prod`
+</Tab>
+<Tab value="PR to prod">
 
-```
+```text
 ✅ All CI gates passing
 ✅ Manual approval required
-🚀 Deploy to Cloudflare Pages
+🚀 Deploy to Cloudflare Workers (OpenNext adapter)
 ```
+
+</Tab>
+</Tabs>
 
 ## Commit Conventions
 
 Use **Conventional Commits** for clean history and automatic changelog generation:
 
-```
+```text
 feat: add booking confirmation email
 fix: correct availability calculation for same-day slots
 chore: update dependencies
@@ -131,28 +161,57 @@ This catches formatting issues and obvious lint errors **before they ever reach 
 | `BETTER_AUTH_SECRET` | GitHub Actions encrypted secret |
 | `GOOGLE_OAUTH_CLIENT_ID/SECRET` | GitHub Actions encrypted secret |
 
-**Rule: Never commit secrets to git.** Use `.env.local` locally (gitignored) and GitHub Actions secrets in CI.
+<Callout type="warn">
+  **Never commit secrets to git.** Use `.env.local` locally (gitignored) and
+  GitHub Actions secrets in CI.
+</Callout>
 
 ## Deployment
 
-### Cloudflare Pages (Customer Site)
+<Tabs items={['Cloudflare Workers (web + admin)', 'Render (Payload CMS)']}>
+<Tab value="Cloudflare Workers (web + admin)">
 
+- `rgss-web` (`theroyalglow.in`) and `rgss-admin` (`admin.theroyalglow.in`), deployed via the OpenNext adapter (`opennextjs-cloudflare deploy` / `wrangler deploy`)
 - Automatic deployment on push to `prod` branch
-- Preview deployments on every PR (unique URL per PR)
-- Rollback: instant via Cloudflare Pages dashboard
+- Preview (versioned) deployments on every PR
+- Rollback: instant via `wrangler rollback` or the Workers & Pages → Deployments view
 
-### Render (CMS + SSR Origin)
+</Tab>
+<Tab value="Render (Payload CMS)">
 
+- `rgss-cms` (`cms.theroyalglow.in`)
 - Auto-deploy on push to `prod` branch
 - Zero-downtime deploys via Render's rolling restart
+
+</Tab>
+</Tabs>
 
 ## Weekly Backup
 
 Every Sunday at 2 AM UTC, a GitHub Actions workflow:
-1. Runs `pg_dump` against the Neon `prod` branch
-2. Uploads the compressed dump to Cloudflare R2 (`backups/weekly/`)
-3. Retains 8 weeks of backups
-4. Pings the BetterStack heartbeat on success
+
+<Steps>
+<Step>
+### Dump
+
+Run `pg_dump` against the Neon `prod` branch.
+</Step>
+<Step>
+### Upload
+
+Upload the compressed dump to Cloudflare R2 (`backups/weekly/`).
+</Step>
+<Step>
+### Retain
+
+Keep 8 weeks of backups.
+</Step>
+<Step>
+### Heartbeat
+
+Ping the BetterStack heartbeat on success.
+</Step>
+</Steps>
 
 ## Related
 

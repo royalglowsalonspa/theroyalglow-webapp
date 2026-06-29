@@ -36,8 +36,9 @@ PII. QStash scheduled jobs target `prod` only.
 
 ## Hosting topology
 
-- **Edge:** Cloudflare Pages + Workers serve the customer site globally (deploy near India — Mumbai / Singapore).
-- **SSR origin + CMS:** Render (Singapore, free tier) hosts the heavier Node.js SSR fallback and Payload CMS.
+- **Edge:** Cloudflare Workers (via the OpenNext adapter, `@opennextjs/cloudflare`) serve the customer site (`rgss-web`, `theroyalglow.in`) and the admin portal (`rgss-admin`, `admin.theroyalglow.in`) globally — deployed near India (Mumbai / Singapore). **Not** Cloudflare Pages, **not** `next-on-pages`.
+- **CMS:** Render (Singapore, free tier) hosts Payload CMS (`rgss-cms`, `cms.theroyalglow.in`).
+- **PDF render:** Cloud Run hosts the invoice PDF service (`@rgss/invoicing`).
 - **Database:** a single Neon PostgreSQL 16 project with four branches.
 - **Media:** Cloudflare R2 (S3-compatible, zero egress). **Cache + queue:** Upstash Redis + QStash. **Realtime:** Ably.
 
@@ -50,35 +51,69 @@ Four workflows enforce the gates above and handle production deploys.
 | CI | `ci.yml` | PRs to all branches + push to `dev` | Lint + typecheck, unit tests, build, Trivy + Socket.dev audit |
 | Integration & E2E | `integration.yml` | PRs to `test`/`pprd`/`prod` | Integration tests, Playwright E2E, Lighthouse CI |
 | Load & Security | `load-test.yml` | PRs to `pprd`/`prod` | k6 load test, Trivy fs scan, OWASP ZAP baseline |
-| Deploy Production | `deploy-prod.yml` | Push to `prod` | Pre-deploy checks → build + Sentry source maps → Cloudflare Pages deploy → migrations → health check + smoke tests |
+| Deploy Production | `deploy-prod.yml` | Push to `prod` | Pre-deploy checks → build + Sentry source maps → Cloudflare Workers deploy (`opennextjs-cloudflare deploy` / `wrangler deploy`) → migrations → health check + smoke tests |
 
 Lighthouse gates require performance ≥ 95 and accessibility, best-practices, and
 SEO = 100.
 
 ## Feature-flag release strategy
 
-Every feature ships to prod behind a PostHog flag and is exposed gradually:
+Every feature ships to prod behind a PostHog flag and is exposed gradually.
 
-```text
-1. Deploy to prod with the flag OFF
-2. Flag ON for role = developer        (self-test in prod)
-3. Flag ON for role = owner | manager  (stakeholder preview)
-4. Flag ON for 10% of customers        (watch Sentry)
-5. Flag ON for 100%                    (full release)
-6. Remove flag + dead code after 2 weeks stable
-```
+<Steps>
+<Step>
+### Deploy with the flag OFF
+
+Code goes live on the edge, invisible to everyone.
+</Step>
+<Step>
+### Flag ON for `role = developer`
+
+Self-test directly in production.
+</Step>
+<Step>
+### Flag ON for `role = owner | manager`
+
+Stakeholder preview.
+</Step>
+<Step>
+### Flag ON for 10% of customers
+
+Watch Sentry for new errors.
+</Step>
+<Step>
+### Flag ON for 100%
+
+Full release to all customers.
+</Step>
+<Step>
+### Remove flag + dead code
+
+After 2 weeks stable, clean up the flag and dead code.
+</Step>
+</Steps>
 
 ## Rollback tiers
 
-| Tier | Scenario | Action | Time |
-| --- | --- | --- | --- |
-| Flag | UI bug after deploy | PostHog flag OFF | < 10 sec |
-| 1 | App crash / 500s | Cloudflare Pages rollback to previous deployment | < 30 sec |
-| 2 | Bad migration, data corrupted | Neon PITR to a pre-migration point-in-time branch | < 5 min |
-| 3 | Neon outage | Emergency DB restored from the weekly R2 backup | < 30 min |
+When something goes wrong, escalate from the cheapest, fastest lever upward.
 
-Cloudflare keeps every deployment as an immutable artifact, and the post-deploy
-job auto-rolls back if the health check fails.
+<Accordions type="single">
+<Accordion title="Flag — UI bug after deploy · < 10 sec">
+Turn the PostHog flag OFF. No deploy, no rollback — the feature simply disappears.
+</Accordion>
+<Accordion title="Tier 1 — App crash / 500s · < 30 sec">
+Cloudflare Workers rollback to the previous deployment via `wrangler rollback`
+(or the Workers & Pages → Deployments view). Cloudflare keeps every Worker
+deployment as an immutable version, and the post-deploy job auto-rolls back if
+the health check fails.
+</Accordion>
+<Accordion title="Tier 2 — Bad migration, data corrupted · < 5 min">
+Neon PITR to a pre-migration point-in-time branch.
+</Accordion>
+<Accordion title="Tier 3 — Neon outage · < 30 min">
+Emergency DB restored from the weekly R2 backup.
+</Accordion>
+</Accordions>
 
 ## Health check
 

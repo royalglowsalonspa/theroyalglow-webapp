@@ -5,7 +5,9 @@ description: Money, dates, layering, and the API response envelope used across t
 
 # Conventions
 
-These rules are enforced across the codebase. Follow them in any new work.
+<Callout type="warn">
+  These rules are enforced across the codebase — follow them in any new work. The three that break things hardest if ignored: **money is integer paise (never float)**, **layer imports only point inward**, and **every API response uses the success/error envelope**.
+</Callout>
 
 ## Money — integer paise
 
@@ -38,23 +40,27 @@ const gst = inclusivePaise - base
 
 ## Layer rules (strict)
 
-| Layer | Location | May import | Must not import |
-| --- | --- | --- | --- |
-| Presentation | `apps/web/app`, `components` | business, db, types, errors | — |
-| API (thin) | `apps/web/app/api` | business, db, types, errors | UI components |
-| Business logic | `packages/business` | types, errors | db, framework, UI |
-| Data access | `packages/db` | types | business, framework, UI |
-| Types | `packages/types` | — | everything else |
-
 API routes are **thin orchestrators**: parse → Zod `safeParse` → call business
 logic / queries → return JSON. No DB queries live in route handlers' own logic
 beyond calling the query layer.
+
+<TypeTable
+  type={{
+    Presentation: { type: 'apps/web/src/app, components', description: 'May import: business, db, types, errors. Must not import: nothing restricted.' },
+    'API (thin)': { type: 'apps/web/src/app/api', description: 'May import: business, db, types, errors. Must not import: UI components.' },
+    'Business logic': { type: 'packages/business', description: 'May import: types, errors. Must not import: db, framework, UI.' },
+    'Data access': { type: 'packages/db', description: 'May import: types. Must not import: business, framework, UI.' },
+    Types: { type: 'packages/types', description: 'May import: nothing. Must not import: everything else.' },
+  }}
+/>
 
 ## API response envelope
 
 Every JSON API responds with one of two shapes.
 
-### Success
+<Tabs items={['Success', 'Error']}>
+
+<Tab value="Success">
 
 ```json
 {
@@ -66,7 +72,9 @@ Every JSON API responds with one of two shapes.
 
 `meta` is present only on paginated list endpoints.
 
-### Error
+</Tab>
+
+<Tab value="Error">
 
 ```json
 {
@@ -87,25 +95,64 @@ Every JSON API responds with one of two shapes.
 - `retryable` — present when the caller may safely retry (e.g. transient 5xx).
 - `details` — present on validation errors (field → message map).
 
-> Background-job routes (`/api/jobs/*`) are the exception: they return a minimal
-> `{ processed }` body and a non-2xx status on failure so QStash can retry. They
-> do not use the success/error envelope.
+</Tab>
+
+</Tabs>
+
+<Callout type="info">
+  Background-job routes (`/api/jobs/*`) are the exception: they return a minimal
+  `{ processed }` body and a non-2xx status on failure so QStash can retry. They
+  do not use the success/error envelope.
+</Callout>
 
 ## Error codes
 
-Codes come from a central registry (`@rgss/errors`). Common ones:
+Codes come from a central registry (`@rgss/errors`). Expand for the common ones — domain-specific codes for booking, membership, invoice, gems, offer, and branch rules are documented on each API page.
 
-| Code | HTTP | Meaning |
-| --- | --- | --- |
-| `VALIDATION_ERROR` | 400 | Zod validation failed (`details` has field errors) |
-| `UNAUTHENTICATED` | 401 | No valid session |
-| `FORBIDDEN` | 403 | Authenticated but insufficient role |
-| `NOT_FOUND` | 404 | Resource does not exist |
-| `CONFLICT` | 409 | State conflict (e.g. double-book) |
-| `BUSINESS_RULE_VIOLATION` | 409/422 | A domain rule was violated |
-| `RATE_LIMITED` | 429 | Too many requests |
-| `SERVICE_UNAVAILABLE` | 503 | A dependency (e.g. Ably) is not configured |
-| `INTERNAL_ERROR` | 500 | Unexpected error (retryable) |
+<Accordions type="single">
 
-Domain-specific codes exist for booking, membership, invoice, gems, offer, and
-branch rules — see each API page for which codes an endpoint can return.
+<Accordion title="VALIDATION_ERROR — 400">
+Zod validation failed. The `details` field carries the field → message map.
+</Accordion>
+
+<Accordion title="UNAUTHENTICATED — 401">
+No valid session.
+</Accordion>
+
+<Accordion title="FORBIDDEN — 403">
+Authenticated but insufficient role.
+</Accordion>
+
+<Accordion title="NOT_FOUND — 404">
+Resource does not exist.
+</Accordion>
+
+<Accordion title="CONFLICT — 409">
+State conflict (e.g. double-book).
+</Accordion>
+
+<Accordion title="BUSINESS_RULE_VIOLATION — 409/422">
+A domain rule was violated.
+</Accordion>
+
+<Accordion title="RATE_LIMITED — 429">
+Too many requests.
+</Accordion>
+
+<Accordion title="SERVICE_UNAVAILABLE — 503">
+A dependency (e.g. Ably) is not configured.
+</Accordion>
+
+<Accordion title="INTERNAL_ERROR — 500">
+Unexpected error (retryable).
+</Accordion>
+
+</Accordions>
+
+## Related Pages
+
+<Cards>
+  <Card title="Data Model" href="/docs/data-model" description="Schema conventions, enums, and ID formats" />
+  <Card title="Error Handling" href="/docs/error-handling" description="The AppError class and handler pattern" />
+  <Card title="API Reference" href="/docs/api-reference" description="Per-endpoint codes and contracts" />
+</Cards>

@@ -5,9 +5,13 @@ description: Database schema details, booking state machine, background job spec
 
 # Low-Level Design
 
+<Callout type="info">
+  This document captures the **mechanics**: the booking state machine, ID/number formats, GST and gems math, all 19 background jobs, request lifecycles, indexes, and security implementation. Money is always integer paise; status transitions are always logged in `booking_status_log`.
+</Callout>
+
 ## Booking State Machine
 
-```
+```text
 pending
   ├── confirmed   (receptionist approves + assigns staff)
   ├── rejected    (receptionist rejects)
@@ -23,13 +27,17 @@ in_progress
   └── completed    (service done, invoice generated, gems awarded)
 ```
 
-**Walk-ins skip `pending`** — they go directly to `confirmed`.
+<Callout type="warn">
+  **Walk-ins skip `pending`** — they go directly to `confirmed`. Every status transition is recorded in `booking_status_log` with timestamp, actor (user ID), and reason.
+</Callout>
 
-**Booking status log:** Every status transition is recorded in `booking_status_log` with timestamp, actor (user ID), and reason.
+## ID & Number Formats
 
-## Booking Number Format
+<Tabs items={['Booking', 'Invoice']}>
 
-```
+<Tab value="Booking">
+
+```text
 BK-{branch_code}-{YYMM}-{H|S}-{5_random}[-M]
 
 Examples:
@@ -42,9 +50,11 @@ Examples:
 - `S` = spa
 - `-M` suffix = membership session
 
-## Invoice Number Format
+</Tab>
 
-```
+<Tab value="Invoice">
+
+```text
 INV-{branch_number}-{financial_year}-{5_digit_random}
 
 Example: INV-1-2627-92921
@@ -52,6 +62,10 @@ Example: INV-1-2627-92921
 ```
 
 Indian financial year runs April–March. A date in May 2026 → FY "2627". A date in February 2026 → FY "2526".
+
+</Tab>
+
+</Tabs>
 
 ## GST Calculation
 
@@ -86,20 +100,20 @@ function calculateGemsEarned(invoiceTotalPaise: number): number {
 
 ## No-Show Policy Logic
 
-```
-no_show_count (within last 90 days):
-  1–3:  CRM tag "No-Show Risk", no booking restriction
-  4+:   booking_requires_approval = true on customer_profile
-        → Manager must approve future bookings
+| No-show count (last 90 days) | Action |
+| --- | --- |
+| 1–3 | CRM tag "No-Show Risk", no booking restriction |
+| 4+ | `booking_requires_approval = true` on `customer_profile` → Manager must approve future bookings |
 
-Recovery:
-  3 consecutive completed bookings → reset no_show_count
-  Walk-in no-shows do NOT count
-```
+**Recovery:** 3 consecutive completed bookings reset `no_show_count`. Walk-in no-shows do NOT count.
 
 ## Background Jobs (19 Total)
 
-### QStash Scheduled Jobs (14) — Including Former pg_cron Jobs
+<Tabs items={['Scheduled (former pg_cron)', 'Scheduled (HTTP)', 'Triggered']}>
+
+<Tab value="Scheduled (former pg_cron)">
+
+QStash scheduled jobs — including the seven that were formerly pg_cron.
 
 | Job | Schedule (UTC) | What It Does |
 | --- | --- | --- |
@@ -111,7 +125,11 @@ Recovery:
 | 6. Monthly GST summary | `0 18 1 * *` (11:30 PM IST, 1st of month) | Aggregates monthly GST into `monthly_gst_summary` |
 | 7. Gems auto-expire | `0 18 * * *` | Offsets earned transactions older than 365 days |
 
-### QStash Scheduled Jobs (8) — HTTP Callbacks
+</Tab>
+
+<Tab value="Scheduled (HTTP)">
+
+QStash scheduled jobs delivered as HTTP callbacks.
 
 | Job | Schedule | What It Does |
 | --- | --- | --- |
@@ -124,7 +142,11 @@ Recovery:
 | 14. Weekly report | Monday 9 AM IST | Sends weekly summary |
 | 15. Gems expiry reminder | Daily | Push notification 7 days before gems expire |
 
-### QStash Triggered Jobs (4) — Fired by API Routes
+</Tab>
+
+<Tab value="Triggered">
+
+QStash triggered jobs fired by API routes with a delay.
 
 | Job | Trigger | Delay | What It Does |
 | --- | --- | --- | --- |
@@ -132,6 +154,10 @@ Recovery:
 | 17. Stale booking alert | Booking created (pending) | +2h | Alerts receptionist if still pending |
 | 18. No-show check | Booking confirmed | +15min after end_time | Marks no-show if customer didn't arrive |
 | 19. Membership expired notice | Membership expires | +1h | Sends expiry notice to customer |
+
+</Tab>
+
+</Tabs>
 
 ## Realtime Channels (Ably)
 
@@ -141,95 +167,235 @@ Recovery:
 | `admin:bookings:{branchId}` | Receptionist/Manager | `booking_created`, `booking_updated` |
 | `admin:schedule:{date}` | Manager | `schedule_updated`, `leave_approved` |
 
-**Token Auth:** Clients receive a scoped Ably JWT from `POST /api/ably/token`. The token is scoped to only the channels the user is allowed to subscribe to (based on their role and user ID).
+**Token Auth:** clients receive a scoped Ably JWT from `POST /api/ably/token`. The token is scoped to only the channels the user is allowed to subscribe to (based on their role and user ID).
 
-## Booking Creation Sequence
+## Request Lifecycles
 
-```
-Customer submits booking form
-    │
-    ▼
-POST /api/bookings
-    │
-    ├── 1. Validate session (requireSession)
-    ├── 2. Zod validate request body
-    ├── 3. Check slot availability (Redis cache → DB)
-    ├── 4. Validate all service IDs exist and are active
-    ├── 5. Get default staff for each service
-    ├── 6. Generate booking number (BK-RS-YYMM-H/S-XXXXX)
-    ├── 7. INSERT booking row (status: pending)
-    ├── 8. INSERT booking_service rows (price snapshot)
-    ├── 9. Enqueue QStash job 17 (stale booking alert, +2h)
-    ├── 10. Invalidate Redis slot cache
-    ├── 11. Publish Ably event to admin:bookings:{branchId}
-    └── 12. Return { success: true, data: { bookingId, bookingNumber } }
-```
+The four core write paths, step by step.
 
-## Booking Completion Sequence
+<Tabs items={['Booking creation', 'Booking completion', 'Membership session', 'Lead capture']}>
 
-```
-Receptionist clicks "Mark Complete"
-    │
-    ▼
-POST /api/admin/bookings/{id}/complete
-    │
-    ├── 1. Validate session (requireRole: receptionist+)
-    ├── 2. Validate booking exists and is in_progress
-    ├── 3. Calculate invoice total (sum of booking_service prices)
-    ├── 4. splitGST(totalPaise) → base, CGST, SGST
-    ├── 5. Generate invoice number (INV-1-YYZZ-XXXXX)
-    ├── 6. INSERT invoice row
-    ├── 7. INSERT invoice_item rows (price + name snapshot)
-    ├── 8. UPDATE booking status → completed
-    ├── 9. Calculate gems earned (floor(total / 10000))
-    ├── 10. UPSERT loyalty_account, INSERT loyalty_transaction
-    ├── 11. Generate PDF (React Email → PDF → R2 upload)
-    ├── 12. Send invoice email via Resend (synchronous)
-    ├── 13. Fire Meta CAPI Purchase event (server-side)
-    ├── 14. Enqueue QStash job 16 (post-service follow-up, +24h)
-    ├── 15. Publish Ably event to booking:{bookingId}
-    └── 16. Return { success: true, data: { invoiceId, invoiceNumber } }
-```
+<Tab value="Booking creation">
 
-## Membership Session Recording Sequence
+Customer submits the booking form → `POST /api/bookings`.
 
-```
-Receptionist records SPA session
-    │
-    ▼
-POST /api/admin/memberships/{id}/sessions
-    │
-    ├── 1. Validate session (requireRole: receptionist+)
-    ├── 2. Validate membership is active and has sufficient hours
-    ├── 3. Validate service is a SPA service
-    ├── 4. Deduct hours from spa_membership.used_hours_minutes
-    ├── 5. INSERT booking row (status: completed, total: ₹0)
-    ├── 6. INSERT booking_service row
-    ├── 7. INSERT invoice row (type: membership_session, total: ₹0)
-    ├── 8. INSERT invoice_item row
-    ├── 9. NO gems awarded (membership sessions don't earn gems)
-    └── 10. Return { success: true, data: { bookingId, remainingMinutes } }
-```
+<Steps>
 
-## Lead Capture Sequence
+<Step>
+Validate session (`requireSession`).
+</Step>
 
-```
-Customer submits /book form (Meta ad landing page)
-    │
-    ▼
-POST /api/leads
-    │
-    ├── 1. Rate limit check (3 per minute per IP)
-    ├── 2. Zod validate (name, phone, serviceInterestedId)
-    ├── 3. Normalise Indian phone number (+91XXXXXXXXXX)
-    ├── 4. INSERT lead row (status: new, source: meta_ad)
-    ├── 5. Fire Meta CAPI Lead event (server-side)
-    ├── 6. Enqueue QStash job 12 (lead follow-up, +48h)
-    └── 7. Redirect to /?book=1&leadId={id}
-         → Customer can now book normally
-         → When booking created, lead.converted_booking_id is set
-         → lead.status → booked
-```
+<Step>
+Zod-validate the request body.
+</Step>
+
+<Step>
+Check slot availability (Redis cache → DB).
+</Step>
+
+<Step>
+Validate all service IDs exist and are active.
+</Step>
+
+<Step>
+Get the default staff for each service.
+</Step>
+
+<Step>
+Generate the booking number (`BK-RS-YYMM-H/S-XXXXX`).
+</Step>
+
+<Step>
+INSERT the `booking` row (status: pending).
+</Step>
+
+<Step>
+INSERT `booking_service` rows (price snapshot).
+</Step>
+
+<Step>
+Enqueue QStash job 17 (stale booking alert, +2h).
+</Step>
+
+<Step>
+Invalidate the Redis slot cache.
+</Step>
+
+<Step>
+Publish an Ably event to `admin:bookings:{branchId}`.
+</Step>
+
+<Step>
+Return `{ success: true, data: { bookingId, bookingNumber } }`.
+</Step>
+
+</Steps>
+
+</Tab>
+
+<Tab value="Booking completion">
+
+Receptionist clicks "Mark Complete" → `POST admin.theroyalglow.in/api/bookings/{id}/complete`.
+
+<Steps>
+
+<Step>
+Validate session (`requireRole: receptionist+`).
+</Step>
+
+<Step>
+Validate the booking exists and is `in_progress`.
+</Step>
+
+<Step>
+Calculate the invoice total (sum of `booking_service` prices).
+</Step>
+
+<Step>
+`splitGST(totalPaise)` → base, CGST, SGST.
+</Step>
+
+<Step>
+Generate the invoice number (`INV-1-YYZZ-XXXXX`).
+</Step>
+
+<Step>
+INSERT the `invoice` row.
+</Step>
+
+<Step>
+INSERT `invoice_item` rows (price + name snapshot).
+</Step>
+
+<Step>
+UPDATE booking status → completed.
+</Step>
+
+<Step>
+Calculate gems earned (`floor(total / 10000)`).
+</Step>
+
+<Step>
+UPSERT `loyalty_account`, INSERT `loyalty_transaction`.
+</Step>
+
+<Step>
+Generate the PDF (React Email → PDF → R2 upload).
+</Step>
+
+<Step>
+Send the invoice email via Resend (synchronous).
+</Step>
+
+<Step>
+Fire the Meta CAPI Purchase event (server-side).
+</Step>
+
+<Step>
+Enqueue QStash job 16 (post-service follow-up, +24h).
+</Step>
+
+<Step>
+Publish an Ably event to `booking:{bookingId}`.
+</Step>
+
+<Step>
+Return `{ success: true, data: { invoiceId, invoiceNumber } }`.
+</Step>
+
+</Steps>
+
+</Tab>
+
+<Tab value="Membership session">
+
+Receptionist records a SPA session → `POST admin.theroyalglow.in/api/memberships/{id}/sessions`.
+
+<Steps>
+
+<Step>
+Validate session (`requireRole: receptionist+`).
+</Step>
+
+<Step>
+Validate the membership is active and has sufficient hours.
+</Step>
+
+<Step>
+Validate the service is a SPA service.
+</Step>
+
+<Step>
+Deduct hours from `spa_membership.used_hours_minutes`.
+</Step>
+
+<Step>
+INSERT the `booking` row (status: completed, total: ₹0).
+</Step>
+
+<Step>
+INSERT the `booking_service` row.
+</Step>
+
+<Step>
+INSERT the `invoice` row (type: membership_session, total: ₹0).
+</Step>
+
+<Step>
+INSERT the `invoice_item` row.
+</Step>
+
+<Step>
+NO gems awarded (membership sessions don't earn gems).
+</Step>
+
+<Step>
+Return `{ success: true, data: { bookingId, remainingMinutes } }`.
+</Step>
+
+</Steps>
+
+</Tab>
+
+<Tab value="Lead capture">
+
+Customer submits the `/book` form (Meta ad landing page) → `POST /api/leads`.
+
+<Steps>
+
+<Step>
+Rate-limit check (3 per minute per IP).
+</Step>
+
+<Step>
+Zod-validate (`name`, `phone`, `serviceInterestedId`).
+</Step>
+
+<Step>
+Normalise the Indian phone number (`+91XXXXXXXXXX`).
+</Step>
+
+<Step>
+INSERT the `lead` row (status: new, source: meta_ad).
+</Step>
+
+<Step>
+Fire the Meta CAPI Lead event (server-side).
+</Step>
+
+<Step>
+Enqueue QStash job 12 (lead follow-up, +48h).
+</Step>
+
+<Step>
+Redirect to `/?book=1&leadId={id}`. When the customer books, `lead.converted_booking_id` is set and `lead.status` → booked.
+</Step>
+
+</Steps>
+
+</Tab>
+
+</Tabs>
 
 ## Database Indexes
 
@@ -261,26 +427,38 @@ CREATE INDEX idx_lead_source ON lead(source);
 
 ## Security Implementation
 
-### Input Validation
+<Accordions type="single">
 
+<Accordion title="Input validation">
 Every API route validates input with Zod `.safeParse()` before any business logic runs. Raw client input never reaches the database.
+</Accordion>
 
-### Rate Limiting
+<Accordion title="Rate limiting">
+`@upstash/ratelimit` with a sliding-window algorithm, applied in Next.js middleware before auth checks.
+</Accordion>
 
-`@upstash/ratelimit` with sliding window algorithm. Applied in Next.js middleware before auth checks.
+<Accordion title="CSP headers">
+Strict Content-Security-Policy with nonce-based script loading, configured in `next.config.ts`.
+</Accordion>
 
-### CSP Headers
-
-Strict Content-Security-Policy with nonce-based script loading. Configured in `next.config.ts`.
-
-### SQL Injection Prevention
-
+<Accordion title="SQL injection prevention">
 Drizzle ORM uses parameterized queries exclusively. No raw SQL string concatenation anywhere in the codebase.
+</Accordion>
 
-### CORS
+<Accordion title="CORS">
+Exact origin matching (`theroyalglow.in` only). No wildcard.
+</Accordion>
 
-Exact origin matching (`theroyalglow.in` only). No wildcard `*`.
-
-### Webhook Verification
-
+<Accordion title="Webhook verification">
 All inbound webhooks (QStash, Meta, AiSensy) verify HMAC signatures before processing.
+</Accordion>
+
+</Accordions>
+
+## Related Pages
+
+<Cards>
+  <Card title="High-Level Design" href="/docs/system-design/high-level-design" description="Architecture, decisions matrix, and NFRs" />
+  <Card title="Data Model" href="/docs/data-model" description="All 38 tables, enums, and conventions" />
+  <Card title="Background Jobs" href="/docs/background-jobs" description="Full job inventory and heartbeats" />
+</Cards>

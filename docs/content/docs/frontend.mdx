@@ -5,69 +5,88 @@ description: Component architecture, design system, styling conventions, and acc
 
 # Frontend
 
+<Callout type="info">
+  The frontend is **server-first**: components are React Server Components by default, and `'use client'` is added only when browser APIs, state, or event handlers are needed. **WCAG 2.1 AA and a Lighthouse Accessibility score of 100 are hard CI gates.**
+</Callout>
+
 ## Component Architecture
 
-The frontend follows a strict server-first approach. Components are Server Components by default — `'use client'` is added only when browser APIs, state, or event handlers are needed.
+The structure under `apps/web/src/` separates routes, owned UI primitives, feature components, and framework-glue libraries.
 
-```
-apps/web/src/
-├── app/                    ← Next.js App Router pages and layouts
-│   ├── (customer)/         ← Public + authenticated customer pages
-│   ├── (auth)/             ← Sign-in, onboarding
-│   ├── (landing)/          ← /book — Meta ad lead capture
-│   ├── (legal)/            ← Privacy, terms, refund policy
-│   └── admin/              ← Admin portal (RBAC-gated)
-├── components/
-│   ├── ui/                 ← shadcn/ui primitives (copy-pasted, fully owned)
-│   ├── layout/             ← Header, Footer, MobileNav
-│   ├── booking/            ← BookingDialog, ServiceTypeToggle, BookingDialogProvider
-│   ├── admin/              ← AdminSidebar, StatusBadge, CustomerProfileTabs
-│   ├── lead/               ← LeadCaptureForm, LeadKanban, LeadDetail
-│   ├── notifications/      ← NotificationBell
-│   ├── consent/            ← CookieConsent, CookiePreferencesButton
-│   ├── seo/                ← JsonLd
-│   ├── analytics/          ← Analytics (PostHog + Clarity loader)
-│   ├── blog/               ← PostCard, RichText
-│   ├── gallery/            ← GalleryGrid
-│   ├── offers/             ← OfferBookButton
-│   └── pwa/                ← ServiceWorkerRegistrar
-└── lib/
-    ├── auth-client.ts      ← Better Auth client
-    ├── auth-server.ts      ← Better Auth server
-    ├── api/                ← withErrorHandler, rate-limit, response helpers, session
-    ├── admin/              ← Admin data fetching helpers
-    ├── cms/                ← Payload CMS client
-    ├── seo/                ← JSON-LD generators, metadata helpers
-    ├── realtime/           ← Ably client
-    ├── jobs/               ← QStash enqueue, heartbeat, verify
-    └── notifications/      ← Dispatch, email/webpush providers
-```
+<Callout type="info">
+  This page covers the **customer web app** (`apps/web` → `theroyalglow.in`). The
+  admin portal is a **separate Next.js app** at `apps/admin` (served from
+  `admin.theroyalglow.in`, root-path routes with no `/admin` prefix) — its pages,
+  `admin` components, and admin data helpers all live under `apps/admin/src/`, not
+  in `apps/web`. `apps/web` only keeps `lib/admin-redirect.ts`, which 301-redirects
+  legacy `theroyalglow.in/admin/*` URLs to the subdomain.
+</Callout>
+
+<Files>
+  <Folder name="apps/web/src" defaultOpen>
+    <Folder name="app — App Router pages and layouts" defaultOpen>
+      <File name="(customer) — public + authenticated customer pages" />
+      <File name="(auth) — sign-in, onboarding" />
+      <File name="(landing) — /book Meta ad lead capture" />
+      <File name="(legal) — privacy, terms, refund policy" />
+    </Folder>
+    <Folder name="components">
+      <File name="ui — shadcn/ui primitives (copy-pasted, fully owned)" />
+      <File name="layout — Header, Footer, MobileNav" />
+      <File name="booking — BookingDialog, ServiceTypeToggle, BookingDialogProvider" />
+      <File name="lead — LeadCaptureForm, LeadKanban, LeadDetail" />
+      <File name="notifications — NotificationBell" />
+      <File name="consent — CookieConsent, CookiePreferencesButton" />
+      <File name="seo — JsonLd" />
+      <File name="analytics — Analytics (PostHog + Clarity loader)" />
+      <File name="blog — PostCard, RichText" />
+      <File name="gallery — GalleryGrid" />
+      <File name="offers — OfferBookButton" />
+      <File name="pwa — ServiceWorkerRegistrar" />
+    </Folder>
+    <Folder name="lib">
+      <File name="auth-client.ts — Better Auth client" />
+      <File name="auth-server.ts — Better Auth server" />
+      <File name="api — withErrorHandler, rate-limit, response helpers, session" />
+      <File name="admin-redirect.ts — legacy /admin → admin.theroyalglow.in 301" />
+      <File name="cms — Payload CMS client" />
+      <File name="seo — JSON-LD generators, metadata helpers" />
+      <File name="realtime — Ably client" />
+      <File name="jobs — QStash enqueue, heartbeat, verify" />
+      <File name="notifications — dispatch, email/webpush providers" />
+    </Folder>
+  </Folder>
+</Files>
 
 ## Design System
 
 ### Design Tokens
 
-Tailwind CSS v4 design tokens are defined in `apps/web/src/styles/globals.css`. Key tokens:
+Tailwind CSS v4 design tokens are defined in `apps/web/src/styles/globals.css`.
 
-| Token | Value | Usage |
-| --- | --- | --- |
-| `royal-gold` | `#C8A961` | Primary CTA, active states, accents |
-| `deep-gold` | `#A8893F` | Hover state for gold elements |
-| `cocoa-dark` | `#2C1810` | Primary text, headings |
-| `canvas-white` | `#FAFAF8` | Page background |
-| `cloud-gray` | `#F0EDE8` | Card backgrounds, subtle fills |
-| `warm-gray` | `#8B7D74` | Secondary text |
-| `dusty-gray` | `#A09590` | Placeholder text, captions |
-| `error` | `#DC2626` | Error states |
+<TypeTable
+  type={{
+    'royal-gold': { type: '#C8A961', description: 'Primary CTA, active states, accents' },
+    'deep-gold': { type: '#A8893F', description: 'Hover state for gold elements' },
+    'cocoa-dark': { type: '#2C1810', description: 'Primary text, headings' },
+    'canvas-white': { type: '#FAFAF8', description: 'Page background' },
+    'cloud-gray': { type: '#F0EDE8', description: 'Card backgrounds, subtle fills' },
+    'warm-gray': { type: '#8B7D74', description: 'Secondary text' },
+    'dusty-gray': { type: '#A09590', description: 'Placeholder text, captions' },
+    error: { type: '#DC2626', description: 'Error states' },
+  }}
+/>
 
 ### Typography
 
-| Class | Font | Usage |
-| --- | --- | --- |
-| `font-display` | Playfair Display | Headings, logo, premium feel |
-| `font-sans` | Inter | Body text, descriptions |
-| `font-ui` | Inter (uppercase tracking) | Labels, buttons, navigation |
-| `font-mono` | JetBrains Mono | Booking numbers, invoice numbers |
+<TypeTable
+  type={{
+    'font-display': { type: 'Playfair Display', description: 'Headings, logo, premium feel' },
+    'font-sans': { type: 'Inter', description: 'Body text, descriptions' },
+    'font-ui': { type: 'Inter (uppercase tracking)', description: 'Labels, buttons, navigation' },
+    'font-mono': { type: 'JetBrains Mono', description: 'Booking numbers, invoice numbers' },
+  }}
+/>
 
 ### Spacing & Layout
 
@@ -80,6 +99,7 @@ Tailwind CSS v4 design tokens are defined in `apps/web/src/styles/globals.css`. 
 Components are copy-pasted into `components/ui/` — you own 100% of the code. Built on Radix UI primitives for production-tested accessibility.
 
 Key components in use:
+
 - `Button`, `Input`, `Label`, `Select`, `Textarea`
 - `Dialog`, `Sheet`, `Popover`, `Tooltip`
 - `Badge`, `Card`, `Separator`, `Skeleton`
@@ -90,14 +110,36 @@ Key components in use:
 
 The booking dialog is a 4-step modal that opens over the homepage. It is **never a separate page** — it's always a modal overlay.
 
-```
-Step 1: Branch + Date + Time slot picker
-Step 2: Salon/SPA toggle + category selection
-Step 3: Service multi-select with running total
-Step 4: Summary + submission
-```
+<Steps>
+
+<Step>
+### Step 1 — Branch, date & time
+
+Branch selector plus a date and time-slot picker.
+</Step>
+
+<Step>
+### Step 2 — Service type & category
+
+Salon/SPA toggle and category selection (one service type per booking).
+</Step>
+
+<Step>
+### Step 3 — Services
+
+Service multi-select with a running total.
+</Step>
+
+<Step>
+### Step 4 — Summary & submission
+
+Review and submit the booking.
+</Step>
+
+</Steps>
 
 **Entry points:**
+
 - Homepage "Book Now" button
 - `/?book=1` deep-link (auto-opens dialog)
 - `/?book=1&utm_source=gmb` (dialog + GMB attribution)
@@ -138,7 +180,9 @@ All animations respect `prefers-reduced-motion`:
 
 WCAG 2.1 AA compliance is non-negotiable. Lighthouse Accessibility = 100 is a hard CI gate.
 
-### Required on Every Interactive Element
+<Tabs items={['Interactive elements', 'Forms', 'Dynamic content', 'Colour contrast']}>
+
+<Tab value="Interactive elements">
 
 - `<button>` for actions (never `<div onClick>`)
 - `type="button"` on all buttons not inside a form
@@ -146,25 +190,35 @@ WCAG 2.1 AA compliance is non-negotiable. Lighthouse Accessibility = 100 is a ha
 - Visible focus ring (`focus-visible:ring-2`)
 - Keyboard navigation support
 
-### Required on Every Form
+</Tab>
+
+<Tab value="Forms">
 
 - Every `<input>` has a `<label>` with matching `htmlFor`/`id`
 - `aria-required="true"` on required fields
 - `aria-describedby` linking input to error message
 - `<fieldset>` + `<legend>` for grouped fields
 
-### Required on Dynamic Content
+</Tab>
+
+<Tab value="Dynamic content">
 
 - `aria-live="polite"` on booking availability updates
-- `aria-live="polite"` on loading states (use `<output>` element)
+- `aria-live="polite"` on loading states (use the `<output>` element)
 - `role="alert"` on error messages
 - Focus management on modal open/close
 
-### Colour Contrast
+</Tab>
+
+<Tab value="Colour contrast">
 
 - Normal text: 4.5:1 minimum
 - Large text (18px+ or 14px+ bold): 3:1 minimum
 - UI components and graphical objects: 3:1 minimum
+
+</Tab>
+
+</Tabs>
 
 ## PWA
 
@@ -176,19 +230,22 @@ The app is installable as a Progressive Web App:
 - Offline page at `/offline` — shows when user is offline
 
 Offline capabilities:
+
 - Service menu and prices (cached on first visit)
 - Contact information and address
 - Booking history (cached)
 
 ## Performance Targets
 
-| Metric | Target | How |
-| --- | --- | --- |
-| LCP | < 2.5s | SSR/SSG, `<Image priority>` on hero |
-| CLS | < 0.1 | Explicit `width`/`height` on all images |
-| INP | < 200ms | Minimal client JS, deferred non-critical scripts |
-| Lighthouse Performance | ≥ 95 | CI gate |
-| JS bundle (initial) | < 150 KB gzipped | `@next/bundle-analyzer` monitoring |
+<TypeTable
+  type={{
+    LCP: { type: '< 2.5s', description: 'SSR/SSG, priority Image on hero' },
+    CLS: { type: '< 0.1', description: 'Explicit width/height on all images' },
+    INP: { type: '< 200ms', description: 'Minimal client JS, deferred non-critical scripts' },
+    'Lighthouse Performance': { type: '≥ 95', description: 'CI gate' },
+    'JS bundle (initial)': { type: '< 150 KB gzipped', description: '@next/bundle-analyzer monitoring' },
+  }}
+/>
 
 ## Coding Conventions
 
@@ -198,3 +255,11 @@ Offline capabilities:
 - **No `any`** — TypeScript strict mode enforced by Biome
 - **Single quotes, no semicolons** — Biome formatter
 - **Import sorting** — handled automatically by Biome
+
+## Related Pages
+
+<Cards>
+  <Card title="Pages & Routes" href="/docs/pages-and-routes" description="Every route these components render" />
+  <Card title="Conventions" href="/docs/conventions" description="Cross-cutting money, date, and layer rules" />
+  <Card title="Tech Stack" href="/docs/tech-stack" description="The UI and tooling choices behind the frontend" />
+</Cards>

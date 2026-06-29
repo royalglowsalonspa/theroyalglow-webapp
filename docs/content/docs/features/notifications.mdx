@@ -31,16 +31,33 @@ Two delivery channels working together:
 
 Push notifications follow a four-stage flow:
 
-1. **Permission** — the browser's permission prompt is shown at a considered
-   moment (after the customer's first successful booking, not on first load).
-   The customer can grant, deny, or dismiss it.
-2. **Subscribe** — once granted, the service worker subscribes with the VAPID
-   public key and produces a subscription object.
-3. **Store** — the subscription (endpoint and keys) is saved to the
-   `push_subscription` table against the user via `POST /api/push/subscribe`.
-4. **Send** — when an event occurs, the server looks up the user's
-   subscription(s) and sends the notification through the push service, which the
-   service worker displays.
+<Steps>
+<Step>
+### Permission
+
+The browser's permission prompt is shown at a considered moment (after the
+customer's first successful booking, not on first load). The customer can grant,
+deny, or dismiss it.
+</Step>
+<Step>
+### Subscribe
+
+Once granted, the service worker subscribes with the VAPID public key and
+produces a subscription object.
+</Step>
+<Step>
+### Store
+
+The subscription (endpoint and keys) is saved to the `push_subscription` table
+against the user via `POST /api/push/subscribe`.
+</Step>
+<Step>
+### Send
+
+When an event occurs, the server looks up the user's subscription(s) and sends
+the notification through the push service, which the service worker displays.
+</Step>
+</Steps>
 
 ### What gets pushed
 
@@ -130,11 +147,17 @@ for email separately.
 
 ## Reminder scheduling
 
-When a booking is confirmed, reminders are scheduled with QStash:
+When a booking is confirmed, reminders are scheduled with QStash based on how
+far away the appointment is:
 
-- If the appointment is more than 24 hours away, both a 24-hour and a 1-hour
-  reminder are scheduled.
-- If it is 24 hours away or less, only the 1-hour reminder is scheduled.
+<Accordions type="single">
+<Accordion title="Appointment more than 24 hours away">
+Both a 24-hour and a 1-hour reminder are scheduled.
+</Accordion>
+<Accordion title="Appointment 24 hours away or less">
+Only the 1-hour reminder is scheduled.
+</Accordion>
+</Accordions>
 
 When QStash fires the job, the server verifies the request signature, re-checks
 that the booking is still confirmed (skipping cancelled ones), checks the

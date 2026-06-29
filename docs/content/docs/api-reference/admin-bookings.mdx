@@ -12,12 +12,17 @@ is none) and then checks the caller's role against the hierarchy
 (`FORBIDDEN` 403 when the level is too low).
 
 <Callout type="info">
-  **Minimum role: `receptionist`** on every endpoint on this page. Money is an
-  integer in **paise**; `bookingDate` filters use `YYYY-MM-DD`; stored times
-  render as `HH:mm:ss`. Timestamps are ISO-8601 UTC.
+  **Base URL:** `admin.theroyalglow.in` · **Auth:** Better Auth session;
+  **minimum role `receptionist`** on every endpoint on this page. These paths
+  carry **no `/admin` prefix** — the admin subdomain is the namespace, so the
+  full URL is e.g. `admin.theroyalglow.in/api/bookings`. The customer app
+  exposes its own, distinct `/api/bookings` on `theroyalglow.in` (see
+  [Bookings](/docs/api-reference/bookings)). Money is an integer in **paise**;
+  `bookingDate` filters use `YYYY-MM-DD`; stored times render as `HH:mm:ss`.
+  Timestamps are ISO-8601 UTC.
 </Callout>
 
-## GET /api/admin/bookings
+## GET /api/bookings
 
 Lists all bookings across customers (admin view), newest first
 (`bookingDate` then `createdAt` descending). Each booking is returned with the
@@ -28,7 +33,7 @@ returns the full filtered list and does **not** paginate (no `meta`).
 **Minimum role:** `receptionist` (`requireRole('receptionist')`)
 
 ```http
-GET /api/admin/bookings?status=pending&serviceType=salon&date=2026-06-15
+GET /api/bookings?status=pending&serviceType=salon&date=2026-06-15
 ```
 
 ### Query parameters
@@ -36,11 +41,25 @@ GET /api/admin/bookings?status=pending&serviceType=salon&date=2026-06-15
 All optional. Filters are applied with exact equality; omitting a parameter
 skips that filter.
 
-| Parameter | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `status` | string | Optional | Booking status, e.g. `pending`, `confirmed`, `in_progress`, `completed`, `cancelled`, `no_show`, `rejected`. |
-| `serviceType` | string | Optional | `salon` or `spa`. |
-| `date` | string | Optional | `YYYY-MM-DD`. Matches the `bookingDate` exactly. |
+<TypeTable
+  type={{
+    status: {
+      type: 'string',
+      description: 'Booking status, e.g. pending, confirmed, in_progress, completed, cancelled, no_show, rejected.',
+      required: false,
+    },
+    serviceType: {
+      type: 'string',
+      description: 'salon or spa.',
+      required: false,
+    },
+    date: {
+      type: 'string',
+      description: 'YYYY-MM-DD. Matches the bookingDate exactly.',
+      required: false,
+    },
+  }}
+/>
 
 ### Response
 
@@ -97,15 +116,27 @@ skips that filter.
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `FORBIDDEN` | 403 | Caller's role is below `receptionist`. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="FORBIDDEN — 403">
+
+Caller's role is below `receptionist`.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
-## GET /api/admin/bookings/[id]
+## GET /api/bookings/[id]
 
 Returns a single booking (any customer) with the customer's name and email and
 its `services` snapshot rows.
@@ -113,12 +144,20 @@ its `services` snapshot rows.
 **Minimum role:** `receptionist` (`requireRole('receptionist')`)
 
 ```http
-GET /api/admin/bookings/bk_8f2a1c9e4d
+GET /api/bookings/bk_8f2a1c9e4d
 ```
 
-| Parameter | In | Type | Required | Notes |
-| --- | --- | --- | --- | --- |
-| `id` | path | string | Required | The booking id. |
+### Path parameters
+
+<TypeTable
+  type={{
+    id: {
+      type: 'string',
+      description: 'Path. The booking id.',
+      required: true,
+    },
+  }}
+/>
 
 ### Response
 
@@ -173,16 +212,32 @@ GET /api/admin/bookings/bk_8f2a1c9e4d
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `FORBIDDEN` | 403 | Caller's role is below `receptionist`. |
-| `NOT_FOUND` | 404 | No booking with that id. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="FORBIDDEN — 403">
+
+Caller's role is below `receptionist`.
+
+</Accordion>
+<Accordion title="NOT_FOUND — 404">
+
+No booking with that id.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
-## PATCH /api/admin/bookings/[id]
+## PATCH /api/bookings/[id]
 
 A single endpoint that performs one of three actions, selected by the `action`
 discriminator. The body is validated by `adminBookingActionSchema`
@@ -199,21 +254,46 @@ discriminator. The body is validated by `adminBookingActionSchema`
 **Minimum role:** `receptionist` (`requireRole('receptionist')`)
 
 ```http
-PATCH /api/admin/bookings/bk_8f2a1c9e4d
+PATCH /api/bookings/bk_8f2a1c9e4d
 Content-Type: application/json
 ```
 
-| Parameter | In | Type | Required | Notes |
-| --- | --- | --- | --- | --- |
-| `id` | path | string | Required | The booking id. |
+### Path parameters
+
+<TypeTable
+  type={{
+    id: {
+      type: 'string',
+      description: 'Path. The booking id.',
+      required: true,
+    },
+  }}
+/>
 
 ### Request body
 
-| Field | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `action` | enum | Required | `approve`, `reject`, or `assign`. Determines which other fields are required. |
-| `staffId` | string | Required for `approve` and `assign` | Non-empty staff_profile id assigned to all services. |
-| `rejectionReason` | string | Required for `reject` | 1–500 characters. Customer-facing reason. |
+<TypeTable
+  type={{
+    action: {
+      type: 'enum',
+      description: 'approve, reject, or assign. Determines which other fields are required.',
+      required: true,
+    },
+    staffId: {
+      type: 'string',
+      description: 'Required for approve and assign. Non-empty staff_profile id assigned to all services.',
+      required: false,
+    },
+    rejectionReason: {
+      type: 'string',
+      description: 'Required for reject. 1–500 characters. Customer-facing reason.',
+      required: false,
+    },
+  }}
+/>
+
+<Tabs items={['approve', 'reject', 'assign']}>
+<Tab value="approve">
 
 ```json
 {
@@ -222,12 +302,18 @@ Content-Type: application/json
 }
 ```
 
+</Tab>
+<Tab value="reject">
+
 ```json
 {
   "action": "reject",
   "rejectionReason": "No therapist available for the requested slot."
 }
 ```
+
+</Tab>
+<Tab value="assign">
 
 ```json
 {
@@ -236,9 +322,15 @@ Content-Type: application/json
 }
 ```
 
+</Tab>
+</Tabs>
+
 ### Response
 
-For `approve` and `reject`, the updated booking row is returned:
+<Tabs items={['approve / reject', 'assign']}>
+<Tab value="approve / reject">
+
+The updated booking row is returned.
 
 ```json
 {
@@ -275,7 +367,10 @@ For `approve` and `reject`, the updated booking row is returned:
 }
 ```
 
-For `assign`, the booking id and the updated `booking_service` rows are returned:
+</Tab>
+<Tab value="assign">
+
+The booking id and the updated `booking_service` rows are returned.
 
 ```json
 {
@@ -298,20 +393,48 @@ For `assign`, the booking id and the updated `booking_service` rows are returned
 }
 ```
 
+</Tab>
+</Tabs>
+
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `FORBIDDEN` | 403 | Caller's role is below `receptionist`. |
-| `VALIDATION_ERROR` | 400 | Body fails `adminBookingActionSchema` (unknown action, missing `staffId`/`rejectionReason`, etc.). `details` carries field errors. |
-| `NOT_FOUND` | 404 | No booking with that id. |
-| `BOOKING_INVALID_STATUS_TRANSITION` | 409 | `approve`/`reject` attempted on a booking that is not `pending`. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="FORBIDDEN — 403">
+
+Caller's role is below `receptionist`.
+
+</Accordion>
+<Accordion title="VALIDATION_ERROR — 400">
+
+Body fails `adminBookingActionSchema` (unknown action, missing
+`staffId`/`rejectionReason`, etc.). `details` carries field errors.
+
+</Accordion>
+<Accordion title="NOT_FOUND — 404">
+
+No booking with that id.
+
+</Accordion>
+<Accordion title="BOOKING_INVALID_STATUS_TRANSITION — 409">
+
+`approve`/`reject` attempted on a booking that is not `pending`.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
-## POST /api/admin/bookings/[id]/complete
+## POST /api/bookings/[id]/complete
 
 Completes a booking at the counter: collects the in-person payment method,
 transitions the booking to `completed`, generates a GST-inclusive service
@@ -321,13 +444,21 @@ invoice, awards loyalty gems, and (optionally) applies an offer. Only
 **Minimum role:** `receptionist` (`requireRole('receptionist')`)
 
 ```http
-POST /api/admin/bookings/bk_8f2a1c9e4d/complete
+POST /api/bookings/bk_8f2a1c9e4d/complete
 Content-Type: application/json
 ```
 
-| Parameter | In | Type | Required | Notes |
-| --- | --- | --- | --- | --- |
-| `id` | path | string | Required | The booking id. |
+### Path parameters
+
+<TypeTable
+  type={{
+    id: {
+      type: 'string',
+      description: 'Path. The booking id.',
+      required: true,
+    },
+  }}
+/>
 
 ### Request body
 
@@ -335,12 +466,30 @@ Content-Type: application/json
 offer/gems fields are read defensively from the raw body alongside the parsed
 payload.
 
-| Field | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `paymentMethod` | enum | Required | `cash`, `upi`, or `card`. |
-| `offerId` | string | Optional | Apply a salon-only offer to the total. Validated as active and within its date range; cannot be combined with gems; one offer per customer per day. |
-| `gemsRedeemedServiceId` | string | Optional | Presence signals a gems redemption on this booking. Mutually exclusive with `offerId`. |
-| `redeemGems` | boolean | Optional | Truthy value also signals a gems redemption (mutually exclusive with `offerId`). |
+<TypeTable
+  type={{
+    paymentMethod: {
+      type: 'enum',
+      description: 'cash, upi, or card.',
+      required: true,
+    },
+    offerId: {
+      type: 'string',
+      description: 'Apply a salon-only offer to the total. Validated as active and within its date range; cannot be combined with gems; one offer per customer per day.',
+      required: false,
+    },
+    gemsRedeemedServiceId: {
+      type: 'string',
+      description: 'Presence signals a gems redemption on this booking. Mutually exclusive with offerId.',
+      required: false,
+    },
+    redeemGems: {
+      type: 'boolean',
+      description: 'Truthy value also signals a gems redemption (mutually exclusive with offerId).',
+      required: false,
+    },
+  }}
+/>
 
 ```json
 {
@@ -405,20 +554,54 @@ discount applied (all amounts in paise).
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `FORBIDDEN` | 403 | Caller's role is below `receptionist`. |
-| `VALIDATION_ERROR` | 400 | Body fails `completeBookingSchema` (invalid/missing `paymentMethod`). `details` carries field errors. |
-| `NOT_FOUND` | 404 | Booking not found, its branch not found, or a supplied `offerId` not found. |
-| `BOOKING_INVALID_STATUS_TRANSITION` | 409 | Booking is not `confirmed` or `in_progress`. |
-| `OFFER_EXPIRED` | 409 | Supplied offer is inactive or outside its date range. |
-| `OFFER_NOT_APPLICABLE` | 409 | Offer applied to a spa booking, combined with a gems redemption, or the customer already redeemed an offer today. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="FORBIDDEN — 403">
+
+Caller's role is below `receptionist`.
+
+</Accordion>
+<Accordion title="VALIDATION_ERROR — 400">
+
+Body fails `completeBookingSchema` (invalid/missing `paymentMethod`). `details`
+carries field errors.
+
+</Accordion>
+<Accordion title="NOT_FOUND — 404">
+
+Booking not found, its branch not found, or a supplied `offerId` not found.
+
+</Accordion>
+<Accordion title="BOOKING_INVALID_STATUS_TRANSITION — 409">
+
+Booking is not `confirmed` or `in_progress`.
+
+</Accordion>
+<Accordion title="OFFER_EXPIRED — 409">
+
+Supplied offer is inactive or outside its date range.
+
+</Accordion>
+<Accordion title="OFFER_NOT_APPLICABLE — 409">
+
+Offer applied to a spa booking, combined with a gems redemption, or the customer
+already redeemed an offer today.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>
 
 ---
 
-## POST /api/admin/bookings/[id]/noshow
+## POST /api/bookings/[id]/noshow
 
 Marks a booking as `no_show`. Only a `confirmed` booking can be marked no-show
 (intended for use after the appointment window). No request body is required.
@@ -427,12 +610,20 @@ No-show tier escalation is handled separately by a background job.
 **Minimum role:** `receptionist` (`requireRole('receptionist')`)
 
 ```http
-POST /api/admin/bookings/bk_8f2a1c9e4d/noshow
+POST /api/bookings/bk_8f2a1c9e4d/noshow
 ```
 
-| Parameter | In | Type | Required | Notes |
-| --- | --- | --- | --- | --- |
-| `id` | path | string | Required | The booking id. |
+### Path parameters
+
+<TypeTable
+  type={{
+    id: {
+      type: 'string',
+      description: 'Path. The booking id.',
+      required: true,
+    },
+  }}
+/>
 
 ### Response
 
@@ -473,10 +664,30 @@ POST /api/admin/bookings/bk_8f2a1c9e4d/noshow
 
 ### Errors
 
-| Code | Status | When |
-| --- | --- | --- |
-| `UNAUTHENTICATED` | 401 | No active session. |
-| `FORBIDDEN` | 403 | Caller's role is below `receptionist`. |
-| `NOT_FOUND` | 404 | No booking with that id. |
-| `BOOKING_INVALID_STATUS_TRANSITION` | 409 | Booking is not in `confirmed` status. |
-| `INTERNAL_ERROR` | 500 | Unexpected/transient failure. `retryable: true`. |
+<Accordions type="single">
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="FORBIDDEN — 403">
+
+Caller's role is below `receptionist`.
+
+</Accordion>
+<Accordion title="NOT_FOUND — 404">
+
+No booking with that id.
+
+</Accordion>
+<Accordion title="BOOKING_INVALID_STATUS_TRANSITION — 409">
+
+Booking is not in `confirmed` status.
+
+</Accordion>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</Accordions>

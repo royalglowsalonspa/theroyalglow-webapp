@@ -8,13 +8,29 @@ description: Agent-friendly REST endpoints for the Royal Glow platform.
 The public API uses clean, human-readable RESTful URLs with a consistent JSON
 envelope, so both browsers and AI agents can discover and call them.
 
+<Callout type="info">
+  **Base URLs:** customer endpoints are on `https://theroyalglow.in`
+  (local: `http://localhost:3000`); the admin endpoint groups are a separate app
+  on `https://admin.theroyalglow.in` (local: `http://localhost:3001`) with **no
+  `/api/admin/` segment**. Most endpoints require a Better Auth session cookie;
+  public endpoints (services, availability, lead capture, health) need none.
+  Every response — except `GET /api/health` — uses the shared `{ success, data }`
+  envelope.
+</Callout>
+
 ## Response shape
 
-```json
-// success
-{ "success": true, "data": {}, "meta": {} }
+<Tabs items={['Success', 'Error']}>
+<Tab value="Success">
 
-// error
+```json
+{ "success": true, "data": {}, "meta": {} }
+```
+
+</Tab>
+<Tab value="Error">
+
+```json
 {
   "success": false,
   "error": {
@@ -26,12 +42,30 @@ envelope, so both browsers and AI agents can discover and call them.
 }
 ```
 
-## Key endpoints
+</Tab>
+</Tabs>
+
+## Endpoint groups
+
+<Cards>
+  <Card title="Services & Availability" href="/docs/api-reference/services" description="Catalogue, service detail, slot availability" />
+  <Card title="Bookings (customer)" href="/docs/api-reference/bookings" description="Create, view, cancel a booking" />
+  <Card title="Admin — Bookings" href="/docs/api-reference/admin-bookings" description="Approve, assign, complete, no-show" />
+  <Card title="Customers & CRM" href="/docs/api-reference/customers-crm" description="Directory, profiles, notes, tags" />
+  <Card title="Leads" href="/docs/api-reference/leads" description="Lead capture + admin pipeline" />
+  <Card title="Memberships" href="/docs/api-reference/memberships" description="Customer view + admin management" />
+  <Card title="Loyalty & Offers" href="/docs/api-reference/loyalty-offers" description="Gems and promotional offers" />
+  <Card title="Notifications & Realtime" href="/docs/api-reference/notifications" description="In-app, push, Ably token" />
+  <Card title="Background Jobs" href="/docs/api-reference/jobs" description="QStash-triggered job routes" />
+  <Card title="Health" href="/docs/api-reference/health" description="Liveness + dependency checks" />
+</Cards>
+
+## Key endpoints (quick index)
 
 | Action | Method | Path |
 | --- | --- | --- |
 | List services | GET | `/api/services` |
-| Check availability | GET | `/api/availability?service={slug}&date={YYYY-MM-DD}` |
+| Check availability | GET | `/api/availability?date={YYYY-MM-DD}&branchId={id}` |
 | Submit booking request | POST | `/api/bookings` |
 | Get booking status | GET | `/api/bookings/{id}` |
 | Submit campaign lead | POST | `/api/leads` |
@@ -39,10 +73,12 @@ envelope, so both browsers and AI agents can discover and call them.
 
 ## AI-discovery files
 
-- `/llms.txt` — concise site summary with live service names.
-- `/llms-full.txt` — full menu with prices, durations, policies, and FAQs.
-- `/sitemap.xml` and `/robots.txt` — crawler discovery (all major AI crawlers
-  allowed).
+<Cards>
+  <Card title="/llms.txt" href="/llms.txt" description="Concise site summary with live service names." />
+  <Card title="/llms-full.txt" href="/llms-full.txt" description="Full menu with prices, durations, policies, and FAQs." />
+  <Card title="/sitemap.xml" href="/sitemap.xml" description="Crawler discovery — all major AI crawlers allowed." />
+  <Card title="/robots.txt" href="/robots.txt" description="Crawl rules; AI crawlers explicitly allowed." />
+</Cards>
 
 <Callout type="info">
   A complete, auto-generated reference (via `fumadocs-openapi` from a published

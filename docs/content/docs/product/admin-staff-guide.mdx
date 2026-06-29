@@ -5,12 +5,19 @@ description: For the salon team — the six roles and what each can do, plus dai
 
 # Admin & Staff Guide
 
+<Callout type="info">
+  **For the salon team.** This guide explains who can do what, then walks through
+  the everyday tasks — bookings, payment, membership sessions, customers, the lead
+  pipeline, offers, and staff schedules. The internal tool is the **admin
+  portal** at `admin.theroyalglow.in` (its own subdomain — pages sit at the root,
+  with no `/admin` prefix).
+</Callout>
+
 This guide is for the people who run Royal Glow — the front desk, stylists and
 therapists, managers, and owners. It explains who can do what, then walks
 through the everyday tasks: handling bookings, taking payment, recording
 membership sessions, looking after customers, working the lead pipeline, running
-offers, and managing staff schedules. The internal tool is the **admin portal**,
-reached at `theroyalglow.in/admin`.
+offers, and managing staff schedules.
 
 ## The six roles
 
@@ -18,7 +25,7 @@ Access is organised into six levels. Each level can do everything the one below
 it can, plus more. This keeps the front desk focused and sensitive areas (like
 pricing and reports) limited to the right people.
 
-```
+```text
 Customer  <  Staff  <  Receptionist  <  Manager  <  Owner  <  Developer
 ```
 
@@ -73,10 +80,28 @@ emails, prices, or any CRM data.
 New online bookings arrive as **Pending** and appear live on the dashboard and
 the bookings list. To handle one:
 
-1. Open the booking from the dashboard or **Bookings** list.
-2. Review the customer, services, date, and time.
-3. **Assign a staff member** to each service (a dropdown per service).
-4. Click **Approve** to confirm it, or **Reject** and give a reason.
+<Steps>
+<Step>
+### Open the booking
+
+Open it from the dashboard or the **Bookings** list.
+</Step>
+<Step>
+### Review the details
+
+Review the customer, services, date, and time.
+</Step>
+<Step>
+### Assign staff
+
+Assign a staff member to each service (a dropdown per service).
+</Step>
+<Step>
+### Approve or reject
+
+Click **Approve** to confirm it, or **Reject** and give a reason.
+</Step>
+</Steps>
 
 When you approve, the customer is notified and the booking becomes
 **Confirmed**. When you reject, the customer sees the reason you typed and can
@@ -87,10 +112,28 @@ PM — please try 4:00 PM").
 
 When a customer arrives without booking, create a walk-in:
 
-1. Click **+ Walk-in**.
-2. Search for the customer (or create a new one).
-3. Pick the service type, services, and assign staff.
-4. Set the time (defaults to now) and save.
+<Steps>
+<Step>
+### Start a walk-in
+
+Click **+ Walk-in**.
+</Step>
+<Step>
+### Find or create the customer
+
+Search for the customer (or create a new one).
+</Step>
+<Step>
+### Pick services & staff
+
+Pick the service type, services, and assign staff.
+</Step>
+<Step>
+### Set the time and save
+
+Set the time (defaults to now) and save.
+</Step>
+</Steps>
 
 Walk-ins skip "pending" and are **confirmed immediately**, because the customer
 is already in front of you.
@@ -105,12 +148,38 @@ is already in front of you.
 When the service is finished, the same checkout flow handles payment, the
 invoice, and loyalty gems in one go:
 
-1. On the confirmed booking, mark it **In Progress** when the customer checks in.
-2. When the service is done, click **Mark Completed** to open checkout.
-3. Optionally apply **one offer** (max one per customer per day).
-4. Choose the payment method: **Cash, UPI, or Card**.
-5. Review the invoice preview (line items, GST split, total).
-6. Click **Complete & Generate Invoice**.
+<Steps>
+<Step>
+### Mark In Progress
+
+On the confirmed booking, mark it **In Progress** when the customer checks in.
+</Step>
+<Step>
+### Open checkout
+
+When the service is done, click **Mark Completed** to open checkout.
+</Step>
+<Step>
+### Apply an offer (optional)
+
+Optionally apply **one offer** (max one per customer per day).
+</Step>
+<Step>
+### Choose payment method
+
+Choose the payment method: **Cash, UPI, or Card**.
+</Step>
+<Step>
+### Review the invoice
+
+Review the invoice preview (line items, GST split, total).
+</Step>
+<Step>
+### Complete & generate invoice
+
+Click **Complete & Generate Invoice**.
+</Step>
+</Steps>
 
 The system then, in a single step:
 
@@ -131,10 +200,28 @@ The system then, in a single step:
 When a member comes in for a spa session, you record it against their hours
 instead of taking payment:
 
-1. Open the membership from **Memberships** (or the customer's profile).
-2. Click **Record Session**.
-3. Select the service(s) performed and confirm the duration.
-4. Save.
+<Steps>
+<Step>
+### Open the membership
+
+Open it from **Memberships** (or the customer's profile).
+</Step>
+<Step>
+### Record a session
+
+Click **Record Session**.
+</Step>
+<Step>
+### Select services & duration
+
+Select the service(s) performed and confirm the duration.
+</Step>
+<Step>
+### Save
+
+Save the session.
+</Step>
+</Steps>
 
 This deducts the time from their balance, creates a **₹0 invoice** as a usage
 record, and emails a session confirmation. If the requested time is more than
@@ -162,18 +249,30 @@ landing page or a Meta lead form). They're different from bookings — a lead
 hasn't reserved a slot yet, they've just expressed interest. The **Leads** area
 shows them as a board you move across stages:
 
-```
+```text
 New → Contacted → Follow-up → Booked → Won / Lost
 ```
 
-| Stage | Meaning |
-| --- | --- |
-| **New** | Just captured. Not yet contacted. |
-| **Contacted** | You've reached out (call or WhatsApp). |
-| **Follow-up** | Interested but not booked yet — needs nurturing. |
-| **Booked** | They've made a booking linked to this lead. |
-| **Won** | The booking was completed and paid — revenue attributed. |
-| **Lost** | They didn't convert (record a reason). |
+<Accordions type="single">
+<Accordion title="New">
+Just captured. Not yet contacted.
+</Accordion>
+<Accordion title="Contacted">
+You've reached out (call or WhatsApp).
+</Accordion>
+<Accordion title="Follow-up">
+Interested but not booked yet — needs nurturing.
+</Accordion>
+<Accordion title="Booked">
+They've made a booking linked to this lead.
+</Accordion>
+<Accordion title="Won">
+The booking was completed and paid — revenue attributed.
+</Accordion>
+<Accordion title="Lost">
+They didn't convert (record a reason).
+</Accordion>
+</Accordions>
 
 Each lead card shows the name, phone (tap to call or open WhatsApp), service
 interest, and which campaign brought them in. Leads with no contact for 48 hours
@@ -209,11 +308,24 @@ accurate matters.
 
 Leave follows a clear **request → review → decision** flow:
 
-1. A staff member submits a leave request for a future date. It starts as
-   **Pending**.
-2. Receptionists and the manager are notified and review it in **Leave**.
-3. They **Approve** (which blocks that staff member's availability for the date)
-   or **Reject** with a reason.
+<Steps>
+<Step>
+### Submit
+
+A staff member submits a leave request for a future date. It starts as **Pending**.
+</Step>
+<Step>
+### Review
+
+Receptionists and the manager are notified and review it in **Leave**.
+</Step>
+<Step>
+### Decide
+
+They **Approve** (which blocks that staff member's availability for the date) or
+**Reject** with a reason.
+</Step>
+</Steps>
 
 | Leave status | Effect on availability | Who sets it |
 | --- | --- | --- |
@@ -243,15 +355,53 @@ tally.
 
 ## A day at the front desk, in order
 
-1. Check the **dashboard** — pending bookings, today's appointments, stale leads.
-2. **Approve or reject** pending bookings and assign staff.
-3. Create **walk-ins** as customers arrive.
-4. Mark bookings **In Progress** at check-in.
-5. **Checkout** completed services — payment, invoice, gems.
-6. **Record membership sessions** for spa members.
-7. Work the **lead pipeline** — call and follow up.
-8. Update **customer notes and tags** as you learn things.
-9. Review and action **leave requests**.
+<Steps>
+<Step>
+### Check the dashboard
+
+Pending bookings, today's appointments, stale leads.
+</Step>
+<Step>
+### Approve or reject
+
+Action pending bookings and assign staff.
+</Step>
+<Step>
+### Create walk-ins
+
+As customers arrive.
+</Step>
+<Step>
+### Mark In Progress
+
+At check-in.
+</Step>
+<Step>
+### Checkout
+
+Completed services — payment, invoice, gems.
+</Step>
+<Step>
+### Record membership sessions
+
+For spa members.
+</Step>
+<Step>
+### Work the lead pipeline
+
+Call and follow up.
+</Step>
+<Step>
+### Update customer notes and tags
+
+As you learn things.
+</Step>
+<Step>
+### Action leave requests
+
+Review and decide.
+</Step>
+</Steps>
 
 ## Where to go next
 

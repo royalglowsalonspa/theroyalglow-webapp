@@ -29,21 +29,36 @@ slot is locked in.
 
 The dialog walks the customer through four short steps:
 
-1. **Date & slot** — branch (auto-selected as Rayasandra in Phase 1), name and
-   email prefilled from the profile (not editable), a date picker for future
-   dates only, and the available time slots for that day. Fully booked or
-   closed slots are greyed out.
-2. **Choose category** — a Salon / SPA toggle, then multi-select category cards
-   within the chosen type. **One booking is one type only** — Salon or SPA,
-   never both — which keeps the two sides of the business cleanly separated for
-   reporting.
-3. **Choose services** — service cards under the selected categories, with a
-   running total at the bottom (e.g. "3 services · ₹3,500.00"). SPA services
-   that come in 60-minute and 90-minute variants appear as a single card with a
-   duration selector.
-4. **Summary** — a "Booking Submitted!" confirmation showing the booking number,
-   the selected services with prices, the GST-inclusive total, a "Pay at the
-   salon (Cash / UPI / Card)" note, and the customer's current gems balance.
+<Steps>
+<Step>
+### Date & slot
+
+Branch (auto-selected as Rayasandra in Phase 1), name and email prefilled from
+the profile (not editable), a date picker for future dates only, and the
+available time slots for that day. Fully booked or closed slots are greyed out.
+</Step>
+<Step>
+### Choose category
+
+A Salon / SPA toggle, then multi-select category cards within the chosen type.
+**One booking is one type only** — Salon or SPA, never both — which keeps the
+two sides of the business cleanly separated for reporting.
+</Step>
+<Step>
+### Choose services
+
+Service cards under the selected categories, with a running total at the bottom
+(e.g. "3 services · ₹3,500.00"). SPA services that come in 60-minute and
+90-minute variants appear as a single card with a duration selector.
+</Step>
+<Step>
+### Summary
+
+A "Booking Submitted!" confirmation showing the booking number, the selected
+services with prices, the GST-inclusive total, a "Pay at the salon (Cash / UPI /
+Card)" note, and the customer's current gems balance.
+</Step>
+</Steps>
 
 <Callout type="info">
   If the customer is not signed in when they trigger the dialog, the booking
@@ -80,16 +95,38 @@ pending → confirmed → in_progress → completed
    └─→ rejected  (with a reason)
 ```
 
-- **pending** — the initial state for every online booking. The customer can
-  edit services, reschedule, or cancel.
-- **confirmed** — a receptionist or manager approved the request and assigned
-  staff. The customer can reschedule or cancel.
-- **rejected** — the request was declined with a reason; the customer sees the
-  reason and a "Book Again" option.
-- **in_progress** — the customer is in the salon and the service is underway.
-- **completed** — the service is done; an invoice is generated, gems are
-  awarded, and a confirmation email is sent.
-- **cancelled / no_show / rescheduled** — the off-ramps from a live booking.
+The happy path moves through four states in order:
+
+<Steps>
+<Step>
+### pending
+
+The initial state for every online booking. The customer can edit services,
+reschedule, or cancel. (Walk-ins skip this state.)
+</Step>
+<Step>
+### confirmed
+
+A receptionist or manager approved the request and assigned staff. The customer
+can still reschedule or cancel.
+</Step>
+<Step>
+### in_progress
+
+The customer is in the salon and the service is underway.
+</Step>
+<Step>
+### completed
+
+The service is done — an invoice is generated, gems are awarded, and a
+confirmation email is sent.
+</Step>
+</Steps>
+
+The off-ramps from this path are `rejected` (declined with a reason from
+`pending`), `cancelled` (from `pending` or `confirmed`), `no_show` (15 minutes
+after the end time when the customer never arrived), and `rescheduled` (moved to
+a new slot from `confirmed`).
 
 <Callout type="info">
   **Walk-ins skip `pending`.** When a receptionist creates a walk-in booking the
@@ -100,21 +137,37 @@ pending → confirmed → in_progress → completed
 
 ## Rules
 
-- **One service type per booking** — Salon **or** SPA, never mixed.
-- **Staff is not chosen by the customer.** A receptionist or manager assigns
-  staff per service when approving. Customers can leave a staff preference in the
-  notes.
-- **Reschedule limit** — up to 2 reschedules per booking, each at least 1 hour
-  before the appointment. A 3rd attempt is blocked; the customer must cancel and
-  re-book.
-- **Cancellation** — free more than 4 hours before the appointment; within 4
-  hours it is tagged in CRM (no fee ever). Cancellation is not possible once a
-  booking is `in_progress`.
-- **Pricing is snapshotted** — each `booking_service` row freezes the service
-  name and price at the time of booking, so later catalogue changes never alter
-  a past booking.
-- **Completion awards gems** — service bookings earn 1 gem per ₹100 invoiced on
-  completion. See [Loyalty — Gems](/docs/features/loyalty-gems).
+<Callout type="warn">
+  **One service type per booking** — a booking is Salon **or** SPA, never mixed.
+  This hard separation keeps the two sides of the business cleanly split for
+  reporting and is enforced from the dialog through to the database.
+</Callout>
+
+<Accordions type="single">
+<Accordion title="Who chooses the staff member?">
+The customer does not. A receptionist or manager assigns staff per service when
+approving the booking. Customers can leave a staff preference in the notes, but
+the assignment decision stays with the salon.
+</Accordion>
+<Accordion title="How many times can a booking be rescheduled?">
+Up to 2 reschedules per booking, each at least 1 hour before the appointment. A
+3rd attempt is blocked — the customer must cancel and re-book.
+</Accordion>
+<Accordion title="What are the cancellation rules?">
+Cancellation is free more than 4 hours before the appointment. Within 4 hours it
+is tagged in CRM (no fee, ever). Cancellation is not possible once a booking is
+`in_progress`.
+</Accordion>
+<Accordion title="Why don't past bookings change when prices change?">
+Pricing is snapshotted. Each `booking_service` row freezes the service name and
+price at the time of booking, so later catalogue changes never alter a past
+booking.
+</Accordion>
+<Accordion title="When are gems awarded?">
+On completion. Service bookings earn 1 gem per ₹100 invoiced when the booking is
+completed. See [Loyalty — Gems](/docs/features/loyalty-gems).
+</Accordion>
+</Accordions>
 
 ### Booking number format
 

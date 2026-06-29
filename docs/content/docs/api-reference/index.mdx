@@ -10,17 +10,47 @@ endpoints share one JSON envelope, human-readable RESTful paths, and stable
 error codes — so both browsers and AI agents can call them predictably.
 
 <Callout type="info">
-  This reference is hand-authored from the actual route handlers and the shared
-  Zod schemas in `packages/types`. It reflects the code at authoring time; when
-  a route's schema changes, update the corresponding page (or regenerate this
-  section).
+  **Base URLs:** customer endpoints are on `https://theroyalglow.in`
+  (local: `http://localhost:3000`); admin endpoint groups (Admin — Bookings,
+  Customers & CRM, the admin halves of Leads / Memberships / Loyalty & Offers,
+  and Background Jobs) are a separate app on `https://admin.theroyalglow.in`
+  (local: `http://localhost:3001`) and carry **no `/api/admin/` segment** — the
+  subdomain is the namespace. Most endpoints require a Better Auth session
+  cookie and note their **minimum role**. This reference is hand-authored from
+  the actual route handlers and the shared Zod schemas in `packages/types`; when
+  a route's schema changes, update the corresponding page.
 </Callout>
 
 ## Base & envelope
 
-- **Base URL:** `https://theroyalglow.in` (local: `http://localhost:3000`)
-- **Success:** `{ "success": true, "data": <T>, "meta"?: {...} }`
-- **Error:** `{ "success": false, "error": { code, message, statusCode, requestId, retryable?, details? } }`
+<Tabs items={['Success', 'Error']}>
+<Tab value="Success">
+
+```json
+{ "success": true, "data": {}, "meta": {} }
+```
+
+`meta` is optional and carries pagination (`page`, `totalPages`, `totalCount`).
+
+</Tab>
+<Tab value="Error">
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid request data",
+    "statusCode": 400,
+    "requestId": "req_xxx",
+    "retryable": false,
+    "details": {}
+  }
+}
+```
+
+</Tab>
+</Tabs>
 
 See [Conventions](/docs/conventions) for the full envelope, money/date rules,
 and the error-code table, and [Authentication](/docs/authentication) for the
@@ -28,10 +58,22 @@ session/role model.
 
 ## Authentication
 
-Most endpoints require a Better Auth session cookie. Each endpoint below notes
-its **minimum role**. Public endpoints need no auth: `GET /api/services`,
-`GET /api/services/[slug]`, `GET /api/availability`, `POST /api/leads`,
-`GET /api/health`.
+<Accordions type="single">
+<Accordion title="How roles and sessions work">
+
+Most endpoints require a Better Auth session cookie. Each endpoint notes its
+**minimum role**. Roles are hierarchical: `customer` is the lowest, then
+`staff`, `receptionist`, `manager`, `owner`, `developer` — a handler requiring
+`receptionist` also admits everyone above it.
+
+</Accordion>
+<Accordion title="Which endpoints are public (no auth)">
+
+`GET /api/services`, `GET /api/services/[slug]`, `GET /api/availability`,
+`GET /api/offers`, `POST /api/leads`, and `GET /api/health` need no session.
+
+</Accordion>
+</Accordions>
 
 ## Endpoint groups
 
