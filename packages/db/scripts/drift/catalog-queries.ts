@@ -146,14 +146,16 @@ export function createCatalogReader(exec: SqlExecutor): CatalogReader {
 /**
  * Adapt a Neon serverless connection string into a `SqlExecutor`.
  *
- * Uses the neon ordinary-string call form (`sql(text)`) to run a plain,
- * parameterless raw `SELECT` and receive the row array directly. Matches the
- * `@rgss/db` neon-http client pattern (`neon(url)`); pass the unpooled
- * `DATABASE_URL_UNPOOLED` form when a direct connection is required.
+ * Uses the neon `sql.query(text)` form to run a plain, parameterless raw
+ * `SELECT` and receive the row array directly. (Neon serverless v1 removed the
+ * ordinary-string call form `sql(text)` — it is now a runtime + type error;
+ * only the template tag and the `query()` / `unsafe()` methods are valid.)
+ * Matches the `@rgss/db` neon-http client pattern (`neon(url)`); pass the
+ * unpooled `DATABASE_URL_UNPOOLED` form when a direct connection is required.
  */
 export function neonExecutor(connectionString: string): SqlExecutor {
   const sql = neon(connectionString)
-  return <Row>(query: string) => sql(query) as Promise<Row[]>
+  return <Row>(query: string) => sql.query(query) as Promise<Row[]>
 }
 
 /**
