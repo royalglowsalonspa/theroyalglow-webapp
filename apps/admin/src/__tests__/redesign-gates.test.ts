@@ -125,14 +125,20 @@ describe('Redesign gate: owned source + pinned dependencies (Req 2.3, 2.5)', () 
   })
 
   it('pins motion and the shadcn-pulled packages to exact versions', () => {
-    const pinned = ['motion', 'radix-ui', 'cmdk', 'sonner', 'class-variance-authority', 'next-themes']
+    const pinned = [
+      'motion',
+      'radix-ui',
+      'cmdk',
+      'sonner',
+      'class-variance-authority',
+      'next-themes',
+    ]
     for (const name of pinned) {
       const range = pkg.dependencies[name]
       expect(range, `${name} must be a dependency`).toBeDefined()
-      expect(
-        /^\d/.test(range as string),
-        `${name} must be exact-pinned (got "${range}")`,
-      ).toBe(true)
+      expect(/^\d/.test(range as string), `${name} must be exact-pinned (got "${range}")`).toBe(
+        true,
+      )
     }
   })
 })

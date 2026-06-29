@@ -66,14 +66,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@rgss/ui/lib/utils'
 import {
   type ColumnDef,
@@ -485,7 +478,10 @@ export function DataTable<T>({
       {hidePaginationFooter ? null : (
         <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
-            <span id={`${tableId}-page-size-label`} className="font-ui text-xs font-medium text-warm-gray">
+            <span
+              id={`${tableId}-page-size-label`}
+              className="font-ui text-xs font-medium text-warm-gray"
+            >
               Rows per page
             </span>
             <Select
