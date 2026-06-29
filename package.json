@@ -29,7 +29,7 @@
     "@vitejs/plugin-react": "^4.7.0",
     "checkly": "^8.10.0",
     "husky": "^9.1.7",
-    "lint-staged": "^15.5.2",
+    "lint-staged": "^17.0.8",
     "turbo": "^2.10.0",
     "typescript": "^5.9.3",
     "vitest": "^2.1.9"
