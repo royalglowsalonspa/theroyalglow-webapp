@@ -30,7 +30,7 @@
     "@rgss/logger": "workspace:*",
     "@rgss/types": "workspace:*",
     "@rgss/ui": "workspace:*",
-    "@sentry/nextjs": "^9",
+    "@sentry/nextjs": "^10",
     "@t3-oss/env-nextjs": "^0.11.1",
     "@tailwindcss/postcss": "^4.1.8",
     "@tanstack/react-table": "^8.21.3",
