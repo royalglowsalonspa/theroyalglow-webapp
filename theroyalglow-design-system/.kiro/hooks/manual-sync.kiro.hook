@@ -1,0 +1,9 @@
+{
+  "name": "Manual Sync — API and Docs",
+  "version": "1.0.0",
+  "when": { "type": "userTriggered" },
+  "then": {
+    "type": "askAgent",
+    "prompt": "The user has triggered a manual sync. Load workflows.md and execute the manual-sync workflow. Follow all steps: Component API Sync, Documentation-of-Record Sync, Tech Library Sync. Report results and flag any items requiring user input."
+  }
+}

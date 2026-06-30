@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Build — Kiro Power",
+      "description": "User-triggered hook that builds the Kiro Power output from /src content.",
+      "trigger": "Manual",
+      "action": {
+        "type": "agent",
+        "prompt": "The user has triggered a build. Load workflows.md and execute the build-power workflow. Follow all phases: validate source, documentation sync, version prompt, archive previous build, generate Kiro Power output, run build validation, and finalize. Stop and report if any phase fails. Ask for version type (major/minor/patch) during the version phase."
+      },
+      "enabled": true
+    }
+  ]
+}

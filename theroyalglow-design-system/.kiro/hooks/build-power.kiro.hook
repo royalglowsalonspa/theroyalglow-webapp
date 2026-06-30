@@ -1,0 +1,9 @@
+{
+  "name": "Build — Kiro Power",
+  "version": "1.0.0",
+  "when": { "type": "userTriggered" },
+  "then": {
+    "type": "askAgent",
+    "prompt": "The user has triggered a build. Load workflows.md and execute the build-power workflow. Follow all phases: validate source, documentation sync, version prompt, archive previous build, generate Kiro Power output, run build validation, and finalize. Stop and report if any phase fails. Ask for version type (major/minor/patch) during the version phase."
+  }
+}
