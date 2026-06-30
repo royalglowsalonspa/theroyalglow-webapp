@@ -1,0 +1,133 @@
+/************************************************************
+ * Project      : theroyalglow-webapp (apps/web)
+ * Module Name  : styles/shadcn-theme
+ * Scope        : Web — shadcn/ui ↔ Brand Token mapping
+ *
+ * Description  : Redefines EVERY shadcn/ui theme variable so it resolves to a
+ *                named Royal Glow Brand Token from `@rgss/ui/theme.css`. This is
+ *                the single bridge between the owned-source shadcn components
+ *                (which style themselves with `bg-background`, `text-foreground`,
+ *                `border-border`, `bg-primary`, `bg-card`, the `--chart-*`
+ *                series, `--radius`, etc.) and the brand palette. No brand
+ *                colour / font / radius LITERALS are declared here — only
+ *                `var(--color-*)` / `var(--radius-*)` / `var(--font-*)`
+ *                references into the shared theme.
+ *
+ * Responsibilities :
+ * - Bind shadcn semantic surface/line/focus vars to Brand Tokens
+ * - Bind the shadcn `--chart-1…--chart-5` series to Brand Tokens
+ * - Map the shadcn radius scale onto `--radius-cards` (6px) / `--radius-buttons`
+ *   (8px) so cards read 6px and button/input surfaces read 8px
+ * - Map heading / body / UI fonts onto `--font-display` / `--font-sans` /
+ *   `--font-ui`
+ * - Expose every mapped var to Tailwind v4 utilities via `@theme inline`
+ *
+ * Tech Stack   : Tailwind CSS v4, PostCSS
+ * Layer        : Frontend (theme bridge)
+ *
+ * Dependencies : @rgss/ui/theme.css (must be imported BEFORE this file)
+ *
+ * Notes        : Imported by globals.css immediately AFTER
+ *                `@import "@rgss/ui/theme.css"` so these bindings override the
+ *                legacy base-layer shadcn HSL props. Mirrors apps/admin's
+ *                bridge so both surfaces share one shadcn ↔ brand mapping.
+ ************************************************************/
+
+:root {
+  /* ── Surfaces ─────────────────────────────────────────── */
+  --background: var(--color-canvas-white);
+  --foreground: var(--color-cocoa-dark);
+  --card: var(--color-canvas-white);
+  --card-foreground: var(--color-cocoa-dark);
+  --popover: var(--color-canvas-white);
+  --popover-foreground: var(--color-cocoa-dark);
+
+  /* ── Intent colours ───────────────────────────────────── */
+  --primary: var(--color-cocoa-dark);
+  --primary-foreground: var(--color-canvas-white);
+  --secondary: var(--color-cloud-gray);
+  --secondary-foreground: var(--color-cocoa-dark);
+  --muted: var(--color-cloud-gray);
+  --muted-foreground: var(--color-warm-gray);
+  --accent: var(--color-warm-cream);
+  --accent-foreground: var(--color-cocoa-dark);
+  --destructive: var(--color-error);
+  --destructive-foreground: var(--color-canvas-white);
+
+  /* ── Lines + focus ────────────────────────────────────── */
+  --border: var(--color-outline-gray);
+  --input: var(--color-outline-gray);
+  --ring: var(--color-deep-gold);
+
+  /* ── Radius base (cards = 6px) ────────────────────────── */
+  --radius: var(--radius-cards);
+
+  /* ── Chart series ─────────────────────────────────────── */
+  --chart-1: var(--color-deep-gold);
+  --chart-2: var(--color-warm-stone);
+  --chart-3: var(--color-accent-pink);
+  --chart-4: var(--color-royal-gold);
+  --chart-5: var(--color-warm-gray);
+
+  /* ── Sidebar ──────────────────────────────────────────── */
+  --sidebar: var(--color-cloud-gray);
+  --sidebar-foreground: var(--color-warm-gray);
+  --sidebar-primary: var(--color-cocoa-dark);
+  --sidebar-primary-foreground: var(--color-canvas-white);
+  --sidebar-accent: var(--color-canvas-white);
+  --sidebar-accent-foreground: var(--color-cocoa-dark);
+  --sidebar-border: var(--color-outline-gray);
+  --sidebar-ring: var(--color-deep-gold);
+}
+
+@theme inline {
+  /* Expose the mapped semantic vars as Tailwind v4 colour utilities so the
+     shadcn components' `bg-*` / `text-*` / `border-*` classes resolve to the
+     Brand Tokens above. */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Radius scale → Brand radii. Buttons/inputs (shadcn `rounded-md`) read 8px
+     `--radius-buttons`; cards (shadcn `rounded-xl`) read 6px `--radius-cards`. */
+  --radius-sm: var(--radius-cards);
+  --radius-md: var(--radius-buttons);
+  --radius-lg: var(--radius-buttons);
+  --radius-xl: var(--radius-cards);
+
+  /* Fonts → Brand families (headings / body / UI labels). */
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --font-ui: var(--font-ui);
+}

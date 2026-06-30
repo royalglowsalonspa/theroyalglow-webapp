@@ -1,13 +1,15 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 08-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : BookingsList
  * Scope        : Booking Management
  *
  * Description  : Client component that fetches, displays, and manages the
- *                customer's bookings with upcoming/past tabs and cancel functionality.
+ *                customer's bookings with upcoming/past tabs and cancel
+ *                functionality. Rebuilt on the shadcn/ui Button + Card
+ *                primitives with lucide icons.
  *
  * Responsibilities :
  * - Fetch bookings from GET /api/bookings and display them
@@ -19,10 +21,12 @@
  * - Cancel action with loading/error states per booking card
  * - Empty state with "Book Now" CTA using the booking dialog
  *
- * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, shadcn/ui,
+ *                lucide-react
  * Layer        : Presentation
  *
- * Dependencies : useBookingDialog, React (useCallback, useEffect, useMemo, useState)
+ * Dependencies : useBookingDialog, React, @/components/ui/{button,card},
+ *                @/lib/utils, lucide-react
  *
  * Notes        :
  * - Status colours follow the design spec: pending=amber, confirmed=green, etc.
@@ -31,6 +35,10 @@
 'use client'
 
 import { useBookingDialog } from '@/components/booking/BookingDialogProvider'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
+import { CalendarDays, Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 // --- Types (mirror GET /api/bookings response) ---
@@ -185,7 +193,7 @@ export function BookingsList() {
   if (loading) {
     return (
       <output className="flex items-center gap-3 py-16" aria-live="polite">
-        <Spinner />
+        <Loader2 className="size-5 animate-spin text-deep-gold" aria-hidden="true" />
         <span className="font-sans text-[15px] text-dusty-gray">Loading your bookings…</span>
       </output>
     )
@@ -194,16 +202,17 @@ export function BookingsList() {
   if (error) {
     return (
       <div className="rounded-[6px] border border-error/40 bg-error/5 px-5 py-6 text-center">
-        <p className="font-sans text-[15px] text-error mb-3" role="alert">
+        <p className="mb-3 font-sans text-[15px] text-error" role="alert">
           {error}
         </p>
-        <button
+        <Button
           type="button"
+          variant="gold"
           onClick={load}
-          className="font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-6 py-2.5 bg-royal-gold text-cocoa-dark hover:bg-deep-gold motion-safe:transition-colors duration-200"
+          className="rounded-full font-ui text-[12px] uppercase tracking-[0.5px]"
         >
           Try Again
-        </button>
+        </Button>
       </div>
     )
   }
@@ -215,7 +224,7 @@ export function BookingsList() {
   const visible = tab === 'upcoming' ? upcoming : past
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {/* Tabs */}
       <div
         className="inline-flex gap-1 rounded-full bg-cloud-gray p-1"
@@ -223,20 +232,21 @@ export function BookingsList() {
         aria-label="Booking filter"
       >
         {(['upcoming', 'past'] as const).map((t) => (
-          <button
+          <Button
             key={t}
             type="button"
             role="tab"
             aria-selected={tab === t}
+            variant={tab === t ? 'gold' : 'ghost'}
+            size="sm"
             onClick={() => setTab(t)}
-            className={`font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-5 py-2 motion-safe:transition-colors duration-200 ${
-              tab === t
-                ? 'bg-royal-gold text-cocoa-dark'
-                : 'bg-cloud-gray text-cocoa-dark hover:bg-golden-mist'
-            }`}
+            className={cn(
+              'rounded-full font-ui text-[12px] uppercase tracking-[0.5px]',
+              tab !== t && 'text-cocoa-dark hover:bg-golden-mist',
+            )}
           >
             {t === 'upcoming' ? `Upcoming (${upcoming.length})` : `Past (${past.length})`}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -247,13 +257,13 @@ export function BookingsList() {
       )}
 
       {visible.length === 0 ? (
-        <p className="font-sans text-[15px] text-dusty-gray py-8">
+        <p className="py-8 font-sans text-[15px] text-dusty-gray">
           {tab === 'upcoming'
             ? 'No upcoming bookings. Ready for your next Royal Glow moment?'
             : 'No past bookings yet.'}
         </p>
       ) : (
-        <ul className="space-y-4">
+        <ul className="flex flex-col gap-4">
           {visible.map((booking) => (
             <li key={booking.id}>
               <BookingCard
@@ -267,13 +277,14 @@ export function BookingsList() {
       )}
 
       {tab === 'upcoming' && upcoming.length === 0 && (
-        <button
+        <Button
           type="button"
+          variant="gold"
           onClick={open}
-          className="font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-8 py-3 bg-royal-gold text-cocoa-dark hover:bg-deep-gold hover:-translate-y-px motion-safe:transition-all duration-200"
+          className="w-fit rounded-full font-ui text-[12px] uppercase tracking-[0.5px]"
         >
           Book Now
-        </button>
+        </Button>
       )}
     </div>
   )
@@ -292,31 +303,36 @@ function BookingCard({
   const canCancel = CANCELLABLE_STATUSES.has(booking.status)
 
   return (
-    <article className="rounded-[6px] border border-cloud-gray bg-canvas-white p-5 motion-safe:transition-all duration-200 hover:border-golden-mist hover:shadow-card-hover">
-      <div className="flex items-start justify-between gap-3 mb-3">
+    <Card className="gap-3 p-5 transition-all duration-200 hover:border-golden-mist hover:shadow-card-hover">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <span className="font-ui text-[13px] text-cocoa-dark tracking-[0.5px]">
+          <span className="font-ui text-[13px] tracking-[0.5px] text-cocoa-dark">
             {booking.bookingNumber}
           </span>
           <span
-            className={`ml-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-ui ${
+            className={cn(
+              'ml-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-ui text-[11px]',
               booking.serviceType === 'spa'
                 ? 'bg-warm-cream text-deep-gold'
-                : 'bg-golden-mist text-warm-gray'
-            }`}
+                : 'bg-golden-mist text-warm-gray',
+            )}
           >
             {booking.serviceType === 'spa' ? 'SPA' : 'Salon'}
           </span>
         </div>
         <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-ui ${style.bg} ${style.text}`}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-ui text-[11px]',
+            style.bg,
+            style.text,
+          )}
         >
-          <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} aria-hidden="true" />
+          <span className={cn('size-1.5 rounded-full', style.dot)} aria-hidden="true" />
           {STATUS_LABELS[booking.status] ?? booking.status}
         </span>
       </div>
 
-      <p className="font-sans text-[15px] text-cocoa-dark mb-1">
+      <p className="font-ui text-[15px] text-cocoa-dark">
         <time dateTime={booking.bookingDate.slice(0, 10)}>
           {formatDateDDMMYYYY(booking.bookingDate)}
         </time>
@@ -324,69 +340,57 @@ function BookingCard({
         {formatTime12h(booking.startTime)}
       </p>
 
-      <p className="font-sans text-[14px] text-warm-gray mb-3">
+      <p className="font-sans text-[14px] text-warm-gray">
         {booking.services.map((s) => s.serviceNameSnapshot).join(', ')}
       </p>
 
-      <div className="flex items-center justify-between gap-3 pt-3 border-t border-cloud-gray">
+      <div className="flex items-center justify-between gap-3 border-t border-cloud-gray pt-3">
         <span className="font-ui text-[15px] text-cocoa-dark">
           {formatINR(booking.totalAmountPaise)}
         </span>
 
         {canCancel && (
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={onCancel}
             disabled={cancelling}
             aria-busy={cancelling}
-            className="font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-5 py-2 border border-error/40 text-error hover:bg-error/5 motion-safe:transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="rounded-full border-error/40 font-ui text-[12px] uppercase tracking-[0.5px] text-error hover:bg-error/5 hover:text-error"
           >
-            {cancelling ? 'Cancelling…' : 'Cancel'}
-          </button>
+            {cancelling ? (
+              <>
+                <Loader2 className="animate-spin" aria-hidden="true" />
+                Cancelling…
+              </>
+            ) : (
+              'Cancel'
+            )}
+          </Button>
         )}
       </div>
-    </article>
+    </Card>
   )
 }
 
 function EmptyState({ onBookNow }: { onBookNow: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="w-16 h-16 rounded-full bg-warm-cream flex items-center justify-center mb-5">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <rect x="3" y="4" width="18" height="17" rx="2" stroke="#C8A961" strokeWidth="1.5" />
-          <path d="M3 9h18M8 2v4M16 2v4" stroke="#C8A961" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
+      <div className="mb-5 flex size-16 items-center justify-center rounded-full bg-warm-cream text-deep-gold">
+        <CalendarDays className="size-7" strokeWidth={1.5} aria-hidden="true" />
       </div>
-      <p className="font-sans text-[16px] text-cocoa-dark mb-6">
+      <p className="mb-6 font-sans text-[16px] text-cocoa-dark">
         No bookings yet. Book your first appointment!
       </p>
-      <button
+      <Button
         type="button"
+        variant="gold"
         onClick={onBookNow}
-        className="font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-8 py-3 bg-royal-gold text-cocoa-dark hover:bg-deep-gold hover:-translate-y-px motion-safe:transition-all duration-200"
+        className="rounded-full font-ui text-[12px] uppercase tracking-[0.5px]"
       >
         Book Now
-      </button>
+      </Button>
     </div>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-5 w-5 animate-spin text-deep-gold"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
   )
 }

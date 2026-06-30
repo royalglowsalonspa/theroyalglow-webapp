@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 08-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : ContactForm
@@ -9,10 +9,11 @@
  * Description  : Interactive contact enquiry form for the /contact page.
  *                Validates name/email/optional-phone/message client-side, then
  *                submits to POST /api/contact and surfaces accessible success
- *                and error states.
+ *                and error states. Rebuilt on the shadcn/ui Input, Textarea,
+ *                Label, and Button primitives.
  *
  * Responsibilities :
- * - Render an accessible, controlled enquiry form (every input has a <label>)
+ * - Render an accessible, controlled enquiry form (every input has a <Label>)
  * - Validate required fields before submit; show inline field errors
  * - POST the enquiry and reflect submitting / success / error state
  * - Announce status changes via aria-live so screen readers are informed
@@ -22,10 +23,12 @@
  * - +91 prefix UI for the optional phone (digits-only, max 10)
  * - Server is the source of truth — client validation is a UX nicety only
  *
- * Tech Stack   : React, TypeScript, Tailwind CSS v4, Next.js 16
+ * Tech Stack   : React, TypeScript, Tailwind CSS v4, Next.js 16, shadcn/ui,
+ *                lucide-react
  * Layer        : Presentation (Client Component)
  *
- * Dependencies : react
+ * Dependencies : react, @/components/ui/{input,textarea,label,button},
+ *                lucide-react
  *
  * Notes        :
  * - Mirrors the established fetch pattern in components/lead/LeadCaptureForm.
@@ -34,6 +37,11 @@
 
 'use client'
 
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
 // Lifecycle of the form. `idle` accepts input; `submitting` locks the button;
@@ -54,11 +62,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 // 10-digit Indian mobile, leading 6-9 (matches the server schema's accept set).
 const PHONE_RE = /^[6-9]\d{9}$/
 
-// Shared input classes — preserves the page's original visual language
-// (gold focus ring, cloud-gray border, 6px radius) while meeting the 4.5:1
-// contrast + visible-focus requirements (WCAG 2.1 AA).
-const INPUT_CLASS =
-  'w-full h-10 px-4 font-sans text-[15px] text-cocoa-dark bg-canvas-white border border-cloud-gray rounded-[6px] placeholder:text-dusty-gray focus:outline-2 focus:outline-deep-gold focus:outline-offset-2 transition-colors duration-200 disabled:opacity-60 aria-[invalid=true]:border-error'
+const LABEL_CLASS = 'mb-2 font-ui text-xs uppercase tracking-[0.5px] text-cocoa-dark'
 
 export function ContactForm() {
   const [name, setName] = useState('')
@@ -129,8 +133,8 @@ export function ContactForm() {
         aria-live="polite"
         className="rounded-[6px] border border-success/30 bg-success/10 p-6 text-center"
       >
-        <p className="font-display text-cocoa-dark text-[22px] leading-[1.2]">Message sent</p>
-        <p className="font-sans text-[15px] leading-[1.55] text-warm-gray mt-2">
+        <p className="font-display text-[22px] leading-[1.2] text-cocoa-dark">Message sent</p>
+        <p className="mt-2 font-sans text-[15px] leading-[1.55] text-warm-gray">
           Thanks for reaching out. We&apos;ll get back to you shortly.
         </p>
       </div>
@@ -138,13 +142,18 @@ export function ContactForm() {
   }
 
   return (
-    <form className="mt-8 space-y-6" aria-label="Contact form" onSubmit={handleSubmit} noValidate>
+    <form
+      className="mt-8 flex flex-col gap-6"
+      aria-label="Contact form"
+      onSubmit={handleSubmit}
+      noValidate
+    >
       {/* Submit-level error banner. role="alert" + aria-live announce failures. */}
       {state === 'error' && (
         <div
           role="alert"
           aria-live="assertive"
-          className="rounded-[6px] border border-error/30 bg-error/10 px-4 py-3 font-sans text-sm text-error"
+          className="rounded-[6px] border border-error/30 bg-error/10 px-4 py-3 font-ui text-sm text-error"
         >
           {submitError || 'Something went wrong. Please try again or call us directly.'}
         </div>
@@ -152,13 +161,10 @@ export function ContactForm() {
 
       {/* Name */}
       <div>
-        <label
-          htmlFor="contact-name"
-          className="block font-ui text-xs uppercase tracking-[0.5px] text-cocoa-dark mb-2"
-        >
+        <Label htmlFor="contact-name" className={LABEL_CLASS}>
           Name
-        </label>
-        <input
+        </Label>
+        <Input
           type="text"
           id="contact-name"
           name="name"
@@ -171,10 +177,10 @@ export function ContactForm() {
           onChange={(e) => setName(e.target.value)}
           disabled={isSubmitting}
           placeholder="Your full name"
-          className={INPUT_CLASS}
+          className="h-10"
         />
         {fieldErrors.name && (
-          <p id="contact-name-error" className="mt-1.5 font-sans text-xs text-error" role="alert">
+          <p id="contact-name-error" className="mt-1.5 font-ui text-xs text-error" role="alert">
             {fieldErrors.name}
           </p>
         )}
@@ -182,13 +188,10 @@ export function ContactForm() {
 
       {/* Email */}
       <div>
-        <label
-          htmlFor="contact-email"
-          className="block font-ui text-xs uppercase tracking-[0.5px] text-cocoa-dark mb-2"
-        >
+        <Label htmlFor="contact-email" className={LABEL_CLASS}>
           Email
-        </label>
-        <input
+        </Label>
+        <Input
           type="email"
           id="contact-email"
           name="email"
@@ -201,10 +204,10 @@ export function ContactForm() {
           onChange={(e) => setEmail(e.target.value)}
           disabled={isSubmitting}
           placeholder="you@example.com"
-          className={INPUT_CLASS}
+          className="h-10"
         />
         {fieldErrors.email && (
-          <p id="contact-email-error" className="mt-1.5 font-sans text-xs text-error" role="alert">
+          <p id="contact-email-error" className="mt-1.5 font-ui text-xs text-error" role="alert">
             {fieldErrors.email}
           </p>
         )}
@@ -212,20 +215,17 @@ export function ContactForm() {
 
       {/* Phone (optional) */}
       <div>
-        <label
-          htmlFor="contact-phone"
-          className="block font-ui text-xs uppercase tracking-[0.5px] text-cocoa-dark mb-2"
-        >
-          Phone <span className="text-warm-gray normal-case tracking-normal">(optional)</span>
-        </label>
+        <Label htmlFor="contact-phone" className={LABEL_CLASS}>
+          Phone <span className="normal-case tracking-normal text-warm-gray">(optional)</span>
+        </Label>
         <div className="flex">
           <span
-            className="inline-flex items-center px-3 h-10 font-sans text-[15px] text-warm-gray bg-cloud-gray border border-r-0 border-cloud-gray rounded-l-[6px]"
+            className="inline-flex h-10 items-center rounded-l-md border border-r-0 border-input bg-cloud-gray px-3 font-ui text-[15px] text-warm-gray"
             aria-hidden="true"
           >
             +91
           </span>
-          <input
+          <Input
             type="tel"
             id="contact-phone"
             name="phone"
@@ -237,11 +237,11 @@ export function ContactForm() {
             onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
             disabled={isSubmitting}
             placeholder="63601 35720"
-            className="w-full h-10 px-4 font-sans text-[15px] text-cocoa-dark bg-canvas-white border border-cloud-gray rounded-r-[6px] placeholder:text-dusty-gray focus:outline-2 focus:outline-deep-gold focus:outline-offset-2 transition-colors duration-200 disabled:opacity-60 aria-[invalid=true]:border-error"
+            className="h-10 rounded-l-none"
           />
         </div>
         {fieldErrors.phone && (
-          <p id="contact-phone-error" className="mt-1.5 font-sans text-xs text-error" role="alert">
+          <p id="contact-phone-error" className="mt-1.5 font-ui text-xs text-error" role="alert">
             {fieldErrors.phone}
           </p>
         )}
@@ -249,13 +249,10 @@ export function ContactForm() {
 
       {/* Message */}
       <div>
-        <label
-          htmlFor="contact-message"
-          className="block font-ui text-xs uppercase tracking-[0.5px] text-cocoa-dark mb-2"
-        >
+        <Label htmlFor="contact-message" className={LABEL_CLASS}>
           Message
-        </label>
-        <textarea
+        </Label>
+        <Textarea
           id="contact-message"
           name="message"
           required
@@ -267,56 +264,35 @@ export function ContactForm() {
           onChange={(e) => setMessage(e.target.value)}
           disabled={isSubmitting}
           placeholder="How can we help you?"
-          className="w-full px-4 py-3 font-sans text-[15px] text-cocoa-dark bg-canvas-white border border-cloud-gray rounded-[6px] placeholder:text-dusty-gray resize-y focus:outline-2 focus:outline-deep-gold focus:outline-offset-2 transition-colors duration-200 disabled:opacity-60 aria-[invalid=true]:border-error"
+          className="resize-y"
         />
         {fieldErrors.message && (
-          <p
-            id="contact-message-error"
-            className="mt-1.5 font-sans text-xs text-error"
-            role="alert"
-          >
+          <p id="contact-message-error" className="mt-1.5 font-ui text-xs text-error" role="alert">
             {fieldErrors.message}
           </p>
         )}
       </div>
 
       {/* Submit */}
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        aria-busy={isSubmitting}
-        className="bg-royal-gold text-cocoa-dark font-ui text-xs uppercase tracking-[0.5px] rounded-full px-8 h-10 inline-flex items-center justify-center gap-2 hover:bg-deep-gold hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 motion-safe:transition-all motion-safe:duration-200"
-      >
-        {isSubmitting ? (
-          <>
-            <Spinner />
-            <span>Sending…</span>
-          </>
-        ) : (
-          'Send Message'
-        )}
-      </button>
+      <div>
+        <Button
+          type="submit"
+          variant="gold"
+          size="lg"
+          disabled={isSubmitting}
+          aria-busy={isSubmitting}
+          className="rounded-full font-ui text-xs uppercase tracking-[0.5px]"
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="animate-spin" aria-hidden="true" />
+              Sending…
+            </>
+          ) : (
+            'Send Message'
+          )}
+        </Button>
+      </div>
     </form>
-  )
-}
-
-// Inline spinner shown while submitting. Decorative — hidden from assistive
-// tech (the aria-busy button + "Sending…" label already convey state).
-function Spinner() {
-  return (
-    <svg
-      className="h-4 w-4 motion-safe:animate-spin"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
   )
 }

@@ -38,6 +38,33 @@
 @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
 @import "@rgss/ui/theme.css";
+@import "./shadcn-theme.css";
+
+/* shadcn dark-variant hook. The customer site is light-only (no theme toggle
+   mounted), so no `.dark` palette is defined — the variant is declared for
+   component compatibility and resolves to the `:root` Brand-Token bindings. */
+@custom-variant dark (&:is(.dark *));
+
+/* ── Display-font weight default (font-consistency fix) ──
+   Cabinet Grotesk (`--font-display`) is loaded ONLY at weights 800 and 900.
+   Any element using the `font-display` utility WITHOUT an explicit font-weight
+   utility would otherwise request weight 400 — which isn't loaded — and render
+   at a fallen-back/synthesised weight that looks visibly different from the
+   homepage's heavy display headings.
+
+   This base-layer rule gives every `font-display` element a real, loaded weight
+   (800 / extrabold) by default. It lives in `@layer base`, so any explicit
+   weight utility (`font-black` → 900, `font-bold`, `font-medium`, etc., which
+   Tailwind emits in the higher `utilities` layer) still wins. The homepage —
+   whose headings all carry explicit weights — is therefore unchanged, while
+   every previously-unweighted display heading/number across the site now
+   matches the homepage's Cabinet Grotesk treatment. Body (`font-sans`) and UI
+   (`font-ui`) elements are unaffected. */
+@layer base {
+  .font-display {
+    font-weight: 800;
+  }
+}
 
 /* ── Radix dropdown (account menu) — origin-aware scale-in ──
    Scales from the trigger via Radix's transform-origin var, never from
@@ -132,5 +159,87 @@
     animation: none !important;
     flex-wrap: wrap;
     justify-content: center;
+  }
+}
+
+/* ── shadcn Accordion expand/collapse (Radix content-height driven) ──
+   Registered as Tailwind v4 animation tokens so the Accordion primitive's
+   `data-[state=open]:animate-accordion-down` utilities resolve. Reduced-motion
+   is handled by the global block in the shared theme (durations collapse). */
+@theme {
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+}
+
+@keyframes accordion-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+
+@keyframes accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
+
+/* ── shadcn Dialog enter/exit (Radix data-state driven) ──
+   Registered as Tailwind v4 animation tokens so the Dialog primitive's
+   `data-[state=open]:animate-dialog-*` / `data-[state=closed]:animate-dialog-*`
+   utilities resolve — mirrors the accordion mechanism above (this project has
+   no tailwindcss-animate, so the `animate-in`/`zoom-in-95` family is unavailable).
+   The content keyframes bake in the `translate(-50%, -50%)` centering so the
+   zoom scales about the dialog's own centre and never drifts. Reduced-motion is
+   handled by the global block in the shared @rgss/ui theme (durations collapse). */
+@theme {
+  --animate-dialog-overlay-in: rg-dialog-overlay-in 200ms ease-out;
+  --animate-dialog-overlay-out: rg-dialog-overlay-out 150ms ease-in;
+  --animate-dialog-content-in: rg-dialog-content-in 200ms cubic-bezier(0.23, 1, 0.32, 1);
+  --animate-dialog-content-out: rg-dialog-content-out 150ms ease-in;
+}
+
+@keyframes rg-dialog-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rg-dialog-overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes rg-dialog-content-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes rg-dialog-content-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
   }
 }

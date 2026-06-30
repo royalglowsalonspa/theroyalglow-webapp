@@ -7,7 +7,9 @@
  * Scope        : Customer Pages
  *
  * Description  : Bento-grid blog feed with category filtering, search, and
- *                client-side pagination over the initial post list.
+ *                client-side pagination over the initial post list. Rebuilt on
+ *                the shadcn/ui Button, Input, and Badge primitives with lucide
+ *                icons, following the homepage/blog font system.
  *
  * Responsibilities :
  * - Render blog posts in a varied bento-grid layout
@@ -19,17 +21,24 @@
  * - Index-driven bento card layouts
  * - Accessible pagination nav with empty state
  *
- * Tech Stack   : React, TypeScript, Next.js 16, Tailwind CSS v4
+ * Tech Stack   : React, TypeScript, Next.js 16, Tailwind CSS v4, shadcn/ui,
+ *                lucide-react
  * Layer        : Presentation (Component)
  *
- * Dependencies : @/lib/cms/types, @rgss/business, next/link, react
+ * Dependencies : @/lib/cms/types, @rgss/business, next/link, react,
+ *                @/components/ui/{button,input,badge}, @/lib/utils, lucide-react
  *
  * Notes        : Pagination resets to page 1 on filter/search change.
  ************************************************************/
 
 'use client'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import type { BlogListItem } from '@/lib/cms/types'
+import { cn } from '@/lib/utils'
 import { formatDateIN } from '@rgss/business'
+import { ArrowRight, Search } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -53,7 +62,7 @@ function CardMeta({
   readingMinutes: number
 }) {
   return (
-    <div className="flex items-center gap-2 text-xs font-ui text-dusty-gray font-semibold tracking-wider">
+    <div className="flex items-center gap-2 font-ui text-xs font-semibold tracking-wider text-dusty-gray">
       {publishedAt && <span>{formatDateIN(new Date(publishedAt))}</span>}
       {publishedAt && <span aria-hidden="true">•</span>}
       <span>{readingMinutes} min read</span>
@@ -72,12 +81,13 @@ export function BlogCard({ post, featured = false }: BlogCardProps) {
   const href = `/blog/${slug}`
 
   const cover = (
-    <div className="relative h-full w-full overflow-hidden bg-warm-cream">
+    <div className="relative size-full overflow-hidden bg-warm-cream">
       {coverImage ? (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={coverImage.url}
           alt={coverImage.alt}
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className="absolute inset-0 size-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center font-display text-4xl text-deep-gold/30">
@@ -85,9 +95,9 @@ export function BlogCard({ post, featured = false }: BlogCardProps) {
         </div>
       )}
       {category && (
-        <span className="absolute top-4 left-4 bg-[#FFF8E7] text-[#1A0F0A] font-ui text-[9px] uppercase tracking-wider font-bold px-2.5 py-1 rounded shadow-sm">
+        <Badge className="absolute left-4 top-4 rounded bg-golden-mist font-ui text-[9px] font-bold uppercase tracking-wider text-cocoa-dark shadow-sm">
           {category}
-        </span>
+        </Badge>
       )}
     </div>
   )
@@ -95,28 +105,31 @@ export function BlogCard({ post, featured = false }: BlogCardProps) {
   const readMore = (
     <Link
       href={href}
-      className="font-ui font-bold text-xs uppercase tracking-wider text-cocoa-dark hover:text-deep-gold transition-colors"
+      className="inline-flex items-center gap-1 font-ui text-xs font-bold uppercase tracking-wider text-cocoa-dark transition-colors hover:text-deep-gold"
     >
-      Read Article{' '}
-      <span className="inline-block group-hover:translate-x-1 transition-transform">→</span>
+      Read Article
+      <ArrowRight
+        className="size-3.5 transition-transform group-hover:translate-x-1"
+        aria-hidden="true"
+      />
     </Link>
   )
 
   // Featured: wide (2 cols), image + content side-by-side on web, stacked on mobile.
   if (featured) {
     return (
-      <article className="group lg:col-span-2 bg-canvas-white border border-outline-gray/15 rounded-xl overflow-hidden grid grid-cols-1 sm:grid-cols-2 hover:shadow-card-hover hover:border-deep-gold/30 transition-all duration-300">
-        <div className="relative w-full aspect-[16/10] sm:aspect-auto sm:min-h-[300px]">
+      <article className="group grid grid-cols-1 overflow-hidden rounded-xl border border-outline-gray/15 bg-canvas-white transition-all duration-300 hover:border-deep-gold/30 hover:shadow-card-hover sm:grid-cols-2 lg:col-span-2">
+        <div className="relative aspect-[16/10] w-full sm:aspect-auto sm:min-h-[300px]">
           {cover}
         </div>
-        <div className="p-6 sm:p-8 flex flex-col justify-between">
+        <div className="flex flex-col justify-between p-6 sm:p-8">
           <div>
             <CardMeta publishedAt={publishedAt} readingMinutes={readingMinutes} />
-            <h2 className="font-display font-black text-cocoa-dark text-2xl lg:text-[28px] leading-snug tracking-tight mt-3 group-hover:text-deep-gold transition-colors duration-200">
+            <h2 className="mt-3 font-display text-2xl font-black leading-snug tracking-tight text-cocoa-dark transition-colors duration-200 group-hover:text-deep-gold lg:text-[28px]">
               <Link href={href}>{title}</Link>
             </h2>
             {excerpt && (
-              <p className="font-sans text-sm text-warm-gray mt-3 leading-relaxed line-clamp-4">
+              <p className="mt-3 line-clamp-4 font-sans text-sm leading-relaxed text-warm-gray">
                 {excerpt}
               </p>
             )}
@@ -129,21 +142,21 @@ export function BlogCard({ post, featured = false }: BlogCardProps) {
 
   // Standard: uniform vertical card (1 col).
   return (
-    <article className="group lg:col-span-1 bg-canvas-white border border-outline-gray/15 rounded-xl overflow-hidden flex flex-col hover:shadow-card-hover hover:border-deep-gold/30 transition-all duration-300">
-      <div className="relative w-full aspect-[16/10]">{cover}</div>
-      <div className="p-6 flex-1 flex flex-col justify-between">
+    <article className="group flex flex-col overflow-hidden rounded-xl border border-outline-gray/15 bg-canvas-white transition-all duration-300 hover:border-deep-gold/30 hover:shadow-card-hover lg:col-span-1">
+      <div className="relative aspect-[16/10] w-full">{cover}</div>
+      <div className="flex flex-1 flex-col justify-between p-6">
         <div>
           <CardMeta publishedAt={publishedAt} readingMinutes={readingMinutes} />
-          <h3 className="font-display font-black text-cocoa-dark text-xl leading-snug tracking-tight mt-3 group-hover:text-deep-gold transition-colors duration-200">
+          <h3 className="mt-3 font-display text-xl font-black leading-snug tracking-tight text-cocoa-dark transition-colors duration-200 group-hover:text-deep-gold">
             <Link href={href}>{title}</Link>
           </h3>
           {excerpt && (
-            <p className="font-sans text-[13px] text-warm-gray mt-2.5 leading-relaxed line-clamp-3">
+            <p className="mt-2.5 line-clamp-3 font-sans text-[13px] leading-relaxed text-warm-gray">
               {excerpt}
             </p>
           )}
         </div>
-        <div className="mt-6 pt-4 border-t border-outline-gray/10">{readMore}</div>
+        <div className="mt-6 border-t border-outline-gray/10 pt-4">{readMore}</div>
       </div>
     </article>
   )
@@ -221,70 +234,70 @@ export function BlogFeed({ initialPosts }: BlogFeedProps) {
   }
 
   return (
-    <div id="blog-feed-start" className="flex flex-col gap-10 scroll-mt-28">
+    <div id="blog-feed-start" className="flex scroll-mt-28 flex-col gap-10">
       {/* ── Search & Filter Controls Bar ── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-outline-gray/15">
+      <div className="flex flex-col justify-between gap-6 border-b border-outline-gray/15 pb-6 md:flex-row md:items-center">
         {/* Category Filters */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
+        <div className="scrollbar-hide -mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-2 md:mx-0 md:px-0 md:pb-0">
           {CATEGORIES.map((cat) => (
-            <button
+            <Button
               key={cat}
               type="button"
+              variant={activeCategory === cat ? 'gold' : 'secondary'}
+              size="sm"
               onClick={() => setActiveCategory(cat)}
-              className={`font-ui text-xs font-bold px-4 py-2 rounded-full tracking-[0.5px] transition-all duration-200 cursor-pointer whitespace-nowrap border ${
-                activeCategory === cat
-                  ? 'bg-warm-gold text-cocoa-dark border-transparent shadow-sm'
-                  : 'bg-cloud-gray/50 text-cocoa-dark border-transparent hover:bg-cloud-gray'
-              }`}
+              className={cn(
+                'shrink-0 rounded-full font-ui text-xs font-bold tracking-[0.5px]',
+                activeCategory !== cat && 'bg-cloud-gray/50 text-cocoa-dark hover:bg-cloud-gray',
+              )}
             >
               {cat}
-            </button>
+            </Button>
           ))}
         </div>
 
         {/* Search Input */}
-        <div className="relative w-full md:max-w-xs flex-shrink-0">
-          <span
-            className="absolute inset-y-0 left-3.5 flex items-center text-dusty-gray pointer-events-none"
+        <div className="relative w-full shrink-0 md:max-w-xs">
+          <Search
+            className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-dusty-gray"
             aria-hidden="true"
-          >
-            🔍
-          </span>
-          <input
+          />
+          <Input
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search articles, tips, rituals..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-full border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark placeholder-dusty-gray focus:outline-none focus:ring-2 focus:ring-deep-gold focus:border-transparent transition-all"
+            aria-label="Search articles"
+            className="h-10 rounded-full pl-10"
           />
         </div>
       </div>
 
       {/* ── Empty State ── */}
       {filteredPosts.length === 0 ? (
-        <div className="bg-warm-cream rounded-[6px] p-12 sm:p-20 text-center border border-outline-gray/25">
-          <p className="font-display text-cocoa-dark text-2xl font-bold">
+        <div className="rounded-[6px] border border-outline-gray/25 bg-warm-cream p-12 text-center sm:p-20">
+          <p className="font-display text-2xl font-bold text-cocoa-dark">
             No matching articles found
           </p>
-          <p className="font-sans text-[15px] leading-[1.55] text-warm-gray mt-3 max-w-[420px] mx-auto">
+          <p className="mx-auto mt-3 max-w-[420px] font-sans text-[15px] leading-[1.55] text-warm-gray">
             We couldn&apos;t find any stories matching your search criteria. Try adjusting your
             query or category filters.
           </p>
-          <button
+          <Button
             type="button"
             onClick={() => {
               setSearchQuery('')
               setActiveCategory('All')
             }}
-            className="mt-6 bg-cocoa-dark text-canvas-white font-ui font-bold text-xs uppercase tracking-[0.5px] px-6 py-3 rounded-lg hover:bg-warm-gray transition-colors cursor-pointer"
+            className="mt-6 rounded-lg font-ui text-xs font-bold uppercase tracking-[0.5px]"
           >
             Clear Filters
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="flex flex-col gap-12">
           {/* ── Blog grid: featured (2-col) + uniform cards ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             {paginatedPosts.map((post, idx) => (
               <BlogCard key={post.slug} post={post} featured={currentPage === 1 && idx === 0} />
             ))}
@@ -294,47 +307,49 @@ export function BlogFeed({ initialPosts }: BlogFeedProps) {
           {totalPages > 1 && (
             <nav
               aria-label="Blog pagination"
-              className="flex items-center justify-center gap-1.5 mt-8 pt-8 border-t border-outline-gray/10"
+              className="mt-8 flex items-center justify-center gap-1.5 border-t border-outline-gray/10 pt-8"
             >
-              {/* Previous button */}
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="font-ui font-bold text-xs px-4.5 py-2.5 rounded-[4px] border border-outline-gray/50 text-cocoa-dark bg-canvas-white hover:border-cocoa-dark disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer"
+                className="font-ui text-xs font-bold"
               >
                 Previous
-              </button>
+              </Button>
 
-              {/* Page numbers */}
               {Array.from({ length: totalPages }).map((_, idx) => {
                 const pageNum = idx + 1
                 return (
-                  <button
+                  <Button
                     key={pageNum}
                     type="button"
+                    variant={currentPage === pageNum ? 'secondary' : 'outline'}
+                    size="icon"
                     onClick={() => handlePageChange(pageNum)}
                     aria-current={currentPage === pageNum ? 'page' : undefined}
-                    className={`w-10 h-10 rounded-[4px] border font-ui font-bold text-sm flex items-center justify-center transition-all duration-200 cursor-pointer ${
-                      currentPage === pageNum
-                        ? 'bg-[#FFF8E7] text-cocoa-dark border-deep-gold/30 shadow-sm'
-                        : 'bg-canvas-white text-cocoa-dark border-outline-gray/50 hover:border-cocoa-dark'
-                    }`}
+                    className={cn(
+                      'font-ui text-sm font-bold',
+                      currentPage === pageNum && 'border border-deep-gold/30 bg-golden-mist',
+                    )}
                   >
                     {pageNum}
-                  </button>
+                  </Button>
                 )
               })}
 
-              {/* Next button */}
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="font-ui font-bold text-xs px-4.5 py-2.5 rounded-[4px] border border-outline-gray/50 text-cocoa-dark bg-canvas-white hover:border-cocoa-dark disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer"
+                className="font-ui text-xs font-bold"
               >
                 Next
-              </button>
+              </Button>
             </nav>
           )}
         </div>

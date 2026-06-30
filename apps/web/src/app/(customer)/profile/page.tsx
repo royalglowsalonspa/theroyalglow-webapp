@@ -29,6 +29,8 @@
  * - Protected route; redirects to / (homepage) if no session
  ************************************************************/
 
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
 import { auth } from '@/lib/auth-server'
 import { getNotificationPreferences } from '@rgss/db/queries'
 import type { Metadata } from 'next'
@@ -83,69 +85,72 @@ export default async function ProfilePage() {
         <p className="font-ui text-[11px] uppercase tracking-[2px] text-warm-stone mb-2">
           Your account
         </p>
-        <h1 className="font-display text-[clamp(32px,5vw,48px)] text-cocoa-dark tracking-tight leading-[1.05]">
+        <h1 className="font-display font-black text-[clamp(32px,5vw,48px)] text-cocoa-dark tracking-tight leading-[1.05]">
           My Profile
         </h1>
       </header>
 
       {/* Identity card */}
-      <section className="rounded-[6px] border border-cloud-gray bg-canvas-white p-6 mb-6">
-        <div className="flex items-center gap-4 mb-6">
+      <Card className="mb-6 gap-6 p-6">
+        <div className="flex items-center gap-4">
           {user.image ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={user.image} alt="" className="w-16 h-16 rounded-full object-cover" />
+            <img src={user.image} alt="" className="size-16 rounded-full object-cover" />
           ) : (
             <div
-              className="w-16 h-16 rounded-full bg-royal-gold flex items-center justify-center font-display text-[24px] text-cocoa-dark"
+              className="flex size-16 items-center justify-center rounded-full bg-royal-gold font-display text-[24px] text-cocoa-dark"
               aria-hidden="true"
             >
               {initial}
             </div>
           )}
           <div>
-            <p className="font-display text-[22px] text-cocoa-dark tracking-tight">{user.name}</p>
-            <p className="font-sans text-[14px] text-dusty-gray">Member since {memberSince}</p>
+            <p className="font-display text-[22px] tracking-tight text-cocoa-dark">{user.name}</p>
+            <p className="font-ui text-[14px] text-dusty-gray">Member since {memberSince}</p>
           </div>
         </div>
 
-        <dl className="space-y-4">
+        <dl className="flex flex-col gap-4">
           <div>
-            <dt className="font-ui text-[11px] uppercase tracking-[1px] text-warm-stone mb-1">
+            <dt className="mb-1 font-ui text-[11px] uppercase tracking-[1px] text-warm-stone">
               Name
             </dt>
             <dd className="font-sans text-[15px] text-cocoa-dark">{user.name}</dd>
           </div>
           <div>
-            <dt className="font-ui text-[11px] uppercase tracking-[1px] text-warm-stone mb-1">
+            <dt className="mb-1 font-ui text-[11px] uppercase tracking-[1px] text-warm-stone">
               Email
             </dt>
-            <dd className="font-sans text-[15px] text-cocoa-dark">
+            <dd className="flex items-center gap-2 font-sans text-[15px] text-cocoa-dark">
               {user.email}
-              <span className="ml-2 font-ui text-[11px] uppercase tracking-[0.5px] text-dusty-gray">
-                (read-only)
-              </span>
+              <Badge
+                variant="secondary"
+                className="bg-cloud-gray font-ui text-[11px] uppercase tracking-[0.5px] text-dusty-gray"
+              >
+                read-only
+              </Badge>
             </dd>
           </div>
           <div>
-            <dt className="font-ui text-[11px] uppercase tracking-[1px] text-warm-stone mb-1">
+            <dt className="mb-1 font-ui text-[11px] uppercase tracking-[1px] text-warm-stone">
               Member Since
             </dt>
-            <dd className="font-sans text-[15px] text-cocoa-dark">{memberSince}</dd>
+            <dd className="font-ui text-[15px] text-cocoa-dark">{memberSince}</dd>
           </div>
         </dl>
-      </section>
+      </Card>
 
       {/* Notification preferences */}
-      <section className="rounded-[6px] border border-cloud-gray bg-canvas-white p-6 mb-6">
-        <h2 className="font-display text-[20px] text-cocoa-dark tracking-tight mb-1">
+      <Card className="mb-6 gap-1 p-6">
+        <h2 className="font-display text-[20px] tracking-tight text-cocoa-dark">
           Notification Preferences
         </h2>
-        <p className="font-sans text-[13px] text-dusty-gray mb-5">
+        <p className="mb-5 font-sans text-[13px] text-dusty-gray">
           Choose how you would like to hear from us.
         </p>
 
         <NotificationPreferencesForm initial={initialPrefs} />
-      </section>
+      </Card>
 
       {/* Sign out */}
       <SignOutButton />

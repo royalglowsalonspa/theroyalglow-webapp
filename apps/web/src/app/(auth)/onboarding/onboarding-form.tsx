@@ -1,13 +1,15 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 08-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : OnboardingForm
  * Scope        : Authentication UI
  *
- * Description  : Client form for collecting phone, DOB, gender, and
- *                consent preferences during first-time user onboarding.
+ * Description  : Client form for collecting phone, DOB, gender, and consent
+ *                preferences during first-time user onboarding. Rebuilt on the
+ *                shadcn/ui Input, Label, Switch, and Button primitives with the
+ *                Royal Glow brand tokens and font system.
  *
  * Responsibilities :
  * - Collect and validate profile fields (phone, DOB, gender)
@@ -15,16 +17,10 @@
  * - Submit to /api/onboarding/complete
  * - Persist consent to localStorage, clear sessionStorage context
  *
- * Features / Functionality :
- * - Indian phone validation (10 digits, starts with 6-9)
- * - Gender select with prefer-not-to-say option
- * - 3-tier consent checkboxes (privacy required, analytics/marketing optional)
- * - UTM context forwarding from sessionStorage
- *
- * Tech Stack   : React, Next.js (client), Tailwind CSS v4
+ * Tech Stack   : React, Next.js (client), Tailwind CSS v4, shadcn/ui
  * Layer        : Presentation (Component)
  *
- * Dependencies : react, next/navigation
+ * Dependencies : react, next/navigation, @/components/ui/{input,label,switch,button}
  *
  * Notes        :
  * - Writes consent to localStorage key: rgss_cookie_consent
@@ -32,9 +28,15 @@
  ************************************************************/
 'use client'
 
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
+// deepcode ignore HardcodedNonCryptoSecret: sessionStorage key name, not a secret
 const AUTH_CONTEXT_KEY = 'rgss_auth_context'
 const COOKIE_CONSENT_KEY = 'rgss_cookie_consent'
 
@@ -50,6 +52,10 @@ interface FormErrors {
   gender?: string
   privacyConsent?: string
 }
+
+const LABEL_CLASS = 'mb-1.5 font-ui text-sm font-medium text-warm-gray'
+const SELECT_CLASS =
+  'h-10 w-full rounded-md border border-input bg-canvas-white px-3 font-ui text-sm text-cocoa-dark outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60'
 
 export function OnboardingForm({ userName, userEmail }: OnboardingFormProps) {
   const router = useRouter()
@@ -158,85 +164,86 @@ export function OnboardingForm({ userName, userEmail }: OnboardingFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="w-full space-y-6">
-      <div className="space-y-2 text-center">
-        <h1 className="text-xl font-semibold text-stone-900">Complete Your Profile</h1>
-        <p className="text-sm text-stone-500">Tell us a bit about yourself to get started.</p>
+    <form onSubmit={handleSubmit} className="flex w-full flex-col gap-6">
+      <div className="flex flex-col gap-2 text-center">
+        <h1 className="font-display text-2xl tracking-tight text-cocoa-dark">
+          Complete Your Profile
+        </h1>
+        <p className="font-sans text-sm text-warm-gray">
+          Tell us a bit about yourself to get started.
+        </p>
       </div>
 
       {/* Name */}
-      <div className="space-y-1.5">
-        <label htmlFor="name" className="block text-sm font-medium text-stone-700">
+      <div>
+        <Label htmlFor="name" className={LABEL_CLASS}>
           Full Name
-        </label>
-        <input
+        </Label>
+        <Input
           id="name"
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500"
+          className="h-10"
           aria-required="true"
         />
-        {errors.name && <p className="text-xs text-red-600">{errors.name}</p>}
+        {errors.name && <p className="mt-1.5 font-ui text-xs text-error">{errors.name}</p>}
       </div>
 
       {/* Email (disabled) */}
-      <div className="space-y-1.5">
-        <label htmlFor="email" className="block text-sm font-medium text-stone-700">
+      <div>
+        <Label htmlFor="email" className={LABEL_CLASS}>
           Email
-        </label>
-        <input
-          id="email"
-          type="email"
-          value={userEmail}
-          disabled
-          className="w-full rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-500"
-        />
+        </Label>
+        <Input id="email" type="email" value={userEmail} disabled className="h-10 bg-cloud-gray" />
       </div>
 
       {/* Phone */}
-      <div className="space-y-1.5">
-        <label htmlFor="phone" className="block text-sm font-medium text-stone-700">
+      <div>
+        <Label htmlFor="phone" className={LABEL_CLASS}>
           Phone Number
-        </label>
-        <input
+        </Label>
+        <Input
           id="phone"
           type="tel"
+          inputMode="numeric"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
           placeholder="9876543210"
-          className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500"
+          className="h-10"
           aria-required="true"
         />
-        {errors.phone && <p className="text-xs text-red-600">{errors.phone}</p>}
+        {errors.phone && <p className="mt-1.5 font-ui text-xs text-error">{errors.phone}</p>}
       </div>
 
       {/* Date of Birth */}
-      <div className="space-y-1.5">
-        <label htmlFor="dateOfBirth" className="block text-sm font-medium text-stone-700">
+      <div>
+        <Label htmlFor="dateOfBirth" className={LABEL_CLASS}>
           Date of Birth
-        </label>
-        <input
+        </Label>
+        <Input
           id="dateOfBirth"
           type="date"
           value={dateOfBirth}
           onChange={(e) => setDateOfBirth(e.target.value)}
-          className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-900 focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500"
+          className="h-10"
           aria-required="true"
         />
-        {errors.dateOfBirth && <p className="text-xs text-red-600">{errors.dateOfBirth}</p>}
+        {errors.dateOfBirth && (
+          <p className="mt-1.5 font-ui text-xs text-error">{errors.dateOfBirth}</p>
+        )}
       </div>
 
       {/* Gender */}
-      <div className="space-y-1.5">
-        <label htmlFor="gender" className="block text-sm font-medium text-stone-700">
+      <div>
+        <Label htmlFor="gender" className={LABEL_CLASS}>
           Gender
-        </label>
+        </Label>
         <select
           id="gender"
           value={gender}
           onChange={(e) => setGender(e.target.value)}
-          className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-900 focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500"
+          className={SELECT_CLASS}
           aria-required="true"
         >
           <option value="">Select gender</option>
@@ -245,65 +252,84 @@ export function OnboardingForm({ userName, userEmail }: OnboardingFormProps) {
           <option value="other">Other</option>
           <option value="prefer_not_to_say">Prefer not to say</option>
         </select>
-        {errors.gender && <p className="text-xs text-red-600">{errors.gender}</p>}
+        {errors.gender && <p className="mt-1.5 font-ui text-xs text-error">{errors.gender}</p>}
       </div>
 
-      {/* Consent Checkboxes */}
-      <div className="space-y-3 rounded-lg border border-stone-200 bg-stone-50 p-4">
-        <p className="text-sm font-medium text-stone-700">Consent & Preferences</p>
+      {/* Consent toggles */}
+      <div className="flex flex-col gap-4 rounded-md border border-cloud-gray bg-warm-cream/40 p-4">
+        <p className="font-ui text-sm font-medium text-warm-gray">Consent &amp; Preferences</p>
 
-        <label className="flex items-start gap-2">
-          <input
-            type="checkbox"
+        <div className="flex items-start justify-between gap-3">
+          <Label htmlFor="privacy-consent" className="flex-1 cursor-pointer font-normal">
+            <span className="font-sans text-sm text-cocoa-dark">
+              I agree to the{' '}
+              <a href="/privacy" className="underline underline-offset-2 hover:text-deep-gold">
+                Privacy Policy
+              </a>{' '}
+              <span className="text-error">*</span>
+            </span>
+          </Label>
+          <Switch
+            id="privacy-consent"
             checked={privacyConsent}
-            onChange={(e) => setPrivacyConsent(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-stone-300"
+            onCheckedChange={setPrivacyConsent}
             aria-required="true"
+            className="mt-0.5"
           />
-          <span className="text-sm text-stone-600">
-            I agree to the{' '}
-            <a href="/privacy" className="underline underline-offset-2 hover:text-stone-900">
-              Privacy Policy
-            </a>{' '}
-            <span className="text-red-500">*</span>
-          </span>
-        </label>
-        {errors.privacyConsent && <p className="text-xs text-red-600">{errors.privacyConsent}</p>}
+        </div>
+        {errors.privacyConsent && (
+          <p className="font-ui text-xs text-error">{errors.privacyConsent}</p>
+        )}
 
-        <label className="flex items-start gap-2">
-          <input
-            type="checkbox"
+        <div className="flex items-start justify-between gap-3">
+          <Label htmlFor="analytics-consent" className="flex-1 cursor-pointer font-normal">
+            <span className="font-sans text-sm text-cocoa-dark">
+              Allow analytics to improve your experience
+            </span>
+          </Label>
+          <Switch
+            id="analytics-consent"
             checked={analyticsConsent}
-            onChange={(e) => setAnalyticsConsent(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-stone-300"
+            onCheckedChange={setAnalyticsConsent}
+            className="mt-0.5"
           />
-          <span className="text-sm text-stone-600">Allow analytics to improve your experience</span>
-        </label>
+        </div>
 
-        <label className="flex items-start gap-2">
-          <input
-            type="checkbox"
+        <div className="flex items-start justify-between gap-3">
+          <Label htmlFor="marketing-consent" className="flex-1 cursor-pointer font-normal">
+            <span className="font-sans text-sm text-cocoa-dark">
+              Receive offers and promotions via email/SMS
+            </span>
+          </Label>
+          <Switch
+            id="marketing-consent"
             checked={marketingConsent}
-            onChange={(e) => setMarketingConsent(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-stone-300"
+            onCheckedChange={setMarketingConsent}
+            className="mt-0.5"
           />
-          <span className="text-sm text-stone-600">
-            Receive offers and promotions via email/SMS
-          </span>
-        </label>
+        </div>
       </div>
 
       {/* Server Error */}
-      {serverError && <p className="text-sm text-red-600">{serverError}</p>}
+      {serverError && <p className="font-ui text-sm text-error">{serverError}</p>}
 
       {/* Submit */}
-      <button
+      <Button
         type="submit"
+        variant="gold"
+        size="lg"
         disabled={isSubmitting}
-        className="w-full rounded-lg bg-stone-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-60"
+        className="font-ui font-bold"
       >
-        {isSubmitting ? 'Saving…' : 'Complete Profile'}
-      </button>
+        {isSubmitting ? (
+          <>
+            <Loader2 className="animate-spin" aria-hidden="true" />
+            Saving…
+          </>
+        ) : (
+          'Complete Profile'
+        )}
+      </Button>
     </form>
   )
 }

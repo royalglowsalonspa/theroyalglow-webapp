@@ -33,6 +33,8 @@
 
 'use client'
 
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { useState } from 'react'
 
 export type NotificationPreferences = {
@@ -108,20 +110,23 @@ export function NotificationPreferencesForm({ initial }: { initial: Notification
 
   return (
     <div>
-      <ul className="space-y-4">
+      <ul className="flex flex-col gap-4">
         {PREFERENCES.map((pref) => (
           <li key={pref.id} className="flex items-start justify-between gap-4">
-            <label htmlFor={pref.id} className="flex-1 cursor-pointer">
-              <span className="block font-sans text-[15px] text-cocoa-dark">{pref.label}</span>
-              <span className="block font-sans text-[13px] text-dusty-gray">{pref.desc}</span>
-            </label>
-            <input
+            <Label htmlFor={pref.id} className="flex-1 cursor-pointer flex-col items-start gap-0.5">
+              <span className="block font-ui text-[15px] font-normal text-cocoa-dark">
+                {pref.label}
+              </span>
+              <span className="block font-sans text-[13px] font-normal text-dusty-gray">
+                {pref.desc}
+              </span>
+            </Label>
+            <Switch
               id={pref.id}
-              type="checkbox"
               checked={prefs[pref.key]}
               disabled={isSaving}
-              onChange={(e) => handleToggle(pref.key, e.target.checked)}
-              className="mt-1 h-4 w-4 accent-deep-gold focus:outline-2 focus:outline-deep-gold focus:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+              onCheckedChange={(checked) => handleToggle(pref.key, checked)}
+              className="mt-1"
             />
           </li>
         ))}
@@ -130,7 +135,7 @@ export function NotificationPreferencesForm({ initial }: { initial: Notification
       {/* Status region — announces save progress and results to assistive tech. */}
       <output
         aria-live="polite"
-        className="mt-5 block min-h-[1.25rem] font-sans text-[12px] motion-safe:transition-colors motion-safe:duration-200"
+        className="mt-5 block min-h-[1.25rem] font-ui text-[12px] motion-safe:transition-colors motion-safe:duration-200"
       >
         {state === 'saving' && <span className="text-dusty-gray">Saving…</span>}
         {state === 'saved' && <span className="text-success">Preferences saved.</span>}

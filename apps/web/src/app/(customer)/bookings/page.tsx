@@ -44,7 +44,7 @@ export default function BookingsPage() {
         <p className="font-ui text-[11px] uppercase tracking-[2px] text-warm-stone mb-2">
           Your appointments
         </p>
-        <h1 className="font-display text-[clamp(32px,5vw,48px)] text-cocoa-dark tracking-tight leading-[1.05]">
+        <h1 className="font-display font-black text-[clamp(32px,5vw,48px)] text-cocoa-dark tracking-tight leading-[1.05]">
           My Bookings
         </h1>
       </header>

@@ -36,7 +36,9 @@
 
 'use client'
 
+import { Button } from '@/components/ui/button'
 import { formatINR } from '@rgss/business'
+import { Check, Loader2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 // Mirrors the catalogue item shape the server passes down (getRedeemableServices
@@ -288,32 +290,34 @@ export function RedeemFlow({ balance, catalogue, branchId = DEFAULT_BRANCH_ID }:
             return (
               <li key={item.id}>
                 <article className="flex h-full flex-col rounded-[6px] border border-cloud-gray bg-canvas-white p-5 motion-safe:transition-all duration-200 hover:border-golden-mist hover:shadow-card-hover">
-                  <h3 className="font-sans text-[16px] text-cocoa-dark mb-2">{item.name}</h3>
+                  <h3 className="font-ui text-[16px] text-cocoa-dark mb-2">{item.name}</h3>
                   <p className="font-ui text-[14px] text-deep-gold mb-1">
                     {item.gemsRequired.toLocaleString('en-IN')} gems
                   </p>
-                  <p className="font-sans text-[12px] text-dusty-gray mb-4">
+                  <p className="font-ui text-[12px] text-dusty-gray mb-4">
                     Worth {formatINR(item.pricePaise)}
                   </p>
                   <div className="mt-auto">
                     {affordable ? (
-                      <button
+                      <Button
                         type="button"
+                        variant="gold"
                         onClick={() => openRedeem(item)}
-                        className="w-full font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-5 py-2.5 bg-royal-gold text-cocoa-dark hover:bg-deep-gold hover:-translate-y-px motion-safe:transition-all duration-200"
+                        className="w-full rounded-full font-ui text-[12px] uppercase tracking-[0.5px]"
                       >
                         Redeem
-                      </button>
+                      </Button>
                     ) : (
                       <div>
-                        <button
+                        <Button
                           type="button"
+                          variant="secondary"
                           disabled
                           aria-disabled="true"
-                          className="w-full font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-5 py-2.5 bg-cloud-gray text-dusty-gray cursor-not-allowed"
+                          className="w-full rounded-full font-ui text-[12px] uppercase tracking-[0.5px] text-dusty-gray"
                         >
                           Not enough gems
-                        </button>
+                        </Button>
                         <p className="mt-2 text-center font-sans text-[12px] text-warm-stone">
                           Need {shortBy.toLocaleString('en-IN')} more
                         </p>
@@ -357,21 +361,16 @@ export function RedeemFlow({ balance, catalogue, branchId = DEFAULT_BRANCH_ID }:
               >
                 {result ? 'Redemption Confirmed' : 'Redeem with Gems'}
               </h2>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-sm"
                 onClick={closeDialog}
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-cloud-gray motion-safe:transition-colors"
+                className="rounded-full"
                 aria-label="Close redemption dialog"
               >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <path
-                    d="M4 4l8 8M12 4l-8 8"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </button>
+                <X aria-hidden="true" />
+              </Button>
             </div>
 
             {/* Content */}
@@ -427,9 +426,7 @@ export function RedeemFlow({ balance, catalogue, branchId = DEFAULT_BRANCH_ID }:
                             <span className="font-ui text-[10px] uppercase tracking-[1px]">
                               {formatDay(d)}
                             </span>
-                            <span className="font-sans text-[14px] font-medium">
-                              {formatDate(d)}
-                            </span>
+                            <span className="font-ui text-[14px] font-medium">{formatDate(d)}</span>
                           </button>
                         )
                       })}
@@ -451,7 +448,10 @@ export function RedeemFlow({ balance, catalogue, branchId = DEFAULT_BRANCH_ID }:
                       </p>
                     ) : slotsLoading ? (
                       <output className="flex items-center gap-2 py-4" aria-live="polite">
-                        <Spinner />
+                        <Loader2
+                          className="size-4 animate-spin text-deep-gold"
+                          aria-hidden="true"
+                        />
                         <span className="font-sans text-[14px] text-dusty-gray">
                           Loading available times…
                         </span>
@@ -479,7 +479,7 @@ export function RedeemFlow({ balance, catalogue, branchId = DEFAULT_BRANCH_ID }:
                               disabled={!slot.available}
                               aria-pressed={isSelected}
                               aria-disabled={!slot.available}
-                              className={`font-sans text-[13px] py-2 rounded-full border motion-safe:transition-all duration-200 ${
+                              className={`font-ui text-[13px] py-2 rounded-full border motion-safe:transition-all duration-200 ${
                                 isSelected
                                   ? 'bg-royal-gold border-deep-gold text-cocoa-dark'
                                   : slot.available
@@ -509,24 +509,33 @@ export function RedeemFlow({ balance, catalogue, branchId = DEFAULT_BRANCH_ID }:
 
             {/* Footer */}
             {!result && (
-              <div className="flex items-center justify-between px-5 py-4 border-t border-cloud-gray">
-                <button
+              <div className="flex items-center justify-between border-t border-cloud-gray px-5 py-4">
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={closeDialog}
                   disabled={submitting}
-                  className="font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-5 py-2.5 bg-cloud-gray text-cocoa-dark hover:bg-golden-mist motion-safe:transition-colors duration-200 disabled:opacity-40"
+                  className="rounded-full font-ui text-[12px] uppercase tracking-[0.5px]"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="gold"
                   onClick={handleConfirm}
                   disabled={!canConfirm}
                   aria-busy={submitting}
-                  className="font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-6 py-2.5 bg-royal-gold text-cocoa-dark hover:bg-deep-gold hover:-translate-y-px motion-safe:transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                  className="rounded-full font-ui text-[12px] uppercase tracking-[0.5px]"
                 >
-                  {submitting ? 'Redeeming…' : 'Confirm Redemption'}
-                </button>
+                  {submitting ? (
+                    <>
+                      <Loader2 className="animate-spin" aria-hidden="true" />
+                      Redeeming…
+                    </>
+                  ) : (
+                    'Confirm Redemption'
+                  )}
+                </Button>
               </div>
             )}
           </div>
@@ -554,16 +563,8 @@ function SuccessView({
       className="flex flex-col items-center justify-center py-12 text-center"
       aria-live="polite"
     >
-      <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-5">
-        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-          <path
-            d="M9 16.5l5 5 9-10"
-            stroke="#3F7D5C"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+      <div className="mb-5 flex size-16 items-center justify-center rounded-full bg-success/10 text-success">
+        <Check className="size-8" strokeWidth={2.5} aria-hidden="true" />
       </div>
       <h3 className="font-display text-[24px] text-cocoa-dark mb-2">
         {duplicate ? 'Already Redeemed' : 'Gems Redeemed!'}
@@ -588,40 +589,23 @@ function SuccessView({
         </p>
       )}
 
-      <div className="flex flex-col w-full max-w-xs gap-3">
-        <a
-          href="/bookings"
-          className="font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-8 py-3 bg-royal-gold text-cocoa-dark hover:bg-deep-gold hover:-translate-y-px motion-safe:transition-all duration-200"
+      <div className="flex w-full max-w-xs flex-col gap-3">
+        <Button
+          asChild
+          variant="gold"
+          className="rounded-full font-ui text-[12px] uppercase tracking-[0.5px]"
         >
-          View My Bookings
-        </a>
-        <button
+          <a href="/bookings">View My Bookings</a>
+        </Button>
+        <Button
           type="button"
+          variant="secondary"
           onClick={onDone}
-          className="font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-8 py-3 bg-cloud-gray text-cocoa-dark hover:bg-golden-mist motion-safe:transition-colors duration-200"
+          className="rounded-full font-ui text-[12px] uppercase tracking-[0.5px]"
         >
           Done
-        </button>
+        </Button>
       </div>
     </output>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-4 w-4 animate-spin text-deep-gold"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
   )
 }

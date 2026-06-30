@@ -36,7 +36,12 @@
 'use client'
 
 import { useBookingStatus } from '@/components/realtime/RealtimeProvider'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { checkReschedulable, formatINR } from '@rgss/business'
+import { Loader2 } from 'lucide-react'
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 
 // --- Types (mirror GET /api/bookings/[id] → data.booking) ---
@@ -289,7 +294,7 @@ export function BookingDetail({
   if (loading) {
     return (
       <output className="flex items-center gap-3 py-16" aria-live="polite">
-        <Spinner />
+        <Loader2 className="size-5 animate-spin text-deep-gold" aria-hidden="true" />
         <span className="font-sans text-[15px] text-dusty-gray">Loading booking…</span>
       </output>
     )
@@ -297,28 +302,29 @@ export function BookingDetail({
 
   if (notFound) {
     return (
-      <div className="mt-8 rounded-[6px] border border-cloud-gray bg-canvas-white px-5 py-10 text-center">
-        <p className="font-display text-[22px] text-cocoa-dark mb-2">Booking not found</p>
+      <Card className="mt-8 px-5 py-10 text-center">
+        <p className="mb-2 font-display text-[22px] text-cocoa-dark">Booking not found</p>
         <p className="font-sans text-[15px] text-warm-gray" role="alert">
           We couldn&apos;t find this booking. It may have been removed, or the link is incorrect.
         </p>
-      </div>
+      </Card>
     )
   }
 
   if (error || !booking) {
     return (
       <div className="mt-8 rounded-[6px] border border-error/40 bg-error/5 px-5 py-6 text-center">
-        <p className="font-sans text-[15px] text-error mb-3" role="alert">
+        <p className="mb-3 font-sans text-[15px] text-error" role="alert">
           {error ?? 'Could not load this booking.'}
         </p>
-        <button
+        <Button
           type="button"
+          variant="gold"
           onClick={load}
-          className="font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-6 py-2.5 bg-royal-gold text-cocoa-dark hover:bg-deep-gold motion-safe:transition-colors duration-200"
+          className="rounded-full font-ui text-[12px] uppercase tracking-[0.5px]"
         >
           Try Again
-        </button>
+        </Button>
       </div>
     )
   }
@@ -332,7 +338,7 @@ export function BookingDetail({
       {/* Header: number + type + status badge */}
       <header className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="font-display text-[clamp(26px,4vw,38px)] text-cocoa-dark tracking-tight leading-[1.1]">
+          <h1 className="font-display font-black text-[clamp(26px,4vw,38px)] text-cocoa-dark tracking-tight leading-[1.1]">
             {booking.bookingNumber}
           </h1>
           <span
@@ -354,31 +360,28 @@ export function BookingDetail({
       </header>
 
       {/* Appointment summary */}
-      <section
-        className="rounded-[6px] border border-cloud-gray bg-canvas-white p-5"
-        aria-label="Appointment details"
-      >
+      <Card className="p-5" aria-label="Appointment details">
         <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <dt className="font-ui text-[11px] uppercase tracking-[0.5px] text-warm-stone mb-1">
+            <dt className="mb-1 font-ui text-[11px] uppercase tracking-[0.5px] text-warm-stone">
               Date
             </dt>
-            <dd className="font-sans text-[15px] text-cocoa-dark">
+            <dd className="font-ui text-[15px] text-cocoa-dark">
               <time dateTime={booking.bookingDate.slice(0, 10)}>
                 {formatDateDDMMYYYY(booking.bookingDate)}
               </time>
             </dd>
           </div>
           <div>
-            <dt className="font-ui text-[11px] uppercase tracking-[0.5px] text-warm-stone mb-1">
+            <dt className="mb-1 font-ui text-[11px] uppercase tracking-[0.5px] text-warm-stone">
               Time
             </dt>
-            <dd className="font-sans text-[15px] text-cocoa-dark">
+            <dd className="font-ui text-[15px] text-cocoa-dark">
               {formatTime12h(booking.startTime)} – {formatTime12h(booking.endTime)}
             </dd>
           </div>
         </dl>
-      </section>
+      </Card>
 
       {/* Services */}
       <section aria-label="Services">
@@ -392,9 +395,7 @@ export function BookingDetail({
                 <p className="font-sans text-[15px] text-cocoa-dark">
                   {service.serviceNameSnapshot}
                 </p>
-                <p className="font-sans text-[13px] text-warm-gray">
-                  {service.durationMinutes} min
-                </p>
+                <p className="font-ui text-[13px] text-warm-gray">{service.durationMinutes} min</p>
               </div>
               <span className="font-ui text-[15px] text-cocoa-dark whitespace-nowrap">
                 {formatINR(service.priceAtBookingPaise)}
@@ -427,10 +428,8 @@ export function BookingDetail({
                 aria-hidden="true"
               />
               <div>
-                <p className="font-sans text-[15px] text-cocoa-dark">{entry.label}</p>
-                <p className="font-sans text-[13px] text-warm-gray">
-                  {formatTimestampIST(entry.at)}
-                </p>
+                <p className="font-ui text-[15px] text-cocoa-dark">{entry.label}</p>
+                <p className="font-ui text-[13px] text-warm-gray">{formatTimestampIST(entry.at)}</p>
               </div>
             </li>
           ))}
@@ -458,67 +457,76 @@ export function BookingDetail({
 
           <div className="flex flex-wrap gap-3">
             {rescheduleEligible && (
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => {
                   setShowReschedule((prev) => !prev)
                   setActionError(null)
                 }}
                 aria-expanded={showReschedule}
-                className="font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-6 py-2.5 border border-deep-gold text-cocoa-dark hover:bg-golden-mist motion-safe:transition-colors duration-200"
+                className="rounded-full border-deep-gold font-ui text-[12px] uppercase tracking-[0.5px] text-cocoa-dark hover:bg-golden-mist hover:text-cocoa-dark"
               >
                 {showReschedule ? 'Close' : 'Reschedule'}
-              </button>
+              </Button>
             )}
 
             {canCancel && (
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={handleCancel}
                 disabled={cancelling}
                 aria-busy={cancelling}
-                className="font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-6 py-2.5 border border-error/40 text-error hover:bg-error/5 motion-safe:transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="rounded-full border-error/40 font-ui text-[12px] uppercase tracking-[0.5px] text-error hover:bg-error/5 hover:text-error"
               >
-                {cancelling ? 'Cancelling…' : 'Cancel Booking'}
-              </button>
+                {cancelling ? (
+                  <>
+                    <Loader2 className="animate-spin" aria-hidden="true" />
+                    Cancelling…
+                  </>
+                ) : (
+                  'Cancel Booking'
+                )}
+              </Button>
             )}
           </div>
 
           {rescheduleEligible && showReschedule && (
             <form
               onSubmit={handleReschedule}
-              className="rounded-[6px] border border-cloud-gray bg-warm-cream/40 p-5 space-y-4"
+              className="flex flex-col gap-4 rounded-[6px] border border-cloud-gray bg-warm-cream/40 p-5"
             >
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label
+                  <Label
                     htmlFor="reschedule-date"
-                    className="block font-ui text-[11px] uppercase tracking-[0.5px] text-warm-stone mb-1.5"
+                    className="mb-1.5 font-ui text-[11px] uppercase tracking-[0.5px] text-warm-stone"
                   >
                     New date
-                  </label>
-                  <input
+                  </Label>
+                  <Input
                     id="reschedule-date"
                     type="date"
                     required
                     min={todayInIST()}
                     value={rescheduleDate}
                     onChange={(e) => setRescheduleDate(e.target.value)}
-                    className="w-full rounded-[6px] border border-cloud-gray bg-canvas-white px-3 py-2 font-sans text-[15px] text-cocoa-dark focus:border-deep-gold focus:outline-none focus:ring-2 focus:ring-royal-gold/30"
+                    className="h-10"
                   />
                 </div>
                 <div>
-                  <label
+                  <Label
                     htmlFor="reschedule-time"
-                    className="block font-ui text-[11px] uppercase tracking-[0.5px] text-warm-stone mb-1.5"
+                    className="mb-1.5 font-ui text-[11px] uppercase tracking-[0.5px] text-warm-stone"
                   >
                     New time
-                  </label>
+                  </Label>
                   <select
                     id="reschedule-time"
                     value={rescheduleTime}
                     onChange={(e) => setRescheduleTime(e.target.value)}
-                    className="w-full rounded-[6px] border border-cloud-gray bg-canvas-white px-3 py-2 font-sans text-[15px] text-cocoa-dark focus:border-deep-gold focus:outline-none focus:ring-2 focus:ring-royal-gold/30"
+                    className="h-10 w-full rounded-md border border-input bg-canvas-white px-3 font-ui text-[15px] text-cocoa-dark outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                   >
                     {SLOT_OPTIONS.map((slot) => (
                       <option key={slot} value={slot}>
@@ -528,37 +536,27 @@ export function BookingDetail({
                   </select>
                 </div>
               </div>
-              <button
+              <Button
                 type="submit"
+                variant="gold"
+                size="lg"
                 disabled={rescheduling || !rescheduleDate}
                 aria-busy={rescheduling}
-                className="font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-8 py-3 bg-royal-gold text-cocoa-dark hover:bg-deep-gold hover:-translate-y-px motion-safe:transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-y-0"
+                className="w-fit rounded-full font-ui text-[12px] uppercase tracking-[0.5px]"
               >
-                {rescheduling ? 'Rescheduling…' : 'Confirm New Slot'}
-              </button>
+                {rescheduling ? (
+                  <>
+                    <Loader2 className="animate-spin" aria-hidden="true" />
+                    Rescheduling…
+                  </>
+                ) : (
+                  'Confirm New Slot'
+                )}
+              </Button>
             </form>
           )}
         </section>
       )}
     </div>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-5 w-5 animate-spin text-deep-gold"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
   )
 }

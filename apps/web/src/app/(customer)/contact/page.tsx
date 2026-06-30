@@ -61,7 +61,7 @@ export default function ContactPage() {
           <div className="mx-auto max-w-[1278px] mt-6 lg:mt-10">
             <h1
               id="contact-heading"
-              className="font-display text-cocoa-dark tracking-[-1.44px] leading-[1.03] text-[clamp(40px,6vw,72px)]"
+              className="font-display font-black text-cocoa-dark tracking-[-1.44px] leading-[1.03] text-[clamp(40px,6vw,72px)]"
             >
               Contact Us
             </h1>

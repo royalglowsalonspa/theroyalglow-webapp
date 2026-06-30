@@ -9,27 +9,37 @@
  * Description  : Homepage FAQ block — editorial heading column beside an
  *                expandable list of customer questions. Receives a pre-resolved
  *                FAQ list from the homepage server component (CMS-first via
- *                resolveFaqs, static fallback otherwise).
+ *                resolveFaqs, static fallback otherwise). Rebuilt on the
+ *                shadcn/ui Accordion (Radix) primitive with a motion Reveal.
  *
  * Responsibilities :
  * - Present the most frequently asked questions with answers
  * - Provide an editorial intro with a WhatsApp support mention
- * - Offer an accessible accordion-style question list
+ * - Offer an accessible Radix accordion question list
  *
  * Features / Functionality :
  * - Two-column editorial + accordion layout
- * - Bordered rows with gold hover affordance
+ * - Radix accordion with gold hover affordance + animated expand
  * - Shows up to five FAQs from the resolved list
  *
- * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, shadcn/ui,
+ *                Radix, motion
  * Layer        : Presentation (Component)
  *
- * Dependencies : @/lib/seo/business
+ * Dependencies : @/lib/seo/business, @/components/ui/accordion,
+ *                @/components/ui/motion/reveal
  *
  * Notes        :
  * - Data is resolved on the server; this component is presentational only.
  ************************************************************/
 
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
+import { Reveal } from '@/components/ui/motion/reveal'
 import type { Faq } from '@/lib/seo/business'
 
 const HOMEPAGE_FAQ_LIMIT = 5
@@ -40,48 +50,47 @@ export function FaqSection({ faqs }: { faqs: Faq[] }) {
   return (
     <section
       aria-labelledby="faq-heading"
-      className="px-4 md:px-8 py-16 mx-auto w-full max-w-[1280px]"
+      className="mx-auto w-full max-w-[1280px] px-4 py-16 md:px-8"
     >
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-        <div className="flex flex-col justify-center">
-          <p className="font-ui text-[10px] font-bold uppercase tracking-[0.2em] opacity-60 mb-2">
+      <div className="grid grid-cols-1 items-start gap-12 lg:grid-cols-2">
+        <Reveal className="flex flex-col justify-center" as="div">
+          <p className="mb-2 font-ui text-[10px] font-bold uppercase tracking-[0.2em] opacity-60">
             Got a question?
           </p>
           <h2
             id="faq-heading"
-            className="font-display font-black text-cocoa-dark text-[clamp(36px,4.5vw,56px)] tracking-tight leading-[1.05] mb-7"
+            className="mb-7 font-display text-[clamp(36px,4.5vw,56px)] font-black leading-[1.05] tracking-tight text-cocoa-dark"
           >
             Frequently asked
           </h2>
-          <p className="font-sans text-lg text-warm-gray leading-relaxed max-w-xl">
+          <p className="max-w-xl font-sans text-lg leading-relaxed text-warm-gray">
             Can&apos;t find the answer you&apos;re looking for?
             <br />
             Don&apos;t hesitate to connect with us via{' '}
             <span className="font-semibold text-cocoa-dark">phone</span> or{' '}
-            <span className="font-bold" style={{ color: '#25D366' }}>
-              WhatsApp
-            </span>{' '}
-            to get in touch with our receptionist.
+            <span className="font-bold text-[#25D366]">WhatsApp</span> to get in touch with our
+            receptionist.
           </p>
-        </div>
+        </Reveal>
 
-        <div className="space-y-0">
-          {visibleFaqs.map((faq) => (
-            <details key={faq.question} className="group border-b border-outline-gray">
-              <summary className="flex justify-between items-center cursor-pointer list-none py-5 gap-4">
-                <span className="font-sans font-bold text-lg text-cocoa-dark group-hover:text-deep-gold transition-colors duration-200">
+        <Reveal as="div">
+          <Accordion type="single" collapsible className="w-full">
+            {visibleFaqs.map((faq) => (
+              <AccordionItem
+                key={faq.question}
+                value={faq.question}
+                className="border-outline-gray"
+              >
+                <AccordionTrigger className="py-5 font-sans text-lg font-bold text-cocoa-dark hover:text-deep-gold hover:no-underline">
                   {faq.question}
-                </span>
-                <span className="text-warm-gray flex-shrink-0 text-xl group-open:rotate-180 motion-safe:transition-transform motion-safe:duration-200">
-                  ⌄
-                </span>
-              </summary>
-              <p className="font-sans text-warm-gray text-sm leading-relaxed pb-5 pr-8">
-                {faq.answer}
-              </p>
-            </details>
-          ))}
-        </div>
+                </AccordionTrigger>
+                <AccordionContent className="pr-8 font-sans text-sm leading-relaxed text-warm-gray">
+                  {faq.answer}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </Reveal>
       </div>
     </section>
   )

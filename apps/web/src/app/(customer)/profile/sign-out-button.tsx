@@ -1,13 +1,14 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 08-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : SignOutButton
  * Scope        : Customer Pages
  *
  * Description  : Client-side sign-out button that calls Better Auth's signOut
- *                and redirects the user to the homepage on completion.
+ *                and redirects the user to the homepage on completion. Rebuilt
+ *                on the shadcn/ui Button primitive with a lucide spinner.
  *
  * Responsibilities :
  * - Trigger sign-out via Better Auth client SDK
@@ -19,10 +20,11 @@
  * - aria-busy attribute for screen reader feedback
  * - Graceful fallback redirect even if signOut throws
  *
- * Tech Stack   : React, Better Auth
+ * Tech Stack   : React, Better Auth, shadcn/ui, lucide-react
  * Layer        : Presentation
  *
- * Dependencies : signOut (auth-client), React (useState)
+ * Dependencies : signOut (auth-client), React (useState),
+ *                @/components/ui/button, lucide-react
  *
  * Notes        :
  * - Uses window.location.href for a hard redirect to clear all client state
@@ -30,7 +32,9 @@
 
 'use client'
 
+import { Button } from '@/components/ui/button'
 import { signOut } from '@/lib/auth-client'
+import { Loader2, LogOut } from 'lucide-react'
 import { useState } from 'react'
 
 export function SignOutButton() {
@@ -53,14 +57,25 @@ export function SignOutButton() {
   }
 
   return (
-    <button
+    <Button
       type="button"
+      variant="secondary"
       onClick={handleSignOut}
       disabled={signingOut}
       aria-busy={signingOut}
-      className="font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-6 py-3 bg-cloud-gray text-cocoa-dark hover:bg-golden-mist motion-safe:transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+      className="rounded-full font-ui text-[12px] uppercase tracking-[0.5px] hover:bg-golden-mist"
     >
-      {signingOut ? 'Signing out…' : 'Sign Out'}
-    </button>
+      {signingOut ? (
+        <>
+          <Loader2 className="animate-spin" aria-hidden="true" />
+          Signing out…
+        </>
+      ) : (
+        <>
+          <LogOut aria-hidden="true" />
+          Sign Out
+        </>
+      )}
+    </Button>
   )
 }

@@ -28,7 +28,10 @@
  * - Protected route; redirects to / (homepage) if no session
  ************************************************************/
 
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { auth } from '@/lib/auth-server'
+import { ArrowRight, Heart } from 'lucide-react'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import Link from 'next/link'
@@ -52,48 +55,37 @@ export default async function FavoritesPage() {
         <p className="font-ui text-[11px] uppercase tracking-[2px] text-warm-stone mb-2">
           Saved for you
         </p>
-        <h1 className="font-display text-[clamp(32px,5vw,48px)] text-cocoa-dark tracking-tight leading-[1.05]">
+        <h1 className="font-display font-black text-[clamp(32px,5vw,48px)] text-cocoa-dark tracking-tight leading-[1.05]">
           My Favorites
         </h1>
       </header>
 
-      <section
-        className="flex flex-col items-center rounded-[6px] border border-cloud-gray bg-warm-cream px-6 py-14 text-center"
+      <Card
+        className="items-center bg-warm-cream px-6 py-14 text-center"
         aria-labelledby="favorites-empty-heading"
       >
         <span
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-canvas-white text-deep-gold shadow-card-hover"
+          className="flex size-14 items-center justify-center rounded-full bg-canvas-white text-deep-gold shadow-card-hover"
           aria-hidden="true"
         >
-          <svg
-            className="h-7 w-7"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.75"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" />
-          </svg>
+          <Heart className="size-7" strokeWidth={1.75} />
         </span>
         <h2
           id="favorites-empty-heading"
-          className="mt-5 font-display text-[22px] text-cocoa-dark tracking-tight"
+          className="mt-5 font-display text-[22px] tracking-tight text-cocoa-dark"
         >
           No favourites yet
         </h2>
         <p className="mt-2 max-w-[42ch] font-sans text-[15px] leading-relaxed text-warm-gray">
           Tap the heart on any service to save it here for quick booking next time.
         </p>
-        <Link
-          href="/services"
-          className="mt-7 inline-flex items-center gap-2 rounded-xl bg-warm-gold px-7 py-3 font-ui font-bold text-sm text-cocoa-dark transition-all duration-200 hover:bg-deep-gold active:scale-[0.97]"
-        >
-          Browse services <span aria-hidden="true">→</span>
-        </Link>
-      </section>
+        <Button asChild variant="gold" size="lg" className="mt-7 font-ui font-bold">
+          <Link href="/services">
+            Browse services
+            <ArrowRight data-icon="inline-end" aria-hidden="true" />
+          </Link>
+        </Button>
+      </Card>
     </div>
   )
 }

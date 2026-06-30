@@ -28,6 +28,7 @@
  * - Served by the service worker when all network requests fail
  ************************************************************/
 
+import { Button } from '@/components/ui/button'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
@@ -52,7 +53,7 @@ export default function OfflinePage() {
           {/* Headline */}
           <h1
             id="offline-heading"
-            className="font-display text-canvas-white tracking-[-1.44px] leading-[1.03] text-[clamp(40px,6vw,72px)]"
+            className="font-display font-black text-canvas-white tracking-[-1.44px] leading-[1.03] text-[clamp(40px,6vw,72px)]"
           >
             You're offline
           </h1>
@@ -65,12 +66,13 @@ export default function OfflinePage() {
 
           {/* Retry + contact */}
           <div className="mt-8 flex flex-col items-center gap-4">
-            <Link
-              href="/"
-              className="inline-flex bg-royal-gold text-cocoa-dark font-ui text-xs uppercase tracking-[0.5px] rounded-full px-8 h-10 items-center justify-center hover:bg-deep-gold hover:-translate-y-px motion-safe:transition-all motion-safe:duration-200"
+            <Button
+              asChild
+              variant="gold"
+              className="rounded-full font-ui text-xs uppercase tracking-[0.5px]"
             >
-              Try Again
-            </Link>
+              <Link href="/">Try Again</Link>
+            </Button>
             <p className="font-sans text-[15px] leading-[1.55] text-warm-stone">
               Need us now? Call{' '}
               <a

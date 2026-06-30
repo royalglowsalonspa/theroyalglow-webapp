@@ -1,13 +1,14 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 08-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : GemsPage
  * Scope        : Loyalty Programme
  *
  * Description  : Customer loyalty (gems) dashboard showing balance, redeemable
- *                catalogue, and paginated transaction history.
+ *                catalogue, and paginated transaction history. Rebuilt on the
+ *                shadcn/ui Card + Button primitives with the shared font system.
  *
  * Responsibilities :
  * - Display the customer's current gems balance and lifetime stats
@@ -19,16 +20,20 @@
  * - Colour-coded transaction types (earned, redeemed, expired, adjusted)
  * - Server-side pagination with prev/next navigation
  *
- * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, Better Auth, Drizzle ORM
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, shadcn/ui,
+ *                Better Auth, Drizzle ORM
  * Layer        : Presentation
  *
- * Dependencies : auth, formatDateIN, formatINR, getLoyaltySummary, getLoyaltyTransactions, getOrCreateLoyaltyAccount, getRedeemableServices
+ * Dependencies : auth, formatDateIN, loyalty queries, RedeemFlow,
+ *                @/components/ui/{card,button}
  *
  * Notes        :
  * - Protected route; redirects to / (homepage) if no session
  ************************************************************/
 
 import { RedeemFlow } from '@/components/gems/RedeemFlow'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { auth } from '@/lib/auth-server'
 import { computeAffordability, formatDateIN } from '@rgss/business'
 import {
@@ -37,8 +42,10 @@ import {
   getOrCreateLoyaltyAccount,
   getRedeemableServices,
 } from '@rgss/db/queries'
+import { ArrowLeft, ArrowRight } from 'lucide-react'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 export const metadata: Metadata = {
@@ -113,25 +120,22 @@ export default async function GemsPage({ searchParams }: PageProps) {
   return (
     <div className="mx-auto max-w-[800px] px-5 py-10 lg:py-14">
       <header className="mb-8">
-        <p className="font-ui text-[11px] uppercase tracking-[2px] text-warm-stone mb-2">
+        <p className="mb-2 font-ui text-[11px] uppercase tracking-[2px] text-warm-stone">
           Your rewards
         </p>
-        <h1 className="font-display text-[clamp(32px,5vw,48px)] text-cocoa-dark tracking-tight leading-[1.05]">
+        <h1 className="font-display font-black text-[clamp(32px,5vw,48px)] leading-[1.05] tracking-tight text-cocoa-dark">
           My Gems
         </h1>
       </header>
 
       {/* Balance hero */}
-      <section
-        className="rounded-[6px] border border-cloud-gray bg-canvas-white p-6 mb-6"
-        aria-labelledby="gems-balance-heading"
-      >
+      <Card className="mb-6 gap-6 p-6" aria-labelledby="gems-balance-heading">
         <h2 id="gems-balance-heading" className="sr-only">
           Gems balance
         </h2>
-        <div className="flex items-baseline gap-2 mb-6">
+        <div className="flex items-baseline gap-2">
           <span
-            className="font-display text-[clamp(40px,8vw,64px)] text-cocoa-dark leading-none"
+            className="font-display text-[clamp(40px,8vw,64px)] leading-none text-cocoa-dark"
             aria-label={`${balance.balance} gems available`}
           >
             {balance.balance.toLocaleString('en-IN')}
@@ -141,7 +145,7 @@ export default async function GemsPage({ searchParams }: PageProps) {
 
         <dl className="grid grid-cols-2 gap-4">
           <div className="rounded-[6px] bg-warm-cream px-4 py-3">
-            <dt className="font-ui text-[11px] uppercase tracking-[1px] text-warm-stone mb-1">
+            <dt className="mb-1 font-ui text-[11px] uppercase tracking-[1px] text-warm-stone">
               Lifetime earned
             </dt>
             <dd className="font-display text-[22px] text-cocoa-dark">
@@ -149,7 +153,7 @@ export default async function GemsPage({ searchParams }: PageProps) {
             </dd>
           </div>
           <div className="rounded-[6px] bg-warm-cream px-4 py-3">
-            <dt className="font-ui text-[11px] uppercase tracking-[1px] text-warm-stone mb-1">
+            <dt className="mb-1 font-ui text-[11px] uppercase tracking-[1px] text-warm-stone">
               Lifetime redeemed
             </dt>
             <dd className="font-display text-[22px] text-cocoa-dark">
@@ -157,17 +161,17 @@ export default async function GemsPage({ searchParams }: PageProps) {
             </dd>
           </div>
         </dl>
-      </section>
+      </Card>
 
       {/* Redeemable catalogue */}
       <section className="mb-6" aria-labelledby="gems-catalogue-heading">
         <h2
           id="gems-catalogue-heading"
-          className="font-display text-[20px] text-cocoa-dark tracking-tight mb-1"
+          className="mb-1 font-display text-[20px] tracking-tight text-cocoa-dark"
         >
           Redeem your gems
         </h2>
-        <p className="font-sans text-[13px] text-dusty-gray mb-5">
+        <p className="mb-5 font-sans text-[13px] text-dusty-gray">
           Spend your gems on a reward service — pick a date and time, and we'll confirm your
           appointment. Each reward is fully covered by gems.
         </p>
@@ -179,17 +183,17 @@ export default async function GemsPage({ searchParams }: PageProps) {
       <section className="mb-6" aria-labelledby="gems-history-heading">
         <h2
           id="gems-history-heading"
-          className="font-display text-[20px] text-cocoa-dark tracking-tight mb-4"
+          className="mb-4 font-display text-[20px] tracking-tight text-cocoa-dark"
         >
           Gems history
         </h2>
 
         {transactions.length === 0 ? (
-          <p className="font-sans text-[15px] text-dusty-gray py-4">
+          <p className="py-4 font-sans text-[15px] text-dusty-gray">
             No gems activity yet. Earn gems on your next visit.
           </p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="flex flex-col gap-3">
             {transactions.map((tx) => {
               const meta = TX_META[tx.type] ?? {
                 label: tx.type,
@@ -200,12 +204,12 @@ export default async function GemsPage({ searchParams }: PageProps) {
               const expiresAt = toDate(tx.expiresAt)
               return (
                 <li key={tx.id}>
-                  <article className="flex items-center justify-between gap-3 rounded-[6px] border border-cloud-gray bg-canvas-white px-4 py-3">
+                  <Card className="flex-row items-center justify-between gap-3 px-4 py-3">
                     <div className="min-w-0">
                       <p className="font-sans text-[15px] text-cocoa-dark">
                         {tx.description ?? meta.label}
                       </p>
-                      <p className="font-sans text-[12px] text-dusty-gray">
+                      <p className="font-ui text-[12px] text-dusty-gray">
                         {createdAt ? (
                           <time dateTime={createdAt.toISOString().slice(0, 10)}>
                             {formatDateIN(createdAt)}
@@ -219,11 +223,11 @@ export default async function GemsPage({ searchParams }: PageProps) {
                           : ''}
                       </p>
                     </div>
-                    <span className={`font-ui text-[15px] whitespace-nowrap ${meta.tone}`}>
+                    <span className={`whitespace-nowrap font-ui text-[15px] ${meta.tone}`}>
                       {meta.sign}
                       {Math.abs(tx.gemsAmount).toLocaleString('en-IN')}
                     </span>
-                  </article>
+                  </Card>
                 </li>
               )
             })}
@@ -232,27 +236,37 @@ export default async function GemsPage({ searchParams }: PageProps) {
 
         {(hasPrev || hasNext) && (
           <nav
-            className="flex items-center justify-between gap-3 mt-5"
+            className="mt-5 flex items-center justify-between gap-3"
             aria-label="Gems history pagination"
           >
             {hasPrev ? (
-              <a
-                href={`/gems?page=${page - 1}`}
-                className="font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-5 py-2 border border-cloud-gray text-cocoa-dark hover:border-golden-mist motion-safe:transition-colors duration-200"
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="rounded-full font-ui text-xs uppercase tracking-[0.5px]"
               >
-                ← Newer
-              </a>
+                <Link href={`/gems?page=${page - 1}`}>
+                  <ArrowLeft data-icon="inline-start" aria-hidden="true" />
+                  Newer
+                </Link>
+              </Button>
             ) : (
               <span aria-hidden="true" />
             )}
-            <span className="font-sans text-[13px] text-dusty-gray">Page {page}</span>
+            <span className="font-ui text-[13px] text-dusty-gray">Page {page}</span>
             {hasNext ? (
-              <a
-                href={`/gems?page=${page + 1}`}
-                className="font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-5 py-2 border border-cloud-gray text-cocoa-dark hover:border-golden-mist motion-safe:transition-colors duration-200"
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="rounded-full font-ui text-xs uppercase tracking-[0.5px]"
               >
-                Older →
-              </a>
+                <Link href={`/gems?page=${page + 1}`}>
+                  Older
+                  <ArrowRight data-icon="inline-end" aria-hidden="true" />
+                </Link>
+              </Button>
             ) : (
               <span aria-hidden="true" />
             )}
@@ -261,13 +275,13 @@ export default async function GemsPage({ searchParams }: PageProps) {
       </section>
 
       {/* Explainer */}
-      <section className="rounded-[6px] border border-cloud-gray bg-warm-cream px-5 py-4">
+      <Card className="bg-warm-cream px-5 py-4">
         <p className="font-sans text-[13px] text-warm-gray">
           <span className="font-ui text-deep-gold">How gems work · </span>
           Earn 1 gem per ₹100 spent on salon services. Gems expire 365 days after they are earned,
           so redeem them on your next visit.
         </p>
-      </section>
+      </Card>
     </div>
   )
 }

@@ -105,31 +105,31 @@ export default function LegalLayout({
           >
             <Link
               href="/privacy"
-              className="font-sans text-[15px] text-dusty-gray transition-colors duration-200 hover:text-canvas-white"
+              className="font-ui text-[15px] text-dusty-gray transition-colors duration-200 hover:text-canvas-white"
             >
               Privacy Policy
             </Link>
             <Link
               href="/terms"
-              className="font-sans text-[15px] text-dusty-gray transition-colors duration-200 hover:text-canvas-white"
+              className="font-ui text-[15px] text-dusty-gray transition-colors duration-200 hover:text-canvas-white"
             >
               Terms of Service
             </Link>
             <Link
               href="/refund-policy"
-              className="font-sans text-[15px] text-dusty-gray transition-colors duration-200 hover:text-canvas-white"
+              className="font-ui text-[15px] text-dusty-gray transition-colors duration-200 hover:text-canvas-white"
             >
               Refund Policy
             </Link>
             <Link
               href="/"
-              className="font-sans text-[15px] text-dusty-gray transition-colors duration-200 hover:text-canvas-white"
+              className="font-ui text-[15px] text-dusty-gray transition-colors duration-200 hover:text-canvas-white"
             >
               Home
             </Link>
           </nav>
 
-          <p className="mt-6 font-sans text-dusty-gray text-sm">
+          <p className="mt-6 font-ui text-dusty-gray text-sm">
             © {new Date().getFullYear()} {BUSINESS.name}. All rights reserved.
           </p>
         </div>

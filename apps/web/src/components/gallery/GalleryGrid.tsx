@@ -76,7 +76,7 @@ export function GalleryGrid({ images }: GalleryGridProps) {
               )}
 
               {item.caption ? (
-                <figcaption className="font-sans text-[14px] leading-[1.5] text-warm-gray px-4 py-3">
+                <figcaption className="font-ui text-[14px] leading-[1.5] text-warm-gray px-4 py-3">
                   {item.caption}
                 </figcaption>
               ) : null}

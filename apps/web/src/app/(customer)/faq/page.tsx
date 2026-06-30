@@ -1,34 +1,44 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 08-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : FAQPage
  * Scope        : Customer Pages
  *
  * Description  : Frequently Asked Questions page rendering CMS-driven FAQs
- *                in an accessible accordion with FAQPage JSON-LD schema.
+ *                in an accessible Radix accordion (shadcn/ui) with FAQPage
+ *                JSON-LD schema.
  *
  * Responsibilities :
  * - Fetch FAQ entries from CMS via resolveFaqs()
- * - Render an accessible accordion using native <details>/<summary>
+ * - Render an accessible Radix accordion
  * - Emit FAQPage JSON-LD structured data for rich snippet eligibility
  *
  * Features / Functionality :
  * - ISR with 1-hour revalidation for FAQ content
- * - Animated plus/cross icon on toggle
+ * - Radix accordion with animated expand + gold hover
  * - Breadcrumb JSON-LD for search engine navigation
  *
- * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, JSON-LD
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, shadcn/ui,
+ *                Radix, motion, JSON-LD
  * Layer        : Presentation
  *
- * Dependencies : JsonLd, resolveFaqs, SITE_URL, breadcrumbJsonLd, faqPageJsonLd, buildMetadata
+ * Dependencies : JsonLd, resolveFaqs, SEO helpers, @/components/ui/accordion,
+ *                @/components/ui/motion/reveal
  *
  * Notes        :
  * - FAQ content sourced from Payload CMS with local fallback
  ************************************************************/
 
 import { JsonLd } from '@/components/seo/JsonLd'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
+import { Reveal } from '@/components/ui/motion/reveal'
 import { resolveFaqs } from '@/lib/cms/faqs'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, faqPageJsonLd } from '@/lib/seo/jsonld'
@@ -49,7 +59,6 @@ export default async function FAQPage() {
 
   return (
     <>
-      {/* JSON-LD Structured Data */}
       <JsonLd
         data={[
           faqPageJsonLd(faqs),
@@ -58,64 +67,48 @@ export default async function FAQPage() {
       />
 
       <div className="flex flex-col gap-20">
-        {/* ═══════════════════════════════════════════════════════ */}
-        {/* HEADING */}
-        {/* ═══════════════════════════════════════════════════════ */}
+        {/* ── HEADING ── */}
         <section aria-labelledby="faq-page-heading" className="px-5">
-          <div className="mx-auto max-w-[1278px] mt-6 lg:mt-10">
+          <Reveal className="mx-auto mt-6 max-w-[1278px] lg:mt-10" as="div">
             <h1
               id="faq-page-heading"
-              className="font-display text-cocoa-dark tracking-[-1.44px] leading-[1.03] text-[clamp(40px,6vw,72px)]"
+              className="font-display font-black text-[clamp(40px,6vw,72px)] leading-[1.03] tracking-[-1.44px] text-cocoa-dark"
             >
               Frequently Asked Questions
             </h1>
-            <p className="font-sans text-[17px] leading-[1.6] text-warm-gray mt-4 max-w-[520px]">
+            <p className="mt-4 max-w-[520px] font-sans text-[17px] leading-[1.6] text-warm-gray">
               Everything you need to know about Royal Glow Salon & Spa. Can&apos;t find your answer?
               Feel free to{' '}
               <a
                 href="/contact"
-                className="text-deep-gold hover:text-cocoa-dark transition-colors duration-200 underline underline-offset-2"
+                className="text-deep-gold underline underline-offset-2 transition-colors duration-200 hover:text-cocoa-dark"
               >
                 contact us
               </a>
               .
             </p>
-          </div>
+          </Reveal>
         </section>
 
-        {/* ═══════════════════════════════════════════════════════ */}
-        {/* FAQ ACCORDION */}
-        {/* ═══════════════════════════════════════════════════════ */}
+        {/* ── FAQ ACCORDION ── */}
         <section aria-label="Frequently asked questions" className="px-5 pb-20">
           <div className="mx-auto max-w-[1278px]">
-            <div className="divide-y divide-outline-gray">
+            <Accordion type="single" collapsible className="w-full">
               {faqs.map((faq) => (
-                <details key={faq.question} className="group py-5">
-                  <summary className="flex items-center justify-between cursor-pointer list-none">
-                    <span className="font-sans text-[17px] font-medium text-cocoa-dark pr-4">
-                      {faq.question}
-                    </span>
-                    <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full border border-outline-gray text-cocoa-dark group-open:rotate-45 motion-safe:transition-transform motion-safe:duration-200">
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 14 14"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        aria-hidden="true"
-                      >
-                        <line x1="7" y1="1" x2="7" y2="13" />
-                        <line x1="1" y1="7" x2="13" y2="7" />
-                      </svg>
-                    </span>
-                  </summary>
-                  <p className="font-sans text-[15px] leading-[1.55] text-warm-gray mt-3 pr-12">
+                <AccordionItem
+                  key={faq.question}
+                  value={faq.question}
+                  className="border-outline-gray"
+                >
+                  <AccordionTrigger className="py-5 font-ui text-[17px] font-medium text-cocoa-dark hover:text-deep-gold hover:no-underline">
+                    {faq.question}
+                  </AccordionTrigger>
+                  <AccordionContent className="pr-12 font-sans text-[15px] leading-[1.55] text-warm-gray">
                     {faq.answer}
-                  </p>
-                </details>
+                  </AccordionContent>
+                </AccordionItem>
               ))}
-            </div>
+            </Accordion>
           </div>
         </section>
       </div>

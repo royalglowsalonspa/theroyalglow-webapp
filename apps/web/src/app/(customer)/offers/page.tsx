@@ -8,7 +8,8 @@
  *
  * Description  : Lists active marketing offers from Payload CMS with optional
  *                category filtering. Falls back to curated offers when the CMS
- *                is unconfigured, unreachable, or empty.
+ *                is unconfigured, unreachable, or empty. Rebuilt on the
+ *                shadcn/ui Button + Badge primitives with motion Reveal.
  *
  * Responsibilities :
  * - Fetch active CMS offers (validity-window filtered)
@@ -20,11 +21,12 @@
  * - Category filter (Salon / SPA / Bridal / etc.)
  * - Empty state when no offers match the filter
  *
- * Tech Stack   : React (server), Next.js 16 (App Router), Tailwind CSS v4
+ * Tech Stack   : React (server), Next.js 16 (App Router), Tailwind CSS v4,
+ *                shadcn/ui, motion
  * Layer        : Presentation
  *
- * Dependencies : OfferBookButton, JsonLd, SITE_URL, breadcrumbJsonLd, buildMetadata,
- *                @/lib/cms/client
+ * Dependencies : OfferBookButton, JsonLd, SEO helpers, @/lib/cms/client,
+ *                @/components/ui/{button,badge}, @/components/ui/motion/reveal
  *
  * Notes        :
  * - Marketing offers from Payload; separate from Drizzle booking redemptions.
@@ -32,6 +34,9 @@
 
 import { OfferBookButton } from '@/components/offers/OfferBookButton'
 import { JsonLd } from '@/components/seo/JsonLd'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Reveal, RevealGroup, RevealItem } from '@/components/ui/motion/reveal'
 import { FALLBACK_OFFERS, getActiveOffers } from '@/lib/cms/client'
 import type { Offer } from '@/lib/cms/types'
 import { SITE_URL } from '@/lib/seo/business'
@@ -94,91 +99,90 @@ export default async function OffersPage({
       <JsonLd data={breadcrumbJsonLd([{ name: 'Home', url: SITE_URL }, { name: 'Offers' }])} />
 
       <section aria-labelledby="offers-heading" className="px-5">
-        <div className="mx-auto max-w-[1278px] mt-6 lg:mt-10">
+        <Reveal className="mx-auto mt-6 max-w-[1278px] lg:mt-10" as="div">
           <h1
             id="offers-heading"
-            className="font-display text-cocoa-dark tracking-[-1.44px] leading-[1.03] text-[clamp(40px,6vw,72px)]"
+            className="font-display font-black text-[clamp(40px,6vw,72px)] leading-[1.03] tracking-[-1.44px] text-cocoa-dark"
           >
             Special Offers
           </h1>
-          <p className="font-sans text-[17px] leading-[1.6] text-warm-gray mt-4 max-w-[520px]">
+          <p className="mt-4 max-w-[520px] font-sans text-[17px] leading-[1.6] text-warm-gray">
             Exclusive deals on our premium salon and spa services. Grab them before they expire.
           </p>
 
-          <nav aria-label="Filter offers by category" className="flex flex-wrap gap-2 mt-8">
+          <nav aria-label="Filter offers by category" className="mt-8 flex flex-wrap gap-2">
             {CATEGORY_FILTERS.map((item) => {
               const isActive = category === item.value
               const href = item.value === 'all' ? '/offers' : `/offers?category=${item.value}`
               return (
-                <Link
+                <Button
                   key={item.value}
-                  href={href}
-                  aria-current={isActive ? 'page' : undefined}
-                  className={`font-ui text-xs uppercase tracking-[0.12em] px-4 py-2 rounded-full border transition-colors duration-200 ${
-                    isActive
-                      ? 'bg-cocoa-dark text-canvas-white border-cocoa-dark'
-                      : 'bg-transparent text-cocoa-dark border-warm-stone hover:border-deep-gold hover:text-deep-gold'
-                  }`}
+                  asChild
+                  variant={isActive ? 'default' : 'outline'}
+                  size="sm"
+                  className="rounded-full font-ui text-xs uppercase tracking-[0.12em]"
                 >
-                  {item.label}
-                </Link>
+                  <Link href={href} aria-current={isActive ? 'page' : undefined}>
+                    {item.label}
+                  </Link>
+                </Button>
               )
             })}
           </nav>
-        </div>
+        </Reveal>
       </section>
 
       <section aria-label="Current offers" className="px-5 pb-20">
         <div className="mx-auto max-w-[1278px]">
           {offers.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <RevealGroup className="grid grid-cols-1 gap-6 md:grid-cols-2">
               {offers.map((offer) => (
-                <article
-                  key={offer.id}
-                  className="group relative h-[360px] md:h-[420px] rounded-xl overflow-hidden"
-                >
-                  <img
-                    src={offer.image.url}
-                    alt={offer.image.alt}
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent flex flex-col justify-end p-8">
-                    <div className="flex items-center gap-2 mb-2">
-                      {offer.discountLabel && (
-                        <span className="font-ui text-[11px] font-bold uppercase tracking-[0.15em] text-warm-gold">
-                          {offer.discountLabel}
-                        </span>
-                      )}
-                      {offer.category !== 'all' && (
-                        <span className="font-ui text-[10px] uppercase tracking-[0.12em] text-white/60">
-                          {categoryLabel(offer.category)}
-                        </span>
-                      )}
-                    </div>
-                    <h2 className="font-display font-bold text-2xl text-white mb-2 leading-tight">
-                      {offer.title}
-                    </h2>
-                    {offer.description && (
-                      <p className="font-sans text-white/80 mb-3 max-w-[520px]">
-                        {offer.description}
-                      </p>
-                    )}
-                    {offer.validUntil && (
-                      <p className="font-sans text-sm text-white/60 mb-4">
-                        Valid until {formatDate(offer.validUntil)}
-                      </p>
-                    )}
-                    <OfferBookButton
-                      offerId={offer.id}
-                      href={offer.ctaHref}
-                      label={offer.ctaLabel}
+                <RevealItem key={offer.id}>
+                  <article className="group relative h-[360px] overflow-hidden rounded-xl md:h-[420px]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={offer.image.url}
+                      alt={offer.image.alt}
+                      className="absolute inset-0 size-full object-cover transition-transform duration-500 group-hover:scale-110"
                     />
-                  </div>
-                </article>
+                    <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/85 via-black/30 to-transparent p-8">
+                      <div className="mb-2 flex items-center gap-2">
+                        {offer.discountLabel && (
+                          <Badge className="bg-warm-gold font-ui text-[11px] font-bold uppercase tracking-[0.15em] text-cocoa-dark">
+                            {offer.discountLabel}
+                          </Badge>
+                        )}
+                        {offer.category !== 'all' && (
+                          <span className="font-ui text-[10px] uppercase tracking-[0.12em] text-white/60">
+                            {categoryLabel(offer.category)}
+                          </span>
+                        )}
+                      </div>
+                      <h2 className="mb-2 font-display text-2xl font-bold leading-tight text-white">
+                        {offer.title}
+                      </h2>
+                      {offer.description && (
+                        <p className="mb-3 max-w-[520px] font-sans text-white/80">
+                          {offer.description}
+                        </p>
+                      )}
+                      {offer.validUntil && (
+                        <p className="mb-4 font-ui text-sm text-white/60">
+                          Valid until {formatDate(offer.validUntil)}
+                        </p>
+                      )}
+                      <OfferBookButton
+                        offerId={offer.id}
+                        href={offer.ctaHref}
+                        label={offer.ctaLabel}
+                      />
+                    </div>
+                  </article>
+                </RevealItem>
               ))}
-            </div>
+            </RevealGroup>
           ) : (
-            <div className="text-center py-16">
+            <div className="py-16 text-center">
               <p className="font-sans text-[17px] leading-[1.6] text-warm-gray">
                 No offers in this category right now. Try another filter or check back soon!
               </p>

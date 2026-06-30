@@ -34,9 +34,11 @@
 
 'use client'
 
+import { Button } from '@/components/ui/button'
 import { track } from '@/lib/analytics/events'
 import { useSession } from '@/lib/auth-client'
 import { startGoogleSignIn } from '@/lib/google-signin'
+import { Check, Loader2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 // --- Types (mirror GET /api/services response) ---
@@ -480,21 +482,16 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
           >
             {isSubmitted ? 'Booking Submitted' : 'Book Appointment'}
           </h2>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             onClick={handleClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-cloud-gray motion-safe:transition-colors"
+            className="rounded-full"
             aria-label="Close booking dialog"
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path
-                d="M4 4l8 8M12 4l-8 8"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            </svg>
-          </button>
+            <X aria-hidden="true" />
+          </Button>
         </div>
 
         {/* Step indicator */}
@@ -569,23 +566,25 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
 
         {/* Footer */}
         {!isSubmitted && (
-          <div className="flex items-center justify-between px-5 py-4 border-t border-cloud-gray">
+          <div className="flex items-center justify-between border-t border-cloud-gray px-5 py-4">
             {step > 1 ? (
-              <button
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={() => setStep((s) => s - 1)}
                 disabled={submitting}
-                className="font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-5 py-2.5 bg-cloud-gray text-cocoa-dark hover:bg-golden-mist motion-safe:transition-colors duration-200 disabled:opacity-40"
+                className="rounded-full font-ui text-[12px] uppercase tracking-[0.5px] hover:bg-golden-mist"
               >
                 Back
-              </button>
+              </Button>
             ) : (
               <span />
             )}
 
             {step < 4 ? (
-              <button
+              <Button
                 type="button"
+                variant="gold"
                 onClick={() => {
                   track('booking_step_completed', { step })
                   setStep((s) => s + 1)
@@ -595,20 +594,30 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
                   (step === 2 && !canNext2) ||
                   (step === 3 && !canNext3)
                 }
-                className="font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-6 py-2.5 bg-royal-gold text-cocoa-dark hover:bg-deep-gold hover:-translate-y-px motion-safe:transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                className="rounded-full font-ui text-[12px] uppercase tracking-[0.5px]"
               >
                 Next
-              </button>
+              </Button>
             ) : (
-              <button
+              <Button
                 type="button"
+                variant="gold"
                 onClick={handleSubmit}
                 disabled={submitting || selectedServiceIds.length === 0}
                 aria-busy={submitting}
-                className="font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-6 py-2.5 bg-royal-gold text-cocoa-dark hover:bg-deep-gold hover:-translate-y-px motion-safe:transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                className="rounded-full font-ui text-[12px] uppercase tracking-[0.5px]"
               >
-                {submitting ? 'Submitting…' : session?.user ? 'Submit Booking' : 'Sign in to Book'}
-              </button>
+                {submitting ? (
+                  <>
+                    <Loader2 className="animate-spin" aria-hidden="true" />
+                    Submitting…
+                  </>
+                ) : session?.user ? (
+                  'Submit Booking'
+                ) : (
+                  'Sign in to Book'
+                )}
+              </Button>
             )}
           </div>
         )}
@@ -660,7 +669,7 @@ function Step1({
                 aria-pressed={isSelected}
               >
                 <span className="font-ui text-[10px] uppercase tracking-[1px]">{formatDay(d)}</span>
-                <span className="font-sans text-[14px] font-medium">{formatDate(d)}</span>
+                <span className="font-ui text-[14px] font-medium">{formatDate(d)}</span>
               </button>
             )
           })}
@@ -678,7 +687,7 @@ function Step1({
           </p>
         ) : slotsLoading ? (
           <output className="flex items-center gap-2 py-4" aria-live="polite">
-            <Spinner />
+            <Loader2 className="size-4 animate-spin text-deep-gold" aria-hidden="true" />
             <span className="font-sans text-[14px] text-dusty-gray">Loading available times…</span>
           </output>
         ) : slotsError ? (
@@ -701,7 +710,7 @@ function Step1({
                   disabled={!slot.available}
                   aria-pressed={isSelected}
                   aria-disabled={!slot.available}
-                  className={`font-sans text-[13px] py-2 rounded-full border motion-safe:transition-all duration-200 ${
+                  className={`font-ui text-[13px] py-2 rounded-full border motion-safe:transition-all duration-200 ${
                     isSelected
                       ? 'bg-royal-gold border-deep-gold text-cocoa-dark'
                       : slot.available
@@ -749,21 +758,21 @@ function Step2({
           aria-label="Service type"
         >
           {(['salon', 'spa'] as const).map((t) => (
-            <button
+            <Button
               key={t}
               type="button"
               // biome-ignore lint/a11y/useSemanticElements: intentional ARIA radiogroup of styled pill buttons; native <input type="radio"> cannot carry this pill styling.
               role="radio"
               aria-checked={serviceType === t}
+              variant={serviceType === t ? 'gold' : 'ghost'}
+              size="sm"
               onClick={() => onServiceTypeChange(t)}
-              className={`font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-5 py-2 motion-safe:transition-colors duration-200 ${
-                serviceType === t
-                  ? 'bg-royal-gold text-cocoa-dark'
-                  : 'bg-cloud-gray text-cocoa-dark hover:bg-golden-mist'
+              className={`rounded-full font-ui text-[12px] uppercase tracking-[0.5px] ${
+                serviceType === t ? '' : 'text-cocoa-dark hover:bg-golden-mist'
               }`}
             >
               {t === 'spa' ? 'SPA' : 'Salon'}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -775,7 +784,7 @@ function Step2({
 
         {loading ? (
           <output className="flex items-center gap-2 py-4" aria-live="polite">
-            <Spinner />
+            <Loader2 className="size-4 animate-spin text-deep-gold" aria-hidden="true" />
             <span className="font-sans text-[14px] text-dusty-gray">Loading categories…</span>
           </output>
         ) : error ? (
@@ -805,7 +814,7 @@ function Step2({
                     onChange={() => onToggleCategory(cat.id)}
                     className="w-4 h-4 accent-deep-gold"
                   />
-                  <span className="font-sans text-[15px] text-cocoa-dark">{cat.name}</span>
+                  <span className="font-ui text-[15px] text-cocoa-dark">{cat.name}</span>
                 </label>
               )
             })}
@@ -865,8 +874,8 @@ function Step3({
                     className="w-4 h-4 accent-deep-gold"
                   />
                   <div>
-                    <span className="font-sans text-[15px] text-cocoa-dark">{svc.name}</span>
-                    <span className="block font-sans text-[12px] text-dusty-gray">
+                    <span className="font-ui text-[15px] text-cocoa-dark">{svc.name}</span>
+                    <span className="block font-ui text-[12px] text-dusty-gray">
                       {svc.durationMinutes} min
                     </span>
                   </div>
@@ -920,22 +929,22 @@ function Step4({
       </h3>
 
       <div className="space-y-3 p-4 rounded-[6px] bg-cloud-gray">
-        <div className="flex justify-between font-sans text-[14px]">
+        <div className="flex justify-between font-ui text-[14px]">
           <span className="text-dusty-gray">Date</span>
           <span className="text-cocoa-dark">{selectedDate ? formatDate(selectedDate) : '—'}</span>
         </div>
-        <div className="flex justify-between font-sans text-[14px]">
+        <div className="flex justify-between font-ui text-[14px]">
           <span className="text-dusty-gray">Time</span>
           <span className="text-cocoa-dark">
             {selectedTime ? formatTime12h(selectedTime) : '—'}
           </span>
         </div>
-        <div className="flex justify-between font-sans text-[14px]">
+        <div className="flex justify-between font-ui text-[14px]">
           <span className="text-dusty-gray">Type</span>
           <span className="text-cocoa-dark capitalize">{serviceType}</span>
         </div>
         {totalDuration > 0 && (
-          <div className="flex justify-between font-sans text-[14px]">
+          <div className="flex justify-between font-ui text-[14px]">
             <span className="text-dusty-gray">Duration</span>
             <span className="text-cocoa-dark">~{totalDuration} min</span>
           </div>
@@ -945,7 +954,7 @@ function Step4({
       <div className="space-y-2">
         <h4 className="font-ui text-[11px] uppercase tracking-[1px] text-warm-stone">Services</h4>
         {selectedServices.map((svc) => (
-          <div key={svc.id} className="flex justify-between font-sans text-[14px] text-cocoa-dark">
+          <div key={svc.id} className="flex justify-between font-ui text-[14px] text-cocoa-dark">
             <span>{svc.name}</span>
             <span>{formatINR(svc.pricePaise)}</span>
           </div>
@@ -970,7 +979,7 @@ function Step4({
           rows={3}
           maxLength={500}
           placeholder="Any special requests..."
-          className="w-full rounded-[6px] border border-cloud-gray px-3 py-2 font-sans text-[14px] text-cocoa-dark placeholder:text-dusty-gray focus:outline-2 focus:outline-deep-gold focus:outline-offset-2 resize-none"
+          className="w-full rounded-[6px] border border-cloud-gray px-3 py-2 font-ui text-[14px] text-cocoa-dark placeholder:text-dusty-gray focus:outline-2 focus:outline-deep-gold focus:outline-offset-2 resize-none"
         />
       </div>
 
@@ -1003,67 +1012,42 @@ function SuccessView({
 }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-5">
-        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-          <path
-            d="M9 16.5l5 5 9-10"
-            stroke="#3F7D5C"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+      <div className="mb-5 flex size-16 items-center justify-center rounded-full bg-success/10 text-success">
+        <Check className="size-8" strokeWidth={2.5} aria-hidden="true" />
       </div>
-      <h3 className="font-display text-[24px] text-cocoa-dark mb-2">Booking Submitted!</h3>
-      <p className="font-sans text-[15px] text-warm-gray max-w-xs mb-4">
+      <h3 className="mb-2 font-display text-[24px] text-cocoa-dark">Booking Submitted!</h3>
+      <p className="mb-4 max-w-xs font-sans text-[15px] text-warm-gray">
         Our team will confirm your appointment shortly.
       </p>
 
       {bookingNumber && (
-        <div className="mb-8 px-5 py-3 rounded-[6px] bg-warm-cream border border-golden-mist">
-          <span className="block font-ui text-[10px] uppercase tracking-[1px] text-warm-stone mb-1">
+        <div className="mb-8 rounded-[6px] border border-golden-mist bg-warm-cream px-5 py-3">
+          <span className="mb-1 block font-ui text-[10px] uppercase tracking-[1px] text-warm-stone">
             Booking Number
           </span>
-          <span className="font-ui text-[16px] text-cocoa-dark tracking-[0.5px]">
+          <span className="font-ui text-[16px] tracking-[0.5px] text-cocoa-dark">
             {bookingNumber}
           </span>
         </div>
       )}
 
-      <div className="flex flex-col w-full max-w-xs gap-3">
-        <a
-          href="/bookings"
-          className="font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-8 py-3 bg-royal-gold text-cocoa-dark hover:bg-deep-gold hover:-translate-y-px motion-safe:transition-all duration-200"
+      <div className="flex w-full max-w-xs flex-col gap-3">
+        <Button
+          asChild
+          variant="gold"
+          className="rounded-full font-ui text-[12px] uppercase tracking-[0.5px]"
         >
-          View My Bookings
-        </a>
-        <button
+          <a href="/bookings">View My Bookings</a>
+        </Button>
+        <Button
           type="button"
+          variant="secondary"
           onClick={onDone}
-          className="font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-8 py-3 bg-cloud-gray text-cocoa-dark hover:bg-golden-mist motion-safe:transition-colors duration-200"
+          className="rounded-full font-ui text-[12px] uppercase tracking-[0.5px] hover:bg-golden-mist"
         >
           Done
-        </button>
+        </Button>
       </div>
     </div>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-4 w-4 animate-spin text-deep-gold"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
   )
 }
