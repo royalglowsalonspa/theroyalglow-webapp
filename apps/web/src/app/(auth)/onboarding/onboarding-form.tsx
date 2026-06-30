@@ -36,7 +36,6 @@ import { Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-// deepcode ignore HardcodedNonCryptoSecret: sessionStorage key name, not a secret
 const AUTH_CONTEXT_KEY = 'rgss_auth_context'
 const COOKIE_CONSENT_KEY = 'rgss_cookie_consent'
 
