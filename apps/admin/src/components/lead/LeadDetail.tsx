@@ -39,6 +39,7 @@ import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { Textarea } from '@/components/ui/textarea'
 import {
   ALLOWED_LEAD_TRANSITIONS,
   LEAD_TRANSITION_LABEL,
@@ -296,14 +297,13 @@ function InfoCard({
           <label htmlFor={reasonId} className="block font-ui text-sm font-medium text-warm-gray">
             Reason for marking lost
           </label>
-          <textarea
+          <Textarea
             id={reasonId}
             value={lostReason}
             onChange={(e) => setLostReason(e.target.value)}
             rows={2}
             aria-required="true"
             placeholder="e.g. Unreachable after 5 attempts, chose another salon…"
-            className="w-full rounded-buttons border border-outline-gray px-3 py-2 font-sans text-sm text-cocoa-dark placeholder:text-dusty-gray focus:border-deep-gold focus:outline-none focus:ring-1 focus:ring-deep-gold"
           />
           <div className="flex items-center gap-2">
             <Button
@@ -420,14 +420,13 @@ function NotesTimeline({
         <label htmlFor={fieldId} className="sr-only">
           Add a note
         </label>
-        <textarea
+        <Textarea
           id={fieldId}
           value={content}
           onChange={(e) => setContent(e.target.value)}
           rows={2}
           disabled={saving}
           placeholder="Add a note…"
-          className="w-full rounded-buttons border border-outline-gray px-3 py-2 font-sans text-sm text-cocoa-dark placeholder:text-dusty-gray focus:border-deep-gold focus:outline-none focus:ring-1 focus:ring-deep-gold disabled:opacity-60"
         />
         <div className="flex items-center justify-end">
           <Button

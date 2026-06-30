@@ -137,7 +137,7 @@ describe('FilterBar search input (Req 8.2, 8.3)', () => {
  * ========================================================================== */
 
 describe('FilterBar filter dropdown (Req 8.4)', () => {
-  it('emits onFilterChange(id, value) when an option is selected', () => {
+  it('emits onFilterChange(id, value) when an option is selected', async () => {
     const onFilterChange = vi.fn<(id: string, value: string) => void>()
     const config: FilterBarProps['config'] = {
       dropdowns: [
@@ -155,8 +155,12 @@ describe('FilterBar filter dropdown (Req 8.4)', () => {
 
     render(<FilterBar config={config} onFilterChange={onFilterChange} />)
 
-    const select = screen.getByLabelText('Status filter') as HTMLSelectElement
-    fireEvent.change(select, { target: { value: 'confirmed' } })
+    // Open the shadcn Select (Radix opens on Enter), then pick an option.
+    const trigger = screen.getByLabelText('Status filter')
+    fireEvent.keyDown(trigger, { key: 'Enter' })
+
+    const option = await screen.findByRole('option', { name: 'Confirmed' })
+    fireEvent.click(option)
 
     expect(onFilterChange).toHaveBeenCalledTimes(1)
     expect(onFilterChange).toHaveBeenCalledWith('status', 'confirmed')

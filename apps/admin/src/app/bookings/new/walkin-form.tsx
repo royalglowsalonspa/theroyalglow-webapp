@@ -44,8 +44,21 @@
 
 'use client'
 
+import { Checkbox } from '@/components/ui/checkbox'
 import { Icon } from '@/components/ui/icon'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import { TimeSelect } from '@/components/ui/time-select'
 import { formatINRWithPaise } from '@/lib/admin/bookings'
+import { toast } from '@/lib/admin/toast'
 import { AlertCircle, ArrowLeft, Check, Search, UserCheck, X } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -87,8 +100,6 @@ type ServiceType = (typeof SERVICE_TYPES)[number]['value']
 // (no hex / raw-palette literals). Mirrors the field styling used across the
 // existing admin booking pages so this form is visually consistent.
 const FIELD_LABEL = 'font-ui text-[10px] uppercase tracking-wider text-dusty-gray'
-const FORM_CONTROL =
-  'h-9 rounded-cards border border-outline-gray bg-canvas-white px-3 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold'
 
 export function WalkinForm({
   branches,
@@ -251,11 +262,14 @@ export function WalkinForm({
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not create this walk-in booking.')
       }
+      toast.success('Walk-in booking created')
       // Land on the new booking's detail page so the receptionist can proceed
       // to checkout immediately.
       router.push(`/bookings/${json.data.id}`)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not create this walk-in booking.')
+      const message = err instanceof Error ? err.message : 'Could not create this walk-in booking.'
+      setError(message)
+      toast.error('Could not create walk-in booking', message)
       setSubmitting(false)
     }
   }, [branchId, customer, selectedIds, bookingDate, startTime, serviceType, notes, router])
@@ -298,19 +312,20 @@ export function WalkinForm({
                 <label htmlFor="walkin-branch" className={FIELD_LABEL}>
                   Branch
                 </label>
-                <select
-                  id="walkin-branch"
-                  value={branchId}
-                  onChange={(event) => setBranchId(event.target.value)}
-                  className={FORM_CONTROL}
-                >
-                  <option value="">Select branch…</option>
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name} ({b.code})
-                    </option>
-                  ))}
-                </select>
+                <Select value={branchId} onValueChange={setBranchId}>
+                  <SelectTrigger id="walkin-branch" className="w-full">
+                    <SelectValue placeholder="Select branch…" />
+                  </SelectTrigger>
+                  <SelectContent position="popper">
+                    <SelectGroup>
+                      {branches.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.name} ({b.code})
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="flex flex-col gap-1">
@@ -374,7 +389,7 @@ export function WalkinForm({
                   <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-dusty-gray">
                     <Icon icon={Search} decorative size={16} />
                   </span>
-                  <input
+                  <Input
                     id="walkin-customer"
                     type="text"
                     value={query}
@@ -382,7 +397,7 @@ export function WalkinForm({
                     placeholder="Search by name, phone, or email…"
                     autoComplete="off"
                     aria-describedby="walkin-customer-hint"
-                    className={`${FORM_CONTROL} pl-8`}
+                    className="pl-8"
                   />
                 </div>
                 <p id="walkin-customer-hint" className="font-sans text-xs text-dusty-gray">
@@ -437,34 +452,33 @@ export function WalkinForm({
                 {visibleServices.map((s) => {
                   const checked = selectedIds.has(s.id)
                   return (
-                    <label
+                    <div
                       key={s.id}
-                      className={`flex cursor-pointer items-center justify-between gap-3 rounded-cards border px-3 py-2.5 transition-colors motion-reduce:transition-none ${
+                      className={`flex items-center justify-between gap-3 rounded-cards border px-3 py-2.5 transition-colors motion-reduce:transition-none ${
                         checked
                           ? 'border-deep-gold bg-warm-cream'
                           : 'border-cloud-gray hover:bg-cloud-gray/50'
                       }`}
                     >
                       <span className="flex min-w-0 items-center gap-2.5">
-                        <input
-                          type="checkbox"
+                        <Checkbox
+                          id={`walkin-svc-${s.id}`}
                           checked={checked}
-                          onChange={() => toggleService(s.id)}
-                          className="size-4 accent-cocoa-dark"
+                          onCheckedChange={() => toggleService(s.id)}
                         />
-                        <span className="min-w-0">
+                        <label htmlFor={`walkin-svc-${s.id}`} className="min-w-0 cursor-pointer">
                           <span className="block truncate font-sans text-sm text-cocoa-dark">
                             {s.name}
                           </span>
                           <span className="block truncate font-sans text-xs text-dusty-gray">
                             {s.categoryName} · {s.durationMinutes} min
                           </span>
-                        </span>
+                        </label>
                       </span>
                       <span className="shrink-0 font-ui text-sm text-cocoa-dark">
                         {formatINRWithPaise(s.pricePaise)}
                       </span>
-                    </label>
+                    </div>
                   )
                 })}
               </fieldset>
@@ -488,25 +502,23 @@ export function WalkinForm({
                 <label htmlFor="walkin-date" className={FIELD_LABEL}>
                   Date
                 </label>
-                <input
+                <Input
                   id="walkin-date"
                   type="date"
                   value={bookingDate}
                   onChange={(event) => setBookingDate(event.target.value)}
-                  className={FORM_CONTROL}
                 />
               </div>
               <div className="flex flex-col gap-1">
                 <label htmlFor="walkin-time" className={FIELD_LABEL}>
                   Start time
                 </label>
-                <input
+                <TimeSelect
                   id="walkin-time"
-                  type="time"
                   value={startTime}
-                  onChange={(event) => setStartTime(event.target.value)}
-                  step={1800}
-                  className={FORM_CONTROL}
+                  onChange={setStartTime}
+                  ariaLabel="Start time"
+                  className="w-full"
                 />
               </div>
             </div>
@@ -518,14 +530,13 @@ export function WalkinForm({
               <label htmlFor="walkin-notes" className="sr-only">
                 Notes
               </label>
-              <textarea
+              <Textarea
                 id="walkin-notes"
                 value={notes}
                 onChange={(event) => setNotes(event.target.value)}
                 rows={3}
                 maxLength={500}
                 placeholder="Anything the team should know…"
-                className={`${FORM_CONTROL} h-auto resize-none py-2`}
               />
             </div>
           </Section>

@@ -39,15 +39,28 @@
 
 'use client'
 
+import { Checkbox } from '@/components/ui/checkbox'
 import { DataTable, type RowAction } from '@/components/ui/data-table'
 import { FilterBar } from '@/components/ui/filter-bar'
+import { FormActions } from '@/components/ui/form-field'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { SlideOverPanel } from '@/components/ui/slide-over-panel'
 import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { Textarea } from '@/components/ui/textarea'
 import { useAsyncData } from '@/components/ui/use-async-data'
 import { formatDateDDMMYYYY, formatINRWithPaise } from '@/lib/admin/format'
+import { toast } from '@/lib/admin/toast'
 import type { OfferType } from '@rgss/types'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Power, Tag } from 'lucide-react'
@@ -175,9 +188,12 @@ export function OffersManager() {
         if (!res.ok || !json.success) {
           throw new Error(json?.error?.message ?? 'Could not update this offer.')
         }
+        toast.success(offer.isActive ? `${offer.name} deactivated` : `${offer.name} activated`)
         retry()
       } catch (err: unknown) {
-        setActionError(err instanceof Error ? err.message : 'Could not update this offer.')
+        const message = err instanceof Error ? err.message : 'Could not update this offer.'
+        setActionError(message)
+        toast.error('Could not update offer', message)
       }
     },
     [retry],
@@ -453,10 +469,13 @@ function CreateOfferPanel({
           }
           throw new Error(json?.error?.message ?? 'Could not create this offer.')
         }
+        toast.success(`${name.trim()} created`)
         resetForm()
         onCreated()
       } catch (err: unknown) {
-        setFormError(err instanceof Error ? err.message : 'Could not create this offer.')
+        const message = err instanceof Error ? err.message : 'Could not create this offer.'
+        setFormError(message)
+        toast.error('Could not create offer', message)
       } finally {
         setSubmitting(false)
       }
@@ -487,31 +506,33 @@ function CreateOfferPanel({
       <form onSubmit={submit} className="space-y-4" noValidate>
         {/* Name */}
         <Field label="Name" htmlFor="offer-name" errors={fieldErrors.name} required>
-          <input
+          <Input
             id="offer-name"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={120}
             required
-            className={inputClass(fieldErrors.name)}
+            aria-invalid={Boolean(fieldErrors.name?.length)}
           />
         </Field>
 
         {/* Offer type */}
         <Field label="Type" htmlFor="offer-type" errors={fieldErrors.offerType} required>
-          <select
-            id="offer-type"
-            value={offerType}
-            onChange={(e) => setOfferType(e.target.value as OfferType)}
-            className={inputClass()}
-          >
-            {OFFER_TYPE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+          <Select value={offerType} onValueChange={(v) => setOfferType(v as OfferType)}>
+            <SelectTrigger id="offer-type" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <SelectGroup>
+                {OFFER_TYPE_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </Field>
 
         {/* Type-specific discount field */}
@@ -522,7 +543,7 @@ function CreateOfferPanel({
             errors={fieldErrors.discountPercentage}
             required
           >
-            <input
+            <Input
               id="offer-pct"
               type="number"
               min={1}
@@ -530,7 +551,7 @@ function CreateOfferPanel({
               step={1}
               value={percentage}
               onChange={(e) => setPercentage(e.target.value)}
-              className={inputClass(fieldErrors.discountPercentage)}
+              aria-invalid={Boolean(fieldErrors.discountPercentage?.length)}
             />
           </Field>
         ) : null}
@@ -541,14 +562,14 @@ function CreateOfferPanel({
             errors={fieldErrors.discountAmountPaise}
             required
           >
-            <input
+            <Input
               id="offer-flat"
               type="number"
               min={1}
               step="0.01"
               value={flatRupees}
               onChange={(e) => setFlatRupees(e.target.value)}
-              className={inputClass(fieldErrors.discountAmountPaise)}
+              aria-invalid={Boolean(fieldErrors.discountAmountPaise?.length)}
             />
           </Field>
         ) : null}
@@ -559,14 +580,14 @@ function CreateOfferPanel({
             errors={fieldErrors.comboPricePaise}
             required
           >
-            <input
+            <Input
               id="offer-combo"
               type="number"
               min={1}
               step="0.01"
               value={comboRupees}
               onChange={(e) => setComboRupees(e.target.value)}
-              className={inputClass(fieldErrors.comboPricePaise)}
+              aria-invalid={Boolean(fieldErrors.comboPricePaise?.length)}
             />
           </Field>
         ) : null}
@@ -574,36 +595,36 @@ function CreateOfferPanel({
         {/* Dates */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Start date" htmlFor="offer-start" errors={fieldErrors.startDate} required>
-            <input
+            <Input
               id="offer-start"
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               required
-              className={inputClass(fieldErrors.startDate)}
+              aria-invalid={Boolean(fieldErrors.startDate?.length)}
             />
           </Field>
           <Field label="End date" htmlFor="offer-end" errors={fieldErrors.endDate} required>
-            <input
+            <Input
               id="offer-end"
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               required
-              className={inputClass(fieldErrors.endDate)}
+              aria-invalid={Boolean(fieldErrors.endDate?.length)}
             />
           </Field>
         </div>
 
         {/* Description */}
         <Field label="Description" htmlFor="offer-desc" errors={fieldErrors.description}>
-          <textarea
+          <Textarea
             id="offer-desc"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
             maxLength={1000}
-            className={`${inputClass(fieldErrors.description)} resize-none`}
+            aria-invalid={Boolean(fieldErrors.description?.length)}
           />
         </Field>
 
@@ -639,13 +660,13 @@ function CreateOfferPanel({
 
         {/* Terms */}
         <Field label="Terms (optional)" htmlFor="offer-terms" errors={fieldErrors.terms}>
-          <textarea
+          <Textarea
             id="offer-terms"
             value={terms}
             onChange={(e) => setTerms(e.target.value)}
             rows={2}
             maxLength={1000}
-            className={`${inputClass(fieldErrors.terms)} resize-none`}
+            aria-invalid={Boolean(fieldErrors.terms?.length)}
           />
         </Field>
 
@@ -655,24 +676,12 @@ function CreateOfferPanel({
           </p>
         ) : null}
 
-        <div className="flex items-center justify-end gap-2 pt-1">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-4 font-ui text-sm text-warm-gray transition-colors hover:bg-cloud-gray disabled:opacity-60"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={submitting}
-            aria-busy={submitting}
-            className="h-9 rounded-buttons bg-cocoa-dark px-4 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {submitting ? 'Creating…' : 'Create Offer'}
-          </button>
-        </div>
+        <FormActions
+          busy={submitting}
+          onCancel={onClose}
+          submitLabel="Create Offer"
+          busyLabel="Creating…"
+        />
       </form>
     </SlideOverPanel>
   )
@@ -698,15 +707,19 @@ function ServiceGroup({
       <ul className="max-h-48 space-y-1.5 overflow-y-auto">
         {options.map((opt) => (
           <li key={opt.id}>
-            <label className="flex cursor-pointer items-center gap-2 font-sans text-sm text-cocoa-dark">
-              <input
-                type="checkbox"
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id={`offer-svc-${opt.id}`}
                 checked={selected.includes(opt.id)}
-                onChange={() => onToggle(opt.id)}
-                className="h-4 w-4 rounded-cards border-outline-gray accent-deep-gold"
+                onCheckedChange={() => onToggle(opt.id)}
               />
-              {opt.name}
-            </label>
+              <label
+                htmlFor={`offer-svc-${opt.id}`}
+                className="cursor-pointer font-sans text-sm text-cocoa-dark"
+              >
+                {opt.name}
+              </label>
+            </div>
           </li>
         ))}
       </ul>
@@ -744,10 +757,4 @@ function Field({
       ) : null}
     </div>
   )
-}
-
-function inputClass(errors?: string[]): string {
-  return `h-9 px-3 rounded-buttons border bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold ${
-    errors && errors.length > 0 ? 'border-error' : 'border-outline-gray'
-  }`
 }

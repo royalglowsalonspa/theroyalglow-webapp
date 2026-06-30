@@ -302,7 +302,12 @@ export function DataTable<T>({
                   <Icon icon={MoreHorizontal} decorative />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" sideOffset={4} className="min-w-[10rem]">
+              <DropdownMenuContent
+                align="end"
+                sideOffset={4}
+                className="min-w-[10rem]"
+                onClick={(event) => event.stopPropagation()}
+              >
                 {actions.map((action) => (
                   <DropdownMenuItem
                     key={action.label}

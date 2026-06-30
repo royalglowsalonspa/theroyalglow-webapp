@@ -96,7 +96,8 @@ describe('BookingsTable UI wiring (Req 15)', () => {
     expect(String(fetchMock.mock.calls[0]?.[0])).not.toContain('status=')
 
     // Change the status filter → a new request carrying the filter param.
-    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'confirmed' } })
+    fireEvent.keyDown(screen.getByLabelText('Status'), { key: 'Enter' })
+    fireEvent.click(await screen.findByRole('option', { name: 'Confirmed' }))
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
     expect(String(fetchMock.mock.calls[1]?.[0])).toContain('status=confirmed')

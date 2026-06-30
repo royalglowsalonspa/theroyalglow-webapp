@@ -21,15 +21,14 @@
  * - Schedule is read-only for staff; changes go through manager/admin (/schedule).
  ************************************************************/
 
-import { EmptyState } from '@/components/ui/state/empty-state'
 import { formatTime12h } from '@/lib/admin/bookings'
 import { auth } from '@/lib/auth-server'
 import { dayOfWeekLabel } from '@rgss/business'
 import { getStaffProfileByUserId, getStaffSchedule } from '@rgss/db/queries'
-import { UserX } from 'lucide-react'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { NoStaffProfileEmpty } from './no-profile-empty'
 
 export const metadata: Metadata = {
   title: 'My Schedule',
@@ -74,11 +73,7 @@ export default async function MeSchedulePage() {
       </header>
 
       {!staff ? (
-        <EmptyState
-          icon={UserX}
-          title="No staff profile found"
-          message="Your account isn't linked to a staff profile yet. Ask your manager to set this up so your schedule and leave appear here."
-        />
+        <NoStaffProfileEmpty />
       ) : (
         <section aria-labelledby="weekly-schedule-heading">
           <h2 id="weekly-schedule-heading" className="sr-only">

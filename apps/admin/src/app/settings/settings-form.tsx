@@ -28,8 +28,15 @@
 
 'use client'
 
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Field } from '@/components/ui/form-field'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
+import { TimeSelect } from '@/components/ui/time-select'
+import { toast } from '@/lib/admin/toast'
 import {
   type BookingRules,
   type BusinessHours,
@@ -126,9 +133,12 @@ function useSectionSave(section: Section) {
           throw new Error(json?.error?.message ?? 'Could not save changes.')
         }
         setSaved(true)
+        toast.success('Settings saved')
         return true
       } catch (err: unknown) {
-        setSaveError(err instanceof Error ? err.message : 'Could not save changes.')
+        const message = err instanceof Error ? err.message : 'Could not save changes.'
+        setSaveError(message)
+        toast.error('Could not save settings', message)
         return false
       } finally {
         setBusy(false)
@@ -181,35 +191,31 @@ function BusinessHoursSection({
                       {DAY_LABELS[day]}
                     </td>
                     <td className="px-4 py-2">
-                      <input
-                        type="time"
-                        aria-label={`${DAY_LABELS[day]} opening time`}
+                      <TimeSelect
+                        ariaLabel={`${DAY_LABELS[day]} opening time`}
                         value={d.open ?? ''}
                         disabled={d.closed}
-                        onChange={(e) => updateDay(day, { open: e.target.value || null })}
-                        className={timeInputClass}
+                        onChange={(v) => updateDay(day, { open: v })}
                       />
                     </td>
                     <td className="px-4 py-2">
-                      <input
-                        type="time"
-                        aria-label={`${DAY_LABELS[day]} closing time`}
+                      <TimeSelect
+                        ariaLabel={`${DAY_LABELS[day]} closing time`}
                         value={d.close ?? ''}
                         disabled={d.closed}
-                        onChange={(e) => updateDay(day, { close: e.target.value || null })}
-                        className={timeInputClass}
+                        onChange={(v) => updateDay(day, { close: v })}
                       />
                     </td>
                     <td className="px-4 py-2">
-                      <label className="inline-flex items-center gap-2 font-sans text-sm text-cocoa-dark">
-                        <input
-                          type="checkbox"
+                      <div className="inline-flex items-center gap-2">
+                        <Checkbox
+                          id={`closed-${day}`}
                           aria-label={`${DAY_LABELS[day]} closed`}
                           checked={d.closed}
-                          onChange={(e) =>
+                          onCheckedChange={(checked) =>
                             updateDay(
                               day,
-                              e.target.checked
+                              checked === true
                                 ? { closed: true, open: null, close: null }
                                 : {
                                     closed: false,
@@ -218,10 +224,14 @@ function BusinessHoursSection({
                                   },
                             )
                           }
-                          className="h-4 w-4 rounded border-outline-gray text-deep-gold focus:ring-deep-gold"
                         />
-                        Closed
-                      </label>
+                        <Label
+                          htmlFor={`closed-${day}`}
+                          className="font-sans text-sm text-cocoa-dark"
+                        >
+                          Closed
+                        </Label>
+                      </div>
                     </td>
                   </tr>
                 )
@@ -254,11 +264,8 @@ function GstSection({
       description="Goods & Services Tax applied to invoices. Prices are GST-inclusive."
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <label htmlFor={rateId} className="block">
-          <span className="block font-ui text-[11px] uppercase tracking-wider text-dusty-gray mb-1">
-            Rate (%)
-          </span>
-          <input
+        <Field label="Rate (%)" htmlFor={rateId}>
+          <Input
             id={rateId}
             type="number"
             min={0}
@@ -269,9 +276,8 @@ function GstSection({
               clearSaved()
               onChange({ ...value, ratePercent: Number(e.target.value) })
             }}
-            className={inputClass}
           />
-        </label>
+        </Field>
         <div className="flex items-end">
           <span className="inline-flex items-center rounded-pill bg-deep-gold/15 px-3 py-1 font-ui text-[11px] uppercase tracking-[0.5px] text-deep-gold">
             Price-inclusive
@@ -355,12 +361,6 @@ function BookingRulesSection({
 
 /* ── Shared primitives ──────────────────────────────────────────────────── */
 
-const inputClass =
-  'w-full px-3 py-2 rounded-buttons border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold disabled:opacity-50 disabled:cursor-not-allowed'
-
-const timeInputClass =
-  'px-3 py-2 rounded-buttons border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold disabled:opacity-50 disabled:cursor-not-allowed'
-
 function NumberField({
   label,
   value,
@@ -378,11 +378,8 @@ function NumberField({
 }) {
   const id = useId()
   return (
-    <label htmlFor={id} className="block">
-      <span className="block font-ui text-[11px] uppercase tracking-wider text-dusty-gray mb-1">
-        {label}
-      </span>
-      <input
+    <Field label={label} htmlFor={id}>
+      <Input
         id={id}
         type="number"
         min={min}
@@ -390,9 +387,8 @@ function NumberField({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className={inputClass}
       />
-    </label>
+    </Field>
   )
 }
 
@@ -439,14 +435,9 @@ function SectionFooter({
           Saved.
         </output>
       )}
-      <button
-        type="button"
-        onClick={onSave}
-        disabled={busy}
-        className="h-9 px-4 rounded-buttons bg-cocoa-dark text-canvas-white text-sm font-ui hover:bg-warm-gray transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-      >
+      <Button type="button" onClick={onSave} disabled={busy} aria-busy={busy}>
         {busy ? 'Saving…' : 'Save'}
-      </button>
+      </Button>
     </div>
   )
 }

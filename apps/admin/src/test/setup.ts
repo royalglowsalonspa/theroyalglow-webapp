@@ -50,3 +50,26 @@ if (typeof window !== 'undefined' && typeof window.matchMedia === 'undefined') {
     dispatchEvent: () => false,
   })) as unknown as typeof window.matchMedia
 }
+
+// Radix Select / DropdownMenu (via @radix-ui pointer capture + popper) call
+// these DOM APIs that jsdom does not implement. Provide inert stand-ins so
+// shadcn Select / DropdownMenu popovers can open during interaction tests
+// without each test file re-declaring its own polyfills.
+if (typeof Element !== 'undefined') {
+  if (typeof Element.prototype.scrollIntoView !== 'function') {
+    Element.prototype.scrollIntoView = () => {}
+  }
+  if (typeof Element.prototype.hasPointerCapture !== 'function') {
+    Element.prototype.hasPointerCapture = () => false
+  }
+  if (typeof Element.prototype.setPointerCapture !== 'function') {
+    Element.prototype.setPointerCapture = () => {}
+  }
+  if (typeof Element.prototype.releasePointerCapture !== 'function') {
+    Element.prototype.releasePointerCapture = () => {}
+  }
+}
+
+if (typeof window !== 'undefined' && typeof window.PointerEvent === 'undefined') {
+  window.PointerEvent = window.MouseEvent as unknown as typeof PointerEvent
+}

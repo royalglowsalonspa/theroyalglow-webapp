@@ -39,7 +39,10 @@ export const MIN_ROLE_LEVEL = 0
  * to the lowest level (0) for access-control decisions (Req 5.7).
  */
 export function resolveRoleLevel(role: string | null | undefined): number {
-  return role && role in ROLE_LEVELS ? ROLE_LEVELS[role as Role] : MIN_ROLE_LEVEL
+  // Object.hasOwn (not the `in` operator) so inherited Object.prototype keys
+  // like "toString"/"valueOf"/"constructor" never match a real role and
+  // correctly fall back to the minimum level (Req 5.7).
+  return role && Object.hasOwn(ROLE_LEVELS, role) ? ROLE_LEVELS[role as Role] : MIN_ROLE_LEVEL
 }
 
 /**

@@ -178,17 +178,18 @@ describe('Property 9: FilterBar renders exactly the configured controls (Req 8.1
           // Column visibility.
           expect(columnVisibilityPresent(container)).toBe(want.columnVisibility)
 
-          // Dropdowns — each configured dropdown surfaces a labelled <select>.
-          const selects = container.querySelectorAll('select')
+          // Dropdowns — each configured dropdown surfaces a labelled shadcn
+          // Select trigger (Radix combobox button), not a native <select>.
+          const triggers = container.querySelectorAll('[data-slot="select-trigger"]')
           if (want.dropdowns) {
-            expect(selects.length).toBe(want.dropdowns.length)
+            expect(triggers.length).toBe(want.dropdowns.length)
             const view = within(container)
             for (const dropdown of want.dropdowns) {
               const control = view.getByLabelText(dropdown.label)
-              expect(control.tagName).toBe('SELECT')
+              expect(control).toHaveAttribute('data-slot', 'select-trigger')
             }
           } else {
-            expect(selects.length).toBe(0)
+            expect(triggers.length).toBe(0)
           }
 
           // When nothing is configured the component renders null (empty container).

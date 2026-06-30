@@ -65,6 +65,13 @@ type ChartCardProps = {
   children: ReactNode
   /** When true, the chart area is replaced by a loading placeholder. */
   loading?: boolean
+  /**
+   * When true (default), the chart child is wrapped in a recharts
+   * `ResponsiveContainer`. Set false when the child already manages its own
+   * sizing (e.g. a shadcn `ChartContainer`), to avoid nesting two responsive
+   * containers.
+   */
+  responsive?: boolean
   className?: string
 }
 
@@ -74,7 +81,13 @@ type ChartCardProps = {
  * so it fills the available width. When `loading`, the chart area becomes a
  * chart-shaped loading placeholder announced via `aria-busy` / `aria-live`.
  */
-export function ChartCard({ title, children, loading = false, className }: ChartCardProps) {
+export function ChartCard({
+  title,
+  children,
+  loading = false,
+  responsive = true,
+  className,
+}: ChartCardProps) {
   return (
     <Card className={cn('gap-4 rounded-cards border-outline-gray p-5', className)}>
       <h3 className="font-display text-base text-cocoa-dark">{title}</h3>
@@ -86,9 +99,13 @@ export function ChartCard({ title, children, loading = false, className }: Chart
         </div>
       ) : (
         <div className="h-72 w-full">
-          <ResponsiveContainer height="100%" width="100%">
-            {children}
-          </ResponsiveContainer>
+          {responsive ? (
+            <ResponsiveContainer height="100%" width="100%">
+              {children}
+            </ResponsiveContainer>
+          ) : (
+            children
+          )}
         </div>
       )}
     </Card>
