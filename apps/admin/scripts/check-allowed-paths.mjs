@@ -21,7 +21,7 @@
  * Requirements : 21.1, 21.2, 21.3, 21.6, 21.7, 21.8
  ************************************************************/
 
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 
 /** Paths the redesign is forbidden from modifying (Req 21). */
 const FORBIDDEN = [
@@ -37,7 +37,7 @@ function changedFiles() {
   const candidates = base ? [base] : ['origin/prod', 'HEAD~1']
   for (const ref of candidates) {
     try {
-      const out = execSync(`git diff --name-only ${ref}...HEAD`, { encoding: 'utf8' })
+      const out = execFileSync('git', ['diff', '--name-only', `${ref}...HEAD`], { encoding: 'utf8' })
       const files = out.split('\n').map((s) => s.trim()).filter(Boolean)
       if (files.length > 0) {
         return files
@@ -47,7 +47,7 @@ function changedFiles() {
     }
   }
   // Fallback: uncommitted working-tree changes (local pre-commit use).
-  const status = execSync('git status --porcelain', { encoding: 'utf8' })
+  const status = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' })
   return status
     .split('\n')
     .map((line) => line.slice(3).trim())
