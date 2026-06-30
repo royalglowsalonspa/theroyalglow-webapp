@@ -191,17 +191,22 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
-      - name: Trivy vulnerability scan
+      - name: Audit dependencies (bun audit — blocking gate)
+        # Authoritative dependency-advisory gate for this Bun/npm monorepo:
+        # native, no flaky external DB pull. Exits non-zero on any advisory.
+        run: bun audit
+      - name: Trivy vulnerability scan (informational — IaC/secret/OS coverage)
+        # Defense-in-depth beyond `bun audit` (IaC misconfig, secrets, OS pkgs).
+        # Non-blocking: trivy-action's GHCR setup/DB pull rate-limits anonymous
+        # access (TOOMANYREQUESTS), failing the step in ~2s before any scan —
+        # an infra flake, not a finding. Kept for signal; `bun audit` is the gate.
         uses: aquasecurity/trivy-action@master
+        continue-on-error: true
         with:
           scan-type: 'fs'
           severity: 'HIGH,CRITICAL'
           exit-code: '1'
         env:
-          # Pull the vuln DB from the AWS ECR public mirror instead of GHCR,
-          # which rate-limits anonymous pulls (TOOMANYREQUESTS) and made this
-          # job fail in ~3s before a real scan ran. `bun audit` reports no
-          # advisories, so the DB pull — not a finding — was the failure.
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2
           TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1
       - name: Socket.dev supply chain check
