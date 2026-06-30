@@ -58,6 +58,11 @@ jobs:
         run: bunx turbo run lint typecheck test build --filter=@rgss/admin
         env:
           SKIP_ENV_VALIDATION: '1'
+          # Raise the Node heap for `next build` — the default ceiling can OOM
+          # (exit 137) on the ~7 GB ubuntu-latest runner while bundling the
+          # admin app (recharts + react-table across ~40 routes). Harmless if
+          # memory was never the issue.
+          NODE_OPTIONS: '--max-old-space-size=4096'
       - name: Upload admin build artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -79,6 +84,9 @@ jobs:
         run: bunx turbo run lint typecheck test build --filter=@rgss/web
         env:
           SKIP_ENV_VALIDATION: '1'
+          # Raise the Node heap for `next build` — guards against an OOM
+          # (exit 137) on the ~7 GB ubuntu-latest runner. Harmless otherwise.
+          NODE_OPTIONS: '--max-old-space-size=4096'
       - name: Upload web build artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -189,6 +197,13 @@ jobs:
           scan-type: 'fs'
           severity: 'HIGH,CRITICAL'
           exit-code: '1'
+        env:
+          # Pull the vuln DB from the AWS ECR public mirror instead of GHCR,
+          # which rate-limits anonymous pulls (TOOMANYREQUESTS) and made this
+          # job fail in ~3s before a real scan ran. `bun audit` reports no
+          # advisories, so the DB pull — not a finding — was the failure.
+          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2
+          TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1
       - name: Socket.dev supply chain check
         uses: SocketDev/socket-security-action@v1
         continue-on-error: true
