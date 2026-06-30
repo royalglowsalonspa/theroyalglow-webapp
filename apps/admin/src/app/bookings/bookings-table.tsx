@@ -49,6 +49,7 @@
 import { DataTable, type RowAction } from '@/components/ui/data-table'
 import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
 import { Icon } from '@/components/ui/icon'
+import { Input } from '@/components/ui/input'
 import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
@@ -286,12 +287,12 @@ export function BookingsTable() {
             <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-dusty-gray">
               <CalendarDays aria-hidden="true" size={16} />
             </span>
-            <input
+            <Input
               id="booking-date-filter"
               type="date"
               value={date}
               onChange={(event) => setDate(event.target.value)}
-              className="h-9 rounded-buttons border border-outline-gray bg-canvas-white pl-8 pr-3 font-ui text-sm text-cocoa-dark focus:border-cocoa-dark focus:outline-none focus:ring-2 focus:ring-cocoa-dark/20"
+              className="pr-3 pl-8"
             />
           </div>
           {date ? (

@@ -29,12 +29,24 @@
 
 'use client'
 
+import { Field } from '@/components/ui/form-field'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { Textarea } from '@/components/ui/textarea'
 import { useAsyncData } from '@/components/ui/use-async-data'
 import { formatDateDDMMYYYY } from '@/lib/admin/bookings'
+import { toast } from '@/lib/admin/toast'
 import { Palmtree } from 'lucide-react'
 import { useCallback, useId, useState } from 'react'
 
@@ -155,9 +167,12 @@ function RequestLeaveForm({ onSubmitted }: { onSubmitted: () => void }) {
         setReason('')
         setLeaveType('personal')
         setSuccess(true)
+        toast.success('Leave request submitted')
         onSubmitted()
       } catch (err: unknown) {
-        setFormError(err instanceof Error ? err.message : 'Could not submit your request.')
+        const message = err instanceof Error ? err.message : 'Could not submit your request.'
+        setFormError(message)
+        toast.error('Could not submit request', message)
       } finally {
         setSubmitting(false)
       }
@@ -172,63 +187,45 @@ function RequestLeaveForm({ onSubmitted }: { onSubmitted: () => void }) {
       </h2>
       <form onSubmit={submit} className="space-y-4" noValidate>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1">
-            <label
-              htmlFor={typeId}
-              className="font-ui text-[11px] uppercase tracking-wider text-dusty-gray"
-            >
-              Leave type
-            </label>
-            <select
-              id={typeId}
-              value={leaveType}
-              onChange={(e) => setLeaveType(e.target.value)}
-              className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-3 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
-            >
-              {LEAVE_TYPE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Field label="Leave type" htmlFor={typeId}>
+            <Select value={leaveType} onValueChange={setLeaveType}>
+              <SelectTrigger id={typeId} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                <SelectGroup>
+                  {LEAVE_TYPE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
 
-          <div className="flex flex-col gap-1">
-            <label
-              htmlFor={dateId}
-              className="font-ui text-[11px] uppercase tracking-wider text-dusty-gray"
-            >
-              Date
-            </label>
-            <input
+          <Field label="Date" htmlFor={dateId}>
+            <Input
               id={dateId}
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
               required
               aria-required="true"
-              className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-3 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
             />
-          </div>
+          </Field>
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor={reasonId}
-            className="font-ui text-[11px] uppercase tracking-wider text-dusty-gray"
-          >
-            Reason (optional)
-          </label>
-          <textarea
+        <Field label="Reason (optional)" htmlFor={reasonId}>
+          <Textarea
             id={reasonId}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={2}
             maxLength={500}
-            className="w-full resize-none rounded-buttons border border-outline-gray bg-canvas-white px-3 py-2 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
             placeholder="Add any context for your manager."
           />
-        </div>
+        </Field>
 
         {formError && (
           <p className="font-sans text-sm text-error" role="alert">
@@ -275,9 +272,12 @@ function LeaveItem({
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not withdraw the request.')
       }
+      toast.success('Leave request withdrawn')
       onWithdrawn()
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : 'Could not withdraw the request.')
+      const message = err instanceof Error ? err.message : 'Could not withdraw the request.'
+      setActionError(message)
+      toast.error('Could not withdraw request', message)
       setBusy(false)
     }
   }, [row.id, onWithdrawn])

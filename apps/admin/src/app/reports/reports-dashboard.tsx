@@ -44,7 +44,13 @@
 
 'use client'
 
-import { CHART_COLORS, ChartCard } from '@/components/ui/chart-card'
+import {
+  type ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from '@/components/ui/chart'
+import { ChartCard } from '@/components/ui/chart-card'
 import { DataTable } from '@/components/ui/data-table'
 import { FilterBar } from '@/components/ui/filter-bar'
 import { KPICard } from '@/components/ui/kpi-card'
@@ -63,7 +69,7 @@ import type {
 import type { ColumnDef } from '@tanstack/react-table'
 import { CalendarRange, Gem, IndianRupee, Receipt, TrendingUp } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from 'recharts'
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
 const RANGE_OPTIONS: { value: ReportRange; label: string }[] = [
   { value: '7d', label: 'Last 7 days' },
@@ -71,6 +77,15 @@ const RANGE_OPTIONS: { value: ReportRange; label: string }[] = [
   { value: '90d', label: 'Last 90 days' },
   { value: 'mtd', label: 'Month to date' },
 ]
+
+/** Brand-token chart configs (drive the `--color-*` series variables). */
+const REVENUE_CHART_CONFIG = {
+  revenuePaise: { label: 'Revenue', color: 'var(--chart-1)' },
+} satisfies ChartConfig
+
+const STATUS_CHART_CONFIG = {
+  count: { label: 'Bookings', color: 'var(--chart-2)' },
+} satisfies ChartConfig
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Pending',
@@ -82,11 +97,6 @@ const STATUS_LABEL: Record<string, string> = {
   rejected: 'Rejected',
   rescheduled: 'Rescheduled',
 }
-
-// Shared recharts presentation constants (brand-token colour references, never
-// hex literals) so axes / grids / tooltips stay on-brand.
-const AXIS_TICK = { fontSize: 11, fill: CHART_COLORS.axis } as const
-const TOOLTIP_STYLE = { fontSize: 12, borderRadius: 6, borderColor: CHART_COLORS.grid } as const
 
 // SSR-safe prefers-reduced-motion hook. Disables chart animations when the user
 // has requested reduced motion.
@@ -221,44 +231,52 @@ function RevenueTrendChart({
     return <EmptyChartCard title="Revenue trend" message="No paid revenue in this range yet." />
   }
   return (
-    <ChartCard title="Revenue trend">
-      <AreaChart data={points} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
-        <defs>
-          <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={CHART_COLORS.primary} stopOpacity={0.5} />
-            <stop offset="100%" stopColor={CHART_COLORS.primary} stopOpacity={0.05} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
-        <XAxis
-          dataKey="date"
-          tickFormatter={(v: string) => v.slice(5)}
-          tick={AXIS_TICK}
-          tickLine={false}
-          axisLine={{ stroke: CHART_COLORS.grid }}
-          minTickGap={24}
-        />
-        <YAxis
-          tickFormatter={(v: number) => formatINR(v)}
-          tick={AXIS_TICK}
-          tickLine={false}
-          axisLine={false}
-          width={72}
-        />
-        <Tooltip
-          formatter={(value: unknown) => [formatINRWithPaise(Number(value)), 'Revenue']}
-          labelFormatter={(label: unknown) => `Date: ${String(label)}`}
-          contentStyle={TOOLTIP_STYLE}
-        />
-        <Area
-          type="monotone"
-          dataKey="revenuePaise"
-          stroke={CHART_COLORS.primary}
-          strokeWidth={2}
-          fill="url(#revenueFill)"
-          isAnimationActive={!reducedMotion}
-        />
-      </AreaChart>
+    <ChartCard title="Revenue trend" responsive={false}>
+      <ChartContainer config={REVENUE_CHART_CONFIG} className="aspect-auto h-full w-full">
+        <AreaChart data={points} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+          <defs>
+            <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--color-revenuePaise)" stopOpacity={0.5} />
+              <stop offset="100%" stopColor="var(--color-revenuePaise)" stopOpacity={0.05} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+          <XAxis
+            dataKey="date"
+            tickFormatter={(v: string) => v.slice(5)}
+            tickLine={false}
+            minTickGap={24}
+            fontSize={11}
+          />
+          <YAxis
+            tickFormatter={(v: number) => formatINR(v)}
+            tickLine={false}
+            axisLine={false}
+            width={72}
+            fontSize={11}
+          />
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                labelFormatter={(label) => `Date: ${String(label)}`}
+                formatter={(value) => (
+                  <span className="font-mono font-medium text-foreground tabular-nums">
+                    {formatINRWithPaise(Number(value))}
+                  </span>
+                )}
+              />
+            }
+          />
+          <Area
+            type="monotone"
+            dataKey="revenuePaise"
+            stroke="var(--color-revenuePaise)"
+            strokeWidth={2}
+            fill="url(#revenueFill)"
+            isAnimationActive={!reducedMotion}
+          />
+        </AreaChart>
+      </ChartContainer>
     </ChartCard>
   )
 }
@@ -278,38 +296,32 @@ function BookingsStatusChart({
     return <EmptyChartCard title="Bookings by status" message="No bookings in this range yet." />
   }
   return (
-    <ChartCard title="Bookings by status">
-      <BarChart data={chartData} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
-        <XAxis
-          dataKey="label"
-          tick={AXIS_TICK}
-          tickLine={false}
-          axisLine={{ stroke: CHART_COLORS.grid }}
-          interval={0}
-          angle={-20}
-          textAnchor="end"
-          height={48}
-        />
-        <YAxis
-          allowDecimals={false}
-          tick={AXIS_TICK}
-          tickLine={false}
-          axisLine={false}
-          width={32}
-        />
-        <Tooltip
-          formatter={(value: unknown) => [String(value), 'Bookings']}
-          contentStyle={TOOLTIP_STYLE}
-          cursor={{ fill: 'var(--color-cloud-gray)' }}
-        />
-        <Bar
-          dataKey="count"
-          fill={CHART_COLORS.secondary}
-          radius={[4, 4, 0, 0]}
-          isAnimationActive={!reducedMotion}
-        />
-      </BarChart>
+    <ChartCard title="Bookings by status" responsive={false}>
+      <ChartContainer config={STATUS_CHART_CONFIG} className="aspect-auto h-full w-full">
+        <BarChart data={chartData} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+          <XAxis
+            dataKey="label"
+            tickLine={false}
+            interval={0}
+            angle={-20}
+            textAnchor="end"
+            height={48}
+            fontSize={11}
+          />
+          <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={32} fontSize={11} />
+          <ChartTooltip
+            cursor={{ fill: 'var(--color-cloud-gray)' }}
+            content={<ChartTooltipContent hideLabel />}
+          />
+          <Bar
+            dataKey="count"
+            fill="var(--color-count)"
+            radius={[4, 4, 0, 0]}
+            isAnimationActive={!reducedMotion}
+          />
+        </BarChart>
+      </ChartContainer>
     </ChartCard>
   )
 }

@@ -45,13 +45,18 @@
 
 'use client'
 
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Icon } from '@/components/ui/icon'
 import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { TimeSelect } from '@/components/ui/time-select'
 import { useAsyncData } from '@/components/ui/use-async-data'
 import { formatTime12h } from '@/lib/admin/bookings'
+import { toast } from '@/lib/admin/toast'
+import { type BusinessHours, DEFAULT_BUSINESS_HOURS, type DayKey } from '@rgss/types'
 import { CalendarRange, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
@@ -149,6 +154,11 @@ function workingHoursLabel(entry: ScheduleEntry | undefined): string | null {
   return `${formatTime12h(entry.startTime)} – ${formatTime12h(entry.endTime)}`
 }
 
+// 15-minute time options across the full day, with 12-hour labels. Values are
+// stored as "HH:MM" 24h strings so the API contract is unchanged.
+// Maps JS dayOfWeek (0=Sun … 6=Sat) to the settings DayKey (mon…sun).
+const DOW_TO_DAYKEY: readonly DayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+
 // The 7-entry editor state, indexed by dayOfWeek 0..6.
 type EditorEntry = { isWorking: boolean; startTime: string; endTime: string }
 
@@ -179,9 +189,30 @@ async function fetchSchedule(weekStart: string): Promise<GridData> {
 export function ScheduleGrid() {
   const [weekStart, setWeekStart] = useState(() => startOfWeekISO(todayISO()))
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null)
+  const [businessHours, setBusinessHours] = useState<BusinessHours>(DEFAULT_BUSINESS_HOURS)
 
   const fetcher = useCallback(() => fetchSchedule(weekStart), [weekStart])
   const { state, retry } = useAsyncData(fetcher)
+
+  // Load the configured opening hours once so the editor's time picker only
+  // offers times within each day's open→close window (best-effort; falls back
+  // to the defaults).
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/settings')
+      .then((res) => res.json())
+      .then((json) => {
+        if (!cancelled && json?.success && json.data?.settings?.businessHours) {
+          setBusinessHours(json.data.settings.businessHours as BusinessHours)
+        }
+      })
+      .catch(() => {
+        /* keep defaults */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Re-request when the week changes; the initial mount fetch is owned by the
   // hook, so skip the very first effect run to avoid a duplicate request.
@@ -212,29 +243,17 @@ export function ScheduleGrid() {
 
         <fieldset className="m-0 flex min-w-0 items-center gap-1 border-0 p-0">
           <legend className="sr-only">Change week</legend>
-          <button
-            type="button"
-            onClick={goPrev}
-            className="inline-flex h-9 items-center gap-1 rounded-buttons border border-outline-gray bg-canvas-white px-3 font-ui text-sm text-warm-gray transition-colors hover:bg-cloud-gray motion-reduce:transition-none"
-          >
+          <Button type="button" variant="outline" size="sm" onClick={goPrev}>
             <Icon icon={ChevronLeft} decorative size={16} />
             Prev
-          </button>
-          <button
-            type="button"
-            onClick={goToday}
-            className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-3 font-ui text-sm text-cocoa-dark transition-colors hover:bg-cloud-gray motion-reduce:transition-none"
-          >
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={goToday}>
             Today
-          </button>
-          <button
-            type="button"
-            onClick={goNext}
-            className="inline-flex h-9 items-center gap-1 rounded-buttons border border-outline-gray bg-canvas-white px-3 font-ui text-sm text-warm-gray transition-colors hover:bg-cloud-gray motion-reduce:transition-none"
-          >
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={goNext}>
             Next
             <Icon icon={ChevronRight} decorative size={16} />
-          </button>
+          </Button>
         </fieldset>
       </div>
 
@@ -281,6 +300,7 @@ export function ScheduleGrid() {
                     key={row.staff.id}
                     row={row}
                     dates={state.data.dates}
+                    businessHours={businessHours}
                     isEditing={editingStaffId === row.staff.id}
                     onEdit={() => setEditingStaffId(row.staff.id)}
                     onCancel={() => setEditingStaffId(null)}
@@ -302,6 +322,7 @@ export function ScheduleGrid() {
 function StaffRow({
   row,
   dates,
+  businessHours,
   isEditing,
   onEdit,
   onCancel,
@@ -309,6 +330,7 @@ function StaffRow({
 }: {
   row: StaffWeekRow
   dates: string[]
+  businessHours: BusinessHours
   isEditing: boolean
   onEdit: () => void
   onCancel: () => void
@@ -334,14 +356,16 @@ function StaffRow({
           <div className="flex items-center justify-between gap-3">
             <span>{row.staff.name}</span>
             {!isEditing && (
-              <button
+              <Button
                 type="button"
+                variant="link"
+                size="sm"
                 onClick={onEdit}
-                className="font-ui text-xs text-deep-gold transition-colors hover:text-cocoa-dark motion-reduce:transition-none"
+                className="h-auto px-0 text-deep-gold"
                 aria-label={`Edit schedule for ${row.staff.name}`}
               >
                 Edit
-              </button>
+              </Button>
             )}
           </div>
         </th>
@@ -382,6 +406,7 @@ function StaffRow({
               staffId={row.staff.id}
               staffName={row.staff.name}
               initialSchedule={row.schedule}
+              businessHours={businessHours}
               onCancel={onCancel}
               onSaved={onSaved}
             />
@@ -396,12 +421,14 @@ function ScheduleEditor({
   staffId,
   staffName,
   initialSchedule,
+  businessHours,
   onCancel,
   onSaved,
 }: {
   staffId: string
   staffName: string
   initialSchedule: ScheduleEntry[]
+  businessHours: BusinessHours
   onCancel: () => void
   onSaved: () => void
 }) {
@@ -457,9 +484,12 @@ function ScheduleEditor({
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not save the schedule.')
       }
+      toast.success('Schedule saved')
       onSaved()
     } catch (err: unknown) {
-      setSaveError(err instanceof Error ? err.message : 'Could not save the schedule.')
+      const message = err instanceof Error ? err.message : 'Could not save the schedule.'
+      setSaveError(message)
+      toast.error('Could not save schedule', message)
     } finally {
       setSaving(false)
     }
@@ -470,49 +500,58 @@ function ScheduleEditor({
       <h3 className="font-ui text-sm text-cocoa-dark">Edit weekly schedule — {staffName}</h3>
 
       <ul className="space-y-2">
-        {entries.map((entry, day) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: index IS the dayOfWeek (0..6), a stable key
-          <li key={day} className="flex flex-wrap items-center gap-3">
-            <label className="flex w-[150px] shrink-0 items-center gap-2 font-sans text-sm text-cocoa-dark">
-              <input
-                type="checkbox"
-                checked={entry.isWorking}
-                onChange={(e) => updateEntry(day, { isWorking: e.target.checked })}
-                className="h-4 w-4 rounded-cards border-outline-gray accent-deep-gold focus:ring-deep-gold"
-              />
-              {DAY_LONG[day]}
-            </label>
+        {entries.map((entry, day) => {
+          const dayHours = businessHours[DOW_TO_DAYKEY[day] ?? 'mon']
+          const minTime = dayHours?.open ?? '08:00'
+          const maxTime = dayHours?.close ?? '22:00'
+          return (
+            // biome-ignore lint/suspicious/noArrayIndexKey: index IS the dayOfWeek (0..6), a stable key
+            <li key={day} className="flex flex-wrap items-center gap-3">
+              <div className="flex w-[150px] shrink-0 items-center gap-2">
+                <Checkbox
+                  id={`${staffId}-day-${day}`}
+                  checked={entry.isWorking}
+                  onCheckedChange={(checked) => updateEntry(day, { isWorking: checked === true })}
+                />
+                <label
+                  htmlFor={`${staffId}-day-${day}`}
+                  className="font-sans text-sm text-cocoa-dark"
+                >
+                  {DAY_LONG[day]}
+                </label>
+              </div>
 
-            <div className="flex items-center gap-2">
-              <label className="flex items-center gap-1.5">
-                <span className="font-ui text-[11px] uppercase tracking-wider text-dusty-gray">
-                  From
-                </span>
-                <input
-                  type="time"
-                  value={entry.startTime}
-                  disabled={!entry.isWorking}
-                  onChange={(e) => updateEntry(day, { startTime: e.target.value })}
-                  className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-2 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold disabled:cursor-not-allowed disabled:opacity-40"
-                  aria-label={`${DAY_LONG[day]} start time`}
-                />
-              </label>
-              <label className="flex items-center gap-1.5">
-                <span className="font-ui text-[11px] uppercase tracking-wider text-dusty-gray">
-                  To
-                </span>
-                <input
-                  type="time"
-                  value={entry.endTime}
-                  disabled={!entry.isWorking}
-                  onChange={(e) => updateEntry(day, { endTime: e.target.value })}
-                  className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-2 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold disabled:cursor-not-allowed disabled:opacity-40"
-                  aria-label={`${DAY_LONG[day]} end time`}
-                />
-              </label>
-            </div>
-          </li>
-        ))}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-ui text-[11px] uppercase tracking-wider text-dusty-gray">
+                    From
+                  </span>
+                  <TimeSelect
+                    value={entry.startTime}
+                    min={minTime}
+                    max={maxTime}
+                    disabled={!entry.isWorking}
+                    onChange={(v) => updateEntry(day, { startTime: v })}
+                    ariaLabel={`${DAY_LONG[day]} start time`}
+                  />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-ui text-[11px] uppercase tracking-wider text-dusty-gray">
+                    To
+                  </span>
+                  <TimeSelect
+                    value={entry.endTime}
+                    min={minTime}
+                    max={maxTime}
+                    disabled={!entry.isWorking}
+                    onChange={(v) => updateEntry(day, { endTime: v })}
+                    ariaLabel={`${DAY_LONG[day]} end time`}
+                  />
+                </div>
+              </div>
+            </li>
+          )
+        })}
       </ul>
 
       {(saveError || validationError) && (
@@ -522,22 +561,12 @@ function ScheduleEditor({
       )}
 
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving}
-          className="h-9 rounded-buttons bg-cocoa-dark px-4 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none"
-        >
+        <Button type="button" onClick={save} disabled={saving} aria-busy={saving}>
           {saving ? 'Saving…' : 'Save schedule'}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={saving}
-          className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-4 font-ui text-sm text-warm-gray transition-colors hover:bg-cloud-gray disabled:opacity-60 motion-reduce:transition-none"
-        >
+        </Button>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
           Cancel
-        </button>
+        </Button>
       </div>
     </div>
   )

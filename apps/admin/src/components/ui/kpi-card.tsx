@@ -36,7 +36,7 @@
  *                once available.
  ************************************************************/
 
-import { Card } from '@/components/ui/card'
+import { Card, CardAction, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Icon } from '@/components/ui/icon'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@rgss/ui/lib/utils'
@@ -66,20 +66,27 @@ type KPICardProps = {
  */
 export function KPICard({ label, value, icon, loading = false, className }: KPICardProps) {
   return (
-    <Card className={cn('gap-2 rounded-cards border-outline-gray p-5', className)}>
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-sans text-sm text-dusty-gray">{label}</span>
-        {icon ? <Icon icon={icon} decorative className="text-deep-gold" /> : null}
-      </div>
+    <Card className={cn('gap-0 rounded-cards border-outline-gray py-5', className)}>
+      <CardHeader className="px-5">
+        <CardDescription className="font-sans text-sm text-dusty-gray">{label}</CardDescription>
 
-      {loading ? (
-        <div aria-busy="true" aria-live="polite">
-          <Skeleton className="h-8 w-2/3 rounded-cards bg-cloud-gray" />
-          <span className="sr-only">Loading</span>
-        </div>
-      ) : (
-        <span className="font-display text-2xl text-cocoa-dark">{value}</span>
-      )}
+        {loading ? (
+          <div aria-busy="true" aria-live="polite">
+            <Skeleton className="mt-1 h-8 w-2/3 rounded-cards bg-cloud-gray" />
+            <span className="sr-only">Loading</span>
+          </div>
+        ) : (
+          <CardTitle className="font-display text-2xl text-cocoa-dark tabular-nums">
+            {value}
+          </CardTitle>
+        )}
+
+        {icon ? (
+          <CardAction>
+            <Icon icon={icon} decorative className="text-deep-gold" />
+          </CardAction>
+        ) : null}
+      </CardHeader>
     </Card>
   )
 }

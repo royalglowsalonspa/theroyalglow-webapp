@@ -46,19 +46,43 @@
 
 'use client'
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Checkbox } from '@/components/ui/checkbox'
 import { DataTable, type RowAction } from '@/components/ui/data-table'
 import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
+import { FormActions } from '@/components/ui/form-field'
 import { Icon } from '@/components/ui/icon'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import { useAsyncData } from '@/components/ui/use-async-data'
+import { toast } from '@/lib/admin/toast'
 import * as Dialog from '@radix-ui/react-dialog'
 import { STAFF_DESIGNATIONS, type StaffDesignation } from '@rgss/types'
 import { cn } from '@rgss/ui/lib/utils'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Pencil, Scissors, UserPlus } from 'lucide-react'
+import { Pencil, Scissors, UserCheck, UserPlus, UserX } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 interface StaffRow {
@@ -93,6 +117,52 @@ const DESIGNATION_LABEL: Record<StaffDesignation, string> = {
   manager: 'Manager',
 }
 
+/** Pragmatic email shape check (the server remains the source of truth). */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/** Returns an error message for an invalid email, or null when acceptable. */
+function validateStaffEmail(value: string): string | null {
+  const v = value.trim()
+  if (v === '') {
+    return 'Enter the email the staff member signs in with.'
+  }
+  if (!EMAIL_RE.test(v)) {
+    return 'Enter a valid email address (e.g. name@example.com).'
+  }
+  return null
+}
+
+/** Branded Radix Select for the staff designation — click-to-select dropdown. */
+function DesignationSelect({
+  value,
+  onChange,
+}: {
+  value: StaffDesignation
+  onChange: (value: StaffDesignation) => void
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="font-ui text-[11px] uppercase tracking-wider text-dusty-gray">
+        Designation
+      </span>
+      <Select value={value} onValueChange={(v) => onChange(v as StaffDesignation)}>
+        <SelectTrigger aria-label="Designation" className="w-full">
+          <SelectValue placeholder="Select designation" />
+        </SelectTrigger>
+        <SelectContent position="popper" className="w-(--radix-select-trigger-width)">
+          <SelectGroup>
+            {STAFF_DESIGNATIONS.map((d) => (
+              <SelectItem key={d} value={d}>
+                {DESIGNATION_LABEL[d]}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+    </div>
+  )
+}
+
 /** Toggleable data columns surfaced to the FilterBar column-visibility control. */
 const COLUMN_META: { id: string; label: string }[] = [
   { id: 'name', label: 'Name' },
@@ -116,6 +186,7 @@ export function StaffManager() {
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({})
   const [editing, setEditing] = useState<StaffRow | null>(null)
   const [creating, setCreating] = useState(false)
+  const [toggling, setToggling] = useState<StaffRow | null>(null)
 
   const { state, retry } = useAsyncData(fetchStaff)
 
@@ -157,6 +228,18 @@ export function StaffManager() {
         icon: Pencil,
         onSelect: () => setEditing(row.original),
       },
+      row.original.isActive
+        ? {
+            label: 'Deactivate',
+            icon: UserX,
+            destructive: true,
+            onSelect: () => setToggling(row.original),
+          }
+        : {
+            label: 'Activate',
+            icon: UserCheck,
+            onSelect: () => setToggling(row.original),
+          },
     ],
     [],
   )
@@ -243,6 +326,14 @@ export function StaffManager() {
           retry()
         }}
       />
+      <ToggleActiveDialog
+        staff={toggling}
+        onClose={() => setToggling(null)}
+        onToggled={() => {
+          setToggling(null)
+          retry()
+        }}
+      />
     </div>
   )
 }
@@ -253,6 +344,96 @@ function DesignationPill({ designation }: { designation: StaffDesignation }) {
     <span className="inline-flex items-center rounded-pill bg-cloud-gray px-2.5 py-0.5 font-ui text-xs font-medium uppercase tracking-wide text-warm-gray">
       {DESIGNATION_LABEL[designation] ?? designation}
     </span>
+  )
+}
+
+/* ── Activate / Deactivate confirm (one-click status toggle) ────────────── */
+
+function ToggleActiveDialog({
+  staff,
+  onClose,
+  onToggled,
+}: {
+  staff: StaffRow | null
+  onClose: () => void
+  onToggled: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const deactivating = staff?.isActive ?? false
+
+  // Clear any prior error whenever a new staff row opens the dialog.
+  useEffect(() => {
+    if (staff) {
+      setError(null)
+    }
+  }, [staff])
+
+  const confirm = async () => {
+    if (!staff) {
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/staff/${staff.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ isActive: !staff.isActive }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        throw new Error(json?.error?.message ?? 'Could not update the status.')
+      }
+      toast.success(staff.isActive ? `${staff.name} deactivated` : `${staff.name} activated`)
+      onToggled()
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Could not update the status.'
+      setError(message)
+      toast.error('Could not update status', message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <AlertDialog open={Boolean(staff)} onOpenChange={(o) => !o && !busy && onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {deactivating ? `Deactivate ${staff?.name}?` : `Activate ${staff?.name}?`}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {deactivating
+              ? 'They will stop appearing for new bookings and staff assignment. Existing bookings, invoices and history are kept intact. You can reactivate them at any time.'
+              : 'They will become available for new bookings and staff assignment again.'}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        {error && (
+          <p className="font-sans text-sm text-error" role="alert">
+            {error}
+          </p>
+        )}
+
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={busy} onClick={onClose}>
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction
+            disabled={busy}
+            onClick={(e) => {
+              // Keep the dialog mounted while the request is in flight; close on success.
+              e.preventDefault()
+              confirm()
+            }}
+            className={cn(deactivating && 'bg-error text-canvas-white hover:bg-error/90')}
+          >
+            {busy ? 'Saving…' : deactivating ? 'Deactivate' : 'Activate'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
 
@@ -273,6 +454,7 @@ function CreateStaffDialog({
   const [specialization, setSpecialization] = useState('')
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [emailError, setEmailError] = useState<string | null>(null)
 
   // Reset the form each time the dialog opens.
   useEffect(() => {
@@ -284,13 +466,15 @@ function CreateStaffDialog({
     setPhone('')
     setSpecialization('')
     setFormError(null)
+    setEmailError(null)
   }, [open])
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setFormError(null)
-    if (email.trim() === '') {
-      setFormError('Enter the email the staff member signs in with.')
+    const emailErr = validateStaffEmail(email)
+    if (emailErr) {
+      setEmailError(emailErr)
       return
     }
     setBusy(true)
@@ -310,9 +494,12 @@ function CreateStaffDialog({
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not add the staff member.')
       }
+      toast.success('Staff member added')
       onSaved()
     } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : 'Could not add the staff member.')
+      const message = err instanceof Error ? err.message : 'Could not add the staff member.'
+      setFormError(message)
+      toast.error('Could not add staff member', message)
     } finally {
       setBusy(false)
     }
@@ -321,49 +508,54 @@ function CreateStaffDialog({
   return (
     <FormDialog open={open} onClose={onClose} title="Add staff member">
       <form onSubmit={submit} className="space-y-3">
-        <Field label="Account email">
-          <input
+        <div className="flex flex-col gap-1">
+          <label
+            htmlFor="staff-email"
+            className="font-ui text-[11px] uppercase tracking-wider text-dusty-gray"
+          >
+            Account email
+          </label>
+          <Input
+            id="staff-email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={inputClass}
+            onChange={(e) => {
+              setEmail(e.target.value)
+              if (emailError) {
+                setEmailError(null)
+              }
+            }}
+            onBlur={() => setEmailError(validateStaffEmail(email))}
+            aria-invalid={Boolean(emailError)}
+            aria-describedby={emailError ? 'staff-email-error' : 'staff-email-hint'}
             placeholder="name@example.com"
             required
           />
-        </Field>
-        <p className="-mt-1 font-sans text-xs text-dusty-gray">
-          The person must have signed in at least once. We link their existing account.
-        </p>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Designation">
-            <select
-              value={designation}
-              onChange={(e) => setDesignation(e.target.value as StaffDesignation)}
-              className={inputClass}
-            >
-              {STAFF_DESIGNATIONS.map((d) => (
-                <option key={d} value={d}>
-                  {DESIGNATION_LABEL[d]}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <p id="staff-email-hint" className="font-sans text-xs text-dusty-gray">
+            The person must have signed in at least once. We link their existing account.
+          </p>
+          {emailError ? (
+            <p id="staff-email-error" className="font-sans text-xs text-error" role="alert">
+              {emailError}
+            </p>
+          ) : null}
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <DesignationSelect value={designation} onChange={setDesignation} />
           <Field label="Phone">
-            <input
+            <Input
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className={inputClass}
               placeholder="e.g. +91 98xxxxxxx"
             />
           </Field>
         </div>
         <Field label="Specialization">
-          <input
+          <Input
             type="text"
             value={specialization}
             onChange={(e) => setSpecialization(e.target.value)}
-            className={inputClass}
             placeholder="e.g. Bridal makeup, Deep-tissue massage"
           />
         </Field>
@@ -374,7 +566,7 @@ function CreateStaffDialog({
           </p>
         )}
 
-        <DialogActions busy={busy} onClose={onClose} submitLabel="Add staff" />
+        <FormActions busy={busy} onCancel={onClose} submitLabel="Add staff" />
       </form>
     </FormDialog>
   )
@@ -517,9 +709,12 @@ function StaffDialog({
         throw new Error(servicesJson?.error?.message ?? 'Could not save services.')
       }
 
+      toast.success(`${staff.name} updated`)
       onSaved()
     } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : 'Could not save changes.')
+      const message = err instanceof Error ? err.message : 'Could not save changes.'
+      setFormError(message)
+      toast.error('Could not save changes', message)
     } finally {
       setBusy(false)
     }
@@ -532,56 +727,39 @@ function StaffDialog({
       title={staff ? `Edit ${staff.name}` : 'Edit staff'}
     >
       <form onSubmit={submit} className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Designation">
-            <select
-              value={designation}
-              onChange={(e) => setDesignation(e.target.value as StaffDesignation)}
-              className={inputClass}
-            >
-              {STAFF_DESIGNATIONS.map((d) => (
-                <option key={d} value={d}>
-                  {DESIGNATION_LABEL[d]}
-                </option>
-              ))}
-            </select>
-          </Field>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <DesignationSelect value={designation} onChange={setDesignation} />
           <Field label="Phone">
-            <input
+            <Input
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className={inputClass}
               placeholder="e.g. +91 98xxxxxxx"
             />
           </Field>
         </div>
         <Field label="Specialization">
-          <input
+          <Input
             type="text"
             value={specialization}
             onChange={(e) => setSpecialization(e.target.value)}
-            className={inputClass}
             placeholder="e.g. Bridal makeup, Deep-tissue massage"
           />
         </Field>
         <Field label="Bio">
-          <textarea
+          <Textarea
             value={bio}
             onChange={(e) => setBio(e.target.value)}
-            className={cn(inputClass, 'min-h-[72px] resize-y')}
+            className="min-h-[72px] resize-y"
             placeholder="Short internal bio (optional)"
           />
         </Field>
-        <label className="flex items-center gap-2 font-sans text-sm text-cocoa-dark">
-          <input
-            type="checkbox"
-            checked={isActive}
-            onChange={(e) => setIsActive(e.target.checked)}
-            className="h-4 w-4 rounded-cards border-outline-gray accent-deep-gold focus:ring-deep-gold"
-          />
-          Active (available for bookings)
-        </label>
+        <div className="flex items-center gap-2.5">
+          <Switch id="staff-active" checked={isActive} onCheckedChange={setIsActive} />
+          <label htmlFor="staff-active" className="font-sans text-sm text-cocoa-dark">
+            Active (available for bookings)
+          </label>
+        </div>
 
         <div className="pt-1">
           <span className="mb-1.5 block font-ui text-xs uppercase tracking-wider text-dusty-gray">
@@ -606,18 +784,19 @@ function StaffDialog({
                   </legend>
                   <div className="space-y-1.5">
                     {group.items.map((svc) => (
-                      <label
-                        key={svc.id}
-                        className="flex items-center gap-2 font-sans text-sm text-cocoa-dark"
-                      >
-                        <input
-                          type="checkbox"
+                      <div key={svc.id} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`svc-${svc.id}`}
                           checked={selected.has(svc.id)}
-                          onChange={() => toggleService(svc.id)}
-                          className="h-4 w-4 rounded-cards border-outline-gray accent-deep-gold focus:ring-deep-gold"
+                          onCheckedChange={() => toggleService(svc.id)}
                         />
-                        {svc.name}
-                      </label>
+                        <label
+                          htmlFor={`svc-${svc.id}`}
+                          className="font-sans text-sm text-cocoa-dark"
+                        >
+                          {svc.name}
+                        </label>
+                      </div>
                     ))}
                   </div>
                 </fieldset>
@@ -635,16 +814,13 @@ function StaffDialog({
           </p>
         )}
 
-        <DialogActions busy={busy} onClose={onClose} submitLabel="Save" />
+        <FormActions busy={busy} onCancel={onClose} submitLabel="Save" />
       </form>
     </FormDialog>
   )
 }
 
 /* ── Shared dialog primitives ───────────────────────────────────────────── */
-
-const inputClass =
-  'w-full rounded-buttons border border-outline-gray bg-canvas-white px-3 py-2 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold'
 
 function FormDialog({
   open,
@@ -661,44 +837,14 @@ function FormDialog({
     <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-cocoa-dark/40 backdrop-blur-[2px]" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-cards border border-cloud-gray bg-canvas-white p-5 shadow-elevated focus:outline-none">
-          <Dialog.Title className="mb-3 font-display text-lg tracking-tight text-cocoa-dark">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-cards border border-cloud-gray bg-canvas-white shadow-elevated focus:outline-none">
+          <Dialog.Title className="shrink-0 px-5 pt-5 pb-3 font-display text-lg tracking-tight text-cocoa-dark">
             {title}
           </Dialog.Title>
-          {children}
+          <div className="min-h-0 overflow-y-auto px-5 pb-5">{children}</div>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
-  )
-}
-
-function DialogActions({
-  busy,
-  onClose,
-  submitLabel,
-}: {
-  busy: boolean
-  onClose: () => void
-  submitLabel: string
-}) {
-  return (
-    <div className="flex items-center justify-end gap-2 pt-2">
-      <button
-        type="button"
-        onClick={onClose}
-        disabled={busy}
-        className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-4 font-ui text-sm text-warm-gray transition-colors hover:bg-cloud-gray disabled:opacity-60"
-      >
-        Cancel
-      </button>
-      <button
-        type="submit"
-        disabled={busy}
-        className="h-9 rounded-buttons bg-cocoa-dark px-4 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {busy ? 'Saving…' : submitLabel}
-      </button>
-    </div>
   )
 }
 

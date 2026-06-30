@@ -51,8 +51,10 @@ import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { Textarea } from '@/components/ui/textarea'
 import { useAsyncData } from '@/components/ui/use-async-data'
 import { formatDateDDMMYYYY, formatTime12h } from '@/lib/admin/bookings'
+import { toast } from '@/lib/admin/toast'
 import { CheckCircle2, Palmtree, TriangleAlert } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
@@ -209,12 +211,16 @@ function LeaveCard({
         throw new Error(json?.error?.message ?? 'Could not update the request.')
       }
       if (body.action === 'approve') {
+        toast.success('Leave approved')
         onApproved((json.data.conflicts ?? []) as ConflictBooking[])
       } else {
+        toast.success('Leave rejected')
         onRejected()
       }
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : 'Could not update the request.')
+      const message = err instanceof Error ? err.message : 'Could not update the request.'
+      setActionError(message)
+      toast.error('Could not update request', message)
     } finally {
       setBusy(false)
     }
@@ -277,14 +283,13 @@ function LeaveCard({
               >
                 Rejection reason
               </label>
-              <textarea
+              <Textarea
                 id={`reject-reason-${request.id}`}
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
                 rows={2}
                 required
                 aria-required="true"
-                className="w-full rounded-buttons border border-outline-gray bg-canvas-white px-3 py-2 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
                 placeholder="Let the staff member know why."
               />
               <div className="flex items-center gap-2">

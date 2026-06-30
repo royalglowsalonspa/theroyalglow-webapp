@@ -43,6 +43,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Icon } from '@/components/ui/icon'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
@@ -362,7 +372,7 @@ function ManualLeadDialog({
             >
               Name
             </label>
-            <input
+            <Input
               id="manual-lead-name"
               type="text"
               autoComplete="name"
@@ -372,7 +382,6 @@ function ManualLeadDialog({
               aria-required="true"
               aria-invalid={Boolean(fieldError.name)}
               aria-describedby={fieldError.name ? 'manual-lead-name-error' : undefined}
-              className="min-h-11 w-full rounded-buttons border border-outline-gray px-3 py-2.5 font-sans text-base text-cocoa-dark placeholder:text-dusty-gray focus:border-deep-gold focus:outline-none focus:ring-1 focus:ring-deep-gold disabled:opacity-60 aria-[invalid=true]:border-error"
             />
             {fieldError.name && (
               <p id="manual-lead-name-error" className="font-sans text-xs text-error" role="alert">
@@ -396,7 +405,7 @@ function ManualLeadDialog({
               >
                 +91
               </span>
-              <input
+              <Input
                 id="manual-lead-phone"
                 type="tel"
                 inputMode="numeric"
@@ -408,7 +417,7 @@ function ManualLeadDialog({
                 aria-required="true"
                 aria-invalid={Boolean(fieldError.phone)}
                 aria-describedby={fieldError.phone ? 'manual-lead-phone-error' : undefined}
-                className="min-h-11 w-full rounded-r-buttons border border-outline-gray px-3 py-2.5 font-sans text-base text-cocoa-dark placeholder:text-dusty-gray focus:border-deep-gold focus:outline-none focus:ring-1 focus:ring-deep-gold disabled:opacity-60 aria-[invalid=true]:border-error"
+                className="rounded-l-none"
               />
             </div>
             {fieldError.phone && (
@@ -426,26 +435,29 @@ function ManualLeadDialog({
             >
               Service interest <span className="text-dusty-gray">(optional)</span>
             </label>
-            <select
-              id="manual-lead-service"
+            <Select
               value={serviceInterestedId}
-              onChange={(e) => setServiceInterestedId(e.target.value)}
+              onValueChange={setServiceInterestedId}
               disabled={submitting}
-              className="min-h-11 w-full rounded-buttons border border-outline-gray bg-canvas-white px-3 py-2.5 font-sans text-base text-cocoa-dark focus:border-deep-gold focus:outline-none focus:ring-1 focus:ring-deep-gold disabled:opacity-60"
             >
-              <option value="">
-                {services === null ? 'Loading services…' : 'Select service…'}
-              </option>
-              {groupedServices.map((group) => (
-                <optgroup key={group.type} label={SERVICE_GROUP_LABELS[group.type]}>
-                  {group.options.map((svc) => (
-                    <option key={svc.id} value={svc.id}>
-                      {svc.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+              <SelectTrigger id="manual-lead-service" className="w-full">
+                <SelectValue
+                  placeholder={services === null ? 'Loading services…' : 'Select service…'}
+                />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                {groupedServices.map((group) => (
+                  <SelectGroup key={group.type}>
+                    <SelectLabel>{SERVICE_GROUP_LABELS[group.type]}</SelectLabel>
+                    {group.options.map((svc) => (
+                      <SelectItem key={svc.id} value={svc.id}>
+                        {svc.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {submitError && (

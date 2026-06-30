@@ -31,6 +31,10 @@
 
 'use client'
 
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Textarea } from '@/components/ui/textarea'
 import {
   type CustomerSearchRow,
   MEMBERSHIP_PAYMENT_METHODS,
@@ -40,6 +44,7 @@ import {
   previewExpiryDDMMYYYY,
   todayISTDateString,
 } from '@/lib/admin/memberships'
+import { toast } from '@/lib/admin/toast'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
@@ -141,9 +146,12 @@ export function CreateMembershipForm() {
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not create this membership.')
       }
+      toast.success('Membership created')
       router.push(`/memberships/${json.data.membership.id}`)
     } catch (err: unknown) {
-      setSubmitError(err instanceof Error ? err.message : 'Could not create this membership.')
+      const message = err instanceof Error ? err.message : 'Could not create this membership.'
+      setSubmitError(message)
+      toast.error('Could not create membership', message)
       setSubmitting(false)
     }
   }, [
@@ -233,7 +241,7 @@ export function CreateMembershipForm() {
               >
                 Hours
               </label>
-              <input
+              <Input
                 id={`${fieldId}-hours`}
                 type="number"
                 min="0"
@@ -241,7 +249,6 @@ export function CreateMembershipForm() {
                 inputMode="decimal"
                 value={hours}
                 onChange={(e) => setHours(e.target.value)}
-                className="h-9 px-3 rounded-cards border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
               />
               <span className="text-[11px] font-sans text-dusty-gray">
                 Prefilled from tier · overridable for negotiated deals
@@ -255,7 +262,7 @@ export function CreateMembershipForm() {
               >
                 Price (₹, GST-inclusive)
               </label>
-              <input
+              <Input
                 id={`${fieldId}-price`}
                 type="number"
                 min="0"
@@ -263,7 +270,6 @@ export function CreateMembershipForm() {
                 inputMode="numeric"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                className="h-9 px-3 rounded-cards border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
               />
             </div>
 
@@ -274,7 +280,7 @@ export function CreateMembershipForm() {
               >
                 Validity (days)
               </label>
-              <input
+              <Input
                 id={`${fieldId}-validity`}
                 type="number"
                 min="1"
@@ -282,7 +288,6 @@ export function CreateMembershipForm() {
                 inputMode="numeric"
                 value={validityDays}
                 onChange={(e) => setValidityDays(e.target.value)}
-                className="h-9 px-3 rounded-cards border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
               />
             </div>
 
@@ -293,12 +298,11 @@ export function CreateMembershipForm() {
               >
                 Start Date
               </label>
-              <input
+              <Input
                 id={`${fieldId}-start`}
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="h-9 px-3 rounded-cards border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
               />
             </div>
           </div>
@@ -312,30 +316,29 @@ export function CreateMembershipForm() {
 
         {/* Payment method */}
         <Section title="Payment Method">
-          <fieldset className="flex flex-wrap gap-4">
-            <legend className="sr-only">Payment method</legend>
+          <RadioGroup
+            value={paymentMethod}
+            onValueChange={(v) => setPaymentMethod(v as MembershipPaymentMethod)}
+            className="flex flex-wrap gap-4"
+            aria-label="Payment method"
+          >
             {MEMBERSHIP_PAYMENT_METHODS.map((pm) => (
-              <label
-                key={pm.value}
-                className="flex items-center gap-2 text-sm font-sans text-cocoa-dark cursor-pointer"
-              >
-                <input
-                  type="radio"
-                  name="payment-method"
-                  value={pm.value}
-                  checked={paymentMethod === pm.value}
-                  onChange={() => setPaymentMethod(pm.value)}
-                  className="accent-cocoa-dark"
-                />
-                {pm.label}
-              </label>
+              <div key={pm.value} className="flex items-center gap-2">
+                <RadioGroupItem id={`pay-${pm.value}`} value={pm.value} />
+                <Label
+                  htmlFor={`pay-${pm.value}`}
+                  className="cursor-pointer font-sans text-sm text-cocoa-dark"
+                >
+                  {pm.label}
+                </Label>
+              </div>
             ))}
-          </fieldset>
+          </RadioGroup>
         </Section>
 
         {/* Notes (optional) */}
         <Section title="Notes (optional)">
-          <textarea
+          <Textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
@@ -465,14 +468,13 @@ function CustomerSearch({
       >
         Search customer
       </label>
-      <input
+      <Input
         id={inputId}
         type="search"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search by name, email, or phone…"
         autoComplete="off"
-        className="w-full h-9 px-3 rounded-cards border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
       />
 
       {searchError && (

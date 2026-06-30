@@ -48,8 +48,19 @@
 
 import { StatusBadge } from '@/components/admin/StatusBadge'
 import { Icon } from '@/components/ui/icon'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
+import { Textarea } from '@/components/ui/textarea'
 import {
   type AdminBooking,
   SERVICE_TYPE_LABEL,
@@ -58,6 +69,7 @@ import {
   formatINRWithPaise,
   formatTime12h,
 } from '@/lib/admin/bookings'
+import { toast } from '@/lib/admin/toast'
 import { ArrowLeft, Check, X } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
@@ -318,9 +330,12 @@ function PendingActions({
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not approve this booking.')
       }
+      toast.success('Booking approved')
       onChanged()
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : 'Could not approve this booking.')
+      const message = err instanceof Error ? err.message : 'Could not approve this booking.'
+      setActionError(message)
+      toast.error('Could not approve booking', message)
     } finally {
       setSubmitting(false)
     }
@@ -343,9 +358,12 @@ function PendingActions({
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not reject this booking.')
       }
+      toast.success('Booking rejected')
       onChanged()
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : 'Could not reject this booking.')
+      const message = err instanceof Error ? err.message : 'Could not reject this booking.'
+      setActionError(message)
+      toast.error('Could not reject booking', message)
     } finally {
       setSubmitting(false)
     }
@@ -363,19 +381,20 @@ function PendingActions({
             >
               Assign Staff
             </label>
-            <select
-              id="staff-picker"
-              value={staffId}
-              onChange={(e) => setStaffId(e.target.value)}
-              className="h-9 rounded-cards border border-outline-gray bg-canvas-white px-3 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
-            >
-              <option value="">{staff === null ? 'Loading staff…' : 'Select staff…'}</option>
-              {(staff ?? []).map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} ({s.designation})
-                </option>
-              ))}
-            </select>
+            <Select value={staffId} onValueChange={setStaffId}>
+              <SelectTrigger id="staff-picker" className="w-full">
+                <SelectValue placeholder={staff === null ? 'Loading staff…' : 'Select staff…'} />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                <SelectGroup>
+                  {(staff ?? []).map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name} ({s.designation})
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </div>
 
           {actionError && (
@@ -418,14 +437,13 @@ function PendingActions({
             >
               Rejection Reason
             </label>
-            <textarea
+            <Textarea
               id="reject-reason"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={4}
               maxLength={500}
               placeholder="Reason shown to the customer…"
-              className="resize-none rounded-cards border border-outline-gray bg-canvas-white px-3 py-2 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
             />
           </div>
 
@@ -494,13 +512,16 @@ function ConfirmedActions({
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not complete this booking.')
       }
+      toast.success(`Booking completed · invoice ${json.data.invoice.invoiceNumber}`)
       onCompleted({
         invoiceNumber: json.data.invoice.invoiceNumber,
         gemsEarned: json.data.gemsEarned,
       })
       onChanged()
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : 'Could not complete this booking.')
+      const message = err instanceof Error ? err.message : 'Could not complete this booking.'
+      setActionError(message)
+      toast.error('Could not complete booking', message)
     } finally {
       setSubmitting(false)
     }
@@ -517,9 +538,12 @@ function ConfirmedActions({
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not mark this booking as no-show.')
       }
+      toast.success('Marked as no-show')
       onChanged()
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : 'Could not mark this booking as no-show.')
+      const message = err instanceof Error ? err.message : 'Could not mark this booking as no-show.'
+      setActionError(message)
+      toast.error('Could not mark no-show', message)
     } finally {
       setSubmitting(false)
     }
@@ -562,22 +586,23 @@ function ConfirmedActions({
             <legend className="mb-1 font-ui text-[10px] uppercase tracking-wider text-dusty-gray">
               Payment Method
             </legend>
-            {PAYMENT_METHODS.map((pm) => (
-              <label
-                key={pm.value}
-                className="flex cursor-pointer items-center gap-2 font-sans text-sm text-cocoa-dark"
-              >
-                <input
-                  type="radio"
-                  name="payment-method"
-                  value={pm.value}
-                  checked={paymentMethod === pm.value}
-                  onChange={() => setPaymentMethod(pm.value)}
-                  className="accent-cocoa-dark"
-                />
-                {pm.label}
-              </label>
-            ))}
+            <RadioGroup
+              value={paymentMethod}
+              onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}
+              aria-label="Payment method"
+            >
+              {PAYMENT_METHODS.map((pm) => (
+                <div key={pm.value} className="flex items-center gap-2">
+                  <RadioGroupItem id={`pay-${pm.value}`} value={pm.value} />
+                  <Label
+                    htmlFor={`pay-${pm.value}`}
+                    className="cursor-pointer font-sans text-sm text-cocoa-dark"
+                  >
+                    {pm.label}
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
           </fieldset>
 
           <div className="flex items-center justify-between border-t border-cloud-gray pt-2 text-sm">

@@ -42,7 +42,13 @@
 'use client'
 
 import { StatusBadge } from '@/components/admin/StatusBadge'
-import { CHART_COLORS, ChartCard } from '@/components/ui/chart-card'
+import {
+  type ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from '@/components/ui/chart'
+import { ChartCard } from '@/components/ui/chart-card'
 import { DataTable } from '@/components/ui/data-table'
 import { KPICard } from '@/components/ui/kpi-card'
 import { EmptyState } from '@/components/ui/state/empty-state'
@@ -55,10 +61,15 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { CalendarDays, Clock, IndianRupee, ListChecks, type LucideIcon } from 'lucide-react'
 import Link from 'next/link'
 import { useMemo } from 'react'
-import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
 /** Number of trailing days plotted on the bookings bar chart. */
 const CHART_DAY_SPAN = 7
+
+/** Brand-token chart config for the bookings bar series (drives `--color-count`). */
+const BOOKINGS_CHART_CONFIG = {
+  count: { label: 'Bookings', color: 'var(--chart-1)' },
+} satisfies ChartConfig
 
 /** A single KPI summary tile for the dashboard. */
 type Kpi = {
@@ -243,34 +254,29 @@ export function DashboardOverview() {
       </div>
 
       {/* Bookings trend chart (Req 10.2) */}
-      <ChartCard title={`Bookings — last ${CHART_DAY_SPAN} days`} loading={loading}>
-        <BarChart data={chartData}>
-          <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
-          <XAxis
-            dataKey="label"
-            stroke={CHART_COLORS.axis}
-            tickLine={false}
-            axisLine={false}
-            fontSize={12}
-          />
-          <YAxis
-            stroke={CHART_COLORS.axis}
-            tickLine={false}
-            axisLine={false}
-            allowDecimals={false}
-            fontSize={12}
-          />
-          <Tooltip
-            cursor={{ fill: CHART_COLORS.grid }}
-            contentStyle={{
-              borderRadius: 'var(--radius-cards)',
-              border: `1px solid ${CHART_COLORS.grid}`,
-              background: 'var(--color-canvas-white)',
-              color: 'var(--color-cocoa-dark)',
-            }}
-          />
-          <Bar dataKey="count" name="Bookings" fill={CHART_COLORS.primary} radius={[4, 4, 0, 0]} />
-        </BarChart>
+      <ChartCard
+        title={`Bookings — last ${CHART_DAY_SPAN} days`}
+        loading={loading}
+        responsive={false}
+      >
+        <ChartContainer config={BOOKINGS_CHART_CONFIG} className="aspect-auto h-full w-full">
+          <BarChart data={chartData}>
+            <CartesianGrid vertical={false} />
+            <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} fontSize={12} />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              allowDecimals={false}
+              width={32}
+              fontSize={12}
+            />
+            <ChartTooltip
+              cursor={{ fill: 'var(--color-cloud-gray)' }}
+              content={<ChartTooltipContent />}
+            />
+            <Bar dataKey="count" name="Bookings" fill="var(--color-count)" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ChartContainer>
       </ChartCard>
 
       {/* Recent activity (Req 10.3) */}

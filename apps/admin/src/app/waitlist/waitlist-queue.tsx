@@ -56,6 +56,7 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { useAsyncData } from '@/components/ui/use-async-data'
 import { formatDateDDMMYYYY, formatTime12h } from '@/lib/admin/bookings'
 import { formatDateTimeIST } from '@/lib/admin/format'
+import { toast } from '@/lib/admin/toast'
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
 import { Clock, Settings2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -344,9 +345,18 @@ function WaitlistDetailPanel({
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not update the entry.')
       }
+      toast.success(
+        status === 'notified'
+          ? 'Customer notified'
+          : status === 'booked'
+            ? 'Marked as booked'
+            : 'Waitlist entry cancelled',
+      )
       onChanged()
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : 'Could not update the entry.')
+      const message = err instanceof Error ? err.message : 'Could not update the entry.'
+      setActionError(message)
+      toast.error('Could not update entry', message)
     } finally {
       setBusy(false)
     }

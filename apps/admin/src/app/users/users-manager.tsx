@@ -49,6 +49,15 @@
 
 import { DataTable } from '@/components/ui/data-table'
 import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { SlideOverPanel } from '@/components/ui/slide-over-panel'
 import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
@@ -56,6 +65,7 @@ import { Skeleton } from '@/components/ui/state/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { useAsyncData } from '@/components/ui/use-async-data'
 import { formatDateDDMMYYYY } from '@/lib/admin/bookings'
+import { toast } from '@/lib/admin/toast'
 import { ASSIGNABLE_ROLES, type AssignableRole } from '@rgss/types'
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
 import { KeyRound, Users } from 'lucide-react'
@@ -299,17 +309,15 @@ function AssignRoleForm({ onAssigned }: { onAssigned: () => void }) {
         throw new Error(json?.error?.message ?? 'Could not assign the role.')
       }
       const assigned = json.data.user as AdminUser
-      setMessage({
-        kind: 'ok',
-        text: `${assigned.name || assigned.email} is now ${roleLabel(assigned.role)}.`,
-      })
+      const summary = `${assigned.name || assigned.email} is now ${roleLabel(assigned.role)}.`
+      setMessage({ kind: 'ok', text: summary })
+      toast.success(summary)
       setEmail('')
       onAssigned()
     } catch (err: unknown) {
-      setMessage({
-        kind: 'err',
-        text: err instanceof Error ? err.message : 'Could not assign the role.',
-      })
+      const text = err instanceof Error ? err.message : 'Could not assign the role.'
+      setMessage({ kind: 'err', text })
+      toast.error('Could not assign role', text)
     } finally {
       setBusy(false)
     }
@@ -329,7 +337,7 @@ function AssignRoleForm({ onAssigned }: { onAssigned: () => void }) {
           >
             Email
           </label>
-          <input
+          <Input
             id="assign-email"
             type="email"
             value={email}
@@ -337,7 +345,6 @@ function AssignRoleForm({ onAssigned }: { onAssigned: () => void }) {
             required
             aria-required="true"
             placeholder="person@gmail.com"
-            className={inputClass}
           />
         </div>
         <div className="sm:w-52">
@@ -347,18 +354,20 @@ function AssignRoleForm({ onAssigned }: { onAssigned: () => void }) {
           >
             Role
           </label>
-          <select
-            id="assign-role"
-            value={role}
-            onChange={(e) => setRole(e.target.value as AssignableRole)}
-            className={inputClass}
-          >
-            {ASSIGNABLE_ROLES.map((r) => (
-              <option key={r} value={r}>
-                {ROLE_LABEL[r]}
-              </option>
-            ))}
-          </select>
+          <Select value={role} onValueChange={(v) => setRole(v as AssignableRole)}>
+            <SelectTrigger id="assign-role" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <SelectGroup>
+                {ASSIGNABLE_ROLES.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {ROLE_LABEL[r]}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </div>
         <button
           type="submit"
@@ -426,9 +435,12 @@ function RoleEditorPanel({
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not update the role.')
       }
+      toast.success(`Role updated to ${roleLabel(role)}`)
       onChanged()
     } catch (err: unknown) {
-      setRowError(err instanceof Error ? err.message : 'Could not update the role.')
+      const message = err instanceof Error ? err.message : 'Could not update the role.'
+      setRowError(message)
+      toast.error('Could not update role', message)
     } finally {
       setBusy(false)
     }
@@ -474,23 +486,25 @@ function RoleEditorPanel({
             </div>
           </dl>
 
-          <label className="block">
-            <span className="mb-1 block font-ui text-[11px] uppercase tracking-wider text-dusty-gray">
+          <div className="flex flex-col gap-1">
+            <span className="font-ui text-[11px] uppercase tracking-wider text-dusty-gray">
               New role
             </span>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as AssignableRole)}
-              aria-label={`Role for ${user.email}`}
-              className={inputClass}
-            >
-              {ASSIGNABLE_ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_LABEL[r]}
-                </option>
-              ))}
-            </select>
-          </label>
+            <Select value={role} onValueChange={(v) => setRole(v as AssignableRole)}>
+              <SelectTrigger aria-label={`Role for ${user.email}`} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                <SelectGroup>
+                  {ASSIGNABLE_ROLES.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {ROLE_LABEL[r]}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
 
           {rowError && (
             <p className="font-sans text-sm text-error" role="alert">
@@ -504,6 +518,3 @@ function RoleEditorPanel({
 }
 
 /* ── Shared primitives ──────────────────────────────────────────────────── */
-
-const inputClass =
-  'w-full rounded-buttons border border-outline-gray bg-canvas-white px-3 py-2 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold'

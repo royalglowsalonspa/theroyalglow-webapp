@@ -40,8 +40,19 @@
 
 'use client'
 
+import { Checkbox } from '@/components/ui/checkbox'
 import { DataTable } from '@/components/ui/data-table'
 import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
+import { FormActions } from '@/components/ui/form-field'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
@@ -435,148 +446,135 @@ function BranchDialog({
     <FormDialog open={state.open} onClose={onClose} title={editing ? 'Edit branch' : 'New branch'}>
       <form onSubmit={submit} className="space-y-3">
         <Field label="Name">
-          <input
+          <Input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className={inputClass}
             placeholder="e.g. Rayasandra"
             required
           />
         </Field>
         <Field label="Address line 1">
-          <input
+          <Input
             type="text"
             value={addressLine1}
             onChange={(e) => setAddressLine1(e.target.value)}
-            className={inputClass}
             placeholder="Street, building"
             required
           />
         </Field>
         <Field label="Address line 2">
-          <input
+          <Input
             type="text"
             value={addressLine2}
             onChange={(e) => setAddressLine2(e.target.value)}
-            className={inputClass}
             placeholder="Area, landmark (optional)"
           />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="City">
-            <input
-              type="text"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              className={inputClass}
-            />
+            <Input type="text" value={city} onChange={(e) => setCity(e.target.value)} />
           </Field>
           <Field label="State">
-            <input
-              type="text"
-              value={stateName}
-              onChange={(e) => setStateName(e.target.value)}
-              className={inputClass}
-            />
+            <Input type="text" value={stateName} onChange={(e) => setStateName(e.target.value)} />
           </Field>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Pincode">
-            <input
+            <Input
               type="text"
               inputMode="numeric"
               value={pincode}
               onChange={(e) => setPincode(e.target.value)}
-              className={inputClass}
               placeholder="560100"
               required
             />
           </Field>
           <Field label="Phone">
-            <input
+            <Input
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className={inputClass}
               placeholder="+91 80 1234 5678"
               required
             />
           </Field>
         </div>
         <Field label="Email">
-          <input
+          <Input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className={inputClass}
             placeholder="branch@theroyalglow.in (optional)"
           />
         </Field>
         <Field label="Google Maps URL">
-          <input
+          <Input
             type="url"
             value={googleMapsUrl}
             onChange={(e) => setGoogleMapsUrl(e.target.value)}
-            className={inputClass}
             placeholder="https://maps.app.goo.gl/… (optional)"
           />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Latitude">
-            <input
+            <Input
               type="text"
               inputMode="decimal"
               value={latitude}
               onChange={(e) => setLatitude(e.target.value)}
-              className={inputClass}
               placeholder="12.8901234"
             />
           </Field>
           <Field label="Longitude">
-            <input
+            <Input
               type="text"
               inputMode="decimal"
               value={longitude}
               onChange={(e) => setLongitude(e.target.value)}
-              className={inputClass}
               placeholder="77.6789012"
             />
           </Field>
         </div>
-        <Field label="Status">
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as BranchStatusValue)}
-            className={inputClass}
-          >
-            {BRANCH_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {STATUS_LABEL[s]}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <div className="flex flex-col gap-1">
+          <span className="mb-1 block font-ui text-[11px] uppercase tracking-wider text-dusty-gray">
+            Status
+          </span>
+          <Select value={status} onValueChange={(v) => setStatus(v as BranchStatusValue)}>
+            <SelectTrigger aria-label="Status" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <SelectGroup>
+                {BRANCH_STATUSES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {STATUS_LABEL[s]}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </div>
         {status === 'temporarily_closed' && (
           <Field label="Temporary close reason">
-            <input
+            <Input
               type="text"
               value={temporaryCloseReason}
               onChange={(e) => setTemporaryCloseReason(e.target.value)}
-              className={inputClass}
               placeholder="e.g. Renovation"
             />
           </Field>
         )}
-        <label className="flex items-center gap-2 font-sans text-sm text-cocoa-dark">
-          <input
-            type="checkbox"
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="branch-primary"
             checked={isPrimary}
-            onChange={(e) => setIsPrimary(e.target.checked)}
-            className="h-4 w-4 rounded-cards border-outline-gray text-deep-gold focus:ring-deep-gold"
+            onCheckedChange={(checked) => setIsPrimary(checked === true)}
           />
-          Primary branch (default selection)
-        </label>
+          <label htmlFor="branch-primary" className="font-sans text-sm text-cocoa-dark">
+            Primary branch (default selection)
+          </label>
+        </div>
 
         {formError && (
           <p className="font-sans text-sm text-error" role="alert">
@@ -584,16 +582,13 @@ function BranchDialog({
           </p>
         )}
 
-        <DialogActions busy={busy} onClose={onClose} submitLabel={editing ? 'Save' : 'Create'} />
+        <FormActions busy={busy} onCancel={onClose} submitLabel={editing ? 'Save' : 'Create'} />
       </form>
     </FormDialog>
   )
 }
 
 /* ── Shared primitives ──────────────────────────────────────────────────── */
-
-const inputClass =
-  'w-full rounded-buttons border border-outline-gray bg-canvas-white px-3 py-2 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold'
 
 function FormDialog({
   open,
@@ -610,44 +605,14 @@ function FormDialog({
     <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-cocoa-dark/40 backdrop-blur-sm" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-cloud-gray bg-canvas-white p-5 shadow-elevated focus:outline-none">
-          <Dialog.Title className="mb-3 font-display text-lg tracking-tight text-cocoa-dark">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-cloud-gray bg-canvas-white shadow-elevated focus:outline-none">
+          <Dialog.Title className="shrink-0 px-5 pt-5 pb-3 font-display text-lg tracking-tight text-cocoa-dark">
             {title}
           </Dialog.Title>
-          {children}
+          <div className="min-h-0 overflow-y-auto px-5 pb-5">{children}</div>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
-  )
-}
-
-function DialogActions({
-  busy,
-  onClose,
-  submitLabel,
-}: {
-  busy: boolean
-  onClose: () => void
-  submitLabel: string
-}) {
-  return (
-    <div className="flex items-center justify-end gap-2 pt-2">
-      <button
-        type="button"
-        onClick={onClose}
-        disabled={busy}
-        className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-4 font-ui text-sm text-warm-gray transition-colors hover:bg-cloud-gray disabled:opacity-60"
-      >
-        Cancel
-      </button>
-      <button
-        type="submit"
-        disabled={busy}
-        className="h-9 rounded-buttons bg-cocoa-dark px-4 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {busy ? 'Saving…' : submitLabel}
-      </button>
-    </div>
   )
 }
 

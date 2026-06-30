@@ -34,6 +34,8 @@
 import { StatusBadge } from '@/components/admin/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Icon } from '@/components/ui/icon'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { formatDateDDMMYYYY, formatINR } from '@/lib/admin/bookings'
 import { X } from 'lucide-react'
 import Link from 'next/link'
@@ -338,15 +340,14 @@ function TagSection({
 
         {adding ? (
           <div className="relative">
-            <input
+            <Input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search or create a tag…"
-              // biome-ignore lint/a11y/noAutofocus: focus the field when the picker opens
               autoFocus
               aria-label="Add a tag"
-              className="h-8 px-2.5 rounded-cards border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
+              className="h-8 w-auto"
             />
             <button
               type="button"
@@ -644,14 +645,13 @@ function NotesPanel({
         >
           Add a note
         </label>
-        <textarea
+        <Textarea
           id="note-content"
           value={content}
           onChange={(e) => setContent(e.target.value)}
           rows={3}
           maxLength={1000}
           placeholder="Add a note about this customer…"
-          className="w-full px-3 py-2 rounded-cards border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold resize-none"
         />
         {noteError && (
           <p className="text-xs text-error font-sans" role="alert">

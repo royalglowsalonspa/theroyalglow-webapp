@@ -53,6 +53,14 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Icon } from '@/components/ui/icon'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useDebouncedCallback } from '@/components/ui/use-debounced-callback'
 import { cn } from '@rgss/ui/lib/utils'
 import { Columns3, Search } from 'lucide-react'
@@ -317,14 +325,30 @@ function TabControl({
 }
 
 /* ============================================================================
- * Filter dropdown (native <select>, brand-styled)
+ * Filter dropdown (shadcn Select — Radix)
  *
- * NOTE: deliberately a native <select> rather than the shadcn `Select` (Radix,
- * which renders a button trigger). The preserved Req 2.4 property test
- * `filter-bar-render.property.test.ts` asserts each configured dropdown is a
- * native `<select>` element, and that gate must pass UNCHANGED. The native
- * control is also fully keyboard/AT-operable and brand-token styled.
+ * Uses the shared shadcn `Select` so every filter dropdown matches the rest of
+ * the admin UI (same trigger, popover, checkmark, focus ring). The trigger
+ * carries `aria-label={dropdown.label}` for assistive technology and tests.
+ *
+ * Radix forbids an empty-string item value (it reserves "" to clear/show the
+ * placeholder). Filter dropdowns conventionally use `value: ''` for the
+ * "All …" option, so we map "" ⇄ a private sentinel internally and still emit
+ * the original "" to callers — keeping the caller API unchanged.
  * ========================================================================== */
+
+/** Private stand-in for the empty-string ("All") option value (Radix-safe). */
+const ALL_VALUE_SENTINEL = '__all__'
+
+/** Map a caller value to a Radix-safe value (empty string → sentinel). */
+function toRadixValue(value: string): string {
+  return value === '' ? ALL_VALUE_SENTINEL : value
+}
+
+/** Map a Radix value back to the caller convention (sentinel → empty string). */
+function fromRadixValue(value: string): string {
+  return value === ALL_VALUE_SENTINEL ? '' : value
+}
 
 function DropdownControl({
   dropdown,
@@ -333,37 +357,47 @@ function DropdownControl({
   dropdown: FilterDropdown
   onFilterChange?: ((id: string, value: string) => void) | undefined
 }) {
-  const selectId = useId()
   const [value, setValue] = useState(dropdown.value ?? dropdown.options[0]?.value ?? '')
 
-  function handleChange(event: React.ChangeEvent<HTMLSelectElement>) {
-    const next = event.target.value
-    setValue(next)
-    onFilterChange?.(dropdown.id, next)
+  function handleChange(next: string) {
+    const emitted = fromRadixValue(next)
+    setValue(emitted)
+    onFilterChange?.(dropdown.id, emitted)
   }
 
   return (
-    <div>
-      <label className="sr-only" htmlFor={selectId}>
-        {dropdown.label}
-      </label>
-      <select
-        className={cn(
-          'h-9 rounded-buttons border border-outline-gray bg-canvas-white px-3',
-          'font-ui text-sm text-cocoa-dark',
-          'focus:border-cocoa-dark focus:outline-none focus:ring-2 focus:ring-cocoa-dark/20',
-        )}
-        id={selectId}
-        onChange={handleChange}
-        value={value}
-      >
-        {dropdown.options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </div>
+    <Select onValueChange={handleChange} value={toRadixValue(value)}>
+      <SelectTrigger aria-label={dropdown.label} className="h-9 min-w-40 font-ui">
+        {/* Width sizer: every option label is stacked invisibly in one grid
+            cell so the trigger's intrinsic width equals the WIDEST option.
+            The visible value overlaps the same cell, so the box fits its
+            longest label exactly and never resizes when the selection
+            changes (no dead space, no jump). */}
+        <span className="grid min-w-0">
+          {dropdown.options.map((option) => (
+            <span
+              aria-hidden
+              className="invisible col-start-1 row-start-1 h-0 overflow-hidden whitespace-nowrap"
+              key={option.value}
+            >
+              {option.label}
+            </span>
+          ))}
+          <span className="col-start-1 row-start-1 truncate text-left">
+            <SelectValue />
+          </span>
+        </span>
+      </SelectTrigger>
+      <SelectContent position="popper">
+        <SelectGroup>
+          {dropdown.options.map((option) => (
+            <SelectItem key={option.value} value={toRadixValue(option.value)}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
   )
 }
 

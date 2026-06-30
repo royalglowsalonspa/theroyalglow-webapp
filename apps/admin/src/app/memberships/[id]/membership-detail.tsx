@@ -39,11 +39,22 @@
 
 'use client'
 
+import { Checkbox } from '@/components/ui/checkbox'
 import { DataTable } from '@/components/ui/data-table'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { SlideOverPanel } from '@/components/ui/slide-over-panel'
 import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { Textarea } from '@/components/ui/textarea'
 import { formatDateTimeIST } from '@/lib/admin/format'
 import {
   type MembershipDetailData,
@@ -54,6 +65,7 @@ import {
   formatDateDDMMYYYY,
   minutesToHM,
 } from '@/lib/admin/memberships'
+import { toast } from '@/lib/admin/toast'
 import type { ColumnDef } from '@tanstack/react-table'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
@@ -486,9 +498,12 @@ function RecordSessionPanel({
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not record this session.')
       }
+      toast.success('Session recorded')
       onRecorded()
     } catch (err: unknown) {
-      setSubmitError(err instanceof Error ? err.message : 'Could not record this session.')
+      const message = err instanceof Error ? err.message : 'Could not record this session.'
+      setSubmitError(message)
+      toast.error('Could not record session', message)
       setSubmitting(false)
     }
   }, [canSubmit, selected, membershipId, onRecorded])
@@ -546,15 +561,19 @@ function RecordSessionPanel({
               const chosen = selected[svc.id]
               return (
                 <li key={svc.id} className="rounded-cards border border-cloud-gray p-2.5">
-                  <label className="flex cursor-pointer items-center gap-2 font-sans text-sm text-cocoa-dark">
-                    <input
-                      type="checkbox"
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id={`ms-svc-${svc.id}`}
                       checked={Boolean(chosen)}
-                      onChange={() => toggleService(svc)}
-                      className="accent-cocoa-dark"
+                      onCheckedChange={() => toggleService(svc)}
                     />
-                    {svc.name}
-                  </label>
+                    <label
+                      htmlFor={`ms-svc-${svc.id}`}
+                      className="cursor-pointer font-sans text-sm text-cocoa-dark"
+                    >
+                      {svc.name}
+                    </label>
+                  </div>
 
                   {chosen ? (
                     <div className="mt-2 flex flex-wrap items-end gap-3 pl-6">
@@ -639,7 +658,7 @@ function DurationField({
       >
         Duration (min)
       </label>
-      <input
+      <Input
         id={`${id}-${serviceId}-duration`}
         type="number"
         min="1"
@@ -647,7 +666,7 @@ function DurationField({
         inputMode="numeric"
         value={Number.isFinite(value) ? value : ''}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="h-9 w-28 rounded-buttons border border-outline-gray bg-canvas-white px-3 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
+        className="w-28"
       />
     </div>
   )
@@ -673,19 +692,24 @@ function StaffField({
       >
         Staff (optional)
       </label>
-      <select
-        id={`${id}-${serviceId}-staff`}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-3 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
+      <Select
+        value={value || 'unassigned'}
+        onValueChange={(v) => onChange(v === 'unassigned' ? '' : v)}
       >
-        <option value="">Unassigned</option>
-        {staff.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.name}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger id={`${id}-${serviceId}-staff`} size="sm" className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent position="popper">
+          <SelectGroup>
+            <SelectItem value="unassigned">Unassigned</SelectItem>
+            {staff.map((s) => (
+              <SelectItem key={s.id} value={s.id}>
+                {s.name}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
     </div>
   )
 }
@@ -739,9 +763,12 @@ function CancelMembershipPanel({
         }
         throw new Error(json?.error?.message ?? 'Could not cancel this membership.')
       }
+      toast.success('Membership cancelled')
       onCancelled()
     } catch (err: unknown) {
-      setSubmitError(err instanceof Error ? err.message : 'Could not cancel this membership.')
+      const message = err instanceof Error ? err.message : 'Could not cancel this membership.'
+      setSubmitError(message)
+      toast.error('Could not cancel membership', message)
       setSubmitting(false)
     }
   }, [reason, submitting, membershipId, onCancelled])
@@ -785,14 +812,13 @@ function CancelMembershipPanel({
         >
           Reason (required)
         </label>
-        <textarea
+        <Textarea
           id={reasonId}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           rows={3}
           maxLength={500}
           placeholder="Why is this membership being cancelled?"
-          className="w-full resize-none rounded-buttons border border-outline-gray bg-canvas-white px-3 py-2 font-sans text-sm text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold"
         />
       </div>
 

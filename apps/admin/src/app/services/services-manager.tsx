@@ -42,9 +42,20 @@
 
 'use client'
 
+import { Checkbox } from '@/components/ui/checkbox'
 import { DataTable, type RowAction } from '@/components/ui/data-table'
 import { FilterBar } from '@/components/ui/filter-bar'
+import { Field, FormActions } from '@/components/ui/form-field'
 import { Icon } from '@/components/ui/icon'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { SlideOverPanel } from '@/components/ui/slide-over-panel'
 import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
@@ -52,6 +63,7 @@ import { Skeleton } from '@/components/ui/state/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { useAsyncData } from '@/components/ui/use-async-data'
 import { formatINRWithPaise } from '@/lib/admin/format'
+import { toast } from '@/lib/admin/toast'
 import { SPA_DURATIONS, type ServiceTypeValue } from '@rgss/types'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Gem, Pencil, Power, Sparkles, Tag } from 'lucide-react'
@@ -145,9 +157,12 @@ export function ServicesManager() {
         if (!res.ok || !json.success) {
           throw new Error(json?.error?.message ?? 'Could not update this service.')
         }
+        toast.success(svc.isActive ? `${svc.name} deactivated` : `${svc.name} activated`)
         retry()
       } catch (err: unknown) {
-        setActionError(err instanceof Error ? err.message : 'Could not update this service.')
+        const message = err instanceof Error ? err.message : 'Could not update this service.'
+        setActionError(message)
+        toast.error('Could not update service', message)
       }
     },
     [retry],
@@ -166,9 +181,12 @@ export function ServicesManager() {
         if (!res.ok || !json.success) {
           throw new Error(json?.error?.message ?? 'Could not update this category.')
         }
+        toast.success(cat.isActive ? `${cat.name} deactivated` : `${cat.name} activated`)
         retry()
       } catch (err: unknown) {
-        setActionError(err instanceof Error ? err.message : 'Could not update this category.')
+        const message = err instanceof Error ? err.message : 'Could not update this category.'
+        setActionError(message)
+        toast.error('Could not update category', message)
       }
     },
     [retry],
@@ -529,9 +547,12 @@ function ServiceForm({
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not save the service.')
       }
+      toast.success(editing ? `${name.trim()} updated` : `${name.trim()} created`)
       onSaved()
     } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : 'Could not save the service.')
+      const message = err instanceof Error ? err.message : 'Could not save the service.'
+      setFormError(message)
+      toast.error('Could not save service', message)
     } finally {
       setBusy(false)
     }
@@ -544,88 +565,101 @@ function ServiceForm({
       title={editing ? 'Edit service' : 'New service'}
     >
       <form onSubmit={submit} className="space-y-3">
-        <Field label="Category">
-          <select
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-            className={inputClass}
-          >
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.serviceType})
-              </option>
-            ))}
-          </select>
+        <Field label="Category" htmlFor="service-category">
+          <Select value={categoryId} onValueChange={setCategoryId}>
+            <SelectTrigger id="service-category" className="w-full">
+              <SelectValue placeholder="Select category" />
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <SelectGroup>
+                {categories.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name} ({c.serviceType})
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </Field>
-        <Field label="Name">
-          <input
+        <Field label="Name" htmlFor="service-name">
+          <Input
+            id="service-name"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className={inputClass}
             placeholder="e.g. Classic Haircut"
             required
           />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label={isSpa ? 'Duration (SPA: 30/60)' : 'Duration (min)'}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field
+            label={isSpa ? 'Duration (SPA: 30/60)' : 'Duration (min)'}
+            htmlFor="service-duration"
+          >
             {isSpa ? (
-              <select
-                value={durationMinutes}
-                onChange={(e) => setDurationMinutes(Number(e.target.value))}
-                className={inputClass}
+              <Select
+                value={String(durationMinutes)}
+                onValueChange={(v) => setDurationMinutes(Number(v))}
               >
-                {SPA_DURATIONS.map((d) => (
-                  <option key={d} value={d}>
-                    {d} min
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="service-duration" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  <SelectGroup>
+                    {SPA_DURATIONS.map((d) => (
+                      <SelectItem key={d} value={String(d)}>
+                        {d} min
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
             ) : (
-              <input
+              <Input
+                id="service-duration"
                 type="number"
                 min={5}
                 max={600}
                 step={5}
                 value={durationMinutes}
                 onChange={(e) => setDurationMinutes(Number(e.target.value))}
-                className={inputClass}
               />
             )}
           </Field>
-          <Field label="Buffer (min)">
-            <input
+          <Field label="Buffer (min)" htmlFor="service-buffer">
+            <Input
+              id="service-buffer"
               type="number"
               min={0}
               max={120}
               step={5}
               value={bufferMinutes}
               onChange={(e) => setBufferMinutes(Number(e.target.value))}
-              className={inputClass}
             />
           </Field>
         </div>
-        <Field label="Price (₹, GST inclusive)">
-          <input
+        <Field label="Price (₹, GST inclusive)" htmlFor="service-price">
+          <Input
+            id="service-price"
             type="number"
             min={0}
             step="0.01"
             value={priceRupees}
             onChange={(e) => setPriceRupees(e.target.value)}
-            className={inputClass}
             placeholder="e.g. 499"
             required
           />
         </Field>
-        <label className="flex items-center gap-2 font-sans text-sm text-cocoa-dark">
-          <input
-            type="checkbox"
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="service-gems"
             checked={gemsRedeemable}
-            onChange={(e) => setGemsRedeemable(e.target.checked)}
-            className="h-4 w-4 rounded-cards border-outline-gray accent-deep-gold"
+            onCheckedChange={(checked) => setGemsRedeemable(checked === true)}
           />
-          Redeemable with gems
-        </label>
+          <label htmlFor="service-gems" className="font-sans text-sm text-cocoa-dark">
+            Redeemable with gems
+          </label>
+        </div>
 
         {formError ? (
           <p className="font-sans text-sm text-error" role="alert">
@@ -633,7 +667,7 @@ function ServiceForm({
           </p>
         ) : null}
 
-        <DialogActions busy={busy} onClose={onClose} submitLabel={editing ? 'Save' : 'Create'} />
+        <FormActions busy={busy} onCancel={onClose} submitLabel={editing ? 'Save' : 'Create'} />
       </form>
     </SlideOverPanel>
   )
@@ -692,9 +726,12 @@ function CategoryForm({
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not save the category.')
       }
+      toast.success(editing ? `${name.trim()} updated` : `${name.trim()} created`)
       onSaved()
     } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : 'Could not save the category.')
+      const message = err instanceof Error ? err.message : 'Could not save the category.'
+      setFormError(message)
+      toast.error('Could not save category', message)
     } finally {
       setBusy(false)
     }
@@ -707,26 +744,32 @@ function CategoryForm({
       title={editing ? 'Edit category' : 'New category'}
     >
       <form onSubmit={submit} className="space-y-3">
-        <Field label="Name">
-          <input
+        <Field label="Name" htmlFor="category-name">
+          <Input
+            id="category-name"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className={inputClass}
             placeholder="e.g. Hair, Massage"
             required
           />
         </Field>
-        <Field label="Type">
-          <select
+        <Field label="Type" htmlFor="category-type">
+          <Select
             value={serviceType}
-            onChange={(e) => setServiceType(e.target.value as ServiceTypeValue)}
-            className={inputClass}
+            onValueChange={(v) => setServiceType(v as ServiceTypeValue)}
             disabled={Boolean(editing)}
           >
-            <option value="salon">Salon</option>
-            <option value="spa">SPA</option>
-          </select>
+            <SelectTrigger id="category-type" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <SelectGroup>
+                <SelectItem value="salon">Salon</SelectItem>
+                <SelectItem value="spa">SPA</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </Field>
         {editing ? (
           <p className="font-sans text-xs text-dusty-gray">
@@ -740,55 +783,10 @@ function CategoryForm({
           </p>
         ) : null}
 
-        <DialogActions busy={busy} onClose={onClose} submitLabel={editing ? 'Save' : 'Create'} />
+        <FormActions busy={busy} onCancel={onClose} submitLabel={editing ? 'Save' : 'Create'} />
       </form>
     </SlideOverPanel>
   )
 }
 
 /* ── Shared form primitives ─────────────────────────────────────────────── */
-
-const inputClass =
-  'w-full px-3 py-2 rounded-buttons border border-outline-gray bg-canvas-white text-sm font-sans text-cocoa-dark focus:outline-none focus:ring-2 focus:ring-deep-gold'
-
-function DialogActions({
-  busy,
-  onClose,
-  submitLabel,
-}: {
-  busy: boolean
-  onClose: () => void
-  submitLabel: string
-}) {
-  return (
-    <div className="flex items-center justify-end gap-2 pt-2">
-      <button
-        type="button"
-        onClick={onClose}
-        disabled={busy}
-        className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-4 font-ui text-sm text-warm-gray transition-colors hover:bg-cloud-gray disabled:opacity-60"
-      >
-        Cancel
-      </button>
-      <button
-        type="submit"
-        disabled={busy}
-        className="h-9 rounded-buttons bg-cocoa-dark px-4 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {busy ? 'Saving…' : submitLabel}
-      </button>
-    </div>
-  )
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    // biome-ignore lint/a11y/noLabelWithoutControl: the control is provided via children (implicit label association)
-    <label className="block">
-      <span className="mb-1 block font-ui text-[11px] uppercase tracking-wider text-dusty-gray">
-        {label}
-      </span>
-      {children}
-    </label>
-  )
-}
