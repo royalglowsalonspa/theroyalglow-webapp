@@ -30,7 +30,6 @@
 
 import { signIn } from '@/lib/auth-client'
 
-// deepcode ignore HardcodedNonCryptoSecret: sessionStorage key name, not a secret
 const AUTH_CONTEXT_KEY = 'rgss_auth_context'
 
 const CONTEXT_PARAMS = [
