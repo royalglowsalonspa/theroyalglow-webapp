@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Pre-Commit Quality Gate",
+      "description": "User-triggered quality gate. Run before committing to verify the post-change sequence was completed.",
+      "trigger": "Manual",
+      "action": {
+        "type": "agent",
+        "prompt": "The user has triggered the pre-commit quality gate. Check: was the post-change sequence (`post-change-sequence`) from workflows.md completed this session? If YES → confirm readiness. If NO → run the missing steps. Report results when complete."
+      },
+      "enabled": true
+    }
+  ]
+}

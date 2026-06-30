@@ -1,0 +1,9 @@
+{
+  "name": "Optimization Audit",
+  "version": "1.0.0",
+  "when": { "type": "userTriggered" },
+  "then": {
+    "type": "askAgent",
+    "prompt": "The user has triggered an optimization audit. Load workflows.md and execute the optimization-audit workflow. Run all checks (OA-01 through OA-16) across every file in scope. Pay close attention to the Scope column for each check — many checks have exemptions for reference data, governance files, changelogs, and nested code examples. Batch-read files in groups of 10. Report results as a summary table with file name, check ID, and pass/fail. Flag any failures with specific remediation. Do not auto-fix — report findings for user review."
+  }
+}

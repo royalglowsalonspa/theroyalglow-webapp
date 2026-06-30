@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Manual Sync — API and Docs",
+      "description": "User-triggered hook that runs component API sync and documentation sync against external sources.",
+      "trigger": "Manual",
+      "action": {
+        "type": "agent",
+        "prompt": "The user has triggered a manual sync. Load workflows.md and execute the manual-sync workflow. Follow all steps: Component API Sync, Documentation-of-Record Sync, Tech Library Sync. Report results and flag any items requiring user input."
+      },
+      "enabled": true
+    }
+  ]
+}

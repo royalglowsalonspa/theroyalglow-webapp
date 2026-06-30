@@ -1,0 +1,9 @@
+{
+  "name": "Pre-Commit Quality Gate",
+  "version": "1.0.0",
+  "when": { "type": "userTriggered" },
+  "then": {
+    "type": "askAgent",
+    "prompt": "The user has triggered the pre-commit quality gate. Check: was the post-change sequence (`post-change-sequence`) from workflows.md completed this session? If YES → confirm readiness. If NO → run the missing steps. Report results when complete."
+  }
+}
