@@ -28,7 +28,9 @@
 
 'use client'
 
+import { Button } from '@/components/ui/button'
 import { track } from '@/lib/analytics/events'
+import { ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 
 /**
@@ -47,12 +49,11 @@ export function OfferBookButton({
   label?: string
 }) {
   return (
-    <Link
-      href={href}
-      onClick={() => track('offer_clicked', { offerId })}
-      className="inline-flex items-center gap-1 font-ui text-xs uppercase tracking-[0.5px] text-royal-gold mt-2 hover:text-canvas-white transition-colors duration-200 md:mt-0"
-    >
-      {label} <span aria-hidden="true">→</span>
-    </Link>
+    <Button asChild variant="gold" className="w-fit font-ui font-bold">
+      <Link href={href} onClick={() => track('offer_clicked', { offerId })}>
+        {label}
+        <ArrowRight data-icon="inline-end" aria-hidden="true" />
+      </Link>
+    </Button>
   )
 }

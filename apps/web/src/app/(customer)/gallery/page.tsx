@@ -80,7 +80,7 @@ export default async function GalleryPage() {
             </div>
             <h1
               id="gallery-page-heading"
-              className="font-display text-cocoa-dark tracking-[-1.44px] leading-[1.03] text-[clamp(40px,6vw,72px)]"
+              className="font-display font-black text-cocoa-dark tracking-[-1.44px] leading-[1.03] text-[clamp(40px,6vw,72px)]"
             >
               Gallery
             </h1>
@@ -97,9 +97,9 @@ export default async function GalleryPage() {
         <section aria-label="Gallery images" className="px-5 pb-20">
           <div className="mx-auto max-w-[1278px]">
             {images.length === 0 ? (
-              <div className="bg-warm-cream rounded-[6px] p-8 sm:p-12 text-center">
-                <p className="font-display text-cocoa-dark text-2xl">Photos coming soon.</p>
-                <p className="font-sans text-[15px] leading-[1.55] text-warm-gray mt-3 max-w-[420px] mx-auto">
+              <div className="rounded-[6px] bg-warm-cream p-8 text-center sm:p-12">
+                <p className="font-display text-2xl text-cocoa-dark">Photos coming soon.</p>
+                <p className="mx-auto mt-3 max-w-[420px] font-sans text-[15px] leading-[1.55] text-warm-gray">
                   We&apos;re putting together a gallery of our space and work. Check back shortly.
                 </p>
               </div>

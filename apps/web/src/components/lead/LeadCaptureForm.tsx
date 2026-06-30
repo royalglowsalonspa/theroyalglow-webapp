@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 08-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : LeadCaptureForm
@@ -8,6 +8,8 @@
  *
  * Description  : Meta ad lead capture form (3 fields: name, phone, service).
  *                Submits to POST /api/leads and redirects to booking dialog.
+ *                Rebuilt on the shadcn/ui Input, Label, and Button primitives
+ *                with lucide icons.
  *
  * Responsibilities :
  * - Render accessible 3-field lead capture form
@@ -17,24 +19,23 @@
  * - Fire lead_form_submitted analytics event
  * - Redirect to /?book=1&leadId={id} after success
  *
- * Features / Functionality :
- * - Trust signals (brand, rating, reviews)
- * - Grouped service dropdown (Salon/SPA optgroups)
- * - +91 prefix UI for phone input
- * - Client-side validation with field error display
- * - Success card with auto-redirect to booking
- *
- * Tech Stack   : React, TypeScript, Tailwind CSS, Next.js
+ * Tech Stack   : React, TypeScript, Tailwind CSS, Next.js, shadcn/ui,
+ *                lucide-react
  * Layer        : Frontend
  *
- * Dependencies : @/lib/analytics/events, next/navigation
+ * Dependencies : @/lib/analytics/events, next/navigation,
+ *                @/components/ui/{input,label,button}, lucide-react
  *
  * Notes        : Designed for Meta ad landing page (/book)
  ************************************************************/
 
 'use client'
 
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { track } from '@/lib/analytics/events'
+import { Check, Loader2, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 
@@ -67,6 +68,8 @@ const SERVICE_GROUP_LABELS: Record<ServiceOption['serviceType'], string> = {
   salon: 'Salon Services',
   spa: 'SPA Services',
 }
+
+const LABEL_CLASS = 'mb-1.5 font-ui text-sm font-medium text-warm-gray'
 
 export function LeadCaptureForm({
   services,
@@ -176,20 +179,20 @@ export function LeadCaptureForm({
         <p className="font-display text-2xl text-cocoa-dark">
           👑 Royal Glow <span className="text-deep-gold">Salon &amp; Spa</span>
         </p>
-        <p className="mt-2 font-sans text-sm text-dusty-gray">⭐ 4.9 · 86 reviews · Bengaluru</p>
+        <p className="mt-2 font-ui text-sm text-dusty-gray">⭐ 4.9 · 86 reviews · Bengaluru</p>
       </header>
 
       <h1 id="lead-form-heading" className="mb-5 text-center font-display text-xl text-cocoa-dark">
         Tell us what you&apos;re looking for
       </h1>
 
-      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
         {/* Name */}
-        <div className="space-y-1.5">
-          <label htmlFor="lead-name" className="block font-ui text-sm font-medium text-warm-gray">
+        <div>
+          <Label htmlFor="lead-name" className={LABEL_CLASS}>
             Name
-          </label>
-          <input
+          </Label>
+          <Input
             id="lead-name"
             type="text"
             autoComplete="name"
@@ -199,28 +202,28 @@ export function LeadCaptureForm({
             aria-required="true"
             aria-invalid={Boolean(fieldErrors.name)}
             aria-describedby={fieldErrors.name ? 'lead-name-error' : undefined}
-            className="min-h-[44px] w-full rounded-buttons border border-outline-gray px-3 py-2.5 font-sans text-base text-cocoa-dark placeholder:text-dusty-gray focus:border-deep-gold focus:outline-none focus:ring-1 focus:ring-deep-gold disabled:opacity-60 aria-[invalid=true]:border-error"
+            className="min-h-[44px] text-base"
           />
           {fieldErrors.name && (
-            <p id="lead-name-error" className="font-sans text-xs text-error" role="alert">
+            <p id="lead-name-error" className="mt-1.5 font-ui text-xs text-error" role="alert">
               {fieldErrors.name}
             </p>
           )}
         </div>
 
         {/* Phone with +91 prefix */}
-        <div className="space-y-1.5">
-          <label htmlFor="lead-phone" className="block font-ui text-sm font-medium text-warm-gray">
+        <div>
+          <Label htmlFor="lead-phone" className={LABEL_CLASS}>
             Phone
-          </label>
+          </Label>
           <div className="flex items-stretch">
             <span
-              className="inline-flex min-h-[44px] items-center rounded-l-buttons border border-r-0 border-outline-gray bg-cloud-gray px-3 font-sans text-base text-warm-gray"
+              className="inline-flex min-h-[44px] items-center rounded-l-md border border-r-0 border-input bg-cloud-gray px-3 font-ui text-base text-warm-gray"
               aria-hidden="true"
             >
               +91
             </span>
-            <input
+            <Input
               id="lead-phone"
               type="tel"
               inputMode="numeric"
@@ -232,30 +235,27 @@ export function LeadCaptureForm({
               aria-required="true"
               aria-invalid={Boolean(fieldErrors.phone)}
               aria-describedby={fieldErrors.phone ? 'lead-phone-error' : undefined}
-              className="min-h-[44px] w-full rounded-r-buttons border border-outline-gray px-3 py-2.5 font-sans text-base text-cocoa-dark placeholder:text-dusty-gray focus:border-deep-gold focus:outline-none focus:ring-1 focus:ring-deep-gold disabled:opacity-60 aria-[invalid=true]:border-error"
+              className="min-h-[44px] rounded-l-none text-base"
             />
           </div>
           {fieldErrors.phone && (
-            <p id="lead-phone-error" className="font-sans text-xs text-error" role="alert">
+            <p id="lead-phone-error" className="mt-1.5 font-ui text-xs text-error" role="alert">
               {fieldErrors.phone}
             </p>
           )}
         </div>
 
         {/* Service interest */}
-        <div className="space-y-1.5">
-          <label
-            htmlFor="lead-service"
-            className="block font-ui text-sm font-medium text-warm-gray"
-          >
+        <div>
+          <Label htmlFor="lead-service" className={LABEL_CLASS}>
             What are you interested in?
-          </label>
+          </Label>
           <select
             id="lead-service"
             value={serviceInterestedId}
             onChange={(e) => setServiceInterestedId(e.target.value)}
             disabled={isSubmitting}
-            className="min-h-[44px] w-full rounded-buttons border border-outline-gray bg-canvas-white px-3 py-2.5 font-sans text-base text-cocoa-dark focus:border-deep-gold focus:outline-none focus:ring-1 focus:ring-deep-gold disabled:opacity-60"
+            className="min-h-[44px] w-full rounded-md border border-input bg-canvas-white px-3 py-2.5 font-ui text-base text-cocoa-dark outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60"
           >
             <option value="">Select service…</option>
             {groupedServices.map((group) => (
@@ -271,25 +271,27 @@ export function LeadCaptureForm({
         </div>
 
         {/* Primary CTA */}
-        <button
+        <Button
           type="submit"
+          variant="gold"
+          size="lg"
           disabled={isSubmitting}
           aria-busy={isSubmitting}
-          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-pill bg-royal-gold px-6 py-3 font-ui text-sm font-semibold uppercase tracking-[0.5px] text-cocoa-dark motion-safe:transition-colors hover:bg-deep-gold disabled:cursor-not-allowed disabled:opacity-60"
+          className="min-h-[44px] w-full rounded-pill font-ui text-sm font-semibold uppercase tracking-[0.5px]"
         >
           {isSubmitting ? (
             <>
-              <Spinner />
-              <span>Processing…</span>
+              <Loader2 className="animate-spin" aria-hidden="true" />
+              Processing…
             </>
           ) : (
             'Continue to Booking'
           )}
-        </button>
+        </Button>
       </form>
 
       {/* Legitimacy footer — address + phone only, no nav */}
-      <footer className="mt-6 border-t border-cloud-gray pt-4 text-center font-sans text-xs text-dusty-gray">
+      <footer className="mt-6 border-t border-cloud-gray pt-4 text-center font-ui text-xs text-dusty-gray">
         <address className="not-italic">
           📍 1st Floor, Narmada Complex, Rayasandra, Bengaluru
           <br />
@@ -311,8 +313,8 @@ function SuccessCard() {
       className="rounded-cards bg-canvas-white p-10 text-center shadow-elevated"
       aria-live="polite"
     >
-      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-success/10 text-2xl text-success">
-        ✓
+      <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-success/10 text-success">
+        <Check className="size-7" strokeWidth={2.5} aria-hidden="true" />
       </div>
       <h1 className="font-display text-2xl text-cocoa-dark">Thank you!</h1>
       <p className="mt-2 font-sans text-sm text-dusty-gray">Taking you to booking…</p>
@@ -329,21 +331,23 @@ function ErrorCard({
 }) {
   return (
     <section className="rounded-cards bg-canvas-white p-8 text-center shadow-elevated" role="alert">
-      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-error/10 text-2xl">
-        ❌
+      <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-error/10 text-error">
+        <X className="size-7" strokeWidth={2.5} aria-hidden="true" />
       </div>
       <h1 className="font-display text-xl text-cocoa-dark">Something went wrong</h1>
       <p className="mt-2 font-sans text-sm text-dusty-gray">
         {message || 'We couldn’t process your request.'} Please try again or call us directly.
       </p>
-      <button
+      <Button
         type="button"
+        variant="gold"
+        size="lg"
         onClick={onRetry}
-        className="mt-5 inline-flex min-h-[44px] items-center justify-center rounded-pill bg-royal-gold px-6 py-3 font-ui text-sm font-semibold uppercase tracking-[0.5px] text-cocoa-dark motion-safe:transition-colors hover:bg-deep-gold"
+        className="mt-5 rounded-pill font-ui text-sm font-semibold uppercase tracking-[0.5px]"
       >
         Try Again
-      </button>
-      <p className="mt-4 font-sans text-sm">
+      </Button>
+      <p className="mt-4 font-ui text-sm">
         <a
           href={`tel:${SALON_PHONE}`}
           className="text-deep-gold underline underline-offset-2 hover:text-cocoa-dark"
@@ -352,24 +356,5 @@ function ErrorCard({
         </a>
       </p>
     </section>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-5 w-5 motion-safe:animate-spin"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
   )
 }

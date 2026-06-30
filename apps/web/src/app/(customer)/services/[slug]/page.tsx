@@ -35,11 +35,13 @@
  ************************************************************/
 
 import { JsonLd } from '@/components/seo/JsonLd'
+import { Button } from '@/components/ui/button'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, serviceJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
 import { formatINR } from '@rgss/business'
 import { getAllServicesGrouped, getServiceBySlug } from '@rgss/db/queries'
+import { ArrowLeft } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -139,18 +141,22 @@ export default async function ServiceDetailPage({ params }: ServiceDetailPagePro
         {/* ═══════════════════════════════════════════════════════ */}
         <header className="px-5">
           <div className="mx-auto max-w-[760px] mt-6 lg:mt-10">
-            <Link
-              href="/services"
-              className="font-ui text-xs uppercase tracking-[1px] text-deep-gold motion-safe:transition-colors motion-safe:duration-200 hover:text-cocoa-dark"
+            <Button
+              asChild
+              variant="link"
+              className="h-auto px-0 font-ui text-xs uppercase tracking-[1px] text-deep-gold hover:text-cocoa-dark"
             >
-              ← Back to Services
-            </Link>
+              <Link href="/services">
+                <ArrowLeft data-icon="inline-start" aria-hidden="true" />
+                Back to Services
+              </Link>
+            </Button>
 
             <p className="font-ui text-[11px] uppercase tracking-[2px] text-deep-gold mt-6">
               {serviceTypeLabel(service.serviceType)} · {service.categoryName}
             </p>
 
-            <h1 className="font-display text-cocoa-dark tracking-[-1.2px] leading-[1.05] text-[clamp(34px,5vw,60px)] mt-3">
+            <h1 className="font-display font-black text-cocoa-dark tracking-[-1.2px] leading-[1.05] text-[clamp(34px,5vw,60px)] mt-3">
               {service.name}
             </h1>
 
@@ -190,13 +196,16 @@ export default async function ServiceDetailPage({ params }: ServiceDetailPagePro
               <p className="font-sans text-[16px] leading-[1.6] text-warm-gray mt-3 max-w-[420px] mx-auto">
                 Reserve your appointment and experience Royal Glow for yourself.
               </p>
-              <Link
-                href={bookHref}
-                className="mt-7 inline-flex bg-royal-gold text-cocoa-dark font-ui text-xs uppercase tracking-[0.5px] rounded-full px-8 h-10 items-center justify-center hover:bg-deep-gold hover:-translate-y-px motion-safe:transition-all motion-safe:duration-200"
-                aria-label={`Book ${service.name} at Royal Glow`}
+              <Button
+                asChild
+                variant="gold"
+                size="lg"
+                className="mt-7 rounded-full font-ui text-xs uppercase tracking-[0.5px]"
               >
-                Book Now
-              </Link>
+                <Link href={bookHref} aria-label={`Book ${service.name} at Royal Glow`}>
+                  Book Now
+                </Link>
+              </Button>
             </div>
           </div>
         </section>

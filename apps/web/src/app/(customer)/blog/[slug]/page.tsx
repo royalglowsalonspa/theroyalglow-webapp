@@ -30,11 +30,13 @@
 
 import { RichText } from '@/components/blog/RichText'
 import { JsonLd } from '@/components/seo/JsonLd'
+import { Button } from '@/components/ui/button'
 import { getAllPostSlugs, getPostBySlug } from '@/lib/cms/client'
 import { SITE_URL } from '@/lib/seo/business'
 import { blogPostingJsonLd, breadcrumbJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
 import { formatDateIN } from '@rgss/business'
+import { ArrowLeft } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -117,12 +119,16 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         {/* ═══════════════════════════════════════════════════════ */}
         <header className="px-5">
           <div className="mx-auto max-w-[760px] mt-6 lg:mt-10">
-            <Link
-              href="/blog"
-              className="font-ui text-xs uppercase tracking-[1px] text-deep-gold motion-safe:transition-colors motion-safe:duration-200 hover:text-cocoa-dark"
+            <Button
+              asChild
+              variant="link"
+              className="h-auto px-0 font-ui text-xs uppercase tracking-[1px] text-deep-gold hover:text-cocoa-dark"
             >
-              ← Back to Journal
-            </Link>
+              <Link href="/blog">
+                <ArrowLeft data-icon="inline-start" aria-hidden="true" />
+                Back to Journal
+              </Link>
+            </Button>
 
             {post.category ? (
               <p className="font-ui text-[11px] uppercase tracking-[2px] text-deep-gold mt-6">
@@ -130,7 +136,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
               </p>
             ) : null}
 
-            <h1 className="font-display text-cocoa-dark tracking-[-1.2px] leading-[1.05] text-[clamp(34px,5vw,60px)] mt-3">
+            <h1 className="font-display font-black text-cocoa-dark tracking-[-1.2px] leading-[1.05] text-[clamp(34px,5vw,60px)] mt-3">
               {post.title}
             </h1>
 
@@ -203,13 +209,16 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
               <p className="font-sans text-[16px] leading-[1.6] text-warm-gray mt-3 max-w-[420px] mx-auto">
                 Book your appointment and experience Royal Glow for yourself.
               </p>
-              <Link
-                href="/?book=1"
-                className="mt-7 inline-flex bg-royal-gold text-cocoa-dark font-ui text-xs uppercase tracking-[0.5px] rounded-full px-8 h-10 items-center justify-center hover:bg-deep-gold hover:-translate-y-px motion-safe:transition-all motion-safe:duration-200"
-                aria-label="Book an appointment at Royal Glow"
+              <Button
+                asChild
+                variant="gold"
+                size="lg"
+                className="mt-7 rounded-full font-ui text-xs uppercase tracking-[0.5px]"
               >
-                Book Now
-              </Link>
+                <Link href="/?book=1" aria-label="Book an appointment at Royal Glow">
+                  Book Now
+                </Link>
+              </Button>
             </div>
           </div>
         </div>

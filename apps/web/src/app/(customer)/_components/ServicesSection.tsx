@@ -9,7 +9,9 @@
  * Description  : Server component that resolves homepage service category cards
  *                from Payload CMS (active, ordered) and renders the horizontal
  *                snap-scroll row. Falls back to curated hardcoded cards when the
- *                CMS is unconfigured, unreachable, or empty.
+ *                CMS is unconfigured, unreachable, or empty. Rebuilt on the
+ *                shadcn/ui Button primitive with a motion Reveal header and
+ *                lucide chevrons.
  *
  * Responsibilities :
  * - Fetch active service cards via the CMS read seam (getServiceCards)
@@ -19,38 +21,44 @@
  * Features / Functionality :
  * - CMS-first content with curated fallback (Hair, Spa, Bridal, Nails)
  * - Snap-mandatory horizontal scroll with hidden scrollbar
- * - Bare nudging gold chevron affordance on mobile/tablet — no fade, no circle
+ * - Bare nudging gold chevron affordance on mobile/tablet
  * - Hover image zoom + gap-grow Book affordance
  *
- * Tech Stack   : React (server), Next.js 16 (App Router), Tailwind CSS v4
+ * Tech Stack   : React (server), Next.js 16 (App Router), Tailwind CSS v4,
+ *                shadcn/ui, motion, lucide-react
  * Layer        : Presentation (Component)
  *
- * Dependencies : @/lib/cms/client, @/lib/cms/types, next/link
+ * Dependencies : @/lib/cms/client, @/lib/cms/types, @/components/ui/button,
+ *                @/components/ui/motion/reveal, lucide-react, next/link
  *
  * Notes        :
  * - The bare arrow is intentionally minimal per premium salon UX standards.
  * - Owner adds cards in Payload → appear here within the ISR window.
  ************************************************************/
+import { Button } from '@/components/ui/button'
+import { Reveal } from '@/components/ui/motion/reveal'
 import { FALLBACK_SERVICE_CARDS, getServiceCards } from '@/lib/cms/client'
 import type { ServiceCardItem } from '@/lib/cms/types'
+import { ArrowRight, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 
 function ServiceCard({ card }: { card: ServiceCardItem }) {
   return (
-    <article className="flex-shrink-0 w-[280px] md:w-[300px] aspect-[3/4] relative rounded-[12px] overflow-hidden snap-start group cursor-pointer">
+    <article className="group relative aspect-[3/4] w-[280px] shrink-0 cursor-pointer snap-start overflow-hidden rounded-[12px] md:w-[300px]">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={card.image.url}
         alt={card.imageAlt}
-        className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+        className="absolute inset-0 size-full object-cover transition-transform duration-500 group-hover:scale-110"
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-6 md:p-8">
-        <h3 className="font-display font-bold text-2xl text-white mb-1">{card.name}</h3>
-        <p className="font-sans text-white/80 text-sm mb-5">From {card.fromPrice}</p>
+      <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 via-black/20 to-transparent p-6 md:p-8">
+        <h3 className="mb-1 font-display text-2xl font-bold text-white">{card.name}</h3>
+        <p className="mb-5 font-sans text-sm text-white/80">From {card.fromPrice}</p>
         <Link
           href={card.bookingHref}
-          className="font-ui font-bold text-sm flex items-center gap-2 text-white group-hover:gap-3 transition-all duration-200"
+          className="flex items-center gap-2 font-ui text-sm font-bold text-white transition-all duration-200 group-hover:gap-3"
         >
-          Book <span aria-hidden="true">→</span>
+          Book <ArrowRight className="size-4" aria-hidden="true" />
         </Link>
       </div>
     </article>
@@ -64,30 +72,34 @@ export async function ServicesSection() {
   return (
     <section
       aria-labelledby="services-heading"
-      className="px-4 md:px-8 py-16 mx-auto w-full max-w-[1280px]"
+      className="mx-auto w-full max-w-[1280px] px-4 py-16 md:px-8"
     >
-      <div className="flex justify-between items-end mb-10">
+      <Reveal className="mb-10 flex items-end justify-between" as="div">
         <div>
           <h2
             id="services-heading"
-            className="font-display font-black text-cocoa-dark text-[clamp(28px,4vw,40px)] tracking-tight leading-[1.1]"
+            className="font-display text-[clamp(28px,4vw,40px)] font-black leading-[1.1] tracking-tight text-cocoa-dark"
           >
             See what Royal Glow can do for you
           </h2>
-          <p className="font-sans text-warm-gray mt-2">
+          <p className="mt-2 font-sans text-warm-gray">
             Expert-led treatments tailored to your needs.
           </p>
         </div>
-        <Link
-          href="/services"
-          className="hidden sm:flex items-center gap-1 font-ui font-bold text-sm text-cocoa-dark hover:text-deep-gold transition-colors duration-200"
+        <Button
+          asChild
+          variant="link"
+          className="hidden font-ui font-bold text-cocoa-dark hover:text-deep-gold sm:inline-flex"
         >
-          View all services <span aria-hidden="true">→</span>
-        </Link>
-      </div>
+          <Link href="/services">
+            View all services
+            <ArrowRight data-icon="inline-end" aria-hidden="true" />
+          </Link>
+        </Button>
+      </Reveal>
 
       <div className="relative">
-        <div className="flex overflow-x-auto gap-5 snap-x snap-mandatory pb-1 scrollbar-hide">
+        <div className="scrollbar-hide flex snap-x snap-mandatory gap-5 overflow-x-auto pb-1">
           {cards.map((card) => (
             <ServiceCard key={card.id} card={card} />
           ))}
@@ -95,30 +107,19 @@ export async function ServicesSection() {
 
         <div
           aria-hidden="true"
-          className="lg:hidden pointer-events-none absolute right-0 top-1/2 -translate-y-1/2"
+          className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 lg:hidden"
         >
-          <svg
-            className="rg-scroll-hint h-5 w-5 text-deep-gold"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="m9 18 6-6-6-6" />
-          </svg>
+          <ChevronRight className="rg-scroll-hint size-5 text-deep-gold" aria-hidden="true" />
         </div>
       </div>
 
       <div className="mt-6 sm:hidden">
-        <Link
-          href="/services"
-          className="font-ui font-bold text-sm text-deep-gold hover:text-cocoa-dark transition-colors duration-200"
-        >
-          View all services →
-        </Link>
+        <Button asChild variant="link" className="px-0 font-ui font-bold text-deep-gold">
+          <Link href="/services">
+            View all services
+            <ArrowRight data-icon="inline-end" aria-hidden="true" />
+          </Link>
+        </Button>
       </div>
     </section>
   )

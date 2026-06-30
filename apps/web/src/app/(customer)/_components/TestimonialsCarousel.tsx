@@ -10,7 +10,8 @@
  *                pre-resolved list of reviews (CMS-driven or fallback) from the
  *                TestimonialsSection server component and renders them. Desktop
  *                shows 3 cards side-by-side; mobile/tablet shows 1 card at a
- *                time in a horizontal scroll-snap row (never stacks vertically).
+ *                time in a horizontal scroll-snap row. Rebuilt on the shadcn/ui
+ *                Button primitive with lucide star icons.
  *
  * Responsibilities :
  * - Render the testimonials section header + carousel track + dot indicators
@@ -24,10 +25,12 @@
  * - Active dot highlights current card; clicking a dot jumps to that card
  * - prefers-reduced-motion: auto-advance disabled, manual scroll still works
  *
- * Tech Stack   : React (client), Next.js 16 (App Router), Tailwind CSS v4
+ * Tech Stack   : React (client), Next.js 16 (App Router), Tailwind CSS v4,
+ *                shadcn/ui, lucide-react
  * Layer        : Presentation (Component)
  *
- * Dependencies : next/link, react, @/lib/cms/types
+ * Dependencies : next/link, react, @/lib/cms/types, @/components/ui/button,
+ *                lucide-react
  *
  * Notes        :
  * - Data (CMS-first + fallback) is resolved by the parent server component.
@@ -37,7 +40,9 @@
 
 'use client'
 
+import { Button } from '@/components/ui/button'
 import type { Testimonial } from '@/lib/cms/types'
+import { ArrowRight, Star } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
@@ -48,17 +53,12 @@ function StarRating({ count }: { count: number }) {
   return (
     <div className="flex items-center gap-0.5" aria-label={`${count} out of 5 stars`}>
       {Array.from({ length: count }).map((_, i) => (
-        <svg
+        <Star
           // biome-ignore lint/suspicious/noArrayIndexKey: fixed star array, order never changes
           key={`star-${i}`}
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="#D4AF37"
+          className="size-3.5 fill-deep-gold text-deep-gold"
           aria-hidden="true"
-        >
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-        </svg>
+        />
       ))}
     </div>
   )
@@ -86,8 +86,7 @@ export function TestimonialsCarousel({ reviews }: { reviews: Testimonial[] }) {
   /**
    * Scroll the carousel track to a given card index by setting scrollLeft
    * directly on the container element. This ONLY moves the scroll position
-   * inside the carousel — it never touches the page scroll position, so it
-   * cannot hijack or jump the user away from where they are on the page.
+   * inside the carousel — it never touches the page scroll position.
    */
   const scrollToIndex = useCallback((index: number) => {
     const track = trackRef.current
@@ -121,35 +120,37 @@ export function TestimonialsCarousel({ reviews }: { reviews: Testimonial[] }) {
   return (
     <section
       aria-labelledby="testimonials-heading"
-      className="px-4 md:px-8 py-16 mx-auto w-full max-w-[1280px]"
+      className="mx-auto w-full max-w-[1280px] px-4 py-16 md:px-8"
     >
       {/* Header */}
       <div className="mb-10">
-        <p className="font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-deep-gold mb-2">
+        <p className="mb-2 font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-deep-gold">
           Testimonials
         </p>
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <h2
             id="testimonials-heading"
-            className="font-display font-black text-cocoa-dark text-[clamp(28px,4vw,40px)] tracking-tight leading-[1.1]"
+            className="font-display text-[clamp(28px,4vw,40px)] font-black leading-[1.1] tracking-tight text-cocoa-dark"
           >
             Real reviews from real people
           </h2>
-          <Link
-            href="https://maps.google.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-ui font-bold text-sm flex items-center gap-1 text-cocoa-dark hover:text-deep-gold transition-colors duration-200 whitespace-nowrap"
+          <Button
+            asChild
+            variant="link"
+            className="whitespace-nowrap font-ui font-bold text-cocoa-dark hover:text-deep-gold"
           >
-            See all on Google <span aria-hidden="true">→</span>
-          </Link>
+            <Link href="https://maps.google.com" target="_blank" rel="noopener noreferrer">
+              See all on Google
+              <ArrowRight data-icon="inline-end" aria-hidden="true" />
+            </Link>
+          </Button>
         </div>
       </div>
 
       {/* Carousel track — overflow-y must be visible so hover lift is not clipped */}
       <div
         ref={trackRef}
-        className="flex overflow-x-auto overflow-y-visible gap-5 snap-x snap-mandatory scrollbar-hide pb-1 py-2"
+        className="scrollbar-hide flex snap-x snap-mandatory gap-5 overflow-x-auto overflow-y-visible py-2 pb-1"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
         onFocusCapture={() => setPaused(true)}
@@ -162,14 +163,14 @@ export function TestimonialsCarousel({ reviews }: { reviews: Testimonial[] }) {
             ref={(el) => {
               itemRefs.current[i] = el
             }}
-            className="flex-shrink-0 w-[85vw] sm:w-[380px] md:w-[calc(33.333%-14px)] snap-start border border-outline-gray rounded-2xl p-7 hover:border-deep-gold hover:-translate-y-[2px] hover:shadow-card-hover motion-safe:transition-all motion-safe:duration-200"
+            className="w-[85vw] shrink-0 snap-start rounded-2xl border border-outline-gray p-7 transition-all duration-200 hover:-translate-y-0.5 hover:border-deep-gold hover:shadow-card-hover motion-reduce:transition-none sm:w-[380px] md:w-[calc(33.333%-14px)]"
             aria-label={`Review by ${review.reviewerName}`}
           >
-            <div className="flex justify-between items-center mb-4">
+            <div className="mb-4 flex items-center justify-between">
               <h3 className="font-sans font-bold text-cocoa-dark">{review.reviewerName}</h3>
               <StarRating count={review.rating} />
             </div>
-            <blockquote className="font-sans text-sm leading-relaxed text-warm-gray mb-5">
+            <blockquote className="mb-5 font-sans text-sm leading-relaxed text-warm-gray">
               {review.reviewText}
             </blockquote>
             {review.timeLabel !== '' && (
@@ -183,7 +184,7 @@ export function TestimonialsCarousel({ reviews }: { reviews: Testimonial[] }) {
 
       {/* Dot indicators */}
       <div
-        className="flex justify-center gap-2 mt-6"
+        className="mt-6 flex justify-center gap-2"
         role="tablist"
         aria-label="Testimonial navigation"
       >
@@ -196,7 +197,7 @@ export function TestimonialsCarousel({ reviews }: { reviews: Testimonial[] }) {
             aria-selected={activeIndex === i}
             aria-label={`Go to review ${i + 1}`}
             onClick={() => scrollToIndex(i)}
-            className={`h-2 rounded-full transition-all duration-300 motion-safe:transition-all ${
+            className={`h-2 rounded-full transition-all duration-300 ${
               activeIndex === i ? 'w-6 bg-deep-gold' : 'w-2 bg-outline-gray hover:bg-warm-stone'
             }`}
           />

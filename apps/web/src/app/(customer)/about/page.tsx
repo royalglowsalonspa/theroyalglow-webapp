@@ -1,13 +1,15 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 08-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : AboutPage
  * Scope        : Customer Pages
  *
  * Description  : About Us page showcasing the brand story, core values, and
- *                team members of Royal Glow Salon & Spa.
+ *                team members of Royal Glow Salon & Spa. Rebuilt on the
+ *                shadcn/ui Card + Button + Badge primitives with motion Reveal
+ *                entrances and lucide value icons.
  *
  * Responsibilities :
  * - Present the brand story and founding narrative
@@ -19,21 +21,29 @@
  * - Values grid with hover card effects
  * - Team section with CMS-driven or fallback team data
  *
- * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, JSON-LD
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, shadcn/ui,
+ *                motion, lucide-react, JSON-LD
  * Layer        : Presentation
  *
- * Dependencies : JsonLd, getTeamMembers, SITE_URL, breadcrumbJsonLd, localBusinessJsonLd, buildMetadata, next/link
+ * Dependencies : JsonLd, getTeamMembers, SEO helpers, @/components/ui/*,
+ *                @/components/ui/motion/reveal, lucide-react, next/link
  *
  * Notes        :
  * - ISR with 1-hour revalidation for team member content from CMS
  ************************************************************/
 
 import { JsonLd } from '@/components/seo/JsonLd'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Reveal, RevealGroup, RevealItem } from '@/components/ui/motion/reveal'
 import { getTeamMembers } from '@/lib/cms/client'
 import type { TeamMember } from '@/lib/cms/types'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, localBusinessJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
+import { Crown, Leaf, Sparkles } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
@@ -46,21 +56,21 @@ export const metadata: Metadata = buildMetadata({
 
 export const revalidate = 3600
 
-const values = [
+const values: { icon: LucideIcon; title: string; description: string }[] = [
   {
-    icon: '✨',
+    icon: Sparkles,
     title: 'Premium Quality',
     description:
       "We use only the finest products from trusted brands like L'Oréal, Schwarzkopf, and Olaplex to deliver results that exceed expectations.",
   },
   {
-    icon: '👑',
+    icon: Crown,
     title: 'Expert Team',
     description:
       'Our stylists and therapists are trained professionals with years of experience in the latest techniques and trends.',
   },
   {
-    icon: '🌿',
+    icon: Leaf,
     title: 'Relaxing Ambiance',
     description:
       'Step into a space designed for calm and comfort — warm lighting, soothing music, and an atmosphere that lets you unwind completely.',
@@ -103,30 +113,24 @@ export default async function AboutPage() {
           breadcrumbJsonLd([{ name: 'Home', url: SITE_URL }, { name: 'About' }]),
         ]}
       />
-      {/* ═══════════════════════════════════════════════════════ */}
-      {/* HERO SECTION */}
-      {/* ═══════════════════════════════════════════════════════ */}
+
+      {/* ── HERO ── */}
       <section aria-labelledby="about-hero-heading" className="px-5">
-        <div className="mx-auto max-w-[1278px] mt-6 lg:mt-10">
-          <div className="bg-cocoa-dark rounded-[6px] p-8 sm:p-12 lg:p-16">
-            {/* Eyebrow */}
-            <div className="flex items-center gap-2 mb-6">
-              <span className="w-2 h-2 rounded-full bg-royal-gold" aria-hidden="true" />
+        <Reveal className="mx-auto mt-6 max-w-[1278px] lg:mt-10" as="div">
+          <div className="rounded-[6px] bg-cocoa-dark p-8 sm:p-12 lg:p-16">
+            <div className="mb-6 flex items-center gap-2">
+              <span className="size-2 rounded-full bg-royal-gold" aria-hidden="true" />
               <span className="font-ui text-[11px] uppercase tracking-[2px] text-warm-stone">
                 About Us
               </span>
             </div>
-
-            {/* Headline */}
             <h1
               id="about-hero-heading"
-              className="font-display text-canvas-white tracking-[-1.44px] leading-[1.03] text-[clamp(40px,6vw,72px)] max-w-[600px]"
+              className="max-w-[600px] font-display font-black text-[clamp(40px,6vw,72px)] leading-[1.03] tracking-[-1.44px] text-canvas-white"
             >
               Our Story
             </h1>
-
-            {/* Description */}
-            <p className="font-sans text-[17px] leading-[1.6] text-dusty-gray mt-6 max-w-[560px]">
+            <p className="mt-6 max-w-[560px] font-sans text-[17px] leading-[1.6] text-dusty-gray">
               Royal Glow Salon & Spa was born from a simple belief — that everyone deserves to feel
               like royalty. Founded by Roshini in Bengaluru, we set out to create a premium beauty
               and wellness destination where expert care meets a truly relaxing experience. Every
@@ -134,126 +138,131 @@ export default async function AboutPage() {
               visit exceptional.
             </p>
           </div>
-        </div>
+        </Reveal>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════ */}
-      {/* VALUES SECTION */}
-      {/* ═══════════════════════════════════════════════════════ */}
+      {/* ── VALUES ── */}
       <section aria-labelledby="values-heading" className="px-5">
         <div className="mx-auto max-w-[1278px]">
-          <h2
-            id="values-heading"
-            className="font-display text-cocoa-dark text-[clamp(32px,4.5vw,48px)] tracking-[-0.96px] leading-[1.1]"
-          >
-            What We Stand For
-          </h2>
+          <Reveal as="div">
+            <h2
+              id="values-heading"
+              className="font-display font-black text-[clamp(32px,4.5vw,48px)] leading-[1.1] tracking-[-0.96px] text-cocoa-dark"
+            >
+              What We Stand For
+            </h2>
+          </Reveal>
 
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <RevealGroup className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
             {values.map((value) => (
-              <article
-                key={value.title}
-                className="bg-canvas-white border border-cloud-gray rounded-[6px] p-6 motion-safe:transition-all motion-safe:duration-250 hover:border-golden-mist hover:-translate-y-[2px] hover:shadow-card-hover"
-              >
-                <span className="text-3xl" aria-hidden="true">
-                  {value.icon}
-                </span>
-                <h3 className="font-display text-cocoa-dark text-lg mt-3">{value.title}</h3>
-                <p className="font-sans text-[15px] leading-[1.55] text-warm-gray mt-2">
-                  {value.description}
-                </p>
-              </article>
+              <RevealItem key={value.title}>
+                <Card className="h-full gap-3 p-6 transition-all duration-200 hover:-translate-y-0.5 hover:border-golden-mist hover:shadow-card-hover">
+                  <span
+                    className="flex size-11 items-center justify-center rounded-full bg-warm-cream text-deep-gold"
+                    aria-hidden="true"
+                  >
+                    <value.icon className="size-5" />
+                  </span>
+                  <h3 className="mt-1 font-display text-lg text-cocoa-dark">{value.title}</h3>
+                  <p className="font-sans text-[15px] leading-[1.55] text-warm-gray">
+                    {value.description}
+                  </p>
+                </Card>
+              </RevealItem>
             ))}
-          </div>
+          </RevealGroup>
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════ */}
-      {/* TEAM SECTION */}
-      {/* ═══════════════════════════════════════════════════════ */}
+      {/* ── TEAM ── */}
       <section aria-labelledby="team-heading" className="px-5">
         <div className="mx-auto max-w-[1278px]">
-          <h2
-            id="team-heading"
-            className="font-display text-cocoa-dark text-[clamp(32px,4.5vw,48px)] tracking-[-0.96px] leading-[1.1]"
-          >
-            Meet Our Team
-          </h2>
-          <p className="font-sans text-[17px] leading-[1.6] text-warm-gray mt-3 max-w-[520px]">
-            The talented professionals behind every transformation at Royal Glow.
-          </p>
+          <Reveal as="div">
+            <h2
+              id="team-heading"
+              className="font-display font-black text-[clamp(32px,4.5vw,48px)] leading-[1.1] tracking-[-0.96px] text-cocoa-dark"
+            >
+              Meet Our Team
+            </h2>
+            <p className="mt-3 max-w-[520px] font-sans text-[17px] leading-[1.6] text-warm-gray">
+              The talented professionals behind every transformation at Royal Glow.
+            </p>
+          </Reveal>
 
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <RevealGroup className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
             {teamMembers.map((member) => (
-              <article
-                key={member.name}
-                className="bg-canvas-white border border-cloud-gray rounded-[6px] p-6 motion-safe:transition-all motion-safe:duration-250 hover:border-golden-mist hover:-translate-y-[2px] hover:shadow-card-hover"
-              >
-                {member.photo ? (
-                  <img
-                    src={member.photo.url}
-                    alt={member.photo.alt}
-                    className="w-16 h-16 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-full bg-warm-cream flex items-center justify-center">
-                    <span className="font-display text-xl text-cocoa-dark">
-                      {member.name.charAt(0)}
-                    </span>
-                  </div>
-                )}
-                <h3 className="font-display text-cocoa-dark text-lg mt-4">{member.name}</h3>
-                <p className="font-ui text-[11px] uppercase tracking-[2px] text-deep-gold mt-1">
-                  {member.role}
-                </p>
-                {member.specializations.length > 0 && (
-                  <ul
-                    className="flex flex-wrap gap-2 mt-3"
-                    aria-label={`${member.name} specializations`}
-                  >
-                    {member.specializations.map((spec) => (
-                      <li
-                        key={spec}
-                        className="font-ui text-[10px] uppercase tracking-[0.08em] text-warm-gray bg-warm-cream px-2 py-1 rounded-full"
-                      >
-                        {spec}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <p className="font-sans text-[15px] leading-[1.55] text-warm-gray mt-3">
-                  {member.bio}
-                </p>
-              </article>
+              <RevealItem key={member.name}>
+                <Card className="h-full gap-3 p-6 transition-all duration-200 hover:-translate-y-0.5 hover:border-golden-mist hover:shadow-card-hover">
+                  {member.photo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={member.photo.url}
+                      alt={member.photo.alt}
+                      className="size-16 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex size-16 items-center justify-center rounded-full bg-warm-cream">
+                      <span className="font-display text-xl text-cocoa-dark">
+                        {member.name.charAt(0)}
+                      </span>
+                    </div>
+                  )}
+                  <h3 className="mt-1 font-display text-lg text-cocoa-dark">{member.name}</h3>
+                  <p className="font-ui text-[11px] uppercase tracking-[2px] text-deep-gold">
+                    {member.role}
+                  </p>
+                  {member.specializations.length > 0 && (
+                    <ul
+                      className="flex flex-wrap gap-2"
+                      aria-label={`${member.name} specializations`}
+                    >
+                      {member.specializations.map((spec) => (
+                        <li key={spec}>
+                          <Badge
+                            variant="secondary"
+                            className="bg-warm-cream font-ui text-[10px] uppercase tracking-[0.08em] text-warm-gray"
+                          >
+                            {spec}
+                          </Badge>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className="font-sans text-[15px] leading-[1.55] text-warm-gray">
+                    {member.bio}
+                  </p>
+                </Card>
+              </RevealItem>
             ))}
-          </div>
+          </RevealGroup>
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════ */}
-      {/* CTA SECTION */}
-      {/* ═══════════════════════════════════════════════════════ */}
+      {/* ── CTA ── */}
       <section aria-labelledby="about-cta-heading" className="px-5 pb-20">
-        <div className="mx-auto max-w-[1278px]">
-          <div className="bg-warm-cream rounded-[6px] p-8 sm:p-12 lg:p-16 text-center">
+        <Reveal className="mx-auto max-w-[1278px]" as="div">
+          <div className="rounded-[6px] bg-warm-cream p-8 text-center sm:p-12 lg:p-16">
             <h2
               id="about-cta-heading"
-              className="font-display text-cocoa-dark text-[clamp(32px,4.5vw,48px)] tracking-[-0.96px] leading-[1.1]"
+              className="font-display font-black text-[clamp(32px,4.5vw,48px)] leading-[1.1] tracking-[-0.96px] text-cocoa-dark"
             >
               Experience the Royal Glow difference
             </h2>
-            <p className="font-sans text-[17px] leading-[1.6] text-warm-gray mt-4 max-w-[440px] mx-auto">
+            <p className="mx-auto mt-4 max-w-[440px] font-sans text-[17px] leading-[1.6] text-warm-gray">
               Visit us and discover why our clients keep coming back for the royal treatment.
             </p>
-            <Link
-              href="/?book=1"
-              className="mt-8 inline-flex bg-royal-gold text-cocoa-dark font-ui text-xs uppercase tracking-[0.5px] rounded-full px-8 h-10 items-center justify-center hover:bg-deep-gold hover:-translate-y-px motion-safe:transition-all motion-safe:duration-200"
-              aria-label="Book an appointment at Royal Glow"
+            <Button
+              asChild
+              variant="gold"
+              size="lg"
+              className="mt-8 rounded-full font-ui font-bold"
             >
-              Book Now
-            </Link>
+              <Link href="/?book=1" aria-label="Book an appointment at Royal Glow">
+                Book Now
+              </Link>
+            </Button>
           </div>
-        </div>
+        </Reveal>
       </section>
     </div>
   )

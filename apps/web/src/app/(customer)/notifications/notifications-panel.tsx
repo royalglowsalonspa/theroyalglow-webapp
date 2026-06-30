@@ -30,6 +30,10 @@
 
 'use client'
 
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Bell } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
 interface NotificationRow {
@@ -116,54 +120,45 @@ export function NotificationsPanel() {
           <p className="font-ui text-[11px] uppercase tracking-[2px] text-warm-stone mb-2">
             Your activity
           </p>
-          <h1 className="font-display text-[clamp(32px,5vw,48px)] text-cocoa-dark tracking-tight leading-[1.05]">
+          <h1 className="font-display font-black text-[clamp(32px,5vw,48px)] text-cocoa-dark tracking-tight leading-[1.05]">
             Notifications
           </h1>
         </div>
         {unreadCount > 0 && (
-          <button
+          <Button
             type="button"
+            variant="link"
             onClick={markAllRead}
-            className="shrink-0 font-ui text-sm font-bold text-deep-gold transition-colors duration-150 hover:text-cocoa-dark active:scale-[0.97]"
+            className="h-auto shrink-0 p-0 font-ui text-sm font-bold text-deep-gold hover:text-cocoa-dark"
           >
             Mark all read
-          </button>
+          </Button>
         )}
       </header>
 
       {loading ? (
-        <ul className="space-y-3" aria-hidden="true">
+        <ul className="flex flex-col gap-3" aria-hidden="true">
           {[0, 1, 2, 3].map((i) => (
-            <li key={i} className="h-20 animate-pulse rounded-[6px] bg-cloud-gray" />
+            <li key={i}>
+              <Skeleton className="h-20 w-full" />
+            </li>
           ))}
         </ul>
       ) : notifications.length === 0 ? (
-        <section className="flex flex-col items-center rounded-[6px] border border-cloud-gray bg-warm-cream px-6 py-14 text-center">
+        <Card className="items-center bg-warm-cream px-6 py-14 text-center">
           <span
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-canvas-white text-deep-gold shadow-card-hover"
+            className="flex size-14 items-center justify-center rounded-full bg-canvas-white text-deep-gold shadow-card-hover"
             aria-hidden="true"
           >
-            <svg
-              className="h-7 w-7"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
+            <Bell className="size-7" strokeWidth={1.75} />
           </span>
-          <h2 className="mt-5 font-display text-[22px] text-cocoa-dark tracking-tight">
+          <h2 className="mt-5 font-display text-[22px] tracking-tight text-cocoa-dark">
             You're all caught up
           </h2>
           <p className="mt-2 max-w-[42ch] font-sans text-[15px] leading-relaxed text-warm-gray">
             Booking updates, reminders, and offers will appear here.
           </p>
-        </section>
+        </Card>
       ) : (
         <ul className="divide-y divide-cloud-gray rounded-[6px] border border-cloud-gray bg-canvas-white">
           {notifications.map((n) => {
@@ -183,7 +178,7 @@ export function NotificationsPanel() {
                         {n.title}
                       </p>
                       <time
-                        className="shrink-0 font-sans text-[11px] text-dusty-gray"
+                        className="shrink-0 font-ui text-[11px] text-dusty-gray"
                         dateTime={n.createdAt}
                       >
                         {relativeTime(n.createdAt)}

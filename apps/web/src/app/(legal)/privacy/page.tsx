@@ -51,7 +51,7 @@ export default function PrivacyPolicyPage() {
         <h1 className="mt-3 font-display text-[clamp(34px,5vw,52px)] text-cocoa-dark leading-[1.08] tracking-[-1px]">
           Privacy Policy
         </h1>
-        <p className="mt-4 text-warm-gray/80 text-sm">
+        <p className="mt-4 font-ui text-warm-gray/80 text-sm">
           Last updated: <time dateTime="2026-02-15">{LAST_UPDATED}</time>
         </p>
         <p className="mt-6">

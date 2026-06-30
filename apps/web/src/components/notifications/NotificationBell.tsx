@@ -232,12 +232,12 @@ export function NotificationBell() {
                         )}
                         <div className="min-w-0">
                           <p
-                            className={`font-sans text-sm text-cocoa-dark ${unread ? 'font-medium' : ''}`}
+                            className={`font-ui text-sm text-cocoa-dark ${unread ? 'font-medium' : ''}`}
                           >
                             {n.title}
                           </p>
                           <p className="font-sans text-xs text-warm-gray mt-0.5">{n.body}</p>
-                          <p className="font-sans text-[11px] text-dusty-gray mt-1">
+                          <p className="font-ui text-[11px] text-dusty-gray mt-1">
                             {relativeTime(n.createdAt)}
                           </p>
                         </div>

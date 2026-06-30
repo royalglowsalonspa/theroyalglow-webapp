@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 08-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : MembershipPage
@@ -8,6 +8,8 @@
  *
  * Description  : Customer SPA membership dashboard showing active membership
  *                status, hours balance, session history, and past memberships.
+ *                Rebuilt on the shadcn/ui Card + Button + Accordion primitives
+ *                with the shared font system and lucide icons.
  *
  * Responsibilities :
  * - Display active membership card with hours used/remaining/total
@@ -19,18 +21,29 @@
  * - Urgency alerts at 30-day and 7-day thresholds
  * - Empty state with call-to-action for non-members
  *
- * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, Better Auth, Drizzle ORM
+ * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, shadcn/ui,
+ *                Better Auth, Drizzle ORM, lucide-react
  * Layer        : Presentation
  *
- * Dependencies : auth, formatDateIN, getCustomerMembership, getMembershipSessions
+ * Dependencies : auth, formatDateIN, membership queries,
+ *                @/components/ui/{card,button,accordion}, lucide-react
  *
  * Notes        :
  * - Protected route; redirects to / (homepage) if no session
  ************************************************************/
 
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { auth } from '@/lib/auth-server'
 import { formatDateIN } from '@rgss/business'
 import { getCustomerMembership, getMembershipSessions } from '@rgss/db/queries'
+import { Sparkles } from 'lucide-react'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
@@ -92,10 +105,10 @@ export default async function MembershipPage() {
   return (
     <div className="mx-auto max-w-[800px] px-5 py-10 lg:py-14">
       <header className="mb-8">
-        <p className="font-ui text-[11px] uppercase tracking-[2px] text-warm-stone mb-2">
+        <p className="mb-2 font-ui text-[11px] uppercase tracking-[2px] text-warm-stone">
           Your SPA membership
         </p>
-        <h1 className="font-display text-[clamp(32px,5vw,48px)] text-cocoa-dark tracking-tight leading-[1.05]">
+        <h1 className="font-display font-black text-[clamp(32px,5vw,48px)] leading-[1.05] tracking-tight text-cocoa-dark">
           My Membership
         </h1>
       </header>
@@ -128,35 +141,30 @@ function ActiveMembershipCard({
         <UrgencyBanner daysLeft={daysLeft} remainingMinutes={remaining} />
       )}
 
-      <section
-        className="rounded-[6px] border border-cloud-gray bg-canvas-white p-6 mb-6"
-        aria-labelledby="membership-card-heading"
-      >
-        <div className="flex items-start justify-between gap-3 mb-6">
+      <Card className="mb-6 gap-6 p-6" aria-labelledby="membership-card-heading">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <h2
               id="membership-card-heading"
-              className="font-display text-[24px] text-cocoa-dark tracking-tight leading-tight"
+              className="font-display text-[24px] leading-tight tracking-tight text-cocoa-dark"
             >
               {membership.tierNameSnapshot} Membership
             </h2>
-            <p className="font-ui text-[13px] text-warm-stone tracking-[0.5px] mt-1">
+            <p className="mt-1 font-ui text-[13px] tracking-[0.5px] text-warm-stone">
               #{membership.membershipNumber}
             </p>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-ui text-emerald-700">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 font-ui text-[11px] text-emerald-700">
+            <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
             Active
           </span>
         </div>
 
-        {/* Hours balance bar. The bar itself is decorative (aria-hidden); the
-            adjacent visually-hidden text conveys the same information to screen
-            readers, avoiding a focusable static progressbar. */}
-        <div className="mb-6">
+        {/* Hours balance bar (decorative; sr-only text conveys the same data). */}
+        <div>
           <div className="h-3 w-full overflow-hidden rounded-full bg-cloud-gray" aria-hidden="true">
             <div
-              className="h-full rounded-full bg-royal-gold motion-safe:transition-[width] duration-500"
+              className="h-full rounded-full bg-royal-gold transition-[width] duration-500 motion-reduce:transition-none"
               style={{ width: `${usedPct}%` }}
             />
           </div>
@@ -166,7 +174,7 @@ function ActiveMembershipCard({
           </p>
           <dl className="mt-4 grid grid-cols-3 gap-3">
             <div className="rounded-[6px] bg-warm-cream px-4 py-3">
-              <dt className="font-ui text-[11px] uppercase tracking-[1px] text-warm-stone mb-1">
+              <dt className="mb-1 font-ui text-[11px] uppercase tracking-[1px] text-warm-stone">
                 Used
               </dt>
               <dd className="font-display text-[20px] text-cocoa-dark">
@@ -174,7 +182,7 @@ function ActiveMembershipCard({
               </dd>
             </div>
             <div className="rounded-[6px] bg-warm-cream px-4 py-3">
-              <dt className="font-ui text-[11px] uppercase tracking-[1px] text-warm-stone mb-1">
+              <dt className="mb-1 font-ui text-[11px] uppercase tracking-[1px] text-warm-stone">
                 Remaining
               </dt>
               <dd className="font-display text-[20px] text-deep-gold">
@@ -182,7 +190,7 @@ function ActiveMembershipCard({
               </dd>
             </div>
             <div className="rounded-[6px] bg-warm-cream px-4 py-3">
-              <dt className="font-ui text-[11px] uppercase tracking-[1px] text-warm-stone mb-1">
+              <dt className="mb-1 font-ui text-[11px] uppercase tracking-[1px] text-warm-stone">
                 Total
               </dt>
               <dd className="font-display text-[20px] text-cocoa-dark">
@@ -195,20 +203,22 @@ function ActiveMembershipCard({
         {/* Validity */}
         <div className="border-t border-cloud-gray pt-4">
           <p className="font-sans text-[15px] text-cocoa-dark">
-            <span className="font-ui text-[11px] uppercase tracking-[1px] text-warm-stone mr-2">
+            <span className="mr-2 font-ui text-[11px] uppercase tracking-[1px] text-warm-stone">
               Valid until
             </span>
             {expiresAt ? (
-              <time dateTime={expiresAt.toISOString().slice(0, 10)}>{formatDateIN(expiresAt)}</time>
+              <time className="font-ui" dateTime={expiresAt.toISOString().slice(0, 10)}>
+                {formatDateIN(expiresAt)}
+              </time>
             ) : (
               '—'
             )}
             {daysLeft !== null && daysLeft > 0 && (
-              <span className="text-dusty-gray"> · {daysLeft} days left</span>
+              <span className="font-ui text-dusty-gray"> · {daysLeft} days left</span>
             )}
           </p>
         </div>
-      </section>
+      </Card>
 
       <SessionHistory sessions={sessions} />
     </>
@@ -228,12 +238,12 @@ function UrgencyBanner({
   return (
     <section
       role="alert"
-      className={`rounded-[6px] border px-5 py-4 mb-6 ${
+      className={`mb-6 rounded-[6px] border px-5 py-4 ${
         urgent ? 'border-red-300 bg-red-50' : 'border-amber-200 bg-amber-50'
       }`}
     >
       <p
-        className={`font-ui text-[13px] uppercase tracking-[0.5px] mb-1 ${
+        className={`mb-1 font-ui text-[13px] uppercase tracking-[0.5px] ${
           urgent ? 'text-red-800' : 'text-amber-800'
         }`}
       >
@@ -246,7 +256,7 @@ function UrgencyBanner({
       </p>
       <a
         href={`tel:${SALON_PHONE}`}
-        className={`inline-flex items-center mt-3 font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-5 py-2 motion-safe:transition-colors duration-200 ${
+        className={`mt-3 inline-flex items-center rounded-full px-5 py-2 font-ui text-[12px] uppercase tracking-[0.5px] transition-colors duration-200 motion-reduce:transition-none ${
           urgent
             ? 'bg-red-600 text-white hover:bg-red-700'
             : 'bg-royal-gold text-cocoa-dark hover:bg-deep-gold'
@@ -263,17 +273,17 @@ function SessionHistory({ sessions }: { sessions: MembershipSession[] }) {
     <section className="mb-6" aria-labelledby="session-history-heading">
       <h2
         id="session-history-heading"
-        className="font-display text-[20px] text-cocoa-dark tracking-tight mb-4"
+        className="mb-4 font-display text-[20px] tracking-tight text-cocoa-dark"
       >
         Session history
       </h2>
 
       {sessions.length === 0 ? (
-        <p className="font-sans text-[15px] text-dusty-gray py-4">
+        <p className="py-4 font-sans text-[15px] text-dusty-gray">
           No sessions recorded yet. Book your first SPA session to get started.
         </p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="flex flex-col gap-3">
           {sessions.map((s) => {
             const bookingDate = toDate(s.bookingDate)
             const serviceNames = s.services.map((svc) => svc.serviceNameSnapshot).join(', ')
@@ -286,9 +296,9 @@ function SessionHistory({ sessions }: { sessions: MembershipSession[] }) {
             ].join(', ')
             return (
               <li key={s.id}>
-                <article className="flex items-center justify-between gap-3 rounded-[6px] border border-cloud-gray bg-canvas-white px-4 py-3">
+                <Card className="flex-row items-center justify-between gap-3 px-4 py-3">
                   <div className="min-w-0">
-                    <p className="font-sans text-[15px] text-cocoa-dark truncate">
+                    <p className="truncate font-sans text-[15px] text-cocoa-dark">
                       {serviceNames || 'SPA session'}
                     </p>
                     <p className="font-sans text-[12px] text-dusty-gray">
@@ -302,10 +312,10 @@ function SessionHistory({ sessions }: { sessions: MembershipSession[] }) {
                       {staffNames ? ` · ${staffNames}` : ''}
                     </p>
                   </div>
-                  <span className="font-ui text-[14px] whitespace-nowrap text-deep-gold">
+                  <span className="whitespace-nowrap font-ui text-[14px] text-deep-gold">
                     {formatHoursMinutes(s.totalDurationMinutes)}
                   </span>
-                </article>
+                </Card>
               </li>
             )
           })}
@@ -318,72 +328,70 @@ function SessionHistory({ sessions }: { sessions: MembershipSession[] }) {
 function PastMemberships({ memberships }: { memberships: PastMembership[] }) {
   return (
     <section aria-labelledby="past-memberships-heading">
-      <details className="rounded-[6px] border border-cloud-gray bg-canvas-white">
-        <summary className="cursor-pointer list-none px-5 py-4 font-ui text-[13px] uppercase tracking-[0.5px] text-cocoa-dark marker:content-none">
-          <span id="past-memberships-heading">Past memberships ({memberships.length})</span>
-        </summary>
-        <ul className="border-t border-cloud-gray divide-y divide-cloud-gray">
-          {memberships.map((m) => {
-            const startsAt = toDate(m.startsAt)
-            const expiresAt = toDate(m.expiresAt)
-            return (
-              <li key={m.id} className="px-5 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-sans text-[15px] text-cocoa-dark">
-                      {m.tierNameSnapshot}
-                      <span className="text-dusty-gray text-[13px]">
-                        {' · '}#{m.membershipNumber}
+      <Accordion type="single" collapsible className="rounded-[6px] border border-cloud-gray px-5">
+        <AccordionItem value="past" className="border-b-0">
+          <AccordionTrigger className="font-ui text-[13px] uppercase tracking-[0.5px] text-cocoa-dark hover:no-underline">
+            <span id="past-memberships-heading">Past memberships ({memberships.length})</span>
+          </AccordionTrigger>
+          <AccordionContent className="pb-2">
+            <ul className="divide-y divide-cloud-gray border-t border-cloud-gray">
+              {memberships.map((m) => {
+                const startsAt = toDate(m.startsAt)
+                const expiresAt = toDate(m.expiresAt)
+                return (
+                  <li key={m.id} className="py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-sans text-[15px] text-cocoa-dark">
+                          {m.tierNameSnapshot}
+                          <span className="text-[13px] text-dusty-gray">
+                            {' · '}#{m.membershipNumber}
+                          </span>
+                        </p>
+                        <p className="font-sans text-[12px] text-dusty-gray">
+                          {startsAt ? formatDateIN(startsAt) : '—'}
+                          {' – '}
+                          {expiresAt ? formatDateIN(expiresAt) : '—'}
+                          {' · '}
+                          {formatHoursMinutes(m.usedHoursMinutes)} of{' '}
+                          {formatHoursMinutes(m.totalHoursMinutes)} used
+                        </p>
+                      </div>
+                      <span className="whitespace-nowrap font-ui text-[11px] uppercase tracking-[0.5px] text-warm-stone">
+                        {PAST_STATUS_LABELS[m.status] ?? m.status}
                       </span>
-                    </p>
-                    <p className="font-sans text-[12px] text-dusty-gray">
-                      {startsAt ? formatDateIN(startsAt) : '—'}
-                      {' – '}
-                      {expiresAt ? formatDateIN(expiresAt) : '—'}
-                      {' · '}
-                      {formatHoursMinutes(m.usedHoursMinutes)} of{' '}
-                      {formatHoursMinutes(m.totalHoursMinutes)} used
-                    </p>
-                  </div>
-                  <span className="font-ui text-[11px] uppercase tracking-[0.5px] text-warm-stone whitespace-nowrap">
-                    {PAST_STATUS_LABELS[m.status] ?? m.status}
-                  </span>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
-      </details>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
     </section>
   )
 }
 
 function EmptyState() {
   return (
-    <section className="flex flex-col items-center justify-center rounded-[6px] border border-cloud-gray bg-canvas-white py-16 px-6 text-center">
-      <div className="w-16 h-16 rounded-full bg-warm-cream flex items-center justify-center mb-5">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path
-            d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 21l-4.9-2.6.9-5.5-4-3.9 5.5-.8L12 3z"
-            stroke="#C8A961"
-            strokeWidth="1.5"
-            strokeLinejoin="round"
-          />
-        </svg>
+    <Card className="items-center justify-center px-6 py-16 text-center">
+      <div className="mb-5 flex size-16 items-center justify-center rounded-full bg-warm-cream text-deep-gold">
+        <Sparkles className="size-7" strokeWidth={1.5} aria-hidden="true" />
       </div>
-      <p className="font-sans text-[16px] text-cocoa-dark mb-2">
+      <p className="mb-2 font-sans text-[16px] text-cocoa-dark">
         You don't have an active membership
       </p>
-      <p className="font-sans text-[14px] text-dusty-gray mb-6 max-w-[420px]">
+      <p className="mb-6 max-w-[420px] font-sans text-[14px] text-dusty-gray">
         SPA memberships give you pre-paid hours across all our SPA services. Call us to find the
         tier that suits you.
       </p>
-      <a
-        href={`tel:${SALON_PHONE}`}
-        className="font-ui text-[12px] uppercase tracking-[0.5px] rounded-full px-8 py-3 bg-royal-gold text-cocoa-dark hover:bg-deep-gold hover:-translate-y-px motion-safe:transition-all duration-200"
+      <Button
+        asChild
+        variant="gold"
+        className="rounded-full font-ui text-[12px] uppercase tracking-[0.5px]"
       >
-        Call us · {SALON_PHONE_DISPLAY}
-      </a>
-    </section>
+        <a href={`tel:${SALON_PHONE}`}>Call us · {SALON_PHONE_DISPLAY}</a>
+      </Button>
+    </Card>
   )
 }

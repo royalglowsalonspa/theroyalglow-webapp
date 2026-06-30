@@ -28,7 +28,9 @@
  ************************************************************/
 
 import { RealtimeProvider } from '@/components/realtime/RealtimeProvider'
+import { Button } from '@/components/ui/button'
 import { getOptionalSession } from '@/lib/api/session'
+import { ArrowLeft } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { BookingDetail } from './booking-detail'
@@ -56,12 +58,16 @@ export default async function BookingDetailPage({ params }: PageProps) {
 
   return (
     <div className="mx-auto max-w-[800px] px-5 py-10 lg:py-14">
-      <Link
-        href="/bookings"
-        className="font-ui text-[12px] uppercase tracking-[0.5px] text-warm-gray hover:text-cocoa-dark motion-safe:transition-colors duration-200"
+      <Button
+        asChild
+        variant="link"
+        className="h-auto px-0 font-ui text-[12px] uppercase tracking-[0.5px] text-warm-gray hover:text-cocoa-dark"
       >
-        ← Back to My Bookings
-      </Link>
+        <Link href="/bookings">
+          <ArrowLeft data-icon="inline-start" aria-hidden="true" />
+          Back to My Bookings
+        </Link>
+      </Button>
 
       {/* Scope the Ably connection to this booking view only — no global
           connection. The provider degrades gracefully (children render and the
