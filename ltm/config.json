@@ -1,0 +1,29 @@
+{
+  "created_by": "ltm-power",
+  "version": "1.0.0",
+  "created_at": "2026-06-30T20:39:21Z",
+  "python_cmd": "python",
+  "schema_version": 1,
+  "exclude_paths": ["ltm/**", "node_modules/**", "dist/**", "build/**", ".next/**", "coverage/**"],
+  "sensitive_path_patterns": [
+    ".env*",
+    "secrets/**",
+    "credentials/**",
+    ".aws/**",
+    ".ssh/**",
+    ".kube/**",
+    "*.pem",
+    "*.key",
+    "*.p12",
+    "*.pfx",
+    "*.crt",
+    "*.cert",
+    "id_rsa",
+    "id_ed25519",
+    "kubeconfig"
+  ],
+  "session_timeout_minutes": 60,
+  "max_recent_files": 15,
+  "event_retention_days": 30,
+  "semantic_checkpoint_warn_hours": 8
+}
