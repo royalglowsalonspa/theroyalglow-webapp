@@ -68,3 +68,10 @@ cloudflare-env.d.ts
 # Local Workers dev secrets (mirrors .env.local; never commit).
 .dev.vars
 .dev.vars.*
+
+# --- ltm-power ---
+ltm/store/*.jsonl
+ltm/runtime/*
+ltm/reports/*
+ltm/snapshots/*
+# --- /ltm-power ---

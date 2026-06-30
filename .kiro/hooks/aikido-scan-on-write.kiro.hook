@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Aikido Scan on Write",
+  "description": "Runs an Aikido security scan after any file is written or modified",
+  "version": "1",
+  "when": {
+    "type": "postToolUse",
+    "toolTypes": [
+      "write"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A file was just written or modified. Activate the aikido-kiro-power and run aikido_full_scan on all files that were created or modified in this session. Fix any findings and rescan to verify."
+  }
+}
