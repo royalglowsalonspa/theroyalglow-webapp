@@ -209,9 +209,12 @@ jobs:
         env:
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2
           TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1
-      - name: Socket.dev supply chain check
-        uses: SocketDev/socket-security-action@v1
-        continue-on-error: true
+      # NOTE: the former `SocketDev/socket-security-action@v1` step was removed —
+      # that action repo no longer resolves ("repository not found"), and an
+      # unresolvable action fails the whole job at "Set up job" BEFORE any step
+      # runs, so `continue-on-error` could not save it (that only applies once a
+      # step executes). Socket.dev supply-chain coverage, if wanted, is now via
+      # the Socket GitHub App, not a workflow action.
 
   # ---------------------------------------------------------------------------
   # Cutover guards (admin-subdomain-migration) — Req 2.2, 2.7, 9.1, 9.2, 14.5,
