@@ -57,6 +57,39 @@ neonConfig.fetchFunction = async (input: unknown, init: unknown): Promise<Respon
   throw lastError
 }
 
-// biome-ignore lint/style/noNonNullAssertion: Required env var validated at app startup
-const sql = neon(process.env.DATABASE_URL!)
-export const db = drizzle(sql)
+/**
+ * Lazy client initialization.
+ *
+ * `neon()` MUST NOT run at module load. Next.js `build` collects page data by
+ * importing every route module, and OpenNext builds with `SKIP_ENV_VALIDATION=1`
+ * and no `DATABASE_URL` in the build env. A module-level `neon(process.env.DATABASE_URL!)`
+ * therefore threw `No database connection string was provided to `neon()`` during
+ * `next build` (page-data collection for `/api/health`), failing the Cloudflare
+ * Worker deploy before the Worker was ever created.
+ *
+ * A Proxy defers `neon()` (and `drizzle()`) to the first real property access —
+ * i.e. the first query at request time, when the running Worker DOES have
+ * `DATABASE_URL`. The exported `db` binding and its call-site API are unchanged,
+ * so no query module needs to be touched. The client is memoized after first use.
+ */
+type DrizzleClient = ReturnType<typeof drizzle>
+
+let cachedDb: DrizzleClient | undefined
+
+function getDb(): DrizzleClient {
+  if (!cachedDb) {
+    // biome-ignore lint/style/noNonNullAssertion: Required env var present at runtime (validated at app startup); deferred past build via this lazy init
+    const sql = neon(process.env.DATABASE_URL!)
+    cachedDb = drizzle(sql)
+  }
+  return cachedDb
+}
+
+export const db = new Proxy({} as DrizzleClient, {
+  get(_target, prop, receiver) {
+    return Reflect.get(getDb(), prop, receiver)
+  },
+  has(_target, prop) {
+    return Reflect.has(getDb(), prop)
+  },
+}) as DrizzleClient
