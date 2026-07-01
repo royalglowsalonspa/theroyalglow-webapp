@@ -55,7 +55,10 @@ export const env = createEnv({
     R2_ACCESS_KEY_ID: z.string().min(1),
     R2_SECRET_ACCESS_KEY: z.string().min(1),
     R2_BUCKET_NAME: z.string().min(1),
-    META_PIXEL_ACCESS_TOKEN: z.string().min(1),
+    // OPTIONAL: Meta CAPI server token. Blank at launch (no Meta ad account
+    // yet). lib/meta/capi.ts reads process.env directly and no-ops when unset,
+    // so making this optional keeps the Worker from throwing at cold start.
+    META_PIXEL_ACCESS_TOKEN: z.string().min(1).optional(),
     QSTASH_TOKEN: z.string().min(1),
     QSTASH_CURRENT_SIGNING_KEY: z.string().min(1),
     QSTASH_NEXT_SIGNING_KEY: z.string().min(1),
@@ -87,7 +90,7 @@ export const env = createEnv({
     NEXT_PUBLIC_ADMIN_URL: z.string().url().optional(),
     NEXT_PUBLIC_GOOGLE_CLIENT_ID: z.string().min(1),
     NEXT_PUBLIC_ABLY_KEY: z.string().min(1),
-    NEXT_PUBLIC_META_PIXEL_ID: z.string().min(1),
+    NEXT_PUBLIC_META_PIXEL_ID: z.string().min(1).optional(),
     NEXT_PUBLIC_POSTHOG_KEY: z.string().startsWith('phc_'),
     NEXT_PUBLIC_POSTHOG_HOST: z.string().url(),
     NEXT_PUBLIC_VAPID_PUBLIC_KEY: z.string().min(1),
