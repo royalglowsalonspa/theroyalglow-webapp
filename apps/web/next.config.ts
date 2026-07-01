@@ -10,6 +10,19 @@ const nextConfig: NextConfig = {
     '@rgss/types',
     '@rgss/ui',
   ],
+  // Tree-shake barrel imports from large UI/client packages so their unused
+  // exports never enter the bundle. Trims the OpenNext Cloudflare Worker
+  // (customer site must fit the 3 MiB gzipped free-plan script limit).
+  experimental: {
+    optimizePackageImports: [
+      'lucide-react',
+      'motion',
+      'posthog-js',
+      'radix-ui',
+      '@radix-ui/react-dropdown-menu',
+      'sonner',
+    ],
+  },
   images: {
     // Hosts that next/image is allowed to load from. CMS media resolves via
     // NEXT_PUBLIC_R2_PUBLIC_URL (R2 CDN) in prod, or the CMS origin in dev.
@@ -50,4 +63,13 @@ const nextConfig: NextConfig = {
 }
 
 // Source-map upload is a no-op without SENTRY_ORG/SENTRY_PROJECT/SENTRY_AUTH_TOKEN (CI-only).
-export default withSentryConfig(nextConfig, { silent: true })
+// `bundleSizeOptimizations` + `disableLogger` strip Sentry debug/logger code and
+// tree-shakeable internals from the build, shrinking the Worker bundle toward the
+// 3 MiB gzipped free-plan limit while keeping error monitoring intact.
+export default withSentryConfig(nextConfig, {
+  silent: true,
+  disableLogger: true,
+  bundleSizeOptimizations: {
+    excludeDebugStatements: true,
+  },
+})
