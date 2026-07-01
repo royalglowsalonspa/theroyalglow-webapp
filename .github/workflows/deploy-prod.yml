@@ -204,9 +204,13 @@ jobs:
       - name: Notify deployment success
         if: success()
         run: |
-          curl -X POST ${{ secrets.BETTER_STACK_DEPLOY_WEBHOOK }} \
-            -H "Content-Type: application/json" \
-            -d '{"sha": "${{ github.sha }}", "status": "success", "env": "prod"}'
+          if [ -n "${{ secrets.BETTER_STACK_DEPLOY_WEBHOOK }}" ]; then
+            curl -X POST "${{ secrets.BETTER_STACK_DEPLOY_WEBHOOK }}" \
+              -H "Content-Type: application/json" \
+              -d '{"sha": "${{ github.sha }}", "status": "success", "env": "prod"}'
+          else
+            echo "BETTER_STACK_DEPLOY_WEBHOOK not set — skipping deploy notification"
+          fi
 
   # --------------------------------------------------------------------------
   # REAL auto-rollback: `wrangler rollback` re-points the Worker at its previous
@@ -230,6 +234,10 @@ jobs:
           command: rollback --message "Auto-rollback: prod health/smoke failed for ${{ github.sha }}"
       - name: Notify deployment failure
         run: |
-          curl -X POST ${{ secrets.BETTER_STACK_INCIDENT_WEBHOOK }} \
-            -H "Content-Type: application/json" \
-            -d '{"title": "Production deploy failed — rolled back", "sha": "${{ github.sha }}"}'
+          if [ -n "${{ secrets.BETTER_STACK_INCIDENT_WEBHOOK }}" ]; then
+            curl -X POST "${{ secrets.BETTER_STACK_INCIDENT_WEBHOOK }}" \
+              -H "Content-Type: application/json" \
+              -d '{"title": "Production deploy failed — rolled back", "sha": "${{ github.sha }}"}'
+          else
+            echo "BETTER_STACK_INCIDENT_WEBHOOK not set — skipping incident notification"
+          fi
