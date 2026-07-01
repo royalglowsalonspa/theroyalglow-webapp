@@ -113,4 +113,4 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: apps/admin
           packageManager: bun
-          command: rollback --env pprd --message "Auto-rollback: admin pprd health failed for ${{ github.sha }}"
+          command: 'rollback --env pprd --message "Auto-rollback admin pprd health failed for ${{ github.sha }}"'
