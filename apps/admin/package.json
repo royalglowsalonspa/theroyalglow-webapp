@@ -9,6 +9,7 @@
     "prebuild": "node scripts/assert-token-presence.mjs",
     "build": "next build",
     "start": "next start",
+    "start:prod": "next start -p ${PORT:-3001}",
     "typecheck": "tsc --noEmit",
     "lint": "biome check ./src",
     "register-schedules": "bun run scripts/register-schedules.ts",
