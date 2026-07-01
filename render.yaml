@@ -153,3 +153,198 @@ services:
       # (POST WEB_APP_URL/api/revalidate). MUST match the web app's value.
       - key: REVALIDATE_SECRET
         sync: false
+
+  # --------------------------------------------------------------------------
+  # Customer website — apps/web (@rgss/web) → theroyalglow.in
+  # --------------------------------------------------------------------------
+  # Next.js 16 App Router customer site. Deployed here as a standard Node
+  # server (`next build` + `next start`) instead of the Cloudflare Worker
+  # (OpenNext) build, because the OpenNext server bundle (~5.7 MiB gzipped)
+  # exceeds Cloudflare's 3 MiB free-plan script limit. The Cloudflare/OpenNext
+  # files (open-next.config.ts, wrangler, cf:build script) are left dormant in
+  # the repo — nothing is deleted — so we can switch back on a paid CF plan.
+  - type: web
+    name: rgss-web
+    runtime: node # Render's node box; Bun is provided via BUN_VERSION below.
+    region: singapore # Free tier, closest to the India-first audience.
+    plan: free
+    branch: prod # Auto-deploy from prod (git flow: dev -> test -> pprd -> prod).
+
+    # ----- Build -----------------------------------------------------------
+    # Bun workspaces hoist all deps to the root node_modules, so install once at
+    # the repo root with the committed lockfile, then build ONLY the web
+    # workspace via Bun's --filter (resolves @rgss/web from apps/web/package.json
+    # and runs its `build` = `next build`; Turbo's `^build` builds the
+    # packages/* deps first). NEXT_PUBLIC_* vars are inlined at build time, so
+    # every client var below MUST be present before this step runs — Render
+    # exposes all of this service's envVars to the build, so that holds.
+    buildCommand: bun install --frozen-lockfile && bun run --filter=@rgss/web build
+
+    # ----- Start -----------------------------------------------------------
+    # Render injects $PORT and expects the service to bind it. `start:prod`
+    # runs `next start -p ${PORT:-3000}` from the app dir (next start reads the
+    # app's .next output). NO drizzle migrate here: the prod schema is already
+    # applied and baselined; migrations run only via GitHub Actions per the
+    # migration-discipline steering.
+    startCommand: cd apps/web && bun run start:prod
+
+    # ----- Health check ----------------------------------------------------
+    # GET /api/health pings Neon (SELECT 1) and returns 200 when the DB is
+    # reachable (Redis/R2 unconfigured => `skip`, never degrades). Render treats
+    # 2xx/3xx as healthy. Requires DATABASE_URL to be set (below).
+    healthCheckPath: /api/health
+
+    envVars:
+      # Pin Bun to the repo's packageManager (root package.json). Bump together.
+      - key: BUN_VERSION
+        value: 1.3.13
+      - key: NODE_ENV
+        value: production
+
+      # --- REQUIRED server secrets (set in Render dashboard; never committed) ---
+      # t3-env (apps/web/src/env.ts) RE-VALIDATES every required var at cold
+      # start (no SKIP_ENV_VALIDATION at runtime), so a missing required var =
+      # failed boot = failed health check. Every var below MUST be filled.
+      - key: DATABASE_URL # Neon POOLED host for app queries.
+        sync: false
+      - key: BETTER_AUTH_SECRET # min 32 chars. MUST match rgss-admin's value.
+        sync: false
+      - key: BETTER_AUTH_URL # https://theroyalglow.in
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: RESEND_API_KEY # re_...
+        sync: false
+      - key: ABLY_PRIVATE_KEY
+        sync: false
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        sync: false
+      - key: QSTASH_TOKEN
+        sync: false
+      - key: QSTASH_CURRENT_SIGNING_KEY
+        sync: false
+      - key: QSTASH_NEXT_SIGNING_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY # Web Push. Pair with NEXT_PUBLIC_VAPID_PUBLIC_KEY.
+        sync: false
+
+      # --- REQUIRED client vars (NEXT_PUBLIC_*, baked into the bundle at build) ---
+      - key: NEXT_PUBLIC_APP_URL # https://theroyalglow.in
+        sync: false
+      - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
+        sync: false
+      - key: NEXT_PUBLIC_ABLY_KEY
+        sync: false
+      - key: NEXT_PUBLIC_POSTHOG_KEY # phc_...
+        sync: false
+      - key: NEXT_PUBLIC_POSTHOG_HOST # e.g. https://us.i.posthog.com
+        sync: false
+      - key: NEXT_PUBLIC_VAPID_PUBLIC_KEY
+        sync: false
+
+      # --- OPTIONAL (env.ts .optional()) — leave unset in the dashboard to skip.
+      # Declared here so they are easy to fill later without editing this file.
+      # Missing optional vars do NOT fail boot.
+      - key: NEXT_PUBLIC_ADMIN_URL # https://admin.theroyalglow.in
+        sync: false
+      - key: NEXT_PUBLIC_R2_PUBLIC_URL # enables /api/health R2 probe
+        sync: false
+      - key: VAPID_SUBJECT # mailto:... for Web Push
+        sync: false
+      - key: CONTACT_INBOX_EMAIL
+        sync: false
+      - key: BETTER_AUTH_API_KEY
+        sync: false
+      - key: META_PIXEL_ACCESS_TOKEN
+        sync: false
+      - key: NEXT_PUBLIC_META_PIXEL_ID
+        sync: false
+      - key: SLACK_WEBHOOK_URL
+        sync: false
+      - key: DAILY_REPORT_EMAIL_RECIPIENTS
+        sync: false
+      - key: INVOICING_SERVICE_URL
+        sync: false
+      - key: INVOICE_PDF_HMAC_SECRET
+        sync: false
+
+  # --------------------------------------------------------------------------
+  # Admin portal — apps/admin (@rgss/admin) → admin.theroyalglow.in
+  # --------------------------------------------------------------------------
+  # Same Node-server rationale as rgss-web. Sessions are shared with the
+  # customer site via a `.theroyalglow.in`-scoped cookie, so BETTER_AUTH_SECRET
+  # MUST be byte-identical across rgss-web and rgss-admin.
+  - type: web
+    name: rgss-admin
+    runtime: node
+    region: singapore
+    plan: free
+    branch: prod
+
+    # apps/admin has a `prebuild` (scripts/assert-token-presence.mjs) that runs
+    # automatically before `next build`; the --filter build below triggers it.
+    buildCommand: bun install --frozen-lockfile && bun run --filter=@rgss/admin build
+
+    # start:prod = `next start -p ${PORT:-3001}`; Render's $PORT wins.
+    startCommand: cd apps/admin && bun run start:prod
+
+    # GET /api/health: DB SELECT 1 → 200 healthy / 503 unhealthy.
+    healthCheckPath: /api/health
+
+    envVars:
+      - key: BUN_VERSION
+        value: 1.3.13
+      - key: NODE_ENV
+        value: production
+
+      # --- REQUIRED server (apps/admin/src/env.ts re-validates at cold start) ---
+      - key: DATABASE_URL # Neon POOLED host for app queries.
+        sync: false
+      - key: DATABASE_URL_UNPOOLED # Neon DIRECT host (admin needs it per env.ts).
+        sync: false
+      - key: BETTER_AUTH_SECRET # min 32 chars. MUST equal rgss-web's value.
+        sync: false
+      - key: BETTER_AUTH_URL # https://admin.theroyalglow.in
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: ABLY_PRIVATE_KEY
+        sync: false
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      - key: QSTASH_TOKEN
+        sync: false
+      - key: QSTASH_CURRENT_SIGNING_KEY
+        sync: false
+      - key: QSTASH_NEXT_SIGNING_KEY
+        sync: false
+
+      # --- REQUIRED client (NEXT_PUBLIC_*, baked at build) ---
+      - key: NEXT_PUBLIC_APP_URL # https://admin.theroyalglow.in
+        sync: false
+      - key: NEXT_PUBLIC_SENTRY_DSN
+        sync: false
+      - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
+        sync: false
+      - key: NEXT_PUBLIC_ABLY_KEY
+        sync: false
+
+      # --- OPTIONAL (env.ts .optional()) — leave unset to skip ---
+      - key: INVOICING_SERVICE_URL
+        sync: false
+      - key: INVOICE_PDF_HMAC_SECRET
+        sync: false
