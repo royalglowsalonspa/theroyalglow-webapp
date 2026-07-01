@@ -53,18 +53,28 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Verify the CI workflow passed for this commit
+      - name: Wait for the CI workflow to pass for this commit
         run: |
-          # Scope the gate to the CI workflow's own conclusion for THIS commit.
-          # (The old gate counted every check-run on the SHA, so a concurrent
-          # sibling deploy failing on the same commit — e.g. the pprd deploys
-          # while pprd infra doesn't exist yet — would trip it. Scoping to
-          # ci.yml removes that self/sibling-referential coupling.)
-          CONCLUSION=$(gh api \
-            "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?head_sha=${{ github.sha }}&per_page=1" \
-            --jq '.workflow_runs[0].conclusion // "missing"')
-          echo "CI conclusion for ${{ github.sha }}: $CONCLUSION"
-          test "$CONCLUSION" = "success"
+          # deploy-prod triggers on the SAME push as CI, so CI is usually still
+          # running when this gate starts — a single-shot read returns
+          # "missing" and false-fails. Poll the CI workflow's run for THIS sha
+          # until it completes (max ~15 min), then require success. Scoped to
+          # ci.yml so concurrent sibling deploy runs never cross-fail the gate.
+          for i in $(seq 1 60); do
+            RUN=$(gh api \
+              "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?head_sha=${{ github.sha }}&per_page=1" \
+              --jq '.workflow_runs[0] // {} | "\(.status) \(.conclusion)"')
+            STATUS=$(echo "$RUN" | awk '{print $1}')
+            CONCLUSION=$(echo "$RUN" | awk '{print $2}')
+            echo "attempt $i: status=${STATUS:-none} conclusion=${CONCLUSION:-none}"
+            if [ "$STATUS" = "completed" ]; then
+              test "$CONCLUSION" = "success"
+              exit $?
+            fi
+            sleep 15
+          done
+          echo "Timed out waiting for CI to complete"
+          exit 1
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -232,6 +242,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
       - name: Roll back the Worker to its previous version
         uses: cloudflare/wrangler-action@v3
         with:

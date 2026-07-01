@@ -107,6 +107,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
       - name: Roll back the admin pprd Worker to its previous version
         uses: cloudflare/wrangler-action@v3
         with:
