@@ -104,6 +104,9 @@ jobs:
     timeout-minutes: 5
     needs: [post-deploy]
     if: failure()
+    # REQUIRED to read the `pprd` environment secret CLOUDFLARE_API_TOKEN
+    # (and ACCOUNT_ID) for wrangler rollback.
+    environment: pprd
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
