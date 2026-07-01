@@ -145,6 +145,7 @@ jobs:
     if: failure()
     steps:
       - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
       - name: Roll back the pprd Worker to its previous version
         uses: cloudflare/wrangler-action@v3
         with:
