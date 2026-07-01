@@ -89,6 +89,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [pre-deploy-checks]
+    # Environment declaration is REQUIRED for this job to read the
+    # `production` environment secret DATABASE_URL_UNPOOLED_PROD. Without it
+    # the secret resolves empty and drizzle-kit fails with url: ''.
+    environment: production
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -239,6 +243,10 @@ jobs:
     timeout-minutes: 5
     needs: [post-deploy]
     if: failure()
+    # REQUIRED to read the `production` environment secret CLOUDFLARE_API_TOKEN
+    # (and ACCOUNT_ID). Without it wrangler rollback errors: "necessary to set
+    # a CLOUDFLARE_API_TOKEN environment variable".
+    environment: production
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2

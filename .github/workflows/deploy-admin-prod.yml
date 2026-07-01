@@ -163,6 +163,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [deploy]
+    # REQUIRED so the "Register QStash schedules" step can read the
+    # `production-admin` environment secret QSTASH_TOKEN (and the optional
+    # BETTER_STACK_DEPLOY_WEBHOOK). Without it QSTASH_TOKEN resolves empty and
+    # schedule registration fails.
+    environment: production-admin
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -238,6 +243,9 @@ jobs:
     timeout-minutes: 5
     needs: [post-deploy]
     if: failure()
+    # REQUIRED to read the `production-admin` environment secret
+    # CLOUDFLARE_API_TOKEN (and ACCOUNT_ID) for wrangler rollback.
+    environment: production-admin
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
