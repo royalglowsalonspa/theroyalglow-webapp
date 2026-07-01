@@ -231,7 +231,7 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: apps/web
           packageManager: bun
-          command: rollback --message "Auto-rollback: prod health/smoke failed for ${{ github.sha }}"
+          command: 'rollback --message "Auto-rollback prod health/smoke failed for ${{ github.sha }}"'
       - name: Notify deployment failure
         run: |
           if [ -n "${{ secrets.BETTER_STACK_INCIDENT_WEBHOOK }}" ]; then
