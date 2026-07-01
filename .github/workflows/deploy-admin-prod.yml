@@ -72,11 +72,18 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Verify all CI checks passed
+      - name: Verify the CI workflow passed for this commit
         run: |
-          gh api repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs \
-            --jq '.check_runs | map(select(.conclusion != "success")) | length' \
-            | grep -q "^0$"
+          # Scope the gate to the CI workflow's own conclusion for THIS commit.
+          # (The old gate counted every check-run on the SHA, so a concurrent
+          # sibling deploy failing on the same commit — e.g. the pprd deploys
+          # while pprd infra doesn't exist yet — would trip it. Scoping to
+          # ci.yml removes that self/sibling-referential coupling.)
+          CONCLUSION=$(gh api \
+            "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?head_sha=${{ github.sha }}&per_page=1" \
+            --jq '.workflow_runs[0].conclusion // "missing"')
+          echo "CI conclusion for ${{ github.sha }}: $CONCLUSION"
+          test "$CONCLUSION" = "success"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -223,6 +230,7 @@ jobs:
     if: failure()
     steps:
       - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
       - name: Roll back the admin Worker to its previous version
         uses: cloudflare/wrangler-action@v3
         with:
