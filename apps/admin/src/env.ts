@@ -70,8 +70,10 @@ export const env = createEnv({
   client: {
     // Admin origin (https://admin.theroyalglow.in in prod — Req 12.3)
     NEXT_PUBLIC_APP_URL: z.string().url(),
-    // Separate admin Sentry project (Req 6.6, 12.3)
-    NEXT_PUBLIC_SENTRY_DSN: z.string().url(),
+    // Separate admin Sentry project (Req 6.6, 12.3). Named with an ADMIN_
+    // infix (distinct from apps/web's NEXT_PUBLIC_SENTRY_DSN) so the two
+    // projects' DSNs are unambiguous across the monorepo/deploy dashboards.
+    NEXT_PUBLIC_ADMIN_SENTRY_DSN: z.string().url(),
     // Google One Tap (if used)
     NEXT_PUBLIC_GOOGLE_CLIENT_ID: z.string().min(1),
     // Client realtime
@@ -93,7 +95,7 @@ export const env = createEnv({
     INVOICING_SERVICE_URL: process.env.INVOICING_SERVICE_URL,
     INVOICE_PDF_HMAC_SECRET: process.env.INVOICE_PDF_HMAC_SECRET,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
-    NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
+    NEXT_PUBLIC_ADMIN_SENTRY_DSN: process.env.NEXT_PUBLIC_ADMIN_SENTRY_DSN,
     NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
     NEXT_PUBLIC_ABLY_KEY: process.env.NEXT_PUBLIC_ABLY_KEY,
   },
