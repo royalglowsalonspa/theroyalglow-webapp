@@ -56,7 +56,7 @@ const VALID_ENV: Record<string, string> = {
   QSTASH_TOKEN: 'qstash-publish-token',
   // client
   NEXT_PUBLIC_APP_URL: 'https://admin.theroyalglow.in',
-  NEXT_PUBLIC_SENTRY_DSN: 'https://examplePublicKey@o0.ingest.sentry.io/0',
+  NEXT_PUBLIC_ADMIN_SENTRY_DSN: 'https://examplePublicKey@o0.ingest.sentry.io/0',
   NEXT_PUBLIC_GOOGLE_CLIENT_ID: 'public-google-client-id',
   NEXT_PUBLIC_ABLY_KEY: 'public-ably-key',
 }

@@ -18,14 +18,14 @@
  *
  * Dependencies : @sentry/nextjs, @/env
  *
- * Notes        : DSN comes from the admin env (NEXT_PUBLIC_SENTRY_DSN) which
+ * Notes        : DSN comes from the admin env (NEXT_PUBLIC_ADMIN_SENTRY_DSN) which
  *                points at the dedicated admin Sentry project — NOT the web DSN.
  ************************************************************/
 
 import { env } from '@/env'
 import * as Sentry from '@sentry/nextjs'
 
-const dsn = env.NEXT_PUBLIC_SENTRY_DSN
+const dsn = env.NEXT_PUBLIC_ADMIN_SENTRY_DSN
 const release = process.env.COMMIT_SHA
 
 if (dsn) {

@@ -257,6 +257,10 @@ services:
       # Missing optional vars do NOT fail boot.
       - key: NEXT_PUBLIC_ADMIN_URL # https://admin.theroyalglow.in
         sync: false
+      - key: NEXT_PUBLIC_SENTRY_DSN # web Sentry project DSN (rgss-web). Read via
+        # process.env in sentry.*.config.ts (guarded/optional) — set it to turn
+        # on web error monitoring. Same KEY NAME as admin, different DSN VALUE.
+        sync: false
       - key: NEXT_PUBLIC_R2_PUBLIC_URL # enables /api/health R2 probe
         sync: false
       - key: VAPID_SUBJECT # mailto:... for Web Push
@@ -336,7 +340,9 @@ services:
       # --- REQUIRED client (NEXT_PUBLIC_*, baked at build) ---
       - key: NEXT_PUBLIC_APP_URL # https://admin.theroyalglow.in
         sync: false
-      - key: NEXT_PUBLIC_SENTRY_DSN
+      - key: NEXT_PUBLIC_ADMIN_SENTRY_DSN # admin Sentry project DSN. Distinct
+        # KEY NAME from web's NEXT_PUBLIC_SENTRY_DSN (admin code reads
+        # NEXT_PUBLIC_ADMIN_SENTRY_DSN via t3-env — required .url()).
         sync: false
       - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
         sync: false
