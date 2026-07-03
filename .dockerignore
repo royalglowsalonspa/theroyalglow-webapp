@@ -1,0 +1,52 @@
+# .dockerignore — repo root (Docker build context for apps/cms/Dockerfile)
+# Keeps Docker build context lean by excluding non-essential files.
+
+# Dependencies (reinstalled in the build)
+**/node_modules
+**/.next
+**/.turbo
+
+# Git / IDE / tooling
+.git
+.github
+.husky
+.sonar
+.code-review-graph
+.kiro
+.turbo
+
+# Docs (not needed for CMS build)
+docs
+
+# Build artifacts & caches
+**/.cache
+**/dist
+**/.vercel
+**/.open-next
+
+# Env files (secrets — never bake into image)
+**/.env
+**/.env.*
+!**/.env.example
+
+# Other apps (not part of this build — but we still need their package.json
+# for workspace resolution, so we don't exclude apps/ entirely)
+apps/web/.next
+apps/admin/.next
+apps/web/.open-next
+apps/admin/.open-next
+
+# Tests & dev files
+**/*.test.ts
+**/*.spec.ts
+**/*.test.tsx
+**/e2e
+**/playwright-report
+**/test-results
+**/__tests__
+
+# Misc
+**/*.md
+!**/README.md
+**/LICENSE
+**/.DS_Store

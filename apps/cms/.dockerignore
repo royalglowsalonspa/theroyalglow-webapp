@@ -1,0 +1,13 @@
+# Ignore everything not needed for the Docker build context
+node_modules
+.next
+.turbo
+.git
+.github
+.husky
+.sonar
+.code-review-graph
+*.md
+!README.md
+.env*
+!.env.example
