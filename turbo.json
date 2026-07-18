@@ -1,4 +1,5 @@
 {
+  "globalPassThroughEnv": ["SKIP_ENV_VALIDATION", "NODE_OPTIONS", "BETTER_AUTH_SECRET"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
