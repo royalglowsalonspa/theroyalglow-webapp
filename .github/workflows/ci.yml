@@ -58,6 +58,13 @@ jobs:
         run: bunx turbo run lint typecheck test build --filter=@rgss/admin
         env:
           SKIP_ENV_VALIDATION: '1'
+          # Build-time-only placeholder. `next build` collects page data for
+          # routes that import auth-server.ts, which calls
+          # betterAuth({ secret: process.env.BETTER_AUTH_SECRET }); Better Auth
+          # throws its own "default secret" error when this is unset — a guard
+          # independent of SKIP_ENV_VALIDATION. The real per-Worker secret is
+          # injected at deploy; this value is never used at runtime.
+          BETTER_AUTH_SECRET: 'ci-build-only-placeholder-not-used-at-runtime-000'
           # Raise the Node heap for `next build` — the default ceiling can OOM
           # (exit 137) on the ~7 GB ubuntu-latest runner while bundling the
           # admin app (recharts + react-table across ~40 routes). Harmless if
@@ -84,6 +91,11 @@ jobs:
         run: bunx turbo run lint typecheck test build --filter=@rgss/web
         env:
           SKIP_ENV_VALIDATION: '1'
+          # Build-time-only placeholder — same rationale as admin-ci: keeps
+          # Better Auth from throwing its "default secret" guard during
+          # `next build` page-data collection. Never used at runtime (the real
+          # per-Worker secret is injected at deploy).
+          BETTER_AUTH_SECRET: 'ci-build-only-placeholder-not-used-at-runtime-000'
           # Raise the Node heap for `next build` — guards against an OOM
           # (exit 137) on the ~7 GB ubuntu-latest runner. Harmless otherwise.
           NODE_OPTIONS: '--max-old-space-size=4096'
