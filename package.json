@@ -28,12 +28,12 @@
     "@biomejs/biome": "^1.9.4",
     "@playwright/test": "^1.61.1",
     "@vitejs/plugin-react": "^5.2.0",
-    "checkly": "^8.10.0",
+    "checkly": "^8.14.1",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.8",
-    "turbo": "^2.10.0",
+    "turbo": "^2.10.4",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.10"
   },
   "overrides": {
     "kysely": "0.29.2",
