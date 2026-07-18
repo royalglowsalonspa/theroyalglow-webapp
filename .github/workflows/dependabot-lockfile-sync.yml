@@ -1,0 +1,88 @@
+name: Dependabot Lockfile Sync
+
+# ---------------------------------------------------------------------------
+# Why this exists
+# ---------------------------------------------------------------------------
+# The repo installs with `bun install --frozen-lockfile` in every CI job
+# (.github/workflows/ci.yml). Dependabot's bun ecosystem support bumps the
+# package.json manifests but does NOT regenerate the text lockfile `bun.lock`.
+# Frozen install then correctly aborts with:
+#
+#   error: lockfile had changes, but lockfile is frozen
+#
+# so no Dependabot PR can ever go green. This workflow closes that gap: on a
+# Dependabot PR it regenerates `bun.lock` against the updated manifests and
+# commits it back to the PR branch, after which CI can pass.
+#
+# Auto re-run of CI:
+#   A push made with the default GITHUB_TOKEN does NOT trigger new workflow
+#   runs (GitHub's recursion guard), so CI would not re-run on the synced SHA.
+#   To get CI to re-run automatically, add a fine-scoped PAT as a *Dependabot*
+#   secret named LOCKFILE_SYNC_TOKEN (Settings → Secrets and variables →
+#   Dependabot). With it, the push triggers a fresh CI run on the new commit.
+#   Without it, the correct lockfile is still committed (so the merge is clean
+#   and `dev` stays green) — you just click "Re-run all jobs" once on the PR.
+# ---------------------------------------------------------------------------
+
+on:
+  pull_request:
+    branches: [dev, test, pprd, prod]
+
+# Least privilege: only what the commit-back needs.
+permissions:
+  contents: write
+
+concurrency:
+  group: lockfile-sync-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sync-lockfile:
+    # Only Dependabot PRs — never touches human-authored branches.
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout PR head branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          # A PAT (added as a Dependabot secret) makes the follow-up push
+          # re-trigger CI. Falls back to GITHUB_TOKEN, which still commits the
+          # lockfile but won't auto-re-run CI (re-run jobs manually).
+          token: ${{ secrets.LOCKFILE_SYNC_TOKEN || secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.13'
+
+      - name: Regenerate bun.lock against updated manifests
+        # Rewrites bun.lock to satisfy the bumped package.json files. No
+        # --frozen-lockfile here — updating the lockfile is the point.
+        # --ignore-scripts: lockfile resolution never needs dependency
+        # postinstall scripts, so we don't execute arbitrary package code while
+        # a write-capable token is in the job environment (supply-chain hardening).
+        run: bun install --ignore-scripts
+
+      - name: Commit & push synced lockfile (only if it changed)
+        # HEAD_REF is passed via env (not interpolated into the script) so an
+        # attacker-influenceable branch name can't inject shell — GitHub Actions
+        # expression-injection hardening.
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          if git diff --quiet -- bun.lock; then
+            echo "bun.lock already in sync with the updated manifests — nothing to do."
+            exit 0
+          fi
+          # Attribute to Dependabot and include [dependabot skip] so Dependabot
+          # keeps managing/rebasing the PR (it otherwise stops once a non-bot
+          # commit lands).
+          git config user.name  "dependabot[bot]"
+          git config user.email "49699333+dependabot[bot]@users.noreply.github.com"
+          git add bun.lock
+          git commit -m "chore(deps): sync bun.lock for Dependabot update [dependabot skip]"
+          git push origin "HEAD:$HEAD_REF"
+          echo "Pushed synced bun.lock to $HEAD_REF."
