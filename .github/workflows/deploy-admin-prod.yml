@@ -71,7 +71,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Wait for the CI workflow to pass for this commit
         run: |
           # deploy-admin-prod triggers on the SAME push as CI, so CI is usually
@@ -108,7 +108,7 @@ jobs:
       name: production-admin
       url: https://admin.theroyalglow.in
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
 
@@ -145,7 +145,7 @@ jobs:
       # .open-next/worker.js) and publishes to the `rgss-admin` Worker + its
       # attached custom domain.
       - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -169,7 +169,7 @@ jobs:
     # schedule registration fails.
     environment: production-admin
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
 
@@ -247,11 +247,11 @@ jobs:
     # CLOUDFLARE_API_TOKEN (and ACCOUNT_ID) for wrangler rollback.
     environment: production-admin
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - name: Roll back the admin Worker to its previous version
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
