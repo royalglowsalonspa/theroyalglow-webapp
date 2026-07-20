@@ -4,12 +4,6 @@
   "workspaces": {
     "": {
       "name": "theroyalglow-webapp",
-      "dependencies": {
-        "@tailwindcss/postcss": "^4.3.3",
-        "@types/mdx": "^2.0.14",
-        "drizzle-kit": "^0.31.10",
-        "tailwindcss": "^4.3.3",
-      },
       "devDependencies": {
         "@biomejs/biome": "^1.9.4",
         "@playwright/test": "^1.61.1",
@@ -39,7 +33,7 @@
         "@rgss/ui": "workspace:*",
         "@sentry/nextjs": "^10.65.0",
         "@t3-oss/env-nextjs": "^0.13.11",
-        "@tailwindcss/postcss": "^4.3.2",
+        "@tailwindcss/postcss": "^4.3.3",
         "@tanstack/react-table": "^8.21.3",
         "@upstash/qstash": "^2.11.1",
         "@upstash/ratelimit": "^2.0.5",
@@ -64,7 +58,7 @@
         "resend": "^6.17.2",
         "sonner": "2.0.7",
         "tailwind-merge": "^3.3.0",
-        "tailwindcss": "^4.3.2",
+        "tailwindcss": "^4.3.3",
         "zod": "^3.24.4",
       },
       "devDependencies": {
@@ -151,7 +145,7 @@
         "@rgss/ui": "workspace:*",
         "@sentry/nextjs": "^10.65.0",
         "@t3-oss/env-nextjs": "^0.13.11",
-        "@tailwindcss/postcss": "^4.3.2",
+        "@tailwindcss/postcss": "^4.3.3",
         "@upstash/qstash": "^2.11.1",
         "@upstash/ratelimit": "^2.0.5",
         "@upstash/redis": "^1.34.7",
@@ -173,7 +167,7 @@
         "react-dom": "^19.2.7",
         "sonner": "2.0.7",
         "tailwind-merge": "^3.3.0",
-        "tailwindcss": "^4.3.2",
+        "tailwindcss": "^4.3.3",
         "zod": "^3.24.4",
       },
       "devDependencies": {
@@ -207,7 +201,7 @@
         "react-dom": "^19.2.7",
       },
       "devDependencies": {
-        "@tailwindcss/postcss": "^4.3.2",
+        "@tailwindcss/postcss": "^4.3.3",
         "@testing-library/jest-dom": "^6.6.3",
         "@testing-library/react": "^16.1.0",
         "@testing-library/user-event": "^14.5.2",
@@ -220,7 +214,7 @@
         "fast-check": "^3.23.1",
         "jest-axe": "^9",
         "jsdom": "^29.1.1",
-        "tailwindcss": "^4.3.2",
+        "tailwindcss": "^4.3.3",
         "typescript": "^5.7.3",
         "vitest": "^4.1.10",
       },
