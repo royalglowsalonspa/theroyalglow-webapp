@@ -24,7 +24,16 @@ const NUM_RUNS = 200
 
 // URL-safe path segment: avoids '/', '?', '#' and whitespace so segments do not
 // change the structural meaning of the path. Non-empty by construction.
-const segment = fc.stringMatching(/^[A-Za-z0-9._~!$&'()*+,;=:@-]+$/).filter((s) => s.length > 0)
+//
+// The bare dot-segments '.' and '..' are excluded for exactly that reason: they
+// are relative-path operators, not literal segments. '..' in particular climbs
+// out of the namespace ('/me/../x' resolves to '/x'), so preserving it verbatim
+// (Properties 1-3) would directly contradict the namespace invariant asserted by
+// Property 4 — mapStaffRedirect collapses such a remainder to the '/me' root
+// instead. fast-check v4's wider generation surfaced this latent conflict.
+const segment = fc
+  .stringMatching(/^[A-Za-z0-9._~!$&'()*+,;=:@-]+$/)
+  .filter((s) => s.length > 0 && s !== '.' && s !== '..')
 
 // A sub-path of one or more segments joined by '/', e.g. "leave/123".
 const subPath = fc.array(segment, { minLength: 1, maxLength: 6 }).map((segs) => segs.join('/'))

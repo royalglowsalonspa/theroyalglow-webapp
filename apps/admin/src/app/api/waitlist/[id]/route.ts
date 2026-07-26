@@ -30,12 +30,12 @@
  *                status-transitioned, never hard-deleted.
  ************************************************************/
 
-import { audit } from '@/lib/api/audit'
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { getWaitlistEntryById, updateWaitlistStatus } from '@rgss/db/queries'
 import { badRequest, notFound } from '@rgss/errors'
 import { waitlistStatusUpdateSchema } from '@rgss/types'
+import { audit } from '@/lib/api/audit'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 import { assertWaitlistTransition } from '../state-machine'
 
 // PATCH /api/waitlist/[id] — transition a waitlist entry's status. The state

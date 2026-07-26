@@ -28,13 +28,13 @@
  * - The booking dialog is lazily loaded via Suspense to avoid blocking initial render
  ************************************************************/
 
+import { headers } from 'next/headers'
+import { Suspense } from 'react'
 import { BookingDialogProvider } from '@/components/booking/BookingDialogProvider'
 import { BookingDialogTrigger } from '@/components/booking/BookingDialogTrigger'
 import { Footer } from '@/components/layout/Footer'
 import { Header } from '@/components/layout/Header'
 import { auth } from '@/lib/auth-server'
-import { headers } from 'next/headers'
-import { Suspense } from 'react'
 import { AnnouncementBar } from './_components/AnnouncementBar'
 
 export default async function CustomerLayout({ children }: { children: React.ReactNode }) {

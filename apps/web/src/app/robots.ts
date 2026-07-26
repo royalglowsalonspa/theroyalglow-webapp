@@ -27,8 +27,9 @@
  * Notes        :
  * - AI crawler list from seo.md Part 9
  ************************************************************/
-import { SITE_URL } from '@/lib/seo/business'
+
 import type { MetadataRoute } from 'next'
+import { SITE_URL } from '@/lib/seo/business'
 
 /**
  * robots.txt for the public site.

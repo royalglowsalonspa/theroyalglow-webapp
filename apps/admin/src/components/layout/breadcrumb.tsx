@@ -35,6 +35,9 @@
 
 'use client'
 
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { Fragment } from 'react'
 import {
   BreadcrumbItem,
   BreadcrumbLink,
@@ -45,9 +48,6 @@ import {
 } from '@/components/ui/breadcrumb'
 import { deriveBreadcrumbs } from '@/lib/admin/breadcrumbs'
 import { ADMIN_NAV } from '@/lib/rbac'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { Fragment } from 'react'
 
 export function Breadcrumb() {
   const pathname = usePathname()

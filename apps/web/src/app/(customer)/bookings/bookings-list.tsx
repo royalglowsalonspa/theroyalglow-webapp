@@ -34,12 +34,12 @@
 
 'use client'
 
+import { CalendarDays, Loader2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useBookingDialog } from '@/components/booking/BookingDialogProvider'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { CalendarDays, Loader2 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
 
 // --- Types (mirror GET /api/bookings response) ---
 interface BookingServiceRow {
@@ -193,7 +193,7 @@ export function BookingsList() {
   if (loading) {
     return (
       <output className="flex items-center gap-3 py-16" aria-live="polite">
-        <Loader2 className="size-5 animate-spin text-deep-gold" aria-hidden="true" />
+        <Loader2 className="size-5 animate-spin text-gold-ink" aria-hidden="true" />
         <span className="font-sans text-[15px] text-dusty-gray">Loading your bookings…</span>
       </output>
     )
@@ -313,7 +313,7 @@ function BookingCard({
             className={cn(
               'ml-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-ui text-[11px]',
               booking.serviceType === 'spa'
-                ? 'bg-warm-cream text-deep-gold'
+                ? 'bg-warm-cream text-gold-ink'
                 : 'bg-golden-mist text-warm-gray',
             )}
           >
@@ -377,7 +377,7 @@ function BookingCard({
 function EmptyState({ onBookNow }: { onBookNow: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="mb-5 flex size-16 items-center justify-center rounded-full bg-warm-cream text-deep-gold">
+      <div className="mb-5 flex size-16 items-center justify-center rounded-full bg-warm-cream text-gold-ink">
         <CalendarDays className="size-7" strokeWidth={1.5} aria-hidden="true" />
       </div>
       <p className="mb-6 font-sans text-[16px] text-cocoa-dark">

@@ -29,9 +29,9 @@
  * - Does not delete the tag itself, only the customer↔tag assignment.
  ************************************************************/
 
+import { removeTag } from '@rgss/db/queries'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
-import { removeTag } from '@rgss/db/queries'
 
 // DELETE /api/customers/[id]/tags/[tagId] — remove a tag assignment from
 // a customer. Receptionist+. No-op if the assignment does not exist.

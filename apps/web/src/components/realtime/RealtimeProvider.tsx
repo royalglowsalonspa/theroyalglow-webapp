@@ -43,6 +43,7 @@
 
 'use client'
 
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { BOOKING_EVENTS, customerBookingsChannel } from '@/lib/realtime/channels'
 import {
   type AblyMessage,
@@ -50,7 +51,6 @@ import {
   type AblyRealtimeClient,
   loadAblyRealtime,
 } from '@/lib/realtime/client'
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
 // Public connection status exposed to consumers.
 // - connecting   : establishing / re-establishing the connection

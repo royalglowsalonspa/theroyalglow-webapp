@@ -34,17 +34,17 @@
  *   so every emitted /services/{slug} URL resolves here.
  ************************************************************/
 
-import { JsonLd } from '@/components/seo/JsonLd'
-import { Button } from '@/components/ui/button'
-import { SITE_URL } from '@/lib/seo/business'
-import { breadcrumbJsonLd, serviceJsonLd } from '@/lib/seo/jsonld'
-import { buildMetadata } from '@/lib/seo/metadata'
 import { formatINR } from '@rgss/business'
 import { getAllServicesGrouped, getServiceBySlug } from '@rgss/db/queries'
 import { ArrowLeft } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { Button } from '@/components/ui/button'
+import { SITE_URL } from '@/lib/seo/business'
+import { breadcrumbJsonLd, serviceJsonLd } from '@/lib/seo/jsonld'
+import { buildMetadata } from '@/lib/seo/metadata'
 
 // ISR: revalidate each service roughly hourly (matches the catalogue pages).
 export const revalidate = 3600

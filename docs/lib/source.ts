@@ -1,7 +1,7 @@
+import { loader } from 'fumadocs-core/source'
 import { docs, docsV2 } from '@/.source/server'
 import type { DocVersion } from '@/lib/versions'
 import { versionsMeta } from '@/lib/versions'
-import { loader } from 'fumadocs-core/source'
 
 /**
  * Runtime content-source binding for the Docs_Site Version_Router.

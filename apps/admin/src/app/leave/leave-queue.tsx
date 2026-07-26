@@ -45,6 +45,8 @@
 
 'use client'
 
+import { CheckCircle2, Palmtree, TriangleAlert } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { FilterBar } from '@/components/ui/filter-bar'
 import { Icon } from '@/components/ui/icon'
 import { EmptyState } from '@/components/ui/state/empty-state'
@@ -55,8 +57,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { useAsyncData } from '@/components/ui/use-async-data'
 import { formatDateDDMMYYYY, formatTime12h } from '@/lib/admin/bookings'
 import { toast } from '@/lib/admin/toast'
-import { CheckCircle2, Palmtree, TriangleAlert } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
 
 // ─── API shapes (mirror GET /api/leave + PATCH /api/leave/[id]) ───
 
@@ -343,13 +343,7 @@ function LeaveCard({
   )
 }
 
-function ConflictWarning({
-  conflicts,
-  date,
-}: {
-  conflicts: ConflictBooking[]
-  date: string
-}) {
+function ConflictWarning({ conflicts, date }: { conflicts: ConflictBooking[]; date: string }) {
   if (conflicts.length === 0) {
     return (
       <p className="mt-3 flex items-center gap-1.5 border-t border-cloud-gray pt-3 font-sans text-sm text-success-dark">

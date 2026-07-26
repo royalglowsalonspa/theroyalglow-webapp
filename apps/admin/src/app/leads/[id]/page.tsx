@@ -29,8 +29,8 @@
  * - params is a Promise in Next.js 16 — must be awaited
  ************************************************************/
 
-import { LeadDetail } from '@/components/lead/LeadDetail'
 import type { Metadata } from 'next'
+import { LeadDetail } from '@/components/lead/LeadDetail'
 
 export const metadata: Metadata = {
   title: 'Lead Detail',

@@ -32,10 +32,10 @@
 
 'use client'
 
-import { Button } from '@/components/ui/button'
-import { signOut } from '@/lib/auth-client'
 import { Loader2, LogOut } from 'lucide-react'
 import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { signOut } from '@/lib/auth-client'
 
 export function SignOutButton() {
   const [signingOut, setSigningOut] = useState(false)

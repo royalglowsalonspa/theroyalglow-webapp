@@ -29,10 +29,10 @@
  * Notes        : None
  ************************************************************/
 
-import { auth } from '@/lib/auth-server'
-import { getDevImpersonatedSession } from '@/lib/dev-auth'
 import { AppError, ERROR_CODES } from '@rgss/errors'
 import { headers } from 'next/headers'
+import { auth } from '@/lib/auth-server'
+import { getDevImpersonatedSession } from '@/lib/dev-auth'
 import { enforceRateLimit } from './rate-limit'
 
 export async function requireSession() {

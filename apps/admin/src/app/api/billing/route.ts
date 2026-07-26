@@ -27,11 +27,11 @@
  * Notes        : Requires min role: receptionist. Read-only ledger.
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { getInvoices } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { invoiceListQuerySchema } from '@rgss/types'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 // GET /api/billing — searchable, filterable, paginated invoice ledger.
 export const GET = withErrorHandler(async (req: Request) => {

@@ -26,7 +26,7 @@
  * - Terminal statuses: approved, rejected
  * - No 'withdrawn' in DB enum — handled at query layer
  ************************************************************/
-import { ERROR_CODES, conflict } from '@rgss/errors'
+import { conflict, ERROR_CODES } from '@rgss/errors'
 import type { LeaveStatus } from '@rgss/types'
 
 // Leave approval state machine: pending → approved / rejected.

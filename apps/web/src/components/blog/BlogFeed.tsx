@@ -32,15 +32,15 @@
  ************************************************************/
 
 'use client'
+import { formatDateIN } from '@rgss/business'
+import { ArrowRight, Search } from 'lucide-react'
+import Link from 'next/link'
+import { useEffect, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { BlogListItem } from '@/lib/cms/types'
 import { cn } from '@/lib/utils'
-import { formatDateIN } from '@rgss/business'
-import { ArrowRight, Search } from 'lucide-react'
-import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
 
 type BlogFeedProps = {
   initialPosts: BlogListItem[]
@@ -90,7 +90,7 @@ export function BlogCard({ post, featured = false }: BlogCardProps) {
           className="absolute inset-0 size-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center font-display text-4xl text-deep-gold/30">
+        <div className="absolute inset-0 flex items-center justify-center font-display text-4xl text-gold-ink/30">
           RG
         </div>
       )}
@@ -105,7 +105,7 @@ export function BlogCard({ post, featured = false }: BlogCardProps) {
   const readMore = (
     <Link
       href={href}
-      className="inline-flex items-center gap-1 font-ui text-xs font-bold uppercase tracking-wider text-cocoa-dark transition-colors hover:text-deep-gold"
+      className="inline-flex items-center gap-1 font-ui text-xs font-bold uppercase tracking-wider text-cocoa-dark transition-colors hover:text-gold-ink"
     >
       Read Article
       <ArrowRight
@@ -125,7 +125,7 @@ export function BlogCard({ post, featured = false }: BlogCardProps) {
         <div className="flex flex-col justify-between p-6 sm:p-8">
           <div>
             <CardMeta publishedAt={publishedAt} readingMinutes={readingMinutes} />
-            <h2 className="mt-3 font-display text-2xl font-black leading-snug tracking-tight text-cocoa-dark transition-colors duration-200 group-hover:text-deep-gold lg:text-[28px]">
+            <h2 className="mt-3 font-display text-2xl font-black leading-snug tracking-tight text-cocoa-dark transition-colors duration-200 group-hover:text-gold-ink lg:text-[28px]">
               <Link href={href}>{title}</Link>
             </h2>
             {excerpt && (
@@ -147,7 +147,7 @@ export function BlogCard({ post, featured = false }: BlogCardProps) {
       <div className="flex flex-1 flex-col justify-between p-6">
         <div>
           <CardMeta publishedAt={publishedAt} readingMinutes={readingMinutes} />
-          <h3 className="mt-3 font-display text-xl font-black leading-snug tracking-tight text-cocoa-dark transition-colors duration-200 group-hover:text-deep-gold">
+          <h3 className="mt-3 font-display text-xl font-black leading-snug tracking-tight text-cocoa-dark transition-colors duration-200 group-hover:text-gold-ink">
             <Link href={href}>{title}</Link>
           </h3>
           {excerpt && (

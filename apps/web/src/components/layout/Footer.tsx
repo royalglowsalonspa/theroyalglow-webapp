@@ -27,8 +27,8 @@
  * Notes        : Server component — no 'use client' needed
  ************************************************************/
 
-import { CookiePreferencesButton } from '@/components/consent/CookiePreferencesButton'
 import Link from 'next/link'
+import { CookiePreferencesButton } from '@/components/consent/CookiePreferencesButton'
 
 const exploreLinks = [
   { href: '/services', label: 'Services' },
@@ -86,7 +86,7 @@ export function Footer() {
                 Royal Glow Salon &amp; SPA
               </h2>
               <div className="space-y-1">
-                <p className="font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-deep-gold">
+                <p className="font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-gold-ink">
                   Visit Branch
                 </p>
                 <address className="not-italic font-sans text-sm text-warm-gray">
@@ -96,7 +96,7 @@ export function Footer() {
             </div>
 
             <div className="space-y-3">
-              <p className="font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-deep-gold">
+              <p className="font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-gold-ink">
                 Opening Hours
               </p>
               <div className="font-sans text-sm text-warm-gray">
@@ -112,7 +112,7 @@ export function Footer() {
 
           {/* Col 2: Explore — spans 2, offset 1 */}
           <nav aria-label="Explore links" className="md:col-span-2 md:col-start-6">
-            <p className="font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-deep-gold mb-7">
+            <p className="font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-gold-ink mb-7">
               Explore
             </p>
             <ul className="space-y-4">
@@ -120,7 +120,7 @@ export function Footer() {
                 <li key={link.href + link.label}>
                   <Link
                     href={link.href}
-                    className="font-ui text-sm text-warm-gray hover:text-deep-gold transition-colors duration-200"
+                    className="font-ui text-sm text-warm-gray hover:text-gold-ink transition-colors duration-200"
                   >
                     {link.label}
                   </Link>
@@ -131,7 +131,7 @@ export function Footer() {
 
           {/* Col 3: Account — spans 2 */}
           <nav aria-label="Account links" className="md:col-span-2">
-            <p className="font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-deep-gold mb-7">
+            <p className="font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-gold-ink mb-7">
               Account
             </p>
             <ul className="space-y-4">
@@ -139,7 +139,7 @@ export function Footer() {
                 <li key={link.label}>
                   <Link
                     href={link.href}
-                    className="font-ui text-sm text-warm-gray hover:text-deep-gold transition-colors duration-200"
+                    className="font-ui text-sm text-warm-gray hover:text-gold-ink transition-colors duration-200"
                   >
                     {link.label}
                   </Link>
@@ -151,7 +151,7 @@ export function Footer() {
           {/* Col 4: Follow Us + Email — spans 3 */}
           <div className="md:col-span-3 space-y-8">
             <div>
-              <p className="font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-deep-gold mb-6">
+              <p className="font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-gold-ink mb-6">
                 Follow Us
               </p>
               <div className="flex items-center gap-4">
@@ -162,7 +162,7 @@ export function Footer() {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={social.label}
-                    className="text-cocoa-dark hover:text-deep-gold transition-colors duration-200"
+                    className="text-cocoa-dark hover:text-gold-ink transition-colors duration-200"
                   >
                     <svg
                       className="w-5 h-5"
@@ -179,12 +179,12 @@ export function Footer() {
             </div>
 
             <div className="space-y-2">
-              <p className="font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-deep-gold">
+              <p className="font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-gold-ink">
                 Email Us
               </p>
               <a
                 href="mailto:hello@theroyalglow.in"
-                className="font-ui text-sm text-warm-gray hover:text-deep-gold transition-colors duration-200 block"
+                className="font-ui text-sm text-warm-gray hover:text-gold-ink transition-colors duration-200 block"
               >
                 hello@theroyalglow.in
               </a>
@@ -201,15 +201,15 @@ export function Footer() {
             aria-label="Legal links"
             className="flex flex-wrap justify-center items-center gap-8 font-ui text-[10px] font-bold uppercase tracking-widest text-warm-gray"
           >
-            <Link href="/privacy" className="hover:text-deep-gold transition-colors duration-200">
+            <Link href="/privacy" className="hover:text-gold-ink transition-colors duration-200">
               Privacy Policy
             </Link>
-            <Link href="/terms" className="hover:text-deep-gold transition-colors duration-200">
+            <Link href="/terms" className="hover:text-gold-ink transition-colors duration-200">
               Terms of Service
             </Link>
             <Link
               href="/refund-policy"
-              className="hover:text-deep-gold transition-colors duration-200"
+              className="hover:text-gold-ink transition-colors duration-200"
             >
               Refund Policy
             </Link>

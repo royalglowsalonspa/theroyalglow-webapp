@@ -22,10 +22,10 @@
  * Notes        : Requires min role: receptionist. Read-only.
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { getInvoiceById } from '@rgss/db/queries'
 import { notFound } from '@rgss/errors'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 // GET /api/billing/[id] — a single invoice with line items.
 export const GET = withErrorHandler(

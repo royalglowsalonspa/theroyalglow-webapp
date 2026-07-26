@@ -29,6 +29,8 @@
 
 'use client'
 
+import { BadgeCheck, LogOut } from 'lucide-react'
+import Link from 'next/link'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -41,8 +43,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { toInitials } from '@/lib/admin/initials'
 import { signOut } from '@/lib/auth-client'
-import { BadgeCheck, LogOut } from 'lucide-react'
-import Link from 'next/link'
 
 type UserIdentityProps = {
   /** Signed-in user's display name. */

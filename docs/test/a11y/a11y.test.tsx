@@ -1,11 +1,11 @@
+import { render } from '@testing-library/react'
+import { axe, toHaveNoViolations } from 'jest-axe'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Feedback } from '@/components/feedback'
 import { LegacyBanner } from '@/components/legacy-banner'
 import { NotFoundContent } from '@/components/not-found-content'
 import { PageAffordances } from '@/components/page-affordances'
 import { type SwitcherVersion, VersionSwitcher } from '@/components/version-switcher'
-import { render } from '@testing-library/react'
-import { axe, toHaveNoViolations } from 'jest-axe'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Task 12.4 — automated accessibility (axe) gate for the themed docs UI.
 //

@@ -18,7 +18,7 @@
  * the conflict rule and the resulting registry shape directly unit/PBT testable.
  */
 
-import { type VersionId, type VersionMeta, getSwitcherOrder } from './versions'
+import { getSwitcherOrder, type VersionId, type VersionMeta } from './versions'
 
 /**
  * Thrown by {@link cutVersion} when the requested version already exists. Carries

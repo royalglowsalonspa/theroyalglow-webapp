@@ -22,5 +22,5 @@
  * Notes        : None
  ************************************************************/
 export * from './phone'
-export * from './status'
 export * from './stale'
+export * from './status'

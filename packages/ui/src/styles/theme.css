@@ -50,6 +50,15 @@
   --color-royal-gold: #f4e09b;
   --color-deep-gold: #c8a961;
   --color-warm-gold: #f4e09b;
+  /* Gold INK — the accessible gold for TEXT on light surfaces.
+     The display golds above are decorative: as text they measure only 2.26:1
+     (deep-gold) and 1.31:1 (royal-gold) on white, far below the WCAG AA 4.5:1
+     floor, which is what Lighthouse flagged on every customer page. This ink
+     is 5.75:1 on #ffffff and 5.48:1 on #fff8f5 while reading as the same brand
+     gold. Use it for gold TEXT on light backgrounds; keep deep-gold for gold
+     text on the dark surfaces (8.33:1 on cocoa-dark) and for borders, fills,
+     and the focus ring. */
+  --color-gold-ink: #7d6229;
   --color-warm-stone: #d4c5a9;
   --color-warm-cream: #fff8e7;
   --color-golden-mist: #fff3d4;
