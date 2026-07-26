@@ -20,10 +20,10 @@
  * The page trees, slugs, URLs, and frontmatter are the real ones derived from
  * the real `content/docs` and `content/docs-v2` directories.
  */
-import { readFileSync, readdirSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import * as Config from '@/source.config'
 import { dynamic } from 'fumadocs-mdx/runtime/dynamic'
+import * as Config from '@/source.config'
 
 /** A discovered MDX entry in the shape the dynamic runtime expects. */
 type LazyEntry = {
@@ -116,11 +116,14 @@ function scanCollection(relDir: string): {
   return { entries, meta }
 }
 
-const create = await dynamic(
-  Config,
-  { configPath: 'source.config.ts', environment: 'next', outDir: '.source' },
-  { doc: { passthroughs: ['extractedReferences', 'lastModified'] } },
-)
+// fumadocs-mdx 15.2 reduced `dynamic()` to (configExports, coreOptions); the
+// third options argument (doc passthroughs) no longer exists — the type config
+// is inferred instead.
+const create = await dynamic(Config, {
+  configPath: 'source.config.ts',
+  environment: 'next',
+  outDir: '.source',
+})
 
 const docsScan = scanCollection('content/docs')
 const docsV2Scan = scanCollection('content/docs-v2')

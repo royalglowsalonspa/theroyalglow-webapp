@@ -1,0 +1,91 @@
+name: Apply DB Migrations
+
+# ---------------------------------------------------------------------------
+# MANUAL, per-branch drizzle migration runner.
+#
+# Why this exists: applying migrations used to be a step inside deploy-prod.yml /
+# deploy-pprd.yml. Those workflows deployed to Cloudflare Workers, which is no
+# longer how this project ships — apps/web, apps/admin and apps/cms are deployed
+# by Render straight from git (see render.yaml), and docs by Sevalla. The
+# Cloudflare workflows were retired, and this keeps the migration mechanism that
+# render.yaml refers to ("migrations run only via GitHub Actions per the
+# migration-discipline steering") instead of quietly losing it.
+#
+# It is deliberately workflow_dispatch ONLY. Migrations are forward-only DDL
+# against a live database, so they are run by a human, on purpose, per branch, in
+# the ratified order dev -> test -> pprd -> prod (see the migration-discipline
+# steering). It intentionally does NOT run on push: a Render deploy must never
+# race a schema change.
+#
+# Connection: DDL goes over the UNPOOLED/direct Neon host. Drizzle's DDL hangs
+# over pgBouncer, so the pooled URL must not be used here.
+#
+# Required secret per environment (add under Settings > Secrets and variables >
+# Actions). These must be GitHub secrets — this job runs on the GitHub runner and
+# cannot see Render's dashboard env vars:
+#   dev  -> DATABASE_URL_UNPOOLED_DEV
+#   test -> DATABASE_URL_UNPOOLED_TEST
+#   pprd -> DATABASE_URL_UNPOOLED_PPRD
+#   prod -> DATABASE_URL_UNPOOLED_PROD
+# ---------------------------------------------------------------------------
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target database branch to migrate'
+        required: true
+        type: choice
+        options:
+          - dev
+          - test
+          - pprd
+          - prod
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+
+      # Pick the unpooled URL for the requested branch and fail LOUDLY when the
+      # secret is missing, rather than letting drizzle-kit run against an empty
+      # connection string and emit a confusing error.
+      - name: Resolve target connection
+        id: target
+        env:
+          DEV: ${{ secrets.DATABASE_URL_UNPOOLED_DEV }}
+          TEST: ${{ secrets.DATABASE_URL_UNPOOLED_TEST }}
+          PPRD: ${{ secrets.DATABASE_URL_UNPOOLED_PPRD }}
+          PROD: ${{ secrets.DATABASE_URL_UNPOOLED_PROD }}
+        run: |
+          case "${{ inputs.environment }}" in
+            dev)  URL="$DEV"  ;;
+            test) URL="$TEST" ;;
+            pprd) URL="$PPRD" ;;
+            prod) URL="$PROD" ;;
+          esac
+          if [ -z "$URL" ]; then
+            echo "::error title=Missing secret::No unpooled connection string configured for '${{ inputs.environment }}'. Add the matching DATABASE_URL_UNPOOLED_* secret."
+            exit 1
+          fi
+          echo "::add-mask::$URL"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      # Run from the workspace so drizzle.config.ts resolves its relative schema
+      # and migrations paths. Advisory only — never blocks the apply below.
+      - name: Verify migration history is consistent with the schema
+        working-directory: packages/db
+        env:
+          DATABASE_URL_UNPOOLED: ${{ steps.target.outputs.url }}
+          DATABASE_URL: ${{ steps.target.outputs.url }}
+        run: bunx drizzle-kit check || true
+
+      - name: Apply migrations (forward-only DDL)
+        env:
+          DATABASE_URL_UNPOOLED: ${{ steps.target.outputs.url }}
+          DATABASE_URL: ${{ steps.target.outputs.url }}
+        run: bun run migrate

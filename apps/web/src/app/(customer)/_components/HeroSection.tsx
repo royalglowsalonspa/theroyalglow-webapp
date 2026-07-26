@@ -32,12 +32,12 @@
  ************************************************************/
 'use client'
 
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { fadeInUp } from '@/components/ui/motion/motion-variants'
 import { ArrowRight, Clock, MapPin } from 'lucide-react'
 import { motion } from 'motion/react'
 import Link from 'next/link'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { fadeInUp } from '@/components/ui/motion/motion-variants'
 
 const categories = ['HAIR', 'SPA', 'SKIN', 'BRIDAL', 'NAILS', 'GROOMING']
 
@@ -57,7 +57,10 @@ export function HeroSection() {
         >
           <div>
             {/* Eyebrow */}
-            <p className="mb-6 font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-deep-gold opacity-60">
+            {/* No opacity: at 60% the deep-gold computed to #826b3e on the dark hero
+                = 3.69:1, below the 4.5:1 WCAG AA floor for this 10px bold text.
+                Full deep-gold clears it comfortably. */}
+            <p className="mb-6 font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-deep-gold">
               Royal Glow Salon &amp; Spa
             </p>
 
@@ -97,7 +100,9 @@ export function HeroSection() {
               <Badge
                 key={cat}
                 variant="ghost"
-                className="px-0 font-ui text-[10px] font-bold uppercase tracking-widest text-canvas-white opacity-40"
+                // opacity-40 computed to #766f6c on the dark hero = 3.81:1, under the
+                // 4.5:1 AA floor. 70% keeps the muted treatment while clearing it.
+                className="px-0 font-ui text-[10px] font-bold uppercase tracking-widest text-canvas-white opacity-70"
               >
                 {cat}
               </Badge>

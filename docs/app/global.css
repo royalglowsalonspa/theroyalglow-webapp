@@ -4,7 +4,7 @@
 
 /* Scan the Fumadocs UI package so Tailwind generates the utility classes
    its components use. Path is relative to this CSS file. */
-@source '../node_modules/fumadocs-ui/dist/**/*.js';
+@source "../node_modules/fumadocs-ui/dist/**/*.js";
 
 /* ---------------------------------------------------------------------------
    RGSS Design_Tokens — light theme
@@ -155,16 +155,16 @@ small {
    Focus ring — 2px solid ring with 2px offset on all interactive elements
    --------------------------------------------------------------------------- */
 :where(
-    a,
-    button,
-    input,
-    select,
-    textarea,
-    summary,
-    [role="button"],
-    [role="link"],
-    [tabindex]:not([tabindex="-1"])
-  ):focus-visible {
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  summary,
+  [role="button"],
+  [role="link"],
+  [tabindex]:not([tabindex="-1"])
+):focus-visible {
   outline: 2px solid var(--color-fd-ring);
   outline-offset: 2px;
 }

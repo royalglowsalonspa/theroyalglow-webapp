@@ -42,13 +42,13 @@
 import { type CanonicalFingerprint, readCatalog } from './canonical'
 import {
   type CatalogReader,
-  type SqlExecutor,
   createNeonCatalogReader,
   neonExecutor,
+  type SqlExecutor,
 } from './catalog-queries'
 import { SchemaDiffer } from './diff'
 import { Fingerprinter } from './fingerprint'
-import { type NeonAdmin, createNeonAdmin } from './neon-admin'
+import { createNeonAdmin, type NeonAdmin } from './neon-admin'
 import { PreChecker, type ProbeReader } from './precheck'
 import type {
   BranchId,

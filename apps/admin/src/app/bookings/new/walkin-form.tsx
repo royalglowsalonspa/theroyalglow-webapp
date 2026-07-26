@@ -44,6 +44,10 @@
 
 'use client'
 
+import { AlertCircle, ArrowLeft, Check, Search, UserCheck, X } from 'lucide-react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Icon } from '@/components/ui/icon'
 import { Input } from '@/components/ui/input'
@@ -59,10 +63,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { TimeSelect } from '@/components/ui/time-select'
 import { formatINRWithPaise } from '@/lib/admin/bookings'
 import { toast } from '@/lib/admin/toast'
-import { AlertCircle, ArrowLeft, Check, Search, UserCheck, X } from 'lucide-react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useState } from 'react'
 
 /** Operational branch option offered in the branch picker. */
 export type WalkinBranch = {

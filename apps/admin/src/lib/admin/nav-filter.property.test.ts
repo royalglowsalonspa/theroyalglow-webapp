@@ -17,15 +17,15 @@
  *                does not change RBAC logic (Req 16.3).
  ************************************************************/
 
-import {
-  ADMIN_NAV,
-  MIN_ROLE_LEVEL,
-  type NavSection,
-  filterNavByLevel,
-  resolveRoleLevel,
-} from '@/lib/rbac'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import {
+  ADMIN_NAV,
+  filterNavByLevel,
+  MIN_ROLE_LEVEL,
+  type NavSection,
+  resolveRoleLevel,
+} from '@/lib/rbac'
 
 // Feature: admin-portal-redesign, Property 4: Navigation filtering respects role level with no empty sections
 //

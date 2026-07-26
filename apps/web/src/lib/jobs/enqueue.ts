@@ -50,11 +50,7 @@ const logger = createLogger({
 // Minimal slice of the optional `@upstash/qstash` Client surface we rely on.
 // Modeled locally so this file compiles without the package installed.
 type QStashClient = {
-  publishJSON(opts: {
-    url: string
-    body: unknown
-    delay?: number
-  }): Promise<unknown>
+  publishJSON(opts: { url: string; body: unknown; delay?: number }): Promise<unknown>
 }
 
 type QStashClientConstructor = new (opts: { token: string }) => QStashClient

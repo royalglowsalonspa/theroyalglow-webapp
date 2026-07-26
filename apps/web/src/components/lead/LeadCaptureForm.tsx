@@ -31,13 +31,13 @@
 
 'use client'
 
+import { Check, Loader2, X } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { track } from '@/lib/analytics/events'
-import { Check, Loader2, X } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
 
 // Mirrors getServiceInterestOptions() rows.
 type ServiceOption = {
@@ -71,13 +71,7 @@ const SERVICE_GROUP_LABELS: Record<ServiceOption['serviceType'], string> = {
 
 const LABEL_CLASS = 'mb-1.5 font-ui text-sm font-medium text-warm-gray'
 
-export function LeadCaptureForm({
-  services,
-  utm,
-}: {
-  services: ServiceOption[]
-  utm: Utm
-}) {
+export function LeadCaptureForm({ services, utm }: { services: ServiceOption[]; utm: Utm }) {
   const router = useRouter()
 
   const [name, setName] = useState('')
@@ -177,7 +171,7 @@ export function LeadCaptureForm({
       {/* Brand + trust signals above the form */}
       <header className="mb-6 text-center">
         <p className="font-display text-2xl text-cocoa-dark">
-          👑 Royal Glow <span className="text-deep-gold">Salon &amp; Spa</span>
+          👑 Royal Glow <span className="text-gold-ink">Salon &amp; Spa</span>
         </p>
         <p className="mt-2 font-ui text-sm text-dusty-gray">⭐ 4.9 · 86 reviews · Bengaluru</p>
       </header>
@@ -297,7 +291,7 @@ export function LeadCaptureForm({
           <br />
           <a
             href={`tel:${SALON_PHONE}`}
-            className="mt-1 inline-block underline underline-offset-2 hover:text-deep-gold"
+            className="mt-1 inline-block underline underline-offset-2 hover:text-gold-ink"
           >
             📞 +91 63601 35720
           </a>
@@ -322,13 +316,7 @@ function SuccessCard() {
   )
 }
 
-function ErrorCard({
-  message,
-  onRetry,
-}: {
-  message: string
-  onRetry: () => void
-}) {
+function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <section className="rounded-cards bg-canvas-white p-8 text-center shadow-elevated" role="alert">
       <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-error/10 text-error">
@@ -350,7 +338,7 @@ function ErrorCard({
       <p className="mt-4 font-ui text-sm">
         <a
           href={`tel:${SALON_PHONE}`}
-          className="text-deep-gold underline underline-offset-2 hover:text-cocoa-dark"
+          className="text-gold-ink underline underline-offset-2 hover:text-cocoa-dark"
         >
           📞 +91 63601 35720 (tap to call)
         </a>

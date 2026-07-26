@@ -29,10 +29,10 @@
  * - Returns 503 if ABLY_API_KEY is not set so the client can fall back to polling.
  ************************************************************/
 
+import { AppError, ERROR_CODES } from '@rgss/errors'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireSession } from '@/lib/api/session'
 import { createAblyTokenRequest } from '@/lib/realtime/ably'
-import { AppError, ERROR_CODES } from '@rgss/errors'
 
 // Roles that may subscribe to admin realtime channels (receptionist and above
 // in the RBAC hierarchy: customer < staff < receptionist < manager < owner <

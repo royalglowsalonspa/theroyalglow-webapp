@@ -234,6 +234,7 @@ export function InvoiceDocument(payload: InvoicePdfPayload) {
           </View>
 
           {items.map((item, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: one-shot PDF render with fixed row order, no component state, and the same service name may appear twice on one invoice
             <View key={`${item.name}-${index}`} style={styles.tableRow}>
               <View style={styles.colService}>
                 <Text style={styles.itemName}>{item.name}</Text>

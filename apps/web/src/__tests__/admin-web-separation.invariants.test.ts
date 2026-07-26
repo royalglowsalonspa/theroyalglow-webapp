@@ -20,7 +20,7 @@
  * Layer        : Test (static verification)
  ************************************************************/
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -157,7 +157,17 @@ describe('admin-web-separation: no admin/web-separation migration (Req 9.7)', ()
 const ADMIN_SRC = join(REPO_ROOT, 'apps', 'admin', 'src')
 const WEB_JOBS_DIR = join(WEB_SRC, 'app', 'api', 'jobs')
 const ADMIN_JOBS_DIR = join(ADMIN_SRC, 'app', 'api', 'jobs')
-const DEPLOY_PROD_WORKFLOW = join(REPO_ROOT, '.github', 'workflows', 'deploy-prod.yml')
+// The Cloudflare deploy workflows were retired (web/admin/cms now deploy from git
+// via Render — see render.yaml), so QStash registration moved to its own
+// dispatchable workflow. The OWNERSHIP invariant is unchanged: registration
+// belongs to the admin side and must never appear in a customer-side workflow.
+const REGISTER_SCHEDULES_WORKFLOW = join(
+  REPO_ROOT,
+  '.github',
+  'workflows',
+  'register-schedules.yml',
+)
+const CUSTOMER_WORKFLOWS_DIR = join(REPO_ROOT, '.github', 'workflows')
 const WEB_PACKAGE_JSON = join(REPO_ROOT, 'apps', 'web', 'package.json')
 const WEB_ENQUEUE = join(WEB_SRC, 'lib', 'jobs', 'enqueue.ts')
 
@@ -192,10 +202,21 @@ describe('admin-web-separation: triggered job routes are defined in exactly one 
 })
 
 describe('admin-web-separation: QStash schedule registration is owned by the admin side (Req 2.2, 3.6) [isBugCondition: misplaced]', () => {
-  it('deploy-prod.yml (customer workflow) has NO "Register QStash schedules" step', () => {
-    const workflow = readFileSync(DEPLOY_PROD_WORKFLOW, 'utf8')
-    // FAILS on the unfixed tree: the web deploy owns the registration step.
-    expect(workflow).not.toContain('Register QStash schedules')
+  it('no customer-side workflow registers QStash schedules', () => {
+    // Originally this asserted specifically that deploy-prod.yml (the customer
+    // deploy) had no registration step. That workflow no longer exists, so the
+    // check is now generalised: registration may appear ONLY in the dedicated
+    // admin-owned register-schedules workflow, whichever other workflows exist.
+    const offenders = readdirSync(CUSTOMER_WORKFLOWS_DIR)
+      .filter((file) => file.endsWith('.yml') || file.endsWith('.yaml'))
+      .filter((file) => file !== 'register-schedules.yml')
+      .filter((file) =>
+        readFileSync(join(CUSTOMER_WORKFLOWS_DIR, file), 'utf8').includes(
+          'Register QStash schedules',
+        ),
+      )
+
+    expect(offenders).toEqual([])
   })
 
   it('apps/web/package.json has NO "register-schedules" script', () => {
@@ -376,7 +397,7 @@ describe('admin-web-separation: register-schedules + JOB_SCHEDULES resolve in ad
     // Every schedule POSTs to a canonical /api/jobs/<key> path with a cron.
     for (const s of schedules) {
       expect(s.path).toBe(`/api/jobs/${s.key}`)
-      expect(s.cron).toMatch(/^[\d*/, \-]+$/)
+      expect(s.cron).toMatch(/^[\d*/, -]+$/)
     }
   })
 
@@ -394,7 +415,6 @@ describe('admin-web-separation: register-schedules + JOB_SCHEDULES resolve in ad
 })
 
 describe('admin-web-separation: QStash schedule registration is wired to the admin deploy + origin (Req 2.2, 3.6) [admin presence]', () => {
-  const ADMIN_DEPLOY_WORKFLOW = join(REPO_ROOT, '.github', 'workflows', 'deploy-admin-prod.yml')
   const ADMIN_PACKAGE_JSON = join(REPO_ROOT, 'apps', 'admin', 'package.json')
 
   it('apps/admin/package.json owns the register-schedules script', () => {
@@ -404,8 +424,12 @@ describe('admin-web-separation: QStash schedule registration is wired to the adm
     expect(pkg.scripts?.['register-schedules']).toBeDefined()
   })
 
-  it('deploy-admin-prod.yml registers schedules against the admin origin', () => {
-    const workflow = readFileSync(ADMIN_DEPLOY_WORKFLOW, 'utf8')
+  it('register-schedules.yml registers schedules against the admin origin', () => {
+    // Was deploy-admin-prod.yml; that Cloudflare deploy was retired when hosting
+    // moved to Render, so the registration now lives in its own dispatchable
+    // workflow. The invariant is identical: it runs the admin script and feeds it
+    // the ADMIN origin.
+    const workflow = readFileSync(REGISTER_SCHEDULES_WORKFLOW, 'utf8')
     expect(workflow).toContain('Register QStash schedules')
     expect(workflow).toContain('bun run register-schedules')
     // The registration origin is fed from the admin URL var.

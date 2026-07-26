@@ -30,11 +30,11 @@
  * - Returns 404 when the caller has no customer_profile (onboarding incomplete).
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireSession } from '@/lib/api/session'
 import { updateNotificationPreferences } from '@rgss/db/queries'
 import { badRequest, notFound } from '@rgss/errors'
 import { updateNotificationPreferencesSchema } from '@rgss/types'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireSession } from '@/lib/api/session'
 
 // PATCH /api/profile/preferences — update the caller's notification preference
 // flags. Scoped to the authenticated user (session.user.id); a caller can never

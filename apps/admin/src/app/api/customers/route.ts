@@ -30,11 +30,11 @@
  * - Query params are Zod-validated via customerListQuerySchema.
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { getCustomers } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { customerListQuerySchema } from '@rgss/types'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 // GET /api/customers — paginated, searchable, sortable customer directory.
 // Receptionist+. Returns the standard envelope with pagination `meta`.

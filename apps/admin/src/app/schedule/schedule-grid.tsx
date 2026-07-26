@@ -45,6 +45,9 @@
 
 'use client'
 
+import { type BusinessHours, type DayKey, DEFAULT_BUSINESS_HOURS } from '@rgss/types'
+import { CalendarRange, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Icon } from '@/components/ui/icon'
@@ -56,9 +59,6 @@ import { TimeSelect } from '@/components/ui/time-select'
 import { useAsyncData } from '@/components/ui/use-async-data'
 import { formatTime12h } from '@/lib/admin/bookings'
 import { toast } from '@/lib/admin/toast'
-import { type BusinessHours, DEFAULT_BUSINESS_HOURS, type DayKey } from '@rgss/types'
-import { CalendarRange, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 // ─── API shapes (mirror GET /api/schedule → apiSuccess({ dates, staff })) ───
 

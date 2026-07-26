@@ -31,13 +31,13 @@
  * - Returns 409 for non-reschedulable status, max reschedules, or bad slot.
  ************************************************************/
 
+import { addMinutesToTime, checkReschedulable, isBookableSlotStart } from '@rgss/business'
+import { getBookingByIdForCustomer, rescheduleBooking } from '@rgss/db/queries'
+import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
+import { rescheduleBookingSchema } from '@rgss/types'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireSession } from '@/lib/api/session'
 import { publishBookingEvent } from '@/lib/realtime/publish'
-import { addMinutesToTime, checkReschedulable, isBookableSlotStart } from '@rgss/business'
-import { getBookingByIdForCustomer, rescheduleBooking } from '@rgss/db/queries'
-import { ERROR_CODES, badRequest, conflict, notFound } from '@rgss/errors'
-import { rescheduleBookingSchema } from '@rgss/types'
 
 // Current calendar date in IST (UTC+5:30) as YYYY-MM-DD — matches /api/availability.
 function todayInIST(): string {

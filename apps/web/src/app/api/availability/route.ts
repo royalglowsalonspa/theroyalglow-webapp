@@ -34,11 +34,11 @@
  *   holiday query exists yet, so holidays are not sourced here.
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { generateAvailability } from '@rgss/business'
 import { getSettings } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
-import { type DayHours, availabilityQuerySchema } from '@rgss/types'
+import { availabilityQuerySchema, type DayHours } from '@rgss/types'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 
 // Weekday index (Date.getUTCDay: 0=Sun … 6=Sat) → the DayKey used by the
 // business-hours settings object.

@@ -37,8 +37,8 @@
  * checklist in `seo.md` Part 4e / Part 5 without copy-paste drift.
  */
 
-import { SITE_URL } from '@/lib/seo/business'
 import type { Metadata } from 'next'
+import { SITE_URL } from '@/lib/seo/business'
 
 const BRAND = 'Royal Glow Salon & Spa'
 const DEFAULT_OG_IMAGE = '/og-default.jpg'

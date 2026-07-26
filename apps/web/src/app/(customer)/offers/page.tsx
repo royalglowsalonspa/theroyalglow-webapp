@@ -32,6 +32,8 @@
  * - Marketing offers from Payload; separate from Drizzle booking redemptions.
  ************************************************************/
 
+import type { Metadata } from 'next'
+import Link from 'next/link'
 import { OfferBookButton } from '@/components/offers/OfferBookButton'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { Badge } from '@/components/ui/badge'
@@ -42,8 +44,6 @@ import type { Offer } from '@/lib/cms/types'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
-import type { Metadata } from 'next'
-import Link from 'next/link'
 
 export const metadata: Metadata = buildMetadata({
   title: 'Special Offers',

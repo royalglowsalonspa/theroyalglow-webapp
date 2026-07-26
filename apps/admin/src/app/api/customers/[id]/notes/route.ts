@@ -30,11 +30,11 @@
  * - Notes are append-only; no edit or delete in current phase.
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { addCustomerNote } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { addCustomerNoteSchema } from '@rgss/types'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 // POST /api/customers/[id]/notes — add a free-text note to a customer,
 // optionally linked to a booking. Receptionist+. Persists author + timestamp.

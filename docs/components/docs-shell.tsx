@@ -1,13 +1,13 @@
+import { DocsLayout } from 'fumadocs-ui/layouts/docs'
+import { DocsBody, DocsDescription, DocsPage, DocsTitle } from 'fumadocs-ui/page'
 import { Feedback } from '@/components/feedback'
 import { LegacyBanner } from '@/components/legacy-banner'
 import { PageAffordances } from '@/components/page-affordances'
 import { type SwitcherVersion, VersionSwitcher } from '@/components/version-switcher'
-import type { DocVersionRuntime, DocsSource } from '@/lib/source'
+import type { DocsSource, DocVersionRuntime } from '@/lib/source'
 import { pageExistsIn, versions } from '@/lib/source'
 import { equivalentPath, getSwitcherOrder, versionsMeta } from '@/lib/versions'
 import { getMDXComponents } from '@/mdx-components'
-import { DocsLayout } from 'fumadocs-ui/layouts/docs'
-import { DocsBody, DocsDescription, DocsPage, DocsTitle } from 'fumadocs-ui/page'
 
 /**
  * Version-aware documentation shell (task 8.1; Requirements 2.1, 2.2, 2.3, 8.4,
