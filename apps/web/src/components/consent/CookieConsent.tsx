@@ -261,7 +261,10 @@ export function CookieConsent() {
                 href="/privacy"
                 className="text-royal-gold underline underline-offset-2 transition-colors duration-200 hover:text-warm-gold"
               >
-                Learn more
+                {/* Descriptive link text: "Learn more" alone fails Lighthouse's
+                    link-text SEO audit and tells nothing to a screen-reader user
+                    scanning a link list. */}
+                Read our privacy policy
               </Link>
             </p>
           </div>
