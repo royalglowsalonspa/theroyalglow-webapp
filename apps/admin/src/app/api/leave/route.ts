@@ -29,9 +29,9 @@
  * - Default view shows all statuses; filter by pending for approval workflow.
  ************************************************************/
 
+import { getLeaveRequests } from '@rgss/db/queries'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
-import { getLeaveRequests } from '@rgss/db/queries'
 
 // GET /api/leave?status= — the leave approval queue, newest first, optionally
 // filtered by approval status. Receptionist+ only.

@@ -33,10 +33,6 @@
  * - Offers cannot be combined with gems redemption on the same booking.
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
-import { enqueueJob } from '@/lib/jobs/enqueue'
-import { publishBookingEvent } from '@/lib/realtime/publish'
 import {
   assertOfferActive,
   assertOfferSalonOnly,
@@ -57,8 +53,12 @@ import {
   getStaffNamesByIds,
   recordOfferRedemption,
 } from '@rgss/db/queries'
-import { ERROR_CODES, badRequest, conflict, notFound } from '@rgss/errors'
+import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
 import { completeBookingSchema } from '@rgss/types'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
+import { enqueueJob } from '@/lib/jobs/enqueue'
+import { publishBookingEvent } from '@/lib/realtime/publish'
 
 const COMPLETABLE_STATUSES = new Set(['confirmed', 'in_progress'])
 

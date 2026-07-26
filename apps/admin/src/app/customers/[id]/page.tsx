@@ -29,9 +29,6 @@
  * - Data is serialized to ISO strings for safe client hydration
  ************************************************************/
 
-import { CustomerProfileTabs } from '@/components/admin/CustomerProfileTabs'
-import { Icon } from '@/components/ui/icon'
-import { formatDateDDMMYYYY, formatINR } from '@/lib/admin/bookings'
 import {
   getAllTags,
   getCustomerBookings,
@@ -43,6 +40,9 @@ import {
 import { ArrowLeft, Mail, Phone } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { CustomerProfileTabs } from '@/components/admin/CustomerProfileTabs'
+import { Icon } from '@/components/ui/icon'
+import { formatDateDDMMYYYY, formatINR } from '@/lib/admin/bookings'
 
 export const metadata: Metadata = {
   title: 'Customer Profile',

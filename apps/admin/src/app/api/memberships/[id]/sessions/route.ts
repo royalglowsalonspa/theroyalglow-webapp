@@ -32,8 +32,6 @@
  * - Booking is created directly as completed (skip pending/confirmed).
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import {
   addMinutesToTime,
   assertSessionRecordable,
@@ -49,6 +47,8 @@ import {
 } from '@rgss/db/queries'
 import { badRequest, notFound } from '@rgss/errors'
 import { recordSessionSchema } from '@rgss/types'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 const PRIMARY_BRANCH_ID = 'branch_rayasandra'
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000

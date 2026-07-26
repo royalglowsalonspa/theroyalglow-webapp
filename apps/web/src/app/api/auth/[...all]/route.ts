@@ -28,7 +28,7 @@
  * - This is a passthrough handler; all logic lives in Better Auth internals.
  ************************************************************/
 
-import { auth } from '@/lib/auth-server'
 import { toNextJsHandler } from 'better-auth/next-js'
+import { auth } from '@/lib/auth-server'
 
 export const { GET, POST } = toNextJsHandler(auth)

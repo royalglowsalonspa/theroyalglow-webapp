@@ -1,8 +1,8 @@
 import './global.css'
-import { fontVariables } from '@/lib/fonts'
 import { Banner } from 'fumadocs-ui/components/banner'
 import { RootProvider } from 'fumadocs-ui/provider/next'
 import type { ReactNode } from 'react'
+import { fontVariables } from '@/lib/fonts'
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

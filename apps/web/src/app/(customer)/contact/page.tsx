@@ -28,11 +28,11 @@
  * - Form is wired to POST /api/contact via the ContactForm client component
  ************************************************************/
 
+import type { Metadata } from 'next'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, localBusinessJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
-import type { Metadata } from 'next'
 import { ContactForm } from './ContactForm'
 
 export const metadata: Metadata = buildMetadata({

@@ -31,10 +31,6 @@
  * - Protected route; redirects to / (homepage) if no session
  ************************************************************/
 
-import { RedeemFlow } from '@/components/gems/RedeemFlow'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { auth } from '@/lib/auth-server'
 import { computeAffordability, formatDateIN } from '@rgss/business'
 import {
   getLoyaltySummary,
@@ -47,6 +43,10 @@ import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { RedeemFlow } from '@/components/gems/RedeemFlow'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { auth } from '@/lib/auth-server'
 
 export const metadata: Metadata = {
   title: 'My Gems',
@@ -134,10 +134,10 @@ export default async function GemsPage({ searchParams }: PageProps) {
           Gems balance
         </h2>
         <div className="flex items-baseline gap-2">
-          <span
-            className="font-display text-[clamp(40px,8vw,64px)] leading-none text-cocoa-dark"
-            aria-label={`${balance.balance} gems available`}
-          >
+          {/* No aria-label: it is not exposed on a roleless span, and the visible
+              "{n} gems" pairing under the "Gems balance" heading already reads
+              correctly to assistive tech. */}
+          <span className="font-display text-[clamp(40px,8vw,64px)] leading-none text-cocoa-dark">
             {balance.balance.toLocaleString('en-IN')}
           </span>
           <span className="font-ui text-[13px] uppercase tracking-[1px] text-deep-gold">gems</span>

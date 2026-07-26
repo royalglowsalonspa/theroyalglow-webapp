@@ -30,11 +30,11 @@
 
 'use client'
 
+import { Bell } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Bell } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
 
 interface NotificationRow {
   id: string

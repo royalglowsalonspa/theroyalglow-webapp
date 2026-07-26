@@ -21,5 +21,6 @@
  *
  * Notes        : None
  ************************************************************/
-export * from './discount'
+
 export * from './applicability'
+export * from './discount'

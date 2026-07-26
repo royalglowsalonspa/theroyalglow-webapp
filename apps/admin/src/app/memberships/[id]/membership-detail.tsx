@@ -39,6 +39,10 @@
 
 'use client'
 
+import type { ColumnDef } from '@tanstack/react-table'
+import { ArrowLeft } from 'lucide-react'
+import Link from 'next/link'
+import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DataTable } from '@/components/ui/data-table'
 import { Input } from '@/components/ui/input'
@@ -57,19 +61,15 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { Textarea } from '@/components/ui/textarea'
 import { formatDateTimeIST } from '@/lib/admin/format'
 import {
-  type MembershipDetailData,
-  type MembershipSessionRow,
-  type ServiceOption,
-  type StaffOption,
   daysUntil,
   formatDateDDMMYYYY,
+  type MembershipDetailData,
+  type MembershipSessionRow,
   minutesToHM,
+  type ServiceOption,
+  type StaffOption,
 } from '@/lib/admin/memberships'
 import { toast } from '@/lib/admin/toast'
-import type { ColumnDef } from '@tanstack/react-table'
-import { ArrowLeft } from 'lucide-react'
-import Link from 'next/link'
-import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 
 export function MembershipDetail({ membershipId }: { membershipId: string }) {
   const [data, setData] = useState<MembershipDetailData | null>(null)
@@ -267,13 +267,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 // --- Session history table (DataTable) ------------------------------------
 
-function SessionHistory({
-  sessions,
-  used,
-}: {
-  sessions: MembershipSessionRow[]
-  used: number
-}) {
+function SessionHistory({ sessions, used }: { sessions: MembershipSessionRow[]; used: number }) {
   const columns = useMemo<ColumnDef<MembershipSessionRow, unknown>[]>(
     () => [
       {

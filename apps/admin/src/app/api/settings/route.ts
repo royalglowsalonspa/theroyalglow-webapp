@@ -26,12 +26,12 @@
  *                key/value store, so writes are one-section-at-a-time upserts.
  ************************************************************/
 
+import { getSettings, SETTING_KEYS, upsertSetting } from '@rgss/db/queries'
+import { badRequest } from '@rgss/errors'
+import { settingsUpdateSchema } from '@rgss/types'
 import { audit } from '@/lib/api/audit'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
-import { SETTING_KEYS, getSettings, upsertSetting } from '@rgss/db/queries'
-import { badRequest } from '@rgss/errors'
-import { settingsUpdateSchema } from '@rgss/types'
 
 // GET /api/settings — full settings object with defaults applied. Manager+.
 export const GET = withErrorHandler(async () => {

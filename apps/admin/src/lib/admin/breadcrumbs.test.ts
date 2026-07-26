@@ -13,9 +13,9 @@
  *                overwrite sibling property tests.
  ************************************************************/
 
-import { ADMIN_NAV, type NavSection } from '@/lib/rbac'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import { ADMIN_NAV, type NavSection } from '@/lib/rbac'
 import { type Crumb, deriveBreadcrumbs } from './breadcrumbs'
 
 // Feature: admin-portal-redesign, Property 5: Breadcrumb derivation is well-formed

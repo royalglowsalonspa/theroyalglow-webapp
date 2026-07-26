@@ -23,12 +23,12 @@
  * Notes        : Branches are never hard-deleted — status drives lifecycle.
  ************************************************************/
 
-import { audit } from '@/lib/api/audit'
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { createBranch, getBranches } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { branchCreateSchema } from '@rgss/types'
+import { audit } from '@/lib/api/audit'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 // GET /api/branches — list all branches. Owner+.
 export const GET = withErrorHandler(async () => {

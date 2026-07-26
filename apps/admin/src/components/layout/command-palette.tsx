@@ -29,6 +29,9 @@
 
 'use client'
 
+import { Search } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useEffect, useMemo, useState } from 'react'
 import {
   CommandDialog,
   CommandEmpty,
@@ -39,9 +42,6 @@ import {
 } from '@/components/ui/command'
 import { commandItemsForLevel } from '@/lib/admin/command-items'
 import { ADMIN_NAV } from '@/lib/rbac'
-import { Search } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
 
 /**
  * Global command palette + its Top Bar trigger.

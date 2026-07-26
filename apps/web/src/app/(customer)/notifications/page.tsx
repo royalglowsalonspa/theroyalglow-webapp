@@ -25,10 +25,10 @@
  * Notes        : Protected route; redirects to / (homepage) if no session.
  ************************************************************/
 
-import { auth } from '@/lib/auth-server'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { auth } from '@/lib/auth-server'
 import { NotificationsPanel } from './notifications-panel'
 
 export const metadata: Metadata = {

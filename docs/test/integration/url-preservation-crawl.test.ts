@@ -1,7 +1,8 @@
 // @vitest-environment node
+
+import { describe, expect, it } from 'vitest'
 import { latestSource } from '@/lib/source'
 import { resolveVersion } from '@/lib/versions'
-import { describe, expect, it } from 'vitest'
 
 // Task 12.2 — URL-preservation crawl test (Req 4.2).
 //

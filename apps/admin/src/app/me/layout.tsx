@@ -23,10 +23,10 @@
  *   layout adds a server-side session fallback only.
  ************************************************************/
 
-import { auth } from '@/lib/auth-server'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { auth } from '@/lib/auth-server'
 
 export const metadata: Metadata = {
   title: {
@@ -42,11 +42,7 @@ const WEB_ORIGIN = 'https://theroyalglow.in'
 // the `/me` RBAC minimum (staff, level 1); this resolves the session as a
 // defence-in-depth fallback so a missing/expired session lands on the customer
 // site rather than rendering an empty shell.
-export default async function MeLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default async function MeLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) {
     redirect(WEB_ORIGIN)

@@ -29,12 +29,13 @@
  * Notes        :
  * - suppressHydrationWarning for dark-mode/extension compatibility
  ************************************************************/
+
+import type { Metadata } from 'next'
 import { Analytics } from '@/components/analytics/Analytics'
 import { CookieConsent } from '@/components/consent/CookieConsent'
 import { InstallPrompt } from '@/components/pwa/InstallPrompt'
 import { ServiceWorkerRegistrar } from '@/components/pwa/ServiceWorkerRegistrar'
 import { SITE_URL } from '@/lib/seo/business'
-import type { Metadata } from 'next'
 import '@/styles/globals.css'
 
 const DESCRIPTION =
@@ -73,11 +74,7 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" translate="no" suppressHydrationWarning>
       <body suppressHydrationWarning>

@@ -25,7 +25,7 @@
  * Notes        :
  * - Throws MEMBERSHIP_EXPIRED or MEMBERSHIP_INSUFFICIENT_HOURS (409)
  ************************************************************/
-import { ERROR_CODES, conflict } from '@rgss/errors'
+import { conflict, ERROR_CODES } from '@rgss/errors'
 
 // Remaining minutes on a membership. Pure arithmetic; the caller ensures
 // non-negative inputs.
