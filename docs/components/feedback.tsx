@@ -69,7 +69,9 @@ export function Feedback({ pagePath, onSubmit = noop }: FeedbackProps) {
           </p>
           <div className="flex items-center gap-2">
             <button
-              aria-label="Yes, this page was helpful"
+              // The accessible name must CONTAIN the visible label ("Good"), otherwise
+              // speech-input users cannot activate the control by saying what they see.
+              aria-label="Good, this page was helpful"
               className="rounded-[var(--radius)] border border-fd-border bg-fd-secondary px-3 py-1.5 text-sm font-medium text-fd-secondary-foreground transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground"
               onClick={() => {
                 void handleSubmit('good')
@@ -79,7 +81,7 @@ export function Feedback({ pagePath, onSubmit = noop }: FeedbackProps) {
               Good
             </button>
             <button
-              aria-label="No, this page was not helpful"
+              aria-label="Bad, this page was not helpful"
               className="rounded-[var(--radius)] border border-fd-border bg-fd-secondary px-3 py-1.5 text-sm font-medium text-fd-secondary-foreground transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground"
               onClick={() => {
                 void handleSubmit('bad')
