@@ -206,10 +206,18 @@ export function TestimonialsCarousel({ reviews }: { reviews: Testimonial[] }) {
             aria-selected={activeIndex === i}
             aria-label={`Go to review ${i + 1}`}
             onClick={() => scrollToIndex(i)}
-            className={`h-2 rounded-full transition-all duration-300 ${
-              activeIndex === i ? 'w-6 bg-deep-gold' : 'w-2 bg-outline-gray hover:bg-warm-stone'
-            }`}
-          />
+            // The button itself is the touch target and must be >= 24x24 (WCAG 2.5.8);
+            // an 8px dot as the target failed `target-size`. The visual dot is an inner
+            // span so the indicator keeps its small appearance.
+            className="flex h-6 min-w-6 items-center justify-center"
+          >
+            <span
+              aria-hidden="true"
+              className={`block h-2 rounded-full transition-all duration-300 ${
+                activeIndex === i ? 'w-6 bg-deep-gold' : 'w-2 bg-outline-gray hover:bg-warm-stone'
+              }`}
+            />
+          </button>
         ))}
       </div>
     </section>

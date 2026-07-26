@@ -169,10 +169,18 @@ function buildCsp(nonce: string, isDev: boolean): string {
     "frame-src 'self' https://accounts.google.com https://www.facebook.com https://www.google.com https://maps.google.com"
 
   // font-src: next/font self-hosts; data: covers inline fonts; gstatic for GSI.
-  const fontSrc = "font-src 'self' data: https://fonts.gstatic.com"
+  // Brand fonts — Cabinet Grotesk + Clash Grotesk (Fontshare) and Plus Jakarta
+  // Sans (Google Fonts) — are loaded via `@import url(...)` in styles/globals.css.
+  // The stylesheet hosts must be allowed in `style-src` and the font-FILE hosts in
+  // `font-src`, otherwise the CSP blocks them and the customer site silently
+  // renders in a fallback system font. This mirrors the identical allowance in
+  // apps/admin/src/middleware.ts.
+  const fontSrc =
+    "font-src 'self' data: https://fonts.gstatic.com https://api.fontshare.com https://cdn.fontshare.com"
 
   // style-src: 'unsafe-inline' is a deliberate, low-risk allowance (see header).
-  const styleSrc = "style-src 'self' 'unsafe-inline' https://accounts.google.com"
+  const styleSrc =
+    "style-src 'self' 'unsafe-inline' https://accounts.google.com https://fonts.googleapis.com https://api.fontshare.com"
 
   // img-src: inert content from many hosts — broad https: is acceptable.
   const imgSrc = "img-src 'self' data: blob: https:"
