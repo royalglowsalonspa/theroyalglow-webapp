@@ -54,7 +54,7 @@ export default async function BlogPage() {
           <div className="mx-auto max-w-[1278px] mt-6 lg:mt-10">
             <div className="flex items-center gap-2 mb-6">
               <span className="w-2 h-2 rounded-full bg-royal-gold" aria-hidden="true" />
-              <span className="font-ui text-[11px] uppercase tracking-[2px] text-deep-gold font-bold">
+              <span className="font-ui text-[11px] uppercase tracking-[2px] text-gold-ink font-bold">
                 The Royal Glow Journal
               </span>
             </div>

@@ -61,7 +61,7 @@ export function RichText({ html }: RichTextProps) {
         '[&_ol]:mt-5 [&_ol]:pl-6 [&_ol]:list-decimal',
         '[&_li]:mt-2 [&_li]:leading-[1.6]',
         '[&_strong]:text-cocoa-dark [&_strong]:font-semibold',
-        '[&_a]:text-deep-gold [&_a]:underline [&_a]:underline-offset-2 [&_a]:transition-colors [&_a]:duration-200 hover:[&_a]:text-cocoa-dark',
+        '[&_a]:text-gold-ink [&_a]:underline [&_a]:underline-offset-2 [&_a]:transition-colors [&_a]:duration-200 hover:[&_a]:text-cocoa-dark',
       ].join(' ')}
       // biome-ignore lint/security/noDangerouslySetInnerHtml: HTML is pre-sanitised by lib/cms/richtext.ts (escaped text, tag whitelist, validated hrefs)
       dangerouslySetInnerHTML={{ __html: html }}

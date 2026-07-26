@@ -70,5 +70,32 @@ export function mapStaffRedirect(path: string, search?: string): string {
     rest = path
   }
 
+  // A `..` segment in the preserved remainder climbs OUT of the `/me`
+  // namespace: `/staff/..` would otherwise yield `/me/..`, which a client
+  // resolves to the admin root, breaking this function's core guarantee. Guard
+  // it two ways and collapse to the `/me` root when either trips:
+  //   1. resolve the remainder and require the result to stay inside `/me`
+  //      (catches `..`, including nested cases like `/staff/a/../..`), and
+  //   2. reject a percent-encoded `..` segment, which URL resolution leaves
+  //      intact but a client may still decode and traverse.
+  // A single `.` segment is deliberately allowed: it resolves within `/me`
+  // (`/me/./x` -> `/me/x`), so the remainder is preserved verbatim as callers
+  // expect.
+  const hasEncodedParentSegment = rest.split('/').some((segment) => {
+    if (segment === '..' || !segment.includes('%')) return false
+    try {
+      return decodeURIComponent(segment) === '..'
+    } catch {
+      // Malformed escape sequence — nothing decodable to traverse with.
+      return false
+    }
+  })
+
+  const { pathname: resolved } = new URL(rest, ADMIN_ORIGIN)
+  const staysInNamespace = resolved === '/me' || resolved.startsWith('/me/')
+  if (hasEncodedParentSegment || !staysInNamespace) {
+    rest = '/me'
+  }
+
   return `${ADMIN_ORIGIN}${rest}${query}`
 }

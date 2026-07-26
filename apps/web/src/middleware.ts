@@ -116,15 +116,21 @@ function generateNonce(): string {
  * policy for the Next.js/Turbopack dev server (eval + websocket HMR) without
  * affecting the production policy.
  */
-function buildCsp(nonce: string, isDev: boolean): string {
+function buildCsp(nonce: string | null, isDev: boolean): string {
   // script-src: nonce + strict-dynamic is the policy that governs modern
   // browsers; `https:` and 'unsafe-inline' are CSP1/2 fallbacks (ignored when
   // strict-dynamic is honoured). Dev additionally needs 'unsafe-eval' for
   // Turbopack's dev tooling.
+  //
+  // `nonce === null` is the PRERENDERED case (see isPrerenderedPath): a
+  // statically generated page's inline bootstrap script is baked at build time
+  // and cannot carry a per-request nonce, so the nonce AND 'strict-dynamic' are
+  // both omitted — each of them causes browsers to ignore 'unsafe-inline',
+  // which would block that script and break hydration on those pages.
   const scriptSrc = [
     "script-src 'self'",
-    `'nonce-${nonce}'`,
-    "'strict-dynamic'",
+    nonce === null ? '' : `'nonce-${nonce}'`,
+    nonce === null ? '' : "'strict-dynamic'",
     'https:',
     "'unsafe-inline'",
     isDev ? "'unsafe-eval'" : '',
@@ -169,10 +175,18 @@ function buildCsp(nonce: string, isDev: boolean): string {
     "frame-src 'self' https://accounts.google.com https://www.facebook.com https://www.google.com https://maps.google.com"
 
   // font-src: next/font self-hosts; data: covers inline fonts; gstatic for GSI.
-  const fontSrc = "font-src 'self' data: https://fonts.gstatic.com"
+  // Brand fonts — Cabinet Grotesk + Clash Grotesk (Fontshare) and Plus Jakarta
+  // Sans (Google Fonts) — are loaded via `@import url(...)` in styles/globals.css.
+  // The stylesheet hosts must be allowed in `style-src` and the font-FILE hosts in
+  // `font-src`, otherwise the CSP blocks them and the customer site silently
+  // renders in a fallback system font. This mirrors the identical allowance in
+  // apps/admin/src/middleware.ts.
+  const fontSrc =
+    "font-src 'self' data: https://fonts.gstatic.com https://api.fontshare.com https://cdn.fontshare.com"
 
   // style-src: 'unsafe-inline' is a deliberate, low-risk allowance (see header).
-  const styleSrc = "style-src 'self' 'unsafe-inline' https://accounts.google.com"
+  const styleSrc =
+    "style-src 'self' 'unsafe-inline' https://accounts.google.com https://fonts.googleapis.com https://api.fontshare.com"
 
   // img-src: inert content from many hosts — broad https: is acceptable.
   const imgSrc = "img-src 'self' data: blob: https:"
@@ -200,13 +214,39 @@ function buildCsp(nonce: string, isDev: boolean): string {
  * server components can read `x-nonce` (via `headers()`) for any first-party
  * inline scripts.
  */
+/**
+ * Statically prerendered (SSG) document routes — the legal pages.
+ *
+ * A nonce-based CSP is fundamentally incompatible with a prerendered page: the
+ * middleware mints a fresh nonce per request, but the HTML (and its inline
+ * bootstrap script) was generated at build time, so the nonce never matches and
+ * the browser blocks the script. Lighthouse caught this as CSP errors in the
+ * console on /privacy, /terms and /refund-policy.
+ *
+ * These routes therefore receive a nonce-free policy. They are static legal
+ * copy with no user input and no first-party inline scripts of our own, so
+ * permitting inline script here is a narrow, deliberate trade — and strictly
+ * better than the previous behaviour, where the policy silently broke the page's
+ * own JavaScript.
+ */
+const PRERENDERED_PATHS = new Set(['/privacy', '/terms', '/refund-policy'])
+
+function isPrerenderedPath(pathname: string): boolean {
+  const normalised =
+    pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
+  return PRERENDERED_PATHS.has(normalised)
+}
+
 function allowWithCspNonce(request: NextRequest): NextResponse {
-  const nonce = generateNonce()
   const isDev = process.env.NODE_ENV !== 'production'
+  // Prerendered routes cannot use a per-request nonce (see isPrerenderedPath).
+  const nonce = isPrerenderedPath(request.nextUrl.pathname) ? null : generateNonce()
   const csp = buildCsp(nonce, isDev)
 
   const requestHeaders = new Headers(request.headers)
-  requestHeaders.set('x-nonce', nonce)
+  if (nonce !== null) {
+    requestHeaders.set('x-nonce', nonce)
+  }
   requestHeaders.set('Content-Security-Policy', csp)
 
   const response = NextResponse.next({ request: { headers: requestHeaders } })

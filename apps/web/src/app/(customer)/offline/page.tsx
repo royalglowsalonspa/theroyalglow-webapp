@@ -77,7 +77,7 @@ export default function OfflinePage() {
               Need us now? Call{' '}
               <a
                 href="tel:+916360135720"
-                className="font-ui text-royal-gold underline underline-offset-2 hover:text-warm-gold transition-colors duration-200"
+                className="font-ui text-gold-ink underline underline-offset-2 hover:text-cocoa-dark transition-colors duration-200"
               >
                 +91 63601 35720
               </a>

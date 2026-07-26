@@ -139,7 +139,7 @@ export function Header({ initialUser = null }: { initialUser?: HeaderUser | null
               key={link.href}
               href={link.href}
               className={cn(
-                'relative py-1 font-ui text-sm font-bold text-cocoa-dark transition-colors duration-200 hover:text-deep-gold',
+                'relative py-1 font-ui text-sm font-bold text-cocoa-dark transition-colors duration-200 hover:text-gold-ink',
                 pathname === link.href &&
                   'after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-deep-gold',
               )}

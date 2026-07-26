@@ -158,7 +158,7 @@ export default async function AboutPage() {
               <RevealItem key={value.title}>
                 <Card className="h-full gap-3 p-6 transition-all duration-200 hover:-translate-y-0.5 hover:border-golden-mist hover:shadow-card-hover">
                   <span
-                    className="flex size-11 items-center justify-center rounded-full bg-warm-cream text-deep-gold"
+                    className="flex size-11 items-center justify-center rounded-full bg-warm-cream text-gold-ink"
                     aria-hidden="true"
                   >
                     <value.icon className="size-5" />
@@ -208,7 +208,7 @@ export default async function AboutPage() {
                     </div>
                   )}
                   <h3 className="mt-1 font-display text-lg text-cocoa-dark">{member.name}</h3>
-                  <p className="font-ui text-[11px] uppercase tracking-[2px] text-deep-gold">
+                  <p className="font-ui text-[11px] uppercase tracking-[2px] text-gold-ink">
                     {member.role}
                   </p>
                   {member.specializations.length > 0 && (
