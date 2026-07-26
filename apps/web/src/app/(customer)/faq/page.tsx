@@ -31,6 +31,7 @@
  * - FAQ content sourced from Payload CMS with local fallback
  ************************************************************/
 
+import type { Metadata } from 'next'
 import { JsonLd } from '@/components/seo/JsonLd'
 import {
   Accordion,
@@ -43,7 +44,6 @@ import { resolveFaqs } from '@/lib/cms/faqs'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, faqPageJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
-import type { Metadata } from 'next'
 
 export const metadata: Metadata = buildMetadata({
   title: 'FAQ',

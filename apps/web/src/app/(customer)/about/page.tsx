@@ -32,6 +32,10 @@
  * - ISR with 1-hour revalidation for team member content from CMS
  ************************************************************/
 
+import type { LucideIcon } from 'lucide-react'
+import { Crown, Leaf, Sparkles } from 'lucide-react'
+import type { Metadata } from 'next'
+import Link from 'next/link'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -42,10 +46,6 @@ import type { TeamMember } from '@/lib/cms/types'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, localBusinessJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
-import { Crown, Leaf, Sparkles } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
-import type { Metadata } from 'next'
-import Link from 'next/link'
 
 export const metadata: Metadata = buildMetadata({
   title: 'About Us',

@@ -31,13 +31,13 @@
 
 'use client'
 
+import { Check, Loader2, X } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { track } from '@/lib/analytics/events'
-import { Check, Loader2, X } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
 
 // Mirrors getServiceInterestOptions() rows.
 type ServiceOption = {
@@ -71,13 +71,7 @@ const SERVICE_GROUP_LABELS: Record<ServiceOption['serviceType'], string> = {
 
 const LABEL_CLASS = 'mb-1.5 font-ui text-sm font-medium text-warm-gray'
 
-export function LeadCaptureForm({
-  services,
-  utm,
-}: {
-  services: ServiceOption[]
-  utm: Utm
-}) {
+export function LeadCaptureForm({ services, utm }: { services: ServiceOption[]; utm: Utm }) {
   const router = useRouter()
 
   const [name, setName] = useState('')
@@ -322,13 +316,7 @@ function SuccessCard() {
   )
 }
 
-function ErrorCard({
-  message,
-  onRetry,
-}: {
-  message: string
-  onRetry: () => void
-}) {
+function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <section className="rounded-cards bg-canvas-white p-8 text-center shadow-elevated" role="alert">
       <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-error/10 text-error">

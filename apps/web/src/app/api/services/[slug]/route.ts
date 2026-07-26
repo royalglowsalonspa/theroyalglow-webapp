@@ -29,9 +29,9 @@
  * - Slug is the URL-friendly service identifier.
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { getServiceBySlug } from '@rgss/db/queries'
 import { notFound } from '@rgss/errors'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 
 export const GET = withErrorHandler(
   async (_req: Request, ctx: { params: Promise<{ slug: string }> }) => {

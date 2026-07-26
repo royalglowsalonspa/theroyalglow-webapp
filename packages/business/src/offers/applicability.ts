@@ -25,7 +25,8 @@
  * Notes        :
  * - Date comparison is by IST calendar day (YYYY-MM-DD), inclusive
  ************************************************************/
-import { ERROR_CODES, conflict } from '@rgss/errors'
+import { conflict, ERROR_CODES } from '@rgss/errors'
+
 // Offer ranges are compared by calendar date, inclusive, so the time-of-day is
 // irrelevant — only the day matters. String inputs are already date-shaped
 // (the offer's startDate/endDate are stored as YYYY-MM-DD text); Dates are

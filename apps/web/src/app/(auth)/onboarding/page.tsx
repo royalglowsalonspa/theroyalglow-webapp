@@ -26,9 +26,10 @@
  * Notes        :
  * - First sign-in redirects here to collect phone, DOB, gender, consents
  ************************************************************/
-import { auth } from '@/lib/auth-server'
+
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { auth } from '@/lib/auth-server'
 import { OnboardingForm } from './onboarding-form'
 
 export const metadata = {

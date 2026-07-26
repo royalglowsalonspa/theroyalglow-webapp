@@ -34,7 +34,7 @@
  *                and earn zero gems. Session bookings are always status 'completed'.
  ************************************************************/
 
-import { ERROR_CODES, conflict } from '@rgss/errors'
+import { conflict, ERROR_CODES } from '@rgss/errors'
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { db } from '../index'

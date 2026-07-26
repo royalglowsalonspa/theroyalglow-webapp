@@ -44,6 +44,17 @@
 
 'use client'
 
+import type {
+  BookingsByStatusPoint,
+  ReportRange,
+  ReportsResponse,
+  RevenueTrendPoint,
+  TopServiceRow,
+} from '@rgss/types'
+import type { ColumnDef } from '@tanstack/react-table'
+import { CalendarRange, Gem, IndianRupee, Receipt, TrendingUp } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import {
   type ChartConfig,
   ChartContainer,
@@ -59,17 +70,6 @@ import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
 import { useAsyncData } from '@/components/ui/use-async-data'
 import { formatINR, formatINRWithPaise } from '@/lib/admin/format'
-import type {
-  BookingsByStatusPoint,
-  ReportRange,
-  ReportsResponse,
-  RevenueTrendPoint,
-  TopServiceRow,
-} from '@rgss/types'
-import type { ColumnDef } from '@tanstack/react-table'
-import { CalendarRange, Gem, IndianRupee, Receipt, TrendingUp } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
 const RANGE_OPTIONS: { value: ReportRange; label: string }[] = [
   { value: '7d', label: 'Last 7 days' },

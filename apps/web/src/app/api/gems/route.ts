@@ -31,14 +31,14 @@
  * - Strictly scoped to the authenticated customer (session.user.id).
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireSession } from '@/lib/api/session'
 import { computeAffordability } from '@rgss/business'
 import {
   getLoyaltySummary,
   getOrCreateLoyaltyAccount,
   getRedeemableServices,
 } from '@rgss/db/queries'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireSession } from '@/lib/api/session'
 
 // GET /api/gems — the caller's own gems balance, lifetime totals, and the
 // redeemable-services catalogue annotated with affordability. Strictly scoped to

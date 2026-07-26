@@ -52,6 +52,9 @@
 
 'use client'
 
+import type { ColumnDef, ColumnFiltersState, VisibilityState } from '@tanstack/react-table'
+import { MessageCircle, Phone, Plus, Users } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { LeadDetail } from '@/components/lead/LeadDetail'
 import { Button } from '@/components/ui/button'
 import { DataTable, type RowAction } from '@/components/ui/data-table'
@@ -81,11 +84,8 @@ import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { useAsyncData } from '@/components/ui/use-async-data'
-import { type LeadPipelineRow, formatDaysSince, leadCampaignLabel } from '@/lib/admin/leads'
+import { formatDaysSince, type LeadPipelineRow, leadCampaignLabel } from '@/lib/admin/leads'
 import { toast } from '@/lib/admin/toast'
-import type { ColumnDef, ColumnFiltersState, VisibilityState } from '@tanstack/react-table'
-import { MessageCircle, Phone, Plus, Users } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
 
 type ServiceOption = {
   id: string
@@ -351,13 +351,7 @@ export function LeadsTable() {
   )
 }
 
-function ManualLeadDialog({
-  onClose,
-  onCreated,
-}: {
-  onClose: () => void
-  onCreated: () => void
-}) {
+function ManualLeadDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [serviceInterestedId, setServiceInterestedId] = useState('')

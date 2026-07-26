@@ -33,12 +33,13 @@
  * Notes        :
  * - Owner creates offers in Payload → appear here within the ISR window.
  ************************************************************/
+
+import { ArrowRight } from 'lucide-react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Reveal } from '@/components/ui/motion/reveal'
 import { FALLBACK_OFFERS, getActiveOffers } from '@/lib/cms/client'
 import type { Offer } from '@/lib/cms/types'
-import { ArrowRight } from 'lucide-react'
-import Link from 'next/link'
 
 const HOMEPAGE_OFFER_LIMIT = 2
 

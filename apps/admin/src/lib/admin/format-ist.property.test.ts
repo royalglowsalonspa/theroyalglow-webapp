@@ -17,9 +17,9 @@
  *                it does not modify any formatting logic (Req 15.3).
  ************************************************************/
 
-import { formatDateTimeIST } from '@/lib/admin/format'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import { formatDateTimeIST } from '@/lib/admin/format'
 
 // Feature: admin-portal-redesign, Property 18: UTC→IST conversion uses a constant +05:30 offset
 //

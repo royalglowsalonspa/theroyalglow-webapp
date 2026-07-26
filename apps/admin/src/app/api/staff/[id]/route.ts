@@ -24,12 +24,12 @@
  *                historical bookings/invoices keep their staff snapshots intact.
  ************************************************************/
 
-import { audit } from '@/lib/api/audit'
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { getStaffProfileById, updateStaffProfile } from '@rgss/db/queries'
 import { badRequest, notFound } from '@rgss/errors'
 import { staffProfileUpdateSchema } from '@rgss/types'
+import { audit } from '@/lib/api/audit'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 // GET /api/staff/[id] — one staff member with assigned serviceIds. Manager+.
 export const GET = withErrorHandler(

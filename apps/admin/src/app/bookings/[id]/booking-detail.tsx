@@ -46,6 +46,9 @@
 
 'use client'
 
+import { ArrowLeft, Check, X } from 'lucide-react'
+import Link from 'next/link'
+import { useCallback, useEffect, useState } from 'react'
 import { StatusBadge } from '@/components/admin/StatusBadge'
 import { Icon } from '@/components/ui/icon'
 import { Label } from '@/components/ui/label'
@@ -63,16 +66,13 @@ import { Skeleton } from '@/components/ui/state/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import {
   type AdminBooking,
-  SERVICE_TYPE_LABEL,
-  type StaffMember,
   formatDateDDMMYYYY,
   formatINRWithPaise,
   formatTime12h,
+  SERVICE_TYPE_LABEL,
+  type StaffMember,
 } from '@/lib/admin/bookings'
 import { toast } from '@/lib/admin/toast'
-import { ArrowLeft, Check, X } from 'lucide-react'
-import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
 
 const PAYMENT_METHODS = [
   { value: 'cash', label: 'Cash' },
@@ -282,13 +282,7 @@ function ActionPanel({
 }
 
 // --- Pending: approve (staff picker) + reject (reason) ---
-function PendingActions({
-  booking,
-  onChanged,
-}: {
-  booking: AdminBooking
-  onChanged: () => void
-}) {
+function PendingActions({ booking, onChanged }: { booking: AdminBooking; onChanged: () => void }) {
   const [staff, setStaff] = useState<StaffMember[] | null>(null)
   const [staffId, setStaffId] = useState('')
   const [mode, setMode] = useState<'idle' | 'reject'>('idle')
@@ -707,13 +701,7 @@ function TerminalState({ booking }: { booking: AdminBooking }) {
 }
 
 // --- Shared primitives ---
-function Section({
-  title,
-  children,
-}: {
-  title: string
-  children: React.ReactNode
-}) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="rounded-cards border border-cloud-gray bg-canvas-white p-4">
       <h2 className="mb-3 font-ui text-xs uppercase tracking-wider text-dusty-gray">{title}</h2>

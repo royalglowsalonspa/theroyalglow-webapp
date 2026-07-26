@@ -43,7 +43,7 @@
  * _Requirements: 3.6, 9.1, 9.2, 9.5, 14.5_
  ************************************************************/
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'

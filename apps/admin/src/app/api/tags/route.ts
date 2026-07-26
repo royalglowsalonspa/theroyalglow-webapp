@@ -30,11 +30,11 @@
  * - Tags are shared across all customers (not per-branch).
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { createTag, getAllTags } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { createTagSchema } from '@rgss/types'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 // GET /api/tags — list all customer tags (for the tag picker). Receptionist+.
 export const GET = withErrorHandler(async () => {

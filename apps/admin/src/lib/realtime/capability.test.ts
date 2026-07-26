@@ -12,9 +12,9 @@
  *                overwrite sibling property tests.
  ************************************************************/
 
-import { ROLE_LEVELS, resolveRoleLevel } from '@/lib/rbac'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import { ROLE_LEVELS, resolveRoleLevel } from '@/lib/rbac'
 import { ADMIN_ABLY_CHANNELS, buildAdminAblyCapability } from './capability'
 
 // Feature: admin-subdomain-migration, Property 6: Ably token capability is subscribe-only and scoped to admin channels

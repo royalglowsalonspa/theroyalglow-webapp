@@ -20,10 +20,10 @@
  * The page trees, slugs, URLs, and frontmatter are the real ones derived from
  * the real `content/docs` and `content/docs-v2` directories.
  */
-import { readFileSync, readdirSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import * as Config from '@/source.config'
 import { dynamic } from 'fumadocs-mdx/runtime/dynamic'
+import * as Config from '@/source.config'
 
 /** A discovered MDX entry in the shape the dynamic runtime expects. */
 type LazyEntry = {

@@ -17,9 +17,13 @@
 
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { STATUS_LABEL_PLACEHOLDER, labelForStatus } from './status-badge'
 import type { BadgeVariant } from './status-badge'
-import { STATUS_VARIANT, variantForStatus } from './status-badge'
+import {
+  labelForStatus,
+  STATUS_LABEL_PLACEHOLDER,
+  STATUS_VARIANT,
+  variantForStatus,
+} from './status-badge'
 
 // Feature: admin-portal-redesign, Property 12: Status label is Title-Cased and always non-empty
 //

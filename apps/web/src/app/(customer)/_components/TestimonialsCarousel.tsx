@@ -40,18 +40,20 @@
 
 'use client'
 
-import { Button } from '@/components/ui/button'
-import type { Testimonial } from '@/lib/cms/types'
 import { ArrowRight, Star } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Button } from '@/components/ui/button'
+import type { Testimonial } from '@/lib/cms/types'
 
 // How many cards are visible at once (used for dot/page count calculation)
 const DESKTOP_VISIBLE = 3
 
 function StarRating({ count }: { count: number }) {
   return (
-    <div className="flex items-center gap-0.5" aria-label={`${count} out of 5 stars`}>
+    // role="img" makes the decorative star row a single labelled graphic, so the
+    // aria-label is actually exposed (an unroled div ignores it).
+    <div className="flex items-center gap-0.5" role="img" aria-label={`${count} out of 5 stars`}>
       {Array.from({ length: count }).map((_, i) => (
         <Star
           // biome-ignore lint/suspicious/noArrayIndexKey: fixed star array, order never changes
@@ -148,8 +150,13 @@ export function TestimonialsCarousel({ reviews }: { reviews: Testimonial[] }) {
       </div>
 
       {/* Carousel track — overflow-y must be visible so hover lift is not clipped */}
+      {/* role="group" gives the scrollable track a non-static role, which is required
+          for it to carry the hover/focus pause handlers and be announced as a labelled
+          region rather than an anonymous div. */}
       <div
         ref={trackRef}
+        role="group"
+        aria-label="Customer testimonials"
         className="scrollbar-hide flex snap-x snap-mandatory gap-5 overflow-x-auto overflow-y-visible py-2 pb-1"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
@@ -159,7 +166,9 @@ export function TestimonialsCarousel({ reviews }: { reviews: Testimonial[] }) {
       >
         {reviews.map((review, i) => (
           <article
-            key={`${review.reviewerName}-${i}`}
+            // Stable identity from the review's own fields; the array index would
+            // reassign state to the wrong card if the order ever changes.
+            key={`${review.reviewerName}-${review.timeLabel}`}
             ref={(el) => {
               itemRefs.current[i] = el
             }}

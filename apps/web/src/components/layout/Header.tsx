@@ -31,15 +31,15 @@
 
 'use client'
 
+import { ChevronDown, Loader2, Menu } from 'lucide-react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { GoogleOneTap } from '@/components/auth/GoogleOneTap'
 import { Button } from '@/components/ui/button'
 import { useSession } from '@/lib/auth-client'
 import { startGoogleSignIn } from '@/lib/google-signin'
 import { cn } from '@/lib/utils'
-import { ChevronDown, Loader2, Menu } from 'lucide-react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
 import { MobileNav } from './MobileNav'
 import { UserMenu } from './UserMenu'
 

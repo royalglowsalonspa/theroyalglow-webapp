@@ -32,12 +32,12 @@
  ************************************************************/
 'use client'
 
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { fadeInUp } from '@/components/ui/motion/motion-variants'
 import { ArrowRight, Clock, MapPin } from 'lucide-react'
 import { motion } from 'motion/react'
 import Link from 'next/link'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { fadeInUp } from '@/components/ui/motion/motion-variants'
 
 const categories = ['HAIR', 'SPA', 'SKIN', 'BRIDAL', 'NAILS', 'GROOMING']
 

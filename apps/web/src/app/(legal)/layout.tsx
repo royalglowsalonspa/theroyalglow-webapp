@@ -28,8 +28,8 @@
  * - Server component only (SSG) — no client interactivity
  ************************************************************/
 
-import { BUSINESS } from '@/lib/seo/business'
 import Link from 'next/link'
+import { BUSINESS } from '@/lib/seo/business'
 
 /**
  * Minimal, distraction-free chrome for the static legal pages
@@ -44,11 +44,7 @@ import Link from 'next/link'
 const tel = `tel:${BUSINESS.telephone.replace(/[^\d+]/g, '')}`
 const mailto = `mailto:${BUSINESS.email}`
 
-export default function LegalLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function LegalLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col bg-canvas-white">
       <a

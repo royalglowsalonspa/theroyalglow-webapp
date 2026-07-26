@@ -1,6 +1,6 @@
+import type { MetadataRoute } from 'next'
 import { buildSitemap } from '@/lib/sitemap'
 import { versions } from '@/lib/source'
-import type { MetadataRoute } from 'next'
 
 /**
  * Sitemap for the Docs_Site (Req 9.5).

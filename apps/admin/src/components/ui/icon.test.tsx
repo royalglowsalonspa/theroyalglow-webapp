@@ -30,11 +30,11 @@
  * Validates: Requirements 2.4, 2.5
  ************************************************************/
 
-import { Icon } from '@/components/ui/icon'
 import { cleanup, render, screen } from '@testing-library/react'
 import { axe, toHaveNoViolations } from 'jest-axe'
 import { Search } from 'lucide-react'
 import { afterEach, describe, expect, it } from 'vitest'
+import { Icon } from '@/components/ui/icon'
 
 expect.extend(toHaveNoViolations)
 

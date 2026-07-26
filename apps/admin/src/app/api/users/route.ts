@@ -33,13 +33,13 @@
  *   (the sign-in creates their `user` row). A 404 is returned otherwise.
  ************************************************************/
 
+import { getUserByEmail, listUsers, updateUserRoleByEmail } from '@rgss/db/queries'
+import { badRequest, forbidden, notFound } from '@rgss/errors'
+import { assignRoleSchema, userListQuerySchema } from '@rgss/types'
 import { audit } from '@/lib/api/audit'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { ROLE_LEVELS, resolveRoleLevel } from '@/lib/rbac'
-import { getUserByEmail, listUsers, updateUserRoleByEmail } from '@rgss/db/queries'
-import { badRequest, forbidden, notFound } from '@rgss/errors'
-import { assignRoleSchema, userListQuerySchema } from '@rgss/types'
 
 // GET /api/users?search= — searchable account directory. Owner+ only.
 export const GET = withErrorHandler(async (req: Request) => {

@@ -40,6 +40,11 @@
 
 'use client'
 
+import * as Dialog from '@radix-ui/react-dialog'
+import { BRANCH_STATUSES, type BranchStatusValue } from '@rgss/types'
+import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
+import { Building2, Pencil } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DataTable } from '@/components/ui/data-table'
 import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
@@ -58,11 +63,6 @@ import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { useAsyncData } from '@/components/ui/use-async-data'
-import * as Dialog from '@radix-ui/react-dialog'
-import { BRANCH_STATUSES, type BranchStatusValue } from '@rgss/types'
-import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
-import { Building2, Pencil } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
 
 interface AdminBranch {
   id: string

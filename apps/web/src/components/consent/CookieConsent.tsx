@@ -38,10 +38,10 @@
 
 'use client'
 
-import { type ConsentState, acceptAll, getConsent, setConsent } from '@/lib/consent/consent'
-import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { useEffect, useId, useRef, useState } from 'react'
+import { acceptAll, type ConsentState, getConsent, setConsent } from '@/lib/consent/consent'
+import { cn } from '@/lib/utils'
 
 /**
  * Custom `window` event the footer "Cookie Preferences" button dispatches to

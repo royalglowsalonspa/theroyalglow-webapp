@@ -31,15 +31,15 @@
 
 'use client'
 
+import { X } from 'lucide-react'
+import Link from 'next/link'
+import { useCallback, useMemo, useState } from 'react'
 import { StatusBadge } from '@/components/admin/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Icon } from '@/components/ui/icon'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { formatDateDDMMYYYY, formatINR } from '@/lib/admin/bookings'
-import { X } from 'lucide-react'
-import Link from 'next/link'
-import { useCallback, useMemo, useState } from 'react'
 
 export interface ProfileTag {
   slug: string
@@ -588,13 +588,7 @@ function GemsPanel({ gemsBalance }: { gemsBalance: number }) {
 }
 
 // --- Notes tab: list + add ---
-function NotesPanel({
-  customerId,
-  initialNotes,
-}: {
-  customerId: string
-  initialNotes: NoteRow[]
-}) {
+function NotesPanel({ customerId, initialNotes }: { customerId: string; initialNotes: NoteRow[] }) {
   const [notes, setNotes] = useState<NoteRow[]>(initialNotes)
   const [content, setContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
