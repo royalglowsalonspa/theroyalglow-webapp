@@ -171,7 +171,7 @@ export function LeadCaptureForm({ services, utm }: { services: ServiceOption[]; 
       {/* Brand + trust signals above the form */}
       <header className="mb-6 text-center">
         <p className="font-display text-2xl text-cocoa-dark">
-          👑 Royal Glow <span className="text-deep-gold">Salon &amp; Spa</span>
+          👑 Royal Glow <span className="text-gold-ink">Salon &amp; Spa</span>
         </p>
         <p className="mt-2 font-ui text-sm text-dusty-gray">⭐ 4.9 · 86 reviews · Bengaluru</p>
       </header>
@@ -291,7 +291,7 @@ export function LeadCaptureForm({ services, utm }: { services: ServiceOption[]; 
           <br />
           <a
             href={`tel:${SALON_PHONE}`}
-            className="mt-1 inline-block underline underline-offset-2 hover:text-deep-gold"
+            className="mt-1 inline-block underline underline-offset-2 hover:text-gold-ink"
           >
             📞 +91 63601 35720
           </a>
@@ -338,7 +338,7 @@ function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void 
       <p className="mt-4 font-ui text-sm">
         <a
           href={`tel:${SALON_PHONE}`}
-          className="text-deep-gold underline underline-offset-2 hover:text-cocoa-dark"
+          className="text-gold-ink underline underline-offset-2 hover:text-cocoa-dark"
         >
           📞 +91 63601 35720 (tap to call)
         </a>

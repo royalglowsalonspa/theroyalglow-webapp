@@ -58,7 +58,7 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
         <div className="mx-auto flex h-16 max-w-[760px] items-center px-5">
           <Link
             href="/"
-            className="font-display text-2xl text-cocoa-dark tracking-tight transition-colors duration-200 hover:text-deep-gold"
+            className="font-display text-2xl text-cocoa-dark tracking-tight transition-colors duration-200 hover:text-gold-ink"
           >
             Royal Glow
           </Link>
@@ -80,7 +80,7 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
             <p className="pt-2">
               <a
                 href={tel}
-                className="text-canvas-white transition-colors duration-200 hover:text-royal-gold"
+                className="text-canvas-white transition-colors duration-200 hover:text-deep-gold"
               >
                 {BUSINESS.telephone}
               </a>
@@ -88,7 +88,7 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
             <p>
               <a
                 href={mailto}
-                className="text-canvas-white transition-colors duration-200 hover:text-royal-gold"
+                className="text-canvas-white transition-colors duration-200 hover:text-deep-gold"
               >
                 {BUSINESS.email}
               </a>

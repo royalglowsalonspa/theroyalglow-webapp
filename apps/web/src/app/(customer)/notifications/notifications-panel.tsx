@@ -129,7 +129,7 @@ export function NotificationsPanel() {
             type="button"
             variant="link"
             onClick={markAllRead}
-            className="h-auto shrink-0 p-0 font-ui text-sm font-bold text-deep-gold hover:text-cocoa-dark"
+            className="h-auto shrink-0 p-0 font-ui text-sm font-bold text-gold-ink hover:text-cocoa-dark"
           >
             Mark all read
           </Button>
@@ -147,7 +147,7 @@ export function NotificationsPanel() {
       ) : notifications.length === 0 ? (
         <Card className="items-center bg-warm-cream px-6 py-14 text-center">
           <span
-            className="flex size-14 items-center justify-center rounded-full bg-canvas-white text-deep-gold shadow-card-hover"
+            className="flex size-14 items-center justify-center rounded-full bg-canvas-white text-gold-ink shadow-card-hover"
             aria-hidden="true"
           >
             <Bell className="size-7" strokeWidth={1.75} />

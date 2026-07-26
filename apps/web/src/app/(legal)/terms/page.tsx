@@ -47,7 +47,7 @@ export default function TermsOfServicePage() {
   return (
     <article className="font-sans text-[16px] text-warm-gray leading-[1.7]">
       <header>
-        <span className="font-ui text-[11px] text-deep-gold uppercase tracking-[2px]">Legal</span>
+        <span className="font-ui text-[11px] text-gold-ink uppercase tracking-[2px]">Legal</span>
         <h1 className="mt-3 font-display text-[clamp(34px,5vw,52px)] text-cocoa-dark leading-[1.08] tracking-[-1px]">
           Terms of Service
         </h1>
@@ -123,7 +123,7 @@ export default function TermsOfServicePage() {
           Refunds, where applicable, are governed by our{' '}
           <a
             href="/refund-policy"
-            className="text-deep-gold underline underline-offset-2 hover:text-cocoa-dark"
+            className="text-gold-ink underline underline-offset-2 hover:text-cocoa-dark"
           >
             Refund &amp; Cancellation Policy
           </a>
@@ -218,7 +218,7 @@ export default function TermsOfServicePage() {
             Email:{' '}
             <a
               href={mailto}
-              className="text-deep-gold underline underline-offset-2 hover:text-cocoa-dark"
+              className="text-gold-ink underline underline-offset-2 hover:text-cocoa-dark"
             >
               {BUSINESS.email}
             </a>
@@ -227,7 +227,7 @@ export default function TermsOfServicePage() {
             Phone:{' '}
             <a
               href={tel}
-              className="text-deep-gold underline underline-offset-2 hover:text-cocoa-dark"
+              className="text-gold-ink underline underline-offset-2 hover:text-cocoa-dark"
             >
               {BUSINESS.telephone}
             </a>

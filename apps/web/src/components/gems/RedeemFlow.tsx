@@ -291,7 +291,7 @@ export function RedeemFlow({ balance, catalogue, branchId = DEFAULT_BRANCH_ID }:
               <li key={item.id}>
                 <article className="flex h-full flex-col rounded-[6px] border border-cloud-gray bg-canvas-white p-5 motion-safe:transition-all duration-200 hover:border-golden-mist hover:shadow-card-hover">
                   <h3 className="font-ui text-[16px] text-cocoa-dark mb-2">{item.name}</h3>
-                  <p className="font-ui text-[14px] text-deep-gold mb-1">
+                  <p className="font-ui text-[14px] text-gold-ink mb-1">
                     {item.gemsRequired.toLocaleString('en-IN')} gems
                   </p>
                   <p className="font-ui text-[12px] text-dusty-gray mb-4">
@@ -388,7 +388,7 @@ export function RedeemFlow({ balance, catalogue, branchId = DEFAULT_BRANCH_ID }:
                   {/* Service summary */}
                   <div className="rounded-[6px] bg-warm-cream border border-golden-mist px-4 py-3">
                     <p className="font-sans text-[15px] text-cocoa-dark">{activeService.name}</p>
-                    <p className="font-ui text-[13px] text-deep-gold mt-0.5">
+                    <p className="font-ui text-[13px] text-gold-ink mt-0.5">
                       {activeService.gemsRequired.toLocaleString('en-IN')} gems · worth{' '}
                       {formatINR(activeService.pricePaise)}
                     </p>
@@ -449,10 +449,7 @@ export function RedeemFlow({ balance, catalogue, branchId = DEFAULT_BRANCH_ID }:
                       </p>
                     ) : slotsLoading ? (
                       <output className="flex items-center gap-2 py-4" aria-live="polite">
-                        <Loader2
-                          className="size-4 animate-spin text-deep-gold"
-                          aria-hidden="true"
-                        />
+                        <Loader2 className="size-4 animate-spin text-gold-ink" aria-hidden="true" />
                         <span className="font-sans text-[14px] text-dusty-gray">
                           Loading available times…
                         </span>
@@ -587,7 +584,7 @@ function SuccessView({
       {newBalance != null && (
         <p className="font-sans text-[14px] text-cocoa-dark mb-8">
           Updated balance:{' '}
-          <span className="font-ui text-deep-gold">{newBalance.toLocaleString('en-IN')} gems</span>
+          <span className="font-ui text-gold-ink">{newBalance.toLocaleString('en-IN')} gems</span>
         </p>
       )}
 

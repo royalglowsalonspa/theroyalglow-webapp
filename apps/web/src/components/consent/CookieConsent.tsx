@@ -259,7 +259,7 @@ export function CookieConsent() {
               By clicking accept, you consent to our use of cookies.{' '}
               <Link
                 href="/privacy"
-                className="text-royal-gold underline underline-offset-2 transition-colors duration-200 hover:text-warm-gold"
+                className="text-gold-ink underline underline-offset-2 transition-colors duration-200 hover:text-cocoa-dark"
               >
                 {/* Descriptive link text: "Learn more" alone fails Lighthouse's
                     link-text SEO audit and tells nothing to a screen-reader user

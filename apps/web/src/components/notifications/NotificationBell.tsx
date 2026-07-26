@@ -205,7 +205,7 @@ export function NotificationBell() {
               <button
                 type="button"
                 onClick={markAllRead}
-                className="font-ui text-xs text-deep-gold hover:text-cocoa-dark transition-colors"
+                className="font-ui text-xs text-gold-ink hover:text-cocoa-dark transition-colors"
               >
                 Mark all read
               </button>

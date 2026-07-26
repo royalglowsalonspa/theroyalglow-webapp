@@ -101,7 +101,7 @@ export default function ContactPage() {
               {/* NAP Info */}
               <address className="not-italic mt-8 space-y-4">
                 <div>
-                  <h2 className="font-ui text-[11px] uppercase tracking-[2px] text-deep-gold mb-2">
+                  <h2 className="font-ui text-[11px] uppercase tracking-[2px] text-gold-ink mb-2">
                     Address
                   </h2>
                   <p className="font-sans text-[15px] leading-[1.55] text-cocoa-dark">
@@ -116,31 +116,31 @@ export default function ContactPage() {
                 </div>
 
                 <div>
-                  <h2 className="font-ui text-[11px] uppercase tracking-[2px] text-deep-gold mb-2">
+                  <h2 className="font-ui text-[11px] uppercase tracking-[2px] text-gold-ink mb-2">
                     Phone
                   </h2>
                   <a
                     href="tel:+916360135720"
-                    className="font-sans text-[15px] text-cocoa-dark hover:text-deep-gold transition-colors duration-200"
+                    className="font-sans text-[15px] text-cocoa-dark hover:text-gold-ink transition-colors duration-200"
                   >
                     +91 63601 35720
                   </a>
                 </div>
 
                 <div>
-                  <h2 className="font-ui text-[11px] uppercase tracking-[2px] text-deep-gold mb-2">
+                  <h2 className="font-ui text-[11px] uppercase tracking-[2px] text-gold-ink mb-2">
                     Email
                   </h2>
                   <a
                     href="mailto:hello@theroyalglow.in"
-                    className="font-sans text-[15px] text-cocoa-dark hover:text-deep-gold transition-colors duration-200"
+                    className="font-sans text-[15px] text-cocoa-dark hover:text-gold-ink transition-colors duration-200"
                   >
                     hello@theroyalglow.in
                   </a>
                 </div>
 
                 <div>
-                  <h2 className="font-ui text-[11px] uppercase tracking-[2px] text-deep-gold mb-2">
+                  <h2 className="font-ui text-[11px] uppercase tracking-[2px] text-gold-ink mb-2">
                     Hours
                   </h2>
                   <dl className="font-sans text-[15px] leading-[1.55] text-cocoa-dark space-y-1">
