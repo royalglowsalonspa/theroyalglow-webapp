@@ -36,11 +36,11 @@
  *                once available.
  ************************************************************/
 
+import { cn } from '@rgss/ui/lib/utils'
+import type { LucideIcon } from 'lucide-react'
 import { Card, CardAction, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Icon } from '@/components/ui/icon'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cn } from '@rgss/ui/lib/utils'
-import type { LucideIcon } from 'lucide-react'
 
 type KPICardProps = {
   /** Short metric name, e.g. "Today's Revenue". */

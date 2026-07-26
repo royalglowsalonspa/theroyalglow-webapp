@@ -30,11 +30,11 @@
 
 'use client'
 
-import { emphasisPop } from '@/components/ui/motion/motion-variants'
-import { usePrefersReducedMotion } from '@/components/ui/motion/use-reduced-motion'
 import { cn } from '@rgss/ui/lib/utils'
 import type { LucideIcon } from 'lucide-react'
 import { motion } from 'motion/react'
+import { emphasisPop } from '@/components/ui/motion/motion-variants'
+import { usePrefersReducedMotion } from '@/components/ui/motion/use-reduced-motion'
 import { Icon } from '../icon'
 
 type EmptyStateProps = {

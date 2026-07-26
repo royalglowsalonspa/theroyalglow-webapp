@@ -1,7 +1,7 @@
-import { SEARCH_RESULT_CAP, scopeSearchResults } from '@/lib/search'
-import type { VersionId } from '@/lib/versions'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import { SEARCH_RESULT_CAP, scopeSearchResults } from '@/lib/search'
+import type { VersionId } from '@/lib/versions'
 
 // Feature: docs-theming-and-versioning, Property 18: Search results are version-scoped and capped
 //

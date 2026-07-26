@@ -28,14 +28,14 @@
  * - Protected route; redirects to / (homepage) if no session
  ************************************************************/
 
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { auth } from '@/lib/auth-server'
 import { ArrowRight, Heart } from 'lucide-react'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { auth } from '@/lib/auth-server'
 
 export const metadata: Metadata = {
   title: 'My Favorites',
@@ -65,7 +65,7 @@ export default async function FavoritesPage() {
         aria-labelledby="favorites-empty-heading"
       >
         <span
-          className="flex size-14 items-center justify-center rounded-full bg-canvas-white text-deep-gold shadow-card-hover"
+          className="flex size-14 items-center justify-center rounded-full bg-canvas-white text-gold-ink shadow-card-hover"
           aria-hidden="true"
         >
           <Heart className="size-7" strokeWidth={1.75} />

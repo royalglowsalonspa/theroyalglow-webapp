@@ -28,6 +28,19 @@
 
 'use client'
 
+import {
+  type BookingRules,
+  type BusinessHours,
+  DAY_KEYS,
+  DAY_LABELS,
+  type DayKey,
+  DEFAULT_BOOKING_RULES,
+  DEFAULT_BUSINESS_HOURS,
+  DEFAULT_GST,
+  type GstSetting,
+  type Settings,
+} from '@rgss/types'
+import { useCallback, useEffect, useId, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Field } from '@/components/ui/form-field'
@@ -37,19 +50,6 @@ import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
 import { TimeSelect } from '@/components/ui/time-select'
 import { toast } from '@/lib/admin/toast'
-import {
-  type BookingRules,
-  type BusinessHours,
-  DAY_KEYS,
-  DAY_LABELS,
-  DEFAULT_BOOKING_RULES,
-  DEFAULT_BUSINESS_HOURS,
-  DEFAULT_GST,
-  type DayKey,
-  type GstSetting,
-  type Settings,
-} from '@rgss/types'
-import { useCallback, useEffect, useId, useState } from 'react'
 
 type Section = 'businessHours' | 'gst' | 'bookingRules'
 

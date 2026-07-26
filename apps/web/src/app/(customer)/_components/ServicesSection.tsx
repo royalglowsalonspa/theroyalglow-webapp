@@ -35,12 +35,13 @@
  * - The bare arrow is intentionally minimal per premium salon UX standards.
  * - Owner adds cards in Payload → appear here within the ISR window.
  ************************************************************/
+
+import { ArrowRight, ChevronRight } from 'lucide-react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Reveal } from '@/components/ui/motion/reveal'
 import { FALLBACK_SERVICE_CARDS, getServiceCards } from '@/lib/cms/client'
 import type { ServiceCardItem } from '@/lib/cms/types'
-import { ArrowRight, ChevronRight } from 'lucide-react'
-import Link from 'next/link'
 
 function ServiceCard({ card }: { card: ServiceCardItem }) {
   return (
@@ -89,7 +90,7 @@ export async function ServicesSection() {
         <Button
           asChild
           variant="link"
-          className="hidden font-ui font-bold text-cocoa-dark hover:text-deep-gold sm:inline-flex"
+          className="hidden font-ui font-bold text-cocoa-dark hover:text-gold-ink sm:inline-flex"
         >
           <Link href="/services">
             View all services
@@ -109,12 +110,12 @@ export async function ServicesSection() {
           aria-hidden="true"
           className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 lg:hidden"
         >
-          <ChevronRight className="rg-scroll-hint size-5 text-deep-gold" aria-hidden="true" />
+          <ChevronRight className="rg-scroll-hint size-5 text-gold-ink" aria-hidden="true" />
         </div>
       </div>
 
       <div className="mt-6 sm:hidden">
-        <Button asChild variant="link" className="px-0 font-ui font-bold text-deep-gold">
+        <Button asChild variant="link" className="px-0 font-ui font-bold text-gold-ink">
           <Link href="/services">
             View all services
             <ArrowRight data-icon="inline-end" aria-hidden="true" />

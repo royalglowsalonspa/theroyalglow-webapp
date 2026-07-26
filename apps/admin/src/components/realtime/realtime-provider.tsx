@@ -39,6 +39,7 @@
 
 'use client'
 
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ADMIN_BOOKINGS_EVENTS,
   ADMIN_LEAVE_CHANNEL,
@@ -53,7 +54,6 @@ import {
   type AblyRealtimeClient,
   loadAblyRealtime,
 } from '@/lib/realtime/client'
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { ReconnectIndicator } from './reconnect-indicator'
 
 // Public connection status exposed to consumers.

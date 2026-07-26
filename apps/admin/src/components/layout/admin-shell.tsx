@@ -41,6 +41,7 @@
 
 'use client'
 
+import { usePathname } from 'next/navigation'
 import { AdminSidebar } from '@/components/layout/admin-sidebar'
 import { TopBar } from '@/components/layout/top-bar'
 import { RealtimeProvider } from '@/components/realtime/realtime-provider'
@@ -48,7 +49,6 @@ import { RouteTransition } from '@/components/ui/motion/motion-presence'
 import { Sidebar, SidebarInset, SidebarProvider, SidebarRail } from '@/components/ui/sidebar'
 import { Toaster } from '@/components/ui/toaster'
 import { resolveRoleLevel } from '@/lib/rbac'
-import { usePathname } from 'next/navigation'
 
 type AdminShellProps = {
   /** Resolved role from the signed-in session (drives nav visibility). */

@@ -16,8 +16,8 @@
 
 'use client'
 
-import { EmptyState } from '@/components/ui/state/empty-state'
 import { UserX } from 'lucide-react'
+import { EmptyState } from '@/components/ui/state/empty-state'
 
 /** "No staff profile linked" empty state for the staff My Schedule page. */
 export function NoStaffProfileEmpty() {

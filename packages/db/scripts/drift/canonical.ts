@@ -49,9 +49,9 @@ import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import {
   type CatalogReader,
-  type SqlExecutor,
   createCatalogReader,
   neonExecutor,
+  type SqlExecutor,
 } from './catalog-queries'
 import { Fingerprinter } from './fingerprint'
 import type { CatalogRows, SchemaFingerprint } from './types'

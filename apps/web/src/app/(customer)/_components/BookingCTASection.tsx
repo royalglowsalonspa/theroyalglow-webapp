@@ -30,10 +30,11 @@
  *
  * Notes        : None
  ************************************************************/
-import { Button } from '@/components/ui/button'
-import { Reveal } from '@/components/ui/motion/reveal'
+
 import { Phone } from 'lucide-react'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { Reveal } from '@/components/ui/motion/reveal'
 
 const steps = [
   {
@@ -64,7 +65,7 @@ export function BookingCTASection() {
         as="div"
       >
         {/* Eyebrow */}
-        <p className="mb-4 font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-deep-gold">
+        <p className="mb-4 font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-gold-ink">
           Ready to Glow?
         </p>
 

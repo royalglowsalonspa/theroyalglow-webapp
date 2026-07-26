@@ -49,6 +49,34 @@
 
 'use client'
 
+import { cn } from '@rgss/ui/lib/utils'
+import {
+  type ColumnDef,
+  type ColumnFiltersState,
+  type ExpandedState,
+  flexRender,
+  getCoreRowModel,
+  getExpandedRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  type OnChangeFn,
+  type PaginationState,
+  type Row,
+  type RowSelectionState,
+  type SortingState,
+  useReactTable,
+  type VisibilityState,
+} from '@tanstack/react-table'
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronsUpDown,
+  ChevronUp,
+  type LucideIcon,
+  MoreHorizontal,
+} from 'lucide-react'
+import { Fragment, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DEFAULT_PAGE_SIZE, PAGE_SIZES, type PageSize } from '@/components/ui/data-table-model'
@@ -67,34 +95,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { cn } from '@rgss/ui/lib/utils'
-import {
-  type ColumnDef,
-  type ColumnFiltersState,
-  type ExpandedState,
-  type OnChangeFn,
-  type PaginationState,
-  type Row,
-  type RowSelectionState,
-  type SortingState,
-  type VisibilityState,
-  flexRender,
-  getCoreRowModel,
-  getExpandedRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from '@tanstack/react-table'
-import {
-  ChevronDown,
-  ChevronRight,
-  ChevronUp,
-  ChevronsUpDown,
-  type LucideIcon,
-  MoreHorizontal,
-} from 'lucide-react'
-import { Fragment, useMemo, useState } from 'react'
 
 /** Internal control-column ids, excluded from sorting / visibility toggling. */
 const SELECT_COLUMN_ID = '__select'

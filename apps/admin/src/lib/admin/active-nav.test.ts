@@ -15,9 +15,9 @@
  * Layer        : Test
  ************************************************************/
 
-import { ADMIN_NAV } from '@/lib/rbac'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import { ADMIN_NAV } from '@/lib/rbac'
 import { isActive, matchesHrefPrefix, navHrefs, resolveActiveHref } from './active-nav'
 
 // Feature: admin-portal-redesign, Property 3: Exactly one active navigation item by longest prefix
@@ -67,13 +67,9 @@ const pathnameForArb = (hrefs: readonly string[]): fc.Arbitrary<string> =>
         return `${base}/${segs.join('/')}`
       }),
     // Adversarial non-boundary suffix: `${href}zzz` must NOT match.
-    fc
-      .constantFrom(...hrefs)
-      .map((href) => `${href}zzz`),
+    fc.constantFrom(...hrefs).map((href) => `${href}zzz`),
     // Entirely unrelated absolute path.
-    fc
-      .array(segArb, { minLength: 1, maxLength: 4 })
-      .map((segs) => `/${segs.join('/')}`),
+    fc.array(segArb, { minLength: 1, maxLength: 4 }).map((segs) => `/${segs.join('/')}`),
   )
 
 /** Always include the production ADMIN_NAV hrefs alongside generated sets. */

@@ -36,14 +36,7 @@ import { DashboardOverview } from './dashboard-overview'
 // next/link → a plain anchor (no App Router context in jsdom). The dashboard
 // renders Links in the recent-activity row action and the "View all" header.
 vi.mock('next/link', () => ({
-  default: ({
-    href,
-    children,
-    ...rest
-  }: {
-    href: unknown
-    children: React.ReactNode
-  }) => (
+  default: ({ href, children, ...rest }: { href: unknown; children: React.ReactNode }) => (
     <a href={typeof href === 'string' ? href : '#'} {...rest}>
       {children}
     </a>

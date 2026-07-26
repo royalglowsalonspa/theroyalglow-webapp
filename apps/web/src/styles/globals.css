@@ -34,8 +34,12 @@
  *                theme so apps/web and apps/admin stay in sync.
  ************************************************************/
 
-@import url("https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@800,900&f[]=clash-grotesk@400,500,600,700&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+/* The brand font stylesheets are NOT imported here. A CSS @import forces the
+   browser to fetch and parse this file before it can even discover them, then
+   fetch the fonts — a serialised chain that delayed first paint. They are now
+   <link rel="preconnect"> + <link rel="stylesheet"> in the root layout
+   (src/app/layout.tsx), so they are visible in the initial HTML and load in
+   parallel. Keep them there; re-adding an @import here reintroduces the stall. */
 @import "tailwindcss";
 @import "@rgss/ui/theme.css";
 @import "./shadcn-theme.css";

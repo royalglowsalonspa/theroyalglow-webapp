@@ -46,6 +46,9 @@
 
 'use client'
 
+import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
+import { Clock, Settings2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DataTable, type RowAction } from '@/components/ui/data-table'
 import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
 import { SlideOverPanel } from '@/components/ui/slide-over-panel'
@@ -57,9 +60,6 @@ import { useAsyncData } from '@/components/ui/use-async-data'
 import { formatDateDDMMYYYY, formatTime12h } from '@/lib/admin/bookings'
 import { formatDateTimeIST } from '@/lib/admin/format'
 import { toast } from '@/lib/admin/toast'
-import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
-import { Clock, Settings2 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 // ─── API shapes (mirror GET /api/waitlist + PATCH /api/waitlist/[id]) ───
 

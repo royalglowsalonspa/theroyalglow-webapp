@@ -17,9 +17,9 @@
  *                build the zero-padded input string. Requirements 15.2.
  ************************************************************/
 
-import { formatDateDDMMYYYY } from '@/lib/admin/format'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import { formatDateDDMMYYYY } from '@/lib/admin/format'
 
 // Feature: admin-portal-redesign, Property 17: Date formatting is DD/MM/YYYY and round-trips
 //

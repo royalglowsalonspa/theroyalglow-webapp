@@ -28,9 +28,9 @@
  * - This page is NOT linked from site navigation — reached only via ad clicks
  ************************************************************/
 
-import { LeadCaptureForm } from '@/components/lead/LeadCaptureForm'
 import { getServiceInterestOptions } from '@rgss/db/queries'
 import type { Metadata } from 'next'
+import { LeadCaptureForm } from '@/components/lead/LeadCaptureForm'
 
 // Ad-traffic landing page — never indexed, never linked from site navigation.
 export const metadata: Metadata = {
@@ -48,11 +48,7 @@ function firstParam(value: string | string[] | undefined): string | undefined {
   return value
 }
 
-export default async function BookLandingPage({
-  searchParams,
-}: {
-  searchParams: SearchParams
-}) {
+export default async function BookLandingPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams
   const services = await getServiceInterestOptions()
 

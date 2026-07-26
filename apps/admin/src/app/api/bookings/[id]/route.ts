@@ -34,12 +34,12 @@
  *   booking_status_log entry (prior → new status + acting user) atomically.
  ************************************************************/
 
+import { approveBooking, assignStaff, getBookingForAdmin, rejectBooking } from '@rgss/db/queries'
+import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
+import { adminBookingActionSchema } from '@rgss/types'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { publishBookingEvent } from '@/lib/realtime/publish'
-import { approveBooking, assignStaff, getBookingForAdmin, rejectBooking } from '@rgss/db/queries'
-import { ERROR_CODES, badRequest, conflict, notFound } from '@rgss/errors'
-import { adminBookingActionSchema } from '@rgss/types'
 
 export const GET = withErrorHandler(
   async (_req: Request, ctx: { params: Promise<{ id: string }> }) => {

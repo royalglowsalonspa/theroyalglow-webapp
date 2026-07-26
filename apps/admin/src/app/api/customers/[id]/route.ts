@@ -30,11 +30,11 @@
  * - PATCH with empty body is a no-op returning current profile.
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { getCustomerProfile, updateCustomerProfile } from '@rgss/db/queries'
 import { badRequest, notFound } from '@rgss/errors'
 import { z } from 'zod'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 // GET /api/customers/[id] — single customer profile (KPIs, tags, gems,
 // contact details). Receptionist+.

@@ -28,13 +28,13 @@
  ************************************************************/
 'use client'
 
+import { Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Loader2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { useState } from 'react'
 
 const AUTH_CONTEXT_KEY = 'rgss_auth_context'
 const COOKIE_CONSENT_KEY = 'rgss_cookie_consent'
@@ -262,7 +262,7 @@ export function OnboardingForm({ userName, userEmail }: OnboardingFormProps) {
           <Label htmlFor="privacy-consent" className="flex-1 cursor-pointer font-normal">
             <span className="font-sans text-sm text-cocoa-dark">
               I agree to the{' '}
-              <a href="/privacy" className="underline underline-offset-2 hover:text-deep-gold">
+              <a href="/privacy" className="underline underline-offset-2 hover:text-gold-ink">
                 Privacy Policy
               </a>{' '}
               <span className="text-error">*</span>

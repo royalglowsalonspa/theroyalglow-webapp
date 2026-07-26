@@ -24,8 +24,8 @@ jobs:
       web: ${{ steps.filter.outputs.web }}
       invoicing: ${{ steps.filter.outputs.invoicing }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -35,6 +35,11 @@ jobs:
             web:
               - 'apps/web/**'
               - 'packages/**'
+              # The Lighthouse gate for the customer site is driven by this
+              # config (routes + thresholds), so a change to it must re-run
+              # web-ci -> lighthouse-web and re-validate itself. Mirrors the
+              # paths trigger in docs-lighthouse.yml.
+              - '.github/lighthouse/lighthouserc.json'
             invoicing:
               - 'apps/invoicing/**'
               - 'packages/**'
@@ -51,13 +56,20 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.admin == 'true'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - name: Lint, typecheck, test, build (admin)
         run: bunx turbo run lint typecheck test build --filter=@rgss/admin
         env:
           SKIP_ENV_VALIDATION: '1'
+          # Build-time-only placeholder. `next build` collects page data for
+          # routes that import auth-server.ts, which calls
+          # betterAuth({ secret: process.env.BETTER_AUTH_SECRET }); Better Auth
+          # throws its own "default secret" error when this is unset — a guard
+          # independent of SKIP_ENV_VALIDATION. The real per-Worker secret is
+          # injected at deploy; this value is never used at runtime.
+          BETTER_AUTH_SECRET: 'ci-build-only-placeholder-not-used-at-runtime-000'
           # Raise the Node heap for `next build` — the default ceiling can OOM
           # (exit 137) on the ~7 GB ubuntu-latest runner while bundling the
           # admin app (recharts + react-table across ~40 routes). Harmless if
@@ -65,7 +77,7 @@ jobs:
           NODE_OPTIONS: '--max-old-space-size=4096'
       - name: Upload admin build artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: admin-build-output
           path: apps/admin/.next/
@@ -77,19 +89,24 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.web == 'true'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - name: Lint, typecheck, test, build (web)
         run: bunx turbo run lint typecheck test build --filter=@rgss/web
         env:
           SKIP_ENV_VALIDATION: '1'
+          # Build-time-only placeholder — same rationale as admin-ci: keeps
+          # Better Auth from throwing its "default secret" guard during
+          # `next build` page-data collection. Never used at runtime (the real
+          # per-Worker secret is injected at deploy).
+          BETTER_AUTH_SECRET: 'ci-build-only-placeholder-not-used-at-runtime-000'
           # Raise the Node heap for `next build` — guards against an OOM
           # (exit 137) on the ~7 GB ubuntu-latest runner. Harmless otherwise.
           NODE_OPTIONS: '--max-old-space-size=4096'
       - name: Upload web build artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: web-build-output
           path: apps/web/.next/
@@ -110,7 +127,7 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.invoicing == 'true'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - name: Lint, typecheck, build (invoicing)
@@ -119,37 +136,60 @@ jobs:
           SKIP_ENV_VALIDATION: '1'
 
   # ---------------------------------------------------------------------------
-  # Lighthouse CI against admin.theroyalglow.in (Req 10.6, 13.7, 13.8).
-  # Runs only when admin changed and its CI passed. Thresholds are enforced in
-  # .github/lighthouse/lighthouserc.json (perf >= 90, a11y = 100, bp >= 95);
-  # the job fails if any threshold is not met.
+  # Lighthouse CI for the CUSTOMER-FACING web app (Req 10.6).
   #
-  # The route list is the `collect.url` array in lighthouserc.json (the single
-  # source of truth) — it enumerates every redesigned admin route so the
-  # accessibility = 100 gate is enforced PER ROUTE: Lighthouse CI reports each
-  # URL separately, so a score < 100 on ANY audited route fails the gate and
-  # blocks merge, naming the offending URL. The `urls:` action input is
-  # intentionally omitted so it does NOT override that list.
+  # Lighthouse measures the PUBLIC user-facing experience — the brand promise in
+  # project-overview.md (perf >= 95, 100 accessibility / SEO). It used to target
+  # admin.theroyalglow.in, which measured nothing useful: the admin portal
+  # renders no sign-in and 307-redirects every unauthenticated request to the
+  # customer domain (apps/admin/src/middleware.ts, Req 4.7), so all 16 audited
+  # admin URLs actually scored the customer homepage — and the job failed with a
+  # 503 whenever the live deploy or the scale-to-zero Neon compute was cold.
+  # Admin accessibility is enforced instead by the jest-axe assertions on
+  # rendered admin components in the unit-tests job, where it can be measured
+  # without fabricating a session.
   #
-  # NOTE: this targets the deployed admin URL, so it asserts against the live
-  # subdomain — the deploy must exist for meaningful results. Admin routes are
-  # RBAC-gated (incl. `/`); unauthenticated runs redirect to sign-in, so true
-  # per-route scores require supplying LHCI a session (not fabricated here —
-  # see the "//" note in lighthouserc.json).
+  # SELF-CONTAINED (mirrors docs-lighthouse.yml): build the web app from THIS
+  # PR's source, serve that production build on localhost via `next start`
+  # (wired as collect.startServerCommand in the config), and audit it. No live
+  # environment required, and the gate reflects the PR rather than whatever is
+  # deployed.
+  #
+  # The route list and thresholds live in .github/lighthouse/lighthouserc.json
+  # (the single source of truth): the public pages that render fully without a
+  # session, DB, or reachable CMS. Lighthouse CI reports each URL separately, so
+  # a sub-threshold score on ANY route fails the gate and names it. The `urls:`
+  # action input is intentionally omitted so it does NOT override that list.
   # ---------------------------------------------------------------------------
-  lighthouse-admin:
+  lighthouse-web:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: [admin-ci]
-    if: needs.changes.outputs.admin == 'true'
+    timeout-minutes: 15
+    needs: [web-ci]
+    if: needs.changes.outputs.web == 'true'
     steps:
-      - uses: actions/checkout@v4
-      - name: Run Lighthouse CI
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Build web app
+        run: bunx turbo run build --filter=@rgss/web
+        env:
+          SKIP_ENV_VALIDATION: '1'
+          # Build-time-only placeholder — same rationale as web-ci: keeps Better
+          # Auth from throwing its "default secret" guard during `next build`
+          # page-data collection. Never used at runtime.
+          BETTER_AUTH_SECRET: 'ci-build-only-placeholder-not-used-at-runtime-000'
+          NODE_OPTIONS: '--max-old-space-size=4096'
+      - name: Run Lighthouse CI (web)
         uses: treosh/lighthouse-ci-action@v12
         with:
           configPath: .github/lighthouse/lighthouserc.json
           uploadArtifacts: true
           temporaryPublicStorage: true
+        env:
+          # `next start` serves the built app; the same build-time placeholders
+          # keep Better Auth quiet in the server process.
+          SKIP_ENV_VALIDATION: '1'
+          BETTER_AUTH_SECRET: 'ci-build-only-placeholder-not-used-at-runtime-000'
 
   # ---------------------------------------------------------------------------
   # Repo-wide quality gates (cover shared packages and run on every PR).
@@ -160,7 +200,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run lint
@@ -172,13 +212,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run test:coverage
       - name: Upload coverage
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage
           path: coverage/
@@ -188,7 +228,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - name: Audit dependencies (bun audit — blocking gate)
@@ -239,7 +279,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
@@ -285,7 +325,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: No emoji icons in admin presentation source (Req 2.3)
@@ -301,8 +341,15 @@ jobs:
       # change made WITHOUT admin presentation changes is out of this gate's
       # scope (owned by drift-gate / cutover-guards) and passes here.
       # -----------------------------------------------------------------------
+      # Scoped to FEATURE PRs into `dev`. On a release promotion (dev -> test ->
+      # pprd -> prod) the diff spans every commit accumulated since that branch
+      # last moved, so it legitimately contains admin API/schema changes — but
+      # those were already reviewed and gated on their way into `dev`. Re-running
+      # the redesign boundary check against a promotion diff can only produce a
+      # false failure, which is exactly what it did on the first dev -> test
+      # promotion (79 protected paths flagged).
       - name: Admin presentation stays within its path boundary (Req 16)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.base_ref == 'dev'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: node scripts/admin-design/path-allowlist.mjs
@@ -325,7 +372,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - name: No brand literals in admin component source
         run: bun run check:admin-no-literals
@@ -351,7 +398,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - name: Validate migration journal/snapshot integrity (drizzle-kit check)

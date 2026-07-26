@@ -799,9 +799,7 @@ export async function getAllPostSlugs(): Promise<string[]> {
 }
 
 /** Gallery images, optionally filtered to a single category. */
-export async function getGalleryImages(opts?: {
-  category?: string
-}): Promise<GalleryImage[]> {
+export async function getGalleryImages(opts?: { category?: string }): Promise<GalleryImage[]> {
   const category = opts?.category
   const categoryClause =
     typeof category === 'string' && category.trim() !== ''

@@ -1,6 +1,6 @@
-import { type BuildSitemapInput, buildSitemap } from '@/lib/sitemap'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import { type BuildSitemapInput, buildSitemap } from '@/lib/sitemap'
 
 // Feature: docs-theming-and-versioning, Property 14: Sitemap coverage is exact and duplicate-free
 //

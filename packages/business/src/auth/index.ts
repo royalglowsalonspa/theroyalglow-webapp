@@ -13,8 +13,8 @@
  * Notes        : Pure — no I/O, no framework deps.
  ************************************************************/
 export {
-  type CrossSubdomainAdvanced,
-  SHARED_COOKIE_DOMAIN,
   buildCrossSubdomainAdvanced,
+  type CrossSubdomainAdvanced,
   resolveCookieDomain,
+  SHARED_COOKIE_DOMAIN,
 } from './cookie-domain'

@@ -30,11 +30,11 @@
  * - Used for booking status push notifications and admin alerts.
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireSession } from '@/lib/api/session'
 import { removePushSubscription, savePushSubscription } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { pushSubscribeSchema } from '@rgss/types'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireSession } from '@/lib/api/session'
 
 // POST /api/push/subscribe — store a Web Push subscription for the caller.
 // Scoped to the authenticated user (session.user.id); the subscription is

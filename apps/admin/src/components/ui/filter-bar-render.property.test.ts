@@ -18,6 +18,10 @@
  *                `React.createElement` so it runs under the admin jsdom project.
  ************************************************************/
 
+import { cleanup, render, within } from '@testing-library/react'
+import fc from 'fast-check'
+import { createElement } from 'react'
+import { afterEach, describe, expect, it } from 'vitest'
 import {
   type ColumnToggle,
   FilterBar,
@@ -25,10 +29,6 @@ import {
   type FilterDropdown,
   type TabOption,
 } from '@/components/ui/filter-bar'
-import { cleanup, render, within } from '@testing-library/react'
-import fc from 'fast-check'
-import { createElement } from 'react'
-import { afterEach, describe, expect, it } from 'vitest'
 
 // Feature: admin-portal-redesign, Property 9: FilterBar renders exactly the
 // configured controls

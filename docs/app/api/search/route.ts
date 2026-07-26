@@ -35,10 +35,10 @@
  * preserving the reader's entered query (Req 11.6).
  */
 
+import { createFromSource, type SearchAPI } from 'fumadocs-core/search/server'
 import { SEARCH_RESULT_CAP } from '@/lib/search'
 import { getVersion, versions } from '@/lib/source'
 import type { VersionId } from '@/lib/versions'
-import { type SearchAPI, createFromSource } from 'fumadocs-core/search/server'
 
 /**
  * One Orama-backed `SearchAPI` per version, keyed by version id. Each indexes

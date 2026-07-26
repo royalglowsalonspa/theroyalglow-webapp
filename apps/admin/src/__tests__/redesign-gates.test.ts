@@ -29,10 +29,10 @@
  * Validates: Requirements 1.1, 1.2, 1.3, 1.7, 2.3, 2.5, 5.3, 7.9
  ************************************************************/
 
-import { readFileSync, readdirSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { ADMIN_NAV } from '@/lib/rbac'
 import { describe, expect, it } from 'vitest'
+import { ADMIN_NAV } from '@/lib/rbac'
 
 // Vitest runs the `admin` project from the repository root.
 const ROOT = process.cwd()

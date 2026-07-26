@@ -19,9 +19,9 @@
  *                consumers keep their lean active catalogue.
  ************************************************************/
 
+import { getServiceCategoriesAll, getServicesForAdmin } from '@rgss/db/queries'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
-import { getServiceCategoriesAll, getServicesForAdmin } from '@rgss/db/queries'
 
 export const GET = withErrorHandler(async () => {
   await requireRole('manager')

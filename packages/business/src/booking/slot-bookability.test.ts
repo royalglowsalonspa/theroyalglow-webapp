@@ -11,10 +11,10 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import {
+  isBookableSlotStart,
   SLOT_CLOSE_MINUTES,
   SLOT_DURATION_MINUTES,
   SLOT_OPEN_MINUTES,
-  isBookableSlotStart,
 } from './reschedule'
 
 /** Independent reference oracle for the bookability rule (mirrors the spec, not the impl). */

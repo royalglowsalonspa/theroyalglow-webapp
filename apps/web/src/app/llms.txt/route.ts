@@ -30,8 +30,9 @@
  * - Always returns 200 (never 500s)
  * - Cached for 1 hour via Cache-Control header
  ************************************************************/
-import { BUSINESS, SITE_URL } from '@/lib/seo/business'
+
 import { getAllServicesGrouped } from '@rgss/db/queries'
+import { BUSINESS, SITE_URL } from '@/lib/seo/business'
 
 /**
  * `/llms.txt` — the concise AI-discovery file (the "robots.txt for AI models").
