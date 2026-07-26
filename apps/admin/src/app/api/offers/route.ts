@@ -31,12 +31,12 @@
  * - Offers are salon-only (not SPA memberships).
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { createOfferWithServices, getAllOffersAdmin } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { createOfferSchema } from '@rgss/types'
 import { nanoid } from 'nanoid'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 // Derive a URL-safe slug from an offer name: lowercase, spaces → hyphens, strip
 // any character that is not alphanumeric or a hyphen, collapse repeated hyphens,

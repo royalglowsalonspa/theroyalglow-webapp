@@ -1,9 +1,9 @@
 'use client'
 
-import { classifyNotFoundContext } from '@/lib/versions'
 import { useSearchContext } from 'fumadocs-ui/contexts/search'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { classifyNotFoundContext } from '@/lib/versions'
 
 /**
  * Derive the request slug *below* the docs root (`/docs`) from a pathname.

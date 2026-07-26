@@ -39,6 +39,9 @@
 
 'use client'
 
+import { cn } from '@rgss/ui/lib/utils'
+import { Columns3, Search } from 'lucide-react'
+import { useId, useState } from 'react'
 import {
   type ColumnVisibility,
   toggleColumnVisibility,
@@ -62,9 +65,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useDebouncedCallback } from '@/components/ui/use-debounced-callback'
-import { cn } from '@rgss/ui/lib/utils'
-import { Columns3, Search } from 'lucide-react'
-import { useId, useState } from 'react'
 
 /** Maximum characters accepted by the search input. */
 export const SEARCH_MAX_LENGTH = 100

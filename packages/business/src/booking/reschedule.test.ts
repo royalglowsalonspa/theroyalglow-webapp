@@ -22,7 +22,7 @@
 
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { MAX_RESCHEDULES, RESCHEDULABLE_STATUSES, checkReschedulable } from './reschedule'
+import { checkReschedulable, MAX_RESCHEDULES, RESCHEDULABLE_STATUSES } from './reschedule'
 
 // Feature: backend-api, Property 20: Reschedule is gated by status and maximum count
 describe('Property 20: Reschedule is gated by status and maximum count', () => {

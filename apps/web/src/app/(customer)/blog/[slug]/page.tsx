@@ -28,6 +28,11 @@
  * - Returns 404 via notFound() when slug is not found in CMS
  ************************************************************/
 
+import { formatDateIN } from '@rgss/business'
+import { ArrowLeft } from 'lucide-react'
+import type { Metadata } from 'next'
+import Link from 'next/link'
+import { notFound } from 'next/navigation'
 import { RichText } from '@/components/blog/RichText'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { Button } from '@/components/ui/button'
@@ -35,11 +40,6 @@ import { getAllPostSlugs, getPostBySlug } from '@/lib/cms/client'
 import { SITE_URL } from '@/lib/seo/business'
 import { blogPostingJsonLd, breadcrumbJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
-import { formatDateIN } from '@rgss/business'
-import { ArrowLeft } from 'lucide-react'
-import type { Metadata } from 'next'
-import Link from 'next/link'
-import { notFound } from 'next/navigation'
 
 // ISR: revalidate each article roughly hourly (architecture.md ~1h window).
 export const revalidate = 3600

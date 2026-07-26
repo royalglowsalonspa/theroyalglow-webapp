@@ -30,12 +30,12 @@
  * - Returns 200 even on email no-op to avoid QStash retries.
  ************************************************************/
 
-import { pingHeartbeat } from '@/lib/jobs/heartbeat'
-import { verifyQStashSignature } from '@/lib/jobs/verify'
-import { sendEmail } from '@/lib/notifications/providers/email'
 import { buildNotificationContent } from '@rgss/business'
 import { getBookingForFollowup } from '@rgss/db/queries'
 import { createLogger } from '@rgss/logger'
+import { pingHeartbeat } from '@/lib/jobs/heartbeat'
+import { verifyQStashSignature } from '@/lib/jobs/verify'
+import { sendEmail } from '@/lib/notifications/providers/email'
 
 // Job 16 — Post-service follow-up (QStash triggered, enqueued +24h by booking
 // completion). Sends a review-request email to the customer, but ONLY when the

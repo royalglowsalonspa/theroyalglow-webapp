@@ -33,11 +33,11 @@
  * - Uses the shared @rgss/db notifications query helpers (no duplicated SQL).
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { getNotificationsForUser, getUnreadCount, markNotificationsRead } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { markReadSchema } from '@rgss/types'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 const DEFAULT_PAGE = 1
 const DEFAULT_PAGE_SIZE = 20

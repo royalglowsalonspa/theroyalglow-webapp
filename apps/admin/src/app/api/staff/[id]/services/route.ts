@@ -25,12 +25,12 @@
  *                before the atomic db.batch replacement runs in the query layer.
  ************************************************************/
 
-import { audit } from '@/lib/api/audit'
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { getServicesByIds, getStaffProfileById, setStaffServices } from '@rgss/db/queries'
 import { badRequest, notFound } from '@rgss/errors'
 import { staffServiceAssignmentSchema } from '@rgss/types'
+import { audit } from '@/lib/api/audit'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 // PUT /api/staff/[id]/services — replace service capabilities. Manager+.
 export const PUT = withErrorHandler(

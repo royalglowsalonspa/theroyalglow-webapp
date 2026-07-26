@@ -28,8 +28,8 @@
  * - Server component only (SSG) — no client interactivity
  ************************************************************/
 
-import { BUSINESS } from '@/lib/seo/business'
 import Link from 'next/link'
+import { BUSINESS } from '@/lib/seo/business'
 
 /**
  * Minimal, distraction-free chrome for the static legal pages
@@ -44,11 +44,7 @@ import Link from 'next/link'
 const tel = `tel:${BUSINESS.telephone.replace(/[^\d+]/g, '')}`
 const mailto = `mailto:${BUSINESS.email}`
 
-export default function LegalLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function LegalLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col bg-canvas-white">
       <a
@@ -62,7 +58,7 @@ export default function LegalLayout({
         <div className="mx-auto flex h-16 max-w-[760px] items-center px-5">
           <Link
             href="/"
-            className="font-display text-2xl text-cocoa-dark tracking-tight transition-colors duration-200 hover:text-deep-gold"
+            className="font-display text-2xl text-cocoa-dark tracking-tight transition-colors duration-200 hover:text-gold-ink"
           >
             Royal Glow
           </Link>
@@ -84,7 +80,7 @@ export default function LegalLayout({
             <p className="pt-2">
               <a
                 href={tel}
-                className="text-canvas-white transition-colors duration-200 hover:text-royal-gold"
+                className="text-canvas-white transition-colors duration-200 hover:text-deep-gold"
               >
                 {BUSINESS.telephone}
               </a>
@@ -92,7 +88,7 @@ export default function LegalLayout({
             <p>
               <a
                 href={mailto}
-                className="text-canvas-white transition-colors duration-200 hover:text-royal-gold"
+                className="text-canvas-white transition-colors duration-200 hover:text-deep-gold"
               >
                 {BUSINESS.email}
               </a>

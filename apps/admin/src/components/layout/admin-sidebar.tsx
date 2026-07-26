@@ -44,6 +44,10 @@
 
 'use client'
 
+import { ChevronRight } from 'lucide-react'
+import Image from 'next/image'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { BranchSwitcher } from '@/components/layout/branch-switcher'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Icon } from '@/components/ui/icon'
@@ -63,10 +67,6 @@ import {
 import { navHrefs, resolveActiveHref } from '@/lib/admin/active-nav'
 import { sectionIconFor } from '@/lib/admin/nav-icons'
 import { ADMIN_NAV, filterNavByLevel } from '@/lib/rbac'
-import { ChevronRight } from 'lucide-react'
-import Image from 'next/image'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 
 export function AdminSidebar({
   roleLevel,

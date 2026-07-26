@@ -39,6 +39,10 @@
 
 'use client'
 
+import type { OfferType } from '@rgss/types'
+import type { ColumnDef } from '@tanstack/react-table'
+import { Power, Tag } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DataTable, type RowAction } from '@/components/ui/data-table'
 import { FilterBar } from '@/components/ui/filter-bar'
@@ -61,10 +65,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { useAsyncData } from '@/components/ui/use-async-data'
 import { formatDateDDMMYYYY, formatINRWithPaise } from '@/lib/admin/format'
 import { toast } from '@/lib/admin/toast'
-import type { OfferType } from '@rgss/types'
-import type { ColumnDef } from '@tanstack/react-table'
-import { Power, Tag } from 'lucide-react'
-import { useCallback, useMemo, useState } from 'react'
 
 // ─── Types (mirror GET /api/offers + /api/services) ──────────────────────────
 interface OfferServiceRef {

@@ -34,12 +34,12 @@
 
 'use client'
 
-import { Button } from '@/components/ui/button'
-import { emphasisPop } from '@/components/ui/motion/motion-variants'
-import { usePrefersReducedMotion } from '@/components/ui/motion/use-reduced-motion'
 import { cn } from '@rgss/ui/lib/utils'
 import { RotateCcw } from 'lucide-react'
 import { motion } from 'motion/react'
+import { Button } from '@/components/ui/button'
+import { emphasisPop } from '@/components/ui/motion/motion-variants'
+import { usePrefersReducedMotion } from '@/components/ui/motion/use-reduced-motion'
 import { Icon } from '../icon'
 
 type ErrorStateProps = {

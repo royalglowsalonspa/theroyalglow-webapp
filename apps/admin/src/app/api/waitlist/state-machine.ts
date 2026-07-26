@@ -29,7 +29,7 @@
  *                testable in isolation from the route handler.
  ************************************************************/
 
-import { ERROR_CODES, conflict } from '@rgss/errors'
+import { conflict, ERROR_CODES } from '@rgss/errors'
 import type { WaitlistStatus } from '@rgss/types'
 
 // Adjacency map of legal moves. Terminal states map to an empty list. A repeat

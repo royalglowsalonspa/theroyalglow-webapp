@@ -29,13 +29,13 @@
  * - Protected route; redirects to / (homepage) if no session
  ************************************************************/
 
-import { Badge } from '@/components/ui/badge'
-import { Card } from '@/components/ui/card'
-import { auth } from '@/lib/auth-server'
 import { getNotificationPreferences } from '@rgss/db/queries'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
+import { auth } from '@/lib/auth-server'
 import {
   type NotificationPreferences,
   NotificationPreferencesForm,

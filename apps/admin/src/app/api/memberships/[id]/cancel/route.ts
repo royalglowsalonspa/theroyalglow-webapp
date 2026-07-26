@@ -30,11 +30,11 @@
  * - Cancellation is irreversible; a new membership must be created.
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { cancelMembership, getMembershipById } from '@rgss/db/queries'
 import { badRequest, notFound } from '@rgss/errors'
 import { cancelMembershipSchema } from '@rgss/types'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 export const POST = withErrorHandler(
   async (req: Request, ctx: { params: Promise<{ id: string }> }) => {

@@ -1,5 +1,6 @@
+import fc from 'fast-check'
+import { describe, expect, it } from 'vitest'
 import {
-  type VersionMeta,
   classifyNotFoundContext,
   equivalentPath,
   getCanonicalUrl,
@@ -9,10 +10,9 @@ import {
   parseVersionPrefix,
   resolveVersion,
   robotsFor,
+  type VersionMeta,
   versionsMeta,
 } from '@/lib/versions'
-import fc from 'fast-check'
-import { describe, expect, it } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // Shared fixtures and arbitraries

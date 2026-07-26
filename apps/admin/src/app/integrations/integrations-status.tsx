@@ -42,6 +42,9 @@
 
 'use client'
 
+import type { ColumnDef } from '@tanstack/react-table'
+import { Plug, RefreshCw } from 'lucide-react'
+import { useMemo } from 'react'
 import { DataTable } from '@/components/ui/data-table'
 import { Icon } from '@/components/ui/icon'
 import { EmptyState } from '@/components/ui/state/empty-state'
@@ -49,9 +52,6 @@ import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { useAsyncData } from '@/components/ui/use-async-data'
-import type { ColumnDef } from '@tanstack/react-table'
-import { Plug, RefreshCw } from 'lucide-react'
-import { useMemo } from 'react'
 
 type Integration = {
   name: string

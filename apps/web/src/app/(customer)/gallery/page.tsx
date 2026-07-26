@@ -28,13 +28,13 @@
  * - Images are served from Cloudflare R2 via CMS upload
  ************************************************************/
 
+import type { Metadata } from 'next'
 import { GalleryGrid } from '@/components/gallery/GalleryGrid'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { getGalleryImages } from '@/lib/cms/client'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, imageObjectJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
-import type { Metadata } from 'next'
 
 // ISR: revalidate the gallery roughly hourly (architecture.md ~1h window).
 export const revalidate = 3600
@@ -74,7 +74,7 @@ export default async function GalleryPage() {
           <div className="mx-auto max-w-[1278px] mt-6 lg:mt-10">
             <div className="flex items-center gap-2 mb-6">
               <span className="w-2 h-2 rounded-full bg-royal-gold" aria-hidden="true" />
-              <span className="font-ui text-[11px] uppercase tracking-[2px] text-deep-gold">
+              <span className="font-ui text-[11px] uppercase tracking-[2px] text-gold-ink">
                 Gallery
               </span>
             </div>

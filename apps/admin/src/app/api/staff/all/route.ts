@@ -19,9 +19,9 @@
  *                assignment picker) so existing consumers keep their lean list.
  ************************************************************/
 
+import { getStaffForAdmin } from '@rgss/db/queries'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
-import { getStaffForAdmin } from '@rgss/db/queries'
 
 // GET /api/staff/all — full roster with service counts. Manager+.
 export const GET = withErrorHandler(async () => {

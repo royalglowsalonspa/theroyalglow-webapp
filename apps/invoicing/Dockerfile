@@ -44,7 +44,7 @@ RUN cat > package.json <<'JSON'
   "type": "module",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.700.0",
-    "@hono/node-server": "^1.14.0",
+    "@hono/node-server": "^2.0.12",
     "@react-pdf/renderer": "^4.3.0",
     "@sentry/node": "^8.40.0",
     "hono": "^4.9.0",

@@ -25,10 +25,10 @@
  * - Self-service only; the manager-level schedule lives at /api/schedule.
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { getStaffProfileByUserId, getStaffSchedule } from '@rgss/db/queries'
 import { notFound } from '@rgss/errors'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 // GET /api/me/schedule — the caller's own weekly schedule (read-only).
 // Resolves the staff_profile from the session user; strictly scoped to that

@@ -30,9 +30,10 @@
  * - Always returns 200 (never 500s)
  * - Extends llms.txt with full menu detail
  ************************************************************/
-import { BUSINESS, FAQS, SITE_URL } from '@/lib/seo/business'
+
 import { formatINR } from '@rgss/business'
 import { getAllServicesGrouped } from '@rgss/db/queries'
+import { BUSINESS, FAQS, SITE_URL } from '@/lib/seo/business'
 
 /**
  * `/llms-full.txt` — the detailed AI-discovery file (`seo.md` Part 8).

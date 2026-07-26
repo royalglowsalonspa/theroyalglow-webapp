@@ -1,8 +1,8 @@
+import type { Metadata } from 'next'
+import { notFound } from 'next/navigation'
 import { DocsShell } from '@/components/docs-shell'
 import { getVersion, pageExistsIn, versions } from '@/lib/source'
 import { getCanonicalUrl, resolveVersion, robotsFor } from '@/lib/versions'
-import type { Metadata } from 'next'
-import { notFound } from 'next/navigation'
 
 /**
  * Single optional catch-all docs route (design Version_Router). Latest
@@ -25,9 +25,7 @@ const SITE_URL =
   process.env.NEXT_PUBLIC_APP_URL ??
   'https://docs.theroyalglow.in'
 
-export default async function Page(props: {
-  params: Promise<{ slug?: string[] }>
-}) {
+export default async function Page(props: { params: Promise<{ slug?: string[] }> }) {
   const { slug } = await props.params
   const result = resolveVersion(slug)
 

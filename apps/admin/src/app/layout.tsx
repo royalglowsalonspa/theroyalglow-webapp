@@ -1,6 +1,3 @@
-import { AdminShell } from '@/components/layout/admin-shell'
-import { auth } from '@/lib/auth-server'
-import { getDevImpersonatedSession } from '@/lib/dev-auth'
 /************************************************************
  * Author       : KATABATHUNI BOSE
  * Project      : theroyalglow-webapp (admin)
@@ -33,6 +30,9 @@ import { getDevImpersonatedSession } from '@/lib/dev-auth'
  ************************************************************/
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
+import { AdminShell } from '@/components/layout/admin-shell'
+import { auth } from '@/lib/auth-server'
+import { getDevImpersonatedSession } from '@/lib/dev-auth'
 import '@/styles/globals.css'
 
 export const metadata: Metadata = {
@@ -54,11 +54,7 @@ function toInitials(name: string): string {
   return letters.join('')
 }
 
-export default async function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // LOCAL DEV ONLY — when the middleware auth bypass is active, there is no
   // shared session on localhost, so assume a Developer role to render the full
   // sidebar. This branch can never run in a production build (NODE_ENV guard).

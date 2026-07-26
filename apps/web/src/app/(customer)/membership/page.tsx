@@ -32,6 +32,12 @@
  * - Protected route; redirects to / (homepage) if no session
  ************************************************************/
 
+import { formatDateIN } from '@rgss/business'
+import { getCustomerMembership, getMembershipSessions } from '@rgss/db/queries'
+import { Sparkles } from 'lucide-react'
+import type { Metadata } from 'next'
+import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 import {
   Accordion,
   AccordionContent,
@@ -41,12 +47,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { auth } from '@/lib/auth-server'
-import { formatDateIN } from '@rgss/business'
-import { getCustomerMembership, getMembershipSessions } from '@rgss/db/queries'
-import { Sparkles } from 'lucide-react'
-import type { Metadata } from 'next'
-import { headers } from 'next/headers'
-import { redirect } from 'next/navigation'
 
 export const metadata: Metadata = {
   title: 'My SPA Membership',
@@ -185,7 +185,7 @@ function ActiveMembershipCard({
               <dt className="mb-1 font-ui text-[11px] uppercase tracking-[1px] text-warm-stone">
                 Remaining
               </dt>
-              <dd className="font-display text-[20px] text-deep-gold">
+              <dd className="font-display text-[20px] text-gold-ink">
                 {formatHoursMinutes(remaining)}
               </dd>
             </div>
@@ -312,7 +312,7 @@ function SessionHistory({ sessions }: { sessions: MembershipSession[] }) {
                       {staffNames ? ` · ${staffNames}` : ''}
                     </p>
                   </div>
-                  <span className="whitespace-nowrap font-ui text-[14px] text-deep-gold">
+                  <span className="whitespace-nowrap font-ui text-[14px] text-gold-ink">
                     {formatHoursMinutes(s.totalDurationMinutes)}
                   </span>
                 </Card>
@@ -375,7 +375,7 @@ function PastMemberships({ memberships }: { memberships: PastMembership[] }) {
 function EmptyState() {
   return (
     <Card className="items-center justify-center px-6 py-16 text-center">
-      <div className="mb-5 flex size-16 items-center justify-center rounded-full bg-warm-cream text-deep-gold">
+      <div className="mb-5 flex size-16 items-center justify-center rounded-full bg-warm-cream text-gold-ink">
         <Sparkles className="size-7" strokeWidth={1.5} aria-hidden="true" />
       </div>
       <p className="mb-2 font-sans text-[16px] text-cocoa-dark">
