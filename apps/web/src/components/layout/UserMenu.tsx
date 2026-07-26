@@ -375,7 +375,7 @@ export function UserMenu({ user }: UserMenuProps) {
                 {link.icon}
                 <span className="flex-1">{link.label}</span>
                 {link.href === '/gems' && gems !== null ? (
-                  <span className="rounded-pill bg-golden-mist px-2 py-0.5 font-ui text-[11px] font-bold text-deep-gold tabular-nums">
+                  <span className="rounded-pill bg-golden-mist px-2 py-0.5 font-ui text-[11px] font-bold text-gold-ink tabular-nums">
                     {gems.toLocaleString('en-IN')} pts
                   </span>
                 ) : (

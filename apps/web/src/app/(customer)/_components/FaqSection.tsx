@@ -54,7 +54,9 @@ export function FaqSection({ faqs }: { faqs: Faq[] }) {
     >
       <div className="grid grid-cols-1 items-start gap-12 lg:grid-cols-2">
         <Reveal className="flex flex-col justify-center" as="div">
-          <p className="mb-2 font-ui text-[10px] font-bold uppercase tracking-[0.2em] opacity-60">
+          {/* No opacity: at 60% this small bold text fell under the 4.5:1 AA floor.
+              gold-ink matches the eyebrow treatment used elsewhere and is compliant. */}
+          <p className="mb-2 font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-gold-ink">
             Got a question?
           </p>
           <h2
@@ -81,7 +83,7 @@ export function FaqSection({ faqs }: { faqs: Faq[] }) {
                 value={faq.question}
                 className="border-outline-gray"
               >
-                <AccordionTrigger className="py-5 font-sans text-lg font-bold text-cocoa-dark hover:text-deep-gold hover:no-underline">
+                <AccordionTrigger className="py-5 font-sans text-lg font-bold text-cocoa-dark hover:text-gold-ink hover:no-underline">
                   {faq.question}
                 </AccordionTrigger>
                 <AccordionContent className="pr-8 font-sans text-sm leading-relaxed text-warm-gray">

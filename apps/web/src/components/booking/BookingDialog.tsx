@@ -688,7 +688,7 @@ function Step1({
           </p>
         ) : slotsLoading ? (
           <output className="flex items-center gap-2 py-4" aria-live="polite">
-            <Loader2 className="size-4 animate-spin text-deep-gold" aria-hidden="true" />
+            <Loader2 className="size-4 animate-spin text-gold-ink" aria-hidden="true" />
             <span className="font-sans text-[14px] text-dusty-gray">Loading available times…</span>
           </output>
         ) : slotsError ? (
@@ -785,7 +785,7 @@ function Step2({
 
         {loading ? (
           <output className="flex items-center gap-2 py-4" aria-live="polite">
-            <Loader2 className="size-4 animate-spin text-deep-gold" aria-hidden="true" />
+            <Loader2 className="size-4 animate-spin text-gold-ink" aria-hidden="true" />
             <span className="font-sans text-[14px] text-dusty-gray">Loading categories…</span>
           </output>
         ) : error ? (

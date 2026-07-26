@@ -88,13 +88,13 @@ function ServiceCard({ service }: { service: CatalogueService }) {
       <div className="mt-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="font-ui text-sm text-dusty-gray">{service.durationMinutes} min</span>
-          <span className="font-ui text-sm text-deep-gold">{formatINR(service.pricePaise)}</span>
+          <span className="font-ui text-sm text-gold-ink">{formatINR(service.pricePaise)}</span>
         </div>
         <Button
           asChild
           variant="link"
           size="sm"
-          className="px-0 font-ui text-xs uppercase tracking-[0.5px] text-deep-gold hover:text-cocoa-dark"
+          className="px-0 font-ui text-xs uppercase tracking-[0.5px] text-gold-ink hover:text-cocoa-dark"
         >
           <Link href={`/?book=1&service=${encodeURIComponent(service.slug)}`}>
             Book This
@@ -155,7 +155,7 @@ export function ServicesCatalogue() {
 
         {loading ? (
           <output className="flex items-center justify-center gap-3 py-16" aria-live="polite">
-            <Loader2 className="size-5 animate-spin text-deep-gold" aria-hidden="true" />
+            <Loader2 className="size-5 animate-spin text-gold-ink" aria-hidden="true" />
             <span className="font-sans text-[15px] text-dusty-gray">Loading our services…</span>
           </output>
         ) : error ? (
