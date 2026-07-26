@@ -19,17 +19,17 @@
     "@payloadcms/next": "^3.86.0",
     "@payloadcms/richtext-lexical": "^3.86.0",
     "@payloadcms/storage-s3": "^3.86.0",
-    "graphql": "^16.8.1",
+    "graphql": "^16.14.2",
     "next": "16.2.12",
     "payload": "^3.86.0",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "sharp": "^0.35.3"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.1.6",
-    "typescript": "^5.7.3"
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.9.3"
   }
 }

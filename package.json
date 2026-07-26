@@ -26,17 +26,17 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.5",
-    "@playwright/test": "^1.61.1",
+    "@playwright/test": "^1.62.0",
     "@vitejs/plugin-react": "^6.0.4",
-    "checkly": "^8.14.1",
+    "checkly": "^8.17.1",
     "husky": "^9.1.7",
-    "lint-staged": "^17.1.0",
-    "turbo": "^2.10.4",
+    "lint-staged": "^17.2.0",
+    "turbo": "^2.10.7",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
   },
   "overrides": {
-    "kysely": "0.29.2",
+    "kysely": "0.29.4",
     "zod": "4.4.3",
     "dompurify": "3.4.12",
     "postcss": "8.5.23",
