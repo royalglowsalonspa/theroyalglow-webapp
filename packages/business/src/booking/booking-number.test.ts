@@ -17,9 +17,13 @@ describe('generateBookingNumber — Property 9: structured format', () => {
   const serviceTypeArb = fc.constantFrom<'salon' | 'spa'>('salon', 'spa')
 
   // Constrain to a sane, valid calendar range so YYMM derivation is well-defined.
+  // noInvalidDate excludes `Invalid Date`, which fast-check v4 generates by
+  // default; invalid input is rejected by generateBookingNumber and is covered
+  // by its own validation test rather than this format property.
   const dateArb = fc.date({
     min: new Date('2000-01-01T00:00:00.000Z'),
     max: new Date('2099-12-31T23:59:59.999Z'),
+    noInvalidDate: true,
   })
 
   it('matches BK-{branchCode}-{YYMM}-{H|S}-{5 alphanumeric}[-M] for all inputs', () => {

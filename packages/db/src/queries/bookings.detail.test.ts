@@ -94,9 +94,12 @@ const statusArb = fc.constantFrom(
   'rescheduled',
 )
 
+// noInvalidDate excludes `Invalid Date`, which fast-check v4 generates by
+// default even within an explicit min/max range.
 const dateArb = fc.date({
   min: new Date('2020-01-01T00:00:00Z'),
   max: new Date('2030-12-31T23:59:59Z'),
+  noInvalidDate: true,
 })
 const nullableTsArb = fc.option(dateArb, { nil: null })
 
