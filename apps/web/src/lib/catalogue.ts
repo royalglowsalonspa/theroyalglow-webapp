@@ -27,9 +27,9 @@
  ************************************************************/
 
 import 'server-only'
-import type { Service } from '@/lib/cms/types'
 import { formatINR } from '@rgss/business'
 import { getAllServicesGrouped } from '@rgss/db/queries'
+import type { Service } from '@/lib/cms/types'
 
 /**
  * Active catalogue as Service view-models, salon + spa together (the page's

@@ -33,6 +33,9 @@
 
 'use client'
 
+import { Inbox, Phone } from 'lucide-react'
+import Link from 'next/link'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -57,15 +60,12 @@ import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
 import {
+  formatDaysSince,
   LEAD_COLUMNS,
   type LeadPipelineRow,
   type LeadStatus,
-  formatDaysSince,
   leadCampaignLabel,
 } from '@/lib/admin/leads'
-import { Inbox, Phone } from 'lucide-react'
-import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useState } from 'react'
 
 type ServiceOption = {
   id: string
@@ -170,13 +170,7 @@ export function LeadKanban() {
   )
 }
 
-function KanbanColumn({
-  label,
-  items,
-}: {
-  label: string
-  items: LeadPipelineRow[]
-}) {
+function KanbanColumn({ label, items }: { label: string; items: LeadPipelineRow[] }) {
   return (
     <section
       aria-label={`${label} leads`}
@@ -244,13 +238,7 @@ function LeadCard({ lead }: { lead: LeadPipelineRow }) {
   )
 }
 
-function ManualLeadDialog({
-  onClose,
-  onCreated,
-}: {
-  onClose: () => void
-  onCreated: () => void
-}) {
+function ManualLeadDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [serviceInterestedId, setServiceInterestedId] = useState('')

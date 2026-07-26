@@ -14,6 +14,8 @@
  * Layer        : Presentation
  ************************************************************/
 
+import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import { BlogFeed } from '@/components/blog/BlogFeed'
 import { NewsletterForm } from '@/components/blog/NewsletterForm'
 import { JsonLd } from '@/components/seo/JsonLd'
@@ -21,8 +23,6 @@ import { getPublishedPosts } from '@/lib/cms/client'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, localBusinessJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
-import type { Metadata } from 'next'
-import { Suspense } from 'react'
 
 // ISR: revalidate the listing roughly hourly
 export const revalidate = 3600
@@ -54,7 +54,7 @@ export default async function BlogPage() {
           <div className="mx-auto max-w-[1278px] mt-6 lg:mt-10">
             <div className="flex items-center gap-2 mb-6">
               <span className="w-2 h-2 rounded-full bg-royal-gold" aria-hidden="true" />
-              <span className="font-ui text-[11px] uppercase tracking-[2px] text-deep-gold font-bold">
+              <span className="font-ui text-[11px] uppercase tracking-[2px] text-gold-ink font-bold">
                 The Royal Glow Journal
               </span>
             </div>

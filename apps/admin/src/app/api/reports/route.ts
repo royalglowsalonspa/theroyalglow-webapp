@@ -29,8 +29,6 @@
  * Notes        : Requires min role: manager. Read-only.
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import {
   getBookingsByStatus,
   getRevenueSummary,
@@ -39,6 +37,8 @@ import {
 } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { reportsQuerySchema, resolveReportRange } from '@rgss/types'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 // GET /api/reports — combined analytics payload for the admin dashboard.
 // Manager+. Returns { range, summary, revenueTrend, bookingsByStatus, topServices }.

@@ -16,10 +16,10 @@
  *                JSX) so it runs under the admin Vitest project.
  ************************************************************/
 
-import { commandItemsForLevel } from '@/lib/admin/command-items'
-import { ADMIN_NAV } from '@/lib/rbac'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import { commandItemsForLevel } from '@/lib/admin/command-items'
+import { ADMIN_NAV } from '@/lib/rbac'
 
 // Feature: admin-portal-redesign, Property 6: Command-palette items respect
 // role level.

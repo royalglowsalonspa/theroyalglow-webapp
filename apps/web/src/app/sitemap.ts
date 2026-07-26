@@ -29,10 +29,11 @@
  * Notes        :
  * - Excludes: /admin, /api, /profile, /staff, /book
  ************************************************************/
-import { getAllPostSlugs } from '@/lib/cms/client'
-import { SITE_URL } from '@/lib/seo/business'
+
 import { getAllServicesGrouped } from '@rgss/db/queries'
 import type { MetadataRoute } from 'next'
+import { getAllPostSlugs } from '@/lib/cms/client'
+import { SITE_URL } from '@/lib/seo/business'
 
 /**
  * XML sitemap for the public site.

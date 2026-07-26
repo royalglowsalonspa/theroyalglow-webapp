@@ -29,6 +29,8 @@
 
 'use client'
 
+import { Palmtree } from 'lucide-react'
+import { useCallback, useId, useState } from 'react'
 import { Field } from '@/components/ui/form-field'
 import { Input } from '@/components/ui/input'
 import {
@@ -47,8 +49,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { useAsyncData } from '@/components/ui/use-async-data'
 import { formatDateDDMMYYYY } from '@/lib/admin/bookings'
 import { toast } from '@/lib/admin/toast'
-import { Palmtree } from 'lucide-react'
-import { useCallback, useId, useState } from 'react'
 
 // ─── API shapes (mirror GET/POST /api/me/leave + DELETE /api/me/leave/[id]) ───
 
@@ -251,13 +251,7 @@ function RequestLeaveForm({ onSubmitted }: { onSubmitted: () => void }) {
   )
 }
 
-function LeaveItem({
-  row,
-  onWithdrawn,
-}: {
-  row: LeaveRow
-  onWithdrawn: () => void
-}) {
+function LeaveItem({ row, onWithdrawn }: { row: LeaveRow; onWithdrawn: () => void }) {
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
 

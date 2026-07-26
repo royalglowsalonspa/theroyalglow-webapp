@@ -19,12 +19,12 @@
  *                deactivate instead. Slug stays stable across renames.
  ************************************************************/
 
-import { audit } from '@/lib/api/audit'
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { getServiceCategoryById, updateServiceCategory } from '@rgss/db/queries'
 import { badRequest, notFound } from '@rgss/errors'
 import { serviceCategoryUpdateSchema } from '@rgss/types'
+import { audit } from '@/lib/api/audit'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 export const PATCH = withErrorHandler(
   async (req: Request, ctx: { params: Promise<{ id: string }> }) => {

@@ -30,11 +30,11 @@
  * - Empty/missing PATCH body marks ALL unread as read.
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireSession } from '@/lib/api/session'
 import { getNotificationsForUser, getUnreadCount, markNotificationsRead } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { markReadSchema } from '@rgss/types'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireSession } from '@/lib/api/session'
 
 const DEFAULT_PAGE = 1
 const DEFAULT_PAGE_SIZE = 20

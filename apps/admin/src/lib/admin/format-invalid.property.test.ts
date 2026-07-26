@@ -20,9 +20,9 @@
  *                for this property — see the gap note below. Requirements 15.4.
  ************************************************************/
 
-import { PLACEHOLDER, formatDateTimeIST, formatTime24hIST } from '@/lib/admin/format'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import { formatDateTimeIST, formatTime24hIST, PLACEHOLDER } from '@/lib/admin/format'
 
 // Feature: admin-portal-redesign, Property 20: Formatters reject invalid input with a fixed placeholder
 //
@@ -68,9 +68,7 @@ const nonDateStringArb: fc.Arbitrary<string> = fc.oneof(
     '\t\n',
   ),
   // Random alphabetic-ish junk that the Date constructor rejects.
-  fc
-    .string({ minLength: 1, maxLength: 20 })
-    .filter((s) => Number.isNaN(new Date(s).getTime())),
+  fc.string({ minLength: 1, maxLength: 20 }).filter((s) => Number.isNaN(new Date(s).getTime())),
 )
 
 // Empty / whitespace-only strings — the formatters treat these as missing.

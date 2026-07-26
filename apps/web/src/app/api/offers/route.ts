@@ -29,8 +29,8 @@
  * - Offers auto-expire via QStash offer-auto-expire job.
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { getActiveOffers } from '@rgss/db/queries'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 
 // GET /api/offers — public list of active offers for the customer offers page.
 // No auth: returns only offers whose active flag is true and whose date range

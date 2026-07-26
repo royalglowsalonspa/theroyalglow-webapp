@@ -29,9 +29,9 @@
  * - Sessions are only fetched for the active membership, not past ones.
  ************************************************************/
 
+import { getCustomerMembership, getMembershipSessions } from '@rgss/db/queries'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireSession } from '@/lib/api/session'
-import { getCustomerMembership, getMembershipSessions } from '@rgss/db/queries'
 
 // GET /api/membership — the caller's own SPA membership(s): the single active
 // membership (if any) with its session history, plus past (expired/cancelled)

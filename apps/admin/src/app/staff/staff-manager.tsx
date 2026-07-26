@@ -46,6 +46,12 @@
 
 'use client'
 
+import * as Dialog from '@radix-ui/react-dialog'
+import { STAFF_DESIGNATIONS, type StaffDesignation } from '@rgss/types'
+import { cn } from '@rgss/ui/lib/utils'
+import type { ColumnDef } from '@tanstack/react-table'
+import { Pencil, Scissors, UserCheck, UserPlus, UserX } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -78,12 +84,6 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { useAsyncData } from '@/components/ui/use-async-data'
 import { toast } from '@/lib/admin/toast'
-import * as Dialog from '@radix-ui/react-dialog'
-import { STAFF_DESIGNATIONS, type StaffDesignation } from '@rgss/types'
-import { cn } from '@rgss/ui/lib/utils'
-import type { ColumnDef } from '@tanstack/react-table'
-import { Pencil, Scissors, UserCheck, UserPlus, UserX } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
 
 interface StaffRow {
   id: string

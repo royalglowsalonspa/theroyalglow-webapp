@@ -30,11 +30,11 @@
  * - Notes are append-only; no edit or delete in current phase.
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { addLeadNote } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { addLeadNoteSchema } from '@rgss/types'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 export const POST = withErrorHandler(
   async (req: Request, ctx: { params: Promise<{ id: string }> }) => {

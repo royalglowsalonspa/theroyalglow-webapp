@@ -33,9 +33,9 @@
 
 'use client'
 
+import { useEffect } from 'react'
 import { oneTap, useSession } from '@/lib/auth-client'
 import { preserveAuthContext } from '@/lib/google-signin'
-import { useEffect } from 'react'
 
 // Module-level guards survive React StrictMode's dev remounts (a component ref
 // would not). They ensure the prompt is requested at most once per page load

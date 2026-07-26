@@ -21,7 +21,7 @@
  * Requirements : 9.4, 9.5
  ************************************************************/
 
-import { type NavSection, filterNavByLevel } from '@/lib/rbac'
+import { filterNavByLevel, type NavSection } from '@/lib/rbac'
 
 /** A single flat command-palette destination. */
 export type CommandNavItem = {

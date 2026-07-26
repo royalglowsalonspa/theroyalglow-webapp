@@ -31,10 +31,6 @@
  * - All prices are GST-inclusive in paise (integer math only).
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireSession } from '@/lib/api/session'
-import { enqueueJob } from '@/lib/jobs/enqueue'
-import { publishBookingEvent } from '@/lib/realtime/publish'
 import {
   addMinutesToTime,
   calculateBookingTotal,
@@ -50,6 +46,10 @@ import {
 } from '@rgss/db/queries'
 import { badRequest, conflict } from '@rgss/errors'
 import { bookingStatusSchema, createBookingSchema } from '@rgss/types'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireSession } from '@/lib/api/session'
+import { enqueueJob } from '@/lib/jobs/enqueue'
+import { publishBookingEvent } from '@/lib/realtime/publish'
 
 export const GET = withErrorHandler(async (req: Request) => {
   const session = await requireSession()

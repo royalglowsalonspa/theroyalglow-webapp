@@ -29,11 +29,11 @@
  * Notes        : Requires min role: receptionist.
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { getWaitlist } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { waitlistListQuerySchema } from '@rgss/types'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 // GET /api/waitlist — paginated waitlist queue, newest first, optionally
 // filtered by status. Receptionist+ only.

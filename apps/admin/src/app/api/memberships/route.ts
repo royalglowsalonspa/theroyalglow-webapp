@@ -32,9 +32,6 @@
  * - No gems earned on membership purchase or sessions.
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
-import { enqueueJob } from '@/lib/jobs/enqueue'
 import {
   computeExpiry,
   generateInvoiceNumber,
@@ -45,11 +42,14 @@ import {
   createMembershipWithInvoice,
   getActiveMembershipForCustomer,
   getBranchByIdAdmin,
-  getMembershipTiers,
   getMemberships,
+  getMembershipTiers,
 } from '@rgss/db/queries'
-import { ERROR_CODES, badRequest, conflict, notFound } from '@rgss/errors'
+import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
 import { createMembershipSchema } from '@rgss/types'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
+import { enqueueJob } from '@/lib/jobs/enqueue'
 
 // The single operational branch (seed: number=1, code="RS"). Memberships and
 // their purchase invoices are issued against this branch until multi-branch

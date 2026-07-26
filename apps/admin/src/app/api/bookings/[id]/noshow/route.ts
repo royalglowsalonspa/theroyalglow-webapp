@@ -29,10 +29,10 @@
  * - No-show count escalation is handled by the noshow-check background job.
  ************************************************************/
 
+import { getBookingForAdmin, updateBookingStatus } from '@rgss/db/queries'
+import { conflict, ERROR_CODES, notFound } from '@rgss/errors'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
-import { getBookingForAdmin, updateBookingStatus } from '@rgss/db/queries'
-import { ERROR_CODES, conflict, notFound } from '@rgss/errors'
 
 export const POST = withErrorHandler(
   async (_req: Request, ctx: { params: Promise<{ id: string }> }) => {

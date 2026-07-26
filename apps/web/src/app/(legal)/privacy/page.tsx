@@ -47,7 +47,7 @@ export default function PrivacyPolicyPage() {
   return (
     <article className="font-sans text-[16px] text-warm-gray leading-[1.7]">
       <header>
-        <span className="font-ui text-[11px] text-deep-gold uppercase tracking-[2px]">Legal</span>
+        <span className="font-ui text-[11px] text-gold-ink uppercase tracking-[2px]">Legal</span>
         <h1 className="mt-3 font-display text-[clamp(34px,5vw,52px)] text-cocoa-dark leading-[1.08] tracking-[-1px]">
           Privacy Policy
         </h1>
@@ -71,7 +71,7 @@ export default function PrivacyPolicyPage() {
           We collect only the data we need to serve you well. Depending on how you interact with us,
           this may include:
         </p>
-        <ul className="mt-4 list-disc space-y-2 pl-6 marker:text-deep-gold">
+        <ul className="mt-4 list-disc space-y-2 pl-6 marker:text-gold-ink">
           <li>
             <strong className="text-cocoa-dark">Identity and contact details</strong> — your name,
             mobile number, and email address.
@@ -104,7 +104,7 @@ export default function PrivacyPolicyPage() {
           2. Why we use your data
         </h2>
         <p className="mt-4">We use your personal data to:</p>
-        <ul className="mt-4 list-disc space-y-2 pl-6 marker:text-deep-gold">
+        <ul className="mt-4 list-disc space-y-2 pl-6 marker:text-gold-ink">
           <li>create and manage your account and bookings;</li>
           <li>
             confirm, remind, reschedule, or cancel appointments and send service-related
@@ -169,7 +169,7 @@ export default function PrivacyPolicyPage() {
         <p className="mt-4">
           The DPDP Act gives you the following rights in respect of your personal data:
         </p>
-        <ul className="mt-4 list-disc space-y-2 pl-6 marker:text-deep-gold">
+        <ul className="mt-4 list-disc space-y-2 pl-6 marker:text-gold-ink">
           <li>
             <strong className="text-cocoa-dark">Right to access</strong> — to obtain a summary of
             the personal data we hold about you and how we process it.
@@ -207,7 +207,7 @@ export default function PrivacyPolicyPage() {
           We do not sell your personal data. We share it only with trusted service providers who
           process it on our behalf and under contract, including:
         </p>
-        <ul className="mt-4 list-disc space-y-2 pl-6 marker:text-deep-gold">
+        <ul className="mt-4 list-disc space-y-2 pl-6 marker:text-gold-ink">
           <li>
             payment handling at our counter (cash, UPI, and card terminals) — we do not retain full
             card details;
@@ -275,7 +275,7 @@ export default function PrivacyPolicyPage() {
             Email:{' '}
             <a
               href={mailto}
-              className="text-deep-gold underline underline-offset-2 hover:text-cocoa-dark"
+              className="text-gold-ink underline underline-offset-2 hover:text-cocoa-dark"
             >
               {BUSINESS.email}
             </a>
@@ -284,7 +284,7 @@ export default function PrivacyPolicyPage() {
             Phone:{' '}
             <a
               href={tel}
-              className="text-deep-gold underline underline-offset-2 hover:text-cocoa-dark"
+              className="text-gold-ink underline underline-offset-2 hover:text-cocoa-dark"
             >
               {BUSINESS.telephone}
             </a>

@@ -30,12 +30,12 @@
  * - Returns 200 even on email no-op to avoid unnecessary retries.
  ************************************************************/
 
-import { pingHeartbeat } from '@/lib/jobs/heartbeat'
-import { verifyQStashSignature } from '@/lib/jobs/verify'
-import { sendEmail } from '@/lib/notifications/providers/email'
 import { buildNotificationContent } from '@rgss/business'
 import { getMembershipById } from '@rgss/db/queries'
 import { createLogger } from '@rgss/logger'
+import { pingHeartbeat } from '@/lib/jobs/heartbeat'
+import { verifyQStashSignature } from '@/lib/jobs/verify'
+import { sendEmail } from '@/lib/notifications/providers/email'
 
 // Job 19 — Membership expired notice (QStash triggered, enqueued +1h after the
 // membership's expiry by membership creation). Sends a final renewal email to

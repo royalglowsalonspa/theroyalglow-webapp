@@ -35,7 +35,7 @@
 
 // Re-export the existing currency/date helpers unchanged (Req 15.1, 15.2).
 // Call sites can import every formatter from this single module.
-export { formatINR, formatINRWithPaise, formatDateDDMMYYYY } from './bookings'
+export { formatDateDDMMYYYY, formatINR, formatINRWithPaise } from './bookings'
 
 // Fixed placeholder rendered for null/undefined/invalid formatter input
 // (Req 15.4). Never render a partial, raw, or unformatted value.
