@@ -35,6 +35,11 @@ jobs:
             web:
               - 'apps/web/**'
               - 'packages/**'
+              # The Lighthouse gate for the customer site is driven by this
+              # config (routes + thresholds), so a change to it must re-run
+              # web-ci -> lighthouse-web and re-validate itself. Mirrors the
+              # paths trigger in docs-lighthouse.yml.
+              - '.github/lighthouse/lighthouserc.json'
             invoicing:
               - 'apps/invoicing/**'
               - 'packages/**'
