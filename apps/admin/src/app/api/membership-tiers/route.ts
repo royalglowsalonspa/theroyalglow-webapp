@@ -29,9 +29,9 @@
  * - Tiers are seed data managed by the developer role.
  ************************************************************/
 
+import { getMembershipTiers } from '@rgss/db/queries'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
-import { getMembershipTiers } from '@rgss/db/queries'
 
 export const GET = withErrorHandler(async () => {
   await requireRole('receptionist')

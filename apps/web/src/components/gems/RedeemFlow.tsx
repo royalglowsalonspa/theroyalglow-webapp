@@ -36,10 +36,10 @@
 
 'use client'
 
-import { Button } from '@/components/ui/button'
 import { formatINR } from '@rgss/business'
 import { Check, Loader2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Button } from '@/components/ui/button'
 
 // Mirrors the catalogue item shape the server passes down (getRedeemableServices
 // + computeAffordability, with null gemsRequired rows already dropped).
@@ -403,6 +403,7 @@ export function RedeemFlow({ balance, catalogue, branchId = DEFAULT_BRANCH_ID }:
                       Select Date
                     </h3>
                     <div
+                      role="group"
                       className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1"
                       aria-labelledby="redeem-date-label"
                     >
@@ -466,6 +467,7 @@ export function RedeemFlow({ balance, catalogue, branchId = DEFAULT_BRANCH_ID }:
                       </p>
                     ) : (
                       <div
+                        role="group"
                         className="grid grid-cols-4 sm:grid-cols-5 gap-2"
                         aria-labelledby="redeem-time-label"
                       >

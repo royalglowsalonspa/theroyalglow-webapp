@@ -30,10 +30,11 @@
  *
  * Notes        : None
  ************************************************************/
-import { Button } from '@/components/ui/button'
-import { Reveal } from '@/components/ui/motion/reveal'
+
 import { Phone } from 'lucide-react'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { Reveal } from '@/components/ui/motion/reveal'
 
 const steps = [
   {

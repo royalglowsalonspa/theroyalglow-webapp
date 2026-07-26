@@ -32,6 +32,12 @@
  * - Protected route; redirects to / (homepage) if no session
  ************************************************************/
 
+import { formatDateIN } from '@rgss/business'
+import { getCustomerMembership, getMembershipSessions } from '@rgss/db/queries'
+import { Sparkles } from 'lucide-react'
+import type { Metadata } from 'next'
+import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 import {
   Accordion,
   AccordionContent,
@@ -41,12 +47,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { auth } from '@/lib/auth-server'
-import { formatDateIN } from '@rgss/business'
-import { getCustomerMembership, getMembershipSessions } from '@rgss/db/queries'
-import { Sparkles } from 'lucide-react'
-import type { Metadata } from 'next'
-import { headers } from 'next/headers'
-import { redirect } from 'next/navigation'
 
 export const metadata: Metadata = {
   title: 'My SPA Membership',

@@ -71,8 +71,9 @@
  * Connect/frame/font sources ARE explicitly allowlisted (these govern data
  * exfiltration and framing, the higher-risk surfaces).
  ************************************************************/
-import { NextResponse } from 'next/server'
+
 import type { NextRequest } from 'next/server'
+import { NextResponse } from 'next/server'
 import { mapAdminRedirect } from './lib/admin-redirect'
 import { mapStaffRedirect } from './lib/staff-redirect'
 

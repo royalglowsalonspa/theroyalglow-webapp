@@ -28,9 +28,9 @@
  * - Served by the service worker when all network requests fail
  ************************************************************/
 
-import { Button } from '@/components/ui/button'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
 
 export const metadata: Metadata = {
   title: "You're Offline | Royal Glow Salon & Spa",

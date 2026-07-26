@@ -30,8 +30,8 @@
  *                installed until the key is provisioned.
  ************************************************************/
 
-import { buildAdminAblyCapability } from '@/lib/realtime/capability'
 import { createLogger } from '@rgss/logger'
+import { buildAdminAblyCapability } from '@/lib/realtime/capability'
 
 const logger = createLogger({
   service: 'admin:realtime:ably',
@@ -69,9 +69,7 @@ function resolveAblyRest(mod: unknown): AblyRestConstructor | null {
 // unavailable → caller turns null into a 503 SERVICE_UNAVAILABLE (graceful
 // degradation to polling). Capability is fixed to the admin channel set; this
 // helper is only reached after the route has enforced Receptionist+.
-export async function createAblyTokenRequest(params: {
-  userId: string
-}): Promise<unknown | null> {
+export async function createAblyTokenRequest(params: { userId: string }): Promise<unknown | null> {
   const apiKey = process.env.ABLY_PRIVATE_KEY
   if (!apiKey) {
     return null

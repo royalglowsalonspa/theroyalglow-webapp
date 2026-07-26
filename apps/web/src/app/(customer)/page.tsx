@@ -31,6 +31,7 @@
  * - Images: using lh3.googleusercontent.com Stitch-generated assets
  ************************************************************/
 
+import type { Metadata } from 'next'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { resolveFaqs } from '@/lib/cms/faqs'
 import {
@@ -40,7 +41,6 @@ import {
   websiteJsonLd,
 } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
-import type { Metadata } from 'next'
 import { BookingCTASection } from './_components/BookingCTASection'
 import { BrandLogosSection } from './_components/BrandLogosSection'
 import { FaqSection } from './_components/FaqSection'

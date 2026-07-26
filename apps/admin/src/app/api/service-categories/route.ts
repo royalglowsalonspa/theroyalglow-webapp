@@ -19,12 +19,12 @@
  *                rule for its services.
  ************************************************************/
 
-import { audit } from '@/lib/api/audit'
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { createServiceCategory, getServiceCategoriesAll } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { serviceCategoryCreateSchema } from '@rgss/types'
+import { audit } from '@/lib/api/audit'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 export const GET = withErrorHandler(async () => {
   await requireRole('manager')

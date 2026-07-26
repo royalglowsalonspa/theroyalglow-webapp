@@ -1,4 +1,5 @@
 import { getCookieCache } from 'better-auth/cookies'
+import type { NextRequest } from 'next/server'
 /************************************************************
  * Author       : KATABATHUNI BOSE
  * Project      : theroyalglow-webapp (apps/admin)
@@ -39,7 +40,6 @@ import { getCookieCache } from 'better-auth/cookies'
  * - Requirements: 4.3, 4.4, 4.5, 4.6, 5.2, 5.5, 5.6, 7.3
  ************************************************************/
 import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
 import { type AuthState, decide, resolveRoleLevel, routeMinLevel } from './lib/rbac'
 
 /** Better Auth session cookie name (shared scope `.theroyalglow.in`). */

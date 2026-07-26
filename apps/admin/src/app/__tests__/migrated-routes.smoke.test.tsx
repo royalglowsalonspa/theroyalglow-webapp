@@ -99,10 +99,9 @@ vi.mock('@/components/notifications/notification-bell', () => ({
   NotificationBell: () => null,
 }))
 
-import { DashboardOverview } from '@/app/dashboard-overview'
-
 import { BookingsTable } from '@/app/bookings/bookings-table'
 import { CustomersTable } from '@/app/customers/customers-table'
+import { DashboardOverview } from '@/app/dashboard-overview'
 import { LeadsTable } from '@/app/leads/leads-table'
 import { LeaveQueue } from '@/app/leave/leave-queue'
 import { MembershipsList } from '@/app/memberships/memberships-list'

@@ -31,23 +31,23 @@
 
 'use client'
 
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Textarea } from '@/components/ui/textarea'
 import {
   type CustomerSearchRow,
+  formatINR,
   MEMBERSHIP_PAYMENT_METHODS,
   type MembershipPaymentMethod,
   type MembershipTier,
-  formatINR,
   previewExpiryDDMMYYYY,
   todayISTDateString,
 } from '@/lib/admin/memberships'
 import { toast } from '@/lib/admin/toast'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
 
 export function CreateMembershipForm() {
   const router = useRouter()
@@ -519,13 +519,7 @@ function CustomerSearch({
   )
 }
 
-function Section({
-  title,
-  children,
-}: {
-  title: string
-  children: React.ReactNode
-}) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="border border-cloud-gray rounded-cards bg-canvas-white p-4">
       <h2 className="text-xs font-ui uppercase tracking-wider text-dusty-gray mb-3">{title}</h2>

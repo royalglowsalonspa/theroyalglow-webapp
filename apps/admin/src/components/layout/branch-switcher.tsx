@@ -23,6 +23,8 @@
 
 'use client'
 
+import { ChevronsUpDown, Store } from 'lucide-react'
+import { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu,
@@ -37,8 +39,6 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar'
-import { ChevronsUpDown, Store } from 'lucide-react'
-import { useState } from 'react'
 
 /** A salon branch shown in the switcher. */
 type Branch = {

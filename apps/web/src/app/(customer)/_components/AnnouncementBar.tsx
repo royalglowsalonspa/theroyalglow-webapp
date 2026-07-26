@@ -28,8 +28,9 @@
  * Notes        :
  * - Owner schedules banners in Payload → strip updates within ISR window.
  ************************************************************/
-import { getActiveBanners } from '@/lib/cms/client'
+
 import Link from 'next/link'
+import { getActiveBanners } from '@/lib/cms/client'
 
 const FALLBACK_HEADLINE = '✨ NEW · Monsoon Glow offers — up to 30% off signature rituals →'
 const FALLBACK_HREF = '/offers'

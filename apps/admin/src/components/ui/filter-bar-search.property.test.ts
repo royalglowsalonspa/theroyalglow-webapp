@@ -18,11 +18,11 @@
  *                `React.createElement` so it runs under the admin jsdom project.
  ************************************************************/
 
-import { FilterBar, SEARCH_MAX_LENGTH } from '@/components/ui/filter-bar'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import fc from 'fast-check'
 import { createElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { FilterBar, SEARCH_MAX_LENGTH } from '@/components/ui/filter-bar'
 
 // Feature: admin-portal-redesign, Property 10: Search term is emitted trimmed
 //

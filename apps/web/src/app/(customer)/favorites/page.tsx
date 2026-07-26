@@ -28,14 +28,14 @@
  * - Protected route; redirects to / (homepage) if no session
  ************************************************************/
 
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { auth } from '@/lib/auth-server'
 import { ArrowRight, Heart } from 'lucide-react'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { auth } from '@/lib/auth-server'
 
 export const metadata: Metadata = {
   title: 'My Favorites',

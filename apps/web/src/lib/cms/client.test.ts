@@ -29,9 +29,9 @@
  * Notes        : Uses vi.stubEnv for per-test env var control
  ************************************************************/
 
-import { server } from '@/test/msw-server'
-import { http, HttpResponse } from 'msw'
+import { HttpResponse, http } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { server } from '@/test/msw-server'
 import { getActiveBanners, getAllPostSlugs, getPostBySlug, getPublishedPosts } from './client'
 
 // `lib/cms` reads `process.env.NEXT_PUBLIC_CMS_URL` directly (NOT `@/env`) so it

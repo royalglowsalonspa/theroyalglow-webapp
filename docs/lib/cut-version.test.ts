@@ -1,7 +1,7 @@
-import { VersionCutConflictError, cutVersion } from '@/lib/cut-version'
-import type { VersionMeta } from '@/lib/versions'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import { cutVersion, VersionCutConflictError } from '@/lib/cut-version'
+import type { VersionMeta } from '@/lib/versions'
 
 // Feature: docs-theming-and-versioning, Property 16: Cutting a version is additive and preserves existing versions
 // Feature: docs-theming-and-versioning, Property 17: Cutting an existing version is rejected without side effects

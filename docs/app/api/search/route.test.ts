@@ -37,10 +37,10 @@
  * jsdom-free execution.
  */
 
+import { beforeAll, describe, expect, it } from 'vitest'
 import { GET } from '@/app/api/search/route'
 import { SEARCH_RESULT_CAP, scopeSearchResults } from '@/lib/search'
 import type { VersionId } from '@/lib/versions'
-import { beforeAll, describe, expect, it } from 'vitest'
 
 /** Absolute origin used to build the request URL (path/searchParams are what matter). */
 const SITE_ORIGIN = 'https://docs.theroyalglow.in'

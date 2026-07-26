@@ -1,9 +1,9 @@
 // @vitest-environment node
 import { readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { latestSource, pageExistsIn, v2Source, versions } from '@/lib/source'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import { latestSource, pageExistsIn, v2Source, versions } from '@/lib/source'
 
 // These properties exercise the *runtime* fumadocs sources wired in
 // `@/lib/source` — the real per-version loader page trees built from

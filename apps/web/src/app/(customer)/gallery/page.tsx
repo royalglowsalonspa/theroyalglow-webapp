@@ -28,13 +28,13 @@
  * - Images are served from Cloudflare R2 via CMS upload
  ************************************************************/
 
+import type { Metadata } from 'next'
 import { GalleryGrid } from '@/components/gallery/GalleryGrid'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { getGalleryImages } from '@/lib/cms/client'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, imageObjectJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
-import type { Metadata } from 'next'
 
 // ISR: revalidate the gallery roughly hourly (architecture.md ~1h window).
 export const revalidate = 3600

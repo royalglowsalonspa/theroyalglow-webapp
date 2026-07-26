@@ -21,13 +21,13 @@
  * - Schedule is read-only for staff; changes go through manager/admin (/schedule).
  ************************************************************/
 
-import { formatTime12h } from '@/lib/admin/bookings'
-import { auth } from '@/lib/auth-server'
 import { dayOfWeekLabel } from '@rgss/business'
 import { getStaffProfileByUserId, getStaffSchedule } from '@rgss/db/queries'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { formatTime12h } from '@/lib/admin/bookings'
+import { auth } from '@/lib/auth-server'
 import { NoStaffProfileEmpty } from './no-profile-empty'
 
 export const metadata: Metadata = {

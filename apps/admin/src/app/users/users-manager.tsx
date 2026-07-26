@@ -47,6 +47,10 @@
 
 'use client'
 
+import { ASSIGNABLE_ROLES, type AssignableRole } from '@rgss/types'
+import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
+import { KeyRound, Users } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DataTable } from '@/components/ui/data-table'
 import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
 import { Input } from '@/components/ui/input'
@@ -66,10 +70,6 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { useAsyncData } from '@/components/ui/use-async-data'
 import { formatDateDDMMYYYY } from '@/lib/admin/bookings'
 import { toast } from '@/lib/admin/toast'
-import { ASSIGNABLE_ROLES, type AssignableRole } from '@rgss/types'
-import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
-import { KeyRound, Users } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 interface AdminUser {
   id: string

@@ -31,11 +31,11 @@
  * - Deactivated offers stop appearing on the public /api/offers endpoint.
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { deactivateOffer, getOfferById, updateOffer } from '@rgss/db/queries'
 import { badRequest, notFound } from '@rgss/errors'
 import { updateOfferSchema } from '@rgss/types'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 // Convert a YYYY-MM-DD calendar date string to a UTC midnight Date for the
 // date-mode column.

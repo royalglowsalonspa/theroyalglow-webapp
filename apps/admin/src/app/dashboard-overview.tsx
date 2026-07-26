@@ -41,6 +41,11 @@
 
 'use client'
 
+import type { ColumnDef } from '@tanstack/react-table'
+import { CalendarDays, Clock, IndianRupee, ListChecks, type LucideIcon } from 'lucide-react'
+import Link from 'next/link'
+import { useMemo } from 'react'
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { StatusBadge } from '@/components/admin/StatusBadge'
 import {
   type ChartConfig,
@@ -57,11 +62,6 @@ import { Skeleton } from '@/components/ui/state/skeleton'
 import { DASHBOARD_ASYNC_TIMEOUT_MS, useAsyncData } from '@/components/ui/use-async-data'
 import { type AdminBooking, formatTime12h } from '@/lib/admin/bookings'
 import { formatINRWithPaise } from '@/lib/admin/format'
-import type { ColumnDef } from '@tanstack/react-table'
-import { CalendarDays, Clock, IndianRupee, ListChecks, type LucideIcon } from 'lucide-react'
-import Link from 'next/link'
-import { useMemo } from 'react'
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
 /** Number of trailing days plotted on the bookings bar chart. */
 const CHART_DAY_SPAN = 7

@@ -14,6 +14,8 @@
  * Layer        : Presentation
  ************************************************************/
 
+import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import { BlogFeed } from '@/components/blog/BlogFeed'
 import { NewsletterForm } from '@/components/blog/NewsletterForm'
 import { JsonLd } from '@/components/seo/JsonLd'
@@ -21,8 +23,6 @@ import { getPublishedPosts } from '@/lib/cms/client'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, localBusinessJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
-import type { Metadata } from 'next'
-import { Suspense } from 'react'
 
 // ISR: revalidate the listing roughly hourly
 export const revalidate = 3600

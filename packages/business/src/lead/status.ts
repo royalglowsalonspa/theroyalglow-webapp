@@ -26,7 +26,7 @@
  * Notes        :
  * - Terminal statuses: won, lost (no outgoing moves)
  ************************************************************/
-import { ERROR_CODES, badRequest, conflict } from '@rgss/errors'
+import { badRequest, conflict, ERROR_CODES } from '@rgss/errors'
 import type { LeadStatus } from '@rgss/types'
 
 // Lead state machine: new → contacted → follow_up → booked → won/lost.

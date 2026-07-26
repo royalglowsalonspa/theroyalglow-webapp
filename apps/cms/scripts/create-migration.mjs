@@ -37,4 +37,8 @@ for (const file of readdirSync(migrationsDir)) {
     fixed += 1
   }
 }
-console.log(fixed > 0 ? `Fixed imports in ${fixed} migration file(s).` : 'No migration imports needed fixing.')
+console.log(
+  fixed > 0
+    ? `Fixed imports in ${fixed} migration file(s).`
+    : 'No migration imports needed fixing.',
+)

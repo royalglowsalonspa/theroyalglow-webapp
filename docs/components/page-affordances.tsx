@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 /**
  * Per-content-page reader affordances (Page_Affordances, Requirement 14):
