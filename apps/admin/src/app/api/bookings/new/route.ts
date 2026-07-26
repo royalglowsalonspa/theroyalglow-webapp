@@ -50,9 +50,6 @@
  *   booking; that needs a schema/auth change and is intentionally out of scope.)
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
-import { publishBookingEvent } from '@/lib/realtime/publish'
 import {
   addMinutesToTime,
   calculateBookingTotal,
@@ -68,6 +65,9 @@ import {
 } from '@rgss/db/queries'
 import { badRequest, conflict } from '@rgss/errors'
 import { adminCreateWalkinSchema } from '@rgss/types'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
+import { publishBookingEvent } from '@/lib/realtime/publish'
 
 export const POST = withErrorHandler(async (req: Request) => {
   // Receptionist+ may create walk-ins (the same minimum role that manages

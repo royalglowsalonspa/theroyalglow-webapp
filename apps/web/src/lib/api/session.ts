@@ -27,9 +27,9 @@
  * Notes        : None
  ************************************************************/
 
-import { auth } from '@/lib/auth-server'
 import { AppError, ERROR_CODES } from '@rgss/errors'
 import { headers } from 'next/headers'
+import { auth } from '@/lib/auth-server'
 
 export async function requireSession() {
   const session = await auth.api.getSession({ headers: await headers() })

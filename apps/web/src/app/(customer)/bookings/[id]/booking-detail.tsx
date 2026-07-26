@@ -35,14 +35,14 @@
 
 'use client'
 
+import { checkReschedulable, formatINR } from '@rgss/business'
+import { Loader2 } from 'lucide-react'
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { useBookingStatus } from '@/components/realtime/RealtimeProvider'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { checkReschedulable, formatINR } from '@rgss/business'
-import { Loader2 } from 'lucide-react'
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 
 // --- Types (mirror GET /api/bookings/[id] → data.booking) ---
 interface BookingServiceRow {
@@ -183,13 +183,7 @@ function buildTimeline(booking: Booking): TimelineEntry[] {
   return entries
 }
 
-export function BookingDetail({
-  id,
-  viewerUserId,
-}: {
-  id: string
-  viewerUserId?: string | null
-}) {
+export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?: string | null }) {
   const [booking, setBooking] = useState<Booking | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

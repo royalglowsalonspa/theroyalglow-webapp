@@ -1,6 +1,6 @@
-import { TOKEN_PAIRINGS, contrastRatio, requiredRatio } from '@/lib/contrast'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import { contrastRatio, requiredRatio, TOKEN_PAIRINGS } from '@/lib/contrast'
 
 // Feature: docs-theming-and-versioning, Property 1: Token contrast meets WCAG AA
 //

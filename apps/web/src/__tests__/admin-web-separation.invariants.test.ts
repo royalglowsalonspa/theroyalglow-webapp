@@ -20,7 +20,7 @@
  * Layer        : Test (static verification)
  ************************************************************/
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -376,7 +376,7 @@ describe('admin-web-separation: register-schedules + JOB_SCHEDULES resolve in ad
     // Every schedule POSTs to a canonical /api/jobs/<key> path with a cron.
     for (const s of schedules) {
       expect(s.path).toBe(`/api/jobs/${s.key}`)
-      expect(s.cron).toMatch(/^[\d*/, \-]+$/)
+      expect(s.cron).toMatch(/^[\d*/, -]+$/)
     }
   })
 

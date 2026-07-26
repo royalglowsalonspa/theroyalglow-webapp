@@ -25,12 +25,12 @@
  *                the admin origin). POST requires Manager+.
  ************************************************************/
 
-import { audit } from '@/lib/api/audit'
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { createService, getAllServicesGrouped, getServiceCategoryById } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { isValidDurationForType, serviceCreateSchema } from '@rgss/types'
+import { audit } from '@/lib/api/audit'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 // GET /api/services — active catalogue grouped by category.
 export const GET = withErrorHandler(async () => {

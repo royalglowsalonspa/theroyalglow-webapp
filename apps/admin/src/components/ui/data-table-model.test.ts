@@ -18,15 +18,15 @@ import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import {
   type ColumnVisibility,
-  PAGE_SIZES,
-  type PageSize,
-  type SortState,
   defaultComparator,
   getPaginationState,
   isColumnVisible,
   nextPage,
+  PAGE_SIZES,
+  type PageSize,
   pageSlice,
   prevPage,
+  type SortState,
   sortRows,
   toggleColumnVisibility,
   toggleSort,

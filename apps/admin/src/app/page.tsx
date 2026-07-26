@@ -31,11 +31,11 @@
  *   wrapper — no emoji glyphs and no hex / px / radius literals (Req 1.2, 2.3)
  ************************************************************/
 
-import { Button } from '@/components/ui/button'
-import { Icon } from '@/components/ui/icon'
 import { CalendarDays, ClipboardList, Hand, TrendingUp } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { Icon } from '@/components/ui/icon'
 import { DashboardOverview } from './dashboard-overview'
 
 export const metadata: Metadata = {

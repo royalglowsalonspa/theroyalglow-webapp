@@ -35,6 +35,9 @@
 
 'use client'
 
+import { ArrowRight, Loader2 } from 'lucide-react'
+import Link from 'next/link'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Accordion,
   AccordionContent,
@@ -44,9 +47,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { ArrowRight, Loader2 } from 'lucide-react'
-import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useState } from 'react'
 
 // --- Types (mirror GET /api/services response) ---
 type ServiceType = 'salon' | 'spa'

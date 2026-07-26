@@ -19,9 +19,9 @@
  *                any colour library.
  ************************************************************/
 
-import type { BadgeVariant } from '@/lib/admin/status-badge'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import type { BadgeVariant } from '@/lib/admin/status-badge'
 
 // Feature: admin-portal-redesign, Property 13: Every status-badge variant meets AA contrast
 //

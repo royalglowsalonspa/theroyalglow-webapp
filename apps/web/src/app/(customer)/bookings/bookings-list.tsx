@@ -34,12 +34,12 @@
 
 'use client'
 
+import { CalendarDays, Loader2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useBookingDialog } from '@/components/booking/BookingDialogProvider'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { CalendarDays, Loader2 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
 
 // --- Types (mirror GET /api/bookings response) ---
 interface BookingServiceRow {

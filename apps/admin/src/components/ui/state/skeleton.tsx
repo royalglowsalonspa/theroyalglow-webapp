@@ -33,8 +33,8 @@
  *                (Req 13.6).
  ************************************************************/
 
-import { Skeleton as ShadcnSkeleton } from '@/components/ui/skeleton'
 import { cn } from '@rgss/ui/lib/utils'
+import { Skeleton as ShadcnSkeleton } from '@/components/ui/skeleton'
 
 /** Hard upper bound on rendered skeleton rows (Req 12.1). */
 const MAX_SKELETON_ROWS = 10

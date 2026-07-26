@@ -28,10 +28,10 @@
 
 'use client'
 
-import { Button } from '@/components/ui/button'
-import { track } from '@/lib/analytics/events'
 import { ArrowRight } from 'lucide-react'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { track } from '@/lib/analytics/events'
 
 /**
  * Offer "Book Now" CTA. Client-only wrapper around the booking deep-link so we

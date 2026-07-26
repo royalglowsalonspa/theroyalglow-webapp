@@ -32,8 +32,6 @@
  * - The SERVER-side gemsRequired is passed to the write; any client value is ignored.
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireSession } from '@/lib/api/session'
 import {
   addMinutesToTime,
   assertRedeemable,
@@ -50,6 +48,8 @@ import {
 } from '@rgss/db/queries'
 import { badRequest, conflict, notFound } from '@rgss/errors'
 import { redeemGemsSchema } from '@rgss/types'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireSession } from '@/lib/api/session'
 
 // POST /api/gems/redeem — spend gems to create a ₹0 booking for one redeemable
 // service. Strictly scoped to the authenticated customer; the charged amount is

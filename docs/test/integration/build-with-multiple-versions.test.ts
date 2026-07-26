@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { latestSource, v2Source, versions } from '@/lib/source'
 import { describe, expect, it } from 'vitest'
+import { latestSource, v2Source, versions } from '@/lib/source'
 
 // Task 12.1 — build-with-multiple-versions integration test (Req 10.5).
 //

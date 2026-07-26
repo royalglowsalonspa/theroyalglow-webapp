@@ -31,8 +31,8 @@
 
 'use client'
 
-import { CONSENT_EVENT, getConsent } from '@/lib/consent/consent'
 import { useEffect } from 'react'
+import { CONSENT_EVENT, getConsent } from '@/lib/consent/consent'
 
 /**
  * Consent-gated, key-guarded analytics loader.

@@ -20,12 +20,12 @@
  *                so historical invoice/booking snapshots stay intact.
  ************************************************************/
 
-import { audit } from '@/lib/api/audit'
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { getServiceById, getServiceCategoryById, updateService } from '@rgss/db/queries'
 import { badRequest, notFound } from '@rgss/errors'
 import { isValidDurationForType, serviceUpdateSchema } from '@rgss/types'
+import { audit } from '@/lib/api/audit'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 export const PATCH = withErrorHandler(
   async (req: Request, ctx: { params: Promise<{ id: string }> }) => {

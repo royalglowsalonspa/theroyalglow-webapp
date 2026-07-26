@@ -29,10 +29,10 @@
  *                (admin:bookings:*, admin:schedule:*, admin:leave, booking:*).
  ************************************************************/
 
+import { AppError, ERROR_CODES } from '@rgss/errors'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 import { createAblyTokenRequest } from '@/lib/realtime/ably'
-import { AppError, ERROR_CODES } from '@rgss/errors'
 
 // POST /api/ably/token — issue an admin-scoped Ably token request. Requires
 // Receptionist or higher (requireRole throws 403 below). If the realtime

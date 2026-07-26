@@ -33,6 +33,10 @@
 
 'use client'
 
+import { formatDateIN } from '@rgss/business'
+import { ArrowLeft, MessageCircle, Phone, Trash2 } from 'lucide-react'
+import Link from 'next/link'
+import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Icon } from '@/components/ui/icon'
 import { EmptyState } from '@/components/ui/state/empty-state'
@@ -42,16 +46,12 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { Textarea } from '@/components/ui/textarea'
 import {
   ALLOWED_LEAD_TRANSITIONS,
+  formatDaysSince,
+  formatLeadDateTime,
   LEAD_TRANSITION_LABEL,
   type LeadNoteRow,
   type LeadStatus,
-  formatDaysSince,
-  formatLeadDateTime,
 } from '@/lib/admin/leads'
-import { formatDateIN } from '@rgss/business'
-import { ArrowLeft, MessageCircle, Phone, Trash2 } from 'lucide-react'
-import Link from 'next/link'
-import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 
 // The lead record returned by GET /api/leads/[id] (the lead row joined
 // with its service-interest name, assigned-to name, and converted booking
@@ -159,13 +159,7 @@ export function LeadDetail({ leadId, embedded = false }: { leadId: string; embed
   )
 }
 
-function InfoCard({
-  lead,
-  onChanged,
-}: {
-  lead: LeadRecord
-  onChanged: () => void
-}) {
+function InfoCard({ lead, onChanged }: { lead: LeadRecord; onChanged: () => void }) {
   const [busyStatus, setBusyStatus] = useState<LeadStatus | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [lostOpen, setLostOpen] = useState(false)

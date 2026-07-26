@@ -27,8 +27,8 @@
  * Notes        : Server component — no 'use client' needed
  ************************************************************/
 
-import { CookiePreferencesButton } from '@/components/consent/CookiePreferencesButton'
 import Link from 'next/link'
+import { CookiePreferencesButton } from '@/components/consent/CookiePreferencesButton'
 
 const exploreLinks = [
   { href: '/services', label: 'Services' },

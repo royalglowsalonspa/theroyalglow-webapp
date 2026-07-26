@@ -30,12 +30,12 @@
 
 'use client'
 
-import { signOut } from '@/lib/auth-client'
-import { adminPortalUrl, isAdminRole } from '@/lib/roles'
-import { cn } from '@/lib/utils'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { signOut } from '@/lib/auth-client'
+import { adminPortalUrl, isAdminRole } from '@/lib/roles'
+import { cn } from '@/lib/utils'
 
 interface UserMenuProps {
   user: {

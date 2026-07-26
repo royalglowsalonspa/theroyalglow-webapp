@@ -32,6 +32,7 @@
 
 'use client'
 
+import { type ReactNode, useRef } from 'react'
 import {
   Sheet,
   SheetContent,
@@ -40,7 +41,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import { type ReactNode, useRef } from 'react'
 
 /**
  * Props for {@link DetailSheet}. Mirrors the legacy `SlideOverPanelProps` so

@@ -98,10 +98,7 @@ export function getConsent(): ConsentState {
  * `decided`, writes it to `localStorage` (guarded), dispatches `CONSENT_EVENT`
  * so listeners (e.g. the analytics loader) can react, and returns the new state.
  */
-export function setConsent(partial: {
-  analytics?: boolean
-  marketing?: boolean
-}): ConsentState {
+export function setConsent(partial: { analytics?: boolean; marketing?: boolean }): ConsentState {
   const next: ConsentState = {
     necessary: true,
     analytics: partial.analytics ?? false,

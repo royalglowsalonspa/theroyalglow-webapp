@@ -26,6 +26,7 @@
  * - Threshold: 48 hours untouched in 'new' status
  ************************************************************/
 import type { LeadStatus } from '@rgss/types'
+
 // for 48 hours or more. The threshold is expressed in hours so callers can also
 // surface the elapsed time directly.
 const STALE_THRESHOLD_HOURS = 48

@@ -35,12 +35,13 @@
  * - The bare arrow is intentionally minimal per premium salon UX standards.
  * - Owner adds cards in Payload → appear here within the ISR window.
  ************************************************************/
+
+import { ArrowRight, ChevronRight } from 'lucide-react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Reveal } from '@/components/ui/motion/reveal'
 import { FALLBACK_SERVICE_CARDS, getServiceCards } from '@/lib/cms/client'
 import type { ServiceCardItem } from '@/lib/cms/types'
-import { ArrowRight, ChevronRight } from 'lucide-react'
-import Link from 'next/link'
 
 function ServiceCard({ card }: { card: ServiceCardItem }) {
   return (

@@ -24,8 +24,7 @@
  *
  * Notes        : This package MUST NOT import from db or framework
  ************************************************************/
-export { formatINR } from './utils/currency'
-export { formatDateIN } from './utils/date'
+
 export * from './auth/index'
 export * from './booking/index'
 export * from './invoicing/index'
@@ -37,3 +36,5 @@ export * from './notifications/index'
 export * from './offers/index'
 export * from './scheduling/index'
 export * from './security/index'
+export { formatINR } from './utils/currency'
+export { formatDateIN } from './utils/date'

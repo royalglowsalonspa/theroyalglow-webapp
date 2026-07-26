@@ -30,11 +30,11 @@
  * - Tags must exist before assignment (created via /api/tags).
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { assignTag } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { assignTagSchema } from '@rgss/types'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 // POST /api/customers/[id]/tags — assign an existing tag to a customer.
 // Receptionist+. Idempotent: re-assigning a present tag is a no-op (no error).
