@@ -17,7 +17,7 @@
     "nanoid": "^5.1.16"
   },
   "devDependencies": {
-    "fast-check": "^3.23.1",
+    "fast-check": "^4.9.0",
     "typescript": "^5.7.3"
   }
 }
