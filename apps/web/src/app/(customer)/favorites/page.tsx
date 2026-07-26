@@ -65,7 +65,7 @@ export default async function FavoritesPage() {
         aria-labelledby="favorites-empty-heading"
       >
         <span
-          className="flex size-14 items-center justify-center rounded-full bg-canvas-white text-deep-gold shadow-card-hover"
+          className="flex size-14 items-center justify-center rounded-full bg-canvas-white text-gold-ink shadow-card-hover"
           aria-hidden="true"
         >
           <Heart className="size-7" strokeWidth={1.75} />

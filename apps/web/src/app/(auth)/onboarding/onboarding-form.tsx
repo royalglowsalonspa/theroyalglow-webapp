@@ -262,7 +262,7 @@ export function OnboardingForm({ userName, userEmail }: OnboardingFormProps) {
           <Label htmlFor="privacy-consent" className="flex-1 cursor-pointer font-normal">
             <span className="font-sans text-sm text-cocoa-dark">
               I agree to the{' '}
-              <a href="/privacy" className="underline underline-offset-2 hover:text-deep-gold">
+              <a href="/privacy" className="underline underline-offset-2 hover:text-gold-ink">
                 Privacy Policy
               </a>{' '}
               <span className="text-error">*</span>

@@ -58,7 +58,7 @@ function StarRating({ count }: { count: number }) {
         <Star
           // biome-ignore lint/suspicious/noArrayIndexKey: fixed star array, order never changes
           key={`star-${i}`}
-          className="size-3.5 fill-deep-gold text-deep-gold"
+          className="size-3.5 fill-deep-gold text-gold-ink"
           aria-hidden="true"
         />
       ))}
@@ -126,7 +126,7 @@ export function TestimonialsCarousel({ reviews }: { reviews: Testimonial[] }) {
     >
       {/* Header */}
       <div className="mb-10">
-        <p className="mb-2 font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-deep-gold">
+        <p className="mb-2 font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-gold-ink">
           Testimonials
         </p>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -139,7 +139,7 @@ export function TestimonialsCarousel({ reviews }: { reviews: Testimonial[] }) {
           <Button
             asChild
             variant="link"
-            className="whitespace-nowrap font-ui font-bold text-cocoa-dark hover:text-deep-gold"
+            className="whitespace-nowrap font-ui font-bold text-cocoa-dark hover:text-gold-ink"
           >
             <Link href="https://maps.google.com" target="_blank" rel="noopener noreferrer">
               See all on Google
@@ -182,8 +182,10 @@ export function TestimonialsCarousel({ reviews }: { reviews: Testimonial[] }) {
             <blockquote className="mb-5 font-sans text-sm leading-relaxed text-warm-gray">
               {review.reviewText}
             </blockquote>
+            {/* The timestamp previously used opacity-30, which computed to #bab7b6 on
+                white = 1.99:1, far below AA. warm-gray keeps it muted and compliant. */}
             {review.timeLabel !== '' && (
-              <p className="font-ui text-[10px] font-bold uppercase tracking-widest opacity-30">
+              <p className="font-ui text-[10px] font-bold uppercase tracking-widest text-warm-gray">
                 {review.timeLabel}
               </p>
             )}
@@ -206,10 +208,18 @@ export function TestimonialsCarousel({ reviews }: { reviews: Testimonial[] }) {
             aria-selected={activeIndex === i}
             aria-label={`Go to review ${i + 1}`}
             onClick={() => scrollToIndex(i)}
-            className={`h-2 rounded-full transition-all duration-300 ${
-              activeIndex === i ? 'w-6 bg-deep-gold' : 'w-2 bg-outline-gray hover:bg-warm-stone'
-            }`}
-          />
+            // The button itself is the touch target and must be >= 24x24 (WCAG 2.5.8);
+            // an 8px dot as the target failed `target-size`. The visual dot is an inner
+            // span so the indicator keeps its small appearance.
+            className="flex h-6 min-w-6 items-center justify-center"
+          >
+            <span
+              aria-hidden="true"
+              className={`block h-2 rounded-full transition-all duration-300 ${
+                activeIndex === i ? 'w-6 bg-deep-gold' : 'w-2 bg-outline-gray hover:bg-warm-stone'
+              }`}
+            />
+          </button>
         ))}
       </div>
     </section>

@@ -54,7 +54,7 @@ function OfferCard({ offer }: { offer: Offer }) {
       />
       <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 via-black/20 to-transparent p-8">
         {offer.discountLabel && (
-          <p className="mb-2 font-ui text-[11px] font-bold uppercase tracking-[0.15em] text-warm-gold">
+          <p className="mb-2 font-ui text-[11px] font-bold uppercase tracking-[0.15em] text-gold-ink">
             {offer.discountLabel}
           </p>
         )}
@@ -92,7 +92,7 @@ export async function OffersSection() {
         <Button
           asChild
           variant="link"
-          className="hidden whitespace-nowrap font-ui font-bold text-cocoa-dark hover:text-deep-gold sm:inline-flex"
+          className="hidden whitespace-nowrap font-ui font-bold text-cocoa-dark hover:text-gold-ink sm:inline-flex"
         >
           <Link href="/offers">
             View all offers
@@ -108,7 +108,7 @@ export async function OffersSection() {
       </div>
 
       <div className="mt-6 sm:hidden">
-        <Button asChild variant="link" className="px-0 font-ui font-bold text-deep-gold">
+        <Button asChild variant="link" className="px-0 font-ui font-bold text-gold-ink">
           <Link href="/offers">
             View all offers
             <ArrowRight data-icon="inline-end" aria-hidden="true" />

@@ -63,7 +63,7 @@ type PageProps = {
 // Earned/adjusted gems add to the balance; redeemed/expired remove from it.
 const TX_META: Record<string, { label: string; sign: '+' | '-'; tone: string }> = {
   earned: { label: 'Earned', sign: '+', tone: 'text-emerald-700' },
-  redeemed: { label: 'Redeemed', sign: '-', tone: 'text-deep-gold' },
+  redeemed: { label: 'Redeemed', sign: '-', tone: 'text-gold-ink' },
   expired: { label: 'Expired', sign: '-', tone: 'text-dusty-gray' },
   adjusted: { label: 'Adjusted', sign: '+', tone: 'text-cocoa-dark' },
 }
@@ -140,7 +140,7 @@ export default async function GemsPage({ searchParams }: PageProps) {
           <span className="font-display text-[clamp(40px,8vw,64px)] leading-none text-cocoa-dark">
             {balance.balance.toLocaleString('en-IN')}
           </span>
-          <span className="font-ui text-[13px] uppercase tracking-[1px] text-deep-gold">gems</span>
+          <span className="font-ui text-[13px] uppercase tracking-[1px] text-gold-ink">gems</span>
         </div>
 
         <dl className="grid grid-cols-2 gap-4">
@@ -277,7 +277,7 @@ export default async function GemsPage({ searchParams }: PageProps) {
       {/* Explainer */}
       <Card className="bg-warm-cream px-5 py-4">
         <p className="font-sans text-[13px] text-warm-gray">
-          <span className="font-ui text-deep-gold">How gems work · </span>
+          <span className="font-ui text-gold-ink">How gems work · </span>
           Earn 1 gem per ₹100 spent on salon services. Gems expire 365 days after they are earned,
           so redeem them on your next visit.
         </p>

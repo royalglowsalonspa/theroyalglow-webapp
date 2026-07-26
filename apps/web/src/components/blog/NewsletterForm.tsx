@@ -44,7 +44,7 @@ export function NewsletterForm() {
 
   return (
     <div className="mx-auto w-full max-w-[1278px] rounded-xl border border-outline-gray/15 bg-[#FFF8F5] p-8 text-center sm:p-12 lg:p-16">
-      <p className="mb-3 font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-deep-gold">
+      <p className="mb-3 font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-gold-ink">
         Stay in the glow
       </p>
       <h2 className="mb-4 font-display text-[clamp(28px,3.5vw,40px)] font-black leading-[1.15] tracking-tight text-cocoa-dark">

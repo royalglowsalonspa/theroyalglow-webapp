@@ -170,7 +170,7 @@ const brands = [
 export function BrandLogosSection() {
   return (
     <section aria-label="Trusted product brands" className="py-12 w-full overflow-hidden">
-      <p className="font-ui text-[10px] font-bold uppercase tracking-[0.2em] opacity-50 mb-8 text-deep-gold text-center px-4">
+      <p className="font-ui text-[10px] font-bold uppercase tracking-[0.2em] mb-8 text-gold-ink text-center px-4">
         Products We Trust
       </p>
 
@@ -222,7 +222,7 @@ export function BrandLogosSection() {
 export function BrandLogosSection() {
   return (
     <section aria-label="Trusted product brands" className="py-12 w-full overflow-hidden">
-      <p className="font-ui text-[10px] font-bold uppercase tracking-[0.2em] opacity-50 mb-8 text-deep-gold text-center px-4">
+      <p className="font-ui text-[10px] font-bold uppercase tracking-[0.2em] mb-8 text-gold-ink text-center px-4">
         Products We Trust
       </p>
 
