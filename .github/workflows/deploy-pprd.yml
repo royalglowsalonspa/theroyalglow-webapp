@@ -53,7 +53,7 @@ jobs:
     timeout-minutes: 10
     environment: pprd
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - name: Apply DB migrations (unpooled, DDL) to pprd
@@ -74,7 +74,7 @@ jobs:
       name: pprd
       url: https://pprd.theroyalglow.in
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
 
@@ -98,7 +98,7 @@ jobs:
 
       # Deploy to the pprd Worker (apps/web/wrangler.jsonc → env.pprd).
       - name: Deploy to Cloudflare Workers (pprd)
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -147,11 +147,11 @@ jobs:
     # (and ACCOUNT_ID) for wrangler rollback.
     environment: pprd
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - name: Roll back the pprd Worker to its previous version
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
