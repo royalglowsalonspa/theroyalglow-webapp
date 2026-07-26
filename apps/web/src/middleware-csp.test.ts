@@ -49,6 +49,26 @@ describe('customer-site CSP — brand font CDNs', () => {
     expect(csp).toContain('https://cdn.fontshare.com')
   })
 
+  it('keeps the nonce + strict-dynamic policy on dynamically rendered routes', async () => {
+    const csp = await cspFor('/')
+
+    expect(csp).toMatch(/'nonce-[^']+'/)
+    expect(csp).toContain("'strict-dynamic'")
+  })
+
+  it('omits the nonce on prerendered legal routes so their inline bootstrap runs', async () => {
+    // A per-request nonce can never match a build-time prerendered page, and both
+    // the nonce and 'strict-dynamic' make browsers ignore 'unsafe-inline' — which
+    // blocked Next's inline script on these pages.
+    for (const path of ['/privacy', '/terms', '/refund-policy']) {
+      const csp = await cspFor(path)
+
+      expect(csp, path).not.toMatch(/'nonce-/)
+      expect(csp, path).not.toContain("'strict-dynamic'")
+      expect(csp, path).toContain("'unsafe-inline'")
+    }
+  })
+
   it('keeps the policy locked down: no wildcard host in style-src or font-src', async () => {
     const csp = await cspFor('/')
 
