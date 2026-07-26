@@ -9,6 +9,7 @@
     "./queries": "./src/queries/index.ts"
   },
   "scripts": {
+    "typecheck": "tsc --noEmit",
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
     "drift:reference": "bun run scripts/drift/regenerate-reference.ts",

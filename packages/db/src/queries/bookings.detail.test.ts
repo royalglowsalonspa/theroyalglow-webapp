@@ -163,6 +163,12 @@ describe('getBookingByIdForCustomer — owned single-booking detail', () => {
 
         const idx = Math.min(bookings.length - 1, Math.floor(pick * bookings.length))
         const target = bookings[idx]
+        // `bookings` is non-empty by construction, but noUncheckedIndexedAccess types
+        // the lookup as possibly undefined — assert it so the rest of the property
+        // body is type-safe rather than silently relying on the index maths.
+        if (target === undefined) {
+          throw new Error(`expected a booking at index ${idx}`)
+        }
 
         // --- Owned fetch returns full detail ---
         const got = getBookingByIdForCustomerModel(bookings, services, target.id, target.customerId)
@@ -189,9 +195,12 @@ describe('getBookingByIdForCustomer — owned single-booking detail', () => {
           .sort((a, b) => a.displayOrder - b.displayOrder)
         expect(got.services).toEqual(expectedSvc)
         for (let i = 1; i < got.services.length; i++) {
-          expect(got.services[i].displayOrder).toBeGreaterThanOrEqual(
-            got.services[i - 1].displayOrder,
-          )
+          const current = got.services[i]
+          const previous = got.services[i - 1]
+          if (current === undefined || previous === undefined) {
+            throw new Error(`expected services at ${i - 1} and ${i}`)
+          }
+          expect(current.displayOrder).toBeGreaterThanOrEqual(previous.displayOrder)
         }
         // No foreign services leaked in.
         expect(got.services.every((s) => s.bookingId === target.id)).toBe(true)

@@ -143,6 +143,11 @@ const catalogueArb = fc
           }
           usedSlugs.add(slug)
           const category = categories[r.categoryIndex % categories.length]
+          // The modulo keeps the index in range, but noUncheckedIndexedAccess still
+          // types the lookup as possibly undefined — assert rather than assume.
+          if (category === undefined) {
+            throw new Error('expected a category for the generated service')
+          }
           return {
             id: r.id,
             categoryId: category.id,
