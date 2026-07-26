@@ -15,6 +15,8 @@
     "test:e2e": "playwright test",
     "test:coverage": "vitest run --coverage --exclude '**/*.integration.test.*' --exclude '**/e2e/**'",
     "clean": "turbo run clean",
+    "generate": "bun run --filter=@rgss/db generate",
+    "migrate": "bun run --filter=@rgss/db migrate",
     "check:cutover": "node scripts/assert-no-admin-artifacts.mjs",
     "check:admin-no-literals": "node scripts/admin-design/no-brand-literals.mjs",
     "check:admin-path-allowlist": "node scripts/admin-design/path-allowlist.mjs",

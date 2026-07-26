@@ -341,8 +341,15 @@ jobs:
       # change made WITHOUT admin presentation changes is out of this gate's
       # scope (owned by drift-gate / cutover-guards) and passes here.
       # -----------------------------------------------------------------------
+      # Scoped to FEATURE PRs into `dev`. On a release promotion (dev -> test ->
+      # pprd -> prod) the diff spans every commit accumulated since that branch
+      # last moved, so it legitimately contains admin API/schema changes — but
+      # those were already reviewed and gated on their way into `dev`. Re-running
+      # the redesign boundary check against a promotion diff can only produce a
+      # false failure, which is exactly what it did on the first dev -> test
+      # promotion (79 protected paths flagged).
       - name: Admin presentation stays within its path boundary (Req 16)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.base_ref == 'dev'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: node scripts/admin-design/path-allowlist.mjs
