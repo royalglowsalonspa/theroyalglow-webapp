@@ -31,9 +31,9 @@
  *                ≥4.5:1 per the design variant → token table (Req 9.5).
  ************************************************************/
 
+import { cn } from '@rgss/ui/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { type BadgeVariant, labelForStatus, variantForStatus } from '@/lib/admin/status-badge'
-import { cn } from '@rgss/ui/lib/utils'
 
 /**
  * Variant → semantic Brand-Token utility classes. Each entry is

@@ -29,8 +29,8 @@
  * - No authentication required.
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { getActiveCatalogue } from '@rgss/db/queries'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 
 export const GET = withErrorHandler(async () => {
   const categories = await getActiveCatalogue()

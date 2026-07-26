@@ -30,12 +30,12 @@
  * - Returns 409 if profile already exists (idempotency guard).
  ************************************************************/
 
-import { auth } from '@/lib/auth-server'
 import { db } from '@rgss/db'
 import { customerProfile } from '@rgss/db/schema'
 import { eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { z } from 'zod'
+import { auth } from '@/lib/auth-server'
 
 const onboardingSchema = z.object({
   name: z.string().min(2).max(100),

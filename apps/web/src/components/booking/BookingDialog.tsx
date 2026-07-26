@@ -34,12 +34,12 @@
 
 'use client'
 
+import { Check, Loader2, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { track } from '@/lib/analytics/events'
 import { useSession } from '@/lib/auth-client'
 import { startGoogleSignIn } from '@/lib/google-signin'
-import { Check, Loader2, X } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 // --- Types (mirror GET /api/services response) ---
 type ServiceType = 'salon' | 'spa'
@@ -496,10 +496,11 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
 
         {/* Step indicator */}
         {!isSubmitted && (
-          <div
-            className="flex items-center justify-center gap-2 py-3"
-            aria-label={`Step ${step} of 4`}
-          >
+          <div className="flex items-center justify-center gap-2 py-3" role="group">
+            {/* Live text rather than an aria-label on a roleless div: the label would
+                not be exposed, and changing text is what actually gets announced as
+                the customer moves between steps. */}
+            <span className="sr-only" aria-live="polite">{`Step ${step} of 4`}</span>
             {[1, 2, 3, 4].map((s) => (
               <div
                 key={s}
@@ -687,7 +688,7 @@ function Step1({
           </p>
         ) : slotsLoading ? (
           <output className="flex items-center gap-2 py-4" aria-live="polite">
-            <Loader2 className="size-4 animate-spin text-deep-gold" aria-hidden="true" />
+            <Loader2 className="size-4 animate-spin text-gold-ink" aria-hidden="true" />
             <span className="font-sans text-[14px] text-dusty-gray">Loading available times…</span>
           </output>
         ) : slotsError ? (
@@ -784,7 +785,7 @@ function Step2({
 
         {loading ? (
           <output className="flex items-center gap-2 py-4" aria-live="polite">
-            <Loader2 className="size-4 animate-spin text-deep-gold" aria-hidden="true" />
+            <Loader2 className="size-4 animate-spin text-gold-ink" aria-hidden="true" />
             <span className="font-sans text-[14px] text-dusty-gray">Loading categories…</span>
           </output>
         ) : error ? (

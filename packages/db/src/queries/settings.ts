@@ -36,14 +36,14 @@
 import {
   type BookingRules,
   type BusinessHours,
+  bookingRulesSchema,
+  businessHoursSchema,
   DEFAULT_BOOKING_RULES,
   DEFAULT_BUSINESS_HOURS,
   DEFAULT_GST,
   type GstSetting,
-  type Settings,
-  bookingRulesSchema,
-  businessHoursSchema,
   gstSettingSchema,
+  type Settings,
 } from '@rgss/types'
 import { inArray } from 'drizzle-orm'
 import { db } from '../index'

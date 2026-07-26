@@ -27,12 +27,12 @@
  * Notes        : params is a Promise in Next.js 16 — await before use.
  ************************************************************/
 
-import { RealtimeProvider } from '@/components/realtime/RealtimeProvider'
-import { Button } from '@/components/ui/button'
-import { getOptionalSession } from '@/lib/api/session'
 import { ArrowLeft } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { RealtimeProvider } from '@/components/realtime/RealtimeProvider'
+import { Button } from '@/components/ui/button'
+import { getOptionalSession } from '@/lib/api/session'
 import { BookingDetail } from './booking-detail'
 
 export const metadata: Metadata = {

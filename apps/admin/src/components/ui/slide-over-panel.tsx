@@ -17,5 +17,5 @@
  * Notes        : Prefer importing `DetailSheet` directly in new code.
  ************************************************************/
 
-export { DetailSheet as SlideOverPanel } from './detail-sheet'
 export type { DetailSheetProps as SlideOverPanelProps } from './detail-sheet'
+export { DetailSheet as SlideOverPanel } from './detail-sheet'

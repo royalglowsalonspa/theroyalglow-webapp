@@ -49,6 +49,10 @@
 
 'use client'
 
+import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
+import { ChevronLeft, ChevronRight, Users } from 'lucide-react'
+import Link from 'next/link'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DataTable } from '@/components/ui/data-table'
 import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
 import { Icon } from '@/components/ui/icon'
@@ -57,10 +61,6 @@ import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
 import { useAsyncData } from '@/components/ui/use-async-data'
 import { formatDateDDMMYYYY, formatINR } from '@/lib/admin/bookings'
-import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
-import { ChevronLeft, ChevronRight, Users } from 'lucide-react'
-import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 interface CustomerTagChip {
   slug: string

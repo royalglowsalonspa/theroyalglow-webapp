@@ -2,7 +2,7 @@
 // Not a full MDX compile (the environment kills long Node builds) — it catches
 // the most common breakers: unbalanced component tags, Tabs/Tab count mismatch,
 // and missing frontmatter.
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
 const ROOT = 'content/docs'

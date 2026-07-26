@@ -30,12 +30,12 @@
 
 'use client'
 
-import { signOut } from '@/lib/auth-client'
-import { adminPortalUrl, isAdminRole } from '@/lib/roles'
-import { cn } from '@/lib/utils'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { signOut } from '@/lib/auth-client'
+import { adminPortalUrl, isAdminRole } from '@/lib/roles'
+import { cn } from '@/lib/utils'
 
 interface UserMenuProps {
   user: {
@@ -375,7 +375,7 @@ export function UserMenu({ user }: UserMenuProps) {
                 {link.icon}
                 <span className="flex-1">{link.label}</span>
                 {link.href === '/gems' && gems !== null ? (
-                  <span className="rounded-pill bg-golden-mist px-2 py-0.5 font-ui text-[11px] font-bold text-deep-gold tabular-nums">
+                  <span className="rounded-pill bg-golden-mist px-2 py-0.5 font-ui text-[11px] font-bold text-gold-ink tabular-nums">
                     {gems.toLocaleString('en-IN')} pts
                   </span>
                 ) : (

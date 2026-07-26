@@ -27,10 +27,10 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
-  type CrossSubdomainAdvanced,
-  SHARED_COOKIE_DOMAIN,
   buildCrossSubdomainAdvanced,
+  type CrossSubdomainAdvanced,
   resolveCookieDomain,
+  SHARED_COOKIE_DOMAIN,
 } from '@rgss/business'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'

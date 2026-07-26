@@ -18,11 +18,11 @@
  *                `React.createElement` so it runs under the admin jsdom project.
  ************************************************************/
 
-import { FilterBar, SEARCH_MAX_LENGTH } from '@/components/ui/filter-bar'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import fc from 'fast-check'
 import { createElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { FilterBar, SEARCH_MAX_LENGTH } from '@/components/ui/filter-bar'
 
 // Feature: admin-portal-redesign, Property 10: Search term is emitted trimmed
 //
@@ -76,11 +76,13 @@ describe('Property 10: Search term is emitted trimmed (Req 8.2)', () => {
         // genuinely exercised: pad an arbitrary core with arbitrary runs of
         // whitespace on both sides, and include the empty string.
         fc.tuple(
-          fc.stringOf(fc.constantFrom(' ', '\t', '\n', '\r', '\u00a0'), {
+          fc.string({
+            unit: fc.constantFrom(' ', '\t', '\n', '\r', '\u00a0'),
             maxLength: 8,
           }),
           fc.string({ maxLength: 60 }),
-          fc.stringOf(fc.constantFrom(' ', '\t', '\n', '\r', '\u00a0'), {
+          fc.string({
+            unit: fc.constantFrom(' ', '\t', '\n', '\r', '\u00a0'),
             maxLength: 8,
           }),
         ),
@@ -104,7 +106,8 @@ describe('Property 10: Search term is emitted trimmed (Req 8.2)', () => {
   it('emits "" for whitespace-only and empty input', () => {
     fc.assert(
       fc.property(
-        fc.stringOf(fc.constantFrom(' ', '\t', '\n', '\r', '\u00a0'), {
+        fc.string({
+          unit: fc.constantFrom(' ', '\t', '\n', '\r', '\u00a0'),
           maxLength: 12,
         }),
         (whitespace) => {

@@ -18,11 +18,11 @@
  * Notes        : Developer+ (level 5). Read-only.
  ************************************************************/
 
-import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { getAuditLogs } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { auditLogQuerySchema } from '@rgss/types'
+import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { requireRole } from '@/lib/api/session'
 
 export const GET = withErrorHandler(async (req: Request) => {
   await requireRole('developer')

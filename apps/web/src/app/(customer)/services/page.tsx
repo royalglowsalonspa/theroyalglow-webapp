@@ -28,11 +28,11 @@
  * - Per-service JSON-LD can be added when per-slug service pages land.
  ************************************************************/
 
+import type { Metadata } from 'next'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, localBusinessJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
-import type { Metadata } from 'next'
 import { ServicesCatalogue } from './services-catalogue'
 
 export const metadata: Metadata = buildMetadata({

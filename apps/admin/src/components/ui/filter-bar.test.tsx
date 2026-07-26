@@ -30,14 +30,14 @@
  * Requirements : 7.2, 7.3, 8.3, 8.4, 8.5, 8.6
  ************************************************************/
 
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   type ColumnToggle,
   FilterBar,
   type FilterBarProps,
   SEARCH_MAX_LENGTH,
 } from '@/components/ui/filter-bar'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 /* ----------------------------------------------------------------------------
  * jsdom polyfills — Radix DropdownMenu (via @radix-ui/react-popper) relies on

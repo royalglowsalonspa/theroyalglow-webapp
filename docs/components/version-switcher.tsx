@@ -1,8 +1,8 @@
 'use client'
 
-import type { VersionId } from '@/lib/versions'
 import { useRouter } from 'next/navigation'
 import { useId } from 'react'
+import type { VersionId } from '@/lib/versions'
 
 /**
  * A single documentation version as the Version_Switcher consumes it.

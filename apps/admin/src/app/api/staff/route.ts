@@ -33,12 +33,12 @@
  * - Staff are deactivated (isActive=false), never hard-deleted.
  ************************************************************/
 
+import { createStaffProfile, getActiveStaff } from '@rgss/db/queries'
+import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
+import { staffCreateSchema } from '@rgss/types'
 import { audit } from '@/lib/api/audit'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
-import { createStaffProfile, getActiveStaff } from '@rgss/db/queries'
-import { ERROR_CODES, badRequest, conflict, notFound } from '@rgss/errors'
-import { staffCreateSchema } from '@rgss/types'
 
 // Active staff members for the assignment picker (approve / reassign flows).
 export const GET = withErrorHandler(async () => {

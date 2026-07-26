@@ -46,8 +46,8 @@
  *   when realtime is not yet provisioned. Absent key → silent no-op.
  ************************************************************/
 
-import { adminBookingsChannel, customerBookingsChannel } from '@/lib/realtime/channels'
 import { createLogger } from '@rgss/logger'
+import { adminBookingsChannel, customerBookingsChannel } from '@/lib/realtime/channels'
 
 const logger = createLogger({
   service: 'admin:realtime:publish',

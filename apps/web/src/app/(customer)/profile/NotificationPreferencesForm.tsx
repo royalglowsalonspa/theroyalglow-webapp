@@ -33,9 +33,9 @@
 
 'use client'
 
+import { useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { useState } from 'react'
 
 export type NotificationPreferences = {
   appointmentRemindersEnabled: boolean

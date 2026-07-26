@@ -99,11 +99,18 @@ const datasetArb = fc.array(bookingArb, { minLength: 0, maxLength: 30 })
 
 // Each filter independently present or absent, drawn from the same domains so
 // they exercise both matching and non-matching values.
-const filtersArb: fc.Arbitrary<ModelFilters> = fc.record({
-  status: fc.option(statusArb, { nil: undefined }),
-  serviceType: fc.option(serviceTypeArb, { nil: undefined }),
-  date: fc.option(dateArb, { nil: undefined }),
-})
+// `requiredKeys: []` OMITS a key rather than setting it to undefined. Under the
+// project's `exactOptionalPropertyTypes`, `status?: string` does not accept an
+// explicit undefined, so omission is both the type-correct and the semantically
+// accurate way to express "this filter was not supplied".
+const filtersArb: fc.Arbitrary<ModelFilters> = fc.record(
+  {
+    status: statusArb,
+    serviceType: serviceTypeArb,
+    date: dateArb,
+  },
+  { requiredKeys: [] },
+)
 
 // Feature: backend-api, Property 24: Admin listing filters are honoured
 describe('Property 24: Admin listing filters are honoured', () => {

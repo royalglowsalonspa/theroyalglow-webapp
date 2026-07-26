@@ -35,13 +35,13 @@
 
 'use client'
 
+import Link from 'next/link'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { signOut } from '@/lib/auth-client'
 import { startGoogleSignIn } from '@/lib/google-signin'
 import { adminPortalUrl, isAdminRole } from '@/lib/roles'
 import { cn } from '@/lib/utils'
-import Link from 'next/link'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 
 const navLinks = [
   { href: '/', label: 'Home' },
@@ -52,8 +52,7 @@ const navLinks = [
   { href: '/blog', label: 'Blog' },
 ]
 
-const ICON =
-  'h-[20px] w-[20px] shrink-0 text-warm-gray group-hover:text-deep-gold transition-colors'
+const ICON = 'h-[20px] w-[20px] shrink-0 text-warm-gray group-hover:text-gold-ink transition-colors'
 
 type AccountLink = {
   href: string
@@ -300,7 +299,7 @@ export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
   function navItemClass(active: boolean) {
     return cn(
       'group flex items-center gap-3 rounded-xl px-3.5 min-h-[48px] font-ui text-[15px] transition-colors duration-150',
-      active ? 'bg-golden-mist text-deep-gold font-bold' : 'text-cocoa-dark hover:bg-cloud-gray',
+      active ? 'bg-golden-mist text-gold-ink font-bold' : 'text-cocoa-dark hover:bg-cloud-gray',
     )
   }
 
@@ -453,7 +452,7 @@ export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
                     {link.icon}
                     <span className="flex-1">{link.label}</span>
                     {link.badge === 'gems' && gems !== null && (
-                      <span className="rounded-pill bg-golden-mist px-2 py-0.5 font-ui text-[11px] font-bold text-deep-gold tabular-nums">
+                      <span className="rounded-pill bg-golden-mist px-2 py-0.5 font-ui text-[11px] font-bold text-gold-ink tabular-nums">
                         {gems.toLocaleString('en-IN')} pts
                       </span>
                     )}

@@ -28,9 +28,9 @@
  * - Served by the service worker when all network requests fail
  ************************************************************/
 
-import { Button } from '@/components/ui/button'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
 
 export const metadata: Metadata = {
   title: "You're Offline | Royal Glow Salon & Spa",
@@ -77,7 +77,7 @@ export default function OfflinePage() {
               Need us now? Call{' '}
               <a
                 href="tel:+916360135720"
-                className="font-ui text-royal-gold underline underline-offset-2 hover:text-warm-gold transition-colors duration-200"
+                className="font-ui text-gold-ink underline underline-offset-2 hover:text-cocoa-dark transition-colors duration-200"
               >
                 +91 63601 35720
               </a>
