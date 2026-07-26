@@ -9,6 +9,7 @@
     "./queries": "./src/queries/index.ts"
   },
   "scripts": {
+    "typecheck": "tsc --noEmit",
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
     "drift:reference": "bun run scripts/drift/regenerate-reference.ts",
@@ -20,7 +21,7 @@
     "@rgss/errors": "workspace:*",
     "@rgss/types": "workspace:*",
     "drizzle-orm": "^0.45.2",
-    "nanoid": "^5.1.16"
+    "nanoid": "^6.0.0"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",

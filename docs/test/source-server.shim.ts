@@ -116,11 +116,14 @@ function scanCollection(relDir: string): {
   return { entries, meta }
 }
 
-const create = await dynamic(
-  Config,
-  { configPath: 'source.config.ts', environment: 'next', outDir: '.source' },
-  { doc: { passthroughs: ['extractedReferences', 'lastModified'] } },
-)
+// fumadocs-mdx 15.2 reduced `dynamic()` to (configExports, coreOptions); the
+// third options argument (doc passthroughs) no longer exists — the type config
+// is inferred instead.
+const create = await dynamic(Config, {
+  configPath: 'source.config.ts',
+  environment: 'next',
+  outDir: '.source',
+})
 
 const docsScan = scanCollection('content/docs')
 const docsV2Scan = scanCollection('content/docs-v2')
