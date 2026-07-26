@@ -12,15 +12,15 @@ describe('Feedback (task 7.6)', () => {
 
     render(<Feedback />)
 
-    await user.click(screen.getByRole('button', { name: 'Yes, this page was helpful' }))
+    await user.click(screen.getByRole('button', { name: 'Good, this page was helpful' }))
 
     expect(screen.getByText('Thanks for your feedback')).toBeInTheDocument()
     // Buttons are replaced by the acknowledgement.
     expect(
-      screen.queryByRole('button', { name: 'Yes, this page was helpful' }),
+      screen.queryByRole('button', { name: 'Good, this page was helpful' }),
     ).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: 'No, this page was not helpful' }),
+      screen.queryByRole('button', { name: 'Bad, this page was not helpful' }),
     ).not.toBeInTheDocument()
     // No navigation occurred.
     expect(window.location.href).toBe(hrefBefore)
@@ -32,7 +32,7 @@ describe('Feedback (task 7.6)', () => {
 
     render(<Feedback onSubmit={onSubmit} />)
 
-    await user.click(screen.getByRole('button', { name: 'No, this page was not helpful' }))
+    await user.click(screen.getByRole('button', { name: 'Bad, this page was not helpful' }))
 
     // The rejected promise is swallowed; the acknowledgement appears regardless.
     expect(await screen.findByText('Thanks for your feedback')).toBeInTheDocument()
