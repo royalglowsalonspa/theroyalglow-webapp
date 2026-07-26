@@ -1,13 +1,57 @@
 name: Integration & E2E
 
+# ---------------------------------------------------------------------------
+# Runs on promotion PRs into the long-lived branches (test -> pprd -> prod).
+#
+# Both jobs below need a REAL test database, which lives in the GitHub secret
+# DATABASE_URL_TEST. That secret is required because these jobs execute on the
+# GitHub runner — not on Render — so the Render dashboard env vars are not
+# visible to them.
+#
+# When the secret is absent the jobs SKIP instead of failing: an unconfigured
+# environment is not a code regression, and a permanently red required check on
+# every release PR trains people to ignore CI. The `preflight` job reports which
+# mode we are in so the skip is explicit in the run summary rather than silent.
+# Add DATABASE_URL_TEST (+ DATABASE_URL_UNPOOLED_TEST) and they start enforcing
+# automatically, with no workflow edit.
+#
+# NOTE: the previous `lighthouse-ci` job was removed. It ran `lhci autorun` with
+# no configPath, and there is no lighthouserc at the repo root, so it could only
+# ever fail. Lighthouse is covered properly by `lighthouse-web` in ci.yml (the
+# customer site, built from the PR and served on localhost) and by
+# `lighthouse-docs` in docs-lighthouse.yml.
+# ---------------------------------------------------------------------------
+
 on:
   pull_request:
     branches: [test, pprd, prod]
 
 jobs:
+  # Resolves whether a test database is configured. Secrets cannot be evaluated
+  # in a job-level `if:`, so this exposes the answer as a job output instead.
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      has_test_db: ${{ steps.check.outputs.has_test_db }}
+    steps:
+      - id: check
+        env:
+          TEST_DB: ${{ secrets.DATABASE_URL_TEST }}
+        run: |
+          if [ -n "$TEST_DB" ]; then
+            echo "has_test_db=true" >> "$GITHUB_OUTPUT"
+            echo "Test database configured — integration + E2E will run."
+          else
+            echo "has_test_db=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Integration/E2E skipped::DATABASE_URL_TEST is not configured, so the integration and Playwright jobs cannot boot the app and are being skipped. Add the secret to enable them."
+          fi
+
   integration-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    needs: [preflight]
+    if: needs.preflight.outputs.has_test_db == 'true'
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL_TEST }}
       DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_TEST }}
@@ -22,7 +66,8 @@ jobs:
   playwright-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [integration-tests]
+    needs: [preflight, integration-tests]
+    if: needs.preflight.outputs.has_test_db == 'true'
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL_TEST }}
       APP_ENV: test
@@ -41,18 +86,3 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
-
-  lighthouse-ci:
-    runs-on: ubuntu-latest
-    timeout-minutes: 12
-    needs: [integration-tests]
-    env:
-      SKIP_ENV_VALIDATION: '1'
-    steps:
-      - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
-      - name: Run Lighthouse CI
-        run: bunx @lhci/cli autorun
-        env:
-          LHCI_BUILD_CONTEXT__CURRENT_HASH: ${{ github.sha }}
