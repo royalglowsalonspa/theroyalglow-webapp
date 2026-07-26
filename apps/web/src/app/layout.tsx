@@ -77,6 +77,31 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" translate="no" suppressHydrationWarning>
+      <head>
+        {/* Brand fonts are loaded here rather than via `@import url(...)` inside
+            globals.css. A CSS @import is the worst discovery path available: the
+            browser must download and parse our stylesheet BEFORE it even learns the
+            font stylesheets exist, then fetch those, then the font files — a
+            serialised three-hop chain that blocked first paint and was the single
+            biggest contributor to the 3.4-4.0s text LCP Lighthouse measured.
+            As <link> tags in the document head they are discovered immediately in
+            the initial HTML and fetched in parallel, and preconnect warms the TLS
+            handshake to both CDNs up front.
+            NOTE: the fonts stay on their CDNs (not self-hosted) by decision; these
+            origins are allowed in the CSP (see src/middleware.ts). */}
+        <link crossOrigin="anonymous" href="https://api.fontshare.com" rel="preconnect" />
+        <link crossOrigin="anonymous" href="https://fonts.googleapis.com" rel="preconnect" />
+        <link crossOrigin="anonymous" href="https://fonts.gstatic.com" rel="preconnect" />
+        <link crossOrigin="anonymous" href="https://cdn.fontshare.com" rel="preconnect" />
+        <link
+          href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@800,900&f[]=clash-grotesk@400,500,600,700&display=swap"
+          rel="stylesheet"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body suppressHydrationWarning>
         {children}
         <Analytics />
