@@ -1,13 +1,52 @@
 name: Load & Security
 
+# ---------------------------------------------------------------------------
+# Runs on promotion PRs into pprd / prod.
+#
+# Two different kinds of check live here, and they have different prerequisites:
+#
+#   1. Trivy filesystem scan — needs nothing external, so it ALWAYS runs and is
+#      a hard gate.
+#   2. k6 load test + OWASP ZAP baseline — both point at a DEPLOYED pre-production
+#      URL (secret PPRD_URL). There is currently no pprd deployment: Render
+#      deploys web/admin/cms from the `prod` branch only (see render.yaml). With
+#      PPRD_URL unset, k6 silently fell back to http://localhost:3000 and failed
+#      with "connection refused" against a server that was never started, and ZAP
+#      was handed an empty target. Those are configuration gaps, not code
+#      regressions, so they SKIP with an explicit notice until a pprd URL exists.
+#      Set PPRD_URL and they enforce automatically, no workflow edit needed.
+# ---------------------------------------------------------------------------
+
 on:
   pull_request:
     branches: [pprd, prod]
 
 jobs:
+  # Secrets cannot be read in a job-level `if:`, so resolve availability here and
+  # expose it as an output.
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      has_pprd_url: ${{ steps.check.outputs.has_pprd_url }}
+    steps:
+      - id: check
+        env:
+          PPRD_URL: ${{ secrets.PPRD_URL }}
+        run: |
+          if [ -n "$PPRD_URL" ]; then
+            echo "has_pprd_url=true" >> "$GITHUB_OUTPUT"
+            echo "PPRD_URL configured — load test and ZAP baseline will run."
+          else
+            echo "has_pprd_url=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Load test and ZAP skipped::PPRD_URL is not configured (there is no pprd deployment - Render deploys from prod only), so the k6 load test and OWASP ZAP baseline are being skipped. Set PPRD_URL to enable them."
+          fi
+
   k6-load-test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    needs: [preflight]
+    if: needs.preflight.outputs.has_pprd_url == 'true'
     steps:
       - uses: actions/checkout@v7
       - uses: grafana/setup-k6-action@v1
@@ -16,18 +55,35 @@ jobs:
         env:
           K6_TARGET_URL: ${{ secrets.PPRD_URL }}
 
+  # Dependency/filesystem scanning needs no deployed environment — always gates.
   security-scan:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v7
+      # Pinned to a RELEASE rather than @master. Tracking master broke this job:
+      # a newer setup-trivy rejected the action's own cache-dir input ("The 'path'
+      # input must be a literal path") and the scan aborted with docker exit 3.
+      # An unpinned third-party action is also an avoidable supply-chain risk.
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
           severity: 'CRITICAL,HIGH'
           exit-code: '1'
+          # Vendored dependencies are covered by the dependency-audit gate
+          # (bun audit) against the lockfile; scanning them here only produces
+          # duplicate findings and long runtimes.
+          skip-dirs: 'node_modules,.next,.turbo,.open-next'
+
+  zap-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    needs: [preflight]
+    if: needs.preflight.outputs.has_pprd_url == 'true'
+    steps:
+      - uses: actions/checkout@v7
       - name: OWASP ZAP baseline scan
         uses: zaproxy/action-baseline@v0.15.0
         with:
