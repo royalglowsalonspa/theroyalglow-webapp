@@ -14,6 +14,13 @@
       "@payload-config": ["./src/payload.config.ts"]
     }
   },
-  "include": ["next-env.d.ts", "src/**/*.ts", "src/**/*.tsx", "src/**/*.js", ".next/types/**/*.ts"],
+  "include": [
+    "next-env.d.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.js",
+    "scripts/**/*.ts",
+    ".next/types/**/*.ts"
+  ],
   "exclude": ["node_modules"]
 }
