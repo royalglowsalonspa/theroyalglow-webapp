@@ -77,6 +77,7 @@ export interface Config {
     testimonial: Testimonial;
     offer: Offer;
     'service-card': ServiceCard;
+    service_category: ServiceCategory;
     service: Service;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
@@ -95,6 +96,7 @@ export interface Config {
     testimonial: TestimonialSelect<false> | TestimonialSelect<true>;
     offer: OfferSelect<false> | OfferSelect<true>;
     'service-card': ServiceCardSelect<false> | ServiceCardSelect<true>;
+    service_category: ServiceCategorySelect<false> | ServiceCategorySelect<true>;
     service: ServiceSelect<false> | ServiceSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -427,41 +429,85 @@ export interface ServiceCard {
   createdAt: string;
 }
 /**
- * Detailed service catalogue for the /services page (Salon and SPA).
+ * Bookable service categories. Categories are DEACTIVATED (untick "Active"), never deleted — that is why there is no delete button. A category's Salon/SPA type governs which services can belong to it, and a booking may only contain services of one type.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "service_category".
+ */
+export interface ServiceCategory {
+  id: string;
+  /**
+   * E.g. "Hair Care", "Body Massage", "Bridal".
+   */
+  name: string;
+  /**
+   * URL-safe identifier. Generated from the name if left blank.
+   */
+  slug: string;
+  /**
+   * Optional. Shown to customers alongside the category.
+   */
+  description?: string | null;
+  /**
+   * Governs which services belong here. A booking is Salon OR SPA, never mixed.
+   */
+  serviceType: 'salon' | 'spa';
+  /**
+   * Lower numbers appear first in the booking dialog and /services page.
+   */
+  displayOrder?: number | null;
+  /**
+   * Untick to retire this category. This replaces deletion.
+   */
+  isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Bookable services synced to the booking engine. Services are DEACTIVATED, never deleted — untick "Active" to retire one. There is intentionally no delete button, because past bookings and invoices reference these records.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "service".
  */
 export interface Service {
-  id: number;
+  id: string;
+  categoryId: string | ServiceCategory;
   name: string;
-  type: 'salon' | 'spa';
   /**
-   * Used to group services on the /services page.
+   * Auto-generated from the service name on create. Override only if needed.
    */
-  category?:
-    | ('hair' | 'skin' | 'nails' | 'bridal' | 'massage' | 'facial' | 'grooming' | 'waxing' | 'makeup' | 'other')
-    | null;
-  image: number | Media;
+  slug: string;
   description?: string | null;
   /**
-   * Shown as "45 min" on the service card.
+   * Typical: beard/shave 15min, haircut 30min, advanced haircut / classic facial / spa mani-pedi 45min, most SPA 60-90min, global colour (long) & bridal makeup 120min, keratin 180min.
    */
-  durationMinutes: number;
+  durationMinutes: '15' | '30' | '45' | '60' | '90' | '120' | '150' | '180';
   /**
-   * Store in paise (e.g. 149900 = ₹1,499). Display formatted on the website.
+   * Clean-up/turnaround time reserved after the service.
+   */
+  bufferMinutes?: number | null;
+  /**
+   * GST-inclusive price in paise (e.g. 149900 = ₹1,499).
    */
   pricePaise: number;
   /**
-   * Optional id/slug linking to the booking engine. Leave blank to open the generic booking dialog.
+   * Untick to retire a service. This replaces deletion.
    */
-  bookingRef?: string | null;
-  active?: boolean | null;
-  featured?: boolean | null;
+  isActive?: boolean | null;
+  imageUrl?: string | null;
   /**
-   * Lower numbers appear first within their category.
+   * Lower numbers appear first within the category.
    */
-  order?: number | null;
+  displayOrder?: number | null;
+  gemsRedeemable?: boolean | null;
+  /**
+   * Required when "Redeemable with Gems" is enabled. Must be greater than 0.
+   */
+  gemsRequired?: number | null;
+  /**
+   * Position in the gems redemption catalogue.
+   */
+  gemsCatalogueOrder?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -530,8 +576,12 @@ export interface PayloadLockedDocument {
         value: number | ServiceCard;
       } | null)
     | ({
+        relationTo: 'service_category';
+        value: string | ServiceCategory;
+      } | null)
+    | ({
         relationTo: 'service';
-        value: number | Service;
+        value: string | Service;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -786,20 +836,38 @@ export interface ServiceCardSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "service_category_select".
+ */
+export interface ServiceCategorySelect<T extends boolean = true> {
+  id?: T;
+  name?: T;
+  slug?: T;
+  description?: T;
+  serviceType?: T;
+  displayOrder?: T;
+  isActive?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "service_select".
  */
 export interface ServiceSelect<T extends boolean = true> {
+  id?: T;
+  categoryId?: T;
   name?: T;
-  type?: T;
-  category?: T;
-  image?: T;
+  slug?: T;
   description?: T;
   durationMinutes?: T;
+  bufferMinutes?: T;
   pricePaise?: T;
-  bookingRef?: T;
-  active?: T;
-  featured?: T;
-  order?: T;
+  isActive?: T;
+  imageUrl?: T;
+  displayOrder?: T;
+  gemsRedeemable?: T;
+  gemsRequired?: T;
+  gemsCatalogueOrder?: T;
   updatedAt?: T;
   createdAt?: T;
 }
