@@ -19,6 +19,7 @@
  * - forbidden() — 403
  * - badRequest() — 400 with validation details
  * - conflict() — 409
+ * - gone() — 410 for permanently retired endpoints
  * - serviceUnavailable() — 502 (retryable)
  *
  * Tech Stack   : TypeScript
@@ -88,6 +89,18 @@ export function conflict(code: ErrorCode, message: string): AppError {
     code,
     message,
     statusCode: 409,
+  })
+}
+
+// 410 Gone — the endpoint existed but has been permanently retired because the
+// capability moved elsewhere. Never retryable: retrying can never succeed, so
+// the message should tell the caller where the capability now lives.
+export function gone(message: string): AppError {
+  return new AppError({
+    code: ERROR_CODES.ENDPOINT_GONE,
+    message,
+    statusCode: 410,
+    retryable: false,
   })
 }
 
