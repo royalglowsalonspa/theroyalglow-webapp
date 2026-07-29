@@ -39,6 +39,7 @@ Every information / planning document lives here. Only `README.md` remains in th
 | [meta-pixel.md](./meta-pixel.md) | Meta Pixel + CAPI implementation plan |
 | [seo.md](./seo.md) | SEO, local SEO, AI search visibility, agent-friendly standards |
 | [PAYLOAD_INTEGRATION_PLAN.md](./PAYLOAD_INTEGRATION_PLAN.md) | Payload CMS → website integration plan (handoff) |
+| [payload-mcp.md](./payload-mcp.md) | Payload MCP server — read-only CMS access for AI agents |
 
 ## Environment, Build & Ops
 
