@@ -1,36 +1,36 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 21-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 22-06-2026
  *
  * Project      : theroyalglow-webapp (apps/admin)
- * Module Name  : GET|POST /api/services (admin)
- * Scope        : API — Admin service catalogue
+ * Module Name  : GET /api/services (admin) — POST retired (410 Gone)
+ * Scope        : API — Admin service catalogue (read-only)
  *
  * Description  : GET returns the active catalogue grouped by category (used by
- *                offers manager, manual-booking, membership recording). POST
- *                creates a new service in the operational catalogue (the single
- *                source of truth that also drives the customer /services page).
+ *                offers manager, manual-booking, membership recording). POST is
+ *                permanently retired: service authoring moved to Payload CMS,
+ *                which is now the single write path into public.service.
  *
  * Responsibilities :
  * - GET: active catalogue grouped by category (reachable by admin roles)
- * - POST: create a service (Manager+), Zod-validated
+ * - POST: 410 Gone pointing the operator at Payload CMS
  *
  * Tech Stack   : Next.js 16 (Route Handler)
  * Layer        : API (Thin Orchestrator)
  *
- * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/db/queries,
- *                @rgss/errors, @rgss/types
+ * Dependencies : @/lib/api/error-handler, @rgss/db/queries, @rgss/errors
  *
  * Notes        : GET stays unauthenticated at the handler (edge middleware gates
- *                the admin origin). POST requires Manager+.
+ *                the admin origin). The retired POST returns 410 before any auth
+ *                or body parsing — no role check can make it succeed.
  ************************************************************/
 
-import { createService, getAllServicesGrouped, getServiceCategoryById } from '@rgss/db/queries'
-import { badRequest } from '@rgss/errors'
-import { isValidDurationForType, serviceCreateSchema } from '@rgss/types'
-import { audit } from '@/lib/api/audit'
+import { getAllServicesGrouped } from '@rgss/db/queries'
+import { gone } from '@rgss/errors'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
+
+// Payload CMS is the authoring surface for the service catalogue.
+const CMS_SERVICES_URL = 'https://cms.theroyalglow.in/admin/collections/service'
 
 // GET /api/services — active catalogue grouped by category.
 export const GET = withErrorHandler(async () => {
@@ -38,40 +38,10 @@ export const GET = withErrorHandler(async () => {
   return apiSuccess({ categories })
 })
 
-// POST /api/services — create a service. Manager+.
-export const POST = withErrorHandler(async (req: Request) => {
-  const session = await requireRole('manager')
-
-  const body = await req.json().catch(() => null)
-  const parsed = serviceCreateSchema.safeParse(body)
-  if (!parsed.success) {
-    throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
-  }
-
-  // The target category must exist (FK is RESTRICT; fail with a clear 400).
-  const category = await getServiceCategoryById(parsed.data.categoryId)
-  if (!category) {
-    throw badRequest('Selected category does not exist.')
-  }
-
-  // Slot-length rule: SPA → 30/60 only; Salon → 5-minute steps.
-  if (!isValidDurationForType(category.serviceType, parsed.data.durationMinutes)) {
-    throw badRequest(
-      category.serviceType === 'spa'
-        ? 'SPA services must be 30 or 60 minutes.'
-        : 'Salon duration must be a positive multiple of 5 minutes.',
-    )
-  }
-
-  const created = await createService(parsed.data)
-  if (!created) {
-    throw new Error('Failed to create service.')
-  }
-  await audit(req, session, {
-    action: 'create',
-    entityType: 'service',
-    entityId: created.id,
-    newValues: parsed.data,
-  })
-  return apiSuccess({ service: created }, undefined, 201)
+// POST /api/services — RETIRED. Services are created in Payload CMS, which syncs
+// to public.service; the admin portal is no longer a write path.
+export const POST = withErrorHandler(async () => {
+  throw gone(
+    `Service management moved to CMS. Create services in Payload CMS at ${CMS_SERVICES_URL}`,
+  )
 })

@@ -60,7 +60,9 @@ export const NAV_ICON_MAP: Record<string, LucideIcon> = {
   '/staff': Scissors,
   '/schedule': CalendarRange,
   '/leave': Palmtree,
-  '/services': Sparkles,
+  // No '/services' entry — the sidebar nav item was removed when service
+  // authoring moved to Payload CMS. `/services` is now only a redirect, so it
+  // needs no icon (navIconFor falls back to DEFAULT_NAV_ICON).
   '/offers': Tag,
   '/memberships': Gem,
   '/billing': ReceiptText,

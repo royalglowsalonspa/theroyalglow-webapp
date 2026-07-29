@@ -55,6 +55,10 @@ export const ROUTE_MIN_LEVEL: ReadonlyArray<readonly [string, number]> = [
   ['/logs', 5],
   ['/branches', 4],
   ['/users', 4],
+  // `/services` is no longer a management UI — it is a redirect to the Payload
+  // CMS service collection (authoring moved there). The Manager+ gate is kept
+  // DELIBERATELY so lower roles cannot reach the redirect; the matching sidebar
+  // nav item was removed from ADMIN_NAV below.
   ['/services', 3],
   ['/offers', 3],
   ['/staff', 3],
@@ -210,8 +214,10 @@ export const ADMIN_NAV: ReadonlyArray<NavSection> = [
   },
   {
     title: 'Catalog',
+    // No `Services` entry: service/category authoring moved to Payload CMS
+    // (`cms.theroyalglow.in`). `/services` survives only as a redirect to the
+    // CMS collection, so it is deliberately NOT advertised in the sidebar.
     items: [
-      { label: 'Services', href: '/services', minLevel: 3 },
       { label: 'Offers', href: '/offers', minLevel: 3 },
       { label: 'Memberships', href: '/memberships', minLevel: 2 },
     ],

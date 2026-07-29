@@ -3,17 +3,22 @@
  * Author       : KATABATHUNI BOSE
  * Project      : theroyalglow-webapp (apps/admin)
  * Module Name  : services-mgmt.test
- * Scope        : Unit tests for admin Service & Category management routes
+ * Scope        : Unit tests for admin Service & Category routes post-CMS migration
  *
- * Description  : Verifies POST /api/services + PATCH /api/services/[id]
- *                (incl. the SPA 30/60 slot-length rule and Salon 5-min steps),
- *                GET /api/services/all, and POST /api/service-categories — plus
- *                RBAC (Manager+) and the response envelope. Session + DB mocked.
+ * Description  : Service/category authoring moved to Payload CMS, so the admin
+ *                write endpoints are retired. Verifies the four retired writes
+ *                (POST /api/services, PATCH /api/services/[id],
+ *                POST /api/service-categories, PATCH /api/service-categories/[id])
+ *                answer 410 Gone with the standard error envelope and a message
+ *                pointing at the CMS, and that the preserved read endpoints
+ *                (GET /api/services, GET /api/services/all,
+ *                GET /api/service-categories) still work.
  *
  * Layer        : Testing
  *
- * Notes        : Node environment. @rgss/types stays REAL (pure validators incl.
- *                isValidDurationForType), so the SPA rule is genuinely exercised.
+ * Notes        : Node environment. Session + DB mocked. The retired handlers must
+ *                answer 410 WITHOUT touching the session or the DB — asserted
+ *                explicitly, since a surviving write path is the real risk here.
  ************************************************************/
 
 import { AppError, ERROR_CODES } from '@rgss/errors'
@@ -40,6 +45,7 @@ const dbMocks = vi.hoisted(() => ({
 vi.mock('@/lib/api/session', () => sessionMocks)
 vi.mock('@rgss/db/queries', () => dbMocks)
 
+import * as catIdRoute from '@/app/api/service-categories/[id]/route'
 import * as catRoute from '@/app/api/service-categories/route'
 import * as svcIdRoute from '@/app/api/services/[id]/route'
 import * as svcAllRoute from '@/app/api/services/all/route'
@@ -56,139 +62,105 @@ const jsonReq = (url: string, method: string, body?: unknown) =>
 const forbidden = () =>
   new AppError({ code: ERROR_CODES.FORBIDDEN, message: 'no', statusCode: 403 })
 
+// Every retired write must answer with the standard error envelope, 410, the
+// ENDPOINT_GONE code, and a message naming the CMS as the new authoring surface.
+const expectGone = async (res: Response) => {
+  const body = await res.json()
+  expect(res.status).toBe(410)
+  expect(body.success).toBe(false)
+  expect(body.error).toMatchObject({
+    code: ERROR_CODES.ENDPOINT_GONE,
+    statusCode: 410,
+    requestId: expect.any(String),
+    retryable: false,
+  })
+  expect(body.error.message).toContain('Service management moved to CMS')
+  expect(body.error.message).toContain('cms.theroyalglow.in')
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   sessionMocks.requireRole.mockResolvedValue(MANAGER)
   sessionMocks.requireSession.mockResolvedValue(MANAGER)
 })
 
-describe('POST /api/services — create + slot-length rule', () => {
-  it('creates a Salon service with a 5-minute-step duration', async () => {
-    dbMocks.getServiceCategoryById.mockResolvedValue({ id: 'cat_salon', serviceType: 'salon' })
-    dbMocks.createService.mockResolvedValue({ id: 'svc1', name: 'Haircut' })
-
+describe('retired service write endpoints → 410 Gone', () => {
+  it('POST /api/services → 410 and writes nothing', async () => {
     const res = await svcRoute.POST(
       jsonReq('https://admin.theroyalglow.in/api/services', 'POST', {
         categoryId: 'cat_salon',
         name: 'Haircut',
         durationMinutes: 45,
-        pricePaise: 49900,
+        pricePaise: 49_900,
       }),
     )
-    const body = await res.json()
 
-    expect(res.status).toBe(201)
-    expect(body).toEqual({ success: true, data: { service: { id: 'svc1', name: 'Haircut' } } })
-    expect(dbMocks.createService).toHaveBeenCalledOnce()
-  })
-
-  it('rejects a SPA service that is not 30 or 60 minutes', async () => {
-    dbMocks.getServiceCategoryById.mockResolvedValue({ id: 'cat_spa', serviceType: 'spa' })
-
-    const res = await svcRoute.POST(
-      jsonReq('https://admin.theroyalglow.in/api/services', 'POST', {
-        categoryId: 'cat_spa',
-        name: 'Aroma Massage',
-        durationMinutes: 45,
-        pricePaise: 150000,
-      }),
-    )
-    const body = await res.json()
-
-    expect(res.status).toBe(400)
-    expect(body.error.message).toMatch(/30 or 60/)
+    await expectGone(res)
     expect(dbMocks.createService).not.toHaveBeenCalled()
+    expect(sessionMocks.requireRole).not.toHaveBeenCalled()
   })
 
-  it('accepts a SPA service of 60 minutes', async () => {
-    dbMocks.getServiceCategoryById.mockResolvedValue({ id: 'cat_spa', serviceType: 'spa' })
-    dbMocks.createService.mockResolvedValue({ id: 'svc2' })
-
-    const res = await svcRoute.POST(
-      jsonReq('https://admin.theroyalglow.in/api/services', 'POST', {
-        categoryId: 'cat_spa',
-        name: 'Deep Tissue',
-        durationMinutes: 60,
-        pricePaise: 200000,
-      }),
-    )
-    expect(res.status).toBe(201)
-  })
-
-  it('rejects an unknown category with 400', async () => {
-    dbMocks.getServiceCategoryById.mockResolvedValue(null)
-    const res = await svcRoute.POST(
-      jsonReq('https://admin.theroyalglow.in/api/services', 'POST', {
-        categoryId: 'nope',
-        name: 'X',
-        durationMinutes: 30,
-        pricePaise: 100,
-      }),
-    )
-    expect(res.status).toBe(400)
-    expect(dbMocks.createService).not.toHaveBeenCalled()
-  })
-
-  it('→ 403 for a non-manager', async () => {
-    sessionMocks.requireRole.mockRejectedValue(forbidden())
-    const res = await svcRoute.POST(
-      jsonReq('https://admin.theroyalglow.in/api/services', 'POST', {
-        categoryId: 'c',
-        name: 'X',
-        durationMinutes: 30,
-        pricePaise: 100,
-      }),
-    )
-    expect(res.status).toBe(403)
-  })
-})
-
-describe('PATCH /api/services/[id] — update + rule revalidation', () => {
-  it('rejects changing a SPA service to 45 minutes', async () => {
-    dbMocks.getServiceById.mockResolvedValue({
-      id: 'svc1',
-      categoryId: 'cat_spa',
-      durationMinutes: 60,
-    })
-    dbMocks.getServiceCategoryById.mockResolvedValue({ id: 'cat_spa', serviceType: 'spa' })
-
-    const res = await svcIdRoute.PATCH(
-      jsonReq('https://admin.theroyalglow.in/api/services/svc1', 'PATCH', { durationMinutes: 45 }),
-      { params: Promise.resolve({ id: 'svc1' }) },
-    )
-    expect(res.status).toBe(400)
-    expect(dbMocks.updateService).not.toHaveBeenCalled()
-  })
-
-  it('deactivates a service (isActive=false) without touching duration', async () => {
-    dbMocks.getServiceById.mockResolvedValue({
-      id: 'svc1',
-      categoryId: 'cat_salon',
-      durationMinutes: 45,
-    })
-    dbMocks.getServiceCategoryById.mockResolvedValue({ id: 'cat_salon', serviceType: 'salon' })
-    dbMocks.updateService.mockResolvedValue({ id: 'svc1', isActive: false })
-
+  it('PATCH /api/services/[id] → 410 and writes nothing', async () => {
     const res = await svcIdRoute.PATCH(
       jsonReq('https://admin.theroyalglow.in/api/services/svc1', 'PATCH', { isActive: false }),
       { params: Promise.resolve({ id: 'svc1' }) },
     )
-    expect(res.status).toBe(200)
-    expect(dbMocks.updateService).toHaveBeenCalledWith('svc1', { isActive: false })
+
+    await expectGone(res)
+    expect(dbMocks.updateService).not.toHaveBeenCalled()
+    expect(dbMocks.getServiceById).not.toHaveBeenCalled()
   })
 
-  it('→ 404 when the service is missing', async () => {
-    dbMocks.getServiceById.mockResolvedValue(null)
-    const res = await svcIdRoute.PATCH(
-      jsonReq('https://admin.theroyalglow.in/api/services/missing', 'PATCH', { isActive: false }),
-      { params: Promise.resolve({ id: 'missing' }) },
+  it('POST /api/service-categories → 410 and writes nothing', async () => {
+    const res = await catRoute.POST(
+      jsonReq('https://admin.theroyalglow.in/api/service-categories', 'POST', {
+        name: 'Hair',
+        serviceType: 'salon',
+      }),
     )
-    expect(res.status).toBe(404)
+
+    await expectGone(res)
+    expect(dbMocks.createServiceCategory).not.toHaveBeenCalled()
+  })
+
+  it('PATCH /api/service-categories/[id] → 410 and writes nothing', async () => {
+    const res = await catIdRoute.PATCH(
+      jsonReq('https://admin.theroyalglow.in/api/service-categories/cat1', 'PATCH', {
+        name: 'Hair & Beauty',
+      }),
+      { params: Promise.resolve({ id: 'cat1' }) },
+    )
+
+    await expectGone(res)
+    expect(dbMocks.updateServiceCategory).not.toHaveBeenCalled()
+  })
+
+  it('stays 410 even for a manager session and an invalid body', async () => {
+    const res = await svcRoute.POST(
+      jsonReq('https://admin.theroyalglow.in/api/services', 'POST', { serviceType: 'barber' }),
+    )
+
+    // A retired endpoint never validates: no 400, no 403 — always 410.
+    await expectGone(res)
+    expect(dbMocks.createService).not.toHaveBeenCalled()
   })
 })
 
-describe('GET /api/services/all + categories', () => {
-  it('returns services + categories for management', async () => {
+describe('preserved read endpoints', () => {
+  it('GET /api/services returns the active catalogue grouped by category', async () => {
+    dbMocks.getAllServicesGrouped.mockResolvedValue([{ id: 'cat1', services: [{ id: 'svc1' }] }])
+
+    const res = await svcRoute.GET(new Request('https://admin.theroyalglow.in/api/services'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body).toEqual({
+      success: true,
+      data: { categories: [{ id: 'cat1', services: [{ id: 'svc1' }] }] },
+    })
+  })
+
+  it('GET /api/services/all returns services + categories for management', async () => {
     dbMocks.getServicesForAdmin.mockResolvedValue([{ id: 'svc1' }])
     dbMocks.getServiceCategoriesAll.mockResolvedValue([{ id: 'cat1' }])
 
@@ -199,27 +171,26 @@ describe('GET /api/services/all + categories', () => {
     expect(body.data).toEqual({ services: [{ id: 'svc1' }], categories: [{ id: 'cat1' }] })
   })
 
-  it('POST /api/service-categories creates a category (201)', async () => {
-    dbMocks.createServiceCategory.mockResolvedValue({ id: 'cat_new', name: 'Hair' })
-    const res = await catRoute.POST(
-      jsonReq('https://admin.theroyalglow.in/api/service-categories', 'POST', {
-        name: 'Hair',
-        serviceType: 'salon',
-      }),
+  it('GET /api/service-categories lists all categories', async () => {
+    dbMocks.getServiceCategoriesAll.mockResolvedValue([{ id: 'cat1', name: 'Hair' }])
+
+    const res = await catRoute.GET(
+      new Request('https://admin.theroyalglow.in/api/service-categories'),
     )
     const body = await res.json()
-    expect(res.status).toBe(201)
-    expect(body.data).toEqual({ category: { id: 'cat_new', name: 'Hair' } })
+
+    expect(res.status).toBe(200)
+    expect(body.data).toEqual({ categories: [{ id: 'cat1', name: 'Hair' }] })
   })
 
-  it('POST /api/service-categories rejects an invalid type', async () => {
-    const res = await catRoute.POST(
-      jsonReq('https://admin.theroyalglow.in/api/service-categories', 'POST', {
-        name: 'Hair',
-        serviceType: 'barber',
-      }),
+  it('GET /api/service-categories → 403 for a non-manager', async () => {
+    sessionMocks.requireRole.mockRejectedValue(forbidden())
+
+    const res = await catRoute.GET(
+      new Request('https://admin.theroyalglow.in/api/service-categories'),
     )
-    expect(res.status).toBe(400)
-    expect(dbMocks.createServiceCategory).not.toHaveBeenCalled()
+
+    expect(res.status).toBe(403)
+    expect(dbMocks.getServiceCategoriesAll).not.toHaveBeenCalled()
   })
 })

@@ -28,7 +28,6 @@
  * Notes        : Never imports from `payload` package directly
  ************************************************************/
 
-import { formatINR } from '@rgss/business'
 import { cmsFetch } from './config'
 import { resolveMedia } from './media'
 import { lexicalToHtml, lexicalToPlainText } from './richtext'
@@ -39,7 +38,6 @@ import type {
   CmsFaq,
   GalleryImage,
   Offer,
-  Service,
   ServiceCardItem,
   TeamMember,
   Testimonial,
@@ -396,38 +394,6 @@ function mapServiceCard(doc: unknown): ServiceCardItem | null {
     image: { ...image, alt: imageAlt },
     imageAlt,
     bookingHref: asString(doc.bookingHref) ?? '/?book=1',
-  }
-}
-
-function mapService(doc: unknown): Service | null {
-  if (!isRecord(doc)) {
-    return null
-  }
-  const name = asString(doc.name)
-  const type = asString(doc.type)
-  if (name === null || (type !== 'salon' && type !== 'spa')) {
-    return null
-  }
-  const image = resolveMedia(doc.image)
-  if (image === null) {
-    return null
-  }
-  const durationMinutes = asNumber(doc.durationMinutes, 0)
-  const pricePaise = asNumber(doc.pricePaise, -1)
-  if (durationMinutes <= 0 || pricePaise < 0) {
-    return null
-  }
-  const id = asId(doc.id)
-  return {
-    id: id !== '' ? id : name,
-    name,
-    type,
-    category: asString(doc.category),
-    image,
-    description: asString(doc.description) ?? '',
-    durationMinutes,
-    priceFormatted: formatINR(pricePaise),
-    bookingRef: asString(doc.bookingRef),
   }
 }
 
@@ -1017,22 +983,9 @@ export async function getServiceCards(): Promise<ServiceCardItem[]> {
   return cards
 }
 
-/**
- * Active catalogue services for /services, optionally filtered by type.
- * Empty when the CMS is unconfigured/unreachable/empty.
- */
-export async function getServices(type?: 'salon' | 'spa'): Promise<Service[]> {
-  const typeFilter = type !== undefined ? `&where[type][equals]=${encodeURIComponent(type)}` : ''
-  const response = await cmsFetch<unknown>(
-    `/api/service?where[active][equals]=true&depth=1&sort=order${typeFilter}`,
-    { tags: ['service'] },
-  )
-  const services: Service[] = []
-  for (const doc of extractDocs(response)) {
-    const service = mapService(doc)
-    if (service !== null) {
-      services.push(service)
-    }
-  }
-  return services
-}
+// NOTE: `getServices()` (and its `mapService` mapper) used to read the booking
+// catalogue out of the Payload `service` collection. It was dead code, and the
+// collection was repurposed for CMS-authored service management — the fields it
+// queried (`active`, `order`, `type`) no longer exist. The catalogue read path
+// is Drizzle `public.service` via `getCatalogueServices` in `@/lib/catalogue`.
+// The `Service` view-model type in `./types` is still used there.

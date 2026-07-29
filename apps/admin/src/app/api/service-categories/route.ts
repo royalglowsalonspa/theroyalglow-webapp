@@ -1,30 +1,33 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 21-06-2026 & Updated - 21-06-2026
+ * Date         : Created - 21-06-2026 & Updated - 22-06-2026
  *
  * Project      : theroyalglow-webapp (apps/admin)
- * Module Name  : GET|POST /api/service-categories
- * Scope        : API — Admin service category management
+ * Module Name  : GET /api/service-categories — POST retired (410 Gone)
+ * Scope        : API — Admin service category catalogue (read-only)
  *
- * Description  : Lists all service categories (active + inactive) and creates
- *                new ones. Manager+.
+ * Description  : GET lists all service categories (active + inactive) for
+ *                read-only admin views. POST is permanently retired: category
+ *                authoring moved to Payload CMS, which is now the single write
+ *                path into public.service_category.
  *
  * Tech Stack   : Next.js 16 (Route Handler)
  * Layer        : API (Thin Orchestrator)
  *
  * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/db/queries,
- *                @rgss/errors, @rgss/types
+ *                @rgss/errors
  *
- * Notes        : A category's serviceType (salon|spa) drives the slot-length
- *                rule for its services.
+ * Notes        : GET keeps its Manager+ gate. The retired POST returns 410 before
+ *                any auth or body parsing — no role check can make it succeed.
  ************************************************************/
 
-import { createServiceCategory, getServiceCategoriesAll } from '@rgss/db/queries'
-import { badRequest } from '@rgss/errors'
-import { serviceCategoryCreateSchema } from '@rgss/types'
-import { audit } from '@/lib/api/audit'
+import { getServiceCategoriesAll } from '@rgss/db/queries'
+import { gone } from '@rgss/errors'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
+
+// Payload CMS is the authoring surface for the service catalogue.
+const CMS_CATEGORIES_URL = 'https://cms.theroyalglow.in/admin/collections/service_category'
 
 export const GET = withErrorHandler(async () => {
   await requireRole('manager')
@@ -32,24 +35,10 @@ export const GET = withErrorHandler(async () => {
   return apiSuccess({ categories })
 })
 
-export const POST = withErrorHandler(async (req: Request) => {
-  const session = await requireRole('manager')
-
-  const body = await req.json().catch(() => null)
-  const parsed = serviceCategoryCreateSchema.safeParse(body)
-  if (!parsed.success) {
-    throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
-  }
-
-  const created = await createServiceCategory(parsed.data)
-  if (!created) {
-    throw new Error('Failed to create category.')
-  }
-  await audit(req, session, {
-    action: 'create',
-    entityType: 'service_category',
-    entityId: created.id,
-    newValues: parsed.data,
-  })
-  return apiSuccess({ category: created }, undefined, 201)
+// POST /api/service-categories — RETIRED. Categories are created in Payload CMS,
+// which syncs to public.service_category.
+export const POST = withErrorHandler(async () => {
+  throw gone(
+    `Service management moved to CMS. Create service categories in Payload CMS at ${CMS_CATEGORIES_URL}`,
+  )
 })

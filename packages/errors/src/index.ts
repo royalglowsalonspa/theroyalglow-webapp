@@ -28,6 +28,7 @@ export {
   badRequest,
   conflict,
   forbidden,
+  gone,
   notFound,
   serviceUnavailable,
 } from './app-error'
