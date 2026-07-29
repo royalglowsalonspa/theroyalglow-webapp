@@ -18,8 +18,8 @@
  * - Configure CORS/CSRF for web app domain
  *
  * Features / Functionality :
- * - 11 collections: Users, Media, Blog, Gallery, Team, Banner, Faq,
- *                   Testimonial, Offer, ServiceCard, Service
+ * - 12 collections: Users, Media, Blog, Gallery, Team, Banner, Faq,
+ *                   Testimonial, Offer, ServiceCard, ServiceCategory, Service
  * - S3 storage (R2) for media uploads
  * - TypeScript type generation
  *
@@ -49,6 +49,7 @@ import { Media } from './collections/Media'
 import { Offer } from './collections/Offer'
 import { Service } from './collections/Service'
 import { ServiceCard } from './collections/ServiceCard'
+import { ServiceCategory } from './collections/ServiceCategory'
 import { Team } from './collections/Team'
 import { Testimonial } from './collections/Testimonial'
 import { Users } from './collections/Users'
@@ -120,6 +121,11 @@ export default buildConfig({
     Testimonial,
     Offer,
     ServiceCard,
+    // ServiceCategory MUST precede Service: `Service.categoryId` targets
+    // `relationTo: 'service_category'`. Payload resolves relationships after
+    // sanitizing every collection, so order is not strictly required — but
+    // registering the target first makes the dependency obvious to readers.
+    ServiceCategory,
     Service,
   ],
   cors: [webAppUrl],

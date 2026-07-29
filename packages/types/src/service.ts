@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 21-06-2026 & Updated - 21-06-2026
+ * Date         : Created - 21-06-2026 & Updated - 30-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : service (types)
@@ -13,12 +13,15 @@
  * Responsibilities :
  * - Validate category create/update (salon|spa, name, order, active)
  * - Validate service create/update (duration, buffer, price paise, gems, active)
- * - Encode the slot-length rule: SPA services are fixed to 30 or 60 minutes
+ * - Own SERVICE_DURATION_MINUTES — the single source of truth for allowed
+ *   service durations (CMS select options, validation, seed data)
+ * - Encode the legacy slot-length rule: SPA services are fixed to 30 or 60 minutes
  *
  * Features / Functionality :
  * - serviceCategoryCreateSchema / serviceCategoryUpdateSchema
  * - serviceCreateSchema / serviceUpdateSchema
- * - SPA_DURATIONS + isValidDurationForType helper (used by the API guard)
+ * - SERVICE_DURATION_MINUTES + ServiceDurationMinutes (canonical duration set)
+ * - SPA_DURATIONS + isValidDurationForType helper (legacy admin API guard)
  *
  * Tech Stack   : TypeScript, Zod
  * Layer        : Shared Package
@@ -33,6 +36,24 @@ import { z } from 'zod'
 export const SERVICE_TYPES = ['salon', 'spa'] as const
 export type ServiceTypeValue = (typeof SERVICE_TYPES)[number]
 
+/**
+ * Canonical set of allowed service durations, in minutes. SINGLE SOURCE OF TRUTH.
+ *
+ * Supersedes `SPA_DURATIONS` / `isValidDurationForType()` for the CMS write path:
+ * a fixed option set makes the old SPA-vs-Salon conditional rule unnecessary by
+ * construction. Payload's `durationMinutes` select options are DERIVED from this
+ * array (mapped to `{ label, value }` pairs) and are NEVER hard-coded, so the CMS
+ * UI, validation, and seed data cannot drift apart.
+ *
+ * Values are data-driven, from an audit of the real 57-service catalogue
+ * (`packages/db/scripts/data/services-salon.ts` + `services-spa.ts`): 8 services
+ * are 45min, 3 are 120min, and 1 is 180min (keratin). A 15/30/60/90-only set
+ * would fail seed validation on all 12. `150` is headroom.
+ */
+export const SERVICE_DURATION_MINUTES = [15, 30, 45, 60, 90, 120, 150, 180] as const
+export type ServiceDurationMinutes = (typeof SERVICE_DURATION_MINUTES)[number]
+
+// LEGACY (admin API guard only — superseded by SERVICE_DURATION_MINUTES above).
 // SPA services use fixed slot lengths; Salon services are free-form (5-min steps).
 export const SPA_DURATIONS = [30, 60] as const
 
