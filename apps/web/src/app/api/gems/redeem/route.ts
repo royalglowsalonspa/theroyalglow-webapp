@@ -13,13 +13,21 @@
  * Responsibilities :
  * - Authenticate the caller and resolve their loyalty account from the session
  * - Validate the request body (Zod) and re-validate the service against live data
+ * - Short-circuit an idempotency replay BEFORE the affordability gate
  * - Enforce eligibility + affordability via the pure business gate
  * - Delegate the guarded, atomic, idempotent write to the data-access layer
  *
  * Features / Functionality :
  * - Server-side gemsRequired (client gems amount is never accepted/trusted)
  * - Slot validation reused from the booking flow (isBookableSlotStart)
- * - Idempotency replay returns the original booking (200, deducted once)
+ * - Idempotency replay returns the original booking (200, deducted once), even
+ *   once the remaining balance no longer covers the cost
+ *
+ * Ordering (load-bearing) :
+ *   requireSession → Zod → customer-scoped replay lookup → assertRedeemable
+ * The replay lookup sits after auth + validation so no unauthenticated or
+ * malformed request reaches the database, and before the balance gate so a retry
+ * of an already-successful redemption is never answered with 409.
  *
  * Tech Stack   : Next.js 16 (Route Handler)
  * Layer        : API (Thin Orchestrator)
@@ -39,6 +47,7 @@ import {
   isBookableSlotStart,
 } from '@rgss/business'
 import {
+  findBookingByRedemptionKey,
   getBranchById,
   getDefaultStaffForService,
   getLoyaltySummary,
@@ -50,6 +59,21 @@ import { badRequest, conflict, notFound } from '@rgss/errors'
 import { redeemGemsSchema } from '@rgss/types'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireSession } from '@/lib/api/session'
+
+// An idempotency replay returns the booking the first attempt created, with no
+// further deduction (200). One shape for both replay paths: the pre-gate lookup
+// and a `{ duplicate: true }` result from the guarded write.
+function duplicateResponse(bookingNumber: string) {
+  return apiSuccess(
+    {
+      bookingNumber,
+      reference: bookingNumber,
+      duplicate: true,
+    },
+    undefined,
+    200,
+  )
+}
 
 // POST /api/gems/redeem — spend gems to create a ₹0 booking for one redeemable
 // service. Strictly scoped to the authenticated customer; the charged amount is
@@ -64,6 +88,26 @@ export const POST = withErrorHandler(async (req: Request) => {
   }
 
   const { serviceId, branchId, bookingDate, startTime, idempotencyKey } = parsed.data
+
+  // Idempotency replay, resolved BEFORE the balance gate below (Req 6.1).
+  //
+  // A customer who spends their whole balance and then retries the same request
+  // (network blip, double tap, client retry) no longer satisfies
+  // `balance >= gemsRequired`, so `assertRedeemable` would reject the retry with
+  // 409 GEMS_INSUFFICIENT_BALANCE and the already-created booking would never be
+  // returned. The replay is a fact about a key we have already honoured, not a
+  // new spend, so it must not be gated on affordability at all.
+  //
+  // Deliberately placed AFTER `requireSession` and AFTER Zod validation — an
+  // unauthenticated or malformed request must never reach a DB lookup — and
+  // scoped to the authenticated customer, so a guessed key cannot resolve
+  // someone else's booking. It also runs ahead of the branch/service re-reads:
+  // a booking that already exists stays retrievable even if its service was
+  // deactivated afterwards.
+  const replayed = await findBookingByRedemptionKey(idempotencyKey, session.user.id)
+  if (replayed) {
+    return duplicateResponse(replayed.bookingNumber)
+  }
 
   // Resolve the loyalty account from the SESSION (never client ids). A brand-new
   // customer is created with a zero balance.
@@ -129,18 +173,10 @@ export const POST = withErrorHandler(async (req: Request) => {
     description: `Redeemed: ${service.name}`,
   })
 
-  // Idempotency replay: a retried submission with the same key returns the
-  // already-created booking with no further deduction (200).
+  // Still reachable when two concurrent FIRST attempts share a key: the pre-gate
+  // lookup above saw no booking, and the partial unique index rejected the loser.
   if ('duplicate' in result) {
-    return apiSuccess(
-      {
-        bookingNumber: result.bookingNumber,
-        reference: result.bookingNumber,
-        duplicate: true,
-      },
-      undefined,
-      200,
-    )
+    return duplicateResponse(result.bookingNumber)
   }
 
   return apiSuccess(

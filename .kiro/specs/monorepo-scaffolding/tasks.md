@@ -55,7 +55,7 @@ Scaffold the complete Royal Glow Salon & Spa monorepo foundation using Turborepo
     - Export TypeScript types `ApiSuccessResponse<T>` and `ApiErrorResponse` inferred from schemas
     - _Requirements: 10.2, 10.3_
 
-  - [ ] 3.3 Write property test for API response schemas
+  - [x] 3.3 Write property test for API response schemas
     - **Property 1: API Response Schema Validation Round-Trip**
     - **Validates: Requirements 10.2, 10.3**
     - Create `packages/types/src/__tests__/api.property.test.ts` using `vitest` + `fast-check`
@@ -71,7 +71,7 @@ Scaffold the complete Royal Glow Salon & Spa monorepo foundation using Turborepo
     - Each method outputs JSON with `level`, `message`, `service`, `environment`, `timestamp` (ISO 8601 UTC), optional `data`
     - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5, 15.5_
 
-  - [ ] 4.2 Write property test for structured logger
+  - [x] 4.2 Write property test for structured logger
     - **Property 5: Structured Logger JSON Output**
     - **Validates: Requirements 13.2, 13.3, 13.4**
     - Create `packages/logger/src/__tests__/logger.property.test.ts` using `vitest` + `fast-check`
@@ -95,7 +95,7 @@ Scaffold the complete Royal Glow Salon & Spa monorepo foundation using Turborepo
     - Export factory functions: `notFound()`, `forbidden()`, `badRequest()`, `conflict()`, `serviceUnavailable()`
     - _Requirements: 11.2, 11.4_
 
-  - [ ] 5.4 Write property test for AppError construction
+  - [x] 5.4 Write property test for AppError construction
     - **Property 2: AppError Construction Invariants**
     - **Validates: Requirements 11.2, 11.4**
     - Create `packages/errors/src/__tests__/app-error.property.test.ts` using `vitest` + `fast-check`
@@ -117,13 +117,13 @@ Scaffold the complete Royal Glow Salon & Spa monorepo foundation using Turborepo
     - Format Date objects as DD/MM/YYYY using `Intl.DateTimeFormat('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })`
     - _Requirements: 12.3_
 
-  - [ ] 6.4 Write property test for Indian currency formatting
+  - [x] 6.4 Write property test for Indian currency formatting
     - **Property 3: Indian Currency Formatting**
     - **Validates: Requirements 12.2, 12.5**
     - Create `packages/business/src/__tests__/currency.property.test.ts` using `vitest` + `fast-check`
     - Test that output starts with `₹`, has 2 decimal digits, represents correct value, uses Indian grouping
 
-  - [ ] 6.5 Write property test for Indian date formatting
+  - [x] 6.5 Write property test for Indian date formatting
     - **Property 4: Indian Date Formatting Round-Trip**
     - **Validates: Requirements 12.3**
     - Create `packages/business/src/__tests__/date.property.test.ts` using `vitest` + `fast-check`
@@ -214,6 +214,7 @@ Scaffold the complete Royal Glow Salon & Spa monorepo foundation using Turborepo
 - The dependency order ensures no package references an unbuilt dependency: types/logger (leaves) → errors → business → db → web
 - All packages use `"type": "module"` and TypeScript strict mode
 - Vitest + fast-check are added as devDependencies in packages that have property tests
+- `logger` and `errors` vitest projects were added to the root `vitest.config.ts` while completing tasks 4.2 and 5.4 — neither package was covered by any existing include glob, so those two property suites would otherwise have silently never run
 
 ## Task Dependency Graph
 

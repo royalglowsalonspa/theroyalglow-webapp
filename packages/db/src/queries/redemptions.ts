@@ -13,16 +13,21 @@
  * Responsibilities :
  * - Re-read a single service joined to its category for execution-time
  *   re-validation (serviceType, gem fields, isActive)
+ * - Resolve a known redemption_key to its existing booking BEFORE the guarded
+ *   write, so an idempotency replay is never gated behind the balance guard
  * - Execute the single guarded data-modifying CTE that deducts gems and creates
  *   the booking + booking_service + redeemed loyalty_transaction atomically
  * - Treat a 0-row guard result as insufficient balance (nothing persisted)
  * - Resolve a duplicate redemption_key (idempotency replay) to the existing booking
+ * - Expose that customer-scoped replay lookup (`findBookingByRedemptionKey`) so
+ *   the route can short-circuit a retry BEFORE its own balance gate
  *
  * Features / Functionality :
  * - Single CTE statement = single implicit transaction (all-or-nothing)
  * - Guarded UPDATE … WHERE gems_balance >= req gates every downstream INSERT
  * - Race-safe / double-spend-safe via the row-level lock on the balance UPDATE
- * - Idempotent via the booking_redemption_key_uidx partial unique index
+ * - Idempotent via a pre-write redemption_key lookup, with the
+ *   booking_redemption_key_uidx partial unique index as the ultimate arbiter
  *
  * Tech Stack   : TypeScript, Drizzle ORM, Neon PostgreSQL
  * Layer        : Data Access
@@ -37,7 +42,7 @@
  ************************************************************/
 
 import { AppError, ERROR_CODES } from '@rgss/errors'
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { db } from '../index'
 import { booking } from '../schema/booking'
@@ -111,9 +116,37 @@ export type RedeemServiceWithGemsResult =
 //
 // 0 rows           → throw GEMS_INSUFFICIENT_BALANCE (nothing persisted).
 // unique violation → idempotency replay: return the already-created booking.
+//
+// Idempotency is resolved in TWO places, deliberately:
+//
+//   1. A pre-write lookup of the redemption_key (below). The balance guard must
+//      NOT gate the replay path: a customer who spends their whole balance and
+//      then retries (network blip, double tap) has a balance that no longer
+//      satisfies `gems_balance >= required`, so the guard would match zero rows,
+//      no booking INSERT would run, the unique index would never be violated,
+//      and the retry would be reported as GEMS_INSUFFICIENT_BALANCE instead of
+//      returning the booking the first attempt created.
+//   2. The `booking_redemption_key_uidx` partial unique index, still the ultimate
+//      arbiter for two concurrent FIRST attempts on the same key.
+//
+// The lookup is a read-only fast path, never an authorisation for a mutation, so
+// it introduces no TOCTOU window: if it is stale it can only fail to see a
+// concurrently-committing booking, and that case falls through to the guarded
+// write where the unique index rejects the loser and rolls its deduction back.
 export async function redeemServiceWithGems(
   input: RedeemServiceWithGemsInput,
 ): Promise<RedeemServiceWithGemsResult> {
+  // Step 1 — a key we have already honoured resolves straight to its booking,
+  // independently of the current balance. Scoped to the owning customer.
+  const replayed = await findBookingByRedemptionKey(input.idempotencyKey, input.customerId)
+  if (replayed) {
+    return {
+      duplicate: true,
+      bookingId: replayed.id,
+      bookingNumber: replayed.bookingNumber,
+    }
+  }
+
   // Pre-generate all ids so child rows can reference them within the one statement.
   const bookingId = nanoid()
   const bookingServiceId = nanoid()
@@ -181,12 +214,7 @@ export async function redeemServiceWithGems(
     // the partial unique index. The whole statement rolls back (no second
     // deduction); resolve to the booking the first attempt created.
     if (isRedemptionKeyConflict(error)) {
-      const existing = await db
-        .select({ id: booking.id, bookingNumber: booking.bookingNumber })
-        .from(booking)
-        .where(eq(booking.redemptionKey, input.idempotencyKey))
-        .limit(1)
-      const found = existing[0]
+      const found = await findBookingByRedemptionKey(input.idempotencyKey, input.customerId)
       if (found) {
         return { duplicate: true, bookingId: found.id, bookingNumber: found.bookingNumber }
       }
@@ -213,21 +241,78 @@ export async function redeemServiceWithGems(
   }
 }
 
+// Resolve a redemption_key to the booking a previous attempt persisted, for the
+// customer who OWNS it. Three call sites: the pre-write replay fast path, the
+// answer to a unique-index conflict, and the route's pre-balance-gate replay
+// short-circuit (so a retry is never reported as insufficient balance).
+//
+// `customerId` is NOT optional and is NOT a convenience filter — it is the
+// ownership check. The idempotency key is client-supplied, so an unscoped lookup
+// would let customer A resolve customer B's booking by guessing a key. Scoping
+// the SQL means a key that belongs to someone else simply does not resolve:
+// the pre-write path falls through to the guarded write (where the partial unique
+// index still rejects the collision) and the conflict path re-raises rather than
+// disclosing another customer's booking number.
+export async function findBookingByRedemptionKey(
+  redemptionKey: string,
+  customerId: string,
+): Promise<{ id: string; bookingNumber: string } | null> {
+  const rows = await db
+    .select({ id: booking.id, bookingNumber: booking.bookingNumber })
+    .from(booking)
+    .where(and(eq(booking.redemptionKey, redemptionKey), eq(booking.customerId, customerId)))
+    .limit(1)
+
+  return rows[0] ?? null
+}
+
+/** Postgres SQLSTATE for a unique-constraint violation. */
+const UNIQUE_VIOLATION = '23505'
+/** The partial unique index that enforces redemption idempotency. */
+const REDEMPTION_KEY_CONSTRAINT = 'booking_redemption_key_uidx'
+/** How far down the `cause` chain to look. Bounded so a cycle cannot hang us. */
+const MAX_CAUSE_DEPTH = 5
+
+type DriverErrorLike = {
+  code?: unknown
+  constraint?: unknown
+  message?: unknown
+  cause?: unknown
+}
+
 // Narrow an unknown driver error to a unique-constraint violation (Postgres
-// SQLSTATE 23505) on the redemption_key partial unique index. Neon surfaces the
-// SQLSTATE on `.code` and (when available) the constraint name on `.constraint`;
-// fall back to a message match so the replay path never leaks a 500.
+// SQLSTATE 23505) on the redemption_key partial unique index.
+//
+// Drizzle 0.45.2 does not hand the driver error back directly: it wraps it in a
+// `DrizzleQueryError` whose `message` is the attempted SQL and whose `.code` is
+// undefined. The Postgres error carrying SQLSTATE 23505 and the constraint name
+// sits on `.cause` (and may itself be nested), so the chain has to be walked —
+// checking only the outermost error made this predicate always return false and
+// turned every legitimate replay into a 500.
+//
+// Precision matters more than tolerance here: a DIFFERENT unique violation must
+// still surface as an error rather than be misreported as a duplicate. So a link
+// only counts once its SQLSTATE is 23505, and the constraint name must then match
+// — via `.constraint` when the driver provides it, else via the message match
+// this predicate has always used as a fallback.
 function isRedemptionKeyConflict(error: unknown): boolean {
-  if (typeof error !== 'object' || error === null) {
-    return false
+  let current: unknown = error
+
+  for (let depth = 0; depth < MAX_CAUSE_DEPTH; depth += 1) {
+    if (typeof current !== 'object' || current === null) {
+      return false
+    }
+
+    const e = current as DriverErrorLike
+    if (e.code === UNIQUE_VIOLATION) {
+      if (typeof e.constraint === 'string') {
+        return e.constraint === REDEMPTION_KEY_CONSTRAINT
+      }
+      return typeof e.message === 'string' && e.message.includes(REDEMPTION_KEY_CONSTRAINT)
+    }
+
+    current = e.cause
   }
-  const e = error as { code?: unknown; constraint?: unknown; message?: unknown }
-  if (e.code !== '23505') {
-    return false
-  }
-  const target = 'booking_redemption_key_uidx'
-  if (typeof e.constraint === 'string') {
-    return e.constraint === target
-  }
-  return typeof e.message === 'string' && e.message.includes(target)
+
+  return false
 }

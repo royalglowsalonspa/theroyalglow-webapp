@@ -57,7 +57,7 @@ and each carries the comment tag
   - [x]* 2.5 Write property test for token contrast
     - **Property 1: Token contrast meets WCAG AA**
     - **Validates: Requirements 1.1, 3.6**
-  - [ ]* 2.6 Write unit tests for theme toggle behavior
+  - [x]* 2.6 Write unit tests for theme toggle behavior
     - Light/dark/system selection, `localStorage` persistence, `prefers-color-scheme` default when unset
     - _Requirements: 3.1, 3.2, 3.3, 3.4_
 
@@ -175,13 +175,13 @@ and each carries the comment tag
   - [x] 7.4 Create `docs/components/feedback.tsx`
     - "Was this page helpful? Good / Bad"; on submit shows an inline acknowledgement and does not navigate away; submission is fire-and-forget so failure never blocks the acknowledgement
     - _Requirements: 14.5, 14.6, 14.7_
-  - [ ]* 7.5 Write unit tests for the version switcher
+  - [x]* 7.5 Write unit tests for the version switcher
     - Selected-state marking and accessible label
     - _Requirements: 7.1, 7.5_
-  - [ ]* 7.6 Write unit tests for the feedback control
+  - [x]* 7.6 Write unit tests for the feedback control
     - Acknowledgement appears without navigation; failure still acknowledges
     - _Requirements: 14.6_
-  - [ ]* 7.7 Write unit tests for Copy-Markdown affordance
+  - [x]* 7.7 Write unit tests for Copy-Markdown affordance
     - Copy success confirmation and failure indication; code content unchanged on failure
     - _Requirements: 14.3, 2.6, 2.7_
 
@@ -212,7 +212,7 @@ and each carries the comment tag
   - [x] 9.4 Create `docs/app/not-found.tsx`
     - Themed (Design_Tokens), version-aware via `classifyNotFoundContext`; link to `/docs`; exposes the search control; distinguishes "version not found" vs "page not found in v{N}"; returns HTTP 404; AA conformant
     - _Requirements: 15.1, 15.2, 15.3, 15.4, 15.5_
-  - [ ]* 9.5 Write unit tests for the not-found page
+  - [x]* 9.5 Write unit tests for the not-found page
     - Renders themed content, latest-docs link, and search control
     - _Requirements: 15.1, 15.2, 15.3_
   - [x]* 9.6 Write a search scope/latency smoke test
@@ -227,24 +227,24 @@ and each carries the comment tag
 - [x] 11. Checkpoint - Ensure all tests pass
   - Run `bun run typecheck`, `bun run lint`, `bun run build`, and `bun run test:run` in `docs/`. Ask the user if questions arise.
 
-- [ ] 12. Verification gates (integration, accessibility, performance)
-  - [ ]* 12.1 Write the build-with-multiple-versions integration test
+- [x] 12. Verification gates (integration, accessibility, performance)
+  - [x]* 12.1 Write the build-with-multiple-versions integration test
     - Build with `content/docs` + `content/docs-v2` present; assert success and navigable output for both versions
     - _Requirements: 10.5_
-  - [ ]* 12.2 Write the URL-preservation crawl test
+  - [x]* 12.2 Write the URL-preservation crawl test
     - Crawl the pre-restyle `/docs/*` path list; assert each returns HTTP 200 with no redirect
     - _Requirements: 4.2_
-  - [ ]* 12.3 Write the self-hosted-fonts test
+  - [x]* 12.3 Write the self-hosted-fonts test
     - Assert no third-party font-origin requests on first load
     - _Requirements: 1.4_
-  - [ ]* 12.4 Write axe automated accessibility tests
+  - [x]* 12.4 Write axe automated accessibility tests
     - Zero violations on the landing page and one content page per top-level section, in light and dark
     - _Requirements: 4.6_
-  - [ ]* 12.5 Wire Lighthouse CI for the docs site
+  - [x]* 12.5 Wire Lighthouse CI for the docs site
     - Reuse `.github/lighthouse/lighthouserc.json`; assert Accessibility = 100, SEO = 100, Performance ≥ 95 on the landing page and one page per section
     - _Requirements: 4.4, 4.5_
 
-- [ ] 13. Final checkpoint - Ensure all tests and gates pass
+- [x] 13. Final checkpoint - Ensure all tests and gates pass
   - Ensure all unit, property, integration, and a11y/perf checks pass. Ask the user if questions arise.
 
 ## Notes

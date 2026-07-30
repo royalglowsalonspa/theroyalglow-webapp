@@ -40,6 +40,20 @@ export default defineConfig({
       },
       {
         test: {
+          name: 'logger',
+          environment: 'node',
+          include: ['packages/logger/**/*.test.ts'],
+        },
+      },
+      {
+        test: {
+          name: 'errors',
+          environment: 'node',
+          include: ['packages/errors/**/*.test.ts'],
+        },
+      },
+      {
+        test: {
           name: 'db',
           environment: 'node',
           include: ['packages/db/**/*.test.ts'],

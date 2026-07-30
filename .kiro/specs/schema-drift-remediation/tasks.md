@@ -32,7 +32,7 @@ Conventions enforced throughout (per steering and design): the audit phase is st
     - `readTables`, `readColumns` (type, nullability, default), `readPrimaryKeys`, `readUniques`, `readForeignKeys` (incl. `confdeltype`/`confupdtype`), `readIndexes` (incl. partial predicate, uniqueness, method), `readEnums` (type + ordered labels), using the exact query shapes from the design scoped to `table_schema = 'public'` / `n.nspname = 'public'`
     - Issue only `SELECT` statements and return plain rows without normalization
     - _Requirements: 2.1, 2.3, 2.4, 14.1_
-  - [ ]* 2.2 Write unit/snapshot tests for the catalog queries
+  - [x]* 2.2 Write unit/snapshot tests for the catalog queries
     - Snapshot the query strings; assert every query is `SELECT`-only and `public`-scoped (no write keywords)
     - _Requirements: 2.1, 14.1_
 
@@ -41,11 +41,11 @@ Conventions enforced throughout (per steering and design): the audit phase is st
     - `build(rows)` normalizes type spelling (`int4`→`integer`, canonical `timestamptz`), default expressions, and nullability; sorts tables/columns/constraints/index-members by name while preserving ordinal order for PK columns, FK column↔refColumn pairings, and enum labels; excludes constraint names, OIDs, comment timestamps, and retired `pg_cron` rows
     - `serialize` produces stable canonical JSON; `hash` returns the `sha256` of `serialize`
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
-  - [ ]* 3.2 Write property test for fingerprint determinism / order-independence
+  - [x]* 3.2 Write property test for fingerprint determinism / order-independence
     - **Property 1: Fingerprint determinism / order-independence**
     - **Validates: Requirements 3.1, 13.1**
     - Generate random catalog row-sets, emit them in random permutations, assert `serialize(build(R)) === serialize(build(π(R)))`; ≥100 runs, tag `// Feature: schema-drift-remediation, Property 1: Fingerprint determinism / order-independence`
-  - [ ]* 3.3 Write property test for fingerprint equality soundness
+  - [x]* 3.3 Write property test for fingerprint equality soundness
     - **Property 2: Fingerprint equality soundness**
     - **Validates: Requirements 3.5, 13.2**
     - Generate schema models; assert `hash(build(A)) === hash(build(B))` iff `A` and `B` are structurally identical (tables/columns/types/nullability/defaults/PKs/uniques/FKs+on-delete/indexes+predicates/enums); ≥100 runs, tag `// Feature: schema-drift-remediation, Property 2: Fingerprint equality soundness`
@@ -54,7 +54,7 @@ Conventions enforced throughout (per steering and design): the audit phase is st
   - [x] 4.1 Implement `diff` and `equal`
     - Classify each object as `missing_on_branch`, `extra_on_branch`, or `divergent`; account for every object in either fingerprint in exactly one `DiffEntry`; set `isIdentical = objects.length === 0`; `equal` returns hash equality
     - _Requirements: 4.1, 4.2, 4.3, 4.4_
-  - [ ]* 4.2 Write property test for diff totality and symmetry
+  - [x]* 4.2 Write property test for diff totality and symmetry
     - **Property 3: Diff totality & symmetry**
     - **Validates: Requirements 4.2, 4.4, 13.3**
     - Generate fingerprint pairs; assert every object appears in exactly one `DiffEntry` and `diff(c,b).isIdentical ⟺ equal(c,b) ⟺ diff(b,c).isIdentical`; ≥100 runs, tag `// Feature: schema-drift-remediation, Property 3: Diff totality & symmetry`
@@ -66,11 +66,11 @@ Conventions enforced throughout (per steering and design): the audit phase is st
   - [x] 5.2 Implement the `evaluate(check, reader)` probe runner
     - Run the read-only `probeSql`, return `PreCheckResult` with `passed`, `violationCount`, and a bounded `sample` of violating rows; `passed === true` means the additive constraint is safe to apply, and a constraint that would fail is reported as not passed; never auto-mutate branch data
     - _Requirements: 5.4, 5.6, 5.7_
-  - [ ]* 5.3 Write property test for pre-check soundness
+  - [x]* 5.3 Write property test for pre-check soundness
     - **Property 4: Pre-check soundness**
     - **Validates: Requirements 5.7, 13.4**
     - Generate small datasets with and without violations; assert a violation is reported iff one exists, with no false negatives (never green-lights a constraint that would fail); ≥100 runs, tag `// Feature: schema-drift-remediation, Property 4: Pre-check soundness`
-  - [ ]* 5.4 Write unit tests for blocked-step handling
+  - [x]* 5.4 Write unit tests for blocked-step handling
     - Assert a violating check causes the bound step to be skipped, marked blocked, and recorded, while independent steps continue; assert no data-mutation SQL is emitted
     - _Requirements: 5.5, 5.6_
 
@@ -78,11 +78,11 @@ Conventions enforced throughout (per steering and design): the audit phase is st
   - [x] 6.1 Implement `plan(diff)` producing ordered idempotent `ReconcileStep[]`
     - Emit guarded DDL (`ADD CONSTRAINT` / `CREATE [UNIQUE] INDEX IF NOT EXISTS` / `ALTER ...` / `CREATE TYPE`) with `IF NOT EXISTS` or catalog existence probes so applying the plan twice equals once; order steps enums → columns → PK/unique → indexes → FKs via `step.order`; bind each step to its `DataPreCheck`; never emit `drizzle-kit push`; model PK-column constraint redefinition as drop-then-add gated by a pre-check and flagged as operator-confirmed (never auto-applied)
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6_
-  - [ ]* 6.2 Write property test for reconciliation idempotence
+  - [x]* 6.2 Write property test for reconciliation idempotence
     - **Property 5: Reconciliation idempotence**
     - **Validates: Requirements 6.1, 13.5**
     - Generate diffs; under a modeled `apply`, assert `apply(apply(B, P), P)` has the same fingerprint as `apply(B, P)`; ≥100 runs, tag `// Feature: schema-drift-remediation, Property 5: Reconciliation idempotence`
-  - [ ]* 6.3 Write property test for ordering safety
+  - [x]* 6.3 Write property test for ordering safety
     - **Property 7: Ordering safety**
     - **Validates: Requirements 6.3, 13.6**
     - Generate plans; assert applying in `step.order` never references an object before it exists (enums → columns → pk/unique → indexes → fks); ≥100 runs, tag `// Feature: schema-drift-remediation, Property 7: Ordering safety`
@@ -101,7 +101,7 @@ Conventions enforced throughout (per steering and design): the audit phase is st
   - [x] 9.1 Implement markdown/json rendering of diffs and conformance
     - Render `DiffEntry` lists and `DataPreCheck` violations (counts + samples); state explicitly that `test` and `pprd` data is discarded by `reset_from_parent` as a ratified tradeoff for guaranteed schema identity; render post-rollout per-branch divergence
     - _Requirements: 5.5, 8.6, 9.3, 11.2_
-  - [ ]* 9.2 Write unit test for deterministic report rendering
+  - [x]* 9.2 Write unit test for deterministic report rendering
     - Assert fixed inputs produce stable markdown/json output, including the ratified data-loss note
     - _Requirements: 9.3_
 
@@ -120,6 +120,16 @@ Conventions enforced throughout (per steering and design): the audit phase is st
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 12. Integration verification on a Neon fork
+  - **BLOCKED — pending owner sign-off + Neon API credentials. NOT STARTED. MUST NOT be run by an
+    autonomous agent.** All of 12.1–12.3 require forking the live PRODUCTION Neon branch via
+    `neon-admin.ts` with a real `NEON_API_KEY`, and 12.1/12.3 additionally apply real DDL and seed
+    deliberate constraint violations on that fork. The tasks are correct by design; they are
+    shared-infrastructure work that needs the owner's explicit sign-off and credentials before
+    anyone executes them.
+  - **Fixture constraint when they are eventually written:** no fixture may reintroduce pg_cron or
+    `cron.schedule` objects. pg_cron is RETIRED (replaced by QStash scheduled HTTP jobs) and
+    `fingerprint.ts` already excludes retired pg_cron rows, so such a fixture would be both
+    off-canonical and invisible to the fingerprint.
   - [ ]* 12.1 Write convergence integration test
     - **Property 6: Convergence to canonical**
     - **Validates: Requirements 8.5, 13.7**
@@ -161,6 +171,8 @@ Conventions enforced throughout (per steering and design): the audit phase is st
 - Properties 6 and 8 are verified by integration assertions on a disposable Neon fork (task 12), not by PBT.
 - The audit phase is strictly read-only; all DDL uses the unpooled `DATABASE_URL_UNPOOLED` string; reconciliation abandons `drizzle-kit push` for guarded idempotent ordered DDL.
 - Live Neon branch operations (fork/reset/reactivate/restore) run through the Neon Kiro power; no destructive SQL is executed autonomously.
+- Test support: `packages/db/scripts/drift/__tests__/drift-arbitraries.ts` is a shared `fast-check` generator module (catalog rows, fingerprints, diffs) used by the Property 1–5 and 7 suites. It is test scaffolding, not a task deliverable.
+- **FINDING (not covered by any task — needs a decision): `runner.ts` does not gate DDL on pre-check results.** Requirement 5.5 ("skip that step's DDL, mark the step blocked, continue with independent steps") is enforced by `precheck.ts` at the planning layer but NOT at the orchestration layer: `verifyOnFork` applies EVERY step's DDL first and only then evaluates the bound pre-checks, so a step whose pre-check would fail has already been applied by the time it is evaluated. The apply loop also has no per-step `try`/`catch`, so a single DDL failure aborts the whole loop instead of blocking one step and continuing with independent ones. `rollout` behaves the same way. No task is added for this — it needs an explicit decision on whether Req 5.5 is an orchestration-layer contract.
 
 ## Task Dependency Graph
 
