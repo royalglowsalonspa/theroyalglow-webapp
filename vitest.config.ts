@@ -46,6 +46,17 @@ export default defineConfig({
         },
       },
       {
+        test: {
+          name: 'cms',
+          environment: 'node',
+          // Payload collections/hooks are server-side only — no jsdom, no React
+          // plugin. `.next` is excluded explicitly because the Vitest defaults
+          // do not cover it and the CMS build output contains vendored tests.
+          include: ['apps/cms/**/*.test.ts'],
+          exclude: ['**/node_modules/**', '**/dist/**', '**/.next/**'],
+        },
+      },
+      {
         plugins: [react()],
         resolve: {
           alias: {

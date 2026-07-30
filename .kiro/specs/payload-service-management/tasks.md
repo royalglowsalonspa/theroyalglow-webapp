@@ -182,7 +182,7 @@ Migrate service/category management from admin portal to Payload CMS. Establish 
     - Verify versions in `apps/cms/package.json`
     - _Requirements: 1.7, 2.7_
   
-  - [ ]* 3.3 Write unit tests for sync hooks
+  - [x]* 3.3 Write unit tests for sync hooks
     - Create `apps/cms/src/hooks/__tests__/sync-service.test.ts` (Vitest)
     - Mock `txDb`/the transaction handle from `../lib/sync-db`
     - Test: insert called on create with correct data
@@ -369,7 +369,7 @@ Migrate service/category management from admin portal to Payload CMS. Establish 
     - Register the heartbeat with BetterStack like the other jobs
     - _Requirements: 17.1, 17.2, 17.3, 17.4, 17.5, 17.6_
   
-  - [ ]* 13.2 Write a test for the reconciliation comparison logic
+  - [x]* 13.2 Write a test for the reconciliation comparison logic
     - Seed a deliberate mismatch (extra/stale row), assert the job flags it
     - Assert a matching state reports no divergence
     - _Requirements: 17.2, 17.3_
