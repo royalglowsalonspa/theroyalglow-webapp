@@ -11,6 +11,7 @@
  *
  * Responsibilities :
  * - Validate user session (redirect to / if absent)
+ * - Bounce users who already have a customer_profile back to / (see Notes)
  * - Pass user name/email to OnboardingForm
  *
  * Features / Functionality :
@@ -21,15 +22,17 @@
  * Tech Stack   : Next.js 16 (App Router), Better Auth (server)
  * Layer        : Presentation (Page)
  *
- * Dependencies : @/lib/auth-server, next/headers, next/navigation
+ * Dependencies : @/lib/onboarding-guard
  *
  * Notes        :
  * - First sign-in redirects here to collect phone, DOB, gender, consents
+ * - `requireOnboardingPending` keeps this page reachable ONLY for users without a
+ *   `customer_profile`, so the form cannot be re-submitted (the API's 409
+ *   PROFILE_EXISTS becomes unreachable through the UI) and so the protected-page
+ *   gate that redirects HERE can never loop — see @/lib/onboarding-guard.
  ************************************************************/
 
-import { headers } from 'next/headers'
-import { redirect } from 'next/navigation'
-import { auth } from '@/lib/auth-server'
+import { requireOnboardingPending } from '@/lib/onboarding-guard'
 import { OnboardingForm } from './onboarding-form'
 
 export const metadata = {
@@ -38,13 +41,8 @@ export const metadata = {
 }
 
 export default async function OnboardingPage() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  })
-
-  if (!session) {
-    redirect('/')
-  }
+  // Authenticated AND not yet onboarded, or this returns a redirect instead.
+  const session = await requireOnboardingPending()
 
   return <OnboardingForm userName={session.user.name} userEmail={session.user.email} />
 }

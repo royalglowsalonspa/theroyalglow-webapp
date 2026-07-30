@@ -45,7 +45,7 @@
  *   APP_ENV=dev bun run scripts/seed.ts --reset
  */
 
-import { parseArgs } from 'util'
+import { parseArgs } from 'node:util'
 
 const env = (process.env.APP_ENV || 'dev') as 'dev' | 'test' | 'prod' | 'pprd'
 

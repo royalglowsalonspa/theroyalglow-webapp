@@ -262,6 +262,7 @@
         "@rgss/types": "workspace:*",
       },
       "devDependencies": {
+        "fast-check": "^4.9.0",
         "typescript": "^5.9.3",
       },
     },
@@ -269,6 +270,7 @@
       "name": "@rgss/logger",
       "version": "0.0.0",
       "devDependencies": {
+        "fast-check": "^4.9.0",
         "typescript": "^5.9.3",
       },
     },
@@ -277,6 +279,9 @@
       "version": "0.0.0",
       "dependencies": {
         "zod": "^4.4.3",
+      },
+      "devDependencies": {
+        "fast-check": "^4.9.0",
       },
     },
     "packages/ui": {

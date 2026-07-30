@@ -215,6 +215,21 @@ export async function getCustomerProfile(userId: string) {
   return { ...found, tags }
 }
 
+// Existence probe for a user's customer_profile — the "has this user completed
+// onboarding?" question. Deliberately selects a single constant column with
+// LIMIT 1 (no joins, no row payload) because the only consumers are routing
+// gates that run on every authenticated page render and need the cheapest
+// possible round-trip. Use `getCustomerProfile` when the profile DATA is needed.
+export async function hasCustomerProfile(userId: string): Promise<boolean> {
+  const rows = await db
+    .select({ one: sql<number>`1` })
+    .from(customerProfile)
+    .where(eq(customerProfile.userId, userId))
+    .limit(1)
+
+  return rows.length > 0
+}
+
 // Owner/manager overrides on a customer_profile (e.g. resetting the no-show
 // count or toggling the booking-approval gate). Only the supplied keys are
 // written; `updatedAt` is bumped automatically by the schema. Returns the
