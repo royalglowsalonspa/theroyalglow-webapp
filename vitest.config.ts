@@ -54,6 +54,14 @@ export default defineConfig({
           // do not cover it and the CMS build output contains vendored tests.
           include: ['apps/cms/**/*.test.ts'],
           exclude: ['**/node_modules/**', '**/dist/**', '**/.next/**'],
+          // Run CMS test FILES one at a time. Two of them
+          // (`sync-atomicity.test.ts`, `scripts/__tests__/seed-services.test.ts`)
+          // are integration suites that boot Payload against the SAME database,
+          // so running them concurrently would let one suite's throwaway rows
+          // appear inside the other's assertions, and would double the pooled
+          // Neon connections for no gain. The remaining CMS files are fast
+          // pure-logic tests, so serialising costs very little.
+          fileParallelism: false,
         },
       },
       {

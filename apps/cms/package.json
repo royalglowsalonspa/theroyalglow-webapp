@@ -11,7 +11,9 @@
     "generate:types": "payload generate:types",
     "migrate:create": "node scripts/create-migration.mjs",
     "migrate": "payload migrate",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test",
+    "test:e2e:list": "playwright test --list"
   },
   "dependencies": {
     "@payloadcms/db-postgres": "^3.86.0",
@@ -34,6 +36,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
+    "fast-check": "^4.9.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "typescript": "^5.9.3"

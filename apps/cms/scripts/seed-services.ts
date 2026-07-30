@@ -44,94 +44,18 @@
  * - Reads use `@rgss/db`'s neon-http client (a separate read-only connection).
  *   That is safe here: the seed is one-off and non-transactional, and Payload
  *   owns every write.
+ * - The two pre-flight guards (`assertSyncDisabled`, `assertSeedable`) live in
+ *   `./lib/seed-validation` so they can be asserted WITHOUT a database. They are
+ *   pure and their messages are unchanged by that extraction.
  ************************************************************/
 import config from '@payload-config'
 import { db as drizzleDb } from '@rgss/db'
 import { service, serviceCategory } from '@rgss/db/schema'
-import { SERVICE_DURATION_MINUTES } from '@rgss/types'
 import { getPayload } from 'payload'
-import { isSyncEnabled } from '../src/lib/sync-db'
-
-/**
- * The `durationMinutes` values Payload's `select` field accepts — derived from
- * the shared constant, never restated, so this can never drift from the
- * collection options or the Drizzle data.
- */
-type DurationOption = `${(typeof SERVICE_DURATION_MINUTES)[number]}`
-
-const ALLOWED_DURATIONS: ReadonlySet<number> = new Set(SERVICE_DURATION_MINUTES)
-
-/**
- * Fail-loud pre-flight validation of the live `public.*` rows.
- *
- * Every problem is collected and reported together rather than throwing on the
- * first one, because a half-seeded catalogue is far more annoying to unpick
- * than a single fix-then-rerun cycle. Nothing is written until this passes.
- */
-function assertSeedable(
-  categories: (typeof serviceCategory.$inferSelect)[],
-  services: (typeof service.$inferSelect)[],
-): void {
-  const problems: string[] = []
-  const categoryIds = new Set(categories.map((cat) => cat.id))
-
-  for (const svc of services) {
-    // Durations outside SERVICE_DURATION_MINUTES cannot be represented by the
-    // Payload `select` field. Coercing them silently would either corrupt the
-    // booking duration or fail opaquely mid-seed, so they are surfaced here.
-    if (!ALLOWED_DURATIONS.has(svc.durationMinutes)) {
-      problems.push(
-        `service ${svc.id} (${svc.slug}): durationMinutes=${svc.durationMinutes} is not in SERVICE_DURATION_MINUTES [${SERVICE_DURATION_MINUTES.join(', ')}]`,
-      )
-    }
-
-    // Mirrors the collection's `validateGems` beforeValidate hook, which would
-    // otherwise reject this row part-way through the run.
-    if (svc.gemsRedeemable && !(typeof svc.gemsRequired === 'number' && svc.gemsRequired > 0)) {
-      problems.push(
-        `service ${svc.id} (${svc.slug}): gemsRedeemable is true but gemsRequired=${svc.gemsRequired}`,
-      )
-    }
-
-    // The Payload relationship field resolves against `cms.service_category`,
-    // which this script populates from `public.service_category` — so an
-    // orphaned FK in `public` would fail the create.
-    if (!categoryIds.has(svc.categoryId)) {
-      problems.push(
-        `service ${svc.id} (${svc.slug}): categoryId=${svc.categoryId} has no row in public.service_category`,
-      )
-    }
-  }
-
-  if (problems.length > 0) {
-    throw new Error(
-      [
-        `Refusing to seed: ${problems.length} row(s) in the live catalogue cannot be represented in the CMS.`,
-        ...problems.map((problem) => `  - ${problem}`),
-        '',
-        'Fix the offending rows in public.* (or extend SERVICE_DURATION_MINUTES in',
-        'packages/types/src/service.ts, which needs a Payload migration) and re-run.',
-      ].join('\n'),
-    )
-  }
-}
+import { assertSeedable, assertSyncDisabled, type DurationOption } from './lib/seed-validation'
 
 const main = async (): Promise<void> => {
-  if (isSyncEnabled()) {
-    throw new Error(
-      [
-        'Refusing to seed with the service sync ENABLED.',
-        '',
-        'This script reads rows FROM public.service and then calls payload.create(),',
-        'which fires syncServiceToPublic and re-writes public.service with the same id.',
-        '',
-        'Re-run with the flag off:',
-        "  PowerShell : $env:SERVICE_SYNC_ENABLED='false'",
-        '  bash       : SERVICE_SYNC_ENABLED=false \\',
-        '  then       : bun run --env-file=.env.local scripts/seed-services.ts',
-      ].join('\n'),
-    )
-  }
+  assertSyncDisabled()
 
   const payload = await getPayload({ config })
 

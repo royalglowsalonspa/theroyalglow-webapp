@@ -45,12 +45,12 @@ Migrate service/category management from admin portal to Payload CMS. Establish 
     - Compose hooks: `afterChange: [syncServiceCategoryToPublic, ...revalidateHooks('service').afterChange]` and `afterDelete: revalidateHooks('service').afterDelete`
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 2.10, 14.2, 14.3, 14.4, 14.6, 18.2_
 
-  - [ ]* 1.3 Write property test for slug generation (services)
+  - [x]* 1.3 Write property test for slug generation (services)
     - **Property 1: Slug Generation Correctness (Services)**
     - **Validates: Requirements 1.7**
     - Generate arbitrary service names, verify slug is lowercase, hyphen-separated, no special chars
 
-  - [ ]* 1.3a Write property test for duration value correctness
+  - [x]* 1.3a Write property test for duration value correctness
     - **Property 2: Duration Value Correctness**
     - **Validates: Requirements 1.9, 1.13**
     - Generate services with each allowed duration option value, verify only members of `SERVICE_DURATION_MINUTES` (`15|30|45|60|90|120|150|180`) are accepted and the mapped Drizzle value is a valid integer (never NaN)
@@ -62,12 +62,12 @@ Migrate service/category management from admin portal to Payload CMS. Establish 
     - **Validates: Requirements 1.8, 2.10**
     - Generate service and category creations, verify resulting `id` is a 21-character string from the nanoid alphabet, never an integer or UUID
 
-  - [ ]* 1.4 Write property test for slug generation (categories)
+  - [x]* 1.4 Write property test for slug generation (categories)
     - **Property 5: Slug Generation Correctness (Categories)**
     - **Validates: Requirements 2.7**
     - Generate arbitrary category names, verify slug format
 
-  - [ ]* 1.5 Write property test for gems conditional validation
+  - [x]* 1.5 Write property test for gems conditional validation
     - **Property 4: Gems Conditional Validation**
     - **Validates: Requirements 1.11**
     - Generate services with gemsRedeemable=true, verify gemsRequired > 0 enforced
@@ -125,22 +125,22 @@ Migrate service/category management from admin portal to Payload CMS. Establish 
     - Apply default values: bufferMinutes → 0, displayOrder → 0, isActive → true, gemsRedeemable → false
     - _Requirements: 3.6, 3.7, 9.1-9.14, 10.1-10.7_
   
-  - [ ]* 2.4 Write property test for service create sync
+  - [x]* 2.4 Write property test for service create sync
     - **Property 6: Service Create Sync Correctness**
     - **Validates: Requirements 3.1**
     - Mock Payload document creation, verify identical row exists in Drizzle with matching fields
   
-  - [ ]* 2.5 Write property test for service update sync
+  - [x]* 2.5 Write property test for service update sync
     - **Property 7: Service Update Sync Correctness**
     - **Validates: Requirements 3.2**
     - Mock Payload document update, verify Drizzle row updated with matching id
   
-  - [ ]* 2.6 Write property test for category create sync
+  - [x]* 2.6 Write property test for category create sync
     - **Property 8: Category Create Sync Correctness**
     - **Validates: Requirements 3.3**
     - Mock category creation, verify Drizzle row match
   
-  - [ ]* 2.7 Write property test for category update sync
+  - [x]* 2.7 Write property test for category update sync
     - **Property 9: Category Update Sync Correctness**
     - **Validates: Requirements 3.4**
     - Mock category update, verify Drizzle update
@@ -150,7 +150,7 @@ Migrate service/category management from admin portal to Payload CMS. Establish 
     - **Validates: Requirements 3.7**
     - Verify createdAt in Drizzle equals createdAt from Payload (within 1 second)
   
-  - [ ]* 2.9 Write property test for updatedAt correctness
+  - [x]* 2.9 Write property test for updatedAt correctness
     - **Property 11: UpdatedAt Correctness**
     - **Validates: Requirements 3.8**
     - Verify updatedAt in Drizzle set to current time (within 2 seconds of sync)
@@ -194,7 +194,7 @@ Migrate service/category management from admin portal to Payload CMS. Establish 
     - Test: `SERVICE_SYNC_ENABLED=false` short-circuits — no DB call is made and the hook resolves without throwing
     - _Requirements: 3.7, 3.8, 3.11, 3.12, 5.7, 12.1, 12.7_
 
-  - [ ]* 3.4 Write integration test for atomic sync (rollback safety)
+  - [x]* 3.4 Write integration test for atomic sync (rollback safety)
     - Create `apps/cms/src/hooks/__tests__/sync-atomicity.test.ts` (or a script against the `dev` DB branch)
     - Execute 20+ sequential create/update operations end-to-end through Payload; assert each produces a matching `public.*` row
     - Forced-rollback case: make the sync throw mid-hook; assert BOTH `cms.*` and `public.*` are unchanged (no divergence)
@@ -230,7 +230,7 @@ Migrate service/category management from admin portal to Payload CMS. Establish 
     - Add console.log with seeded counts
     - _Requirements: 11.4_
   
-  - [ ]* 5.2 Write integration test for seed script
+  - [x]* 5.2 Write integration test for seed script
     - Verify categories seeded before services
     - Verify all Drizzle rows have matching Payload documents
     - Verify timestamps preserved
@@ -257,7 +257,7 @@ Migrate service/category management from admin portal to Payload CMS. Establish 
     - Replace PATCH with HTTP 410 Gone
     - _Requirements: 8.6, 8.7_
   
-  - [ ]* 6.5 Write integration test for API removal
+  - [x]* 6.5 Write integration test for API removal
     - Test POST to removed endpoints returns 410
     - Test GET endpoints still functional
     - Verify error message matches requirement
@@ -302,8 +302,8 @@ Migrate service/category management from admin portal to Payload CMS. Establish 
 - [x] 8. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 9. Write integration tests for end-to-end sync
-  - [ ]* 9.1 Create `apps/cms/tests/service-sync.spec.ts` (Playwright)
+- [x] 9. Write integration tests for end-to-end sync
+  - [x]* 9.1 Create `apps/cms/tests/service-sync.spec.ts` (Playwright)
     - Test: Login to Payload as admin, create service, query `public.service` via API, assert row exists
     - Test: Update service name in Payload, query Drizzle, assert name updated
     - Test: Create service category, verify Drizzle row created
