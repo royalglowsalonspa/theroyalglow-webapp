@@ -9,6 +9,8 @@
  * Description  : Canonical definitions of the 8 QStash *scheduled* jobs — the
  *                path each schedule POSTs to and its cron expression. The
  *                registration script (scripts/register-schedules.ts) reads this
+ *                (count is 15: 8 original + 6 migrated from pg_cron + the
+ *                service-catalogue drift reconciliation job)
  *                single source of truth so the crons and the route handlers can
  *                never drift apart.
  *
@@ -39,8 +41,8 @@ export interface JobSchedule {
   description: string
 }
 
-// The QStash scheduled jobs (8 original + 6 migrated from pg_cron). Crons are
-// UTC; the comment gives the IST intent.
+// The QStash scheduled jobs (8 original + 6 migrated from pg_cron + 1 drift
+// reconciliation safety net). Crons are UTC; the comment gives the IST intent.
 export const JOB_SCHEDULES: readonly JobSchedule[] = [
   {
     key: 'appointment-reminders',
@@ -131,5 +133,14 @@ export const JOB_SCHEDULES: readonly JobSchedule[] = [
     path: '/api/jobs/monthly-gst-summary',
     cron: '30 19 1 * *',
     description: 'Monthly 01:00 IST on the 1st — monthly GST summary (was pg_cron).',
+  },
+  // ── Service-catalogue drift safety net ───────────────────────────────────
+  // Runs after the nightly maintenance block so it observes a settled catalogue.
+  // Read-only: it detects CMS ↔ public divergence and alerts, never repairs.
+  {
+    key: 'service-drift-reconcile',
+    path: '/api/jobs/service-drift-reconcile',
+    cron: '45 18 * * *',
+    description: 'Daily 00:15 IST — CMS ↔ public service catalogue drift reconciliation.',
   },
 ] as const

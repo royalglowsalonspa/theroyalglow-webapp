@@ -762,6 +762,24 @@ jobs:
 | Neon PITR (automatic) | Continuous | 7 days | Neon infrastructure | ~0 sec |
 | Weekly `pg_dump` | Sunday 7:30 AM IST | 8 weeks (56 days) | Cloudflare R2 | ≤ 7 days |
 | Monthly restore test | 1st of month | — | Temporary Neon branch | Validates integrity |
+| Pre-migration table backup | Manual, before a destructive migration | Manual (never pruned) | Cloudflare R2 (`pre-migration/`) | ~0 sec |
+
+### Ad-Hoc Pre-Migration Backup (targeted)
+
+The weekly dump is disaster recovery for the whole `prod` database. A destructive
+migration applied to `test`/`pprd`/`prod` on a weekday needs a *targeted*
+snapshot of the affected tables on the exact branch being changed, taken minutes
+before the change — not a dump that may be six days old.
+
+`.github/workflows/pre-migration-backup.yml` (`workflow_dispatch`, branch picker)
+reuses the weekly-backup mechanism — `pg_dump` → gzip → R2 → download-and-verify
+— narrowed to the service catalogue tables (`public.service`,
+`public.service_category`, and Payload's `cms.*` copies when they exist). It also
+prints baseline row counts for post-migration comparison. Objects land under
+`s3://rgss-backups/pre-migration/` and are never auto-pruned, so they outlive the
+8-week `weekly/` rotation.
+
+Usage and restore steps: [service-catalogue-migration.md](./service-catalogue-migration.md).
 
 ---
 

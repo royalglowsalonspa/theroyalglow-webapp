@@ -1,6 +1,6 @@
 ---
 title: Environment Variables
-description: All 55 environment variables for the Royal Glow platform — what they do, where they go, and how they're validated.
+description: Every environment variable for the Royal Glow platform — what they do, where they go, and how they're validated.
 ---
 
 # Environment Variables
@@ -457,6 +457,13 @@ cd apps/web && bun run build
       description: 'Random secret used by Payload to encrypt tokens and cookies.',
       required: true,
     },
+    SERVICE_SYNC_ENABLED: {
+      type: 'Private · cms',
+      description:
+        'Gates the service-catalogue sync hooks that mirror cms.* writes into public.*. Default enabled — only the literal string "false" disables it. Set to false while seeding, and as the primary rollback lever.',
+      required: false,
+      default: 'true',
+    },
   }}
 />
 
@@ -508,9 +515,9 @@ cd apps/web && bun run build
 | Meta Pixel + CAPI | 4 |
 | Reporting | 2 |
 | AiSensy | 2 |
-| Payload | 1 |
+| Payload | 2 |
 | App Config | 3 |
-| **Total** | **55** |
+| **Total** | **56** |
 
 ## Platform Injection
 

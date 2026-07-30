@@ -178,6 +178,7 @@ Store the output. These never change unless you intentionally rotate (which inva
 | `BETTER_STACK_HEARTBEAT_REMINDERS` | web | Private | QStash: appointment reminder scheduler (every 15 min) |
 | `BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY` | web | Private | QStash: membership auto-expire + expiry alerts (`30 18 * * *` UTC) |
 | `BETTER_STACK_HEARTBEAT_SESSION_CLEANUP` | web | Private | QStash: session cleanup (`0 21 * * 0` UTC) |
+| `BETTER_STACK_HEARTBEAT_SERVICE_DRIFT` | admin | Private | QStash: service catalogue drift reconciliation (`45 18 * * *` UTC) — pinged only on a no-drift run |
 | `BETTER_STACK_HEARTBEAT_BACKUP` | CI/CD | Private | GitHub Actions cron: weekly R2 backup verification |
 | `BETTER_STACK_DEPLOY_WEBHOOK` | CI/CD | Private | Deployment marker webhook called by GitHub Actions after prod deploy |
 | `BETTER_STACK_INCIDENT_WEBHOOK` | CI/CD | Private | Incident webhook called by GitHub Actions on deploy/backup failure |
@@ -228,6 +229,7 @@ Store the output. These never change unless you intentionally rotate (which inva
 | Variable | Used by | Visibility | Description |
 |----------|---------|------------|-------------|
 | `PAYLOAD_SECRET` | cms | Private | Random secret used by Payload to encrypt tokens and cookies |
+| `SERVICE_SYNC_ENABLED` | cms | Private | Gates the service-catalogue sync hooks that mirror `cms.*` writes into `public.*`. Default **enabled** — only the literal string `false` disables it, so an unset variable can never silently stop syncing. Set to `false` while running the seed script, and as the primary rollback lever (env change + restart, no code edit). See [service-catalogue-management.md](./service-catalogue-management.md) |
 
 ---
 
@@ -268,6 +270,7 @@ Each app only receives the variables it needs:
 | Reporting | ✅ | ❌ |
 | AiSensy | ✅ | ❌ |
 | Payload Secret | ❌ | ✅ |
+| Service sync flag | ❌ | ✅ |
 
 ---
 
@@ -474,6 +477,6 @@ cd apps/web && bun run build
 | Meta Pixel + CAPI | 4 | web |
 | Reporting | 2 | web |
 | AiSensy | 2 | web |
-| Payload | 1 | cms |
+| Payload | 2 | cms |
 | App Config | 4 | web, cms |
-| **Total** | **55** | |
+| **Total** | **56** | |

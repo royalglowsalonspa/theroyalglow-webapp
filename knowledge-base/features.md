@@ -597,9 +597,7 @@ All admin routes are served from `admin.theroyalglow.in` (Root-Path Convention �
 | `/schedule` | Weekly/daily staff schedule view — all staff availability at a glance | Receptionist |
 | `/leave` | Leave requests — approve/reject, view all staff leave calendar | Receptionist |
 | **Service Catalog** | | |
-| `/services` | All services grouped by category — Salon and SPA | Manager |
-| `/services/new` | Add new service (name, category, price, duration, gems config) | Manager |
-| `/services/[id]` | Edit service — price, duration, gems redeemable/required/catalogue order | Manager |
+| `/services` | Redirect to the Payload CMS `service` collection — the catalogue is authored in the CMS, not the admin portal. No create/edit UI here; the admin write APIs return `410 ENDPOINT_GONE`. See [service-catalogue-management.md](./service-catalogue-management.md) | Manager |
 | **Offers & Promotions** | | |
 | `/offers` | All offers list — active, scheduled, expired | Manager |
 | `/offers/new` | Create offer (percentage, flat, combo price) with linked services and validity | Manager |

@@ -17,10 +17,11 @@
  * Tech Stack   : TypeScript
  * Layer        : Business Logic
  *
- * Dependencies : ./idempotency, ./report, ./time
+ * Dependencies : ./idempotency, ./report, ./service-drift, ./time
  *
  * Notes        : None
  ************************************************************/
 export * from './idempotency'
 export * from './report'
+export * from './service-drift'
 export * from './time'

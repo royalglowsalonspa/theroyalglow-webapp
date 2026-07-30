@@ -366,7 +366,7 @@
   <tr><td>API (Thin)</td><td><code>apps/web/app/api/</code></td><td>Parse → Zod validate → delegate → JSON response</td><td>No DB queries here</td></tr>
   <tr><td>Business Logic</td><td><code>packages/business/</code></td><td>Pure functions, domain rules, calculations</td><td>No I/O, no framework deps</td></tr>
   <tr><td>Data Access</td><td><code>packages/db/</code></td><td>Drizzle ORM schemas, query builders, migrations</td><td>Only package that imports Drizzle</td></tr>
-  <tr><td>CMS</td><td><code>apps/cms/</code></td><td>Payload CMS v3 — blog, gallery, team bios, banners, FAQ</td><td>Marketing content only</td></tr>
+  <tr><td>CMS</td><td><code>apps/cms/</code></td><td>Payload CMS v3 — blog, gallery, team bios, banners, FAQ, plus the bookable service catalogue</td><td>Marketing content + service catalogue authoring (synced to <code>public.*</code>)</td></tr>
 </table>
 
 <h3>3.4 Technology Decisions Matrix</h3>

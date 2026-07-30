@@ -14,7 +14,7 @@
 | Auth flow pages | 2 | Sign-in, onboarding |
 | Landing pages | 1 | `/book` (Meta ad lead capture) |
 | Legal pages | 3 | Privacy, terms, refund policy |
-| Admin pages | 37 | Dashboard, bookings (4), CRM (2), leads (2), staff (3), schedule (2), services (3), offers (3), memberships (3), billing (2), reports (6), settings (1), branches (2), users (1), integrations (1), logs (1) |
+| Admin pages | 35 | Dashboard, bookings (4), CRM (2), leads (2), staff (3), schedule (2), services (1 — redirect to Payload CMS), offers (3), memberships (3), billing (2), reports (6), settings (1), branches (2), users (1), integrations (1), logs (1) |
 | Customer API routes | 13 | Auth, services, availability, bookings, leads, onboarding, push, ably |
 | Admin API routes | 7 | Booking actions, memberships, leave (served at admin.theroyalglow.in/api/*) |
 | Background job endpoints | 12 | QStash-triggered scheduled work |

@@ -548,6 +548,54 @@ These are not on a schedule. They are enqueued by API routes with a delay when a
 
 ---
 
+## Job 20 — Service Catalogue Drift Reconciliation
+
+| Field | Value |
+|-------|-------|
+| **Type** | QStash scheduled |
+| **Schedule** | Daily `45 18 * * *` UTC = 12:15 AM IST |
+| **Endpoint** | `POST /api/jobs/service-drift-reconcile` |
+| **Heartbeat** | `BETTER_STACK_HEARTBEAT_SERVICE_DRIFT` |
+
+**What it does:** Compares `cms.service` against `public.service`, and
+`cms.service_category` against `public.service_category` — row counts, per-row
+`id`, and per-row field values including `updatedAt`. Any divergence is written
+as an error-level structured log listing every finding.
+
+**Why:** Payload CMS is the authoring source of truth for the catalogue, and an
+`afterChange` hook mirrors each CMS write into `public.*` inside the same
+transaction. Two things can still cause divergence: a sync hook that silently
+failed (or ran with `SERVICE_SYNC_ENABLED=false`), and a direct DB edit against
+`public.*` that bypassed the CMS. This job is the safety net that surfaces both
+instead of letting stale prices or durations reach the booking engine.
+
+**Detect only, never repair:** the job is read-only (Requirement 17.5) — a human
+reviews the report before anything is mutated. It opens no transaction and takes
+no locks, so it never blocks CMS writes.
+
+**Alerting:** the `SERVICE_DRIFT` heartbeat is pinged **only on a clean run**.
+Drift — or a failed run — withholds the ping, so the BetterStack heartbeat
+monitor trips and alerts. Drift itself returns HTTP 200 (it is a data condition
+for a human, not a transient failure worth a QStash retry); only a genuine job
+error returns 500 to earn the retry.
+
+**Timestamp comparison uses a tolerance, never exact equality.** Payload's
+`cms.*` timestamp columns are `timestamp(3)` while `public.*` keeps microseconds,
+so the same logical instant can differ by a fraction of a millisecond. The
+comparison allows 1 second of slack; every real sync failure is far larger.
+
+**Schema notes:** `cms.service` stores the category relation as `category_id_id`
+(Payload's field name plus the adapter's `_id` suffix) against
+`public.service.category_id`, and `cms.service.duration_minutes` is the enum
+`cms.enum_service_duration_minutes`, which has no direct cast to integer — the
+read uses `::text::int`.
+
+**Layering:** the row-diffing logic is a pure function in
+`packages/business/src/jobs/service-drift.ts` (no I/O), the snapshot reads live in
+`packages/db/src/queries/service-drift.ts`, and the route is a thin orchestrator.
+
+---
+
 ## Complete Job Inventory
 
 | # | Job | Tool | Schedule / Trigger | External calls |
@@ -571,8 +619,9 @@ These are not on a schedule. They are enqueued by API routes with a delay when a
 | 17 | Stale pending booking alert | QStash triggered | +2h after booking created | web-push |
 | 18 | No-show check | QStash triggered | +15min after `end_time` | web-push |
 | 19 | Membership expired notice | QStash triggered | +1h after `expires_at` | Resend |
+| 20 | Service catalogue drift reconciliation | QStash | `45 18 * * *` UTC | None |
 
-**Total: 19 jobs — 14 QStash scheduled + 4 QStash triggered + 1 GitHub Actions cron (Job 5)**
+**Total: 20 jobs — 15 QStash scheduled + 4 QStash triggered + 1 GitHub Actions cron (Job 5)**
 
 ---
 

@@ -29,7 +29,7 @@
 | [auth-flows.md](./auth-flows.md) | Sign-in and onboarding flow pages |
 | [landing-pages.md](./landing-pages.md) | `/book` — Meta/Instagram ad lead capture landing page |
 | [legal.md](./legal.md) | Privacy policy, terms of service, refund & cancellation policy |
-| [admin.md](./admin.md) | 37 admin portal pages (7.1–7.37) |
+| [admin.md](./admin.md) | 35 admin portal pages (7.1–7.37; 7.16/7.17 retired — service authoring moved to Payload CMS) |
 | [api-routes.md](./api-routes.md) | 32 API endpoints: customer, admin, background jobs, webhooks |
 | [external-subdomains.md](./external-subdomains.md) | Payload CMS, Fumadocs, BetterStack status page |
 | [special-files.md](./special-files.md) | 10 special files: sitemap, robots, llms.txt, manifest, SW, etc. |

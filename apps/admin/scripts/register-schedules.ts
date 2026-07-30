@@ -6,7 +6,7 @@
  * Module Name  : scripts/register-schedules
  * Scope        : Background Jobs — QStash schedule registration
  *
- * Description  : Idempotently registers the 14 QStash scheduled jobs (defined in
+ * Description  : Idempotently registers the 15 QStash scheduled jobs (defined in
  *                src/lib/jobs/schedules.ts) against QStash. For each job it
  *                removes any existing schedule pointing at the same destination
  *                URL, then creates a fresh schedule with the configured cron —

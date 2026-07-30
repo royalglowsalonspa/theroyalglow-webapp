@@ -78,6 +78,7 @@ Scheduled work pings a BetterStack heartbeat URL on successful completion. This 
 | `BETTER_STACK_HEARTBEAT_NIGHTLY_SALES` | Daily sales, offer expiry, monthly GST, gems auto-expire | Nightly/monthly after scheduled run |
 | `BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY` | Membership auto-expire + expiry alerts | Daily after scheduled run |
 | `BETTER_STACK_HEARTBEAT_SESSION_CLEANUP` | Session cleanup | Weekly after scheduled run |
+| `BETTER_STACK_HEARTBEAT_SERVICE_DRIFT` | Service catalogue drift reconciliation — pinged ONLY on a no-drift run, so drift trips the monitor | Daily after scheduled run |
 | `BETTER_STACK_HEARTBEAT_PPRD_SYNC` | Prod → pprd branch reset + PII anonymization | Daily after GitHub Actions run |
 | `BETTER_STACK_HEARTBEAT_REMINDERS` | Appointment reminders | Every 15 min |
 

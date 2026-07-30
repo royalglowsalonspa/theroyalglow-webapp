@@ -257,7 +257,10 @@ const WEB_LIB = join(WEB_SRC, 'lib')
 const ADMIN_SCHEDULES = join(ADMIN_SRC, 'lib', 'jobs', 'schedules.ts')
 const ADMIN_REGISTER_SCRIPT = join(REPO_ROOT, 'apps', 'admin', 'scripts', 'register-schedules.ts')
 
-// The 14 QStash *scheduled* job keys (JOB_SCHEDULES source of truth).
+// The 15 QStash *scheduled* job keys (JOB_SCHEDULES source of truth).
+// `service-drift-reconcile` was added by the payload-service-management spec
+// (Req 17) as the CMS ↔ public catalogue drift safety net; it is a scheduled
+// admin-side job like the rest, so it joins the canonical list here.
 const SCHEDULED_JOB_KEYS = [
   'appointment-reminders',
   'membership-expiry',
@@ -273,6 +276,7 @@ const SCHEDULED_JOB_KEYS = [
   'gems-auto-expire',
   'session-cleanup',
   'monthly-gst-summary',
+  'service-drift-reconcile',
 ] as const
 
 // The 5 QStash *triggered* job routes (enqueued with a delay).
@@ -284,7 +288,7 @@ const TRIGGERED_JOB_NAMES = [
   'stale-booking-alert',
 ] as const
 
-// The 19 canonical job routes = 14 scheduled + 5 triggered.
+// The 20 canonical job routes = 15 scheduled + 5 triggered.
 const ALL_CANONICAL_JOB_ROUTES = [...SCHEDULED_JOB_KEYS, ...TRIGGERED_JOB_NAMES]
 
 describe('admin-web-separation: no references to moved/deleted job libs in apps/web (Req 2.1, 2.3) [Expected Behavior]', () => {
@@ -360,14 +364,14 @@ describe('admin-web-separation: kept customer libs + split routes remain in apps
   })
 })
 
-describe('admin-web-separation: the canonical 19 job routes live in apps/admin (Req 2.1, 2.2, 2.4, 3.6) [admin presence]', () => {
+describe('admin-web-separation: the canonical 20 job routes live in apps/admin (Req 2.1, 2.2, 2.4, 3.6) [admin presence]', () => {
   for (const name of ALL_CANONICAL_JOB_ROUTES) {
     it(`"${name}" route exists under apps/admin/src/app/api/jobs`, () => {
       expect(existsSync(join(ADMIN_JOBS_DIR, name, 'route.ts'))).toBe(true)
     })
   }
 
-  it('admin hosts exactly the 19 canonical job route directories (no extras, no duplicates)', () => {
+  it('admin hosts exactly the 20 canonical job route directories (no extras, no duplicates)', () => {
     const dirs = readdirSync(ADMIN_JOBS_DIR, { withFileTypes: true })
       .filter((e) => e.isDirectory())
       .map((e) => e.name)
@@ -382,16 +386,16 @@ describe('admin-web-separation: register-schedules + JOB_SCHEDULES resolve in ad
     expect(existsSync(ADMIN_SCHEDULES)).toBe(true)
   })
 
-  it('JOB_SCHEDULES resolves in admin and declares all 14 scheduled jobs at /api/jobs/*', async () => {
+  it('JOB_SCHEDULES resolves in admin and declares all 15 scheduled jobs at /api/jobs/*', async () => {
     // Dynamic import by absolute file URL — schedules.ts has zero imports and
     // no side effects, so it loads cleanly from the web test project.
     const mod = (await import(pathToFileURL(ADMIN_SCHEDULES).href)) as {
       JOB_SCHEDULES: ReadonlyArray<{ key: string; path: string; cron: string }>
     }
     const schedules = mod.JOB_SCHEDULES
-    expect(schedules).toHaveLength(14)
+    expect(schedules).toHaveLength(15)
 
-    // Keys match the 14 expected scheduled jobs exactly.
+    // Keys match the 15 expected scheduled jobs exactly.
     expect(schedules.map((s) => s.key).sort()).toEqual([...SCHEDULED_JOB_KEYS].sort())
 
     // Every schedule POSTs to a canonical /api/jobs/<key> path with a cron.
@@ -404,7 +408,7 @@ describe('admin-web-separation: register-schedules + JOB_SCHEDULES resolve in ad
   it('register-schedules builds the destination origin from NEXT_PUBLIC_APP_URL and reads JOB_SCHEDULES', () => {
     const script = readFileSync(ADMIN_REGISTER_SCRIPT, 'utf8')
     // Origin comes from process.env.NEXT_PUBLIC_APP_URL (fed the admin URL var
-    // by deploy-admin-prod.yml) — so the 14 schedules target the admin origin.
+    // by deploy-admin-prod.yml) — so the 15 schedules target the admin origin.
     expect(script).toContain('process.env.NEXT_PUBLIC_APP_URL')
     // Consumes the single schedules source of truth.
     expect(script).toMatch(/import\s*\{\s*JOB_SCHEDULES\s*\}\s*from\s*['"][^'"]*schedules['"]/)

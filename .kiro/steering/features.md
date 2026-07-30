@@ -67,7 +67,7 @@ Routes are relative to `admin.theroyalglow.in` (root paths, no `/admin` prefix).
 | `/bookings` | Receptionist |
 | `/customers`, `/leads` | Receptionist |
 | `/billing` | Receptionist |
-| `/services`, `/offers` | Manager |
+| `/services` (redirect → Payload CMS; catalogue is authored in the CMS, not here), `/offers` | Manager |
 | `/staff`, `/schedule` | Manager |
 | `/reports` | Manager |
 | `/settings`, `/branches` | Manager (branches: Owner) |

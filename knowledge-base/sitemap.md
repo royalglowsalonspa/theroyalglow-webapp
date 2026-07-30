@@ -72,9 +72,8 @@ theroyalglow.in
 │   ├── /leave (Leave Management — approve/reject)
 │   │   └── [Staff sees own leave history + submit form only]
 │   │
-│   ├── /services (Service Catalogue) [Manager+]
-│   │   ├── /services/new (Add Service)
-│   │   └── /services/[id] (Edit Service)
+│   ├── /services (redirect → Payload CMS service collection) [Manager+]
+│   │   └── [no admin CRUD — the catalogue is authored in cms.theroyalglow.in]
 │   │
 │   ├── /offers (Offers & Promotions) [Manager+]
 │   │   ├── /offers/new (Create Offer)
@@ -341,9 +340,7 @@ Page                            Breadcrumbs
 /staff/[id]                     Admin > Staff > [Name]
 /schedule                       Admin > Schedule
 /leave                          Admin > Leave
-/services                       Admin > Services
-/services/new                   Admin > Services > Add Service
-/services/[id]                  Admin > Services > [Name]
+/services                       Admin > Services (redirect to Payload CMS)
 /offers                         Admin > Offers
 /offers/new                     Admin > Offers > Create Offer
 /offers/[id]                    Admin > Offers > [Name]
@@ -377,7 +374,7 @@ Page                            Breadcrumbs
 | **2** | 2 | `/blog/[slug]`, `/bookings/[id]`, `/onboarding`, `/book` (via ad click) |
 | **3** | 1 (direct nav) | `/admin` → `admin.theroyalglow.in/` (dashboard) |
 | **3** | 2 | `admin.theroyalglow.in/bookings`, `/customers`, `/leads`, `/staff`, `/schedule`, `/leave`, `/services`, `/offers`, `/memberships`, `/billing`, `/reports`, `/settings`, `/branches`, `/users`, `/integrations`, `/logs`, `/waitlist` |
-| **4** | 3 | `admin.theroyalglow.in/bookings/[id]`, `/bookings/new`, `/customers/[id]`, `/leads/[id]`, `/staff/[id]`, `/staff/new`, `/services/[id]`, `/services/new`, `/offers/[id]`, `/offers/new`, `/memberships/[id]`, `/memberships/new`, `/billing/[id]`, `/branches/[id]`, `/reports/financial`, `/reports/salon`, `/reports/spa`, `/reports/staff`, `/reports/leads` |
+| **4** | 3 | `admin.theroyalglow.in/bookings/[id]`, `/bookings/new`, `/customers/[id]`, `/leads/[id]`, `/staff/[id]`, `/staff/new`, `/offers/[id]`, `/offers/new`, `/memberships/[id]`, `/memberships/new`, `/billing/[id]`, `/branches/[id]`, `/reports/financial`, `/reports/salon`, `/reports/spa`, `/reports/staff`, `/reports/leads` |
 
 **Notes:**
 - Admin pages count from their own entry point (`/admin` = Level 3 from homepage, but Level 0 within admin context)
@@ -538,7 +535,7 @@ Page                            Breadcrumbs
 | `/billing/[id]` | `/bookings/[id]` (linked booking), `/customers/[id]` |
 | `/reports` | `/reports/financial`, `/reports/salon`, `/reports/spa`, `/reports/staff`, `/reports/leads` |
 | `/branches` | `/branches/[id]` |
-| `/services` | `/services/[id]`, `/services/new` |
+| `/services` | `cms.theroyalglow.in/admin/collections/service` (external redirect) |
 | `/offers` | `/offers/[id]`, `/offers/new` |
 | `/integrations` | Sentry (external), BetterStack (external) |
 | `/logs` | Sentry dashboard (external) |
@@ -586,7 +583,7 @@ Page                            Breadcrumbs
 | Customer detail | `/noun/[id]` or `/noun/[slug]` | `/bookings/[id]`, `/blog/[slug]` |
 | Admin list pages | `subdomain/noun` (at `admin.theroyalglow.in`) | `/bookings`, `/customers`, `/leads` |
 | Admin detail pages | `subdomain/noun/[id]` | `/bookings/[id]`, `/customers/[id]` |
-| Admin create pages | `subdomain/noun/new` | `/bookings/new`, `/services/new`, `/staff/new` |
+| Admin create pages | `subdomain/noun/new` | `/bookings/new`, `/staff/new`, `/offers/new` |
 | Admin sub-reports | `subdomain/reports/topic` | `/reports/financial`, `/reports/salon` |
 | API — customer | `/api/noun` or `/api/noun/[id]/action` | `/api/bookings`, `/api/bookings/[id]/cancel` |
 | API — admin | `/api/noun/[id]` or `/api/noun/[id]/action` (at `admin.theroyalglow.in/api/`) | `/api/bookings/[id]`, `/api/bookings/[id]/complete` |

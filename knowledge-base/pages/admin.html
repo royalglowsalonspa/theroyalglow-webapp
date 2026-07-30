@@ -124,9 +124,7 @@
     </div>
     <div class="nav-group">
         <div class="nav-group-title">Services</div>
-        <a href="#page-7-15">7.15 All Services</a>
-        <a href="#page-7-16">7.16 Add Service</a>
-        <a href="#page-7-17">7.17 Edit Service</a>
+        <a href="#page-7-15">7.15 Services &rarr; CMS</a>
     </div>
     <div class="nav-group">
         <div class="nav-group-title">Offers</div>
@@ -185,7 +183,7 @@
         <h1>&#9878;&#65039; Admin Portal Pages</h1>
         <p>Complete page inventory for Royal Glow Salon &amp; Spa administration panel</p>
         <div class="stats">
-            <div class="stat"><div class="stat-num">37</div><div class="stat-label">Total Pages</div></div>
+            <div class="stat"><div class="stat-num">35</div><div class="stat-label">Total Pages</div></div>
             <div class="stat"><div class="stat-num">RBAC</div><div class="stat-label">Gated Access</div></div>
             <div class="stat"><div class="stat-num">5</div><div class="stat-label">Role Levels</div></div>
             <div class="stat"><div class="stat-num">Ably</div><div class="stat-label">Realtime Sync</div></div>
@@ -638,95 +636,30 @@
         </div>
     </div>
 
-    <!-- 7.15 All Services -->
+    <!-- 7.15 Services (redirect to Payload CMS) -->
     <div class="page-section" id="page-7-15">
         <div class="page-header" onclick="toggleSection(this)">
-            <h3><span class="route">/services</span> All Services <span class="role-badge role-manager">Manager+</span></h3>
+            <h3><span class="route">/services</span> Redirect to Payload CMS <span class="role-badge role-manager">Manager+</span></h3>
             <span class="chevron">&#9660;</span>
         </div>
         <div class="page-body">
-            <p class="purpose">Service catalog management with categorized listings, drag-to-reorder, and quick active/inactive toggling.</p>
+            <p class="purpose">Redirect only &mdash; no page is rendered. The service catalogue is managed in Payload CMS; the admin portal has no service create/edit UI.</p>
             <div class="component-group">
-                <h4>&#128202; UI Components</h4>
+                <h4>&#128202; Behaviour</h4>
                 <ul class="component-list">
-                    <li>Category Sections &mdash; grouped by Hair, Skin, Nails, SPA, Bridal, etc.</li>
-                    <li>Service Cards &mdash; name, price, duration, active toggle, gems value</li>
-                    <li>Drag Reorder &mdash; drag handles to change display order within category</li>
-                    <li>"Add Service" Button &mdash; navigates to creation form</li>
-                    <li>Click card &mdash; navigates to edit page</li>
-                    <li>Active/Inactive toggle &mdash; instant update with confirmation</li>
+                    <li>Server-side redirect to <code>https://cms.theroyalglow.in/admin/collections/service</code></li>
+                    <li>Still Manager-gated, so the redirect is unreachable by Receptionist or below</li>
+                    <li>No sidebar entry &mdash; "Services" was removed from the admin nav</li>
+                    <li>Admin write APIs return <code>410 ENDPOINT_GONE</code>; the GET endpoints are unchanged</li>
+                    <li>CMS writes mirror into <code>public.service</code> in the same transaction; delete is disabled (retire with <code>isActive = false</code>)</li>
                 </ul>
             </div>
-            <div class="component-group">
-                <h4>&#128640; States</h4>
-                <div class="state-grid">
-                    <div class="state-item loading">Loading &mdash; Category sections with card skeletons</div>
-                    <div class="state-item empty">No Services &mdash; "Add your first service to get started"</div>
-                </div>
-            </div>
+            <p class="purpose">Detail: <code>knowledge-base/service-catalogue-management.md</code>. The former 7.16 <code>/services/new</code> and 7.17 <code>/services/[id]</code> pages no longer exist; later section numbers are unchanged.</p>
         </div>
     </div>
 
-    <!-- 7.16 Add Service -->
-    <div class="page-section" id="page-7-16">
-        <div class="page-header" onclick="toggleSection(this)">
-            <h3><span class="route">/services/new</span> Add Service <span class="role-badge role-manager">Manager+</span></h3>
-            <span class="chevron">&#9660;</span>
-        </div>
-        <div class="page-body">
-            <p class="purpose">Comprehensive service creation form with pricing, scheduling, gems config, and staff assignment.</p>
-            <div class="component-group">
-                <h4>&#128202; UI Components</h4>
-                <ul class="component-list">
-                    <li>Name Input &mdash; service display name</li>
-                    <li>Category Selector &mdash; dropdown with existing categories + create new</li>
-                    <li>Price Input &mdash; INR amount with tax-inclusive note</li>
-                    <li>Duration Picker &mdash; minutes (15-min increments)</li>
-                    <li>Buffer Time &mdash; optional gap between consecutive bookings</li>
-                    <li>Description &mdash; rich text editor for service details</li>
-                    <li>Gems Configuration &mdash; gems awarded on completion</li>
-                    <li>Image Upload &mdash; service photo with crop/resize</li>
-                    <li>Staff Assignment &mdash; multi-select which staff can perform</li>
-                    <li>Active Toggle &mdash; launch immediately or save as draft</li>
-                </ul>
-            </div>
-            <div class="component-group">
-                <h4>&#128640; States</h4>
-                <div class="state-grid">
-                    <div class="state-item loading">Submitting &mdash; Full-page spinner overlay</div>
-                    <div class="state-item error">Validation &mdash; Inline field errors with scroll-to-first</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 7.17 Edit Service -->
-    <div class="page-section" id="page-7-17">
-        <div class="page-header" onclick="toggleSection(this)">
-            <h3><span class="route">/services/[id]</span> Edit Service <span class="role-badge role-manager">Manager+</span></h3>
-            <span class="chevron">&#9660;</span>
-        </div>
-        <div class="page-body">
-            <p class="purpose">Edit existing service details. Same form as Add Service but pre-filled. Includes deactivation and booking stats.</p>
-            <div class="component-group">
-                <h4>&#128202; UI Components</h4>
-                <ul class="component-list">
-                    <li>Pre-filled Form &mdash; all fields from Add Service with current values</li>
-                    <li>Booking Count Stat &mdash; read-only "X bookings this month" indicator</li>
-                    <li>Deactivate Button &mdash; soft-delete with confirmation dialog</li>
-                    <li>"Save Changes" button with dirty-state detection</li>
-                    <li>Unsaved changes warning on navigation away</li>
-                </ul>
-            </div>
-            <div class="component-group">
-                <h4>&#128640; States</h4>
-                <div class="state-grid">
-                    <div class="state-item loading">Loading &mdash; Form skeleton</div>
-                    <div class="state-item error">Save Failed &mdash; Toast with retry</div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- 7.16 and 7.17 removed: the /services/new and /services/[id] admin forms
+         were deleted when service authoring moved to Payload CMS. -->
 
     <!-- 7.18 All Offers -->
     <div class="page-section" id="page-7-18">
