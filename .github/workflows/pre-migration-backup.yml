@@ -1,0 +1,178 @@
+name: Pre-Migration Catalogue Backup
+
+# ---------------------------------------------------------------------------
+# MANUAL, per-branch backup of the SERVICE CATALOGUE tables, taken immediately
+# before the Payload service-catalogue migration is applied to a branch.
+#
+# Why this exists: the weekly-backup.yml workflow dumps the WHOLE prod database
+# once a week (Sunday 02:00 UTC) — that is disaster recovery, not a migration
+# guard. The catalogue migration (see knowledge-base/service-catalogue-migration.md)
+# performs a DESTRUCTIVE `cms.service.id` type change and is applied to test,
+# pprd and prod on demand, on a weekday, to a branch whose newest full dump may
+# be six days old. This workflow takes a small, fast, targeted snapshot of the
+# four catalogue tables on the exact branch about to be migrated, so the
+# pre-migration state is recoverable without restoring an entire database.
+#
+# It reuses the weekly-backup.yml mechanism deliberately: pg_dump -> gzip ->
+# Cloudflare R2 (`rgss-backups` bucket) -> download-and-verify. Only the scope
+# (four tables instead of the whole database), the prefix (`pre-migration/`
+# instead of `weekly/`) and the trigger (manual instead of cron) differ.
+#
+# What it captures, when present on the target branch:
+#   public.service           — read by the booking engine (the row that matters)
+#   public.service_category
+#   cms.service              — Payload's copy; ALSO satisfies Requirement 19.4,
+#   cms.service_category       which requires any pre-existing cms.service rows
+#                              to be exported before the destructive id change
+#
+# Tables that do not exist yet on the branch are skipped, so this runs safely
+# both before and after the Payload migration.
+#
+# Retention is MANUAL. These are one-off migration artifacts, they are tiny, and
+# they must outlive the 8-week weekly-backup rotation, so nothing prunes them.
+#
+# Connection: the UNPOOLED/direct Neon host, same as migrate.yml. Required
+# secret per environment (Settings > Secrets and variables > Actions):
+#   dev  -> DATABASE_URL_UNPOOLED_DEV
+#   test -> DATABASE_URL_UNPOOLED_TEST
+#   pprd -> DATABASE_URL_UNPOOLED_PPRD
+#   prod -> DATABASE_URL_UNPOOLED_PROD
+# Plus the R2 secrets already used by weekly-backup.yml.
+# ---------------------------------------------------------------------------
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target database branch to back up (back up BEFORE migrating it)'
+        required: true
+        type: choice
+        options:
+          - dev
+          - test
+          - pprd
+          - prod
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+    steps:
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client-16
+
+      # Same resolver as migrate.yml: pick the unpooled URL for the requested
+      # branch and fail LOUDLY when the secret is missing, rather than letting
+      # pg_dump run against an empty connection string.
+      - name: Resolve target connection
+        id: target
+        env:
+          DEV: ${{ secrets.DATABASE_URL_UNPOOLED_DEV }}
+          TEST: ${{ secrets.DATABASE_URL_UNPOOLED_TEST }}
+          PPRD: ${{ secrets.DATABASE_URL_UNPOOLED_PPRD }}
+          PROD: ${{ secrets.DATABASE_URL_UNPOOLED_PROD }}
+        run: |
+          case "${{ inputs.environment }}" in
+            dev)  URL="$DEV"  ;;
+            test) URL="$TEST" ;;
+            pprd) URL="$PPRD" ;;
+            prod) URL="$PROD" ;;
+          esac
+          if [ -z "$URL" ]; then
+            echo "::error title=Missing secret::No unpooled connection string configured for '${{ inputs.environment }}'. Add the matching DATABASE_URL_UNPOOLED_* secret."
+            exit 1
+          fi
+          echo "::add-mask::$URL"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      # Baseline counts. public.* is what the booking engine reads, so its counts
+      # are the numbers to compare against after the migration + seed. The
+      # cms.service count is Requirement 19.4's mandatory pre-flight check before
+      # the destructive id type change — verified here, never assumed.
+      - name: Record baseline row counts
+        env:
+          PGURL: ${{ steps.target.outputs.url }}
+        run: |
+          count() {
+            psql "$PGURL" -tAc \
+              "SELECT CASE WHEN to_regclass('$1') IS NULL THEN 'absent' ELSE (SELECT count(*)::text FROM $1) END"
+          }
+          {
+            echo "### Catalogue baseline — ${{ inputs.environment }}"
+            echo ""
+            echo "| Table | Rows |"
+            echo "|-------|------|"
+            for t in public.service_category public.service cms.service_category cms.service; do
+              echo "| \`$t\` | $(count "$t") |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Only dump tables that actually exist, so this workflow is safe to run
+      # both before the Payload migration (cms.service_category absent) and
+      # after it.
+      - name: Dump catalogue tables
+        env:
+          PGURL: ${{ steps.target.outputs.url }}
+        run: |
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          BACKUP_FILE="rgss_catalogue_${{ inputs.environment }}_${TIMESTAMP}.sql.gz"
+          TABLE_ARGS=()
+          for t in public.service_category public.service cms.service_category cms.service; do
+            EXISTS=$(psql "$PGURL" -tAc "SELECT to_regclass('$t') IS NOT NULL")
+            if [ "$EXISTS" = "t" ]; then
+              TABLE_ARGS+=(--table="$t")
+            else
+              echo "Skipping $t (does not exist on ${{ inputs.environment }})"
+            fi
+          done
+          if [ ${#TABLE_ARGS[@]} -eq 0 ]; then
+            echo "::error title=Nothing to back up::None of the catalogue tables exist on '${{ inputs.environment }}'."
+            exit 1
+          fi
+          pg_dump "$PGURL" \
+            --no-owner --no-privileges --clean --if-exists \
+            "${TABLE_ARGS[@]}" \
+            | gzip > "$BACKUP_FILE"
+          echo "BACKUP_FILE=$BACKUP_FILE" >> "$GITHUB_ENV"
+          echo "BACKUP_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)" >> "$GITHUB_ENV"
+
+      - name: Upload to Cloudflare R2
+        run: |
+          aws s3 cp "${{ env.BACKUP_FILE }}" \
+            "s3://rgss-backups/pre-migration/${{ env.BACKUP_FILE }}" \
+            --endpoint-url "$R2_ENDPOINT"
+
+      # Download it back and prove it decompresses AND contains a data section
+      # for public.service. A dump that gunzips cleanly but holds no rows is a
+      # backup that only looks like one.
+      - name: Verify backup integrity
+        run: |
+          aws s3 cp "s3://rgss-backups/pre-migration/${{ env.BACKUP_FILE }}" verify.sql.gz \
+            --endpoint-url "$R2_ENDPOINT"
+          gunzip -t verify.sql.gz
+          if ! gunzip -c verify.sql.gz | grep -q 'COPY public.service '; then
+            echo "::error title=Backup incomplete::No COPY data section for public.service in the dump."
+            exit 1
+          fi
+          echo "Backup verified: ${{ env.BACKUP_FILE }} (${{ env.BACKUP_SIZE }})"
+
+      - name: Report artifact location
+        run: |
+          {
+            echo ""
+            echo "**Backup:** \`s3://rgss-backups/pre-migration/${{ env.BACKUP_FILE }}\` (${{ env.BACKUP_SIZE }})"
+            echo ""
+            echo "Restore procedure: knowledge-base/service-catalogue-migration.md"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          curl -X POST ${{ secrets.BETTER_STACK_INCIDENT_WEBHOOK }} \
+            -H "Content-Type: application/json" \
+            -d '{"title": "Pre-migration catalogue backup FAILED (${{ inputs.environment }})", "severity": "high"}'

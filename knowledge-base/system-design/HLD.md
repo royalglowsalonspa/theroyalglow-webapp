@@ -207,7 +207,7 @@ The architecture uses **strict layer separation** within a monorepo to achieve t
 | **API (Thin)** | `apps/web/app/api/` | Parse request → Zod validate → delegate → JSON response | No DB queries here |
 | **Business Logic** | `packages/business/` | Pure functions, domain rules, calculations | No I/O, no framework deps |
 | **Data Access** | `packages/db/` | Drizzle ORM schemas, query builders, migrations | Only package that imports Drizzle |
-| **CMS** | `apps/cms/` | Payload CMS v3 — blog, gallery, team bios, banners, FAQ | Marketing content only |
+| **CMS** | `apps/cms/` | Payload CMS v3 — blog, gallery, team bios, banners, FAQ, plus the bookable service catalogue | Marketing content + service catalogue authoring (synced to `public.*`) |
 | **Infrastructure** | Edge config, wrangler | Cloudflare Workers config, R2 bindings, KV namespaces | Platform-specific |
 
 

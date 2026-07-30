@@ -200,7 +200,7 @@ Migrate service/category management from admin portal to Payload CMS. Establish 
     - Forced-rollback case: make the sync throw mid-hook; assert BOTH `cms.*` and `public.*` are unchanged (no divergence)
     - _Requirements: 4.6_
 
-- [~] 4. Checkpoint - Ensure all tests pass
+- [x] 4. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [x] 5. Create migration seed script
@@ -299,7 +299,7 @@ Migrate service/category management from admin portal to Payload CMS. Establish 
     - Remove any imports left unused by the deletion, then typecheck `apps/web` to confirm nothing else referenced it
     - _Requirements: 18.4_
 
-- [~] 8. Checkpoint - Ensure all tests pass
+- [x] 8. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 9. Write integration tests for end-to-end sync
@@ -310,13 +310,13 @@ Migrate service/category management from admin portal to Payload CMS. Establish 
     - Test: Mock Drizzle connection failure, attempt create, assert 500 error in UI
     - _Requirements: 3.1, 3.2, 3.3, 3.9, 12.2_
 
-- [ ] 10. Migration deployment steps
-  - [~] 10.1 Create pre-deployment backup task
+- [x] 10. Migration deployment steps
+  - [x] 10.1 Create pre-deployment backup task
     - Document: Backup `public.service` and `public.service_category` tables before migration
     - Command: `pg_dump` to R2 or local file
     - _Requirements: 11.3, 15.4_
   
-  - [~] 10.2 Create deployment checklist document
+  - [x] 10.2 Create deployment checklist document
     - Step 1: Verify `SELECT count(*) FROM cms.service` on the target branch before the destructive `id` type change
     - Step 2: Apply the Payload migration (`bun payload migrate`, generated + reviewed in Task 3.0), per branch `dev` → `test` → `pprd` → `prod`
     - Step 3: Deploy CMS with `SERVICE_SYNC_ENABLED=false` (flag, not commented-out hooks)
@@ -329,7 +329,7 @@ Migrate service/category management from admin portal to Payload CMS. Establish 
     - Step 10: Monitor logs for sync errors (first 1 hour)
     - _Requirements: 11.1, 11.2, 11.5, 11.6, 11.7, 13.1, 13.2, 19.4, 19.5, 19.7_
   
-  - [~] 10.3 Document rollback procedure
+  - [x] 10.3 Document rollback procedure
     - Step 1: Set `SERVICE_SYNC_ENABLED=false` on the CMS service and restart — no code edit, no rebuild, fits the 15-minute window
     - Step 2: Restore admin write APIs from git (`git revert <commit>`)
     - Step 3: Restore admin UI if needed
@@ -338,8 +338,8 @@ Migrate service/category management from admin portal to Payload CMS. Establish 
     - Rollback triggers: booking engine broken, sync failure >10%, data inconsistency
     - _Requirements: 15.1, 15.2, 15.3, 15.5, 15.6, 15.7_
 
-- [ ] 11. Final checkpoint - Verify booking engine unchanged
-  - [~] 11.1 Test booking engine read operations
+- [x] 11. Final checkpoint - Verify booking engine unchanged
+  - [x] 11.1 Test booking engine read operations
     - Verify GET /api/services returns identical response format
     - Verify availability calculation uses Drizzle duration_minutes/buffer_minutes
     - Verify pricing display uses Drizzle price_paise
@@ -347,21 +347,21 @@ Migrate service/category management from admin portal to Payload CMS. Establish 
     - Verify category grouping uses Drizzle category_id
     - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5, 13.6, 13.7, 6.4_
   
-  - [~] 11.2 Verify Payload as authoritative source
+  - [x] 11.2 Verify Payload as authoritative source
     - Confirm only Payload can create/update services
     - Confirm booking engine reads from Drizzle unchanged
     - Confirm admin portal has no write access
     - _Requirements: 6.1, 6.2, 6.4, 6.5, 6.6_
 
-- [ ] 12. Update project documentation
-  - [~] 12.1 Update service management documentation
+- [x] 12. Update project documentation
+  - [x] 12.1 Update service management documentation
     - Document: Services now managed at `cms.theroyalglow.in/admin/collections/service`
     - Document: Sync mechanism and failure modes
     - Remove references to admin portal service CRUD
     - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5_
 
-- [ ] 13. Drift reconciliation safety net
-  - [~] 13.1 Create the reconciliation job (QStash scheduled, daily)
+- [x] 13. Drift reconciliation safety net
+  - [x] 13.1 Create the reconciliation job (QStash scheduled, daily)
     - Add a QStash scheduled HTTP job comparing `cms.service` ↔ `public.service` and `cms.service_category` ↔ `public.service_category`
     - Compare row counts + per-row `id` + `updatedAt` to detect missing/extra/stale rows
     - On any divergence: emit error-level structured log + trigger BetterStack alert (match the existing 14-job alerting pattern)

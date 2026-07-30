@@ -38,7 +38,7 @@ theroyalglow-webapp/
 |-----------|-------------|---------|
 | `theroyalglow.in` | `apps/web` — customer website | Cloudflare Workers (`rgss-web`) |
 | `admin.theroyalglow.in` | `apps/admin` — admin portal | Cloudflare Workers (`rgss-admin`) |
-| `cms.theroyalglow.in` | `apps/cms` — Payload CMS (marketing content) | Render |
+| `cms.theroyalglow.in` | `apps/cms` — Payload CMS (marketing content + service catalogue) | Render |
 | `docs.theroyalglow.in` | `docs/` — Fumadocs documentation | Cloudflare Workers |
 | `r2.theroyalglow.in` | Cloudflare R2 object storage | Cloudflare R2 |
 
@@ -73,7 +73,7 @@ The admin portal is served from `admin.theroyalglow.in` at root paths (no `/admi
 | Edge Cache | Cloudflare KV (service catalog, 5-min TTL) |
 | Email (Transactional) | Resend + React Email |
 | Email (Marketing) | Brevo |
-| CMS | Payload CMS v3 (marketing content only) |
+| CMS | Payload CMS v3 (marketing content + service catalogue authoring) |
 | Validation | Zod (`.safeParse()` everywhere) |
 
 ### Key Constraints
@@ -139,4 +139,6 @@ Commits: Conventional Commits (`feat:`, `fix:`, `chore:`, etc.)
 - #[[file:knowledge-base/error-handling.md]] — Error patterns & codes
 - #[[file:knowledge-base/background-jobs.md]] — All 19 background jobs
 - #[[file:knowledge-base/deployment.md]] — CI/CD pipeline & deployment
-- #[[file:knowledge-base/environment-variables.md]] — All 55 env vars
+- #[[file:knowledge-base/environment-variables.md]] — All env vars (count is maintained in that doc)
+- #[[file:knowledge-base/service-catalogue-management.md]] — Service catalogue: managed in Payload CMS, sync mechanism & failure modes
+- #[[file:knowledge-base/service-catalogue-migration.md]] — Service catalogue migration runbook (backup, checklist, rollback)

@@ -40,6 +40,7 @@ Every information / planning document lives here. Only `README.md` remains in th
 | [seo.md](./seo.md) | SEO, local SEO, AI search visibility, agent-friendly standards |
 | [PAYLOAD_INTEGRATION_PLAN.md](./PAYLOAD_INTEGRATION_PLAN.md) | Payload CMS → website integration plan (handoff) |
 | [payload-mcp.md](./payload-mcp.md) | Payload MCP server — read-only CMS access for AI agents |
+| [service-catalogue-management.md](./service-catalogue-management.md) | Service catalogue — managed in Payload CMS, sync mechanism & failure modes |
 
 ## Environment, Build & Ops
 
@@ -48,6 +49,7 @@ Every information / planning document lives here. Only `README.md` remains in th
 | [environment-variables.md](./environment-variables.md) | All environment variables reference |
 | [ENVIRONMENT_SETUP_GUIDE.md](./ENVIRONMENT_SETUP_GUIDE.md) | Env variables — setup guide & current status |
 | [deployment.md](./deployment.md) | Deployment pipeline & DevOps strategy |
+| [service-catalogue-migration.md](./service-catalogue-migration.md) | Service catalogue migration runbook — backup, per-branch checklist, rollback |
 | [git-workflow.md](./git-workflow.md) | Git workflow & branch strategy |
 | [observability.md](./observability.md) | Observability, analytics & monitoring |
 | [file-header-guide.md](./file-header-guide.md) | File header conventions |

@@ -1,9 +1,9 @@
 # Admin Portal Pages
 
-> All 37 admin routes are served at `admin.theroyalglow.in` (Root-Path Convention — no `/admin` prefix). RBAC-gated: unauthenticated or under-privileged requests redirect to the sign-in page. Layout: persistent sidebar navigation (collapsible on mobile) + top bar with user name, role badge, and notification bell.
+> All 35 admin routes are served at `admin.theroyalglow.in` (Root-Path Convention — no `/admin` prefix). RBAC-gated: unauthenticated or under-privileged requests redirect to the sign-in page. Layout: persistent sidebar navigation (collapsible on mobile) + top bar with user name, role badge, and notification bell.
 
 **Shared admin layout components:**
-- Sidebar nav: grouped sections (Dashboard, Bookings, CRM, Leads, Staff, Schedule, Services, Offers, Memberships, Billing, Reports, Settings, Branches, Users, Integrations, Logs) — items shown/hidden based on role
+- Sidebar nav: grouped sections (Dashboard, Bookings, CRM, Leads, Staff, Schedule, Offers, Memberships, Billing, Reports, Settings, Branches, Users, Integrations, Logs) — items shown/hidden based on role. **No "Services" entry** — the catalogue is managed in Payload CMS (see 7.15)
 - Top bar: breadcrumbs, user avatar + name + role, notification bell (Ably-powered real-time count)
 - Mobile: sidebar collapses to hamburger menu overlay
 - Command palette: `Cmd+K` / `Ctrl+K` to search pages, customers, bookings by number
@@ -397,52 +397,22 @@
 
 ---
 
-## 7.15 `/services` — All Services
+## 7.15 `/services` — Redirect to Payload CMS
 
 | Property | Detail |
 |----------|--------|
-| **Title** | Service Catalogue |
+| **Title** | — (no page rendered) |
 | **Min. Role** | Manager |
-| **Purpose** | Manage all services grouped by category. Toggle active/inactive, reorder display. |
+| **Purpose** | Redirect only. The service catalogue is managed in Payload CMS — the admin portal has no service create/edit UI. |
 
-**UI Components:**
-- Category sections: Salon categories + SPA categories (collapsible)
-- Service cards within each category:
-  - Name, price (₹), duration, active/inactive toggle, gems config
-  - Drag handle for reorder (within category)
-- "Add Service" button → navigates to `/services/new`
-- Click service → navigates to `/services/[id]`
-- Inactive services: dimmed with "Inactive" badge (hidden from customer-facing pages)
+**Behaviour:**
+- Server-side `redirect()` to `https://cms.theroyalglow.in/admin/collections/service`
+- Still Manager-gated, so the redirect is not reachable by Receptionist or below
+- No sidebar entry — "Services" was removed from the admin nav
 
----
+**Where services are managed:** Payload CMS `service` and `service_category` collections. Writes there mirror into `public.service` / `public.service_category` in the same transaction, and the booking engine keeps reading those tables unchanged. Delete is disabled in the CMS; services retire via `isActive = false`. The admin write endpoints (`POST /api/services`, `PATCH /api/services/[id]`, `POST /api/service-categories`, `PATCH /api/service-categories/[id]`) return `410 ENDPOINT_GONE`; the `GET` endpoints are unchanged and still serve offers, manual booking and membership recording. See [service-catalogue-management.md](../service-catalogue-management.md).
 
-## 7.16 `/services/new` — Add Service
-
-| Property | Detail |
-|----------|--------|
-| **Title** | Add New Service |
-| **Min. Role** | Manager |
-
-**UI Components:**
-- Form fields: name, category (select), price (₹, GST-inclusive), duration (minutes), buffer time, description
-- Gems config: "Redeemable with gems" toggle + gems required field, "Earns gems" toggle
-- Image upload: drag-and-drop or file picker (uploaded to R2)
-- Staff assignment: multi-select staff who can perform this service
-- Active toggle: default ON
-- Submit: "Create Service"
-
----
-
-## 7.17 `/services/[id]` — Edit Service
-
-| Property | Detail |
-|----------|--------|
-| **Title** | Edit Service |
-| **Min. Role** | Manager |
-
-**UI Components:** Same form as "Add Service" but prefilled with current values. Additional:
-- "Deactivate" button (soft-delete — hides from customers, preserves historical bookings)
-- Booking count: "Used in X bookings" (read-only stat)
+> Numbering note: this section previously covered three pages (7.15 `/services`, 7.16 `/services/new`, 7.17 `/services/[id]`). The two form pages are gone, so 7.16 and 7.17 no longer exist and later section numbers are unchanged.
 
 ---
 

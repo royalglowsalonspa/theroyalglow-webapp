@@ -24,7 +24,7 @@ Royal Glow Salon & Spa is built for scale (20k–50k users), premium feel, and l
 | File Storage | **Cloudflare R2** | 10 GB free object storage — photos, service images, PDF invoices |
 | Cache + Queue | **Upstash Redis + QStash** | Serverless Redis for slot caching, rate limiting, background jobs |
 | Edge Cache | **Cloudflare KV** | Service listings and static data at the edge |
-| CMS | **Payload CMS v3** | Marketing content only: blog, gallery, team bios, homepage banners, FAQ — self-hosted on Render, media to Cloudflare R2. Service catalog, bookings, billing are managed in the custom `/admin` portal, NOT in Payload. |
+| CMS | **Payload CMS v3** | Marketing content (blog, gallery, team bios, homepage banners, FAQ) **and the bookable service catalogue** — services/categories are authored here and mirrored into `public.service` / `public.service_category` by an atomic `afterChange` sync ([service-catalogue-management.md](./service-catalogue-management.md)). Self-hosted on Render, media to Cloudflare R2. Bookings and billing stay in the admin portal. |
 | Documentation | **Fumadocs + fumadocs-openapi** | Documentation portal at `docs.theroyalglow.in` — Next.js-native, TypeScript-first, premium out of the box. `fumadocs-openapi` auto-generates the entire API reference from the OpenAPI/Swagger spec — no manual API docs writing |
 | Validation | **Zod** | TypeScript-first schema validation — all API inputs validated at system boundary |
 | PWA | **Service Worker + manifest.json** | Installable on phone, offline service menu/prices/contact, add-to-homescreen prompt |

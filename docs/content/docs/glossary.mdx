@@ -59,7 +59,7 @@ The hosting platform for both Next.js apps (customer site `rgss-web` and admin p
 Cloudflare's file storage service (S3-compatible). Used for service images, gallery photos, PDF invoices, and database backups. Zero egress fees.
 
 **CMS (Content Management System)**
-The Payload CMS v3 instance at `cms.theroyalglow.in`. Used only for marketing content: blog posts, gallery, team bios, homepage banners, and FAQ. The service catalog, bookings, and billing are managed in the custom admin portal (`admin.theroyalglow.in`) — not in the CMS.
+The Payload CMS v3 instance at `cms.theroyalglow.in`. Holds marketing content — blog posts, gallery, team bios, homepage banners, FAQ — **and the bookable service catalogue**: services and service categories are authored here, and an `afterChange` hook mirrors each write into `public.service` / `public.service_category` in the same transaction, which is what the booking engine reads. Bookings and billing remain in the custom admin portal (`admin.theroyalglow.in`).
 
 **Conventional Commits**
 A commit message format: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, etc. Used for clean git history and automatic changelog generation.
