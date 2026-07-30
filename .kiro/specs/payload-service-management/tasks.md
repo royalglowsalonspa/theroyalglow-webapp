@@ -374,8 +374,8 @@ Migrate service/category management from admin portal to Payload CMS. Establish 
     - Assert a matching state reports no divergence
     - _Requirements: 17.2, 17.3_
 
-- [ ] 14. Verify cache freshness end-to-end
-  - [~] 14.1 Confirm edits propagate to the customer site within seconds
+- [x] 14. Verify cache freshness end-to-end
+  - [x] 14.1 Confirm edits propagate to the customer site within seconds
     - After an edit in Payload, verify `WEB_APP_URL/api/revalidate` is pinged (composed revalidate hook fires) and `/services`, `/services/[slug]`, and the booking dialog reflect the change
     - Confirm all customer read surfaces (`getCatalogueServices`, `GET /api/services`, `getServiceBySlug`) read from Drizzle `public.*` — one consistent read source
     - If a Cloudflare KV layer exists in front of `/api/services`, document its TTL (≤5 min) as an accepted tradeoff; on-demand revalidation remains primary
