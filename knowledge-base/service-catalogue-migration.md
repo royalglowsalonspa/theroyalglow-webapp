@@ -14,22 +14,46 @@
 
 ### Migration state per branch
 
-The code is on all four git branches. The `cms` schema change is **not** applied everywhere — this is the single biggest risk in this deployment, because the collections cannot write against the old shape (`push: false`, so nothing self-applies).
+The code is on all four git branches. **The `cms` schema change is now applied on all four branches** — this was previously the single biggest risk in this deployment, because the collections cannot write against the old shape (`push: false`, so nothing self-applies).
 
 | Branch | Payload migrations applied | Catalogue seeded | Next action |
 |--------|---------------------------|------------------|-------------|
-| `dev` | ✅ all three (see below) | ✅ 57 services, 10 categories, zero drift | none |
-| `test` | ❌ **not applied** | ❌ | run the full checklist |
-| `pprd` | ❌ **not applied** | ❌ | run the full checklist |
-| `prod` | ❌ **not applied** | ❌ | run the full checklist |
+| `dev` | ✅ all four (batches 1-3) | ✅ 57 services, 10 categories, zero drift | none |
+| `test` | ✅ all four (batch 1) | n/a — `public.service` is empty | none |
+| `pprd` | ✅ all four (batch 1) | n/a — `public.service` is empty | none |
+| `prod` | ✅ all four (batch 1 + batch 2) | n/a — `public.service` is empty | seed when the catalogue is loaded |
 
-The three migrations that must land on each branch, in order (`apps/cms/src/migrations/`):
+The four migrations, in order (`apps/cms/src/migrations/`):
 
-1. `20260729_182023_drop_legacy_service_collection`
-2. `20260729_182235_create_service_catalogue_collections`
-3. `20260729_201902_add_mcp_api_keys`
+1. `20260614_185535_initial`
+2. `20260729_182023_drop_legacy_service_collection`
+3. `20260729_182235_create_service_catalogue_collections`
+4. `20260729_201902_add_mcp_api_keys`
 
 Forward-only, per `.kiro/steering/migration-discipline.md`: never edit, reorder, or delete them, and apply per branch in `dev` → `test` → `pprd` → `prod` order.
+
+### How they were applied, and what was verified
+
+Use **`.github/workflows/cms-migrate.yml`** (Actions → *Apply CMS Migrations (Payload)*) for any future branch. It exists because `migrate.yml` is **drizzle-only** (`bun run migrate` → `drizzle-kit migrate` → `public` schema); the `cms` schema has a separate ledger, `cms.payload_migrations`, which had no runner at all. That missing runner is why three branches sat behind `dev`.
+
+State found before this was applied, and the outcome:
+
+| Branch | Before | After |
+|--------|--------|-------|
+| `test` | no `cms` schema at all | 22 `cms` tables, all four migrations |
+| `pprd` | no `cms` schema at all | 22 `cms` tables, all four migrations |
+| `prod` | `cms` schema present (20 tables), only `…_initial` applied; `cms.service.id` still `integer`/serial | 22 tables, all four; `cms.service.id` now `character varying` |
+
+Note the earlier version of this table recorded `prod` as un-migrated. That was misleading: `prod` already carried the `cms` schema and batch 1. Only the last three migrations were outstanding.
+
+Verified on every branch after applying:
+
+- `cms.service.id` is `character varying`, `cms.service_category` and `cms.payload_mcp_api_keys` exist.
+- `cms.payload_mcp_api_keys` has 11 capability columns, **all `*_find`** — zero `*_create`/`*_update`/`*_delete`. Read-only MCP access is a security property of this design, so `cms-migrate.yml` **fails the run** if a write capability column ever appears.
+- `public` untouched: `public.service` / `public.service_category` row counts unchanged, 38 base tables and 19 enums unchanged.
+- **Requirement 19.4 pre-flight held:** `prod.cms.service` was the legacy serial-id table with **0 rows**, re-asserted immediately before the destructive drop. Nothing was lost. `cms-migrate.yml` enforces this check and refuses to run when the table is non-empty.
+
+Steps 4-5 below (seed, compare against the 57/10 baseline) **did not apply** to `test`/`pprd`/`prod`: `public.service` is empty on all three, so there is nothing to seed from. The 57 services exist only on `dev`. Seed each branch when its catalogue is actually loaded.
 
 ---
 
