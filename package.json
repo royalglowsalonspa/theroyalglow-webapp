@@ -54,7 +54,9 @@
     "shell-quote": "1.10.0",
     "fast-uri": "3.1.4",
     "immutable": "4.3.9",
-    "js-yaml": "5.2.2"
+    "js-yaml": "5.2.2",
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "@hono/node-server": "2.0.12"
   },
   "lint-staged": {
     "*.{ts,tsx,json,css}": [
