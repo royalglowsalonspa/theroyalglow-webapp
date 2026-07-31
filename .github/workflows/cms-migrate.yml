@@ -1,0 +1,225 @@
+name: Apply CMS Migrations (Payload)
+
+# ---------------------------------------------------------------------------
+# MANUAL, per-branch PAYLOAD migration runner for the `cms` Postgres schema.
+#
+# WHY THIS EXISTS: migrate.yml is DRIZZLE-ONLY. It runs `bun run migrate` ->
+# `bun run --filter=@rgss/db migrate` -> `drizzle-kit migrate`, which applies
+# `packages/db/migrations/` to the `public` schema and nothing else. The `cms`
+# schema is owned by Payload (`postgresAdapter({ schemaName: 'cms', push: false })`
+# in apps/cms/src/payload.config.ts) and has a SEPARATE migration ledger,
+# `cms.payload_migrations`, fed by `apps/cms/src/migrations/`.
+#
+# Until this workflow existed there was NO runner for that second ledger at all.
+# `push: false` means nothing self-applies on deploy either, so the `cms` schema
+# only ever advanced when someone ran `payload migrate` by hand from a laptop —
+# which is why `test`, `pprd` and `prod` sat behind `dev` (test/pprd had no `cms`
+# schema whatsoever; prod had only the initial migration). A missing runner is a
+# missing control, so it lives here next to migrate.yml, not in a runbook step.
+#
+# FORWARD-ONLY, per .kiro/steering/migration-discipline.md. This workflow only
+# ever runs `payload migrate` (up). `migrate:down`, `migrate:refresh` and
+# `migrate:reset` are NEVER invoked and must never be added — mistakes are fixed
+# with a new forward migration. Apply per branch in the ratified order
+# dev -> test -> pprd -> prod (same order as the git + Neon branch flow).
+#
+# It is deliberately workflow_dispatch ONLY, for the same reason migrate.yml is:
+# this is forward-only DDL against a live database, run by a human, on purpose,
+# one branch at a time. A Render deploy must never race a schema change.
+#
+# Connection: DDL goes over the UNPOOLED/direct Neon host, never the pooled
+# (`-pooler`) one. Payload reads its connection from DATABASE_URL
+# (payload.config.ts: `pool: { connectionString: process.env.DATABASE_URL }`),
+# so that is the variable this workflow sets to the unpooled URL.
+#
+# Required secret per environment — the SAME secrets migrate.yml uses (add under
+# Settings > Secrets and variables > Actions):
+#   dev  -> DATABASE_URL_UNPOOLED_DEV
+#   test -> DATABASE_URL_UNPOOLED_TEST
+#   pprd -> DATABASE_URL_UNPOOLED_PPRD
+#   prod -> DATABASE_URL_UNPOOLED_PROD
+#
+# Run .github/workflows/pre-migration-backup.yml against the SAME branch first
+# (see knowledge-base/service-catalogue-migration.md, step 0).
+# ---------------------------------------------------------------------------
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target database branch to migrate (cms schema / Payload)'
+        required: true
+        type: choice
+        options:
+          - dev
+          - test
+          - pprd
+          - prod
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Migrations issue DDL only — no collection writes — so the service sync
+      # hooks (syncServiceToPublic / syncServiceCategoryToPublic) cannot fire
+      # here. The flag is set anyway so the guarantee is EXPLICIT rather than
+      # inferred, and so this matches the runbook, where every migration-window
+      # command runs with the sync off.
+      SERVICE_SYNC_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+
+      # psql is used only for the pre-flight check and the post-migrate ledger
+      # summary below. The migration itself is applied by Payload.
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client-16
+
+      # Same resolver as migrate.yml: pick the unpooled URL for the requested
+      # branch and fail LOUDLY when the secret is missing, rather than letting
+      # Payload run against an empty connection string and emit a confusing
+      # "getaddrinfo" style error.
+      - name: Resolve target connection
+        id: target
+        env:
+          DEV: ${{ secrets.DATABASE_URL_UNPOOLED_DEV }}
+          TEST: ${{ secrets.DATABASE_URL_UNPOOLED_TEST }}
+          PPRD: ${{ secrets.DATABASE_URL_UNPOOLED_PPRD }}
+          PROD: ${{ secrets.DATABASE_URL_UNPOOLED_PROD }}
+        run: |
+          case "${{ inputs.environment }}" in
+            dev)  URL="$DEV"  ;;
+            test) URL="$TEST" ;;
+            pprd) URL="$PPRD" ;;
+            prod) URL="$PROD" ;;
+          esac
+          if [ -z "$URL" ]; then
+            echo "::error title=Missing secret::No unpooled connection string configured for '${{ inputs.environment }}'. Add the matching DATABASE_URL_UNPOOLED_* secret."
+            exit 1
+          fi
+          echo "::add-mask::$URL"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      # Payload's init refuses to start without a non-empty `secret`
+      # ("Error: missing secret key"), so `payload migrate` needs PAYLOAD_SECRET
+      # even though a migration run never touches secret-derived data: the secret
+      # only keys session/cookie encryption and the MCP api_key_index HMAC, and
+      # this job performs DDL exclusively. The real per-environment secret is
+      # therefore OPTIONAL here — if the PAYLOAD_SECRET repo secret is absent, an
+      # ephemeral one is generated for this run only. Nothing derived from it is
+      # persisted.
+      - name: Resolve Payload secret
+        id: payload
+        env:
+          CONFIGURED: ${{ secrets.PAYLOAD_SECRET }}
+        run: |
+          SECRET="$CONFIGURED"
+          if [ -z "$SECRET" ]; then
+            SECRET="$(openssl rand -hex 32)"
+            echo "::notice title=Ephemeral Payload secret::PAYLOAD_SECRET is not configured; generated a throwaway secret for this DDL-only run."
+          fi
+          echo "::add-mask::$SECRET"
+          echo "secret=$SECRET" >> "$GITHUB_OUTPUT"
+
+      # Requirement 19.4 pre-flight. `20260729_182023_drop_legacy_service_collection`
+      # DROPS cms.service (its id changes from integer/serial to varchar, a cast
+      # Postgres cannot perform), so it may only run against an EMPTY table. This
+      # is verified, never assumed. Non-zero => STOP: take/keep the
+      # pre-migration-backup.yml dump and record an explicit discard-or-recreate
+      # decision before anything drops those rows. Once the drop migration has
+      # already been applied, cms.service holds the NEW shape and this check is
+      # skipped.
+      - name: Pre-flight — cms.service must be empty (Req 19.4)
+        env:
+          PGURL: ${{ steps.target.outputs.url }}
+        run: |
+          APPLIED=$(psql "$PGURL" -tAc "SELECT CASE WHEN to_regclass('cms.payload_migrations') IS NULL THEN '0' ELSE (SELECT count(*)::text FROM cms.payload_migrations WHERE name = '20260729_182023_drop_legacy_service_collection') END")
+          if [ "$APPLIED" != "0" ]; then
+            echo "Drop migration already applied on ${{ inputs.environment }} — cms.service is the new shape, pre-flight not applicable."
+            exit 0
+          fi
+          if [ "$(psql "$PGURL" -tAc "SELECT to_regclass('cms.service') IS NOT NULL")" != "t" ]; then
+            echo "cms.service does not exist on ${{ inputs.environment }} — nothing to lose."
+            exit 0
+          fi
+          ROWS=$(psql "$PGURL" -tAc "SELECT count(*) FROM cms.service")
+          echo "cms.service row count on ${{ inputs.environment }}: $ROWS"
+          if [ "$ROWS" != "0" ]; then
+            echo "::error title=cms.service is not empty::${ROWS} row(s) in cms.service on '${{ inputs.environment }}'. The drop-and-recreate migration would DESTROY them. Run pre-migration-backup.yml, record the discard-or-recreate decision per Requirement 19.4 (knowledge-base/service-catalogue-migration.md), then re-run."
+            exit 1
+          fi
+
+      # Ledger BEFORE, so the summary shows exactly what this run added.
+      - name: Record migration ledger (before)
+        env:
+          PGURL: ${{ steps.target.outputs.url }}
+        run: |
+          {
+            echo "### cms.payload_migrations — before (${{ inputs.environment }})"
+            echo ""
+            echo '```'
+            psql "$PGURL" -c "SELECT batch, name, created_at FROM cms.payload_migrations ORDER BY id" \
+              || echo "cms.payload_migrations does not exist yet (no Payload migration has ever run on this branch)."
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # `payload migrate` reads cms.payload_migrations and applies ONLY the
+      # migrations missing from it, in apps/cms/src/migrations/index.ts order.
+      # Never hand-pick migrations — the ledger decides.
+      - name: Apply Payload migrations (forward-only DDL)
+        env:
+          # Payload's postgres adapter reads DATABASE_URL (payload.config.ts).
+          # Pointed at the UNPOOLED host: DDL over pgBouncer hangs.
+          DATABASE_URL: ${{ steps.target.outputs.url }}
+          PAYLOAD_SECRET: ${{ steps.payload.outputs.secret }}
+        run: bun run --filter=@rgss/cms migrate
+
+      # Self-evidencing run: the ledger and the resulting catalogue shape both go
+      # into the run summary, so a run proves what it did without re-connecting
+      # to the database by hand.
+      - name: Verify migration ledger (after)
+        env:
+          PGURL: ${{ steps.target.outputs.url }}
+        run: |
+          {
+            echo ""
+            echo "### cms.payload_migrations — after (${{ inputs.environment }})"
+            echo ""
+            echo '```'
+            psql "$PGURL" -c "SELECT batch, name, created_at FROM cms.payload_migrations ORDER BY id"
+            echo '```'
+            echo ""
+            echo "| Check | Value |"
+            echo "|-------|-------|"
+            echo "| \`cms.service.id\` type | $(psql "$PGURL" -tAc "SELECT coalesce((SELECT data_type FROM information_schema.columns WHERE table_schema='cms' AND table_name='service' AND column_name='id'), 'absent')") |"
+            echo "| \`cms.service_category\` | $(psql "$PGURL" -tAc "SELECT CASE WHEN to_regclass('cms.service_category') IS NULL THEN 'absent' ELSE 'present' END") |"
+            echo "| \`cms.payload_mcp_api_keys\` | $(psql "$PGURL" -tAc "SELECT CASE WHEN to_regclass('cms.payload_mcp_api_keys') IS NULL THEN 'absent' ELSE 'present' END") |"
+            echo "| \`public.service\` rows | $(psql "$PGURL" -tAc "SELECT CASE WHEN to_regclass('public.service') IS NULL THEN 'absent' ELSE (SELECT count(*)::text FROM public.service) END") |"
+            echo "| \`public.service_category\` rows | $(psql "$PGURL" -tAc "SELECT CASE WHEN to_regclass('public.service_category') IS NULL THEN 'absent' ELSE (SELECT count(*)::text FROM public.service_category) END") |"
+            echo "| \`public\` base tables | $(psql "$PGURL" -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'") |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # The MCP surface is READ-ONLY BY DESIGN (see the mcpPlugin comment in
+      # payload.config.ts). Every per-key capability column must be a `*_find`;
+      # a `*_create` / `*_update` / `*_delete` column appearing here would mean a
+      # write capability had been enabled on collections whose afterChange hooks
+      # mirror into the LIVE booking catalogue. Fail the run if one shows up.
+      - name: Verify MCP api-key capabilities are read-only
+        env:
+          PGURL: ${{ steps.target.outputs.url }}
+        run: |
+          if [ "$(psql "$PGURL" -tAc "SELECT to_regclass('cms.payload_mcp_api_keys') IS NOT NULL")" != "t" ]; then
+            echo "::error title=Missing table::cms.payload_mcp_api_keys was not created."
+            exit 1
+          fi
+          WRITE_COLS=$(psql "$PGURL" -tAc "SELECT string_agg(column_name, ', ' ORDER BY column_name) FROM information_schema.columns WHERE table_schema='cms' AND table_name='payload_mcp_api_keys' AND (column_name LIKE '%\_create' OR column_name LIKE '%\_update' OR column_name LIKE '%\_delete')")
+          if [ -n "$WRITE_COLS" ]; then
+            echo "::error title=MCP write capability present::cms.payload_mcp_api_keys has write capability columns: $WRITE_COLS. The MCP server is read-only by design."
+            exit 1
+          fi
+          {
+            echo ""
+            echo "**MCP capabilities (read-only check passed):** $(psql "$PGURL" -tAc "SELECT string_agg(column_name, ', ' ORDER BY column_name) FROM information_schema.columns WHERE table_schema='cms' AND table_name='payload_mcp_api_keys' AND column_name LIKE '%find'")"
+          } >> "$GITHUB_STEP_SUMMARY"
