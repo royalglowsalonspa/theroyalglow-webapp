@@ -150,10 +150,17 @@ misconfigured cache is the realistic failure mode, not steady-state traffic.
 
 ## 5. Phase 0 — Prerequisites
 
-1. Create the AWS account, **enable MFA on root**, then never use root again.
-2. IAM user `rgss-admin` with `AdministratorAccess` + MFA. `aws configure`, region `ap-southeast-1`.
-3. Enable Free Tier usage alerts and create the $5 budget (Billing → Budgets).
-4. Add `sst` as a root devDependency: `bun add -d sst`.
+**Status: done except the identity fix in 5.1.** Account `343277178041`, region
+`ap-southeast-1`, AWS CLI v2.36.13, `sst@4.17.1` installed with providers.
+
+1. AWS account created. ✅
+2. AWS CLI v2 installed and authenticated with **`aws login`** (browser sign-in). ✅
+   This supersedes the older "create an IAM user and long-lived access keys" step — `aws login`
+   issues short-lived credentials (valid 12 h, renewable for 90 days without re-authenticating
+   in the browser), so there is no permanent secret sitting in `~/.aws/credentials`.
+3. `bun add -d sst` + `bunx sst install` (generates `.sst/platform` types). ✅
+4. **Outstanding:** enable Free Tier usage alerts and create the $5 budget (Billing → Budgets).
+5. **Outstanding:** stop using the root user — see [§5.1](#51-do-not-deploy-as-root).
 
 ```bash
 aws sts get-caller-identity        # must return your account id
@@ -161,6 +168,37 @@ aws sts get-caller-identity        # must return your account id
 
 Unlike the EC2 path, no Docker and no Linux host are required — SST builds from any OS, and
 `sst deploy` runs fine from Windows.
+
+### 5.1 Do NOT deploy as root
+
+`aws sts get-caller-identity` currently returns:
+
+```
+"Arn": "arn:aws:iam::343277178041:root"
+```
+
+That is the **account root user**. Fix this before provisioning anything, because every resource,
+trust policy and deployment then traces back to an identity that should be locked away.
+
+Why it matters:
+
+- Root cannot be constrained by IAM policies. There is no least-privilege version of it.
+- Root can close the account, change the payment method and alter billing — a compromise is
+  unrecoverable, not just expensive.
+- AWS's own guidance, and the Well-Architected security pillar, is to use root only for the
+  handful of tasks that require it, then never again.
+
+Fix, once:
+
+1. Enable **MFA on the root user** (Account → Security credentials). Do this regardless.
+2. Confirm root has **no access keys**. If any exist, delete them.
+3. Create an administrative identity for daily work — either IAM Identity Center (preferred; it is
+   what `aws login` is designed around) or an IAM user with `AdministratorAccess` + MFA.
+4. `aws login` again as that identity and re-check `get-caller-identity` — the ARN must no longer
+   end in `:root`.
+
+Everything in this runbook works identically as a non-root administrator. Nothing below depends on
+root, so switching now costs nothing; switching after cutover means re-checking every resource.
 
 ---
 
@@ -325,9 +363,12 @@ and does not appear in a port. That is the point of this architecture.
 Nothing below has been executed yet.
 
 **Phase 0**
-- [ ] AWS account created, root MFA on, `rgss-admin` IAM user
+- [x] AWS account created (`343277178041`)
+- [x] AWS CLI v2 installed, authenticated via `aws login`, region `ap-southeast-1`
+- [x] `bun add -d sst` + `bunx sst install`
+- [x] Agent Toolkit for AWS installed (16 skills + AWS MCP server; rules in `.kiro/steering/aws-agent-rules.md`)
+- [ ] **Enable root MFA and switch to a non-root admin identity** ([§5.1](#51-do-not-deploy-as-root))
 - [ ] $5 budget + free-tier alerts
-- [ ] `bun add -d sst`
 - [x] Region decided: `ap-southeast-1` (Singapore) — Neon has no Mumbai ([§3](#3-region-choice--decided-singapore))
 
 **Phase 1–2**
