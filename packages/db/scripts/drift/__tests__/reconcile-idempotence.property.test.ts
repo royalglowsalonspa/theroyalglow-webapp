@@ -79,6 +79,11 @@ function isIdempotentStatement(statement: string): boolean {
   if (/IF NOT EXISTS/i.test(statement)) return true
   // `ALTER COLUMN ... SET NOT NULL` is inherently idempotent in Postgres.
   if (/SET NOT NULL/i.test(statement)) return true
+  // So are the column-DEFAULT corrections: `SET DEFAULT` / `DROP DEFAULT` are
+  // ABSOLUTE assignments, so re-issuing one is a no-op. A single `ALTER TABLE`
+  // may carry both a `SET NOT NULL` and a default action, so the whole
+  // statement qualifies when every action is one of these.
+  if (/ALTER COLUMN .+ (SET DEFAULT |DROP DEFAULT)/i.test(statement)) return true
   return false
 }
 
@@ -248,12 +253,23 @@ function applyEntry(model: SchemaModel, entry: DiffEntry, guarded: boolean): Sch
         })
       }
       if (entry.status === 'divergent') {
-        // Only the additive tightening is emitted (`SET NOT NULL`).
+        // Two additive corrections are emitted, both absolute assignments: the
+        // nullable -> NOT NULL tightening, and the column DEFAULT. Type
+        // divergence is deliberately NOT modeled — the reconciler emits nothing
+        // for it.
+        const branch = asColumn(entry.branch)
         return withTable(model, entry.table, (table) => ({
           ...table,
-          columns: table.columns.map((c) =>
-            c.name === canonical.name ? { ...c, nullable: false } : c,
-          ),
+          columns: table.columns.map((c) => {
+            if (c.name !== canonical.name) return c
+            const tightened = branch?.nullable === true && !canonical.nullable
+            const defaultChanged = branch !== null && branch.default !== canonical.default
+            return {
+              ...c,
+              nullable: tightened ? false : c.nullable,
+              default: defaultChanged ? canonical.default : c.default,
+            }
+          }),
         }))
       }
       return model
@@ -369,6 +385,26 @@ describe('Property 5: Reconciliation idempotence', () => {
       }),
       RUNS,
     )
+  })
+
+  it('actually covers divergent column DEFAULT steps', () => {
+    // The `change_default` mutation in `drift-arbitraries.ts` produces columns
+    // whose DEFAULT diverges, so the generated plans exercise the column-DEFAULT
+    // corrections the properties above assert idempotence for. Asserted rather
+    // than assumed: without coverage the guardedness property would be vacuous
+    // for this step class.
+    const covered = fc
+      .sample(modelPairArb, 300)
+      .flatMap(({ canonical, branch }) => planFor(canonical, branch))
+      .filter((step) => /ALTER COLUMN .+ (SET DEFAULT |DROP DEFAULT)/.test(step.ddl))
+
+    expect(covered.length).toBeGreaterThan(0)
+    for (const step of covered) {
+      expect(isIdempotentDdl(step.ddl)).toBe(true)
+      // A DEFAULT change needs no data pre-check; a co-occurring NOT NULL
+      // tightening in the same statement does.
+      if (!/SET NOT NULL/.test(step.ddl)) expect(step.preCheck).toBeNull()
+    }
   })
 
   it('never emits drizzle-kit push (the mechanism that partial-applied)', () => {

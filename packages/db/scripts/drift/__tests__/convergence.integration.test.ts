@@ -35,21 +35,21 @@
  *                foreign keys) and asserts the plan restores the fork exactly.
  *
  * Recorded observations (live run, `prod` = br-bold-cake-aotql242) :
- *   1. `prod` differs from canonical in EXACTLY one object: `public."user".role`
- *      carries no column default, while canonical has `DEFAULT 'customer'::text`.
- *   2. `reconcile.ts` emits NO step for a divergent column DEFAULT — its
- *      `divergent` column branch only handles a nullable -> NOT NULL tightening.
- *      The plan for an untouched `prod` fork is therefore empty and convergence
- *      is unreachable through the plan alone. This suite compensates that single
- *      default GENERICALLY on the disposable fork (never on a real branch) and
- *      asserts the compensation is the ONLY thing the Reconciler could not
- *      express, so the gap is recorded as an executable assertion rather than a
- *      comment. Fixing `reconcile.ts` is out of this task's scope.
- *   3. `runner.verifyOnFork` applies every step's DDL BEFORE evaluating the
- *      bound pre-checks and has no per-step try/catch (recorded open finding
- *      under tasks.md Notes). The suite drives `verifyOnFork` AS-IS and asserts
- *      on its `VerifyReport`; the seeded drift deliberately introduces no data
- *      violation, so the apply-then-check ordering does not change the verdict.
+ *   1. `prod` once differed from canonical in EXACTLY one object:
+ *      `public."user".role` carried no column default while canonical has
+ *      `DEFAULT 'customer'::text`.
+ *   2. `reconcile.ts` NOW emits a step for a divergent column DEFAULT (an
+ *      idempotent `ALTER COLUMN ... SET/DROP DEFAULT` in the columns band,
+ *      derived from the canonical fingerprint and needing no data pre-check).
+ *      The former hand-written `alignColumnDefaults` compensation is therefore
+ *      DELETED: the fork is aligned to canonical by THE PLAN ALONE, and the
+ *      suite asserts the plan leaves NO diff entry unexpressed.
+ *   3. `runner.verifyOnFork` now applies every step through the Req 5.5
+ *      check-then-apply gate (`applyGatedPlan`): each bound Data_Pre_Check runs
+ *      BEFORE its DDL, a violating check blocks that one step, and a failing
+ *      statement no longer aborts the loop. The seeded drift deliberately
+ *      introduces no data violation, so every step here applies and
+ *      `VerifyReport.stepOutcomes` carries no `blocked` verdict.
  *
  * Skip behaviour : Guarded by `describe.skipIf(!isDriftForkAvailable())`, which
  *                requires BOTH a live `DATABASE_URL` and a `NEON_API_KEY`. CI has
@@ -92,7 +92,7 @@ import type { SqlExecutor } from '../catalog-queries'
 import { SchemaDiffer } from '../diff'
 import { Reconciler } from '../reconcile'
 import { createDriftRunner, type VerifyReport } from '../runner'
-import type { BranchId, ColumnFp, DiffEntry, ReconcileStep } from '../types'
+import type { BranchId, DiffEntry, ReconcileStep } from '../types'
 import {
   canonicalOnFork,
   deleteFork,
@@ -236,27 +236,14 @@ async function findForeignKeyName(
 }
 
 // ─────────────────────────────────────────────────────────
-// Baseline alignment — compensate divergences the Reconciler cannot express.
+// Baseline alignment — the reconcile plan now expresses EVERY divergence.
+//
+// The former `alignColumnDefaults` workaround is gone: `reconcile.ts` emits an
+// idempotent `ALTER COLUMN ... SET/DROP DEFAULT` step for a divergent column
+// DEFAULT, so an inherited `prod` divergence is repaired BY THE PLAN. The suite
+// keeps a totality check instead of a compensation: any diff entry the plan
+// leaves unexpressed is a failure, not something to patch around.
 // ─────────────────────────────────────────────────────────
-
-function asColumnFp(payload: unknown): ColumnFp | null {
-  if (typeof payload !== 'object' || payload === null) return null
-  const record = payload as Record<string, unknown>
-  if (
-    typeof record.name !== 'string' ||
-    typeof record.type !== 'string' ||
-    typeof record.nullable !== 'boolean' ||
-    !(record.default === null || typeof record.default === 'string')
-  ) {
-    return null
-  }
-  return {
-    default: record.default,
-    name: record.name,
-    nullable: record.nullable,
-    type: record.type,
-  }
-}
 
 /** Diff entries for which `Reconciler.plan` emitted no step at all. */
 function unexpressedEntries(objects: readonly DiffEntry[], plan: readonly ReconcileStep[]) {
@@ -264,39 +251,9 @@ function unexpressedEntries(objects: readonly DiffEntry[], plan: readonly Reconc
   return objects.filter((entry) => !expressed.has(entry))
 }
 
-/**
- * Apply the ONE class of divergence `reconcile.ts` does not model — a column
- * whose DEFAULT differs while its type and nullability already match canonical.
- * Runs on the DISPOSABLE fork only. Returns the statements applied so the test
- * can assert on them.
- */
-async function alignColumnDefaults(
-  exec: SqlExecutor,
-  entries: readonly DiffEntry[],
-): Promise<string[]> {
-  const applied: string[] = []
-  for (const entry of entries) {
-    const canonical = asColumnFp(entry.canonical)
-    const branch = asColumnFp(entry.branch)
-    if (entry.table === null || canonical === null || branch === null) {
-      throw new Error(
-        `Unrepairable divergence outside the recorded reconciler gap: ${entry.kind} ${entry.table ?? '-'}.${entry.object} (${entry.status})`,
-      )
-    }
-    if (canonical.type !== branch.type || canonical.nullable !== branch.nullable) {
-      throw new Error(
-        `Divergence on ${entry.table}.${canonical.name} is not default-only (type/nullability differ); this suite only compensates the recorded DEFAULT gap.`,
-      )
-    }
-    const target = `ALTER TABLE ${quoteIdent(entry.table)} ALTER COLUMN ${quoteIdent(canonical.name)}`
-    const statement =
-      canonical.default === null
-        ? `${target} DROP DEFAULT;`
-        : `${target} SET DEFAULT ${canonical.default};`
-    await exec(statement)
-    applied.push(statement)
-  }
-  return applied
+/** `diff.ts`-aligned identity of a diff entry, for readable failure messages. */
+function identityOf(entry: DiffEntry): string {
+  return `${entry.kind}:${entry.table ?? '-'}:${entry.object}:${entry.status}`
 }
 
 // ─────────────────────────────────────────────────────────
@@ -309,8 +266,10 @@ let canonicalForkId: BranchId | null = null
 let driftedForkId: BranchId | null = null
 
 let canonical: CanonicalFingerprint
-/** Statements applied to align the fork with canonical before seeding drift. */
+/** Plan DDL applied to align the fork with canonical before seeding drift. */
 let alignmentStatements: string[] = []
+/** Diff identities the reconciler expressed no step for (must stay EMPTY). */
+let inheritedUnexpressed: string[] = []
 /** Baseline hash of the fork AFTER alignment, BEFORE seeding drift. */
 let alignedHash: string
 let plan: ReconcileStep[] = []
@@ -332,18 +291,20 @@ describe.skipIf(!LIVE)('drift convergence on a live Neon fork (Property 6)', () 
     driftedForkId = fork.branchId
     expect(REAL_BRANCH_IDS.has(fork.branchId)).toBe(false)
 
-    // ── 3. Align the fork with canonical, compensating ONLY the recorded
-    //    reconciler gap (divergent column DEFAULT). Anything else throws.
+    // ── 3. Align the fork with canonical using THE PLAN ALONE. Every inherited
+    //    divergence — including a column DEFAULT — is now expressible, so no
+    //    hand-written compensation is applied. `inheritedUnexpressed` is
+    //    asserted empty below rather than patched around.
     const inheritedFp = await fingerprintOf(fork.exec)
     const inheritedDiff = SchemaDiffer.diff(canonical.fingerprint, inheritedFp.fingerprint)
     const inheritedPlan = Reconciler.plan(inheritedDiff)
-    alignmentStatements = await alignColumnDefaults(
-      fork.exec,
-      unexpressedEntries(inheritedDiff.objects, inheritedPlan),
-    )
-    // Any entry the reconciler COULD express is applied by the plan itself.
+    inheritedUnexpressed = unexpressedEntries(inheritedDiff.objects, inheritedPlan)
+      .map(identityOf)
+      .sort()
+    alignmentStatements = []
     for (const step of inheritedPlan) {
       await fork.exec(step.ddl)
+      alignmentStatements.push(step.ddl)
     }
     alignedHash = (await fingerprintOf(fork.exec)).hash
 
@@ -393,14 +354,12 @@ describe.skipIf(!LIVE)('drift convergence on a live Neon fork (Property 6)', () 
     driftedForkId = null
   }, CLEANUP_TIMEOUT_MS)
 
-  it('aligns the prod fork to canonical, compensating only the recorded reconciler DEFAULT gap', () => {
-    // Every alignment statement is a column-default fix on the fork — nothing
-    // structural, and nothing on a real branch.
-    for (const statement of alignmentStatements) {
-      expect(statement).toMatch(
-        /^ALTER TABLE ".+" ALTER COLUMN ".+" (SET DEFAULT .+|DROP DEFAULT);$/,
-      )
-    }
+  it('aligns the prod fork to canonical using the reconcile plan alone', () => {
+    // The reconciler expresses EVERY inherited divergence — the column-DEFAULT
+    // class it once emitted nothing for included — so nothing outside the plan
+    // is applied and no compensation remains.
+    expect(inheritedUnexpressed).toEqual([])
+
     // After alignment the fork is byte-identical to canonical, which is what
     // makes the seeded-drift convergence assertion below meaningful.
     expect(alignedHash).toBe(canonical.hash)

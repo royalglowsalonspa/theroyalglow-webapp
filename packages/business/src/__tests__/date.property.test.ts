@@ -34,11 +34,13 @@
  * Dependencies : fast-check, vitest, ../utils/date
  *
  * Notes        : Implements design Correctness Property 4 only.
- *                `formatDateIN` passes no `timeZone` to Intl, so it renders in
- *                the HOST zone. The IST group therefore pins the display zone
- *                to Asia/Kolkata (India Standard Time) before asserting the
- *                UTC → IST rollover, which is the "displayed IST" contract in
- *                the database conventions.
+ *                `formatDateIN` pins Intl to Asia/Kolkata, so its output no
+ *                longer depends on the host zone. Both groups still stub `TZ` to
+ *                Asia/Kolkata because they construct their inputs from LOCAL
+ *                calendar components (`new Date(y, m, d, 12, …)`); pinning the
+ *                host zone keeps the input side deterministic too. The UTC-host
+ *                case — the one production runs — is covered by
+ *                `../utils/date.timezone.test.ts`.
  ************************************************************/
 
 import fc from 'fast-check'
@@ -111,6 +113,16 @@ const istEraCivilArb: fc.Arbitrary<Civil> = fc
 // ---------------------------------------------------------------------------
 
 describe('Property 4: Indian Date Formatting Round-Trip', () => {
+  // Inputs below are built from LOCAL calendar components, so the host zone must
+  // match the IST display zone for "local noon" to be IST noon.
+  beforeAll(() => {
+    vi.stubEnv('TZ', 'Asia/Kolkata')
+  })
+
+  afterAll(() => {
+    vi.unstubAllEnvs()
+  })
+
   it('always renders the calendar date as zero-padded DD/MM/YYYY', () => {
     fc.assert(
       fc.property(civilArb, (civil) => {

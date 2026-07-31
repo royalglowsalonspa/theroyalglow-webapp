@@ -275,19 +275,24 @@ const SEED_FOREIGN_KEYS = [
  *   - `existing_null` : `business_hour.is_open` became nullable on the branch
  *                       while canonical keeps it NOT NULL (a divergent-column
  *                       tightening).
- *   - `duplicate_key` : the dropped UNIQUE on `business_hour(day_of_week)`.
+ *   - `duplicate_key` : TWO — the dropped UNIQUE on `business_hour(day_of_week)`
+ *                       AND its backing unique index, which `catalog-queries.ts`
+ *                       reports as a separate diff entry (only `indisprimary` is
+ *                       excluded). Since the Finding-2 fix, that index carries
+ *                       its own `duplicate_key` gate instead of being an ungated
+ *                       `CREATE UNIQUE INDEX`.
  *   - `orphan_fk`     : one per dropped foreign key.
- * The dropped UNIQUE's backing index also shows up in the diff but needs no
- * data pre-check, and `prod`'s one inherited divergence (`user.role`'s missing
- * DEFAULT) needs none either — its nullability already matches canonical.
+ * `prod`'s one inherited divergence (`user.role`'s missing DEFAULT) needs no
+ * pre-check — a DEFAULT change rewrites no rows and can violate nothing — even
+ * though the reconciler now emits a step for it.
  */
 const EXPECTED_CHECK_COUNTS: Readonly<Record<DataPreCheck['kind'], number>> = {
-  duplicate_key: 1,
+  duplicate_key: 2,
   existing_null: 1,
   orphan_fk: SEED_FOREIGN_KEYS.length,
 }
 
-/** Total pre-checks expected: 1 + 1 + 2 = 4. */
+/** Total pre-checks expected: 2 + 1 + 2 = 5. */
 const EXPECTED_PRE_CHECKS = Object.values(EXPECTED_CHECK_COUNTS).reduce((a, b) => a + b, 0)
 
 /** `readCatalog` issues exactly one `SELECT` per catalog object class. */
@@ -549,7 +554,7 @@ describe.skipIf(!LIVE)('read-only drift audit on a live Neon fork (Property 8)',
   // ── LINE OF EVIDENCE 1: statement-level proof.
 
   it('issues only read-only SELECT statements across the whole audit path', () => {
-    // EXACTLY seven catalog reads plus one probe per derived pre-check — 11.
+    // EXACTLY seven catalog reads plus one probe per derived pre-check — 12.
     // Nothing else reached the database through the audit path.
     expect(capturedStatements.length).toBe(CATALOG_QUERY_COUNT + EXPECTED_PRE_CHECKS)
     expect(capturedStatements.length).toBe(CATALOG_QUERY_COUNT + derivedChecks.length)

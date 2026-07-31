@@ -17,7 +17,13 @@
  *   - NEVER emit `drizzle-kit push` (it partial-applied; that is why this module
  *     exists).
  *   - Bind each step to its `DataPreCheck` (the SAME check `precheck.plan` would
- *     generate) so DDL is gated and skippable on a data violation.
+ *     generate) so DDL is gated and skippable on a data violation. That includes
+ *     an added UNIQUE INDEX, which is gated by a `duplicate_key` check exactly
+ *     like an added UNIQUE constraint (its backing index surfaces as its own
+ *     diff entry, so it must carry its own gate).
+ *   - `divergent` columns are corrected additively: a nullable -> NOT NULL
+ *     tightening AND a differing column DEFAULT (`SET DEFAULT` / `DROP DEFAULT`,
+ *     derived from the canonical fingerprint, needing no data pre-check).
  *   - `divergent` PRIMARY KEY redefinition is modeled as drop-then-add gated by
  *     an explicit pre-check and FLAGGED `-- OPERATOR-CONFIRM:` — never
  *     auto-applied (the statements are emitted commented out).
@@ -341,13 +347,41 @@ function columnDdl(entry: DiffEntry): string | null {
     return `${parts.join(' ')};`
   }
 
-  // Divergent column: only the additive tightening (branch nullable ->
-  // canonical NOT NULL) is auto-corrected. `SET NOT NULL` is idempotent.
+  // Divergent column: the additive tightening (branch nullable -> canonical
+  // NOT NULL) and the column DEFAULT are auto-corrected. Both are ABSOLUTE
+  // assignments in Postgres and therefore inherently idempotent (Req 6.1): a
+  // second `SET NOT NULL` / `SET DEFAULT` / `DROP DEFAULT` is a no-op, so no
+  // `IF NOT EXISTS` guard is available or needed.
+  //
+  // A DEFAULT change needs NO data pre-check: it only changes the expression
+  // applied to FUTURE inserts, never rewrites existing rows, and cannot violate
+  // a constraint — so `preCheckFor` correctly binds `null` for a default-only
+  // divergence. The expression is taken verbatim from the CANONICAL fingerprint
+  // (already normalized by `fingerprint.ts`); no column or value is hard-coded.
+  //
+  // A type divergence stays out of scope (a rewrite, not an additive fix) and is
+  // reported rather than auto-applied.
   if (entry.status === 'divergent') {
     const branch = extractColumn(entry.branch)
-    if (branch?.nullable && !canonical.nullable) {
-      return `ALTER TABLE ${table} ALTER COLUMN ${col} SET NOT NULL;`
+    if (branch === null) return null
+
+    // Multiple actions in ONE `ALTER TABLE` statement: neon-http has no
+    // interactive transactions and executes a single statement per call, so a
+    // column that diverges in BOTH nullability and default must still be one
+    // statement.
+    const actions: string[] = []
+    if (branch.nullable && !canonical.nullable) {
+      actions.push(`ALTER COLUMN ${col} SET NOT NULL`)
     }
+    if (canonical.default !== branch.default) {
+      actions.push(
+        canonical.default === null
+          ? `ALTER COLUMN ${col} DROP DEFAULT`
+          : `ALTER COLUMN ${col} SET DEFAULT ${canonical.default}`,
+      )
+    }
+    if (actions.length === 0) return null
+    return `ALTER TABLE ${table} ${actions.join(', ')};`
   }
 
   return null
@@ -486,7 +520,7 @@ function buildStep(entry: DiffEntry): ReconcileStep | null {
  * PURE: turn a `SchemaDiff` into an ordered, idempotent reconciliation plan.
  *
  * Emits guarded, idempotent corrective DDL for `missing_on_branch` objects and
- * additive enum-label / NOT NULL tightenings; models divergent PRIMARY KEY
+ * additive enum-label / NOT NULL / column-DEFAULT corrections; models divergent PRIMARY KEY
  * redefinition as an operator-confirmed (commented, never auto-applied)
  * drop-then-add; and leaves `extra_on_branch` objects untouched (additive-only,
  * non-destructive). Steps are ordered enums -> columns -> pk/unique -> indexes

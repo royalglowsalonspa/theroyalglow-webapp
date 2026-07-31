@@ -22,13 +22,18 @@
  * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, Better Auth
  * Layer        : Presentation
  *
- * Dependencies : auth, @rgss/db/queries, next (Metadata, headers, redirect),
+ * Dependencies : auth, @rgss/business (IST_TIME_ZONE), @rgss/db/queries,
+ *                next (Metadata, headers, redirect),
  *                NotificationPreferencesForm, SignOutButton
  *
  * Notes        :
  * - Protected route; redirects to / (homepage) if no session
+ * - `user.createdAt` is a stored-UTC timestamptz, so the member-since formatter
+ *   pins IST — without it Intl would resolve the HOST zone and a sign-up in the
+ *   18:30–24:00 UTC window would render the previous IST day
  ************************************************************/
 
+import { IST_TIME_ZONE } from '@rgss/business'
 import { getNotificationPreferences } from '@rgss/db/queries'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
@@ -56,6 +61,7 @@ function formatMemberSince(value: Date | string | null | undefined): string {
     day: '2-digit',
     month: 'long',
     year: 'numeric',
+    timeZone: IST_TIME_ZONE,
   }).format(date)
 }
 
