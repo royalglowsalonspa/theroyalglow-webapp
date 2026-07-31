@@ -119,26 +119,38 @@ Conventions enforced throughout (per steering and design): the audit phase is st
 - [x] 11. Checkpoint - pure pipeline and orchestration wired
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 12. Integration verification on a Neon fork
-  - **BLOCKED — pending owner sign-off + Neon API credentials. NOT STARTED. MUST NOT be run by an
-    autonomous agent.** All of 12.1–12.3 require forking the live PRODUCTION Neon branch via
-    `neon-admin.ts` with a real `NEON_API_KEY`, and 12.1/12.3 additionally apply real DDL and seed
-    deliberate constraint violations on that fork. The tasks are correct by design; they are
-    shared-infrastructure work that needs the owner's explicit sign-off and credentials before
-    anyone executes them.
-  - **Fixture constraint when they are eventually written:** no fixture may reintroduce pg_cron or
-    `cron.schedule` objects. pg_cron is RETIRED (replaced by QStash scheduled HTTP jobs) and
-    `fingerprint.ts` already excludes retired pg_cron rows, so such a fixture would be both
-    off-canonical and invisible to the fingerprint.
-  - [ ]* 12.1 Write convergence integration test
+- [x] 12. Integration verification on a Neon fork
+  - **UNBLOCKED and COMPLETE.** The owner granted Neon access and `NEON_API_KEY` is present in
+    `packages/db/.env`, so 12.1–12.3 were executed live against the real Neon project
+    `theroyalglow-db`. All three suites pass.
+  - **Shared harness:** `packages/db/scripts/drift/__tests__/live-fork.ts` forks `prod` into
+    throwaway `zz-drift-verify-*` branches and guarantees their deletion. `prod` is only ever a fork
+    PARENT and a read-only catalog source; `dev`/`test`/`pprd` are never read or written, and the
+    archived `test`/`pprd` branches are never reactivated. No `resetFromParent` is called on any real
+    branch. Every suite asserts `survivingThrowawayBranches() === []`, and cleanup was independently
+    confirmed against the Neon control plane — exactly the 4 real branches remain.
+  - **Suites are `*.integration.test.ts`**, so `bun run test` excludes them and they are guarded by
+    `describe.skipIf(!isDriftForkAvailable())` — CI has neither a live DB nor an API key, so they skip
+    there instead of failing the pipeline. Run them individually with `bunx vitest run <file>`; do NOT
+    run the full `bun run test:integration`, whose filter also pulls in unrelated live suites that
+    write to the `dev` branch.
+  - **Canonical_Fingerprint** (derived from the Drizzle code into an emptied `public` schema on a
+    disposable fork, stable across independent derivations):
+    `1892556b0ad09857aac287b6fcb476311a018ec59e20b5ec7d6e213c6dbe48cb` — 38 tables, 19 enums.
+    Untouched `prod`: `8541bd7e7bfc017436a46ef114882ff14726cef51aba21a7cc33d2ccfed9175f`.
+  - **Fixture constraint (honoured):** no fixture reintroduces pg_cron or `cron.schedule` objects.
+    pg_cron is RETIRED (replaced by QStash scheduled HTTP jobs) and `fingerprint.ts` already excludes
+    retired pg_cron rows, so such a fixture would be both off-canonical and invisible to the
+    fingerprint.
+  - [x]* 12.1 Write convergence integration test
     - **Property 6: Convergence to canonical**
     - **Validates: Requirements 8.5, 13.7**
     - On a `prod` fork, apply the full verified plan and assert the post-rollout fingerprint equals the Canonical_Fingerprint and all pre-checks pass
-  - [ ]* 12.2 Write read-only audit integration test
+  - [x]* 12.2 Write read-only audit integration test
     - **Property 8: Read-only audit**
     - **Validates: Requirements 2.2, 13.8**
     - Assert fingerprint and pre-check executions issue only `SELECT` statements and leave the audited fork's data and schema unchanged
-  - [ ]* 12.3 Write seeded-violation and idempotence integration test
+  - [x]* 12.3 Write seeded-violation and idempotence integration test
     - Seed deliberate duplicate-key/orphan-FK violations on a fork; assert the matching object is blocked and reported while independent steps still apply; apply the plan twice and assert an identical fingerprint
     - _Requirements: 5.5, 6.1_
 
@@ -172,7 +184,10 @@ Conventions enforced throughout (per steering and design): the audit phase is st
 - The audit phase is strictly read-only; all DDL uses the unpooled `DATABASE_URL_UNPOOLED` string; reconciliation abandons `drizzle-kit push` for guarded idempotent ordered DDL.
 - Live Neon branch operations (fork/reset/reactivate/restore) run through the Neon Kiro power; no destructive SQL is executed autonomously.
 - Test support: `packages/db/scripts/drift/__tests__/drift-arbitraries.ts` is a shared `fast-check` generator module (catalog rows, fingerprints, diffs) used by the Property 1–5 and 7 suites. It is test scaffolding, not a task deliverable.
-- **FINDING (not covered by any task — needs a decision): `runner.ts` does not gate DDL on pre-check results.** Requirement 5.5 ("skip that step's DDL, mark the step blocked, continue with independent steps") is enforced by `precheck.ts` at the planning layer but NOT at the orchestration layer: `verifyOnFork` applies EVERY step's DDL first and only then evaluates the bound pre-checks, so a step whose pre-check would fail has already been applied by the time it is evaluated. The apply loop also has no per-step `try`/`catch`, so a single DDL failure aborts the whole loop instead of blocking one step and continuing with independent ones. `rollout` behaves the same way. No task is added for this — it needs an explicit decision on whether Req 5.5 is an orchestration-layer contract.
+- **FINDING 1 (not covered by any task — needs a decision): `runner.ts` does not gate DDL on pre-check results.** Requirement 5.5 ("skip that step's DDL, mark the step blocked, continue with independent steps") is enforced by `precheck.ts` at the planning layer but NOT at the orchestration layer: `verifyOnFork` applies EVERY step's DDL first and only then evaluates the bound pre-checks, so a step whose pre-check would fail has already been applied by the time it is evaluated. The apply loop also has no per-step `try`/`catch`, so a single DDL failure aborts the whole loop instead of blocking one step and continuing with independent ones. `rollout` behaves the same way. No task is added for this — it needs an explicit decision on whether Req 5.5 is an orchestration-layer contract.
+  - **Confirmed live by task 12.3.** Because the orchestrator does not implement the gate, `verifyOnFork` could not be used to prove Req 5.5, so `seeded-violations.integration.test.ts` implements the check-then-apply gate IN THE TEST (`gatedApply`) and says so explicitly. That suite also feeds each blocked step's DDL to real Postgres and shows it REJECTED (`could not create unique index "audit_log_pkey"`, `violates foreign key constraint "audit_log_actor_id_fkey"`) — i.e. exactly what an ungated apply loop hits today. When the decision is taken and the gate moves into `runner.ts`, the test's local gate should be replaced with the orchestrator's.
+- **FINDING 2 (new, from task 12.3 — same class as Finding 1): `reconcile.ts` binds no `DataPreCheck` to an index step.** A dropped UNIQUE constraint surfaces TWICE in the diff — once as the constraint and once as its backing unique index, because `catalog-queries.ts` `INDEXES_SQL` only excludes `indisprimary`. The constraint step is gated by a `duplicate_key` pre-check, but the index step is not, so the plan contains an UNGATED `CREATE UNIQUE INDEX` that real duplicate data would reject. Task 12.3 therefore seeds its duplicate-key violation on a PRIMARY KEY (excluded from `INDEXES_SQL`, so exactly one gated step and no ungated companion) rather than on a UNIQUE. Task 12.1 hit the same duplication from the other side: re-adding a dropped UNIQUE yields both a constraint and a separately-named unique index, duplicating the fingerprint entry and blocking convergence. No task is added for this — like Finding 1 it needs an explicit decision.
+- **FINDING 3 (from task 12.1, real drift on live `prod`): `reconcile.ts` emits no step for a divergent column DEFAULT.** `public."user".role` on `prod` has NO column default while canonical has `DEFAULT 'customer'::text`, and the `divergent` column branch of `Reconciler.plan` only handles a nullable→NOT NULL tightening. An untouched `prod` fork therefore produces an EMPTY plan and can never reach canonical through the plan alone. `convergence.integration.test.ts` compensates this generically on its disposable fork (deriving `ALTER COLUMN … SET/DROP DEFAULT` from the diff, never hard-coding `user.role`) and asserts it is the ONLY divergence the reconciler cannot express; `seeded-violations.integration.test.ts` asserts the same thing independently. Once `reconcile.ts` handles column defaults, both compensations become no-ops and the tests still pass.
 
 ## Task Dependency Graph
 

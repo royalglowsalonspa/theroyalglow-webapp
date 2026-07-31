@@ -16,6 +16,7 @@
  * Responsibilities :
  * - forkBranch       : fork a parent branch into a new disposable branch
  * - deleteBranch     : delete a branch (cleanup of verify branches)
+ * - listBranches     : list the project's branches (id + name) — read-only
  * - reactivate       : un-archive a branch by ensuring it has a compute endpoint
  * - resetFromParent  : restore a branch to its parent's head (== parent)
  * - connectionString : return the UNPOOLED (direct) connection URI for DDL
@@ -40,7 +41,13 @@ import type { BranchId } from './types'
 // Configuration
 // ─────────────────────────────────────────────────────────
 
-const NEON_API_BASE = 'https://api.neon.tech/api/v2'
+/**
+ * Neon Management API v2 base URL.
+ *
+ * The API is served from `console.neon.tech/api/v2` — `api.neon.tech` has no
+ * address record and fails DNS resolution, so it must not be used here.
+ */
+const NEON_API_BASE = 'https://console.neon.tech/api/v2'
 
 /** Default Neon project: theroyalglow-db. Overridable via NEON_PROJECT_ID. */
 const DEFAULT_PROJECT_ID = 'divine-heart-60915941'
@@ -123,6 +130,7 @@ type BranchResponse = {
 }
 
 type OperationsResponse = { operations?: NeonOperation[] }
+type BranchesListResponse = { branches: NeonBranch[] }
 type SingleOperationResponse = { operation: NeonOperation }
 type EndpointsListResponse = { endpoints: NeonEndpoint[] }
 type EndpointResponse = { endpoint: NeonEndpoint; operations?: NeonOperation[] }
@@ -133,9 +141,17 @@ type ConnectionUriResponse = { uri: string }
 // NeonAdmin adapter
 // ─────────────────────────────────────────────────────────
 
+/** Identity of a project branch as reported by the control plane. */
+export type BranchSummary = {
+  id: BranchId
+  name: string
+}
+
 export interface NeonAdmin {
   forkBranch(parent: BranchId, name: string): Promise<BranchId>
   deleteBranch(id: BranchId): Promise<void>
+  /** List every branch in the project (read-only; id + name). */
+  listBranches(): Promise<BranchSummary[]>
   /** Un-archive an archived branch (ensures it has a live compute endpoint). */
   reactivate(id: BranchId): Promise<void>
   /** Restore a branch to its parent's head, making it == parent. */
@@ -179,6 +195,14 @@ export class NeonManagementApiAdmin implements NeonAdmin {
       `/projects/${this.projectId}/branches/${id}`,
     )
     await this.waitForOperations(res.operations)
+  }
+
+  async listBranches(): Promise<BranchSummary[]> {
+    const res = await this.request<BranchesListResponse>(
+      'GET',
+      `/projects/${this.projectId}/branches`,
+    )
+    return res.branches.map((branch) => ({ id: branch.id, name: branch.name ?? '' }))
   }
 
   async reactivate(id: BranchId): Promise<void> {

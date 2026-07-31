@@ -18,6 +18,8 @@
  *
  * Features / Functionality :
  * - isLiveDbAvailable() → guard for describe.skipIf(...)
+ * - isNeonAdminAvailable() → stricter guard: live DB URL AND a NEON_API_KEY
+ *   (required by the drift fork suites, which fork disposable Neon branches)
  * - queryRows(sql) → parameterised raw-SQL rows
  *
  * Tech Stack   : Drizzle ORM, Neon PostgreSQL, Vitest
@@ -96,6 +98,19 @@ export function loadDbEnv(): void {
 export function isLiveDbAvailable(): boolean {
   loadDbEnv()
   return (process.env.DATABASE_URL ?? '') !== ''
+}
+
+/**
+ * Is the Neon Management API usable for this run?
+ *
+ * Stricter than {@link isLiveDbAvailable}: the drift fork suites need BOTH a
+ * live database URL and a `NEON_API_KEY` (to fork / delete disposable branches
+ * through `scripts/drift/neon-admin.ts`). CI has neither, so those suites skip
+ * there. The key itself is never read, logged, or returned by this helper.
+ */
+export function isNeonAdminAvailable(): boolean {
+  loadDbEnv()
+  return isLiveDbAvailable() && (process.env.NEON_API_KEY ?? '') !== ''
 }
 
 /**
