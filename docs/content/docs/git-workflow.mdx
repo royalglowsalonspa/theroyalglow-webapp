@@ -168,20 +168,21 @@ This catches formatting issues and obvious lint errors **before they ever reach 
 
 ## Deployment
 
-<Tabs items={['Cloudflare Workers (web + admin)', 'Render (Payload CMS)']}>
-<Tab value="Cloudflare Workers (web + admin)">
+<Tabs items={['Render (today)', 'AWS (target)']}>
+<Tab value="Render (today)">
 
-- `rgss-web` (`theroyalglow.in`) and `rgss-admin` (`admin.theroyalglow.in`), deployed via the OpenNext adapter (`opennextjs-cloudflare deploy` / `wrangler deploy`)
-- Automatic deployment on push to `prod` branch
-- Preview (versioned) deployments on every PR
-- Rollback: instant via `wrangler rollback` or the Workers & Pages → Deployments view
+- `rgss-web` (`theroyalglow.in`), `rgss-admin` (`admin.theroyalglow.in`) and `rgss-cms` (`cms.theroyalglow.in`)
+- Auto-deploy on push to `prod`, built and started with Bun (`next build` → `next start`)
+- Zero-downtime deploys via Render's rolling restart
+- Rollback: redeploy a previous commit from the Render dashboard
 
 </Tab>
-<Tab value="Render (Payload CMS)">
+<Tab value="AWS (target)">
 
-- `rgss-cms` (`cms.theroyalglow.in`)
-- Auto-deploy on push to `prod` branch
-- Zero-downtime deploys via Render's rolling restart
+- `apps/web` and `apps/admin` only: Lambda (ARM64) + CloudFront + S3 per app, via SST. CMS stays on Render; invoicing stays on Cloud Run
+- `deploy-aws.yml` on push to `prod`: GitHub OIDC → `bunx sst deploy --stage production` → health check
+- Rollback: redeploy a previous ref (3–5 min). PostHog feature flags are the instant kill switch
+- Full runbook: `M2AWS.md`
 
 </Tab>
 </Tabs>

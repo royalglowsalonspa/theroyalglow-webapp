@@ -6,9 +6,9 @@
  * Module Name  : invoice-pdf (types)
  * Scope        : Shared Types & Validation
  *
- * Description  : The wire contract between the caller (Cloudflare Worker /
- *                QStash job) and the standalone invoicing PDF service (Google
- *                Cloud Run). It is a FULLY-COMPUTED, self-contained render
+ * Description  : The wire contract between the caller (apps/web, apps/admin, or
+ *                a scheduled job) and the standalone invoicing PDF service.
+ *                It is a FULLY-COMPUTED, self-contained render
  *                payload: every monetary value is final integer paise computed
  *                upstream by @rgss/business. The PDF service ONLY renders these
  *                values — it never recomputes tax, discounts, or totals.

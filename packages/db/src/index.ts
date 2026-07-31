@@ -64,8 +64,10 @@ neonConfig.fetchFunction = async (input: unknown, init: unknown): Promise<Respon
  * importing every route module, and OpenNext builds with `SKIP_ENV_VALIDATION=1`
  * and no `DATABASE_URL` in the build env. A module-level `neon(process.env.DATABASE_URL!)`
  * therefore threw `No database connection string was provided to `neon()`` during
- * `next build` (page-data collection for `/api/health`), failing the Cloudflare
- * Worker deploy before the Worker was ever created.
+ * `next build` (page-data collection for `/api/health`), failing the deploy
+ * before the app was ever served. The lazy Proxy below is still required on
+ * every platform: any build that collects page data without DATABASE_URL in the
+ * environment hits the same failure.
  *
  * A Proxy defers `neon()` (and `drizzle()`) to the first real property access —
  * i.e. the first query at request time, when the running Worker DOES have

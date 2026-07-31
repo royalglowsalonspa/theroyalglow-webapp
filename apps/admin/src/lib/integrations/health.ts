@@ -74,10 +74,11 @@ export async function getIntegrationStatuses(): Promise<IntegrationStatus[]> {
     detail: qstashConfigured ? 'Token present' : 'QSTASH_TOKEN not set',
   })
 
-  // Cloudflare R2
+  // Object storage — Cloudflare R2 (S3-compatible). Unchanged by the AWS
+  // migration; the probe is provider-agnostic either way.
   const r2Configured = isSet('R2_ACCESS_KEY_ID') && isSet('R2_SECRET_ACCESS_KEY')
   results.push({
-    name: 'Cloudflare R2 (Storage)',
+    name: 'Object Storage (S3-compatible)',
     configured: r2Configured,
     status: r2Configured ? 'ok' : 'unconfigured',
     detail: r2Configured ? 'Credentials present' : 'R2 keys not set',

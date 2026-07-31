@@ -15,9 +15,8 @@ import { versions } from '@/lib/source'
  *
  * Resolved from `NEXT_PUBLIC_DOCS_URL`, then `NEXT_PUBLIC_APP_URL`, falling back
  * to the production docs origin. Kept identical to `app/robots.ts` so the
- * sitemap URLs and the canonical/robots origins always agree. Reading the
- * `NEXT_PUBLIC_*` vars is edge-compatible (Cloudflare): they are inlined at
- * build time.
+ * sitemap URLs and the canonical/robots origins always agree. The
+ * `NEXT_PUBLIC_*` vars are inlined at build time, so this works on any runtime.
  */
 const siteUrl =
   process.env.NEXT_PUBLIC_DOCS_URL ??

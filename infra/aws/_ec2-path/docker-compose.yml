@@ -1,0 +1,204 @@
+# =============================================================================
+# RGSS application stack — runs on the single EC2 host (M2AWS §9)
+# -----------------------------------------------------------------------------
+# Deployed to /opt/rgss/docker-compose.yml by scripts/deploy.sh, which also
+# writes /opt/rgss/env/*.env (mode 600) from SSM Parameter Store and exports
+# IMAGE + LOG_GROUP + AWS_REGION.
+#
+# Only caddy publishes host ports. Everything else is reachable exclusively over
+# the compose network by service name, so invoicing, valkey and srh have no
+# route from the internet.
+#
+# Memory limits are deliberate: 1 GiB of RAM plus a 2 GiB swapfile. See §9.4.
+# =============================================================================
+
+x-logging: &awslogs
+  driver: awslogs
+  options:
+    awslogs-region: ${AWS_REGION:-ap-south-1}
+    awslogs-group: ${LOG_GROUP:-/rgss/prod/app}
+    awslogs-create-group: 'true'
+
+x-app: &app
+  image: ${IMAGE:?IMAGE must be set by deploy.sh}
+  restart: unless-stopped
+  logging: *awslogs
+  networks: [rgss]
+
+services:
+  # ---------------------------------------------------------------------------
+  # Edge — TLS termination and subdomain routing
+  # ---------------------------------------------------------------------------
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'      # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data    # Let's Encrypt account + certificates (persist!)
+      - caddy_config:/config
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL must be set}
+    depends_on:
+      web: { condition: service_healthy }
+      admin: { condition: service_healthy }
+    deploy:
+      resources:
+        limits: { memory: 64M }
+    logging: *awslogs
+    networks: [rgss]
+
+  # ---------------------------------------------------------------------------
+  # Customer site — theroyalglow.in
+  # ---------------------------------------------------------------------------
+  web:
+    <<: *app
+    command: ['bun', 'run', '--filter=@rgss/web', 'start:prod']
+    env_file: [./env/web.env]
+    environment:
+      PORT: '3000'
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:3000/api/health']
+      interval: 30s
+      timeout: 10s
+      retries: 4
+      start_period: 90s
+    deploy:
+      resources:
+        limits: { memory: 320M }
+
+  # ---------------------------------------------------------------------------
+  # Admin portal — admin.theroyalglow.in (also the background-job target)
+  # ---------------------------------------------------------------------------
+  admin:
+    <<: *app
+    command: ['bun', 'run', '--filter=@rgss/admin', 'start:prod']
+    env_file: [./env/admin.env]
+    environment:
+      PORT: '3001'
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:3001/api/health']
+      interval: 30s
+      timeout: 10s
+      retries: 4
+      start_period: 90s
+    deploy:
+      resources:
+        limits: { memory: 256M }
+
+  # ---------------------------------------------------------------------------
+  # Payload CMS — cms.theroyalglow.in
+  # `payload migrate` is idempotent and runs before boot, mirroring the Render
+  # free-tier arrangement in render.yaml. It needs the UNPOOLED/direct DB host.
+  # ---------------------------------------------------------------------------
+  cms:
+    <<: *app
+    command:
+      - /bin/sh
+      - -c
+      - cd apps/cms && bun run migrate && bun run start:prod
+    env_file: [./env/cms.env]
+    environment:
+      PORT: '3002'
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', '-o', '/dev/null', 'http://localhost:3002/admin']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 150s      # Payload + sharp boot is the slowest
+    deploy:
+      resources:
+        limits: { memory: 320M }
+
+  # ---------------------------------------------------------------------------
+  # Documentation — docs.theroyalglow.in
+  # ---------------------------------------------------------------------------
+  docs:
+    <<: *app
+    command: ['bun', 'run', '--filter=@rgss/docs', 'start']
+    environment:
+      PORT: '3003'            # next start honours PORT; docs has no start:prod
+      NODE_ENV: production
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', '-o', '/dev/null', 'http://localhost:3003/']
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits: { memory: 128M }
+
+  # ---------------------------------------------------------------------------
+  # Invoice PDF service — internal only, never routed through Caddy
+  # ---------------------------------------------------------------------------
+  invoicing:
+    <<: *app
+    command: ['bun', 'run', '--filter=@rgss/invoicing', 'start']
+    env_file: [./env/invoicing.env]
+    environment:
+      PORT: '8080'
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:8080/healthz']
+      interval: 30s
+      timeout: 10s
+      retries: 4
+      start_period: 45s
+    deploy:
+      resources:
+        limits: { memory: 192M }
+
+  # ---------------------------------------------------------------------------
+  # Cache + rate limiting (M2AWS §12)
+  # Valkey is the Redis-compatible store; SRH speaks the Upstash REST dialect
+  # that @upstash/redis and @upstash/ratelimit already use, so no app code
+  # changes — only UPSTASH_REDIS_REST_URL/TOKEN change.
+  # ---------------------------------------------------------------------------
+  valkey:
+    image: valkey/valkey:8-alpine
+    restart: unless-stopped
+    command:
+      - valkey-server
+      - --maxmemory
+      - 48mb
+      - --maxmemory-policy
+      - allkeys-lru
+      - --save
+      - ''
+      - --appendonly
+      - 'no'
+    healthcheck:
+      test: ['CMD', 'valkey-cli', 'ping']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits: { memory: 64M }
+    networks: [rgss]
+
+  srh:
+    image: hiett/serverless-redis-http:0.0.10
+    restart: unless-stopped
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: ${SRH_TOKEN:?SRH_TOKEN must be set}
+      SRH_CONNECTION_STRING: redis://valkey:6379
+    depends_on:
+      valkey: { condition: service_healthy }
+    deploy:
+      resources:
+        limits: { memory: 64M }
+    logging: *awslogs
+    networks: [rgss]
+
+networks:
+  rgss:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

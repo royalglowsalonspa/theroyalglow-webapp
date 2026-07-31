@@ -1,0 +1,754 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  RGSS production foundation (M2AWS Phase 1). Creates every stateful and
+  long-lived resource: security groups, RDS PostgreSQL 16, media + backup S3
+  buckets, CloudFront (OAC), ECR, EC2 instance role, Elastic IP, the t3.micro
+  application host, CloudWatch log group + alarms, SNS alert topic, an
+  EventBridge Scheduler execution role + DLQ, and a cost budget.
+  Region: ap-south-1. Designed to stay inside the AWS Free Tier.
+
+# ---------------------------------------------------------------------------
+# Parameters
+# ---------------------------------------------------------------------------
+Parameters:
+  ProjectName:
+    Type: String
+    Default: rgss
+    Description: Resource name prefix.
+
+  EnvName:
+    Type: String
+    Default: prod
+    AllowedValues: [dev, test, pprd, prod]
+    Description: Deployment environment (matches the git/Neon branch names).
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: Default VPC id. There is deliberately no NAT Gateway.
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: >-
+      Two PUBLIC subnets in different AZs. The EC2 host lands in the first one;
+      RDS needs two for its subnet group even though it is single-AZ.
+
+  DbMasterPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 16
+    Description: RDS master password (openssl rand -base64 24).
+
+  DbMasterUsername:
+    Type: String
+    Default: rgss_admin
+
+  DbName:
+    Type: String
+    Default: rgss
+
+  DbEngineVersion:
+    Type: String
+    Default: '16'
+    Description: Major version only, so minor upgrades are automatic.
+
+  DbInstanceClass:
+    Type: String
+    Default: db.t4g.micro
+    Description: Free-tier eligible for 12 months.
+
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    Description: Free-tier eligible for 12 months (1 GiB RAM — see M2AWS.md 9.4).
+
+  AlertEmail:
+    Type: String
+    Description: Email for SNS alarms and the budget notification.
+
+  SshAllowedCidr:
+    Type: String
+    Default: 127.0.0.1/32
+    Description: >-
+      Break-glass SSH allowlist (your IP /32). SSM Session Manager is the
+      primary shell; leave this at the loopback default to keep 22 closed.
+
+  MediaDomainName:
+    Type: String
+    Default: ''
+    Description: >-
+      Optional. e.g. media.theroyalglow.in. Requires MediaCertificateArn (ACM in
+      us-east-1). Leave blank to use the *.cloudfront.net domain first.
+
+  MediaCertificateArn:
+    Type: String
+    Default: ''
+    Description: Optional ACM cert ARN in us-east-1 for MediaDomainName.
+
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
+  MonthlyBudgetUsd:
+    Type: Number
+    Default: 5
+    Description: Budget alarm threshold in USD.
+
+Conditions:
+  HasMediaDomain: !And
+    - !Not [!Equals [!Ref MediaDomainName, '']]
+    - !Not [!Equals [!Ref MediaCertificateArn, '']]
+
+Resources:
+  # -------------------------------------------------------------------------
+  # Networking — security groups only. Default VPC, no NAT.
+  # -------------------------------------------------------------------------
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: RGSS app host — public HTTP/HTTPS, break-glass SSH.
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP (Caddy redirects to HTTPS + ACME http-01)
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref SshAllowedCidr
+          Description: Break-glass SSH only
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${EnvName}-app-sg'
+
+  DbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: RGSS RDS — reachable only from the app host SG.
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref AppSecurityGroup
+          Description: PostgreSQL from the app host only
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${EnvName}-db-sg'
+
+  # -------------------------------------------------------------------------
+  # Database — private, encrypted, 7-day PITR
+  # -------------------------------------------------------------------------
+  DbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: !Sub '${ProjectName}-${EnvName} RDS subnets'
+      SubnetIds: !Ref SubnetIds
+
+  DbParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: Force TLS on every connection.
+      Family: postgres16
+      Parameters:
+        rds.force_ssl: '1'
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: !Sub '${ProjectName}-${EnvName}-db'
+      Engine: postgres
+      EngineVersion: !Ref DbEngineVersion
+      DBInstanceClass: !Ref DbInstanceClass
+      DBName: !Ref DbName
+      MasterUsername: !Ref DbMasterUsername
+      MasterUserPassword: !Ref DbMasterPassword
+      AllocatedStorage: '20'
+      MaxAllocatedStorage: 50
+      StorageType: gp3
+      StorageEncrypted: true
+      PubliclyAccessible: false
+      MultiAZ: false
+      DBSubnetGroupName: !Ref DbSubnetGroup
+      DBParameterGroupName: !Ref DbParameterGroup
+      VPCSecurityGroups:
+        - !Ref DbSecurityGroup
+      BackupRetentionPeriod: 7
+      PreferredBackupWindow: '19:00-20:00'          # 00:30 IST
+      PreferredMaintenanceWindow: 'sun:20:30-sun:21:30'
+      CopyTagsToSnapshot: true
+      DeletionProtection: true
+      AutoMinorVersionUpgrade: true
+      EnablePerformanceInsights: false               # not free on t4g.micro
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${EnvName}-db'
+
+  # -------------------------------------------------------------------------
+  # Storage
+  # -------------------------------------------------------------------------
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub '${ProjectName}-${EnvName}-media-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      CorsConfiguration:
+        CorsRules:
+          - AllowedMethods: [GET, HEAD]
+            AllowedOrigins: ['*']
+            AllowedHeaders: ['*']
+            MaxAge: 3600
+
+  BackupBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub '${ProjectName}-${EnvName}-backups-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: weekly-dumps-to-glacier-ir
+            Status: Enabled
+            Prefix: weekly/
+            Transitions:
+              - StorageClass: GLACIER_IR
+                TransitionInDays: 30
+            ExpirationInDays: 365
+          - Id: abort-incomplete-uploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+
+  MediaOac:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${ProjectName}-${EnvName}-media-oac'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  MediaDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub '${ProjectName}-${EnvName} media (S3 via OAC)'
+        HttpVersion: http2and3
+        PriceClass: PriceClass_200          # includes India edge locations
+        Aliases: !If [HasMediaDomain, [!Ref MediaDomainName], !Ref 'AWS::NoValue']
+        ViewerCertificate: !If
+          - HasMediaDomain
+          - AcmCertificateArn: !Ref MediaCertificateArn
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
+        Origins:
+          - Id: media-s3
+            DomainName: !GetAtt MediaBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt MediaOac.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+        DefaultCacheBehavior:
+          TargetOriginId: media-s3
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          # AWS managed policies: CachingOptimized + CORS-S3Origin
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          OriginRequestPolicyId: 88a5eaf4-2fd4-4709-b370-b4c650ea3fcf
+
+  MediaBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref MediaBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontRead
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${MediaBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${MediaDistribution}'
+
+  # -------------------------------------------------------------------------
+  # Container registry
+  # -------------------------------------------------------------------------
+  EcrRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${ProjectName}-${EnvName}'
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      ImageTagMutability: MUTABLE
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep the 10 most recent images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": { "type": "expire" }
+              }
+            ]
+          }
+
+  # -------------------------------------------------------------------------
+  # Observability
+  # -------------------------------------------------------------------------
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub '${ProjectName}-${EnvName}-alerts'
+      DisplayName: RGSS alerts
+
+  AlertSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref AlertTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+
+  AppLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/${ProjectName}/${EnvName}/app'
+      RetentionInDays: 14
+
+  # -------------------------------------------------------------------------
+  # EC2 instance role — SSM shell, ECR pull, SSM params, S3, SES, CW
+  # -------------------------------------------------------------------------
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-${EnvName}-instance-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+      Policies:
+        - PolicyName: rgss-runtime
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Per-app env blobs (SecureString) + their KMS decrypt
+              - Sid: ReadEnvParameters
+                Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ProjectName}/${EnvName}/*'
+              - Sid: DecryptEnvParameters
+                Effect: Allow
+                Action: kms:Decrypt
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    kms:ViaService: !Sub 'ssm.${AWS::Region}.amazonaws.com'
+              # Media objects (CMS uploads, invoice PDFs)
+              - Sid: MediaObjects
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub '${MediaBucket.Arn}/*'
+              - Sid: MediaList
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt MediaBucket.Arn
+              # Backups (pg_dump) + deploy config objects
+              - Sid: BackupObjects
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub '${BackupBucket.Arn}/*'
+              - Sid: BackupList
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt BackupBucket.Arn
+              # Transactional email
+              - Sid: SendEmail
+                Effect: Allow
+                Action:
+                  - ses:SendEmail
+                  - ses:SendRawEmail
+                Resource: '*'
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref InstanceRole]
+
+  # -------------------------------------------------------------------------
+  # Application host
+  # -------------------------------------------------------------------------
+  AppInstance:
+    Type: AWS::EC2::Instance
+    DependsOn: [EcrRepository, AppLogGroup]
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfile
+      SubnetId: !Select [0, !Ref SubnetIds]
+      SecurityGroupIds: [!Ref AppSecurityGroup]
+      Monitoring: false
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 30            # free-tier ceiling
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      MetadataOptions:
+        HttpTokens: required          # IMDSv2 only
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${EnvName}-app'
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # RGSS app host bootstrap. Authoritative copy of the instance
+          # bootstrap — mirrored for reading at infra/aws/user-data.sh.
+          set -euxo pipefail
+          exec > >(tee /var/log/rgss-bootstrap.log) 2>&1
+
+          dnf update -y
+          dnf install -y docker jq amazon-cloudwatch-agent postgresql16
+
+          # --- swap: 1 GiB RAM cannot hold 5 Node servers without it ---------
+          if [ ! -f /swapfile ]; then
+            dd if=/dev/zero of=/swapfile bs=1M count=2048
+            chmod 600 /swapfile
+            mkswap /swapfile
+            swapon /swapfile
+            echo '/swapfile none swap sw 0 0' >> /etc/fstab
+          fi
+          sysctl -w vm.swappiness=10
+          echo 'vm.swappiness=10' > /etc/sysctl.d/99-rgss.conf
+
+          # --- docker + compose v2 plugin ------------------------------------
+          systemctl enable --now docker
+          usermod -aG docker ec2-user
+          install -d /usr/local/lib/docker/cli-plugins
+          curl -fsSL \
+            "https://github.com/docker/compose/releases/download/v2.32.4/docker-compose-linux-x86_64" \
+            -o /usr/local/lib/docker/cli-plugins/docker-compose
+          chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+          # --- layout --------------------------------------------------------
+          install -d -m 755 /opt/rgss
+          install -d -m 700 /opt/rgss/env
+          cat > /opt/rgss/stack.env <<'ENVEOF'
+          AWS_REGION=${AWS::Region}
+          PROJECT=${ProjectName}
+          ENV_NAME=${EnvName}
+          ECR_URI=${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ProjectName}-${EnvName}
+          CONFIG_BUCKET=${BackupBucket}
+          LOG_GROUP=/${ProjectName}/${EnvName}/app
+          ENVEOF
+
+          # --- CloudWatch agent: memory + disk are not reported by default ---
+          cat > /opt/aws/amazon-cloudwatch-agent/etc/rgss.json <<'CWEOF'
+          {
+            "agent": { "metrics_collection_interval": 60 },
+            "metrics": {
+              "append_dimensions": { "InstanceId": "${!aws:InstanceId}" },
+              "aggregation_dimensions": [["InstanceId"]],
+              "metrics_collected": {
+                "mem": { "measurement": ["mem_used_percent"] },
+                "swap": { "measurement": ["swap_used_percent"] },
+                "disk": {
+                  "resources": ["/"],
+                  "measurement": ["disk_used_percent"],
+                  "ignore_file_system_types": ["sysfs", "tmpfs", "devtmpfs", "overlay"]
+                }
+              }
+            }
+          }
+          CWEOF
+          /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+            -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/rgss.json
+
+          # --- pull deploy config, then release if an image already exists ----
+          # CI uploads docker-compose.yml, Caddyfile and deploy.sh to
+          # s3://<backup-bucket>/config/ before it calls deploy.sh.
+          aws s3 cp "s3://${BackupBucket}/config/" /opt/rgss/ --recursive || true
+          chmod +x /opt/rgss/deploy.sh 2>/dev/null || true
+          if [ -x /opt/rgss/deploy.sh ]; then /opt/rgss/deploy.sh latest || true; fi
+
+  ElasticIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${EnvName}-eip'
+
+  ElasticIpAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt ElasticIp.AllocationId
+      InstanceId: !Ref AppInstance
+
+  # -------------------------------------------------------------------------
+  # EventBridge Scheduler plumbing (schedules themselves: scripts/register-schedules.sh)
+  # -------------------------------------------------------------------------
+  JobDlq:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${ProjectName}-${EnvName}-jobs-dlq'
+      MessageRetentionPeriod: 1209600      # 14 days
+
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-${EnvName}-scheduler-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref 'AWS::AccountId'
+      Policies:
+        - PolicyName: invoke-api-destinations
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: events:InvokeApiDestination
+                Resource: !Sub 'arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:api-destination/${ProjectName}-${EnvName}-*'
+              - Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !GetAtt JobDlq.Arn
+
+  # -------------------------------------------------------------------------
+  # Alarms
+  # -------------------------------------------------------------------------
+  HighMemoryAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ProjectName}-${EnvName}-HighMemory'
+      AlarmDescription: Memory above 85% for 10 minutes — consider t3.small.
+      Namespace: CWAgent
+      MetricName: mem_used_percent
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref AppInstance
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 85
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+
+  DiskFullAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ProjectName}-${EnvName}-DiskFull'
+      AlarmDescription: Root volume above 85% — prune Docker images.
+      Namespace: CWAgent
+      MetricName: disk_used_percent
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref AppInstance
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 85
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+
+  HighCpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ProjectName}-${EnvName}-HighCpu'
+      AlarmDescription: CPU above 80% for 15 minutes (t3 credits burning).
+      Namespace: AWS/EC2
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref AppInstance
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+
+  InstanceStatusAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ProjectName}-${EnvName}-StatusCheckFailed'
+      AlarmDescription: EC2 status check failed — instance or host is unhealthy.
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref AppInstance
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 3
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlertTopic]
+
+  RdsStorageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ProjectName}-${EnvName}-RdsStorageLow'
+      AlarmDescription: RDS free storage below 2 GB.
+      Namespace: AWS/RDS
+      MetricName: FreeStorageSpace
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref Database
+      Statistic: Minimum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 2147483648
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+
+  JobDlqAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ProjectName}-${EnvName}-JobDlqNotEmpty'
+      AlarmDescription: A scheduled job exhausted its retries.
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt JobDlq.QueueName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+
+  # -------------------------------------------------------------------------
+  # Cost guardrail
+  # -------------------------------------------------------------------------
+  MonthlyBudget:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: !Sub '${ProjectName}-${EnvName}-monthly'
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit:
+          Amount: !Ref MonthlyBudgetUsd
+          Unit: USD
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 80
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref AlertEmail
+        - Notification:
+            NotificationType: FORECASTED
+            ComparisonOperator: GREATER_THAN
+            Threshold: 100
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref AlertEmail
+
+# ---------------------------------------------------------------------------
+# Outputs
+# ---------------------------------------------------------------------------
+Outputs:
+  ElasticIp:
+    Description: Route 53 A-record target for all four hostnames.
+    Value: !Ref ElasticIp
+  InstanceId:
+    Description: Session Manager target and deploy target.
+    Value: !Ref AppInstance
+  DbEndpoint:
+    Description: RDS host for DATABASE_URL (private — reachable from the app SG).
+    Value: !GetAtt Database.Endpoint.Address
+  DbPort:
+    Value: !GetAtt Database.Endpoint.Port
+  MediaBucket:
+    Value: !Ref MediaBucket
+  MediaCdnDomain:
+    Description: CloudFront domain for NEXT_PUBLIC_MEDIA_URL.
+    Value: !GetAtt MediaDistribution.DomainName
+  MediaDistributionId:
+    Value: !Ref MediaDistribution
+  BackupBucket:
+    Description: pg_dump target and deploy-config source.
+    Value: !Ref BackupBucket
+  EcrRepositoryUri:
+    Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrRepository}'
+  AlertTopicArn:
+    Value: !Ref AlertTopic
+  SchedulerRoleArn:
+    Description: Passed to register-schedules.sh.
+    Value: !GetAtt SchedulerRole.Arn
+  JobDlqArn:
+    Value: !GetAtt JobDlq.Arn
+  AppSecurityGroupId:
+    Value: !Ref AppSecurityGroup

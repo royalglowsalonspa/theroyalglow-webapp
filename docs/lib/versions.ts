@@ -20,7 +20,7 @@
  * Every export here is a pure function over plain version **metadata**
  * (`VersionMeta`) — no clipboard, network, filesystem, fumadocs loader, or
  * `@/.source` generated content is touched. This keeps the module directly
- * unit/PBT testable and edge-compatible (Cloudflare). The fumadocs `source`
+ * unit/PBT testable and runtime-agnostic. The fumadocs `source`
  * loader instance is intentionally **not** part of `VersionMeta`; task 6.1
  * (`lib/source.ts` wiring) attaches a real `source` per version by layering it
  * on top of this metadata to produce the `DocVersion` shape below.

@@ -12,7 +12,7 @@
  * Responsibilities :
  * - Retrieve all active services grouped by category
  * - Return structured data for Salon/SPA toggle UI
- * - Serve as data source for Cloudflare KV cache layer
+ * - Serve as data source for the Redis cache layer
  *
  * Features / Functionality :
  * - Category-grouped service listing
@@ -25,7 +25,8 @@
  * Dependencies : @/lib/api/error-handler, @rgss/db/queries
  *
  * Notes        :
- * - Designed for Cloudflare KV edge caching (5-min TTL).
+ * - Designed for Upstash Redis caching with a 5-min TTL. The originally
+ *   planned Cloudflare KV layer was never built.
  * - No authentication required.
  ************************************************************/
 

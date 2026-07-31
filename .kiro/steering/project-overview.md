@@ -34,13 +34,21 @@ theroyalglow-webapp/
 
 ### Subdomain Map
 
-| Subdomain | Application | Hosting |
-|-----------|-------------|---------|
-| `theroyalglow.in` | `apps/web` — customer website | Cloudflare Workers (`rgss-web`) |
-| `admin.theroyalglow.in` | `apps/admin` — admin portal | Cloudflare Workers (`rgss-admin`) |
-| `cms.theroyalglow.in` | `apps/cms` — Payload CMS (marketing content + service catalogue) | Render |
-| `docs.theroyalglow.in` | `docs/` — Fumadocs documentation | Cloudflare Workers |
-| `r2.theroyalglow.in` | Cloudflare R2 object storage | Cloudflare R2 |
+| Subdomain | Application | Hosting (today) | Hosting (target) |
+|-----------|-------------|-----------------|------------------|
+| `theroyalglow.in` | `apps/web` — customer website | Render (`rgss-web`) | **AWS Lambda + CloudFront** (SST) |
+| `admin.theroyalglow.in` | `apps/admin` — admin portal | Render (`rgss-admin`) | **AWS Lambda + CloudFront** (SST) |
+| `cms.theroyalglow.in` | `apps/cms` — Payload CMS (marketing content + service catalogue) | Render (`rgss-cms`) | **Render — stays** |
+| `docs.theroyalglow.in` | `docs/` — Fumadocs documentation | not yet deployed | TBD |
+| `r2.theroyalglow.in` | Cloudflare R2 object storage | Cloudflare R2 | **R2 — stays** |
+
+> **Only `apps/web` and `apps/admin` compute moves to AWS.** Neon, Upstash, QStash, Resend, Ably,
+> R2 and the Render-hosted CMS all stay, so the migration needs **zero application code changes**.
+> See `M2AWS.md`; `render.yaml` describes what runs today.
+>
+> **Cloudflare Workers is retired** — the OpenNext Worker bundle exceeded Cloudflare's free-plan
+> script size limit. The adapter, `wrangler.jsonc` files, `cf:*` scripts and `CLOUDFLARE_*`
+> variables have all been removed from the repo.
 
 The admin portal is served from `admin.theroyalglow.in` at root paths (no `/admin` prefix — the subdomain provides the admin namespace). Sessions are shared across subdomains via a `.theroyalglow.in` scoped cookie.
 
@@ -62,15 +70,15 @@ The admin portal is served from `admin.theroyalglow.in` at root paths (no `/admi
 
 | Layer | Technology |
 |-------|-----------|
-| Edge Hosting | Cloudflare Workers (OpenNext adapter) |
+| Web + Admin Hosting | Render (Node, `next start`) → AWS Lambda + CloudFront via SST (`M2AWS.md`) |
 | SSR Origin + CMS | Render (Singapore, free tier) |
 | Primary DB | Neon PostgreSQL 16 (4 branches: prod/pprd/test/dev) |
 | ORM | Drizzle ORM (pure TypeScript, edge-native) |
 | Auth | Better Auth (Google OAuth only, RBAC plugin) |
 | Realtime | Ably (6M messages/mo free) |
-| File Storage | Cloudflare R2 (S3-compatible, zero egress) |
+| File Storage | Cloudflare R2 (S3-compatible, zero egress) — unchanged by the AWS migration |
 | Cache + Queue | Upstash Redis + QStash |
-| Edge Cache | Cloudflare KV (service catalog, 5-min TTL) |
+| Service catalogue cache | Upstash Redis, 5-min TTL. The planned Cloudflare KV layer was never built. |
 | Email (Transactional) | Resend + React Email |
 | Email (Marketing) | Brevo |
 | CMS | Payload CMS v3 (marketing content + service catalogue authoring) |
@@ -82,7 +90,7 @@ The admin portal is served from `admin.theroyalglow.in` at root paths (no `/admi
 - **₹0/month infrastructure** at launch (all free tiers)
 - **India-first** — DPDP Act, IST timezone, INR (paise), GST 18%, DD/MM/YYYY dates
 - **Premium brand** — Lighthouse ≥95 performance, 100 accessibility/SEO
-- **Edge-first** — sub-100ms responses globally via Cloudflare
+- **India-first latency** — single region close to the audience (Render Singapore today, AWS `ap-south-1` Mumbai next), CDN for static assets and media
 
 ---
 

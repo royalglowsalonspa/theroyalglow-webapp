@@ -1,0 +1,125 @@
+# =============================================================================
+# Deploy apps/web + apps/admin to AWS (M2AWS §8)
+# -----------------------------------------------------------------------------
+# SST v3 -> Lambda (ARM64) + CloudFront + S3, region ap-southeast-1.
+# apps/cms stays on Render; apps/invoicing stays on Cloud Run; Neon, Upstash,
+# QStash, Resend, Ably and R2 are untouched.
+#
+# Auth is GitHub OIDC — no long-lived AWS keys in repo secrets. One-time setup
+# is in M2AWS.md §8.
+#
+# ROLLBACK: there is no one-command rollback. Re-run this workflow with
+# `git_ref` pointing at a previous tag/SHA, or revert and push (3-5 min).
+# PostHog feature flags remain the instant kill switch. A deploy that FAILS is
+# safe — CloudFront keeps serving the previous version.
+# =============================================================================
+name: Deploy AWS
+
+on:
+  push:
+    branches: [prod]
+    paths:
+      - 'apps/web/**'
+      - 'apps/admin/**'
+      - 'packages/**'
+      - 'sst.config.ts'
+      - 'bun.lock'
+      - '.github/workflows/deploy-aws.yml'
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: 'Ref to deploy (tag/SHA). Blank = current branch. Use a previous ref to roll back.'
+        required: false
+        type: string
+
+concurrency:
+  group: deploy-aws-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-southeast-1
+  SST_STAGE: production
+
+permissions:
+  contents: read
+  id-token: write # required for OIDC
+
+jobs:
+  deploy:
+    name: SST deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production-aws
+      url: https://theroyalglow.in
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref || github.ref }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+
+      - run: bun install --frozen-lockfile
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # NEXT_PUBLIC_* are inlined into the client bundle by `next build`, so they
+      # MUST be present here. They are repo *variables*, not secrets — they ship
+      # to the browser either way. Server secrets come from SST Secrets (SSM) and
+      # are NOT passed here.
+      #
+      # NEXT_PUBLIC_APP_URL is deliberately absent: it differs per app and is set
+      # per component in sst.config.ts.
+      - name: Deploy
+        env:
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
+          NEXT_PUBLIC_ABLY_KEY: ${{ vars.NEXT_PUBLIC_ABLY_KEY }}
+          NEXT_PUBLIC_POSTHOG_KEY: ${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}
+          NEXT_PUBLIC_POSTHOG_HOST: ${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}
+          NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ vars.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
+          NEXT_PUBLIC_ADMIN_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_ADMIN_SENTRY_DSN }}
+          NEXT_PUBLIC_R2_PUBLIC_URL: ${{ vars.NEXT_PUBLIC_R2_PUBLIC_URL }}
+          NEXT_PUBLIC_CMS_URL: ${{ vars.NEXT_PUBLIC_CMS_URL }}
+          NEXT_PUBLIC_ADMIN_URL: ${{ vars.NEXT_PUBLIC_ADMIN_URL }}
+          NEXT_PUBLIC_META_PIXEL_ID: ${{ vars.NEXT_PUBLIC_META_PIXEL_ID }}
+          NEXT_PUBLIC_CLARITY_ID: ${{ vars.NEXT_PUBLIC_CLARITY_ID }}
+          # Non-secret runtime config read by sst.config.ts
+          R2_BUCKET_NAME: ${{ vars.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ vars.R2_ENDPOINT }}
+          INVOICING_SERVICE_URL: ${{ vars.INVOICING_SERVICE_URL }}
+        run: bunx sst deploy --stage "$SST_STAGE"
+
+      - name: Capture deployed URLs
+        id: urls
+        run: bunx sst outputs --stage "$SST_STAGE" >> "$GITHUB_STEP_SUMMARY"
+
+      # Before cutover the custom domains do not exist yet, so this step is
+      # skipped until DNS moves (M2AWS.md §9). It then becomes the release gate.
+      - name: Health check
+        if: vars.AWS_DOMAINS_LIVE == 'true'
+        run: |
+          for i in 1 2 3 4 5 6; do
+            web=$(curl -sf -o /dev/null -w '%{http_code}' https://theroyalglow.in/api/health || echo 000)
+            adm=$(curl -sf -o /dev/null -w '%{http_code}' https://admin.theroyalglow.in/api/health || echo 000)
+            echo "attempt $i: web=$web admin=$adm"
+            if [ "$web" = 200 ] && [ "$adm" = 200 ]; then exit 0; fi
+            sleep 15
+          done
+          echo "health check failed — consider redeploying a previous ref (see header)"
+          exit 1
+
+      - name: Notify failure
+        if: failure() && env.INCIDENT_WEBHOOK != ''
+        env:
+          INCIDENT_WEBHOOK: ${{ secrets.BETTER_STACK_INCIDENT_WEBHOOK }}
+        run: |
+          curl -sf -X POST "$INCIDENT_WEBHOOK" \
+            -H 'Content-Type: application/json' \
+            -d '{"title":"AWS deploy failed","sha":"${{ github.sha }}"}' || true

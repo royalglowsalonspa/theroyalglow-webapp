@@ -1,0 +1,40 @@
+# Build-context ignore rules for infra/aws/Dockerfile.monorepo.
+# BuildKit prefers <dockerfile>.dockerignore over the root .dockerignore, so the
+# CMS-only rules at the repo root stay untouched.
+#
+# Difference that matters: docs/ and **/*.md are KEPT here — the Fumadocs app
+# and its MDX content are part of this image.
+
+# Reinstalled / rebuilt inside the image
+**/node_modules
+**/.next
+**/.turbo
+**/.open-next
+**/dist
+**/.cache
+
+# VCS, CI, tooling, local state
+.git
+.github
+.husky
+.vscode
+.kiro
+.code-review-graph
+graphify-out
+.turbo
+
+# Secrets — never bake into an image
+**/.env
+**/.env.*
+!**/.env.example
+infra/aws/env/*.env
+
+# Test + report output
+**/playwright-report
+**/test-results
+**/coverage
+**/*.log
+
+# Local artefacts
+**/.DS_Store
+**/*.tsbuildinfo

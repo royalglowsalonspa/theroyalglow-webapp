@@ -1,0 +1,121 @@
+# =============================================================================
+# RGSS monorepo image — one image, all five deployables (M2AWS §9.2)
+# -----------------------------------------------------------------------------
+# Build context is the REPO ROOT. Ignore rules come from
+# infra/aws/Dockerfile.monorepo.dockerignore (BuildKit picks up
+# <dockerfile>.dockerignore automatically), NOT the root .dockerignore —
+# that one excludes docs/ and **/*.md, which the Fumadocs app needs.
+#
+#   docker build -f infra/aws/Dockerfile.monorepo -t rgss:$(git rev-parse --short HEAD) .
+#
+# Runtime is Bun, the same runtime that serves production on Render today, so
+# `next start` behaviour is unchanged by the migration.
+#
+# WHY one image instead of five: Bun workspaces hoist node_modules to the repo
+# root and packages/* are consumed as raw TypeScript via transpilePackages.
+# A single root build sidesteps all of that; each container then runs only its
+# own workspace. Cost is image size (~2 GB), not correctness.
+# =============================================================================
+FROM oven/bun:1.3.13 AS base
+
+# curl is required by every container healthcheck in docker-compose.yml.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends curl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# -----------------------------------------------------------------------------
+# Dependencies — copied first so the layer caches on lockfile changes only.
+# -----------------------------------------------------------------------------
+COPY package.json bun.lock turbo.json tsconfig.json ./
+COPY apps/web/package.json                 apps/web/
+COPY apps/admin/package.json               apps/admin/
+COPY apps/cms/package.json                 apps/cms/
+COPY apps/invoicing/package.json           apps/invoicing/
+COPY docs/package.json                     docs/
+COPY packages/business/package.json        packages/business/
+COPY packages/db/package.json              packages/db/
+COPY packages/errors/package.json          packages/errors/
+COPY packages/logger/package.json          packages/logger/
+COPY packages/types/package.json           packages/types/
+COPY packages/ui/package.json              packages/ui/
+
+# `husky` (root prepare script) has no .git in the build context — skip it.
+ENV HUSKY=0
+RUN bun install --frozen-lockfile
+
+# -----------------------------------------------------------------------------
+# Source
+# -----------------------------------------------------------------------------
+COPY . .
+
+# -----------------------------------------------------------------------------
+# Build-time public config.
+#
+# NEXT_PUBLIC_* is INLINED INTO THE CLIENT BUNDLE AT BUILD TIME — it cannot be
+# supplied later from SSM. Every value below must be passed as a --build-arg by
+# CI. None of these are secrets: they ship to the browser either way.
+#
+# web and admin need DIFFERENT values for NEXT_PUBLIC_APP_URL, which is why each
+# app is built in its own RUN with the variable scoped to that command.
+# -----------------------------------------------------------------------------
+ARG WEB_APP_URL=https://theroyalglow.in
+ARG ADMIN_APP_URL=https://admin.theroyalglow.in
+ARG CMS_URL=https://cms.theroyalglow.in
+ARG MEDIA_URL=https://media.theroyalglow.in
+ARG GOOGLE_CLIENT_ID=""
+ARG ABLY_PUBLIC_KEY=""
+ARG POSTHOG_KEY=""
+ARG POSTHOG_HOST="https://eu.i.posthog.com"
+ARG VAPID_PUBLIC_KEY=""
+ARG WEB_SENTRY_DSN=""
+ARG ADMIN_SENTRY_DSN=""
+ARG META_PIXEL_ID=""
+ARG CLARITY_ID=""
+
+# Server-side env is validated again at cold start from SSM, so build-time
+# validation is skipped here (there is no DATABASE_URL in the build).
+ENV SKIP_ENV_VALIDATION=1 \
+    NEXT_TELEMETRY_DISABLED=1 \
+    NEXT_PUBLIC_GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID \
+    NEXT_PUBLIC_ABLY_KEY=$ABLY_PUBLIC_KEY \
+    NEXT_PUBLIC_POSTHOG_KEY=$POSTHOG_KEY \
+    NEXT_PUBLIC_POSTHOG_HOST=$POSTHOG_HOST \
+    NEXT_PUBLIC_VAPID_PUBLIC_KEY=$VAPID_PUBLIC_KEY \
+    NEXT_PUBLIC_MEDIA_URL=$MEDIA_URL \
+    NEXT_PUBLIC_R2_PUBLIC_URL=$MEDIA_URL \
+    NEXT_PUBLIC_CMS_URL=$CMS_URL \
+    NEXT_PUBLIC_ADMIN_URL=$ADMIN_APP_URL \
+    NEXT_PUBLIC_META_PIXEL_ID=$META_PIXEL_ID \
+    NEXT_PUBLIC_CLARITY_ID=$CLARITY_ID
+
+# Customer site
+RUN NEXT_PUBLIC_APP_URL=$WEB_APP_URL \
+    NEXT_PUBLIC_SENTRY_DSN=$WEB_SENTRY_DSN \
+    bun run --filter=@rgss/web build
+
+# Admin portal (its prebuild asserts design-token presence, and runs first)
+RUN NEXT_PUBLIC_APP_URL=$ADMIN_APP_URL \
+    NEXT_PUBLIC_ADMIN_SENTRY_DSN=$ADMIN_SENTRY_DSN \
+    bun run --filter=@rgss/admin build
+
+# Payload CMS
+RUN NEXT_PUBLIC_APP_URL=$CMS_URL \
+    bun run --filter=@rgss/cms build
+
+# Fumadocs
+RUN bun run --filter=@rgss/docs build
+
+# Invoicing service (tsup → dist/index.js)
+RUN bun run --filter=@rgss/invoicing build
+
+# -----------------------------------------------------------------------------
+# Runtime. The command is supplied per service by docker-compose.yml.
+# -----------------------------------------------------------------------------
+ENV NODE_ENV=production
+ENV SKIP_ENV_VALIDATION=
+
+# Drop the build-only env validation bypass so a missing required runtime var
+# fails the container's healthcheck loudly instead of booting half-configured.
+CMD ["bun", "run", "--filter=@rgss/web", "start:prod"]

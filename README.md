@@ -19,7 +19,7 @@ Covers: website, CRM, customer management, marketing automation, database, creat
 | **Edge Cache** | **Cloudflare KV** |
 | **Search** | Postgres FTS / pg_trgm in Neon (upgrade to Algolia later) |
 | **CMS** | **Payload CMS v3** — self-hosted on Render, writes to Neon DB, media to Cloudflare R2 |
-| Hosting | Cloudflare Workers (OpenNext adapter — `rgss-web`, `rgss-admin`) |
+| Hosting | Render (Node, `next start` — `rgss-web`, `rgss-admin`). Migrating to **AWS Lambda + CloudFront** via SST — see [M2AWS.md](./M2AWS.md). Cloudflare Workers retired. |
 | Origin / CMS Host | Render (Payload CMS — `rgss-cms`, free tier, Singapore region) |
 | Auth | **Better Auth** |
 | Transactional Email | **Resend** + React Email |
@@ -170,7 +170,7 @@ Service catalog, bookings, memberships, billing → all in custom admin (`theroy
 - **Phase 2:** Razorpay or Cashfree when online pre-payment/deposits needed. Schema already accommodates it (`payment_method` enum includes `'online'`, `payment_reference` column exists in `invoice` table).
 
 ## Observability & Analytics (Locked)
-- **Sentry** — error monitoring. 5k errors/mo free. Next.js + Cloudflare Workers SDK.
+- **Sentry** — error monitoring. 5k errors/mo free. Official Next.js SDK, wired into web, admin, CMS and invoicing.
 - **BetterStack** — uptime (10 monitors) + `status.theroyalglow.in` + heartbeats for QStash/GitHub Actions jobs + 1 GB logs/mo. Replaces UptimeRobot + Cronitor.
 - **PostHog** — product analytics. 1M events/mo free. Funnels, feature flags, session replay, cohorts.
 - **Microsoft Clarity** — heatmaps + session recordings. Free forever.

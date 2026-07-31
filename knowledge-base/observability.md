@@ -17,9 +17,9 @@
 ## Layer 1 — Error Monitoring: Sentry
 
 **Why Sentry:**
-- Industry standard for Next.js — official SDK, first-class Cloudflare Workers support
+- Industry standard for Next.js — official SDK, works across Node, Bun and edge runtimes
 - When an API route throws at 2am, Sentry sends an alert with full stack trace, user context, and request payload
-- Captures errors from both Cloudflare Workers (edge) and Render (Node.js/Payload CMS)
+- Captures errors from every deployable: web, admin, CMS and the invoicing service
 - Source maps support — errors point to original TypeScript lines, not minified output
 
 **Free tier:** 5,000 errors/month — more than sufficient at launch for a salon app.
@@ -50,7 +50,7 @@ BetterStack replaces three separate tools (UptimeRobot + Cronitor + a log tool) 
 | **Uptime** | HTTP monitors for every endpoint | 10 monitors |
 | **Status Page** | Public `status.theroyalglow.in` — customers see it during outages | ✅ Free, custom domain |
 | **Heartbeats** | Scheduled job monitoring — alert if QStash or GitHub Actions jobs miss their window | ✅ Free |
-| **Logs** | Ship Cloudflare Workers + Render logs, searchable | 1 GB/mo free |
+| **Logs** | Ship application logs, searchable (CloudWatch Logs on AWS) | 1 GB/mo free |
 
 ### Monitors Required (10 of 10 free slots used)
 
