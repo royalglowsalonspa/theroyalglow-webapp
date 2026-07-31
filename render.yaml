@@ -157,12 +157,20 @@ services:
   # --------------------------------------------------------------------------
   # Customer website — apps/web (@rgss/web) → theroyalglow.in
   # --------------------------------------------------------------------------
-  # Next.js 16 App Router customer site. Deployed here as a standard Node
-  # server (`next build` + `next start`) instead of the Cloudflare Worker
-  # (OpenNext) build, because the OpenNext server bundle (~5.7 MiB gzipped)
-  # exceeds Cloudflare's 3 MiB free-plan script limit. The Cloudflare/OpenNext
-  # files (open-next.config.ts, wrangler, cf:build script) are left dormant in
-  # the repo — nothing is deleted — so we can switch back on a paid CF plan.
+  # Next.js 16 App Router customer site, served as a standard Node server
+  # (`next build` + `next start`).
+  #
+  # HISTORY: this was originally built for Cloudflare Workers via the OpenNext
+  # adapter, but the Worker server bundle (~5.7 MiB gzipped) exceeded
+  # Cloudflare's 3 MiB free-plan script limit, so it moved to a plain Node
+  # server here. The dormant Cloudflare files (wrangler.jsonc,
+  # open-next.config.ts, the cf:* scripts and the @opennextjs/cloudflare +
+  # wrangler dependencies) have since been REMOVED from the repo — Cloudflare is
+  # no longer a deploy target. Restoring it would mean re-adding the adapter.
+  #
+  # The forward path is AWS: see M2AWS.md, which replaces this file with EC2
+  # containers + RDS. Render remains live and is the rollback until that cutover
+  # completes (M2AWS.md §16).
   - type: web
     name: rgss-web
     runtime: node # Render's node box; Bun is provided via BUN_VERSION below.

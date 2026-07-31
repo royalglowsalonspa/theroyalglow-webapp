@@ -23,8 +23,8 @@
  *
  * Dependencies : drizzle-orm, ../index, ../schema/service
  *
- * Notes        : This data is cached in Cloudflare KV with 5-minute TTL
- *                for edge-fast service catalog responses.
+ * Notes        : This data is cached in Upstash Redis with a 5-minute TTL
+ *                for fast service catalog responses.
  ************************************************************/
 
 import type {

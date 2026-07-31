@@ -66,7 +66,7 @@
 | 4 | Set authorized redirect URI: `https://theroyalglow.in/api/auth/callback/google` | URI saved |
 | 5 | Set authorized JavaScript origin: `https://theroyalglow.in` | Origin saved |
 | 6 | Request OAuth consent screen verification (production) | Submitted |
-| 7 | Store `GOOGLE_OAUTH_CLIENT_ID` + `GOOGLE_OAUTH_CLIENT_SECRET` | In Cloudflare Workers env / secrets |
+| 7 | Store `GOOGLE_OAUTH_CLIENT_ID` + `GOOGLE_OAUTH_CLIENT_SECRET` | In the platform secret store (Render today, SSM on AWS) |
 
 ### Email — Resend
 
@@ -77,7 +77,7 @@
 | 3 | Verify domain (DKIM, SPF, DMARC) | Status: Verified ✅ |
 | 4 | Set sending address: `Royal Glow <hello@theroyalglow.in>` | Test email received |
 | 5 | Generate production API key | Key stored securely |
-| 6 | Store `RESEND_API_KEY` | In Cloudflare Workers env / secrets |
+| 6 | Store `RESEND_API_KEY` | In the platform secret store (Render today, SSM on AWS) |
 | 7 | Configure webhook URL: `https://theroyalglow.in/api/webhooks/resend` | Webhook active |
 
 ### Email Marketing — Brevo
@@ -90,7 +90,7 @@
 | 4 | Set up automation workflows (birthday, re-engagement, etc.) | Workflows active |
 | 5 | Create contact lists (All, Active, VIP, Dormant, Birthdays) | Lists created |
 | 6 | Generate API key | Key stored |
-| 7 | Store `BREVO_API_KEY` | In Cloudflare Workers env / secrets |
+| 7 | Store `BREVO_API_KEY` | In the platform secret store (Render today, SSM on AWS) |
 | 8 | Configure webhook URL: `https://theroyalglow.in/api/webhooks/brevo` | Webhook active |
 
 ### Realtime — Ably
@@ -101,8 +101,8 @@
 | 2 | Note API key (root key for server-side) | Key generated |
 | 3 | Configure channel rules: `bookings:*`, `notifications:*`, `queue:*` | Rules set |
 | 4 | Set capability restrictions (publish/subscribe per channel) | Capabilities locked |
-| 5 | Store `ABLY_PRIVATE_KEY` | In Cloudflare Workers env / secrets |
-| 6 | Store `NEXT_PUBLIC_ABLY_KEY` (subscribe-only key) | In Cloudflare Workers env / secrets |
+| 5 | Store `ABLY_PRIVATE_KEY` | In the platform secret store (Render today, SSM on AWS) |
+| 6 | Store `NEXT_PUBLIC_ABLY_KEY` (subscribe-only key) | In the platform secret store (Render today, SSM on AWS) |
 
 ### WhatsApp — AiSensy
 
@@ -112,7 +112,7 @@
 | 2 | Register WhatsApp Business number | Number verified |
 | 3 | Create message templates (booking confirm, reminder, feedback) | Templates approved by Meta |
 | 4 | Generate API key | Key stored |
-| 5 | Store `AISENSY_API_KEY` | In Cloudflare Workers env / secrets |
+| 5 | Store `AISENSY_API_KEY` | In the platform secret store (Render today, SSM on AWS) |
 | 6 | Test WhatsApp delivery to test number | Message received |
 
 ### Analytics — PostHog
@@ -121,7 +121,7 @@
 |---|------|--------|
 | 1 | Create PostHog project `rgss-production` | Project created |
 | 2 | Note project API key | Key generated |
-| 3 | Store `NEXT_PUBLIC_POSTHOG_KEY` + `NEXT_PUBLIC_POSTHOG_HOST` | In Cloudflare Workers env / secrets |
+| 3 | Store `NEXT_PUBLIC_POSTHOG_KEY` + `NEXT_PUBLIC_POSTHOG_HOST` | In the platform secret store (Render today, SSM on AWS) |
 | 4 | Create feature flags (all OFF initially) | Flags created |
 | 5 | Set up dashboards: Bookings, Revenue, User Funnel | Dashboards created |
 | 6 | Configure session recording (opt-in, exclude admin pages) | Recording configured |
@@ -132,7 +132,7 @@
 | # | Task | Verify |
 |---|------|--------|
 | 1 | Create Clarity project | Project ID generated |
-| 2 | Store `NEXT_PUBLIC_CLARITY_ID` | In Cloudflare Workers env / secrets |
+| 2 | Store `NEXT_PUBLIC_CLARITY_ID` | In the platform secret store (Render today, SSM on AWS) |
 | 3 | Set up masking rules (PII fields: phone, email, name) | Rules active |
 | 4 | Verify recording (test from pprd) | Session visible in Clarity |
 
@@ -141,7 +141,7 @@
 | # | Task | Verify |
 |---|------|--------|
 | 1 | Create Meta Pixel in Business Manager | Pixel ID generated |
-| 2 | Store `NEXT_PUBLIC_META_PIXEL_ID` | In Cloudflare Workers env / secrets |
+| 2 | Store `NEXT_PUBLIC_META_PIXEL_ID` | In the platform secret store (Render today, SSM on AWS) |
 | 3 | Configure Conversions API (CAPI) for server-side events | CAPI token stored |
 | 4 | Set up standard events: ViewContent, Lead, Schedule, Purchase | Events mapped |
 | 5 | Verify with Meta Pixel Helper extension | Events firing |
@@ -152,7 +152,7 @@
 |---|------|--------|
 | 1 | Create Sentry project `rgss-web` (Next.js) | Project created |
 | 2 | Note DSN | DSN generated |
-| 3 | Store `NEXT_PUBLIC_SENTRY_DSN` + `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` | In Cloudflare Workers secrets + GH Actions |
+| 3 | Store `NEXT_PUBLIC_SENTRY_DSN` + `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` | In the platform secret store + GH Actions |
 | 4 | Configure alert rules (see error-handling.md) | Alerts created |
 | 5 | Set up source map uploads in deploy workflow | Working in CI |
 | 6 | Test error capture (throw test error on pprd) | Error appears in Sentry |
@@ -166,7 +166,7 @@
 | 3 | Add uptime monitor: `https://admin.theroyalglow.in` (5 min interval) | Monitor green |
 | 4 | Create status page: `status.theroyalglow.in` | Page accessible |
 | 5 | Set up heartbeat URLs for cron jobs | Heartbeat IDs generated |
-| 6 | Store heartbeat URLs in Cloudflare Workers env / secrets | Stored |
+| 6 | Store heartbeat URLs in the platform secret store | Stored |
 | 7 | Configure alert escalation (push → SMS after 5 min) | Tested |
 | 8 | Connect Sentry integration | Sentry errors visible in BetterStack |
 
@@ -177,7 +177,7 @@
 | 1 | Create R2 bucket: `rgss-invoices` | Bucket created |
 | 2 | Create R2 bucket: `rgss-backups` | Bucket created |
 | 3 | Generate R2 API tokens (read/write for invoices, write for backups) | Tokens generated |
-| 4 | Store `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | In Cloudflare Workers env / secrets |
+| 4 | Store `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | In the platform secret store (Render today, SSM on AWS) |
 | 5 | Configure CORS on `rgss-invoices` (allow theroyalglow.in) | CORS set |
 | 6 | Set lifecycle rule on `rgss-backups`: delete after 90 days | Rule active |
 
@@ -186,7 +186,7 @@
 | # | Task | Verify |
 |---|------|--------|
 | 1 | Create Upstash Redis database (region: ap-south-1) | DB created |
-| 2 | Store `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | In Cloudflare Workers env / secrets |
+| 2 | Store `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | In the platform secret store (Render today, SSM on AWS) |
 | 3 | Create QStash topic for async jobs | Topic created |
 | 4 | Store `QSTASH_TOKEN` + `QSTASH_CURRENT_SIGNING_KEY` + `QSTASH_NEXT_SIGNING_KEY` | Stored |
 | 5 | Test rate limiting from pprd | 429 returned correctly |
@@ -200,7 +200,7 @@
 | 3 | Mount secrets via Secret Manager: `INVOICE_PDF_HMAC_SECRET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`; env: `R2_BUCKET_NAME`, `R2_ENDPOINT`, `R2_PUBLIC_BASE_URL` | Set |
 | 4 | Configure health check: `/healthz` | Green |
 | 5 | CI: `.github/workflows/deploy-invoicing.yml` (WIF, deploys on push to `prod` touching `apps/invoicing/**`) | Workflow green |
-| 6 | Store `PDF_API_URL` (Cloud Run URL) | In Cloudflare Workers env / secrets |
+| 6 | Store `PDF_API_URL` (Cloud Run URL) | In the platform secret store (Render today, SSM on AWS) |
 | 7 | Test invoice PDF generation (`POST /v1/invoices`, HMAC) from pprd | PDF generated + stored in R2 |
 
 ### Database — Neon
@@ -210,11 +210,11 @@
 | 1 | Create Neon project `rgss-production` | Project created |
 | 2 | Create branches: `prod`, `pprd`, `test`, `dev` | All 4 branches exist |
 | 3 | Note connection strings for each branch | Strings stored |
-| 4 | Store `DATABASE_URL` (prod) on Cloudflare Workers (OpenNext) via `wrangler secret` | Stored |
+| 4 | Store `DATABASE_URL` (prod) in the platform's secret store — Render dashboard today, SSM Parameter Store on AWS | Stored |
 | 5 | Store all branch URLs in GitHub Secrets | Stored |
-| 6 | Run initial migration: `bun run db:migrate` | Schema created |
+| 6 | Run initial migration: `bun run migrate` | Schema created |
 | 7 | Verify PITR (Point-in-Time Recovery) enabled | Enabled (7-day window) |
-| 8 | Test connection from Cloudflare Worker (HTTP driver) | Query succeeds |
+| 8 | Test connection from the running app (`/api/health` reports `database: pass`) | Query succeeds |
 
 ---
 
@@ -242,20 +242,24 @@ SENTRY_ORG=rgss
 SENTRY_PROJECT=rgss-web
 
 # Deployment
-CLOUDFLARE_API_TOKEN=<from Cloudflare dashboard>
-CLOUDFLARE_ACCOUNT_ID=<from Cloudflare dashboard>
 NEON_API_KEY=<from Neon dashboard>
 RENDER_API_KEY=<from Render dashboard>
+AWS_DEPLOY_ROLE_ARN=<IAM role assumed via GitHub OIDC — see M2AWS.md §17>
+INTERNAL_JOB_TOKEN=<shared secret for scheduled job POSTs>
 
 # Notifications (for deploy alerts)
 BETTERSTACK_API_TOKEN=<from BetterStack>
 ```
 
-### Cloudflare Workers — Production Environment Variables (secrets)
+### Production Environment Variables (secrets)
 
-> Set via `wrangler secret put <NAME>` per Worker (`rgss-web`, `rgss-admin`), or
-> from the GitHub Actions deploy env. `NEXT_PUBLIC_*` values are build-time vars
-> in `wrangler.toml`/`[vars]`; all other values are encrypted Worker secrets.
+> Set per service in the Render dashboard today; on AWS they live in SSM Parameter Store as one
+> `SecureString` blob per app (`/rgss/prod/<app>/env`) and are written to `/opt/rgss/env/*.env`
+> at release time by `deploy.sh`.
+>
+> **`NEXT_PUBLIC_*` values are build-time only** — they are inlined into the client bundle by
+> `next build` and cannot be injected at runtime. On AWS they are passed as `--build-arg` by
+> `deploy-aws.yml`; putting them in SSM has no effect on the browser bundle.
 
 ```
 # App
@@ -316,17 +320,36 @@ BETTERSTACK_HEARTBEAT_BREVO_SYNC=<URL>
 BETTERSTACK_HEARTBEAT_BACKUP=<URL>
 ```
 
-### Cloudflare Workers (OpenNext) — Configuration
+### Web + Admin Hosting — Configuration
+
+Cloudflare Workers (OpenNext) was the original target and is **retired**: the adapter, both
+`wrangler.jsonc` files, the `cf:*` scripts and every `CLOUDFLARE_*` variable have been removed,
+and `deploy-prod.yml` / `deploy-admin-prod.yml` no longer exist.
+
+**Today — Render** (see [`render.yaml`](../render.yaml)):
 
 | Setting | Value |
 |---------|-------|
-| Worker names | `rgss-web` (customer site), `rgss-admin` (admin portal) |
-| Deploy trigger | GitHub Actions on push to `prod` (`deploy-prod.yml`, `deploy-admin-prod.yml`) |
-| Build command | `bunx opennextjs-cloudflare build` (per app) |
-| Deploy command | `cloudflare/wrangler-action` → `command: deploy` (workingDirectory `apps/web` / `apps/admin`) |
-| Wrangler config | `apps/web/wrangler.jsonc`, `apps/admin/wrangler.jsonc` (main = `.open-next/worker.js`) |
-| Compatibility flags | `nodejs_compat` |
-| Custom domains | `theroyalglow.in`, `www.theroyalglow.in` (rgss-web); `admin.theroyalglow.in` (rgss-admin) |
+| Service names | `rgss-web`, `rgss-admin`, `rgss-cms` |
+| Deploy trigger | Render auto-deploy on push to `prod` |
+| Build command | `bun install --frozen-lockfile && bun run --filter=@rgss/<app> build` |
+| Start command | `cd apps/<app> && bun run start:prod` |
+| Health check | `/api/health` (web, admin), `/admin` (cms) |
+| Custom domains | `theroyalglow.in`, `www.theroyalglow.in`, `admin.theroyalglow.in`, `cms.theroyalglow.in` |
+
+**Target — AWS, web + admin only** (see [`M2AWS.md`](../M2AWS.md)). CMS stays on Render:
+
+| Setting | Value |
+|---------|-------|
+| Compute | AWS Lambda (ARM64) + CloudFront + S3 per app, `ap-southeast-1` |
+| Tooling | SST v3 (`sst.aws.Nextjs`, wrapping OpenNext) — [`sst.config.ts`](../sst.config.ts) |
+| Deploy trigger | [`deploy-aws.yml`](../.github/workflows/deploy-aws.yml) on push to `prod` (GitHub OIDC) |
+| Release mechanism | `bunx sst deploy --stage production` |
+| Server secrets | SST Secrets → SSM Parameter Store (`sst secret set`) |
+| `NEXT_PUBLIC_*` | GitHub Actions **variables** — inlined at build time, not runtime |
+| Rollback | Redeploy a previous ref (3–5 min); PostHog flags for instant kill |
+| TLS + DNS | ACM (managed by SST) + Route 53 aliases → CloudFront |
+| Unchanged | Neon, Upstash, QStash, Resend, Ably, R2 — zero application code changes |
 
 ### Google Cloud Run — PDF Invoice Service (`@rgss/invoicing`)
 
@@ -646,7 +669,7 @@ git push origin prod
 # 2. GitHub Actions runs:
 #    - CI checks (lint, typecheck, unit tests)
 #    - Build
-#    - Deploy to Cloudflare Workers (OpenNext)
+#    - Deploy (Render auto-deploy today; deploy-aws.yml on AWS)
 #    - Run migrations on prod DB
 #    - Upload source maps to Sentry
 #    - Health check + smoke tests

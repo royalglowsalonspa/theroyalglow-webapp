@@ -672,8 +672,7 @@ export async function enrichSentryContext() {
 ### Source Maps
 
 ```yaml
-# Uploaded during Cloudflare Workers (OpenNext) build
-# wrangler.toml or build script
+# Uploaded during the CI build, after `next build`
 sentry-cli sourcemaps upload \
   --org royal-glow \
   --project rgss-web \
@@ -716,7 +715,7 @@ export function handleDbError(error: unknown, context: string): never {
       // Unique constraint violation — likely a race condition
       throw new AppError({
         code: 'CONFLICT',
-        message: 'This operation conflicts with an existing record.',
+        message: 'This operation conflicts with an existing rec ord.',
         statusCode: 409,
         isOperational: true,
       })

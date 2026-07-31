@@ -108,7 +108,7 @@ These will block a validated/production build until filled:
 - `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`
 - `BETTER_STACK_HEARTBEAT_PPRD_SYNC`, `BETTER_STACK_HEARTBEAT_BACKUP`,
   `BETTER_STACK_DEPLOY_WEBHOOK`, `BETTER_STACK_INCIDENT_WEBHOOK`
-- `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_KV_NAMESPACE_ID`
+- `AWS_DEPLOY_ROLE_ARN` (GitHub OIDC), `INTERNAL_JOB_TOKEN`
 
 ---
 
@@ -142,7 +142,7 @@ the matching Neon branch and live service URLs:
 - Google OAuth → add the prod redirect URI `https://theroyalglow.in/api/auth/callback/google`
 - All the "currently empty required" web vars → must be filled.
 
-Web app is hosted on Cloudflare Workers (OpenNext); CMS on Render. Set these in each
+Web, admin and CMS are hosted on Render today (AWS EC2 next — see M2AWS.md). Set these in each
 platform's environment settings (not in committed files).
 
 ---

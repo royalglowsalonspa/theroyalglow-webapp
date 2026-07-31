@@ -2,7 +2,15 @@
 
 ## Overview
 
-Royal Glow Salon & Spa runs a monorepo with four apps (`apps/web`, `apps/admin`, `apps/cms`, `apps/invoicing`), deployed across three platforms (Cloudflare Workers via OpenNext + Render + Google Cloud Run), and relies on ~15 external services. Environment variables are:
+Royal Glow Salon & Spa runs a monorepo with four apps (`apps/web`, `apps/admin`, `apps/cms`, `apps/invoicing`) plus the `docs` site, and relies on ~15 external services.
+
+**Current hosting:** Render serves `apps/web`, `apps/admin` and `apps/cms` from git (see
+`render.yaml`); `apps/invoicing` runs on Google Cloud Run. Cloudflare Workers was the original
+target and has been **retired** — the adapter, Worker configs and `CLOUDFLARE_*` variables are
+all removed. The migration of web + admin to AWS Lambda (secrets in SSM via SST) is specified in
+[M2AWS.md](../M2AWS.md).
+
+Environment variables are:
 
 - **Validated at build time** using `@t3-oss/env-nextjs` + Zod — build fails if a required var is missing or malformed
 - **Never committed** to Git — `.env.local` is gitignored
@@ -145,15 +153,19 @@ Store the output. These never change unless you intentionally rotate (which inva
 
 ---
 
-### Cloudflare — KV + CI/CD
+### Cloudflare — RETIRED
 
-| Variable | Used by | Visibility | Description |
-|----------|---------|------------|-------------|
-| `CLOUDFLARE_ACCOUNT_ID` | CI/CD, web | Private | Required for `wrangler deploy` and KV REST API writes from Render |
-| `CLOUDFLARE_API_TOKEN` | CI/CD, web | Private | Token with Pages + Workers + KV permissions — used by GitHub Actions and any server-side KV REST writes |
-| `CLOUDFLARE_KV_NAMESPACE_ID` | web | Private | KV namespace ID for edge-cached service listings and static data |
+`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_KV_NAMESPACE_ID` have been
+**removed**. Cloudflare Workers is no longer a deploy target: `wrangler.jsonc`,
+`open-next.config.ts`, the `cf:*` scripts and the `@opennextjs/cloudflare` + `wrangler`
+dependencies are all gone from the repo. Do not set these anywhere.
 
-> In Cloudflare Workers, KV is accessed as a binding (`env.KV`) configured in `wrangler.toml`. For writes originating from Render (origin server), the REST API uses `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN`.
+The KV edge cache they were for **was never implemented** — only referenced in comments. The
+5-minute service-catalogue cache is served by Upstash Redis, which is **unchanged** by the AWS
+migration — `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` stay as they are.
+
+> `R2_*` is a separate matter and is **still live and unchanged**. Cloudflare R2 remains the
+> object store after the AWS migration — only `apps/web` and `apps/admin` compute moves.
 
 ---
 
@@ -304,9 +316,6 @@ export const env = createEnv({
     QSTASH_CURRENT_SIGNING_KEY: z.string(),
     QSTASH_NEXT_SIGNING_KEY: z.string(),
     VAPID_PRIVATE_KEY: z.string(),
-    CLOUDFLARE_ACCOUNT_ID: z.string(),
-    CLOUDFLARE_API_TOKEN: z.string(),
-    CLOUDFLARE_KV_NAMESPACE_ID: z.string(),
     BETTER_STACK_TOKEN: z.string(),
     BETTER_STACK_HEARTBEAT_NIGHTLY_SALES: z.string().url(),
     BETTER_STACK_HEARTBEAT_REMINDERS: z.string().url(),
@@ -354,9 +363,6 @@ export const env = createEnv({
     QSTASH_CURRENT_SIGNING_KEY: process.env.QSTASH_CURRENT_SIGNING_KEY,
     QSTASH_NEXT_SIGNING_KEY: process.env.QSTASH_NEXT_SIGNING_KEY,
     VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY,
-    CLOUDFLARE_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID,
-    CLOUDFLARE_API_TOKEN: process.env.CLOUDFLARE_API_TOKEN,
-    CLOUDFLARE_KV_NAMESPACE_ID: process.env.CLOUDFLARE_KV_NAMESPACE_ID,
     BETTER_STACK_TOKEN: process.env.BETTER_STACK_TOKEN,
     BETTER_STACK_HEARTBEAT_NIGHTLY_SALES: process.env.BETTER_STACK_HEARTBEAT_NIGHTLY_SALES,
     BETTER_STACK_HEARTBEAT_REMINDERS: process.env.BETTER_STACK_HEARTBEAT_REMINDERS,

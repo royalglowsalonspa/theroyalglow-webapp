@@ -7,10 +7,10 @@
  * Scope        : Business Logic — Security
  *
  * Description  : HMAC-SHA256 request signing + verification shared by the
- *                caller (Cloudflare Worker) and the standalone invoicing PDF
- *                service (Google Cloud Run). The Worker signs the request body
- *                with a shared secret; the service verifies the signature and a
- *                fresh timestamp before rendering anything.
+ *                caller (apps/web, apps/admin) and the standalone invoicing PDF
+ *                service. The caller signs the request body with a shared
+ *                secret; the service verifies the signature and a fresh
+ *                timestamp before rendering anything.
  *
  * Responsibilities :
  * - Produce a deterministic HMAC-SHA256 signature over `${timestamp}.${body}`
@@ -26,9 +26,9 @@
  * Dependencies : None (Web Crypto is a global on both Workers and Node 20+)
  *
  * Notes        :
- * - Uses the Web Crypto API (`crypto.subtle`) so it runs identically on the
- *   Cloudflare Workers runtime (the caller) and Node.js (the Cloud Run
- *   service) — NO node:crypto, so it stays Workers-safe.
+ * - Uses the Web Crypto API (`crypto.subtle`) rather than node:crypto, so it
+ *   runs identically on Node.js, Bun and any edge runtime. Keep it that way:
+ *   this is a portability seam, not an accident.
  * - The timestamp is bound into the signed payload AND checked for freshness,
  *   so a captured request cannot be replayed outside the tolerance window.
  ************************************************************/

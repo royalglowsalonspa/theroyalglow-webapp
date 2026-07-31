@@ -42,13 +42,23 @@ testable and framework-agnostic. Each layer may only import inward.
 
 ## Hosting topology
 
-The platform spans Cloudflare's edge, a Render origin, and a Cloud Run service, backed by Neon. Pick a concern below.
+The platform spans a Render origin and a Cloud Run service, backed by Neon, and is migrating to AWS. Pick a concern below.
 
-<Tabs items={['Edge', 'Origin & CMS', 'Database', 'Media & Queue']}>
+<Tabs items={['Web & Admin', 'Origin & CMS', 'Database', 'Media & Queue']}>
 
-<Tab value="Edge">
+<Tab value="Web & Admin">
 
-**Cloudflare Workers** (deployed via the **OpenNext** adapter, `@opennextjs/cloudflare` — not Pages, not next-on-pages) run the customer site (`rgss-web`) and admin portal (`rgss-admin`) globally, with **Cloudflare KV** caching the service catalog (5-min TTL) at the edge. Sub-100ms responses worldwide. Deploy with `wrangler deploy` / `opennextjs-cloudflare deploy`.
+The customer site (`rgss-web`) and admin portal (`rgss-admin`) are Next.js 16 App Router apps
+served as Node servers (`next build` + `next start`) on **Render**, with the service catalogue
+cached in Redis (5-min TTL).
+
+The target is **AWS Lambda + CloudFront**, deployed with SST (which wraps OpenNext): an ARM64 SSR
+function and a CloudFront distribution per app, in `ap-southeast-1` beside the Neon database. Only
+these two apps move — the CMS stays on Render and every managed dependency stays put, so no
+application code changes. See `M2AWS.md`.
+
+Cloudflare Workers via OpenNext was the original plan and is **retired** — the Worker bundle
+exceeded Cloudflare's free-plan script size limit, and the adapter has been removed from the repo.
 
 </Tab>
 

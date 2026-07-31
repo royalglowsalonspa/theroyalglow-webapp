@@ -83,3 +83,11 @@ ltm/runtime/*
 ltm/reports/*
 ltm/snapshots/*
 # --- /ltm-power ---
+
+# --- AWS deployment (M2AWS) ---
+# SST generated platform files + local stage state.
+.sst/
+# Archived EC2-path env blobs (that path is not in use — see
+# infra/aws/_ec2-path/ARCHIVED.md). Templates ARE committed.
+infra/aws/_ec2-path/env/*.env
+!infra/aws/_ec2-path/env/*.env.example

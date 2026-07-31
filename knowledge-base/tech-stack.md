@@ -60,7 +60,7 @@ Royal Glow Salon & Spa is built for scale (20k–50k users), premium feel, and l
 
 | Layer | Technology |
 |-------|-----------|
-| Edge Hosting | **Cloudflare Workers via OpenNext** (`@opennextjs/cloudflare`) — `rgss-web`, `rgss-admin` |
+| Web + Admin Hosting | **Render** (Node, `next start`) — `rgss-web`, `rgss-admin`. Migrating to **AWS Lambda + CloudFront** via SST/OpenNext (see [M2AWS.md](../M2AWS.md)). Cloudflare Workers was the original target and is **retired**. |
 | Node.js Origin / CMS Host | **Render** — Payload CMS admin panel (`rgss-cms`, free tier, Singapore region) |
 | Primary Database | **Neon DB** (PostgreSQL, 4 branches) |
 | Realtime | **Ably** (live push — booking status, queue board) |

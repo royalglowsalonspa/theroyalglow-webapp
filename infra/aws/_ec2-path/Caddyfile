@@ -1,0 +1,90 @@
+# =============================================================================
+# Caddy — TLS + subdomain routing for the RGSS stack (M2AWS §9)
+# -----------------------------------------------------------------------------
+# Certificates are issued automatically per hostname on the first HTTPS request
+# (Let's Encrypt, HTTP-01) and stored in the caddy_data volume. That volume MUST
+# survive redeploys or you will hit ACME rate limits.
+#
+# DNS must already point each hostname at the Elastic IP before issuance can
+# succeed — see M2AWS §16.
+# =============================================================================
+
+{
+	email {$ACME_EMAIL}
+	# Uncomment to rehearse against the ACME staging endpoint (no rate limits):
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+	servers {
+		protocols h1 h2 h3
+	}
+}
+
+# Shared hardening + compression, applied per site below.
+(common) {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "SAMEORIGIN"
+		-Server
+	}
+
+	# Real client IP for rate limiting and audit logs.
+	request_header X-Forwarded-Proto https
+
+	log {
+		output stdout
+		format console
+	}
+}
+
+# --- Customer site ----------------------------------------------------------
+theroyalglow.in, www.theroyalglow.in {
+	import common
+
+	@www host www.theroyalglow.in
+	redir @www https://theroyalglow.in{uri} permanent
+
+	reverse_proxy web:3000 {
+		health_uri /api/health
+		health_interval 30s
+		health_timeout 5s
+	}
+}
+
+# --- Admin portal -----------------------------------------------------------
+# Root-Path Convention: the subdomain IS the admin namespace, so nothing is
+# rewritten here. Legacy theroyalglow.in/admin/* redirects live in the web app.
+admin.theroyalglow.in {
+	import common
+
+	reverse_proxy admin:3001 {
+		health_uri /api/health
+		health_interval 30s
+		health_timeout 5s
+	}
+}
+
+# --- Payload CMS ------------------------------------------------------------
+cms.theroyalglow.in {
+	import common
+
+	# Payload's admin UI streams uploads; give it room and don't buffer.
+	request_body {
+		max_size 25MB
+	}
+
+	reverse_proxy cms:3002 {
+		health_uri /admin
+		health_interval 60s
+		health_timeout 10s
+	}
+}
+
+# --- Documentation ----------------------------------------------------------
+docs.theroyalglow.in {
+	import common
+
+	reverse_proxy docs:3003
+}

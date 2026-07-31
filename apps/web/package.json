@@ -9,16 +9,11 @@
     "start": "next start",
     "start:prod": "next start -p ${PORT:-3000}",
     "typecheck": "tsc --noEmit",
-    "lint": "biome check ./src",
-    "cf:build": "opennextjs-cloudflare build",
-    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
+    "lint": "biome check ./src"
   },
   "dependencies": {
     "@better-auth/infra": "^0.3.7",
     "@neondatabase/serverless": "^1.1.0",
-    "@opennextjs/cloudflare": "^1.20.2",
     "@radix-ui/react-dropdown-menu": "^2.1.24",
     "@rgss/business": "workspace:*",
     "@rgss/db": "workspace:*",
@@ -68,7 +63,6 @@
     "msw": "^2.15.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10",
-    "wait-on": "^9.1.0",
-    "wrangler": "^4.114.0"
+    "wait-on": "^9.1.0"
   }
 }

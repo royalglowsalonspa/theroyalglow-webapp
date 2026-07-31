@@ -208,7 +208,7 @@ The architecture uses **strict layer separation** within a monorepo to achieve t
 | **Business Logic** | `packages/business/` | Pure functions, domain rules, calculations | No I/O, no framework deps |
 | **Data Access** | `packages/db/` | Drizzle ORM schemas, query builders, migrations | Only package that imports Drizzle |
 | **CMS** | `apps/cms/` | Payload CMS v3 — blog, gallery, team bios, banners, FAQ, plus the bookable service catalogue | Marketing content + service catalogue authoring (synced to `public.*`) |
-| **Infrastructure** | Edge config, wrangler | Cloudflare Workers config, R2 bindings, KV namespaces | Platform-specific |
+| **Infrastructure** | `infra/aws/`, `render.yaml` | CloudFormation, Docker Compose, Caddy, deploy scripts | Platform-specific |
 
 
 

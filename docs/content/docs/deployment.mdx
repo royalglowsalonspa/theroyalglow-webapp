@@ -44,14 +44,19 @@ PII. QStash scheduled jobs target `prod` only.
 
 ## GitHub Actions workflows
 
-Four workflows enforce the gates above and handle production deploys.
+These workflows enforce the gates above and handle production deploys.
 
 | Workflow | File | Triggers on | Does |
 | --- | --- | --- | --- |
 | CI | `ci.yml` | PRs to all branches + push to `dev` | Lint + typecheck, unit tests, build, Trivy + Socket.dev audit |
 | Integration & E2E | `integration.yml` | PRs to `test`/`pprd`/`prod` | Integration tests, Playwright E2E, Lighthouse CI |
 | Load & Security | `load-test.yml` | PRs to `pprd`/`prod` | k6 load test, Trivy fs scan, OWASP ZAP baseline |
-| Deploy Production | `deploy-prod.yml` | Push to `prod` | Pre-deploy checks → build + Sentry source maps → Cloudflare Workers deploy (`opennextjs-cloudflare deploy` / `wrangler deploy`) → migrations → health check + smoke tests |
+| Deploy AWS | `deploy-aws.yml` | Push to `prod` (web/admin/packages paths) + manual dispatch | GitHub OIDC → `bunx sst deploy --stage production` (Lambda + CloudFront for `apps/web` and `apps/admin`) → health check. Manual dispatch accepts a `git_ref` for rollback |
+| Migrations | `migrate.yml` | Manual dispatch (per branch) | Applies committed Drizzle migrations over the unpooled connection |
+
+Web, admin and CMS deploy from git on **Render** today; `deploy-aws.yml` is the AWS path
+described in `M2AWS.md`. The earlier Cloudflare workflows (`deploy-prod.yml`,
+`deploy-admin-prod.yml`) were retired along with the Workers adapter.
 
 Lighthouse gates require performance ≥ 95 and accessibility, best-practices, and
 SEO = 100.

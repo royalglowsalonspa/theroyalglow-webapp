@@ -22,11 +22,11 @@
  * `scopeSearchResults` helper (`@/lib/search`) is not needed here; the cap is
  * applied via the search `limit` plus a defensive slice.
  *
- * ## Edge / Cloudflare
+ * ## Runtime portability
  *
  * `createFromSource` builds its Orama index lazily from in-memory sources on the
- * first query and caches it, so the route is edge-compatible (Cloudflare
- * Workers / OpenNext) with no filesystem or native dependency. The content is
+ * first query and caches it, so the route runs on any runtime with no filesystem
+ * or native dependency. The content is
  * read-only and public, so no authentication is required — but this endpoint
  * SHOULD be rate-limited at the edge to prevent index-build abuse.
  *

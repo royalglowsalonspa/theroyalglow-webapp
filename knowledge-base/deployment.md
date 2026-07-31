@@ -1,5 +1,26 @@
 # Deployment Pipeline & DevOps Strategy
 
+> ## ⚠️ Largely superseded — read this first
+>
+> This document was written when **Cloudflare Workers (OpenNext)** was the deploy target for
+> `apps/web` and `apps/admin`. That is no longer true, and the workflows it specifies
+> (`deploy-prod.yml`, `deploy-admin-prod.yml`) **do not exist in the repo**. The
+> `@opennextjs/cloudflare` adapter, both `wrangler.jsonc` files, the `cf:*` scripts and all
+> `CLOUDFLARE_*` variables have been removed.
+>
+> | Topic | Current source of truth |
+> |---|---|
+> | Where things run today | [`render.yaml`](../render.yaml) — Render serves web, admin, cms |
+> | Target deployment (AWS) | [`M2AWS.md`](../M2AWS.md) — web + admin on Lambda + CloudFront via SST; Neon, Upstash, QStash, Resend, Ably, R2 and the Render CMS all unchanged |
+> | AWS CI/CD | [`.github/workflows/deploy-aws.yml`](../.github/workflows/deploy-aws.yml) + [`sst.config.ts`](../sst.config.ts) |
+> | Migrations | [`.github/workflows/migrate.yml`](../.github/workflows/migrate.yml) + `.kiro/steering/migration-discipline.md` |
+> | Scheduled jobs | `apps/admin/src/lib/jobs/schedules.ts` + `infra/aws/scripts/register-schedules.sh` |
+>
+> **Still accurate and worth keeping:** the feature-flag deployment strategy, the health-check
+> endpoint contract, the backup strategy (retention tiers and the restore drill), the rollback
+> decision matrix as a *concept*, and the monitoring/alerting rationale. Anything naming
+> `wrangler`, a Worker, or a `deploy-*.yml` workflow is historical.
+
 ## Deployment Strategy Decision
 
 ### Why Feature Flag Deployment (Strategy #4)

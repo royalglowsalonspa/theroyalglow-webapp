@@ -11,7 +11,7 @@
  * This module touches no clipboard, network, filesystem, fumadocs loader, or
  * `@/.source` generated content. Listing a version's pages requires the loader,
  * so the page slugs are **injected** per version (`relSlugs`) — keeping this
- * function pure, edge-compatible (Cloudflare), and directly unit/PBT testable.
+ * function pure, runtime-agnostic, and directly unit/PBT testable.
  */
 
 /** A single version's contribution to the sitemap: its base path and pages. */

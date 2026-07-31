@@ -35,12 +35,14 @@
  * Dependencies : @/lib/realtime/channels, @rgss/logger
  *
  * Notes        :
- * - REST-over-fetch (NOT the Ably Realtime SDK): the deploy target is the
- *   Cloudflare Workers runtime, where long-lived WebSocket clients and the
- *   Node SDK are unavailable in request paths. A single stateless HTTPS POST to
- *   the Ably REST endpoint is the Workers-safe way to publish one message.
+ * - REST-over-fetch (NOT the Ably Realtime SDK): a request handler is the wrong
+ *   place for a long-lived WebSocket client regardless of runtime. A single
+ *   stateless HTTPS POST to the Ably REST endpoint publishes one message and
+ *   returns. (This originally existed because the deploy target was Cloudflare
+ *   Workers, where the Node SDK is unavailable; the pattern is kept because it
+ *   is correct on its own merits and keeps the module runtime-agnostic.)
  * - Web Crypto / Web APIs only — credentials are base64-encoded with `btoa`
- *   (NOT node Buffer), which the Workers runtime provides globally.
+ *   rather than node Buffer, so the module stays runtime-agnostic.
  * - Reads process.env.ABLY_PRIVATE_KEY directly (NOT env.ts) so it degrades
  *   gracefully — env.ts types the key as required and would fail validation
  *   when realtime is not yet provisioned. Absent key → silent no-op.
