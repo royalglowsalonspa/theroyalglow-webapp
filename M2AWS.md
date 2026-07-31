@@ -335,6 +335,10 @@ Nothing below has been executed yet.
 - [ ] All SST secrets set for `production`
 - [ ] `NEXT_PUBLIC_*` set as GitHub Actions variables
 - [ ] GitHub OIDC provider + deploy role created, `AWS_DEPLOY_ROLE_ARN` set
+- [ ] Set repo variable `AWS_DEPLOY_ENABLED=true` — the deploy job is gated on it
+      and **skips** until then, so it does not fail on every `prod` push
+- [ ] After DNS cutover only: set `AWS_DOMAINS_LIVE=true` to enable the public
+      health-check gate
 
 **Phase 3 — verify before DNS**
 - [ ] `sst deploy` succeeds, no domains attached
