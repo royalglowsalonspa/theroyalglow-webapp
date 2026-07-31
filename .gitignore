@@ -49,6 +49,13 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
+# ─── Local scratch scripts ────────────────────────────────────
+# Throwaway probe/helper scripts written during a debugging session, kept at the
+# repo root while the session is live (e.g. tmp-sst.ps1, tmp-cfprobe.ps1).
+# Root-anchored so a legitimately committed tmp-* file deeper in the tree is
+# unaffected. Promote anything worth keeping into scripts/ under a real name.
+/tmp-*
+
 # ─── Misc ─────────────────────────────────────────────────────
 *.log
 npm-debug.log*
@@ -87,6 +94,11 @@ ltm/snapshots/*
 # --- AWS deployment (M2AWS) ---
 # SST generated platform files + local stage state.
 .sst/
+# SST generated typed-env ambient declarations. `sst dev` / `sst deploy`
+# recreates one at the repo root and one in EVERY workspace, so the bare
+# pattern (no leading slash) matches at any depth. Keep the files locally —
+# SST wants them for typechecking — but never commit them.
+sst-env.d.ts
 # Archived EC2-path env blobs (that path is not in use — see
 # infra/aws/_ec2-path/ARCHIVED.md). Templates ARE committed.
 infra/aws/_ec2-path/env/*.env

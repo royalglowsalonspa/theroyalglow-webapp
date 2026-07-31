@@ -24,6 +24,17 @@
  *   `next/navigation` are mocked so rendering needs no App Router context.
  * - Fake timers are used only for the 10s-timeout assertion; the other cases
  *   run on real timers so promise/state settling stays straightforward.
+ * - Timeout: the first case carries an EXPLICIT timeout (see
+ *   FIRST_RENDER_TIMEOUT_MS) instead of the 5s Vitest default. Measured on the
+ *   maintainer's 8-logical-core machine: that case costs ~1.0s in isolation
+ *   while every other case in this file costs 35-230ms, because the FIRST
+ *   dashboard mount pays the one-off warm-up of recharts + @tanstack/react-table
+ *   (~850ms of the ~1.0s; the jest-axe scan is only the remaining ~150ms).
+ *   There is no unawaited async work and nothing hoistable to `beforeAll` — the
+ *   mount itself is what the case asserts. What breaks the 5s default is CPU
+ *   starvation under `vitest run`, which fans 147 files across ~7 workers on 8
+ *   logical cores and was measured inflating admin jsdom tests ~3.5x. Hence
+ *   headroom on the one heavy case rather than a suite-wide timeout raise.
  ************************************************************/
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -48,6 +59,13 @@ vi.mock('next/link', () => ({
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn(), back: vi.fn() }),
 }))
+
+/**
+ * Budget for the first (and only heavy) case in this file — it absorbs the
+ * one-off recharts + react-table warm-up plus the jest-axe scan. See the
+ * "Timeout" note in the file header for the measurements behind this number.
+ */
+const FIRST_RENDER_TIMEOUT_MS = 30_000
 
 // Today's date in IST as YYYY-MM-DD, mirroring the component's own derivation,
 // so seeded bookings count as "today" regardless of when the suite runs.
@@ -103,44 +121,48 @@ afterEach(() => {
 })
 
 describe('DashboardOverview (Req 10)', () => {
-  it('composes ≥4 KPI cards, a chart card, and a recent-activity table (10.1/10.2/10.3/10.6)', async () => {
-    const bookings = [
-      sampleBooking(),
-      sampleBooking({
-        id: 'bk_2',
-        bookingNumber: 'BK-RS-2606-S-11222',
-        status: 'pending',
-        customerName: 'Meera Nair',
-      }),
-    ]
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => Promise.resolve(ok(bookings))),
-    )
+  it(
+    'composes ≥4 KPI cards, a chart card, and a recent-activity table (10.1/10.2/10.3/10.6)',
+    async () => {
+      const bookings = [
+        sampleBooking(),
+        sampleBooking({
+          id: 'bk_2',
+          bookingNumber: 'BK-RS-2606-S-11222',
+          status: 'pending',
+          customerName: 'Meera Nair',
+        }),
+      ]
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.resolve(ok(bookings))),
+      )
 
-    const { container } = render(<DashboardOverview />)
+      const { container } = render(<DashboardOverview />)
 
-    // Four KPI cards by their labels (Req 10.1).
-    expect(await screen.findByText("Today's Bookings")).toBeInTheDocument()
-    expect(screen.getByText('Pending Approval')).toBeInTheDocument()
-    expect(screen.getByText("Today's Revenue")).toBeInTheDocument()
-    expect(screen.getByText('Total Bookings')).toBeInTheDocument()
+      // Four KPI cards by their labels (Req 10.1).
+      expect(await screen.findByText("Today's Bookings")).toBeInTheDocument()
+      expect(screen.getByText('Pending Approval')).toBeInTheDocument()
+      expect(screen.getByText("Today's Revenue")).toBeInTheDocument()
+      expect(screen.getByText('Total Bookings')).toBeInTheDocument()
 
-    // Monetary KPI uses Indian grouping with two decimals (Req 10.6).
-    expect(screen.getByText('₹1,000.00')).toBeInTheDocument()
+      // Monetary KPI uses Indian grouping with two decimals (Req 10.6).
+      expect(screen.getByText('₹1,000.00')).toBeInTheDocument()
 
-    // Chart card present (Req 10.2).
-    expect(screen.getByText('Bookings — last 7 days')).toBeInTheDocument()
+      // Chart card present (Req 10.2).
+      expect(screen.getByText('Bookings — last 7 days')).toBeInTheDocument()
 
-    // Recent-activity data table present with the API-sourced rows (Req 10.3).
-    expect(screen.getByRole('table')).toBeInTheDocument()
-    expect(screen.getByText('Asha Rao')).toBeInTheDocument()
-    expect(screen.getByText('BK-RS-2606-H-38291')).toBeInTheDocument()
+      // Recent-activity data table present with the API-sourced rows (Req 10.3).
+      expect(screen.getByRole('table')).toBeInTheDocument()
+      expect(screen.getByText('Asha Rao')).toBeInTheDocument()
+      expect(screen.getByText('BK-RS-2606-H-38291')).toBeInTheDocument()
 
-    // Composed success state is accessible.
-    const results = await axe(container)
-    expect(results.violations).toEqual([])
-  })
+      // Composed success state is accessible.
+      const results = await axe(container)
+      expect(results.violations).toEqual([])
+    },
+    FIRST_RENDER_TIMEOUT_MS,
+  )
 
   it('renders loading skeleton placeholders while data is in flight (10.4)', () => {
     // A never-resolving fetch keeps the dashboard in its loading state.

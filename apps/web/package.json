@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev --turbopack -p 3000",
+    "//dev": "KEEP --webpack. Next 16 defaults `next dev` to Turbopack when no bundler flag is given, and Turbopack cannot start on the maintainer's Windows machine (Application Control blocks the native SWC binary). This flag is NOT stale. Use `dev:turbo` to opt back into Turbopack.",
+    "dev": "next dev --webpack -p 3000",
+    "dev:turbo": "next dev --turbopack -p 3000",
     "build": "next build",
     "start": "next start",
     "start:prod": "next start -p ${PORT:-3000}",
