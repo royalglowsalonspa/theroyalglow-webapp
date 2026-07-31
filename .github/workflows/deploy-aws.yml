@@ -47,6 +47,16 @@ permissions:
 jobs:
   deploy:
     name: SST deploy
+    # DORMANT UNTIL AWS EXISTS.
+    # Without this guard the job fails on every `prod` push at the OIDC step
+    # ("Credentials could not be loaded") because AWS_DEPLOY_ROLE_ARN is not set
+    # yet — a red X that means nothing. Skipped is honest; failed is noise.
+    #
+    # TO ACTIVATE: create the AWS account + OIDC role (M2AWS.md §5, §8), set the
+    # AWS_DEPLOY_ROLE_ARN secret, then set repo variable AWS_DEPLOY_ENABLED=true.
+    # Set AWS_DOMAINS_LIVE=true separately, after DNS cutover (M2AWS.md §9), to
+    # turn on the public health-check gate below.
+    if: vars.AWS_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment:
