@@ -1,7 +1,7 @@
 {
-  "enabled": true,
+  "enabled": false,
   "name": "Aikido Scan on Write",
-  "description": "Runs an Aikido security scan after any file is written or modified",
+  "description": "DISABLED (kept for easy re-enable, do not delete). Runs an Aikido security scan after any file is written or modified. WHY DISABLED: it fires on EVERY write and asks the agent to run aikido_full_scan, but that tool is not reachable in this environment - the `aikido` MCP server of the installed `aikido-security-scan` power activates with '(No tools available)'. So every single file write issued an instruction that could never be satisfied, which is pure noise and trains the agent to fabricate or ignore scan results. Note the prompt below names `aikido-kiro-power`; that is the vendor's own onboarding text, but the power installed here is actually named `aikido-security-scan` - use that name when re-enabling. TO RE-ENABLE: (1) confirm Node >= 18.19.0 (this machine reports v24.17.0, so Node is NOT the blocker - the MCP server simply is not loaded); (2) get Kiro to load/start the `aikido` MCP server and restart Kiro if needed; (3) run aikido_login and complete the browser sign-in; (4) verify `aikido_full_scan` appears in the power's tool list; (5) set \"enabled\": true here. Until step 4 passes, leaving this false is the honest state.",
   "version": "1",
   "when": {
     "type": "postToolUse",
