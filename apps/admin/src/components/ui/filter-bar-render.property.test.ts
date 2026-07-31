@@ -16,6 +16,23 @@
  *                consumed as-is; this file asserts behaviour and changes no
  *                production code. Written as `.ts` (no JSX) via
  *                `React.createElement` so it runs under the admin jsdom project.
+ *
+ * Timeout      : This test carries an EXPLICIT 30s timeout instead of the 5s
+ *                Vitest default. Measured on the maintainer's 8-logical-core
+ *                machine: the whole property costs ~1.98s in isolation
+ *                (~58ms per case for the React mount of a Radix-heavy tree,
+ *                plus ~0.5s of one-off module/first-render warm-up), and the
+ *                RTL `getByLabelText` loop accounts for only ~180ms of that.
+ *                So the per-case work is NOT pathological and there is no
+ *                expensive setup left to hoist out of the property body — the
+ *                mount IS the property. What breaks the 5s default is CPU
+ *                starvation: `vitest run` fans 147 files across ~7 workers on
+ *                8 logical cores, which inflated this test from 1980ms to
+ *                6965ms and produced the long-standing "Test timed out in
+ *                5000ms" flake. `numRuns` is deliberately left at 25 — cutting
+ *                it would trade real sampling coverage of the 16 flag
+ *                combinations for ~0.5s and still leave the test
+ *                load-dependent. The headroom is the correct lever here.
  ************************************************************/
 
 import { cleanup, render, within } from '@testing-library/react'
@@ -46,6 +63,13 @@ import {
 
 /** Column-visibility trigger carries this programmatic label (Req 8.7). */
 const COLUMN_TRIGGER_LABEL = 'Toggle column visibility'
+
+/**
+ * Budget for the whole property (all `numRuns` cases share ONE test timeout).
+ * ~1.98s in isolation, ~7s under full-suite worker contention — see the
+ * "Timeout" note in the file header for the measurements behind this number.
+ */
+const PROPERTY_TIMEOUT_MS = 30_000
 
 function searchPresent(container: HTMLElement): boolean {
   return container.querySelector('input[type="search"]') != null
@@ -163,46 +187,50 @@ describe('Property 9: FilterBar renders exactly the configured controls (Req 8.1
     cleanup()
   })
 
-  it('renders every configured control and omits every non-configured control', () => {
-    fc.assert(
-      fc.property(scenarioArb, ({ props, want }) => {
-        try {
-          const { container } = render(createElement(FilterBar, props))
+  it(
+    'renders every configured control and omits every non-configured control',
+    () => {
+      fc.assert(
+        fc.property(scenarioArb, ({ props, want }) => {
+          try {
+            const { container } = render(createElement(FilterBar, props))
 
-          // Search.
-          expect(searchPresent(container)).toBe(want.search)
+            // Search.
+            expect(searchPresent(container)).toBe(want.search)
 
-          // Tabs.
-          expect(tabsPresent(container)).toBe(want.tabs)
+            // Tabs.
+            expect(tabsPresent(container)).toBe(want.tabs)
 
-          // Column visibility.
-          expect(columnVisibilityPresent(container)).toBe(want.columnVisibility)
+            // Column visibility.
+            expect(columnVisibilityPresent(container)).toBe(want.columnVisibility)
 
-          // Dropdowns — each configured dropdown surfaces a labelled shadcn
-          // Select trigger (Radix combobox button), not a native <select>.
-          const triggers = container.querySelectorAll('[data-slot="select-trigger"]')
-          if (want.dropdowns) {
-            expect(triggers.length).toBe(want.dropdowns.length)
-            const view = within(container)
-            for (const dropdown of want.dropdowns) {
-              const control = view.getByLabelText(dropdown.label)
-              expect(control).toHaveAttribute('data-slot', 'select-trigger')
+            // Dropdowns — each configured dropdown surfaces a labelled shadcn
+            // Select trigger (Radix combobox button), not a native <select>.
+            const triggers = container.querySelectorAll('[data-slot="select-trigger"]')
+            if (want.dropdowns) {
+              expect(triggers.length).toBe(want.dropdowns.length)
+              const view = within(container)
+              for (const dropdown of want.dropdowns) {
+                const control = view.getByLabelText(dropdown.label)
+                expect(control).toHaveAttribute('data-slot', 'select-trigger')
+              }
+            } else {
+              expect(triggers.length).toBe(0)
             }
-          } else {
-            expect(triggers.length).toBe(0)
-          }
 
-          // When nothing is configured the component renders null (empty container).
-          const anyConfigured =
-            want.search || want.tabs || want.columnVisibility || (want.dropdowns?.length ?? 0) > 0
-          if (!anyConfigured) {
-            expect(container.firstChild).toBeNull()
+            // When nothing is configured the component renders null (empty container).
+            const anyConfigured =
+              want.search || want.tabs || want.columnVisibility || (want.dropdowns?.length ?? 0) > 0
+            if (!anyConfigured) {
+              expect(container.firstChild).toBeNull()
+            }
+          } finally {
+            cleanup()
           }
-        } finally {
-          cleanup()
-        }
-      }),
-      { numRuns: 25 },
-    )
-  })
+        }),
+        { numRuns: 25 },
+      )
+    },
+    PROPERTY_TIMEOUT_MS,
+  )
 })
