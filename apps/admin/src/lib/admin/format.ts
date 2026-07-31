@@ -28,10 +28,17 @@
  * Tech Stack   : TypeScript, Intl.DateTimeFormat
  * Layer        : Presentation (Admin Design System)
  *
- * Dependencies : ./bookings (formatINRWithPaise, formatDateDDMMYYYY)
+ * Dependencies : @rgss/business (IST_TIME_ZONE),
+ *                ./bookings (formatINRWithPaise, formatDateDDMMYYYY)
  *
  * Notes        : Requirements 15.3, 15.4, 15.5
  ************************************************************/
+
+// India Standard Time. India observes no daylight saving, so the IANA zone
+// applies a constant +05:30 offset year-round (Req 15.3). Imported from
+// @rgss/business rather than redeclared, so there is exactly ONE definition of
+// the display zone in the monorepo and it cannot drift per app.
+import { IST_TIME_ZONE } from '@rgss/business'
 
 // Re-export the existing currency/date helpers unchanged (Req 15.1, 15.2).
 // Call sites can import every formatter from this single module.
@@ -40,10 +47,6 @@ export { formatDateDDMMYYYY, formatINR, formatINRWithPaise } from './bookings'
 // Fixed placeholder rendered for null/undefined/invalid formatter input
 // (Req 15.4). Never render a partial, raw, or unformatted value.
 export const PLACEHOLDER = '—'
-
-// India Standard Time. India observes no daylight saving, so the IANA zone
-// applies a constant +05:30 offset year-round (Req 15.3).
-const IST_TIME_ZONE = 'Asia/Kolkata'
 
 // Accepted input shapes for the date/time formatters. A stored UTC value may
 // arrive as an ISO string, an epoch-millis number, or a Date instance.

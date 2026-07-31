@@ -28,18 +28,47 @@
  * Notes        :
  * - Blog posts fetched by web app via ISR (1h revalidation)
  * - Slug is auto-generated but editable by content team
+ * - A punctuation-only / emoji-only title reduces to no ASCII alphanumerics, so
+ *   the slug falls back to a deterministic `post-{hash}` rather than '' (an
+ *   empty slug breaks URL generation and collides across rows)
  ************************************************************/
 import type { CollectionConfig, FieldHook } from 'payload'
 import { adminsWrite, anyoneReadsPublished } from '../access/published'
 import { revalidateHooks } from '../hooks/revalidate'
 
-/** Convert an arbitrary string into a kebab-case slug. */
-const slugify = (value: string): string =>
-  value
+/**
+ * Deterministic 31-bit polynomial hash of a string, rendered base36. Same input
+ * always yields the same suffix — no randomness, no clock — so a slug derived
+ * from it is reproducible across saves, environments and re-imports.
+ */
+const stableSuffix = (value: string): string => {
+  let hash = 0
+  for (const char of value) {
+    hash = (hash * 31 + (char.codePointAt(0) ?? 0)) % 2_147_483_647
+  }
+  return hash.toString(36)
+}
+
+/**
+ * Convert an arbitrary string into a kebab-case slug.
+ *
+ * A title made only of punctuation, whitespace or unmapped scripts ("!!!", "---",
+ * "🎉") has no ASCII alphanumerics to keep, so the kebab-case reduction alone
+ * would return '' — an unusable URL, and one that every such title shares. Those
+ * inputs fall back to `post-{stableSuffix}`: URL-safe, never empty, derived only
+ * from the input (so re-saving a post never changes its URL) and distinct for
+ * distinct titles. Uniqueness itself is still enforced by the `slug` field
+ * (`unique: true, index: true`); the fallback only has to be non-empty, stable
+ * and collision-averse.
+ */
+const slugify = (value: string): string => {
+  const base = value
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
+  return base || `post-${stableSuffix(value)}`
+}
 
 /**
  * Auto-fill the slug from the title when no slug is provided, and normalise

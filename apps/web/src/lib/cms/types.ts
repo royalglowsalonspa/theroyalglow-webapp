@@ -127,16 +127,3 @@ export type ServiceCardItem = {
   imageAlt: string
   bookingHref: string
 }
-
-/** A detailed service on the /services catalogue page. */
-export type Service = {
-  id: string
-  name: string
-  type: 'salon' | 'spa'
-  category: string | null
-  image: ResolvedMedia
-  description: string
-  durationMinutes: number
-  priceFormatted: string
-  bookingRef: string | null
-}

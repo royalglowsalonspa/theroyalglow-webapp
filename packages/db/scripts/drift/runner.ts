@@ -15,6 +15,7 @@
  * - audit        : read-only fingerprint of each branch
  * - verifyOnFork : prove the reconcile plan on a disposable fork of `prod`
  * - rollout      : forward-migrate / reset branches to canonical (task 10.3)
+ * - applyGatedPlan : the Req 5.5 check-then-apply gate shared by both apply paths
  *
  * Features / Functionality :
  * - The `NeonAdmin` adapter and the `CatalogReader` factory are INJECTED via
@@ -25,6 +26,15 @@
  * - Archived branches (e.g. `test` / `pprd`) are reactivated before reading;
  *   when reactivation fails the failure is recorded and the remaining branches
  *   continue to be audited (the pipeline is never blocked by one branch).
+ * - DDL is applied through ONE shared check-then-apply gate ({@link
+ *   applyGatedPlan}) used by BOTH `verifyOnFork` and `rollout`: each
+ *   step's bound `DataPreCheck` is evaluated BEFORE its DDL, a failing check
+ *   skips the DDL and marks the step `blocked`, and every execution is wrapped
+ *   individually so one failure blocks one step instead of aborting the loop
+ *   (Req 5.5). Operator-confirm-flagged statements stay inert and are never
+ *   auto-applied (Req 6.6). The per-step verdicts are surfaced on
+ *   `VerifyReport` / `RolloutReport` so blocked steps reach the
+ *   Conformance_Report.
  *
  * Tech Stack   : TypeScript (strict), Neon serverless
  * Layer        : Data Access (orchestration / control plane)
@@ -36,7 +46,7 @@
  *                never executed against a real branch — fork-verify applies the
  *                plan only to a disposable fork, which is always deleted.
  *
- * _Requirements: 2.2, 7.1, 7.2, 7.3, 7.4, 11.1, 11.2, 14.1, 14.3_
+ * _Requirements: 2.2, 5.5, 5.6, 6.6, 7.1, 7.2, 7.3, 7.4, 11.1, 11.2, 14.1, 14.3_
  ************************************************************/
 
 import { type CanonicalFingerprint, readCatalog } from './canonical'
@@ -98,6 +108,134 @@ export function isAuditFailure(result: BranchAuditResult): result is BranchAudit
 // `RolloutReport` is the concrete convergence outcome (task 10.3).
 // ─────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────
+// Per-step apply outcome (Req 5.5 / 6.6).
+// ─────────────────────────────────────────────────────────
+
+/**
+ * Verdict for one {@link ReconcileStep} passed through the check-then-apply gate.
+ *
+ *  - `applied` — the step had no bound pre-check, or its pre-check PASSED, and
+ *    its DDL was executed successfully.
+ *  - `blocked` — its bound `DataPreCheck` reported a violation (or could not be
+ *    evaluated), so the DDL was NEVER executed (Req 5.5). Fails closed.
+ *  - `failed`  — the pre-check passed but the DDL itself errored. The failure is
+ *    isolated to this step; independent steps still run (Req 5.5).
+ *  - `inert`   — the step carries no executable SQL: the operator-confirm-flagged
+ *    statements `reconcile` emits commented out and never auto-applies (Req 6.6).
+ */
+export type StepVerdict = 'applied' | 'blocked' | 'failed' | 'inert'
+
+/**
+ * What the gate did with one step, and why. `preCheck` is the evaluated bound
+ * Data_Pre_Check (`null` when the step binds none, when the step is inert, or
+ * when the probe itself threw); `error` carries the probe/DDL failure message
+ * for the `blocked`/`failed` verdicts.
+ */
+export type StepOutcome = {
+  /** {@link ReconcileStep.id} of the step this verdict belongs to. */
+  stepId: string
+  verdict: StepVerdict
+  /** Evaluated bound Data_Pre_Check, when one was evaluated. */
+  preCheck: PreCheckResult | null
+  /** Probe or DDL failure message, `null` on success. */
+  error: string | null
+}
+
+/** Every evaluated Data_Pre_Check across a set of step outcomes, in step order. */
+export function preCheckResultsOf(outcomes: readonly StepOutcome[]): PreCheckResult[] {
+  return outcomes
+    .map((outcome) => outcome.preCheck)
+    .filter((result): result is PreCheckResult => result !== null)
+}
+
+/** Step ids the gate refused to apply because their bound pre-check failed. */
+export function blockedStepIds(outcomes: readonly StepOutcome[]): string[] {
+  return outcomes
+    .filter((outcome) => outcome.verdict === 'blocked')
+    .map((outcome) => outcome.stepId)
+}
+
+// ─────────────────────────────────────────────────────────
+// The check-then-apply gate (Requirement 5.5 / 5.6 / 6.6).
+// ─────────────────────────────────────────────────────────
+
+/**
+ * Apply a reconcile plan through the Req 5.5 gate over one connection.
+ *
+ * For every step, in `step.order`:
+ *   1. An INERT step (empty, or only `--` comment lines — the
+ *      operator-confirm-flagged statements `reconcile` never auto-applies) is
+ *      recorded `inert` and skipped without probing or executing (Req 6.6).
+ *   2. Its bound `DataPreCheck` is evaluated FIRST, against a read-only probe
+ *      over the same connection. When the check reports a violation the step is
+ *      recorded `blocked` and its DDL is NEVER executed — the violation is
+ *      carried on the outcome for the Conformance_Report, and branch data is
+ *      never mutated to satisfy the check (Req 5.5, 5.6). A probe that throws
+ *      fails CLOSED: the step is blocked rather than optimistically applied.
+ *   3. Otherwise the DDL runs inside its OWN `try`/`catch`. A DDL failure is
+ *      recorded `failed` for that step only; the loop continues with the
+ *      independent steps instead of aborting (Req 5.5).
+ *
+ * This is the single gate both `verifyOnFork` and `rollout` apply DDL through,
+ * so the orchestration layer enforces the same contract `precheck` enforces at
+ * the planning layer. It is exported so the gate can be exercised directly —
+ * against a fake executor in the unit suites, and against a live fork in the
+ * integration suites — without reaching into the runner's internals.
+ */
+export async function applyGatedPlan(
+  exec: SqlExecutor,
+  plan: readonly ReconcileStep[],
+): Promise<StepOutcome[]> {
+  const probeReader: ProbeReader = { query: (sql) => exec(sql) }
+  const ordered = [...plan].sort((a, b) => a.order - b.order)
+  const outcomes: StepOutcome[] = []
+
+  for (const step of ordered) {
+    // 1. Inert: operator-confirmed statements are never auto-applied.
+    if (isInertDdl(step.ddl)) {
+      outcomes.push({ stepId: step.id, verdict: 'inert', preCheck: null, error: null })
+      continue
+    }
+
+    // 2. Gate: the bound pre-check runs BEFORE the DDL, never after.
+    let preCheck: PreCheckResult | null = null
+    if (step.preCheck !== null) {
+      try {
+        preCheck = await PreChecker.evaluate(step.preCheck, probeReader)
+      } catch (error) {
+        // Unverifiable data conformance fails closed — block, never apply.
+        outcomes.push({
+          stepId: step.id,
+          verdict: 'blocked',
+          preCheck: null,
+          error: errorMessage(error),
+        })
+        continue
+      }
+      if (!preCheck.passed) {
+        outcomes.push({ stepId: step.id, verdict: 'blocked', preCheck, error: null })
+        continue
+      }
+    }
+
+    // 3. Per-step isolation: one failing statement blocks one step.
+    try {
+      await exec(step.ddl)
+      outcomes.push({ stepId: step.id, verdict: 'applied', preCheck, error: null })
+    } catch (error) {
+      outcomes.push({
+        stepId: step.id,
+        verdict: 'failed',
+        preCheck,
+        error: errorMessage(error),
+      })
+    }
+  }
+
+  return outcomes
+}
+
 /**
  * Outcome of proving the reconcile plan on a disposable fork of `prod`.
  *
@@ -118,6 +256,10 @@ export type VerifyReport = {
   forkHash: string | null
   /** Result of every Data_Pre_Check evaluated on the fork (Req 7.2). */
   preCheckResults: PreCheckResult[]
+  /** Per-step gate verdict, in applied (`step.order`) order (Req 5.5). */
+  stepOutcomes: StepOutcome[]
+  /** Ids of the steps whose DDL was skipped because their pre-check failed. */
+  blockedStepIds: string[]
   /** Residual structural diff (canonical vs fork) when not converged. */
   diff?: SchemaDiff
 }
@@ -147,6 +289,11 @@ export type BranchRolloutOutcome = {
   fingerprintHash: string | null
   /** True iff `fingerprintHash === canonical.hash`. */
   matchesCanonical: boolean
+  /**
+   * Per-step gate verdict for this branch (Req 5.5). Empty for a
+   * `reset_from_parent` branch, which receives no DDL at all.
+   */
+  stepOutcomes: StepOutcome[]
 }
 
 /**
@@ -173,6 +320,11 @@ export type RolloutReport = {
   restorePoints: Record<BranchId, string>
   /** Per-branch failures captured during rollout (never thrown mid-way). */
   errors: Array<{ branchId: BranchId; error: string }>
+  /**
+   * Every step blocked by a failing Data_Pre_Check, per branch (Req 5.5), so the
+   * Conformance_Report can list the violations that stopped a step.
+   */
+  blocked: Array<{ branchId: BranchId; stepId: string; preCheck: PreCheckResult | null }>
 }
 
 // ─────────────────────────────────────────────────────────
@@ -366,12 +518,14 @@ export class DriftRunnerImpl implements DriftRunner {
    *
    *   1. Fork `prod` into a disposable Verify_Branch and resolve its UNPOOLED
    *      (direct) connection string for DDL.
-   *   2. Apply the ENTIRE plan in `order`. Steps whose DDL is fully
-   *      operator-confirm-commented are inert and skipped (neon-http has no
+   *   2. Apply the plan in `order` through the Req 5.5 gate
+   *      ({@link applyGatedPlan}): each step's bound Data_Pre_Check
+   *      is evaluated BEFORE its DDL, a violating check skips that step's DDL and
+   *      marks it `blocked`, a DDL failure is isolated to its own step, and
+   *      operator-confirm-commented steps stay inert (neon-http has no
    *      interactive transactions, so statements run independently and ordered).
-   *   3. Run ALL bound Data_Pre_Checks against the fork via a read-only probe.
-   *   4. Re-fingerprint the fork and compare its hash to canonical.
-   *   5. `converged` iff fork hash === canonical hash AND every pre-check passed.
+   *   3. Re-fingerprint the fork and compare its hash to canonical.
+   *   4. `converged` iff fork hash === canonical hash AND every pre-check passed.
    *
    * The disposable fork is ALWAYS deleted (success or failure) so real branches
    * are left untouched (Req 7.4). On non-convergence the residual diff and the
@@ -389,29 +543,18 @@ export class DriftRunnerImpl implements DriftRunner {
       const connectionString = await this.neonAdmin.connectionString(verifyBranchId)
       const exec = this.executorFactory(connectionString)
 
-      // 2. Apply the entire plan in order; skip inert (commented) steps.
-      const ordered = [...plan].sort((a, b) => a.order - b.order)
-      for (const step of ordered) {
-        if (isInertDdl(step.ddl)) continue
-        await exec(step.ddl)
-      }
-
-      // 3. Run all bound data pre-checks on the fork via a read-only probe (Req 7.2).
-      const probeReader: ProbeReader = { query: (sql) => exec(sql) }
-      const preCheckResults: PreCheckResult[] = []
-      for (const step of ordered) {
-        if (step.preCheck === null) continue
-        preCheckResults.push(await PreChecker.evaluate(step.preCheck, probeReader))
-      }
+      // 2. Apply the plan through the check-then-apply gate (Req 5.5, 7.2).
+      const stepOutcomes = await applyGatedPlan(exec, plan)
+      const preCheckResults = preCheckResultsOf(stepOutcomes)
       const allPreChecksPassed = preCheckResults.every((result) => result.passed)
 
-      // 4. Re-fingerprint the fork and compare to canonical.
+      // 3. Re-fingerprint the fork and compare to canonical.
       const reader = this.readerFactory(connectionString)
       const rows = await readCatalog(reader)
       const forkFingerprint = Fingerprinter.build(rows)
       const forkHash = Fingerprinter.hash(forkFingerprint)
 
-      // 5. Converged iff fork === canonical AND all pre-checks pass (Req 7.3).
+      // 4. Converged iff fork === canonical AND all pre-checks pass (Req 7.3).
       const converged = forkHash === canonical.hash && allPreChecksPassed
 
       const report: VerifyReport = {
@@ -420,6 +563,8 @@ export class DriftRunnerImpl implements DriftRunner {
         canonicalHash: canonical.hash,
         forkHash,
         preCheckResults,
+        stepOutcomes,
+        blockedStepIds: blockedStepIds(stepOutcomes),
       }
       // Attach the residual diff for the Conformance_Report when not identical.
       if (forkHash !== canonical.hash) {
@@ -452,9 +597,13 @@ export class DriftRunnerImpl implements DriftRunner {
    *      in-place undo DDL is authored (Req 10.2, 14.2).
    *   2. **Forward-migrate first (Req 8.1, 8.2)** — apply the verified DDL in
    *      `step.order` over each `forward_migrate` branch's UNPOOLED connection,
-   *      `prod` FIRST. Inert (operator-confirm-commented) steps are skipped.
-   *      These branches are NEVER reset, so their live data is preserved, and
-   *      the guarded DDL is safe to re-run (idempotent, Req 10.3).
+   *      `prod` FIRST, through the SAME Req 5.5 gate `verifyOnFork` uses
+   *      ({@link applyGatedPlan}): a step whose bound Data_Pre_Check
+   *      fails against that branch's real data is `blocked` and its DDL is never
+   *      executed, a failing statement is isolated to its own step, and inert
+   *      (operator-confirm-commented) steps are skipped. These branches are NEVER
+   *      reset, so their live data is preserved, and the guarded DDL is safe to
+   *      re-run (idempotent, Req 10.3).
    *   3. **Reset from parent AFTER prod is canonical (Req 8.3, 8.4)** — reset
    *      each `reset_from_parent` branch (`test`/`pprd`) off `prod`'s now-canonical
    *      head, reactivating it first if archived. This DISCARDS their data — a
@@ -475,6 +624,8 @@ export class DriftRunnerImpl implements DriftRunner {
   ): Promise<RolloutReport> {
     const restorePoints: Record<BranchId, string> = {}
     const errors: Array<{ branchId: BranchId; error: string }> = []
+    /** Per-branch gate verdicts from phase 2, read back in phase 4. */
+    const outcomesByBranch = new Map<BranchId, StepOutcome[]>()
 
     const strategyOf = (branchId: BranchId): RolloutStrategy =>
       this.branchStrategies[branchId] ?? 'forward_migrate'
@@ -488,8 +639,6 @@ export class DriftRunnerImpl implements DriftRunner {
       (branchId) => strategyOf(branchId) === 'reset_from_parent',
     )
     const orderedBranches = [...forwardBranches, ...resetBranches]
-
-    const ddlSteps = [...plan].sort((a, b) => a.order - b.order)
 
     // ── Phase 1: capture a Restore_Point per branch BEFORE any DDL (Req 10.1).
     for (const branchId of orderedBranches) {
@@ -508,11 +657,20 @@ export class DriftRunnerImpl implements DriftRunner {
       try {
         const connectionString = await this.neonAdmin.connectionString(branchId)
         const exec = this.executorFactory(connectionString)
-        for (const step of ddlSteps) {
-          if (isInertDdl(step.ddl)) continue
-          await exec(step.ddl)
+        // Gated apply: a blocked step's DDL never runs, and a failing statement
+        // blocks only its own step (Req 5.5).
+        const outcomes = await applyGatedPlan(exec, plan)
+        outcomesByBranch.set(branchId, outcomes)
+        for (const outcome of outcomes) {
+          if (outcome.error === null) continue
+          errors.push({
+            branchId,
+            error: `step ${outcome.stepId} ${outcome.verdict}: ${outcome.error}`,
+          })
         }
       } catch (error) {
+        // Only connection-level failures reach here; per-step failures are
+        // captured as outcomes above.
         errors.push({ branchId, error: errorMessage(error) })
       }
     }
@@ -534,6 +692,7 @@ export class DriftRunnerImpl implements DriftRunner {
     const outcomes: BranchRolloutOutcome[] = []
     for (const branchId of orderedBranches) {
       const strategy = strategyOf(branchId)
+      const stepOutcomes = outcomesByBranch.get(branchId) ?? []
       try {
         if (this.shouldReactivate(branchId)) {
           await this.neonAdmin.reactivate(branchId)
@@ -547,14 +706,30 @@ export class DriftRunnerImpl implements DriftRunner {
           strategy,
           fingerprintHash,
           matchesCanonical: fingerprintHash === canonical.hash,
+          stepOutcomes,
         })
       } catch (error) {
         errors.push({ branchId, error: errorMessage(error) })
-        outcomes.push({ branchId, strategy, fingerprintHash: null, matchesCanonical: false })
+        outcomes.push({
+          branchId,
+          strategy,
+          fingerprintHash: null,
+          matchesCanonical: false,
+          stepOutcomes,
+        })
       }
     }
 
     const diverged = outcomes.filter((o) => !o.matchesCanonical).map((o) => o.branchId)
+
+    // Every blocked step, flattened for the Conformance_Report (Req 5.5).
+    const blocked: RolloutReport['blocked'] = []
+    for (const [branchId, stepOutcomes] of outcomesByBranch) {
+      for (const outcome of stepOutcomes) {
+        if (outcome.verdict !== 'blocked') continue
+        blocked.push({ branchId, stepId: outcome.stepId, preCheck: outcome.preCheck })
+      }
+    }
 
     return {
       canonicalHash: canonical.hash,
@@ -563,6 +738,7 @@ export class DriftRunnerImpl implements DriftRunner {
       diverged,
       restorePoints,
       errors,
+      blocked,
     }
   }
 }

@@ -7,14 +7,11 @@ const SOURCE_URL = 'https://github.com/x/y/blob/prod/docs/content/docs/index.mdx
 const MARKDOWN = '# Hi'
 const LAST_MODIFIED = new Date('2026-06-08')
 
-// The component formats with `Intl.DateTimeFormat('en-IN', { day, month, year })`
-// in the host timezone. Compute the expectation the same way so the assertion is
-// timezone-robust while still proving the DD/MM/YYYY shape and correct value.
-const EXPECTED_DATE = new Intl.DateTimeFormat('en-IN', {
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-}).format(LAST_MODIFIED)
+// The component formats DD/MM/YYYY with `en-IN` PINNED to Asia/Kolkata, so the
+// expectation is a fixed literal rather than a host-zone recomputation.
+// 2026-06-08T00:00:00Z is 08/06/2026 05:30 IST — the same calendar day in IST,
+// and the assertion holds on any runtime zone.
+const EXPECTED_DATE = '08/06/2026'
 
 /**
  * Install a clipboard spy on `navigator.clipboard`. This MUST run after

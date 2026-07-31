@@ -53,13 +53,23 @@ type CopyStatus = 'idle' | 'copied' | 'error'
 const COPY_FEEDBACK_TIMEOUT_MS = 2000
 
 /**
+ * IST (UTC+5:30, no DST) — the display zone for every user-facing date. Declared
+ * locally because the docs site does not depend on `@rgss/business`, which owns
+ * the canonical `IST_TIME_ZONE` constant for the applications.
+ */
+const IST_TIME_ZONE = 'Asia/Kolkata'
+
+/**
  * `DD/MM/YYYY` formatter using the India locale (`en-IN`), matching the
- * project's date-display convention.
+ * project's date-display convention. `timeZone` is mandatory: without it Intl
+ * resolves the HOST zone, so a page last modified between 18:30 and 24:00 UTC
+ * would render the previous IST day on a UTC build runner.
  */
 const dateFormatter = new Intl.DateTimeFormat('en-IN', {
   day: '2-digit',
   month: '2-digit',
   year: 'numeric',
+  timeZone: IST_TIME_ZONE,
 })
 
 /**

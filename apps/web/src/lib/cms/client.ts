@@ -986,6 +986,8 @@ export async function getServiceCards(): Promise<ServiceCardItem[]> {
 // NOTE: `getServices()` (and its `mapService` mapper) used to read the booking
 // catalogue out of the Payload `service` collection. It was dead code, and the
 // collection was repurposed for CMS-authored service management — the fields it
-// queried (`active`, `order`, `type`) no longer exist. The catalogue read path
-// is Drizzle `public.service` via `getCatalogueServices` in `@/lib/catalogue`.
-// The `Service` view-model type in `./types` is still used there.
+// queried (`active`, `order`, `type`) no longer exist. The catalogue read path is
+// Drizzle `public.service` via `getAllServicesGrouped` / `getActiveCatalogue` in
+// `@rgss/db/queries`, consumed directly by the pages, sitemap and
+// `GET /api/services`. The `@/lib/catalogue` seam and the `Service` view-model
+// type it needed were also unreferenced and have been removed.

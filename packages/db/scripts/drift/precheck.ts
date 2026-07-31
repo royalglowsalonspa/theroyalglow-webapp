@@ -91,6 +91,32 @@ function extractFk(payload: unknown): FkPayload | null {
   return null
 }
 
+type UniqueIndexPayload = { columns: string[]; predicate: string | null }
+
+/**
+ * Extract the `{ columns, predicate }` shape of a UNIQUE `IndexFp` payload.
+ * Returns `null` for a non-unique index — a plain index cannot be violated by
+ * existing data, so it needs no pre-check.
+ *
+ * A dropped UNIQUE constraint surfaces TWICE in the diff (once as the
+ * constraint, once as its backing unique index, because `catalog-queries.ts`
+ * `INDEXES_SQL` only excludes `indisprimary`), so the index half must be gated
+ * exactly like the constraint half or the plan would carry an UNGATED
+ * `CREATE UNIQUE INDEX` that real duplicate data would reject.
+ */
+function extractUniqueIndex(payload: unknown): UniqueIndexPayload | null {
+  if (
+    isRecord(payload) &&
+    payload.unique === true &&
+    isStringArray(payload.columns) &&
+    payload.columns.length > 0 &&
+    (payload.predicate === null || typeof payload.predicate === 'string')
+  ) {
+    return { columns: payload.columns, predicate: payload.predicate }
+  }
+  return null
+}
+
 /** Extract a single column name + nullability from a `ColumnFp` payload. */
 function extractColumn(payload: unknown): { name: string; nullable: boolean } | null {
   if (
@@ -109,11 +135,24 @@ function extractColumn(payload: unknown): { name: string; nullable: boolean } | 
 
 /**
  * Duplicate-key probe: groups rows by the key columns and returns any group
- * with more than one member — the rows that would violate a new UNIQUE / PK.
+ * with more than one member — the rows that would violate a new UNIQUE / PK
+ * (or a new UNIQUE INDEX).
+ *
+ * `predicate` carries a partial (predicated) UNIQUE INDEX's normalized
+ * `WHERE` expression. A partial unique index only constrains the rows that
+ * satisfy its predicate, so the probe MUST be restricted the same way —
+ * otherwise duplicates outside the index's scope would be reported as
+ * violations and a safe step would be blocked. Full indexes and constraints
+ * pass `null` and group over the whole table.
  */
-function buildDuplicateKeySql(table: string, columns: readonly string[]): string {
+function buildDuplicateKeySql(
+  table: string,
+  columns: readonly string[],
+  predicate: string | null = null,
+): string {
   const cols = quoteColumns(columns)
-  return `SELECT ${cols}, COUNT(*) AS count FROM ${quoteIdent(table)} GROUP BY ${cols} HAVING COUNT(*) > 1`
+  const where = predicate === null ? '' : ` WHERE ${predicate}`
+  return `SELECT ${cols}, COUNT(*) AS count FROM ${quoteIdent(table)}${where} GROUP BY ${cols} HAVING COUNT(*) > 1`
 }
 
 /**
@@ -183,6 +222,23 @@ function checkForEntry(entry: DiffEntry): DataPreCheck | null {
     }
   }
 
+  // UNIQUE INDEX add -> duplicate-key check (same guarantee as a UNIQUE
+  // constraint: a `CREATE UNIQUE INDEX` fails on duplicate rows exactly as
+  // `ADD CONSTRAINT ... UNIQUE` does). A PARTIAL unique index is handled by
+  // scoping the probe to its predicate, so the check matches what Postgres
+  // would actually enforce. Non-unique indexes get no check — no data can
+  // violate them.
+  if (entry.status === 'missing_on_branch' && entry.kind === 'index') {
+    const idx = extractUniqueIndex(entry.canonical)
+    if (idx === null) return null
+    const scope = idx.predicate === null ? '' : ` WHERE ${idx.predicate}`
+    return {
+      description: `Detect duplicate UNIQUE INDEX groups on ${table}(${idx.columns.join(', ')})${scope} before creating the index`,
+      kind: 'duplicate_key',
+      probeSql: buildDuplicateKeySql(table, idx.columns, idx.predicate),
+    }
+  }
+
   // FOREIGN KEY add -> orphan-FK check.
   if (entry.status === 'missing_on_branch' && entry.kind === 'foreignKey') {
     const fk = extractFk(entry.canonical)
@@ -212,6 +268,11 @@ function checkForEntry(entry: DiffEntry): DataPreCheck | null {
     if (entry.status === 'divergent') {
       const branch = extractColumn(entry.branch)
       // Only an additive tightening (branch nullable -> canonical non-null).
+      //
+      // A divergent column DEFAULT needs NO data pre-check: `ALTER COLUMN ...
+      // SET/DROP DEFAULT` only changes the expression applied to FUTURE
+      // inserts, never rewrites existing rows, and cannot violate any
+      // constraint — so no read-only probe could report a violation for it.
       if (branch?.nullable) {
         return {
           description: `Detect existing NULLs in ${table}.${canonical.name} before tightening the column to NOT NULL`,
@@ -232,8 +293,10 @@ function checkForEntry(entry: DiffEntry): DataPreCheck | null {
 /**
  * PURE: derive the read-only `DataPreCheck` predicates required to safely
  * apply the additive constraints in `diff`. Emits a `duplicate_key` check per
- * added UNIQUE/PK, an `orphan_fk` check per added FK, and an `existing_null`
- * check per added/tightened NOT NULL column. No I/O.
+ * added UNIQUE/PK and per added UNIQUE INDEX (predicate-scoped when the index
+ * is partial), an `orphan_fk` check per added FK, and an `existing_null` check
+ * per added/tightened NOT NULL column. A divergent column DEFAULT needs none
+ * (it rewrites no rows and can violate nothing). No I/O.
  */
 function plan(diff: SchemaDiff): DataPreCheck[] {
   const checks: DataPreCheck[] = []

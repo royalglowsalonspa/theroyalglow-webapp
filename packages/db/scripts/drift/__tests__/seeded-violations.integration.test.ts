@@ -57,43 +57,50 @@
  *      same statements (asserted) rather than skipping them — so idempotence is
  *      measured against real Postgres, not a model.
  *
- * WHERE THE GATE LIVES — RECORDED OPEN FINDING (read before changing this file):
- *                `runner.ts` applies EVERY step's DDL BEFORE evaluating the
- *                bound pre-checks, and its apply loop has NO per-step
- *                try/catch. That is the open finding already recorded under
- *                tasks.md Notes ("Requirement 5.5 ... is enforced by
- *                `precheck.ts` at the planning layer but NOT at the
- *                orchestration layer"). Consequently `runner.verifyOnFork` /
- *                `runner.rollout` CANNOT be used to prove point 2: they would
- *                attempt the violating DDL, error, and abort the whole loop.
- *                This suite therefore implements the check-then-apply gate
- *                ITSELF (`gatedApply` below) — evaluate each step's bound
- *                `DataPreCheck` first, skip the DDL when it fails, continue with
- *                the independent steps — which is exactly the orchestration
- *                behaviour Req 5.5 describes. THE GATE IS IN THE TEST BECAUSE
- *                THE ORCHESTRATOR DOES NOT YET IMPLEMENT IT. `runner.ts` is
- *                deliberately NOT refactored here: that needs an explicit owner
- *                decision on whether Req 5.5 is an orchestration-layer
- *                contract. The final assertion test corroborates the current
- *                orchestrator behaviour non-fragilely: it feeds each blocked
- *                step's DDL to real Postgres and asserts Postgres REJECTS it —
- *                which is what an ungated apply loop hits today — and that the
- *                rejected DDL leaves the fork's fingerprint unchanged.
+ * WHERE THE GATE LIVES — RESOLVED (read before changing this file):
+ *                The Req 5.5 check-then-apply gate now lives in the
+ *                ORCHESTRATOR: `runner.ts` exports `applyGatedPlan`, which
+ *                evaluates each step's bound `DataPreCheck` BEFORE its DDL,
+ *                skips the DDL and marks the step `blocked` when the check
+ *                fails, wraps each execution individually so one failure blocks
+ *                one step instead of aborting the loop, and leaves inert
+ *                (operator-confirm-commented) steps untouched. `verifyOnFork`
+ *                and `rollout` both apply DDL through that ONE function, and
+ *                surface the per-step verdicts on `VerifyReport.stepOutcomes` /
+ *                `RolloutReport.blocked`.
+ *
+ *                This suite therefore drives THE ORCHESTRATOR'S gate directly
+ *                (`applyGatedPlan` over the fork's recording executor) instead
+ *                of a gate of its own — the previously recorded open finding is
+ *                fixed and the local `gatedApply` is gone. `applyGatedPlan` is
+ *                called here rather than `verifyOnFork` only because the
+ *                idempotence half (point 3) needs TWO passes over the SAME fork,
+ *                while `verifyOnFork` forks and disposes a fresh branch per
+ *                call; the gate code path exercised is identical.
+ *
+ *                The final assertion is KEPT as live corroboration: each blocked
+ *                step's DDL is fed to real Postgres and asserted REJECTED — the
+ *                pre-check said the constraint would fail, and it genuinely
+ *                does — and the rejected DDL leaves the fork's fingerprint
+ *                unchanged.
  *
  * Recorded observations reused from 12.1 / 12.2 (live `prod` = br-bold-cake-aotql242) :
- *   1. `prod` differs from canonical in EXACTLY one object: `public."user".role`
- *      carries no column default while canonical has `DEFAULT 'customer'::text`.
- *      `reconcile.ts` emits no step for a divergent column DEFAULT, so that
- *      inherited divergence contributes nothing to the plan (asserted here, not
- *      assumed). Convergence to canonical is therefore NOT asserted by this
- *      suite — that is task 12.1's job.
- *   2. A dropped UNIQUE constraint would ALSO surface its backing unique index
- *      as a separate `missing_on_branch` index step, and `reconcile.ts` binds NO
- *      pre-check to an index step — an ungated `CREATE UNIQUE INDEX` that real
- *      duplicate data would reject. The duplicate-key violation is therefore
- *      seeded on a PRIMARY KEY instead: `catalog-queries.ts` excludes
- *      `indisprimary` indexes, so a dropped PK yields exactly ONE gated step and
- *      no ungated companion.
+ *   1. `prod` differed from canonical in EXACTLY one object: `public."user".role`
+ *      carried no column default while canonical has `DEFAULT 'customer'::text`.
+ *      `reconcile.ts` NOW emits an idempotent `ALTER COLUMN ... SET DEFAULT` step
+ *      for a divergent column DEFAULT, so that inherited divergence is expressed
+ *      by the plan (asserted here, not assumed) — the reconciler no longer leaves
+ *      an inexpressible divergence behind. Convergence to canonical is still NOT
+ *      asserted by this suite — that is task 12.1's job.
+ *   2. A dropped UNIQUE constraint ALSO surfaces its backing unique index as a
+ *      separate `missing_on_branch` index step. That index step now carries its
+ *      own `duplicate_key` pre-check (Finding 2 fixed), so it is no longer an
+ *      ungated `CREATE UNIQUE INDEX`. The duplicate-key violation is still
+ *      seeded on a PRIMARY KEY: `catalog-queries.ts` excludes `indisprimary`
+ *      indexes, so a dropped PK yields exactly ONE step and the fixture census
+ *      below stays a one-step-per-seed identity set. The DOUBLE REPORTING itself
+ *      (constraint + backing index as two diff entries) remains OPEN — see
+ *      tasks.md Notes.
  *   3. Fork row baseline on a `prod` fork: `user=2 account=2 session=3
  *      loyalty_account=2`, every other table 0. `audit_log` and `notification`
  *      both start empty, which is why the seeded rows are the ONLY violations
@@ -131,7 +138,7 @@
  * Layer        : Data Access (Test)
  *
  * Dependencies : vitest, ./live-fork, ../canonical, ../catalog-queries, ../diff,
- *                ../precheck, ../reconcile, ../report, ../types
+ *                ../reconcile, ../report, ../runner, ../types
  *
  * Notes        : Neon control-plane operations are polled and slow (fork,
  *                endpoint, delete) and canonical derivation materializes the
@@ -143,9 +150,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { CanonicalFingerprint } from '../canonical'
 import type { SqlExecutor } from '../catalog-queries'
 import { SchemaDiffer } from '../diff'
-import { PreChecker, type ProbeReader } from '../precheck'
 import { Reconciler } from '../reconcile'
 import { type ConformanceReport, RATIFIED_DATA_LOSS_NOTE, Reporter } from '../report'
+import { applyGatedPlan, type StepOutcome } from '../runner'
 import type { BranchId, DiffEntry, PreCheckResult, ReconcileStep } from '../types'
 import {
   canonicalOnFork,
@@ -190,9 +197,10 @@ const SAMPLE_LIMIT = 20
 //   - `audit_log` PRIMARY KEY dropped + two rows sharing one `id`
 //       -> `duplicate_key` pre-check fails. A PRIMARY KEY (not a UNIQUE) is used
 //          deliberately: `catalog-queries.ts` excludes `indisprimary` indexes, so
-//          the diff yields exactly ONE gated step. A dropped UNIQUE would also
-//          surface its backing unique index as a SECOND, UNGATED step that real
-//          duplicate data would reject.
+//          the diff yields exactly ONE step. A dropped UNIQUE would also surface
+//          its backing unique index as a SECOND step — now GATED by its own
+//          `duplicate_key` check (Finding 2 fixed), but still a second entry, so
+//          the one-step-per-seed census would need to account for it.
 //   - `audit_log.actor_id -> user(id)` foreign key dropped + those same two rows
 //     pointing at a non-existent `user`
 //       -> `orphan_fk` pre-check fails.
@@ -246,6 +254,18 @@ const EXPECTED_APPLIED_IDENTITIES: ReadonlySet<string> = new Set([
   'index:audit_log:entity_id, entity_type [btree]:missing_on_branch',
   'foreignKey:notification:user_id -> user(id):missing_on_branch',
 ])
+
+/**
+ * A divergent-column step INHERITED from `prod` rather than seeded here — the
+ * class the reconciler previously could not express at all (the `user.role`
+ * DEFAULT gap). It is now emitted as an idempotent `ALTER COLUMN ... SET/DROP
+ * DEFAULT` (or `SET NOT NULL`) step, so the fixture guard ACCEPTS it and the
+ * census below counts it among the applied steps. It mutates no row and binds no
+ * pre-check, so it can never interfere with the blocked-step assertions.
+ */
+function isInheritedColumnDivergence(identity: string): boolean {
+  return /^column:.+:divergent$/.test(identity)
+}
 
 /** `diff.ts`-aligned identity of a diff entry. */
 function identityOf(entry: DiffEntry): string {
@@ -360,100 +380,51 @@ function recordingExecutor(inner: SqlExecutor): Recorder {
 }
 
 // ─────────────────────────────────────────────────────────
-// The check-then-apply gate.
+// Driving THE ORCHESTRATOR'S check-then-apply gate.
 //
-// THIS IS THE ORCHESTRATION BEHAVIOUR REQ 5.5 DESCRIBES, IMPLEMENTED HERE
-// BECAUSE `runner.ts` DOES NOT YET IMPLEMENT IT (recorded open finding — see the
-// header block). For each step in `step.order`: evaluate the bound
-// `DataPreCheck` FIRST; if it fails, record the step blocked and DO NOT execute
-// its DDL; otherwise execute it. Each execution is individually wrapped, so one
-// failing statement blocks one step instead of aborting the loop — the "continue
-// with independent steps" half of Req 5.5.
+// `applyGatedPlan` is the exact function `runner.verifyOnFork` and
+// `runner.rollout` apply every step's DDL through. Everything this suite adds is
+// observation: one recording executor captures EVERY statement the gate issues,
+// then each statement is classified as plan DDL (it equals some `step.ddl`) or as
+// a read-only pre-check probe. That classification is what makes the "blocked
+// DDL never reached the database" assertion decisive — a blocked step's DDL must
+// be absent from the WHOLE statement log, not merely from a filtered view.
 // ─────────────────────────────────────────────────────────
-
-type StepVerdict = 'applied' | 'blocked' | 'failed' | 'inert'
-
-type StepOutcome = {
-  identity: string
-  verdict: StepVerdict
-  preCheck: PreCheckResult | null
-  error: string | null
-}
 
 type ApplyPass = {
   outcomes: StepOutcome[]
-  /** DDL statements that actually reached the database, in issue order. */
+  /** Every statement the gate issued, in order. */
+  statements: string[]
+  /** Plan DDL statements that actually reached the database, in issue order. */
   executedDdl: string[]
   /** Pre-check probe statements issued during the gate, in issue order. */
   probes: string[]
 }
 
-/**
- * True when a step's DDL is inert — empty or only `--` comment lines (the
- * operator-confirm-flagged statements `reconcile.ts` never auto-applies). Mirrors
- * the private `isInertDdl` in `runner.ts`.
- */
-function isInertDdl(ddl: string): boolean {
-  return (
-    ddl
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0 && !line.startsWith('--')).length === 0
-  )
-}
-
 async function gatedApply(fork: Fork, plan: readonly ReconcileStep[]): Promise<ApplyPass> {
-  // DDL goes through its own recorder so `executedDdl` is EXACTLY the set of
-  // statements that reached the database — which is what makes the
-  // "blocked DDL never executed" assertion decisive. Probes are recorded
-  // separately so they cannot dilute that set.
-  const ddl = recordingExecutor(fork.exec)
-  const probe = recordingExecutor(fork.exec)
-  const probeReader: ProbeReader = { query: (sql) => probe.exec(sql) }
+  const recorder = recordingExecutor(fork.exec)
+  const outcomes = await applyGatedPlan(recorder.exec, plan)
 
-  const outcomes: StepOutcome[] = []
-  const ordered = [...plan].sort((a, b) => a.order - b.order)
-
-  for (const step of ordered) {
-    const identity = stepIdentity(step)
-
-    if (isInertDdl(step.ddl)) {
-      outcomes.push({ error: null, identity, preCheck: null, verdict: 'inert' })
-      continue
-    }
-
-    // ── Req 5.5 gate: the bound pre-check runs BEFORE the DDL, never after.
-    let preCheck: PreCheckResult | null = null
-    if (step.preCheck !== null) {
-      preCheck = await PreChecker.evaluate(step.preCheck, probeReader)
-      if (!preCheck.passed) {
-        // Blocked: the DDL is SKIPPED entirely and never touches `ddl.exec`.
-        outcomes.push({ error: null, identity, preCheck, verdict: 'blocked' })
-        continue
-      }
-    }
-
-    try {
-      await ddl.exec(step.ddl)
-      outcomes.push({ error: null, identity, preCheck, verdict: 'applied' })
-    } catch (error) {
-      // Per-step isolation: record and continue with the independent steps.
-      outcomes.push({
-        error: error instanceof Error ? error.message : String(error),
-        identity,
-        preCheck,
-        verdict: 'failed',
-      })
-    }
+  const planDdl = new Set(plan.map((step) => step.ddl))
+  const statements = [...recorder.statements]
+  return {
+    executedDdl: statements.filter((sql) => planDdl.has(sql)),
+    outcomes,
+    probes: statements.filter((sql) => !planDdl.has(sql)),
+    statements,
   }
-
-  return { executedDdl: [...ddl.statements], outcomes, probes: [...probe.statements] }
 }
 
-function identitiesWith(pass: ApplyPass, verdict: StepVerdict): string[] {
+/** Map a gate outcome's `stepId` back to the diff identity the fixtures name. */
+function identityOfStepId(plan: readonly ReconcileStep[], stepId: string): string {
+  const step = plan.find((candidate) => candidate.id === stepId)
+  return step === undefined ? `unknown-step:${stepId}` : stepIdentity(step)
+}
+
+function identitiesWith(pass: ApplyPass, verdict: StepOutcome['verdict']): string[] {
   return pass.outcomes
     .filter((outcome) => outcome.verdict === verdict)
-    .map((outcome) => outcome.identity)
+    .map((outcome) => identityOfStepId(plan, outcome.stepId))
     .sort()
 }
 
@@ -475,6 +446,11 @@ let seedStatements: string[] = []
 let unexpressedIdentities: string[] = []
 
 let plan: ReconcileStep[] = []
+/**
+ * Identities of any INHERITED divergent-column steps in the plan (expected: none
+ * now that `prod` is canonical, one if an off-canonical DEFAULT reappears).
+ */
+let inheritedColumnIdentities: string[] = []
 /** Fork fingerprint hash BEFORE any plan application (post-seed baseline). */
 let seededHash: string
 /** First gated application. */
@@ -569,9 +545,17 @@ describe.skipIf(!LIVE)('seeded-violation blocking and idempotence on a live Neon
       .map(identityOf)
       .sort()
 
-    // SAFETY GUARD: never execute a step we did not deliberately seed. Throwing
-    // here aborts before any DDL runs; `afterAll` still deletes both forks.
-    const unexpected = plan.map(stepIdentity).filter((id) => !EXPECTED_STEP_IDENTITIES.has(id))
+    // SAFETY GUARD: never execute a step we did not deliberately seed, with the
+    // one documented exception of an inherited divergent-column correction (now
+    // expressible, and harmless to data). Throwing here aborts before any DDL
+    // runs; `afterAll` still deletes both forks.
+    inheritedColumnIdentities = plan
+      .map(stepIdentity)
+      .filter((id) => !EXPECTED_STEP_IDENTITIES.has(id) && isInheritedColumnDivergence(id))
+      .sort()
+    const unexpected = plan
+      .map(stepIdentity)
+      .filter((id) => !EXPECTED_STEP_IDENTITIES.has(id) && !isInheritedColumnDivergence(id))
     if (unexpected.length > 0) {
       throw new Error(
         `Reconcile plan contains steps outside the seeded fixture set; refusing to apply: ${unexpected.join(' | ')}`,
@@ -616,7 +600,9 @@ describe.skipIf(!LIVE)('seeded-violation blocking and idempotence on a live Neon
   })
 
   it('plans exactly one step per seeded divergence, in dependency order', () => {
-    expect(plan.map(stepIdentity).sort()).toEqual([...EXPECTED_STEP_IDENTITIES].sort())
+    expect(plan.map(stepIdentity).sort()).toEqual(
+      [...EXPECTED_STEP_IDENTITIES, ...inheritedColumnIdentities].sort(),
+    )
 
     // Ordered enums -> columns -> pk/unique -> indexes -> foreign keys.
     const orders = plan.map((step) => step.order)
@@ -625,10 +611,27 @@ describe.skipIf(!LIVE)('seeded-violation blocking and idempotence on a live Neon
     // The seeded fork is genuinely off-canonical, so the plan is not vacuous.
     expect(seededHash).not.toBe(canonical.hash)
 
-    // The ONLY divergence the reconciler expresses no step for is the recorded
-    // `user.role` DEFAULT gap inherited from `prod` (12.1's observation #2),
-    // asserted rather than assumed.
-    expect(unexpressedIdentities).toEqual(['column:user:role:divergent'])
+    // The reconciler now expresses EVERY divergence in the diff — including a
+    // divergent column DEFAULT, the one class it previously emitted nothing for
+    // (the recorded `user.role` gap). Nothing is left unexpressed.
+    expect(unexpressedIdentities).toEqual([])
+  })
+
+  it('expresses an inherited divergent column DEFAULT as an idempotent step', () => {
+    // Nothing to express once `prod` is canonical; if an off-canonical DEFAULT
+    // reappears, the reconciler must emit exactly one guarded column step for it
+    // rather than leaving the branch unconvergeable.
+    for (const identity of inheritedColumnIdentities) {
+      const step = plan.find((candidate) => stepIdentity(candidate) === identity)
+      expect(step, identity).toBeDefined()
+      if (step === undefined) continue
+      // Column band, one statement, absolute (idempotent) assignment, no gate.
+      expect(step.order).toBe(1)
+      expect(step.ddl).toMatch(
+        /^ALTER TABLE ".+" ALTER COLUMN ".+" (SET NOT NULL|SET DEFAULT .+|DROP DEFAULT)(, ALTER COLUMN ".+" (SET DEFAULT .+|DROP DEFAULT))?;$/,
+      )
+      expect(step.ddl.split(';').filter((part) => part.trim().length > 0)).toHaveLength(1)
+    }
   })
 
   // ── POINT 1: violations are detected on REAL data.
@@ -644,9 +647,7 @@ describe.skipIf(!LIVE)('seeded-violation blocking and idempotence on a live Neon
 
     for (const outcome of blocked) {
       const result = outcome.preCheck
-      expect(result, `blocked step ${outcome.identity} must carry a pre-check result`).not.toBe(
-        null,
-      )
+      expect(result, `blocked step ${outcome.stepId} must carry a pre-check result`).not.toBe(null)
       if (result === null) continue
 
       // passed === false, a positive violation count, and a NON-EMPTY sample
@@ -671,7 +672,8 @@ describe.skipIf(!LIVE)('seeded-violation blocking and idempotence on a live Neon
 
   it('evaluates every pre-check through read-only SELECT probes only', () => {
     // Three checks are evaluated per pass: the two violating ones plus the clean
-    // `notification` foreign key. The index step binds none.
+    // `notification` foreign key. The PLAIN index step binds none (only a UNIQUE
+    // index does), and a divergent column DEFAULT binds none either.
     expect(pass1.probes.length).toBe(3)
     for (const probe of pass1.probes) {
       expect(probe.trimStart().toUpperCase().startsWith('SELECT'), probe).toBe(true)
@@ -681,26 +683,28 @@ describe.skipIf(!LIVE)('seeded-violation blocking and idempotence on a live Neon
   // ── POINT 2: Requirement 5.5 blocked-step contract, live.
 
   it('skips the blocked steps entirely while the independent steps still apply', () => {
+    const expectedApplied = [...EXPECTED_APPLIED_IDENTITIES, ...inheritedColumnIdentities].sort()
     expect(identitiesWith(pass1, 'blocked')).toEqual([...EXPECTED_BLOCKED_IDENTITIES].sort())
-    expect(identitiesWith(pass1, 'applied')).toEqual([...EXPECTED_APPLIED_IDENTITIES].sort())
+    expect(identitiesWith(pass1, 'applied')).toEqual(expectedApplied)
     // Nothing errored: with the gate in place, no step reached a DDL failure.
     expect(identitiesWith(pass1, 'failed')).toEqual([])
     expect(identitiesWith(pass1, 'inert')).toEqual([])
 
-    // THE DECISIVE ASSERTION. Only the two independent steps' DDL reached the
-    // database, and each blocked step's DDL string is absent from the executed
-    // log — it was never sent, not merely rolled back.
+    // THE DECISIVE ASSERTION. Only the independent steps' DDL reached the
+    // database, and each blocked step's DDL string is absent from the ENTIRE
+    // statement log the orchestrator's gate issued — it was never sent, not
+    // merely rolled back.
     const blockedDdl = plan
       .filter((step) => EXPECTED_BLOCKED_IDENTITIES.has(stepIdentity(step)))
       .map((step) => step.ddl)
     expect(blockedDdl.length).toBe(EXPECTED_BLOCKED_IDENTITIES.size)
 
-    expect(pass1.executedDdl.length).toBe(EXPECTED_APPLIED_IDENTITIES.size)
+    expect(pass1.executedDdl.length).toBe(expectedApplied.length)
     for (const ddl of blockedDdl) {
-      expect(pass1.executedDdl, `blocked DDL was executed: ${ddl}`).not.toContain(ddl)
+      expect(pass1.statements, `blocked DDL was executed: ${ddl}`).not.toContain(ddl)
     }
     for (const step of plan) {
-      if (EXPECTED_APPLIED_IDENTITIES.has(stepIdentity(step))) {
+      if (expectedApplied.includes(stepIdentity(step))) {
         expect(pass1.executedDdl).toContain(step.ddl)
       }
     }
@@ -785,13 +789,11 @@ describe.skipIf(!LIVE)('seeded-violation blocking and idempotence on a live Neon
   it(
     'corroborates the pre-check verdicts: Postgres rejects the blocked DDL and the schema is unchanged',
     async () => {
-      // WHY THIS EXISTS. The gate above lives in the TEST because `runner.ts`
-      // applies every step's DDL BEFORE evaluating the bound pre-checks and has
-      // no per-step try/catch (recorded open finding, tasks.md Notes). This test
-      // shows what that ungated orchestrator hits today: each blocked step's DDL
-      // is fed to real Postgres and REJECTED. That is also live corroboration of
-      // pre-check soundness — the probe said the constraint would fail, and it
-      // genuinely does.
+      // WHY THIS EXISTS. Live corroboration that the gate's verdicts are TRUE
+      // and not merely self-consistent: each blocked step's DDL is fed to real
+      // Postgres and REJECTED. The probe said the constraint would fail, and it
+      // genuinely does — which is also exactly what an UNGATED apply loop would
+      // hit, i.e. what the orchestrator's gate now prevents.
       const fork = seededFork
       expect(fork, 'seeded fork must still be available').not.toBe(null)
       if (fork === null) return
