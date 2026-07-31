@@ -1,7 +1,58 @@
-# Ops-activated: requires Neon API key + project/branch IDs to run.
-# Resets the pprd branch from prod (near-instant copy-on-write) then strips
-# PII. Mirrors git-workflow.md "Prod → pprd Data Replication".
 name: Replicate Prod to pprd (Daily)
+
+# ---------------------------------------------------------------------------
+# Scheduled pprd refresh: resets the `pprd` Neon branch from `prod` (near-instant
+# copy-on-write) and then strips PII, so UAT has realistic data without real
+# customer details. Mirrors git-workflow.md "Prod -> pprd Data Replication" and
+# background-jobs.md Job 5.
+#
+# WHY THE PREFLIGHT JOB EXISTS: this workflow failed every night, in 9-14
+# seconds, for two reasons that were both CONFIGURATION gaps rather than code
+# faults.
+#
+#   1. It read the Neon project id from `secrets.NEON_PROJECT_ID`, but that value
+#      is stored in this repo as an Actions VARIABLE, not a secret (`gh secret
+#      list` returns only NEON_API_KEY; `gh variable list` returns only
+#      NEON_PROJECT_ID). A missing secret interpolates to the EMPTY STRING rather
+#      than erroring, so the Neon URL silently became
+#      `.../projects//branches//restore` and curl failed.
+#   2. Four of the values it needs have never been configured at all. Even with
+#      the project id fixed, the job cannot succeed until they exist.
+#
+# A scheduled job that CANNOT run must not page anyone every morning. Red builds
+# that nobody can act on are how real failures get ignored. So the `preflight`
+# job resolves whether every required value is present and the real work is gated
+# on its output — exactly the idiom integration.yml and load-test.yml already use
+# (secrets cannot be evaluated in a job-level `if:`, hence the job output). When
+# something is missing the run SKIPS and says which names are missing in the run
+# summary. Configure them and it starts working with no workflow edit.
+#
+# REQUIRED SECRETS (Settings > Secrets and variables > Actions > Secrets).
+# Only genuine credentials belong here:
+#   NEON_API_KEY                     Neon API bearer token for the branch restore
+#   DATABASE_URL_PPRD                pprd connection string for the anonymiser
+#
+# REQUIRED VARIABLES (same page > Variables). Neon project/branch identifiers are
+# NOT credentials — they grant nothing on their own and are useless without
+# NEON_API_KEY — so they are variables, matching how NEON_PROJECT_ID is already
+# stored. Keeping them out of `secrets` also means their values stay READABLE in
+# logs and in `gh variable list`, which is what you want when debugging a
+# malformed API URL (a masked empty string is exactly what hid failure 1 above):
+#   NEON_PROJECT_ID                  Neon project containing the branches
+#   NEON_PROD_BRANCH_ID              source branch (prod) to restore FROM
+#   NEON_PPRD_BRANCH_ID              target branch (pprd) to restore INTO
+#
+# OPTIONAL SECRET:
+#   BETTER_STACK_HEARTBEAT_PPRD_SYNC BetterStack heartbeat ping URL. Kept a
+#     SECRET rather than a variable because the URL embeds its own bearer-style
+#     token — anyone holding it can mark this job healthy. Optional: the
+#     heartbeat step is skipped when it is absent, because `curl -sf ""` fails
+#     and would turn a SUCCESSFUL replication into a red run (same guard shape as
+#     deploy-aws.yml's `if: failure() && env.INCIDENT_WEBHOOK != ''`).
+#
+# The real branch ids are deliberately NOT hardcoded here — they differ per Neon
+# project and belong in configuration, not in a committed workflow.
+# ---------------------------------------------------------------------------
 
 on:
   schedule:
@@ -9,20 +60,82 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Resolves whether this workflow is configured to run at all. Secrets cannot be
+  # evaluated in a job-level `if:`, so the answer is exposed as a job output and
+  # the real job depends on it.
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        env:
+          # Read through `env` rather than interpolating into the script body, so
+          # a missing value is an empty variable that can be TESTED instead of a
+          # blank hole spliced into a command line.
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          DATABASE_URL_PPRD: ${{ secrets.DATABASE_URL_PPRD }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          NEON_PROD_BRANCH_ID: ${{ vars.NEON_PROD_BRANCH_ID }}
+          NEON_PPRD_BRANCH_ID: ${{ vars.NEON_PPRD_BRANCH_ID }}
+        run: |
+          MISSING=''
+          for NAME in NEON_API_KEY DATABASE_URL_PPRD NEON_PROJECT_ID NEON_PROD_BRANCH_ID NEON_PPRD_BRANCH_ID; do
+            if [ -z "${!NAME}" ]; then
+              MISSING="$MISSING $NAME"
+            fi
+          done
+          if [ -z "$MISSING" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo 'All required secrets and variables present — pprd replication will run.'
+            echo '### pprd replication: configured — running.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=pprd replication skipped::Not configured yet. Missing:$MISSING. See the header of .github/workflows/replicate-prod-to-pprd.yml for which of these are Actions secrets and which are Actions variables. Skipping instead of failing, because an unconfigured environment is not a regression."
+            {
+              echo '### pprd replication SKIPPED — not configured'
+              echo ''
+              echo 'Missing values:'
+              echo ''
+              for NAME in $MISSING; do
+                echo "- \`$NAME\`"
+              done
+              echo ''
+              echo 'The workflow header lists which of these belong in Actions **secrets** and which in Actions **variables**. Nothing was changed on the `pprd` branch.'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   replicate:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: [preflight]
+    if: needs.preflight.outputs.configured == 'true'
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
+      # The anonymiser imports @neondatabase/serverless, so the workspace
+      # dependencies have to be installed — `setup-bun` alone only provides the
+      # runtime.
+      - run: bun install --frozen-lockfile
 
+      # `--fail-with-body` matters here: plain `curl -X POST` EXITS 0 on an HTTP
+      # 4xx, so a rejected restore (bad id, revoked key) would have looked like a
+      # success and the anonymiser would then have run against un-reset data.
+      # Values come from `env` so they are never spliced into the URL unquoted.
       - name: Reset pprd branch from prod
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          NEON_PROD_BRANCH_ID: ${{ vars.NEON_PROD_BRANCH_ID }}
+          NEON_PPRD_BRANCH_ID: ${{ vars.NEON_PPRD_BRANCH_ID }}
         run: |
-          curl -X POST \
-            "https://console.neon.tech/api/v2/projects/${{ secrets.NEON_PROJECT_ID }}/branches/${{ secrets.NEON_PPRD_BRANCH_ID }}/restore" \
-            -H "Authorization: Bearer ${{ secrets.NEON_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d '{"source_branch_id": "${{ secrets.NEON_PROD_BRANCH_ID }}"}'
+          echo "Restoring branch $NEON_PPRD_BRANCH_ID from $NEON_PROD_BRANCH_ID in project $NEON_PROJECT_ID"
+          curl -sS --fail-with-body -X POST \
+            "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_PPRD_BRANCH_ID/restore" \
+            -H "Authorization: Bearer $NEON_API_KEY" \
+            -H 'Content-Type: application/json' \
+            -d "{\"source_branch_id\": \"$NEON_PROD_BRANCH_ID\"}"
 
       - name: Anonymize PII in pprd
         run: bun run scripts/anonymize-preprod.ts
@@ -32,5 +145,11 @@ jobs:
           # this is set, so it can only ever target pprd (never prod/dev).
           PPRD_ANONYMIZE: '1'
 
+      # Skipped when the heartbeat URL is not configured: `curl -sf ""` fails,
+      # which would fail the whole job AFTER a perfectly good replication. Same
+      # guard shape as deploy-aws.yml's notify step.
       - name: Ping BetterStack heartbeat
-        run: curl -sf "${{ secrets.BETTER_STACK_HEARTBEAT_PPRD_SYNC }}"
+        if: env.HEARTBEAT_URL != ''
+        env:
+          HEARTBEAT_URL: ${{ secrets.BETTER_STACK_HEARTBEAT_PPRD_SYNC }}
+        run: curl -sf "$HEARTBEAT_URL"

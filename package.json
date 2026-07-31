@@ -15,7 +15,7 @@
     "typecheck": "turbo run typecheck",
     "test": "vitest run --exclude '**/*.integration.test.*' --exclude '**/e2e/**'",
     "test:unit": "vitest run --exclude '**/*.integration.test.*' --exclude '**/e2e/**'",
-    "test:integration": "vitest run integration.test.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts integration.test.ts",
     "test:e2e": "playwright test",
     "test:coverage": "vitest run --coverage --exclude '**/*.integration.test.*' --exclude '**/e2e/**'",
     "clean": "turbo run clean",

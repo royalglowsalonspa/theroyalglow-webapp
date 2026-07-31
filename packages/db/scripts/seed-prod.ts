@@ -13,7 +13,7 @@
  * - Seed branch records (Rayasandra, Marathahalli)
  * - Seed system settings (GST, gems rules, cancellation policies)
  * - Seed service categories (salon + spa)
- * - Seed all services (salon 34 + spa 21)
+ * - Seed all services (salon 34 + spa 23 = 57)
  * - Seed SPA membership tiers (Silver, Gold, Platinum)
  * - Seed customer tags (VIP, Frequent, No-Show Risk, etc.)
  *
