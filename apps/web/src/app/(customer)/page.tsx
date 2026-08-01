@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 12-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 01-08-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : HomePage
@@ -32,10 +32,16 @@
  * - The hero image is owner-managed via the Payload `banner` collection; it
  *   falls back to the bundled /hero-fallback.svg brand artwork when no banner
  *   is active. Remaining sections still use Stitch-generated assets.
+ * - The hero image and the site-wide announcement strip are DECOUPLED even
+ *   though both read the same `banner` record: the hero takes the first active,
+ *   in-window banner (selectHeroBanner) whether or not it has a CTA link, while
+ *   AnnouncementBar only shows a banner WITH a non-empty `ctaHref`. Leaving the
+ *   CTA link blank therefore changes the hero photo alone. See lib/cms/banners.ts.
  ************************************************************/
 
 import type { Metadata } from 'next'
 import { JsonLd } from '@/components/seo/JsonLd'
+import { selectHeroBanner } from '@/lib/cms/banners'
 import { getActiveBanners } from '@/lib/cms/client'
 import { resolveFaqs } from '@/lib/cms/faqs'
 import {
@@ -65,10 +71,11 @@ export const revalidate = 3600
 export default async function HomePage() {
   const [faqList, banners] = await Promise.all([resolveFaqs(), getActiveBanners()])
 
-  // Banners are already sorted by `order`; the first one owns the hero image.
-  // Only the image crosses into HeroSection — the h1 is fixed brand copy and the
-  // banner's headline/ctaHref already drive the AnnouncementBar.
-  const heroImage = banners[0]?.image ?? null
+  // The first active banner in `order` owns the hero image, CTA link or not.
+  // Only the image crosses into HeroSection — the h1 is fixed brand copy, and the
+  // headline/ctaHref belong to the announcement strip, which independently
+  // requires a CTA link before it shows a banner at all.
+  const heroImage = selectHeroBanner(banners)?.image ?? null
 
   return (
     <>
