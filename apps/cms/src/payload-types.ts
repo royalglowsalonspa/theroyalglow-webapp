@@ -317,16 +317,28 @@ export interface Gallery {
  */
 export interface Banner {
   id: number;
+  /**
+   * Shown in the announcement strip across the top of the site — but only when the CTA link below is filled in.
+   */
   headline: string;
+  /**
+   * Drives the homepage hero photo. This happens whether or not the CTA link is filled in.
+   */
   image: number | Media;
   ctaLabel?: string | null;
   /**
-   * Internal path or absolute URL.
+   * Internal path or absolute URL. LEAVE BLANK and this banner will NOT appear in the top announcement strip — it only changes the homepage hero photo. Fill it in and the headline above also runs as the announcement.
    */
   ctaHref?: string | null;
+  /**
+   * Only active banners are used, and only inside the optional start/end window below.
+   */
   active: boolean;
   startAt?: string | null;
   endAt?: string | null;
+  /**
+   * Lowest number wins when several banners are active: it supplies the hero photo, and the lowest-numbered one with a CTA link supplies the announcement strip.
+   */
   order?: number | null;
   updatedAt: string;
   createdAt: string;
