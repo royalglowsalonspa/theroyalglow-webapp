@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 07-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 12-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : HomePage
@@ -24,15 +24,19 @@
  * Tech Stack   : React, Next.js 16 App Router, Tailwind CSS v4, motion
  * Layer        : Presentation
  *
- * Dependencies : JsonLd, resolveFaqs, SEO helpers, next/link, motion
+ * Dependencies : JsonLd, resolveFaqs, getActiveBanners, SEO helpers,
+ *                next/link, motion
  *
  * Notes        :
  * - ISR with 1-hour revalidation for FAQ content from CMS
- * - Images: using lh3.googleusercontent.com Stitch-generated assets
+ * - The hero image is owner-managed via the Payload `banner` collection; it
+ *   falls back to the bundled /hero-fallback.svg brand artwork when no banner
+ *   is active. Remaining sections still use Stitch-generated assets.
  ************************************************************/
 
 import type { Metadata } from 'next'
 import { JsonLd } from '@/components/seo/JsonLd'
+import { getActiveBanners } from '@/lib/cms/client'
 import { resolveFaqs } from '@/lib/cms/faqs'
 import {
   faqPageJsonLd,
@@ -59,7 +63,12 @@ export const metadata: Metadata = buildMetadata({
 export const revalidate = 3600
 
 export default async function HomePage() {
-  const faqList = await resolveFaqs()
+  const [faqList, banners] = await Promise.all([resolveFaqs(), getActiveBanners()])
+
+  // Banners are already sorted by `order`; the first one owns the hero image.
+  // Only the image crosses into HeroSection — the h1 is fixed brand copy and the
+  // banner's headline/ctaHref already drive the AnnouncementBar.
+  const heroImage = banners[0]?.image ?? null
 
   return (
     <>
@@ -74,7 +83,7 @@ export default async function HomePage() {
       />
 
       <div className="flex flex-col">
-        <HeroSection />
+        <HeroSection image={heroImage} />
         <BrandLogosSection />
         <ServicesSection />
         <OffersSection />

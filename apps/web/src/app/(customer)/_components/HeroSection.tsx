@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 08-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 12-06-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : HeroSection
@@ -20,28 +20,65 @@
  * - Motion fade/slide-in entrance (reduced-motion safe via variants)
  * - Book Now (deep-link ?book=1) + Explore Services CTAs
  * - Glassmorphism location card with Visit CTA
+ * - Owner-managed hero image from the Payload `banner` collection, with a
+ *   bundled on-brand SVG fallback when no banner is active
  *
  * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, shadcn/ui,
  *                Radix, motion, lucide-react
  * Layer        : Presentation (Component)
  *
- * Dependencies : @/components/ui/button, @/components/ui/badge, motion/react,
- *                lucide-react, next/link
+ * Dependencies : @/components/ui/button, @/components/ui/badge,
+ *                @/lib/cms/types, motion/react, lucide-react, next/image,
+ *                next/link
  *
- * Notes        : None
+ * Notes        :
+ * - The hero image is the homepage LCP element, so it renders with `priority`
+ *   (preload link, never lazy) plus an explicit `fetchPriority="high"`.
+ * - The fallback is a local SVG; the Next.js image optimiser refuses SVG
+ *   sources unless `dangerouslyAllowSVG` is on, so that path is `unoptimized`
+ *   (an SVG is already resolution-independent and a few KB).
  ************************************************************/
 'use client'
 
 import { ArrowRight, Clock, MapPin } from 'lucide-react'
 import { motion } from 'motion/react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { fadeInUp } from '@/components/ui/motion/motion-variants'
+import type { ResolvedMedia } from '@/lib/cms/types'
 
 const categories = ['HAIR', 'SPA', 'SKIN', 'BRIDAL', 'NAILS', 'GROOMING']
 
-export function HeroSection() {
+/**
+ * Bundled brand artwork used when the CMS has no active banner image.
+ *
+ * Its alt is deliberately EMPTY: this is abstract decorative geometry, not a
+ * photograph, and the adjacent `h1` plus body copy already carry the meaning.
+ * Describing it as a salon interior would misinform screen-reader users, and
+ * `alt=""` is the correct WCAG treatment for decorative imagery. A real photo
+ * uploaded to the `banner` collection supplies its own descriptive alt.
+ */
+const FALLBACK_IMAGE_SRC = '/hero-fallback.svg'
+const FALLBACK_IMAGE_ALT = ''
+
+/**
+ * Two columns under a 1280px cap: full viewport width below `lg`, half of the
+ * container (minus padding and gap) at and above it.
+ */
+const HERO_IMAGE_SIZES = '(min-width: 1280px) 620px, (min-width: 1024px) 50vw, 100vw'
+
+type HeroSectionProps = {
+  /** Hero image from the first active Payload banner, when one is scheduled. */
+  image?: ResolvedMedia | null
+}
+
+export function HeroSection({ image = null }: HeroSectionProps) {
+  const usingFallback = image === null
+  const imageSrc = image?.url ?? FALLBACK_IMAGE_SRC
+  const imageAlt = image?.alt ?? FALLBACK_IMAGE_ALT
+
   return (
     <section
       aria-labelledby="hero-heading"
@@ -120,11 +157,17 @@ export function HeroSection() {
         >
           {/* Hero Image */}
           <div className="relative min-h-[420px] flex-1 overflow-hidden rounded-[6px]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="https://lh3.googleusercontent.com/aida/AP1WRLuIypHeztZ5YyYZEOFFKSHy0pL99IawVI2fGsXlSDpNMYzFOozcw5Y5VgXNowDHsEoZpkkghwmcHeea6UoV7mCUn7coMb45UfVZig5pko1Uh5CT4Ckt2zTfTir_UgE45-YDxef8iRrJrWz4UfGCblYOV1pYd_tBKSm28SmiTX6wUKR7AmL45IymtSAWfsqPryjD4KATSv0KmgyFN5bv0rWfckQ8uzRuV6hPJeF5qZAaMpDQWzP6ph8pLg"
-              alt="Royal Glow salon interior — warm, premium atmosphere"
-              className="absolute inset-0 size-full object-cover"
+            <Image
+              src={imageSrc}
+              alt={imageAlt}
+              fill
+              priority
+              // Next 16 derives only the preload link from `priority`; the
+              // fetchpriority hint on the element itself must be explicit.
+              fetchPriority="high"
+              sizes={HERO_IMAGE_SIZES}
+              unoptimized={usingFallback}
+              className="object-cover"
             />
             {/* Glassmorphism overlay card */}
             <div className="absolute inset-x-5 bottom-5 flex items-end justify-between rounded-2xl border border-white/20 bg-white/10 p-5 text-white backdrop-blur-md">
