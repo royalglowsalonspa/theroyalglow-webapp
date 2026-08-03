@@ -31,10 +31,10 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.5",
-    "@playwright/test": "^1.62.0",
-    "@vitejs/plugin-react": "^6.0.4",
-    "checkly": "^8.17.1",
+    "@biomejs/biome": "^2.5.6",
+    "@playwright/test": "^1.62.1",
+    "@vitejs/plugin-react": "^6.0.5",
+    "checkly": "^8.18.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.2.0",
     "sst": "^4.17.1",
