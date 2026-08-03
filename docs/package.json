@@ -17,9 +17,9 @@
     "next": "16.2.12",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "fumadocs-ui": "^16.12.1",
-    "fumadocs-core": "^16.12.1",
-    "fumadocs-mdx": "^15.2.0"
+    "fumadocs-ui": "^16.14.0",
+    "fumadocs-core": "^16.14.0",
+    "fumadocs-mdx": "^15.2.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
