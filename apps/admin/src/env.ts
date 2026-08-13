@@ -73,7 +73,8 @@ export const env = createEnv({
     // Separate admin Sentry project (Req 6.6, 12.3). Named with an ADMIN_
     // infix (distinct from apps/web's NEXT_PUBLIC_SENTRY_DSN) so the two
     // projects' DSNs are unambiguous across the monorepo/deploy dashboards.
-    NEXT_PUBLIC_ADMIN_SENTRY_DSN: z.string().url(),
+    // Optional: the admin boots without it; Sentry is simply disabled.
+    NEXT_PUBLIC_ADMIN_SENTRY_DSN: z.string().url().optional(),
     // Google One Tap (if used)
     NEXT_PUBLIC_GOOGLE_CLIENT_ID: z.string().min(1),
     // Client realtime
