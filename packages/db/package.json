@@ -24,7 +24,7 @@
     "nanoid": "^6.0.1"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.2.0",
     "drizzle-kit": "^0.31.10",
     "fast-check": "^4.9.0"
   }
