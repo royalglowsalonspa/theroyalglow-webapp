@@ -14,7 +14,7 @@
   "dependencies": {
     "@rgss/errors": "workspace:*",
     "@rgss/types": "workspace:*",
-    "nanoid": "^6.0.0"
+    "nanoid": "^6.0.1"
   },
   "devDependencies": {
     "fast-check": "^4.9.0",
