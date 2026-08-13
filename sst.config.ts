@@ -113,6 +113,9 @@ export default $config({
       // },
       environment: {
         ...sharedEnv,
+        // NEXT_PUBLIC_APP_URL differs per app and cannot be a single repo
+        // variable — it must be set here so each build gets the right value.
+        NEXT_PUBLIC_APP_URL: 'https://theroyalglow.in',
         BETTER_AUTH_URL: 'https://theroyalglow.in',
         RESEND_API_KEY: resendApiKey.value,
         VAPID_PRIVATE_KEY: vapidPrivateKey.value,
@@ -132,6 +135,9 @@ export default $config({
       // domain: { name: 'admin.theroyalglow.in' },
       environment: {
         ...sharedEnv,
+        // NEXT_PUBLIC_APP_URL for the admin app is its own subdomain, not the
+        // customer site — must be set here so the build gets the right value.
+        NEXT_PUBLIC_APP_URL: 'https://admin.theroyalglow.in',
         BETTER_AUTH_URL: 'https://admin.theroyalglow.in',
         // apps/admin/src/env.ts requires both; on Neon these are the pooled and
         // direct hosts respectively.
