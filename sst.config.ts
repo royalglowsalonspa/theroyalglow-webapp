@@ -32,9 +32,10 @@
  *                function, a DynamoDB ISR tag cache and an SQS revalidation
  *                queue. All within always-free allowances at this traffic.
  *
- *                DOMAINS ARE COMMENTED OUT ON PURPOSE. Deploy without them
- *                first, verify on the generated CloudFront URLs, then attach
- *                the real hostnames at cutover (M2AWS.md §9).
+ *                Domains attach on the `production` stage only, after the
+ *                CloudFront-URL verification described in M2AWS.md §9. DNS stays
+ *                on Cloudflare; SST manages just the ACM validation records, the
+ *                CAA records and the two aliases.
  ************************************************************/
 
 export default $config({
@@ -46,12 +47,29 @@ export default $config({
       removal: input?.stage === 'production' ? 'retain' : 'remove',
       providers: {
         aws: { region: 'ap-southeast-1' },
+        cloudflare: { package: '@pulumi/cloudflare', version: '6.20.0' },
       },
     }
   },
 
   async run() {
     const isProd = $app.stage === 'production'
+
+    // ── DNS ────────────────────────────────────────────────────────────────
+    // theroyalglow.in is hosted on Cloudflare (blakely/jarred.ns.cloudflare.com)
+    // and STAYS there — cms.theroyalglow.in still points at Render and R2 serves
+    // media from the same zone, so moving the zone to Route 53 would mean
+    // recreating every unrelated record for no benefit. SST manages only the
+    // records it needs: the ACM validation CNAMEs, the CAA records, and the
+    // aliases below.
+    //
+    // Zone ID is not a secret; it is an account-scoped identifier, like the AWS
+    // account number in M2AWS.md. Passing it explicitly avoids the account-wide
+    // zone lookup, so the API token only needs this one zone.
+    //
+    // Requires CLOUDFLARE_API_TOKEN at deploy time with Zone:Read + DNS:Edit.
+    const cloudflareZone = '9c72d0f642d34af388e7d870073dc64d'
+    const dns = sst.cloudflare.dns({ zone: cloudflareZone })
 
     // ── Secrets ────────────────────────────────────────────────────────────
     // Set with: bunx sst secret set <Name> "<value>" --stage production
@@ -123,11 +141,18 @@ export default $config({
     // ── Customer site — theroyalglow.in ───────────────────────────────────
     const web = new sst.aws.Nextjs('Web', {
       path: 'apps/web',
-      // Attach at cutover only (M2AWS.md §9), after verifying on the CF URL:
-      // domain: {
-      //   name: 'theroyalglow.in',
-      //   redirects: ['www.theroyalglow.in'],
-      // },
+      // Domains attach on `production` ONLY. A dev stage must never claim these
+      // hostnames — two stages cannot own the same CloudFront alias, and the
+      // loser fails mid-deploy with CNAMEAlreadyExists.
+      ...(isProd && {
+        domain: {
+          name: 'theroyalglow.in',
+          // Serves an apex-redirect on the same distribution, so www needs no
+          // separate origin. It DOES need its old Render CNAME removed first.
+          redirects: ['www.theroyalglow.in'],
+          dns,
+        },
+      }),
       environment: {
         ...sharedEnv,
         // NEXT_PUBLIC_APP_URL differs per app and cannot be a single repo
@@ -149,7 +174,15 @@ export default $config({
     // Also the background-job target: QStash POSTs to /api/jobs/* here.
     const admin = new sst.aws.Nextjs('Admin', {
       path: 'apps/admin',
-      // domain: { name: 'admin.theroyalglow.in' },
+      // Separate distribution, separate certificate — but sessions still work
+      // across both because the auth cookie is scoped to `.theroyalglow.in`,
+      // and cookie scope follows the domain, not the origin.
+      ...(isProd && {
+        domain: {
+          name: 'admin.theroyalglow.in',
+          dns,
+        },
+      }),
       environment: {
         ...sharedEnv,
         // NEXT_PUBLIC_APP_URL for the admin app is its own subdomain, not the
