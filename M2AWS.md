@@ -10,8 +10,8 @@
 | **Tooling** | SST v3 (`sst.aws.Nextjs`, which wraps OpenNext) |
 | **Application code changes** | **Zero** ([§2](#2-why-nothing-else-moves)) |
 | **Cost** | ~$0.50–1.00/mo indefinitely. Always-free tier, **no 12-month cliff** ([§4](#4-cost-model)) |
-| **Status** | Account, secrets, OIDC and CI all in place. CloudFront creation was gated on account verification ([§5.2](#52-cloudfront-account-verification--resolved)) — now lifted, so the first full deploy is the next action |
-| **Rollback** | Render keeps serving web/admin until DNS moves, then for 7 days after ([§9](#9-cutover)) |
+| **Status** | **Deployed 29/08/2026.** Both apps live on their CloudFront URLs, no custom domains yet. `web:` https://dpcdoraa6a9xv.cloudfront.net · `admin:` https://d2buxlb98cupb4.cloudfront.net. DNS cutover is the remaining step ([§9](#9-cutover)) |
+| **Rollback** | **None.** The Render web service is suspended (`theroyalglow.in` returns 503), so the 7-day fallback in [§9](#9-cutover) no longer exists. AWS is the only working deployment |
 
 ---
 
@@ -368,8 +368,11 @@ Order matters. Everything is verifiable before any customer traffic moves.
    `/?book=1&utm_source=gmb`, `/services`, `/book`, `/api/health`, an OAuth sign-in, a booking, an
    invoice PDF, and one job triggered by hand.
 7. **QStash needs no changes** — schedules POST to `admin.theroyalglow.in`, the same hostname.
-8. Leave Render's web + admin services running **7 days**. They are the rollback. CMS stays on
-   Render permanently.
+8. ~~Leave Render's web + admin services running **7 days**. They are the rollback.~~
+   **Void as of 29/08/2026:** the Render web service is suspended and
+   `theroyalglow.in` returns 503, so there is nothing to fall back to and nothing
+   to retire. AWS is the only working deployment, which also means the DNS
+   cutover is now a fix rather than an optimisation. CMS stays on Render.
 
 ---
 
@@ -463,8 +466,21 @@ so nothing is serving from AWS.
       health-check gate
 
 **Phase 3 — verify before DNS**
-- [ ] `sst deploy` succeeds, no domains attached
-- [ ] `/api/health` reports `database: pass` on both CloudFront URLs
+- [x] `sst deploy` succeeds, no domains attached — green run 33214187275.
+      Per app: S3 assets bucket, CloudFront distribution, ARM64 SSR Lambda
+      (1024 MB, 20 s web / 30 s admin), image optimiser, ISR revalidation
+      function + queue.
+- [x] `/api/health` reports `database: pass` on both CloudFront URLs.
+      Warm DB latency 82 ms, warm TTFB ~0.53 s from India, cold ~3.8 s.
+      Homepage renders (158 KB HTML), `/services` and `/api/services` 200.
+- [ ] **Web health is `degraded`, and neither cause is AWS:**
+      - Upstash Redis is **gone** — `equal-doe-141923.upstash.io` no longer
+        resolves in DNS, from Lambda or from a laptop. Create a new database and
+        update `UpstashRedisRestUrl` / `UpstashRedisRestToken`. Rate limiting and
+        the 5-min service-catalogue cache are down until then.
+      - R2 has no `.health` sentinel object, so the probe's HEAD returns 404.
+        R2 itself is reachable (the `r2.dev` host answers). Upload an empty
+        `.health` key to `theroyalglow-uploads`.
 - [ ] OAuth sign-in, booking creation, invoice PDF all verified
 - [ ] Google OAuth redirect URIs added for both origins
 
