@@ -79,6 +79,18 @@ export default $config({
     const r2AccessKeyId = new sst.Secret('R2AccessKeyId')
     const r2SecretAccessKey = new sst.Secret('R2SecretAccessKey')
 
+    // Forward only variables that actually carry a value.
+    //
+    // WHY: t3-env does NOT coerce '' to undefined, so `?? ''` on an unset CI
+    // variable turns an OPTIONAL var into an invalid one — `z.string().url()`
+    // rejects '' and every Lambda cold start throws, 500-ing every request.
+    // The build cannot catch it: during `next build` the var is genuinely
+    // absent, so validation passes and the fault appears only at runtime.
+    const passthrough = (vars: Record<string, string | undefined>) =>
+      Object.fromEntries(
+        Object.entries(vars).filter(([, value]) => value !== undefined && value !== ''),
+      ) as Record<string, string>
+
     // Environment shared by both apps. Values that differ per app are set below.
     const sharedEnv = {
       APP_ENV: isProd ? 'prod' : $app.stage,
@@ -96,11 +108,16 @@ export default $config({
       // Storage stays on Cloudflare R2 (S3-compatible, zero egress).
       R2_ACCESS_KEY_ID: r2AccessKeyId.value,
       R2_SECRET_ACCESS_KEY: r2SecretAccessKey.value,
-      R2_BUCKET_NAME: process.env.R2_BUCKET_NAME ?? '',
-      R2_ENDPOINT: process.env.R2_ENDPOINT ?? '',
-      // Invoice PDFs are still rendered by the Cloud Run service.
-      INVOICING_SERVICE_URL: process.env.INVOICING_SERVICE_URL ?? '',
       INVOICE_PDF_HMAC_SECRET: invoicePdfHmacSecret.value,
+      // Non-secret runtime config, supplied by CI as repo variables.
+      // Omitted when unset — see the note on `passthrough` above.
+      // INVOICING_SERVICE_URL is currently unset (same as Render), so invoice
+      // email degrades to a no-attachment send rather than crashing the app.
+      ...passthrough({
+        R2_BUCKET_NAME: process.env.R2_BUCKET_NAME,
+        R2_ENDPOINT: process.env.R2_ENDPOINT,
+        INVOICING_SERVICE_URL: process.env.INVOICING_SERVICE_URL,
+      }),
     }
 
     // ── Customer site — theroyalglow.in ───────────────────────────────────
@@ -142,6 +159,16 @@ export default $config({
         // apps/admin/src/env.ts requires both; on Neon these are the pooled and
         // direct hosts respectively.
         DATABASE_URL_UNPOOLED: process.env.DATABASE_URL_UNPOOLED ?? databaseUrl.value,
+        // Email + web push belong here too, NOT only on web. This app owns the
+        // whole /api/jobs/* surface (reminders, birthday mail, membership
+        // alerts, daily/weekly reports) and lib/notifications/dispatch.ts.
+        // Both providers read process.env directly and NO-OP SILENTLY when the
+        // key is absent: the job returns 200, pings its BetterStack heartbeat
+        // and sends nothing. Without these two the whole notification layer
+        // would look healthy while being mute.
+        RESEND_API_KEY: resendApiKey.value,
+        VAPID_PRIVATE_KEY: vapidPrivateKey.value,
+        VAPID_SUBJECT: 'mailto:contact@theroyalglow.in',
       },
       server: {
         architecture: 'arm64',

@@ -10,7 +10,7 @@
 | **Tooling** | SST v3 (`sst.aws.Nextjs`, which wraps OpenNext) |
 | **Application code changes** | **Zero** ([§2](#2-why-nothing-else-moves)) |
 | **Cost** | ~$0.50–1.00/mo indefinitely. Always-free tier, **no 12-month cliff** ([§4](#4-cost-model)) |
-| **Status** | Plan + IaC committed. **Not yet applied** — needs an AWS account |
+| **Status** | Account, secrets, OIDC and CI all in place. CloudFront creation was gated on account verification ([§5.2](#52-cloudfront-account-verification--resolved)) — now lifted, so the first full deploy is the next action |
 | **Rollback** | Render keeps serving web/admin until DNS moves, then for 7 days after ([§9](#9-cutover)) |
 
 ---
@@ -169,16 +169,34 @@ aws sts get-caller-identity        # must return your account id
 Unlike the EC2 path, no Docker and no Linux host are required — SST builds from any OS, and
 `sst deploy` runs fine from Windows.
 
-### 5.1 Do NOT deploy as root
+### 5.1 Do NOT deploy as root — RESOLVED
 
-`aws sts get-caller-identity` currently returns:
+Deploys now run as an IAM user:
 
 ```
-"Arn": "arn:aws:iam::343277178041:root"
+"Arn": "arn:aws:iam::343277178041:user/rgss-admin"
 ```
 
-That is the **account root user**. Fix this before provisioning anything, because every resource,
-trust policy and deployment then traces back to an identity that should be locked away.
+`rgss-admin` holds `AdministratorAccess` (plus `AWSManagementConsoleBasicUserAccess` for console
+CloudShell/Q, which grants no resource permissions of its own).
+
+The original problem, kept for the record: the first `aws login` authenticated the **account root
+user**, which cannot be constrained by IAM policy and can close the account or change billing.
+
+**Gotcha worth remembering:** console sign-in and CLI credentials are independent. Signing into the
+console as a different user does **not** change the CLI, which caches a session token from
+`aws login` (visible as `TYPE: login` in `aws configure list`). The fix is:
+
+```bash
+aws logout                              # drop the cached session
+aws login --region ap-southeast-1       # re-authenticate; use a private window if the
+                                        # browser keeps reusing the root session
+aws sts get-caller-identity             # ARN must NOT end in :root
+```
+
+Still worth doing to the root user itself, once: **enable MFA** and **confirm it has no access
+keys**. Then leave root alone — it is needed only for closing the account, changing the payment
+method, and a few support actions.
 
 Why it matters:
 
@@ -199,6 +217,37 @@ Fix, once:
 
 Everything in this runbook works identically as a non-root administrator. Nothing below depends on
 root, so switching now costs nothing; switching after cutover means re-checking every resource.
+
+### 5.2 CloudFront account verification — RESOLVED
+
+A brand-new AWS account cannot create CloudFront distributions until AWS verifies it. Three deploys
+failed on this, *after* both Next builds and the OpenNext bundle had succeeded:
+
+```
+Web sst:aws:Nextjs → WebCdnDistribution aws:cloudfront:Distribution
+CreateDistributionWithTags → 403 AccessDenied: Your account must be verified
+before you can add new CloudFront resources. … contact AWS Support
+```
+
+Worth recognising, because it looks like a permissions bug and is not one: `rgss-admin` holds
+`AdministratorAccess`, and read calls such as `cloudfront list-distributions` succeed throughout.
+Only *creation* is gated. The fix is a Support case ("Account and billing", CloudFront), not an IAM
+policy change.
+
+Test whether the gate is lifted without deploying, and without creating anything:
+
+```bash
+aws cloudfront create-distribution --distribution-config \
+  '{"CallerReference":"probe","Comment":"probe","Enabled":false,
+    "Origins":{"Quantity":1,"Items":[{"Id":"none","DomainName":"invalid_domain"}]},
+    "DefaultCacheBehavior":{"TargetOriginId":"none","ViewerProtocolPolicy":"allow-all",
+      "CachePolicyId":"658327ea-f89d-4fab-a63d-7e88639e58f6"}}'
+```
+
+`AccessDenied` → still gated. **`InvalidOrigin` → gate lifted**: the request reached config
+validation, and the deliberately malformed origin guarantees nothing is created.
+
+Verified lifted 29/08/2026.
 
 ---
 
@@ -244,6 +293,23 @@ as repo *variables*, not secrets, so they are readable in logs when debugging.
 `NEXT_PUBLIC_APP_URL` differs per app (`https://theroyalglow.in` vs
 `https://admin.theroyalglow.in`), and `apps/admin` reads `NEXT_PUBLIC_ADMIN_SENTRY_DSN` while
 `apps/web` reads `NEXT_PUBLIC_SENTRY_DSN` — same key names as today, different values.
+
+### Never default an unset variable to `''`
+
+`sst.config.ts` omits optional variables that have no value instead of passing an empty string.
+t3-env does **not** treat `''` as undefined, so `?? ''` converts an optional var into an invalid
+one: `z.string().url()` rejects `''` and the whole `env.ts` module throws on the first import,
+which on Lambda means a 500 on every request. It cannot be caught by the build either — during
+`next build` the variable is genuinely absent, so validation passes and the fault surfaces only at
+runtime. `INVOICING_SERVICE_URL` is the live example: unset on Render today, and it must stay
+absent rather than empty on AWS.
+
+### The admin app needs the delivery credentials, not just web
+
+`apps/admin` owns every `/api/jobs/*` route and `lib/notifications/dispatch.ts`, so it needs
+`RESEND_API_KEY` and `VAPID_PRIVATE_KEY` as well. Both are read from `process.env` and **no-op
+silently** when absent: the job returns 200, pings its BetterStack heartbeat and sends nothing.
+Omitting them produces a notification layer that monitors green while being completely mute.
 
 ---
 
@@ -360,24 +426,39 @@ and does not appear in a port. That is the point of this architecture.
 
 ## 13. Progress checklist
 
-Nothing below has been executed yet.
+Phase 0 is done; Phase 1–2 is done bar the optional items. No CloudFront distribution exists yet,
+so nothing is serving from AWS.
 
 **Phase 0**
 - [x] AWS account created (`343277178041`)
 - [x] AWS CLI v2 installed, authenticated via `aws login`, region `ap-southeast-1`
 - [x] `bun add -d sst` + `bunx sst install`
 - [x] Agent Toolkit for AWS installed (16 skills + AWS MCP server; rules in `.kiro/steering/aws-agent-rules.md`)
-- [ ] **Enable root MFA and switch to a non-root admin identity** ([§5.1](#51-do-not-deploy-as-root))
-- [ ] $5 budget + free-tier alerts
+- [x] Non-root admin identity: IAM user `rgss-admin` (`AdministratorAccess`) ([§5.1](#51-do-not-deploy-as-root--resolved))
+- [x] $5 monthly budget `rgss-monthly-cost` (ACTUAL >80%, FORECASTED >100% → email)
+- [x] IAM user/role access to Billing information activated
+- [ ] Enable MFA on the root user; confirm root has no access keys
+- [ ] Free Tier usage alerts (Billing → Billing preferences → Alert preferences) — console only
 - [x] Region decided: `ap-southeast-1` (Singapore) — Neon has no Mumbai ([§3](#3-region-choice--decided-singapore))
 
 **Phase 1–2**
-- [ ] `sst.config.ts` reviewed
-- [ ] All SST secrets set for `production`
-- [ ] `NEXT_PUBLIC_*` set as GitHub Actions variables
-- [ ] GitHub OIDC provider + deploy role created, `AWS_DEPLOY_ROLE_ARN` set
-- [ ] Set repo variable `AWS_DEPLOY_ENABLED=true` — the deploy job is gated on it
+- [x] `sst.config.ts` reviewed
+- [x] All 16 SST secrets set for `production` (verified in SSM under
+      `/sst/production/rgss/Secret/*`)
+- [x] `NEXT_PUBLIC_*` set as GitHub Actions variables
+- [x] GitHub OIDC provider + deploy role `rgss-github-deploy` created,
+      `AWS_DEPLOY_ROLE_ARN` secret set (trust policy: `infra/aws/oidc-trust.json`)
+- [x] Repo variable `AWS_DEPLOY_ENABLED=true` — the deploy job is gated on it
       and **skips** until then, so it does not fail on every `prod` push
+- [x] SST state bootstrapped (`/sst/bootstrap`)
+- [ ] Optional, currently unset and therefore omitted from the Lambda env:
+      `INVOICING_SERVICE_URL` (invoice email sends without the PDF attachment),
+      `SLACK_WEBHOOK_URL` + `DAILY_REPORT_EMAIL_RECIPIENTS` (daily/weekly report
+      jobs run and log but deliver nowhere), `NEXT_PUBLIC_SENTRY_DSN` +
+      `NEXT_PUBLIC_ADMIN_SENTRY_DSN` (Sentry disabled)
+- [ ] Consider a dedicated `DatabaseUrlUnpooled` secret — `sst.config.ts`
+      currently falls back to the **pooled** URL, which satisfies
+      `apps/admin/src/env.ts` but is the wrong connection for any DDL
 - [ ] After DNS cutover only: set `AWS_DOMAINS_LIVE=true` to enable the public
       health-check gate
 
