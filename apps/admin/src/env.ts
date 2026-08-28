@@ -100,5 +100,12 @@ export const env = createEnv({
     NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
     NEXT_PUBLIC_ABLY_KEY: process.env.NEXT_PUBLIC_ABLY_KEY,
   },
+  // Treat '' as "not set". GitHub Actions renders an unset `vars.FOO` as an
+  // EMPTY STRING in a workflow `env:` block, so every optional variable that
+  // has no repo variable arrives as '' rather than absent. This is what broke
+  // the first AWS deploy: INVOICING_SERVICE_URL and NEXT_PUBLIC_ADMIN_SENTRY_DSN
+  // were both '' and `.url()` rejected them, so `next build` died collecting
+  // page data for /api/jobs/invoice-pdf.
+  emptyStringAsUndefined: true,
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
 })

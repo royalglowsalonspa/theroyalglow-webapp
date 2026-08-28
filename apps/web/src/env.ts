@@ -139,5 +139,11 @@ export const env = createEnv({
     NEXT_PUBLIC_POSTHOG_HOST: process.env.NEXT_PUBLIC_POSTHOG_HOST,
     NEXT_PUBLIC_VAPID_PUBLIC_KEY: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
   },
+  // Treat '' as "not set". GitHub Actions renders an unset `vars.FOO` as an
+  // EMPTY STRING in a workflow `env:` block, so every optional variable that
+  // has no repo variable arrives as '' rather than absent. Without this, `''`
+  // fails `.url()` and the whole module throws at import — which on Lambda is
+  // a 500 on every request, and in CI a build failure with no obvious cause.
+  emptyStringAsUndefined: true,
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
 })
