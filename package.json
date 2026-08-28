@@ -31,16 +31,16 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.5",
-    "@playwright/test": "^1.62.0",
-    "@vitejs/plugin-react": "^6.0.4",
-    "checkly": "^8.17.1",
+    "@biomejs/biome": "^2.5.10",
+    "@playwright/test": "^1.62.1",
+    "@vitejs/plugin-react": "^6.1.0",
+    "checkly": "^8.22.0",
     "husky": "^9.1.7",
-    "lint-staged": "^17.2.0",
+    "lint-staged": "^17.3.0",
     "sst": "^4.17.1",
-    "turbo": "^2.10.7",
+    "turbo": "^2.10.12",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   },
   "overrides": {
     "kysely": "0.29.4",

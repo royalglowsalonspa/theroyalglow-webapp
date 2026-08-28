@@ -63,7 +63,7 @@ jobs:
       name: production-aws
       url: https://theroyalglow.in
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.git_ref || github.ref }}
 
@@ -74,7 +74,7 @@ jobs:
       - run: bun install --frozen-lockfile
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
