@@ -106,9 +106,24 @@ jobs:
           INVOICING_SERVICE_URL: ${{ vars.INVOICING_SERVICE_URL }}
         run: bunx sst deploy --stage "$SST_STAGE"
 
+      # There is no `sst outputs` subcommand (checked against sst 4.17.1), so the
+      # original version of this step failed every run *after* a successful
+      # deploy. The deploy step prints the URLs itself and writes them to
+      # .sst/outputs.json; a missing summary must never fail a good deploy.
       - name: Capture deployed URLs
         id: urls
-        run: bunx sst outputs --stage "$SST_STAGE" >> "$GITHUB_STEP_SUMMARY"
+        continue-on-error: true
+        run: |
+          {
+            echo '### Deployed URLs'
+            if [ -s .sst/outputs.json ]; then
+              echo '```json'
+              cat .sst/outputs.json
+              echo '```'
+            else
+              echo 'No .sst/outputs.json produced — see the Deploy step log.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Before cutover the custom domains do not exist yet, so this step is
       # skipped until DNS moves (M2AWS.md §9). It then becomes the release gate.
@@ -125,11 +140,15 @@ jobs:
           echo "health check failed — consider redeploying a previous ref (see header)"
           exit 1
 
+      # The webhook check lives in the script, not in `if:` — step-level `env`
+      # is not in scope for that step's own condition, so the old
+      # `env.INCIDENT_WEBHOOK != ''` guard was always false and this never fired.
       - name: Notify failure
-        if: failure() && env.INCIDENT_WEBHOOK != ''
+        if: failure()
         env:
           INCIDENT_WEBHOOK: ${{ secrets.BETTER_STACK_INCIDENT_WEBHOOK }}
         run: |
+          [ -n "$INCIDENT_WEBHOOK" ] || { echo 'no incident webhook configured'; exit 0; }
           curl -sf -X POST "$INCIDENT_WEBHOOK" \
             -H 'Content-Type: application/json' \
             -d '{"title":"AWS deploy failed","sha":"${{ github.sha }}"}' || true
