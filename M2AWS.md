@@ -10,7 +10,7 @@
 | **Tooling** | SST v3 (`sst.aws.Nextjs`, which wraps OpenNext) |
 | **Application code changes** | **Zero** ([§2](#2-why-nothing-else-moves)) |
 | **Cost** | ~$0.50–1.00/mo indefinitely. Always-free tier, **no 12-month cliff** ([§4](#4-cost-model)) |
-| **Status** | **Deployed 29/08/2026.** Both apps live on their CloudFront URLs, no custom domains yet. `web:` https://dpcdoraa6a9xv.cloudfront.net · `admin:` https://d2buxlb98cupb4.cloudfront.net. DNS cutover is the remaining step ([§9](#9-cutover)) |
+| **Status** | **LIVE on the real domains, 29/08/2026.** https://theroyalglow.in and https://admin.theroyalglow.in serve from CloudFront with ACM certificates; `www` 301-redirects to the apex. DNS stayed on Cloudflare ([§9](#9-cutover)) |
 | **Rollback** | **None.** The Render web service is suspended (`theroyalglow.in` returns 503), so the 7-day fallback in [§9](#9-cutover) no longer exists. AWS is the only working deployment |
 
 ---
@@ -484,12 +484,30 @@ so nothing is serving from AWS.
 - [ ] OAuth sign-in, booking creation, invoice PDF all verified
 - [ ] Google OAuth redirect URIs added for both origins
 
-**Cutover**
-- [ ] DNS zone in Route 53, TTL 60 s
-- [ ] `domain` blocks added, ACM certificates issued
-- [ ] Full smoke list passed
+**Cutover — done 29/08/2026**
+- [x] DNS stayed on **Cloudflare**, not Route 53. The zone also serves `cms`
+      (Render), `r2`, `app` (Vercel), `status` (BetterUptime), plus MX/SPF/DKIM
+      for Brevo, Resend and SES — migrating it would have risked all of that for
+      no gain. `sst.cloudflare.dns({ zone })` manages only what SST needs.
+- [x] Three stale Render CNAMEs removed (apex, `www`, `admin`). Note the apex was
+      a **CNAME**, not the A pair a resolver reports — that is Cloudflare
+      flattening. `sst.cloudflare.dns()` has no override option, so the records
+      had to be gone before the deploy.
+- [x] `domain` blocks added, ACM certificates ISSUED for all three names in
+      us-east-1. Records created DNS-only (`proxied: false`, TTL 60), so traffic
+      reaches CloudFront directly rather than through a second CDN.
+- [x] Verified: apex 200, `www` 301 → apex, admin 307 → sign-in, both
+      `/api/health` responding, TLS issuer Amazon.
+- [x] **CAA widened back out.** SST writes `0 issue/issuewild "amazonaws.com"`
+      at the apex, which silently forbids every other CA in the zone. Measured
+      issuers: `cms` + `r2` = Google Trust Services, `app` + `status` = Let's
+      Encrypt. Live certificates keep working; *renewals* would have failed in
+      ~60 days with no warning. Added `letsencrypt.org` and `pki.goog` for both
+      tags (6 CAA records total). **Any future subdomain on a new CA needs its
+      identifier added here.**
+- [ ] Google OAuth redirect URIs for both origins — sign-in is broken until then
 - [ ] CloudWatch retention + Lambda error alarm
-- [ ] 7-day window observed, then Render web + admin retired (CMS stays)
+- [x] ~~7-day Render window~~ — void, Render web + admin were already suspended
 
 **One month after go-live (early September 2026)**
 - [ ] Collect the [§3.1](#31-one-month-latency-review) metrics
