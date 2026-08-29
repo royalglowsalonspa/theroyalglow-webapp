@@ -42,11 +42,11 @@
 
 import * as Dialog from '@radix-ui/react-dialog'
 import { BRANCH_STATUSES, type BranchStatusValue } from '@rgss/types'
-import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
+import type { ColumnVisibilityState } from '@tanstack/react-table'
 import { Building2, Pencil } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
-import { DataTable } from '@/components/ui/data-table'
+import { type AdminColumnDef, DataTable } from '@/components/ui/data-table'
 import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
 import { FormActions } from '@/components/ui/form-field'
 import { Input } from '@/components/ui/input'
@@ -123,7 +123,7 @@ async function fetchBranches(): Promise<AdminBranch[]> {
 export function BranchesManager() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({})
   const [dialog, setDialog] = useState<{ open: boolean; editing: AdminBranch | null }>({
     open: false,
     editing: null,
@@ -153,7 +153,7 @@ export function BranchesManager() {
     })
   }, [branches, search, statusFilter])
 
-  const columns = useMemo<ColumnDef<AdminBranch, unknown>[]>(
+  const columns = useMemo<AdminColumnDef<AdminBranch, unknown>[]>(
     () => [
       {
         id: 'name',
