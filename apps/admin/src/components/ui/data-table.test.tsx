@@ -24,13 +24,12 @@
  *   (pointer capture, scrollIntoView, ResizeObserver); these are stubbed below.
  ************************************************************/
 
-import type { ColumnDef, Row } from '@tanstack/react-table'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { axe, toHaveNoViolations } from 'jest-axe'
 import { Pencil, Trash2 } from 'lucide-react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
-import { DataTable, type RowAction } from './data-table'
+import { type AdminColumnDef, type AdminRow, DataTable, type RowAction } from './data-table'
 
 // jest-axe registers a custom matcher at runtime via `expect.extend`. Vitest's
 // `Assertion` interface cannot be cleanly augmented here (its type parameters
@@ -46,7 +45,7 @@ const PEOPLE: Person[] = [
   { id: '3', name: 'Chetan Kumar', role: 'Manager' },
 ]
 
-const COLUMNS: ColumnDef<Person, unknown>[] = [
+const COLUMNS: AdminColumnDef<Person, unknown>[] = [
   { accessorKey: 'name', header: 'Name' },
   { accessorKey: 'role', header: 'Role' },
 ]
@@ -82,7 +81,7 @@ afterEach(() => {
 
 describe('DataTable inline row actions (Req 6.5)', () => {
   it('renders a "Row actions" kebab trigger for every row', () => {
-    const rowActions = (_row: Row<Person>): RowAction[] => [
+    const rowActions = (_row: AdminRow<Person>): RowAction[] => [
       { label: 'Edit', icon: Pencil, onSelect: () => {} },
     ]
 
@@ -102,7 +101,7 @@ describe('DataTable inline row actions (Req 6.5)', () => {
   it('reveals the action items when a kebab trigger is opened and invokes onSelect', () => {
     const onEdit = vi.fn()
     const onDelete = vi.fn()
-    const rowActions = (_row: Row<Person>): RowAction[] => [
+    const rowActions = (_row: AdminRow<Person>): RowAction[] => [
       { label: 'Edit', icon: Pencil, onSelect: onEdit },
       { label: 'Delete', icon: Trash2, onSelect: onDelete, destructive: true },
     ]
@@ -240,7 +239,7 @@ describe('DataTable accessibility + keyboard operability (Req 6.10)', () => {
   })
 
   it('has no detectable accessibility violations with selection, expansion, and actions enabled', async () => {
-    const rowActions = (_row: Row<Person>): RowAction[] => [
+    const rowActions = (_row: AdminRow<Person>): RowAction[] => [
       { label: 'Edit', icon: Pencil, onSelect: () => {} },
     ]
 

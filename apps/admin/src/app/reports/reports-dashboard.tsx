@@ -51,7 +51,6 @@ import type {
   RevenueTrendPoint,
   TopServiceRow,
 } from '@rgss/types'
-import type { ColumnDef } from '@tanstack/react-table'
 import { CalendarRange, Gem, IndianRupee, Receipt, TrendingUp } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
@@ -62,7 +61,7 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart'
 import { ChartCard } from '@/components/ui/chart-card'
-import { DataTable } from '@/components/ui/data-table'
+import { type AdminColumnDef, DataTable } from '@/components/ui/data-table'
 import { FilterBar } from '@/components/ui/filter-bar'
 import { KPICard } from '@/components/ui/kpi-card'
 import { EmptyState } from '@/components/ui/state/empty-state'
@@ -327,7 +326,7 @@ function BookingsStatusChart({
 }
 
 function TopServicesTable({ rows }: { rows: TopServiceRow[] }) {
-  const columns = useMemo<ColumnDef<TopServiceRow, unknown>[]>(
+  const columns = useMemo<AdminColumnDef<TopServiceRow, unknown>[]>(
     () => [
       {
         accessorKey: 'name',
