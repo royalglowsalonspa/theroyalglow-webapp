@@ -1,9 +1,8 @@
 ---
 title: Low-Level Design
 description: Database schema details, booking state machine, background job specifications, and sequence diagrams for Royal Glow.
+icon: component
 ---
-
-# Low-Level Design
 
 <Info>
   This document captures the **mechanics**: the booking state machine, ID/number formats, GST and gems math, all 19 background jobs, request lifecycles, indexes, and security implementation. Money is always integer paise; status transitions are always logged in `booking_status_log`.
@@ -458,13 +457,13 @@ All inbound webhooks (QStash, Meta, AiSensy) verify HMAC signatures before proce
 ## Related Pages
 
 <Columns cols={2}>
-  <Card title="High-Level Design" href="/docs/system-design/high-level-design">
+  <Card title="High-Level Design" href="/content/docs/system-design/high-level-design">
   Architecture, decisions matrix, and NFRs
 </Card>
-  <Card title="Data Model" href="/docs/data-model">
+  <Card title="Data Model" href="/content/docs/data-model">
   All 38 tables, enums, and conventions
 </Card>
-  <Card title="Background Jobs" href="/docs/background-jobs">
+  <Card title="Background Jobs" href="/content/docs/background-jobs">
   Full job inventory and heartbeats
 </Card>
 </Columns>

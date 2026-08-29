@@ -1,9 +1,8 @@
 ---
 title: Offers & Combos
 description: Promotional offers — percentage, flat, and combo-price — applied at checkout by the receptionist, with the rules that govern them.
+icon: ticket-percent
 ---
-
-# Offers & Combos
 
 Offers are the salon's promotions: a percentage off a service, a flat rupee
 discount, or a bundle of services at one combo price. They are displayed to
@@ -73,7 +72,7 @@ A single bundle price replaces the individual service prices.
 
 <Warning>
   **One offer per customer per day** and **offers cannot combine with gems** — an
-  offer and a [gems](/docs/features/loyalty-gems) redemption cannot both apply to
+  offer and a [gems](/content/docs/features/loyalty-gems) redemption cannot both apply to
   the same booking. The daily limit is enforced in the database with a unique
   constraint on customer + date.
 </Warning>
@@ -85,7 +84,7 @@ control of discounts with staff and prevents stacking.
 </Accordion>
 <Accordion title="Do offers apply to SPA memberships?">
 No. Offers are **salon only**. They do not apply to SPA memberships. See
-[SPA Memberships](/docs/features/memberships).
+[SPA Memberships](/content/docs/features/memberships).
 </Accordion>
 <Accordion title="How are offers activated and expired?">
 Every offer is date-bound with a start and end date. It auto-activates and
@@ -104,16 +103,16 @@ reinstated for the customer's next booking rather than being lost.
 ## Related links
 
 <Columns cols={2}>
-  <Card title="Loyalty & Offers API" href="/docs/api-reference/loyalty-offers">
+  <Card title="Loyalty & Offers API" href="/content/docs/api-reference/loyalty-offers">
   Public active offers plus manager-only offer CRUD.
 </Card>
-  <Card title="Loyalty — Gems" href="/docs/features/loyalty-gems">
+  <Card title="Loyalty — Gems" href="/content/docs/features/loyalty-gems">
   Why an offer and gems cannot be combined.
 </Card>
-  <Card title="Billing & Invoicing" href="/docs/features/billing-invoicing">
+  <Card title="Billing & Invoicing" href="/content/docs/features/billing-invoicing">
   How an applied offer affects the invoice total.
 </Card>
-  <Card title="Data Model" href="/docs/data-model">
+  <Card title="Data Model" href="/content/docs/data-model">
   The offer, offer_service, and offer_redemption tables.
 </Card>
 </Columns>

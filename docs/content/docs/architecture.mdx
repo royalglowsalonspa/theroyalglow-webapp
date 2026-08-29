@@ -1,9 +1,8 @@
 ---
 title: Architecture
 description: High-level architecture of the Royal Glow Salon & Spa platform.
+icon: workflow
 ---
-
-# Architecture
 
 <Info>
   Royal Glow is a **monolithic modular** monorepo, not microservices. Strict layer boundaries give the modularity of microservices without the ops burden — and three hard conventions hold everywhere: **money is integer paise**, **IDs are app-generated text**, and **business logic never imports the database or framework**.
@@ -94,7 +93,7 @@ All third-party browser scripts load only after explicit cookie consent and only
 ## Conventions
 
 <Info>
-  These hold across the whole monorepo and are covered in depth on the [Conventions](/docs/conventions) page.
+  These hold across the whole monorepo and are covered in depth on the [Conventions](/content/docs/conventions) page.
 </Info>
 
 - Money is stored as integer **paise**; never floating point.
@@ -107,13 +106,13 @@ All third-party browser scripts load only after explicit cookie consent and only
 ## Related Pages
 
 <Columns cols={2}>
-  <Card title="Conventions" href="/docs/conventions">
+  <Card title="Conventions" href="/content/docs/conventions">
   Money, dates, layering, and the API response envelope
 </Card>
-  <Card title="Tech Stack" href="/docs/tech-stack">
+  <Card title="Tech Stack" href="/content/docs/tech-stack">
   Every technology and why it was chosen
 </Card>
-  <Card title="System Design" href="/docs/system-design">
+  <Card title="System Design" href="/content/docs/system-design/index">
   Formal HLD and LLD documents
 </Card>
 </Columns>

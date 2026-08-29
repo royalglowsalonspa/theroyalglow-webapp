@@ -1,12 +1,18 @@
 {
-  "theme": "mint",
+  "theme": "aspen",
   "name": "Royal Glow Salon & Spa",
-  "description": "Product, engineering, operations, and API documentation for the Royal Glow Salon & Spa platform.",
+  "description": "Product, engineering, operations, and API documentation for the Royal Glow Salon & Spa platform — the digital operations system behind a premium beauty and wellness business in Bengaluru.",
   "colors": {
     "primary": "#7D5C12",
-    "light": "#E8C266",
-    "dark": "#241710"
+    "light": "#F4E09B",
+    "dark": "#2D1810"
   },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg",
+    "href": "https://theroyalglow.in"
+  },
+  "favicon": "/favicon.svg",
   "appearance": {
     "default": "system",
     "strict": false
@@ -14,131 +20,249 @@
   "icons": {
     "library": "lucide"
   },
+  "background": {
+    "decoration": "gradient",
+    "color": {
+      "light": "#FFFFFF",
+      "dark": "#1A0F0A"
+    }
+  },
+  "styling": {
+    "eyebrows": "breadcrumbs",
+    "codeblocks": {
+      "theme": {
+        "light": "gruvbox-light-medium",
+        "dark": "gruvbox-dark-medium"
+      }
+    }
+  },
+  "interaction": {
+    "drilldown": false
+  },
+  "navbar": {
+    "links": [
+      {
+        "type": "github",
+        "href": "https://github.com/royalglowsalonspa/theroyalglow-webapp"
+      },
+      {
+        "label": "Status",
+        "href": "https://status.theroyalglow.in",
+        "icon": "activity"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Book an appointment",
+      "href": "https://theroyalglow.in/?book=1"
+    }
+  },
+  "footer": {
+    "socials": {
+      "website": "https://theroyalglow.in",
+      "github": "https://github.com/royalglowsalonspa/theroyalglow-webapp"
+    },
+    "links": [
+      {
+        "header": "Documentation",
+        "items": [
+          { "label": "Overview", "href": "/content/docs/index" },
+          { "label": "Getting started", "href": "/content/docs/getting-started" },
+          { "label": "Architecture", "href": "/content/docs/architecture" },
+          { "label": "API reference", "href": "/content/docs/api-reference/index" }
+        ]
+      },
+      {
+        "header": "Product",
+        "items": [
+          { "label": "Business overview", "href": "/content/docs/product/business-overview" },
+          { "label": "Customer guide", "href": "/content/docs/product/customer-guide" },
+          { "label": "Admin & staff guide", "href": "/content/docs/product/admin-staff-guide" },
+          { "label": "Features", "href": "/content/docs/features/index" }
+        ]
+      },
+      {
+        "header": "Operations",
+        "items": [
+          { "label": "Deployment", "href": "/content/docs/deployment" },
+          { "label": "Git workflow", "href": "/content/docs/git-workflow" },
+          { "label": "Runbook", "href": "/content/docs/operations" },
+          { "label": "Environment variables", "href": "/content/docs/environment-variables" }
+        ]
+      },
+      {
+        "header": "Royal Glow",
+        "items": [
+          { "label": "Main site", "href": "https://theroyalglow.in" },
+          { "label": "Admin portal", "href": "https://admin.theroyalglow.in" },
+          { "label": "Status page", "href": "https://status.theroyalglow.in" },
+          { "label": "GitHub", "href": "https://github.com/royalglowsalonspa/theroyalglow-webapp" }
+        ]
+      }
+    ]
+  },
+  "contextual": {
+    "display": "header",
+    "options": ["copy", "view", "chatgpt", "claude", "cursor", "mcp"]
+  },
   "navigation": {
     "versions": [
       {
         "version": "Current",
         "default": true,
         "tag": "Latest",
-        "groups": [
+        "tabs": [
           {
-            "group": "Overview",
-            "pages": ["content/docs/index", "content/docs/project-status"]
-          },
-          {
-            "group": "Product",
-            "pages": [
-              "content/docs/product/index",
-              "content/docs/product/business-overview",
-              "content/docs/product/customer-guide",
-              "content/docs/product/admin-staff-guide"
+            "tab": "Documentation",
+            "icon": "book-open",
+            "groups": [
+              {
+                "group": "Overview",
+                "icon": "compass",
+                "pages": ["content/docs/index", "content/docs/project-status"]
+              },
+              {
+                "group": "Product",
+                "icon": "users",
+                "pages": [
+                  "content/docs/product/index",
+                  "content/docs/product/business-overview",
+                  "content/docs/product/customer-guide",
+                  "content/docs/product/admin-staff-guide"
+                ]
+              },
+              {
+                "group": "Features",
+                "icon": "sparkles",
+                "pages": [
+                  "content/docs/features/index",
+                  "content/docs/features/booking",
+                  "content/docs/features/booking-rules",
+                  "content/docs/features/memberships",
+                  "content/docs/features/loyalty-gems",
+                  "content/docs/features/offers",
+                  "content/docs/features/crm-leads",
+                  "content/docs/features/scheduling-leave",
+                  "content/docs/features/billing-invoicing",
+                  "content/docs/features/notifications",
+                  "content/docs/features/no-show-policy",
+                  "content/docs/features/favourite-services"
+                ]
+              },
+              {
+                "group": "Reference",
+                "icon": "book",
+                "pages": ["content/docs/glossary", "content/docs/faq"]
+              }
             ]
           },
           {
-            "group": "Features",
-            "pages": [
-              "content/docs/features/index",
-              "content/docs/features/booking",
-              "content/docs/features/memberships",
-              "content/docs/features/loyalty-gems",
-              "content/docs/features/offers",
-              "content/docs/features/crm-leads",
-              "content/docs/features/scheduling-leave",
-              "content/docs/features/billing-invoicing",
-              "content/docs/features/notifications",
-              "content/docs/features/no-show-policy",
-              "content/docs/features/favourite-services"
+            "tab": "Engineering",
+            "icon": "code",
+            "groups": [
+              {
+                "group": "Getting started",
+                "icon": "rocket",
+                "pages": [
+                  "content/docs/getting-started",
+                  "content/docs/tech-stack",
+                  "content/docs/architecture"
+                ]
+              },
+              {
+                "group": "System design",
+                "icon": "layers",
+                "pages": [
+                  "content/docs/system-design/index",
+                  "content/docs/system-design/high-level-design",
+                  "content/docs/system-design/low-level-design"
+                ]
+              },
+              {
+                "group": "Standards",
+                "icon": "shield-check",
+                "pages": [
+                  "content/docs/conventions",
+                  "content/docs/authentication",
+                  "content/docs/data-model"
+                ]
+              },
+              {
+                "group": "Application surface",
+                "icon": "monitor",
+                "pages": ["content/docs/pages-and-routes", "content/docs/frontend"]
+              },
+              {
+                "group": "Platform",
+                "icon": "server",
+                "pages": [
+                  "content/docs/background-jobs",
+                  "content/docs/realtime",
+                  "content/docs/notifications-email",
+                  "content/docs/seo",
+                  "content/docs/analytics",
+                  "content/docs/observability"
+                ]
+              },
+              {
+                "group": "Quality & security",
+                "icon": "lock",
+                "pages": [
+                  "content/docs/security",
+                  "content/docs/error-handling",
+                  "content/docs/testing",
+                  "content/docs/environment-variables"
+                ]
+              },
+              {
+                "group": "Operations",
+                "icon": "wrench",
+                "pages": [
+                  "content/docs/deployment",
+                  "content/docs/git-workflow",
+                  "content/docs/data-seeding",
+                  "content/docs/operations"
+                ]
+              }
             ]
           },
           {
-            "group": "Engineering",
-            "pages": [
-              "content/docs/getting-started",
-              "content/docs/tech-stack",
-              "content/docs/architecture"
+            "tab": "API reference",
+            "icon": "plug",
+            "groups": [
+              {
+                "group": "API reference",
+                "icon": "plug",
+                "pages": [
+                  "content/docs/api-reference/index",
+                  "content/docs/api-reference/services",
+                  "content/docs/api-reference/bookings",
+                  "content/docs/api-reference/admin-bookings",
+                  "content/docs/api-reference/customers-crm",
+                  "content/docs/api-reference/leads",
+                  "content/docs/api-reference/memberships",
+                  "content/docs/api-reference/loyalty-offers",
+                  "content/docs/api-reference/notifications",
+                  "content/docs/api-reference/jobs",
+                  "content/docs/api-reference/health"
+                ]
+              }
             ]
-          },
-          {
-            "group": "System design",
-            "pages": [
-              "content/docs/system-design/index",
-              "content/docs/system-design/high-level-design",
-              "content/docs/system-design/low-level-design"
-            ]
-          },
-          {
-            "group": "Engineering standards",
-            "pages": [
-              "content/docs/conventions",
-              "content/docs/authentication",
-              "content/docs/data-model"
-            ]
-          },
-          {
-            "group": "API reference",
-            "pages": [
-              "content/docs/api-reference",
-              "content/docs/api-reference/index",
-              "content/docs/api-reference/services",
-              "content/docs/api-reference/bookings",
-              "content/docs/api-reference/admin-bookings",
-              "content/docs/api-reference/customers-crm",
-              "content/docs/api-reference/leads",
-              "content/docs/api-reference/memberships",
-              "content/docs/api-reference/loyalty-offers",
-              "content/docs/api-reference/notifications",
-              "content/docs/api-reference/jobs",
-              "content/docs/api-reference/health"
-            ]
-          },
-          {
-            "group": "Application surface",
-            "pages": ["content/docs/pages-and-routes", "content/docs/frontend"]
-          },
-          {
-            "group": "Platform",
-            "pages": [
-              "content/docs/background-jobs",
-              "content/docs/realtime",
-              "content/docs/notifications-email",
-              "content/docs/seo",
-              "content/docs/analytics",
-              "content/docs/observability"
-            ]
-          },
-          {
-            "group": "Quality & security",
-            "pages": [
-              "content/docs/security",
-              "content/docs/error-handling",
-              "content/docs/testing",
-              "content/docs/environment-variables"
-            ]
-          },
-          {
-            "group": "Operations",
-            "pages": [
-              "content/docs/deployment",
-              "content/docs/git-workflow",
-              "content/docs/data-seeding",
-              "content/docs/operations"
-            ]
-          },
-          {
-            "group": "Reference",
-            "pages": ["content/docs/glossary", "content/docs/faq"]
           }
         ]
       },
       {
         "version": "v2",
+        "tag": "Legacy",
         "groups": [
           {
             "group": "Overview",
+            "icon": "compass",
             "pages": ["content/docs-v2/index", "content/docs-v2/getting-started"]
           },
           {
             "group": "Engineering",
+            "icon": "code",
             "pages": ["content/docs-v2/features/index", "content/docs-v2/features/booking"]
           }
         ]
@@ -149,27 +273,35 @@
     "prompt": "Search Royal Glow documentation"
   },
   "seo": {
-    "indexing": "navigable"
+    "indexing": "navigable",
+    "metatags": {
+      "og:site_name": "Royal Glow Salon & Spa Documentation",
+      "twitter:card": "summary_large_image"
+    },
+    "organization": {
+      "id": "https://theroyalglow.in/#organization",
+      "name": "Royal Glow Salon & Spa",
+      "url": "https://theroyalglow.in",
+      "sameAs": ["https://github.com/royalglowsalonspa"]
+    }
+  },
+  "thumbnails": {
+    "appearance": "dark",
+    "fonts": {
+      "family": "Plus Jakarta Sans"
+    }
   },
   "metadata": {
     "timestamp": true
   },
   "redirects": [
-    {
-      "source": "/docs",
-      "destination": "/content/docs/index",
-      "permanent": true
-    },
+    { "source": "/docs", "destination": "/content/docs/index", "permanent": true },
     {
       "source": "/docs/project-status",
       "destination": "/content/docs/project-status",
       "permanent": true
     },
-    {
-      "source": "/docs/product",
-      "destination": "/content/docs/product/index",
-      "permanent": true
-    },
+    { "source": "/docs/product", "destination": "/content/docs/product/index", "permanent": true },
     {
       "source": "/docs/product/business-overview",
       "destination": "/content/docs/product/business-overview",
@@ -193,6 +325,16 @@
     {
       "source": "/docs/features/booking",
       "destination": "/content/docs/features/booking",
+      "permanent": true
+    },
+    {
+      "source": "/docs/features/booking-rules",
+      "destination": "/content/docs/features/booking-rules",
+      "permanent": true
+    },
+    {
+      "source": "/booking-rules",
+      "destination": "/content/docs/features/booking-rules",
       "permanent": true
     },
     {
@@ -245,11 +387,7 @@
       "destination": "/content/docs/getting-started",
       "permanent": true
     },
-    {
-      "source": "/docs/tech-stack",
-      "destination": "/content/docs/tech-stack",
-      "permanent": true
-    },
+    { "source": "/docs/tech-stack", "destination": "/content/docs/tech-stack", "permanent": true },
     {
       "source": "/docs/architecture",
       "destination": "/content/docs/architecture",
@@ -280,14 +418,10 @@
       "destination": "/content/docs/authentication",
       "permanent": true
     },
-    {
-      "source": "/docs/data-model",
-      "destination": "/content/docs/data-model",
-      "permanent": true
-    },
+    { "source": "/docs/data-model", "destination": "/content/docs/data-model", "permanent": true },
     {
       "source": "/docs/api-reference",
-      "destination": "/content/docs/api-reference",
+      "destination": "/content/docs/api-reference/index",
       "permanent": true
     },
     {
@@ -350,66 +484,38 @@
       "destination": "/content/docs/pages-and-routes",
       "permanent": true
     },
-    {
-      "source": "/docs/frontend",
-      "destination": "/content/docs/frontend",
-      "permanent": true
-    },
+    { "source": "/docs/frontend", "destination": "/content/docs/frontend", "permanent": true },
     {
       "source": "/docs/background-jobs",
       "destination": "/content/docs/background-jobs",
       "permanent": true
     },
-    {
-      "source": "/docs/realtime",
-      "destination": "/content/docs/realtime",
-      "permanent": true
-    },
+    { "source": "/docs/realtime", "destination": "/content/docs/realtime", "permanent": true },
     {
       "source": "/docs/notifications-email",
       "destination": "/content/docs/notifications-email",
       "permanent": true
     },
-    {
-      "source": "/docs/seo",
-      "destination": "/content/docs/seo",
-      "permanent": true
-    },
-    {
-      "source": "/docs/analytics",
-      "destination": "/content/docs/analytics",
-      "permanent": true
-    },
+    { "source": "/docs/seo", "destination": "/content/docs/seo", "permanent": true },
+    { "source": "/docs/analytics", "destination": "/content/docs/analytics", "permanent": true },
     {
       "source": "/docs/observability",
       "destination": "/content/docs/observability",
       "permanent": true
     },
-    {
-      "source": "/docs/security",
-      "destination": "/content/docs/security",
-      "permanent": true
-    },
+    { "source": "/docs/security", "destination": "/content/docs/security", "permanent": true },
     {
       "source": "/docs/error-handling",
       "destination": "/content/docs/error-handling",
       "permanent": true
     },
-    {
-      "source": "/docs/testing",
-      "destination": "/content/docs/testing",
-      "permanent": true
-    },
+    { "source": "/docs/testing", "destination": "/content/docs/testing", "permanent": true },
     {
       "source": "/docs/environment-variables",
       "destination": "/content/docs/environment-variables",
       "permanent": true
     },
-    {
-      "source": "/docs/deployment",
-      "destination": "/content/docs/deployment",
-      "permanent": true
-    },
+    { "source": "/docs/deployment", "destination": "/content/docs/deployment", "permanent": true },
     {
       "source": "/docs/git-workflow",
       "destination": "/content/docs/git-workflow",
@@ -420,26 +526,10 @@
       "destination": "/content/docs/data-seeding",
       "permanent": true
     },
-    {
-      "source": "/docs/operations",
-      "destination": "/content/docs/operations",
-      "permanent": true
-    },
-    {
-      "source": "/docs/glossary",
-      "destination": "/content/docs/glossary",
-      "permanent": true
-    },
-    {
-      "source": "/docs/faq",
-      "destination": "/content/docs/faq",
-      "permanent": true
-    },
-    {
-      "source": "/docs/v2",
-      "destination": "/content/docs-v2/index",
-      "permanent": true
-    },
+    { "source": "/docs/operations", "destination": "/content/docs/operations", "permanent": true },
+    { "source": "/docs/glossary", "destination": "/content/docs/glossary", "permanent": true },
+    { "source": "/docs/faq", "destination": "/content/docs/faq", "permanent": true },
+    { "source": "/docs/v2", "destination": "/content/docs-v2/index", "permanent": true },
     {
       "source": "/docs/v2/getting-started",
       "destination": "/content/docs-v2/getting-started",

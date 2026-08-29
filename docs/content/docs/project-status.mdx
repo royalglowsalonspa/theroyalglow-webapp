@@ -1,9 +1,8 @@
 ---
 title: Project Status
 description: Live snapshot of build progress and production-readiness — what's done, what's in flight, and the path to launch.
+icon: gauge
 ---
-
-# Project Status
 
 A candid, current snapshot of where the platform stands. Use this before
 planning a release or onboarding someone new.
@@ -105,12 +104,12 @@ emitted SQL before `prod`.
 <Info>
   None of this is code-blocked — every integration no-ops without a key. This is
   provisioning + verification. See the full
-  [Launch Runbook](/docs/operations) and [Deployment](/docs/deployment).
+  [Launch Runbook](/content/docs/operations) and [Deployment](/content/docs/deployment).
 </Info>
 
 | Area | Action |
 | --- | --- |
-| **Secrets** | All keys in GitHub + Cloudflare env (canonical names in [Environment Variables](/docs/environment-variables)) |
+| **Secrets** | All keys in GitHub + Cloudflare env (canonical names in [Environment Variables](/content/docs/environment-variables)) |
 | **DNS** | `theroyalglow.in`, `www`, `admin`, `status`, `docs` + SSL |
 | **OAuth** | Google consent-screen approval (can take days — start early) |
 | **Data** | Seed the Neon `prod` branch; create the first Owner |
@@ -140,7 +139,7 @@ Keys, DNS, email-domain verification, Google OAuth approval; seed `prod`.
 
 <Step title="Pass the gates & promote">
 Green CI at the T-24h gate, then promote `dev → test → pprd → prod` following the
-[Launch Runbook](/docs/operations).
+[Launch Runbook](/content/docs/operations).
 
 </Step>
 
