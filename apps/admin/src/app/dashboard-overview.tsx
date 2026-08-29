@@ -41,7 +41,6 @@
 
 'use client'
 
-import type { ColumnDef } from '@tanstack/react-table'
 import { CalendarDays, Clock, IndianRupee, ListChecks, type LucideIcon } from 'lucide-react'
 import Link from 'next/link'
 import { useMemo } from 'react'
@@ -54,7 +53,7 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart'
 import { ChartCard } from '@/components/ui/chart-card'
-import { DataTable } from '@/components/ui/data-table'
+import { type AdminColumnDef, DataTable } from '@/components/ui/data-table'
 import { KPICard } from '@/components/ui/kpi-card'
 import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
@@ -126,7 +125,7 @@ async function fetchBookings(): Promise<AdminBooking[]> {
 }
 
 // Recent-activity table columns. Presentation-only cell renderers.
-const RECENT_COLUMNS: ColumnDef<AdminBooking, unknown>[] = [
+const RECENT_COLUMNS: AdminColumnDef<AdminBooking, unknown>[] = [
   {
     accessorKey: 'bookingNumber',
     header: 'Booking #',
