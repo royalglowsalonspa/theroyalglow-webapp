@@ -52,12 +52,12 @@
 
 'use client'
 
-import type { ColumnDef, ColumnFiltersState, VisibilityState } from '@tanstack/react-table'
+import type { ColumnFiltersState, ColumnVisibilityState } from '@tanstack/react-table'
 import { MessageCircle, Phone, Plus, Users } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { LeadDetail } from '@/components/lead/LeadDetail'
 import { Button } from '@/components/ui/button'
-import { DataTable, type RowAction } from '@/components/ui/data-table'
+import { type AdminColumnDef, DataTable, type RowAction } from '@/components/ui/data-table'
 import {
   Dialog,
   DialogContent,
@@ -130,13 +130,13 @@ async function fetchLeads(): Promise<LeadPipelineRow[]> {
 export function LeadsTable() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('all')
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({})
   const [dialogOpen, setDialogOpen] = useState(false)
   const [activeLeadId, setActiveLeadId] = useState<string | null>(null)
 
   const { state, retry } = useAsyncData(fetchLeads)
 
-  const columns = useMemo<ColumnDef<LeadPipelineRow, unknown>[]>(
+  const columns = useMemo<AdminColumnDef<LeadPipelineRow, unknown>[]>(
     () => [
       {
         id: 'name',

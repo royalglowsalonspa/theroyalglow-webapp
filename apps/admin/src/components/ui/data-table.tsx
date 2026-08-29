@@ -35,9 +35,15 @@
  *                Tailwind CSS v4
  * Layer        : Presentation (primitive, no I/O, no business logic)
  *
- * Dependencies : @tanstack/react-table, @/components/ui/{table,checkbox,
+ * Dependencies : @tanstack/react-table (v9), @/components/ui/{table,checkbox,
  *                dropdown-menu,select,button,icon}, @/components/ui/data-table-model,
  *                @rgss/ui/lib/utils
+ *
+ * Table v9    : Features are opt-in, so this module owns the single
+ *                `adminTableFeatures` registry every admin table is built from,
+ *                and re-exports `AdminColumnDef` / `AdminRow` aliases that bind
+ *                v9's leading `TFeatures` generic. Call sites therefore keep
+ *                declaring columns by row type alone.
  *
  * Notes        : Uses ONLY semantic Brand-Token utilities — no hex / raw
  *                Tailwind-palette literals (Req 1.2). 'use client' required for
@@ -51,22 +57,35 @@
 
 import { cn } from '@rgss/ui/lib/utils'
 import {
+  type CellData,
   type ColumnDef,
   type ColumnFiltersState,
+  type ColumnVisibilityState,
+  columnFilteringFeature,
+  columnSizingFeature,
+  columnVisibilityFeature,
+  createExpandedRowModel,
+  createFilteredRowModel,
+  createPaginatedRowModel,
+  createSortedRowModel,
   type ExpandedState,
-  flexRender,
-  getCoreRowModel,
-  getExpandedRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
+  filterFn_equalsString,
+  globalFilteringFeature,
   type OnChangeFn,
   type PaginationState,
   type Row,
+  type RowData,
   type RowSelectionState,
+  rowExpandingFeature,
+  rowPaginationFeature,
+  rowSelectionFeature,
+  rowSortingFeature,
   type SortingState,
-  useReactTable,
-  type VisibilityState,
+  sortFn_alphanumeric,
+  sortFn_datetime,
+  sortFn_text,
+  tableFeatures,
+  useTable,
 } from '@tanstack/react-table'
 import {
   ChevronDown,
@@ -102,6 +121,66 @@ const EXPAND_COLUMN_ID = '__expand'
 const ACTIONS_COLUMN_ID = '__actions'
 
 /**
+ * The table features this admin Data_Table registers.
+ *
+ * TanStack Table v9 is opt-in per feature: an API only exists once its feature
+ * is registered, so this object is the single place that decides what the admin
+ * tables can do. Declared statically at module scope (per TanStack guidance) so
+ * the identity is stable across renders.
+ *
+ * Row-model factories sit alongside their prerequisite feature — `sortedRowModel`
+ * needs `rowSortingFeature`, `filteredRowModel` needs `columnFilteringFeature`,
+ * and so on. `tableFeatures()` validates those pairings at the type level.
+ *
+ * The `sortFns` registry is NOT optional book-keeping: v9 resolves sort-function
+ * *names* only from this registry, including the names chosen by automatic
+ * detection. An unregistered name silently degrades to `sortFn_basic`, so the
+ * three auto-detectable functions (`datetime`, `alphanumeric`, `text`) are
+ * registered to preserve v8 sorting behaviour. `filterFns` carries the one named
+ * filter the app uses (`equalsString`, on the leads Status column). Global
+ * filtering needs no entry — it imports `includesString` directly.
+ */
+export const adminTableFeatures = tableFeatures({
+  columnFilteringFeature,
+  columnSizingFeature,
+  columnVisibilityFeature,
+  globalFilteringFeature,
+  rowExpandingFeature,
+  rowPaginationFeature,
+  rowSelectionFeature,
+  rowSortingFeature,
+  expandedRowModel: createExpandedRowModel(),
+  filteredRowModel: createFilteredRowModel(),
+  paginatedRowModel: createPaginatedRowModel(),
+  sortedRowModel: createSortedRowModel(),
+  filterFns: { equalsString: filterFn_equalsString },
+  sortFns: {
+    alphanumeric: sortFn_alphanumeric,
+    datetime: sortFn_datetime,
+    text: sortFn_text,
+  },
+})
+
+/** The feature-registry type threaded through every admin table generic. */
+export type AdminTableFeatures = typeof adminTableFeatures
+
+/**
+ * A column definition for an admin Data_Table.
+ *
+ * v9 added a leading `TFeatures` generic to `ColumnDef`. This alias binds it to
+ * {@link adminTableFeatures} so call sites keep declaring columns by row type
+ * alone, exactly as they did under v8.
+ */
+export type AdminColumnDef<TData extends RowData, TValue extends CellData = CellData> = ColumnDef<
+  AdminTableFeatures,
+  TData,
+  TValue
+>
+
+/** A row of an admin Data_Table, with the feature generic already bound. */
+export type AdminRow<TData extends RowData> = Row<AdminTableFeatures, TData>
+
+/**
  * A single row action rendered as an item in the kebab dropdown menu.
  */
 export type RowAction = {
@@ -118,9 +197,9 @@ export type RowAction = {
 /**
  * Props for {@link DataTable}.
  */
-export type DataTableProps<T> = {
+export type DataTableProps<T extends RowData> = {
   /** Caller-supplied column definitions. */
-  columns: ColumnDef<T, unknown>[]
+  columns: AdminColumnDef<T>[]
   /** The rows to display. */
   data: T[]
   /** Stable route key for persisting column visibility within the route. */
@@ -128,11 +207,11 @@ export type DataTableProps<T> = {
   /** Render a leading selection checkbox column + header select-all. */
   enableSelection?: boolean
   /** Predicate deciding whether a given row can expand. */
-  getRowCanExpand?: (row: Row<T>) => boolean
+  getRowCanExpand?: (row: AdminRow<T>) => boolean
   /** Renders the expanded sub-row content for an expandable row. */
-  renderSubRows?: (row: Row<T>) => React.ReactNode
+  renderSubRows?: (row: AdminRow<T>) => React.ReactNode
   /** Builds the kebab dropdown actions for a row. */
-  rowActions?: (row: Row<T>) => RowAction[]
+  rowActions?: (row: AdminRow<T>) => RowAction[]
   /** Invoked when a row body is activated (e.g. open a DetailSheet). */
   onRowClick?: (row: T) => void
   /** Initial rows per page; one of {10,25,50,100}, default 25. */
@@ -142,9 +221,9 @@ export type DataTableProps<T> = {
   /** Controlled per-column filters from the FilterBar. */
   columnFilters?: ColumnFiltersState
   /** Lifted column-visibility state so the FilterBar can read it. */
-  columnVisibility?: VisibilityState
+  columnVisibility?: ColumnVisibilityState
   /** Lifted column-visibility setter so the FilterBar can write it. */
-  onColumnVisibilityChange?: (visibility: VisibilityState) => void
+  onColumnVisibilityChange?: (visibility: ColumnVisibilityState) => void
   /** Accessible caption describing the table contents (rendered `sr-only`). */
   caption?: string
   /**
@@ -171,7 +250,7 @@ export type DataTableProps<T> = {
  * @param props - {@link DataTableProps}
  * @returns The rendered data table.
  */
-export function DataTable<T>({
+export function DataTable<T extends RowData>({
   columns,
   data,
   tableId,
@@ -197,12 +276,12 @@ export function DataTable<T>({
     pageIndex: 0,
     pageSize,
   })
-  const [internalVisibility, setInternalVisibility] = useState<VisibilityState>({})
+  const [internalVisibility, setInternalVisibility] = useState<ColumnVisibilityState>({})
 
   // Column visibility is controlled when a setter is supplied; otherwise it is
   // owned internally.
   const columnVisibility = columnVisibilityProp ?? internalVisibility
-  const handleVisibilityChange: OnChangeFn<VisibilityState> = (updater) => {
+  const handleVisibilityChange: OnChangeFn<ColumnVisibilityState> = (updater) => {
     const next = typeof updater === 'function' ? updater(columnVisibility) : updater
     if (onColumnVisibilityChange) {
       onColumnVisibilityChange(next)
@@ -214,8 +293,8 @@ export function DataTable<T>({
   // Prepend selection / expand control columns and append the row-action
   // column around the caller's columns. Control columns opt out of sorting,
   // filtering, and visibility toggling.
-  const augmentedColumns = useMemo<ColumnDef<T, unknown>[]>(() => {
-    const result: ColumnDef<T, unknown>[] = []
+  const augmentedColumns = useMemo<AdminColumnDef<T>[]>(() => {
+    const result: AdminColumnDef<T>[] = []
 
     if (enableSelection) {
       result.push({
@@ -329,7 +408,8 @@ export function DataTable<T>({
     return result
   }, [columns, enableSelection, getRowCanExpand, rowActions])
 
-  const table = useReactTable<T>({
+  const table = useTable<AdminTableFeatures, T>({
+    features: adminTableFeatures,
     data,
     columns: augmentedColumns,
     state: {
@@ -351,16 +431,11 @@ export function DataTable<T>({
     onExpandedChange: setExpanded,
     onPaginationChange: setPagination,
     onColumnVisibilityChange: handleVisibilityChange,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getExpandedRowModel: getExpandedRowModel(),
   })
 
   const visibleColumnCount = table.getVisibleLeafColumns().length
   const resolvedPageCount = Math.max(1, table.getPageCount())
-  const currentPage = table.getState().pagination.pageIndex + 1
+  const currentPage = table.state.pagination.pageIndex + 1
   const rows = table.getRowModel().rows
 
   return (
@@ -404,7 +479,7 @@ export function DataTable<T>({
                           onClick={header.column.getToggleSortingHandler()}
                           className="inline-flex items-center gap-1 rounded-cards font-ui text-xs font-semibold uppercase tracking-wide text-warm-gray transition-colors duration-150 hover:text-cocoa-dark motion-reduce:transition-none"
                         >
-                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          <table.FlexRender header={header} />
                           <Icon
                             icon={indicator}
                             decorative
@@ -413,7 +488,7 @@ export function DataTable<T>({
                           />
                         </button>
                       ) : (
-                        flexRender(header.column.columnDef.header, header.getContext())
+                        <table.FlexRender header={header} />
                       )}
                     </TableHead>
                   )
@@ -459,7 +534,7 @@ export function DataTable<T>({
                           key={cell.id}
                           className="px-3 py-2.5 font-sans text-sm text-cocoa-dark"
                         >
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          <table.FlexRender cell={cell} />
                         </TableCell>
                       ))}
                     </TableRow>
@@ -490,7 +565,7 @@ export function DataTable<T>({
               Rows per page
             </span>
             <Select
-              value={String(table.getState().pagination.pageSize)}
+              value={String(table.state.pagination.pageSize)}
               onValueChange={(value) => table.setPageSize(Number(value))}
             >
               <SelectTrigger

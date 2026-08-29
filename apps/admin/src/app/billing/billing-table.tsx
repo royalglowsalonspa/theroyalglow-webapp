@@ -47,11 +47,11 @@
 
 'use client'
 
-import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
+import type { ColumnVisibilityState } from '@tanstack/react-table'
 import { Eye, ReceiptText } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useCallback, useMemo, useState } from 'react'
-import { DataTable, type RowAction } from '@/components/ui/data-table'
+import { type AdminColumnDef, DataTable, type RowAction } from '@/components/ui/data-table'
 import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
 import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
@@ -144,7 +144,7 @@ export function BillingTable() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('all')
   const [type, setType] = useState('all')
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({})
 
   const handleFilterChange = useCallback((id: string, value: string) => {
     if (id === 'status') {
@@ -166,7 +166,7 @@ export function BillingTable() {
     [invoices, status, type],
   )
 
-  const columns = useMemo<ColumnDef<InvoiceRow, unknown>[]>(
+  const columns = useMemo<AdminColumnDef<InvoiceRow, unknown>[]>(
     () => [
       {
         id: 'invoiceNumber',
