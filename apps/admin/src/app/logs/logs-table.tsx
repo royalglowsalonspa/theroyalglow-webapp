@@ -51,10 +51,10 @@
 'use client'
 
 import { AUDIT_ACTIONS } from '@rgss/types'
-import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
+import type { ColumnVisibilityState } from '@tanstack/react-table'
 import { ChevronLeft, ChevronRight, ScrollText } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { DataTable } from '@/components/ui/data-table'
+import { type AdminColumnDef, DataTable } from '@/components/ui/data-table'
 import { FilterBar } from '@/components/ui/filter-bar'
 import { Icon } from '@/components/ui/icon'
 import { SlideOverPanel } from '@/components/ui/slide-over-panel'
@@ -121,7 +121,7 @@ export function LogsTable() {
   const [action, setAction] = useState('all')
   const [entity, setEntity] = useState('')
   const [page, setPage] = useState(1)
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({})
   const [activeId, setActiveId] = useState<string | null>(null)
 
   const fetcher = useCallback(() => fetchLogs({ action, entity, page }), [action, entity, page])
@@ -138,7 +138,7 @@ export function LogsTable() {
     retry()
   }, [action, entity, page, retry])
 
-  const columns = useMemo<ColumnDef<LogEntry, unknown>[]>(
+  const columns = useMemo<AdminColumnDef<LogEntry, unknown>[]>(
     () => [
       {
         id: 'time',

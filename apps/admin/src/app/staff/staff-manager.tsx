@@ -49,7 +49,6 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { STAFF_DESIGNATIONS, type StaffDesignation } from '@rgss/types'
 import { cn } from '@rgss/ui/lib/utils'
-import type { ColumnDef } from '@tanstack/react-table'
 import { Pencil, Scissors, UserCheck, UserPlus, UserX } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
@@ -63,7 +62,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Checkbox } from '@/components/ui/checkbox'
-import { DataTable, type RowAction } from '@/components/ui/data-table'
+import { type AdminColumnDef, DataTable, type RowAction } from '@/components/ui/data-table'
 import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
 import { FormActions } from '@/components/ui/form-field'
 import { Icon } from '@/components/ui/icon'
@@ -190,7 +189,7 @@ export function StaffManager() {
 
   const { state, retry } = useAsyncData(fetchStaff)
 
-  const columns = useMemo<ColumnDef<StaffRow, unknown>[]>(
+  const columns = useMemo<AdminColumnDef<StaffRow, unknown>[]>(
     () => [
       { id: 'name', accessorKey: 'name', header: 'Name' },
       {
