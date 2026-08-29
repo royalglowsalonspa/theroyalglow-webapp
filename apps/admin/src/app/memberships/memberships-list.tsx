@@ -39,10 +39,9 @@
 
 'use client'
 
-import type { ColumnDef } from '@tanstack/react-table'
 import Link from 'next/link'
 import { useCallback, useMemo, useState } from 'react'
-import { DataTable } from '@/components/ui/data-table'
+import { type AdminColumnDef, DataTable } from '@/components/ui/data-table'
 import { FilterBar } from '@/components/ui/filter-bar'
 import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
@@ -115,7 +114,7 @@ export function MembershipsList() {
     [memberships, tier, status],
   )
 
-  const columns = useMemo<ColumnDef<MembershipListRow, unknown>[]>(
+  const columns = useMemo<AdminColumnDef<MembershipListRow, unknown>[]>(
     () => [
       {
         accessorKey: 'membershipNumber',
