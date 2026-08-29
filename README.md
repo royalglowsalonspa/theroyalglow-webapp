@@ -50,7 +50,7 @@ Covers: website, CRM, customer management, marketing automation, database, creat
 
 ## Business Info (Locked)
 - **Domain:** theroyalglow.in
-- **Subdomains:** admin.theroyalglow.in (admin portal — `apps/admin`), cms.theroyalglow.in (Payload CMS), status.theroyalglow.in (BetterStack), docs.theroyalglow.in (Fumadocs)
+- **Subdomains:** admin.theroyalglow.in (admin portal — `apps/admin`), cms.theroyalglow.in (Payload CMS), status.theroyalglow.in (BetterStack), docs.theroyalglow.in (Mintlify)
 - **Email:** hello@theroyalglow.in
 - **Phone:** +91 63601 35720
 - **Address:** 1st Floor, Narmada Complex, 48/3, Rayasandra Main Rd, Above SBI Bank, Naganathapura, Parappana Agrahara, Bengaluru, Karnataka 560100, India

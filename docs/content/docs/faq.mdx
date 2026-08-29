@@ -219,11 +219,12 @@ is `dev`, `test`, `pprd`, or `prod` — our four deployment environments. Use
 
 </Accordion>
 
-<Accordion title="Why does the docs site use Fumadocs instead of Docusaurus or Nextra?">
+<Accordion title="Why does the docs site use Mintlify instead of a self-hosted docs app?">
 
-Fumadocs is Next.js-native, TypeScript-first, and has a premium look out of the
-box. It fits the existing stack perfectly — no context switching between
-frameworks.
+Mintlify hosts the site itself at no cost and ships built-in search, so we run no
+infrastructure of our own for the docs. The previous self-hosted docs app was
+removed to cut infrastructure spend. Content stays as MDX in the repo, with
+navigation and redirects in `docs/docs.json`.
 
 </Accordion>
 

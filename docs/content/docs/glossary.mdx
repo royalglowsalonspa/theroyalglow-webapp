@@ -92,9 +92,6 @@ A switch that enables or disables a feature without deploying new code. Used via
 **Financial Year**
 India's financial year runs April–March. Used in invoice numbers: `INV-1-2627-92921` means branch 1, financial year 2026–27.
 
-**Fumadocs**
-The documentation framework used for this docs site. Built on Next.js — TypeScript-native, fast, and premium out of the box.
-
 ## G
 
 **Gems**
@@ -143,8 +140,11 @@ A SPA membership that gives a customer a block of hours to use across SPA servic
 **Membership Session**
 When a SPA member uses their membership hours for a service. Recorded as a completed booking with ₹0 invoice. Hours are deducted from the membership balance.
 
+**Mintlify**
+The docs-as-code platform that publishes this documentation site. Content is MDX, navigation and redirects live in `docs/docs.json`, and Mintlify hosts the site and builds it from the repo on push — Git-backed publishing with no infrastructure of our own.
+
 **Monorepo**
-A single Git repository containing multiple apps and packages. Royal Glow's monorepo contains five workspaces — `apps/web` (customer site), `apps/admin` (admin portal), `apps/cms` (Payload CMS), `apps/invoicing` (Cloud Run PDF service), and `docs` (this Fumadocs site) — plus shared `packages/`.
+A single Git repository containing multiple apps and packages. Royal Glow's monorepo contains four workspaces — `apps/web` (customer site), `apps/admin` (admin portal), `apps/cms` (Payload CMS), and `apps/invoicing` (Cloud Run PDF service) — plus shared `packages/` and `docs/` (this Mintlify-published documentation).
 
 **MSW (Mock Service Worker)**
 A library for mocking API calls in tests. Works at the network level — tests don't know they're hitting a mock.

@@ -27,7 +27,6 @@ updates:
       - "/"
       - "/apps/*"
       - "/packages/*"
-      - "/docs"
     target-branch: "dev"
     schedule:
       interval: "weekly"

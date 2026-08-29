@@ -5,8 +5,7 @@
   "packageManager": "bun@1.3.13",
   "workspaces": [
     "apps/*",
-    "packages/*",
-    "docs"
+    "packages/*"
   ],
   "scripts": {
     "build": "turbo run build",

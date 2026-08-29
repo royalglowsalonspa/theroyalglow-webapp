@@ -23,7 +23,7 @@
 | `apps/admin` — admin.theroyalglow.in | **AWS** Lambda ARM64 + CloudFront + S3 | **new** |
 | `apps/cms` — cms.theroyalglow.in | Render (`rgss-cms`) | none |
 | `apps/invoicing` — PDF service | Google Cloud Run | none |
-| `docs` — docs.theroyalglow.in | not yet deployed | later |
+| `docs` — docs.theroyalglow.in | Mintlify (hosted) | none — not part of this migration |
 
 | Dependency | Stays as | Why it does not move |
 |---|---|---|
@@ -515,5 +515,5 @@ so nothing is serving from AWS.
 - [ ] Record the region decision + numbers in §3.1
 
 **Later**
-- [ ] `docs` site deployed
+- [x] `docs` site deployed — on Mintlify-hosted infrastructure, not AWS
 - [ ] Move `apps/invoicing` off Cloud Run (optional — Lambda container image)

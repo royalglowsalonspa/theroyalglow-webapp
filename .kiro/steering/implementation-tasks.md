@@ -208,7 +208,7 @@
 - [ ] Checkly synthetic monitoring
 - [ ] Launch checklist verification
 - [ ] DNS: point theroyalglow.in → Cloudflare Workers (`rgss-web`)
-- [ ] Fumadocs documentation site at docs.theroyalglow.in
+- [x] Mintlify documentation site at docs.theroyalglow.in
 
 ---
 
