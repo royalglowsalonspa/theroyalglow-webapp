@@ -42,10 +42,9 @@
 
 'use client'
 
-import type { ColumnDef } from '@tanstack/react-table'
 import { Plug, RefreshCw } from 'lucide-react'
 import { useMemo } from 'react'
-import { DataTable } from '@/components/ui/data-table'
+import { type AdminColumnDef, DataTable } from '@/components/ui/data-table'
 import { Icon } from '@/components/ui/icon'
 import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
@@ -72,7 +71,7 @@ async function fetchIntegrations(): Promise<Integration[]> {
 export function IntegrationsStatus() {
   const { state, retry } = useAsyncData(fetchIntegrations)
 
-  const columns = useMemo<ColumnDef<Integration, unknown>[]>(
+  const columns = useMemo<AdminColumnDef<Integration, unknown>[]>(
     () => [
       {
         id: 'name',

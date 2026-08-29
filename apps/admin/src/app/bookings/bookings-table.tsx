@@ -46,12 +46,12 @@
 
 'use client'
 
-import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
+import type { ColumnVisibilityState } from '@tanstack/react-table'
 import { CalendarDays, Eye, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { DataTable, type RowAction } from '@/components/ui/data-table'
+import { type AdminColumnDef, DataTable, type RowAction } from '@/components/ui/data-table'
 import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
 import { Icon } from '@/components/ui/icon'
 import { Input } from '@/components/ui/input'
@@ -125,7 +125,7 @@ export function BookingsTable() {
   const [serviceType, setServiceType] = useState('all')
   const [date, setDate] = useState('')
   const [search, setSearch] = useState('')
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({})
 
   const fetcher = useCallback(
     () => fetchBookings(status, serviceType, date),
@@ -149,7 +149,7 @@ export function BookingsTable() {
     retry()
   }, [status, serviceType, date, retry])
 
-  const columns = useMemo<ColumnDef<AdminBooking, unknown>[]>(
+  const columns = useMemo<AdminColumnDef<AdminBooking, unknown>[]>(
     () => [
       {
         id: 'bookingNumber',
