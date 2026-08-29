@@ -40,11 +40,10 @@
 'use client'
 
 import type { OfferType } from '@rgss/types'
-import type { ColumnDef } from '@tanstack/react-table'
 import { Power, Tag } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
-import { DataTable, type RowAction } from '@/components/ui/data-table'
+import { type AdminColumnDef, DataTable, type RowAction } from '@/components/ui/data-table'
 import { FilterBar } from '@/components/ui/filter-bar'
 import { FormActions } from '@/components/ui/form-field'
 import { Input } from '@/components/ui/input'
@@ -209,7 +208,7 @@ export function OffersManager() {
     )
   }, [offers, search, typeFilter, statusFilter])
 
-  const columns = useMemo<ColumnDef<AdminOffer, unknown>[]>(
+  const columns = useMemo<AdminColumnDef<AdminOffer, unknown>[]>(
     () => [
       { accessorKey: 'name', header: 'Name' },
       {

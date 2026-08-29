@@ -39,12 +39,11 @@
 
 'use client'
 
-import type { ColumnDef } from '@tanstack/react-table'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
-import { DataTable } from '@/components/ui/data-table'
+import { type AdminColumnDef, DataTable } from '@/components/ui/data-table'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -268,7 +267,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 // --- Session history table (DataTable) ------------------------------------
 
 function SessionHistory({ sessions, used }: { sessions: MembershipSessionRow[]; used: number }) {
-  const columns = useMemo<ColumnDef<MembershipSessionRow, unknown>[]>(
+  const columns = useMemo<AdminColumnDef<MembershipSessionRow, unknown>[]>(
     () => [
       {
         accessorKey: 'bookingDate',

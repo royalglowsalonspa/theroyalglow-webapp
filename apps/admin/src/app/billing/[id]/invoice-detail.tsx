@@ -42,11 +42,10 @@
 'use client'
 
 import { cn } from '@rgss/ui/lib/utils'
-import type { ColumnDef } from '@tanstack/react-table'
 import { ArrowLeft, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useMemo } from 'react'
-import { DataTable } from '@/components/ui/data-table'
+import { type AdminColumnDef, DataTable } from '@/components/ui/data-table'
 import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -99,7 +98,7 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
 
   const { state, retry } = useAsyncData(fetchInvoice)
 
-  const columns = useMemo<ColumnDef<InvoiceItem, unknown>[]>(
+  const columns = useMemo<AdminColumnDef<InvoiceItem, unknown>[]>(
     () => [
       {
         accessorKey: 'serviceNameSnapshot',
@@ -172,7 +171,7 @@ function InvoiceBody({
   columns,
 }: {
   invoice: Invoice
-  columns: ColumnDef<InvoiceItem, unknown>[]
+  columns: AdminColumnDef<InvoiceItem, unknown>[]
 }) {
   return (
     <div className="space-y-5">
