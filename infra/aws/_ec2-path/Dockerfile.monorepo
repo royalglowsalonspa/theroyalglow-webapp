@@ -1,10 +1,10 @@
 # =============================================================================
-# RGSS monorepo image — one image, all five deployables (M2AWS §9.2)
+# RGSS monorepo image — one image, all four deployables (M2AWS §9.2)
 # -----------------------------------------------------------------------------
 # Build context is the REPO ROOT. Ignore rules come from
 # infra/aws/Dockerfile.monorepo.dockerignore (BuildKit picks up
 # <dockerfile>.dockerignore automatically), NOT the root .dockerignore —
-# that one excludes docs/ and **/*.md, which the Fumadocs app needs.
+# that one excludes docs/ and **/*.md, which this image keeps.
 #
 #   docker build -f infra/aws/Dockerfile.monorepo -t rgss:$(git rev-parse --short HEAD) .
 #
@@ -33,7 +33,6 @@ COPY apps/web/package.json                 apps/web/
 COPY apps/admin/package.json               apps/admin/
 COPY apps/cms/package.json                 apps/cms/
 COPY apps/invoicing/package.json           apps/invoicing/
-COPY docs/package.json                     docs/
 COPY packages/business/package.json        packages/business/
 COPY packages/db/package.json              packages/db/
 COPY packages/errors/package.json          packages/errors/
@@ -103,9 +102,6 @@ RUN NEXT_PUBLIC_APP_URL=$ADMIN_APP_URL \
 # Payload CMS
 RUN NEXT_PUBLIC_APP_URL=$CMS_URL \
     bun run --filter=@rgss/cms build
-
-# Fumadocs
-RUN bun run --filter=@rgss/docs build
 
 # Invoicing service (tsup → dist/index.js)
 RUN bun run --filter=@rgss/invoicing build

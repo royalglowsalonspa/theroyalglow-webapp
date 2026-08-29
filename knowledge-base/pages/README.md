@@ -3,7 +3,7 @@
 > Index and navigation guide for the complete route specification of **Royal Glow Salon & Spa**.
 
 **Domain:** `theroyalglow.in`
-**Subdomains:** `admin.theroyalglow.in` (Payload CMS) · `docs.theroyalglow.in` (Fumadocs) · `status.theroyalglow.in` (BetterStack)
+**Subdomains:** `admin.theroyalglow.in` (Payload CMS) · `docs.theroyalglow.in` (Mintlify) · `status.theroyalglow.in` (BetterStack)
 
 ---
 
@@ -31,7 +31,7 @@
 | [legal.md](./legal.md) | Privacy policy, terms of service, refund & cancellation policy |
 | [admin.md](./admin.md) | 35 admin portal pages (7.1–7.37; 7.16/7.17 retired — service authoring moved to Payload CMS) |
 | [api-routes.md](./api-routes.md) | 32 API endpoints: customer, admin, background jobs, webhooks |
-| [external-subdomains.md](./external-subdomains.md) | Payload CMS, Fumadocs, BetterStack status page |
+| [external-subdomains.md](./external-subdomains.md) | Payload CMS, Mintlify docs, BetterStack status page |
 | [special-files.md](./special-files.md) | 10 special files: sitemap, robots, llms.txt, manifest, SW, etc. |
 | [deep-links.md](./deep-links.md) | UTM contracts and deep link patterns |
 | [summary.md](./summary.md) | Page count, role matrix, realtime subscription map, PWA capabilities, references |

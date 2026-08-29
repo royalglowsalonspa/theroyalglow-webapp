@@ -156,7 +156,7 @@ theroyalglow.in
 ├── EXTERNAL SUBDOMAINS
 │   ├── admin.theroyalglow.in (Admin portal — standalone Next.js app, RBAC-gated)
 │   ├── cms.theroyalglow.in (Payload CMS — blog, gallery, FAQs)
-│   ├── docs.theroyalglow.in (Fumadocs — developer documentation)
+│   ├── docs.theroyalglow.in (Mintlify — developer documentation)
 │   └── status.theroyalglow.in (BetterStack — public uptime status)
 │
 └── SPECIAL FILES & ENDPOINTS

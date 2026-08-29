@@ -51,8 +51,8 @@
 
 | Property | Detail |
 |----------|--------|
-| **Platform** | Fumadocs (Next.js) on Cloudflare Workers (OpenNext) |
-| **Purpose** | Developer documentation: architecture, API reference (auto-generated from OpenAPI spec via fumadocs-openapi), business logic guides, changelog |
+| **Platform** | Mintlify — hosted and built by Mintlify from the repo (`docs/`), CNAME to `cname.mintlify.builders` |
+| **Purpose** | Developer documentation: architecture, API reference (generated from the OpenAPI spec via Mintlify's native OpenAPI support), business logic guides, changelog |
 | **Access** | Public (developer reference) |
 
 ---
