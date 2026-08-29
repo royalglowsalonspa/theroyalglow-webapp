@@ -10,11 +10,11 @@ gates, deploys to Cloudflare's edge, and decouples **deploy** from **release**
 using PostHog feature flags. The whole platform runs at **₹0/month** on free
 tiers at launch.
 
-<Callout type="info">
+<Info>
   **Deploy ≠ release.** Code goes live on the edge on every merge to `prod`;
   a feature only becomes visible when its PostHog flag is turned on. A bug means
   flipping a flag off — no rollback required.
-</Callout>
+</Info>
 
 ## Branch strategy
 
@@ -66,34 +66,22 @@ SEO = 100.
 Every feature ships to prod behind a PostHog flag and is exposed gradually.
 
 <Steps>
-<Step>
-### Deploy with the flag OFF
-
+<Step title="Deploy with the flag OFF">
 Code goes live on the edge, invisible to everyone.
 </Step>
-<Step>
-### Flag ON for `role = developer`
-
+<Step title="Flag ON for role = developer">
 Self-test directly in production.
 </Step>
-<Step>
-### Flag ON for `role = owner | manager`
-
+<Step title="Flag ON for role = owner | manager">
 Stakeholder preview.
 </Step>
-<Step>
-### Flag ON for 10% of customers
-
+<Step title="Flag ON for 10% of customers">
 Watch Sentry for new errors.
 </Step>
-<Step>
-### Flag ON for 100%
-
+<Step title="Flag ON for 100%">
 Full release to all customers.
 </Step>
-<Step>
-### Remove flag + dead code
-
+<Step title="Remove flag + dead code">
 After 2 weeks stable, clean up the flag and dead code.
 </Step>
 </Steps>
@@ -102,7 +90,7 @@ After 2 weeks stable, clean up the flag and dead code.
 
 When something goes wrong, escalate from the cheapest, fastest lever upward.
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="Flag — UI bug after deploy · < 10 sec">
 Turn the PostHog flag OFF. No deploy, no rollback — the feature simply disappears.
 </Accordion>
@@ -118,7 +106,7 @@ Neon PITR to a pre-migration point-in-time branch.
 <Accordion title="Tier 3 — Neon outage · < 30 min">
 Emergency DB restored from the weekly R2 backup.
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ## Health check
 
@@ -138,8 +126,14 @@ incident on `status.theroyalglow.in` if it fails.
 
 ## Related pages
 
-<Cards>
-  <Card title="Architecture" href="/docs/architecture" description="Hosting topology and observability layers" />
-  <Card title="Background Jobs" href="/docs/background-jobs" description="Scheduled work and heartbeat monitoring" />
-  <Card title="Data Model" href="/docs/data-model" description="What the migrations and backups protect" />
-</Cards>
+<Columns cols={2}>
+  <Card title="Architecture" href="/docs/architecture">
+  Hosting topology and observability layers
+</Card>
+  <Card title="Background Jobs" href="/docs/background-jobs">
+  Scheduled work and heartbeat monitoring
+</Card>
+  <Card title="Data Model" href="/docs/data-model">
+  What the migrations and backups protect
+</Card>
+</Columns>

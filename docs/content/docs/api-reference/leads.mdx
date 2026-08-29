@@ -13,7 +13,7 @@ separate app served from `admin.theroyalglow.in` (its endpoints are
 subdomain is the namespace) and requires a Better Auth session with at least the
 `receptionist` role.
 
-<Callout type="info">
+<Info>
   **Base URLs:** customer capture is `https://theroyalglow.in/api/leads`; the
   admin pipeline endpoints are served from `https://admin.theroyalglow.in`
   (e.g. `admin.theroyalglow.in/api/leads`, `.../api/leads/[id]`). There is **no
@@ -23,7 +23,7 @@ subdomain is the namespace) and requires a Better Auth session with at least the
   `developer`. Phone numbers are normalised to canonical `+91XXXXXXXXXX` in the
   business layer before storage. Lead pipeline:
   `new → contacted → follow_up → booked → won/lost`.
-</Callout>
+</Info>
 
 ## POST `theroyalglow.in/api/leads`
 
@@ -44,61 +44,18 @@ Content-Type: application/json
 
 Validated by `createLeadSchema` (`@rgss/types`).
 
-<TypeTable
-  type={{
-    name: {
-      type: 'string',
-      description: 'Trimmed, 1–120 characters.',
-      required: true,
-    },
-    phone: {
-      type: 'string',
-      description: 'Indian 10-digit mobile, optionally +91 or 0 prefixed. Normalised to +91XXXXXXXXXX.',
-      required: true,
-    },
-    email: {
-      type: 'string',
-      description: 'Must be a valid email if present.',
-      required: false,
-    },
-    serviceInterestedId: {
-      type: 'string',
-      description: 'Non-empty service id the lead is interested in.',
-      required: false,
-    },
-    source: {
-      type: 'string',
-      description: 'Max 40 chars.',
-      required: false,
-      default: 'meta_ad',
-    },
-    utmSource: {
-      type: 'string',
-      description: 'Max 120 chars.',
-      required: false,
-    },
-    utmMedium: {
-      type: 'string',
-      description: 'Max 120 chars.',
-      required: false,
-    },
-    utmCampaign: {
-      type: 'string',
-      description: 'Max 120 chars.',
-      required: false,
-    },
-    utmContent: {
-      type: 'string',
-      description: 'Max 120 chars.',
-      required: false,
-    },
-    utmTerm: {
-      type: 'string',
-      description: 'Max 120 chars.',
-      required: false,
-    },
-  }}
-/>
+| Name | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `name` | `string` | Yes |  | Trimmed, 1–120 characters. |
+| `phone` | `string` | Yes |  | Indian 10-digit mobile, optionally +91 or 0 prefixed. Normalised to +91XXXXXXXXXX. |
+| `email` | `string` | No |  | Must be a valid email if present. |
+| `serviceInterestedId` | `string` | No |  | Non-empty service id the lead is interested in. |
+| `source` | `string` | No | `meta_ad` | Max 40 chars. |
+| `utmSource` | `string` | No |  | Max 120 chars. |
+| `utmMedium` | `string` | No |  | Max 120 chars. |
+| `utmCampaign` | `string` | No |  | Max 120 chars. |
+| `utmContent` | `string` | No |  | Max 120 chars. |
+| `utmTerm` | `string` | No |  | Max 120 chars. |
 
 ```json
 {
@@ -129,7 +86,7 @@ Returns `201 Created` with only the new lead id.
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="RATE_LIMITED — 429">
 
 More than 5 requests from the same IP within the 60s window. `retryable: true`.
@@ -145,7 +102,7 @@ Body fails `createLeadSchema`. `details` carries the per-field errors.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -165,15 +122,9 @@ GET /api/leads?status=new
 
 ### Query parameters
 
-<TypeTable
-  type={{
-    status: {
-      type: 'string',
-      description: 'One of new, contacted, follow_up, booked, won, lost. Omit for all leads.',
-      required: false,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `status` | `string` | No | One of new, contacted, follow_up, booked, won, lost. Omit for all leads. |
 
 ### Response
 
@@ -211,7 +162,7 @@ GET /api/leads?status=new
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -227,7 +178,7 @@ Session role is below `receptionist`.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -249,41 +200,14 @@ Content-Type: application/json
 Validated by `manualLeadSchema` (`@rgss/types`) — extends `createLeadSchema`
 with `source: 'manual'` (literal, defaults to `manual`).
 
-<TypeTable
-  type={{
-    name: {
-      type: 'string',
-      description: 'Trimmed, 1–120 characters.',
-      required: true,
-    },
-    phone: {
-      type: 'string',
-      description: 'Indian 10-digit mobile. Normalised to +91XXXXXXXXXX.',
-      required: true,
-    },
-    email: {
-      type: 'string',
-      description: 'Valid email if present.',
-      required: false,
-    },
-    serviceInterestedId: {
-      type: 'string',
-      description: 'Non-empty service id.',
-      required: false,
-    },
-    source: {
-      type: '"manual"',
-      description: 'Literal; defaults to manual and is forced to manual by the handler.',
-      required: false,
-      default: 'manual',
-    },
-    'utm* fields': {
-      type: 'string',
-      description: 'utmSource / utmMedium / utmCampaign / utmContent / utmTerm — max 120 chars each.',
-      required: false,
-    },
-  }}
-/>
+| Name | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `name` | `string` | Yes |  | Trimmed, 1–120 characters. |
+| `phone` | `string` | Yes |  | Indian 10-digit mobile. Normalised to +91XXXXXXXXXX. |
+| `email` | `string` | No |  | Valid email if present. |
+| `serviceInterestedId` | `string` | No |  | Non-empty service id. |
+| `source` | `"manual"` | No | `manual` | Literal; defaults to manual and is forced to manual by the handler. |
+| `utm* fields` | `string` | No |  | utmSource / utmMedium / utmCampaign / utmContent / utmTerm — max 120 chars each. |
 
 ```json
 {
@@ -308,7 +232,7 @@ Returns `201 Created` with the new lead id.
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -329,7 +253,7 @@ Body fails `manualLeadSchema`. `details` carries per-field errors.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -347,15 +271,9 @@ GET /api/leads/ld_7Qx2aMce91
 
 ### Path parameters
 
-<TypeTable
-  type={{
-    id: {
-      type: 'string',
-      description: 'Path. The lead id.',
-      required: true,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | `string` | Yes | Path. The lead id. |
 
 ### Response
 
@@ -401,7 +319,7 @@ GET /api/leads/ld_7Qx2aMce91
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -422,7 +340,7 @@ No lead with that id.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -454,34 +372,18 @@ Content-Type: application/json
 
 ### Path parameters
 
-<TypeTable
-  type={{
-    id: {
-      type: 'string',
-      description: 'Path. The lead id.',
-      required: true,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | `string` | Yes | Path. The lead id. |
 
 ### Request body
 
 Validated by `updateLeadStatusSchema` (`@rgss/types`).
 
-<TypeTable
-  type={{
-    status: {
-      type: 'enum',
-      description: 'One of new, contacted, follow_up, booked, won, lost.',
-      required: true,
-    },
-    reason: {
-      type: 'string',
-      description: 'Max 500 chars. Required (non-empty) when status is lost.',
-      required: false,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `status` | `enum` | Yes | One of new, contacted, follow_up, booked, won, lost. |
+| `reason` | `string` | No | Max 500 chars. Required (non-empty) when status is lost. |
 
 ```json
 {
@@ -523,7 +425,7 @@ Returns the updated lead row.
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -556,7 +458,7 @@ same-status moves).
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -574,29 +476,17 @@ Content-Type: application/json
 
 ### Path parameters
 
-<TypeTable
-  type={{
-    id: {
-      type: 'string',
-      description: 'Path. The lead id.',
-      required: true,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | `string` | Yes | Path. The lead id. |
 
 ### Request body
 
 Validated by `addLeadNoteSchema` (`@rgss/types`).
 
-<TypeTable
-  type={{
-    content: {
-      type: 'string',
-      description: 'Trimmed, 1–1000 characters.',
-      required: true,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `content` | `string` | Yes | Trimmed, 1–1000 characters. |
 
 ```json
 {
@@ -625,7 +515,7 @@ Returns `201 Created` with the new note.
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -646,11 +536,11 @@ Body fails `addLeadNoteSchema` (empty or over-long content).
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
-<Callout type="warn">
+<Warning>
   Unlike `GET`/`PATCH` on `/api/leads/[id]`, this handler does **not**
   pre-check that the lead exists. Posting a note for a non-existent `id` fails on
   the foreign-key constraint and surfaces as `INTERNAL_ERROR` (500) rather than
   `NOT_FOUND`.
-</Callout>
+</Warning>

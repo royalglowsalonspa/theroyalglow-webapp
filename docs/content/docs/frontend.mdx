@@ -5,58 +5,58 @@ description: Component architecture, design system, styling conventions, and acc
 
 # Frontend
 
-<Callout type="info">
+<Info>
   The frontend is **server-first**: components are React Server Components by default, and `'use client'` is added only when browser APIs, state, or event handlers are needed. **WCAG 2.1 AA and a Lighthouse Accessibility score of 100 are hard CI gates.**
-</Callout>
+</Info>
 
 ## Component Architecture
 
 The structure under `apps/web/src/` separates routes, owned UI primitives, feature components, and framework-glue libraries.
 
-<Callout type="info">
+<Info>
   This page covers the **customer web app** (`apps/web` → `theroyalglow.in`). The
   admin portal is a **separate Next.js app** at `apps/admin` (served from
   `admin.theroyalglow.in`, root-path routes with no `/admin` prefix) — its pages,
   `admin` components, and admin data helpers all live under `apps/admin/src/`, not
   in `apps/web`. `apps/web` only keeps `lib/admin-redirect.ts`, which 301-redirects
   legacy `theroyalglow.in/admin/*` URLs to the subdomain.
-</Callout>
+</Info>
 
-<Files>
-  <Folder name="apps/web/src" defaultOpen>
-    <Folder name="app — App Router pages and layouts" defaultOpen>
-      <File name="(customer) — public + authenticated customer pages" />
-      <File name="(auth) — sign-in, onboarding" />
-      <File name="(landing) — /book Meta ad lead capture" />
-      <File name="(legal) — privacy, terms, refund policy" />
-    </Folder>
-    <Folder name="components">
-      <File name="ui — shadcn/ui primitives (copy-pasted, fully owned)" />
-      <File name="layout — Header, Footer, MobileNav" />
-      <File name="booking — BookingDialog, ServiceTypeToggle, BookingDialogProvider" />
-      <File name="lead — LeadCaptureForm, LeadKanban, LeadDetail" />
-      <File name="notifications — NotificationBell" />
-      <File name="consent — CookieConsent, CookiePreferencesButton" />
-      <File name="seo — JsonLd" />
-      <File name="analytics — Analytics (PostHog + Clarity loader)" />
-      <File name="blog — PostCard, RichText" />
-      <File name="gallery — GalleryGrid" />
-      <File name="offers — OfferBookButton" />
-      <File name="pwa — ServiceWorkerRegistrar" />
-    </Folder>
-    <Folder name="lib">
-      <File name="auth-client.ts — Better Auth client" />
-      <File name="auth-server.ts — Better Auth server" />
-      <File name="api — withErrorHandler, rate-limit, response helpers, session" />
-      <File name="admin-redirect.ts — legacy /admin → admin.theroyalglow.in 301" />
-      <File name="cms — Payload CMS client" />
-      <File name="seo — JSON-LD generators, metadata helpers" />
-      <File name="realtime — Ably client" />
-      <File name="jobs — QStash enqueue, heartbeat, verify" />
-      <File name="notifications — dispatch, email/webpush providers" />
-    </Folder>
-  </Folder>
-</Files>
+<Tree>
+  <Tree.Folder name="apps/web/src" defaultOpen>
+    <Tree.Folder name="app — App Router pages and layouts" defaultOpen>
+      <Tree.File name="(customer) — public + authenticated customer pages" />
+      <Tree.File name="(auth) — sign-in, onboarding" />
+      <Tree.File name="(landing) — /book Meta ad lead capture" />
+      <Tree.File name="(legal) — privacy, terms, refund policy" />
+    </Tree.Folder>
+    <Tree.Folder name="components">
+      <Tree.File name="ui — shadcn/ui primitives (copy-pasted, fully owned)" />
+      <Tree.File name="layout — Header, Footer, MobileNav" />
+      <Tree.File name="booking — BookingDialog, ServiceTypeToggle, BookingDialogProvider" />
+      <Tree.File name="lead — LeadCaptureForm, LeadKanban, LeadDetail" />
+      <Tree.File name="notifications — NotificationBell" />
+      <Tree.File name="consent — CookieConsent, CookiePreferencesButton" />
+      <Tree.File name="seo — JsonLd" />
+      <Tree.File name="analytics — Analytics (PostHog + Clarity loader)" />
+      <Tree.File name="blog — PostCard, RichText" />
+      <Tree.File name="gallery — GalleryGrid" />
+      <Tree.File name="offers — OfferBookButton" />
+      <Tree.File name="pwa — ServiceWorkerRegistrar" />
+    </Tree.Folder>
+    <Tree.Folder name="lib">
+      <Tree.File name="auth-client.ts — Better Auth client" />
+      <Tree.File name="auth-server.ts — Better Auth server" />
+      <Tree.File name="api — withErrorHandler, rate-limit, response helpers, session" />
+      <Tree.File name="admin-redirect.ts — legacy /admin → admin.theroyalglow.in 301" />
+      <Tree.File name="cms — Payload CMS client" />
+      <Tree.File name="seo — JSON-LD generators, metadata helpers" />
+      <Tree.File name="realtime — Ably client" />
+      <Tree.File name="jobs — QStash enqueue, heartbeat, verify" />
+      <Tree.File name="notifications — dispatch, email/webpush providers" />
+    </Tree.Folder>
+  </Tree.Folder>
+</Tree>
 
 ## Design System
 
@@ -64,29 +64,25 @@ The structure under `apps/web/src/` separates routes, owned UI primitives, featu
 
 Tailwind CSS v4 design tokens are defined in `apps/web/src/styles/globals.css`.
 
-<TypeTable
-  type={{
-    'royal-gold': { type: '#C8A961', description: 'Primary CTA, active states, accents' },
-    'deep-gold': { type: '#A8893F', description: 'Hover state for gold elements' },
-    'cocoa-dark': { type: '#2C1810', description: 'Primary text, headings' },
-    'canvas-white': { type: '#FAFAF8', description: 'Page background' },
-    'cloud-gray': { type: '#F0EDE8', description: 'Card backgrounds, subtle fills' },
-    'warm-gray': { type: '#8B7D74', description: 'Secondary text' },
-    'dusty-gray': { type: '#A09590', description: 'Placeholder text, captions' },
-    error: { type: '#DC2626', description: 'Error states' },
-  }}
-/>
+| Name | Type | Description |
+| --- | --- | --- |
+| `royal-gold` | `#C8A961` | Primary CTA, active states, accents |
+| `deep-gold` | `#A8893F` | Hover state for gold elements |
+| `cocoa-dark` | `#2C1810` | Primary text, headings |
+| `canvas-white` | `#FAFAF8` | Page background |
+| `cloud-gray` | `#F0EDE8` | Card backgrounds, subtle fills |
+| `warm-gray` | `#8B7D74` | Secondary text |
+| `dusty-gray` | `#A09590` | Placeholder text, captions |
+| `error` | `#DC2626` | Error states |
 
 ### Typography
 
-<TypeTable
-  type={{
-    'font-display': { type: 'Playfair Display', description: 'Headings, logo, premium feel' },
-    'font-sans': { type: 'Inter', description: 'Body text, descriptions' },
-    'font-ui': { type: 'Inter (uppercase tracking)', description: 'Labels, buttons, navigation' },
-    'font-mono': { type: 'JetBrains Mono', description: 'Booking numbers, invoice numbers' },
-  }}
-/>
+| Name | Type | Description |
+| --- | --- | --- |
+| `font-display` | `Playfair Display` | Headings, logo, premium feel |
+| `font-sans` | `Inter` | Body text, descriptions |
+| `font-ui` | `Inter (uppercase tracking)` | Labels, buttons, navigation |
+| `font-mono` | `JetBrains Mono` | Booking numbers, invoice numbers |
 
 ### Spacing & Layout
 
@@ -112,27 +108,19 @@ The booking dialog is a 4-step modal that opens over the homepage. It is **never
 
 <Steps>
 
-<Step>
-### Step 1 — Branch, date & time
-
+<Step title="Step 1 — Branch, date & time">
 Branch selector plus a date and time-slot picker.
 </Step>
 
-<Step>
-### Step 2 — Service type & category
-
+<Step title="Step 2 — Service type & category">
 Salon/SPA toggle and category selection (one service type per booking).
 </Step>
 
-<Step>
-### Step 3 — Services
-
+<Step title="Step 3 — Services">
 Service multi-select with a running total.
 </Step>
 
-<Step>
-### Step 4 — Summary & submission
-
+<Step title="Step 4 — Summary & submission">
 Review and submit the booking.
 </Step>
 
@@ -180,9 +168,9 @@ All animations respect `prefers-reduced-motion`:
 
 WCAG 2.1 AA compliance is non-negotiable. Lighthouse Accessibility = 100 is a hard CI gate.
 
-<Tabs items={['Interactive elements', 'Forms', 'Dynamic content', 'Colour contrast']}>
+<Tabs>
 
-<Tab value="Interactive elements">
+<Tab title="Interactive elements">
 
 - `<button>` for actions (never `<div onClick>`)
 - `type="button"` on all buttons not inside a form
@@ -192,7 +180,7 @@ WCAG 2.1 AA compliance is non-negotiable. Lighthouse Accessibility = 100 is a ha
 
 </Tab>
 
-<Tab value="Forms">
+<Tab title="Forms">
 
 - Every `<input>` has a `<label>` with matching `htmlFor`/`id`
 - `aria-required="true"` on required fields
@@ -201,7 +189,7 @@ WCAG 2.1 AA compliance is non-negotiable. Lighthouse Accessibility = 100 is a ha
 
 </Tab>
 
-<Tab value="Dynamic content">
+<Tab title="Dynamic content">
 
 - `aria-live="polite"` on booking availability updates
 - `aria-live="polite"` on loading states (use the `<output>` element)
@@ -210,7 +198,7 @@ WCAG 2.1 AA compliance is non-negotiable. Lighthouse Accessibility = 100 is a ha
 
 </Tab>
 
-<Tab value="Colour contrast">
+<Tab title="Colour contrast">
 
 - Normal text: 4.5:1 minimum
 - Large text (18px+ or 14px+ bold): 3:1 minimum
@@ -237,15 +225,13 @@ Offline capabilities:
 
 ## Performance Targets
 
-<TypeTable
-  type={{
-    LCP: { type: '< 2.5s', description: 'SSR/SSG, priority Image on hero' },
-    CLS: { type: '< 0.1', description: 'Explicit width/height on all images' },
-    INP: { type: '< 200ms', description: 'Minimal client JS, deferred non-critical scripts' },
-    'Lighthouse Performance': { type: '≥ 95', description: 'CI gate' },
-    'JS bundle (initial)': { type: '< 150 KB gzipped', description: '@next/bundle-analyzer monitoring' },
-  }}
-/>
+| Name | Type | Description |
+| --- | --- | --- |
+| `LCP` | `< 2.5s` | SSR/SSG, priority Image on hero |
+| `CLS` | `< 0.1` | Explicit width/height on all images |
+| `INP` | `< 200ms` | Minimal client JS, deferred non-critical scripts |
+| `Lighthouse Performance` | `≥ 95` | CI gate |
+| `JS bundle (initial)` | `< 150 KB gzipped` | @next/bundle-analyzer monitoring |
 
 ## Coding Conventions
 
@@ -258,8 +244,14 @@ Offline capabilities:
 
 ## Related Pages
 
-<Cards>
-  <Card title="Pages & Routes" href="/docs/pages-and-routes" description="Every route these components render" />
-  <Card title="Conventions" href="/docs/conventions" description="Cross-cutting money, date, and layer rules" />
-  <Card title="Tech Stack" href="/docs/tech-stack" description="The UI and tooling choices behind the frontend" />
-</Cards>
+<Columns cols={2}>
+  <Card title="Pages & Routes" href="/docs/pages-and-routes">
+  Every route these components render
+</Card>
+  <Card title="Conventions" href="/docs/conventions">
+  Cross-cutting money, date, and layer rules
+</Card>
+  <Card title="Tech Stack" href="/docs/tech-stack">
+  The UI and tooling choices behind the frontend
+</Card>
+</Columns>

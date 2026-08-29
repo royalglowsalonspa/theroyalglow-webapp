@@ -9,11 +9,11 @@ Offers are the salon's promotions: a percentage off a service, a flat rupee
 discount, or a bundle of services at one combo price. They are displayed to
 customers and applied at the counter when the customer pays.
 
-<Callout type="info">
+<Info>
   Offers are applied **at checkout by a receptionist** — they are not
   self-service during booking. This keeps control of discounts with staff and
   prevents stacking.
-</Callout>
+</Info>
 
 ## What it is
 
@@ -25,27 +25,19 @@ when ringing up the bill.
 ## How it works
 
 <Steps>
-<Step>
-### Create
-
+<Step title="Create">
 A manager creates an offer in the admin portal, choosing its type, the services
 it applies to, and a start and end date.
 </Step>
-<Step>
-### Display
-
+<Step title="Display">
 While active and within its date range, the offer appears on the public
 `/offers` page with its terms.
 </Step>
-<Step>
-### Apply
-
+<Step title="Apply">
 At checkout, the receptionist applies a single eligible offer to the customer's
 booking before taking payment.
 </Step>
-<Step>
-### Expire
-
+<Step title="Expire">
 When the end date passes, the offer auto-expires via a scheduled background job
 and drops off the public list.
 </Step>
@@ -53,22 +45,22 @@ and drops off the public list.
 
 ### Offer types
 
-<Tabs items={['Percentage', 'Flat', 'Combo price']}>
-<Tab value="Percentage">
+<Tabs>
+<Tab title="Percentage">
 **Type:** `percentage`
 
 A percentage (1–100) off the linked services.
 
 **Example:** "20% off all Facials".
 </Tab>
-<Tab value="Flat">
+<Tab title="Flat">
 **Type:** `flat`
 
 A fixed rupee amount deducted from the bill.
 
 **Example:** "₹500 off any Hair Treatment".
 </Tab>
-<Tab value="Combo price">
+<Tab title="Combo price">
 **Type:** `combo_price`
 
 A single bundle price replaces the individual service prices.
@@ -79,14 +71,14 @@ A single bundle price replaces the individual service prices.
 
 ## Rules
 
-<Callout type="warn">
+<Warning>
   **One offer per customer per day** and **offers cannot combine with gems** — an
   offer and a [gems](/docs/features/loyalty-gems) redemption cannot both apply to
   the same booking. The daily limit is enforced in the database with a unique
   constraint on customer + date.
-</Callout>
+</Warning>
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="Who applies an offer?">
 A receptionist, at checkout — not the customer during booking. This keeps
 control of discounts with staff and prevents stacking.
@@ -107,13 +99,21 @@ to the customer on the `/offers` page.
 If the salon cancels a booking that had an offer applied, the offer is
 reinstated for the customer's next booking rather than being lost.
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ## Related links
 
-<Cards>
-  <Card title="Loyalty & Offers API" href="/docs/api-reference/loyalty-offers" description="Public active offers plus manager-only offer CRUD." />
-  <Card title="Loyalty — Gems" href="/docs/features/loyalty-gems" description="Why an offer and gems cannot be combined." />
-  <Card title="Billing & Invoicing" href="/docs/features/billing-invoicing" description="How an applied offer affects the invoice total." />
-  <Card title="Data Model" href="/docs/data-model" description="The offer, offer_service, and offer_redemption tables." />
-</Cards>
+<Columns cols={2}>
+  <Card title="Loyalty & Offers API" href="/docs/api-reference/loyalty-offers">
+  Public active offers plus manager-only offer CRUD.
+</Card>
+  <Card title="Loyalty — Gems" href="/docs/features/loyalty-gems">
+  Why an offer and gems cannot be combined.
+</Card>
+  <Card title="Billing & Invoicing" href="/docs/features/billing-invoicing">
+  How an applied offer affects the invoice total.
+</Card>
+  <Card title="Data Model" href="/docs/data-model">
+  The offer, offer_service, and offer_redemption tables.
+</Card>
+</Columns>

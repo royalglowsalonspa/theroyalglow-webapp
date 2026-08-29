@@ -5,9 +5,9 @@ description: Money, dates, layering, and the API response envelope used across t
 
 # Conventions
 
-<Callout type="warn">
+<Warning>
   These rules are enforced across the codebase — follow them in any new work. The three that break things hardest if ignored: **money is integer paise (never float)**, **layer imports only point inward**, and **every API response uses the success/error envelope**.
-</Callout>
+</Warning>
 
 ## Money — integer paise
 
@@ -44,23 +44,21 @@ API routes are **thin orchestrators**: parse → Zod `safeParse` → call busine
 logic / queries → return JSON. No DB queries live in route handlers' own logic
 beyond calling the query layer.
 
-<TypeTable
-  type={{
-    Presentation: { type: 'apps/web/src/app, components', description: 'May import: business, db, types, errors. Must not import: nothing restricted.' },
-    'API (thin)': { type: 'apps/web/src/app/api', description: 'May import: business, db, types, errors. Must not import: UI components.' },
-    'Business logic': { type: 'packages/business', description: 'May import: types, errors. Must not import: db, framework, UI.' },
-    'Data access': { type: 'packages/db', description: 'May import: types. Must not import: business, framework, UI.' },
-    Types: { type: 'packages/types', description: 'May import: nothing. Must not import: everything else.' },
-  }}
-/>
+| Name | Type | Description |
+| --- | --- | --- |
+| `Presentation` | `apps/web/src/app, components` | May import: business, db, types, errors. Must not import: nothing restricted. |
+| `API (thin)` | `apps/web/src/app/api` | May import: business, db, types, errors. Must not import: UI components. |
+| `Business logic` | `packages/business` | May import: types, errors. Must not import: db, framework, UI. |
+| `Data access` | `packages/db` | May import: types. Must not import: business, framework, UI. |
+| `Types` | `packages/types` | May import: nothing. Must not import: everything else. |
 
 ## API response envelope
 
 Every JSON API responds with one of two shapes.
 
-<Tabs items={['Success', 'Error']}>
+<Tabs>
 
-<Tab value="Success">
+<Tab title="Success">
 
 ```json
 {
@@ -74,7 +72,7 @@ Every JSON API responds with one of two shapes.
 
 </Tab>
 
-<Tab value="Error">
+<Tab title="Error">
 
 ```json
 {
@@ -99,17 +97,17 @@ Every JSON API responds with one of two shapes.
 
 </Tabs>
 
-<Callout type="info">
+<Info>
   Background-job routes (`/api/jobs/*`) are the exception: they return a minimal
   `{ processed }` body and a non-2xx status on failure so QStash can retry. They
   do not use the success/error envelope.
-</Callout>
+</Info>
 
 ## Error codes
 
 Codes come from a central registry (`@rgss/errors`). Expand for the common ones — domain-specific codes for booking, membership, invoice, gems, offer, and branch rules are documented on each API page.
 
-<Accordions type="single">
+<AccordionGroup>
 
 <Accordion title="VALIDATION_ERROR — 400">
 Zod validation failed. The `details` field carries the field → message map.
@@ -147,12 +145,18 @@ A dependency (e.g. Ably) is not configured.
 Unexpected error (retryable).
 </Accordion>
 
-</Accordions>
+</AccordionGroup>
 
 ## Related Pages
 
-<Cards>
-  <Card title="Data Model" href="/docs/data-model" description="Schema conventions, enums, and ID formats" />
-  <Card title="Error Handling" href="/docs/error-handling" description="The AppError class and handler pattern" />
-  <Card title="API Reference" href="/docs/api-reference" description="Per-endpoint codes and contracts" />
-</Cards>
+<Columns cols={2}>
+  <Card title="Data Model" href="/docs/data-model">
+  Schema conventions, enums, and ID formats
+</Card>
+  <Card title="Error Handling" href="/docs/error-handling">
+  The AppError class and handler pattern
+</Card>
+  <Card title="API Reference" href="/docs/api-reference">
+  Per-endpoint codes and contracts
+</Card>
+</Columns>

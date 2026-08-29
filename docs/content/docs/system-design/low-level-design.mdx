@@ -5,9 +5,9 @@ description: Database schema details, booking state machine, background job spec
 
 # Low-Level Design
 
-<Callout type="info">
+<Info>
   This document captures the **mechanics**: the booking state machine, ID/number formats, GST and gems math, all 19 background jobs, request lifecycles, indexes, and security implementation. Money is always integer paise; status transitions are always logged in `booking_status_log`.
-</Callout>
+</Info>
 
 ## Booking State Machine
 
@@ -27,15 +27,15 @@ in_progress
   └── completed    (service done, invoice generated, gems awarded)
 ```
 
-<Callout type="warn">
+<Warning>
   **Walk-ins skip `pending`** — they go directly to `confirmed`. Every status transition is recorded in `booking_status_log` with timestamp, actor (user ID), and reason.
-</Callout>
+</Warning>
 
 ## ID & Number Formats
 
-<Tabs items={['Booking', 'Invoice']}>
+<Tabs>
 
-<Tab value="Booking">
+<Tab title="Booking">
 
 ```text
 BK-{branch_code}-{YYMM}-{H|S}-{5_random}[-M]
@@ -52,7 +52,7 @@ Examples:
 
 </Tab>
 
-<Tab value="Invoice">
+<Tab title="Invoice">
 
 ```text
 INV-{branch_number}-{financial_year}-{5_digit_random}
@@ -109,9 +109,9 @@ function calculateGemsEarned(invoiceTotalPaise: number): number {
 
 ## Background Jobs (19 Total)
 
-<Tabs items={['Scheduled (former pg_cron)', 'Scheduled (HTTP)', 'Triggered']}>
+<Tabs>
 
-<Tab value="Scheduled (former pg_cron)">
+<Tab title="Scheduled (former pg_cron)">
 
 QStash scheduled jobs — including the seven that were formerly pg_cron.
 
@@ -127,7 +127,7 @@ QStash scheduled jobs — including the seven that were formerly pg_cron.
 
 </Tab>
 
-<Tab value="Scheduled (HTTP)">
+<Tab title="Scheduled (HTTP)">
 
 QStash scheduled jobs delivered as HTTP callbacks.
 
@@ -144,7 +144,7 @@ QStash scheduled jobs delivered as HTTP callbacks.
 
 </Tab>
 
-<Tab value="Triggered">
+<Tab title="Triggered">
 
 QStash triggered jobs fired by API routes with a delay.
 
@@ -173,9 +173,9 @@ QStash triggered jobs fired by API routes with a delay.
 
 The four core write paths, step by step.
 
-<Tabs items={['Booking creation', 'Booking completion', 'Membership session', 'Lead capture']}>
+<Tabs>
 
-<Tab value="Booking creation">
+<Tab title="Booking creation">
 
 Customer submits the booking form → `POST /api/bookings`.
 
@@ -233,7 +233,7 @@ Return `{ success: true, data: { bookingId, bookingNumber } }`.
 
 </Tab>
 
-<Tab value="Booking completion">
+<Tab title="Booking completion">
 
 Receptionist clicks "Mark Complete" → `POST admin.theroyalglow.in/api/bookings/{id}/complete`.
 
@@ -307,7 +307,7 @@ Return `{ success: true, data: { invoiceId, invoiceNumber } }`.
 
 </Tab>
 
-<Tab value="Membership session">
+<Tab title="Membership session">
 
 Receptionist records a SPA session → `POST admin.theroyalglow.in/api/memberships/{id}/sessions`.
 
@@ -357,7 +357,7 @@ Return `{ success: true, data: { bookingId, remainingMinutes } }`.
 
 </Tab>
 
-<Tab value="Lead capture">
+<Tab title="Lead capture">
 
 Customer submits the `/book` form (Meta ad landing page) → `POST /api/leads`.
 
@@ -427,7 +427,7 @@ CREATE INDEX idx_lead_source ON lead(source);
 
 ## Security Implementation
 
-<Accordions type="single">
+<AccordionGroup>
 
 <Accordion title="Input validation">
 Every API route validates input with Zod `.safeParse()` before any business logic runs. Raw client input never reaches the database.
@@ -453,12 +453,18 @@ Exact origin matching (`theroyalglow.in` only). No wildcard.
 All inbound webhooks (QStash, Meta, AiSensy) verify HMAC signatures before processing.
 </Accordion>
 
-</Accordions>
+</AccordionGroup>
 
 ## Related Pages
 
-<Cards>
-  <Card title="High-Level Design" href="/docs/system-design/high-level-design" description="Architecture, decisions matrix, and NFRs" />
-  <Card title="Data Model" href="/docs/data-model" description="All 38 tables, enums, and conventions" />
-  <Card title="Background Jobs" href="/docs/background-jobs" description="Full job inventory and heartbeats" />
-</Cards>
+<Columns cols={2}>
+  <Card title="High-Level Design" href="/docs/system-design/high-level-design">
+  Architecture, decisions matrix, and NFRs
+</Card>
+  <Card title="Data Model" href="/docs/data-model">
+  All 38 tables, enums, and conventions
+</Card>
+  <Card title="Background Jobs" href="/docs/background-jobs">
+  Full job inventory and heartbeats
+</Card>
+</Columns>

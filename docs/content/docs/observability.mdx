@@ -5,12 +5,12 @@ description: Five-layer observability stack for Royal Glow — Sentry, BetterSta
 
 # Observability
 
-<Callout type="info">
+<Info>
   **In one line:** Five layers, each answering a different question, all on free
   tiers at **₹0/month** — Sentry (errors), BetterStack (uptime + status + jobs +
   logs), PostHog (product analytics), Microsoft Clarity (heatmaps + replay), and
   Checkly (synthetic monitoring).
-</Callout>
+</Info>
 
 Royal Glow uses five distinct observability layers, each answering a different question. Total monthly cost: **₹0**.
 
@@ -24,8 +24,8 @@ Royal Glow uses five distinct observability layers, each answering a different q
 
 ## The five layers
 
-<Tabs items={['Sentry', 'BetterStack', 'PostHog', 'Clarity', 'Checkly']}>
-<Tab value="Sentry">
+<Tabs>
+<Tab title="Sentry">
 
 **Layer 1 — Error Monitoring. Free tier:** 5,000 errors/month — more than sufficient at launch.
 
@@ -53,7 +53,7 @@ Sentry captures errors from both Cloudflare Workers (edge) and Render (Node.js/P
 - Rate limit exceeded (429) — these are expected
 
 </Tab>
-<Tab value="BetterStack">
+<Tab title="BetterStack">
 
 **Layer 2 — Uptime, Status Page, Logs & Job Monitoring.** BetterStack replaces three separate tools (UptimeRobot + Cronitor + a log tool) in one platform.
 
@@ -91,7 +91,7 @@ Scheduled work pings a BetterStack heartbeat URL on successful completion. If Be
 Public status page at `status.theroyalglow.in` — customers can check during outages. Free, custom domain supported.
 
 </Tab>
-<Tab value="PostHog">
+<Tab title="PostHog">
 
 **Layer 3 — Product Analytics. Free tier:** 1 million events/month.
 
@@ -123,7 +123,7 @@ PostHog covers the full funnel: page views → service browsing → booking → 
 Google Analytics sends data to Google — a concern under India's DPDP Act 2023. PostHog is self-hostable and DPDP-compliant.
 
 </Tab>
-<Tab value="Clarity">
+<Tab title="Clarity">
 
 **Layer 4 — Heatmaps & Session Replay. Free tier:** Completely free, no event caps, no session limits.
 
@@ -138,7 +138,7 @@ Clarity complements PostHog — it's better at visual heatmaps, PostHog is bette
 - Rage clicks and dead clicks
 
 </Tab>
-<Tab value="Checkly">
+<Tab title="Checkly">
 
 **Layer 5 — Synthetic Monitoring. Free tier:** 5 checks, 10,000 check runs/month.
 

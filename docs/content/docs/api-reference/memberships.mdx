@@ -12,7 +12,7 @@ duration from the remaining hours. There is one customer-facing read endpoint
 endpoint served from `admin.theroyalglow.in` (e.g.
 `admin.theroyalglow.in/api/memberships`, plural) and is role-gated.
 
-<Callout type="info">
+<Info>
   **Base URLs:** the customer read endpoint is `https://theroyalglow.in`; the
   admin endpoints are served from `https://admin.theroyalglow.in` with **no
   `/api/admin/` segment** — the subdomain is the namespace (e.g.
@@ -24,7 +24,7 @@ endpoint served from `admin.theroyalglow.in` (e.g.
   `900`. Dates in request bodies are `YYYY-MM-DD`; timestamps in responses are
   UTC ISO strings. Membership status is one of `active`, `expired`, `cancelled`.
   Membership numbers use the format `RG-MEM-{YY}-{branchNumber}-{5 random}`.
-</Callout>
+</Info>
 
 ## GET `theroyalglow.in/api/membership`
 
@@ -101,7 +101,7 @@ GET /api/membership
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -112,7 +112,7 @@ No active session.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -164,7 +164,7 @@ GET /api/membership-tiers
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -180,7 +180,7 @@ Session role is below `receptionist`.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -198,20 +198,10 @@ GET /api/memberships?status=active&tier=tier_gold
 
 ### Query parameters
 
-<TypeTable
-  type={{
-    tier: {
-      type: 'string',
-      description: 'A tier id to filter by.',
-      required: false,
-    },
-    status: {
-      type: 'string',
-      description: 'One of active, expired, cancelled.',
-      required: false,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `tier` | `string` | No | A tier id to filter by. |
+| `status` | `string` | No | One of active, expired, cancelled. |
 
 ### Response
 
@@ -245,7 +235,7 @@ GET /api/memberships?status=active&tier=tier_gold
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -261,7 +251,7 @@ Session role is below `receptionist`.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -285,50 +275,16 @@ Content-Type: application/json
 
 Validated by `createMembershipSchema` (`@rgss/types`).
 
-<TypeTable
-  type={{
-    customerId: {
-      type: 'string',
-      description: 'Non-empty user id of the customer.',
-      required: true,
-    },
-    tierId: {
-      type: 'string',
-      description: 'Non-empty tier id; must resolve to an active tier.',
-      required: true,
-    },
-    hoursMinutes: {
-      type: 'integer',
-      description: 'Positive. Total membership hours in minutes (Silver 480, Gold 900).',
-      required: true,
-    },
-    pricePaise: {
-      type: 'integer',
-      description: 'Non-negative. GST-inclusive price in paise.',
-      required: true,
-    },
-    startDate: {
-      type: 'string',
-      description: 'YYYY-MM-DD.',
-      required: true,
-    },
-    validityDays: {
-      type: 'integer',
-      description: 'Positive. Days from startDate until expiry.',
-      required: true,
-    },
-    paymentMethod: {
-      type: 'enum',
-      description: 'cash, upi, or card.',
-      required: true,
-    },
-    notes: {
-      type: 'string',
-      description: 'Max 500 characters.',
-      required: false,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `customerId` | `string` | Yes | Non-empty user id of the customer. |
+| `tierId` | `string` | Yes | Non-empty tier id; must resolve to an active tier. |
+| `hoursMinutes` | `integer` | Yes | Positive. Total membership hours in minutes (Silver 480, Gold 900). |
+| `pricePaise` | `integer` | Yes | Non-negative. GST-inclusive price in paise. |
+| `startDate` | `string` | Yes | YYYY-MM-DD. |
+| `validityDays` | `integer` | Yes | Positive. Days from startDate until expiry. |
+| `paymentMethod` | `enum` | Yes | cash, upi, or card. |
+| `notes` | `string` | No | Max 500 characters. |
 
 ```json
 {
@@ -391,7 +347,7 @@ Returns `201 Created` with the created membership and its purchase invoice.
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -423,7 +379,7 @@ The primary branch could not be resolved.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -441,15 +397,9 @@ GET /api/memberships/mem_9aZ2bYc31
 
 ### Path parameters
 
-<TypeTable
-  type={{
-    id: {
-      type: 'string',
-      description: 'Path. The membership id.',
-      required: true,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | `string` | Yes | Path. The membership id. |
 
 ### Response
 
@@ -518,7 +468,7 @@ GET /api/memberships/mem_9aZ2bYc31
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -539,7 +489,7 @@ No membership with that id.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -562,49 +512,21 @@ Content-Type: application/json
 
 ### Path parameters
 
-<TypeTable
-  type={{
-    id: {
-      type: 'string',
-      description: 'Path. The membership id.',
-      required: true,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | `string` | Yes | Path. The membership id. |
 
 ### Request body
 
 Validated by `recordSessionSchema` (`@rgss/types`).
 
-<TypeTable
-  type={{
-    services: {
-      type: 'array',
-      description: 'At least one service line (see fields below).',
-      required: true,
-    },
-    'services[].serviceId': {
-      type: 'string',
-      description: 'Non-empty; must be an existing service.',
-      required: true,
-    },
-    'services[].staffId': {
-      type: 'string',
-      description: 'Staff member assigned to this line.',
-      required: false,
-    },
-    'services[].durationMinutes': {
-      type: 'integer',
-      description: 'Positive. Minutes to deduct for this line.',
-      required: true,
-    },
-    bookingDate: {
-      type: 'string',
-      description: 'YYYY-MM-DD. Defaults to today (IST).',
-      required: false,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `services` | `array` | Yes | At least one service line (see fields below). |
+| `services[].serviceId` | `string` | Yes | Non-empty; must be an existing service. |
+| `services[].staffId` | `string` | No | Staff member assigned to this line. |
+| `services[].durationMinutes` | `integer` | Yes | Positive. Minutes to deduct for this line. |
+| `bookingDate` | `string` | No | YYYY-MM-DD. Defaults to today (IST). |
 
 ```json
 {
@@ -666,7 +588,7 @@ membership's remaining minutes after the deduction.
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -702,7 +624,7 @@ The requested duration exceeds the remaining membership hours.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -721,29 +643,17 @@ Content-Type: application/json
 
 ### Path parameters
 
-<TypeTable
-  type={{
-    id: {
-      type: 'string',
-      description: 'Path. The membership id.',
-      required: true,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | `string` | Yes | Path. The membership id. |
 
 ### Request body
 
 Validated by `cancelMembershipSchema` (`@rgss/types`).
 
-<TypeTable
-  type={{
-    reason: {
-      type: 'string',
-      description: 'Trimmed, 1–500 characters. Appended to the membership notes as "Cancelled: {reason}".',
-      required: true,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `reason` | `string` | Yes | Trimmed, 1–500 characters. Appended to the membership notes as "Cancelled: {reason}". |
 
 ```json
 {
@@ -781,7 +691,7 @@ Returns the updated membership row.
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -807,4 +717,4 @@ No membership with that id.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>

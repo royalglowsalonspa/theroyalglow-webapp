@@ -7,17 +7,17 @@ description: Every technology used in the Royal Glow platform and why it was cho
 
 Royal Glow is built for scale (20k–50k users), premium feel, and long-term maintainability by a single developer. Every technology choice is made with that constraint in mind.
 
-<Callout type="info">
+<Info>
   **Total monthly infrastructure cost at launch: ₹0.** Every service runs on a free tier that is generous enough for a salon at this scale. The whole stack is edge-first, India-first (DPDP, IST, paise, GST 18%), and chosen so one developer can run it with minimal ops overhead.
-</Callout>
+</Info>
 
 ## The Stack by Layer
 
 Browse each layer of the platform. Every choice below is in production use.
 
-<Tabs items={['Core & UI', 'Data & Auth', 'Infrastructure', 'Email', 'Testing & Quality', 'Observability', 'CRM & Leads']}>
+<Tabs>
 
-<Tab value="Core & UI">
+<Tab title="Core & UI">
 
 | Layer | Technology | Why |
 | --- | --- | --- |
@@ -30,13 +30,13 @@ Browse each layer of the platform. Every choice below is in production use.
 | Animation | **motion** (motion.dev) | Page transitions, staggered reveals, micro-interactions — free tier |
 | Monorepo | **Turborepo + Bun workspaces** | Bun manages packages; Turborepo handles task orchestration + incremental caching |
 
-<Callout type="info">
+<Info>
   **Why shadcn/ui:** components are copy-pasted into your repo — you own 100% of the code. Built on Radix UI primitives for production-tested accessibility, with zero runtime overhead.
-</Callout>
+</Info>
 
 </Tab>
 
-<Tab value="Data & Auth">
+<Tab title="Data & Auth">
 
 | Tool | Role |
 | --- | --- |
@@ -45,15 +45,15 @@ Browse each layer of the platform. Every choice below is in production use.
 | **Better Auth** | Primary auth library — Google OAuth, RBAC plugin, session management |
 | **Better Auth Cloud** | Free dashboard, audit logs, user management UI |
 
-<Callout type="warn">
+<Warning>
   **Why Drizzle over Prisma:** Prisma's Rust query engine binary cannot run in a V8 isolate (Cloudflare Workers) without workarounds or paid Prisma Accelerate. Drizzle is pure TypeScript and works everywhere.
-</Callout>
+</Warning>
 
 Google OAuth only — no email/password. This eliminates credential stuffing, weak passwords, and reset flows. All salon customers in India have Google accounts.
 
 </Tab>
 
-<Tab value="Infrastructure">
+<Tab title="Infrastructure">
 
 | Layer | Technology |
 | --- | --- |
@@ -69,7 +69,7 @@ Google OAuth only — no email/password. This eliminates credential stuffing, we
 
 </Tab>
 
-<Tab value="Email">
+<Tab title="Email">
 
 | Tool | Role |
 | --- | --- |
@@ -79,7 +79,7 @@ Google OAuth only — no email/password. This eliminates credential stuffing, we
 
 </Tab>
 
-<Tab value="Testing & Quality">
+<Tab title="Testing & Quality">
 
 | Tool | Purpose |
 | --- | --- |
@@ -96,7 +96,7 @@ Google OAuth only — no email/password. This eliminates credential stuffing, we
 
 </Tab>
 
-<Tab value="Observability">
+<Tab title="Observability">
 
 | Layer | Tool | Free Tier |
 | --- | --- | --- |
@@ -107,7 +107,7 @@ Google OAuth only — no email/password. This eliminates credential stuffing, we
 
 </Tab>
 
-<Tab value="CRM & Leads">
+<Tab title="CRM & Leads">
 
 | Tool | Role |
 | --- | --- |
@@ -116,9 +116,9 @@ Google OAuth only — no email/password. This eliminates credential stuffing, we
 | **Meta Conversions API (CAPI)** | Server-side event tracking — reliable, unaffected by iOS privacy |
 | **Custom `/admin/leads`** | In-house lead pipeline — reads directly from Neon DB |
 
-<Callout type="info">
+<Info>
   **Why no external CRM:** all customer and booking data lives in Neon DB. An external CRM would require a continuous sync pipeline, creating two sources of truth. The CRM is built as admin views inside the app.
-</Callout>
+</Info>
 
 </Tab>
 
@@ -136,7 +136,7 @@ Google OAuth only — no email/password. This eliminates credential stuffing, we
 
 Key decisions where alternatives were seriously considered. Expand each to see what was rejected and why.
 
-<Accordions type="single">
+<AccordionGroup>
 
 <Accordion title="Auth → Better Auth (rejected: Clerk, Auth.js)">
 Self-hosted, the Google consent screen shows **your** domain, and it ships a built-in RBAC plugin. Clerk and Auth.js were rejected on hosting/branding and missing native RBAC.
@@ -166,12 +166,18 @@ DPDP Act concerns with GA. PostHog offers 1M events/mo plus feature flags.
 ~100x faster, a single config file, and native TypeScript support.
 </Accordion>
 
-</Accordions>
+</AccordionGroup>
 
 ## Related Pages
 
-<Cards>
-  <Card title="Architecture" href="/docs/architecture" description="How these technologies fit together as a layered monorepo" />
-  <Card title="Data Model" href="/docs/data-model" description="The 38-table Drizzle schema running on Neon" />
-  <Card title="System Design" href="/docs/system-design" description="High-level and low-level design documents" />
-</Cards>
+<Columns cols={2}>
+  <Card title="Architecture" href="/docs/architecture">
+  How these technologies fit together as a layered monorepo
+</Card>
+  <Card title="Data Model" href="/docs/data-model">
+  The 38-table Drizzle schema running on Neon
+</Card>
+  <Card title="System Design" href="/docs/system-design">
+  High-level and low-level design documents
+</Card>
+</Columns>

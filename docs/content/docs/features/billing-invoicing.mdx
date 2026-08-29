@@ -11,11 +11,11 @@ GST-compliant tax invoice, saves it as a PDF, emails it to the customer, and
 awards loyalty gems — all in one step. This page explains what happens, the
 rules behind the numbers, and the three kinds of invoice the salon produces.
 
-<Callout type="info">
+<Info>
   All prices in the system are **GST-inclusive**. The price a customer sees is
   the final price they pay — GST is back-calculated out of it, never added on
   top.
-</Callout>
+</Info>
 
 ## What it is
 
@@ -30,21 +30,15 @@ At the counter, the receptionist opens the checkout panel on the booking and
 works through three short steps:
 
 <Steps>
-<Step>
-### Apply an offer (optional)
-
+<Step title="Apply an offer (optional)">
 Choose one eligible offer for the customer, or none. The limit is one offer per
 customer per day.
 </Step>
-<Step>
-### Select payment method
-
+<Step title="Select payment method">
 Cash, UPI, or Card. Payment is taken in person; there is no online gateway in
 Phase 1.
 </Step>
-<Step>
-### Review
-
+<Step title="Review">
 The panel shows each service and price, the subtotal before GST, the GST amount,
 the GST-inclusive total, and the gems about to be awarded.
 </Step>
@@ -53,54 +47,38 @@ the GST-inclusive total, and the gems about to be awarded.
 On **Complete & Generate Invoice**, the server runs a single transaction:
 
 <Steps>
-<Step>
-### Complete the booking
-
+<Step title="Complete the booking">
 The booking status moves to `completed`.
 </Step>
-<Step>
-### Insert the invoice
-
+<Step title="Insert the invoice">
 An invoice row is inserted, with each line item snapshotted (name and price
 frozen at this moment).
 </Step>
-<Step>
-### Award gems
-
+<Step title="Award gems">
 The customer's gems balance is increased.
 </Step>
-<Step>
-### Generate the PDF
-
+<Step title="Generate the PDF">
 A PDF is generated and uploaded to Cloudflare R2 storage.
 </Step>
-<Step>
-### Save the PDF URL
-
+<Step title="Save the PDF URL">
 The PDF's URL is saved on the invoice.
 </Step>
-<Step>
-### Send the email
-
+<Step title="Send the email">
 The invoice email is sent via Resend with the PDF attached.
 </Step>
-<Step>
-### Fire the CAPI event
-
+<Step title="Fire the CAPI event">
 A Meta CAPI Purchase event fires if the booking came from a lead.
 </Step>
-<Step>
-### Publish realtime events
-
+<Step title="Publish realtime events">
 Realtime `booking.completed` and `invoice.created` events are published.
 </Step>
 </Steps>
 
-<Callout type="info">
+<Info>
   Because line items are **snapshots**, changing a service's price in the
   catalogue later never alters an invoice that was already issued. The invoice is
   a permanent record of what was charged on the day.
-</Callout>
+</Info>
 
 ## How it works — GST calculation
 
@@ -125,20 +103,20 @@ For an intra-state sale (Karnataka to Karnataka) the 18% splits evenly into 9%
 CGST and 9% SGST. The remainder from rounding goes to SGST so the parts always
 add back to the exact total: ₹1,101.69 + ₹99.15 + ₹99.16 = ₹1,300.00.
 
-<Callout type="info">
+<Info>
   Money is stored as integer **paise** (₹1,300.00 is `130000`), never as a
   floating-point number, so totals never drift. Rounding happens only at display
   time. The SAC code for these services is **999721**, and the salon's GSTIN
   appears on every invoice.
-</Callout>
+</Info>
 
 ## The three invoice types
 
 Not every invoice is a paid service. The system produces three types, driven by
 what triggered them.
 
-<Tabs items={['Service', 'Membership purchase', 'Membership session']}>
-  <Tab value="Service">
+<Tabs>
+  <Tab title="Service">
     - **Trigger:** a booking is marked completed at checkout.
     - **Line items:** the individual services performed (snapshotted).
     - **Amount:** the sum of service prices, GST-inclusive.
@@ -146,7 +124,7 @@ what triggered them.
     - **Gems:** 1 gem per ₹100 invoiced (floored).
     - **Email:** invoice receipt with a Google review link.
   </Tab>
-  <Tab value="Membership purchase">
+  <Tab title="Membership purchase">
     - **Trigger:** a SPA membership record is created.
     - **Line items:** a single line, e.g. "Gold Membership — 15 hrs · 90 days".
     - **Amount:** the membership price, GST-inclusive.
@@ -154,7 +132,7 @@ what triggered them.
     - **Gems:** none — memberships never earn gems.
     - **Email:** invoice plus a welcome message.
   </Tab>
-  <Tab value="Membership session">
+  <Tab title="Membership session">
     - **Trigger:** a session is recorded against an active membership.
     - **Line items:** the services performed (snapshotted).
     - **Amount:** always ₹0.00 — "covered by membership".
@@ -164,10 +142,10 @@ what triggered them.
   </Tab>
 </Tabs>
 
-<Callout type="info">
+<Info>
   Gems are awarded **only** on `service` invoices. Membership purchases and
   membership sessions never earn gems. See [Loyalty — Gems](/docs/features/loyalty-gems).
-</Callout>
+</Info>
 
 ## Invoice number format
 
@@ -195,11 +173,11 @@ exponential backoff via QStash. The PDF is always available in the admin panel
 regardless of email status, and a receptionist can re-send it from the invoice
 detail page at any time.
 
-<Callout type="warn">
+<Warning>
   Invoice receipts and booking confirmations are **transactional** emails — they
   are always sent and cannot be fully switched off in notification preferences.
   Only marketing emails respect opt-out. See [Notifications & Email](/docs/features/notifications).
-</Callout>
+</Warning>
 
 ## Export for the accountant
 
@@ -213,11 +191,23 @@ for filing.
 
 ## Related links
 
-<Cards>
-  <Card title="Booking System" href="/docs/features/booking" description="How a booking reaches the completed state that triggers an invoice." />
-  <Card title="SPA Memberships" href="/docs/features/memberships" description="The purchase and session invoices and how hours are tracked." />
-  <Card title="Loyalty — Gems" href="/docs/features/loyalty-gems" description="How gems are earned on service invoices only." />
-  <Card title="Offers & Combos" href="/docs/features/offers" description="How an applied offer changes the invoice total." />
-  <Card title="Admin — Bookings API" href="/docs/api-reference/admin-bookings" description="The complete endpoint that generates the invoice and awards gems." />
-  <Card title="Data Model" href="/docs/data-model" description="The invoice and invoice_item tables." />
-</Cards>
+<Columns cols={2}>
+  <Card title="Booking System" href="/docs/features/booking">
+  How a booking reaches the completed state that triggers an invoice.
+</Card>
+  <Card title="SPA Memberships" href="/docs/features/memberships">
+  The purchase and session invoices and how hours are tracked.
+</Card>
+  <Card title="Loyalty — Gems" href="/docs/features/loyalty-gems">
+  How gems are earned on service invoices only.
+</Card>
+  <Card title="Offers & Combos" href="/docs/features/offers">
+  How an applied offer changes the invoice total.
+</Card>
+  <Card title="Admin — Bookings API" href="/docs/api-reference/admin-bookings">
+  The complete endpoint that generates the invoice and awards gems.
+</Card>
+  <Card title="Data Model" href="/docs/data-model">
+  The invoice and invoice_item tables.
+</Card>
+</Columns>

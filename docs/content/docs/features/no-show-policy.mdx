@@ -11,11 +11,11 @@ only adds friction for repeat offenders. There are **no fees, ever** — the onl
 consequence is that frequent no-shows eventually need a manager to approve their
 bookings. This page explains how the tiers work and how a customer recovers.
 
-<Callout type="info">
+<Info>
   A booking is marked `no_show` automatically 15 minutes after its end time if it
   was still `confirmed` and the customer never arrived. The policy applies only to
   pre-booked appointments — see why walk-ins are excluded below.
-</Callout>
+</Info>
 
 ## What it is
 
@@ -34,11 +34,11 @@ count rises.
 | **4th** (within 90 days of the 1st) | `booking_requires_approval` is set to `true` — a manager must approve every future booking. A push and email go to the customer, and the **"No-Show Risk"** CRM tag is applied. |
 | **5th** (any time) | A warning note is added to all future bookings for the receptionist: *"Repeated no-shows — verify before confirming."* The receptionist can still override per booking. |
 
-<Callout type="warn">
+<Warning>
   The 4th no-show only triggers approval-required if it falls **within 90 days**
   of the first one. The window matters: misses spread thinly over a long period
   don't escalate the same way a cluster of recent misses does.
-</Callout>
+</Warning>
 
 ## How it works — the "No-Show Risk" tag
 
@@ -54,7 +54,7 @@ Once a customer crosses the 4th-no-show threshold, two things happen together:
 The policy is designed to forgive. A flagged customer earns their way back
 automatically:
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="How does a customer clear the No-Show Risk flag?">
 Completing **3 consecutive bookings** with no no-show in between clears the flag:
 `booking_requires_approval` returns to `false` and the "No-Show Risk" tag is
@@ -64,13 +64,13 @@ removed.
 Any no-show **resets** the streak — `consecutive_completed_bookings` goes back to
 `0` — so the three completed bookings must be unbroken.
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
-<Callout type="info">
+<Info>
   Recovery is hands-off. No one at the salon has to manually clear the flag — the
   system removes it the moment the customer completes their third consecutive
   clean booking.
-</Callout>
+</Info>
 
 ## Why walk-ins don't count
 
@@ -78,11 +78,11 @@ A walk-in booking is created by a receptionist only when the customer is already
 physically standing in the salon. There is no pre-reserved slot for them to miss,
 so a `no_show` status on a walk-in does **not** count toward the no-show tier.
 
-<Callout type="info">
+<Info>
   The same fairness applies to salon-side cancellations. If the salon cancels a
   booking — for example because a staff member went on leave — that is never
   counted against the customer. See [Staff Scheduling & Leave](/docs/features/scheduling-leave).
-</Callout>
+</Info>
 
 ## How it relates to cancellations
 
@@ -103,10 +103,20 @@ other policy settings like the GST number and business hours.
 
 ## Related links
 
-<Cards>
-  <Card title="Booking System" href="/docs/features/booking" description="The booking lifecycle, including how a booking becomes a no-show." />
-  <Card title="Staff Scheduling & Leave" href="/docs/features/scheduling-leave" description="Why salon-side cancellations never count against the customer." />
-  <Card title="CRM & Lead Pipeline" href="/docs/features/crm-leads" description="How the No-Show Risk tag and notes appear on a customer profile." />
-  <Card title="Admin — Bookings API" href="/docs/api-reference/admin-bookings" description="Marking a booking as no-show and the manager approval flow." />
-  <Card title="Data Model" href="/docs/data-model" description="The customer_profile no-show fields and customer_tag tables." />
-</Cards>
+<Columns cols={2}>
+  <Card title="Booking System" href="/docs/features/booking">
+  The booking lifecycle, including how a booking becomes a no-show.
+</Card>
+  <Card title="Staff Scheduling & Leave" href="/docs/features/scheduling-leave">
+  Why salon-side cancellations never count against the customer.
+</Card>
+  <Card title="CRM & Lead Pipeline" href="/docs/features/crm-leads">
+  How the No-Show Risk tag and notes appear on a customer profile.
+</Card>
+  <Card title="Admin — Bookings API" href="/docs/api-reference/admin-bookings">
+  Marking a booking as no-show and the manager approval flow.
+</Card>
+  <Card title="Data Model" href="/docs/data-model">
+  The customer_profile no-show fields and customer_tag tables.
+</Card>
+</Columns>

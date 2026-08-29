@@ -11,7 +11,7 @@ is none) and then checks the caller's role against the hierarchy
 `customer < staff < receptionist < manager < owner < developer`
 (`FORBIDDEN` 403 when the level is too low).
 
-<Callout type="info">
+<Info>
   **Base URL:** `admin.theroyalglow.in` · **Auth:** Better Auth session;
   **minimum role `receptionist`** on every endpoint on this page. These paths
   carry **no `/admin` prefix** — the admin subdomain is the namespace, so the
@@ -20,7 +20,7 @@ is none) and then checks the caller's role against the hierarchy
   [Bookings](/docs/api-reference/bookings)). Money is an integer in **paise**;
   `bookingDate` filters use `YYYY-MM-DD`; stored times render as `HH:mm:ss`.
   Timestamps are ISO-8601 UTC.
-</Callout>
+</Info>
 
 ## GET /api/bookings
 
@@ -41,25 +41,11 @@ GET /api/bookings?status=pending&serviceType=salon&date=2026-06-15
 All optional. Filters are applied with exact equality; omitting a parameter
 skips that filter.
 
-<TypeTable
-  type={{
-    status: {
-      type: 'string',
-      description: 'Booking status, e.g. pending, confirmed, in_progress, completed, cancelled, no_show, rejected.',
-      required: false,
-    },
-    serviceType: {
-      type: 'string',
-      description: 'salon or spa.',
-      required: false,
-    },
-    date: {
-      type: 'string',
-      description: 'YYYY-MM-DD. Matches the bookingDate exactly.',
-      required: false,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `status` | `string` | No | Booking status, e.g. pending, confirmed, in_progress, completed, cancelled, no_show, rejected. |
+| `serviceType` | `string` | No | salon or spa. |
+| `date` | `string` | No | YYYY-MM-DD. Matches the bookingDate exactly. |
 
 ### Response
 
@@ -116,7 +102,7 @@ skips that filter.
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -132,7 +118,7 @@ Caller's role is below `receptionist`.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -149,15 +135,9 @@ GET /api/bookings/bk_8f2a1c9e4d
 
 ### Path parameters
 
-<TypeTable
-  type={{
-    id: {
-      type: 'string',
-      description: 'Path. The booking id.',
-      required: true,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | `string` | Yes | Path. The booking id. |
 
 ### Response
 
@@ -212,7 +192,7 @@ GET /api/bookings/bk_8f2a1c9e4d
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -233,7 +213,7 @@ No booking with that id.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -260,40 +240,20 @@ Content-Type: application/json
 
 ### Path parameters
 
-<TypeTable
-  type={{
-    id: {
-      type: 'string',
-      description: 'Path. The booking id.',
-      required: true,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | `string` | Yes | Path. The booking id. |
 
 ### Request body
 
-<TypeTable
-  type={{
-    action: {
-      type: 'enum',
-      description: 'approve, reject, or assign. Determines which other fields are required.',
-      required: true,
-    },
-    staffId: {
-      type: 'string',
-      description: 'Required for approve and assign. Non-empty staff_profile id assigned to all services.',
-      required: false,
-    },
-    rejectionReason: {
-      type: 'string',
-      description: 'Required for reject. 1–500 characters. Customer-facing reason.',
-      required: false,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `action` | `enum` | Yes | approve, reject, or assign. Determines which other fields are required. |
+| `staffId` | `string` | No | Required for approve and assign. Non-empty staff_profile id assigned to all services. |
+| `rejectionReason` | `string` | No | Required for reject. 1–500 characters. Customer-facing reason. |
 
-<Tabs items={['approve', 'reject', 'assign']}>
-<Tab value="approve">
+<Tabs>
+<Tab title="approve">
 
 ```json
 {
@@ -303,7 +263,7 @@ Content-Type: application/json
 ```
 
 </Tab>
-<Tab value="reject">
+<Tab title="reject">
 
 ```json
 {
@@ -313,7 +273,7 @@ Content-Type: application/json
 ```
 
 </Tab>
-<Tab value="assign">
+<Tab title="assign">
 
 ```json
 {
@@ -327,8 +287,8 @@ Content-Type: application/json
 
 ### Response
 
-<Tabs items={['approve / reject', 'assign']}>
-<Tab value="approve / reject">
+<Tabs>
+<Tab title="approve / reject">
 
 The updated booking row is returned.
 
@@ -368,7 +328,7 @@ The updated booking row is returned.
 ```
 
 </Tab>
-<Tab value="assign">
+<Tab title="assign">
 
 The booking id and the updated `booking_service` rows are returned.
 
@@ -398,7 +358,7 @@ The booking id and the updated `booking_service` rows are returned.
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -430,7 +390,7 @@ No booking with that id.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -450,15 +410,9 @@ Content-Type: application/json
 
 ### Path parameters
 
-<TypeTable
-  type={{
-    id: {
-      type: 'string',
-      description: 'Path. The booking id.',
-      required: true,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | `string` | Yes | Path. The booking id. |
 
 ### Request body
 
@@ -466,30 +420,12 @@ Content-Type: application/json
 offer/gems fields are read defensively from the raw body alongside the parsed
 payload.
 
-<TypeTable
-  type={{
-    paymentMethod: {
-      type: 'enum',
-      description: 'cash, upi, or card.',
-      required: true,
-    },
-    offerId: {
-      type: 'string',
-      description: 'Apply a salon-only offer to the total. Validated as active and within its date range; cannot be combined with gems; one offer per customer per day.',
-      required: false,
-    },
-    gemsRedeemedServiceId: {
-      type: 'string',
-      description: 'Presence signals a gems redemption on this booking. Mutually exclusive with offerId.',
-      required: false,
-    },
-    redeemGems: {
-      type: 'boolean',
-      description: 'Truthy value also signals a gems redemption (mutually exclusive with offerId).',
-      required: false,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `paymentMethod` | `enum` | Yes | cash, upi, or card. |
+| `offerId` | `string` | No | Apply a salon-only offer to the total. Validated as active and within its date range; cannot be combined with gems; one offer per customer per day. |
+| `gemsRedeemedServiceId` | `string` | No | Presence signals a gems redemption on this booking. Mutually exclusive with offerId. |
+| `redeemGems` | `boolean` | No | Truthy value also signals a gems redemption (mutually exclusive with offerId). |
 
 ```json
 {
@@ -545,16 +481,16 @@ discount applied (all amounts in paise).
 }
 ```
 
-<Callout type="info">
+<Info>
   Gems are earned on the discounted total at 1 gem per ₹100 (floor) and expire
   365 days from earn date. The invoice subtotal is the original (pre-discount)
   base; the taxable value and GST are split from the discounted total. With no
   `offerId`, `discountPaise` is `0` and the total is unchanged.
-</Callout>
+</Info>
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -597,7 +533,7 @@ already redeemed an offer today.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -615,15 +551,9 @@ POST /api/bookings/bk_8f2a1c9e4d/noshow
 
 ### Path parameters
 
-<TypeTable
-  type={{
-    id: {
-      type: 'string',
-      description: 'Path. The booking id.',
-      required: true,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | `string` | Yes | Path. The booking id. |
 
 ### Response
 
@@ -664,7 +594,7 @@ POST /api/bookings/bk_8f2a1c9e4d/noshow
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -690,4 +620,4 @@ Booking is not in `confirmed` status.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>

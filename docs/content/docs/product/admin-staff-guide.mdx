@@ -5,13 +5,13 @@ description: For the salon team — the six roles and what each can do, plus dai
 
 # Admin & Staff Guide
 
-<Callout type="info">
+<Info>
   **For the salon team.** This guide explains who can do what, then walks through
   the everyday tasks — bookings, payment, membership sessions, customers, the lead
   pipeline, offers, and staff schedules. The internal tool is the **admin
   portal** at `admin.theroyalglow.in` (its own subdomain — pages sit at the root,
   with no `/admin` prefix).
-</Callout>
+</Info>
 
 This guide is for the people who run Royal Glow — the front desk, stylists and
 therapists, managers, and owners. It explains who can do what, then walks
@@ -62,11 +62,11 @@ This matrix is the quick answer to "can this person do that?" A ✅ means yes.
 | Add / edit branches | ❌ | ❌ | ❌ | ✅ | ✅ |
 | Integrations & error logs | ❌ | ❌ | ❌ | ❌ | ✅ |
 
-<Callout type="info">
+<Info>
   **Receptionists cannot change prices.** They take payment and apply offers,
   but editing the price list is a Manager-and-above task. This protects pricing
   integrity at the front desk.
-</Callout>
+</Info>
 
 A note on staff: a Stylist or Therapist sees only their **own** assigned
 appointments and the service notes attached to them (for example, "allergic to
@@ -81,24 +81,16 @@ New online bookings arrive as **Pending** and appear live on the dashboard and
 the bookings list. To handle one:
 
 <Steps>
-<Step>
-### Open the booking
-
+<Step title="Open the booking">
 Open it from the dashboard or the **Bookings** list.
 </Step>
-<Step>
-### Review the details
-
+<Step title="Review the details">
 Review the customer, services, date, and time.
 </Step>
-<Step>
-### Assign staff
-
+<Step title="Assign staff">
 Assign a staff member to each service (a dropdown per service).
 </Step>
-<Step>
-### Approve or reject
-
+<Step title="Approve or reject">
 Click **Approve** to confirm it, or **Reject** and give a reason.
 </Step>
 </Steps>
@@ -113,24 +105,16 @@ PM — please try 4:00 PM").
 When a customer arrives without booking, create a walk-in:
 
 <Steps>
-<Step>
-### Start a walk-in
-
+<Step title="Start a walk-in">
 Click **+ Walk-in**.
 </Step>
-<Step>
-### Find or create the customer
-
+<Step title="Find or create the customer">
 Search for the customer (or create a new one).
 </Step>
-<Step>
-### Pick services & staff
-
+<Step title="Pick services & staff">
 Pick the service type, services, and assign staff.
 </Step>
-<Step>
-### Set the time and save
-
+<Step title="Set the time and save">
 Set the time (defaults to now) and save.
 </Step>
 </Steps>
@@ -138,10 +122,10 @@ Set the time (defaults to now) and save.
 Walk-ins skip "pending" and are **confirmed immediately**, because the customer
 is already in front of you.
 
-<Callout type="info">
+<Info>
   A no-show on a walk-in **never** counts against the customer — a walk-in is
   only created when they're physically present, so there's no slot to miss.
-</Callout>
+</Info>
 
 ### Completing a booking → invoice → gems
 
@@ -149,34 +133,22 @@ When the service is finished, the same checkout flow handles payment, the
 invoice, and loyalty gems in one go:
 
 <Steps>
-<Step>
-### Mark In Progress
-
+<Step title="Mark In Progress">
 On the confirmed booking, mark it **In Progress** when the customer checks in.
 </Step>
-<Step>
-### Open checkout
-
+<Step title="Open checkout">
 When the service is done, click **Mark Completed** to open checkout.
 </Step>
-<Step>
-### Apply an offer (optional)
-
+<Step title="Apply an offer (optional)">
 Optionally apply **one offer** (max one per customer per day).
 </Step>
-<Step>
-### Choose payment method
-
+<Step title="Choose payment method">
 Choose the payment method: **Cash, UPI, or Card**.
 </Step>
-<Step>
-### Review the invoice
-
+<Step title="Review the invoice">
 Review the invoice preview (line items, GST split, total).
 </Step>
-<Step>
-### Complete & generate invoice
-
+<Step title="Complete & generate invoice">
 Click **Complete & Generate Invoice**.
 </Step>
 </Steps>
@@ -189,11 +161,11 @@ The system then, in a single step:
 - Awards **gems** — 1 gem per ₹100 on the bill (rounded down)
 - Updates the customer's visit count, lifetime value, and the day's revenue
 
-<Callout type="info">
+<Info>
   **Prices on an invoice are frozen.** Each line item stores the service name
   and price as they were at the time of sale. Changing a price later never
   alters past invoices.
-</Callout>
+</Info>
 
 ### Recording a membership session
 
@@ -201,24 +173,16 @@ When a member comes in for a spa session, you record it against their hours
 instead of taking payment:
 
 <Steps>
-<Step>
-### Open the membership
-
+<Step title="Open the membership">
 Open it from **Memberships** (or the customer's profile).
 </Step>
-<Step>
-### Record a session
-
+<Step title="Record a session">
 Click **Record Session**.
 </Step>
-<Step>
-### Select services & duration
-
+<Step title="Select services & duration">
 Select the service(s) performed and confirm the duration.
 </Step>
-<Step>
-### Save
-
+<Step title="Save">
 Save the session.
 </Step>
 </Steps>
@@ -253,7 +217,7 @@ shows them as a board you move across stages:
 New → Contacted → Follow-up → Booked → Won / Lost
 ```
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="New">
 Just captured. Not yet contacted.
 </Accordion>
@@ -272,18 +236,18 @@ The booking was completed and paid — revenue attributed.
 <Accordion title="Lost">
 They didn't convert (record a reason).
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 Each lead card shows the name, phone (tap to call or open WhatsApp), service
 interest, and which campaign brought them in. Leads with no contact for 48 hours
 are flagged as **stale** so nothing slips through. When a lead books and
 completes a paid visit, it moves to **Won** automatically.
 
-<Callout type="info">
+<Info>
   A customer who finds you through Google, the in-salon QR code, or by typing
   the website directly is a normal **booking/customer**, not a lead. The lead
   pipeline is specifically for paid-ad prospects.
-</Callout>
+</Info>
 
 ### Creating offers
 
@@ -309,19 +273,13 @@ accurate matters.
 Leave follows a clear **request → review → decision** flow:
 
 <Steps>
-<Step>
-### Submit
-
+<Step title="Submit">
 A staff member submits a leave request for a future date. It starts as **Pending**.
 </Step>
-<Step>
-### Review
-
+<Step title="Review">
 Receptionists and the manager are notified and review it in **Leave**.
 </Step>
-<Step>
-### Decide
-
+<Step title="Decide">
 They **Approve** (which blocks that staff member's availability for the date) or
 **Reject** with a reason.
 </Step>
@@ -356,69 +314,45 @@ tally.
 ## A day at the front desk, in order
 
 <Steps>
-<Step>
-### Check the dashboard
-
+<Step title="Check the dashboard">
 Pending bookings, today's appointments, stale leads.
 </Step>
-<Step>
-### Approve or reject
-
+<Step title="Approve or reject">
 Action pending bookings and assign staff.
 </Step>
-<Step>
-### Create walk-ins
-
+<Step title="Create walk-ins">
 As customers arrive.
 </Step>
-<Step>
-### Mark In Progress
-
+<Step title="Mark In Progress">
 At check-in.
 </Step>
-<Step>
-### Checkout
-
+<Step title="Checkout">
 Completed services — payment, invoice, gems.
 </Step>
-<Step>
-### Record membership sessions
-
+<Step title="Record membership sessions">
 For spa members.
 </Step>
-<Step>
-### Work the lead pipeline
-
+<Step title="Work the lead pipeline">
 Call and follow up.
 </Step>
-<Step>
-### Update customer notes and tags
-
+<Step title="Update customer notes and tags">
 As you learn things.
 </Step>
-<Step>
-### Action leave requests
-
+<Step title="Action leave requests">
 Review and decide.
 </Step>
 </Steps>
 
 ## Where to go next
 
-<Cards>
-  <Card
-    title="Business Overview"
-    href="/docs/product/business-overview"
-    description="The big-picture view of the business, its modules, and how it makes money."
-  />
-  <Card
-    title="Customer Guide"
-    href="/docs/product/customer-guide"
-    description="See exactly what your customers experience when they book online."
-  />
-  <Card
-    title="Features"
-    href="/docs/features"
-    description="Deeper reference for any module — billing, memberships, CRM, scheduling, and more."
-  />
-</Cards>
+<Columns cols={2}>
+  <Card title="Business Overview" href="/docs/product/business-overview">
+  The big-picture view of the business, its modules, and how it makes money.
+</Card>
+  <Card title="Customer Guide" href="/docs/product/customer-guide">
+  See exactly what your customers experience when they book online.
+</Card>
+  <Card title="Features" href="/docs/features">
+  Deeper reference for any module — billing, memberships, CRM, scheduling, and more.
+</Card>
+</Columns>

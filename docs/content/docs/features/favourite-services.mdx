@@ -7,11 +7,11 @@ description: Customers can heart services to mark them as favourites, which appe
 
 Customers can "heart" services to mark them as favourites. Favourited services appear first in the booking dialog (Step 3) on subsequent bookings, reducing friction for repeat customers.
 
-<Callout type="info">
+<Info>
   In plain terms: a customer taps a heart on the services they book most often,
   and those services jump to a "Your Favourites" section at the top next time —
   so a regular can re-book their usual two or three services in seconds.
-</Callout>
+</Info>
 
 ## Problem
 
@@ -43,22 +43,22 @@ CREATE INDEX idx_favourite_service_user ON favourite_service(user_id);
 
 The columns at a glance:
 
-<TypeTable type={{
-  user_id: { type: 'text', description: 'FK to user(id), ON DELETE CASCADE. Part of the composite primary key.', required: true },
-  service_id: { type: 'text', description: 'FK to service(id), ON DELETE CASCADE. Part of the composite primary key.', required: true },
-  created_at: { type: 'timestamptz', description: 'When the favourite was added — enables future "most recently favourited" sorting.', required: true, default: 'now()' }
-}} />
+| Name | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `user_id` | `text` | Yes |  | FK to user(id), ON DELETE CASCADE. Part of the composite primary key. |
+| `service_id` | `text` | Yes |  | FK to service(id), ON DELETE CASCADE. Part of the composite primary key. |
+| `created_at` | `timestamptz` | Yes | `now()` | When the favourite was added — enables future "most recently favourited" sorting. |
 
 ## API Endpoints
 
-<Tabs items={['GET', 'POST', 'DELETE']}>
-<Tab value="GET">
+<Tabs>
+<Tab title="GET">
 `GET /api/favourites` — list the signed-in user's favourites.
 
 - **Auth:** Required (customer+)
 - **Response:** `{ success: true, data: { favourites: string[] } }` (array of service IDs)
 </Tab>
-<Tab value="POST">
+<Tab title="POST">
 `POST /api/favourites` — add a favourite.
 
 - **Auth:** Required (customer+)
@@ -66,7 +66,7 @@ The columns at a glance:
 - **Response:** `{ success: true }`
 - **Conflict handling:** if already favourited, returns success silently (idempotent)
 </Tab>
-<Tab value="DELETE">
+<Tab title="DELETE">
 `DELETE /api/favourites` — remove a favourite.
 
 - **Auth:** Required (customer+)
@@ -149,7 +149,7 @@ Toggle favourite:
 
 ## Edge Cases
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="User not signed in">
 The heart icon is hidden — favourites require auth.
 </Accordion>
@@ -165,7 +165,7 @@ The optimistic state is reverted and an error toast is shown.
 <Accordion title="Same service favourited from /services and the booking dialog">
 Same API, same DB row — no conflict.
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ## Accessibility
 
@@ -192,14 +192,14 @@ Same API, same DB row — no conflict.
 
 ## Implementation Priority
 
-<Tabs items={['Phase 1 (Launch)', 'Phase 2 (Post-launch)']}>
-<Tab value="Phase 1 (Launch)">
+<Tabs>
+<Tab title="Phase 1 (Launch)">
 - DB table + migration
 - 3 API endpoints (GET, POST, DELETE)
 - Heart icon on booking dialog Step 3
 - "Your Favourites" section ordering in booking
 </Tab>
-<Tab value="Phase 2 (Post-launch)">
+<Tab title="Phase 2 (Post-launch)">
 - Heart icon on `/services` page
 - "My Favourites" section on `/profile`
 - Analytics events

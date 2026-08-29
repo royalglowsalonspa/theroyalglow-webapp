@@ -5,23 +5,23 @@ description: Product analytics, event tracking, funnels, and attribution for Roy
 
 # Analytics
 
-<Callout type="info">
+<Info>
   **In one line:** PostHog is the primary product-analytics platform (funnels,
   flags, replay) and Microsoft Clarity adds heatmaps. Meta Pixel + CAPI handle ad
   attribution, UTM params drive `acquisition_source`, and every script loads
   **only after explicit cookie consent** — all on free, DPDP-compliant tiers.
-</Callout>
+</Info>
 
 Royal Glow uses **PostHog** as the primary product analytics platform and **Microsoft Clarity** for heatmaps and session recordings. Both are free and DPDP Act compliant.
 
-<Callout type="info">
+<Info>
   All analytics scripts load **only after explicit cookie consent** from the user. The cookie consent banner is a custom two-tier implementation — no paid consent management tool needed.
-</Callout>
+</Info>
 
 ## Analytics platforms
 
-<Tabs items={['PostHog', 'Microsoft Clarity']}>
-<Tab value="PostHog">
+<Tabs>
+<Tab title="PostHog">
 
 **Free tier:** 1 million events/month — won't hit this limit for a very long time at salon scale.
 
@@ -33,7 +33,7 @@ PostHog covers the full funnel: page views → service browsing → booking → 
 - **Cohort analysis** — customers by acquisition source (Meta / GMB / organic / walk-in)
 
 </Tab>
-<Tab value="Microsoft Clarity">
+<Tab title="Microsoft Clarity">
 
 **Free tier:** Completely free, no event caps, no session limits.
 
@@ -70,7 +70,7 @@ Clarity complements PostHog — it's better at visual heatmaps, PostHog is bette
 
 ## Funnels
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="Funnel 1 — Organic Booking">
 Homepage → Book Now clicked → Dialog opened → Step 1 → Step 2 → Step 3 → Step 4 → Booking submitted → Booking confirmed
 </Accordion>
@@ -83,7 +83,7 @@ Homepage → Book Now clicked → Dialog opened → Step 1 → Step 2 → Step 3
 <Accordion title="Funnel 4 — Walk-in QR">
 `/?book=1&utm_source=walkin` → Sign in/onboarding → Dialog → Booking submitted
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ### Feature Flags
 
@@ -103,8 +103,8 @@ const showNewHero = useFeatureFlagEnabled('new-hero-v2')
 
 ## Meta Attribution
 
-<Tabs items={['Meta Pixel (browser)', 'Meta CAPI (server)']}>
-<Tab value="Meta Pixel (browser)">
+<Tabs>
+<Tab title="Meta Pixel (browser)">
 
 Fires on key events:
 
@@ -115,7 +115,7 @@ Fires on key events:
 - `Purchase` — booking completion with invoice
 
 </Tab>
-<Tab value="Meta CAPI (server)">
+<Tab title="Meta CAPI (server)">
 
 Server-side events sent from Next.js API routes. These are reliable and unaffected by iOS privacy restrictions or ad blockers.
 
@@ -161,19 +161,13 @@ Consent preference is stored in `localStorage` (`rgss_cookie_consent`) for 365 d
 Track whether Royal Glow appears in Google AI Overviews:
 
 <Steps>
-<Step>
-### Google Search Console
-
+<Step title="Google Search Console">
 "AI Overview" impressions appear in the Performance report.
 </Step>
-<Step>
-### Manual search audits
-
+<Step title="Manual search audits">
 Weekly: search target queries in incognito, check AI answer inclusion.
 </Step>
-<Step>
-### PostHog referrer tracking
-
+<Step title="PostHog referrer tracking">
 Track visits where `referrer` contains `google.com`.
 </Step>
 </Steps>

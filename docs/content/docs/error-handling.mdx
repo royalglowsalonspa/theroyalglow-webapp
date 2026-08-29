@@ -5,12 +5,12 @@ description: API error patterns, error codes, AppError class, and Sentry integra
 
 # Error Handling
 
-<Callout type="info">
+<Info>
   **In one line:** Every error follows one structured JSON shape with a
   machine-readable `code`, a human message, and a `requestId` for Sentry
   correlation. Operational (expected) errors are logged at `warn`; programmer
   (unexpected) errors are logged at `error` and alert via Sentry.
-</Callout>
+</Info>
 
 ## Design Principles
 
@@ -23,8 +23,8 @@ description: API error patterns, error codes, AppError class, and Sentry integra
 
 ## Standard Response Shapes
 
-<Tabs items={['Error', 'Success']}>
-<Tab value="Error">
+<Tabs>
+<Tab title="Error">
 
 ```json
 {
@@ -40,7 +40,7 @@ description: API error patterns, error codes, AppError class, and Sentry integra
 ```
 
 </Tab>
-<Tab value="Success">
+<Tab title="Success">
 
 ```json
 {
@@ -70,8 +70,8 @@ description: API error patterns, error codes, AppError class, and Sentry integra
 
 ## Error Classification
 
-<Tabs items={['Operational (expected)', 'Programmer (unexpected)']}>
-<Tab value="Operational (expected)">
+<Tabs>
+<Tab title="Operational (expected)">
 
 Logged at `warn` level. No Sentry alert.
 
@@ -84,7 +84,7 @@ Logged at `warn` level. No Sentry alert.
 | Not found | Booking ID doesn't exist |
 
 </Tab>
-<Tab value="Programmer (unexpected)">
+<Tab title="Programmer (unexpected)">
 
 Logged at `error` level. Sentry captures with full context.
 
@@ -241,7 +241,7 @@ All rate limiting runs in Next.js middleware via `@upstash/ratelimit` backed by 
 
 The client switches on the error `code` to decide what the user sees:
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED → redirect to sign-in">
 The session is missing or expired — send the user to the sign-in page.
 </Accordion>
@@ -254,6 +254,6 @@ Let the form surface field-level errors from `details`.
 <Accordion title="Anything else → show error.message in a toast">
 Fall back to displaying `error.message` in a toast.
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 React Error Boundaries catch rendering errors at the route level. Each route group has its own `error.tsx` that reports to Sentry and shows a retry button.

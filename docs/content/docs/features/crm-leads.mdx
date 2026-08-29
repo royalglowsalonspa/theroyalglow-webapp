@@ -10,12 +10,12 @@ customers it already has and the prospects ("leads") that come in from Meta and
 Instagram ads. One side is about knowing your regulars; the other is about
 converting cold ad traffic into paying customers.
 
-<Callout type="info">
+<Info>
   **Lead vs customer.** A *lead* is a prospect captured from a Meta/Instagram ad
   via the `/book` page — no slot, no sign-in. A *customer* books through the
   homepage dialog (organic, GMB, in-store QR) or as a receptionist walk-in. The
   two live in different tables (`lead` vs `booking`).
-</Callout>
+</Info>
 
 ## What it is
 
@@ -68,11 +68,11 @@ trust signals (4.9★, reviews, city) above a 3-field form, and a "Continue to
 Booking" button. It exists only for ad traffic; the homepage, GMB, Google Maps,
 and in-store QR all use `/?book=1` instead so attribution stays clean.
 
-<Callout type="info">
+<Info>
   If a lead submits the form but never completes a booking, a background job
   flags it as stale after 48 hours and the receptionist follows up by phone or
   WhatsApp from `admin.theroyalglow.in/leads`.
-</Callout>
+</Info>
 
 ### Lead status pipeline
 
@@ -97,13 +97,13 @@ a lead `lost` requires a reason.
 
 ## Rules
 
-<Callout type="warn">
+<Warning>
   **First-touch attribution is permanent.** A customer's acquisition source
   (`organic`, `meta_ad`, `gmb`, `walkin`) is stored once on first contact and is
   **never** overwritten by later visits — this keeps revenue attribution honest.
-</Callout>
+</Warning>
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="How are phone numbers stored?">
 Phone numbers are normalised to canonical `+91XXXXXXXXXX` before storage, so the
 same number is never duplicated under two formats.
@@ -124,13 +124,21 @@ webhook updates Neon so the database stays the single source of truth.
 Leads created from inside the admin portal are forced to `source = manual`
 (versus `meta_ad` for ad traffic).
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ## Related links
 
-<Cards>
-  <Card title="Leads API" href="/docs/api-reference/leads" description="Public lead capture plus the admin pipeline (list, detail, status, notes)." />
-  <Card title="Customers & CRM API" href="/docs/api-reference/customers-crm" description="Customer directory, profiles, notes, and tags." />
-  <Card title="Booking System" href="/docs/features/booking" description="How a lead's booking links back for attribution." />
-  <Card title="Data Model" href="/docs/data-model" description="The lead, lead_note, customer_tag, and customer_note tables." />
-</Cards>
+<Columns cols={2}>
+  <Card title="Leads API" href="/docs/api-reference/leads">
+  Public lead capture plus the admin pipeline (list, detail, status, notes).
+</Card>
+  <Card title="Customers & CRM API" href="/docs/api-reference/customers-crm">
+  Customer directory, profiles, notes, and tags.
+</Card>
+  <Card title="Booking System" href="/docs/features/booking">
+  How a lead's booking links back for attribution.
+</Card>
+  <Card title="Data Model" href="/docs/data-model">
+  The lead, lead_note, customer_tag, and customer_note tables.
+</Card>
+</Columns>

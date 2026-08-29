@@ -7,30 +7,32 @@ description: High-level and low-level design documents for the Royal Glow platfo
 
 This section contains the formal system design documentation for the Royal Glow Salon & Spa platform — written to staff-engineer review standard.
 
-<Callout type="info">
+<Info>
   Royal Glow is a **monolithic modular** monorepo targeting 20k–50k registered users at **₹0/month** infrastructure cost. Read the High-Level Design for architecture and decisions; the Low-Level Design for state machines, sequences, and schema detail.
-</Callout>
+</Info>
 
 ## Documents
 
-<Cards>
-  <Card title="High-Level Design" href="/docs/system-design/high-level-design" description="Architecture overview, technology decisions, data model, auth design, and API patterns." />
-  <Card title="Low-Level Design" href="/docs/system-design/low-level-design" description="Database schema details, state machines, sequence diagrams, and implementation specifics." />
-</Cards>
+<Columns cols={2}>
+  <Card title="High-Level Design" href="/docs/system-design/high-level-design">
+  Architecture overview, technology decisions, data model, auth design, and API patterns.
+</Card>
+  <Card title="Low-Level Design" href="/docs/system-design/low-level-design">
+  Database schema details, state machines, sequence diagrams, and implementation specifics.
+</Card>
+</Columns>
 
 ## At a Glance
 
-<TypeTable
-  type={{
-    'Application routes': { type: '~104 pages', description: 'Customer (web), admin (incl. staff self-service), and API layers' },
-    'Database tables': { type: '38', description: 'Across 15 Drizzle schema files' },
-    'API endpoints': { type: '~90 route handlers', description: 'Thin orchestrators across web + admin + jobs' },
-    'Background jobs': { type: '19', description: '14 scheduled + 4 triggered + 1 GitHub Actions' },
-    'Registered users (target)': { type: '20,000–50,000', description: 'Future-proof scale target' },
-    'Concurrent users (peak)': { type: '50', description: 'Load-test target on pprd' },
-    'Monthly infrastructure cost': { type: '₹0', description: 'All free tiers at launch' },
-  }}
-/>
+| Name | Type | Description |
+| --- | --- | --- |
+| `Application routes` | `~104 pages` | Customer (web), admin (incl. staff self-service), and API layers |
+| `Database tables` | `38` | Across 15 Drizzle schema files |
+| `API endpoints` | `~90 route handlers` | Thin orchestrators across web + admin + jobs |
+| `Background jobs` | `19` | 14 scheduled + 4 triggered + 1 GitHub Actions |
+| `Registered users (target)` | `20,000–50,000` | Future-proof scale target |
+| `Concurrent users (peak)` | `50` | Load-test target on pprd |
+| `Monthly infrastructure cost` | `₹0` | All free tiers at launch |
 
 ## Architecture Style
 
@@ -46,7 +48,7 @@ No database queries in API routes. No framework dependencies in business logic. 
 
 ## Key Design Decisions
 
-<Accordions type="single">
+<AccordionGroup>
 
 <Accordion title="Architecture → Monolithic modular">
 Solo developer — there are no team boundaries to split a microservice topology along. Strict layers give the modularity without the ops cost.
@@ -80,4 +82,4 @@ Eliminates floating-point rounding errors in billing and GST.
 App-generated text keys prevent enumeration attacks.
 </Accordion>
 
-</Accordions>
+</AccordionGroup>

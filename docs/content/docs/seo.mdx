@@ -5,23 +5,23 @@ description: Local SEO, structured data, AI search optimisation, and agent-frien
 
 # SEO & AI Visibility
 
-<Callout type="info">
+<Info>
   **In one line:** Every page is built to rank locally (GMB + NAP consistency),
   pass 100% Lighthouse SEO, carry server-side JSON-LD, follow an answer-first
   content pattern, and be fully readable by AI crawlers via `llms.txt` and
   agent-friendly API routes.
-</Callout>
+</Info>
 
 Royal Glow is a location-based premium business — local search is the primary customer acquisition channel alongside Meta ads. Every page is built to rank locally, pass 100% Lighthouse SEO, and be fully readable by AI agents and search crawlers from day one.
 
-<Callout type="warn">
+<Warning>
   These are **non-negotiable implementation standards**, not optional enhancements. Lighthouse SEO = 100 is a hard CI gate — PRs that drop below it are blocked.
-</Callout>
+</Warning>
 
 ## Local SEO Strategy
 
-<Tabs items={['Google My Business', 'NAP Consistency', 'Local Keywords']}>
-<Tab value="Google My Business">
+<Tabs>
+<Tab title="Google My Business">
 
 - Fully complete the GMB listing: name, address, phone, hours, category (Beauty Salon / Day Spa), photos
 - GMB booking link points to `https://theroyalglow.in/?book=1&utm_source=gmb` — Google Maps users open the homepage booking dialog with source attribution
@@ -30,7 +30,7 @@ Royal Glow is a location-based premium business — local search is the primary 
 - Post weekly GMB updates (offers, new services, events)
 
 </Tab>
-<Tab value="NAP Consistency">
+<Tab title="NAP Consistency">
 
 NAP (Name, Address, Phone) must be **identical** across every platform:
 
@@ -46,7 +46,7 @@ Website: https://theroyalglow.in
 Any mismatch hurts local ranking. Use the `<address>` HTML tag on every page that shows contact info.
 
 </Tab>
-<Tab value="Local Keywords">
+<Tab title="Local Keywords">
 
 | Page | Primary Keyword | Secondary |
 | --- | --- | --- |
@@ -137,8 +137,8 @@ Google AI Overviews pull from pages that directly answer questions in the first 
 
 Every public page leads with a direct answer, not a marketing intro.
 
-<Tabs items={['Wrong — marketing-first', 'Correct — answer-first']}>
-<Tab value="Wrong — marketing-first">
+<Tabs>
+<Tab title="Wrong — marketing-first">
 
 ```text
 "Welcome to Royal Glow Salon & Spa, where beauty meets luxury..."
@@ -147,7 +147,7 @@ Every public page leads with a direct answer, not a marketing intro.
 Buries the facts an AI Overview needs behind brand fluff.
 
 </Tab>
-<Tab value="Correct — answer-first">
+<Tab title="Correct — answer-first">
 
 ```text
 "Royal Glow Salon & Spa is a premium beauty salon and spa in Bengaluru,
@@ -167,7 +167,7 @@ FAQs have the highest citation rate in AI Overviews. Each FAQ is also marked up 
 `FAQPage` JSON-LD — this triggers Google's FAQ rich result AND feeds AI Overviews.
 Required topics and their answer patterns:
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="What services does Royal Glow offer?">
 Answer pattern: a concise list with prices.
 </Accordion>
@@ -183,7 +183,7 @@ Answer pattern: full address + landmark.
 <Accordion title="What are Royal Glow's opening hours?">
 Answer pattern: days + times.
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ## `llms.txt` — AI Agent Discovery
 
@@ -228,7 +228,7 @@ export const metadata: Metadata = {
 
 Google AI Overviews heavily weight Experience, Expertise, Authoritativeness, Trustworthiness:
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="Experience">
 Gallery with real service photos (not stock), staff profiles with real photos.
 </Accordion>
@@ -241,7 +241,7 @@ Google Reviews, NAP consistency across directories, local backlinks.
 <Accordion title="Trustworthiness">
 HTTPS everywhere, Privacy Policy page, real contact info on every page.
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ## Performance & Core Web Vitals
 
