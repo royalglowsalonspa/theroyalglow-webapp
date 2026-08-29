@@ -46,10 +46,10 @@
 
 'use client'
 
-import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
+import type { ColumnVisibilityState } from '@tanstack/react-table'
 import { Clock, Settings2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { DataTable, type RowAction } from '@/components/ui/data-table'
+import { type AdminColumnDef, DataTable, type RowAction } from '@/components/ui/data-table'
 import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
 import { SlideOverPanel } from '@/components/ui/slide-over-panel'
 import { EmptyState } from '@/components/ui/state/empty-state'
@@ -135,7 +135,7 @@ async function fetchWaitlist(tab: TabValue): Promise<WaitlistEntry[]> {
 export function WaitlistQueue() {
   const [tab, setTab] = useState<TabValue>('waiting')
   const [search, setSearch] = useState('')
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({})
   const [selected, setSelected] = useState<WaitlistEntry | null>(null)
 
   const fetcher = useCallback(() => fetchWaitlist(tab), [tab])
@@ -152,7 +152,7 @@ export function WaitlistQueue() {
     retry()
   }, [tab, retry])
 
-  const columns = useMemo<ColumnDef<WaitlistEntry, unknown>[]>(
+  const columns = useMemo<AdminColumnDef<WaitlistEntry, unknown>[]>(
     () => [
       {
         id: 'customerName',
