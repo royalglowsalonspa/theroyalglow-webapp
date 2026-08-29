@@ -48,10 +48,10 @@
 'use client'
 
 import { ASSIGNABLE_ROLES, type AssignableRole } from '@rgss/types'
-import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
+import type { ColumnVisibilityState } from '@tanstack/react-table'
 import { KeyRound, Users } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { DataTable } from '@/components/ui/data-table'
+import { type AdminColumnDef, DataTable } from '@/components/ui/data-table'
 import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
 import { Input } from '@/components/ui/input'
 import {
@@ -119,7 +119,7 @@ async function fetchUsers(term: string): Promise<AdminUser[]> {
 
 export function UsersManager() {
   const [search, setSearch] = useState('')
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({})
   const [editing, setEditing] = useState<AdminUser | null>(null)
 
   const fetcher = useCallback(() => fetchUsers(search), [search])
@@ -137,7 +137,7 @@ export function UsersManager() {
     retry()
   }, [search, retry])
 
-  const columns = useMemo<ColumnDef<AdminUser, unknown>[]>(
+  const columns = useMemo<AdminColumnDef<AdminUser, unknown>[]>(
     () => [
       {
         id: 'user',

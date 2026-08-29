@@ -49,11 +49,11 @@
 
 'use client'
 
-import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
+import type { ColumnVisibilityState } from '@tanstack/react-table'
 import { ChevronLeft, ChevronRight, Users } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { DataTable } from '@/components/ui/data-table'
+import { type AdminColumnDef, DataTable } from '@/components/ui/data-table'
 import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
 import { Icon } from '@/components/ui/icon'
 import { EmptyState } from '@/components/ui/state/empty-state'
@@ -157,7 +157,7 @@ export function CustomersTable() {
   const [sort, setSort] = useState('ltv')
   const [tag, setTag] = useState('')
   const [page, setPage] = useState(1)
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({})
   const [tagOptions, setTagOptions] = useState<TagOption[]>([])
 
   const fetcher = useCallback(() => fetchCustomers(q, sort, tag, page), [q, sort, tag, page])
@@ -193,7 +193,7 @@ export function CustomersTable() {
     }
   }, [])
 
-  const columns = useMemo<ColumnDef<CustomerListRow, unknown>[]>(
+  const columns = useMemo<AdminColumnDef<CustomerListRow, unknown>[]>(
     () => [
       {
         id: 'name',
