@@ -19,7 +19,7 @@ theroyalglow-webapp/
 │   ├── admin/         ← Next.js 16.2.9 (App Router) — admin.theroyalglow.in
 │   ├── cms/           ← Payload CMS v3 — cms.theroyalglow.in
 │   └── invoicing/     ← Node.js (Hono) + @react-pdf/renderer — Google Cloud Run (rgss-invoicing)
-├── docs/              ← Fumadocs — docs.theroyalglow.in
+├── docs/              ← Mintlify — docs.theroyalglow.in
 ├── packages/
 │   ├── db/            ← Drizzle ORM schemas, queries, migrations
 │   ├── business/      ← Pure business logic functions (NO I/O, NO framework deps)
@@ -39,7 +39,7 @@ theroyalglow-webapp/
 | `theroyalglow.in` | `apps/web` — customer website | Render (`rgss-web`) | **AWS Lambda + CloudFront** (SST) |
 | `admin.theroyalglow.in` | `apps/admin` — admin portal | Render (`rgss-admin`) | **AWS Lambda + CloudFront** (SST) |
 | `cms.theroyalglow.in` | `apps/cms` — Payload CMS (marketing content + service catalogue) | Render (`rgss-cms`) | **Render — stays** |
-| `docs.theroyalglow.in` | `docs/` — Fumadocs documentation | not yet deployed | TBD |
+| `docs.theroyalglow.in` | `docs/` — Mintlify documentation | Mintlify (hosted, live) | **Mintlify — stays off AWS** |
 | `r2.theroyalglow.in` | Cloudflare R2 object storage | Cloudflare R2 | **R2 — stays** |
 
 > **Only `apps/web` and `apps/admin` compute moves to AWS.** Neon, Upstash, QStash, Resend, Ably,
