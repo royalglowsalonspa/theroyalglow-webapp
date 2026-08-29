@@ -43,8 +43,8 @@
     "vitest": "^4.1.11"
   },
   "overrides": {
-    "kysely": "0.29.4",
-    "zod": "4.4.3",
+    "kysely": "0.29.5",
+    "zod": "4.5.2",
     "dompurify": "3.4.14",
     "postcss": "8.5.26",
     "form-data": "4.0.6",
@@ -53,13 +53,13 @@
     "brace-expansion": "5.0.9",
     "sharp": "0.35.4",
     "shell-quote": "1.10.0",
-    "fast-uri": "3.1.5",
-    "ip-address": "10.5.0",
+    "fast-uri": "3.1.6",
+    "ip-address": "10.7.0",
     "hono": "4.13.5",
     "immutable": "4.3.9",
-    "js-yaml": "5.2.2",
+    "js-yaml": "5.4.1",
     "@modelcontextprotocol/sdk": "1.30.0",
-    "@hono/node-server": "2.0.12"
+    "@hono/node-server": "2.1.1"
   },
   "lint-staged": {
     "*.{ts,tsx,json,css}": [
