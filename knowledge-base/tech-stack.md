@@ -25,7 +25,7 @@ Royal Glow Salon & Spa is built for scale (20k–50k users), premium feel, and l
 | Cache + Queue | **Upstash Redis + QStash** | Serverless Redis for slot caching, rate limiting, background jobs |
 | Edge Cache | **Cloudflare KV** | Service listings and static data at the edge |
 | CMS | **Payload CMS v3** | Marketing content (blog, gallery, team bios, homepage banners, FAQ) **and the bookable service catalogue** — services/categories are authored here and mirrored into `public.service` / `public.service_category` by an atomic `afterChange` sync ([service-catalogue-management.md](./service-catalogue-management.md)). Self-hosted on Render, media to Cloudflare R2. Bookings and billing stay in the admin portal. |
-| Documentation | **Fumadocs + fumadocs-openapi** | Documentation portal at `docs.theroyalglow.in` — Next.js-native, TypeScript-first, premium out of the box. `fumadocs-openapi` auto-generates the entire API reference from the OpenAPI/Swagger spec — no manual API docs writing |
+| Documentation | **Mintlify** | Documentation portal at `docs.theroyalglow.in` — Mintlify hosts and builds the site directly from the repo, so there is no infrastructure cost and no build step of ours to maintain. Search is built in, and OpenAPI specs are supported natively, so the API reference is generated from the spec rather than hand-written |
 | Validation | **Zod** | TypeScript-first schema validation — all API inputs validated at system boundary |
 | PWA | **Service Worker + manifest.json** | Installable on phone, offline service menu/prices/contact, add-to-homescreen prompt |
 | Push Notifications | **Web Push API** (`web-push`) | Appointment reminders (24h + 1h before), booking confirmations — free, unlimited |
@@ -68,7 +68,7 @@ Royal Glow Salon & Spa is built for scale (20k–50k users), premium feel, and l
 | Cache + Queue | **Upstash Redis + QStash** |
 | Edge Cache | **Cloudflare KV** |
 | CMS | **Payload CMS v3** (self-hosted on Render, writes to Neon, media to R2) |
-| Documentation Site | **Fumadocs** — `docs.theroyalglow.in` |
+| Documentation Site | **Mintlify** (hosted, builds from the repo) — `docs.theroyalglow.in` |
 
 > See [architecture.md](./architecture.md) for full infrastructure decisions.
 > See [database.md](./database.md) for full database selection and comparison.
@@ -221,7 +221,7 @@ theroyalglow-webapp/
 │   ├── admin/        # Next.js 16.2.9 — admin.theroyalglow.in (admin portal)
 │   ├── cms/          # Payload CMS v3 — cms.theroyalglow.in (marketing CMS)
 │   └── invoicing/    # @rgss/invoicing — Node.js (Hono) PDF service on Google Cloud Run
-├── docs/             # Fumadocs — docs.theroyalglow.in
+├── docs/             # Mintlify content — docs.theroyalglow.in (not a workspace)
 ├── packages/
 │   └── types/        # Shared TypeScript types (add when needed)
 ├── turbo.json
@@ -229,7 +229,7 @@ theroyalglow-webapp/
 └── bun.lockb
 ```
 
-> `apps/cms` is itself a Next.js app (Payload CMS v3 is a Next.js plugin), and the docs site stays in the same Next.js/TypeScript ecosystem through Fumadocs. That keeps the stack consistent across the product site, CMS, and documentation.
+> `apps/cms` is itself a Next.js app (Payload CMS v3 is a Next.js plugin), so the product site, admin portal, and CMS all share the same Next.js/TypeScript stack. `docs/` is not a workspace and has no build step — it holds the MDX content and `docs.json` that Mintlify builds and hosts.
 
 ---
 

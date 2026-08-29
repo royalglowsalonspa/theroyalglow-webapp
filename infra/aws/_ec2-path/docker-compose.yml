@@ -114,25 +114,6 @@ services:
         limits: { memory: 320M }
 
   # ---------------------------------------------------------------------------
-  # Documentation — docs.theroyalglow.in
-  # ---------------------------------------------------------------------------
-  docs:
-    <<: *app
-    command: ['bun', 'run', '--filter=@rgss/docs', 'start']
-    environment:
-      PORT: '3003'            # next start honours PORT; docs has no start:prod
-      NODE_ENV: production
-    healthcheck:
-      test: ['CMD', 'curl', '-fsS', '-o', '/dev/null', 'http://localhost:3003/']
-      interval: 60s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    deploy:
-      resources:
-        limits: { memory: 128M }
-
-  # ---------------------------------------------------------------------------
   # Invoice PDF service — internal only, never routed through Caddy
   # ---------------------------------------------------------------------------
   invoicing:

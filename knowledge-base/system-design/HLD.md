@@ -1263,7 +1263,7 @@ theroyalglow.in (root domain — Cloudflare DNS)
 └── /api/*                   API routes (35 endpoints)
 
 admin.theroyalglow.in        Payload CMS (Render, Singapore)
-docs.theroyalglow.in         Fumadocs documentation portal
+docs.theroyalglow.in         Mintlify-hosted documentation portal
 status.theroyalglow.in       BetterStack public status page
 ```
 

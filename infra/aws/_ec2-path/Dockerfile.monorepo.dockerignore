@@ -2,8 +2,9 @@
 # BuildKit prefers <dockerfile>.dockerignore over the root .dockerignore, so the
 # CMS-only rules at the repo root stay untouched.
 #
-# Difference that matters: docs/ and **/*.md are KEPT here — the Fumadocs app
-# and its MDX content are part of this image.
+# Difference that matters: docs/ and **/*.md are KEPT here — the MDX
+# documentation content is retained in the context, though there is no docs app
+# to build (Mintlify hosts and builds the docs site from the repo).
 
 # Reinstalled / rebuilt inside the image
 **/node_modules

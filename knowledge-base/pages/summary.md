@@ -19,7 +19,7 @@
 | Admin API routes | 7 | Booking actions, memberships, leave (served at admin.theroyalglow.in/api/*) |
 | Background job endpoints | 12 | QStash-triggered scheduled work |
 | Webhook endpoints | 2 | Meta Leads, AiSensy |
-| External subdomains | 4 | Admin portal, Payload CMS, Fumadocs, BetterStack |
+| External subdomains | 4 | Admin portal, Payload CMS, Mintlify docs, BetterStack |
 | Special files/endpoints | 10 | Sitemap, robots, llms.txt, manifest, SW, OG, favicon, apple-icon, health |
 | **Total unique routes/endpoints** | **~104** | |
 

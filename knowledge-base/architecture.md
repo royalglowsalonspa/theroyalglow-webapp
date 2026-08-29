@@ -52,17 +52,18 @@ Legacy `theroyalglow.in/admin/*` paths 301-redirect to the subdomain with the `/
 
 **Why:** Blogs are part of the main site marketing content, so serving them on the main domain improves local SEO ranking.
 
-### Documentation Portal — Fumadocs + `docs.theroyalglow.in`
+### Documentation portal — Mintlify + `docs.theroyalglow.in`
 
-**Decision: Use Fumadocs for the documentation site at `docs.theroyalglow.in`.**
+**Decision: Use Mintlify for the documentation site at `docs.theroyalglow.in`.**
 
-- Documentation is maintained in the repo with Fumadocs
-- Docs are served at: `docs.theroyalglow.in`
+- Documentation is maintained in the repo as MDX under `docs/content/`, configured by `docs/docs.json`
+- Mintlify builds and hosts the site from the repo — publishing branch `prod`, deployment subdomain `royal-glow-salon-and-spa`
+- `docs.theroyalglow.in` resolves to `cname.mintlify.builders` by CNAME
 - Purpose: technical docs, setup guides, architecture notes, and internal reference pages
 
-**Why:** Fumadocs is perfectly aligned with the stack — it is built for Next.js, TypeScript-first, and looks premium out of the box.
+**Why:** Mintlify hosts and builds the site itself, so there is no infrastructure cost and no build step, dev server, or workspace of ours to maintain. Search is built in.
 
-**API reference auto-generation:** The `fumadocs-openapi` package generates the entire `/api-reference` section directly from the OpenAPI/Swagger spec. Once the API routes are built and the spec is exported, API docs require zero manual writing — every endpoint, param, and response schema is generated automatically.
+**API reference:** Mintlify supports OpenAPI natively, so the `/api-reference` section is generated from the OpenAPI spec instead of being written by hand — every endpoint, param, and response schema comes from the spec.
 
 ### DNS & Routing Summary
 
@@ -109,7 +110,7 @@ cms.theroyalglow.in
 └─ Payload CMS (blog, gallery, team, banners, FAQ)
 
 docs.theroyalglow.in
-└─ Fumadocs documentation portal
+└─ Mintlify-hosted documentation portal
 
 status.theroyalglow.in
 └─ BetterStack (uptime monitoring)
@@ -344,7 +345,7 @@ theroyalglow-webapp/
 │           ├── banners.ts               ← Homepage hero banners
 │           └── faq.ts                   ← FAQ items for /faq
 │
-├── docs/                                ← Fumadocs site (docs.theroyalglow.in)
+├── docs/                                ← Mintlify content (docs.theroyalglow.in)
 │   │
 │   ├── getting-started/                 ← Project intro, tech stack, env vars
 │   │   ├── introduction.mdx             ← What is Royal Glow, system overview, quick links
@@ -366,7 +367,7 @@ theroyalglow-webapp/
 │   │   ├── seo.mdx                      ← Meta tags, JSON-LD schemas (LocalBusiness, FAQ, Blog), sitemap
 │   │   └── meta-pixel.mdx               ← Meta Pixel browser events + CAPI server-side (Lead, Purchase)
 │   │
-│   ├── api-reference/                   ← Auto-generated from OpenAPI spec via fumadocs-openapi
+│   ├── api-reference/                   ← Generated from the OpenAPI spec (Mintlify native OpenAPI support)
 │   │   ├── authentication.mdx           ← Better Auth endpoints (sign-in, callback, session, sign-out)
 │   │   ├── bookings.mdx                 ← GET /api/bookings, POST create, cancel, reschedule
 │   │   ├── availability.mdx             ← GET /api/availability (date, staffId, serviceIds)

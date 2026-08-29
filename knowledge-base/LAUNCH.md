@@ -19,7 +19,7 @@ and runs without secrets.
 | Analytics | Consent-gated PostHog + Meta Pixel + Clarity (`Analytics.tsx`), funnel `track()` calls | PostHog/Clarity/Pixel keys; dashboards + funnels |
 | Feature flags | `lib/flags.ts` (`isFeatureEnabled`, `FLAGS`) | PostHog flags created (all OFF initially) |
 | Synthetic | Checkly scripts (`tests/synthetic/*.check.ts`) | Checkly account + `npx checkly deploy` |
-| Docs | Fumadocs site (`docs/`) | `docs.theroyalglow.in` DNS + deploy |
+| Docs | Mintlify content (`docs/`) | Done — `docs.theroyalglow.in` CNAME is cut over and the site is live |
 | Backups | `weekly-backup.yml` (pg_dump → R2) | R2 buckets + `R2_*` + Neon URLs + heartbeat |
 | Data | seed scripts | Run seed against the Neon `prod` branch |
 
