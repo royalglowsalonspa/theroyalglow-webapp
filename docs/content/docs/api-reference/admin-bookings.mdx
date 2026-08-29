@@ -1,9 +1,8 @@
 ---
 title: Admin — Bookings
 description: Admin endpoints to list, view, approve, reject, assign, complete, and no-show bookings.
+icon: clipboard-list
 ---
-
-# Admin — Bookings
 
 Admin-side booking management. Every endpoint here calls `requireRole(...)`,
 which first resolves the Better Auth session (`UNAUTHENTICATED` 401 when there
@@ -17,7 +16,7 @@ is none) and then checks the caller's role against the hierarchy
   carry **no `/admin` prefix** — the admin subdomain is the namespace, so the
   full URL is e.g. `admin.theroyalglow.in/api/bookings`. The customer app
   exposes its own, distinct `/api/bookings` on `theroyalglow.in` (see
-  [Bookings](/docs/api-reference/bookings)). Money is an integer in **paise**;
+  [Bookings](/content/docs/api-reference/bookings)). Money is an integer in **paise**;
   `bookingDate` filters use `YYYY-MM-DD`; stored times render as `HH:mm:ss`.
   Timestamps are ISO-8601 UTC.
 </Info>

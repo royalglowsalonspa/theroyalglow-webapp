@@ -45,6 +45,17 @@
       }
     }
   },
+  "overrides": [
+    {
+      "includes": ["**/docs/**/*.css"],
+      "linter": {
+        "rules": {
+          "complexity": { "noImportantStyles": "off" },
+          "correctness": { "noUnknownTypeSelector": "off" }
+        }
+      }
+    }
+  ],
   "files": {
     "includes": [
       "**",

@@ -1,0 +1,57 @@
+---
+title: Booking Rules
+description: The booking policy — lead time, advance window, cancellation cut-off, and the per-customer cap — and where the owner changes each value.
+icon: settings-2
+---
+
+<Info>
+  **For the owner:** these are sensible starting defaults. You can review and
+  adjust every value live from the admin portal under **Settings → Booking
+  Rules** (Manager and above). Changes take effect immediately — no deploy
+  needed.
+</Info>
+
+The booking policy is stored in the `system_setting` table under the
+`booking_rules` key and validated by `bookingRulesSchema` (`packages/types`).
+When the key is absent, the defaults below apply.
+
+## Defaults
+
+| Rule | Key | Default | Meaning |
+| --- | --- | --- | --- |
+| Minimum advance lead time | `minAdvanceLeadTimeMinutes` | **60** | A slot must start at least 60 minutes from now. Blocks last-second bookings the salon can't staff. |
+| Maximum advance window | `maxAdvanceBookingDays` | **30** | Customers can book up to 30 days ahead. |
+| Cancellation cut-off | `cancellationCutoffHours` | **4** | Free cancellation up to 4 hours before the appointment. |
+| Max active bookings per customer | `maxActiveBookingsPerCustomer` | **3** | A customer may hold at most 3 pending or confirmed bookings at once. |
+
+## Configured elsewhere
+
+<AccordionGroup>
+<Accordion title="Slot length — set per service, not here" icon="clock">
+
+Slot length is set **per service** in the service catalogue (SPA: 30 or 60
+minutes; Salon: 5-minute steps). It is intentionally **not** part of booking
+rules, because two services in the same category can legitimately need different
+durations. Change it under **Settings → Services**.
+
+</Accordion>
+<Accordion title="Business hours and GST" icon="store">
+
+Per-day open and close times, and GST (18%, price-inclusive), are separate
+sections under **Settings**. They apply across the platform rather than to
+booking alone.
+
+</Accordion>
+</AccordionGroup>
+
+## Notes
+
+- Times across the platform are IST (UTC+5:30), stored as 24-hour `HH:MM` strings.
+- Validation bounds enforced by the schema: lead time 0–10080 minutes, advance
+  window 1–365 days, cancellation 0–168 hours, active cap 1–50.
+
+<Note>
+  For how these rules play out in the customer-facing flow, see
+  [Booking system](/content/docs/features/booking). For the endpoint that reads
+  them, see [Services & availability](/content/docs/api-reference/services).
+</Note>

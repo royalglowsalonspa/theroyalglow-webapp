@@ -1,0 +1,498 @@
+/* ==========================================================================
+   Royal Glow Salon & Spa — documentation design system
+   --------------------------------------------------------------------------
+   Tokens mirror design/UIUX_Design/tokens.json ("Royal Warmth" v2.0.0).
+   Mintlify loads every .css file in the content directory automatically, so
+   this file needs no registration in docs.json.
+
+   Three brand rules constrain everything below:
+     1. Warm spectrum only — no cool blues, purples, or grey-blues.
+     2. Gold is an accent. Never more than two gold elements in one viewport.
+     3. Serif is reserved for the brand wordmark, never for product UI.
+
+   Gold never carries body text on white: deep-gold scores 2.26:1 and
+   royal-gold 1.31:1 against #FFFFFF. Light-mode emphasis uses #7D5C12
+   (6.16:1) instead. Dark mode is where the true golds get to sing.
+   ========================================================================== */
+
+:root {
+  /* Brand palette */
+  --rg-royal-gold: #f4e09b;
+  --rg-deep-gold: #c8a961;
+  --rg-accessible-gold: #7d5c12;
+  --rg-warm-stone: #d4c5a9;
+  --rg-warm-cream: #fff8e7;
+  --rg-golden-mist: #fff3d4;
+  --rg-canvas: #ffffff;
+  --rg-cocoa: #1a0f0a;
+  --rg-chocolate: #2d1810;
+  --rg-warm-gray: #3d2e1f;
+  --rg-dusty-gray: #8c8c8c;
+  --rg-outline: #cccccc;
+  --rg-cloud: #f4f5f9;
+  --rg-success: #3f7d5c;
+  --rg-error: #b5482e;
+
+  /* Radii */
+  --rg-radius: 4px;
+  --rg-radius-card: 6px;
+  --rg-radius-lg: 10px;
+  --rg-radius-pill: 9999px;
+
+  /* Elevation */
+  --rg-shadow-hover: 0 18px 40px -22px rgba(26, 15, 10, 0.25);
+  --rg-shadow-elevated: 0 24px 50px -20px rgba(26, 15, 10, 0.45);
+
+  /* Semantic surfaces — light mode */
+  --rg-surface: var(--rg-canvas);
+  --rg-surface-raised: var(--rg-warm-cream);
+  --rg-border: rgba(26, 15, 10, 0.1);
+  --rg-border-strong: rgba(26, 15, 10, 0.18);
+  --rg-accent: var(--rg-accessible-gold);
+  --rg-accent-soft: rgba(200, 169, 97, 0.14);
+  --rg-ink: var(--rg-cocoa);
+  --rg-ink-muted: var(--rg-warm-gray);
+
+  /* Eyebrow / label treatment, from the typography tokens */
+  --rg-eyebrow-size: 11px;
+  --rg-eyebrow-tracking: 2px;
+}
+
+.dark {
+  --rg-surface: var(--rg-cocoa);
+  --rg-surface-raised: var(--rg-chocolate);
+  --rg-border: rgba(244, 224, 155, 0.14);
+  --rg-border-strong: rgba(244, 224, 155, 0.26);
+  --rg-accent: var(--rg-royal-gold);
+  --rg-accent-soft: rgba(244, 224, 155, 0.12);
+  --rg-ink: var(--rg-warm-cream);
+  --rg-ink-muted: var(--rg-warm-stone);
+}
+
+/* --------------------------------------------------------------------------
+   1. Navigation chrome
+   -------------------------------------------------------------------------- */
+
+/* The lockup is a wide horizontal SVG; the default height crops it short. */
+img.nav-logo {
+  height: 2.15rem !important;
+  width: auto !important;
+}
+
+#navbar {
+  border-bottom: 1px solid var(--rg-border);
+  backdrop-filter: saturate(1.4) blur(10px);
+}
+
+navbar-link {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* Sidebar group headers borrow the eyebrow token: small, bold, letterspaced. */
+sidebar-group-header {
+  font-size: var(--rg-eyebrow-size);
+  font-weight: 700;
+  letter-spacing: var(--rg-eyebrow-tracking);
+  text-transform: uppercase;
+  color: var(--rg-ink-muted);
+}
+
+sidebar-group-icon {
+  color: var(--rg-accent);
+}
+
+/* A gold rail marks the active page rather than a heavy filled block. */
+#sidebar-content li[data-active] {
+  position: relative;
+  background: var(--rg-accent-soft);
+  border-radius: var(--rg-radius);
+}
+
+#sidebar-content li[data-active]::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 50%;
+  translate: 0 -50%;
+  height: 62%;
+  width: 2px;
+  border-radius: var(--rg-radius-pill);
+  background: var(--rg-accent);
+}
+
+sidebar-nav-group-divider {
+  border-color: var(--rg-border);
+}
+
+/* Top-level tabs read as pills, matching the product nav. */
+nav-tabs-item,
+.nav-tabs-item {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.nav-tabs-item[data-active] {
+  color: var(--rg-accent);
+}
+
+/* --------------------------------------------------------------------------
+   2. Page furniture
+   -------------------------------------------------------------------------- */
+
+eyebrow {
+  font-size: var(--rg-eyebrow-size);
+  font-weight: 700;
+  letter-spacing: var(--rg-eyebrow-tracking);
+  text-transform: uppercase;
+  color: var(--rg-accent);
+}
+
+toc-item[data-active-deepest] {
+  color: var(--rg-accent);
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   3. Tables
+   --------------------------------------------------------------------------
+   The highest-impact surface on this site: the API reference and the
+   environment variable pages carry 351 rows converted from TypeTable, so
+   tables do most of the explaining here.
+   -------------------------------------------------------------------------- */
+
+.mdx-content table,
+mdx-content table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--rg-border);
+  border-radius: var(--rg-radius-card);
+  overflow: hidden;
+  font-size: 14px;
+}
+
+.mdx-content thead th,
+mdx-content thead th {
+  background: var(--rg-surface-raised);
+  font-size: var(--rg-eyebrow-size);
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--rg-ink-muted);
+  text-align: start;
+  padding: 10px 14px;
+  white-space: nowrap;
+}
+
+.mdx-content tbody td,
+mdx-content tbody td {
+  padding: 11px 14px;
+  border-top: 1px solid var(--rg-border);
+  vertical-align: top;
+}
+
+.mdx-content tbody tr:hover,
+mdx-content tbody tr:hover {
+  background: var(--rg-accent-soft);
+}
+
+/* First column is the parameter or field name — anchor the row visually. */
+.mdx-content tbody td:first-child,
+mdx-content tbody td:first-child {
+  font-weight: 600;
+  color: var(--rg-ink);
+  white-space: nowrap;
+}
+
+/* Inline code inside tables should recede, not compete. */
+.mdx-content table code,
+mdx-content table code {
+  font-size: 12.5px;
+  padding: 1px 5px;
+  border-radius: var(--rg-radius);
+  background: var(--rg-accent-soft);
+  border: 1px solid var(--rg-border);
+}
+
+/* --------------------------------------------------------------------------
+   4. Cards and columns
+   -------------------------------------------------------------------------- */
+
+card {
+  border: 1px solid var(--rg-border);
+  border-radius: var(--rg-radius-card);
+  background: var(--rg-surface);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    translate 160ms ease;
+}
+
+card:hover {
+  border-color: var(--rg-border-strong);
+  box-shadow: var(--rg-shadow-hover);
+  translate: 0 -2px;
+}
+
+/* Card icons sit in a soft gold chip — one of the two permitted gold accents. */
+[data-component-part="card-icon"] {
+  color: var(--rg-accent);
+  background: var(--rg-accent-soft);
+  border: 1px solid var(--rg-border);
+  border-radius: var(--rg-radius-card);
+  padding: 7px;
+}
+
+[data-component-part="card-title"] {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+[data-component-part="card-content"] {
+  color: var(--rg-ink-muted);
+}
+
+/* --------------------------------------------------------------------------
+   5. Callouts
+   --------------------------------------------------------------------------
+   Mintlify's defaults lean blue/purple. Re-tint the informational states into
+   the warm spectrum and leave success and error semantically distinct.
+   -------------------------------------------------------------------------- */
+
+callout {
+  border-radius: var(--rg-radius-card);
+  border-inline-start-width: 3px;
+}
+
+/* --------------------------------------------------------------------------
+   6. Code
+   -------------------------------------------------------------------------- */
+
+code-block {
+  border: 1px solid var(--rg-border);
+  border-radius: var(--rg-radius-card);
+  overflow: hidden;
+}
+
+code-group {
+  border-radius: var(--rg-radius-card);
+}
+
+/* --------------------------------------------------------------------------
+   7. Accordions, steps, tabs, trees
+   -------------------------------------------------------------------------- */
+
+accordion {
+  border: 1px solid var(--rg-border);
+  border-radius: var(--rg-radius-card);
+  transition: border-color 140ms ease;
+}
+
+accordion:hover {
+  border-color: var(--rg-border-strong);
+}
+
+accordion-group accordion + accordion {
+  margin-top: 8px;
+}
+
+steps {
+  --rg-step-rail: var(--rg-border);
+}
+
+step {
+  padding-bottom: 4px;
+}
+
+tabs {
+  border-radius: var(--rg-radius-card);
+}
+
+tab-icon {
+  color: var(--rg-accent);
+}
+
+tree {
+  border: 1px solid var(--rg-border);
+  border-radius: var(--rg-radius-card);
+  padding: 12px 14px;
+  background: var(--rg-surface-raised);
+  font-size: 13.5px;
+}
+
+tree-folder {
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   8. Pagination and footer
+   -------------------------------------------------------------------------- */
+
+pagination-prev,
+pagination-next {
+  border: 1px solid var(--rg-border);
+  border-radius: var(--rg-radius-card);
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+pagination-prev:hover,
+pagination-next:hover {
+  border-color: var(--rg-border-strong);
+  box-shadow: var(--rg-shadow-hover);
+}
+
+#footer,
+footer {
+  border-top: 1px solid var(--rg-border);
+  background: var(--rg-surface-raised);
+}
+
+advanced-footer {
+  padding-block: 40px;
+}
+
+/* Footer column headers use the same eyebrow treatment as the sidebar. */
+advanced-footer h4,
+advanced-footer h3,
+#footer h4,
+#footer h3 {
+  font-size: var(--rg-eyebrow-size);
+  font-weight: 700;
+  letter-spacing: var(--rg-eyebrow-tracking);
+  text-transform: uppercase;
+  color: var(--rg-ink-muted);
+}
+
+/* --------------------------------------------------------------------------
+   9. Landing page
+   --------------------------------------------------------------------------
+   Classes consumed by docs/content/docs/index.mdx.
+   -------------------------------------------------------------------------- */
+
+.rg-hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--rg-border);
+  border-radius: var(--rg-radius-lg);
+  padding: 40px 32px;
+  margin-bottom: 8px;
+  background:
+    radial-gradient(120% 140% at 0% 0%, var(--rg-golden-mist) 0%, transparent 55%),
+    linear-gradient(135deg, var(--rg-warm-cream) 0%, var(--rg-canvas) 70%);
+}
+
+.dark .rg-hero {
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(244, 224, 155, 0.16) 0%, transparent 55%),
+    linear-gradient(135deg, var(--rg-chocolate) 0%, var(--rg-cocoa) 70%);
+}
+
+.rg-hero-eyebrow {
+  display: inline-block;
+  font-size: var(--rg-eyebrow-size);
+  font-weight: 700;
+  letter-spacing: var(--rg-eyebrow-tracking);
+  text-transform: uppercase;
+  color: var(--rg-accent);
+  margin-bottom: 10px;
+}
+
+.rg-hero h1,
+.rg-hero .rg-hero-title {
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--rg-ink);
+  margin: 0 0 10px;
+}
+
+.rg-hero-lead {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--rg-ink-muted);
+  max-width: 62ch;
+  margin: 0;
+}
+
+/* Slim fact strip under the hero. */
+.rg-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rg-facts li {
+  font-size: var(--rg-eyebrow-size);
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--rg-ink-muted);
+  background: var(--rg-surface);
+  border: 1px solid var(--rg-border);
+  border-radius: var(--rg-radius-pill);
+  padding: 5px 12px;
+}
+
+/* --------------------------------------------------------------------------
+   10. Accessibility
+   --------------------------------------------------------------------------
+   The project mandates WCAG 2.1 AA and Lighthouse accessibility 100, so focus
+   must stay visible and motion must be optional.
+   -------------------------------------------------------------------------- */
+
+:where(a, button, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--rg-accent);
+  outline-offset: 2px;
+  border-radius: var(--rg-radius);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  card:hover,
+  pagination-prev:hover,
+  pagination-next:hover {
+    translate: none;
+    box-shadow: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   11. Print
+   -------------------------------------------------------------------------- */
+
+@media print {
+  #navbar,
+  #sidebar-content,
+  toc,
+  feedback-toolbar,
+  pagination-prev,
+  pagination-next,
+  #footer,
+  footer {
+    display: none !important;
+  }
+
+  .mdx-content table,
+  mdx-content table {
+    border-color: #999;
+  }
+}

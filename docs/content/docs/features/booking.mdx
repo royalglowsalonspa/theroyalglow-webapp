@@ -1,9 +1,8 @@
 ---
 title: Booking System
 description: The 4-step booking dialog, its entry points, and the booking lifecycle — from a customer's first tap to a completed, invoiced appointment.
+icon: calendar-check
 ---
-
-# Booking System
 
 Booking is the heart of Royal Glow. A customer taps **Book Now**, picks a date
 and time, chooses their services, and submits — all in a single dialog that
@@ -14,7 +13,7 @@ or therapist, and complete the appointment on the day.
   The booking dialog is **not** a separate page. It opens as an overlay on the
   homepage (a bottom sheet on mobile, a centered modal on desktop). The homepage
   CTA never sends customers to `/book` — that route is reserved for Meta-ad lead
-  capture (see [CRM & Lead Pipeline](/docs/features/crm-leads)).
+  capture (see [CRM & Lead Pipeline](/content/docs/features/crm-leads)).
 </Info>
 
 ## What it is
@@ -116,7 +115,7 @@ a new slot from `confirmed`).
   **Walk-ins skip `pending`.** When a receptionist creates a walk-in booking the
   customer is already in the salon, so it is created directly as `confirmed`. A
   walk-in no-show therefore does **not** count toward the no-show tier — there
-  was no pre-booked slot to miss. See the [No-Show Policy](/docs/features/no-show-policy).
+  was no pre-booked slot to miss. See the [No-Show Policy](/content/docs/features/no-show-policy).
 </Info>
 
 ## Rules
@@ -140,7 +139,8 @@ Up to 2 reschedules per booking, each at least 1 hour before the appointment. A
 <Accordion title="What are the cancellation rules?">
 Cancellation is free more than 4 hours before the appointment. Within 4 hours it
 is tagged in CRM (no fee, ever). Cancellation is not possible once a booking is
-`in_progress`.
+`in_progress`. The cut-off is configurable — see
+[Booking rules](/content/docs/features/booking-rules).
 </Accordion>
 <Accordion title="Why don't past bookings change when prices change?">
 Pricing is snapshotted. Each `booking_service` row freezes the service name and
@@ -149,7 +149,7 @@ booking.
 </Accordion>
 <Accordion title="When are gems awarded?">
 On completion. Service bookings earn 1 gem per ₹100 invoiced when the booking is
-completed. See [Loyalty — Gems](/docs/features/loyalty-gems).
+completed. See [Loyalty — Gems](/content/docs/features/loyalty-gems).
 </Accordion>
 </AccordionGroup>
 
@@ -172,16 +172,19 @@ branch.
 ## Related links
 
 <Columns cols={2}>
-  <Card title="Bookings API" href="/docs/api-reference/bookings">
+  <Card title="Bookings API" href="/content/docs/api-reference/bookings">
   Create, list, view, and cancel a booking (customer endpoints).
 </Card>
-  <Card title="Admin — Bookings API" href="/docs/api-reference/admin-bookings">
+  <Card title="Admin — Bookings API" href="/content/docs/api-reference/admin-bookings">
   Approve, reject, assign, complete, and mark no-show.
 </Card>
-  <Card title="No-Show Policy" href="/docs/features/no-show-policy">
+  <Card title="No-Show Policy" href="/content/docs/features/no-show-policy">
   How no-shows are tracked and escalated.
 </Card>
-  <Card title="Data Model" href="/docs/data-model">
+  <Card title="Booking Rules" href="/content/docs/features/booking-rules">
+  Lead time, advance window, cancellation cut-off, and the per-customer cap.
+</Card>
+  <Card title="Data Model" href="/content/docs/data-model">
   The booking, booking_service, and booking_status_log tables.
 </Card>
 </Columns>

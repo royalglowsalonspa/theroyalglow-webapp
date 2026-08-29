@@ -1,9 +1,8 @@
 ---
 title: Staff Scheduling & Leave
 description: How the salon sees who is working when, and how staff request, withdraw, and get approval for time off — including same-day mark-offs and booking conflict handling.
+icon: calendar-days
 ---
-
-# Staff Scheduling & Leave
 
 Scheduling is how Royal Glow knows who is available to take appointments, and
 when. The schedule grid shows every staff member's day at a glance — their
@@ -53,7 +52,7 @@ member. The grid updates live as bookings come and go.
 <Info>
   The grid updates in **real time** over Ably — when a slot is booked, released,
   or reassigned, the cell animates without a page refresh. See
-  [Realtime](/docs/realtime) for the channels and events involved.
+  [Realtime](/content/docs/realtime) for the channels and events involved.
 </Info>
 
 ## How it works — leave requests
@@ -136,7 +135,7 @@ resolved. There are two ways to resolve each one:
 <Warning>
   A salon-side cancellation here is treated as the salon's fault, not the
   customer's — it never counts as a no-show against the customer. See the
-  [No-Show Policy](/docs/features/no-show-policy).
+  [No-Show Policy](/content/docs/features/no-show-policy).
 </Warning>
 
 ## What staff can and cannot see
@@ -189,19 +188,19 @@ move cells around live:
 ## Related links
 
 <Columns cols={2}>
-  <Card title="Booking System" href="/docs/features/booking">
+  <Card title="Booking System" href="/content/docs/features/booking">
   How bookings fill the slots that appear on the schedule.
 </Card>
-  <Card title="No-Show Policy" href="/docs/features/no-show-policy">
+  <Card title="No-Show Policy" href="/content/docs/features/no-show-policy">
   Why a salon-side cancellation never counts against the customer.
 </Card>
-  <Card title="Notifications & Email" href="/docs/features/notifications">
+  <Card title="Notifications & Email" href="/content/docs/features/notifications">
   The push and email messages sent on leave and reassignment.
 </Card>
-  <Card title="Realtime" href="/docs/realtime">
+  <Card title="Realtime" href="/content/docs/realtime">
   The Ably channels and events that update the schedule live.
 </Card>
-  <Card title="Data Model" href="/docs/data-model">
+  <Card title="Data Model" href="/content/docs/data-model">
   The staff_schedule, staff_time_off, and holiday tables.
 </Card>
 </Columns>

@@ -1,17 +1,16 @@
 ---
 title: Getting Started
 description: Local development setup for the Royal Glow monorepo — running in minutes.
+icon: rocket
 ---
-
-# Getting Started
 
 This guide takes you from a fresh clone to all three apps running locally. Every
 external integration is a **guarded extension point** — with a key absent it
 no-ops and logs, so the project builds and runs with **zero secrets**.
 
 <Info>
-  **Prefer the big picture first?** Skim [Architecture](/docs/architecture) and
-  the [Tech Stack](/docs/tech-stack), then come back here to run it.
+  **Prefer the big picture first?** Skim [Architecture](/content/docs/architecture) and
+  the [Tech Stack](/content/docs/tech-stack), then come back here to run it.
 </Info>
 
 ## Prerequisites
@@ -47,7 +46,7 @@ cp apps/cms/.env.example apps/cms/.env.local
 <Warning>
   While keys are incomplete, keep `SKIP_ENV_VALIDATION=1` in
   `apps/web/.env.local` to bypass build-time env validation. See
-  [Environment Variables](/docs/environment-variables) for the full canonical list.
+  [Environment Variables](/content/docs/environment-variables) for the full canonical list.
 </Warning>
 
 </Step>
@@ -136,7 +135,7 @@ All of these pass with **no environment keys** configured.
 </Tree>
 
 <Info>
-  Next up: read [Conventions](/docs/conventions) for the coding standards every
-  change is expected to follow, then the [Git Workflow](/docs/git-workflow) for
+  Next up: read [Conventions](/content/docs/conventions) for the coding standards every
+  change is expected to follow, then the [Git Workflow](/content/docs/git-workflow) for
   how branches flow `dev → test → pprd → prod`.
 </Info>

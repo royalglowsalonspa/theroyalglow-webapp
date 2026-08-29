@@ -1,9 +1,8 @@
 ---
 title: API Reference
 description: REST API for the Royal Glow platform — envelope, auth, and endpoint groups.
+icon: plug
 ---
-
-# API Reference
 
 The Royal Glow API is a set of Next.js route handlers under `/api`. All
 endpoints share one JSON envelope, human-readable RESTful paths, and stable
@@ -52,8 +51,8 @@ error codes — so both browsers and AI agents can call them predictably.
 </Tab>
 </Tabs>
 
-See [Conventions](/docs/conventions) for the full envelope, money/date rules,
-and the error-code table, and [Authentication](/docs/authentication) for the
+See [Conventions](/content/docs/conventions) for the full envelope, money/date rules,
+and the error-code table, and [Authentication](/content/docs/authentication) for the
 session/role model.
 
 ## Authentication
@@ -75,37 +74,88 @@ Most endpoints require a Better Auth session cookie. Each endpoint notes its
 </Accordion>
 </AccordionGroup>
 
+## Quick index
+
+The endpoints reached for most often, in one place.
+
+| Action | Method | Path |
+| --- | --- | --- |
+| List services | GET | `/api/services` |
+| Check availability | GET | `/api/availability?date={YYYY-MM-DD}&branchId={id}` |
+| Submit booking request | POST | `/api/bookings` |
+| Get booking status | GET | `/api/bookings/{id}` |
+| Submit campaign lead | POST | `/api/leads` |
+| Health check | GET | `/api/health` |
+
 ## Endpoint groups
 
 <Columns cols={2}>
-  <Card title="Services & Availability" href="/docs/api-reference/services">
-  Catalogue, service detail, slot availability
-</Card>
-  <Card title="Bookings (customer)" href="/docs/api-reference/bookings">
-  Create, view, cancel a booking
-</Card>
-  <Card title="Admin — Bookings" href="/docs/api-reference/admin-bookings">
-  Approve, assign, complete, no-show
-</Card>
-  <Card title="Customers & CRM" href="/docs/api-reference/customers-crm">
-  Directory, profiles, notes, tags
-</Card>
-  <Card title="Leads" href="/docs/api-reference/leads">
-  Lead capture + admin pipeline
-</Card>
-  <Card title="Memberships" href="/docs/api-reference/memberships">
-  Customer view + admin management
-</Card>
-  <Card title="Loyalty & Offers" href="/docs/api-reference/loyalty-offers">
-  Gems and promotional offers
-</Card>
-  <Card title="Notifications & Realtime" href="/docs/api-reference/notifications">
-  In-app, push, Ably token
-</Card>
-  <Card title="Background Jobs" href="/docs/api-reference/jobs">
-  QStash-triggered job routes
-</Card>
-  <Card title="Health" href="/docs/api-reference/health">
-  Liveness + dependency checks
-</Card>
+  <Card title="Services & Availability" icon="scissors" href="/content/docs/api-reference/services">
+    Catalogue, service detail, slot availability.
+  </Card>
+
+  <Card title="Bookings (customer)" icon="calendar" href="/content/docs/api-reference/bookings">
+    Create, view, and cancel a booking.
+  </Card>
+
+  <Card title="Admin — Bookings" icon="clipboard-list" href="/content/docs/api-reference/admin-bookings">
+    Approve, assign, complete, no-show.
+  </Card>
+
+  <Card title="Customers & CRM" icon="users-round" href="/content/docs/api-reference/customers-crm">
+    Directory, profiles, notes, tags.
+  </Card>
+
+  <Card title="Leads" icon="target" href="/content/docs/api-reference/leads">
+    Lead capture plus the admin pipeline.
+  </Card>
+
+  <Card title="Memberships" icon="id-card" href="/content/docs/api-reference/memberships">
+    Customer view plus admin management.
+  </Card>
+
+  <Card title="Loyalty & Offers" icon="badge-percent" href="/content/docs/api-reference/loyalty-offers">
+    Gems and promotional offers.
+  </Card>
+
+  <Card title="Notifications & Realtime" icon="bell-ring" href="/content/docs/api-reference/notifications">
+    In-app, push, and the Ably token route.
+  </Card>
+
+  <Card title="Background Jobs" icon="cog" href="/content/docs/api-reference/jobs">
+    QStash-triggered job routes.
+  </Card>
+
+  <Card title="Health" icon="heart-pulse" href="/content/docs/api-reference/health">
+    Liveness and dependency checks.
+  </Card>
 </Columns>
+
+## AI-discovery files
+
+The platform publishes machine-readable descriptions of itself so assistants and
+crawlers can answer questions about the salon without scraping the UI.
+
+<Columns cols={2}>
+  <Card title="/llms.txt" icon="file-text" href="https://theroyalglow.in/llms.txt">
+    Concise site summary with live service names.
+  </Card>
+
+  <Card title="/llms-full.txt" icon="file-stack" href="https://theroyalglow.in/llms-full.txt">
+    Full menu with prices, durations, policies, and FAQs.
+  </Card>
+
+  <Card title="/sitemap.xml" icon="map" href="https://theroyalglow.in/sitemap.xml">
+    Crawler discovery — all major AI crawlers allowed.
+  </Card>
+
+  <Card title="/robots.txt" icon="bot" href="https://theroyalglow.in/robots.txt">
+    Crawl rules; AI crawlers explicitly allowed.
+  </Card>
+</Columns>
+
+<Info>
+  A complete, auto-generated reference (via Mintlify's native OpenAPI support
+  from a published OpenAPI spec) is a planned follow-up. This page documents the
+  stable, agent-facing surface in the meantime.
+</Info>

@@ -1,9 +1,8 @@
 ---
 title: Data Model
 description: The 38-table Drizzle schema for Royal Glow — conventions, table groupings, enums, and ID formats.
+icon: database
 ---
-
-# Data Model
 
 Royal Glow runs on **Neon PostgreSQL 16** with **Drizzle ORM** (pure TypeScript,
 edge-native). The schema lives in `packages/db/src/schema/` as **15 files**
@@ -167,13 +166,13 @@ A booking is salon OR spa, never mixed.
 ## Related pages
 
 <Columns cols={2}>
-  <Card title="Conventions" href="/docs/conventions">
+  <Card title="Conventions" href="/content/docs/conventions">
   Money, dates, layering, and the API response envelope
 </Card>
-  <Card title="Background Jobs" href="/docs/background-jobs">
+  <Card title="Background Jobs" href="/content/docs/background-jobs">
   The cron + QStash jobs that maintain this data
 </Card>
-  <Card title="API Reference" href="/docs/api-reference">
+  <Card title="API Reference" href="/content/docs/api-reference/index">
   Endpoints that read and write these tables
 </Card>
 </Columns>

@@ -1,9 +1,8 @@
 ---
 title: Security
 description: How Royal Glow protects customer data — input validation, rate limiting, security headers, file uploads, webhooks, consent, and role-based access.
+icon: shield
 ---
-
-# Security
 
 <Info>
   **In one line:** Security is layered — Zod validation, Upstash rate limits,
@@ -144,7 +143,7 @@ if (!isValid) {
 ```
 
 Each provider has its own verifying secret — for example `META_CAPI_WEBHOOK_TOKEN`
-and `AISENSY_WEBHOOK_SECRET`. See [Environment Variables](/docs/environment-variables)
+and `AISENSY_WEBHOOK_SECRET`. See [Environment Variables](/content/docs/environment-variables)
 for the full list.
 
 ## Output safety — no unsanitised HTML
@@ -169,7 +168,7 @@ organisations. Consent is explicit and granular:
 <Info>
   Consent choices captured at onboarding seed the `rgss_cookie_consent` store, so
   the cookie banner does not re-ask for categories the customer has already
-  decided on. See [Authentication](/docs/authentication) for the onboarding flow.
+  decided on. See [Authentication](/content/docs/authentication) for the onboarding flow.
 </Info>
 
 ## Access control — six RBAC roles
@@ -207,7 +206,7 @@ third-party service. The session cookie is hardened:
 
 Because Google OAuth runs on Royal Glow's own domain, the callback at
 `theroyalglow.in/api/auth/callback/google` keeps the session first-party. See
-[Authentication](/docs/authentication) for the full sign-in design.
+[Authentication](/content/docs/authentication) for the full sign-in design.
 
 ## Security checklist
 
@@ -227,16 +226,16 @@ Every new API route and feature is held to this list:
 ## Related links
 
 <Columns cols={2}>
-  <Card title="Authentication" href="/docs/authentication">
+  <Card title="Authentication" href="/content/docs/authentication">
   Google OAuth, the six RBAC roles, sessions, and onboarding consent.
 </Card>
-  <Card title="Error Handling" href="/docs/error-handling">
+  <Card title="Error Handling" href="/content/docs/error-handling">
   How validation, auth, and rate-limit failures are returned to clients.
 </Card>
-  <Card title="Conventions" href="/docs/conventions">
+  <Card title="Conventions" href="/content/docs/conventions">
   The API response envelope and the central error-code registry.
 </Card>
-  <Card title="Environment Variables" href="/docs/environment-variables">
+  <Card title="Environment Variables" href="/content/docs/environment-variables">
   The webhook secrets and keys that back these controls.
 </Card>
 </Columns>

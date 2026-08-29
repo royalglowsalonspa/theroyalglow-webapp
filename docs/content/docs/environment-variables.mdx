@@ -1,9 +1,8 @@
 ---
 title: Environment Variables
 description: Every environment variable for the Royal Glow platform — what they do, where they go, and how they're validated.
+icon: sliders-horizontal
 ---
-
-# Environment Variables
 
 Royal Glow runs a monorepo with three Next.js apps (`apps/web`, `apps/admin`, `apps/cms`) plus the `apps/invoicing` PDF render service, deployed across Cloudflare Workers (`rgss-web`, `rgss-admin` — via the OpenNext adapter `@opennextjs/cloudflare`), Render (`rgss-cms`), and Cloud Run (`apps/invoicing`), and relies on ~15 external services.
 

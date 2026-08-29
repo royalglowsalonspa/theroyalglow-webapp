@@ -1,9 +1,8 @@
 ---
 title: Loyalty — Gems
 description: How customers earn gems on what they spend and redeem them for specific catalogue services — the rules behind earning, expiry, and redemption.
+icon: gem
 ---
-
-# Loyalty — Gems
 
 Gems are Royal Glow's loyalty currency. Customers earn them automatically when
 they pay for services, and spend them on specific services from a redeemable
@@ -57,7 +56,7 @@ Earning always rounds down: a ₹1,099 invoice earns 10 gems, not 10.99.
 
 <Warning>
   **Gems cannot combine with offers.** Gems and an
-  [offer](/docs/features/offers) cannot both be applied to the same booking — a
+  [offer](/content/docs/features/offers) cannot both be applied to the same booking — a
   customer uses one or the other, never both.
 </Warning>
 
@@ -69,7 +68,7 @@ earns 10 gems, not 10.99.
 <Accordion title="Which invoices earn gems?">
 Service invoices only. Gems are earned on `service` invoices. **No gems** are
 earned on membership purchases or membership sessions. See
-[SPA Memberships](/docs/features/memberships).
+[SPA Memberships](/content/docs/features/memberships).
 </Accordion>
 <Accordion title="When do gems expire?">
 365 days after they are earned, handled by a scheduled background job.
@@ -89,16 +88,16 @@ Manicure"), not a discount on the bill total.
 ## Related links
 
 <Columns cols={2}>
-  <Card title="Loyalty & Offers API" href="/docs/api-reference/loyalty-offers">
+  <Card title="Loyalty & Offers API" href="/content/docs/api-reference/loyalty-offers">
   The gems balance, transaction history, and redeemable catalogue endpoints.
 </Card>
-  <Card title="Offers & Combos" href="/docs/features/offers">
+  <Card title="Offers & Combos" href="/content/docs/features/offers">
   Why gems and offers cannot be combined on one booking.
 </Card>
-  <Card title="Billing & Invoicing" href="/docs/features/billing-invoicing">
+  <Card title="Billing & Invoicing" href="/content/docs/features/billing-invoicing">
   Service invoices are what earn gems.
 </Card>
-  <Card title="Data Model" href="/docs/data-model">
+  <Card title="Data Model" href="/content/docs/data-model">
   The loyalty_account and loyalty_transaction tables.
 </Card>
 </Columns>
