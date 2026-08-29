@@ -12,7 +12,7 @@ free-text notes, and the customer-tag system. Every endpoint calls
 the hierarchy `customer < staff < receptionist < manager < owner < developer`
 (`FORBIDDEN` 403 when the level is too low).
 
-<Callout type="info">
+<Info>
   **Base URL:** `admin.theroyalglow.in` · **Auth:** Better Auth session. These
   paths carry **no `/admin` prefix** — the admin subdomain is the namespace, so
   the full URL is e.g. `admin.theroyalglow.in/api/customers`. Most
@@ -21,7 +21,7 @@ the hierarchy `customer < staff < receptionist < manager < owner < developer`
   require **`manager`**. Money is an integer in **paise**; `dateOfBirth` is
   `YYYY-MM-DD`; timestamps are ISO-8601 UTC. A "customer" id is the underlying
   `user` id.
-</Callout>
+</Info>
 
 ## GET /api/customers
 
@@ -40,38 +40,13 @@ GET /api/customers?q=aarav&sort=ltv&page=1&pageSize=20&tag=vip
 
 Validated by `customerListQuerySchema` (`@rgss/types`).
 
-<TypeTable
-  type={{
-    q: {
-      type: 'string',
-      description: 'Free-text search, trimmed, max 120 chars. Matched (case-insensitive) against name, phone, and email.',
-      required: false,
-    },
-    sort: {
-      type: 'enum',
-      description: 'One of ltv, visits, last_visit, name, gems, noshows.',
-      required: false,
-      default: 'ltv',
-    },
-    page: {
-      type: 'number',
-      description: 'Integer at least 1. Coerced from string.',
-      required: false,
-      default: '1',
-    },
-    pageSize: {
-      type: 'number',
-      description: 'Integer 1–100. Coerced from string.',
-      required: false,
-      default: '20',
-    },
-    tag: {
-      type: 'string',
-      description: 'Tag slug filter. An unknown slug matches nobody (empty result).',
-      required: false,
-    },
-  }}
-/>
+| Name | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `q` | `string` | No |  | Free-text search, trimmed, max 120 chars. Matched (case-insensitive) against name, phone, and email. |
+| `sort` | `enum` | No | `ltv` | One of ltv, visits, last_visit, name, gems, noshows. |
+| `page` | `number` | No | `1` | Integer at least 1. Coerced from string. |
+| `pageSize` | `number` | No | `20` | Integer 1–100. Coerced from string. |
+| `tag` | `string` | No |  | Tag slug filter. An unknown slug matches nobody (empty result). |
 
 ### Response
 
@@ -110,7 +85,7 @@ Validated by `customerListQuerySchema` (`@rgss/types`).
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -132,7 +107,7 @@ Query fails `customerListQuerySchema` (e.g. `pageSize` above 100, invalid
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -149,15 +124,9 @@ GET /api/customers/usr_abc123
 
 ### Path parameters
 
-<TypeTable
-  type={{
-    id: {
-      type: 'string',
-      description: 'Path. The customer (user) id.',
-      required: true,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | `string` | Yes | Path. The customer (user) id. |
 
 ### Response
 
@@ -193,7 +162,7 @@ GET /api/customers/usr_abc123
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -214,7 +183,7 @@ No user with that id has a customer profile.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -233,34 +202,18 @@ Content-Type: application/json
 
 ### Path parameters
 
-<TypeTable
-  type={{
-    id: {
-      type: 'string',
-      description: 'Path. The customer (user) id.',
-      required: true,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | `string` | Yes | Path. The customer (user) id. |
 
 ### Request body
 
 Validated by an inline Zod schema in the handler.
 
-<TypeTable
-  type={{
-    noshowCount: {
-      type: 'number',
-      description: 'Integer at least 0. Overrides the stored no-show count.',
-      required: false,
-    },
-    bookingRequiresApproval: {
-      type: 'boolean',
-      description: 'Toggles the booking-approval gate.',
-      required: false,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `noshowCount` | `number` | No | Integer at least 0. Overrides the stored no-show count. |
+| `bookingRequiresApproval` | `boolean` | No | Toggles the booking-approval gate. |
 
 ```json
 {
@@ -308,7 +261,7 @@ Returns the updated `customer_profile` row.
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -335,7 +288,7 @@ No user with that id has a customer profile.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -353,34 +306,18 @@ Content-Type: application/json
 
 ### Path parameters
 
-<TypeTable
-  type={{
-    id: {
-      type: 'string',
-      description: 'Path. The customer (user) id.',
-      required: true,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | `string` | Yes | Path. The customer (user) id. |
 
 ### Request body
 
 Validated by `addCustomerNoteSchema` (`@rgss/types`).
 
-<TypeTable
-  type={{
-    content: {
-      type: 'string',
-      description: 'Trimmed, 1–1000 characters.',
-      required: true,
-    },
-    bookingId: {
-      type: 'string',
-      description: 'Links the note to a specific booking.',
-      required: false,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `content` | `string` | Yes | Trimmed, 1–1000 characters. |
+| `bookingId` | `string` | No | Links the note to a specific booking. |
 
 ```json
 {
@@ -411,7 +348,7 @@ Returns `201 Created` with the created note row.
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -433,7 +370,7 @@ field errors.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -452,29 +389,17 @@ Content-Type: application/json
 
 ### Path parameters
 
-<TypeTable
-  type={{
-    id: {
-      type: 'string',
-      description: 'Path. The customer (user) id.',
-      required: true,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | `string` | Yes | Path. The customer (user) id. |
 
 ### Request body
 
 Validated by `assignTagSchema` (`@rgss/types`).
 
-<TypeTable
-  type={{
-    tagId: {
-      type: 'string',
-      description: 'Non-empty id of an existing customer_tag.',
-      required: true,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `tagId` | `string` | Yes | Non-empty id of an existing customer_tag. |
 
 ```json
 {
@@ -497,7 +422,7 @@ Returns `201 Created`.
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -519,7 +444,7 @@ errors.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -536,20 +461,10 @@ DELETE /api/customers/usr_abc123/tags/tag_vip01
 
 ### Path parameters
 
-<TypeTable
-  type={{
-    id: {
-      type: 'string',
-      description: 'Path. The customer (user) id.',
-      required: true,
-    },
-    tagId: {
-      type: 'string',
-      description: 'Path. The tag id to unassign.',
-      required: true,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | `string` | Yes | Path. The customer (user) id. |
+| `tagId` | `string` | Yes | Path. The tag id to unassign. |
 
 ### Response
 
@@ -564,7 +479,7 @@ DELETE /api/customers/usr_abc123/tags/tag_vip01
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -580,7 +495,7 @@ Caller's role is below `receptionist`.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -624,7 +539,7 @@ GET /api/tags
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -640,7 +555,7 @@ Caller's role is below `receptionist`.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -660,20 +575,10 @@ Content-Type: application/json
 
 Validated by `createTagSchema` (`@rgss/types`).
 
-<TypeTable
-  type={{
-    name: {
-      type: 'string',
-      description: 'Trimmed, 1–40 characters.',
-      required: true,
-    },
-    color: {
-      type: 'string',
-      description: 'Hex colour matching #RRGGBB (six hex digits, e.g. #d4af37).',
-      required: false,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | `string` | Yes | Trimmed, 1–40 characters. |
+| `color` | `string` | No | Hex colour matching #RRGGBB (six hex digits, e.g. #d4af37). |
 
 ```json
 {
@@ -704,7 +609,7 @@ Returns `201 Created` with the created tag row.
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -726,4 +631,4 @@ Body fails `createTagSchema` (empty/too-long `name`, malformed `color`).
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>

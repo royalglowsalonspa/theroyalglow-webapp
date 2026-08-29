@@ -5,40 +5,40 @@ description: Seed scripts, demo data, and environment-specific seeding strategy 
 
 # Data Seeding
 
-<Callout type="info">
+<Info>
   **In one line:** Idempotent seed scripts provision production essentials in
   every environment and add realistic demo data in non-prod. `prod` gets
   essentials only, `pprd` is never seeded (it receives anonymised prod data), and
   `dev`/`test` get full demo fixtures.
-</Callout>
+</Info>
 
 Seed scripts provision production essentials in every environment and add realistic demo data in non-production environments for development, testing, and stakeholder demos. Seeds are **idempotent** — running twice produces the same result (upsert, not duplicate insert).
 
 ## Seeding by Environment
 
-<Tabs items={['prod', 'pprd', 'dev', 'test']}>
-<Tab value="prod">
+<Tabs>
+<Tab title="prod">
 
 **Seeded:** Branch, categories, services, settings, membership tiers, customer tags.
 
 **Purpose:** Production bootstrap — real data added by staff.
 
 </Tab>
-<Tab value="pprd">
+<Tab title="pprd">
 
 **Not seeded** — receives daily data from prod via Neon branch reset + PII anonymization.
 
 **Purpose:** UAT with real-shaped data.
 
 </Tab>
-<Tab value="dev">
+<Tab title="dev">
 
 **Seeded:** Prod essentials + demo staff, customers, bookings, offers, memberships, leads, loyalty.
 
 **Purpose:** Developer testing, UI development.
 
 </Tab>
-<Tab value="test">
+<Tab title="test">
 
 **Seeded:** Prod essentials + all roles/designations + deterministic fixtures with known IDs.
 
@@ -47,9 +47,9 @@ Seed scripts provision production essentials in every environment and add realis
 </Tab>
 </Tabs>
 
-<Callout type="warn">
+<Warning>
   **pprd is never seeded.** It receives real (anonymized) data via nightly Neon branch reset from prod. See [Git Workflow](/docs/git-workflow) for the replication process.
-</Callout>
+</Warning>
 
 ## Commands
 
@@ -67,10 +67,10 @@ bun run scripts/seed.ts --reset
 bun run scripts/seed-prod.ts
 ```
 
-<Callout type="warn">
+<Warning>
   **Safety guard:** `--reset` is blocked on `prod` — the script checks `APP_ENV`
   and exits with an error if you try.
-</Callout>
+</Warning>
 
 ## Seed Execution Order
 
@@ -142,16 +142,14 @@ Covering all 7 salon categories: haircuts, colouring/treatments, facials, waxing
 
 Key-value pairs stored in the `system_setting` table:
 
-<TypeTable
-  type={{
-    gst_rate: { type: 'percentage', description: 'GST rate (SAC code 999721)', default: '18%' },
-    gems_earn_rate: { type: 'percentage', description: 'Gems earned per spend (1 gem per ₹100)', default: '1%' },
-    gems_expiry: { type: 'days', description: 'Days after which earned gems expire', default: '365' },
-    cancellation_window: { type: 'hours', description: 'Free-cancellation window before appointment', default: '4' },
-    reschedule_limit: { type: 'count', description: 'Maximum reschedules per booking', default: '2' },
-    noshow_approval_threshold: { type: 'count', description: 'No-shows in 90 days that trigger manager approval', default: '4' },
-  }}
-/>
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `gst_rate` | `percentage` | `18%` | GST rate (SAC code 999721) |
+| `gems_earn_rate` | `percentage` | `1%` | Gems earned per spend (1 gem per ₹100) |
+| `gems_expiry` | `days` | `365` | Days after which earned gems expire |
+| `cancellation_window` | `hours` | `4` | Free-cancellation window before appointment |
+| `reschedule_limit` | `count` | `2` | Maximum reschedules per booking |
+| `noshow_approval_threshold` | `count` | `4` | No-shows in 90 days that trigger manager approval |
 
 ### Customer Tags
 

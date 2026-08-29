@@ -5,12 +5,12 @@ description: How Royal Glow protects customer data — input validation, rate li
 
 # Security
 
-<Callout type="info">
+<Info>
   **In one line:** Security is layered — Zod validation, Upstash rate limits,
   nonce-based CSP, exact-origin CORS, file-type whitelisting, HMAC webhook
   verification, DPDP consent, six-role RBAC, and hardened session cookies all work
   together so one gap never becomes a breach.
-</Callout>
+</Info>
 
 Royal Glow handles real people's personal details — names, phone numbers,
 dates of birth, booking history, and invoices. Keeping that data safe is not an
@@ -18,11 +18,11 @@ afterthought; it is built into every layer of the platform. This page explains,
 in plain terms first and then in technical detail, the controls that protect the
 site and the people who use it.
 
-<Callout type="info">
+<Info>
   Security is layered. No single control is relied upon on its own — validation,
   rate limits, headers, access checks, and consent all work together so that one
   gap does not become a breach.
-</Callout>
+</Info>
 
 ## The short version
 
@@ -60,11 +60,11 @@ export const POST = withErrorHandler(async (req: Request) => {
 })
 ```
 
-<Callout type="warn">
+<Warning>
   Use `safeParse()`, never `parse()`. `parse()` throws an unstructured error;
   `safeParse()` lets the route return a clean `VALIDATION_ERROR` with field-level
   `details`. Raw client input must never be used past the API boundary.
-</Callout>
+</Warning>
 
 This also defends against **mass assignment** — extra fields a caller might try
 to sneak in are simply not part of the schema, so they are dropped.
@@ -99,11 +99,11 @@ scripts the server explicitly trusts. Each response carries a per-request
 **nonce**, and inline scripts must present that nonce to run — this neutralises
 most cross-site scripting (XSS) attempts even if malicious markup slips through.
 
-<Callout type="info">
+<Info>
   The nonce is generated fresh per request (alongside the request ID) and
   injected into both the CSP header and the allowed `<script>` tags. A static
   nonce would defeat the purpose.
-</Callout>
+</Info>
 
 ## CORS — exact-origin matching
 
@@ -116,12 +116,10 @@ Anything from another origin is rejected rather than reflected back.
 Uploads (such as customer or content images and PDF documents) are constrained
 on two axes:
 
-<TypeTable
-  type={{
-    allowedTypes: { type: 'whitelist', description: 'jpg, png, webp, pdf only (a whitelist, not a blacklist)', required: true },
-    maxSize: { type: 'limit', description: 'Maximum size per file', default: '10 MB' },
-  }}
-/>
+| Name | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `allowedTypes` | `whitelist` | Yes |  | jpg, png, webp, pdf only (a whitelist, not a blacklist) |
+| `maxSize` | `limit` |  | `10 MB` | Maximum size per file |
 
 Files are stored in Cloudflare R2 and served from a dedicated public CDN host,
 never executed by the application.
@@ -168,11 +166,11 @@ organisations. Consent is explicit and granular:
 - **Optional — marketing** — offers and promotions (Meta Pixel + CAPI) fire only
   when the customer opts in.
 
-<Callout type="info">
+<Info>
   Consent choices captured at onboarding seed the `rgss_cookie_consent` store, so
   the cookie banner does not re-ask for categories the customer has already
   decided on. See [Authentication](/docs/authentication) for the onboarding flow.
-</Callout>
+</Info>
 
 ## Access control — six RBAC roles
 
@@ -201,13 +199,11 @@ session at all.
 Sessions are managed by Better Auth and stored in **Neon** (PostgreSQL), not in a
 third-party service. The session cookie is hardened:
 
-<TypeTable
-  type={{
-    HttpOnly: { type: 'true', description: 'JavaScript cannot read the cookie (XSS cannot steal it)', default: 'true' },
-    Secure: { type: 'true', description: 'Sent only over HTTPS', default: 'true' },
-    SameSite: { type: 'Lax', description: 'Not sent on cross-site requests (CSRF defence)', default: 'Lax' },
-  }}
-/>
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `HttpOnly` | `true` | `true` | JavaScript cannot read the cookie (XSS cannot steal it) |
+| `Secure` | `true` | `true` | Sent only over HTTPS |
+| `SameSite` | `Lax` | `Lax` | Not sent on cross-site requests (CSRF defence) |
 
 Because Google OAuth runs on Royal Glow's own domain, the callback at
 `theroyalglow.in/api/auth/callback/google` keeps the session first-party. See
@@ -230,9 +226,17 @@ Every new API route and feature is held to this list:
 
 ## Related links
 
-<Cards>
-  <Card title="Authentication" href="/docs/authentication" description="Google OAuth, the six RBAC roles, sessions, and onboarding consent." />
-  <Card title="Error Handling" href="/docs/error-handling" description="How validation, auth, and rate-limit failures are returned to clients." />
-  <Card title="Conventions" href="/docs/conventions" description="The API response envelope and the central error-code registry." />
-  <Card title="Environment Variables" href="/docs/environment-variables" description="The webhook secrets and keys that back these controls." />
-</Cards>
+<Columns cols={2}>
+  <Card title="Authentication" href="/docs/authentication">
+  Google OAuth, the six RBAC roles, sessions, and onboarding consent.
+</Card>
+  <Card title="Error Handling" href="/docs/error-handling">
+  How validation, auth, and rate-limit failures are returned to clients.
+</Card>
+  <Card title="Conventions" href="/docs/conventions">
+  The API response envelope and the central error-code registry.
+</Card>
+  <Card title="Environment Variables" href="/docs/environment-variables">
+  The webhook secrets and keys that back these controls.
+</Card>
+</Columns>

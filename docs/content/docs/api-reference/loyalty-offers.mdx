@@ -9,7 +9,7 @@ Two related areas: the **gems** loyalty programme (a customer's own balance,
 transaction history, and the redeemable-services catalogue) and **offers**
 (a public list of active promotions plus manager-only CRUD).
 
-<Callout type="info">
+<Info>
   **Base URLs:** the customer endpoints (`GET /api/gems`, public
   `GET /api/offers`) are served from `https://theroyalglow.in`. The admin offer
   management endpoints are served from `https://admin.theroyalglow.in` with **no
@@ -21,15 +21,15 @@ transaction history, and the redeemable-services catalogue) and **offers**
   serialise back as UTC-midnight ISO strings (e.g. `"2026-06-30T00:00:00.000Z"`).
   The role hierarchy is `customer < staff < receptionist < manager < owner <
   developer`.
-</Callout>
+</Info>
 
-<Callout type="info">
+<Info>
   **Gems rules.** Customers earn **1 gem per ₹100 invoiced** (floor), on service
   invoices only — never on membership purchases or sessions. Gems **expire 365
   days** after they are earned. Redemption is **against specific catalogue
   services**, not a rupee discount, and gems **cannot be combined** with an offer
   on the same booking.
-</Callout>
+</Info>
 
 ## GET `theroyalglow.in/api/gems`
 
@@ -47,22 +47,10 @@ GET /api/gems?page=1&pageSize=20
 
 ### Query parameters
 
-<TypeTable
-  type={{
-    page: {
-      type: 'integer',
-      description: 'Query. Non-integer or values below 1 fall back to the default.',
-      required: false,
-      default: '1',
-    },
-    pageSize: {
-      type: 'integer',
-      description: 'Query. Clamped to a maximum of 100. Invalid values fall back to the default.',
-      required: false,
-      default: '20',
-    },
-  }}
-/>
+| Name | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `page` | `integer` | No | `1` | Query. Non-integer or values below 1 fall back to the default. |
+| `pageSize` | `integer` | No | `20` | Query. Clamped to a maximum of 100. Invalid values fall back to the default. |
 
 ### Response
 
@@ -122,7 +110,7 @@ whenever a full page is returned (there may be more), otherwise `page`.
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -133,7 +121,7 @@ No active session.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -194,13 +182,13 @@ populated depends on `offerType`:
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="INTERNAL_ERROR — 500">
 
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -252,7 +240,7 @@ out-of-range offers), ordered by `createdAt` descending.
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -268,7 +256,7 @@ Caller's role is below `manager`.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -291,63 +279,21 @@ Validated by `createOfferSchema` (`@rgss/types`). The discount field that
 matches `offerType` is **required**, and `endDate` must be on or after
 `startDate` (both enforced via `superRefine`, surfaced as field-level errors).
 
-<TypeTable
-  type={{
-    name: {
-      type: 'string',
-      description: 'Trimmed, 1–120 characters.',
-      required: true,
-    },
-    offerType: {
-      type: 'enum',
-      description: 'percentage, flat, or combo_price.',
-      required: true,
-    },
-    startDate: {
-      type: 'string',
-      description: 'YYYY-MM-DD.',
-      required: true,
-    },
-    endDate: {
-      type: 'string',
-      description: 'YYYY-MM-DD. Must be on or after startDate.',
-      required: true,
-    },
-    serviceIds: {
-      type: 'string[]',
-      description: 'At least one non-empty service id.',
-      required: true,
-    },
-    discountPercentage: {
-      type: 'integer',
-      description: 'Required when offerType is percentage. Integer 1–100.',
-      required: false,
-    },
-    discountAmountPaise: {
-      type: 'integer',
-      description: 'Required when offerType is flat. Positive integer (paise).',
-      required: false,
-    },
-    comboPricePaise: {
-      type: 'integer',
-      description: 'Required when offerType is combo_price. Positive integer (paise).',
-      required: false,
-    },
-    description: {
-      type: 'string',
-      description: 'Max 1000 characters.',
-      required: false,
-    },
-    terms: {
-      type: 'string',
-      description: 'Max 1000 characters.',
-      required: false,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | `string` | Yes | Trimmed, 1–120 characters. |
+| `offerType` | `enum` | Yes | percentage, flat, or combo_price. |
+| `startDate` | `string` | Yes | YYYY-MM-DD. |
+| `endDate` | `string` | Yes | YYYY-MM-DD. Must be on or after startDate. |
+| `serviceIds` | `string[]` | Yes | At least one non-empty service id. |
+| `discountPercentage` | `integer` | No | Required when offerType is percentage. Integer 1–100. |
+| `discountAmountPaise` | `integer` | No | Required when offerType is flat. Positive integer (paise). |
+| `comboPricePaise` | `integer` | No | Required when offerType is combo_price. Positive integer (paise). |
+| `description` | `string` | No | Max 1000 characters. |
+| `terms` | `string` | No | Max 1000 characters. |
 
-<Tabs items={['percentage', 'flat', 'combo_price']}>
-<Tab value="percentage">
+<Tabs>
+<Tab title="percentage">
 
 Requires `discountPercentage`.
 
@@ -365,7 +311,7 @@ Requires `discountPercentage`.
 ```
 
 </Tab>
-<Tab value="flat">
+<Tab title="flat">
 
 Requires `discountAmountPaise`.
 
@@ -381,7 +327,7 @@ Requires `discountAmountPaise`.
 ```
 
 </Tab>
-<Tab value="combo_price">
+<Tab title="combo_price">
 
 Requires `comboPricePaise`.
 
@@ -431,7 +377,7 @@ Returns `201 Created` with the created offer (the raw offer row).
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -454,7 +400,7 @@ date. `details` carries field-level errors.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -470,15 +416,9 @@ GET /api/offers/of_3b7e1d9a2c
 
 ### Path parameters
 
-<TypeTable
-  type={{
-    id: {
-      type: 'string',
-      description: 'Path. The offer id.',
-      required: true,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | `string` | Yes | Path. The offer id. |
 
 ### Response
 
@@ -510,7 +450,7 @@ Same per-offer shape as the list endpoints (offer row plus `services`,
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -531,7 +471,7 @@ No offer exists with that id.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -551,15 +491,9 @@ Content-Type: application/json
 
 ### Path parameters
 
-<TypeTable
-  type={{
-    id: {
-      type: 'string',
-      description: 'Path. The offer id.',
-      required: true,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | `string` | Yes | Path. The offer id. |
 
 ### Request body
 
@@ -568,68 +502,22 @@ optional, plus an optional `isActive` boolean. The conditional discount/date
 refinements that apply on create are **not** re-run here (the base object is made
 partial).
 
-<TypeTable
-  type={{
-    name: {
-      type: 'string',
-      description: 'Trimmed, 1–120 characters.',
-      required: false,
-    },
-    description: {
-      type: 'string',
-      description: 'Max 1000 characters.',
-      required: false,
-    },
-    offerType: {
-      type: 'enum',
-      description: 'percentage, flat, or combo_price.',
-      required: false,
-    },
-    discountPercentage: {
-      type: 'integer',
-      description: 'Integer 1–100.',
-      required: false,
-    },
-    discountAmountPaise: {
-      type: 'integer',
-      description: 'Positive integer (paise).',
-      required: false,
-    },
-    comboPricePaise: {
-      type: 'integer',
-      description: 'Positive integer (paise).',
-      required: false,
-    },
-    startDate: {
-      type: 'string',
-      description: 'YYYY-MM-DD.',
-      required: false,
-    },
-    endDate: {
-      type: 'string',
-      description: 'YYYY-MM-DD.',
-      required: false,
-    },
-    serviceIds: {
-      type: 'string[]',
-      description: 'At least one id when present; fully replaces the linked-service set.',
-      required: false,
-    },
-    terms: {
-      type: 'string',
-      description: 'Max 1000 characters.',
-      required: false,
-    },
-    isActive: {
-      type: 'boolean',
-      description: 'false alone deactivates the offer.',
-      required: false,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | `string` | No | Trimmed, 1–120 characters. |
+| `description` | `string` | No | Max 1000 characters. |
+| `offerType` | `enum` | No | percentage, flat, or combo_price. |
+| `discountPercentage` | `integer` | No | Integer 1–100. |
+| `discountAmountPaise` | `integer` | No | Positive integer (paise). |
+| `comboPricePaise` | `integer` | No | Positive integer (paise). |
+| `startDate` | `string` | No | YYYY-MM-DD. |
+| `endDate` | `string` | No | YYYY-MM-DD. |
+| `serviceIds` | `string[]` | No | At least one id when present; fully replaces the linked-service set. |
+| `terms` | `string` | No | Max 1000 characters. |
+| `isActive` | `boolean` | No | false alone deactivates the offer. |
 
-<Tabs items={['Deactivate', 'Update fields']}>
-<Tab value="Deactivate">
+<Tabs>
+<Tab title="Deactivate">
 
 `isActive: false` alone deactivates the offer.
 
@@ -640,7 +528,7 @@ partial).
 ```
 
 </Tab>
-<Tab value="Update fields">
+<Tab title="Update fields">
 
 ```json
 {
@@ -682,7 +570,7 @@ Returns the updated offer row.
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="UNAUTHENTICATED — 401">
 
 No active session.
@@ -708,4 +596,4 @@ No offer exists with that id (on both the deactivation and update paths).
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>

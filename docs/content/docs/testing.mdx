@@ -5,12 +5,12 @@ description: The complete testing strategy for Royal Glow — tools, layers, CI 
 
 # Testing
 
-<Callout type="info">
+<Info>
   **In one line:** Royal Glow follows a testing *diamond* — most tests at the
   integration boundary — across 13 layers, all on free tiers at **$0/month**. CI
   gates get stricter from `dev` to `prod`, and Lighthouse requires performance ≥
   95 with accessibility/best-practices/SEO = 100.
-</Callout>
+</Info>
 
 ## Philosophy
 
@@ -75,7 +75,7 @@ TOTAL COST:  $0/month (all free tiers)
 
 ### Tools Rejected
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="Cypress">
 Slower than Playwright, no WebKit, worse Next.js App Router support.
 </Accordion>
@@ -91,7 +91,7 @@ $31/host/mo — BetterStack + Sentry covers all needs at $0.
 <Accordion title="Snyk">
 Trivy + Socket.dev covers the same ground for free.
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ## Unit Testing (Vitest)
 
@@ -201,25 +201,25 @@ export const options = {
 
 Gates are cumulative — each stage adds checks on top of the previous one.
 
-<Tabs items={['PR to dev', 'PR to test', 'PR to pprd', 'PR to prod']}>
-<Tab value="PR to dev">
+<Tabs>
+<Tab title="PR to dev">
 
 - Lint + Format (Biome)
 - Type check (tsc --noEmit)
 - Unit tests (Vitest)
 
 </Tab>
-<Tab value="PR to test">
+<Tab title="PR to test">
 
 - All `dev` checks + Integration tests + Playwright E2E + Lighthouse CI
 
 </Tab>
-<Tab value="PR to pprd">
+<Tab title="PR to pprd">
 
 - All `test` checks + k6 load test + OWASP ZAP + smoke test suite
 
 </Tab>
-<Tab value="PR to prod">
+<Tab title="PR to prod">
 
 - All CI gates passing + manual approval required
 

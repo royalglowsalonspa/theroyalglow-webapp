@@ -5,13 +5,13 @@ description: The 19 scheduled and event-driven jobs that keep Royal Glow running
 
 # Background Jobs
 
-<Callout type="info">
+<Info>
   **19 jobs total — 14 QStash scheduled + 4 QStash triggered + 1 GitHub Actions cron.**
   All scheduled and event-driven jobs run on QStash (HTTP → Next.js API routes
   hosted in `apps/admin`, served from `admin.theroyalglow.in/api/jobs/*`). The
   single exception is the `pprd` branch reset (Job 5), a Neon control-plane op on
   GitHub Actions cron. Every job pings a BetterStack heartbeat on success.
-</Callout>
+</Info>
 
 Royal Glow runs **19 background jobs**. **All scheduled and event-driven jobs run
 on QStash** (HTTP → Next.js API routes) — including the pure-SQL maintenance jobs,
@@ -19,19 +19,19 @@ which execute their idempotent SQL via `@rgss/db` query functions. The single
 exception is the `pprd` branch reset (Job 5), which is a Neon control-plane op and
 runs on GitHub Actions cron.
 
-<Callout type="warn">
+<Warning>
   **pg_cron is not used.** The 6 DB-maintenance jobs were originally planned on
   pg_cron, but the free-tier prod Neon compute scales to zero after ~5 min idle
   and pg_cron only fires while the compute is awake — the late-night windows
   (11:30 PM–2:30 AM IST) would silently never run. QStash POSTs an endpoint that
   *wakes* the compute, so the jobs run reliably at ₹0. The job SQL was ported
   verbatim into `packages/db/src/queries/jobs.ts`.
-</Callout>
+</Warning>
 
 ## Where jobs run
 
-<Tabs items={['QStash', 'GitHub Actions cron']}>
-<Tab value="QStash">
+<Tabs>
+<Tab title="QStash">
 
 Upstash HTTP queue → Next.js API routes in `apps/admin`. Use for **ALL** scheduled
 and triggered jobs (DB maintenance + external services).
@@ -43,7 +43,7 @@ served from `admin.theroyalglow.in/api/jobs/*`; QStash schedules are registered
 from the admin deploy.
 
 </Tab>
-<Tab value="GitHub Actions cron">
+<Tab title="GitHub Actions cron">
 
 GitHub CI. Control-plane **only** — Neon `pprd` branch reset + PII strip (Job 5).
 A Neon Branch Reset API call cannot run inside a normal request, so it lives in CI.
@@ -51,9 +51,9 @@ A Neon Branch Reset API call cannot run inside a normal request, so it lives in 
 </Tab>
 </Tabs>
 
-<Callout type="info">
+<Info>
   All schedules are in UTC; the salon operates IST (UTC+5:30).
-</Callout>
+</Info>
 
 ## Not jobs (synchronous / external)
 
@@ -65,15 +65,15 @@ Three time-critical actions deliberately run **in-request**, not as jobs:
 
 ## Job inventory
 
-<Tabs items={['Scheduled — DB maintenance (7)', 'Scheduled — application (8)', 'Triggered (4)']}>
-<Tab value="Scheduled — DB maintenance (7)">
+<Tabs>
+<Tab title="Scheduled — DB maintenance (7)">
 
 These run in the early IST hours when traffic is zero. **Jobs 1–4, 6 and 7 run on
 QStash** (each POSTs its `/api/jobs/...` route, which runs the idempotent SQL via
 a `@rgss/db` query function) — *not* pg_cron. Job 5 runs via GitHub Actions cron
 (Neon branch reset) plus SQL anonymisation.
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="Job 1 — Nightly sales summary · 0 18 * * * UTC · 11:30 PM IST">
 Aggregate the day's invoices into `daily_sales_summary`. Runs on QStash.
 </Accordion>
@@ -95,15 +95,15 @@ GitHub Actions resets `pprd` from `prod`, then strips PII. Control-plane op.
 <Accordion title="Job 4 — Session cleanup · 0 21 * * 0 UTC · 2:30 AM IST Sunday">
 Delete expired Better Auth `session` rows. Runs on QStash.
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 </Tab>
-<Tab value="Scheduled — application (8)">
+<Tab title="Scheduled — application (8)">
 
 HTTP-triggered application jobs on a fixed cadence (the 6 DB-maintenance jobs are
 also QStash-scheduled, for 14 QStash-scheduled jobs in total).
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="Job 8 — Appointment reminders · every 15 min (8 AM–10 PM IST)">
 Endpoint `/api/jobs/appointment-reminders`. External calls: web-push + Resend.
 </Accordion>
@@ -128,7 +128,7 @@ Endpoint `/api/jobs/weekly-report`. External calls: Slack + Resend.
 <Accordion title="Job 15 — Gems expiry reminder · daily 10:30 AM IST">
 Endpoint `/api/jobs/gems-expiry-reminder`. External calls: web-push only.
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 Reminders fire only when the customer has the relevant preference enabled
 (`appointment_reminders_enabled`, `membership_alerts_enabled`) or
@@ -136,12 +136,12 @@ Reminders fire only when the customer has the relevant preference enabled
 `notification` row for idempotency so the same alert is never sent twice.
 
 </Tab>
-<Tab value="Triggered (4)">
+<Tab title="Triggered (4)">
 
 Event-driven — enqueued with a delay by an API route when a business event
 occurs, not on a fixed schedule.
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="Job 16 — Post-service follow-up · trigger booking.status → completed · +24h">
 Endpoint `/api/jobs/post-service-followup`. External calls: Brevo.
 </Accordion>
@@ -157,15 +157,21 @@ so it always alerts a human to confirm.
 <Accordion title="Job 19 — Membership expired notice · trigger spa_membership.expires_at passes · +1h">
 Endpoint `/api/jobs/membership-expired-notice`. External calls: Resend.
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 </Tab>
 </Tabs>
 
 ## Related pages
 
-<Cards>
-  <Card title="Jobs API" href="/docs/api-reference/jobs" description="The QStash-triggered /api/jobs/* route contracts" />
-  <Card title="Data Model" href="/docs/data-model" description="The tables these jobs scan and update" />
-  <Card title="Deployment" href="/docs/deployment" description="How jobs are monitored via BetterStack heartbeats" />
-</Cards>
+<Columns cols={2}>
+  <Card title="Jobs API" href="/docs/api-reference/jobs">
+  The QStash-triggered /api/jobs/* route contracts
+</Card>
+  <Card title="Data Model" href="/docs/data-model">
+  The tables these jobs scan and update
+</Card>
+  <Card title="Deployment" href="/docs/deployment">
+  How jobs are monitored via BetterStack heartbeats
+</Card>
+</Columns>

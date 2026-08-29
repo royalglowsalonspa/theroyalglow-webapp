@@ -8,57 +8,53 @@ description: Live snapshot of build progress and production-readiness — what's
 A candid, current snapshot of where the platform stands. Use this before
 planning a release or onboarding someone new.
 
-<Callout type="warn">
+<Warning>
   **Not launch-ready from the current working tree yet.** The codebase is
   feature-complete through Phase 10, but an in-flight refactor must land and be
   verified before promotion to production. Details below.
-</Callout>
+</Warning>
 
 ## Build at a glance
 
-<Cards>
-  <Card title="Codebase" description="Feature-complete through Phase 10 — all 38 tables, both apps, CMS, docs, jobs, CI." />
-  <Card title="Branch" description="Active development on `dev`. Promotion flow: dev → test → pprd → prod." />
-  <Card title="Blocker" description="web → admin background-job relocation is mid-refactor and uncommitted." />
-  <Card title="Payments" description="Phase 1 = cash / UPI / card at the counter. No online gateway by design." />
-</Cards>
+<Columns cols={2}>
+  <Card title="Codebase">
+  Feature-complete through Phase 10 — all 38 tables, both apps, CMS, docs, jobs, CI.
+</Card>
+  <Card title="Branch">
+  Active development on `dev`. Promotion flow: dev → test → pprd → prod.
+</Card>
+  <Card title="Blocker">
+  web → admin background-job relocation is mid-refactor and uncommitted.
+</Card>
+  <Card title="Payments">
+  Phase 1 = cash / UPI / card at the counter. No online gateway by design.
+</Card>
+</Columns>
 
 ## What's built
 
 <Steps>
 
-<Step>
-
-### Data & domain
-
+<Step title="Data & domain">
 All **38 tables** across 13 domains in `packages/db` — schema, relations, and a
 full typed query layer.
 
 </Step>
 
-<Step>
-
-### Customer app (`apps/web`)
-
+<Step title="Customer app (apps/web)">
 Homepage, services, the 4-step booking dialog, bookings, profile, membership,
 gems, offers, blog, gallery, legal pages, auth/onboarding, PWA, SEO, and consent.
 
 </Step>
 
-<Step>
-
-### Admin app (`apps/admin`)
-
+<Step title="Admin app (apps/admin)">
 Dashboard, bookings, billing, customers, leads, staff, schedule, leave,
 memberships, offers, services, branches, users, reports, logs, integrations —
 plus the full admin API surface.
 
 </Step>
 
-<Step>
-
-### Platform
-
+<Step title="Platform">
 CMS (`apps/cms`), this docs site, the invoicing service, **19 background jobs**,
 CI + deploy workflows, and a large unit/property test suite.
 
@@ -68,11 +64,11 @@ CI + deploy workflows, and a large unit/property test suite.
 
 ## What blocks production right now
 
-<Callout type="error">
+<Danger>
   These are sequenced — finish them in order before promoting to `prod`.
-</Callout>
+</Danger>
 
-<Accordions type="single">
+<AccordionGroup>
 
 <Accordion title="1 · The web → admin job refactor is mid-flight (uncommitted)">
 
@@ -102,15 +98,15 @@ emitted SQL before `prod`.
 
 </Accordion>
 
-</Accordions>
+</AccordionGroup>
 
 ## Before you can launch (ops checklist)
 
-<Callout type="info">
+<Info>
   None of this is code-blocked — every integration no-ops without a key. This is
   provisioning + verification. See the full
   [Launch Runbook](/docs/operations) and [Deployment](/docs/deployment).
-</Callout>
+</Info>
 
 | Area | Action |
 | --- | --- |
@@ -126,35 +122,23 @@ emitted SQL before `prod`.
 
 <Steps>
 
-<Step>
-
-### Land the refactor
-
+<Step title="Land the refactor">
 Commit the web → admin job relocation; confirm both apps typecheck and build
 green (closes task 4).
 
 </Step>
 
-<Step>
-
-### Clear schema drift
-
+<Step title="Clear schema drift">
 `bun run generate` + `drizzle-kit check`; commit any new migration.
 
 </Step>
 
-<Step>
-
-### Provision
-
+<Step title="Provision">
 Keys, DNS, email-domain verification, Google OAuth approval; seed `prod`.
 
 </Step>
 
-<Step>
-
-### Pass the gates & promote
-
+<Step title="Pass the gates & promote">
 Green CI at the T-24h gate, then promote `dev → test → pprd → prod` following the
 [Launch Runbook](/docs/operations).
 

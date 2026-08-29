@@ -7,9 +7,9 @@ description: Complete map of all 104 pages and API routes in the Royal Glow plat
 
 The platform spans two Next.js apps: the customer site `@rgss/web` (`theroyalglow.in`) and the admin portal `@rgss/admin` (`admin.theroyalglow.in`). Together they cover ~104 pages plus the API layer.
 
-<Callout type="info">
+<Info>
   The customer site uses Next.js App Router **route groups** (folders in parentheses) to share a layout without affecting the URL. The admin portal is a **separate app** served from `admin.theroyalglow.in` at root paths — the subdomain provides the admin namespace, so there is no `/admin` prefix. Legacy `theroyalglow.in/admin/*` paths 301-redirect to the subdomain. Staff self-service lives at `/me/*` within the admin app. Admin routes are RBAC-gated; everything else is public or customer-authenticated.
-</Callout>
+</Info>
 
 ## Route Groups (`@rgss/web` — `theroyalglow.in`)
 
@@ -26,9 +26,9 @@ The admin portal (`@rgss/admin`, `admin.theroyalglow.in`) is a standalone app: a
 
 Select an area of the platform.
 
-<Tabs items={['Customer', 'Admin Portal', 'Staff Portal', 'API', 'Background Jobs', 'Special']}>
+<Tabs>
 
-<Tab value="Customer">
+<Tab title="Customer">
 
 ### Public (No Auth Required)
 
@@ -76,7 +76,7 @@ Select an area of the platform.
 
 </Tab>
 
-<Tab value="Admin Portal">
+<Tab title="Admin Portal">
 
 All admin routes are served from `admin.theroyalglow.in` at **root paths** (no `/admin` prefix) and require authentication with minimum role `receptionist`. The paths below are relative to `admin.theroyalglow.in`.
 
@@ -110,7 +110,7 @@ All admin routes are served from `admin.theroyalglow.in` at **root paths** (no `
 
 </Tab>
 
-<Tab value="Staff Portal">
+<Tab title="Staff Portal">
 
 Staff self-service pages live at `/me/*` within the admin app (`admin.theroyalglow.in`).
 
@@ -121,7 +121,7 @@ Staff self-service pages live at `/me/*` within the admin app (`admin.theroyalgl
 
 </Tab>
 
-<Tab value="API">
+<Tab title="API">
 
 Customer API routes (below) are served from `theroyalglow.in/api/*` by `@rgss/web`. Admin API routes are served from `admin.theroyalglow.in/api/*` by `@rgss/admin` — there is **no `/api/admin/` segment**.
 
@@ -215,7 +215,7 @@ Served from `admin.theroyalglow.in/api/*`. There is no `/api/admin/` segment —
 
 </Tab>
 
-<Tab value="Background Jobs">
+<Tab title="Background Jobs">
 
 QStash signature required. Hosted in `@rgss/admin` and served from `admin.theroyalglow.in/api/jobs/*`. **19 jobs total: 14 QStash scheduled + 4 QStash triggered + 1 GitHub Actions cron.**
 
@@ -251,13 +251,13 @@ QStash signature required. Hosted in `@rgss/admin` and served from `admin.theroy
 
 `pprd` DB sync — resets the `pprd` Neon branch from `prod` and strips PII. Runs in GitHub Actions, not as an HTTP route.
 
-<Callout type="info">
+<Info>
   An internal `/api/jobs/invoice-pdf` route also exists: it hands invoice rendering to the `@rgss/invoicing` Cloud Run PDF service. It is a support route, not one of the 19 scheduled/triggered business jobs.
-</Callout>
+</Info>
 
 </Tab>
 
-<Tab value="Special">
+<Tab title="Special">
 
 | Route | Description |
 | --- | --- |
@@ -275,8 +275,14 @@ QStash signature required. Hosted in `@rgss/admin` and served from `admin.theroy
 
 ## Related Pages
 
-<Cards>
-  <Card title="Frontend" href="/docs/frontend" description="Component architecture and design system behind these pages" />
-  <Card title="API Reference" href="/docs/api-reference" description="Full request/response contracts per endpoint" />
-  <Card title="Background Jobs" href="/docs/background-jobs" description="Schedules and behaviour of all 19 jobs" />
-</Cards>
+<Columns cols={2}>
+  <Card title="Frontend" href="/docs/frontend">
+  Component architecture and design system behind these pages
+</Card>
+  <Card title="API Reference" href="/docs/api-reference">
+  Full request/response contracts per endpoint
+</Card>
+  <Card title="Background Jobs" href="/docs/background-jobs">
+  Schedules and behaviour of all 19 jobs
+</Card>
+</Columns>

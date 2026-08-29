@@ -11,91 +11,87 @@ defining **38 tables** that cover auth, profiles, services, scheduling,
 bookings, billing, memberships, offers, CRM, leads, loyalty, notifications,
 branches, and system operations.
 
-<Callout type="info">
+<Info>
   Every monetary value is an **integer in paise** (₹1 = 100 paise) — never a
   float. Every timestamp is `timestamptz` (stored UTC, displayed IST). Prices
   are GST-inclusive at 18%.
-</Callout>
+</Info>
 
 ## Conventions
 
 These rules are mandatory across every table.
 
-<TypeTable
-  type={{
-    'Primary keys': { type: 'text', description: 'App-generated via nanoid() (or cuid2()). No auto-increment serials — prevents enumeration attacks.' },
-    Money: { type: 'integer (paise)', description: '₹1,000.00 = 100000. No floating point; round at display only.' },
-    Timestamps: { type: 'timestamptz', description: 'Everywhere. Stored UTC, displayed IST (UTC+5:30).' },
-    'Date display': { type: 'DD/MM/YYYY', description: "Via Intl.DateTimeFormat('en-IN')." },
-    'Currency display': { type: '₹1,00,000.00', description: "Indian grouping via Intl.NumberFormat('en-IN'), always 2 decimals." },
-    Naming: { type: 'snake_case', description: 'Singular table names (booking, not bookings).' },
-    Enums: { type: 'native CREATE TYPE', description: 'Centralised in enums.ts.' },
-    Deletes: { type: 'hard delete', description: 'No soft-delete columns. Tracked via audit_log.' },
-    'Foreign keys': { type: 'explicit ON DELETE', description: 'CASCADE for children, RESTRICT for references. Indexed on all FK columns.' },
-    Snapshots: { type: 'frozen copies', description: 'Price + service/staff name frozen on booking_service and invoice_item so historical records never drift.' },
-    GST: { type: '18% inclusive', description: 'SAC 999721. Back-calc: base = round(price ÷ 1.18).' },
-  }}
-/>
+| Name | Type | Description |
+| --- | --- | --- |
+| `Primary keys` | `text` | App-generated via nanoid() (or cuid2()). No auto-increment serials — prevents enumeration attacks. |
+| `Money` | `integer (paise)` | ₹1,000.00 = 100000. No floating point; round at display only. |
+| `Timestamps` | `timestamptz` | Everywhere. Stored UTC, displayed IST (UTC+5:30). |
+| `Date display` | `DD/MM/YYYY` | Via Intl.DateTimeFormat('en-IN'). |
+| `Currency display` | `₹1,00,000.00` | Indian grouping via Intl.NumberFormat('en-IN'), always 2 decimals. |
+| `Naming` | `snake_case` | Singular table names (booking, not bookings). |
+| `Enums` | `native CREATE TYPE` | Centralised in enums.ts. |
+| `Deletes` | `hard delete` | No soft-delete columns. Tracked via audit_log. |
+| `Foreign keys` | `explicit ON DELETE` | CASCADE for children, RESTRICT for references. Indexed on all FK columns. |
+| `Snapshots` | `frozen copies` | Price + service/staff name frozen on booking_service and invoice_item so historical records never drift. |
+| `GST` | `18% inclusive` | SAC 999721. Back-calc: base = round(price ÷ 1.18). |
 
 ## Schema files & table groupings
 
 The 15 schema files in `packages/db/src/schema/` map to 38 tables. The tree below
 lists the actual `pgTable` names defined in each file.
 
-<Files>
-  <Folder name="packages/db/src/schema" defaultOpen>
-    <File name="enums.ts — all PostgreSQL enums (not a table)" />
-    <File name="auth.ts — user, session, account, verification (4)" />
-    <File name="profile.ts — customer_profile, staff_profile (2)" />
-    <File name="service.ts — service_category, service, staff_service (3)" />
-    <File name="schedule.ts — staff_schedule, staff_time_off, business_hour, holiday (4)" />
-    <File name="booking.ts — booking, booking_service, booking_status_log, waitlist (4)" />
-    <File name="invoice.ts — invoice, invoice_item (2)" />
-    <File name="membership.ts — spa_membership_tier, spa_membership (2)" />
-    <File name="offer.ts — offer, offer_service, offer_redemption (3)" />
-    <File name="lead.ts — lead, lead_note (2)" />
-    <File name="crm.ts — customer_tag, customer_tag_assignment, customer_note (3)" />
-    <File name="loyalty.ts — loyalty_account, loyalty_transaction (2)" />
-    <File name="notification.ts — notification, push_subscription (2)" />
-    <File name="branch.ts — branch (1)" />
-    <File name="system.ts — daily_sales_summary, monthly_gst_summary, audit_log, system_setting (4)" />
-  </Folder>
-</Files>
+<Tree>
+  <Tree.Folder name="packages/db/src/schema" defaultOpen>
+    <Tree.File name="enums.ts — all PostgreSQL enums (not a table)" />
+    <Tree.File name="auth.ts — user, session, account, verification (4)" />
+    <Tree.File name="profile.ts — customer_profile, staff_profile (2)" />
+    <Tree.File name="service.ts — service_category, service, staff_service (3)" />
+    <Tree.File name="schedule.ts — staff_schedule, staff_time_off, business_hour, holiday (4)" />
+    <Tree.File name="booking.ts — booking, booking_service, booking_status_log, waitlist (4)" />
+    <Tree.File name="invoice.ts — invoice, invoice_item (2)" />
+    <Tree.File name="membership.ts — spa_membership_tier, spa_membership (2)" />
+    <Tree.File name="offer.ts — offer, offer_service, offer_redemption (3)" />
+    <Tree.File name="lead.ts — lead, lead_note (2)" />
+    <Tree.File name="crm.ts — customer_tag, customer_tag_assignment, customer_note (3)" />
+    <Tree.File name="loyalty.ts — loyalty_account, loyalty_transaction (2)" />
+    <Tree.File name="notification.ts — notification, push_subscription (2)" />
+    <Tree.File name="branch.ts — branch (1)" />
+    <Tree.File name="system.ts — daily_sales_summary, monthly_gst_summary, audit_log, system_setting (4)" />
+  </Tree.Folder>
+</Tree>
 
-<Callout type="info">
+<Info>
   The `auth.ts` tables (`user`, `session`, `account`, `verification`) are owned
   by Better Auth's Drizzle adapter. Don't add custom columns to them — extend
   via `customer_profile` / `staff_profile` instead. Enums are defined separately
   in `enums.ts` (not counted as a table). Totals: **15 files**, **38 tables**.
-</Callout>
+</Info>
 
 ## Key enums
 
 Defined natively in PostgreSQL via `enums.ts`.
 
-<TypeTable
-  type={{
-    booking_status: { type: 'enum', description: 'pending, confirmed, rejected, in_progress, completed, cancelled, no_show, rescheduled' },
-    lead_status: { type: 'enum', description: 'new, contacted, follow_up, booked, won, lost' },
-    payment_status: { type: 'enum', description: 'pending, paid, refunded' },
-    payment_method: { type: 'enum', description: 'cash, upi, card, online' },
-    invoice_type: { type: 'enum', description: 'service, membership_purchase, membership_session' },
-    service_type: { type: 'enum', description: 'salon, spa' },
-    discount_type: { type: 'enum', description: 'percentage, flat, combo_price' },
-    spa_membership_status: { type: 'enum', description: 'active, expired, cancelled' },
-    waitlist_status: { type: 'enum', description: 'waiting, notified, booked, expired, cancelled' },
-    loyalty_tx_type: { type: 'enum', description: 'earned, redeemed, expired, adjusted' },
-    leave_approval_status: { type: 'enum', description: 'pending, approved, rejected' },
-    leave_type: { type: 'enum', description: 'sick, casual, personal, other' },
-    staff_designation: { type: 'enum', description: 'receptionist, stylist, therapist, manager' },
-    gender: { type: 'enum', description: 'male, female, other, prefer_not_to_say' },
-    branch_status: { type: 'enum', description: 'operational, temporarily_closed, opens_soon, shutdown' },
-    audit_action: { type: 'enum', description: 'create, update, delete, status_change' },
-    notification_type: { type: 'enum', description: '24 values — reminder_24h, reminder_1h, booking_confirmed, booking_rescheduled, booking_cancelled, booking_rejected, membership_created, membership_session_recorded, membership_expiry_30d/7d/1d, membership_expired, membership_hours_low, membership_usage_nudge, birthday_offer, post_service_followup, leave_submitted/approved/rejected, lead_follow_up_due, stale_pending_booking, no_show_check, gems_expiry_7d, gems_expired' },
-    notification_channel: { type: 'enum', description: 'push, email' },
-    notification_status: { type: 'enum', description: 'pending, sent, failed' },
-  }}
-/>
+| Name | Type | Description |
+| --- | --- | --- |
+| `booking_status` | `enum` | pending, confirmed, rejected, in_progress, completed, cancelled, no_show, rescheduled |
+| `lead_status` | `enum` | new, contacted, follow_up, booked, won, lost |
+| `payment_status` | `enum` | pending, paid, refunded |
+| `payment_method` | `enum` | cash, upi, card, online |
+| `invoice_type` | `enum` | service, membership_purchase, membership_session |
+| `service_type` | `enum` | salon, spa |
+| `discount_type` | `enum` | percentage, flat, combo_price |
+| `spa_membership_status` | `enum` | active, expired, cancelled |
+| `waitlist_status` | `enum` | waiting, notified, booked, expired, cancelled |
+| `loyalty_tx_type` | `enum` | earned, redeemed, expired, adjusted |
+| `leave_approval_status` | `enum` | pending, approved, rejected |
+| `leave_type` | `enum` | sick, casual, personal, other |
+| `staff_designation` | `enum` | receptionist, stylist, therapist, manager |
+| `gender` | `enum` | male, female, other, prefer_not_to_say |
+| `branch_status` | `enum` | operational, temporarily_closed, opens_soon, shutdown |
+| `audit_action` | `enum` | create, update, delete, status_change |
+| `notification_type` | `enum` | 24 values — reminder_24h, reminder_1h, booking_confirmed, booking_rescheduled, booking_cancelled, booking_rejected, membership_created, membership_session_recorded, membership_expiry_30d/7d/1d, membership_expired, membership_hours_low, membership_usage_nudge, birthday_offer, post_service_followup, leave_submitted/approved/rejected, lead_follow_up_due, stale_pending_booking, no_show_check, gems_expiry_7d, gems_expired |
+| `notification_channel` | `enum` | push, email |
+| `notification_status` | `enum` | pending, sent, failed |
 
 ## ID & number formats
 
@@ -148,7 +144,7 @@ recorded in `booking_status_log`.
 
 ## Business rules enforced at the DB level
 
-<Accordions type="single">
+<AccordionGroup>
 
 <Accordion title="One offer per customer per day">
 Unique constraint on `offer_redemption` (customer + date).
@@ -166,12 +162,18 @@ A booking is salon OR spa, never mixed.
 `booking_service.price_at_booking_paise` and `invoice_item.unit_price_paise` are frozen copies.
 </Accordion>
 
-</Accordions>
+</AccordionGroup>
 
 ## Related pages
 
-<Cards>
-  <Card title="Conventions" href="/docs/conventions" description="Money, dates, layering, and the API response envelope" />
-  <Card title="Background Jobs" href="/docs/background-jobs" description="The cron + QStash jobs that maintain this data" />
-  <Card title="API Reference" href="/docs/api-reference" description="Endpoints that read and write these tables" />
-</Cards>
+<Columns cols={2}>
+  <Card title="Conventions" href="/docs/conventions">
+  Money, dates, layering, and the API response envelope
+</Card>
+  <Card title="Background Jobs" href="/docs/background-jobs">
+  The cron + QStash jobs that maintain this data
+</Card>
+  <Card title="API Reference" href="/docs/api-reference">
+  Endpoints that read and write these tables
+</Card>
+</Columns>

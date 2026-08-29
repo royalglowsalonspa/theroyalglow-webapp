@@ -9,12 +9,12 @@ These endpoints expose the public service catalogue and the booking-slot
 schedule. All three are **Public** — none of them call `requireSession` or
 `requireRole`, so no session cookie is needed.
 
-<Callout type="info">
+<Info>
   **Base URL:** `https://theroyalglow.in` · **Auth:** Public (no session). Money
   is an integer in **paise** (`pricePaise: 250000` = ₹2,500.00). Durations are
   whole minutes. All responses use the standard envelope
   `{ "success": true, "data": ... }`.
-</Callout>
+</Info>
 
 ## GET /api/services
 
@@ -77,13 +77,13 @@ columns plus a `services` array of the active services that belong to it.
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="INTERNAL_ERROR — 500">
 
 Unexpected/transient failure (e.g. database unreachable). `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -99,15 +99,9 @@ GET /api/services/signature-haircut
 
 ### Path parameters
 
-<TypeTable
-  type={{
-    slug: {
-      type: 'string',
-      description: "Path. The service's unique slug (e.g. signature-haircut).",
-      required: true,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `slug` | `string` | Yes | Path. The service's unique slug (e.g. signature-haircut). |
 
 ### Response
 
@@ -139,7 +133,7 @@ GET /api/services/signature-haircut
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="NOT_FOUND — 404">
 
 No service exists for the given `slug`.
@@ -150,7 +144,7 @@ No service exists for the given `slug`.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ---
 
@@ -169,20 +163,10 @@ GET /api/availability?date=2026-06-15&branchId=br_rayasandra01
 
 ### Query parameters
 
-<TypeTable
-  type={{
-    date: {
-      type: 'string',
-      description: 'Query. Calendar date in YYYY-MM-DD format. Must be a real date and not earlier than today (compared in IST, UTC+5:30).',
-      required: true,
-    },
-    branchId: {
-      type: 'string',
-      description: 'Query. Non-empty branch id whose configured weekday business hours are used to flag slots.',
-      required: true,
-    },
-  }}
-/>
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `date` | `string` | Yes | Query. Calendar date in YYYY-MM-DD format. Must be a real date and not earlier than today (compared in IST, UTC+5:30). |
+| `branchId` | `string` | Yes | Query. Non-empty branch id whose configured weekday business hours are used to flag slots. |
 
 ### Response
 
@@ -201,7 +185,7 @@ GET /api/availability?date=2026-06-15&branchId=br_rayasandra01
 
 ### Errors
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="VALIDATION_ERROR — 400">
 
 `date` is missing, not `YYYY-MM-DD`, not a real calendar date, or in the past;
@@ -213,4 +197,4 @@ or `branchId` is missing/empty.
 Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>

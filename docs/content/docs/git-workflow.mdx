@@ -5,12 +5,12 @@ description: Branch strategy, CI/CD pipeline, commit conventions, and database-p
 
 # Git Workflow
 
-<Callout type="info">
+<Info>
   **In one line:** Single-developer workflow with four persistent branches
   (`dev → test → pprd → prod`), each mapped to a Neon DB branch. Gates get
   stricter at every stage, **no direct pushes to `prod`**, and commits follow
   Conventional Commits.
-</Callout>
+</Info>
 
 ## Branch Strategy
 
@@ -52,19 +52,13 @@ All environments use **Neon DB branches** within a single Neon project — no se
 Every 24 hours, a GitHub Actions cron job uses the **Neon Branch Reset API** to sync pprd from prod.
 
 <Steps>
-<Step>
-### Reset the branch
-
+<Step title="Reset the branch">
 Call the Neon API to reset the `pprd` branch from `prod`.
 </Step>
-<Step>
-### Anonymise PII
-
+<Step title="Anonymise PII">
 Run a PII anonymisation script — names, phone numbers, and emails are replaced with fake data.
 </Step>
-<Step>
-### Ready for UAT
-
+<Step title="Ready for UAT">
 pprd is now a clean, realistic copy of prod without real customer data.
 </Step>
 </Steps>
@@ -82,8 +76,8 @@ on:
 
 Gates are cumulative — each stage adds checks on top of the previous one.
 
-<Tabs items={['PR to dev', 'PR to test', 'PR to pprd', 'PR to prod']}>
-<Tab value="PR to dev">
+<Tabs>
+<Tab title="PR to dev">
 
 ```text
 ✅ Lint + Format (Biome + Ultracite)
@@ -92,7 +86,7 @@ Gates are cumulative — each stage adds checks on top of the previous one.
 ```
 
 </Tab>
-<Tab value="PR to test">
+<Tab title="PR to test">
 
 ```text
 ✅ Lint + Format
@@ -104,7 +98,7 @@ Gates are cumulative — each stage adds checks on top of the previous one.
 ```
 
 </Tab>
-<Tab value="PR to pprd">
+<Tab title="PR to pprd">
 
 ```text
 ✅ All tests from test branch
@@ -114,7 +108,7 @@ Gates are cumulative — each stage adds checks on top of the previous one.
 ```
 
 </Tab>
-<Tab value="PR to prod">
+<Tab title="PR to prod">
 
 ```text
 ✅ All CI gates passing
@@ -161,15 +155,15 @@ This catches formatting issues and obvious lint errors **before they ever reach 
 | `BETTER_AUTH_SECRET` | GitHub Actions encrypted secret |
 | `GOOGLE_OAUTH_CLIENT_ID/SECRET` | GitHub Actions encrypted secret |
 
-<Callout type="warn">
+<Warning>
   **Never commit secrets to git.** Use `.env.local` locally (gitignored) and
   GitHub Actions secrets in CI.
-</Callout>
+</Warning>
 
 ## Deployment
 
-<Tabs items={['Render (today)', 'AWS (target)']}>
-<Tab value="Render (today)">
+<Tabs>
+<Tab title="Render (today)">
 
 - `rgss-web` (`theroyalglow.in`), `rgss-admin` (`admin.theroyalglow.in`) and `rgss-cms` (`cms.theroyalglow.in`)
 - Auto-deploy on push to `prod`, built and started with Bun (`next build` → `next start`)
@@ -177,7 +171,7 @@ This catches formatting issues and obvious lint errors **before they ever reach 
 - Rollback: redeploy a previous commit from the Render dashboard
 
 </Tab>
-<Tab value="AWS (target)">
+<Tab title="AWS (target)">
 
 - `apps/web` and `apps/admin` only: Lambda (ARM64) + CloudFront + S3 per app, via SST. CMS stays on Render; invoicing stays on Cloud Run
 - `deploy-aws.yml` on push to `prod`: GitHub OIDC → `bunx sst deploy --stage production` → health check
@@ -192,24 +186,16 @@ This catches formatting issues and obvious lint errors **before they ever reach 
 Every Sunday at 2 AM UTC, a GitHub Actions workflow:
 
 <Steps>
-<Step>
-### Dump
-
+<Step title="Dump">
 Run `pg_dump` against the Neon `prod` branch.
 </Step>
-<Step>
-### Upload
-
+<Step title="Upload">
 Upload the compressed dump to Cloudflare R2 (`backups/weekly/`).
 </Step>
-<Step>
-### Retain
-
+<Step title="Retain">
 Keep 8 weeks of backups.
 </Step>
-<Step>
-### Heartbeat
-
+<Step title="Heartbeat">
 Ping the BetterStack heartbeat on success.
 </Step>
 </Steps>

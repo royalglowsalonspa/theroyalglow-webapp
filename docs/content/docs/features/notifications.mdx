@@ -11,11 +11,11 @@ owner that the day's summary is ready. There are two channels: **browser push
 notifications** and **email**. This page explains both, what gets sent, and how
 customers control what reaches them.
 
-<Callout type="info">
+<Info>
   Push and email are separate channels with separate switches. A customer can
   turn off push reminders but still receive their invoice by email, because some
   emails are transactional and always sent.
-</Callout>
+</Info>
 
 ## What it is
 
@@ -32,28 +32,20 @@ Two delivery channels working together:
 Push notifications follow a four-stage flow:
 
 <Steps>
-<Step>
-### Permission
-
+<Step title="Permission">
 The browser's permission prompt is shown at a considered moment (after the
 customer's first successful booking, not on first load). The customer can grant,
 deny, or dismiss it.
 </Step>
-<Step>
-### Subscribe
-
+<Step title="Subscribe">
 Once granted, the service worker subscribes with the VAPID public key and
 produces a subscription object.
 </Step>
-<Step>
-### Store
-
+<Step title="Store">
 The subscription (endpoint and keys) is saved to the `push_subscription` table
 against the user via `POST /api/push/subscribe`.
 </Step>
-<Step>
-### Send
-
+<Step title="Send">
 When an event occurs, the server looks up the user's subscription(s) and sends
 the notification through the push service, which the service worker displays.
 </Step>
@@ -76,8 +68,8 @@ the notification through the push service, which the service worker displays.
 Email is split across two services for good reasons — instant one-to-one
 delivery and bulk sending are different problems.
 
-<Tabs items={['Resend (transactional)', 'Brevo (marketing)']}>
-  <Tab value="Resend (transactional)">
+<Tabs>
+  <Tab title="Resend (transactional)">
     - **Use for:** welcome emails, booking confirmations, invoices, reminders.
     - **Why:** built for instant, reliable one-to-one delivery, with first-class
       PDF attachment support for invoices.
@@ -85,7 +77,7 @@ delivery and bulk sending are different problems.
       fully disabled.
     - **From:** `hello@theroyalglow.in`.
   </Tab>
-  <Tab value="Brevo (marketing)">
+  <Tab title="Brevo (marketing)">
     - **Use for:** post-service follow-ups, promotions, seasonal offers,
       re-engagement, renewal nudges.
     - **Why:** built for bulk sending, with automatic unsubscribe management.
@@ -96,11 +88,11 @@ delivery and bulk sending are different problems.
   </Tab>
 </Tabs>
 
-<Callout type="warn">
+<Warning>
   Because sign-in is **Google OAuth only**, the salon sends **zero** auth emails
   — no password resets, no magic links. Every email is a business event handled
   by application code.
-</Callout>
+</Warning>
 
 ### Email triggers
 
@@ -127,10 +119,10 @@ daily summary — with unread items marked. New notifications arrive live over t
 `admin:notifications` Ably channel, and the bell gives a small bounce as the
 count ticks up.
 
-<Callout type="info">
+<Info>
   The bell and other live updates are powered by Ably channels. See
   [Realtime](/docs/realtime) for the full channel list and connection lifecycle.
-</Callout>
+</Info>
 
 ## Customer preferences
 
@@ -139,25 +131,25 @@ or disable browser push entirely, then fine-tune categories (booking
 confirmations, reminders, changes, gems, membership alerts, offers) for push and
 for email separately.
 
-<Callout type="info">
+<Info>
   Invoice receipts and booking confirmations **cannot be fully disabled** by
   email — they are transactional. For those categories the toggle only controls
   the push notification, not the email record.
-</Callout>
+</Info>
 
 ## Reminder scheduling
 
 When a booking is confirmed, reminders are scheduled with QStash based on how
 far away the appointment is:
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="Appointment more than 24 hours away">
 Both a 24-hour and a 1-hour reminder are scheduled.
 </Accordion>
 <Accordion title="Appointment 24 hours away or less">
 Only the 1-hour reminder is scheduled.
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 When QStash fires the job, the server verifies the request signature, re-checks
 that the booking is still confirmed (skipping cancelled ones), checks the
@@ -165,11 +157,23 @@ customer's preferences, and then sends the push and/or email accordingly.
 
 ## Related links
 
-<Cards>
-  <Card title="Notifications API" href="/docs/api-reference/notifications" description="Push subscription and notification endpoints." />
-  <Card title="Notifications & Email" href="/docs/notifications-email" description="The full email strategy, templates, and provider setup." />
-  <Card title="Realtime" href="/docs/realtime" description="The Ably channels behind the bell and live updates." />
-  <Card title="Background Jobs" href="/docs/background-jobs" description="The QStash jobs that schedule reminders and digests." />
-  <Card title="Booking System" href="/docs/features/booking" description="The status changes that trigger most customer notifications." />
-  <Card title="Data Model" href="/docs/data-model" description="The notification and push_subscription tables." />
-</Cards>
+<Columns cols={2}>
+  <Card title="Notifications API" href="/docs/api-reference/notifications">
+  Push subscription and notification endpoints.
+</Card>
+  <Card title="Notifications & Email" href="/docs/notifications-email">
+  The full email strategy, templates, and provider setup.
+</Card>
+  <Card title="Realtime" href="/docs/realtime">
+  The Ably channels behind the bell and live updates.
+</Card>
+  <Card title="Background Jobs" href="/docs/background-jobs">
+  The QStash jobs that schedule reminders and digests.
+</Card>
+  <Card title="Booking System" href="/docs/features/booking">
+  The status changes that trigger most customer notifications.
+</Card>
+  <Card title="Data Model" href="/docs/data-model">
+  The notification and push_subscription tables.
+</Card>
+</Columns>

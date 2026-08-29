@@ -5,12 +5,12 @@ description: What Royal Glow is, the problem the platform solves, every module, 
 
 # Business Overview
 
-<Callout type="info">
+<Info>
   **In plain language:** Royal Glow is a premium salon and spa in Bengaluru. This
   platform is its complete digital operations system — website, booking, admin
   portal, billing, memberships, loyalty, CRM, marketing, and automation — all in
   one connected product with a single source of truth.
-</Callout>
+</Info>
 
 Royal Glow Salon & Spa is a premium salon and spa in Bengaluru, India. This
 platform is its complete digital operations system: the customer website, the
@@ -46,11 +46,11 @@ invoice, awards loyalty points, updates the customer's lifetime value, and feeds
 the day's revenue report. There is a single source of truth, so the owner can
 trust the numbers and the team spends less time on admin.
 
-<Callout type="info">
+<Info>
   The guiding principle: a customer or staff member should never have to enter
   the same information twice, and the business should never have two different
   answers to the same question.
-</Callout>
+</Info>
 
 ## The modules
 
@@ -114,29 +114,19 @@ The full breakdown of what each role can and cannot do is in the
 ### How a typical visit flows
 
 <Steps>
-<Step>
-### Book
-
+<Step title="Book">
 A customer books online (or walks in, and the receptionist creates the booking).
 </Step>
-<Step>
-### Confirm
-
+<Step title="Confirm">
 The front desk confirms the booking and assigns the right staff member.
 </Step>
-<Step>
-### Service
-
+<Step title="Service">
 The service is performed.
 </Step>
-<Step>
-### Checkout
-
+<Step title="Checkout">
 At checkout, the receptionist takes payment, and the system generates the invoice and awards gems.
 </Step>
-<Step>
-### After
-
+<Step title="After">
 The invoice is emailed to the customer; their profile and the day's reports update automatically.
 </Step>
 </Steps>
@@ -146,7 +136,7 @@ The invoice is emailed to the customer; their profile and the day's reports upda
 These rules apply everywhere in the product. They reflect that Royal Glow is an
 India-first business.
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="Currency is INR (stored in paise)">
 All prices are in Indian Rupees. Internally money is stored in **paise** (₹1 =
 100 paise) to avoid rounding errors; it's only converted to rupees for display.
@@ -165,30 +155,24 @@ All times are Indian Standard Time. Timestamps are stored in UTC and displayed i
 The platform runs entirely on free service tiers, so there are no monthly
 software bills when the business starts.
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
-<Callout type="info">
+<Info>
   **Why paise, not rupees?** Storing money as whole paise means the system never
   loses a fraction of a rupee to rounding. Customers always see clean rupee
   amounts; the precision is handled behind the scenes.
-</Callout>
+</Info>
 
 ## Where to go next
 
-<Cards>
-  <Card
-    title="Customer Guide"
-    href="/docs/product/customer-guide"
-    description="See the platform from a customer's point of view, step by step."
-  />
-  <Card
-    title="Admin & Staff Guide"
-    href="/docs/product/admin-staff-guide"
-    description="See how the team runs day-to-day operations and what each role can do."
-  />
-  <Card
-    title="Features"
-    href="/docs/features"
-    description="Go deeper into any single module — booking, memberships, gems, billing, and more."
-  />
-</Cards>
+<Columns cols={2}>
+  <Card title="Customer Guide" href="/docs/product/customer-guide">
+  See the platform from a customer's point of view, step by step.
+</Card>
+  <Card title="Admin & Staff Guide" href="/docs/product/admin-staff-guide">
+  See how the team runs day-to-day operations and what each role can do.
+</Card>
+  <Card title="Features" href="/docs/features">
+  Go deeper into any single module — booking, memberships, gems, billing, and more.
+</Card>
+</Columns>

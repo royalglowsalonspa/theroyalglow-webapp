@@ -10,10 +10,10 @@ they pay for services, and spend them on specific services from a redeemable
 catalogue. It is a simple "spend a little, get a little back" programme that
 rewards repeat visits.
 
-<Callout type="info">
+<Info>
   Gems are **not** a rupee discount. A customer redeems gems **against a specific
   service** (e.g. "70 gems for a Classic Manicure"), not as money off a bill.
-</Callout>
+</Info>
 
 ## What it is
 
@@ -24,28 +24,20 @@ can claim a service from the gems catalogue without paying for it.
 ## How it works
 
 <Steps>
-<Step>
-### Earn
-
+<Step title="Earn">
 When a service booking is completed and invoiced, the customer earns **1 gem for
 every ₹100 invoiced**, rounded down (floor). A ₹1,300 service invoice earns 13
 gems.
 </Step>
-<Step>
-### See the balance
-
+<Step title="See the balance">
 The customer's gems balance, lifetime totals, and transaction history appear on
 their `/gems` page, alongside the catalogue of services they can redeem.
 </Step>
-<Step>
-### Redeem
-
+<Step title="Redeem">
 The customer picks a catalogue service their balance covers; the gems are
 deducted and the service is theirs.
 </Step>
-<Step>
-### Expire
-
+<Step title="Expire">
 Gems expire 365 days after they are earned. A background job sweeps expired gems
 automatically.
 </Step>
@@ -63,13 +55,13 @@ Earning always rounds down: a ₹1,099 invoice earns 10 gems, not 10.99.
 
 ## Rules
 
-<Callout type="warn">
+<Warning>
   **Gems cannot combine with offers.** Gems and an
   [offer](/docs/features/offers) cannot both be applied to the same booking — a
   customer uses one or the other, never both.
-</Callout>
+</Warning>
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="What is the earn rate?">
 1 gem per ₹100 invoiced, floored. Earning always rounds down — a ₹1,099 invoice
 earns 10 gems, not 10.99.
@@ -86,19 +78,27 @@ earned on membership purchases or membership sessions. See
 No. Redemption claims a specific catalogue service (e.g. "70 gems for a Classic
 Manicure"), not a discount on the bill total.
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
-<Callout type="info">
+<Info>
   Loyalty transactions are typed `earned`, `redeemed`, `expired`, or `adjusted`.
   A brand-new customer's loyalty account is created on first read, so they see a
   zero balance rather than an error.
-</Callout>
+</Info>
 
 ## Related links
 
-<Cards>
-  <Card title="Loyalty & Offers API" href="/docs/api-reference/loyalty-offers" description="The gems balance, transaction history, and redeemable catalogue endpoints." />
-  <Card title="Offers & Combos" href="/docs/features/offers" description="Why gems and offers cannot be combined on one booking." />
-  <Card title="Billing & Invoicing" href="/docs/features/billing-invoicing" description="Service invoices are what earn gems." />
-  <Card title="Data Model" href="/docs/data-model" description="The loyalty_account and loyalty_transaction tables." />
-</Cards>
+<Columns cols={2}>
+  <Card title="Loyalty & Offers API" href="/docs/api-reference/loyalty-offers">
+  The gems balance, transaction history, and redeemable catalogue endpoints.
+</Card>
+  <Card title="Offers & Combos" href="/docs/features/offers">
+  Why gems and offers cannot be combined on one booking.
+</Card>
+  <Card title="Billing & Invoicing" href="/docs/features/billing-invoicing">
+  Service invoices are what earn gems.
+</Card>
+  <Card title="Data Model" href="/docs/data-model">
+  The loyalty_account and loyalty_transaction tables.
+</Card>
+</Columns>

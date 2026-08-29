@@ -12,7 +12,7 @@ occurs — and they perform the platform's background automations: reminders,
 report emails, nudges, follow-ups, and stale-state checks. They are hosted in
 `apps/admin` and served from `admin.theroyalglow.in/api/jobs/*`.
 
-<Callout type="info">
+<Info>
   **Base URL:** `admin.theroyalglow.in` · **Auth:** `Upstash-Signature` header
   (no session). These are **`POST` endpoints invoked by QStash**, not by browsers
   or API clients. Each route reads the raw request body once, verifies the
@@ -24,7 +24,7 @@ report emails, nudges, follow-ups, and stale-state checks. They are hosted in
   heartbeat. External integrations (Resend, Brevo, web-push, Slack) are
   **guarded extension points** — when their keys are absent the send is a no-op
   + log, and the job still completes and returns `200`.
-</Callout>
+</Info>
 
 ## Job summary
 
@@ -35,8 +35,8 @@ further automation — the **`pprd` DB sync** — runs as a **GitHub Actions cro
 (not an HTTP route, so it is not listed here). Schedules and cadences are from
 [`background-jobs.md`](https://github.com/royalglowsalonspa); times shown in IST.
 
-<Tabs items={['Scheduled', 'Triggered']}>
-<Tab value="Scheduled">
+<Tabs>
+<Tab title="Scheduled">
 
 | Route | Schedule / cadence | What it does |
 | --- | --- | --- |
@@ -56,7 +56,7 @@ further automation — the **`pprd` DB sync** — runs as a **GitHub Actions cro
 | `POST /api/jobs/monthly-gst-summary` | 1st of month 1:00 AM IST (`30 19 1 * *` UTC) | Aggregates the previous IST month's paid `service` + `membership_purchase` invoices into `monthly_gst_summary` (SAC 999721). |
 
 </Tab>
-<Tab value="Triggered">
+<Tab title="Triggered">
 
 | Route | Delay | What it does |
 | --- | --- | --- |
@@ -74,38 +74,28 @@ further automation — the **`pprd` DB sync** — runs as a **GitHub Actions cro
 Every job route follows the same thin orchestration shape:
 
 <Steps>
-<Step>
-### Method
-
+<Step title="Method">
 The route accepts only `POST`.
 
 </Step>
-<Step>
-### Signature verification
-
+<Step title="Signature verification">
 The raw body is read once, then `verifyQStashSignature(req, bodyText)` validates
 the `Upstash-Signature` header against the QStash signing keys. On failure the
 route returns `401 Unauthorized` and does **no work**.
 
 </Step>
-<Step>
-### Success
-
+<Step title="Success">
 The route does its work, pings its BetterStack heartbeat (`pingHeartbeat(...)`),
 and returns `200` with a small JSON body.
 
 </Step>
-<Step>
-### Failure
-
+<Step title="Failure">
 On any internal error the route returns a **non-2xx** (`500 Job failed`). QStash
 treats non-2xx as a failure and **retries with exponential backoff** (up to 3
 retries by default), so heavy lifting must be idempotent.
 
 </Step>
-<Step>
-### Idempotency
-
+<Step title="Idempotency">
 Scheduled notification jobs dedupe via a `notification` log row keyed by
 recipient + type (+ booking where relevant), so re-runs and QStash retries never
 double-send.
@@ -119,12 +109,12 @@ Upstash-Signature: <qstash-signature>
 Content-Type: application/json
 ```
 
-<Callout type="info">
+<Info>
   **Not for direct client use.** These endpoints are intended to be called only
   by QStash. Requests without a valid `Upstash-Signature` are rejected with
   `401`. There is no session/role check and no `{ success, data }` envelope —
   do not call them from the web app or from API integrations.
-</Callout>
+</Info>
 
 ### Signature verification & local fallback
 
@@ -132,7 +122,7 @@ Content-Type: application/json
 the app builds without them. It **never throws** — any verification error fails
 closed (returns `false` → `401`).
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="Configured — verify with the QStash Receiver">
 
 When `QSTASH_CURRENT_SIGNING_KEY` and `QSTASH_NEXT_SIGNING_KEY` are set, the
@@ -153,7 +143,7 @@ production** (with a warning) so jobs can be run locally, and **rejected in
 production**.
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ### Heartbeats
 
@@ -161,94 +151,38 @@ On success each route calls `pingHeartbeat(name)`, which fetches
 `process.env['BETTER_STACK_HEARTBEAT_' + name]`. If that variable is unset the
 ping is a **no-op** (the job still succeeds); the helper never throws.
 
-<TypeTable
-  type={{
-    'appointment-reminders': {
-      type: 'REMINDERS',
-      description: 'Env var: BETTER_STACK_HEARTBEAT_REMINDERS',
-    },
-    'membership-expiry': {
-      type: 'MEMBERSHIP_EXPIRY',
-      description: 'Env var: BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY',
-    },
-    'birthday-emails': {
-      type: 'BIRTHDAY',
-      description: 'Env var: BETTER_STACK_HEARTBEAT_BIRTHDAY',
-    },
-    'lead-followups': {
-      type: 'LEAD_FOLLOWUPS',
-      description: 'Env var: BETTER_STACK_HEARTBEAT_LEAD_FOLLOWUPS',
-    },
-    'gems-expiry-reminder': {
-      type: 'GEMS_EXPIRY',
-      description: 'Env var: BETTER_STACK_HEARTBEAT_GEMS_EXPIRY',
-    },
-    'membership-usage-nudges': {
-      type: 'MEMBERSHIP_NUDGES',
-      description: 'Env var: BETTER_STACK_HEARTBEAT_MEMBERSHIP_NUDGES',
-    },
-    'daily-sales-report': {
-      type: 'NIGHTLY_SALES',
-      description: 'Env var: BETTER_STACK_HEARTBEAT_NIGHTLY_SALES',
-    },
-    'weekly-report': {
-      type: 'NIGHTLY_SALES (shared)',
-      description: 'Env var: BETTER_STACK_HEARTBEAT_NIGHTLY_SALES',
-    },
-    'post-service-followup': {
-      type: 'POST_SERVICE_FOLLOWUP',
-      description: 'Env var: BETTER_STACK_HEARTBEAT_POST_SERVICE_FOLLOWUP',
-    },
-    'stale-booking-alert': {
-      type: 'STALE_BOOKING_ALERT',
-      description: 'Env var: BETTER_STACK_HEARTBEAT_STALE_BOOKING_ALERT',
-    },
-    'noshow-check': {
-      type: 'NOSHOW_CHECK',
-      description: 'Env var: BETTER_STACK_HEARTBEAT_NOSHOW_CHECK',
-    },
-    'membership-expired-notice': {
-      type: 'MEMBERSHIP_EXPIRED_NOTICE',
-      description: 'Env var: BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRED_NOTICE',
-    },
-    'nightly-sales-summary': {
-      type: 'SALES_SUMMARY',
-      description: 'Env var: BETTER_STACK_HEARTBEAT_SALES_SUMMARY',
-    },
-    'membership-auto-expire': {
-      type: 'MEMBERSHIP_EXPIRE',
-      description: 'Env var: BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRE',
-    },
-    'offer-auto-expire': {
-      type: 'OFFER_EXPIRE',
-      description: 'Env var: BETTER_STACK_HEARTBEAT_OFFER_EXPIRE',
-    },
-    'gems-auto-expire': {
-      type: 'GEMS_EXPIRE',
-      description: 'Env var: BETTER_STACK_HEARTBEAT_GEMS_EXPIRE',
-    },
-    'session-cleanup': {
-      type: 'SESSION_CLEANUP',
-      description: 'Env var: BETTER_STACK_HEARTBEAT_SESSION_CLEANUP',
-    },
-    'monthly-gst-summary': {
-      type: 'MONTHLY_GST',
-      description: 'Env var: BETTER_STACK_HEARTBEAT_MONTHLY_GST',
-    },
-  }}
-/>
+| Name | Type | Description |
+| --- | --- | --- |
+| `appointment-reminders` | `REMINDERS` | Env var: BETTER_STACK_HEARTBEAT_REMINDERS |
+| `membership-expiry` | `MEMBERSHIP_EXPIRY` | Env var: BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY |
+| `birthday-emails` | `BIRTHDAY` | Env var: BETTER_STACK_HEARTBEAT_BIRTHDAY |
+| `lead-followups` | `LEAD_FOLLOWUPS` | Env var: BETTER_STACK_HEARTBEAT_LEAD_FOLLOWUPS |
+| `gems-expiry-reminder` | `GEMS_EXPIRY` | Env var: BETTER_STACK_HEARTBEAT_GEMS_EXPIRY |
+| `membership-usage-nudges` | `MEMBERSHIP_NUDGES` | Env var: BETTER_STACK_HEARTBEAT_MEMBERSHIP_NUDGES |
+| `daily-sales-report` | `NIGHTLY_SALES` | Env var: BETTER_STACK_HEARTBEAT_NIGHTLY_SALES |
+| `weekly-report` | `NIGHTLY_SALES (shared)` | Env var: BETTER_STACK_HEARTBEAT_NIGHTLY_SALES |
+| `post-service-followup` | `POST_SERVICE_FOLLOWUP` | Env var: BETTER_STACK_HEARTBEAT_POST_SERVICE_FOLLOWUP |
+| `stale-booking-alert` | `STALE_BOOKING_ALERT` | Env var: BETTER_STACK_HEARTBEAT_STALE_BOOKING_ALERT |
+| `noshow-check` | `NOSHOW_CHECK` | Env var: BETTER_STACK_HEARTBEAT_NOSHOW_CHECK |
+| `membership-expired-notice` | `MEMBERSHIP_EXPIRED_NOTICE` | Env var: BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRED_NOTICE |
+| `nightly-sales-summary` | `SALES_SUMMARY` | Env var: BETTER_STACK_HEARTBEAT_SALES_SUMMARY |
+| `membership-auto-expire` | `MEMBERSHIP_EXPIRE` | Env var: BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRE |
+| `offer-auto-expire` | `OFFER_EXPIRE` | Env var: BETTER_STACK_HEARTBEAT_OFFER_EXPIRE |
+| `gems-auto-expire` | `GEMS_EXPIRE` | Env var: BETTER_STACK_HEARTBEAT_GEMS_EXPIRE |
+| `session-cleanup` | `SESSION_CLEANUP` | Env var: BETTER_STACK_HEARTBEAT_SESSION_CLEANUP |
+| `monthly-gst-summary` | `MONTHLY_GST` | Env var: BETTER_STACK_HEARTBEAT_MONTHLY_GST |
 
-<Callout type="info">
+<Info>
   `invoice-pdf` is the exception — it does **not** ping a heartbeat. Instead it
   returns a `200` with an outcome flag (`attached`, `reason`, `sent`) describing
   whether the PDF was rendered and attached, falling back to a no-attachment
   invoice email when the Cloud Run render service is unconfigured or errors.
-</Callout>
+</Info>
 
 ## Response shapes
 
-<Tabs items={['Scheduled (processed)', 'Reports', 'Triggered', 'stale-booking-alert', 'Failures']}>
-<Tab value="Scheduled (processed)">
+<Tabs>
+<Tab title="Scheduled (processed)">
 
 Scheduled jobs that iterate records return a `processed` count of how many
 notifications were sent in that run:
@@ -258,7 +192,7 @@ notifications were sent in that run:
 ```
 
 </Tab>
-<Tab value="Reports">
+<Tab title="Reports">
 
 The report jobs (`daily-sales-report`, `weekly-report`) return only success:
 
@@ -267,7 +201,7 @@ The report jobs (`daily-sales-report`, `weekly-report`) return only success:
 ```
 
 </Tab>
-<Tab value="Triggered">
+<Tab title="Triggered">
 
 Triggered jobs return an action/outcome flag describing what they did for the
 single record in the payload:
@@ -281,7 +215,7 @@ single record in the payload:
 ```
 
 </Tab>
-<Tab value="stale-booking-alert">
+<Tab title="stale-booking-alert">
 
 `stale-booking-alert` reports both the action it took and how many people were
 notified:
@@ -295,7 +229,7 @@ pending past 24h → auto-rejected, customer notified), or `alerted` (still
 pending under 24h → receptionists alerted).
 
 </Tab>
-<Tab value="Failures">
+<Tab title="Failures">
 
 A verification failure on any route returns a plain `401`:
 
@@ -323,30 +257,13 @@ record to act on. The body is parsed defensively — a missing or malformed
 payload yields `{}`, and the route simply does nothing (still `200`) rather
 than erroring.
 
-<TypeTable
-  type={{
-    'post-service-followup': {
-      type: 'object',
-      description: 'Request body: { "bookingId": "<id>" }',
-    },
-    'stale-booking-alert': {
-      type: 'object',
-      description: 'Request body: { "bookingId": "<id>" }',
-    },
-    'noshow-check': {
-      type: 'object',
-      description: 'Request body: { "bookingId": "<id>" }',
-    },
-    'membership-expired-notice': {
-      type: 'object',
-      description: 'Request body: { "membershipId": "<id>" }',
-    },
-    'invoice-pdf': {
-      type: 'object',
-      description: 'Request body: { "invoiceId": "<id>" }',
-    },
-  }}
-/>
+| Name | Type | Description |
+| --- | --- | --- |
+| `post-service-followup` | `object` | Request body: { "bookingId": "<id>" } |
+| `stale-booking-alert` | `object` | Request body: { "bookingId": "<id>" } |
+| `noshow-check` | `object` | Request body: { "bookingId": "<id>" } |
+| `membership-expired-notice` | `object` | Request body: { "membershipId": "<id>" } |
+| `invoice-pdf` | `object` | Request body: { "invoiceId": "<id>" } |
 
 ```json
 { "bookingId": "bk_8f1c9a2e7d04" }

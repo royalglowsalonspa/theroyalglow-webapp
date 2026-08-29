@@ -9,11 +9,11 @@ A SPA membership lets a customer buy a block of SPA hours up front at a better
 rate, then draw down those hours session by session. It is the salon's way of
 rewarding regular SPA-goers and securing revenue in advance.
 
-<Callout type="info">
+<Info>
   Memberships are **hours-based**, not visit-based or rupee-based. Every tier
   unlocks **all** SPA services — the only thing that limits the customer is how
   many hours they have left.
-</Callout>
+</Info>
 
 ## What it is
 
@@ -25,30 +25,22 @@ at ₹0 because it was already paid for at purchase.
 ## How it works
 
 <Steps>
-<Step>
-### Purchase (admin only)
-
+<Step title="Purchase (admin only)">
 A receptionist creates the membership for a customer from the admin portal,
 picks a tier, and takes payment. This generates a `membership_purchase` invoice
 and emails it with a welcome message.
 </Step>
-<Step>
-### Use it
-
+<Step title="Use it">
 When the customer comes in for a SPA service, a receptionist records the
 session. The session's duration is deducted from the remaining hours, and a ₹0
 booking (flagged as a membership session) plus a ₹0 `membership_session` invoice
 are created.
 </Step>
-<Step>
-### Stay informed
-
+<Step title="Stay informed">
 The customer can see their tier, hours used, hours remaining, expiry date, and
 full session history on their `/membership` page.
 </Step>
-<Step>
-### Expiry
-
+<Step title="Expiry">
 When the validity period ends, the membership expires and any unused hours are
 forfeited. Reminders go out at 30, 7, and 1 day before.
 </Step>
@@ -56,20 +48,20 @@ forfeited. Reminders go out at 30, 7, and 1 day before.
 
 ### The tiers
 
-<Tabs items={['Silver', 'Gold', 'Platinum']}>
-<Tab value="Silver">
+<Tabs>
+<Tab title="Silver">
 - **Hours:** 8 hours (stored as `480` minutes)
 - **Price:** ₹10,000 (GST-inclusive)
 - **Validity:** 90 days
 - **Access:** every SPA service — Standard, Premium, and VVIP
 </Tab>
-<Tab value="Gold">
+<Tab title="Gold">
 - **Hours:** 15 hours (stored as `900` minutes)
 - **Price:** ₹15,000 (GST-inclusive)
 - **Validity:** 90 days
 - **Access:** every SPA service — Standard, Premium, and VVIP
 </Tab>
-<Tab value="Platinum">
+<Tab title="Platinum">
 - **Hours:** custom — set per deal
 - **Price:** negotiated
 - **Validity:** custom
@@ -80,20 +72,20 @@ forfeited. Reminders go out at 30, 7, and 1 day before.
 Hours and price are prefilled from the tier but remain overridable at creation,
 so staff can honour a negotiated deal.
 
-<Callout type="info">
+<Info>
   Internally, hours are stored as **minutes**. Silver's 8 hours is `480` and
   Gold's 15 hours is `900`. The customer always sees hours; the database always
   works in minutes.
-</Callout>
+</Info>
 
 ## Rules
 
-<Callout type="warn">
+<Warning>
   **One active membership per customer** — enforced by a database constraint. A
   customer cannot hold two active memberships at once.
-</Callout>
+</Warning>
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="What limits what a customer can book?">
 Hours are the only constraint. No service is off-limits within a tier — every
 tier unlocks all SPA services, and the customer is limited solely by the hours
@@ -120,7 +112,7 @@ session, the hours are not deducted.
 Automated alerts fire at 30 days, 7 days, and 1 day before expiry, plus an
 immediate alert when less than 1 hour remains.
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ### Membership number format
 
@@ -132,9 +124,17 @@ For example, `RG-MEM-26-1-90872`.
 
 ## Related links
 
-<Cards>
-  <Card title="Memberships API" href="/docs/api-reference/memberships" description="Customer view plus admin create, list, inspect, cancel, and record-session endpoints." />
-  <Card title="Booking System" href="/docs/features/booking" description="How sessions become bookings (with the -M suffix)." />
-  <Card title="Billing & Invoicing" href="/docs/features/billing-invoicing" description="The membership_purchase and membership_session invoice types." />
-  <Card title="Data Model" href="/docs/data-model" description="The spa_membership and spa_membership_tier tables." />
-</Cards>
+<Columns cols={2}>
+  <Card title="Memberships API" href="/docs/api-reference/memberships">
+  Customer view plus admin create, list, inspect, cancel, and record-session endpoints.
+</Card>
+  <Card title="Booking System" href="/docs/features/booking">
+  How sessions become bookings (with the -M suffix).
+</Card>
+  <Card title="Billing & Invoicing" href="/docs/features/billing-invoicing">
+  The membership_purchase and membership_session invoice types.
+</Card>
+  <Card title="Data Model" href="/docs/data-model">
+  The spa_membership and spa_membership_tier tables.
+</Card>
+</Columns>

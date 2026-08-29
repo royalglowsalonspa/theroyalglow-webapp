@@ -9,34 +9,30 @@ description: Architecture overview, technology decisions matrix, data model, aut
 
 Royal Glow Salon & Spa is a premium beauty and wellness establishment in Bengaluru, India. This document describes the high-level design of the full-stack digital operations platform.
 
-<Callout type="info">
+<Info>
   A **monolithic modular** monorepo on Next.js 16 + Neon + Cloudflare's edge, designed for 20k–50k users at **₹0/month**, India-first (DPDP, IST, paise, GST 18%), with Lighthouse ≥95 performance and 100 accessibility/SEO.
-</Callout>
+</Info>
 
 ### Scale Targets
 
-<TypeTable
-  type={{
-    'Registered users': { type: '20,000–50,000', description: 'Future-proof target' },
-    'Daily active users': { type: '50–200', description: 'Expected steady state' },
-    'Concurrent users (peak)': { type: '50', description: 'Load-test target' },
-    'Application routes': { type: '~104 pages', description: 'Customer (web) + admin (incl. staff self-service) + API' },
-    'Database tables': { type: '38', description: '15 Drizzle schema files' },
-    'API endpoints': { type: '~90 route handlers', description: 'Thin orchestrators across web + admin + jobs' },
-    'Background jobs': { type: '19', description: 'Scheduled + triggered + cron' },
-  }}
-/>
+| Name | Type | Description |
+| --- | --- | --- |
+| `Registered users` | `20,000–50,000` | Future-proof target |
+| `Daily active users` | `50–200` | Expected steady state |
+| `Concurrent users (peak)` | `50` | Load-test target |
+| `Application routes` | `~104 pages` | Customer (web) + admin (incl. staff self-service) + API |
+| `Database tables` | `38` | 15 Drizzle schema files |
+| `API endpoints` | `~90 route handlers` | Thin orchestrators across web + admin + jobs |
+| `Background jobs` | `19` | Scheduled + triggered + cron |
 
 ### Key Constraints
 
-<TypeTable
-  type={{
-    'Solo developer': { type: 'constraint', description: 'No microservices, minimal ops overhead, single consistent stack' },
-    '₹0/month infrastructure': { type: 'constraint', description: 'All free tiers at launch' },
-    'India-first': { type: 'constraint', description: 'DPDP Act, IST timezone, INR (paise), GST 18%' },
-    'Premium brand': { type: 'constraint', description: 'Lighthouse ≥95 performance, 100 accessibility/SEO' },
-  }}
-/>
+| Name | Type | Description |
+| --- | --- | --- |
+| `Solo developer` | `constraint` | No microservices, minimal ops overhead, single consistent stack |
+| `₹0/month infrastructure` | `constraint` | All free tiers at launch |
+| `India-first` | `constraint` | DPDP Act, IST timezone, INR (paise), GST 18% |
+| `Premium brand` | `constraint` | Lighthouse ≥95 performance, 100 accessibility/SEO |
 
 ## Architecture Overview
 
@@ -47,15 +43,13 @@ Presentation  →  API (thin)  →  Business Logic  →  Data Access  →  Datab
 apps/{web,admin}  apps/{web,admin}/api  packages/business  packages/db  Neon PostgreSQL
 ```
 
-<TypeTable
-  type={{
-    Presentation: { type: 'apps/web + apps/admin (app, components)', description: 'May import: business, db, types, errors. Must not import: nothing restricted.' },
-    'API (thin)': { type: 'apps/web/app/api + apps/admin/app/api', description: 'May import: business, db, types, errors. Must not import: UI components.' },
-    'Business Logic': { type: 'packages/business', description: 'May import: types, errors. Must not import: db, framework, UI.' },
-    'Data Access': { type: 'packages/db', description: 'May import: types. Must not import: business, framework, UI.' },
-    'Types/Validation': { type: 'packages/types', description: 'May import: nothing. Must not import: everything else.' },
-  }}
-/>
+| Name | Type | Description |
+| --- | --- | --- |
+| `Presentation` | `apps/web + apps/admin (app, components)` | May import: business, db, types, errors. Must not import: nothing restricted. |
+| `API (thin)` | `apps/web/app/api + apps/admin/app/api` | May import: business, db, types, errors. Must not import: UI components. |
+| `Business Logic` | `packages/business` | May import: types, errors. Must not import: db, framework, UI. |
+| `Data Access` | `packages/db` | May import: types. Must not import: business, framework, UI. |
+| `Types/Validation` | `packages/types` | May import: nothing. Must not import: everything else. |
 
 ### Hosting Topology
 
@@ -105,14 +99,12 @@ Cloudflare (DNS + DDoS + WAF)
 
 **Neon PostgreSQL 16** with Git-like branching.
 
-<TypeTable
-  type={{
-    prod: { type: 'Production', description: 'Never reset' },
-    pprd: { type: 'Pre-production', description: 'Auto-reset daily from prod + PII stripped' },
-    test: { type: 'QA / CI', description: 'Wiped and reseeded every CI run' },
-    dev: { type: 'Development', description: 'Developer sandbox' },
-  }}
-/>
+| Name | Type | Description |
+| --- | --- | --- |
+| `prod` | `Production` | Never reset |
+| `pprd` | `Pre-production` | Auto-reset daily from prod + PII stripped |
+| `test` | `QA / CI` | Wiped and reseeded every CI run |
+| `dev` | `Development` | Developer sandbox |
 
 ### Data Model Overview (38 tables)
 
@@ -134,38 +126,34 @@ Cloudflare (DNS + DDoS + WAF)
 
 ### Key Data Conventions
 
-<TypeTable
-  type={{
-    'Primary keys': { type: 'text via nanoid()', description: 'Prevents enumeration attacks' },
-    Money: { type: 'integer (paise)', description: '₹1,000.00 = 100000' },
-    Timestamps: { type: 'timestamptz', description: 'Stored UTC, displayed IST' },
-    'Date display': { type: 'DD/MM/YYYY', description: "en-IN locale" },
-    'Currency display': { type: '₹1,00,000.00', description: 'Indian numbering' },
-    'Soft deletes': { type: 'not used', description: 'Hard deletes with audit_log' },
-    Naming: { type: 'snake_case', description: 'Singular table names' },
-    Enums: { type: 'native CREATE TYPE', description: 'PostgreSQL enums' },
-    Snapshots: { type: 'frozen', description: 'Price/name on invoice_item and booking_service' },
-    GST: { type: '18% inclusive', description: 'base = price ÷ 1.18' },
-  }}
-/>
+| Name | Type | Description |
+| --- | --- | --- |
+| `Primary keys` | `text via nanoid()` | Prevents enumeration attacks |
+| `Money` | `integer (paise)` | ₹1,000.00 = 100000 |
+| `Timestamps` | `timestamptz` | Stored UTC, displayed IST |
+| `Date display` | `DD/MM/YYYY` | en-IN locale |
+| `Currency display` | `₹1,00,000.00` | Indian numbering |
+| `Soft deletes` | `not used` | Hard deletes with audit_log |
+| `Naming` | `snake_case` | Singular table names |
+| `Enums` | `native CREATE TYPE` | PostgreSQL enums |
+| `Snapshots` | `frozen` | Price/name on invoice_item and booking_service |
+| `GST` | `18% inclusive` | base = price ÷ 1.18 |
 
 ### Three-Layer Cache Hierarchy
 
-<TypeTable
-  type={{
-    'L1 (Edge)': { type: 'Cloudflare KV', description: 'TTL 5 min — service catalog, categories' },
-    'L2 (Regional)': { type: 'Upstash Redis', description: 'TTL 5 min — slot availability per date/branch' },
-    'L3 (Source)': { type: 'Neon PostgreSQL', description: 'Persistent — all business data' },
-  }}
-/>
+| Name | Type | Description |
+| --- | --- | --- |
+| `L1 (Edge)` | `Cloudflare KV` | TTL 5 min — service catalog, categories |
+| `L2 (Regional)` | `Upstash Redis` | TTL 5 min — slot availability per date/branch |
+| `L3 (Source)` | `Neon PostgreSQL` | Persistent — all business data |
 
 ## Authentication & Authorization
 
 ### Auth Architecture
 
-<Tabs items={['Provider & Sessions', 'RBAC Model', 'OAuth Flow']}>
+<Tabs>
 
-<Tab value="Provider & Sessions">
+<Tab title="Provider & Sessions">
 
 - **Provider:** Google OAuth 2.0 only (no email/password)
 - **Sessions:** PostgreSQL `session` table (HttpOnly, Secure, SameSite=Lax cookies)
@@ -174,7 +162,7 @@ Cloudflare (DNS + DDoS + WAF)
 
 </Tab>
 
-<Tab value="RBAC Model">
+<Tab title="RBAC Model">
 
 Six roles in ascending privilege:
 
@@ -193,43 +181,31 @@ Customer → Staff → Receptionist → Manager → Owner → Developer
 
 </Tab>
 
-<Tab value="OAuth Flow">
+<Tab title="OAuth Flow">
 
 <Steps>
 
-<Step>
-### Initiate
-
+<Step title="Initiate">
 User clicks "Sign in with Google".
 </Step>
 
-<Step>
-### Consent
-
+<Step title="Consent">
 Redirect to the Google consent screen (shows "Royal Glow Salon & Spa").
 </Step>
 
-<Step>
-### Callback
-
+<Step title="Callback">
 User grants consent and Google calls back with an auth code.
 </Step>
 
-<Step>
-### Exchange
-
+<Step title="Exchange">
 Better Auth exchanges the code for tokens and creates/finds the user in the DB.
 </Step>
 
-<Step>
-### Session
-
+<Step title="Session">
 A session is created and an HttpOnly cookie is set.
 </Step>
 
-<Step>
-### Route
-
+<Step title="Route">
 Has a `customer_profile`? YES → homepage. NO → `/onboarding`.
 </Step>
 
@@ -261,38 +237,40 @@ API routes are thin orchestrators. No database queries in route handlers.
 
 ### API Groups
 
-<TypeTable
-  type={{
-    Auth: { type: 'catch-all per app', description: 'Better Auth on web + admin (`/api/auth/[...all]`)' },
-    Customer: { type: '~20 endpoints', description: 'theroyalglow.in/api — authenticated + public' },
-    Admin: { type: '~50 endpoints', description: 'admin.theroyalglow.in/api — role-gated' },
-    'Background Jobs': { type: '19 jobs', description: 'admin.theroyalglow.in/api/jobs — QStash signature' },
-    Webhooks: { type: 'signature-verified', description: 'Inbound integration webhooks' },
-  }}
-/>
+| Name | Type | Description |
+| --- | --- | --- |
+| `Auth` | `catch-all per app` | Better Auth on web + admin (`/api/auth/[...all]`) |
+| `Customer` | `~20 endpoints` | theroyalglow.in/api — authenticated + public |
+| `Admin` | `~50 endpoints` | admin.theroyalglow.in/api — role-gated |
+| `Background Jobs` | `19 jobs` | admin.theroyalglow.in/api/jobs — QStash signature |
+| `Webhooks` | `signature-verified` | Inbound integration webhooks |
 
 ## Non-Functional Requirements
 
-<TypeTable
-  type={{
-    Latency: { type: '< 100ms', description: 'Global response time' },
-    Availability: { type: '99.9%', description: 'Uptime' },
-    Security: { type: 'DPDP Act 2023', description: 'India privacy compliance' },
-    'Lighthouse Performance': { type: '≥ 95', description: 'CI gate' },
-    'Lighthouse Accessibility': { type: '100', description: 'CI gate' },
-    'Lighthouse SEO': { type: '100', description: 'CI gate' },
-    Cost: { type: '₹0/month', description: 'Infrastructure' },
-    Scalability: { type: '50 concurrent', description: 'Peak users' },
-    RPO: { type: '~0 seconds', description: 'Neon PITR' },
-    RTO: { type: '< 5 minutes', description: 'Recovery time objective' },
-    Accessibility: { type: 'WCAG 2.1 AA', description: 'Compliance level' },
-  }}
-/>
+| Name | Type | Description |
+| --- | --- | --- |
+| `Latency` | `< 100ms` | Global response time |
+| `Availability` | `99.9%` | Uptime |
+| `Security` | `DPDP Act 2023` | India privacy compliance |
+| `Lighthouse Performance` | `≥ 95` | CI gate |
+| `Lighthouse Accessibility` | `100` | CI gate |
+| `Lighthouse SEO` | `100` | CI gate |
+| `Cost` | `₹0/month` | Infrastructure |
+| `Scalability` | `50 concurrent` | Peak users |
+| `RPO` | `~0 seconds` | Neon PITR |
+| `RTO` | `< 5 minutes` | Recovery time objective |
+| `Accessibility` | `WCAG 2.1 AA` | Compliance level |
 
 ## Related Pages
 
-<Cards>
-  <Card title="Low-Level Design" href="/docs/system-design/low-level-design" description="State machines, sequences, indexes, and security implementation" />
-  <Card title="Data Model" href="/docs/data-model" description="All 38 tables, enums, and ID formats" />
-  <Card title="Architecture" href="/docs/architecture" description="Condensed architecture overview" />
-</Cards>
+<Columns cols={2}>
+  <Card title="Low-Level Design" href="/docs/system-design/low-level-design">
+  State machines, sequences, indexes, and security implementation
+</Card>
+  <Card title="Data Model" href="/docs/data-model">
+  All 38 tables, enums, and ID formats
+</Card>
+  <Card title="Architecture" href="/docs/architecture">
+  Condensed architecture overview
+</Card>
+</Columns>

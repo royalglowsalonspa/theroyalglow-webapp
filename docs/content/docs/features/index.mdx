@@ -10,26 +10,46 @@ memberships, loyalty gems, offers, CRM, billing, scheduling, notifications, and
 more. Each page opens with a plain-language summary anyone can read, then goes
 deeper into the rules, data, and API endpoints for engineers.
 
-<Callout type="info">
+<Info>
   Money is always shown in Indian Rupees (₹) and is GST-inclusive (18%, SAC
   999721). Internally the system stores money in **paise** (₹1,000.00 =
   `100000`) and never uses floating point. Dates display as DD/MM/YYYY (IST).
-</Callout>
+</Info>
 
 ## Browse the features
 
-<Cards>
-  <Card title="Booking System" href="/docs/features/booking" description="The 4-step booking dialog, entry points, and the full booking lifecycle." />
-  <Card title="SPA Memberships" href="/docs/features/memberships" description="Hour-based Silver, Gold, and Platinum tiers with session tracking." />
-  <Card title="Loyalty — Gems" href="/docs/features/loyalty-gems" description="Earn gems on spend and redeem them for catalogue services." />
-  <Card title="Offers & Combos" href="/docs/features/offers" description="Percentage, flat, and combo-price promotions applied at checkout." />
-  <Card title="CRM & Lead Pipeline" href="/docs/features/crm-leads" description="Customer profiles plus the Meta-ad lead funnel and WhatsApp follow-up." />
-  <Card title="Scheduling & Leave" href="/docs/features/scheduling-leave" description="Staff schedules and the leave request, review, and approval workflow." />
-  <Card title="Billing & Invoicing" href="/docs/features/billing-invoicing" description="GST-compliant invoices, PDF generation, and email delivery." />
-  <Card title="Notifications" href="/docs/features/notifications" description="Web Push and email across the booking and membership journey." />
-  <Card title="No-Show Policy" href="/docs/features/no-show-policy" description="How repeated no-shows are tracked, escalated, and recovered." />
-  <Card title="Favourite Services" href="/docs/features/favourite-services" description="Let customers save services for faster repeat booking." />
-</Cards>
+<Columns cols={2}>
+  <Card title="Booking System" href="/docs/features/booking">
+  The 4-step booking dialog, entry points, and the full booking lifecycle.
+</Card>
+  <Card title="SPA Memberships" href="/docs/features/memberships">
+  Hour-based Silver, Gold, and Platinum tiers with session tracking.
+</Card>
+  <Card title="Loyalty — Gems" href="/docs/features/loyalty-gems">
+  Earn gems on spend and redeem them for catalogue services.
+</Card>
+  <Card title="Offers & Combos" href="/docs/features/offers">
+  Percentage, flat, and combo-price promotions applied at checkout.
+</Card>
+  <Card title="CRM & Lead Pipeline" href="/docs/features/crm-leads">
+  Customer profiles plus the Meta-ad lead funnel and WhatsApp follow-up.
+</Card>
+  <Card title="Scheduling & Leave" href="/docs/features/scheduling-leave">
+  Staff schedules and the leave request, review, and approval workflow.
+</Card>
+  <Card title="Billing & Invoicing" href="/docs/features/billing-invoicing">
+  GST-compliant invoices, PDF generation, and email delivery.
+</Card>
+  <Card title="Notifications" href="/docs/features/notifications">
+  Web Push and email across the booking and membership journey.
+</Card>
+  <Card title="No-Show Policy" href="/docs/features/no-show-policy">
+  How repeated no-shows are tracked, escalated, and recovered.
+</Card>
+  <Card title="Favourite Services" href="/docs/features/favourite-services">
+  Let customers save services for faster repeat booking.
+</Card>
+</Columns>
 
 ## How these pages are structured
 
@@ -37,24 +57,16 @@ Every feature page follows the same shape so you can read only as deep as you
 need:
 
 <Steps>
-<Step>
-### What it is
-
+<Step title="What it is">
 A plain-language summary of the feature and why it matters.
 </Step>
-<Step>
-### How it works
-
+<Step title="How it works">
 The customer or staff journey, step by step.
 </Step>
-<Step>
-### Rules
-
+<Step title="Rules">
 The business rules and constraints that govern the feature.
 </Step>
-<Step>
-### Related links
-
+<Step title="Related links">
 The matching [API Reference](/docs/api-reference) pages and the
 [Data Model](/docs/data-model).
 </Step>

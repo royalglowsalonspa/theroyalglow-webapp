@@ -10,12 +10,12 @@ and time, chooses their services, and submits — all in a single dialog that
 opens right over the homepage. Staff then confirm the request, assign a stylist
 or therapist, and complete the appointment on the day.
 
-<Callout type="info">
+<Info>
   The booking dialog is **not** a separate page. It opens as an overlay on the
   homepage (a bottom sheet on mobile, a centered modal on desktop). The homepage
   CTA never sends customers to `/book` — that route is reserved for Meta-ad lead
   capture (see [CRM & Lead Pipeline](/docs/features/crm-leads)).
-</Callout>
+</Info>
 
 ## What it is
 
@@ -30,42 +30,34 @@ slot is locked in.
 The dialog walks the customer through four short steps:
 
 <Steps>
-<Step>
-### Date & slot
-
+<Step title="Date & slot">
 Branch (auto-selected as Rayasandra in Phase 1), name and email prefilled from
 the profile (not editable), a date picker for future dates only, and the
 available time slots for that day. Fully booked or closed slots are greyed out.
 </Step>
-<Step>
-### Choose category
-
+<Step title="Choose category">
 A Salon / SPA toggle, then multi-select category cards within the chosen type.
 **One booking is one type only** — Salon or SPA, never both — which keeps the
 two sides of the business cleanly separated for reporting.
 </Step>
-<Step>
-### Choose services
-
+<Step title="Choose services">
 Service cards under the selected categories, with a running total at the bottom
 (e.g. "3 services · ₹3,500.00"). SPA services that come in 60-minute and
 90-minute variants appear as a single card with a duration selector.
 </Step>
-<Step>
-### Summary
-
+<Step title="Summary">
 A "Booking Submitted!" confirmation showing the booking number, the selected
 services with prices, the GST-inclusive total, a "Pay at the salon (Cash / UPI /
 Card)" note, and the customer's current gems balance.
 </Step>
 </Steps>
 
-<Callout type="info">
+<Info>
   If the customer is not signed in when they trigger the dialog, the booking
   context (`book=1`, any UTM values, and `leadId`) is saved to `sessionStorage`,
   they sign in with Google, and the dialog re-opens automatically afterwards —
   so the journey is never lost.
-</Callout>
+</Info>
 
 ### Entry points
 
@@ -98,26 +90,18 @@ pending → confirmed → in_progress → completed
 The happy path moves through four states in order:
 
 <Steps>
-<Step>
-### pending
-
+<Step title="pending">
 The initial state for every online booking. The customer can edit services,
 reschedule, or cancel. (Walk-ins skip this state.)
 </Step>
-<Step>
-### confirmed
-
+<Step title="confirmed">
 A receptionist or manager approved the request and assigned staff. The customer
 can still reschedule or cancel.
 </Step>
-<Step>
-### in_progress
-
+<Step title="in_progress">
 The customer is in the salon and the service is underway.
 </Step>
-<Step>
-### completed
-
+<Step title="completed">
 The service is done — an invoice is generated, gems are awarded, and a
 confirmation email is sent.
 </Step>
@@ -128,22 +112,22 @@ The off-ramps from this path are `rejected` (declined with a reason from
 after the end time when the customer never arrived), and `rescheduled` (moved to
 a new slot from `confirmed`).
 
-<Callout type="info">
+<Info>
   **Walk-ins skip `pending`.** When a receptionist creates a walk-in booking the
   customer is already in the salon, so it is created directly as `confirmed`. A
   walk-in no-show therefore does **not** count toward the no-show tier — there
   was no pre-booked slot to miss. See the [No-Show Policy](/docs/features/no-show-policy).
-</Callout>
+</Info>
 
 ## Rules
 
-<Callout type="warn">
+<Warning>
   **One service type per booking** — a booking is Salon **or** SPA, never mixed.
   This hard separation keeps the two sides of the business cleanly split for
   reporting and is enforced from the dialog through to the database.
-</Callout>
+</Warning>
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="Who chooses the staff member?">
 The customer does not. A receptionist or manager assigns staff per service when
 approving the booking. Customers can leave a staff preference in the notes, but
@@ -167,7 +151,7 @@ booking.
 On completion. Service bookings earn 1 gem per ₹100 invoiced when the booking is
 completed. See [Loyalty — Gems](/docs/features/loyalty-gems).
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ### Booking number format
 
@@ -187,9 +171,17 @@ branch.
 
 ## Related links
 
-<Cards>
-  <Card title="Bookings API" href="/docs/api-reference/bookings" description="Create, list, view, and cancel a booking (customer endpoints)." />
-  <Card title="Admin — Bookings API" href="/docs/api-reference/admin-bookings" description="Approve, reject, assign, complete, and mark no-show." />
-  <Card title="No-Show Policy" href="/docs/features/no-show-policy" description="How no-shows are tracked and escalated." />
-  <Card title="Data Model" href="/docs/data-model" description="The booking, booking_service, and booking_status_log tables." />
-</Cards>
+<Columns cols={2}>
+  <Card title="Bookings API" href="/docs/api-reference/bookings">
+  Create, list, view, and cancel a booking (customer endpoints).
+</Card>
+  <Card title="Admin — Bookings API" href="/docs/api-reference/admin-bookings">
+  Approve, reject, assign, complete, and mark no-show.
+</Card>
+  <Card title="No-Show Policy" href="/docs/features/no-show-policy">
+  How no-shows are tracked and escalated.
+</Card>
+  <Card title="Data Model" href="/docs/data-model">
+  The booking, booking_service, and booking_status_log tables.
+</Card>
+</Columns>

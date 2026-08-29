@@ -5,12 +5,12 @@ description: Live booking status, schedule, and leave updates pushed to customer
 
 # Realtime (Ably)
 
-<Callout type="info">
+<Info>
   **In one line:** Ably holds an open WebSocket in the browser and pushes each
   change to everyone who should see it in ~50ms — booking status, schedule, and
   leave. Publishing is **server-side only**; clients get subscribe-only Token Auth
   scoped to their role. It degrades gracefully when `ABLY_PRIVATE_KEY` is absent.
-</Callout>
+</Info>
 
 When a receptionist approves a booking, the customer sitting on their bookings
 page should see the badge flip from "Pending" to "Confirmed" on its own — no
@@ -18,13 +18,13 @@ refresh, no reload. Royal Glow does this with [Ably](https://ably.com), which
 holds an open WebSocket connection in the browser and pushes each change to
 everyone who should see it in roughly 50ms.
 
-<Callout type="info">
+<Info>
   Ably is a **guarded extension point**. The server helper reads
   `ABLY_PRIVATE_KEY` directly behind a truthy guard. With the key absent it
   returns `null`, `POST /api/ably/token` answers `503`, and the client falls
   back to its normal data fetch. The app builds and runs with no realtime
   configured — live updates simply switch on once the key is present.
-</Callout>
+</Info>
 
 ## What it is
 
@@ -43,43 +43,33 @@ a single-branch salon generates.
 ## How it works
 
 <Steps>
-<Step>
-### Page mounts
-
+<Step title="Page mounts">
 A `useEffect` opens an Ably connection using an `authCallback` that fetches a
 token from our own API.
 </Step>
-<Step>
-### Token is issued
-
+<Step title="Token is issued">
 `POST /api/ably/token` returns a short-lived, scoped Ably JWT for the signed-in
 user (see [Token Auth](#token-auth)).
 </Step>
-<Step>
-### Subscribe
-
+<Step title="Subscribe">
 The page subscribes to exactly the channels it is allowed to read and updates
 React state when a message arrives.
 </Step>
-<Step>
-### Server publishes
-
+<Step title="Server publishes">
 After a state-changing API route commits its database write, it publishes to
 every relevant channel using `ABLY_PRIVATE_KEY`.
 </Step>
-<Step>
-### Page unmounts
-
+<Step title="Page unmounts">
 The connection is cleaned up. Ably handles reconnect on network loss and calls
 `authCallback` again when the token expires.
 </Step>
 </Steps>
 
-<Callout type="info">
+<Info>
   **All publishing is server-side only.** Browsers never hold a key with publish
   capability — they receive a subscribe-only token. This prevents anyone from
   spoofing a status change or publishing to a channel from the client.
-</Callout>
+</Info>
 
 ## Channels
 
@@ -123,8 +113,8 @@ short-lived Ably JWT per authenticated user, scoped to exactly the channels that
 user's role may read. `POST /api/ably/token` is a session-protected route; the
 `clientId` on the token is the caller's user id.
 
-<Tabs items={['Customer', 'Admin', 'Staff']}>
-<Tab value="Customer">
+<Tabs>
+<Tab title="Customer">
 
 A customer is granted `subscribe` on their own namespace only, plus the specific
 booking channels they own. They never receive a wildcard over all `booking:*`
@@ -136,7 +126,7 @@ publish:   []   ← never
 ```
 
 </Tab>
-<Tab value="Admin">
+<Tab title="Admin">
 
 Roles `receptionist` and above additionally receive `subscribe` on the `admin:*`
 namespace, covering the branch dashboard, schedule, and leave channels.
@@ -147,7 +137,7 @@ publish:   []   ← never
 ```
 
 </Tab>
-<Tab value="Staff">
+<Tab title="Staff">
 
 A staff member is scoped to their own schedule channel and only the booking
 channels they are assigned to view.
@@ -160,12 +150,12 @@ publish:   []   ← never
 </Tab>
 </Tabs>
 
-<Callout type="warn">
+<Warning>
   Realtime degrades gracefully. When `ABLY_PRIVATE_KEY` is not configured (or the
   optional `ably` module is unavailable), `POST /api/ably/token` responds with
   **`503 SERVICE_UNAVAILABLE`** and the client keeps working off its initial data
   fetch. No screen breaks just because realtime is off.
-</Callout>
+</Warning>
 
 ## Publishing flow
 
@@ -191,9 +181,17 @@ underlying booking action.
 
 ## Related links
 
-<Cards>
-  <Card title="Notifications & Realtime API" href="/docs/api-reference/notifications" description="The POST /api/ably/token route and its scoped capabilities." />
-  <Card title="Notifications & Email" href="/docs/features/notifications" description="Web Push and email — the other half of the communication layer." />
-  <Card title="Background Jobs" href="/docs/background-jobs" description="Scheduled work that also drives realtime and push updates." />
-  <Card title="Environment Variables" href="/docs/environment-variables" description="ABLY_PRIVATE_KEY and the rest of the realtime config." />
-</Cards>
+<Columns cols={2}>
+  <Card title="Notifications & Realtime API" href="/docs/api-reference/notifications">
+  The POST /api/ably/token route and its scoped capabilities.
+</Card>
+  <Card title="Notifications & Email" href="/docs/features/notifications">
+  Web Push and email — the other half of the communication layer.
+</Card>
+  <Card title="Background Jobs" href="/docs/background-jobs">
+  Scheduled work that also drives realtime and push updates.
+</Card>
+  <Card title="Environment Variables" href="/docs/environment-variables">
+  ABLY_PRIVATE_KEY and the rest of the realtime config.
+</Card>
+</Columns>

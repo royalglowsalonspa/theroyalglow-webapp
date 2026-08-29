@@ -11,11 +11,11 @@ bookings, their buffers, and their time off. Leave management is the other half:
 staff ask for time off, and a receptionist or manager approves or rejects it.
 Together they keep the salon from double-booking a stylist who isn't there.
 
-<Callout type="info">
+<Info>
   Only **approved** leave blocks a staff member's availability. A request that is
   still `pending` never removes anyone from the booking scheduler — so a request
   sitting in the queue can't accidentally lose the salon a booking.
-</Callout>
+</Info>
 
 ## What it is
 
@@ -32,13 +32,13 @@ Two connected tools in the admin portal:
 
 The schedule has two views:
 
-<Tabs items={['Daily view', 'Weekly view']}>
-<Tab value="Daily view">
+<Tabs>
+<Tab title="Daily view">
 Staff down the side, time slots across the top (10:00 to 20:00, in 30-minute
 columns). Each cell shows one of four states: available, booked (with the
 customer's name), a 15-minute buffer between bookings, or on leave.
 </Tab>
-<Tab value="Weekly view">
+<Tab title="Weekly view">
 Staff down the side, days across the top, with a per-day booking count, working
 hours, and a capacity bar. The bar turns green below 50% utilisation, amber
 between 50–80%, and red above 80%, so a manager can spot an overloaded or quiet
@@ -50,39 +50,31 @@ A receptionist can click a booked slot to open the booking detail, or click an
 available slot to start a walk-in booking pre-filled with that time and staff
 member. The grid updates live as bookings come and go.
 
-<Callout type="info">
+<Info>
   The grid updates in **real time** over Ably — when a slot is booked, released,
   or reassigned, the cell animates without a page refresh. See
   [Realtime](/docs/realtime) for the channels and events involved.
-</Callout>
+</Info>
 
 ## How it works — leave requests
 
 Staff submit leave for themselves, and an approver decides:
 
 <Steps>
-<Step>
-### Submit
-
+<Step title="Submit">
 A staff member opens their leave form, picks a leave type and a date or date
 range, and optionally adds a reason. If they have confirmed bookings on those
 dates, the form warns them upfront.
 </Step>
-<Step>
-### Notify
-
+<Step title="Notify">
 The request is created as `pending`, and a push notification plus email goes to
 all receptionists and the manager.
 </Step>
-<Step>
-### Review
-
+<Step title="Review">
 An approver opens `admin.theroyalglow.in/leave`, sees the request (and any booking conflicts
 flagged in red), and approves or rejects it.
 </Step>
-<Step>
-### Decide
-
+<Step title="Decide">
 On approval, the dates block the staff member's availability and any conflicting
 bookings are flagged for reassignment. On rejection, a reason is required and
 the staff member is notified.
@@ -141,25 +133,25 @@ resolved. There are two ways to resolve each one:
 | **Reassign** | Pick another available staff member. The booking stays `confirmed`, and the customer gets a "your stylist has changed" notification. |
 | **Cancel** | The booking moves to `cancelled` with reason `staff_unavailable`. The customer gets a push and an email with a "Book Again" link. |
 
-<Callout type="warn">
+<Warning>
   A salon-side cancellation here is treated as the salon's fault, not the
   customer's — it never counts as a no-show against the customer. See the
   [No-Show Policy](/docs/features/no-show-policy).
-</Callout>
+</Warning>
 
 ## What staff can and cannot see
 
 The staff view (`admin.theroyalglow.in/me/schedule`) is deliberately limited to protect customer
 privacy and other staff's information.
 
-<Tabs items={['Staff can see', 'Staff cannot see']}>
-  <Tab value="Staff can see">
+<Tabs>
+  <Tab title="Staff can see">
     - Their own bookings for the day (customer name, service, time)
     - Their own leave history and each request's status
     - A button to request new leave
     - The option to withdraw a request that is still `pending`
   </Tab>
-  <Tab value="Staff cannot see">
+  <Tab title="Staff cannot see">
     - Other staff members' schedules
     - Customer phone numbers or email addresses
     - Any booking financial details or prices
@@ -196,10 +188,20 @@ move cells around live:
 
 ## Related links
 
-<Cards>
-  <Card title="Booking System" href="/docs/features/booking" description="How bookings fill the slots that appear on the schedule." />
-  <Card title="No-Show Policy" href="/docs/features/no-show-policy" description="Why a salon-side cancellation never counts against the customer." />
-  <Card title="Notifications & Email" href="/docs/features/notifications" description="The push and email messages sent on leave and reassignment." />
-  <Card title="Realtime" href="/docs/realtime" description="The Ably channels and events that update the schedule live." />
-  <Card title="Data Model" href="/docs/data-model" description="The staff_schedule, staff_time_off, and holiday tables." />
-</Cards>
+<Columns cols={2}>
+  <Card title="Booking System" href="/docs/features/booking">
+  How bookings fill the slots that appear on the schedule.
+</Card>
+  <Card title="No-Show Policy" href="/docs/features/no-show-policy">
+  Why a salon-side cancellation never counts against the customer.
+</Card>
+  <Card title="Notifications & Email" href="/docs/features/notifications">
+  The push and email messages sent on leave and reassignment.
+</Card>
+  <Card title="Realtime" href="/docs/realtime">
+  The Ably channels and events that update the schedule live.
+</Card>
+  <Card title="Data Model" href="/docs/data-model">
+  The staff_schedule, staff_time_off, and holiday tables.
+</Card>
+</Columns>

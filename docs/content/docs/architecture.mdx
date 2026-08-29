@@ -5,48 +5,44 @@ description: High-level architecture of the Royal Glow Salon & Spa platform.
 
 # Architecture
 
-<Callout type="info">
+<Info>
   Royal Glow is a **monolithic modular** monorepo, not microservices. Strict layer boundaries give the modularity of microservices without the ops burden — and three hard conventions hold everywhere: **money is integer paise**, **IDs are app-generated text**, and **business logic never imports the database or framework**.
-</Callout>
+</Info>
 
 ## Layered monorepo
 
 The Bun + Turborepo workspace holds five apps/packages workspaces:
 
-<TypeTable
-  type={{
-    '@rgss/web': { type: 'theroyalglow.in', description: 'Customer Next.js site — Cloudflare Worker rgss-web (dev port 3000).' },
-    '@rgss/admin': { type: 'admin.theroyalglow.in', description: 'Admin portal Next.js app — Cloudflare Worker rgss-admin (dev port 3001).' },
-    '@rgss/cms': { type: 'cms.theroyalglow.in', description: 'Payload CMS v3 — Render service rgss-cms (dev port 3002).' },
-    '@rgss/invoicing': { type: 'Cloud Run', description: 'PDF invoice render service.' },
-    '@rgss/docs': { type: 'docs.theroyalglow.in', description: 'This Fumadocs site (dev port 3003).' },
-  }}
-/>
+| Name | Type | Description |
+| --- | --- | --- |
+| `@rgss/web` | `theroyalglow.in` | Customer Next.js site — Cloudflare Worker rgss-web (dev port 3000). |
+| `@rgss/admin` | `admin.theroyalglow.in` | Admin portal Next.js app — Cloudflare Worker rgss-admin (dev port 3001). |
+| `@rgss/cms` | `cms.theroyalglow.in` | Payload CMS v3 — Render service rgss-cms (dev port 3002). |
+| `@rgss/invoicing` | `Cloud Run` | PDF invoice render service. |
+| `@rgss/docs` | `docs.theroyalglow.in` | This Fumadocs site (dev port 3003). |
 
 The codebase enforces a strict dependency direction so business rules stay
 testable and framework-agnostic. Each layer may only import inward.
 
-<TypeTable
-  type={{
-    Presentation: { type: 'apps/web + apps/admin (app, components)', description: 'May import: business, db, types, errors. Must not import: nothing restricted.' },
-    'API (thin)': { type: 'apps/web/app/api + apps/admin/app/api', description: 'May import: business, db, types, errors. Must not import: UI components.' },
-    'Business logic': { type: 'packages/business', description: 'May import: types, errors. Must not import: db, framework, UI.' },
-    'Data access': { type: 'packages/db', description: 'May import: types. Must not import: business, framework, UI.' },
-    'Types / validation': { type: 'packages/types', description: 'May import: nothing. Must not import: everything else.' },
-  }}
-/>
+| Name | Type | Description |
+| --- | --- | --- |
+| `Presentation` | `apps/web + apps/admin (app, components)` | May import: business, db, types, errors. Must not import: nothing restricted. |
+| `API (thin)` | `apps/web/app/api + apps/admin/app/api` | May import: business, db, types, errors. Must not import: UI components. |
+| `Business logic` | `packages/business` | May import: types, errors. Must not import: db, framework, UI. |
+| `Data access` | `packages/db` | May import: types. Must not import: business, framework, UI. |
+| `Types / validation` | `packages/types` | May import: nothing. Must not import: everything else. |
 
-<Callout type="warn">
+<Warning>
   **API routes are thin orchestrators:** parse → validate with Zod → call business logic → return JSON. No database queries live in route handlers.
-</Callout>
+</Warning>
 
 ## Hosting topology
 
 The platform spans a Render origin and a Cloud Run service, backed by Neon, and is migrating to AWS. Pick a concern below.
 
-<Tabs items={['Web & Admin', 'Origin & CMS', 'Database', 'Media & Queue']}>
+<Tabs>
 
-<Tab value="Web & Admin">
+<Tab title="Web & Admin">
 
 The customer site (`rgss-web`) and admin portal (`rgss-admin`) are Next.js 16 App Router apps
 served as Node servers (`next build` + `next start`) on **Render**, with the service catalogue
@@ -62,19 +58,19 @@ exceeded Cloudflare's free-plan script size limit, and the adapter has been remo
 
 </Tab>
 
-<Tab value="Origin & CMS">
+<Tab title="Origin & CMS">
 
 **Render (Singapore)** hosts the **Payload CMS** (`rgss-cms`) — a Node.js runtime, closest free region to India. The **`@rgss/invoicing`** PDF render service runs on **Cloud Run**.
 
 </Tab>
 
-<Tab value="Database">
+<Tab title="Database">
 
 A single **Neon** project with four branches (`prod`, `pprd`, `test`, `dev`). The CMS owns its own tables, disjoint from the app's Drizzle schema.
 
 </Tab>
 
-<Tab value="Media & Queue">
+<Tab title="Media & Queue">
 
 **Cloudflare R2** for media (S3-compatible, zero egress). **Upstash Redis + QStash** for cache and queue. **Ably** for realtime.
 
@@ -86,23 +82,21 @@ A single **Neon** project with four branches (`prod`, `pprd`, `test`, `dev`). Th
 
 Five layers, each on a free tier.
 
-<TypeTable
-  type={{
-    Sentry: { type: 'errors', description: 'Application + Worker error monitoring.' },
-    BetterStack: { type: 'uptime', description: 'Uptime, status page, job heartbeats, and logs.' },
-    PostHog: { type: 'product analytics', description: 'Product analytics plus feature flags.' },
-    'Microsoft Clarity': { type: 'UX', description: 'Heatmaps and session replay.' },
-    Checkly: { type: 'synthetic', description: 'Synthetic browser monitoring.' },
-  }}
-/>
+| Name | Type | Description |
+| --- | --- | --- |
+| `Sentry` | `errors` | Application + Worker error monitoring. |
+| `BetterStack` | `uptime` | Uptime, status page, job heartbeats, and logs. |
+| `PostHog` | `product analytics` | Product analytics plus feature flags. |
+| `Microsoft Clarity` | `UX` | Heatmaps and session replay. |
+| `Checkly` | `synthetic` | Synthetic browser monitoring. |
 
 All third-party browser scripts load only after explicit cookie consent and only when their keys are configured.
 
 ## Conventions
 
-<Callout type="info">
+<Info>
   These hold across the whole monorepo and are covered in depth on the [Conventions](/docs/conventions) page.
-</Callout>
+</Info>
 
 - Money is stored as integer **paise**; never floating point.
 - Timestamps are `timestamptz` (stored UTC, displayed IST).
@@ -113,8 +107,14 @@ All third-party browser scripts load only after explicit cookie consent and only
 
 ## Related Pages
 
-<Cards>
-  <Card title="Conventions" href="/docs/conventions" description="Money, dates, layering, and the API response envelope" />
-  <Card title="Tech Stack" href="/docs/tech-stack" description="Every technology and why it was chosen" />
-  <Card title="System Design" href="/docs/system-design" description="Formal HLD and LLD documents" />
-</Cards>
+<Columns cols={2}>
+  <Card title="Conventions" href="/docs/conventions">
+  Money, dates, layering, and the API response envelope
+</Card>
+  <Card title="Tech Stack" href="/docs/tech-stack">
+  Every technology and why it was chosen
+</Card>
+  <Card title="System Design" href="/docs/system-design">
+  Formal HLD and LLD documents
+</Card>
+</Columns>

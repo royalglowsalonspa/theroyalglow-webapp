@@ -5,11 +5,11 @@ description: Runbook for running, monitoring, deploying, and recovering the Roya
 
 # Operations
 
-<Callout type="info">
+<Info>
   **This is the on-call runbook.** It covers how to deploy, monitor, respond to
   incidents, and recover from failures. When something breaks, jump to
   [Incident Response](#incident-response) and [Common Issues & Fixes](#common-issues--fixes).
-</Callout>
+</Info>
 
 ## Deployment
 
@@ -18,24 +18,16 @@ description: Runbook for running, monitoring, deploying, and recovering the Roya
 Work flows in one direction: `dev → test → pprd → prod`.
 
 <Steps>
-<Step>
-### Merge PR to `dev`
-
+<Step title="Merge PR to dev">
 CI runs lint + typecheck + unit tests.
 </Step>
-<Step>
-### Merge `dev` → `test`
-
+<Step title="Merge dev → test">
 CI adds integration tests + Playwright + Lighthouse.
 </Step>
-<Step>
-### Merge `test` → `pprd`
-
+<Step title="Merge test → pprd">
 CI adds k6 load test + OWASP ZAP.
 </Step>
-<Step>
-### Merge `pprd` → `prod`
-
+<Step title="Merge pprd → prod">
 Requires manual approval, then auto-deploys.
 </Step>
 </Steps>
@@ -60,8 +52,8 @@ git merge prod
 
 ### Rollback
 
-<Tabs items={['Cloudflare Workers', 'Render', 'Database']}>
-<Tab value="Cloudflare Workers">
+<Tabs>
+<Tab title="Cloudflare Workers">
 
 Customer + admin sites (`rgss-web`, `rgss-admin`) — Cloudflare Workers via the OpenNext adapter (`@opennextjs/cloudflare`):
 
@@ -70,7 +62,7 @@ Customer + admin sites (`rgss-web`, `rgss-admin`) — Cloudflare Workers via the
 3. Promote it — takes effect in ~30 seconds
 
 </Tab>
-<Tab value="Render">
+<Tab title="Render">
 
 Payload CMS (`rgss-cms`, `cms.theroyalglow.in`):
 
@@ -78,7 +70,7 @@ Payload CMS (`rgss-cms`, `cms.theroyalglow.in`):
 2. Click the last known-good deploy → "Rollback"
 
 </Tab>
-<Tab value="Database">
+<Tab title="Database">
 
 Not possible without data loss. Use Neon's point-in-time restore if a migration
 caused data corruption (see [Point-in-Time Restore](#point-in-time-restore)).
@@ -91,19 +83,13 @@ caused data corruption (see [Point-in-Time Restore](#point-in-time-restore)).
 ### Daily Checks (2 minutes)
 
 <Steps>
-<Step>
-### Status page
-
+<Step title="Status page">
 Check BetterStack status page — all monitors green?
 </Step>
-<Step>
-### Errors
-
+<Step title="Errors">
 Check Sentry — any new error issues overnight?
 </Step>
-<Step>
-### Jobs
-
+<Step title="Jobs">
 Check BetterStack heartbeats — did all scheduled jobs run?
 </Step>
 </Steps>
@@ -111,24 +97,16 @@ Check BetterStack heartbeats — did all scheduled jobs run?
 ### Weekly Checks (15 minutes)
 
 <Steps>
-<Step>
-### Funnel
-
+<Step title="Funnel">
 Review PostHog funnel — any drop-off increase in booking flow?
 </Step>
-<Step>
-### Error trends
-
+<Step title="Error trends">
 Review Sentry error trends — any new patterns?
 </Step>
-<Step>
-### Performance
-
+<Step title="Performance">
 Check Lighthouse CI scores on recent PRs — any performance regression?
 </Step>
-<Step>
-### Load
-
+<Step title="Load">
 Review k6 load test results — any latency increase?
 </Step>
 </Steps>
@@ -157,41 +135,29 @@ Review k6 load test results — any latency increase?
 ### P0/P1 Response Steps
 
 <Steps>
-<Step>
-### Acknowledge
-
+<Step title="Acknowledge">
 Post in Slack `#incidents` that you're investigating.
 </Step>
-<Step>
-### Diagnose
-
+<Step title="Diagnose">
 Check BetterStack, Sentry, Cloudflare, Render, Neon dashboards.
 </Step>
-<Step>
-### Communicate
-
+<Step title="Communicate">
 Update the BetterStack status page with an incident message.
 </Step>
-<Step>
-### Fix or rollback
-
+<Step title="Fix or rollback">
 Deploy a fix or roll back to the last known-good deployment.
 </Step>
-<Step>
-### Verify
-
+<Step title="Verify">
 Confirm Checkly synthetic checks pass.
 </Step>
-<Step>
-### Post-mortem
-
+<Step title="Post-mortem">
 Document what happened, why, and how to prevent it.
 </Step>
 </Steps>
 
 ### Common Issues & Fixes
 
-<Accordions type="single">
+<AccordionGroup>
 <Accordion title="Booking creation failing (500)">
 
 - Check Sentry for the error — usually a DB connection issue or validation bug
@@ -226,7 +192,7 @@ Document what happened, why, and how to prevent it.
 - Manually trigger the job via the QStash dashboard
 
 </Accordion>
-</Accordions>
+</AccordionGroup>
 
 ## Database Operations
 
@@ -247,9 +213,9 @@ DATABASE_URL=$DATABASE_URL_TEST bunx drizzle-kit migrate
 DATABASE_URL=$DATABASE_URL_PROD bunx drizzle-kit migrate
 ```
 
-<Callout type="warn">
+<Warning>
   **Never run migrations directly on prod without testing on test + pprd first.**
-</Callout>
+</Warning>
 
 ### Neon Branch Management
 
@@ -268,29 +234,19 @@ curl -X POST https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches
 If a bad migration or data corruption occurs on prod:
 
 <Steps>
-<Step>
-### Open the branch
-
+<Step title="Open the branch">
 Go to Neon console → Project → Branches → `prod`.
 </Step>
-<Step>
-### Restore to a point in time
-
+<Step title="Restore to a point in time">
 Click "Restore" → select a point in time before the incident.
 </Step>
-<Step>
-### Verify
-
+<Step title="Verify">
 This creates a new branch — verify data is correct.
 </Step>
-<Step>
-### Swap the connection
-
+<Step title="Swap the connection">
 Point the connection string to the restored branch.
 </Step>
-<Step>
-### Re-apply migrations
-
+<Step title="Re-apply migrations">
 Apply any migrations that happened after the restore point.
 </Step>
 </Steps>
