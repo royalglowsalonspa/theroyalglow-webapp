@@ -40,55 +40,95 @@
   --rg-radius-pill: 9999px;
 
   /* Elevation */
-  --rg-shadow-hover: 0 18px 40px -22px rgba(26, 15, 10, 0.25);
-  --rg-shadow-elevated: 0 24px 50px -20px rgba(26, 15, 10, 0.45);
+  --rg-shadow-hover: 0 16px 34px -24px rgba(26, 15, 10, 0.28);
+  --rg-shadow-elevated: 0 20px 44px -28px rgba(26, 15, 10, 0.4);
 
   /* Semantic surfaces — light mode */
   --rg-surface: var(--rg-canvas);
-  --rg-surface-raised: var(--rg-warm-cream);
+  --rg-surface-raised: #fffbf3;
   --rg-border: rgba(26, 15, 10, 0.1);
   --rg-border-strong: rgba(26, 15, 10, 0.18);
   --rg-accent: var(--rg-accessible-gold);
-  --rg-accent-soft: rgba(200, 169, 97, 0.14);
+  --rg-accent-soft: rgba(200, 169, 97, 0.12);
   --rg-ink: var(--rg-cocoa);
   --rg-ink-muted: var(--rg-warm-gray);
 
   /* Eyebrow / label treatment, from the typography tokens */
   --rg-eyebrow-size: 11px;
-  --rg-eyebrow-tracking: 2px;
+  --rg-eyebrow-tracking: 1.6px;
 }
 
 .dark {
+  color-scheme: dark;
   --rg-surface: var(--rg-cocoa);
-  --rg-surface-raised: var(--rg-chocolate);
-  --rg-border: rgba(244, 224, 155, 0.14);
-  --rg-border-strong: rgba(244, 224, 155, 0.26);
+  --rg-surface-raised: #21140e;
+  --rg-border: rgba(244, 224, 155, 0.12);
+  --rg-border-strong: rgba(244, 224, 155, 0.22);
   --rg-accent: var(--rg-royal-gold);
-  --rg-accent-soft: rgba(244, 224, 155, 0.12);
+  --rg-accent-soft: rgba(244, 224, 155, 0.1);
   --rg-ink: var(--rg-warm-cream);
   --rg-ink-muted: var(--rg-warm-stone);
+  --rg-shadow-hover: 0 16px 34px -24px rgba(0, 0, 0, 0.8);
+  --rg-shadow-elevated: 0 20px 44px -28px rgba(0, 0, 0, 0.9);
 }
 
 /* --------------------------------------------------------------------------
    1. Navigation chrome
    -------------------------------------------------------------------------- */
 
-/* The lockup is a wide horizontal SVG; the default height crops it short. */
+/* Keep every major Mintlify surface on one canvas. The original raised footer
+   and partial dark overrides created disconnected brown rectangles. */
+html,
+body,
+#body-content,
+#background-color,
+#content-area,
+#sidebar,
+#sidebar-content,
+#table-of-contents,
+#footer,
+footer {
+  background-color: var(--rg-surface);
+}
+
+#sidebar,
+#table-of-contents {
+  border-color: var(--rg-border);
+}
+
+/* Official mark downloaded from theroyalglow.in/logo.png. It is intentionally
+   the mark alone—no synthetic wordmark or DOCUMENTATION suffix. */
 img.nav-logo {
-  height: 2.15rem !important;
-  width: auto !important;
+  width: 2.75rem !important;
+  height: 2.75rem !important;
+  max-width: none !important;
+  object-fit: contain;
 }
 
 #navbar {
   border-bottom: 1px solid var(--rg-border);
-  backdrop-filter: saturate(1.4) blur(10px);
+  background: var(--rg-surface);
+  backdrop-filter: none;
+  box-shadow: 0 1px 0 rgba(26, 15, 10, 0.02);
+}
+
+.dark #navbar {
+  box-shadow: 0 1px 0 rgba(244, 224, 155, 0.03);
 }
 
 navbar-link {
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+#topbar-cta-button {
+  border-radius: var(--rg-radius-pill);
+  box-shadow: none;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
+  letter-spacing: 0;
 }
 
 /* Sidebar group headers borrow the eyebrow token: small, bold, letterspaced. */
@@ -104,7 +144,7 @@ sidebar-group-icon {
   color: var(--rg-accent);
 }
 
-/* A gold rail marks the active page rather than a heavy filled block. */
+/* A fine gold rail marks the active page without a heavy filled block. */
 #sidebar-content li[data-active] {
   position: relative;
   background: var(--rg-accent-soft);
@@ -127,13 +167,13 @@ sidebar-nav-group-divider {
   border-color: var(--rg-border);
 }
 
-/* Top-level tabs read as pills, matching the product nav. */
+/* Browserbase-style restraint: sentence case and compact spacing. */
 nav-tabs-item,
 .nav-tabs-item {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .nav-tabs-item[data-active] {
@@ -351,14 +391,14 @@ pagination-next:hover {
 #footer,
 footer {
   border-top: 1px solid var(--rg-border);
-  background: var(--rg-surface-raised);
+  background: var(--rg-surface);
 }
 
 advanced-footer {
-  padding-block: 40px;
+  padding-block: 48px 32px;
 }
 
-/* Footer column headers use the same eyebrow treatment as the sidebar. */
+/* Footer follows the same four-part taxonomy as the sidebar tabs. */
 advanced-footer h4,
 advanced-footer h3,
 #footer h4,
@@ -367,7 +407,19 @@ advanced-footer h3,
   font-weight: 700;
   letter-spacing: var(--rg-eyebrow-tracking);
   text-transform: uppercase;
+  color: var(--rg-ink);
+}
+
+advanced-footer a,
+#footer a {
   color: var(--rg-ink-muted);
+  text-decoration-color: transparent;
+  transition: color 140ms ease;
+}
+
+advanced-footer a:hover,
+#footer a:hover {
+  color: var(--rg-accent);
 }
 
 /* --------------------------------------------------------------------------
@@ -383,15 +435,13 @@ advanced-footer h3,
   border-radius: var(--rg-radius-lg);
   padding: 40px 32px;
   margin-bottom: 8px;
-  background:
-    radial-gradient(120% 140% at 0% 0%, var(--rg-golden-mist) 0%, transparent 55%),
-    linear-gradient(135deg, var(--rg-warm-cream) 0%, var(--rg-canvas) 70%);
+  background: var(--rg-surface-raised);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
 .dark .rg-hero {
-  background:
-    radial-gradient(120% 140% at 0% 0%, rgba(244, 224, 155, 0.16) 0%, transparent 55%),
-    linear-gradient(135deg, var(--rg-chocolate) 0%, var(--rg-cocoa) 70%);
+  background: var(--rg-surface-raised);
+  box-shadow: inset 0 1px 0 rgba(244, 224, 155, 0.04);
 }
 
 .rg-hero-eyebrow {
