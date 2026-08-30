@@ -69,12 +69,10 @@ neonConfig.fetchFunction = async (input: unknown, init: unknown): Promise<Respon
  * every platform: any build that collects page data without DATABASE_URL in the
  * environment hits the same failure.
  *
- * A Proxy defers `neon()` (and `drizzle()`) until an operational database
- * property is used at request time, when the running app has `DATABASE_URL`.
- * Optional Drizzle metadata inspection (`db._`) stays non-initializing because
- * libraries may probe it while constructing adapters during a build. The
- * exported `db` binding and its call-site API are unchanged, and the real
- * client is memoized after first use.
+ * A Proxy defers `neon()` (and `drizzle()`) to the first real property access —
+ * i.e. the first query at request time, when the running Worker DOES have
+ * `DATABASE_URL`. The exported `db` binding and its call-site API are unchanged,
+ * so no query module needs to be touched. The client is memoized after first use.
  */
 type DrizzleClient = ReturnType<typeof drizzle>
 
@@ -91,18 +89,9 @@ function getDb(): DrizzleClient {
 
 export const db = new Proxy({} as DrizzleClient, {
   get(_target, prop, receiver) {
-    // Better Auth 1.7.2 reads optional Drizzle metadata while constructing its
-    // adapter. Return metadata only when a real client already exists; probing
-    // it must not turn a DB-free Next.js build into a database initialization.
-    if (prop === '_') {
-      return cachedDb ? Reflect.get(cachedDb, prop, cachedDb) : undefined
-    }
     return Reflect.get(getDb(), prop, receiver)
   },
   has(_target, prop) {
-    if (prop === '_') {
-      return cachedDb ? Reflect.has(cachedDb, prop) : false
-    }
     return Reflect.has(getDb(), prop)
   },
 }) as DrizzleClient
