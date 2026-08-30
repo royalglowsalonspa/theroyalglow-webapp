@@ -8,11 +8,14 @@
     "dark": "#2D1810"
   },
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg",
+    "light": "/docs/images/RoyalGlowLogo.png",
+    "dark": "/docs/images/RoyalGlowLogo.png",
     "href": "https://theroyalglow.in"
   },
-  "favicon": "/favicon.svg",
+  "favicon": {
+    "light": "/docs/images/web-app-manifest-192x192.png",
+    "dark": "/docs/images/web-app-manifest-512x512.png"
+  },
   "appearance": {
     "default": "system",
     "strict": false
@@ -34,7 +37,8 @@
         "light": "gruvbox-light-medium",
         "dark": "gruvbox-dark-medium"
       }
-    }
+    },
+    "latex": true
   },
   "interaction": {
     "drilldown": false
@@ -43,7 +47,8 @@
     "links": [
       {
         "type": "github",
-        "href": "https://github.com/royalglowsalonspa/theroyalglow-webapp"
+        "href": "https://github.com/royalglowsalonspa/theroyalglow-webapp",
+        "label": "Github"
       },
       {
         "label": "Status",
@@ -103,7 +108,12 @@
   },
   "contextual": {
     "display": "header",
-    "options": ["copy", "view", "chatgpt", "claude", "cursor", "mcp"]
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "cursor""]
   },
   "navigation": {
     "versions": [
