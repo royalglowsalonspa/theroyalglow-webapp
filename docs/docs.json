@@ -33,7 +33,8 @@
         "light": "gruvbox-light-medium",
         "dark": "gruvbox-dark-medium"
       }
-    }
+    },
+    "latex": true
   },
   "interaction": {
     "drilldown": false
