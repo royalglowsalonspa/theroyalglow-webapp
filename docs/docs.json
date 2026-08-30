@@ -5,23 +5,22 @@
   "colors": {
     "primary": "#7D5C12",
     "light": "#F4E09B",
-    "dark": "#2D1810"
+    "dark": "#7D5C12"
   },
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg",
+    "light": "/logo/brand.png",
+    "dark": "/logo/brand.png",
     "href": "https://theroyalglow.in"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/favicon.png",
   "appearance": {
-    "default": "system",
+    "default": "light",
     "strict": false
   },
   "icons": {
     "library": "lucide"
   },
   "background": {
-    "decoration": "gradient",
     "color": {
       "light": "#FFFFFF",
       "dark": "#1A0F0A"
@@ -42,18 +41,14 @@
   "navbar": {
     "links": [
       {
-        "type": "github",
-        "href": "https://github.com/royalglowsalonspa/theroyalglow-webapp"
-      },
-      {
-        "label": "Status",
-        "href": "https://status.theroyalglow.in",
-        "icon": "activity"
+        "label": "GitHub",
+        "href": "https://github.com/royalglowsalonspa/theroyalglow-webapp",
+        "icon": "github"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Book an appointment",
+      "label": "Book Now",
       "href": "https://theroyalglow.in/?book=1"
     }
   },
@@ -67,27 +62,27 @@
         "header": "Documentation",
         "items": [
           { "label": "Overview", "href": "/content/docs/index" },
+          { "label": "Product", "href": "/content/docs/product/index" },
+          { "label": "Features", "href": "/content/docs/features/index" },
+          { "label": "FAQ", "href": "/content/docs/faq" }
+        ]
+      },
+      {
+        "header": "Engineering",
+        "items": [
           { "label": "Getting started", "href": "/content/docs/getting-started" },
           { "label": "Architecture", "href": "/content/docs/architecture" },
-          { "label": "API reference", "href": "/content/docs/api-reference/index" }
+          { "label": "System design", "href": "/content/docs/system-design/index" },
+          { "label": "Operations", "href": "/content/docs/operations" }
         ]
       },
       {
-        "header": "Product",
+        "header": "API reference",
         "items": [
-          { "label": "Business overview", "href": "/content/docs/product/business-overview" },
-          { "label": "Customer guide", "href": "/content/docs/product/customer-guide" },
-          { "label": "Admin & staff guide", "href": "/content/docs/product/admin-staff-guide" },
-          { "label": "Features", "href": "/content/docs/features/index" }
-        ]
-      },
-      {
-        "header": "Operations",
-        "items": [
-          { "label": "Deployment", "href": "/content/docs/deployment" },
-          { "label": "Git workflow", "href": "/content/docs/git-workflow" },
-          { "label": "Runbook", "href": "/content/docs/operations" },
-          { "label": "Environment variables", "href": "/content/docs/environment-variables" }
+          { "label": "Overview", "href": "/content/docs/api-reference/index" },
+          { "label": "Services", "href": "/content/docs/api-reference/services" },
+          { "label": "Bookings", "href": "/content/docs/api-reference/bookings" },
+          { "label": "Background jobs", "href": "/content/docs/api-reference/jobs" }
         ]
       },
       {

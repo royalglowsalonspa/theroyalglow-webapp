@@ -54,9 +54,9 @@ This endpoint takes no parameters.
 | `timestamp` | `string` | Yes | ISO-8601 timestamp of the check. |
 | `version` | `string` | Yes | Commit SHA from COMMIT_SHA, or "unknown" if unset. |
 | `uptime` | `number` | Yes | Process uptime in seconds (0 if unavailable). |
-| `checks.database` | `object` | Yes | The database component check: { status, latencyMs, message? }. |
-| `checks.redis` | `object` | Yes | The Redis component check: { status, latencyMs, message? }. |
-| `checks.r2` | `object` | Yes | The R2 component check: { status, latencyMs, message? }. |
+| `checks.database` | `object` | Yes | The database component check: `{ status, latencyMs, message? }`. |
+| `checks.redis` | `object` | Yes | The Redis component check: `{ status, latencyMs, message? }`. |
+| `checks.r2` | `object` | Yes | The R2 component check: `{ status, latencyMs, message? }`. |
 
 Each component check is `{ status: "pass" | "fail" | "skip", latencyMs: number, message?: string }`.
 
