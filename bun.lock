@@ -5,7 +5,6 @@
     "": {
       "name": "theroyalglow-webapp",
       "dependencies": {
-        "@testing-library/react": "^16.3.3",
         "nanoid": "^6.0.1",
       },
       "devDependencies": {
@@ -69,7 +68,7 @@
         "@faker-js/faker": "^10.6.0",
         "@playwright/test": "^1.62.1",
         "@testing-library/jest-dom": "^7.0.1",
-        "@testing-library/react": "^16.3.2",
+        "@testing-library/react": "^16.3.3",
         "@types/jest-axe": "^3.5.9",
         "@types/node": "^26.3.0",
         "@types/react": "^19.2.18",
@@ -183,7 +182,7 @@
         "@faker-js/faker": "^10.6.0",
         "@playwright/test": "^1.62.1",
         "@testing-library/jest-dom": "^7.0.1",
-        "@testing-library/react": "^16.3.2",
+        "@testing-library/react": "^16.3.3",
         "@types/node": "^26.3.0",
         "@types/react": "^19.2.18",
         "@types/react-dom": "^19.2.5",
