@@ -30,7 +30,7 @@
  *                Schema matches Better Auth's expected structure.
  ************************************************************/
 
-import { boolean, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+import { boolean, index, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'
 
 export const user = pgTable('user', {
@@ -94,10 +94,11 @@ export const account = pgTable(
     // Deliberately NULLABLE at this step. This is the "expand" half of an
     // expand/migrate/contract rollout: a nullable column is invisible to the
     // running 1.6.26 code, so it can be added and backfilled with zero
-    // downtime. A follow-up migration sets NOT NULL and adds the unique
-    // (issuer, account_id) index once 1.7.x is deployed and always writes it.
+    // downtime. The CONTRACT step (migration 0002) then sets NOT NULL and adds
+    // the unique (issuer, account_id) index, which is safe only once 1.7.x is
+    // deployed and therefore always writes the column.
     // See knowledge-base/better-auth-upgrade.md §5.
-    issuer: text('issuer'),
+    issuer: text('issuer').notNull(),
     accessToken: text('access_token'),
     refreshToken: text('refresh_token'),
     idToken: text('id_token'),
@@ -117,7 +118,17 @@ export const account = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => [index('account_user_id_idx').on(table.userId)],
+  (table) => [
+    index('account_user_id_idx').on(table.userId),
+    // Better Auth 1.7+ declares this as a REQUIRED unique compound index — it is
+    // the uniqueness guarantee behind `WHERE issuer = ? AND account_id = ?`, so
+    // one provider identity can never map to two account rows.
+    //
+    // Named snake_case per this project's convention. Upstream's own generator
+    // would call it `account_issuer_accountId_uidx`; the runtime depends only on
+    // the columns and the uniqueness, not on the index name.
+    uniqueIndex('account_issuer_account_id_uidx').on(table.issuer, table.accountId),
+  ],
 )
 
 export const verification = pgTable('verification', {
