@@ -85,6 +85,19 @@ export const account = pgTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     accountId: text('account_id').notNull(),
     providerId: text('provider_id').notNull(),
+    // Better Auth 1.7+ scopes account identity by ISSUER: the lookup on every
+    // OAuth callback is `WHERE issuer = ? AND account_id = ?`. For Google —
+    // both the redirect flow and One Tap — the value is the literal
+    // 'https://accounts.google.com'; email/password rows would use
+    // 'local:credential'.
+    //
+    // Deliberately NULLABLE at this step. This is the "expand" half of an
+    // expand/migrate/contract rollout: a nullable column is invisible to the
+    // running 1.6.26 code, so it can be added and backfilled with zero
+    // downtime. A follow-up migration sets NOT NULL and adds the unique
+    // (issuer, account_id) index once 1.7.x is deployed and always writes it.
+    // See knowledge-base/better-auth-upgrade.md §5.
+    issuer: text('issuer'),
     accessToken: text('access_token'),
     refreshToken: text('refresh_token'),
     idToken: text('id_token'),

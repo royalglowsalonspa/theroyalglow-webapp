@@ -8,10 +8,15 @@
  *
  * Description  : Derives a deterministic `SchemaFingerprint` from the COMMITTED
  *                Drizzle snapshot JSON (`packages/db/migrations/meta/
- *                0000_snapshot.json`, drizzle pg snapshot format v7) WITHOUT a
+ *                <NNNN>_snapshot.json`, drizzle pg snapshot format v7) WITHOUT a
  *                live database. CI has no Neon branch available, so the live
  *                catalog derivation in `canonical.ts` cannot run there; this
  *                module reads only committed files and produces a stable hash.
+ *
+ *                The snapshot index is resolved from the migration journal so the
+ *                fingerprint always tracks the LATEST migration. See
+ *                `resolveLatestSnapshotPath` for why pinning to `0000` would
+ *                silently break the gate once a second migration exists.
  *
  *                The snapshot is mapped into the SAME normalized
  *                `SchemaFingerprint` structure the catalog `Fingerprinter`
@@ -58,15 +63,70 @@ import type {
 } from './types'
 
 // ─────────────────────────────────────────────────────────
-// Default committed snapshot location.
+// Committed snapshot location.
 //
-// Resolved from this file (scripts/drift) -> migrations/meta/0000_snapshot.json.
+// Resolved from this file (scripts/drift) -> migrations/meta/<NNNN>_snapshot.json.
+//
+// IMPORTANT: this MUST track the LATEST snapshot, not `0000_snapshot.json`.
+// `drizzle-kit generate` writes a NEW `<NNNN>_snapshot.json` per migration and
+// does NOT rewrite earlier ones. Pinning to `0000` was correct only while the
+// baseline was the sole migration; from the second migration onward it would
+// freeze the drift reference at the baseline schema, so the CI drift gate would
+// keep passing while the real schema moved — a silent false pass. The authoritative
+// snapshot index is therefore read from the migration journal.
 // ─────────────────────────────────────────────────────────
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url))
 
-/** Path to the committed drizzle baseline snapshot (DB-free source of truth). */
-export const DEFAULT_SNAPSHOT_PATH = resolve(MODULE_DIR, '../../migrations/meta/0000_snapshot.json')
+/** Directory holding the drizzle migration journal and per-migration snapshots. */
+export const MIGRATIONS_META_DIR = resolve(MODULE_DIR, '../../migrations/meta')
+
+/** Path to the drizzle migration journal that records every applied migration. */
+export const JOURNAL_PATH = resolve(MIGRATIONS_META_DIR, '_journal.json')
+
+/** Minimal structural typing for the drizzle migration journal (format v7). */
+type DrizzleJournal = {
+  entries?: { idx?: number; tag?: string }[]
+}
+
+/**
+ * Resolve the path of the LATEST committed drizzle snapshot by reading the
+ * migration journal and selecting its highest `idx` entry.
+ *
+ * Drizzle names snapshots `<idx zero-padded to 4>_snapshot.json`, matching the
+ * migration tag prefix (e.g. journal idx `1` for tag `0001_add_account_issuer`
+ * pairs with `0001_snapshot.json`).
+ *
+ * @throws when the journal is missing, malformed, or records no entries — the
+ *   drift gate must fail loudly rather than silently fall back to a stale
+ *   snapshot.
+ */
+export function resolveLatestSnapshotPath(): string {
+  let journal: DrizzleJournal
+  try {
+    journal = JSON.parse(readFileSync(JOURNAL_PATH, 'utf8')) as DrizzleJournal
+  } catch (cause) {
+    throw new Error(
+      `Unable to read the drizzle migration journal at ${JOURNAL_PATH}. ` +
+        'The DB-free drift gate cannot determine the canonical snapshot without it.',
+      { cause },
+    )
+  }
+
+  const indices = (journal.entries ?? [])
+    .map((entry) => entry.idx)
+    .filter((idx): idx is number => typeof idx === 'number' && Number.isInteger(idx) && idx >= 0)
+
+  if (indices.length === 0) {
+    throw new Error(
+      `The drizzle migration journal at ${JOURNAL_PATH} records no migration entries. ` +
+        'Run `bun run generate` to create the baseline migration before deriving a fingerprint.',
+    )
+  }
+
+  const latestIdx = Math.max(...indices)
+  return resolve(MIGRATIONS_META_DIR, `${String(latestIdx).padStart(4, '0')}_snapshot.json`)
+}
 
 // ─────────────────────────────────────────────────────────
 // Drizzle pg snapshot (format v7) — minimal structural typing.
@@ -340,13 +400,12 @@ export type SnapshotFingerprint = {
  * the authoritative committed reference for the CI drift gate — no database
  * required.
  *
- * @param snapshotPath Optional override; defaults to the committed baseline
- *   snapshot at `packages/db/migrations/meta/0000_snapshot.json`.
+ * @param snapshotPath Optional override; defaults to the LATEST committed
+ *   snapshot, resolved from the migration journal via
+ *   {@link resolveLatestSnapshotPath}.
  */
-export function deriveSnapshotFingerprint(
-  snapshotPath: string = DEFAULT_SNAPSHOT_PATH,
-): SnapshotFingerprint {
-  const raw = readFileSync(snapshotPath, 'utf8')
+export function deriveSnapshotFingerprint(snapshotPath?: string): SnapshotFingerprint {
+  const raw = readFileSync(snapshotPath ?? resolveLatestSnapshotPath(), 'utf8')
   const snapshot = JSON.parse(raw) as DrizzleSnapshot
   const fingerprint = snapshotToFingerprint(snapshot)
   return { fingerprint, hash: Fingerprinter.hash(fingerprint) }

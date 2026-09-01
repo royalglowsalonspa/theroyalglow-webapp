@@ -50,6 +50,7 @@ Every information / planning document lives here. Only `README.md` remains in th
 | [ENVIRONMENT_SETUP_GUIDE.md](./ENVIRONMENT_SETUP_GUIDE.md) | Env variables — setup guide & current status |
 | [deployment.md](./deployment.md) | Deployment pipeline & DevOps strategy |
 | [service-catalogue-migration.md](./service-catalogue-migration.md) | Service catalogue migration runbook — backup, per-branch checklist, rollback |
+| [better-auth-upgrade.md](./better-auth-upgrade.md) | Better Auth 1.6.26 → 1.7.2 migration plan + standing upgrade discipline |
 | [git-workflow.md](./git-workflow.md) | Git workflow & branch strategy |
 | [observability.md](./observability.md) | Observability, analytics & monitoring |
 | [file-header-guide.md](./file-header-guide.md) | File header conventions |
