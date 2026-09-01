@@ -120,7 +120,7 @@ Neon branch reset is the locked strategy for environment isolation. Supabase bra
 ```
 ✅ All CI gates passing
 ✅ Manual approval required
-🚀 Deploy to Cloudflare Workers (OpenNext)
+🚀 `.github/workflows/deploy-aws.yml` deploys `apps/web` and `apps/admin` to AWS Lambda + CloudFront via SST
 ```
 
 ---

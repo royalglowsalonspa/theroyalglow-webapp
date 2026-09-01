@@ -819,7 +819,7 @@ Premium salon = high-quality gallery. All images served in next-gen formats with
 | Layer | What It Does |
 |-------|-------------|
 | Next.js `<Image>` | Auto WebP/AVIF conversion, responsive `srcset`, lazy loading by default |
-| Cloudflare Polish | Auto-compresses images at edge (free plan, lossless) |
+| CloudFront | Caches and distributes static image assets and optimized Next.js variants |
 | Cloudflare R2 | Serves gallery/service images — no egress fees |
 | Blur placeholder | `placeholder="blur"` on gallery images — premium feel during load |
 

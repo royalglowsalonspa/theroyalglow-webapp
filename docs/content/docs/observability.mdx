@@ -28,28 +28,20 @@ Royal Glow uses five distinct observability layers, each answering a different q
 
 **Layer 1 — Error Monitoring. Free tier:** 5,000 errors/month — more than sufficient at launch.
 
-Sentry captures errors from both Cloudflare Workers (edge) and Render (Node.js/Payload CMS). Source maps are uploaded during build so errors point to original TypeScript lines, not minified output.
+Sentry is guarded and currently covers:
 
-**What Sentry captures:**
+- Browser/client SDK paths in `apps/web` and `apps/admin` when their optional DSNs are set.
+- Unexpected non-`AppError` exceptions caught by each app's wrapped API error handler; `sentry-server-init.ts` loads the matching server/edge config on first use.
+- The Cloud Run invoicing service when its optional `SENTRY_DSN` is set.
 
-- Unhandled API route exceptions
-- Client-side React errors (via Error Boundaries)
-- Edge Worker errors (Cloudflare)
-- Performance traces (slow DB queries, slow API responses)
+This does **not** mean every Lambda/SSR failure is captured: exceptions outside wrapped API handlers may bypass the current server bootstrap. Payload CMS has no Sentry dependency or initialization. Production source maps are not currently uploaded because `deploy-aws.yml` has no Sentry credentials or upload step.
 
-**Alert rules:**
+**What is intentionally not reported as an unexpected server error:**
 
-| Rule | Condition | Action |
-| --- | --- | --- |
-| Critical | Any new `error` level issue | Slack `#alerts-critical` + Email |
-| High frequency | >10 same error in 5 min | Slack `#alerts-critical` |
-| External service down | >3 upstream errors in 5 min | Slack `#alerts-infra` |
-
-**What is NOT sent to Sentry:**
-
-- Business rule violations (4xx errors) — these are expected
-- Validation errors (400) — these are expected
-- Rate limit exceeded (429) — these are expected
+- Business rule violations (4xx)
+- Validation errors (400)
+- Rate limits (429)
+- Expected authentication/authorization responses
 
 </Tab>
 <Tab title="BetterStack">

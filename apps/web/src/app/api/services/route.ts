@@ -12,7 +12,7 @@
  * Responsibilities :
  * - Retrieve all active services grouped by category
  * - Return structured data for Salon/SPA toggle UI
- * - Serve as data source for the Redis cache layer
+ * - Serve as the direct Neon-backed catalogue source; a future Redis wrapper may cache this response
  *
  * Features / Functionality :
  * - Category-grouped service listing
@@ -25,8 +25,8 @@
  * Dependencies : @/lib/api/error-handler, @rgss/db/queries
  *
  * Notes        :
- * - Designed for Upstash Redis caching with a 5-min TTL. The originally
- *   planned Cloudflare KV layer was never built.
+ * - The route currently reads the active catalogue directly from Neon.
+ * - A future Upstash read-through cache may add a 5-minute TTL.
  * - No authentication required.
  ************************************************************/
 

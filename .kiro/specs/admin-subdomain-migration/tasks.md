@@ -153,12 +153,13 @@ property-tested with `fast-check` (P1–P7).
   - Ensure all tests pass, ask the user if questions arise.
 
 - [x] 12. DNS, deployment, and CI/CD
-  - [x] 12.1 Add the admin deploy workflow
-    - `.github/workflows/deploy-admin-prod.yml` triggered on `prod` pushes touching `apps/admin/**` or `packages/**`; build with `turbo run build --filter=@rgss/admin`, upload source maps to the admin Sentry project, deploy `apps/admin/.next` to `rgss-admin`, then health-check `https://admin.theroyalglow.in/api/health` (200 within 30s, 3 attempts, 10s apart; fail → failure notification)
+  - [x] 12.1 Align the admin resource with the shared AWS deploy workflow
+    - Declare Admin_App in `sst.config.ts` with `sst.aws.Nextjs`; use `.github/workflows/deploy-aws.yml` to run `bunx sst deploy`. The workflow does not upload Sentry source maps or run migrations. When `AWS_DOMAINS_LIVE == 'true'`, retry both web and admin `/api/health` endpoints up to 6 times with 15-second waits; on failure, notify best-effort and require operator inspection before manual known-good-ref redeployment
+    - Keep Cloudflare as authoritative DNS only; SST's DNS integration may use `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_DEFAULT_ACCOUNT_ID`, but neither is an Admin_App runtime variable
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
   - [x] 12.2 Add path-filtered parallel CI jobs and Lighthouse
-    - Extend `ci.yml` with `dorny/paths-filter`; separate parallel admin/web jobs (lint+typecheck+test+build via per-app turbo filters), each reporting its own status within a 15-min budget; a failed app build blocks only that app's deploy; Lighthouse CI vs `admin.theroyalglow.in` (perf ≥ 90, a11y = 100, best practices ≥ 95)
+    - Extend `ci.yml` with `dorny/paths-filter`; separate parallel admin/web jobs (lint+typecheck+test+build via per-app turbo filters), each reporting its own status within a 15-min budget; any failed required app build blocks the single shared SST production deployment; Lighthouse CI vs `admin.theroyalglow.in` (perf ≥ 90, a11y = 100, best practices ≥ 95)
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7_
 
 - [x] 13. Web app cleanup and 301 redirects (`apps/web`)
@@ -180,7 +181,7 @@ property-tested with `fast-check` (P1–P7).
 
 - [x] 14. Documentation and steering updates
   - [x] 14.1 Update steering and deployment docs
-    - `project-overview.md` (add `apps/admin/` to structure tree + subdomain map + Layer Rules row); `coding-standards.md` (Root-Path Convention); `implementation-tasks.md` (repoint Phase 3 paths to `apps/admin/app/`); `features.md` (admin served at `admin.theroyalglow.in` root paths); `deployment.md` (Admin_App section: project name, workflow, build command, output dir, health path)
+    - `project-overview.md` (add `apps/admin/` to structure tree + subdomain map + Layer Rules row); `coding-standards.md` (Root-Path Convention); `implementation-tasks.md` (repoint Phase 3 paths to `apps/admin/app/`); `features.md` (admin served at `admin.theroyalglow.in` root paths); `deployment.md` (Admin_App `sst.aws.Nextjs` resource, `.github/workflows/deploy-aws.yml`, `bunx sst deploy`, CloudFront domain, health path)
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6_
 
 - [x] 15. End-to-end verification and CI assertions

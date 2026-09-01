@@ -88,20 +88,23 @@ Applicable laws: **CAN-SPAM** (US), **GDPR** (EU), **India DPDP Act**
 **Runtime:** Standalone Node.js service (`@rgss/invoicing`, Hono) deployed on **Google Cloud Run** (`rgss-invoicing`, region `asia-south1`)
 
 ### Why a separate Node.js service
-`@react-pdf/renderer` requires a full Node.js runtime — it cannot run on Cloudflare Workers (edge). Since the Next.js apps are deployed on Cloudflare Workers (OpenNext), invoice PDF generation runs on a dedicated Google Cloud Run service (`@rgss/invoicing`) and is called via HMAC-signed internal HTTP.
+`@react-pdf/renderer` runs in a dedicated long-lived Node.js service so PDF generation remains isolated from web/admin request handling. The Next.js apps run on AWS Lambda + CloudFront through SST; invoice rendering remains on Google Cloud Run (`@rgss/invoicing`) and is called through HMAC-signed internal HTTP.
 
 ### Flow
-```
-Booking moves to completed (Next.js on Cloudflare)
-  → POST /v1/invoices  (Google Cloud Run service, HMAC-verified)
+```text
+Booking completion enqueues the invoice-PDF job through QStash
+  → POST /api/jobs/invoice-pdf (admin app on AWS Lambda, QStash-verified)
+      ↓
+  POST /v1/invoices (Google Cloud Run service, HMAC-verified)
       ↓
   PDF generated with @react-pdf/renderer v4
       ↓
   PDF uploaded to Cloudflare R2 → URL stored in invoice.pdf_url
       ↓
-  PDF Buffer returned to Next.js app
+  PDF buffer returned to the admin job
       ↓
-  Resend email sent with PDF attached
+  Resend email sent with the PDF attached; missing optional caller configuration
+  degrades to an invoice email without the attachment
 ```
 
 ---
@@ -848,35 +851,11 @@ A ₹0.00 invoice is attached as a PDF.
 
 ## Implementation Pattern
 
-```ts
-// packages/business/invoicing/send.ts
-import { Resend } from 'resend'
-import { InvoiceServiceEmail } from '@repo/emails/invoice-service'
-
-const resend = new Resend(process.env.RESEND_API_KEY)
-
-async function sendServiceInvoice(invoice: Invoice, booking: Booking, customer: User) {
-  // 1. Generate PDF via Render Node.js API
-  const res = await fetch(`${process.env.PDF_API_URL}/invoices/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ invoiceId: invoice.id }),
-  })
-  const pdfBuffer = Buffer.from(await res.arrayBuffer())
-
-  // 2. Send email with PDF attached
-  await resend.emails.send({
-    from: 'Royal Glow <hello@theroyalglow.in>',
-    to: customer.email,
-    subject: `Hey ${customer.firstName}, Your Royal Glow receipt is ready.`,
-    react: InvoiceServiceEmail(buildServiceEmailProps(invoice, booking, customer)),
-    attachments: [{
-      filename: `RoyalGlow-Invoice-${invoice.invoiceNumber}.pdf`,
-      content: pdfBuffer,
-    }],
-  })
-}
-```
+Invoice PDF work is orchestrated by
+`apps/admin/src/app/api/jobs/invoice-pdf/route.ts`. The job validates the invoice payload,
+checks `INVOICING_SERVICE_URL` and `INVOICE_PDF_HMAC_SECRET`, signs the request, and posts to
+`/v1/invoices` on the Cloud Run service. If configuration or rendering fails, it logs the error
+and sends the invoice email without an attachment rather than failing the completed booking.
 
 ---
 

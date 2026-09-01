@@ -19,10 +19,12 @@ Key use cases:
 
 ### graphify (CLI — supplementary)
 
-A knowledge graph of this project also lives in `graphify-out/`. For codebase, architecture, or dependency questions where code-review-graph MCP tools don't surface enough context, fall back to:
-- `graphify query "<question>"` — scoped subgraph query
-- `graphify path "<A>" "<B>"` — find connection between two concepts
-- `graphify explain "<concept>"` — explain a concept in context
+A knowledge graph of this project also lives in `graphify-out/`. Run Graphify through the root Bun script so Windows, Kiro agents, and terminals do not depend on a globally resolvable launcher:
+- `bun run graphify -- query "<question>"` — scoped subgraph query
+- `bun run graphify -- path "<A>" "<B>"` — find connection between two concepts
+- `bun run graphify -- explain "<concept>"` — explain a concept in context
+
+The script uses `py -m graphify`, bypassing stale Windows `.exe` launchers and PATH inheritance. If the Python package is missing, run `bun run graphify:install` (pinned to `graphifyy==0.8.26`). Bare `graphify ...` is optional and may require restarting Kiro/PowerShell after PATH changes.
 
 Read `GRAPH_REPORT.md` only for broad architecture review or when neither tool surfaces enough context.
 

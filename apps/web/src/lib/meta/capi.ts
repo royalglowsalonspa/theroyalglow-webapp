@@ -9,12 +9,11 @@
  * Description  : Minimal best-effort server-side client for Meta's Conversions
  *                API (CAPI). POSTs a 'Lead' event to the Graph API events
  *                endpoint, hashing PII (email / phone / name) with SHA-256 per
- *                Meta's spec via Web Crypto so it runs on the Cloudflare Workers
- *                runtime.
+ *                Meta's spec via Web Crypto in the AWS Lambda runtime.
  *
  * Responsibilities :
- * - Hash PII with SHA-256 (crypto.subtle — NOT node:crypto) and normalise per
- *   Meta's matching rules (lowercase/trim email & name, digits-only phone)
+ * - Hash PII with Web Crypto SHA-256 and normalise per Meta's matching rules
+ *   (lowercase/trim email & name, digits-only phone)
  * - POST a single 'Lead' event with a caller-supplied event_id for browser-
  *   Pixel deduplication
  * - Degrade to a no-op when the access token / pixel id are absent, and NEVER
@@ -68,7 +67,7 @@ export type LeadCapiEventInput = {
   eventSourceUrl?: string | null | undefined
 }
 
-/** Lowercase hex SHA-256 of `value` using Web Crypto (Workers-compatible). */
+/** Lowercase hex SHA-256 of `value` using Web Crypto. */
 async function sha256Hex(value: string): Promise<string> {
   const data = new TextEncoder().encode(value)
   const digest = await crypto.subtle.digest('SHA-256', data)

@@ -2,487 +2,207 @@
 
 ## Overview
 
-Royal Glow Salon & Spa runs a monorepo with four apps (`apps/web`, `apps/admin`, `apps/cms`, `apps/invoicing`) plus the `docs` site, and relies on ~15 external services.
+Royal Glow Salon & Spa has four application contracts: `apps/web`, `apps/admin`, `apps/cms`, and `apps/invoicing`. The web and admin apps run on AWS Lambda + CloudFront through SST, the CMS stays on Render, and invoicing stays on Google Cloud Run. Cloudflare provides authoritative DNS and R2 object storage only; Workers/Pages compute, KV bindings, Wrangler configuration, and compute-specific variables are retired.
 
-**Current hosting:** Render serves `apps/web`, `apps/admin` and `apps/cms` from git (see
-`render.yaml`); `apps/invoicing` runs on Google Cloud Run. Cloudflare Workers was the original
-target and has been **retired** — the adapter, Worker configs and `CLOUDFLARE_*` variables are
-all removed. The migration of web + admin to AWS Lambda (secrets in SSM via SST) is specified in
-[M2AWS.md](../M2AWS.md).
+No hand-maintained document can override the executable contracts. Authoritative sources are:
 
-Environment variables are:
+- `apps/web/src/env.ts`
+- `apps/admin/src/env.ts`
+- `apps/invoicing/src/env.ts`
+- `apps/cms/src/payload.config.ts` and CMS storage configuration
+- `sst.config.ts`
+- active workflows under `.github/workflows/`
+- `packages/db/drizzle.config.ts` for migration connectivity
 
-- **Validated at build time** using `@t3-oss/env-nextjs` + Zod — build fails if a required var is missing or malformed
-- **Never committed** to Git — `.env.local` is gitignored
-- **Injected at deploy time** via GitHub Secrets + platform environment variable settings
-- **Split by app** — `apps/web` and `apps/cms` each have their own `.env.example`
+Web and admin use `@t3-oss/env-nextjs` with Zod. Invoicing parses `process.env` with Zod at startup. Payload and some framework bootstrap files own additional configuration. Sentry bootstrap files intentionally read `process.env` directly because they initialize before typed app modules; ordinary application code should use the app's typed env helper.
 
 ---
 
 ## File Structure
 
-```
+```text
 theroyalglow-webapp/
-├── .env.example               # Root template — lists all vars with descriptions (committed)
-├── .env.local                 # Local dev secrets — NEVER commit
-├── .env.development           # Shared dev non-secret defaults (can commit)
-├── .env.pprd                  # Pre-prod defaults for CI/deploy scripts (custom name, not auto-loaded by Next.js)
-├── .env.production            # Production non-secret defaults (can commit — no actual secrets)
+├── .env.example               # Shared starting template for apps/web
+├── .env.local                 # Optional root-local values; gitignored
 └── apps/
     ├── web/
-    │   ├── .env.example       # web-specific required vars (committed)
-    │   └── .env.local         # Local overrides for apps/web (gitignored)
-    └── cms/
-        ├── .env.example       # cms-specific required vars (committed)
-        └── .env.local         # Local overrides for apps/cms (gitignored)
+    │   └── .env.local         # Create from root .env.example; gitignored
+    ├── admin/
+    │   ├── .env.example       # Admin template
+    │   └── .env.local         # Gitignored
+    ├── cms/
+    │   ├── .env.example       # CMS template
+    │   └── .env.local         # Gitignored
+    └── invoicing/
+        └── .env.local         # Create from apps/invoicing/src/env.ts; gitignored
 ```
 
-**Next.js native load order:** `.env.local` → `.env.[NODE_ENV]` → `.env`
-
-Custom files like `.env.pprd` are **not** auto-loaded by Next.js. Use them only if a CI/deploy script explicitly loads them, or inject the values through your hosting platform.
+There is no `apps/web/.env.example`. Next.js loads app-local `.env.local` files. Production platforms inject values and do not consume committed local env files.
 
 ---
 
-## Complete Variable Reference
+## Executable Contracts
 
-### Database (Neon)
+### Customer app (`apps/web`)
 
-| Variable | Used by | Visibility | Description |
-|----------|---------|------------|-------------|
-| `DATABASE_URL` | web, cms | Private | Pooled connection via Neon pgBouncer — used by all app queries |
-| `DATABASE_URL_UNPOOLED` | web | Private | Direct (non-pooled) connection — recommended for migrations and admin tasks that need a direct connection |
+Required server values currently cover:
 
-> **Per-environment branches:** Neon provides 4 branches (`prod`, `pprd`, `test`, `dev`). Use GitHub Environments so `DATABASE_URL` points to the correct branch per environment — same variable name, different values.
+- Neon: `DATABASE_URL`
+- Better Auth and Google OAuth
+- Resend
+- Ably
+- Upstash Redis
+- R2 access key, secret, and bucket
+- QStash publish and signing credentials
+- VAPID private key
 
----
+Required browser values currently cover the customer origin, Google client ID, Ably key, PostHog key/host, and VAPID public key. Optional values include `BETTER_AUTH_API_KEY`, contact inbox, Meta CAPI/pixel values, reporting destinations, BetterStack heartbeat URLs, admin origin, and invoice-service caller settings.
 
-### Auth — Better Auth
+`DATABASE_URL_UNPOOLED` is not part of the web validator.
 
-| Variable | Used by | Visibility | Description |
-|----------|---------|------------|-------------|
-| `BETTER_AUTH_SECRET` | web | Private | Random string min 32 chars — signs sessions and tokens (self-hosted mode). Rotate if compromised. Optional when using Cloud mode. |
-| `BETTER_AUTH_API_KEY` | web | Private | Better Auth Cloud API key (Cloud mode alternative to `BETTER_AUTH_SECRET`). From https://dash.better-auth.com |
-| `BETTER_AUTH_URL` | web | Private | Public app origin used by Better Auth callbacks: `https://theroyalglow.in` |
-| `GOOGLE_OAUTH_CLIENT_ID` | web | Private | Google OAuth 2.0 client ID |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | web | Private | Google OAuth 2.0 client secret |
+### Admin app (`apps/admin`)
 
----
+Required server values currently cover:
 
-### Email — Transactional (Resend)
+- `DATABASE_URL` and `DATABASE_URL_UNPOOLED`
+- Better Auth and Google OAuth
+- Ably
+- Upstash Redis
+- QStash publish and signing credentials
 
-| Variable | Used by | Visibility | Description |
-|----------|---------|------------|-------------|
-| `RESEND_API_KEY` | web | Private | Starts with `re_` — used for all transactional emails (invoices, booking confirmations) |
-| `RESEND_FROM_EMAIL` | web | Private | Default From header for transactional email, e.g. `Royal Glow <contact@theroyalglow.in>` |
+`INVOICING_SERVICE_URL` and `INVOICE_PDF_HMAC_SECRET` are optional caller settings. The job sends an invoice email without the PDF attachment when either is missing. `NEXT_PUBLIC_ADMIN_SENTRY_DSN` is optional; admin Sentry is disabled when absent.
 
----
+### Invoice renderer (`apps/invoicing`)
 
-### PDF Invoice Service (Google Cloud Run)
+`apps/invoicing/src/env.ts` requires:
 
-| Variable | Used by | Visibility | Description |
-|----------|---------|------------|-------------|
-| `PDF_API_URL` | web | Private | URL of the `rgss-invoicing` PDF service on Google Cloud Run (asia-south1) — `https://rgss-invoicing-<hash>.asia-south1.run.app` |
+- `INVOICE_PDF_HMAC_SECRET`
+- `R2_BUCKET_NAME`
+- `R2_ENDPOINT`
+- `R2_ACCESS_KEY_ID`
+- `R2_SECRET_ACCESS_KEY`
+- `R2_PUBLIC_BASE_URL`
 
----
+`PORT` and `NODE_ENV` have defaults. `SENTRY_DSN` is optional.
 
-### Email — Marketing (Brevo)
+### Payload CMS (`apps/cms`)
 
-| Variable | Used by | Visibility | Description |
-|----------|---------|------------|-------------|
-| `BREVO_API_KEY` | web | Private | Used for bulk/marketing email sends (offers, birthday, re-engagement) |
+Use `apps/cms/.env.example`, `apps/cms/src/payload.config.ts`, and CMS storage configuration together. Core ownership includes the CMS database URL, `PAYLOAD_SECRET`, R2 storage values, and `SERVICE_SYNC_ENABLED`.
 
----
-
-### Realtime — Ably
-
-| Variable | Used by | Visibility | Description |
-|----------|---------|------------|-------------|
-| `NEXT_PUBLIC_ABLY_KEY` | web | **Public** | Publishable key — sent to browser for client-side subscriptions |
-| `ABLY_PRIVATE_KEY` | web | Private | Server-only key — used in API routes for publishing events |
+`SERVICE_SYNC_ENABLED` defaults on; only the literal string `false` disables catalogue synchronization. Disable it while seeding or during a catalogue-sync rollback.
 
 ---
 
-### File Storage — Cloudflare R2
+## Shared Contracts
 
-| Variable | Used by | Visibility | Description |
-|----------|---------|------------|-------------|
-| `R2_ACCOUNT_ID` | web, cms | Private | Cloudflare account ID |
-| `R2_ACCESS_KEY_ID` | web, cms | Private | R2 S3-compatible access key |
-| `R2_SECRET_ACCESS_KEY` | web, cms | Private | R2 S3-compatible secret key |
-| `R2_BUCKET_NAME` | web, cms | Private | Bucket name: `theroyalglow-uploads` |
-| `R2_ENDPOINT` | cms | Private | R2 S3 endpoint for the Payload storage adapter: `https://<account-id>.r2.cloudflarestorage.com` |
-| `NEXT_PUBLIC_R2_PUBLIC_URL` | web, cms | **Public** | Public CDN URL for serving uploaded files: `https://uploads.theroyalglow.in` |
+### Neon
 
----
+| Variable | Used by | Contract |
+| --- | --- | --- |
+| `DATABASE_URL` | web, admin, CMS | Application connection for the selected Neon branch. |
+| `DATABASE_URL_UNPOOLED` | admin, migration workflows | Direct connection. Mandatory for migration/DDL workflows; never substitute pgBouncer. |
 
-### Cache — Upstash Redis
+Use distinct values for `dev`, `test`, `pprd`, and `prod`. Migration order remains `dev → test → pprd → prod`.
 
-| Variable | Used by | Visibility | Description |
-|----------|---------|------------|-------------|
-| `UPSTASH_REDIS_REST_URL` | web | Private | Upstash Redis REST endpoint |
-| `UPSTASH_REDIS_REST_TOKEN` | web | Private | Upstash Redis auth token |
+### Better Auth
 
----
+`BETTER_AUTH_SECRET` must be byte-identical between web and admin in the same environment so the `.theroyalglow.in` session cookie validates across both apps. Each app uses its own public origin in `BETTER_AUTH_URL`.
 
-### Queue — Upstash QStash
+### Invoice PDF integration
 
-| Variable | Used by | Visibility | Description |
-|----------|---------|------------|-------------|
-| `QSTASH_TOKEN` | web | Private | Publishing token — used to enqueue jobs (send to QStash) |
-| `QSTASH_CURRENT_SIGNING_KEY` | web | Private | Verifies incoming QStash callbacks — current key |
-| `QSTASH_NEXT_SIGNING_KEY` | web | Private | Verifies incoming QStash callbacks — rotated key |
+| Variable | Web/admin callers | Cloud Run service |
+| --- | --- | --- |
+| `INVOICING_SERVICE_URL` | Optional destination origin | Not consumed |
+| `INVOICE_PDF_HMAC_SECRET` | Optional until integration is enabled; must match service | Required request-verification secret |
+| `R2_*`, `R2_PUBLIC_BASE_URL` | Not the caller contract | Required storage contract |
 
-> `QSTASH_TOKEN` is for publishing. `QSTASH_CURRENT_SIGNING_KEY` + `QSTASH_NEXT_SIGNING_KEY` are for receiving and verifying callbacks via `@upstash/qstash` `Receiver`. All three are required.
+### Sentry
 
----
+| Variable | Used by | Contract |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SENTRY_DSN` | web Sentry config files | Optional direct bootstrap read; no DSN means no Sentry initialization. |
+| `NEXT_PUBLIC_ADMIN_SENTRY_DSN` | admin validator/config | Optional. |
+| `SENTRY_DSN` | invoicing | Optional. |
+| `COMMIT_SHA` | web/admin Sentry bootstrap | Optional release metadata. |
+| `APP_ENV` | web/admin Sentry bootstrap | Environment metadata, falling back to `NODE_ENV`. |
+| `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` | CI/source-map tooling when configured | Workflow/build values, not app-runtime contracts. |
 
-### Web Push — VAPID Keys
-
-| Variable | Used by | Visibility | Description |
-|----------|---------|------------|-------------|
-| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | web | **Public** | VAPID public key — sent to browser to create push subscription |
-| `VAPID_PRIVATE_KEY` | web | Private | VAPID private key — used server-side to send push notifications |
-| `VAPID_SUBJECT` | web | Private | VAPID `mailto:`/URL subject for push payloads, e.g. `mailto:contact@theroyalglow.in` |
-
-**Generate once:**
-```bash
-bunx web-push generate-vapid-keys
-```
-
-Store the output. These never change unless you intentionally rotate (which invalidates all existing push subscriptions).
+Do not recreate `apps/web/instrumentation.ts` or `apps/admin/instrumentation.ts`. The active server path uses each app's `src/lib/api/sentry-server-init.ts` plus the client/server/edge config files because a root instrumentation file breaks SST/OpenNext packaging.
 
 ---
 
-### Cloudflare — RETIRED
+## Cloudflare Boundary
 
-`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_KV_NAMESPACE_ID` have been
-**removed**. Cloudflare Workers is no longer a deploy target: `wrangler.jsonc`,
-`open-next.config.ts`, the `cf:*` scripts and the `@opennextjs/cloudflare` + `wrangler`
-dependencies are all gone from the repo. Do not set these anywhere.
+Cloudflare remains active for authoritative DNS and R2 object storage, not application compute.
 
-The KV edge cache they were for **was never implemented** — only referenced in comments. The
-5-minute service-catalogue cache is served by Upstash Redis, which is **unchanged** by the AWS
-migration — `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` stay as they are.
+| Variable | Context | Status |
+| --- | --- | --- |
+| `CLOUDFLARE_API_TOKEN` | GitHub Actions/SST deployment secret | Keep. DNS automation only; grant Zone:Read + DNS:Edit. Never inject into app runtimes. |
+| `CLOUDFLARE_DEFAULT_ACCOUNT_ID` | GitHub Actions deployment variable | Keep. Selects the account for SST's Cloudflare DNS provider. |
+| `R2_ACCOUNT_ID` | Backup/deployment tooling | Keep where the R2 endpoint must be constructed. |
+| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_ENDPOINT` | CMS, invoicing, backups, or deployment bindings according to owner | Keep. Active object-storage integration. |
+| `NEXT_PUBLIC_R2_PUBLIC_URL`, `R2_PUBLIC_BASE_URL` | Public media/invoice URL construction | Keep where the owning app requires it. |
+| `CLOUDFLARE_ACCOUNT_ID` | Retired compute contract | Remove. DNS uses `CLOUDFLARE_DEFAULT_ACCOUNT_ID`; R2 tooling uses `R2_ACCOUNT_ID`. |
+| `CLOUDFLARE_KV_NAMESPACE_ID`, `CF_PAGES_BRANCH` | Retired compute/KV contracts | Remove and do not restore. |
 
-> `R2_*` is a separate matter and is **still live and unchanged**. Cloudflare R2 remains the
-> object store after the AWS migration — only `apps/web` and `apps/admin` compute moves.
-
----
-
-### Observability — Sentry
-
-| Variable | Used by | Visibility | Description |
-|----------|---------|------------|-------------|
-| `NEXT_PUBLIC_SENTRY_DSN` | web, cms | **Public** | Sentry DSN — browser-side error capture |
-| `SENTRY_AUTH_TOKEN` | CI/CD | Private | Used by `@sentry/nextjs` during build to upload source maps |
-| `SENTRY_ORG` | CI/CD | Private | Your Sentry organisation slug |
-| `SENTRY_PROJECT` | CI/CD | Private | Your Sentry project slug: `rgss` |
+Worker/Pages adapters, Wrangler configuration, `cf:*` scripts, and KV bindings are retired. Service-catalogue and availability requests currently read Neon directly. Upstash Redis remains active for distributed rate limiting; a five-minute catalogue/availability read-through cache is planned but not implemented.
 
 ---
 
-### Observability — BetterStack
+## Validation Behavior
 
-| Variable | Used by | Visibility | Description |
-|----------|---------|------------|-------------|
-| `BETTER_STACK_TOKEN` | web | Private | Log drain source token — server logs streamed to BetterStack |
-| `BETTER_STACK_HEARTBEAT_NIGHTLY_SALES` | web | Private | Shared heartbeat for DB-only sales/GST/offer/gems summary jobs |
-| `BETTER_STACK_HEARTBEAT_PPRD_SYNC` | CI/CD | Private | GitHub Actions cron: pprd DB sync (`30 19 * * *` UTC) |
-| `BETTER_STACK_HEARTBEAT_REMINDERS` | web | Private | QStash: appointment reminder scheduler (every 15 min) |
-| `BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY` | web | Private | QStash: membership auto-expire + expiry alerts (`30 18 * * *` UTC) |
-| `BETTER_STACK_HEARTBEAT_SESSION_CLEANUP` | web | Private | QStash: session cleanup (`0 21 * * 0` UTC) |
-| `BETTER_STACK_HEARTBEAT_SERVICE_DRIFT` | admin | Private | QStash: service catalogue drift reconciliation (`45 18 * * *` UTC) — pinged only on a no-drift run |
-| `BETTER_STACK_HEARTBEAT_BACKUP` | CI/CD | Private | GitHub Actions cron: weekly R2 backup verification |
-| `BETTER_STACK_DEPLOY_WEBHOOK` | CI/CD | Private | Deployment marker webhook called by GitHub Actions after prod deploy |
-| `BETTER_STACK_INCIDENT_WEBHOOK` | CI/CD | Private | Incident webhook called by GitHub Actions on deploy/backup failure |
+- Required t3-env values fail when the owning module loads during build or runtime cold start.
+- `emptyStringAsUndefined: true` lets optional web/admin values remain unset when GitHub Actions supplies an empty string.
+- Invoicing refuses to start without its HMAC and R2 contract.
+- Optionality is local to each owner. A value optional in a caller can still be required in the called service.
+- `SKIP_ENV_VALIDATION` is a build escape hatch, not permission to deploy an invalid runtime configuration.
 
----
-
-### Analytics — PostHog & Clarity
-
-| Variable | Used by | Visibility | Description |
-|----------|---------|------------|-------------|
-| `NEXT_PUBLIC_POSTHOG_KEY` | web | **Public** | PostHog project API key: `phc_xxx` |
-| `NEXT_PUBLIC_POSTHOG_HOST` | web | **Public** | PostHog ingestion host: `https://us.i.posthog.com` |
-| `NEXT_PUBLIC_CLARITY_ID` | web | **Public** | Microsoft Clarity project ID |
-
----
-
-### Ads & Tracking — Meta
-
-| Variable | Used by | Visibility | Description |
-|----------|---------|------------|-------------|
-| `NEXT_PUBLIC_META_PIXEL_ID` | web | **Public** | Meta Pixel ID — browser-side PageView, ViewContent events |
-| `META_PIXEL_ACCESS_TOKEN` | web | Private | Conversions API (CAPI) access token — server-side Purchase events |
-| `META_CAPI_WEBHOOK_TOKEN` | web | Private | Verifies incoming Meta webhook payloads |
-| `META_TEST_EVENT_CODE` | web | Private, **dev/pprd only** | Test event code from Meta Events Manager → Test Events tab. Set in dev and pprd only. Omit in production. Routes CAPI events to the test panel without polluting real data. |
-
----
-
-### Reporting — Slack & Email
-
-| Variable | Used by | Visibility | Description |
-|----------|---------|------------|-------------|
-| `SLACK_WEBHOOK_URL` | web | Private | Slack incoming webhook URL — daily and weekly sales reports posted to owner/manager channel |
-| `DAILY_REPORT_EMAIL_RECIPIENTS` | web | Private | Comma-separated emails for daily + weekly reports: `owner@theroyalglow.in,manager@theroyalglow.in` |
-
----
-
-### CRM & Leads — AiSensy
-
-| Variable | Used by | Visibility | Description |
-|----------|---------|------------|-------------|
-| `AISENSY_API_KEY` | web | Private | AiSensy API key for WhatsApp integration |
-| `AISENSY_WEBHOOK_SECRET` | web | Private | Verifies incoming AiSensy webhook payloads |
-
----
-
-### CMS — Payload (apps/cms only)
-
-| Variable | Used by | Visibility | Description |
-|----------|---------|------------|-------------|
-| `PAYLOAD_SECRET` | cms | Private | Random secret used by Payload to encrypt tokens and cookies |
-| `SERVICE_SYNC_ENABLED` | cms | Private | Gates the service-catalogue sync hooks that mirror `cms.*` writes into `public.*`. Default **enabled** — only the literal string `false` disables it, so an unset variable can never silently stop syncing. Set to `false` while running the seed script, and as the primary rollback lever (env change + restart, no code edit). See [service-catalogue-management.md](./service-catalogue-management.md) |
-
----
-
-### App Configuration
-
-| Variable | Used by | Visibility | Dev value | Prod value |
-|----------|---------|------------|-----------|------------|
-| `NODE_ENV` | web, cms | — | `development` | `production` |
-| `APP_ENV` | web | Private | `dev` | `prod` |
-| `NEXT_PUBLIC_APP_URL` | web | **Public** | `http://localhost:3000` | `https://theroyalglow.in` |
-| `NEXT_PUBLIC_CMS_URL` | web | **Public** | `http://localhost:3002` | `https://admin.theroyalglow.in` |
-
-> **`NODE_ENV` vs `APP_ENV`:** `NODE_ENV` is always `development` or `production` (Next.js convention). `APP_ENV` distinguishes between our 4 deployment environments: `dev`, `test`, `pprd`, `prod`. Use `APP_ENV` for environment-specific logic like data seeding guards.
-
----
-
-## Monorepo Split
-
-Each app only receives the variables it needs:
-
-| Variable category | apps/web | apps/cms |
-|------------------|:--------:|:--------:|
-| Database | ✅ | ✅ |
-| Better Auth | ✅ | ❌ |
-| Resend | ✅ | ❌ |
-| PDF Invoice Service | ✅ | ❌ |
-| Brevo | ✅ | ❌ |
-| Ably | ✅ | ❌ |
-| Cloudflare R2 | ✅ | ✅ |
-| Upstash Redis | ✅ | ❌ |
-| QStash | ✅ | ❌ |
-| VAPID keys | ✅ | ❌ |
-| Cloudflare KV | ✅ | ❌ |
-| Sentry | ✅ | ✅ |
-| BetterStack | ✅ | ❌ |
-| PostHog + Clarity | ✅ | ❌ |
-| Meta Pixel + CAPI | ✅ | ❌ |
-| Reporting | ✅ | ❌ |
-| AiSensy | ✅ | ❌ |
-| Payload Secret | ❌ | ✅ |
-| Service sync flag | ❌ | ✅ |
-
----
-
-## Validation — @t3-oss/env-nextjs
-
-```typescript
-// apps/web/src/env.ts
-import { createEnv } from '@t3-oss/env-nextjs';
-import { z } from 'zod';
-
-export const env = createEnv({
-  server: {
-    DATABASE_URL: z.string().url(),
-    DATABASE_URL_UNPOOLED: z.string().url(),
-    APP_ENV: z.enum(['dev', 'test', 'pprd', 'prod']),
-    BETTER_AUTH_SECRET: z.string().min(32),
-    BETTER_AUTH_URL: z.string().url(),
-    GOOGLE_OAUTH_CLIENT_ID: z.string(),
-    GOOGLE_OAUTH_CLIENT_SECRET: z.string(),
-    RESEND_API_KEY: z.string().startsWith('re_'),
-    PDF_API_URL: z.string().url(),
-    BREVO_API_KEY: z.string(),
-    ABLY_PRIVATE_KEY: z.string(),
-    R2_ACCOUNT_ID: z.string(),
-    R2_ACCESS_KEY_ID: z.string(),
-    R2_SECRET_ACCESS_KEY: z.string(),
-    R2_BUCKET_NAME: z.string(),
-    UPSTASH_REDIS_REST_URL: z.string().url(),
-    UPSTASH_REDIS_REST_TOKEN: z.string(),
-    QSTASH_TOKEN: z.string(),
-    QSTASH_CURRENT_SIGNING_KEY: z.string(),
-    QSTASH_NEXT_SIGNING_KEY: z.string(),
-    VAPID_PRIVATE_KEY: z.string(),
-    BETTER_STACK_TOKEN: z.string(),
-    BETTER_STACK_HEARTBEAT_NIGHTLY_SALES: z.string().url(),
-    BETTER_STACK_HEARTBEAT_REMINDERS: z.string().url(),
-    BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY: z.string().url(),
-    BETTER_STACK_HEARTBEAT_SESSION_CLEANUP: z.string().url(),
-    META_PIXEL_ACCESS_TOKEN: z.string(),
-    META_CAPI_WEBHOOK_TOKEN: z.string(),
-    META_TEST_EVENT_CODE: z.string().optional(),   // dev/pprd only — omit in prod
-    SLACK_WEBHOOK_URL: z.string().url(),
-    DAILY_REPORT_EMAIL_RECIPIENTS: z.string().min(1),
-    AISENSY_API_KEY: z.string(),
-    AISENSY_WEBHOOK_SECRET: z.string(),
-  },
-  client: {
-    NEXT_PUBLIC_APP_URL: z.string().url(),
-    NEXT_PUBLIC_CMS_URL: z.string().url(),
-    NEXT_PUBLIC_R2_PUBLIC_URL: z.string().url(),
-    NEXT_PUBLIC_ABLY_KEY: z.string(),
-    NEXT_PUBLIC_VAPID_PUBLIC_KEY: z.string(),
-    NEXT_PUBLIC_SENTRY_DSN: z.string().url(),
-    NEXT_PUBLIC_POSTHOG_KEY: z.string().startsWith('phc_'),
-    NEXT_PUBLIC_POSTHOG_HOST: z.string().url(),
-    NEXT_PUBLIC_CLARITY_ID: z.string(),
-    NEXT_PUBLIC_META_PIXEL_ID: z.string(),
-  },
-  runtimeEnv: {
-    DATABASE_URL: process.env.DATABASE_URL,
-    DATABASE_URL_UNPOOLED: process.env.DATABASE_URL_UNPOOLED,
-    APP_ENV: process.env.APP_ENV,
-    BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
-    BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
-    GOOGLE_OAUTH_CLIENT_ID: process.env.GOOGLE_OAUTH_CLIENT_ID,
-    GOOGLE_OAUTH_CLIENT_SECRET: process.env.GOOGLE_OAUTH_CLIENT_SECRET,
-    RESEND_API_KEY: process.env.RESEND_API_KEY,
-    PDF_API_URL: process.env.PDF_API_URL,
-    BREVO_API_KEY: process.env.BREVO_API_KEY,
-    ABLY_PRIVATE_KEY: process.env.ABLY_PRIVATE_KEY,
-    R2_ACCOUNT_ID: process.env.R2_ACCOUNT_ID,
-    R2_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID,
-    R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY,
-    R2_BUCKET_NAME: process.env.R2_BUCKET_NAME,
-    UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
-    UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
-    QSTASH_TOKEN: process.env.QSTASH_TOKEN,
-    QSTASH_CURRENT_SIGNING_KEY: process.env.QSTASH_CURRENT_SIGNING_KEY,
-    QSTASH_NEXT_SIGNING_KEY: process.env.QSTASH_NEXT_SIGNING_KEY,
-    VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY,
-    BETTER_STACK_TOKEN: process.env.BETTER_STACK_TOKEN,
-    BETTER_STACK_HEARTBEAT_NIGHTLY_SALES: process.env.BETTER_STACK_HEARTBEAT_NIGHTLY_SALES,
-    BETTER_STACK_HEARTBEAT_REMINDERS: process.env.BETTER_STACK_HEARTBEAT_REMINDERS,
-    BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY: process.env.BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY,
-    BETTER_STACK_HEARTBEAT_SESSION_CLEANUP: process.env.BETTER_STACK_HEARTBEAT_SESSION_CLEANUP,
-    META_PIXEL_ACCESS_TOKEN: process.env.META_PIXEL_ACCESS_TOKEN,
-    META_CAPI_WEBHOOK_TOKEN: process.env.META_CAPI_WEBHOOK_TOKEN,
-    META_TEST_EVENT_CODE: process.env.META_TEST_EVENT_CODE,
-    SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL,
-    DAILY_REPORT_EMAIL_RECIPIENTS: process.env.DAILY_REPORT_EMAIL_RECIPIENTS,
-    AISENSY_API_KEY: process.env.AISENSY_API_KEY,
-    AISENSY_WEBHOOK_SECRET: process.env.AISENSY_WEBHOOK_SECRET,
-    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
-    NEXT_PUBLIC_CMS_URL: process.env.NEXT_PUBLIC_CMS_URL,
-    NEXT_PUBLIC_R2_PUBLIC_URL: process.env.NEXT_PUBLIC_R2_PUBLIC_URL,
-    NEXT_PUBLIC_ABLY_KEY: process.env.NEXT_PUBLIC_ABLY_KEY,
-    NEXT_PUBLIC_VAPID_PUBLIC_KEY: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-    NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
-    NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
-    NEXT_PUBLIC_POSTHOG_HOST: process.env.NEXT_PUBLIC_POSTHOG_HOST,
-    NEXT_PUBLIC_CLARITY_ID: process.env.NEXT_PUBLIC_CLARITY_ID,
-    NEXT_PUBLIC_META_PIXEL_ID: process.env.NEXT_PUBLIC_META_PIXEL_ID,
-  },
-});
-```
-
-CI-only secrets like `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `BETTER_STACK_HEARTBEAT_PPRD_SYNC`, `BETTER_STACK_HEARTBEAT_BACKUP`, `BETTER_STACK_DEPLOY_WEBHOOK`, and `BETTER_STACK_INCIDENT_WEBHOOK` are **not** part of `apps/web/src/env.ts`; validate them in the workflow or script that uses them.
-
-**If any variable is missing or fails validation → build fails immediately.** Import `env` from this file everywhere instead of using `process.env` directly.
-
----
-
-## GitHub Secrets & Environments
-
-Runtime code always reads generic names like `DATABASE_URL` and `DATABASE_URL_UNPOOLED`, but the workflow examples in this docs set use **explicit GitHub secret names per target environment** to make branch routing obvious.
-
-```
-Repository Settings → Secrets and variables → Actions
-├── DATABASE_URL_DEV                 → neon.tech/.../dev
-├── DATABASE_URL_TEST                → neon.tech/.../test
-├── DATABASE_URL_PPRD                → neon.tech/.../pprd
-├── DATABASE_URL_PROD                → neon.tech/.../prod
-├── DATABASE_URL_UNPOOLED_DEV        → direct Neon URL for dev
-├── DATABASE_URL_UNPOOLED_TEST       → direct Neon URL for test
-├── DATABASE_URL_UNPOOLED_PPRD       → direct Neon URL for pprd
-└── DATABASE_URL_UNPOOLED_PROD       → direct Neon URL for prod
-```
-
-GitHub Environments can still be used for approvals and protection rules, but the examples below map the explicit secret into the generic runtime variable expected by the app.
-
-Reference in GitHub Actions:
-
-```yaml
-# .github/workflows/deploy.yml
-jobs:
-  deploy:
-    environment: production       # ← selects the GitHub Environment
-    steps:
-      - run: bun run build
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
-          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_PROD }}
-          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
-          # ... all others injected the same way
-```
+Do not duplicate validator source in documentation. Copied schemas drift and can misstate names, ownership, or requiredness.
 
 ---
 
 ## Platform Injection
 
-| Platform | Where to set | Applied to |
-|----------|-------------|-----------|
-| **Cloudflare Workers (OpenNext)** | Workers & Pages → Settings → Variables | `apps/web`, `apps/admin` (edge) |
-| **Render** | Service → Environment tab | `apps/cms` |
-| **Google Cloud Run** | Service → Variables & Secrets | `apps/invoicing` |
+| Platform | Where values live | Applied to |
+| --- | --- | --- |
+| AWS Lambda + CloudFront through SST | SST Secrets for server values; GitHub Actions variables for build-time `NEXT_PUBLIC_*` values | `apps/web`, `apps/admin` |
+| Cloudflare authoritative DNS | GitHub Actions secret/variable consumed by `bunx sst deploy` | DNS records and ACM validation only |
+| Render | Service environment settings | `apps/cms` |
+| Google Cloud Run | Service environment and secret settings | `apps/invoicing` |
+| GitHub Actions environments | Per-environment DB URLs and workflow credentials | migrations, backups, schedules, deployments |
 
-Both platforms inject vars at runtime — no `.env` file is needed or present in production.
+`NEXT_PUBLIC_*` values are compiled into browser bundles. Putting them only in a runtime secret store does not change an already-built client bundle.
 
 ---
 
-## Local Setup — Quick Start
+## Local Setup
 
-```bash
-# 1. Copy templates
-cp apps/web/.env.example apps/web/.env.local
-cp apps/cms/.env.example apps/cms/.env.local
+```powershell
+# Create local files from committed starting templates.
+Copy-Item .env.example apps/web/.env.local
+Copy-Item apps/admin/.env.example apps/admin/.env.local
+Copy-Item apps/cms/.env.example apps/cms/.env.local
 
-# 2. Fill in values from your service dashboards
-
-# 3. Generate VAPID keys (one-time only)
-bunx web-push generate-vapid-keys
-# Paste output into NEXT_PUBLIC_VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY in .env.local
-
-# 4. Validate — build fails fast if anything is missing
-cd apps/web && bun run build
+# Reconcile each file with its current executable contract, then validate.
+bun run --filter=@rgss/web typecheck
+bun run --filter=@rgss/admin typecheck
+bun run --filter=@rgss/invoicing typecheck
 ```
 
+Never copy values between environments blindly. `BETTER_AUTH_SECRET` is the deliberate exception: it must match between web and admin within one environment.
+
 ---
 
-## Summary — Variable Count
+## Secret Safety
 
-| Category | Count | Apps |
-|----------|:-----:|------|
-| Database | 2 | web, cms |
-| Auth | 4 | web |
-| Email (transactional) | 1 | web |
-| PDF Invoice Service | 1 | web |
-| Email (marketing) | 1 | web |
-| Realtime (Ably) | 2 | web |
-| File Storage (R2) | 5 | web, cms |
-| Cache (Redis) | 2 | web |
-| Queue (QStash) | 3 | web |
-| Web Push (VAPID) | 2 | web |
-| Cloudflare KV + CI/CD | 3 | web, CI/CD |
-| Sentry | 4 | web, cms, CI/CD |
-| BetterStack | 9 | web, CI/CD |
-| Analytics | 3 | web |
-| Meta Pixel + CAPI | 4 | web |
-| Reporting | 2 | web |
-| AiSensy | 2 | web |
-| Payload | 2 | cms |
-| App Config | 4 | web, cms |
-| **Total** | **56** | |
+- Never commit `.env.local`, `.dev.vars`, tokens, access keys, or private keys.
+- Preserve `.dev.vars` ignore rules even though Wrangler is retired; those patterns still protect plaintext secrets.
+- Use least-privilege DNS and R2 credentials rather than one broad Cloudflare token.
+- Rotate credentials immediately if they appear in logs, terminal output, screenshots, or chat context.
+- Treat `NEXT_PUBLIC_*` as public data.
+
+---
+
+## Inventory Maintenance
+
+Do not maintain a fixed variable count. Validators, guarded bootstrap reads, dynamic heartbeat names, SST resources, and workflow-only variables evolve independently. When a contract changes, update the executable source, relevant template, deployment wiring, and ownership documentation in the same change.

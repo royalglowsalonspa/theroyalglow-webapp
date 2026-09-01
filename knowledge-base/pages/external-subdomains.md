@@ -8,7 +8,7 @@
 
 | Property | Detail |
 |----------|--------|
-| **Platform** | Next.js 16 (App Router) on Cloudflare Workers via OpenNext (`rgss-admin`) |
+| **Platform** | Next.js 16 (App Router) on AWS Lambda + CloudFront via SST (`apps/admin`) |
 | **App** | `apps/admin/` in monorepo |
 | **Purpose** | RBAC-gated admin portal: booking management, CRM, lead pipeline, billing, staff scheduling, reports, memberships, system settings |
 | **Access** | Staff, Receptionist, Manager, Owner, Developer roles |

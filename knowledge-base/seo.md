@@ -603,7 +603,7 @@ Google AI Overviews heavily weight **E-E-A-T** — Experience, Expertise, Author
 - **Backlinks from local directories** — Justdial, Sulekha, Google Maps, Instagram bio
 
 ### Trustworthiness
-- **HTTPS everywhere** (Cloudflare handles this)
+- **HTTPS everywhere** (CloudFront + ACM-managed TLS)
 - **Privacy policy** page — legally required, also a trust signal
 - **Real contact information** visible on every page (not hidden behind a form)
 - **Physical address on Google Maps** embedded on Contact page
