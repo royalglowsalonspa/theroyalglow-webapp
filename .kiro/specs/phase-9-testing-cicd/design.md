@@ -2,11 +2,11 @@
 
 ## Overview
 
-Phase 9 establishes the automated quality and delivery backbone for Royal Glow: a **test harness** (Vitest unit/integration, Playwright E2E, MSW mocking, v8 coverage, faker fixtures), a **`/api/health` endpoint**, the **GitHub Actions pipeline** (CI, integration/E2E, load/security, production deploy), and the supporting **config** for Lighthouse CI, k6 load testing, and the weekly off-site backup. It mirrors the locked specifications in `deployment.md`, `git-workflow.md`, and `testing.md` — those documents are the authoritative source and this design implements them, it does not reinvent them.
+Phase 9 establishes Royal Glow's automated quality and delivery backbone: a **test harness** (Vitest unit/integration, Playwright E2E, MSW mocking, v8 coverage, faker fixtures), a **`/api/health` endpoint**, the **GitHub Actions pipeline** (CI, integration/E2E, load/security, production deploy), and supporting Lighthouse, k6, security, and backup configuration. Committed workflows are executable truth; this design must not claim controls absent from their YAML.
 
 This phase is the **explicit exception** to the project's "no test files unless requested" rule: the tests *are* the deliverable. The goal is a working harness plus meaningful, representative coverage of the riskiest pure logic (money/GST/date math, SEO builders, consent and CMS-client guards) and a couple of integration + E2E smoke paths — not 100% coverage, which is a continuous effort that grows with the codebase.
 
-Consistent with every prior phase, everything must run **with no external keys**. The health endpoint degrades gracefully (DB is the only hard dependency locally; Redis/R2 checks are guarded and report `skipped`/`degraded` rather than crashing), the unit tests are pure and need no network, and the whole monorepo continues to `typecheck`, `lint`, and `build` cleanly. The CI workflows reference GitHub Secrets by their canonical names but provisioning those secrets (and the Cloudflare Workers project, Neon API keys, BetterStack monitors) is a deploy-time ops step, not a code deliverable.
+Consistent with every prior phase, everything must run **with no external keys**. The health endpoint degrades gracefully (DB is the only hard dependency locally; Redis/R2 checks are guarded and report `skipped`/`degraded` rather than crashing), the unit tests are pure and need no network, and the whole monorepo continues to `typecheck`, `lint`, and `build` cleanly. The CI workflows reference GitHub Secrets by their canonical names, but provisioning AWS/SST deployment permissions, Neon API keys, DNS-only Cloudflare credentials, and BetterStack monitors is a deploy-time ops step, not a code deliverable.
 
 ### Goals
 
@@ -15,14 +15,14 @@ Consistent with every prior phase, everything must run **with no external keys**
 - Add the `test:unit`, `test:integration`, `test:e2e`, and aggregate `test` scripts to `package.json`, and wire the `test` task into `turbo.json`.
 - Write representative tests: PBT-style unit tests for the deterministic pure logic; integration tests for `/api/health` and one representative read route; Playwright smoke specs for the homepage, the booking dialog, and the SEO routes (`sitemap.xml`, `robots.txt`, `llms.txt`).
 - Implement `apps/web/src/app/api/health/route.ts` exactly per `deployment.md`: DB / Redis / R2 component checks, the documented `HealthStatus` JSON, `200` for healthy/degraded and `503` for unhealthy, `Cache-Control: no-store` — guarded so it returns `200` with no Redis/R2 keys configured.
-- Author the five GitHub Actions workflows (`ci.yml`, `integration.yml`, `load-test.yml`, `deploy-prod.yml`, `weekly-backup.yml`) plus `lighthouserc.json`, the k6 script `tests/load/booking-flow.js`, and a ZAP rules file, all matching `deployment.md` and the `git-workflow.md` per-branch gate matrix.
+- Author the GitHub Actions quality, integration, load/security, deployment, migration, and backup workflows plus their supporting config. Each documented behavior must match its committed workflow; migrations remain separate from app deployment.
 
 ### Non-Goals (deferred)
 
-- **Provisioning real infrastructure** — GitHub repo secrets, the Cloudflare Workers project, Neon API keys, and BetterStack monitors are deploy-time ops. The workflows reference the secret names; wiring is later.
+- **Provisioning real infrastructure** — GitHub repo secrets, AWS/SST deployment roles, Cloudflare DNS credentials, Neon API keys, and BetterStack monitors are deploy-time ops. The workflows reference the secret names; wiring is later.
 - **100% coverage** — this phase delivers the harness plus representative, meaningful tests. Coverage grows continuously as features change.
 - **Running k6 against a live pprd URL** — the load script and thresholds are delivered; executing it requires the deployed environment and is a CI-time/ops action.
-- **Sentry runtime initialisation** — error monitoring init and source-map upload at runtime belong to Phase 10 (Observability). `deploy-prod.yml` includes the source-map upload step per `deployment.md`, but the `@sentry/nextjs` runtime wiring is Phase 10.
+- **Sentry runtime initialisation and explicit source-map upload** — runtime wiring belongs to Phase 10. Current `deploy-aws.yml` does not supply Sentry upload credentials or run an explicit source-map step.
 - **Visual regression (Meticulous), TestSprite, and mutation testing** — `testing.md` lists these as future/quarterly; out of scope here.
 - **The monthly backup-restore test and prod→pprd replication crons** — included as delivered workflow files where low-risk, but they are ops-activated; the design notes them explicitly.
 
@@ -41,10 +41,14 @@ flowchart TD
     PR_prod[PR to prod] --> CI
     PR_prod --> INT
     PR_prod --> LOAD
-    PR_prod --> APPROVE{manual approval}
-    push_prod[push to prod] --> DEPLOY[deploy-prod.yml<br/>build • sourcemaps • CF Workers (OpenNext) • migrate]
-    DEPLOY --> POST[post-deploy<br/>health check • smoke • backup verify • notify]
-    POST -->|fail| RB[auto-rollback<br/>CF previous deployment]
+    push_prod[push to prod] --> DEPLOY[deploy-aws.yml<br/>checkout • install • OIDC • sst deploy]
+    DEPLOY --> AWS["sst.aws.Nextjs<br/>Lambda + CloudFront<br/>web + admin"]
+    AWS --> OUT[best-effort output summary]
+    OUT -->|AWS_DOMAINS_LIVE=true| HEALTH[retry web + admin /api/health]
+    DEPLOY -->|failure| NOTIFY[best-effort incident notification]
+    HEALTH -->|failure| NOTIFY
+    OP[operator inspects logs + stack state] --> REDEPLOY[manual workflow_dispatch<br/>known-good git_ref if needed]
+    MIGRATE[migrate.yml<br/>manual dev → test → pprd → prod] -. separate from deploy .-> AWS
     CRON[schedule] --> BACKUP[weekly-backup.yml<br/>pg_dump → R2 → verify → heartbeat]
 
     style CI fill:#d0e9f5
@@ -67,9 +71,9 @@ flowchart TD
 | Lighthouse CI | — | ✅ | ✅ | ✅ |
 | k6 load test | — | — | ✅ | ✅ |
 | Security (Trivy + OWASP ZAP) | — | — | ✅ | ✅ |
-| Manual approval + deploy | — | — | — | ✅ |
+| Deploy workflow (external approval if configured) | — | — | — | ✅ |
 
-GitHub Actions `on.pull_request.branches` arrays implement this: `ci.yml` triggers on all four; `integration.yml` on `[test, pprd, prod]`; `load-test.yml` on `[pprd, prod]`; `deploy-prod.yml` on `push` to `prod`.
+GitHub Actions `on.pull_request.branches` arrays implement this: `ci.yml` triggers on all four; `integration.yml` on `[test, pprd, prod]`; `load-test.yml` on `[pprd, prod]`; `deploy-aws.yml` on `push` to `prod`.
 
 ### Test pyramid
 
@@ -104,7 +108,7 @@ flowchart LR
   ci.yml                         ← lint+typecheck, unit, build, dependency-audit
   integration.yml                ← integration, playwright-e2e, lighthouse-ci
   load-test.yml                  ← k6-load-test, security-scan (Trivy + ZAP)
-  deploy-prod.yml                ← pre-deploy-checks, deploy, post-deploy (+ auto-rollback)
+  deploy-aws.yml                 ← one SST deploy job + optional two-endpoint health gate
   weekly-backup.yml              ← pg_dump → R2 → verify → heartbeat
   monthly-backup-test.yml        ← (delivered) restore-test into Neon test branch
   replicate-prod-to-pprd.yml     ← (delivered) Neon branch reset + PII anonymise
@@ -187,11 +191,11 @@ Scripts split by intent: `test:unit` runs the fast pure projects, `test:integrat
 
 ### Component 4: GitHub Actions workflows
 
-Five workflow files mirroring `deployment.md` verbatim in structure (Bun via `oven-sh/setup-bun@v2`, `bun install --frozen-lockfile`, `concurrency` cancel-in-progress on `ci.yml`):
+Workflow files follow their committed YAML as the executable source of truth (Bun via `oven-sh/setup-bun@v2`, `bun install --frozen-lockfile`, and per-workflow concurrency/settings):
 - **`ci.yml`** — jobs `lint-typecheck`, `unit-tests` (`bun run test:unit --coverage` + upload), `build` (needs lint-typecheck, uploads `.next`), `dependency-audit` (Trivy fs HIGH/CRITICAL exit-1 + Socket). Triggers: PR to `[dev,test,pprd,prod]` + push to `dev`.
 - **`integration.yml`** — `integration-tests` (seed test DB, `bun run test:integration`, `DATABASE_URL: secrets.DATABASE_URL_TEST`, `APP_ENV: test`), `playwright-e2e` (install chromium, build+start, `wait-on`, `bun run test:e2e`, upload report), `lighthouse-ci` (`bunx @lhci/cli autorun`). Triggers: PR to `[test,pprd,prod]`.
 - **`load-test.yml`** — `k6-load-test` (`grafana/setup-k6-action`, run `tests/load/booking-flow.js`, `K6_TARGET_URL: secrets.PPRD_URL`), `security-scan` (Trivy fs CRITICAL/HIGH exit-1 + `zaproxy/action-baseline` against `secrets.PPRD_URL` with `zap-rules.tsv`). Triggers: PR to `[pprd,prod]`.
-- **`deploy-prod.yml`** — `pre-deploy-checks` (verify check-runs all success via `gh api`), `deploy` (`environment: production`, build via `bunx opennextjs-cloudflare build`, Sentry sourcemaps upload, `cloudflare/wrangler-action` with `command: deploy` (workingDirectory `apps/web`), `bun run db:migrate` with `DATABASE_URL_UNPOOLED_PROD`), `post-deploy` (health check retry 3×, smoke curls of `/`, `/?book=1&utm_source=gmb`, `/services`, `/book`, `/api/health`, backup-exists check, BetterStack deploy/incident webhooks, auto-rollback on failure via `wrangler rollback`). Trigger: push to `prod`.
+- **`deploy-aws.yml`** — one `deploy` job gated by `vars.AWS_DEPLOY_ENABLED == 'true'`. It checks out the requested ref, installs with Bun, assumes the AWS deploy role through GitHub OIDC, and runs `bunx sst deploy --stage production`. It records `.sst/outputs.json` best-effort. When `vars.AWS_DOMAINS_LIVE == 'true'`, the same job retries only the web and admin `/api/health` endpoints. Any failed step fails the job and triggers a best-effort incident notification. It does not run DDL, upload Sentry source maps explicitly, verify check-runs, smoke-test customer paths, verify backups, or redeploy automatically. After a failed SST/Pulumi update, inspect logs and stack state, verify both applications, and manually dispatch a known-good `git_ref` if needed. Migrations remain in separate manual `migrate.yml`, using the unpooled connection in `dev → test → pprd → prod` order.
 - **`weekly-backup.yml`** — cron `0 2 * * 0`: `pg_dump` (`DATABASE_URL_UNPOOLED_PROD`) → gzip → `aws s3 cp` to R2 (`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`/`R2_ACCOUNT_ID` endpoint) → verify (`gunzip -t`) → keep-last-8 cleanup → `BETTER_STACK_HEARTBEAT_BACKUP` ping → incident webhook on failure.
 
 `monthly-backup-test.yml` and `replicate-prod-to-pprd.yml` are delivered per `deployment.md`/`git-workflow.md` and clearly marked as ops-activated (they need Neon + R2 secrets to run).
@@ -232,8 +236,8 @@ The guiding rule: local `bun run test:unit` and `bun run typecheck`/`lint`/`buil
 - **Dependency + supply-chain scanning** on every PR (Trivy fs scan blocking HIGH/CRITICAL; Socket.dev for typosquatting/install-script/obfuscation detection).
 - **DAST** via OWASP ZAP baseline against pprd before prod; **SAST/CVE** via Trivy.
 - **Health endpoint is unauthenticated by design** (it must be probeable by BetterStack/CI) but leaks nothing sensitive — no env values, no row data, only liveness + latency. It is `no-store` and excluded from the sitemap/robots already (under `/api`).
-- **Least-privilege CI** — deploy uses a scoped `CLOUDFLARE_API_TOKEN`; migrations use the unpooled prod URL only in the deploy job; backups use R2 keys only in the backup job.
-- **Branch protection** enforces the gate matrix so unverified code cannot reach `prod`; prod deploy requires manual approval.
+- **Least-privilege CI** — AWS deploy credentials are scoped to SST deployment; `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_DEFAULT_ACCOUNT_ID` are available only to DNS deployment; migrations use the unpooled URL only in separate `migrate.yml`; backups use R2 keys only in backup workflows.
+- **Branch/environment settings are external** — required checks and production approval may be configured in GitHub, but this spec does not claim untracked settings are implemented by `deploy-aws.yml`.
 
 ## Testing Strategy
 
@@ -248,7 +252,7 @@ PBT targets (deterministic, highest value): currency rounding/format, GST split 
 
 ## Design Decisions & Rationale
 
-1. **Mirror `deployment.md`/`git-workflow.md` exactly rather than redesign.** Those documents are the locked, reviewed spec. Phase 9 turns them into committed workflow files + the health route, so the pipeline matches the documented intent line-for-line and there is one source of truth.
+1. **Committed workflows are executable truth.** Runbooks may describe future controls, but this design states only behavior present in YAML. Database DDL stays in `migrate.yml`; deployment and recovery claims must not exceed `deploy-aws.yml`.
 2. **Vitest workspace (projects) over two separate configs.** One `vitest.config.ts` with a `node` project for pure `packages/business` logic and a `jsdom`+react project for `apps/web` keeps a single `vitest` invocation, shared coverage, and clean separation — matching the monorepo layout without duplicating config.
 3. **Harness + representative tests, not 100% coverage.** A green pipeline with meaningful tests on the riskiest logic delivers immediate value and a foundation; chasing a coverage number now would be busywork that ages poorly. The design states this explicitly so scope is honest.
 4. **Health checks are guarded and `skip`-aware.** Making absent Redis/R2 a `skip` (not a `fail`) means the same endpoint is `200` locally with no keys and a true liveness signal in prod — consistent with the project-wide guarded-extension-point convention and avoiding false alarms in dev.
@@ -285,9 +289,9 @@ For any non-negative integer paise `p`, `splitGST(p)` returns integer `basePaise
 The workflow trigger sets satisfy the matrix: `ci.yml` runs for PRs to all of `dev/test/pprd/prod`; integration/E2E/Lighthouse run for `test/pprd/prod`; k6 + security run for `pprd/prod`; production deploy runs only on push to `prod`.
 **Validates: Requirements 4.1, 4.2, 4.3, 4.4**
 
-### Property 7: Production deploy is gated and self-verifying
-`deploy-prod.yml` runs the build, uploads source maps, deploys to Cloudflare Workers (OpenNext), runs migrations, then performs a retrying health check and critical-path smoke tests, and auto-rolls-back to the previous Cloudflare deployment if the post-deploy health check fails.
-**Validates: Requirements 4.4, 5.1, 5.2**
+### Property 7: Production deploy behavior matches executable workflow
+`deploy-aws.yml` runs SST deployment for both `sst.aws.Nextjs` resources, records outputs best-effort, conditionally retries the two public health endpoints, and attempts incident notification on failure. It never runs database migrations or automatic rollback. Failed SST/Pulumi updates require operator inspection before manual known-good-ref redeployment.
+**Validates: Requirements 3.4, 4.1, 4.2, 4.3, 4.4, 4.5**
 
 ### Property 8: Lighthouse and k6 thresholds enforce the budgets
 `lighthouserc.json` asserts performance ≥ 0.95 and accessibility/SEO/best-practices = 1.0; `tests/load/booking-flow.js` fails when p95 latency ≥ 500ms or the error rate ≥ 1%.

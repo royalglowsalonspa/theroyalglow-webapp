@@ -188,9 +188,10 @@ Scaffold the complete Royal Glow Salon & Spa monorepo foundation using Turborepo
     - Ensure build fails with descriptive error if any required variable is missing or malformed
     - _Requirements: 7.1, 7.2, 7.3, 7.4_
 
-  - [x] 11.2 Create `.env.example` files documenting all variables
-    - Create root `.env.example` with all 55 variables documented with placeholder values and descriptions
-    - Create `apps/web/.env.example` with web-specific variables
+  - [x] 11.2 Create maintained `.env.example` starter files
+    - Keep root `.env.example` as the shared, non-exhaustive web starter
+    - Keep app-owned templates where they exist (`apps/admin/.env.example`, `apps/cms/.env.example`); do not require a nonexistent `apps/web/.env.example`
+    - Treat current validators, deployment config, workflows, and `knowledge-base/environment-variables.md` as authoritative; no fixed variable count
     - _Requirements: 7.5, 7.6_
 
 - [x] 12. Set up Husky + lint-staged pre-commit hooks

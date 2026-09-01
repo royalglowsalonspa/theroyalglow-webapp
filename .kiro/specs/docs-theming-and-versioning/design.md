@@ -2,19 +2,18 @@
 
 ## Overview
 
-This feature delivers two coordinated changes to the Royal Glow Salon & Spa
-documentation site (`docs.theroyalglow.in`, the Fumadocs app under `docs/`):
+This feature records two coordinated changes from the former Fumadocs
+implementation under `docs/`. The live `docs.theroyalglow.in` site is hosted by
+Mintlify and remains outside both AWS/SST app compute and Cloudflare compute:
 
 1. **Visual restyle** — a custom Fumadocs theme (color tokens, typography,
    spacing/density, component styling, dual-theme code blocks, page affordances)
-   that reproduces the polished look and feel of the two reference sites
-   (`sunar.js.org/docs`, `expostarter.com/docs`), both of which are themselves
-   Fumadocs sites.
-2. **Path-based multi-version documentation** — the latest docs stay at the
-   existing documentation root, older releases are served under `/v{N}` path
-   prefixes, with a version switcher, a legacy banner, version-scoped search and
-   navigation, correct canonical/SEO behavior, and a repeatable workflow for
-   cutting a new version on each release.
+   that reproduced the polished look and feel of the two reference sites
+   (`sunar.js.org/docs`, `expostarter.com/docs`).
+2. **Path-based multi-version documentation** — the historical implementation
+   kept latest docs at the documentation root and older releases under `/v{N}`
+   path prefixes, with a version switcher, legacy banner, version-scoped search,
+   navigation, canonical/SEO behavior, and a repeatable release workflow.
 
 Both changes preserve every existing MDX document and URL, keep dark/light mode
 and `prefers-reduced-motion` working, and hold the project quality bars
@@ -326,10 +325,10 @@ sequenceDiagram
   temporarily unavailable" with the query preserved (Req 11.6). Search control is
   on every page (Req 11.1) and fully keyboard operable (`Ctrl/Cmd K`, arrows,
   Enter — Req 11.7).
-- **Cloudflare note:** the Orama search index is built from in-memory sources at
-  request time on the edge; if cold-start cost is a concern, the index can be
-  precomputed to a static JSON at build and loaded by the route. Either way the
-  endpoint is edge-compatible.
+- **Hosting note:** live documentation is hosted by Mintlify and is not deployed with
+  either AWS/SST app compute or Cloudflare compute. If this historical Fumadocs
+  search implementation is reused elsewhere, precompute the Orama index to static
+  JSON when request-time cold starts are a concern.
 
 ### Not_Found_Page
 

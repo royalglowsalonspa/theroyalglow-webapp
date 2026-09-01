@@ -43,8 +43,9 @@ import { sendLeadCapiEvent } from '@/lib/meta/capi'
 // rate-limited per-IP and strictly Zod-validated. No PII is echoed back beyond
 // the created leadId.
 export const POST = withErrorHandler(async (req: Request) => {
-  // Per-IP rate-limit guard. Distributed via Upstash when configured, falling
-  // back to an in-memory window otherwise (see rate-limit.ts).
+  // Anonymous rate-limit guard. All callers share `unknown` until the SST
+  // topology supplies a protected, non-spoofable viewer identity. Distributed
+  // via Upstash when configured, with in-memory fallback (see rate-limit.ts).
   await enforceRateLimit(`leads:${getClientIp(req)}`)
 
   const body = await req.json().catch(() => null)

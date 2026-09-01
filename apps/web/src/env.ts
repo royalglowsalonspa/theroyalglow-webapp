@@ -38,7 +38,7 @@ export const env = createEnv({
     // If it were optional/undefined, Better Auth would fall back to an
     // ephemeral/insecure secret — sessions would not survive a restart and
     // would be forgeable. Must be the SAME value as apps/admin so the shared
-    // `.theroyalglow.in` session cookie validates across both Workers.
+    // `.theroyalglow.in` session cookie validates across both applications.
     BETTER_AUTH_SECRET: z.string().min(32),
     BETTER_AUTH_URL: z.string().url(),
     BETTER_AUTH_API_KEY: z.string().min(1).optional(),
@@ -57,7 +57,7 @@ export const env = createEnv({
     R2_BUCKET_NAME: z.string().min(1),
     // OPTIONAL: Meta CAPI server token. Blank at launch (no Meta ad account
     // yet). lib/meta/capi.ts reads process.env directly and no-ops when unset,
-    // so making this optional keeps the Worker from throwing at cold start.
+    // so making this optional prevents a cold-start configuration failure.
     META_PIXEL_ACCESS_TOKEN: z.string().min(1).optional(),
     QSTASH_TOKEN: z.string().min(1),
     QSTASH_CURRENT_SIGNING_KEY: z.string().min(1),

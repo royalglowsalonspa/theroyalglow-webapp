@@ -294,7 +294,7 @@ This feature migrates service management from the admin portal to Payload CMS. A
 2. THE Payload_Category_Collection SHALL register the `revalidateHooks(...)` cache-busting hooks so category edits also refresh the website
 3. WHEN a service or category is created or updated in Payload, THE web app cache SHALL be revalidated (via the existing `WEB_APP_URL/api/revalidate` → `revalidatePath('/', 'layout')` mechanism) so the `/services` page, `/services/[slug]` page, and booking dialog reflect the change within seconds
 4. THE customer-facing read surfaces (`getCatalogueServices` on `/services`, `GET /api/services`, `getServiceBySlug` on `/services/[slug]`) SHALL continue reading from Drizzle `public.*` — the single read source — so all customer surfaces show identical, consistent service data sourced ultimately from Payload via the atomic sync
-5. IF a Cloudflare KV edge-cache layer is later added in front of `GET /api/services`, THEN its TTL-based staleness window SHALL be documented as an accepted tradeoff and SHALL NOT exceed 5 minutes; on-demand revalidation via AC 3 remains the primary freshness mechanism
+5. **DEFERRED — not implemented:** IF an Upstash Redis cache is added in front of `GET /api/services`, it SHALL use a TTL no longer than 5 minutes, SHALL have explicit invalidation independent of Next.js `revalidatePath`, and SHALL treat Neon `public.*` as authoritative. The existing AC 3 flow revalidates Next.js paths only; it does not currently invalidate Redis.
 
 ### Requirement 19: Payload Schema Migration
 

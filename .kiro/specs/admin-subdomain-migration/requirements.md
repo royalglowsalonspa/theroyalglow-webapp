@@ -17,7 +17,7 @@ This migration is part of a broader subdomain architecture:
 - **Admin_App**: The new Next.js application at `apps/admin/` serving `admin.theroyalglow.in`
 - **Web_App**: The existing Next.js application at `apps/web/` serving `theroyalglow.in`
 - **CMS_App**: The Payload CMS application at `apps/cms/` serving `cms.theroyalglow.in`
-- **Subdomain_Router**: DNS and Cloudflare routing configuration that directs requests to the correct application based on subdomain
+- **Subdomain_Router**: Cloudflare authoritative DNS records that direct web/admin hostnames to their SST-provisioned CloudFront distributions; Cloudflare provides DNS only, not application compute
 - **Shared_Packages**: Monorepo packages consumed by both applications (`@repo/db`, `@repo/business`, `@repo/types`, `@repo/errors`, `@repo/logger`)
 - **Admin_Middleware**: Edge middleware in Admin_App that validates sessions and enforces RBAC role hierarchy
 - **Session_Cookie**: The `better-auth.session_token` HttpOnly cookie used for authentication
@@ -99,16 +99,16 @@ This migration is part of a broader subdomain architecture:
 
 ### Requirement 6: DNS and Deployment Configuration
 
-**User Story:** As a developer, I want `admin.theroyalglow.in` routed to the Admin_App via Cloudflare, so that the admin portal is reachable at its own subdomain with independent deployment.
+**User Story:** As a developer, I want `admin.theroyalglow.in` routed through Cloudflare DNS to the SST-provisioned AWS application, so that the admin portal is reachable at its own subdomain without using Cloudflare compute.
 
 #### Acceptance Criteria
 
-1. THE Subdomain_Router SHALL route `admin.theroyalglow.in` traffic to the Admin_App Cloudflare Workers (OpenNext) worker via a proxied CNAME DNS record pointing to the `rgss-admin.workers.dev` deployment
-2. THE Admin_App SHALL be deployed as a separate Cloudflare Workers (OpenNext) worker (worker name: `rgss-admin`)
-3. WHEN a push to the `prod` branch includes changes under `apps/admin/` or `packages/`, THE Admin_App deployment workflow (`deploy-admin-prod.yml`) SHALL trigger a build and deploy of the Admin_App to the `rgss-admin` Cloudflare Workers (OpenNext) worker
-4. WHEN the Admin_App deployment completes, THE deployment workflow SHALL perform a health check by sending an HTTP GET request to `https://admin.theroyalglow.in/api/health` and SHALL consider the deployment successful only if the endpoint returns HTTP 200 within 30 seconds, retrying up to 3 attempts with a 10-second delay between attempts
-5. IF the health check fails after all 3 retry attempts, THEN THE deployment workflow SHALL mark the deployment as failed and send a failure notification
-6. THE Admin_App SHALL have its own Sentry project for error monitoring, separate from the Web_App Sentry project, with source maps uploaded during each deployment
+1. THE Subdomain_Router SHALL keep Cloudflare as authoritative DNS and route `admin.theroyalglow.in` to the CloudFront distribution provisioned for Admin_App by SST; it SHALL NOT route traffic to a Workers or Pages deployment
+2. THE Admin_App SHALL be declared in `sst.config.ts` with `sst.aws.Nextjs` and run on AWS Lambda behind CloudFront
+3. WHEN the production deployment runs, `.github/workflows/deploy-aws.yml` SHALL execute `bunx sst deploy` for the SST application containing both Web_App and Admin_App, with SST updating the affected AWS resources
+4. WHEN `vars.AWS_DOMAINS_LIVE == 'true'`, THE deployment workflow SHALL send HTTP GET requests to both `https://theroyalglow.in/api/health` and `https://admin.theroyalglow.in/api/health`, and SHALL require both endpoints to return HTTP 200 in the same round, retrying for up to 6 rounds with a 15-second wait after an unsuccessful round
+5. IF either health endpoint still fails after all 6 rounds while the public-domain health gate is enabled, THEN THE deployment workflow SHALL fail and SHALL attempt a best-effort failure notification when the incident webhook is configured
+6. THE Admin_App SHALL use its own Sentry DSN/project, separate from the Web_App Sentry project, for guarded browser capture and wrapped API error capture when configured; source-map upload is not part of the current deployment workflow
 
 ### Requirement 7: CORS and Security Configuration
 
@@ -150,17 +150,17 @@ This migration is part of a broader subdomain architecture:
 
 ### Requirement 10: CI/CD Pipeline Updates
 
-**User Story:** As a developer, I want the CI/CD pipeline to build and deploy the admin app independently, so that admin deployments do not require a full customer site redeploy and vice versa.
+**User Story:** As a developer, I want the CI/CD pipeline to validate each app independently and deploy them through the shared SST application, so that failures are reported per app while SST updates only affected AWS resources.
 
 #### Acceptance Criteria
 
 1. THE CI workflow SHALL run lint, typecheck, and test for Admin_App and Web_App as separate parallel jobs, where each job completes independently and reports its own pass/fail status within a total workflow timeout of 15 minutes
-2. WHEN files change only in `apps/admin/` or `packages/`, THE deployment pipeline SHALL deploy Admin_App without triggering a Web_App deployment
-3. WHEN files change only in `apps/web/` or `packages/`, THE deployment pipeline SHALL deploy Web_App without triggering an Admin_App deployment
-4. WHEN files change in both `apps/admin/` and `apps/web/` (or in `packages/`), THE deployment pipeline SHALL deploy both Admin_App and Web_App independently in parallel
+2. WHEN files change only in `apps/admin/` or its dependencies, THE CI pipeline SHALL validate Admin_App independently, and `.github/workflows/deploy-aws.yml` SHALL let SST update only the affected resources in the shared AWS application
+3. WHEN files change only in `apps/web/` or its dependencies, THE CI pipeline SHALL validate Web_App independently, and `.github/workflows/deploy-aws.yml` SHALL let SST update only the affected resources in the shared AWS application
+4. WHEN files change in both applications or shared packages, THE CI pipeline SHALL validate both apps independently before the single SST production deployment
 5. THE Turborepo_Pipeline SHALL support `turbo run build --filter=@repo/admin` to build Admin_App in isolation
 6. THE CI workflow SHALL run Lighthouse CI against `admin.theroyalglow.in` with thresholds: performance ≥ 90, accessibility = 100, best practices ≥ 95, and SHALL fail the pipeline if any threshold is not met
-7. IF either Admin_App or Web_App build fails during deployment, THEN THE deployment pipeline SHALL not deploy the failed app while still allowing the other app to deploy successfully if its build passed
+7. IF either required Admin_App or Web_App build fails, THEN THE deployment pipeline SHALL not start the single shared SST production deployment, preserving the currently deployed versions of both apps while reporting the failing app independently
 
 ### Requirement 11: Documentation and Steering File Updates
 
@@ -172,7 +172,7 @@ This migration is part of a broader subdomain architecture:
 2. THE coding-standards steering file SHALL document the Root-Path Convention under the "Route Groups" section, specifying that routes within `apps/admin/` omit the `admin/` prefix since the subdomain provides the admin namespace
 3. THE implementation-tasks steering file SHALL update all Phase 3 task paths from `apps/web/app/admin/` to `apps/admin/app/` and update the Phase 3 section title to reference the standalone Admin_App
 4. THE features steering file SHALL document under the "Admin Portal (RBAC)" section that admin routes are served from `admin.theroyalglow.in` (root paths) instead of the `/admin` path on `theroyalglow.in`
-5. THE deployment documentation SHALL include a dedicated Admin_App section covering: the Cloudflare Workers (OpenNext) worker name, the GitHub Actions deploy workflow file name, the build command, the output directory, and the health check endpoint path
+5. THE deployment documentation SHALL include a dedicated Admin_App section covering: the `sst.aws.Nextjs` resource, `.github/workflows/deploy-aws.yml`, the `bunx sst deploy` command, CloudFront custom domain, and health check endpoint path
 6. THE project-overview Layer Rules table SHALL show `apps/admin/` as a Presentation and API layer with the same import permissions as `apps/web/`
 
 ### Requirement 12: Environment Variable Isolation
@@ -208,7 +208,7 @@ This migration is part of a broader subdomain architecture:
 1. THE migration SHALL proceed in verifiable phases (scaffold → page migration → API migration → auth/RBAC → deploy → cleanup), where each phase is independently buildable and testable before the next begins
 2. WHILE the Admin_App is being validated in pre-production, THE Web_App `/admin` routes SHALL remain functional so that admin operations are not interrupted before cutover is confirmed
 3. WHEN the Admin_App passes its health check and smoke tests on `admin.theroyalglow.in`, THEN the Web_App cleanup (Requirement 9) and the 301 redirect SHALL be enabled as the final cutover step
-4. IF the Admin_App deployment is found broken after cutover, THEN the team SHALL be able to roll back by re-pointing DNS and re-enabling the Web_App `/admin` routes from version control without data loss, since no database schema changes are introduced by this migration
+4. IF the Admin_App release is found broken after cutover, THEN the team SHALL redeploy the previous known-good commit through the same SST stage; Cloudflare DNS SHALL remain pointed at the stable CloudFront custom domain, and no data loss SHALL occur because this migration introduces no database schema changes
 5. THE migration SHALL NOT introduce any database schema changes; both apps read and write the same Neon tables through the shared `@repo/db` package
 
 ### Requirement 15: Testing and Verification

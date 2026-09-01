@@ -128,9 +128,9 @@ Customer API routes (below) are served from `theroyalglow.in/api/*` by `@rgss/we
 
 | Endpoint | Method | Description |
 | --- | --- | --- |
-| `/api/services` | GET | All categories + services (KV cached, 5-min TTL) |
-| `/api/services/[slug]` | GET | Single service detail |
-| `/api/availability` | GET | Available slots for date + service |
+| `/api/services` | GET | Active categories + services, read directly from Neon through Drizzle (no Redis cache; 5-minute Upstash cache planned) |
+| `/api/services/[slug]` | GET | Single active service detail, read directly from Neon through Drizzle |
+| `/api/availability` | GET | Generic 30-minute grid for `date` + `branchId`, built from Neon-backed business-hours settings; booking/staff/leave/holiday conflicts are not wired yet |
 | `/api/leads` | POST | Campaign lead capture from `/book` form |
 | `/api/health` | GET | System health check |
 

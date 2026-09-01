@@ -120,9 +120,7 @@ import * as schema from './schema'
 const sql = neon(process.env.DATABASE_URL!)
 export const db = drizzle(sql, { schema })
 
-// For edge environments (Cloudflare Workers):
-// import { drizzle } from 'drizzle-orm/neon-http'
-// Uses HTTP, not WebSocket — compatible with V8 isolates
+// `neon-http` uses a fetch-based HTTP transport suitable for serverless runtimes.
 ```
 
 ---

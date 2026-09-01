@@ -4,10 +4,10 @@
  *
  * Project      : theroyalglow-webapp
  * Module Name  : middleware
- * Scope        : Security Perimeter (Edge) — CSP nonce + Auth/Authorization
+ * Scope        : Security Perimeter (Middleware) — CSP nonce + Auth/Authorization
  *
- * Description  : Edge-compatible middleware for the PUBLIC customer site. It
- *                does two jobs on every document request:
+ * Description  : Next.js middleware for the PUBLIC customer site. It does two
+ *                jobs on every document request:
  *                  1. Stamps a per-request, nonce-based Content-Security-Policy
  *                     onto the response (and forwards the nonce to the document
  *                     so Next.js stamps its own scripts) — mirroring the admin
@@ -18,23 +18,23 @@
  *                     gate on protected customer routes.
  *
  * Responsibilities :
- * - Generate an edge-safe per-request CSP nonce (Web Crypto, no node:crypto)
+ * - Generate a per-request CSP nonce with Web Crypto
  * - Build the customer-site CSP allowlist (PostHog, Meta Pixel, Clarity,
  *   Google One Tap/OAuth, Ably, R2/CMS images, Sentry) so the policy never
  *   breaks the live site
  * - Permanently (301) redirect legacy /admin/* and /staff/* paths
  * - Redirect unauthenticated visitors away from protected customer routes
  *
- * Tech Stack   : Next.js 16 Middleware, Edge / Cloudflare Workers runtime
- * Layer        : Infrastructure (Edge)
+ * Tech Stack   : Next.js 16 Middleware, SST/OpenNext on AWS Lambda + CloudFront
+ * Layer        : Infrastructure (request middleware)
  *
  * Dependencies : next/server, ./lib/admin-redirect, ./lib/staff-redirect
  *
  * Notes        :
- * - Better Auth's auth-server cannot be imported here (kysely incompatible with
- *   Edge); we only inspect the session cookie's presence.
- * - Runs on the Workers runtime: only Web APIs are used (crypto.getRandomValues,
- *   btoa) — NO Node-only built-ins.
+ * - Better Auth's auth-server is intentionally not imported; the lightweight
+ *   middleware gate only inspects whether the session cookie is present.
+ * - Uses standard Web APIs (`crypto.getRandomValues`, `btoa`) supported by the
+ *   current SST/OpenNext AWS runtime, with no Node-specific dependency.
  *
  * ── CSP design / tradeoffs (documented per task) ──────────────────────────
  * This is a PUBLIC marketing site that loads first-party Next.js bundles AND
@@ -95,10 +95,9 @@ function isProtectedPath(pathname: string): boolean {
 }
 
 /**
- * Generate an edge-safe, per-request CSP nonce using Web Crypto
- * (`crypto.getRandomValues`), available on the Edge / Workers runtime —
- * Node-only APIs (e.g. `crypto.randomBytes`) must NOT be used here. The 16
- * random bytes are base64-encoded to form the `'nonce-…'` source value.
+ * Generate a per-request CSP nonce using Web Crypto (`crypto.getRandomValues`),
+ * supported by the current SST/OpenNext AWS runtime. The 16 random bytes are
+ * base64-encoded to form the `'nonce-…'` source value.
  */
 function generateNonce(): string {
   const bytes = new Uint8Array(16)

@@ -1,99 +1,75 @@
 # Launch Runbook — Royal Glow Salon & Spa
 
-A condensed, code-aware launch procedure derived from `launch-checklist.md`. Use
-this on launch day; the full checklist has the exhaustive per-service steps.
+A condensed, code-aware production release procedure derived from `launch-checklist.md`. AWS is already the active host for the customer and admin apps; this runbook covers subsequent production releases.
 
-## What's code vs what's ops
+## Current deployment map
 
-The codebase is complete through Phase 10. Everything below that is "code" is
-done and in the repo; everything "ops" is a one-time provisioning action that
-switches the delivered code on. Every external integration is a guarded
-extension point — with no key configured it no-ops and logs, so the app builds
-and runs without secrets.
+| Deployable | Current host | Release mechanism |
+|---|---|---|
+| `apps/web` | AWS Lambda + CloudFront + S3 via SST | `.github/workflows/deploy-aws.yml` |
+| `apps/admin` | AWS Lambda + CloudFront + S3 via SST | `.github/workflows/deploy-aws.yml` |
+| `apps/cms` | Render (`rgss-cms`) | Render service deployment |
+| `apps/invoicing` | Google Cloud Run (`rgss-invoicing`) | Cloud Run deployment from repository root |
+| `docs/` | Mintlify | Mintlify-hosted deployment |
 
-| Area | Code (done, in repo) | Ops (provision to activate) |
-| --- | --- | --- |
-| CI/CD | `.github/workflows/*` (ci, integration, load-test, deploy-prod, weekly-backup, monthly-backup-test, replicate-prod-to-pprd) | GitHub repo secrets; branch protection rules |
-| Health | `GET /api/health` (DB/Redis/R2 guarded checks) | BetterStack monitor pointed at it |
-| Errors | Sentry runtime init + API capture (`sentry.*.config.ts`, `instrumentation.ts`) | Sentry project + `NEXT_PUBLIC_SENTRY_DSN` + CI `SENTRY_*` |
-| Analytics | Consent-gated PostHog + Meta Pixel + Clarity (`Analytics.tsx`), funnel `track()` calls | PostHog/Clarity/Pixel keys; dashboards + funnels |
-| Feature flags | `lib/flags.ts` (`isFeatureEnabled`, `FLAGS`) | PostHog flags created (all OFF initially) |
-| Synthetic | Checkly scripts (`tests/synthetic/*.check.ts`) | Checkly account + `npx checkly deploy` |
-| Docs | Mintlify content (`docs/`) | Done — `docs.theroyalglow.in` CNAME is cut over and the site is live |
-| Backups | `weekly-backup.yml` (pg_dump → R2) | R2 buckets + `R2_*` + Neon URLs + heartbeat |
-| Data | seed scripts | Run seed against the Neon `prod` branch |
+Cloudflare remains authoritative DNS and R2 object storage. It does not run application compute. Neon, Upstash Redis, QStash, Resend, Ably, Sentry, PostHog, and BetterStack remain external managed services.
 
-## Timeline
+## Configuration ownership
 
-### T-72h — External service onboarding (ops)
-Provision and store keys (canonical names per `environment-variables.md`) in
-GitHub Secrets + Cloudflare Workers (OpenNext) env:
-- Google OAuth, Neon (4 branches), Resend + Brevo (domain verified), Ably,
-  Upstash (Redis + QStash), Cloudflare R2 (`rgss-invoices`, `rgss-backups`),
-  Sentry, BetterStack (10 monitors + heartbeats + status page), PostHog,
-  Clarity, Meta Pixel, Google Cloud Run (PDF API), AiSensy.
-- Start DNS propagation: `theroyalglow.in`, `www`, `admin`, `status`, `docs`.
+- Web/admin server secrets: SST Secrets, stored in SSM Parameter Store and injected into Lambda.
+- Web/admin `NEXT_PUBLIC_*`: GitHub Actions variables, present during `next build`.
+- AWS authentication: GitHub OIDC through `AWS_DEPLOY_ROLE_ARN`.
+- Cloudflare DNS automation: `CLOUDFLARE_API_TOKEN` secret plus `CLOUDFLARE_DEFAULT_ACCOUNT_ID` variable, used only by SST DNS integration.
+- CMS variables: Render service Environment tab.
+- Invoicing variables: Cloud Run variables and Google Secret Manager. R2 values include `R2_ENDPOINT`, `R2_BUCKET_NAME`, and `R2_PUBLIC_BASE_URL`; credentials remain secrets.
 
-### T-48h — Data + monitoring (ops + code)
-- Seed production data against Neon `prod` (branches → categories → services →
-  staff → membership tiers → loyalty). Verify counts; confirm 0 customers/bookings.
-- Create the first admin user; confirm Google sign-in → admin dashboard.
-- Verify Sentry captures a test error, PostHog receives events, Clarity records a
-  session, BetterStack monitors are green, SSL is active.
+## Pre-release gates
 
-### T-24h — Testing gates (code, run in CI)
-- `bun run lint`, `bun run typecheck`, `bun run test:unit` green.
-- Integration + Playwright E2E pass (PR to `test`/`pprd`).
-- Lighthouse CI: performance ≥ 95; accessibility/SEO/best-practices = 100.
-- k6 load test: p95 < 500ms, error rate < 1%.
-- Security: Trivy + OWASP ZAP, zero high/critical.
-- **Go/No-Go Gate 2.**
+1. Promote changes through `dev → test → pprd → prod`.
+2. Require CI, integration, E2E, Lighthouse, load, and security gates defined for the target branch.
+3. For schema changes, follow `generate → review → commit → migrate`; apply committed migrations over `DATABASE_URL_UNPOOLED` in branch order.
+4. Verify latest R2 database backup and BetterStack health monitors.
+5. Confirm PostHog kill switches and previous known-good Git ref.
 
-### T-2h — Launch day (ops)
-- Final pprd smoke test (sign-in, browse services, test booking → invoice → PDF
-  in R2 → no Sentry errors).
-- Merge `pprd → prod` → `deploy-prod.yml` runs: build → Sentry source maps →
-  Cloudflare Workers (OpenNext) deploy → DB migrate → health check + smoke → notify.
-- Configure PostHog feature flags (core kill-switches ON; `whatsapp` staged).
-- **Go/No-Go Gate 3.**
+## Production release
 
-### T-0 — Go live
-- DNS cutover if needed; status page → Operational.
-- Within 5 min: `/`, `/api/health` (200 + green), `/admin`, OAuth login, no
-  Sentry errors, BetterStack UP, Cloudflare serving.
+1. Merge approved `pprd` into `prod`.
+2. If committed DB migrations exist, run `.github/workflows/migrate.yml` for the production Neon branch according to migration discipline.
+3. `.github/workflows/deploy-aws.yml` deploys both Next.js apps with `bunx sst deploy --stage production`.
+4. Monitor the workflow health gate for:
+   - `https://theroyalglow.in/api/health`
+   - `https://admin.theroyalglow.in/api/health`
+5. Smoke-test homepage, booking deep link, services, sign-in, admin dashboard, and one invoice path.
+6. Confirm CloudFront serves web/admin, Cloudflare DNS resolves the production domains, CMS remains healthy on Render, and invoicing remains healthy on Cloud Run.
+7. Record release SHA and monitor Sentry, BetterStack, and PostHog for at least 15 minutes.
 
-### T+1h / T+24h — Post-launch
-- Golden-path real booking with the owner (book → confirm email → admin →
-  complete → invoice PDF).
-- T+24h: reminder cron heartbeat healthy, analytics flowing, no error spikes,
-  backup ran (if Sunday).
+## Rollback and recovery
 
-## Go / No-Go gates (summary)
+| Scenario | Action | Expected time |
+|---|---|---|
+| Feature/UI defect behind a flag | Disable PostHog flag | < 10 seconds |
+| Bad web/admin release | Dispatch `deploy-aws.yml` with the previous tag/SHA | 3–5 minutes |
+| Deploy job fails | Inspect SST/Pulumi logs and stack state, verify both health endpoints, then redeploy the known-good ref if needed | Depends on partial update state |
+| Bad forward migration without data corruption | Add a forward fix, migrate, then redeploy | Depends on fix |
+| Data corruption | Create a Neon PITR recovery branch, validate, and repoint the app | < 30 minutes target |
+| Neon outage | Restore the latest verified R2 backup to an emergency Neon target | < 30 minutes target |
 
-1. **T-72h** — all keys stored, DNS propagating, email domains verified, Google
-   OAuth approved, PDF API healthy.
-2. **T-24h** — E2E 100%, Lighthouse perf ≥ 95 / a11y = 100, load p95 < 500ms +
-   0 errors at 50 VUs, security clean, prod data seeded, admin can sign in.
-3. **T-2h** — pprd smoke passing, no active incidents, no critical Sentry errors,
-   rollback plan ready, owner + developer available.
+There is no Render fallback for web/admin. Roll back only through the AWS workflow with a known-good ref. R2 backup and restore workflows remain active.
 
-## Rollback (from `deployment.md`)
+## Post-release verification
 
-| Scenario | Action | Time |
-| --- | --- | --- |
-| UI bug | PostHog feature flag OFF | < 10s |
-| App 500s | Cloudflare rollback to previous deploy | < 30s |
-| Bad migration (no data loss) | revert migration + redeploy | < 10m |
-| Bad migration (data) | Neon PITR to pre-migration point | < 5m |
-| Neon outage | emergency DB from R2 weekly backup | < 30m |
-
-`deploy-prod.yml` auto-rolls back to the previous Cloudflare deployment if the
-post-deploy health check fails.
+- Web and admin health endpoints return 200.
+- Google OAuth and shared `.theroyalglow.in` session work across both subdomains.
+- Booking and admin status changes publish through Ably.
+- Service catalogue endpoints return current data read directly from Neon through Drizzle; Redis-backed rate limiting remains healthy.
+- Invoice PDF generation reaches Cloud Run and stores the PDF in Cloudflare R2.
+- No new critical Sentry errors; BetterStack monitors and job heartbeats remain green.
 
 ## References
 
-- `deployment.md` — full pipeline, health endpoint, backup, rollback.
-- `git-workflow.md` — branch gate matrix (dev → test → pprd → prod).
-- `environment-variables.md` — canonical env var names.
-- `observability.md` — the five observability layers.
-- `launch-checklist.md` — the exhaustive per-service checklist.
+- `deployment.md` — AWS pipeline, rollback, backups, and operational controls.
+- `git-workflow.md` — branch gate matrix.
+- `environment-variables.md` — canonical variable names and ownership.
+- `observability.md` — monitoring layers.
+- `launch-checklist.md` — exhaustive service checklist.
+- `../M2AWS.md` — live AWS architecture and cutover record.

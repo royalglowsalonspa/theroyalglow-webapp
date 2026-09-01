@@ -827,83 +827,19 @@ function withErrorHandler(handler: RouteHandler) {
 ---
 
 
-## 5. Caching Implementation
+## 5. Data Reads and Rate Limiting
 
-### 5.1 Cloudflare KV Cache Pattern
+### 5.1 Service Catalogue Read Path
 
-```typescript
-// Read-through cache pattern for service catalog
-// Location: packages/business/services/get-services.ts
+`GET /api/services` calls `getActiveCatalogue()` in the Drizzle query layer. The query reads active categories and services directly from Neon on every request. `GET /api/services/[slug]` likewise calls `getServiceBySlug()` directly.
 
-import { KV } from '@cloudflare/workers-kv'
+No Upstash `get`/`set`/`del`, five-minute TTL, read-through wrapper, or Redis invalidation is implemented for either endpoint. A five-minute Upstash read-through cache remains a planned optimization; Neon must remain authoritative when it is added.
 
-const CACHE_KEY = 'services:all'
-const CACHE_TTL = 300 // 5 minutes
+### 5.2 Availability Read Path
 
-async function getServices(branchId: string) {
-  const cacheKey = `services:${branchId}`
-  
-  // L1: Check KV edge cache
-  const cached = await KV.get(cacheKey, 'json')
-  if (cached) return cached as ServiceWithCategory[]
-  
-  // L2: Query database
-  const services = await db.query.service.findMany({
-    where: eq(service.branchId, branchId),
-    with: {
-      category: true,
-      serviceStaff: { with: { staff: true } }
-    },
-    orderBy: [asc(service.sortOrder)]
-  })
-  
-  // Write to cache
-  await KV.put(cacheKey, JSON.stringify(services), {
-    expirationTtl: CACHE_TTL
-  })
-  
-  return services
-}
+`GET /api/availability` validates `date` and `branchId`, loads business-hours settings from Neon through `getSettings()`, and passes the selected open/close window to the pure `generateAvailability()` function. It generates a 30-minute grid in process.
 
-// Cache invalidation: called when admin updates services
-async function invalidateServiceCache(branchId: string) {
-  await KV.delete(`services:${branchId}`)
-}
-```
-
-### 5.2 Redis Slot Availability Cache
-
-```typescript
-// Location: packages/business/booking/availability.ts
-
-import { redis } from '@/lib/upstash'
-
-const SLOT_CACHE_TTL = 300 // 5 minutes
-
-async function getAvailableSlots(branchId: string, date: string, serviceIds: string[]) {
-  const cacheKey = `availability:${branchId}:${date}`
-  
-  // Check Redis cache
-  const cached = await redis.get<SlotData[]>(cacheKey)
-  if (cached) {
-    // Filter for requested services (cached data has all slots)
-    return filterSlotsForServices(cached, serviceIds)
-  }
-  
-  // Calculate availability from DB
-  const allSlots = await calculateAvailability(branchId, date)
-  
-  // Cache all slots for this branch+date
-  await redis.set(cacheKey, allSlots, { ex: SLOT_CACHE_TTL })
-  
-  return filterSlotsForServices(allSlots, serviceIds)
-}
-
-// Invalidation: on booking confirm/cancel
-async function invalidateSlotCache(branchId: string, date: string) {
-  await redis.del(`availability:${branchId}:${date}`)
-}
-```
+The route is not Redis-cached. It does not yet load existing bookings, staff schedules, approved leave, or holidays, and `branchId` is currently validated but not used after parsing. Any future five-minute availability cache must follow a conflict-aware availability implementation and define explicit invalidation for booking and schedule changes.
 
 ### 5.3 Rate Limiting Implementation
 
@@ -937,13 +873,16 @@ const limiters = {
   }),
 }
 
-// Usage in middleware
-async function rateLimitCheck(req: Request, pathname: string) {
-  const ip = req.headers.get('cf-connecting-ip') || 'unknown'
+// Usage in middleware. The current SST topology has no trusted client-IP
+// header: CloudFront appends to viewer-supplied X-Forwarded-For. Until a
+// dedicated header is overwritten at the viewer edge and direct origin access
+// is blocked, anonymous requests share a conservative key.
+async function rateLimitCheck(_req: Request, pathname: string) {
+  const identifier = 'ip:unknown'
   const tier = getTierForPath(pathname)
   const limiter = limiters[tier]
   
-  const { success, remaining, reset } = await limiter.limit(`${ip}:${pathname}`)
+  const { success, remaining, reset } = await limiter.limit(`${identifier}:${pathname}`)
   
   if (!success) {
     return Response.json(
@@ -1568,8 +1507,8 @@ export function generateBookingNumber(branchId: string, serviceType: string): st
 ### 9.1 Middleware Stack
 
 ```typescript
-// Location: apps/web/middleware.ts
-// Order of execution (top to bottom):
+// Shared order in apps/web/src/middleware.ts and apps/admin/src/middleware.ts
+// Admin routes are root-relative because admin.theroyalglow.in is a separate app.
 
 export async function middleware(req: NextRequest) {
   const requestId = nanoid(12) // 1. Generate unique request ID
@@ -1596,8 +1535,8 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL('/sign-in', req.url))
     }
     
-    // 6. RBAC role check (for /admin/* routes)
-    if (pathname.startsWith('/admin')) {
+    // 6. Admin app RBAC check (routes are root-relative on admin.theroyalglow.in)
+    if (isAdminRoute(pathname)) {
       const minRole = getMinRoleForPath(pathname)
       if (!hasMinimumRole(session.user.role, minRole)) {
         return NextResponse.redirect(new URL('/', req.url))

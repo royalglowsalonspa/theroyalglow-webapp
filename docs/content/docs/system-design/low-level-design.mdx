@@ -189,7 +189,7 @@ Zod-validate the request body.
 </Step>
 
 <Step>
-Check slot availability (Redis cache → DB).
+Check slot conflicts against Neon; no Redis availability cache is implemented.
 </Step>
 
 <Step>
@@ -214,10 +214,6 @@ INSERT `booking_service` rows (price snapshot).
 
 <Step>
 Enqueue QStash job 17 (stale booking alert, +2h).
-</Step>
-
-<Step>
-Invalidate the Redis slot cache.
 </Step>
 
 <Step>

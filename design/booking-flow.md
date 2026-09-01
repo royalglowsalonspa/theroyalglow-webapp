@@ -603,12 +603,14 @@ Step 3: "Select at least one service"
 Client (Browser)                          Server (API)                    External
 ─────────────────                         ────────────                    ────────
 
-Step 1: GET /api/availability             → Neon DB (staff schedules,
-        ?date=2026-05-24                    business_hour, bookings)
-        ← { slots: [...] }
+Step 1: GET /api/availability             → Neon DB (business-hours settings)
+        ?date=2026-05-24&branchId=...      → In-process 30-minute grid generation
+        ← { slots: [...] }                   (no Redis cache; booking/staff/leave/
+                                             holiday conflicts not wired yet)
 
-Step 3: GET /api/services                 → Cloudflare KV cache
-        ← { categories: [...] }            (5-min TTL from Neon)
+Step 3: GET /api/services                 → Neon DB via Drizzle
+        ← { categories: [...] }             (no Redis cache; a 5-minute
+                                             Upstash cache is planned)
 
 Submit: POST /api/bookings                → Neon DB INSERT booking
         { date, startTime,                → Ably PUBLISH:

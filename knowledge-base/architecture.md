@@ -2,23 +2,21 @@
 
 ## Hosting Decision
 
-**Choice: Cloudflare Workers (OpenNext)**
+**Choice: AWS Lambda + CloudFront through SST v3**
 
-### Why Cloudflare over Vercel
-- Vercel's billing scales quickly past 20k monthly users (bandwidth + function invocations add up fast)
-- Cloudflare Workers (OpenNext) handles massive scale at a fraction of the cost
-- Next.js app runs at the **edge globally** — users in Mumbai, London, and New York all get sub-100ms responses
-- Cloudflare's free tier is very generous for a solo developer
+`apps/web` and `apps/admin` are live on AWS in `ap-southeast-1`. Each `sst.aws.Nextjs` component uses SST’s AWS adapter, which wraps OpenNext and provisions an ARM64 SSR Lambda, CloudFront distribution, S3 assets bucket, routing function, ISR support, and revalidation queue.
 
-### Why Render (Two Roles)
-Render serves two purposes in this stack:
+### Why this hosting model
+- Lambda runs full Next.js server workloads without a separate always-on server.
+- CloudFront serves static assets from edge locations close to customers while compute remains near Neon in Singapore.
+- SST keeps infrastructure declarative in `sst.config.ts`; `.github/workflows/deploy-aws.yml` deploys both apps through GitHub OIDC.
+- Web and admin have separate distributions and domains while sharing auth secrets and the `.theroyalglow.in` session cookie.
+- Cloudflare remains authoritative DNS. SST manages only DNS-only aliases, ACM validation records, and required CAA records.
 
-1. **SSR fallback origin** — some SSR workloads exceed Cloudflare Workers' 50ms CPU wall time. Render handles those requests behind Cloudflare.
-2. **Payload CMS admin host** — Payload requires Node.js 20.9+ and cannot run on Cloudflare Workers (V8 isolate, not Node.js). Render hosts the CMS at `cms.theroyalglow.in`.
-
-**Plan: Free tier** — only 2 admin users, content changes every ~2 months. The ~30–60s cold start on first access is acceptable for internal use.
-**Region: Singapore** — closest Render region to India for lower admin panel latency.
-**Upgrade path:** Render Starter ($7/mo) disables spin-down if cold starts become a problem.
+### Other application hosts
+- **Payload CMS:** `apps/cms` remains on Render at `cms.theroyalglow.in`.
+- **Invoice rendering:** `apps/invoicing` remains a Hono/Node.js service on Google Cloud Run.
+- **External dependencies:** Neon, Upstash Redis, QStash, Resend, Ably, and Cloudflare R2 remain unchanged.
 
 ---
 
@@ -129,42 +127,39 @@ status.theroyalglow.in
 ## Full Infrastructure Stack
 
 ```
-                        ┌─────────────────────────┐
-                        │     Cloudflare DNS       │
-                        │   + DDoS Protection      │
-                        └────────────┬────────────┘
-                                     │
-                     ┌───────────────▼───────────────┐
-                     │ Cloudflare Workers (OpenNext) │
-                     │ (Static assets + CDN)         │
-                     └───────────────┬───────────────┘
-                                     │
-                    ┌────────────────┼────────────────┐
-                    │                                 │
-       ┌────────────▼────────────┐   ┌───────────────▼──────────┐
-       │  Cloudflare Workers     │   │  Render (Singapore)      │
-       │  (Edge SSR / API routes)│   │  SSR fallback +          │
-       │                         │   │  Payload CMS /cms        │
-       └────────────┬────────────┘   └───────────────┬──────────┘
-                    │                                 │
-                    └────────────────┬────────────────┘
-                                     │
-           ┌─────────────────────────┼──────────────────────────┐
-           │                         │                          │
-┌──────────▼──────────┐  ┌───────────▼───────────┐  ┌──────────▼──────────┐
-│      Neon DB         │  │   Cloudflare R2        │  │  Upstash Redis       │
-│  (Primary Postgres   │  │   (File storage:       │  │  (Cache, rate limit, │
-│   4 branches,        │  │    photos, invoices)   │  │   QStash job queue)  │
-│   pg_cron retired,    │  │    photos, invoices)   │  │  (Cache, rate limit, │
-│   Drizzle)           │  └────────────────────────┘  └─────────────────────┘
-└─────────────────────┘
+                         ┌─────────────────────────┐
+                         │ Cloudflare DNS          │
+                         │ authoritative, DNS-only │
+                         └────────────┬────────────┘
+                                      │
+                 ┌────────────────────┴────────────────────┐
+                 │                                         │
+      ┌──────────▼──────────┐                   ┌──────────▼──────────┐
+      │ CloudFront — web    │                   │ CloudFront — admin  │
+      │ S3 static assets    │                   │ S3 static assets    │
+      └──────────┬──────────┘                   └──────────┬──────────┘
+                 │                                         │
+      ┌──────────▼──────────┐                   ┌──────────▼──────────┐
+      │ Lambda SSR/API      │                   │ Lambda SSR/API/jobs │
+      │ apps/web            │                   │ apps/admin          │
+      └──────────┬──────────┘                   └──────────┬──────────┘
+                 └────────────────────┬────────────────────┘
+                                      │
+          ┌───────────────────────────┼───────────────────────────┐
+          │                           │                           │
+┌─────────▼─────────┐       ┌─────────▼─────────┐       ┌────────▼────────┐
+│ Neon PostgreSQL   │       │ Upstash Redis +   │       │ Cloudflare R2   │
+│ primary data      │       │ QStash limits/jobs│       │ media/PDFs      │
+└───────────────────┘       └───────────────────┘       └─────────────────┘
+
+Separate hosts: apps/cms → Render; apps/invoicing → Google Cloud Run.
 ```
 
 ---
 
 ## Project Structure — Monorepo
 
-**Architecture: Monorepo with strict layer separation.** Not micro-frontends — one codebase, one deployment, clean boundaries between UI, API, business logic, and database.
+**Architecture: Monorepo with strict layer separation.** Not micro-frontends — one codebase, independently deployed web/admin apps, and clean boundaries between UI, API, business logic, and database.
 
 > Micro-frontend architecture was evaluated and rejected: designed for multi-team enterprise orgs, adds module federation complexity, cross-app routing overhead, and shared state problems with zero benefit for a solo developer on a single stack.
 
@@ -172,7 +167,7 @@ status.theroyalglow.in
 theroyalglow-webapp/
 │
 ├── apps/
-│   ├── web/                              ← Next.js 16 application (Cloudflare Workers (OpenNext))
+│   ├── web/                              ← Next.js 16 application (AWS Lambda + CloudFront via SST)
 │   │   ├── app/                          ← App Router (file-system based routing)
 │   │   │   ├── layout.tsx               ← Root layout (<html>, <body>, providers, fonts)
 │   │   │   ├── global-error.tsx         ← Global error boundary (catches root layout errors)
@@ -240,7 +235,7 @@ theroyalglow-webapp/
 │   │   │       │   └── [...betterauth]/
 │   │   │       │       └── route.ts     ← Better Auth catch-all (login, callback, session)
 │   │   │       ├── services/
-│   │   │       │   ├── route.ts         ← GET: all categories + services (Cloudflare KV cached)
+│   │   │       │   ├── route.ts         ← GET: all categories + services (direct Neon via Drizzle; no Redis cache)
 │   │   │       │   └── [slug]/
 │   │   │       │       └── route.ts     ← GET: single service detail
 │   │   │       ├── push/                ← Web Push subscription management
@@ -303,7 +298,7 @@ theroyalglow-webapp/
 │   │   ├── tsconfig.json                ← TypeScript config (extends root)
 │   │   └── next-env.d.ts               ← Auto-generated type declarations (do not edit/commit)
 │   │
-│   ├── admin/                           ← Next.js 16 app (Cloudflare Workers (OpenNext) — admin.theroyalglow.in)
+│   ├── admin/                           ← Next.js 16 app (AWS Lambda + CloudFront via SST — admin.theroyalglow.in)
 │   │   │                                  Root-Path Convention: no /admin prefix in routes
 │   │   ├── app/
 │   │   │   ├── page.tsx                 ← / → admin.theroyalglow.in/ (dashboard)
@@ -382,7 +377,7 @@ theroyalglow-webapp/
 │   │
 │   ├── guides/                          ← Step-by-step how-to walkthroughs
 │   │   ├── local-development.mdx        ← Clone, Bun install, Neon dev branch, env vars, dev server
-│   │   ├── deployment.mdx               ← Cloudflare Workers (OpenNext) deploy, Render CMS, CI/CD pipeline
+│   │   ├── deployment.mdx               ← AWS Lambda + CloudFront via SST deploy, Render CMS, CI/CD pipeline
 │   │   ├── git-workflow.mdx             ← Branch strategy: feature → dev → test → pprd → prod
 │   │   ├── data-seeding.mdx             ← Seed scripts (services, staff, SPA tiers), PII anonymisation
 │   │   ├── testing.mdx                  ← Vitest unit, Playwright E2E, Lighthouse CI, test gates
@@ -510,8 +505,9 @@ theroyalglow-webapp/
 └── .github/
     └── workflows/
         ├── ci.yml                       ← Lint, typecheck, Vitest, Playwright, Lighthouse CI
-        ├── deploy-prod.yml              ← Deploy to Cloudflare Workers (OpenNext) (on push to prod)
-        ├── deploy-pprd.yml              ← Deploy to Cloudflare Workers (OpenNext) preview (on push to pprd)
+        ├── deploy-aws.yml               ← Deploy web + admin to AWS through SST (push to prod)
+        ├── migrate.yml                  ← Apply committed Drizzle migrations with unpooled Neon URL
+        ├── register-schedules.yml       ← Register QStash schedules against the admin origin
         └── replicate-prod-to-pprd.yml   ← Neon branch reset + PII anonymisation (daily cron)
 ```
 
@@ -562,8 +558,7 @@ theroyalglow-webapp/
 | **Primary DB** | Neon DB | All business data, 4 branches, Drizzle ORM, Better Auth sessions |
 | **Realtime** | **Ably** | Live booking status push, queue board, staff availability (6M messages/mo free) |
 | **File storage** | Cloudflare R2 | Profile photos, service images, PDF invoices (10 GB free) |
-| **Cache + queuing** | Upstash Redis | Availability slot cache, rate limiting, QStash async jobs |
-| **Edge cache** | Cloudflare KV | Service listings, static data at edge |
+| **Rate limiting + queuing** | Upstash Redis + QStash | Redis stores distributed API rate-limit state; QStash runs scheduled and triggered jobs. Catalogue and availability read Neon directly; five-minute response caches remain planned. |
 | **Search** | Postgres FTS (pg_trgm) | Fuzzy search inside Neon — free; upgrade to Algolia later if needed |
 
 ### Why Neon over Supabase as Primary
@@ -595,7 +590,7 @@ All 4 environments live in a **single Neon project** using database branching �
 | Metric | Target |
 |--------|--------|
 | Concurrent users | 20,000 – 50,000 |
-| Page response time | < 100ms globally (edge) |
+| Cached/static asset response time | < 100ms from a nearby CloudFront edge location |
 | Lighthouse score | 100% all categories |
 | PageSpeed score | 100% |
 | LCP | < 2.5s |
@@ -654,8 +649,8 @@ All legal pages are static (`generateStaticParams` / SSG), cached at edge. Light
 
 ### Foundational
 - All PII (phone, gender, DOB) stored in Neon DB under Drizzle-managed schema with access control in API layer
-- Cloudflare handles DDoS and bot mitigation at the edge
-- HTTPS enforced everywhere — Cloudflare auto-TLS, `Strict-Transport-Security` header
+- AWS Shield Standard protects CloudFront against common network and transport-layer DDoS attacks; application controls handle abuse and bot mitigation
+- HTTPS terminates at CloudFront with ACM-managed certificates; `Strict-Transport-Security` is set by the application
 - Secrets managed via environment variables — never committed to git
 - PII stripped from prod → pprd replication before restore
 
@@ -663,14 +658,14 @@ All legal pages are static (`generateStaticParams` / SSG), cached at edge. Light
 
 ### Content Security Policy (CSP)
 
-CSP headers set via Cloudflare Workers `_headers` file or Next.js middleware. Prevents XSS, clickjacking, and injection attacks.
+CSP and related security headers are configured in Next.js middleware or response-header configuration and delivered through CloudFront. They prevent XSS, clickjacking, and injection attacks.
 
 ```
 Content-Security-Policy:
   default-src 'self';
   script-src 'self' 'nonce-{random}' https://*.posthog.com https://clarity.ms https://connect.facebook.net;
   style-src 'self' 'unsafe-inline';
-  img-src 'self' data: blob: https://uploads.theroyalglow.in https://*.cloudflare.com https://*.r2.dev;
+  img-src 'self' data: blob: https://uploads.theroyalglow.in https://*.r2.dev;
   font-src 'self';
   connect-src 'self' https://*.neon.tech https://*.ably.io https://*.upstash.io https://*.posthog.com https://clarity.ms https://graph.facebook.com https://*.sentry.io;
   frame-src 'none';
@@ -702,7 +697,7 @@ Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
 
 ### Input Validation — Zod
 
-**All input is validated at the system boundary** using **Zod** — TypeScript-first schema validation that runs on the edge.
+**All input is validated at the system boundary** using **Zod** — TypeScript-first schema validation that runs in the relevant Next.js server runtime.
 
 | Where | What Gets Validated |
 |-------|-------------------|
@@ -776,7 +771,7 @@ Rate limiting runs via **`@upstash/ratelimit`** backed by Upstash Redis (already
 **Implementation:**
 
 ```typescript
-// middleware.ts — runs on Cloudflare Workers edge
+// middleware.ts — executes before matched Next.js routes
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 

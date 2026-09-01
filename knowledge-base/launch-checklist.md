@@ -1,909 +1,389 @@
-# Launch Checklist — Production Readiness Review (PRR)
+# Launch Checklist - Production Readiness Review
 
-> **Estimated Time:** 2–3 hours (execution on launch day)  
-> **Preparation:** 3 days before launch  
-> **Style:** Inspired by Google PRR, Meta Launch Checklist, Amazon Operational Readiness Review
+Use this checklist for a production launch, major relaunch, or high-risk release. `apps/web` and `apps/admin` are hosted on AWS Lambda + CloudFront through SST in `ap-southeast-1`; AWS is the current platform.
 
----
+`apps/cms` remains on Render, `apps/invoicing` remains on Google Cloud Run, and Cloudflare remains authoritative DNS plus R2 object storage.
 
-## Launch Timeline Overview
+## Release Timeline
 
-```
-┌────────────────────────────────────────────────────────────────────────────┐
-│                    RGSS LAUNCH TIMELINE                                      │
-├────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  T-72h (3 days before)                                                      │
-│  ├─ External service onboarding complete                                   │
-│  ├─ All API keys in GitHub Secrets + Cloudflare                            │
-│  └─ DNS propagation started                                                 │
-│                                                                             │
-│  T-48h (2 days before)                                                      │
-│  ├─ Production data seeded                                                  │
-│  ├─ Monitoring configured + verified                                       │
-│  └─ SSL certificates confirmed                                             │
-│                                                                             │
-│  T-24h (1 day before)                                                       │
-│  ├─ Full E2E test suite passing                                            │
-│  ├─ Load testing complete (k6)                                             │
-│  ├─ Lighthouse 100% across all pages                                       │
-│  └─ Go/No-Go decision                                                      │
-│                                                                             │
-│  T-2h (Launch Day — morning)                                                │
-│  ├─ Final smoke test on pprd                                               │
-│  ├─ Production deploy                                                       │
-│  └─ Feature flags configured                                               │
-│                                                                             │
-│  T-0 (GO LIVE)                                                              │
-│  ├─ DNS cutover (if needed)                                                │
-│  ├─ Feature flags: enable for 100%                                         │
-│  └─ Status page: OPERATIONAL                                               │
-│                                                                             │
-│  T+1h (Post-launch)                                                         │
-│  ├─ Health checks green                                                     │
-│  ├─ Sentry: no new errors                                                  │
-│  └─ First real booking test                                                │
-│                                                                             │
-│  T+24h (Day after)                                                          │
-│  ├─ Analytics data flowing                                                  │
-│  ├─ Email delivery confirmed                                               │
-│  └─ Launch retrospective                                                    │
-│                                                                             │
-└────────────────────────────────────────────────────────────────────────────┘
-```
+| Time | Gate |
+|---|---|
+| T-72h | External services, secrets, DNS permissions, backups, and production data are ready |
+| T-48h | Monitoring, certificates, migrations, scheduled jobs, and recovery paths are verified |
+| T-24h | CI, integration, E2E, performance, accessibility, load, and security gates pass |
+| T-2h | Final pprd smoke test and go/no-go review |
+| T-0 | Deploy known production ref and enable approved feature flags |
+| T+1h | Golden-path booking and admin completion flow verified |
+| T+24h | Jobs, analytics, email delivery, backups, and incident review verified |
 
----
+## T-72h - Platform and Service Readiness
 
-## T-72h: External Service Onboarding
+### AWS web and admin
 
-### Authentication — Better Auth (Google OAuth)
+- [ ] `sst.config.ts` declares both `sst.aws.Nextjs` applications and production domains.
+- [ ] Region is `ap-southeast-1`.
+- [ ] GitHub OIDC role exists and `AWS_DEPLOY_ROLE_ARN` is configured.
+- [ ] Required SST Secrets exist for stage `production`.
+- [ ] Required `NEXT_PUBLIC_*` build values exist as GitHub Actions variables.
+- [ ] `.github/workflows/deploy-aws.yml` can assume the deployment role.
+- [ ] A known-good rollback `git_ref` is recorded before release.
+- [ ] Web and admin Better Auth values are compatible and use the shared `.theroyalglow.in` session contract.
 
-| # | Task | Verify |
-|---|------|--------|
-| 1 | Create Google Cloud project `rgss-production` | Console accessible |
-| 2 | Enable Google Identity API | API status: Enabled |
-| 3 | Create OAuth 2.0 Client ID (Web application) | Client ID generated |
-| 4 | Set authorized redirect URI: `https://theroyalglow.in/api/auth/callback/google` | URI saved |
-| 5 | Set authorized JavaScript origin: `https://theroyalglow.in` | Origin saved |
-| 6 | Request OAuth consent screen verification (production) | Submitted |
-| 7 | Store `GOOGLE_OAUTH_CLIENT_ID` + `GOOGLE_OAUTH_CLIENT_SECRET` | In the platform secret store (Render today, SSM on AWS) |
-
-### Email — Resend
-
-| # | Task | Verify |
-|---|------|--------|
-| 1 | Create Resend account + verify email | Account active |
-| 2 | Add domain `theroyalglow.in` | DNS records added |
-| 3 | Verify domain (DKIM, SPF, DMARC) | Status: Verified ✅ |
-| 4 | Set sending address: `Royal Glow <hello@theroyalglow.in>` | Test email received |
-| 5 | Generate production API key | Key stored securely |
-| 6 | Store `RESEND_API_KEY` | In the platform secret store (Render today, SSM on AWS) |
-| 7 | Configure webhook URL: `https://theroyalglow.in/api/webhooks/resend` | Webhook active |
-
-### Email Marketing — Brevo
-
-| # | Task | Verify |
-|---|------|--------|
-| 1 | Create Brevo account (free tier — 300 emails/day) | Account active |
-| 2 | Verify sender domain `theroyalglow.in` | DKIM + DMARC verified |
-| 3 | Create 5 email templates (see email-strategy.md) | Templates saved |
-| 4 | Set up automation workflows (birthday, re-engagement, etc.) | Workflows active |
-| 5 | Create contact lists (All, Active, VIP, Dormant, Birthdays) | Lists created |
-| 6 | Generate API key | Key stored |
-| 7 | Store `BREVO_API_KEY` | In the platform secret store (Render today, SSM on AWS) |
-| 8 | Configure webhook URL: `https://theroyalglow.in/api/webhooks/brevo` | Webhook active |
-
-### Realtime — Ably
-
-| # | Task | Verify |
-|---|------|--------|
-| 1 | Create Ably app `rgss-production` | App created |
-| 2 | Note API key (root key for server-side) | Key generated |
-| 3 | Configure channel rules: `bookings:*`, `notifications:*`, `queue:*` | Rules set |
-| 4 | Set capability restrictions (publish/subscribe per channel) | Capabilities locked |
-| 5 | Store `ABLY_PRIVATE_KEY` | In the platform secret store (Render today, SSM on AWS) |
-| 6 | Store `NEXT_PUBLIC_ABLY_KEY` (subscribe-only key) | In the platform secret store (Render today, SSM on AWS) |
-
-### WhatsApp — AiSensy
-
-| # | Task | Verify |
-|---|------|--------|
-| 1 | Create AiSensy account | Account active |
-| 2 | Register WhatsApp Business number | Number verified |
-| 3 | Create message templates (booking confirm, reminder, feedback) | Templates approved by Meta |
-| 4 | Generate API key | Key stored |
-| 5 | Store `AISENSY_API_KEY` | In the platform secret store (Render today, SSM on AWS) |
-| 6 | Test WhatsApp delivery to test number | Message received |
-
-### Analytics — PostHog
-
-| # | Task | Verify |
-|---|------|--------|
-| 1 | Create PostHog project `rgss-production` | Project created |
-| 2 | Note project API key | Key generated |
-| 3 | Store `NEXT_PUBLIC_POSTHOG_KEY` + `NEXT_PUBLIC_POSTHOG_HOST` | In the platform secret store (Render today, SSM on AWS) |
-| 4 | Create feature flags (all OFF initially) | Flags created |
-| 5 | Set up dashboards: Bookings, Revenue, User Funnel | Dashboards created |
-| 6 | Configure session recording (opt-in, exclude admin pages) | Recording configured |
-| 7 | Verify events flowing (test from pprd) | Events visible in PostHog |
-
-### Heatmaps — Microsoft Clarity
-
-| # | Task | Verify |
-|---|------|--------|
-| 1 | Create Clarity project | Project ID generated |
-| 2 | Store `NEXT_PUBLIC_CLARITY_ID` | In the platform secret store (Render today, SSM on AWS) |
-| 3 | Set up masking rules (PII fields: phone, email, name) | Rules active |
-| 4 | Verify recording (test from pprd) | Session visible in Clarity |
-
-### Ads — Meta Pixel
-
-| # | Task | Verify |
-|---|------|--------|
-| 1 | Create Meta Pixel in Business Manager | Pixel ID generated |
-| 2 | Store `NEXT_PUBLIC_META_PIXEL_ID` | In the platform secret store (Render today, SSM on AWS) |
-| 3 | Configure Conversions API (CAPI) for server-side events | CAPI token stored |
-| 4 | Set up standard events: ViewContent, Lead, Schedule, Purchase | Events mapped |
-| 5 | Verify with Meta Pixel Helper extension | Events firing |
-
-### Error Tracking — Sentry
-
-| # | Task | Verify |
-|---|------|--------|
-| 1 | Create Sentry project `rgss-web` (Next.js) | Project created |
-| 2 | Note DSN | DSN generated |
-| 3 | Store `NEXT_PUBLIC_SENTRY_DSN` + `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` | In the platform secret store + GH Actions |
-| 4 | Configure alert rules (see error-handling.md) | Alerts created |
-| 5 | Set up source map uploads in deploy workflow | Working in CI |
-| 6 | Test error capture (throw test error on pprd) | Error appears in Sentry |
-
-### Uptime & Monitoring — BetterStack
-
-| # | Task | Verify |
-|---|------|--------|
-| 1 | Create BetterStack account | Account active |
-| 2 | Add uptime monitor: `https://theroyalglow.in/api/health` (3 min interval) | Monitor green |
-| 3 | Add uptime monitor: `https://admin.theroyalglow.in` (5 min interval) | Monitor green |
-| 4 | Create status page: `status.theroyalglow.in` | Page accessible |
-| 5 | Set up heartbeat URLs for cron jobs | Heartbeat IDs generated |
-| 6 | Store heartbeat URLs in the platform secret store | Stored |
-| 7 | Configure alert escalation (push → SMS after 5 min) | Tested |
-| 8 | Connect Sentry integration | Sentry errors visible in BetterStack |
-
-### Storage — Cloudflare R2
-
-| # | Task | Verify |
-|---|------|--------|
-| 1 | Create R2 bucket: `rgss-invoices` | Bucket created |
-| 2 | Create R2 bucket: `rgss-backups` | Bucket created |
-| 3 | Generate R2 API tokens (read/write for invoices, write for backups) | Tokens generated |
-| 4 | Store `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | In the platform secret store (Render today, SSM on AWS) |
-| 5 | Configure CORS on `rgss-invoices` (allow theroyalglow.in) | CORS set |
-| 6 | Set lifecycle rule on `rgss-backups`: delete after 90 days | Rule active |
-
-### Cache & Queue — Upstash
-
-| # | Task | Verify |
-|---|------|--------|
-| 1 | Create Upstash Redis database (region: ap-south-1) | DB created |
-| 2 | Store `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | In the platform secret store (Render today, SSM on AWS) |
-| 3 | Create QStash topic for async jobs | Topic created |
-| 4 | Store `QSTASH_TOKEN` + `QSTASH_CURRENT_SIGNING_KEY` + `QSTASH_NEXT_SIGNING_KEY` | Stored |
-| 5 | Test rate limiting from pprd | 429 returned correctly |
-
-### PDF Generation — Google Cloud Run (`@rgss/invoicing`)
-
-| # | Task | Verify |
-|---|------|--------|
-| 1 | Deploy Cloud Run service `rgss-invoicing` (`gcloud run deploy --source .`, repo-root Docker context) | Service running |
-| 2 | Set region: `asia-south1` (Mumbai), `--min-instances 0` (scale to zero), `--port 8080` | Configured |
-| 3 | Mount secrets via Secret Manager: `INVOICE_PDF_HMAC_SECRET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`; env: `R2_BUCKET_NAME`, `R2_ENDPOINT`, `R2_PUBLIC_BASE_URL` | Set |
-| 4 | Configure health check: `/healthz` | Green |
-| 5 | CI: `.github/workflows/deploy-invoicing.yml` (WIF, deploys on push to `prod` touching `apps/invoicing/**`) | Workflow green |
-| 6 | Store `PDF_API_URL` (Cloud Run URL) | In the platform secret store (Render today, SSM on AWS) |
-| 7 | Test invoice PDF generation (`POST /v1/invoices`, HMAC) from pprd | PDF generated + stored in R2 |
-
-### Database — Neon
-
-| # | Task | Verify |
-|---|------|--------|
-| 1 | Create Neon project `rgss-production` | Project created |
-| 2 | Create branches: `prod`, `pprd`, `test`, `dev` | All 4 branches exist |
-| 3 | Note connection strings for each branch | Strings stored |
-| 4 | Store `DATABASE_URL` (prod) in the platform's secret store — Render dashboard today, SSM Parameter Store on AWS | Stored |
-| 5 | Store all branch URLs in GitHub Secrets | Stored |
-| 6 | Run initial migration: `bun run migrate` | Schema created |
-| 7 | Verify PITR (Point-in-Time Recovery) enabled | Enabled (7-day window) |
-| 8 | Test connection from the running app (`/api/health` reports `database: pass`) | Query succeeds |
-
----
-
-## T-72h: Environment Setup
-
-### GitHub Repository Secrets
-
-```
-# Authentication
-GOOGLE_OAUTH_CLIENT_ID=<from Google Cloud Console>
-GOOGLE_OAUTH_CLIENT_SECRET=<from Google Cloud Console>
-
-# Database
-DATABASE_URL_PROD=<Neon prod branch>
-DATABASE_URL_PPRD=<Neon pprd branch>
-DATABASE_URL_TEST=<Neon test branch>
-
-# Email
-RESEND_API_KEY=<from Resend dashboard>
-BREVO_API_KEY=<from Brevo dashboard>
-
-# Monitoring
-SENTRY_AUTH_TOKEN=<from Sentry settings>
-SENTRY_ORG=rgss
-SENTRY_PROJECT=rgss-web
-
-# Deployment
-NEON_API_KEY=<from Neon dashboard>
-RENDER_API_KEY=<from Render dashboard>
-AWS_DEPLOY_ROLE_ARN=<IAM role assumed via GitHub OIDC — see M2AWS.md §17>
-INTERNAL_JOB_TOKEN=<shared secret for scheduled job POSTs>
-
-# Notifications (for deploy alerts)
-BETTERSTACK_API_TOKEN=<from BetterStack>
-```
-
-### Production Environment Variables (secrets)
-
-> Set per service in the Render dashboard today; on AWS they live in SSM Parameter Store as one
-> `SecureString` blob per app (`/rgss/prod/<app>/env`) and are written to `/opt/rgss/env/*.env`
-> at release time by `deploy.sh`.
->
-> **`NEXT_PUBLIC_*` values are build-time only** — they are inlined into the client bundle by
-> `next build` and cannot be injected at runtime. On AWS they are passed as `--build-arg` by
-> `deploy-aws.yml`; putting them in SSM has no effect on the browser bundle.
-
-```
-# App
-APP_ENV=prod
-NEXT_PUBLIC_APP_URL=https://theroyalglow.in
-NEXT_PUBLIC_CMS_URL=https://cms.theroyalglow.in
-
-# Auth
-GOOGLE_OAUTH_CLIENT_ID=<value>
-GOOGLE_OAUTH_CLIENT_SECRET=<value>
-BETTER_AUTH_SECRET=<generated: openssl rand -base64 32>
-BETTER_AUTH_URL=https://theroyalglow.in
-
-# Database
-DATABASE_URL=<Neon prod connection string>
-
-# Email
-RESEND_API_KEY=<value>
-BREVO_API_KEY=<value>
-
-# Realtime
-ABLY_PRIVATE_KEY=<value>
-NEXT_PUBLIC_ABLY_KEY=<subscribe-only key>
-
-# WhatsApp
-AISENSY_API_KEY=<value>
-
-# Storage
-R2_ACCOUNT_ID=<value>
-R2_ACCESS_KEY_ID=<value>
-R2_SECRET_ACCESS_KEY=<value>
-R2_INVOICES_BUCKET=rgss-invoices
-R2_BACKUPS_BUCKET=rgss-backups
-
-# Cache & Queue
-UPSTASH_REDIS_REST_URL=<value>
-UPSTASH_REDIS_REST_TOKEN=<value>
-QSTASH_TOKEN=<value>
-QSTASH_CURRENT_SIGNING_KEY=<value>
-QSTASH_NEXT_SIGNING_KEY=<value>
-
-# PDF Service (Google Cloud Run — @rgss/invoicing)
-PDF_API_URL=https://rgss-invoicing-<hash>.asia-south1.run.app
-
-# Analytics & Tracking
-NEXT_PUBLIC_POSTHOG_KEY=<value>
-NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
-NEXT_PUBLIC_CLARITY_ID=<value>
-NEXT_PUBLIC_META_PIXEL_ID=<value>
-META_PIXEL_ACCESS_TOKEN=<value>
-
-# Error Tracking
-NEXT_PUBLIC_SENTRY_DSN=<value>
-
-# Monitoring
-BETTERSTACK_HEARTBEAT_BOOKING_CLEANUP=<URL>
-BETTERSTACK_HEARTBEAT_BREVO_SYNC=<URL>
-BETTERSTACK_HEARTBEAT_BACKUP=<URL>
-```
-
-### Web + Admin Hosting — Configuration
-
-Cloudflare Workers (OpenNext) was the original target and is **retired**: the adapter, both
-`wrangler.jsonc` files, the `cf:*` scripts and every `CLOUDFLARE_*` variable have been removed,
-and `deploy-prod.yml` / `deploy-admin-prod.yml` no longer exist.
-
-**Today — Render** (see [`render.yaml`](../render.yaml)):
-
-| Setting | Value |
-|---------|-------|
-| Service names | `rgss-web`, `rgss-admin`, `rgss-cms` |
-| Deploy trigger | Render auto-deploy on push to `prod` |
-| Build command | `bun install --frozen-lockfile && bun run --filter=@rgss/<app> build` |
-| Start command | `cd apps/<app> && bun run start:prod` |
-| Health check | `/api/health` (web, admin), `/admin` (cms) |
-| Custom domains | `theroyalglow.in`, `www.theroyalglow.in`, `admin.theroyalglow.in`, `cms.theroyalglow.in` |
-
-**Target — AWS, web + admin only** (see [`M2AWS.md`](../M2AWS.md)). CMS stays on Render:
-
-| Setting | Value |
-|---------|-------|
-| Compute | AWS Lambda (ARM64) + CloudFront + S3 per app, `ap-southeast-1` |
-| Tooling | SST v3 (`sst.aws.Nextjs`, wrapping OpenNext) — [`sst.config.ts`](../sst.config.ts) |
-| Deploy trigger | [`deploy-aws.yml`](../.github/workflows/deploy-aws.yml) on push to `prod` (GitHub OIDC) |
-| Release mechanism | `bunx sst deploy --stage production` |
-| Server secrets | SST Secrets → SSM Parameter Store (`sst secret set`) |
-| `NEXT_PUBLIC_*` | GitHub Actions **variables** — inlined at build time, not runtime |
-| Rollback | Redeploy a previous ref (3–5 min); PostHog flags for instant kill |
-| TLS + DNS | ACM (managed by SST) + Route 53 aliases → CloudFront |
-| Unchanged | Neon, Upstash, QStash, Resend, Ably, R2 — zero application code changes |
-
-### Google Cloud Run — PDF Invoice Service (`@rgss/invoicing`)
-
-| Setting | Value |
-|---------|-------|
-| Service name | `rgss-invoicing` |
-| Runtime | Node.js container (Hono + `@react-pdf/renderer`) |
-| Region | `asia-south1` (Mumbai) |
-| Scaling | `--min-instances 0` (scale to zero, ₹0 idle) |
-| Port | `8080` |
-| Deploy | `.github/workflows/deploy-invoicing.yml` (Workload Identity Federation) |
-| Health check path | `/healthz` |
-| Auth | HMAC-SHA256 on `POST /v1/invoices` (+ Cloud Run IAM) |
-
----
-
-## T-72h: DNS & Domain Setup
-
-### Domain: `theroyalglow.in`
-
-| Record | Type | Name | Value | Proxy |
-|--------|------|------|-------|-------|
-| Root | CNAME | `@` | `rgss-web.pages.dev` | ☁️ Proxied |
-| WWW | CNAME | `www` | `rgss-web.pages.dev` | ☁️ Proxied |
-| Admin | CNAME | `admin` | `rgss-web.pages.dev` | ☁️ Proxied |
-| Status | CNAME | `status` | `betteruptime.com` (BetterStack) | DNS only |
-| Email (MX) | MX | `@` | `feedback-smtp.us-east-1.amazonses.com` (Resend) | — |
-| Email (SPF) | TXT | `@` | `v=spf1 include:amazonses.com ~all` | — |
-| Email (DKIM) | CNAME | `resend._domainkey` | `<from Resend dashboard>` | DNS only |
-| Email (DMARC) | TXT | `_dmarc` | `v=DMARC1; p=quarantine; rua=mailto:dmarc@theroyalglow.in` | — |
-
-### Cloudflare Settings
-
-| Setting | Value |
-|---------|-------|
-| SSL/TLS mode | Full (strict) |
-| Always Use HTTPS | ON |
-| Minimum TLS Version | 1.2 |
-| HTTP/3 (QUIC) | ON |
-| Brotli compression | ON |
-| Early Hints | ON |
-| Auto Minify | JS + CSS + HTML |
-| Browser Cache TTL | 4 hours |
-| Caching Level | Standard |
-| Rocket Loader | OFF (conflicts with Next.js) |
-
-### SSL Verification
+Set or rotate a server secret with:
 
 ```bash
-# Verify SSL is active (after DNS propagation — can take up to 24h)
-curl -vI https://theroyalglow.in 2>&1 | grep "SSL certificate"
-# Expected: SSL certificate verify ok
-
-# Verify redirect
-curl -I http://theroyalglow.in
-# Expected: 301 → https://theroyalglow.in
-
-# Verify www redirect
-curl -I https://www.theroyalglow.in
-# Expected: 301 → https://theroyalglow.in
+bunx sst secret set <SecretName> <value> --stage production
 ```
 
----
+Do not store browser `NEXT_PUBLIC_*` values only in a runtime secret store. Next.js inlines them during the build.
 
-## T-48h: Production Data Seeding
+### Cloudflare DNS
 
-### Seed Execution Order
+Cloudflare remains authoritative DNS. SST manages the AWS aliases using DNS automation credentials.
 
-Run in this exact order (respects FK constraints):
+- [ ] `CLOUDFLARE_API_TOKEN` is a GitHub secret with only Zone:Read + DNS:Edit.
+- [ ] `CLOUDFLARE_DEFAULT_ACCOUNT_ID` is a GitHub Actions variable.
+- [ ] Web and admin aliases are DNS-only (`proxied: false`).
+- [ ] Root, `www`, and `admin` resolve to the CloudFront destinations managed by SST.
+- [ ] CAA records permit Amazon to issue ACM certificates.
+- [ ] `cms` still points to Render.
+- [ ] `docs` still points to Mintlify.
+- [ ] `status` still points to BetterStack.
+- [ ] Resend SPF, DKIM, and DMARC records remain valid.
+
+Do not add an independent Route 53 hosted zone for the production domain. Cloudflare is authoritative.
+
+### Neon database
+
+- [ ] `dev`, `test`, `pprd`, and `prod` branches exist.
+- [ ] Pooled application URLs and direct migration URLs are stored separately.
+- [ ] Point-in-time recovery is available under the current Neon plan.
+- [ ] Latest weekly R2 backup succeeded and passed integrity verification.
+- [ ] Monthly restore drill is current.
+- [ ] Production seed/reference data contains no demo customers or bookings.
+- [ ] First Owner/Developer account and role assignment are verified.
+
+### Authentication
+
+- [ ] Google OAuth production consent configuration is approved.
+- [ ] Authorized origins include `https://theroyalglow.in` and `https://admin.theroyalglow.in` where required.
+- [ ] Redirect URIs match Better Auth routes exactly.
+- [ ] Session cookie uses `Secure`, `HttpOnly`, `SameSite=Lax`, and domain `.theroyalglow.in`.
+- [ ] First sign-in routes incomplete customer profiles to onboarding.
+- [ ] Admin role gates reject Customer and Staff roles.
+
+### Transactional and marketing email
+
+- [ ] Resend domain verification is green.
+- [ ] `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are configured for calling workloads.
+- [ ] Booking confirmation and invoice messages deliver to a real test mailbox.
+- [ ] Resend webhook signature verification is enabled where webhooks are consumed.
+- [ ] Brevo sender domain and templates are approved.
+- [ ] Marketing consent gates Brevo enrolment and sends.
+- [ ] Unsubscribe and suppression behavior is verified.
+
+### Realtime and notifications
+
+- [ ] Ably server key and browser subscription key are correctly scoped.
+- [ ] Channel capabilities prevent customers from publishing privileged events.
+- [ ] VAPID key pair and subject are configured.
+- [ ] Web Push subscription, send, unsubscribe, and expired-subscription cleanup work.
+- [ ] AiSensy API and webhook verification values are configured.
+- [ ] WhatsApp templates required at launch are approved.
+
+### Rate limiting and queue
+
+- [ ] Upstash Redis production database is reachable from web and admin.
+- [ ] `/api/services` returns the current Neon-backed catalogue without relying on Redis.
+- [ ] Rate-limit keys and windows are production-safe.
+- [ ] QStash token and both signing keys are configured.
+- [ ] `.github/workflows/register-schedules.yml` registers the canonical schedule set.
+- [ ] QStash callbacks target current production web/admin domains.
+- [ ] Every scheduled job has the expected BetterStack heartbeat.
+
+### Cloudflare R2
+
+- [ ] Media/invoice and backup buckets exist.
+- [ ] Workload credentials use least-privilege bucket access.
+- [ ] Backup credentials are separate from DNS automation credentials.
+- [ ] Public media/invoice hostname resolves and serves expected objects.
+- [ ] CORS allows only required Royal Glow origins and methods.
+- [ ] Lifecycle rules preserve required invoice and backup retention.
+- [ ] `R2_PUBLIC_BASE_URL` is configured for `apps/invoicing`.
+
+### Payload CMS on Render
+
+- [ ] `apps/cms` Render service is healthy at `cms.theroyalglow.in`.
+- [ ] `PAYLOAD_SECRET`, Neon URL, and R2 values are present in Render.
+- [ ] `SERVICE_SYNC_ENABLED` is enabled after any seed or rollback operation.
+- [ ] CMS CORS/CSRF origins include the customer site as required.
+- [ ] Publishing a service updates the application catalogue.
+- [ ] Payload sync updates `public.*`, `/api/revalidate` performs Next.js path revalidation, and direct-Neon `/api/services` reads reflect the change.
+- [ ] Deferred cache note remains explicit: no Upstash catalogue invalidation exists until the planned five-minute cache is implemented.
+
+### Invoicing on Google Cloud Run
+
+`apps/invoicing` remains service `rgss-invoicing` in `asia-south1`. Deploy from the repository's configured source context:
 
 ```bash
-# Connect to prod Neon branch
-export DATABASE_URL=$DATABASE_URL_PROD
-
-# 1. Core data (MUST be first)
-bun run scripts/seed.ts --env=prod --only=branches        # 2 branches
-bun run scripts/seed.ts --env=prod --only=roles           # admin, receptionist, staff
-bun run scripts/seed.ts --env=prod --only=settings        # system settings (business hours, etc.)
-
-# 2. Service catalog
-bun run scripts/seed.ts --env=prod --only=categories      # 10 categories
-bun run scripts/seed.ts --env=prod --only=services        # ~40 salon + 23 SPA services
-bun run scripts/seed.ts --env=prod --only=packages        # combo packages
-
-# 3. Staff
-bun run scripts/seed.ts --env=prod --only=staff           # 7 staff members (real data from owner)
-
-# 4. Membership & Loyalty
-bun run scripts/seed.ts --env=prod --only=memberships     # 3 tiers (Silver, Gold, Platinum)
-bun run scripts/seed.ts --env=prod --only=loyalty         # Gems earning/redemption rules
-
-# 5. Offers (only if launching with active offers)
-bun run scripts/seed.ts --env=prod --only=offers          # Launch offer (optional)
+gcloud run deploy rgss-invoicing --source . --region asia-south1
 ```
 
-### Seed Data Verification
+- [ ] Service scales to zero only if cold-start behavior is acceptable.
+- [ ] `/healthz` returns healthy.
+- [ ] `INVOICE_PDF_HMAC_SECRET` matches the admin caller.
+- [ ] `R2_BUCKET_NAME`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY` are configured.
+- [ ] `R2_PUBLIC_BASE_URL` has no accidental path duplication or trailing-slash issue.
+- [ ] Admin uses `INVOICING_SERVICE_URL`.
+- [ ] A signed test request renders a PDF and returns a working R2 URL.
+
+## T-48h - Operations Readiness
+
+### Monitoring
+
+- [ ] BetterStack monitors `https://theroyalglow.in/api/health`.
+- [ ] BetterStack monitors `https://admin.theroyalglow.in/api/health`.
+- [ ] BetterStack status page is reachable at `status.theroyalglow.in`.
+- [ ] Sentry receives web and admin test errors in the correct projects/environment.
+- [ ] Source maps resolve stack traces to application source.
+- [ ] AWS logs are available for both Lambda applications.
+- [ ] CloudFront/Lambda dashboards show 4xx, 5xx, duration, throttling, and cache signals.
+- [ ] Render logs cover CMS; Cloud Run logs cover invoicing.
+- [ ] Request IDs can correlate application errors and logs.
+- [ ] Alert destinations and escalation path are tested.
+
+Health endpoints must not expose secrets, database URLs, stack traces, or PII.
+
+### Backup and recovery
+
+- [ ] `.github/workflows/weekly-backup.yml` last run is green.
+- [ ] Latest compressed dump exists in Cloudflare R2.
+- [ ] Backup download and gzip integrity check succeeded.
+- [ ] `.github/workflows/monthly-backup-test.yml` proved a recent restore.
+- [ ] Pre-migration backup workflow is ready for destructive DDL.
+- [ ] Neon point-in-time recovery steps are documented and accessible.
+- [ ] Known-good application rollback ref is recorded.
+- [ ] Owner knows feature-flag kill switches and incident contacts.
+
+### Security and privacy
+
+- [ ] CSP is delivered from the Next.js applications through CloudFront.
+- [ ] CORS uses exact approved origins.
+- [ ] HSTS and secure redirect behavior are correct.
+- [ ] All API inputs use Zod validation.
+- [ ] Rate limiting returns expected `429` responses without blocking normal traffic.
+- [ ] Webhooks reject invalid signatures.
+- [ ] File upload type and size restrictions are enforced.
+- [ ] No secrets appear in client bundles, logs, source maps, or Git history.
+- [ ] Cookie consent blocks PostHog, Clarity, and Meta until consent.
+- [ ] Privacy, terms, and refund pages are published.
+- [ ] DPDP consent records and deletion/export procedures are ready.
+
+## Database Change Gate
+
+When schema changes are part of the release, use this exact order:
+
+```text
+generate -> review -> commit -> migrate
+```
+
+- [ ] `bun run generate` produced the migration.
+- [ ] Generated SQL was read and reviewed.
+- [ ] Snapshot/journal and migration are committed with schema changes.
+- [ ] `bun run drift:reference` updated the canonical reference when required.
+- [ ] Destructive changes have a verified targeted R2 backup.
+- [ ] Migration passed on `dev`.
+- [ ] Migration passed on `test`.
+- [ ] Migration passed on `pprd`.
+- [ ] Production approval is recorded.
+- [ ] Migration is applied to `prod` over `DATABASE_URL_UNPOOLED`.
+- [ ] Post-migration fingerprint and business row-count checks pass.
+
+Never use schema push against shared Neon branches. Never edit a committed migration; fix forward.
+
+## T-24h - Quality Gates
+
+### CI and automated validation
+
+- [ ] `.github/workflows/ci.yml` is green.
+- [ ] Type checks, lint, unit tests, and builds pass.
+- [ ] Integration and Playwright suites pass against the intended environment.
+- [ ] Lighthouse meets project thresholds: performance at least 95; accessibility, best practices, and SEO at 100.
+- [ ] Load test meets latency and error-rate thresholds.
+- [ ] Dependency and application security scans have no unaccepted high/critical findings.
+- [ ] No pending migration or drift-gate failure exists.
+
+### Critical customer journeys
+
+- [ ] Homepage loads on mobile and desktop.
+- [ ] `/?book=1&utm_source=gmb` opens the booking dialog and preserves attribution.
+- [ ] `/book` remains the Meta lead form, not the normal booking route.
+- [ ] Service catalogue reads current Payload-managed data.
+- [ ] Availability returns valid slots.
+- [ ] Google sign-in and onboarding work.
+- [ ] Booking creation sends confirmation and appears in admin.
+- [ ] Customer cancel and reschedule paths work.
+- [ ] Profile and booking history enforce authentication.
+
+### Critical admin journeys
+
+- [ ] Admin login works at `admin.theroyalglow.in`.
+- [ ] Role-based navigation and direct-route guards work.
+- [ ] Receptionist can approve, assign, and progress a booking.
+- [ ] Walk-in creation skips pending as designed.
+- [ ] Completion creates invoice items with correct paise/GST math.
+- [ ] Invoice renderer stores the PDF in R2 and Resend delivers it.
+- [ ] Gems are awarded only for eligible service invoices.
+- [ ] Membership sessions deduct hours and award no gems.
+- [ ] Offer and gems combination rules are enforced.
+
+### Performance verification
+
+Measure real AWS paths. CloudFront accelerates static assets; SSR/API latency still includes Lambda and external services.
+
+- [ ] LCP < 2.5 seconds at the target percentile.
+- [ ] INP < 200 ms.
+- [ ] CLS < 0.1.
+- [ ] Lambda cold-start and warm duration are acceptable.
+- [ ] CloudFront cache behavior matches static/dynamic route intent.
+- [ ] Neon, Upstash, Payload, and Cloud Run calls stay within request budgets.
+- [ ] No performance claim depends on Cloudflare proxying; production aliases are DNS-only.
+
+## T-2h - Go/No-Go Review
+
+### Final pprd smoke test
+
+- [ ] Home, services, offers, contact, legal pages, and lead form load.
+- [ ] Booking deep link opens the correct flow.
+- [ ] Test booking reaches admin and can be completed.
+- [ ] Confirmation and invoice emails arrive.
+- [ ] Invoice PDF is readable from R2.
+- [ ] QStash signature verification succeeds.
+- [ ] Sentry has no unexplained new issues.
+- [ ] BetterStack monitors and heartbeats are green.
+- [ ] PostHog receives consented events.
+
+### Go criteria
+
+Proceed only if:
+
+- CI and required quality gates pass;
+- database migration and rollback implications are understood;
+- web/admin SST Secrets and build variables are complete;
+- DNS and certificates are healthy;
+- CMS, invoicing, Neon, Upstash, QStash, Ably, Resend, and R2 are healthy;
+- rollback ref and feature-flag kill switches are ready;
+- no unresolved critical security, data-integrity, or booking-flow defect exists.
+
+If any criterion fails, record owner and resolution. Do not launch on an undocumented exception.
+
+## T-0 - Production Deployment
+
+Production deployment runs through `.github/workflows/deploy-aws.yml`.
+
+```text
+1. Merge approved pprd changes into prod.
+2. Confirm required CI and production approval gates.
+3. Monitor deploy-aws.yml.
+4. SST deploys web and admin with stage production.
+5. Verify health and smoke tests.
+6. Enable only approved PostHog flags.
+```
+
+Equivalent deployment command used by the workflow:
 
 ```bash
-# Verify counts
-bun run scripts/verify-seed.ts --env=prod
-
-# Expected output:
-# ✅ Branches: 2
-# ✅ Categories: 10
-# ✅ Services: 63
-# ✅ Staff: 7
-# ✅ Membership tiers: 3
-# ✅ System settings: configured
-# ✅ Roles: 3
-# ❌ Customers: 0 (correct — no demo data in prod)
-# ❌ Bookings: 0 (correct — clean slate)
+bunx sst deploy --stage production
 ```
 
-### First Admin User Creation
-
-```bash
-# Create the first admin user via one-time script
-bun run scripts/create-admin.ts \
-  --email="owner@theroyalglow.in" \
-  --name="Royal Glow Admin" \
-  --role=admin
-
-# This creates the user record that will be linked
-# when the owner first signs in with Google OAuth.
-# The Google account email must match exactly.
-```
-
-**Post-creation verification:**
-1. Open `https://theroyalglow.in` in incognito
-2. Click "Sign in with Google"
-3. Use the owner's Google account (`owner@theroyalglow.in`)
-4. Verify redirect to admin dashboard
-5. Verify role shows as "Admin"
-
----
-
-## T-24h: Pre-Launch Testing
-
-### Lighthouse Audit (Target: 100% All Categories)
-
-```bash
-# Run Lighthouse CI against pprd (which mirrors prod config)
-bunx lhci autorun --config=lighthouserc.json \
-  --collect.url="https://pprd.theroyalglow.in/" \
-  --collect.url="https://pprd.theroyalglow.in/?book=1&utm_source=gmb" \
-  --collect.url="https://pprd.theroyalglow.in/services" \
-  --collect.url="https://pprd.theroyalglow.in/book" \
-  --collect.url="https://pprd.theroyalglow.in/offers" \
-  --collect.url="https://pprd.theroyalglow.in/membership"
-```
-
-**Required scores (must ALL be 100 or action needed):**
-
-| Page | Performance | Accessibility | Best Practices | SEO |
-|------|------------|---------------|----------------|-----|
-| `/` (Home) | ≥ 95 | 100 | 100 | 100 |
-| `/?book=1` (Normal booking dialog) | ≥ 95 | 100 | 100 | 100 |
-| `/services` | ≥ 95 | 100 | 100 | 100 |
-| `/book` (Campaign lead capture) | ≥ 95 | 100 | 100 | 100 |
-| `/offers` | ≥ 95 | 100 | 100 | 100 |
-| `/membership` | ≥ 95 | 100 | 100 | 100 |
-
-> Performance ≥95 is acceptable because Cloudflare edge caching makes real-world performance faster than synthetic tests.
-
-### E2E Test Suite (Playwright)
-
-```bash
-# Full E2E suite against pprd
-bunx playwright test --project=chromium --project=firefox --project=webkit
-
-# Critical user journeys that MUST pass:
-# ✅ Customer: Browse services → Select slot → Book → Receive confirmation
-# ✅ Customer: View membership plans → Sign up → Verify Gems
-# ✅ Customer: Cancel booking → Receive cancellation email
-# ✅ Admin: Sign in → View dashboard → See today's bookings
-# ✅ Admin: Complete booking → Generate invoice → PDF stored in R2
-# ✅ Admin: Create walk-in booking → Assign staff → Bill → Mark paid
-# ✅ Admin: View customer profile → Booking history → Membership status
-# ✅ Receptionist: Mark attendance → Start service → Complete → Bill
-# ✅ System: Slot conflict prevention (double-booking blocked)
-# ✅ System: Booking reminder trigger (QStash)
-# ✅ System: Rate limiting (429 on excess requests)
-```
-
-**All tests MUST pass. Zero failures tolerated for launch.**
-
-### Load Testing (k6)
-
-```bash
-# Run k6 load test against pprd
-k6 run tests/load/booking-flow.js --env TARGET=https://pprd.theroyalglow.in
-```
-
-```javascript
-// tests/load/booking-flow.js
-import http from 'k6/http'
-import { check, sleep } from 'k6'
-
-export const options = {
-  stages: [
-    { duration: '30s', target: 20 },   // Ramp up to 20 users
-    { duration: '1m', target: 50 },    // Peak: 50 concurrent (10x expected max)
-    { duration: '30s', target: 100 },  // Stress: 100 concurrent (20x expected)
-    { duration: '30s', target: 0 },    // Ramp down
-  ],
-  thresholds: {
-    http_req_duration: ['p(95)<500', 'p(99)<1000'],  // 95th < 500ms, 99th < 1s
-    http_req_failed: ['rate<0.01'],                   // <1% error rate
-    http_reqs: ['rate>100'],                          // >100 req/sec throughput
-  },
-}
-
-export default function () {
-  // Simulate real user flow
-  const home = http.get(`${__ENV.TARGET}/`)
-  check(home, { 'homepage 200': (r) => r.status === 200 })
+Do not manually replace CloudFront, Lambda, S3, ACM, or DNS resources. Change `sst.config.ts`, review the diff, and deploy through SST.
 
-  sleep(1)
+### Immediate checks
 
-  const services = http.get(`${__ENV.TARGET}/api/services`)
-  check(services, { 'services 200': (r) => r.status === 200 })
+- [ ] `https://theroyalglow.in` loads current release.
+- [ ] `https://theroyalglow.in/api/health` returns healthy.
+- [ ] `https://admin.theroyalglow.in` loads current release.
+- [ ] `https://admin.theroyalglow.in/api/health` returns healthy.
+- [ ] Google OAuth works on both expected entry points.
+- [ ] No spike appears in CloudFront 5xx or Lambda errors/throttles.
+- [ ] Sentry shows no release-blocking regression.
+- [ ] BetterStack monitors remain green.
+- [ ] CMS is healthy on Render.
+- [ ] Invoicing is healthy on Cloud Run.
+- [ ] Media and invoice objects remain accessible from R2.
 
-  sleep(0.5)
-
-  const availability = http.get(`${__ENV.TARGET}/api/availability/2026-05-25`)
-  check(availability, { 'availability 200': (r) => r.status === 200 })
-
-  sleep(2)
-}
-```
+No routine DNS cutover is required for a normal SST application release. If a domain record changed, verify Cloudflare DNS propagation and confirm the record remains DNS-only.
 
-**Pass criteria:**
-- p95 latency < 500ms
-- p99 latency < 1000ms
-- Error rate < 1%
-- Zero 5xx errors
-- Rate limiting kicks in correctly at threshold
-
-### Security Scan
-
-```bash
-# OWASP ZAP baseline scan
-docker run -t ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
-  -t https://pprd.theroyalglow.in -r zap-report.html
+## Rollback
 
-# Trivy vulnerability scan
-trivy fs . --severity HIGH,CRITICAL --exit-code 1
+### Feature-only defect
 
-# Expected: ZERO high/critical vulnerabilities
-```
-
----
+Disable the relevant PostHog flag. Confirm the defect is no longer exposed, then prepare a normal fix.
 
-## T-48h: Monitoring Setup Verification
+### Application or infrastructure regression
 
-### Sentry Configuration
+Dispatch `.github/workflows/deploy-aws.yml` with the last known-good `git_ref`. Expected recovery is approximately 3-5 minutes. Re-run web/admin health checks and critical smoke tests.
 
-| Check | How to Verify |
-|-------|--------------|
-| Source maps uploading | Deploy to pprd → check Sentry releases |
-| Error capture working | `throw new Error('sentry-test')` on pprd → appears in Sentry |
-| Alert rules configured | See error-handling.md alert rules |
-| Performance monitoring ON | Transactions appearing in Sentry Performance |
-| User context enriched | Errors show user email + role |
-| Environment tag correct | Filter by `env:prod` works |
+Do not try to reverse SST-managed resources by hand.
 
-### BetterStack Heartbeat URLs
-
-| Cron Job | Heartbeat URL | Expected Interval |
-|----------|--------------|-------------------|
-| Booking reminder (hourly) | `https://uptime.betterstack.com/api/v1/heartbeat/<ID1>` | Every 1 hour |
-| Brevo contact sync (daily) | `https://uptime.betterstack.com/api/v1/heartbeat/<ID2>` | Every 24 hours |
-| Expired booking cleanup (daily) | `https://uptime.betterstack.com/api/v1/heartbeat/<ID3>` | Every 24 hours |
-| Weekly backup (Sunday) | `https://uptime.betterstack.com/api/v1/heartbeat/<ID4>` | Every 7 days |
-
-**Verification:** After heartbeat URLs are configured in env vars, trigger each cron job manually once → confirm BetterStack shows "healthy" for each heartbeat.
-
-### PostHog Dashboards
-
-Create these dashboards before launch:
+### Database incident
 
-| Dashboard | Panels |
-|-----------|--------|
-| **Overview** | DAU, WAU, MAU, page views, sessions |
-| **Bookings** | Bookings/day, conversion funnel (visit → service page → homepage booking dialog → confirm), drop-off points |
-| **Revenue** | Invoices/day, avg invoice value, payment method split (cash/upi/card), membership revenue |
-| **User Funnel** | New signups/day, Google OAuth success rate, repeat booking rate |
-| **Feature Flags** | Flag exposure count, feature adoption rate |
-
----
-
-## T-2h: Launch Day Execution
-
-### Final Pre-Deploy Smoke Test (pprd)
-
-```
-□ Visit https://pprd.theroyalglow.in — loads correctly
-□ Sign in with Google OAuth — works
-□ Browse services page — all 63 services listed
-□ Check availability calendar — slots showing
-□ Create a test booking — confirmation email received
-□ Admin: complete the booking — invoice generated
-□ Check R2: invoice PDF stored
-□ Check Sentry: no new errors
-□ Check BetterStack: all monitors green
-□ Check PostHog: events flowing
-```
-
-### Production Deploy
-
-```bash
-# 1. Merge pprd → prod (this triggers deploy-prod workflow)
-git checkout prod
-git merge pprd --no-ff
-git push origin prod
-
-# 2. GitHub Actions runs:
-#    - CI checks (lint, typecheck, unit tests)
-#    - Build
-#    - Deploy (Render auto-deploy today; deploy-aws.yml on AWS)
-#    - Run migrations on prod DB
-#    - Upload source maps to Sentry
-#    - Health check + smoke tests
-#    - Notify BetterStack
-
-# 3. Monitor deployment in GitHub Actions (should take ~5 min)
-```
-
-### Feature Flag Configuration
-
-| Flag | Initial State | Purpose |
-|------|--------------|---------|
-| `booking-enabled` | ON (100%) | Kill switch for booking system |
-| `membership-enabled` | ON (100%) | Kill switch for membership signups |
-| `offers-enabled` | ON (100%) | Kill switch for offers display |
-| `whatsapp-notifications` | OFF → 10% → 100% | Gradual WhatsApp rollout |
-| `gems-loyalty` | ON (100%) | Kill switch for loyalty program |
-| `spa-services` | ON (100%) | Kill switch for SPA services |
-
----
-
-## T-0: Go Live
-
-### DNS Cutover (if domain was previously pointed elsewhere)
-
-```bash
-# If domain was on a holding page / coming soon:
-# 1. Update Cloudflare DNS to point to Pages
-# 2. Clear Cloudflare cache
-# 3. Test from multiple locations (use https://check-host.net/)
-```
-
-### Status Page Update
-
-```
-BetterStack Status Page (status.theroyalglow.in):
-  → Update all components to "Operational"
-  → Post update: "Royal Glow Salon & Spa is now live! 🎉"
-```
-
-### Immediate Post-Launch Checks (within 5 minutes)
-
-```
-□ https://theroyalglow.in loads (< 2s LCP)
-□ https://theroyalglow.in/api/health returns 200 + all green
-□ https://admin.theroyalglow.in loads
-□ https://status.theroyalglow.in shows all operational
-□ Google OAuth login works (test with owner's account)
-□ No errors in Sentry
-□ BetterStack monitor: UP
-□ Cloudflare Analytics: requests coming through
-```
-
----
-
-## T+1h: Post-Launch Verification
-
-### Real User Test (Golden Path)
-
-Perform a real booking flow with the salon owner:
-
-```
-1. Owner opens theroyalglow.in on phone (mobile Chrome)
-2. Tap Book Now or open `/?book=1` to launch the homepage booking dialog
-3. Browse services → select "Hair Smoothening"
-4. Select date + time slot + staff
-5. Sign in with Google
-6. Confirm booking
-7. ✓ Confirmation page shown
-8. ✓ Confirmation email received (check spam folder)
-9. ✓ Booking appears in admin dashboard
-10. ✓ WhatsApp message received (if enabled)
-
-Admin side:
-11. Receptionist signs in
-12. Views today's bookings
-13. Marks the test booking as "completed"
-14. Generates invoice (Cash payment)
-15. ✓ Invoice PDF stored in R2
-16. ✓ Post-service thank you email sent
-```
-
-### Monitoring Dashboard Check
-
-| System | Expected State |
-|--------|---------------|
-| BetterStack uptime | ✅ UP (green) |
-| Sentry | ✅ 0 unresolved errors |
-| PostHog | ✅ Events flowing (page_view, booking_created) |
-| Cloudflare | ✅ Requests served, no 5xx |
-| Neon | ✅ Connections active, queries < 50ms |
-| Upstash Redis | ✅ Commands executing |
-| Render (PDF API) | ✅ Healthy |
-
----
-
-## T+24h: Day-After Verification
-
-| Check | Verify |
-|-------|--------|
-| Booking reminder cron fired | BetterStack heartbeat healthy |
-| Brevo contact sync ran | Heartbeat healthy + contacts in Brevo |
-| Analytics data accurate | PostHog shows yesterday's sessions |
-| Email deliverability | Check Resend dashboard — no bounces |
-| No error spikes | Sentry quiet |
-| Performance stable | Cloudflare analytics: avg response < 200ms |
-| SSL renewal scheduled | Cloudflare auto-renews (verify date) |
-| Backup ran (if Sunday) | R2 has backup file |
-
----
-
-## Go / No-Go Decision Gates
-
-### Gate 1: External Services Ready (T-72h)
-
-| Criterion | Required | Status |
-|-----------|----------|--------|
-| All API keys generated and stored | Yes | □ |
-| DNS propagation complete (< 24h TTL) | Yes | □ |
-| Email domain verified (Resend + Brevo) | Yes | □ |
-| Google OAuth consent screen approved | Yes | □ |
-| WhatsApp templates approved by Meta | No (can launch without) | □ |
-| Render PDF API health check passing | Yes | □ |
-
-**Gate 1 Pass:** All "Yes" items checked → proceed to Gate 2.
-
-### Gate 2: Testing Complete (T-24h)
-
-| Criterion | Required | Status |
-|-----------|----------|--------|
-| E2E tests: 100% passing | Yes | □ |
-| Lighthouse Performance ≥ 95 | Yes | □ |
-| Lighthouse Accessibility = 100 | Yes | □ |
-| Load test: p95 < 500ms | Yes | □ |
-| Load test: 0 errors at 50 concurrent | Yes | □ |
-| Security scan: 0 high/critical vulns | Yes | □ |
-| Production data seeded + verified | Yes | □ |
-| First admin user can sign in | Yes | □ |
-
-**Gate 2 Pass:** All "Yes" items checked → proceed to Gate 3.
-
-### Gate 3: Launch Day (T-2h)
-
-| Criterion | Required | Status |
-|-----------|----------|--------|
-| pprd smoke test passing | Yes | □ |
-| No active BetterStack incidents | Yes | □ |
-| No critical Sentry errors (last 24h) | Yes | □ |
-| Deploy freeze window check: OPEN | Yes | □ |
-| Salon owner available for 2h post-launch | Yes | □ |
-| Developer available for 4h post-launch | Yes | □ |
-| Rollback plan reviewed and ready | Yes | □ |
-
-**Gate 3 Pass:** All "Yes" items checked → **GO FOR LAUNCH** ✅
-
-### No-Go Triggers (Automatic Block)
-
-Any of these = **DO NOT LAUNCH**, fix first:
-
-- ❌ Any E2E test failing
-- ❌ Lighthouse Accessibility < 100
-- ❌ Security scan has HIGH/CRITICAL findings
-- ❌ Google OAuth not working
-- ❌ Email delivery failing (Resend domain not verified)
-- ❌ Database migration errors
-- ❌ Health check endpoint returning unhealthy
-- ❌ Load test showing > 1% error rate
-- ❌ Rate limiting not working (can be DDoS'd)
-- ❌ BetterStack monitor showing DOWN
-
----
-
-## Post-Launch Stabilization (Week 1)
-
-### Day 1-3: Hypercare Mode
-
-```
-• Monitor Sentry every 2 hours
-• Check BetterStack every 4 hours
-• Review PostHog funnel for drop-offs
-• Be ready for instant rollback (Cloudflare < 30 sec)
-• No new feature deploys — stability only
-• Fix any issues found as hotfixes (dev → test → pprd → prod fast-track)
-```
-
-### Day 4-7: Stabilize
-
-```
-• Collect user feedback from salon owner
-• Review Clarity heatmaps for UX issues
-• Analyze booking conversion funnel
-• Fine-tune rate limits if needed
-• First weekly backup verification
-• Prepare first sprint retrospective
-```
-
-### Week 1 Success Metrics
-
-| Metric | Target |
-|--------|--------|
-| Uptime | > 99.9% (< 8.6 min downtime) |
-| Sentry errors | < 5 unique issues |
-| Avg response time | < 200ms |
-| Booking conversion | > 60% (start → confirm) |
-| Email delivery rate | > 98% |
-| Page load (LCP) | < 2.5s |
-| Zero security incidents | True |
-
----
-
-## Launch Day Communication Template
-
-### Stakeholder Notification (Send T-0)
-
-```
-Subject: 🚀 Royal Glow Salon & Spa — Website is LIVE!
-
-Hi [Owner Name],
-
-Great news — theroyalglow.in is now live and accepting bookings!
-
-What's ready:
-✅ Online booking system (all 63 services)
-✅ Membership plans (Silver, Gold, Platinum)
-✅ Gems loyalty program
-✅ Invoice generation
-✅ Email confirmations & reminders
-
-What to do now:
-1. Try booking a service: theroyalglow.in/?book=1
-2. Sign in as admin: theroyalglow.in (use your Google account)
-3. Check the admin dashboard
-
-If anything feels off, let me know immediately — I'm monitoring everything for the next 4 hours.
-
-Status page: status.theroyalglow.in
-```
+An application rollback does not undo DDL. Stop harmful writes, assess compatibility, and use one of:
+
+- a new forward migration;
+- Neon point-in-time recovery to a validated branch;
+- latest verified R2 dump for disaster recovery.
+
+Require explicit approval before switching production database URLs.
+
+### CMS or invoicing incident
+
+Roll back the affected Render or Cloud Run service independently. Do not move those workloads during an incident.
+
+## T+1h - Golden Path
+
+Perform one controlled end-to-end transaction:
+
+1. Open the site on a real mobile device.
+2. Launch booking through the homepage dialog.
+3. Select one service and valid slot.
+4. Sign in and submit the booking.
+5. Confirm email and admin visibility.
+6. Approve, assign, start, and complete the booking in admin.
+7. Record payment method.
+8. Verify GST and total in paise.
+9. Verify invoice PDF in R2 and email delivery.
+10. Verify eligible gems transaction.
+11. Verify Ably update and consented analytics events.
+
+Then review BetterStack, Sentry, AWS logs/metrics, Neon, Upstash, QStash, Render, and Cloud Run.
+
+## T+24h - Day-After Review
+
+- [ ] Appointment reminder schedule ran and heartbeat arrived.
+- [ ] Membership, offer, gems, cleanup, and reporting schedules ran as expected.
+- [ ] No QStash endpoint targets a stale domain.
+- [ ] Resend delivery and bounce metrics are acceptable.
+- [ ] Brevo automation honors consent.
+- [ ] PostHog booking funnel matches database counts within expected attribution differences.
+- [ ] CloudFront/Lambda errors, durations, throttles, and costs are normal.
+- [ ] Neon query latency and connections are normal.
+- [ ] Upstash command usage and rate limiting are normal.
+- [ ] CMS service sync has no drift.
+- [ ] Cloud Run invoice success rate is normal.
+- [ ] R2 object writes and reads are normal.
+- [ ] Any incident or manual workaround is documented.
+
+## Final Sign-Off
+
+| Area | Required evidence |
+|---|---|
+| Product | Critical customer/admin journeys pass |
+| Data | Migration, backup, and restore evidence exists |
+| Security | No unaccepted critical finding; secrets and signatures verified |
+| Reliability | Health checks, monitors, heartbeats, and rollback path verified |
+| Performance | Lighthouse and runtime metrics meet targets |
+| Compliance | Consent and legal pages verified |
+| Operations | Owner accepts go/no-go result and rollback ref |
+
+Record release SHA, workflow URL, migration version, approving person, feature-flag state, and any accepted risk in the release notes.

@@ -376,8 +376,8 @@ jobs:
       - uses: alwaysmeticulous/report-diffs-action@v1
         with:
           api-token: ${{ secrets.METICULOUS_API_TOKEN }}
-          # Replays sessions against Cloudflare preview URL
-          app-url: "https://${{ github.event.pull_request.number }}.rgss-web.pages.dev"
+          # Provider-neutral deployed test target configured in GitHub Actions
+          app-url: ${{ vars.METICULOUS_APP_URL }}
 ```
 
 **What Meticulous catches that Playwright doesn't:**
@@ -2452,7 +2452,7 @@ retry: process.env.CI ? 1 : 0
 | Database race conditions | Transaction-based test isolation |
 | Timing (slots/availability) | Use fixed dates far in future (`2099-01-01`) |
 | Animation delays in E2E | `waitForLoadState('networkidle')` + explicit waits |
-| Cloudflare edge caching | Bust cache with unique query params in tests |
+| CDN or application cache state | Bust cache with unique query params in tests |
 | Random data causing edge cases | Seeded faker (`faker.seed(42)`) |
 
 ---

@@ -147,7 +147,7 @@ interface ApiSuccessResponse<T> {
 | Code | Error Code | When Used |
 |------|-----------|-----------|
 | `500 Internal Server Error` | `INTERNAL_ERROR` | Unhandled exception, DB connection failure |
-| `502 Bad Gateway` | `UPSTREAM_ERROR` | Render PDF API unreachable, Resend API down |
+| `502 Bad Gateway` | `UPSTREAM_ERROR` | Cloud Run invoicing API unreachable, Resend API down |
 | `503 Service Unavailable` | `SERVICE_UNAVAILABLE` | Neon DB in maintenance, Cloudflare R2 outage |
 | `504 Gateway Timeout` | `TIMEOUT` | Upstream service exceeded response time |
 
@@ -562,123 +562,44 @@ export async function sendEmail(params: SendEmailParams) {
 }
 ```
 
-```ts
-// packages/integrations/render/pdf.ts
-
-export async function generatePdf(invoiceId: string): Promise<Buffer> {
-  const res = await fetch(`${process.env.PDF_API_URL}/invoices/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ invoiceId }),
-    signal: AbortSignal.timeout(30_000), // 30s hard timeout
-  })
-
-  if (!res.ok) {
-    const cause = new Error(`PDF API returned ${res.status}`)
-    Sentry.captureException(cause, {
-      tags: { service: 'render_pdf', invoiceId },
-    })
-    throw serviceUnavailable('PDF generation', cause)
-  }
-
-  return Buffer.from(await res.arrayBuffer())
-}
-```
+The live invoice-PDF failure handling is implemented in
+`apps/admin/src/app/api/jobs/invoice-pdf/route.ts`. It validates service configuration before
+calling Cloud Run, signs requests with `INVOICE_PDF_HMAC_SECRET`, applies a hard timeout, logs
+non-2xx responses, and falls back to an invoice email without a PDF attachment.
 
 ---
 
 ## Sentry Integration
 
-### Setup
+### Active implementation
 
-```ts
-// apps/web/instrumentation.ts
+Sentry is initialized through runtime-specific configuration files in both Next.js apps:
 
-import * as Sentry from '@sentry/nextjs'
+- `apps/web/sentry.client.config.ts`
+- `apps/web/sentry.server.config.ts`
+- `apps/web/sentry.edge.config.ts`
+- `apps/admin/sentry.client.config.ts`
+- `apps/admin/sentry.server.config.ts`
+- `apps/admin/sentry.edge.config.ts`
+- `apps/web/src/lib/api/sentry-server-init.ts`
+- `apps/admin/src/lib/api/sentry-server-init.ts`
 
-export function register() {
-  if (process.env.NEXT_RUNTIME === 'nodejs' || process.env.NEXT_RUNTIME === 'edge') {
-    Sentry.init({
-      dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-      environment: process.env.APP_ENV, // prod | pprd | test | dev
-      release: process.env.COMMIT_SHA,
+Do **not** recreate a root `instrumentation.ts`. SST/OpenNext's trace-copy step breaks when that file is included. Each app's API error handler imports `sentry-server-init.ts`, which selects the Node or edge configuration and captures unexpected API exceptions.
 
-      // Performance — sample 10% of transactions in prod
-      tracesSampleRate: process.env.APP_ENV === 'prod' ? 0.1 : 1.0,
+### Runtime metadata and privacy
 
-      // Only send errors from operational code, not third-party noise
-      beforeSend(event) {
-        // Filter out known non-actionable errors
-        if (event.exception?.values?.[0]?.type === 'AbortError') return null
-        if (event.exception?.values?.[0]?.value?.includes('NEXT_NOT_FOUND')) return null
-        return event
-      },
+- Web uses optional `NEXT_PUBLIC_SENTRY_DSN`; admin uses optional `NEXT_PUBLIC_ADMIN_SENTRY_DSN`.
+- Missing DSN means initialization is a no-op.
+- `APP_ENV` (falling back to `NODE_ENV`) identifies the environment.
+- Optional `COMMIT_SHA` identifies the release.
+- `sendDefaultPii: false` prevents default PII collection.
+- Validation, business-rule, authentication, and rate-limit responses are not automatically reported as unexpected server errors.
 
-      // Attach user context for every error
-      integrations: [
-        Sentry.extraErrorDataIntegration({ depth: 3 }),
-      ],
-    })
-  }
-}
-```
+No `CF_PAGES_BRANCH` metadata remains because Cloudflare Pages compute is retired. Do not claim per-user context or request-payload capture unless the active handler explicitly adds it.
 
-### Context Enrichment
+### Alerts and source maps
 
-Every error sent to Sentry carries:
-
-```ts
-// apps/web/src/lib/sentry-context.ts
-
-import * as Sentry from '@sentry/nextjs'
-import { auth } from '@/lib/auth'
-
-export async function enrichSentryContext() {
-  const session = await auth()
-
-  if (session?.user) {
-    Sentry.setUser({
-      id: session.user.id,
-      email: session.user.email,
-      // Never send PII beyond what's needed for debugging
-    })
-  }
-
-  Sentry.setTag('branch', process.env.APP_ENV)
-  Sentry.setTag('deployment', process.env.CF_PAGES_BRANCH ?? 'unknown')
-}
-```
-
-### What Gets Captured
-
-| Error Type | Sentry Level | Alert | Tags |
-|-----------|-------------|-------|------|
-| Unhandled exception (500) | `error` | Slack + Email immediately | `requestId`, `route`, `userId` |
-| External service failure (502/503) | `warning` | Slack if >3 in 5 min | `service`, `statusCode` |
-| Business rule violation (4xx) | Not sent | — | — |
-| Validation error (400) | Not sent | — | — |
-| Rate limit exceeded (429) | Not sent | — | — |
-| Auth failure (401/403) | Not sent | — | Captured only if suspicious pattern |
-
-### Sentry Alert Rules
-
-| Rule | Condition | Action |
-|------|-----------|--------|
-| Critical | Any new `error` level issue | Slack `#alerts-critical` + Email to developer |
-| High frequency | >10 same error in 5 min | Slack `#alerts-critical` |
-| External service down | >3 upstream errors in 5 min | Slack `#alerts-infra` |
-| Slow transaction | P95 response time >3s | Slack `#alerts-perf` (weekly digest) |
-
-### Source Maps
-
-```yaml
-# Uploaded during the CI build, after `next build`
-sentry-cli sourcemaps upload \
-  --org royal-glow \
-  --project rgss-web \
-  --release $COMMIT_SHA \
-  .next/static
-```
+Configure issue alerts in Sentry and source-map upload in CI. `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` are build/workflow settings when source-map upload is enabled; they are not runtime application variables.
 
 ---
 
@@ -1076,26 +997,25 @@ function getLimiter(pathname: string, method: string): Ratelimit {
 
 ### Rate Limit Key Strategy
 
-```ts
-// Key composition — prevents abuse vectors
-function getRateLimitKey(req: NextRequest, pathname: string): string {
-  const ip = req.headers.get('cf-connecting-ip')      // Cloudflare real IP
-    ?? req.headers.get('x-forwarded-for')?.split(',')[0]
-    ?? '127.0.0.1'
+The current SST topology does not provide a trusted client-IP header and does not block every direct
+origin path. CloudFront appends to a viewer-supplied `X-Forwarded-For`, so neither its first element
+nor `X-Real-IP` is a safe identity. Until infrastructure overwrites a dedicated header and protects
+the Lambda origin, authenticated requests use the verified user ID and anonymous requests share a
+conservative bucket.
 
-  // Authenticated users: key by userId (more accurate, survives IP changes)
-  // Unauthenticated: key by IP
-  const userId = req.headers.get('x-user-id')  // Set after auth check in middleware chain
-  const identifier = userId ?? ip
+```ts
+function getRateLimitKey(req: NextRequest, pathname: string): string {
+  // Set only after successful authentication in the middleware chain.
+  const userId = req.headers.get('x-user-id')
+  const identifier = userId ? `user:${userId}` : 'ip:unknown'
 
   return `${identifier}:${pathname}`
 }
 ```
 
-**Why userId over IP for authenticated users:**
-- Shared office IPs don't unfairly rate-limit multiple users
-- VPN/mobile users changing IPs can't bypass limits
-- More accurate per-user enforcement
+Do not invent `127.0.0.1`/`0.0.0.0` or trust forwarded headers. A future per-IP key requires both a
+CloudFront-overwritten viewer header and protected-origin enforcement before application code may
+validate and consume it.
 
 ### Rate Limit Bypass — Trusted Sources
 
@@ -1522,7 +1442,7 @@ Client Request
   │   • Constraint violations → 409                              │
   │   • Connection errors → 503                                  │
   │                                                              │
-  ├─ External Services (Resend, Ably, Render PDF) ───────────────┤
+  ├─ External Services (Resend, Ably, Cloud Run invoicing) ──────┤
   │   • Wrapped with timeout + error translation                 │
   │   • Non-critical failures don't block main flow              │
   │                                                              │

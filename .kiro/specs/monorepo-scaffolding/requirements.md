@@ -116,12 +116,12 @@ Phase 0 foundation scaffolding for the Royal Glow Salon & Spa monorepo. This spe
 
 #### Acceptance Criteria
 
-1. THE Web_App SHALL have an `src/env.ts` file using `@t3-oss/env-nextjs` and Zod to validate all environment variables
-2. THE env_validation SHALL define server-side variables (45 variables including DATABASE_URL, BETTER_AUTH_SECRET, API keys, webhook secrets) with appropriate Zod schemas (url, string, min-length, startsWith constraints)
-3. THE env_validation SHALL define client-side variables (10 variables prefixed with `NEXT_PUBLIC_`) with appropriate Zod schemas
-4. IF any required environment variable is missing or fails validation, THEN THE Build_Process SHALL fail immediately with a descriptive error message identifying the invalid variable
-5. THE Monorepo SHALL have a root `.env.example` file documenting all 55 variables with placeholder values and descriptions
-6. THE Web_App SHALL have an `apps/web/.env.example` file listing web-specific variables
+1. THE Web_App SHALL have an `src/env.ts` file using `@t3-oss/env-nextjs` and Zod to validate variables owned by the web application
+2. THE environment validators SHALL define server-side variables consumed by each application with appropriate Zod schemas and requiredness
+3. THE environment validators SHALL define each application's consumed `NEXT_PUBLIC_` variables with appropriate Zod schemas
+4. IF any required environment variable is missing or fails validation, THEN THE owning application SHALL fail with a descriptive error identifying the invalid variable
+5. THE Monorepo SHALL have a root `.env.example` as a shared, non-exhaustive starter, while application-specific templates SHALL exist only where the repository maintains them
+6. Authoritative ownership SHALL live in current validators, `sst.config.ts`, active workflows, and `knowledge-base/environment-variables.md`; no fixed variable count SHALL be required
 7. THE Monorepo SHALL gitignore all `.env.local` files to prevent secret leakage
 
 ### Requirement 8: TypeScript Strict Configuration

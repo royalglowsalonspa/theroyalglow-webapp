@@ -8,7 +8,7 @@ Everything stays true to the project's guarded-extension-point convention: with 
 
 ### Goals
 
-- **Sentry**: add `@sentry/nextjs` runtime init (client + server + edge) that is a no-op without `NEXT_PUBLIC_SENTRY_DSN`, enriches errors with environment + release (`COMMIT_SHA`), and is wired so the existing Phase 9 deploy workflow's source-map upload step has something to attach to. Hook `AppError`/unexpected errors from the API handler into Sentry.
+- **Sentry**: keep guarded client/server/edge runtime config plus each app's `src/lib/api/sentry-server-init.ts`; report unexpected wrapped API exceptions with environment and optional `COMMIT_SHA`. Root `instrumentation.ts` stays absent because it breaks SST/OpenNext packaging. Source-map upload remains unimplemented until CI supplies executable wiring and credentials.
 - **Microsoft Clarity**: extend the Phase 7 `Analytics` component to also load Clarity when `analytics` consent is granted AND `NEXT_PUBLIC_CLARITY_ID` is set — double-gated, no-op otherwise, with PII masking noted.
 - **PostHog feature flags**: add `apps/web/src/lib/flags.ts` (server) using `posthog-node` (guarded) per `deployment.md`, exposing `isFeatureEnabled(flag, distinctId)` that returns a safe default (`false`) when unconfigured, plus the launch kill-switch flag names as typed constants.
 - **Funnel events**: wire the existing `track()` helper (Phase 7 `lib/analytics/events.ts`) into the real flows for the events `observability.md` lists (`booking_started`, `booking_step_completed`, `booking_request_submitted`, `lead_form_submitted`, `offer_clicked`, etc.) — light-touch, client-side, no-op without a loaded provider.
@@ -73,7 +73,7 @@ apps/web/
   sentry.client.config.ts          ← Sentry browser init (guarded by DSN)
   sentry.server.config.ts          ← Sentry Node/SSR init (guarded)
   sentry.edge.config.ts            ← Sentry edge runtime init (guarded)
-  instrumentation.ts               ← Next register() → import the right sentry config
+  src/lib/api/sentry-server-init.ts ← runtime-select server/edge config; no root instrumentation.ts
   next.config.ts                   ← (edit) wrap with withSentryConfig (guarded, no-op without org/project)
   src/components/analytics/Analytics.tsx  ← (edit) add consent-gated Clarity loader
   src/lib/analytics/events.ts      ← (edit) add the observability.md funnel event names
@@ -108,25 +108,23 @@ LAUNCH.md                          ← launch runbook derived from launch-checkl
 
 ### Component 1: Sentry runtime
 
-Three config files + `instrumentation.ts`, each guarded:
+Each Next.js app keeps guarded runtime config files:
+`{sentry.client,sentry.server,sentry.edge}.config.ts`, plus
+`src/lib/api/sentry-server-init.ts`. A root `instrumentation.ts` is deliberately
+absent in both apps and MUST NOT be recreated: SST/OpenNext trace-copy fails when
+that entrypoint is present.
 
-```typescript
-// sentry.client.config.ts (and server/edge analogues)
-import * as Sentry from '@sentry/nextjs'
+Each app's API error handler side-effect-imports `sentry-server-init.ts`. On first
+server use, that module checks `NEXT_RUNTIME` and imports the matching server or
+edge config. Unexpected non-`AppError` exceptions caught by `withErrorHandler`
+are reported with `Sentry.captureException`; expected validation, auth, and
+business errors retain their normal responses. This path covers wrapped API
+handlers and is not the removed Next.js `onRequestError` global hook.
 
-const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN
-if (dsn) {
-  Sentry.init({
-    dsn,
-    environment: process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development',
-    release: process.env.COMMIT_SHA,
-    tracesSampleRate: 0.1,
-    enabled: process.env.NODE_ENV === 'production',
-  })
-}
-```
-
-`instrumentation.ts` `register()` imports the server config on the Node runtime and the edge config on the edge runtime (the standard Next 16 pattern). The API error handler calls `Sentry.captureException(err)` for unexpected (non-`AppError`) errors, guarded so it is a no-op when Sentry is uninitialised. `next.config.ts` is wrapped with `withSentryConfig(config, { silent: true })`; source-map upload only activates in CI when the Sentry org/project/token are present (the Phase 9 `deploy-prod.yml` already has the upload step).
+`next.config.ts` remains wrapped with `withSentryConfig`. Source-map upload is
+possible only when a build workflow supplies `SENTRY_ORG`, `SENTRY_PROJECT`, and
+`SENTRY_AUTH_TOKEN`; current `deploy-aws.yml` supplies none of them and has no
+explicit upload step.
 
 ### Component 2: Microsoft Clarity (in `Analytics.tsx`)
 

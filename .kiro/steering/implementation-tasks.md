@@ -60,7 +60,7 @@
 - [ ] FAQ page (`/faq`) — SSG, FAQPage JSON-LD
 
 ### 2.2 Booking System
-- [ ] `GET /api/services` — all categories + services (Cloudflare KV cache-ready)
+- [ ] `GET /api/services` — all categories + services; direct Neon read today (planned, not implemented: Upstash Redis cache with a 5-minute TTL)
 - [ ] `GET /api/availability` — slots for date + staff
 - [ ] Booking dialog component (4-step modal over homepage)
   - Step 1: Details + Date/Slot picker
@@ -194,7 +194,7 @@
 - [ ] GitHub Actions: CI workflow (lint, typecheck, unit tests, build)
 - [ ] GitHub Actions: Integration + E2E (Playwright, Lighthouse CI)
 - [ ] GitHub Actions: Load test + security (k6, Trivy, OWASP ZAP)
-- [ ] GitHub Actions: Deploy to prod (Cloudflare Workers — OpenNext)
+- [ ] GitHub Actions: Deploy web + admin with `.github/workflows/deploy-aws.yml` (`bunx sst deploy`, SST `sst.aws.Nextjs`)
 - [ ] Health check endpoint (`GET /api/health`)
 - [ ] Weekly backup workflow (pg_dump → R2)
 
@@ -207,7 +207,7 @@
 - [ ] PostHog funnels + feature flags
 - [ ] Checkly synthetic monitoring
 - [ ] Launch checklist verification
-- [ ] DNS: point theroyalglow.in → Cloudflare Workers (`rgss-web`)
+- [ ] DNS: keep Cloudflare authoritative DNS pointed at SST-provisioned CloudFront distributions; use only DNS-scoped `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_DEFAULT_ACCOUNT_ID`
 - [x] Mintlify documentation site at docs.theroyalglow.in
 
 ---
