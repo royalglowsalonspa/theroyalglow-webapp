@@ -374,12 +374,17 @@ Migrate service/category management from admin portal to Payload CMS. Establish 
     - Assert a matching state reports no divergence
     - _Requirements: 17.2, 17.3_
 
-- [x] 14. Verify cache freshness end-to-end
+- [x] 14. Verify current cache freshness end-to-end
   - [x] 14.1 Confirm edits propagate to the customer site within seconds
     - After an edit in Payload, verify `WEB_APP_URL/api/revalidate` is pinged (composed revalidate hook fires) and `/services`, `/services/[slug]`, and the booking dialog reflect the change
-    - Confirm all customer read surfaces (`getCatalogueServices`, `GET /api/services`, `getServiceBySlug`) read from Drizzle `public.*` — one consistent read source
-    - If a Cloudflare KV layer exists in front of `/api/services`, document its TTL (≤5 min) as an accepted tradeoff; on-demand revalidation remains primary
-    - _Requirements: 18.1, 18.2, 18.3, 18.4, 18.5_
+    - Confirm all customer read surfaces (`getCatalogueServices`, `GET /api/services`, `getServiceBySlug`) read directly from Drizzle `public.*` — one consistent Neon source with no Redis read-through cache
+    - Confirm the revalidation flow clears Next.js path data only; it does not invalidate Redis
+    - _Requirements: 18.1, 18.2, 18.3, 18.4_
+
+- [ ] 15. Implement the deferred Upstash catalogue cache
+  - Add a read-through cache with a TTL ≤5 minutes and explicit invalidation; keep Neon `public.*` authoritative
+  - This is planned work. No catalogue Redis `get`/`set`/`del` path exists today.
+  - _Requirements: 18.5_
 
 ## Notes
 

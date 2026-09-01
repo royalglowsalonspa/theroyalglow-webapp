@@ -49,16 +49,29 @@ Appended locally, not part of the upstream AWS rules file.
 
 **IaC choice.** The upstream rule prefers CDK or CloudFormation. This project uses
 **SST v3** (`sst.config.ts`), which is IaC on Pulumi and satisfies the intent — declarative,
-version-controlled, reviewable. Do not hand-create Lambda, CloudFront or S3 resources with
-CLI commands for `apps/web` / `apps/admin`; change `sst.config.ts` and deploy. The archived
-CloudFormation template at `infra/aws/_ec2-path/` belongs to a rejected architecture.
+version-controlled, reviewable. Both `apps/web` and `apps/admin` are declared with
+`sst.aws.Nextjs`, which uses OpenNext's AWS implementation to provision AWS Lambda and
+CloudFront. Production deploys run through `.github/workflows/deploy-aws.yml`; use
+`bunx sst deploy` for an equivalent manual deployment. Do not hand-create these resources or
+install/use Wrangler or a Cloudflare compute adapter. The archived CloudFormation template at
+`infra/aws/_ec2-path/` belongs to a rejected architecture.
 
 **Scope.** Only `apps/web` and `apps/admin` run on AWS. `apps/cms` stays on Render,
-`apps/invoicing` on Cloud Run, and Neon, Upstash, QStash, Resend, Ably and R2 are unchanged.
-Do not "helpfully" migrate these to AWS equivalents — that was explicitly rejected (`M2AWS.md` §2).
+`apps/invoicing` on Cloud Run, and Neon, Upstash, QStash, Resend, Ably and Cloudflare R2 are
+unchanged. Do not "helpfully" migrate these to AWS equivalents — that was explicitly rejected
+(`M2AWS.md` §2). Service catalogue and availability requests currently read Neon directly; no
+Upstash cache is implemented. A future five-minute cache may use Upstash, but do not add
+Cloudflare Worker KV.
+
+**Cloudflare boundary.** Cloudflare remains authoritative DNS and R2 storage, not compute.
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_DEFAULT_ACCOUNT_ID` are used only by SST's DNS
+integration during deployment. They are not Lambda runtime settings. R2 continues to use
+canonical `R2_*` credentials plus `NEXT_PUBLIC_R2_PUBLIC_URL`; do not rename them to
+`CLOUDFLARE_R2_*`.
 
 **Secrets.** Server secrets belong in SST Secrets (`bunx sst secret set …`), which stores them in
 SSM Parameter Store. `NEXT_PUBLIC_*` values are build-time only and are supplied as GitHub Actions
-variables — putting them in a secret store has no effect on the client bundle.
+variables — putting them in a secret store has no effect on the client bundle. DNS-only Cloudflare
+credentials belong in the deployment environment, not either application's runtime.
 
 **Do not use the root user.** See `M2AWS.md` §5.

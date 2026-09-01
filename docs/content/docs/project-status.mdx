@@ -83,7 +83,7 @@ is in an indeterminate state until this lands.
 
 In that spec's `tasks.md`, tasks through 3.8 are complete, but **task 4 — the
 final checkpoint — is still open**. Task 4 requires: *typecheck + build BOTH
-apps green (no dangling `@/lib/*` imports) and both Workers' health checks pass.*
+apps green (no dangling `@/lib/*` imports) and both apps' health checks pass.*
 That confirmation has not happened.
 
 </Accordion>
@@ -109,7 +109,7 @@ emitted SQL before `prod`.
 
 | Area | Action |
 | --- | --- |
-| **Secrets** | All keys in GitHub + Cloudflare env (canonical names in [Environment Variables](/content/docs/environment-variables)) |
+| **Secrets** | SST Secrets for web/admin server values; GitHub Actions variables for build-time/public config; Cloudflare token/account ID are DNS-only |
 | **DNS** | `theroyalglow.in`, `www`, `admin`, `status`, `docs` + SSL |
 | **OAuth** | Google consent-screen approval (can take days — start early) |
 | **Data** | Seed the Neon `prod` branch; create the first Owner |

@@ -33,6 +33,18 @@ Turn any folder of files into a navigable knowledge graph with community detecti
 /graphify explain "SwinTransformer"                   # plain-language explanation of a node
 ```
 
+## Windows workspace command override
+
+This repository runs under PowerShell. For queries against its existing graph, do not depend on a global launcher and do not use the Bash setup blocks below. Run:
+
+```powershell
+bun run graphify -- query "<question>"
+bun run graphify -- path "<A>" "<B>"
+bun run graphify -- explain "<concept>"
+```
+
+If Graphify is missing, run `bun run graphify:install` first. Root scripts pin `graphifyy==0.8.26` and invoke it through `py -m graphify`, avoiding stale Windows launcher and PATH failures.
+
 ## What graphify is for
 
 graphify is built around Andrej Karpathy's /raw folder workflow: drop anything into a folder - papers, tweets, screenshots, code, notes - and get a structured knowledge graph that shows you what you didn't know was connected.

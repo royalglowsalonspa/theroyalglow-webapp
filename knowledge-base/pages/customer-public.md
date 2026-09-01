@@ -62,7 +62,7 @@
 |----------|--------|
 | **Title** | Services |
 | **Purpose** | Browse all services with prices. Primary discovery page for what Royal Glow offers. |
-| **Rendering** | SSR (data from Neon via Cloudflare KV cache) |
+| **Rendering** | Next.js page shell with a client-side catalogue fetch from `GET /api/services` |
 | **SEO** | `<title>Services & Prices | Royal Glow Salon & SPA</title>` |
 | **JSON-LD** | `LocalBusiness` + `BreadcrumbList` + `Service` schema per service + `FAQPage` (service FAQs) |
 | **OG Image** | Services-specific branded image |
@@ -89,7 +89,7 @@
 - PostHog: `page_view`, `service_viewed` (on card expand/click)
 - Meta Pixel: `ViewContent` with `content_name` = category name
 
-**Data source:** `GET /api/services` (Cloudflare KV cached, 5-min TTL)
+**Data source:** `GET /api/services` → Drizzle → Neon (no Redis cache). A 5-minute Upstash read-through cache remains planned.
 
 ---
 

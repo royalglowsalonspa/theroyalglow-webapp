@@ -14,8 +14,8 @@ The Bun + Turborepo workspace holds four apps/packages workspaces:
 
 | Name | Type | Description |
 | --- | --- | --- |
-| `@rgss/web` | `theroyalglow.in` | Customer Next.js site — Cloudflare Worker rgss-web (dev port 3000). |
-| `@rgss/admin` | `admin.theroyalglow.in` | Admin portal Next.js app — Cloudflare Worker rgss-admin (dev port 3001). |
+| `@rgss/web` | `theroyalglow.in` | Customer Next.js site — AWS Lambda + CloudFront via SST (dev port 3000). |
+| `@rgss/admin` | `admin.theroyalglow.in` | Admin Next.js portal — AWS Lambda + CloudFront via SST (dev port 3001). |
 | `@rgss/cms` | `cms.theroyalglow.in` | Payload CMS v3 — Render service rgss-cms (dev port 3002). |
 | `@rgss/invoicing` | `Cloud Run` | PDF invoice render service. |
 
@@ -36,29 +36,21 @@ testable and framework-agnostic. Each layer may only import inward.
 
 ## Hosting topology
 
-The platform spans a Render origin and a Cloud Run service, backed by Neon, and is migrating to AWS. Pick a concern below.
+`apps/web` and `apps/admin` are live on AWS; Render now hosts only the CMS. Pick a concern below.
 
 <Tabs>
 
 <Tab title="Web & Admin">
 
-The customer site (`rgss-web`) and admin portal (`rgss-admin`) are Next.js 16 App Router apps
-served as Node servers (`next build` + `next start`) on **Render**, with the service catalogue
-cached in Redis (5-min TTL).
+The customer site (`apps/web`) and admin portal (`apps/admin`) are Next.js 16 App Router apps on **AWS Lambda behind CloudFront** in `ap-southeast-1`. `sst.config.ts` declares one `sst.aws.Nextjs` component per app; SST uses OpenNext to package the production output. Each app has an ARM64 SSR Lambda and its own CloudFront distribution.
 
-The target is **AWS Lambda + CloudFront**, deployed with SST (which wraps OpenNext): an ARM64 SSR
-function and a CloudFront distribution per app, in `ap-southeast-1` beside the Neon database. Only
-these two apps move — the CMS stays on Render and every managed dependency stays put, so no
-application code changes. See `M2AWS.md`.
-
-Cloudflare Workers via OpenNext was the original plan and is **retired** — the Worker bundle
-exceeded Cloudflare's free-plan script size limit, and the adapter has been removed from the repo.
+Cloudflare remains the authoritative DNS provider. SST manages only the DNS records needed for ACM validation and the public aliases; Cloudflare runs no web/admin application compute. Service catalogue endpoints read Neon directly through Drizzle. No Redis catalogue cache is implemented; a 5-minute Upstash read-through cache remains planned.
 
 </Tab>
 
-<Tab title="Origin & CMS">
+<Tab title="CMS & PDF">
 
-**Render (Singapore)** hosts the **Payload CMS** (`rgss-cms`) — a Node.js runtime, closest free region to India. The **`@rgss/invoicing`** PDF render service runs on **Cloud Run**.
+**Render (Singapore)** hosts the **Payload CMS** (`rgss-cms`, `cms.theroyalglow.in`). The **`@rgss/invoicing`** PDF render service remains on **Cloud Run**.
 
 </Tab>
 
@@ -70,7 +62,7 @@ A single **Neon** project with four branches (`prod`, `pprd`, `test`, `dev`). Th
 
 <Tab title="Media & Queue">
 
-**Cloudflare R2** for media (S3-compatible, zero egress). **Upstash Redis + QStash** for cache and queue. **Ably** for realtime.
+**Cloudflare R2** for media (S3-compatible, zero egress). **Upstash Redis** for distributed API rate limiting and **QStash** for background jobs. Five-minute catalogue/availability caches are planned, not live. **Ably** for realtime.
 
 </Tab>
 
@@ -82,7 +74,7 @@ Five layers, each on a free tier.
 
 | Name | Type | Description |
 | --- | --- | --- |
-| `Sentry` | `errors` | Application + Worker error monitoring. |
+| `Sentry` | `errors` | Guarded web/admin browser capture, wrapped API error capture, and optional invoicing capture. Payload CMS has no current Sentry wiring. |
 | `BetterStack` | `uptime` | Uptime, status page, job heartbeats, and logs. |
 | `PostHog` | `product analytics` | Product analytics plus feature flags. |
 | `Microsoft Clarity` | `UX` | Heatmaps and session replay. |

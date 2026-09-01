@@ -9,9 +9,9 @@
 | **Region** | `ap-southeast-1` (Singapore) — co-located with Neon ([§3](#3-region-choice)) |
 | **Tooling** | SST v3 (`sst.aws.Nextjs`, which wraps OpenNext) |
 | **Application code changes** | **Zero** ([§2](#2-why-nothing-else-moves)) |
-| **Cost** | ~$0.50–1.00/mo indefinitely. Always-free tier, **no 12-month cliff** ([§4](#4-cost-model)) |
+| **Cost** | ~$0–0.50/mo at launch. DNS stays on Cloudflare, so there is no Route 53 hosted-zone charge ([§4](#4-cost-model)) |
 | **Status** | **LIVE on the real domains, 29/08/2026.** https://theroyalglow.in and https://admin.theroyalglow.in serve from CloudFront with ACM certificates; `www` 301-redirects to the apex. DNS stayed on Cloudflare ([§9](#9-cutover)) |
-| **Rollback** | **None.** The Render web service is suspended (`theroyalglow.in` returns 503), so the 7-day fallback in [§9](#9-cutover) no longer exists. AWS is the only working deployment |
+| **Rollback** | **No tested platform fallback.** Web/admin Render services are suspended out-of-band; recover by inspecting SST/Pulumi state and redeploying a known-good ref ([§8](#8-phase-3--cicd)) |
 
 ---
 
@@ -29,14 +29,15 @@
 |---|---|---|
 | PostgreSQL | **Neon**, 4 branches | Free forever, HTTP driver needs no VPC, and the branch model underpins `migration-discipline.md`, `replicate-prod-to-pprd.yml` and the `neon-admin.ts` drift tooling. RDS has no branching. |
 | Object storage | **Cloudflare R2** | S3-compatible, zero egress, already working. Nothing gained by moving it. |
-| Cache + rate limit | **Upstash Redis** | `@upstash/ratelimit` talks REST; free tier is ample. |
+| Rate limiting | **Upstash Redis** | `@upstash/ratelimit` talks REST; free tier is ample. Catalogue and availability reads do not use Redis. |
 | 19 background jobs | **QStash** | They POST to `admin.theroyalglow.in`, which is unchanged by this migration. |
 | Transactional email | **Resend** | Works; SES would mean a new provider and a sandbox-exit wait. |
 | Realtime | **Ably** | 6M msg/mo free; IoT Core would be the single largest code change in the project. |
 | Errors, analytics, uptime | Sentry, PostHog, BetterStack | No AWS equivalent worth building. |
 
 **AWS surface used:** Lambda, CloudFront, S3, DynamoDB + SQS (both created and managed by SST for
-ISR), Route 53, ACM, SSM Parameter Store (SST secrets), CloudWatch Logs, IAM.
+ISR), ACM, SSM Parameter Store (SST secrets), CloudWatch Logs, IAM. Cloudflare remains the
+authoritative DNS provider through `sst.cloudflare.dns()`.
 
 ---
 
@@ -62,9 +63,11 @@ Lambda available, the chain collapses:
 3. Therefore the ten-item application change inventory becomes **zero**, including the High-risk
    `DB_DRIVER` swap that touched every query path.
 
-The rejected design is preserved, complete and verified, at
-[`infra/aws/_ec2-path/`](infra/aws/_ec2-path/ARCHIVED.md). It is the fallback if OpenNext ever
-stalls on a Next.js release, or if you later decide the database should live inside AWS.
+The rejected EC2 design is archived at
+[`infra/aws/_ec2-path/`](infra/aws/_ec2-path/ARCHIVED.md) as historical design input only. It is
+not deployed, tested as rollback, or part of current recovery. Adopting it would require a new
+migration decision, refreshed infrastructure and security review, data/service migration planning,
+validation, and a new cutover.
 
 **Amplify Hosting was also rejected:** AWS documents its compute provider for Next.js 12–15, and
 you are on 16.2.12 — the one target whose stated support boundary you would be outside. Its free
@@ -115,7 +118,7 @@ first one:
 
 1. Collapse sequential queries into parallel `Promise.all` or single joined queries. This is
    usually the whole problem: 5 sequential 60 ms round trips become one.
-2. Cache hot reads in Upstash (the service catalogue already has a 5-min TTL pattern to copy).
+2. Cache suitable hot reads in Upstash where measurements justify it. The service catalogue is a candidate for a future 5-minute cache; it reads Neon directly today.
 3. Prefer static/ISR over dynamic rendering wherever the page is not per-user.
 
 **Only if latency is still unacceptable**, escalate in this order:
@@ -140,11 +143,12 @@ Record the decision and the numbers here when the month is up, so the next perso
 | S3 (static assets) | 5 GB | 12 months, then cents |
 | CloudWatch Logs | 5 GB ingest | **Never** |
 | ACM certificates | unlimited | **Never** |
-| Route 53 | — | $0.50 / hosted zone / mo |
 
-**Total: ~$0.50–1.00/mo, indefinitely.** Neon, Upstash, QStash, Ably, Resend and Render all stay
-on their free tiers. Still set an **AWS Budgets** alarm at $5/mo — a runaway ISR loop or a
-misconfigured cache is the realistic failure mode, not steady-state traffic.
+**Total: approximately $0–0.50/mo at launch.** DNS stays on Cloudflare, so there is no Route 53
+hosted-zone fee. S3 can add cents after its 12-month free tier; request/compute charges remain
+usage-dependent. Neon, Upstash, QStash, Ably, Resend and the Render CMS stay on their existing
+tiers. Keep the **AWS Budgets** alarm at $5/mo — a runaway ISR loop or misconfigured cache is the
+realistic failure mode, not steady-state traffic.
 
 ---
 
@@ -334,20 +338,22 @@ branch, per `.kiro/steering/migration-discipline.md`.
 
 ### Rollback — the honest weak spot
 
-There is no single-command rollback like the EC2 path's `deploy.sh <previous-sha>`. Options,
-fastest first:
+There is no single-command rollback like the EC2 path's `deploy.sh <previous-sha>`, and there is
+no tested Render fallback. Options, fastest first:
 
-| Failure | Action | Time |
+| Failure | Action | Typical time |
 |---|---|---|
-| Bad feature / UI bug | PostHog feature flag off | < 10 s |
-| Bad release | `git revert` + push, or `sst deploy` from a previous tag | 3–5 min |
-| Failed deploy | Nothing — CloudFront keeps serving the previous version | 0 |
-| Bad migration | Forward-fix migration, or Neon PITR | < 10 min |
-| AWS-side problem | Repoint DNS to Render | < 15 min during the 7-day window |
+| Bad feature / UI bug | Disable the PostHog feature flag | < 10 s |
+| Bad release | `git revert` + push, or deploy a known-good tag with `bunx sst deploy --stage production` | 3–10 min |
+| Failed or incomplete SST update | Inspect GitHub Actions and SST/Pulumi logs plus stack state; check both `/api/health` endpoints; redeploy a known-good ref if either app or stack is unhealthy | Depends on stack state |
+| Bad migration | Apply a new forward-fix migration, or use Neon PITR under the migration runbook | < 10 min |
+| AWS service degradation | Check AWS status, CloudWatch, and BetterStack; recover or redeploy after the dependency is healthy | Incident-dependent |
 
-A deploy that *fails* is safe; only a deploy that succeeds and then misbehaves needs a rollback.
-PostHog flags remain the primary instant kill switch, exactly as
-`knowledge-base/deployment.md` specifies.
+SST/Pulumi updates can partially apply. A failed command does **not** prove CloudFront, Lambda,
+S3, DNS, or stack state remained on the previous release. Always inspect the update, verify both
+public health endpoints, and redeploy a known-good ref when state or behavior is uncertain.
+PostHog flags remain the primary instant kill switch. The dormant Render definitions are
+reactivation templates only, not a supported rollback path.
 
 ---
 
@@ -358,10 +364,11 @@ Order matters. Everything is verifiable before any customer traffic moves.
 1. `bunx sst deploy --stage production` **with no `domain` block**. SST prints CloudFront URLs.
 2. Verify on those URLs: `/api/health` reports `database: pass`; Google sign-in; create a booking;
    generate an invoice PDF; load the admin dashboard.
-3. **Google OAuth** — add redirect URIs for both new origins in Google Cloud Console, *keeping*
-   the Render ones so rollback can still sign in.
-4. Move the DNS zone to **Route 53** (copy every existing record first), or keep the current DNS
-   provider and use `sst.cloudflare.dns()`. Lower TTL to 60 s and wait out the old TTL.
+3. **Google OAuth** — add redirect URIs for both AWS-hosted origins in Google Cloud Console.
+   Remove obsolete Render redirect URIs after production sign-in is verified.
+4. Keep the authoritative zone on **Cloudflare**. Remove conflicting legacy apex, `www`, and
+   `admin` records, then configure each SST domain with `sst.cloudflare.dns({ zone })`. Lower the
+   affected TTLs to 60 s before cutover and wait out their previous TTLs.
 5. Add the `domain` blocks to `sst.config.ts` and redeploy. SST requests and validates ACM
    certificates automatically.
 6. Smoke test the list from `knowledge-base/deployment.md`: `/`,
@@ -398,7 +405,9 @@ architecture.
 Stated plainly, because they are real:
 
 - **OpenNext is community-maintained**, not an AWS product. A future Next.js release could outpace
-  it. Mitigation: Render stays live, and `infra/aws/_ec2-path/` is a complete fallback.
+  it. Mitigation: pin compatible versions and validate upgrades before production deployment. If
+  OpenNext becomes unsuitable, evaluate the archived EC2 design as one input to a new migration;
+  do not treat it as rollback or current recovery machinery.
 - **Cold starts.** First request after idle is slower than a warm container. At pre-launch traffic
   this mostly affects you during testing. SST supports a warmer if it ever matters.
 - **Rollback is minutes, not seconds** ([§8](#8-phase-3--cicd)).
@@ -419,18 +428,18 @@ surface is small:
 | 1 | Next.js SSR hosting | Lambda + CloudFront (SST/OpenNext) | Container Apps or Static Web Apps | Cloud Run |
 | 2 | Secret storage | SSM Parameter Store (SST Secrets) | Key Vault | Secret Manager |
 | 3 | CDN + TLS | CloudFront + ACM | Front Door | Cloud CDN |
-| 4 | DNS | Route 53 | Azure DNS | Cloud DNS |
-| 5 | Logs + metrics | CloudWatch | Monitor | Cloud Logging |
+| 4 | Logs + metrics | CloudWatch | Monitor | Cloud Logging |
 
-Everything else — database, cache, jobs, email, realtime, storage, CMS — is cloud-agnostic SaaS
-and does not appear in a port. That is the point of this architecture.
+Everything else — authoritative DNS (Cloudflare), database, cache, jobs, email, realtime, object
+storage, and CMS — is cloud-agnostic SaaS and does not move with the compute port. That is the
+point of this architecture.
 
 ---
 
 ## 13. Progress checklist
 
-Phase 0 is done; Phase 1–2 is done bar the optional items. No CloudFront distribution exists yet,
-so nothing is serving from AWS.
+Phase 0 and the production AWS deployment are complete; remaining entries are operational follow-ups.
+The CloudFront distributions, ACM certificates, and real domains are live.
 
 **Phase 0**
 - [x] AWS account created (`343277178041`)
@@ -476,8 +485,9 @@ so nothing is serving from AWS.
 - [ ] **Web health is `degraded`, and neither cause is AWS:**
       - Upstash Redis is **gone** — `equal-doe-141923.upstash.io` no longer
         resolves in DNS, from Lambda or from a laptop. Create a new database and
-        update `UpstashRedisRestUrl` / `UpstashRedisRestToken`. Rate limiting and
-        the 5-min service-catalogue cache are down until then.
+        update `UpstashRedisRestUrl` / `UpstashRedisRestToken`. Distributed
+        rate limiting and the Redis health probe are down until then. Catalogue
+        and availability reads continue directly against Neon.
       - R2 has no `.health` sentinel object, so the probe's HEAD returns 404.
         R2 itself is reachable (the `r2.dev` host answers). Upload an empty
         `.health` key to `theroyalglow-uploads`.

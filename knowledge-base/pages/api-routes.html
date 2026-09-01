@@ -153,10 +153,10 @@
         <div class="route-row">
             <span class="method-badge method-GET">GET</span>
             <span class="route-path">/api/services</span>
-            <span class="route-desc">All service categories + services list</span>
+            <span class="route-desc">Active categories + services, read directly from Neon through Drizzle</span>
             <div class="route-tags">
                 <span class="tag tag-noauth">🔓 No Auth</span>
-                <span class="tag tag-cache">⚡ KV 5min</span>
+                <span class="tag tag-nocache">No Redis Cache</span>
             </div>
         </div>
     </div>
@@ -165,10 +165,10 @@
         <div class="route-row">
             <span class="method-badge method-GET">GET</span>
             <span class="route-path">/api/services/[slug]</span>
-            <span class="route-desc">Single service detail by slug</span>
+            <span class="route-desc">Single active service detail, read directly from Neon through Drizzle</span>
             <div class="route-tags">
                 <span class="tag tag-noauth">🔓 No Auth</span>
-                <span class="tag tag-cache">⚡ KV Cached</span>
+                <span class="tag tag-nocache">No Redis Cache</span>
             </div>
         </div>
     </div>
@@ -177,10 +177,10 @@
         <div class="route-row">
             <span class="method-badge method-GET">GET</span>
             <span class="route-path">/api/availability</span>
-            <span class="route-desc">Available time slots. Query: date, serviceIds[], staffId</span>
+            <span class="route-desc">Generic 30-minute grid from business-hours settings. Query: date, branchId</span>
             <div class="route-tags">
                 <span class="tag tag-noauth">🔓 No Auth</span>
-                <span class="tag tag-nocache">No Cache</span>
+                <span class="tag tag-nocache">No Redis Cache</span>
             </div>
         </div>
     </div>

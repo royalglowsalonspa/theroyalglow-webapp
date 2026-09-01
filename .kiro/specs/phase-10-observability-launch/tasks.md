@@ -6,12 +6,12 @@ Wire the observability stack into the running app and ship launch assets: Sentry
 
 ## Tasks
 
-- [x] 1. Sentry runtime init (guarded) + API capture
-  - Add `@sentry/nextjs` to `apps/web` deps; run `bun install`
-  - Create `apps/web/sentry.client.config.ts`, `apps/web/sentry.server.config.ts`, `apps/web/sentry.edge.config.ts`: each `Sentry.init({...})` ONLY when `process.env.NEXT_PUBLIC_SENTRY_DSN` is set; `environment: process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development'`, `release: process.env.COMMIT_SHA`, `tracesSampleRate: 0.1`, `enabled: process.env.NODE_ENV === 'production'`, `sendDefaultPii: false`
-  - Create `apps/web/instrumentation.ts`: `export async function register()` importing the server config on `NEXT_RUNTIME === 'nodejs'` and the edge config on `'edge'`; `export const onRequestError` from `@sentry/nextjs` (`captureRequestError`) per Next 16
-  - Edit `apps/web/next.config.ts`: wrap the existing exported config with `withSentryConfig(config, { silent: true })` — must remain a no-op for source-map upload without `SENTRY_ORG`/`SENTRY_PROJECT`/`SENTRY_AUTH_TOKEN` (CI-only). Preserve the existing `transpilePackages`
-  - Edit `apps/web/src/lib/api/error-handler.ts`: in the unexpected-error branch (the `console.error(...)` path, NOT the `AppError` branch), call `Sentry.captureException(error)` via a guarded import so it is a no-op when Sentry is uninitialised; keep the existing 500 response shape unchanged
+- [x] 1. Sentry runtime init through API bootstrap
+  - Keep guarded client/server/edge config files in both `apps/web` and `apps/admin`.
+  - Keep each app's `src/lib/api/sentry-server-init.ts`; it selects the Node or edge config from `NEXT_RUNTIME`.
+  - Keep the side-effect import in each API error handler and call `Sentry.captureException` only in the unexpected-error branch.
+  - **DO NOT** create `apps/web/instrumentation.ts` or `apps/admin/instrumentation.ts`; either file breaks SST/OpenNext packaging.
+  - Keep `withSentryConfig` build-safe without Sentry credentials. Source-map upload is unimplemented until executable CI steps and credentials are added; Phase 9 does not currently upload source maps.
   - _Requirements: 1.1, 1.2, 1.3, 1.4_
 
 - [x] 2. Microsoft Clarity loader (consent-gated) in Analytics.tsx
@@ -49,8 +49,8 @@ Wire the observability stack into the running app and ship launch assets: Sentry
 - Guarded everywhere: Sentry/Clarity/PostHog/flags read keys from `process.env` (or `@/env` where already validated) behind truthy guards; absent keys → inert. Consent still gates Clarity (analytics) and PostHog (analytics) / Meta Pixel (marketing). Sentry loads independent of consent (operational telemetry) but `sendDefaultPii: false`.
 - Feature-flag kill-switches default ON for core features so a PostHog outage never disables booking/membership/offers; experimental flags default OFF.
 - `track()` (Phase 7) is already no-op-safe — funnel wiring just adds call sites at clean points; no business logic in components.
-- Checkly scripts + Fumadocs site are their own concerns: `checkly` is a devDependency (ops-run); `docs/` is an independent workspace app, never in the web bundle. Both must not break the web/cms build.
-- `withSentryConfig` is inert for source-map upload without `SENTRY_ORG`/`SENTRY_PROJECT`/`SENTRY_AUTH_TOKEN` (CI-only); the Phase 9 `deploy-prod.yml` already has the upload step.
+- Checkly scripts + Mintlify site are their own concerns: `checkly` is a devDependency (ops-run); docs remain hosted by Mintlify and outside the web bundle. Neither must break the web/cms build.
+- `withSentryConfig` remains build-safe without `SENTRY_ORG`/`SENTRY_PROJECT`/`SENTRY_AUTH_TOKEN`. Current `deploy-aws.yml` has no explicit source-map upload step; treat upload as unimplemented until executable CI wiring is added.
 - No DB schema changes. No money/date handling introduced.
 - PowerShell verification: `cd apps/web; $env:SKIP_ENV_VALIDATION=1; bunx tsc --noEmit` (POSIX `VAR=1 cmd` fails on this shell).
 - Provisioning Sentry/BetterStack/PostHog/Clarity/Checkly accounts, DNS, secrets, monitors, and launch-day execution are OPS steps per `launch-checklist.md` — this phase delivers the code/config they switch on.

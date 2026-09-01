@@ -686,7 +686,7 @@
                     <p class="page-purpose">Browse all services with prices. Primary discovery page for what Royal Glow offers.</p>
                 </div>
                 <div class="badges">
-                    <span class="badge badge-ssr">SSR</span>
+                    <span class="badge badge-ssr">Client Fetch</span>
                     <span class="badge badge-seo">Service Schema</span>
                     <span class="badge badge-jsonld">JSON-LD per service</span>
                     <span class="badge badge-analytics">PostHog + Meta</span>
@@ -694,11 +694,11 @@
             </div>
             <div class="page-card-body">
                 <table class="props-table">
-                    <tr><th>Rendering</th><td>SSR (data from Neon via Cloudflare KV cache)</td></tr>
+                    <tr><th>Rendering</th><td>Next.js page shell with a client-side catalogue fetch</td></tr>
                     <tr><th>Title</th><td><code>Services &amp; Prices | Royal Glow Salon &amp; SPA</code></td></tr>
                     <tr><th>JSON-LD</th><td><code>LocalBusiness</code> + <code>BreadcrumbList</code> + <code>Service</code> per service + <code>FAQPage</code></td></tr>
                     <tr><th>Canonical</th><td><code>https://theroyalglow.in/services</code></td></tr>
-                    <tr><th>Data Source</th><td><code>GET /api/services</code> (Cloudflare KV cached, 5-min TTL)</td></tr>
+                    <tr><th>Data Source</th><td><code>GET /api/services</code> reads Neon directly through Drizzle (no Redis cache; 5-minute Upstash cache planned)</td></tr>
                     <tr><th>Price Format</th><td><code>&#8377;X,XXX.00</code> with "Incl. 18% GST" note</td></tr>
                 </table>
 

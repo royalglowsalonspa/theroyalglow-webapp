@@ -35,14 +35,14 @@ difference is called out so the spec stays executable.
 - **C1 — Subdomain ownership (RESOLVED).** CMS is confirmed hosted at
   `cms.theroyalglow.in` on Render (Payload CMS only); `apps/cms` stays exactly
   as-is and is not moved or restructured by this spec. Because the CMS already
-  lives on its own subdomain, `admin.theroyalglow.in` is **free** and available
-  for the new admin app. The admin DNS cutover (Req 6) is therefore **no longer
-  blocked** by any external/CMS-move spec — it can proceed directly once the
-  admin app passes health and smoke checks on `rgss-admin.workers.dev`. The one
-  remaining correction owned by this spec is the web `next.config.ts` image
-  `remotePatterns` host, which still points at `admin.theroyalglow.in` and must
-  be changed to `cms.theroyalglow.in` so the customer site loads CMS/Payload
-  images from the correct origin (now IN scope here — see §9).
+  lives on its own subdomain, `admin.theroyalglow.in` is available for the admin
+  app. The admin custom domain is now provisioned by SST on the Admin_App
+  `sst.aws.Nextjs` CloudFront distribution, while Cloudflare remains authoritative
+  DNS only. Validate a pre-production SST stage through its SST output URL before
+  production DNS cutover. The one remaining correction owned by this spec is the
+  web `next.config.ts` image `remotePatterns` host, which must be
+  `cms.theroyalglow.in` so the customer site loads CMS/Payload images from the
+  correct origin (see §9).
 - **C2 — Better Auth cookie domain.** `auth-server.ts` does not set a
   cross-subdomain cookie domain today. Sharing sessions across subdomains
   (Req 4.1, 4.8) requires enabling Better Auth `advanced.crossSubDomainCookies`
@@ -76,12 +76,14 @@ difference is called out so the spec stays executable.
 
 ```mermaid
 graph TD
-  U["User browser"] -->|"DNS"| CF["Cloudflare (proxied)"]
+  U["User browser"] -->|"authoritative DNS"| CFDNS["Cloudflare DNS only"]
 
-  CF -->|"theroyalglow.in"| WEB["apps/web — rgss-web<br/>customer site"]
-  CF -->|"admin.theroyalglow.in<br/>CNAME -> rgss-admin.workers.dev"| ADM["apps/admin — rgss-admin<br/>admin portal"]
-  CF -->|"cms.theroyalglow.in"| CMS["apps/cms — Payload CMS"]
-  CF -->|"docs.theroyalglow.in"| DOCS["docs/ — Fumadocs"]
+  CFDNS -->|"theroyalglow.in"| WEBCF["AWS CloudFront<br/>Web_App"]
+  CFDNS -->|"admin.theroyalglow.in"| ADMCF["AWS CloudFront<br/>Admin_App"]
+  CFDNS -->|"cms.theroyalglow.in"| CMS["apps/cms — Payload CMS<br/>Render"]
+  CFDNS -->|"docs.theroyalglow.in"| DOCS["Mintlify hosted docs"]
+  WEBCF --> WEB["apps/web<br/>AWS Lambda"]
+  ADMCF --> ADM["apps/admin<br/>AWS Lambda"]
 
   WEB --> PKGS["Shared packages<br/>@rgss/db · business · types · errors · logger"]
   ADM --> PKGS
@@ -92,11 +94,13 @@ graph TD
   WEB -.->|"301 /admin/* -> admin.theroyalglow.in/*"| ADM
 ```
 
-The admin app is a sibling Cloudflare Workers (OpenNext) worker (`rgss-admin`). It shares the
-session cookie scope `.theroyalglow.in` with the customer site so a user signed
-in on `theroyalglow.in` is recognised on `admin.theroyalglow.in` without
-re-authenticating. The admin app never renders its own sign-in; unauthenticated
-visitors are bounced to the customer domain where Google One Tap / sign-in lives.
+SST declares Web_App and Admin_App as separate `sst.aws.Nextjs` resources, each
+backed by Lambda and CloudFront. Cloudflare remains authoritative DNS only. The
+admin app shares the session cookie scope `.theroyalglow.in` with the customer
+site so a user signed in on `theroyalglow.in` is recognised on
+`admin.theroyalglow.in` without re-authenticating. The admin app never renders
+its own sign-in; unauthenticated visitors are bounced to the customer domain
+where Google One Tap / sign-in lives.
 
 ### Layered structure (unchanged layer rules)
 
@@ -418,18 +422,22 @@ CSP nonce:
 
 ### 8. DNS & deployment
 
-- Cloudflare Workers (OpenNext) worker `rgss-admin`; proxied CNAME
-  `admin.theroyalglow.in → rgss-admin.workers.dev` (Req 6.1, 6.2). The subdomain is
-  free for the admin app — CMS already lives at `cms.theroyalglow.in` on Render
-  (unchanged by this spec) — so the DNS cutover has **no external blocker** (C1
-  resolved). The admin app is validated on its `rgss-admin.workers.dev` URL during
-  phases 1–4, then cut over to `admin.theroyalglow.in` directly.
-- New workflow `.github/workflows/deploy-admin-prod.yml` triggers on pushes to
-  `prod` touching `apps/admin/**` or `packages/**`; builds with
-  `bunx opennextjs-cloudflare build` (workingDirectory `apps/admin`), uploads source maps to a **separate
-  admin Sentry project**, deploys via `cloudflare/wrangler-action` (`command: deploy`) to the `rgss-admin` worker, then runs a
-  health check against `https://admin.theroyalglow.in/api/health` (200 within
-  30s, up to 3 attempts, 10s apart; fail → failure notification) (Req 6.3–6.6).
+- `sst.config.ts` declares Admin_App with `sst.aws.Nextjs`, which packages Next.js
+  through OpenNext's AWS implementation and provisions Lambda + CloudFront.
+  Cloudflare stays authoritative DNS only and points `admin.theroyalglow.in` at
+  the SST-provisioned CloudFront custom-domain target. A pre-production SST stage
+  is validated through its SST output URL before production cutover. No Worker,
+  Pages, Wrangler, or Cloudflare compute resource is involved.
+- `.github/workflows/deploy-aws.yml` runs `bunx sst deploy` for the shared SST
+  application. It does not upload Sentry source maps or run database migrations.
+  When `AWS_DOMAINS_LIVE == 'true'`, the same job retries both web and admin
+  `/api/health` endpoints up to 6 times, waiting 15 seconds between attempts.
+  Failure stops the job and attempts incident notification; the operator then
+  inspects SST/Pulumi state and public behavior before manually redeploying a
+  known-good `git_ref` if needed (Req 6.3–6.6).
+- SST's Cloudflare DNS integration may use `CLOUDFLARE_API_TOKEN` and
+  `CLOUDFLARE_DEFAULT_ACCOUNT_ID` in the deployment environment. These are
+  DNS-only credentials, never Admin_App runtime variables.
 
 ### 9. Web cleanup & redirects (`apps/web`)
 
@@ -458,12 +466,13 @@ graph TD
   CH -->|"apps/admin or packages"| AJ["admin: lint+typecheck+test+build<br/>turbo --filter=@rgss/admin"]
   CH -->|"apps/web or packages"| WJ["web: lint+typecheck+test+build<br/>turbo --filter=@rgss/web"]
   AJ --> LH["Lighthouse CI vs admin.theroyalglow.in<br/>perf>=90 a11y=100 bp>=95"]
-  AJ --> DA["deploy-admin-prod (prod only)"]
-  WJ --> DW["deploy-prod (prod only)"]
+  AJ --> DEPLOY["deploy-aws (prod only)<br/>bunx sst deploy"]
+  WJ --> DEPLOY
 ```
 
 Each app job runs independently and reports its own status; total workflow
-timeout 15 min. A failed app build blocks only that app's deploy (Req 10.7).
+timeout 15 min. Any failed required app build blocks the single shared SST
+production deployment, preserving both currently deployed versions (Req 10.7).
 Lighthouse CI runs against the admin URL with the stated thresholds (Req 10.6).
 
 ### 11. Shared UI & design tokens
@@ -492,9 +501,9 @@ keyboard nav, `prefers-reduced-motion` (Req 13.4).
 - `implementation-tasks.md`: repoint Phase 3 paths from `apps/web/app/admin/` to
   `apps/admin/app/` and retitle Phase 3.
 - `features.md`: note admin is served at `admin.theroyalglow.in` root paths.
-- `deployment.md`: add an Admin_App section (project name `rgss-admin`, workflow
-  `deploy-admin-prod.yml`, build command, output dir `apps/admin/.next`, health
-  path `/api/health`).
+- `deployment.md`: document the Admin_App `sst.aws.Nextjs` resource,
+  `.github/workflows/deploy-aws.yml`, `bunx sst deploy`, its CloudFront custom
+  domain, and health path `/api/health`.
 
 ---
 
@@ -762,12 +771,16 @@ property-based tests for the pure decision logic.
 ### Pipeline gates
 
 - Admin and web run as separate parallel CI jobs, path-filtered; each reports its
-  own status within a 15-min total budget; a failed app build blocks only that
-  app's deploy (Req 10.1–10.4, 10.7, 15.4).
+  own status within a 15-min total budget; any failed required app build blocks
+  the single shared SST production deployment (Req 10.1–10.4, 10.7, 15.4).
 - Lighthouse CI against `admin.theroyalglow.in`: performance ≥ 90, accessibility
   = 100, best practices ≥ 95 (Req 10.6, 13.4).
-- Post-deploy health check: GET `/api/health` returns 200 within 30s, 3 attempts
-  at 10s intervals; failure → failure notification (Req 6.4, 6.5).
+- Public-domain post-deploy gate (only when `vars.AWS_DOMAINS_LIVE == 'true'`):
+  GET both `https://theroyalglow.in/api/health` and
+  `https://admin.theroyalglow.in/api/health`; both must return 200 in the same
+  round within 6 rounds, with a 15-second wait after an unsuccessful round.
+  Exhaustion fails the workflow and triggers a best-effort failure notification
+  when the incident webhook is configured (Req 6.4, 6.5).
 
 > Per coding standards, test files are committed only when explicitly requested;
 > the tasks phase will create them as part of implementation.

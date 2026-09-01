@@ -157,10 +157,9 @@ describe('admin-web-separation: no admin/web-separation migration (Req 9.7)', ()
 const ADMIN_SRC = join(REPO_ROOT, 'apps', 'admin', 'src')
 const WEB_JOBS_DIR = join(WEB_SRC, 'app', 'api', 'jobs')
 const ADMIN_JOBS_DIR = join(ADMIN_SRC, 'app', 'api', 'jobs')
-// The Cloudflare deploy workflows were retired (web/admin/cms now deploy from git
-// via Render — see render.yaml), so QStash registration moved to its own
-// dispatchable workflow. The OWNERSHIP invariant is unchanged: registration
-// belongs to the admin side and must never appear in a customer-side workflow.
+// QStash schedule registration is intentionally independent from the AWS app
+// deployment. The OWNERSHIP invariant is unchanged: registration belongs to
+// the admin side and must never appear in a customer-side workflow.
 const REGISTER_SCHEDULES_WORKFLOW = join(
   REPO_ROOT,
   '.github',
@@ -203,10 +202,8 @@ describe('admin-web-separation: triggered job routes are defined in exactly one 
 
 describe('admin-web-separation: QStash schedule registration is owned by the admin side (Req 2.2, 3.6) [isBugCondition: misplaced]', () => {
   it('no customer-side workflow registers QStash schedules', () => {
-    // Originally this asserted specifically that deploy-prod.yml (the customer
-    // deploy) had no registration step. That workflow no longer exists, so the
-    // check is now generalised: registration may appear ONLY in the dedicated
-    // admin-owned register-schedules workflow, whichever other workflows exist.
+    // Registration may appear ONLY in the dedicated admin-owned
+    // register-schedules workflow, whichever other workflows exist.
     const offenders = readdirSync(CUSTOMER_WORKFLOWS_DIR)
       .filter((file) => file.endsWith('.yml') || file.endsWith('.yaml'))
       .filter((file) => file !== 'register-schedules.yml')
@@ -407,8 +404,8 @@ describe('admin-web-separation: register-schedules + JOB_SCHEDULES resolve in ad
 
   it('register-schedules builds the destination origin from NEXT_PUBLIC_APP_URL and reads JOB_SCHEDULES', () => {
     const script = readFileSync(ADMIN_REGISTER_SCRIPT, 'utf8')
-    // Origin comes from process.env.NEXT_PUBLIC_APP_URL (fed the admin URL var
-    // by deploy-admin-prod.yml) — so the 15 schedules target the admin origin.
+    // Origin comes from process.env.NEXT_PUBLIC_APP_URL; the dedicated
+    // registration workflow supplies the admin URL, so schedules target admin.
     expect(script).toContain('process.env.NEXT_PUBLIC_APP_URL')
     // Consumes the single schedules source of truth.
     expect(script).toMatch(/import\s*\{\s*JOB_SCHEDULES\s*\}\s*from\s*['"][^'"]*schedules['"]/)
@@ -429,10 +426,8 @@ describe('admin-web-separation: QStash schedule registration is wired to the adm
   })
 
   it('register-schedules.yml registers schedules against the admin origin', () => {
-    // Was deploy-admin-prod.yml; that Cloudflare deploy was retired when hosting
-    // moved to Render, so the registration now lives in its own dispatchable
-    // workflow. The invariant is identical: it runs the admin script and feeds it
-    // the ADMIN origin.
+    // Dedicated registration remains independently dispatchable. It runs the
+    // admin-owned script and supplies the admin origin.
     const workflow = readFileSync(REGISTER_SCHEDULES_WORKFLOW, 'utf8')
     expect(workflow).toContain('Register QStash schedules')
     expect(workflow).toContain('bun run register-schedules')

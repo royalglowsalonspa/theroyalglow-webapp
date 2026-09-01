@@ -2,8 +2,9 @@
 
 ## Introduction
 
-This feature has two coordinated goals for the Royal Glow Salon & Spa documentation
-site (`docs.theroyalglow.in`, the Fumadocs app in `docs/`):
+This feature records two coordinated goals for the former Fumadocs implementation under
+`docs/`. The live `docs.theroyalglow.in` site is hosted by Mintlify and remains outside both
+AWS/SST application compute and Cloudflare compute:
 
 1. **Visual restyle.** Reproduce the look and feel of two reference documentation
    sites — `https://sunar.js.org/docs` and `https://www.expostarter.com/docs`
@@ -28,8 +29,7 @@ working dark/light mode, and respect for `prefers-reduced-motion`.
 
 ## Glossary
 
-- **Docs_Site**: The Fumadocs (Next.js App Router) documentation application in the
-  `docs/` directory, deployed to Cloudflare Workers (OpenNext) at `docs.theroyalglow.in`.
+- **Docs_Site**: The documentation site at `docs.theroyalglow.in`, currently hosted by Mintlify. The Fumadocs application under `docs/` described by this historical feature is not an AWS or Cloudflare compute deployment.
 - **Reference_Sites**: The two external documentation sites whose visual style is
   being matched — `sunar.js.org/docs` and `expostarter.com/docs`.
 - **Theme_System**: The custom Fumadocs theme layer — color tokens, typography,

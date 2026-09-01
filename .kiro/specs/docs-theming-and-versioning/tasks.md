@@ -12,8 +12,9 @@ components, search endpoint, SEO routes, the cut-version script, and the
 integration/a11y/perf gates wire everything together at the end.
 
 Constraints applied throughout: TypeScript strict (no `any`); Biome style (single
-quotes, no semicolons); Bun as runner/package manager; edge-compatible
-(Cloudflare). All existing MDX documents and `/docs/*` URLs are preserved (latest
+quotes, no semicolons); Bun as runner/package manager; platform-neutral. The live
+site is hosted by Mintlify and this historical Fumadocs plan does not define AWS
+or Cloudflare compute. All existing MDX documents and `/docs/*` URLs are preserved (latest
 keeps `baseUrl: '/docs'`, legacy under `/docs/v{N}`). Pure functions take registry
 and slug data as parameters and perform no I/O so they are directly unit/PBT
 testable.
@@ -201,7 +202,7 @@ and each carries the comment tag
 - [x] 9. Implement search endpoint and SEO/not-found routes
   - [x] 9.1 Create `docs/app/api/search/route.ts`
     - Orama `createFromSource` over all version sources, each page tagged with its version id; active version passed as `tag` filter; apply `scopeSearchResults` (≤20, relevance)
-    - No-results message scoped to current version; transport error → "search temporarily unavailable" with query preserved; edge-compatible, read-only, rate-limit friendly
+    - No-results message scoped to current version; transport error → "search temporarily unavailable" with query preserved; runtime-neutral, read-only, rate-limit friendly
     - _Requirements: 11.2, 11.3, 11.4, 11.5, 11.6_
   - [x] 9.2 Create `docs/app/sitemap.ts`
     - Use `buildSitemap` to emit one absolute-URL entry per page per version

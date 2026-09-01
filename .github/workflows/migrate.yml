@@ -3,26 +3,23 @@ name: Apply DB Migrations
 # ---------------------------------------------------------------------------
 # MANUAL, per-branch drizzle migration runner.
 #
-# Why this exists: applying migrations used to be a step inside deploy-prod.yml /
-# deploy-pprd.yml. Those workflows deployed to Cloudflare Workers, which is no
-# longer how this project ships — apps/web, apps/admin and apps/cms are deployed
-# by Render straight from git (see render.yaml), and docs by Sevalla. The
-# Cloudflare workflows were retired, and this keeps the migration mechanism that
-# render.yaml refers to ("migrations run only via GitHub Actions per the
-# migration-discipline steering") instead of quietly losing it.
+# Migrations are intentionally separate from application deployment. apps/web
+# and apps/admin deploy to AWS Lambda + CloudFront through SST, CMS stays on
+# Render, and invoicing stays on Cloud Run; none applies DDL during deployment.
+# This manual workflow is the single migration path for every Neon branch.
 #
 # It is deliberately workflow_dispatch ONLY. Migrations are forward-only DDL
 # against a live database, so they are run by a human, on purpose, per branch, in
 # the ratified order dev -> test -> pprd -> prod (see the migration-discipline
-# steering). It intentionally does NOT run on push: a Render deploy must never
-# race a schema change.
+# steering). It intentionally does NOT run on push: an application deploy must
+# never race a schema change.
 #
 # Connection: DDL goes over the UNPOOLED/direct Neon host. Drizzle's DDL hangs
 # over pgBouncer, so the pooled URL must not be used here.
 #
 # Required secret per environment (add under Settings > Secrets and variables >
-# Actions). These must be GitHub secrets — this job runs on the GitHub runner and
-# cannot see Render's dashboard env vars:
+# Actions). These must be GitHub secrets because the runner does not inherit SST
+# runtime secrets or Render dashboard environment variables:
 #   dev  -> DATABASE_URL_UNPOOLED_DEV
 #   test -> DATABASE_URL_UNPOOLED_TEST
 #   pprd -> DATABASE_URL_UNPOOLED_PPRD
