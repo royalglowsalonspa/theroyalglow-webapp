@@ -565,11 +565,112 @@ confirmed here from the provider source.
 
 ---
 
+## Rollout outcome (2026-09-01) — COMPLETE
+
+Executed as planned. Production is on Better Auth 1.7.2 with issuer-scoped account
+identity.
+
+| Stage | Result |
+|---|---|
+| PR 1 (expand) | [#182](https://github.com/royalglowsalonspa/theroyalglow-webapp/pull/182) merged as `1a4f552`, CI green |
+| PR 2 (upgrade + contract) | [#185](https://github.com/royalglowsalonspa/theroyalglow-webapp/pull/185) merged as `aef0d2a`, CI green |
+| Migration `0001` | applied to dev, test, pprd, prod |
+| Migration `0002` | applied to dev, test, pprd, prod |
+| Production deploy | run `33499561308`, success, health check passed |
+| Branch parity | all four branches at `aef0d2a` |
+
+Final schema state on every branch: `account.issuer text NOT NULL` with unique index
+`account_issuer_account_id_uidx`, 3 migrations applied. Production carries 10 accounts,
+all `https://accounts.google.com`, zero nulls, 10 distinct subjects, 10 distinct users.
+
+Verification performed:
+
+- Production identity lookup — the exact `WHERE issuer = ? AND account_id = ?` query
+  Better Auth runs on every callback resolves 5/5 sampled accounts to their owning
+  user, zero orphaned or ambiguous. The unknown-subject (new user) path is a clean
+  miss, not an error.
+- OAuth initiation — `POST /api/auth/sign-in/social` returns a valid Google authorize
+  URL with the correct client, `email profile openid` scope, PKCE `S256` challenge and
+  a `theroyalglow.in/api/auth/callback/google` redirect URI.
+- `GET /api/auth/get-session` returns `null` / HTTP 200 on both web and admin.
+- Web Lambda and Admin Lambda logs since deploy contain no `BetterAuthError`, no
+  `unable to link`, and no malformed `where ( = $1` signature.
+- Health endpoint: database `pass`. Redis and R2 report `fail`, which is pre-existing
+  and unrelated (see the backup finding below).
+
+Restore point: Neon branch `restore-point-better-auth-1-7` (`br-icy-star-aorlf518`),
+forked from `prod` before any DDL. **Delete it once the rollback window closes.**
+
+Still outstanding: a real browser Google sign-in (returning user, One Tap, new user)
+is the one leg that cannot be automated. Everything it depends on is verified above.
+
+### Two defects found during the rollout
+
+**1. The weekly backup has never worked.** `weekly-backup.yml` had no configured
+secrets: `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` and
+`DATABASE_URL_UNPOOLED_PROD` were all unset. The job logged `pg_dump ""`, failed to
+connect, and — because the dump is piped into `gzip` without `set -o pipefail` — still
+produced a 4.0 KB empty archive and only failed later at the R2 upload. So every
+weekly run has been reporting a plausible-looking backup that contained nothing.
+
+Fix needed (not done here, requires the R2 credentials): add `set -o pipefail`, assert
+a minimum archive size, and configure the three R2 secrets. Until then there is **no
+offsite backup**; the Neon branch snapshot used for this rollout was the substitute.
+
+**2. `migrate.yml` could not run at all.** The same missing-secret problem meant every
+environment would have failed at "Resolve target connection". The four
+`DATABASE_URL_UNPOOLED_{DEV,TEST,PPRD,PROD}` secrets have now been provisioned from
+the Neon Management API, so the sanctioned migration path works.
+
+### A build-time incompatibility the contract test could not catch
+
+The dependency bump broke both app builds:
+
+```
+Failed to collect configuration for /api/auth/[...all]
+No database connection string was provided to `neon()`
+```
+
+Better Auth 1.7's `drizzleAdapter` reads `db._?.schema` **eagerly at adapter
+construction** (`buildRelationKeysByModel`, `drizzle-adapter/dist/index.mjs:51`), and
+`auth-server.ts` constructs the adapter at module scope. `next build` imports every
+route module to collect page data with no `DATABASE_URL`, so that read forced `neon()`
+at build time. 1.6.26 has no such line and never touched `db` at construction.
+
+Fixed in `packages/db/src/index.ts` by exempting the drizzle-internal `_` property
+from triggering lazy initialization while the client is uninitialized and no
+connection string exists. Faithful rather than a workaround: the client is created
+with `drizzle(sql)` and no schema, so `db._.schema` is undefined at runtime anyway,
+joins are disabled, and Better Auth resolves joins with separate queries in that mode.
+Covered by `packages/db/src/__tests__/lazy-client.test.ts`.
+
+**Lesson for §7:** the schema contract test catches *shape* changes but not
+*initialization-timing* changes. Add "build both apps with `DATABASE_URL` unset" to
+the pre-upgrade checklist — CI already does this, which is how it was caught before
+production.
+
+### Promotion mechanism corrected
+
+The four environment branches had drifted because each promotion was a separate
+PR (`#179`, `#180`, `#181`), leaving merge commits on `test`/`pprd`/`prod` absent from
+`dev` — so a fast-forward promotion was rejected and every release needed three extra
+PRs. Verified those branches carried **no unique work**, collapsed all four onto `dev`,
+and promoted by fast-forward thereafter.
+
+Keep all four branches at the same commit. Promotion is then
+`git push origin origin/dev:refs/heads/test` (and pprd, prod) with no PR at all.
+One feature PR into `dev` per change is the only PR needed.
+
+---
+
 ## Decision log
 
 | Date | Decision | Rationale |
 |---|---|---|
 | 2026-09-01 | Target 1.7.2, not a later 1.7.x | 1.7.2 is the newest published release; it also added the adapter guard that turns a schema mismatch into a clear error |
+| 2026-09-01 | Promote by fast-forward, not per-stage PRs | Promotion PRs created the divergence that then blocked fast-forwarding; environment branches carry no unique work, so keeping them identical removes three PRs per release |
+| 2026-09-01 | Use a Neon fork as the pre-DDL restore point | The pg_dump/R2 backup path is non-functional; a copy-on-write branch is instant and genuinely restorable |
+| 2026-09-01 | Exempt only `db._` from lazy init | Narrowest fix for the 1.7 adapter's eager construction-time read; any property implying real database work must still fail loudly when unconfigured |
 | 2026-09-01 | Use issuer identity with `https://accounts.google.com` | Only behaviour available on 1.7.2; single provider with an unambiguous authority makes the mapping deterministic |
 | 2026-09-01 | Hand-correct generated migration SQL | `drizzle-kit` cannot emit the backfill and would emit an unsafe `NOT NULL` add; the review step exists for this |
 | 2026-09-01 | Split into expand / migrate / contract | Both single-migration orderings break either sign-up or sign-in; splitting makes every step safe against old and new code simultaneously |
