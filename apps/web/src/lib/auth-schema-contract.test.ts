@@ -152,9 +152,25 @@ describe('Better Auth schema contract', () => {
   })
 })
 
+/** A compound/unique index as declared by Better Auth's table metadata. */
+type DeclaredIndex = { fields: string[]; unique?: boolean }
+
+/**
+ * Read Better Auth's declared indexes for a model.
+ *
+ * `indexes` is a 1.7 addition: on 1.6.x the table metadata type has no such
+ * property at all, so a direct cast does not type-check ("neither type
+ * sufficiently overlaps"). Going through `unknown` lets this test compile
+ * against BOTH versions, which it must — it is precisely the test that has to
+ * keep working across the upgrade boundary it guards.
+ */
+function declaredIndexesOf(definition: unknown): DeclaredIndex[] {
+  return (definition as unknown as { indexes?: DeclaredIndex[] }).indexes ?? []
+}
+
 describe('Better Auth declared indexes are backed by committed DDL', () => {
   const modelsWithIndexes = Object.entries(tables).filter(
-    ([, definition]) => ((definition as { indexes?: unknown[] }).indexes ?? []).length > 0,
+    ([, definition]) => declaredIndexesOf(definition).length > 0,
   )
 
   it('has at least one indexed model to verify', () => {
@@ -165,11 +181,7 @@ describe('Better Auth declared indexes are backed by committed DDL', () => {
   })
 
   for (const [model, definition] of modelsWithIndexes) {
-    const declaredIndexes = (
-      definition as {
-        indexes: { fields: string[]; unique?: boolean }[]
-      }
-    ).indexes
+    const declaredIndexes = declaredIndexesOf(definition)
 
     for (const declared of declaredIndexes) {
       const label = `${declared.unique ? 'UNIQUE ' : ''}index on ${model}(${declared.fields.join(', ')})`
