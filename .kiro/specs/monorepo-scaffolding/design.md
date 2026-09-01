@@ -91,7 +91,7 @@ theroyalglow-webapp/
 │       │   └── api.ts            # ApiSuccessResponse, ApiErrorResponse
 │       ├── package.json
 │       └── tsconfig.json
-├── .env.example                   # All 55 vars documented
+├── .env.example                   # Shared non-exhaustive local starter
 ├── .gitignore
 ├── biome.json                     # Root Biome config
 ├── package.json                   # Root — workspaces + scripts

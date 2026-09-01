@@ -136,7 +136,7 @@ function sortServices(services: Service[], favouriteIds: string[]) {
 
 ```
 Page load (/services or booking dialog):
-  ├── GET /api/services (public, KV cached)
+  ├── GET /api/services (public, direct Neon read through Drizzle; no Redis cache)
   └── GET /api/favourites (auth required)
       → Client merges: marks hearts, splits "Your Favourites" + "All Services"
 

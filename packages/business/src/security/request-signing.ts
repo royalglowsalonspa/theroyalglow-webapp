@@ -23,7 +23,7 @@
  * Tech Stack   : TypeScript, Web Crypto (crypto.subtle)
  * Layer        : Business Logic (pure crypto utility — no I/O, no framework)
  *
- * Dependencies : None (Web Crypto is a global on both Workers and Node 20+)
+ * Dependencies : None (Web Crypto is global on current Node.js and Bun runtimes)
  *
  * Notes        :
  * - Uses the Web Crypto API (`crypto.subtle`) rather than node:crypto, so it

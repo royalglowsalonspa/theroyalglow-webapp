@@ -110,8 +110,9 @@ function buildEnquiryEmail(input: {
 // per-IP and strictly Zod-validated (this endpoint is a trust boundary). No PII
 // is echoed back — the response is a bare success acknowledgement.
 export const POST = withErrorHandler(async (req: Request) => {
-  // Per-IP rate-limit guard. Distributed via Upstash when configured, falling
-  // back to an in-memory window otherwise (see rate-limit.ts).
+  // Anonymous rate-limit guard. All callers share `unknown` until the SST
+  // topology supplies a protected, non-spoofable viewer identity. Distributed
+  // via Upstash when configured, with in-memory fallback (see rate-limit.ts).
   await enforceRateLimit(`contact:${getClientIp(req)}`)
 
   const body = await req.json().catch(() => null)

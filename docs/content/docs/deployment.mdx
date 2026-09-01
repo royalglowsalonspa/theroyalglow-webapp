@@ -5,14 +5,14 @@ icon: cloud-upload
 ---
 
 Royal Glow ships through a four-stage Git pipeline with progressively stricter
-gates, deploys to Cloudflare's edge, and decouples **deploy** from **release**
-using PostHog feature flags. The whole platform runs at **₹0/month** on free
-tiers at launch.
+gates, deploys `apps/web` and `apps/admin` to AWS Lambda + CloudFront through
+SST, and decouples **deploy** from **release** using PostHog feature flags.
 
 <Info>
-  **Deploy ≠ release.** Code goes live on the edge on every merge to `prod`;
-  a feature only becomes visible when its PostHog flag is turned on. A bug means
-  flipping a flag off — no rollback required.
+  **Deploy ≠ release.** Code reaches production on Lambda + CloudFront after a
+  successful `prod` deployment; a feature only becomes visible when its PostHog
+  flag is turned on. A bug may be contained by flipping a flag off without a
+  deployment rollback.
 </Info>
 
 ## Branch strategy
@@ -35,11 +35,12 @@ PII. QStash scheduled jobs target `prod` only.
 
 ## Hosting topology
 
-- **Edge:** Cloudflare Workers (via the OpenNext adapter, `@opennextjs/cloudflare`) serve the customer site (`rgss-web`, `theroyalglow.in`) and the admin portal (`rgss-admin`, `admin.theroyalglow.in`) globally — deployed near India (Mumbai / Singapore). **Not** Cloudflare Pages, **not** `next-on-pages`.
-- **CMS:** Render (Singapore, free tier) hosts Payload CMS (`rgss-cms`, `cms.theroyalglow.in`).
-- **PDF render:** Cloud Run hosts the invoice PDF service (`@rgss/invoicing`).
-- **Database:** a single Neon PostgreSQL 16 project with four branches.
-- **Media:** Cloudflare R2 (S3-compatible, zero egress). **Cache + queue:** Upstash Redis + QStash. **Realtime:** Ably.
+- **Web + admin:** `apps/web` and `apps/admin` run on AWS Lambda (ARM64) behind separate CloudFront distributions in `ap-southeast-1`. SST declares both with `sst.aws.Nextjs`; AWS packaging uses OpenNext.
+- **DNS:** Cloudflare remains authoritative DNS only. SST uses the Cloudflare provider for ACM validation and the web/admin aliases; application compute is on AWS.
+- **CMS:** Render (Singapore) continues to host Payload CMS (`rgss-cms`, `cms.theroyalglow.in`).
+- **PDF render:** Cloud Run continues to host the invoice PDF service (`@rgss/invoicing`).
+- **Database:** one Neon PostgreSQL 16 project with four branches.
+- **Media:** Cloudflare R2 remains the S3-compatible object store. **Rate limiting + queue:** Upstash Redis + QStash. **Realtime:** Ably.
 
 ## GitHub Actions workflows
 
@@ -50,12 +51,10 @@ These workflows enforce the gates above and handle production deploys.
 | CI | `ci.yml` | PRs to all branches + push to `dev` | Lint + typecheck, unit tests, build, Trivy + Socket.dev audit |
 | Integration & E2E | `integration.yml` | PRs to `test`/`pprd`/`prod` | Integration tests, Playwright E2E, Lighthouse CI |
 | Load & Security | `load-test.yml` | PRs to `pprd`/`prod` | k6 load test, Trivy fs scan, OWASP ZAP baseline |
-| Deploy AWS | `deploy-aws.yml` | Push to `prod` (web/admin/packages paths) + manual dispatch | GitHub OIDC → `bunx sst deploy --stage production` (Lambda + CloudFront for `apps/web` and `apps/admin`) → health check. Manual dispatch accepts a `git_ref` for rollback |
+| Deploy AWS | `deploy-aws.yml` | Push to `prod` (web/admin/packages paths) + manual dispatch | GitHub OIDC → `bunx sst deploy --stage production` for web/admin. If `AWS_DOMAINS_LIVE=true`, retry both `/api/health` endpoints up to 6 times with 15-second waits. Manual dispatch accepts a known-good `git_ref` for operator-driven recovery after stack inspection. |
 | Migrations | `migrate.yml` | Manual dispatch (per branch) | Applies committed Drizzle migrations over the unpooled connection |
 
-Web, admin and CMS deploy from git on **Render** today; `deploy-aws.yml` is the AWS path
-described in `M2AWS.md`. The earlier Cloudflare workflows (`deploy-prod.yml`,
-`deploy-admin-prod.yml`) were retired along with the Workers adapter.
+`apps/web` and `apps/admin` are live on AWS through `deploy-aws.yml`. Payload CMS remains on Render and the invoicing service remains on Cloud Run. Cloudflare hosts authoritative DNS and R2 storage only; earlier Worker deployment workflows and adapters are retired.
 
 Lighthouse gates require performance ≥ 95 and accessibility, best-practices, and
 SEO = 100.
@@ -66,7 +65,7 @@ Every feature ships to prod behind a PostHog flag and is exposed gradually.
 
 <Steps>
 <Step title="Deploy with the flag OFF">
-Code goes live on the edge, invisible to everyone.
+A successful `prod` deployment places code on Lambda + CloudFront, invisible to everyone.
 </Step>
 <Step title="Flag ON for role = developer">
 Self-test directly in production.
@@ -93,11 +92,8 @@ When something goes wrong, escalate from the cheapest, fastest lever upward.
 <Accordion title="Flag — UI bug after deploy · < 10 sec">
 Turn the PostHog flag OFF. No deploy, no rollback — the feature simply disappears.
 </Accordion>
-<Accordion title="Tier 1 — App crash / 500s · < 30 sec">
-Cloudflare Workers rollback to the previous deployment via `wrangler rollback`
-(or the Workers & Pages → Deployments view). Cloudflare keeps every Worker
-deployment as an immutable version, and the post-deploy job auto-rolls back if
-the health check fails.
+<Accordion title="Tier 1 — Successful but bad app release · 3–5 min">
+Run the **Deploy AWS** workflow with `git_ref` set to the last known-good tag or SHA. SST redeploys both `sst.aws.Nextjs` applications to Lambda + CloudFront. If an SST/Pulumi update fails, inspect the deployment logs and stack state, verify both health endpoints, and redeploy the known-good ref when resources are unhealthy or partially updated.
 </Accordion>
 <Accordion title="Tier 2 — Bad migration, data corrupted · < 5 min">
 Neon PITR to a pre-migration point-in-time branch.

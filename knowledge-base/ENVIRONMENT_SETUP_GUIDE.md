@@ -1,182 +1,199 @@
-# Environment Variables — Setup Guide & Current Status
+# Environment Setup Guide
 
-**Audience:** the project owner (solo dev). This explains every env var the app uses,
-which file it lives in, whether you have it set today, and exactly what to focus on to
-get the **Payload CMS → website integration** working locally and in production.
+This guide explains where configuration belongs. It never records whether a developer currently has
+a secret set and never includes secret values.
 
-> Secret values are NEVER printed in this document. Items are listed by KEY NAME only.
+Authoritative contracts:
 
----
+- `apps/web/src/env.ts`
+- `apps/admin/src/env.ts`
+- `apps/cms/src/payload.config.ts`
+- `apps/invoicing/src/env.ts`
+- `sst.config.ts`
+- `.github/workflows/*.yml`
+- [environment-variables.md](./environment-variables.md) for ownership notes
 
-## 0. TL;DR — what to focus on RIGHT NOW
+## 1. Hosting and configuration ownership
 
-For the Payload integration (your current priority), only a tiny subset matters:
+| Application | Runtime | Configuration owner |
+|-------------|---------|---------------------|
+| `apps/web` | AWS Lambda + CloudFront through SST | SST Secrets, `sst.config.ts`, GitHub Actions variables |
+| `apps/admin` | AWS Lambda + CloudFront through SST | SST Secrets, `sst.config.ts`, GitHub Actions variables |
+| `apps/cms` | Render | Render service environment |
+| `apps/invoicing` | Google Cloud Run | Cloud Run variables and secret bindings |
+| `docs` | Mintlify | Mintlify project configuration |
 
-| Priority | Variable | File | Status | Why it matters |
-|----------|----------|------|--------|----------------|
-| 🔴 BLOCKER | `PAYLOAD_SECRET` | `apps/cms/.env.local` | ✅ **NOW SET** (I generated a 32-byte secret) | Payload refuses to run / is insecure without it |
-| 🟢 done | `DATABASE_URL` | `apps/cms/.env.local` | ✅ set (dev branch) | Payload stores its `cms_*` tables here |
-| 🟢 done | `PAYLOAD_PUBLIC_SERVER_URL` | `apps/cms/.env.local` | ✅ `http://localhost:3002` | admin/API base URL |
-| 🟢 done | `WEB_APP_URL` | `apps/cms/.env.local` | ✅ `http://localhost:3000` | CORS/CSRF allow-list |
-| 🟢 done | `NEXT_PUBLIC_CMS_URL` | `apps/web/.env.local` | ✅ `http://localhost:3002` | web app reads CMS from here |
-| 🟡 later | `NEXT_PUBLIC_R2_PUBLIC_URL` | both | ⚪ empty | only needed for **R2-hosted** images (see §4) |
-| 🟡 later | `R2_*` (bucket/endpoint/keys) | both | ⚪ empty | uploads use **local disk** until set — fine for dev |
+Cloudflare runs no application compute. It remains authoritative DNS and R2 object storage.
 
-**Bottom line:** the CMS was missing exactly ONE required variable — `PAYLOAD_SECRET` —
-which is now set. You can run the CMS locally immediately. Everything else needed for
-local integration was already in place.
+## 2. Local environment files
 
----
+Local files are plaintext secrets and are ignored by Git:
 
-## 1. How env files work in this monorepo
+| File | Used by |
+|------|---------|
+| `apps/web/.env.local` | Customer web app |
+| `apps/admin/.env.local` | Admin portal |
+| `apps/cms/.env.local` | Payload CMS |
+| `apps/invoicing/.env.local` | Invoice renderer when run locally |
+| `packages/db/.env` | Drizzle migration tooling |
 
-There are **four** real env files (plus two templates). Each app loads its OWN file —
-they do NOT share automatically:
+Committed starting templates:
 
-| File | Loaded by | Purpose |
-|------|-----------|---------|
-| `apps/web/.env.local` | Next.js web app (port 3000) | All web-app runtime vars |
-| `apps/cms/.env.local` | Payload CMS (port 3002) | CMS-only vars |
-| `packages/db/.env` | `drizzle-kit` (migrations) | DB connection for schema migrations |
-| `.env.example` (root) | template only | Canonical list of ALL vars — copy from here |
-| `apps/cms/.env.example` | template only | CMS-only subset template |
-| `packages/db/.env` | drizzle-kit | already set (dev branch) |
+- `.env.example` — shared starting point; not a substitute for app validators
+- `apps/admin/.env.example` — admin starting point
+- `apps/cms/.env.example` — CMS starting point
 
-Validation: `apps/web/src/env.ts` uses **t3-env + Zod** to validate web vars at build
-time. The web `.env.local` currently has **`SKIP_ENV_VALIDATION=1`**, which turns that
-validation OFF so the app builds even with blank keys. The CMS does NOT use t3-env — it
-reads `process.env` directly in `payload.config.ts`, which is why a blank `PAYLOAD_SECRET`
-silently breaks it rather than failing a nice validation step.
+There is no standalone committed web or invoicing template. Reconcile local files against their
+validator before running a validated build.
 
----
+## 3. Required shared contracts
 
-## 2. CMS env (`apps/cms/.env.local`) — full status
+### Web and admin
 
-| Variable | Required? | Status | Notes |
-|----------|-----------|--------|-------|
-| `PAYLOAD_SECRET` | **required** | ✅ set now | min 32 chars; signs/encrypts sessions |
-| `DATABASE_URL` | **required** | ✅ set | same Neon dev branch as web; Payload owns `cms_*` tables |
-| `PAYLOAD_PUBLIC_SERVER_URL` | **required** | ✅ set | `http://localhost:3002` |
-| `WEB_APP_URL` | **required** | ✅ set | `http://localhost:3000` — drives CORS/CSRF |
-| `R2_BUCKET_NAME` | for R2 | ✅ set (`theroyalglow-uploads`) | name only; needs the keys below to work |
-| `R2_ENDPOINT` | for R2 | ⚪ empty | uploads fall back to local disk until set |
-| `R2_ACCESS_KEY_ID` | for R2 | ⚪ empty | |
-| `R2_SECRET_ACCESS_KEY` | for R2 | ⚪ empty | |
-| `NEXT_PUBLIC_R2_PUBLIC_URL` | for R2 | ⚪ empty | public CDN base for media URLs |
+Both apps require the same environment-specific values for:
 
-**Run the CMS locally:**
-```
-cd apps/cms
-bun run dev        # serves http://localhost:3002/admin
-```
-First run will create the admin user. Add content in the collections, then the web app
-(once wired per PAYLOAD_INTEGRATION_PLAN.md) reads it via `NEXT_PUBLIC_CMS_URL`.
-
----
-
-## 3. Web env (`apps/web/.env.local`) — full status
-
-`SKIP_ENV_VALIDATION=1` is currently ON, so blank required keys do NOT break the build.
-When you remove it (recommended before production), every "required" row below must be
-filled or the build fails.
-
-### Required by `env.ts` — currently SET ✅
 - `DATABASE_URL`
-- `BETTER_AUTH_URL`
-- `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`
-- `NEXT_PUBLIC_APP_URL`
-- `NEXT_PUBLIC_GOOGLE_CLIENT_ID`
-- `NEXT_PUBLIC_POSTHOG_HOST` (has a default)
+- `BETTER_AUTH_SECRET` — minimum 32 characters and byte-identical across web/admin
+- Google OAuth client ID and secret
+- Ably private key
+- Upstash Redis URL/token for distributed rate limiting
+- QStash token and current/next signing keys
 
-### Required by `env.ts` — currently EMPTY ⚪ (masked by SKIP_ENV_VALIDATION)
-These will block a validated/production build until filled:
-- `RESEND_API_KEY` — transactional email (booking/invoice). Needed before bookings go live.
-- `ABLY_PRIVATE_KEY`, `NEXT_PUBLIC_ABLY_KEY` — realtime booking status.
-- `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` — cache + rate limiting.
-- `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY` — background jobs.
-- `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` — file storage.
-- `VAPID_PRIVATE_KEY`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY` — web push.
-- `META_PIXEL_ACCESS_TOKEN`, `NEXT_PUBLIC_META_PIXEL_ID` — ads/conversion tracking.
-- `NEXT_PUBLIC_POSTHOG_KEY` — analytics.
+Each app has its own `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL`:
 
-### Optional (safe to leave blank locally)
-- `BREVO_API_KEY`, `AISENSY_*`, `SLACK_WEBHOOK_URL`, `DAILY_REPORT_EMAIL_RECIPIENTS`,
-  `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_CLARITY_ID`, `BETTER_STACK_*`, `PDF_API_URL`,
-  `CLOUDFLARE_*`, `BETTER_AUTH_SECRET` (you're using Cloud/API-key mode), `META_TEST_EVENT_CODE`.
+| App | Production origin |
+|-----|-------------------|
+| web | `https://theroyalglow.in` |
+| admin | `https://admin.theroyalglow.in` |
 
-### CI/CD only (put in GitHub Actions secrets, NOT in `.env.local`)
-- `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`
-- `BETTER_STACK_HEARTBEAT_PPRD_SYNC`, `BETTER_STACK_HEARTBEAT_BACKUP`,
-  `BETTER_STACK_DEPLOY_WEBHOOK`, `BETTER_STACK_INCIDENT_WEBHOOK`
-- `AWS_DEPLOY_ROLE_ARN` (GitHub OIDC), `INTERNAL_JOB_TOKEN`
+`NEXT_PUBLIC_*` values are compiled into browser bundles. They must be supplied during `next build`;
+putting them only in SST Secrets cannot update client code.
 
----
+### CMS
 
-## 4. Images: when do you need R2?
+Payload reads configuration directly from `process.env`. Production needs:
 
-The web app's image resolver (`apps/web/src/lib/cms/media.ts`) builds absolute image URLs
-like this:
-1. If the Payload media URL is already absolute (`https://…`) → use as-is.
-2. Else prefix with `NEXT_PUBLIC_R2_PUBLIC_URL` if set.
-3. Else fall back to `NEXT_PUBLIC_CMS_URL` (the CMS origin).
+- `DATABASE_URL`
+- `PAYLOAD_SECRET`
+- `PAYLOAD_PUBLIC_SERVER_URL=https://cms.theroyalglow.in`
+- `WEB_APP_URL=https://theroyalglow.in`
 
-So:
-- **Local dev (no R2):** uploads are served from the CMS origin (`localhost:3002`). Images
-  work WITHOUT R2 — you just need `next.config.ts` `images.remotePatterns` to allow
-  `localhost:3002` (see PAYLOAD_INTEGRATION_PLAN.md §2). This block is currently MISSING in
-  `next.config.ts` and must be added if you use `next/image`.
-- **Production:** set up R2 (`R2_*` + `NEXT_PUBLIC_R2_PUBLIC_URL`) so media is served from a
-  fast CDN domain instead of the Render-hosted CMS origin.
+R2 storage enables only when `R2_BUCKET_NAME`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, and
+`R2_SECRET_ACCESS_KEY` are all present. Otherwise local development uses disk storage.
 
----
+`REVALIDATE_SECRET` must match the web value when CMS-triggered revalidation is enabled.
 
-## 5. Production env (when you deploy)
+### Invoicing
 
-You'll maintain a SEPARATE set of values per environment (dev/test/pprd/prod), pointed at
-the matching Neon branch and live service URLs:
-- `DATABASE_URL` → the env's Neon branch (prod branch for prod, etc.)
-- `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL` → `https://theroyalglow.in`
-- `NEXT_PUBLIC_CMS_URL`, `PAYLOAD_PUBLIC_SERVER_URL` → `https://admin.theroyalglow.in`
-- `WEB_APP_URL` (CMS) → `https://theroyalglow.in`
-- `PAYLOAD_SECRET` → a DIFFERENT, fresh secret for prod (do not reuse the dev one)
-- Google OAuth → add the prod redirect URI `https://theroyalglow.in/api/auth/callback/google`
-- All the "currently empty required" web vars → must be filled.
+The Cloud Run service validates at startup:
 
-Web, admin and CMS are hosted on Render today (AWS EC2 next — see M2AWS.md). Set these in each
-platform's environment settings (not in committed files).
+- `INVOICE_PDF_HMAC_SECRET`
+- `R2_BUCKET_NAME`
+- `R2_ENDPOINT`
+- `R2_ACCESS_KEY_ID`
+- `R2_SECRET_ACCESS_KEY`
+- `R2_PUBLIC_BASE_URL`
 
----
+`SENTRY_DSN` is optional. Cloud Run supplies `PORT`; local default is `8080`.
 
-## 6. Security notes (important)
+Web/admin callers use `INVOICING_SERVICE_URL` plus the same `INVOICE_PDF_HMAC_SECRET`. When either
+caller value is absent, invoice email degrades to no PDF attachment.
 
-- ✅ Both `.env.local` files are gitignored (verified) — they will not be committed.
-- ⚠️ Your `.env.local` files contain REAL, working credentials (Neon DB password, Google
-  OAuth client secret, Better Auth API key, Neon API key). Treat that machine/file as
-  sensitive. If any of these files is ever shared, pasted, or synced to a public location,
-  **rotate those credentials immediately** (new DB password, new OAuth secret, new keys).
-- Note: these files live under a OneDrive-synced folder. OneDrive sync is not "public", but
-  be aware your secrets are replicated to Microsoft's cloud. For stronger hygiene, consider
-  moving the repo outside OneDrive or excluding it from sync.
-- Use a fresh `PAYLOAD_SECRET` for production — different from the local dev one.
-- The Google OAuth **client ID** is public (used by One Tap in the browser); the **client
-  secret** is not — keep it server-side only.
+## 4. AWS production configuration
 
----
+Set server secrets with SST under the production stage:
 
-## 7. Recommended focus order
+```powershell
+bunx sst secret set DatabaseUrl "<value>" --stage production
+bunx sst secret set BetterAuthSecret "<value>" --stage production
+bunx sst secret set GoogleOauthClientId "<value>" --stage production
+bunx sst secret set GoogleOauthClientSecret "<value>" --stage production
+bunx sst secret set AblyPrivateKey "<value>" --stage production
+bunx sst secret set UpstashRedisRestUrl "<value>" --stage production
+bunx sst secret set UpstashRedisRestToken "<value>" --stage production
+bunx sst secret set QstashToken "<value>" --stage production
+bunx sst secret set QstashCurrentSigningKey "<value>" --stage production
+bunx sst secret set QstashNextSigningKey "<value>" --stage production
+bunx sst secret set ResendApiKey "<value>" --stage production
+bunx sst secret set VapidPrivateKey "<value>" --stage production
+bunx sst secret set InvoicePdfHmacSecret "<value>" --stage production
+bunx sst secret set InternalJobToken "<value>" --stage production
+bunx sst secret set R2AccessKeyId "<value>" --stage production
+bunx sst secret set R2SecretAccessKey "<value>" --stage production
+```
 
-1. ✅ **CMS runnable** — `PAYLOAD_SECRET` set. Run `cd apps/cms && bun run dev`, create the
-   admin user, add a couple of testimonials/offers to test.
-2. **Add `images.remotePatterns`** to `apps/web/next.config.ts` (currently missing) so
-   `next/image` can load CMS media — see PAYLOAD_INTEGRATION_PLAN.md §2.
-3. **Wire the sections** per PAYLOAD_INTEGRATION_PLAN.md §7 (Testimonials → Offers →
-   Service cards → Services → Team → Banner → verify FAQ/Gallery/Blog).
-4. **Before bookings go live:** fill `RESEND_API_KEY` (confirmation/invoice emails).
-5. **Before realtime/jobs:** fill `ABLY_*`, `UPSTASH_*`, `QSTASH_*`.
-6. **Before production launch:** R2 (`R2_*` + `NEXT_PUBLIC_R2_PUBLIC_URL`), analytics
-   (`POSTHOG`/`META`), push (`VAPID`), observability (`SENTRY`/`BETTER_STACK`), then
-   remove `SKIP_ENV_VALIDATION` and fix anything the build flags.
+Use GitHub Actions variables for public/build-time values consumed by
+`.github/workflows/deploy-aws.yml`, including Google/Ably/PostHog/VAPID public keys, app/CMS/R2
+public URLs, and optional Sentry/Meta/Clarity values.
 
----
+Database migrations are separate from application deployment. Run committed migrations through
+`.github/workflows/migrate.yml` with the direct `DATABASE_URL_UNPOOLED_<BRANCH>` secret, following
+`dev → test → pprd → prod`.
 
-*Companion doc: `PAYLOAD_INTEGRATION_PLAN.md` (the full integration brief).*
+## 5. Cloudflare boundary
+
+Keep:
+
+- `CLOUDFLARE_API_TOKEN` — GitHub Actions secret used only by SST DNS automation; scope to
+  Zone:Read + DNS:Edit
+- `CLOUDFLARE_DEFAULT_ACCOUNT_ID` — GitHub Actions variable selecting the DNS account
+- canonical `R2_*`, `NEXT_PUBLIC_R2_PUBLIC_URL`, and `R2_PUBLIC_BASE_URL` storage settings
+
+Do not restore:
+
+- `CLOUDFLARE_ACCOUNT_ID` as an application/compute contract
+- `CLOUDFLARE_KV_NAMESPACE_ID`
+- `CF_PAGES_BRANCH`
+- Worker/Pages bindings, Wrangler settings, or compute deployment credentials
+
+DNS credentials belong only in the deployment environment. Never inject them into Lambda runtime
+configuration or app-local env files.
+
+## 6. Local setup
+
+From repository root in PowerShell:
+
+```powershell
+Copy-Item .env.example apps/web/.env.local
+Copy-Item apps/admin/.env.example apps/admin/.env.local
+Copy-Item apps/cms/.env.example apps/cms/.env.local
+New-Item -ItemType File apps/invoicing/.env.local -Force
+```
+
+Then reconcile each file with the authoritative source listed at the top and fill values from the
+correct development service accounts. Generate VAPID keys once:
+
+```powershell
+bunx web-push generate-vapid-keys
+```
+
+Do not use `SKIP_ENV_VALIDATION` to conceal missing production configuration. It is a CI/build escape
+hatch, not a runtime secret strategy.
+
+## 7. Validation
+
+Run from repository root:
+
+```powershell
+bun run typecheck
+bun run lint
+bun run build
+```
+
+For app-specific diagnosis:
+
+```powershell
+bun run --filter=@rgss/web typecheck
+bun run --filter=@rgss/admin typecheck
+bun run --filter=@rgss/invoicing typecheck
+```
+
+## 8. Secret safety
+
+- Never commit `.env`, `.env.local`, `.dev.vars`, or platform-exported secret files.
+- Keep production values separate from dev/test/pprd.
+- Rotate any credential pasted into chat, logs, screenshots, tickets, or public storage.
+- Keep the repository outside shared/synced folders where possible, or explicitly exclude local env
+  files from sync.
+- Treat R2 access keys, OAuth client secrets, QStash keys, SST Secrets, HMAC secrets, and webhook URLs
+  as credentials.

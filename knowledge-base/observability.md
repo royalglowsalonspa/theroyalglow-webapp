@@ -17,10 +17,12 @@
 ## Layer 1 — Error Monitoring: Sentry
 
 **Why Sentry:**
-- Industry standard for Next.js — official SDK, works across Node, Bun and edge runtimes
-- When an API route throws at 2am, Sentry sends an alert with full stack trace, user context, and request payload
-- Captures errors from every deployable: web, admin, CMS and the invoicing service
-- Source maps support — errors point to original TypeScript lines, not minified output
+- Official Next.js SDK with guarded browser, Node, and edge configuration in web/admin
+- Wrapped API handlers report unexpected non-`AppError` failures when an optional DSN is configured
+- The Cloud Run invoicing service has separate optional Sentry initialization
+- Source maps are supported by the SDK, but production upload is not currently wired in `deploy-aws.yml`
+
+Payload CMS has no Sentry dependency or initialization. Current server capture is scoped to instrumented/wrapped application paths; it is not universal Lambda/SSR capture and does not promise user context or request-payload collection.
 
 **Free tier:** 5,000 errors/month — more than sufficient at launch for a salon app.
 
@@ -31,11 +33,13 @@
 | Datadog APM | $31/host/mo — eliminated entirely |
 | BetterStack Logs | Log aggregation, not error tracking with stack traces |
 
-**What Sentry captures:**
-- Unhandled API route exceptions
-- Client-side React errors
-- Edge Worker errors (Cloudflare)
-- Performance traces (slow DB queries, slow API responses)
+**What current wiring captures:**
+- Web/admin browser errors on initialized SDK paths
+- Unexpected exceptions caught by wrapped web/admin API handlers
+- Invoicing service errors when its optional `SENTRY_DSN` is configured
+- Performance traces from configured SDK paths
+
+CloudFront delivery and availability failures are monitored through CloudWatch and BetterStack. A request that fails at CloudFront before Lambda runs cannot be captured by the application Sentry SDK.
 
 ---
 

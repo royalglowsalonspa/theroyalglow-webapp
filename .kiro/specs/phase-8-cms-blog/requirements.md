@@ -2,115 +2,92 @@
 
 ## Introduction
 
-Phase 8 adds the marketing content layer for Royal Glow Salon & Spa: a Payload CMS v3 application (`apps/cms`) that owns blog posts, gallery images, team bios, homepage banners, and FAQ entries, and the web-app consumption surfaces (`apps/web`) that render that content — a `/blog` listing, `/blog/[slug]` detail pages, and a `/gallery` page — with the same SEO discipline established in Phase 7 (per-page metadata, server-rendered JSON-LD, breadcrumbs, sitemap entries).
+Phase 8 adds Royal Glow's Payload CMS v3 application and customer-facing content pages. Payload owns marketing content plus service-catalogue authoring. Marketing documents remain in Payload-owned `cms` tables and are consumed through Payload REST. `service_category` and `service` are the authoritative catalogue write surfaces; atomic hooks mirror each successful save into Drizzle-owned `public.service_category` and `public.service` read models used by booking, availability, offers, and admin selectors.
 
-Payload is marketing content only. The service catalogue, bookings, billing, memberships, and the RBAC `/admin` portal stay in the custom Next.js app backed by the `@rgss/db` Drizzle schema. Payload runs as its own Next.js-based app, self-hosted at `admin.theroyalglow.in`, writing to its own tables in Neon Postgres and storing media in Cloudflare R2. The two systems share the Neon database but never share tables.
+Payload runs at `cms.theroyalglow.in` on Render, uses Neon PostgreSQL, and stores media in Cloudflare R2. It does not own bookings, billing, memberships, staff assignments, offer-service links, or the Better Auth admin portal.
 
-The defining constraint is graceful degradation: the web app must build, typecheck, lint, and serve `/blog` and `/gallery` even when no CMS environment is configured — showing an empty state or a static fallback, never a build break or a 500. This mirrors the project's guarded-extension-point convention.
-
-Out of scope (deferred): real content authoring (actual posts, photos, bios); comments, full-text search, and rich pagination beyond a simple list; migrating the `/admin` portal into Payload; the Fumadocs docs site; R2 bucket provisioning and DNS for `admin.theroyalglow.in`; `Review`/`AggregateRating` and standalone indexable staff-profile pages; and Payload→web on-demand webhook revalidation (time-based ISR is the shipped mechanism).
+Customer content reads degrade gracefully. The web app must build and serve when `NEXT_PUBLIC_CMS_URL` is absent or Payload is unavailable, returning empty content or static fallbacks instead of failing.
 
 ## Glossary
 
-- **Payload_CMS**: The Payload CMS v3 application in `apps/cms` — a Next.js-based headless CMS serving an admin UI at `admin.theroyalglow.in` and a REST API, writing to its own Neon tables and storing media in Cloudflare R2.
-- **Content_Collection**: A Payload collection holding marketing content — one of `blog`, `gallery`, `team`, `banner`, `faq` — plus the shared `media` upload collection and `users` auth collection.
-- **Blog_Post**: A `blog` document with title, slug, excerpt, cover image, rich body, author, category, tags, SEO fields, `publishedAt`, and a `draft | published` status.
-- **CMS_Client**: The thin web-app client in `apps/web/src/lib/cms/*` that reads published content from Payload's REST API, normalises it into typed view-models, and degrades to empty results when the CMS is unconfigured or unreachable.
-- **Gallery_Image**: A `gallery` document with a required image, required `alt`, optional caption, and optional category.
-- **Team_Member**: A `team` document with name, role, bio, photo, specializations, and display order.
-- **Banner**: A `banner` document (homepage promo) with headline, image, optional CTA, an `active` flag, and an optional `[startAt, endAt]` active window.
-- **Content_Faq**: A `faq` document (question, answer, category, order) — the CMS-managed counterpart to the static `FAQS` list in `lib/seo/business.ts`.
-- **Media**: A Payload upload document backed by the Cloudflare R2 S3 storage adapter, resolved by the web app to an absolute image URL with `alt`, `width`, and `height`.
-- **BlogPosting_JsonLd**: The pure builder producing Schema.org `BlogPosting` structured data for `/blog/[slug]`.
-- **ImageObject_JsonLd**: The pure builder producing Schema.org `ImageObject` structured data for a gallery image.
-- **Metadata_Helper**: The shared Phase 7 `buildMetadata` function producing a page's Next.js `Metadata` (title, description, OpenGraph, Twitter, canonical, robots).
-- **Sitemap_Route**: The Next.js `app/sitemap.ts` route module, extended in this phase to include blog and gallery entries.
-- **Site_Url**: The site's absolute base URL, derived from `NEXT_PUBLIC_APP_URL` (the Phase 7 `SITE_URL`).
-- **Cms_Url**: The base URL of the Payload REST API the web app reads, derived from `CMS_URL`.
-- **ISR**: Incremental Static Regeneration — the web pages revalidate on a time window (~1 hour).
+- **Payload_CMS**: Payload v3 app in `apps/cms`, including admin UI, REST API, marketing collections, and catalogue authoring.
+- **Content_Collection**: One of the registered Payload collections: `users`, `media`, `blog`, `gallery`, `team`, `banner`, `faq`, `testimonial`, `offer`, `service-card`, `service_category`, or `service`.
+- **Catalogue_Authoring_Source**: Payload `service_category` and `service` collections, the only supported human write surface for the bookable catalogue.
+- **Catalogue_Read_Model**: Drizzle-owned `public.service_category` and `public.service` tables consumed by operational application code.
+- **Catalogue_Sync_Hook**: Atomic Payload `afterChange` hook that mirrors catalogue documents into the corresponding Drizzle read model.
+- **CMS_Client**: Guarded client under `apps/web/src/lib/cms` that reads published marketing content over Payload REST.
+- **Media**: Payload upload document stored through the Cloudflare R2 S3 adapter.
+- **Cms_Url**: Optional public Payload origin from `NEXT_PUBLIC_CMS_URL`.
+- **ISR**: Time-based Incremental Static Regeneration for public content pages.
 
 ## Requirements
 
-### Requirement 1: Payload CMS Application & Content Collections
+### Requirement 1: Payload Application and Ownership
 
-**User Story:** As a content editor, I want a headless CMS that owns marketing content, so that I can manage blog posts, gallery, team, banners, and FAQs without touching the operational system.
-
-#### Acceptance Criteria
-
-1. THE Payload_CMS SHALL be a Payload CMS v3 application in `apps/cms` that serves an admin UI at `admin.theroyalglow.in` and persists content to Neon Postgres via the Postgres adapter.
-2. THE Payload_CMS SHALL define the Content_Collections `blog`, `gallery`, `team`, `banner`, and `faq`, plus a shared `media` upload collection and a `users` authentication collection.
-3. THE Payload_CMS SHALL own its own database tables, AND the web app SHALL NOT issue any `@rgss/db` query against Payload-owned tables, AND the Payload_CMS SHALL NOT read or write the `@rgss/db` operational tables.
-4. WHERE media is uploaded, THE Payload_CMS SHALL store the media in Cloudflare R2 via the S3 storage adapter and expose a public URL for it.
-5. WHEN an anonymous request reads a Content_Collection over the REST API, THE Payload_CMS SHALL return only world-readable (published or non-status) documents, AND THE Payload_CMS SHALL require an authenticated user for create, update, and delete operations.
-
-### Requirement 2: Blog Content Model & Publishing
-
-**User Story:** As a content editor, I want a structured blog and banner model with a publishing workflow, so that only finished content appears on the public site.
+**User Story:** As a content editor, I want one CMS for marketing content and service-catalogue authoring.
 
 #### Acceptance Criteria
 
-1. WHEN the CMS_Client reads blog content, THE CMS_Client SHALL request only posts whose status is `published`, AND no draft post SHALL appear in any view-model returned to a page.
-2. THE Blog_Post model SHALL include title, unique kebab-case slug, excerpt, optional cover image, rich-text body, optional author relation, optional category, optional tags, optional SEO fields, `publishedAt`, and a `draft | published` status defaulting to `draft`.
-3. THE `gallery`, `team`, `banner`, and `faq` collections SHALL each expose the fields defined in the design (gallery: image, alt, caption, category; team: name, role, bio, photo, specializations, order; banner: headline, image, ctaLabel, ctaHref, active, startAt, endAt, order; faq: question, answer, category, order).
-4. WHEN `getActiveBanners(now)` evaluates a Banner, THE CMS_Client SHALL include it only IF the banner's `active` flag is true AND `now` falls within its `[startAt, endAt]` window, treating an absent `startAt` or `endAt` bound as open-ended.
+1. THE Payload_CMS SHALL run from `apps/cms`, serve its admin UI at `cms.theroyalglow.in`, and persist through Payload's Postgres adapter.
+2. THE Payload_CMS SHALL register the live marketing/auth/media collections plus `service_category` and `service` as defined in `payload.config.ts`.
+3. THE Payload_CMS SHALL be the authoring source of truth for services and service categories. Each successful create/update SHALL mirror into `public.service` or `public.service_category` through the configured `afterChange` hook and transaction. Booking-facing code SHALL continue treating those `public.*` tables as Drizzle read models.
+4. Payload-owned marketing tables SHALL remain isolated in the `cms` schema. Payload SHALL write no operational `public.*` table except the two documented catalogue sync targets.
+5. Service/category delete SHALL remain disabled; retirement SHALL use `isActive`.
+6. R2 storage SHALL enable only when `R2_BUCKET_NAME`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY` are all present. The CMS SHALL consume `R2_ENDPOINT` directly rather than reconstructing it from an account ID.
+7. Anonymous reads SHALL expose only content allowed by each collection's access rules; write operations SHALL require an authenticated Payload user.
 
-### Requirement 3: Blog Pages
+### Requirement 2: Blog and Marketing Models
 
-**User Story:** As a site visitor, I want a blog listing and readable article pages, so that I can discover beauty and wellness content from Royal Glow.
-
-#### Acceptance Criteria
-
-1. WHEN the `/blog` and `/blog/[slug]` pages render, THE page SHALL present exactly one `h1`, metadata produced by the Metadata_Helper, and a `BreadcrumbList` for the page.
-2. THE `/blog` listing SHALL render published posts in reverse-chronological order with ISR revalidation of approximately one hour, AND THE `/blog/[slug]` page SHALL render the post body from serialised rich text with the same ISR window.
-3. WHEN a Blog_Post is rendered on `/blog/[slug]`, THE page SHALL render its `publishedAt` inside a `<time datetime="{ISO-8601}">` element whose human text is `formatDateIN(publishedAt)` (DD/MM/YYYY, IST), AND the corresponding JSON-LD SHALL use the same instant in ISO-8601.
-4. IF a requested blog slug has no matching published post, THEN THE `/blog/[slug]` page SHALL respond with a 404 via `notFound()`.
-5. WHEN a blog cover image is rendered, THE page SHALL provide a non-empty `alt` and explicit `width` and `height` (or a fill layout with reserved space) to avoid layout shift.
-
-### Requirement 4: Gallery Page
-
-**User Story:** As a site visitor, I want a gallery page, so that I can see real photos of the salon, spa, and work.
+**User Story:** As a content editor, I want structured marketing content and publishing controls.
 
 #### Acceptance Criteria
 
-1. WHEN the `/gallery` page renders, THE page SHALL present exactly one `h1`, metadata produced by the Metadata_Helper, and a `BreadcrumbList`.
-2. WHEN a Gallery_Image is rendered, THE page SHALL emit one ImageObject_JsonLd for that image.
-3. WHEN a Gallery_Image is rendered, THE page SHALL provide a non-empty `alt` and explicit `width` and `height` (or a fill layout with reserved space) to avoid layout shift.
+1. Blog reads SHALL return only published posts.
+2. A blog post SHALL support title, unique slug, excerpt, cover media, rich body, author, taxonomy, SEO fields, publication time, and draft/published status.
+3. Gallery, team, banner, FAQ, testimonial, offer, and service-card collections SHALL expose the fields implemented in their live collection definitions.
+4. `service-card` SHALL remain display-only marketing content and SHALL NOT replace the operational `service` catalogue.
+5. Active-banner resolution SHALL respect its active flag and optional start/end bounds.
 
-### Requirement 5: Structured Data & Metadata for Content
+### Requirement 3: Public Content Pages
 
-**User Story:** As a search engine and AI system, I want valid structured data and metadata on the content pages, so that articles and images can be understood, indexed, and cited.
-
-#### Acceptance Criteria
-
-1. WHEN BlogPosting_JsonLd is built for a post, THE builder SHALL produce an object declaring `@context` as `https://schema.org` and `@type` as `BlogPosting`, with a non-empty `headline`, an ISO-8601 `datePublished`, a `publisher` derived from the canonical business facts, and `mainEntityOfPage` equal to Site_Url concatenated with `/blog/{slug}`.
-2. WHEN ImageObject_JsonLd is built for a gallery image, THE builder SHALL produce an object declaring `@type` as `ImageObject` with a non-empty content URL and the image's `alt` carried into its caption/name.
-3. THE Metadata_Helper SHALL set the canonical URL for each content page to Site_Url concatenated with the page path, without duplicate slashes.
-4. WHEN content JSON-LD is embedded in a page, THE rendered script content SHALL be escaped through the shared JsonLd component so it cannot terminate the surrounding script element.
-
-### Requirement 6: Sitemap Extension
-
-**User Story:** As a crawler operator, I want blog and gallery URLs in the sitemap, so that I can discover and index the content pages.
+**User Story:** As a visitor, I want useful blog and gallery pages.
 
 #### Acceptance Criteria
 
-1. THE Sitemap_Route SHALL include a `/blog` entry, a `/gallery` entry, and one entry per published blog slug returned by the CMS_Client.
-2. WHEN the CMS is unconfigured or unreachable, THE Sitemap_Route SHALL omit blog-slug entries and SHALL still return a valid sitemap (the Phase 7 output) without erroring.
+1. `/blog`, `/blog/[slug]`, and `/gallery` SHALL render one `h1`, canonical metadata, and breadcrumbs.
+2. Public content pages SHALL use the configured ISR window and guarded CMS client.
+3. Published dates SHALL use semantic `<time datetime>` markup with Indian display formatting.
+4. Missing or unpublished blog slugs SHALL return `notFound()`.
+5. Images SHALL have non-empty alt text and reserved dimensions.
 
-### Requirement 7: Graceful Degradation & Guarded CMS Client
+### Requirement 4: Structured Data and Sitemap
 
-**User Story:** As a developer, I want the web app to build and run without any CMS configuration, so that the system never depends on the CMS being live.
-
-#### Acceptance Criteria
-
-1. WHEN no CMS environment is configured, THE web app SHALL build, typecheck, lint, and serve successfully, AND `isCmsConfigured()` SHALL be false so content pages render an empty state.
-2. WHEN the CMS returns no content for a page, THE `/blog`, `/blog/[slug]`, and `/gallery` pages SHALL render an empty state or a 404 without throwing.
-3. WHEN the CMS is unconfigured, unreachable, times out, returns a non-2xx response, or returns malformed data, THE CMS_Client functions SHALL each resolve to a safe value (`[]` or `null`) and log the anomaly, AND SHALL NOT throw or reject.
-
-### Requirement 8: FAQ Source-of-Truth
-
-**User Story:** As a content editor and a site owner, I want FAQs editable in the CMS with a guaranteed fallback, so that FAQ content can be updated without code changes while the FAQPage structured data always renders.
+**User Story:** As a crawler, I want machine-readable content and discoverable URLs.
 
 #### Acceptance Criteria
 
-1. WHEN the CMS returns one or more Content_Faqs, THE FAQ resolution SHALL use the CMS-sourced FAQs as the source of truth.
-2. IF the CMS returns no Content_Faqs or is unreachable, THEN THE FAQ resolution SHALL fall back to the static `FAQS` constant so the result is always non-empty and the FAQPage JSON-LD always has content.
+1. Blog detail pages SHALL emit valid `BlogPosting` JSON-LD.
+2. Gallery entries SHALL emit valid `ImageObject` JSON-LD.
+3. JSON-LD serialization SHALL escape content through the shared component.
+4. Sitemap generation SHALL include static content routes and published blog slugs when available.
+5. CMS failure SHALL NOT prevent sitemap generation.
+
+### Requirement 5: Guarded CMS Client
+
+**User Story:** As a developer, I want customer pages independent of CMS availability.
+
+#### Acceptance Criteria
+
+1. `apps/web/src/lib/cms/config.ts` SHALL read optional `NEXT_PUBLIC_CMS_URL` and report unconfigured state when absent or invalid.
+2. CMS client functions SHALL return `[]` or `null` on missing configuration, timeout, network failure, non-2xx response, or malformed data.
+3. Web code SHALL consume Payload only through HTTP/client view models and SHALL NOT import Payload's Node dependencies.
+4. Marketing REST reads SHALL remain separate from operational catalogue reads through `@rgss/db`.
+
+### Requirement 6: FAQ Fallback
+
+**User Story:** As a site owner, I want editable FAQs without losing content during a CMS outage.
+
+#### Acceptance Criteria
+
+1. WHEN Payload returns FAQs, public FAQ surfaces SHALL use them.
+2. WHEN Payload returns none or is unavailable, public FAQ surfaces SHALL fall back to the static `FAQS` constant.

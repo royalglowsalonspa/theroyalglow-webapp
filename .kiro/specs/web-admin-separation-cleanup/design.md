@@ -9,9 +9,9 @@ audit shows the separation is still incomplete in exactly two ways:
 
 1. **Admin-only code living in `web`** — the entire background-jobs surface
    (`apps/web/src/app/api/jobs/**`, 19 route handlers) plus the job-support libs
-   they pull in (`schedules.ts`, `reports/slack.ts`). These are operational/admin
-   functions hosted inside the customer Worker. QStash schedules and triggered
-   enqueues currently point at `theroyalglow.in/api/jobs/*`.
+   they pull in (`schedules.ts`, `reports/slack.ts`). These operational/admin
+   functions were hosted inside the customer application runtime. QStash
+   schedules and triggered enqueues pointed at `theroyalglow.in/api/jobs/*`.
 2. **Functionality duplicated across both apps** — two job routes
    (`noshow-check`, `stale-booking-alert`) exist **byte-for-byte identical** in
    both `apps/web/src/app/api/jobs/` and `apps/admin/src/app/api/jobs/`, and are
@@ -95,9 +95,9 @@ admin-only and located in `admin`, or shared and defined once in `packages/*`.
   `apps/admin/src/app/api/jobs/noshow-check/route.ts` — byte-identical, both
   reachable. **Buggy (duplicated).** Expected: defined once, in `apps/admin`.
 - `apps/web/scripts/register-schedules.ts` + the "Register QStash schedules" step
-  in `deploy-prod.yml` — register the admin job schedules against the **customer**
-  origin from the **customer** deploy. **Buggy (misplaced).** Expected: registered
-  from the admin workflow against the admin origin.
+  in `deploy-aws.yml` — register the admin job schedules against the **customer**
+  origin from the web working directory. **Buggy (misplaced).** Expected: run the
+  registration step from `apps/admin` against the admin origin after SST deploy.
 - `apps/web/src/app/api/leads/route.ts` (public Meta-ad capture) — customer-facing,
   in `web`. **Not buggy.** Stays exactly as-is.
 - `getNotificationsForUser` in `@rgss/db/queries` — shared, defined once in a
@@ -147,8 +147,8 @@ but stopped short of the background-jobs surface and its support libs:
    were left in `apps/web`. The QStash *scheduled* registration
    (`register-schedules.ts` + `JOB_SCHEDULES`) and the *triggered* `enqueueJob`
    destinations still resolve to the customer origin (`NEXT_PUBLIC_APP_URL` in the
-   web app), and `deploy-prod.yml` (the customer workflow) owns the schedule
-   registration step.
+   web app), and the web working directory in `deploy-aws.yml` owned schedule
+   registration before the fix.
 
 2. **Partial duplication during a prior attempt**: `noshow-check` and
    `stale-booking-alert` were copied into `apps/admin` (canonical, with admin
@@ -166,9 +166,9 @@ but stopped short of the background-jobs surface and its support libs:
 4. **Admin app missing job-runtime wiring**: `apps/admin/package.json` lacks the
    `@upstash/qstash` dependency and a `register-schedules` script, and
    `apps/admin/src/env.ts` lacks `QSTASH_TOKEN`, `INVOICING_SERVICE_URL`, and
-   `INVOICE_PDF_HMAC_SECRET` — all needed once the jobs and the registration
-   script run from the admin side. `deploy-admin-prod.yml` has no QStash
-   registration step.
+   `INVOICE_PDF_HMAC_SECRET` — all needed once the jobs and registration script
+   run from the admin side. The shared `deploy-aws.yml` did not yet run the
+   registration step from `apps/admin`.
 
 ## Correctness Properties
 
@@ -301,17 +301,12 @@ admin-only branch.
   `QSTASH_TOKEN` (enqueue + registration), `INVOICING_SERVICE_URL` and
   `INVOICE_PDF_HMAC_SECRET` (consumed by the relocated `invoice-pdf` job via
   admin `@/env`). Mirror the definitions from `apps/web/src/env.ts`.
-- `.github/workflows/deploy-prod.yml`: remove the "Register QStash schedules"
-  post-deploy step (and its `QSTASH_TOKEN`/`NEXT_PUBLIC_APP_URL` env). The web
-  Worker keeps its `QSTASH_TOKEN` runtime secret (booking enqueue) and already
-  receives `NEXT_PUBLIC_ADMIN_URL` at build (used by the repointed enqueue).
-- `.github/workflows/deploy-admin-prod.yml`: add a post-deploy "Register QStash
-  schedules" step running `bun run register-schedules` in `apps/admin` with
-  `QSTASH_TOKEN: ${{ secrets.QSTASH_TOKEN }}` and
-  `NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_ADMIN_URL }}`. Document that the
-  admin Worker runtime secrets must now include `QSTASH_TOKEN` and the
-  job-runtime secrets the jobs read (Resend/email, Slack webhook, BetterStack
-  heartbeat URLs, `INVOICING_SERVICE_URL`, `INVOICE_PDF_HMAC_SECRET`).
+- `.github/workflows/register-schedules.yml` owns QStash schedule registration. Run it manually after the first successful admin deployment and after schedule-definition changes. It runs from `apps/admin` with `NEXT_PUBLIC_APP_URL` set to the admin origin. Application deployment does not register schedules.
+- Configure the admin Lambda runtime with `QSTASH_TOKEN` and all job secrets
+  (Resend/email, Slack webhook, BetterStack heartbeat URLs,
+  `INVOICING_SERVICE_URL`, `INVOICE_PDF_HMAC_SECRET`) before schedules go live.
+  The web Lambda retains `QSTASH_TOKEN` for booking enqueues and receives
+  `NEXT_PUBLIC_ADMIN_URL` at build time.
 - Documentation sync (consistency, non-blocking): update
   `knowledge-base/{background-jobs.md,sitemap.md,pages/api-routes.*,system-design/HLD.md}`
   and `docs/content/docs/*` references from `theroyalglow.in/api/jobs/*` to
@@ -357,7 +352,7 @@ the unfixed tree to observe failures.
    (19 handlers present).
 2. **Duplicate routes**: assert `noshow-check`/`stale-booking-alert` exist in only
    one app — fails now (present in both, identical).
-3. **Registration ownership**: assert `deploy-prod.yml` has no QStash registration
+3. **Registration ownership**: assert `deploy-aws.yml` has no QStash registration
    step and `apps/web` has no `register-schedules` script — fails now.
 4. **Triggered destination**: assert the web booking enqueue resolves to the admin
    origin — fails now (`enqueue.ts` uses `NEXT_PUBLIC_APP_URL` = customer origin).
@@ -444,4 +439,4 @@ it is unchanged after the move.
 - Booking creation (web) → triggered enqueue resolves to the admin job route;
   admin booking-complete/membership-create enqueues resolve to admin job routes.
 - Post-relocation typecheck/build of both apps green (no dangling `@/lib/*`
-  imports in either app); health checks for both Workers pass.
+  imports in either app); health checks for both AWS-hosted applications pass.

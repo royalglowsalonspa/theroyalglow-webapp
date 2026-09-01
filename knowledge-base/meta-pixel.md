@@ -456,7 +456,10 @@ export async function capiBookingConfirmed(params: {
 
 ### Step 5 — Helper to Extract Browser Signals from Request
 
-`fbp` and `fbc` cookies dramatically improve attribution. Read them from every API request.
+`fbp` and `fbc` cookies dramatically improve attribution. The current SST topology does not expose a
+trusted client-IP header: CloudFront appends to viewer-supplied `X-Forwarded-For`, and the origin is
+not yet protected by a dedicated viewer-header contract. Omit the IP rather than sending spoofable
+or invented data to Meta.
 
 ```ts
 // apps/web/lib/meta-signals.ts
@@ -465,7 +468,6 @@ import { type NextRequest } from 'next/server'
 export interface MetaSignals {
   fbp?: string          // Facebook browser ID (set by Pixel)
   fbc?: string          // Facebook click ID (set when user arrives via Meta ad)
-  clientIp: string
   userAgent: string
 }
 
@@ -473,14 +475,13 @@ export function extractMetaSignals(req: NextRequest): MetaSignals {
   return {
     fbp: req.cookies.get('_fbp')?.value,
     fbc: req.cookies.get('_fbc')?.value,
-    // Cloudflare sets CF-Connecting-IP; fallback to x-forwarded-for
-    clientIp: req.headers.get('cf-connecting-ip')
-           ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-           ?? '0.0.0.0',
     userAgent: req.headers.get('user-agent') ?? '',
   }
 }
 ```
+
+Add `clientIp?: string` only after CloudFront overwrites a dedicated viewer-IP header and direct
+Lambda-origin bypass is blocked. Never trust the first `X-Forwarded-For` value.
 
 ---
 
@@ -856,7 +857,7 @@ Meta Events Manager → Overview → check:
 |------|------|------|
 | 1 | Pre-launch | Create Meta Pixel in Business Manager, get Pixel ID |
 | 2 | Pre-launch | Create System User, generate access token |
-| 3 | Pre-launch | Add 3 env vars to GitHub Secrets + Cloudflare Workers (OpenNext) |
+| 3 | Pre-launch | Add browser values to GitHub Actions variables and server secrets to SST Secrets; keep Meta tokens server-side |
 | 4 | Dev | Implement 4 helper files above |
 | 5 | Dev | Wire events into booking flow, onboarding, service pages |
 | 6 | Dev | Test all events in Meta Test Events tab |

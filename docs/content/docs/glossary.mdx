@@ -48,18 +48,10 @@ The JavaScript runtime and package manager used instead of Node.js + npm/yarn. F
 **CAPI (Conversions API)**
 Meta's server-side event tracking API. Sends purchase and lead events from the Next.js server directly to Meta — more reliable than browser-side tracking because it's unaffected by ad blockers or iOS privacy restrictions.
 
-**Cloudflare Workers / KV (retired)**
-Cloudflare Workers via the OpenNext adapter was the original hosting plan for `rgss-web` and
-`rgss-admin`, with KV caching the service catalogue at the edge. Neither shipped: the Worker
-bundle exceeded Cloudflare's free-plan script size limit, and the KV cache was never
-implemented. The adapter, Worker configs and `CLOUDFLARE_*` variables have been removed. Both
-apps run as Node servers today (Render), moving to AWS Lambda + CloudFront via SST. The 5-minute
-service catalogue cache is served by Upstash Redis.
-
 **Cloudflare R2**
 Cloudflare's file storage service (S3-compatible). Used for service images, gallery photos, PDF
-invoices, and database backups. Zero egress fees. R2 is **unchanged** by the AWS migration — only
-the web and admin compute moves to Lambda.
+invoices, and database backups. Zero egress fees. R2 remains independent of application compute,
+so moving the web and admin apps to AWS did not change this storage integration.
 
 **CMS (Content Management System)**
 The Payload CMS v3 instance at `cms.theroyalglow.in`. Holds marketing content — blog posts, gallery, team bios, homepage banners, FAQ — **and the bookable service catalogue**: services and service categories are authored here, and an `afterChange` hook mirrors each write into `public.service` / `public.service_category` in the same transaction, which is what the booking engine reads. Bookings and billing remain in the custom admin portal (`admin.theroyalglow.in`).
@@ -73,12 +65,12 @@ A commit message format: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, etc. U
 India's Digital Personal Data Protection Act 2023. Governs how personal data of Indian citizens must be collected, stored, and used. Royal Glow complies by collecting only necessary data, providing a Privacy Policy, and gating analytics behind cookie consent.
 
 **Drizzle ORM**
-The database query library used to interact with PostgreSQL. Pure TypeScript — no binary dependencies, works on Cloudflare Workers.
+The database query library used to interact with PostgreSQL. Pure TypeScript with no runtime binary, which keeps the data layer portable across local development, Lambda, and the Render-hosted CMS.
 
 ## E
 
 **Edge**
-Cloudflare's global network of servers. When a customer visits the website, their request is handled by the nearest Cloudflare server (one of 200+ worldwide) rather than a single server in one location. This makes the site fast globally.
+CloudFront is the application delivery edge for `apps/web` and `apps/admin`; it serves static assets near users and routes dynamic requests to the AWS Lambda origins. Cloudflare remains authoritative DNS and R2 storage, not application compute.
 
 **E-E-A-T**
 Experience, Expertise, Authoritativeness, Trustworthiness — Google's framework for evaluating content quality. Relevant for SEO and AI search visibility.

@@ -3,11 +3,9 @@ name: Register QStash Schedules
 # ---------------------------------------------------------------------------
 # MANUAL registrar for the QStash scheduled background jobs.
 #
-# Why this exists: this used to be a post-deploy step inside
-# deploy-admin-prod.yml. That workflow deployed the admin app to Cloudflare
-# Workers, which is no longer how this project ships (Render deploys web/admin/cms
-# from git — see render.yaml), so it was retired. Registration itself is still
-# required, so it lives here rather than being lost with the workflow.
+# Registration is intentionally separate from the AWS application deploy.
+# apps/web and apps/admin run on AWS Lambda + CloudFront through SST; this manual
+# workflow keeps QStash schedule changes explicit and independently repeatable.
 #
 # OWNERSHIP (admin-web-separation Req 2.2, 3.6): the background-jobs surface
 # belongs to the ADMIN app. Schedules must therefore be registered against the
@@ -19,10 +17,10 @@ name: Register QStash Schedules
 # re-running it is safe and is a no-op once the schedules exist.
 #
 # Run it after any change to the job schedule definitions, and once after the
-# first Render deploy of the admin app.
+# first successful AWS admin deployment.
 #
-# Required GitHub secrets/vars (this runs on the GitHub runner, so Render's
-# dashboard env vars are NOT visible to it):
+# Required GitHub secrets/vars. GitHub runners do not inherit SST runtime
+# secrets or application environment variables:
 #   secret QSTASH_TOKEN            — Upstash QStash token
 #   var    NEXT_PUBLIC_ADMIN_URL   — e.g. https://admin.theroyalglow.in
 # ---------------------------------------------------------------------------

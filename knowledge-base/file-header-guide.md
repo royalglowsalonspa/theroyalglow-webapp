@@ -149,7 +149,7 @@ The monorepo is organised into **7 distinct layers**, each with clear boundaries
 | **Cannot Import** | UI components |
 
 **Header examples:**
-- `Layer : Infrastructure (Edge)` — middleware, edge workers
+- `Layer : Infrastructure (Request)` — middleware, routing helpers
 - `Layer : Infrastructure (SEO)` — sitemap, robots, JSON-LD
 - `Layer : Infrastructure (PWA)` — manifest, service worker
 - `Layer : Infrastructure (Configuration)` — env.ts, feature flags

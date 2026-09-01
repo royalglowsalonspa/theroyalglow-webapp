@@ -9,7 +9,7 @@ icon: network
 Royal Glow Salon & Spa is a premium beauty and wellness establishment in Bengaluru, India. This document describes the high-level design of the full-stack digital operations platform.
 
 <Info>
-  A **monolithic modular** monorepo on Next.js 16 + Neon + Cloudflare's edge, designed for 20k–50k users at **₹0/month**, India-first (DPDP, IST, paise, GST 18%), with Lighthouse ≥95 performance and 100 accessibility/SEO.
+  Royal Glow uses a **monolithic modular** monorepo on Next.js 16 + Neon. The customer and admin apps run on AWS Lambda behind CloudFront through SST, with Cloudflare retained for authoritative DNS and R2 storage. The platform is designed for 20k–50k users, India-first (DPDP, IST, paise, GST 18%), with Lighthouse ≥95 performance and 100 accessibility/SEO.
 </Info>
 
 ### Scale Targets
@@ -56,38 +56,42 @@ apps/{web,admin}  apps/{web,admin}/api  packages/business  packages/db  Neon Pos
 Browser/PWA
     │ HTTPS
     ▼
-Cloudflare (DNS + DDoS + WAF)
+Cloudflare authoritative DNS (DNS only; no application compute)
     │
-    ├── Cloudflare Workers (web + admin via OpenNext adapter, edge SSR + API)
-    └── Cloudflare KV (service catalog cache, 5-min TTL)
-         │
-         ├── Render Singapore (Payload CMS)
-         ├── Cloud Run (@rgss/invoicing PDF render service)
-         ├── Neon PostgreSQL (4 branches: dev/test/pprd/prod)
-         ├── Upstash Redis + QStash (cache + queue)
-         ├── Cloudflare R2 (images, PDFs, backups)
-         └── Ably (realtime WebSocket, 6 channels)
+    ├── theroyalglow.in ──────── CloudFront ── Lambda (apps/web)
+    └── admin.theroyalglow.in ── CloudFront ── Lambda (apps/admin)
+                                      │
+                                      ├── SST sst.aws.Nextjs / OpenNext
+                                      ├── Neon PostgreSQL (dev/test/pprd/prod)
+                                      ├── Upstash Redis + QStash (rate limiting + jobs)
+                                      ├── Ably (realtime)
+                                      └── Cloudflare R2 (images, PDFs, backups)
+
+Unchanged workloads:
+    ├── Render Singapore (Payload CMS at cms.theroyalglow.in)
+    └── Cloud Run (@rgss/invoicing PDF render service)
 ```
 
 ## Technology Decisions Matrix
 
 | Category | Choice | Key Reason |
 | --- | --- | --- |
-| Framework | Next.js 16 (App Router) | SSR + SSG + API routes + edge-ready |
-| Runtime | Bun | 3x faster installs, native TypeScript |
+| Framework | Next.js 16 (App Router) | SSR + SSG + API routes in one framework |
+| Toolchain | Bun | Fast installs, scripts, and monorepo workspace support |
 | Database | Neon PostgreSQL 16 | Branching, serverless, all jobs via QStash |
-| ORM | Drizzle ORM | Pure TypeScript, runs on CF Workers V8 |
+| ORM | Drizzle ORM | Pure TypeScript, no runtime binary |
 | Auth | Better Auth | Self-hosted, Google OAuth, RBAC plugin |
-| Edge Hosting | Cloudflare Workers (OpenNext) | Generous free tier, global edge |
-| Origin Hosting | Render (Singapore) | Free tier, closest to India |
+| Web + Admin Compute | AWS Lambda + CloudFront via SST `sst.aws.Nextjs` | ARM64 SSR Lambda and CloudFront distribution per app; OpenNext packaging |
+| CMS Hosting | Render (Singapore) | Payload CMS remains on its existing Node service |
+| PDF Rendering | Google Cloud Run | Existing invoicing service remains separate |
 | Realtime | Ably | 6M messages/mo free vs Pusher's 200k/day |
 | CMS | Payload CMS v3 | Self-hosted Next.js plugin, zero vendor lock-in |
 | Email (transactional) | Resend | Modern DX, React Email templates |
 | Email (marketing) | Brevo | Unsubscribe management, DPDP-compliant |
-| Cache | Upstash Redis | Serverless, works on CF Workers |
-| File Storage | Cloudflare R2 | S3-compatible, zero egress fees |
+| Rate Limiting + Queue | Upstash Redis + QStash | Redis stores distributed API rate-limit state; QStash runs background jobs. Catalogue and availability responses are not cached. |
+| File Storage | Cloudflare R2 | S3-compatible, zero egress fees; unchanged by AWS compute |
 | Analytics | PostHog | 1M events/mo, feature flags, DPDP-compliant |
-| Error Monitoring | Sentry | Industry standard, CF Workers support |
+| Error Monitoring | Sentry | Guarded web/admin browser capture, wrapped API exceptions, and optional Cloud Run invoicing capture. Payload CMS and production source-map upload are not currently wired. |
 | Validation | Zod | TypeScript-native inference, industry standard |
 | Styling | Tailwind CSS v4 | Utility-first, design tokens |
 | Components | shadcn/ui + Radix | Copy-paste ownership, Radix accessibility |
@@ -138,13 +142,13 @@ Cloudflare (DNS + DDoS + WAF)
 | `Snapshots` | `frozen` | Price/name on invoice_item and booking_service |
 | `GST` | `18% inclusive` | base = price ÷ 1.18 |
 
-### Three-Layer Cache Hierarchy
+### Current Data Paths and Planned Cache
 
 | Name | Type | Description |
 | --- | --- | --- |
-| `L1 (Edge)` | `Cloudflare KV` | TTL 5 min — service catalog, categories |
-| `L2 (Regional)` | `Upstash Redis` | TTL 5 min — slot availability per date/branch |
-| `L3 (Source)` | `Neon PostgreSQL` | Persistent — all business data |
+| `Current source` | `Neon PostgreSQL` | `/api/services` reads catalogue rows directly; `/api/availability` reads business-hours settings directly. |
+| `Current Redis use` | `Upstash Redis` | Distributed API rate-limit state only; no catalogue or availability response cache. |
+| `Planned cache` | `Upstash Redis` | Five-minute catalogue and conflict-aware availability caches may be added later; Neon remains authoritative. |
 
 ## Authentication & Authorization
 

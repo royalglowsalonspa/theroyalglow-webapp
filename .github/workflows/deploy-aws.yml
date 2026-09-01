@@ -8,10 +8,16 @@
 # Auth is GitHub OIDC — no long-lived AWS keys in repo secrets. One-time setup
 # is in M2AWS.md §8.
 #
-# ROLLBACK: there is no one-command rollback. Re-run this workflow with
-# `git_ref` pointing at a previous tag/SHA, or revert and push (3-5 min).
-# PostHog feature flags remain the instant kill switch. A deploy that FAILS is
-# safe — CloudFront keeps serving the previous version.
+# RECOVERY: there is no one-command rollback. SST/Pulumi updates are not
+# atomic: a failed command can leave CloudFront, Lambda, S3, DNS, or stack
+# state partially updated. Inspect Deploy logs and SST/Pulumi stack state,
+# verify both public /api/health endpoints, then use workflow_dispatch with
+# `git_ref` set to a known-good tag/SHA when redeployment is required.
+# PostHog feature flags remain the instant kill switch.
+#
+# Database migrations never run in this workflow. Apply committed, forward-only
+# migrations through migrate.yml over DATABASE_URL_UNPOOLED, one Neon branch at
+# a time in dev -> test -> pprd -> prod order.
 # =============================================================================
 name: Deploy AWS
 
@@ -47,15 +53,9 @@ permissions:
 jobs:
   deploy:
     name: SST deploy
-    # DORMANT UNTIL AWS EXISTS.
-    # Without this guard the job fails on every `prod` push at the OIDC step
-    # ("Credentials could not be loaded") because AWS_DEPLOY_ROLE_ARN is not set
-    # yet — a red X that means nothing. Skipped is honest; failed is noise.
-    #
-    # TO ACTIVATE: create the AWS account + OIDC role (M2AWS.md §5, §8), set the
-    # AWS_DEPLOY_ROLE_ARN secret, then set repo variable AWS_DEPLOY_ENABLED=true.
-    # Set AWS_DOMAINS_LIVE=true separately, after DNS cutover (M2AWS.md §9), to
-    # turn on the public health-check gate below.
+    # Repository deployment kill switch. Keep AWS_DEPLOY_ENABLED=true for
+    # normal production deploys; setting it false intentionally skips this job.
+    # AWS_DEPLOY_ROLE_ARN must also be configured for GitHub OIDC.
     if: vars.AWS_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -88,8 +88,8 @@ jobs:
       # per component in sst.config.ts.
       - name: Deploy
         env:
-          # theroyalglow.in is hosted on Cloudflare, so SST manages the ACM
-          # validation records and the two aliases through the Cloudflare API.
+          # Cloudflare is DNS-only here. SST uses its API to manage ACM
+          # validation records and the two aliases for theroyalglow.in.
           # Needs Zone:Read + DNS:Edit on that one zone. Without it the deploy
           # fails at certificate validation, not at build.
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -134,8 +134,9 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # Before cutover the custom domains do not exist yet, so this step is
-      # skipped until DNS moves (M2AWS.md §9). It then becomes the release gate.
+      # The public-domain release gate runs when AWS_DOMAINS_LIVE=true. Domains
+      # are live after the completed cutover, so production should keep that
+      # repository variable enabled.
       - name: Health check
         if: vars.AWS_DOMAINS_LIVE == 'true'
         run: |

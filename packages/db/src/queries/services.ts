@@ -23,8 +23,8 @@
  *
  * Dependencies : drizzle-orm, ../index, ../schema/service
  *
- * Notes        : This data is cached in Upstash Redis with a 5-minute TTL
- *                for fast service catalog responses.
+ * Notes        : Catalogue queries read Neon directly today. A future cache
+ *                must be implemented above this data-access layer.
  ************************************************************/
 
 import type {
@@ -61,7 +61,8 @@ export async function getAllServicesGrouped() {
 // Active catalogue: active categories ordered by displayOrder, each carrying its
 // active services (ordered by displayOrder) with the full read projection used by
 // the booking/services surfaces. Services are joined to their category so each
-// row carries the category name. Pure read — no side effects (KV-cacheable).
+// row carries the category name. Pure read — no side effects; suitable for a
+// future cache wrapper.
 export async function getActiveCatalogue() {
   const categories = await db
     .select({
