@@ -44,7 +44,7 @@
     "vitest": "^4.1.11"
   },
   "overrides": {
-    "@better-auth/core": "1.6.26",
+    "@better-auth/core": "1.7.2",
     "kysely": "0.29.5",
     "zod": "4.5.2",
     "dompurify": "3.4.14",
