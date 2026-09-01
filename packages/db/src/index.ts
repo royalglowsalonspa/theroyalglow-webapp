@@ -87,11 +87,47 @@ function getDb(): DrizzleClient {
   return cachedDb
 }
 
+/**
+ * Properties that tooling reads for INTROSPECTION only, before any query runs.
+ *
+ * Better Auth 1.7's `drizzleAdapter` reads `db._?.schema` eagerly when the
+ * adapter is CONSTRUCTED — `buildRelationKeysByModel(db._?.schema)` — and
+ * `auth-server.ts` constructs it at module scope. `next build` evaluates every
+ * route module while collecting page data, with no `DATABASE_URL` in the build
+ * environment, so letting that read force `neon()` fails the build with
+ * "No database connection string was provided to `neon()`".
+ *
+ * Better Auth 1.6.26 never touched `db` at construction time, which is why this
+ * surfaced only on the 1.7 upgrade rather than being a latent bug.
+ *
+ * Answering `undefined` is faithful rather than a workaround: the client is
+ * built with `drizzle(sql)` and NO schema argument, so `db._.schema` is
+ * undefined at runtime too. Relational joins are not enabled
+ * (`advanced.database.joins` is off), and Better Auth resolves joins with
+ * separate queries in that mode, so nothing depends on this value.
+ *
+ * The exemption is deliberately narrow — a single property, and only while the
+ * client is uninitialized AND no connection string exists. At runtime
+ * `DATABASE_URL` is always present, so behaviour is unchanged.
+ */
+const INTROSPECTION_ONLY_PROPS: ReadonlySet<string | symbol> = new Set(['_'])
+
+/** True when a client already exists or one could be created on demand. */
+function canInitialize(): boolean {
+  return cachedDb !== undefined || Boolean(process.env.DATABASE_URL)
+}
+
 export const db = new Proxy({} as DrizzleClient, {
   get(_target, prop, receiver) {
+    if (INTROSPECTION_ONLY_PROPS.has(prop) && !canInitialize()) {
+      return undefined
+    }
     return Reflect.get(getDb(), prop, receiver)
   },
   has(_target, prop) {
+    if (INTROSPECTION_ONLY_PROPS.has(prop) && !canInitialize()) {
+      return false
+    }
     return Reflect.has(getDb(), prop)
   },
 }) as DrizzleClient
