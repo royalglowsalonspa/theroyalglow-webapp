@@ -58,7 +58,7 @@ export const env = createEnv({
     // QStash publish token — used by the relocated background-job runtime:
     // schedule registration (scripts/register-schedules.ts) and the triggered
     // enqueue helper (lib/jobs/enqueue.ts) both publish with this. Required so
-    // the admin Worker can register/enqueue jobs (mirrors apps/web).
+    // the admin runtime can register and enqueue jobs (mirrors apps/web).
     QSTASH_TOKEN: z.string().min(1),
     // Invoice PDF render service (Cloud Run, apps/invoicing). OPTIONAL so the
     // app builds/runs without it — the relocated invoice-pdf job degrades

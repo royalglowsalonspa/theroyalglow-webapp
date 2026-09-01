@@ -22,7 +22,7 @@ preserved.
   - Extend `apps/web/src/__tests__/admin-web-separation.invariants.test.ts` with static (filesystem/AST-grep) assertions:
     - Assert `apps/web/src/app/api/jobs` does **not** exist (fails now: 19 handlers present) — `isBugCondition` misplaced case
     - Assert `noshow-check` and `stale-booking-alert` exist in **exactly one** app (fails now: byte-identical copies in both `apps/web` and `apps/admin`) — `isBugCondition` duplicated case
-    - Assert `.github/workflows/deploy-prod.yml` has **no** "Register QStash schedules" step AND `apps/web/package.json` has **no** `register-schedules` script (fails now: registration owned by the web workflow)
+    - Assert `.github/workflows/deploy-aws.yml` has no web-origin "Register QStash schedules" invocation AND `apps/web/package.json` has **no** `register-schedules` script (fails now: registration runs from the web working directory)
     - Assert the web booking enqueue (`apps/web/src/lib/jobs/enqueue.ts`) resolves its destination to the **admin** origin `NEXT_PUBLIC_ADMIN_URL` (fails now: uses `NEXT_PUBLIC_APP_URL` = customer origin)
   - Run on UNFIXED code
   - **EXPECTED OUTCOME**: Tests FAIL (this is correct - it proves misplacement + duplication)
@@ -89,17 +89,16 @@ preserved.
     - _Preservation: KEEP `enqueue.ts`, `providers/email.ts`, `meta/capi.ts` and the four customer split routes_
     - _Requirements: 2.3, 3.5_
 
-  - [x] 3.5 Wire package, env, and deploy for the admin job runtime
+  - [x] 3.5 Wire package, env, and AWS deploy for the admin job runtime
     - `apps/admin/package.json`: add `@upstash/qstash` dependency; add script `"register-schedules": "bun run scripts/register-schedules.ts"`
     - `apps/web/package.json`: remove the `register-schedules` script; **keep** `@upstash/qstash` (still used by web `enqueue.ts`)
     - `apps/admin/src/env.ts` + `apps/admin/.env.example`: add server vars `QSTASH_TOKEN`, `INVOICING_SERVICE_URL`, `INVOICE_PDF_HMAC_SECRET` (mirror `apps/web/src/env.ts` definitions)
-    - `.github/workflows/deploy-prod.yml`: remove the "Register QStash schedules" post-deploy step and its `QSTASH_TOKEN`/`NEXT_PUBLIC_APP_URL` env (web Worker keeps `QSTASH_TOKEN` runtime secret + `NEXT_PUBLIC_ADMIN_URL` at build)
-    - `.github/workflows/deploy-admin-prod.yml`: add a post-deploy "Register QStash schedules" step running `bun run register-schedules` in `apps/admin` with `QSTASH_TOKEN: ${{ secrets.QSTASH_TOKEN }}` and `NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_ADMIN_URL }}`
-    - **CRITICAL ORDERING**: Ensure the admin Worker carries ALL job-runtime secrets (Resend/email, Slack webhook, BetterStack heartbeat URLs, `QSTASH_TOKEN`, `INVOICING_SERVICE_URL`, `INVOICE_PDF_HMAC_SECRET`) **BEFORE** the schedules go live, or relocated jobs will fail at runtime
+    - `.github/workflows/register-schedules.yml` owns QStash schedule registration. Run it manually after the first successful admin deployment and after schedule-definition changes; it runs from `apps/admin` against `NEXT_PUBLIC_ADMIN_URL`. Application deployment does not register schedules.
+    - **CRITICAL ORDERING**: Ensure the admin Lambda runtime carries ALL job secrets (Resend/email, Slack webhook, BetterStack heartbeat URLs, `QSTASH_TOKEN`, `INVOICING_SERVICE_URL`, `INVOICE_PDF_HMAC_SECRET`) **BEFORE** schedules go live, or relocated jobs will fail at runtime
     - **Depends on 3.1, 3.2** (admin must host the jobs + script before registration is pointed at it)
     - _Bug_Condition: registration + runtime wiring must live on the admin side_
     - _Expected_Behavior: register-schedules runs from admin against the admin origin; jobs resolve their env_
-    - _Preservation: web deploy still ships the customer Worker with its booking-enqueue secret_
+    - _Preservation: the web Lambda keeps its booking-enqueue secret and `NEXT_PUBLIC_ADMIN_URL`_
     - _Requirements: 2.1, 2.2, 3.6_
 
   - [x] 3.6 Sync documentation references (non-blocking consistency)
@@ -126,7 +125,7 @@ preserved.
 - [x] 4. Checkpoint - full verification of both apps
   - Re-run separation-invariant tests (now pass) + admin presence test (all 19 routes under admin)
   - `register-schedules --dry` lists `admin.theroyalglow.in/api/jobs/*` for all 14 schedules
-  - Typecheck + build BOTH apps green (no dangling `@/lib/*` imports in either app); health checks for both Workers pass
+  - Typecheck + build BOTH apps green (no dangling `@/lib/*` imports in either app); health checks for both AWS-hosted applications pass
   - Customer route preservation tests unchanged and green
   - Ensure all tests pass; ask the user if any questions arise
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
@@ -196,7 +195,7 @@ the waves above it.
   after the fix (task 3.7). **Property 2 (Preservation)** task 2 must PASS on the
   unfixed tree and still PASS after the fix (task 3.8).
 - **Safety**: every DELETE in task 3.4 is grep-guarded for zero remaining
-  `apps/web` references. The admin Worker must carry all job-runtime secrets
+  `apps/web` references. The admin Lambda must carry all job-runtime secrets
   before the schedules go live (task 3.5) to avoid runtime failures.
 - This is a code-location + de-duplication fix only — no DB schema change, no
   migration, and no customer-observable behaviour change.

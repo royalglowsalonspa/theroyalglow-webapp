@@ -1,7 +1,7 @@
 # Skills & npx Commands — Royal Glow Salon & Spa
 
 > Essential tools, CLI skills, and npx commands for efficient development.
-> Curated for this stack: Next.js 16 + Bun + Turborepo + Drizzle + Cloudflare + shadcn/ui.
+> Curated for this stack: Next.js 16 + Bun + Turborepo + Drizzle + AWS + Cloudflare DNS/R2 + shadcn/ui.
 
 ---
 
@@ -106,18 +106,15 @@
 
 ## 5. Deployment & Infrastructure
 
-| Skill | Use Case | npx Command |
-|-------|----------|-------------|
-| **Wrangler Login** | Authenticate with Cloudflare for Workers/KV/R2 deployments | `npx wrangler login` |
-| **Wrangler Dev** | Run Cloudflare Worker locally for development | `npx wrangler dev` |
-| **Wrangler Deploy** | Deploy Worker/Pages application to Cloudflare | `npx wrangler deploy` |
-| **Wrangler Whoami** | Verify Cloudflare authentication status | `npx wrangler whoami` |
-| **Wrangler KV** | Manage Cloudflare KV namespaces (create, list, put, get) | `npx wrangler kv namespace create <name>` |
-| **Wrangler R2** | Manage Cloudflare R2 buckets | `npx wrangler r2 bucket create <name>` |
-| **Wrangler Secret** | Set secrets for Workers (env vars) | `npx wrangler secret put <KEY>` |
-| **OpenNext Cloudflare Build** | Build Next.js app for Cloudflare Workers via OpenNext adapter | `npx opennextjs-cloudflare build` |
-| **OpenNext Cloudflare Dev** | Local dev with Cloudflare bindings (Miniflare) | `npx opennextjs-cloudflare dev` |
-| **OpenNext Cloudflare Deploy** | Deploy Next.js to Cloudflare Workers | `npx opennextjs-cloudflare deploy` |
+| Skill | Use Case | Command |
+|-------|----------|---------|
+| **SST Deploy** | Deploy web + admin to AWS Lambda + CloudFront | `bunx sst deploy --stage production` |
+| **SST Secrets** | Store Lambda server secrets in SSM through SST | `bunx sst secret set <Name> "<value>" --stage production` |
+| **AWS Identity Check** | Confirm active AWS identity before an infrastructure operation | `aws sts get-caller-identity` |
+| **Cloud Run Deploy** | Deploy the invoicing container from repository root | `gcloud run deploy rgss-invoicing --source . --region asia-south1` |
+| **R2 Operations** | Access R2 through its S3-compatible API for uploads and backup verification | `aws s3 ls --endpoint-url "$R2_ENDPOINT"` |
+
+Cloudflare remains the authoritative DNS provider and R2 remains object storage. SST manages required Cloudflare DNS records during AWS deployment.
 
 ---
 
@@ -297,7 +294,8 @@ Skills are Markdown files in `.kiro/skills/` that Kiro auto-activates based on c
 | **shadcn-ui** | Generate shadcn/ui components with correct imports and Tailwind v4 | Create `.kiro/skills/shadcn-ui.md` |
 | **tailwind-v4** | Write Tailwind CSS v4 classes (CSS-first config, no JS config file) | Create `.kiro/skills/tailwind-v4.md` |
 | **better-auth** | Implement Better Auth patterns — Google OAuth, RBAC, sessions | Create `.kiro/skills/better-auth.md` |
-| **cloudflare-workers** | Write code compatible with Cloudflare Workers V8 isolate | Create `.kiro/skills/cloudflare-workers.md` |
+| **aws-serverless** | Build and review Lambda + CloudFront deployment patterns | Activate the AWS serverless skill |
+| **sst-deployment** | Maintain `sst.config.ts` and `.github/workflows/deploy-aws.yml` | Follow `M2AWS.md` and current SST guidance |
 | **react-email** | Build React Email templates using correct component patterns | Create `.kiro/skills/react-email.md` |
 | **zod-validation** | Create Zod schemas for API input validation | Create `.kiro/skills/zod-validation.md` |
 | **playwright-testing** | Write Playwright E2E tests following best practices | Create `.kiro/skills/playwright-testing.md` |
@@ -323,7 +321,7 @@ Skills are Markdown files in `.kiro/skills/` that Kiro auto-activates based on c
 | **json-ld-seo** | Structured data (LocalBusiness, Service, FAQ, BlogPosting, BreadcrumbList) | Create `.kiro/skills/json-ld-seo.md` |
 | **indian-locale** | India-specific patterns — DD/MM/YYYY dates, ₹ currency, GST, DPDP Act | Create `.kiro/skills/indian-locale.md` |
 | **error-boundaries** | React error boundaries, API error shapes, graceful degradation | Create `.kiro/skills/error-boundaries.md` |
-| **opennext-cloudflare** | Deploy Next.js to Cloudflare Workers with OpenNext adapter | Create `.kiro/skills/opennext-cloudflare.md` |
+| **sst-aws-nextjs** | Deploy Next.js to AWS Lambda + CloudFront with SST’s OpenNext-based AWS adapter | Follow `sst.config.ts` and `M2AWS.md` |
 
 ### Community Agent Skills (from GitHub)
 
@@ -453,8 +451,8 @@ npx react-email dev
 # ──────────────────────────────────────────────
 # DEPLOY & AUDIT
 # ──────────────────────────────────────────────
-# Deploy to Cloudflare
-npx opennextjs-cloudflare deploy
+# Deploy web + admin to AWS through SST
+bunx sst deploy --stage production
 
 # Lighthouse audit
 npx lighthouse https://theroyalglow.in --output html
@@ -486,8 +484,8 @@ npx knip
 | 10 | Init MSW | `npx msw init ./public --save` | API mocking |
 | 11 | Init Checkly | `npx checkly init` | Synthetic monitoring |
 | 12 | Init Stryker | `npm init stryker@latest` | Mutation testing |
-| 13 | Setup Wrangler | `npx wrangler login` | Cloudflare deploy |
-| 14 | Create Fumadocs | `npx create-fumadocs-app` | Documentation |
+| 13 | Verify AWS identity | `aws sts get-caller-identity` | Confirm non-root deployment identity |
+| 14 | Verify SST | `bunx sst version` | AWS deployment tooling |
 | 15 | Install Anthony Fu skills | `npx skills add antfu/skills` | TypeScript tooling patterns |
 | 16 | Install Anthropic skills | `npx skills add anthropics/skills` | Agent skill creation |
 

@@ -250,8 +250,7 @@ window. Check the BetterStack dashboard for heartbeat status.
 
 <Accordion title="How do I roll back a bad deployment?">
 
-Cloudflare Workers: run `wrangler rollback` (or open Workers & Pages →
-Deployments) and promote the last known-good deployment. Takes ~30 seconds.
+Redeploy the last known-good tag or SHA through the **Deploy AWS** workflow by setting its `git_ref` input. SST replaces the Lambda + CloudFront release in about 3–5 minutes. If a deploy fails, inspect SST/Pulumi state and both health endpoints because an update may be partially applied; redeploy the known-good ref when needed. Use a PostHog flag first when it can contain the issue.
 
 </Accordion>
 

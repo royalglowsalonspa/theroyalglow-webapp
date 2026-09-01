@@ -34,18 +34,15 @@ The single killer feature is **branching** — Neon treats database environments
 | PlanetScale | MySQL | ❌ Free tier removed (2024) | ❌ | ✅ Good | Eliminated |
 | Convex | Reactive NoSQL | ❌ 1 project | ✅ Built-in | ❌ Not SQL/Drizzle | No SQL, no relational schema — out |
 
-### Cloudflare Data Stack (use alongside Neon)
+### Supporting Data Services (used alongside Neon)
 
-| Product | Type | Free Tier | Use |
-|---------|------|-----------|-----|
-| **R2** | Object storage | 10 GB + 10M ops/mo | Profile photos, service images, PDF invoices ✅ |
-| **KV** | Edge key-value | 100k reads/day | Static page cache, service listings ✅ |
-| D1 | SQLite | 5 GB | Skip — SQLite limitations |
-| Durable Objects | Stateful edge | Paid only | Not needed |
+| Product | Type | Usage |
+|---------|------|-------|
+| **Cloudflare R2** | S3-compatible object storage | Profile photos, service images, PDF invoices, and database backups |
+| **Upstash Redis** | Managed Redis over REST | Distributed API rate-limit state; the web health endpoint also probes connectivity. No catalogue or availability response cache is implemented. |
+| **Upstash QStash** | Managed HTTP queue/scheduler | Scheduled and triggered background jobs |
 
-### Big Cloud (AWS / GCP / Azure)
-
-Honest verdict: their free tiers are **12-month trials**, not permanent. After the trial you're paying full RDS / Cloud SQL pricing. They also require significant DevOps overhead (IAM, VPC, security groups, billing alerts) that kills solo developer velocity. Come back to big cloud when there is an SRE team. For now, Neon + Cloudflare delivers enterprise-grade infrastructure at zero ops cost.
+AWS hosts application compute only; Neon, R2, Upstash Redis, and QStash remain provider-managed dependencies.
 
 ---
 
@@ -64,57 +61,34 @@ Honest verdict: their free tiers are **12-month trials**, not permanent. After t
 
 ---
 
-## Redis — Do We Need It?
+## Redis — Current Use and Planned Caching
 
-**Yes**, for three specific things:
+**Current implementation:** Upstash Redis stores distributed sliding-window API rate-limit state. The web health endpoint also probes Redis connectivity. Service-catalogue and availability responses do not use Redis today.
 
-| Use Case | Why |
-|----------|-----|
-| **Booking availability cache** | Customer opens the homepage booking dialog → don't hit DB for every slot. Cache available slots in Redis with 5-minute TTL |
+| Current Use | Why |
+|-------------|-----|
+| **API rate limiting** | `@upstash/ratelimit` shares request counters across Lambda instances |
+| **Health probe** | `/api/health` checks that the configured Redis service is reachable |
 
-**Availability cache — detailed flow:**
+Upstash **QStash** is separate from Redis data caching and runs scheduled and triggered background jobs.
 
-Computing available slots requires 3-4 DB queries per request (staff schedules + existing bookings + approved leave + slot computation). Without caching, 100 customers browsing at the same time means 300+ DB queries in seconds — Neon gets hammered and slot pickers feel slow.
+### Planned five-minute read-through caches (not implemented)
 
-```
-Customer 1 picks a date (e.g., June 15th)
-    ↓
-GET /api/availability?date=2026-06-15&branch=RS
-    ↓ Redis: cache MISS (key "availability:RS:2026-06-15" not found)
-    ↓ Query Neon DB (3 queries) → compute free slots
-    ↓ Response: [10:00, 11:00, 14:00, 15:00, 16:00]
-    ↓ Store in Redis: key = "availability:RS:2026-06-15", TTL = 5 minutes
-    ↓ Return to customer (first request: ~100ms)
+A five-minute Upstash read-through cache may be added for hot service-catalogue and conflict-aware availability reads after launch metrics justify it. This is planned architecture, not current behavior:
 
-Customer 2, 3, 4... (within next 5 min) pick same date
-    ↓
-GET /api/availability?date=2026-06-15&branch=RS
-    ↓ Redis: cache HIT → return cached slots instantly (< 5ms)
-    ↓ No DB query needed — Neon is not touched
-```
+- `GET /api/services` currently reads active categories and services directly from Neon through Drizzle.
+- `GET /api/availability` currently reads business-hours settings from Neon and generates a generic 30-minute grid in process.
+- Current availability does not query existing bookings, staff schedules, approved leave, or holidays; `branchId` is validated but otherwise unused.
+- No catalogue/availability Redis `get`, `set`, `del`, TTL, key, or invalidation path exists.
 
-**Cache invalidation — on booking confirm:**
-```
-Receptionist confirms booking for June 15th at 10:00
-    ↓ Business logic: booking saved to Neon
-    ↓ Invalidate: DELETE Redis key "availability:RS:2026-06-15"
-    ↓ Next customer who checks June 15th gets fresh DB query (without 10:00 slot)
-```
-
-**Key format:** `availability:{branch_code}:{YYYY-MM-DD}` — one key per branch per date.
-
-**TTL:** 5 minutes. Acceptable staleness window — worst case a slot shows as available for up to 5 min after being booked (the booking creation itself will fail with `BOOKING_SLOT_UNAVAILABLE` error if there's a race condition, so double-booking is impossible regardless of cache).
-
-**Implementation priority:** Not needed on day one (< 50 customers/day, Neon handles it fine). Add in week 2-4 post-launch when traffic grows. ~30 minute implementation using `@upstash/redis` already in the stack.
-| **API rate limiting** | Protect the booking API from abuse — critical for a premium service |
-| **Background job queue** | Upstash QStash handles async job queuing elegantly |
+Proposed keys such as `services:{branch_id}` and `availability:{branch_code}:{YYYY-MM-DD}` remain design notes only. Any future availability cache must follow a conflict-aware implementation and invalidate on relevant booking or schedule changes. Neon remains authoritative.
 
 > **NOT needed for search.** Postgres full-text search with the `pg_trgm` extension handles searching customers, services, and staff at this scale entirely inside Neon — for free. Upgrade to Algolia later if needed.
 
-**Recommended: Upstash Redis**
+**Why Upstash remains the planned cache provider:**
 - Serverless Redis — 10k requests/day free
-- Works natively on Cloudflare Workers and Vercel Edge
-- Upstash **QStash** included for background job queuing
+- REST API works from AWS Lambda and local development without managing connections
+- Upstash **QStash** handles background job queuing
 - Zero servers to manage
 
 ---
@@ -156,7 +130,7 @@ Supabase Realtime is tightly coupled to Supabase's own internal Postgres — it 
 |--------|--------|
 | Free tier | 6 million messages/month + 200 concurrent connections — more than enough for a salon |
 | How it works | Your Next.js API route publishes a message to an Ably channel when a booking status changes in Neon. The customer/staff browser is subscribed to that channel and receives the update instantly. |
-| Works on Cloudflare Workers | ✅ Ably's SDK is edge-compatible |
+| Lambda/browser compatibility | ✅ Ably provides first-class server and browser SDKs |
 | No extra database needed | Neon remains the source of truth — Ably is only the delivery pipe |
 | TypeScript SDK | ✅ First-class |
 
@@ -183,33 +157,28 @@ Next.js API route
 - Built into Next.js, zero cost, zero external service
 - One-directional (server → browser only, which covers booking status)
 - Simpler than websockets but less flexible
-- Good fallback if you want to avoid any external dependency at launch
-- Limitation: not compatible with Cloudflare Workers' CPU limits for long-lived connections — needs Render fallback as the SSE origin
+- Viable on a provider-neutral HTTP origin, but it adds long-lived connection and reconnect handling that Ably already manages
 
 ### Decision
-**Add Ably to the stack.** It is free within salon scale, edge-compatible, and requires no infrastructure management.
+**Add Ably to the stack.** It is free within salon scale and requires no infrastructure management.
 
 ---
 
-## ✅ Final Locked Stack — ₹0/month at Launch
+## ✅ Final Locked Data Stack
 
 | Layer | Technology | Plan | Details |
 |-------|-----------|------|---------|
 | **Primary DB** | Neon DB | Free forever | All business data · 4 branches = 4 environments · Drizzle ORM + Better Auth native · all scheduled jobs via QStash HTTP routes |
 | **Realtime** | Ably | Free tier | Live booking status, queue board, staff availability push — 6M messages/mo + 200 concurrent connections |
-| **File storage** | Cloudflare R2 | 10 GB free | Photos · service images · generated PDF invoices — no egress fees unlike AWS S3 |
-| **Cache + queue** | Upstash Redis + QStash | Free tier | Booking slot cache · API rate limiting · QStash job queue — serverless, zero infra |
-| **Edge cache** | Cloudflare KV | Free tier | Service listings · static page data · menu cache served at edge globally |
-| **Search** | Postgres FTS in Neon | Free (pg_trgm) | Fuzzy search across customers, services, staff — upgrade to Algolia later if needed |
+| **File storage** | Cloudflare R2 | 10 GB free | Photos · service images · generated PDF invoices · database backups |
+| **Rate limiting + queue** | Upstash Redis + QStash | Free tier | Redis-backed API rate limiting · QStash job queue · planned, not implemented: 5-minute service-catalogue and availability caches |
+| **Search** | Postgres FTS in Neon | Free (`pg_trgm`) | Fuzzy search across customers, services, staff — upgrade to Algolia later if needed |
 
-### Deployment Region
-Deploy Cloudflare on the region closest to India — **Mumbai (in-mum) / Singapore (ap-sea)** — for lowest latency to the primary user base.
+### Application Compute Region
+`apps/web` and `apps/admin` run on AWS Lambda in **`ap-southeast-1` (Singapore)**, co-located with Neon; CloudFront serves static assets from edge locations near users. This hosting choice does not change the provider-neutral data-access design.
 
-### Cost Comparison
-| | This Stack | AWS Equivalent |
-|--|--|--|
-| **Monthly at launch** | **₹0** | $150–300/mo |
-| **At 20k users** | ₹0–$19/mo | $300–600/mo |
+### Cost Note
+AWS compute uses Lambda/CloudFront/S3 within low-traffic allowances; Neon, R2, Upstash, QStash, and Ably retain their existing free-tier plans. Track actual spend with AWS Budgets instead of using the retired fixed “AWS equivalent” estimate.
 
 ### First Paid Upgrade
 **Neon Launch plan at $19/mo** — only triggered when exceeding 0.5 GB storage. At salon scale this will take a while. Everything else stays free well past launch.

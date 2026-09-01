@@ -678,7 +678,7 @@ interface CreateResourceResponse {
 ## 🔄 Rollback Plan
 
 - Feature flag: `[flag-name]` → OFF
-- Cloudflare rollback: deployment ID `[ID]`
+- AWS rollback ref: previous known-good tag/SHA `[REF]`
 - Migration revert: [not needed / `bun run db:revert`]
 
 ## 📋 Known Issues
@@ -789,15 +789,9 @@ curl -X PATCH https://us.i.posthog.com/api/feature_flags/[ID] \
   -d '{"active": false}'
 ```
 
-## Tier 2: Cloudflare Rollback (< 30 seconds)
+## Tier 2: AWS Application Rollback (3–5 minutes)
 
-```bash
-# List recent deployments
-wrangler deployments list
-
-# Rollback to previous deployment
-wrangler rollback [previous-deployment-id]
-```
+Dispatch `.github/workflows/deploy-aws.yml` with `git_ref` set to the previous known-good tag or SHA. SST redeploys that revision to Lambda + CloudFront. If an update fails, inspect SST/Pulumi logs and stack state, verify both health endpoints, and redeploy the known-good ref if resources are unhealthy or partially updated.
 
 ## Tier 3: Database Migration Revert (if needed)
 
@@ -822,8 +816,8 @@ curl -X POST "https://console.neon.tech/api/v2/projects/$PROJECT_ID/branches" \
 ```bash
 # Nuclear option: restore from last known-good backup
 # 1. Restore Neon PITR branch
-# 2. Cloudflare rollback to last stable deploy
-# 3. Update all env vars to point to recovery branch
+# 2. Dispatch deploy-aws.yml with the last stable Git ref
+# 3. Update SST DatabaseUrl to point to the recovery branch
 # 4. Verify health check
 # 5. Update status page
 ```
@@ -1189,7 +1183,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - Offer/promotion engine
 
 ### Infrastructure
-- Cloudflare Workers (OpenNext) deployment
+- AWS Lambda + CloudFront deployment through SST
+- Cloudflare DNS integration and R2 object storage
+- Render-hosted Payload CMS
+- Google Cloud Run invoicing service
 - Neon PostgreSQL with Drizzle ORM
 - BetterStack monitoring
 - Sentry error tracking

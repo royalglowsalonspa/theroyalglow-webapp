@@ -34,23 +34,29 @@ theroyalglow-webapp/
 
 ### Subdomain Map
 
-| Subdomain | Application | Hosting (today) | Hosting (target) |
-|-----------|-------------|-----------------|------------------|
-| `theroyalglow.in` | `apps/web` — customer website | Render (`rgss-web`) | **AWS Lambda + CloudFront** (SST) |
-| `admin.theroyalglow.in` | `apps/admin` — admin portal | Render (`rgss-admin`) | **AWS Lambda + CloudFront** (SST) |
-| `cms.theroyalglow.in` | `apps/cms` — Payload CMS (marketing content + service catalogue) | Render (`rgss-cms`) | **Render — stays** |
-| `docs.theroyalglow.in` | `docs/` — Mintlify documentation | Mintlify (hosted, live) | **Mintlify — stays off AWS** |
-| `r2.theroyalglow.in` | Cloudflare R2 object storage | Cloudflare R2 | **R2 — stays** |
+| Subdomain | Application | Hosting (current) |
+|-----------|-------------|-------------------|
+| `theroyalglow.in` | `apps/web` — customer website | **AWS Lambda + CloudFront** via SST `sst.aws.Nextjs` |
+| `admin.theroyalglow.in` | `apps/admin` — admin portal | **AWS Lambda + CloudFront** via SST `sst.aws.Nextjs` |
+| `cms.theroyalglow.in` | `apps/cms` — Payload CMS (marketing content + service catalogue) | Render (`rgss-cms`) |
+| `docs.theroyalglow.in` | `docs/` — Mintlify documentation | Mintlify (hosted, live; off AWS) |
+| `r2.theroyalglow.in` | Cloudflare R2 object storage | Cloudflare R2 |
 
-> **Only `apps/web` and `apps/admin` compute moves to AWS.** Neon, Upstash, QStash, Resend, Ably,
-> R2 and the Render-hosted CMS all stay, so the migration needs **zero application code changes**.
-> See `M2AWS.md`; `render.yaml` describes what runs today.
+> **Only `apps/web` and `apps/admin` compute runs on AWS.** `sst.config.ts` defines both
+> Next.js sites with `sst.aws.Nextjs`, backed by AWS Lambda and CloudFront. Production deploys
+> run through `.github/workflows/deploy-aws.yml`; the equivalent local command is
+> `bunx sst deploy`. SST uses OpenNext's AWS implementation internally.
 >
-> **Cloudflare Workers is retired** — the OpenNext Worker bundle exceeded Cloudflare's free-plan
-> script size limit. The adapter, `wrangler.jsonc` files, `cf:*` scripts and `CLOUDFLARE_*`
-> variables have all been removed from the repo.
+> **Cloudflare compute is retired.** Do not add Cloudflare Workers/Pages adapters, Wrangler,
+> `cf:*` scripts, Worker KV bindings, or Cloudflare compute deployment variables. Cloudflare
+> remains active only for authoritative DNS and R2 storage. `CLOUDFLARE_API_TOKEN` and
+> `CLOUDFLARE_DEFAULT_ACCOUNT_ID` are DNS-deployment credentials, never app runtime settings.
+> R2 keeps its canonical `R2_*` credentials and `NEXT_PUBLIC_R2_PUBLIC_URL`.
 
-The admin portal is served from `admin.theroyalglow.in` at root paths (no `/admin` prefix — the subdomain provides the admin namespace). Sessions are shared across subdomains via a `.theroyalglow.in` scoped cookie.
+Neon, Upstash, QStash, Resend, Ably, R2, and the Render-hosted CMS remain outside AWS. The
+admin portal is served from `admin.theroyalglow.in` at root paths (no `/admin` prefix — the
+subdomain provides the admin namespace). Sessions are shared across subdomains via a
+`.theroyalglow.in` scoped cookie.
 
 ### Layer Rules (STRICT)
 
@@ -70,15 +76,15 @@ The admin portal is served from `admin.theroyalglow.in` at root paths (no `/admi
 
 | Layer | Technology |
 |-------|-----------|
-| Web + Admin Hosting | Render (Node, `next start`) → AWS Lambda + CloudFront via SST (`M2AWS.md`) |
-| SSR Origin + CMS | Render (Singapore, free tier) |
+| Web + Admin Hosting | AWS Lambda + CloudFront via SST v3 `sst.aws.Nextjs` |
+| CMS Hosting | Render (Singapore) |
 | Primary DB | Neon PostgreSQL 16 (4 branches: prod/pprd/test/dev) |
 | ORM | Drizzle ORM (pure TypeScript, edge-native) |
 | Auth | Better Auth (Google OAuth only, RBAC plugin) |
 | Realtime | Ably (6M messages/mo free) |
 | File Storage | Cloudflare R2 (S3-compatible, zero egress) — unchanged by the AWS migration |
-| Cache + Queue | Upstash Redis + QStash |
-| Service catalogue cache | Upstash Redis, 5-min TTL. The planned Cloudflare KV layer was never built. |
+| Rate Limiting + Queue | Upstash Redis for distributed API rate-limit state; QStash for scheduled and triggered jobs |
+| Service catalogue/availability reads | Direct Neon reads today. A 5-minute Upstash read-through cache is planned, not implemented; the planned Cloudflare KV layer was never built. |
 | Email (Transactional) | Resend + React Email |
 | Email (Marketing) | Brevo |
 | CMS | Payload CMS v3 (marketing content + service catalogue authoring) |
@@ -90,7 +96,7 @@ The admin portal is served from `admin.theroyalglow.in` at root paths (no `/admi
 - **₹0/month infrastructure** at launch (all free tiers)
 - **India-first** — DPDP Act, IST timezone, INR (paise), GST 18%, DD/MM/YYYY dates
 - **Premium brand** — Lighthouse ≥95 performance, 100 accessibility/SEO
-- **India-first latency** — single region close to the audience (Render Singapore today, AWS `ap-south-1` Mumbai next), CDN for static assets and media
+- **India-first latency** — AWS `ap-southeast-1` (Singapore), co-located with Neon, with CloudFront for static assets and media
 
 ---
 

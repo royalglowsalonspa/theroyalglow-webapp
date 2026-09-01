@@ -12,24 +12,23 @@ Royal Glow Salon & Spa is built for scale (20k–50k users), premium feel, and l
 |-------|-----------|--------|
 | Runtime | **Bun** | Faster than Node.js for installs, test runs, and scripts |
 | Language | **TypeScript + JavaScript** | Type safety across the full stack |
-| Framework | **Next.js 16.2.9** (App Router) | SSR, SSG, API routes, edge-ready — `params`/`searchParams` are Promises, `PageProps<>` / `LayoutProps<>` global type helpers |
+| Framework | **Next.js 16.2.9** (App Router) | SSR, SSG, API routes, and native AWS deployment through SST — `params`/`searchParams` are Promises, `PageProps<>` / `LayoutProps<>` global type helpers |
 | UI Library | **React** | Component model, ecosystem |
 | Styling | **Tailwind CSS v4** | Utility-first, consistent design tokens, fast iteration |
 | Component Library | **shadcn/ui** | Copy-paste Radix-based components — fully owned, zero runtime overhead |
 | Animations | **motion** (motion.dev) | Page transitions, staggered reveals, micro-interactions — free tier |
 | Monorepo | **Turborepo + Bun workspaces** | Bun manages packages; Turborepo handles task orchestration + incremental build caching |
 | Database | **Neon DB (PostgreSQL)** | Serverless Postgres with branching — 1 project, 4 environment branches, free tier |
-| ORM | **Drizzle ORM** | Pure TypeScript, no binary — edge-native, works on Cloudflare Workers without adapters. Prisma was considered but its Rust query engine binary cannot run in V8 isolate (Cloudflare Workers) without workarounds or paid Prisma Accelerate. |
+| ORM | **Drizzle ORM** | Pure TypeScript, no binary, strong schema-first migrations, and compatibility with Neon’s serverless HTTP driver |
 | Realtime | **Ably** | Live booking status, queue board, staff availability — 6M messages/mo free |
 | File Storage | **Cloudflare R2** | 10 GB free object storage — photos, service images, PDF invoices |
-| Cache + Queue | **Upstash Redis + QStash** | Serverless Redis for slot caching, rate limiting, background jobs |
-| Edge Cache | **Cloudflare KV** | Service listings and static data at the edge |
+| Rate Limiting + Queue | **Upstash Redis + QStash** | Redis stores distributed API rate-limit state; QStash runs background jobs. Five-minute catalogue and availability caches are planned, not implemented. |
 | CMS | **Payload CMS v3** | Marketing content (blog, gallery, team bios, homepage banners, FAQ) **and the bookable service catalogue** — services/categories are authored here and mirrored into `public.service` / `public.service_category` by an atomic `afterChange` sync ([service-catalogue-management.md](./service-catalogue-management.md)). Self-hosted on Render, media to Cloudflare R2. Bookings and billing stay in the admin portal. |
 | Documentation | **Mintlify** | Documentation portal at `docs.theroyalglow.in` — Mintlify hosts and builds the site directly from the repo, so there is no infrastructure cost and no build step of ours to maintain. Search is built in, and OpenAPI specs are supported natively, so the API reference is generated from the spec rather than hand-written |
 | Validation | **Zod** | TypeScript-first schema validation — all API inputs validated at system boundary |
 | PWA | **Service Worker + manifest.json** | Installable on phone, offline service menu/prices/contact, add-to-homescreen prompt |
 | Push Notifications | **Web Push API** (`web-push`) | Appointment reminders (24h + 1h before), booking confirmations — free, unlimited |
-| Image Optimization | **Next.js `<Image>` + Cloudflare Polish** | Auto WebP/AVIF, responsive srcset, lazy loading, blur placeholders |
+| Image Optimization | **Next.js `<Image>` + CloudFront** | Responsive formats, lazy loading, blur placeholders, and CDN delivery from AWS edge locations |
 
 ---
 
@@ -60,13 +59,14 @@ Royal Glow Salon & Spa is built for scale (20k–50k users), premium feel, and l
 
 | Layer | Technology |
 |-------|-----------|
-| Web + Admin Hosting | **Render** (Node, `next start`) — `rgss-web`, `rgss-admin`. Migrating to **AWS Lambda + CloudFront** via SST/OpenNext (see [M2AWS.md](../M2AWS.md)). Cloudflare Workers was the original target and is **retired**. |
-| Node.js Origin / CMS Host | **Render** — Payload CMS admin panel (`rgss-cms`, free tier, Singapore region) |
+| Web + Admin Hosting | **AWS Lambda (ARM64) + CloudFront + S3** in `ap-southeast-1`, declared in `sst.config.ts` and deployed by [`.github/workflows/deploy-aws.yml`](../.github/workflows/deploy-aws.yml) through SST. SST’s AWS adapter wraps OpenNext. |
+| CMS Host | **Render** — Payload CMS service `rgss-cms` in Singapore |
+| PDF Invoice Host | **Google Cloud Run** — `rgss-invoicing` in `asia-south1` |
 | Primary Database | **Neon DB** (PostgreSQL, 4 branches) |
 | Realtime | **Ably** (live push — booking status, queue board) |
-| File Storage | **Cloudflare R2** (photos, invoices) |
-| Cache + Queue | **Upstash Redis + QStash** |
-| Edge Cache | **Cloudflare KV** |
+| File Storage | **Cloudflare R2** (photos, invoices, backups) |
+| Rate Limiting + Queue | **Upstash Redis + QStash** — Redis stores distributed API rate-limit state; QStash runs background jobs. Five-minute catalogue/availability caches remain planned. |
+| DNS | **Cloudflare DNS** — authoritative zone retained; SST manages DNS-only AWS aliases and ACM validation records |
 | CMS | **Payload CMS v3** (self-hosted on Render, writes to Neon, media to R2) |
 | Documentation Site | **Mintlify** (hosted, builds from the repo) — `docs.theroyalglow.in` |
 
@@ -115,7 +115,7 @@ Royal Glow Salon & Spa is built for scale (20k–50k users), premium feel, and l
 
 | Layer | Tool | Free Tier |
 |-------|------|-----------|
-| **Error monitoring** | **Sentry** | 5k errors/mo — stack traces, Cloudflare Workers + Render supported |
+| **Error monitoring** | **Sentry** | 5k errors/mo — guarded web/admin browser and wrapped API capture, plus optional Cloud Run invoicing capture. Payload CMS and production source-map upload are not currently wired. |
 | **Uptime + status page + jobs + logs** | **BetterStack** | 10 monitors · `status.theroyalglow.in` · heartbeats for QStash and GitHub Actions jobs · 1 GB logs/mo |
 | **Product analytics** | **PostHog** | 1M events/mo — funnels, feature flags, session replay, cohorts |
 | **Heatmaps + session recordings** | **Microsoft Clarity** | Free forever — visual heatmaps, rage click detection |
@@ -142,7 +142,7 @@ Royal Glow Salon & Spa is built for scale (20k–50k users), premium feel, and l
 | **Rate limiting** | `@upstash/ratelimit` via Upstash Redis — per-endpoint sliding windows (e.g. 5 bookings/min, 3 leads/min) |
 | **CSP headers** | Strict Content-Security-Policy with nonce-based script loading — whitelisted origins only |
 | **CORS** | Exact origin matching (`theroyalglow.in` only) — no wildcard `*` |
-| **DDoS / bot mitigation** | Cloudflare edge — automatic |
+| **DDoS / bot mitigation** | CloudFront with AWS Shield Standard, plus application rate limits in Upstash Redis |
 | **Session security** | Better Auth: HttpOnly, Secure, SameSite=Lax cookies, built-in CSRF |
 | **SQL injection** | Drizzle ORM parameterized queries — no raw SQL concatenation |
 | **XSS** | React auto-escaping + CSP — no `dangerouslySetInnerHTML` without sanitisation |
@@ -260,5 +260,5 @@ Split by audience — same underlying library, different styling focus.
 
 - **Lighthouse gates:** performance ≥ 95; accessibility, best practices, and SEO = 100
 - **Premium feel** — rich, high-end aesthetic matching the brand
-- **Edge-first** — sub-100ms response times globally via Cloudflare
+- **CDN-first delivery** — CloudFront serves static assets near users; Lambda compute stays close to Neon in Singapore
 - **Single developer** — tooling must minimize ops overhead

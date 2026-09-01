@@ -52,16 +52,18 @@ git merge prod
 ### Rollback
 
 <Tabs>
-<Tab title="Cloudflare Workers">
+<Tab title="AWS web & admin">
 
-Customer + admin sites (`rgss-web`, `rgss-admin`) — Cloudflare Workers via the OpenNext adapter (`@opennextjs/cloudflare`):
+Customer and admin apps run on AWS Lambda behind CloudFront through `sst.aws.Nextjs`:
 
-1. Run `wrangler rollback` for the affected Worker, or open Cloudflare → Workers & Pages → `rgss-web` → Deployments
-2. Find the last known-good deployment / version
-3. Promote it — takes effect in ~30 seconds
+1. Open GitHub Actions → **Deploy AWS** → **Run workflow**
+2. Set `git_ref` to the last known-good tag or SHA
+3. Run the workflow and verify both `/api/health` endpoints
+
+A failed SST/Pulumi update can leave resources partially changed. Inspect the deployment logs and stack state, verify both `/api/health` endpoints, and redeploy the last known-good ref if production is unhealthy. A successful but bad release takes about 3–5 minutes to replace; use a PostHog flag first when it can contain the issue.
 
 </Tab>
-<Tab title="Render">
+<Tab title="Render CMS">
 
 Payload CMS (`rgss-cms`, `cms.theroyalglow.in`):
 
@@ -114,10 +116,10 @@ Review k6 load test results — any latency increase?
 
 | Alert | Source | Action |
 | --- | --- | --- |
-| Site down | BetterStack | Check Cloudflare status, check Render logs |
-| API health failing | BetterStack | Check Neon DB connection, check Render |
+| Site down | BetterStack | Check CloudFront status and Lambda CloudWatch logs; verify Cloudflare DNS |
+| API health failing | BetterStack | Check Lambda CloudWatch logs and Neon DB connection |
 | Scheduled job missed | BetterStack heartbeat | Check QStash dashboard for delivery logs |
-| New error spike | Sentry | Check error details, deploy fix or rollback |
+| New error spike | Sentry | Check error details, deploy fix or roll back |
 | Slow response (P95 > 3s) | Sentry performance | Check DB query times, check Neon metrics |
 
 ## Incident Response
@@ -126,7 +128,7 @@ Review k6 load test results — any latency increase?
 
 | Level | Definition | Response Time | Example |
 | --- | --- | --- | --- |
-| P0 | Site completely down | Immediate | Cloudflare outage, Neon DB unreachable |
+| P0 | Site completely down | Immediate | CloudFront/Lambda unavailable, Cloudflare DNS outage, or Neon DB unreachable |
 | P1 | Core feature broken | < 1 hour | Booking creation failing, auth broken |
 | P2 | Feature degraded | < 4 hours | Emails not sending, PDF generation failing |
 | P3 | Minor issue | Next business day | Cosmetic bug, non-critical feature broken |
@@ -138,7 +140,7 @@ Review k6 load test results — any latency increase?
 Post in Slack `#incidents` that you're investigating.
 </Step>
 <Step title="Diagnose">
-Check BetterStack, Sentry, Cloudflare, Render, Neon dashboards.
+Check BetterStack and Sentry first, then the affected provider: CloudFront/Lambda in CloudWatch, Cloudflare DNS, Render CMS, or Neon.
 </Step>
 <Step title="Communicate">
 Update the BetterStack status page with an incident message.
@@ -281,24 +283,23 @@ The platform is designed to scale without code changes:
 
 | Bottleneck | Solution |
 | --- | --- |
+| Lambda cold starts or duration | Profile CloudWatch duration, collapse sequential DB calls, then cache hot reads in Upstash |
+| CloudFront/static delivery | Inspect cache behaviour and asset headers before changing compute |
 | DB connection pool exhausted | Increase Neon compute size or connection limit |
-| Cloudflare Workers CPU limit | Move heavy work to Render origin |
 | Upstash Redis rate limit | Upgrade Upstash plan |
 | Ably message limit | Upgrade Ably plan (6M/mo free is generous) |
 | Resend email limit | Upgrade Resend plan |
 
-## Launch Checklist
+## Production Verification Checklist
 
-Before going live at `theroyalglow.in`:
-
-- [ ] DNS: point `theroyalglow.in` → Cloudflare Workers (`rgss-web`)
-- [ ] DNS: point `admin.theroyalglow.in` → Cloudflare Workers (`rgss-admin`)
-- [ ] DNS: point `cms.theroyalglow.in` → Render (`rgss-cms`)
-- [ ] DNS: point `docs.theroyalglow.in` → Cloudflare Workers (docs)
-- [ ] DNS: point `status.theroyalglow.in` → BetterStack status page
-- [ ] SSL: verify all domains have valid certificates (Cloudflare handles this)
-- [ ] GMB: update website field from old URL to `https://theroyalglow.in`
-- [ ] GMB: set booking action link to `https://theroyalglow.in/?book=1&utm_source=gmb`
+- [ ] Cloudflare DNS: `theroyalglow.in` / `www` resolve to the SST-managed web CloudFront distribution
+- [ ] Cloudflare DNS: `admin.theroyalglow.in` resolves to the SST-managed admin CloudFront distribution
+- [ ] Cloudflare DNS: `cms.theroyalglow.in` points to Render (`rgss-cms`)
+- [ ] Cloudflare DNS: `docs.theroyalglow.in` points to Mintlify
+- [ ] Cloudflare DNS: `status.theroyalglow.in` points to BetterStack
+- [ ] TLS: verify ACM certificates on web/admin and provider-managed certificates on CMS/docs/status
+- [ ] GMB: website field is `https://theroyalglow.in`
+- [ ] GMB: booking action link is `https://theroyalglow.in/?book=1&utm_source=gmb`
 - [ ] Google Search Console: verify ownership, submit sitemap
 - [ ] Sentry: verify source maps are uploading correctly
 - [ ] BetterStack: verify all monitors are active and alerting
