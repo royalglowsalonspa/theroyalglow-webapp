@@ -150,8 +150,8 @@
   <strong>Document Classification:</strong> System Design — Staff Engineer Review<br>
   <strong>Version:</strong> 1.0<br>
   <strong>Author:</strong> Engineering Lead<br>
-  <strong>Last Updated:</strong> 2026-05-23<br>
-  <strong>Status:</strong> <span class="badge badge-success">Approved for Implementation</span><br>
+  <strong>Last Updated:</strong> 2026-08-29<br>
+  <strong>Status:</strong> <span class="badge badge-success">Current Production Architecture</span><br>
   <strong>Review Panel:</strong> Principal Engineer Design Review
 </div>
 
@@ -245,7 +245,7 @@
 <h4>FR-4: Admin Portal with RBAC</h4>
 <ul>
   <li>6 hierarchical roles: Customer &lt; Staff &lt; Receptionist &lt; Manager &lt; Owner &lt; Developer</li>
-  <li>Role-gated middleware on all <code>/admin/*</code> routes</li>
+  <li>Role-gated middleware in the standalone admin app for root paths on <code>admin.theroyalglow.in</code></li>
   <li>Role assignment hierarchy enforcement (can only assign below own level)</li>
 </ul>
 
@@ -318,78 +318,65 @@
 </table>
 
 <h3>3.2 High-Level Architecture Diagram</h3>
-<pre><code>┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              CLIENT LAYER                                         │
-│    Browser / PWA (Next.js React App)                                             │
-│    ├── Customer Pages: /, /services, /bookings, /membership, /gems               │
-│    ├── Admin Portal: /admin/* (RBAC-gated)                                       │
-│    └── Ably WebSocket Subscription (Token Auth, subscribe-only)                  │
-└──────────────────────────────────────┬──────────────────────────────────────────┘
-                                       │ HTTPS (TLS 1.3)
-                                       ▼
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                           EDGE LAYER (Cloudflare)                                 │
-│    ┌──────────────┐    ┌──────────────────┐    ┌────────────────────────┐        │
-│    │ Cloudflare   │    │ CF Workers       │    │ Cloudflare Workers     │        │
-│    │ DNS + DDoS   │───▶│ (OpenNext)       │───▶│ (Edge SSR + API)       │        │
-│    │ + WAF        │    │                  │    │ 50ms CPU wall time     │        │
-│    └──────────────┘    └──────────────────┘    └──────────┬─────────────┘        │
-│    ┌──────────────────┐                                    │                      │
-│    │ Cloudflare KV    │◀── L1 Edge Cache (5-min TTL)       │                      │
-│    └──────────────────┘                                    │                      │
-└────────────────────────────────────────────────────────────┼──────────────────────┘
-                              ┌───────────────────────────────┼───────────────────┐
-                              ▼                               ▼                   ▼
-┌──────────────────────────────────┐  ┌────────────────────────────┐  ┌──────────────────┐
-│  Render (Singapore)              │  │  Neon DB (PostgreSQL 16)   │  │  Upstash          │
-│  ├── Heavy SSR fallback          │  │  ├── 4 branches:           │  │  ├── Redis         │
-│  └── Payload CMS v3              │  │  │   dev/test/pprd/prod    │  │  │   (cache, rate   │
-│      (admin.theroyalglow.in)     │  │  ├── QStash (14 sched jobs) │  │  │    limiting)     │
-│                                  │  │  └── Drizzle ORM           │  │  └── QStash        │
-└──────────────────────────────────┘  └────────────────────────────┘  │      (4 event jobs)│
-                                                                       └──────────────────┘
-              ┌───────────────────────────────────────────────────────┐
-              ▼                     ▼                                 ▼
-┌──────────────────┐  ┌──────────────────┐               ┌──────────────────────┐
-│  Cloudflare R2   │  │  Ably            │               │  External Services   │
-│  ├── Images      │  │  ├── 6 channels  │               │  ├── Resend (email)  │
-│  ├── PDF invoices│  │  ├── Token Auth  │               │  ├── Brevo (mktg)   │
-│  └── DB backups  │  │  └── ~50ms push  │               │  ├── web-push       │
-└──────────────────┘  └──────────────────┘               │  └── Slack webhooks │
-                                                          └──────────────────────┘</code></pre>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────────┐
+│ CLIENTS                                                                     │
+│ Browser / PWA: customer site + admin portal + Ably subscriptions            │
+└───────────────────────────────────┬─────────────────────────────────────────┘
+                                    │ HTTPS
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ DNS + AWS DELIVERY                                                          │
+│ Cloudflare authoritative DNS only (no Cloudflare application compute)       │
+│             │                                                               │
+│             ├── theroyalglow.in ───────▶ CloudFront ─▶ Lambda (apps/web)    │
+│             └── admin.theroyalglow.in ─▶ CloudFront ─▶ Lambda (apps/admin)  │
+│                                          SST sst.aws.Nextjs / OpenNext       │
+│                                          ap-southeast-1                      │
+└───────────────────────────────────┬─────────────────────────────────────────┘
+                                    │
+          ┌─────────────────────────┼─────────────────────────┐
+          ▼                         ▼                         ▼
+┌─────────────────────┐  ┌─────────────────────┐  ┌──────────────────────────┐
+│ Neon PostgreSQL 16  │  │ Upstash             │  │ External app services    │
+│ source of truth     │  │ Redis + QStash      │  │ Ably, Resend, Brevo      │
+└─────────────────────┘  └─────────────────────┘  └──────────────────────────┘
+                                    │
+                                    ▼
+          ┌───────────────────────────────────────────────────┐
+          │ Unchanged: Render CMS, Cloud Run invoicing,       │
+          │ Cloudflare R2 media / PDFs / database backups     │
+          └───────────────────────────────────────────────────┘</code></pre>
 
 <h3>3.3 Component Breakdown</h3>
 <table>
   <tr><th>Layer</th><th>Location</th><th>Responsibility</th><th>Key Constraint</th></tr>
-  <tr><td>Presentation</td><td><code>apps/web/app/</code></td><td>React Server/Client Components, layouts, pages</td><td>Zero business logic</td></tr>
-  <tr><td>UI Components</td><td><code>apps/web/components/</code></td><td>shadcn/ui primitives, booking dialog, admin widgets</td><td>Pure presentation</td></tr>
-  <tr><td>API (Thin)</td><td><code>apps/web/app/api/</code></td><td>Parse → Zod validate → delegate → JSON response</td><td>No DB queries here</td></tr>
+  <tr><td>Presentation (Web)</td><td><code>apps/web/app/</code></td><td>Customer React Server/Client Components, layouts, pages</td><td>Zero business logic</td></tr>
+  <tr><td>API (Web, Thin)</td><td><code>apps/web/app/api/</code></td><td>Parse → Zod validate → delegate → JSON response</td><td>No DB queries here</td></tr>
+  <tr><td>Presentation (Admin)</td><td><code>apps/admin/app/</code></td><td>Admin React Server/Client Components, layouts, root-path pages</td><td>Zero business logic</td></tr>
+  <tr><td>API (Admin, Thin)</td><td><code>apps/admin/app/api/</code></td><td>Parse → Zod validate → delegate → JSON response</td><td>No DB queries here</td></tr>
+  <tr><td>UI Components</td><td><code>apps/web/components/</code>, <code>apps/admin/components/</code></td><td>shadcn/ui primitives and app-specific feature components</td><td>Pure presentation</td></tr>
   <tr><td>Business Logic</td><td><code>packages/business/</code></td><td>Pure functions, domain rules, calculations</td><td>No I/O, no framework deps</td></tr>
   <tr><td>Data Access</td><td><code>packages/db/</code></td><td>Drizzle ORM schemas, query builders, migrations</td><td>Only package that imports Drizzle</td></tr>
   <tr><td>CMS</td><td><code>apps/cms/</code></td><td>Payload CMS v3 — blog, gallery, team bios, banners, FAQ, plus the bookable service catalogue</td><td>Marketing content + service catalogue authoring (synced to <code>public.*</code>)</td></tr>
+  <tr><td>Infrastructure</td><td><code>sst.config.ts</code>, <code>render.yaml</code></td><td>SST v3 AWS web/admin IaC and Render CMS service definition</td><td>Platform-specific</td></tr>
 </table>
 
 <h3>3.4 Technology Decisions Matrix</h3>
 <table>
-  <tr><th>Category</th><th>Choice</th><th>Alternatives Considered</th><th>Why This Choice</th></tr>
-  <tr><td>Framework</td><td>Next.js 16 (App Router)</td><td>Remix, SvelteKit, Astro</td><td>SSR + SSG + API in one; edge-ready; React ecosystem; largest community</td></tr>
-  <tr><td>Runtime</td><td>Bun</td><td>Node.js, Deno</td><td>3x faster installs, native TS, faster test runs</td></tr>
-  <tr><td>Database</td><td>Neon PostgreSQL 16</td><td>Supabase, PlanetScale, Turso, Xata</td><td>Branching (4 environments free), serverless; all scheduled jobs via QStash HTTP routes</td></tr>
-  <tr><td>ORM</td><td>Drizzle ORM</td><td>Prisma (binary can't run on CF Workers)</td><td>Pure TypeScript, zero binary, runs on V8 isolate</td></tr>
-  <tr><td>Auth</td><td>Better Auth</td><td>Clerk, Auth.js, Supabase Auth</td><td>Self-hosted, YOUR domain on Google consent, built-in RBAC</td></tr>
-  <tr><td>Hosting (Edge)</td><td>Cloudflare Workers (OpenNext)</td><td>Vercel, Netlify</td><td>Generous free tier, global edge, no bandwidth surprises</td></tr>
-  <tr><td>Hosting (Origin)</td><td>Render (Singapore)</td><td>Railway, Fly.io</td><td>Free tier, closest region to India</td></tr>
-  <tr><td>Realtime</td><td>Ably</td><td>Pusher, Socket.io, Supabase Realtime</td><td>6M msg/mo free, 200 concurrent, edge SDK, Token Auth</td></tr>
-  <tr><td>CMS</td><td>Payload CMS v3</td><td>Sanity, Strapi, Contentful</td><td>Self-hosted Next.js plugin, zero vendor lock-in</td></tr>
-  <tr><td>Email (Transactional)</td><td>Resend</td><td>SendGrid, Postmark</td><td>Modern DX, React Email templates</td></tr>
-  <tr><td>Email (Marketing)</td><td>Brevo</td><td>Mailchimp, ConvertKit</td><td>Unsubscribe management, automations, DPDP-compliant</td></tr>
-  <tr><td>Cache</td><td>Upstash Redis</td><td>Self-hosted Redis, Durable Objects</td><td>Serverless, CF Workers compatible, QStash included</td></tr>
-  <tr><td>File Storage</td><td>Cloudflare R2</td><td>AWS S3, Supabase Storage</td><td>S3-compatible, zero egress fees, 10 GB free</td></tr>
-  <tr><td>UI Components</td><td>shadcn/ui + Radix</td><td>Material UI, Chakra, Mantine</td><td>Copy-paste ownership, Radix a11y, zero runtime</td></tr>
-  <tr><td>Styling</td><td>Tailwind CSS v4</td><td>CSS Modules, styled-components</td><td>Utility-first, design tokens, zero runtime JS</td></tr>
-  <tr><td>Animation</td><td>motion (motion.dev)</td><td>GSAP, react-spring</td><td>Free tier, respects prefers-reduced-motion</td></tr>
-  <tr><td>Analytics</td><td>PostHog</td><td>Google Analytics, Mixpanel</td><td>1M events/mo free, feature flags, funnels, session replay</td></tr>
-  <tr><td>Error Monitoring</td><td>Sentry</td><td>Highlight.io, Datadog</td><td>Industry standard, CF Workers support, source maps</td></tr>
+  <tr><th>Category</th><th>Choice</th><th>Why This Choice</th></tr>
+  <tr><td>Framework</td><td>Next.js 16 (App Router)</td><td>SSR + SSG + API routes in one React framework</td></tr>
+  <tr><td>Toolchain</td><td>Bun</td><td>Fast installs, scripts, and workspace support</td></tr>
+  <tr><td>Database</td><td>Neon PostgreSQL 16</td><td>Branching, serverless compute, Drizzle integration</td></tr>
+  <tr><td>ORM</td><td>Drizzle ORM</td><td>Pure TypeScript, no runtime binary, portable Lambda/Node packaging</td></tr>
+  <tr><td>Auth</td><td>Better Auth</td><td>Self-hosted Google OAuth, RBAC, sessions in Neon</td></tr>
+  <tr><td>Web + Admin Compute</td><td>AWS Lambda + CloudFront via SST <code>sst.aws.Nextjs</code></td><td>ARM64 SSR Lambda and CloudFront distribution per app; OpenNext packaging</td></tr>
+  <tr><td>CMS Hosting</td><td>Render (Singapore)</td><td>Payload CMS remains on its existing Node service</td></tr>
+  <tr><td>PDF Rendering</td><td>Google Cloud Run</td><td>Existing invoicing service remains separate</td></tr>
+  <tr><td>Realtime</td><td>Ably</td><td>Managed realtime with Token Auth</td></tr>
+  <tr><td>Rate Limiting + Queue</td><td>Upstash Redis + QStash</td><td>Distributed API rate-limit state plus scheduled and triggered jobs; response caches remain planned</td></tr>
+  <tr><td>File Storage</td><td>Cloudflare R2</td><td>S3-compatible, zero egress, unchanged by AWS compute deployment</td></tr>
+  <tr><td>Infrastructure as Code</td><td>SST v3</td><td>Version-controlled AWS compute and required Cloudflare DNS records</td></tr>
+  <tr><td>Error Monitoring</td><td>Sentry</td><td>Lambda, Render, and browser errors with source maps</td></tr>
 </table>
 
 <hr>
@@ -439,12 +426,11 @@
   <tr><td>GST pricing</td><td>All prices GST-inclusive; back-calculate: base = price ÷ 1.18</td></tr>
 </table>
 
-<h3>4.4 Caching Strategy</h3>
-<pre><code>L1: Cloudflare KV (Edge) — Service catalog, 5-min TTL, 200+ PoPs
-      ↓ MISS
-L2: Upstash Redis (Regional) — Slot availability, rate limits, 5-min TTL
-      ↓ MISS
-L3: Neon PostgreSQL (Source of Truth) — All business data, persistent</code></pre>
+<h3>4.4 Current Data Paths and Planned Caching</h3>
+<pre><code>Neon PostgreSQL — Direct catalogue and business-hours settings reads
+Upstash Redis — Distributed API rate-limit state
+QStash — Scheduled and triggered background jobs</code></pre>
+<p>No Redis response cache is implemented for service catalogue or availability. A five-minute Upstash read-through cache remains planned; Neon stays authoritative.</p>
 
 <h3>4.5 File Storage (Cloudflare R2)</h3>
 <table>
@@ -468,21 +454,21 @@ L3: Neon PostgreSQL (Source of Truth) — All business data, persistent</code></
   <tr><td>CSRF protection</td><td>Built-in via Better Auth</td></tr>
   <tr><td>Token type</td><td>Session-based (not JWT) — revocable, server-validated</td></tr>
   <tr><td>Dashboard</td><td>Better Auth Cloud free tier (audit logs, user analytics)</td></tr>
-  <tr><td>Admin UI</td><td>Custom <code>/admin/users</code> page</td></tr>
+  <tr><td>Admin UI</td><td>Custom <code>/users</code> page</td></tr>
 </table>
 
 <h3>5.2 RBAC Model — 6-Tier Hierarchy</h3>
 <pre><code>Customer     → Public pages, own bookings/profile/gems
     ↓
-Staff        → Own schedule, assigned booking notes, leave requests. NO /admin/*
+Staff        → Own schedule, assigned booking notes, leave requests. No admin portal access.
     ↓
 Receptionist → Lowest admin role. Bookings, billing, memberships, leave approvals.
     ↓
 Manager      → Full operational access: staff, services, reports, settings.
     ↓
-Owner        → Full business access including /admin/users
+Owner        → Full business access including /users
     ↓
-Developer    → Everything + /admin/integrations, /admin/logs</code></pre>
+Developer    → Everything + /integrations, /logs</code></pre>
 
 <h3>5.3 Role Assignment Rules</h3>
 <table>
@@ -627,22 +613,22 @@ Developer    → Everything + /admin/integrations, /admin/logs</code></pre>
 </table>
 
 <h3>9.3 Feature Flag Strategy</h3>
-<p><strong>Deploy ≠ Release</strong> — Code deployed to edge on every merge. Visibility controlled by PostHog feature flags.</p>
+<p><strong>Deploy ≠ Release</strong> — A successful SST deployment puts code on AWS Lambda + CloudFront. PostHog feature flags control visibility.</p>
 <pre><code>1. Deploy with flag OFF → code in prod, invisible
 2. Flag ON: role = 'developer' → self-test in production
 3. Flag ON: role = 'owner' | 'manager' → stakeholder preview
 4. Flag ON: 10% customers → monitor Sentry for errors
-5. Flag ON: 100% → full release
-6. Remove flag + dead code after 2 weeks stable</code></pre>
+5. Flag ON: 100% → full release</code></pre>
 
 <h3>9.4 Rollback Plan</h3>
 <table>
   <tr><th>Tier</th><th>Scenario</th><th>Action</th><th>Recovery Time</th></tr>
-  <tr><td><span class="badge badge-success">Tier 1</span></td><td>UI bug after deploy</td><td>Feature flag OFF</td><td>&lt; 10 seconds</td></tr>
-  <tr><td><span class="badge badge-success">Tier 2</span></td><td>App crash / 500 errors</td><td>Cloudflare rollback</td><td>&lt; 30 seconds</td></tr>
-  <tr><td><span class="badge badge-warning">Tier 3</span></td><td>Bad migration (data corrupted)</td><td>Neon PITR branch</td><td>&lt; 5 minutes</td></tr>
-  <tr><td><span class="badge badge-danger">Tier 4</span></td><td>Full disaster (Neon outage)</td><td>Restore from R2 backup</td><td>&lt; 30 minutes</td></tr>
+  <tr><td>Tier 1</td><td>Flagged feature issue</td><td>Feature flag OFF</td><td>&lt; 10 seconds</td></tr>
+  <tr><td>Tier 2</td><td>Successful but bad release</td><td>Deploy previous tag/SHA through <code>deploy-aws.yml</code></td><td>3–5 minutes</td></tr>
+  <tr><td>Tier 3</td><td>Bad migration</td><td>Forward fix or Neon PITR</td><td>&lt; 10 minutes</td></tr>
+  <tr><td>Tier 4</td><td>Neon disaster</td><td>Restore from R2 backup</td><td>&lt; 30 minutes</td></tr>
 </table>
+<p>A failed SST/Pulumi update can leave resources partially changed. Inspect deployment logs and stack state, verify both health endpoints, and redeploy a known-good ref when needed.</p>
 
 <hr>
 
@@ -661,7 +647,7 @@ Developer    → Everything + /admin/integrations, /admin/logs</code></pre>
 <h3>10.2 Alert Escalation</h3>
 <table>
   <tr><th>Level</th><th>Trigger</th><th>Response</th><th>Channel</th></tr>
-  <tr><td>Level 1: Auto</td><td>Health check failure</td><td>Auto-rollback / flag auto-disable</td><td>Automated</td></tr>
+  <tr><td>Level 1: Alert</td><td>Health check failure or error-rate spike</td><td>Notify operator; disable a PostHog flag when applicable</td><td>BetterStack + Sentry</td></tr>
   <tr><td>Level 2: Notify</td><td>Non-critical degradation</td><td>Developer awareness</td><td>Slack #alerts</td></tr>
   <tr><td>Level 3: Urgent</td><td>Site down, DB unreachable</td><td>Immediate action</td><td>SMS + Push + Slack</td></tr>
   <tr><td>Level 4: Escalate</td><td>15 min unacknowledged</td><td>Force attention</td><td>Phone call</td></tr>
@@ -674,7 +660,7 @@ Developer    → Everything + /admin/integrations, /admin/logs</code></pre>
 <h3>11.1 Defense in Depth</h3>
 <table>
   <tr><th>Layer</th><th>Protection</th><th>Implementation</th></tr>
-  <tr><td>Edge</td><td>DDoS / WAF / Bot management</td><td>Cloudflare (automatic, always-on)</td></tr>
+  <tr><td>Delivery</td><td>CDN and TLS termination</td><td>CloudFront + ACM; Cloudflare remains authoritative DNS only</td></tr>
   <tr><td>Transport</td><td>Encryption in transit</td><td>HTTPS only, TLS 1.3, HSTS preload</td></tr>
   <tr><td>Application</td><td>Content Security Policy</td><td>Nonce-based scripts, strict-dynamic, exact origin CORS</td></tr>
   <tr><td>Application</td><td>Rate limiting</td><td>Per-endpoint sliding windows (Upstash Redis)</td></tr>
@@ -701,26 +687,23 @@ Developer    → Everything + /admin/integrations, /admin/logs</code></pre>
 <h3>12.1 Performance Optimizations</h3>
 <table>
   <tr><th>Optimization</th><th>Layer</th><th>Impact</th></tr>
-  <tr><td>Edge SSR</td><td>Cloudflare Workers</td><td>Sub-100ms response globally</td></tr>
-  <tr><td>KV edge cache</td><td>Cloudflare KV</td><td>Service catalog &lt; 5ms</td></tr>
-  <tr><td>Redis slot cache</td><td>Upstash</td><td>Availability &lt; 5ms vs ~100ms DB</td></tr>
-  <tr><td>ISR (blog)</td><td>Next.js</td><td>1h revalidation, zero cost between</td></tr>
-  <tr><td>SSG (legal, FAQ)</td><td>Next.js</td><td>Static HTML, zero server cost</td></tr>
-  <tr><td>Image optimization</td><td>Next.js Image + CF Polish</td><td>Auto WebP/AVIF, lazy loading</td></tr>
-  <tr><td>PWA</td><td>Service Worker</td><td>Offline access to menu/prices</td></tr>
-  <tr><td>Streaming SSR</td><td>React Suspense</td><td>Progressive HTML delivery</td></tr>
+  <tr><td>Static delivery</td><td>CloudFront + S3</td><td>Assets served near users</td></tr>
+  <tr><td>SSR/API compute</td><td>Lambda in ap-southeast-1</td><td>Compute remains near Neon</td></tr>
+  <tr><td>Service catalogue reads</td><td>Neon via Drizzle</td><td>Direct authoritative reads; 5-minute Upstash cache remains planned</td></tr>
+  <tr><td>ISR / SSG</td><td>Next.js + SST/OpenNext</td><td>Avoid rendering every eligible request</td></tr>
+  <tr><td>Image optimization</td><td>Next.js Image</td><td>Responsive formats and lazy loading</td></tr>
+  <tr><td>PWA</td><td>Browser Service Worker</td><td>Offline core assets</td></tr>
 </table>
 
 <h3>12.2 Capacity — Free Tier Headroom</h3>
 <table>
-  <tr><th>Service</th><th>Free Limit</th><th>Expected Usage</th><th>Headroom</th></tr>
-  <tr><td>Neon DB</td><td>0.5 GB storage</td><td>~50 MB</td><td>10x+</td></tr>
-  <tr><td>Upstash Redis</td><td>10K req/day</td><td>~500/day</td><td>20x</td></tr>
-  <tr><td>Cloudflare Workers</td><td>100K req/day</td><td>~5K/day</td><td>20x</td></tr>
-  <tr><td>Cloudflare R2</td><td>10 GB</td><td>~2 GB</td><td>5x</td></tr>
-  <tr><td>Ably</td><td>6M msg/mo</td><td>~50K/mo</td><td>120x</td></tr>
-  <tr><td>Sentry</td><td>5K errors/mo</td><td>~50/mo</td><td>100x</td></tr>
-  <tr><td>PostHog</td><td>1M events/mo</td><td>~50K/mo</td><td>20x</td></tr>
+  <tr><th>Service</th><th>Included / Free Allowance</th><th>Expected Usage</th></tr>
+  <tr><td>AWS Lambda</td><td>1M requests + 400,000 GB-seconds/month</td><td>~5K requests/day</td></tr>
+  <tr><td>CloudFront</td><td>1 TB transfer + 10M requests/month</td><td>Salon-scale traffic</td></tr>
+  <tr><td>Neon DB</td><td>0.5 GB storage</td><td>~50 MB</td></tr>
+  <tr><td>Upstash Redis</td><td>10K requests/day</td><td>~500/day</td></tr>
+  <tr><td>Cloudflare R2</td><td>10 GB</td><td>~2 GB</td></tr>
+  <tr><td>Ably</td><td>6M messages/month</td><td>~50K/month</td></tr>
 </table>
 
 <hr>
@@ -738,9 +721,11 @@ Developer    → Everything + /admin/integrations, /admin/logs</code></pre>
 <h3>13.2 RTO/RPO Targets</h3>
 <table>
   <tr><th>Scenario</th><th>RPO</th><th>RTO</th><th>Method</th></tr>
-  <tr><td>Code issue</td><td>0</td><td>&lt; 30 sec</td><td>Cloudflare rollback</td></tr>
-  <tr><td>Bad migration</td><td>~0 sec</td><td>&lt; 5 min</td><td>Neon PITR branch</td></tr>
-  <tr><td>Neon outage</td><td>≤ 7 days</td><td>&lt; 30 min</td><td>R2 backup restore</td></tr>
+  <tr><td>Flagged feature issue</td><td>0</td><td>&lt; 10 sec</td><td>Disable PostHog flag</td></tr>
+  <tr><td>Bad app release</td><td>0</td><td>3–5 min</td><td>Redeploy previous tag/SHA through <code>deploy-aws.yml</code></td></tr>
+  <tr><td>Failed SST/Pulumi update</td><td>Unknown until inspected</td><td>Depends on state</td><td>Inspect stack/logs and health; redeploy known-good ref if needed</td></tr>
+  <tr><td>Bad migration</td><td>~0 sec</td><td>&lt; 10 min</td><td>Forward fix or Neon PITR</td></tr>
+  <tr><td>Neon outage</td><td>≤ 7 days</td><td>&lt; 30 min</td><td>Restore R2 backup</td></tr>
 </table>
 
 <hr>
@@ -748,19 +733,15 @@ Developer    → Everything + /admin/integrations, /admin/logs</code></pre>
 <h2 id="tradeoffs">14. Trade-offs &amp; Design Decisions</h2>
 
 <table>
-  <tr><th>#</th><th>Decision</th><th>Trade-off Accepted</th><th>Mitigation</th></tr>
-  <tr><td>1</td><td>Monolith over microservices</td><td>Less fault isolation</td><td>Strict layer separation in monorepo</td></tr>
-  <tr><td>2</td><td>Free tiers only</td><td>Limited resources, cold starts</td><td>Free tiers are 10-100x above expected usage</td></tr>
-  <tr><td>3</td><td>Google OAuth only</td><td>No email/password users</td><td>99%+ Indian smartphone users have Google</td></tr>
-  <tr><td>4</td><td>Edge-first (CF Workers)</td><td>50ms CPU wall time</td><td>Render fallback for heavy SSR</td></tr>
-  <tr><td>5</td><td>Better Auth over Clerk</td><td>Less polished dashboard</td><td>Custom /admin/users page</td></tr>
-  <tr><td>6</td><td>Session-based (not JWT)</td><td>DB lookup per request</td><td>Sessions cacheable; &lt; 5ms Neon lookup; revocable</td></tr>
-  <tr><td>7</td><td>Ably over SSE</td><td>External dependency</td><td>SSE incompatible with CF Workers; Ably 120x headroom</td></tr>
-  <tr><td>8</td><td>Drizzle over Prisma</td><td>Smaller community</td><td>Prisma binary can't run on CF Workers</td></tr>
-  <tr><td>9</td><td>nanoid PKs over auto-increment</td><td>Larger index size</td><td>Prevents enumeration attacks</td></tr>
-  <tr><td>10</td><td>Paise over decimal for money</td><td>Requires conversion</td><td>formatINR() utility; no float bugs</td></tr>
-  <tr><td>11</td><td>Hard deletes over soft deletes</td><td>Cannot undelete</td><td>audit_log captures all; simpler queries</td></tr>
-  <tr><td>12</td><td>Single Next.js app (customer+admin)</td><td>Admin in same bundle</td><td>Code splitting; admin code not sent to customers</td></tr>
+  <tr><th>#</th><th>Decision</th><th>Trade-off</th><th>Mitigation</th></tr>
+  <tr><td>1</td><td>Monolith over microservices</td><td>Less fault isolation</td><td>Strict package boundaries</td></tr>
+  <tr><td>2</td><td>Lambda + CloudFront via SST/OpenNext</td><td>Cold starts and community packaging</td><td>Static/ISR delivery; measure hot reads and add planned caching only where justified</td></tr>
+  <tr><td>3</td><td>Google OAuth only</td><td>No email/password users</td><td>Eliminates password recovery and storage</td></tr>
+  <tr><td>4</td><td>Session-based auth</td><td>DB lookup per request</td><td>Revocable sessions and pooled Neon access</td></tr>
+  <tr><td>5</td><td>Ably managed realtime</td><td>External dependency</td><td>Polling fallback; no self-hosted WebSocket fleet</td></tr>
+  <tr><td>6</td><td>Drizzle over Prisma</td><td>Smaller community</td><td>Pure TypeScript and portable Lambda packaging</td></tr>
+  <tr><td>7</td><td>Upstash Redis rate limiting</td><td>External managed-state dependency</td><td>Monitor connectivity and preserve each endpoint's configured failure policy</td></tr>
+  <tr><td>8</td><td>Separate web and admin apps</td><td>Two deployments</td><td>Shared packages and one SST configuration</td></tr>
 </table>
 
 <hr>
@@ -789,7 +770,9 @@ Developer    → Everything + /admin/integrations, /admin/logs</code></pre>
 <h2>Appendix A: Infrastructure Cost Summary</h2>
 <table>
   <tr><th>Service</th><th>Free Tier</th><th>First Paid Plan</th></tr>
-  <tr><td>Cloudflare Workers (OpenNext)</td><td>100K req/day</td><td>Pro $20/mo</td></tr>
+  <tr><td>AWS Lambda</td><td>1M requests + 400,000 GB-seconds/month</td><td>Usage-based</td></tr>
+  <tr><td>Amazon CloudFront</td><td>1 TB transfer + 10M requests/month</td><td>Usage-based</td></tr>
+  <tr><td>Amazon S3</td><td>5 GB initial allowance</td><td>Usage-based</td></tr>
   <tr><td>Neon DB</td><td>0.5 GB, 3 GB transfer</td><td>Launch $19/mo</td></tr>
   <tr><td>Upstash Redis + QStash</td><td>10K req/day, 500 msg/day</td><td>Pro $10/mo</td></tr>
   <tr><td>Cloudflare R2</td><td>10 GB, 10M ops</td><td>Pay-as-you-go</td></tr>
@@ -800,7 +783,7 @@ Developer    → Everything + /admin/integrations, /admin/logs</code></pre>
   <tr><td>PostHog</td><td>1M events/mo</td><td>Scale (usage-based)</td></tr>
   <tr><td>Clarity</td><td>Unlimited</td><td>Always free</td></tr>
   <tr><td>Checkly</td><td>5 checks, 10K runs</td><td>Developer $7/mo</td></tr>
-  <tr><td colspan="2"><strong>TOTAL AT LAUNCH</strong></td><td><strong>₹0/month</strong></td></tr>
+  <tr><td colspan="2"><strong>CURRENT BASELINE</strong></td><td><strong>~$0.50–1/month</strong></td></tr>
 </table>
 
 <hr>

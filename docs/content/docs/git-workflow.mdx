@@ -112,7 +112,7 @@ Gates are cumulative — each stage adds checks on top of the previous one.
 ```text
 ✅ All CI gates passing
 ✅ Manual approval required
-🚀 Deploy to Cloudflare Workers (OpenNext adapter)
+🚀 Deploy apps/web + apps/admin to AWS through SST
 ```
 
 </Tab>
@@ -129,7 +129,7 @@ chore: update dependencies
 docs: update testing plan
 test: add E2E test for admin booking flow
 refactor: extract pricing logic to service layer
-perf: cache service catalog in Cloudflare KV
+perf: cache service catalog in Upstash Redis
 security: add rate limiting to /api/leads
 ```
 
@@ -162,20 +162,19 @@ This catches formatting issues and obvious lint errors **before they ever reach 
 ## Deployment
 
 <Tabs>
-<Tab title="Render (today)">
+<Tab title="AWS (current)">
 
-- `rgss-web` (`theroyalglow.in`), `rgss-admin` (`admin.theroyalglow.in`) and `rgss-cms` (`cms.theroyalglow.in`)
-- Auto-deploy on push to `prod`, built and started with Bun (`next build` → `next start`)
-- Zero-downtime deploys via Render's rolling restart
-- Rollback: redeploy a previous commit from the Render dashboard
+- `apps/web` and `apps/admin`: Lambda (ARM64) + CloudFront + S3 per app through `sst.aws.Nextjs`
+- `deploy-aws.yml` on push to `prod`: GitHub OIDC → `bunx sst deploy --stage production`; when `AWS_DOMAINS_LIVE=true`, retry both public health endpoints up to 6 times with 15-second waits
+- Recovery: inspect SST/Pulumi logs, stack state, and both applications, then manually deploy a known-good `git_ref` if needed
+- Cloudflare remains authoritative DNS; SST manages only required validation and alias records
 
 </Tab>
-<Tab title="AWS (target)">
+<Tab title="Other workloads">
 
-- `apps/web` and `apps/admin` only: Lambda (ARM64) + CloudFront + S3 per app, via SST. CMS stays on Render; invoicing stays on Cloud Run
-- `deploy-aws.yml` on push to `prod`: GitHub OIDC → `bunx sst deploy --stage production` → health check
-- Rollback: redeploy a previous ref (3–5 min). PostHog feature flags are the instant kill switch
-- Full runbook: `M2AWS.md`
+- Payload CMS (`apps/cms`) remains on Render
+- Invoice PDF service (`apps/invoicing`) remains on Cloud Run
+- Neon, Upstash, QStash, Ably, Resend, and Cloudflare R2 remain unchanged
 
 </Tab>
 </Tabs>

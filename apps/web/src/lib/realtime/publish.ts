@@ -23,7 +23,7 @@
  *
  * Features / Functionality :
  * - publishBookingEvent({ bookingId, branchId, event, data }) — fan-out publish
- * - HTTP Basic auth built from ABLY_PRIVATE_KEY with btoa (Workers-safe)
+ * - HTTP Basic auth built from ABLY_PRIVATE_KEY with the standard `btoa` Web API
  * - ~2s AbortSignal.timeout so a slow Ably never stalls the request
  *
  * Tech Stack   : TypeScript, Ably REST (over fetch)
@@ -32,12 +32,10 @@
  * Dependencies : @rgss/logger
  *
  * Notes        :
- * - REST-over-fetch (NOT the Ably Realtime SDK): the deploy target is the
- *   Cloudflare Workers runtime, where long-lived WebSocket clients and the
- *   Node SDK are unavailable in request paths. A single stateless HTTPS POST to
- *   the Ably REST endpoint is the Workers-safe way to publish one message.
- * - Web Crypto / Web APIs only — credentials are base64-encoded with `btoa`
- *   (NOT node Buffer), which the Workers runtime provides globally.
+ * - REST-over-fetch keeps each publish stateless and short-lived in AWS Lambda
+ *   request handling; one HTTPS POST is sufficient for each message.
+ * - Credentials are base64-encoded with the standard `btoa` Web API, avoiding
+ *   an unnecessary Node-specific Buffer dependency.
  * - Reads process.env.ABLY_PRIVATE_KEY directly (NOT env.ts) so it degrades
  *   gracefully — env.ts types the key as required and would fail validation
  *   when realtime is not yet provisioned. Absent key → silent no-op.
@@ -75,7 +73,7 @@ type PublishBookingEventInput = {
 }
 
 // ~2s ceiling: realtime is a nice-to-have, never worth stalling the user's
-// request for. AbortSignal.timeout is part of the Web platform (Workers-safe).
+// request for. AbortSignal.timeout is supported by the AWS Lambda runtime.
 const PUBLISH_TIMEOUT_MS = 2000
 
 // POST one message to a single Ably channel over REST. Resolves to a boolean
@@ -89,8 +87,8 @@ async function publishToChannel(
 ): Promise<boolean> {
   try {
     // ABLY_PRIVATE_KEY is `keyName:keySecret`; the REST API authenticates with
-    // HTTP Basic where the whole key string is the credential. btoa is the
-    // Workers-safe base64 encoder (node Buffer is unavailable on Workers).
+    // HTTP Basic where the whole key string is the credential. `btoa` provides
+    // the required base64 encoding without a Node-specific Buffer dependency.
     const authorization = `Basic ${btoa(apiKey)}`
 
     // URL-encode the channel name — it contains ':' and may carry ids that are

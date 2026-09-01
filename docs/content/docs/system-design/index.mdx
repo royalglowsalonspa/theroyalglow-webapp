@@ -61,15 +61,15 @@ Git-like branching, serverless scale-to-zero, and a generous free tier.
 </Accordion>
 
 <Accordion title="ORM → Drizzle">
-Pure TypeScript — runs on the Cloudflare Workers V8 isolate where Prisma's binary cannot.
+Pure TypeScript with no runtime binary, keeping the data layer portable and straightforward to package for Lambda.
 </Accordion>
 
 <Accordion title="Auth → Better Auth">
 Self-hosted, Google OAuth with your own domain on the consent screen, and built-in RBAC.
 </Accordion>
 
-<Accordion title="Edge → Cloudflare Workers (OpenNext)">
-Global edge delivery with a generous free tier. Both Next.js apps deploy to Cloudflare Workers via the OpenNext adapter (`@opennextjs/cloudflare`) — not Pages.
+<Accordion title="Compute → AWS Lambda + CloudFront through SST">
+`apps/web` and `apps/admin` each deploy as `sst.aws.Nextjs`: OpenNext packages the Next.js output, AWS Lambda runs SSR/API compute, and CloudFront delivers each app. Payload CMS remains on Render; invoicing remains on Cloud Run.
 </Accordion>
 
 <Accordion title="Realtime → Ably">

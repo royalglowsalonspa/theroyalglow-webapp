@@ -10,9 +10,8 @@ const nextConfig: NextConfig = {
     '@rgss/types',
     '@rgss/ui',
   ],
-  // Tree-shake barrel imports from large UI/client packages so their unused
-  // exports never enter the bundle. Trims the OpenNext Cloudflare Worker
-  // (customer site must fit the 3 MiB gzipped free-plan script limit).
+  // Tree-shake barrel imports from large UI/client packages so unused exports
+  // never enter production bundles, reducing Lambda size and client downloads.
   experimental: {
     optimizePackageImports: [
       'lucide-react',
@@ -64,8 +63,7 @@ const nextConfig: NextConfig = {
 
 // Source-map upload is a no-op without SENTRY_ORG/SENTRY_PROJECT/SENTRY_AUTH_TOKEN (CI-only).
 // `bundleSizeOptimizations` + `disableLogger` strip Sentry debug/logger code and
-// tree-shakeable internals from the build, shrinking the Worker bundle toward the
-// 3 MiB gzipped free-plan limit while keeping error monitoring intact.
+// tree-shakeable internals, keeping production bundles lean without losing error monitoring.
 export default withSentryConfig(nextConfig, {
   silent: true,
   disableLogger: true,

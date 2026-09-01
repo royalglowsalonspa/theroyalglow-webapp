@@ -155,28 +155,20 @@ services:
         sync: false
 
   # --------------------------------------------------------------------------
-  # Customer website — apps/web (@rgss/web) → theroyalglow.in
+  # Legacy customer website definition — apps/web (@rgss/web)
   # --------------------------------------------------------------------------
-  # Next.js 16 App Router customer site, served as a standard Node server
-  # (`next build` + `next start`).
-  #
-  # HISTORY: this was originally built for Cloudflare Workers via the OpenNext
-  # adapter, but the Worker server bundle (~5.7 MiB gzipped) exceeded
-  # Cloudflare's 3 MiB free-plan script limit, so it moved to a plain Node
-  # server here. The dormant Cloudflare files (wrangler.jsonc,
-  # open-next.config.ts, the cf:* scripts and the @opennextjs/cloudflare +
-  # wrangler dependencies) have since been REMOVED from the repo — Cloudflare is
-  # no longer a deploy target. Restoring it would mean re-adding the adapter.
-  #
-  # The forward path is AWS: see M2AWS.md, which replaces this file with EC2
-  # containers + RDS. Render remains live and is the rollback until that cutover
-  # completes (M2AWS.md §16).
+  # Production is live on AWS Lambda + CloudFront through SST's OpenNext AWS
+  # implementation. Render dashboard suspension is out-of-band and cannot be
+  # represented by this Blueprint. This remains a deployable reactivation
+  # template, not a tested rollback target; automatic deploys are disabled.
+  # CMS is the only application currently running on Render.
   - type: web
     name: rgss-web
     runtime: node # Render's node box; Bun is provided via BUN_VERSION below.
     region: singapore # Free tier, closest to the India-first audience.
     plan: free
-    branch: prod # Auto-deploy from prod (git flow: dev -> test -> pprd -> prod).
+    branch: prod # Git flow: dev -> test -> pprd -> prod.
+    autoDeployTrigger: off # Do not deploy this dormant template from commits.
 
     # ----- Build -----------------------------------------------------------
     # Bun workspaces hoist all deps to the root node_modules, so install once at
@@ -291,17 +283,20 @@ services:
         sync: false
 
   # --------------------------------------------------------------------------
-  # Admin portal — apps/admin (@rgss/admin) → admin.theroyalglow.in
+  # Legacy admin portal definition — apps/admin (@rgss/admin)
   # --------------------------------------------------------------------------
-  # Same Node-server rationale as rgss-web. Sessions are shared with the
-  # customer site via a `.theroyalglow.in`-scoped cookie, so BETTER_AUTH_SECRET
-  # MUST be byte-identical across rgss-web and rgss-admin.
+  # Production is live on AWS Lambda + CloudFront through SST. Render dashboard
+  # suspension is out-of-band and cannot be represented by this Blueprint. This
+  # remains a deployable reactivation template, not a tested rollback target;
+  # automatic deploys are disabled. Reactivation would also require the same
+  # `.theroyalglow.in` cookie scope and byte-identical BETTER_AUTH_SECRET.
   - type: web
     name: rgss-admin
     runtime: node
     region: singapore
     plan: free
     branch: prod
+    autoDeployTrigger: off # Do not deploy this dormant template from commits.
 
     # apps/admin has a `prebuild` (scripts/assert-token-presence.mjs) that runs
     # automatically before `next build`; the --filter build below triggers it.

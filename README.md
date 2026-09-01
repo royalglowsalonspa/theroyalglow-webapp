@@ -15,12 +15,12 @@ Covers: website, CRM, customer management, marketing automation, database, creat
 | **Primary DB** | **Neon DB** (PostgreSQL, 4 branches, Drizzle ORM) |
 | **Realtime** | **Ably** (6M messages/mo free — booking status, queue board, staff availability) |
 | **File Storage** | **Cloudflare R2** (10 GB free — photos, invoices) |
-| **Cache + Queue** | **Upstash Redis + QStash** |
-| **Edge Cache** | **Cloudflare KV** |
+| **Rate Limiting + Queue** | **Upstash Redis** (distributed API rate-limit state) + **QStash** (background jobs). A 5-minute catalogue/availability cache is planned, not implemented. |
 | **Search** | Postgres FTS / pg_trgm in Neon (upgrade to Algolia later) |
 | **CMS** | **Payload CMS v3** — self-hosted on Render, writes to Neon DB, media to Cloudflare R2 |
-| Hosting | Render (Node, `next start` — `rgss-web`, `rgss-admin`). Migrating to **AWS Lambda + CloudFront** via SST — see [M2AWS.md](./M2AWS.md). Cloudflare Workers retired. |
-| Origin / CMS Host | Render (Payload CMS — `rgss-cms`, free tier, Singapore region) |
+| Web + Admin Hosting | **AWS Lambda + CloudFront** via SST (`rgss-web`, `rgss-admin`) in `ap-southeast-1` — see [M2AWS.md](./M2AWS.md) |
+| CMS Host | Render (Payload CMS — `rgss-cms`, free tier, Singapore region) |
+| Invoicing Host | Google Cloud Run (`rgss-invoicing`) |
 | Auth | **Better Auth** |
 | Transactional Email | **Resend** + React Email |
 | Marketing Email | **Brevo** |
@@ -136,7 +136,7 @@ Service catalog, bookings, memberships, billing → all in custom admin (`theroy
 ## PWA, Push Notifications & Image Optimization (Locked)
 - **PWA** — manifest.json, service worker. Installable on phone. Offline: service menu, prices, contact, gallery. Add-to-homescreen prompt after 2nd visit.
 - **Web Push API** — `web-push` npm. Appointment reminders (24h + 1h before), booking confirmations. Push subscription in Neon, triggered by QStash every 15 min. ₹0, unlimited.
-- **Image optimization** — Next.js `<Image>` (WebP/AVIF, srcset, lazy), Cloudflare Polish (lossless at edge), R2 serving, blur placeholders. No paid CDN needed. CLS=0 via explicit width/height.
+- **Image optimization** — Next.js `<Image>` (WebP/AVIF, srcset, lazy), CloudFront delivery for app assets, Cloudflare R2 media serving, blur placeholders. CLS=0 via explicit width/height.
 
 ## Security (Locked)
 - **Zod** — input validation on every API route. `.safeParse()` only, schemas in `packages/types/`
@@ -190,11 +190,11 @@ Service catalog, bookings, memberships, billing → all in custom admin (`theroy
 - **Neon DB** — primary DB. Free forever. 4 branches = 4 envs. Drizzle ORM + Better Auth native. All scheduled jobs via QStash HTTP routes.
 - **Ably** — realtime push (booking status, queue board, staff availability). 6M messages/mo free. API publishes to Ably channel after writing to Neon.
 - **Cloudflare R2** — file storage. 10 GB free. Photos, service images, PDF invoices. No egress fees.
-- **Upstash Redis + QStash** — cache + queue. Booking slot cache, API rate limiting, background jobs.
-- **Cloudflare KV** — edge cache. Service listings, static data globally.
+- **Upstash Redis + QStash** — Redis-backed API rate limiting and QStash background jobs. Planned, not implemented: 5-minute service-catalogue and availability caches.
 - **Postgres FTS / pg_trgm** — search inside Neon. Free. Upgrade to Algolia later.
-- Deploy Cloudflare on **Mumbai / Singapore** region for India latency.
-- Monthly cost: **₹0** vs $150–300/mo on AWS. First upgrade: Neon Launch $19/mo at 0.5 GB storage.
+- **AWS Lambda + CloudFront via SST** — web and admin compute in `ap-southeast-1` (Singapore), co-located with Neon and close to the India-first audience.
+- **Render + Google Cloud Run** — Payload CMS stays on Render; invoicing stays on Cloud Run.
+- Launch infrastructure targets free tiers where available; first planned database upgrade is Neon Launch at $19/mo.
 
 ## Branch Strategy (Single Developer)
 - **Git branches:** `prod`, `pprd`, `test`, `dev` (NOT `main` for git)
@@ -229,7 +229,7 @@ Service catalog, bookings, memberships, billing → all in custom admin (`theroy
 - Scalability: 20k–50k users future-proof
 - Lighthouse gates: performance ≥ 95; accessibility, best practices, and SEO = 100
 - Feel: rich, premium (high-end services for premium customers)
-- Sub-100ms responses globally via Cloudflare edge
+- Low-latency global delivery through CloudFront, with AWS origin compute in Singapore
 
 ## Application Scope
 - Customer-facing website

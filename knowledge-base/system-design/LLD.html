@@ -502,7 +502,7 @@
    │                  │                    │ <span class="num">2.</span> Apply offer (1/cust/day) ──▶│  │
    │                  │                    │ <span class="num">3.</span> splitGST(total)             │  │
    │                  │                    │ <span class="num">4.</span> INSERT invoice+items ───────▶│  │
-   │                  │                    │ <span class="num">5.</span> Generate PDF ────────────────────▶│ <span class="fn">Render</span>
+   │                  │                    │ <span class="num">5.</span> Generate PDF ────────────────────▶│ <span class="fn">Cloud Run</span>
    │                  │                    │ <span class="num">6.</span> Upload PDF ─────────────────────▶│ <span class="fn">R2</span>
    │                  │                    │ <span class="num">7.</span> Award gems ──────────────────▶│  │
    │                  │                    │ <span class="num">8.</span> Email invoice ─────────────────▶│ <span class="fn">Resend</span>
@@ -655,50 +655,15 @@
 <hr>
 
 
-<h2 id="caching">5. Caching Implementation</h2>
+<h2 id="caching">5. Data Reads and Rate Limiting</h2>
 
-<h3>5.1 Cloudflare KV Cache Pattern</h3>
-<pre><code><span class="cm">// Read-through cache for service catalog</span>
-<span class="kw">async function</span> <span class="fn">getServices</span>(branchId: <span class="type">string</span>) {
-  <span class="kw">const</span> cacheKey = <span class="str">`services:${branchId}`</span>
+<h3>5.1 Service Catalogue Read Path</h3>
+<p><code>GET /api/services</code> calls <code>getActiveCatalogue()</code>, and <code>GET /api/services/[slug]</code> calls <code>getServiceBySlug()</code>. Both query Neon directly through Drizzle.</p>
+<p>No Upstash read-through wrapper, five-minute TTL, or Redis invalidation is implemented. A five-minute Upstash catalogue cache remains planned; Neon must remain authoritative.</p>
 
-  <span class="cm">// L1: Check KV edge cache</span>
-  <span class="kw">const</span> cached = <span class="kw">await</span> KV.<span class="fn">get</span>(cacheKey, <span class="str">'json'</span>)
-  <span class="kw">if</span> (cached) <span class="kw">return</span> cached <span class="kw">as</span> <span class="type">ServiceWithCategory</span>[]
-
-  <span class="cm">// L2: Query database (source of truth)</span>
-  <span class="kw">const</span> services = <span class="kw">await</span> db.query.service.<span class="fn">findMany</span>({
-    where: <span class="fn">eq</span>(service.branchId, branchId),
-    with: { category: <span class="num">true</span>, serviceStaff: { with: { staff: <span class="num">true</span> } } },
-    orderBy: [<span class="fn">asc</span>(service.sortOrder)]
-  })
-
-  <span class="cm">// Write to cache (5-min TTL)</span>
-  <span class="kw">await</span> KV.<span class="fn">put</span>(cacheKey, JSON.<span class="fn">stringify</span>(services), { expirationTtl: <span class="num">300</span> })
-  <span class="kw">return</span> services
-}
-</code></pre>
-
-<h3>5.2 Redis Slot Availability Cache</h3>
-<pre><code><span class="cm">// Key: availability:{branch}:{date}  |  TTL: 5 minutes</span>
-<span class="cm">// Invalidation: on booking confirm/cancel → DELETE key</span>
-
-<span class="kw">async function</span> <span class="fn">getAvailableSlots</span>(branchId: <span class="type">string</span>, date: <span class="type">string</span>) {
-  <span class="kw">const</span> cacheKey = <span class="str">`availability:${branchId}:${date}`</span>
-
-  <span class="kw">const</span> cached = <span class="kw">await</span> redis.<span class="fn">get</span>&lt;<span class="type">SlotData</span>[]&gt;(cacheKey)
-  <span class="kw">if</span> (cached) <span class="kw">return</span> cached
-
-  <span class="kw">const</span> allSlots = <span class="kw">await</span> <span class="fn">calculateAvailability</span>(branchId, date)
-  <span class="kw">await</span> redis.<span class="fn">set</span>(cacheKey, allSlots, { ex: <span class="num">300</span> })
-  <span class="kw">return</span> allSlots
-}
-
-<span class="cm">// Invalidation on booking state change:</span>
-<span class="kw">async function</span> <span class="fn">invalidateSlotCache</span>(branchId: <span class="type">string</span>, date: <span class="type">string</span>) {
-  <span class="kw">await</span> redis.<span class="fn">del</span>(<span class="str">`availability:${branchId}:${date}`</span>)
-}
-</code></pre>
+<h3>5.2 Availability Read Path</h3>
+<p><code>GET /api/availability</code> validates <code>date</code> and <code>branchId</code>, loads business-hours settings from Neon through <code>getSettings()</code>, and generates a 30-minute grid in process with the pure <code>generateAvailability()</code> function.</p>
+<p>The route is not Redis-cached. Existing bookings, staff schedules, approved leave, and holidays are not wired yet; <code>branchId</code> is currently validated but otherwise unused. A future availability cache must be explicit and follow conflict-aware availability logic.</p>
 
 <h3>5.3 Rate Limiting Implementation</h3>
 <pre><code><span class="kw">import</span> { Ratelimit } <span class="kw">from</span> <span class="str">'@upstash/ratelimit'</span>
@@ -953,7 +918,7 @@ $$);
 <span class="num">3.</span> CSP nonce generation (for inline scripts)
 <span class="num">4.</span> CORS check (exact origin: theroyalglow.in only)
 <span class="num">5.</span> Auth session validation (for protected routes)
-<span class="num">6.</span> RBAC role check (for /admin/* routes)
+<span class="num">6.</span> Admin-app RBAC role check (root-relative routes on admin.theroyalglow.in)
 
 <span class="cm">// Security headers applied:</span>
 Strict-Transport-Security: max-age=<span class="num">31536000</span>; includeSubDomains; preload

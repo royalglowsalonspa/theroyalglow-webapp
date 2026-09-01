@@ -257,8 +257,8 @@ function sortServices(services: Service[], favouriteIds: string[]) {
 ```
 Page load (/services or booking dialog):
     │
-    ├── GET /api/services (public, cached in KV)
-    │   → Returns all services with categories
+    ├── GET /api/services (public, direct Neon read through Drizzle)
+    │   → Returns all active services with categories; no Redis cache
     │
     ├── GET /api/favourites (auth required)
     │   → Returns array of service IDs user has favourited
@@ -285,7 +285,7 @@ Toggle favourite:
 | Edge Case | Handling |
 |-----------|----------|
 | User not signed in | Heart icon hidden (favourites require auth) |
-| Service deactivated after being favourited | CASCADE delete removes it; if still in cache, filter out inactive services client-side |
+| Service deactivated after being favourited | CASCADE delete removes it; if stale client state still contains it, filter out inactive services client-side |
 | User has 0 favourites | "Your Favourites" section not shown (no empty state needed) |
 | Network error on toggle | Revert optimistic state, show error toast |
 | Same service favourited from /services and booking dialog | Same API, same DB row — no conflict |

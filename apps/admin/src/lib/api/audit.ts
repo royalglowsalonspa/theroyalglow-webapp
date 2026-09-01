@@ -7,12 +7,14 @@
  * Scope        : API Infrastructure — audit trail
  *
  * Description  : Best-effort helper that records an admin mutation into the
- *                audit_log. Extracts the actor from the session and the client
- *                IP from the request, then writes via @rgss/db. Never throws —
+ *                audit_log. Extracts the actor from the session and deliberately
+ *                leaves client IP null until CloudFront supplies a protected,
+ *                non-spoofable viewer identity, then writes via @rgss/db. Never throws —
  *                a failed audit must not break the primary operation.
  *
  * Responsibilities :
- * - Resolve actor id (from session) + client IP (from forwarded headers)
+ * - Resolve actor id from the verified session
+ * - Store a null client IP until infrastructure provides a protected viewer header
  * - Delegate the insert to recordAudit (swallow + log any failure)
  *
  * Tech Stack   : TypeScript, Next.js 16
@@ -29,13 +31,12 @@ import type { AuditAction } from '@rgss/types'
 
 type AuditActor = { user: { id: string } }
 
-// Derive the client IP from standard proxy headers (Cloudflare/Render set these).
-function clientIp(req: Request): string | null {
-  const fwd = req.headers.get('x-forwarded-for')
-  if (fwd) {
-    return fwd.split(',')[0]?.trim() ?? null
-  }
-  return req.headers.get('x-real-ip') ?? req.headers.get('cf-connecting-ip') ?? null
+// Client IP is deliberately omitted in the current SST topology. CloudFront
+// appends to viewer-supplied X-Forwarded-For, so forwarded headers are not a
+// trusted audit identity. Populate this only after infrastructure overwrites a
+// dedicated viewer-IP header and blocks direct Lambda-origin bypass.
+function clientIp(_req: Request): null {
+  return null
 }
 
 /**

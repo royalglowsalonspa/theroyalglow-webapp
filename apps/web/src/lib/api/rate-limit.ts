@@ -10,17 +10,20 @@
  *                endpoints. Backed by @upstash/ratelimit + @upstash/redis when
  *                Upstash is configured, with a transparent fall back to the
  *                original in-memory per-instance sliding window when it is not
- *                (local dev / CI / Upstash outage). Best-effort guard per-IP.
+ *                (local dev / CI / Upstash outage). The current SST topology
+ *                has no trusted viewer-IP header, so public callers share a
+ *                conservative anonymous key instead of trusting spoofable
+ *                forwarding headers.
  *
  * Responsibilities :
  * - Enforce a per-key sliding window and throw 429 when the budget is exceeded
- * - Use Upstash (shared across serverless/edge instances) when credentials exist
+ * - Use Upstash (shared across AWS Lambda instances) when credentials exist
  * - Degrade gracefully to an in-memory window when Upstash is absent or errors
- * - Extract client IP from standard proxy headers
+ * - Return the conservative `unknown` identity until trusted edge injection exists
  *
  * Features / Functionality :
  * - enforceRateLimit(key, options) — async; throws 429 when limit exceeded
- * - getClientIp() — extracts IP from x-forwarded-for / x-real-ip
+ * - getClientIp() — returns `unknown`; forwarded headers are not trusted
  * - Configurable limit and window duration (same options as before)
  *
  * Tech Stack   : TypeScript, @upstash/ratelimit, @upstash/redis
@@ -33,9 +36,9 @@
  *   for graceful degradation — env.ts types them as required and would fail
  *   build-time validation when absent. This mirrors apps/admin's limiter.
  * - The exported signature is preserved: enforceRateLimit(key, options) and
- *   getClientIp(req). enforceRateLimit is now async (returns Promise<void>);
- *   callers must `await` it so a 429 propagates to withErrorHandler. Runs on
- *   the Cloudflare Workers runtime (Upstash REST client uses fetch only).
+ *   getClientIp(req). enforceRateLimit is async (returns Promise<void>);
+ *   callers must `await` it so a 429 propagates to withErrorHandler. Upstash's
+ *   REST client uses fetch and shares limits across Lambda instances.
  *
  * ── Fallback behaviour (documented) ───────────────────────────────────────
  * • Upstash configured  → distributed sliding window shared across instances.
@@ -57,8 +60,8 @@ const logger = createLogger({
 })
 
 // ── In-memory fallback store (original behaviour) ─────────────────────────
-// Per-instance counters; reset on cold start and NOT shared across serverless/
-// edge instances. Used only when Upstash is unconfigured or unreachable.
+// Per-instance counters; reset on cold start and NOT shared across Lambda
+// instances. Used only when Upstash is unconfigured or unreachable.
 
 type Hit = {
   count: number
@@ -171,20 +174,19 @@ function getLimiter(limit: number, windowSeconds: number): Ratelimit | null {
   return limiter
 }
 
-// Best-effort client IP extraction from standard proxy headers.
-export function getClientIp(req: Request): string {
-  const forwardedFor = req.headers.get('x-forwarded-for')
-  if (forwardedFor) {
-    const first = forwardedFor.split(',')[0]?.trim()
-    if (first) {
-      return first
-    }
-  }
-  return req.headers.get('x-real-ip') ?? 'unknown'
+// Client IP is deliberately unavailable in the current SST topology. CloudFront
+// appends to viewer-supplied X-Forwarded-For, so neither that header nor
+// X-Real-IP is a trusted identity. Until CloudFront overwrites a dedicated
+// header and direct Lambda-origin bypass is blocked, callers share the
+// conservative `unknown` bucket and Meta CAPI omits the address.
+export function getClientIp(_req: Request): string {
+  return 'unknown'
 }
 
 // Throws AppError(RATE_LIMITED, 429) when the caller exceeds the window budget.
-// `key` should uniquely identify the caller (e.g. `leads:<ip>`). Uses Upstash
+// `key` identifies the caller scope. Public endpoints currently use a shared
+// anonymous suffix (for example `leads:unknown`) until trusted edge identity is
+// configured. Authenticated call sites should prefer a verified user ID. Uses Upstash
 // when configured (shared across instances) and falls back to the in-memory
 // window otherwise — or if the Upstash call fails.
 export async function enforceRateLimit(key: string, options: RateLimitOptions = {}): Promise<void> {
