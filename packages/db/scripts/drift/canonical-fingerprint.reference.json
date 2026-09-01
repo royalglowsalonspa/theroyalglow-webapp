@@ -1,7 +1,7 @@
 {
   "_comment": "AUTHORITATIVE DB-free canonical reference derived from the committed drizzle snapshot (migrations/meta/0000_snapshot.json). Regenerate with `bun run drift:reference` after an intentional schema change captured by `drizzle-kit generate`, then commit this file with the migration.",
   "version": 1,
-  "hash": "53171d1896564a65b7d214943c6d17e0f58dade2b006ae5561e8cbdf56f6e929",
+  "hash": "7b9fbab81dfd465bb4d363f67f3960a0283ba5b972a7a272aa8b716fa0abde12",
   "fingerprint": {
     "enums": [
       {
@@ -151,6 +151,12 @@
           },
           {
             "name": "id_token",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "issuer",
             "type": "text",
             "nullable": true,
             "default": null
