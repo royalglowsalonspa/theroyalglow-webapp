@@ -29,6 +29,7 @@
     "graphify": "py -m graphify",
     "graphify:install": "py -m pip install --user graphifyy==0.8.26",
     "provision:betterstack": "bun run scripts/provision-betterstack.ts",
+    "mcp:generate": "bun run scripts/mcp/generate.ts",
     "prepare": "husky"
   },
   "devDependencies": {

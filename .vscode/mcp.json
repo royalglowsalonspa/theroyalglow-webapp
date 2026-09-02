@@ -1,0 +1,111 @@
+{
+  "servers": {
+    "Snyk": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "snyk@latest", "mcp", "-t", "stdio"]
+    },
+    "neon": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@neondatabase/mcp-server-neon"],
+      "env": {
+        "NEON_API_KEY": "${env:NEON_API_KEY_RGSS}"
+      }
+    },
+    "code-review-graph": {
+      "type": "stdio",
+      "command": "code-review-graph",
+      "args": ["serve", "--repo", "${workspaceFolder}"],
+      "env": {
+        "PYTHONUTF8": "1"
+      }
+    },
+    "shadcn": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["shadcn@latest", "mcp"]
+    },
+    "cloudflare-api": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.cloudflare.com/mcp"]
+    },
+    "cloudflare-bindings": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://bindings.mcp.cloudflare.com/mcp"]
+    },
+    "cloudflare-builds": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://builds.mcp.cloudflare.com/mcp"]
+    },
+    "cloudflare-observability": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://observability.mcp.cloudflare.com/mcp"]
+    },
+    "cloudflare-docs": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://docs.mcp.cloudflare.com/mcp"]
+    },
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://api.githubcopilot.com/mcp/",
+        "--header",
+        "Authorization:Bearer ${GITHUB_PAT}"
+      ],
+      "env": {
+        "GITHUB_PAT": "${env:GITHUB_PAT_RGSS}"
+      }
+    },
+    "posthog": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.eu.posthog.com/mcp",
+        "--header",
+        "Authorization:Bearer ${POSTHOG_AUTH_HEADER}"
+      ],
+      "env": {
+        "POSTHOG_AUTH_HEADER": "${env:POSTHOG_AUTH_HEADER_RGSS}"
+      }
+    },
+    "mintlify-admin": {
+      "type": "http",
+      "url": "https://mcp.mintlify.com"
+    },
+    "mintlify-search": {
+      "type": "http",
+      "url": "https://mintlify.com/docs/mcp"
+    },
+    "sentry": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.sentry.dev/mcp"]
+    },
+    "payload": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "http://localhost:3002/api/mcp",
+        "--header",
+        "Authorization:Bearer ${PAYLOAD_MCP_API_KEY}",
+        "--allow-http"
+      ],
+      "env": {
+        "PAYLOAD_MCP_API_KEY": "${env:PAYLOAD_MCP_API_KEY_RGSS}"
+      }
+    }
+  }
+}
