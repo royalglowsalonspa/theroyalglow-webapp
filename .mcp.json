@@ -1,0 +1,98 @@
+{
+  "mcpServers": {
+    "Snyk": {
+      "command": "npx",
+      "args": ["-y", "snyk@latest", "mcp", "-t", "stdio"]
+    },
+    "neon": {
+      "command": "npx",
+      "args": ["-y", "@neondatabase/mcp-server-neon"],
+      "env": {
+        "NEON_API_KEY": "${NEON_API_KEY_RGSS}"
+      }
+    },
+    "code-review-graph": {
+      "command": "code-review-graph",
+      "args": ["serve", "--repo", "${CLAUDE_PROJECT_DIR:-.}"],
+      "env": {
+        "PYTHONUTF8": "1"
+      }
+    },
+    "shadcn": {
+      "command": "npx",
+      "args": ["shadcn@latest", "mcp"]
+    },
+    "cloudflare-api": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.cloudflare.com/mcp"]
+    },
+    "cloudflare-bindings": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://bindings.mcp.cloudflare.com/mcp"]
+    },
+    "cloudflare-builds": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://builds.mcp.cloudflare.com/mcp"]
+    },
+    "cloudflare-observability": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://observability.mcp.cloudflare.com/mcp"]
+    },
+    "cloudflare-docs": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://docs.mcp.cloudflare.com/mcp"]
+    },
+    "github": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://api.githubcopilot.com/mcp/",
+        "--header",
+        "Authorization:Bearer ${GITHUB_PAT}"
+      ],
+      "env": {
+        "GITHUB_PAT": "${GITHUB_PAT_RGSS}"
+      }
+    },
+    "posthog": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.eu.posthog.com/mcp",
+        "--header",
+        "Authorization:Bearer ${POSTHOG_AUTH_HEADER}"
+      ],
+      "env": {
+        "POSTHOG_AUTH_HEADER": "${POSTHOG_AUTH_HEADER_RGSS}"
+      }
+    },
+    "mintlify-admin": {
+      "type": "http",
+      "url": "https://mcp.mintlify.com"
+    },
+    "mintlify-search": {
+      "type": "http",
+      "url": "https://mintlify.com/docs/mcp"
+    },
+    "sentry": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.sentry.dev/mcp"]
+    },
+    "payload": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "http://localhost:3002/api/mcp",
+        "--header",
+        "Authorization:Bearer ${PAYLOAD_MCP_API_KEY}",
+        "--allow-http"
+      ],
+      "env": {
+        "PAYLOAD_MCP_API_KEY": "${PAYLOAD_MCP_API_KEY_RGSS}"
+      }
+    }
+  }
+}

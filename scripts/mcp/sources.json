@@ -1,0 +1,178 @@
+{
+  "_comment": "Canonical MCP server registry for RGSS. Edit ONLY this file, then run `bun run mcp:generate` to regenerate every tool's native mcp.json. See knowledge-base/mcp-setup.md.",
+  "servers": [
+    {
+      "name": "Snyk",
+      "transport": "local",
+      "command": "npx",
+      "args": ["-y", "snyk@latest", "mcp", "-t", "stdio"],
+      "env": [],
+      "autoApprove": []
+    },
+    {
+      "name": "neon",
+      "transport": "local",
+      "command": "npx",
+      "args": ["-y", "@neondatabase/mcp-server-neon"],
+      "env": [{ "key": "NEON_API_KEY", "fromEnvVar": "NEON_API_KEY_RGSS" }],
+      "autoApprove": []
+    },
+    {
+      "name": "code-review-graph",
+      "transport": "local",
+      "command": "code-review-graph",
+      "args": ["serve", "--repo", "<WORKSPACE_ROOT>"],
+      "env": [{ "key": "PYTHONUTF8", "literal": "1" }],
+      "autoApprove": [
+        "get_minimal_context_tool",
+        "get_architecture_overview_tool",
+        "get_knowledge_gaps_tool",
+        "build_or_update_graph_tool",
+        "list_graph_stats_tool",
+        "query_graph_tool",
+        "refactor_tool"
+      ]
+    },
+    {
+      "name": "shadcn",
+      "transport": "local",
+      "command": "npx",
+      "args": ["shadcn@latest", "mcp"],
+      "env": [],
+      "autoApprove": [
+        "get_items",
+        "get_item",
+        "list_items_in_registries",
+        "search_items_in_registries",
+        "view_items_in_registries",
+        "get_item_examples_from_registries",
+        "get_add_command_for_items",
+        "get_project_registries"
+      ]
+    },
+    {
+      "name": "cloudflare-api",
+      "transport": "local",
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.cloudflare.com/mcp"],
+      "env": [],
+      "autoApprove": ["execute"]
+    },
+    {
+      "name": "cloudflare-bindings",
+      "transport": "local",
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://bindings.mcp.cloudflare.com/mcp"],
+      "env": [],
+      "autoApprove": [
+        "workers_list",
+        "kv_namespaces_list",
+        "r2_buckets_list",
+        "kv_namespace_create"
+      ]
+    },
+    {
+      "name": "cloudflare-builds",
+      "transport": "local",
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://builds.mcp.cloudflare.com/mcp"],
+      "env": [],
+      "autoApprove": ["workers_list"]
+    },
+    {
+      "name": "cloudflare-observability",
+      "transport": "local",
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://observability.mcp.cloudflare.com/mcp"],
+      "env": [],
+      "autoApprove": []
+    },
+    {
+      "name": "cloudflare-docs",
+      "transport": "local",
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://docs.mcp.cloudflare.com/mcp"],
+      "env": [],
+      "autoApprove": ["search_cloudflare_documentation"]
+    },
+    {
+      "name": "github",
+      "transport": "local",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://api.githubcopilot.com/mcp/",
+        "--header",
+        "Authorization:Bearer ${GITHUB_PAT}"
+      ],
+      "env": [{ "key": "GITHUB_PAT", "fromEnvVar": "GITHUB_PAT_RGSS" }],
+      "autoApprove": [
+        "get_me",
+        "list_commits",
+        "list_pull_requests",
+        "pull_request_read",
+        "create_pull_request"
+      ]
+    },
+    {
+      "name": "posthog",
+      "transport": "local",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.eu.posthog.com/mcp",
+        "--header",
+        "Authorization:Bearer ${POSTHOG_AUTH_HEADER}"
+      ],
+      "env": [{ "key": "POSTHOG_AUTH_HEADER", "fromEnvVar": "POSTHOG_AUTH_HEADER_RGSS" }],
+      "autoApprove": ["execute-sql", "projects-get"]
+    },
+    {
+      "name": "mintlify-admin",
+      "transport": "remote",
+      "url": "https://mcp.mintlify.com",
+      "env": [],
+      "autoApprove": []
+    },
+    {
+      "name": "mintlify-search",
+      "transport": "remote",
+      "url": "https://mintlify.com/docs/mcp",
+      "env": [],
+      "autoApprove": ["search_mintlify", "query_docs_filesystem_mintlify"]
+    },
+    {
+      "name": "sentry",
+      "transport": "local",
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.sentry.dev/mcp"],
+      "env": [],
+      "autoApprove": [
+        "whoami",
+        "find_organizations",
+        "find_projects",
+        "find_issues",
+        "get_issue_details",
+        "search_sentry_tools",
+        "execute_sentry_tool"
+      ]
+    },
+    {
+      "name": "payload",
+      "transport": "local",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "http://localhost:3002/api/mcp",
+        "--header",
+        "Authorization:Bearer ${PAYLOAD_MCP_API_KEY}",
+        "--allow-http"
+      ],
+      "env": [{ "key": "PAYLOAD_MCP_API_KEY", "fromEnvVar": "PAYLOAD_MCP_API_KEY_RGSS" }],
+      "autoApprove": []
+    }
+  ]
+}
