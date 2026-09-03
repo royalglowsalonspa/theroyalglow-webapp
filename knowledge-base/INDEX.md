@@ -55,6 +55,8 @@ Every information / planning document lives here. Only `README.md` remains in th
 | [observability.md](./observability.md) | Observability, analytics & monitoring |
 | [file-header-guide.md](./file-header-guide.md) | File header conventions |
 | [use-skills.md](./use-skills.md) | Skills & npx commands |
+| [mcp-setup.md](./mcp-setup.md) | Cross-IDE MCP config — single source, generator, credential rotation |
+| [open-issues-glossary.md](./open-issues-glossary.md) | Technical glossary for all open GitHub issues — for humans and AI agents |
 
 ## Quality & Release
 
