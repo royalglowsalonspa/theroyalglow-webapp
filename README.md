@@ -1,5 +1,18 @@
 # Royal Glow Salon & Spa (RGSS) — Project Context
 
+[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+[![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](./CODE_OF_CONDUCT.md)
+[![Security](https://img.shields.io/badge/Security-Policy-blue.svg)](./SECURITY.md)
+[![Contributing](https://img.shields.io/badge/Contributing-Welcome-brightgreen.svg)](./CONTRIBUTING.md)
+[![Bun](https://img.shields.io/badge/Bun-1.4.0-f9f1e1?logo=bun&logoColor=black)](https://bun.sh)
+[![Next.js](https://img.shields.io/badge/Next.js-16.2.9-000?logo=next.js&logoColor=white)](https://nextjs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Neon DB](https://img.shields.io/badge/Neon-PostgreSQL-00e699?logo=postgresql&logoColor=white)](https://neon.tech)
+
+> **Production:** [theroyalglow.in](https://theroyalglow.in) · **Docs:** [docs.theroyalglow.in](https://docs.theroyalglow.in) · **Contact:** hello@theroyalglow.in
+
+
+
 ## What This Is
 Full-stack business solution for **Royal Glow Salon & Spa** by **Roshini**.  
 Covers: website, CRM, customer management, marketing automation, database, creative design, analytics, scheduling, backend automations — a fully digital scalable business ecosystem.
