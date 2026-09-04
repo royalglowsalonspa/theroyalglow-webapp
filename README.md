@@ -1,5 +1,9 @@
 # Royal Glow Salon & Spa (RGSS) — Project Context
 
+<p align="center">
+  <a href="https://theroyalglow.in"><img src="./.github/banner.png" alt="Royal Glow Salon & Spa"></a>
+</p>
+
 ## What This Is
 Full-stack business solution for **Royal Glow Salon & Spa** by **Roshini**.  
 Covers: website, CRM, customer management, marketing automation, database, creative design, analytics, scheduling, backend automations — a fully digital scalable business ecosystem.
