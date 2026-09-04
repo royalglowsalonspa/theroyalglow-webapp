@@ -1,17 +1,17 @@
 # Royal Glow Salon & Spa (RGSS) — Project Context
 
 <p align="center">
-  <a href="https://theroyalglow.in" target="_blank" rel="noopener noreferrer"><img src="./.github/banner.png" alt="Royal Glow Salon & Spa"></a>
+  <a href="https://theroyalglow.in"><img src="./.github/banner.png" alt="Royal Glow Salon & Spa"></a>
 </p>
 
-<p><a href="https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/workflows/ci.yml"><img src="https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/workflows/ci.yml/badge.svg" alt="CI"></a> <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License"></a> <a href="./CODE_OF_CONDUCT.md"><img src="https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg" alt="Code of Conduct"></a> <a href="./SECURITY.md"><img src="https://img.shields.io/badge/Security-Policy-blue.svg" alt="Security Policy"></a> <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/Contributing-Welcome-brightgreen.svg" alt="Contributing"></a> <a href="mailto:hello@theroyalglow.in"><img src="https://img.shields.io/badge/email-hello%40theroyalglow.in-blue?logo=gmail" alt="Email"></a> <a href="https://docs.theroyalglow.in" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Docs-docs.theroyalglow.in-blue?logo=gitbook&logoColor=white" alt="Docs"></a> <a href="https://bun.sh" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Bun-1.4.0-f9f1e1?logo=bun&logoColor=black" alt="Bun"></a> <a href="https://nextjs.org" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Next.js-16.2.9-000?logo=next.js&logoColor=white" alt="Next.js"></a> <a href="https://www.typescriptlang.org" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white" alt="TypeScript"></a> <a href="https://neon.tech" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Neon-PostgreSQL%2018.6-00e699?logo=postgresql&logoColor=white" alt="Neon — PostgreSQL 18.6"></a> <a href="https://status.theroyalglow.in/" target="_blank" rel="noopener noreferrer"><img src="https://uptime.betterstack.com/status-badges/v1/monitor/2wfr3.svg" alt="Service Status"></a></p>
+<p><a href="https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/workflows/ci.yml"><img src="https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/workflows/ci.yml/badge.svg" alt="CI"></a> <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License"></a> <a href="./CODE_OF_CONDUCT.md"><img src="https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg" alt="Code of Conduct"></a> <a href="./SECURITY.md"><img src="https://img.shields.io/badge/Security-Policy-blue.svg" alt="Security Policy"></a> <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/Contributing-Welcome-brightgreen.svg" alt="Contributing"></a> <a href="mailto:hello@theroyalglow.in"><img src="https://img.shields.io/badge/email-hello%40theroyalglow.in-blue?logo=gmail" alt="Email"></a> <a href="https://docs.theroyalglow.in"><img src="https://img.shields.io/badge/Docs-docs.theroyalglow.in-blue?logo=gitbook&logoColor=white" alt="Docs"></a> <a href="https://bun.sh"><img src="https://img.shields.io/badge/Bun-1.4.0-f9f1e1?logo=bun&logoColor=black" alt="Bun"></a> <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-16.2.9-000?logo=next.js&logoColor=white" alt="Next.js"></a> <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white" alt="TypeScript"></a> <a href="https://neon.tech"><img src="https://img.shields.io/badge/Neon-PostgreSQL%2018.6-00e699?logo=postgresql&logoColor=white" alt="Neon — PostgreSQL 18.6"></a> <a href="https://status.theroyalglow.in/"><img src="https://uptime.betterstack.com/status-badges/v1/monitor/2wfr3.svg" alt="Service Status"></a></p>
 
 <div align="center">
-  <a href="https://theroyalglow.in/" target="_blank" rel="noopener noreferrer"><b>Visit Website</b></a>
+  <a href="https://theroyalglow.in/"><b>Visit Website</b></a>
   &nbsp;•&nbsp;
-  <a href="https://theroyalglow.in/?book=1" target="_blank" rel="noopener noreferrer"><b>Book your appointment</b></a>
+  <a href="https://theroyalglow.in/?book=1"><b>Book your appointment</b></a>
   &nbsp;•&nbsp;
-  <a href="https://share.google/xAhEVaQlvnNqoGibZ" target="_blank" rel="noopener noreferrer"><b>Visit Store</b></a>
+  <a href="https://share.google/xAhEVaQlvnNqoGibZ"><b>Visit Store</b></a>
 </div>
 
 
@@ -273,7 +273,7 @@ Service catalog, bookings, memberships, billing → all in custom admin (`theroy
 <table>
   <tr>
     <td width="140" align="center" valign="top">
-      <a href="https://github.com/katbose" target="_blank" rel="noopener noreferrer">
+      <a href="https://github.com/katbose">
         <img src="https://avatars.githubusercontent.com/u/53533409?v=4" width="120" alt="Katabathuni Bose">
       </a>
       <br>
@@ -282,13 +282,13 @@ Service catalog, bookings, memberships, billing → all in custom admin (`theroy
     <td valign="top">
       <b>Katbose</b> — a Senior Software Engineer with 4+ years of experience, specializing in JavaScript, ReactJS, Node.js, and full-stack development. He enjoys building practical web applications, exploring modern technologies, and turning ideas into clean, functional products. <code>theroyalglow-webapp</code> is his full-stack build: Next.js + Payload CMS on the edge, Better Auth for identity, Neon + Drizzle for data, Cloudflare R2 for media, Resend + Brevo for email, Ably for realtime, and a 19-job background automation layer.
       <br><br>
-      <a href="https://github.com/katbose" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/GitHub-katbose-181717?logo=github&logoColor=white" alt="GitHub"></a>
+      <a href="https://github.com/katbose"><img src="https://img.shields.io/badge/GitHub-katbose-181717?logo=github&logoColor=white" alt="GitHub"></a>
       &nbsp;
-      <a href="https://www.linkedin.com/in/katbose" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/LinkedIn-katbose-0A66C2?logo=linkedin&logoColor=white" alt="LinkedIn"></a>
+      <a href="https://www.linkedin.com/in/katbose"><img src="https://img.shields.io/badge/LinkedIn-katbose-0A66C2?logo=linkedin&logoColor=white" alt="LinkedIn"></a>
       &nbsp;
-      <a href="https://katbose.dev" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Website-katbose.dev-FF7139?logo=firefox&logoColor=white" alt="Website"></a>
+      <a href="https://katbose.dev"><img src="https://img.shields.io/badge/Website-katbose.dev-FF7139?logo=firefox&logoColor=white" alt="Website"></a>
       &nbsp;
-      <a href="mailto:im@katbose.dev" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Email-im@katbose.dev-EA4335?logo=gmail&logoColor=white" alt="Email"></a>
+      <a href="mailto:im@katbose.dev"><img src="https://img.shields.io/badge/Email-im@katbose.dev-EA4335?logo=gmail&logoColor=white" alt="Email"></a>
     </td>
   </tr>
 </table>
