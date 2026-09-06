@@ -3,5 +3,23 @@
     "upstash@upstash": true,
     "frontend-design@claude-plugins-official": true,
     "superpowers@claude-plugins-official": true
-  }
+  },
+  "enabledMcpjsonServers": [
+    "Snyk",
+    "socket-mcp",
+    "neon",
+    "code-review-graph",
+    "shadcn",
+    "cloudflare-api",
+    "cloudflare-bindings",
+    "cloudflare-builds",
+    "cloudflare-observability",
+    "cloudflare-docs",
+    "github",
+    "posthog",
+    "mintlify-admin",
+    "mintlify-search",
+    "sentry",
+    "payload"
+  ]
 }

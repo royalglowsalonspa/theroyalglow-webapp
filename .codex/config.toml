@@ -1,0 +1,105 @@
+[mcp_servers."Snyk"]
+command = "snyk"
+args = [
+    "mcp",
+    "-t",
+    "stdio",
+]
+
+[mcp_servers."socket-mcp"]
+url = "https://mcp.socket.dev/"
+
+[mcp_servers."neon"]
+url = "https://mcp.neon.tech/mcp"
+bearer_token_env_var = "NEON_API_KEY_RGSS"
+
+[mcp_servers."code-review-graph"]
+command = "code-review-graph"
+cwd = "."
+args = [
+    "serve",
+    "--repo",
+    ".",
+]
+
+[mcp_servers."code-review-graph".env]
+PYTHONUTF8 = "1"
+
+[mcp_servers."shadcn"]
+command = "shadcn"
+args = [
+    "mcp",
+]
+
+[mcp_servers."cloudflare-api"]
+command = "mcp-remote"
+args = [
+    "https://mcp.cloudflare.com/mcp",
+    "--header",
+    "Authorization:Bearer ${CLOUDFLARE_API_TOKEN_RGSS}",
+]
+env_vars = ["CLOUDFLARE_API_TOKEN_RGSS"]
+
+[mcp_servers."cloudflare-bindings"]
+command = "mcp-remote"
+args = [
+    "https://bindings.mcp.cloudflare.com/mcp",
+]
+
+[mcp_servers."cloudflare-builds"]
+command = "mcp-remote"
+args = [
+    "https://builds.mcp.cloudflare.com/mcp",
+]
+
+[mcp_servers."cloudflare-observability"]
+command = "mcp-remote"
+args = [
+    "https://observability.mcp.cloudflare.com/mcp",
+]
+
+[mcp_servers."cloudflare-docs"]
+command = "mcp-remote"
+args = [
+    "https://docs.mcp.cloudflare.com/mcp",
+]
+
+[mcp_servers."github"]
+command = "mcp-remote"
+args = [
+    "https://api.githubcopilot.com/mcp/",
+    "--header",
+    "Authorization:Bearer ${GITHUB_PAT_RGSS}",
+]
+env_vars = ["GITHUB_PAT_RGSS"]
+
+[mcp_servers."posthog"]
+command = "mcp-remote"
+args = [
+    "https://mcp.eu.posthog.com/mcp",
+    "--header",
+    "Authorization:Bearer ${POSTHOG_AUTH_HEADER_RGSS}",
+]
+env_vars = ["POSTHOG_AUTH_HEADER_RGSS"]
+
+[mcp_servers."mintlify-admin"]
+url = "https://mcp.mintlify.com"
+
+[mcp_servers."mintlify-search"]
+url = "https://mintlify.com/docs/mcp"
+
+[mcp_servers."sentry"]
+command = "mcp-remote"
+args = [
+    "https://mcp.sentry.dev/mcp",
+]
+
+[mcp_servers."payload"]
+command = "mcp-remote"
+args = [
+    "http://localhost:3002/api/mcp",
+    "--header",
+    "Authorization:Bearer ${PAYLOAD_MCP_API_KEY_RGSS}",
+    "--allow-http",
+]
+env_vars = ["PAYLOAD_MCP_API_KEY_RGSS"]

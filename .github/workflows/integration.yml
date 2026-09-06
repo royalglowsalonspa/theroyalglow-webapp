@@ -86,3 +86,21 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  integration-success:
+    name: Integration Success
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    if: always()
+    needs: [preflight, integration-tests, playwright-e2e]
+    steps:
+      - name: Verify integration jobs
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          if jq -e 'all(. == "success" or . == "skipped")' <<< "$RESULTS" >/dev/null; then
+            echo "Integration checks passed or were explicitly skipped by preflight."
+          else
+            echo "An integration check failed or was cancelled: $RESULTS"
+            exit 1
+          fi

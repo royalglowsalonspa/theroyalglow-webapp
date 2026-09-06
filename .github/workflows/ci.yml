@@ -164,7 +164,7 @@ jobs:
   lighthouse-web:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [web-ci]
+    needs: [changes, web-ci]
     if: needs.changes.outputs.web == 'true'
     steps:
       - uses: actions/checkout@v7
@@ -207,6 +207,8 @@ jobs:
       - run: bun run typecheck
         env:
           SKIP_ENV_VALIDATION: '1'
+      - run: bun run release:check
+      - run: bun test scripts/mcp/generate.test.ts
 
   unit-tests:
     runs-on: ubuntu-latest
@@ -223,6 +225,13 @@ jobs:
           name: coverage
           path: coverage/
           retention-days: 7
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage/lcov.info
+          disable_search: true
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   dependency-audit:
     runs-on: ubuntu-latest
@@ -434,3 +443,35 @@ jobs:
           echo "✔ No schema/migration divergence — code schema matches committed migrations."
           # Clean any untracked probe artifacts even on the success path.
           git clean -fd packages/db/migrations >/dev/null 2>&1 || true
+
+  # One stable required check for Rulesets and Mergify. Path-filtered jobs may
+  # be skipped; failures and cancellations are never accepted.
+  ci-success:
+    name: CI Success
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    if: always()
+    needs:
+      - changes
+      - admin-ci
+      - web-ci
+      - invoicing-ci
+      - lighthouse-web
+      - lint-typecheck
+      - unit-tests
+      - dependency-audit
+      - cutover-guards
+      - admin-static-gates
+      - admin-design-gates
+      - drift-gate
+    steps:
+      - name: Verify required jobs
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          if jq -e 'all(. == "success" or . == "skipped")' <<< "$RESULTS" >/dev/null; then
+            echo "All required CI jobs passed or were intentionally skipped."
+          else
+            echo "One or more required CI jobs failed or were cancelled: $RESULTS"
+            exit 1
+          fi

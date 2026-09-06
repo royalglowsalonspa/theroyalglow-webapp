@@ -89,3 +89,21 @@ jobs:
         with:
           target: ${{ secrets.PPRD_URL }}
           rules_file_name: 'zap-rules.tsv'
+
+  load-security-success:
+    name: Load & Security Success
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    if: always()
+    needs: [preflight, k6-load-test, security-scan, zap-baseline]
+    steps:
+      - name: Verify load and security jobs
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          if jq -e 'all(. == "success" or . == "skipped")' <<< "$RESULTS" >/dev/null; then
+            echo "Load and security checks passed or were explicitly skipped by preflight."
+          else
+            echo "A load or security check failed or was cancelled: $RESULTS"
+            exit 1
+          fi

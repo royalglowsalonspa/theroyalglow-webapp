@@ -1,0 +1,51 @@
+---
+title: Security And Coverage
+description: CodeQL, Socket Security, Codecov, and their required permissions.
+icon: scan-search
+---
+
+## CodeQL
+
+`.github/workflows/codeql.yml` analyzes only `javascript-typescript`, which covers
+the repository's TypeScript and JavaScript without a build. It runs on all promotion
+PRs, on production pushes, weekly, and on demand. Security-extended queries provide
+additional signal without duplicating dependency scanning.
+
+## Socket Security
+
+Install the Socket GitHub App for this repository and enable its pull request alert
+check. Require the status `Socket Security: Pull Request Alerts`. Keep `bun audit`
+as the native blocking advisory gate; Socket supplies ecosystem and supply-chain
+analysis rather than another GitHub Action scanner.
+
+Socket's documented GitHub App permissions are:
+
+- Repository: Checks read/write, Contents read/write, Issues read, Merge queues
+  read, Metadata read, and Pull requests read/write.
+- Organization/account: Members read and email address read.
+
+Contents and PR write access support Socket Patch PRs. Restrict installation to this
+repository unless organization-wide coverage is explicitly approved.
+
+The canonical MCP registry uses Socket's remote OAuth endpoint at
+`https://mcp.socket.dev/`. Run `bun run mcp:generate`, restart the client, and finish
+OAuth on first use. The local alternative is `npx -y @socketsecurity/mcp@latest`
+with a `SOCKET_API_TOKEN` limited to `packages:list`; do not configure both variants
+under different names because they expose the same capability.
+
+References: [remote Socket MCP](https://docs.socket.dev/docs/remote-socket-mcp),
+[local Socket MCP](https://docs.socket.dev/docs/local-socket-mcp), and
+[Socket permissions](https://docs.socket.dev/docs/permissions).
+
+## Codecov
+
+Vitest emits `coverage/lcov.info`, and the existing `unit-tests` job uploads it with
+`codecov/codecov-action@v5`. `codecov.yml` enables project and patch statuses plus a
+PR coverage comment.
+
+Install the Codecov GitHub App and add `CODECOV_TOKEN` as a repository Actions
+secret. The Rulesets require `codecov/project` and `codecov/patch` after their first
+successful appearance.
+
+See Codecov's [GitHub onboarding](https://docs.codecov.com/docs/github-2-getting-a-codecov-account-and-uploading-coverage)
+and [token setup](https://docs.codecov.com/docs/adding-the-codecov-token).

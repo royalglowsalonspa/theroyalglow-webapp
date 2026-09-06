@@ -1,0 +1,36 @@
+---
+title: Versioning
+description: One-version Semantic Versioning policy for the Royal Glow platform.
+icon: tags
+---
+
+Royal Glow has one platform version. The root and every private workspace manifest
+carry the same version, and Release Please updates them in one release PR. Individual
+apps and packages are never released independently.
+
+The baseline is `0.1.0`. Before `1.0.0`:
+
+- `fix` increments patch.
+- `feat` increments minor.
+- breaking changes increment minor because `bump-minor-pre-major` is enabled.
+- `docs`, `test`, `ci`, `build`, and `chore` do not create a release unless paired
+  with a `Release-As` footer.
+
+## Stabilization channels
+
+The planned progression is `0.x.x -> 0.9.0-alpha -> 0.9.0-beta -> 0.9.0-rc ->
+1.0.0`. Release Please prerelease channels are enabled only when stabilization
+starts, not during ordinary `0.x` development.
+
+Use an approved Conventional Commit with an explicit footer for each channel entry:
+
+```text
+chore(release): enter alpha stabilization
+
+Release-As: 0.9.0-alpha
+```
+
+Subsequent channel builds use valid SemVer identifiers such as `alpha.1`. Change
+`prerelease-type` to `beta` and then `rc` in the reviewed Release Please config.
+Before `1.0.0`, remove prerelease settings and use `Release-As: 1.0.0` in an approved
+release commit. Never edit generated tags or GitHub Releases by hand.

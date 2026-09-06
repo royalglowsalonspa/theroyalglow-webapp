@@ -219,6 +219,21 @@
                   "content/docs/data-seeding",
                   "content/docs/operations"
                 ]
+              },
+              {
+                "group": "Delivery workflow",
+                "icon": "git-pull-request",
+                "pages": [
+                  "engineering/index",
+                  "engineering/ci-cd",
+                  "engineering/platform-implementation-report",
+                  "github/rulesets",
+                  "github/mergify",
+                  "github/security",
+                  "releases/versioning",
+                  "releases/release-please",
+                  "releases/changelog"
+                ]
               }
             ]
           },

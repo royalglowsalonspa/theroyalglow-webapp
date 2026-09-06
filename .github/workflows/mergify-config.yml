@@ -1,0 +1,27 @@
+name: Mergify Config
+
+on:
+  pull_request:
+    paths:
+      - ".mergify.yml"
+      - ".github/workflows/mergify-config.yml"
+  push:
+    branches: [prod]
+    paths:
+      - ".mergify.yml"
+      - ".github/workflows/mergify-config.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: Mergifyio/setup-cli@v2
+      - name: Validate Mergify configuration
+        run: mergify config validate

@@ -9,7 +9,7 @@
 <div align="center">
   <a href="https://theroyalglow.in/"><b>Visit Website</b></a>
   &nbsp;•&nbsp;
-  <a href="https://theroyalglow.in/?book=1"><b>Book your appointment</b></a>
+  <a href="https://theroyalglow.in/?book=1"><b>Book Appointment</b></a>
   &nbsp;•&nbsp;
   <a href="https://share.google/xAhEVaQlvnNqoGibZ"><b>Visit Store</b></a>
 </div>

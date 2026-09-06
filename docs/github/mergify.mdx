@@ -1,0 +1,86 @@
+---
+title: Mergify
+description: Merge protections, queues, priorities, labels, CLI, and freezes.
+icon: git-merge
+---
+
+Mergify reads `.mergify.yml` from the default `prod` branch. It is the only merge
+orchestrator for this repository.
+
+## Queue policy
+
+The `merge-ready` label is the explicit auto-merge opt-in. Once reviews and checks
+pass, Mergify queues the PR. Six queue rules distinguish feature work, release sync,
+the three environment promotions, and Release Please, with a maximum of two
+parallel speculative checks.
+
+| PR | Merge method |
+| --- | --- |
+| Feature branch -> `dev` | Squash with a Conventional Commit title |
+| `dev -> test -> pprd -> prod` | Merge commit, preserving feature commits |
+| Release Please -> `prod` | Squash |
+| `prod -> dev` after a release | Merge commit, preserving release metadata and ancestry |
+
+Long-lived branches must not be rebased, reset, or deleted between promotions.
+The release sync requires the same approval, checks, and `merge-ready` opt-in.
+
+| Label          | Priority | Use                               |
+| -------------- | -------: | --------------------------------- |
+| `hotfix`       |     1000 | Active production incident        |
+| `security`     |      800 | Security remediation              |
+| `promotion`    |      500 | Environment promotion PR          |
+| `dependencies` |      100 | Dependabot update                 |
+| `merge-ready`  |      n/a | Maintainer approval to auto-queue |
+| `release`      |      n/a | Release Please PR                 |
+
+Mergify automatically applies `promotion`, `dependencies`, and `release`. Maintainers
+apply `merge-ready`, `hotfix`, and `security` deliberately.
+
+## CLI
+
+On this Windows machine the checksum-verified `2026.8.31.1` executable is installed
+at `C:\Users\kbose\.local\bin\mergify.exe`. Add `C:\Users\kbose\.local\bin` to the
+user `Path` from Windows Environment Variables, then open a new terminal. The
+repository never modifies a collaborator's PATH automatically.
+
+Other collaborators should follow Mergify's official installer: Homebrew on macOS,
+the official install script on Linux, or the release ZIP plus checksum on Windows.
+
+```bash
+mergify --version
+mergify config validate
+mergify config simulate https://github.com/royalglowsalonspa/theroyalglow-webapp/pull/NUMBER
+mergify queue status
+```
+
+The CLI can reuse `gh auth` for GitHub operations. Queue administration, events,
+and freezes accept a GitHub token or a Mergify application key in `MERGIFY_TOKEN`;
+never commit either value. CI installs the verified CLI through
+`Mergifyio/setup-cli@v2` only for configuration changes.
+
+This project stores its GitHub MCP token as `GITHUB_PAT_RGSS`. For a local CLI
+session, map it without printing the value:
+
+```powershell
+$env:GITHUB_TOKEN = $env:GITHUB_PAT_RGSS
+```
+
+## Freezes
+
+There is intentionally no permanent freeze. Create a time-bounded Mergify freeze
+for release stabilization, high-traffic periods, or incidents:
+
+```bash
+mergify freeze create --reason "Production stabilization" --timezone Asia/Kolkata \
+  --start 2026-09-06T18:00:00 --end 2026-09-07T09:00:00 \
+  -c "base=prod" -e "label=hotfix"
+mergify freeze list
+mergify freeze delete FREEZE_ID --reason "Window complete"
+```
+
+The `hotfix` exclusion is deliberate. Record the freeze reason and owner in the
+incident or release ticket before creating it.
+
+See Mergify's official [configuration](https://docs.mergify.com/configuration/file-format/),
+[CLI](https://docs.mergify.com/cli/usage/), and
+[freeze](https://docs.mergify.com/merge-protections/freeze/) references.

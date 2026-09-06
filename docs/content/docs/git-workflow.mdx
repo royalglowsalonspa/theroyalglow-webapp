@@ -5,7 +5,7 @@ icon: git-branch
 ---
 
 <Info>
-  **In one line:** Single-developer workflow with four persistent branches
+  **In one line:** Collaborative workflow with four persistent branches
   (`dev → test → pprd → prod`), each mapped to a Neon DB branch. Gates get
   stricter at every stage, **no direct pushes to `prod`**, and commits follow
   Conventional Commits.
@@ -13,7 +13,7 @@ icon: git-branch
 
 ## Branch Strategy
 
-Single developer workflow with **4 persistent branches**, each mapped to an environment:
+The platform uses **4 persistent branches**, each mapped to an environment:
 
 | Branch | Environment | Neon Branch | Purpose |
 | --- | --- | --- | --- |
@@ -30,10 +30,14 @@ Work happens on `dev` (or short-lived feature branches off `dev`). Code must pas
 
 | Branch | Protection |
 | --- | --- |
-| `prod` | Require manual approval + all CI checks passing |
-| `pprd` | Require all CI checks (lint, test, Playwright, Lighthouse, k6) |
-| `test` | Require lint + unit + integration + Playwright + Lighthouse CI |
-| `dev` | Require lint + type check + unit tests |
+| `prod` | Ruleset + Mergify protections, production security/load gates |
+| `pprd` | Ruleset + Mergify protections, integration and security/load gates |
+| `test` | Ruleset + Mergify protections, CI and integration/E2E gates |
+| `dev` | Ruleset + Mergify protections, CI and security gates |
+
+Mergify is the only merge orchestrator. Add the `merge-ready` label after
+approval to enter its queue. See [Engineering Workflow](/engineering/index)
+and [GitHub Rulesets](/github/rulesets) for the current policy.
 
 ## Database Per Environment
 
