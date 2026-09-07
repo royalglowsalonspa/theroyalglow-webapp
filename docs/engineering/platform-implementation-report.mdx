@@ -30,6 +30,27 @@ discovered, not executed. A full coverage rerun previously stalled and is not
 claimed as current verification. External app checks and queue behavior still
 need validation on the first PR before activating the supplied Rulesets.
 
+## First PR CI findings
+
+GitHub Actions on PR #213 confirmed two root causes behind three failing checks:
+
+- `Mergify Config / Validate` could not resolve the nonexistent
+  `Mergifyio/setup-cli@v2`. The action now uses verified v1.3.0 pinned to its commit
+  SHA, with CLI version `2026.8.31.1` pinned separately.
+- `CI / dependency-audit` reported `GHSA-jg8r-5jh2-v2xj` in Payload 3.88.0.
+  `CI / CI Success` failed correctly because that required dependency failed.
+  Explicit denial of manual account unlock and seven regression tests now protect
+  the CMS against the permissive default. The package advisory still has no
+  patched upstream release as of 2026-09-08; the audit remains blocking, with no
+  temporary exception. See [the permanent access policy](/github/security#cms-account-unlock-policy).
+
+The initial PR's unit tests, lint/typecheck, CodeQL, application builds, and
+Lighthouse passed. Codecov accepted the LCOV upload; its patch check reported
+coverage unaffected. These results do not establish that every external check is
+ready: `codecov/project` had not appeared, and Socket's PR-alert check reported
+alerts skipped. Keep the PR draft and do not activate Rulesets until the relevant
+checks are actually exercised and all blocking failures are resolved.
+
 ## Audit summary
 
 The repository already had mature path-aware CI, integration and E2E workflows,

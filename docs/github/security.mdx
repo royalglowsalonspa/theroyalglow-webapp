@@ -37,6 +37,30 @@ References: [remote Socket MCP](https://docs.socket.dev/docs/remote-socket-mcp),
 [local Socket MCP](https://docs.socket.dev/docs/local-socket-mcp), and
 [Socket permissions](https://docs.socket.dev/docs/permissions).
 
+## CMS account unlock policy
+
+The `users` collection explicitly denies manual account unlock through
+`access.unlock`. This is a permanent least-privilege policy: neither another CMS
+user nor an MCP API key may reset an account's failed-login counter through the
+unlock API. Built-in login and timed lockout expiry remain enabled (Payload 3.88.0
+defaults to ten minutes). Trusted server-side Local API calls can bypass access
+controls, so never expose `overrideAccess: true` to request-controlled input.
+
+The regression suite `apps/cms/src/collections/__tests__/users-unlock.test.ts`
+executes Payload's actual unlock operation with a mocked database. It verifies
+anonymous, CMS-user, and MCP-key requests fail with HTTP 403 before account reads
+or writes, for both the caller's and another user's email.
+
+As of 2026-09-08, [GHSA-jg8r-5jh2-v2xj](https://github.com/advisories/GHSA-jg8r-5jh2-v2xj)
+still lists `payload <=3.88.0` as affected and no patched release. The application
+policy closes the default-access path, but does not change the package advisory.
+`bun audit` and the aggregate `CI Success` gate therefore remain blocking. No
+advisory exception, severity filter, or non-blocking audit has been introduced.
+Before merging, upgrade the Payload dependency family together to an upstream
+release verified to resolve the advisory, regenerate the lockfile, and rerun the
+unlock regression suite, CMS checks, and `bun audit`. Retain the explicit access
+policy after upgrading.
+
 ## Codecov
 
 Vitest emits `coverage/lcov.info`, and the existing `unit-tests` job uploads it with

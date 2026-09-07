@@ -1,7 +1,8 @@
 # Knowledge Base — Index
 
 The single key to all project documentation for **Royal Glow Salon & Spa (RGSS)**.
-Every information / planning document lives here. Only `README.md` remains in the repo root.
+Architecture, planning, operational references, and the issue guide (`ISSUES.md`)
+live here. `README.md` and `CONTRIBUTING.md` live in the repo root.
 
 > Steering files reference these docs via `#[[file:knowledge-base/<name>.md]]`.
 
@@ -56,7 +57,7 @@ Every information / planning document lives here. Only `README.md` remains in th
 | [file-header-guide.md](./file-header-guide.md) | File header conventions |
 | [use-skills.md](./use-skills.md) | Skills & npx commands |
 | [mcp-setup.md](./mcp-setup.md) | Cross-IDE MCP config — single source, generator, credential rotation |
-| [open-issues-glossary.md](./open-issues-glossary.md) | Technical glossary for all open GitHub issues — for humans and AI agents |
+| [ISSUES.md](./ISSUES.md) | Contributor guide to reading issues, label names, triage, and project terminology |
 
 ## Quality & Release
 

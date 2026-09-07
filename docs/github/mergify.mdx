@@ -56,7 +56,8 @@ mergify queue status
 The CLI can reuse `gh auth` for GitHub operations. Queue administration, events,
 and freezes accept a GitHub token or a Mergify application key in `MERGIFY_TOKEN`;
 never commit either value. CI installs the verified CLI through
-`Mergifyio/setup-cli@v2` only for configuration changes.
+`Mergifyio/setup-cli` v1.3.0, pinned to its full commit SHA, only for configuration
+changes. The workflow also pins CLI version `2026.8.31.1` for reproducible validation.
 
 This project stores its GitHub MCP token as `GITHUB_PAT_RGSS`. For a local CLI
 session, map it without printing the value:

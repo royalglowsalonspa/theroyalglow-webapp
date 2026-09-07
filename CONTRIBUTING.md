@@ -4,6 +4,9 @@ Thanks for your interest in the **theroyalglow-webapp** codebase. This document
 covers how we work — branching, commits, code review, and how to get a
 pull request merged.
 
+See [ISSUES.md](./knowledge-base/ISSUES.md) for reading and writing issues, label names,
+priorities, severity, triage, and project terminology.
+
 For questions that aren't about code, see [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md)
 and [`SECURITY.md`](./SECURITY.md).
 
