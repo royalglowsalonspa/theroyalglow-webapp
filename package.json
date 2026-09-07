@@ -33,7 +33,7 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.10",
+    "@biomejs/biome": "^2.5.12",
     "@playwright/test": "^1.62.1",
     "@vitejs/plugin-react": "^6.1.0",
     "checkly": "^8.22.0",
