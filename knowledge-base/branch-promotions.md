@@ -74,3 +74,6 @@ exception, not a clean upstream audit. Remove it when adopting a patched release
 References: [Vitest 5 migration](https://main.vitest.dev/guide/migration/),
 [Payload advisory](https://github.com/advisories/GHSA-jg8r-5jh2-v2xj),
 [GitHub workflow triggering](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
+
+Release Please's first dev run exposed a GitHub GraphQL internal error when fetching ten commits with associated PR/file data. The official query reproduced the failure at the same cursor with batch size 10 and succeeded with batch size 1. The config now uses commit-batch-size 1; release search depth and bootstrap history are preserved.
+
