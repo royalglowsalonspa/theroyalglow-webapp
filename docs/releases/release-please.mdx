@@ -1,0 +1,53 @@
+---
+title: Release Process
+description: Release Please, changelog, tags, and GitHub Releases.
+icon: package-check
+---
+
+Release Please runs after a change reaches `prod`. It maintains one release PR from
+Conventional Commit history. Merging that PR updates all manifest versions and
+`CHANGELOG.md`; the next workflow run creates the `vX.Y.Z` tag and GitHub Release.
+
+## Normal release
+
+1. Promote reviewed code through `dev -> test -> pprd -> prod`.
+2. Review the Release Please PR titled `chore(prod): release X.Y.Z`.
+3. Confirm version, changelog sections, and synchronized workspace versions.
+4. Add `merge-ready` after all required checks and approval pass.
+5. Mergify squash-merges the release PR; Release Please publishes the tag and release.
+6. Confirm the GitHub Release and Mintlify changelog links.
+7. Open a `prod -> dev` PR to bring the release version, manifest, and changelog
+   back to development. Review it and add `merge-ready`; the release-sync queue
+   uses a merge commit. Complete this sync before the next promotion cycle.
+
+Feature PRs are squash-merged with Conventional Commit titles. Environment
+promotions use merge commits so Release Please can still see each feature/fix
+commit on `prod`. Use neutral promotion titles such as `chore: promote pprd to prod`
+to avoid describing the promotion itself as a new feature.
+
+The Release Please PR is the only direct-to-`prod` branch exception. It contains
+release metadata for commits that already completed the full promotion path.
+
+## Authentication
+
+Add a fine-grained `RELEASE_PLEASE_TOKEN` Actions secret with repository Contents,
+Pull requests, and Issues read/write access. The workflow falls back to
+`GITHUB_TOKEN`, but PRs created with that token do not trigger other Actions, so the
+dedicated token is required before enabling the production Ruleset.
+
+The bootstrap SHA in `release-please-config.json` prevents historical commits from
+being pulled into the first release proposal. Remove or update it only after reviewing
+Release Please's documented bootstrap behavior.
+
+## Commit examples
+
+```text
+feat(booking): add wait-list capacity
+fix(auth): retain the return URL after sign-in
+docs(platform): document the release process
+```
+
+Breaking changes use `!` and a `BREAKING CHANGE:` footer.
+
+See the official [Release Please Action](https://github.com/googleapis/release-please-action)
+and [manifest configuration](https://github.com/googleapis/release-please/blob/main/docs/manifest-releaser.md).

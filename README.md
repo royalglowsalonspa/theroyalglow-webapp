@@ -9,12 +9,14 @@
 <div align="center">
   <a href="https://theroyalglow.in/"><b>Visit Website</b></a>
   &nbsp;•&nbsp;
-  <a href="https://theroyalglow.in/?book=1"><b>Book your appointment</b></a>
+  <a href="https://theroyalglow.in/?book=1"><b>Book Appointment</b></a>
   &nbsp;•&nbsp;
   <a href="https://share.google/xAhEVaQlvnNqoGibZ"><b>Visit Store</b></a>
 </div>
 
 
+
+Contributor references: [Contributing](./CONTRIBUTING.md) · [Understanding issues and labels](./knowledge-base/ISSUES.md) · [Knowledge base](./knowledge-base/INDEX.md)
 
 ## What This Is
 Full-stack business solution for **Royal Glow Salon & Spa** by **Roshini**.  
@@ -283,6 +285,8 @@ Service catalog, bookings, memberships, billing → all in custom admin (`theroy
       <b>Katbose</b> — a Senior Software Engineer with 4+ years of experience, specializing in JavaScript, ReactJS, Node.js, and full-stack development. He enjoys building practical web applications, exploring modern technologies, and turning ideas into clean, functional products. <code>theroyalglow-webapp</code> is his full-stack build: Next.js + Payload CMS on the edge, Better Auth for identity, Neon + Drizzle for data, Cloudflare R2 for media, Resend + Brevo for email, Ably for realtime, and a 19-job background automation layer.
       <br><br>
       <a href="https://github.com/katbose"><img src="https://img.shields.io/badge/GitHub-katbose-181717?logo=github&logoColor=white" alt="GitHub"></a>
+      &nbsp;
+      <a href="https://github.com/sponsors/katbose"><img src="https://img.shields.io/badge/Sponsor-katbose-ea4aaa?logo=githubsponsors&amp;logoColor=white" alt="Sponsor"></a>
       &nbsp;
       <a href="https://www.linkedin.com/in/katbose"><img src="https://img.shields.io/badge/LinkedIn-katbose-0A66C2?logo=linkedin&logoColor=white" alt="LinkedIn"></a>
       &nbsp;

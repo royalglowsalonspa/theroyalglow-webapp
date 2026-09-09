@@ -12,6 +12,8 @@ import { createRootConfig } from './vitest.config'
 // to run them, `bun run test:integration`. This config is the escape hatch —
 // it reuses the root projects verbatim (same includes, aliases, setup files)
 // with the live-suite exclusion lifted, so the two paths can never drift apart.
+// The package script also selects the two legacy CMS filenames explicitly;
+// neither contains the usual integration.test.ts filename filter.
 // Naming this file explicitly on the command line IS the opt-in: nothing forks a
 // branch unless a human typed `--config vitest.integration.config.ts`.
 export default createRootConfig({ includeLiveSuites: true })

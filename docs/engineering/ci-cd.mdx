@@ -1,0 +1,44 @@
+---
+title: CI/CD
+description: Required checks, promotion workflows, and deployment boundaries.
+icon: gauge
+---
+
+## Workflow map
+
+| Workflow                | Trigger                                         | Purpose                                                                           |
+| ----------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------- |
+| `CI`                    | PRs to all long-lived branches; pushes to `dev` | Path-aware app builds, lint, typecheck, tests, audit, Lighthouse, and drift gates |
+| `Integration & E2E`     | PRs to `test`, `pprd`, `prod`                   | Database integration and Playwright validation                                    |
+| `Load & Security`       | PRs to `pprd`, `prod`                           | Trivy plus optional k6 and ZAP against pre-production                             |
+| `CodeQL`                | All PRs, pushes to `prod`, weekly               | JavaScript/TypeScript security analysis                                           |
+| `Mergify Config`        | Mergify config changes                          | Validate `.mergify.yml` with the official CLI                                     |
+| `Release Please`        | Pushes to `prod`                                | Maintain the release PR, tag, changelog, and GitHub Release                       |
+| `Deploy AWS Production` | Pushes to `prod`                                | Production deployment through AWS OIDC                                            |
+
+## Stable required checks
+
+Rulesets require aggregate jobs rather than every conditional job:
+
+- `CI Success`
+- `Integration Success` on promotion branches
+- `Load & Security Success` on `pprd` and `prod`
+
+Each aggregate accepts only `success` or an intentional `skipped` result. A failure
+or cancellation fails the aggregate. External required checks are CodeQL, Socket,
+Codecov project and patch coverage, and Mergify Merge Protections.
+
+Integration/E2E needs `DATABASE_URL_TEST`. k6 and ZAP need `PPRD_URL`. Their
+preflight jobs emit an explicit notice when infrastructure is not configured;
+Trivy remains a hard gate regardless.
+
+## Local verification
+
+```bash
+bun install --frozen-lockfile
+bun run lint
+bun run typecheck
+bun run test:coverage
+bun run mcp:doctor
+mergify config validate
+```

@@ -1,6 +1,11 @@
 {
   "name": "theroyalglow-webapp",
+  "version": "0.1.0",
   "private": true,
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/katbose"
+  },
   "type": "module",
   "packageManager": "bun@1.4.0",
   "workspaces": [
@@ -14,7 +19,7 @@
     "typecheck": "turbo run typecheck",
     "test": "vitest run --exclude '**/*.integration.test.*' --exclude '**/e2e/**'",
     "test:unit": "vitest run --exclude '**/*.integration.test.*' --exclude '**/e2e/**'",
-    "test:integration": "vitest run --config vitest.integration.config.ts integration.test.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts integration.test.ts apps/cms/scripts/__tests__/seed-services.test.ts apps/cms/src/hooks/__tests__/sync-atomicity.test.ts",
     "test:e2e": "playwright test",
     "test:coverage": "vitest run --coverage --exclude '**/*.integration.test.*' --exclude '**/e2e/**'",
     "clean": "turbo run clean",
@@ -30,6 +35,8 @@
     "graphify:install": "py -m pip install --user graphifyy==0.8.26",
     "provision:betterstack": "bun run scripts/provision-betterstack.ts",
     "mcp:generate": "bun run scripts/mcp/generate.ts",
+    "mcp:doctor": "bun run scripts/mcp/doctor.ts",
+    "release:check": "bun run scripts/release/check-version.ts",
     "prepare": "husky"
   },
   "devDependencies": {

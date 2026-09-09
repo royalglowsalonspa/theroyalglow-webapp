@@ -3,14 +3,25 @@
   "mcp": {
     "Snyk": {
       "type": "local",
-      "command": ["npx", "-y", "snyk@latest", "mcp", "-t", "stdio"],
+      "command": [
+        "snyk",
+        "mcp",
+        "-t",
+        "stdio"
+      ],
+      "timeout": 60000,
+      "enabled": true
+    },
+    "socket-mcp": {
+      "type": "remote",
+      "url": "https://mcp.socket.dev/",
       "enabled": true
     },
     "neon": {
-      "type": "local",
-      "command": ["npx", "-y", "@neondatabase/mcp-server-neon"],
-      "environment": {
-        "NEON_API_KEY": "{env:NEON_API_KEY_RGSS}"
+      "type": "remote",
+      "url": "https://mcp.neon.tech/mcp",
+      "headers": {
+        "Authorization": "Bearer {env:NEON_API_KEY_RGSS}"
       },
       "enabled": true
     },
@@ -20,71 +31,94 @@
         "code-review-graph",
         "serve",
         "--repo",
-        "C:\\Users\\kbose\\OneDrive\\Desktop\\rgss_website_v1"
+        "."
       ],
+      "cwd": ".",
       "environment": {
         "PYTHONUTF8": "1"
       },
+      "timeout": 60000,
       "enabled": true
     },
     "shadcn": {
       "type": "local",
-      "command": ["npx", "shadcn@latest", "mcp"],
+      "command": [
+        "shadcn",
+        "mcp"
+      ],
+      "timeout": 60000,
       "enabled": true
     },
     "cloudflare-api": {
       "type": "local",
-      "command": ["npx", "-y", "mcp-remote", "https://mcp.cloudflare.com/mcp"],
+      "command": [
+        "mcp-remote",
+        "https://mcp.cloudflare.com/mcp",
+        "--header",
+        "Authorization:Bearer {env:CLOUDFLARE_API_TOKEN_RGSS}"
+      ],
+      "environment": {
+        "CLOUDFLARE_API_TOKEN": "{env:CLOUDFLARE_API_TOKEN_RGSS}"
+      },
+      "timeout": 60000,
       "enabled": true
     },
     "cloudflare-bindings": {
       "type": "local",
-      "command": ["npx", "-y", "mcp-remote", "https://bindings.mcp.cloudflare.com/mcp"],
+      "command": [
+        "mcp-remote",
+        "https://bindings.mcp.cloudflare.com/mcp"
+      ],
+      "timeout": 60000,
       "enabled": true
     },
     "cloudflare-builds": {
       "type": "local",
-      "command": ["npx", "-y", "mcp-remote", "https://builds.mcp.cloudflare.com/mcp"],
+      "command": [
+        "mcp-remote",
+        "https://builds.mcp.cloudflare.com/mcp"
+      ],
+      "timeout": 60000,
       "enabled": true
     },
     "cloudflare-observability": {
       "type": "local",
-      "command": ["npx", "-y", "mcp-remote", "https://observability.mcp.cloudflare.com/mcp"],
+      "command": [
+        "mcp-remote",
+        "https://observability.mcp.cloudflare.com/mcp"
+      ],
+      "timeout": 60000,
       "enabled": true
     },
     "cloudflare-docs": {
       "type": "local",
-      "command": ["npx", "-y", "mcp-remote", "https://docs.mcp.cloudflare.com/mcp"],
+      "command": [
+        "mcp-remote",
+        "https://docs.mcp.cloudflare.com/mcp"
+      ],
+      "timeout": 60000,
       "enabled": true
     },
     "github": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "https://api.githubcopilot.com/mcp/",
-        "--header",
-        "Authorization:Bearer ${GITHUB_PAT}"
-      ],
-      "environment": {
-        "GITHUB_PAT": "{env:GITHUB_PAT_RGSS}"
+      "type": "remote",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer {env:GITHUB_PAT_RGSS}"
       },
       "enabled": true
     },
     "posthog": {
       "type": "local",
       "command": [
-        "npx",
-        "-y",
         "mcp-remote",
         "https://mcp.eu.posthog.com/mcp",
         "--header",
-        "Authorization:Bearer ${POSTHOG_AUTH_HEADER}"
+        "Authorization:Bearer {env:POSTHOG_AUTH_HEADER_RGSS}"
       ],
       "environment": {
         "POSTHOG_AUTH_HEADER": "{env:POSTHOG_AUTH_HEADER_RGSS}"
       },
+      "timeout": 60000,
       "enabled": true
     },
     "mintlify-admin": {
@@ -99,24 +133,30 @@
     },
     "sentry": {
       "type": "local",
-      "command": ["npx", "-y", "mcp-remote", "https://mcp.sentry.dev/mcp"],
+      "command": [
+        "mcp-remote",
+        "https://mcp.sentry.dev/mcp"
+      ],
+      "timeout": 60000,
       "enabled": true
     },
     "payload": {
       "type": "local",
       "command": [
-        "npx",
-        "-y",
         "mcp-remote",
         "http://localhost:3002/api/mcp",
         "--header",
-        "Authorization:Bearer ${PAYLOAD_MCP_API_KEY}",
+        "Authorization:Bearer {env:PAYLOAD_MCP_API_KEY_RGSS}",
         "--allow-http"
       ],
       "environment": {
         "PAYLOAD_MCP_API_KEY": "{env:PAYLOAD_MCP_API_KEY_RGSS}"
       },
+      "timeout": 60000,
       "enabled": true
     }
+  },
+  "experimental": {
+    "mcp_timeout": 60000
   }
 }

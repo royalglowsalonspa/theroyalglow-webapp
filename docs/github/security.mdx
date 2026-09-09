@@ -1,0 +1,75 @@
+---
+title: Security And Coverage
+description: CodeQL, Socket Security, Codecov, and their required permissions.
+icon: scan-search
+---
+
+## CodeQL
+
+`.github/workflows/codeql.yml` analyzes only `javascript-typescript`, which covers
+the repository's TypeScript and JavaScript without a build. It runs on all promotion
+PRs, on production pushes, weekly, and on demand. Security-extended queries provide
+additional signal without duplicating dependency scanning.
+
+## Socket Security
+
+Install the Socket GitHub App for this repository and enable its pull request alert
+check. Require the status `Socket Security: Pull Request Alerts`. Keep `bun audit`
+as the native blocking advisory gate; Socket supplies ecosystem and supply-chain
+analysis rather than another GitHub Action scanner.
+
+Socket's documented GitHub App permissions are:
+
+- Repository: Checks read/write, Contents read/write, Issues read, Merge queues
+  read, Metadata read, and Pull requests read/write.
+- Organization/account: Members read and email address read.
+
+Contents and PR write access support Socket Patch PRs. Restrict installation to this
+repository unless organization-wide coverage is explicitly approved.
+
+The canonical MCP registry uses Socket's remote OAuth endpoint at
+`https://mcp.socket.dev/`. Run `bun run mcp:generate`, restart the client, and finish
+OAuth on first use. The local alternative is `npx -y @socketsecurity/mcp@latest`
+with a `SOCKET_API_TOKEN` limited to `packages:list`; do not configure both variants
+under different names because they expose the same capability.
+
+References: [remote Socket MCP](https://docs.socket.dev/docs/remote-socket-mcp),
+[local Socket MCP](https://docs.socket.dev/docs/local-socket-mcp), and
+[Socket permissions](https://docs.socket.dev/docs/permissions).
+
+## CMS account unlock policy
+
+The `users` collection explicitly denies manual account unlock through
+`access.unlock`. This is a permanent least-privilege policy: neither another CMS
+user nor an MCP API key may reset an account's failed-login counter through the
+unlock API. Built-in login and timed lockout expiry remain enabled (Payload 3.88.0
+defaults to ten minutes). Trusted server-side Local API calls can bypass access
+controls, so never expose `overrideAccess: true` to request-controlled input.
+
+The regression suite `apps/cms/src/collections/__tests__/users-unlock.test.ts`
+executes Payload's actual unlock operation with a mocked database. It verifies
+anonymous, CMS-user, and MCP-key requests fail with HTTP 403 before account reads
+or writes, for both the caller's and another user's email.
+
+As of 2026-09-08, [GHSA-jg8r-5jh2-v2xj](https://github.com/advisories/GHSA-jg8r-5jh2-v2xj)
+still lists `payload <=3.88.0` as affected and no patched release. The application
+policy closes the default-access path, but does not change the package advisory.
+`bun audit` and the aggregate `CI Success` gate therefore remain blocking. No
+advisory exception, severity filter, or non-blocking audit has been introduced.
+Before merging, upgrade the Payload dependency family together to an upstream
+release verified to resolve the advisory, regenerate the lockfile, and rerun the
+unlock regression suite, CMS checks, and `bun audit`. Retain the explicit access
+policy after upgrading.
+
+## Codecov
+
+Vitest emits `coverage/lcov.info`, and the existing `unit-tests` job uploads it with
+`codecov/codecov-action@v5`. `codecov.yml` enables project and patch statuses plus a
+PR coverage comment.
+
+Install the Codecov GitHub App and add `CODECOV_TOKEN` as a repository Actions
+secret. The Rulesets require `codecov/project` and `codecov/patch` after their first
+successful appearance.
+
+See Codecov's [GitHub onboarding](https://docs.codecov.com/docs/github-2-getting-a-codecov-account-and-uploading-coverage)
+and [token setup](https://docs.codecov.com/docs/adding-the-codecov-token).

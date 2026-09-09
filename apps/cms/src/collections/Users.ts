@@ -35,6 +35,11 @@ import type { CollectionConfig } from 'payload'
 export const Users: CollectionConfig = {
   slug: 'users',
   auth: true,
+  access: {
+    // GHSA-jg8r-5jh2-v2xj: do not let an authenticated account reset lockouts.
+    // Users must wait for timed expiry; trusted server-side recovery is separate.
+    unlock: () => false,
+  },
   admin: {
     useAsTitle: 'email',
     group: 'People',

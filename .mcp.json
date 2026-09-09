@@ -1,68 +1,90 @@
 {
   "mcpServers": {
     "Snyk": {
-      "command": "npx",
-      "args": ["-y", "snyk@latest", "mcp", "-t", "stdio"]
+      "command": "snyk",
+      "args": [
+        "mcp",
+        "-t",
+        "stdio"
+      ]
+    },
+    "socket-mcp": {
+      "type": "http",
+      "url": "https://mcp.socket.dev/"
     },
     "neon": {
-      "command": "npx",
-      "args": ["-y", "@neondatabase/mcp-server-neon"],
-      "env": {
-        "NEON_API_KEY": "${NEON_API_KEY_RGSS}"
-      }
+      "type": "http",
+      "url": "https://mcp.neon.tech/mcp"
     },
     "code-review-graph": {
       "command": "code-review-graph",
-      "args": ["serve", "--repo", "${CLAUDE_PROJECT_DIR:-.}"],
+      "args": [
+        "serve",
+        "--repo",
+        "${CLAUDE_PROJECT_DIR:-.}"
+      ],
       "env": {
         "PYTHONUTF8": "1"
       }
     },
     "shadcn": {
-      "command": "npx",
-      "args": ["shadcn@latest", "mcp"]
+      "command": "shadcn",
+      "args": [
+        "mcp"
+      ]
     },
     "cloudflare-api": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "https://mcp.cloudflare.com/mcp"]
+      "command": "mcp-remote",
+      "args": [
+        "https://mcp.cloudflare.com/mcp",
+        "--header",
+        "Authorization:Bearer ${CLOUDFLARE_API_TOKEN_RGSS}"
+      ],
+      "env": {
+        "CLOUDFLARE_API_TOKEN": "${CLOUDFLARE_API_TOKEN_RGSS}"
+      }
     },
     "cloudflare-bindings": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "https://bindings.mcp.cloudflare.com/mcp"]
+      "command": "mcp-remote",
+      "args": [
+        "https://bindings.mcp.cloudflare.com/mcp"
+      ]
     },
     "cloudflare-builds": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "https://builds.mcp.cloudflare.com/mcp"]
+      "command": "mcp-remote",
+      "args": [
+        "https://builds.mcp.cloudflare.com/mcp"
+      ]
     },
     "cloudflare-observability": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "https://observability.mcp.cloudflare.com/mcp"]
+      "command": "mcp-remote",
+      "args": [
+        "https://observability.mcp.cloudflare.com/mcp"
+      ]
     },
     "cloudflare-docs": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "https://docs.mcp.cloudflare.com/mcp"]
+      "command": "mcp-remote",
+      "args": [
+        "https://docs.mcp.cloudflare.com/mcp"
+      ]
     },
     "github": {
-      "command": "npx",
+      "command": "mcp-remote",
       "args": [
-        "-y",
-        "mcp-remote",
         "https://api.githubcopilot.com/mcp/",
         "--header",
-        "Authorization:Bearer ${GITHUB_PAT}"
+        "Authorization:Bearer ${GITHUB_PAT_RGSS}"
       ],
       "env": {
         "GITHUB_PAT": "${GITHUB_PAT_RGSS}"
       }
     },
     "posthog": {
-      "command": "npx",
+      "command": "mcp-remote",
       "args": [
-        "-y",
-        "mcp-remote",
         "https://mcp.eu.posthog.com/mcp",
         "--header",
-        "Authorization:Bearer ${POSTHOG_AUTH_HEADER}"
+        "Authorization:Bearer ${POSTHOG_AUTH_HEADER_RGSS}"
       ],
       "env": {
         "POSTHOG_AUTH_HEADER": "${POSTHOG_AUTH_HEADER_RGSS}"
@@ -77,17 +99,17 @@
       "url": "https://mintlify.com/docs/mcp"
     },
     "sentry": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "https://mcp.sentry.dev/mcp"]
+      "command": "mcp-remote",
+      "args": [
+        "https://mcp.sentry.dev/mcp"
+      ]
     },
     "payload": {
-      "command": "npx",
+      "command": "mcp-remote",
       "args": [
-        "-y",
-        "mcp-remote",
         "http://localhost:3002/api/mcp",
         "--header",
-        "Authorization:Bearer ${PAYLOAD_MCP_API_KEY}",
+        "Authorization:Bearer ${PAYLOAD_MCP_API_KEY_RGSS}",
         "--allow-http"
       ],
       "env": {

@@ -1,0 +1,138 @@
+---
+title: Platform Implementation Report
+description: Audit findings, implemented controls, activation steps, and follow-up work.
+icon: clipboard-check
+---
+
+Last reviewed: 2026-09-07
+
+## Review corrections (2026-09-07)
+
+- Required GitHub Actions contexts now use the job names, without workflow prefixes.
+- The integration command explicitly selects the two legacy CMS suites; discovery
+  finds nine integration files, while unit discovery excludes both CMS suites.
+- MCP doctor compares parsed generated JSON/TOML contents rather than file times.
+  This catches URL/argument drift and avoids timestamp false positives after pull.
+  It reuses the generator in memory and does not write configurations.
+- Promotions and the post-release `prod -> dev` sync use merge commits. Feature
+  and Release Please PRs still use squash. Rulesets permit the required merge
+  methods and retain review, status, deletion, and force-push protections.
+- Six focused MCP regression tests pass (25 assertions), including a Kiro-only
+  source change that leaves the other five generated outputs valid.
+- Claude MCP arguments reference the documented parent-process `_RGSS` variables
+  directly. A regression test verifies credential expansion without child env aliases.
+- MCP doctor passed for all 16 servers and six configs; the local CMS port was open.
+- Mergify schema validation, actionlint, focused Biome checks, version consistency,
+  and whitespace validation passed.
+
+These corrections have been checked locally. Live database suites were only
+discovered, not executed. A full coverage rerun previously stalled and is not
+claimed as current verification. External app checks and queue behavior still
+need validation on the first PR before activating the supplied Rulesets.
+
+## First PR CI findings
+
+GitHub Actions on PR #213 confirmed two root causes behind three failing checks:
+
+- `Mergify Config / Validate` could not resolve the nonexistent
+  `Mergifyio/setup-cli@v2`. The action now uses verified v1.3.0 pinned to its commit
+  SHA, with CLI version `2026.8.31.1` pinned separately.
+- `CI / dependency-audit` reported `GHSA-jg8r-5jh2-v2xj` in Payload 3.88.0.
+  `CI / CI Success` failed correctly because that required dependency failed.
+  Explicit denial of manual account unlock and seven regression tests now protect
+  the CMS against the permissive default. The package advisory still has no
+  patched upstream release as of 2026-09-08; the audit remains blocking, with no
+  temporary exception. See [the permanent access policy](/github/security#cms-account-unlock-policy).
+
+The initial PR's unit tests, lint/typecheck, CodeQL, application builds, and
+Lighthouse passed. Codecov accepted the LCOV upload; its patch check reported
+coverage unaffected. These results do not establish that every external check is
+ready: `codecov/project` had not appeared, and Socket's PR-alert check reported
+alerts skipped. Keep the PR draft and do not activate Rulesets until the relevant
+checks are actually exercised and all blocking failures are resolved.
+
+## Audit summary
+
+The repository already had mature path-aware CI, integration and E2E workflows,
+load/security checks, Dependabot, AWS OIDC deployment, backup/migration automation,
+Conventional Commit guidance, database drift protection, and Mintlify documentation.
+
+The audit found no Release Please configuration, platform release version,
+`CHANGELOG.md`, Mergify policy, CodeQL workflow, Codecov upload, or Socket MCP. The
+only active GitHub Ruleset, `protect main branch`, had no included branch pattern and
+only deletion/non-fast-forward rules. Long-lived branches reported no effective
+classic branch protection.
+
+## Implemented
+
+- Added stable aggregate CI checks for Rulesets and Mergify.
+- Fixed Lighthouse's undeclared `changes` dependency and kept live CMS/Postgres
+  suites behind the existing integration-test opt-in.
+- Added CodeQL for JavaScript/TypeScript with build mode `none`.
+- Added Codecov LCOV generation, upload, statuses, and PR comments.
+- Added Mergify merge protections, six queue rules, opt-in auto-merge, labels,
+  priorities, promotion-source enforcement, CLI validation, and freeze runbooks.
+- Added importable GitHub Ruleset payloads for `dev`, `test`, `pprd`, and `prod`.
+- Added one platform version, Release Please manifest/config/workflow, changelog,
+  synchronized workspace updates, and a version drift check.
+- Added Socket's remote OAuth MCP to the canonical 16-server registry and generated
+  all six client configurations.
+- Added Mintlify engineering, GitHub governance, security, versioning, release, and
+  changelog documentation.
+
+Existing CI was extended rather than replaced. No semantic-release, Changesets,
+GitHub native merge queue, GitHub native auto-merge, Merge Freeze App, or duplicate
+Socket Action was added.
+
+## Manual activation checklist
+
+1. Confirm the Mergify GitHub App has repository access and enable Merge Queue and
+   Merge Protections. CLI authentication and read-only queue/freeze access were
+   verified on 2026-09-06. Keep GitHub native merge queue disabled.
+2. Install the Socket GitHub App, enable PR alerts, and verify
+   `Socket Security: Pull Request Alerts` on a test PR.
+3. Install the Codecov GitHub App and add repository secret `CODECOV_TOKEN`.
+4. Add `RELEASE_PLEASE_TOKEN` with Contents, Pull requests, and Issues read/write.
+5. Optionally set local `MERGIFY_TOKEN` to an admin-scoped Mergify application key
+   for freeze/event/queue administration. GitHub-oriented CLI commands can reuse
+   the authenticated `gh` CLI.
+6. Merge this bootstrap through the current branch flow and let every new check run.
+7. Verify the labels `merge-ready`, `hotfix`, `security`, `promotion`,
+   `dependencies`, and `release`; all were present or created on 2026-09-06.
+8. Import `.github/rulesets/*.json`, verify check names, then activate. Disable the
+   old `protect main branch` Ruleset only after replacement coverage is confirmed.
+9. Enable merge commits and squash merging; disable rebase merging, automatic branch
+   deletion during bootstrap, and native auto-merge. Promotions and release sync
+   preserve ancestry with merge commits; feature and release PRs use squash.
+10. Restart each MCP client and complete Socket OAuth on first use.
+
+## Remaining infrastructure gaps
+
+`DATABASE_URL_TEST` is not currently listed among repository secrets, so integration
+and E2E jobs use their documented preflight skip. `PPRD_URL` is also absent, so k6
+and ZAP skip while Trivy still gates. Add these only when the corresponding isolated
+test database and deployed pre-production endpoint exist.
+
+The production environment currently has no GitHub Environment reviewers or wait
+timer. Add required reviewers to `production-aws` after identifying at least two
+maintainers so deployment approval does not depend on one person.
+
+## Verification record
+
+The implementation was verified locally on 2026-09-06:
+
+- `bun install --frozen-lockfile`: 1,410 installs checked, no lockfile changes.
+- `bun run lint`: passed all 7 workspace lint tasks; existing warnings remain non-blocking.
+- `bun run typecheck`: passed all 10 workspaces.
+- `bun run test:coverage`: 150 test files and 1,181 tests passed.
+- Coverage: 66.55% statements, 55.85% branches, 60.47% functions, 67.27% lines;
+  `coverage/lcov.info` was generated.
+- `bun run release:check`: version `0.1.0` synchronized across 10 workspaces.
+- `bun run mcp:doctor`: all 16 servers and six generated clients passed; only the
+  documented closed Payload development port warning remained.
+- Mergify CLI `2026.8.31.1`: published SHA-256 matched, config validation passed,
+  authenticated queue and freeze reads passed, and both returned empty state.
+- Socket MCP OAuth completed successfully with `packages:list`, `alerts:list`, and
+  `threat-feed:list` scopes after the provider rejected its over-broad discovery list.
+- actionlint `1.7.12`: published SHA-256 matched and all GitHub workflows passed.
+- Prettier, Biome, JSON/TOML parsing, and `git diff --check`: passed for changed files.

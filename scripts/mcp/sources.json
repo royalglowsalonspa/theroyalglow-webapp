@@ -4,17 +4,25 @@
     {
       "name": "Snyk",
       "transport": "local",
-      "command": "npx",
-      "args": ["-y", "snyk@latest", "mcp", "-t", "stdio"],
+      "command": "snyk",
+      "args": ["mcp", "-t", "stdio"],
+      "env": [],
+      "autoApprove": []
+    },
+    {
+      "name": "socket-mcp",
+      "transport": "remote",
+      "url": "https://mcp.socket.dev/",
       "env": [],
       "autoApprove": []
     },
     {
       "name": "neon",
-      "transport": "local",
-      "command": "npx",
-      "args": ["-y", "@neondatabase/mcp-server-neon"],
-      "env": [{ "key": "NEON_API_KEY", "fromEnvVar": "NEON_API_KEY_RGSS" }],
+      "transport": "remote",
+      "url": "https://mcp.neon.tech/mcp",
+      "env": [
+        { "key": "NEON_API_KEY", "fromEnvVar": "NEON_API_KEY_RGSS", "header": "Authorization" }
+      ],
       "autoApprove": []
     },
     {
@@ -36,8 +44,8 @@
     {
       "name": "shadcn",
       "transport": "local",
-      "command": "npx",
-      "args": ["shadcn@latest", "mcp"],
+      "command": "shadcn",
+      "args": ["mcp"],
       "env": [],
       "autoApprove": [
         "get_items",
@@ -53,16 +61,20 @@
     {
       "name": "cloudflare-api",
       "transport": "local",
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "https://mcp.cloudflare.com/mcp"],
-      "env": [],
+      "command": "mcp-remote",
+      "args": [
+        "https://mcp.cloudflare.com/mcp",
+        "--header",
+        "Authorization:Bearer ${CLOUDFLARE_API_TOKEN}"
+      ],
+      "env": [{ "key": "CLOUDFLARE_API_TOKEN", "fromEnvVar": "CLOUDFLARE_API_TOKEN_RGSS" }],
       "autoApprove": ["execute"]
     },
     {
       "name": "cloudflare-bindings",
       "transport": "local",
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "https://bindings.mcp.cloudflare.com/mcp"],
+      "command": "mcp-remote",
+      "args": ["https://bindings.mcp.cloudflare.com/mcp"],
       "env": [],
       "autoApprove": [
         "workers_list",
@@ -74,39 +86,39 @@
     {
       "name": "cloudflare-builds",
       "transport": "local",
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "https://builds.mcp.cloudflare.com/mcp"],
+      "command": "mcp-remote",
+      "args": ["https://builds.mcp.cloudflare.com/mcp"],
       "env": [],
       "autoApprove": ["workers_list"]
     },
     {
       "name": "cloudflare-observability",
       "transport": "local",
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "https://observability.mcp.cloudflare.com/mcp"],
+      "command": "mcp-remote",
+      "args": ["https://observability.mcp.cloudflare.com/mcp"],
       "env": [],
       "autoApprove": []
     },
     {
       "name": "cloudflare-docs",
       "transport": "local",
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "https://docs.mcp.cloudflare.com/mcp"],
+      "command": "mcp-remote",
+      "args": ["https://docs.mcp.cloudflare.com/mcp"],
       "env": [],
       "autoApprove": ["search_cloudflare_documentation"]
     },
     {
       "name": "github",
       "transport": "local",
-      "command": "npx",
+      "openCodeTransport": "remote",
+      "command": "mcp-remote",
+      "url": "https://api.githubcopilot.com/mcp/",
       "args": [
-        "-y",
-        "mcp-remote",
         "https://api.githubcopilot.com/mcp/",
         "--header",
         "Authorization:Bearer ${GITHUB_PAT}"
       ],
-      "env": [{ "key": "GITHUB_PAT", "fromEnvVar": "GITHUB_PAT_RGSS" }],
+      "env": [{ "key": "GITHUB_PAT", "fromEnvVar": "GITHUB_PAT_RGSS", "header": "Authorization" }],
       "autoApprove": [
         "get_me",
         "list_commits",
@@ -118,10 +130,8 @@
     {
       "name": "posthog",
       "transport": "local",
-      "command": "npx",
+      "command": "mcp-remote",
       "args": [
-        "-y",
-        "mcp-remote",
         "https://mcp.eu.posthog.com/mcp",
         "--header",
         "Authorization:Bearer ${POSTHOG_AUTH_HEADER}"
@@ -146,8 +156,8 @@
     {
       "name": "sentry",
       "transport": "local",
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "https://mcp.sentry.dev/mcp"],
+      "command": "mcp-remote",
+      "args": ["https://mcp.sentry.dev/mcp"],
       "env": [],
       "autoApprove": [
         "whoami",
@@ -162,10 +172,8 @@
     {
       "name": "payload",
       "transport": "local",
-      "command": "npx",
+      "command": "mcp-remote",
       "args": [
-        "-y",
-        "mcp-remote",
         "http://localhost:3002/api/mcp",
         "--header",
         "Authorization:Bearer ${PAYLOAD_MCP_API_KEY}",

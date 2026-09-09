@@ -12,7 +12,9 @@ import { configDefaults, defineConfig } from 'vitest/config'
 // `packages/db/scripts/drift/__tests__/` FORK LIVE NEON BRANCHES via the Neon
 // API whenever `isDriftForkAvailable()` sees both DATABASE_URL and
 // NEON_API_KEY — which is the normal state of a developer machine. They must
-// therefore be opt-in, never collected by accident.
+// therefore be opt-in, never collected by accident. The two explicitly named
+// CMS suites also boot Payload against live Postgres despite their legacy
+// `.test.ts` names, so they belong behind the same opt-in boundary.
 //
 // This protection used to live ONLY in the root `test` npm script, as
 // `--exclude '**/*.integration.test.*'`. That left the obvious command
@@ -20,7 +22,11 @@ import { configDefaults, defineConfig } from 'vitest/config'
 // which is how a stray local invocation forked branches until Neon answered
 // BRANCHES_LIMIT_EXCEEDED. A guard that only one script honours is not a guard,
 // so it now lives in the config every invocation loads.
-const LIVE_SUITE_GLOBS = ['**/*.integration.test.*']
+const LIVE_SUITE_GLOBS = [
+  '**/*.integration.test.*',
+  '**/apps/cms/scripts/__tests__/seed-services.test.ts',
+  '**/apps/cms/src/hooks/__tests__/sync-atomicity.test.ts',
+]
 
 type RootConfigOptions = {
   // Opt back IN to the live suites. Set ONLY by vitest.integration.config.ts,
@@ -49,7 +55,7 @@ export function createRootConfig({ includeLiveSuites = false }: RootConfigOption
       exclude,
       coverage: {
         provider: 'v8',
-        reporter: ['text', 'html'],
+        reporter: ['text', 'html', 'lcov'],
         reportsDirectory: './coverage',
         exclude: [
           '**/*.config.*',
