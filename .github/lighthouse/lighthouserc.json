@@ -56,7 +56,7 @@
   ],
   "ci": {
     "collect": {
-      "startServerCommand": "bash -c 'cd apps/web && bunx next start -p 3000'",
+      "startServerCommand": "bash -o pipefail -c 'cd apps/web && bunx next start -p 3000 2>&1 | tee \"${RUNNER_TEMP:-/tmp}/rgss-lighthouse-web.log\"'",
       "startServerReadyPattern": "Ready in",
       "startServerReadyTimeout": 60000,
       "url": [

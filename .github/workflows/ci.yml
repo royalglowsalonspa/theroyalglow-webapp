@@ -203,6 +203,13 @@ jobs:
           SKIP_ENV_VALIDATION: '1'
           BETTER_AUTH_SECRET: 'ci-build-only-placeholder-not-used-at-runtime-000'
 
+      - name: Print Lighthouse server diagnostics
+        if: failure()
+        run: |
+          if [ -f "$RUNNER_TEMP/rgss-lighthouse-web.log" ]; then
+            cat "$RUNNER_TEMP/rgss-lighthouse-web.log"
+          fi
+
   # ---------------------------------------------------------------------------
   # Repo-wide quality gates (cover shared packages and run on every PR).
   # Kept lean and parallel to the per-app jobs so the total workflow stays
