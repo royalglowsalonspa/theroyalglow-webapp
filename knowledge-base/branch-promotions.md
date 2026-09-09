@@ -17,6 +17,8 @@ Every update verifies the immediately preceding branch still points at the teste
 SHA and the destination is its ancestor. Divergence fails; there is no force push,
 merge commit, reset, or rebase. If the source moves, start a new validation run.
 Concurrent promotion runs are serialized and do not cancel an active release.
+Reusable CI includes the caller workflow name in its concurrency group, keeping
+ordinary `dev` push checks separate from promotion validation on the same ref.
 
 Workflow pushes use `GITHUB_TOKEN`, so GitHub does not trigger push workflows.
 The production job explicitly dispatches Deploy AWS with the exact validated SHA
@@ -80,3 +82,8 @@ Release Please's first dev run exposed a GitHub GraphQL internal error when fetc
 
 A subsequent run also hit the transient error with one commit per page. Release Please retries HTTP 502 but propagates GitHub's HTTP-200 GraphQL internal errors immediately. A Node preload now retries only read queries with this exact transient error (or gateway 502/503/504), up to three times with backoff. Mutations, authorization failures, other hosts, and permanent errors are never retried or suppressed. The retry tests cover these boundaries.
 
+The first live promotion workflow test exposed a shared `ci-refs/heads/dev`
+concurrency group: promotion run 34383921845 cancelled ordinary push CI run
+34383730967, causing its aggregate check to fail. CI now includes
+`github.workflow` in the group and only cancels superseded PR/push runs, so
+promotion validation and ordinary CI can finish independently.

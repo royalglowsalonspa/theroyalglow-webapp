@@ -8,8 +8,10 @@ on:
   workflow_call:
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Reusable CI inherits the caller's workflow name. Keep promotion validation
+  # separate from push CI on the same dev ref so neither cancels the other.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
 
 jobs:
   # ---------------------------------------------------------------------------
