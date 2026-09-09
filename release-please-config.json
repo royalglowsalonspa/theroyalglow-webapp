@@ -113,5 +113,6 @@
         }
       ]
     }
-  }
+  },
+  "commit-batch-size": 1
 }
