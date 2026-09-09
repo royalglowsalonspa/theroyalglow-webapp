@@ -17,6 +17,9 @@ jobs:
       issues: write
       pull-requests: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Ensure release publication describes the production commit
         id: publish
         env:
@@ -39,6 +42,9 @@ jobs:
       - name: Create or update release PR and GitHub Release
         if: steps.publish.outputs.run == 'true'
         uses: googleapis/release-please-action@v4
+        env:
+          NODE_OPTIONS: --require ${{ github.workspace }}/scripts/release/graphql-retry.cjs
+          RELEASE_PLEASE_GRAPHQL_RETRY: '1'
         with:
           # Version/changelog commits enter dev and travel through the same
           # fast-forward pipeline. No production-only commits can diverge refs.
