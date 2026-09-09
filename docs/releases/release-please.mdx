@@ -14,7 +14,7 @@ all four branches.
 2. Review the Release Please PR titled `chore(release): release X.Y.Z` against dev.
 3. Confirm synchronized workspace versions and merge after checks pass.
 4. Run **Promote validated commit** from dev with target prod.
-5. Approve the production environment after the promotion checks pass.
+5. Confirm production approval at dispatch; the workflow advances prod only after checks pass.
 6. Confirm the production deployment and GitHub Release.
 
 The dev workflow updates the release PR without publishing a release. The prod

@@ -11,8 +11,7 @@ temporarily point to different releases while validation is in progress.
 Run **Promote validated commit** in GitHub Actions, select the **dev** branch and
 the final target (`test`, `pprd`, or `prod`). The workflow captures `github.sha`,
 runs full CI and CodeQL, runs integration checks, advances `test`, runs load and
-security checks, advances `pprd`, and waits for the `production-promotion`
-environment approval before advancing `prod`. Earlier targets stop sooner.
+security checks, advances `pprd`, and requires explicit `approve_production` confirmation from `katbose` at dispatch before advancing `prod`. Earlier targets stop sooner.
 
 Every update verifies the immediately preceding branch still points at the tested
 SHA and the destination is its ancestor. Divergence fails; there is no force push,
@@ -32,7 +31,10 @@ fast-forward invariant.
 
 ## Validation prerequisites
 
-Configure `production-promotion` with the maintainer as a required reviewer.
+Production approval is currently an explicit dispatch checkbox restricted to `katbose`.
+GitHub rejected environment-reviewer configuration with HTTP 403 because the
+current login lacks repository admin rights. An administrator can add an
+environment reviewer gate later; no such gate is claimed to be active.
 Importable environment rulesets are under `.github/rulesets`; their stable CI,
 CodeQL, integration, and load/security checks must exist before activation.
 Environment rulesets forbid deletion and non-fast-forward updates, and do not

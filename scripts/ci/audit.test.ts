@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { evaluateAudit } from './audit'
+import { evaluateAudit, runAudit } from './audit'
 
 const known = {
   url: 'https://github.com/advisories/GHSA-jg8r-5jh2-v2xj',
@@ -24,5 +24,23 @@ describe('maintainer audit exception', () => {
       expect(() => evaluateAudit(report, '3.88.0')).toThrow()
     }
     expect(evaluateAudit({}, '3.88.0')).toEqual([])
+  })
+  test('blocks execution errors, signals, invalid JSON, and unexplained failure exit codes', () => {
+    for (const result of [
+      { stdout: '{}', status: 2 },
+      { stdout: '{}', status: null },
+      { stdout: '{}', status: 1 },
+      { stdout: '{}', status: 0, error: new Error('spawn failed') },
+      { stdout: '{}', status: 0, signal: 'SIGTERM' },
+      { stdout: 'registry unavailable', status: 1 },
+    ])
+      expect(() => runAudit(result, '3.88.0')).toThrow()
+  })
+  test('returns success only for a clean audit or the explicit exception', () => {
+    expect(runAudit({ stdout: '{}', status: 0 }, '3.88.0')).toBe(0)
+    expect(runAudit({ stdout: JSON.stringify({ payload: [known] }), status: 1 }, '3.88.0')).toBe(0)
+    expect(
+      runAudit({ stdout: JSON.stringify({ payload: [known], joi: [known] }), status: 1 }, '3.88.0'),
+    ).toBe(1)
   })
 })

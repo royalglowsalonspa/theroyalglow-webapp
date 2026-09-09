@@ -27,8 +27,16 @@ export function evaluateAudit(report: unknown, payloadVersion: string): string[]
   return failures
 }
 
-if (import.meta.main) {
-  const result = spawnSync('bun', ['audit', '--json'], { encoding: 'utf8' })
+export function runAudit(
+  result: {
+    stdout: string
+    stderr?: string
+    status: number | null
+    error?: Error
+    signal?: string | null
+  },
+  payloadVersion: string,
+): number {
   if (result.error || result.signal || ![0, 1].includes(result.status ?? -1)) {
     throw new Error(`bun audit could not complete: ${result.error ?? result.stderr}`)
   }
@@ -36,12 +44,11 @@ if (import.meta.main) {
   if (result.status === 1 && Object.keys(report).length === 0) {
     throw new Error('bun audit failed without reporting advisories')
   }
-  const cmsRequire = createRequire(new URL('../../apps/cms/package.json', import.meta.url))
-  const failures = evaluateAudit(report, cmsRequire('payload/package.json').version)
+  const failures = evaluateAudit(report, payloadVersion)
   console.log(result.stdout)
   if (failures.length) {
     console.error(failures.join('\n'))
-    process.exitCode = 1
+    return 1
   } else if (Object.keys(report).length) {
     console.warn(
       `::warning::Maintainer-accepted Payload 3.88.0 advisory: ${advisoryUrl}. Explicit unlock access is regression-tested. Remove this exception when upgrading Payload.`,
@@ -49,4 +56,13 @@ if (import.meta.main) {
   } else {
     console.log('No dependency advisories found.')
   }
+  return 0
+}
+
+if (import.meta.main) {
+  const cmsRequire = createRequire(new URL('../../apps/cms/package.json', import.meta.url))
+  process.exitCode = runAudit(
+    spawnSync('bun', ['audit', '--json'], { encoding: 'utf8' }),
+    cmsRequire('payload/package.json').version,
+  )
 }

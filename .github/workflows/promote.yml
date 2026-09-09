@@ -9,6 +9,10 @@ on:
         options: [test, pprd, prod]
         default: test
         required: true
+      approve_production:
+        description: 'I approve promoting this dev commit to production after all checks pass'
+        type: boolean
+        default: false
 
 concurrency:
   group: environment-promotion
@@ -24,7 +28,15 @@ jobs:
       - name: Only reviewed dev commits may be promoted
         env:
           REF: ${{ github.ref }}
-        run: test "$REF" = refs/heads/dev
+          TARGET: ${{ inputs.target }}
+          APPROVED: ${{ inputs.approve_production }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          test "$REF" = refs/heads/dev
+          if [ "$TARGET" = prod ]; then
+            test "$APPROVED" = true
+            test "$ACTOR" = katbose
+          fi
 
   ci:
     needs: validate
@@ -86,7 +98,6 @@ jobs:
     if: inputs.target == 'prod'
     needs: pprd
     runs-on: ubuntu-latest
-    environment: production-promotion
     permissions:
       contents: write
       actions: write

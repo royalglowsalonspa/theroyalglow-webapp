@@ -15,7 +15,7 @@ checks and review pass. Ordinary feature and release PRs are squash-merged.
 Environment branches advance through **Promote validated commit**, which uses
 fast-forward pushes after CI, CodeQL, integration, and load/security validation.
 It preserves exact commit SHAs and messages without promotion PRs. Production
-requires the `production-promotion` environment approval. Never force-push or
+requires explicit production confirmation by katbose at dispatch. Never force-push or
 create commits directly on environment branches.
 
 Release Please targets dev; its metadata follows the same promotion path. See

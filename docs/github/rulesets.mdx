@@ -10,7 +10,7 @@ require CI, CodeQL, integration, and (for pprd/prod) load/security aggregate che
 They forbid deletion and non-fast-forward updates and have no bypass actors.
 
 The promotion workflow enforces dev → test → pprd → prod at one validated commit
-SHA. It requires the production environment approval before updating prod.
+SHA. It requires explicit production confirmation by katbose before updating prod.
 Mergify manages PRs into dev; environment updates do not use Mergify queues or PRs.
 
 ## Safe activation order

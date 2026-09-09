@@ -76,7 +76,7 @@ Other env vars (per-app secrets, OAuth credentials, etc.) live in
    the GitHub UI's "Squash and merge" so each PR becomes one commit on
    `dev`. Don't use the "Rebase and merge" or "Create a merge commit"
    buttons.
-6. **Promote after the PR is merged into `dev`.** Run the **Promote validated commit** workflow from `dev`, choosing `test`, `pprd`, or `prod`. It runs checks and fast-forwards branches in order, preserving identical commits and messages. Production requires environment approval. See [promotion operations](./knowledge-base/branch-promotions.md).
+6. **Promote after the PR is merged into `dev`.** Run the **Promote validated commit** workflow from `dev`, choosing `test`, `pprd`, or `prod`. It runs checks and fast-forwards branches in order, preserving identical commits and messages. Production requires explicit maintainer confirmation at dispatch. See [promotion operations](./knowledge-base/branch-promotions.md).
 
 ## Commit conventions
 
