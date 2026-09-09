@@ -77,3 +77,6 @@ References: [Vitest 5 migration](https://main.vitest.dev/guide/migration/),
 
 Release Please's first dev run exposed a GitHub GraphQL internal error when fetching ten commits with associated PR/file data. The official query reproduced the failure at the same cursor with batch size 10 and succeeded with batch size 1. The config now uses commit-batch-size 1; release search depth and bootstrap history are preserved.
 
+
+A subsequent run also hit the transient error with one commit per page. Release Please retries HTTP 502 but propagates GitHub's HTTP-200 GraphQL internal errors immediately. A Node preload now retries only read queries with this exact transient error (or gateway 502/503/504), up to three times with backoff. Mutations, authorization failures, other hosts, and permanent errors are never retried or suppressed. The retry tests cover these boundaries.
+
