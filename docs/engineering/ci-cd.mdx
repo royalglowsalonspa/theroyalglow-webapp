@@ -4,6 +4,12 @@ description: Required checks, promotion workflows, and deployment boundaries.
 icon: gauge
 ---
 
+## Fast-forward promotions
+
+Run **Promote validated commit** from `dev`. It validates one immutable commit, advances `test` and `pprd` in sequence, and requires production approval before advancing `prod`. The same SHA and commit messages reach every branch. CI, CodeQL, Integration, and Load/Security are reusable workflows; they also validate PRs into dev. Direct force-pushes and promotion merge commits are prohibited.
+
+The Payload advisory exception is restricted to GHSA-jg8r-5jh2-v2xj on version 3.88.0; all other findings fail CI. Missing integration/load prerequisites still produce explicit skips.
+
 ## Workflow map
 
 | Workflow                | Trigger                                         | Purpose                                                                           |
@@ -13,7 +19,7 @@ icon: gauge
 | `Load & Security`       | PRs to `pprd`, `prod`                           | Trivy plus optional k6 and ZAP against pre-production                             |
 | `CodeQL`                | All PRs, pushes to `prod`, weekly               | JavaScript/TypeScript security analysis                                           |
 | `Mergify Config`        | Mergify config changes                          | Validate `.mergify.yml` with the official CLI                                     |
-| `Release Please`        | Pushes to `prod`                                | Maintain the release PR, tag, changelog, and GitHub Release                       |
+| `Release Please`        | Pushes to `dev` and `prod`; explicit dispatch | Prepare release PR on dev; publish after production promotion                       |
 | `Deploy AWS Production` | Pushes to `prod`                                | Production deployment through AWS OIDC                                            |
 
 ## Stable required checks

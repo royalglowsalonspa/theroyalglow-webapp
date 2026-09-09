@@ -3,6 +3,9 @@ title: Git Workflow
 description: Branch strategy, CI/CD pipeline, commit conventions, and database-per-environment for Royal Glow.
 icon: git-branch
 ---
+> **Policy update (2026-09-09):** Environment promotions now use checked fast-forward updates through `promote.yml`, preserving identical commits without promotion PRs. Release Please targets `dev`. See `knowledge-base/branch-promotions.md` for the current procedure; older merge-based examples below are historical.
+
+
 
 <Info>
   **In one line:** Collaborative workflow with four persistent branches

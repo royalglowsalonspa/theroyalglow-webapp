@@ -23,7 +23,7 @@
     "@rgss/logger": "workspace:*",
     "@rgss/types": "workspace:*",
     "@rgss/ui": "workspace:*",
-    "@sentry/nextjs": "10.73.0",
+    "@sentry/nextjs": "10.70.0",
     "@t3-oss/env-nextjs": "^0.13.11",
     "@tailwindcss/postcss": "^4.3.3",
     "@upstash/qstash": "^2.11.3",
@@ -59,12 +59,12 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.0",
-    "@vitest/coverage-v8": "^5.0.0",
+    "@vitest/coverage-v8": "5.0.0",
     "fast-check": "^4.9.0",
     "jsdom": "^30.0.1",
     "msw": "^2.15.0",
     "typescript": "^5.9.3",
-    "vitest": "^5.0.0",
+    "vitest": "5.0.0",
     "wait-on": "^9.1.0"
   }
 }

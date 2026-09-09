@@ -70,6 +70,14 @@ export function createRootConfig({ includeLiveSuites = false }: RootConfigOption
       projects: [
         {
           test: {
+            name: 'tooling',
+            environment: 'node',
+            include: ['scripts/ci/**/*.test.ts', 'scripts/release/**/*.test.ts'],
+            exclude,
+          },
+        },
+        {
+          test: {
             name: 'business',
             environment: 'node',
             include: ['packages/business/**/*.test.ts'],

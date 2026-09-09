@@ -4,21 +4,14 @@ description: Exact branch protection policy and safe activation sequence.
 icon: shield-check
 ---
 
-The importable API payloads are in `.github/rulesets/`. They require pull requests,
-one approval, approval after the latest push, resolved conversations, strict status
-checks, and protection from deletion and force-push. Merge commits are allowed for
-persistent branch promotions and release sync; Mergify squash-merges feature and
-release PRs. Linear-history enforcement is omitted to permit those merge commits.
-No bypass actor is configured.
+The importable API payloads are in `.github/rulesets/`. The **dev** ruleset requires
+reviewed pull requests. Environment rulesets permit fast-forward updates and
+require CI, CodeQL, integration, and (for pprd/prod) load/security aggregate checks.
+They forbid deletion and non-fast-forward updates and have no bypass actors.
 
-| File             | Branches       | Additional aggregate checks         |
-| ---------------- | -------------- | ----------------------------------- |
-| `dev.json`       | `dev`          | Baseline CI and security checks     |
-| `test.json`      | `test`         | Integration/E2E                     |
-| `pprd-prod.json` | `pprd`, `prod` | Integration/E2E and Load & Security |
-
-Mergify separately enforces that `test` accepts only `dev`, `pprd` accepts only
-`test`, and `prod` accepts only `pprd` or the Release Please automation branch.
+The promotion workflow enforces dev → test → pprd → prod at one validated commit
+SHA. It requires the production environment approval before updating prod.
+Mergify manages PRs into dev; environment updates do not use Mergify queues or PRs.
 
 ## Safe activation order
 
