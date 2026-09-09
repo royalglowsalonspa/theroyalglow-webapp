@@ -12,7 +12,7 @@
         "@playwright/test": "^1.63.0",
         "@vitejs/plugin-react": "^6.1.0",
         "@vitest/coverage-v8": "5.0.0",
-        "checkly": "^9.3.0",
+        "checkly": "^9.2.0",
         "husky": "^9.1.7",
         "lint-staged": "^17.5.0",
         "sst": "^4.17.1",
@@ -67,7 +67,7 @@
       },
       "devDependencies": {
         "@faker-js/faker": "^10.6.0",
-        "@playwright/test": "^1.62.1",
+        "@playwright/test": "^1.63.0",
         "@testing-library/jest-dom": "^7.0.1",
         "@testing-library/react": "^16.3.3",
         "@types/jest-axe": "^3.5.9",
@@ -181,7 +181,7 @@
       },
       "devDependencies": {
         "@faker-js/faker": "^10.6.0",
-        "@playwright/test": "^1.62.1",
+        "@playwright/test": "^1.63.0",
         "@testing-library/jest-dom": "^7.0.1",
         "@testing-library/react": "^16.3.3",
         "@types/node": "^26.4.1",
