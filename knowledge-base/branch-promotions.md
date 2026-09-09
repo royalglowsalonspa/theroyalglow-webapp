@@ -101,3 +101,9 @@ Release PR #231 incorrectly repeated the already published 0.2.0 history as
 0.3.0 because a dev release scan started before production publication finished.
 It was superseded; serialized release runs and the merged-pending-release guard
 prevent that race on subsequent promotions.
+
+Mergify also waited for `codecov/project` while Codecov was configured to wait
+for other checks, including merge protection. Coverage now reports independently
+of other CI statuses. The project/patch coverage thresholds and Mergify's separate
+`CI Success` requirement are unchanged; no failed test or coverage threshold is
+waived by this reporting change.
