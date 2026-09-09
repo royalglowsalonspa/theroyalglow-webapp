@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: release-please-repository
+  cancel-in-progress: false
+
 jobs:
   release-please:
     name: Release
@@ -29,7 +33,13 @@ jobs:
           RELEASE_SHA: ${{ github.sha }}
         run: |
           if [ "$REF_NAME" = dev ]; then
-            echo 'run=true' >> "$GITHUB_OUTPUT"
+            PENDING=$(gh api --paginate "repos/$GH_REPO/pulls?state=closed&base=dev&per_page=100" \
+              --jq '.[] | select(.merged_at != null and any(.labels[]; .name == "autorelease: pending")) | .number')
+            if [ -n "$PENDING" ]; then
+              echo '::notice::The merged release PR must reach production and publish before preparing another release.'
+            else
+              echo 'run=true' >> "$GITHUB_OUTPUT"
+            fi
           elif [ "$REF_NAME" = prod ]; then
             DEV=$(gh api "repos/$GH_REPO/git/ref/heads/dev" --jq .object.sha)
             PROD=$(gh api "repos/$GH_REPO/git/ref/heads/prod" --jq .object.sha)

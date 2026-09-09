@@ -30,6 +30,9 @@ Release Please opens version/changelog PRs against `dev`. Publication runs after
 promotion on `prod`, and only while both refs match the run SHA. No release commit
 is created directly on `prod`. This avoids a reverse-sync merge and preserves the
 fast-forward invariant.
+Dev and production release runs are serialized. When a merged PR still carries
+`autorelease: pending`, dev waits for production publication before calculating
+another version, preventing a duplicate release from unreleased history.
 
 ## Validation prerequisites
 
@@ -87,3 +90,14 @@ concurrency group: promotion run 34383921845 cancelled ordinary push CI run
 34383730967, causing its aggregate check to fail. CI now includes
 `github.workflow` in the group and only cancels superseded PR/push runs, so
 promotion validation and ordinary CI can finish independently.
+
+Follow-up review on 2026-09-10 covered PRs #230, #232, and #233. PR #232 moved
+`better-auth` to 1.7.3 while the root override held `@better-auth/core` at 1.7.2,
+causing missing `checksSchema` exports and both app builds to fail. The core
+override now matches 1.7.3; Hono's override also follows its requested 4.13.7
+upgrade. The existing authentication schema contract remains required.
+
+Release PR #231 incorrectly repeated the already published 0.2.0 history as
+0.3.0 because a dev release scan started before production publication finished.
+It was superseded; serialized release runs and the merged-pending-release guard
+prevent that race on subsequent promotions.
