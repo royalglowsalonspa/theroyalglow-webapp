@@ -41,7 +41,7 @@ jobs:
           fi
       - name: Create or update release PR and GitHub Release
         if: steps.publish.outputs.run == 'true'
-        uses: googleapis/release-please-action@v4
+        uses: googleapis/release-please-action@v5
         env:
           NODE_OPTIONS: --require ${{ github.workspace }}/scripts/release/graphql-retry.cjs
           RELEASE_PLEASE_GRAPHQL_RETRY: '1'
