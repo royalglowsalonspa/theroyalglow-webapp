@@ -40,16 +40,17 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.10",
+    "@biomejs/biome": "^2.5.12",
     "@playwright/test": "^1.62.1",
     "@vitejs/plugin-react": "^6.1.0",
-    "checkly": "^8.22.0",
+    "checkly": "^9.1.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.3.0",
     "sst": "^4.17.1",
     "turbo": "^2.10.12",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.11"
+    "vitest": "5.0.0",
+    "@vitest/coverage-v8": "5.0.0"
   },
   "overrides": {
     "@better-auth/core": "1.7.2",

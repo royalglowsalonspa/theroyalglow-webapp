@@ -67,3 +67,5 @@ live here. `README.md` and `CONTRIBUTING.md` live in the repo root.
 | [launch-checklist.md](./launch-checklist.md) | Launch checklist — Production Readiness Review |
 | [LAUNCH.md](./LAUNCH.md) | Launch runbook |
 | [release-documents.md](./release-documents.md) | Release documents — per-release artifacts |
+
+- [Branch promotions and CI recovery](./branch-promotions.md) — fast-forward operations, prerequisites, and dependency-failure RCA.

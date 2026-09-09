@@ -10,33 +10,30 @@
     }
   },
   "rules": [
-    { "type": "deletion" },
-    { "type": "non_fast_forward" },
     {
-      "type": "pull_request",
-      "parameters": {
-        "allowed_merge_methods": ["merge", "squash"],
-        "dismiss_stale_reviews_on_push": true,
-        "require_code_owner_review": false,
-        "require_last_push_approval": true,
-        "required_approving_review_count": 1,
-        "required_review_thread_resolution": true
-      }
+      "type": "deletion"
+    },
+    {
+      "type": "non_fast_forward"
     },
     {
       "type": "required_status_checks",
       "parameters": {
         "do_not_enforce_on_create": true,
-        "strict_required_status_checks_policy": true,
+        "strict_required_status_checks_policy": false,
         "required_status_checks": [
-          { "context": "CI Success" },
-          { "context": "Analyze (javascript-typescript)" },
-          { "context": "Integration Success" },
-          { "context": "Load & Security Success" },
-          { "context": "Socket Security: Pull Request Alerts" },
-          { "context": "codecov/project" },
-          { "context": "codecov/patch" },
-          { "context": "Mergify Merge Protections" }
+          {
+            "context": "CI Success"
+          },
+          {
+            "context": "Analyze (javascript-typescript)"
+          },
+          {
+            "context": "Integration Success"
+          },
+          {
+            "context": "Load & Security Success"
+          }
         ]
       }
     }

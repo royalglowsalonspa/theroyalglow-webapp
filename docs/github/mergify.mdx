@@ -9,32 +9,17 @@ orchestrator for this repository.
 
 ## Queue policy
 
-The `merge-ready` label is the explicit auto-merge opt-in. Once reviews and checks
-pass, Mergify queues the PR. Six queue rules distinguish feature work, release sync,
-the three environment promotions, and Release Please, with a maximum of two
-parallel speculative checks.
+Mergify governs reviewed PRs into **dev**. Add `merge-ready` after the required
+checks and review pass. Ordinary feature and release PRs are squash-merged.
 
-| PR | Merge method |
-| --- | --- |
-| Feature branch -> `dev` | Squash with a Conventional Commit title |
-| `dev -> test -> pprd -> prod` | Merge commit, preserving feature commits |
-| Release Please -> `prod` | Squash |
-| `prod -> dev` after a release | Merge commit, preserving release metadata and ancestry |
+Environment branches advance through **Promote validated commit**, which uses
+fast-forward pushes after CI, CodeQL, integration, and load/security validation.
+It preserves exact commit SHAs and messages without promotion PRs. Production
+requires explicit production confirmation by katbose at dispatch. Never force-push or
+create commits directly on environment branches.
 
-Long-lived branches must not be rebased, reset, or deleted between promotions.
-The release sync requires the same approval, checks, and `merge-ready` opt-in.
-
-| Label          | Priority | Use                               |
-| -------------- | -------: | --------------------------------- |
-| `hotfix`       |     1000 | Active production incident        |
-| `security`     |      800 | Security remediation              |
-| `promotion`    |      500 | Environment promotion PR          |
-| `dependencies` |      100 | Dependabot update                 |
-| `merge-ready`  |      n/a | Maintainer approval to auto-queue |
-| `release`      |      n/a | Release Please PR                 |
-
-Mergify automatically applies `promotion`, `dependencies`, and `release`. Maintainers
-apply `merge-ready`, `hotfix`, and `security` deliberately.
+Release Please targets dev; its metadata follows the same promotion path. See
+[CI/CD](/engineering/ci-cd) and `knowledge-base/branch-promotions.md` for operation.
 
 ## CLI
 

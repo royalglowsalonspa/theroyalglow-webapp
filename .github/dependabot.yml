@@ -42,6 +42,12 @@ updates:
       prefix-development: "chore"
       include: "scope"
     groups:
+      # Vitest and its coverage provider share internal APIs. Upgrade every
+      # workspace together, including major versions, to avoid mixed runners.
+      vitest:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
       # One PR for all production-dependency minor + patch bumps.
       production-minor-patch:
         dependency-type: "production"
@@ -56,17 +62,17 @@ updates:
           - "patch"
     ignore:
       # BROKEN UPSTREAM RELEASES — specific versions only, not a blanket ignore.
-      # @sentry/nextjs 10.71.0 and 10.72.0 pull @sentry/server-utils, whose
+      # @sentry/nextjs 10.71.0, 10.72.0, and 10.73.0 pull @sentry/server-utils, whose
       # orchestrion webpack plugin calls fileURLToPath on a non-file URL and
       # throws "TypeError: The URL must be of scheme file" at import time under
       # Vitest. That aborts collection of apps/web/src/lib/api/response.test.ts
       # and fails the unit-tests gate. apps/web + apps/admin are pinned to the
-      # last good 10.70.0. Listing the two bad versions (rather than ignoring the
-      # dependency wholesale) means a fixed release above 10.72.0 still gets
+      # last good 10.70.0. Listing the known bad versions (rather than ignoring the
+      # dependency wholesale) means a fixed release above 10.73.0 still gets
       # proposed automatically — at which point drop these entries and restore a
       # caret range in both manifests.
       - dependency-name: "@sentry/nextjs"
-        versions: ["10.71.0", "10.72.0"]
+        versions: ["10.71.0", "10.72.0", "10.73.0"]
 
       # Framework-critical, intentionally-pinned packages: ignore MAJOR bumps so
       # Dependabot never proposes a breaking jump automatically. Minor/patch for

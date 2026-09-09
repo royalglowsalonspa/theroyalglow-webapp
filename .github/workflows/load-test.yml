@@ -18,8 +18,9 @@ name: Load & Security
 # ---------------------------------------------------------------------------
 
 on:
+  workflow_call:
   pull_request:
-    branches: [pprd, prod]
+    branches: [dev, test, pprd, prod]
 
 jobs:
   # Secrets cannot be read in a job-level `if:`, so resolve availability here and

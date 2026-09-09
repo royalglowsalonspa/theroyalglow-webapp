@@ -23,8 +23,9 @@ name: Integration & E2E
 # ---------------------------------------------------------------------------
 
 on:
+  workflow_call:
   pull_request:
-    branches: [test, pprd, prod]
+    branches: [dev, test, pprd, prod]
 
 jobs:
   # Resolves whether a test database is configured. Secrets cannot be evaluated

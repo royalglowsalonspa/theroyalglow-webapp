@@ -2,7 +2,7 @@ name: Release Please
 
 on:
   push:
-    branches: [prod]
+    branches: [dev, prod]
   workflow_dispatch:
 
 permissions:
@@ -17,9 +17,34 @@ jobs:
       issues: write
       pull-requests: write
     steps:
+      - name: Ensure release publication describes the production commit
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REF_NAME: ${{ github.ref_name }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          if [ "$REF_NAME" = dev ]; then
+            echo 'run=true' >> "$GITHUB_OUTPUT"
+          elif [ "$REF_NAME" = prod ]; then
+            DEV=$(gh api "repos/$GH_REPO/git/ref/heads/dev" --jq .object.sha)
+            PROD=$(gh api "repos/$GH_REPO/git/ref/heads/prod" --jq .object.sha)
+            if [ "$DEV" = "$RELEASE_SHA" ] && [ "$PROD" = "$RELEASE_SHA" ]; then
+              echo 'run=true' >> "$GITHUB_OUTPUT"
+            else
+              echo '::notice::Release publication waits until dev and prod match this run commit.'
+            fi
+          fi
       - name: Create or update release PR and GitHub Release
+        if: steps.publish.outputs.run == 'true'
         uses: googleapis/release-please-action@v4
         with:
+          # Version/changelog commits enter dev and travel through the same
+          # fast-forward pipeline. No production-only commits can diverge refs.
+          target-branch: dev
+          skip-github-release: ${{ github.ref_name == 'dev' }}
+          skip-github-pull-request: ${{ github.ref_name == 'prod' }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}

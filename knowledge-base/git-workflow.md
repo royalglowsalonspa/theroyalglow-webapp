@@ -1,3 +1,6 @@
+
+> **Policy update (2026-09-09):** Environment promotions now use checked fast-forward updates through `promote.yml`, preserving identical commits without promotion PRs. Release Please targets `dev`. See `knowledge-base/branch-promotions.md` for the current procedure; older merge-based examples below are historical.
+
 # Git Workflow & Branch Strategy
 
 ## Branch Overview

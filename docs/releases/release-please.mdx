@@ -4,29 +4,23 @@ description: Release Please, changelog, tags, and GitHub Releases.
 icon: package-check
 ---
 
-Release Please runs after a change reaches `prod`. It maintains one release PR from
-Conventional Commit history. Merging that PR updates all manifest versions and
-`CHANGELOG.md`; the next workflow run creates the `vX.Y.Z` tag and GitHub Release.
+Release Please prepares version and changelog PRs against **dev**. Release metadata
+is validated and promoted with application code, preserving identical commits on
+all four branches.
 
 ## Normal release
 
-1. Promote reviewed code through `dev -> test -> pprd -> prod`.
-2. Review the Release Please PR titled `chore(prod): release X.Y.Z`.
-3. Confirm version, changelog sections, and synchronized workspace versions.
-4. Add `merge-ready` after all required checks and approval pass.
-5. Mergify squash-merges the release PR; Release Please publishes the tag and release.
-6. Confirm the GitHub Release and Mintlify changelog links.
-7. Open a `prod -> dev` PR to bring the release version, manifest, and changelog
-   back to development. Review it and add `merge-ready`; the release-sync queue
-   uses a merge commit. Complete this sync before the next promotion cycle.
+1. Merge reviewed feature and dependency changes into dev.
+2. Review the Release Please PR titled `chore(release): release X.Y.Z` against dev.
+3. Confirm synchronized workspace versions and merge after checks pass.
+4. Run **Promote validated commit** from dev with target prod.
+5. Confirm production approval at dispatch; the workflow advances prod only after checks pass.
+6. Confirm the production deployment and GitHub Release.
 
-Feature PRs are squash-merged with Conventional Commit titles. Environment
-promotions use merge commits so Release Please can still see each feature/fix
-commit on `prod`. Use neutral promotion titles such as `chore: promote pprd to prod`
-to avoid describing the promotion itself as a new feature.
-
-The Release Please PR is the only direct-to-`prod` branch exception. It contains
-release metadata for commits that already completed the full promotion path.
+The dev workflow updates the release PR without publishing a release. The prod
+workflow publishes without opening another PR, and only while dev and prod match
+the run SHA. If dev has advanced, publication waits for a later matching run.
+There is no prod-only version commit or reverse-sync PR.
 
 ## Authentication
 

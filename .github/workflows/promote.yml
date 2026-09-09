@@ -1,0 +1,121 @@
+name: Promote validated commit
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Promote the selected dev commit through this environment'
+        type: choice
+        options: [test, pprd, prod]
+        default: test
+        required: true
+      approve_production:
+        description: 'I approve promoting this dev commit to production after all checks pass'
+        type: boolean
+        default: false
+
+concurrency:
+  group: environment-promotion
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Only reviewed dev commits may be promoted
+        env:
+          REF: ${{ github.ref }}
+          TARGET: ${{ inputs.target }}
+          APPROVED: ${{ inputs.approve_production }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          test "$REF" = refs/heads/dev
+          if [ "$TARGET" = prod ]; then
+            test "$APPROVED" = true
+            test "$ACTOR" = katbose
+          fi
+
+  ci:
+    needs: validate
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
+  codeql:
+    needs: validate
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+      security-events: write
+    uses: ./.github/workflows/codeql.yml
+    secrets: inherit
+
+  integration:
+    needs: [ci, codeql]
+    uses: ./.github/workflows/integration.yml
+    secrets: inherit
+
+  test:
+    needs: integration
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Fast-forward test to the validated dev commit
+        env:
+          PROMOTION_TARGET: test
+          PROMOTION_SHA: ${{ github.sha }}
+        run: node scripts/release/advance-branch.mjs
+
+  load-security:
+    if: inputs.target != 'test'
+    needs: test
+    uses: ./.github/workflows/load-test.yml
+    secrets: inherit
+
+  pprd:
+    needs: load-security
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Fast-forward pprd to the validated test commit
+        env:
+          PROMOTION_TARGET: pprd
+          PROMOTION_SHA: ${{ github.sha }}
+        run: node scripts/release/advance-branch.mjs
+
+  prod:
+    if: inputs.target == 'prod'
+    needs: pprd
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Fast-forward prod to the approved pprd commit
+        env:
+          PROMOTION_TARGET: prod
+          PROMOTION_SHA: ${{ github.sha }}
+        run: node scripts/release/advance-branch.mjs
+      # GITHUB_TOKEN pushes do not start push workflows. Explicitly dispatch
+      # deployment and release processing; the exact validated SHA is deployed.
+      - name: Dispatch production deployment and release processing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROMOTION_SHA: ${{ github.sha }}
+        run: |
+          gh workflow run deploy-aws.yml --ref prod -f git_ref="$PROMOTION_SHA"
+          gh workflow run release-please.yml --ref prod

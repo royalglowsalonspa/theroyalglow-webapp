@@ -1,147 +1,57 @@
+# Mergify governs PRs into dev. Environment refs advance through promote.yml.
 merge_queue:
   max_parallel_checks: 2
-
 merge_protections_settings:
   reporting_method: check-runs
   post_comment: true
   auto_merge_conditions:
-    - "label = merge-ready"
-
+    - label = merge-ready
 merge_protections:
   - name: required review and platform checks
     if:
-      - "base ~= ^(dev|test|pprd|prod)$"
+      - base = dev
     success_conditions:
-      - "-draft"
-      - "-conflict"
+      - -draft
+      - -conflict
       - "#approved-reviews-by >= 1"
       - "#changes-requested-reviews-by = 0"
-      - "check-success = CI Success"
-      - "check-success = Analyze (javascript-typescript)"
+      - check-success = CI Success
+      - check-success = Analyze (javascript-typescript)
       - "check-success = Socket Security: Pull Request Alerts"
-      - "check-success = codecov/project"
-      - "check-success = codecov/patch"
-
-  - name: test accepts only dev promotions
-    if:
-      - "base = test"
-    success_conditions:
-      - "head = dev"
-      - "check-success = Integration Success"
-
-  - name: pprd accepts only test promotions
-    if:
-      - "base = pprd"
-    success_conditions:
-      - "head = test"
-      - "check-success = Integration Success"
-      - "check-success = Load & Security Success"
-
-  - name: prod accepts pprd or Release Please
-    if:
-      - "base = prod"
-    success_conditions:
-      - or:
-          - "head = pprd"
-          - and:
-              - "head ~= ^release-please--"
-              - "label = autorelease: pending"
-      - "check-success = Integration Success"
-      - "check-success = Load & Security Success"
-
+      - check-success = codecov/project
+      - check-success = codecov/patch
 queue_rules:
   - name: development
     queue_conditions:
-      - "base = dev"
-      - "head != prod"
+      - base = dev
     merge_method: squash
     checks_timeout: 45 minutes
-
-  - name: release-sync
-    queue_conditions:
-      - "base = dev"
-      - "head = prod"
-    merge_method: merge
-    checks_timeout: 45 minutes
-
-  - name: test-promotion
-    queue_conditions:
-      - "base = test"
-      - "head = dev"
-    merge_method: merge
-    checks_timeout: 60 minutes
-
-  - name: pprd-promotion
-    queue_conditions:
-      - "base = pprd"
-      - "head = test"
-    merge_method: merge
-    checks_timeout: 60 minutes
-
-  - name: production
-    queue_conditions:
-      - "base = prod"
-      - "head = pprd"
-    merge_method: merge
-    checks_timeout: 60 minutes
-
-  - name: release
-    queue_conditions:
-      - "base = prod"
-      - "head ~= ^release-please--"
-      - "label = autorelease: pending"
-    merge_method: squash
-    checks_timeout: 60 minutes
-
 priority_rules:
   - name: emergency hotfixes
     conditions:
-      - "label = hotfix"
+      - label = hotfix
     priority: 1000
-
   - name: security fixes
     conditions:
-      - "label = security"
+      - label = security
     priority: 800
-
-  - name: environment promotions
-    conditions:
-      - "label = promotion"
-    priority: 500
-
   - name: dependency updates
     conditions:
-      - "label = dependencies"
+      - label = dependencies
     priority: 100
-
 pull_request_rules:
-  - name: label environment promotions
-    conditions:
-      - or:
-          - and:
-              - "base = test"
-              - "head = dev"
-          - and:
-              - "base = pprd"
-              - "head = test"
-          - and:
-              - "base = prod"
-              - "head = pprd"
-    actions:
-      label:
-        add: [promotion]
-
   - name: label Release Please PRs
     conditions:
-      - "head ~= ^release-please--"
+      - head ~= ^release-please--
       - "label = autorelease: pending"
     actions:
       label:
-        add: [release]
-
+        add:
+          - release
   - name: label Dependabot PRs
     conditions:
-      - "author = dependabot[bot]"
+      - author = dependabot[bot]
     actions:
       label:
-        add: [dependencies]
+        add:
+          - dependencies
