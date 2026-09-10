@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/royalglowsalonspa/theroyalglow-webapp/compare/v0.2.0...v0.2.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* **auth:** complete Better Auth 1.7.3 cleanup and stabilize CI ([abb2b1f](https://github.com/royalglowsalonspa/theroyalglow-webapp/commit/abb2b1f934be1ae117605099c5fbcae753b01580))
+* **auth:** restore provider account identity for Better Auth 1.7.3 ([985dac6](https://github.com/royalglowsalonspa/theroyalglow-webapp/commit/985dac6ed75cf1203dfa47d342c80d7add242d23))
+
 ## [0.2.0](https://github.com/royalglowsalonspa/theroyalglow-webapp/compare/v0.1.0...v0.2.0) (2026-09-09)
 
 
