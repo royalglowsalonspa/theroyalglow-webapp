@@ -93,9 +93,18 @@ promotion validation and ordinary CI can finish independently.
 
 Follow-up review on 2026-09-10 covered PRs #230, #232, and #233. PR #232 moved
 `better-auth` to 1.7.3 while the root override held `@better-auth/core` at 1.7.2,
-causing missing `checksSchema` exports and both app builds to fail. The core
-override now matches 1.7.3; Hono's override also follows its requested 4.13.7
-upgrade. The existing authentication schema contract remains required.
+causing missing `checksSchema` exports and both app builds to fail. Aligning core
+exposed a second problem: 1.7.3 no longer writes `account.issuer`, while our
+database contract requires it. Lighthouse reproduced HTTP 500 with
+`unexpected-required-column: account.issuer`. The 1.7.3 cleanup makes issuer
+nullable and replaces its unique index with the provider/account key. Both apps
+and core move together to 1.7.3, after migration 0003 reaches each database.
+The contract test now detects required application columns absent from Better
+Auth's model; it reproduced this failure before the schema correction.
+See [the cleanup runbook](./better-auth-1.7.3-cleanup.md) before promotion.
+Hono's override follows its requested 4.13.7 upgrade; compatible updates are retained.
+
+Reference: [Better Auth 1.7 upgrade guide](https://github.com/better-auth/better-auth/blob/main/docs/content/docs/guides/1-7-upgrade-guide.mdx).
 
 Release PR #231 incorrectly repeated the already published 0.2.0 history as
 0.3.0 because a dev release scan started before production publication finished.

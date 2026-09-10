@@ -85,20 +85,11 @@ export const account = pgTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     accountId: text('account_id').notNull(),
     providerId: text('provider_id').notNull(),
-    // Better Auth 1.7+ scopes account identity by ISSUER: the lookup on every
-    // OAuth callback is `WHERE issuer = ? AND account_id = ?`. For Google —
-    // both the redirect flow and One Tap — the value is the literal
-    // 'https://accounts.google.com'; email/password rows would use
-    // 'local:credential'.
-    //
-    // Deliberately NULLABLE at this step. This is the "expand" half of an
-    // expand/migrate/contract rollout: a nullable column is invisible to the
-    // running 1.6.26 code, so it can be added and backfilled with zero
-    // downtime. The CONTRACT step (migration 0002) then sets NOT NULL and adds
-    // the unique (issuer, account_id) index, which is safe only once 1.7.x is
-    // deployed and therefore always writes the column.
-    // See knowledge-base/better-auth-upgrade.md §5.
-    issuer: text('issuer').notNull(),
+    // Legacy data from Better Auth 1.7.0–1.7.2. Since 1.7.3, identity uses
+    // providerId + accountId and new rows do not write issuer. Nullable storage
+    // preserves existing values and allows migration before the rolling deploy.
+    // This column is not part of the active Better Auth identity contract.
+    issuer: text('issuer'),
     accessToken: text('access_token'),
     refreshToken: text('refresh_token'),
     idToken: text('id_token'),
@@ -120,14 +111,9 @@ export const account = pgTable(
   },
   (table) => [
     index('account_user_id_idx').on(table.userId),
-    // Better Auth 1.7+ declares this as a REQUIRED unique compound index — it is
-    // the uniqueness guarantee behind `WHERE issuer = ? AND account_id = ?`, so
-    // one provider identity can never map to two account rows.
-    //
-    // Named snake_case per this project's convention. Upstream's own generator
-    // would call it `account_issuer_accountId_uidx`; the runtime depends only on
-    // the columns and the uniqueness, not on the index name.
-    uniqueIndex('account_issuer_account_id_uidx').on(table.issuer, table.accountId),
+    // Preserve account uniqueness using Better Auth 1.7.3's lookup key.
+    // The same subject at different providers remains a distinct identity.
+    uniqueIndex('account_provider_account_id_uidx').on(table.providerId, table.accountId),
   ],
 )
 

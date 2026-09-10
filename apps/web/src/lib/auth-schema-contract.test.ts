@@ -13,13 +13,14 @@
  *                required fields and declared indexes for the exact option and
  *                plugin set we run in production.
  *
- *                This exists because of a production outage: Better Auth 1.7.x
- *                made `account.issuer` a required identity field with a unique
+ *                This exists because of a production outage: Better Auth
+ *                1.7.0–1.7.2 made `account.issuer` a required identity field with a unique
  *                `(issuer, accountId)` index. Nothing in CI knew the library's
  *                data contract had moved, so a dependency bump shipped a schema
  *                mismatch straight to production and broke every Google sign-in.
  *                A version bump that moves the contract now fails HERE, in CI,
- *                instead of at the OAuth callback in production.
+ *                instead of at the OAuth callback in production. The reverse
+ *                check catches removed fields too: 1.7.3 stopped writing issuer.
  *
  * Responsibilities :
  * - Assert every REQUIRED Better Auth field exists as a Drizzle column
@@ -149,6 +150,25 @@ describe('Better Auth schema contract', () => {
           'forward migration before upgrading.',
       ).toEqual([])
     })
+
+    it('has no required Drizzle columns that Better Auth cannot populate', () => {
+      const table = drizzleTableFor(model)
+      if (!table) return
+
+      // Better Auth supplies the model ID implicitly. Every other required
+      // column needs a library field or a database/Drizzle default. Checking
+      // both directions catches removed fields as well as newly required ones.
+      const suppliedFields = new Set(['id', ...Object.keys(definition.fields)])
+      const unsupported = Object.entries(getTableColumns(table))
+        .filter(([key, column]) => column.notNull && !column.hasDefault && !suppliedFields.has(key))
+        .map(([key]) => key)
+
+      expect(
+        unsupported,
+        `${model} has required columns that the installed Better Auth version never writes. ` +
+          'Migrate the database contract before upgrading the dependency.',
+      ).toEqual([])
+    })
   })
 })
 
@@ -175,8 +195,8 @@ describe('Better Auth declared indexes are backed by committed DDL', () => {
 
   it('has at least one indexed model to verify', () => {
     // On 1.6.x Better Auth declares no compound indexes, so this suite is
-    // informational. On 1.7.x it declares the unique (issuer, accountId) index,
-    // at which point the assertions below become load-bearing.
+    // informational. Versions 1.7.0–1.7.2 declared an issuer identity index;
+    // 1.7.3 removed it. Any future library-declared indexes are still verified.
     expect(modelsWithIndexes.length).toBeGreaterThanOrEqual(0)
   })
 

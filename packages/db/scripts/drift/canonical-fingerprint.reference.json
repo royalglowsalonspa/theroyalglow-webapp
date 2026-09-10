@@ -1,7 +1,7 @@
 {
-  "_comment": "AUTHORITATIVE DB-free canonical reference derived from the committed drizzle snapshot (migrations/meta/0000_snapshot.json). Regenerate with `bun run drift:reference` after an intentional schema change captured by `drizzle-kit generate`, then commit this file with the migration.",
+  "_comment": "AUTHORITATIVE DB-free canonical reference derived from the committed Drizzle latest snapshot selected by migrations/meta/_journal.json. Regenerate with `bun run drift:reference` after an intentional schema change captured by `drizzle-kit generate`, then commit this file with the migration.",
   "version": 1,
-  "hash": "fa0153f6ebfe5b4aec55bd83e247653abc715a6168ad1d2836d29c1ce0acf1f8",
+  "hash": "2f1395d3264c5a75377f1771a34383f79cfb8c8e7e8ef2a004d7cb6b20904770",
   "fingerprint": {
     "enums": [
       {
@@ -158,7 +158,7 @@
           {
             "name": "issuer",
             "type": "text",
-            "nullable": false,
+            "nullable": true,
             "default": null
           },
           {
@@ -217,7 +217,7 @@
         ],
         "indexes": [
           {
-            "columns": ["account_id", "issuer"],
+            "columns": ["account_id", "provider_id"],
             "unique": true,
             "predicate": null,
             "method": "btree"

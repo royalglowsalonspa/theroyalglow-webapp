@@ -10,7 +10,7 @@
  *                artifact (`canonical-fingerprint.reference.json`) from the
  *                committed drizzle snapshot. Run this AFTER an intentional
  *                schema change has been captured by `drizzle-kit generate`
- *                (which rewrites `migrations/meta/0000_snapshot.json`), then
+ *                (which adds a new `migrations/meta/<NNNN>_snapshot.json`), then
  *                commit the regenerated reference alongside the migration.
  *
  *                Run: `bun run scripts/drift/regenerate-reference.ts`
@@ -38,8 +38,8 @@ const MODULE_DIR = dirname(fileURLToPath(import.meta.url))
 export const REFERENCE_PATH = resolve(MODULE_DIR, 'canonical-fingerprint.reference.json')
 
 const COMMENT =
-  'AUTHORITATIVE DB-free canonical reference derived from the committed drizzle ' +
-  'snapshot (migrations/meta/0000_snapshot.json). Regenerate with ' +
+  'AUTHORITATIVE DB-free canonical reference derived from the committed Drizzle ' +
+  'latest snapshot selected by migrations/meta/_journal.json. Regenerate with ' +
   '`bun run drift:reference` after an intentional schema change captured by ' +
   '`drizzle-kit generate`, then commit this file with the migration.'
 
