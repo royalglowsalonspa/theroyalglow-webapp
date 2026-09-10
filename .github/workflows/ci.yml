@@ -8,8 +8,10 @@ on:
   workflow_call:
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Reusable CI inherits the caller's workflow name. Keep promotion validation
+  # separate from push CI on the same dev ref so neither cancels the other.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -201,6 +203,13 @@ jobs:
           SKIP_ENV_VALIDATION: '1'
           BETTER_AUTH_SECRET: 'ci-build-only-placeholder-not-used-at-runtime-000'
 
+      - name: Print Lighthouse server diagnostics
+        if: failure()
+        run: |
+          if [ -f "$RUNNER_TEMP/rgss-lighthouse-web.log" ]; then
+            cat "$RUNNER_TEMP/rgss-lighthouse-web.log"
+          fi
+
   # ---------------------------------------------------------------------------
   # Repo-wide quality gates (cover shared packages and run on every PR).
   # Kept lean and parallel to the per-app jobs so the total workflow stays
@@ -236,7 +245,7 @@ jobs:
           path: coverage/
           retention-days: 7
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           files: coverage/lcov.info
           disable_search: true

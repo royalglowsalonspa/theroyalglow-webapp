@@ -41,11 +41,11 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.12",
-    "@playwright/test": "^1.62.1",
+    "@playwright/test": "^1.63.0",
     "@vitejs/plugin-react": "^6.1.0",
-    "checkly": "^9.1.0",
+    "checkly": "^9.2.0",
     "husky": "^9.1.7",
-    "lint-staged": "^17.3.0",
+    "lint-staged": "^17.5.0",
     "sst": "^4.17.1",
     "turbo": "^2.10.12",
     "typescript": "^5.9.3",
@@ -53,7 +53,7 @@
     "@vitest/coverage-v8": "5.0.0"
   },
   "overrides": {
-    "@better-auth/core": "1.7.2",
+    "@better-auth/core": "1.7.3",
     "kysely": "0.29.5",
     "zod": "4.5.2",
     "dompurify": "3.4.14",
@@ -66,7 +66,7 @@
     "shell-quote": "1.10.0",
     "fast-uri": "3.1.6",
     "ip-address": "10.7.0",
-    "hono": "4.13.5",
+    "hono": "4.13.7",
     "immutable": "4.3.9",
     "js-yaml": "5.4.1",
     "@modelcontextprotocol/sdk": "1.30.0",

@@ -1,10 +1,11 @@
 # Better Auth Upgrade — 1.6.26 → 1.7.2 and the Standing Upgrade Discipline
 
-**Status:** PLANNED — production currently pinned to 1.6.26 after the PR #174 emergency rollback.
+**Status:** Historical 1.7.2 rollout record. The current cleanup and upgrade procedure is
+[Better Auth 1.7.3 cleanup](./better-auth-1.7.3-cleanup.md); use that procedure for new deployments.
 **Target:** `better-auth@1.7.2`, `@better-auth/core@1.7.2`, `@better-auth/infra@0.4.5`.
 **Scope:** `apps/web`, `apps/admin`, `packages/db` schema, drift tooling, CI gates.
 
-This document is the authoritative plan. It replaces the scratch notes that were written
+This document records the original plan and completed rollout. It replaced the scratch notes that were written
 under `.sst/auth-hotfix/` during the outage, which contained two incorrect claims (see
 [Corrections](#corrections-to-earlier-notes)).
 

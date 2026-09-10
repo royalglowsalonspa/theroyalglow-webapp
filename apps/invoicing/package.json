@@ -19,7 +19,7 @@
     "@rgss/logger": "workspace:*",
     "@rgss/types": "workspace:*",
     "@sentry/node": "^10.68.0",
-    "hono": "^4.13.0",
+    "hono": "^4.13.7",
     "react": "^19.2.8",
     "zod": "^4.5.4"
   },

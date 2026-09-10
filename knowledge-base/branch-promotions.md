@@ -17,6 +17,8 @@ Every update verifies the immediately preceding branch still points at the teste
 SHA and the destination is its ancestor. Divergence fails; there is no force push,
 merge commit, reset, or rebase. If the source moves, start a new validation run.
 Concurrent promotion runs are serialized and do not cancel an active release.
+Reusable CI includes the caller workflow name in its concurrency group, keeping
+ordinary `dev` push checks separate from promotion validation on the same ref.
 
 Workflow pushes use `GITHUB_TOKEN`, so GitHub does not trigger push workflows.
 The production job explicitly dispatches Deploy AWS with the exact validated SHA
@@ -28,6 +30,9 @@ Release Please opens version/changelog PRs against `dev`. Publication runs after
 promotion on `prod`, and only while both refs match the run SHA. No release commit
 is created directly on `prod`. This avoids a reverse-sync merge and preserves the
 fast-forward invariant.
+Dev and production release runs are serialized. When a merged PR still carries
+`autorelease: pending`, dev waits for production publication before calculating
+another version, preventing a duplicate release from unreleased history.
 
 ## Validation prerequisites
 
@@ -80,3 +85,34 @@ Release Please's first dev run exposed a GitHub GraphQL internal error when fetc
 
 A subsequent run also hit the transient error with one commit per page. Release Please retries HTTP 502 but propagates GitHub's HTTP-200 GraphQL internal errors immediately. A Node preload now retries only read queries with this exact transient error (or gateway 502/503/504), up to three times with backoff. Mutations, authorization failures, other hosts, and permanent errors are never retried or suppressed. The retry tests cover these boundaries.
 
+The first live promotion workflow test exposed a shared `ci-refs/heads/dev`
+concurrency group: promotion run 34383921845 cancelled ordinary push CI run
+34383730967, causing its aggregate check to fail. CI now includes
+`github.workflow` in the group and only cancels superseded PR/push runs, so
+promotion validation and ordinary CI can finish independently.
+
+Follow-up review on 2026-09-10 covered PRs #230, #232, and #233. PR #232 moved
+`better-auth` to 1.7.3 while the root override held `@better-auth/core` at 1.7.2,
+causing missing `checksSchema` exports and both app builds to fail. Aligning core
+exposed a second problem: 1.7.3 no longer writes `account.issuer`, while our
+database contract requires it. Lighthouse reproduced HTTP 500 with
+`unexpected-required-column: account.issuer`. The 1.7.3 cleanup makes issuer
+nullable and replaces its unique index with the provider/account key. Both apps
+and core move together to 1.7.3, after migration 0003 reaches each database.
+The contract test now detects required application columns absent from Better
+Auth's model; it reproduced this failure before the schema correction.
+See [the cleanup runbook](./better-auth-1.7.3-cleanup.md) before promotion.
+Hono's override follows its requested 4.13.7 upgrade; compatible updates are retained.
+
+Reference: [Better Auth 1.7 upgrade guide](https://github.com/better-auth/better-auth/blob/main/docs/content/docs/guides/1-7-upgrade-guide.mdx).
+
+Release PR #231 incorrectly repeated the already published 0.2.0 history as
+0.3.0 because a dev release scan started before production publication finished.
+It was superseded; serialized release runs and the merged-pending-release guard
+prevent that race on subsequent promotions.
+
+Mergify also waited for `codecov/project` while Codecov was configured to wait
+for other checks, including merge protection. Coverage now reports independently
+of other CI statuses. The project/patch coverage thresholds and Mergify's separate
+`CI Success` requirement are unchanged; no failed test or coverage threshold is
+waived by this reporting change.
