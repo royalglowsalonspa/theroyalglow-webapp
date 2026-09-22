@@ -625,7 +625,7 @@ interface CreateResourceResponse {
 **Purpose:** Communicate what's in the release to all stakeholders.  
 **Owner:** Developer  
 **When:** Published at release time  
-**Location:** `CHANGELOG.md` + GitHub Release
+**Location:** `docs/releases/changelog.mdx` + GitHub Release
 
 ### Template
 
@@ -1149,49 +1149,44 @@ body:
 - [ ] Manual testing on [environment]
 ```
 
-### CHANGELOG.md (Auto-Updated)
+### docs/releases/changelog.mdx (Release Please owns this file)
 
-```markdown
-# Changelog
+The changelog is a single file: the Mintlify page at `docs/releases/changelog.mdx`,
+published at [docs.theroyalglow.in/releases/changelog](https://docs.theroyalglow.in/releases/changelog).
+Release Please writes it directly — there is no separate `CHANGELOG.md` to keep in sync.
 
-All notable changes to this project will be documented in this file.
-Format follows [Keep a Changelog](https://keepachangelog.com/).
+This works because Release Please's changelog updater splices each new entry in at
+the first match of `\n###? v?[0-9[]` and passes everything above that point through
+untouched ([`src/updaters/changelog.ts`](https://github.com/googleapis/release-please/blob/main/src/updaters/changelog.ts)).
+The file already holds a `## [x.y.z](...)` heading, so:
 
-## [Unreleased]
+| Behaviour | Effect here |
+| --- | --- |
+| Splices at the first release heading | Frontmatter and introduction are preserved verbatim |
+| Prepends its own `# Changelog` H1 | Never fires — that is the no-heading branch only |
+| Rewrites `^# ` to `## ` in existing content | Never fires — same branch |
+| Does not escape MDX | Guarded by `bun run check:changelog-mdx` |
 
-### Added
-- [Feature description] (#PR)
+Do not hand-edit the release history. Edit the frontmatter and introduction freely;
+they sit above the first heading and survive every release.
 
-### Fixed
-- [Bug fix description] (#PR)
+**MDX hazard.** MDX parses `<` as a tag opener and `{`/`}` as expression delimiters,
+so a commit subject such as `fix: handle <Suspense> boundary` lands in the page raw
+and breaks the docs build. CI lints the release history for this
+(`scripts/release/lint-changelog-mdx.ts`). When it fails, escape the character on the
+reported line in the release pull request: `&lt;`, `&#123;`, `&#125;`.
 
-### Changed
-- [Enhancement description] (#PR)
+Sections are configured by `changelog-sections` in `release-please-config.json`:
+🚀 Features · 🐛 Bug Fixes · ⚡ Performance · 🔒 Security · 📦 Dependencies ·
+📚 Documentation · 🛠 Refactors · 🧪 Tests · ⚙️ CI. `build` and `chore` are hidden,
+because this repository's chore stream is mostly Dependabot batches.
 
-## [1.0.0] — 2026-06-XX
-
-### Added
-- Online booking system (63 services across 10 categories)
-- Google OAuth authentication
-- Membership plans (Silver, Gold, Platinum)
-- Gems loyalty program
-- Invoice generation (PDF via Cloud Run — @rgss/invoicing)
-- Email notifications (Resend — 11 transactional templates)
-- Real-time updates (Ably)
-- Admin dashboard
-- CRM lead management
-- Offer/promotion engine
-
-### Infrastructure
-- AWS Lambda + CloudFront deployment through SST
-- Cloudflare DNS integration and R2 object storage
-- Render-hosted Payload CMS
-- Google Cloud Run invoicing service
-- Neon PostgreSQL with Drizzle ORM
-- BetterStack monitoring
-- Sentry error tracking
-- PostHog analytics
-```
+**Contributors.** Release Please cannot emit a contributors section. The
+`Append contributors to the published release` step in `release-please.yml` adds one to
+the GitHub Release after publication, as bare `@mentions` so GitHub autolinks them.
+Authors come from the compare range rather than the changelog, so work landing under a
+hidden type still earns credit. This section is on the GitHub Release only, not the
+Mintlify page.
 
 ---
 

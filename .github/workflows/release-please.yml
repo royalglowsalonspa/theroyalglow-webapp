@@ -50,6 +50,7 @@ jobs:
             fi
           fi
       - name: Create or update release PR and GitHub Release
+        id: release
         if: steps.publish.outputs.run == 'true'
         uses: googleapis/release-please-action@v5
         env:
@@ -64,3 +65,63 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+
+      # Release Please cannot produce a contributors section, so it is appended
+      # here after publication. The format matches the Payload release bodies
+      # this was modelled on, verified against their published release source:
+      #
+      #     ### 🤝 Contributors
+      #     - Jarrod Flesch (@JarrodMFlesch)
+      #
+      # The login MUST stay a bare @mention rather than a markdown link. GitHub
+      # only autolinks — and only counts toward the release contributor avatar
+      # row — mentions in plain text; the text of a [@x](url) link is never
+      # parsed for mentions, which would silently defeat the whole section.
+      #
+      # Authors come from the compare range rather than the changelog, because
+      # the changelog only lists commits whose type is visible, while everyone
+      # who landed work in the range deserves credit. Bots are excluded — a
+      # dependabot avatar row is noise, and @mentioning an app account is a
+      # dead link.
+      - name: Append contributors to the published release
+        if: steps.release.outputs.release_created == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+
+          PREVIOUS=$(gh api "repos/$GH_REPO/releases" \
+            --jq "[.[] | select(.draft == false and .tag_name != \"$TAG\") | .tag_name] | first // empty")
+          if [ -z "$PREVIOUS" ]; then
+            echo "::notice title=Contributors skipped::No earlier release to compare $TAG against."
+            exit 0
+          fi
+
+          # `login` is absent for unmatched commit emails, so fall back to the
+          # commit author name to avoid emitting a bare "@" mention.
+          AUTHORS=$(gh api --paginate "repos/$GH_REPO/compare/$PREVIOUS...$TAG" \
+            --jq '[.commits[]
+                    | select(.author != null and (.author.type // "") != "Bot")
+                    | select((.author.login // "") != "")
+                    | "\(.commit.author.name)|\(.author.login)"]
+                  | unique | .[]')
+
+          if [ -z "$AUTHORS" ]; then
+            echo "::notice title=Contributors skipped::No non-bot authors between $PREVIOUS and $TAG."
+            exit 0
+          fi
+
+          SECTION=$'\n\n### 🤝 Contributors\n\n'
+          while IFS='|' read -r NAME LOGIN; do
+            [ -z "$LOGIN" ] && continue
+            SECTION="${SECTION}- ${NAME} (@${LOGIN})"$'\n'
+          done <<< "$AUTHORS"
+
+          BODY=$(gh release view "$TAG" --json body --jq .body)
+          printf '%s%s' "$BODY" "$SECTION" > release-body.md
+          gh release edit "$TAG" --notes-file release-body.md
+          rm -f release-body.md
+
+          echo "Appended $(printf '%s' "$AUTHORS" | grep -c '') contributor(s) to $TAG."

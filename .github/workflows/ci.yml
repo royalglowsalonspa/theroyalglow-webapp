@@ -255,6 +255,11 @@ jobs:
         run: bun run check:auth-dependencies
       - name: Check no root override pins below a declared version
         run: bun run check:dependency-overrides
+      # Release Please writes the Mintlify changelog page directly, and cannot
+      # escape MDX. A commit subject containing `<`, `{` or `}` would break the
+      # docs build, so the release history is linted for unescaped syntax.
+      - name: Check the changelog page has no unescaped MDX syntax
+        run: bun run check:changelog-mdx
       - run: bun run typecheck
         env:
           SKIP_ENV_VALIDATION: '1'
