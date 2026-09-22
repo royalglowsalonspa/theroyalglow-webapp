@@ -253,6 +253,8 @@ jobs:
       - run: bun run lint
       - name: Check installed auth dependency compatibility
         run: bun run check:auth-dependencies
+      - name: Check no root override pins below a declared version
+        run: bun run check:dependency-overrides
       - run: bun run typecheck
         env:
           SKIP_ENV_VALIDATION: '1'
