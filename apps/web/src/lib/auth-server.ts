@@ -29,47 +29,23 @@
  * Notes        : None
  ************************************************************/
 
-import { dash } from '@better-auth/infra'
 import { buildCrossSubdomainAdvanced } from '@rgss/business'
 import { db } from '@rgss/db'
-import * as schema from '@rgss/db/schema'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { oneTap } from 'better-auth/plugins'
+import { authDatabaseSchema, createAuthSchemaOptions } from './auth-schema-options'
 
 export const auth = betterAuth({
+  ...createAuthSchemaOptions({
+    clientId: process.env.GOOGLE_OAUTH_CLIENT_ID ?? '',
+    clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? '',
+  }),
   database: drizzleAdapter(db, {
     provider: 'pg',
-    schema: {
-      user: schema.user,
-      session: schema.session,
-      account: schema.account,
-      verification: schema.verification,
-    },
+    schema: authDatabaseSchema,
   }),
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3000',
-  // Expose the custom `role` column on the session user. Without this, Better
-  // Auth returns only its built-in fields and `session.user.role` is undefined
-  // — which silently breaks RBAC and the "Admin Portal" menu gate. `input:
-  // false` stops clients setting their own role; new users default to customer.
-  user: {
-    additionalFields: {
-      role: {
-        type: 'string',
-        required: false,
-        input: false,
-        defaultValue: 'customer',
-      },
-    },
-  },
-  socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_OAUTH_CLIENT_ID ?? '',
-      clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? '',
-    },
-  },
-  plugins: [dash(), oneTap()],
   advanced: buildCrossSubdomainAdvanced(process.env.COOKIE_DOMAIN, process.env.NODE_ENV),
   session: {
     cookieCache: {

@@ -26,6 +26,7 @@
     "generate": "bun run --filter=@rgss/db generate",
     "migrate": "bun run --filter=@rgss/db migrate",
     "check:cutover": "node scripts/assert-no-admin-artifacts.mjs",
+    "check:auth-dependencies": "bun run scripts/ci/check-auth-dependencies.ts",
     "check:admin-no-literals": "node scripts/admin-design/no-brand-literals.mjs",
     "check:admin-path-allowlist": "node scripts/admin-design/path-allowlist.mjs",
     "check:admin-root-path": "node scripts/admin-design/root-path-convention.mjs",
@@ -53,9 +54,7 @@
     "@vitest/coverage-v8": "5.0.0"
   },
   "overrides": {
-    "@better-auth/core": "1.7.3",
     "kysely": "0.29.5",
-    "zod": "4.5.2",
     "dompurify": "3.4.14",
     "postcss": "8.5.26",
     "form-data": "4.0.6",

@@ -136,6 +136,9 @@ export default buildConfig({
   plugins: [
     s3Storage({
       enabled: isR2Configured,
+      // Keep the database schema stable when local/CI credentials are absent.
+      // Disabling uploads must not make migration generation drop storage fields.
+      alwaysInsertFields: true,
       collections: {
         // All Payload-managed media is stored under the `cms/` key prefix
         // (R2 "folder") to keep it separate from other app uploads

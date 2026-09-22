@@ -64,17 +64,19 @@ The original PR branch commits are retained in the integration history. Their
 initial red checks are historical evidence; validation of the final combined tree
 is required before it enters `dev` and is promoted.
 
-## Narrow Payload exception
+## Strict dependency audit
 
-The sole maintainer explicitly accepted GHSA-jg8r-5jh2-v2xj on `payload@3.88.0`
-on 2026-09-09. `Users.access.unlock` explicitly restricts unlock access and its
-regression tests run in the normal suite. GitHub's advisory listed no patched
-version at the time of review.
+CI runs plain `bun audit`, without advisory exceptions or severity filters.
+Every reported vulnerability or audit execution failure blocks this gate.
+The historical Payload 3.88.0 exception and its wrapper have been removed.
 
-`scripts/ci/audit.ts` accepts only this package, exact installed version, advisory
-URL, and vulnerable range. It prints the finding as a warning and fails on other
-advisories, malformed reports, or audit execution errors. This is an accepted
-exception, not a clean upstream audit. Remove it when adopting a patched release.
+Payload and its six direct companion packages are pinned together at 3.90.1.
+This upgrade requires the generated CMS password-reset migration before serving
+the new runtime. The explicit `Users.access.unlock` denial remains an application
+policy: Payload's newer default permits users of the admin collection to unlock
+accounts, which is broader than this repository's policy. Tests cover that boundary.
+See [auth/CMS dependency upgrades](./auth-cms-dependency-upgrades.md) for validation
+and migration order. A clean audit does not prove a migration or deployment ran.
 
 References: [Vitest 5 migration](https://main.vitest.dev/guide/migration/),
 [Payload advisory](https://github.com/advisories/GHSA-jg8r-5jh2-v2xj),
