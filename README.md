@@ -1,298 +1,202 @@
-# Royal Glow Salon & Spa (RGSS) — Project Context
+# Royal Glow Salon & Spa
 
 <p align="center">
   <a href="https://theroyalglow.in"><img src="./.github/banner.png" alt="Royal Glow Salon & Spa"></a>
 </p>
 
-<p><a href="https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/workflows/ci.yml"><img src="https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/workflows/ci.yml/badge.svg" alt="CI"></a> <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License"></a> <a href="./CODE_OF_CONDUCT.md"><img src="https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg" alt="Code of Conduct"></a> <a href="./SECURITY.md"><img src="https://img.shields.io/badge/Security-Policy-blue.svg" alt="Security Policy"></a> <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/Contributing-Welcome-brightgreen.svg" alt="Contributing"></a> <a href="mailto:hello@theroyalglow.in"><img src="https://img.shields.io/badge/email-hello%40theroyalglow.in-blue?logo=gmail" alt="Email"></a> <a href="https://docs.theroyalglow.in"><img src="https://img.shields.io/badge/Docs-docs.theroyalglow.in-blue?logo=gitbook&logoColor=white" alt="Docs"></a> <a href="https://bun.sh"><img src="https://img.shields.io/badge/Bun-1.4.0-f9f1e1?logo=bun&logoColor=black" alt="Bun"></a> <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-16.2.9-000?logo=next.js&logoColor=white" alt="Next.js"></a> <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white" alt="TypeScript"></a> <a href="https://neon.tech"><img src="https://img.shields.io/badge/Neon-PostgreSQL%2018.6-00e699?logo=postgresql&logoColor=white" alt="Neon — PostgreSQL 18.6"></a> <a href="https://status.theroyalglow.in/"><img src="https://uptime.betterstack.com/status-badges/v1/monitor/2wfr3.svg" alt="Service Status"></a></p>
+<p align="center">
+  <a href="https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/workflows/ci.yml"><img src="https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License"></a>
+  <a href="./CODE_OF_CONDUCT.md"><img src="https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg" alt="Code of Conduct"></a>
+  <a href="./SECURITY.md"><img src="https://img.shields.io/badge/Security-Policy-blue.svg" alt="Security Policy"></a>
+  <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/Contributing-Welcome-brightgreen.svg" alt="Contributing"></a>
+  <a href="https://bun.sh"><img src="https://img.shields.io/badge/Bun-workspaces-f9f1e1?logo=bun&amp;logoColor=black" alt="Bun workspaces"></a>
+  <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-App%20Router-000?logo=next.js" alt="Next.js App Router"></a>
+  <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&amp;logoColor=white" alt="TypeScript strict"></a>
+  <a href="https://status.theroyalglow.in/"><img src="https://uptime.betterstack.com/status-badges/v1/monitor/2wfr3.svg" alt="Service status"></a>
+</p>
 
-<div align="center">
-  <a href="https://theroyalglow.in/"><b>Visit Website</b></a>
-  &nbsp;•&nbsp;
-  <a href="https://theroyalglow.in/?book=1"><b>Book Appointment</b></a>
-  &nbsp;•&nbsp;
-  <a href="https://share.google/xAhEVaQlvnNqoGibZ"><b>Visit Store</b></a>
-</div>
+A TypeScript monorepo for **Royal Glow Salon & Spa by Roshini**: the customer website, booking experience, staff operations, content authoring, and invoice PDF service. Shared packages hold validation contracts, business rules, database access, and common UI utilities.
 
+[Website](https://theroyalglow.in) · [Book an appointment](https://theroyalglow.in/?book=1) · [Visit the store](https://share.google/xAhEVaQlvnNqoGibZ) · [Knowledge base](knowledge-base/INDEX.md) · [Issues and labels](knowledge-base/ISSUES.md)
 
+## Applications
 
-Contributor references: [Contributing](./CONTRIBUTING.md) · [Understanding issues and labels](./knowledge-base/ISSUES.md) · [Knowledge base](./knowledge-base/INDEX.md)
+Start with the README for the application you are changing.
 
-## What This Is
-Full-stack business solution for **Royal Glow Salon & Spa** by **Roshini**.  
-Covers: website, CRM, customer management, marketing automation, database, creative design, analytics, scheduling, backend automations — a fully digital scalable business ecosystem.
+| App | Responsibilities | Local port | Deployment definition |
+| --- | --- | --- | --- |
+| [Web](apps/web/README.md) | Public pages, booking dialog, customer accounts, lead capture, customer APIs | 3000 | AWS Lambda + CloudFront through [SST](sst.config.ts) |
+| [Admin](apps/admin/README.md) | Booking operations, billing, customers, memberships, staff, reports, background jobs | 3001 | AWS Lambda + CloudFront through [SST](sst.config.ts) |
+| [CMS](apps/cms/README.md) | Payload admin, marketing content, media, service catalogue authoring | 3002 | Render blueprint in [render.yaml](render.yaml) |
+| [Invoicing](apps/invoicing/README.md) | HMAC-authenticated PDF rendering and R2 storage | 8080 | Node container targeting Google Cloud Run; see app packaging caveats |
 
-## Tech Stack (Decided)
-| Layer | Choice |
-|-------|--------|
-| Runtime | Bun |
-| Language | TypeScript + JavaScript |
-| Styling | Tailwind CSS v4 |
-| Framework | Next.js 16.2.9 (App Router) |
-| UI | React |
-| **Primary DB** | **Neon DB** (PostgreSQL, 4 branches, Drizzle ORM) |
-| **Realtime** | **Ably** (6M messages/mo free — booking status, queue board, staff availability) |
-| **File Storage** | **Cloudflare R2** (10 GB free — photos, invoices) |
-| **Rate Limiting + Queue** | **Upstash Redis** (distributed API rate-limit state) + **QStash** (background jobs). A 5-minute catalogue/availability cache is planned, not implemented. |
-| **Search** | Postgres FTS / pg_trgm in Neon (upgrade to Algolia later) |
-| **CMS** | **Payload CMS v3** — self-hosted on Render, writes to Neon DB, media to Cloudflare R2 |
-| Web + Admin Hosting | **AWS Lambda + CloudFront** via SST (`rgss-web`, `rgss-admin`) in `ap-southeast-1` — see [M2AWS.md](./M2AWS.md) |
-| CMS Host | Render (Payload CMS — `rgss-cms`, free tier, Singapore region) |
-| Invoicing Host | Google Cloud Run (`rgss-invoicing`) |
-| Auth | **Better Auth** |
-| Transactional Email | **Resend** + React Email |
-| Marketing Email | **Brevo** |
-| E2E Testing | **Playwright** |
-| Load Testing | **k6** |
-| Performance gate | **Lighthouse CI** |
-| CI/CD | **GitHub Actions** |
+The public site is `theroyalglow.in`; operations run at `admin.theroyalglow.in`, and Payload runs at `cms.theroyalglow.in`. Admin URLs use root paths such as `/bookings`, not `/admin/bookings`. Payload has its own `/admin` interface and authentication.
 
-## Authentication Design (Better Auth)
-- **Google OAuth only** — callback on own domain (`theroyalglow.in/api/auth/callback/google`) so branding shows correctly on Google consent screen
-- Better Auth Cloud free tier ($0/mo) provides: dashboard, audit logs, user management, session monitoring, org oversight, user analytics
-- **6 concrete RBAC roles** (via Better Auth roles & permissions plugin):
-  1. **Customer** — real end users booking services
-  2. **Staff** (Stylist / Therapist) — view own bookings, submit leaves
-  3. **Receptionist** — day-to-day ops: bookings, billing, memberships, CRM, leave approvals
-  4. **Manager** — full operational access: services, offers, reports, staff, settings
-  5. **Owner** — full business access including `/admin/users`
-  6. **Developer** — full access + integrations, error logs, system config
-- First-time login → onboarding prompt to collect: name, phone number, gender, DOB, consent checkboxes
-- Admin panel page `/admin/users` built in-house using `auth.api.listUsers()` for custom user management UI
+## How the system fits together
 
-## Email Strategy
-- **Transactional (Resend):** welcome email on sign-in, booking confirmations, invoices (PDF attachment), appointment reminders, membership alerts
-- **Marketing (Brevo):** post-service follow-up, re-engagement, seasonal offers, birthday offers — with automatic unsubscribe management
-- **React Email:** build email templates in React/TypeScript matching site design tokens
-- **Legal:** marketing emails need unsubscribe link + marketing consent checkbox on onboarding (CAN-SPAM, GDPR, India DPDP Act)
+```mermaid
+flowchart LR
+    Customer[Customer browser] --> Web[Web app]
+    Team[Salon team] --> Admin[Admin app]
+    Editor[Content editor] --> CMS[Payload CMS]
+    Web --> DB[(Neon: application tables)]
+    Admin --> DB
+    CMS --> CMSDB[(Neon: cms schema)]
+    CMS -->|Catalogue synchronization| DB
+    Web -->|Published content| CMS
+    QStash[QStash] -->|Signed jobs| Admin
+    Admin -->|Signed render request| Invoice[Invoice PDF service]
+    CMS --> R2[Cloudflare R2]
+    Invoice --> R2
+```
 
-## Business Info (Locked)
-- **Domain:** theroyalglow.in
-- **Subdomains:** admin.theroyalglow.in (admin portal — `apps/admin`), cms.theroyalglow.in (Payload CMS), status.theroyalglow.in (BetterStack), docs.theroyalglow.in (Mintlify)
-- **Email:** hello@theroyalglow.in
-- **Phone:** +91 63601 35720
-- **Address:** 1st Floor, Narmada Complex, 48/3, Rayasandra Main Rd, Above SBI Bank, Naganathapura, Parappana Agrahara, Bengaluru, Karnataka 560100, India
-- **Hours:** Mon–Fri 10:00–21:00, Sat–Sun 10:00–22:00
-- **GMB:** 4.9 ★ 86 reviews, category: Day Spa
+- **Customer journey:** public service discovery, Google sign-in, homepage booking dialog, account and booking views. `/book` is a lead-capture landing page; submitting a lead does not reserve a slot.
+- **Operations:** role-guarded workflows for bookings, billing, customer records, loyalty, memberships, leave, staff, and reporting. Detailed permissions live in the admin implementation and its README.
+- **Content:** Payload owns content authoring and media. Service/category hooks mirror catalogue data into the application schema used by the booking APIs.
+- **Billing:** the application computes final invoice amounts; the invoicing service renders those values. The admin invoice job coordinates PDF requests and email delivery. Counter payment recording is separate from an online payment gateway.
+- **Background work:** QStash calls signed admin job endpoints; GitHub Actions owns repository maintenance and scheduled infrastructure tasks. See the [job catalogue](knowledge-base/background-jobs.md).
 
-## Database Schema (Locked)
-- **38 tables** across 13 domains: Auth (4), Profiles (2), Services (3), Scheduling (4), Bookings (4), Billing (2), SPA Memberships (2), Offers (3), CRM & Leads (5), Loyalty (2), Notifications (2), Branches (1), System (4)
-- **Money:** integer in paise (₹1 = 100 paise). No floating point.
-- **IDs:** text (nanoid/cuid2), no auto-increment serial.
-- **Timestamps:** timestamptz (UTC stored, IST displayed).
-- **Date display:** DD/MM/YYYY (Indian standard) via `Intl.DateTimeFormat('en-IN')`.
-- **GST-inclusive pricing:** All customer-facing prices include 18% GST (SAC 999721). Invoice back-calculates base.
-- **Salon/SPA separation:** booking.service_type = 'salon' or 'spa'. No cross-type bookings. Enables clean analytics split.
-- **Loyalty gems:** McDonald's-style catalogue. 1% of final invoiced amount earned (floor). Gems unlock specific services from catalogue, NOT a ₹ discount. One catalogue service per booking. NO gems on membership purchases or membership sessions. Gems expire **1 year (365 days)** after earning.
-- **Offers:** 3 types (percentage, flat, combo_price). 1 offer/customer/day. Applied at checkout by receptionist. Cannot combine with gems. Salon only.
-- **Booking lifecycle:** pending → confirmed/rejected → in_progress → completed. Walk-ins skip pending.
-- **Invoice types:** `service` (normal, gems earned), `membership_purchase` (lump sum, no gems), `membership_session` (₹0 usage record, no gems).
-- **Invoice numbering:** `INV-{branch_number}-{financial_year}-{5_digit_random}` (e.g., `INV-1-2627-92921`, display: `#INV1262792921`). Random 5-digit, no sequence, no reset. Retry on collision.
-- **Booking numbering:** `BK-{branch_code}-{YYMM}-{H|S}-{5_random}[-M]` (e.g., `BK-RS-2605-H-38291`, display: `#BKRS2605H38291`). H=salon, S=spa, -M suffix for membership sessions.
-- **Membership numbering:** `RG-MEM-{YY}-{branch_number}-{5_random}` (e.g., `RG-MEM-26-1-90872`, display: `#RGMEM26190872`). Branch number embedded — sessions restricted to originating branch only.
-- **Snapshots:** service name + price frozen on booking_service and invoice_item.
-- **Denormalized:** customer_profile.total_visits, total_spent_paise.
-- **Key enums:** booking_status, invoice_type, spa_membership_status, service_type, discount_type, notification_type (with membership + gems events), staff_designation, leave_approval_status, leave_type, branch_status.
-- **Schema files (15):** auth.ts, profile.ts, service.ts, schedule.ts, booking.ts, invoice.ts, membership.ts, offer.ts, lead.ts, crm.ts, loyalty.ts, notification.ts, branch.ts, system.ts, enums.ts.
-- See database-schema.md for full ERD, column definitions, indexes, SPA seed data.
+Some pages intentionally render fallback content, and some integrations are optional or planned. A successful page render or configured environment-variable name does not prove a provider is connected. The app READMEs describe those boundaries; use live verification for deployment claims.
 
-## Background Jobs (Locked)
-- **Source of truth:** [background-jobs.md](./knowledge-base/background-jobs.md)
-- **Total: 19 jobs — 14 QStash scheduled + 4 QStash triggered + 1 GitHub Actions cron**
-- **QStash scheduled (14 — HTTP routes that run SQL, previously 7 were pg_cron):**
-  1. Nightly sales summary — `0 18 * * *` UTC (11:30 PM IST)
-  2. Membership auto-expire — `30 18 * * *` UTC (12:00 AM IST)
-  3. Offer auto-expire — `35 18 * * *` UTC (12:05 AM IST)
-  4. Session cleanup — `0 21 * * 0` UTC (2:30 AM IST Sunday)
-  5. Monthly GST summary — `30 19 1 * *` UTC (1:00 AM IST, 1st of month)
-  6. Gems auto-expire — `40 18 * * *` UTC (12:10 AM IST)
-  7. pprd DB sync — GitHub Actions cron `30 19 * * *` UTC (1:00 AM IST) + PII anonymisation
-- **QStash scheduled (8 — HTTP → Next.js API routes):** appointment reminders (every 15min), membership expiry alerts, birthday emails, membership usage nudges, lead follow-up reminders, daily sales report, weekly summary report, gems expiry reminder
-- **QStash triggered (4 — event-driven with delay):** post-service follow-up (+24h), stale pending booking alert (+2h), no-show check (+15min after end_time), membership expired notice (+1h after expires_at)
-- All jobs ping BetterStack heartbeat URLs on success. Silent failure is detected and alerted.
+## Stack and sources of truth
 
-## SPA Memberships (Locked)
-- **Tiers:** Silver (8hrs, ₹10k, 90d), Gold (15hrs, ₹15k, 90d), Platinum (Owner/Manager sets defaults).
-- **Access:** Option B — all SPA services accessible in any tier. Hours are the only constraint.
-- **Creation:** Receptionist/Manager/Owner/Developer. No approval needed. Hours + price overridable at creation for negotiated deals.
-- **Session recording:** Admin records session → booking(completed, ₹0, is_membership_session:true) + membership_session invoice (₹0) → hours deducted.
-- **No gems** on purchase OR on sessions.
-- **Expiry:** Hard expire. Reminders at 30d/7d/1d. Auto-expire by QStash job. No rollover.
-- **One active membership per customer** (DB-level UNIQUE index on customer_id WHERE status='active').
-- **Customer sees:** /membership page — tier, hours remaining, expiry, session history.
+| Concern | Implementation |
+| --- | --- |
+| Workspace tooling | Bun workspaces, Turborepo, ESM; expected Bun version in [package.json](package.json) |
+| Web frameworks | Next.js App Router and React for web/admin/CMS; Hono and Node.js for invoicing |
+| UI | Tailwind CSS, app-local Radix/shadcn-style primitives, shared brand tokens with app-specific semantic mappings |
+| Contracts and logic | Zod and TypeScript in `packages/types`; domain functions in `packages/business` |
+| Database | Neon PostgreSQL and Drizzle; Payload manages its own `cms` schema |
+| Authentication | Better Auth with Google for web/admin; separate Payload CMS users |
+| Storage and messaging | Cloudflare R2, Ably, Upstash Redis, QStash |
+| Notifications and analytics | Provider adapters/configuration for Resend, Brevo, PostHog, Clarity, Meta, Sentry, Better Stack, and Slack; enablement varies by app |
+| Quality | Biome, TypeScript, Vitest, Playwright, Lighthouse, CodeQL, dependency audit, and workflow-specific security/load checks |
 
-## Customer-Facing Flow (Locked)
-- **Onboarding:** Google OAuth → /onboarding → prefilled name/email/phone → DOB, gender, consent checkboxes → /
-- **Booking:** "Book Now" button on homepage opens a 4-step dialog over the homepage (not a redirected page). `/?book=1` only deep-links to auto-open this same dialog:
-  1. Details + Date/Slot (name/email prefilled, not editable)
-  2. Salon/SPA toggle (one type per booking — no cross-type). Categories multi-select.
-  3. Services multi-select with running total
-  4. Summary: "Booking Submitted!" (pending), "Pay at the salon", gems balance link
-- **Acquisition attribution:** first-touch source is captured before auth/onboarding and written to `customer_profile.acquisition_source`: root domain without UTM → `organic`, `/?book=1&utm_source=gmb` → `gmb`, `/?book=1&utm_source=walkin` → `walkin`, and converted `/book` campaign leads → `meta_ad`.
-- **Status lifecycle:** pending → confirmed/rejected → in_progress → completed
-- **Staff assignment:** Receptionist assigns on approval. Customer can add preference note.
-- **Google Calendar:** Incremental consent. Calendar scope requested only after first confirmed booking. Event created on confirmation only.
-- **Consent:** Required privacy checkbox + optional analytics + optional marketing checkboxes (DPDP Act).
-- **Service categories:** Salon (Haircut & Styling, Hair Colouring/Treatment, Facial & Skincare, Waxing, Manicure & Pedicure, Makeup Services, **Hair SPA & Head Therapies**) + SPA (Standard, Premium, VVIP).
+Exact versions belong in each workspace manifest and `bun.lock`. Hosting definitions and workflows establish deployment behavior; provider dashboards establish live state. Older design plans are useful context, not proof that a feature or deployment is complete.
 
-## Admin Portal Roles (Locked)
-6-role system. Admin hierarchy: Developer → Owner → Manager → Receptionist → Staff (Stylist/Therapist). Customer is the 6th role (public-facing, no admin access).
-- **Developer:** Full access including integrations, error logs, system config. Can assign Owner role.
-- **Owner:** Full access except adding/removing Developer. Can add/remove Manager. Has dedicated Manager — if Manager leaves, Owner reassigns.
-- **Manager:** Can add/remove Receptionist/Staff. Edit prices, offers, membership tier defaults. Financial reports. System settings.
-- **Receptionist:** Accept/reject/assign/schedule bookings. Billing + invoices. Create memberships + record sessions. CRM notes. Approve leaves. Walk-ins. Cannot edit prices.
-- **Staff:** View own bookings only. Customer service notes for own assignments. Submit/view own leaves. No CRM, no prices, no billing.
+## Local setup
 
-## Payload CMS Scope (Locked)
-Payload CMS (`admin.theroyalglow.in`) manages ONLY marketing content: banners, gallery, team bios, blog, FAQ.
-Service catalog, bookings, memberships, billing → all in custom admin (`theroyalglow.in/admin`). NOT in Payload — services are live business data wired to invoices, gems, memberships.
+### 1. Install the workspace
 
-## Accessibility & Legal (Locked)
-- **a11y** — WCAG 2.1 AA. Lighthouse Accessibility = 100 required to merge. Semantic HTML, skip links, ARIA, visible focus ring, focus trap in modals, `prefers-reduced-motion`. `@axe-core/react` in Vitest. Playwright keyboard navigation E2E.
-- **Legal pages** — `/privacy` (DPDP Act 2023 mandatory), `/terms`, `/refund-policy`, cookie consent banner (custom, lightweight). PostHog + Meta Pixel gated behind Accept. Consent in `localStorage` 365 days.
+Use Git, the Bun version declared by `packageManager`, and Node.js for the Node-based tools. The invoicing bundle targets Node 22. Docker and cloud CLIs are needed only for their respective workflows.
 
-## PWA, Push Notifications & Image Optimization (Locked)
-- **PWA** — manifest.json, service worker. Installable on phone. Offline: service menu, prices, contact, gallery. Add-to-homescreen prompt after 2nd visit.
-- **Web Push API** — `web-push` npm. Appointment reminders (24h + 1h before), booking confirmations. Push subscription in Neon, triggered by QStash every 15 min. ₹0, unlimited.
-- **Image optimization** — Next.js `<Image>` (WebP/AVIF, srcset, lazy), CloudFront delivery for app assets, Cloudflare R2 media serving, blur placeholders. CLS=0 via explicit width/height.
+```bash
+git clone https://github.com/royalglowsalonspa/theroyalglow-webapp.git
+cd theroyalglow-webapp
+bun install --frozen-lockfile
+```
 
-## Security (Locked)
-- **Zod** — input validation on every API route. `.safeParse()` only, schemas in `packages/types/`
-- **@upstash/ratelimit** — per-endpoint sliding windows. Bookings: 5/min, leads: 3/min, auth: 10/min
-- **CSP headers** — strict, nonce-based script loading, whitelist PostHog/Clarity/Meta/Sentry/Ably origins
-- **CORS** — exact origin matching (`theroyalglow.in` only), no wildcard `*`, credentials allowed
-- **Session cookies** — HttpOnly, Secure, SameSite=Lax via Better Auth. CSRF built-in.
-- **SQL injection** — Drizzle parameterized queries, no raw SQL
-- **XSS** — React auto-escape + CSP, no dangerouslySetInnerHTML without sanitisation
-- **File uploads** — type whitelist (jpg/png/webp/pdf), 10 MB max, filename sanitisation
-- **Dependency audit** — Trivy + Socket.dev in CI, fail on high/critical
-- **Webhook verification** — HMAC signature check on AiSensy + Meta payloads
+Run dependency installation from the repository root. Keep the existing Bun lockfile; do not generate a second package-manager lockfile.
 
-## SEO & AI Search (Locked)
-- Local SEO: Google My Business fully configured, NAP consistent, GMB booking/action link → `https://theroyalglow.in/?book=1&utm_source=gmb`
-- In-store QR posters → `https://theroyalglow.in/?book=1&utm_source=walkin`
-- JSON-LD: LocalBusiness + BeautySalon + Service + BreadcrumbList + FAQPage + Organization — server-side Next.js
-- Sitemap: Next.js 16 built-in `app/sitemap.ts`, submitted to Google Search Console on launch
-- robots.txt: AI crawlers explicitly allowed (GPTBot, Claude-Web, PerplexityBot, Googlebot-Extended)
-- Semantic HTML: non-negotiable — `<header>`, `<main>`, `<section>`, `<address>`, `<time>` — never `<div onClick>`
-- Forms: every input labelled, aria-required, fieldset/legend, aria-live on dynamic content
-- Agent endpoints: clean RESTful API routes for services, availability, bookings, leads — WebMCP-ready
-- `llms.txt` + `llms-full.txt` at site root — AI agent discovery files with site info, services, contact, API endpoints
-- All AI crawlers explicitly allowed: GPTBot, ChatGPT-User, ClaudeBot, PerplexityBot, Applebot-Extended, Google-Extended, CCBot, cohere-ai
-- AI Overview optimization: answer-first content pattern on every page, FAQPage JSON-LD, E-E-A-T signals
-- SSR/SSG for all public pages, no-JS fallback for core content
+### 2. Configure only the apps you need
 
-## Payment & Billing (Locked)
-- **Phase 1: Cash / UPI / Card at the counter.** No online gateway. Receptionist marks payment received and selects payment mode. System generates branded PDF invoice → emailed to customer via Resend.
-- Zero gateway fees, zero PCI overhead, zero integration complexity at launch.
-- **Phase 2:** Razorpay or Cashfree when online pre-payment/deposits needed. Schema already accommodates it (`payment_method` enum includes `'online'`, `payment_reference` column exists in `invoice` table).
+Use [.env.example](.env.example) as a shared reference, [apps/admin/.env.example](apps/admin/.env.example) for admin, and [apps/cms/.env.example](apps/cms/.env.example) for CMS. Follow each app README and its environment validator before copying values. Templates contain placeholders, not working credentials.
 
-## Observability & Analytics (Locked)
-- **Sentry** — error monitoring. 5k errors/mo free. Official Next.js SDK, wired into web, admin, CMS and invoicing.
-- **BetterStack** — uptime (10 monitors) + `status.theroyalglow.in` + heartbeats for QStash/GitHub Actions jobs + 1 GB logs/mo. Replaces UptimeRobot + Cronitor.
-- **PostHog** — product analytics. 1M events/mo free. Funnels, feature flags, session replay, cohorts.
-- **Microsoft Clarity** — heatmaps + session recordings. Free forever.
-- **Checkly** — synthetic monitoring. Real Playwright scripts in prod. 5 checks free.
-- Datadog, UptimeRobot, Cronitor, Plausible, GA4 all eliminated.
+- Web/admin need the correct database, shared Better Auth secret, app-specific origins, and Google OAuth settings for sign-in. Use separate app-local env files; do not assume root env values automatically configure every subprocess.
+- CMS has separate Payload credentials and migration behavior. Its database connection must match the intended environment and schema.
+- Invoicing requires its HMAC and R2 settings at startup; it does not need a database URL.
+- Leave unconfigured optional values absent where the validator expects that. An empty string is not universally equivalent to an unset variable.
+- `NEXT_PUBLIC_*` values are browser-visible build configuration. Keep server credentials out of them.
 
-## CRM & Lead Tracking (Locked)
-- **No external CRM** — all customer data in Neon, CRM is built as admin views (`/admin/customers`, `/admin/leads`)
-- **AiSensy** (free, 1k conversations/mo) — WhatsApp team inbox for Meta ad leads, pipeline, agent assignment, quick replies
-- **Meta Pixel** (browser) + **Meta Conversions API/CAPI** (server-side from Next.js) — ad attribution, Purchase events
-- **UTM params** stored on every customer + lead record at first touch in Neon
-- **Lead pipeline:** New → Contacted → Follow-up → Booked → Won/Lost
-- **`/book` landing page** — Meta/Instagram ad lead capture only. Creates a `lead` with source `meta_ad`. No sign-in required, no slot reserved. Customer continues to homepage booking dialog via `/?book=1&leadId={id}`.
-- AiSensy webhook → Neon DB when lead status changes
+Full references: [environment variables](knowledge-base/environment-variables.md) and [environment setup](knowledge-base/ENVIRONMENT_SETUP_GUIDE.md). Developer MCP credentials are separate from application runtime configuration and are not prerequisites for ordinary coding.
 
-## Data Stack (Locked)
-- **Neon DB** — primary DB. Free forever. 4 branches = 4 envs. Drizzle ORM + Better Auth native. All scheduled jobs via QStash HTTP routes.
-- **Ably** — realtime push (booking status, queue board, staff availability). 6M messages/mo free. API publishes to Ably channel after writing to Neon.
-- **Cloudflare R2** — file storage. 10 GB free. Photos, service images, PDF invoices. No egress fees.
-- **Upstash Redis + QStash** — Redis-backed API rate limiting and QStash background jobs. Planned, not implemented: 5-minute service-catalogue and availability caches.
-- **Postgres FTS / pg_trgm** — search inside Neon. Free. Upgrade to Algolia later.
-- **AWS Lambda + CloudFront via SST** — web and admin compute in `ap-southeast-1` (Singapore), co-located with Neon and close to the India-first audience.
-- **Render + Google Cloud Run** — Payload CMS stays on Render; invoicing stays on Cloud Run.
-- Launch infrastructure targets free tiers where available; first planned database upgrade is Neon Launch at $19/mo.
+### 3. Start an app
 
-## Branch Strategy (Single Developer)
-- **Git branches:** `prod`, `pprd`, `test`, `dev` (NOT `main` for git)
-- **Neon DB branches:** `prod`, `pprd`, `test`, `dev`
-- Prod → pprd replication: GitHub Actions cron every 24h using **Neon Branch Reset API** (copy-on-write, near-instant) then PII anonymisation script
-- No `pg_dump`/restore needed — Neon branching handles it at storage layer
-- **Canonical branch mapping:** Git branches = `dev`, `test`, `pprd`, `prod`; Neon branches = `dev`, `test`, `pprd`, `prod`
-- **Canonical DB secret names:** `DATABASE_URL_DEV`, `DATABASE_URL_TEST`, `DATABASE_URL_PPRD`, `DATABASE_URL_PROD`
-- **Background job source of truth:** [background-jobs.md](./knowledge-base/background-jobs.md); summary docs should link there instead of duplicating full job inventories
+Run one command per terminal, from the repository root:
 
-## Key Decisions Log
-- Supabase fully replaced. Better Auth vs Neon Auth compared — Better Auth wins on RBAC maturity.
-- Booking routes: Homepage "Book Now" opens 4-step dialog over `/`; never redirects to `/book`. `/book` is Meta/Instagram lead capture only.
-- Acquisition sources: `organic` (root domain, no UTM), `gmb` (`/?book=1&utm_source=gmb`), `walkin` (`/?book=1&utm_source=walkin`), `meta_ad` (converted `/book` lead).
+```bash
+bun run --filter=@rgss/web dev
+bun run --filter=@rgss/admin dev
+bun run --filter=@rgss/cms dev
+bun run --filter=@rgss/invoicing dev
+```
 
-## Testing & Quality (Full Strategy in testing.md)
-- **Static:** TypeScript strict + Biome + Ultracite (replaced ESLint + Prettier)
-- **Unit/Integration:** Vitest + @faker-js/faker + MSW
-- **Component:** Vitest + React Testing Library
-- **E2E:** Playwright (5 browsers) + axe-core
-- **Visual regression:** Meticulous AI (free <5 devs)
-- **Performance:** Lighthouse CI (performance ≥ 95; accessibility, best practices, SEO = 100) + Unlighthouse + @next/bundle-analyzer
-- **Load:** k6 (local execution)
-- **Security:** Trivy + Semgrep + OWASP ZAP + Socket.dev
-- **Monitoring:** BetterStack (uptime) + Checkly (synthetic) + Sentry (errors)
-- **Mutation:** Stryker (quarterly)
-- **Pre-commit:** Husky + lint-staged → Biome check on staged files
-- **CI:** GitHub Actions (free 2000 min/mo)
-- **Total cost:** $0/month
+Only start the services needed for your task. `bun run dev` launches the workspace task graph and therefore needs configuration for every participating app. CMS deliberately uses Webpack for local development; its README explains the Windows tooling constraint.
 
-## Scale & Performance Targets
-- Scalability: 20k–50k users future-proof
-- Lighthouse gates: performance ≥ 95; accessibility, best practices, and SEO = 100
-- Feel: rich, premium (high-end services for premium customers)
-- Low-latency global delivery through CloudFront, with AWS origin compute in Singapore
+## Development and verification
 
-## Application Scope
-- Customer-facing website
-- Booking / scheduling system
-- CRM & customer management
-- Billing & invoicing (GST-compliant)
-- Admin portal (receptionist, manager, owner views)
-- SPA memberships (Silver/Gold/Platinum)
-- Loyalty gems programme (catalogue-based redemption)
-- Branch management (single branch Phase 1, multi-branch ready)
-- Marketing automation
-- Analytics
-- Backend automations (19 scheduled/triggered jobs)
+All commands below run from the repository root.
 
-## Auth Comparison Notes (Why Better Auth Won)
-- Supabase Auth: branding doesn't show on Google OAuth screen (callback via `*.supabase.co`) on free plan
-- Auth.js v5: no built-in RBAC plugin, manual wiring needed
-- Clerk: best DX but custom domain (needed for branding) is Pro only
-- WorkOS AuthKit: good dashboard but costs money
-- Auth0: ruled out for cost/complexity
-- **Better Auth:** callback on own domain, built-in roles/permissions plugin, TypeScript-first, stores data in own Neon DB (PII under your control), $0 forever
+| Check | Command | Notes |
+| --- | --- | --- |
+| Lint | `bun run lint` | Runs existing workspace lint scripts; follow app instructions for gaps |
+| Types | `bun run typecheck` | Strict workspace TypeScript checks |
+| Unit tests | `bun run test:unit` | Vitest projects; live suites excluded by default |
+| Focused tests | `bunx vitest run --project web <test-path>` | Replace project/path with a configured project |
+| Coverage | `bun run test:coverage` | Writes `coverage/`; does not include live integration suites |
+| Dependency security | `bun audit` | Strict: no advisory allowlist or severity filter |
+| App build | `bun run --filter=@rgss/web build` | Substitute app; runtime-dependent configuration may still be required |
+| Web browser tests | `bun run test:e2e` | Root Playwright config; admin/CMS have separate configs |
+| Integration tests | `bun run test:integration` | Explicit opt-in; can access databases and external services |
+| Release consistency | `bun run release:check` | Validates workspace release versions |
 
-## Lead Developer
+Use relevant checks for the change. Live tests, seeds, database resets, notifications, and deployment commands are operational actions, not generic setup steps. Use designated test resources and read the script before running it. In particular, some drift tests create Neon branches and CMS integration tests modify database records.
 
-<table>
-  <tr>
-    <td width="140" align="center" valign="top">
-      <a href="https://github.com/katbose">
-        <img src="https://avatars.githubusercontent.com/u/53533409?v=4" width="120" alt="Katabathuni Bose">
-      </a>
-      <br>
-      <b>Katabathuni Bose</b>
-    </td>
-    <td valign="top">
-      <b>Katbose</b> — a Senior Software Engineer with 4+ years of experience, specializing in JavaScript, ReactJS, Node.js, and full-stack development. He enjoys building practical web applications, exploring modern technologies, and turning ideas into clean, functional products. <code>theroyalglow-webapp</code> is his full-stack build: Next.js + Payload CMS on the edge, Better Auth for identity, Neon + Drizzle for data, Cloudflare R2 for media, Resend + Brevo for email, Ably for realtime, and a 19-job background automation layer.
-      <br><br>
-      <a href="https://github.com/katbose"><img src="https://img.shields.io/badge/GitHub-katbose-181717?logo=github&logoColor=white" alt="GitHub"></a>
-      &nbsp;
-      <a href="https://github.com/sponsors/katbose"><img src="https://img.shields.io/badge/Sponsor-katbose-ea4aaa?logo=githubsponsors&amp;logoColor=white" alt="Sponsor"></a>
-      &nbsp;
-      <a href="https://www.linkedin.com/in/katbose"><img src="https://img.shields.io/badge/LinkedIn-katbose-0A66C2?logo=linkedin&logoColor=white" alt="LinkedIn"></a>
-      &nbsp;
-      <a href="https://katbose.dev"><img src="https://img.shields.io/badge/Website-katbose.dev-FF7139?logo=firefox&logoColor=white" alt="Website"></a>
-      &nbsp;
-      <a href="mailto:im@katbose.dev"><img src="https://img.shields.io/badge/Email-im@katbose.dev-EA4335?logo=gmail&logoColor=white" alt="Email"></a>
-    </td>
-  </tr>
-</table>
+CI is defined in [.github/workflows/ci.yml](.github/workflows/ci.yml). It includes app checks, repository lint/typechecks, unit coverage, dependency auditing, design boundaries, and schema drift checks. Some integration/load/security jobs depend on configured environment inputs; a skipped job is not a passing live test. See [testing.md](knowledge-base/testing.md) for the broader strategy and verify current runner configs before assuming a test is collected.
+
+## Repository map
+
+```text
+apps/                       Four deployable applications
+packages/types/src/         Shared validation schemas and types
+packages/business/src/      Business rules, calculations, formatting, signing
+packages/db/src/            Drizzle schema, queries, and database client
+packages/db/migrations/     Application SQL migrations and snapshots
+packages/errors/            Shared error definitions
+packages/logger/            Structured logging
+packages/ui/                Shared UI tokens/utilities
+scripts/                    CI, design, release, MCP, and operational tooling
+tests/                      Synthetic, load, and other cross-application checks
+.github/                    Workflows, templates, community assets, funding
+knowledge-base/             Architecture, setup, decisions, and operational guides
+docs/                       Mintlify documentation content and configuration
+design/                     Design references and assets
+theroyalglow-design-system/ Design reference material
+infra/aws/_ec2-path/         Archived infrastructure alternative
+ltm/                        Repository memory tooling and reference material
+```
+
+Build/cache folders such as `.next`, `.turbo`, `.sst`, `dist`, and `coverage` are not application source. Inspect their owning tools before cleaning or regenerating them.
+
+## Database changes
+
+Application tables and Payload tables have separate owners and migration histories. Follow **generate → review → commit → migrate**. Apply reviewed migrations through `dev → test → pprd → prod`; use direct/unpooled connections for DDL. Do not use schema push to repair shared environments or edit an applied migration.
+
+For application schema changes, start in `packages/db/src/schema`, run `bun run generate`, and keep emitted SQL, metadata, and the fingerprint reference consistent. Payload schema changes use the CMS scripts and migrations. See [migration discipline](.kiro/steering/migration-discipline.md), [database guide](knowledge-base/database.md), and [CMS README](apps/cms/README.md). Consult current scripts for snapshot selection; historical guides may refer to older snapshot numbers.
+
+## Branches, releases, and deployment
+
+The permanent Git branches are **`dev`, `test`, `pprd`, and `prod`**. `prod` is the release/default branch; there is no `main` branch.
+
+1. Develop on a task branch based on `dev` and open a review PR into `dev`.
+2. Complete the applicable checks and review before merging.
+3. Promote the validated commit using [Promote validated commit](.github/workflows/promote.yml). It advances `test → pprd → prod` by fast-forwarding the same commit, preserving commit IDs and messages. No promotion PRs are needed.
+4. Verify migrations, release publication, and each affected deployment separately. Release Please owns version/changelog release PRs; those serve a different purpose from environment promotion.
+
+[Promotion operations](knowledge-base/branch-promotions.md) describes the production confirmation input, source validation, and dispatch behavior. Web/admin deploy through [Deploy AWS](.github/workflows/deploy-aws.yml); CMS uses the Render blueprint. This checkout has no invoicing deployment workflow, and its container needs packaging review before release. Do not infer deployed state from a branch name or a green workflow for a different app.
+
+## Contributor and agent documentation
+
+- [CONTRIBUTING.md](CONTRIBUTING.md): contribution process and commit conventions.
+- [knowledge-base/ISSUES.md](knowledge-base/ISSUES.md): issue terms, label slugs, priority, severity, and triage. It is a reading guide, not an inventory of open issues.
+- [AGENTS.md](AGENTS.md): shared instructions for coding agents; each app has scoped instructions.
+- [CLAUDE.md](CLAUDE.md): imports the shared instructions for Claude Code; each app has its own entrypoint.
+- [Knowledge-base index](knowledge-base/INDEX.md): choose the relevant architecture or operational guide rather than reading every document.
+- [SECURITY.md](SECURITY.md): vulnerability reporting. Follow [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) in project discussions.
+
+The instruction layout follows [AGENTS.md guidance](https://agents.md/), [Codex instruction discovery](https://learn.chatgpt.com/docs/agent-configuration/agents-md), and [Claude Code memory guidance](https://code.claude.com/docs/en/memory). Shared rules live in `AGENTS.md`; `CLAUDE.md` imports them to avoid maintaining duplicate instructions. App-specific guidance stays close to its code, while READMEs explain the system to contributors.
+
+## Maintainer and sponsorship
+
+Developed and maintained by **Katabathuni Bose ([katbose](https://github.com/katbose))**, the project's sole developer. Contributions, clear bug reports, documentation improvements, and sponsorship help support ongoing maintenance.
+
+<p>
+  <a href="https://github.com/katbose"><img src="https://img.shields.io/badge/GitHub-katbose-181717?logo=github&amp;logoColor=white" alt="GitHub"></a>
+  <a href="https://github.com/sponsors/katbose"><img src="https://img.shields.io/badge/Sponsor-katbose-ea4aaa?logo=githubsponsors&amp;logoColor=white" alt="Sponsor"></a>
+  <a href="https://www.linkedin.com/in/katbose"><img src="https://img.shields.io/badge/LinkedIn-katbose-0A66C2?logo=linkedin&amp;logoColor=white" alt="LinkedIn"></a>
+  <a href="https://katbose.dev"><img src="https://img.shields.io/badge/Website-katbose.dev-FF7139?logo=firefox&amp;logoColor=white" alt="Website"></a>
+  <a href="mailto:im@katbose.dev"><img src="https://img.shields.io/badge/Email-im%40katbose.dev-EA4335?logo=gmail&amp;logoColor=white" alt="Email"></a>
+</p>
+
+Licensed under the [MIT License](LICENSE).
