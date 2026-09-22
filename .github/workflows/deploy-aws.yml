@@ -67,9 +67,11 @@ jobs:
         with:
           ref: ${{ inputs.git_ref || github.ref }}
 
+      # No `bun-version`: setup-bun installs the latest release, matching every
+      # other workflow in this repo. Bun is tracked floating on purpose — see
+      # CONTRIBUTING.md. Pinning here while CI floated meant a deploy could run
+      # on a different Bun than the one that validated the commit.
       - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.4.0
 
       - run: bun install --frozen-lockfile
 

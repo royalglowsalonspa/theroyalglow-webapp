@@ -12,8 +12,14 @@ and [`SECURITY.md`](./SECURITY.md).
 
 ## Project at a glance
 
-- **Runtime / package manager:** Bun (`1.4.0`; pinned via `packageManager` in
-  `package.json`). Do not introduce pnpm / npm / yarn assumptions.
+- **Runtime / package manager:** Bun, tracked **floating on latest**. CI
+  (`oven-sh/setup-bun` with no `bun-version`), Render (`BUN_VERSION: latest`)
+  and the Dockerfiles (`oven/bun:latest`) all install the newest release, so
+  there is no version to bump in several places. `packageManager` in
+  `package.json` records the version last verified locally — the field cannot
+  say `latest` (its format is `name@version`), so treat it as a record, not a
+  pin; nothing enforces it, because Corepack does not support Bun.
+  Do not introduce pnpm / npm / yarn assumptions.
 - **Language:** TypeScript + JavaScript.
 - **Framework:** Next.js 16.2.9 (App Router) for web and admin; Payload CMS
   v3 for content; SST v4 for AWS Lambda + CloudFront deployment.
@@ -27,7 +33,9 @@ and [`SECURITY.md`](./SECURITY.md).
 
 Prerequisites:
 
-- **Bun 1.4.0+** (`bun --version` should match `packageManager`).
+- **Bun — latest release** (`bun upgrade`). CI and the deploy targets all float
+  to latest, so a local Bun older than CI's is the usual source of
+  lockfile surprises.
 - **PostgreSQL client** (for running migrations locally against Neon).
 - **`@neondatabase/mcp-server-neon`** or a `DATABASE_URL` from your Neon
   dashboard (the MCP entry is wired in `.mcp.json` for Claude Code and

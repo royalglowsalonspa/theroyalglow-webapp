@@ -15,7 +15,7 @@
 # =============================================================================
 
 # --- Stage 1: Install deps ---------------------------------------------------
-FROM oven/bun:1.3.13-alpine AS deps
+FROM oven/bun:alpine AS deps
 
 WORKDIR /app
 
@@ -35,7 +35,7 @@ COPY packages/ui/package.json ./packages/ui/
 RUN bun install --frozen-lockfile
 
 # --- Stage 2: Build ----------------------------------------------------------
-FROM oven/bun:1.3.13-alpine AS builder
+FROM oven/bun:alpine AS builder
 
 WORKDIR /app
 
@@ -77,7 +77,7 @@ ENV PORT=3002
 ENV HOSTNAME=0.0.0.0
 
 # Install bun in runner for migration script (payload migrate uses bun/node)
-COPY --from=oven/bun:1.3.13-alpine /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=oven/bun:alpine /usr/local/bin/bun /usr/local/bin/bun
 
 # Security: run as non-root
 RUN addgroup --system --gid 1001 nodejs && \

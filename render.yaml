@@ -83,10 +83,13 @@ services:
 
     # ----- Environment variables -------------------------------------------
     envVars:
-      # Pin the Bun version Render uses on the node runtime. Matches the repo's
-      # packageManager (bun@1.4.0 in root package.json). Bump together.
+      # Bun version Render installs on the node runtime. `latest` is an
+      # officially supported value (https://render.com/docs/bun-version) and is
+      # used deliberately so this never drifts from CI, which also floats. A
+      # concrete pin here previously went stale: it still read 1.3.13 in the
+      # running service long after the repo moved on.
       - key: BUN_VERSION
-        value: 1.4.0
+        value: latest
 
       # Node prod mode (Next.js production build/runtime).
       - key: NODE_ENV
@@ -202,9 +205,9 @@ services:
     healthCheckPath: /api/health
 
     envVars:
-      # Pin Bun to the repo's packageManager (root package.json). Bump together.
+      # Track the latest Bun, as CI does. See the rgss-cms entry above.
       - key: BUN_VERSION
-        value: 1.4.0
+        value: latest
       - key: NODE_ENV
         value: production
 
@@ -316,8 +319,9 @@ services:
     healthCheckPath: /api/health
 
     envVars:
+      # Track the latest Bun, as CI does. See the rgss-cms entry above.
       - key: BUN_VERSION
-        value: 1.4.0
+        value: latest
       - key: NODE_ENV
         value: production
 
