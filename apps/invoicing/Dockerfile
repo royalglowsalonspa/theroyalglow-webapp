@@ -22,7 +22,7 @@
 # ----------------------------------------------------------------------
 
 # ---------- Stage 1: builder (bundle the service) ----------
-FROM oven/bun:1.3.13 AS builder
+FROM oven/bun:latest AS builder
 WORKDIR /repo
 
 # Copy the whole monorepo so workspace deps resolve, then install.
