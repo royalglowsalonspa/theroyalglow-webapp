@@ -8,50 +8,48 @@
   "changelog-sections": [
     {
       "type": "feat",
-      "section": "Features"
+      "section": "🚀 Features"
     },
     {
       "type": "fix",
-      "section": "Bug Fixes"
+      "section": "🐛 Bug Fixes"
     },
     {
       "type": "perf",
-      "section": "Performance"
+      "section": "⚡ Performance"
     },
     {
       "type": "security",
-      "section": "Security"
+      "section": "🔒 Security"
     },
     {
       "type": "deps",
-      "section": "Dependencies"
+      "section": "📦 Dependencies"
     },
     {
       "type": "docs",
-      "section": "Documentation"
+      "section": "📚 Documentation"
     },
     {
       "type": "refactor",
-      "section": "Code Refactoring"
+      "section": "🛠 Refactors"
     },
     {
       "type": "test",
-      "section": "Tests",
-      "hidden": true
-    },
-    {
-      "type": "build",
-      "section": "Build System",
-      "hidden": true
+      "section": "🧪 Tests"
     },
     {
       "type": "ci",
-      "section": "Continuous Integration",
+      "section": "⚙️ CI"
+    },
+    {
+      "type": "build",
+      "section": "🏗 Build System",
       "hidden": true
     },
     {
       "type": "chore",
-      "section": "Miscellaneous",
+      "section": "🏡 Chores",
       "hidden": true
     }
   ],
@@ -59,7 +57,7 @@
     ".": {
       "component": "theroyalglow-platform",
       "release-type": "node",
-      "changelog-path": "CHANGELOG.md",
+      "changelog-path": "docs/releases/changelog.mdx",
       "extra-files": [
         {
           "type": "json",

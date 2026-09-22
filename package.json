@@ -28,6 +28,7 @@
     "check:cutover": "node scripts/assert-no-admin-artifacts.mjs",
     "check:auth-dependencies": "bun run scripts/ci/check-auth-dependencies.ts",
     "check:dependency-overrides": "bun run scripts/ci/check-dependency-overrides.ts",
+    "check:changelog-mdx": "bun run scripts/release/lint-changelog-mdx.ts",
     "check:admin-no-literals": "node scripts/admin-design/no-brand-literals.mjs",
     "check:admin-path-allowlist": "node scripts/admin-design/path-allowlist.mjs",
     "check:admin-root-path": "node scripts/admin-design/root-path-convention.mjs",
