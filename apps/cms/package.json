@@ -18,29 +18,29 @@
     "test:e2e:list": "playwright test --list"
   },
   "dependencies": {
-    "@payloadcms/db-postgres": "^3.88.0",
-    "@payloadcms/email-resend": "^3.88.0",
-    "@payloadcms/next": "^3.88.0",
-    "@payloadcms/plugin-mcp": "^3.88.0",
-    "@payloadcms/richtext-lexical": "^3.88.0",
-    "@payloadcms/storage-s3": "^3.88.0",
+    "@payloadcms/db-postgres": "3.90.1",
+    "@payloadcms/email-resend": "3.90.1",
+    "@payloadcms/next": "3.90.1",
+    "@payloadcms/plugin-mcp": "3.90.1",
+    "@payloadcms/richtext-lexical": "3.90.1",
+    "@payloadcms/storage-s3": "3.90.1",
     "@rgss/db": "workspace:*",
     "@rgss/types": "workspace:*",
     "drizzle-orm": "0.45.2",
     "graphql": "^16.14.2",
     "nanoid": "6.0.1",
-    "next": "16.3.4",
-    "payload": "^3.88.0",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
+    "next": "16.3.5",
+    "payload": "3.90.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "sharp": "^0.35.4",
     "slugify": "1.6.9"
   },
   "devDependencies": {
     "@types/node": "^26.6.1",
     "fast-check": "^4.10.1",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.7",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "typescript": "^5.9.3"
   }
 }

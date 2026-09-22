@@ -14,14 +14,15 @@ name: Dependabot Lockfile Sync
 # Dependabot PR it regenerates `bun.lock` against the updated manifests and
 # commits it back to the PR branch, after which CI can pass.
 #
-# Auto re-run of CI:
-#   A push made with the default GITHUB_TOKEN does NOT trigger new workflow
-#   runs (GitHub's recursion guard), so CI would not re-run on the synced SHA.
-#   To get CI to re-run automatically, add a fine-scoped PAT as a *Dependabot*
+# Validation of the new commit:
+#   pull_request synchronize events from GITHUB_TOKEN create runs that require
+#   maintainer approval. Approve the workflows on the NEW SHA after reviewing
+#   the lockfile; rerunning an older failed run does not validate this commit.
+#   To get CI to run automatically, use a fine-scoped PAT as a *Dependabot*
 #   secret named LOCKFILE_SYNC_TOKEN (Settings → Secrets and variables →
 #   Dependabot). With it, the push triggers a fresh CI run on the new commit.
-#   Without it, the correct lockfile is still committed (so the merge is clean
-#   and `dev` stays green) — you just click "Re-run all jobs" once on the PR.
+#   Without it, a maintainer must approve the pending workflows. Never merge
+#   based on the old SHA's checks or relax the repository's approval policy.
 # ---------------------------------------------------------------------------
 
 on:
@@ -48,8 +49,8 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
           # A PAT (added as a Dependabot secret) makes the follow-up push
-          # re-trigger CI. Falls back to GITHUB_TOKEN, which still commits the
-          # lockfile but won't auto-re-run CI (re-run jobs manually).
+          # run CI automatically. GITHUB_TOKEN still commits the lockfile, but
+          # the resulting pull_request workflows require maintainer approval.
           token: ${{ secrets.LOCKFILE_SYNC_TOKEN || secrets.GITHUB_TOKEN }}
           persist-credentials: true
 

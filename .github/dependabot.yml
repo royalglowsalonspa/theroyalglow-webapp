@@ -48,6 +48,20 @@ updates:
         patterns:
           - "vitest"
           - "@vitest/*"
+      # Auth shares sessions/schema across apps; review the whole family together.
+      # Internal core/adapters follow better-auth's own exact dependencies.
+      better-auth:
+        patterns:
+          - "better-auth"
+          - "@better-auth/*"
+        update-types: ["minor", "patch"]
+      # Payload minor releases can change its generated schema and access behavior.
+      # Keep these updates together and separate from the routine dependency batch.
+      payload:
+        patterns:
+          - "payload"
+          - "@payloadcms/*"
+        update-types: ["minor", "patch"]
       # One PR for all production-dependency minor + patch bumps.
       production-minor-patch:
         dependency-type: "production"

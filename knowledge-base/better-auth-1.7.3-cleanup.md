@@ -1,6 +1,8 @@
 # Better Auth 1.7.3 cleanup
 
-This is the current upgrade procedure. Version 1.7.3 restores account identity to
+This records the account schema cleanup introduced in 1.7.3. For subsequent
+package upgrades, use [the auth/CMS upgrade procedure](./auth-cms-dependency-upgrades.md).
+Version 1.7.3 restores account identity to
 `providerId` and `accountId`, as in 1.6. It no longer writes `issuer`. The historical
 [1.7.2 rollout](./better-auth-upgrade.md) remains a record, not the current migration plan.
 
@@ -21,8 +23,9 @@ required application columns the library had stopped writing.
 
 ## Forward migration and application changes
 
-- Pin `better-auth` in web/admin and the `@better-auth/core` override to 1.7.3.
-- Keep the compatible `@better-auth/infra` 0.4.5 plugin version in both apps.
+- At rollout, both apps used `better-auth` 1.7.3 and `@better-auth/infra` 0.4.5.
+  The former core override is now removed: internal packages must resolve the
+  versions required by the installed Better Auth release, rather than a stale root pin.
 - Apply generated migration `0003_restore_provider_account_identity.sql`.
 - Remove `NOT NULL` from issuer and drop `account_issuer_account_id_uidx`.
 - Enforce uniqueness on `(provider_id, account_id)` with

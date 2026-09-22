@@ -38,49 +38,26 @@
  *   and OMITTED in local dev so cookies still bind to `localhost`.
  ************************************************************/
 
-import { dash } from '@better-auth/infra'
 import { buildCrossSubdomainAdvanced } from '@rgss/business'
 import { db } from '@rgss/db'
-import * as schema from '@rgss/db/schema'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { oneTap } from 'better-auth/plugins'
+import { authDatabaseSchema, createAuthSchemaOptions } from './auth-schema-options'
 
 export const auth = betterAuth({
+  ...createAuthSchemaOptions({
+    clientId: process.env.GOOGLE_OAUTH_CLIENT_ID ?? '',
+    clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? '',
+  }),
   database: drizzleAdapter(db, {
     provider: 'pg',
-    schema: {
-      user: schema.user,
-      session: schema.session,
-      account: schema.account,
-      verification: schema.verification,
-    },
+    schema: authDatabaseSchema,
   }),
   // Read directly from process.env (mirrors apps/web) so BOTH apps sign and
   // verify the session cookie with the SAME secret — required for the shared
   // cross-subdomain (and cross-port, on localhost) session to validate here.
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3001',
-  // Expose the custom `role` column on the session user (same as apps/web).
-  // Without this the admin RBAC (requireRole) reads an undefined role and
-  // treats everyone as a customer. `input: false` blocks self-assignment.
-  user: {
-    additionalFields: {
-      role: {
-        type: 'string',
-        required: false,
-        input: false,
-        defaultValue: 'customer',
-      },
-    },
-  },
-  socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_OAUTH_CLIENT_ID ?? '',
-      clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? '',
-    },
-  },
-  plugins: [dash(), oneTap()],
   session: {
     cookieCache: {
       enabled: true,

@@ -152,6 +152,9 @@ export function createRootConfig({ includeLiveSuites = false }: RootConfigOption
           test: {
             name: 'web',
             environment: 'jsdom',
+            // Transform the Vitest adapter so it uses the runner's instance,
+            // rather than a second Bun peer installation with no snapshot state.
+            server: { deps: { inline: ['@testing-library/jest-dom'] } },
             include: ['apps/web/**/*.test.{ts,tsx}'],
             exclude,
             setupFiles: ['./apps/web/src/test/setup.ts'],
@@ -172,6 +175,7 @@ export function createRootConfig({ includeLiveSuites = false }: RootConfigOption
           test: {
             name: 'admin',
             environment: 'jsdom',
+            server: { deps: { inline: ['@testing-library/jest-dom'] } },
             include: ['apps/admin/**/*.test.{ts,tsx}'],
             exclude,
             setupFiles: ['./apps/admin/src/test/setup.ts'],

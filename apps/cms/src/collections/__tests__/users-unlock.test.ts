@@ -13,7 +13,13 @@ describe('Users account-unlock protection (GHSA-jg8r-5jh2-v2xj)', () => {
     it.each(['caller@example.test', 'other@example.test'])(
       `denies ${label} unlocking %s before reading or modifying an account`,
       async (email) => {
-        const db = { findOne: vi.fn(), updateOne: vi.fn() }
+        const db = {
+          beginTransaction: vi.fn().mockResolvedValue('unlock-test'),
+          commitTransaction: vi.fn(),
+          rollbackTransaction: vi.fn().mockResolvedValue(undefined),
+          findOne: vi.fn(),
+          updateOne: vi.fn(),
+        }
         // Exercise Payload's real operation without booting a server or live database.
         const args = {
           collection: { config: { ...Users, auth: {} } },
@@ -25,6 +31,11 @@ describe('Users account-unlock protection (GHSA-jg8r-5jh2-v2xj)', () => {
         await expect(unlockOperation(args)).rejects.toMatchObject({ status: 403 })
         expect(db.findOne).not.toHaveBeenCalled()
         expect(db.updateOne).not.toHaveBeenCalled()
+        // Payload now starts a transaction before checking unlock access. A
+        // rejected request must release it without committing any account work.
+        expect(db.beginTransaction).toHaveBeenCalledOnce()
+        expect(db.rollbackTransaction).toHaveBeenCalledWith('unlock-test')
+        expect(db.commitTransaction).not.toHaveBeenCalled()
       },
     )
   }

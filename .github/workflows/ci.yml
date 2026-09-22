@@ -25,6 +25,7 @@ jobs:
     outputs:
       admin: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.admin }}
       web: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.web }}
+      cms: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.cms }}
       invoicing: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.invoicing }}
     steps:
       - uses: actions/checkout@v7
@@ -51,6 +52,12 @@ jobs:
               - '.github/lighthouse/lighthouserc.json'
             invoicing:
               - 'apps/invoicing/**'
+              - 'packages/**'
+              - 'package.json'
+              - 'bun.lock'
+              - '.github/workflows/ci.yml'
+            cms:
+              - 'apps/cms/**'
               - 'packages/**'
               - 'package.json'
               - 'bun.lock'
@@ -148,6 +155,27 @@ jobs:
           SKIP_ENV_VALIDATION: '1'
 
   # ---------------------------------------------------------------------------
+  # Payload upgrades also need a production compile; unit tests cannot exercise
+  # Next/Payload's server and admin bundles. No live database is used here.
+  cms-ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [changes]
+    if: needs.changes.outputs.cms == 'true'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run --filter=@rgss/cms typecheck
+      - run: bun run --filter=@rgss/cms build
+        env:
+          PAYLOAD_SECRET: 'ci-build-only-placeholder-not-used-at-runtime-000'
+          DATABASE_URL: 'postgresql://build:build@127.0.0.1:9/build'
+          PAYLOAD_PUBLIC_SERVER_URL: 'http://localhost:3002'
+          WEB_APP_URL: 'http://localhost:3000'
+          NODE_OPTIONS: '--max-old-space-size=4096'
+
+  # ---------------------------------------------------------------------------
   # Lighthouse CI for the CUSTOMER-FACING web app (Req 10.6).
   #
   # Lighthouse measures the PUBLIC user-facing experience — the brand promise in
@@ -223,6 +251,10 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run lint
+      - name: Check installed auth dependency compatibility
+        run: bun run check:auth-dependencies
+      - name: Check no root override pins below a declared version
+        run: bun run check:dependency-overrides
       - run: bun run typecheck
         env:
           SKIP_ENV_VALIDATION: '1'
@@ -260,10 +292,8 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - name: Audit dependencies (bun audit — blocking gate)
-        # Sole maintainer approved only GHSA-jg8r-5jh2-v2xj on payload 3.88.0:
-        # Users.access.unlock is explicitly restricted and regression-tested.
-        # The wrapper fails closed on every other advisory or audit error.
-        run: bun run scripts/ci/audit.ts
+        # No advisory allowlist or severity filter; audit errors also fail this step.
+        run: bun audit
       - name: Trivy vulnerability scan (informational — IaC/secret/OS coverage)
         # Defense-in-depth beyond `bun audit` (IaC misconfig, secrets, OS pkgs).
         # Non-blocking: trivy-action's GHCR setup/DB pull rate-limits anonymous
@@ -475,6 +505,7 @@ jobs:
       - changes
       - admin-ci
       - web-ci
+      - cms-ci
       - invoicing-ci
       - lighthouse-web
       - lint-typecheck
