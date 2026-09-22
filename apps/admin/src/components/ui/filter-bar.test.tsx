@@ -30,7 +30,7 @@
  * Requirements : 7.2, 7.3, 8.3, 8.4, 8.5, 8.6
  ************************************************************/
 
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react/pure'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   type ColumnToggle,
@@ -62,8 +62,18 @@ beforeAll(() => {
   }
 })
 
-afterEach(() => {
+afterEach(async () => {
+  vi.clearAllTimers()
+  vi.useRealTimers()
+  // Own cleanup via react/pure so focus is released before its node is removed.
+  // jsdom otherwise preserves viewport focus across tests after removal.
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur()
+  }
   cleanup()
+  // Radix FocusScope restores focus on a zero-delay timer after unmount.
+  // Finish that teardown before another test opens its own menu.
+  await new Promise<void>((resolve) => setTimeout(resolve, 0))
 })
 
 /* ============================================================================
@@ -74,11 +84,6 @@ describe('FilterBar search input (Req 8.2, 8.3)', () => {
   const SEARCH_CONFIG: FilterBarProps['config'] = {
     search: { placeholder: 'Search records', ariaLabel: 'Search records' },
   }
-
-  afterEach(() => {
-    vi.clearAllTimers()
-    vi.useRealTimers()
-  })
 
   it('caps the search input at 100 characters (Req 8.3)', () => {
     render(<FilterBar config={SEARCH_CONFIG} />)
@@ -155,8 +160,9 @@ describe('FilterBar filter dropdown (Req 8.4)', () => {
 
     render(<FilterBar config={config} onFilterChange={onFilterChange} />)
 
-    // Open the shadcn Select (Radix opens on Enter), then pick an option.
+    // Keyboard events target the focused control in a real browser.
     const trigger = screen.getByLabelText('Status filter')
+    trigger.focus()
     fireEvent.keyDown(trigger, { key: 'Enter' })
 
     const option = await screen.findByRole('option', { name: 'Confirmed' })
@@ -213,6 +219,17 @@ describe('FilterBar column-visibility control (Req 7.2, 7.3, 8.6)', () => {
     { id: 'email', label: 'Email', visible: false },
   ]
 
+  function openMenuWithKeyboard(key = 'Enter') {
+    const trigger = screen.getByRole('button', { name: 'Toggle column visibility' })
+    // fireEvent does not focus its target. Starting with focus on body can
+    // dismiss the menu during Radix's focus handoff (exposed by jsdom 30.1).
+    trigger.focus()
+    expect(trigger).toHaveFocus()
+    fireEvent.keyDown(trigger, { key })
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    return trigger
+  }
+
   it('opens the Columns menu and emits onColumnToggle(id, false) when hiding a visible column, within budget', async () => {
     const onColumnToggle = vi.fn<(id: string, visible: boolean) => void>()
 
@@ -224,9 +241,7 @@ describe('FilterBar column-visibility control (Req 7.2, 7.3, 8.6)', () => {
       />,
     )
 
-    // Open the menu via keyboard activation (Radix opens on Enter).
-    const trigger = screen.getByRole('button', { name: 'Toggle column visibility' })
-    fireEvent.keyDown(trigger, { key: 'Enter' })
+    openMenuWithKeyboard()
 
     // The toggle list renders each toggleable column as a checkbox item.
     const phoneItem = await screen.findByRole('menuitemcheckbox', { name: 'Phone' })
@@ -252,8 +267,7 @@ describe('FilterBar column-visibility control (Req 7.2, 7.3, 8.6)', () => {
       />,
     )
 
-    const trigger = screen.getByRole('button', { name: 'Toggle column visibility' })
-    fireEvent.keyDown(trigger, { key: 'Enter' })
+    openMenuWithKeyboard()
 
     const emailItem = await screen.findByRole('menuitemcheckbox', { name: 'Email' })
     expect(emailItem).toHaveAttribute('aria-checked', 'false')
@@ -276,14 +290,66 @@ describe('FilterBar column-visibility control (Req 7.2, 7.3, 8.6)', () => {
       />,
     )
 
-    const trigger = screen.getByRole('button', { name: 'Toggle column visibility' })
-    fireEvent.keyDown(trigger, { key: 'Enter' })
+    openMenuWithKeyboard()
 
     const nameItem = await screen.findByRole('menuitemcheckbox', { name: 'Name' })
     fireEvent.click(nameItem)
 
     expect(onColumnToggle).not.toHaveBeenCalled()
     expect(await screen.findByText('At least one column must stay visible')).toBeInTheDocument()
+  })
+
+  it.each(['Enter', ' ', 'ArrowDown'])(
+    'supports keyboard opening with %j, navigation, selection, and Escape focus return',
+    async (key) => {
+      const onColumnToggle = vi.fn<(id: string, visible: boolean) => void>()
+
+      render(
+        <FilterBar
+          config={{ columnVisibility: true }}
+          columns={columns}
+          onColumnToggle={onColumnToggle}
+        />,
+      )
+
+      const trigger = openMenuWithKeyboard(key)
+      const nameItem = await screen.findByRole('menuitemcheckbox', { name: 'Name' })
+      await waitFor(() => expect(nameItem).toHaveFocus())
+
+      fireEvent.keyDown(nameItem, { key: 'ArrowDown' })
+      const phoneItem = screen.getByRole('menuitemcheckbox', { name: 'Phone' })
+      await waitFor(() => expect(phoneItem).toHaveFocus())
+      fireEvent.keyDown(phoneItem, { key: 'Enter' })
+
+      expect(onColumnToggle).toHaveBeenCalledExactlyOnceWith('phone', false)
+      expect(screen.getByRole('menu')).toBeInTheDocument()
+
+      fireEvent.keyDown(phoneItem, { key: 'Escape' })
+      await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
+      await waitFor(() => expect(trigger).toHaveFocus())
+      expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    },
+  )
+
+  it('opens with the primary pointer and selects a column', async () => {
+    const onColumnToggle = vi.fn<(id: string, visible: boolean) => void>()
+
+    render(
+      <FilterBar
+        config={{ columnVisibility: true }}
+        columns={columns}
+        onColumnToggle={onColumnToggle}
+      />,
+    )
+
+    const trigger = screen.getByRole('button', { name: 'Toggle column visibility' })
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' })
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    const emailItem = await screen.findByRole('menuitemcheckbox', { name: 'Email' })
+    fireEvent.click(emailItem)
+
+    expect(onColumnToggle).toHaveBeenCalledExactlyOnceWith('email', true)
+    expect(screen.getByRole('menu')).toBeInTheDocument()
   })
 })
 
