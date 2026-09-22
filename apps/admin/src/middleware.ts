@@ -231,8 +231,9 @@ export async function middleware(request: NextRequest) {
     const hasBare = request.cookies.has(SESSION_COOKIE)
     const hasSecure = request.cookies.has(SECURE_SESSION_COOKIE)
     const roleLevel = state.kind === 'valid' ? state.roleLevel : 'n/a'
+    const logPath = pathname.replace(/[\r\n\u2028\u2029]/g, '')
     console.log(
-      `[admin-mw] ${pathname} state=${state.kind} roleLevel=${roleLevel} routeMin=${routeMin} action=${decision.action} cookie(bare=${hasBare},secure=${hasSecure})`,
+      `[admin-mw] path=${JSON.stringify(logPath)} state=${state.kind} roleLevel=${roleLevel} routeMin=${routeMin} action=${decision.action} cookie(bare=${hasBare},secure=${hasSecure})`,
     )
   }
 
