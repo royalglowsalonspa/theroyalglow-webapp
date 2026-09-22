@@ -11,7 +11,8 @@ They forbid deletion and non-fast-forward updates and have no bypass actors.
 
 The promotion workflow enforces dev → test → pprd → prod at one validated commit
 SHA. It requires explicit production confirmation by katbose before updating prod.
-Mergify manages PRs into dev; environment updates do not use Mergify queues or PRs.
+Rulesets gate PRs into dev; environment updates advance through the promotion
+workflow rather than pull requests.
 
 ## Safe activation order
 
@@ -21,20 +22,19 @@ Mergify manages PRs into dev; environment updates do not use Mergify queues or P
   merges.
 </Warning>
 
-1. Install the Mergify, Socket, and Codecov GitHub Apps for this repository.
-2. Merge the workflow/configuration bootstrap to `prod` so Mergify can read
-   `.mergify.yml` from the default branch.
-3. Run CI, CodeQL, Codecov, Socket, and Mergify checks on a test PR.
-4. Import the three JSON payloads in **Settings -> Rules -> Rulesets**.
-5. Confirm each target branch and required check name, then activate the Rulesets.
-6. Disable the old `protect main branch` Ruleset after the replacements are active.
-7. Enable **Merge commits** and **Squash merging**, disable rebase merging, and
-   leave GitHub native auto-merge and merge queue disabled. Keep automatic branch
-   deletion disabled during bootstrap; persistent branches must never be deleted.
+1. Install the Socket and Codecov GitHub Apps for this repository.
+2. Run CI, CodeQL, Codecov, and Socket checks on a test PR so every required
+   check name has registered at least once.
+3. Import the three JSON payloads in **Settings -> Rules -> Rulesets**.
+4. Confirm each target branch and required check name, then activate the Rulesets.
+5. Disable the old `protect main branch` Ruleset after the replacements are active.
+6. Enable **Merge commits** and **Squash merging** and disable rebase merging. Keep
+   automatic branch deletion disabled during bootstrap; persistent branches must
+   never be deleted.
 
 GitHub Actions contexts use the job name, such as `CI Success`, without the
 workflow prefix displayed in parts of GitHub's UI. Verify names through the
-check-runs API before activation. See [Mergify's GitHub Actions guidance](https://docs.mergify.com/integrations/gha/).
+check-runs API before activation.
 
 Use Ruleset evaluation mode first if it is available on the repository plan. Verify
 one complete promotion before switching all policies to active enforcement.

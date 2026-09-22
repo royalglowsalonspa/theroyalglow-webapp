@@ -464,8 +464,8 @@ jobs:
           # Clean any untracked probe artifacts even on the success path.
           git clean -fd packages/db/migrations >/dev/null 2>&1 || true
 
-  # One stable required check for Rulesets and Mergify. Path-filtered jobs may
-  # be skipped; failures and cancellations are never accepted.
+  # One stable required check for branch Rulesets. Path-filtered jobs may be
+  # skipped; failures and cancellations are never accepted.
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest

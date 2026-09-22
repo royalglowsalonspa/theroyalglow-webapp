@@ -18,7 +18,6 @@ The Payload advisory exception is restricted to GHSA-jg8r-5jh2-v2xj on version 3
 | `Integration & E2E`     | PRs to `test`, `pprd`, `prod`                   | Database integration and Playwright validation                                    |
 | `Load & Security`       | PRs to `pprd`, `prod`                           | Trivy plus optional k6 and ZAP against pre-production                             |
 | `CodeQL`                | All PRs, pushes to `prod`, weekly               | JavaScript/TypeScript security analysis                                           |
-| `Mergify Config`        | Mergify config changes                          | Validate `.mergify.yml` with the official CLI                                     |
 | `Release Please`        | Pushes to `dev` and `prod`; explicit dispatch | Prepare release PR on dev; publish after production promotion                       |
 | `Deploy AWS Production` | Pushes to `prod`                                | Production deployment through AWS OIDC                                            |
 
@@ -32,7 +31,7 @@ Rulesets require aggregate jobs rather than every conditional job:
 
 Each aggregate accepts only `success` or an intentional `skipped` result. A failure
 or cancellation fails the aggregate. External required checks are CodeQL, Socket,
-Codecov project and patch coverage, and Mergify Merge Protections.
+and Codecov project and patch coverage.
 
 Integration/E2E needs `DATABASE_URL_TEST`. k6 and ZAP need `PPRD_URL`. Their
 preflight jobs emit an explicit notice when infrastructure is not configured;
@@ -46,5 +45,4 @@ bun run lint
 bun run typecheck
 bun run test:coverage
 bun run mcp:doctor
-mergify config validate
 ```

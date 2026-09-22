@@ -187,22 +187,26 @@ link the canonical issue when marking a duplicate.
 
 ## Automation labels
 
-The following exact names are referenced by [Dependabot](../.github/dependabot.yml)
-or [Mergify](../.mergify.yml). Changes to their names require checking their
-consumers. A classification label alone does not grant permission to merge.
+The following exact names are referenced by
+[Dependabot](../.github/dependabot.yml). Changes to their names require checking
+their consumers. A classification label alone does not grant permission to merge.
 
 | Label | Operational meaning |
 | --- | --- |
-| `dependencies` | Dependabot updates and Mergify dependency queue priority. |
+| `dependencies` | Applied by Dependabot to its update pull requests. |
 | `github-actions` | Dependabot's GitHub Actions dependency classification. |
-| `hotfix` | Highest configured Mergify queue priority for emergency fixes. |
-| `security` | Elevated Mergify queue priority for security remediation. |
-| `merge-ready` | Enables Mergify auto-queue and merge after the required review and checks. |
-| `promotion` | Environment-promotion PR classification used by Mergify. |
-| `release` | Release Please version and changelog PR classification used by Mergify. |
+| `hotfix` | Urgency classification for an emergency production fix. |
+| `security` | Security remediation classification. |
+| `promotion` | Environment-promotion pull request classification. |
+| `release` | Release Please version and changelog pull request classification. |
 | `autorelease: ...` | Release tooling manages these lifecycle labels; preserve its exact names. |
 
-`area: security` classifies a concern. `security` also affects merge queue priority.
+No label triggers an automated merge. Merging requires an approving review and
+successful required checks, then an explicit merge. `hotfix` and `security`
+communicate urgency to humans; they no longer grant queue priority, because no
+merge queue is configured.
+
+`area: security` classifies a concern; `security` marks remediation work.
 `agent-ready` describes a prepared implementation handoff; it does not imply
 `merge-ready` or approval to operate external systems.
 
@@ -456,18 +460,17 @@ Colors help scanning, while names and descriptions carry the meaning.
 | `agent-ready` | Self-contained context, investigation, and acceptance criteria for implementation. | `#059669` |
 | `breaking-change` | Changes a supported contract and requires migration or coordinated rollout. | `#D93F0B` |
 | `bug` | Existing behavior is broken or produces an incorrect result. | `#D73A4A` |
-| `dependencies` | Dependency updates and compatibility; also used by Dependabot and Mergify. | `#0366D6` |
+| `dependencies` | Dependency updates and compatibility; applied by Dependabot. | `#0366D6` |
 | `duplicate` | Already tracked elsewhere; link the canonical issue before closing. | `#CFD3D7` |
 | `github-actions` | GitHub Actions platform and action dependencies; used by Dependabot. | `#5319E7` |
 | `good first issue` | Well-scoped work with enough guidance for a first-time contributor. | `#7057FF` |
 | `help wanted` | Contributions or additional expertise are welcome. | `#008672` |
-| `hotfix` | Emergency production fix; grants highest Mergify queue priority. | `#B60205` |
+| `hotfix` | Emergency production fix; signals urgency to reviewers. | `#B60205` |
 | `invalid` | Not an actionable issue for this repository after review. | `#D97706` |
-| `merge-ready` | Approved for Mergify auto-queue and merge; apply only after review. | `#0E8A16` |
-| `promotion` | Environment promotion pull request; used by Mergify. | `#1D76DB` |
+| `promotion` | Environment promotion pull request. | `#1D76DB` |
 | `regression` | Previously working behavior broke after a change. | `#D73A4A` |
-| `release` | Release Please version and changelog pull request; used by Mergify. | `#5319E7` |
-| `security` | Security remediation; grants elevated Mergify queue priority. | `#D93F0B` |
+| `release` | Release Please version and changelog pull request. | `#5319E7` |
+| `security` | Security remediation; signals urgency to reviewers. | `#D93F0B` |
 | `wontfix` | Reviewed and intentionally declined; record the reason before closing. | `#9D174D` |
 
 ## Technical glossary
@@ -647,7 +650,7 @@ particular defect is still present.
 | Biome / Vitest / Playwright | Formatting and linting, unit/integration testing, and browser testing tools. |
 | Lighthouse / k6 / OWASP ZAP | Web-quality audits, load testing, and web-application security scanning. |
 | Checkly | Synthetic browser and API monitoring based on defined checks. |
-| Dependabot / Mergify / Release Please | Dependency-update automation, merge queue automation, and release/version automation. |
+| Dependabot / Release Please | Dependency-update automation and release/version automation. |
 | Promotion / rollback / cutover | Moving a revision between environments, returning to a previous revision or configuration, and switching traffic or responsibility to a replacement system. |
 | `dev`, `test`, `pprd`, `prod` | Repository branch/environment vocabulary; `pprd` means pre-production. Follow the contributing and deployment guides for the workflow. |
 | `gh` | GitHub command-line client for issues, PRs, labels, and repository operations. |

@@ -12,7 +12,7 @@ using pull requests.
 
 1. Branch from the latest `dev` and use Conventional Commits.
 2. Open a pull request into `dev` and resolve review and automated checks.
-3. Add `merge-ready` when the pull request is approved for the Mergify queue.
+3. Merge once the pull request is approved and the required checks report success.
 4. Promote `dev -> test`, `test -> pprd`, and `pprd -> prod` with dedicated PRs.
 5. Release Please records changes already on `prod` in one platform release.
 6. Merge a reviewed `prod -> dev` release-sync PR before the next promotion cycle.
@@ -20,9 +20,12 @@ using pull requests.
 Feature and Release Please PRs use squash merges. Promotions and release sync
 use merge commits to retain shared ancestry and the original feature history.
 
-Mergify is the only merge orchestrator. GitHub's native merge queue and native
-auto-merge must remain disabled. GitHub Rulesets supply the non-bypassable baseline;
-Mergify adds queue ordering, branch progression, and freeze controls.
+GitHub Rulesets are the only merge gate and supply the non-bypassable baseline.
+There is no third-party merge orchestrator: merges are performed directly once a
+pull request is approved and its required checks succeed. Queue ordering,
+priorities, and merge freezes are not configured; if serialized merges become
+necessary, enable GitHub's native merge queue rather than reintroducing an
+external service.
 
 ## Ownership map
 
@@ -30,8 +33,6 @@ Mergify adds queue ordering, branch progression, and freeze controls.
 | ---------------------------------- | ----------------- |
 | Build, tests, scans                | GitHub Actions    |
 | Required checks and reviews        | GitHub Rulesets   |
-| Queue, auto-merge, priorities      | Mergify           |
-| Temporary merge blocks             | Mergify freezes   |
 | Version, changelog, tags, releases | Release Please    |
 | Supply-chain findings              | Socket GitHub App |
 | Code scanning                      | GitHub CodeQL     |

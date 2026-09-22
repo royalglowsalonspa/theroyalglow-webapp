@@ -33,8 +33,7 @@
           { "context": "Analyze (javascript-typescript)" },
           { "context": "Socket Security: Pull Request Alerts" },
           { "context": "codecov/project" },
-          { "context": "codecov/patch" },
-          { "context": "Mergify Merge Protections" }
+          { "context": "codecov/patch" }
         ]
       }
     }
