@@ -193,7 +193,7 @@ The architecture uses **strict layer separation** within a monorepo to achieve t
 | **Business Logic** | `packages/business/` | Pure functions, domain rules, calculations | No I/O, no framework deps |
 | **Data Access** | `packages/db/` | Drizzle ORM schemas, query builders, migrations | Only package that imports Drizzle |
 | **CMS** | `apps/cms/` | Payload CMS v3 — blog, gallery, team bios, banners, FAQ, plus the bookable service catalogue | Marketing content + service catalogue authoring (synced to `public.*`) |
-| **Infrastructure** | `sst.config.ts`, `render.yaml` | SST v3 AWS web/admin IaC and Render CMS service definition | Platform-specific |
+| **Infrastructure** | `sst.config.ts`, `.github/render.yaml` | SST v3 AWS web/admin IaC and Render CMS service definition | Platform-specific |
 
 
 
@@ -1154,7 +1154,7 @@ Use AWS Budgets and CloudWatch metrics to detect unexpected spend or duration. O
 | PostHog | 1M events/month | Event volume | Analytics and feature flags |
 | Clarity | Unlimited | — | Session replay |
 | Checkly | 5 checks, 10K runs | More checks | Synthetic monitoring |
-| **CURRENT BASELINE** | Mostly free allowances | Usage-based | **Approximately $0.50–1/month per M2AWS.md** |
+| **CURRENT BASELINE** | Mostly free allowances | Usage-based | **Approximately $0.50–1/month per M2C/M2AWS.md** |
 
 ---
 

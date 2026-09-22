@@ -16,10 +16,15 @@ name: Integration & E2E
 # automatically, with no workflow edit.
 #
 # NOTE: the previous `lighthouse-ci` job was removed. It ran `lhci autorun` with
-# no configPath, and there is no lighthouserc at the repo root, so it could only
-# ever fail. Lighthouse is covered properly by `lighthouse-web` in ci.yml (the
-# customer site, built from the PR and served on localhost) and by
-# `lighthouse-docs` in docs-lighthouse.yml.
+# no configPath, so it resolved no usable config and could only ever fail.
+# Lighthouse now lives in exactly one place: the `lighthouse-web` job in ci.yml,
+# which passes `configPath: .github/lighthouse/lighthouserc.json` explicitly and
+# audits the customer site built from the PR and served on localhost.
+#
+# There is deliberately NO lighthouserc at the repo root. One existed as a
+# leftover from the phase-9 testing spec, referenced by nothing, and was deleted
+# so nobody edits it expecting CI thresholds to change. `apps/admin/lighthouserc.json`
+# is separate and belongs to the admin redesign audit, not to CI.
 # ---------------------------------------------------------------------------
 
 on:

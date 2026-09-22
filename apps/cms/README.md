@@ -188,7 +188,7 @@ and schema checks. It includes a preflight for the historical service-table
 replacement. A database containing legacy rows needs the documented preservation
 decision; a newer package version alone does not make that operation safe.
 
-The current deployment recipe is the root [Render Blueprint](../../render.yaml):
+The current deployment recipe is the [Render Blueprint](../../.github/render.yaml):
 
 - Service `rgss-cms`, Node runtime, Singapore, free plan, source branch `prod`.
 - Build: `bun install --frozen-lockfile && bun run --filter=@rgss/cms build`.

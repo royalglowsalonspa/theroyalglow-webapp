@@ -6,7 +6,7 @@
 # QStash, Resend, Ably and R2 are untouched.
 #
 # Auth is GitHub OIDC — no long-lived AWS keys in repo secrets. One-time setup
-# is in M2AWS.md §8.
+# is in M2C/M2AWS.md §8.
 #
 # RECOVERY: there is no one-command rollback. SST/Pulumi updates are not
 # atomic: a failed command can leave CloudFront, Lambda, S3, DNS, or stack

@@ -3,7 +3,7 @@
 Everything in this directory belongs to a **rejected** architecture. It is kept because it is
 complete and verified, and because it is the fallback if the Lambda path ever fails.
 
-**Do not deploy from these files.** The live plan is [`M2AWS.md`](../../../M2AWS.md):
+**Do not deploy from these files.** The live plan is [`M2AWS.md`](../../../M2C/M2AWS.md):
 `apps/web` + `apps/admin` on Lambda + CloudFront via SST, Neon retained, CMS on Render.
 
 ## Why it was rejected

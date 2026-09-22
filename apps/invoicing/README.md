@@ -155,4 +155,4 @@ The admin caller sends HMAC headers but currently does not acquire a Google iden
 
 ## Working in this folder
 
-Read [AGENTS.md](AGENTS.md) for implementation constraints and [CLAUDE.md](CLAUDE.md) for the Claude Code entrypoint. Keep contract changes coordinated with the admin job and `packages/types`. Use the [root contribution guide](../../CONTRIBUTING.md) and [issue glossary](../../knowledge-base/ISSUES.md) for repository workflow and labels.
+Read [AGENTS.md](AGENTS.md) for implementation constraints and [CLAUDE.md](CLAUDE.md) for the Claude Code entrypoint. Keep contract changes coordinated with the admin job and `packages/types`. Use the [contribution guide](../../.github/CONTRIBUTING.md) and [issue glossary](../../knowledge-base/ISSUES.md) for repository workflow and labels.

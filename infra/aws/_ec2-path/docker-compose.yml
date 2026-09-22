@@ -92,7 +92,7 @@ services:
   # ---------------------------------------------------------------------------
   # Payload CMS — cms.theroyalglow.in
   # `payload migrate` is idempotent and runs before boot, mirroring the Render
-  # free-tier arrangement in render.yaml. It needs the UNPOOLED/direct DB host.
+  # free-tier arrangement in .github/render.yaml. It needs the UNPOOLED/direct DB host.
   # ---------------------------------------------------------------------------
   cms:
     <<: *app

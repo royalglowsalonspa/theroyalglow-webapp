@@ -4,7 +4,7 @@ Thanks for your interest in the **theroyalglow-webapp** codebase. This document
 covers how we work — branching, commits, code review, and how to get a
 pull request merged.
 
-See [ISSUES.md](./knowledge-base/ISSUES.md) for reading and writing issues, label names,
+See [ISSUES.md](../knowledge-base/ISSUES.md) for reading and writing issues, label names,
 priorities, severity, triage, and project terminology.
 
 For questions that aren't about code, see [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md)
@@ -84,7 +84,7 @@ Other env vars (per-app secrets, OAuth credentials, etc.) live in
    the GitHub UI's "Squash and merge" so each PR becomes one commit on
    `dev`. Don't use the "Rebase and merge" or "Create a merge commit"
    buttons.
-6. **Promote after the PR is merged into `dev`.** Run the **Promote validated commit** workflow from `dev`, choosing `test`, `pprd`, or `prod`. It runs checks and fast-forwards branches in order, preserving identical commits and messages. Production requires explicit maintainer confirmation at dispatch. See [promotion operations](./knowledge-base/branch-promotions.md).
+6. **Promote after the PR is merged into `dev`.** Run the **Promote validated commit** workflow from `dev`, choosing `test`, `pprd`, or `prod`. It runs checks and fast-forwards branches in order, preserving identical commits and messages. Production requires explicit maintainer confirmation at dispatch. See [promotion operations](../knowledge-base/branch-promotions.md).
 
 ## Commit conventions
 
@@ -165,4 +165,4 @@ fix. When you add a feature, write a test that exercises the new behavior.
 ## License
 
 By contributing, you agree that your contributions will be licensed under
-the project's [MIT License](./LICENSE).
+the project's [MIT License](../LICENSE).

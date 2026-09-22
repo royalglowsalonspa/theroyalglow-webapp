@@ -72,4 +72,4 @@ There is no Render fallback for web/admin. Roll back only through the AWS workfl
 - `environment-variables.md` — canonical variable names and ownership.
 - `observability.md` — monitoring layers.
 - `launch-checklist.md` — exhaustive service checklist.
-- `../M2AWS.md` — live AWS architecture and cutover record.
+- `../M2C/M2AWS.md` — live AWS architecture and cutover record.

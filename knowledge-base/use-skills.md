@@ -295,7 +295,7 @@ Skills are Markdown files in `.kiro/skills/` that Kiro auto-activates based on c
 | **tailwind-v4** | Write Tailwind CSS v4 classes (CSS-first config, no JS config file) | Create `.kiro/skills/tailwind-v4.md` |
 | **better-auth** | Implement Better Auth patterns — Google OAuth, RBAC, sessions | Create `.kiro/skills/better-auth.md` |
 | **aws-serverless** | Build and review Lambda + CloudFront deployment patterns | Activate the AWS serverless skill |
-| **sst-deployment** | Maintain `sst.config.ts` and `.github/workflows/deploy-aws.yml` | Follow `M2AWS.md` and current SST guidance |
+| **sst-deployment** | Maintain `sst.config.ts` and `.github/workflows/deploy-aws.yml` | Follow `M2C/M2AWS.md` and current SST guidance |
 | **react-email** | Build React Email templates using correct component patterns | Create `.kiro/skills/react-email.md` |
 | **zod-validation** | Create Zod schemas for API input validation | Create `.kiro/skills/zod-validation.md` |
 | **playwright-testing** | Write Playwright E2E tests following best practices | Create `.kiro/skills/playwright-testing.md` |
@@ -321,7 +321,7 @@ Skills are Markdown files in `.kiro/skills/` that Kiro auto-activates based on c
 | **json-ld-seo** | Structured data (LocalBusiness, Service, FAQ, BlogPosting, BreadcrumbList) | Create `.kiro/skills/json-ld-seo.md` |
 | **indian-locale** | India-specific patterns — DD/MM/YYYY dates, ₹ currency, GST, DPDP Act | Create `.kiro/skills/indian-locale.md` |
 | **error-boundaries** | React error boundaries, API error shapes, graceful degradation | Create `.kiro/skills/error-boundaries.md` |
-| **sst-aws-nextjs** | Deploy Next.js to AWS Lambda + CloudFront with SST’s OpenNext-based AWS adapter | Follow `sst.config.ts` and `M2AWS.md` |
+| **sst-aws-nextjs** | Deploy Next.js to AWS Lambda + CloudFront with SST’s OpenNext-based AWS adapter | Follow `sst.config.ts` and `M2C/M2AWS.md` |
 
 ### Community Agent Skills (from GitHub)
 

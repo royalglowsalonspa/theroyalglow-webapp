@@ -116,7 +116,7 @@ prevent that race on subsequent promotions.
 
 A merge gate also waited for `codecov/project` while Codecov was configured to
 wait for other checks, so the two blocked each other. Coverage now reports
-independently of other CI statuses (`require_ci_to_pass: false` in `codecov.yml`).
+independently of other CI statuses (`require_ci_to_pass: false` in `.github/codecov.yml`).
 The project/patch coverage thresholds and the separate `CI Success` requirement
 are unchanged; no failed test or coverage threshold is waived by this reporting
 change. The merge gate involved was Mergify, which has since been removed; the

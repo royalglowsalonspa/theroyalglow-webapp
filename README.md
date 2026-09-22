@@ -1,15 +1,15 @@
 # Royal Glow Salon & Spa
 
 <p align="center">
-  <a href="https://theroyalglow.in"><img src="./.github/banner.png" alt="Royal Glow Salon & Spa"></a>
+  <a href="https://theroyalglow.in"><img src="./.github/assets/banner.png" alt="Royal Glow Salon & Spa"></a>
 </p>
 
 <p align="center">
   <a href="https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/workflows/ci.yml"><img src="https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License"></a>
-  <a href="./CODE_OF_CONDUCT.md"><img src="https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg" alt="Code of Conduct"></a>
-  <a href="./SECURITY.md"><img src="https://img.shields.io/badge/Security-Policy-blue.svg" alt="Security Policy"></a>
-  <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/Contributing-Welcome-brightgreen.svg" alt="Contributing"></a>
+  <a href="./.github/CODE_OF_CONDUCT.md"><img src="https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg" alt="Code of Conduct"></a>
+  <a href="./.github/SECURITY.md"><img src="https://img.shields.io/badge/Security-Policy-blue.svg" alt="Security Policy"></a>
+  <a href="./.github/CONTRIBUTING.md"><img src="https://img.shields.io/badge/Contributing-Welcome-brightgreen.svg" alt="Contributing"></a>
   <a href="https://bun.sh"><img src="https://img.shields.io/badge/Bun-workspaces-f9f1e1?logo=bun&amp;logoColor=black" alt="Bun workspaces"></a>
   <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-App%20Router-000?logo=next.js" alt="Next.js App Router"></a>
   <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&amp;logoColor=white" alt="TypeScript strict"></a>
@@ -28,7 +28,7 @@ Start with the README for the application you are changing.
 | --- | --- | --- | --- |
 | [Web](apps/web/README.md) | Public pages, booking dialog, customer accounts, lead capture, customer APIs | 3000 | AWS Lambda + CloudFront through [SST](sst.config.ts) |
 | [Admin](apps/admin/README.md) | Booking operations, billing, customers, memberships, staff, reports, background jobs | 3001 | AWS Lambda + CloudFront through [SST](sst.config.ts) |
-| [CMS](apps/cms/README.md) | Payload admin, marketing content, media, service catalogue authoring | 3002 | Render blueprint in [render.yaml](render.yaml) |
+| [CMS](apps/cms/README.md) | Payload admin, marketing content, media, service catalogue authoring | 3002 | Render blueprint in [.github/render.yaml](.github/render.yaml) |
 | [Invoicing](apps/invoicing/README.md) | HMAC-authenticated PDF rendering and R2 storage | 8080 | Node container targeting Google Cloud Run; see app packaging caveats |
 
 The public site is `theroyalglow.in`; operations run at `admin.theroyalglow.in`, and Payload runs at `cms.theroyalglow.in`. Admin URLs use root paths such as `/bookings`, not `/admin/bookings`. Payload has its own `/admin` interface and authentication.
@@ -178,12 +178,12 @@ The permanent Git branches are **`dev`, `test`, `pprd`, and `prod`**. `prod` is 
 
 ## Contributor and agent documentation
 
-- [CONTRIBUTING.md](CONTRIBUTING.md): contribution process and commit conventions.
+- [CONTRIBUTING.md](.github/CONTRIBUTING.md): contribution process and commit conventions.
 - [knowledge-base/ISSUES.md](knowledge-base/ISSUES.md): issue terms, label slugs, priority, severity, and triage. It is a reading guide, not an inventory of open issues.
 - [AGENTS.md](AGENTS.md): shared instructions for coding agents; each app has scoped instructions.
 - [CLAUDE.md](CLAUDE.md): imports the shared instructions for Claude Code; each app has its own entrypoint.
 - [Knowledge-base index](knowledge-base/INDEX.md): choose the relevant architecture or operational guide rather than reading every document.
-- [SECURITY.md](SECURITY.md): vulnerability reporting. Follow [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) in project discussions.
+- [SECURITY.md](.github/SECURITY.md): vulnerability reporting. Follow [CODE_OF_CONDUCT.md](.github/CODE_OF_CONDUCT.md) in project discussions.
 
 The instruction layout follows [AGENTS.md guidance](https://agents.md/), [Codex instruction discovery](https://learn.chatgpt.com/docs/agent-configuration/agents-md), and [Claude Code memory guidance](https://code.claude.com/docs/en/memory). Shared rules live in `AGENTS.md`; `CLAUDE.md` imports them to avoid maintaining duplicate instructions. App-specific guidance stays close to its code, while READMEs explain the system to contributors.
 
