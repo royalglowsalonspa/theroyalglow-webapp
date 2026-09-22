@@ -25,7 +25,7 @@
  * payload.config.ts only carry the WEB app origin — never the CMS's own — so
  * nothing else establishes it.
  *
- * render.yaml DECLARES PAYLOAD_PUBLIC_SERVER_URL (it is a public origin, not a
+ * .github/render.yaml DECLARES PAYLOAD_PUBLIC_SERVER_URL (it is a public origin, not a
  * secret), so the warning should never fire in the Render deploy. It is kept
  * because Render's precedence between a blueprint `value:` and a pre-existing
  * dashboard entry is not something this repo can prove — a boot log line makes
@@ -54,7 +54,7 @@ export function resolveServerURL(
     warn(
       '[payload] PAYLOAD_PUBLIC_SERVER_URL is empty in production. serverURL is the ' +
         'trusted origin Payload 3.90+ checks for external file fetches and same-origin ' +
-        'header stripping; set it (render.yaml declares it) to restore that control.',
+        'header stripping; set it (.github/render.yaml declares it) to restore that control.',
     )
   }
   return configured

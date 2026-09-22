@@ -59,7 +59,7 @@ Parameters:
   InstanceType:
     Type: String
     Default: t3.micro
-    Description: Free-tier eligible for 12 months (1 GiB RAM — see M2AWS.md 9.4).
+    Description: Free-tier eligible for 12 months (1 GiB RAM — see M2C/M2AWS.md 9.4).
 
   AlertEmail:
     Type: String

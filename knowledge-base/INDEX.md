@@ -2,7 +2,7 @@
 
 The single key to all project documentation for **Royal Glow Salon & Spa (RGSS)**.
 Architecture, planning, operational references, and the issue guide (`ISSUES.md`)
-live here. `README.md` and `CONTRIBUTING.md` live in the repo root.
+live here. `README.md` lives in the repo root; `CONTRIBUTING.md` lives in `.github/`.
 
 > Steering files reference these docs via `#[[file:knowledge-base/<name>.md]]`.
 

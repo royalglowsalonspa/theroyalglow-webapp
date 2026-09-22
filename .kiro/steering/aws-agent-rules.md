@@ -42,7 +42,7 @@ Appended locally, not part of the upstream AWS rules file.
 | Fact | Value |
 |---|---|
 | Account | `343277178041` |
-| Region | `ap-southeast-1` (Singapore) — co-located with Neon; see `M2AWS.md` §3 |
+| Region | `ap-southeast-1` (Singapore) — co-located with Neon; see `M2C/M2AWS.md` §3 |
 | Toolkit service region | `us-east-1` only (`aws agent-toolkit ...` commands) |
 | AWS CLI | v2, user-local install at `%LOCALAPPDATA%\Programs\Amazon\AWSCLIV2` |
 | Auth | `aws login` (browser). Credentials last 12 h, renewable 90 days. |
@@ -59,7 +59,7 @@ install/use Wrangler or a Cloudflare compute adapter. The archived CloudFormatio
 **Scope.** Only `apps/web` and `apps/admin` run on AWS. `apps/cms` stays on Render,
 `apps/invoicing` on Cloud Run, and Neon, Upstash, QStash, Resend, Ably and Cloudflare R2 are
 unchanged. Do not "helpfully" migrate these to AWS equivalents — that was explicitly rejected
-(`M2AWS.md` §2). Service catalogue and availability requests currently read Neon directly; no
+(`M2C/M2AWS.md` §2). Service catalogue and availability requests currently read Neon directly; no
 Upstash cache is implemented. A future five-minute cache may use Upstash, but do not add
 Cloudflare Worker KV.
 
@@ -74,4 +74,4 @@ SSM Parameter Store. `NEXT_PUBLIC_*` values are build-time only and are supplied
 variables — putting them in a secret store has no effect on the client bundle. DNS-only Cloudflare
 credentials belong in the deployment environment, not either application's runtime.
 
-**Do not use the root user.** See `M2AWS.md` §5.
+**Do not use the root user.** See `M2C/M2AWS.md` §5.

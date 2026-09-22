@@ -4,7 +4,7 @@ Everything here is **additive**. No application code is modified by these files,
 and nothing runs until an AWS account is wired up.
 
 The runbook that explains *why* each choice was made, in order, is
-[`M2AWS.md`](../../M2AWS.md) at the repo root. This file is just the map.
+[`M2AWS.md`](../../../M2C/M2AWS.md). This file is just the map.
 
 | Path | Role | Runbook |
 |---|---|---|

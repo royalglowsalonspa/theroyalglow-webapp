@@ -170,7 +170,7 @@ Use `type: chore` and `type: tracking` for the latter two kinds of work.
 
 Provide the summary, impact, evidence, scope, and acceptance criteria described
 above. Record an environment and revision when reporting a defect, and separate
-observations from possible causes. Follow [SECURITY.md](../SECURITY.md) for private
+observations from possible causes. Follow [SECURITY.md](../.github/SECURITY.md) for private
 vulnerability reporting. Keep credentials and customer personal data out of
 public issue evidence.
 
@@ -181,7 +181,7 @@ external project or service. Link the relevant prerequisite or upstream report.
 
 Use `type: tracking` for a parent issue coordinating actionable child issues.
 Link the implementation PR and record verification against the acceptance
-criteria. Follow [CONTRIBUTING.md](../CONTRIBUTING.md) for branch, review, and merge
+criteria. Follow [CONTRIBUTING.md](../.github/CONTRIBUTING.md) for branch, review, and merge
 requirements. Record a reason when closing as `duplicate`, `invalid`, or `wontfix`;
 link the canonical issue when marking a duplicate.
 

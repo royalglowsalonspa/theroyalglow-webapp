@@ -1,6 +1,7 @@
 # M2AWS — Move `apps/web` + `apps/admin` to AWS
 
-> **M2AWS** = *Move to AWS*. Companion docs (planned): `M2AZURE.md`, `M2GCP.md`, following the
+> **M2AWS** = *Move to AWS*. Lives in `M2C/` (*Move to Cloud*) alongside its planned
+> companions `M2AZURE.md` and `M2GCP.md`, following the
 > same phase structure — see [§12 Portability contract](#12-portability-contract).
 
 | | |
@@ -64,7 +65,7 @@ Lambda available, the chain collapses:
    `DB_DRIVER` swap that touched every query path.
 
 The rejected EC2 design is archived at
-[`infra/aws/_ec2-path/`](infra/aws/_ec2-path/ARCHIVED.md) as historical design input only. It is
+[`infra/aws/_ec2-path/`](../infra/aws/_ec2-path/ARCHIVED.md) as historical design input only. It is
 not deployed, tested as rollback, or part of current recovery. Adopting it would require a new
 migration decision, refreshed infrastructure and security review, data/service migration planning,
 validation, and a new cutover.
@@ -126,7 +127,7 @@ first one:
 1. Reduce DB round trips further (see above) — cheapest, no infrastructure change.
 2. Add a read replica or heavier caching close to users.
 3. Move the database to Mumbai — which means Neon → RDS, the `DB_DRIVER` factory, and losing the
-   4-branch workflow. See [`infra/aws/_ec2-path/ARCHIVED.md`](infra/aws/_ec2-path/ARCHIVED.md).
+   4-branch workflow. See [`infra/aws/_ec2-path/ARCHIVED.md`](../infra/aws/_ec2-path/ARCHIVED.md).
 
 Record the decision and the numbers here when the month is up, so the next person sees why.
 
@@ -257,7 +258,7 @@ Verified lifted 29/08/2026.
 
 ## 6. Phase 1 — SST configuration
 
-[`sst.config.ts`](sst.config.ts) declares both apps. Key points:
+[`sst.config.ts`](../sst.config.ts) declares both apps. Key points:
 
 - **One app, two components.** SST diffs infrastructure, so an admin-only change does not
   redeploy web.
@@ -319,7 +320,7 @@ Omitting them produces a notification layer that monitors green while being comp
 
 ## 8. Phase 3 — CI/CD
 
-[`.github/workflows/deploy-aws.yml`](.github/workflows/deploy-aws.yml) — on push to `prod`, plus
+[`.github/workflows/deploy-aws.yml`](../.github/workflows/deploy-aws.yml) — on push to `prod`, plus
 manual dispatch. Authentication is **GitHub OIDC**; no long-lived AWS keys in secrets.
 
 ```bash
@@ -333,7 +334,7 @@ Trust policy scoped to `repo:royalglowsalonspa/theroyalglow-webapp:ref:refs/head
 Pipeline: `bun install` → `sst deploy --stage production` → poll `/api/health` on both apps →
 notify on failure.
 
-Migrations are unchanged: [`migrate.yml`](.github/workflows/migrate.yml), forward-only, per Neon
+Migrations are unchanged: [`migrate.yml`](../.github/workflows/migrate.yml), forward-only, per Neon
 branch, per `.kiro/steering/migration-discipline.md`.
 
 ### Rollback — the honest weak spot

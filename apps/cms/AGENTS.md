@@ -24,7 +24,7 @@ implementation before relying on historical comments or plans.
 | Public content rendering | Matching collection and `../web/src/lib/cms/` consumer |
 | Database structure | `src/migrations/index.ts`, owning collection, root migration guidance |
 | Admin routes and components | `src/app/(payload)/`, `next.config.ts`, installed Next.js docs |
-| Deployment | Root `render.yaml`, `.github/workflows/cms-migrate.yml`, package scripts |
+| Deployment | `.github/render.yaml`, `.github/workflows/cms-migrate.yml`, package scripts |
 
 This app owns Payload content management and Payload admin authentication. Web
 and staff portal authentication use Better Auth in their own apps. Do not merge

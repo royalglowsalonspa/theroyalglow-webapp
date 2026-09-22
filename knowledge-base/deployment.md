@@ -32,7 +32,7 @@ Cloudflare remains authoritative for DNS and R2. Production web/admin aliases ar
 | Weekly backup | `.github/workflows/weekly-backup.yml` |
 | Backup restore test | `.github/workflows/monthly-backup-test.yml` |
 | Pre-migration backup | `.github/workflows/pre-migration-backup.yml` |
-| Production architecture | `M2AWS.md` |
+| Production architecture | `M2C/M2AWS.md` |
 
 Documentation must not duplicate workflow internals that can drift. When this guide and an executable file disagree, review the executable file and update this guide.
 

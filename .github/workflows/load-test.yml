@@ -9,7 +9,7 @@ name: Load & Security
 #      a hard gate.
 #   2. k6 load test + OWASP ZAP baseline — both point at a DEPLOYED pre-production
 #      URL (secret PPRD_URL). There is currently no pprd deployment: Render
-#      deploys web/admin/cms from the `prod` branch only (see render.yaml). With
+#      deploys web/admin/cms from the `prod` branch only (see .github/render.yaml). With
 #      PPRD_URL unset, k6 silently fell back to http://localhost:3000 and failed
 #      with "connection refused" against a server that was never started, and ZAP
 #      was handed an empty target. Those are configuration gaps, not code

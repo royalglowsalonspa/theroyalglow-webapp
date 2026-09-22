@@ -10,7 +10,7 @@
  *                ONLY these two apps run on AWS. apps/cms stays on Render,
  *                apps/invoicing stays on Cloud Run, and Neon, Upstash, QStash,
  *                Resend, Ably and R2 are all unchanged — so this migration
- *                needs ZERO application code changes. See M2AWS.md.
+ *                needs ZERO application code changes. See M2C/M2AWS.md.
  *
  * Region       : ap-southeast-1 (Singapore) — DECIDED 31/07/2026, co-located
  *                with Neon (which has no Mumbai region) and with the Render CMS.
@@ -20,7 +20,7 @@
  *
  *                REVIEW DUE early September 2026 — one month of real traffic,
  *                then decide whether to stay. Metrics, thresholds and the
- *                escalation order are in M2AWS.md §3.1. Do NOT change this
+ *                escalation order are in M2C/M2AWS.md §3.1. Do NOT change this
  *                region before collapsing sequential queries and adding caching;
  *                region is the expensive lever and rarely the right first one.
  *
@@ -33,7 +33,7 @@
  *                queue. All within always-free allowances at this traffic.
  *
  *                Domains attach on the `production` stage only, after the
- *                CloudFront-URL verification described in M2AWS.md §9. DNS stays
+ *                CloudFront-URL verification described in M2C/M2AWS.md §9. DNS stays
  *                on Cloudflare; SST manages just the ACM validation records, the
  *                CAA records and the two aliases.
  ************************************************************/
@@ -64,7 +64,7 @@ export default $config({
     // aliases below.
     //
     // Zone ID is not a secret; it is an account-scoped identifier, like the AWS
-    // account number in M2AWS.md. Passing it explicitly avoids the account-wide
+    // account number in M2C/M2AWS.md. Passing it explicitly avoids the account-wide
     // zone lookup, so the API token only needs this one zone.
     //
     // Requires CLOUDFLARE_API_TOKEN at deploy time with Zone:Read + DNS:Edit.
