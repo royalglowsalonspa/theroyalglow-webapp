@@ -84,9 +84,9 @@ services:
     # ----- Environment variables -------------------------------------------
     envVars:
       # Pin the Bun version Render uses on the node runtime. Matches the repo's
-      # packageManager (bun@1.3.13 in root package.json). Bump together.
+      # packageManager (bun@1.4.0 in root package.json). Bump together.
       - key: BUN_VERSION
-        value: 1.3.13
+        value: 1.4.0
 
       # Node prod mode (Next.js production build/runtime).
       - key: NODE_ENV
@@ -108,15 +108,22 @@ services:
       - key: PAYLOAD_SECRET
         sync: false
 
-      # Public URL where the Payload admin/API is served. For this deploy:
-      # https://cms.theroyalglow.in (custom domain attached in dashboard).
+      # Public URL where the Payload admin/API is served (custom domain attached
+      # in the dashboard). DECLARED rather than `sync: false`: this is a public
+      # origin, not a secret, and Payload 3.90+ treats `serverURL` as the trusted
+      # origin for external file fetches and same-origin header stripping. An
+      # unset value degrades silently to '' — and the `csrf`/`cors` lists in
+      # payload.config.ts only carry the WEB app origin, never the CMS's own — so
+      # leaving this to a dashboard-only entry made a security control
+      # unverifiable from the repo. Keep it in git.
       - key: PAYLOAD_PUBLIC_SERVER_URL
-        sync: false
+        value: https://cms.theroyalglow.in
 
       # Web app origin allowed to read the REST API (CORS + CSRF allowlist).
-      # e.g. https://theroyalglow.in
+      # Also a public origin, so likewise declared rather than dashboard-only:
+      # an empty value silently empties the CORS/CSRF allowlist.
       - key: WEB_APP_URL
-        sync: false
+        value: https://theroyalglow.in
 
       # --- Cloudflare R2 (S3-compatible) media storage ---
       # These exact names are what apps/cms/src/payload.config.ts reads. The
@@ -197,7 +204,7 @@ services:
     envVars:
       # Pin Bun to the repo's packageManager (root package.json). Bump together.
       - key: BUN_VERSION
-        value: 1.3.13
+        value: 1.4.0
       - key: NODE_ENV
         value: production
 
@@ -310,7 +317,7 @@ services:
 
     envVars:
       - key: BUN_VERSION
-        value: 1.3.13
+        value: 1.4.0
       - key: NODE_ENV
         value: production
 
