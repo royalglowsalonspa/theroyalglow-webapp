@@ -28,7 +28,7 @@ Start with the README for the application you are changing.
 | --- | --- | --- | --- |
 | [Web](apps/web/README.md) | Public pages, booking dialog, customer accounts, lead capture, customer APIs | 3000 | AWS Lambda + CloudFront through [SST](sst.config.ts) |
 | [Admin](apps/admin/README.md) | Booking operations, billing, customers, memberships, staff, reports, background jobs | 3001 | AWS Lambda + CloudFront through [SST](sst.config.ts) |
-| [CMS](apps/cms/README.md) | Payload admin, marketing content, media, service catalogue authoring | 3002 | Render blueprint in [.github/render.yaml](.github/render.yaml) |
+| [CMS](apps/cms/README.md) | Payload admin, marketing content, media, service catalogue authoring | 3002 | Render blueprint in [infra/render/render.yaml](infra/render/render.yaml) |
 | [Invoicing](apps/invoicing/README.md) | HMAC-authenticated PDF rendering and R2 storage | 8080 | Node container targeting Google Cloud Run; see app packaging caveats |
 
 The public site is `theroyalglow.in`; operations run at `admin.theroyalglow.in`, and Payload runs at `cms.theroyalglow.in`. Admin URLs use root paths such as `/bookings`, not `/admin/bookings`. Payload has its own `/admin` interface and authentication.

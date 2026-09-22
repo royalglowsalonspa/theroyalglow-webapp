@@ -1,14 +1,20 @@
 # ============================================================================
 # Render Blueprint — Royal Glow Salon & Spa CMS (apps/cms)
 # ----------------------------------------------------------------------------
-# This file lives at `.github/render.yaml`, NOT the repository root. Render
+# This file lives at `infra/render/render.yaml`, NOT the repository root. Render
 # defaults to `render.yaml` at the root, so the Blueprint MUST carry a matching
-# custom file path — set it on the Blueprint's Settings page in the Render
+# custom Blueprint Path — set it on the Blueprint's Settings page in the Render
 # Dashboard. Custom Blueprint paths are supported since Feb 2026; see
 # https://render.com/docs/infrastructure-as-code
 # If the dashboard path and this location disagree, blueprint syncs fail; the
 # already-running service keeps serving, but blueprint-driven updates stop
 # applying until they match.
+#
+# MOVED: this was previously `.github/render.yaml`. A Blueprint still pointing
+# at the old path stops syncing until its Blueprint Path is updated to
+# `infra/render/render.yaml`. `.github/` is GitHub's own config directory
+# (workflows, templates); infrastructure definitions belong under `infra/`
+# alongside `infra/aws/`.
 #
 # The deployed service's code lives in apps/cms, independent of this file's path.
 #

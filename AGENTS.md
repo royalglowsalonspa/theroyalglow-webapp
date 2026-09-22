@@ -111,7 +111,7 @@ Use the versions in manifests instead of upgrading unrelated tools to latest.
   PRs or cherry-pick/reword commits to move them between environments.
 - Production dispatch uses the workflow's maintainer confirmation input. A Git
   promotion does not itself prove database migration or every app deployment succeeded.
-- Web/admin run on AWS through `sst.config.ts`; CMS uses `.github/render.yaml`; invoicing
+- Web/admin run on AWS through `sst.config.ts`; CMS uses `infra/render/render.yaml`; invoicing
   targets Cloud Run. Cloudflare provides DNS/R2, not application compute.
 - Describe the problem, resulting behavior, validation, and material limitations
   in commit/PR summaries. Use meaningful Conventional Commit subjects for retained history.

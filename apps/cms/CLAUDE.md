@@ -28,4 +28,4 @@ directory. Keep detailed rules in `AGENTS.md` so both agent entry points agree.
 - [Repository instructions](../../AGENTS.md) and [CMS instructions](AGENTS.md)
 - [Catalogue migration](../../knowledge-base/service-catalogue-migration.md)
 - [Migration discipline](../../.kiro/steering/migration-discipline.md)
-- [Render Blueprint](../../.github/render.yaml) and [CMS migration workflow](../../.github/workflows/cms-migrate.yml)
+- [Render Blueprint](../../infra/render/render.yaml) and [CMS migration workflow](../../.github/workflows/cms-migrate.yml)

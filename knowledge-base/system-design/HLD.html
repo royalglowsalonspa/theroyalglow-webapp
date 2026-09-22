@@ -358,7 +358,7 @@
   <tr><td>Business Logic</td><td><code>packages/business/</code></td><td>Pure functions, domain rules, calculations</td><td>No I/O, no framework deps</td></tr>
   <tr><td>Data Access</td><td><code>packages/db/</code></td><td>Drizzle ORM schemas, query builders, migrations</td><td>Only package that imports Drizzle</td></tr>
   <tr><td>CMS</td><td><code>apps/cms/</code></td><td>Payload CMS v3 — blog, gallery, team bios, banners, FAQ, plus the bookable service catalogue</td><td>Marketing content + service catalogue authoring (synced to <code>public.*</code>)</td></tr>
-  <tr><td>Infrastructure</td><td><code>sst.config.ts</code>, <code>.github/render.yaml</code></td><td>SST v3 AWS web/admin IaC and Render CMS service definition</td><td>Platform-specific</td></tr>
+  <tr><td>Infrastructure</td><td><code>sst.config.ts</code>, <code>infra/render/render.yaml</code></td><td>SST v3 AWS web/admin IaC and Render CMS service definition</td><td>Platform-specific</td></tr>
 </table>
 
 <h3>3.4 Technology Decisions Matrix</h3>
