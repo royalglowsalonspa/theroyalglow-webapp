@@ -1,6 +1,7 @@
 codecov:
-  # Mergify waits for coverage. Publish coverage independently so Codecov does
-  # not wait for Mergify in return; CI Success remains a separate merge gate.
+  # Publish coverage independently of the other CI statuses: the `CI Success`
+  # aggregate is a separate required check, so Codecov must not wait on it or the
+  # two would gate each other and never report.
   require_ci_to_pass: false
   notify:
     wait_for_ci: false

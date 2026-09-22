@@ -2,8 +2,9 @@
 
 ## Current branch policy
 
-Feature and dependency work enters `dev` through a pull request. Mergify manages
-those PRs. The `test`, `pprd`, and `prod` branches receive the exact same commits
+Feature and dependency work enters `dev` through a pull request gated by the
+branch ruleset: an approving review plus the required status checks, then a direct
+merge. The `test`, `pprd`, and `prod` branches receive the exact same commits
 through `.github/workflows/promote.yml`; environment promotion PRs are not used.
 Fast-forward promotion preserves commit SHAs, messages, and ancestry. Branches may
 temporarily point to different releases while validation is in progress.
@@ -111,8 +112,10 @@ Release PR #231 incorrectly repeated the already published 0.2.0 history as
 It was superseded; serialized release runs and the merged-pending-release guard
 prevent that race on subsequent promotions.
 
-Mergify also waited for `codecov/project` while Codecov was configured to wait
-for other checks, including merge protection. Coverage now reports independently
-of other CI statuses. The project/patch coverage thresholds and Mergify's separate
-`CI Success` requirement are unchanged; no failed test or coverage threshold is
-waived by this reporting change.
+A merge gate also waited for `codecov/project` while Codecov was configured to
+wait for other checks, so the two blocked each other. Coverage now reports
+independently of other CI statuses (`require_ci_to_pass: false` in `codecov.yml`).
+The project/patch coverage thresholds and the separate `CI Success` requirement
+are unchanged; no failed test or coverage threshold is waived by this reporting
+change. The merge gate involved was Mergify, which has since been removed; the
+ruleset now requires the same coverage contexts directly.

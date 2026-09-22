@@ -33,14 +33,15 @@ Work happens on `dev` (or short-lived feature branches off `dev`). Code must pas
 
 | Branch | Protection |
 | --- | --- |
-| `prod` | Ruleset + Mergify protections, production security/load gates |
-| `pprd` | Ruleset + Mergify protections, integration and security/load gates |
-| `test` | Ruleset + Mergify protections, CI and integration/E2E gates |
-| `dev` | Ruleset + Mergify protections, CI and security gates |
+| `prod` | Ruleset protections, production security/load gates |
+| `pprd` | Ruleset protections, integration and security/load gates |
+| `test` | Ruleset protections, CI and integration/E2E gates |
+| `dev` | Ruleset protections, CI and security gates |
 
-Mergify is the only merge orchestrator. Add the `merge-ready` label after
-approval to enter its queue. See [Engineering Workflow](/engineering/index)
-and [GitHub Rulesets](/github/rulesets) for the current policy.
+GitHub Rulesets are the only merge gate: a reviewed pull request into `dev` that
+satisfies the required status checks is merged directly. See
+[Engineering Workflow](/engineering/index) and
+[GitHub Rulesets](/github/rulesets) for the current policy.
 
 ## Database Per Environment
 

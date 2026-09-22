@@ -5,6 +5,8 @@ icon: clipboard-check
 ---
 > **Policy update (2026-09-09):** Environment promotions now use checked fast-forward updates through `promote.yml`, preserving identical commits without promotion PRs. Release Please targets `dev`. See `knowledge-base/branch-promotions.md` for the current procedure; older merge-based examples below are historical.
 
+> **Policy update:** Mergify has been removed from the project. `.mergify.yml`, the `Mergify Config` workflow, and the `Mergify Merge Protections` required check no longer exist, and the `merge-ready` label no longer automates anything. GitHub Rulesets are now the only merge gate: an approving review plus the required status checks, then a direct merge. No merge queue, priority rules, or freeze mechanism is configured. Every Mergify reference below is historical.
+
 
 
 Last reviewed: 2026-09-07
