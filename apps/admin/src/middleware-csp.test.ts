@@ -25,6 +25,8 @@ import { middleware } from './middleware'
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
+  vi.restoreAllMocks()
 })
 
 function makeAuthorizedRequest(path: string): NextRequest {
@@ -93,5 +95,30 @@ describe('admin middleware — CSP nonce on the allow branch (Req 7.3)', () => {
     expect(csp).toContain('font-src')
     expect(csp).toContain('https://fonts.gstatic.com')
     expect(csp).toContain('https://cdn.fontshare.com')
+  })
+})
+
+describe('admin middleware — diagnostic logging', () => {
+  it('keeps a forged pathname inside one quoted log field on a single line', async () => {
+    vi.stubEnv('NODE_ENV', 'development')
+    vi.stubEnv('ADMIN_DEV_BYPASS_AUTH', '')
+    vi.stubEnv('ADMIN_DEV_IMPERSONATE_EMAIL', '')
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const request = new NextRequest('https://admin.theroyalglow.in/bookings')
+    // Inject raw controls at the middleware boundary, before URL encoding can hide them.
+    vi.spyOn(request.nextUrl, 'pathname', 'get').mockReturnValue(
+      '/bookings\r\n[admin-mw]\u2028\u2029 "state=valid"\t\u001b',
+    )
+
+    const response = await middleware(request)
+
+    expect(response.status).toBe(307)
+    expect(log).toHaveBeenCalledOnce()
+    const entry = log.mock.calls[0]?.[0]
+    for (const control of ['\r', '\n', '\u2028', '\u2029', '\t', '\u001b']) {
+      expect(entry).not.toContain(control)
+    }
+    expect(entry).toContain('path="/bookings[admin-mw] \\"state=valid\\"\\t\\u001b"')
+    expect(entry).toContain('state=no_cookie')
   })
 })

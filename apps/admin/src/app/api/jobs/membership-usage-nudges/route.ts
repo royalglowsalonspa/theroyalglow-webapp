@@ -30,6 +30,7 @@
  * - Each member is nudged at most once (simple dedupe, not recency-windowed).
  ************************************************************/
 
+import { randomInt } from 'node:crypto'
 import { buildNotificationContent } from '@rgss/business'
 import { createNotification, getNudgeEligibleMemberships, hasNotification } from '@rgss/db/queries'
 import { createLogger } from '@rgss/logger'
@@ -66,7 +67,7 @@ const MAX_PER_BATCH = 20
 function shuffle<T>(items: T[]): T[] {
   const out = [...items]
   for (let i = out.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1))
+    const j = randomInt(i + 1)
     const tmp = out[i]
     out[i] = out[j] as T
     out[j] = tmp as T

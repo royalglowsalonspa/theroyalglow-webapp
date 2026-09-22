@@ -162,7 +162,8 @@ function slugifyName(name: string): string {
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+    // Each non-alphanumeric run is now one hyphen, including at the edges.
+    .replace(/^-|-$/g, '')
   return base || 'item'
 }
 

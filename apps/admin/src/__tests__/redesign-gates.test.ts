@@ -98,7 +98,8 @@ describe('Redesign gate: shadcn theme variables remapped to Brand Tokens (Req 1.
     const css = readFileSync(SHADCN_THEME_PATH, 'utf8')
     for (const name of SHADCN_VARS) {
       // e.g. `--primary: var(--color-cocoa-dark);`
-      const re = new RegExp(`${name.replace(/[-]/g, '\\-')}\\s*:\\s*var\\(--`)
+      // These fixed names contain only letters, digits and literal hyphens.
+      const re = new RegExp(`${name}\\s*:\\s*var\\(--`)
       expect(re.test(css), `shadcn var ${name} is not mapped to a var(--...) token`).toBe(true)
     }
   })
