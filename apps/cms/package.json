@@ -37,8 +37,8 @@
     "slugify": "1.6.9"
   },
   "devDependencies": {
-    "@types/node": "^26.4.1",
-    "fast-check": "^4.9.0",
+    "@types/node": "^26.6.1",
+    "fast-check": "^4.10.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "typescript": "^5.9.3"
