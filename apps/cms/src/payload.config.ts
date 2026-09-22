@@ -56,6 +56,7 @@ import { ServiceCategory } from './collections/ServiceCategory'
 import { Team } from './collections/Team'
 import { Testimonial } from './collections/Testimonial'
 import { Users } from './collections/Users'
+import { resolveServerURL } from './lib/server-url'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -80,7 +81,9 @@ const resendApiKey = process.env.RESEND_API_KEY ?? ''
 const isEmailConfigured = resendApiKey !== ''
 
 export default buildConfig({
-  serverURL: process.env.PAYLOAD_PUBLIC_SERVER_URL ?? '',
+  // Reports at boot when the trusted origin Payload 3.90+ requires is missing.
+  // See apps/cms/src/lib/server-url.ts for why this is a warning, not a throw.
+  serverURL: resolveServerURL(),
   secret: process.env.PAYLOAD_SECRET ?? '',
   // Spread the `email` key only when configured. Under
   // `exactOptionalPropertyTypes`, an optional property cannot be set to an
