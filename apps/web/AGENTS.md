@@ -90,7 +90,9 @@ Run these from the **repository root**, using the existing workspace install:
   and provider failures. Preserve each surface's deliberate fallback/empty state;
   do not silently convert marketing fallback prices into bookable service data.
 - CMS revalidation requires `REVALIDATE_SECRET` matching CMS and an allowed tag.
-  The current handler refreshes the root layout with `revalidatePath('/', 'layout')`.
+  It is provisioned as the `RevalidateSecret` SST secret, web only; without it the
+  handler answers 503 and CMS edits stay invisible until the fetch TTL lapses. The
+  handler calls `revalidateTag(tag, { expire: 0 })` per tag and `revalidatePath('/', 'layout')`.
   Coordinate cache-contract changes with CMS hooks.
 - Prefer `src/env.ts` for validated settings. Existing optional adapters read
   `process.env` deliberately to degrade gracefully; preserve that behavior when

@@ -179,8 +179,14 @@ Fallback behavior differs by surface:
   Drizzle application data synchronized from CMS authoring, not marketing cards.
 
 `POST /api/revalidate` authenticates `REVALIDATE_SECRET` and accepts allowed
-collection tags. Its current implementation refreshes the entire root layout
-through `revalidatePath('/', 'layout')`, even though requests identify tags.
+collection tags. For each tag it calls `revalidateTag(tag, { expire: 0 })`, which
+drops the tagged `cmsFetch` Data Cache entries — the only stale state on
+dynamically rendered pages such as the nonce-bearing homepage — and it also calls
+`revalidatePath('/', 'layout')` for the CMS-backed pages that are statically
+rendered. `{ expire: 0 }` rather than the `'max'` profile so the next request
+returns fresh content instead of serving stale content while revalidating.
+`REVALIDATE_SECRET` must be provisioned on the deployed app; when it is missing
+this route answers 503 and CMS edits stay invisible until the 1h fetch TTL lapses.
 See [service catalogue management](../../knowledge-base/service-catalogue-management.md)
 for the cross-app authoring/synchronization model.
 

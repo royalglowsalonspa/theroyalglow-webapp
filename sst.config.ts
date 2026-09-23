@@ -93,6 +93,13 @@ export default $config({
     const resendApiKey = new sst.Secret('ResendApiKey')
     const vapidPrivateKey = new sst.Secret('VapidPrivateKey')
     const invoicePdfHmacSecret = new sst.Secret('InvoicePdfHmacSecret')
+    // Shared with the Render-hosted CMS, which POSTs it to web /api/revalidate
+    // after a content save. Web-only: apps/admin has no revalidate route. Without
+    // it that handler answers 503 "Revalidation not configured", the CMS hook
+    // swallows the failure, and owner edits stay invisible until the 1h fetch TTL
+    // lapses — which is exactly how a published hero banner kept rendering the
+    // bundled fallback SVG. The value MUST be byte-identical to the CMS setting.
+    const revalidateSecret = new sst.Secret('RevalidateSecret')
     const internalJobToken = new sst.Secret('InternalJobToken')
     const r2AccessKeyId = new sst.Secret('R2AccessKeyId')
     const r2SecretAccessKey = new sst.Secret('R2SecretAccessKey')
@@ -159,6 +166,8 @@ export default $config({
         // variable — it must be set here so each build gets the right value.
         NEXT_PUBLIC_APP_URL: 'https://theroyalglow.in',
         BETTER_AUTH_URL: 'https://theroyalglow.in',
+        // Authenticates the CMS -> web revalidation ping. Web only.
+        REVALIDATE_SECRET: revalidateSecret.value,
         RESEND_API_KEY: resendApiKey.value,
         VAPID_PRIVATE_KEY: vapidPrivateKey.value,
         VAPID_SUBJECT: 'mailto:contact@theroyalglow.in',

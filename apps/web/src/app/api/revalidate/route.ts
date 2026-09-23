@@ -16,7 +16,8 @@
  *
  * Features / Functionality :
  * - POST { secret, tag } or { secret, tags: string[] }
- * - Maps to revalidateTag(); tags match the CMS collection slugs
+ * - revalidateTag(tag, { expire: 0 }) per tag — tags match the CMS collection
+ *   slugs used by lib/cms/client.ts — plus revalidatePath('/', 'layout')
  *
  * Tech Stack   : Next.js 16 (Route Handler), TypeScript
  * Layer        : API (Thin)
@@ -25,10 +26,17 @@
  *
  * Notes        :
  * - Reads process.env.REVALIDATE_SECRET directly (must match the CMS value).
+ *   It is provisioned as the `RevalidateSecret` SST secret for web only; when it
+ *   is absent this route answers 503 and every CMS content edit stays invisible
+ *   until the 1h fetch TTL lapses.
  * - Returns 401 on bad/missing secret, 400 on missing tag.
+ * - Both purges are needed: revalidateTag drops the tagged cmsFetch Data Cache
+ *   entries (the only stale state for dynamically rendered pages such as the
+ *   nonce-bearing homepage), revalidatePath drops the Full Route Cache for the
+ *   CMS-backed pages that are statically rendered.
  ************************************************************/
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 
 // Tags allowed to be revalidated — these mirror the CMS collection slugs used
 // as cache tags in lib/cms/client.ts. Anything else is rejected.
@@ -83,10 +91,28 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({ success: false, error: 'No valid tag provided' }, { status: 400 })
   }
 
-  // Revalidate every route that uses the root layout. Content edits are
-  // infrequent (owner-driven), so refreshing the whole site is simpler and
-  // more reliable than per-tag path mapping — and guarantees the changed
-  // content appears everywhere it is used (homepage, /offers, /services, etc.).
+  // Purge the fetch Data Cache entries for the changed collection. This is the
+  // one that matters for a DYNAMICALLY rendered page: the homepage carries a CSP
+  // nonce, so it is `no-store` and has no Full Route Cache entry to drop — the
+  // only stale thing is the tagged `cmsFetch` response (1h `revalidate`, tagged
+  // with the collection slug in lib/cms/client.ts). `revalidatePath` alone does
+  // not target those tags explicitly; it relies on Next's implicit path
+  // soft-tags, which is why an owner's banner edit could not reach the hero.
+  // `{ expire: 0 }`, NOT the `'max'` profile. Next 16 requires the second
+  // argument, and `'max'` keeps serving stale content for a year while it
+  // revalidates in the background — the owner would save a banner, reload, still
+  // see the old artwork, and conclude it is broken again. `updateTag` would give
+  // read-your-own-writes but is Server-Action-only and this is a webhook-driven
+  // Route Handler, so `{ expire: 0 }` is the documented equivalent: the next
+  // request is a blocking cache miss and returns the new content immediately.
+  // Content edits are infrequent and owner-driven, so one slower render is cheap.
+  for (const tag of revalidated) {
+    revalidateTag(tag, { expire: 0 })
+  }
+
+  // Still refresh every route built on the root layout, for the CMS-backed pages
+  // that ARE statically rendered (/blog, /gallery, /offers) and therefore need
+  // their Full Route Cache entry dropped as well as the underlying fetch.
   revalidatePath('/', 'layout')
 
   return Response.json({ success: true, revalidated })
