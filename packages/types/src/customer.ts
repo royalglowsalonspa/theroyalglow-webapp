@@ -79,3 +79,17 @@ export const updateNotificationPreferencesSchema = z
     message: 'At least one preference must be supplied.',
   })
 export type UpdateNotificationPreferencesInput = z.infer<typeof updateNotificationPreferencesSchema>
+
+// What a customer agreed to on /onboarding, stored as the `new_values` of an
+// audit_log row (entity_type 'customer_profile', actor = the customer) written
+// atomically with the profile. It is the immutable consent receipt the DPDP Act
+// asks a business to be able to produce; the row's created_at is the consent
+// time. The Privacy Policy is required to finish onboarding, so it is always
+// true. marketing_consent on customer_profile stays the live marketing switch,
+// and the browser's cookie-consent setting stays the live analytics switch.
+export type OnboardingConsentReceipt = {
+  event: 'onboarding_consent'
+  privacyPolicy: true
+  analytics: boolean
+  marketing: boolean
+}

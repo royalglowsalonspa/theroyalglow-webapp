@@ -113,7 +113,7 @@ sessionStorage cleared after successful write
 
 **Without this:** Every first-time customer who signs in during their first visit gets incorrectly tagged as `organic` — GMB attribution, walk-in tracking, and Meta ad ROAS all break silently.
 
-After submission: `customer_profile` record created with first-touch `acquisition_source` (`organic`, `gmb`, `walkin`, or converted `meta_ad`) → consent choices written to `rgss_cookie_consent` in localStorage → redirect to `/` (homepage). If `book=1` was preserved, the homepage booking dialog re-opens after onboarding. Cookie banner will not re-ask for categories already consented to here.
+After submission: the name the customer confirmed or corrected is saved to `user.name` (through Better Auth, which also refreshes the session cookie cache) → `customer_profile` record created with first-touch `acquisition_source` (`organic`, `gmb`, `walkin`, or converted `meta_ad`), in the same transaction as the consent receipt in `audit_log` (Privacy Policy required; analytics and marketing optional; see `audit_log` in [database-schema.md](database-schema.md)) → consent choices also written to `rgss_cookie_consent` in localStorage → redirect to `/` (homepage). If `book=1` was preserved, the homepage booking dialog re-opens after onboarding. Cookie banner will not re-ask for categories already consented to here.
 
 ---
 

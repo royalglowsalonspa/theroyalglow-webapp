@@ -971,7 +971,7 @@ Extended profile data for customers. One-to-one with `user`.
 | `gender` | `gender` | nullable | Enum: male, female, other, prefer_not_to_say |
 | `date_of_birth` | `date` | nullable | For birthday offers |
 | `marketing_consent` | `boolean` | NOT NULL, DEFAULT false | DPDP Act: explicit opt-in required. Controls birthday offers, promotional emails, re-engagement emails via Brevo. |
-| `marketing_consent_at` | `timestamptz` | nullable | When consent was given (legal audit trail) |
+| `marketing_consent_at` | `timestamptz` | nullable | When consent was given (legal audit trail). The full onboarding consent record (privacy, analytics, marketing) is the consent receipt in `audit_log`; see below. |
 | `appointment_reminders_enabled` | `boolean` | NOT NULL, DEFAULT true | 24h + 1h appointment reminders (push + email). Defaults on silently — customer can turn off from `/profile`. |
 | `membership_alerts_enabled` | `boolean` | NOT NULL, DEFAULT true | Membership expiry alerts (30d/7d/1d) and hours low warning (push + email). Defaults on silently — customer can turn off from `/profile`. |
 | `acquisition_source` | `text` | nullable | First-touch source: `'organic'`, `'meta_ad'`, `'gmb'`, `'walkin'` |
@@ -1866,6 +1866,8 @@ CREATE UNIQUE INDEX idx_monthly_gst_month ON monthly_gst_summary (month);
 #### `audit_log`
 
 Admin action tracking — who changed what, when.
+
+It also holds each customer's **onboarding consent receipt**. When `/api/onboarding/complete` creates a `customer_profile`, the same `db.batch()` transaction appends a row with `actor_id` = the customer, `action` = `create`, `entity_type` = `'customer_profile'`, `entity_id` = the new profile id, `created_at` = the consent time, and `new_values` = `{ "event": "onboarding_consent", "privacyPolicy": true, "analytics": <bool>, "marketing": <bool> }` (type `OnboardingConsentReceipt` in `@rgss/types`). This is the immutable record of what the customer agreed to and when (DPDP Act). `customer_profile.marketing_consent` stays the live marketing switch, and the browser's `rgss_cookie_consent` stays the live analytics switch. Because `actor_id` is `ON DELETE RESTRICT`, a future account-erasure flow must delete or anonymise these rows before deleting the `user`.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
