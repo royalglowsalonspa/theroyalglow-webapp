@@ -24,15 +24,19 @@
  *   breaks the live site
  * - Permanently (301) redirect legacy /admin/* and /staff/* paths
  * - Redirect unauthenticated visitors away from protected customer routes
+ * - Mark the onboarding form as recently shown (24h homepage re-prompt window)
  *
  * Tech Stack   : Next.js 16 Middleware, SST/OpenNext on AWS Lambda + CloudFront
  * Layer        : Infrastructure (request middleware)
  *
- * Dependencies : next/server, ./lib/admin-redirect, ./lib/staff-redirect
+ * Dependencies : next/server, ./lib/admin-redirect, ./lib/staff-redirect,
+ *                ./lib/onboarding-prompt
  *
  * Notes        :
  * - Better Auth's auth-server is intentionally not imported; the lightweight
- *   middleware gate only inspects whether the session cookie is present.
+ *   middleware gate only inspects whether the session cookie is present. It
+ *   accepts both the bare and the `__Secure-` prefixed cookie name, because
+ *   production issues the prefixed one.
  * - Uses standard Web APIs (`crypto.getRandomValues`, `btoa`) supported by the
  *   current SST/OpenNext AWS runtime, with no Node-specific dependency.
  *
@@ -75,10 +79,29 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { mapAdminRedirect } from './lib/admin-redirect'
+import {
+  isPrefetchRequest,
+  ONBOARDING_PATH,
+  ONBOARDING_PROMPTED_COOKIE,
+  ONBOARDING_PROMPTED_MAX_AGE_SECONDS,
+} from './lib/onboarding-prompt'
 import { mapStaffRedirect } from './lib/staff-redirect'
 
-// Better Auth session cookie name (shared scope `.theroyalglow.in`).
+// Better Auth session cookie names (shared scope `.theroyalglow.in`).
+//
+// Better Auth adds the `__Secure-` prefix whenever it issues a secure cookie. It
+// does so in production because BETTER_AUTH_URL is https, so the real production
+// cookie is `__Secure-better-auth.session_token`. Local dev (http://localhost)
+// uses the bare name. Better Auth's own readers try BOTH names
+// (better-auth/dist/cookies: `get(`__Secure-${name}`) ?? get(name)`), and this
+// gate must do the same.
+//
+// Reading only the bare name bounced EVERY signed-in production customer off
+// /onboarding, /profile, /bookings, /membership and /gems back to the homepage.
+// That is why onboarding never appeared in production even though it worked on
+// localhost. apps/admin/src/middleware.ts performs the same dual-name read.
 const SESSION_COOKIE = 'better-auth.session_token'
+const SECURE_SESSION_COOKIE = `__Secure-${SESSION_COOKIE}`
 
 /**
  * Protected customer route prefixes. The session-cookie gate applies ONLY to
@@ -275,7 +298,9 @@ export async function middleware(request: NextRequest) {
   // button live (there is no dedicated /sign-in page). Public pages fall
   // through to the CSP stamp below.
   if (isProtectedPath(pathname)) {
-    const sessionToken = request.cookies.get(SESSION_COOKIE)?.value
+    const sessionToken =
+      request.cookies.get(SESSION_COOKIE)?.value ??
+      request.cookies.get(SECURE_SESSION_COOKIE)?.value
     if (!sessionToken) {
       const homeUrl = new URL('/', request.url)
       return NextResponse.redirect(homeUrl)
@@ -284,7 +309,24 @@ export async function middleware(request: NextRequest) {
 
   // Public page or authenticated protected page → forward with the per-request
   // nonce CSP attached.
-  return allowWithCspNonce(request)
+  const response = allowWithCspNonce(request)
+
+  // The onboarding form is being shown, so start the 24h window in which the
+  // homepage will not re-prompt (repromptPendingOnboarding in
+  // lib/onboarding-guard.ts). A customer who skips onboarding can then browse
+  // freely and is asked again the next day. A router prefetch is not the
+  // customer seeing the page, so it must not start the window.
+  if (pathname === ONBOARDING_PATH && !isPrefetchRequest(request.headers)) {
+    response.cookies.set(ONBOARDING_PROMPTED_COOKIE, '1', {
+      maxAge: ONBOARDING_PROMPTED_MAX_AGE_SECONDS,
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: request.nextUrl.protocol === 'https:',
+      path: '/',
+    })
+  }
+
+  return response
 }
 
 export const config = {

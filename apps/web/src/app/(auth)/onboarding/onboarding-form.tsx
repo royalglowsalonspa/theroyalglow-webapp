@@ -35,6 +35,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { buildPostOnboardingDestination } from '@/lib/post-onboarding-destination'
 
 const AUTH_CONTEXT_KEY = 'rgss_auth_context'
 const COOKIE_CONSENT_KEY = 'rgss_cookie_consent'
@@ -140,6 +141,12 @@ export function OnboardingForm({ userName, userEmail }: OnboardingFormProps) {
         return
       }
 
+      // Resolve the post-onboarding destination BEFORE the context is cleared.
+      // A new customer who clicked "Book Now" was routed here by
+      // newUserCallbackURL, which overrides BookingDialog's own `/?book=1`
+      // callback — so the booking intent only survives if we replay it now.
+      const destination = buildPostOnboardingDestination(context)
+
       // Write consent to localStorage
       if (typeof window !== 'undefined') {
         localStorage.setItem(
@@ -155,7 +162,7 @@ export function OnboardingForm({ userName, userEmail }: OnboardingFormProps) {
         sessionStorage.removeItem(AUTH_CONTEXT_KEY)
       }
 
-      router.push('/')
+      router.push(destination)
     } catch {
       setServerError('Connection failed. Check your internet and try again.')
       setIsSubmitting(false)

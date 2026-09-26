@@ -49,6 +49,9 @@ export type AnalyticsEvent =
   | 'booking_started'
   | 'booking_step_completed'
   | 'booking_request_submitted'
+  // Submit was refused because the customer has no completed profile; they are
+  // sent to /onboarding. Tracked so the drop-off is visible in the funnel.
+  | 'booking_onboarding_required'
   | 'lead_form_submitted'
   | 'offer_clicked'
 

@@ -47,7 +47,7 @@ import {
 import { badRequest, conflict } from '@rgss/errors'
 import { bookingStatusSchema, createBookingSchema } from '@rgss/types'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireSession } from '@/lib/api/session'
+import { requireOnboardedCustomer, requireSession } from '@/lib/api/session'
 import { enqueueJob } from '@/lib/jobs/enqueue'
 import { publishBookingEvent } from '@/lib/realtime/publish'
 
@@ -70,7 +70,12 @@ export const GET = withErrorHandler(async (req: Request) => {
 })
 
 export const POST = withErrorHandler(async (req: Request) => {
-  const session = await requireSession()
+  // HARD GATE: a booking may only exist for a customer whose profile is complete.
+  // Phone, date of birth and gender are collected at /onboarding and live on
+  // `customer_profile`; `booking.customer_id` FKs `user.id`, so without this
+  // check the database would accept an appointment the salon cannot phone.
+  // 403 ONBOARDING_REQUIRED — the client routes the customer to /onboarding.
+  const session = await requireOnboardedCustomer()
 
   const body = await req.json()
   const parsed = createBookingSchema.safeParse(body)

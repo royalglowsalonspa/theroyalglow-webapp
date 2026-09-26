@@ -29,6 +29,8 @@
  *
  * Notes        :
  * - ISR with 1-hour revalidation for FAQ content from CMS
+ * - A signed-in customer without a completed profile is re-prompted to
+ *   /onboarding from here, at most once per 24h (repromptPendingOnboarding).
  * - The hero image is owner-managed via the Payload `banner` collection; it
  *   falls back to the bundled /hero-fallback.svg brand artwork when no banner
  *   is active. Remaining sections still use Stitch-generated assets.
@@ -44,6 +46,7 @@ import { JsonLd } from '@/components/seo/JsonLd'
 import { selectHeroBanner } from '@/lib/cms/banners'
 import { getActiveBanners } from '@/lib/cms/client'
 import { resolveFaqs } from '@/lib/cms/faqs'
+import { repromptPendingOnboarding } from '@/lib/onboarding-guard'
 import {
   faqPageJsonLd,
   localBusinessJsonLd,
@@ -68,7 +71,17 @@ export const metadata: Metadata = buildMetadata({
 
 export const revalidate = 3600
 
-export default async function HomePage() {
+type HomePageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}
+
+export default async function HomePage({ searchParams }: HomePageProps) {
+  // Gentle onboarding re-prompt: at most once per 24h, never while the URL
+  // carries booking intent, and only for signed-in customers without a profile.
+  // It runs before the CMS reads so a redirect does not pay for them. See
+  // repromptPendingOnboarding in lib/onboarding-guard.ts.
+  await repromptPendingOnboarding(await searchParams)
+
   const [faqList, banners] = await Promise.all([resolveFaqs(), getActiveBanners()])
 
   // The first active banner in `order` owns the hero image, CTA link or not.

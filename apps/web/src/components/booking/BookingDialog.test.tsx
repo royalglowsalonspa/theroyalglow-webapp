@@ -33,7 +33,17 @@ vi.mock('@/lib/auth-client', () => ({
   useSession: () => ({ data: { user: { id: 'cust_1', name: 'Asha' } } }),
 }))
 vi.mock('@/lib/analytics/events', () => ({ track: vi.fn() }))
-vi.mock('@/lib/google-signin', () => ({ startGoogleSignIn: vi.fn() }))
+vi.mock('@/lib/google-signin', () => ({
+  startGoogleSignIn: vi.fn(),
+  markBookingIntentForOnboarding: vi.fn(),
+}))
+
+// The dialog routes to /onboarding when the API answers 403 ONBOARDING_REQUIRED.
+// jsdom has no App Router mounted, so useRouter must be stubbed.
+const routerPushMock = vi.hoisted(() => vi.fn())
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: routerPushMock }),
+}))
 
 import { BookingDialog } from './BookingDialog'
 

@@ -35,11 +35,13 @@
 'use client'
 
 import { Check, Loader2, X } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { track } from '@/lib/analytics/events'
 import { useSession } from '@/lib/auth-client'
-import { startGoogleSignIn } from '@/lib/google-signin'
+import { markBookingIntentForOnboarding, startGoogleSignIn } from '@/lib/google-signin'
+import { ONBOARDING_PATH } from '@/lib/onboarding-prompt'
 
 // --- Types (mirror GET /api/services response) ---
 type ServiceType = 'salon' | 'spa'
@@ -136,6 +138,7 @@ interface BookingDialogProps {
 
 export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
   const { data: session } = useSession()
+  const router = useRouter()
 
   const [step, setStep] = useState(1)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
@@ -427,6 +430,19 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
         }),
       })
       const json = await res.json()
+
+      // The customer skipped onboarding, so the server refused the booking.
+      // Recoverable, not an error state: keep the selections, remember the
+      // booking intent, and send them to finish their profile. The dialog
+      // reopens automatically afterwards via `?book=1`.
+      if (res.status === 403 && json?.error?.code === 'ONBOARDING_REQUIRED') {
+        persistIntent()
+        markBookingIntentForOnboarding()
+        track('booking_onboarding_required')
+        router.push(ONBOARDING_PATH)
+        return
+      }
+
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? "Your booking couldn't be submitted.")
       }

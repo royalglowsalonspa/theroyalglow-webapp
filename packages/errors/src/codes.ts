@@ -45,6 +45,10 @@ export const ERROR_CODES = {
   SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
   CONFLICT: 'CONFLICT',
   BUSINESS_RULE_VIOLATION: 'BUSINESS_RULE_VIOLATION',
+  // Signed in, but no customer_profile row yet: phone, date of birth and gender
+  // have not been collected. Distinct from FORBIDDEN because it is RECOVERABLE —
+  // the client routes the customer to /onboarding rather than showing a dead end.
+  ONBOARDING_REQUIRED: 'ONBOARDING_REQUIRED',
   // Booking domain
   BOOKING_SLOT_UNAVAILABLE: 'BOOKING_SLOT_UNAVAILABLE',
   BOOKING_ALREADY_CANCELLED: 'BOOKING_ALREADY_CANCELLED',
