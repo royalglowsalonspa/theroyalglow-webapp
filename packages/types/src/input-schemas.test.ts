@@ -62,11 +62,19 @@ describe('createBookingSchema', () => {
     expect(createBookingSchema.safeParse({ ...base, startTime: '9:5' }).success).toBe(false)
   })
 
-  it('accepts the optional walk-in flag and notes', () => {
-    const result = createBookingSchema.safeParse({ ...base, isWalkin: true, notes: 'VIP' })
+  it('accepts optional notes', () => {
+    const result = createBookingSchema.safeParse({ ...base, notes: 'VIP' })
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.data.isWalkin).toBe(true)
+      expect(result.data.notes).toBe('VIP')
+    }
+  })
+
+  it('strips a client-supplied walk-in flag: only staff create walk-ins', () => {
+    const result = createBookingSchema.safeParse({ ...base, isWalkin: true })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data).not.toHaveProperty('isWalkin')
     }
   })
 })

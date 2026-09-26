@@ -60,9 +60,12 @@ export const createBookingSchema = z.object({
   serviceIds: z.array(z.string().min(1)).min(1),
   notes: z.string().max(500).optional(),
   leadId: z.string().optional(),
-  // Walk-in bookings skip the pending queue and are created directly as
-  // confirmed (Requirement 5.9). Defaults to a normal customer booking.
-  isWalkin: z.boolean().optional(),
+  // Deliberately NO `isWalkin`. A booking the customer makes themselves is never
+  // a walk-in: walk-ins are created only by staff through the admin portal's
+  // "New walk-in" flow (adminCreateWalkinSchema), which forces the flag
+  // server-side. z.object() strips unknown keys, so a client that still sends
+  // `isWalkin: true` gets an ordinary pending booking instead of confirming
+  // itself past the approval queue.
 })
 export type CreateBookingInput = z.infer<typeof createBookingSchema>
 

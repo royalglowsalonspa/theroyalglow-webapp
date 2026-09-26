@@ -11,7 +11,7 @@
  *                  - 1.9   Unauthenticated gate (GET + POST → UNAUTHENTICATED 401)
  *                  - 13.5  Property 11 — each selected service is snapshotted
  *                  - 13.6  Property 12 — mixed service types are rejected (400)
- *                  - 13.7  Property 13 — walk-in bookings start confirmed
+ *                  - 13.7  Property 13 — customer bookings are never walk-ins
  *                  - 13.9  Edge guards: empty serviceIds → 400, forced
  *                          unavailable slot → BOOKING_SLOT_UNAVAILABLE 409
  *
@@ -448,12 +448,15 @@ describe('Property 12: mixed service types are rejected (Task 13.6)', () => {
 })
 
 // ===========================================================================
-// 13.7 — Property 13: Walk-in bookings start confirmed
-//        Validates: Requirements 5.9
+// 13.7 — Property 13: a customer can never create a walk-in
+//        Validates: Requirements 5.9 (walk-ins are staff-created only, through
+//        the admin portal's POST /api/bookings/new)
 // ===========================================================================
-describe('Property 13: walk-in bookings start confirmed (Task 13.7)', () => {
-  // Feature: backend-api, Property 13: Walk-in bookings start confirmed
-  it('created status is confirmed iff isWalkin else pending', async () => {
+describe('Property 13: customer bookings are never walk-ins (Task 13.7)', () => {
+  // Feature: backend-api, Property 13: only staff create confirmed walk-ins.
+  // Before this rule the endpoint trusted a client `isWalkin: true`, which let a
+  // customer confirm their own booking and skip the approval queue.
+  it('status is pending and isWalkin false, whatever walk-in flag the client sends', async () => {
     await fc.assert(
       fc.asyncProperty(uniformServicesArb, fc.boolean(), async (services, isWalkin) => {
         vi.clearAllMocks()
@@ -487,11 +490,15 @@ describe('Property 13: walk-in bookings start confirmed (Task 13.7)', () => {
         const body = await res.json()
 
         expect(res.status).toBe(201)
-        expect(body.data.status).toBe(isWalkin ? 'confirmed' : 'pending')
+        expect(body.data.status).toBe('pending')
 
-        // The status persisted via the query layer matches the same rule.
-        const persisted = dbMocks.createBookingWithServices.mock.calls[0]?.[0] as { status: string }
-        expect(persisted.status).toBe(isWalkin ? 'confirmed' : 'pending')
+        // What reaches the query layer follows the same rule.
+        const persisted = dbMocks.createBookingWithServices.mock.calls[0]?.[0] as {
+          status: string
+          isWalkin: boolean
+        }
+        expect(persisted.status).toBe('pending')
+        expect(persisted.isWalkin).toBe(false)
       }),
       { numRuns: 100 },
     )

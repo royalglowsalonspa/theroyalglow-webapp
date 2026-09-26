@@ -83,7 +83,7 @@ export const POST = withErrorHandler(async (req: Request) => {
     throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
   }
 
-  const { branchId, serviceType, bookingDate, startTime, serviceIds, notes, isWalkin } = parsed.data
+  const { branchId, serviceType, bookingDate, startTime, serviceIds, notes } = parsed.data
 
   // Branch must exist and be operational.
   const branch = await getBranchById(branchId)
@@ -154,22 +154,22 @@ export const POST = withErrorHandler(async (req: Request) => {
     new Date(`${bookingDate}T00:00:00.000Z`),
   )
 
-  // Walk-ins skip the pending queue and are confirmed immediately (Req 5.9).
-  const status = isWalkin ? 'confirmed' : 'pending'
-
+  // A customer's own booking always enters the approval queue. Only staff
+  // create walk-ins (confirmed immediately, Req 5.9), through the admin
+  // portal's POST /api/bookings/new — never through this customer endpoint.
   const created = await createBookingWithServices(
     {
       bookingNumber,
       branchId,
       customerId: session.user.id,
-      status,
+      status: 'pending',
       serviceType,
       bookingDate: new Date(`${bookingDate}T00:00:00.000Z`),
       startTime,
       endTime,
       totalAmountPaise,
       totalDurationMinutes,
-      isWalkin: isWalkin ?? false,
+      isWalkin: false,
       notes: notes ?? null,
     },
     serviceRows,
