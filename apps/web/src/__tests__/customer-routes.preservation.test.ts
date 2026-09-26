@@ -56,11 +56,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 // publish, a Meta Graph API call or an Ably publish. `@rgss/business` and
 // `@rgss/types` are intentionally NOT mocked — their functions are pure.
 // ---------------------------------------------------------------------------
-const sessionMocks = vi.hoisted(() => ({
-  requireSession: vi.fn(),
-  getOptionalSession: vi.fn(),
-  requireRole: vi.fn(),
-}))
+const sessionMocks = vi.hoisted(() => {
+  const requireSession = vi.fn()
+  return {
+    requireSession,
+    // Booking creation gates on requireOnboardedCustomer (session AND a
+    // completed customer_profile). Delegating keeps this file's existing
+    // per-property session defaults applicable without touching each one.
+    requireOnboardedCustomer: vi.fn(() => requireSession()),
+    getOptionalSession: vi.fn(),
+    requireRole: vi.fn(),
+  }
+})
 
 const dbMocks = vi.hoisted(() => ({
   // leads

@@ -62,10 +62,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 // ---------------------------------------------------------------------------
 // Mock seams. Only the session guard and the data-access layer are faked.
 // ---------------------------------------------------------------------------
-const sessionMocks = vi.hoisted(() => ({
-  requireSession: vi.fn(),
-  getOptionalSession: vi.fn(),
-}))
+const sessionMocks = vi.hoisted(() => {
+  const requireSession = vi.fn()
+  return {
+    requireSession,
+    // Redemption inserts a booking, so it gates on requireOnboardedCustomer.
+    // Delegating keeps this file's existing session defaults/rejections valid.
+    requireOnboardedCustomer: vi.fn(() => requireSession()),
+    getOptionalSession: vi.fn(),
+  }
+})
 
 // This factory is EXHAUSTIVE: `vi.mock` replaces the whole `@rgss/db/queries`
 // module, so any query the route calls that is missing here is `undefined` at
