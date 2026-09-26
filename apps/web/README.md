@@ -179,11 +179,13 @@ Fallback behavior differs by surface:
   Drizzle application data synchronized from CMS authoring, not marketing cards.
 
 Every blocking `cmsFetch` read is capped at `CMS_FETCH_TIMEOUT_MS` (5 s). The CMS
-runs on Render's free plan and can take up to a minute to wake, so during a cold
-start a page shows the fallbacks above instead of stalling. Failed reads are not
-cached, so the next request tries the CMS again. Next.js does not apply the cap to
-background revalidation of stale entries, which never blocks a render; when the
-CMS is down those failures appear in the server log as `fetch failed`.
+is kept warm by an uptime monitor and normally answers well inside that, so the
+cap only matters during a CMS outage, deploy, or network fault, or locally when
+the CMS is not running: the page shows the fallbacks above instead of stalling.
+Failed reads are not cached, so the next request tries the CMS again. Next.js does
+not apply the cap to background revalidation of stale entries, which never blocks
+a render; when the CMS is down those failures appear in the server log as
+`fetch failed`.
 
 `POST /api/revalidate` authenticates `REVALIDATE_SECRET` and accepts allowed
 collection tags. For each tag it calls `revalidateTag(tag, { expire: 0 })`, which

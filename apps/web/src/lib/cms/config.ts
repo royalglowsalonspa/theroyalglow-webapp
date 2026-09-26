@@ -51,11 +51,13 @@ export const CMS_REVALIDATE_SECONDS = 3600
 /**
  * Upper bound (ms) for one blocking CMS request, body included.
  *
- * The CMS runs on Render's free plan, which sleeps when idle and takes up to a
- * minute to wake. Without a bound, a cache miss during that window stalls the
- * whole page render (and an unreachable host only fails once the connection
- * attempt times out). With it, the page renders its fallback content; failures
- * are never written to the fetch cache, so the next request tries again.
+ * The CMS normally answers quickly (an uptime monitor keeps it warm), so this
+ * only matters when something is wrong on its side: an outage, a deploy, a
+ * network fault, or a local CMS that is not running. Without a bound, a cache
+ * miss then stalls the whole page render, because an unreachable host only
+ * fails once the connection attempt times out and a hung response never fails.
+ * With it, the page renders its fallback content; failures are never written
+ * to the fetch cache, so the next request tries again.
  *
  * Next.js deliberately drops the signal for background revalidation of a
  * stale entry, which never blocks a render, so only blocking reads are bounded.
