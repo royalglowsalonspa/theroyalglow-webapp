@@ -3,16 +3,16 @@
  * Date         : Created - 04-06-2026 & Updated - 04-06-2026
  *
  * Project      : theroyalglow-webapp
- * Module Name  : sentry.client.config (admin)
+ * Module Name  : sentry/server (admin)
  * Scope        : Observability
  *
- * Description  : Sentry initialization for the admin app browser runtime,
- *                reporting to the SEPARATE admin Sentry project.
+ * Description  : Sentry initialization for the admin app Node.js server runtime,
+ *                reporting to the SEPARATE admin Sentry project. Loaded once
+ *                per runtime by src/lib/api/sentry-server-init.ts.
  *
  * Responsibilities :
- * - Initialize the Sentry SDK on the client when a DSN is configured
+ * - Initialize the Sentry SDK on the server runtime when a DSN is configured
  * - Tag events with environment and release metadata
- * - Disable session/error replays (admin is a private, low-traffic surface)
  *
  * Tech Stack   : @sentry/nextjs
  * Layer        : Infrastructure (Observability)
@@ -21,10 +21,13 @@
  *
  * Notes        : DSN comes from the admin env (NEXT_PUBLIC_ADMIN_SENTRY_DSN) which
  *                points at the dedicated admin Sentry project — NOT the web DSN.
+ *                Lives under src/ on purpose: @sentry/nextjs warns about root
+ *                sentry.server.config.ts files that no instrumentation.ts
+ *                imports, and this app cannot have one (it breaks OpenNext).
  ************************************************************/
 
-import { env } from '@/env'
 import * as Sentry from '@sentry/nextjs'
+import { env } from '@/env'
 
 const dsn = env.NEXT_PUBLIC_ADMIN_SENTRY_DSN
 const release = process.env.COMMIT_SHA
@@ -37,7 +40,5 @@ if (dsn) {
     tracesSampleRate: 0.1,
     enabled: process.env.NODE_ENV === 'production',
     sendDefaultPii: false,
-    replaysSessionSampleRate: 0,
-    replaysOnErrorSampleRate: 0,
   })
 }

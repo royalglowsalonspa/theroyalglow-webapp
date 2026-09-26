@@ -1,5 +1,12 @@
-import { withSentryConfig } from '@sentry/nextjs'
+import { withSentryConfig } from '@sentry/nextjs/config'
 import type { NextConfig } from 'next'
+
+// This app intentionally has no root instrumentation.ts: OpenNext's trace-copy
+// of it breaks the SST build. Server init runs through
+// src/lib/api/sentry-server-init.ts instead, so the SDK's "Could not find a
+// Next.js instrumentation file" warning is expected and would only be noise.
+// Set here (not in a script) so it applies on every OS and every entry point.
+process.env.SENTRY_SUPPRESS_INSTRUMENTATION_FILE_WARNING ??= '1'
 
 const nextConfig: NextConfig = {
   transpilePackages: [
@@ -62,11 +69,15 @@ const nextConfig: NextConfig = {
 }
 
 // Source-map upload is a no-op without SENTRY_ORG/SENTRY_PROJECT/SENTRY_AUTH_TOKEN (CI-only).
-// `bundleSizeOptimizations` + `disableLogger` strip Sentry debug/logger code and
+// `bundleSizeOptimizations` + `removeDebugLogging` strip Sentry debug/logger code and
 // tree-shakeable internals, keeping production bundles lean without losing error monitoring.
 export default withSentryConfig(nextConfig, {
   silent: true,
-  disableLogger: true,
+  webpack: {
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
   bundleSizeOptimizations: {
     excludeDebugStatements: true,
   },
