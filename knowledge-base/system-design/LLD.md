@@ -837,9 +837,11 @@ No Upstash `get`/`set`/`del`, five-minute TTL, read-through wrapper, or Redis in
 
 ### 5.2 Availability Read Path
 
-`GET /api/availability` validates `date` and `branchId`, loads business-hours settings from Neon through `getSettings()`, and passes the selected open/close window to the pure `generateAvailability()` function. It generates a 30-minute grid in process.
+`GET /api/availability` validates `date` and an optional `branchId`, checks the branch, loads business-hours settings from Neon through `getSettings()`, and passes the selected open/close window to the pure `generateAvailability()` function. It generates a 30-minute grid in process.
 
-The route is not Redis-cached. It does not yet load existing bookings, staff schedules, approved leave, or holidays, and `branchId` is currently validated but not used after parsing. Any future five-minute availability cache must follow a conflict-aware availability implementation and define explicit invalidation for booking and schedule changes.
+The branch check mirrors `POST /api/bookings`: a named branch must exist ("Branch not found.") and be operational ("Selected branch is not accepting bookings."). A request without `branchId` is answered for the default bookable branch, chosen by `resolveDefaultBranch()` in `@rgss/business`: the primary branch when it is operational, otherwise the first operational branch in display order. `GET /api/branches` reports the same branch as `defaultBranchId`. The booking dialog preselects it in its branch picker and sends the chosen branch with every availability request and with the booking. Business hours are one shared setting, so the branch does not yet change the grid.
+
+The route is not Redis-cached. It does not yet load existing bookings, staff schedules, approved leave, or holidays. Any future five-minute availability cache must follow a conflict-aware availability implementation and define explicit invalidation for booking and schedule changes.
 
 ### 5.3 Rate Limiting Implementation
 

@@ -134,9 +134,9 @@ wall-clock semantics rather than the developer machine's timezone.
 Customer APIs include `/api/bookings` and its detail/cancel/reschedule routes,
 `/api/gems`, `/api/gems/redeem`, `/api/membership`, `/api/notifications`,
 `/api/profile/preferences`, and `/api/onboarding/complete`. Public routes expose
-service discovery, availability, offers, leads, and contact. Read each handler for
-its method, input schema, session requirement, and ownership check; route names
-alone do not establish authorization.
+service discovery, branches, availability, offers, leads, and contact. Read each
+handler for its method, input schema, session requirement, and ownership check;
+route names alone do not establish authorization.
 
 Most application APIs use `{ success, data, meta? }` or a structured error with a
 request ID through `withErrorHandler`. Better Auth, `/api/health`, and
