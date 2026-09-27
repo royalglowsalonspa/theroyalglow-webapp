@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 08-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 27-09-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : OnboardingForm
@@ -25,23 +25,50 @@
  * Notes        :
  * - Writes consent to localStorage key: rgss_cookie_consent
  * - Clears auth context from sessionStorage after successful submit
+ * - Context comes from sessionStorage (saved before Google sign-in, or by the
+ *   booking dialog) and from `bookingContext`, the onboarding URL's query
+ *   string when Book Now sent a signed-in customer here. With booking intent,
+ *   the form says the booking comes next and reopens it afterwards.
  ************************************************************/
 'use client'
 
 import { Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import {
+  buildPostOnboardingDestination,
+  mergeOnboardingContext,
+} from '@/lib/post-onboarding-destination'
 
 const AUTH_CONTEXT_KEY = 'rgss_auth_context'
 const COOKIE_CONSENT_KEY = 'rgss_cookie_consent'
 
+const NO_CONTEXT: Record<string, string> = {}
+
+/** The context saved in sessionStorage, or none when it is missing or unreadable. */
+function readStoredContext(): Record<string, string> {
+  if (typeof window === 'undefined') {
+    return NO_CONTEXT
+  }
+  try {
+    const parsed: unknown = JSON.parse(sessionStorage.getItem(AUTH_CONTEXT_KEY) ?? 'null')
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, string>)
+      : NO_CONTEXT
+  } catch {
+    return NO_CONTEXT
+  }
+}
+
 interface OnboardingFormProps {
   userName: string
   userEmail: string
+  /** Booking and acquisition context from the onboarding URL (readBookingContext). */
+  bookingContext?: Record<string, string>
 }
 
 interface FormErrors {
@@ -56,11 +83,25 @@ const LABEL_CLASS = 'mb-1.5 font-ui text-sm font-medium text-warm-gray'
 const SELECT_CLASS =
   'h-10 w-full rounded-md border border-input bg-canvas-white px-3 font-ui text-sm text-cocoa-dark outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60'
 
-export function OnboardingForm({ userName, userEmail }: OnboardingFormProps) {
+export function OnboardingForm({
+  userName,
+  userEmail,
+  bookingContext = NO_CONTEXT,
+}: OnboardingFormProps) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [serverError, setServerError] = useState('')
   const [errors, setErrors] = useState<FormErrors>({})
+
+  // Whether the customer came here on the way to a booking. The URL context is
+  // known on the server; the sessionStorage context only in the browser, so it
+  // is read after mount to keep the first render identical on both.
+  const [bookingNext, setBookingNext] = useState(bookingContext.book === '1')
+  useEffect(() => {
+    if (readStoredContext().book === '1') {
+      setBookingNext(true)
+    }
+  }, [])
 
   const [name, setName] = useState(userName)
   const [phone, setPhone] = useState('')
@@ -106,14 +147,9 @@ export function OnboardingForm({ userName, userEmail }: OnboardingFormProps) {
     setIsSubmitting(true)
 
     try {
-      // Get saved auth context from sessionStorage
-      let context: Record<string, string> = {}
-      if (typeof window !== 'undefined') {
-        const stored = sessionStorage.getItem(AUTH_CONTEXT_KEY)
-        if (stored) {
-          context = JSON.parse(stored)
-        }
-      }
+      // The saved auth context, plus the onboarding URL's context when Book Now
+      // sent a signed-in customer here (see mergeOnboardingContext).
+      const context = mergeOnboardingContext(readStoredContext(), bookingContext)
 
       const response = await fetch('/api/onboarding/complete', {
         method: 'POST',
@@ -140,6 +176,13 @@ export function OnboardingForm({ userName, userEmail }: OnboardingFormProps) {
         return
       }
 
+      // Resolve the post-onboarding destination BEFORE the context is cleared.
+      // A new customer who clicked "Book Now" was routed here by
+      // newUserCallbackURL, which overrides BookingDialog's own `/?book=1`
+      // callback, and a signed-in customer without a profile by the homepage's
+      // booking gate — so the booking intent only survives if we replay it now.
+      const destination = buildPostOnboardingDestination(context)
+
       // Write consent to localStorage
       if (typeof window !== 'undefined') {
         localStorage.setItem(
@@ -155,7 +198,10 @@ export function OnboardingForm({ userName, userEmail }: OnboardingFormProps) {
         sessionStorage.removeItem(AUTH_CONTEXT_KEY)
       }
 
-      router.push('/')
+      // Replace, not push: the completed form cannot be submitted again, so Back
+      // from the booking should return to where the customer was before
+      // onboarding, not to this form.
+      router.replace(destination)
     } catch {
       setServerError('Connection failed. Check your internet and try again.')
       setIsSubmitting(false)
@@ -169,7 +215,9 @@ export function OnboardingForm({ userName, userEmail }: OnboardingFormProps) {
           Complete Your Profile
         </h1>
         <p className="font-sans text-sm text-warm-gray">
-          Tell us a bit about yourself to get started.
+          {bookingNext
+            ? 'We need a few details before you book. You’ll go straight back to your booking afterwards.'
+            : 'Tell us a bit about yourself to get started.'}
         </p>
       </div>
 
@@ -325,6 +373,8 @@ export function OnboardingForm({ userName, userEmail }: OnboardingFormProps) {
             <Loader2 className="animate-spin" aria-hidden="true" />
             Saving…
           </>
+        ) : bookingNext ? (
+          'Continue to Booking'
         ) : (
           'Complete Profile'
         )}

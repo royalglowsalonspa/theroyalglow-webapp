@@ -1,12 +1,12 @@
 ---
 title: Services & Availability
-description: Public endpoints for the service catalogue, single service lookup, and slot availability.
+description: Public endpoints for the service catalogue, single service lookup, branches, and slot availability.
 icon: scissors
 ---
 
-These endpoints expose the public service catalogue and the booking-slot
-schedule. All three are **Public** — none of them call `requireSession` or
-`requireRole`, so no session cookie is needed.
+These endpoints expose the public service catalogue, the branches taking
+bookings, and the booking-slot schedule. All four are **Public** — none of them
+call `requireSession` or `requireRole`, so no session cookie is needed.
 
 <Info>
   **Base URL:** `https://theroyalglow.in` · **Auth:** Public (no session). Money
@@ -147,12 +147,73 @@ Unexpected/transient failure. `retryable: true`.
 
 ---
 
+## GET /api/branches
+
+Returns the branches the booking dialog's branch picker shows: every branch
+that is not shut down, in display order, and the branch to preselect. Each
+branch carries only its id, name, city, and status, plus whether it is taking
+bookings; address, phone, and coordinates are not exposed.
+
+**Minimum role:** Public
+
+```http
+GET /api/branches
+```
+
+This endpoint takes no path or query parameters.
+
+### Response
+
+Only an `operational` branch has `acceptingBookings: true`; the picker shows the
+others disabled. `defaultBranchId` is the primary branch when it is operational,
+otherwise the first operational branch in display order, and `null` when no
+branch is taking bookings. `GET /api/availability` uses the same branch when a
+request names none.
+
+```json
+{
+  "success": true,
+  "data": {
+    "branches": [
+      {
+        "id": "br_rayasandra01",
+        "name": "Rayasandra",
+        "city": "Bengaluru",
+        "status": "operational",
+        "acceptingBookings": true
+      },
+      {
+        "id": "br_marathahalli01",
+        "name": "Marathahalli",
+        "city": "Bengaluru",
+        "status": "opens_soon",
+        "acceptingBookings": false
+      }
+    ],
+    "defaultBranchId": "br_rayasandra01"
+  }
+}
+```
+
+### Errors
+
+<AccordionGroup>
+<Accordion title="INTERNAL_ERROR — 500">
+
+Unexpected/transient failure (e.g. database unreachable). `retryable: true`.
+
+</Accordion>
+</AccordionGroup>
+
+---
+
 ## GET /api/availability
 
 Returns the bookable time slots for a single date. Slots are a fixed
 30-minute schedule from **10:00 to 21:00** (first slot starts `10:00`, last slot
-starts `20:30` and ends `21:00`). Every slot is currently reported as
-`available: true`.
+starts `20:30` and ends `21:00`). A slot is `available: false` when it falls
+outside that weekday's configured business hours (every slot, on a day the salon
+is closed) or, for today, when its start time has already passed in IST.
 
 **Minimum role:** Public
 
@@ -165,7 +226,7 @@ GET /api/availability?date=2026-06-15&branchId=br_rayasandra01
 | Name | Type | Required | Description |
 | --- | --- | --- | --- |
 | `date` | `string` | Yes | Query. Calendar date in YYYY-MM-DD format. Must be a real date and not earlier than today (compared in IST, UTC+5:30). |
-| `branchId` | `string` | Yes | Query. Non-empty branch id whose configured weekday business hours are used to flag slots. |
+| `branchId` | `string` | No | Query. A branch id from `GET /api/branches`; the branch must exist and be operational. When omitted, the slots are for that endpoint's `defaultBranchId`. Business hours are one setting shared by every branch, so the grid does not currently differ between branches. |
 
 ### Response
 
@@ -188,7 +249,10 @@ GET /api/availability?date=2026-06-15&branchId=br_rayasandra01
 <Accordion title="VALIDATION_ERROR — 400">
 
 `date` is missing, not `YYYY-MM-DD`, not a real calendar date, or in the past;
-or `branchId` is missing/empty.
+`branchId` is present but empty; the named branch does not exist
+(`Branch not found.`) or is not operational
+(`Selected branch is not accepting bookings.`); or no `branchId` was sent and no
+branch is taking bookings (`No branch is taking bookings right now.`).
 
 </Accordion>
 <Accordion title="INTERNAL_ERROR — 500">

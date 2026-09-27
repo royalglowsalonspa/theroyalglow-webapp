@@ -14,7 +14,7 @@
  * - Validate cancellation reason
  *
  * Features / Functionality :
- * - availabilityQuerySchema — date + branchId query params
+ * - availabilityQuerySchema — date + optional branchId query params
  * - createBookingSchema — date, time, service IDs, optional lead link
  * - cancelBookingSchema — optional cancellation reason
  * - rescheduleBookingSchema — new date + start time
@@ -46,9 +46,14 @@ export type BookingStatusFilter = z.infer<typeof bookingStatusSchema>
 
 // Query params for GET /api/availability?date=&branchId=. The date format is
 // validated here; the past-date rejection is enforced by the business layer.
+// `branchId` is optional: without it the server uses the default bookable
+// branch (the `defaultBranchId` GET /api/branches reports). Requiring it broke
+// every booking: the dialog never sent it, so the API answered 400 "Invalid
+// availability query". The dialog now sends it, and a client that does not
+// still gets the default branch's slots. An explicitly empty value is invalid.
 export const availabilityQuerySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
-  branchId: z.string().min(1, 'branchId is required'),
+  branchId: z.string().min(1, 'branchId must not be empty').optional(),
 })
 export type AvailabilityQueryInput = z.infer<typeof availabilityQuerySchema>
 
@@ -60,9 +65,12 @@ export const createBookingSchema = z.object({
   serviceIds: z.array(z.string().min(1)).min(1),
   notes: z.string().max(500).optional(),
   leadId: z.string().optional(),
-  // Walk-in bookings skip the pending queue and are created directly as
-  // confirmed (Requirement 5.9). Defaults to a normal customer booking.
-  isWalkin: z.boolean().optional(),
+  // Deliberately NO `isWalkin`. A booking the customer makes themselves is never
+  // a walk-in: walk-ins are created only by staff through the admin portal's
+  // "New walk-in" flow (adminCreateWalkinSchema), which forces the flag
+  // server-side. z.object() strips unknown keys, so a client that still sends
+  // `isWalkin: true` gets an ordinary pending booking instead of confirming
+  // itself past the approval queue.
 })
 export type CreateBookingInput = z.infer<typeof createBookingSchema>
 

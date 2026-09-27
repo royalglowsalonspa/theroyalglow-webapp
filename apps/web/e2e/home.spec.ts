@@ -21,3 +21,21 @@ test('the /?book=1 deep-link opens the booking dialog', async ({ page }) => {
   await expect(dialog).toBeVisible()
   await expect(dialog.getByRole('heading', { name: 'Book Appointment' })).toBeVisible()
 })
+
+// Read-only: stops at the time step and never submits a booking. Needs a
+// database with at least one operational branch (the seed creates Rayasandra).
+test('the booking dialog loads times for the preselected branch', async ({ page }) => {
+  await page.goto('/?book=1')
+
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByRole('combobox', { name: /branch/i })).toBeVisible()
+
+  // Tomorrow, the second date: in a browser timezone behind IST, "today" can
+  // already be a past date in IST, which the API rejects.
+  await dialog.locator('button[aria-pressed]').nth(1).click()
+
+  // The regression this guards: the dialog sent no branch, so every customer
+  // got "Invalid availability query" instead of times.
+  await expect(dialog.getByRole('button', { name: '10:00', exact: true })).toBeVisible()
+  await expect(dialog.getByRole('alert')).toHaveCount(0)
+})

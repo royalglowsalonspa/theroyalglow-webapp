@@ -14,6 +14,11 @@ First sign-in routes a new user to `/onboarding` to collect phone, DOB, gender,
 and consents; `POST /api/onboarding/complete` finalises the profile. UTM and
 booking context survive the OAuth redirect via `sessionStorage`.
 
+Booking requires that profile. A signed-in customer who skipped onboarding and
+taps Book Now (`/?book=1`) is sent to `/onboarding?book=1` before the booking
+dialog opens, then straight back to it. `POST /api/bookings` answers
+`403 ONBOARDING_REQUIRED` as a backstop.
+
 ## RBAC — six roles
 
 Roles are hierarchical: a higher role satisfies any lower-role requirement.

@@ -34,11 +34,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 // Mock seams. `@rgss/business` is intentionally NOT mocked — the booking total,
 // booking-number, slot-bookability and phone-normalisation logic run for real.
 // ---------------------------------------------------------------------------
-const sessionMocks = vi.hoisted(() => ({
-  requireSession: vi.fn(),
-  getOptionalSession: vi.fn(),
-  requireRole: vi.fn(),
-}))
+const sessionMocks = vi.hoisted(() => {
+  const requireSession = vi.fn()
+  return {
+    requireSession,
+    // Booking creation gates on requireOnboardedCustomer; delegating keeps the
+    // existing authenticated-customer default in this file applicable.
+    requireOnboardedCustomer: vi.fn(() => requireSession()),
+    getOptionalSession: vi.fn(),
+    requireRole: vi.fn(),
+  }
+})
 
 const dbMocks = vi.hoisted(() => ({
   // booking create flow

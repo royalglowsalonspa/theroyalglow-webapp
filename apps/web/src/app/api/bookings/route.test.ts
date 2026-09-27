@@ -11,7 +11,7 @@
  *                  - 1.9   Unauthenticated gate (GET + POST → UNAUTHENTICATED 401)
  *                  - 13.5  Property 11 — each selected service is snapshotted
  *                  - 13.6  Property 12 — mixed service types are rejected (400)
- *                  - 13.7  Property 13 — walk-in bookings start confirmed
+ *                  - 13.7  Property 13 — customer bookings are never walk-ins
  *                  - 13.9  Edge guards: empty serviceIds → 400, forced
  *                          unavailable slot → BOOKING_SLOT_UNAVAILABLE 409
  *
@@ -41,10 +41,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 // connection, or a QStash publish. `@rgss/business` is intentionally NOT
 // mocked — its functions (pricing, slot rules, booking-number) are pure.
 // ---------------------------------------------------------------------------
-const sessionMocks = vi.hoisted(() => ({
-  requireSession: vi.fn(),
-  getOptionalSession: vi.fn(),
-}))
+const sessionMocks = vi.hoisted(() => {
+  const requireSession = vi.fn()
+  return {
+    requireSession,
+    // POST now gates on requireOnboardedCustomer (session AND a completed
+    // customer_profile). Delegating to requireSession keeps every existing
+    // default and rejection in this file applicable; the onboarding-specific
+    // 403 is asserted by overriding this mock directly.
+    requireOnboardedCustomer: vi.fn(() => requireSession()),
+    getOptionalSession: vi.fn(),
+  }
+})
 
 const dbMocks = vi.hoisted(() => ({
   getServicesByIds: vi.fn(),
@@ -239,6 +247,82 @@ describe('Unauthenticated gate (Task 1.9)', () => {
   })
 })
 
+/************************************************************
+ * ONBOARDING GATE
+ *
+ * A booking's `customer_id` FKs `user.id`, NOT `customer_profile.id`, so the
+ * database will happily accept an appointment for a user who never onboarded —
+ * leaving the salon with a booking it has no phone number for, and an invoice
+ * whose customerPhone is null (getInvoiceForPdf LEFT JOINs the profile).
+ *
+ * requireOnboardedCustomer is the only thing preventing that, so these tests
+ * pin it. Before this gate existed, a signed-in user with no profile could book.
+ ************************************************************/
+describe('Onboarding gate — no booking without a completed profile', () => {
+  const VALID_BODY = {
+    branchId: 'br_1',
+    serviceType: 'salon' as const,
+    bookingDate: '2026-06-10',
+    startTime: '10:00',
+    serviceIds: ['svc_0'],
+  }
+
+  it('POST → 403 ONBOARDING_REQUIRED when the customer has no customer_profile', async () => {
+    // `Once`, not `mockRejectedValue`: vi.clearAllMocks() in beforeEach clears
+    // calls but NOT implementations, so a persistent rejection would leak into
+    // every later test in this file.
+    sessionMocks.requireOnboardedCustomer.mockRejectedValueOnce(
+      new AppError({
+        code: ERROR_CODES.ONBOARDING_REQUIRED,
+        message: 'Please complete your profile before booking.',
+        statusCode: 403,
+      }),
+    )
+
+    const res = await POST(postRequest(VALID_BODY), ROUTE_CTX)
+    const body = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(body.success).toBe(false)
+    expect(body.error).toMatchObject({
+      code: ERROR_CODES.ONBOARDING_REQUIRED,
+      statusCode: 403,
+      requestId: expect.any(String),
+    })
+  })
+
+  it('writes nothing at all when the profile is missing', async () => {
+    sessionMocks.requireOnboardedCustomer.mockRejectedValueOnce(
+      new AppError({
+        code: ERROR_CODES.ONBOARDING_REQUIRED,
+        message: 'Please complete your profile before booking.',
+        statusCode: 403,
+      }),
+    )
+
+    await POST(postRequest(VALID_BODY), ROUTE_CTX)
+
+    // The gate short-circuits before validation, pricing and the insert.
+    expect(dbMocks.createBookingWithServices).not.toHaveBeenCalled()
+    expect(dbMocks.getServicesByIds).not.toHaveBeenCalled()
+    expect(dbMocks.getBranchById).not.toHaveBeenCalled()
+  })
+
+  it('POST goes through the onboarding gate, not the plain session check', async () => {
+    // Guards against a future refactor quietly swapping the gate back to
+    // requireSession, which would silently reopen the hole.
+    await POST(postRequest(VALID_BODY), ROUTE_CTX)
+
+    expect(sessionMocks.requireOnboardedCustomer).toHaveBeenCalled()
+  })
+
+  it('GET stays on the plain session check — reading your own bookings needs no profile', async () => {
+    await GET(getRequest(), ROUTE_CTX)
+
+    expect(sessionMocks.requireSession).toHaveBeenCalled()
+  })
+})
+
 // ===========================================================================
 // 13.5 — Property 11: Each selected service is snapshotted
 //        Validates: Requirements 5.7
@@ -364,12 +448,15 @@ describe('Property 12: mixed service types are rejected (Task 13.6)', () => {
 })
 
 // ===========================================================================
-// 13.7 — Property 13: Walk-in bookings start confirmed
-//        Validates: Requirements 5.9
+// 13.7 — Property 13: a customer can never create a walk-in
+//        Validates: Requirements 5.9 (walk-ins are staff-created only, through
+//        the admin portal's POST /api/bookings/new)
 // ===========================================================================
-describe('Property 13: walk-in bookings start confirmed (Task 13.7)', () => {
-  // Feature: backend-api, Property 13: Walk-in bookings start confirmed
-  it('created status is confirmed iff isWalkin else pending', async () => {
+describe('Property 13: customer bookings are never walk-ins (Task 13.7)', () => {
+  // Feature: backend-api, Property 13: only staff create confirmed walk-ins.
+  // Before this rule the endpoint trusted a client `isWalkin: true`, which let a
+  // customer confirm their own booking and skip the approval queue.
+  it('status is pending and isWalkin false, whatever walk-in flag the client sends', async () => {
     await fc.assert(
       fc.asyncProperty(uniformServicesArb, fc.boolean(), async (services, isWalkin) => {
         vi.clearAllMocks()
@@ -403,11 +490,15 @@ describe('Property 13: walk-in bookings start confirmed (Task 13.7)', () => {
         const body = await res.json()
 
         expect(res.status).toBe(201)
-        expect(body.data.status).toBe(isWalkin ? 'confirmed' : 'pending')
+        expect(body.data.status).toBe('pending')
 
-        // The status persisted via the query layer matches the same rule.
-        const persisted = dbMocks.createBookingWithServices.mock.calls[0]?.[0] as { status: string }
-        expect(persisted.status).toBe(isWalkin ? 'confirmed' : 'pending')
+        // What reaches the query layer follows the same rule.
+        const persisted = dbMocks.createBookingWithServices.mock.calls[0]?.[0] as {
+          status: string
+          isWalkin: boolean
+        }
+        expect(persisted.status).toBe('pending')
+        expect(persisted.isWalkin).toBe(false)
       }),
       { numRuns: 100 },
     )

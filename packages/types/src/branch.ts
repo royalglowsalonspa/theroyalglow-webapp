@@ -84,3 +84,25 @@ export type BranchCreateInput = z.infer<typeof branchCreateSchema>
 
 export const branchUpdateSchema = branchCreateSchema.partial()
 export type BranchUpdateInput = z.infer<typeof branchUpdateSchema>
+
+// ── Public branch list (customer booking dialog) ────────────────────────
+// What GET /api/branches returns for the booking dialog's branch picker.
+// Address, contact and geo fields are deliberately left out.
+export type PublicBranch = {
+  id: string
+  name: string
+  city: string
+  status: BranchStatusValue
+  /** True only for an operational branch; the picker disables the others. */
+  acceptingBookings: boolean
+}
+
+export type PublicBranchList = {
+  /** Every branch that is not shut down, in display order. */
+  branches: PublicBranch[]
+  /**
+   * The branch the dialog preselects, and the one GET /api/availability uses
+   * when a request names no branch. Null when no branch is taking bookings.
+   */
+  defaultBranchId: string | null
+}

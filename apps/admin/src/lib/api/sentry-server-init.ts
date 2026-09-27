@@ -14,8 +14,8 @@
  *   The root instrumentation.ts in apps/admin was DELETED because OpenNext's
  *   build (trace-copy of instrumentation.js into the nested standalone output)
  *   breaks on it. Removing it also removed the server + edge `Sentry.init()`
- *   that `register()` performed (by importing sentry.server.config.ts /
- *   sentry.edge.config.ts) and the `onRequestError = Sentry.captureRequestError`
+ *   that `register()` performed (by importing the server / edge configs, now
+ *   src/lib/sentry/{server,edge}.ts) and the `onRequestError = Sentry.captureRequestError`
  *   hook — so server/edge unhandled errors stopped being captured.
  *
  *   DO NOT recreate a root instrumentation.ts (it re-breaks the OpenNext build).
@@ -43,8 +43,8 @@ const runtime = process.env.NEXT_RUNTIME
 
 if (runtime === 'nodejs') {
   // Node.js server runtime → server config (full Node Sentry SDK).
-  void import('../../../sentry.server.config')
+  void import('../sentry/server')
 } else if (runtime === 'edge') {
   // Edge runtime (middleware, edge route handlers) → edge config.
-  void import('../../../sentry.edge.config')
+  void import('../sentry/edge')
 }

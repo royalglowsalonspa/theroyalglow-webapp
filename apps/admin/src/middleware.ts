@@ -110,8 +110,18 @@ function allowWithCspNonce(request: NextRequest): NextResponse {
   const fontSrc =
     "font-src 'self' data: https://fonts.gstatic.com https://api.fontshare.com https://cdn.fontshare.com"
   const imgSrc = "img-src 'self' data: blob: https:"
+  // connect-src: without it, fetch/XHR/WebSocket fall back to `default-src
+  // 'self'`, which would block the browser Sentry SDK from sending events to
+  // the admin project's DSN-derived ingest host. Same ingest hosts as the
+  // customer site's CSP; 'self' keeps every same-origin request working as before.
+  const connectSrc = [
+    "connect-src 'self'",
+    'https://*.ingest.sentry.io',
+    'https://*.ingest.us.sentry.io',
+    'https://*.ingest.de.sentry.io',
+  ].join(' ')
 
-  const csp = [`default-src 'self'`, scriptSrc, styleSrc, fontSrc, imgSrc].join('; ')
+  const csp = [`default-src 'self'`, scriptSrc, styleSrc, fontSrc, imgSrc, connectSrc].join('; ')
 
   // Inject the nonce onto the forwarded request headers so the app can read it.
   const requestHeaders = new Headers(request.headers)

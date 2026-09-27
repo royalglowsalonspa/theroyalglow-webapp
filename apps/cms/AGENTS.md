@@ -48,8 +48,8 @@ Run these from the **repository root**, unless a row specifies otherwise.
 | Apply committed migrations | `bun run --filter=@rgss/cms migrate` (writes to the configured database) |
 | Discover browser tests | `bun run --filter=@rgss/cms test:e2e:list` |
 
-- Keep `dev` on `--webpack`; it is intentional for the maintainer's Windows
-  environment. `dev:turbo` is an explicit alternative, not a replacement default.
+- `dev` runs Turbopack, the bundler `next build` also uses. `dev:webpack` is the
+  fallback for a machine where Turbopack cannot start.
 - Keep `payload` and all six direct `@payloadcms/*` dependencies on the same exact
   version. Inspect lockfile compatibility and the shared Drizzle version on upgrades.
 - Generated `src/payload-types.ts` and `src/app/(payload)/admin/importMap.js`

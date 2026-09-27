@@ -96,6 +96,26 @@ describe('admin middleware — CSP nonce on the allow branch (Req 7.3)', () => {
     expect(csp).toContain('https://fonts.gstatic.com')
     expect(csp).toContain('https://cdn.fontshare.com')
   })
+
+  // Regression guard: with no connect-src, fetches fall back to default-src
+  // 'self' and the browser Sentry SDK could never deliver an event. The admin
+  // DSN points at an EU (de) ingest host; the us and legacy hosts cover a
+  // project moved to another region.
+  it('lets the browser Sentry SDK reach its ingest hosts, and nothing else new', async () => {
+    stubValidSession('owner')
+
+    const csp = (await middleware(makeAuthorizedRequest('/bookings'))).headers.get(
+      'Content-Security-Policy',
+    )
+
+    const connectSrc = csp
+      ?.split(';')
+      .map((directive) => directive.trim())
+      .find((directive) => directive.startsWith('connect-src '))
+    expect(connectSrc).toBe(
+      "connect-src 'self' https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
+    )
+  })
 })
 
 describe('admin middleware — diagnostic logging', () => {

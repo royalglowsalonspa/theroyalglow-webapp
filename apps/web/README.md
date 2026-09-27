@@ -59,10 +59,10 @@ Start web from the repository root:
 bun run --filter=@rgss/web dev
 ```
 
-Open [localhost:3000](http://localhost:3000). This script deliberately uses
-Webpack because Windows Application Control on the maintainer's machine blocks
-the native SWC path used by Turbopack. `bun run --filter=@rgss/web dev:turbo` is
-available when that constraint does not apply.
+Open [localhost:3000](http://localhost:3000). The script uses Turbopack, the same
+bundler as `next build`. If Turbopack cannot start on a machine (Windows
+Application Control blocking its native SWC binary, as it once did on the
+maintainer's), use `bun run --filter=@rgss/web dev:webpack`.
 
 Public CMS sections have fallbacks, but that does not make every route independent
 of infrastructure. Sign-in, service catalogue, availability, booking, and account
@@ -134,9 +134,9 @@ wall-clock semantics rather than the developer machine's timezone.
 Customer APIs include `/api/bookings` and its detail/cancel/reschedule routes,
 `/api/gems`, `/api/gems/redeem`, `/api/membership`, `/api/notifications`,
 `/api/profile/preferences`, and `/api/onboarding/complete`. Public routes expose
-service discovery, availability, offers, leads, and contact. Read each handler for
-its method, input schema, session requirement, and ownership check; route names
-alone do not establish authorization.
+service discovery, branches, availability, offers, leads, and contact. Read each
+handler for its method, input schema, session requirement, and ownership check;
+route names alone do not establish authorization.
 
 Most application APIs use `{ success, data, meta? }` or a structured error with a
 request ID through `withErrorHandler`. Better Auth, `/api/health`, and
@@ -154,8 +154,10 @@ secret and cookie scope; Payload has separate authentication.
 Middleware redirects visitors without a session cookie away from selected private
 routes, but private pages and APIs validate the session on the server. Onboarding
 guards direct signed-in users without a profile to `/onboarding` and redirect
-completed users away from it. Google sign-in helpers preserve booking, lead, and
-UTM navigation context across the redirect.
+completed users away from it. Book Now (`/?book=1`) asks for a missing profile
+before the booking dialog opens, carrying the booking and acquisition context to
+the form. Google sign-in helpers preserve booking, lead, and UTM navigation
+context across the redirect.
 
 See [authentication](../../knowledge-base/authentication.md) and the
 [Better Auth cleanup record](../../knowledge-base/better-auth-1.7.3-cleanup.md)
@@ -177,6 +179,15 @@ Fallback behavior differs by surface:
 - Gallery/team readers can return empty lists; the page decides the empty state.
 - Transactional service catalogue pages, API reads, and booking prices use
   Drizzle application data synchronized from CMS authoring, not marketing cards.
+
+Every blocking `cmsFetch` read is capped at `CMS_FETCH_TIMEOUT_MS` (5 s). The CMS
+is kept warm by an uptime monitor and normally answers well inside that, so the
+cap only matters during a CMS outage, deploy, or network fault, or locally when
+the CMS is not running: the page shows the fallbacks above instead of stalling.
+Failed reads are not cached, so the next request tries the CMS again. Next.js does
+not apply the cap to background revalidation of stale entries, which never blocks
+a render; when the CMS is down those failures appear in the server log as
+`fetch failed`.
 
 `POST /api/revalidate` authenticates `REVALIDATE_SECRET` and accepts allowed
 collection tags. For each tag it calls `revalidateTag(tag, { expire: 0 })`, which

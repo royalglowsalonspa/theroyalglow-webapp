@@ -691,10 +691,11 @@ Page                            Breadcrumbs
 |-----------|------|----|--------|
 | Not signed in | Any auth-gated page | `/sign-in?returnTo={current}` | Server redirect (middleware) |
 | Profile incomplete | Any page (post-OAuth) | `/onboarding` | Server redirect |
-| Profile already complete | `/onboarding` | `/` | Server redirect |
+| Profile incomplete, taps Book Now | `/?book=1` (signed in) | `/onboarding?book=1` (+ `utm_*`, `leadId`, `service`) | Server redirect |
+| Profile already complete | `/onboarding` | `/` (`/?book=1` when the URL carries `book=1`) | Server redirect |
 | Role insufficient | Admin page above user's role | `admin.theroyalglow.in/` + toast | Client redirect |
 | Already signed in | `/sign-in` | `/` | Server redirect |
-| Post-onboarding | `/onboarding` (submit) | `/` (with ?book=1 if in sessionStorage) | Client redirect |
+| Post-onboarding | `/onboarding` (submit) | `/` (with ?book=1 if in sessionStorage or the onboarding URL) | Client redirect (replace) |
 | Post-lead-capture | `/book` (submit) | `/?book=1&leadId={id}` | Client redirect |
 | Booking not owned | `/bookings/[id]` (other user) | 404 page | Server response |
 

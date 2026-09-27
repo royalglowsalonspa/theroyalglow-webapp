@@ -78,7 +78,7 @@ A five-minute Upstash read-through cache may be added for hot service-catalogue 
 
 - `GET /api/services` currently reads active categories and services directly from Neon through Drizzle.
 - `GET /api/availability` currently reads business-hours settings from Neon and generates a generic 30-minute grid in process.
-- Current availability does not query existing bookings, staff schedules, approved leave, or holidays; `branchId` is validated but otherwise unused.
+- Current availability does not query existing bookings, staff schedules, approved leave, or holidays. `branchId` is optional: a named branch must exist and be operational, and without one the default bookable branch is used. Business hours are shared, so every branch gets the same grid.
 - No catalogue/availability Redis `get`, `set`, `del`, TTL, key, or invalidation path exists.
 
 Proposed keys such as `services:{branch_id}` and `availability:{branch_code}:{YYYY-MM-DD}` remain design notes only. Any future availability cache must follow a conflict-aware implementation and invalidate on relevant booking or schedule changes. Neon remains authoritative.

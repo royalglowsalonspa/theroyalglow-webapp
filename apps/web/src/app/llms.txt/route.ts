@@ -115,7 +115,8 @@ ${contactBlock()}
 
 ## API (for agent integrations)
 Services list: ${SITE_URL}/api/services
-Check availability: ${SITE_URL}/api/availability?service={slug}&date={YYYY-MM-DD}
+Branches (with the default branch): ${SITE_URL}/api/branches
+Check availability: ${SITE_URL}/api/availability?date={YYYY-MM-DD}&branchId={id}
 Submit booking request: POST ${SITE_URL}/api/bookings
 Submit campaign lead enquiry: POST ${SITE_URL}/api/leads
 

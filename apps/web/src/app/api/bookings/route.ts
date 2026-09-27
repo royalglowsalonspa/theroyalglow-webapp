@@ -47,7 +47,7 @@ import {
 import { badRequest, conflict } from '@rgss/errors'
 import { bookingStatusSchema, createBookingSchema } from '@rgss/types'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireSession } from '@/lib/api/session'
+import { requireOnboardedCustomer, requireSession } from '@/lib/api/session'
 import { enqueueJob } from '@/lib/jobs/enqueue'
 import { publishBookingEvent } from '@/lib/realtime/publish'
 
@@ -70,7 +70,12 @@ export const GET = withErrorHandler(async (req: Request) => {
 })
 
 export const POST = withErrorHandler(async (req: Request) => {
-  const session = await requireSession()
+  // HARD GATE: a booking may only exist for a customer whose profile is complete.
+  // Phone, date of birth and gender are collected at /onboarding and live on
+  // `customer_profile`; `booking.customer_id` FKs `user.id`, so without this
+  // check the database would accept an appointment the salon cannot phone.
+  // 403 ONBOARDING_REQUIRED — the client routes the customer to /onboarding.
+  const session = await requireOnboardedCustomer()
 
   const body = await req.json()
   const parsed = createBookingSchema.safeParse(body)
@@ -78,7 +83,7 @@ export const POST = withErrorHandler(async (req: Request) => {
     throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
   }
 
-  const { branchId, serviceType, bookingDate, startTime, serviceIds, notes, isWalkin } = parsed.data
+  const { branchId, serviceType, bookingDate, startTime, serviceIds, notes } = parsed.data
 
   // Branch must exist and be operational.
   const branch = await getBranchById(branchId)
@@ -149,22 +154,22 @@ export const POST = withErrorHandler(async (req: Request) => {
     new Date(`${bookingDate}T00:00:00.000Z`),
   )
 
-  // Walk-ins skip the pending queue and are confirmed immediately (Req 5.9).
-  const status = isWalkin ? 'confirmed' : 'pending'
-
+  // A customer's own booking always enters the approval queue. Only staff
+  // create walk-ins (confirmed immediately, Req 5.9), through the admin
+  // portal's POST /api/bookings/new — never through this customer endpoint.
   const created = await createBookingWithServices(
     {
       bookingNumber,
       branchId,
       customerId: session.user.id,
-      status,
+      status: 'pending',
       serviceType,
       bookingDate: new Date(`${bookingDate}T00:00:00.000Z`),
       startTime,
       endTime,
       totalAmountPaise,
       totalDurationMinutes,
-      isWalkin: isWalkin ?? false,
+      isWalkin: false,
       notes: notes ?? null,
     },
     serviceRows,

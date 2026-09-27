@@ -74,9 +74,9 @@ No Payload globals are configured.
    `http://localhost:3002/admin`. For local content integration, point
    `PAYLOAD_PUBLIC_SERVER_URL` at the local CMS and `WEB_APP_URL` at the local web app.
 
-The `dev` script deliberately uses Webpack because the maintainer's Windows
-application-control policy blocks the native path required by Turbopack.
-`dev:turbo` is available for environments that support it.
+The `dev` script uses Turbopack, the same bundler as `next build`. On a machine
+where Turbopack cannot start (Windows Application Control blocking its native
+SWC binary), use `dev:webpack`.
 
 ## Commands
 

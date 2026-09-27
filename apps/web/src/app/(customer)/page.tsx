@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 01-08-2026
+ * Date         : Created - 04-06-2026 & Updated - 27-09-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : HomePage
@@ -29,6 +29,11 @@
  *
  * Notes        :
  * - ISR with 1-hour revalidation for FAQ content from CMS
+ * - Every Book Now link lands here as `/?book=1`. A signed-in account without
+ *   a completed profile is sent to /onboarding first, before the booking
+ *   dialog opens (requireProfileBeforeBooking).
+ * - Without booking intent, a signed-in customer without a completed profile is
+ *   re-prompted to /onboarding at most once per 24h (repromptPendingOnboarding).
  * - The hero image is owner-managed via the Payload `banner` collection; it
  *   falls back to the bundled /hero-fallback.svg brand artwork when no banner
  *   is active. Remaining sections still use Stitch-generated assets.
@@ -44,6 +49,7 @@ import { JsonLd } from '@/components/seo/JsonLd'
 import { selectHeroBanner } from '@/lib/cms/banners'
 import { getActiveBanners } from '@/lib/cms/client'
 import { resolveFaqs } from '@/lib/cms/faqs'
+import { repromptPendingOnboarding, requireProfileBeforeBooking } from '@/lib/onboarding-guard'
 import {
   faqPageJsonLd,
   localBusinessJsonLd,
@@ -68,7 +74,22 @@ export const metadata: Metadata = buildMetadata({
 
 export const revalidate = 3600
 
-export default async function HomePage() {
+type HomePageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}
+
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const params = await searchParams
+
+  // Both onboarding redirects run before the CMS reads, so a redirect does not
+  // pay for them. See lib/onboarding-guard.ts.
+  // Book Now (`?book=1`) by a signed-in account with no profile: onboarding
+  // comes first, so nobody fills in a booking the API would then refuse.
+  await requireProfileBeforeBooking(params)
+  // Otherwise a gentle re-prompt: at most once per 24h, and only for signed-in
+  // customers without a profile.
+  await repromptPendingOnboarding(params)
+
   const [faqList, banners] = await Promise.all([resolveFaqs(), getActiveBanners()])
 
   // The first active banner in `order` owns the hero image, CTA link or not.

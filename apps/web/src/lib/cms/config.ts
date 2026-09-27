@@ -12,6 +12,7 @@
  * Responsibilities :
  * - Determine if CMS is configured (non-empty, valid URL)
  * - Provide guarded cmsFetch() that returns null on any failure
+ * - Bound each blocking CMS request with a timeout
  * - Apply Next.js ISR revalidation to CMS requests
  *
  * Features / Functionality :
@@ -47,6 +48,23 @@ const logger = createLogger({
 /** Default ISR window for CMS reads (seconds). */
 export const CMS_REVALIDATE_SECONDS = 3600
 
+/**
+ * Upper bound (ms) for one blocking CMS request, body included.
+ *
+ * The CMS normally answers quickly (an uptime monitor keeps it warm), so this
+ * only matters when something is wrong on its side: an outage, a deploy, a
+ * network fault, or a local CMS that is not running. Without a bound, a cache
+ * miss then stalls the whole page render, because an unreachable host only
+ * fails once the connection attempt times out and a hung response never fails.
+ * With it, the page renders its fallback content; failures are never written
+ * to the fetch cache, so the next request tries again.
+ *
+ * Next.js deliberately drops the signal for background revalidation of a
+ * stale entry, which never blocks a render, so only blocking reads are bounded.
+ * The signal is not part of the fetch cache key.
+ */
+export const CMS_FETCH_TIMEOUT_MS = 5000
+
 /** Strip a single trailing slash so `${base}${path}` never doubles up. */
 function normaliseBase(raw: string): string {
   return raw.endsWith('/') ? raw.slice(0, -1) : raw
@@ -80,7 +98,8 @@ export function cmsBaseUrl(): string | null {
 /**
  * Guarded fetch against the Payload REST API.
  * - Returns null when the CMS is not configured.
- * - Returns null (never throws) on network error, non-2xx, or parse failure.
+ * - Returns null (never throws) on network error, timeout
+ *   (`CMS_FETCH_TIMEOUT_MS`), non-2xx, or parse failure.
  * - Applies `next: { revalidate }` (default `CMS_REVALIDATE_SECONDS`) for ISR.
  *
  * `path` is expected to begin with `/api/...` (relative to the CMS base URL).
@@ -101,6 +120,7 @@ export async function cmsFetch<T>(
     const res = await fetch(url, {
       headers: { accept: 'application/json' },
       next: init?.tags ? { revalidate, tags: init.tags } : { revalidate },
+      signal: AbortSignal.timeout(CMS_FETCH_TIMEOUT_MS),
     })
 
     if (!res.ok) {

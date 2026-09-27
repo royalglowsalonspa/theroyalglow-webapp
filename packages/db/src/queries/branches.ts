@@ -13,6 +13,7 @@
  *
  * Responsibilities :
  * - List every branch ordered for the admin management UI
+ * - List the branches customers may see (booking dialog picker)
  * - Fetch a single branch by id
  * - Create a branch, generating a unique `code` and the next `number`
  * - Patch a branch with conditional assignment (exactOptionalPropertyTypes)
@@ -31,7 +32,7 @@
  ************************************************************/
 
 import type { BranchCreateInput, BranchUpdateInput } from '@rgss/types'
-import { asc, eq, sql } from 'drizzle-orm'
+import { asc, eq, ne, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { db } from '../index'
 import { branch } from '../schema/branch'
@@ -44,6 +45,23 @@ export async function getBranches() {
 export async function getBranchById(id: string) {
   const rows = await db.select().from(branch).where(eq(branch.id, id)).limit(1)
   return rows[0] ?? null
+}
+
+// Branches customers may see in the booking dialog: every branch except a
+// `shutdown` one, in display order. Only the fields the picker shows, plus
+// `isPrimary` for choosing the default branch; no address, phone or geo.
+export async function getPublicBranches() {
+  return db
+    .select({
+      id: branch.id,
+      name: branch.name,
+      city: branch.city,
+      status: branch.status,
+      isPrimary: branch.isPrimary,
+    })
+    .from(branch)
+    .where(ne(branch.status, 'shutdown'))
+    .orderBy(asc(branch.displayOrder), asc(branch.name))
 }
 
 // Derive a short upper-case alphanumeric code from a branch name.

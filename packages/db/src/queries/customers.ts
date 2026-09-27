@@ -34,8 +34,9 @@
  *                customer_profile. Loyalty balance is LEFT JOINed (nullable).
  ************************************************************/
 
-import type { CustomerListQuery } from '@rgss/types'
+import type { CustomerListQuery, OnboardingConsentReceipt } from '@rgss/types'
 import { and, asc, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm'
+import { nanoid } from 'nanoid'
 import { db } from '../index'
 import { user } from '../schema/auth'
 import { booking } from '../schema/booking'
@@ -44,6 +45,7 @@ import { invoice } from '../schema/invoice'
 import { loyaltyAccount } from '../schema/loyalty'
 import { spaMembership } from '../schema/membership'
 import { customerProfile } from '../schema/profile'
+import { auditLog } from '../schema/system'
 
 type CustomerSort = CustomerListQuery['sort']
 
@@ -228,6 +230,58 @@ export async function hasCustomerProfile(userId: string): Promise<boolean> {
     .limit(1)
 
   return rows.length > 0
+}
+
+// The fields /onboarding collects. Phone, gender and date of birth are required
+// here because a profile is what makes a customer bookable. Everything else on
+// customer_profile (visit KPIs, no-show state, reminder toggles) keeps its
+// schema default at creation.
+export type NewCustomerProfile = {
+  userId: string
+  phone: string
+  gender: NonNullable<(typeof customerProfile.$inferInsert)['gender']>
+  dateOfBirth: Date
+  marketingConsent: boolean
+  marketingConsentAt: Date | null
+  acquisitionSource: string
+  utmSource: string | null
+  utmCampaign: string | null
+  utmMedium: string | null
+}
+
+// Create the customer_profile that completes onboarding, together with the
+// customer's consent receipt (see OnboardingConsentReceipt), and return the
+// profile id. Both rows are written in ONE db.batch() transaction (neon-http has
+// no interactive transactions), so a profile never exists without a record of
+// the consent that allowed it. `user_id` is UNIQUE, so a concurrent duplicate
+// submit fails on the constraint and rolls the whole batch back.
+export async function createCustomerProfile(
+  values: NewCustomerProfile,
+  consent: OnboardingConsentReceipt,
+  consentedAt: Date,
+): Promise<{ id: string }> {
+  const profileId = nanoid()
+
+  const [inserted] = await db.batch([
+    db
+      .insert(customerProfile)
+      .values({ ...values, id: profileId })
+      .returning({ id: customerProfile.id }),
+    db.insert(auditLog).values({
+      actorId: values.userId,
+      action: 'create',
+      entityType: 'customer_profile',
+      entityId: profileId,
+      newValues: consent,
+      createdAt: consentedAt,
+    }),
+  ])
+
+  const row = inserted[0]
+  if (!row) {
+    throw new Error('customer_profile insert returned no rows.')
+  }
+  return row
 }
 
 // Owner/manager overrides on a customer_profile (e.g. resetting the no-show

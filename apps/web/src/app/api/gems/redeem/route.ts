@@ -58,7 +58,7 @@ import {
 import { badRequest, conflict, notFound } from '@rgss/errors'
 import { redeemGemsSchema } from '@rgss/types'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireSession } from '@/lib/api/session'
+import { requireOnboardedCustomer } from '@/lib/api/session'
 
 // An idempotency replay returns the booking the first attempt created, with no
 // further deduction (200). One shape for both replay paths: the pre-gate lookup
@@ -79,7 +79,9 @@ function duplicateResponse(bookingNumber: string) {
 // service. Strictly scoped to the authenticated customer; the charged amount is
 // the server-read gemsRequired, never a client value.
 export const POST = withErrorHandler(async (req: Request) => {
-  const session = await requireSession()
+  // Redemption inserts a real ₹0 booking, so it carries the SAME profile
+  // requirement as POST /api/bookings — see requireOnboardedCustomer.
+  const session = await requireOnboardedCustomer()
 
   const body = await req.json()
   const parsed = redeemGemsSchema.safeParse(body)

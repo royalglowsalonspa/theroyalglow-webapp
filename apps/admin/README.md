@@ -61,9 +61,9 @@ normal shared sign-in flow:
 bun run --filter @rgss/web dev
 ```
 
-Keep the admin's `dev` script on Webpack. The explicit flag supports Windows
-machines where Application Control blocks the native SWC path used by Turbopack.
-`bun run --filter @rgss/admin dev:turbo` is the explicit alternative.
+The admin's `dev` script uses Turbopack, the same bundler as `next build`. On a
+machine where Turbopack cannot start (Windows Application Control blocking its
+native SWC binary), use `bun run --filter @rgss/admin dev:webpack`.
 
 For normal local authentication, point `NEXT_PUBLIC_WEB_ORIGIN` at the local web
 origin, use the same database branch and `BETTER_AUTH_SECRET` in both apps, and

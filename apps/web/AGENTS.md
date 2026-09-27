@@ -38,9 +38,9 @@ Run these from the **repository root**, using the existing workspace install:
 | Start an existing build | `bun run --filter=@rgss/web start` |
 | Browser smoke tests | `bun run test:e2e` |
 
-- Keep the default `dev` script's `--webpack` flag: the maintainer's Windows
-  Application Control blocks the native SWC path used by Turbopack. `dev:turbo`
-  is an explicit opt-in, not a replacement for the default.
+- `dev` runs Turbopack, the bundler `next build` also uses. `dev:webpack` is the
+  fallback for a machine where Turbopack cannot start (Windows Application Control
+  blocked its native SWC binary on the maintainer's machine until 27/09/2026).
 - Vitest uses the root `web` project, jsdom, React, and `src/test/setup.ts`.
   Select the relevant tests; a documentation edit does not require a build.
 - Root Playwright targets `apps/web/e2e`. It reuses an existing local server;

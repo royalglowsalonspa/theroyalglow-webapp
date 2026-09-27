@@ -498,7 +498,8 @@ API routes (`apps/web/app/api/`) are thin orchestrators. They:
 
 /api/services                           ← GET: all categories + services (direct Neon via Drizzle; no Redis cache)
 /api/services/[slug]                    ← GET: single service detail (direct Neon via Drizzle; no Redis cache)
-/api/availability                       ← GET: generic 30-minute grid from Neon-backed business-hours settings; no Redis cache
+/api/branches                           ← GET: branches for the booking dialog's picker + default branch (direct Neon via Drizzle; no Redis cache)
+/api/availability                       ← GET: generic 30-minute grid from Neon-backed business-hours settings; optional branchId (default bookable branch when omitted); no Redis cache
 /api/bookings                           ← GET: customer bookings | POST: create booking
 /api/bookings/[id]                      ← GET: booking detail
 /api/bookings/[id]/cancel               ← POST: cancel booking

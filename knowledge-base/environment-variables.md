@@ -127,7 +127,9 @@ Use distinct values for `dev`, `test`, `pprd`, and `prod`. Migration order remai
 | `APP_ENV` | web/admin Sentry bootstrap | Environment metadata, falling back to `NODE_ENV`. |
 | `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` | CI/source-map tooling when configured | Workflow/build values, not app-runtime contracts. |
 
-Do not recreate `apps/web/instrumentation.ts` or `apps/admin/instrumentation.ts`. The active server path uses each app's `src/lib/api/sentry-server-init.ts` plus the client/server/edge config files because a root instrumentation file breaks SST/OpenNext packaging.
+Do not recreate `apps/web/instrumentation.ts` or `apps/admin/instrumentation.ts`. The active server path uses each app's `src/lib/api/sentry-server-init.ts` plus `src/lib/sentry/{server,edge}.ts`, and the browser path uses `src/instrumentation-client.ts`, because a root instrumentation file breaks SST/OpenNext packaging. See [error-handling.md](error-handling.md#sentry-integration).
+
+`SENTRY_SUPPRESS_INSTRUMENTATION_FILE_WARNING` is set by each app's `next.config.ts`, not by operators. It silences the SDK's build warning about that intentionally missing instrumentation file.
 
 ---
 

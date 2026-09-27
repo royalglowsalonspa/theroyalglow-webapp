@@ -68,8 +68,9 @@ Most endpoints require a Better Auth session cookie. Each endpoint notes its
 </Accordion>
 <Accordion title="Which endpoints are public (no auth)">
 
-`GET /api/services`, `GET /api/services/[slug]`, `GET /api/availability`,
-`GET /api/offers`, `POST /api/leads`, and `GET /api/health` need no session.
+`GET /api/services`, `GET /api/services/[slug]`, `GET /api/branches`,
+`GET /api/availability`, `GET /api/offers`, `POST /api/leads`, and
+`GET /api/health` need no session.
 
 </Accordion>
 </AccordionGroup>
@@ -81,6 +82,7 @@ The endpoints reached for most often, in one place.
 | Action | Method | Path |
 | --- | --- | --- |
 | List services | GET | `/api/services` |
+| List branches | GET | `/api/branches` |
 | Check availability | GET | `/api/availability?date={YYYY-MM-DD}&branchId={id}` |
 | Submit booking request | POST | `/api/bookings` |
 | Get booking status | GET | `/api/bookings/{id}` |
@@ -91,7 +93,7 @@ The endpoints reached for most often, in one place.
 
 <Columns cols={2}>
   <Card title="Services & Availability" icon="scissors" href="/content/docs/api-reference/services">
-    Catalogue, service detail, slot availability.
+    Catalogue, service detail, branches, slot availability.
   </Card>
 
   <Card title="Bookings (customer)" icon="calendar" href="/content/docs/api-reference/bookings">

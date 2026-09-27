@@ -573,18 +573,19 @@ non-2xx responses, and falls back to an invoice email without a PDF attachment.
 
 ### Active implementation
 
-Sentry is initialized through runtime-specific configuration files in both Next.js apps:
+Sentry is initialized through runtime-specific files in both Next.js apps (`<app>` is `web` or `admin`):
 
-- `apps/web/sentry.client.config.ts`
-- `apps/web/sentry.server.config.ts`
-- `apps/web/sentry.edge.config.ts`
-- `apps/admin/sentry.client.config.ts`
-- `apps/admin/sentry.server.config.ts`
-- `apps/admin/sentry.edge.config.ts`
-- `apps/web/src/lib/api/sentry-server-init.ts`
-- `apps/admin/src/lib/api/sentry-server-init.ts`
+| File | Runtime |
+|------|---------|
+| `apps/<app>/src/instrumentation-client.ts` | Browser. Loads the SDK with a dynamic import only when the DSN is set at build time; also exports `onRouterTransitionStart`. |
+| `apps/<app>/src/lib/sentry/server.ts` | Node.js server |
+| `apps/<app>/src/lib/sentry/edge.ts` | Edge runtime |
+| `apps/<app>/src/lib/api/sentry-server-init.ts` | Imports the server or edge file once, keyed on `NEXT_RUNTIME` |
+| `apps/<app>/src/app/global-error.tsx` | Root-layout crash UI; reports the error when the DSN is set |
 
-Do **not** recreate a root `instrumentation.ts`. SST/OpenNext's trace-copy step breaks when that file is included. Each app's API error handler imports `sentry-server-init.ts`, which selects the Node or edge configuration and captures unexpected API exceptions.
+Do **not** recreate a root `instrumentation.ts`. SST/OpenNext's trace-copy step breaks when that file is included. Each app's API error handler imports `sentry-server-init.ts`, which selects the Node or edge configuration and captures unexpected API exceptions. Because the instrumentation file is absent by design, each `next.config.ts` sets `SENTRY_SUPPRESS_INSTRUMENTATION_FILE_WARNING` to silence the SDK's build warning about it.
+
+Do **not** move the server/edge files back to the app root as `sentry.{server,edge}.config.ts`, and do not restore `sentry.client.config.ts`. The SDK warns about root server/edge config files that no instrumentation file imports, and Turbopack production builds never load `sentry.client.config.ts`.
 
 ### Runtime metadata and privacy
 
