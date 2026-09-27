@@ -1,17 +1,19 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 25-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 27-09-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : GET /api/availability
  * Scope        : API — Public
  *
  * Description  : Returns available time slots for a given date and branch.
- *                Thin orchestrator: parse → Zod validate → call the pure
- *                generateAvailability business function → standard envelope.
+ *                Thin orchestrator: parse → Zod validate → check the branch →
+ *                call the pure generateAvailability business function →
+ *                standard envelope.
  *
  * Responsibilities :
- * - Validate the `date` (YYYY-MM-DD) and `branchId` query params with Zod
+ * - Validate the `date` (YYYY-MM-DD) and optional `branchId` query params
+ * - Confirm the branch is taking bookings (the default branch when none is named)
  * - Delegate slot generation + past-date rejection to @rgss/business
  * - Return slot availability for the booking dialog
  *
@@ -23,19 +25,26 @@
  * Tech Stack   : Next.js 16 (Route Handler)
  * Layer        : API (Thin Orchestrator)
  *
- * Dependencies : @/lib/api/error-handler, @rgss/business, @rgss/errors,
- *                @rgss/types
+ * Dependencies : @/lib/api/error-handler, @rgss/business, @rgss/db/queries,
+ *                @rgss/errors, @rgss/types
  *
  * Notes        :
  * - Public endpoint (no auth).
+ * - `branchId` is optional. Without it the slots are for the default bookable
+ *   branch (the `defaultBranchId` of GET /api/branches), so a client that
+ *   predates the booking dialog's branch picker still works. Requiring it
+ *   made every request from the old dialog fail with 400, blocking all online
+ *   bookings. A named branch must exist ("Branch not found.") and be
+ *   operational ("Selected branch is not accepting bookings."), the same
+ *   checks and messages as POST /api/bookings.
  * - generateAvailability is pure and throws AppError(400) for past/malformed
- *   dates. Business hours are sourced from the system settings query layer
- *   (per weekday); a closed day flags every slot unavailable. No per-branch
- *   holiday query exists yet, so holidays are not sourced here.
+ *   dates. Business hours are one shared setting (per weekday) for every
+ *   branch; a closed day flags every slot unavailable. No per-branch holiday
+ *   query exists yet, so holidays are not sourced here.
  ************************************************************/
 
-import { generateAvailability } from '@rgss/business'
-import { getSettings } from '@rgss/db/queries'
+import { generateAvailability, isBranchBookable, resolveDefaultBranch } from '@rgss/business'
+import { getBranchById, getPublicBranches, getSettings } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { availabilityQuerySchema, type DayHours } from '@rgss/types'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
@@ -70,6 +79,25 @@ function resolveBusinessHours(
   return { openMinutes: timeToMinutes(day.open), closeMinutes: timeToMinutes(day.close) }
 }
 
+// Throw a 400 unless slots can be offered for this branch. A request that
+// names no branch is answered for the default bookable branch.
+async function assertBookableBranch(branchId: string | undefined): Promise<void> {
+  if (branchId === undefined) {
+    if (!resolveDefaultBranch(await getPublicBranches())) {
+      throw badRequest('No branch is taking bookings right now.')
+    }
+    return
+  }
+
+  const branch = await getBranchById(branchId)
+  if (!branch) {
+    throw badRequest('Branch not found.')
+  }
+  if (!isBranchBookable(branch.status)) {
+    throw badRequest('Selected branch is not accepting bookings.')
+  }
+}
+
 export const GET = withErrorHandler(async (req: Request) => {
   const { searchParams } = new URL(req.url)
   const parsed = availabilityQuerySchema.safeParse({
@@ -81,9 +109,11 @@ export const GET = withErrorHandler(async (req: Request) => {
     throw badRequest('Invalid availability query', parsed.error.flatten().fieldErrors)
   }
 
-  // Load the configured business hours from the settings query layer and map
-  // the requested weekday's open/close window for slot flagging.
-  const { businessHours } = await getSettings()
+  // The branch check and the configured business hours are independent reads.
+  const [{ businessHours }] = await Promise.all([
+    getSettings(),
+    assertBookableBranch(parsed.data.branchId),
+  ])
   const dayHours = resolveBusinessHours(parsed.data.date, businessHours)
 
   // Pure business function: rejects past/malformed dates (400) before

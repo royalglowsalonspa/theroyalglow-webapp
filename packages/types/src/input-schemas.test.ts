@@ -20,7 +20,12 @@
  ************************************************************/
 import { describe, expect, it } from 'vitest'
 import { adminBookingActionSchema, completeBookingSchema } from './admin-booking'
-import { cancelBookingSchema, createBookingSchema, rescheduleBookingSchema } from './booking'
+import {
+  availabilityQuerySchema,
+  cancelBookingSchema,
+  createBookingSchema,
+  rescheduleBookingSchema,
+} from './booking'
 import { createLeadSchema } from './lead'
 
 describe('createBookingSchema', () => {
@@ -76,6 +81,37 @@ describe('createBookingSchema', () => {
     if (result.success) {
       expect(result.data).not.toHaveProperty('isWalkin')
     }
+  })
+})
+
+describe('availabilityQuerySchema', () => {
+  it('accepts a date with no branchId, the request the booking dialog used to send', () => {
+    // Requiring branchId made every one of those requests a 400, which blocked
+    // all online bookings; the server now falls back to the default branch.
+    const result = availabilityQuerySchema.safeParse({ date: '2026-10-05' })
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts a date with a branchId', () => {
+    const result = availabilityQuerySchema.safeParse({
+      date: '2026-10-05',
+      branchId: 'branch_rayasandra',
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.branchId).toBe('branch_rayasandra')
+    }
+  })
+
+  it('rejects an explicitly empty branchId', () => {
+    expect(availabilityQuerySchema.safeParse({ date: '2026-10-05', branchId: '' }).success).toBe(
+      false,
+    )
+  })
+
+  it('rejects a missing or malformed date', () => {
+    expect(availabilityQuerySchema.safeParse({ branchId: 'branch_rayasandra' }).success).toBe(false)
+    expect(availabilityQuerySchema.safeParse({ date: '05/10/2026' }).success).toBe(false)
   })
 })
 

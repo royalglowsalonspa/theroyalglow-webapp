@@ -25,5 +25,6 @@
  ************************************************************/
 export * from './availability'
 export * from './booking-number'
+export * from './branch'
 export * from './pricing'
 export * from './reschedule'
