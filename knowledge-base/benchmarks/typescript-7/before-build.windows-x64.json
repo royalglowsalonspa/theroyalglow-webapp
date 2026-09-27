@@ -1,0 +1,205 @@
+{
+  "schemaVersion": 1,
+  "label": "before",
+  "generatedAtUtc": "2026-09-27T20:10:11.9851058Z",
+  "suite": "build",
+  "git": {
+    "commit": "e499ca03db833913d620084735cfb1e128b7568b",
+    "tree": "d98391348d0048f32d2108b3ba29abb8755319a8",
+    "initialClean": true,
+    "finalClean": false,
+    "inputHashes": {
+      "bunLockSha256": "6256d711bd0a815876f34b135d14ae693bd1c32f1f47db4ec0fc7c29a13d9819",
+      "packageJsonSha256": "b2b65dbaec1927d2146e76df5d9888b574c377071bf3f9d4386a92bce2b2ff75",
+      "tsconfigJsonSha256": "65119e18d50d9f24b233df5762865cd83916a3897e89966520c30b9bc07c3400"
+    }
+  },
+  "toolchain": {
+    "typescript": "Version 5.9.3",
+    "bun": "1.4.2",
+    "node": "v24.21.0",
+    "turbo": "2.11.2",
+    "powershell": "7.6.6"
+  },
+  "host": {
+    "operatingSystem": "Microsoft Windows 11 Home Single Language",
+    "operatingSystemVersion": "10.0.26200",
+    "architecture": "AMD64",
+    "processor": "Intel(R) Core(TM) i5-8300H CPU @ 2.30GHz",
+    "logicalProcessors": 8,
+    "totalMemoryGb": 15.81
+  },
+  "methodology": {
+    "processTreeSampleIntervalMilliseconds": 100,
+    "typecheckIterations": 3,
+    "buildIterations": 1,
+    "typechecksDisableIncrementalCache": true,
+    "buildsDeleteFrameworkOutputBeforeEachRun": true,
+    "turboCacheBypassed": true,
+    "benchmarkTargetInitiallyClean": true,
+    "workspaceTypecheckScope": "Ten Turborepo workspace typecheck tasks; specialist drift/synthetic configs are validated separately and excluded from this apples-to-apples performance workload.",
+    "note": "CPU and memory include the measured Bun process plus sampled descendants. Monitoring overhead is external and identical between before/after runs."
+  },
+  "scenarios": [
+    {
+      "name": "web-build",
+      "kind": "build",
+      "command": "bun run --filter=@rgss/web build",
+      "environmentKeys": [
+        "BETTER_AUTH_SECRET",
+        "DATABASE_URL",
+        "DATABASE_URL_UNPOOLED",
+        "NEXT_PUBLIC_CMS_URL",
+        "NODE_OPTIONS",
+        "SKIP_ENV_VALIDATION"
+      ],
+      "cleanupPaths": ["apps/web/.next"],
+      "runs": [
+        {
+          "iteration": 1,
+          "exitCode": 0,
+          "wallSeconds": 136.183,
+          "cpuSeconds": 256.25,
+          "aggregateCoreUtilizationPercent": 188.17,
+          "normalizedHostCpuPercent": 23.52,
+          "peakWorkingSetMb": 2312.242,
+          "peakPrivateMemoryMb": 2472.305,
+          "samples": 273,
+          "compilerDiagnostics": {
+            "memoryMb": null,
+            "parseSeconds": null,
+            "checkSeconds": null,
+            "totalSeconds": null
+          }
+        }
+      ],
+      "summary": {
+        "successfulIterations": 1,
+        "medianWallSeconds": 136.183,
+        "p95WallSeconds": 136.183,
+        "medianCpuSeconds": 256.25,
+        "medianPeakWorkingSetMb": 2312.242,
+        "medianPeakPrivateMemoryMb": 2472.305,
+        "medianNormalizedHostCpuPercent": 23.52
+      }
+    },
+    {
+      "name": "admin-build",
+      "kind": "build",
+      "command": "bun run --filter=@rgss/admin build",
+      "environmentKeys": [
+        "BETTER_AUTH_SECRET",
+        "DATABASE_URL",
+        "DATABASE_URL_UNPOOLED",
+        "NEXT_PUBLIC_CMS_URL",
+        "NODE_OPTIONS",
+        "SKIP_ENV_VALIDATION"
+      ],
+      "cleanupPaths": ["apps/admin/.next"],
+      "runs": [
+        {
+          "iteration": 1,
+          "exitCode": 0,
+          "wallSeconds": 135.293,
+          "cpuSeconds": 287.922,
+          "aggregateCoreUtilizationPercent": 212.81,
+          "normalizedHostCpuPercent": 26.6,
+          "peakWorkingSetMb": 2631.836,
+          "peakPrivateMemoryMb": 2772.125,
+          "samples": 278,
+          "compilerDiagnostics": {
+            "memoryMb": null,
+            "parseSeconds": null,
+            "checkSeconds": null,
+            "totalSeconds": null
+          }
+        }
+      ],
+      "summary": {
+        "successfulIterations": 1,
+        "medianWallSeconds": 135.293,
+        "p95WallSeconds": 135.293,
+        "medianCpuSeconds": 287.922,
+        "medianPeakWorkingSetMb": 2631.836,
+        "medianPeakPrivateMemoryMb": 2772.125,
+        "medianNormalizedHostCpuPercent": 26.6
+      }
+    },
+    {
+      "name": "cms-build",
+      "kind": "build",
+      "command": "bun run --filter=@rgss/cms build",
+      "environmentKeys": [
+        "DATABASE_URL",
+        "NODE_OPTIONS",
+        "PAYLOAD_PUBLIC_SERVER_URL",
+        "PAYLOAD_SECRET",
+        "WEB_APP_URL"
+      ],
+      "cleanupPaths": ["apps/cms/.next"],
+      "runs": [
+        {
+          "iteration": 1,
+          "exitCode": 0,
+          "wallSeconds": 116.694,
+          "cpuSeconds": 254.734,
+          "aggregateCoreUtilizationPercent": 218.29,
+          "normalizedHostCpuPercent": 27.29,
+          "peakWorkingSetMb": 2963.832,
+          "peakPrivateMemoryMb": 3049.254,
+          "samples": 236,
+          "compilerDiagnostics": {
+            "memoryMb": null,
+            "parseSeconds": null,
+            "checkSeconds": null,
+            "totalSeconds": null
+          }
+        }
+      ],
+      "summary": {
+        "successfulIterations": 1,
+        "medianWallSeconds": 116.694,
+        "p95WallSeconds": 116.694,
+        "medianCpuSeconds": 254.734,
+        "medianPeakWorkingSetMb": 2963.832,
+        "medianPeakPrivateMemoryMb": 3049.254,
+        "medianNormalizedHostCpuPercent": 27.29
+      }
+    },
+    {
+      "name": "invoicing-build",
+      "kind": "build",
+      "command": "bun run --filter=@rgss/invoicing build",
+      "environmentKeys": [],
+      "cleanupPaths": ["apps/invoicing/dist"],
+      "runs": [
+        {
+          "iteration": 1,
+          "exitCode": 0,
+          "wallSeconds": 3.372,
+          "cpuSeconds": 1.5,
+          "aggregateCoreUtilizationPercent": 44.48,
+          "normalizedHostCpuPercent": 5.56,
+          "peakWorkingSetMb": 149.535,
+          "peakPrivateMemoryMb": 199.027,
+          "samples": 8,
+          "compilerDiagnostics": {
+            "memoryMb": null,
+            "parseSeconds": null,
+            "checkSeconds": null,
+            "totalSeconds": null
+          }
+        }
+      ],
+      "summary": {
+        "successfulIterations": 1,
+        "medianWallSeconds": 3.372,
+        "p95WallSeconds": 3.372,
+        "medianCpuSeconds": 1.5,
+        "medianPeakWorkingSetMb": 149.535,
+        "medianPeakPrivateMemoryMb": 199.027,
+        "medianNormalizedHostCpuPercent": 5.56
+      }
+    }
+  ]
+}

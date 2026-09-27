@@ -9,6 +9,11 @@ import type { NextConfig } from 'next'
 process.env.SENTRY_SUPPRESS_INSTRUMENTATION_FILE_WARNING ??= '1'
 
 const nextConfig: NextConfig = {
+  // TypeScript 7 has no JavaScript Compiler API. Make Next run the
+  // project-local native `tsc` CLI for build-time validation instead.
+  experimental: {
+    useTypeScriptCli: true,
+  },
   transpilePackages: [
     '@rgss/business',
     '@rgss/db',

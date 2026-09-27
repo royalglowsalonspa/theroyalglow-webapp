@@ -58,6 +58,7 @@ live here. `README.md` lives in the repo root; `CONTRIBUTING.md` lives in `.gith
 | [file-header-guide.md](./file-header-guide.md) | File header conventions |
 | [use-skills.md](./use-skills.md) | Skills & npx commands |
 | [mcp-setup.md](./mcp-setup.md) | Cross-IDE MCP config — single source, generator, credential rotation |
+| [typescript-7-migration.md](./typescript-7-migration.md) | TypeScript 7 native compiler migration — decisions, benchmarks, validation, rollback |
 | [ISSUES.md](./ISSUES.md) | Contributor guide to reading issues, label names, triage, and project terminology |
 
 ## Quality & Release

@@ -17,9 +17,10 @@ const nextConfig: NextConfig = {
     '@rgss/types',
     '@rgss/ui',
   ],
-  // Tree-shake barrel imports from large UI/client packages so unused exports
-  // never enter production bundles, reducing Lambda size and client downloads.
+  // TypeScript 7 has no JavaScript Compiler API. Make Next run the
+  // project-local native `tsc` CLI for build-time validation instead.
   experimental: {
+    useTypeScriptCli: true,
     optimizePackageImports: [
       'lucide-react',
       'motion',
