@@ -46,7 +46,8 @@
 | **Purpose** | First-time user data collection — name, phone, DOB, gender, consent. |
 | **Rendering** | SSR (auth-gated, shows only for users without a completed profile) |
 | **SEO** | `robots: noindex, nofollow` |
-| **Redirect** | If profile already complete → redirect to `/` immediately |
+| **Redirect** | If profile already complete → redirect to `/` immediately (`/?book=1` when the URL carries `book=1`) |
+| **Entry** | First Google sign-in, the homepage re-prompt, or Book Now by a signed-in account without a profile (`/onboarding?book=1&…`) |
 
 **UI Components:**
 - Welcome header: "Welcome to Royal Glow, [First Name from Google]! 👑"
@@ -64,11 +65,11 @@
 
 **On submit:**
 - `POST /api/onboarding/complete`
-- Acquisition source assigned from `sessionStorage` first-touch context (organic / gmb / walkin / meta_ad lead)
+- Acquisition source assigned from `sessionStorage` first-touch context, else the onboarding URL's `utm_*`/`leadId` (organic / gmb / walkin / meta_ad lead)
 - Consent choices written to `rgss_cookie_consent` in localStorage
 - Cookie consent banner suppressed for categories already consented to
 - Meta CAPI: `CompleteRegistration` event fired
-- Redirect to `/` (if `book=1` in sessionStorage, homepage auto-opens dialog)
+- Redirect to `/` (if `book=1` is in sessionStorage or the onboarding URL, homepage auto-opens dialog). The form then says the booking comes next and its button reads "Continue to Booking"
 
 **States:**
 - Validation errors: inline per field (phone format, DOB required, privacy consent required)

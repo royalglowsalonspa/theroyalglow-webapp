@@ -154,8 +154,10 @@ secret and cookie scope; Payload has separate authentication.
 Middleware redirects visitors without a session cookie away from selected private
 routes, but private pages and APIs validate the session on the server. Onboarding
 guards direct signed-in users without a profile to `/onboarding` and redirect
-completed users away from it. Google sign-in helpers preserve booking, lead, and
-UTM navigation context across the redirect.
+completed users away from it. Book Now (`/?book=1`) asks for a missing profile
+before the booking dialog opens, carrying the booking and acquisition context to
+the form. Google sign-in helpers preserve booking, lead, and UTM navigation
+context across the redirect.
 
 See [authentication](../../knowledge-base/authentication.md) and the
 [Better Auth cleanup record](../../knowledge-base/better-auth-1.7.3-cleanup.md)

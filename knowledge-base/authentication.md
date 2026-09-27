@@ -113,6 +113,12 @@ sessionStorage cleared after successful write
 
 **Without this:** Every first-time customer who signs in during their first visit gets incorrectly tagged as `organic` — GMB attribution, walk-in tracking, and Meta ad ROAS all break silently.
 
+**Onboarding before booking.** A customer may skip onboarding and keep browsing; the homepage asks again at most once every 24 hours. A booking always needs the profile, and the customer is asked for it before they fill one in:
+
+- **Signed in, no profile, taps Book Now** (every Book Now link is `/?book=1`): the homepage redirects to `/onboarding?book=1` plus any `utm_*`, `leadId` and `service` parameters, before the booking dialog opens (`requireProfileBeforeBooking` in `apps/web/src/lib/onboarding-guard.ts`). This applies to every role and ignores the 24-hour quiet window. After onboarding the customer goes straight back to `/?book=1`.
+- **Signed out:** the dialog opens and the customer picks the booking. "Sign in to Book" saves the selections. A first-time customer is onboarded straight after Google sign-in; a returning customer without a profile comes back to `/?book=1` and is redirected to onboarding as above. Either way the dialog then reopens at the summary.
+- **Backstop:** `POST /api/bookings` and `POST /api/gems/redeem` answer `403 ONBOARDING_REQUIRED` without a profile. The dialog then saves the selections and sends the customer to `/onboarding`.
+
 After submission: the name the customer confirmed or corrected is saved to `user.name` (through Better Auth, which also refreshes the session cookie cache) → `customer_profile` record created with first-touch `acquisition_source` (`organic`, `gmb`, `walkin`, or converted `meta_ad`), in the same transaction as the consent receipt in `audit_log` (Privacy Policy required; analytics and marketing optional; see `audit_log` in [database-schema.md](database-schema.md)) → consent choices also written to `rgss_cookie_consent` in localStorage → redirect to `/` (homepage). If `book=1` was preserved, the homepage booking dialog re-opens after onboarding. Cookie banner will not re-ask for categories already consented to here.
 
 ---
