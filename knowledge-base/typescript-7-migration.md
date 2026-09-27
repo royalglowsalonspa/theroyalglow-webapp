@@ -4,6 +4,7 @@
 **Baseline commit:** `e499ca03db833913d620084735cfb1e128b7568b`
 **Measured migration commit:** `ed6876c3d55c58474321ad4b0e67bcc448524e04`
 **Compiler:** `typescript@7.0.2`
+**Final Turbo version:** `turbo@2.11.4`
 **Compatibility API:** `@typescript/typescript6@6.0.2`, isolated to one AST-based CI utility
 
 This document records the migration from TypeScript 5.9.3 to TypeScript 7's native
@@ -117,12 +118,14 @@ Raw and derived reports:
 - `knowledge-base/benchmarks/typescript-7/comparison.windows-x64.json`
 
 Host: Windows 11, Intel i5-8300H, 8 logical processors, 15.81 GB RAM, Bun 1.4.2,
-Node 24.21.0, and Turborepo 2.11.2 on both sides. Baseline and migrated inputs were
-separate clean worktrees at the commits above. Each report records its Git tree plus SHA-256
-hashes for `bun.lock`, `package.json`, and `tsconfig.json`. Typechecks disable incremental
-state and bypass Turbo cache. Builds begin from a clean worktree and delete each application's
-generated output before measurement; their final tree is dirty only because Next rewrites
-`next-env.d.ts` to production paths.
+Node 24.21.0, and Turborepo 2.11.2 on both measured revisions. Keeping Turbo identical
+isolated the TypeScript compiler change. PR #256 subsequently pins Turbo 2.11.4; that patch
+upgrade is validated separately and is not included in or credited for these measurements.
+Baseline and migrated inputs were separate clean worktrees at the commits above. Each report
+records its Git tree plus SHA-256 hashes for `bun.lock`, `package.json`, and `tsconfig.json`.
+Typechecks disable incremental state and bypass Turbo cache. Builds begin from a clean worktree
+and delete each application's generated output before measurement; their final tree is dirty
+only because Next rewrites `next-env.d.ts` to production paths.
 
 The harness samples the complete process tree every 100 ms. Typecheck figures are medians of
 three runs. Build figures are one cold run and therefore directional. The workspace aggregate
@@ -183,6 +186,7 @@ Completed on 28 September 2026:
 | --- | --- |
 | `bun install --frozen-lockfile` | Pass; no lock changes. |
 | `bunx tsc --version` | `Version 7.0.2`. |
+| `bunx turbo --version` | `2.11.4`; patch upgrade validated after the controlled compiler benchmark. |
 | `bun run lint` | Pass across all linted workspaces. |
 | `bun run typecheck` | Pass: ten workspaces plus drift and synthetic configs. |
 | Static repository guards | Pass: auth dependencies, dependency overrides, changelog MDX, app cutover, admin tokens/paths, emoji policy, release versions, and MCP generation tests. |
