@@ -4,6 +4,8 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "noEmit": true,
+    "noUncheckedSideEffectImports": true,
+    "types": [],
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",

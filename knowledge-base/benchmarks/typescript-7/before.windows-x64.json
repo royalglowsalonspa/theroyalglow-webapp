@@ -1,0 +1,380 @@
+{
+  "schemaVersion": 1,
+  "label": "before",
+  "generatedAtUtc": "2026-09-27T15:45:34.6331521Z",
+  "suite": "typecheck",
+  "git": {
+    "commit": "9b5072a9301560c93915bb52c2e586635cb8997d",
+    "dirty": true
+  },
+  "toolchain": {
+    "typescript": "Version 5.9.3",
+    "bun": "1.4.2",
+    "node": "v24.21.0",
+    "powershell": "7.6.6"
+  },
+  "host": {
+    "operatingSystem": "Microsoft Windows 11 Home Single Language",
+    "operatingSystemVersion": "10.0.26200",
+    "architecture": "AMD64",
+    "processor": "Intel(R) Core(TM) i5-8300H CPU @ 2.30GHz",
+    "logicalProcessors": 8,
+    "totalMemoryGb": 15.81
+  },
+  "methodology": {
+    "processTreeSampleIntervalMilliseconds": 100,
+    "typecheckIterations": 3,
+    "buildIterations": 1,
+    "typechecksDisableIncrementalCache": true,
+    "buildsDeleteFrameworkOutputBeforeEachRun": true,
+    "turboCacheBypassed": true,
+    "note": "CPU and memory include the measured Bun process plus sampled descendants. Monitoring overhead is external and identical between before/after runs."
+  },
+  "scenarios": [
+    {
+      "name": "repository-typecheck",
+      "kind": "typecheck",
+      "command": "bun x turbo run typecheck --force --output-logs=errors-only -- --incremental false",
+      "environmentKeys": [],
+      "cleanupPaths": [],
+      "runs": [
+        {
+          "iteration": 1,
+          "exitCode": 0,
+          "wallSeconds": 98.347,
+          "cpuSeconds": 205.078,
+          "aggregateCoreUtilizationPercent": 208.53,
+          "normalizedHostCpuPercent": 26.07,
+          "peakWorkingSetMb": 2503.391,
+          "peakPrivateMemoryMb": 2541.508,
+          "samples": 149,
+          "compilerDiagnostics": {
+            "memoryMb": null,
+            "parseSeconds": null,
+            "checkSeconds": null,
+            "totalSeconds": null
+          }
+        },
+        {
+          "iteration": 2,
+          "exitCode": 0,
+          "wallSeconds": 68.51,
+          "cpuSeconds": 194.25,
+          "aggregateCoreUtilizationPercent": 283.53,
+          "normalizedHostCpuPercent": 35.44,
+          "peakWorkingSetMb": 2503.633,
+          "peakPrivateMemoryMb": 2471.992,
+          "samples": 124,
+          "compilerDiagnostics": {
+            "memoryMb": null,
+            "parseSeconds": null,
+            "checkSeconds": null,
+            "totalSeconds": null
+          }
+        },
+        {
+          "iteration": 3,
+          "exitCode": 0,
+          "wallSeconds": 67.152,
+          "cpuSeconds": 190.875,
+          "aggregateCoreUtilizationPercent": 284.24,
+          "normalizedHostCpuPercent": 35.53,
+          "peakWorkingSetMb": 2695.867,
+          "peakPrivateMemoryMb": 2646.535,
+          "samples": 118,
+          "compilerDiagnostics": {
+            "memoryMb": null,
+            "parseSeconds": null,
+            "checkSeconds": null,
+            "totalSeconds": null
+          }
+        }
+      ],
+      "summary": {
+        "successfulIterations": 3,
+        "medianWallSeconds": 68.51,
+        "p95WallSeconds": 98.347,
+        "medianCpuSeconds": 194.25,
+        "medianPeakWorkingSetMb": 2503.633,
+        "medianPeakPrivateMemoryMb": 2541.508,
+        "medianNormalizedHostCpuPercent": 35.44
+      }
+    },
+    {
+      "name": "web-typecheck",
+      "kind": "typecheck",
+      "command": "bun x tsc --project apps/web/tsconfig.json --noEmit --incremental false --extendedDiagnostics --pretty false",
+      "environmentKeys": [],
+      "cleanupPaths": [],
+      "runs": [
+        {
+          "iteration": 1,
+          "exitCode": 0,
+          "wallSeconds": 30.308,
+          "cpuSeconds": 40.875,
+          "aggregateCoreUtilizationPercent": 134.86,
+          "normalizedHostCpuPercent": 16.86,
+          "peakWorkingSetMb": 996.629,
+          "peakPrivateMemoryMb": 1007.516,
+          "samples": 84,
+          "compilerDiagnostics": {
+            "memoryMb": 811.503,
+            "parseSeconds": 4.02,
+            "checkSeconds": 18.9,
+            "totalSeconds": 28.96
+          }
+        },
+        {
+          "iteration": 2,
+          "exitCode": 0,
+          "wallSeconds": 43.846,
+          "cpuSeconds": 47.297,
+          "aggregateCoreUtilizationPercent": 107.87,
+          "normalizedHostCpuPercent": 13.48,
+          "peakWorkingSetMb": 999.121,
+          "peakPrivateMemoryMb": 1010.766,
+          "samples": 110,
+          "compilerDiagnostics": {
+            "memoryMb": 809.889,
+            "parseSeconds": 3.8,
+            "checkSeconds": 32.69,
+            "totalSeconds": 42.49
+          }
+        },
+        {
+          "iteration": 3,
+          "exitCode": 0,
+          "wallSeconds": 54.849,
+          "cpuSeconds": 52.344,
+          "aggregateCoreUtilizationPercent": 95.43,
+          "normalizedHostCpuPercent": 11.93,
+          "peakWorkingSetMb": 994.602,
+          "peakPrivateMemoryMb": 1005.57,
+          "samples": 131,
+          "compilerDiagnostics": {
+            "memoryMb": 813.897,
+            "parseSeconds": 7.49,
+            "checkSeconds": 32.84,
+            "totalSeconds": 52.92
+          }
+        }
+      ],
+      "summary": {
+        "successfulIterations": 3,
+        "medianWallSeconds": 43.846,
+        "p95WallSeconds": 54.849,
+        "medianCpuSeconds": 47.297,
+        "medianPeakWorkingSetMb": 996.629,
+        "medianPeakPrivateMemoryMb": 1007.516,
+        "medianNormalizedHostCpuPercent": 13.48
+      }
+    },
+    {
+      "name": "admin-typecheck",
+      "kind": "typecheck",
+      "command": "bun x tsc --project apps/admin/tsconfig.json --noEmit --incremental false --extendedDiagnostics --pretty false",
+      "environmentKeys": [],
+      "cleanupPaths": [],
+      "runs": [
+        {
+          "iteration": 1,
+          "exitCode": 0,
+          "wallSeconds": 62.116,
+          "cpuSeconds": 59.797,
+          "aggregateCoreUtilizationPercent": 96.27,
+          "normalizedHostCpuPercent": 12.03,
+          "peakWorkingSetMb": 1090.68,
+          "peakPrivateMemoryMb": 1101.043,
+          "samples": 146,
+          "compilerDiagnostics": {
+            "memoryMb": 923.586,
+            "parseSeconds": 8.44,
+            "checkSeconds": 38.1,
+            "totalSeconds": 60.25
+          }
+        },
+        {
+          "iteration": 2,
+          "exitCode": 0,
+          "wallSeconds": 56.215,
+          "cpuSeconds": 57.125,
+          "aggregateCoreUtilizationPercent": 101.62,
+          "normalizedHostCpuPercent": 12.7,
+          "peakWorkingSetMb": 1088.543,
+          "peakPrivateMemoryMb": 1100.207,
+          "samples": 133,
+          "compilerDiagnostics": {
+            "memoryMb": 922.461,
+            "parseSeconds": 6.76,
+            "checkSeconds": 37.05,
+            "totalSeconds": 54.66
+          }
+        },
+        {
+          "iteration": 3,
+          "exitCode": 0,
+          "wallSeconds": 40.438,
+          "cpuSeconds": 49.828,
+          "aggregateCoreUtilizationPercent": 123.22,
+          "normalizedHostCpuPercent": 15.4,
+          "peakWorkingSetMb": 1091.957,
+          "peakPrivateMemoryMb": 1103.719,
+          "samples": 107,
+          "compilerDiagnostics": {
+            "memoryMb": 923.896,
+            "parseSeconds": 5.48,
+            "checkSeconds": 24.4,
+            "totalSeconds": 39.08
+          }
+        }
+      ],
+      "summary": {
+        "successfulIterations": 3,
+        "medianWallSeconds": 56.215,
+        "p95WallSeconds": 62.116,
+        "medianCpuSeconds": 57.125,
+        "medianPeakWorkingSetMb": 1090.68,
+        "medianPeakPrivateMemoryMb": 1101.043,
+        "medianNormalizedHostCpuPercent": 12.7
+      }
+    },
+    {
+      "name": "cms-typecheck",
+      "kind": "typecheck",
+      "command": "bun x tsc --project apps/cms/tsconfig.json --noEmit --incremental false --extendedDiagnostics --pretty false",
+      "environmentKeys": [],
+      "cleanupPaths": [],
+      "runs": [
+        {
+          "iteration": 1,
+          "exitCode": 0,
+          "wallSeconds": 17.729,
+          "cpuSeconds": 25.125,
+          "aggregateCoreUtilizationPercent": 141.71,
+          "normalizedHostCpuPercent": 17.71,
+          "peakWorkingSetMb": 738.559,
+          "peakPrivateMemoryMb": 745.836,
+          "samples": 49,
+          "compilerDiagnostics": {
+            "memoryMb": 547.254,
+            "parseSeconds": 3.38,
+            "checkSeconds": 6.71,
+            "totalSeconds": 16.64
+          }
+        },
+        {
+          "iteration": 2,
+          "exitCode": 0,
+          "wallSeconds": 17.892,
+          "cpuSeconds": 25.297,
+          "aggregateCoreUtilizationPercent": 141.39,
+          "normalizedHostCpuPercent": 17.67,
+          "peakWorkingSetMb": 737.848,
+          "peakPrivateMemoryMb": 745.148,
+          "samples": 49,
+          "compilerDiagnostics": {
+            "memoryMb": 551.438,
+            "parseSeconds": 3.27,
+            "checkSeconds": 6.77,
+            "totalSeconds": 16.59
+          }
+        },
+        {
+          "iteration": 3,
+          "exitCode": 0,
+          "wallSeconds": 17.346,
+          "cpuSeconds": 24.531,
+          "aggregateCoreUtilizationPercent": 141.42,
+          "normalizedHostCpuPercent": 17.68,
+          "peakWorkingSetMb": 737.086,
+          "peakPrivateMemoryMb": 744.648,
+          "samples": 49,
+          "compilerDiagnostics": {
+            "memoryMb": 547.893,
+            "parseSeconds": 3.17,
+            "checkSeconds": 6.42,
+            "totalSeconds": 15.94
+          }
+        }
+      ],
+      "summary": {
+        "successfulIterations": 3,
+        "medianWallSeconds": 17.729,
+        "p95WallSeconds": 17.892,
+        "medianCpuSeconds": 25.125,
+        "medianPeakWorkingSetMb": 737.848,
+        "medianPeakPrivateMemoryMb": 745.148,
+        "medianNormalizedHostCpuPercent": 17.68
+      }
+    },
+    {
+      "name": "invoicing-typecheck",
+      "kind": "typecheck",
+      "command": "bun x tsc --project apps/invoicing/tsconfig.json --noEmit --incremental false --extendedDiagnostics --pretty false",
+      "environmentKeys": [],
+      "cleanupPaths": [],
+      "runs": [
+        {
+          "iteration": 1,
+          "exitCode": 0,
+          "wallSeconds": 7.621,
+          "cpuSeconds": 11.109,
+          "aggregateCoreUtilizationPercent": 145.78,
+          "normalizedHostCpuPercent": 18.22,
+          "peakWorkingSetMb": 415.199,
+          "peakPrivateMemoryMb": 422.121,
+          "samples": 21,
+          "compilerDiagnostics": {
+            "memoryMb": 252.85,
+            "parseSeconds": 1.68,
+            "checkSeconds": 2.15,
+            "totalSeconds": 6.64
+          }
+        },
+        {
+          "iteration": 2,
+          "exitCode": 0,
+          "wallSeconds": 7.422,
+          "cpuSeconds": 10.719,
+          "aggregateCoreUtilizationPercent": 144.42,
+          "normalizedHostCpuPercent": 18.05,
+          "peakWorkingSetMb": 411.855,
+          "peakPrivateMemoryMb": 417.422,
+          "samples": 21,
+          "compilerDiagnostics": {
+            "memoryMb": 255.262,
+            "parseSeconds": 1.64,
+            "checkSeconds": 1.74,
+            "totalSeconds": 6.28
+          }
+        },
+        {
+          "iteration": 3,
+          "exitCode": 0,
+          "wallSeconds": 7.091,
+          "cpuSeconds": 10.312,
+          "aggregateCoreUtilizationPercent": 145.42,
+          "normalizedHostCpuPercent": 18.18,
+          "peakWorkingSetMb": 412.07,
+          "peakPrivateMemoryMb": 418.883,
+          "samples": 20,
+          "compilerDiagnostics": {
+            "memoryMb": 255.541,
+            "parseSeconds": 1.6,
+            "checkSeconds": 1.82,
+            "totalSeconds": 6.18
+          }
+        }
+      ],
+      "summary": {
+        "successfulIterations": 3,
+        "medianWallSeconds": 7.422,
+        "p95WallSeconds": 7.621,
+        "medianCpuSeconds": 10.719,
+        "medianPeakWorkingSetMb": 412.07,
+        "medianPeakPrivateMemoryMb": 418.883,
+        "medianNormalizedHostCpuPercent": 18.18
+      }
+    }
+  ]
+}

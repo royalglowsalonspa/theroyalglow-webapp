@@ -164,7 +164,8 @@ function protectedReason(p) {
 async function canonicaliseTs(path, content) {
   let ts
   try {
-    ts = (await import('typescript')).default ?? (await import('typescript'))
+    const typescript6 = await import('@typescript/typescript6')
+    ts = typescript6.default ?? typescript6
   } catch {
     return null
   }

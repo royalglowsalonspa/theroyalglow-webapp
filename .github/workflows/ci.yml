@@ -37,12 +37,14 @@ jobs:
               - 'apps/admin/**'
               - 'packages/**'
               - 'package.json'
+              - 'tsconfig.json'
               - 'bun.lock'
               - '.github/workflows/ci.yml'
             web:
               - 'apps/web/**'
               - 'packages/**'
               - 'package.json'
+              - 'tsconfig.json'
               - 'bun.lock'
               - '.github/workflows/ci.yml'
               # The Lighthouse gate for the customer site is driven by this
@@ -54,12 +56,14 @@ jobs:
               - 'apps/invoicing/**'
               - 'packages/**'
               - 'package.json'
+              - 'tsconfig.json'
               - 'bun.lock'
               - '.github/workflows/ci.yml'
             cms:
               - 'apps/cms/**'
               - 'packages/**'
               - 'package.json'
+              - 'tsconfig.json'
               - 'bun.lock'
               - '.github/workflows/ci.yml'
 
@@ -370,9 +374,10 @@ jobs:
 
   # ---------------------------------------------------------------------------
   # Admin static gates (admin-portal-redesign) — presentation-layer guards over
-  # apps/admin source. Node-only (no install/build), so it stays well within the
-  # workflow budget. A violation FAILS this job and, as a required status check,
-  # BLOCKS merge.
+  # apps/admin source. The path-allowlist parser uses the locked TypeScript 6
+  # compatibility API, so this job installs dependencies before running the
+  # otherwise static checks. A violation FAILS this job and, as a required
+  # status check, BLOCKS merge.
   #
   #   • No emoji icons (Req 2.3) — assert no Unicode emoji glyph is rendered as
   #     an icon anywhere in the admin presentation source (App_Shell, Sidebar,
@@ -387,11 +392,13 @@ jobs:
   # ---------------------------------------------------------------------------
   admin-static-gates:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
       - name: No emoji icons in admin presentation source (Req 2.3)
         run: node scripts/assert-no-emoji-icons.mjs
       # -----------------------------------------------------------------------

@@ -176,7 +176,9 @@ const orphanFkScenarioArb: fc.Arbitrary<Scenario> = fc
     // MATCH SIMPLE: a NULL foreign key is always allowed, so only fully-set
     // values with no matching parent are orphans.
     const orphans = childValues
-      .filter((value): value is string => value !== null && !parents.has(value))
+      .filter(
+        (value): value is Exclude<typeof value, null> => value !== null && !parents.has(value),
+      )
       .map((value) => ({ [PK_COLUMN]: `row_${value}`, f_ref: value }))
 
     return {

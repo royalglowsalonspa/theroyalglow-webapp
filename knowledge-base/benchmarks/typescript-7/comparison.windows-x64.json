@@ -1,0 +1,228 @@
+{
+  "schemaVersion": 1,
+  "generatedAtUtc": "2026-09-27T17:08:44.7139459Z",
+  "baselineCompiler": "Version 5.9.3",
+  "migratedCompiler": "Version 7.0.2",
+  "host": {
+    "operatingSystem": "Microsoft Windows 11 Home Single Language",
+    "operatingSystemVersion": "10.0.26200",
+    "architecture": "AMD64",
+    "processor": "Intel(R) Core(TM) i5-8300H CPU @ 2.30GHz",
+    "logicalProcessors": 8,
+    "totalMemoryGb": 15.81
+  },
+  "methodology": {
+    "formula": "changePercent = ((after - before) / before) * 100; speedup = before wall / after wall",
+    "negativeChangeIsImprovement": true,
+    "typecheckSummary": "Median of three uncached runs.",
+    "buildSummary": "One cold run; directional only because framework and bundler work dominate."
+  },
+  "sources": [
+    "knowledge-base\\benchmarks\\typescript-7\\before.windows-x64.json",
+    "knowledge-base\\benchmarks\\typescript-7\\after.windows-x64.json",
+    "knowledge-base\\benchmarks\\typescript-7\\before-build.windows-x64.json",
+    "knowledge-base\\benchmarks\\typescript-7\\after-build.windows-x64.json"
+  ],
+  "scenarios": [
+    {
+      "name": "repository-typecheck",
+      "kind": "typecheck",
+      "speedup": 2.34,
+      "wallSeconds": {
+        "before": 68.51,
+        "after": 29.277,
+        "changePercent": -57.27
+      },
+      "cpuSeconds": {
+        "before": 194.25,
+        "after": 76.766,
+        "changePercent": -60.48
+      },
+      "peakWorkingSetMb": {
+        "before": 2503.633,
+        "after": 2310.746,
+        "changePercent": -7.7
+      }
+    },
+    {
+      "name": "web-typecheck",
+      "kind": "typecheck",
+      "speedup": 3.81,
+      "wallSeconds": {
+        "before": 43.846,
+        "after": 11.501,
+        "changePercent": -73.77
+      },
+      "cpuSeconds": {
+        "before": 47.297,
+        "after": 26.375,
+        "changePercent": -44.24
+      },
+      "peakWorkingSetMb": {
+        "before": 996.629,
+        "after": 1107.332,
+        "changePercent": 11.11
+      },
+      "compilerMemoryMb": {
+        "before": 811.503,
+        "after": 785.309,
+        "changePercent": -3.23
+      }
+    },
+    {
+      "name": "admin-typecheck",
+      "kind": "typecheck",
+      "speedup": 3.73,
+      "wallSeconds": {
+        "before": 56.215,
+        "after": 15.08,
+        "changePercent": -73.17
+      },
+      "cpuSeconds": {
+        "before": 57.125,
+        "after": 34.828,
+        "changePercent": -39.03
+      },
+      "peakWorkingSetMb": {
+        "before": 1090.68,
+        "after": 1354.188,
+        "changePercent": 24.16
+      },
+      "compilerMemoryMb": {
+        "before": 923.586,
+        "after": 939.629,
+        "changePercent": 1.74
+      }
+    },
+    {
+      "name": "cms-typecheck",
+      "kind": "typecheck",
+      "speedup": 2.92,
+      "wallSeconds": {
+        "before": 17.729,
+        "after": 6.065,
+        "changePercent": -65.79
+      },
+      "cpuSeconds": {
+        "before": 25.125,
+        "after": 14.891,
+        "changePercent": -40.73
+      },
+      "peakWorkingSetMb": {
+        "before": 737.848,
+        "after": 668.359,
+        "changePercent": -9.42
+      },
+      "compilerMemoryMb": {
+        "before": 547.893,
+        "after": 448.597,
+        "changePercent": -18.12
+      }
+    },
+    {
+      "name": "invoicing-typecheck",
+      "kind": "typecheck",
+      "speedup": 3.6,
+      "wallSeconds": {
+        "before": 7.422,
+        "after": 2.061,
+        "changePercent": -72.23
+      },
+      "cpuSeconds": {
+        "before": 10.719,
+        "after": 3.094,
+        "changePercent": -71.14
+      },
+      "peakWorkingSetMb": {
+        "before": 412.07,
+        "after": 257.184,
+        "changePercent": -37.59
+      },
+      "compilerMemoryMb": {
+        "before": 255.262,
+        "after": 136.03,
+        "changePercent": -46.71
+      }
+    },
+    {
+      "name": "web-build",
+      "kind": "build",
+      "speedup": 1.31,
+      "wallSeconds": {
+        "before": 140.505,
+        "after": 107.062,
+        "changePercent": -23.8
+      },
+      "cpuSeconds": {
+        "before": 222.031,
+        "after": 203.172,
+        "changePercent": -8.49
+      },
+      "peakWorkingSetMb": {
+        "before": 2180.504,
+        "after": 2338.059,
+        "changePercent": 7.23
+      }
+    },
+    {
+      "name": "admin-build",
+      "kind": "build",
+      "speedup": 1.19,
+      "wallSeconds": {
+        "before": 116.745,
+        "after": 98.123,
+        "changePercent": -15.95
+      },
+      "cpuSeconds": {
+        "before": 238.984,
+        "after": 228.094,
+        "changePercent": -4.56
+      },
+      "peakWorkingSetMb": {
+        "before": 2491.0,
+        "after": 2276.801,
+        "changePercent": -8.6
+      }
+    },
+    {
+      "name": "cms-build",
+      "kind": "build",
+      "speedup": 1.08,
+      "wallSeconds": {
+        "before": 98.57,
+        "after": 91.308,
+        "changePercent": -7.37
+      },
+      "cpuSeconds": {
+        "before": 246.062,
+        "after": 243.969,
+        "changePercent": -0.85
+      },
+      "peakWorkingSetMb": {
+        "before": 3710.148,
+        "after": 3327.578,
+        "changePercent": -10.31
+      }
+    },
+    {
+      "name": "invoicing-build",
+      "kind": "build",
+      "speedup": 0.4,
+      "wallSeconds": {
+        "before": 2.303,
+        "after": 5.76,
+        "changePercent": 150.11
+      },
+      "cpuSeconds": {
+        "before": 1.016,
+        "after": 0.953,
+        "changePercent": -6.2
+      },
+      "peakWorkingSetMb": {
+        "before": 117.883,
+        "after": 116.027,
+        "changePercent": -1.57
+      }
+    }
+  ]
+}
