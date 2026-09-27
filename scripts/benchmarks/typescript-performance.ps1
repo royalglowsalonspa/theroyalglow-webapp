@@ -298,6 +298,9 @@ function New-Scenario {
 $ciBuildEnvironment = @{
   SKIP_ENV_VALIDATION = '1'
   BETTER_AUTH_SECRET = 'ci-build-only-placeholder-not-used-at-runtime-000'
+  DATABASE_URL = ''
+  DATABASE_URL_UNPOOLED = ''
+  NEXT_PUBLIC_CMS_URL = ''
   NODE_OPTIONS = '--max-old-space-size=4096'
 }
 
@@ -361,6 +364,11 @@ foreach ($scenario in $scenarios) {
   }
 
   $successfulRuns = @($runs | Where-Object { $_.exitCode -eq 0 })
+  $wallValues = @($successfulRuns | ForEach-Object { [double]$_.wallSeconds })
+  $cpuValues = @($successfulRuns | ForEach-Object { [double]$_.cpuSeconds })
+  $workingSetValues = @($successfulRuns | ForEach-Object { [double]$_.peakWorkingSetMb })
+  $privateMemoryValues = @($successfulRuns | ForEach-Object { [double]$_.peakPrivateMemoryMb })
+  $hostCpuValues = @($successfulRuns | ForEach-Object { [double]$_.normalizedHostCpuPercent })
   $scenarioResults.Add([pscustomobject][ordered]@{
     name = $scenario.name
     kind = $scenario.kind
@@ -370,20 +378,25 @@ foreach ($scenario in $scenarios) {
     runs = @($runs)
     summary = [ordered]@{
       successfulIterations = $successfulRuns.Count
-      medianWallSeconds = Get-Median -Values @($successfulRuns.wallSeconds)
-      p95WallSeconds = Get-Percentile95 -Values @($successfulRuns.wallSeconds)
-      medianCpuSeconds = Get-Median -Values @($successfulRuns.cpuSeconds)
-      medianPeakWorkingSetMb = Get-Median -Values @($successfulRuns.peakWorkingSetMb)
-      medianPeakPrivateMemoryMb = Get-Median -Values @($successfulRuns.peakPrivateMemoryMb)
-      medianNormalizedHostCpuPercent = Get-Median -Values @($successfulRuns.normalizedHostCpuPercent)
+      medianWallSeconds = Get-Median -Values $wallValues
+      p95WallSeconds = Get-Percentile95 -Values $wallValues
+      medianCpuSeconds = Get-Median -Values $cpuValues
+      medianPeakWorkingSetMb = Get-Median -Values $workingSetValues
+      medianPeakPrivateMemoryMb = Get-Median -Values $privateMemoryValues
+      medianNormalizedHostCpuPercent = Get-Median -Values $hostCpuValues
     }
   })
 }
 
-$compilerVersion = (& $bunPath x tsc --version 2>&1 | Out-String).Trim()
-$bunVersion = (& $bunPath --version 2>&1 | Out-String).Trim()
-$nodeVersion = (& $nodePath --version 2>&1 | Out-String).Trim()
-$turboVersion = (& $bunPath x turbo --version 2>&1 | Out-String).Trim()
+Push-Location $repoRoot
+try {
+  $compilerVersion = (& $bunPath x tsc --version 2>&1 | Out-String).Trim()
+  $bunVersion = (& $bunPath --version 2>&1 | Out-String).Trim()
+  $nodeVersion = (& $nodePath --version 2>&1 | Out-String).Trim()
+  $turboVersion = (& $bunPath x turbo --version 2>&1 | Out-String).Trim()
+} finally {
+  Pop-Location
+}
 $finalGitStatus = @(& git -C $repoRoot status --short)
 $computerSystem = Get-CimInstance Win32_ComputerSystem
 $processor = Get-CimInstance Win32_Processor | Select-Object -First 1
