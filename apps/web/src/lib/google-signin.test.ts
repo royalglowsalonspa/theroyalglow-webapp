@@ -83,3 +83,36 @@ describe('startGoogleSignIn — first-time registrations reach /onboarding', () 
     expect(NEW_USER_CALLBACK_URL).toBe('/onboarding')
   })
 })
+
+describe('startGoogleSignIn — context kept across the OAuth redirect', () => {
+  it('saves the booking and acquisition parameters from the URL, and no others', async () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/?book=1&utm_source=gmb&leadId=lead_9&service=signature-haircut&fbclid=abc&ref=x',
+    )
+    try {
+      await startGoogleSignIn('/?book=1')
+
+      expect(JSON.parse(sessionStorage.getItem('rgss_auth_context') ?? 'null')).toEqual({
+        book: '1',
+        utm_source: 'gmb',
+        leadId: 'lead_9',
+        service: 'signature-haircut',
+      })
+    } finally {
+      window.history.replaceState(null, '', '/')
+    }
+  })
+
+  it('saves nothing when the URL carries no context', async () => {
+    window.history.replaceState(null, '', '/?fbclid=abc')
+    try {
+      await startGoogleSignIn()
+
+      expect(sessionStorage.getItem('rgss_auth_context')).toBeNull()
+    } finally {
+      window.history.replaceState(null, '', '/')
+    }
+  })
+})

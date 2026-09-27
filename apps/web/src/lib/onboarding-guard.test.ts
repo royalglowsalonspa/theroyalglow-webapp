@@ -15,10 +15,14 @@
  *                  - the two guards never both redirect (no loop)
  *                  - homepage re-prompt: NO profile → /onboarding, unless
  *                    prompted in the last 24h, mid-booking, anonymous or staff
+ *                  - Book Now (`/?book=1`): NO profile → /onboarding BEFORE the
+ *                    booking dialog opens, keeping the booking context; the
+ *                    detour settles after one redirect either way
  *
  *                Placement (static, node:fs) — proves the gate covers the
  *                protected surfaces, leaves genuinely public pages free of a DB
- *                round-trip, and stays OUT of the edge middleware.
+ *                round-trip, stays OUT of the edge middleware, and that every
+ *                Book Now link lands on the homepage, where the booking gate runs.
  *
  * Validates: Requirements 4.4, 4.5, 4.7
  *
@@ -68,10 +72,13 @@ import {
   repromptPendingOnboarding,
   requireOnboardedSession,
   requireOnboardingPending,
+  requireProfileBeforeBooking,
 } from './onboarding-guard'
-import { ONBOARDING_PROMPTED_COOKIE } from './onboarding-prompt'
+import { ONBOARDING_PATH, ONBOARDING_PROMPTED_COOKIE } from './onboarding-prompt'
 
 const SESSION = { user: { id: 'u_test', name: 'Test User', email: 'test@example.com' } }
+
+const ORIGIN = 'https://theroyalglow.in'
 
 /** Run a guard and report whether it redirected, and to where. */
 async function runGuard(
@@ -86,6 +93,14 @@ async function runGuard(
     }
     throw error
   }
+}
+
+/** The URL a guard redirected to, resolved against the site origin. */
+function redirectTarget(result: Awaited<ReturnType<typeof runGuard>>): URL {
+  if (!result.redirected) {
+    throw new Error('expected the guard to redirect')
+  }
+  return new URL(result.target, ORIGIN)
 }
 
 beforeEach(() => {
@@ -152,6 +167,155 @@ describe('requireOnboardingPending — the /onboarding page itself (Req 4.5)', (
     const result = await runGuard(requireOnboardingPending)
 
     expect(result).toEqual({ redirected: true, target: '/' })
+  })
+
+  it('sends a user who already has a profile on to the booking when the URL carries one', async () => {
+    // e.g. the profile was completed in another tab.
+    getSessionMock.mockResolvedValue(SESSION)
+    hasCustomerProfileMock.mockResolvedValue(true)
+
+    const result = await runGuard(() =>
+      requireOnboardingPending({ book: '1', service: 'signature-haircut', utm_source: 'gmb' }),
+    )
+
+    expect(result).toEqual({ redirected: true, target: '/?book=1&service=signature-haircut' })
+  })
+
+  it('sends a user who already has a profile to / when the URL carries no booking', async () => {
+    getSessionMock.mockResolvedValue(SESSION)
+    hasCustomerProfileMock.mockResolvedValue(true)
+
+    const result = await runGuard(() => requireOnboardingPending({ utm_source: 'gmb' }))
+
+    expect(result).toEqual({ redirected: true, target: '/' })
+  })
+})
+
+describe('requireProfileBeforeBooking — Book Now asks for a missing profile first', () => {
+  it('sends a signed-in account with no profile to /onboarding before the dialog opens', async () => {
+    // The reported bug: the dialog opened, the customer filled in the whole
+    // booking, and only the submit was sent to onboarding.
+    getSessionMock.mockResolvedValue(SESSION)
+    hasCustomerProfileMock.mockResolvedValue(false)
+
+    const result = await runGuard(() => requireProfileBeforeBooking({ book: '1' }))
+
+    expect(result).toEqual({ redirected: true, target: '/onboarding?book=1' })
+    expect(hasCustomerProfileMock).toHaveBeenCalledWith('u_test')
+  })
+
+  it('carries the booking and acquisition context into the onboarding URL, and nothing else', async () => {
+    getSessionMock.mockResolvedValue(SESSION)
+    hasCustomerProfileMock.mockResolvedValue(false)
+
+    const target = redirectTarget(
+      await runGuard(() =>
+        requireProfileBeforeBooking({
+          book: '1',
+          service: 'signature-haircut',
+          utm_source: 'walkin',
+          utm_campaign: 'diwali',
+          utm_medium: 'qr',
+          leadId: 'lead_9',
+          fbclid: 'abc123',
+          ref: 'somewhere',
+        }),
+      ),
+    )
+
+    expect(target.pathname).toBe('/onboarding')
+    expect(Object.fromEntries(target.searchParams)).toEqual({
+      book: '1',
+      service: 'signature-haircut',
+      utm_source: 'walkin',
+      utm_campaign: 'diwali',
+      utm_medium: 'qr',
+      leadId: 'lead_9',
+    })
+  })
+
+  it('asks every role, because POST /api/bookings requires a profile from every account', async () => {
+    hasCustomerProfileMock.mockResolvedValue(false)
+
+    for (const role of ['customer', 'staff', 'receptionist', 'manager', 'owner', 'developer']) {
+      getSessionMock.mockResolvedValue({ user: { ...SESSION.user, role } })
+
+      const result = await runGuard(() => requireProfileBeforeBooking({ book: '1' }))
+
+      expect(result, role).toEqual({ redirected: true, target: '/onboarding?book=1' })
+    }
+  })
+
+  it('asks again within 24h of the last prompt: skipping onboarding does not skip it for a booking', async () => {
+    cookieJar.names.add(ONBOARDING_PROMPTED_COOKIE)
+    getSessionMock.mockResolvedValue(SESSION)
+    hasCustomerProfileMock.mockResolvedValue(false)
+
+    const result = await runGuard(() => requireProfileBeforeBooking({ book: '1' }))
+
+    expect(result).toEqual({ redirected: true, target: '/onboarding?book=1' })
+  })
+
+  it('lets an account with a profile book', async () => {
+    getSessionMock.mockResolvedValue(SESSION)
+    hasCustomerProfileMock.mockResolvedValue(true)
+
+    const result = await runGuard(() => requireProfileBeforeBooking({ book: '1' }))
+
+    expect(result.redirected).toBe(false)
+  })
+
+  it('lets a signed-out visitor open the dialog, without probing the profile table', async () => {
+    // Its last step signs them in; first-time customers are onboarded straight
+    // after Google sign-in, and returning ones come back here as /?book=1.
+    getSessionMock.mockResolvedValue(null)
+
+    const result = await runGuard(() => requireProfileBeforeBooking({ book: '1' }))
+
+    expect(result.redirected).toBe(false)
+    expect(hasCustomerProfileMock).not.toHaveBeenCalled()
+  })
+
+  it('does nothing without booking intent, not even a session lookup', async () => {
+    getSessionMock.mockResolvedValue(SESSION)
+    hasCustomerProfileMock.mockResolvedValue(false)
+
+    for (const params of [{}, { book: '0' }, { utm_source: 'gmb' }]) {
+      const result = await runGuard(() => requireProfileBeforeBooking(params))
+
+      expect(result.redirected, JSON.stringify(params)).toBe(false)
+    }
+    expect(getSessionMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('Book Now settles after at most one redirect', () => {
+  it('no profile: /?book=1 → /onboarding?book=1, which then shows the form', async () => {
+    getSessionMock.mockResolvedValue(SESSION)
+    hasCustomerProfileMock.mockResolvedValue(false)
+
+    const target = redirectTarget(
+      await runGuard(() => requireProfileBeforeBooking({ book: '1', utm_source: 'walkin' })),
+    )
+    const onboarding = await runGuard(() =>
+      requireOnboardingPending(Object.fromEntries(target.searchParams)),
+    )
+
+    expect(target.pathname).toBe('/onboarding')
+    expect(onboarding.redirected).toBe(false)
+  })
+
+  it('profile completed: /onboarding?book=1 → /?book=1, which then opens the booking', async () => {
+    getSessionMock.mockResolvedValue(SESSION)
+    hasCustomerProfileMock.mockResolvedValue(true)
+
+    const target = redirectTarget(await runGuard(() => requireOnboardingPending({ book: '1' })))
+    const home = await runGuard(() =>
+      requireProfileBeforeBooking(Object.fromEntries(target.searchParams)),
+    )
+
+    expect(`${target.pathname}${target.search}`).toBe('/?book=1')
+    expect(home.redirected).toBe(false)
   })
 })
 
@@ -376,5 +540,57 @@ describe('placement: the homepage re-prompt', () => {
       .map((file) => file.replace(APP, '<app>'))
 
     expect(offenders).toEqual([])
+  })
+})
+
+/** Every non-test TypeScript module under a directory, recursively. */
+function sourceModules(dir: string): string[] {
+  const found: string[] = []
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name)
+    if (entry.isDirectory()) {
+      if (entry.name !== 'node_modules') {
+        found.push(...sourceModules(full))
+      }
+    } else if (/\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)) {
+      found.push(full)
+    }
+  }
+  return found
+}
+
+describe('placement: Book Now asks for a missing profile before the dialog opens', () => {
+  const HOMEPAGE = join(APP, '(customer)', 'page.tsx')
+
+  it('the homepage runs requireProfileBeforeBooking before its CMS reads', () => {
+    const source = readFileSync(HOMEPAGE, 'utf8')
+    const gate = source.indexOf('await requireProfileBeforeBooking(')
+
+    expect(importSpecifiers(source)).toContain('@/lib/onboarding-guard')
+    expect(gate).toBeGreaterThan(-1)
+    expect(gate).toBeLessThan(source.indexOf('resolveFaqs()'))
+  })
+
+  it('every booking link in the web app targets the homepage, where that gate runs', () => {
+    // The booking dialog opens on `?book=1` on any customer page, but the
+    // profile check runs only on the homepage. A link such as
+    // `/services?book=1` would skip it and leave only the submit-time 403.
+    // `/onboarding?book=1` is the gate's own destination: the onboarding form
+    // carries the intent forward and has no booking dialog.
+    const ALLOWED = new Set(['/', ONBOARDING_PATH])
+    const links: string[] = []
+    const offHomepage: string[] = []
+    for (const file of sourceModules(WEB_SRC)) {
+      for (const match of readFileSync(file, 'utf8').matchAll(/['"`](\/[^'"`?\s]*)\?book=1/g)) {
+        const path = match[1] ?? ''
+        links.push(path)
+        if (!ALLOWED.has(path)) {
+          offHomepage.push(`${path} (${file.replace(WEB_SRC, '<src>')})`)
+        }
+      }
+    }
+
+    expect(links).toContain('/')
+    expect(offHomepage).toEqual([])
   })
 })

@@ -9,6 +9,7 @@
  * Responsibilities :
  * - Default to the homepage
  * - Replay a pending booking intent that the onboarding detour interrupted
+ * - Merge the saved pre-sign-in context with the onboarding URL's context
  *
  * Features / Functionality :
  * - Pure and total: takes the saved pre-sign-in context, returns a path
@@ -49,4 +50,34 @@ export function buildPostOnboardingDestination(context: Record<string, string>):
     params.set('service', context.service)
   }
   return `/?${params.toString()}`
+}
+
+/**
+ * Combine the two places onboarding context comes from:
+ *
+ * - `stored`: the sessionStorage context saved before Google sign-in (or by
+ *   the booking dialog), i.e. what the visitor arrived with in this tab.
+ * - `fromUrl`: the onboarding page's own query string, set when Book Now sent
+ *   a signed-in customer here (onboardingPathForBooking).
+ *
+ * Attribution (UTM parameters, `leadId`) keeps the stored value, the first
+ * touch in this tab, and takes the URL's only where nothing was stored. When
+ * the URL carries booking intent, the whole intent (`book` and `service`) comes
+ * from the URL, because that is the Book Now the customer just tapped; a
+ * service saved from an earlier visit is dropped.
+ */
+export function mergeOnboardingContext(
+  stored: Record<string, string>,
+  fromUrl: Record<string, string>,
+): Record<string, string> {
+  const merged = { ...fromUrl, ...stored }
+  if (fromUrl.book !== '1') {
+    return merged
+  }
+  const attribution = Object.fromEntries(
+    Object.entries(merged).filter(([key]) => key !== 'book' && key !== 'service'),
+  )
+  return fromUrl.service
+    ? { ...attribution, book: '1', service: fromUrl.service }
+    : { ...attribution, book: '1' }
 }

@@ -18,7 +18,10 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { buildPostOnboardingDestination } from './post-onboarding-destination'
+import {
+  buildPostOnboardingDestination,
+  mergeOnboardingContext,
+} from './post-onboarding-destination'
 
 describe('buildPostOnboardingDestination', () => {
   it('defaults to the homepage when there was no booking intent', () => {
@@ -64,5 +67,57 @@ describe('buildPostOnboardingDestination', () => {
     expect(new URL(destination, 'https://theroyalglow.in').searchParams.get('service')).toBe(
       'a&b=c d',
     )
+  })
+})
+
+describe('mergeOnboardingContext', () => {
+  it('uses the onboarding URL when nothing was saved before sign-in', () => {
+    // A signed-in customer who tapped Book Now: nothing in sessionStorage.
+    expect(mergeOnboardingContext({}, { book: '1', utm_source: 'walkin' })).toEqual({
+      book: '1',
+      utm_source: 'walkin',
+    })
+  })
+
+  it('uses the saved context when the onboarding URL carries none', () => {
+    // A first-time customer: newUserCallbackURL is a bare /onboarding.
+    expect(mergeOnboardingContext({ book: '1', utm_source: 'gmb' }, {})).toEqual({
+      book: '1',
+      utm_source: 'gmb',
+    })
+  })
+
+  it('keeps the attribution saved first in this tab, filling gaps from the URL', () => {
+    expect(
+      mergeOnboardingContext(
+        { utm_source: 'gmb' },
+        { book: '1', utm_source: 'walkin', utm_campaign: 'diwali' },
+      ),
+    ).toEqual({ book: '1', utm_source: 'gmb', utm_campaign: 'diwali' })
+  })
+
+  it('takes the whole booking intent from the Book Now just tapped, dropping a saved service', () => {
+    expect(
+      mergeOnboardingContext({ book: '1', service: 'old-facial', leadId: 'lead_9' }, { book: '1' }),
+    ).toEqual({ book: '1', leadId: 'lead_9' })
+    expect(
+      mergeOnboardingContext(
+        { service: 'old-facial' },
+        { book: '1', service: 'signature-haircut' },
+      ),
+    ).toEqual({ book: '1', service: 'signature-haircut' })
+  })
+
+  it('feeds buildPostOnboardingDestination the booking the customer asked for', () => {
+    const context = mergeOnboardingContext(
+      { utm_source: 'gmb' },
+      { book: '1', service: 'signature-haircut' },
+    )
+
+    expect(buildPostOnboardingDestination(context)).toBe('/?book=1&service=signature-haircut')
+  })
+
+  it('returns no context when there is none', () => {
+    expect(mergeOnboardingContext({}, {})).toEqual({})
   })
 })

@@ -535,9 +535,11 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
       const json = await res.json()
 
       // The customer skipped onboarding, so the server refused the booking.
-      // Recoverable, not an error state: keep the selections, remember the
-      // booking intent, and send them to finish their profile. The dialog
-      // reopens automatically afterwards via `?book=1`.
+      // Tapping Book Now normally sends them to onboarding before the dialog
+      // opens (the homepage's requireProfileBeforeBooking); this is the
+      // backstop for any other way in. Recoverable, not an error state: keep
+      // the selections, remember the booking intent, and send them to finish
+      // their profile. The dialog reopens automatically afterwards via `?book=1`.
       if (res.status === 403 && json?.error?.code === 'ONBOARDING_REQUIRED') {
         persistIntent()
         markBookingIntentForOnboarding()

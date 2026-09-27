@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 07-06-2026 & Updated - 07-06-2026
+ * Date         : Created - 07-06-2026 & Updated - 27-09-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : google-signin
@@ -30,18 +30,9 @@
  ************************************************************/
 
 import { signIn } from '@/lib/auth-client'
-import { ONBOARDING_PATH } from '@/lib/onboarding-prompt'
+import { BOOKING_CONTEXT_PARAMS, ONBOARDING_PATH } from '@/lib/onboarding-prompt'
 
 const AUTH_CONTEXT_KEY = 'rgss_auth_context'
-
-const CONTEXT_PARAMS = [
-  'book',
-  'utm_source',
-  'utm_campaign',
-  'utm_medium',
-  'leadId',
-  'service',
-] as const
 
 /**
  * Save any booking/UTM context from the current URL so it survives the
@@ -53,7 +44,7 @@ export function preserveAuthContext(): void {
   }
   const params = new URLSearchParams(window.location.search)
   const context: Record<string, string> = {}
-  for (const key of CONTEXT_PARAMS) {
+  for (const key of BOOKING_CONTEXT_PARAMS) {
     const value = params.get(key)
     if (value) {
       context[key] = value
@@ -81,6 +72,10 @@ export const NEW_USER_CALLBACK_URL = ONBOARDING_PATH
  * OAuth round trip to carry `?book=1` — so the intent is written here instead of
  * by preserveAuthContext(). Merges into the existing context rather than
  * replacing it, to keep any UTM/lead attribution already captured.
+ *
+ * That is the backstop. Tapping Book Now normally sends such a customer to
+ * onboarding before the dialog opens (requireProfileBeforeBooking in
+ * `@/lib/onboarding-guard`), with the intent in the onboarding URL instead.
  */
 export function markBookingIntentForOnboarding(): void {
   if (typeof window === 'undefined') {
