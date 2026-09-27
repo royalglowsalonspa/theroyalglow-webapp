@@ -1,8 +1,9 @@
 # TypeScript 7 migration
 
-**Status:** Implementation and local validation complete; pull request pending  
-**Baseline commit:** `9b5072a9301560c93915bb52c2e586635cb8997d`  
-**Compiler:** `typescript@7.0.2`  
+**Status:** Review-ready; not deployed
+**Baseline commit:** `e499ca03db833913d620084735cfb1e128b7568b`
+**Measured migration commit:** `ed6876c3d55c58474321ad4b0e67bcc448524e04`
+**Compiler:** `typescript@7.0.2`
 **Compatibility API:** `@typescript/typescript6@6.0.2`, isolated to one AST-based CI utility
 
 This document records the migration from TypeScript 5.9.3 to TypeScript 7's native
@@ -116,56 +117,67 @@ Raw and derived reports:
 - `knowledge-base/benchmarks/typescript-7/comparison.windows-x64.json`
 
 Host: Windows 11, Intel i5-8300H, 8 logical processors, 15.81 GB RAM, Bun 1.4.2,
-Node 24.21.0. Typechecks disable incremental state and bypass Turbo cache. Builds delete
-each application's generated output first. The harness samples the complete process tree
-every 100 ms. Typecheck figures are medians of three runs; build figures are one cold run
-and therefore directional.
+Node 24.21.0, and Turborepo 2.11.2 on both sides. Baseline and migrated inputs were
+separate clean worktrees at the commits above. Each report records its Git tree plus SHA-256
+hashes for `bun.lock`, `package.json`, and `tsconfig.json`. Typechecks disable incremental
+state and bypass Turbo cache. Builds begin from a clean worktree and delete each application's
+generated output before measurement; their final tree is dirty only because Next rewrites
+`next-env.d.ts` to production paths.
 
-Run the comparison again from repository root:
+The harness samples the complete process tree every 100 ms. Typecheck figures are medians of
+three runs. Build figures are one cold run and therefore directional. The workspace aggregate
+runs the same ten Turborepo workspace tasks on both revisions; the two newly gated specialist
+configs are validated separately and deliberately excluded from the performance workload.
+
+Reproduce with two clean checkouts or worktrees:
 
 ```powershell
-& .\scripts\benchmarks\typescript-performance.ps1 -Label before -Suite typecheck -TypecheckIterations 3
-& .\scripts\benchmarks\typescript-performance.ps1 -Label before -Suite build -BuildIterations 1 -OutputPath knowledge-base\benchmarks\typescript-7\before-build.windows-x64.json
-& .\scripts\benchmarks\typescript-performance.ps1 -Label after -Suite typecheck -TypecheckIterations 3
-& .\scripts\benchmarks\typescript-performance.ps1 -Label after -Suite build -BuildIterations 1 -OutputPath knowledge-base\benchmarks\typescript-7\after-build.windows-x64.json
+git worktree add --detach <before-worktree> e499ca03db833913d620084735cfb1e128b7568b
+git worktree add --detach <after-worktree> ed6876c3d55c58474321ad4b0e67bcc448524e04
+bun --cwd <before-worktree> install --frozen-lockfile
+bun --cwd <after-worktree> install --frozen-lockfile
+& .\scripts\benchmarks\typescript-performance.ps1 -Label before -Suite typecheck -TypecheckIterations 3 -RepositoryRoot <before-worktree> -RequireClean
+& .\scripts\benchmarks\typescript-performance.ps1 -Label before -Suite build -BuildIterations 1 -RepositoryRoot <before-worktree> -RequireClean -OutputPath knowledge-base\benchmarks\typescript-7\before-build.windows-x64.json
+& .\scripts\benchmarks\typescript-performance.ps1 -Label after -Suite typecheck -TypecheckIterations 3 -RepositoryRoot <after-worktree> -RequireClean
+& .\scripts\benchmarks\typescript-performance.ps1 -Label after -Suite build -BuildIterations 1 -RepositoryRoot <after-worktree> -RequireClean -OutputPath knowledge-base\benchmarks\typescript-7\after-build.windows-x64.json
 & .\scripts\benchmarks\compare-typescript-performance.ps1
 ```
 
-Use a clean checkout at the corresponding compiler revision for each side. Do not run both
-compiler versions from one shared `node_modules`; native platform packages and lock state differ.
+Restore each worktree's generated `next-env.d.ts` files before running its build suite if that
+worktree previously built Next. `-RequireClean` rejects unidentified benchmark inputs.
 
 ### Typecheck results
 
 | Scenario | TS 5.9.3 | TS 7.0.2 | Speedup | Wall change | CPU change | Peak RSS change |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Repository | 68.510 s | 29.277 s | **2.34x** | **-57.27%** | **-60.48%** | **-7.70%** |
-| Web | 43.846 s | 11.501 s | **3.81x** | **-73.77%** | -44.24% | +11.11% |
-| Admin | 56.215 s | 15.080 s | **3.73x** | **-73.17%** | -39.03% | +24.16% |
-| CMS | 17.729 s | 6.065 s | **2.92x** | **-65.79%** | -40.73% | -9.42% |
-| Invoicing | 7.422 s | 2.061 s | **3.60x** | **-72.23%** | -71.14% | -37.59% |
+| Workspace aggregate | 83.334 s | 28.935 s | **2.88x** | **-65.28%** | **-61.27%** | **-8.71%** |
+| Web | 51.947 s | 13.236 s | **3.92x** | **-74.52%** | -48.39% | +10.12% |
+| Admin | 57.678 s | 17.382 s | **3.32x** | **-69.86%** | -43.06% | +23.32% |
+| CMS | 29.837 s | 7.267 s | **4.11x** | **-75.64%** | -55.21% | -8.62% |
+| Invoicing | 11.283 s | 2.874 s | **3.93x** | **-74.53%** | -69.76% | -33.87% |
 
 Isolated web/admin process-tree RSS includes multiple native workers and rose despite strong
-wall/CPU reductions. Compiler-reported memory changed by -3.23% for web and +1.74% for admin;
-CMS fell 18.12% and invoicing fell 46.71%. Most importantly, real aggregate repository peak
-RSS fell 7.70% while total CPU work fell 60.48%.
+wall/CPU reductions. Compiler-reported memory fell 6.32% for web, 0.44% for admin, 19.75%
+for CMS, and 41.32% for invoicing. The real ten-workspace aggregate reduced peak RSS 8.71%
+and total CPU work 61.27%.
 
 ### Cold application builds
 
 | Scenario | TS 5.9.3 | TS 7.0.2 | Speedup | Wall change | CPU change | Peak RSS change |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Web | 140.505 s | 107.062 s | 1.31x | -23.80% | -8.49% | +7.23% |
-| Admin | 116.745 s | 98.123 s | 1.19x | -15.95% | -4.56% | -8.60% |
-| CMS | 98.570 s | 91.308 s | 1.08x | -7.37% | -0.85% | -10.31% |
-| Invoicing | 2.303 s | 5.760 s | 0.40x | +150.11% | -6.20% | -1.57% |
+| Web | 136.183 s | 99.503 s | 1.37x | -26.93% | -13.46% | +0.58% |
+| Admin | 135.293 s | 122.114 s | 1.11x | -9.74% | -4.17% | -1.13% |
+| CMS | 116.694 s | 121.497 s | 0.96x | +4.12% | +2.47% | +2.58% |
+| Invoicing | 3.372 s | 2.601 s | 1.30x | -22.86% | -19.80% | -4.97% |
 
 Next build results include bundling, route generation, and framework work, so the native
-checker is only part of each measurement. The invoicing bundle uses tsup/esbuild rather than
-`tsc`; its one-run wall regression is monitor/startup noise and is not attributable to
-TypeScript 7. CPU and memory still remained effectively flat.
+checker is only part of each measurement. Web and admin improved; CMS stayed effectively
+flat within a one-run directional benchmark. The invoicing bundle uses tsup/esbuild rather
+than `tsc`, so its change is not attributable to TypeScript 7.
 
 ## Validation record
 
-Completed on 27 September 2026:
+Completed on 28 September 2026:
 
 | Gate | Result |
 | --- | --- |
@@ -182,7 +194,8 @@ Completed on 27 September 2026:
 | Invoicing `tsup` build | Pass. |
 | Browser test discovery | Pass: web 6, admin 34, CMS 4 tests discovered. |
 | `bun audit` | Pass: no vulnerabilities across 1373 packages. |
-| CI workflow | YAML parses; all four path filters include root `tsconfig.json`. `actionlint` was unavailable locally. |
+| Snyk SAST | No migration-diff finding. Two high findings are pre-existing false positives on the public `rgss_auth_context` session-storage key. |
+| CI workflow | YAML parses; all four path filters include root `tsconfig.json`; admin static gates install the locked TS6 sidecar. `actionlint` was unavailable locally. |
 | Benchmark scripts | Both PowerShell harnesses executed successfully and generated committed JSON. |
 
 ## Known limits
@@ -196,6 +209,9 @@ Completed on 27 September 2026:
   production smoke test was performed.
 - `actionlint` was not installed. The modified workflow passed YAML parsing and focused path
   review; GitHub remains the authoritative expression/action-schema validator.
+- Snyk Secrets was unavailable for the active organization. Snyk SCA refused the untrusted
+  workspace, and repository policy forbids granting that trust autonomously; `bun audit` remained
+  the blocking dependency gate.
 - Build benchmarks use one cold run each. Treat those deltas as directional; compiler-only
   medians provide the reliable comparison.
 - TypeScript 7.0 has no stable programmatic API. The TS6 sidecar remains required until the

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAtUtc": "2026-09-27T17:08:44.7139459Z",
+  "generatedAtUtc": "2026-09-27T20:37:01.8192767Z",
   "baselineCompiler": "Version 5.9.3",
   "migratedCompiler": "Version 7.0.2",
   "host": {
@@ -25,203 +25,203 @@
   ],
   "scenarios": [
     {
-      "name": "repository-typecheck",
+      "name": "workspace-typecheck",
       "kind": "typecheck",
-      "speedup": 2.34,
+      "speedup": 2.88,
       "wallSeconds": {
-        "before": 68.51,
-        "after": 29.277,
-        "changePercent": -57.27
+        "before": 83.334,
+        "after": 28.935,
+        "changePercent": -65.28
       },
       "cpuSeconds": {
-        "before": 194.25,
-        "after": 76.766,
-        "changePercent": -60.48
+        "before": 229.375,
+        "after": 88.828,
+        "changePercent": -61.27
       },
       "peakWorkingSetMb": {
-        "before": 2503.633,
-        "after": 2310.746,
-        "changePercent": -7.7
+        "before": 2671.531,
+        "after": 2438.805,
+        "changePercent": -8.71
       }
     },
     {
       "name": "web-typecheck",
       "kind": "typecheck",
-      "speedup": 3.81,
+      "speedup": 3.92,
       "wallSeconds": {
-        "before": 43.846,
-        "after": 11.501,
-        "changePercent": -73.77
+        "before": 51.947,
+        "after": 13.236,
+        "changePercent": -74.52
       },
       "cpuSeconds": {
-        "before": 47.297,
-        "after": 26.375,
-        "changePercent": -44.24
+        "before": 56.188,
+        "after": 29.0,
+        "changePercent": -48.39
       },
       "peakWorkingSetMb": {
-        "before": 996.629,
-        "after": 1107.332,
-        "changePercent": 11.11
+        "before": 987.727,
+        "after": 1087.73,
+        "changePercent": 10.12
       },
       "compilerMemoryMb": {
-        "before": 811.503,
-        "after": 785.309,
-        "changePercent": -3.23
+        "before": 830.372,
+        "after": 777.929,
+        "changePercent": -6.32
       }
     },
     {
       "name": "admin-typecheck",
       "kind": "typecheck",
-      "speedup": 3.73,
+      "speedup": 3.32,
       "wallSeconds": {
-        "before": 56.215,
-        "after": 15.08,
-        "changePercent": -73.17
+        "before": 57.678,
+        "after": 17.382,
+        "changePercent": -69.86
       },
       "cpuSeconds": {
-        "before": 57.125,
-        "after": 34.828,
-        "changePercent": -39.03
+        "before": 62.156,
+        "after": 35.391,
+        "changePercent": -43.06
       },
       "peakWorkingSetMb": {
-        "before": 1090.68,
-        "after": 1354.188,
-        "changePercent": 24.16
+        "before": 1082.84,
+        "after": 1335.371,
+        "changePercent": 23.32
       },
       "compilerMemoryMb": {
-        "before": 923.586,
-        "after": 939.629,
-        "changePercent": 1.74
+        "before": 930.213,
+        "after": 926.078,
+        "changePercent": -0.44
       }
     },
     {
       "name": "cms-typecheck",
       "kind": "typecheck",
-      "speedup": 2.92,
+      "speedup": 4.11,
       "wallSeconds": {
-        "before": 17.729,
-        "after": 6.065,
-        "changePercent": -65.79
+        "before": 29.837,
+        "after": 7.267,
+        "changePercent": -75.64
       },
       "cpuSeconds": {
-        "before": 25.125,
-        "after": 14.891,
-        "changePercent": -40.73
+        "before": 34.812,
+        "after": 15.594,
+        "changePercent": -55.21
       },
       "peakWorkingSetMb": {
-        "before": 737.848,
-        "after": 668.359,
-        "changePercent": -9.42
+        "before": 726.629,
+        "after": 664.016,
+        "changePercent": -8.62
       },
       "compilerMemoryMb": {
-        "before": 547.893,
-        "after": 448.597,
-        "changePercent": -18.12
+        "before": 556.09,
+        "after": 446.25,
+        "changePercent": -19.75
       }
     },
     {
       "name": "invoicing-typecheck",
       "kind": "typecheck",
-      "speedup": 3.6,
+      "speedup": 3.93,
       "wallSeconds": {
-        "before": 7.422,
-        "after": 2.061,
-        "changePercent": -72.23
+        "before": 11.283,
+        "after": 2.874,
+        "changePercent": -74.53
       },
       "cpuSeconds": {
-        "before": 10.719,
-        "after": 3.094,
-        "changePercent": -71.14
+        "before": 13.953,
+        "after": 4.219,
+        "changePercent": -69.76
       },
       "peakWorkingSetMb": {
-        "before": 412.07,
-        "after": 257.184,
-        "changePercent": -37.59
+        "before": 386.336,
+        "after": 255.496,
+        "changePercent": -33.87
       },
       "compilerMemoryMb": {
-        "before": 255.262,
-        "after": 136.03,
-        "changePercent": -46.71
+        "before": 232.396,
+        "after": 136.38,
+        "changePercent": -41.32
       }
     },
     {
       "name": "web-build",
       "kind": "build",
-      "speedup": 1.31,
+      "speedup": 1.37,
       "wallSeconds": {
-        "before": 140.505,
-        "after": 107.062,
-        "changePercent": -23.8
+        "before": 136.183,
+        "after": 99.503,
+        "changePercent": -26.93
       },
       "cpuSeconds": {
-        "before": 222.031,
-        "after": 203.172,
-        "changePercent": -8.49
+        "before": 256.25,
+        "after": 221.766,
+        "changePercent": -13.46
       },
       "peakWorkingSetMb": {
-        "before": 2180.504,
-        "after": 2338.059,
-        "changePercent": 7.23
+        "before": 2312.242,
+        "after": 2325.691,
+        "changePercent": 0.58
       }
     },
     {
       "name": "admin-build",
       "kind": "build",
-      "speedup": 1.19,
+      "speedup": 1.11,
       "wallSeconds": {
-        "before": 116.745,
-        "after": 98.123,
-        "changePercent": -15.95
+        "before": 135.293,
+        "after": 122.114,
+        "changePercent": -9.74
       },
       "cpuSeconds": {
-        "before": 238.984,
-        "after": 228.094,
-        "changePercent": -4.56
+        "before": 287.922,
+        "after": 275.906,
+        "changePercent": -4.17
       },
       "peakWorkingSetMb": {
-        "before": 2491.0,
-        "after": 2276.801,
-        "changePercent": -8.6
+        "before": 2631.836,
+        "after": 2602.168,
+        "changePercent": -1.13
       }
     },
     {
       "name": "cms-build",
       "kind": "build",
-      "speedup": 1.08,
+      "speedup": 0.96,
       "wallSeconds": {
-        "before": 98.57,
-        "after": 91.308,
-        "changePercent": -7.37
+        "before": 116.694,
+        "after": 121.497,
+        "changePercent": 4.12
       },
       "cpuSeconds": {
-        "before": 246.062,
-        "after": 243.969,
-        "changePercent": -0.85
+        "before": 254.734,
+        "after": 261.016,
+        "changePercent": 2.47
       },
       "peakWorkingSetMb": {
-        "before": 3710.148,
-        "after": 3327.578,
-        "changePercent": -10.31
+        "before": 2963.832,
+        "after": 3040.195,
+        "changePercent": 2.58
       }
     },
     {
       "name": "invoicing-build",
       "kind": "build",
-      "speedup": 0.4,
+      "speedup": 1.3,
       "wallSeconds": {
-        "before": 2.303,
-        "after": 5.76,
-        "changePercent": 150.11
+        "before": 3.372,
+        "after": 2.601,
+        "changePercent": -22.86
       },
       "cpuSeconds": {
-        "before": 1.016,
-        "after": 0.953,
-        "changePercent": -6.2
+        "before": 1.5,
+        "after": 1.203,
+        "changePercent": -19.8
       },
       "peakWorkingSetMb": {
-        "before": 117.883,
-        "after": 116.027,
-        "changePercent": -1.57
+        "before": 149.535,
+        "after": 142.102,
+        "changePercent": -4.97
       }
     }
   ]

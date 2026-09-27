@@ -1,16 +1,24 @@
 {
   "schemaVersion": 1,
   "label": "before",
-  "generatedAtUtc": "2026-09-27T15:45:34.6331521Z",
+  "generatedAtUtc": "2026-09-27T20:22:23.0536004Z",
   "suite": "typecheck",
   "git": {
-    "commit": "9b5072a9301560c93915bb52c2e586635cb8997d",
-    "dirty": true
+    "commit": "e499ca03db833913d620084735cfb1e128b7568b",
+    "tree": "d98391348d0048f32d2108b3ba29abb8755319a8",
+    "initialClean": true,
+    "finalClean": true,
+    "inputHashes": {
+      "bunLockSha256": "6256d711bd0a815876f34b135d14ae693bd1c32f1f47db4ec0fc7c29a13d9819",
+      "packageJsonSha256": "b2b65dbaec1927d2146e76df5d9888b574c377071bf3f9d4386a92bce2b2ff75",
+      "tsconfigJsonSha256": "65119e18d50d9f24b233df5762865cd83916a3897e89966520c30b9bc07c3400"
+    }
   },
   "toolchain": {
     "typescript": "Version 5.9.3",
     "bun": "1.4.2",
     "node": "v24.21.0",
+    "turbo": "2.11.2",
     "powershell": "7.6.6"
   },
   "host": {
@@ -28,11 +36,13 @@
     "typechecksDisableIncrementalCache": true,
     "buildsDeleteFrameworkOutputBeforeEachRun": true,
     "turboCacheBypassed": true,
+    "benchmarkTargetInitiallyClean": true,
+    "workspaceTypecheckScope": "Ten Turborepo workspace typecheck tasks; specialist drift/synthetic configs are validated separately and excluded from this apples-to-apples performance workload.",
     "note": "CPU and memory include the measured Bun process plus sampled descendants. Monitoring overhead is external and identical between before/after runs."
   },
   "scenarios": [
     {
-      "name": "repository-typecheck",
+      "name": "workspace-typecheck",
       "kind": "typecheck",
       "command": "bun x turbo run typecheck --force --output-logs=errors-only -- --incremental false",
       "environmentKeys": [],
@@ -41,13 +51,13 @@
         {
           "iteration": 1,
           "exitCode": 0,
-          "wallSeconds": 98.347,
-          "cpuSeconds": 205.078,
-          "aggregateCoreUtilizationPercent": 208.53,
-          "normalizedHostCpuPercent": 26.07,
-          "peakWorkingSetMb": 2503.391,
-          "peakPrivateMemoryMb": 2541.508,
-          "samples": 149,
+          "wallSeconds": 86.177,
+          "cpuSeconds": 237.578,
+          "aggregateCoreUtilizationPercent": 275.69,
+          "normalizedHostCpuPercent": 34.46,
+          "peakWorkingSetMb": 2640.516,
+          "peakPrivateMemoryMb": 2645.578,
+          "samples": 132,
           "compilerDiagnostics": {
             "memoryMb": null,
             "parseSeconds": null,
@@ -58,13 +68,13 @@
         {
           "iteration": 2,
           "exitCode": 0,
-          "wallSeconds": 68.51,
-          "cpuSeconds": 194.25,
-          "aggregateCoreUtilizationPercent": 283.53,
-          "normalizedHostCpuPercent": 35.44,
-          "peakWorkingSetMb": 2503.633,
-          "peakPrivateMemoryMb": 2471.992,
-          "samples": 124,
+          "wallSeconds": 82.623,
+          "cpuSeconds": 229.375,
+          "aggregateCoreUtilizationPercent": 277.62,
+          "normalizedHostCpuPercent": 34.7,
+          "peakWorkingSetMb": 2671.531,
+          "peakPrivateMemoryMb": 2674.391,
+          "samples": 128,
           "compilerDiagnostics": {
             "memoryMb": null,
             "parseSeconds": null,
@@ -75,13 +85,13 @@
         {
           "iteration": 3,
           "exitCode": 0,
-          "wallSeconds": 67.152,
-          "cpuSeconds": 190.875,
-          "aggregateCoreUtilizationPercent": 284.24,
-          "normalizedHostCpuPercent": 35.53,
-          "peakWorkingSetMb": 2695.867,
-          "peakPrivateMemoryMb": 2646.535,
-          "samples": 118,
+          "wallSeconds": 83.334,
+          "cpuSeconds": 224.234,
+          "aggregateCoreUtilizationPercent": 269.08,
+          "normalizedHostCpuPercent": 33.63,
+          "peakWorkingSetMb": 2741.449,
+          "peakPrivateMemoryMb": 2745.562,
+          "samples": 131,
           "compilerDiagnostics": {
             "memoryMb": null,
             "parseSeconds": null,
@@ -92,12 +102,12 @@
       ],
       "summary": {
         "successfulIterations": 3,
-        "medianWallSeconds": 68.51,
-        "p95WallSeconds": 98.347,
-        "medianCpuSeconds": 194.25,
-        "medianPeakWorkingSetMb": 2503.633,
-        "medianPeakPrivateMemoryMb": 2541.508,
-        "medianNormalizedHostCpuPercent": 35.44
+        "medianWallSeconds": 83.334,
+        "p95WallSeconds": 86.177,
+        "medianCpuSeconds": 229.375,
+        "medianPeakWorkingSetMb": 2671.531,
+        "medianPeakPrivateMemoryMb": 2674.391,
+        "medianNormalizedHostCpuPercent": 34.46
       }
     },
     {
@@ -110,63 +120,63 @@
         {
           "iteration": 1,
           "exitCode": 0,
-          "wallSeconds": 30.308,
-          "cpuSeconds": 40.875,
-          "aggregateCoreUtilizationPercent": 134.86,
-          "normalizedHostCpuPercent": 16.86,
-          "peakWorkingSetMb": 996.629,
-          "peakPrivateMemoryMb": 1007.516,
-          "samples": 84,
+          "wallSeconds": 53.303,
+          "cpuSeconds": 56.484,
+          "aggregateCoreUtilizationPercent": 105.97,
+          "normalizedHostCpuPercent": 13.25,
+          "peakWorkingSetMb": 987.727,
+          "peakPrivateMemoryMb": 1008.574,
+          "samples": 125,
           "compilerDiagnostics": {
-            "memoryMb": 811.503,
-            "parseSeconds": 4.02,
-            "checkSeconds": 18.9,
-            "totalSeconds": 28.96
+            "memoryMb": 830.372,
+            "parseSeconds": 6.92,
+            "checkSeconds": 32.67,
+            "totalSeconds": 51.38
           }
         },
         {
           "iteration": 2,
           "exitCode": 0,
-          "wallSeconds": 43.846,
-          "cpuSeconds": 47.297,
-          "aggregateCoreUtilizationPercent": 107.87,
-          "normalizedHostCpuPercent": 13.48,
-          "peakWorkingSetMb": 999.121,
-          "peakPrivateMemoryMb": 1010.766,
-          "samples": 110,
+          "wallSeconds": 51.947,
+          "cpuSeconds": 56.188,
+          "aggregateCoreUtilizationPercent": 108.16,
+          "normalizedHostCpuPercent": 13.52,
+          "peakWorkingSetMb": 988.883,
+          "peakPrivateMemoryMb": 1007.504,
+          "samples": 120,
           "compilerDiagnostics": {
-            "memoryMb": 809.889,
-            "parseSeconds": 3.8,
-            "checkSeconds": 32.69,
-            "totalSeconds": 42.49
+            "memoryMb": 833.904,
+            "parseSeconds": 6.78,
+            "checkSeconds": 31.57,
+            "totalSeconds": 50.29
           }
         },
         {
           "iteration": 3,
           "exitCode": 0,
-          "wallSeconds": 54.849,
-          "cpuSeconds": 52.344,
-          "aggregateCoreUtilizationPercent": 95.43,
-          "normalizedHostCpuPercent": 11.93,
-          "peakWorkingSetMb": 994.602,
-          "peakPrivateMemoryMb": 1005.57,
-          "samples": 131,
+          "wallSeconds": 48.452,
+          "cpuSeconds": 54.656,
+          "aggregateCoreUtilizationPercent": 112.8,
+          "normalizedHostCpuPercent": 14.1,
+          "peakWorkingSetMb": 987.52,
+          "peakPrivateMemoryMb": 1007.07,
+          "samples": 114,
           "compilerDiagnostics": {
-            "memoryMb": 813.897,
-            "parseSeconds": 7.49,
-            "checkSeconds": 32.84,
-            "totalSeconds": 52.92
+            "memoryMb": 829.867,
+            "parseSeconds": 6.31,
+            "checkSeconds": 30.37,
+            "totalSeconds": 46.78
           }
         }
       ],
       "summary": {
         "successfulIterations": 3,
-        "medianWallSeconds": 43.846,
-        "p95WallSeconds": 54.849,
-        "medianCpuSeconds": 47.297,
-        "medianPeakWorkingSetMb": 996.629,
-        "medianPeakPrivateMemoryMb": 1007.516,
-        "medianNormalizedHostCpuPercent": 13.48
+        "medianWallSeconds": 51.947,
+        "p95WallSeconds": 53.303,
+        "medianCpuSeconds": 56.188,
+        "medianPeakWorkingSetMb": 987.727,
+        "medianPeakPrivateMemoryMb": 1007.504,
+        "medianNormalizedHostCpuPercent": 13.52
       }
     },
     {
@@ -179,63 +189,63 @@
         {
           "iteration": 1,
           "exitCode": 0,
-          "wallSeconds": 62.116,
-          "cpuSeconds": 59.797,
-          "aggregateCoreUtilizationPercent": 96.27,
-          "normalizedHostCpuPercent": 12.03,
-          "peakWorkingSetMb": 1090.68,
-          "peakPrivateMemoryMb": 1101.043,
-          "samples": 146,
+          "wallSeconds": 57.052,
+          "cpuSeconds": 62.156,
+          "aggregateCoreUtilizationPercent": 108.95,
+          "normalizedHostCpuPercent": 13.62,
+          "peakWorkingSetMb": 1082.84,
+          "peakPrivateMemoryMb": 1103.723,
+          "samples": 134,
           "compilerDiagnostics": {
-            "memoryMb": 923.586,
-            "parseSeconds": 8.44,
-            "checkSeconds": 38.1,
-            "totalSeconds": 60.25
+            "memoryMb": 932.162,
+            "parseSeconds": 6.71,
+            "checkSeconds": 36.77,
+            "totalSeconds": 55.14
           }
         },
         {
           "iteration": 2,
           "exitCode": 0,
-          "wallSeconds": 56.215,
-          "cpuSeconds": 57.125,
-          "aggregateCoreUtilizationPercent": 101.62,
-          "normalizedHostCpuPercent": 12.7,
-          "peakWorkingSetMb": 1088.543,
-          "peakPrivateMemoryMb": 1100.207,
-          "samples": 133,
+          "wallSeconds": 58.442,
+          "cpuSeconds": 62.047,
+          "aggregateCoreUtilizationPercent": 106.17,
+          "normalizedHostCpuPercent": 13.27,
+          "peakWorkingSetMb": 1084.207,
+          "peakPrivateMemoryMb": 1105.055,
+          "samples": 137,
           "compilerDiagnostics": {
-            "memoryMb": 922.461,
-            "parseSeconds": 6.76,
-            "checkSeconds": 37.05,
-            "totalSeconds": 54.66
+            "memoryMb": 930.213,
+            "parseSeconds": 6.47,
+            "checkSeconds": 38.36,
+            "totalSeconds": 56.21
           }
         },
         {
           "iteration": 3,
           "exitCode": 0,
-          "wallSeconds": 40.438,
-          "cpuSeconds": 49.828,
-          "aggregateCoreUtilizationPercent": 123.22,
-          "normalizedHostCpuPercent": 15.4,
-          "peakWorkingSetMb": 1091.957,
-          "peakPrivateMemoryMb": 1103.719,
-          "samples": 107,
+          "wallSeconds": 57.678,
+          "cpuSeconds": 63.234,
+          "aggregateCoreUtilizationPercent": 109.63,
+          "normalizedHostCpuPercent": 13.7,
+          "peakWorkingSetMb": 1080.234,
+          "peakPrivateMemoryMb": 1101.727,
+          "samples": 135,
           "compilerDiagnostics": {
-            "memoryMb": 923.896,
-            "parseSeconds": 5.48,
-            "checkSeconds": 24.4,
-            "totalSeconds": 39.08
+            "memoryMb": 923.703,
+            "parseSeconds": 6.46,
+            "checkSeconds": 37.84,
+            "totalSeconds": 55.88
           }
         }
       ],
       "summary": {
         "successfulIterations": 3,
-        "medianWallSeconds": 56.215,
-        "p95WallSeconds": 62.116,
-        "medianCpuSeconds": 57.125,
-        "medianPeakWorkingSetMb": 1090.68,
-        "medianPeakPrivateMemoryMb": 1101.043,
-        "medianNormalizedHostCpuPercent": 12.7
+        "medianWallSeconds": 57.678,
+        "p95WallSeconds": 58.442,
+        "medianCpuSeconds": 62.156,
+        "medianPeakWorkingSetMb": 1082.84,
+        "medianPeakPrivateMemoryMb": 1103.723,
+        "medianNormalizedHostCpuPercent": 13.62
       }
     },
     {
@@ -248,63 +258,63 @@
         {
           "iteration": 1,
           "exitCode": 0,
-          "wallSeconds": 17.729,
-          "cpuSeconds": 25.125,
-          "aggregateCoreUtilizationPercent": 141.71,
-          "normalizedHostCpuPercent": 17.71,
-          "peakWorkingSetMb": 738.559,
-          "peakPrivateMemoryMb": 745.836,
-          "samples": 49,
+          "wallSeconds": 31.095,
+          "cpuSeconds": 35.156,
+          "aggregateCoreUtilizationPercent": 113.06,
+          "normalizedHostCpuPercent": 14.13,
+          "peakWorkingSetMb": 726.629,
+          "peakPrivateMemoryMb": 741.062,
+          "samples": 70,
           "compilerDiagnostics": {
-            "memoryMb": 547.254,
-            "parseSeconds": 3.38,
-            "checkSeconds": 6.71,
-            "totalSeconds": 16.64
+            "memoryMb": 555.987,
+            "parseSeconds": 5.51,
+            "checkSeconds": 11.53,
+            "totalSeconds": 29.19
           }
         },
         {
           "iteration": 2,
           "exitCode": 0,
-          "wallSeconds": 17.892,
-          "cpuSeconds": 25.297,
-          "aggregateCoreUtilizationPercent": 141.39,
-          "normalizedHostCpuPercent": 17.67,
-          "peakWorkingSetMb": 737.848,
-          "peakPrivateMemoryMb": 745.148,
-          "samples": 49,
+          "wallSeconds": 29.822,
+          "cpuSeconds": 34.812,
+          "aggregateCoreUtilizationPercent": 116.73,
+          "normalizedHostCpuPercent": 14.59,
+          "peakWorkingSetMb": 731.418,
+          "peakPrivateMemoryMb": 745.633,
+          "samples": 68,
           "compilerDiagnostics": {
-            "memoryMb": 551.438,
-            "parseSeconds": 3.27,
-            "checkSeconds": 6.77,
-            "totalSeconds": 16.59
+            "memoryMb": 556.09,
+            "parseSeconds": 5.37,
+            "checkSeconds": 11.61,
+            "totalSeconds": 28.27
           }
         },
         {
           "iteration": 3,
           "exitCode": 0,
-          "wallSeconds": 17.346,
-          "cpuSeconds": 24.531,
-          "aggregateCoreUtilizationPercent": 141.42,
-          "normalizedHostCpuPercent": 17.68,
-          "peakWorkingSetMb": 737.086,
-          "peakPrivateMemoryMb": 744.648,
-          "samples": 49,
+          "wallSeconds": 29.837,
+          "cpuSeconds": 33.984,
+          "aggregateCoreUtilizationPercent": 113.9,
+          "normalizedHostCpuPercent": 14.24,
+          "peakWorkingSetMb": 722.012,
+          "peakPrivateMemoryMb": 737.449,
+          "samples": 69,
           "compilerDiagnostics": {
-            "memoryMb": 547.893,
-            "parseSeconds": 3.17,
-            "checkSeconds": 6.42,
-            "totalSeconds": 15.94
+            "memoryMb": 564.302,
+            "parseSeconds": 5.42,
+            "checkSeconds": 11.42,
+            "totalSeconds": 28.23
           }
         }
       ],
       "summary": {
         "successfulIterations": 3,
-        "medianWallSeconds": 17.729,
-        "p95WallSeconds": 17.892,
-        "medianCpuSeconds": 25.125,
-        "medianPeakWorkingSetMb": 737.848,
-        "medianPeakPrivateMemoryMb": 745.148,
-        "medianNormalizedHostCpuPercent": 17.68
+        "medianWallSeconds": 29.837,
+        "p95WallSeconds": 31.095,
+        "medianCpuSeconds": 34.812,
+        "medianPeakWorkingSetMb": 726.629,
+        "medianPeakPrivateMemoryMb": 741.062,
+        "medianNormalizedHostCpuPercent": 14.24
       }
     },
     {
@@ -317,63 +327,63 @@
         {
           "iteration": 1,
           "exitCode": 0,
-          "wallSeconds": 7.621,
-          "cpuSeconds": 11.109,
-          "aggregateCoreUtilizationPercent": 145.78,
-          "normalizedHostCpuPercent": 18.22,
-          "peakWorkingSetMb": 415.199,
-          "peakPrivateMemoryMb": 422.121,
-          "samples": 21,
+          "wallSeconds": 12.268,
+          "cpuSeconds": 13.953,
+          "aggregateCoreUtilizationPercent": 113.73,
+          "normalizedHostCpuPercent": 14.22,
+          "peakWorkingSetMb": 386.098,
+          "peakPrivateMemoryMb": 413.57,
+          "samples": 29,
           "compilerDiagnostics": {
-            "memoryMb": 252.85,
-            "parseSeconds": 1.68,
-            "checkSeconds": 2.15,
-            "totalSeconds": 6.64
+            "memoryMb": 226.945,
+            "parseSeconds": 2.73,
+            "checkSeconds": 3.12,
+            "totalSeconds": 10.79
           }
         },
         {
           "iteration": 2,
           "exitCode": 0,
-          "wallSeconds": 7.422,
-          "cpuSeconds": 10.719,
-          "aggregateCoreUtilizationPercent": 144.42,
-          "normalizedHostCpuPercent": 18.05,
-          "peakWorkingSetMb": 411.855,
-          "peakPrivateMemoryMb": 417.422,
-          "samples": 21,
+          "wallSeconds": 11.283,
+          "cpuSeconds": 14.25,
+          "aggregateCoreUtilizationPercent": 126.29,
+          "normalizedHostCpuPercent": 15.79,
+          "peakWorkingSetMb": 386.336,
+          "peakPrivateMemoryMb": 418.047,
+          "samples": 27,
           "compilerDiagnostics": {
-            "memoryMb": 255.262,
-            "parseSeconds": 1.64,
-            "checkSeconds": 1.74,
-            "totalSeconds": 6.28
+            "memoryMb": 235.8,
+            "parseSeconds": 2.51,
+            "checkSeconds": 2.87,
+            "totalSeconds": 9.99
           }
         },
         {
           "iteration": 3,
           "exitCode": 0,
-          "wallSeconds": 7.091,
-          "cpuSeconds": 10.312,
-          "aggregateCoreUtilizationPercent": 145.42,
-          "normalizedHostCpuPercent": 18.18,
-          "peakWorkingSetMb": 412.07,
-          "peakPrivateMemoryMb": 418.883,
-          "samples": 20,
+          "wallSeconds": 11.051,
+          "cpuSeconds": 13.719,
+          "aggregateCoreUtilizationPercent": 124.14,
+          "normalizedHostCpuPercent": 15.52,
+          "peakWorkingSetMb": 387.961,
+          "peakPrivateMemoryMb": 416.672,
+          "samples": 26,
           "compilerDiagnostics": {
-            "memoryMb": 255.541,
-            "parseSeconds": 1.6,
-            "checkSeconds": 1.82,
-            "totalSeconds": 6.18
+            "memoryMb": 232.396,
+            "parseSeconds": 2.72,
+            "checkSeconds": 2.6,
+            "totalSeconds": 9.62
           }
         }
       ],
       "summary": {
         "successfulIterations": 3,
-        "medianWallSeconds": 7.422,
-        "p95WallSeconds": 7.621,
-        "medianCpuSeconds": 10.719,
-        "medianPeakWorkingSetMb": 412.07,
-        "medianPeakPrivateMemoryMb": 418.883,
-        "medianNormalizedHostCpuPercent": 18.18
+        "medianWallSeconds": 11.283,
+        "p95WallSeconds": 12.268,
+        "medianCpuSeconds": 13.953,
+        "medianPeakWorkingSetMb": 386.336,
+        "medianPeakPrivateMemoryMb": 416.672,
+        "medianNormalizedHostCpuPercent": 15.52
       }
     }
   ]
