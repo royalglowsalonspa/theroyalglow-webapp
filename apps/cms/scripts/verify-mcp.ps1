@@ -2,7 +2,7 @@
 # and a live read. Entirely READ-ONLY — safe to run against any environment.
 #
 # Usage (from apps/cms, with the dev server running):
-#   bunx next dev --webpack -p 3002       # Turbopack is blocked on this machine
+#   bun run dev                           # Turbopack; `bun run dev:webpack` if it cannot start
 #   .\scripts\verify-mcp.ps1 -ApiKey <key>
 #
 # Expected results:

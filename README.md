@@ -112,7 +112,9 @@ bun run --filter=@rgss/cms dev
 bun run --filter=@rgss/invoicing dev
 ```
 
-Only start the services needed for your task. `bun run dev` launches the workspace task graph and therefore needs configuration for every participating app. CMS deliberately uses Webpack for local development; its README explains the Windows tooling constraint.
+Only start the services needed for your task. `bun run dev` launches the workspace task graph through Turborepo and therefore needs configuration for every participating app; `bun run dev --filter=@rgss/web` runs a subset. The Next.js apps' `dev` scripts use Turbopack, and each has a `dev:webpack` fallback for machines where Turbopack cannot start.
+
+If `bun run dev` exits with code 9 (Turborepo crashing with `0xC0000409`) on Windows, check that `node_modules/@turbo/windows-64` is not a leftover link to an older Turborepo than the one `bun.lock` pins. Remove that link, then run `bun install --frozen-lockfile`.
 
 ## Development and verification
 

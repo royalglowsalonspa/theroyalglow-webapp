@@ -59,10 +59,10 @@ Start web from the repository root:
 bun run --filter=@rgss/web dev
 ```
 
-Open [localhost:3000](http://localhost:3000). This script deliberately uses
-Webpack because Windows Application Control on the maintainer's machine blocks
-the native SWC path used by Turbopack. `bun run --filter=@rgss/web dev:turbo` is
-available when that constraint does not apply.
+Open [localhost:3000](http://localhost:3000). The script uses Turbopack, the same
+bundler as `next build`. If Turbopack cannot start on a machine (Windows
+Application Control blocking its native SWC binary, as it once did on the
+maintainer's), use `bun run --filter=@rgss/web dev:webpack`.
 
 Public CMS sections have fallbacks, but that does not make every route independent
 of infrastructure. Sign-in, service catalogue, availability, booking, and account

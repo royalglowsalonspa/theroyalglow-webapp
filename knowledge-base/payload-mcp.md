@@ -12,7 +12,7 @@ database.
 | Endpoint | `/api/mcp` (served by Payload's REST catch-all route) |
 | Local dev | `http://localhost:3002/api/mcp` |
 | Production | `https://cms.theroyalglow.in/api/mcp` |
-| Plugin | `@payloadcms/plugin-mcp` (pinned `^3.86.0`) |
+| Plugin | `@payloadcms/plugin-mcp` (exact pin, same release as `payload`; see `apps/cms/package.json`) |
 | Auth | `Authorization: Bearer <api-key>` |
 | Server name | `Royal Glow Payload MCP` |
 | Exposed tools | 11, all `find*` |
@@ -153,7 +153,7 @@ The CMS dev server must be running for the local endpoint to answer.
 
 ```bash
 cd apps/cms
-bunx next dev --webpack -p 3002
+bun run dev
 .\scripts\verify-mcp.ps1 -ApiKey <key>
 ```
 
@@ -170,14 +170,13 @@ The script is read-only and asserts the whole security posture:
 
 ---
 
-## Known local-environment constraint
+## Local bundler
 
-Turbopack cannot start on the current Windows machine — an Application Control
-policy blocks the native SWC binary
-(`@next/swc-win32-x64-msvc/next-swc.win32-x64-msvc.node`), and Turbopack refuses
-to run on WASM-only bindings. Use `bunx next dev --webpack -p 3002` instead of
-`bun run dev` when exercising the CMS locally. This is a machine policy issue,
-not a repo issue, so `package.json` is left alone.
+`bun run dev` runs Turbopack. Until 27/09/2026 an Application Control policy on
+the maintainer's Windows machine blocked the native SWC binary
+(`@next/swc-win32-x64-msvc/next-swc.win32-x64-msvc.node`) that Turbopack needs,
+and Turbopack refuses to run on WASM-only bindings. The binary loads again. If it
+is ever blocked again, use `bun run dev:webpack` from `apps/cms`.
 
 ---
 

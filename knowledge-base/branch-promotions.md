@@ -71,9 +71,10 @@ CI runs plain `bun audit`, without advisory exceptions or severity filters.
 Every reported vulnerability or audit execution failure blocks this gate.
 The historical Payload 3.88.0 exception and its wrapper have been removed.
 
-Payload and its six direct companion packages are pinned together at 3.90.1.
-This upgrade requires the generated CMS password-reset migration before serving
-the new runtime. The explicit `Users.access.unlock` denial remains an application
+Payload and its six direct companion packages are pinned together at 3.90.2.
+The 3.90.2 patch adds no CMS migration. An environment still before 3.90.0
+needs the generated CMS password-reset migration before serving the new
+runtime. The explicit `Users.access.unlock` denial remains an application
 policy: Payload's newer default permits users of the admin collection to unlock
 accounts, which is broader than this repository's policy. Tests cover that boundary.
 See [auth/CMS dependency upgrades](./auth-cms-dependency-upgrades.md) for validation

@@ -32,6 +32,20 @@ default permits members of the admin auth collection to unlock accounts, which
 is broader than this project's policy. Password reset and trusted recovery are
 separate operations; retaining the denial does not suppress an audit finding.
 
+## Payload 3.90.2 patch
+
+The 3.90.2 patch keeps every dependency and peer range from 3.90.1, including
+Drizzle ORM 0.45.2 and the supported Next.js range. The storage fix forwards
+`alwaysInsertFields` when R2 is configured, which adds the hidden `prefix` field
+to collections that configure no prefix. `media` configures the `cms` prefix, so
+both storage paths already had that column. The storage schema test and an
+offline `migrate:create --skip-empty` report no schema change, and generated
+types are unchanged. With client uploads disabled, the S3 client upload handler
+is no longer mounted as an admin provider. It stays an import-map dependency, so
+the regenerated import map only moves that entry. The trailing-slash, slug-field,
+and MCP create/update fixes do not change this CMS: it sets no `trailingSlash`,
+uses its own slug hooks, and exposes only `find` tools.
+
 ## Better Auth review
 
 1. Update both web and admin together, including `@better-auth/infra`. Dependabot
@@ -118,4 +132,5 @@ Sources: [Better Auth changelog](https://better-auth.com/changelog),
 [Better Auth 1.7 guide](https://better-auth.com/docs/guides/1-7-upgrade-guide),
 [Payload 3.90.0](https://github.com/payloadcms/payload/releases/tag/v3.90.0),
 [Payload 3.90.1](https://github.com/payloadcms/payload/releases/tag/v3.90.1),
+[Payload 3.90.2](https://github.com/payloadcms/payload/releases/tag/v3.90.2),
 [GitHub pull request triggers](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request).

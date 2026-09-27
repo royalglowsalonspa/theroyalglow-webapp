@@ -120,8 +120,8 @@ bun run check:admin-root-path
 bun run --filter @rgss/admin build
 ```
 
-Keep `dev`'s explicit `--webpack` flag: it supports the maintainer's Windows
-environment. `dev:turbo` is the opt-in alternative. Unit tests use root Vitest
+`dev` runs Turbopack, the bundler `next build` also uses. `dev:webpack` is the
+fallback for a machine where Turbopack cannot start. Unit tests use root Vitest
 configuration; there is no admin package `test` script. Narrow Vitest by file
 when only one behavior changes. Live integration suites are a separate opt-in.
 

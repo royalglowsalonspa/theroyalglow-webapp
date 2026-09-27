@@ -28,9 +28,11 @@ import { loadEnvFile } from './tests/support/env'
  * Notes        :
  * - webServer runs `bunx next dev --webpack -p 3002`, NOT the default (Turbopack)
  *   dev server and NOT `next build && next start`. Two reasons:
- *     1. Turbopack cannot start on the maintainer's Windows machine — an
- *        Application Control policy blocks the native SWC binary and Turbopack
- *        refuses WASM-only bindings. `--webpack` is the working path.
+ *     1. The suite was last validated against the webpack dev server. Until
+ *        27/09/2026 Turbopack could not start on the maintainer's Windows
+ *        machine (Application Control blocked the native SWC binary). It
+ *        starts again, and `bun run dev` now uses it, but this write-heavy
+ *        suite has not been re-run on it yet.
  *     2. `next build` for this app is slow enough to blow a sensible E2E
  *        timeout, and the suite tests server-side hook behaviour, not the
  *        production bundle.
@@ -46,7 +48,7 @@ const CMS_BASE_URL = process.env.PLAYWRIGHT_CMS_BASE_URL ?? 'http://localhost:30
 const useLocalServer = !process.env.PLAYWRIGHT_CMS_BASE_URL
 
 const localWebServer = {
-  // --webpack is REQUIRED here; see the header note on Turbopack.
+  // Webpack, the dev server this suite was last validated with; see the header.
   command: 'bunx next dev --webpack -p 3002',
   url: `${CMS_BASE_URL}/admin/login`,
   timeout: 240_000,
