@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 27-09-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : BookingDialog
@@ -11,14 +11,16 @@
  *                session persistence across OAuth redirect.
  *
  * Responsibilities :
- * - Render 4-step booking flow (date → categories → services → summary)
- * - Fetch services and availability from API
+ * - Render 4-step booking flow (branch + date → categories → services → summary)
+ * - Fetch branches, services and availability from API
  * - Persist booking intent to sessionStorage for OAuth redirect
  * - Submit booking with analytics tracking
  * - Provide accessible modal with focus trap, escape, and scroll lock
  *
  * Features / Functionality :
  * - 4-step wizard with back/next navigation
+ * - Branch picker (GET /api/branches); times and the booking are for the
+ *   chosen branch, and availability is never requested without one
  * - Salon/SPA toggle with category and service multi-select
  * - Running total with INR formatting
  * - Session intent restoration after sign-in redirect
@@ -34,7 +36,8 @@
 
 'use client'
 
-import { Check, Loader2, X } from 'lucide-react'
+import type { BranchStatusValue, PublicBranch, PublicBranchList } from '@rgss/types'
+import { Check, ChevronDown, Loader2, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -71,10 +74,27 @@ interface AvailabilitySlot {
   available: boolean
 }
 
-const DEFAULT_BRANCH_ID = 'branch_rayasandra'
 const BOOKING_INTENT_KEY = 'rgss_booking_intent'
 
+// What the focus trap moves between.
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+// Wording for a branch that is listed but not taking bookings.
+const BRANCH_STATUS_LABEL: Record<BranchStatusValue, string> = {
+  operational: 'Open',
+  temporarily_closed: 'Temporarily closed',
+  opens_soon: 'Opening soon',
+  shutdown: 'Closed',
+}
+
+function branchLabel(branch: PublicBranch): string {
+  return `${branch.name}, ${branch.city}`
+}
+
 interface BookingIntent {
+  // Absent in intents saved before the branch picker existed.
+  branchId?: string | null
   date: string | null
   time: string | null
   serviceType: ServiceType
@@ -148,6 +168,14 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([])
   const [notes, setNotes] = useState('')
 
+  // Branch picker. `selectedBranchId` is the customer's (or a restored) choice;
+  // `activeBranchId` below is the branch actually used. The list is loading
+  // while it is neither loaded nor failed; `branchesAttempt` re-runs the fetch.
+  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null)
+  const [branchList, setBranchList] = useState<PublicBranchList | null>(null)
+  const [branchesError, setBranchesError] = useState<string | null>(null)
+  const [branchesAttempt, setBranchesAttempt] = useState(0)
+
   // Data + async state
   const [categories, setCategories] = useState<ApiCategory[] | null>(null)
   const [servicesLoading, setServicesLoading] = useState(false)
@@ -164,6 +192,20 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
 
   const dialogRef = useRef<HTMLDivElement>(null)
   const restoredRef = useRef(false)
+
+  // The branch availability and the booking use: the customer's choice while
+  // it is taking bookings, otherwise the default branch. Derived rather than
+  // stored, so a restored or stale choice is never sent.
+  const activeBranchId = useMemo(() => {
+    if (!branchList) return null
+    const chosen = branchList.branches.find((b) => b.id === selectedBranchId)
+    return chosen?.acceptingBookings ? chosen.id : branchList.defaultBranchId
+  }, [branchList, selectedBranchId])
+
+  const activeBranch = useMemo(
+    () => branchList?.branches.find((b) => b.id === activeBranchId) ?? null,
+    [branchList, activeBranchId],
+  )
 
   // Body scroll lock
   useEffect(() => {
@@ -193,32 +235,70 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
     return () => document.removeEventListener('keydown', handleKey)
   }, [isOpen, onClose])
 
-  // Focus trap — intentionally re-runs when step/isSubmitted/servicesLoading/slotsLoading
-  // change so the focus trap re-queries focusable elements after content changes.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: extra deps intentionally trigger re-init of the focus trap when dialog content changes.
+  // Move focus into the dialog when it opens, and back to its top when the
+  // content holding the focus is replaced (a step change, the success view).
+  // Not when data loads: that pulled focus off the control in use, so every
+  // time the times reloaded the branch picker or date lost focus.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `step` and `isSubmitted` are deliberate triggers; see comment above.
   useEffect(() => {
-    if (!isOpen || !dialogRef.current) return
-    const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])',
-    )
-    if (focusable.length) focusable[0]?.focus()
+    if (!isOpen) return
+    dialogRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)?.focus()
+  }, [isOpen, step, isSubmitted])
 
+  // Keep Tab inside the dialog. Focusable elements are read on each keypress,
+  // so content that appears after opening (branches, times) is included.
+  useEffect(() => {
+    if (!isOpen) return
     function trap(e: KeyboardEvent) {
-      if (e.key !== 'Tab' || !focusable.length) return
-      const first = focusable[0] as HTMLElement | undefined
-      const last = focusable[focusable.length - 1] as HTMLElement | undefined
+      if (e.key !== 'Tab' || !dialogRef.current) return
+      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
       if (!first || !last) return
-      if (e.shiftKey && document.activeElement === first) {
+      const active = document.activeElement
+      if (!dialogRef.current.contains(active)) {
+        // The focused element was removed (e.g. "Try again"): bring focus back.
+        e.preventDefault()
+        if (e.shiftKey) last.focus()
+        else first.focus()
+      } else if (e.shiftKey && active === first) {
         e.preventDefault()
         last.focus()
-      } else if (!e.shiftKey && document.activeElement === last) {
+      } else if (!e.shiftKey && active === last) {
         e.preventDefault()
         first.focus()
       }
     }
     document.addEventListener('keydown', trap)
     return () => document.removeEventListener('keydown', trap)
-  }, [isOpen, step, isSubmitted, servicesLoading, slotsLoading])
+  }, [isOpen])
+
+  // Load the branch list when the dialog first opens, and again on "Try again"
+  // (`branchesAttempt`). Once loaded it is kept for the page's lifetime, like
+  // the services catalogue. Closing mid-load drops the response; the next open
+  // fetches again because the list is still missing.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `branchList` is a load-once guard, not a trigger, and `branchesAttempt` is the retry trigger; see comment above.
+  useEffect(() => {
+    if (!isOpen || branchList) return
+    let cancelled = false
+    setBranchesError(null)
+    fetch('/api/branches')
+      .then(async (res) => {
+        const json = await res.json().catch(() => null)
+        if (!res.ok || !json?.success) throw new Error('GET /api/branches failed')
+        return json.data as PublicBranchList
+      })
+      .then((list) => {
+        if (!cancelled) setBranchList(list)
+      })
+      .catch(() => {
+        // Network, server and parse failures all read the same to a customer.
+        if (!cancelled) setBranchesError('Could not load branches.')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen, branchesAttempt])
 
   // Fetch services when the dialog opens (once). Only re-run on open
   // transitions: the inner `categories`/`servicesLoading` guard and the
@@ -256,9 +336,11 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
   }, [isOpen])
 
   // Restore a saved booking intent (e.g. after returning from sign-in) once
-  // services are available so the summary can render service names.
+  // services and branches are available, so the summary can name the services
+  // and the branch. A saved branch that is no longer taking bookings falls
+  // back to the default one through `activeBranchId`.
   useEffect(() => {
-    if (!isOpen || !categories || restoredRef.current) return
+    if (!isOpen || !categories || !branchList || restoredRef.current) return
     restoredRef.current = true
     if (typeof window === 'undefined') return
     const raw = sessionStorage.getItem(BOOKING_INTENT_KEY)
@@ -266,6 +348,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
     sessionStorage.removeItem(BOOKING_INTENT_KEY)
     try {
       const intent = JSON.parse(raw) as BookingIntent
+      setSelectedBranchId(intent.branchId ?? null)
       if (intent.date) setSelectedDate(new Date(`${intent.date}T00:00:00`))
       setSelectedTime(intent.time)
       setServiceType(intent.serviceType)
@@ -276,19 +359,22 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
     } catch {
       // Corrupt intent — ignore and start fresh.
     }
-  }, [isOpen, categories])
+  }, [isOpen, categories, branchList])
 
-  // Fetch availability whenever a date is picked.
+  // Fetch availability for the chosen branch whenever the date or the branch
+  // changes. Never requested without a branch: the API would then answer for
+  // the default branch, which may not be the one on screen.
   useEffect(() => {
-    if (!isOpen || !selectedDate) return
+    if (!isOpen || !selectedDate || !activeBranchId) return
     let cancelled = false
     setSlotsLoading(true)
     setSlotsError(null)
     setSlots([])
-    fetch(`/api/availability?date=${toISODate(selectedDate)}`)
+    const query = new URLSearchParams({ date: toISODate(selectedDate), branchId: activeBranchId })
+    fetch(`/api/availability?${query}`)
       .then(async (res) => {
-        const json = await res.json()
-        if (!res.ok || !json.success) {
+        const json = await res.json().catch(() => null)
+        if (!res.ok || !json?.success) {
           throw new Error(json?.error?.message ?? 'Could not load slots.')
         }
         return json.data.slots as AvailabilitySlot[]
@@ -307,10 +393,11 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
     return () => {
       cancelled = true
     }
-  }, [isOpen, selectedDate])
+  }, [isOpen, selectedDate, activeBranchId])
 
   const reset = useCallback(() => {
     setStep(1)
+    setSelectedBranchId(null)
     setSelectedDate(null)
     setSelectedTime(null)
     setServiceType('salon')
@@ -392,6 +479,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
   const persistIntent = useCallback(() => {
     if (typeof window === 'undefined') return
     const intent: BookingIntent = {
+      branchId: activeBranchId,
       date: selectedDate ? toISODate(selectedDate) : null,
       time: selectedTime,
       serviceType,
@@ -400,10 +488,25 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
       notes,
     }
     sessionStorage.setItem(BOOKING_INTENT_KEY, JSON.stringify(intent))
-  }, [selectedDate, selectedTime, serviceType, selectedCategoryIds, selectedServiceIds, notes])
+  }, [
+    activeBranchId,
+    selectedDate,
+    selectedTime,
+    serviceType,
+    selectedCategoryIds,
+    selectedServiceIds,
+    notes,
+  ])
 
   const handleSubmit = async () => {
     if (!selectedDate || !selectedTime || selectedServiceIds.length === 0) return
+
+    // Step 1 cannot be passed without a branch, so this is only reached by a
+    // restored booking at a time when no branch is taking bookings.
+    if (!activeBranchId) {
+      setSubmitError('Online booking is paused right now.')
+      return
+    }
 
     // Not signed in → preserve intent and launch Google sign-in directly.
     // callbackURL reopens the booking dialog (?book=1) after the OAuth round
@@ -421,7 +524,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          branchId: DEFAULT_BRANCH_ID,
+          branchId: activeBranchId,
           serviceType,
           bookingDate: toISODate(selectedDate),
           startTime: selectedTime,
@@ -464,7 +567,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
 
   if (!isOpen) return null
 
-  const canNext1 = Boolean(selectedDate && selectedTime)
+  const canNext1 = Boolean(activeBranchId && selectedDate && selectedTime)
   const canNext2 = selectedCategoryIds.length > 0
   const canNext3 = selectedServiceIds.length > 0
 
@@ -535,6 +638,15 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
             <SuccessView bookingNumber={bookingNumber} onDone={handleClose} />
           ) : step === 1 ? (
             <Step1
+              branchList={branchList}
+              branchesError={branchesError}
+              activeBranchId={activeBranchId}
+              onSelectBranch={(id) => {
+                // Times are per branch, so a time picked for another one is dropped.
+                setSelectedBranchId(id)
+                setSelectedTime(null)
+              }}
+              onRetryBranches={() => setBranchesAttempt((n) => n + 1)}
               selectedDate={selectedDate}
               selectedTime={selectedTime}
               slots={slots}
@@ -565,6 +677,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
             />
           ) : (
             <Step4
+              branch={activeBranch}
               selectedDate={selectedDate}
               selectedTime={selectedTime}
               serviceType={serviceType}
@@ -645,7 +758,98 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
 
 // --- Step Components ---
 
+// Step 1's branch row: a pill-styled native <select>, so screen readers and
+// phones get the platform picker. Branches that are listed but not taking
+// bookings are shown disabled with their status.
+function BranchPicker({
+  branchList,
+  error,
+  activeBranchId,
+  onSelect,
+  onRetry,
+}: {
+  branchList: PublicBranchList | null
+  error: string | null
+  activeBranchId: string | null
+  onSelect: (id: string) => void
+  onRetry: () => void
+}) {
+  if (!branchList) {
+    return error ? (
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="font-sans text-[14px] text-error" role="alert">
+          {error}
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onRetry}
+          className="rounded-full font-ui text-[12px] uppercase tracking-[0.5px]"
+        >
+          Try again
+        </Button>
+      </div>
+    ) : (
+      <output className="flex items-center gap-2" aria-live="polite">
+        <Loader2 className="size-4 animate-spin text-gold-ink" aria-hidden="true" />
+        <span className="font-sans text-[14px] text-dusty-gray">Loading branches…</span>
+      </output>
+    )
+  }
+
+  // The list loaded but no branch is taking bookings.
+  if (!activeBranchId) {
+    return (
+      <p className="font-sans text-[14px] text-cocoa-dark" role="alert">
+        Online booking is paused right now. Please call us on +91 63601 35720.
+      </p>
+    )
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <label
+        htmlFor="booking-branch"
+        className="font-ui text-[11px] uppercase tracking-[2px] text-gold-ink"
+      >
+        Branch:
+      </label>
+      <div className="relative">
+        {/* The selected branch is always one taking bookings, hence the green dot. */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 left-3 size-2 -translate-y-1/2 rounded-full bg-success"
+        />
+        <select
+          id="booking-branch"
+          value={activeBranchId}
+          onChange={(e) => onSelect(e.target.value)}
+          className="cursor-pointer appearance-none rounded-full border border-deep-gold/40 bg-warm-cream py-1.5 pr-8 pl-7 font-ui text-[13px] text-cocoa-dark hover:border-deep-gold focus-visible:outline-2 focus-visible:outline-deep-gold focus-visible:outline-offset-2 motion-safe:transition-colors motion-safe:duration-200"
+        >
+          {branchList.branches.map((b) => (
+            <option key={b.id} value={b.id} disabled={!b.acceptingBookings}>
+              {b.acceptingBookings
+                ? branchLabel(b)
+                : `${branchLabel(b)} (${BRANCH_STATUS_LABEL[b.status]})`}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-gold-ink"
+        />
+      </div>
+    </div>
+  )
+}
+
 function Step1({
+  branchList,
+  branchesError,
+  activeBranchId,
+  onSelectBranch,
+  onRetryBranches,
   selectedDate,
   selectedTime,
   slots,
@@ -654,6 +858,11 @@ function Step1({
   onSelectDate,
   onSelectTime,
 }: {
+  branchList: PublicBranchList | null
+  branchesError: string | null
+  activeBranchId: string | null
+  onSelectBranch: (id: string) => void
+  onRetryBranches: () => void
   selectedDate: Date | null
   selectedTime: string | null
   slots: AvailabilitySlot[]
@@ -663,11 +872,29 @@ function Step1({
   onSelectTime: (t: string) => void
 }) {
   const days = getNext14Days()
+  const branchesLoading = !branchList && !branchesError
+
+  const branchPicker = (
+    <BranchPicker
+      branchList={branchList}
+      error={branchesError}
+      activeBranchId={activeBranchId}
+      onSelect={onSelectBranch}
+      onRetry={onRetryBranches}
+    />
+  )
+
+  // No branch is taking bookings: the picker's notice is all there is to show.
+  if (branchList && !activeBranchId) {
+    return branchPicker
+  }
 
   return (
     <div className="space-y-5">
+      {branchPicker}
+
       <div>
-        <h3 className="font-ui text-[11px] uppercase tracking-[2px] text-warm-stone mb-3">
+        <h3 className="font-ui text-[11px] uppercase tracking-[2px] text-gold-ink mb-3">
           Select Date
         </h3>
         <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
@@ -675,7 +902,10 @@ function Step1({
             const isSelected = selectedDate?.toDateString() === d.toDateString()
             return (
               <button
-                key={d.toISOString()}
+                // Keyed by calendar day. `toISOString()` included the current
+                // time, so re-renders remounted the buttons and a keyboard
+                // user lost focus on the date they had just picked.
+                key={toISODate(d)}
                 type="button"
                 onClick={() => onSelectDate(d)}
                 className={`flex-shrink-0 flex flex-col items-center gap-0.5 w-14 py-2.5 rounded-[6px] border motion-safe:transition-all duration-200 ${
@@ -694,13 +924,22 @@ function Step1({
       </div>
 
       <div>
-        <h3 className="font-ui text-[11px] uppercase tracking-[2px] text-warm-stone mb-3">
+        <h3 className="font-ui text-[11px] uppercase tracking-[2px] text-gold-ink mb-3">
           Select Time
         </h3>
 
         {!selectedDate ? (
           <p className="font-sans text-[14px] text-dusty-gray">
             Pick a date to see available times.
+          </p>
+        ) : !activeBranchId && branchesLoading ? (
+          <output className="flex items-center gap-2 py-4" aria-live="polite">
+            <Loader2 className="size-4 animate-spin text-gold-ink" aria-hidden="true" />
+            <span className="font-sans text-[14px] text-dusty-gray">Loading available times…</span>
+          </output>
+        ) : !activeBranchId ? (
+          <p className="font-sans text-[14px] text-dusty-gray">
+            Available times appear once a branch is selected.
           </p>
         ) : slotsLoading ? (
           <output className="flex items-center gap-2 py-4" aria-live="polite">
@@ -766,7 +1005,7 @@ function Step2({
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="font-ui text-[11px] uppercase tracking-[2px] text-warm-stone mb-3">
+        <h3 className="font-ui text-[11px] uppercase tracking-[2px] text-gold-ink mb-3">
           Service Type
         </h3>
         <div
@@ -795,7 +1034,7 @@ function Step2({
       </div>
 
       <div>
-        <h3 className="font-ui text-[11px] uppercase tracking-[2px] text-warm-stone mb-3">
+        <h3 className="font-ui text-[11px] uppercase tracking-[2px] text-gold-ink mb-3">
           Categories
         </h3>
 
@@ -857,7 +1096,7 @@ function Step3({
 
   return (
     <div className="space-y-4">
-      <h3 className="font-ui text-[11px] uppercase tracking-[2px] text-warm-stone">
+      <h3 className="font-ui text-[11px] uppercase tracking-[2px] text-gold-ink">
         Select Services
       </h3>
 
@@ -917,6 +1156,7 @@ function Step3({
 }
 
 function Step4({
+  branch,
   selectedDate,
   selectedTime,
   serviceType,
@@ -928,6 +1168,7 @@ function Step4({
   submitError,
   isSignedIn,
 }: {
+  branch: PublicBranch | null
   selectedDate: Date | null
   selectedTime: string | null
   serviceType: ServiceType
@@ -941,11 +1182,15 @@ function Step4({
 }) {
   return (
     <div className="space-y-5">
-      <h3 className="font-ui text-[11px] uppercase tracking-[2px] text-warm-stone">
+      <h3 className="font-ui text-[11px] uppercase tracking-[2px] text-gold-ink">
         Booking Summary
       </h3>
 
       <div className="space-y-3 p-4 rounded-[6px] bg-cloud-gray">
+        <div className="flex justify-between gap-4 font-ui text-[14px]">
+          <span className="text-dusty-gray">Branch</span>
+          <span className="text-cocoa-dark text-right">{branch ? branchLabel(branch) : '—'}</span>
+        </div>
         <div className="flex justify-between font-ui text-[14px]">
           <span className="text-dusty-gray">Date</span>
           <span className="text-cocoa-dark">{selectedDate ? formatDate(selectedDate) : '—'}</span>
@@ -969,7 +1214,7 @@ function Step4({
       </div>
 
       <div className="space-y-2">
-        <h4 className="font-ui text-[11px] uppercase tracking-[1px] text-warm-stone">Services</h4>
+        <h4 className="font-ui text-[11px] uppercase tracking-[1px] text-gold-ink">Services</h4>
         {selectedServices.map((svc) => (
           <div key={svc.id} className="flex justify-between font-ui text-[14px] text-cocoa-dark">
             <span>{svc.name}</span>
@@ -985,7 +1230,7 @@ function Step4({
       <div>
         <label
           htmlFor="booking-notes"
-          className="font-ui text-[11px] uppercase tracking-[1px] text-warm-stone block mb-2"
+          className="font-ui text-[11px] uppercase tracking-[1px] text-gold-ink block mb-2"
         >
           Notes (optional)
         </label>
@@ -1039,7 +1284,7 @@ function SuccessView({
 
       {bookingNumber && (
         <div className="mb-8 rounded-[6px] border border-golden-mist bg-warm-cream px-5 py-3">
-          <span className="mb-1 block font-ui text-[10px] uppercase tracking-[1px] text-warm-stone">
+          <span className="mb-1 block font-ui text-[10px] uppercase tracking-[1px] text-gold-ink">
             Booking Number
           </span>
           <span className="font-ui text-[16px] tracking-[0.5px] text-cocoa-dark">
