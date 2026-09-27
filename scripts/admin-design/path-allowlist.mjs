@@ -30,13 +30,13 @@
  *                once and a half-formatted tree fails it.
  *
  *                "Formatting-only" is decided by PARSING, not by diffing text:
- *                each side is re-printed from its TypeScript AST (comments
- *                stripped, module declarations sorted), so indentation, line
- *                wrapping, quote style, semicolons, trailing commas and import
- *                order all wash out — while any added, removed or edited
- *                statement still fails the gate. JSON is compared by key-sorted
- *                re-serialisation; unknown file types fall back to strict
- *                byte comparison.
+ *                each side is processed by the repository's pinned Biome
+ *                formatter and import organizer. Indentation, line wrapping,
+ *                quote style, semicolons, trailing commas and import order all
+ *                wash out, while comments and any added, removed or edited
+ *                statement still fail the gate. JSON is compared by key-sorted
+ *                re-serialisation; unknown file types fall back to strict byte
+ *                comparison.
  *
  * Protected paths (DENYLIST — Req 16.2, 16.3, 16.8):
  *   • packages/db/schema/**          — DB schema (declared location)
@@ -76,10 +76,14 @@
  *                node scripts/admin-design/path-allowlist.mjs --base origin/dev
  *                BASE_SHA=<sha> node scripts/admin-design/path-allowlist.mjs
  *                bun run check:admin-path-allowlist
- * Dependencies : node:child_process (no external deps)
+ * Dependencies : node:child_process, node:fs, node:module, @biomejs/biome
  ************************************************************/
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+
+const nodeRequire = createRequire(import.meta.url)
+const BIOME_BIN = nodeRequire.resolve('@biomejs/biome/bin/biome')
 
 // ---------------------------------------------------------------------------
 // Protected-path predicates (DENYLIST). Each receives a forward-slashed,
@@ -137,100 +141,47 @@ function protectedReason(p) {
 // Formatting-only detection (Req 16 — intent, not letter)
 //
 // The gate exists to stop SEMANTIC changes to protected paths: contracts, the
-// data model, RBAC logic. A repo-wide formatter or linter migration (e.g. the
-// Biome v1 -> v2 upgrade) rewrites import order and whitespace across every
-// file, protected ones included, while changing no behaviour at all. Failing
-// those diffs is a false positive that cannot be resolved by splitting the PR,
-// because the per-app lint job checks the whole source tree at once and a
-// half-formatted tree fails it.
+// data model, RBAC logic. A repo-wide formatter or linter migration rewrites
+// import order and whitespace across every file, protected ones included,
+// while changing no behaviour. Failing those diffs is a false positive that
+// cannot be resolved by splitting the PR because lint checks whole source trees.
 //
-// A protected file is treated as formatting-only when its base and head
-// contents have the SAME MULTISET of non-empty, whitespace-trimmed lines. That
-// makes pure reordering (import/export sorting) and pure re-indentation pass,
-// while ANY added, removed, or edited line of code still fails — so the gate
-// keeps all of its teeth for real contract changes.
+// Use the repository's pinned Biome formatter plus organizeImports assist as
+// the canonical representation. This removes any dependency on TypeScript's
+// programmatic Compiler API while matching the formatter CI actually enforces.
+// Invalid source fails closed to strict byte comparison. Comments remain
+// significant because directives such as @ts-expect-error and biome-ignore can
+// affect compilation or lint behavior even though they are not runtime syntax.
 // ---------------------------------------------------------------------------
 
 /**
- * Canonicalise a TypeScript/JavaScript source file by re-printing its AST.
+ * Canonicalise TypeScript/JavaScript through pinned repository tooling.
  *
- * Re-printing discards ALL original formatting (indentation, line wrapping,
- * quote style, trailing commas, semicolons), so two files that differ only by
- * formatting canonicalise identically. Top-level import/export declarations are
- * sorted first so a formatter's import reordering also washes out. Returns null
- * when the file cannot be parsed or the TypeScript compiler is unavailable, in
- * which case the caller falls back to strict comparison.
+ * Formatting, quote style, semicolons, line wrapping, import order, named
+ * specifier order, and equivalent merged imports normalize to the same output.
+ * Returns null when Biome cannot parse/process the source; callers then use
+ * strict byte comparison.
  */
-async function canonicaliseTs(path, content) {
-  let ts
+function canonicaliseTs(path, content) {
   try {
-    const typescript6 = await import('@typescript/typescript6')
-    ts = typescript6.default ?? typescript6
-  } catch {
-    return null
-  }
-  try {
-    const sf = ts.createSourceFile(path, content, ts.ScriptTarget.Latest, false)
-    if (!sf || sf.statements === undefined) return null
-
-    const isModuleDecl = (s) =>
-      ts.isImportDeclaration(s) || (ts.isExportDeclaration(s) && s.moduleSpecifier !== undefined)
-
-    const printer = ts.createPrinter({ removeComments: true })
-    const print = (node) => printer.printNode(ts.EmitHint.Unspecified, node, sf)
-
-    // Formatters also sort the named specifiers INSIDE a module declaration
-    // (`{ ERROR_CODES, badRequest }` vs `{ badRequest, ERROR_CODES }`), so sort
-    // the brace list too. Only applied to module declarations, where the single
-    // brace group is always the specifier list.
-    const sortSpecifiers = (printed) =>
-      printed.replace(/\{([^}]*)\}/, (_m, inner) => {
-        const parts = inner
-          .split(',')
-          .map((s) => s.trim())
-          .filter((s) => s !== '')
-          .sort()
-        return `{ ${parts.join(', ')} }`
-      })
-
-    // Formatters additionally MERGE several declarations that pull from the same
-    // module into one (`import {a} from 'x'; import {b} from 'x'` becomes
-    // `import {a, b} from 'x'`). Fold named declarations together per
-    // keyword+module so the merged and unmerged forms canonicalise the same.
-    const namedByModule = new Map()
-    const standalone = []
-    for (const stmt of sf.statements.filter(isModuleDecl)) {
-      const printed = sortSpecifiers(print(stmt))
-      const named = printed.match(
-        /^(import|export)(\s+type)?\s*\{([^}]*)\}\s*from\s*(['"][^'"]+['"])/,
-      )
-      if (named === null) {
-        standalone.push(printed)
-        continue
-      }
-      const [, keyword, typeOnly, inner, moduleSpecifier] = named
-      const key = `${keyword}${typeOnly ? ' type' : ''} ${moduleSpecifier}`
-      const items = inner
-        .split(',')
-        .map((s) => s.trim())
-        .filter((s) => s !== '')
-      const existing = namedByModule.get(key) ?? []
-      namedByModule.set(key, [...existing, ...items])
-    }
-
-    const merged = [...namedByModule.entries()].map(([key, items]) => {
-      const [keyword, ...rest] = key.split(' ')
-      const moduleSpecifier = rest[rest.length - 1]
-      const typeOnly = rest.length > 1 ? ' type' : ''
-      const unique = [...new Set(items)].sort()
-      return `${keyword}${typeOnly} { ${unique.join(', ')} } from ${moduleSpecifier}`
-    })
-
-    // Sort the module-declaration statements; keep everything else in order.
-    const moduleDecls = [...merged, ...standalone].sort()
-    const rest = sf.statements.filter((s) => !isModuleDecl(s)).map(print)
-
-    return [...moduleDecls, ...rest].join('\n')
+    return execFileSync(
+      process.execPath,
+      [
+        BIOME_BIN,
+        'check',
+        '--write',
+        '--linter-enabled=false',
+        '--assist-enabled=true',
+        '--enforce-assist=true',
+        '--colors=off',
+        `--stdin-file-path=${path}`,
+      ],
+      {
+        encoding: 'utf8',
+        input: content,
+        maxBuffer: 32 * 1024 * 1024,
+      },
+    ).trimEnd()
   } catch {
     return null
   }
@@ -430,8 +381,8 @@ if (protectedViolations.length > 0) {
 if (formattingOnly.length > 0) {
   console.log(
     `ℹ ${formattingOnly.length} protected path(s) were touched by a ` +
-      'FORMATTING-ONLY change (identical when re-printed from the parsed AST — ' +
-      'reordered imports, rewrapping and/or re-indentation). Allowed: the gate ' +
+      'FORMATTING-ONLY change (identical after Biome formatting and import ' +
+      'organization — reordered imports, rewrapping and/or re-indentation). Allowed: the gate ' +
       'guards against semantic ' +
       'changes to contracts, the data model, and RBAC logic, and a formatter or ' +
       'linter migration rewrites every file without changing behaviour.',

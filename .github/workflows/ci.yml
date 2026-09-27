@@ -374,10 +374,10 @@ jobs:
 
   # ---------------------------------------------------------------------------
   # Admin static gates (admin-portal-redesign) — presentation-layer guards over
-  # apps/admin source. The path-allowlist parser uses the locked TypeScript 6
-  # compatibility API, so this job installs dependencies before running the
-  # otherwise static checks. A violation FAILS this job and, as a required
-  # status check, BLOCKS merge.
+  # apps/admin source. The path-allowlist parser uses the repository's pinned
+  # Biome formatter and import organizer, so this job installs dependencies
+  # before running the otherwise static checks. A violation FAILS this job and,
+  # as a required status check, BLOCKS merge.
   #
   #   • No emoji icons (Req 2.3) — assert no Unicode emoji glyph is rendered as
   #     an icon anywhere in the admin presentation source (App_Shell, Sidebar,

@@ -5,7 +5,7 @@
 **Measured migration commit:** `ed6876c3d55c58474321ad4b0e67bcc448524e04`
 **Compiler:** `typescript@7.0.2`
 **Final Turbo version:** `turbo@2.11.4`
-**Compatibility API:** `@typescript/typescript6@6.0.2`, isolated to one AST-based CI utility
+**Source canonicalizer:** `@biomejs/biome@2.5.14`; no legacy TypeScript package
 
 This document records the migration from TypeScript 5.9.3 to TypeScript 7's native
 Go compiler. It is the implementation decision record, benchmark report, validation
@@ -17,7 +17,7 @@ record, and rollback runbook. It does not authorize deployment or database opera
 - Keep existing strictness, module behavior, type safety, architecture, and runtime output.
 - Keep Next.js, Payload, Bun, Turborepo, and application dependencies at their current versions.
 - Preserve `next build` type checking; never use `typescript.ignoreBuildErrors`.
-- Retain old Compiler API code only where repository inspection proves it is required.
+- Remove all legacy TypeScript compiler and Compiler API packages.
 - Validate every leaf compiler config, all four application builds, generated types, tests,
   lint, dependency checks, and CI path routing.
 - Compare uncached wall time, process-tree CPU time, and peak memory on the same host
@@ -29,7 +29,7 @@ record, and rollback runbook. It does not authorize deployment or database opera
 | Surface | Finding | Result |
 | --- | --- | --- |
 | TypeScript package | `typescript@7.0.2` is the stable npm `latest` release. Its `tsc` command invokes the native compiler. | Pinned exactly in root and all ten workspaces. |
-| Compiler API | TypeScript 7.0 exports version metadata but no JavaScript AST/compiler API. | `@typescript/typescript6@6.0.2` retained only for `scripts/admin-design/path-allowlist.mjs`. |
+| Compiler API | TypeScript 7.0 exports version metadata but no JavaScript AST/compiler API. | The sole AST consumer now canonicalizes through existing pinned Biome tooling; no legacy TypeScript package remains. |
 | Next.js 16.3.5 | Installed Next code supports TypeScript 7 through `experimental.useTypeScriptCli`; default API mode rejects TypeScript 7. | CLI mode enabled in web, admin, and CMS; all three production builds pass. |
 | Payload 3.90.2 | No TypeScript peer constraint or direct compiler dependency blocks 7.0. The generated CSS side-effect imports were a possible TS7-default risk. | CMS typecheck, type generation, and production build pass without a declaration workaround. |
 | Turborepo | Ten workspace tasks invoke `tsc --noEmit`; no project references or declaration emit exist. | Existing `tsc` commands retained; preview-only `tsgo` not installed. |
@@ -46,18 +46,18 @@ Root and all ten workspaces pin exact version `7.0.2`. `packages/db` and
 implicitly on root hoisting. Exact pins prevent compiler/platform-package drift across
 Bun workspace installs and CI. The nightly `@typescript/native-preview` package is not installed.
 
-### One isolated legacy API consumer
+### No legacy Compiler API
 
-Repository inspection found one maintained import of `typescript` as a library:
-`scripts/admin-design/path-allowlist.mjs`. It parses and prints AST nodes so formatting-only
-changes do not fail a protected-path CI gate. Falling back to byte comparison would change
-gate behavior and create false failures.
+Repository inspection found one maintained library consumer of TypeScript's removed API:
+`scripts/admin-design/path-allowlist.mjs`. It canonicalizes formatting-only changes before
+enforcing protected admin boundaries.
 
-The utility now imports `@typescript/typescript6` explicitly. No build or typecheck command
-uses its `tsc6` binary. The compatibility package is pinned at 6.0.2; its locked internal
-`@typescript/old` dependency currently resolves TypeScript 6.0.3. The parser/printer was
-exercised directly after installation. Remove this sidecar when the utility moves to a future
-TypeScript 7 API or an API-independent parser, after equivalent canonicalization coverage exists.
+The utility now sends each source version through the existing pinned Biome formatter and
+`organizeImports` assist over stdin. Equivalent quote, whitespace, semicolon, line-wrap,
+import-order, named-specifier, and merged-import forms normalize identically without loading
+any TypeScript API. Invalid input fails closed to strict byte comparison. Comments remain
+significant because compiler and linter directives can change behavior. The CI gate installs
+the locked repository toolchain, so local and CI canonicalization use the same Biome binary.
 
 ### Explicit TypeScript 7 semantics
 
@@ -190,6 +190,7 @@ Completed on 28 September 2026:
 | `bun run lint` | Pass across all linted workspaces. |
 | `bun run typecheck` | Pass: ten workspaces plus drift and synthetic configs. |
 | Static repository guards | Pass: auth dependencies, dependency overrides, changelog MDX, app cutover, admin tokens/paths, emoji policy, release versions, and MCP generation tests. |
+| Path-allowlist canonicalization | Biome canonicalization accepted equivalent formatting/import changes and rejected a semantic RBAC change. |
 | `bun run test:coverage` | Pass on exact rerun: 176/176 files and 1407/1407 tests. First run had one 5-second load timeout; focused rerun passed in 1.04 seconds. |
 | Web production build | Pass with TypeScript 7 CLI mode. |
 | Admin production build | Pass with TypeScript 7 CLI mode. |
@@ -197,9 +198,9 @@ Completed on 28 September 2026:
 | CMS production build | Pass with TypeScript 7 CLI mode. |
 | Invoicing `tsup` build | Pass. |
 | Browser test discovery | Pass: web 6, admin 34, CMS 4 tests discovered. |
-| `bun audit` | Pass: no vulnerabilities across 1373 packages. |
+| `bun audit` | Pass: no vulnerabilities across 1372 packages. |
 | Snyk SAST | No migration-diff finding. Two high findings are pre-existing false positives on the public `rgss_auth_context` session-storage key. |
-| CI workflow | YAML parses; all four path filters include root `tsconfig.json`; admin static gates install the locked TS6 sidecar. `actionlint` was unavailable locally. |
+| CI workflow | YAML parses; all four path filters include root `tsconfig.json`; admin static gates install and run the pinned Biome canonicalizer. `actionlint` was unavailable locally. |
 | Benchmark scripts | Both PowerShell harnesses executed successfully and generated committed JSON. |
 
 ## Known limits
@@ -218,8 +219,8 @@ Completed on 28 September 2026:
   the blocking dependency gate.
 - Build benchmarks use one cold run each. Treat those deltas as directional; compiler-only
   medians provide the reliable comparison.
-- TypeScript 7.0 has no stable programmatic API. The TS6 sidecar remains required until the
-  path-allowlist canonicalizer is migrated and equivalence is verified.
+- TypeScript 7.0 has no stable programmatic API. This repository no longer depends on one;
+  the path-allowlist canonicalizer uses pinned Biome tooling instead.
 
 ## Rollback runbook
 
@@ -228,9 +229,9 @@ Rollback is source-only and does not involve data:
 1. Revert the migration commit on `dev` before promotion. If already promoted, revert the
    identical commit through the normal `dev → test → pprd → prod` flow; do not rewrite history.
 2. Restore `typescript` to `5.9.3` in root and all ten workspace manifests, and regenerate
-   `bun.lock` with Bun 1.4.2. Keep manifests and lockfile in one rollback commit.
-3. Remove `@typescript/typescript6`; restore `scripts/admin-design/path-allowlist.mjs` to import
-   `typescript` directly.
+   `bun.lock` with Bun 1.4.2. Keep manifests and lockfile in one rollback commit. Turbo 2.11.4
+   can remain because its patch upgrade is independent and validated separately.
+3. Keep the Biome path-allowlist canonicalizer; it works independently of TypeScript version.
 4. Remove `experimental.useTypeScriptCli` from web, admin, and CMS Next configs.
 5. Restore pre-migration root/specialist compiler settings only when reverting the entire
    migration. Keeping broader tooling coverage is safe if it still passes under 5.9.3.
