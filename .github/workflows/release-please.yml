@@ -49,6 +49,38 @@ jobs:
               echo '::notice::Release publication waits until dev and prod match this run commit.'
             fi
           fi
+      # Release Please starts each changelog at the commit tagged for the
+      # manifest version. If that commit is no longer in the branch history
+      # (a force push after a release), it silently scans back up to 500 commits
+      # and proposes a release of changes that already shipped. That happened on
+      # 2026-09-27, when v0.3.0 was orphaned and PR #257 became a bogus 0.4.0.
+      # Fail loudly instead; see knowledge-base/branch-promotions.md for repair.
+      - name: Verify the current release tag is in this commit's history
+        if: steps.publish.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          TAG="v$(jq -r '."."' .release-please-manifest.json)"
+          TAG_REF=$(gh api "repos/$GH_REPO/git/matching-refs/tags/$TAG" \
+            --jq ".[] | select(.ref == \"refs/tags/$TAG\") | .ref")
+          if [ -z "$TAG_REF" ]; then
+            echo "::notice::$TAG is not tagged yet, so there is no release base to verify."
+            exit 0
+          fi
+          TAG_SHA=$(gh api "repos/$GH_REPO/commits/tags/$TAG" --jq .sha)
+          STATUS=$(gh api "repos/$GH_REPO/compare/$TAG_SHA...$RELEASE_SHA?per_page=1" --jq .status)
+          case "$STATUS" in
+            ahead | identical)
+              echo "$TAG ($TAG_SHA) is in the history of $RELEASE_SHA."
+              ;;
+            *)
+              echo "::error title=Release tag outside branch history::$TAG points at $TAG_SHA, which is not an ancestor of $RELEASE_SHA (compare status $STATUS). The branch history was rewritten after the release. Re-point the tag to the equivalent commit on dev (knowledge-base/branch-promotions.md) instead of letting Release Please rebuild the changelog from old history."
+              exit 1
+              ;;
+          esac
       - name: Create or update release PR and GitHub Release
         id: release
         if: steps.publish.outputs.run == 'true'

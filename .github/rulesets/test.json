@@ -23,13 +23,13 @@
         "strict_required_status_checks_policy": false,
         "required_status_checks": [
           {
-            "context": "CI Success"
+            "context": "ci / CI Success"
           },
           {
-            "context": "Analyze (javascript-typescript)"
+            "context": "codeql / Analyze (javascript-typescript)"
           },
           {
-            "context": "Integration Success"
+            "context": "integration / Integration Success"
           }
         ]
       }
