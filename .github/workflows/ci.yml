@@ -308,7 +308,9 @@ jobs:
         # Non-blocking: trivy-action's GHCR setup/DB pull rate-limits anonymous
         # access (TOOMANYREQUESTS), failing the step in ~2s before any scan —
         # an infra flake, not a finding. Kept for signal; `bun audit` is the gate.
-        uses: aquasecurity/trivy-action@master
+        # Pin to a released tag so updates arrive as reviewable Dependabot PRs;
+        # a mutable `master` ref can change without any repository diff.
+        uses: aquasecurity/trivy-action@v0.36.0
         continue-on-error: true
         with:
           scan-type: 'fs'
