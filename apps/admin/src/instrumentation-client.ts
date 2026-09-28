@@ -19,6 +19,7 @@
  ************************************************************/
 
 import type * as SentrySdk from '@sentry/nextjs'
+import { sentryDataCollection } from '@/lib/sentry/data-collection'
 
 let sentry: typeof SentrySdk | undefined
 
@@ -34,7 +35,7 @@ if (dsn) {
         ...(release ? { release } : {}),
         tracesSampleRate: 0.1,
         enabled: process.env.NODE_ENV === 'production',
-        sendDefaultPii: false,
+        dataCollection: sentryDataCollection,
         replaysSessionSampleRate: 0,
         replaysOnErrorSampleRate: 0,
       })

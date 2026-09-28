@@ -28,6 +28,7 @@
 
 import * as Sentry from '@sentry/nextjs'
 import { env } from '@/env'
+import { sentryDataCollection } from './data-collection'
 
 const dsn = env.NEXT_PUBLIC_ADMIN_SENTRY_DSN
 const release = process.env.COMMIT_SHA
@@ -39,6 +40,6 @@ if (dsn) {
     ...(release ? { release } : {}),
     tracesSampleRate: 0.1,
     enabled: process.env.NODE_ENV === 'production',
-    sendDefaultPii: false,
+    dataCollection: sentryDataCollection,
   })
 }
