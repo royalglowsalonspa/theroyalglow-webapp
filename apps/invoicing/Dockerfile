@@ -35,7 +35,7 @@ RUN bun run --filter=@rgss/invoicing build
 # ---------- Stage 2: prod deps (externals only) ----------
 # A minimal package.json containing ONLY the externalised runtime deps keeps
 # the final node_modules small and free of the monorepo/workspace machinery.
-FROM node:22-slim AS deps
+FROM node:26-slim AS deps
 WORKDIR /app
 RUN cat > package.json <<'JSON'
 {
@@ -55,7 +55,7 @@ JSON
 RUN npm install --omit=dev --no-package-lock
 
 # ---------- Stage 3: runtime ----------
-FROM node:22-slim AS runtime
+FROM node:26-slim AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 
