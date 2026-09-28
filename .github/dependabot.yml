@@ -1,26 +1,34 @@
 # Dependabot configuration for theroyalglow-webapp (Bun + Turborepo monorepo).
 #
-# What this does
-# - Watches every workspace manifest (root, apps/*, packages/*, docs) plus the
-#   GitHub Actions used in CI, and opens dependency-update PRs on a schedule.
-# - Opens PRs against the `dev` branch only (matches the git flow
-#   dev -> test -> pprd -> prod). You review/merge into dev, then promote the
-#   change up the branch chain like any other commit.
-# - GROUPS routine minor + patch bumps into a small number of PRs (low-risk,
-#   easy to merge). MAJOR version bumps are deliberately left OUT of the groups
-#   so each one arrives as its own PR for individual review — nothing risky is
-#   ever bundled into the "safe" batch.
-# - Dependabot only proposes published stable releases; it does NOT propose
-#   beta/canary/rc pre-releases unless the project already uses one.
+# Coverage
+# - The Bun entry scans all 11 tracked package.json manifests under the root,
+#   apps/*, and packages/*. No `allow` list is used, so every direct registry
+#   dependency is discovered automatically: TypeScript, Turbo, Hono, Sharp,
+#   Motion, Radix UI, and every other declared dependency are included.
+# - The Docker entry scans the active Cloud Run invoicing Dockerfile. The legacy
+#   CMS/Koyeb and retired EC2 Dockerfiles are deliberately excluded.
+# - The GitHub Actions entry scans every external action in .github/workflows/.
+# - Root package.json `overrides`, the `packageManager` Bun runtime version,
+#   Render's BUN_VERSION, and package JSON generated inside a Dockerfile are not
+#   updateable by Dependabot. CI checks override drift; runtime pins and generated
+#   manifests need deliberate maintenance.
 #
-# Docs: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+# Policy
+# - PRs target dev and move through dev -> test -> pprd -> prod like normal work.
+# - Coupled/high-impact families get focused PRs. Remaining minor/patch updates
+#   are grouped into production and development batches to keep maintenance small.
+# - Majors outside an explicit ignore are standalone PRs. Framework majors listed
+#   under `ignore` are deliberate migrations and must be upgraded manually.
+# - Dependabot proposes stable releases; prereleases are considered only when the
+#   project already uses one.
+#
+# Docs: https://docs.github.com/code-security/dependabot/working-with-dependabot/dependabot-options-reference
 version: 2
 
 updates:
   # ---------------------------------------------------------------------------
-  # JavaScript/TypeScript dependencies across the whole Bun workspace.
-  # The `bun` ecosystem reads bun.lock and understands Bun workspaces.
-  # `directories` (glob) covers the root manifest and every workspace package.
+  # JavaScript/TypeScript dependencies across the complete Bun workspace.
+  # `directories` supports globs; these paths cover every tracked package.json.
   # ---------------------------------------------------------------------------
   - package-ecosystem: "bun"
     directories:
@@ -29,69 +37,93 @@ updates:
       - "/packages/*"
     target-branch: "dev"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-      timezone: "Asia/Kolkata"
+      # Monday, Wednesday and Friday at 12:00 IST = 06:30 UTC (IST is UTC+5:30).
+      # Cron schedules run in UTC because no timezone is set.
+      interval: "cron"
+      cronjob: "30 6 * * 1,3,5"
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
     commit-message:
-      # Conventional Commits, matching the repo's commit style.
       prefix: "chore"
       prefix-development: "chore"
       include: "scope"
     groups:
-      # Vitest and its coverage provider share internal APIs. Upgrade every
-      # workspace together, including major versions, to avoid mixed runners.
+      # Vitest and its coverage provider share internal APIs. Keep even major
+      # upgrades synchronized across every workspace.
       vitest:
         patterns:
           - "vitest"
           - "@vitest/*"
-      # Auth shares sessions/schema across apps; review the whole family together.
-      # Internal core/adapters follow better-auth's own exact dependencies.
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
+
+      # Authentication schema and sessions are shared across web/admin.
       better-auth:
         patterns:
           - "better-auth"
           - "@better-auth/*"
-        update-types: ["minor", "patch"]
-      # Payload minor releases can change its generated schema and access behavior.
-      # Keep these updates together and separate from the routine dependency batch.
+        update-types:
+          - "minor"
+          - "patch"
+
+      # Payload packages must remain on one compatible release family.
       payload:
         patterns:
           - "payload"
           - "@payloadcms/*"
-        update-types: ["minor", "patch"]
-      # One PR for all production-dependency minor + patch bumps.
+        update-types:
+          - "minor"
+          - "patch"
+
+      # Next.js and React compatibility must be reviewed together.
+      next-react:
+        patterns:
+          - "next"
+          - "@next/*"
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+        update-types:
+          - "minor"
+          - "patch"
+
+      # Hono runtime packages are also pinned by root overrides.
+      hono:
+        patterns:
+          - "hono"
+          - "@hono/*"
+        update-types:
+          - "minor"
+          - "patch"
+
+      # One focused PR keeps Tailwind core and adapters aligned.
+      tailwind:
+        patterns:
+          - "tailwindcss"
+          - "@tailwindcss/*"
+        update-types:
+          - "minor"
+          - "patch"
+
+      # Catch every remaining direct dependency. Examples include Sharp, Motion,
+      # Radix UI, AWS SDK, Neon, Upstash, Resend, Ably, Turbo, and TypeScript.
       production-minor-patch:
         dependency-type: "production"
         update-types:
           - "minor"
           - "patch"
-      # One PR for all dev-dependency minor + patch bumps.
       development-minor-patch:
         dependency-type: "development"
         update-types:
           - "minor"
           - "patch"
     ignore:
-      # BROKEN UPSTREAM RELEASES — specific versions only, not a blanket ignore.
-      # @sentry/nextjs 10.71.0, 10.72.0, and 10.73.0 pull @sentry/server-utils, whose
-      # orchestrion webpack plugin calls fileURLToPath on a non-file URL and
-      # throws "TypeError: The URL must be of scheme file" at import time under
-      # Vitest. That aborts collection of apps/web/src/lib/api/response.test.ts
-      # and fails the unit-tests gate. apps/web + apps/admin are pinned to the
-      # last good 10.70.0. Listing the known bad versions (rather than ignoring the
-      # dependency wholesale) means a fixed release above 10.73.0 still gets
-      # proposed automatically — at which point drop these entries and restore a
-      # caret range in both manifests.
-      - dependency-name: "@sentry/nextjs"
-        versions: ["10.71.0", "10.72.0", "10.73.0"]
-
-      # Framework-critical, intentionally-pinned packages: ignore MAJOR bumps so
-      # Dependabot never proposes a breaking jump automatically. Minor/patch for
-      # these still flow through the groups above. Bump these majors manually,
-      # deliberately, with a dedicated spec/PR when you choose to.
+      # Framework-critical majors need dedicated migration work. Minor/patch
+      # releases continue through the focused groups above.
       - dependency-name: "next"
         update-types: ["version-update:semver-major"]
       - dependency-name: "react"
@@ -108,6 +140,8 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "better-auth"
         update-types: ["version-update:semver-major"]
+      - dependency-name: "@better-auth/*"
+        update-types: ["version-update:semver-major"]
       - dependency-name: "payload"
         update-types: ["version-update:semver-major"]
       - dependency-name: "@payloadcms/*"
@@ -118,17 +152,40 @@ updates:
         update-types: ["version-update:semver-major"]
 
   # ---------------------------------------------------------------------------
-  # GitHub Actions used in the CI/CD workflows under .github/workflows.
-  # Keeps action versions (checkout, setup-bun, upload-artifact, etc.) current.
+  # Current Cloud Run invoicing container base images.
+  # This updates FROM images only; it cannot parse the package.json heredoc in
+  # the Dockerfile. That runtime dependency duplication remains separate debt.
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: "docker"
+    directory: "/apps/invoicing"
+    target-branch: "dev"
+    schedule:
+      interval: "cron"
+      cronjob: "30 6 * * 1,3,5"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      docker-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ---------------------------------------------------------------------------
+  # External actions used under .github/workflows/. Action majors stay separate
+  # so a breaking runtime/toolchain jump is never hidden in the routine batch.
   # ---------------------------------------------------------------------------
   - package-ecosystem: "github-actions"
     directory: "/"
     target-branch: "dev"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-      timezone: "Asia/Kolkata"
+      interval: "cron"
+      cronjob: "30 6 * * 1,3,5"
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
@@ -137,6 +194,9 @@ updates:
       prefix: "chore"
       include: "scope"
     groups:
-      github-actions:
+      github-actions-minor-patch:
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"

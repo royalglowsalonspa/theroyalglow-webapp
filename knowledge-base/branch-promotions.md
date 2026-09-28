@@ -2,9 +2,10 @@
 
 ## Current branch policy
 
-Feature and dependency work enters `dev` through a pull request gated by the
-branch ruleset: an approving review plus the required status checks, then a direct
-merge. The `test`, `pprd`, and `prod` branches receive the exact same commits
+Feature and dependency work enters `dev` through a pull request, then a direct
+merge. The intended gate is `.github/rulesets/dev.json` (an approving review plus
+the required status checks); it is not imported yet, see Validation prerequisites.
+The `test`, `pprd`, and `prod` branches receive the exact same commits
 through `.github/workflows/promote.yml`; environment promotion PRs are not used.
 Fast-forward promotion preserves commit SHAs, messages, and ancestry. Branches may
 temporarily point to different releases while validation is in progress.
@@ -41,10 +42,26 @@ Production approval is currently an explicit dispatch checkbox restricted to `ka
 GitHub rejected environment-reviewer configuration with HTTP 403 because the
 current login lacks repository admin rights. An administrator can add an
 environment reviewer gate later; no such gate is claimed to be active.
-Importable environment rulesets are under `.github/rulesets`; their stable CI,
-CodeQL, integration, and load/security checks must exist before activation.
-Environment rulesets forbid deletion and non-fast-forward updates, and do not
-require promotion PRs. The `dev` PR policy remains separate.
+Importable environment rulesets are under `.github/rulesets`. Environment
+rulesets forbid deletion and non-fast-forward updates, and do not require
+promotion PRs. The `dev` PR policy remains separate.
+
+The `test`, `pprd`, and `prod` rulesets require check runs that only a promotion
+run creates: `ci / CI Success`, `codeql / Analyze (javascript-typescript)`,
+`integration / Integration Success`, and, for `pprd`/`prod`,
+`load-security / Load & Security Success`. Checks from a reusable workflow are
+named `<caller job> / <job>`, so renaming a job in `promote.yml` means updating
+these files. Once imported, a commit that has not passed a promotion run cannot
+be pushed to those branches, even by hand. Ordinary `dev` push CI reports only
+the unprefixed `CI Success`.
+
+As of 2026-09-28 none of these files is imported. The only active ruleset,
+"protect main branch", had an empty target list and protected no branch, so all
+four environment branches accepted force pushes. Only the repository owner
+account (`royalglowsalonspa`) can manage rulesets; collaborators cannot.
+`dev.json` also requires `codecov/project`, which Codecov has not reported on
+recent pull requests (#248, #251, #252, #254, #256, and #257 report only
+`codecov/patch`). Importing it unchanged would block every merge into `dev`.
 
 Integration and Playwright need `DATABASE_URL_TEST`; live load and ZAP checks need
 `PPRD_URL`. As of the 2026-09-09 audit those secrets were absent, so these jobs
@@ -120,5 +137,36 @@ wait for other checks, so the two blocked each other. Coverage now reports
 independently of other CI statuses (`require_ci_to_pass: false` in `.github/codecov.yml`).
 The project/patch coverage thresholds and the separate `CI Success` requirement
 are unchanged; no failed test or coverage threshold is waived by this reporting
-change. The merge gate involved was Mergify, which has since been removed; the
-ruleset now requires the same coverage contexts directly.
+change. The merge gate involved was Mergify, which has since been removed;
+`.github/rulesets/dev.json` lists the same coverage contexts (not imported yet;
+see Validation prerequisites).
+
+## Release tag orphaned by a force push (2026-09-27)
+
+Release PR #253 (0.3.0) merged into `dev` as merge commit `d4846451`. That commit
+was pushed to `test`, `pprd`, and `prod` by hand instead of through
+`promote.yml`, and the `prod` push published v0.3.0 on it. Twelve minutes later
+all four branches were force-pushed back to the PR head `e499ca03`. Both commits
+have the same tree, but `d4846451` was no longer in any branch's history.
+
+Release Please looks for the tagged commit in `dev` history. It never found it
+(`Expected 1 commits, only found 0`), scanned back to its 500-commit limit, and
+proposed 0.4.0 with changes released long before (PRs #255 and #257).
+
+Recovery: the v0.3.0 tag was re-pointed to `e499ca03`. The tree is identical, and
+the published release and its notes are unchanged. A manual Release Please run on
+`dev` then rebuilt #257 as 0.3.1 from six commits. The same repair applies
+whenever a release tag falls out of history and an equivalent commit exists on
+`dev`:
+
+```sh
+gh api -X PATCH repos/royalglowsalonspa/theroyalglow-webapp/git/refs/tags/vX.Y.Z \
+  -f sha=<equivalent commit on dev> -F force=true
+gh workflow run release-please.yml --ref dev
+```
+
+Prevention: the release workflow now fails before Release Please runs if the
+manifest version's tag is not an ancestor of the run commit. Once imported, the
+environment rulesets block force pushes and hand-pushed, unvalidated commits.
+Never force-push an environment branch. To undo a promotion, land a forward
+revert on `dev` and promote it.
