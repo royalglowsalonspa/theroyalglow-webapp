@@ -90,13 +90,17 @@ describe('ancestor finder compatibility', () => {
   })
 
   it('preserves dot and nocase options', () => {
-    const hidden = file(join(cwd, '.marker.json'))
-    expect(findup('*.json', { cwd })).toBeNull()
-    expect(findup('*.json', { cwd, dot: true })).toBe(hidden)
+    const name = `.marker-${fixture.split(/[\\/]/).at(-1)}.json`
+    const pattern = `*${name.slice(1)}`
+    const hidden = file(join(cwd, name))
+    expect(findup(pattern, { cwd })).toBeNull()
+    expect(findup(pattern, { cwd, dot: true })).toBe(hidden)
     // Windows preserves requested casing when existsSync succeeds; Linux's
     // detect-file fallback returns the on-disk casing. Both name the same file.
-    expect(findup('.MARKER.JSON', { cwd, nocase: true })?.toLowerCase()).toBe(hidden.toLowerCase())
-    expect(findup('.*.JSON', { cwd, dot: true, nocase: true })).toBe(hidden)
+    expect(findup(name.toUpperCase(), { cwd, nocase: true })?.toLowerCase()).toBe(
+      hidden.toLowerCase(),
+    )
+    expect(findup(pattern.toUpperCase(), { cwd, dot: true, nocase: true })).toBe(hidden)
   })
 
   it('retains literal filenames containing brackets', () => {
