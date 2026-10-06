@@ -78,6 +78,14 @@ export function createRootConfig({ includeLiveSuites = false }: RootConfigOption
         },
         {
           test: {
+            name: 'findup-sync',
+            environment: 'node',
+            include: ['packages/findup-sync/**/*.test.ts'],
+            exclude,
+          },
+        },
+        {
+          test: {
             name: 'business',
             environment: 'node',
             include: ['packages/business/**/*.test.ts'],

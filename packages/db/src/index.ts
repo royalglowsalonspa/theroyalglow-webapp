@@ -80,8 +80,14 @@ let cachedDb: DrizzleClient | undefined
 
 function getDb(): DrizzleClient {
   if (!cachedDb) {
-    // biome-ignore lint/style/noNonNullAssertion: Required env var present at runtime (validated at app startup); deferred past build via this lazy init
-    const sql = neon(process.env.DATABASE_URL!)
+    // Neon 1.2 supports deferred connection parameters and no longer rejects an
+    // empty URL at construction. This package requires DATABASE_URL, so enforce
+    // that contract here before caching a client that cannot execute queries.
+    const connectionString = process.env.DATABASE_URL?.trim()
+    if (!connectionString) {
+      throw new Error('A database connection string is required: set DATABASE_URL before querying.')
+    }
+    const sql = neon(connectionString)
     cachedDb = drizzle(sql)
   }
   return cachedDb
@@ -114,7 +120,7 @@ const INTROSPECTION_ONLY_PROPS: ReadonlySet<string | symbol> = new Set(['_'])
 
 /** True when a client already exists or one could be created on demand. */
 function canInitialize(): boolean {
-  return cachedDb !== undefined || Boolean(process.env.DATABASE_URL)
+  return cachedDb !== undefined || Boolean(process.env.DATABASE_URL?.trim())
 }
 
 export const db = new Proxy({} as DrizzleClient, {

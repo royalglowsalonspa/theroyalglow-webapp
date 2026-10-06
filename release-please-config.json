@@ -96,6 +96,11 @@
         },
         {
           "type": "json",
+          "path": "packages/findup-sync/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
           "path": "packages/logger/package.json",
           "jsonpath": "$.version"
         },
