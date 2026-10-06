@@ -67,14 +67,18 @@ describe('lazy db client initialization', () => {
     expect('_' in (db as object)).toBe(false)
   })
 
-  it('keeps the exemption narrow \u2014 a real query property still initializes', async () => {
-    vi.stubEnv('DATABASE_URL', '')
+  it.each([undefined, '', '   '])('rejects a missing query connection (%j)', async (url) => {
+    vi.stubEnv('DATABASE_URL', url)
     const { db } = await import('../index')
 
     // Only `_` is exempt. Anything that implies actual database work must still
     // demand a connection string, so a genuinely misconfigured runtime fails
     // loudly instead of silently returning undefined.
     expect(() => read(db, 'select')).toThrow(/database connection string/i)
+    expect(() => 'select' in db).toThrow(/database connection string/i)
+    // A failed initialization must not poison the memoized client.
+    vi.stubEnv('DATABASE_URL', 'postgresql://user:pass@example.neon.tech/neondb?sslmode=require')
+    expect(read(db, 'select')).toBeTypeOf('function')
   })
 
   it('initializes normally once a connection string is present', async () => {
