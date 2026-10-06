@@ -257,6 +257,8 @@ jobs:
       - run: bun run lint
       - name: Check installed auth dependency compatibility
         run: bun run check:auth-dependencies
+      - name: Check Vitest runner and coverage provider compatibility
+        run: bun run check:vitest-dependencies
       - name: Check no root override pins below a declared version
         run: bun run check:dependency-overrides
       # Release Please writes the Mintlify changelog page directly, and cannot
@@ -285,9 +287,25 @@ jobs:
           name: coverage
           path: coverage/
           retention-days: 7
+      - name: Install verified Codecov CLI
+        # Keep the reviewed release and SHA256 together. The action's default
+        # cli.codecov.io downloader failed TLS before uploading valid coverage.
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --silent --location \
+            --retry 3 --connect-timeout 10 --max-time 120 \
+            https://github.com/codecov/codecov-cli/releases/download/v11.3.1/codecovcli_linux \
+            --output "$RUNNER_TEMP/codecovcli"
+          printf '%s  %s\n' \
+            'ca1d64196d2d34771084afe76ea657d581bf628e31d993ff8e52ea09cc88a56d' \
+            "$RUNNER_TEMP/codecovcli" | sha256sum --check --strict
+          chmod +x "$RUNNER_TEMP/codecovcli"
+          "$RUNNER_TEMP/codecovcli" --version
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         with:
+          binary: ${{ runner.temp }}/codecovcli
           files: coverage/lcov.info
           disable_search: true
           fail_ci_if_error: true
