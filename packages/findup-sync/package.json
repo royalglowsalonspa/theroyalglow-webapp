@@ -1,0 +1,28 @@
+{
+  "name": "@rgss/findup-sync",
+  "version": "0.3.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "./index.cjs",
+  "types": "./index.d.cts",
+  "license": "MIT",
+  "scripts": {
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --project findup-sync"
+  },
+  "dependencies": {
+    "detect-file": "1.0.0",
+    "is-glob": "4.0.3",
+    "picomatch": "^4.0.7",
+    "resolve-dir": "1.0.1"
+  },
+  "devDependencies": {
+    "@types/detect-file": "1.0.0",
+    "@types/is-glob": "4.0.4",
+    "@types/node": "^26.6.4",
+    "@types/picomatch": "4.0.3",
+    "@types/resolve-dir": "0.0.0",
+    "typescript": "7.0.2"
+  }
+}

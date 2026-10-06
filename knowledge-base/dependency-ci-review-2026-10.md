@@ -74,18 +74,25 @@ Sentry's new deduplication can reduce consecutive duplicate error events, and Ho
 | @types/node | 26.6.2 → 26.6.4 | [Upstream history](https://github.com/DefinitelyTyped/DefinitelyTyped/commits/master/types/node) was inspected; an exact npm-version-to-commit mapping remains **unverified**. Repository typechecks pass. |
 | wait-on | 9.1.0 → 9.5.1 | [9.2.0](https://github.com/jeffbski/wait-on/releases/tag/v9.2.0) through [9.5.1](https://github.com/jeffbski/wait-on/releases/tag/v9.5.1): socket cleanup, malformed-resource validation, TypeScript definitions, command/status-code features and dependency security refresh. |
 
-## Validation and remaining blocker
+## Validation and complete security remediation
 
 Completed locally against the combined fixes:
 
 - Bun 1.4.2 frozen-lockfile installation.
-- Full coverage suite: **177 files, 1,420 tests passed**.
+- Final full coverage suite: **178 files, 1,444 tests passed**, using four workers locally.
 - Final focused dependency-guard/database tests: **three files, 36 tests passed**, including later override regression cases beyond the earlier full-suite run.
 - Root lint passed with existing warnings; workspace and tooling typechecks passed.
 - Production builds passed for **web, admin, CMS and invoicing**.
 - Authentication, Vitest, dependency-override and release consistency checks passed.
 - CI YAML parsed; the official Codecov GitHub executable was downloaded and its SHA256 independently verified.
 
-Strict `bun audit` still reports **one high vulnerability**: [braces 3.0.3 stack-exhaustion denial of service, GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm). It remains in transitive Payload/storage and build-tool dependency chains. No published patched release or verified compatible replacement was available during this review; proposed upstream fixes [#77](https://github.com/micromatch/braces/pull/77) and [#78](https://github.com/micromatch/braces/pull/78) remained unmerged. There is no advisory suppression or severity exception; the security gate must remain red until an actual dependency fix removes this exposure.
+The first repair still failed on [braces 3.0.3 stack-exhaustion denial of service, GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm). No published patched braces release was available. The complete repair removes both dependency chains that installed it:
 
-Remote CI, Codecov authentication/upload, browser behavior, deployed services and production rollout are not verified by these local results.
+- Upgrade Sass 1.77.4 to 1.105.1 through a version-scoped override. Its maintained Chokidar 5 dependency has no braces dependency. Remove the old Immutable 4 override so Sass can use its required Immutable 5. [Sass changelog](https://github.com/sass/dart-sass/blob/1.105.1/CHANGELOG.md). Node 20.19 or newer is required. The CMS production build passes; its only custom SCSS file is empty, while Payload provides precompiled styles.
+- Replace `findup-sync@4` with the owned [`@rgss/findup-sync`](../packages/findup-sync/README.md) CommonJS package. The original implementation used Micromatch only for `matcher`, which already delegates to Picomatch. Calling maintained Picomatch directly removes the unused vulnerable brace AST compiler/expander. Preserve literal detection, glob matching, pattern order, directory ordering and cwd expansion, and make ancestor traversal iterative. The original MIT license is retained, and the package keeps its own identity and platform version.
+
+The replacement has 16 behavior and installed-consumer regression tests, including hostile nested patterns and input-length bounds. The root unit suite collects them, strict TypeScript checks its JavaScript and declaration API, and release-please updates its version with the other workspaces. The root override is restricted to findup-sync's 4.x consumer requirements.
+
+After this remediation, strict `bun audit` reports **no vulnerabilities** across 1,323 packages, and `bun why braces` reports no matching package in the lockfile. No advisory suppression, severity exception or scanner configuration change is used. `tsup` already resolves Chokidar 4; no bundler migration is necessary.
+
+The earlier repair's remote CI passed 1,428 tests, all four app jobs, lint/types, compatibility/drift guards, Lighthouse and Codecov upload. Fresh remote CI must validate the complete remediation on each PR's updated SHA. Deployed services and production rollout remain unverified.
