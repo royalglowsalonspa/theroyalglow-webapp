@@ -1,10 +1,12 @@
 # Dependabot configuration for theroyalglow-webapp (Bun + Turborepo monorepo).
 #
 # Coverage
-# - The Bun entry scans all 11 tracked package.json manifests under the root,
-#   apps/*, and packages/*. No `allow` list is used, so every direct registry
-#   dependency is discovered automatically: TypeScript, Turbo, Hono, Sharp,
-#   Motion, Radix UI, and every other declared dependency are included.
+# - The Bun entry starts at the root package.json and follows its workspaces
+#   (apps/* and packages/*), updating their manifests and shared bun.lock together.
+#   Do not scan workspace directories separately: that duplicates the root update
+#   and creates competing PRs for the same dependency and lockfile.
+# - No `allow` list is used, so every direct registry dependency is discovered.
+#   Frozen-lockfile installs in CI validate Dependabot's committed lockfile.
 # - The Docker entry scans the active Cloud Run invoicing Dockerfile. The legacy
 #   CMS/Koyeb and retired EC2 Dockerfiles are deliberately excluded.
 # - The GitHub Actions entry scans every external action in .github/workflows/.
@@ -17,24 +19,21 @@
 # - PRs target dev and move through dev -> test -> pprd -> prod like normal work.
 # - Coupled/high-impact families get focused PRs. Remaining minor/patch updates
 #   are grouped into production and development batches to keep maintenance small.
-# - Majors outside an explicit ignore are standalone PRs. Framework majors listed
-#   under `ignore` are deliberate migrations and must be upgraded manually.
+# - Majors outside an explicit ignore are standalone PRs across the workspace.
+#   Framework majors under `ignore` are deliberate manual migrations.
 # - Dependabot proposes stable releases; prereleases are considered only when the
 #   project already uses one.
 #
-# Docs: https://docs.github.com/code-security/dependabot/working-with-dependabot/dependabot-options-reference
+# Docs: https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference
 version: 2
 
 updates:
   # ---------------------------------------------------------------------------
-  # JavaScript/TypeScript dependencies across the complete Bun workspace.
-  # `directories` supports globs; these paths cover every tracked package.json.
+  # One Bun project: root manifest, declared workspaces, and one shared lockfile.
+  # The Bun updater discovers workspace manifests from the root automatically.
   # ---------------------------------------------------------------------------
   - package-ecosystem: "bun"
-    directories:
-      - "/"
-      - "/apps/*"
-      - "/packages/*"
+    directory: "/"
     target-branch: "dev"
     schedule:
       # Monday, Wednesday and Friday at 12:00 IST = 06:30 UTC (IST is UTC+5:30).
@@ -91,7 +90,7 @@ updates:
           - "minor"
           - "patch"
 
-      # Hono runtime packages are also pinned by root overrides.
+      # Keep the Hono framework and its Node runtime adapter together.
       hono:
         patterns:
           - "hono"

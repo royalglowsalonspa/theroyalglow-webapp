@@ -189,3 +189,42 @@ describe('the committed root manifest and installation', () => {
     expect(checkDependencyOverrides(resolve(import.meta.dirname, '../..'))).toEqual([])
   })
 })
+
+describe('direct dependency override references', () => {
+  const consumer: Workspace = {
+    label: 'apps/consumer',
+    manifest: { dependencies: { '@vendor/sdk': '^1.0.0' } },
+  }
+
+  it('enforces a referenced security floor against each installed consumer', () => {
+    const root = {
+      dependencies: { '@vendor/sdk': '^1.3.0' },
+      overrides: { '@vendor/sdk': '$@vendor/sdk' },
+    }
+    expect(inspectOverrides(root, [consumer], () => '1.3.2')).toEqual([])
+    expect(inspectOverrides(root, [consumer], () => '1.2.0')).toEqual([
+      'apps/consumer -> @vendor/sdk: resolves 1.2.0, outside root override @vendor/sdk: ^1.3.0.',
+    ])
+  })
+
+  it('tracks the updated direct declaration without rewriting the override', () => {
+    const root = {
+      devDependencies: { '@vendor/sdk': '^1.4.0' },
+      overrides: { '@vendor/sdk': '$@vendor/sdk' },
+    }
+    expect(inspectOverrides(root, [consumer], () => '1.3.2')).toHaveLength(1)
+    expect(inspectOverrides(root, [consumer], () => '1.4.1')).toEqual([])
+  })
+
+  it('fails visibly for missing references and non-version declarations', () => {
+    for (const dependencies of [{}, { '@vendor/sdk': 'latest' }]) {
+      expect(
+        inspectOverrides({ dependencies, overrides: { '@vendor/sdk': '$@vendor/sdk' } }, [
+          consumer,
+        ]),
+      ).toEqual([
+        'Dependency override @vendor/sdk references $@vendor/sdk, which must name a root dependency with a SemVer range.',
+      ])
+    }
+  })
+})

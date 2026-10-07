@@ -259,6 +259,8 @@ jobs:
         run: bun run check:auth-dependencies
       - name: Check Vitest runner and coverage provider compatibility
         run: bun run check:vitest-dependencies
+      - name: Check dependency automation policy
+        run: bun run check:dependency-policy
       - name: Check no root override pins below a declared version
         run: bun run check:dependency-overrides
       # Release Please writes the Mintlify changelog page directly, and cannot
