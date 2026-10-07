@@ -18,17 +18,42 @@ function readManifest(path: string): Manifest {
 
 /** Resolve from the importing consumer, including Bun's isolated peer installations. */
 export const resolveInstalledPackage: PackageResolver = (consumer, name) => {
-  let directory = dirname(realpathSync(createRequire(consumer).resolve(name)))
-  while (true) {
-    const path = resolve(directory, 'package.json')
-    if (existsSync(path)) {
-      const manifest = readManifest(path)
-      if (manifest.name === name) return { path, manifest }
-    }
-    const parent = dirname(directory)
-    if (parent === directory) throw new Error(`Cannot locate ${name} manifest from ${consumer}`)
-    directory = parent
+  const require = createRequire(realpathSync(consumer))
+  let entry: string | undefined
+  let resolutionError: unknown
+  try {
+    entry = require.resolve(name)
+  } catch (error) {
+    resolutionError = error
   }
+
+  if (entry) {
+    let directory = dirname(realpathSync(entry))
+    while (true) {
+      const path = resolve(directory, 'package.json')
+      if (existsSync(path)) {
+        const manifest = readManifest(path)
+        if (manifest.name === name) return { path, manifest }
+      }
+      const parent = dirname(directory)
+      if (parent === directory) break
+      directory = parent
+    }
+  }
+
+  // A package may expose only subpaths and hide both its root and package.json.
+  // Read its metadata using Node's lookup order from the real consumer location,
+  // so an isolated peer installation cannot accidentally pick a root dependency.
+  for (const directory of require.resolve.paths(name) ?? []) {
+    const candidate = resolve(directory, name, 'package.json')
+    if (!existsSync(candidate)) continue
+    const path = realpathSync(candidate)
+    const manifest = readManifest(path)
+    if (manifest.name === name) return { path, manifest }
+  }
+  throw new Error(`Cannot locate installed ${name} manifest from ${consumer}`, {
+    cause: resolutionError,
+  })
 }
 
 const isAuthPackage = (name: string) => name === 'better-auth' || name.startsWith('@better-auth/')

@@ -12,7 +12,8 @@
  *                AbortSignal.timeout timer cannot be faked, so the "never
  *                answers" case swaps in a controller the test aborts itself.
  ************************************************************/
-import { delay, HttpResponse, http } from 'msw'
+import { HttpResponse, http } from 'msw/http'
+import { delay } from 'msw/utils/delay'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { server } from '@/test/msw-server'
 import { CMS_FETCH_TIMEOUT_MS, cmsFetch } from './config'

@@ -25,7 +25,7 @@
  * Notes        : Uses vi.stubEnv for per-test CMS URL control, as client.test.ts does
  ************************************************************/
 
-import { HttpResponse, http } from 'msw'
+import { HttpResponse, http } from 'msw/http'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { server } from '@/test/msw-server'
 import { selectAnnouncementBanner, selectHeroBanner } from './banners'

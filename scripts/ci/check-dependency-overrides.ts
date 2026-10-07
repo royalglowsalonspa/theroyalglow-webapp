@@ -45,7 +45,8 @@ export function minimumVersionOf(range: string): string | null {
  */
 function parseOverrides(root: Manifest, problems: string[]): Override[] {
   const rules: Override[] = []
-  for (const [key, range] of Object.entries(root.overrides ?? {})) {
+  for (const [key, specifier] of Object.entries(root.overrides ?? {})) {
+    let range = specifier
     if (typeof range !== 'string') {
       problems.push(
         `Unsupported nested dependency override ${key}; extend the override check first.`,
@@ -58,6 +59,19 @@ function parseOverrides(root: Manifest, problems: string[]): Override[] {
     if (!name || (selector !== undefined && !validRange(selector))) {
       problems.push(`Unsupported dependency override key ${key}; extend the override check first.`)
       continue
+    }
+    // A reference keeps a security resolution maintained by Dependabot's direct
+    // dependency update. Resolve it before validating installed versions.
+    if (range.startsWith('$')) {
+      const reference = range.slice(1)
+      const declared = root.dependencies?.[reference] ?? root.devDependencies?.[reference]
+      if (!declared || !validRange(declared)) {
+        problems.push(
+          `Dependency override ${key} references ${range}, which must name a root dependency with a SemVer range.`,
+        )
+        continue
+      }
+      range = declared
     }
     // Git, URL, npm aliases and catalog values do not provide a SemVer floor.
     if (!validRange(range)) continue

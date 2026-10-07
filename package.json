@@ -30,6 +30,7 @@
     "check:cutover": "node scripts/assert-no-admin-artifacts.mjs",
     "check:auth-dependencies": "bun run scripts/ci/check-auth-dependencies.ts",
     "check:dependency-overrides": "bun run scripts/ci/check-dependency-overrides.ts",
+    "check:dependency-policy": "bun run scripts/ci/check-dependabot-policy.ts",
     "check:changelog-mdx": "bun run scripts/release/lint-changelog-mdx.ts",
     "check:admin-no-literals": "node scripts/admin-design/no-brand-literals.mjs",
     "check:admin-path-allowlist": "node scripts/admin-design/path-allowlist.mjs",
@@ -56,7 +57,7 @@
     "lint-staged": "^17.6.0",
     "semver": "^7.8.5",
     "sst": "^4.17.1",
-    "turbo": "2.11.6",
+    "turbo": "2.11.7",
     "typescript": "7.0.2",
     "vitest": "5.0.3"
   },
@@ -74,7 +75,7 @@
     "fast-uri": "3.1.8",
     "ip-address": "10.7.3",
     "js-yaml": "5.4.1",
-    "@modelcontextprotocol/sdk": "1.30.0",
+    "@modelcontextprotocol/sdk": "$@modelcontextprotocol/sdk",
     "browserslist": "4.28.7",
     "qs": "6.16.0",
     "fflate": "0.8.3"
@@ -85,6 +86,7 @@
     ]
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "nanoid": "^6.0.1"
   }
 }
