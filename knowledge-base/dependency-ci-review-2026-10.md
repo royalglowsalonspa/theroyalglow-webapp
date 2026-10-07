@@ -96,3 +96,68 @@ The replacement has 16 behavior and installed-consumer regression tests, includi
 After this remediation, strict `bun audit` reports **no vulnerabilities** across 1,323 packages, and `bun why braces` reports no matching package in the lockfile. No advisory suppression, severity exception or scanner configuration change is used. `tsup` already resolves Chokidar 4; no bundler migration is necessary.
 
 The earlier repair's remote CI passed 1,428 tests, all four app jobs, lint/types, compatibility/drift guards, Lighthouse and Codecov upload. Fresh remote CI must validate the complete remediation on each PR's updated SHA. Deployed services and production rollout remain unverified.
+
+## Follow-up: October 7 dependency PR failures
+
+PRs #283–#290 and release PR #257 all inherited a new strict audit failure:
+MCP SDK 1.30.0, forced by the root override, is affected by
+[GHSA-6qxp-vccf-f47h](https://github.com/advisories/GHSA-6qxp-vccf-f47h), added to
+GitHub's advisory database on October 6. This is a newly available advisory against
+an unchanged base dependency, not evidence that every individual upgrade broke.
+[PR #284 audit job](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/37585819369/job/112675565944)
+records the affected Payload MCP dependency chain.
+
+The MCP SDK is now a direct root dependency at `^1.32.1`; its root override uses
+`$@modelcontextprotocol/sdk` to reuse that declaration. Dependabot can update the
+ordinary dependency instead of leaving an untracked exact override frozen.
+1.31.0 fixes issuer binding, but
+[1.32.0](https://github.com/modelcontextprotocol/typescript-sdk/releases/tag/1.32.0)
+also fixes experimental-task session isolation and client redirect handling.
+The committed SDK resolves to 1.32.1. CMS uses server APIs through Payload and
+mcp-handler; it does not use the affected OAuth client providers, task store,
+or SDK bearer-auth middleware. No CMS capabilities or credentials changed.
+The override guard now resolves references and rejects missing references and
+installed versions below the referenced security floor. Package metadata lookup
+also supports packages that expose subpaths without an importable root, retaining
+consumer-specific peer resolution.
+
+PRs #286 and #289 also failed after their MSW 3 upgrade: `onUnhandledRequest`
+was removed, and the catalogue retry test observed three requests instead of two.
+The [official migration guide](https://mswjs.io/docs/migrations/2.x-to-3.x/)
+requires `onUnhandledFrame` and designated HTTP/utility imports. All web test
+imports were migrated. The catalogue loading test used a never-resolving handler
+and ended before interception, allowing its request to reach the following test's
+handler. The old full file reproduced the failure; running the retry case alone
+passed. The replacement waits for interception, asserts the loading state, then
+releases and awaits the response before teardown. The exact two-attempt retry
+assertion remains intact. No catalogue application behavior was changed.
+
+Dependabot scanned both `/` and app/package globs even though its Bun updater
+already [discovers root workspaces](https://github.com/dependabot/dependabot-core/blob/b4b31b9e409bbf7665e2fb9756bee5092cefc723/bun/lib/dependabot/bun/file_fetcher.rb#L79).
+Root Motion #285 and MSW #286 already update both app manifests and the shared
+lockfile; app PRs #287–#290 duplicated those upgrades. Bun now has one root scan.
+The obsolete automatic lockfile writeback workflow was removed: the original
+Dependabot commits already regenerate `bun.lock`, and CI retains frozen installs.
+A new policy guard rejects overlapping scans, undiscovered workspaces, split
+coupled groups, and filters hiding referenced security dependencies.
+
+Other reviewed upgrades are compatible with existing APIs:
+
+- [Motion 14](https://motion.dev/docs/react-upgrade-guide#14-0) has no public React
+  breaking changes; both apps use public `motion/react` APIs.
+- [Turbo 2.11.7](https://github.com/vercel/turborepo/releases/tag/v2.11.7) repairs
+  environment propagation/cache behavior; existing tasks need no migration.
+- [Sentry 11.3](https://github.com/getsentry/sentry-javascript/releases/tag/11.3.0)
+  and [11.4](https://github.com/getsentry/sentry-javascript/releases/tag/11.4.0)
+  require no configuration migration here. Existing privacy settings remain.
+- [Lucide 1.51](https://github.com/lucide-icons/lucide/releases/tag/1.51.0), TanStack
+  Table 9.2.5 and Better Auth Infra 0.4.14 require no used-API migration.
+
+Local combined validation: frozen Bun 1.4.2 install, strict audit with no
+vulnerabilities (1,319 packages), all dependency guards, lint with existing
+warnings, all workspace/tooling types, release consistency, and full coverage:
+**180 files / 1,465 tests passed**. Eight focused MSW suites passed 68 tests.
+Production-build and remote validation results are recorded in the associated PR.
+No advisory exclusions, reduced thresholds, disabled checks or permission changes
+were introduced. Future advisories and breaking upstream releases still require
+review; the guards deliberately fail when a genuine problem is discovered.
