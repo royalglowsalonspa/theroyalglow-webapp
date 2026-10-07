@@ -161,3 +161,66 @@ Production builds passed for web, admin, CMS and invoicing. Remote validation re
 No advisory exclusions, reduced thresholds, disabled checks or permission changes
 were introduced. Future advisories and breaking upstream releases still require
 review; the guards deliberately fail when a genuine problem is discovered.
+## Subsequent workspace updates and GraphQL compatibility
+
+After the repair, Dependabot generated root-workspace PRs #292 (Lucide 1.52.0),
+#293 (jsdom 30.1.2), and #294 (GraphQL 17.0.2). All initial workflows passed
+without manual manifest or lockfile repairs, demonstrating that the root scan
+updates both web/admin workspaces together. #292 and #293 were reviewed and merged:
+
+- [Lucide 1.52.0](https://github.com/lucide-icons/lucide/releases/tag/1.52.0)
+  changes WiFi Cog SVG paths; that icon is not used here.
+- [jsdom 30.1.2](https://github.com/jsdom/jsdom/releases/tag/v30.1.2) fixes DOM,
+  CSS/focus/form-state correctness, performance and memory retention. Node engine
+  and optional canvas requirements are unchanged; its transitive updates match
+  the published manifest.
+
+GraphQL #294 must not be merged with the installed Payload 3.90.2 family.
+Payload, @payloadcms/graphql and @payloadcms/next require GraphQL ^16.8.1;
+graphql-http 1.22.4 and graphql-scalars 1.22.2 also exclude version 17. The proposed
+lockfile installs 17 for CMS while preserving 16 for those five consumers.
+Current CMS routes use REST and do not expose GRAPHQL_POST, so a successful build
+is not evidence that these separate schema instances can interoperate.
+
+Database-free probes passed using Payload configToSchema and GraphQL 16.14.2.
+Executing that schema through 17.0.2 fails schema identity validation. Forcing a
+uniform 17 installation also fails Payload's vendored QueryComplexity.js:218,
+which reads the old getVariableValues().coerced result. The
+[GraphQL 16-to-17 migration guide](https://www.graphql-js.org/upgrade-guides/v16-v17/)
+documents changed variable-coercion and argument-value APIs. These probes show
+why forcing a major override is unsafe; they do not claim existing REST routes
+are broken by the isolated installation.
+
+A CMS compatibility gate now follows the installed Payload schema/HTTP/scalar
+dependency graph, validates app declarations against published vendor ranges,
+and rejects different GraphQL package instances, including same-version copies.
+Its contracts follow vendor releases instead of hardcoding version 16. GraphQL
+minor/patch updates share the Payload group; majors require a coordinated manual
+migration, like the existing Next/React/Payload major policy. Strict audit is
+unchanged and minor/patch updates remain enabled.
+
+A database-free runtime regression builds a synthetic Payload schema and uses
+the CMS consumer's parser/executor with vendor complexity rules. It exercises
+valid queries, supplied/defaulted complexity costs and invalid variable types;
+its adapter throws if database initialization is attempted. A new strict
+TypeScript project collects CI guards and tests, which were previously absent
+from root tooling typechecks. Root Node typings are an explicit maintained
+build dependency; no additional package version is introduced by the lockfile.
+
+The original repair passed all 36 PR workflows, promotion 37613012232, and AWS
+deployment 37614147529 at commit 266a1ca6b561553b3354f8cedbc531e61e3c1d3f.
+Both deployed health endpoints returned HTTP 200. Release Please succeeded;
+#257 stayed open with fully green refreshed checks. Subsequent validation and
+promotion results are recorded in the follow-up compatibility PR.
+
+Operational limits: integration/Playwright require DATABASE_URL_TEST and
+k6/ZAP require PPRD_URL; those jobs were skipped, not executed passes. CMS Render
+and invoicing Cloud Run deployments were not independently verified. The existing
+Lighthouse performance threshold is 0.75, inherited from July 26; its documented
+0.95 font-performance target was not changed or claimed achieved by this repair.
+
+Follow-up local validation: frozen Bun 1.4.2 install, audit with no vulnerabilities
+across 1,319 packages, strict CI-guard/workspace/tooling types, lint, dependency
+guards and release checks passed. Full coverage passed 182 files / 1,481 tests.
+The runtime test also failed as intended against a deliberately separate GraphQL
+copy, without changing installed framework resolution.

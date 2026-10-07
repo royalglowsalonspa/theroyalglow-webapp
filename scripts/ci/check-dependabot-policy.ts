@@ -22,7 +22,11 @@ const matches = (name: string, patterns: string[]) =>
 const families: { label: string; patterns: string[]; bumps: Bump[] }[] = [
   { label: 'Vitest', patterns: ['vitest', '@vitest/*'], bumps: ['major', 'minor', 'patch'] },
   { label: 'Better Auth', patterns: ['better-auth', '@better-auth/*'], bumps: ['minor', 'patch'] },
-  { label: 'Payload', patterns: ['payload', '@payloadcms/*'], bumps: ['minor', 'patch'] },
+  {
+    label: 'Payload',
+    patterns: ['payload', '@payloadcms/*', 'graphql'],
+    bumps: ['minor', 'patch'],
+  },
   {
     label: 'Next/React',
     patterns: ['next', '@next/*', 'react', 'react-dom', '@types/react', '@types/react-dom'],
@@ -108,6 +112,23 @@ export function inspectDependabotPolicy(
     }
   }
 
+  if (
+    declarations.some(({ name }) => name === 'payload') &&
+    declarations.some(({ name }) => name === 'graphql')
+  ) {
+    const ignores = Array.isArray(entry.ignore) ? entry.ignore.filter(record) : []
+    const manualMajor = ignores.some(
+      (ignore) =>
+        ignore['dependency-name'] === 'graphql' &&
+        strings(ignore['update-types']).length === 1 &&
+        strings(ignore['update-types'])[0] === 'version-update:semver-major' &&
+        strings(ignore.versions).length === 0,
+    )
+    if (!manualMajor)
+      problems.push(
+        'GraphQL majors require an explicit manual Payload migration; minor/patch updates must stay enabled.',
+      )
+  }
   for (const [name, value] of Object.entries(root.overrides ?? {})) {
     if (!value.startsWith('$')) continue
     const reference = value.slice(1)

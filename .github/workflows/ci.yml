@@ -257,6 +257,8 @@ jobs:
       - run: bun run lint
       - name: Check installed auth dependency compatibility
         run: bun run check:auth-dependencies
+      - name: Check CMS Payload and GraphQL compatibility
+        run: bun run check:cms-dependencies
       - name: Check Vitest runner and coverage provider compatibility
         run: bun run check:vitest-dependencies
       - name: Check dependency automation policy
