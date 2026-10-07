@@ -170,6 +170,61 @@ describe('Dependabot workspace maintenance policy', () => {
     ).toContain('Bun dependency updates must target dev.')
   })
 
+  it('keeps GraphQL minor/patch updates in the Payload schema family', () => {
+    const { root, workspaces, entry } = fixture()
+    workspaces.push({
+      label: 'apps/cms',
+      manifest: { dependencies: { payload: '8.2.0', graphql: '^25.1.0' } },
+    })
+    const ignore = [
+      { 'dependency-name': 'graphql', 'update-types': ['version-update:semver-major'] },
+    ]
+    const groups = {
+      ...entry.groups,
+      payload: { patterns: ['payload', '@payloadcms/*'], 'update-types': ['minor', 'patch'] },
+      production: { 'dependency-type': 'production', 'update-types': ['minor', 'patch'] },
+    }
+    expect(
+      inspectDependabotPolicy({ updates: [{ ...entry, groups, ignore }] }, root, workspaces).join(
+        '\n',
+      ),
+    ).toContain('Payload minor updates must share one group')
+    groups.payload.patterns.push('graphql')
+    expect(
+      inspectDependabotPolicy({ updates: [{ ...entry, groups, ignore }] }, root, workspaces),
+    ).toEqual([])
+  })
+
+  it('requires manual GraphQL major migration without hiding compatible minor/patch updates', () => {
+    const { root, workspaces, entry } = fixture()
+    workspaces.push({
+      label: 'apps/cms',
+      manifest: { dependencies: { payload: '8.2.0', graphql: '^25.1.0' } },
+    })
+    const groups = {
+      ...entry.groups,
+      payload: {
+        patterns: ['payload', '@payloadcms/*', 'graphql'],
+        'update-types': ['minor', 'patch'],
+      },
+    }
+    for (const ignore of [
+      [],
+      [{ 'dependency-name': 'graphql' }],
+      [
+        {
+          'dependency-name': 'graphql',
+          'update-types': ['version-update:semver-major', 'version-update:semver-patch'],
+        },
+      ],
+    ]) {
+      expect(
+        inspectDependabotPolicy({ updates: [{ ...entry, groups, ignore }] }, root, workspaces).join(
+          '\n',
+        ),
+      ).toContain('GraphQL majors require an explicit manual Payload migration')
+    }
+  })
   it('validates the actual YAML and root workspace manifests with the Bun CLI', () => {
     const cwd = resolve(import.meta.dirname, '../..')
     const output = execFileSync('bun', ['run', 'scripts/ci/check-dependabot-policy.ts'], {

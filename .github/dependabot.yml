@@ -73,6 +73,7 @@ updates:
         patterns:
           - "payload"
           - "@payloadcms/*"
+          - "graphql"
         update-types:
           - "minor"
           - "patch"
@@ -140,6 +141,9 @@ updates:
       - dependency-name: "better-auth"
         update-types: ["version-update:semver-major"]
       - dependency-name: "@better-auth/*"
+        update-types: ["version-update:semver-major"]
+      # GraphQL majors need a Payload-compatible schema/runtime migration.
+      - dependency-name: "graphql"
         update-types: ["version-update:semver-major"]
       - dependency-name: "payload"
         update-types: ["version-update:semver-major"]
