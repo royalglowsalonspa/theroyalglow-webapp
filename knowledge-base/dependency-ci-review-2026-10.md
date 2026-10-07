@@ -157,7 +157,7 @@ Local combined validation: frozen Bun 1.4.2 install, strict audit with no
 vulnerabilities (1,319 packages), all dependency guards, lint with existing
 warnings, all workspace/tooling types, release consistency, and full coverage:
 **180 files / 1,465 tests passed**. Eight focused MSW suites passed 68 tests.
-Production-build and remote validation results are recorded in the associated PR.
+Production builds passed for web, admin, CMS and invoicing. Remote validation results are recorded in the associated PR.
 No advisory exclusions, reduced thresholds, disabled checks or permission changes
 were introduced. Future advisories and breaking upstream releases still require
 review; the guards deliberately fail when a genuine problem is discovered.
