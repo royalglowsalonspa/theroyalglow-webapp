@@ -28,7 +28,7 @@
 
 import type { PublicBranchList } from '@rgss/types'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { HttpResponse, http } from 'msw'
+import { HttpResponse, http } from 'msw/http'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ONBOARDING_PATH } from '@/lib/onboarding-prompt'

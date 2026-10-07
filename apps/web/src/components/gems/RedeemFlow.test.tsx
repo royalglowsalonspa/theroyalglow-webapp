@@ -30,7 +30,8 @@
  ************************************************************/
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { delay, HttpResponse, http } from 'msw'
+import { HttpResponse, http } from 'msw/http'
+import { delay } from 'msw/utils/delay'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { server } from '@/test/msw-server'

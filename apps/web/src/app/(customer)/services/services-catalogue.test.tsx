@@ -21,7 +21,7 @@
  ************************************************************/
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { HttpResponse, http } from 'msw'
+import { HttpResponse, http } from 'msw/http'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { server } from '@/test/msw-server'
@@ -71,15 +71,27 @@ describe('ServicesCatalogue UI wiring (Req 13)', () => {
     expect(screen.getByText('Signature Haircut')).toBeInTheDocument()
   })
 
-  it('presents a loading state while the catalogue request is pending (13.2)', () => {
+  it('presents a loading state while the catalogue request is pending (13.2)', async () => {
+    const requestStarted = Promise.withResolvers<void>()
+    const responseReady = Promise.withResolvers<void>()
     server.use(
-      // Never resolves within the test — keeps the request pending.
-      http.get('*/api/services', () => new Promise<never>(() => {})),
+      http.get('*/api/services', async () => {
+        requestStarted.resolve()
+        await responseReady.promise
+        return HttpResponse.json({ success: true, data: catalogue() })
+      }),
     )
 
     render(<ServicesCatalogue />)
 
-    expect(screen.getByText('Loading our services…')).toBeInTheDocument()
+    try {
+      await requestStarted.promise
+      expect(screen.getByText('Loading our services…')).toBeInTheDocument()
+    } finally {
+      // Settle this request before handlers reset, so it cannot reach the next test.
+      responseReady.resolve()
+      expect(await screen.findByText('Signature Haircut')).toBeInTheDocument()
+    }
   })
 
   it('presents an error state with a working retry control on failure (13.3)', async () => {

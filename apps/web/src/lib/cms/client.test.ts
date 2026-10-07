@@ -29,7 +29,7 @@
  * Notes        : Uses vi.stubEnv for per-test env var control
  ************************************************************/
 
-import { HttpResponse, http } from 'msw'
+import { HttpResponse, http } from 'msw/http'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { server } from '@/test/msw-server'
 import { getActiveBanners, getAllPostSlugs, getPostBySlug, getPublishedPosts } from './client'
@@ -38,7 +38,7 @@ import { getActiveBanners, getAllPostSlugs, getPostBySlug, getPublishedPosts } f
 // degrades gracefully when the CMS is unconfigured. Every exported read is
 // TOTAL: it returns `[]` / `null` and never throws — on unconfigured, non-2xx,
 // or network error. MSW intercepts the Payload REST calls when a base URL is
-// set; with `onUnhandledRequest: 'error'`, the unconfigured cases must make no
+// set; with `onUnhandledFrame: 'error'`, the unconfigured cases must make no
 // request at all. We use `vi.stubEnv` so the env var is set/cleared per case
 // and restored automatically.
 
@@ -71,7 +71,7 @@ function bannerDoc(overrides?: Record<string, unknown>) {
 describe('cms client — unconfigured (no NEXT_PUBLIC_CMS_URL)', () => {
   beforeEach(() => {
     // `undefined` clears the var so `isCmsConfigured()` is false and no request
-    // is made (which `onUnhandledRequest: 'error'` would otherwise flag).
+    // is made (which `onUnhandledFrame: 'error'` would otherwise flag).
     vi.stubEnv('NEXT_PUBLIC_CMS_URL', undefined)
   })
 
@@ -81,7 +81,7 @@ describe('cms client — unconfigured (no NEXT_PUBLIC_CMS_URL)', () => {
 
   it('getPublishedPosts returns the seeded fallback with no network call', async () => {
     // Unconfigured → cmsFetch yields null → no request made (MSW
-    // `onUnhandledRequest: 'error'` would flag any leaked call). Documented
+    // `onUnhandledFrame: 'error'` would flag any leaked call). Documented
     // "graceful degradation": the listing serves the seeded MOCK_POSTS so the
     // /blog page is never empty.
     const posts = await getPublishedPosts()

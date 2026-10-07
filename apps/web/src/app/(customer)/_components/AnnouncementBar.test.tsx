@@ -29,7 +29,7 @@
  ************************************************************/
 
 import { cleanup, render, screen } from '@testing-library/react'
-import { HttpResponse, http } from 'msw'
+import { HttpResponse, http } from 'msw/http'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { selectHeroBanner } from '@/lib/cms/banners'

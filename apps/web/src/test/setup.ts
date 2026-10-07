@@ -10,7 +10,7 @@
  *                lifecycle and testing-library/jest-dom matchers.
  *
  * Responsibilities :
- * - Start MSW server before all tests with onUnhandledRequest: 'error'
+ * - Start MSW server before all tests with onUnhandledFrame: 'error'
  * - Reset handlers after each test
  * - Close MSW server after all tests
  * - Register jest-dom matchers for Vitest
@@ -32,13 +32,13 @@ import '@testing-library/jest-dom/vitest'
 import { afterAll, afterEach, beforeAll } from 'vitest'
 import { server } from './msw-server'
 
-// MSW lifecycle for the web test project. `onUnhandledRequest: 'error'` makes
+// MSW lifecycle for the web test project. `onUnhandledFrame: 'error'` makes
 // any un-mocked outbound HTTP call fail the test, so accidental real network
 // access is caught immediately.
 //
 // This setup file lives inside `apps/web` (not at the repo root) so its
 // imports — `@testing-library/jest-dom` and `msw` — resolve from
 // `apps/web/node_modules`, where the test tooling is declared.
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
+beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
 afterEach(() => server.resetHandlers())
 afterAll(() => server.close())
