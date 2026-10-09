@@ -13,7 +13,7 @@
         "@playwright/test": "^1.63.0",
         "@types/node": "^26.6.4",
         "@types/semver": "^7.8.0",
-        "@vitejs/plugin-react": "^6.1.0",
+        "@vitejs/plugin-react": "^6.1.2",
         "@vitest/coverage-v8": "5.0.3",
         "checkly": "^9.5.0",
         "husky": "^9.1.7",
@@ -27,7 +27,7 @@
     },
     "apps/admin": {
       "name": "@rgss/admin",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "dependencies": {
         "@better-auth/infra": "0.4.14",
         "@neondatabase/serverless": "^1.2.0",
@@ -78,7 +78,7 @@
         "@types/node": "^26.6.4",
         "@types/react": "^19.3.0",
         "@types/react-dom": "^19.3.0",
-        "@vitejs/plugin-react": "^6.1.0",
+        "@vitejs/plugin-react": "^6.1.2",
         "@vitest/coverage-v8": "5.0.3",
         "fast-check": "^4.10.2",
         "jest-axe": "^11.0.0",
@@ -91,7 +91,7 @@
     },
     "apps/cms": {
       "name": "@rgss/cms",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "dependencies": {
         "@payloadcms/db-postgres": "3.90.2",
         "@payloadcms/email-resend": "3.90.2",
@@ -121,7 +121,7 @@
     },
     "apps/invoicing": {
       "name": "@rgss/invoicing",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "dependencies": {
         "@aws-sdk/client-s3": "^3.1145.0",
         "@hono/node-server": "^2.1.3",
@@ -145,7 +145,7 @@
     },
     "apps/web": {
       "name": "@rgss/web",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "dependencies": {
         "@better-auth/infra": "0.4.14",
         "@neondatabase/serverless": "^1.2.0",
@@ -191,7 +191,7 @@
         "@types/node": "^26.6.4",
         "@types/react": "^19.3.0",
         "@types/react-dom": "^19.3.0",
-        "@vitejs/plugin-react": "^6.1.0",
+        "@vitejs/plugin-react": "^6.1.2",
         "@vitest/coverage-v8": "5.0.3",
         "fast-check": "^4.10.2",
         "jsdom": "^30.1.2",
@@ -203,7 +203,7 @@
     },
     "packages/business": {
       "name": "@rgss/business",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "dependencies": {
         "@rgss/errors": "workspace:*",
         "@rgss/types": "workspace:*",
@@ -216,7 +216,7 @@
     },
     "packages/db": {
       "name": "@rgss/db",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "dependencies": {
         "@neondatabase/serverless": "^1.2.0",
         "@rgss/errors": "workspace:*",
@@ -233,7 +233,7 @@
     },
     "packages/errors": {
       "name": "@rgss/errors",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "dependencies": {
         "@rgss/types": "workspace:*",
       },
@@ -244,7 +244,7 @@
     },
     "packages/findup-sync": {
       "name": "@rgss/findup-sync",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "dependencies": {
         "detect-file": "1.0.0",
         "is-glob": "4.0.3",
@@ -262,7 +262,7 @@
     },
     "packages/logger": {
       "name": "@rgss/logger",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "devDependencies": {
         "fast-check": "^4.10.2",
         "typescript": "7.0.2",
@@ -270,7 +270,7 @@
     },
     "packages/types": {
       "name": "@rgss/types",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "dependencies": {
         "zod": "^4.6.5",
       },
@@ -281,7 +281,7 @@
     },
     "packages/ui": {
       "name": "@rgss/ui",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "dependencies": {
         "clsx": "^2.1.1",
         "tailwind-merge": "^3.7.0",
@@ -1450,7 +1450,7 @@
 
     "@upstash/redis": ["@upstash/redis@1.39.0", "", { "dependencies": { "uncrypto": "^0.1.3" } }, "sha512-VwkpYTdxSfjSulQS5h16NHtg/1UEheBfvez2AeGKinAujOoGXhXCcohQRzsQ/d2g/XzbjzTVGhG8Ds8uOI0Mxg=="],
 
-    "@vitejs/plugin-react": ["@vitejs/plugin-react@6.1.1", "", { "dependencies": { "@rolldown/pluginutils": "^1.0.1" }, "peerDependencies": { "@rolldown/plugin-babel": "^0.1.7 || ^0.2.0", "babel-plugin-react-compiler": "^1.0.0", "oxc-transform-react": "^0.145.0", "vite": "^8.0.0" }, "optionalPeers": ["@rolldown/plugin-babel", "babel-plugin-react-compiler", "oxc-transform-react"] }, "sha512-yxLaQV9gkhS8ezJqCM6+ndU7mDY6gqAg75NQ+0IjwEI8IYOmQCgkRwHKVSfWXW076DsqMo0Dk+0FK1U+M5RgFw=="],
+    "@vitejs/plugin-react": ["@vitejs/plugin-react@6.1.2", "", { "dependencies": { "@rolldown/pluginutils": "^1.0.1" }, "peerDependencies": { "@rolldown/plugin-babel": "^0.1.7 || ^0.2.0", "babel-plugin-react-compiler": "^1.0.0", "oxc-transform-react": "^0.152.0", "vite": "^8.0.0" }, "optionalPeers": ["@rolldown/plugin-babel", "babel-plugin-react-compiler", "oxc-transform-react"] }, "sha512-fhJNGUdscQa4HkI0xFxwonWyhnVReCPDbXI7FH7jmzpnVCrFQI7PRrhWecO263610vOrs9tr2Y4xcf8uAdFxbw=="],
 
     "@vitest/coverage-v8": ["@vitest/coverage-v8@5.0.3", "", { "dependencies": { "@bcoe/v8-coverage": "^1.0.2", "@vitest/istanbul-lib-coverage": "^1.0.0", "@vitest/istanbul-lib-report": "^1.0.0", "ast-v8-to-istanbul": "^1.0.5", "magicast": "^0.5.4", "obug": "^2.1.4", "std-env": "^4.2.0", "tinyrainbow": "^3.1.1" }, "peerDependencies": { "@vitest/browser": "5.0.3", "vitest": "5.0.3" }, "optionalPeers": ["@vitest/browser"] }, "sha512-+klsyz7BvT1vCU28Zkfzms1Ia78XD0V41U3FUtRaa3S+vOr/EXvK1O6BvVD7l1RzEjm6SONR2aybOvDDf9u0mQ=="],
 
