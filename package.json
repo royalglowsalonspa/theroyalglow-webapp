@@ -52,7 +52,7 @@
     "@playwright/test": "^1.63.0",
     "@types/node": "^26.6.4",
     "@types/semver": "^7.8.0",
-    "@vitejs/plugin-react": "^6.1.0",
+    "@vitejs/plugin-react": "^6.1.2",
     "@vitest/coverage-v8": "5.0.3",
     "checkly": "^9.5.0",
     "husky": "^9.1.7",
