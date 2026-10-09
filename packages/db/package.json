@@ -21,7 +21,7 @@
     "@rgss/errors": "workspace:*",
     "@rgss/types": "workspace:*",
     "drizzle-orm": "^0.45.3",
-    "nanoid": "^6.0.1"
+    "nanoid": "^6.0.2"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",
