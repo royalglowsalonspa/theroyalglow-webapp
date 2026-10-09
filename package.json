@@ -89,6 +89,6 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "nanoid": "^6.0.1"
+    "nanoid": "^6.0.2"
   }
 }
