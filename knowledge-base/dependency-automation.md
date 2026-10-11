@@ -14,8 +14,11 @@ Routine updates have two batches:
 | Platform dependencies | Bun/npm libraries across the root, every app and shared package, including production and development dependencies |
 | Tooling and infrastructure | GitHub Actions, the active invoicing Dockerfile's base images, and Bun runtime version declarations |
 
-New routine updates are scheduled on Mondays from 08:00 to 11:00 IST. Releases
-wait three days, plus Renovate's default 30-minute buffer, before eligibility.
+New routine updates are scheduled throughout Monday in IST. The full-day window
+accommodates the hosted service's four-hour job scheduling interval and queue
+delays; a shorter window can be missed even when the configuration is valid.
+See [hosted job scheduling](https://docs.renovatebot.com/mend-hosted/job-scheduling/).
+Releases wait three days, plus Renovate's default 30-minute buffer, before eligibility.
 Release timestamps are required; updates without them remain pending in the
 dashboard for investigation. At most two ordinary Renovate PRs may be open at once; an approved major uses this same budget. Existing proposals may be
 refreshed outside the weekly creation window when necessary. Separate recurring
