@@ -4,7 +4,7 @@
   "baseBranchPatterns": ["dev"],
   "enabledManagers": ["bun", "npm", "bun-version", "github-actions", "dockerfile"],
   "timezone": "Asia/Kolkata",
-  "schedule": ["after 8am and before 11am on monday"],
+  "schedule": ["* * * * 1"],
   "minimumReleaseAge": "3 days",
   "internalChecksFilter": "strict",
   "dependencyDashboard": true,
