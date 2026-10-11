@@ -54,6 +54,10 @@ function fixture() {
     automerge: false,
     dependencyDashboard: true,
     prConcurrentLimit: 2,
+    timezone: 'UTC',
+    schedule: ['* * * * 1,3,5'],
+    minimumReleaseAge: '3 days',
+    updateNotScheduled: false,
     packageRules,
     vulnerabilityAlerts: {
       enabled: true,
@@ -182,6 +186,88 @@ describe('native Bun release-age policy', () => {
 describe('Renovate workspace and PR policy', () => {
   it('accepts one platform batch across dependency types and workspace manifests', () => {
     const { root, workspaces, config } = fixture()
+    expect(inspectRenovatePolicy(config, root, workspaces)).toEqual([])
+  })
+
+  it('rejects shifted timezone, narrow windows and unscheduled ordinary updates', () => {
+    const { root, workspaces, config } = fixture()
+    for (const change of [
+      { timezone: 'Asia/Kolkata' },
+      { schedule: ['* 0 * * 1,3,5'] },
+      { schedule: [] },
+      { updateNotScheduled: true },
+      { minimumReleaseAge: '0 days' },
+    ]) {
+      expect(
+        inspectRenovatePolicy({ ...config, ...change }, root, workspaces).join('\n'),
+      ).toContain('Renovate: ordinary')
+    }
+  })
+
+  it('catches later workspace Bun runtime rules bypassing release age or scheduled days', () => {
+    const { root, workspaces, config } = fixture()
+    for (const bypass of [
+      { minimumReleaseAge: '0 days' },
+      { schedule: [] },
+      { timezone: 'Asia/Kolkata' },
+      { updateNotScheduled: true },
+    ]) {
+      const changed = {
+        ...config,
+        packageRules: [
+          ...config.packageRules,
+          {
+            matchPackageNames: ['bun'],
+            matchFileNames: ['apps/web/package.json'],
+            ...bypass,
+          },
+        ],
+      }
+      const problems = inspectRenovatePolicy(changed, root, workspaces).join('\n')
+      expect(problems).toContain('apps/web/package.json (bun patch): ordinary')
+      expect(problems).toContain('apps/web/package.json (bun major): ordinary')
+      expect(problems).not.toMatch(/^package\.json \(bun patch\): ordinary/m)
+    }
+  })
+
+  it('checks effective release-age and cadence rules for action digests and active container pins', () => {
+    const { root, workspaces, config } = fixture()
+    config.packageRules.push(
+      {
+        matchManagers: ['github-actions'],
+        matchUpdateTypes: ['digest'],
+        minimumReleaseAge: '0 days',
+      },
+      {
+        matchManagers: ['dockerfile'],
+        matchFileNames: ['apps/invoicing/Dockerfile'],
+        matchUpdateTypes: ['pin'],
+        schedule: [],
+      },
+    )
+    const problems = inspectRenovatePolicy(config, root, workspaces).join('\n')
+    expect(problems).toContain('actions/checkout digest): ordinary updates must retain')
+    expect(problems).toContain('node pin): ordinary updates must use full Monday')
+    expect(problems).not.toContain('actions/checkout patch): ordinary')
+  })
+
+  it('covers native Bun version files using their distinct dependency name', () => {
+    const { root, workspaces, config } = fixture()
+    config.packageRules.push({
+      matchManagers: ['bun-version'],
+      matchPackageNames: ['bun'],
+      matchDepNames: ['Bun'],
+      minimumReleaseAge: '0 days',
+    })
+    const problems = inspectRenovatePolicy(config, root, workspaces).join('\n')
+    expect(problems).toContain('.bun-version (bun patch): ordinary updates must retain')
+    expect(problems).not.toContain('package.json (bun patch): ordinary')
+  })
+
+  it('accepts later matching rules that restore the ordinary timing policy', () => {
+    const { root, workspaces, config } = fixture()
+    config.packageRules.unshift({ matchPackageNames: ['vitest'], schedule: [] })
+    config.packageRules.push({ matchPackageNames: ['vitest'], schedule: config.schedule })
     expect(inspectRenovatePolicy(config, root, workspaces)).toEqual([])
   })
 

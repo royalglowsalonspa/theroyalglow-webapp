@@ -14,17 +14,35 @@ Routine updates have two batches:
 | Platform dependencies | Bun/npm libraries across the root, every app and shared package, including production and development dependencies |
 | Tooling and infrastructure | GitHub Actions, the active invoicing Dockerfile's base images, and Bun runtime version declarations |
 
-New routine updates are scheduled throughout Monday in IST. The full-day window
-accommodates the hosted service's four-hour job scheduling interval and queue
-delays; a shorter window can be missed even when the configuration is valid.
-See [hosted job scheduling](https://docs.renovatebot.com/mend-hosted/job-scheduling/).
-Releases wait three days, plus Renovate's default 30-minute buffer, before eligibility.
-Renovate requires release timestamps for its proposed updates; updates without
-them remain pending in the dashboard for investigation. At most two ordinary
-Renovate PRs may be open at once; an approved major uses this same budget.
-Existing proposals may be refreshed outside the weekly creation window when necessary. Separate recurring
-lockfile-maintenance PRs are disabled to avoid a third routine batch; dependency
-updates still regenerate the committed shared `bun.lock`.
+Routine scan requests are scheduled for **Monday, Wednesday and Friday at
+00:00 UTC** (05:30 IST) by
+[`.github/workflows/renovate-schedule.yml`](../.github/workflows/renovate-schedule.yml).
+The workflow asks the existing Mend GitHub App to run using the generated
+Dependency updates dashboard's manual-run checkbox. It uses the repository's
+short-lived `GITHUB_TOKEN` with issue-edit permission; no second Renovate runner
+or additional bot credential is needed. The request changes only that checkbox,
+retaining dependency approvals and rebase selections. A pending request is
+idempotent. The workflow waits up to 15 minutes for the same dashboard's flag
+to clear with Renovate recorded as its editor; missing acknowledgement or API
+errors fail visibly. Acknowledgement proves the request was consumed. Check the
+Mend job results for scan completion and dependency-update failures.
+
+GitHub and Mend can queue the request and scan, so the cron expresses the intended
+request time rather than a guarantee that a scan starts at the exact second.
+Renovate's repository-level `schedule` does not trigger jobs. Its UTC eligibility
+window covers the full Monday, Wednesday and Friday to accommodate queued jobs
+and hosted background scans; routine branches are not updated outside those
+days. A one-hour midnight window could miss an otherwise valid queued request.
+See [hosted job scheduling](https://docs.renovatebot.com/mend-hosted/job-scheduling/)
+and [GitHub scheduled workflows](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
+
+Releases, including the Bun runtime, wait three days plus Renovate's default
+30-minute buffer before eligibility. Renovate requires release timestamps for
+its proposed updates; updates without them remain pending in the dashboard for
+investigation. At most two ordinary Renovate PRs may be open at once; an approved
+major uses this same budget. Separate recurring lockfile-maintenance PRs are
+disabled to avoid a third routine batch; dependency updates still regenerate the
+committed shared `bun.lock`.
 
 Root [`bunfig.toml`](../bunfig.toml) also enforces a three-day age gate during
 new direct and transitive npm resolution. This is necessary because Bun can
@@ -34,7 +52,8 @@ re-extraction used by its secondary age check, so the hosted warning
 `Could not re-extract the packageFile after updating it` does not enforce that
 check. Do not suppress the warning or remove the native gate. CI checks the
 committed Bun configuration and rejects exclusions or workspace overrides that
-weaken it. The root explicitly clears globally inherited release-age exclusions. See [Bun's minimum release age](https://bun.sh/docs/pm/cli/install#minimum-release-age).
+weaken it. The root explicitly clears globally inherited release-age exclusions.
+See [Bun's minimum release age](https://bun.sh/docs/pm/cli/install#minimum-release-age).
 
 The native gate affects new resolution; it does not downgrade existing locked
 versions, and frozen installs remain reproducible. After enabling it, regenerate
@@ -81,7 +100,8 @@ unchanged, and require a frozen install, the strict audit, compatibility checks
 and normal CI before merging. The one-off command can affect transitive
 resolutions too; unexplained extra upgrades must not be merged.
 
-Keep GitHub's dependency graph and Dependabot alerts enabled: Renovate consumes those alerts, and `bun audit` remains the
+Keep GitHub's dependency graph and Dependabot alerts enabled: Renovate consumes
+those alerts, and `bun audit` remains the
 blocking check for the complete installed dependency graph. Alerts without a
 compatible fix require migration work; changing bots cannot make them pass.
 
