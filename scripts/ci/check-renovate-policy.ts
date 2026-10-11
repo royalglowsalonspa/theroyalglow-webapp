@@ -9,9 +9,25 @@ type Value = Record<string, unknown>
 type PolicyManifest = Manifest & {
   workspaces?: string[]
 }
-type Bump = 'major' | 'minor' | 'patch'
-type Dependency = { name: string; kind: string; file: string; manager: string }
-type Route = { enabled: boolean; automerge: boolean; approval: boolean; group?: string }
+const updateTypes = [
+  'major',
+  'minor',
+  'patch',
+  'pin',
+  'digest',
+  'pinDigest',
+  'bump',
+  'rollback',
+] as const
+type UpdateType = (typeof updateTypes)[number]
+type Dependency = { name: string; depName?: string; kind: string; file: string; manager: string }
+type Route = {
+  enabled: boolean
+  automerge: boolean
+  approval: boolean
+  timingProblems: string[]
+  group?: string
+}
 
 const record = (value: unknown): value is Value =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -46,17 +62,37 @@ const selectors = new Set([
   'matchFileNames',
 ])
 
-function routeFor(config: Value, rules: Value[], dependency: Dependency, bump: Bump): Route {
+function inspectOrdinaryTimingPolicy(config: Value): string[] {
+  const problems: string[] = []
+  if (config.timezone !== 'UTC') problems.push('ordinary updates must use the UTC timezone.')
+  if (
+    !Array.isArray(config.schedule) ||
+    config.schedule.length !== 1 ||
+    config.schedule[0] !== '* * * * 1,3,5'
+  )
+    problems.push('ordinary updates must use full Monday, Wednesday and Friday UTC windows.')
+  if (config.minimumReleaseAge !== '3 days')
+    problems.push('ordinary updates must retain the three-day minimum release age.')
+  if (config.updateNotScheduled !== false)
+    problems.push('ordinary branches must not update outside the scheduled UTC days.')
+  return problems
+}
+
+function routeFor(config: Value, rules: Value[], dependency: Dependency, bump: UpdateType): Route {
   const state: Value = {
     enabled: config.enabled ?? true,
     automerge: config.automerge ?? false,
     dependencyDashboardApproval: config.dependencyDashboardApproval ?? false,
+    timezone: config.timezone,
+    schedule: config.schedule,
+    minimumReleaseAge: config.minimumReleaseAge,
+    updateNotScheduled: config.updateNotScheduled,
   }
   for (const rule of rules) {
     const fields: [string, string][] = [
       ['matchManagers', dependency.manager],
       ['matchPackageNames', dependency.name],
-      ['matchDepNames', dependency.name],
+      ['matchDepNames', dependency.depName ?? dependency.name],
       ['matchDepTypes', dependency.kind],
       ['matchUpdateTypes', bump],
       ['matchFileNames', dependency.file],
@@ -73,6 +109,7 @@ function routeFor(config: Value, rules: Value[], dependency: Dependency, bump: B
     enabled: state.enabled === true,
     automerge: state.automerge === true,
     approval: state.dependencyDashboardApproval === true,
+    timingProblems: inspectOrdinaryTimingPolicy(state),
     ...(groupName && groupSlug ? { group: `${groupName}:${groupSlug}` } : {}),
   }
 }
@@ -178,7 +215,8 @@ export function inspectRenovatePolicy(
 ): string[] {
   if (!record(config) || !Array.isArray(config.packageRules))
     return ['Renovate packageRules must be an array.']
-  const problems: string[] = []
+  const rootTimingProblems = inspectOrdinaryTimingPolicy(config)
+  const problems = rootTimingProblems.map((problem) => `Renovate: ${problem}`)
   const rules = config.packageRules.filter(record)
   if (rules.length !== config.packageRules.length)
     problems.push('Each package rule must be an object.')
@@ -314,6 +352,28 @@ export function inspectRenovatePolicy(
       kind: 'uses',
       file: '.github/workflows/ci.yml',
       manager: 'github-actions',
+    }
+    const bunVersionFile = {
+      name: 'bun',
+      depName: 'Bun',
+      kind: '',
+      file: '.bun-version',
+      manager: 'bun-version',
+    }
+    if (!rootTimingProblems.length) {
+      for (const dependency of [
+        ...declarations,
+        activeDocker,
+        action,
+        ...runtimes,
+        bunVersionFile,
+      ]) {
+        for (const updateType of updateTypes) {
+          const route = routeFor(config, rules, dependency, updateType)
+          for (const problem of route.timingProblems)
+            problems.push(`${dependency.file} (${dependency.name} ${updateType}): ${problem}`)
+        }
+      }
     }
     const runtimeMajors = new Set(
       runtimes.map((dependency) => routeFor(config, rules, dependency, 'major').group),
