@@ -1,0 +1,6 @@
+[install]
+# Enforce release age during direct and transitive lockfile resolution.
+# Renovate eligibility alone does not constrain Bun's range resolution.
+minimumReleaseAge = 259200
+# Clear any package exemptions inherited from the global Bun configuration.
+minimumReleaseAgeExcludes = []

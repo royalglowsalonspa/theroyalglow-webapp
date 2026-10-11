@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, matchesGlob, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -87,6 +88,87 @@ const families = [
   { label: 'Hono', patterns: ['hono', '@hono/*'] },
   { label: 'Tailwind', patterns: ['tailwindcss', '@tailwindcss/*'] },
 ]
+
+type BunConfig = { file: string; config: unknown }
+const minimumBunReleaseAge = 3 * 24 * 60 * 60
+
+/** Inspect parsed native configuration; never infer TOML semantics from text matching. */
+export function inspectBunReleaseAgePolicy(
+  rootConfig: unknown,
+  workspaceConfigs: BunConfig[] = [],
+): string[] {
+  const problems: string[] = []
+  for (const { file, config } of [
+    { file: 'bunfig.toml', config: rootConfig },
+    ...workspaceConfigs,
+  ]) {
+    if (!record(config) || (config.install !== undefined && !record(config.install))) {
+      problems.push(`${file}: Bun install settings must be a TOML table.`)
+      continue
+    }
+    const install = record(config.install) ? config.install : {}
+    if (
+      (file === 'bunfig.toml' || install.minimumReleaseAge !== undefined) &&
+      install.minimumReleaseAge !== minimumBunReleaseAge
+    )
+      problems.push(`${file}: install.minimumReleaseAge must be 259200 seconds (three days).`)
+    const exclusions = install.minimumReleaseAgeExcludes
+    if (file === 'bunfig.toml' && exclusions === undefined)
+      problems.push(
+        `${file}: explicitly set install.minimumReleaseAgeExcludes = [] to override inherited global exemptions.`,
+      )
+    if (exclusions !== undefined && (!Array.isArray(exclusions) || exclusions.length !== 0))
+      problems.push(
+        `${file}: persistent minimumReleaseAgeExcludes bypasses are forbidden; use the reviewed emergency procedure.`,
+      )
+  }
+  return problems
+}
+
+export function checkBunReleaseAgePolicy(
+  root: string,
+  workspaces: Pick<Workspace, 'label'>[],
+): string[] {
+  const problems: string[] = []
+  const configs: BunConfig[] = []
+  const files = ['bunfig.toml', ...workspaces.map(({ label }) => `${label}/bunfig.toml`)]
+  for (const file of files) {
+    const absolutePath = resolve(root, file)
+    if (!existsSync(absolutePath)) {
+      if (file === 'bunfig.toml')
+        problems.push('bunfig.toml: commit the native Bun three-day release-age policy.')
+      continue
+    }
+    try {
+      // The guard also runs in Node-based Vitest. Parse with the installed Bun
+      // runtime through stdin, without evaluating repository content as code.
+      const config: unknown = JSON.parse(
+        execFileSync(
+          'bun',
+          [
+            '--eval',
+            'try { console.log(JSON.stringify(Bun.TOML.parse(await Bun.stdin.text()))) } catch { process.exit(1) }',
+          ],
+          { input: readFileSync(absolutePath, 'utf8'), encoding: 'utf8', timeout: 10000 },
+        ),
+      )
+      configs.push({ file, config })
+    } catch {
+      problems.push(
+        `${file}: could not parse native TOML with Bun; check the file and Bun installation.`,
+      )
+    }
+  }
+  const rootConfig = configs.find(({ file }) => file === 'bunfig.toml')
+  if (rootConfig)
+    problems.push(
+      ...inspectBunReleaseAgePolicy(
+        rootConfig.config,
+        configs.filter(({ file }) => file !== 'bunfig.toml'),
+      ),
+    )
+  return problems
+}
 
 /** Check repository policy; the official Renovate validator checks the full schema. */
 export function inspectRenovatePolicy(
@@ -270,7 +352,9 @@ export function inspectRenovatePolicy(
     }
   }
   if (!record(config.vulnerabilityAlerts)) {
-    problems.push('Configure an immediate reviewed vulnerability-fix path.')
+    problems.push(
+      'Configure immediate reviewed Renovate security proposals; retain native Bun artifact age enforcement.',
+    )
   } else {
     const security = config.vulnerabilityAlerts
     if (
@@ -281,7 +365,7 @@ export function inspectRenovatePolicy(
       security.minimumReleaseAge !== '0 days'
     )
       problems.push(
-        'Security fixes must bypass routine schedules/age/approval while retaining review.',
+        'Renovate security proposals must bypass scheduling/proposal-age/approval while retaining review; Bun artifact age remains enforced.',
       )
   }
   return [...new Set(problems)]
@@ -290,7 +374,11 @@ export function inspectRenovatePolicy(
 export function checkRenovatePolicy(root: string): string[] {
   const manifest: PolicyManifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'))
   const config: unknown = JSON.parse(readFileSync(resolve(root, '.github/renovate.json'), 'utf8'))
-  const problems = inspectRenovatePolicy(config, manifest, collectWorkspaces(root))
+  const workspaces = collectWorkspaces(root)
+  const problems = [
+    ...inspectRenovatePolicy(config, manifest, workspaces),
+    ...checkBunReleaseAgePolicy(root, workspaces),
+  ]
   if (
     existsSync(resolve(root, '.github/dependabot.yml')) ||
     existsSync(resolve(root, '.github/dependabot.yaml'))
@@ -306,7 +394,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     process.exitCode = 1
   } else {
     console.log(
-      'Renovate maintains one shared Bun workspace, two routine batches and reviewed majors.',
+      'Renovate maintains one shared Bun workspace, two routine batches, reviewed majors and a native three-day Bun age gate.',
     )
   }
 }
