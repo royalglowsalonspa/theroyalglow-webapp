@@ -188,13 +188,13 @@ link the canonical issue when marking a duplicate.
 ## Automation labels
 
 The following exact names are referenced by
-[Dependabot](../.github/dependabot.yml). Changes to their names require checking
+[Renovate](../.github/renovate.json) and repository triage. Changes to their names require checking
 their consumers. A classification label alone does not grant permission to merge.
 
 | Label | Operational meaning |
 | --- | --- |
-| `dependencies` | Applied by Dependabot to its update pull requests. |
-| `github-actions` | Dependabot's GitHub Actions dependency classification. |
+| `dependencies` | Applied by Renovate to its update pull requests. |
+| `github-actions` | Optional GitHub Actions dependency classification for triage. |
 | `hotfix` | Urgency classification for an emergency production fix. |
 | `security` | Security remediation classification. |
 | `promotion` | Environment-promotion pull request classification. |

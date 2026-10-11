@@ -31,7 +31,7 @@
     "check:auth-dependencies": "bun run scripts/ci/check-auth-dependencies.ts",
     "check:cms-dependencies": "bun run scripts/ci/check-cms-dependencies.ts",
     "check:dependency-overrides": "bun run scripts/ci/check-dependency-overrides.ts",
-    "check:dependency-policy": "bun run scripts/ci/check-dependabot-policy.ts",
+    "check:dependency-policy": "bun run scripts/ci/check-renovate-policy.ts",
     "check:changelog-mdx": "bun run scripts/release/lint-changelog-mdx.ts",
     "check:admin-no-literals": "node scripts/admin-design/no-brand-literals.mjs",
     "check:admin-path-allowlist": "node scripts/admin-design/path-allowlist.mjs",
@@ -57,6 +57,7 @@
     "checkly": "^9.5.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
+    "sass": "^1.105.1",
     "semver": "^7.8.5",
     "sst": "^4.17.1",
     "turbo": "2.11.7",
@@ -68,8 +69,8 @@
     "dompurify": "3.4.16",
     "postcss": "8.5.28",
     "form-data": "4.0.6",
-    "undici@>=7.0.0 <7.29.1": "^7.29.1",
-    "sass@>=1.0.0 <1.105.1": "^1.105.1",
+    "undici@>=7.0.0 <7.29.1": "$undici",
+    "sass@>=1.0.0 <1.105.1": "$sass",
     "findup-sync@^4.0.0": "file:packages/findup-sync",
     "esbuild": "0.25.12",
     "brace-expansion": "5.0.12",
@@ -89,6 +90,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "nanoid": "^6.0.1"
+    "nanoid": "^6.0.1",
+    "undici": "^7.29.1"
   }
 }

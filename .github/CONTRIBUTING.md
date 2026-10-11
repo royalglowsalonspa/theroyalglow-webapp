@@ -80,11 +80,15 @@ Other env vars (per-app secrets, OAuth credentials, etc.) live in
 4. **Pass CI before requesting review.** The `ci.yml` workflow is the gate;
    if it's red, the PR is not ready. Watch the `dependency-audit` job
    particularly — it fails on any severity, not just high.
-5. **Get one approving review** from a code owner, then squash-merge. Use
-   the GitHub UI's "Squash and merge" so each PR becomes one commit on
-   `dev`. Don't use the "Rebase and merge" or "Create a merge commit"
-   buttons.
+5. **Get one approving review** from a code owner, then squash-merge by default.
+   If preserving the PR's existing commits is explicitly required, merge once
+   into `dev` with a structural `chore(merge): merge PR #<number>` subject and a
+   plain or empty body. Do not repeat a Conventional Commit title in that body;
+   Release Please would list it again. Never rewrite released history to remove
+   structural merge records.
 6. **Promote after the PR is merged into `dev`.** Run the **Promote validated commit** workflow from `dev`, choosing `test`, `pprd`, or `prod`. It runs checks and fast-forwards branches in order, preserving identical commits and messages. Production requires explicit maintainer confirmation at dispatch. See [promotion operations](../knowledge-base/branch-promotions.md).
+
+Dependency updates use [Renovate](../knowledge-base/dependency-automation.md): two routine batches, dashboard approval for majors, and separate urgent security fixes.
 
 ## Commit conventions
 

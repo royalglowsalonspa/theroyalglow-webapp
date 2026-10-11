@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { dirname, resolve } from 'node:path'
+import { dirname, isAbsolute, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 type Manifest = {
@@ -27,7 +27,7 @@ export const resolveInstalledPackage: PackageResolver = (consumer, name) => {
     resolutionError = error
   }
 
-  if (entry) {
+  if (entry && isAbsolute(entry)) {
     let directory = dirname(realpathSync(entry))
     while (true) {
       const path = resolve(directory, 'package.json')
@@ -41,10 +41,23 @@ export const resolveInstalledPackage: PackageResolver = (consumer, name) => {
     }
   }
 
+  // Bun can resolve a bundled module such as undici to its bare name instead
+  // of a disk entry. Resolve the installed package's metadata using a subpath
+  // so the runtime builtin cannot hide the actual audited dependency.
+  if (entry && !isAbsolute(entry)) {
+    try {
+      const path = realpathSync(require.resolve(`${name}/package.json`))
+      const manifest = readManifest(path)
+      if (manifest.name === name) return { path, manifest }
+    } catch (error) {
+      resolutionError = error
+    }
+  }
+
   // A package may expose only subpaths and hide both its root and package.json.
   // Read its metadata using Node's lookup order from the real consumer location,
   // so an isolated peer installation cannot accidentally pick a root dependency.
-  for (const directory of require.resolve.paths(name) ?? []) {
+  for (const directory of require.resolve.paths(`${name}/package.json`) ?? []) {
     const candidate = resolve(directory, name, 'package.json')
     if (!existsSync(candidate)) continue
     const path = realpathSync(candidate)

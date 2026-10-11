@@ -12,9 +12,11 @@ import { resolveInstalledPackage } from './check-auth-dependencies'
  */
 export type Manifest = {
   name?: string
+  packageManager?: string
   dependencies?: Record<string, string>
   devDependencies?: Record<string, string>
   peerDependencies?: Record<string, string>
+  optionalDependencies?: Record<string, string>
   overrides?: Record<string, string>
 }
 
@@ -60,7 +62,7 @@ function parseOverrides(root: Manifest, problems: string[]): Override[] {
       problems.push(`Unsupported dependency override key ${key}; extend the override check first.`)
       continue
     }
-    // A reference keeps a security resolution maintained by Dependabot's direct
+    // A reference keeps a security resolution maintained by the dependency bot's direct
     // dependency update. Resolve it before validating installed versions.
     if (range.startsWith('$')) {
       const reference = range.slice(1)
@@ -95,6 +97,7 @@ export function inspectOverrides(
   for (const workspace of workspaces) {
     const declarations = {
       ...workspace.manifest.peerDependencies,
+      ...workspace.manifest.optionalDependencies,
       ...workspace.manifest.devDependencies,
       ...workspace.manifest.dependencies,
     }

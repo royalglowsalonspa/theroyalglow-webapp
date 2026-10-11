@@ -276,6 +276,22 @@ jobs:
       - run: bun run release:check
       - run: bun test scripts/mcp/generate.test.ts
 
+  # Validate the upstream schema as well as our workspace/grouping policy.
+  # The image is itself maintained by Renovate's GitHub Actions manager.
+  renovate-config:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    container:
+      image: ghcr.io/renovatebot/renovate:44.149.3
+      options: --user 0
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - run: renovate-config-validator --strict --no-global .github/renovate.json
+
   unit-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -330,7 +346,7 @@ jobs:
         # Non-blocking: trivy-action's GHCR setup/DB pull rate-limits anonymous
         # access (TOOMANYREQUESTS), failing the step in ~2s before any scan —
         # an infra flake, not a finding. Kept for signal; `bun audit` is the gate.
-        # Pin to a released tag so updates arrive as reviewable Dependabot PRs;
+        # Pin to a released tag so updates arrive as reviewable dependency PRs;
         # a mutable `master` ref can change without any repository diff.
         uses: aquasecurity/trivy-action@v0.36.0
         continue-on-error: true
@@ -545,6 +561,7 @@ jobs:
       - invoicing-ci
       - lighthouse-web
       - lint-typecheck
+      - renovate-config
       - unit-tests
       - dependency-audit
       - cutover-guards
