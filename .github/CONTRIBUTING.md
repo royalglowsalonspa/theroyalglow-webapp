@@ -12,14 +12,14 @@ and [`SECURITY.md`](./SECURITY.md).
 
 ## Project at a glance
 
-- **Runtime / package manager:** Bun, tracked **floating on latest**. CI
-  (`oven-sh/setup-bun` with no `bun-version`), Render (`BUN_VERSION: latest`)
-  and the Dockerfiles (`oven/bun:latest`) all install the newest release, so
-  there is no version to bump in several places. `packageManager` in
-  `package.json` records the version last verified locally — the field cannot
-  say `latest` (its format is `name@version`), so treat it as a record, not a
-  pin; nothing enforces it, because Corepack does not support Bun.
-  Do not introduce pnpm / npm / yarn assumptions.
+- **Runtime / package manager:** Use the exact Bun version in the root
+  `packageManager` field and the committed `bun.lock`. Every workspace repeats
+  that version for Renovate's per-manifest runtime detection; CI enforces equality.
+  `oven-sh/setup-bun` reads `packageManager` when no version input is supplied.
+  Renovate keeps these declarations updated together. Render's `BUN_VERSION`
+  and floating container tags need separate deployment review; see
+  [dependency automation](../knowledge-base/dependency-automation.md).
+  Do not introduce a competing npm, pnpm or Yarn lockfile.
 - **Language:** TypeScript + JavaScript.
 - **Framework:** Next.js 16.2.9 (App Router) for web and admin; Payload CMS
   v3 for content; SST v4 for AWS Lambda + CloudFront deployment.
@@ -33,9 +33,8 @@ and [`SECURITY.md`](./SECURITY.md).
 
 Prerequisites:
 
-- **Bun — latest release** (`bun upgrade`). CI and the deploy targets all float
-  to latest, so a local Bun older than CI's is the usual source of
-  lockfile surprises.
+- **Bun — the root `packageManager` version**, matching CI and Renovate's
+  lockfile generation. Review runtime upgrades through the dependency PRs.
 - **PostgreSQL client** (for running migrations locally against Neon).
 - **`@neondatabase/mcp-server-neon`** or a `DATABASE_URL` from your Neon
   dashboard (the MCP entry is wired in `.mcp.json` for Claude Code and
@@ -48,7 +47,7 @@ First run:
 ```bash
 git clone https://github.com/royalglowsalonspa/theroyalglow-webapp.git
 cd theroyalglow-webapp
-bun install
+bun install --frozen-lockfile
 cp .env.example .env.local   # then fill in the four _RGSS credentials
 bun run dev                  # spins up web (3000) + admin (3001) + cms (3002)
 ```
