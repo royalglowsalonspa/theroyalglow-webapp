@@ -19,11 +19,29 @@ accommodates the hosted service's four-hour job scheduling interval and queue
 delays; a shorter window can be missed even when the configuration is valid.
 See [hosted job scheduling](https://docs.renovatebot.com/mend-hosted/job-scheduling/).
 Releases wait three days, plus Renovate's default 30-minute buffer, before eligibility.
-Release timestamps are required; updates without them remain pending in the
-dashboard for investigation. At most two ordinary Renovate PRs may be open at once; an approved major uses this same budget. Existing proposals may be
-refreshed outside the weekly creation window when necessary. Separate recurring
+Renovate requires release timestamps for its proposed updates; updates without
+them remain pending in the dashboard for investigation. At most two ordinary
+Renovate PRs may be open at once; an approved major uses this same budget.
+Existing proposals may be refreshed outside the weekly creation window when necessary. Separate recurring
 lockfile-maintenance PRs are disabled to avoid a third routine batch; dependency
 updates still regenerate the committed shared `bun.lock`.
+
+Root [`bunfig.toml`](../bunfig.toml) also enforces a three-day age gate during
+new direct and transitive npm resolution. This is necessary because Bun can
+resolve a newer version within an updated manifest range than the version
+Renovate selected. Renovate's Bun manager currently lacks the single-file
+re-extraction used by its secondary age check, so the hosted warning
+`Could not re-extract the packageFile after updating it` does not enforce that
+check. Do not suppress the warning or remove the native gate. CI checks the
+committed Bun configuration and rejects exclusions or workspace overrides that
+weaken it. The root explicitly clears globally inherited release-age exclusions. See [Bun's minimum release age](https://bun.sh/docs/pm/cli/install#minimum-release-age).
+
+The native gate affects new resolution; it does not downgrade existing locked
+versions, and frozen installs remain reproducible. After enabling it, regenerate
+any existing proposal that already resolved younger versions from the validated
+base lockfile. Bun may delay rapidly changing releases longer than three days.
+Bun accepts registry versions without publication timestamps, so the native gate
+is not proof of timestamp coverage for every transitive package.
 
 Every major remains visible in the **Dependency updates** dashboard and needs
 maintainer approval there before Renovate creates its PR. Approval authorizes a
@@ -47,11 +65,23 @@ lockfiles into this workspace. See [Renovate's Bun manager](https://docs.renovat
 
 ## Security and special declarations
 
-Security fixes have a separate budget of two open PRs. They
-bypass the routine schedule, release-age delay and dashboard approval, but still
-require review and every CI gate. The bot proposes the lowest fixed version to
-limit unrelated upgrade scope. Keep GitHub's dependency graph and Dependabot
-alerts enabled: Renovate consumes those alerts, and `bun audit` remains the
+Security fixes have a separate budget of two open PRs. Renovate bypasses its
+routine schedule, proposal-age delay and dashboard approval, but every fix still
+requires review and every CI gate. The bot proposes the lowest fixed version to
+limit unrelated upgrade scope. Bun's native age gate remains active during
+artifact generation: a fix published less than three days ago can be blocked
+until it ages. The hosted Bun manager has no automatic per-security-PR exemption.
+
+For an urgent, reviewed fix, prepare only the necessary manifest/override changes
+on the existing security proposal, then generate its lockfile once with
+`bun install --lockfile-only --ignore-scripts --minimum-release-age 0`. This is a
+manual generation step, never a CI or scheduled-bot flag. Review every changed
+locked version against the advisory and upstream changelog, keep `bunfig.toml`
+unchanged, and require a frozen install, the strict audit, compatibility checks
+and normal CI before merging. The one-off command can affect transitive
+resolutions too; unexplained extra upgrades must not be merged.
+
+Keep GitHub's dependency graph and Dependabot alerts enabled: Renovate consumes those alerts, and `bun audit` remains the
 blocking check for the complete installed dependency graph. Alerts without a
 compatible fix require migration work; changing bots cannot make them pass.
 

@@ -1,8 +1,14 @@
 import { execFileSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vitest'
 import type { Workspace } from './check-dependency-overrides'
-import { inspectRenovatePolicy } from './check-renovate-policy'
+import {
+  checkBunReleaseAgePolicy,
+  inspectBunReleaseAgePolicy,
+  inspectRenovatePolicy,
+} from './check-renovate-policy'
 
 type Rule = Record<string, unknown>
 function fixture() {
@@ -59,6 +65,119 @@ function fixture() {
   }
   return { root, workspaces, config }
 }
+
+describe('native Bun release-age policy', () => {
+  const protectedConfig = {
+    install: { minimumReleaseAge: 259200, minimumReleaseAgeExcludes: [] },
+  }
+
+  function configFixture(rootContents?: string) {
+    const prefix = resolve(tmpdir(), 'rgss-bun-policy-')
+    const root = mkdtempSync(prefix)
+    onTestFinished(() => {
+      if (!resolve(root).startsWith(prefix)) throw new Error('Unexpected fixture directory')
+      rmSync(root, { recursive: true, force: true })
+    })
+    if (rootContents !== undefined) writeFileSync(resolve(root, 'bunfig.toml'), rootContents)
+    return root
+  }
+
+  it('requires native three-day enforcement and permits unrelated workspace settings', () => {
+    expect(
+      inspectBunReleaseAgePolicy(protectedConfig, [
+        { file: 'apps/web/bunfig.toml', config: { test: { coverage: true } } },
+        {
+          file: 'packages/library/bunfig.toml',
+          config: { install: { minimumReleaseAge: 259200, minimumReleaseAgeExcludes: [] } },
+        },
+      ]),
+    ).toEqual([])
+  })
+
+  it.each([undefined, 0, 86400, 259201, '259200', false, null])(
+    'rejects missing, weakened or inconsistent root age %s',
+    (minimumReleaseAge) => {
+      expect(inspectBunReleaseAgePolicy({ install: { minimumReleaseAge } }).join('\n')).toContain(
+        'bunfig.toml: install.minimumReleaseAge must be 259200 seconds',
+      )
+    },
+  )
+
+  it('rejects invalid install tables instead of treating them as absent settings', () => {
+    for (const config of [null, [], { install: [] }, { install: 'minimumReleaseAge=259200' }]) {
+      expect(inspectBunReleaseAgePolicy(config).join('\n')).toContain('must be a TOML table')
+    }
+  })
+
+  it('requires explicit empty root exclusions to override inherited global exemptions', () => {
+    expect(
+      inspectBunReleaseAgePolicy({ install: { minimumReleaseAge: 259200 } }).join('\n'),
+    ).toContain(
+      'explicitly set install.minimumReleaseAgeExcludes = [] to override inherited global exemptions',
+    )
+    expect(inspectBunReleaseAgePolicy(protectedConfig)).toEqual([])
+  })
+
+  it('rejects permanent package exemptions at root and workspace scope', () => {
+    for (const minimumReleaseAgeExcludes of [['*'], ['posthog-node'], 'posthog-node', null]) {
+      const config = { install: { minimumReleaseAge: 259200, minimumReleaseAgeExcludes } }
+      expect(inspectBunReleaseAgePolicy(config).join('\n')).toContain(
+        'bunfig.toml: persistent minimumReleaseAgeExcludes bypasses are forbidden',
+      )
+      expect(
+        inspectBunReleaseAgePolicy(protectedConfig, [
+          { file: 'apps/invoicing/bunfig.toml', config },
+        ]).join('\n'),
+      ).toContain('apps/invoicing/bunfig.toml: persistent minimumReleaseAgeExcludes')
+    }
+  })
+
+  it('rejects conflicting workspace age overrides with the responsible file', () => {
+    expect(
+      inspectBunReleaseAgePolicy(protectedConfig, [
+        { file: 'apps/admin/bunfig.toml', config: { install: { minimumReleaseAge: 0 } } },
+      ]).join('\n'),
+    ).toContain('apps/admin/bunfig.toml: install.minimumReleaseAge must be 259200 seconds')
+  })
+
+  it('uses native TOML semantics for quoted dotted keys, numeric separators and comments', () => {
+    const root = configFixture(
+      '# minimumReleaseAge = 0 is only a comment\n"install"."minimumReleaseAge" = 259_200\ninstall.minimumReleaseAgeExcludes = []\n',
+    )
+    expect(checkBunReleaseAgePolicy(root, [])).toEqual([])
+    writeFileSync(
+      resolve(root, 'bunfig.toml'),
+      '# [install]\n# minimumReleaseAge = 259200\n[install]\n"minimumReleaseAge" = 0\n',
+    )
+    expect(checkBunReleaseAgePolicy(root, []).join('\n')).toContain('must be 259200 seconds')
+  })
+
+  it('fails closed for missing and malformed native configuration', () => {
+    const root = configFixture()
+    expect(checkBunReleaseAgePolicy(root, []).join('\n')).toContain('commit the native Bun')
+    writeFileSync(
+      resolve(root, 'bunfig.toml'),
+      '[install]\nminimumReleaseAge = 259200\nminimumReleaseAge = 0\n',
+    )
+    expect(checkBunReleaseAgePolicy(root, []).join('\n')).toContain('could not parse native TOML')
+  })
+
+  it('discovers workspace overrides and reports malformed local TOML', () => {
+    const root = configFixture(
+      '[install]\nminimumReleaseAge = 259200\nminimumReleaseAgeExcludes = []\n',
+    )
+    const file = resolve(root, 'apps/web/bunfig.toml')
+    mkdirSync(resolve(root, 'apps/web'), { recursive: true })
+    writeFileSync(file, 'install.minimumReleaseAge = 0\n')
+    expect(checkBunReleaseAgePolicy(root, [{ label: 'apps/web' }]).join('\n')).toContain(
+      'apps/web/bunfig.toml: install.minimumReleaseAge must be 259200 seconds',
+    )
+    writeFileSync(file, '[install\n')
+    expect(checkBunReleaseAgePolicy(root, [{ label: 'apps/web' }]).join('\n')).toContain(
+      'apps/web/bunfig.toml: could not parse native TOML',
+    )
+  })
+})
 
 describe('Renovate workspace and PR policy', () => {
   it('accepts one platform batch across dependency types and workspace manifests', () => {
@@ -298,7 +417,7 @@ describe('Renovate workspace and PR policy', () => {
     )
   })
 
-  it('keeps security updates immediate and reviewed outside the routine batch', () => {
+  it('keeps Renovate security proposals immediate and reviewed while Bun artifact age remains enforced', () => {
     const { root, workspaces, config } = fixture()
     for (const unsafe of [
       { enabled: false },
@@ -313,7 +432,7 @@ describe('Renovate workspace and PR policy', () => {
           root,
           workspaces,
         ).join('\n'),
-      ).toContain('Security fixes must bypass')
+      ).toContain('Renovate security proposals must bypass')
     }
   })
 
