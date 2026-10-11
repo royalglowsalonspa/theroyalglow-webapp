@@ -15,8 +15,9 @@ Routine updates have two batches:
 | Tooling and infrastructure | GitHub Actions, the active invoicing Dockerfile's base images, and Bun runtime version declarations |
 
 New routine updates are scheduled on Mondays from 08:00 to 11:00 IST. Releases
-with known release timestamps wait three days before eligibility. At most two
-ordinary Renovate PRs may be open at once; an approved major uses this same budget. Existing proposals may be
+wait three days, plus Renovate's default 30-minute buffer, before eligibility.
+Release timestamps are required; updates without them remain pending in the
+dashboard for investigation. At most two ordinary Renovate PRs may be open at once; an approved major uses this same budget. Existing proposals may be
 refreshed outside the weekly creation window when necessary. Separate recurring
 lockfile-maintenance PRs are disabled to avoid a third routine batch; dependency
 updates still regenerate the committed shared `bun.lock`.
