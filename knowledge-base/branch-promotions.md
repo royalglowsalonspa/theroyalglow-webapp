@@ -2,8 +2,11 @@
 
 ## Current branch policy
 
-Feature and dependency work enters `dev` through a pull request, then a direct
-merge. The intended gate is `.github/rulesets/dev.json` (an approving review plus
+Feature and dependency work enters `dev` once through a reviewed pull request.
+Squash is the default; explicitly retained source commits use one structural
+merge, as described in [CONTRIBUTING](../.github/CONTRIBUTING.md). Renovate's update
+batches and major approvals are in [dependency automation](dependency-automation.md).
+The intended gate is `.github/rulesets/dev.json` (an approving review plus
 the required status checks); it is not imported yet, see Validation prerequisites.
 The `test`, `pprd`, and `prod` branches receive the exact same commits
 through `.github/workflows/promote.yml`; environment promotion PRs are not used.

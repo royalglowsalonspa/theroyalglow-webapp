@@ -1,6 +1,8 @@
+import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { resolveInstalledPackage } from './check-auth-dependencies'
 
@@ -86,6 +88,22 @@ describe('resolveInstalledPackage', () => {
       `Cannot locate installed widget manifest from ${consumer}`,
     )
   })
+
+  it.each([false, true])(
+    'finds an installed Bun builtin with hidden metadata: %s',
+    (rootExport) => {
+      const consumer = writePackage(root, 'application', '1.0.0')
+      const path = writePackage(join(root, 'node_modules/undici'), 'undici', '7.30.0', rootExport)
+      const module = pathToFileURL(join(import.meta.dirname, 'check-auth-dependencies.ts')).href
+      const script = `import { resolveInstalledPackage } from ${JSON.stringify(module)};
+      console.log(JSON.stringify(resolveInstalledPackage(${JSON.stringify(consumer)}, 'undici')))`
+      const output = execFileSync('bun', ['--eval', script], { encoding: 'utf8', timeout: 30000 })
+      expect(JSON.parse(output)).toMatchObject({
+        path,
+        manifest: { name: 'undici', version: '7.30.0' },
+      })
+    },
+  )
 
   it('identifies the missing package and consumer and retains the resolution failure', () => {
     const consumer = writePackage(root, 'application', '1.0.0')

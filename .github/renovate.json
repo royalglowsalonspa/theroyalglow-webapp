@@ -1,0 +1,145 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "baseBranchPatterns": ["dev"],
+  "enabledManagers": ["bun", "npm", "bun-version", "github-actions", "dockerfile"],
+  "timezone": "Asia/Kolkata",
+  "schedule": ["after 8am and before 11am on monday"],
+  "minimumReleaseAge": "3 days",
+  "internalChecksFilter": "strict",
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "Dependency updates",
+  "dependencyDashboardApproval": false,
+  "prConcurrentLimit": 2,
+  "prHourlyLimit": 2,
+  "automerge": false,
+  "platformAutomerge": false,
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
+  "labels": ["dependencies"],
+  "rangeStrategy": "bump",
+  "separateMajorMinor": true,
+  "separateMinorPatch": false,
+  "separateMultipleMajor": false,
+  "lockFileMaintenance": {
+    "enabled": false
+  },
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "groupName": null,
+    "schedule": [],
+    "minimumReleaseAge": "0 days",
+    "dependencyDashboardApproval": false,
+    "prConcurrentLimit": 2,
+    "prCreation": "immediate",
+    "automerge": false,
+    "semanticCommitType": "fix",
+    "vulnerabilityFixStrategy": "lowest"
+  },
+  "packageRules": [
+    {
+      "description": "One platform batch across every Bun/npm workspace and dependency type.",
+      "matchManagers": ["bun", "npm"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest", "pinDigest", "bump", "rollback"],
+      "groupName": "platform dependencies",
+      "groupSlug": "platform-dependencies"
+    },
+    {
+      "description": "One routine tooling batch for actions, active container images and Bun version files.",
+      "matchManagers": ["github-actions", "dockerfile", "bun-version"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest", "pinDigest", "bump", "rollback"],
+      "groupName": "tooling and infrastructure",
+      "groupSlug": "tooling-and-infrastructure"
+    },
+    {
+      "description": "Keep the Bun packageManager runtime in the tooling batch rather than platform libraries.",
+      "matchManagers": ["bun", "npm"],
+      "matchPackageNames": ["bun"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest", "pinDigest", "bump", "rollback"],
+      "groupName": "tooling and infrastructure",
+      "groupSlug": "tooling-and-infrastructure"
+    },
+    {
+      "description": "Every major remains visible but requires a maintainer's dashboard approval before a PR.",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true,
+      "groupName": null,
+      "groupSlug": null
+    },
+    {
+      "description": "Keep every workspace packageManager declaration synchronized for Bun major migrations.",
+      "matchManagers": ["bun", "npm"],
+      "matchPackageNames": ["bun"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "Bun runtime migration",
+      "groupSlug": "bun-runtime-migration"
+    },
+    {
+      "description": "Approve and migrate Vitest runner and providers together across workspaces.",
+      "matchManagers": ["bun", "npm"],
+      "matchPackageNames": ["vitest", "@vitest/*"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "Vitest migration",
+      "groupSlug": "vitest-migration"
+    },
+    {
+      "description": "Payload and GraphQL majors need a coordinated schema and runtime migration.",
+      "matchManagers": ["bun", "npm"],
+      "matchPackageNames": ["payload", "@payloadcms/*", "graphql"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "Payload and GraphQL migration",
+      "groupSlug": "payload-graphql-migration"
+    },
+    {
+      "description": "Review Next, React and React typings as one major migration.",
+      "matchManagers": ["bun", "npm"],
+      "matchPackageNames": [
+        "next",
+        "@next/*",
+        "react",
+        "react-dom",
+        "@types/react",
+        "@types/react-dom"
+      ],
+      "matchUpdateTypes": ["major"],
+      "groupName": "Next and React migration",
+      "groupSlug": "next-react-migration"
+    },
+    {
+      "description": "Authentication majors must preserve shared session and schema contracts.",
+      "matchManagers": ["bun", "npm"],
+      "matchPackageNames": ["better-auth", "@better-auth/*"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "Better Auth migration",
+      "groupSlug": "better-auth-migration"
+    },
+    {
+      "description": "Migrate Hono and its runtime adapters together.",
+      "matchManagers": ["bun", "npm"],
+      "matchPackageNames": ["hono", "@hono/*"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "Hono migration",
+      "groupSlug": "hono-migration"
+    },
+    {
+      "description": "Migrate Tailwind core and adapters together.",
+      "matchManagers": ["bun", "npm"],
+      "matchPackageNames": ["tailwindcss", "@tailwindcss/*"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "Tailwind migration",
+      "groupSlug": "tailwind-migration"
+    },
+    {
+      "description": "Retired hosting Dockerfiles are outside the active deployment update scope.",
+      "matchManagers": ["dockerfile"],
+      "enabled": false
+    },
+    {
+      "description": "Only the active Cloud Run invoicing Dockerfile receives image updates.",
+      "matchManagers": ["dockerfile"],
+      "matchFileNames": ["apps/invoicing/Dockerfile"],
+      "enabled": true
+    }
+  ]
+}

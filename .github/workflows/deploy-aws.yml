@@ -67,10 +67,8 @@ jobs:
         with:
           ref: ${{ inputs.git_ref || github.ref }}
 
-      # No `bun-version`: setup-bun installs the latest release, matching every
-      # other workflow in this repo. Bun is tracked floating on purpose — see
-      # CONTRIBUTING.md. Pinning here while CI floated meant a deploy could run
-      # on a different Bun than the one that validated the commit.
+      # With no version input, setup-bun reads root packageManager. This uses
+      # the same reviewed Bun runtime as CI and Renovate's lockfile generation.
       - uses: oven-sh/setup-bun@v2
 
       - run: bun install --frozen-lockfile

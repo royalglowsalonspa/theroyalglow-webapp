@@ -65,6 +65,7 @@ live here. `README.md` lives in the repo root; `CONTRIBUTING.md` lives in `.gith
 
 | Document | Description |
 |----------|-------------|
+| [dependency-automation.md](./dependency-automation.md) | Renovate update batches, major migrations, security fixes and activation |
 | [testing.md](./testing.md) | Testing strategy — production quality engineering |
 | [launch-checklist.md](./launch-checklist.md) | Launch checklist — Production Readiness Review |
 | [LAUNCH.md](./LAUNCH.md) | Launch runbook |
