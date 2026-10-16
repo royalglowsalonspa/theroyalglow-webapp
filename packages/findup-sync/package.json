@@ -21,7 +21,7 @@
   "devDependencies": {
     "@types/detect-file": "1.0.0",
     "@types/is-glob": "4.0.4",
-    "@types/node": "^26.6.4",
+    "@types/node": "^26.6.5",
     "@types/picomatch": "4.0.3",
     "@types/resolve-dir": "0.0.0",
     "typescript": "7.0.2"
