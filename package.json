@@ -49,37 +49,37 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
-    "@playwright/test": "^1.63.0",
-    "@types/node": "^26.6.4",
+    "@playwright/test": "^1.64.0",
+    "@types/node": "^26.6.5",
     "@types/semver": "^7.8.0",
-    "@vitejs/plugin-react": "^6.1.0",
-    "@vitest/coverage-v8": "5.0.3",
+    "@vitejs/plugin-react": "^6.1.2",
+    "@vitest/coverage-v8": "5.0.4",
     "checkly": "^9.5.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
     "sass": "^1.105.1",
     "semver": "^7.8.5",
-    "sst": "^4.17.1",
+    "sst": "^4.17.2",
     "turbo": "2.11.7",
     "typescript": "7.0.2",
-    "vitest": "5.0.3"
+    "vitest": "5.0.4"
   },
   "overrides": {
     "kysely": "0.29.6",
-    "dompurify": "3.4.16",
-    "postcss": "8.5.28",
+    "dompurify": "3.4.17",
+    "postcss": "8.5.30",
     "form-data": "4.0.6",
     "undici@>=7.0.0 <7.29.1": "$undici",
     "sass@>=1.0.0 <1.105.1": "$sass",
     "findup-sync@^4.0.0": "file:packages/findup-sync",
-    "esbuild": "0.25.12",
+    "esbuild": "0.28.2",
     "brace-expansion": "5.0.12",
-    "shell-quote": "1.10.0",
+    "shell-quote": "1.12.0",
     "fast-uri": "3.1.8",
-    "ip-address": "10.7.3",
-    "js-yaml": "5.4.1",
+    "ip-address": "10.7.4",
+    "js-yaml": "5.4.3",
     "@modelcontextprotocol/sdk": "$@modelcontextprotocol/sdk",
-    "browserslist": "4.28.7",
+    "browserslist": "4.29.3",
     "qs": "6.16.0",
     "fflate": "0.8.3"
   },
@@ -90,7 +90,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "nanoid": "^6.0.1",
-    "undici": "^7.29.1"
+    "nanoid": "^6.0.2",
+    "undici": "^7.30.0"
   }
 }
