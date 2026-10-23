@@ -78,15 +78,12 @@ function inspectOrdinaryTimingPolicy(config: Value): string[] {
   return problems
 }
 
-function routeFor(config: Value, rules: Value[], dependency: Dependency, bump: UpdateType): Route {
+function stateFor(config: Value, rules: Value[], dependency: Dependency, bump: string): Value {
   const state: Value = {
-    enabled: config.enabled ?? true,
-    automerge: config.automerge ?? false,
-    dependencyDashboardApproval: config.dependencyDashboardApproval ?? false,
-    timezone: config.timezone,
-    schedule: config.schedule,
-    minimumReleaseAge: config.minimumReleaseAge,
-    updateNotScheduled: config.updateNotScheduled,
+    enabled: true,
+    automerge: false,
+    dependencyDashboardApproval: false,
+    ...config,
   }
   for (const rule of rules) {
     const fields: [string, string][] = [
@@ -103,6 +100,11 @@ function routeFor(config: Value, rules: Value[], dependency: Dependency, bump: U
       continue
     Object.assign(state, rule)
   }
+  return state
+}
+
+function routeFor(config: Value, rules: Value[], dependency: Dependency, bump: UpdateType): Route {
+  const state = stateFor(config, rules, dependency, bump)
   const groupName = typeof state.groupName === 'string' ? state.groupName : undefined
   const groupSlug = typeof state.groupSlug === 'string' ? state.groupSlug : groupName
   return {
@@ -112,6 +114,65 @@ function routeFor(config: Value, rules: Value[], dependency: Dependency, bump: U
     timingProblems: inspectOrdinaryTimingPolicy(state),
     ...(groupName && groupSlug ? { group: `${groupName}:${groupSlug}` } : {}),
   }
+}
+
+function inspectLockfileMaintenancePolicy(config: Value, rules: Value[]): string[] {
+  const problems: string[] = []
+  if (!record(config.lockFileMaintenance))
+    return ['Enable native weekly Bun lockfile maintenance to refresh transitive dependencies.']
+  const maintenance = config.lockFileMaintenance
+  // Native maintenance is a separate update type. It must use the same ordinary
+  // PR budget; overriding its branch identity to collide with a package group is
+  // explicitly unsupported by Renovate.
+  if (
+    maintenance.prConcurrentLimit !== undefined ||
+    maintenance.branchConcurrentLimit !== undefined ||
+    rules.some((rule) => rule.lockFileMaintenance !== undefined)
+  )
+    problems.push(
+      'Lockfile maintenance must inherit the ordinary two-PR budget and one root policy.',
+    )
+  const state = stateFor(
+    { ...config, ...maintenance },
+    rules,
+    { name: '', kind: '', file: 'package.json', manager: 'bun' },
+    'lockFileMaintenance',
+  )
+  if (state.enabled !== true)
+    problems.push(
+      'Enable native weekly Bun lockfile maintenance to refresh transitive dependencies.',
+    )
+  if (
+    state.timezone !== 'UTC' ||
+    !Array.isArray(state.schedule) ||
+    state.schedule.length !== 1 ||
+    state.schedule[0] !== '* * * * 1'
+  )
+    problems.push('Lockfile maintenance must use the full Monday UTC window.')
+  if (state.automerge !== false || state.dependencyDashboardApproval !== false)
+    problems.push(
+      'Lockfile maintenance must require merge review without dashboard proposal approval.',
+    )
+  if (state.minimumReleaseAge !== '3 days' || state.updateNotScheduled !== false)
+    problems.push(
+      'Lockfile maintenance must retain the three-day age policy and scheduled updates.',
+    )
+  if (state.prConcurrentLimit !== config.prConcurrentLimit)
+    problems.push(
+      'Lockfile maintenance must inherit the ordinary two-PR budget and one root policy.',
+    )
+  if (state.prPriority !== 10)
+    problems.push(
+      'Lockfile maintenance must retain priority 10 so a free ordinary PR slot is used promptly.',
+    )
+  if (
+    (state.groupName !== undefined && state.groupName !== null) ||
+    (state.groupSlug !== undefined && state.groupSlug !== null) ||
+    (state.branchTopic !== undefined && state.branchTopic !== 'lock-file-maintenance') ||
+    state.branchName !== undefined
+  )
+    problems.push('Keep native lockfile maintenance separate from dependency-update branches.')
+  return problems
 }
 
 const families = [
@@ -305,6 +366,7 @@ export function inspectRenovatePolicy(
     }
   }
   try {
+    problems.push(...inspectLockfileMaintenancePolicy(config, rules))
     const ordinaryGroups = new Set<string | undefined>()
     for (const dependency of declarations) {
       for (const bump of ['minor', 'patch', 'major'] as const) {
@@ -454,7 +516,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     process.exitCode = 1
   } else {
     console.log(
-      'Renovate maintains one shared Bun workspace, two routine batches, reviewed majors and a native three-day Bun age gate.',
+      'Renovate maintains one shared Bun workspace, a two-PR routine budget, weekly transitive refreshes, reviewed majors and a native three-day Bun age gate.',
     )
   }
 }

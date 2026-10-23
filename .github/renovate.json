@@ -24,7 +24,11 @@
   "separateMinorPatch": false,
   "separateMultipleMajor": false,
   "lockFileMaintenance": {
-    "enabled": false
+    "enabled": true,
+    "schedule": ["* * * * 1"],
+    "automerge": false,
+    "dependencyDashboardApproval": false,
+    "prPriority": 10
   },
   "vulnerabilityAlerts": {
     "enabled": true,

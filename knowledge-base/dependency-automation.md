@@ -40,9 +40,22 @@ Releases, including the Bun runtime, wait three days plus Renovate's default
 30-minute buffer before eligibility. Renovate requires release timestamps for
 its proposed updates; updates without them remain pending in the dashboard for
 investigation. At most two ordinary Renovate PRs may be open at once; an approved
-major uses this same budget. Separate recurring lockfile-maintenance PRs are
-disabled to avoid a third routine batch; dependency updates still regenerate the
-committed shared `bun.lock`.
+major uses this same budget. Native lockfile maintenance runs in the full Monday
+UTC window, refreshing direct and transitive resolutions within the committed
+manifest constraints. Ordinary manifest updates use `bun install`, which preserves
+already locked versions when their constraints still permit them; changing a
+parent dependency therefore does not reliably refresh every vulnerable child.
+
+Maintenance is a separate proposal because Renovate does not support grouping it
+with ordinary dependency upgrades. It shares the same two-open-PR budget rather
+than creating a third simultaneous ordinary PR. Priority 10 puts a queued
+maintenance proposal ahead of ordinary priority-zero batches when a slot becomes
+free; it does not bypass the cap or close existing PRs. Review and merge validated
+proposals promptly so the two occupied slots do not indefinitely block other
+updates. Maintenance never automerges or requires dashboard approval to be
+proposed. The native Bun three-day gate applies to its fresh resolutions too.
+See [lockfile maintenance](https://docs.renovatebot.com/configuration-options/#lockfilemaintenance)
+and [grouping limitations](https://docs.renovatebot.com/configuration-options/#groupname).
 
 Root [`bunfig.toml`](../bunfig.toml) also enforces a three-day age gate during
 new direct and transitive npm resolution. This is necessary because Bun can
@@ -101,14 +114,28 @@ and normal CI before merging. The one-off command can affect transitive
 resolutions too; unexplained extra upgrades must not be merged.
 
 Keep GitHub's dependency graph and Dependabot alerts enabled: Renovate consumes
-those alerts, and `bun audit` remains the
-blocking check for the complete installed dependency graph. Alerts without a
-compatible fix require migration work; changing bots cannot make them pass.
+those alerts. GitHub does not currently parse `bun.lock` as a supported static
+lockfile. Its manifest-only graph omits resolved transitive versions and root
+overrides, so enabled alerts are not proof that every Bun vulnerability will get
+a dedicated security PR. The live graph checked on 24 October 2026 contained the
+12 package manifests and workflows, but no Bun lockfile or the vulnerable
+`follow-redirects`, `vite` and `dompurify` resolutions. The alerts API returned no
+alerts while the strict audit found affected packages. See
+[GitHub's supported dependency-graph files](https://docs.github.com/en/code-security/reference/supply-chain-security/dependency-graph-supported-package-ecosystems).
+
+`bun audit` remains the blocking check for the complete locked dependency graph;
+weekly native maintenance keeps otherwise unchanged transitive resolutions moving.
+A newly published advisory can still turn an existing branch red before a fix is
+available or reviewed. Fix the affected versions, merge the validated fix into
+`dev`, and regenerate outstanding proposals from that base; do not suppress the
+audit or change its severity threshold. Alerts without a compatible fix require
+migration work; changing bots cannot guarantee that future CI always stays green.
 
 Root `overrides` are part of the dependency contract. The MCP SDK, Undici and
-Sass use `$...` references to maintained direct root dependencies. Native Bun
+Sass and the reviewed Zod compatibility migration use `$...` references to maintained
+direct root dependencies. Native Bun
 updates change those declarations and regenerate the shared lockfile. Preserve
-the version-qualified `undici@...` and `sass@...` selector keys and the local
+the version-qualified `undici@...`, `sass@...` and `zod@...` selector keys and the local
 `file:packages/findup-sync` package. Do not replace maintained references with
 stale numeric pins. A major upgrade to a security-anchor dependency also needs
 review of the selector's affected consumers; dashboard approval does not prove

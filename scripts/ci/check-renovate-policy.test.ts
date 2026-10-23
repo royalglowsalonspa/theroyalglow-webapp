@@ -59,6 +59,13 @@ function fixture() {
     minimumReleaseAge: '3 days',
     updateNotScheduled: false,
     packageRules,
+    lockFileMaintenance: {
+      enabled: true,
+      schedule: ['* * * * 1'],
+      automerge: false,
+      dependencyDashboardApproval: false,
+      prPriority: 10,
+    },
     vulnerabilityAlerts: {
       enabled: true,
       automerge: false,
@@ -184,6 +191,67 @@ describe('native Bun release-age policy', () => {
 })
 
 describe('Renovate workspace and PR policy', () => {
+  it('keeps weekly transitive refreshes in the ordinary two-PR budget', () => {
+    const { config, root, workspaces } = fixture()
+    expect(inspectRenovatePolicy(config, root, workspaces)).toEqual([])
+    expect(config.prConcurrentLimit).toBe(2)
+    expect(config.lockFileMaintenance).not.toHaveProperty('prConcurrentLimit')
+  })
+
+  it.each([
+    { enabled: false },
+    { schedule: [] },
+    { schedule: ['* * * * 1,3,5'] },
+    { timezone: 'Asia/Kolkata' },
+    { automerge: true },
+    { dependencyDashboardApproval: true },
+    { minimumReleaseAge: '0 days' },
+    { updateNotScheduled: true },
+    { prPriority: 0 },
+    { prConcurrentLimit: 3 },
+    { branchConcurrentLimit: 3 },
+    { groupName: 'platform' },
+    { branchTopic: 'platform-dependencies' },
+    { branchName: 'renovate/platform-dependencies' },
+  ])('rejects weakened or conflicting lockfile maintenance %j', (change) => {
+    const { config, root, workspaces } = fixture()
+    const changed = {
+      ...config,
+      lockFileMaintenance: { ...config.lockFileMaintenance, ...change },
+    }
+    expect(inspectRenovatePolicy(changed, root, workspaces).join('\n')).toMatch(
+      /[Ll]ockfile maintenance/,
+    )
+  })
+
+  it('rejects missing maintenance and later matching rule overrides', () => {
+    const { config, root, workspaces } = fixture()
+    expect(
+      inspectRenovatePolicy({ ...config, lockFileMaintenance: undefined }, root, workspaces).join(
+        '\n',
+      ),
+    ).toContain('Enable native weekly Bun lockfile maintenance')
+    for (const change of [
+      { enabled: false },
+      { automerge: true },
+      { schedule: [] },
+      { dependencyDashboardApproval: true },
+      { prConcurrentLimit: 3 },
+      { lockFileMaintenance: { enabled: false } },
+    ]) {
+      const changed = {
+        ...config,
+        packageRules: [
+          ...config.packageRules,
+          { matchManagers: ['bun'], matchUpdateTypes: ['lockFileMaintenance'], ...change },
+        ],
+      }
+      expect(inspectRenovatePolicy(changed, root, workspaces).join('\n')).toMatch(
+        /[Ll]ockfile maintenance/,
+      )
+    }
+  })
+
   it('accepts one platform batch across dependency types and workspace manifests', () => {
     const { root, workspaces, config } = fixture()
     expect(inspectRenovatePolicy(config, root, workspaces)).toEqual([])
