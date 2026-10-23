@@ -224,3 +224,55 @@ across 1,319 packages, strict CI-guard/workspace/tooling types, lint, dependency
 guards and release checks passed. Full coverage passed 182 files / 1,481 tests.
 The runtime test also failed as intended against a deliberately separate GraphQL
 copy, without changing installed framework resolution.
+
+## Renovate PRs 302 and 303: October 24 security repair
+
+The October 23 runs failed their strict security checks, while builds, types,
+unit coverage and Lighthouse passed. PR 302 retained 14 advisories in five
+packages; PR 303 updated the manifest-controlled application dependencies but
+retained seven advisories in follow-redirects and Vite. See the failed
+[302 audit](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/39896124026/job/120226889857)
+and [303 audit](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/39896232278/job/120227233928).
+These are security findings, not a repeat of the previously repaired
+Vitest/CMS/authentication compatibility failures.
+
+The baseline repair uses released versions and their published contracts:
+
+| Package | Fixed baseline | Upstream evidence |
+| --- | --- | --- |
+| Next.js | 16.4.2 in web/admin/CMS | [16.4.1 security release](https://nextjs.org/blog/nextjs-security-update-october-14-2026) fixes the reported RCE/DoS issues; [16.4.2](https://github.com/vercel/next.js/releases/tag/v16.4.2) adds Turbopack correctness fixes |
+| DOMPurify | 3.4.17 override | [Release](https://github.com/cure53/DOMPurify/releases/tag/3.4.17) fixes shadow-root templates, detached IN_PLACE nodes and XHTML SMIL checks |
+| ip-address | 10.7.4 override | [Diff](https://github.com/beaugunderson/ip-address/compare/v10.7.3...v10.7.4) replaces quadratic IPv6 zone matching with a linear scan |
+| follow-redirects | 1.16.1 override | [Diff](https://github.com/follow-redirects/follow-redirects/compare/v1.16.0...v1.16.1) fixes array-form credential stripping and header-regex escaping |
+| Vite | 8.1.6 explicit root Vitest peer | [Changelog](https://github.com/vitejs/vite/blob/v8.1.6/packages/vite/CHANGELOG.md) fixes launch-editor and development-server path/HTML handling |
+| Zod | 4.6.7 across direct consumers and the older plugin copy | [Advisory](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5) now covers every version below 4.6.6; [4.6.6 release](https://github.com/colinhacks/zod/releases/tag/v4.6.6) checks collection bounds before parsing elements |
+
+The Zod advisory update on October 23 appeared in the live audit after the
+recorded PR runs. Direct Zod 4 updates alone leave plugin-mcp's Zod 3.25.76
+vulnerable. Payload plugin-mcp 3.90.2, 3.91.0 and 3.92.0 still request Zod 3,
+so upgrading Payload alone does not remove that copy. The reviewed migration
+uses a maintained root Zod dependency, a qualified Bun override and
+json-schema-to-zod 2.8.1, whose default generator targets Zod 4. Zod 4.6.7
+explicitly supports the plugin's older one-argument record calls. No dependency
+source patches, advisory exclusions or automatic major approvals are used.
+
+Routine manifest updates preserve valid locked transitives. Weekly native Bun
+lockfile maintenance now refreshes them within manifest constraints and the
+native three-day age gate. It shares the existing two-open-PR budget; native
+maintenance cannot be combined into an ordinary dependency-update PR. Policy
+regressions are blocking. GitHub's manifest-only graph currently misses Bun's
+resolved transitive versions, so Renovate's alert-based lane alone was not a
+complete security-remediation mechanism. See [dependency automation](dependency-automation.md).
+
+The strict live audit passes after this repair. New advisories can still make
+previously passing versions fail; CI must keep blocking them until compatible
+patches are reviewed. A schedule, waiting period or change of bot cannot
+promise permanently green checks.
+
+MCP regression scope: the configured read-only tool path is tested through the
+actual installed SDK and plugin. The upstream write-tool collection converter
+still uses TypeScript compiler APIs removed in TypeScript 7 and falls back to a
+permissive schema; those write capabilities remain disabled by the existing CMS
+policy. The converter-generation fixtures separately verify the released Zod 4
+output and reject invalid values; they do not claim that native write path works.
+Enabling MCP writes requires a separate upstream converter migration.

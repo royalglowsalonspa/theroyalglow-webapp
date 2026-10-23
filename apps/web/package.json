@@ -39,7 +39,7 @@
     "lucide-react": "1.52.0",
     "motion": "^14.0.0",
     "nanoid": "^6.0.1",
-    "next": "16.3.8",
+    "next": "16.4.2",
     "postcss": "^8.5.28",
     "radix-ui": "1.6.7",
     "sonner": "2.0.8",
@@ -49,7 +49,7 @@
     "react-dom": "^19.3.0",
     "tailwind-merge": "^3.7.0",
     "tailwindcss": "^4.3.3",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@faker-js/faker": "^10.6.0",
