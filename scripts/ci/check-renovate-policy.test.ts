@@ -30,6 +30,7 @@ function fixture() {
     },
   ]
   const packageRules: Rule[] = [
+    { matchUpdateTypes: ['lockFileMaintenance'], prPriority: 10 },
     { matchManagers: ['bun'], matchUpdateTypes: ['minor', 'patch'], groupName: 'platform' },
     { matchManagers: ['github-actions', 'dockerfile'], groupName: 'tooling' },
     { matchManagers: ['bun'], matchPackageNames: ['bun'], groupName: 'tooling' },
@@ -64,7 +65,6 @@ function fixture() {
       schedule: ['* * * * 1'],
       automerge: false,
       dependencyDashboardApproval: false,
-      prPriority: 10,
     },
     vulnerabilityAlerts: {
       enabled: true,
@@ -208,6 +208,7 @@ describe('Renovate workspace and PR policy', () => {
     { minimumReleaseAge: '0 days' },
     { updateNotScheduled: true },
     { prPriority: 0 },
+    { prPriority: 10 },
     { prConcurrentLimit: 3 },
     { branchConcurrentLimit: 3 },
     { groupName: 'platform' },

@@ -121,6 +121,10 @@ function inspectLockfileMaintenancePolicy(config: Value, rules: Value[]): string
   if (!record(config.lockFileMaintenance))
     return ['Enable native weekly Bun lockfile maintenance to refresh transitive dependencies.']
   const maintenance = config.lockFileMaintenance
+  if (maintenance.prPriority !== undefined)
+    problems.push(
+      'Lockfile maintenance priority must be configured through a matching packageRules entry.',
+    )
   // Native maintenance is a separate update type. It must use the same ordinary
   // PR budget; overriding its branch identity to collide with a package group is
   // explicitly unsupported by Renovate.

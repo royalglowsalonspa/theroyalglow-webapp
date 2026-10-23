@@ -27,8 +27,7 @@
     "enabled": true,
     "schedule": ["* * * * 1"],
     "automerge": false,
-    "dependencyDashboardApproval": false,
-    "prPriority": 10
+    "dependencyDashboardApproval": false
   },
   "vulnerabilityAlerts": {
     "enabled": true,
@@ -145,6 +144,11 @@
       "matchManagers": ["dockerfile"],
       "matchFileNames": ["apps/invoicing/Dockerfile"],
       "enabled": true
+    },
+    {
+      "description": "Prioritize weekly transitive refreshes within the ordinary two-PR budget.",
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "prPriority": 10
     }
   ]
 }
