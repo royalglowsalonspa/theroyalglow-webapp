@@ -85,7 +85,8 @@
     "fflate": "0.8.3",
     "follow-redirects": "1.16.1",
     "zod@^3.25.50": "$zod",
-    "json-schema-to-zod": "2.8.1"
+    "json-schema-to-zod": "2.8.1",
+    "body-parser@>=2.0.0 <2.4.0": "$body-parser"
   },
   "lint-staged": {
     "*.{ts,tsx,json,css}": [
@@ -96,6 +97,7 @@
     "@modelcontextprotocol/sdk": "^1.32.1",
     "nanoid": "^6.0.1",
     "undici": "^7.29.1",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "body-parser": "^2.4.0"
   }
 }
