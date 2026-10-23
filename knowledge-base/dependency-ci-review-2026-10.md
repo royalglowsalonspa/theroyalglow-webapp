@@ -276,3 +276,28 @@ permissive schema; those write capabilities remain disabled by the existing CMS
 policy. The converter-generation fixtures separately verify the released Zod 4
 output and reject invalid values; they do not claim that native write path works.
 Enabling MCP writes requires a separate upstream converter migration.
+
+
+### Advisory discovered during promotion validation
+
+PR 306 passed every GitHub check, including 184 suites / 1,547 tests, and merged
+as 6c1c44b1e0199cfae28779095aa423071b2955a1. Promotion 40038491433 then
+rechecked the live advisory database and stopped before advancing test, pprd or
+prod: body-parser 2.3.0 was newly reported under
+[GHSA-27r3-jxmh-p828](https://github.com/advisories/GHSA-27r3-jxmh-p828).
+Its compressed-request stream cleanup could terminate the process when trailing
+bytes caused a late decoder error. The audit result changed after the PR's
+successful validation; this was not an ignored finding or a skipped check.
+
+Express 5.2.1, used by MCP SDK 1.32.1, declares body-parser ^2.2.1. The fixed
+[2.4.0 release](https://github.com/expressjs/body-parser/releases/tag/v2.4.0)
+fits that contract and Node >=18. A root maintained dependency and affected-range
+Bun reference prevent a stale resolution while allowing future native Renovate
+updates. Existing 1.x consumers would not be forced across a major by this rule.
+
+Version 2.4.0 was published October 22 at 11:39:38 UTC and had not met the routine
+three-day age. The documented reviewed security procedure was used once with
+minimum-release-age 0; bunfig.toml remains unchanged. The lockfile review contains
+only body-parser 2.3.0 to 2.4.0 and its declared iconv-lite/content-type changes,
+including retaining raw-body's existing iconv-lite 0.7.2 copy. Frozen installation,
+strict audit and the existing MCP SDK runtime regression pass after this change.

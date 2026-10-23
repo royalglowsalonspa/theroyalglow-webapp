@@ -131,11 +131,11 @@ available or reviewed. Fix the affected versions, merge the validated fix into
 audit or change its severity threshold. Alerts without a compatible fix require
 migration work; changing bots cannot guarantee that future CI always stays green.
 
-Root `overrides` are part of the dependency contract. The MCP SDK, Undici and
-Sass and the reviewed Zod compatibility migration use `$...` references to maintained
+Root `overrides` are part of the dependency contract. The MCP SDK, Undici,
+Sass, body-parser and the reviewed Zod compatibility migration use `$...` references to maintained
 direct root dependencies. Native Bun
 updates change those declarations and regenerate the shared lockfile. Preserve
-the version-qualified `undici@...`, `sass@...` and `zod@...` selector keys and the local
+the version-qualified `undici@...`, `sass@...`, `body-parser@...` and `zod@...` selector keys and the local
 `file:packages/findup-sync` package. Do not replace maintained references with
 stale numeric pins. A major upgrade to a security-anchor dependency also needs
 review of the selector's affected consumers; dashboard approval does not prove
