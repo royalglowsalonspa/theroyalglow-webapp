@@ -60,6 +60,7 @@ type ServerDef = {
   name: string
   transport: 'local' | 'remote'
   openCodeTransport?: 'local' | 'remote'
+  openCodeOAuth?: boolean
   command?: string
   args?: string[]
   url?: string
@@ -262,12 +263,15 @@ function buildCursor(servers: ServerDef[]) {
   return { mcpServers }
 }
 
-// OpenCode: root key "mcp" inside the general opencode.json config file,
-// {env:VAR} substitution (no leading $), "command" is ONE array combining
-// executable + args (not separate command/args fields), every entry needs
-// an explicit "type" ("local"/"remote"). Preserves any other top-level
-// config keys already in the file (model, provider, etc.) since this file
-// is not MCP-only for this tool.
+// OpenCode: V2 nests servers under "mcp.servers" inside the general
+// opencode.json config file, uses {env:VAR} substitution (no leading $),
+// and takes "command" as ONE array combining executable + args (not
+// separate command/args fields). Every entry needs an explicit "type"
+// ("local"/"remote"). V2 uses "disabled" instead of "enabled", and
+// timeouts are objects under "mcp.timeout" (never numeric per-server
+// values). Preserves any other top-level config keys already in the file
+// (model, provider, custom experimental keys, etc.) since this file is not
+// MCP-only for this tool.
 //
 // Two OpenCode-specific translations happen here and nowhere else:
 // 1. Shell-style "${KEY}" inside args (e.g. "--header",
@@ -292,17 +296,17 @@ function toOpenCodeArg(a: string, s: ServerDef): string {
 }
 
 function buildOpenCode(servers: ServerDef[], existing: Record<string, unknown>) {
-  const mcp: Record<string, unknown> = {}
+  const openCodeServers: Record<string, unknown> = {}
   for (const s of servers) {
     // A server may override its transport for OpenCode only
-    // (openCodeTransport). Used where OpenCode's native remote + headers
-    // works but the shared local wrapper does not — e.g. github, where
-    // mcp-remote hijacks the session into an uncompletable OAuth flow
-    // while a direct Bearer POST succeeds.
+    // (openCodeTransport). Used for HTTP servers that OpenCode can reach
+    // directly, so OpenCode does not spawn mcp-remote at all: its OAuth
+    // refresh bug and its headless browser fallback cannot affect OpenCode.
+    // The other five tools keep the shared local mcp-remote wrapper.
     const transport = s.openCodeTransport ?? s.transport
     if (transport === 'local') {
       const args = (resolveArgs(s, 'opencode') ?? []).map((a) => toOpenCodeArg(a, s))
-      mcp[s.name] = {
+      openCodeServers[s.name] = {
         type: 'local',
         command: [s.command, ...args],
         // Portable workspace root: run from the project directory and
@@ -310,47 +314,47 @@ function buildOpenCode(servers: ServerDef[], existing: Record<string, unknown>) 
         // (it is the sole server using <WORKSPACE_ROOT>).
         ...(s.name === 'code-review-graph' ? { cwd: '.' } : {}),
         ...(envNonEmpty(s.env) ? { environment: buildEnvBlock(s.env, (v) => `{env:${v}}`) } : {}),
-        // Cold node/npx handshakes on Windows measure ~18-19s; the default
-        // 30s budget trips under concurrent startup of all servers.
-        timeout: 60000,
-        enabled: true,
       }
     } else {
-      // Remote servers carrying env entries with a `header` field (currently
-      // only neon) are emitted with an OpenCode-native `headers` block:
-      // "<Header>: Bearer {env:FROM}". The other four tools' remote schemas
-      // carry no headers, so they get a bare url and authenticate via their
-      // own OAuth UI instead.
+      // Remote servers carrying env entries with a `header` field are
+      // emitted with an OpenCode-native `headers` block:
+      // "<Header>: Bearer {env:FROM}". When `openCodeOAuth` is false, also
+      // emit `oauth: false` so OpenCode uses that static credential instead
+      // of attempting its own OAuth discovery (the documented dedicated
+      // pattern for API-key endpoints). OAuth-capable endpoints without a
+      // header credential (sentry, mintlify-admin, socket-mcp) keep OAuth.
       const headers: Record<string, string> = {}
       for (const e of s.env) {
         if (e.header) headers[e.header] = `Bearer {env:${e.fromEnvVar ?? e.key}}`
       }
       const hasHeaders = Object.keys(headers).length > 0
-      mcp[s.name] = {
+      openCodeServers[s.name] = {
         type: 'remote',
         url: s.url,
         ...(hasHeaders ? { headers } : {}),
-        // NOTE: no "oauth": false here on purpose. Static Bearer headers
-        // alone do not connect these endpoints from OpenCode (upstream
-        // header-remote issue: the client fails before/without using them),
-        // so OAuth must stay enabled and the user completes
-        // `opencode mcp auth <name>` once — exactly how mintlify-admin and
-        // the mcp-remote-cached servers already connect. The headers stay
-        // emitted per the official docs as fallback/documentation.
-        enabled: true,
+        ...(s.openCodeOAuth === false ? { oauth: false } : {}),
       }
     }
   }
+  const { experimental: existingExperimental, ...rest } = existing
   const prevExperimental =
-    existing.experimental && typeof existing.experimental === 'object'
-      ? (existing.experimental as Record<string, unknown>)
+    existingExperimental && typeof existingExperimental === 'object'
+      ? { ...(existingExperimental as Record<string, unknown>) }
       : {}
+  // V1's experimental.mcp_timeout is replaced by mcp.timeout below. Drop the
+  // stale key but keep any unrelated experimental settings.
+  delete prevExperimental.mcp_timeout
   return {
-    ...existing,
+    ...rest,
     $schema: 'https://opencode.ai/config.json',
-    // Same 60s budget globally so connection probing matches per-server.
-    experimental: { ...prevExperimental, mcp_timeout: 60000 },
-    mcp,
+    ...(Object.keys(prevExperimental).length > 0 ? { experimental: prevExperimental } : {}),
+    mcp: {
+      // Cold node/npx handshakes on Windows measure ~18-19s; the default 30s
+      // startup budget trips under concurrent startup of all servers.
+      // catalog/execution keep OpenCode's documented defaults.
+      timeout: { startup: 60000, catalog: 30000, execution: 43200000 },
+      servers: openCodeServers,
+    },
   }
 }
 

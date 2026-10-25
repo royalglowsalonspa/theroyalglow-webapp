@@ -2,7 +2,7 @@
 
 ## Why this exists
 
-RGSS uses 16 MCP servers (Neon, GitHub, Cloudflare, Sentry, PostHog, Payload,
+RGSS uses 13 MCP servers (Neon, GitHub, Cloudflare, Sentry, PostHog, Payload,
 Socket, Snyk, shadcn, Mintlify, code-review-graph). The team moves between **Kiro**,
 **Claude Code**, **Codex**, **VS Code**, **Cursor**, and **OpenCode** — and every one of
 those tools reads MCP server config from a different file, with a different
@@ -49,10 +49,17 @@ environment variable.
    `shadcn`, and `mcp-remote` directly — no `npx`, so a cold spawn takes
    under a second instead of ~17s):
     ```bash
-    npm i -g mcp-remote@0.8.3 shadcn snyk
+    npm i -g mcp-remote@0.15.2 shadcn snyk
     ```
-   (`mcp-remote` is pinned to the version validated against these endpoints;
-   `snyk`/`shadcn` intentionally track latest.)
+   (`mcp-remote` is pinned to 0.15.2, validated on 25/10/2026: all six
+   servers that use it completed `initialize` and `tools/list` with the
+   same tool counts as 0.8.3. `snyk`/`shadcn` intentionally track latest.
+   OpenCode no longer spawns `mcp-remote` — it connects to every HTTP server
+   natively under `mcp.servers` — but the other five tools still use it for
+   `cloudflare-api`, `cloudflare-docs`, `github`, `posthog`, `sentry`, and
+   `payload`. Upgrading from 0.8.3 keeps the cached `sentry` OAuth token in
+   `~/.mcp-auth/`; run `bun run mcp:doctor` afterwards to confirm the
+   install.)
 
 4. **Fully restart the IDE/terminal** (see "Why a restart is required" below —
    this step is not optional).
@@ -71,12 +78,14 @@ environment variable.
    repository path still requires regeneration on a different checkout.
 6. Reconnect/reauthenticate each MCP server inside your tool. Setting the env
    var makes the *credential* available; it does not itself open a live
-   connection, and OAuth-based servers (Cloudflare, Sentry, Mintlify) need an
-   interactive sign-in regardless of env vars.
+   connection, and OAuth-based servers (Sentry, Mintlify admin, Socket) need an
+   interactive sign-in regardless of env vars. Cloudflare, Neon, GitHub,
+   PostHog, and Payload authenticate with the static credentials above, and
+   Cloudflare docs plus Mintlify search are public.
 
 ## Why a restart is required
 
-The tracked `.claude/settings.json` approves the 16 project servers listed in
+The tracked `.claude/settings.json` approves the 13 project servers listed in
 `.mcp.json`. Each collaborator still installs the launchers, sets their own
 credentials, and completes OAuth. Personal command permissions remain in ignored
 `.claude/settings.local.json`. Claude arguments reference `_RGSS` variables
@@ -100,14 +109,15 @@ scripts/mcp/generate.ts       ← reads sources.json, writes all 6 native config
         ├──▶ .codex/config.toml        (Codex project reference)
         ├──▶ .vscode/mcp.json          (VS Code workspace)
         ├──▶ .cursor/mcp.json          (Cursor)
-        └──▶ opencode.json             (OpenCode — mcp key only; other
-                                         top-level keys are preserved)
+        └──▶ opencode.json             (OpenCode V2 — mcp.servers and
+                                         mcp.timeout; other top-level keys
+                                         are preserved)
 ```
 
 **Never hand-edit the six generated files.** They're overwritten wholesale
 on every `mcp:generate` run (OpenCode's file is the one exception — only its
 `mcp` key is replaced, since that file also carries general OpenCode config
-like `model`/`provider`).
+like `model`/`provider`/custom `experimental` settings).
 
 To add, remove, or change a server: edit `scripts/mcp/sources.json`, then run
 `bun run mcp:generate`, then commit both the source file and the six
@@ -125,13 +135,28 @@ genuinely incompatible, not just cosmetically different:
 | **Codex** | `mcp_servers` TOML tables | `env_vars` forwards local variables; `bearer_token_env_var` supplies HTTP bearer auth | TOML table with `url` | `.codex/config.toml` (project scope; loaded for trusted projects) |
 | **VS Code** | `servers` | `${env:VAR}` | `"url"` plus required `"type": "http"` | `.vscode/mcp.json` (workspace) |
 | **Cursor** | `mcpServers` | `${env:VAR}` (Cursor does **not** expand bare `${VAR}`) | bare `"url"`, no `type` documented | `.cursor/mcp.json` |
-| **OpenCode** | `mcp` (nested inside general config) | `{env:VAR}` (no leading `$`) | `{"type": "remote", "url": ...}` | `opencode.json` (project) or `~/.config/opencode/opencode.json` (global) |
+| **OpenCode** | `mcp.servers` (nested inside general config) | `{env:VAR}` (no leading `$`) | `{"type": "remote", "url": ...}`, plus `headers`/`oauth: false` for static credentials | `opencode.json` (project) or `~/.config/opencode/opencode.json` (global) |
 
 Other differences the generator absorbs:
 
 - **Command shape.** Every tool except OpenCode splits `command` (executable)
   from `args` (array). OpenCode wants one combined array:
   `"command": ["mcp-remote", "https://..."]`.
+- **OpenCode V2 shape.** Servers live under `mcp.servers`, not directly under
+  `mcp`. Global timeouts use `mcp.timeout` objects (`startup`, `catalog`,
+  `execution`); the generator sets `startup` to 60s because concurrent cold
+  starts exceed the 30s default. V2 uses `disabled: true` instead of
+  `enabled`, so connected servers carry neither field.
+- **OpenCode native HTTP.** OpenCode connects to every HTTP server directly
+  and never spawns `mcp-remote`. Servers that are already
+  `"transport": "remote"` for all six tools (`neon`, `socket-mcp`,
+  `mintlify-admin`, `mintlify-search`) need no override. Servers the other
+  five tools reach through the local `mcp-remote` wrapper (`cloudflare-api`,
+  `cloudflare-docs`, `github`, `posthog`, `sentry`, `payload`) set
+  `openCodeTransport: "remote"` plus a `url`, so only OpenCode bypasses the
+  wrapper. Endpoints that use a static credential also set
+  `openCodeOAuth: false`, which emits `oauth: false` plus a Bearer `headers`
+  entry; OAuth endpoints (`sentry`, `mintlify-admin`, `socket-mcp`) omit it.
 - **Workspace-root substitution.** Where a server needs an absolute repo
   path (`code-review-graph`), the generator uses each tool's own portable
   variable where one exists (`${workspaceFolder}` for VS Code/Cursor,
@@ -155,9 +180,16 @@ Other differences the generator absorbs:
 - The `_RGSS` suffix on every variable name is a collision guard — so
   `GITHUB_PAT_RGSS` can't be shadowed by, or shadow, an unrelated
   `GITHUB_PAT` another tool or project sets on the same machine.
-- OAuth-based remote servers (`cloudflare-*`, `sentry`, `mintlify-*`, `socket-mcp`) carry no
-  credential in config at all — `mcp-remote` handles the browser-based OAuth
-  dance and caches the resulting token itself, outside this repo entirely.
+- OAuth-based remote servers (`sentry`, `mintlify-admin`, `socket-mcp`) carry
+  no credential in config at all, and tokens are always stored outside the
+  repo. OpenCode performs the browser OAuth flow itself for all three. In the
+  other five tools, `mintlify-admin` and `socket-mcp` are plain remote URLs,
+  so each tool runs its own OAuth sign-in; only `sentry` goes through
+  `mcp-remote`, which caches its token in `~/.mcp-auth/`.
+- `cloudflare-docs` and `mintlify-search` are public endpoints and need no
+  credential. `cloudflare-api`, `neon`, `github`, `posthog`, and `payload` use
+  static Bearer headers in OpenCode with `oauth: false`, so a missing or
+  expired API key fails clearly instead of silently starting an OAuth flow.
 
 ## Credential reference
 
@@ -166,8 +198,8 @@ Other differences the generator absorbs:
 | `NEON_API_KEY_RGSS` | `neon` | Neon Management API key (account-level). OpenCode sends it as an `Authorization: Bearer` header to the remote `https://mcp.neon.tech/mcp`; Kiro/Claude/VS Code/Cursor carry no headers on remotes, so they authenticate to the same URL via OAuth in their UI | console.neon.tech → Account Settings → API Keys |
 | `GITHUB_PAT_RGSS` | `github` | Fine-grained PAT scoped to `theroyalglow-webapp` (or the org) — repo contents read, PRs read/write | github.com/settings/personal-access-tokens |
 | `POSTHOG_AUTH_HEADER_RGSS` | `posthog` | Personal API key, project-scoped | eu.posthog.com project → Settings → Personal API Keys |
-| `PAYLOAD_MCP_API_KEY_RGSS` | `payload` | Local-dev-only key for the Payload CMS instance at `localhost:3002` | apps/cms — generated per local Payload user |
-| `CLOUDFLARE_API_TOKEN_RGSS` | `cloudflare-api` | Cloudflare API token sent as `Authorization: Bearer` (server-side api-token-mode, bypasses the OAuth scope flow `mcp-remote` otherwise stalls in) | dash.cloudflare.com → My Profile → API Tokens. Scope to what you use (Workers/R2/DNS) plus **User → Memberships : Read** so the server can auto-detect your account ID (the README's "Account Resources : Read" label has no matching dashboard entry — Memberships Read is the functional equivalent); leave **Client IP Address Filtering OFF** |
+| `PAYLOAD_MCP_API_KEY_RGSS` | `payload` | Local-dev-only key for the Payload CMS instance at `localhost:3002`. Start the CMS (`bun run --filter=@rgss/cms dev`) before connecting. OpenCode's background service keeps a failed connection from when the CMS was down; reconnect `payload` in `/mcps` after starting it. | apps/cms — generated per local Payload user |
+| `CLOUDFLARE_API_TOKEN_RGSS` | `cloudflare-api` | Cloudflare API token sent as `Authorization: Bearer` to the unified `https://mcp.cloudflare.com/mcp` (server-side api-token-mode, bypasses the OAuth scope flow `mcp-remote` otherwise stalls in). This one server now covers the former bindings, builds, and observability servers. | dash.cloudflare.com → My Profile → API Tokens. Scope to what you use (Workers/R2/DNS) plus **User → Memberships : Read** so the server can auto-detect your account ID (the README's "Account Resources : Read" label has no matching dashboard entry — Memberships Read is the functional equivalent); leave **Client IP Address Filtering OFF** |
 
 > **Rotation note:** the four values above were, until this change, committed
 > in plaintext inside `.kiro/settings/mcp.json`, which was `.gitignore`d but
@@ -186,18 +218,26 @@ Other differences the generator absorbs:
    — note these can differ: `key` is what the *server process* reads
    (e.g. `GITHUB_PAT`, referenced via `${GITHUB_PAT}` inside the `--header`
    arg), `fromEnvVar` is the *OS* variable the generator pulls the value from.
-   For a `"transport": "remote"` server that authenticates via HTTP header
-   (currently only `neon`), add `"header": "Authorization"` to the entry
-   instead: OpenCode emits `"headers": { "Authorization": "Bearer {env:...}" }`
-   (per the official docs) but still completes `opencode mcp auth <name>` via
-   OAuth — static headers alone do not connect these endpoints from OpenCode —
-   while the other four tools (whose remote schemas carry no headers) fall back
-   to OAuth in their own UI.
-   A server may also set `"openCodeTransport": "remote"` to override its
-   transport for OpenCode only (currently `github`): use this when OpenCode's
-   native remote + headers succeeds but the shared local `mcp-remote` wrapper
-   hijacks the session into an uncompletable headless OAuth flow. The other
-   four tools keep using the shared `transport` untouched.
+
+   For an HTTP server that authenticates with a static Bearer token:
+   - Add `"header": "Authorization"` to the env entry. OpenCode then emits
+     `"headers": { "Authorization": "Bearer {env:...}" }`.
+   - Add `"openCodeOAuth": false` to the server. OpenCode emits
+     `"oauth": false` and uses the header directly; without it OpenCode
+     attempts OAuth discovery instead of relying on the static credential.
+   - If the other five tools would lose that credential from a bare URL, keep
+     `"transport": "local"` with `mcp-remote` and add
+     `"openCodeTransport": "remote"` plus `"url"` so only OpenCode connects
+     directly. `cloudflare-api`, `github`, `posthog`, and `payload` follow
+     this pattern.
+
+   For an OAuth HTTP server (`sentry`, `mintlify-admin`, `socket-mcp`), use
+   `"transport": "remote"` or the same `openCodeTransport` override and omit
+   both `header` and `openCodeOAuth`. Users complete sign-in through `/mcps`
+   or `opencode mcp auth <name>`.
+
+   For a public HTTP server (`cloudflare-docs`, `mintlify-search`), set the
+   remote URL with no credential fields.
 3. Run `bun run mcp:generate`.
 4. Add the new `_RGSS` variable to `.env.example` (documentation only — this
    repo's `.env.example` is not consumed at runtime by any app, it's the

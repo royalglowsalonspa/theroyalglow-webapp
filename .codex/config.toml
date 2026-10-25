@@ -40,24 +40,6 @@ args = [
 ]
 env_vars = ["CLOUDFLARE_API_TOKEN_RGSS"]
 
-[mcp_servers."cloudflare-bindings"]
-command = "mcp-remote"
-args = [
-    "https://bindings.mcp.cloudflare.com/mcp",
-]
-
-[mcp_servers."cloudflare-builds"]
-command = "mcp-remote"
-args = [
-    "https://builds.mcp.cloudflare.com/mcp",
-]
-
-[mcp_servers."cloudflare-observability"]
-command = "mcp-remote"
-args = [
-    "https://observability.mcp.cloudflare.com/mcp",
-]
-
 [mcp_servers."cloudflare-docs"]
 command = "mcp-remote"
 args = [
@@ -86,7 +68,7 @@ env_vars = ["POSTHOG_AUTH_HEADER_RGSS"]
 url = "https://mcp.mintlify.com"
 
 [mcp_servers."mintlify-search"]
-url = "https://mintlify.com/docs/mcp"
+url = "https://www.mintlify.com/docs/mcp"
 
 [mcp_servers."sentry"]
 command = "mcp-remote"

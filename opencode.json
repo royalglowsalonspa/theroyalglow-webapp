@@ -1,162 +1,101 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "Snyk": {
-      "type": "local",
-      "command": [
-        "snyk",
-        "mcp",
-        "-t",
-        "stdio"
-      ],
-      "timeout": 60000,
-      "enabled": true
+    "timeout": {
+      "startup": 60000,
+      "catalog": 30000,
+      "execution": 43200000
     },
-    "socket-mcp": {
-      "type": "remote",
-      "url": "https://mcp.socket.dev/",
-      "enabled": true
-    },
-    "neon": {
-      "type": "remote",
-      "url": "https://mcp.neon.tech/mcp",
-      "headers": {
-        "Authorization": "Bearer {env:NEON_API_KEY_RGSS}"
+    "servers": {
+      "Snyk": {
+        "type": "local",
+        "command": [
+          "snyk",
+          "mcp",
+          "-t",
+          "stdio"
+        ]
       },
-      "enabled": true
-    },
-    "code-review-graph": {
-      "type": "local",
-      "command": [
-        "code-review-graph",
-        "serve",
-        "--repo",
-        "."
-      ],
-      "cwd": ".",
-      "environment": {
-        "PYTHONUTF8": "1"
+      "socket-mcp": {
+        "type": "remote",
+        "url": "https://mcp.socket.dev/"
       },
-      "timeout": 60000,
-      "enabled": true
-    },
-    "shadcn": {
-      "type": "local",
-      "command": [
-        "shadcn",
-        "mcp"
-      ],
-      "timeout": 60000,
-      "enabled": true
-    },
-    "cloudflare-api": {
-      "type": "local",
-      "command": [
-        "mcp-remote",
-        "https://mcp.cloudflare.com/mcp",
-        "--header",
-        "Authorization:Bearer {env:CLOUDFLARE_API_TOKEN_RGSS}"
-      ],
-      "environment": {
-        "CLOUDFLARE_API_TOKEN": "{env:CLOUDFLARE_API_TOKEN_RGSS}"
+      "neon": {
+        "type": "remote",
+        "url": "https://mcp.neon.tech/mcp",
+        "headers": {
+          "Authorization": "Bearer {env:NEON_API_KEY_RGSS}"
+        },
+        "oauth": false
       },
-      "timeout": 60000,
-      "enabled": true
-    },
-    "cloudflare-bindings": {
-      "type": "local",
-      "command": [
-        "mcp-remote",
-        "https://bindings.mcp.cloudflare.com/mcp"
-      ],
-      "timeout": 60000,
-      "enabled": true
-    },
-    "cloudflare-builds": {
-      "type": "local",
-      "command": [
-        "mcp-remote",
-        "https://builds.mcp.cloudflare.com/mcp"
-      ],
-      "timeout": 60000,
-      "enabled": true
-    },
-    "cloudflare-observability": {
-      "type": "local",
-      "command": [
-        "mcp-remote",
-        "https://observability.mcp.cloudflare.com/mcp"
-      ],
-      "timeout": 60000,
-      "enabled": true
-    },
-    "cloudflare-docs": {
-      "type": "local",
-      "command": [
-        "mcp-remote",
-        "https://docs.mcp.cloudflare.com/mcp"
-      ],
-      "timeout": 60000,
-      "enabled": true
-    },
-    "github": {
-      "type": "remote",
-      "url": "https://api.githubcopilot.com/mcp/",
-      "headers": {
-        "Authorization": "Bearer {env:GITHUB_PAT_RGSS}"
+      "code-review-graph": {
+        "type": "local",
+        "command": [
+          "code-review-graph",
+          "serve",
+          "--repo",
+          "."
+        ],
+        "cwd": ".",
+        "environment": {
+          "PYTHONUTF8": "1"
+        }
       },
-      "enabled": true
-    },
-    "posthog": {
-      "type": "local",
-      "command": [
-        "mcp-remote",
-        "https://mcp.eu.posthog.com/mcp",
-        "--header",
-        "Authorization:Bearer {env:POSTHOG_AUTH_HEADER_RGSS}"
-      ],
-      "environment": {
-        "POSTHOG_AUTH_HEADER": "{env:POSTHOG_AUTH_HEADER_RGSS}"
+      "shadcn": {
+        "type": "local",
+        "command": [
+          "shadcn",
+          "mcp"
+        ]
       },
-      "timeout": 60000,
-      "enabled": true
-    },
-    "mintlify-admin": {
-      "type": "remote",
-      "url": "https://mcp.mintlify.com",
-      "enabled": true
-    },
-    "mintlify-search": {
-      "type": "remote",
-      "url": "https://mintlify.com/docs/mcp",
-      "enabled": true
-    },
-    "sentry": {
-      "type": "local",
-      "command": [
-        "mcp-remote",
-        "https://mcp.sentry.dev/mcp"
-      ],
-      "timeout": 60000,
-      "enabled": true
-    },
-    "payload": {
-      "type": "local",
-      "command": [
-        "mcp-remote",
-        "http://localhost:3002/api/mcp",
-        "--header",
-        "Authorization:Bearer {env:PAYLOAD_MCP_API_KEY_RGSS}",
-        "--allow-http"
-      ],
-      "environment": {
-        "PAYLOAD_MCP_API_KEY": "{env:PAYLOAD_MCP_API_KEY_RGSS}"
+      "cloudflare-api": {
+        "type": "remote",
+        "url": "https://mcp.cloudflare.com/mcp",
+        "headers": {
+          "Authorization": "Bearer {env:CLOUDFLARE_API_TOKEN_RGSS}"
+        },
+        "oauth": false
       },
-      "timeout": 60000,
-      "enabled": true
+      "cloudflare-docs": {
+        "type": "remote",
+        "url": "https://docs.mcp.cloudflare.com/mcp"
+      },
+      "github": {
+        "type": "remote",
+        "url": "https://api.githubcopilot.com/mcp/",
+        "headers": {
+          "Authorization": "Bearer {env:GITHUB_PAT_RGSS}"
+        },
+        "oauth": false
+      },
+      "posthog": {
+        "type": "remote",
+        "url": "https://mcp.eu.posthog.com/mcp",
+        "headers": {
+          "Authorization": "Bearer {env:POSTHOG_AUTH_HEADER_RGSS}"
+        },
+        "oauth": false
+      },
+      "mintlify-admin": {
+        "type": "remote",
+        "url": "https://mcp.mintlify.com"
+      },
+      "mintlify-search": {
+        "type": "remote",
+        "url": "https://www.mintlify.com/docs/mcp"
+      },
+      "sentry": {
+        "type": "remote",
+        "url": "https://mcp.sentry.dev/mcp"
+      },
+      "payload": {
+        "type": "remote",
+        "url": "http://localhost:3002/api/mcp",
+        "headers": {
+          "Authorization": "Bearer {env:PAYLOAD_MCP_API_KEY_RGSS}"
+        },
+        "oauth": false
+      }
     }
-  },
-  "experimental": {
-    "mcp_timeout": 60000
   }
 }

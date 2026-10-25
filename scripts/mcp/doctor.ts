@@ -21,7 +21,7 @@
  * Responsibilities :
  * - Check bins: snyk, shadcn, mcp-remote, code-review-graph (+ node/npm)
  * - Check env: the five _RGSS variables exist and are non-empty
- * - Check files: sources.json parses with 16 servers; every generated
+ * - Check files: sources.json parses; every generated
  *   file exists and carries the same server names
  * - Compare parsed generated contents against sources.json, ignoring timestamps
  * - Check ports: 3002 (payload CMS) reachable or clearly reported closed

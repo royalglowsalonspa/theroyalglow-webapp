@@ -23,6 +23,7 @@
       "env": [
         { "key": "NEON_API_KEY", "fromEnvVar": "NEON_API_KEY_RGSS", "header": "Authorization" }
       ],
+      "openCodeOAuth": false,
       "autoApprove": []
     },
     {
@@ -61,48 +62,30 @@
     {
       "name": "cloudflare-api",
       "transport": "local",
+      "openCodeTransport": "remote",
       "command": "mcp-remote",
+      "url": "https://mcp.cloudflare.com/mcp",
       "args": [
         "https://mcp.cloudflare.com/mcp",
         "--header",
         "Authorization:Bearer ${CLOUDFLARE_API_TOKEN}"
       ],
-      "env": [{ "key": "CLOUDFLARE_API_TOKEN", "fromEnvVar": "CLOUDFLARE_API_TOKEN_RGSS" }],
+      "env": [
+        {
+          "key": "CLOUDFLARE_API_TOKEN",
+          "fromEnvVar": "CLOUDFLARE_API_TOKEN_RGSS",
+          "header": "Authorization"
+        }
+      ],
+      "openCodeOAuth": false,
       "autoApprove": ["execute"]
-    },
-    {
-      "name": "cloudflare-bindings",
-      "transport": "local",
-      "command": "mcp-remote",
-      "args": ["https://bindings.mcp.cloudflare.com/mcp"],
-      "env": [],
-      "autoApprove": [
-        "workers_list",
-        "kv_namespaces_list",
-        "r2_buckets_list",
-        "kv_namespace_create"
-      ]
-    },
-    {
-      "name": "cloudflare-builds",
-      "transport": "local",
-      "command": "mcp-remote",
-      "args": ["https://builds.mcp.cloudflare.com/mcp"],
-      "env": [],
-      "autoApprove": ["workers_list"]
-    },
-    {
-      "name": "cloudflare-observability",
-      "transport": "local",
-      "command": "mcp-remote",
-      "args": ["https://observability.mcp.cloudflare.com/mcp"],
-      "env": [],
-      "autoApprove": []
     },
     {
       "name": "cloudflare-docs",
       "transport": "local",
+      "openCodeTransport": "remote",
       "command": "mcp-remote",
+      "url": "https://docs.mcp.cloudflare.com/mcp",
       "args": ["https://docs.mcp.cloudflare.com/mcp"],
       "env": [],
       "autoApprove": ["search_cloudflare_documentation"]
@@ -119,6 +102,7 @@
         "Authorization:Bearer ${GITHUB_PAT}"
       ],
       "env": [{ "key": "GITHUB_PAT", "fromEnvVar": "GITHUB_PAT_RGSS", "header": "Authorization" }],
+      "openCodeOAuth": false,
       "autoApprove": [
         "get_me",
         "list_commits",
@@ -130,13 +114,22 @@
     {
       "name": "posthog",
       "transport": "local",
+      "openCodeTransport": "remote",
       "command": "mcp-remote",
+      "url": "https://mcp.eu.posthog.com/mcp",
       "args": [
         "https://mcp.eu.posthog.com/mcp",
         "--header",
         "Authorization:Bearer ${POSTHOG_AUTH_HEADER}"
       ],
-      "env": [{ "key": "POSTHOG_AUTH_HEADER", "fromEnvVar": "POSTHOG_AUTH_HEADER_RGSS" }],
+      "env": [
+        {
+          "key": "POSTHOG_AUTH_HEADER",
+          "fromEnvVar": "POSTHOG_AUTH_HEADER_RGSS",
+          "header": "Authorization"
+        }
+      ],
+      "openCodeOAuth": false,
       "autoApprove": ["execute-sql", "projects-get"]
     },
     {
@@ -149,14 +142,16 @@
     {
       "name": "mintlify-search",
       "transport": "remote",
-      "url": "https://mintlify.com/docs/mcp",
+      "url": "https://www.mintlify.com/docs/mcp",
       "env": [],
       "autoApprove": ["search_mintlify", "query_docs_filesystem_mintlify"]
     },
     {
       "name": "sentry",
       "transport": "local",
+      "openCodeTransport": "remote",
       "command": "mcp-remote",
+      "url": "https://mcp.sentry.dev/mcp",
       "args": ["https://mcp.sentry.dev/mcp"],
       "env": [],
       "autoApprove": [
@@ -172,14 +167,23 @@
     {
       "name": "payload",
       "transport": "local",
+      "openCodeTransport": "remote",
       "command": "mcp-remote",
+      "url": "http://localhost:3002/api/mcp",
       "args": [
         "http://localhost:3002/api/mcp",
         "--header",
         "Authorization:Bearer ${PAYLOAD_MCP_API_KEY}",
         "--allow-http"
       ],
-      "env": [{ "key": "PAYLOAD_MCP_API_KEY", "fromEnvVar": "PAYLOAD_MCP_API_KEY_RGSS" }],
+      "env": [
+        {
+          "key": "PAYLOAD_MCP_API_KEY",
+          "fromEnvVar": "PAYLOAD_MCP_API_KEY_RGSS",
+          "header": "Authorization"
+        }
+      ],
+      "openCodeOAuth": false,
       "autoApprove": []
     }
   ]

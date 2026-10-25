@@ -48,27 +48,6 @@
         "CLOUDFLARE_API_TOKEN": "${env:CLOUDFLARE_API_TOKEN_RGSS}"
       }
     },
-    "cloudflare-bindings": {
-      "type": "stdio",
-      "command": "mcp-remote",
-      "args": [
-        "https://bindings.mcp.cloudflare.com/mcp"
-      ]
-    },
-    "cloudflare-builds": {
-      "type": "stdio",
-      "command": "mcp-remote",
-      "args": [
-        "https://builds.mcp.cloudflare.com/mcp"
-      ]
-    },
-    "cloudflare-observability": {
-      "type": "stdio",
-      "command": "mcp-remote",
-      "args": [
-        "https://observability.mcp.cloudflare.com/mcp"
-      ]
-    },
     "cloudflare-docs": {
       "type": "stdio",
       "command": "mcp-remote",
@@ -106,7 +85,7 @@
     },
     "mintlify-search": {
       "type": "http",
-      "url": "https://mintlify.com/docs/mcp"
+      "url": "https://www.mintlify.com/docs/mcp"
     },
     "sentry": {
       "type": "stdio",
