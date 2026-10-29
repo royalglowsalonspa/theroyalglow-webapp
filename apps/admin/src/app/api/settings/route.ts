@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 21-06-2026 & Updated - 21-06-2026
+ * Date         : Created - 21-06-2026 & Updated - 30-10-2026
  *
  * Project      : theroyalglow-webapp (apps/admin)
  * Module Name  : GET|PUT /api/settings (admin)
@@ -13,37 +13,40 @@
  *                returns the saved value.
  *
  * Responsibilities :
- * - GET: read all known settings with defaults (Manager+)
- * - PUT: validate a section payload, upsert it, return the saved value (Manager+)
+ * - GET: read all known settings with defaults (Developer)
+ * - PUT: validate a section payload, upsert it, return the saved value (Developer)
  *
  * Tech Stack   : Next.js 16 (Route Handler)
  * Layer        : API (Thin Orchestrator)
  *
- * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/db/queries,
- *                @rgss/errors, @rgss/types
+ * Dependencies : @/lib/api/branch-context, @/lib/api/error-handler,
+ *                @rgss/db/queries, @rgss/errors, @rgss/types
  *
- * Notes        : Requires min role: manager. Settings is a single-tenant
- *                key/value store, so writes are one-section-at-a-time upserts.
+ * Notes        : Developer-only, with the role read from the database now
+ *                (multi-branch route inventory). The values apply to every
+ *                branch until per-branch settings with revisions land (tasks
+ *                §5). Managers see the business hours they schedule against in
+ *                GET /api/schedule instead.
  ************************************************************/
 
 import { getSettings, SETTING_KEYS, upsertSetting } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { settingsUpdateSchema } from '@rgss/types'
 import { audit } from '@/lib/api/audit'
+import { requireCurrentRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 
-// GET /api/settings — full settings object with defaults applied. Manager+.
+// GET /api/settings — full settings object with defaults applied. Developer.
 export const GET = withErrorHandler(async () => {
-  await requireRole('manager')
+  await requireCurrentRole('developer')
 
   const settings = await getSettings()
   return apiSuccess({ settings })
 })
 
-// PUT /api/settings — update a single section. Manager+. Returns the saved value.
+// PUT /api/settings — update a single section. Developer. Returns the saved value.
 export const PUT = withErrorHandler(async (req: Request) => {
-  const session = await requireRole('manager')
+  const { session } = await requireCurrentRole('developer')
 
   const body = await req.json().catch(() => null)
   const parsed = settingsUpdateSchema.safeParse(body)

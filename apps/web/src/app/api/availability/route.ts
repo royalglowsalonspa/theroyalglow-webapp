@@ -44,7 +44,7 @@
  ************************************************************/
 
 import { generateAvailability, isBranchBookable, resolveDefaultBranch } from '@rgss/business'
-import { getBranchById, getPublicBranches, getSettings } from '@rgss/db/queries'
+import { getBranchById, getClosureOn, getPublicBranches, getSettings } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { availabilityQuerySchema, type DayHours } from '@rgss/types'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
@@ -79,14 +79,15 @@ function resolveBusinessHours(
   return { openMinutes: timeToMinutes(day.open), closeMinutes: timeToMinutes(day.close) }
 }
 
-// Throw a 400 unless slots can be offered for this branch. A request that
+// The branch to offer slots for, or a 400 when there is none. A request that
 // names no branch is answered for the default bookable branch.
-async function assertBookableBranch(branchId: string | undefined): Promise<void> {
+async function assertBookableBranch(branchId: string | undefined): Promise<string> {
   if (branchId === undefined) {
-    if (!resolveDefaultBranch(await getPublicBranches())) {
+    const fallback = resolveDefaultBranch(await getPublicBranches())
+    if (!fallback) {
       throw badRequest('No branch is taking bookings right now.')
     }
-    return
+    return fallback.id
   }
 
   const branch = await getBranchById(branchId)
@@ -96,6 +97,7 @@ async function assertBookableBranch(branchId: string | undefined): Promise<void>
   if (!isBranchBookable(branch.status)) {
     throw badRequest('Selected branch is not accepting bookings.')
   }
+  return branch.id
 }
 
 export const GET = withErrorHandler(async (req: Request) => {
@@ -110,18 +112,23 @@ export const GET = withErrorHandler(async (req: Request) => {
   }
 
   // The branch check and the configured business hours are independent reads.
-  const [{ businessHours }] = await Promise.all([
+  const [{ businessHours }, branchId] = await Promise.all([
     getSettings(),
     assertBookableBranch(parsed.data.branchId),
   ])
   const dayHours = resolveBusinessHours(parsed.data.date, businessHours)
+
+  // A holiday or one-off closure at the branch (or every branch) closes the
+  // whole day (R1.8). Its name is returned so the dialog can say why.
+  const closure = await getClosureOn(branchId, parsed.data.date)
 
   // Pure business function: rejects past/malformed dates (400) before
   // generating the 30-minute slot grid with availability flags.
   const slots = generateAvailability({
     date: parsed.data.date,
     businessHours: dayHours,
+    holidays: closure ? [parsed.data.date] : [],
   })
 
-  return apiSuccess({ slots })
+  return apiSuccess({ slots, closure: closure ? { name: closure.name } : null })
 })

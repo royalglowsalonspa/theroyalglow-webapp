@@ -41,7 +41,7 @@
 
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
-import { useCallback, useEffect, useId, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { type AdminColumnDef, DataTable } from '@/components/ui/data-table'
 import { Input } from '@/components/ui/input'
@@ -62,6 +62,7 @@ import { formatDateTimeIST } from '@/lib/admin/format'
 import {
   daysUntil,
   formatDateDDMMYYYY,
+  formatINR,
   type MembershipDetailData,
   type MembershipSessionRow,
   minutesToHM,
@@ -144,6 +145,19 @@ export function MembershipDetail({ membershipId }: { membershipId: string }) {
             </Link>{' '}
             · {data.tierNameSnapshot} · Created {formatDateTimeIST(data.createdAt)}
           </p>
+          <p className="mt-1 font-sans text-xs text-dusty-gray">
+            Sold at {data.sellingBranch?.name ?? 'an unknown branch'}
+            {data.sale ? (
+              <>
+                {' '}
+                · Price paid {formatINR(data.sale.pricePaidPaise)}
+                {data.sale.tierUsualPricePaise !== null
+                  ? ` (usual ${formatINR(data.sale.tierUsualPricePaise)})`
+                  : ''}
+              </>
+            ) : null}{' '}
+            · Hours can be used at any branch
+          </p>
         </div>
         <StatusBadge status={data.status} />
       </header>
@@ -201,7 +215,8 @@ export function MembershipDetail({ membershipId }: { membershipId: string }) {
         <button
           type="button"
           onClick={() => setCancelOpen(true)}
-          disabled={!isActive}
+          disabled={!isActive || !data.canCancel}
+          title={isActive && data.cancelRefusal ? data.cancelRefusal : undefined}
           className="rounded-buttons border border-error/50 px-4 py-2 font-ui text-sm text-error transition-colors hover:bg-error/5 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Cancel Membership
@@ -212,12 +227,16 @@ export function MembershipDetail({ membershipId }: { membershipId: string }) {
           This membership has expired — sessions can no longer be recorded.
         </output>
       ) : null}
+      {isActive && data.cancelRefusal ? (
+        <p className="font-sans text-xs text-dusty-gray">{data.cancelRefusal}</p>
+      ) : null}
 
       {/* Session history */}
       <SessionHistory sessions={data.sessions} used={used} />
 
       <RecordSessionPanel
         open={recordOpen}
+        branchId={data.branchId}
         membershipId={membershipId}
         memberName={data.customerName}
         membershipNumber={data.membershipNumber}
@@ -232,6 +251,7 @@ export function MembershipDetail({ membershipId }: { membershipId: string }) {
 
       <CancelMembershipPanel
         open={cancelOpen}
+        branchId={data.branchId}
         membershipId={membershipId}
         membershipNumber={data.membershipNumber}
         onClose={() => setCancelOpen(false)}
@@ -279,6 +299,16 @@ function SessionHistory({ sessions, used }: { sessions: MembershipSessionRow[]; 
         ),
       },
       {
+        id: 'branch',
+        header: 'Branch',
+        accessorFn: (s) => s.branchName,
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap font-sans text-warm-gray">
+            {row.original.branchName}
+          </span>
+        ),
+      },
+      {
         id: 'services',
         header: 'Service(s)',
         enableSorting: false,
@@ -302,13 +332,18 @@ function SessionHistory({ sessions, used }: { sessions: MembershipSessionRow[]; 
         header: 'Staff',
         enableSorting: false,
         cell: ({ row }) => {
-          const staffNames = [
-            ...new Set(
-              row.original.services
-                .map((svc) => svc.staffName)
-                .filter((n): n is string => Boolean(n)),
-            ),
-          ]
+          // Another branch's session doesn't name its staff.
+          const session = row.original
+          const staffNames =
+            session.scope === 'this_branch'
+              ? [
+                  ...new Set(
+                    session.services
+                      .map((svc) => svc.staffName)
+                      .filter((n): n is string => Boolean(n)),
+                  ),
+                ]
+              : []
           return (
             <span className="whitespace-nowrap font-sans text-warm-gray">
               {staffNames.length > 0 ? staffNames.join(', ') : '—'}
@@ -356,6 +391,7 @@ type SelectedService = { durationMinutes: number; staffId: string }
 
 function RecordSessionPanel({
   open,
+  branchId,
   membershipId,
   memberName,
   membershipNumber,
@@ -365,6 +401,8 @@ function RecordSessionPanel({
   onRecorded,
 }: {
   open: boolean
+  /** The branch the page was rendered for; the session is performed there. */
+  branchId: string
   membershipId: string
   memberName: string
   membershipNumber: string
@@ -379,6 +417,10 @@ function RecordSessionPanel({
   const [selected, setSelected] = useState<Record<string, SelectedService>>({})
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  // One idempotency key per session attempt. Retrying the same selection after
+  // a timeout or lost response reuses it, so the server records the session
+  // once; opening the panel or changing the selection starts a new attempt.
+  const idempotencyKeyRef = useRef('')
 
   // Load SPA services + staff each time the panel opens; reset selections.
   useEffect(() => {
@@ -391,6 +433,7 @@ function RecordSessionPanel({
     setLoadError(null)
     setSelected({})
     setSubmitError(null)
+    idempotencyKeyRef.current = crypto.randomUUID()
     Promise.all([
       fetch('/api/services').then((res) => res.json()),
       fetch('/api/staff').then((res) => res.json()),
@@ -432,6 +475,7 @@ function RecordSessionPanel({
   }, [open])
 
   const toggleService = useCallback((svc: ServiceOption) => {
+    idempotencyKeyRef.current = crypto.randomUUID()
     setSelected((prev) => {
       const next = { ...prev }
       if (next[svc.id]) {
@@ -444,6 +488,7 @@ function RecordSessionPanel({
   }, [])
 
   const updateSelected = useCallback((serviceId: string, patch: Partial<SelectedService>) => {
+    idempotencyKeyRef.current = crypto.randomUUID()
     setSelected((prev) => {
       const current = prev[serviceId]
       if (!current) {
@@ -476,11 +521,13 @@ function RecordSessionPanel({
     setSubmitError(null)
     try {
       const payload = {
+        branchId,
         services: Object.entries(selected).map(([serviceId, v]) => ({
           serviceId,
           durationMinutes: Math.round(v.durationMinutes),
           ...(v.staffId ? { staffId: v.staffId } : {}),
         })),
+        idempotencyKey: idempotencyKeyRef.current,
       }
       const res = await fetch(`/api/memberships/${membershipId}/sessions`, {
         method: 'POST',
@@ -499,7 +546,7 @@ function RecordSessionPanel({
       toast.error('Could not record session', message)
       setSubmitting(false)
     }
-  }, [canSubmit, selected, membershipId, onRecorded])
+  }, [canSubmit, selected, branchId, membershipId, onRecorded])
 
   return (
     <SlideOverPanel
@@ -711,12 +758,14 @@ function StaffField({
 
 function CancelMembershipPanel({
   open,
+  branchId,
   membershipId,
   membershipNumber,
   onClose,
   onCancelled,
 }: {
   open: boolean
+  branchId: string
   membershipId: string
   membershipNumber: string
   onClose: () => void
@@ -747,13 +796,11 @@ function CancelMembershipPanel({
       const res = await fetch(`/api/memberships/${membershipId}/cancel`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ reason: trimmed }),
+        body: JSON.stringify({ branchId, reason: trimmed }),
       })
       const json = await res.json()
       if (!res.ok || !json.success) {
-        if (res.status === 403) {
-          throw new Error('Only a manager or above can cancel a membership.')
-        }
+        // The server says why: the selling branch's Manager or Owner cancels.
         throw new Error(json?.error?.message ?? 'Could not cancel this membership.')
       }
       toast.success('Membership cancelled')
@@ -764,7 +811,7 @@ function CancelMembershipPanel({
       toast.error('Could not cancel membership', message)
       setSubmitting(false)
     }
-  }, [reason, submitting, membershipId, onCancelled])
+  }, [reason, submitting, branchId, membershipId, onCancelled])
 
   return (
     <SlideOverPanel

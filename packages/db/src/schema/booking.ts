@@ -34,6 +34,7 @@
 import { sql } from 'drizzle-orm'
 import {
   boolean,
+  check,
   date,
   index,
   integer,
@@ -46,7 +47,13 @@ import {
 import { nanoid } from 'nanoid'
 import { user } from './auth'
 import { branch } from './branch'
-import { bookingStatusEnum, serviceTypeEnum, waitlistStatusEnum } from './enums'
+import {
+  bookingReassignmentReasonEnum,
+  bookingReassignmentResolutionEnum,
+  bookingStatusEnum,
+  serviceTypeEnum,
+  waitlistStatusEnum,
+} from './enums'
 import { spaMembership } from './membership'
 import { offer } from './offer'
 import { staffProfile } from './profile'
@@ -85,8 +92,9 @@ export const booking = pgTable(
     isGemsRedemption: boolean('is_gems_redemption').notNull().default(false),
     // Gems spent to create this redemption booking (null for normal bookings).
     gemsRedeemed: integer('gems_redeemed'),
-    // Client idempotency key for redemption (null for normal bookings). Partial
-    // unique index de-dupes retried submissions.
+    // Client idempotency key for ₹0 redemption bookings: gems redemptions (raw
+    // key) and SPA membership sessions ('msess:'-prefixed key); null for normal
+    // bookings. Partial unique index de-dupes retried submissions.
     redemptionKey: text('redemption_key'),
     confirmedAt: timestamp('confirmed_at', { withTimezone: true, mode: 'date' }),
     completedAt: timestamp('completed_at', { withTimezone: true, mode: 'date' }),
@@ -142,6 +150,43 @@ export const bookingService = pgTable(
   (table) => [index('booking_service_staff_id_idx').on(table.staffId)],
 )
 
+// Reassignment work (multi-branch R1.7, R5.8): a booking whose assignee was
+// taken off it, open until someone else is assigned or the booking ends. One
+// open entry per booking; resolved entries stay as history. Written by the
+// same statement that clears the assignment, so the database makes the id.
+export const bookingReassignment = pgTable(
+  'booking_reassignment',
+  {
+    id: text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+    bookingId: text('booking_id')
+      .notNull()
+      .references(() => booking.id, { onDelete: 'cascade' }),
+    reason: bookingReassignmentReasonEnum('reason').notNull(),
+    // The person taken off the booking.
+    previousStaffId: text('previous_staff_id').references(() => staffProfile.id, {
+      onDelete: 'set null',
+    }),
+    // Who made the change that took them off.
+    createdById: text('created_by_id').references(() => user.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true, mode: 'date' }),
+    resolution: bookingReassignmentResolutionEnum('resolution'),
+    // Who assigned someone else; null when the booking ended.
+    resolvedById: text('resolved_by_id').references(() => user.id, { onDelete: 'set null' }),
+  },
+  (table) => [
+    uniqueIndex('booking_reassignment_open_uidx')
+      .on(table.bookingId)
+      .where(sql`resolved_at IS NULL`),
+    index('booking_reassignment_booking_id_idx').on(table.bookingId),
+    check(
+      'booking_reassignment_resolution_check',
+      sql`(resolved_at IS NULL AND resolution IS NULL AND resolved_by_id IS NULL)
+        OR (resolved_at IS NOT NULL AND resolution IS NOT NULL)`,
+    ),
+  ],
+)
+
 export const bookingStatusLog = pgTable('booking_status_log', {
   id: text('id')
     .primaryKey()
@@ -158,23 +203,31 @@ export const bookingStatusLog = pgTable('booking_status_log', {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 })
 
-export const waitlist = pgTable('waitlist', {
-  id: text('id')
-    .primaryKey()
-    .$defaultFn(() => nanoid()),
-  customerId: text('customer_id')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  serviceId: text('service_id')
-    .notNull()
-    .references(() => service.id, { onDelete: 'restrict' }),
-  preferredStaffId: text('preferred_staff_id').references(() => staffProfile.id, {
-    onDelete: 'set null',
-  }),
-  preferredDate: date('preferred_date', { mode: 'date' }).notNull(),
-  preferredTimeStart: time('preferred_time_start'),
-  preferredTimeEnd: time('preferred_time_end'),
-  status: waitlistStatusEnum('status').notNull().default('waiting'),
-  notifiedAt: timestamp('notified_at', { withTimezone: true, mode: 'date' }),
-  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
-})
+export const waitlist = pgTable(
+  'waitlist',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    // The branch the customer is waiting at (multi-branch R3.3).
+    branchId: text('branch_id').references(() => branch.id, { onDelete: 'restrict' }),
+    serviceId: text('service_id')
+      .notNull()
+      .references(() => service.id, { onDelete: 'restrict' }),
+    preferredStaffId: text('preferred_staff_id').references(() => staffProfile.id, {
+      onDelete: 'set null',
+    }),
+    preferredDate: date('preferred_date', { mode: 'date' }).notNull(),
+    preferredTimeStart: time('preferred_time_start'),
+    preferredTimeEnd: time('preferred_time_end'),
+    status: waitlistStatusEnum('status').notNull().default('waiting'),
+    notifiedAt: timestamp('notified_at', { withTimezone: true, mode: 'date' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('waitlist_branch_id_preferred_date_idx').on(table.branchId, table.preferredDate),
+  ],
+)

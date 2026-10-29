@@ -55,23 +55,25 @@ import {
 } from '@rgss/db/queries'
 import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
 import { completeBookingSchema } from '@rgss/types'
+import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { enqueueJob } from '@/lib/jobs/enqueue'
 import { publishBookingEvent } from '@/lib/realtime/publish'
 
 const COMPLETABLE_STATUSES = new Set(['confirmed', 'in_progress'])
 
 export const POST = withErrorHandler(
-  async (req: Request, ctx: { params: Promise<{ id: string }> }) => {
-    const session = await requireRole('receptionist')
-    const { id } = await ctx.params
+  async (req: Request, route: { params: Promise<{ id: string }> }) => {
+    const ctx = await requireBranchRole('receptionist')
+    const session = ctx.session
+    const { id } = await route.params
 
     const body = await req.json().catch(() => null)
     const parsed = completeBookingSchema.safeParse(body)
     if (!parsed.success) {
       throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
     }
+    assertRenderedBranch(ctx, parsed.data.branchId)
     const {
       paymentMethod,
       offerId: offerIdRaw,
@@ -88,7 +90,9 @@ export const POST = withErrorHandler(
       gemsServiceIdRaw && gemsServiceIdRaw.length > 0 ? gemsServiceIdRaw : null
     const requestsGemsRedemption = Boolean(gemsRedeemedServiceId) || Boolean(redeemGems)
 
-    const existing = await getBookingForAdmin(id)
+    // A booking at another branch is not found; the invoice is issued by the
+    // booking's own (the active) branch.
+    const existing = await getBookingForAdmin(id, ctx.branch.id)
     if (!existing) {
       throw notFound('Booking not found.')
     }
@@ -96,6 +100,14 @@ export const POST = withErrorHandler(
       throw conflict(
         ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION,
         `Only confirmed or in-progress bookings can be completed (current status: "${existing.status}").`,
+      )
+    }
+    // A booking whose assignee was taken off it waits for someone else; the
+    // invoice names who did the work (R1.7).
+    if (existing.services.some((s) => s.staffId === null)) {
+      throw conflict(
+        ERROR_CODES.CONFLICT,
+        'Nobody is assigned to this booking. Assign who is doing it, then complete it.',
       )
     }
 

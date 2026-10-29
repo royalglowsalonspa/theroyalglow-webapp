@@ -34,8 +34,12 @@
 import { CalendarDays, ClipboardList, Hand, TrendingUp } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { MissingManagerBanner } from '@/components/admin/MissingManagerBanner'
+import { ReassignmentPanel } from '@/components/admin/ReassignmentPanel'
 import { Button } from '@/components/ui/button'
 import { Icon } from '@/components/ui/icon'
+import { reassignmentWork } from '@/lib/bookings/reassignment-work'
+import { missingManagerNotice } from '@/lib/branches/missing-manager'
 import { DashboardOverview } from './dashboard-overview'
 
 export const metadata: Metadata = {
@@ -61,7 +65,14 @@ function getTodayIST(): string {
   }).format(now)
 }
 
-export default function AdminDashboardPage() {
+export default async function AdminDashboardPage() {
+  // Multi-branch R1.9: an operational branch without a Manager says so here.
+  // R1.7: bookings whose assignee was taken off them wait for someone else.
+  const [missingManager, reassignments] = await Promise.all([
+    missingManagerNotice(),
+    reassignmentWork(),
+  ])
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -72,6 +83,9 @@ export default function AdminDashboardPage() {
         </h1>
         <p className="text-sm text-dusty-gray font-sans mt-0.5">{getTodayIST()}</p>
       </div>
+
+      {missingManager ? <MissingManagerBanner notice={missingManager} /> : null}
+      {reassignments ? <ReassignmentPanel work={reassignments} /> : null}
 
       {/* Live KPIs + recent bookings */}
       <DashboardOverview />

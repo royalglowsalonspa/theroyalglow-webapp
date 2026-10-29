@@ -184,6 +184,8 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
   const [slots, setSlots] = useState<AvailabilitySlot[]>([])
   const [slotsLoading, setSlotsLoading] = useState(false)
   const [slotsError, setSlotsError] = useState<string | null>(null)
+  // Why the chosen day is closed (a holiday or one-off closure), if it is.
+  const [slotsClosure, setSlotsClosure] = useState<string | null>(null)
 
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -369,6 +371,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
     let cancelled = false
     setSlotsLoading(true)
     setSlotsError(null)
+    setSlotsClosure(null)
     setSlots([])
     const query = new URLSearchParams({ date: toISODate(selectedDate), branchId: activeBranchId })
     fetch(`/api/availability?${query}`)
@@ -377,10 +380,17 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
         if (!res.ok || !json?.success) {
           throw new Error(json?.error?.message ?? 'Could not load slots.')
         }
-        return json.data.slots as AvailabilitySlot[]
+        const closureName: unknown = json.data.closure?.name
+        return {
+          slots: json.data.slots as AvailabilitySlot[],
+          closure: typeof closureName === 'string' ? closureName : null,
+        }
       })
-      .then((s) => {
-        if (!cancelled) setSlots(s)
+      .then((result) => {
+        if (!cancelled) {
+          setSlots(result.slots)
+          setSlotsClosure(result.closure)
+        }
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -406,6 +416,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
     setNotes('')
     setSlots([])
     setSlotsError(null)
+    setSlotsClosure(null)
     setSubmitError(null)
     setSubmitting(false)
     setIsSubmitted(false)
@@ -654,6 +665,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
               slots={slots}
               slotsLoading={slotsLoading}
               slotsError={slotsError}
+              slotsClosure={slotsClosure}
               onSelectDate={(d) => {
                 setSelectedDate(d)
                 setSelectedTime(null)
@@ -857,6 +869,7 @@ function Step1({
   slots,
   slotsLoading,
   slotsError,
+  slotsClosure,
   onSelectDate,
   onSelectTime,
 }: {
@@ -870,6 +883,8 @@ function Step1({
   slots: AvailabilitySlot[]
   slotsLoading: boolean
   slotsError: string | null
+  /** Why the chosen day is closed, if it is. */
+  slotsClosure: string | null
   onSelectDate: (d: Date) => void
   onSelectTime: (t: string) => void
 }) {
@@ -951,6 +966,10 @@ function Step1({
         ) : slotsError ? (
           <p className="font-sans text-[14px] text-error" role="alert">
             {slotsError}
+          </p>
+        ) : slotsClosure ? (
+          <p className="font-sans text-[14px] text-dusty-gray" aria-live="polite">
+            We’re closed on this day ({slotsClosure}). Please choose another day.
           </p>
         ) : slots.length === 0 ? (
           <p className="font-sans text-[14px] text-dusty-gray">

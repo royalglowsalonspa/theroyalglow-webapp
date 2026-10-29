@@ -122,14 +122,17 @@ function formatTimeWindow(start: string | null, end: string | null): string {
   return ''
 }
 
-async function fetchWaitlist(tab: TabValue): Promise<WaitlistEntry[]> {
+/** The active branch's queue: its id is sent back with every transition. */
+type WaitlistPage = { branchId: string; entries: WaitlistEntry[] }
+
+async function fetchWaitlist(tab: TabValue): Promise<WaitlistPage> {
   const qs = tab === 'all' ? '' : `?status=${tab}`
   const res = await fetch(`/api/waitlist${qs}`)
   const json = await res.json()
   if (!res.ok || !json.success) {
     throw new Error(json?.error?.message ?? 'Could not load the waitlist.')
   }
-  return json.data.entries as WaitlistEntry[]
+  return { branchId: json.data.branchId as string, entries: json.data.entries as WaitlistEntry[] }
 }
 
 export function WaitlistQueue() {
@@ -273,7 +276,7 @@ export function WaitlistQueue() {
         <Skeleton rows={6} variant="table" />
       ) : state.status === 'error' ? (
         <ErrorState message={state.message} onRetry={retry} />
-      ) : state.data.length === 0 ? (
+      ) : state.data.entries.length === 0 ? (
         <EmptyState
           icon={Clock}
           title={`No ${tab === 'all' ? '' : tab} waitlist entries`.replace('  ', ' ')}
@@ -282,7 +285,7 @@ export function WaitlistQueue() {
       ) : (
         <DataTable
           columns={columns}
-          data={state.data}
+          data={state.data.entries}
           tableId="waitlist"
           caption="Waitlist entries"
           globalFilter={search}
@@ -295,6 +298,7 @@ export function WaitlistQueue() {
 
       <WaitlistDetailPanel
         entry={selected}
+        branchId={state.status === 'success' ? state.data.branchId : null}
         onClose={() => setSelected(null)}
         onChanged={() => {
           setSelected(null)
@@ -313,10 +317,13 @@ export function WaitlistQueue() {
  */
 function WaitlistDetailPanel({
   entry,
+  branchId,
   onClose,
   onChanged,
 }: {
   entry: WaitlistEntry | null
+  /** The branch the queue was rendered for. */
+  branchId: string | null
   onClose: () => void
   onChanged: () => void
 }) {
@@ -330,7 +337,7 @@ function WaitlistDetailPanel({
   }, [])
 
   const transition = async (status: WaitlistStatus) => {
-    if (!entry) {
+    if (!(entry && branchId)) {
       return
     }
     setBusy(true)
@@ -339,7 +346,7 @@ function WaitlistDetailPanel({
       const res = await fetch(`/api/waitlist/${entry.id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ branchId, status }),
       })
       const json = await res.json()
       if (!res.ok || !json.success) {

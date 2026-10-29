@@ -3,6 +3,7 @@ import {
   daysUntilIST,
   isSameISTDay,
   istDateInDays,
+  istDayStart,
   istToday,
   monthKeyIST,
   reminderWindowMatch,
@@ -37,6 +38,19 @@ describe('isSameISTDay', () => {
     const a = new Date('2026-05-30T06:00:00Z')
     const b = new Date('2026-05-30T14:00:00Z')
     expect(isSameISTDay(a, b)).toBe(true)
+  })
+})
+
+describe('istDayStart', () => {
+  it('is IST midnight of the IST day, not UTC midnight', () => {
+    // 2026-05-30 19:00 UTC = 2026-05-31 00:30 IST → the day began at 18:30 UTC.
+    expect(istDayStart(new Date('2026-05-30T19:00:00Z')).toISOString()).toBe(
+      '2026-05-30T18:30:00.000Z',
+    )
+    // 2026-05-30 18:00 UTC = 2026-05-30 23:30 IST → that day began the UTC evening before.
+    expect(istDayStart(new Date('2026-05-30T18:00:00Z')).toISOString()).toBe(
+      '2026-05-29T18:30:00.000Z',
+    )
   })
 })
 

@@ -34,6 +34,7 @@ import { sql } from 'drizzle-orm'
 import { boolean, index, integer, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'
 import { user } from './auth'
+import { branch } from './branch'
 import { spaMembershipStatusEnum } from './enums'
 
 export const spaMembershipTier = pgTable('spa_membership_tier', {
@@ -69,6 +70,17 @@ export const spaMembership = pgTable(
       .notNull()
       .references(() => spaMembershipTier.id, { onDelete: 'restrict' }),
     tierNameSnapshot: text('tier_name_snapshot').notNull(),
+    // The tier's usual hours and price when this membership was sold, for the
+    // agreed-versus-usual comparison. Null for memberships sold before the
+    // snapshot existed (multi-branch §4b).
+    tierUsualHoursMinutes: integer('tier_usual_hours_minutes'),
+    tierUsualPricePaise: integer('tier_usual_price_paise'),
+    // The branch that sold the membership and issued its purchase invoice. Its
+    // money and its cancellation stay with that branch; the hours can be used
+    // at any branch (multi-branch R9, route inventory gap 5).
+    sellingBranchId: text('selling_branch_id').references(() => branch.id, {
+      onDelete: 'restrict',
+    }),
     totalHoursMinutes: integer('total_hours_minutes').notNull(),
     usedHoursMinutes: integer('used_hours_minutes').notNull().default(0),
     pricePaidPaise: integer('price_paid_paise').notNull(),
@@ -92,5 +104,6 @@ export const spaMembership = pgTable(
       .where(sql`status = 'active'`),
     index('spa_membership_expires_at_idx').on(table.expiresAt).where(sql`status = 'active'`),
     index('spa_membership_customer_id_idx').on(table.customerId),
+    index('spa_membership_selling_branch_id_idx').on(table.sellingBranchId),
   ],
 )

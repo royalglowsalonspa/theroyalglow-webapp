@@ -36,6 +36,16 @@
 // dates identically (₹15,000 · DD/MM/YYYY).
 export { formatDateDDMMYYYY, formatINR } from './bookings'
 
+// What a membership was sold for. Only people who can access the selling
+// branch receive it (route inventory gap 5); everyone else gets null.
+export interface MembershipSale {
+  pricePaidPaise: number
+  /** The tier's usual hours and price at sale time; null for older sales. */
+  tierUsualHoursMinutes: number | null
+  tierUsualPricePaise: number | null
+  invoiceId: string | null
+}
+
 // Fields common to both the list row and the detail payload (the flattened
 // spa_membership row plus the owning customer's name).
 interface MembershipBase {
@@ -46,19 +56,26 @@ interface MembershipBase {
   tierNameSnapshot: string
   totalHoursMinutes: number
   usedHoursMinutes: number
-  pricePaidPaise: number
   startsAt: string
   expiresAt: string
   status: string
-  invoiceId: string | null
   notes: string | null
   createdAt: string
   customerName: string
+  /** The branch that sold it. The hours can be used at any branch. */
+  sellingBranch: { id: string; name: string } | null
+  sale: MembershipSale | null
 }
 
 // GET /api/memberships → each row carries the tier name for the list table.
 export interface MembershipListRow extends MembershipBase {
   tierName: string
+}
+
+// GET /api/memberships → the rows, and the branch the list was rendered for.
+export interface MembershipListData {
+  branchId: string
+  memberships: MembershipListRow[]
 }
 
 // GET /api/membership-tiers → tier cards for the create form.
@@ -84,21 +101,40 @@ export interface MembershipSessionServiceRow {
   displayOrder: number
 }
 
-export interface MembershipSessionRow {
-  id: string
-  bookingNumber: string
-  bookingDate: string
-  startTime: string
-  endTime: string
-  totalDurationMinutes: number
-  status: string
-  services: MembershipSessionServiceRow[]
-}
+// A session as the active branch sees it. Another branch's session shows its
+// date, branch, services and duration only.
+export type MembershipSessionRow =
+  | {
+      scope: 'this_branch'
+      id: string
+      bookingNumber: string
+      branchName: string
+      bookingDate: string
+      startTime: string
+      endTime: string
+      totalDurationMinutes: number
+      status: string
+      services: Omit<MembershipSessionServiceRow, 'bookingId' | 'serviceId' | 'displayOrder'>[]
+    }
+  | {
+      scope: 'other_branch'
+      branchName: string
+      bookingDate: string
+      startTime: string
+      endTime: string
+      totalDurationMinutes: number
+      services: Pick<MembershipSessionServiceRow, 'serviceNameSnapshot' | 'durationMinutes'>[]
+    }
 
-// GET /api/memberships/[id] → membership + customer email + full tier + sessions.
+// GET /api/memberships/[id] → membership + customer email + full tier + sessions,
+// the branch the page renders for (writes send it back) and whether the person
+// may cancel it from here.
 export interface MembershipDetailData extends MembershipBase {
+  branchId: string
   customerEmail: string
   tier: MembershipTier
+  canCancel: boolean
+  cancelRefusal: string | null
   sessions: MembershipSessionRow[]
 }
 

@@ -26,7 +26,8 @@
  * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/db/queries,
  *                @rgss/errors, @rgss/types
  *
- * Notes        : Requires min role: manager. Read-only.
+ * Notes        : Requires min role at the active branch: manager. Read-only.
+ *                Every figure is the active branch's alone (multi-branch R2.3).
  ************************************************************/
 
 import {
@@ -37,13 +38,15 @@ import {
 } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { reportsQuerySchema, resolveReportRange } from '@rgss/types'
+import { requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 
-// GET /api/reports — combined analytics payload for the admin dashboard.
-// Manager+. Returns { range, summary, revenueTrend, bookingsByStatus, topServices }.
+// GET /api/reports — the active branch's analytics payload for the admin
+// dashboard. Manager or above there. Returns { branchId, range, summary,
+// revenueTrend, bookingsByStatus, topServices }.
 export const GET = withErrorHandler(async (req: Request) => {
-  await requireRole('manager')
+  const ctx = await requireBranchRole('manager')
+  const branchId = ctx.branch.id
 
   const params = Object.fromEntries(new URL(req.url).searchParams)
   const parsed = reportsQuerySchema.safeParse(params)
@@ -54,11 +57,11 @@ export const GET = withErrorHandler(async (req: Request) => {
   const range = resolveReportRange(parsed.data)
 
   const [summary, revenueTrend, bookingsByStatus, topServices] = await Promise.all([
-    getRevenueSummary(range),
-    getRevenueTrend(range),
-    getBookingsByStatus(range),
-    getTopServices(range),
+    getRevenueSummary(branchId, range),
+    getRevenueTrend(branchId, range),
+    getBookingsByStatus(branchId, range),
+    getTopServices(branchId, range),
   ])
 
-  return apiSuccess({ range, summary, revenueTrend, bookingsByStatus, topServices })
+  return apiSuccess({ branchId, range, summary, revenueTrend, bookingsByStatus, topServices })
 })

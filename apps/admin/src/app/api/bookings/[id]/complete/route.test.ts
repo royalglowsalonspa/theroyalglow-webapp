@@ -13,7 +13,7 @@
  *                confirmed/in-progress happy path end-to-end, asserting the
  *                invoice is created and gems are credited in one transaction.
  *
- * Approach     : `@/lib/api/session`, `@/lib/jobs/enqueue`,
+ * Approach     : requireBranchRole, `@/lib/jobs/enqueue`,
  *                `@/lib/notifications/providers/email`, and `@rgss/db/queries`
  *                are mocked with an in-memory fake store + loyalty ledger that
  *                mirrors the real completeBookingWithInvoice atomic write.
@@ -29,6 +29,7 @@
 import { ERROR_CODES } from '@rgss/errors'
 import fc from 'fast-check'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { branchContext, OTHER_BRANCH, TEST_BRANCH } from '@/test/branch-context'
 
 // ---------------------------------------------------------------------------
 // In-memory fakes for the admin completion query layer. completeBookingWithInvoice
@@ -59,6 +60,7 @@ type FakeBooking = {
 }
 type CapturedInvoice = {
   invoiceNumber: string
+  branchId: string
   subtotalPaise: number
   taxableValuePaise: number
   gstAmountPaise: number
@@ -79,7 +81,7 @@ const harness = vi.hoisted(() => ({
   lastInvoice: CapturedInvoice | null
 }
 
-const sessionMocks = vi.hoisted(() => ({ requireRole: vi.fn() }))
+const mocks = vi.hoisted(() => ({ requireBranchRole: vi.fn() }))
 const enqueueMocks = vi.hoisted(() => ({ enqueueJob: vi.fn(async () => {}) }))
 const emailMocks = vi.hoisted(() => ({ sendEmail: vi.fn(async () => {}) }))
 
@@ -93,9 +95,9 @@ const dbMocks = vi.hoisted(() => {
       | undefined
   void h
   return {
-    getBookingForAdmin: vi.fn(async (id: string) => {
+    getBookingForAdmin: vi.fn(async (id: string, branchId: string) => {
       const s = store()
-      return s?.booking && s.booking.id === id ? s.booking : null
+      return s?.booking && s.booking.id === id && s.booking.branchId === branchId ? s.booking : null
     }),
     getBranchByIdAdmin: vi.fn(async (id: string) => ({ id, number: 1 })),
     getStaffNamesByIds: vi.fn(async (ids: string[]) =>
@@ -152,7 +154,10 @@ const dbMocks = vi.hoisted(() => {
   }
 })
 
-vi.mock('@/lib/api/session', () => sessionMocks)
+vi.mock('@/lib/api/branch-context', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api/branch-context')>()
+  return { ...actual, requireBranchRole: mocks.requireBranchRole }
+})
 vi.mock('@/lib/jobs/enqueue', () => enqueueMocks)
 vi.mock('@/lib/notifications/providers/email', () => emailMocks)
 vi.mock('@rgss/db/queries', () => dbMocks)
@@ -160,7 +165,6 @@ vi.mock('@rgss/db/queries', () => dbMocks)
 import { POST } from '@/app/api/bookings/[id]/complete/route'
 
 const BOOKING_ID = 'bk_complete_1'
-const AUTHORIZED_SESSION = { user: { id: 'u_admin', role: 'receptionist' } }
 
 const ALL_STATUSES = [
   'pending',
@@ -179,7 +183,7 @@ function seed(overrides: Partial<FakeBooking>): FakeBooking {
   const bk: FakeBooking = {
     id: BOOKING_ID,
     status: 'confirmed',
-    branchId: 'br_1',
+    branchId: TEST_BRANCH.id,
     customerId: 'cust_1',
     customerName: 'Asha Rao',
     customerEmail: null, // skip the (best-effort) invoice email path
@@ -204,11 +208,11 @@ function seed(overrides: Partial<FakeBooking>): FakeBooking {
   return bk
 }
 
-function completeRequest(paymentMethod: string): Request {
+function completeRequest(paymentMethod: string, branchId: string = TEST_BRANCH.id): Request {
   return new Request(`https://admin.theroyalglow.in/api/bookings/${BOOKING_ID}/complete`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ paymentMethod }),
+    body: JSON.stringify({ branchId, paymentMethod }),
   })
 }
 
@@ -216,7 +220,7 @@ const ctx = { params: Promise.resolve({ id: BOOKING_ID }) }
 
 beforeEach(() => {
   vi.clearAllMocks()
-  sessionMocks.requireRole.mockResolvedValue(AUTHORIZED_SESSION)
+  mocks.requireBranchRole.mockResolvedValue(branchContext({ userId: 'u_admin' }))
 })
 
 describe('POST /api/bookings/[id]/complete — completion transition (property)', () => {
@@ -230,7 +234,7 @@ describe('POST /api/bookings/[id]/complete — completion transition (property)'
         fc.boolean(),
         async (status, totalAmountPaise, paymentMethod, isMembershipSession) => {
           vi.clearAllMocks()
-          sessionMocks.requireRole.mockResolvedValue(AUTHORIZED_SESSION)
+          mocks.requireBranchRole.mockResolvedValue(branchContext({ userId: 'u_admin' }))
           seed({ status, totalAmountPaise, isMembershipSession })
 
           const res = await POST(completeRequest(paymentMethod), ctx)
@@ -355,7 +359,7 @@ describe('POST /api/bookings/[id]/complete — gems redemption at checkout', () 
     return new Request(`https://admin.theroyalglow.in/api/bookings/${BOOKING_ID}/complete`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ branchId: TEST_BRANCH.id, ...body }),
     })
   }
 
@@ -426,5 +430,66 @@ describe('POST /api/bookings/[id]/complete — gems redemption at checkout', () 
     expect(json.success).toBe(false)
     expect(json.error.code).toBe(ERROR_CODES.OFFER_NOT_APPLICABLE)
     expect(dbMocks.completeBookingWithInvoice).not.toHaveBeenCalled()
+  })
+})
+
+describe('POST /api/bookings/[id]/complete — the active branch only (R2.3, R2.4)', () => {
+  it('needs a Receptionist or above, and bills from the booking’s branch', async () => {
+    seed({ status: 'confirmed' })
+
+    const res = await POST(completeRequest('cash'), ctx)
+
+    expect(res.status).toBe(200)
+    expect(mocks.requireBranchRole).toHaveBeenCalledWith('receptionist')
+    expect(dbMocks.getBookingForAdmin).toHaveBeenCalledWith(BOOKING_ID, TEST_BRANCH.id)
+    expect(dbMocks.getBranchByIdAdmin).toHaveBeenCalledWith(TEST_BRANCH.id)
+    const [params] = dbMocks.completeBookingWithInvoice.mock.calls[0] ?? []
+    expect(params?.invoice.branchId).toBe(TEST_BRANCH.id)
+  })
+
+  it('treats a booking at another branch as not found and bills nothing', async () => {
+    seed({ status: 'confirmed', branchId: OTHER_BRANCH.id })
+
+    const res = await POST(completeRequest('cash'), ctx)
+
+    expect(res.status).toBe(404)
+    expect(dbMocks.completeBookingWithInvoice).not.toHaveBeenCalled()
+    expect((harness.booking as FakeBooking).status).toBe('confirmed')
+  })
+
+  it('refuses a checkout rendered for another branch with 409', async () => {
+    seed({ status: 'confirmed' })
+
+    const res = await POST(completeRequest('cash', OTHER_BRANCH.id), ctx)
+    const json = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(json.error.code).toBe(ERROR_CODES.BRANCH_CONTEXT_CHANGED)
+    expect(dbMocks.getBookingForAdmin).not.toHaveBeenCalled()
+    expect(dbMocks.completeBookingWithInvoice).not.toHaveBeenCalled()
+  })
+
+  it('refuses to complete a booking nobody is assigned to (R1.7)', async () => {
+    // Its assignee left the branch; it waits for someone else.
+    seed({
+      status: 'confirmed',
+      services: [
+        {
+          serviceId: 'svc_1',
+          serviceNameSnapshot: 'Hair Spa',
+          staffId: null,
+          priceAtBookingPaise: 250000,
+        },
+      ],
+    })
+
+    const res = await POST(completeRequest('cash'), ctx)
+    const json = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(json.error.code).toBe(ERROR_CODES.CONFLICT)
+    expect(json.error.message).toMatch(/Nobody is assigned/)
+    expect(dbMocks.completeBookingWithInvoice).not.toHaveBeenCalled()
+    expect((harness.booking as FakeBooking).status).toBe('confirmed')
   })
 })

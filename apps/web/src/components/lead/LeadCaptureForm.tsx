@@ -71,7 +71,16 @@ const SERVICE_GROUP_LABELS: Record<ServiceOption['serviceType'], string> = {
 
 const LABEL_CLASS = 'mb-1.5 font-ui text-sm font-medium text-warm-gray'
 
-export function LeadCaptureForm({ services, utm }: { services: ServiceOption[]; utm: Utm }) {
+export function LeadCaptureForm({
+  services,
+  utm,
+  branchId,
+}: {
+  services: ServiceOption[]
+  utm: Utm
+  /** The branch the ad link named, if any; the API falls back to the default. */
+  branchId?: string | undefined
+}) {
   const router = useRouter()
 
   const [name, setName] = useState('')
@@ -125,6 +134,7 @@ export function LeadCaptureForm({ services, utm }: { services: ServiceOption[]; 
           utmCampaign: utm.utmCampaign,
           utmContent: utm.utmContent,
           utmTerm: utm.utmTerm,
+          branchId,
         }),
       })
       const json = await res.json()

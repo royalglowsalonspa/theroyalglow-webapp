@@ -30,11 +30,15 @@
  * - Phone normalised to +91XXXXXXXXXX in business layer
  ************************************************************/
 import { z } from 'zod'
+import { renderedBranchIdSchema } from './branch'
 
 const indianPhone = z
   .string()
   .trim()
   .regex(/^(?:\+?91|0)?[6-9]\d{9}$/, 'Enter a valid 10-digit Indian mobile number')
+
+export const LEAD_STATUSES = ['new', 'contacted', 'follow_up', 'booked', 'won', 'lost'] as const
+export type LeadStatus = (typeof LEAD_STATUSES)[number]
 
 export const createLeadSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -48,18 +52,24 @@ export const createLeadSchema = z.object({
   utmCampaign: z.string().max(120).optional(),
   utmContent: z.string().max(120).optional(),
   utmTerm: z.string().max(120).optional(),
+  // The branch the ad link named (R7.3). Only a hint: the server falls back
+  // to the default branch when it is missing or unknown.
+  branchId: z.string().trim().min(1).max(64).optional(),
 })
 export type CreateLeadInput = z.infer<typeof createLeadSchema>
 
-export const manualLeadSchema = createLeadSchema.extend({
+// A lead entered at the counter belongs to the branch the form was rendered
+// for (R2.4).
+export const manualLeadSchema = createLeadSchema.omit({ branchId: true }).extend({
+  branchId: renderedBranchIdSchema,
   source: z.literal('manual').default('manual'),
 })
 export type ManualLeadInput = z.infer<typeof manualLeadSchema>
 
-export const LEAD_STATUSES = ['new', 'contacted', 'follow_up', 'booked', 'won', 'lost'] as const
-export type LeadStatus = (typeof LEAD_STATUSES)[number]
-
+// Moving a lead's status, and adding a note, name the branch the pipeline was
+// rendered for.
 export const updateLeadStatusSchema = z.object({
+  branchId: renderedBranchIdSchema,
   status: z.enum(LEAD_STATUSES),
   // required only when status === 'lost' (validated in the business layer)
   reason: z.string().max(500).optional(),
@@ -67,6 +77,7 @@ export const updateLeadStatusSchema = z.object({
 export type UpdateLeadStatusInput = z.infer<typeof updateLeadStatusSchema>
 
 export const addLeadNoteSchema = z.object({
+  branchId: renderedBranchIdSchema,
   content: z.string().trim().min(1).max(1000),
 })
 export type AddLeadNoteInput = z.infer<typeof addLeadNoteSchema>

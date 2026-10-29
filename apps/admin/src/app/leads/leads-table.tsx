@@ -118,13 +118,16 @@ function toWhatsAppLink(phone: string): string {
   return `https://wa.me/91${digits}`
 }
 
-async function fetchLeads(): Promise<LeadPipelineRow[]> {
+/** The active branch's pipeline: its id is sent back with every write. */
+type LeadPipeline = { branchId: string; leads: LeadPipelineRow[] }
+
+async function fetchLeads(): Promise<LeadPipeline> {
   const res = await fetch('/api/leads')
   const json = await res.json()
   if (!res.ok || !json.success) {
     throw new Error(json?.error?.message ?? 'Could not load leads.')
   }
-  return json.data.leads as LeadPipelineRow[]
+  return { branchId: json.data.branchId as string, leads: json.data.leads as LeadPipelineRow[] }
 }
 
 export function LeadsTable() {
@@ -250,7 +253,7 @@ export function LeadsTable() {
 
   const activeLead =
     state.status === 'success' && activeLeadId
-      ? state.data.find((lead) => lead.id === activeLeadId)
+      ? state.data.leads.find((lead) => lead.id === activeLeadId)
       : undefined
 
   return (
@@ -296,7 +299,7 @@ export function LeadsTable() {
         <Skeleton rows={8} variant="table" />
       ) : state.status === 'error' ? (
         <ErrorState message={state.message} onRetry={retry} />
-      ) : state.data.length === 0 ? (
+      ) : state.data.leads.length === 0 ? (
         <EmptyState
           icon={Users}
           title="No leads yet"
@@ -306,7 +309,7 @@ export function LeadsTable() {
         <>
           <DataTable
             columns={columns}
-            data={state.data}
+            data={state.data.leads}
             tableId="leads"
             caption="Lead pipeline"
             globalFilter={search}
@@ -338,8 +341,9 @@ export function LeadsTable() {
         {activeLeadId ? <LeadDetail leadId={activeLeadId} embedded /> : null}
       </SlideOverPanel>
 
-      {dialogOpen ? (
+      {dialogOpen && state.status === 'success' ? (
         <ManualLeadDialog
+          branchId={state.data.branchId}
           onClose={() => setDialogOpen(false)}
           onCreated={() => {
             setDialogOpen(false)
@@ -351,7 +355,16 @@ export function LeadsTable() {
   )
 }
 
-function ManualLeadDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function ManualLeadDialog({
+  branchId,
+  onClose,
+  onCreated,
+}: {
+  /** The branch whose pipeline the lead joins (the rendered branch). */
+  branchId: string
+  onClose: () => void
+  onCreated: () => void
+}) {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [serviceInterestedId, setServiceInterestedId] = useState('')
@@ -425,6 +438,7 @@ function ManualLeadDialog({ onClose, onCreated }: { onClose: () => void; onCreat
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            branchId,
             name: name.trim(),
             phone: phone.trim(),
             serviceInterestedId: serviceInterestedId || undefined,
@@ -445,7 +459,7 @@ function ManualLeadDialog({ onClose, onCreated }: { onClose: () => void; onCreat
         setSubmitting(false)
       }
     },
-    [name, phone, serviceInterestedId, onCreated, validate],
+    [branchId, name, phone, serviceInterestedId, onCreated, validate],
   )
 
   return (

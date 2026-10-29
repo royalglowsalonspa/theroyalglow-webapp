@@ -127,6 +127,16 @@ Endpoint `/api/jobs/weekly-report`. External calls: Slack + Resend.
 <Accordion title="Job 15 — Gems expiry reminder · daily 10:30 AM IST">
 Endpoint `/api/jobs/gems-expiry-reminder`. External calls: web-push only.
 </Accordion>
+<Accordion title="Job 21 — Pending-booking closeout · daily 10:00 PM IST">
+Endpoint `/api/jobs/pending-booking-closeout`. Closes every booking still `pending`
+after its appointment has ended as `no_show`, before the 10:30 PM sales report. Does
+not change the customer's no-show count.
+</Accordion>
+<Accordion title="Job 22 — Customer KPI reconcile · daily 12:20 AM IST">
+Endpoint `/api/jobs/customer-stats-reconcile`. Recomputes CRM visits, LTV, and
+first/last visit from completed bookings and paid invoices (backfill + safety net;
+completion and membership writes already refresh them in-transaction).
+</Accordion>
 </AccordionGroup>
 
 Reminders fire only when the customer has the relevant preference enabled
@@ -145,8 +155,9 @@ occurs, not on a fixed schedule.
 Endpoint `/api/jobs/post-service-followup`. External calls: Brevo.
 </Accordion>
 <Accordion title="Job 17 — Stale pending booking alert · trigger booking created pending · +2h">
-Endpoint `/api/jobs/stale-booking-alert`. External calls: web-push. Escalates to an
-auto-reject (with apology to the customer) if a booking is still pending after 24 hours.
+Endpoint `/api/jobs/stale-booking-alert`. External calls: web-push. Alert only: a
+booking nobody actions is closed by the nightly pending-booking closeout (pending →
+`no_show` once its appointment has ended).
 </Accordion>
 <Accordion title="Job 18 — No-show check · trigger booking end_time reached · +15min">
 Endpoint `/api/jobs/noshow-check`. External calls: web-push. Never auto-marks a

@@ -129,7 +129,7 @@ function routeFetch(input: RequestInfo | URL): Promise<Response> {
     return Promise.resolve(ok([]))
   }
   if (url.includes('/api/memberships')) {
-    return Promise.resolve(ok([]))
+    return Promise.resolve(ok({ branchId: 'branch_rayasandra', memberships: [] }))
   }
   if (url.includes('/api/bookings')) {
     return Promise.resolve(ok({ bookings: [] }))
@@ -148,6 +148,11 @@ function routeFetch(input: RequestInfo | URL): Promise<Response> {
   }
   if (url.includes('/api/schedule')) {
     return Promise.resolve(ok({ dates: [], staff: [] }))
+  }
+  if (url.includes('/api/closures')) {
+    return Promise.resolve(
+      ok({ branchId: 'branch_rayasandra', canCloseAllBranches: false, closures: [] }),
+    )
   }
   if (url.includes('/api/leave')) {
     return Promise.resolve(ok({ leave: [] }))

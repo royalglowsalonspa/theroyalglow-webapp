@@ -26,7 +26,14 @@ import { defineConfig, devices } from '@playwright/test'
  * - ADMIN_E2E_WEB_BASE_URL    : web app base URL for the 301 redirect specs
  *     (default https://theroyalglow.in).
  * - ADMIN_E2E_{ROLE}_STATE    : path to a Playwright storageState JSON for a
- *     seeded role account (receptionist/owner/developer). See e2e/fixtures/auth.ts.
+ *     seeded role account (receptionist/manager/owner/developer). See
+ *     e2e/fixtures/auth.ts.
+ * - ADMIN_E2E_IMPERSONATED_ROLE : the role of ADMIN_DEV_IMPERSONATE_EMAIL's
+ *     account, for a local run without stored sessions. With no explicit base
+ *     URL, the local server is then `next dev` (impersonation is ignored by
+ *     production builds), started with that email.
+ * - ADMIN_E2E_WRITE_PERSON_EMAIL / ADMIN_E2E_WRITE_BRANCH_ID : opt in to the
+ *     people write journeys (e2e/people-writes.spec.ts).
  *
  * Notes        : RBAC specs require seeded role accounts. When a role's
  *                storageState is absent they self-skip (see fixtures/auth.ts),
@@ -39,12 +46,31 @@ const ADMIN_BASE_URL = process.env.PLAYWRIGHT_ADMIN_BASE_URL ?? 'http://localhos
 // Against a deployed/seeded environment we hit PLAYWRIGHT_ADMIN_BASE_URL directly.
 const useLocalServer = !process.env.PLAYWRIGHT_ADMIN_BASE_URL
 
-const localWebServer = {
-  command: 'bun run --filter @rgss/admin build && bun run --filter @rgss/admin start',
-  url: ADMIN_BASE_URL,
-  timeout: 120_000,
-  reuseExistingServer: !process.env.CI,
+const impersonating = (process.env.ADMIN_E2E_IMPERSONATED_ROLE ?? '').trim() !== ''
+if (
+  impersonating &&
+  useLocalServer &&
+  (process.env.ADMIN_DEV_IMPERSONATE_EMAIL ?? '').trim() === ''
+) {
+  throw new Error(
+    'ADMIN_E2E_IMPERSONATED_ROLE needs ADMIN_DEV_IMPERSONATE_EMAIL: the account the local dev server acts as.',
+  )
 }
+
+const localWebServer = impersonating
+  ? {
+      // Impersonation only works outside production, so this is `next dev`.
+      command: 'bun run --filter @rgss/admin dev',
+      url: ADMIN_BASE_URL,
+      timeout: 180_000,
+      reuseExistingServer: !process.env.CI,
+    }
+  : {
+      command: 'bun run --filter @rgss/admin build && bun run --filter @rgss/admin start',
+      url: ADMIN_BASE_URL,
+      timeout: 120_000,
+      reuseExistingServer: !process.env.CI,
+    }
 
 export default defineConfig({
   testDir: './e2e',

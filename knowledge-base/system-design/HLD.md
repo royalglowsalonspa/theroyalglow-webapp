@@ -375,14 +375,16 @@ No Redis response cache is implemented for service catalogue or availability. A 
 └──────────────────────────────────────────────────────────────┘
 ```
 
-**Role Assignment Rules:**
+**Role Assignment Rules:** only below your own level, never your own role.
 
 | Assigning Role | Can Assign |
 |---------------|------------|
-| Developer | `owner` and all below |
-| Owner | `manager`, `receptionist`, `staff` |
-| Manager | `receptionist`, `staff` |
+| Developer | `owner` and all below — never `developer` |
+| Owner | `manager`, `receptionist`, `staff`, `customer` |
+| Manager | `receptionist`, `staff`, `customer` |
 | Receptionist | — (cannot assign roles) |
+
+Owner and Developer are protected: only the Developer can give or change the Owner role, and the Developer role/account is changed only in the database. See [authentication.md](../authentication.md#protected-roles-owner-and-developer-decided-25102026).
 
 ### 5.3 OAuth Flow
 

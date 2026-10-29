@@ -618,7 +618,7 @@ All admin routes are served from `admin.theroyalglow.in` (Root-Path Convention �
 | `/reports/leads` | Lead analytics — conversion rate, revenue per Meta campaign, pipeline funnel | Manager |
 | **Settings** | | |
 | `/settings` | System settings — salon info, GST number, business hours, policy config keys (cancellation window, no-show thresholds etc.) | Manager |
-| `/users` | User management — list all users, assign/change roles, suspend/ban, view sessions | Owner |
+| `/users` | Users & Roles — find a person, assign/change their role (confirmation dialog), keeps their Staff entry in step | Owner |
 | **Developer only** | | |
 | `/integrations` | Integration management — Ably, AiSensy, Meta Pixel/CAPI, Sentry config | Developer |
 | `/logs` | Error log viewer — Sentry-sourced, filterable by severity | Developer |
@@ -760,14 +760,14 @@ All tiers give access to **all SPA services** (Standard, Premium, VVIP). Hours a
 ---
 
 ### 9. User Management (Admin)
-Custom `admin.theroyalglow.in/users` page built on Better Auth admin APIs.
+Custom `admin.theroyalglow.in/users` page ("Users & Roles").
 
-**Features:**
-- List all users (customers + staff)
-- Assign / change roles
-- Suspend / ban accounts
-- View session history
-- Filter by role, status, signup date
+**Features (implemented):**
+- Find one person by name, phone, or email; no list of all users (that lives in CRM `/customers`)
+- Assign / change roles, with a confirmation dialog showing the person's name, email, phone, and what the change grants or removes
+- Staff, Receptionist, and Manager roles add the person to the Staff page automatically (with a Staff title); demotion to Customer deactivates their Staff entry
+
+**Planned, not implemented:** suspend / ban accounts, view session history.
 
 ---
 

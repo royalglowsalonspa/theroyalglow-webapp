@@ -64,7 +64,9 @@ export const ROUTE_MIN_LEVEL: ReadonlyArray<readonly [string, number]> = [
   ['/staff', 3],
   ['/schedule', 3],
   ['/reports', 3],
-  ['/settings', 3],
+  // Settings are Developer-only (multi-branch route inventory); they become
+  // per-branch settings with revisions later (tasks §5).
+  ['/settings', 5],
   ['/bookings', 2],
   ['/waitlist', 2],
   ['/customers', 2],
@@ -232,9 +234,9 @@ export const ADMIN_NAV: ReadonlyArray<NavSection> = [
   {
     title: 'System',
     items: [
-      { label: 'Settings', href: '/settings', minLevel: 3 },
       { label: 'Branches', href: '/branches', minLevel: 4 },
       { label: 'Users', href: '/users', minLevel: 4 },
+      { label: 'Settings', href: '/settings', minLevel: 5 },
       { label: 'Integrations', href: '/integrations', minLevel: 5 },
       { label: 'Logs', href: '/logs', minLevel: 5 },
     ],

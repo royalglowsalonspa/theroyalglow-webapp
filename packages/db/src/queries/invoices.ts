@@ -6,13 +6,14 @@
  * Module Name  : invoices
  * Scope        : Data Access — Billing / Invoices (admin ledger)
  *
- * Description  : Admin-wide invoice queries backing the Billing module: a
- *                paginated/searchable/filterable invoice ledger and a single
- *                invoice with its line items and customer identity.
+ * Description  : Invoice queries backing the Billing module, per issuing
+ *                branch: a paginated/searchable/filterable invoice ledger and a
+ *                single invoice with its line items and customer identity.
  *
  * Responsibilities :
- * - List invoices (newest first) with search + status/type filters + paging
- * - Fetch one invoice with its items for the detail view
+ * - List a branch's invoices (newest first) with search + status/type
+ *   filters + paging
+ * - Fetch one of its invoices with its items for the detail view
  *
  * Features / Functionality :
  * - Search across invoice number, customer name, and email (ilike)
@@ -38,10 +39,11 @@ import { branch } from '../schema/branch'
 import { invoice, invoiceItem } from '../schema/invoice'
 import { customerProfile } from '../schema/profile'
 
-// Paginated, searchable, filterable invoice ledger. Returns rows joined to the
-// customer's identity plus a total count for pagination.
-export async function getInvoices(query: InvoiceListQuery) {
-  const conditions = []
+// One branch's paginated, searchable, filterable invoice ledger: the invoices it
+// issued (multi-branch R2.3). Returns rows joined to the customer's identity
+// plus a total count for pagination.
+export async function getInvoices(branchId: string, query: InvoiceListQuery) {
+  const conditions = [eq(invoice.branchId, branchId)]
   if (query.status) {
     conditions.push(eq(invoice.paymentStatus, query.status))
   }
@@ -59,7 +61,7 @@ export async function getInvoices(query: InvoiceListQuery) {
       conditions.push(search)
     }
   }
-  const where = conditions.length > 0 ? and(...conditions) : undefined
+  const where = and(...conditions)
   const offset = (query.page - 1) * query.pageSize
 
   const rows = await db
@@ -92,8 +94,9 @@ export async function getInvoices(query: InvoiceListQuery) {
   return { rows, totalCount: countResult[0]?.count ?? 0 }
 }
 
-// A single invoice with its line items + customer identity, or null if missing.
-export async function getInvoiceById(id: string) {
+// A single invoice issued by the branch, with its line items + customer
+// identity, or null when the branch issued no such invoice.
+export async function getInvoiceById(id: string, branchId: string) {
   const rows = await db
     .select({
       id: invoice.id,
@@ -120,7 +123,7 @@ export async function getInvoiceById(id: string) {
     })
     .from(invoice)
     .innerJoin(user, eq(invoice.customerId, user.id))
-    .where(eq(invoice.id, id))
+    .where(and(eq(invoice.id, id), eq(invoice.branchId, branchId)))
     .limit(1)
 
   const found = rows[0]

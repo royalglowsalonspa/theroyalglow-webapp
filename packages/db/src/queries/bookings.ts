@@ -34,13 +34,17 @@
  *                a placeholder staff that the admin reassigns on approval.
  ************************************************************/
 
+import { AppError, ERROR_CODES } from '@rgss/errors'
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { db } from '../index'
 import { booking, bookingService, bookingStatusLog } from '../schema/booking'
 import { branch } from '../schema/branch'
 import { staffProfile } from '../schema/profile'
+import { staffTimeOff } from '../schema/schedule'
 import { staffService } from '../schema/service'
+import { assigneeRefusal } from './reassignments'
+import { staffWorksAt } from './staff'
 
 type NewBooking = typeof booking.$inferInsert
 type NewBookingService = typeof bookingService.$inferInsert
@@ -125,16 +129,31 @@ export async function getBranchById(id: string) {
   return rows[0] ?? null
 }
 
-// Pick a default active staff member able to perform the given service. Pending
-// bookings carry an auto-assigned staff that the admin reassigns on approval — the
-// booking_service.staff_id column is NOT NULL, so a placeholder is always required.
-// Falls back to any active staff member if none is mapped to the service.
-export async function getDefaultStaffForService(serviceId: string) {
+// Pick a default staff member at the branch for the given service. Pending
+// bookings carry a tentative assignee that the admin replaces on approval; a
+// walk-in keeps it. Prefers someone at the branch who performs the service,
+// then a Stylist or Therapist there, then anyone who works there; never
+// someone from another branch (multi-branch R2.3). With `dateISO`
+// (YYYY-MM-DD), skips anyone on approved leave that day, whom the database
+// refuses on a confirmed booking (migration 0014). Null when nobody is left.
+export async function getDefaultStaffForService(
+  serviceId: string,
+  branchId: string,
+  dateISO?: string,
+) {
+  const available = dateISO
+    ? sql`not exists (select 1 from ${staffTimeOff}
+        where ${staffTimeOff.staffId} = ${staffProfile.id}
+          and ${staffTimeOff.date} = ${dateISO}
+          and ${staffTimeOff.approvalStatus} = 'approved')`
+    : sql`true`
+
   const mapped = await db
     .select({ id: staffProfile.id })
     .from(staffService)
     .innerJoin(staffProfile, eq(staffService.staffId, staffProfile.id))
-    .where(and(eq(staffService.serviceId, serviceId), eq(staffProfile.isActive, true)))
+    .where(and(eq(staffService.serviceId, serviceId), staffWorksAt(branchId), available))
+    .orderBy(asc(staffProfile.id))
     .limit(1)
 
   if (mapped[0]) {
@@ -144,7 +163,8 @@ export async function getDefaultStaffForService(serviceId: string) {
   const anyStaff = await db
     .select({ id: staffProfile.id })
     .from(staffProfile)
-    .where(eq(staffProfile.isActive, true))
+    .where(and(staffWorksAt(branchId), available))
+    .orderBy(sql`(${staffProfile.roleWitness} = 'staff') desc`, asc(staffProfile.id))
     .limit(1)
 
   return anyStaff[0]?.id ?? null
@@ -173,12 +193,27 @@ export async function createBookingWithServices(
     return created as typeof booking.$inferSelect
   }
 
-  const [bookingResult] = await db.batch([
-    insertBooking,
-    db.insert(bookingService).values(serviceValues),
-  ])
+  let bookingResult: unknown
+  try {
+    ;[bookingResult] = await db.batch([
+      insertBooking,
+      db.insert(bookingService).values(serviceValues),
+    ])
+  } catch (error) {
+    // The chosen assignee left the branch or went on leave after they were
+    // picked (migration 0014). Nothing was written; picking again works.
+    if (assigneeRefusal(error)) {
+      throw new AppError({
+        code: ERROR_CODES.BOOKING_SLOT_UNAVAILABLE,
+        message: 'The staff for this booking just became unavailable. Please try again.',
+        statusCode: 409,
+        retryable: true,
+      })
+    }
+    throw error
+  }
 
-  return bookingResult[0] as typeof booking.$inferSelect
+  return (bookingResult as (typeof booking.$inferSelect)[])[0] as typeof booking.$inferSelect
 }
 
 // Append a single booking_status_log entry capturing a lifecycle transition.

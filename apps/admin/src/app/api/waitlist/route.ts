@@ -26,19 +26,20 @@
  * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/db/queries,
  *                @rgss/errors, @rgss/types
  *
- * Notes        : Requires min role: receptionist.
+ * Notes        : Requires min role at the active branch: receptionist. Only
+ *                that branch's entries are listed (multi-branch R2.3).
  ************************************************************/
 
 import { getWaitlist } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { waitlistListQuerySchema } from '@rgss/types'
+import { requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 
-// GET /api/waitlist — paginated waitlist queue, newest first, optionally
-// filtered by status. Receptionist+ only.
+// GET /api/waitlist — the active branch's paginated waitlist queue, newest
+// first, optionally filtered by status. Receptionist or above there.
 export const GET = withErrorHandler(async (req: Request) => {
-  await requireRole('receptionist')
+  const ctx = await requireBranchRole('receptionist')
 
   const params = Object.fromEntries(new URL(req.url).searchParams)
   const parsed = waitlistListQuerySchema.safeParse(params)
@@ -47,8 +48,11 @@ export const GET = withErrorHandler(async (req: Request) => {
   }
 
   const query = parsed.data
-  const { rows, totalCount } = await getWaitlist(query)
+  const { rows, totalCount } = await getWaitlist(ctx.branch.id, query)
   const totalPages = Math.max(1, Math.ceil(totalCount / query.pageSize))
 
-  return apiSuccess({ entries: rows }, { page: query.page, totalPages, totalCount })
+  return apiSuccess(
+    { branchId: ctx.branch.id, entries: rows },
+    { page: query.page, totalPages, totalCount },
+  )
 })

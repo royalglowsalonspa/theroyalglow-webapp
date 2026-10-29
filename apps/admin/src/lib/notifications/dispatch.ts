@@ -36,6 +36,7 @@ import {
   removePushSubscription,
 } from '@rgss/db/queries'
 import { createLogger } from '@rgss/logger'
+import { escapeHtml } from './html'
 import { sendEmail } from './providers/email'
 import { sendWebPush } from './providers/webpush'
 
@@ -113,10 +114,11 @@ export async function dispatchNotification(notification: DispatchableNotificatio
     if (wantsEmail && hasResend) {
       const contact = await getUserContact(userId)
       if (contact?.email) {
+        // The body can carry names typed by customers or staff: escape it.
         const ok = await sendEmail({
           to: contact.email,
           subject: title,
-          html: `<p>${body}</p>`,
+          html: `<p>${escapeHtml(body)}</p>`,
         })
         if (ok) {
           delivered = true

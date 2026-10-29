@@ -25,21 +25,32 @@
  * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/db/queries, @rgss/errors
  *
  * Notes        :
- * - Requires min role: receptionist.
+ * - Requires min role at the active branch: receptionist. The body names the
+ *   branch the page was rendered for ({ branchId }).
  * - No-show count escalation is handled by the noshow-check background job.
  ************************************************************/
 
 import { getBookingForAdmin, updateBookingStatus } from '@rgss/db/queries'
-import { conflict, ERROR_CODES, notFound } from '@rgss/errors'
+import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
+import { bookingNoShowSchema } from '@rgss/types'
+import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 
 export const POST = withErrorHandler(
-  async (_req: Request, ctx: { params: Promise<{ id: string }> }) => {
-    await requireRole('receptionist')
-    const { id } = await ctx.params
+  async (req: Request, route: { params: Promise<{ id: string }> }) => {
+    const ctx = await requireBranchRole('receptionist')
+    const { id } = await route.params
 
-    const existing = await getBookingForAdmin(id)
+    const body = await req.json().catch(() => null)
+    const parsed = bookingNoShowSchema.safeParse(body)
+    if (!parsed.success) {
+      throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
+    }
+    assertRenderedBranch(ctx, parsed.data.branchId)
+    const branchId = ctx.branch.id
+
+    // A booking at another branch is not found (R2.3).
+    const existing = await getBookingForAdmin(id, branchId)
     if (!existing) {
       throw notFound('Booking not found.')
     }
@@ -53,7 +64,7 @@ export const POST = withErrorHandler(
       )
     }
 
-    const updated = await updateBookingStatus(id, 'no_show')
+    const updated = await updateBookingStatus(id, branchId, 'no_show')
 
     return apiSuccess({ booking: updated })
   },

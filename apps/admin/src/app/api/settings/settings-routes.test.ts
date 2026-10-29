@@ -8,8 +8,8 @@
  * Description  : Verifies GET /api/settings (returns defaults when unset) and
  *                PUT /api/settings (each section: valid → saved; invalid
  *                section/value → 400), plus RBAC (401 unauthenticated /
- *                403 under-privileged) and the response envelope. Session + DB
- *                queries mocked; @rgss/types stays REAL so the section schemas
+ *                403 for anyone but the Developer) and the response envelope.
+ *                The Developer check + DB queries mocked; @rgss/types stays REAL so the section schemas
  *                are genuinely exercised.
  *
  * Layer        : Testing
@@ -22,11 +22,7 @@ import { AppError, ERROR_CODES } from '@rgss/errors'
 import { DEFAULT_BOOKING_RULES, DEFAULT_BUSINESS_HOURS, DEFAULT_GST } from '@rgss/types'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const sessionMocks = vi.hoisted(() => ({
-  requireRole: vi.fn(),
-  requireSession: vi.fn(),
-  getOptionalSession: vi.fn(),
-}))
+const branchMocks = vi.hoisted(() => ({ requireCurrentRole: vi.fn() }))
 
 const dbMocks = vi.hoisted(() => ({
   getSettings: vi.fn(),
@@ -35,12 +31,15 @@ const dbMocks = vi.hoisted(() => ({
   SETTING_KEYS: { businessHours: 'business_hours', gst: 'gst', bookingRules: 'booking_rules' },
 }))
 
-vi.mock('@/lib/api/session', () => sessionMocks)
+vi.mock('@/lib/api/branch-context', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api/branch-context')>()
+  return { ...actual, requireCurrentRole: branchMocks.requireCurrentRole }
+})
 vi.mock('@rgss/db/queries', () => dbMocks)
 
 import * as settingsRoute from '@/app/api/settings/route'
 
-const MANAGER = { user: { id: 'u_mgr', role: 'manager' } }
+const DEVELOPER = { user: { id: 'u_dev', role: 'developer' } }
 const jsonReq = (url: string, method: string, body?: unknown) =>
   new Request(url, {
     method,
@@ -57,8 +56,10 @@ const URL = 'https://admin.theroyalglow.in/api/settings'
 
 beforeEach(() => {
   vi.clearAllMocks()
-  sessionMocks.requireRole.mockResolvedValue(MANAGER)
-  sessionMocks.requireSession.mockResolvedValue(MANAGER)
+  branchMocks.requireCurrentRole.mockResolvedValue({
+    session: DEVELOPER,
+    access: { userId: 'u_dev', role: 'developer', branches: [] },
+  })
 })
 
 describe('GET /api/settings', () => {
@@ -84,17 +85,18 @@ describe('GET /api/settings', () => {
       },
     })
     expect(dbMocks.getSettings).toHaveBeenCalledOnce()
+    expect(branchMocks.requireCurrentRole).toHaveBeenCalledWith('developer')
   })
 
   it('→ 401 when unauthenticated', async () => {
-    sessionMocks.requireRole.mockRejectedValue(unauthenticated())
+    branchMocks.requireCurrentRole.mockRejectedValue(unauthenticated())
     const res = await settingsRoute.GET(new Request(URL))
     expect(res.status).toBe(401)
     expect(dbMocks.getSettings).not.toHaveBeenCalled()
   })
 
-  it('→ 403 for a non-manager', async () => {
-    sessionMocks.requireRole.mockRejectedValue(forbidden())
+  it('→ 403 for anyone but the Developer', async () => {
+    branchMocks.requireCurrentRole.mockRejectedValue(forbidden())
     const res = await settingsRoute.GET(new Request(URL))
     expect(res.status).toBe(403)
     expect(dbMocks.getSettings).not.toHaveBeenCalled()
@@ -114,7 +116,7 @@ describe('PUT /api/settings — per-section update', () => {
 
     expect(res.status).toBe(200)
     expect(body.data).toEqual({ section: 'businessHours', value })
-    expect(dbMocks.upsertSetting).toHaveBeenCalledWith('business_hours', value, 'u_mgr')
+    expect(dbMocks.upsertSetting).toHaveBeenCalledWith('business_hours', value, 'u_dev')
   })
 
   it('saves gst (valid → saved)', async () => {
@@ -126,7 +128,7 @@ describe('PUT /api/settings — per-section update', () => {
 
     expect(res.status).toBe(200)
     expect(body.data).toEqual({ section: 'gst', value })
-    expect(dbMocks.upsertSetting).toHaveBeenCalledWith('gst', value, 'u_mgr')
+    expect(dbMocks.upsertSetting).toHaveBeenCalledWith('gst', value, 'u_dev')
   })
 
   it('saves bookingRules (valid → saved)', async () => {
@@ -143,7 +145,7 @@ describe('PUT /api/settings — per-section update', () => {
 
     expect(res.status).toBe(200)
     expect(body.data).toEqual({ section: 'bookingRules', value })
-    expect(dbMocks.upsertSetting).toHaveBeenCalledWith('booking_rules', value, 'u_mgr')
+    expect(dbMocks.upsertSetting).toHaveBeenCalledWith('booking_rules', value, 'u_dev')
   })
 
   it('rejects an unknown section with 400', async () => {
@@ -180,15 +182,15 @@ describe('PUT /api/settings — per-section update', () => {
     expect(dbMocks.upsertSetting).not.toHaveBeenCalled()
   })
 
-  it('→ 403 for a non-manager', async () => {
-    sessionMocks.requireRole.mockRejectedValue(forbidden())
+  it('→ 403 for anyone but the Developer', async () => {
+    branchMocks.requireCurrentRole.mockRejectedValue(forbidden())
     const res = await settingsRoute.PUT(jsonReq(URL, 'PUT', { section: 'gst', value: DEFAULT_GST }))
     expect(res.status).toBe(403)
     expect(dbMocks.upsertSetting).not.toHaveBeenCalled()
   })
 
   it('→ 401 when unauthenticated', async () => {
-    sessionMocks.requireRole.mockRejectedValue(unauthenticated())
+    branchMocks.requireCurrentRole.mockRejectedValue(unauthenticated())
     const res = await settingsRoute.PUT(jsonReq(URL, 'PUT', { section: 'gst', value: DEFAULT_GST }))
     expect(res.status).toBe(401)
     expect(dbMocks.upsertSetting).not.toHaveBeenCalled()

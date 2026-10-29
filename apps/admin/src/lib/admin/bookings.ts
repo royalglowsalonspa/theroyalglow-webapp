@@ -37,10 +37,55 @@ export interface AdminBookingServiceRow {
   priceAtBookingPaise: number
   durationMinutes: number
   staffId: string | null
+  /** The assignee's name; null when nobody is assigned. */
+  staffName?: string | null
+}
+/** Why a booking lost its assignee (multi-branch R1.7). */
+export type ReassignmentReason = 'left_branch' | 'unavailable' | 'overrun'
+/** A booking waiting for someone else to take it. */
+export interface AdminBookingReassignment {
+  reason: ReassignmentReason
+  previousStaffName: string | null
+  /** ISO timestamp of when the assignee was taken off. */
+  since: string
+}
+/** What reception reads about a booking that needs someone else. */
+export function reassignmentReasonText(work: {
+  reason: ReassignmentReason
+  previousStaffName: string | null
+}): string {
+  const who = work.previousStaffName ?? 'The person assigned'
+  switch (work.reason) {
+    case 'left_branch':
+      return `${who} no longer works at this branch.`
+    case 'unavailable':
+      return `${who} is on approved leave that day.`
+    case 'overrun':
+      return `${who} is still with an earlier customer.`
+  }
+}
+/** What to tell the person whose change took people off bookings, or null. */
+export function reassignmentsNotice(count: unknown): string | null {
+  if (typeof count !== 'number' || count <= 0) {
+    return null
+  }
+  return count === 1
+    ? '1 booking needs someone else. It’s listed on the dashboard.'
+    : `${count} bookings need someone else. They’re listed on the dashboard.`
+}
+/** The booking's assignee(s), or null when nobody is assigned to some service. */
+export function assigneeLabel(services: readonly AdminBookingServiceRow[]): string | null {
+  if (services.length === 0 || services.some((s) => s.staffId === null)) {
+    return null
+  }
+  const names = [...new Set(services.map((s) => s.staffName ?? 'Unknown'))]
+  return names.join(', ')
 }
 
 export interface AdminBooking {
   id: string
+  /** The booking's branch; every write sends it back as the rendered branch. */
+  branchId: string
   bookingNumber: string
   status: string
   serviceType: 'salon' | 'spa'
@@ -55,6 +100,8 @@ export interface AdminBooking {
   cancellationReason?: string | null
   isWalkin?: boolean
   services: AdminBookingServiceRow[]
+  /** Open reassignment work, or null (multi-branch R1.7). */
+  reassignment?: AdminBookingReassignment | null
 }
 
 export interface StaffMember {

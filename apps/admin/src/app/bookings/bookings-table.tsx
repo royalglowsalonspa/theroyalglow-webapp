@@ -198,7 +198,17 @@ export function BookingsTable() {
         id: 'status',
         accessorKey: 'status',
         header: 'Status',
-        cell: ({ row }) => <StatusBadge status={row.original.status} />,
+        cell: ({ row }) => (
+          <span className="inline-flex flex-wrap items-center gap-1.5">
+            <StatusBadge status={row.original.status} />
+            {/* Its assignee was taken off it (R1.7). */}
+            {row.original.reassignment ? (
+              <span className="inline-flex items-center rounded-pill bg-warning/15 px-2 py-0.5 font-ui text-[10px] uppercase tracking-[0.5px] text-warm-gray">
+                Needs staff
+              </span>
+            ) : null}
+          </span>
+        ),
       },
       {
         id: 'totalAmountPaise',

@@ -1,49 +1,56 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 25-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : POST /api/jobs/weekly-report
  * Scope        : API — Background Jobs
  *
- * Description  : QStash-scheduled job (Monday 9:00 AM IST) that generates the
- *                weekly sales report with week-over-week comparison.
+ * Description  : QStash-scheduled job (Monday 8:00 AM IST) that sends each
+ *                branch's weekly sales report, with its week-over-week
+ *                comparison, to that branch's Owner and Manager, and the
+ *                summary across branches to the Developer (multi-branch R6.5,
+ *                R7.4).
  *
  * Responsibilities :
- * - Query last 7 days of paid invoices and booking metrics
- * - Compare with previous 7 days for week-over-week trends
- * - Post to Slack and email to configured recipients
+ * - Query the last 7 days and the 7 before them, per branch
+ * - Format one report per branch and the summary across branches
+ * - Email each Owner and Manager their branches' reports (one email each)
+ * - Email the summary to the Developer and post it to Slack
  *
  * Features / Functionality :
- * - 7-day revenue and booking summary
- * - Week-over-week comparison (current vs previous 7 days)
+ * - Each branch is compared with its own previous week
+ * - Nobody sees a branch they hold no role at (R3.2)
  * - Slack and email delivery (both guarded no-ops without keys)
  *
  * Tech Stack   : Next.js 16 (Route Handler)
  * Layer        : API (Thin Orchestrator)
  *
- * Dependencies : @/lib/jobs/heartbeat, @/lib/jobs/verify, @/lib/notifications/providers/email,
- *                @/lib/reports/slack, @rgss/business, @rgss/db/queries, @rgss/logger
+ * Dependencies : @/lib/jobs/heartbeat, @/lib/jobs/verify, @/lib/reports/deliver,
+ *                @rgss/business, @rgss/db/queries, @rgss/logger
  *
  * Notes        :
- * - Shares DAILY_REPORT_EMAIL_RECIPIENTS with the daily report job.
- * - Gracefully no-ops Slack/email when provider keys are absent.
+ * - Recipients come from branch roles; DAILY_REPORT_EMAIL_RECIPIENTS is retired.
+ * - 500 only when reading fails, before anything is sent.
  ************************************************************/
 
-import { formatWeeklyReport, istDateInDays, istToday } from '@rgss/business'
-import { getWeeklyReportData } from '@rgss/db/queries'
+import {
+  emptyReportFigures,
+  formatWeeklyReport,
+  formatWeeklySummary,
+  istDateInDays,
+  istToday,
+  planReportDeliveries,
+} from '@rgss/business'
+import { getBranchPeople, getWeeklyBranchReports } from '@rgss/db/queries'
 import { createLogger } from '@rgss/logger'
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
-import { sendEmail } from '@/lib/notifications/providers/email'
-import { postToSlack } from '@/lib/reports/slack'
+import { deliverBranchReports } from '@/lib/reports/deliver'
 
-// Job 14 — Weekly Summary Report (QStash scheduled, `30 3 * * 1` UTC = Monday
-// 9:00 AM IST). Same shape as the daily report but over the last 7 days, plus a
-// week-over-week comparison against the previous 7 days. Posts to Slack and
-// emails the owner/manager/developer recipients. Both sends are guarded
-// extension points that no-op + log without keys, so the route still runs its
-// DB reads, pings its heartbeat, and returns 200.
+// Job 14 — Weekly Summary Report (QStash scheduled, `30 2 * * 1` UTC = Monday
+// 8:00 AM IST). Same shape as the daily report but over the last 7 days, plus
+// a week-over-week comparison against each branch's previous 7 days.
 //
 // Route shape: NOT withErrorHandler. Read the raw body once, verify the QStash
 // signature (401 on failure → no work), do the work inside try/catch (500 on
@@ -58,31 +65,6 @@ const logger = createLogger({
   environment: process.env.NODE_ENV ?? 'development',
 })
 
-// The plain-text report is embedded in a <pre> block for the HTML email, so
-// any HTML-special characters must be escaped.
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
-
-// Parse DAILY_REPORT_EMAIL_RECIPIENTS (comma-separated) read straight from
-// process.env (guarded, optional) into a clean list of addresses. The weekly
-// report shares the same recipient list as the daily report.
-function reportRecipients(): string[] {
-  const raw = process.env.DAILY_REPORT_EMAIL_RECIPIENTS
-  if (!raw) {
-    return []
-  }
-  return raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0)
-}
-
 export const POST = async (req: Request) => {
   const bodyText = await req.text()
   const verified = await verifyQStashSignature(req, bodyText)
@@ -93,34 +75,57 @@ export const POST = async (req: Request) => {
   try {
     const now = new Date()
     // This week = the last 7 IST calendar days ending today (inclusive):
-    // start = today - 6 days, end = today.
-    const thisStart = istDateInDays(now, -6)
-    const thisEnd = istToday(now)
-    // Previous week = the 7 IST calendar days immediately before this week:
-    // start = today - 13 days, end = today - 7 days.
-    const prevStart = istDateInDays(now, -13)
-    const prevEnd = istDateInDays(now, -7)
+    // start = today - 6 days, end = today. Previous week = the 7 IST calendar
+    // days immediately before: today - 13 days to today - 7 days.
+    const [current, previous, people] = await Promise.all([
+      getWeeklyBranchReports(istDateInDays(now, -6), istToday(now)),
+      getWeeklyBranchReports(istDateInDays(now, -13), istDateInDays(now, -7)),
+      getBranchPeople(),
+    ])
 
-    const data = await getWeeklyReportData(thisStart, thisEnd)
-    const previous = await getWeeklyReportData(prevStart, prevEnd)
-    const text = formatWeeklyReport(data, previous)
+    const plan = planReportDeliveries(
+      people.branches.map((b) => ({
+        id: b.id,
+        name: b.name,
+        status: b.status,
+        people: b,
+        hasActivity: current.branches.has(b.id),
+      })),
+    )
+    const branchNames = new Map(people.branches.map((b) => [b.id, b.name]))
+    const reportText = new Map<string, string>()
+    const summaryLines = plan.branchIds.map((id) => {
+      const figures = current.branches.get(id) ?? emptyReportFigures()
+      const before = previous.branches.get(id) ?? emptyReportFigures()
+      const branchName = branchNames.get(id) ?? id
+      reportText.set(
+        id,
+        formatWeeklyReport(
+          {
+            date: current.date,
+            periodStart: current.periodStart,
+            periodEnd: current.periodEnd,
+            ...figures,
+          },
+          before,
+          branchName,
+        ),
+      )
+      return { branchName, figures, previous: before }
+    })
 
-    // Slack (guarded no-op without SLACK_WEBHOOK_URL).
-    await postToSlack(text)
-
-    // Email to the configured report recipients (guarded no-op without
-    // RESEND_API_KEY or with no recipients configured).
-    const recipients = reportRecipients()
-    if (recipients.length > 0) {
-      await sendEmail({
-        to: recipients,
-        subject: 'Royal Glow — Weekly Sales Report',
-        html: `<pre>${escapeHtml(text)}</pre>`,
-      })
-    }
+    const result = await deliverBranchReports({
+      kind: 'Weekly',
+      plan,
+      branchNames,
+      reportText,
+      summary: formatWeeklySummary(current.periodStart, current.periodEnd, summaryLines),
+      developerEmail: people.developer?.email ?? null,
+    })
+    logger.info('[job:weekly-report] sent', { branches: plan.branchIds.length, ...result })
 
     await pingHeartbeat('NIGHTLY_SALES')
-    return Response.json({ success: true })
+    return Response.json({ success: true, branches: plan.branchIds.length, ...result })
   } catch (error) {
     logger.error('[job:weekly-report] failed', {
       error: error instanceof Error ? error.message : String(error),

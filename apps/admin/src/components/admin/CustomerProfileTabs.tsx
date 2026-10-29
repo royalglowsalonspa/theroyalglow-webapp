@@ -6,18 +6,20 @@
  * Module Name  : CustomerProfileTabs
  * Scope        : Admin UI — CRM
  *
- * Description  : Tabbed customer profile view showing bookings, invoices,
- *                membership, gems, notes, and tag management.
+ * Description  : Tabbed customer profile view showing history, invoices,
+ *                membership, gems, notes, and tag management, as the active
+ *                branch sees a customer every Royal Glow branch shares.
  *
  * Responsibilities :
  * - Render tabbed interface for customer detail data
  * - Manage CRM tags (assign, create, remove) via API
- * - Display booking/invoice/membership history tables
- * - Support inline note creation with optimistic UI
+ * - Display history/invoice/membership tables
+ * - Support inline note creation with a shared or branch-only choice
  *
  * Features / Functionality :
  * - Accessible tab panel with aria-selected/aria-controls
  * - Tag chips with search/create/remove functionality
+ * - Other branches' visits show date, branch and services only (R3.2)
  * - Membership progress bar with hours visualisation
  * - Gems balance display and notes timeline
  *
@@ -26,11 +28,13 @@
  *
  * Dependencies : @/components/admin/StatusBadge, @/lib/admin/bookings, next/link
  *
- * Notes        : None
+ * Notes        : Notes are sent with the branch the page was rendered for, so a
+ *                tab left open across a branch switch is refused (R2.4).
  ************************************************************/
 
 'use client'
 
+import type { CustomerHistoryEntry, CustomerNoteView, NoteVisibility } from '@rgss/types'
 import { X } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useMemo, useState } from 'react'
@@ -38,6 +42,8 @@ import { StatusBadge } from '@/components/admin/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Icon } from '@/components/ui/icon'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Textarea } from '@/components/ui/textarea'
 import { formatDateDDMMYYYY, formatINR } from '@/lib/admin/bookings'
 
@@ -54,14 +60,10 @@ export interface TagOption {
   color: string | null
 }
 
-export interface BookingRow {
+/** The branch the profile was rendered for. */
+export interface ProfileBranch {
   id: string
-  bookingNumber: string
-  serviceType: string
-  status: string
-  bookingDate: string | null
-  totalAmountPaise: number
-  isMembershipSession: boolean
+  name: string
 }
 
 export interface InvoiceRow {
@@ -90,15 +92,8 @@ export interface MembershipData {
   past: MembershipRow[]
 }
 
-export interface NoteRow {
-  id: string
-  content: string
-  authorName: string
-  createdAt: string | null
-}
-
 const TABS = [
-  { id: 'bookings', label: 'Bookings' },
+  { id: 'history', label: 'History' },
   { id: 'invoices', label: 'Invoices' },
   { id: 'membership', label: 'Membership' },
   { id: 'gems', label: 'Gems' },
@@ -121,24 +116,26 @@ function formatHoursMinutes(totalMinutes: number): string {
 
 export function CustomerProfileTabs({
   customerId,
+  branch,
   tags,
   allTags,
   gemsBalance,
-  bookings,
+  history,
   invoices,
   membership,
   notes,
 }: {
   customerId: string
+  branch: ProfileBranch
   tags: ProfileTag[]
   allTags: TagOption[]
   gemsBalance: number
-  bookings: BookingRow[]
+  history: CustomerHistoryEntry[]
   invoices: InvoiceRow[]
   membership: MembershipData
-  notes: NoteRow[]
+  notes: CustomerNoteView[]
 }) {
-  const [tab, setTab] = useState<TabId>('bookings')
+  const [tab, setTab] = useState<TabId>('history')
 
   return (
     <div className="space-y-5">
@@ -174,11 +171,13 @@ export function CustomerProfileTabs({
         </div>
 
         <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="pt-4">
-          {tab === 'bookings' && <BookingsPanel bookings={bookings} />}
-          {tab === 'invoices' && <InvoicesPanel invoices={invoices} />}
+          {tab === 'history' && <HistoryPanel branch={branch} history={history} />}
+          {tab === 'invoices' && <InvoicesPanel branch={branch} invoices={invoices} />}
           {tab === 'membership' && <MembershipPanel membership={membership} />}
           {tab === 'gems' && <GemsPanel gemsBalance={gemsBalance} />}
-          {tab === 'notes' && <NotesPanel customerId={customerId} initialNotes={notes} />}
+          {tab === 'notes' && (
+            <NotesPanel customerId={customerId} branch={branch} initialNotes={notes} />
+          )}
         </div>
       </div>
     </div>
@@ -408,64 +407,130 @@ function TagSection({
   )
 }
 
-// --- Bookings tab ---
-function BookingsPanel({ bookings }: { bookings: BookingRow[] }) {
-  if (bookings.length === 0) {
-    return <EmptyPanel message="No bookings yet." />
+// Row keys for the history table. Other branches' visits carry no booking id,
+// so their key is what they show; identical visits get a counter.
+function withRowKeys(history: CustomerHistoryEntry[]) {
+  const seen = new Map<string, number>()
+  return history.map((entry) => {
+    const base =
+      entry.scope === 'this_branch'
+        ? entry.bookingId
+        : `${entry.branchName}|${entry.bookingDate}|${entry.startTime}|${entry.services.join(',')}`
+    const count = (seen.get(base) ?? 0) + 1
+    seen.set(base, count)
+    return { key: count === 1 ? base : `${base}#${count}`, entry }
+  })
+}
+
+// --- History tab: this branch's bookings + other branches' visits ---
+function HistoryPanel({
+  branch,
+  history,
+}: {
+  branch: ProfileBranch
+  history: CustomerHistoryEntry[]
+}) {
+  if (history.length === 0) {
+    return <EmptyPanel message="No visits or bookings yet." />
   }
   return (
-    <div className="border border-cloud-gray rounded-cards overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-cloud-gray/60">
-              <Th>Booking #</Th>
-              <Th>Date</Th>
-              <Th>Type</Th>
-              <Th>Status</Th>
-              <Th>Amount</Th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-cloud-gray">
-            {bookings.map((b) => (
-              <tr key={b.id} className="hover:bg-cloud-gray/30 transition-colors">
-                <td className="px-4 py-3 font-mono text-xs text-cocoa-dark whitespace-nowrap">
-                  <Link
-                    href={`/bookings/${b.id}`}
-                    className="text-deep-gold hover:text-cocoa-dark transition-colors"
-                  >
-                    {b.bookingNumber}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
-                  {b.bookingDate ? formatDateDDMMYYYY(b.bookingDate) : '—'}
-                </td>
-                <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
-                  {b.serviceType === 'spa' ? 'SPA' : 'Salon'}
-                  {b.isMembershipSession ? ' · Session' : ''}
-                </td>
-                <td className="px-4 py-3">
-                  <StatusBadge status={b.status} />
-                </td>
-                <td className="px-4 py-3 font-ui text-cocoa-dark whitespace-nowrap">
-                  {formatINR(b.totalAmountPaise)}
-                </td>
+    <div className="space-y-2">
+      <p className="text-xs font-sans text-dusty-gray">
+        Amounts are shown for {branch.name} only. Other branches&apos; visits show the date and
+        services.
+      </p>
+      <div className="border border-cloud-gray rounded-cards overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-cloud-gray/60">
+                <Th>Date</Th>
+                <Th>Branch</Th>
+                <Th>Services</Th>
+                <Th>Type</Th>
+                <Th>Status</Th>
+                <Th>Amount</Th>
+                <Th>Booking #</Th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-cloud-gray">
+              {withRowKeys(history).map(({ key, entry }) => {
+                const services = entry.services.length > 0 ? entry.services.join(', ') : '—'
+                const type = entry.serviceType === 'spa' ? 'SPA' : 'Salon'
+                if (entry.scope === 'other_branch') {
+                  return (
+                    <tr key={key} className="hover:bg-cloud-gray/30 transition-colors">
+                      <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
+                        {formatDateDDMMYYYY(entry.bookingDate)}
+                      </td>
+                      <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
+                        {entry.branchName}
+                      </td>
+                      <td className="px-4 py-3 font-sans text-cocoa-dark">{services}</td>
+                      <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
+                        {type}
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status="completed" />
+                      </td>
+                      <td className="px-4 py-3 font-sans text-dusty-gray whitespace-nowrap">
+                        <span aria-hidden="true">—</span>
+                        <span className="sr-only">Not shown for another branch</span>
+                      </td>
+                      <td className="px-4 py-3 font-sans text-dusty-gray whitespace-nowrap">
+                        <span aria-hidden="true">—</span>
+                      </td>
+                    </tr>
+                  )
+                }
+                return (
+                  <tr key={key} className="hover:bg-cloud-gray/30 transition-colors">
+                    <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
+                      {formatDateDDMMYYYY(entry.bookingDate)}
+                    </td>
+                    <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
+                      {branch.name}
+                    </td>
+                    <td className="px-4 py-3 font-sans text-cocoa-dark">{services}</td>
+                    <td className="px-4 py-3 font-sans text-warm-gray whitespace-nowrap">
+                      {type}
+                      {entry.isMembershipSession ? ' · Session' : ''}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={entry.status} />
+                    </td>
+                    <td className="px-4 py-3 font-ui text-cocoa-dark whitespace-nowrap">
+                      {formatINR(entry.totalAmountPaise)}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-cocoa-dark whitespace-nowrap">
+                      <Link
+                        href={`/bookings/${entry.bookingId}`}
+                        className="text-deep-gold hover:text-cocoa-dark transition-colors"
+                      >
+                        {entry.bookingNumber}
+                      </Link>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )
 }
 
-// --- Invoices tab ---
-function InvoicesPanel({ invoices }: { invoices: InvoiceRow[] }) {
+// --- Invoices tab: the active branch's invoices only ---
+function InvoicesPanel({ branch, invoices }: { branch: ProfileBranch; invoices: InvoiceRow[] }) {
   if (invoices.length === 0) {
-    return <EmptyPanel message="No invoices yet." />
+    return <EmptyPanel message={`No invoices at ${branch.name} yet.`} />
   }
   return (
     <div className="border border-cloud-gray rounded-cards overflow-hidden">
+      <p className="px-4 py-2 text-xs font-sans text-dusty-gray border-b border-cloud-gray">
+        Invoices raised at {branch.name}.
+      </p>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -588,9 +653,19 @@ function GemsPanel({ gemsBalance }: { gemsBalance: number }) {
 }
 
 // --- Notes tab: list + add ---
-function NotesPanel({ customerId, initialNotes }: { customerId: string; initialNotes: NoteRow[] }) {
-  const [notes, setNotes] = useState<NoteRow[]>(initialNotes)
+function NotesPanel({
+  customerId,
+  branch,
+  initialNotes,
+}: {
+  customerId: string
+  branch: ProfileBranch
+  initialNotes: CustomerNoteView[]
+}) {
+  const [notes, setNotes] = useState<CustomerNoteView[]>(initialNotes)
   const [content, setContent] = useState('')
+  // Private to this branch unless the writer chooses to share (R3.1).
+  const [visibility, setVisibility] = useState<NoteVisibility>('branch')
   const [submitting, setSubmitting] = useState(false)
   const [noteError, setNoteError] = useState<string | null>(null)
 
@@ -606,29 +681,24 @@ function NotesPanel({ customerId, initialNotes }: { customerId: string; initialN
       const res = await fetch(`/api/customers/${customerId}/notes`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ content: trimmed }),
+        body: JSON.stringify({ branchId: branch.id, content: trimmed, visibility }),
       })
       const json = await res.json()
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not save this note.')
       }
-      const saved = json.data.note as { id: string; content: string; createdAt: string }
-      setNotes((prev) => [
-        {
-          id: saved.id,
-          content: saved.content,
-          authorName: 'You',
-          createdAt: saved.createdAt,
-        },
-        ...prev,
-      ])
+      const saved = json.data.note as Pick<
+        CustomerNoteView,
+        'id' | 'content' | 'visibility' | 'branchName' | 'createdAt'
+      >
+      setNotes((prev) => [{ ...saved, authorName: 'You' }, ...prev])
       setContent('')
     } catch (err: unknown) {
       setNoteError(err instanceof Error ? err.message : 'Could not save this note.')
     } finally {
       setSubmitting(false)
     }
-  }, [content, customerId])
+  }, [branch.id, content, customerId, visibility])
 
   return (
     <div className="space-y-4 max-w-2xl">
@@ -647,6 +717,35 @@ function NotesPanel({ customerId, initialNotes }: { customerId: string; initialN
           maxLength={1000}
           placeholder="Add a note about this customer…"
         />
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-1 font-ui text-[10px] uppercase tracking-wider text-dusty-gray">
+            Who can read it
+          </legend>
+          <RadioGroup
+            value={visibility}
+            onValueChange={(v) => setVisibility(v === 'shared' ? 'shared' : 'branch')}
+            aria-label="Who can read this note"
+          >
+            <div className="flex items-center gap-2">
+              <RadioGroupItem id="note-visibility-branch" value="branch" />
+              <Label
+                htmlFor="note-visibility-branch"
+                className="cursor-pointer font-sans text-sm text-cocoa-dark"
+              >
+                {branch.name} only
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <RadioGroupItem id="note-visibility-shared" value="shared" />
+              <Label
+                htmlFor="note-visibility-shared"
+                className="cursor-pointer font-sans text-sm text-cocoa-dark"
+              >
+                All Royal Glow branches
+              </Label>
+            </div>
+          </RadioGroup>
+        </fieldset>
         {noteError && (
           <p className="text-xs text-error font-sans" role="alert">
             {noteError}
@@ -669,9 +768,17 @@ function NotesPanel({ customerId, initialNotes }: { customerId: string; initialN
         ) : (
           notes.map((n) => (
             <div key={n.id} className="border border-cloud-gray rounded-cards bg-canvas-white p-3">
-              <p className="text-[11px] font-ui uppercase tracking-wider text-dusty-gray mb-1">
-                {n.createdAt ? formatDateDDMMYYYY(n.createdAt) : '—'} · {n.authorName}
-              </p>
+              <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <p className="text-[11px] font-ui uppercase tracking-wider text-dusty-gray">
+                  {formatDateDDMMYYYY(n.createdAt)} · {n.authorName}
+                  {n.branchName ? ` · ${n.branchName}` : ''}
+                </p>
+                <span className="inline-flex items-center rounded-pill bg-golden-mist px-2 py-0.5 font-ui text-[11px] text-warm-gray">
+                  {n.visibility === 'shared'
+                    ? 'All branches'
+                    : `${n.branchName ?? branch.name} only`}
+                </span>
+              </div>
               <p className="text-sm font-sans text-cocoa-dark whitespace-pre-wrap">{n.content}</p>
             </div>
           ))

@@ -57,6 +57,7 @@ const sessionMocks = vi.hoisted(() => {
 const dbMocks = vi.hoisted(() => ({
   getServicesByIds: vi.fn(),
   getBranchById: vi.fn(),
+  getClosureOn: vi.fn(async (): Promise<{ name: string; allBranches: boolean } | null> => null),
   getDefaultStaffForService: vi.fn(),
   createBookingWithServices: vi.fn(),
   getBookingsByCustomer: vi.fn(),
@@ -575,5 +576,42 @@ describe('Booking-create edge guards (Task 13.9)', () => {
       statusCode: 409,
     })
     expect(dbMocks.createBookingWithServices).not.toHaveBeenCalled()
+  })
+})
+
+// ===========================================================================
+// Multi-branch R1.8 — a closed day takes no booking
+// ===========================================================================
+describe('Closed days (R1.8)', () => {
+  it('refuses a booking on a day the branch is closed, naming it, and writes nothing', async () => {
+    dbMocks.getBranchById.mockResolvedValueOnce({
+      id: 'br_1',
+      code: 'RS',
+      status: 'operational',
+      name: 'Rayasandra',
+    })
+    dbMocks.getClosureOn.mockResolvedValueOnce({ name: 'Diwali', allBranches: true })
+
+    const res = await POST(
+      postRequest({
+        branchId: 'br_1',
+        serviceType: 'salon',
+        bookingDate: '2099-11-08',
+        startTime: '10:00',
+        serviceIds: ['svc_1'],
+      }),
+      ROUTE_CTX,
+    )
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body.error).toMatchObject({
+      code: ERROR_CODES.BOOKING_SLOT_UNAVAILABLE,
+      message: 'Rayasandra is closed on 08/11/2099 (Diwali).',
+    })
+    expect(dbMocks.getClosureOn).toHaveBeenCalledWith('br_1', '2099-11-08')
+    expect(dbMocks.getServicesByIds).not.toHaveBeenCalled()
+    expect(dbMocks.createBookingWithServices).not.toHaveBeenCalled()
+    expect(enqueueMock).not.toHaveBeenCalled()
   })
 })

@@ -21,6 +21,7 @@ const dbMocks = vi.hoisted(() => ({
   getSettings: vi.fn(),
   getBranchById: vi.fn(),
   getPublicBranches: vi.fn(),
+  getClosureOn: vi.fn(async (): Promise<{ name: string; allBranches: boolean } | null> => null),
 }))
 
 vi.mock('@rgss/db/queries', () => dbMocks)
@@ -118,6 +119,30 @@ describe('GET /api/availability', () => {
 
     expect(status).toBe(400)
     expect(body.error.message).toBe('No branch is taking bookings right now.')
+  })
+
+  it('says the day is open when there is no closure', async () => {
+    const { body } = await get(`date=${FUTURE_DATE}&branchId=branch_rayasandra`)
+
+    expect(body.data.closure).toBeNull()
+    expect(dbMocks.getClosureOn).toHaveBeenCalledWith('branch_rayasandra', FUTURE_DATE)
+  })
+
+  it('closes every slot on a holiday or closure, and says why (R1.8)', async () => {
+    dbMocks.getClosureOn.mockResolvedValueOnce({ name: 'Diwali', allBranches: true })
+
+    const { status, body } = await get(`date=${FUTURE_DATE}&branchId=branch_rayasandra`)
+
+    expect(status).toBe(200)
+    expect(body.data.closure).toEqual({ name: 'Diwali' })
+    expect(body.data.slots).toHaveLength(22)
+    expect(body.data.slots.every((s: { available: boolean }) => !s.available)).toBe(true)
+  })
+
+  it("checks the default branch's closures for a date-only request", async () => {
+    await get(`date=${FUTURE_DATE}`)
+
+    expect(dbMocks.getClosureOn).toHaveBeenCalledWith('branch_rayasandra', FUTURE_DATE)
   })
 
   it('still rejects a missing date or an explicitly empty branchId', async () => {

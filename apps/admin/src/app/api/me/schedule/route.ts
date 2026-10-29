@@ -27,12 +27,15 @@
 
 import { getStaffProfileByUserId, getStaffSchedule } from '@rgss/db/queries'
 import { notFound } from '@rgss/errors'
+import { loadBranchAccess } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireRole } from '@/lib/api/session'
 
 // GET /api/me/schedule — the caller's own weekly schedule (read-only).
 // Resolves the staff_profile from the session user; strictly scoped to that
-// staff member and never exposes another staff member's schedule.
+// staff member and never exposes another staff member's schedule. Each day
+// names the branch it is at (a shared Manager works at one branch per day,
+// multi-branch R5.10); only the caller's own branches are named.
 export const GET = withErrorHandler(async () => {
   const session = await requireRole('staff')
 
@@ -41,6 +44,14 @@ export const GET = withErrorHandler(async () => {
     throw notFound('No staff profile for this account.')
   }
 
-  const schedule = await getStaffSchedule(staff.id)
+  const [rows, access] = await Promise.all([
+    getStaffSchedule(staff.id),
+    loadBranchAccess(session.user.id),
+  ])
+  const names = new Map(access.branches.map((b) => [b.id, b.name]))
+  const schedule = rows.map(({ branchId, ...row }) => ({
+    ...row,
+    branchName: row.isWorking && branchId ? (names.get(branchId) ?? null) : null,
+  }))
   return apiSuccess({ schedule })
 })

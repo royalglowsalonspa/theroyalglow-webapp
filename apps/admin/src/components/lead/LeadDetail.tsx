@@ -58,6 +58,8 @@ import {
 // number). Timestamps arrive as ISO strings over the wire.
 type LeadRecord = {
   id: string
+  /** The pipeline (branch) the lead is in; writes send it back. */
+  branchId: string
   name: string
   phone: string
   email: string | null
@@ -147,7 +149,7 @@ export function LeadDetail({ leadId, embedded = false }: { leadId: string; embed
         <>
           <InfoCard lead={lead} onChanged={load} />
           <AttributionPanel lead={lead} />
-          <NotesTimeline leadId={leadId} notes={notes} onAdded={load} />
+          <NotesTimeline leadId={leadId} branchId={lead.branchId} notes={notes} onAdded={load} />
         </>
       ) : (
         <EmptyState
@@ -184,7 +186,11 @@ function InfoCard({ lead, onChanged }: { lead: LeadRecord; onChanged: () => void
         const res = await fetch(`/api/leads/${lead.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(reason ? { status, reason } : { status }),
+          body: JSON.stringify(
+            reason
+              ? { branchId: lead.branchId, status, reason }
+              : { branchId: lead.branchId, status },
+          ),
         })
         const json = await res.json()
         if (!res.ok || !json.success) {
@@ -199,7 +205,7 @@ function InfoCard({ lead, onChanged }: { lead: LeadRecord; onChanged: () => void
         setBusyStatus(null)
       }
     },
-    [lead.id, onChanged],
+    [lead.id, lead.branchId, onChanged],
   )
 
   function submitLost(e: React.FormEvent) {
@@ -365,10 +371,12 @@ function AttributionPanel({ lead }: { lead: LeadRecord }) {
 
 function NotesTimeline({
   leadId,
+  branchId,
   notes,
   onAdded,
 }: {
   leadId: string
+  branchId: string
   notes: LeadNoteRow[]
   onAdded: () => void
 }) {
@@ -389,7 +397,7 @@ function NotesTimeline({
         const res = await fetch(`/api/leads/${leadId}/notes`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: content.trim() }),
+          body: JSON.stringify({ branchId, content: content.trim() }),
         })
         const json = await res.json()
         if (!res.ok || !json.success) {
@@ -403,7 +411,7 @@ function NotesTimeline({
         setSaving(false)
       }
     },
-    [content, leadId, onAdded],
+    [branchId, content, leadId, onAdded],
   )
 
   return (

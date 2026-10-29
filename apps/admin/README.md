@@ -65,14 +65,27 @@ The admin's `dev` script uses Turbopack, the same bundler as `next build`. On a
 machine where Turbopack cannot start (Windows Application Control blocking its
 native SWC binary), use `bun run --filter @rgss/admin dev:webpack`.
 
+The persistent Turbopack **development** cache is disabled in
+[`next.config.ts`](next.config.ts). Next.js 16.4.x can restore stale HMR versions
+from disk and repeatedly tell every newly loaded page to restart
+([upstream issue #100251](https://github.com/vercel/next.js/issues/100251)).
+Next.js 16.4.3 still contains the affected startup handling. In-memory hot reload
+and the production build cache remain enabled; the first page compilation after
+a dev-server restart is slower. No patched Next.js files or manual cache-clearing
+steps are required. Before re-enabling the cache after an upstream fix, navigate
+between multiple pages, leave the tab open across repeated dev-server restarts,
+and check both idle-page stability and hot reload after editing a component.
+
 For normal local authentication, point `NEXT_PUBLIC_WEB_ORIGIN` at the local web
 origin, use the same database branch and `BETTER_AUTH_SECRET` in both apps, and
 configure each app's own origin and Google OAuth callbacks. Sign in on web with a
-user who has the required role. Role assignment is stored in the shared database;
-the [authentication guide](../../knowledge-base/authentication.md) and
-[`packages/db/scripts/set-role.ts`](../../packages/db/scripts/set-role.ts) describe
-the existing administrative utility. A customer account cannot enter the portal
-merely because its Google sign-in succeeded.
+user who has the required role at a branch. Branch roles are relationships in the
+shared database (an Owner owns a branch, a Manager manages one, Receptionists and
+Staff work at one), changed in Users & Roles and on the Staff page; the
+[authentication guide](../../knowledge-base/authentication.md) describes them and
+the Developer runbook. [`packages/db/scripts/set-role.ts`](../../packages/db/scripts/set-role.ts)
+only returns someone to `customer` or sets the first `developer`. A customer account
+cannot enter the portal merely because its Google sign-in succeeded.
 
 Two development-only helpers exist in [`src/lib/dev-auth.ts`](src/lib/dev-auth.ts),
 middleware, and the root layout:
@@ -271,11 +284,35 @@ Their expected `ADMIN_E2E_ADMIN_ORIGIN` differs from the local browser base URL:
 hardcodes the production admin origin. These specs disable redirect following
 and check the status/`Location` header; they do not open the production target.
 
-RBAC browser tests use receptionist, owner, and developer storage states from
-`e2e/.auth/` or `ADMIN_E2E_*_STATE` overrides, as described in
+RBAC browser tests use receptionist, manager, owner, and developer storage
+states from `e2e/.auth/` or `ADMIN_E2E_*_STATE` overrides, as described in
 [`e2e/fixtures/auth.ts`](e2e/fixtures/auth.ts). These files contain session
 credentials and stay untracked. Missing states cause role specs to **skip**.
 Do not interpret a skipped role matrix as verified authorization.
+
+The multi-branch specs (`branch-switcher`, `users-roles`, `staff`) can also run
+locally without stored sessions, against a `next dev` server that impersonates
+one account. `ADMIN_E2E_IMPERSONATED_ROLE` tells the suite that account's role;
+only that role's specs run and the others skip. From `apps/admin`:
+
+```powershell
+$env:ADMIN_DEV_IMPERSONATE_EMAIL = '<an Owner account on the development database>'
+$env:ADMIN_E2E_IMPERSONATED_ROLE = 'owner'
+bunx playwright test e2e/branch-switcher.spec.ts e2e/users-roles.spec.ts e2e/staff.spec.ts
+```
+
+Without `PLAYWRIGHT_ADMIN_BASE_URL`, Playwright starts `next dev` itself, because
+production builds ignore impersonation. With it, start the dev server yourself
+with the same `ADMIN_DEV_IMPERSONATE_EMAIL`. These specs only read data and
+switch the test browser's branch cookie.
+
+`e2e/people-writes.spec.ts` changes data, so it is opt-in. It adds, edits, and
+removes a Therapist, then chooses and removes a Manager, all through the screens.
+Set `ADMIN_E2E_WRITE_PERSON_EMAIL` to a disposable Customer account and
+`ADMIN_E2E_WRITE_BRANCH_ID` to a branch without a Manager, and run it against the
+development database only. Each journey undoes its role changes, but the audit
+entries and the person's inactive staff profile remain, as they do for any
+removal.
 
 ## Deployment and operational checks
 

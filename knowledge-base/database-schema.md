@@ -199,7 +199,9 @@ CREATE TYPE notification_type AS ENUM (
   'no_show_check',           -- to receptionist/manager: booking may need no-show marking
   -- Gems notifications (push only, no email)
   'gems_expiry_7d',          -- push: "Your X gems expire in 7 days — book now to use them!"
-  'gems_expired'             -- push: "Your gems have expired and been removed from your balance."
+  'gems_expired',            -- push: "Your gems have expired and been removed from your balance."
+  -- Multi-branch (migration 0009)
+  'branch_manager_missing'   -- email to a branch's Owner: an operational branch has no Manager (R1.9)
 );
 
 CREATE TYPE notification_channel AS ENUM (
@@ -470,7 +472,8 @@ erDiagram
 
     holiday {
         text id PK
-        date date UK
+        text branch_id FK
+        date date
         text name
         timestamp created_at
     }
@@ -848,6 +851,7 @@ erDiagram
     branch ||--o{ booking : "hosted at"
     branch ||--o{ invoice : "billed from"
     branch ||--o{ daily_sales_summary : "aggregated per"
+    branch |o--o{ holiday : "closed on"
     user ||--o{ branch : "created by"
 
     %% ══════════════════════════════════════════
@@ -1157,14 +1161,19 @@ Salon operating hours. 7 rows (one per day of week).
 
 #### `holiday`
 
-Salon-wide closures (Diwali, Christmas, etc.).
+Closures: holidays (Diwali, Christmas, etc.) and one-off closed days, for one branch or for all branches (multi-branch R1.8, migration `0010_branch_closures`).
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | `text` | PK | |
-| `date` | `date` | NOT NULL, UNIQUE | |
-| `name` | `text` | NOT NULL | "Diwali", "Independence Day" |
+| `branch_id` | `text` | nullable, FK → `branch.id` ON DELETE CASCADE | The closed branch. `NULL` = every branch (only the Developer creates these). |
+| `date` | `date` | NOT NULL | The closed day (IST business date) |
+| `name` | `text` | NOT NULL | "Diwali", "Renovation" |
 | `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
+
+**Indexes:** `holiday_branch_date_uidx` UNIQUE (`branch_id`, `date`) WHERE `branch_id IS NOT NULL`, and `holiday_all_branches_date_uidx` UNIQUE (`date`) WHERE `branch_id IS NULL`: one closure per date per branch, plus at most one all-branches closure per date.
+
+**Rules:** the branch's Manager, Owner and Developer maintain its closures, one date or a range of up to 31 days, never in the past. A closed day blocks online booking, reschedule, gems redemption, walk-ins and approval; bookings already on it are listed for staff to reschedule or reject, not cancelled. Rejecting and recording membership sessions still work.
 
 ---
 
@@ -1713,6 +1722,10 @@ Business locations. Currently single-branch (Rayasandra). Multi-branch ready for
 | `temporary_close_reason` | `text` | nullable | "Renovation until June 2026" |
 | `is_primary` | `boolean` | NOT NULL, DEFAULT false | Primary branch. Only one `true` at a time. |
 | `display_order` | `integer` | NOT NULL, DEFAULT 0 | Sort order in branch selector |
+| `owner_user_id` | `text` | NOT NULL; with `owner_role`, FK → `user (id, role)`, DEFERRABLE | The branch's Owner (R1.2). Holds only while that user's role is `owner`. |
+| `owner_role` | `text` | NOT NULL, DEFAULT 'owner', CHECK = 'owner' | Role qualifier for the Owner key |
+| `manager_user_id` | `text` | nullable; with `manager_role`, FK → `user (id, role)`, DEFERRABLE | The branch's Manager, if any. Never the Owner. |
+| `manager_role` | `text` | NOT NULL, DEFAULT 'manager', CHECK = 'manager' | Role qualifier for the Manager key |
 | `created_by` | `text` | nullable, FK → `user.id` ON DELETE RESTRICT | Owner/Developer who added. Null only for seed/system-created bootstrap branches. |
 | `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
 | `updated_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
@@ -1723,12 +1736,17 @@ Business locations. Currently single-branch (Rayasandra). Multi-branch ready for
 | 1 | RS | Rayasandra | operational | true | 1st Floor, Narmada Complex, 48/3, Rayasandra Main Rd |
 | 2 | MH | Marathahalli | opens_soon | false | (TBD) |
 
-**Permissions:** Only Owner and Developer can add/edit branches.
+**Permissions:** Only the Developer creates and edits branches (R1.1). The Owner changes only through the Owner handover in Users & Roles; the branch's Owner or the Developer assigns its Manager.
 
 **Booking flow integration:**
 - Single branch: branch picker hidden, auto-selects the primary branch
 - Multi-branch: only branches with `status = 'operational'` are selectable
-- Staff are NOT branch-scoped — all stylists/therapists are visible across branches, filtered by designation only
+- Staff work at one branch (`staff_profile.branch_id`); the picker lists the active branch's eligible people
+
+**Shutdown and delete (R1.10, migration `0011_branch_shutdown_guard`, hand-written triggers):**
+- `booking_branch_open` / `invoice_branch_open` (BEFORE INSERT OR UPDATE OF `branch_id`): refuse a booking or invoice at a `shutdown` branch (constraint name `branch_shut_down`). They lock the branch row `FOR SHARE`, so a write racing a shutdown either commits first, and then blocks it, or sees it.
+- `branch_shutdown_resolved` (BEFORE UPDATE OF `status`, only when the status becomes `shutdown`): refuses while the branch has a Manager, an active staff profile, a `pending`/`confirmed`/`in_progress` booking, a `pending` invoice, or a `waiting`/`notified` waitlist entry (constraint name `branch_shutdown_unresolved`). The admin lists these first (`GET /api/branches/[id]/shutdown-check`); the shutdown write also clears the leftover `staff_schedule` rows at the branch.
+- A shut-down branch keeps its history. It can be deleted only when no row references it (the foreign keys decide); if its Owner owns no other branch, they return to Customer in the same transaction. Audit history is kept.
 
 ---
 
@@ -2099,7 +2117,8 @@ PostgreSQL automatically creates indexes for:
 These do NOT need manual index creation:
 - `user.email`, `session.token`, `service.slug`, `service_category.slug`
 - `customer_profile.user_id`, `staff_profile.user_id`, `loyalty_account.customer_id`
-- `invoice.invoice_number`, `business_hour.day_of_week`, `holiday.date`
+- `invoice.invoice_number`, `business_hour.day_of_week`
+- `holiday`: the two partial unique indexes (`branch_id`, `date`) and (`date` WHERE `branch_id IS NULL`)
 - `system_setting.key`, `customer_tag.slug`
 - `booking.booking_number`, `spa_membership.membership_number`
 - `branch.number`, `branch.code`

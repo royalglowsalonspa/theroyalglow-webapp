@@ -12,8 +12,9 @@
  * Responsibilities :
  * - Fetch and upsert staff weekly schedules
  * - Build weekly grid with staff, schedules, leave, and booking counts
- * - Submit, approve, reject, and withdraw leave requests
- * - Fetch confirmed bookings for a staff member on a date
+ * - Submit, approve, reject, and withdraw leave requests; approval takes the
+ *   person off that day's bookings in the same transaction (R5.8)
+ * - Summarise the bookings an approval took the person off
  * - Resolve staff profile from user ID
  *
  * Features / Functionality :
@@ -34,12 +35,17 @@
  ************************************************************/
 
 import type { SubmitLeaveInput, UpsertScheduleInput } from '@rgss/types'
-import { and, asc, countDistinct, desc, eq, inArray } from 'drizzle-orm'
+import { and, asc, countDistinct, desc, eq, inArray, type SQL, sql } from 'drizzle-orm'
+import type { BatchItem } from 'drizzle-orm/batch'
+import { nanoid } from 'nanoid'
 import { db } from '../index'
 import { user } from '../schema/auth'
 import { booking, bookingService } from '../schema/booking'
 import { staffProfile } from '../schema/profile'
 import { staffSchedule, staffTimeOff } from '../schema/schedule'
+import { isGuardAbort } from './driver-errors'
+import { releaseAssignmentsOnLeaveStatement, releasedBookingIds } from './reassignments'
+import { staffWorksAt } from './staff'
 
 type LeaveApprovalStatus = (typeof staffTimeOff.$inferSelect)['approvalStatus']
 
@@ -57,41 +63,87 @@ export async function getStaffSchedule(staffId: string) {
     .orderBy(asc(staffSchedule.dayOfWeek))
 }
 
-// Upsert a staff member's weekly schedule (one row per day of week). neon-http has
-// no interactive transactions, so we use db.batch() — one server-side transaction.
-// Each entry inserts-or-updates on the unique (staff_id, day_of_week) constraint.
-// startTime/endTime may be null (non-working days).
+/**
+ * The staff profile `staffId`, active at `branchId` now: the guard every
+ * branch schedule write repeats inside its own statement, so a person removed
+ * from the branch meanwhile can't be scheduled there.
+ */
+function staffAtBranch(staffId: string, branchId: string): SQL {
+  return sql`exists (select 1 from ${staffProfile} where ${staffProfile.id} = ${staffId} and ${staffWorksAt(branchId)})`
+}
+
+/** Why a branch schedule write was refused. */
+export type ScheduleWriteResult = { ok: true } | { ok: false; reason: 'stale' }
+
+/**
+ * Set a staff member's weekly schedule at one branch (one row per weekday) in
+ * one batch, which neon-http runs as one transaction (multi-branch R5.10).
+ *
+ * - A working day is claimed for `branchId`, unless another branch holds it
+ *   (a Manager shared between branches works at one branch per day). The
+ *   statement also requires the person to still work at `branchId`. When
+ *   either fails, `1 / count(*)` divides by zero and the whole batch rolls
+ *   back: the result is `stale`. Check isDayHeldElsewhere first to explain it.
+ * - A day off releases the weekday, but never one another branch holds: that
+ *   row is left as it is.
+ */
 export async function upsertStaffSchedule(
   staffId: string,
+  branchId: string,
   entries: UpsertScheduleInput['entries'],
-) {
-  const statements = entries.map((entry) =>
-    db
-      .insert(staffSchedule)
-      .values({
-        staffId,
-        dayOfWeek: entry.dayOfWeek,
-        isWorking: entry.isWorking,
-        startTime: entry.startTime,
-        endTime: entry.endTime,
-      })
-      .onConflictDoUpdate({
-        target: [staffSchedule.staffId, staffSchedule.dayOfWeek],
-        set: {
-          isWorking: entry.isWorking,
-          startTime: entry.startTime,
-          endTime: entry.endTime,
-        },
-      }),
-  )
+): Promise<ScheduleWriteResult> {
+  const statements: BatchItem<'pg'>[] = entries.map((entry) => {
+    const claimable = sql`(staff_schedule.is_working = false or staff_schedule.branch_id is null or staff_schedule.branch_id = ${branchId})`
+    if (!entry.isWorking) {
+      return db.execute(sql`
+        insert into staff_schedule (id, staff_id, day_of_week, is_working, start_time, end_time, branch_id)
+        values (${nanoid()}, ${staffId}, ${entry.dayOfWeek}, false, null, null, null)
+        on conflict (staff_id, day_of_week) do update
+          set is_working = false, start_time = null, end_time = null, branch_id = null
+          where ${claimable}`)
+    }
+    return db.execute(sql`
+      with claimed as (
+        insert into staff_schedule (id, staff_id, day_of_week, is_working, start_time, end_time, branch_id)
+        select ${nanoid()}, ${staffId}, ${entry.dayOfWeek}, true, ${entry.startTime}::time, ${entry.endTime}::time, ${branchId}
+        where ${staffAtBranch(staffId, branchId)}
+        on conflict (staff_id, day_of_week) do update
+          set is_working = true, start_time = excluded.start_time, end_time = excluded.end_time,
+              branch_id = excluded.branch_id
+          where ${claimable}
+        returning 1
+      )
+      select 1 / count(*)::int as ok from claimed`)
+  })
 
-  // db.batch requires a non-empty tuple; destructure to satisfy the type and
-  // skip the call when there is nothing to write.
+  // db.batch requires a non-empty tuple; with nothing to write there is nothing to do.
   const [first, ...rest] = statements
   if (!first) {
-    return
+    return { ok: true }
   }
-  await db.batch([first, ...rest])
+  try {
+    await db.batch([first, ...rest])
+  } catch (error) {
+    if (isGuardAbort(error)) {
+      return { ok: false, reason: 'stale' }
+    }
+    throw error
+  }
+  return { ok: true }
+}
+
+// One person's current weekly rows (working flag and holding branch), for the
+// pre-check that explains which days another branch holds.
+export async function getScheduleDays(staffId: string) {
+  return db
+    .select({
+      dayOfWeek: staffSchedule.dayOfWeek,
+      isWorking: staffSchedule.isWorking,
+      branchId: staffSchedule.branchId,
+    })
+    .from(staffSchedule)
+    .where(eq(staffSchedule.staffId, staffId))
+    .orderBy(asc(staffSchedule.dayOfWeek))
 }
 
 // Compute the 7 consecutive 'YYYY-MM-DD' dates of a week, starting at weekStartISO.
@@ -106,12 +158,14 @@ function computeWeekDates(weekStartISO: string): string[] {
   })
 }
 
-// Weekly grid for the schedule page. `weekStartISO` is the 'YYYY-MM-DD' of the
-// first of 7 consecutive dates (the 7 dates are computed here and returned as
-// `dates`). Returns every active staff member with their schedule rows, the dates
-// they have approved leave on within the week, and a per-date count of their
-// confirmed bookings.
-export async function getWeeklyScheduleGrid(weekStartISO: string) {
+// Weekly grid for one branch's schedule page. `weekStartISO` is the
+// 'YYYY-MM-DD' of the first of 7 consecutive dates (the 7 dates are computed
+// here and returned as `dates`). Returns everyone who works at the branch with
+// their schedule rows (each naming the branch that holds the day, for the
+// caller to hide other branches' days), the dates they have approved leave on
+// within the week (leave belongs to the person, at every branch), and a
+// per-date count of their confirmed bookings at this branch.
+export async function getWeeklyScheduleGrid(branchId: string, weekStartISO: string) {
   const dates = computeWeekDates(weekStartISO)
 
   const staff = await db
@@ -122,7 +176,7 @@ export async function getWeeklyScheduleGrid(weekStartISO: string) {
     })
     .from(staffProfile)
     .innerJoin(user, eq(staffProfile.userId, user.id))
-    .where(eq(staffProfile.isActive, true))
+    .where(staffWorksAt(branchId))
     .orderBy(asc(user.name))
 
   if (staff.length === 0) {
@@ -167,6 +221,7 @@ export async function getWeeklyScheduleGrid(weekStartISO: string) {
     .innerJoin(booking, eq(bookingService.bookingId, booking.id))
     .where(
       and(
+        eq(booking.branchId, branchId),
         inArray(bookingService.staffId, staffIds),
         inArray(booking.bookingDate, weekDateObjects),
         eq(booking.status, 'confirmed'),
@@ -211,19 +266,31 @@ export async function submitLeave(staffId: string, data: SubmitLeaveInput) {
   return created as typeof staffTimeOff.$inferSelect
 }
 
-// A single leave request joined to the staff member's name and the staff's userId
-// (needed to address a notification to them), or null if not found.
-export async function getLeaveById(id: string) {
+// Leave of the people who work at the branch now (a shared Manager's leave
+// shows at each of their branches).
+function leaveAtBranch(branchId: string): SQL {
+  return inArray(
+    staffTimeOff.staffId,
+    db.select({ id: staffProfile.id }).from(staffProfile).where(staffWorksAt(branchId)),
+  )
+}
+
+// A leave request of someone who works at the branch, joined to the staff
+// member's name, userId (to address a notification to them) and the role their
+// profile grants (who may decide it), or null when the branch has no such
+// request.
+export async function getLeaveById(id: string, branchId: string) {
   const rows = await db
     .select({
       leave: staffTimeOff,
       staffName: user.name,
       staffUserId: user.id,
+      staffRoleWitness: staffProfile.roleWitness,
     })
     .from(staffTimeOff)
     .innerJoin(staffProfile, eq(staffTimeOff.staffId, staffProfile.id))
     .innerJoin(user, eq(staffProfile.userId, user.id))
-    .where(eq(staffTimeOff.id, id))
+    .where(and(eq(staffTimeOff.id, id), leaveAtBranch(branchId)))
     .limit(1)
 
   const found = rows[0]
@@ -235,13 +302,15 @@ export async function getLeaveById(id: string) {
     ...found.leave,
     staffName: found.staffName,
     staffUserId: found.staffUserId,
+    staffRoleWitness: found.staffRoleWitness as 'staff' | 'receptionist' | 'manager' | null,
   }
 }
 
-// Admin leave queue, newest first, each flattened with the staff member's name
-// (staffId is already on the leave row). Optional filter narrows by approval status.
-export async function getLeaveRequests(filters: LeaveFilters = {}) {
-  const conditions = []
+// One branch's leave queue, newest first, each flattened with the staff
+// member's name, userId and profile role (staffId is already on the leave row).
+// Optional filter narrows by approval status.
+export async function getLeaveRequests(branchId: string, filters: LeaveFilters = {}) {
+  const conditions = [leaveAtBranch(branchId)]
   if (filters.status) {
     conditions.push(eq(staffTimeOff.approvalStatus, filters.status as LeaveApprovalStatus))
   }
@@ -250,16 +319,20 @@ export async function getLeaveRequests(filters: LeaveFilters = {}) {
     .select({
       leave: staffTimeOff,
       staffName: user.name,
+      staffUserId: user.id,
+      staffRoleWitness: staffProfile.roleWitness,
     })
     .from(staffTimeOff)
     .innerJoin(staffProfile, eq(staffTimeOff.staffId, staffProfile.id))
     .innerJoin(user, eq(staffProfile.userId, user.id))
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .where(and(...conditions))
     .orderBy(desc(staffTimeOff.createdAt))
 
   return rows.map((r) => ({
     ...r.leave,
     staffName: r.staffName,
+    staffUserId: r.staffUserId,
+    staffRoleWitness: r.staffRoleWitness as 'staff' | 'receptionist' | 'manager' | null,
   }))
 }
 
@@ -272,27 +345,78 @@ export async function getLeaveForStaff(staffId: string) {
     .orderBy(desc(staffTimeOff.createdAt))
 }
 
-// Set a leave request's approval decision. Only 'approved' | 'rejected' are valid
-// terminal states here; the leave enum has no 'withdrawn' (see withdrawLeave).
-// Records the reviewer + time, and the rejection reason only when rejecting.
+export type LeaveDecision = {
+  leave: typeof staffTimeOff.$inferSelect
+  /** Confirmed bookings (any branch) that lost the person and await reassignment. */
+  reassignedBookingIds: string[]
+}
+
+// Decide a pending leave request of someone at the branch. Only 'approved' |
+// 'rejected' are valid terminal states here; the leave enum has no 'withdrawn'
+// (see withdrawLeave). Records the reviewer + time, and the rejection reason
+// only when rejecting. The update matches only while the request is still
+// pending and its person still works at the branch, so of two people deciding
+// at once exactly one wins; null means the request was decided, withdrawn or
+// moved meanwhile.
+//
+// Approval also takes the person off their bookings that day, at every branch,
+// in the same transaction (R5.8): bookings still to come lose them and the
+// confirmed ones are listed for reassignment (reassignments.ts). The person's
+// profile is locked first, as every assignment locks it FOR SHARE: an
+// assignment racing the approval either commits first and is released here,
+// or waits and is refused (migration 0014).
 export async function updateLeaveStatus(
   id: string,
+  branchId: string,
   status: 'approved' | 'rejected',
   reviewerId: string,
   rejectionReason?: string,
-) {
-  const [updated] = await db
+): Promise<LeaveDecision | null> {
+  const decide = db
     .update(staffTimeOff)
     .set({
       approvalStatus: status,
       reviewedBy: reviewerId,
-      reviewedAt: new Date(),
+      reviewedAt: sql`now()`,
       rejectionReason: status === 'rejected' ? (rejectionReason ?? null) : null,
     })
-    .where(eq(staffTimeOff.id, id))
+    .where(
+      and(
+        eq(staffTimeOff.id, id),
+        eq(staffTimeOff.approvalStatus, 'pending'),
+        leaveAtBranch(branchId),
+      ),
+    )
     .returning()
 
-  return updated ?? null
+  if (status === 'rejected') {
+    const [updated] = await decide
+    return updated ? { leave: updated, reassignedBookingIds: [] } : null
+  }
+
+  try {
+    const results = await db.batch([
+      db.execute(sql`select ${staffProfile.id} from ${staffProfile}
+        where ${staffProfile.id} = (select ${staffTimeOff.staffId} from ${staffTimeOff} where ${staffTimeOff.id} = ${id})
+        for no key update`),
+      decide,
+      // Only this transaction's decision stamps reviewed_at with its now():
+      // without it, nothing is released and the batch rolls back.
+      db.execute(sql`select 1 / count(*)::int as ok from ${staffTimeOff}
+        where ${staffTimeOff.id} = ${id} and ${staffTimeOff.reviewedAt} = now()`),
+      releaseAssignmentsOnLeaveStatement({ leaveId: id, actorId: reviewerId }),
+    ])
+    const [updated] = results[1]
+    if (!updated) {
+      return null
+    }
+    return { leave: updated, reassignedBookingIds: releasedBookingIds(results[3]) }
+  } catch (error) {
+    if (isGuardAbort(error)) {
+      return null
+    }
+    throw error
+  }
 }
 
 // Withdraw a staff member's own pending leave request. The leave enum has no
@@ -314,14 +438,15 @@ export async function withdrawLeave(id: string, staffId: string) {
   return deleted ?? null
 }
 
-// Confirmed bookings assigned to a staff member on a specific date — exactly the
-// bookings in status 'confirmed' whose booking_date equals the date and which have a
-// booking_service row assigned to the staff. booking_date is a `date` mode column, so
-// the 'YYYY-MM-DD' string is matched as a UTC-midnight Date. A booking with multiple
-// services for the same staff is de-duped, collecting its service names.
-export async function getConfirmedBookingsForStaffOnDate(staffId: string, dateISO: string) {
-  const bookingDate = new Date(`${dateISO}T00:00:00.000Z`)
-
+// The bookings among `bookingIds` that are at the branch, earliest first, each
+// with its customer and service names: what a leave approval took the person
+// off (LeaveDecision.reassignedBookingIds). Another branch's bookings are never
+// listed (multi-branch R2.3). A booking with several services is listed once,
+// collecting its service names.
+export async function getBookingSummaries(bookingIds: readonly string[], branchId: string) {
+  if (bookingIds.length === 0) {
+    return []
+  }
   const rows = await db
     .select({
       bookingId: booking.id,
@@ -333,14 +458,8 @@ export async function getConfirmedBookingsForStaffOnDate(staffId: string, dateIS
     .from(booking)
     .innerJoin(bookingService, eq(bookingService.bookingId, booking.id))
     .innerJoin(user, eq(booking.customerId, user.id))
-    .where(
-      and(
-        eq(booking.status, 'confirmed'),
-        eq(booking.bookingDate, bookingDate),
-        eq(bookingService.staffId, staffId),
-      ),
-    )
-    .orderBy(asc(booking.startTime))
+    .where(and(inArray(booking.id, [...bookingIds]), eq(booking.branchId, branchId)))
+    .orderBy(asc(booking.bookingDate), asc(booking.startTime), asc(bookingService.displayOrder))
 
   const byBooking = new Map<
     string,

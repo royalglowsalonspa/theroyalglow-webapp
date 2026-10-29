@@ -49,7 +49,13 @@ import {
 } from '@/lib/admin/memberships'
 import { toast } from '@/lib/admin/toast'
 
-export function CreateMembershipForm() {
+/** The branch selling the membership: the one the page was rendered for. */
+export interface SellingBranch {
+  id: string
+  name: string
+}
+
+export function CreateMembershipForm({ branch }: { branch: SellingBranch }) {
   const router = useRouter()
   const fieldId = useId()
 
@@ -132,6 +138,7 @@ export function CreateMembershipForm() {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
+          branchId: branch.id,
           customerId: selectedCustomer.id,
           tierId: selectedTierId,
           hoursMinutes: Math.round(hoursNum * 60),
@@ -155,6 +162,7 @@ export function CreateMembershipForm() {
       setSubmitting(false)
     }
   }, [
+    branch.id,
     selectedCustomer,
     selectedTierId,
     canSubmit,
@@ -171,9 +179,14 @@ export function CreateMembershipForm() {
     <div className="space-y-5 max-w-2xl">
       <BackLink />
 
-      <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">
-        Create SPA Membership
-      </h1>
+      <div className="space-y-1">
+        <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">
+          Create SPA Membership
+        </h1>
+        <p className="font-sans text-sm text-warm-gray">
+          Sold at {branch.name}, which issues the invoice. The hours can be used at any branch.
+        </p>
+      </div>
 
       <form
         className="space-y-5"

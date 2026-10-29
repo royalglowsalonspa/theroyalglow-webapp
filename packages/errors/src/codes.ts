@@ -49,6 +49,15 @@ export const ERROR_CODES = {
   // have not been collected. Distinct from FORBIDDEN because it is RECOVERABLE —
   // the client routes the customer to /onboarding rather than showing a dead end.
   ONBOARDING_REQUIRED: 'ONBOARDING_REQUIRED',
+  // Multi-branch: the signed-in person may act on no branch at all (403), or a
+  // form rendered for one branch was submitted after the person switched to
+  // another (409; reload to continue).
+  BRANCH_ACCESS_NONE: 'BRANCH_ACCESS_NONE',
+  BRANCH_CONTEXT_CHANGED: 'BRANCH_CONTEXT_CHANGED',
+  // Scheduling: a weekday another branch already holds for a shared Manager
+  // (409), or a leave request already decided or withdrawn meanwhile (409).
+  SCHEDULE_DAY_ELSEWHERE: 'SCHEDULE_DAY_ELSEWHERE',
+  LEAVE_ALREADY_DECIDED: 'LEAVE_ALREADY_DECIDED',
   // Booking domain
   BOOKING_SLOT_UNAVAILABLE: 'BOOKING_SLOT_UNAVAILABLE',
   BOOKING_ALREADY_CANCELLED: 'BOOKING_ALREADY_CANCELLED',
@@ -71,6 +80,11 @@ export const ERROR_CODES = {
   OFFER_NOT_APPLICABLE: 'OFFER_NOT_APPLICABLE',
   // Branch domain
   BRANCH_INACTIVE: 'BRANCH_INACTIVE',
+  // Multi-branch R1.10: people, bookings, unpaid invoices or waitlist entries
+  // are still open at the branch (409), or it still has records and can't be
+  // deleted (409).
+  BRANCH_SHUTDOWN_BLOCKED: 'BRANCH_SHUTDOWN_BLOCKED',
+  BRANCH_NOT_EMPTY: 'BRANCH_NOT_EMPTY',
 } as const
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES]

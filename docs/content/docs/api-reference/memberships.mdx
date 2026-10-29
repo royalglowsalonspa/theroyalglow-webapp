@@ -495,12 +495,20 @@ Unexpected/transient failure. `retryable: true`.
 ## POST `admin.theroyalglow.in/api/memberships/[id]/sessions`
 
 Records a SPA session against a membership. Each service line deducts its
-duration from the remaining hours. The handler guards membership state and
-remaining hours **before** any writes, validates that every service id exists,
-snapshots service and staff names, then atomically creates a completed ₹0
-booking flagged as a membership session (booking number suffixed `-M`), its
-`booking_service` rows, a ₹0 `membership_session` invoice (zero gems), and
-increments the membership's used minutes. `bookingDate` defaults to today (IST).
+duration from the remaining hours. The handler checks membership state and
+remaining hours up front, validates that every service id exists, snapshots
+service and staff names, then atomically creates a completed ₹0 booking flagged
+as a membership session (booking number suffixed `-M`), its `booking_service`
+rows, a ₹0 `membership_session` invoice (zero gems), and the deduction of the
+membership's minutes. The deduction is checked again inside that write: if the
+membership stopped being active, expired, or no longer has the minutes (for
+example, another session was recorded at the same moment), nothing is written
+and the request fails with a 409. `bookingDate` defaults to today (IST).
+
+Send an `idempotencyKey` to make retries safe. A request whose key already
+recorded a session on this membership returns `200 OK` with that session and
+`duplicate: true`, without deducting again. This holds even when the first
+attempt used the last of the hours.
 
 **Minimum role:** `receptionist` (`requireRole('receptionist')`)
 
@@ -526,6 +534,7 @@ Validated by `recordSessionSchema` (`@rgss/types`).
 | `services[].staffId` | `string` | No | Staff member assigned to this line. |
 | `services[].durationMinutes` | `integer` | Yes | Positive. Minutes to deduct for this line. |
 | `bookingDate` | `string` | No | YYYY-MM-DD. Defaults to today (IST). |
+| `idempotencyKey` | `string` | No | 8–64 characters from `A-Z a-z 0-9 _ -`, e.g. `crypto.randomUUID()`. Use a new key for each session attempt; reuse it only to retry the same request. |
 
 ```json
 {
@@ -536,14 +545,17 @@ Validated by `recordSessionSchema` (`@rgss/types`).
       "durationMinutes": 120
     }
   ],
-  "bookingDate": "2026-06-10"
+  "bookingDate": "2026-06-10",
+  "idempotencyKey": "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
 }
 ```
 
 ### Response
 
-Returns `201 Created` with the created booking, the ₹0 session invoice, and the
-membership's remaining minutes after the deduction.
+Returns `201 Created` with the created booking, the ₹0 session invoice, the
+membership's remaining minutes after the deduction, and `duplicate: false`. A
+retry with an already-used key returns `200 OK` with the original session and
+`duplicate: true`.
 
 ```json
 {
@@ -580,7 +592,8 @@ membership's remaining minutes after the deduction.
       "gemsEarned": 0,
       "paidAt": "2026-06-10T07:00:00.000Z"
     },
-    "remainingMinutes": 780
+    "remainingMinutes": 780,
+    "duplicate": false
   }
 }
 ```
@@ -615,7 +628,14 @@ The membership is not `active` or is past its expiry.
 </Accordion>
 <Accordion title="MEMBERSHIP_INSUFFICIENT_HOURS — 409">
 
-The requested duration exceeds the remaining membership hours.
+The requested duration exceeds the remaining membership hours, including when
+the membership changed between the up-front check and the write.
+
+</Accordion>
+<Accordion title="CONFLICT — 409">
+
+The `idempotencyKey` was already used for a different session or request.
+Nothing was written; retry with a new key.
 
 </Accordion>
 <Accordion title="INTERNAL_ERROR — 500">

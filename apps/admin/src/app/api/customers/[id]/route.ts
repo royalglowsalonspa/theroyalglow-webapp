@@ -1,80 +1,103 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 30-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : GET|PATCH /api/customers/[id]
  * Scope        : API — Admin CRM
  *
- * Description  : Admin single customer profile. GET returns full profile with
- *                KPIs; PATCH allows manager+ to override no-show gates.
+ * Description  : Admin single customer profile, as the active branch sees it.
+ *                GET returns the profile page's projection; PATCH lets a
+ *                Manager or above override the no-show gates.
  *
  * Responsibilities :
- * - Return full customer profile with KPIs, tags, gems (GET)
+ * - Return shared identity, tags, gems and memberships, the active branch's
+ *   money, bookings and invoices, other branches' visits (date, branch and
+ *   services) and the notes the branch may read (GET)
  * - Allow manager+ to override no-show count and approval flag (PATCH)
- * - Validate and persist profile gate overrides
+ * - Validate, persist and audit profile gate overrides
  *
  * Features / Functionality :
- * - Comprehensive customer profile view (GET, receptionist+)
+ * - One projection with the profile page (loadCustomerDetail)
  * - No-show count reset (PATCH, manager+)
  * - Booking approval requirement toggle (PATCH, manager+)
  *
  * Tech Stack   : Next.js 16 (Route Handler)
  * Layer        : API (Thin Orchestrator)
  *
- * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/db/queries,
- *                @rgss/errors, zod
+ * Dependencies : @/lib/api/branch-context, @/lib/api/error-handler,
+ *                @/lib/customers/customer-detail, @rgss/db/queries,
+ *                @rgss/errors, @rgss/types
  *
  * Notes        :
- * - GET requires min role: receptionist; PATCH requires min role: manager.
- * - PATCH with empty body is a no-op returning current profile.
+ * - GET requires receptionist at the active branch; PATCH manager there.
+ * - Customers are shared (multi-branch R3.1), so any branch may open one;
+ *   money stays per branch (R3.2). The no-show gates follow the customer to
+ *   every branch; the audit entry records the branch that changed them.
+ * - PATCH with no gate fields is a no-op returning the current gates.
  ************************************************************/
 
 import { getCustomerProfile, updateCustomerProfile } from '@rgss/db/queries'
 import { badRequest, notFound } from '@rgss/errors'
-import { z } from 'zod'
+import { updateCustomerGatesSchema } from '@rgss/types'
+import { audit } from '@/lib/api/audit'
+import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
+import { loadCustomerDetail } from '@/lib/customers/customer-detail'
 
-// GET /api/customers/[id] — single customer profile (KPIs, tags, gems,
-// contact details). Receptionist+.
+// GET /api/customers/[id] — the customer as the active branch sees them.
+// Receptionist+.
 export const GET = withErrorHandler(
-  async (_req: Request, ctx: { params: Promise<{ id: string }> }) => {
-    await requireRole('receptionist')
-    const { id } = await ctx.params
+  async (_req: Request, route: { params: Promise<{ id: string }> }) => {
+    const ctx = await requireBranchRole('receptionist')
+    const { id } = await route.params
 
-    const profile = await getCustomerProfile(id)
-    if (!profile) {
+    const detail = await loadCustomerDetail(id, ctx.branch.id)
+    if (!detail) {
       throw notFound('Customer not found.')
     }
 
-    return apiSuccess({ customer: profile })
+    return apiSuccess(detail)
   },
 )
-
-// Owner/manager overrides on a customer profile. Both fields optional; an empty
-// body is a no-op that returns the current profile.
-const updateCustomerProfileSchema = z.object({
-  noshowCount: z.number().int().min(0).optional(),
-  bookingRequiresApproval: z.boolean().optional(),
-})
 
 // PATCH /api/customers/[id] — manager+ override of profile gates (e.g.
 // reset the no-show count or toggle the booking-approval requirement).
 export const PATCH = withErrorHandler(
-  async (req: Request, ctx: { params: Promise<{ id: string }> }) => {
-    await requireRole('manager')
-    const { id } = await ctx.params
+  async (req: Request, route: { params: Promise<{ id: string }> }) => {
+    const ctx = await requireBranchRole('manager')
+    const { id } = await route.params
 
     const body = await req.json().catch(() => null)
-    const parsed = updateCustomerProfileSchema.safeParse(body)
+    const parsed = updateCustomerGatesSchema.safeParse(body)
     if (!parsed.success) {
       throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
     }
+    assertRenderedBranch(ctx, parsed.data.branchId)
+    const { branchId: _renderedBranchId, ...patch } = parsed.data
 
-    const updated = await updateCustomerProfile(id, parsed.data)
+    const before = await getCustomerProfile(id)
+    if (!before) {
+      throw notFound('Customer not found.')
+    }
+
+    const updated = await updateCustomerProfile(id, patch)
     if (!updated) {
       throw notFound('Customer not found.')
+    }
+
+    if (patch.noshowCount !== undefined || patch.bookingRequiresApproval !== undefined) {
+      await audit(req, ctx.session, {
+        action: 'update',
+        entityType: 'customer_profile',
+        entityId: id,
+        branchId: ctx.branch.id,
+        oldValues: {
+          noshowCount: before.noshowCount,
+          bookingRequiresApproval: before.bookingRequiresApproval,
+        },
+        newValues: patch,
+      })
     }
 
     return apiSuccess({ customer: updated })

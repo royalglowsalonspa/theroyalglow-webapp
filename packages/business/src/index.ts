@@ -27,6 +27,7 @@
 
 export * from './auth/index'
 export * from './booking/index'
+export * from './branch/index'
 export * from './invoicing/index'
 export * from './jobs/index'
 export * from './lead/index'

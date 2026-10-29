@@ -12,13 +12,17 @@
  * Responsibilities :
  * - Fetch membership tiers, individual memberships, and member sessions
  * - Create membership with purchase invoice atomically
- * - Record membership sessions (booking + invoice + hour deduction)
+ * - Record membership sessions (booking + invoice + guarded hour deduction)
+ * - Resolve a retried session request to the session it already recorded
  * - Enforce one active membership per customer
  * - Cancel memberships with reason tracking
  *
  * Features / Functionality :
  * - Atomic membership + invoice creation via db.batch()
- * - Session recording creates ₹0 booking + ₹0 invoice + deducts hours
+ * - Session recording creates ₹0 booking + ₹0 invoice + deducts hours, and
+ *   rolls back whole when the membership is inactive, expired or short of
+ *   minutes at write time
+ * - Idempotency key per session (booking.redemption_key, prefixed)
  * - Pre-check for existing active membership (throws 409 conflict)
  * - Admin membership list with tier/status filtering
  * - Customer-facing active/past membership split
@@ -40,9 +44,23 @@ import { nanoid } from 'nanoid'
 import { db } from '../index'
 import { user } from '../schema/auth'
 import { booking, bookingService } from '../schema/booking'
+import { branch } from '../schema/branch'
 import { invoice, invoiceItem } from '../schema/invoice'
 import { spaMembership, spaMembershipTier } from '../schema/membership'
 import { staffProfile } from '../schema/profile'
+import { refreshCustomerStatsStatement } from './customer-stats'
+
+// The branch that sold a membership (multi-branch R9, route inventory gap 5).
+// A row written before selling_branch_id existed falls back to its purchase
+// invoice's branch, which is the same branch: 0007 backfills it that way, and
+// this covers rows that older code writes until the column is enforced.
+const sellingBranchIdSql = sql<
+  string | null
+>`coalesce(${spaMembership.sellingBranchId}, (select ${invoice.branchId} from ${invoice} where ${invoice.id} = ${spaMembership.invoiceId}))`
+
+function sellingBranchOf(id: string | null, name: string | null) {
+  return id !== null && name !== null ? { id, name } : null
+}
 
 type NewMembership = typeof spaMembership.$inferInsert
 type NewInvoice = typeof invoice.$inferInsert
@@ -62,8 +80,9 @@ export async function getMembershipTiers() {
     .orderBy(asc(spaMembershipTier.displayOrder))
 }
 
-// A single membership with the owning customer's name/email and its tier, or
-// null if not found. Session history is fetched separately via getMembershipSessions.
+// A single membership with the owning customer's name/email, its tier and the
+// branch that sold it, or null if not found. Session history is fetched
+// separately via getMembershipSessions.
 export async function getMembershipById(id: string) {
   const rows = await db
     .select({
@@ -71,10 +90,13 @@ export async function getMembershipById(id: string) {
       customerName: user.name,
       customerEmail: user.email,
       tier: spaMembershipTier,
+      sellingBranchId: sellingBranchIdSql,
+      sellingBranchName: branch.name,
     })
     .from(spaMembership)
     .innerJoin(user, eq(spaMembership.customerId, user.id))
     .innerJoin(spaMembershipTier, eq(spaMembership.tierId, spaMembershipTier.id))
+    .leftJoin(branch, eq(branch.id, sellingBranchIdSql))
     .where(eq(spaMembership.id, id))
     .limit(1)
 
@@ -85,6 +107,8 @@ export async function getMembershipById(id: string) {
 
   return {
     ...found.membership,
+    sellingBranchId: found.sellingBranchId,
+    sellingBranch: sellingBranchOf(found.sellingBranchId, found.sellingBranchName),
     customerName: found.customerName,
     customerEmail: found.customerEmail,
     tier: found.tier,
@@ -96,8 +120,10 @@ type MembershipFilters = {
   status?: string
 }
 
-// Admin membership list, each flattened with the customer name + tier name,
-// newest first. Optional filters narrow by tier id and/or status.
+// Admin membership list, each flattened with the customer name, tier name and
+// selling branch, newest first. Memberships are shared by every branch, so
+// this lists them all; callers decide who sees what each was sold for.
+// Optional filters narrow by tier id and/or status.
 export async function getMemberships(filters: MembershipFilters = {}) {
   const conditions = []
   if (filters.tier) {
@@ -112,15 +138,20 @@ export async function getMemberships(filters: MembershipFilters = {}) {
       membership: spaMembership,
       customerName: user.name,
       tierName: spaMembershipTier.name,
+      sellingBranchId: sellingBranchIdSql,
+      sellingBranchName: branch.name,
     })
     .from(spaMembership)
     .innerJoin(user, eq(spaMembership.customerId, user.id))
     .innerJoin(spaMembershipTier, eq(spaMembership.tierId, spaMembershipTier.id))
+    .leftJoin(branch, eq(branch.id, sellingBranchIdSql))
     .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(spaMembership.createdAt))
+    .orderBy(desc(spaMembership.createdAt), desc(spaMembership.id))
 
   return rows.map((r) => ({
     ...r.membership,
+    sellingBranchId: r.sellingBranchId,
+    sellingBranch: sellingBranchOf(r.sellingBranchId, r.sellingBranchName),
     customerName: r.customerName,
     tierName: r.tierName,
   }))
@@ -139,13 +170,17 @@ export async function getActiveMembershipForCustomer(customerId: string) {
 }
 
 // Completed membership-session bookings for a membership, newest first, each
-// with its booking_service snapshot rows (service name, duration, staff name).
+// with the name of the branch that performed it (any branch: the hours are
+// shared) and its booking_service snapshot rows (service name, duration, staff
+// name).
 export async function getMembershipSessions(membershipId: string) {
-  const bookings = await db
-    .select()
+  const rows = await db
+    .select({ session: booking, branchName: branch.name })
     .from(booking)
+    .innerJoin(branch, eq(branch.id, booking.branchId))
     .where(and(eq(booking.spaMembershipId, membershipId), eq(booking.status, 'completed')))
     .orderBy(desc(booking.bookingDate), desc(booking.createdAt))
+  const bookings = rows.map((r) => ({ ...r.session, branchName: r.branchName }))
 
   if (bookings.length === 0) {
     return []
@@ -179,12 +214,16 @@ type CreateMembershipWithInvoiceParams = {
   customerId: string
   tierId: string
   tierNameSnapshot: string
+  /** The tier's usual hours and price at sale time (agreed-versus-usual). */
+  tierUsualHoursMinutes: number
+  tierUsualPricePaise: number
   totalHoursMinutes: number
   pricePaidPaise: number
   startsAt: Date
   expiresAt: Date
   createdBy: string
   notes?: string | null
+  /** The selling branch: it issues the purchase invoice. */
   branchId: string
   invoiceNumber: string
   subtotalPaise: number
@@ -220,6 +259,10 @@ export async function createMembershipWithInvoice(params: CreateMembershipWithIn
     customerId: params.customerId,
     tierId: params.tierId,
     tierNameSnapshot: params.tierNameSnapshot,
+    tierUsualHoursMinutes: params.tierUsualHoursMinutes,
+    tierUsualPricePaise: params.tierUsualPricePaise,
+    // The same branch as the purchase invoice, by construction.
+    sellingBranchId: params.branchId,
     totalHoursMinutes: params.totalHoursMinutes,
     pricePaidPaise: params.pricePaidPaise,
     startsAt: params.startsAt,
@@ -258,10 +301,13 @@ export async function createMembershipWithInvoice(params: CreateMembershipWithIn
     displayOrder: 0,
   }
 
+  // The paid purchase invoice counts toward the customer's LTV, so the CRM KPI
+  // recompute runs last in the same atomic batch (see customer-stats.ts).
   const results = await db.batch([
     db.insert(spaMembership).values(membershipValues).returning(),
     db.insert(invoice).values(invoiceValues).returning(),
     db.insert(invoiceItem).values(invoiceItemValues),
+    refreshCustomerStatsStatement(params.customerId),
   ])
 
   return {
@@ -289,19 +335,110 @@ type RecordMembershipSessionParams = {
   invoiceNumber: string
   notes?: string | null
   services: SessionServiceInput[]
-  // Snapshot of the membership's hour totals, for computing remaining minutes
-  // after this session is deducted.
-  totalHoursMinutes: number
-  usedHoursMinutes: number
+  // Client idempotency key. With it, a retried request can never record the
+  // session twice; see getMembershipSessionByKey for the replay side.
+  idempotencyKey?: string | null
 }
 
-// Record a membership session atomically via db.batch(): a completed ₹0 booking
-// flagged as a membership session, its booking_service snapshot rows, a
-// membership_session invoice (₹0, zero gems) with its invoice_item rows, and an
-// increment of the membership's used minutes. Booking and invoice ids are
-// pre-generated so children reference them within the same batch. Returns the
-// booking, invoice, and the membership's remaining minutes after the deduction.
-export async function recordMembershipSession(params: RecordMembershipSessionParams) {
+export type RecordMembershipSessionResult =
+  | {
+      ok: true
+      booking: typeof booking.$inferSelect
+      invoice: typeof invoice.$inferSelect
+      // Read in the same transaction, after this session's deduction.
+      remainingMinutes: number
+    }
+  // When the write ran, the membership was not active, had expired or no
+  // longer had the minutes. Nothing was written.
+  | { ok: false; reason: 'unavailable' }
+  // An earlier request already used this idempotency key. Nothing was written.
+  | { ok: false; reason: 'duplicate_key' }
+
+// The session idempotency key lives in booking.redemption_key, whose partial
+// unique index (booking_redemption_key_uidx) already de-dupes gems
+// redemptions. The prefix keeps the two key spaces apart, and replay lookups
+// also require a session of the same membership, so a key from anywhere else
+// never resolves to a session.
+const SESSION_KEY_PREFIX = 'msess:'
+const REDEMPTION_KEY_INDEX = 'booking_redemption_key_uidx'
+// Postgres SQLSTATEs: division_by_zero (raised by the balance guard) and
+// unique_violation.
+const DIVISION_BY_ZERO = '22012'
+const UNIQUE_VIOLATION = '23505'
+// How far down an error's `cause` chain to look; bounded so a cycle can't hang.
+const MAX_CAUSE_DEPTH = 5
+
+function sessionKey(idempotencyKey: string): string {
+  return `${SESSION_KEY_PREFIX}${idempotencyKey}`
+}
+
+type DriverErrorLike = { code?: unknown; constraint?: unknown; message?: unknown; cause?: unknown }
+
+// The first error in the (bounded) `cause` chain carrying `sqlState`. A
+// neon-http batch surfaces the driver error directly; Drizzle may wrap it.
+function findDriverError(error: unknown, sqlState: string): DriverErrorLike | null {
+  let current: unknown = error
+  for (let depth = 0; depth < MAX_CAUSE_DEPTH; depth += 1) {
+    if (typeof current !== 'object' || current === null) {
+      return null
+    }
+    const e = current as DriverErrorLike
+    if (e.code === sqlState) {
+      return e
+    }
+    current = e.cause
+  }
+  return null
+}
+
+// The balance guard below is the only statement in the session batch that
+// divides, so a division_by_zero means it matched no row. Like the other guard
+// predicates, fall back to the message when a wrapper drops the SQLSTATE.
+function isBalanceGuardAbort(error: unknown): boolean {
+  let current: unknown = error
+  for (let depth = 0; depth < MAX_CAUSE_DEPTH; depth += 1) {
+    if (typeof current !== 'object' || current === null) {
+      return false
+    }
+    const e = current as DriverErrorLike
+    if (e.code === DIVISION_BY_ZERO) {
+      return true
+    }
+    if (typeof e.message === 'string' && e.message.toLowerCase().includes('division by zero')) {
+      return true
+    }
+    current = e.cause
+  }
+  return false
+}
+
+function isSessionKeyConflict(error: unknown): boolean {
+  const e = findDriverError(error, UNIQUE_VIOLATION)
+  if (!e) {
+    return false
+  }
+  if (typeof e.constraint === 'string') {
+    return e.constraint === REDEMPTION_KEY_INDEX
+  }
+  return typeof e.message === 'string' && e.message.includes(REDEMPTION_KEY_INDEX)
+}
+
+// Record a membership session atomically via db.batch() (one transaction): a
+// completed ₹0 booking flagged as a membership session, its booking_service
+// snapshot rows, the guarded deduction of the membership's minutes, and a
+// membership_session invoice (₹0, zero gems) with its invoice_item rows.
+// Booking and invoice ids are pre-generated so children reference them within
+// the same batch.
+//
+// The deduction is guarded in the write itself: it only matches while the
+// membership is active, unexpired and still has the minutes, and when it
+// matches no row the whole batch rolls back. Concurrent requests serialize on
+// the membership row lock, and each re-checks the guard against the committed
+// balance, so two receptionists can never spend the same hours. Any read the
+// caller did beforehand is advisory.
+export async function recordMembershipSession(
+  params: RecordMembershipSessionParams,
+): Promise<RecordMembershipSessionResult> {
   const bookingId = nanoid()
   const invoiceId = nanoid()
   const now = new Date()
@@ -323,6 +460,7 @@ export async function recordMembershipSession(params: RecordMembershipSessionPar
     spaMembershipId: params.membershipId,
     completedAt: now,
     notes: params.notes ?? null,
+    redemptionKey: params.idempotencyKey ? sessionKey(params.idempotencyKey) : null,
   }
 
   const bookingServiceValues: NewBookingService[] = params.services.map((s, index) => ({
@@ -362,43 +500,142 @@ export async function recordMembershipSession(params: RecordMembershipSessionPar
     displayOrder: index,
   }))
 
-  const results = await db.batch([
-    db.insert(booking).values(bookingValues).returning(),
-    db.insert(bookingService).values(bookingServiceValues),
-    db.insert(invoice).values(invoiceValues).returning(),
-    db.insert(invoiceItem).values(invoiceItemValues),
-    db
-      .update(spaMembership)
-      .set({ usedHoursMinutes: sql`${spaMembership.usedHoursMinutes} + ${totalMinutes}` })
-      .where(eq(spaMembership.id, params.membershipId)),
-  ])
+  // The balance guard. When the UPDATE matches no row, `1 / count(*)` divides
+  // by zero (SQLSTATE 22012) and the whole batch rolls back, so no booking or
+  // invoice is ever left without its deduction. `count(*)` is a runtime
+  // aggregate, so the abort fires only when the guard really failed.
+  const spendMinutes = db.execute(sql`
+    WITH guard AS (
+      UPDATE spa_membership
+         SET used_hours_minutes = used_hours_minutes + ${totalMinutes},
+             updated_at         = now()
+       WHERE id = ${params.membershipId}
+         AND status = 'active'
+         AND expires_at >= now()
+         AND used_hours_minutes + ${totalMinutes} <= total_hours_minutes
+      RETURNING id
+    )
+    SELECT 1 / count(*)::int AS ok FROM guard
+  `)
 
-  const remainingMinutes = params.totalHoursMinutes - (params.usedHoursMinutes + totalMinutes)
+  const results = await db
+    .batch([
+      // First, so a reused idempotency key fails on its unique index even when
+      // the minutes are already spent: a retry is a replay, not "no hours left".
+      db.insert(booking).values(bookingValues).returning(),
+      db.insert(bookingService).values(bookingServiceValues),
+      spendMinutes,
+      // Same transaction, after the guard: the balance this session leaves.
+      db
+        .select({
+          total: spaMembership.totalHoursMinutes,
+          used: spaMembership.usedHoursMinutes,
+        })
+        .from(spaMembership)
+        .where(eq(spaMembership.id, params.membershipId)),
+      db.insert(invoice).values(invoiceValues).returning(),
+      db.insert(invoiceItem).values(invoiceItemValues),
+      // A session is a completed booking, i.e. a visit: recompute the CRM KPIs
+      // last so they see it (see customer-stats.ts).
+      refreshCustomerStatsStatement(params.customerId),
+    ])
+    .catch((error: unknown) => {
+      if (isBalanceGuardAbort(error)) {
+        return 'unavailable' as const
+      }
+      if (isSessionKeyConflict(error)) {
+        return 'duplicate_key' as const
+      }
+      throw error
+    })
 
+  if (results === 'unavailable') {
+    return { ok: false, reason: 'unavailable' }
+  }
+  if (results === 'duplicate_key') {
+    return { ok: false, reason: 'duplicate_key' }
+  }
+
+  const balance = results[3][0]
   return {
+    ok: true,
     booking: results[0][0] as typeof booking.$inferSelect,
-    invoice: results[2][0] as typeof invoice.$inferSelect,
-    remainingMinutes,
+    invoice: results[4][0] as typeof invoice.$inferSelect,
+    remainingMinutes: balance ? balance.total - balance.used : 0,
   }
 }
 
-// Cancel a membership: set status 'cancelled' and append the reason to notes.
-// Returns the updated row, or null if no membership exists with that id.
-export async function cancelMembership(id: string, reason: string) {
-  const rows = await db.select().from(spaMembership).where(eq(spaMembership.id, id)).limit(1)
-  const existing = rows[0]
-  if (!existing) {
+// The session that an earlier request recorded on this membership with this
+// idempotency key, with what a replay needs: the booking, its invoice, its
+// service lines (so the caller can check the retry asks for the same session)
+// and the membership's current balance. Null when the key has not recorded a
+// session on this membership.
+export async function getMembershipSessionByKey(membershipId: string, idempotencyKey: string) {
+  const rows = await db
+    .select()
+    .from(booking)
+    .where(
+      and(
+        eq(booking.redemptionKey, sessionKey(idempotencyKey)),
+        eq(booking.spaMembershipId, membershipId),
+        eq(booking.isMembershipSession, true),
+      ),
+    )
+    .limit(1)
+  const found = rows[0]
+  if (!found) {
     return null
   }
 
-  const cancellationNote = `Cancelled: ${reason}`
-  const updatedNotes = existing.notes ? `${existing.notes}\n${cancellationNote}` : cancellationNote
+  const [services, invoices, balances] = await Promise.all([
+    db
+      .select({
+        serviceId: bookingService.serviceId,
+        durationMinutes: bookingService.durationMinutes,
+        staffId: bookingService.staffId,
+      })
+      .from(bookingService)
+      .where(eq(bookingService.bookingId, found.id))
+      .orderBy(asc(bookingService.displayOrder)),
+    db.select().from(invoice).where(eq(invoice.bookingId, found.id)).limit(1),
+    db
+      .select({
+        total: spaMembership.totalHoursMinutes,
+        used: spaMembership.usedHoursMinutes,
+      })
+      .from(spaMembership)
+      .where(eq(spaMembership.id, membershipId))
+      .limit(1),
+  ])
 
+  const balance = balances[0]
+  return {
+    booking: found,
+    invoice: invoices[0] ?? null,
+    services,
+    remainingMinutes: balance ? balance.total - balance.used : 0,
+  }
+}
+
+// Cancel an active membership sold at `sellingBranchId`, appending the reason
+// to its notes. One guarded statement: when the membership isn't active (any
+// more) or wasn't sold there, it changes nothing and returns null, so two
+// concurrent cancellations, or a cancellation racing expiry, apply once.
+export async function cancelMembership(id: string, sellingBranchId: string, reason: string) {
   const [updated] = await db
     .update(spaMembership)
-    .set({ status: 'cancelled', notes: updatedNotes })
-    .where(eq(spaMembership.id, id))
-    .returning()
+    .set({
+      status: 'cancelled',
+      notes: sql`coalesce(${spaMembership.notes} || chr(10), '') || ${`Cancelled: ${reason}`}`,
+    })
+    .where(
+      and(
+        eq(spaMembership.id, id),
+        eq(spaMembership.status, 'active'),
+        sql`${sellingBranchIdSql} = ${sellingBranchId}`,
+      ),
+    )
+    .returning({ id: spaMembership.id, status: spaMembership.status })
 
   return updated ?? null
 }

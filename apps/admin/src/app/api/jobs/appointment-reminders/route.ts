@@ -100,8 +100,10 @@ export const POST = async (req: Request) => {
         continue
       }
 
+      // Names the branch the appointment is at (multi-branch R7.2).
       const { title, body } = buildNotificationContent(type, {
         time: bk.startTime.slice(0, 5),
+        branchName: bk.branchName,
       })
 
       const created = await createNotification({

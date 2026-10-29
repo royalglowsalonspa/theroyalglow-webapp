@@ -88,6 +88,8 @@ export const notificationTypeEnum = pgEnum('notification_type', [
   'no_show_check',
   'gems_expiry_7d',
   'gems_expired',
+  // To a branch's Owner: an operational branch has no Manager (multi-branch R1.9).
+  'branch_manager_missing',
 ])
 
 export const notificationChannelEnum = pgEnum('notification_channel', ['push', 'email'])
@@ -146,4 +148,31 @@ export const branchStatusEnum = pgEnum('branch_status', [
   'temporarily_closed',
   'opens_soon',
   'shutdown',
+])
+
+// Who can read a customer note: every Royal Glow branch, or only the branch that
+// wrote it (multi-branch R3.1). Existing notes default to 'branch'.
+export const noteVisibilityEnum = pgEnum('note_visibility', ['shared', 'branch'])
+
+// How a realtime token revocation ended (multi-branch R2.6): Ably confirmed it,
+// every token issued before the change had already expired, or realtime is
+// not configured so no token was ever issued.
+export const realtimeRevocationOutcomeEnum = pgEnum('realtime_revocation_outcome', [
+  'revoked',
+  'expired',
+  'not_configured',
+])
+// Why a booking lost its assignee and needs someone else (multi-branch R1.7,
+// R5.6–R5.8): they no longer work at its branch (removed or moved), they are
+// unavailable that day (approved leave), or their previous session overran.
+export const bookingReassignmentReasonEnum = pgEnum('booking_reassignment_reason', [
+  'left_branch',
+  'unavailable',
+  'overrun',
+])
+// How reassignment work ended: someone was assigned, or the booking ended
+// (cancelled, rejected, missed, rescheduled) without starting.
+export const bookingReassignmentResolutionEnum = pgEnum('booking_reassignment_resolution', [
+  'reassigned',
+  'booking_ended',
 ])

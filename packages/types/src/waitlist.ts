@@ -28,6 +28,7 @@
  *                exactly. Entries are status-transitioned, never hard-deleted.
  ************************************************************/
 import { z } from 'zod'
+import { renderedBranchIdSchema } from './branch'
 
 // Mirror packages/db/src/schema/enums.ts waitlistStatusEnum exactly.
 export const WAITLIST_STATUSES = ['waiting', 'notified', 'booked', 'expired', 'cancelled'] as const
@@ -44,7 +45,9 @@ export type WaitlistListQuery = z.infer<typeof waitlistListQuerySchema>
 
 // Status-transition payload for PATCH /api/waitlist/[id]. The legality of the
 // requested move is enforced by the state-machine guard in the route layer.
+// `branchId` is the branch the queue was rendered for (multi-branch R2.4).
 export const waitlistStatusUpdateSchema = z.object({
+  branchId: renderedBranchIdSchema,
   status: z.enum(WAITLIST_STATUSES),
 })
 export type WaitlistStatusUpdateInput = z.infer<typeof waitlistStatusUpdateSchema>

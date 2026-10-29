@@ -31,6 +31,8 @@ const sessionMocks = vi.hoisted(() => ({
 
 const dbMocks = vi.hoisted(() => ({
   getBookingByIdForCustomer: vi.fn(),
+  getBranchById: vi.fn(async (): Promise<{ id: string; name: string } | null> => null),
+  getClosureOn: vi.fn(async (): Promise<{ name: string; allBranches: boolean } | null> => null),
   getBookingById: vi.fn(),
   cancelBooking: vi.fn(),
   rescheduleBooking: vi.fn(),
@@ -185,5 +187,37 @@ describe('POST /api/bookings/[id]/reschedule — slot move', () => {
       ),
       { numRuns: 100 },
     )
+  })
+})
+
+describe('POST /api/bookings/[id]/reschedule — closed days (R1.8, R5.7)', () => {
+  it("refuses a day the booking's branch is closed, naming it, and moves nothing", async () => {
+    const store = makeStore({
+      id: 'bk_1',
+      customerId: 'cust_1',
+      status: 'confirmed',
+      rescheduleCount: 0,
+      totalDurationMinutes: 60,
+    })
+    Object.assign(store, { branchId: 'br_mh' })
+    sessionMocks.requireSession.mockResolvedValue({ user: { id: 'cust_1' } })
+    dbMocks.getClosureOn.mockResolvedValueOnce({ name: 'Renovation', allBranches: false })
+    dbMocks.getBranchById.mockResolvedValueOnce({ id: 'br_mh', name: 'Marathahalli' })
+    const bookingDate = istDatePlus(3)
+    const [y, m, d] = bookingDate.split('-')
+
+    const res = await rescheduleRoute.POST(postReq('bk_1', { bookingDate, startTime: '11:00' }), {
+      params: Promise.resolve({ id: 'bk_1' }),
+    })
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body.error).toMatchObject({
+      code: 'BOOKING_SLOT_UNAVAILABLE',
+      message: `Marathahalli is closed on ${d}/${m}/${y} (Renovation).`,
+    })
+    expect(dbMocks.getClosureOn).toHaveBeenCalledWith('br_mh', bookingDate)
+    expect(dbMocks.rescheduleBooking).not.toHaveBeenCalled()
+    expect(store.rescheduleCount).toBe(0)
   })
 })

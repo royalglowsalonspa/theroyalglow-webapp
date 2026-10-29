@@ -41,6 +41,7 @@ import { and, asc, desc, eq, gt, gte, inArray, isNotNull, lt, lte, sql } from 'd
 import { db } from '../index'
 import { session, user } from '../schema/auth'
 import { booking } from '../schema/booking'
+import { branch } from '../schema/branch'
 import { invoice, invoiceItem } from '../schema/invoice'
 import { lead } from '../schema/lead'
 import { loyaltyAccount, loyaltyTransaction } from '../schema/loyalty'
@@ -423,11 +424,14 @@ export async function getUpcomingConfirmedBookings(now: Date = new Date()) {
       customerId: booking.customerId,
       bookingDate: booking.bookingDate,
       startTime: booking.startTime,
+      // The reminder names the branch (multi-branch R7.2).
+      branchName: branch.name,
       customerName: user.name,
       customerEmail: user.email,
       appointmentRemindersEnabled: customerProfile.appointmentRemindersEnabled,
     })
     .from(booking)
+    .innerJoin(branch, eq(branch.id, booking.branchId))
     .innerJoin(user, eq(booking.customerId, user.id))
     .leftJoin(customerProfile, eq(customerProfile.userId, user.id))
     .where(and(eq(booking.status, 'confirmed'), gte(booking.bookingDate, today)))
@@ -558,12 +562,42 @@ export async function getGemsExpiringInDays(days: number, now: Date = new Date()
   }))
 }
 
-// Shared aggregation for the daily (job 13) and weekly (job 14) reports. Revenue
-// is summed over PAID invoices in the [invStart, invEnd) instant range; booking
-// counters + new-customer detection run over bookings whose booking_date falls
-// in [bkStart, bkEnd] (inclusive). Mirrors the daily-summary mapping so report
-// figures equal the underlying invoices/invoice items. (Property 11)
-async function computeReportData(invStart: Date, invEnd: Date, bkStart: Date, bkEnd: Date) {
+// One branch's report figures over a period. Structurally the same as
+// @rgss/business ReportFigures (this layer can't import that package).
+export type BranchReportFigures = {
+  services: { name: string; qty: number; revenuePaise: number }[]
+  revenue: { salonPaise: number; spaPaise: number; membershipPaise: number; totalPaise: number }
+  bookings: { completed: number; noShows: number; cancelled: number; walkIns: number }
+  customers: { newCount: number; returning: number }
+  membershipSessions: number
+}
+
+function emptyBranchReportFigures(): BranchReportFigures {
+  return {
+    services: [],
+    revenue: { salonPaise: 0, spaPaise: 0, membershipPaise: 0, totalPaise: 0 },
+    bookings: { completed: 0, noShows: 0, cancelled: 0, walkIns: 0 },
+    customers: { newCount: 0, returning: 0 },
+    membershipSessions: 0,
+  }
+}
+
+// Shared aggregation for the daily (job 13) and weekly (job 14) reports, one
+// set of figures per branch (multi-branch R6.5, R7.4). Revenue is summed over
+// PAID invoices in the [invStart, invEnd) instant range, by the invoice's
+// branch. Booking counters run over bookings whose booking_date falls in
+// [bkStart, bkEnd] (inclusive), by the booking's branch. A new customer is
+// one whose first booking anywhere falls in the period, counted at that
+// booking's branch; every other customer seen at a branch is returning there.
+// Only branches with activity appear. The four reads run in one db.batch().
+// Mirrors the daily-summary mapping so report figures equal the underlying
+// invoices/invoice items. (Property 11)
+async function computeBranchReports(
+  invStart: Date,
+  invEnd: Date,
+  bkStart: Date,
+  bkEnd: Date,
+): Promise<Map<string, BranchReportFigures>> {
   const invWhere = and(
     eq(invoice.paymentStatus, 'paid'),
     gte(invoice.createdAt, invStart),
@@ -571,44 +605,9 @@ async function computeReportData(invStart: Date, invEnd: Date, bkStart: Date, bk
   )
   const bkWhere = and(gte(booking.bookingDate, bkStart), lte(booking.bookingDate, bkEnd))
 
-  const [rev] = await db
-    .select({
-      totalPaise: sql<number>`coalesce(sum(${invoice.totalAmountPaise}), 0)::int`,
-      salonPaise: sql<number>`coalesce(sum(case when ${invoice.invoiceType} = 'service' and ${booking.serviceType} = 'salon' then ${invoice.totalAmountPaise} else 0 end), 0)::int`,
-      spaPaise: sql<number>`coalesce(sum(case when ${invoice.invoiceType} = 'service' and ${booking.serviceType} = 'spa' then ${invoice.totalAmountPaise} else 0 end), 0)::int`,
-      membershipPaise: sql<number>`coalesce(sum(case when ${invoice.invoiceType} = 'membership_purchase' then ${invoice.totalAmountPaise} else 0 end), 0)::int`,
-    })
-    .from(invoice)
-    .leftJoin(booking, eq(invoice.bookingId, booking.id))
-    .where(invWhere)
-
-  const serviceRows = await db
-    .select({
-      name: invoiceItem.serviceNameSnapshot,
-      qty: sql<number>`coalesce(sum(${invoiceItem.quantity}), 0)::int`,
-      revenuePaise: sql<number>`coalesce(sum(${invoiceItem.totalPricePaise}), 0)::int`,
-    })
-    .from(invoiceItem)
-    .innerJoin(invoice, eq(invoiceItem.invoiceId, invoice.id))
-    .where(invWhere)
-    .groupBy(invoiceItem.serviceNameSnapshot)
-    .orderBy(desc(sql`sum(${invoiceItem.totalPricePaise})`))
-
-  const [bk] = await db
-    .select({
-      completed: sql<number>`count(*) filter (where ${booking.status} = 'completed')::int`,
-      noShows: sql<number>`count(*) filter (where ${booking.status} = 'no_show')::int`,
-      cancelled: sql<number>`count(*) filter (where ${booking.status} = 'cancelled')::int`,
-      walkIns: sql<number>`count(*) filter (where ${booking.isWalkin} = true)::int`,
-      membershipSessions: sql<number>`count(*) filter (where ${booking.isMembershipSession} = true)::int`,
-      distinctCustomers: sql<number>`count(distinct ${booking.customerId})::int`,
-    })
-    .from(booking)
-    .where(bkWhere)
-
   const firstBooking = db
     .select({
-      customerId: booking.customerId,
+      branchId: booking.branchId,
       bookingDate: booking.bookingDate,
       rn: sql<number>`row_number() over (partition by ${booking.customerId} order by ${booking.createdAt} asc)`.as(
         'rn',
@@ -617,65 +616,133 @@ async function computeReportData(invStart: Date, invEnd: Date, bkStart: Date, bk
     .from(booking)
     .as('fb')
 
-  const [newc] = await db
-    .select({ newCount: sql<number>`count(*)::int` })
-    .from(firstBooking)
-    .where(
-      and(
-        eq(firstBooking.rn, 1),
-        gte(firstBooking.bookingDate, bkStart),
-        lte(firstBooking.bookingDate, bkEnd),
+  const [revenueRows, serviceRows, bookingRows, newCustomerRows] = await db.batch([
+    db
+      .select({
+        branchId: invoice.branchId,
+        totalPaise: sql<number>`coalesce(sum(${invoice.totalAmountPaise}), 0)::int`,
+        salonPaise: sql<number>`coalesce(sum(case when ${invoice.invoiceType} = 'service' and ${booking.serviceType} = 'salon' then ${invoice.totalAmountPaise} else 0 end), 0)::int`,
+        spaPaise: sql<number>`coalesce(sum(case when ${invoice.invoiceType} = 'service' and ${booking.serviceType} = 'spa' then ${invoice.totalAmountPaise} else 0 end), 0)::int`,
+        membershipPaise: sql<number>`coalesce(sum(case when ${invoice.invoiceType} = 'membership_purchase' then ${invoice.totalAmountPaise} else 0 end), 0)::int`,
+      })
+      .from(invoice)
+      .leftJoin(booking, eq(invoice.bookingId, booking.id))
+      .where(invWhere)
+      .groupBy(invoice.branchId),
+    db
+      .select({
+        branchId: invoice.branchId,
+        name: invoiceItem.serviceNameSnapshot,
+        qty: sql<number>`coalesce(sum(${invoiceItem.quantity}), 0)::int`,
+        revenuePaise: sql<number>`coalesce(sum(${invoiceItem.totalPricePaise}), 0)::int`,
+      })
+      .from(invoiceItem)
+      .innerJoin(invoice, eq(invoiceItem.invoiceId, invoice.id))
+      .where(invWhere)
+      .groupBy(invoice.branchId, invoiceItem.serviceNameSnapshot)
+      .orderBy(
+        asc(invoice.branchId),
+        desc(sql`sum(${invoiceItem.totalPricePaise})`),
+        asc(invoiceItem.serviceNameSnapshot),
       ),
-    )
+    db
+      .select({
+        branchId: booking.branchId,
+        completed: sql<number>`count(*) filter (where ${booking.status} = 'completed')::int`,
+        noShows: sql<number>`count(*) filter (where ${booking.status} = 'no_show')::int`,
+        cancelled: sql<number>`count(*) filter (where ${booking.status} = 'cancelled')::int`,
+        walkIns: sql<number>`count(*) filter (where ${booking.isWalkin} = true)::int`,
+        membershipSessions: sql<number>`count(*) filter (where ${booking.isMembershipSession} = true)::int`,
+        distinctCustomers: sql<number>`count(distinct ${booking.customerId})::int`,
+      })
+      .from(booking)
+      .where(bkWhere)
+      .groupBy(booking.branchId),
+    db
+      .select({ branchId: firstBooking.branchId, newCount: sql<number>`count(*)::int` })
+      .from(firstBooking)
+      .where(
+        and(
+          eq(firstBooking.rn, 1),
+          gte(firstBooking.bookingDate, bkStart),
+          lte(firstBooking.bookingDate, bkEnd),
+        ),
+      )
+      .groupBy(firstBooking.branchId),
+  ])
 
-  const newCount = newc?.newCount ?? 0
-  const distinctCustomers = bk?.distinctCustomers ?? 0
-
-  return {
-    services: serviceRows.map((s) => ({
-      name: s.name,
-      qty: s.qty,
-      revenuePaise: s.revenuePaise,
-    })),
-    revenue: {
-      salonPaise: rev?.salonPaise ?? 0,
-      spaPaise: rev?.spaPaise ?? 0,
-      membershipPaise: rev?.membershipPaise ?? 0,
-      totalPaise: rev?.totalPaise ?? 0,
-    },
-    bookings: {
-      completed: bk?.completed ?? 0,
-      noShows: bk?.noShows ?? 0,
-      cancelled: bk?.cancelled ?? 0,
-      walkIns: bk?.walkIns ?? 0,
-    },
-    customers: { newCount, returning: Math.max(0, distinctCustomers - newCount) },
-    membershipSessions: bk?.membershipSessions ?? 0,
+  const reports = new Map<string, BranchReportFigures>()
+  const forBranch = (branchId: string): BranchReportFigures => {
+    const existing = reports.get(branchId)
+    if (existing) {
+      return existing
+    }
+    const created = emptyBranchReportFigures()
+    reports.set(branchId, created)
+    return created
   }
+
+  for (const row of revenueRows) {
+    forBranch(row.branchId).revenue = {
+      salonPaise: row.salonPaise,
+      spaPaise: row.spaPaise,
+      membershipPaise: row.membershipPaise,
+      totalPaise: row.totalPaise,
+    }
+  }
+  for (const row of serviceRows) {
+    forBranch(row.branchId).services.push({
+      name: row.name,
+      qty: row.qty,
+      revenuePaise: row.revenuePaise,
+    })
+  }
+  const distinctCustomers = new Map<string, number>()
+  for (const row of bookingRows) {
+    const figures = forBranch(row.branchId)
+    figures.bookings = {
+      completed: row.completed,
+      noShows: row.noShows,
+      cancelled: row.cancelled,
+      walkIns: row.walkIns,
+    }
+    figures.membershipSessions = row.membershipSessions
+    distinctCustomers.set(row.branchId, row.distinctCustomers)
+  }
+  for (const row of newCustomerRows) {
+    forBranch(row.branchId).customers.newCount = row.newCount
+  }
+  for (const [branchId, figures] of reports) {
+    figures.customers.returning = Math.max(
+      0,
+      (distinctCustomers.get(branchId) ?? 0) - figures.customers.newCount,
+    )
+  }
+  return reports
 }
 
-// Job 13 — the day's report figures (shape matches @rgss/business
-// DailyReportData), computed directly from the day's PAID invoices + bookings.
-export async function getDailyReportData(dateISO: string) {
+// Job 13 — each branch's figures for one IST day, from that day's PAID
+// invoices and bookings. Branches without activity are absent.
+export async function getDailyBranchReports(dateISO: string) {
   const { start, end } = istDayRange(dateISO)
   const bookingDate = new Date(`${dateISO}T00:00:00.000Z`)
-  const figures = await computeReportData(start, end, bookingDate, bookingDate)
-  return { date: bookingDate, ...figures }
+  const branches = await computeBranchReports(start, end, bookingDate, bookingDate)
+  return { date: bookingDate, branches }
 }
 
-// Job 14 — the period's report figures (shape matches @rgss/business
-// WeeklyReportData) over [startISO, endISO] inclusive, plus the period bounds.
-export async function getWeeklyReportData(startISO: string, endISO: string) {
+// Job 14 — each branch's figures over [startISO, endISO] inclusive, plus the
+// period bounds. Branches without activity are absent.
+export async function getWeeklyBranchReports(startISO: string, endISO: string) {
   const invStart = istDayRange(startISO).start
   const invEnd = istDayRange(endISO).end
   const periodStart = new Date(`${startISO}T00:00:00.000Z`)
   const periodEnd = new Date(`${endISO}T00:00:00.000Z`)
-  const figures = await computeReportData(invStart, invEnd, periodStart, periodEnd)
-  return { date: periodStart, periodStart, periodEnd, ...figures }
+  const branches = await computeBranchReports(invStart, invEnd, periodStart, periodEnd)
+  return { date: periodStart, periodStart, periodEnd, branches }
 }
 
-// Job 17 — a single booking by id, or null. The stale-pending route checks it is
-// still 'pending' (and >24h old) before auto-rejecting. (Property 12)
+// Job 17 — a single booking by id, or null. The stale-pending route alerts the
+// receptionists only while it is still 'pending'. (Property 12)
 export async function getPendingBooking(id: string) {
   const rows = await db.select().from(booking).where(eq(booking.id, id)).limit(1)
   return rows[0] ?? null
@@ -696,8 +763,12 @@ export async function getBookingForFollowup(id: string) {
       customerName: user.name,
       customerEmail: user.email,
       marketingConsent: customerProfile.marketingConsent,
+      // The review request names the branch and links its own Google listing.
+      branchName: branch.name,
+      branchGoogleMapsUrl: branch.googleMapsUrl,
     })
     .from(booking)
+    .innerJoin(branch, eq(branch.id, booking.branchId))
     .innerJoin(user, eq(booking.customerId, user.id))
     .leftJoin(customerProfile, eq(customerProfile.userId, user.id))
     .where(eq(booking.id, id))
@@ -754,15 +825,67 @@ export async function hasNotification(
   return rows.length > 0
 }
 
-// User ids of staff who should receive operational alerts (stale-pending,
-// no-show). Anyone at receptionist level or above.
-export async function getReceptionistUserIds(): Promise<string[]> {
+// Daily idempotency for the jobs that send one message per person per day
+// (lead follow-ups, the missing-Manager reminder): has this user had a
+// notification of this type since `since`? Suppresses repeats on re-runs and
+// QStash retries the same day. (Property 6)
+export async function hasNotificationSince(
+  userId: string,
+  type: NotificationType,
+  since: Date,
+): Promise<boolean> {
   const rows = await db
-    .select({ id: user.id })
-    .from(user)
-    .where(inArray(user.role, ['receptionist', 'manager', 'owner', 'developer']))
+    .select({ id: notification.id })
+    .from(notification)
+    .where(
+      and(
+        eq(notification.userId, userId),
+        eq(notification.type, type),
+        gte(notification.createdAt, since),
+      ),
+    )
+    .limit(1)
 
-  return rows.map((r) => r.id)
+  return rows.length > 0
+}
+
+// Operational alerts (stale-pending, no-show, lead follow-ups) go to the
+// branch's own people: see getBranchPeople (branch-recipients.ts) and
+// frontDeskRecipients in @rgss/business (multi-branch R7.4).
+
+// Job 21 — Pending-booking closeout (route: /api/jobs/pending-booking-closeout,
+// 30 16 * * * UTC = 10:00 PM IST, after the 21:00 close). A booking the salon
+// never confirmed, rejected or cancelled must not stay 'pending' once its
+// appointment is over, so every still-pending booking whose IST end instant
+// (booking_date + end_time) is at or before `now` becomes 'no_show'.
+//
+// - Status-guarded UPDATE → idempotent: a QStash retry or re-run matches only
+//   rows that are still pending, i.e. nothing it already closed.
+// - The end-instant predicate (not "booking_date < today") means a manual or
+//   early run never closes an appointment that has not happened yet, and the
+//   first run also sweeps the whole backlog of earlier days.
+// - Deliberately does NOT touch customer_profile.noshow_count: the salon never
+//   confirmed these bookings, so they must not count toward no-show tiers.
+// - No booking_status_log row: changed_by_id is a NOT NULL user FK and a system
+//   transition has no acting user (same as the other system status jobs).
+//
+// Returns the closed bookings so the route can log/publish them.
+export async function closeLapsedPendingBookings(now: Date = new Date()) {
+  return db
+    .update(booking)
+    .set({ status: 'no_show' })
+    .where(
+      and(
+        eq(booking.status, 'pending'),
+        sql`(${booking.bookingDate} + ${booking.endTime}) AT TIME ZONE 'Asia/Kolkata' <= ${now.toISOString()}::timestamptz`,
+      ),
+    )
+    .returning({
+      id: booking.id,
+      bookingNumber: booking.bookingNumber,
+      branchId: booking.branchId,
+      customerId: booking.customerId,
+    })
 }
 
 // ============================================================================

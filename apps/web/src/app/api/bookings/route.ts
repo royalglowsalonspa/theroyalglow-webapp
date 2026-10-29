@@ -33,6 +33,7 @@
 
 import {
   addMinutesToTime,
+  assertBranchOpenOn,
   calculateBookingTotal,
   generateBookingNumber,
   isBookableSlotStart,
@@ -41,6 +42,7 @@ import {
   createBookingWithServices,
   getBookingsByCustomer,
   getBranchById,
+  getClosureOn,
   getDefaultStaffForService,
   getServicesByIds,
 } from '@rgss/db/queries'
@@ -93,6 +95,8 @@ export const POST = withErrorHandler(async (req: Request) => {
   if (branch.status !== 'operational') {
     throw badRequest('Selected branch is not accepting bookings.')
   }
+  // ...and open that day: no booking on a holiday or closure (R1.8).
+  assertBranchOpenOn(await getClosureOn(branch.id, bookingDate), branch.name, bookingDate)
 
   // Fetch services and validate them. De-duplicate ids before lookup.
   const uniqueServiceIds = [...new Set(serviceIds)]
@@ -124,8 +128,9 @@ export const POST = withErrorHandler(async (req: Request) => {
   }
 
   // Preserve the requested service order for snapshots + staff assignment.
-  // booking_service.staff_id is NOT NULL; pending bookings get an auto-assigned
-  // active staff member that the admin reassigns on approval.
+  // A pending booking carries a tentative assignee that the admin replaces on
+  // approval: preferably someone not on approved leave that day, else anyone
+  // who works at the branch.
   const orderedServices = uniqueServiceIds.map((id) => {
     const svc = services.find((s) => s.id === id)
     if (!svc) throw badRequest(`Service ${id} not found.`)
@@ -133,7 +138,9 @@ export const POST = withErrorHandler(async (req: Request) => {
   })
   const serviceRows = await Promise.all(
     orderedServices.map(async (svc, index) => {
-      const staffId = await getDefaultStaffForService(svc.id)
+      const staffId =
+        (await getDefaultStaffForService(svc.id, branch.id, bookingDate)) ??
+        (await getDefaultStaffForService(svc.id, branch.id))
       if (!staffId) {
         throw badRequest('No staff available to perform the selected services.')
       }

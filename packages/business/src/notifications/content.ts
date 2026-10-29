@@ -11,7 +11,8 @@
  *
  * Responsibilities :
  * - Build notification title and body from type + dynamic data
- * - Cover all 24 notification types exhaustively
+ * - Cover all 25 notification types exhaustively
+ * - Name the branch when `branchName` is given (multi-branch R7.2, R7.4)
  *
  * Features / Functionality :
  * - buildNotificationContent(type, data) → { title, body }
@@ -61,9 +62,20 @@ const NOTIFICATION_TYPES = [
   'no_show_check',
   'gems_expiry_7d',
   'gems_expired',
+  'branch_manager_missing',
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
+
+// "Royal Glow Rayasandra" when the branch is known, else "Royal Glow".
+function placeName(branchName: string | undefined): string {
+  return branchName ? `Royal Glow ${branchName}` : 'Royal Glow'
+}
+
+// " at Rayasandra" when the branch is known, else nothing.
+function atBranch(branchName: string | undefined): string {
+  return branchName ? ` at ${branchName}` : ''
+}
 
 export type NotificationContent = { title: string; body: string }
 
@@ -78,20 +90,21 @@ export function buildNotificationContent(
   const date = data.date ?? 'your selected date'
   const time = data.time ?? 'the scheduled time'
   const serviceName = data.serviceName ?? 'your service'
-  const staffName = data.staffName ?? 'our team'
   const reason = data.reason ?? 'not specified'
   const count = data.count ?? 'some'
+  const place = placeName(data.branchName)
+  const at = atBranch(data.branchName)
 
   switch (type) {
     case 'reminder_24h':
       return {
         title: `Reminder: Tomorrow at ${time}`,
-        body: `${serviceName} at Royal Glow. We're looking forward to seeing you!`,
+        body: `${serviceName} at ${place}. We're looking forward to seeing you!`,
       }
     case 'reminder_1h':
       return {
         title: 'Almost time! 1 hour to go',
-        body: `Your ${serviceName} appointment is at ${time}. See you soon at Royal Glow.`,
+        body: `Your ${serviceName} appointment is at ${time}. See you soon at ${place}.`,
       }
     case 'booking_confirmed':
       return {
@@ -161,7 +174,7 @@ export function buildNotificationContent(
     case 'post_service_followup':
       return {
         title: 'How Was Your Visit?',
-        body: `We'd love your feedback on your recent ${serviceName} at Royal Glow.`,
+        body: `We'd love your feedback on your recent ${serviceName} at ${place}.`,
       }
     case 'leave_submitted':
       return {
@@ -178,21 +191,53 @@ export function buildNotificationContent(
         title: 'Leave Rejected',
         body: `Your leave request for ${date} was rejected. Reason: ${reason}.`,
       }
-    case 'lead_follow_up_due':
+    case 'lead_follow_up_due': {
+      // One reminder per person per day (lead-followups job): one lead, several
+      // at one branch, or several across branches.
+      const leads = Number(data.count ?? '1')
+      if (leads > 1 && data.branchBreakdown) {
+        return {
+          title: 'Lead Follow-ups Due',
+          body: `${leads} leads need a follow-up: ${data.branchBreakdown}. Reach out to keep them warm.`,
+        }
+      }
+      if (leads > 1) {
+        return {
+          title: 'Lead Follow-ups Due',
+          body: `${leads} leads${at} need a follow-up. Reach out to keep them warm.`,
+        }
+      }
+      // `staffName` carried the lead's name before `leadName` existed.
+      const leadName = data.leadName ?? data.staffName ?? 'a lead'
       return {
         title: 'Lead Follow-up Due',
-        body: `A follow-up with ${staffName} is due. Reach out to keep the lead warm.`,
+        body: `A follow-up with ${leadName}${at} is due. Reach out to keep the lead warm.`,
       }
+    }
     case 'stale_pending_booking':
       return {
         title: 'Pending Booking Needs Attention',
-        body: `A booking for ${date} has been pending too long. Please review and confirm.`,
+        body: `A booking${at} for ${date} has been pending too long. Please review and confirm.`,
       }
     case 'no_show_check':
       return {
         title: 'No-show Check',
-        body: `Please confirm whether the ${date} appointment was a no-show.`,
+        body: `Please confirm whether the ${date} appointment${at} was a no-show.`,
       }
+    case 'branch_manager_missing': {
+      const branches = Number(data.count ?? '1')
+      if (branches > 1 && data.branchList) {
+        return {
+          title: `${branches} branches have no Manager`,
+          body: `${data.branchList} have no Manager. Assign one in Users & Roles; until then you cover their administration.`,
+        }
+      }
+      const branchName = data.branchName ?? 'A branch'
+      return {
+        title: `${branchName} has no Manager`,
+        body: 'Assign a Manager in Users & Roles. Until then you cover the branch’s administration.',
+      }
+    }
     case 'gems_expiry_7d':
       return {
         title: 'Gems Expiring Soon 💎',

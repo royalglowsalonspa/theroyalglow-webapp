@@ -86,6 +86,12 @@ export function isSameISTDay(a: Date, b: Date): boolean {
   return istToday(a) === istToday(b)
 }
 
+// The instant the IST calendar day of `now` began (IST midnight). Daily jobs
+// use it to send at most one message per person per IST day.
+export function istDayStart(now: Date = new Date()): Date {
+  return new Date(`${istToday(now)}T00:00:00+05:30`)
+}
+
 // Classify a booking start against the reminder windows. Returns '24h' when the
 // start falls in [now+24h, now+24h+15min), '1h' when in [now+1h, now+1h+15min),
 // else null. The two windows are far apart, so at most one matches.

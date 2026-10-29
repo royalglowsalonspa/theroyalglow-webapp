@@ -31,8 +31,18 @@
  * - Returns 409 for non-reschedulable status, max reschedules, or bad slot.
  ************************************************************/
 
-import { addMinutesToTime, checkReschedulable, isBookableSlotStart } from '@rgss/business'
-import { getBookingByIdForCustomer, rescheduleBooking } from '@rgss/db/queries'
+import {
+  addMinutesToTime,
+  assertBranchOpenOn,
+  checkReschedulable,
+  isBookableSlotStart,
+} from '@rgss/business'
+import {
+  getBookingByIdForCustomer,
+  getBranchById,
+  getClosureOn,
+  rescheduleBooking,
+} from '@rgss/db/queries'
 import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
 import { rescheduleBookingSchema } from '@rgss/types'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
@@ -83,6 +93,13 @@ export const POST = withErrorHandler(
         ERROR_CODES.BOOKING_SLOT_UNAVAILABLE,
         'Cannot reschedule to a date in the past.',
       )
+    }
+
+    // The booking's branch must be open on the new date (R1.8, R5.7).
+    const closure = await getClosureOn(existing.branchId, bookingDate)
+    if (closure) {
+      const branch = await getBranchById(existing.branchId)
+      assertBranchOpenOn(closure, branch?.name ?? 'The branch', bookingDate)
     }
 
     // New start must align to the bookable slot grid and the full service

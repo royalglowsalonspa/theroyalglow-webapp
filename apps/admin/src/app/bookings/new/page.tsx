@@ -1,57 +1,65 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 21-06-2026 & Updated - 21-06-2026
+ * Date         : Created - 21-06-2026 & Updated - 29-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : New Walk-in Booking Page
  * Scope        : Admin Portal — Booking Management
  *
- * Description  : Server page for creating a walk-in booking at the counter.
- *                Fetches the operational branches and the active service
- *                catalogue server-side (Presentation may read @rgss/db per the
- *                layer rules — same pattern as the customer detail page), then
- *                hands the serialisable data to the WalkinForm client component
+ * Description  : Server page for creating a walk-in booking at the counter of
+ *                the active branch. Authorizes like an API (fresh role and
+ *                branch access), loads the active service catalogue, and hands
+ *                the serialisable data to the WalkinForm client component,
  *                which captures the receptionist's input and POSTs it.
  *
  * Responsibilities :
- * - Fetch operational branches for the branch picker
+ * - Resolve the active branch (receptionist or above there)
  * - Fetch the active service catalogue (salon + spa) for the service picker
- * - Project both to lean, serialisable shapes for the client form
- * - Render the WalkinForm with that data
+ * - Project it to a lean, serialisable shape for the client form
+ * - Render the WalkinForm, or why a walk-in can't be created here
  *
  * Features / Functionality :
- * - Only operational branches are offered (a walk-in cannot target a closed
- *   branch — the API enforces this too)
+ * - The walk-in is booked at the active branch; switch branch to book at
+ *   another (multi-branch R2.1, R2.4)
+ * - Only an operational branch takes walk-ins (the API enforces this too)
  * - Active catalogue only (inactive services are never bookable)
- * - Next.js metadata for the tab title
  *
  * Tech Stack   : Next.js 16 (App Router), React, TypeScript
  * Layer        : Presentation (Page with Server-Side Data Fetching)
  *
- * Dependencies : next (Metadata), @rgss/db queries, WalkinForm
+ * Dependencies : next (Metadata), @rgss/db queries, branch-page, WalkinForm
  *
  * Notes        :
- * - RBAC is enforced at the edge by middleware (the /bookings namespace is
- *   receptionist+); the create API independently re-checks requireRole.
+ * - The create API re-checks the role and the rendered branch.
  * - Server Component — no client-side code here.
  ************************************************************/
 
-import { getActiveCatalogue, getBranches } from '@rgss/db/queries'
+import { getActiveCatalogue } from '@rgss/db/queries'
 import type { Metadata } from 'next'
-import { type WalkinBranch, WalkinForm, type WalkinService } from './walkin-form'
+import { EmptyState } from '@/components/ui/state/empty-state'
+import { branchForPage } from '@/lib/api/branch-page'
+import { WalkinForm, type WalkinService } from './walkin-form'
 
 export const metadata: Metadata = {
   title: 'New Walk-in Booking',
 }
 
 export default async function NewWalkinBookingPage() {
-  // Fetch in parallel — both reads are independent.
-  const [branches, catalogue] = await Promise.all([getBranches(), getActiveCatalogue()])
+  const access = await branchForPage('receptionist')
+  if (!access.ok) {
+    return <EmptyState title="Walk-ins aren't available" message={access.message} />
+  }
+  const { branch } = access
+  if (branch.status !== 'operational') {
+    return (
+      <EmptyState
+        title="Walk-ins aren't available"
+        message={`${branch.name} is not taking bookings right now.`}
+      />
+    )
+  }
 
-  // Only operational branches can take a walk-in (the API re-validates this).
-  const branchOptions: WalkinBranch[] = branches
-    .filter((b) => b.status === 'operational')
-    .map((b) => ({ id: b.id, name: b.name, code: b.code }))
+  const catalogue = await getActiveCatalogue()
 
   // Flatten the grouped catalogue into a lean service list the form filters by
   // service type. Price + duration drive the running total shown to the user.
@@ -66,5 +74,10 @@ export default async function NewWalkinBookingPage() {
     })),
   )
 
-  return <WalkinForm branches={branchOptions} services={serviceOptions} />
+  return (
+    <WalkinForm
+      branch={{ id: branch.id, name: branch.name, code: branch.code }}
+      services={serviceOptions}
+    />
+  )
 }

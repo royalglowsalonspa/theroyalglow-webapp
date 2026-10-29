@@ -16,8 +16,14 @@
  *                status. Multi-branch-ready — any number of branches, each by id.
  *
  * Responsibilities :
- * - List branches from GET /api/branches via useAsyncData
- * - Create/edit branches (POST /api/branches, PATCH /api/branches/[id])
+ * - List the person's branches from GET /api/branches via useAsyncData
+ * - Developer only (multi-branch R1.1): create a branch with its Owner
+ *   (POST /api/branches, Owner chosen with the person search) and edit it
+ *   (PATCH /api/branches/[id]); everyone else sees the list read-only
+ * - Developer only (R1.10): before a shutdown, list what is still open at
+ *   the branch (GET /api/branches/[id]/shutdown-check) and hold the save
+ *   until it is clear; delete an empty shut-down branch
+ *   (DELETE /api/branches/[id])
  * - Render operational status via the StatusBadge primitive
  * - Filter the list (search + status) client-side over the single fetch
  * - Surface loading / empty / error states via the state presenters
@@ -32,8 +38,10 @@
  *                @rgss/types (BRANCH_STATUSES), React
  *
  * Notes        : `code` + `number` are generated server-side and not editable.
- *                Branches are never hard-deleted — status drives lifecycle.
- *                Presentation-layer only — no API / RBAC / data-model changes.
+ *                Status drives the lifecycle. Delete is offered only on a
+ *                shut-down branch; the server keeps any branch with records.
+ *                The database refuses a shutdown while anything is open, so
+ *                the check here is advice that saves a failed save.
  *                Uses ONLY semantic Brand-Token utilities (Req 1.2).
  *                Requirements 17.1–17.7.
  ************************************************************/
@@ -43,12 +51,25 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { BRANCH_STATUSES, type BranchStatusValue } from '@rgss/types'
 import type { ColumnVisibilityState } from '@tanstack/react-table'
-import { Building2, Pencil } from 'lucide-react'
+import { Building2, Pencil, Trash2, TriangleAlert } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { type PersonMatch, PersonSearch, personLabel } from '@/components/people/person-search'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { type AdminColumnDef, DataTable } from '@/components/ui/data-table'
 import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
 import { FormActions } from '@/components/ui/form-field'
+import { Icon } from '@/components/ui/icon'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -63,6 +84,8 @@ import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { useAsyncData } from '@/components/ui/use-async-data'
+import { toast } from '@/lib/admin/toast'
+import { liveUpdatesNotice } from '@/lib/realtime/token-lifetime'
 
 interface AdminBranch {
   id: string
@@ -111,13 +134,73 @@ const COLUMN_META: { id: string; label: string }[] = [
   { id: 'email', label: 'Email' },
 ]
 
-async function fetchBranches(): Promise<AdminBranch[]> {
+/** GET /api/branches: the branches this person can access. */
+interface BranchList {
+  branches: AdminBranch[]
+  /** Only the Developer creates and edits branches (R1.1). */
+  canEdit: boolean
+}
+
+/** A New branch Owner candidate from GET /api/branches/owner-candidates. */
+interface OwnerCandidate extends PersonMatch {
+  available: boolean
+  reason: string | null
+}
+
+async function fetchBranches(): Promise<BranchList> {
   const res = await fetch('/api/branches')
   const json = await res.json()
   if (!res.ok || !json.success) {
     throw new Error(json?.error?.message ?? 'Could not load branches.')
   }
-  return json.data.branches as AdminBranch[]
+  return json.data as BranchList
+}
+
+const searchOwners = async (term: string, signal: AbortSignal): Promise<OwnerCandidate[]> => {
+  const res = await fetch(`/api/branches/owner-candidates?search=${encodeURIComponent(term)}`, {
+    signal,
+  })
+  const json = await res.json()
+  if (!res.ok || !json.success) {
+    throw new Error(json?.error?.message ?? 'Could not search accounts.')
+  }
+  return json.data.people as OwnerCandidate[]
+}
+
+const ownerStatus = (match: OwnerCandidate) => ({
+  pickable: match.available,
+  text: match.available ? null : match.reason,
+})
+
+/** GET /api/branches/[id]/shutdown-check: what is still open at the branch. */
+interface ShutdownCheck {
+  clear: boolean
+  /** One line per open item, saying what to do about it. */
+  lines: string[]
+}
+
+async function fetchShutdownCheck(branchId: string): Promise<ShutdownCheck> {
+  const res = await fetch(`/api/branches/${branchId}/shutdown-check`)
+  const json = await res.json()
+  if (!res.ok || !json.success) {
+    throw new Error(json?.error?.message ?? 'Could not check the branch.')
+  }
+  return json.data as ShutdownCheck
+}
+
+/** DELETE /api/branches/[id]: what happened to the branch's Owner. */
+interface BranchDeleted {
+  ownerReturnedToCustomer: string | null
+  liveUpdates?: string
+}
+
+async function deleteBranch(branchId: string): Promise<BranchDeleted> {
+  const res = await fetch(`/api/branches/${branchId}`, { method: 'DELETE' })
+  const json = await res.json().catch(() => null)
+  if (!res.ok || !json?.success) {
+    throw new Error(json?.error?.message ?? 'Could not delete the branch.')
+  }
+  return json.data as BranchDeleted
 }
 
 export function BranchesManager() {
@@ -128,11 +211,13 @@ export function BranchesManager() {
     open: false,
     editing: null,
   })
+  const [deleting, setDeleting] = useState<AdminBranch | null>(null)
 
   const fetcher = useCallback(() => fetchBranches(), [])
   const { state, retry } = useAsyncData(fetcher)
 
-  const branches = state.status === 'success' ? state.data : []
+  const branches = state.status === 'success' ? state.data.branches : []
+  const canEdit = state.status === 'success' && state.data.canEdit
 
   // Client-side filter over the single fetch (search across name / code / city,
   // exact status match). Presentation-only shaping — no business logic.
@@ -227,17 +312,20 @@ export function BranchesManager() {
         <div>
           <h1 className="font-display text-2xl tracking-tight text-cocoa-dark">Branches</h1>
           <p className="mt-0.5 font-sans text-sm text-dusty-gray">
-            Physical salon &amp; spa locations. Create new branches and manage address, contact and
-            operational status.
+            {canEdit
+              ? 'Physical salon & spa locations. Create new branches with their Owner, and manage address, contact and operational status.'
+              : 'The branches you own. Only the Developer creates branches or changes their details.'}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setDialog({ open: true, editing: null })}
-          className="h-9 rounded-buttons bg-cocoa-dark px-4 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray"
-        >
-          + Branch
-        </button>
+        {canEdit ? (
+          <button
+            type="button"
+            onClick={() => setDialog({ open: true, editing: null })}
+            className="h-9 rounded-buttons bg-cocoa-dark px-4 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray"
+          >
+            + Branch
+          </button>
+        ) : null}
       </div>
 
       <FilterBar
@@ -271,7 +359,9 @@ export function BranchesManager() {
           title={branches.length === 0 ? 'No branches yet' : 'No branches match those filters'}
           message={
             branches.length === 0
-              ? 'Click “+ Branch” to add your first location.'
+              ? canEdit
+                ? 'Click “+ Branch” to add your first location.'
+                : 'No branch is linked to your account yet.'
               : 'Try adjusting your search or status filter.'
           }
         />
@@ -283,13 +373,28 @@ export function BranchesManager() {
           caption="Branches"
           columnVisibility={columnVisibility}
           onColumnVisibilityChange={setColumnVisibility}
-          rowActions={(row) => [
-            {
-              label: 'Edit',
-              icon: Pencil,
-              onSelect: () => setDialog({ open: true, editing: row.original }),
-            },
-          ]}
+          {...(canEdit
+            ? {
+                rowActions: (row: { original: AdminBranch }) => [
+                  {
+                    label: 'Edit',
+                    icon: Pencil,
+                    onSelect: () => setDialog({ open: true, editing: row.original }),
+                  },
+                  // Only a shut-down branch can be deleted (R1.10).
+                  ...(row.original.status === 'shutdown'
+                    ? [
+                        {
+                          label: 'Delete',
+                          icon: Trash2,
+                          destructive: true,
+                          onSelect: () => setDeleting(row.original),
+                        },
+                      ]
+                    : []),
+                ],
+              }
+            : {})}
         />
       )}
 
@@ -301,7 +406,111 @@ export function BranchesManager() {
           retry()
         }}
       />
+
+      <DeleteBranchDialog
+        branch={deleting}
+        onClose={() => setDeleting(null)}
+        onDeleted={() => {
+          setDeleting(null)
+          retry()
+        }}
+      />
     </div>
+  )
+}
+
+/* ── Delete a shut-down branch ──────────────────────────────────────────── */
+
+function DeleteBranchDialog({
+  branch,
+  onClose,
+  onDeleted,
+}: {
+  branch: AdminBranch | null
+  onClose: () => void
+  onDeleted: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // A fresh dialog for every branch.
+  useEffect(() => {
+    if (branch) {
+      setError(null)
+    }
+  }, [branch])
+
+  const confirm = async () => {
+    if (!branch) {
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const result = await deleteBranch(branch.id)
+      toast.success(
+        result.ownerReturnedToCustomer
+          ? `${branch.name} deleted. Its Owner is now a Customer`
+          : `${branch.name} deleted`,
+      )
+      const notice = liveUpdatesNotice(result.liveUpdates)
+      if (notice) {
+        toast.warning(notice)
+      }
+      onDeleted()
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Could not delete the branch.'
+      setError(message)
+      toast.error('Could not delete branch', message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <AlertDialog open={Boolean(branch)} onOpenChange={(o) => !o && !busy && onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{`Delete ${branch?.name ?? ''}?`}</AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="space-y-2 font-sans text-sm text-warm-gray">
+              <p>
+                This removes the branch for good. It works only when no bookings, invoices or other
+                records name it; otherwise it stays as a shut-down branch with its history. The
+                audit history is kept either way.
+              </p>
+              <p>
+                If its Owner owns no other branch, they return to Customer and are signed out of the
+                admin portal.
+              </p>
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        {error && (
+          <p className="font-sans text-sm text-error" role="alert">
+            {error}
+          </p>
+        )}
+
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={busy} onClick={onClose}>
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction
+            disabled={busy}
+            onClick={(e) => {
+              // Keep the dialog mounted while the request is in flight; close on success.
+              e.preventDefault()
+              confirm()
+            }}
+            className="bg-error text-canvas-white hover:bg-error/90"
+          >
+            {busy ? 'Deleting…' : 'Delete'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
 
@@ -331,12 +540,27 @@ function BranchDialog({
   const [status, setStatus] = useState<BranchStatusValue>('operational')
   const [temporaryCloseReason, setTemporaryCloseReason] = useState('')
   const [isPrimary, setIsPrimary] = useState(false)
+  // A new branch names its Owner; an existing branch's Owner changes only
+  // through the Owner handover in Users & Roles.
+  const [owner, setOwner] = useState<OwnerCandidate | null>(null)
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  // Shutting an open branch down: list what is still open there first and
+  // hold the save until nothing is (R1.10).
+  const shuttingDown = editing !== null && editing.status !== 'shutdown' && status === 'shutdown'
+  const [shutdownClear, setShutdownClear] = useState(false)
+  // Bumped to check again after the server refuses the shutdown.
+  const [checkKey, setCheckKey] = useState(0)
+  let submitLabel = 'Create'
+  if (editing) {
+    submitLabel = shuttingDown ? 'Shut down' : 'Save'
+  }
 
   // Seed the form whenever the dialog opens (edit → row values; create → defaults).
   useEffect(() => {
     if (!state.open) {
+      // A shutdown picked last time must not start a check on the next opening.
+      setStatus('operational')
       return
     }
     if (editing) {
@@ -370,7 +594,9 @@ function BranchDialog({
       setTemporaryCloseReason('')
       setIsPrimary(false)
     }
+    setOwner(null)
     setFormError(null)
+    setShutdownClear(false)
   }, [state.open, editing])
 
   const submit = async (e: React.FormEvent) => {
@@ -390,6 +616,14 @@ function BranchDialog({
     }
     if (!phone.trim()) {
       setFormError('Enter a phone number.')
+      return
+    }
+    if (!editing && !owner) {
+      setFormError('Choose the branch Owner.')
+      return
+    }
+    if (shuttingDown && !shutdownClear) {
+      setFormError('Resolve everything listed above before shutting the branch down.')
       return
     }
     setBusy(true)
@@ -424,6 +658,9 @@ function BranchDialog({
       if (temporaryCloseReason.trim()) {
         payload.temporaryCloseReason = temporaryCloseReason.trim()
       }
+      if (!editing && owner) {
+        payload.ownerUserId = owner.id
+      }
 
       const res = await fetch(editing ? `/api/branches/${editing.id}` : '/api/branches', {
         method: editing ? 'PATCH' : 'POST',
@@ -432,6 +669,13 @@ function BranchDialog({
       })
       const json = await res.json()
       if (!res.ok || !json.success) {
+        if (json?.error?.code === 'BRANCH_SHUTDOWN_BLOCKED') {
+          // Something opened since the check: show what is open now.
+          setCheckKey((key) => key + 1)
+          throw new Error(
+            `${editing?.name ?? 'The branch'} can't shut down yet. Resolve what's listed above, then try again.`,
+          )
+        }
         throw new Error(json?.error?.message ?? 'Could not save the branch.')
       }
       onSaved()
@@ -445,6 +689,37 @@ function BranchDialog({
   return (
     <FormDialog open={state.open} onClose={onClose} title={editing ? 'Edit branch' : 'New branch'}>
       <form onSubmit={submit} className="space-y-3">
+        {editing ? null : owner ? (
+          <div className="flex items-center justify-between gap-3 rounded-cards border border-cloud-gray px-3 py-2.5">
+            <span className="min-w-0">
+              <span className="block font-ui text-[11px] uppercase tracking-wider text-dusty-gray">
+                Owner
+              </span>
+              <span className="block truncate font-sans text-sm text-cocoa-dark">
+                {personLabel(owner)}
+              </span>
+              <span className="block truncate font-sans text-xs text-dusty-gray">
+                {owner.email}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setOwner(null)}
+              disabled={busy}
+              className="shrink-0 rounded-buttons px-2 py-1 font-ui text-xs text-warm-gray transition-colors hover:bg-cloud-gray hover:text-cocoa-dark disabled:opacity-60"
+            >
+              Change
+            </button>
+          </div>
+        ) : (
+          <PersonSearch<OwnerCandidate>
+            label="Owner"
+            search={searchOwners}
+            status={ownerStatus}
+            onPick={setOwner}
+            disabled={busy}
+          />
+        )}
         <Field label="Name">
           <Input
             type="text"
@@ -555,6 +830,13 @@ function BranchDialog({
             </SelectContent>
           </Select>
         </div>
+        {shuttingDown && editing ? (
+          <ShutdownCheckPanel
+            key={`${editing.id}:${checkKey}`}
+            branch={editing}
+            onClearChange={setShutdownClear}
+          />
+        ) : null}
         {status === 'temporarily_closed' && (
           <Field label="Temporary close reason">
             <Input
@@ -582,9 +864,84 @@ function BranchDialog({
           </p>
         )}
 
-        <FormActions busy={busy} onCancel={onClose} submitLabel={editing ? 'Save' : 'Create'} />
+        <FormActions
+          busy={busy}
+          onCancel={onClose}
+          submitLabel={submitLabel}
+          busyLabel={shuttingDown ? 'Shutting down…' : 'Saving…'}
+          submitDisabled={shuttingDown && !shutdownClear}
+        />
       </form>
     </FormDialog>
+  )
+}
+
+/* ── What is still open before a shutdown (R1.10) ───────────────────────── */
+
+function ShutdownCheckPanel({
+  branch,
+  onClearChange,
+}: {
+  branch: AdminBranch
+  onClearChange: (clear: boolean) => void
+}) {
+  const fetcher = useCallback(() => fetchShutdownCheck(branch.id), [branch.id])
+  const { state, retry } = useAsyncData(fetcher)
+  const clear = state.status === 'success' && state.data.clear
+
+  // The save waits for a clear check; closing the panel withdraws it.
+  useEffect(() => {
+    onClearChange(clear)
+  }, [clear, onClearChange])
+  useEffect(() => () => onClearChange(false), [onClearChange])
+
+  if (state.status === 'loading') {
+    return (
+      <p className="font-sans text-[13px] text-warm-gray" role="status">
+        Checking what is still open at {branch.name}…
+      </p>
+    )
+  }
+
+  if (state.status === 'error') {
+    return (
+      <div className="rounded-cards border border-warning/40 bg-warning/10 px-4 py-3" role="alert">
+        <p className="font-sans text-[13px] text-warm-gray">
+          Couldn’t check {branch.name}. {state.message}
+        </p>
+        <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={retry}>
+          Check again
+        </Button>
+      </div>
+    )
+  }
+
+  if (state.data.clear) {
+    return (
+      <p className="rounded-cards border border-cloud-gray px-4 py-3 font-sans text-[13px] text-warm-gray">
+        Nothing is open at {branch.name}. Once shut down, it takes no new bookings, walk-ins or
+        invoices and keeps its history. An empty shut-down branch can then be deleted.
+      </p>
+    )
+  }
+
+  return (
+    <div className="rounded-cards border border-warning/40 bg-warning/10 px-4 py-3" role="alert">
+      <p className="mb-1.5 flex items-center gap-1.5 font-ui text-xs uppercase tracking-[0.5px] text-warm-gray">
+        <Icon icon={TriangleAlert} decorative size={14} />
+        {`Resolve these before shutting ${branch.name} down`}
+      </p>
+      <ul className="list-disc space-y-1 pl-4">
+        {state.data.lines.map((line) => (
+          <li key={line} className="font-sans text-[13px] text-cocoa-dark">
+            {line}
+          </li>
+        ))}
+      </ul>
+      <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={retry}>
+        Check again
+      </Button>
+    </div>
   )
 }
 

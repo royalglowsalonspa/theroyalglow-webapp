@@ -116,6 +116,8 @@ Only start the services needed for your task. `bun run dev` launches the workspa
 
 If `bun run dev` exits with code 9 (Turborepo crashing with `0xC0000409`) on Windows, check that `node_modules/@turbo/windows-64` is not a leftover link to an older Turborepo than the one `bun.lock` pins. Remove that link, then run `bun install --frozen-lockfile`.
 
+Web, admin, and CMS pin Next.js 16.4.3. The admin disables Turbopack's persistent development cache in [its Next config](apps/admin/next.config.ts): restoring cached HMR versions can trigger an endless browser reload loop after a server restart ([vercel/next.js#100251](https://github.com/vercel/next.js/issues/100251), still open when 16.4.3 was adopted). Hot reload within a running session and the production build cache remain enabled; the first page compilation after restarting dev can take longer. This uses the supported `experimental.turbopackFileSystemCacheForDev: false` setting and needs no dependency patch or repeated cache deletion. Re-enable that cache only after an upstream fix passes restart and hot-reload checks.
+
 ## Development and verification
 
 All commands below run from the repository root.

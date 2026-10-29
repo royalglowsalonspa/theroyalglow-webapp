@@ -30,6 +30,7 @@
  *                Staff schedules are per-staff-member weekly patterns.
  ************************************************************/
 
+import { sql } from 'drizzle-orm'
 import {
   boolean,
   index,
@@ -39,9 +40,11 @@ import {
   time,
   timestamp,
   unique,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'
 import { user } from './auth'
+import { branch } from './branch'
 import { leaveApprovalStatusEnum, leaveTypeEnum } from './enums'
 import { staffProfile } from './profile'
 
@@ -58,10 +61,14 @@ export const staffSchedule = pgTable(
     startTime: time('start_time'),
     endTime: time('end_time'),
     isWorking: boolean('is_working').notNull().default(true),
+    // The branch this person works at on this weekday. One row per weekday, so
+    // a Manager shared between branches is at one branch per day.
+    branchId: text('branch_id').references(() => branch.id, { onDelete: 'restrict' }),
   },
   (table) => [
     unique('staff_schedule_staff_id_day_of_week_unique').on(table.staffId, table.dayOfWeek),
     index('staff_schedule_staff_id_day_of_week_idx').on(table.staffId, table.dayOfWeek),
+    index('staff_schedule_branch_id_day_of_week_idx').on(table.branchId, table.dayOfWeek),
   ],
 )
 
@@ -103,11 +110,26 @@ export const businessHour = pgTable('business_hour', {
   isOpen: boolean('is_open').notNull().default(true),
 })
 
-export const holiday = pgTable('holiday', {
-  id: text('id')
-    .primaryKey()
-    .$defaultFn(() => nanoid()),
-  date: text('date').notNull().unique(),
-  name: text('name').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
-})
+// A day a branch is closed: a holiday or a one-off closure (multi-branch R1.8).
+// `branchId` null closes every branch; only the Developer adds those. Each date
+// is closed at most once per branch and once for every branch. A branch's
+// closures go with it if an empty branch is ever deleted.
+export const holiday = pgTable(
+  'holiday',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    branchId: text('branch_id').references(() => branch.id, { onDelete: 'cascade' }),
+    // An IST calendar date, 'YYYY-MM-DD'.
+    date: text('date').notNull(),
+    name: text('name').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('holiday_branch_date_uidx')
+      .on(table.branchId, table.date)
+      .where(sql`branch_id IS NOT NULL`),
+    uniqueIndex('holiday_all_branches_date_uidx').on(table.date).where(sql`branch_id IS NULL`),
+  ],
+)

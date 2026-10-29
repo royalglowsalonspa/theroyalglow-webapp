@@ -18,12 +18,9 @@
 
 import { AppError, ERROR_CODES } from '@rgss/errors'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { branchContext, TEST_BRANCH } from '@/test/branch-context'
 
-const sessionMocks = vi.hoisted(() => ({
-  requireRole: vi.fn(),
-  requireSession: vi.fn(),
-  getOptionalSession: vi.fn(),
-}))
+const mocks = vi.hoisted(() => ({ requireBranchRole: vi.fn() }))
 
 const dbMocks = vi.hoisted(() => ({
   getRevenueSummary: vi.fn(),
@@ -32,12 +29,13 @@ const dbMocks = vi.hoisted(() => ({
   getTopServices: vi.fn(),
 }))
 
-vi.mock('@/lib/api/session', () => sessionMocks)
+vi.mock('@/lib/api/branch-context', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api/branch-context')>()
+  return { ...actual, requireBranchRole: mocks.requireBranchRole }
+})
 vi.mock('@rgss/db/queries', () => dbMocks)
 
 import * as reportsRoute from '@/app/api/reports/route'
-
-const AUTHORIZED = { user: { id: 'u_manager', role: 'manager' } }
 
 const SUMMARY = {
   rangeRevenuePaise: 500000,
@@ -67,8 +65,7 @@ const forbidden = () =>
 
 beforeEach(() => {
   vi.clearAllMocks()
-  sessionMocks.requireRole.mockResolvedValue(AUTHORIZED)
-  sessionMocks.requireSession.mockResolvedValue(AUTHORIZED)
+  mocks.requireBranchRole.mockResolvedValue(branchContext({ userId: 'u_manager', role: 'manager' }))
   dbMocks.getRevenueSummary.mockResolvedValue(SUMMARY)
   dbMocks.getRevenueTrend.mockResolvedValue(TREND)
   dbMocks.getBookingsByStatus.mockResolvedValue(BY_STATUS)
@@ -95,17 +92,22 @@ describe('GET /api/reports', () => {
 
   it('enforces the Manager+ guard', async () => {
     await reportsRoute.GET(new Request('https://admin.theroyalglow.in/api/reports'))
-    expect(sessionMocks.requireRole).toHaveBeenCalledWith('manager')
+    expect(mocks.requireBranchRole).toHaveBeenCalledWith('manager')
   })
 
   it('forwards the resolved range to every query', async () => {
     await reportsRoute.GET(new Request('https://admin.theroyalglow.in/api/reports?range=7d'))
 
     const expectedRange = { from: expect.any(String), to: expect.any(String) }
-    expect(dbMocks.getRevenueSummary).toHaveBeenCalledWith(expect.objectContaining(expectedRange))
-    expect(dbMocks.getRevenueTrend).toHaveBeenCalledWith(expect.objectContaining(expectedRange))
-    expect(dbMocks.getBookingsByStatus).toHaveBeenCalledWith(expect.objectContaining(expectedRange))
-    expect(dbMocks.getTopServices).toHaveBeenCalledWith(expect.objectContaining(expectedRange))
+    // Every figure is the active branch's alone (multi-branch R2.3).
+    for (const query of [
+      dbMocks.getRevenueSummary,
+      dbMocks.getRevenueTrend,
+      dbMocks.getBookingsByStatus,
+      dbMocks.getTopServices,
+    ]) {
+      expect(query).toHaveBeenCalledWith(TEST_BRANCH.id, expect.objectContaining(expectedRange))
+    }
   })
 
   it('forwards an explicit from/to range to the query layer', async () => {
@@ -113,7 +115,10 @@ describe('GET /api/reports', () => {
       new Request('https://admin.theroyalglow.in/api/reports?from=2026-06-01&to=2026-06-15'),
     )
 
-    expect(dbMocks.getRevenueSummary).toHaveBeenCalledWith({ from: '2026-06-01', to: '2026-06-15' })
+    expect(dbMocks.getRevenueSummary).toHaveBeenCalledWith(TEST_BRANCH.id, {
+      from: '2026-06-01',
+      to: '2026-06-15',
+    })
   })
 
   it('rejects an invalid date with the 400 envelope', async () => {
@@ -139,14 +144,14 @@ describe('GET /api/reports', () => {
   })
 
   it('→ 401 when unauthenticated', async () => {
-    sessionMocks.requireRole.mockRejectedValue(unauthenticated())
+    mocks.requireBranchRole.mockRejectedValue(unauthenticated())
     const res = await reportsRoute.GET(new Request('https://admin.theroyalglow.in/api/reports'))
     expect(res.status).toBe(401)
     expect(dbMocks.getRevenueSummary).not.toHaveBeenCalled()
   })
 
   it('→ 403 when role is insufficient', async () => {
-    sessionMocks.requireRole.mockRejectedValue(forbidden())
+    mocks.requireBranchRole.mockRejectedValue(forbidden())
     const res = await reportsRoute.GET(new Request('https://admin.theroyalglow.in/api/reports'))
     expect(res.status).toBe(403)
     expect(dbMocks.getRevenueSummary).not.toHaveBeenCalled()

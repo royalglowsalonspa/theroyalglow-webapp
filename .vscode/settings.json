@@ -1,4 +1,10 @@
 {
   "typescript.autoClosingTags": false,
-  "git.ignoreLimitWarning": true
+  "git.ignoreLimitWarning": true,
+  "kiroAgent.enableDebugLogs": true,
+  "kiroAgent.enableTabAutocomplete": true,
+  "kiroAgent.notifications.agent.failure": true,
+  "kiroAgent.notifications.agent.success": true,
+  "kiroAgent.enableCodebaseIndexing": false,
+  "chat.checkpoints.showFileChanges": true
 }

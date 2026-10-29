@@ -60,7 +60,8 @@ const longitudeSchema = z
   .regex(/^-?\d{1,3}(\.\d{1,7})?$/, 'Enter a valid longitude.')
 
 // ── Branch ──────────────────────────────────────────────────────────────
-export const branchCreateSchema = z.object({
+// The editable details of a branch.
+const branchFieldsSchema = z.object({
   name: z.string().trim().min(1).max(120),
   addressLine1: z.string().trim().min(1).max(200),
   addressLine2: z.string().trim().max(200).optional(),
@@ -80,10 +81,29 @@ export const branchCreateSchema = z.object({
   isPrimary: z.boolean().optional(),
   displayOrder: z.coerce.number().int().min(0).max(9999).optional(),
 })
+
+// A new branch names its Owner (multi-branch R1.2): an existing Owner, or a
+// Customer who becomes one. Only the Developer creates branches (R1.1).
+export const branchCreateSchema = branchFieldsSchema.extend({
+  ownerUserId: z.string().trim().min(1).max(64),
+})
 export type BranchCreateInput = z.infer<typeof branchCreateSchema>
 
-export const branchUpdateSchema = branchCreateSchema.partial()
+// Editing never changes the Owner: that is the Owner handover in Users & Roles.
+export const branchUpdateSchema = branchFieldsSchema.partial()
 export type BranchUpdateInput = z.infer<typeof branchUpdateSchema>
+
+// The admin branch switcher's choice (R2.1). A preference only: the server
+// uses it only for a branch the person can access.
+export const activeBranchSchema = z.object({
+  branchId: z.string().trim().min(1).max(64),
+})
+export type ActiveBranchInput = z.infer<typeof activeBranchSchema>
+
+// The branch an admin form was rendered for (R2.4). Every branch-owned write
+// sends it, so a tab left open across a branch switch is refused (409) instead
+// of writing into the newly selected branch. It grants no access by itself.
+export const renderedBranchIdSchema = z.string().trim().min(1).max(64)
 
 // ── Public branch list (customer booking dialog) ────────────────────────
 // What GET /api/branches returns for the booking dialog's branch picker.

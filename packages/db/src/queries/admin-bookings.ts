@@ -10,19 +10,18 @@
  *                status updates, staff assignment, and invoice generation.
  *
  * Responsibilities :
- * - Fetch all bookings with filters (status, serviceType, date)
- * - Fetch single booking detail with customer info and services
+ * - List one branch's bookings with filters (status, serviceType, date)
+ * - Fetch single booking detail at a branch with customer info and services
  * - Update booking status with associated timestamps
- * - Assign staff to booking services (individual or bulk)
  * - Create invoices with line items atomically
  * - Approve / reject / (re)assign bookings with status-log audit entries
  * - Complete a booking atomically: status → completed + service invoice (GST
  *   split) + invoice items + gems credit + status log, in one db.batch()
  *
  * Features / Functionality :
- * - Filtered, paginated admin booking list with customer names
- * - Staff assignment to individual or all services in a booking
- * - Active staff listing for assignment pickers
+ * - Every read and write names the branch with the booking id, so a booking
+ *   at another branch reads as not found (multi-branch R2.3)
+ * - Filtered admin booking list with customer names
  * - Atomic invoice + invoice_item creation via db.batch()
  * - Staff name resolution for invoice item snapshots
  *
@@ -47,7 +46,13 @@ import { branch } from '../schema/branch'
 import { invoice, invoiceItem } from '../schema/invoice'
 import { loyaltyAccount, loyaltyTransaction } from '../schema/loyalty'
 import { staffProfile } from '../schema/profile'
+import { refreshCustomerStatsStatement } from './customer-stats'
 import { getOrCreateLoyaltyAccount } from './loyalty'
+import {
+  assigneeRefusal,
+  getOpenReassignmentsFor,
+  resolveReassignmentStatement,
+} from './reassignments'
 
 type BookingStatus = (typeof booking.$inferSelect)['status']
 type ServiceType = (typeof booking.$inferSelect)['serviceType']
@@ -64,58 +69,21 @@ type BookingFilters = {
   date?: string // YYYY-MM-DD
 }
 
-// All bookings (admin view), newest first, each with customer name and its
-// booking_service rows. Optional filters narrow by status, service type, or date.
-export async function getAllBookings(filters: BookingFilters = {}) {
-  const conditions = []
-  if (filters.status) {
-    conditions.push(eq(booking.status, filters.status as BookingStatus))
-  }
-  if (filters.serviceType) {
-    conditions.push(eq(booking.serviceType, filters.serviceType as ServiceType))
-  }
-  if (filters.date) {
-    conditions.push(eq(booking.bookingDate, new Date(`${filters.date}T00:00:00.000Z`)))
-  }
-
-  const rows = await db
-    .select({
-      booking,
-      customerName: user.name,
-      customerEmail: user.email,
-    })
-    .from(booking)
-    .innerJoin(user, eq(booking.customerId, user.id))
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(booking.bookingDate), desc(booking.createdAt))
-
-  if (rows.length === 0) {
-    return []
-  }
-
-  const bookingIds = rows.map((r) => r.booking.id)
-  const services = await db
-    .select()
-    .from(bookingService)
-    .where(inArray(bookingService.bookingId, bookingIds))
-    .orderBy(asc(bookingService.displayOrder))
-
-  return rows.map((r) => ({
-    ...r.booking,
-    customerName: r.customerName,
-    customerEmail: r.customerEmail,
-    services: services.filter((s) => s.bookingId === r.booking.id),
-  }))
+// A booking at one branch: every admin read and write names the branch with the
+// id, so a booking at another branch reads as not found (multi-branch R2.3).
+function atBranch(id: string, branchId: string) {
+  return and(eq(booking.id, id), eq(booking.branchId, branchId))
 }
 
-// Cross-customer admin booking listing (Requirements 10.2–10.5). Returns every
-// booking — newest first — with the owning customer's name/email, its
-// booking_service rows (each carrying the assigned staff member's name, or null
-// when none is assigned yet), and the booking status. The optional status,
-// date, and service-type filters are applied conditionally as parameterized
-// equality predicates in the WHERE clause; an absent filter widens the result.
-export async function listBookings(filters: BookingFilters = {}) {
-  const conditions = []
+// Cross-customer admin booking listing for one branch (Requirements 10.2–10.5,
+// multi-branch R2.3). Returns the branch's bookings — newest first — with the
+// owning customer's name/email, its booking_service rows (each carrying the
+// assigned staff member's name, or null when none is assigned yet), and the
+// booking status. The optional status, date, and service-type filters are
+// applied conditionally as parameterized equality predicates in the WHERE
+// clause; an absent filter widens the result within the branch.
+export async function listBookings(branchId: string, filters: BookingFilters = {}) {
+  const conditions = [eq(booking.branchId, branchId)]
   if (filters.status) {
     conditions.push(eq(booking.status, filters.status as BookingStatus))
   }
@@ -134,7 +102,7 @@ export async function listBookings(filters: BookingFilters = {}) {
     })
     .from(booking)
     .innerJoin(user, eq(booking.customerId, user.id))
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .where(and(...conditions))
     .orderBy(desc(booking.bookingDate), desc(booking.createdAt))
 
   if (rows.length === 0) {
@@ -161,17 +129,21 @@ export async function listBookings(filters: BookingFilters = {}) {
     ...s.service,
     staffName: s.staffName,
   }))
+  // Bookings whose assignee was taken off them, waiting for someone else (R1.7).
+  const reassignments = await getOpenReassignmentsFor(bookingIds)
 
   return rows.map((r) => ({
     ...r.booking,
     customerName: r.customerName,
     customerEmail: r.customerEmail,
     services: servicesWithStaff.filter((s) => s.bookingId === r.booking.id),
+    reassignment: reassignments.get(r.booking.id) ?? null,
   }))
 }
 
-// Single booking with customer info + its booking_service rows, or null.
-export async function getBookingForAdmin(id: string) {
+// Single booking at the branch with customer info + its booking_service rows,
+// or null when there is no such booking there.
+export async function getBookingForAdmin(id: string, branchId: string) {
   const rows = await db
     .select({
       booking,
@@ -180,7 +152,7 @@ export async function getBookingForAdmin(id: string) {
     })
     .from(booking)
     .innerJoin(user, eq(booking.customerId, user.id))
-    .where(eq(booking.id, id))
+    .where(atBranch(id, branchId))
     .limit(1)
 
   const found = rows[0]
@@ -188,17 +160,22 @@ export async function getBookingForAdmin(id: string) {
     return null
   }
 
+  // Each service with its assignee's name (null when nobody is assigned).
   const services = await db
-    .select()
+    .select({ service: bookingService, staffName: user.name })
     .from(bookingService)
+    .leftJoin(staffProfile, eq(bookingService.staffId, staffProfile.id))
+    .leftJoin(user, eq(staffProfile.userId, user.id))
     .where(eq(bookingService.bookingId, found.booking.id))
     .orderBy(asc(bookingService.displayOrder))
+  const reassignments = await getOpenReassignmentsFor([found.booking.id])
 
   return {
     ...found.booking,
     customerName: found.customerName,
     customerEmail: found.customerEmail,
-    services,
+    services: services.map((s) => ({ ...s.service, staffName: s.staffName })),
+    reassignment: reassignments.get(found.booking.id) ?? null,
   }
 }
 
@@ -210,55 +187,22 @@ type BookingStatusExtras = {
   cancelledAt?: Date
 }
 
-// Update a booking's status, optionally setting the associated timestamp/reason
-// columns for the transition (confirmedAt, completedAt, rejectedAt, etc.).
+// Update a booking's status at the branch, optionally setting the associated
+// timestamp/reason columns for the transition (confirmedAt, completedAt,
+// rejectedAt, etc.). Null when there is no such booking there.
 export async function updateBookingStatus(
   id: string,
+  branchId: string,
   status: BookingStatus,
   extras: BookingStatusExtras = {},
 ) {
   const [updated] = await db
     .update(booking)
     .set({ status, ...extras })
-    .where(eq(booking.id, id))
+    .where(atBranch(id, branchId))
     .returning()
 
   return updated ?? null
-}
-
-// Assign a staff member to a single booking_service row.
-export async function assignStaffToBookingService(bookingServiceId: string, staffId: string) {
-  const [updated] = await db
-    .update(bookingService)
-    .set({ staffId })
-    .where(eq(bookingService.id, bookingServiceId))
-    .returning()
-
-  return updated ?? null
-}
-
-// Assign a staff member to every booking_service row of a booking.
-export async function assignStaffToAllServices(bookingId: string, staffId: string) {
-  return db
-    .update(bookingService)
-    .set({ staffId })
-    .where(eq(bookingService.bookingId, bookingId))
-    .returning()
-}
-
-// All active staff members with their user name, for assignment pickers.
-export async function getActiveStaff() {
-  return db
-    .select({
-      id: staffProfile.id,
-      userId: staffProfile.userId,
-      name: user.name,
-      designation: staffProfile.designation,
-    })
-    .from(staffProfile)
-    .innerJoin(user, eq(staffProfile.userId, user.id))
-    .where(eq(staffProfile.isActive, true))
-    .orderBy(asc(user.name))
 }
 
 // Resolve staff display names for a set of staff_profile ids (active or not) —
@@ -326,15 +270,69 @@ export async function createInvoiceWithItems(
 // transaction round-trip.
 // ────────────────────────────────────────────────────────────────────────────
 
+// The booking_service rows of a booking at the branch.
+function servicesOfBookingAt(id: string, branchId: string) {
+  return inArray(
+    bookingService.bookingId,
+    db.select({ id: booking.id }).from(booking).where(atBranch(id, branchId)),
+  )
+}
+
+/**
+ * Run `writes` that assign `staffId` at `branchId` in one transaction. The
+ * database refuses an assignee who doesn't work at the branch, or who is on
+ * approved leave that day (trigger booking_assignee_guard, migration 0014).
+ * The branch row and the staff profile are locked first, in the order a role
+ * change and a leave decision take them, so a concurrent change either waits
+ * for this write and then releases what it assigned, or commits first and
+ * this write is refused (R1.7, MS-09). Returns the writes' results.
+ */
+async function runAssigning(
+  branchId: string,
+  staffId: string,
+  writes: readonly BatchItem<'pg'>[],
+): Promise<unknown[]> {
+  const statements: BatchItem<'pg'>[] = [
+    db.execute(sql`select ${branch.id} from ${branch} where ${branch.id} = ${branchId} for share`),
+    db.execute(
+      sql`select ${staffProfile.id} from ${staffProfile} where ${staffProfile.id} = ${staffId} for share`,
+    ),
+    ...writes,
+  ]
+  try {
+    const results = await db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]])
+    return results.slice(2)
+  } catch (error) {
+    const refusal = assigneeRefusal(error)
+    if (refusal) {
+      throw new AppError({
+        code: ERROR_CODES.CONFLICT,
+        message:
+          refusal === 'on_leave'
+            ? 'That staff member is on approved leave that day. Choose someone else.'
+            : 'That staff member no longer works at this branch. Choose someone else.',
+        statusCode: 409,
+      })
+    }
+    throw error
+  }
+}
+
 // Approve a pending booking: set status → `confirmed` (+ confirmedAt), assign the
-// chosen staff member to every booking_service row, and append a status-log entry
-// capturing the prior → confirmed transition with the acting user (Req 11.1, 11.4).
-// Returns the updated booking, or null when the booking does not exist.
-export async function approveBooking(id: string, changedById: string, staffId: string) {
+// chosen staff member to every booking_service row, close any reassignment work,
+// and append a status-log entry capturing the prior → confirmed transition with
+// the acting user (Req 11.1, 11.4). Returns the updated booking, or null when the
+// booking does not exist; 409 when the person can't take it (runAssigning).
+export async function approveBooking(
+  id: string,
+  branchId: string,
+  changedById: string,
+  staffId: string,
+) {
   const rows = await db
     .select({ status: booking.status })
     .from(booking)
-    .where(eq(booking.id, id))
+    .where(atBranch(id, branchId))
     .limit(1)
   const current = rows[0]
   if (!current) {
@@ -344,13 +342,13 @@ export async function approveBooking(id: string, changedById: string, staffId: s
   const updateStmt = db
     .update(booking)
     .set({ status: 'confirmed', confirmedAt: new Date() })
-    .where(eq(booking.id, id))
+    .where(atBranch(id, branchId))
     .returning()
 
   const assignStmt = db
     .update(bookingService)
     .set({ staffId })
-    .where(eq(bookingService.bookingId, id))
+    .where(servicesOfBookingAt(id, branchId))
 
   const logStmt = db.insert(bookingStatusLog).values({
     bookingId: id,
@@ -360,19 +358,31 @@ export async function approveBooking(id: string, changedById: string, staffId: s
     notes: 'Approved',
   })
 
-  const [updateResult] = await db.batch([updateStmt, assignStmt, logStmt])
-  return (updateResult[0] as typeof booking.$inferSelect | undefined) ?? null
+  const [updateResult] = await runAssigning(branchId, staffId, [
+    updateStmt,
+    assignStmt,
+    resolveReassignmentStatement(id, branchId, changedById),
+    logStmt,
+  ])
+  return ((updateResult as (typeof booking.$inferSelect)[])[0] ?? null) as
+    | typeof booking.$inferSelect
+    | null
 }
 
 // Reject a pending booking: set status → `rejected` (+ rejectedAt), store the
 // customer-facing rejection reason, and append a status-log entry capturing the
 // prior → rejected transition with the acting user (Req 11.2, 11.4). Returns the
 // updated booking, or null when the booking does not exist.
-export async function rejectBooking(id: string, changedById: string, rejectionReason: string) {
+export async function rejectBooking(
+  id: string,
+  branchId: string,
+  changedById: string,
+  rejectionReason: string,
+) {
   const rows = await db
     .select({ status: booking.status })
     .from(booking)
-    .where(eq(booking.id, id))
+    .where(atBranch(id, branchId))
     .limit(1)
   const current = rows[0]
   if (!current) {
@@ -382,7 +392,7 @@ export async function rejectBooking(id: string, changedById: string, rejectionRe
   const updateStmt = db
     .update(booking)
     .set({ status: 'rejected', rejectionReason, rejectedAt: new Date() })
-    .where(eq(booking.id, id))
+    .where(atBranch(id, branchId))
     .returning()
 
   const logStmt = db.insert(bookingStatusLog).values({
@@ -397,16 +407,27 @@ export async function rejectBooking(id: string, changedById: string, rejectionRe
   return (updateResult[0] as typeof booking.$inferSelect | undefined) ?? null
 }
 
-// (Re)assign a staff member to every booking_service row of a booking, regardless
-// of the booking's lifecycle status (Req 11 — assign action). No status change and
-// no status-log entry: this only moves the resource allocation. Returns the updated
-// booking_service rows (empty array when the booking has no services or is absent).
-export async function assignStaff(bookingId: string, staffId: string) {
-  return db
-    .update(bookingService)
-    .set({ staffId })
-    .where(eq(bookingService.bookingId, bookingId))
-    .returning()
+// (Re)assign a staff member to every booking_service row of a booking at the
+// branch, regardless of the booking's lifecycle status (Req 11 — assign action),
+// and close any reassignment work (R1.7). No status change and no status-log
+// entry: this only moves the resource allocation. Returns the updated
+// booking_service rows (empty array when the booking has no services or isn't
+// at the branch); 409 when the person can't take it (runAssigning).
+export async function assignStaff(
+  bookingId: string,
+  branchId: string,
+  staffId: string,
+  actorId: string,
+) {
+  const [assigned] = await runAssigning(branchId, staffId, [
+    db
+      .update(bookingService)
+      .set({ staffId })
+      .where(servicesOfBookingAt(bookingId, branchId))
+      .returning(),
+    resolveReassignmentStatement(bookingId, branchId, actorId),
+  ])
+  return assigned as (typeof bookingService.$inferSelect)[]
 }
 
 type CompleteBookingInvoice = {
@@ -439,7 +460,8 @@ type CompleteBookingInvoice = {
 // booking status → `completed` (+ completedAt), create the service invoice (with
 // the caller-supplied GST split and a `paid` payment status), insert the invoice
 // line items, credit gems to the customer's loyalty account when any are earned,
-// and append a status-log entry capturing the prior → completed transition.
+// append a status-log entry capturing the prior → completed transition, and
+// recompute the customer's CRM KPIs (customer-stats.ts).
 //
 // The GST split (splitGST), gems amount (calculateGemsEarned) and invoice number
 // (generateInvoiceNumber) are computed by the route/business layer and passed in
@@ -457,10 +479,11 @@ export async function completeBookingWithInvoice(params: {
   const { bookingId, changedById, invoice: inv, items } = params
   const redemption = inv.gemsRedemption ?? null
 
+  // The invoice is issued by the booking's own branch.
   const rows = await db
     .select({ status: booking.status })
     .from(booking)
-    .where(eq(booking.id, bookingId))
+    .where(atBranch(bookingId, inv.branchId))
     .limit(1)
   const current = rows[0]
   if (!current) {
@@ -501,7 +524,7 @@ export async function completeBookingWithInvoice(params: {
   const updateBookingStmt = db
     .update(booking)
     .set({ status: 'completed', completedAt: now })
-    .where(eq(booking.id, bookingId))
+    .where(atBranch(bookingId, inv.branchId))
     .returning()
 
   const insertInvoiceStmt = db.insert(invoice).values(invoiceValues).returning()
@@ -585,6 +608,11 @@ export async function completeBookingWithInvoice(params: {
   }
 
   statements.push(logStmt)
+
+  // Recompute the customer's CRM KPIs (visits, LTV, first/last visit) last, so
+  // the recompute sees this booking as completed and this invoice as paid. Being
+  // in the same batch, the KPIs commit or roll back with the completion itself.
+  statements.push(refreshCustomerStatsStatement(inv.customerId))
 
   let results: unknown[]
   try {

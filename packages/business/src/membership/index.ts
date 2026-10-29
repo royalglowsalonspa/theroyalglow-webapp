@@ -12,16 +12,18 @@
  * - Re-export membership number gen, validity calc, hours tracking
  *
  * Features / Functionality :
- * - generateMembershipNumber, computeExpiry, assertSessionRecordable
+ * - generateMembershipNumber, computeExpiry, assertSessionRecordable,
+ *   isSameSessionRequest
  *
  * Tech Stack   : TypeScript
  * Layer        : Business Logic
  *
- * Dependencies : ./number, ./validity, ./hours
+ * Dependencies : ./number, ./validity, ./hours, ./session-request
  *
  * Notes        : None
  ************************************************************/
 
 export * from './hours'
 export * from './number'
+export * from './session-request'
 export * from './validity'

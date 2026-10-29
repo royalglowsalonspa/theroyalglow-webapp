@@ -72,6 +72,7 @@ const sessionMocks = vi.hoisted(() => {
 const dbMocks = vi.hoisted(() => ({
   // leads
   createLead: vi.fn(),
+  getPublicBranches: vi.fn(),
   // membership
   getCustomerMembership: vi.fn(),
   getMembershipSessions: vi.fn(),
@@ -83,6 +84,8 @@ const dbMocks = vi.hoisted(() => ({
   markNotificationsRead: vi.fn(),
   // bookings
   getBranchById: vi.fn(),
+  // No closure on any day: the create envelope is what is preserved here.
+  getClosureOn: vi.fn(async (): Promise<{ name: string; allBranches: boolean } | null> => null),
   getServicesByIds: vi.fn(),
   getDefaultStaffForService: vi.fn(),
   createBookingWithServices: vi.fn(),
@@ -243,6 +246,16 @@ describe('POST /api/leads preservation (Req 3.1)', () => {
         rateLimitMocks.getClientIp.mockReturnValue('203.0.113.7')
         capiMock.mockResolvedValue(undefined)
         dbMocks.createLead.mockResolvedValue({ id: 'lead_generated_1' })
+        dbMocks.getPublicBranches.mockResolvedValue([
+          {
+            id: 'branch_rs',
+            code: 'RS',
+            name: 'Rayasandra',
+            city: 'Bengaluru',
+            status: 'operational',
+            isPrimary: true,
+          },
+        ])
 
         const res = await leadsPOST(
           new Request('https://theroyalglow.in/api/leads', {
@@ -267,6 +280,8 @@ describe('POST /api/leads preservation (Req 3.1)', () => {
             name: body.name,
             phone: expectedPhone,
             source: expectedSource,
+            // No branch named: the default branch's pipeline (R7.3).
+            branchId: 'branch_rs',
           }),
         )
 

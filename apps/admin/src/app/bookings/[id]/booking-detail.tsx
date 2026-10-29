@@ -46,7 +46,7 @@
 
 'use client'
 
-import { ArrowLeft, Check, X } from 'lucide-react'
+import { ArrowLeft, Check, TriangleAlert, X } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 import { StatusBadge } from '@/components/admin/StatusBadge'
@@ -66,9 +66,12 @@ import { Skeleton } from '@/components/ui/state/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import {
   type AdminBooking,
+  type AdminBookingReassignment,
+  assigneeLabel,
   formatDateDDMMYYYY,
   formatINRWithPaise,
   formatTime12h,
+  reassignmentReasonText,
   SERVICE_TYPE_LABEL,
   type StaffMember,
 } from '@/lib/admin/bookings'
@@ -157,6 +160,8 @@ export function BookingDetail({ bookingId }: { bookingId: string }) {
         </span>
       </div>
 
+      {booking.reassignment ? <ReassignmentNotice work={booking.reassignment} /> : null}
+
       {/* Two-column layout: details + action panel */}
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Details */}
@@ -181,6 +186,7 @@ export function BookingDetail({ bookingId }: { bookingId: string }) {
                 label="Type"
                 value={SERVICE_TYPE_LABEL[booking.serviceType] ?? booking.serviceType}
               />
+              <Field label="Staff" value={assigneeLabel(booking.services) ?? 'Not assigned'} />
               {booking.isWalkin ? <Field label="Walk-in" value="Yes" /> : null}
             </dl>
           </Section>
@@ -281,15 +287,9 @@ function ActionPanel({
   )
 }
 
-// --- Pending: approve (staff picker) + reject (reason) ---
-function PendingActions({ booking, onChanged }: { booking: AdminBooking; onChanged: () => void }) {
+/** The active branch's staff for the pickers; null while loading. */
+function useBranchStaff(): StaffMember[] | null {
   const [staff, setStaff] = useState<StaffMember[] | null>(null)
-  const [staffId, setStaffId] = useState('')
-  const [mode, setMode] = useState<'idle' | 'reject'>('idle')
-  const [reason, setReason] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [actionError, setActionError] = useState<string | null>(null)
-
   useEffect(() => {
     let active = true
     fetch('/api/staff')
@@ -300,12 +300,30 @@ function PendingActions({ booking, onChanged }: { booking: AdminBooking; onChang
         }
       })
       .catch(() => {
-        /* picker stays empty; approve guarded below */
+        /* picker stays empty; the action is guarded on the server */
       })
     return () => {
       active = false
     }
   }, [])
+  return staff
+}
+
+/** The one person every service names, or '' when none or mixed. */
+function sharedAssigneeId(booking: AdminBooking): string {
+  const ids = new Set(booking.services.map((s) => s.staffId))
+  const [only] = [...ids]
+  return ids.size === 1 && only ? only : ''
+}
+
+// --- Pending: approve (staff picker) + reject (reason) ---
+function PendingActions({ booking, onChanged }: { booking: AdminBooking; onChanged: () => void }) {
+  const staff = useBranchStaff()
+  const [staffId, setStaffId] = useState('')
+  const [mode, setMode] = useState<'idle' | 'reject'>('idle')
+  const [reason, setReason] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const approve = useCallback(async () => {
     if (!staffId) {
@@ -318,7 +336,7 @@ function PendingActions({ booking, onChanged }: { booking: AdminBooking; onChang
       const res = await fetch(`/api/bookings/${booking.id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action: 'approve', staffId }),
+        body: JSON.stringify({ action: 'approve', branchId: booking.branchId, staffId }),
       })
       const json = await res.json()
       if (!res.ok || !json.success) {
@@ -333,7 +351,7 @@ function PendingActions({ booking, onChanged }: { booking: AdminBooking; onChang
     } finally {
       setSubmitting(false)
     }
-  }, [booking.id, staffId, onChanged])
+  }, [booking.id, booking.branchId, staffId, onChanged])
 
   const reject = useCallback(async () => {
     if (!reason.trim()) {
@@ -346,7 +364,11 @@ function PendingActions({ booking, onChanged }: { booking: AdminBooking; onChang
       const res = await fetch(`/api/bookings/${booking.id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action: 'reject', rejectionReason: reason.trim() }),
+        body: JSON.stringify({
+          action: 'reject',
+          branchId: booking.branchId,
+          rejectionReason: reason.trim(),
+        }),
       })
       const json = await res.json()
       if (!res.ok || !json.success) {
@@ -361,7 +383,7 @@ function PendingActions({ booking, onChanged }: { booking: AdminBooking; onChang
     } finally {
       setSubmitting(false)
     }
-  }, [booking.id, reason, onChanged])
+  }, [booking.id, booking.branchId, reason, onChanged])
 
   return (
     <div className="space-y-3">
@@ -500,7 +522,7 @@ function ConfirmedActions({
       const res = await fetch(`/api/bookings/${booking.id}/complete`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ paymentMethod }),
+        body: JSON.stringify({ branchId: booking.branchId, paymentMethod }),
       })
       const json = await res.json()
       if (!res.ok || !json.success) {
@@ -519,7 +541,7 @@ function ConfirmedActions({
     } finally {
       setSubmitting(false)
     }
-  }, [booking.id, paymentMethod, onCompleted, onChanged])
+  }, [booking.id, booking.branchId, paymentMethod, onCompleted, onChanged])
 
   const markNoShow = useCallback(async () => {
     setSubmitting(true)
@@ -527,6 +549,8 @@ function ConfirmedActions({
     try {
       const res = await fetch(`/api/bookings/${booking.id}/noshow`, {
         method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ branchId: booking.branchId }),
       })
       const json = await res.json()
       if (!res.ok || !json.success) {
@@ -541,24 +565,35 @@ function ConfirmedActions({
     } finally {
       setSubmitting(false)
     }
-  }, [booking.id, onChanged])
+  }, [booking.id, booking.branchId, onChanged])
+
+  // A booking without its assignee waits for someone else (R1.7).
+  const unassigned = assigneeLabel(booking.services) === null
 
   return (
     <div className="space-y-3">
       {mode === 'idle' && (
         <>
+          <AssignStaffControl booking={booking} onChanged={onChanged} />
           {actionError && (
             <p className="font-sans text-xs text-error" role="alert">
               {actionError}
             </p>
           )}
+          {unassigned ? (
+            <p id="complete-hint" className="font-sans text-xs text-warm-gray">
+              Assign who is doing this booking before completing it.
+            </p>
+          ) : null}
           <button
             type="button"
             onClick={() => {
               setMode('checkout')
               setActionError(null)
             }}
-            className="w-full rounded-buttons bg-success px-4 py-2.5 font-ui text-sm text-canvas-white transition-colors hover:bg-success-dark motion-reduce:transition-none"
+            disabled={unassigned}
+            aria-describedby={unassigned ? 'complete-hint' : undefined}
+            className="w-full rounded-buttons bg-success px-4 py-2.5 font-ui text-sm text-canvas-white transition-colors hover:bg-success-dark disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
           >
             Complete & Checkout
           </button>
@@ -635,6 +670,112 @@ function ConfirmedActions({
         </>
       )}
     </div>
+  )
+}
+
+// --- Confirmed: choose or change who does the booking (R1.7) ---
+function AssignStaffControl({
+  booking,
+  onChanged,
+}: {
+  booking: AdminBooking
+  onChanged: () => void
+}) {
+  const staff = useBranchStaff()
+  const current = sharedAssigneeId(booking)
+  const [staffId, setStaffId] = useState(current)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Follow the booking after a reload.
+  useEffect(() => {
+    setStaffId(current)
+  }, [current])
+
+  const assign = useCallback(async () => {
+    setSubmitting(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/bookings/${booking.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'assign', branchId: booking.branchId, staffId }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        throw new Error(json?.error?.message ?? 'Could not assign this staff member.')
+      }
+      const name = staff?.find((s) => s.id === staffId)?.name
+      toast.success(name ? `${name} assigned` : 'Staff assigned')
+      onChanged()
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Could not assign this staff member.'
+      setError(message)
+      toast.error('Could not assign staff', message)
+    } finally {
+      setSubmitting(false)
+    }
+  }, [booking.id, booking.branchId, staffId, staff, onChanged])
+
+  return (
+    <div className="flex flex-col gap-1.5 border-b border-cloud-gray pb-3">
+      <label
+        htmlFor="assign-staff"
+        className="font-ui text-[10px] uppercase tracking-wider text-dusty-gray"
+      >
+        {current ? 'Assigned staff' : 'Assign staff'}
+      </label>
+      <Select value={staffId} onValueChange={setStaffId}>
+        <SelectTrigger id="assign-staff" className="w-full">
+          <SelectValue placeholder={staff === null ? 'Loading staff…' : 'Select staff…'} />
+        </SelectTrigger>
+        <SelectContent position="popper">
+          <SelectGroup>
+            {(staff ?? []).map((s) => (
+              <SelectItem key={s.id} value={s.id}>
+                {s.name} ({s.designation})
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+      {error && (
+        <p className="font-sans text-xs text-error" role="alert">
+          {error}
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={assign}
+        disabled={submitting || !staffId || staffId === current}
+        aria-busy={submitting}
+        className="w-full rounded-buttons border border-cloud-gray px-4 py-2 font-ui text-sm text-cocoa-dark transition-colors hover:bg-cloud-gray disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
+      >
+        {submitting ? 'Assigning…' : current ? 'Change staff' : 'Assign'}
+      </button>
+    </div>
+  )
+}
+
+// --- A booking waiting for someone else (R1.7) ---
+function ReassignmentNotice({ work }: { work: AdminBookingReassignment }) {
+  return (
+    <section
+      aria-labelledby="reassignment-title"
+      className="rounded-cards border border-warning/40 bg-warning/10 px-4 py-3"
+    >
+      <h2
+        id="reassignment-title"
+        className="flex items-center gap-2 font-ui text-sm text-cocoa-dark"
+      >
+        <Icon icon={TriangleAlert} decorative size={16} className="text-deep-gold" />
+        This booking needs someone else
+      </h2>
+      <p className="mt-1 font-sans text-sm text-warm-gray">
+        {reassignmentReasonText(work)} Assign someone under Actions. The customer’s booking is
+        unchanged.
+      </p>
+    </section>
   )
 }
 

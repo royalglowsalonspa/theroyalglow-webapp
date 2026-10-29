@@ -17,7 +17,9 @@
  * Features / Functionality :
  * - customerListQuerySchema — sortable by LTV, visits, gems, no-shows
  * - assignTagSchema / createTagSchema — CRM tagging
- * - addCustomerNoteSchema — free-text notes linked to bookings
+ * - addCustomerNoteSchema — notes with shared or branch-private visibility
+ * - updateCustomerGatesSchema — manager no-show overrides
+ * - CustomerHistoryEntry / CustomerNoteView — what one branch sees (R3)
  *
  * Tech Stack   : TypeScript, Zod
  * Layer        : Shared Package
@@ -27,8 +29,11 @@
  * Notes        : Tag slug is derived server-side from the name
  ************************************************************/
 import { z } from 'zod'
+import type { BookingStatusFilter } from './booking'
+import { renderedBranchIdSchema } from './branch'
 
 // Sort keys for the admin customer directory. Mapped to columns in the query layer.
+// `ltv` ranks by what the ACTIVE branch was paid (multi-branch R3.2).
 export const CUSTOMER_SORT = ['ltv', 'visits', 'last_visit', 'name', 'gems', 'noshows'] as const
 export type CustomerSort = (typeof CUSTOMER_SORT)[number]
 
@@ -58,12 +63,78 @@ export const createTagSchema = z.object({
 })
 export type CreateTagInput = z.infer<typeof createTagSchema>
 
-// Add a free-text note to a customer, optionally linked to a booking.
+// Who may read a customer note (multi-branch R3.1): every Royal Glow branch, or
+// only the branch whose staff wrote it. Mirrors noteVisibilityEnum in @rgss/db.
+export const NOTE_VISIBILITIES = ['shared', 'branch'] as const
+export type NoteVisibility = (typeof NOTE_VISIBILITIES)[number]
+
+// Add a free-text note to a customer, optionally linked to one of the active
+// branch's bookings. The writer always chooses who may read it; there is no
+// default, so nothing is published by accident (R3.1).
 export const addCustomerNoteSchema = z.object({
+  branchId: renderedBranchIdSchema,
   content: z.string().trim().min(1).max(1000),
-  bookingId: z.string().optional(),
+  visibility: z.enum(NOTE_VISIBILITIES),
+  bookingId: z.string().min(1).optional(),
 })
 export type AddCustomerNoteInput = z.infer<typeof addCustomerNoteSchema>
+
+// Manager overrides on a customer's booking gates. The no-show policy follows
+// the customer to every branch, so these apply everywhere; the audit entry
+// records the branch that made the change. Both fields optional; an empty
+// change is a no-op.
+export const updateCustomerGatesSchema = z.object({
+  branchId: renderedBranchIdSchema,
+  noshowCount: z.number().int().min(0).optional(),
+  bookingRequiresApproval: z.boolean().optional(),
+})
+export type UpdateCustomerGatesInput = z.infer<typeof updateCustomerGatesSchema>
+
+// ── What one branch sees of a shared customer (multi-branch R3.2) ───────────
+// Identity, consents, tags, gems and memberships are shared by every Royal Glow
+// branch. Money is not: a branch sees only what it was paid, and other
+// branches' visits only as their date, branch and services.
+
+/** One line of a customer's history as the active branch sees it. */
+export type CustomerHistoryEntry =
+  | {
+      /** A booking at the active branch, in any status, with its amount. */
+      scope: 'this_branch'
+      bookingId: string
+      bookingNumber: string
+      /** YYYY-MM-DD */
+      bookingDate: string
+      /** HH:MM:SS */
+      startTime: string
+      serviceType: 'salon' | 'spa'
+      status: BookingStatusFilter
+      isMembershipSession: boolean
+      totalAmountPaise: number
+      services: string[]
+    }
+  | {
+      /** A completed visit at another branch: date, branch and services only. */
+      scope: 'other_branch'
+      branchName: string
+      /** YYYY-MM-DD */
+      bookingDate: string
+      /** HH:MM:SS */
+      startTime: string
+      serviceType: 'salon' | 'spa'
+      services: string[]
+    }
+
+/** A customer note the active branch may read. */
+export type CustomerNoteView = {
+  id: string
+  content: string
+  authorName: string
+  /** The branch whose staff wrote it; null only for a note older than branches. */
+  branchName: string | null
+  visibility: NoteVisibility
+  /** ISO timestamp */
+  createdAt: string
+}
 
 // Customer-facing notification preference toggles, mapped to boolean columns on
 // customer_profile. Every flag is optional so the client can PATCH a partial

@@ -35,7 +35,10 @@ import type { BranchCreateInput, BranchUpdateInput } from '@rgss/types'
 import { asc, eq, ne, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { db } from '../index'
+import { user } from '../schema/auth'
 import { branch } from '../schema/branch'
+import { staffProfile } from '../schema/profile'
+import { isGuardAbort } from './driver-errors'
 
 // All branches (every status), ordered for the admin list.
 export async function getBranches() {
@@ -49,11 +52,13 @@ export async function getBranchById(id: string) {
 
 // Branches customers may see in the booking dialog: every branch except a
 // `shutdown` one, in display order. Only the fields the picker shows, plus
-// `isPrimary` for choosing the default branch; no address, phone or geo.
+// `isPrimary` for choosing the default branch and `code` for ad links that
+// name a branch; no address, phone or geo.
 export async function getPublicBranches() {
   return db
     .select({
       id: branch.id,
+      code: branch.code,
       name: branch.name,
       city: branch.city,
       status: branch.status,
@@ -92,15 +97,27 @@ async function nextBranchNumber(): Promise<number> {
   return (rows[0]?.max ?? 0) + 1
 }
 
-// Create a branch. `code` + `number` are generated server-side.
-export async function createBranch(data: BranchCreateInput) {
+export type CreateBranchResult =
+  | { ok: true; branch: typeof branch.$inferSelect }
+  | { ok: false; reason: 'owner_unavailable' }
+
+// Create a branch with its Owner, in one transaction (R1.1, R1.2). `code` and
+// `number` are generated server-side. The Owner must be an Owner already, or
+// a Customer with no active staff profile, who then becomes the Owner: the
+// guarded role update aborts the whole batch otherwise. The Owner key is
+// deferred to commit so the branch can be written before the role.
+export async function createBranch(data: BranchCreateInput): Promise<CreateBranchResult> {
   const code = await uniqueBranchCode(data.name)
   const number = await nextBranchNumber()
-  const [created] = await db
+  const id = nanoid()
+
+  const insertBranch = db
     .insert(branch)
     .values({
+      id,
       number,
       code,
+      ownerUserId: data.ownerUserId,
       name: data.name,
       addressLine1: data.addressLine1,
       addressLine2: data.addressLine2 ?? null,
@@ -121,12 +138,52 @@ export async function createBranch(data: BranchCreateInput) {
       displayOrder: data.displayOrder ?? 0,
     })
     .returning()
-  return created
+
+  // Owner already, or a Customer free of any performing role, who becomes one.
+  const promoteOwner = db.execute(sql`with changed as (
+      update ${user} set ${sql.identifier(user.role.name)} = 'owner',
+        ${sql.identifier(user.updatedAt.name)} = now()
+      where ${user.id} = ${data.ownerUserId}
+        and (${user.role} = 'owner'
+          or (coalesce(${user.role}, 'customer') = 'customer'
+            and not exists (select 1 from ${staffProfile}
+              where ${staffProfile.userId} = ${data.ownerUserId} and ${staffProfile.isActive})))
+      returning 1)
+    select 1 / count(*)::int as ok from changed`)
+
+  try {
+    const [, rows] = await db.batch([
+      db.execute(sql`set constraints branch_owner_fk deferred`),
+      insertBranch,
+      promoteOwner,
+    ])
+    const created = rows[0]
+    if (!created) {
+      throw new Error('Failed to create branch.')
+    }
+    return { ok: true, branch: created }
+  } catch (error) {
+    if (isGuardAbort(error)) {
+      return { ok: false, reason: 'owner_unavailable' }
+    }
+    throw error
+  }
 }
 
 // Patch a branch. Only provided keys are written; `updatedAt` auto-bumps.
-// `code` and `number` are immutable and not patchable.
+// `code` and `number` are immutable and not patchable. Shutting a branch
+// down goes through shutDownBranch (branch-shutdown.ts) instead.
 export async function updateBranch(id: string, patch: BranchUpdateInput) {
+  const values = branchUpdateValues(patch)
+  if (Object.keys(values).length === 0) {
+    return getBranchById(id)
+  }
+  const [updated] = await db.update(branch).set(values).where(eq(branch.id, id)).returning()
+  return updated ?? null
+}
+
+/** The columns a patch writes: only the keys it provides. */
+export function branchUpdateValues(patch: BranchUpdateInput): Partial<typeof branch.$inferInsert> {
   const values: Partial<typeof branch.$inferInsert> = {}
   if (patch.name !== undefined) {
     values.name = patch.name
@@ -182,10 +239,5 @@ export async function updateBranch(id: string, patch: BranchUpdateInput) {
   if (patch.displayOrder !== undefined) {
     values.displayOrder = patch.displayOrder
   }
-
-  if (Object.keys(values).length === 0) {
-    return getBranchById(id)
-  }
-  const [updated] = await db.update(branch).set(values).where(eq(branch.id, id)).returning()
-  return updated ?? null
+  return values
 }

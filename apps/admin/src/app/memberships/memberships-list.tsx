@@ -51,7 +51,9 @@ import { useAsyncData } from '@/components/ui/use-async-data'
 import {
   daysUntil,
   formatDateDDMMYYYY,
+  formatINR,
   MEMBERSHIP_STATUS_OPTIONS,
+  type MembershipListData,
   type MembershipListRow,
   type MembershipTier,
   minutesToHM,
@@ -85,7 +87,8 @@ async function fetchMemberships(): Promise<MembershipsData> {
   } catch {
     /* status-only filtering still works */
   }
-  return { memberships: listJson.data as MembershipListRow[], tiers }
+  const list = listJson.data as MembershipListData
+  return { memberships: list.memberships ?? [], tiers }
 }
 
 export function MembershipsList() {
@@ -125,6 +128,18 @@ export function MembershipsList() {
       },
       { accessorKey: 'customerName', header: 'Customer' },
       { accessorKey: 'tierName', header: 'Tier' },
+      {
+        id: 'soldAt',
+        header: 'Sold at',
+        accessorFn: (m) => m.sellingBranch?.name ?? '',
+        cell: ({ row }) => row.original.sellingBranch?.name ?? '—',
+      },
+      {
+        id: 'price',
+        header: 'Price',
+        enableSorting: false,
+        cell: ({ row }) => <SaleCell membership={row.original} />,
+      },
       {
         id: 'hours',
         header: 'Hours',
@@ -239,4 +254,29 @@ function expiryHint(expiresAt: string): string {
     return 'Expires today'
   }
   return `${days} day${days === 1 ? '' : 's'} left`
+}
+
+// The agreed price beside the tier's usual price at sale time. Shown only to
+// people who can access the selling branch (route inventory gap 5); older
+// sales have no usual price on record.
+function SaleCell({ membership }: { membership: MembershipListRow }) {
+  const { sale } = membership
+  if (!sale) {
+    return (
+      <span className="text-dusty-gray">
+        <span aria-hidden="true">—</span>
+        <span className="sr-only">Shown at the selling branch only</span>
+      </span>
+    )
+  }
+  return (
+    <span className="whitespace-nowrap">
+      {formatINR(sale.pricePaidPaise)}
+      {sale.tierUsualPricePaise !== null ? (
+        <span className="block text-[11px] text-dusty-gray">
+          Usual {formatINR(sale.tierUsualPricePaise)}
+        </span>
+      ) : null}
+    </span>
+  )
 }

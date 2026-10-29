@@ -521,6 +521,12 @@ export function DataTable<T extends RowData>({
                             tabIndex: 0,
                             onClick: () => onRowClick?.(row.original),
                             onKeyDown: (event: React.KeyboardEvent<HTMLTableRowElement>) => {
+                              // Only the row itself: Enter on a control inside
+                              // it (the Row actions menu, a checkbox) belongs
+                              // to that control and must not also open the row.
+                              if (event.target !== event.currentTarget) {
+                                return
+                              }
                               if (event.key === 'Enter' || event.key === ' ') {
                                 event.preventDefault()
                                 onRowClick?.(row.original)

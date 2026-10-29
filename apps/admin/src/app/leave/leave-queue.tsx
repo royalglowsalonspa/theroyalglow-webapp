@@ -70,6 +70,16 @@ interface LeaveRequest {
   approvalStatus: 'pending' | 'approved' | 'rejected'
   rejectionReason: string | null
   createdAt: string
+  /** Whether the signed-in person may decide it (never their own leave). */
+  canDecide: boolean
+  /** Why not, when they can't. */
+  decideNote: string | null
+}
+
+/** The active branch's queue: its id is sent back with every decision. */
+interface LeaveQueuePage {
+  branchId: string
+  leave: LeaveRequest[]
 }
 
 interface ConflictBooking {
@@ -96,14 +106,14 @@ const LEAVE_TYPE_LABEL: Record<string, string> = {
   other: 'Other',
 }
 
-async function fetchLeave(tab: TabValue): Promise<LeaveRequest[]> {
+async function fetchLeave(tab: TabValue): Promise<LeaveQueuePage> {
   const qs = tab === 'all' ? '' : `?status=${tab}`
   const res = await fetch(`/api/leave${qs}`)
   const json = await res.json()
   if (!res.ok || !json.success) {
     throw new Error(json?.error?.message ?? 'Could not load leave requests.')
   }
-  return json.data.leave as LeaveRequest[]
+  return { branchId: json.data.branchId as string, leave: json.data.leave as LeaveRequest[] }
 }
 
 export function LeaveQueue() {
@@ -153,7 +163,7 @@ export function LeaveQueue() {
         <Skeleton rows={5} variant="card" />
       ) : state.status === 'error' ? (
         <ErrorState message={state.message} onRetry={retry} />
-      ) : state.data.length === 0 ? (
+      ) : state.data.leave.length === 0 ? (
         <EmptyState
           icon={Palmtree}
           title={`No ${tab === 'all' ? '' : tab} leave requests`.replace('  ', ' ')}
@@ -161,9 +171,10 @@ export function LeaveQueue() {
         />
       ) : (
         <ul className="space-y-3">
-          {state.data.map((request) => (
+          {state.data.leave.map((request) => (
             <li key={request.id}>
               <LeaveCard
+                branchId={state.data.branchId}
                 request={request}
                 conflicts={conflictsById[request.id]}
                 onApproved={(conflicts) => handleApproved(request.id, conflicts)}
@@ -178,11 +189,14 @@ export function LeaveQueue() {
 }
 
 function LeaveCard({
+  branchId,
   request,
   conflicts,
   onApproved,
   onRejected,
 }: {
+  /** The branch whose queue this card is in. */
+  branchId: string
   request: LeaveRequest
   conflicts: ConflictBooking[] | undefined
   onApproved: (conflicts: ConflictBooking[]) => void
@@ -204,7 +218,7 @@ function LeaveCard({
       const res = await fetch(`/api/leave/${request.id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...body, branchId }),
       })
       const json = await res.json()
       if (!res.ok || !json.success) {
@@ -273,7 +287,13 @@ function LeaveCard({
         </p>
       )}
 
-      {isPending && (
+      {isPending && !request.canDecide && request.decideNote && (
+        <p className="mt-4 border-t border-cloud-gray pt-3 font-sans text-xs text-warm-gray">
+          {request.decideNote}
+        </p>
+      )}
+
+      {isPending && request.canDecide && (
         <div className="mt-4 border-t border-cloud-gray pt-3">
           {rejecting ? (
             <div className="space-y-2">
@@ -360,11 +380,13 @@ function ConflictWarning({ conflicts, date }: { conflicts: ConflictBooking[]; da
     >
       <p className="mb-1.5 flex items-center gap-1.5 font-ui text-xs uppercase tracking-[0.5px] text-warm-gray">
         <Icon icon={TriangleAlert} decorative size={14} />
-        {conflicts.length} confirmed booking
-        {conflicts.length === 1 ? '' : 's'} on {formatDateDDMMYYYY(date)}
+        {conflicts.length === 1
+          ? `1 confirmed booking on ${formatDateDDMMYYYY(date)} needs someone else`
+          : `${conflicts.length} confirmed bookings on ${formatDateDDMMYYYY(date)} need someone else`}
       </p>
       <p className="mb-2 font-sans text-[13px] text-warm-gray">
-        Reassign these to another staff member from the booking detail.
+        They are no longer assigned to this person and are listed on the dashboard. Assign someone
+        else from each booking.
       </p>
       <ul className="space-y-1">
         {conflicts.map((c) => (

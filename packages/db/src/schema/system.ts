@@ -14,6 +14,7 @@
  * - Define monthly_gst_summary for GST filing support
  * - Define audit_log for tracking all entity mutations
  * - Define system_setting for application-wide configuration (JSON values)
+ * - Define realtime_revocation, the outbox of realtime token revocations
  *
  * Features / Functionality :
  * - Revenue split by payment method and service type (salon/spa/membership)
@@ -30,11 +31,22 @@
  *                Monthly GST summaries are built by QStash monthly-gst-summary job.
  ************************************************************/
 
-import { date, index, integer, jsonb, pgTable, text, timestamp, unique } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import {
+  check,
+  date,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+} from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'
 import { user } from './auth'
 import { branch } from './branch'
-import { auditActionEnum } from './enums'
+import { auditActionEnum, realtimeRevocationOutcomeEnum } from './enums'
 
 export const dailySalesSummary = pgTable(
   'daily_sales_summary',
@@ -94,6 +106,11 @@ export const auditLog = pgTable(
     action: auditActionEnum('action').notNull(),
     entityType: text('entity_type').notNull(),
     entityId: text('entity_id').notNull(),
+    // The branch the audited action belongs to; null for actions across all
+    // branches. Deliberately no foreign key: audit history must outlive a
+    // deleted branch, and a restricting key would block deleting any branch
+    // that had an audited action.
+    branchId: text('branch_id'),
     oldValues: jsonb('old_values'),
     newValues: jsonb('new_values'),
     ipAddress: text('ip_address'),
@@ -102,6 +119,7 @@ export const auditLog = pgTable(
   (table) => [
     index('audit_log_entity_type_entity_id_idx').on(table.entityType, table.entityId),
     index('audit_log_actor_id_created_at_idx').on(table.actorId, table.createdAt),
+    index('audit_log_branch_id_created_at_idx').on(table.branchId, table.createdAt),
   ],
 )
 
@@ -118,3 +136,33 @@ export const systemSetting = pgTable('system_setting', {
     .defaultNow()
     .$onUpdate(() => new Date()),
 })
+
+// Realtime tokens to revoke after a role or branch change (multi-branch R2.6).
+// Written in the same transaction as the change, so the intent can't be lost;
+// the admin portal then asks Ably to revoke and records how it ended. A row
+// with no outcome is still pending and is retried.
+export const realtimeRevocation = pgTable(
+  'realtime_revocation',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    requestedAt: timestamp('requested_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    attempts: integer('attempts').notNull().default(0),
+    lastAttemptAt: timestamp('last_attempt_at', { withTimezone: true, mode: 'date' }),
+    lastError: text('last_error'),
+    outcome: realtimeRevocationOutcomeEnum('outcome'),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [
+    index('realtime_revocation_pending_idx').on(table.requestedAt).where(sql`resolved_at IS NULL`),
+    index('realtime_revocation_user_id_idx').on(table.userId),
+    // Resolved means both: how it ended and when.
+    check('realtime_revocation_resolved_check', sql`(outcome IS NULL) = (resolved_at IS NULL)`),
+  ],
+)

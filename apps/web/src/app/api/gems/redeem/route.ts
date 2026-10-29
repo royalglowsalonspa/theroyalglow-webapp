@@ -42,6 +42,7 @@
 
 import {
   addMinutesToTime,
+  assertBranchOpenOn,
   assertRedeemable,
   generateBookingNumber,
   isBookableSlotStart,
@@ -49,6 +50,7 @@ import {
 import {
   findBookingByRedemptionKey,
   getBranchById,
+  getClosureOn,
   getDefaultStaffForService,
   getLoyaltySummary,
   getOrCreateLoyaltyAccount,
@@ -125,6 +127,8 @@ export const POST = withErrorHandler(async (req: Request) => {
   if (branch.status !== 'operational') {
     throw badRequest('Selected branch is not accepting bookings.')
   }
+  // ...and open that day (R1.8).
+  assertBranchOpenOn(await getClosureOn(branch.id, bookingDate), branch.name, bookingDate)
 
   // Live re-read of the service for execution-time re-validation (Req 7).
   const service = await getRedeemableServiceById(serviceId)
@@ -143,9 +147,11 @@ export const POST = withErrorHandler(async (req: Request) => {
     throw conflict('BOOKING_SLOT_UNAVAILABLE', 'The requested time slot is not available.')
   }
 
-  // booking_service.staff_id is NOT NULL; redemption bookings get an auto-assigned
-  // active staff member that the admin reassigns on approval.
-  const staffId = await getDefaultStaffForService(serviceId)
+  // A redemption booking is pending: its tentative assignee is replaced on
+  // approval. Preferably someone not on approved leave that day.
+  const staffId =
+    (await getDefaultStaffForService(serviceId, branch.id, bookingDate)) ??
+    (await getDefaultStaffForService(serviceId, branch.id))
   if (!staffId) {
     throw badRequest('No staff available to perform the selected service.')
   }

@@ -80,6 +80,7 @@ const sessionMocks = vi.hoisted(() => {
 const dbMocks = vi.hoisted(() => ({
   findBookingByRedemptionKey: vi.fn(),
   getBranchById: vi.fn(),
+  getClosureOn: vi.fn(async (): Promise<{ name: string; allBranches: boolean } | null> => null),
   getDefaultStaffForService: vi.fn(),
   getLoyaltySummary: vi.fn(),
   getOrCreateLoyaltyAccount: vi.fn(),
@@ -706,6 +707,33 @@ describe('POST /api/gems/redeem — request and slot validation', () => {
 
     expect(res.status).toBe(400)
     expect(store.bookings).toHaveLength(0)
+    expect(store.account.gemsBalance).toBe(1000)
+  })
+})
+
+// ===========================================================================
+// Multi-branch R1.8 — a closed day takes no redemption
+// ===========================================================================
+describe('POST /api/gems/redeem — closed days (R1.8)', () => {
+  it('refuses a redemption on a closed day and spends nothing', async () => {
+    dbMocks.getBranchById.mockResolvedValueOnce({
+      id: 'br_1',
+      code: 'RS',
+      status: 'operational',
+      name: 'Rayasandra',
+    })
+    dbMocks.getClosureOn.mockResolvedValueOnce({ name: 'Diwali', allBranches: true })
+
+    const res = await POST(postRequest(body()), ROUTE_CTX)
+    const json = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(json.error).toMatchObject({
+      code: ERROR_CODES.BOOKING_SLOT_UNAVAILABLE,
+      message: 'Rayasandra is closed on 10/06/2026 (Diwali).',
+    })
+    expect(dbMocks.getClosureOn).toHaveBeenCalledWith('br_1', '2026-06-10')
+    expect(dbMocks.redeemServiceWithGems).not.toHaveBeenCalled()
     expect(store.account.gemsBalance).toBe(1000)
   })
 })

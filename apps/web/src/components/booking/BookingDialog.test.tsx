@@ -573,3 +573,32 @@ describe('BookingDialog focus', () => {
     expect(close).toHaveFocus()
   })
 })
+
+describe('BookingDialog closed days (multi-branch R1.8)', () => {
+  it('says the day is closed, and why, instead of offering times', async () => {
+    mockApi(
+      http.get('*/api/availability', () =>
+        HttpResponse.json({
+          success: true,
+          data: {
+            slots: [{ startTime: '10:00', endTime: '10:30', available: false }],
+            closure: { name: 'Diwali' },
+          },
+        }),
+      ),
+    )
+
+    renderDialog()
+    await findBranchPicker()
+    fireEvent.click(dateButtons()[0] as HTMLElement)
+
+    expect(
+      await screen.findByText(
+        'We’re closed on this day (Diwali). Please choose another day.',
+        {},
+        LOAD,
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '10:00' })).toBeNull()
+  })
+})

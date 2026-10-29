@@ -25,7 +25,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 const dbMocks = {
   getPendingBooking: vi.fn(),
   getBookingForNoShow: vi.fn(),
-  getReceptionistUserIds: vi.fn(),
+  getBranchPeople: vi.fn(),
+  hasNotification: vi.fn(),
   updateBookingStatus: vi.fn(),
   createNotification: vi.fn(),
 }
@@ -225,7 +226,8 @@ describe('Property 7 (receiver ordering): unverified requests trigger no side ef
     // No DB reads OR writes occurred (verification runs first).
     expect(dbMocks.getPendingBooking).not.toHaveBeenCalled()
     expect(dbMocks.getBookingForNoShow).not.toHaveBeenCalled()
-    expect(dbMocks.getReceptionistUserIds).not.toHaveBeenCalled()
+    expect(dbMocks.getBranchPeople).not.toHaveBeenCalled()
+    expect(dbMocks.hasNotification).not.toHaveBeenCalled()
     expect(dbMocks.updateBookingStatus).not.toHaveBeenCalled()
     expect(dbMocks.createNotification).not.toHaveBeenCalled()
     // No notification dispatch, no heartbeat.

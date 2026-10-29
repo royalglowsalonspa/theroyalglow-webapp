@@ -52,45 +52,53 @@
 
 import {
   addMinutesToTime,
+  assertBranchOpenOn,
   calculateBookingTotal,
   generateBookingNumber,
   isBookableSlotStart,
+  staffClosureHint,
 } from '@rgss/business'
 import {
   createBookingWithServices,
-  getBranchById,
+  getClosureOn,
   getCustomerProfile,
   getDefaultStaffForService,
   getServicesByIds,
 } from '@rgss/db/queries'
 import { badRequest, conflict } from '@rgss/errors'
 import { adminCreateWalkinSchema } from '@rgss/types'
+import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { publishBookingEvent } from '@/lib/realtime/publish'
 
 export const POST = withErrorHandler(async (req: Request) => {
-  // Receptionist+ may create walk-ins (the same minimum role that manages
-  // bookings elsewhere in the admin app).
-  await requireRole('receptionist')
+  // Receptionist or above at the active branch may create walk-ins there.
+  const ctx = await requireBranchRole('receptionist')
 
   const body = await req.json().catch(() => null)
   const parsed = adminCreateWalkinSchema.safeParse(body)
   if (!parsed.success) {
     throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
   }
+  // The form names the branch it was rendered for: a tab left open across a
+  // switch gets 409 instead of booking into the newly selected branch (R2.4).
+  assertRenderedBranch(ctx, parsed.data.branchId)
 
-  const { branchId, customerId, serviceType, bookingDate, startTime, serviceIds, notes } =
-    parsed.data
+  const { customerId, serviceType, bookingDate, startTime, serviceIds, notes } = parsed.data
+  const branch = ctx.branch
+  const branchId = branch.id
 
-  // Branch must exist and be operational (mirrors the customer POST checks).
-  const branch = await getBranchById(branchId)
-  if (!branch) {
-    throw badRequest('Branch not found.')
-  }
+  // A walk-in needs an operational branch (mirrors the customer POST checks).
   if (branch.status !== 'operational') {
-    throw badRequest('Selected branch is not accepting bookings.')
+    throw badRequest(`${branch.name} is not accepting bookings.`)
   }
+  // ...that is open that day (R1.8).
+  assertBranchOpenOn(
+    await getClosureOn(branchId, bookingDate),
+    branch.name,
+    bookingDate,
+    staffClosureHint(branch.role),
+  )
 
   // The linked customer must be an existing customer (user with a customer
   // profile). getCustomerProfile returns null for unknown ids or non-customers,
@@ -130,9 +138,10 @@ export const POST = withErrorHandler(async (req: Request) => {
   }
 
   // Preserve the requested service order for snapshots + staff assignment.
-  // booking_service.staff_id is NOT NULL on the persisted row, so every service
-  // gets an auto-assigned active staff member (the receptionist can reassign
-  // later from the booking detail page).
+  // Every service gets an auto-assigned staff member who works at the branch
+  // and isn't on approved leave that day (the database refuses anyone else on
+  // a confirmed booking); the receptionist can reassign later from the
+  // booking detail page.
   const orderedServices = uniqueServiceIds.map((id) => {
     const svc = services.find((s) => s.id === id)
     if (!svc) {
@@ -142,9 +151,11 @@ export const POST = withErrorHandler(async (req: Request) => {
   })
   const serviceRows = await Promise.all(
     orderedServices.map(async (svc, index) => {
-      const staffId = await getDefaultStaffForService(svc.id)
+      const staffId = await getDefaultStaffForService(svc.id, branchId, bookingDate)
       if (!staffId) {
-        throw badRequest('No staff available to perform the selected services.')
+        throw badRequest(
+          `No staff at ${branch.name} are available for the selected services that day.`,
+        )
       }
       return {
         serviceId: svc.id,

@@ -11,24 +11,24 @@ Royal Glow customers and staff see booking status changes, schedule updates, and
 ## Core Principles
 
 - **All publishes are server-side only** — Next.js API routes via `ABLY_PRIVATE_KEY`. Clients never publish directly. This prevents channel spoofing or status manipulation from the browser.
-- **All clients use Token Auth** — the server generates a scoped Ably JWT token per user at `POST /api/ably/token`. Customer and staff tokens are restricted to exact channels they are allowed to view. They cannot subscribe to arbitrary booking channels.
-- **Subscriptions happen on page mount** via `useEffect()`. The WebSocket connection stays open for the session. No polling, no refresh buttons.
+- **All clients use Token Auth** — each app's `POST /api/ably/token` issues a subscribe-only token bound to the signed-in user (`clientId`). Customer tokens cover only that customer's channels; admin tokens cover only the branches the person works at (multi-branch R2.6).
+- **Every staff channel names its branch** (multi-branch design §3). There are no cross-branch channels and no cross-branch wildcards in issued tokens.
+- **Subscriptions happen on page mount** via `useEffect()`, for the branch the page was rendered for. The WebSocket connection stays open for the session.
+
+Source of truth for names: `apps/admin/src/lib/realtime/channels.ts` and `apps/web/src/lib/realtime/channels.ts`. Capabilities: `apps/admin/src/lib/realtime/capability.ts` and `apps/web/src/lib/realtime/ably.ts`.
 
 ---
 
 ## Channel Naming Convention
 
-```
-Shared channels:      {namespace}:{topic}
-Scoped channels:      {namespace}:{identifier}:{sub-topic}
-```
-
-| Namespace | Audience | Example |
+| Namespace | Audience | Channel |
 |-----------|---------|---------|
-| `customer` | Customer browser | `customer:usr_abc123:bookings` |
-| `booking` | Customer + Admin + Assigned Staff | `booking:bkg_xyz789` |
-| `admin` | Developer + Owner + Manager + Receptionist | `admin:bookings` |
-| `staff` | Individual staff member | `staff:stf_def456:schedule` |
+| `customer` | The customer | `customer:{userId}:bookings` |
+| `booking` | The booking's branch staff | `booking:{branchId}:{bookingId}` |
+| `admin` | The branch's Receptionist, Manager, Owner, and the Developer | `admin:bookings:{branchId}`, `admin:schedule:{branchId}:{YYYY-MM-DD}`, `admin:leave:{branchId}` |
+| `staff` | Planned: one staff member | `staff:{staffId}:schedule` (not implemented) |
+
+The legacy unqualified names (`booking:{bookingId}`, `admin:bookings`, `admin:schedule:{date}`, `admin:leave`) are retired: nothing publishes to them and no token authorizes them.
 
 ---
 
@@ -36,34 +36,22 @@ Scoped channels:      {namespace}:{identifier}:{sub-topic}
 
 ### 1. `customer:{userId}:bookings`
 
-Primary realtime channel for a logged-in customer. Subscribe on `/bookings` page mount. All booking cards on the page stay live for the full session.
+Primary realtime channel for a logged-in customer. Subscribe on `/bookings` page mount. Every event carries `data.bookingId`, so a booking detail view filters this channel to its booking (customer tokens never authorize `booking:*`).
 
 | Event | Payload | UI effect |
 |-------|---------|-----------|
-| `booking.created` | `{ bookingId, status, services, totalPaise }` | New booking card appears |
-| `booking.status_changed` | `{ bookingId, fromStatus, toStatus, reason? }` | Status badge animates to new state in-place |
-| `booking.rescheduled` | `{ bookingId, newDate, newStartTime }` | Date/time updates on the card |
-| `booking.cancelled` | `{ bookingId, cancelledBy }` | Card moves to cancelled section |
-| `booking.staff_assigned` | `{ bookingId, staffName }` | "Assigned to: [Name]" appears on booking detail |
+| `created` | `{ bookingId, status }` | New booking card appears |
+| `status_changed` | `{ bookingId, status }` | Status badge updates in place |
+| `assigned` | `{ bookingId }` | Staff assignment refreshes |
+| `completed` | `{ bookingId }` | Card moves to past bookings |
 
----
+### 2. `booking:{branchId}:{bookingId}`
 
-### 2. `booking:{bookingId}`
+Fine-grained channel per booking, for that branch's staff (admin booking detail). Published with the same verbs as the customer channel.
 
-Fine-grained channel per booking. Customer subscribes when viewing a booking detail. Admin subscribes when the booking detail panel is open. Assigned staff may also subscribe for bookings they are allowed to view.
+### 3. `admin:bookings:{branchId}`
 
-| Event | Payload | UI effect |
-|-------|---------|-----------|
-| `status.changed` | `{ fromStatus, toStatus, changedBy, reason? }` | Status badge animates to new state |
-| `note.added` | `{ note, addedBy }` | Staff note appears live on admin booking detail |
-| `service.added` | `{ service }` | Service list updates |
-| `service.removed` | `{ serviceId }` | Service removed from list |
-
----
-
-### 3. `admin:bookings`
-
-Broadcast channel — all admin roles with booking access (`Developer`, `Owner`, `Manager`, `Receptionist`) subscribe on the admin dashboard (`admin.theroyalglow.in/`) and `admin.theroyalglow.in/bookings`. Every status-changing action anywhere in the system publishes here.
+The branch's booking feed: dashboard and booking lists at that branch. Every booking status change at the branch publishes here.
 
 | Event | Payload | UI effect |
 |-------|---------|-----------|
@@ -73,11 +61,9 @@ Broadcast channel — all admin roles with booking access (`Developer`, `Owner`,
 | `booking.cancelled` | `{ bookingId, customerName }` | Booking removed from active list, slot freed |
 | `booking.no_show` | `{ bookingId, customerName }` | No-show badge applied on the booking |
 
----
+### 4. `admin:schedule:{branchId}:{YYYY-MM-DD}`
 
-### 4. `admin:schedule:{YYYY-MM-DD}`
-
-Date-scoped channel. Subscribe when viewing a specific date in the schedule. Slot availability updates live as bookings are made, cancelled, or staff are marked off.
+The branch's schedule for one IST date.
 
 | Event | Payload | UI effect |
 |-------|---------|-----------|
@@ -86,53 +72,55 @@ Date-scoped channel. Subscribe when viewing a specific date in the schedule. Slo
 | `staff.marked_off` | `{ staffId, staffName }` | Staff column greyed out for the day |
 | `leave.approved` | `{ staffId, staffName }` | Staff removed from available column |
 
----
+### 5. `admin:leave:{branchId}`
 
-### 5. `admin:leave`
-
-All admin roles with leave-review access (`Developer`, `Owner`, `Manager`, `Receptionist`) subscribe on `admin.theroyalglow.in/leave`. New leave requests appear without refreshing the page.
+The branch's leave queue on `admin.theroyalglow.in/leave`.
 
 | Event | Payload | UI effect |
 |-------|---------|-----------|
 | `leave.requested` | `{ staffId, staffName, date, leaveType }` | New pending request badge appears in queue |
 | `leave.withdrawn` | `{ staffId, leaveId }` | Request removed from pending queue |
 
----
+### 6. `staff:{staffId}:schedule` (planned)
 
-### 6. `staff:{staffId}:schedule`
-
-Each staff member subscribes to their own channel on the staff dashboard. Scoped to their `staffId` only — they cannot access other staff channels.
-
-| Event | Payload | UI effect |
-|-------|---------|-----------|
-| `booking.assigned` | `{ bookingId, customerName, services, date, time }` | New appointment appears on their schedule |
-| `booking.unassigned` | `{ bookingId }` | Appointment removed from their schedule |
-| `leave.approved` | `{ date, leaveType }` | Leave day highlighted on their calendar |
-| `leave.rejected` | `{ date, rejectionReason }` | Leave request shown as rejected with reason |
+A per-staff channel for the staff self-service pages. Not implemented; staff tokens are not issued today.
 
 ---
 
 ## Token Auth — Capability Scoping
 
-The server generates a short-lived Ably JWT token per authenticated user. Customers can only access their own channels — not other customers'.
+Each token is subscribe-only and bound to the user id. Admin tokens live 10 minutes (`TOKEN_TTL_MS` in `apps/admin/src/lib/realtime/token-lifetime.ts`). The admin token route re-reads the person's branches from the database on every request, so the client's renewal follows role changes. The short TTL is defence in depth only; tokens already issued are revoked (next section).
 
-**Token endpoint:** `POST /api/ably/token` — authenticated route, generates token scoped to the calling user's role.
+### Revocation after a role change (R2.6)
+
+A role or branch change that takes away someone's admin access at a branch writes a `realtime_revocation` row for that person in the same database batch as the change. The external Ably call cannot be part of that transaction, so the row is an outbox:
+
+1. Straight after the change commits, the admin app calls Ably's `POST /keys/{keyName}/revokeTokens` with `clientId:{userId}` targets. This cuts off live connections at once.
+2. A TokenRequest the server signed just before the change can still be exchanged for about 2 minutes. A second call after that window (2 minutes plus 1 minute for clock skew) covers a token minted late. Only this second call resolves the row as `revoked`.
+3. A failed call stays `pending` with its error. The QStash-triggered job `POST /api/jobs/realtime-revocations` retries it; nothing polls on a schedule.
+4. A row older than the token lifetime plus the window resolves as `expired` without calling Ably: no token with the old access can still be valid. Without `ABLY_PRIVATE_KEY` rows resolve as `not_configured`.
+
+The person who made the change is told when the revocation could not be confirmed yet; their tokens stop within 13 minutes regardless.
+
+**Before launch:** issue admin tokens from an Ably key with "Revocable tokens" enabled (Ably caps such tokens at 1 hour). Tokens issued by a non-revocable key cannot be revoked, so the key change is a reviewed cutover: switch `ABLY_PRIVATE_KEY`, then wait for the old tokens to expire.
 
 ```
-Customer token capabilities:
-  subscribe: ["customer:usr_abc123:bookings", "booking:bkg_xyz789", "booking:bkg_xyz790"]
+Customer token (apps/web POST /api/ably/token), any signed-in user:
+  subscribe: ["customer:{userId}:*"]
   publish:   []   ← never
 
-Admin token capabilities (Developer / Owner / Manager / Receptionist):
-  subscribe: ["admin:bookings", "admin:schedule:*", "admin:leave", "booking:*"]
-  publish:   []   ← never
-
-Staff token capabilities:
-  subscribe: ["staff:stf_def456:schedule", "booking:bkg_xyz789"]
+Admin token (apps/admin POST /api/ably/token), for each branch where the person
+is Receptionist or above (a shared Manager gets each branch they manage):
+  subscribe: ["admin:bookings:{branchId}",
+              "admin:schedule:{branchId}:*",
+              "admin:leave:{branchId}",
+              "booking:{branchId}:*"]
   publish:   []   ← never
 ```
 
-Customer and staff tokens never receive a wildcard for all `booking:*` channels. Exact `booking:{bookingId}` access is issued only for bookings they own or are assigned to view.
+Ably matches a trailing `*` segment against the rest of the channel name, so `booking:{branchId}:*` covers that branch's bookings and no other branch's; the `:` after the id stops one branch id from matching another that starts with it. Branch ids outside `[A-Za-z0-9_-]` are never placed in a pattern.
+
+The customer site never issues staff channels, whatever the signed-in person's role.
 
 All publishes originate from server-side API routes using `ABLY_PRIVATE_KEY`. The browser never holds a key with publish capability.
 
@@ -140,40 +128,15 @@ All publishes originate from server-side API routes using `ABLY_PRIVATE_KEY`. Th
 
 ## Publishing Flow
 
-Every server action that changes state publishes to all relevant channels atomically after the DB write commits.
+Booking status changes publish after the DB write commits, best-effort (a failed publish never fails the request). `publishBookingEvent({ bookingId, branchId, customerId, event, data })` fans out to:
 
-**Example — Receptionist approves booking:**
 ```
-POST /api/bookings/:id/approve
-    → DB: booking.status = 'confirmed'
-    → Ably publish:
-        customer:{userId}:bookings  →  booking.status_changed  { toStatus: 'confirmed' }
-        booking:{bookingId}         →  status.changed
-        admin:bookings              →  booking.status_changed
-    staff:{staffId}:schedule    →  booking.assigned
-        admin:schedule:{date}       →  slot.booked
+booking:{branchId}:{bookingId}
+admin:bookings:{branchId}
+customer:{customerId}:bookings
 ```
 
-**Example — Customer cancels booking:**
-```
-POST /api/bookings/:id/cancel
-    → DB: booking.status = 'cancelled'
-    → Ably publish:
-        customer:{userId}:bookings  →  booking.cancelled
-    staff:{staffId}:schedule    →  booking.unassigned
-        admin:bookings              →  booking.cancelled
-        admin:schedule:{date}       →  slot.released
-```
-
-**Example — Admin approves leave request:**
-```
-POST /api/leave/:id/approve
-    → DB: staff_time_off.approval_status = 'approved'
-    → Ably publish:
-        staff:{staffId}:schedule    →  leave.approved
-        admin:schedule:{date}       →  leave.approved
-        admin:leave                 →  (request removed from queue)
-```
+Schedule and leave publishes are planned and will use `admin:schedule:{branchId}:{date}` and `admin:leave:{branchId}`.
 
 ---
 
@@ -181,11 +144,6 @@ POST /api/leave/:id/approve
 
 | Page | Subscribes to | What updates live |
 |------|-------------|-------------------|
-| `/bookings` | `customer:{userId}:bookings` | All booking card status badges, dates, staff assignments |
-| `/bookings/:id` | `booking:{bookingId}` | Full detail panel — status, notes, services |
-| `admin.theroyalglow.in/` (dashboard) | `admin:bookings` | Pending queue count, today's booking feed |
-| `admin.theroyalglow.in/bookings` | `admin:bookings` | Full booking list, status column |
-| `admin.theroyalglow.in/bookings/:id` | `booking:{bookingId}` | Detail panel, notes, status timeline |
-| `admin.theroyalglow.in/schedule` | `admin:schedule:{selectedDate}` | Slot grid, staff availability columns |
-| `admin.theroyalglow.in/leave` | `admin:leave` | Pending leave request queue |
-| Staff dashboard | `staff:{staffId}:schedule` | Today's appointments, leave request status |
+| `/bookings` (web) | `customer:{userId}:bookings` | Booking card status badges |
+| `/bookings/:id` (web) | `customer:{userId}:bookings`, filtered by `data.bookingId` | Detail status |
+| Admin pages | The rendered branch's channels, through `RealtimeProvider` (`branchId`, `scheduleDate`) or `useRealtimeChannel` | Page-specific |

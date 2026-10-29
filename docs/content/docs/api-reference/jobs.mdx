@@ -53,6 +53,8 @@ further automation — the **`pprd` DB sync** — runs as a **GitHub Actions cro
 | `POST /api/jobs/gems-auto-expire` | Daily 12:10 AM IST (`40 18 * * *` UTC) | Expires earned gems past their 365-day window, writing an offsetting `expired` transaction and decrementing the balance. Idempotent via an `expired:<id>` marker. |
 | `POST /api/jobs/session-cleanup` | Sunday 2:30 AM IST (`0 21 * * 0` UTC) | Deletes expired Better Auth session rows from the Neon-backed session store. |
 | `POST /api/jobs/monthly-gst-summary` | 1st of month 1:00 AM IST (`30 19 1 * *` UTC) | Aggregates the previous IST month's paid `service` + `membership_purchase` invoices into `monthly_gst_summary` (SAC 999721). |
+| `POST /api/jobs/pending-booking-closeout` | Daily 10:00 PM IST (`30 16 * * *` UTC) | Sets every booking still `pending` after its IST end time to `no_show`. Status-guarded UPDATE; does not touch the customer's no-show count. Returns `{ success, closed }`. |
+| `POST /api/jobs/customer-stats-reconcile` | Daily 12:20 AM IST (`50 18 * * *` UTC) | Recomputes `customer_profile` visits, LTV, and first/last visit from completed bookings + paid invoices, writing only changed rows. Returns `{ success, changed }`. |
 
 </Tab>
 <Tab title="Triggered">
@@ -60,7 +62,7 @@ further automation — the **`pprd` DB sync** — runs as a **GitHub Actions cro
 | Route | Delay | What it does |
 | --- | --- | --- |
 | `POST /api/jobs/post-service-followup` | +24h after `booking` → `completed` | Sends a review-request email (Brevo/Resend) — only when the booking completed and the customer has marketing consent. |
-| `POST /api/jobs/stale-booking-alert` | +2h after booking created | If still `pending`: older than 24h → auto-reject + notify customer; otherwise alert every receptionist. |
+| `POST /api/jobs/stale-booking-alert` | +2h after booking created | If still `pending`, alert every receptionist. Alert only — closing an unactioned booking is the pending-booking closeout's job. |
 | `POST /api/jobs/noshow-check` | +15 min after booking `end_time` | If the booking is still `confirmed` past its end, alert receptionists to review. Never auto-marks a no-show. |
 | `POST /api/jobs/membership-expired-notice` | +1h after `spa_membership.expires_at` | Sends a final "membership expired" renewal email to the owning customer. |
 | `POST /api/jobs/invoice-pdf` | Enqueued at booking completion | Renders the GST invoice PDF via the standalone Cloud Run invoicing service (`@rgss/invoicing`) over HMAC-signed HTTP, stores the PDF URL on the invoice, and emails the customer their invoice with the PDF attached. Degrades to a no-attachment email when the service is unconfigured/errors. |
@@ -170,6 +172,8 @@ ping is a **no-op** (the job still succeeds); the helper never throws.
 | `gems-auto-expire` | `GEMS_EXPIRE` | Env var: BETTER_STACK_HEARTBEAT_GEMS_EXPIRE |
 | `session-cleanup` | `SESSION_CLEANUP` | Env var: BETTER_STACK_HEARTBEAT_SESSION_CLEANUP |
 | `monthly-gst-summary` | `MONTHLY_GST` | Env var: BETTER_STACK_HEARTBEAT_MONTHLY_GST |
+| `pending-booking-closeout` | `PENDING_CLOSEOUT` | Env var: BETTER_STACK_HEARTBEAT_PENDING_CLOSEOUT |
+| `customer-stats-reconcile` | `CUSTOMER_STATS` | Env var: BETTER_STACK_HEARTBEAT_CUSTOMER_STATS |
 
 <Info>
   `invoice-pdf` is the exception — it does **not** ping a heartbeat. Instead it
@@ -220,12 +224,11 @@ single record in the payload:
 notified:
 
 ```json
-{ "success": true, "action": "rejected", "notified": 1 }
+{ "success": true, "action": "alerted", "notified": 2 }
 ```
 
-`action` is one of `none` (booking no longer pending), `rejected` (still
-pending past 24h → auto-rejected, customer notified), or `alerted` (still
-pending under 24h → receptionists alerted).
+`action` is either `none` (booking no longer pending) or `alerted` (still
+pending → receptionists alerted).
 
 </Tab>
 <Tab title="Failures">

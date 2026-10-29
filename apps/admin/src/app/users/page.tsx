@@ -1,13 +1,14 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 21-06-2026 & Updated - 21-06-2026
+ * Date         : Created - 21-06-2026 & Updated - 25-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : Admin Users Page
  * Scope        : Admin Portal — User / RBAC administration
  *
- * Description  : Server page for the owner-facing user directory and role
- *                assignment screen. Sets metadata and renders UsersManager.
+ * Description  : Server page for the owner-facing role assignment screen
+ *                (find a person, assign a role). Sets metadata and renders
+ *                UsersManager. The full sign-up list lives in /customers.
  *
  * Responsibilities :
  * - Define page-level metadata (title: "Users")

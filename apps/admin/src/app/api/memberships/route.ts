@@ -6,11 +6,13 @@
  * Module Name  : GET|POST /api/memberships
  * Scope        : API — Admin Membership
  *
- * Description  : Admin membership management. GET lists all memberships with
- *                filters; POST creates a new SPA membership with purchase invoice.
+ * Description  : Admin membership management. GET lists every membership (they
+ *                are shared by all branches) with filters; POST sells a new SPA
+ *                membership at the active branch with its purchase invoice.
  *
  * Responsibilities :
- * - Return filtered membership list (tier, status) (GET)
+ * - Return filtered membership list (tier, status) (GET), showing what each
+ *   was sold for only to people who can access its selling branch
  * - Create new membership with tier validation and invoice (POST)
  * - Enforce one-active-membership-per-customer constraint
  * - Schedule membership expired notice job
@@ -28,6 +30,8 @@
  *                @rgss/business, @rgss/db/queries, @rgss/errors, @rgss/types
  *
  * Notes        :
+ * - Receptionist or above at the active branch. The sale belongs to the
+ *   branch the form was rendered for (multi-branch R2.4, gap 5).
  * - One active membership per customer (DB-enforced partial unique index).
  * - No gems earned on membership purchase or sessions.
  ************************************************************/
@@ -47,17 +51,13 @@ import {
 } from '@rgss/db/queries'
 import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
 import { createMembershipSchema } from '@rgss/types'
+import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { enqueueJob } from '@/lib/jobs/enqueue'
-
-// The single operational branch (seed: number=1, code="RS"). Memberships and
-// their purchase invoices are issued against this branch until multi-branch
-// selection lands.
-const PRIMARY_BRANCH_ID = 'branch_rayasandra'
+import { membershipForViewer } from '@/lib/memberships/membership-view'
 
 export const GET = withErrorHandler(async (req: Request) => {
-  await requireRole('receptionist')
+  const ctx = await requireBranchRole('receptionist')
 
   const { searchParams } = new URL(req.url)
   const filters: { tier?: string; status?: string } = {}
@@ -71,18 +71,32 @@ export const GET = withErrorHandler(async (req: Request) => {
   }
 
   const rows = await getMemberships(filters)
-  return apiSuccess(rows)
+  return apiSuccess({
+    branchId: ctx.branch.id,
+    memberships: rows.map((row) => membershipForViewer(row, ctx.access)),
+  })
 })
 
 export const POST = withErrorHandler(async (req: Request) => {
-  const session = await requireRole('receptionist')
+  const ctx = await requireBranchRole('receptionist')
 
   const body = await req.json().catch(() => null)
   const parsed = createMembershipSchema.safeParse(body)
   if (!parsed.success) {
     throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
   }
+  assertRenderedBranch(ctx, parsed.data.branchId)
   const data = parsed.data
+
+  // The active branch sells it and issues the purchase invoice. A branch that
+  // isn't operational takes no new sales (R1.10).
+  const branch = await getBranchByIdAdmin(ctx.branch.id)
+  if (!branch) {
+    throw notFound('Branch not found.')
+  }
+  if (branch.status !== 'operational') {
+    throw badRequest(`${branch.name} is not selling memberships right now.`)
+  }
 
   // One active membership per customer (also DB-enforced via a partial unique
   // index). Pre-check to return a friendly 409 instead of a raw unique violation.
@@ -101,11 +115,6 @@ export const POST = withErrorHandler(async (req: Request) => {
     throw badRequest('Selected membership tier does not exist or is inactive.')
   }
 
-  const branch = await getBranchByIdAdmin(PRIMARY_BRANCH_ID)
-  if (!branch) {
-    throw notFound('Primary branch not found.')
-  }
-
   const now = new Date()
   const startsAt = new Date(`${data.startDate}T00:00:00.000Z`)
   const expiresAt = computeExpiry(startsAt, data.validityDays)
@@ -119,11 +128,13 @@ export const POST = withErrorHandler(async (req: Request) => {
     customerId: data.customerId,
     tierId: data.tierId,
     tierNameSnapshot: tier.name,
+    tierUsualHoursMinutes: tier.defaultHoursMinutes,
+    tierUsualPricePaise: tier.defaultPricePaise,
     totalHoursMinutes: data.hoursMinutes,
     pricePaidPaise: data.pricePaise,
     startsAt,
     expiresAt,
-    createdBy: session.user.id,
+    createdBy: ctx.session.user.id,
     notes: data.notes ?? null,
     branchId: branch.id,
     invoiceNumber: generateInvoiceNumber(branch.number, now),

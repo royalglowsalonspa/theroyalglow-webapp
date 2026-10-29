@@ -129,3 +129,13 @@ For browser checks, see README setup for the explicit admin/web origins and role
 state files. Missing role fixtures skip RBAC specs and do not prove access works.
 The existing `check:admin-path-allowlist` gate rejects semantic API/RBAC/schema
 changes mixed with presentation changes; inspect its actual diff when it fails.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

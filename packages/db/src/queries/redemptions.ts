@@ -47,6 +47,7 @@ import { nanoid } from 'nanoid'
 import { db } from '../index'
 import { booking } from '../schema/booking'
 import { service, serviceCategory } from '../schema/service'
+import { assigneeRefusal } from './reassignments'
 
 // Live re-read of a single service joined to its category for the serviceType
 // (salon/spa), including the gem fields + isActive used for execution-time
@@ -218,6 +219,16 @@ export async function redeemServiceWithGems(
       if (found) {
         return { duplicate: true, bookingId: found.id, bookingNumber: found.bookingNumber }
       }
+    }
+    // The chosen assignee left the branch after they were picked (migration
+    // 0014). The whole statement rolled back, gems included; picking again works.
+    if (assigneeRefusal(error)) {
+      throw new AppError({
+        code: ERROR_CODES.BOOKING_SLOT_UNAVAILABLE,
+        message: 'The staff for this booking just became unavailable. Please try again.',
+        statusCode: 409,
+        retryable: true,
+      })
     }
     throw error
   }
