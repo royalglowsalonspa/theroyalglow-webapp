@@ -208,14 +208,15 @@ describe('applyBranchRolePlan', () => {
     expect(await applyBranchRolePlan({ snapshot: SNAPSHOT, writes: [], audit: AUDIT })).toEqual({
       ok: true,
       signedOut: [],
+      reassignments: 0,
     })
     expect(fake.records).toHaveLength(0)
   })
 
-  it('runs the change as one transaction: defer, lock, re-check, write, audit', async () => {
+  it('runs the change as one transaction: defer, lock, re-check, write, release, audit', async () => {
     const result = await applyBranchRolePlan({ snapshot: SNAPSHOT, writes: HANDOVER, audit: AUDIT })
 
-    expect(result).toEqual({ ok: true, signedOut: ['own'] })
+    expect(result).toEqual({ ok: true, signedOut: ['own'], reassignments: 0 })
     expect(fake.batches).toHaveLength(1)
     const statements = fake.batches[0] ?? []
     expect(statements.map((s) => s.op)).toEqual([
@@ -227,6 +228,7 @@ describe('applyBranchRolePlan', () => {
       'execute',
       'execute',
       'delete',
+      'execute',
       'insert',
       'insert',
     ])
@@ -239,9 +241,17 @@ describe('applyBranchRolePlan', () => {
       promote,
       demote,
       signOut,
+      release,
       revocation,
       audit,
     ] = statements
+
+    // After the writes: whoever the change touched loses the bookings still
+    // to come at branches where they no longer work (R1.7).
+    const releaseSql = render(release?.args[0])
+    expect(releaseSql.sql).toMatch(/^with released as \(update booking_service bs/)
+    expect(releaseSql.sql).toContain('and sp.user_id in ($1::text, $2::text)')
+    expect(releaseSql.params.slice(0, 2)).toEqual(['new', 'own'])
 
     expect(render(defer?.args[0])).toEqual({
       sql: 'set constraints branch_owner_fk, branch_manager_fk, staff_profile_role_fk deferred',

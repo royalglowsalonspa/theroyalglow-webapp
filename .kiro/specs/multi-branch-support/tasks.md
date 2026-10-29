@@ -115,12 +115,15 @@ and [rollout](rollout.md) before selecting work.
   records as 404; writes carry the rendered branch (409
   BRANCH_CONTEXT_CHANGED). `route-policy.test.ts` classifies every admin
   route; its `PENDING` list is empty.*
-- [ ] Add Developer branch creation/edit/shutdown and atomic role handovers;
+- [x] Add Developer branch creation/edit/shutdown and atomic role handovers;
   preserve other branch relationships and clear only affected future assignments.
   *Creation, edits, shutdown and delete done (see R1.1 below); handovers go
   through `planBranchRoleChange` / `applyBranchRolePlan` in one guarded
-  batch. Still open: clearing only the affected future assignments (R1.7
-  durable reassignment work).*
+  batch. The same batch now takes everyone the change touched off the
+  bookings still to come at branches where they no longer work, and lists
+  the confirmed ones for reassignment (R1.7, migrations 0012–0015; see the
+  Remove staff item below). A shared Manager taken off one branch keeps the
+  other branch's bookings.*
 - [x] Rewrite the Developer runbook in `knowledge-base/authentication.md` as one
   transaction that demotes the current Developer before promoting the new one
   (`BEGIN; demote; promote; COMMIT;`). Today it promotes first in separate
@@ -149,13 +152,23 @@ and [rollout](rollout.md) before selecting work.
   audit. *29/10: shared `PersonSearch` (3+ characters, 10 results),
   `GET /api/staff/candidates` (availability from the same planner),
   `POST /api/staff` through `changeBranchRole`.*
-- [ ] Add Remove staff and keep staff editing (`PATCH /api/staff/[id]`) for the
+- [x] Add Remove staff and keep staff editing (`PATCH /api/staff/[id]`) for the
   branch's Manager, Owner and Developer, scoped to Stylists and Therapists at
   the active branch; removal reconciles future assignments and revokes sessions.
   *29/10: Remove (`POST /api/staff/[id]/remove`) and scoped editing done;
-  sessions are deleted; Managers edit only Stylists and Therapists. Removal
-  reports the upcoming bookings that name the person, but doesn't yet create
-  durable reassignment work (R1.7, with §4 reassignment flags).*
+  sessions are deleted; Managers edit only Stylists and Therapists.*
+  *Reassignment work (R1.7) done: the removal's own transaction takes the
+  person off their bookings still to come (pending or confirmed, from now in
+  IST); pending ones only lose the tentative assignee, confirmed ones get an
+  open `booking_reassignment` entry (migration 0012), and bookings that
+  should already have started keep them. The response reports the count; the
+  dashboard lists the open work, the bookings list marks it "Needs staff",
+  and the booking detail assigns someone else, which closes the entry.
+  Ending the booking closes it too (trigger, 0013). Completion with nobody
+  assigned is refused. Approving leave does the same for that day's
+  bookings (R5.8). The database refuses an assignee who doesn't work at the
+  branch, or who is on approved leave on a confirmed booking's day (0014,
+  0015). Live suite `reassignments.integration.test.ts` (5).*
 - [ ] Add branch switcher, explicit form branch identity, cache isolation and
   stale-tab rejection; include two-tab tests and delayed-response tests.
   *29/10: switcher (`/api/me/branch`, HttpOnly cookie, full reload on switch)
@@ -232,6 +245,12 @@ and [rollout](rollout.md) before selecting work.
   consistency and races against schedule changes, leave and role removal.
 - [ ] Add durable reassignment/overrun flags and manual reception actions. Actual
   start remains blocked even when alerts fail (MS-07–10).
+  *Reassignment part done (see Remove staff in §3): `booking_reassignment`
+  with reasons `left_branch` and `unavailable`, the dashboard list, "Needs
+  staff" in the bookings list, assign from the booking detail, and
+  completion blocked while unassigned. Still open: the `overrun` reason
+  with occupancy, a start action blocked while unassigned or while the
+  person's previous work runs, and reconciling a weekly schedule change.*
 - [ ] Add bounded, authorized retrospective recording/corrections with audit,
   historical time/conflict checks and safe accounting (MS-11–13).
 

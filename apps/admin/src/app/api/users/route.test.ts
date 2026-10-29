@@ -283,7 +283,11 @@ describe('POST /api/users', () => {
     const res = await POST(
       post({ kind: 'set_manager', branchId: 'rs', userId: 'mgr1', expectedHolderId: 'mgr1' }),
     )
-    expect((await res.json()).data).toEqual({ changed: false, liveUpdates: 'none' })
+    expect((await res.json()).data).toEqual({
+      changed: false,
+      liveUpdates: 'none',
+      reassignments: 0,
+    })
     expect(mocks.applyBranchRolePlan).not.toHaveBeenCalled()
     expect(revokeLiveUpdates).not.toHaveBeenCalled()
   })

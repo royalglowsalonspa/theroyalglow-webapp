@@ -290,7 +290,7 @@ describe.skipIf(!LIVE)('branch role changes against a live database', () => {
       C2,
     )
 
-    expect(result).toEqual({ ok: true, signedOut: [R1] })
+    expect(result).toEqual({ ok: true, signedOut: [R1], reassignments: 0 })
     expect(await roleOf(R1)).toBe('customer')
     expect(await profileOf(R1)).toMatchObject({
       is_active: false,
@@ -445,7 +445,7 @@ describe.skipIf(!LIVE)('branch role changes against a live database', () => {
       ],
       C1,
     )
-    expect(remove).toEqual({ ok: true, signedOut: [C1] })
+    expect(remove).toEqual({ ok: true, signedOut: [C1], reassignments: 0 })
     expect(await roleOf(C1)).toBe('customer')
     expect(await profileOf(C1)).toMatchObject({ is_active: false, role_witness: null })
 
@@ -518,7 +518,7 @@ describe.skipIf(!LIVE)('branch role changes against a live database', () => {
     const waited = Date.now() - started
     await holder
 
-    expect(result).toEqual({ ok: true, signedOut: [] })
+    expect(result).toEqual({ ok: true, signedOut: [], reassignments: 0 })
     expect(waited).toBeGreaterThanOrEqual(1000)
     expect((await branchRefs(free))?.manager_user_id).toBe(M1)
   }, 20_000)

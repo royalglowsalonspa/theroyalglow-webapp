@@ -2,7 +2,7 @@
 
 ## Overview
 
-Production-level schema for Royal Glow Salon & Spa. **38 tables** covering auth, profiles, services, scheduling, bookings, billing, SPA memberships, offers, CRM, leads, loyalty (gems), notifications, branches, and system operations.
+Production-level schema for Royal Glow Salon & Spa. **40 tables** covering auth, profiles, services, scheduling, bookings, billing, SPA memberships, offers, CRM, leads, loyalty (gems), notifications, branches, and system operations.
 
 **ORM:** Drizzle ORM (pure TypeScript, edge-native)
 **Database:** Neon DB (PostgreSQL 16, serverless, branching)
@@ -135,6 +135,19 @@ CREATE TYPE booking_status AS ENUM (
   'cancelled',     -- cancelled by customer or staff
   'no_show',       -- customer didn't show up
   'rescheduled'    -- moved to different time (new booking created)
+);
+
+-- Reassignment work (multi-branch R1.7): why a booking lost its assignee,
+-- and how the work ended
+CREATE TYPE booking_reassignment_reason AS ENUM (
+  'left_branch',   -- removed from the branch, or moved to another
+  'unavailable',   -- approved leave that day
+  'overrun'        -- previous session running over (planned, Phase 4)
+);
+
+CREATE TYPE booking_reassignment_resolution AS ENUM (
+  'reassigned',    -- someone else was assigned
+  'booking_ended'  -- cancelled, rejected, no-show, rescheduled or completed
 );
 
 -- Lead pipeline
@@ -524,6 +537,18 @@ erDiagram
         timestamp created_at
     }
 
+    booking_reassignment {
+        text id PK
+        text booking_id FK
+        booking_reassignment_reason reason
+        text previous_staff_id FK
+        text created_by_id FK
+        timestamp created_at
+        timestamp resolved_at
+        booking_reassignment_resolution resolution
+        text resolved_by_id FK
+    }
+
     waitlist {
         text id PK
         text customer_id FK
@@ -816,6 +841,8 @@ erDiagram
     service ||--o{ booking_service : "booked as"
     staff_profile ||--o{ booking_service : "assigned to"
     booking ||--o{ booking_status_log : "status tracked by"
+    booking ||--o{ booking_reassignment : "awaits someone else"
+    staff_profile ||--o{ booking_reassignment : "taken off"
 
     user ||--o{ waitlist : "joins"
     service ||--o{ waitlist : "waiting for"
@@ -1261,7 +1288,9 @@ Junction — individual services within a booking. Each service can have a diffe
 | `id` | `text` | PK | |
 | `booking_id` | `text` | NOT NULL, FK → `booking.id` ON DELETE CASCADE | |
 | `service_id` | `text` | NOT NULL, FK → `service.id` ON DELETE RESTRICT | |
-| `staff_id` | `text` | NOT NULL, FK → `staff_profile.id` ON DELETE RESTRICT | The specific staff performing this service |
+| `staff_id` | `text` | nullable, FK → `staff_profile.id` ON DELETE SET NULL | The staff performing this service. A pending booking carries a tentative assignee that approval replaces; null while a booking waits for someone else (see `booking_reassignment`). |
+
+**Assignee guard (multi-branch R1.7, R5.2; migrations `0014`/`0015`, trigger `booking_assignee_guard`, BEFORE INSERT OR UPDATE OF `staff_id`):** on a booking that is `pending`, `confirmed` or `in_progress`, the assignee must work at the booking's branch (an active profile there, or the branch's Manager); on a `confirmed` or `in_progress` booking, they must also not be on approved leave that day. Refusals raise `check_violation` on `booking_assignee_works_at_branch` or `booking_assignee_on_leave`. Finished bookings keep their history and aren't checked. The trigger locks the branch row and the staff profile `FOR SHARE`, the rows role changes and leave decisions lock first, so a concurrent change either sees the assignment and releases it, or commits first and the assignment is refused.
 | `service_name_snapshot` | `text` | NOT NULL | Frozen service name at time of booking |
 | `price_at_booking_paise` | `integer` | NOT NULL | Frozen price — original service price may change later |
 | `duration_minutes` | `integer` | NOT NULL | Frozen duration |
@@ -1280,6 +1309,30 @@ Audit trail for every booking status change.
 | `changed_by` | `text` | NOT NULL, FK → `user.id` ON DELETE RESTRICT | Staff or customer who changed it |
 | `notes` | `text` | nullable | "Customer called to cancel" |
 | `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
+
+#### `booking_reassignment`
+
+Reassignment work (multi-branch R1.7, R5.8; migrations `0012`, `0013`): a confirmed booking whose assignee was taken off it, open until reception assigns someone else or the booking ends. Resolved entries stay as history.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `text` | PK, DEFAULT `gen_random_uuid()::text` | Made by the database: the entry is written by the same statement that clears the assignment |
+| `booking_id` | `text` | NOT NULL, FK → `booking.id` ON DELETE CASCADE | |
+| `reason` | `booking_reassignment_reason` | NOT NULL | `left_branch` (removed or moved), `unavailable` (approved leave that day), `overrun` (planned, Phase 4) |
+| `previous_staff_id` | `text` | nullable, FK → `staff_profile.id` ON DELETE SET NULL | The person taken off the booking |
+| `created_by_id` | `text` | nullable, FK → `user.id` ON DELETE SET NULL | Who made the change that took them off |
+| `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
+| `resolved_at` | `timestamptz` | nullable | |
+| `resolution` | `booking_reassignment_resolution` | nullable | `reassigned` or `booking_ended` |
+| `resolved_by_id` | `text` | nullable, FK → `user.id` ON DELETE SET NULL | Who assigned someone else; null when the booking ended |
+
+**Constraints:** `booking_reassignment_open_uidx` UNIQUE (`booking_id`) WHERE `resolved_at IS NULL` (one open entry per booking); CHECK `booking_reassignment_resolution_check` (open entries have no resolution, resolved ones have one).
+
+**How entries open and close:**
+- A role change (`applyBranchRolePlan`) and a leave approval (`updateLeaveStatus`) clear, in their own transaction, the assignments of bookings still to come (`pending` or `confirmed`, starting now or later in IST) whose assignee no longer works at the branch or is on that leave. Confirmed bookings get an open entry; pending ones only lose their tentative assignee. A booking that should already have started keeps its assignee.
+- Assigning someone (`approveBooking`, `assignStaff`) closes the entry as `reassigned`, with the actor.
+- Trigger `booking_reassignment_close_on_end` closes it as `booking_ended` when the booking becomes cancelled, rejected, no-show, rescheduled or completed, by any path.
+- The customer's booking is never cancelled or moved. A booking with nobody assigned can't be completed (409).
 
 #### `waitlist`
 
@@ -2417,7 +2470,7 @@ packages/db/schema/
 ├── profile.ts           → customer_profile, staff_profile
 ├── service.ts           → service_category, service, staff_service
 ├── schedule.ts          → staff_schedule, staff_time_off, business_hour, holiday
-├── booking.ts           → booking, booking_service, booking_status_log, waitlist
+├── booking.ts           → booking, booking_service, booking_status_log, booking_reassignment, waitlist
 ├── invoice.ts           → invoice, invoice_item
 ├── membership.ts        → spa_membership_tier, spa_membership
 ├── lead.ts              → lead, lead_note
@@ -2439,7 +2492,7 @@ packages/db/schema/
 | Profiles | 2 | customer_profile, staff_profile |
 | Services | 3 | service_category, service, staff_service |
 | Scheduling | 4 | staff_schedule, staff_time_off, business_hour, holiday |
-| Bookings | 4 | booking, booking_service, booking_status_log, waitlist |
+| Bookings | 5 | booking, booking_service, booking_status_log, booking_reassignment, waitlist |
 | Billing | 2 | invoice, invoice_item |
 | CRM & Leads | 5 | lead, lead_note, customer_tag, customer_tag_assignment, customer_note |
 | Loyalty | 2 | loyalty_account, loyalty_transaction |
@@ -2447,8 +2500,8 @@ packages/db/schema/
 | Offers | 3 | offer, offer_service, offer_redemption |
 | Notifications | 2 | push_subscription, notification |
 | Branches | 1 | branch |
-| System | 4 | daily_sales_summary, monthly_gst_summary, audit_log, system_setting |
-| **Total** | **38** | |
+| System | 5 | daily_sales_summary, monthly_gst_summary, audit_log, system_setting, realtime_revocation |
+| **Total** | **40** | |
 
 
 

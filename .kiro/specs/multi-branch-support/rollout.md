@@ -59,7 +59,7 @@ If a step fails, stop subsequent steps and retain the compatible additive state 
 
 ### Current application migrations (29 October 2026)
 
-Applied on Neon dev (`0000`–`0011`). Production has `0000`–`0003`.
+Applied on Neon dev (`0000`–`0015`). Production has `0000`–`0003`.
 
 | Migration | Kind |
 | --- | --- |
@@ -71,18 +71,26 @@ Applied on Neon dev (`0000`–`0011`). Production has `0000`–`0003`.
 | `0009_multi_branch_notifications` | Additive (`branch_manager_missing` enum value) |
 | `0010_branch_closures` | Additive (`holiday.branch_id`, nullable = all branches; per-branch partial unique indexes replace the one-per-date index) |
 | `0011_branch_shutdown_guard` | Enforcement, hand-written (triggers: no new bookings or invoices at a shut-down branch; no shutdown while anything is open) |
+| `0012_booking_reassignment` | Additive (`booking_reassignment` table and its two enums) |
+| `0013_booking_reassignment_close` | Hand-written trigger: closes a booking's open reassignment work when the booking ends |
+| `0014_booking_assignee_guard` | Enforcement, hand-written (trigger `booking_assignee_guard`: an assignee must work at the booking's branch; not on approved leave on a confirmed booking's day) |
+| `0015_booking_assignee_guard_leave_date` | Fix for `0014`: compares the text leave date with the booking date correctly. Apply together with `0014`; on its own, `0014` refuses every assignment |
 
-Drizzle applies migrations strictly in journal order, so `0007`–`0011` can't
-go in before `0005`–`0006`, and the new code needs `0007`–`0011`. Recommended
-production sequence: pause role and staff changes, apply `0004`–`0011` in one
+Drizzle applies migrations strictly in journal order, so `0007`–`0015` can't
+go in before `0005`–`0006`, and the new code needs `0007`–`0015`. Recommended
+production sequence: pause role and staff changes, apply `0004`–`0015` in one
 run, then deploy the code straight away. Between the two, the old code's role
 and staff writes fail closed (the `0006` checks and triggers reject them)
 instead of writing unkeyed rows; every other old-code path keeps working,
 because the remaining changes are additive or refuse writes only at a
-shut-down branch. Existing holidays become all-branches closures
-(`branch_id` null). Before applying `0011`, check production for a branch
-already marked `shutdown`: from then on it takes no new bookings or invoices.
-Reset `test` and `pprd` from production afterwards.
+shut-down branch or with an assignee who doesn't work at the branch. Existing
+holidays become all-branches closures (`branch_id` null). Before applying
+`0011`, check production for a branch already marked `shutdown`: from then on
+it takes no new bookings or invoices. Before applying `0014`, check for
+pending or confirmed bookings whose assignee no longer works at their branch:
+they stay as they are (the trigger checks new writes only), but they can't be
+approved or reassigned to that person; list them for reception. Reset `test`
+and `pprd` from production afterwards.
 
 Before launch, also: issue admin realtime tokens from an Ably key with
 "Revocable tokens" enabled (a reviewed key cutover: switch `ABLY_PRIVATE_KEY`,
