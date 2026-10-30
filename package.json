@@ -48,7 +48,7 @@
     "check:vitest-dependencies": "bun run scripts/ci/check-vitest-dependencies.ts"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.15",
+    "@biomejs/biome": "^2.6.3",
     "@playwright/test": "^1.64.1",
     "@types/node": "^26.6.5",
     "@types/semver": "^7.8.0",
@@ -57,18 +57,18 @@
     "checkly": "^9.5.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
-    "sass": "^1.105.2",
+    "sass": "^1.106.1",
     "semver": "^7.8.5",
     "sst": "^4.17.2",
     "turbo": "2.11.10",
     "typescript": "7.0.2",
-    "vite": "8.3.4",
+    "vite": "8.3.5",
     "vitest": "5.0.5"
   },
   "overrides": {
     "kysely": "0.29.7",
     "dompurify": "3.4.17",
-    "postcss": "8.5.31",
+    "postcss": "8.5.32",
     "form-data": "4.0.6",
     "undici@^7.0.0": "$undici",
     "happy-dom@>=17.0.0 <21.0.4": "$happy-dom",
@@ -78,13 +78,13 @@
     "brace-expansion": "5.0.12",
     "shell-quote": "1.12.0",
     "fast-uri": "3.1.9",
-    "ip-address": "10.7.4",
+    "ip-address": "10.7.5",
     "js-yaml": "5.5.0",
     "@modelcontextprotocol/sdk": "$@modelcontextprotocol/sdk",
-    "browserslist": "4.29.4",
-    "qs": "6.16.1",
+    "browserslist": "4.29.5",
+    "qs": "6.17.0",
     "fflate": "0.8.3",
-    "follow-redirects": "1.16.1",
+    "follow-redirects": "1.16.2",
     "zod@^3.25.50": "$zod",
     "json-schema-to-zod": "2.8.1",
     "body-parser@>=2.0.0 <2.4.0": "$body-parser"
@@ -95,7 +95,7 @@
     ]
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "nanoid": "^6.0.2",
     "undici": "^7.30.1",
     "happy-dom": "^21.0.4",
