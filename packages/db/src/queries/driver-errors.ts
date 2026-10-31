@@ -21,6 +21,8 @@ export const SQLSTATE = {
   // ON DELETE RESTRICT raises this, not 23503.
   restrictViolation: '23001',
   checkViolation: '23514',
+  // An exclusion constraint, such as a person booked twice at once (0028).
+  exclusionViolation: '23P01',
   deadlockDetected: '40P01',
 } as const
 

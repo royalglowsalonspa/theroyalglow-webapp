@@ -79,8 +79,11 @@ describe('write paths refresh the KPIs inside their atomic batch', () => {
     expect(body).toContain('statements.push(refreshCustomerStatsStatement(inv.customerId))')
   })
 
-  it('membership purchase and session recording include the refresh', () => {
+  it('membership purchase and session completion include the refresh', () => {
     const body = source('memberships.ts')
-    expect(body.split('refreshCustomerStatsStatement(params.customerId)').length - 1).toBe(2)
+    expect(body).toContain('statements.push(refreshCustomerStatsStatement(params.customerId))')
+    // Recording a session starts it; completing it is the visit (0026).
+    expect(body).toContain('refreshCustomerStatsStatement(customerId),')
+    expect(body.split('refreshCustomerStatsStatement(').length - 1).toBe(2)
   })
 })

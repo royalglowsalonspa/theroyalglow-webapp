@@ -31,6 +31,7 @@
  * Notes        : `code` + `number` are generated server-side and immutable.
  ************************************************************/
 
+import { conflict, ERROR_CODES } from '@rgss/errors'
 import type { BranchCreateInput, BranchUpdateInput } from '@rgss/types'
 import { asc, eq, ne, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
@@ -38,7 +39,7 @@ import { db } from '../index'
 import { user } from '../schema/auth'
 import { branch } from '../schema/branch'
 import { staffProfile } from '../schema/profile'
-import { isGuardAbort } from './driver-errors'
+import { findDriverError, isConstraintViolation, isGuardAbort, SQLSTATE } from './driver-errors'
 
 // All branches (every status), ordered for the admin list.
 export async function getBranches() {
@@ -89,6 +90,20 @@ async function uniqueBranchCode(name: string): Promise<string> {
   return existing.length === 0 ? base : `${base}-${nanoid(4).toUpperCase()}`
 }
 
+const INVOICE_PREFIX = /^[A-Z][A-Z0-9]{0,3}$/
+
+/**
+ * A new branch's invoice prefix (R6.2): the one given, else its code when
+ * that fits (1–4 characters), else "B" + its number in base 36, the same
+ * default migration 0017 uses. Unique because codes and numbers are.
+ */
+export function defaultInvoicePrefix(code: string, number: number): string {
+  if (INVOICE_PREFIX.test(code)) {
+    return code
+  }
+  return `B${number.toString(36).toUpperCase()}`
+}
+
 // Next sequential branch number (1-based).
 async function nextBranchNumber(): Promise<number> {
   const rows = await db
@@ -136,6 +151,9 @@ export async function createBranch(data: BranchCreateInput): Promise<CreateBranc
       temporaryCloseReason: data.temporaryCloseReason ?? null,
       isPrimary: data.isPrimary ?? false,
       displayOrder: data.displayOrder ?? 0,
+      legalName: data.legalName?.trim() ? data.legalName.trim() : null,
+      gstin: data.gstin ? data.gstin : null,
+      invoicePrefix: data.invoicePrefix ?? defaultInvoicePrefix(code, number),
     })
     .returning()
 
@@ -178,8 +196,23 @@ export async function updateBranch(id: string, patch: BranchUpdateInput) {
   if (Object.keys(values).length === 0) {
     return getBranchById(id)
   }
-  const [updated] = await db.update(branch).set(values).where(eq(branch.id, id)).returning()
-  return updated ?? null
+  try {
+    const [updated] = await db.update(branch).set(values).where(eq(branch.id, id)).returning()
+    return updated ?? null
+  } catch (error) {
+    // The prefix is fixed once the branch has numbered an invoice (0018
+    // trigger), and no two branches share one.
+    if (isConstraintViolation(error, SQLSTATE.uniqueViolation, ['branch_invoice_prefix_unique'])) {
+      throw conflict(ERROR_CODES.CONFLICT, 'Another branch already uses that invoice prefix.')
+    }
+    if (findDriverError(error, [SQLSTATE.checkViolation])?.message?.toString().includes('prefix')) {
+      throw conflict(
+        ERROR_CODES.CONFLICT,
+        'This branch has issued invoices, so its invoice prefix can’t change.',
+      )
+    }
+    throw error
+  }
 }
 
 /** The columns a patch writes: only the keys it provides. */
@@ -238,6 +271,15 @@ export function branchUpdateValues(patch: BranchUpdateInput): Partial<typeof bra
   }
   if (patch.displayOrder !== undefined) {
     values.displayOrder = patch.displayOrder
+  }
+  if (patch.legalName !== undefined) {
+    values.legalName = patch.legalName.trim() ? patch.legalName.trim() : null
+  }
+  if (patch.gstin !== undefined) {
+    values.gstin = patch.gstin ? patch.gstin : null
+  }
+  if (patch.invoicePrefix !== undefined) {
+    values.invoicePrefix = patch.invoicePrefix
   }
   return values
 }

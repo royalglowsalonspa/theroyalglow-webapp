@@ -31,6 +31,7 @@
  *                not handled here. Dates are coerced to Date objects.
  ************************************************************/
 import { z } from 'zod'
+import { gstinSchema } from './gstin'
 
 // Mirrors branchStatusEnum in packages/db/src/schema/enums.ts.
 export const BRANCH_STATUSES = [
@@ -40,6 +41,13 @@ export const BRANCH_STATUSES = [
   'shutdown',
 ] as const
 export type BranchStatusValue = (typeof BRANCH_STATUSES)[number]
+
+/** The start of a branch's invoice numbers: RS in RS/2627/000123 (R6.2). */
+export const invoicePrefixSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z][A-Z0-9]{0,3}$/, 'Use 1 to 4 letters or digits, starting with a letter.')
 
 // India-aware field validators implied by the schema columns.
 const pincodeSchema = z
@@ -80,6 +88,13 @@ const branchFieldsSchema = z.object({
   temporaryCloseReason: z.string().trim().max(300).optional(),
   isPrimary: z.boolean().optional(),
   displayOrder: z.coerce.number().int().min(0).max(9999).optional(),
+  // The issuer on the branch's invoices (multi-branch R6.1). Required before
+  // live invoicing (TX-08); an empty value clears it.
+  legalName: z.string().trim().max(160).optional(),
+  gstin: z.union([gstinSchema, z.literal('')]).optional(),
+  // 1–4 capitals or digits starting with a letter: RS in RS/2627/000123.
+  // Fixed once the branch has issued an invoice.
+  invoicePrefix: invoicePrefixSchema.optional(),
 })
 
 // A new branch names its Owner (multi-branch R1.2): an existing Owner, or a

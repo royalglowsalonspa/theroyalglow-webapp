@@ -41,7 +41,7 @@ const ROLE_LEVEL: Record<RoleName, number> = {
  * must be allowed, taken straight from the design's route → min-role mapping:
  *   - Receptionist (2): ops/crm/billing/leave/memberships/waitlist + dashboard
  *   - Manager (3):      services/offers/staff/schedule/reports
- *   - Owner (4):        branches/users
+ *   - Owner (4):        branches/users/settlements
  *   - Developer (5):    settings/integrations/logs
  */
 const ROUTE_MIN_ROLE: ReadonlyArray<readonly [string, RoleName]> = [
@@ -61,6 +61,7 @@ const ROUTE_MIN_ROLE: ReadonlyArray<readonly [string, RoleName]> = [
   ['/settings', 'developer'],
   ['/branches', 'owner'],
   ['/users', 'owner'],
+  ['/settlements', 'owner'],
   ['/integrations', 'developer'],
   ['/logs', 'developer'],
 ] as const

@@ -29,13 +29,13 @@
  *                while differing between attempts.
  ************************************************************/
 
+import type { PublicBranchList } from '@rgss/types'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { HttpResponse, http } from 'msw/http'
 import { delay } from 'msw/utils/delay'
 import { afterEach, describe, expect, it } from 'vitest'
-
 import { server } from '@/test/msw-server'
-import { RedeemFlow } from './RedeemFlow'
+import { type RedeemableItem, RedeemFlow } from './RedeemFlow'
 
 const AFFORDABLE = {
   id: 'svc_facial',
@@ -62,8 +62,40 @@ function slots() {
   }
 }
 
-function renderFlow(balance = 1000, catalogue = [AFFORDABLE, UNAFFORDABLE]) {
-  return render(<RedeemFlow balance={balance} catalogue={catalogue} />)
+// One branch taking bookings: the picker stays hidden, as before multi-branch.
+const ONE_BRANCH: PublicBranchList = {
+  branches: [
+    {
+      id: 'branch_rayasandra',
+      name: 'Rayasandra',
+      city: 'Bengaluru',
+      status: 'operational',
+      acceptingBookings: true,
+    },
+  ],
+  defaultBranchId: 'branch_rayasandra',
+}
+
+const TWO_BRANCHES: PublicBranchList = {
+  branches: [
+    ...ONE_BRANCH.branches,
+    {
+      id: 'branch_marathahalli',
+      name: 'Marathahalli',
+      city: 'Bengaluru',
+      status: 'operational',
+      acceptingBookings: true,
+    },
+  ],
+  defaultBranchId: 'branch_rayasandra',
+}
+
+function renderFlow(
+  balance = 1000,
+  catalogue: RedeemableItem[] = [AFFORDABLE, UNAFFORDABLE],
+  branchList: PublicBranchList = ONE_BRANCH,
+) {
+  return render(<RedeemFlow balance={balance} catalogue={catalogue} branchList={branchList} />)
 }
 
 /** Open the dialog, pick the first date, pick the 10:00 slot. */
@@ -380,5 +412,102 @@ describe('RedeemFlow — accessibility (WCAG 2.1 AA)', () => {
 
     fireEvent.keyDown(document, { key: 'Escape' })
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+})
+
+describe('RedeemFlow — branch choice and availability (multi-branch R4.3, R7.2)', () => {
+  const ONLY_MH: RedeemableItem = {
+    id: 'svc_hot_stone',
+    name: 'Hot Stone',
+    gemsRequired: 300,
+    pricePaise: 150_000,
+    affordable: true,
+    availableBranchIds: ['branch_marathahalli'],
+  }
+
+  it('hides the picker with one branch and redeems there', async () => {
+    let posted: Record<string, unknown> | null = null
+    let slotBranch: string | null = null
+    server.use(
+      http.get('*/api/availability', ({ request }) => {
+        slotBranch = new URL(request.url).searchParams.get('branchId')
+        return HttpResponse.json({ success: true, data: slots() })
+      }),
+      http.post('*/api/gems/redeem', async ({ request }) => {
+        posted = (await request.json()) as Record<string, unknown>
+        return HttpResponse.json(
+          { success: true, data: { reference: 'BK-RS-1', newBalance: 500, duplicate: false } },
+          { status: 201 },
+        )
+      }),
+    )
+    renderFlow(1000, [AFFORDABLE])
+
+    expect(screen.queryByLabelText('Redeem at')).not.toBeInTheDocument()
+    await openAndPickSlot()
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Redemption' }))
+
+    await screen.findByText('BK-RS-1')
+    expect(slotBranch).toBe('branch_rayasandra')
+    expect(posted).toMatchObject({ branchId: 'branch_rayasandra', serviceId: 'svc_facial' })
+  })
+
+  it('lists only the rewards the chosen branch offers, and redeems at that branch', async () => {
+    let posted: Record<string, unknown> | null = null
+    server.use(
+      http.get('*/api/availability', () => HttpResponse.json({ success: true, data: slots() })),
+      http.post('*/api/gems/redeem', async ({ request }) => {
+        posted = (await request.json()) as Record<string, unknown>
+        return HttpResponse.json(
+          { success: true, data: { reference: 'BK-MH-1', newBalance: 700, duplicate: false } },
+          { status: 201 },
+        )
+      }),
+    )
+    renderFlow(1000, [AFFORDABLE, ONLY_MH], TWO_BRANCHES)
+
+    // Rayasandra (the default) doesn't offer Hot Stone.
+    expect(screen.getByLabelText('Redeem at')).toHaveValue('branch_rayasandra')
+    expect(screen.queryByText('Hot Stone')).not.toBeInTheDocument()
+    expect(screen.getByText('Signature Facial')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Redeem at'), {
+      target: { value: 'branch_marathahalli' },
+    })
+    expect(screen.getByText('Hot Stone')).toBeInTheDocument()
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Redeem' })[1] as HTMLElement)
+    await screen.findByRole('dialog')
+    const dateButtons = screen
+      .getAllByRole('button')
+      .filter((button) => button.hasAttribute('aria-pressed'))
+    fireEvent.click(dateButtons[0] as HTMLElement)
+    fireEvent.click(await screen.findByRole('button', { name: '10:00' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Redemption' }))
+
+    await screen.findByText('BK-MH-1')
+    expect(posted).toMatchObject({ branchId: 'branch_marathahalli', serviceId: 'svc_hot_stone' })
+  })
+
+  it('says so when the chosen branch offers none of the rewards', () => {
+    renderFlow(1000, [ONLY_MH], ONE_BRANCH)
+
+    expect(
+      screen.getByText('No rewards are available at Rayasandra right now.'),
+    ).toBeInTheDocument()
+  })
+
+  it('says gems can’t be redeemed online when no branch is taking bookings', () => {
+    renderFlow(1000, [AFFORDABLE], {
+      branches: ONE_BRANCH.branches.map((b) => ({
+        ...b,
+        status: 'temporarily_closed',
+        acceptingBookings: false,
+      })),
+      defaultBranchId: null,
+    })
+
+    expect(screen.getByRole('status')).toHaveTextContent("Gems can't be redeemed online right now.")
+    expect(screen.queryByRole('button', { name: 'Redeem' })).not.toBeInTheDocument()
   })
 })

@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 21-06-2026 & Updated - 21-06-2026
+ * Date         : Created - 21-06-2026 & Updated - 25-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : Invoice Detail
@@ -16,7 +16,9 @@
  * Responsibilities :
  * - Fetch the invoice + items via useAsyncData
  * - Render line items through the DataTable primitive
- * - Render the subtotal / discount / taxable / GST / total split
+ * - Render the subtotal / discount / taxable / CGST / SGST / total split, as
+ *   the invoice stored it when issued (multi-branch R6.1), with each line's
+ *   SAC code and rate, the issuer and a test-invoice marker
  * - Surface gems earned/redeemed, payment method/reference, and the PDF link
  *
  * Features / Functionality :
@@ -59,6 +61,11 @@ interface InvoiceItem {
   quantity: number
   unitPricePaise: number
   totalPricePaise: number
+  /** The line's stored tax facts; null on invoices issued before them. */
+  sacCode: string | null
+  rateBps: number | null
+  discountPaise: number | null
+  taxPaise: number | null
 }
 
 interface Invoice {
@@ -72,6 +79,8 @@ interface Invoice {
   discountAmountPaise: number
   taxableValuePaise: number
   gstAmountPaise: number
+  cgstPaise: number | null
+  sgstPaise: number | null
   totalAmountPaise: number
   invoiceType: string
   paymentMethod: string
@@ -83,7 +92,26 @@ interface Invoice {
   notes: string | null
   paidAt: string | null
   createdAt: string
+  // Issue facts (multi-branch R6.1); null on invoices issued before them.
+  taxPointAt: string | null
+  taxReviewStatus: 'provisional' | 'reviewed' | null
+  issuerName: string | null
+  issuerLegalName: string | null
+  issuerGstin: string | null
   items: InvoiceItem[]
+}
+
+/** The GST rate the lines share (500 → "5%"), or null when they differ or carry none. */
+function sharedRate(items: readonly InvoiceItem[]): string | null {
+  const first = items[0]?.rateBps
+  if (first === null || first === undefined) {
+    return null
+  }
+  return items.every((item) => item.rateBps === first) ? `${first / 100}%` : null
+}
+
+function halfRate(rate: string | null): string {
+  return rate ? ` @ ${Number.parseFloat(rate) / 2}%` : ''
 }
 
 export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
@@ -113,6 +141,20 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
         cell: ({ row }) => (
           <span className="text-warm-gray">{row.original.staffNameSnapshot ?? PLACEHOLDER}</span>
         ),
+      },
+      {
+        id: 'tax',
+        header: 'SAC · GST',
+        enableSorting: false,
+        cell: ({ row }) =>
+          row.original.sacCode ? (
+            <span className="whitespace-nowrap font-mono text-xs text-warm-gray">
+              {row.original.sacCode}
+              {row.original.rateBps !== null ? ` · ${row.original.rateBps / 100}%` : ''}
+            </span>
+          ) : (
+            <span className="text-dusty-gray">{PLACEHOLDER}</span>
+          ),
       },
       {
         accessorKey: 'quantity',
@@ -184,13 +226,24 @@ function InvoiceBody({
           <p className="mt-1 font-sans text-sm text-warm-gray">
             {invoice.customerName} · {invoice.customerEmail}
           </p>
+          {invoice.issuerName ? (
+            <p className="mt-0.5 font-sans text-xs text-dusty-gray">
+              Issued by {invoice.issuerLegalName ?? invoice.issuerName}
+              {invoice.issuerGstin ? ` · GSTIN ${invoice.issuerGstin}` : ' · no GSTIN'}
+            </p>
+          ) : null}
           <p className="mt-0.5 font-sans text-xs text-dusty-gray">
-            Issued {formatDateTimeIST(invoice.createdAt)}
+            Issued {formatDateTimeIST(invoice.taxPointAt ?? invoice.createdAt)}
             {invoice.paidAt ? ` · Paid ${formatDateTimeIST(invoice.paidAt)}` : ''}
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
           <StatusBadge status={invoice.paymentStatus} />
+          {invoice.taxReviewStatus === 'provisional' ? (
+            <span className="rounded-pill bg-cloud-gray px-2.5 py-0.5 font-ui text-[11px] uppercase tracking-[0.5px] text-warm-gray">
+              Test invoice · provisional rates
+            </span>
+          ) : null}
           <span className="font-ui text-[11px] uppercase tracking-[0.5px] text-dusty-gray">
             {invoice.paymentMethod}
             {invoice.paymentReference ? ` · ${invoice.paymentReference}` : ''}
@@ -217,14 +270,29 @@ function InvoiceBody({
         caption={`Line items for invoice ${invoice.invoiceNumber}`}
       />
 
-      {/* Money breakdown (GST 18% inclusive) */}
+      {/* Money breakdown, as stored when issued (prices include GST) */}
       <div className="ml-auto max-w-sm space-y-2 rounded-cards border border-cloud-gray bg-canvas-white p-5">
         <Row label="Subtotal" value={formatINRWithPaise(invoice.subtotalPaise)} />
         {invoice.discountAmountPaise > 0 ? (
           <Row label="Discount" value={`− ${formatINRWithPaise(invoice.discountAmountPaise)}`} />
         ) : null}
         <Row label="Taxable value" value={formatINRWithPaise(invoice.taxableValuePaise)} muted />
-        <Row label="GST (18%)" value={formatINRWithPaise(invoice.gstAmountPaise)} muted />
+        {invoice.cgstPaise !== null && invoice.sgstPaise !== null ? (
+          <>
+            <Row
+              label={`CGST${halfRate(sharedRate(invoice.items))}`}
+              value={formatINRWithPaise(invoice.cgstPaise)}
+              muted
+            />
+            <Row
+              label={`SGST${halfRate(sharedRate(invoice.items))}`}
+              value={formatINRWithPaise(invoice.sgstPaise)}
+              muted
+            />
+          </>
+        ) : (
+          <Row label="GST" value={formatINRWithPaise(invoice.gstAmountPaise)} muted />
+        )}
         <div className="mt-2 border-t border-cloud-gray pt-2">
           <Row label="Total" value={formatINRWithPaise(invoice.totalAmountPaise)} bold />
         </div>

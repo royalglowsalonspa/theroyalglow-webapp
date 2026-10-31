@@ -55,6 +55,9 @@ export const ROUTE_MIN_LEVEL: ReadonlyArray<readonly [string, number]> = [
   ['/logs', 5],
   ['/branches', 4],
   ['/users', 4],
+  // Statements between branches (R10): the two branches' Owners and the
+  // Developer. The page and API also check the Owner owns one of the pair.
+  ['/settlements', 4],
   // `/services` is no longer a management UI — it is a redirect to the Payload
   // CMS service collection (authoring moved there). The Manager+ gate is kept
   // DELIBERATELY so lower roles cannot reach the redirect; the matching sidebar
@@ -64,8 +67,8 @@ export const ROUTE_MIN_LEVEL: ReadonlyArray<readonly [string, number]> = [
   ['/staff', 3],
   ['/schedule', 3],
   ['/reports', 3],
-  // Settings are Developer-only (multi-branch route inventory); they become
-  // per-branch settings with revisions later (tasks §5).
+  // Settings are Developer-only (multi-branch route inventory): the active
+  // branch's booking settings as revisions, and the shared invoicing switch.
   ['/settings', 5],
   ['/bookings', 2],
   ['/waitlist', 2],
@@ -229,6 +232,7 @@ export const ADMIN_NAV: ReadonlyArray<NavSection> = [
     items: [
       { label: 'Billing', href: '/billing', minLevel: 2 },
       { label: 'Reports', href: '/reports', minLevel: 3 },
+      { label: 'Settlements', href: '/settlements', minLevel: 4 },
     ],
   },
   {

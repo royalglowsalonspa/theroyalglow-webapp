@@ -56,6 +56,7 @@ import { ServiceCategory } from './collections/ServiceCategory'
 import { Team } from './collections/Team'
 import { Testimonial } from './collections/Testimonial'
 import { Users } from './collections/Users'
+import { catalogueBranchesEndpoint } from './endpoints/catalogue-branches'
 import { resolveServerURL } from './lib/server-url'
 
 const filename = fileURLToPath(import.meta.url)
@@ -99,7 +100,12 @@ export default buildConfig({
     : {}),
   admin: {
     user: Users.slug,
+    // Custom admin components are registered by paths relative to src/
+    // (e.g. '/components/BranchAvailabilityField#BranchAvailabilityField').
+    importMap: { baseDir: path.resolve(dirname) },
   },
+  // GET /api/catalogue-branches: the branch list for catalogue availability.
+  endpoints: [catalogueBranchesEndpoint],
   sharp,
   editor: lexicalEditor({}),
   db: postgresAdapter({
@@ -201,12 +207,12 @@ export default buildConfig({
         service: {
           enabled: { find: true },
           description:
-            'The operational, BOOKABLE service catalogue for Royal Glow Salon & Spa. Each document is a service a customer can book: name, slug, description, categoryId (relationship to service_category), durationMinutes (fixed set: 15/30/45/60/90/120/150/180), bufferMinutes (clean-up time after the service), pricePaise (GST-inclusive price in PAISE — 149900 means ₹1,499.00), isActive (false = retired, services are deactivated never deleted), imageUrl, displayOrder, and the gems loyalty fields gemsRedeemable / gemsRequired / gemsCatalogueOrder. These records are MIRRORED into the booking engine database (public.service) by an afterChange sync hook, so this is live operational data, not marketing copy. Use it to answer questions about what services exist, their prices, and their durations.',
+            'The operational, BOOKABLE service catalogue for Royal Glow Salon & Spa. Each document is a service a customer can book: name, slug, description, categoryId (relationship to service_category), durationMinutes (fixed set: 15/30/45/60/90/120/150/180), bufferMinutes (clean-up time after the service), pricePaise (GST-inclusive price in PAISE — 149900 means ₹1,499.00), isActive (false = retired, services are deactivated never deleted), imageUrl, displayOrder, the gems loyalty fields gemsRedeemable / gemsRequired / gemsCatalogueOrder, sacCode (the tax classification; empty means the category\'s applies), availability ("all" branches, or "selected" with the branch ids in availableBranches — a service is only offered where its category is too) and editedBy (the CMS login that saved this version). These records are MIRRORED into the booking engine database (public.service) by an afterChange sync hook, so this is live operational data, not marketing copy. Use it to answer questions about what services exist, their prices, their durations and where they are offered.',
         },
         service_category: {
           enabled: { find: true },
           description:
-            'Bookable service CATEGORIES that group the services in the `service` collection — e.g. "Hair Care", "Body Massage", "Bridal". Fields: name, slug, description, serviceType ("salon" or "spa" — a single booking may only contain services of one type), displayOrder, isActive. Mirrored to the booking engine database (public.service_category). Use it to understand the Salon/SPA taxonomy behind the bookable catalogue.',
+            'Bookable service CATEGORIES that group the services in the `service` collection — e.g. "Hair Care", "Body Massage", "Bridal". Fields: name, slug, description, serviceType ("salon" or "spa" — a single booking may only contain services of one type), displayOrder, isActive, sacCode (the tax classification its services use unless they set their own), availability ("all" branches, or "selected" with the branch ids in availableBranches) and editedBy. Mirrored to the booking engine database (public.service_category). Use it to understand the Salon/SPA taxonomy behind the bookable catalogue.',
         },
         'service-card': {
           enabled: { find: true },

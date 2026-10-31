@@ -152,11 +152,23 @@ GROUP BY i.branch_id;
 | **Schedule** | `30 18 * * *` UTC = 12:00 AM IST |
 | **Heartbeat** | `BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY` |
 
-**What it does:** Flips `spa_membership.status` from `active` to `expired` for all memberships whose `expires_at` has passed.
+**What it does:** In one transaction, cancels the membership sessions that never started (pending or confirmed) of every membership whose `expires_at` has passed, with the reason "The membership expired before this session started.", then flips `spa_membership.status` from `active` to `expired` for those memberships. Cancelling a session releases the minutes it held (migration 0026). A session already in progress keeps its held minutes and completes later. The route returns `{ expired, cancelledSessions }`.
 
-**Why:** A customer's membership expires at 11:59 PM. At midnight their status flips automatically. If they try to book an SPA session the next day, the system correctly shows them as non-member. No manual intervention.
+**Why:** A customer's membership expires at 11:59 PM. At midnight their status flips automatically. If they try to book an SPA session the next day, the system correctly shows them as non-member. A session booked for after the expiry can't start any more, so its minutes are given back; one that started in time still completes (membership-scheduling.md, MS-04 and MS-06). No manual intervention. The job writes no booking status-log entry: it is a system change with no acting person.
 
 ```sql
+WITH unstarted AS (
+  UPDATE booking b
+     SET status = 'cancelled', cancellation_reason = 'The membership expired before this session started.',
+         cancelled_at = now(), updated_at = now()
+   WHERE b.is_membership_session
+     AND b.status IN ('pending', 'confirmed')
+     AND b.spa_membership_id IN (SELECT m.id FROM spa_membership m
+                                  WHERE m.status IN ('active', 'expired') AND m.expires_at < now())
+  RETURNING 1
+)
+SELECT count(*) FROM unstarted;
+
 UPDATE spa_membership
 SET status = 'expired', updated_at = NOW()
 WHERE status = 'active'
@@ -233,24 +245,24 @@ UPDATE "user" SET
 | Field | Value |
 |-------|-------|
 | **Schedule** | `30 19 1 * *` UTC = 1:00 AM IST on the **2nd** of every month (19:30 UTC on the 1st); it summarises the previous IST month |
-| **Heartbeat** | `BETTER_STACK_HEARTBEAT_NIGHTLY_SALES` (shared) |
+| **Heartbeat** | `BETTER_STACK_HEARTBEAT_MONTHLY_GST` |
 
-**What it does:** Aggregates the previous month's GST into a `monthly_gst_summary` table — total taxable value, total GST collected (18%), invoice count, SAC code 999721.
+**What it does:** Rebuilds the previous IST month's `monthly_gst_summary` rows: one per branch, issuer GSTIN and SAC code (multi-branch R6.5), with taxable value, GST, CGST, SGST and the number of invoices with a line under the code. It sums the lines each invoice stored when it was issued (paid `service` and `membership_purchase` invoices whose tax point falls in the month), never today's rates. An invoice from before the issue snapshots counts under SAC 999721 with its header amounts. Code: `buildMonthlyGstSummary` in `packages/db/src/queries/jobs.ts`.
 
-**Why:** GSTIN `XXAAACR1234X1ZX` means quarterly GST filing is mandatory. Owner or CA needs total GST collected per month. Pre-aggregated table eliminates recomputation at filing time.
+**Why:** each branch files GST under its own GSTIN; the Owner or CA needs taxable value and tax per GSTIN and SAC code per month. A pre-aggregated table avoids recomputing at filing time.
+
+**Idempotent:** one transaction deletes the month's rows and inserts them again from the invoices, so a QStash retry gives the same rows (ids are `md5(month:branch:gstin:sac)`) and an invoice that is no longer paid drops out. A duplicate delivery running at the same time updates the first one's rows instead of failing.
 
 ```sql
-INSERT INTO monthly_gst_summary (month, taxable_value_paise, gst_amount_paise, invoice_count, sac_code)
-SELECT
-  DATE_TRUNC('month', NOW()) - INTERVAL '1 month',
-  SUM(i.taxable_value_paise),
-  SUM(i.gst_amount_paise),
-  COUNT(*),
-  '999721'
-FROM invoice
-WHERE invoice_type IN ('service', 'membership_purchase')
-  AND payment_status = 'paid'
-  AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', NOW()) - INTERVAL '1 month';
+-- Previous IST month, e.g. '2026-10', computed in the job.
+DELETE FROM monthly_gst_summary WHERE month = :month;
+INSERT INTO monthly_gst_summary (id, month, branch_id, issuer_gstin, sac_code,
+  taxable_value_paise, gst_amount_paise, cgst_paise, sgst_paise, invoice_count)
+SELECT md5(...), :month, branch_id, issuer_gstin, sac_code,
+       sum(taxable), sum(tax), sum(cgst), sum(sgst), count(DISTINCT invoice_id)
+  FROM (lines of snapshotted invoices UNION ALL headers of older ones) l
+ GROUP BY branch_id, issuer_gstin, sac_code
+ON CONFLICT ON CONSTRAINT monthly_gst_summary_month_branch_issuer_sac_unique DO UPDATE ...;
 ```
 
 ---
@@ -259,32 +271,20 @@ WHERE invoice_type IN ('service', 'membership_purchase')
 
 | Field | Value |
 |-------|-------|
-| **Type** | pg_cron |
+| **Type** | QStash scheduled (was pg_cron) |
 | **Schedule** | `40 18 * * *` UTC = 12:10 AM IST |
-| **Heartbeat** | `BETTER_STACK_HEARTBEAT_NIGHTLY_SALES` (shared) |
+| **Endpoint** | `POST /api/jobs/gems-auto-expire` |
+| **Heartbeat** | `BETTER_STACK_HEARTBEAT_GEMS_EXPIRE` |
 
-**What it does:** Finds all `loyalty_transaction` rows where `type = 'earned'`, `expires_at < NOW()`, and `gems_amount > 0` with no corresponding `expired` row already created for them. For each, inserts a new `expired` transaction deducting the gems and updates `loyalty_account.gems_balance`.
+**What it does (`expireLapsedGems` in `packages/db/src/queries/gems-ledger.ts`, multi-branch ST-03, ST-04):** in one transaction,
 
-```sql
--- Find earned transactions that have expired and not yet been offset
-SELECT lt.id, lt.loyalty_account_id, lt.gems_amount
-FROM loyalty_transaction lt
-WHERE lt.type = 'earned'
-  AND lt.expires_at < NOW()
-  AND NOT EXISTS (
-    SELECT 1 FROM loyalty_transaction lt2
-    WHERE lt2.type = 'expired'
-      AND lt2.description = 'expired:' || lt.id
-  );
+1. gives back the gems of any redemption whose booking ended (rejected, cancelled, no-show) without them being returned: a `returned` row per redemption, its allocations released;
+2. expires each lapsed batch's **unspent** gems only, never gems already spent on a free service: one `expired` row per batch naming it in `batch_id`, described "Expired: gems earned on DD/MM/YYYY", recorded at the batch's branch;
+3. takes the expired total off each balance.
 
--- For each: insert expiry row + update balance
-INSERT INTO loyalty_transaction (id, loyalty_account_id, type, gems_amount, description, created_at)
-VALUES (gen_id(), :account_id, 'expired', -:gems_amount, 'expired:' || :earned_tx_id, NOW());
+Unspent = earned − active allocations + earlier expiries (`loyalty_batch_unspent`). The database refuses an expiry that removes more than that (trigger `loyalty_expiry_guard`). The earning branch keeps the value of expired gems; no settlement entry is made. Answers `{ batches, gems, returned }`.
 
-UPDATE loyalty_account
-SET gems_balance = gems_balance - :gems_amount, updated_at = NOW()
-WHERE id = :account_id;
-```
+**Why it changed:** the original job expired every earned row in full, so gems a customer had already spent were deducted a second time; with spending tracked per batch (`loyalty_allocation`) only what is left can expire. Idempotent: a rerun finds nothing unspent, so QStash retries expire nothing twice.
 
 **Customer sees:** Gems balance reduced on `/gems` page. A push notification fires (Job 15 handles expiry warning — this job handles the actual deduction silently).
 
@@ -454,16 +454,7 @@ Queries: `getDailyBranchReports` / `getWeeklyBranchReports` in `packages/db/src/
 | **Schedule** | Daily `0 5 * * *` UTC = 10:30 AM IST |
 | **Endpoint** | `POST /api/jobs/gems-expiry-reminder` |
 
-**What it does:** Finds customers who have `earned` gems transactions expiring in exactly 7 days. Sends a **push notification only** (no email per design). Groups by customer so a customer with multiple expiring batches gets one combined notification.
-
-```sql
-SELECT la.customer_id, SUM(lt.gems_amount) AS expiring_gems, lt.expires_at
-FROM loyalty_transaction lt
-JOIN loyalty_account la ON lt.loyalty_account_id = la.id
-WHERE lt.type = 'earned'
-  AND DATE(lt.expires_at AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE + INTERVAL '7 days'
-GROUP BY la.customer_id, lt.expires_at;
-```
+**What it does:** Finds customers with gems batches expiring in exactly 7 days and counts only each batch's **unspent** gems (`loyalty_batch_unspent`), so gems already spent on a free service aren't announced as expiring. Sends a **push notification only** (no email per design). Groups by customer so a customer with multiple expiring batches gets one combined notification; a customer whose expiring batches are fully spent gets none.
 
 **Customer receives (push only):**
 > "⏰ Your **X gems** expire in 7 days on DD/MM/YYYY. Book a service before then to use them!"
@@ -654,8 +645,10 @@ read uses `::text::int`.
 | 22 | Customer KPI reconcile | QStash | `50 18 * * *` UTC | None |
 | 23 | Missing-Manager reminder | QStash | `30 4 * * *` UTC = 10:00 AM IST | Resend (each affected Owner) |
 | 24 | Realtime token revocations | QStash triggered + daily sweep `55 18 * * *` UTC | After a role change; 00:25 IST | Ably REST |
+| 25 | Settlement close | QStash | `0 19 * * *` UTC = 12:30 AM IST | None |
+| 26 | Staff overrun check | QStash | `*/15 2-16 * * *` UTC = every 15 min, 07:30 AM–10:15 PM IST | web-push (the booking's branch) |
 
-**Total: 24 jobs — 19 QStash scheduled (Job 24's daily sweep included) + 4 QStash triggered + 1 GitHub Actions cron (Job 5).** Job 24 is also queued by role changes.
+**Total: 26 jobs — 21 QStash scheduled (Job 24's daily sweep included) + 4 QStash triggered + 1 GitHub Actions cron (Job 5).** Job 24 is also queued by role changes.
 
 The invoice PDF render (`/api/jobs/invoice-pdf`) is a fifth QStash-triggered route, enqueued at booking completion; it is part of the synchronous invoice flow rather than a numbered job.
 
@@ -685,6 +678,41 @@ The invoice PDF render (`/api/jobs/invoice-pdf`) is a fifth QStash-triggered rou
 
 ---
 
+## Job 25 — Settlement Close (multi-branch R10)
+
+| Field | Value |
+|-------|-------|
+| **Schedule** | Daily `0 19 * * *` UTC = 12:30 AM IST |
+| **Endpoint** | `POST /api/jobs/settlement-close` |
+| **Heartbeat** | `BETTER_STACK_HEARTBEAT_SETTLEMENT_CLOSE` |
+
+**What it does (`closeSettlementMonths` in `packages/db/src/queries/settlement.ts`):** closes every ended IST month not closed yet. For each, one statement (`branch_settlement`) per pair of branches with entries that month: what each owes the other for membership sessions and for gems, and the net, so only the difference is paid. Then each branch's net position across its counterparts (`settlement_position`); a month's positions add up to zero. Answers `{ months: [{ month, statements }] }`. See [settlement.md](../.kiro/specs/multi-branch-support/settlement.md).
+
+**Why daily:** a missed run catches up the next night; on most days no month has just ended and nothing changes.
+
+**Safe to repeat:** one transaction marks the months closed first, which waits for any entry still being recorded into them (entries take a share lock on their month), so the statements see every entry. Only the transaction that closed a month can insert its statements and positions, so a QStash retry or a concurrent run closes nothing twice. An entry recorded after its month closed goes to the next open month. A failure answers 500 for QStash to retry, without the heartbeat.
+
+---
+
+## Job 26 — Staff Overrun Check (membership-scheduling.md slice 2b, MS-08)
+
+| Field | Value |
+|-------|-------|
+| **Type** | QStash scheduled |
+| **Schedule** | `*/15 2-16 * * *` UTC = every 15 minutes, 07:30 AM–10:15 PM IST (60 runs a day) |
+| **Endpoint** | `POST /api/jobs/staff-overrun-check` |
+| **Heartbeat** | `BETTER_STACK_HEARTBEAT_STAFF_OVERRUN` |
+
+**What it does (`raiseStaffOverruns` in `apps/admin/src/lib/jobs/staff-overrun.ts`):** finds confirmed bookings due within 15 minutes whose person is still with another customer and is expected to start them more than 10 minutes late (`flagStaffOverruns` in `packages/db/src/queries/staff-occupancy.ts`). "Expected" is the earlier work's actual start plus its planned length, and at least now; a SPA booking clashes with any work, two salon bookings don't. Each such booking gets open reassignment work with reason `overrun`, keeping its assignee, so the dashboard and the bookings list show it as "Held up". Then it tells each held-up booking's branch front desk (its Receptionist, and its Manager or, without one, its Owner) with a `staff_overrun` push: "Asha is still with another customer, so the 11:00 booking at Rayasandra on 31/10/2026 can't start yet. Wait for them or assign someone else. Free then: Lata, Manish." The names are up to three people free for the booking's slot who may do that kind of work: Therapists for SPA, Stylists for salon, the Manager or Receptionist for either; those who perform its services first.
+
+**Why it alerts and never acts:** the database already refuses the held-up booking's start until the earlier work completes (`staff_work`, 0028), whatever reached reception. Reception waits or assigns someone else; nothing is moved, started or reassigned by the job. A suggestion is not a lock: assigning rechecks leave, the branch and the person's other bookings in the write.
+
+**How a flag ends:** starting the booking closes it as `started` (trigger `booking_reassignment_close_on_start`, 0030); assigning someone closes it as `reassigned`; moving the booking or ending it closes it as `booking_ended`.
+
+**Safe to repeat:** one open flag per booking (`booking_reassignment_open_uidx`), and the flagging statement locks the bookings it flags, so a booking started meanwhile isn't flagged. One notification per person per booking: each run tells only the people not yet told, so a failed alert is retried by the next run. A refused start (`POST /api/bookings/[id]/start`, 409 `STAFF_BUSY`) runs the same check for that booking once it is due, so a hold-up outside the job's hours is flagged too. A failure answers 500 for QStash to retry, without the heartbeat.
+
+---
+
 ## Env Vars (jobs-specific)
 
 ```
@@ -693,6 +721,10 @@ The invoice PDF render (`/api/jobs/invoice-pdf`) is a fifth QStash-triggered rou
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxx/yyy/zzz
 # Missing-Manager reminder heartbeat
 BETTER_STACK_HEARTBEAT_MISSING_MANAGER=
+# Settlement close heartbeat
+BETTER_STACK_HEARTBEAT_SETTLEMENT_CLOSE=
+# Staff overrun check heartbeat (every 15 minutes in the salon day)
+BETTER_STACK_HEARTBEAT_STAFF_OVERRUN=
 ```
 
 `DAILY_REPORT_EMAIL_RECIPIENTS` is retired: report recipients come from branch roles (each branch's Owner and Manager; the Developer for the summary). See [environment-variables.md](./environment-variables.md).

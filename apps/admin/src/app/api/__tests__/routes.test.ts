@@ -183,7 +183,7 @@ describe('Response envelope — success path', () => {
     expect(body.meta).toMatchObject({ page: expect.any(Number), totalPages: 1, totalCount: 1 })
   })
 
-  it('GET /api/membership-tiers returns { success:true, data: tiers }', async () => {
+  it('GET /api/membership-tiers returns { success:true, data:{ tiers, canEditTax } }', async () => {
     const tiers = [{ id: 'silver' }, { id: 'gold' }]
     dbMocks.getMembershipTiers.mockResolvedValue(tiers)
 
@@ -191,7 +191,9 @@ describe('Response envelope — success path', () => {
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(body).toEqual({ success: true, data: tiers })
+    // Every tier, retired ones too; only the Developer may change a SAC code.
+    expect(body).toEqual({ success: true, data: { tiers, canEditTax: false } })
+    expect(dbMocks.getMembershipTiers).toHaveBeenCalledWith({ includeInactive: true })
   })
 
   it('POST /api/leads creates a lead and returns 201 with { leadId }', async () => {
@@ -427,9 +429,10 @@ describe('HTTP method presence', () => {
     expect((customersRoute as Record<string, unknown>).POST).toBeUndefined()
   })
 
-  it('GET /api/membership-tiers exports GET only', () => {
+  it('/api/membership-tiers exports GET and POST (multi-branch R9.4), no DELETE', () => {
     expect(typeof tiersRoute.GET).toBe('function')
-    expect((tiersRoute as Record<string, unknown>).POST).toBeUndefined()
+    expect(typeof tiersRoute.POST).toBe('function')
+    expect((tiersRoute as Record<string, unknown>).DELETE).toBeUndefined()
   })
 
   it('/api/leads exports both GET and POST', () => {

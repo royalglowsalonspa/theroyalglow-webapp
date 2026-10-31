@@ -72,6 +72,7 @@ Routes are relative to `admin.theroyalglow.in` (root paths, no `/admin` prefix).
 | `/reports` | Manager |
 | `/settings`, `/branches` | Manager (branches: Owner) |
 | `/users` | Owner |
+| `/settlements` | Owner (statements of the branches they own), Developer |
 | `/integrations`, `/logs` | Developer |
 
 ---
@@ -80,7 +81,8 @@ Routes are relative to `admin.theroyalglow.in` (root paths, no `/admin` prefix).
 
 - **Tiers:** Silver (8hrs/₹10k/90d), Gold (15hrs/₹15k/90d), Platinum (custom)
 - **Access:** All SPA services in any tier — hours are the only constraint
-- **Session recording:** Admin records → booking(completed, ₹0) + membership_session invoice
+- **Session lifecycle:** Record now → booking(in_progress, ₹0, `started_at`) holding its minutes → Complete from the booking → minutes consumed + membership_session invoice (₹0). A booked session holds its minutes from confirmation and must Start before it completes; cancel, reject or no-show releases them
+- **Free minutes:** total − used − held (`reserved_minutes`); the database keeps both totals from `membership_hold`
 - **No gems** on purchase OR sessions
 - **One active per customer** (DB constraint)
 - **Hard expiry** with reminders at 30d/7d/1d

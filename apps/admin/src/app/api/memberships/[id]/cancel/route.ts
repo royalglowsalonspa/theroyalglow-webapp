@@ -62,11 +62,20 @@ export const POST = withErrorHandler(
       throw forbidden(refusal.reason)
     }
 
-    const updated = await cancelMembership(id, ctx.branch.id, parsed.data.reason)
-    if (!updated) {
+    // Its sessions still to happen are cancelled with it, giving their minutes
+    // back; one in progress blocks the cancellation (MS-13).
+    const result = await cancelMembership({
+      id,
+      sellingBranchId: ctx.branch.id,
+      reason: parsed.data.reason,
+      actorId: ctx.session.user.id,
+    })
+    if (!result.ok) {
       throw conflict(
         ERROR_CODES.CONFLICT,
-        'This membership is no longer active. Refresh to see its current state.',
+        result.reason === 'session_in_progress'
+          ? 'A session on this membership is in progress. Complete it, then cancel the membership.'
+          : 'This membership is no longer active. Refresh to see its current state.',
       )
     }
 
@@ -76,9 +85,13 @@ export const POST = withErrorHandler(
       entityId: id,
       branchId: ctx.branch.id,
       oldValues: { status: existing.status },
-      newValues: { status: 'cancelled', reason: parsed.data.reason },
+      newValues: {
+        status: 'cancelled',
+        reason: parsed.data.reason,
+        cancelledSessions: result.cancelledSessions,
+      },
     })
 
-    return apiSuccess(updated)
+    return apiSuccess({ ...result.membership, cancelledSessions: result.cancelledSessions })
   },
 )

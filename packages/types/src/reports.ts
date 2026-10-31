@@ -29,6 +29,7 @@
  *                is paise (integer) everywhere; formatting happens at display.
  ************************************************************/
 import { z } from 'zod'
+import type { BranchSettlementReport } from './settlement'
 
 // Named relative ranges supported by the Reports dashboard selector.
 export const REPORT_RANGES = ['7d', '30d', '90d', 'mtd'] as const
@@ -136,4 +137,9 @@ export interface ReportsResponse {
   revenueTrend: RevenueTrendPoint[]
   bookingsByStatus: BookingsByStatusPoint[]
   topServices: TopServiceRow[]
+  /**
+   * Memberships and gems across branches (multi-branch R10). Money is null
+   * for viewers who see minutes and gems only.
+   */
+  settlement: BranchSettlementReport
 }

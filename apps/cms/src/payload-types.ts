@@ -495,6 +495,22 @@ export interface ServiceCategory {
    * Untick to retire this category. This replaces deletion.
    */
   isActive?: boolean | null;
+  /**
+   * The tax classification for its services, unless a service sets its own. Invoices show the code in force when they are issued.
+   */
+  sacCode: '999721' | '999722' | '999723' | '999729';
+  /**
+   * All branches includes branches opened later. Its services can narrow this further.
+   */
+  availability: 'all' | 'selected';
+  /**
+   * Customers and the counter can only choose it at these branches.
+   */
+  availableBranches?: string[] | null;
+  /**
+   * The CMS login that saved this version. Set automatically.
+   */
+  editedBy?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -543,6 +559,22 @@ export interface Service {
    * Position in the gems redemption catalogue.
    */
   gemsCatalogueOrder?: number | null;
+  /**
+   * Leave empty to use the category's code. Invoices show the code in force when they are issued.
+   */
+  sacCode?: ('999721' | '999722' | '999723' | '999729') | null;
+  /**
+   * All branches includes branches opened later. A service is only offered where its category is too.
+   */
+  availability: 'all' | 'selected';
+  /**
+   * Customers and the counter can only choose it at these branches.
+   */
+  availableBranches?: string[] | null;
+  /**
+   * The CMS login that saved this version. Set automatically.
+   */
+  editedBy?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -991,6 +1023,10 @@ export interface ServiceCategorySelect<T extends boolean = true> {
   serviceType?: T;
   displayOrder?: T;
   isActive?: T;
+  sacCode?: T;
+  availability?: T;
+  availableBranches?: T;
+  editedBy?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1013,6 +1049,10 @@ export interface ServiceSelect<T extends boolean = true> {
   gemsRedeemable?: T;
   gemsRequired?: T;
   gemsCatalogueOrder?: T;
+  sacCode?: T;
+  availability?: T;
+  availableBranches?: T;
+  editedBy?: T;
   updatedAt?: T;
   createdAt?: T;
 }

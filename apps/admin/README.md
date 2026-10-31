@@ -314,6 +314,17 @@ development database only. Each journey undoes its role changes, but the audit
 entries and the person's inactive staff profile remain, as they do for any
 removal.
 
+`e2e/membership-sessions.spec.ts` records a SPA membership session and completes
+it from its booking. It seeds a throwaway customer and membership straight into
+the database `packages/db/.env` names, which must be the one the server reads,
+and deletes everything afterwards. Set `ADMIN_E2E_WRITE_MEMBERSHIP_SESSIONS=1`
+to run it, against the development database only: completing the session takes
+the branch's next invoice number, which the clean-up can't give back. Its
+refusal checks run without the opt-in and write nothing.
+
+The `auth-redirect` spec skips against an impersonating server, which treats
+every request as signed in.
+
 ## Deployment and operational checks
 
 The root [`sst.config.ts`](../../sst.config.ts) deploys admin independently from

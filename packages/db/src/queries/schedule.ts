@@ -44,7 +44,11 @@ import { booking, bookingService } from '../schema/booking'
 import { staffProfile } from '../schema/profile'
 import { staffSchedule, staffTimeOff } from '../schema/schedule'
 import { isGuardAbort } from './driver-errors'
-import { releaseAssignmentsOnLeaveStatement, releasedBookingIds } from './reassignments'
+import {
+  releaseAssignmentsOffScheduleStatement,
+  releaseAssignmentsOnLeaveStatement,
+  releasedBookingIds,
+} from './reassignments'
 import { staffWorksAt } from './staff'
 
 type LeaveApprovalStatus = (typeof staffTimeOff.$inferSelect)['approvalStatus']
@@ -72,8 +76,14 @@ function staffAtBranch(staffId: string, branchId: string): SQL {
   return sql`exists (select 1 from ${staffProfile} where ${staffProfile.id} = ${staffId} and ${staffWorksAt(branchId)})`
 }
 
-/** Why a branch schedule write was refused. */
-export type ScheduleWriteResult = { ok: true } | { ok: false; reason: 'stale' }
+/** What a branch schedule write did, or why it was refused. */
+export type ScheduleWriteResult =
+  | {
+      ok: true
+      /** Confirmed bookings (any branch) the new week no longer covers, now awaiting someone. */
+      reassignedBookingIds: string[]
+    }
+  | { ok: false; reason: 'stale' }
 
 /**
  * Set a staff member's weekly schedule at one branch (one row per weekday) in
@@ -86,13 +96,21 @@ export type ScheduleWriteResult = { ok: true } | { ok: false; reason: 'stale' }
  *   back: the result is `stale`. Check isDayHeldElsewhere first to explain it.
  * - A day off releases the weekday, but never one another branch holds: that
  *   row is left as it is.
+ * - The person's bookings still to come, at every branch, that the new week
+ *   no longer covers lose them in the same transaction (MS-09): confirmed
+ *   ones are listed for reassignment as `actorId`'s change ('off_schedule'),
+ *   pending ones only lose their tentative assignee. Their profile is locked
+ *   first, as every assignment locks it FOR SHARE, so an assignment racing
+ *   this write either commits first and is released here, or waits and is
+ *   checked against the new week (0032).
  */
 export async function upsertStaffSchedule(
   staffId: string,
   branchId: string,
   entries: UpsertScheduleInput['entries'],
+  actorId: string | null = null,
 ): Promise<ScheduleWriteResult> {
-  const statements: BatchItem<'pg'>[] = entries.map((entry) => {
+  const writes: BatchItem<'pg'>[] = entries.map((entry) => {
     const claimable = sql`(staff_schedule.is_working = false or staff_schedule.branch_id is null or staff_schedule.branch_id = ${branchId})`
     if (!entry.isWorking) {
       return db.execute(sql`
@@ -116,20 +134,24 @@ export async function upsertStaffSchedule(
       select 1 / count(*)::int as ok from claimed`)
   })
 
-  // db.batch requires a non-empty tuple; with nothing to write there is nothing to do.
-  const [first, ...rest] = statements
-  if (!first) {
-    return { ok: true }
+  // With nothing to write there is nothing to do.
+  if (writes.length === 0) {
+    return { ok: true, reassignedBookingIds: [] }
   }
   try {
-    await db.batch([first, ...rest])
+    const results = await db.batch([
+      db.execute(sql`select ${staffProfile.id} from ${staffProfile}
+        where ${staffProfile.id} = ${staffId} for no key update`),
+      ...writes,
+      releaseAssignmentsOffScheduleStatement({ staffId, actorId }),
+    ])
+    return { ok: true, reassignedBookingIds: releasedBookingIds(results.at(-1)) }
   } catch (error) {
     if (isGuardAbort(error)) {
       return { ok: false, reason: 'stale' }
     }
     throw error
   }
-  return { ok: true }
 }
 
 // One person's current weekly rows (working flag and holding branch), for the

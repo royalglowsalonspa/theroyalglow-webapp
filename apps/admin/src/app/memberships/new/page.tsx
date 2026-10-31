@@ -34,7 +34,7 @@ import { branchForPage } from '@/lib/api/branch-page'
 import { CreateMembershipForm } from './create-membership-form'
 
 export const metadata: Metadata = {
-  title: 'Create Membership',
+  title: 'Sell Membership',
 }
 
 export default async function NewMembershipPage() {

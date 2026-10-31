@@ -84,6 +84,7 @@ import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { useAsyncData } from '@/components/ui/use-async-data'
+import { sampleInvoiceNumber } from '@/lib/admin/format'
 import { toast } from '@/lib/admin/toast'
 import { liveUpdatesNotice } from '@/lib/realtime/token-lifetime'
 
@@ -109,6 +110,10 @@ interface AdminBranch {
   temporaryCloseReason: string | null
   isPrimary: boolean
   displayOrder: number
+  /** The issuer on its invoices (multi-branch R6.1). */
+  legalName: string | null
+  gstin: string | null
+  invoicePrefix: string
 }
 
 const STATUS_LABEL: Record<BranchStatusValue, string> = {
@@ -540,6 +545,10 @@ function BranchDialog({
   const [status, setStatus] = useState<BranchStatusValue>('operational')
   const [temporaryCloseReason, setTemporaryCloseReason] = useState('')
   const [isPrimary, setIsPrimary] = useState(false)
+  // The issuer on invoices: legal name, GSTIN and the number prefix (R6.1, R6.2).
+  const [legalName, setLegalName] = useState('')
+  const [gstin, setGstin] = useState('')
+  const [invoicePrefix, setInvoicePrefix] = useState('')
   // A new branch names its Owner; an existing branch's Owner changes only
   // through the Owner handover in Users & Roles.
   const [owner, setOwner] = useState<OwnerCandidate | null>(null)
@@ -548,6 +557,8 @@ function BranchDialog({
   // Shutting an open branch down: list what is still open there first and
   // hold the save until nothing is (R1.10).
   const shuttingDown = editing !== null && editing.status !== 'shutdown' && status === 'shutdown'
+  // The prefix the number preview shows: the one typed, else the branch's.
+  const previewPrefix = invoicePrefix.trim().toUpperCase() || editing?.invoicePrefix || ''
   const [shutdownClear, setShutdownClear] = useState(false)
   // Bumped to check again after the server refuses the shutdown.
   const [checkKey, setCheckKey] = useState(0)
@@ -578,6 +589,9 @@ function BranchDialog({
       setStatus(editing.status)
       setTemporaryCloseReason(editing.temporaryCloseReason ?? '')
       setIsPrimary(editing.isPrimary)
+      setLegalName(editing.legalName ?? '')
+      setGstin(editing.gstin ?? '')
+      setInvoicePrefix(editing.invoicePrefix)
     } else {
       setName('')
       setAddressLine1('')
@@ -593,6 +607,9 @@ function BranchDialog({
       setStatus('operational')
       setTemporaryCloseReason('')
       setIsPrimary(false)
+      setLegalName('')
+      setGstin('')
+      setInvoicePrefix('')
     }
     setOwner(null)
     setFormError(null)
@@ -620,6 +637,17 @@ function BranchDialog({
     }
     if (!editing && !owner) {
       setFormError('Choose the branch Owner.')
+      return
+    }
+    if (
+      gstin.trim() &&
+      !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gstin.trim().toUpperCase())
+    ) {
+      setFormError('Enter the 15-character GSTIN, or leave it empty.')
+      return
+    }
+    if (invoicePrefix.trim() && !/^[A-Z][A-Z0-9]{0,3}$/.test(invoicePrefix.trim().toUpperCase())) {
+      setFormError('The invoice prefix is 1 to 4 letters or digits, starting with a letter.')
       return
     }
     if (shuttingDown && !shutdownClear) {
@@ -660,6 +688,18 @@ function BranchDialog({
       }
       if (!editing && owner) {
         payload.ownerUserId = owner.id
+      }
+      // An edit always sends the issuer fields, so emptying one clears it. The
+      // prefix is sent only when it changes: it is fixed once invoices exist.
+      if (editing || legalName.trim()) {
+        payload.legalName = legalName.trim()
+      }
+      if (editing || gstin.trim()) {
+        payload.gstin = gstin.trim().toUpperCase()
+      }
+      const prefix = invoicePrefix.trim().toUpperCase()
+      if (prefix && prefix !== editing?.invoicePrefix) {
+        payload.invoicePrefix = prefix
       }
 
       const res = await fetch(editing ? `/api/branches/${editing.id}` : '/api/branches', {
@@ -847,6 +887,47 @@ function BranchDialog({
             />
           </Field>
         )}
+        <div className="space-y-3 rounded-cards border border-cloud-gray p-3">
+          <p className="font-ui text-[11px] uppercase tracking-wider text-dusty-gray">
+            On invoices
+          </p>
+          <Field label="Legal name">
+            <Input
+              type="text"
+              value={legalName}
+              onChange={(e) => setLegalName(e.target.value)}
+              placeholder="Registered name (needed for live invoicing)"
+            />
+          </Field>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="GSTIN">
+              <Input
+                type="text"
+                value={gstin}
+                onChange={(e) => setGstin(e.target.value)}
+                placeholder="29ABCDE1234F1Z5"
+                maxLength={15}
+                autoCapitalize="characters"
+              />
+            </Field>
+            <Field label="Invoice prefix">
+              <Input
+                type="text"
+                value={invoicePrefix}
+                onChange={(e) => setInvoicePrefix(e.target.value)}
+                placeholder={editing ? '' : 'From the branch code'}
+                maxLength={4}
+                autoCapitalize="characters"
+              />
+            </Field>
+          </div>
+          <p className="font-sans text-xs text-dusty-gray">
+            {previewPrefix
+              ? `Invoice numbers look like ${sampleInvoiceNumber(previewPrefix)}: the prefix, the financial year and the branch's own count.`
+              : 'Left empty, the prefix is the branch code, or B and the branch number when the code is longer than 4 characters.'}{' '}
+            The prefix can&apos;t change once the branch has issued an invoice.
+          </p>
+        </div>
         <div className="flex items-center gap-2">
           <Checkbox
             id="branch-primary"

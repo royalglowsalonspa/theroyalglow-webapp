@@ -3,6 +3,7 @@ import * as migration_20260729_182023_drop_legacy_service_collection from './202
 import * as migration_20260729_182235_create_service_catalogue_collections from './20260729_182235_create_service_catalogue_collections';
 import * as migration_20260729_201902_add_mcp_api_keys from './20260729_201902_add_mcp_api_keys';
 import * as migration_20260921_165524_auth_reset_password_requested_at from './20260921_165524_auth_reset_password_requested_at';
+import * as migration_20261031_015028_catalogue_tax_versions_availability from './20261031_015028_catalogue_tax_versions_availability';
 
 export const migrations = [
   {
@@ -28,6 +29,11 @@ export const migrations = [
   {
     up: migration_20260921_165524_auth_reset_password_requested_at.up,
     down: migration_20260921_165524_auth_reset_password_requested_at.down,
-    name: '20260921_165524_auth_reset_password_requested_at'
+    name: '20260921_165524_auth_reset_password_requested_at',
+  },
+  {
+    up: migration_20261031_015028_catalogue_tax_versions_availability.up,
+    down: migration_20261031_015028_catalogue_tax_versions_availability.down,
+    name: '20261031_015028_catalogue_tax_versions_availability'
   },
 ];

@@ -23,6 +23,7 @@
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { db } from '../index'
+import { issuedInvoiceStatements } from '../test/issued-invoice'
 import { isLiveDbAvailable, queryRow } from '../test/live-db'
 import { createBookingWithServices } from './bookings'
 import {
@@ -45,6 +46,8 @@ const OWNER_B = `${PREFIX}_owner_b`
 const MANAGER = `${PREFIX}_mgr`
 const RECEPTION = `${PREFIX}_rcp`
 const CUSTOMER = `${PREFIX}_cust`
+// Invoice numbers are at most 16 characters.
+const OPEN_INVOICE_NUMBER = `ZZ${RUN}S`
 
 let serviceId = ''
 let bookingId = ''
@@ -77,7 +80,7 @@ function bookAt(branchId: string, key: string) {
 }
 
 /** Every message down the error's cause chain (Drizzle wraps the Postgres error). */
-async function refusal(write: Promise<unknown>): Promise<string> {
+async function refusal(write: PromiseLike<unknown>): Promise<string> {
   try {
     await write
   } catch (error) {
@@ -135,10 +138,17 @@ describe.skipIf(!LIVE)('shutting a branch down against a live database', () => {
 
     bookingId = (await bookAt(MAIN, 'open')).id
     await db.batch([
-      db.execute(sql`
-        insert into invoice (id, invoice_number, branch_id, booking_id, customer_id,
-                             subtotal_paise, total_amount_paise, payment_status)
-        values (${`${PREFIX}_inv`}, ${`${PREFIX}_INV`}, ${MAIN}, ${bookingId}, ${CUSTOMER}, 50000, 50000, 'pending')`),
+      ...(await issuedInvoiceStatements({
+        id: `${PREFIX}_inv`,
+        number: OPEN_INVOICE_NUMBER,
+        sequence: 1,
+        branchId: MAIN,
+        customerId: CUSTOMER,
+        bookingId,
+        paymentStatus: 'pending',
+        taxPointAt: new Date(),
+        lines: [{ name: 'ZZ IT open', amountPaise: 50_000 }],
+      })),
       db.execute(sql`
         insert into waitlist (id, customer_id, service_id, preferred_date, status, branch_id)
         values (${`${PREFIX}_wl`}, ${CUSTOMER}, ${serviceId}, '2099-05-02', 'waiting', ${MAIN})`),
@@ -201,7 +211,7 @@ describe.skipIf(!LIVE)('shutting a branch down against a live database', () => {
     })
     expect(blockers?.unpaidInvoices).toEqual({
       count: 1,
-      listed: [{ id: `${PREFIX}_inv`, invoiceNumber: `${PREFIX}_INV` }],
+      listed: [{ id: `${PREFIX}_inv`, invoiceNumber: OPEN_INVOICE_NUMBER }],
     })
     expect(blockers?.waitlist.count).toBe(1)
     expect(blockers && shutdownIsClear(blockers)).toBe(false)
@@ -261,13 +271,18 @@ describe.skipIf(!LIVE)('shutting a branch down against a live database', () => {
     }
     expect(isBranchShutDownError(bookingError)).toBe(true)
 
-    expect(
-      await refusal(
-        db.execute(sql`
-          insert into invoice (id, invoice_number, branch_id, customer_id, subtotal_paise, total_amount_paise)
-          values (${`${PREFIX}_inv_late`}, ${`${PREFIX}_INV_LATE`}, ${MAIN}, ${CUSTOMER}, 100, 100)`),
-      ),
-    ).toMatch(/is shut down/)
+    // A complete, snapshotted invoice, so only the shutdown guard refuses it.
+    const [lateInvoice] = await issuedInvoiceStatements({
+      id: `${PREFIX}_inv_late`,
+      number: `ZZ${RUN}LATE`,
+      sequence: 2,
+      branchId: MAIN,
+      customerId: CUSTOMER,
+      paymentStatus: 'pending',
+      taxPointAt: new Date(),
+      lines: [],
+    })
+    expect(await refusal(lateInvoice)).toMatch(/is shut down/)
 
     // A booking can't move to the shut-down branch either.
     const elsewhere = (await bookAt(EXTRA, 'elsewhere')).id

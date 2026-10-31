@@ -50,9 +50,29 @@
  ************************************************************/
 import config from '@payload-config'
 import { db as drizzleDb } from '@rgss/db'
-import { service, serviceCategory } from '@rgss/db/schema'
+import { service, serviceBranch, serviceCategory, serviceCategoryBranch } from '@rgss/db/schema'
+import type { SacCode } from '@rgss/types'
 import { getPayload } from 'payload'
 import { assertSeedable, assertSyncDisabled, type DurationOption } from './lib/seed-validation'
+
+/** Branch ids by entity id, from a join table's rows. */
+function branchesBy<K extends string>(
+  rows: readonly ({ branchId: string } & Record<K, string>)[],
+  key: K,
+) {
+  const map = new Map<string, string[]>()
+  for (const row of rows) {
+    map.set(row[key], [...(map.get(row[key]) ?? []), row.branchId].sort())
+  }
+  return map
+}
+
+/** The CMS availability fields for a public row (multi-branch R4.2). */
+function availabilityData(allBranches: boolean, branchIds: readonly string[] | undefined) {
+  return allBranches
+    ? { availability: 'all' as const, availableBranches: [] }
+    : { availability: 'selected' as const, availableBranches: [...(branchIds ?? [])] }
+}
 
 const main = async (): Promise<void> => {
   assertSyncDisabled()
@@ -63,6 +83,11 @@ const main = async (): Promise<void> => {
   // because service.categoryId is a Payload relationship that must resolve.
   const categories = await drizzleDb.select().from(serviceCategory)
   const services = await drizzleDb.select().from(service)
+  const categoryBranches = branchesBy(
+    await drizzleDb.select().from(serviceCategoryBranch),
+    'categoryId',
+  )
+  const serviceBranches = branchesBy(await drizzleDb.select().from(serviceBranch), 'serviceId')
 
   console.log(
     `Read public.service_category = ${categories.length} rows, public.service = ${services.length} rows`,
@@ -96,6 +121,9 @@ const main = async (): Promise<void> => {
         serviceType: cat.serviceType,
         displayOrder: cat.displayOrder,
         isActive: cat.isActive,
+        // assertSeedable() proved it is one of the reviewed codes.
+        sacCode: cat.sacCode as SacCode,
+        ...availabilityData(cat.allBranches, categoryBranches.get(cat.id)),
         // Honoured by payload.create() — verified by the Task 5.0 spike on dev.
         createdAt: cat.createdAt.toISOString(),
         updatedAt: cat.updatedAt.toISOString(),
@@ -130,6 +158,9 @@ const main = async (): Promise<void> => {
         gemsRedeemable: svc.gemsRedeemable,
         gemsRequired: svc.gemsRequired,
         gemsCatalogueOrder: svc.gemsCatalogueOrder,
+        // Null uses the category's; otherwise a reviewed code (assertSeedable).
+        sacCode: svc.sacCode as SacCode | null,
+        ...availabilityData(svc.allBranches, serviceBranches.get(svc.id)),
         createdAt: svc.createdAt.toISOString(),
         updatedAt: svc.updatedAt.toISOString(),
       },

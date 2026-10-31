@@ -2,9 +2,9 @@
  * Module Name  : ReassignmentPanel.test
  * Scope        : Admin Portal — Dashboard (multi-branch R1.7)
  *
- * Description  : The panel counts the bookings that need someone else, links
- *                each to its booking with the reason, points to the Bookings
- *                page for the rest, and has no accessibility violations.
+ * Description  : The panel counts the bookings that need staff (taken off, or
+ *                held up, slice 2b), links each to its booking with the reason,
+ *                points to the Bookings page for the rest, and has no
  ************************************************************/
 
 import { cleanup, render, screen, within } from '@testing-library/react'
@@ -33,9 +33,7 @@ describe('ReassignmentPanel', () => {
     const work: ReassignmentWork = { branchName: 'Rayasandra', total: 2, items: [item(1), item(2)] }
     const { container } = render(<ReassignmentPanel work={work} />)
 
-    expect(
-      screen.getByRole('heading', { name: '2 bookings need someone else' }),
-    ).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '2 bookings need staff' })).toBeInTheDocument()
     const items = within(screen.getByRole('list')).getAllByRole('listitem')
     expect(items).toHaveLength(2)
     const first = within(items[0] as HTMLElement)
@@ -49,9 +47,7 @@ describe('ReassignmentPanel', () => {
 
   it('says one booking in the singular and points to the rest', () => {
     render(<ReassignmentPanel work={{ branchName: 'Rayasandra', total: 1, items: [item(1)] }} />)
-    expect(
-      screen.getByRole('heading', { name: '1 booking needs someone else' }),
-    ).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '1 booking needs staff' })).toBeInTheDocument()
 
     cleanup()
     render(<ReassignmentPanel work={{ branchName: 'Rayasandra', total: 11, items: [item(1)] }} />)

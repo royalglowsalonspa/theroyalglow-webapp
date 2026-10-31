@@ -25,12 +25,9 @@ const INK = '#1A1A1A'
 const MUTED = '#6B7280'
 const HAIRLINE = '#E5E7EB'
 
-// IST display: Cloud Run runs in UTC, so shift the instant by +5:30 and let
-// formatDateIN render the IST calendar date (DD/MM/YYYY).
-const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000
-function formatIssuedDateIST(issuedAt: string): string {
-  return formatDateIN(new Date(new Date(issuedAt).getTime() + IST_OFFSET_MS))
-}
+// IST display: formatDateIN formats in Asia/Kolkata itself, whatever the host
+// timezone, so the issue instant is passed as is (adding +5:30 first would
+// move an invoice issued after 18:30 IST to the next day).
 
 const styles = StyleSheet.create({
   page: {
@@ -96,6 +93,20 @@ const styles = StyleSheet.create({
   colQty: { width: '10%', textAlign: 'right' },
   colUnit: { width: '17%', textAlign: 'right' },
   colAmount: { width: '17%', textAlign: 'right' },
+  // Template v2: per-line SAC code and GST rate (service + SAC + staff +
+  // qty + unit + rate + amount = 100%).
+  colServiceV2: { width: '27%' },
+  colSac: { width: '11%' },
+  colStaffV2: { width: '16%' },
+  colRate: { width: '9%', textAlign: 'right' },
+  testBadge: {
+    marginTop: 4,
+    fontFamily: 'Helvetica-Bold',
+    fontSize: 7,
+    color: MUTED,
+    textAlign: 'right',
+    letterSpacing: 0.5,
+  },
   itemName: { fontFamily: 'Helvetica-Bold', fontSize: 9 },
   itemMuted: { color: MUTED },
   gemsTag: {
@@ -156,12 +167,40 @@ const styles = StyleSheet.create({
   },
 })
 
-const SAC_CODE = '999721'
+type Line = InvoicePdfPayload['items'][number]
+
+// "5%" for 500 basis points; "2.5%" for half of it.
+function percent(bps: number): string {
+  return `${bps / 100}%`
+}
+
+// The rate every line shares, or null when lines differ or carry none.
+function sharedRateBps(items: readonly Line[]): number | null {
+  const rates = items.map((item) => item.rateBps)
+  const first = rates[0]
+  if (first === undefined || first === null) {
+    return null
+  }
+  return rates.every((rate) => rate === first) ? first : null
+}
+
+function documentTitle(payload: InvoicePdfPayload): string {
+  if (payload.invoiceType === 'membership_session') {
+    return 'MEMBERSHIP SESSION'
+  }
+  return 'TAX INVOICE'
+}
 
 // Build the invoice <Document> from a fully-computed render payload.
 export function InvoiceDocument(payload: InvoicePdfPayload) {
   const { seller, customer, items, totals } = payload
   const hasGems = payload.gemsEarned > 0 || payload.gemsRedeemed > 0
+  // Lines carry their own SAC code and rate on invoices issued with tax
+  // versions (template v2); older ones print one code in the footer.
+  const perLine = items.some((item) => item.sacCode)
+  const rateBps = sharedRateBps(items)
+  const halfRate = rateBps !== null ? ` @ ${percent(rateBps / 2)}` : ''
+  const provisional = payload.taxReviewStatus === 'provisional'
 
   return (
     <Document
@@ -175,6 +214,9 @@ export function InvoiceDocument(payload: InvoicePdfPayload) {
         <View style={styles.header}>
           <View>
             <Text style={styles.sellerName}>{seller.name}</Text>
+            {seller.legalName && seller.legalName !== seller.name ? (
+              <Text style={styles.sellerMeta}>{seller.legalName}</Text>
+            ) : null}
             {seller.addressLines.map((line) => (
               <Text key={line} style={styles.sellerMeta}>
                 {line}
@@ -183,10 +225,13 @@ export function InvoiceDocument(payload: InvoicePdfPayload) {
             {seller.gstin ? <Text style={styles.sellerMeta}>GSTIN: {seller.gstin}</Text> : null}
             {seller.phone ? <Text style={styles.sellerMeta}>Phone: {seller.phone}</Text> : null}
             {seller.email ? <Text style={styles.sellerMeta}>Email: {seller.email}</Text> : null}
-            <Text style={styles.sellerMeta}>SAC: {seller.sacCode}</Text>
+            {!perLine && seller.sacCode ? (
+              <Text style={styles.sellerMeta}>SAC: {seller.sacCode}</Text>
+            ) : null}
           </View>
           <View>
-            <Text style={styles.invoiceTitle}>TAX INVOICE</Text>
+            <Text style={styles.invoiceTitle}>{documentTitle(payload)}</Text>
+            {provisional ? <Text style={styles.testBadge}>TEST · PROVISIONAL RATES</Text> : null}
           </View>
         </View>
         <View style={styles.accentRule} />
@@ -201,7 +246,8 @@ export function InvoiceDocument(payload: InvoicePdfPayload) {
             </View>
             <View style={styles.metaLine}>
               <Text style={styles.metaKey}>Date</Text>
-              <Text style={styles.metaValue}>{formatIssuedDateIST(payload.issuedAt)}</Text>
+              {/* formatDateIN already renders the IST calendar date. */}
+              <Text style={styles.metaValue}>{formatDateIN(new Date(payload.issuedAt))}</Text>
             </View>
             {payload.bookingNumber ? (
               <View style={styles.metaLine}>
@@ -226,23 +272,42 @@ export function InvoiceDocument(payload: InvoicePdfPayload) {
         {/* Items */}
         <View style={styles.table}>
           <View style={styles.tableHead}>
-            <Text style={[styles.th, styles.colService]}>Service</Text>
-            <Text style={[styles.th, styles.colStaff]}>Staff</Text>
+            <Text style={[styles.th, perLine ? styles.colServiceV2 : styles.colService]}>
+              Service
+            </Text>
+            {perLine ? <Text style={[styles.th, styles.colSac]}>SAC</Text> : null}
+            <Text style={[styles.th, perLine ? styles.colStaffV2 : styles.colStaff]}>Staff</Text>
             <Text style={[styles.th, styles.colQty]}>Qty</Text>
             <Text style={[styles.th, styles.colUnit]}>Unit</Text>
+            {perLine ? <Text style={[styles.th, styles.colRate]}>GST</Text> : null}
             <Text style={[styles.th, styles.colAmount]}>Amount</Text>
           </View>
 
           {items.map((item, index) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: one-shot PDF render with fixed row order, no component state, and the same service name may appear twice on one invoice
             <View key={`${item.name}-${index}`} style={styles.tableRow}>
-              <View style={styles.colService}>
+              <View style={perLine ? styles.colServiceV2 : styles.colService}>
                 <Text style={styles.itemName}>{item.name}</Text>
                 {item.gemsCovered ? <Text style={styles.gemsTag}>Gems</Text> : null}
+                {item.discountPaise ? (
+                  <Text style={styles.itemMuted}>Discount − {formatINR(item.discountPaise)}</Text>
+                ) : null}
               </View>
-              <Text style={[styles.colStaff, styles.itemMuted]}>{item.staffName ?? '—'}</Text>
+              {perLine ? (
+                <Text style={[styles.colSac, styles.itemMuted]}>{item.sacCode ?? '—'}</Text>
+              ) : null}
+              <Text style={[perLine ? styles.colStaffV2 : styles.colStaff, styles.itemMuted]}>
+                {item.staffName ?? '—'}
+              </Text>
               <Text style={styles.colQty}>{item.quantity}</Text>
               <Text style={styles.colUnit}>{formatINR(item.unitPricePaise)}</Text>
+              {perLine ? (
+                <Text style={[styles.colRate, styles.itemMuted]}>
+                  {item.rateBps !== null && item.rateBps !== undefined
+                    ? percent(item.rateBps)
+                    : '—'}
+                </Text>
+              ) : null}
               <Text style={styles.colAmount}>
                 {item.gemsCovered ? formatINR(0) : formatINR(item.totalPricePaise)}
               </Text>
@@ -253,24 +318,30 @@ export function InvoiceDocument(payload: InvoicePdfPayload) {
         {/* Totals */}
         <View style={styles.totalsWrap}>
           <View style={styles.totals}>
+            {totals.discountPaise > 0 ? (
+              <>
+                <View style={styles.totalLine}>
+                  <Text style={styles.totalKey}>Subtotal</Text>
+                  <Text>{formatINR(totals.subtotalPaise)}</Text>
+                </View>
+                <View style={styles.totalLine}>
+                  <Text style={styles.totalKey}>Discount</Text>
+                  <Text>- {formatINR(totals.discountPaise)}</Text>
+                </View>
+              </>
+            ) : null}
             <View style={styles.totalLine}>
               <Text style={styles.totalKey}>Taxable value</Text>
               <Text>{formatINR(totals.taxableValuePaise)}</Text>
             </View>
             <View style={styles.totalLine}>
-              <Text style={styles.totalKey}>CGST</Text>
+              <Text style={styles.totalKey}>CGST{halfRate}</Text>
               <Text>{formatINR(totals.cgstPaise)}</Text>
             </View>
             <View style={styles.totalLine}>
-              <Text style={styles.totalKey}>SGST</Text>
+              <Text style={styles.totalKey}>SGST{halfRate}</Text>
               <Text>{formatINR(totals.sgstPaise)}</Text>
             </View>
-            {totals.discountPaise > 0 ? (
-              <View style={styles.totalLine}>
-                <Text style={styles.totalKey}>Discount</Text>
-                <Text>- {formatINR(totals.discountPaise)}</Text>
-              </View>
-            ) : null}
             <View style={styles.grandLine}>
               <Text style={styles.grandKey}>Total</Text>
               <Text style={styles.grandValue}>{formatINR(totals.totalPaise)}</Text>
@@ -283,6 +354,19 @@ export function InvoiceDocument(payload: InvoicePdfPayload) {
           <Text style={styles.sectionLabel}>Amount in words</Text>
           <Text style={styles.wordsValue}>{amountInWordsINR(totals.totalPaise)}</Text>
         </View>
+
+        {payload.invoiceType === 'membership_session' ? (
+          <Text style={styles.notes}>
+            A session of a prepaid SPA membership. Its price and tax were charged on the
+            membership's purchase invoice, so nothing is due here.
+          </Text>
+        ) : null}
+
+        {provisional ? (
+          <Text style={styles.notes}>
+            Test invoice: issued with provisional tax rates that have not been reviewed.
+          </Text>
+        ) : null}
 
         {/* Gems note */}
         {hasGems ? (
@@ -298,7 +382,7 @@ export function InvoiceDocument(payload: InvoicePdfPayload) {
         <View style={styles.footer} fixed>
           <View style={styles.hairline} />
           <Text style={[styles.footerText, { marginTop: 6 }]}>
-            SAC {SAC_CODE} · Prices are GST-inclusive
+            {!perLine && seller.sacCode ? `SAC ${seller.sacCode} · ` : ''}Prices are GST-inclusive
           </Text>
           <Text style={styles.thankYou}>Thank you for visiting The Royal Glow</Text>
         </View>

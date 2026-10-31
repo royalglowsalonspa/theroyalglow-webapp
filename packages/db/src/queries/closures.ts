@@ -177,3 +177,58 @@ export async function getActiveBookingsOnDates(dates: readonly string[], branchI
     customerName: row.customerName,
   }))
 }
+
+/** A booking still to happen at a branch on a day that branch is now closed. */
+export type ClosedDayBooking = {
+  id: string
+  bookingNumber: string
+  /** YYYY-MM-DD, the IST business date. */
+  date: string
+  /** HH:MM. */
+  startTime: string
+  status: string
+  customerName: string
+  /** The closure that day: the branch's own, else the every-branch one. */
+  closureName: string
+}
+
+/**
+ * The branch's pending and confirmed bookings, today or later in IST, on a
+ * day it is closed (R1.8, MS-09), soonest first. A closure never cancels a
+ * booking: each stays listed until reception moves or cancels it, whichever
+ * way it was confirmed (approval on a closed day is refused, but one racing
+ * the closure still shows here).
+ */
+export async function getBookingsOnClosedDays(branchId: string): Promise<ClosedDayBooking[]> {
+  const result = await db.execute(sql`
+    select distinct on (b.booking_date, b.start_time, b.id)
+           b.id, b.booking_number, to_char(b.booking_date, 'YYYY-MM-DD') as date,
+           to_char(b.start_time, 'HH24:MI') as start_time, b.status::text as status,
+           u.name as customer_name, h.name as closure_name
+      from booking b
+      join "user" u on u.id = b.customer_id
+      join holiday h on h.date = to_char(b.booking_date, 'YYYY-MM-DD')
+                    and (h.branch_id = b.branch_id or h.branch_id is null)
+     where b.branch_id = ${branchId}
+       and b.status in ('pending', 'confirmed')
+       and b.booking_date >= (now() at time zone 'Asia/Kolkata')::date
+     order by b.booking_date, b.start_time, b.id, (h.branch_id is null)`)
+  const rows = result.rows as {
+    id: string
+    booking_number: string
+    date: string
+    start_time: string
+    status: string
+    customer_name: string
+    closure_name: string
+  }[]
+  return rows.map((row) => ({
+    id: row.id,
+    bookingNumber: row.booking_number,
+    date: row.date,
+    startTime: row.start_time,
+    status: row.status,
+    customerName: row.customer_name,
+    closureName: row.closure_name,
+  }))
+}

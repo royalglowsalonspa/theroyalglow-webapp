@@ -1,25 +1,27 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 25-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : POST /api/bookings/[id]/complete
  * Scope        : API — Admin Booking
  *
- * Description  : Marks a confirmed/in-progress booking as completed, generates
- *                a GST invoice, awards loyalty gems, and applies optional offers.
- *                Persists the completion atomically via completeBookingWithInvoice.
+ * Description  : Marks a confirmed/in-progress booking as completed, issues
+ *                its GST invoice, awards loyalty gems, and applies optional
+ *                offers. Persists the completion atomically via
+ *                completeBookingWithInvoice.
  *
  * Responsibilities :
  * - Validate booking is in completable state (confirmed/in_progress)
- * - Generate GST-compliant invoice with line items
- * - Award loyalty gems based on final amount
+ * - Issue the invoice from the booking's branch: its next number, its rates
+ *   in force for each line's SAC code, its issuer (multi-branch R6)
+ * - Award loyalty gems based on the amount paid
  * - Apply and validate optional offer discount
  *
  * Features / Functionality :
- * - Full invoice generation (GST split, payment method, staff snapshots)
+ * - Per-line tax from the branch's tax versions; no fallback rate
  * - Loyalty gems earning (1 gem per ₹100, 365-day expiry)
- * - Offer application with conflict checks (1/customer/day, no gems+offer)
+ * - Offer application with conflict checks (1/customer/IST day, no gems+offer)
  * - Post-service follow-up job enqueue (+24h)
  *
  * Tech Stack   : Next.js 16 (Route Handler)
@@ -35,32 +37,150 @@
 
 import {
   assertOfferActive,
+  assertOfferApplies,
   assertOfferSalonOnly,
   assertRedeemable,
   calculateGemsEarned,
-  computeOfferDiscount,
-  generateInvoiceNumber,
-  splitGST,
+  istToday,
 } from '@rgss/business'
 import {
   completeBookingWithInvoice,
+  completeMembershipSession,
   getBookingForAdmin,
   getBranchByIdAdmin,
   getLoyaltySummary,
   getOfferById,
   getOfferRedemptionForCustomerOnDate,
   getRedeemableServiceById,
+  getSettlementSetting,
   getStaffNamesByIds,
-  recordOfferRedemption,
 } from '@rgss/db/queries'
 import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
 import { completeBookingSchema } from '@rgss/types'
 import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { invoiceTaxFor, serviceSacCodes } from '@/lib/api/invoice-tax'
 import { enqueueJob } from '@/lib/jobs/enqueue'
 import { publishBookingEvent } from '@/lib/realtime/publish'
 
 const COMPLETABLE_STATUSES = new Set(['confirmed', 'in_progress'])
+
+type AdminBooking = NonNullable<Awaited<ReturnType<typeof getBookingForAdmin>>>
+type CheckoutOfferRow = NonNullable<Awaited<ReturnType<typeof getOfferById>>>
+
+/** The rule's value the invoice keeps: the percentage, or paise for a flat or combo price. */
+function offerValueOf(offer: CheckoutOfferRow): number {
+  const value =
+    offer.offerType === 'percentage'
+      ? offer.discountPercentage
+      : offer.offerType === 'flat'
+        ? offer.discountAmountPaise
+        : offer.comboPricePaise
+  if (value === null || value <= 0) {
+    // A rule without its value can't have given a discount (the mirror's check
+    // refuses one); refuse rather than invoice an empty snapshot.
+    throw conflict(ERROR_CODES.OFFER_NOT_APPLICABLE, 'This offer has no discount set.')
+  }
+  return value
+}
+
+/**
+ * Complete a membership session (membership-scheduling.md): only once it has
+ * started, consuming its held minutes, with a ₹0 session invoice from the
+ * delivering branch at its rates in force (TX-07) and the settlement entry
+ * for the selling branch (R10). One transaction in the query layer.
+ */
+async function completeSession(existing: AdminBooking, actorId: string): Promise<Response> {
+  if (existing.status !== 'in_progress') {
+    throw conflict(
+      ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION,
+      existing.status === 'confirmed'
+        ? 'Start this session before you complete it.'
+        : `Only a session in progress can be completed (current status: "${existing.status}").`,
+    )
+  }
+  if (existing.services.some((s) => s.staffId === null)) {
+    throw conflict(
+      ERROR_CODES.CONFLICT,
+      'Nobody is assigned to this session. Assign who is doing it, then complete it.',
+    )
+  }
+  const branch = await getBranchByIdAdmin(existing.branchId)
+  if (!branch) {
+    throw notFound('Branch not found for this booking.')
+  }
+
+  // The share the delivering branch receives, stored on the settlement entry.
+  // Unreadable settings are a 409, never a guess.
+  const settlement = await getSettlementSetting()
+  const now = new Date()
+  const sacCodes = await serviceSacCodes(
+    existing.services.map((s) => ({ serviceId: s.serviceId, name: s.serviceNameSnapshot })),
+  )
+  const tax = await invoiceTaxFor({
+    branch,
+    taxPoint: now,
+    lines: existing.services.map((s) => ({
+      grossPaise: 0,
+      sacCode: sacCodes.get(s.serviceId) ?? '',
+    })),
+  })
+  const staffIds = [
+    ...new Set(existing.services.map((s) => s.staffId).filter((s): s is string => Boolean(s))),
+  ]
+  const staffNameById = new Map((await getStaffNamesByIds(staffIds)).map((s) => [s.id, s.name]))
+
+  const result = await completeMembershipSession({
+    bookingId: existing.id,
+    branchId: existing.branchId,
+    changedById: actorId,
+    invoice: {
+      taxPointAt: tax.taxPointAt,
+      financialYear: tax.financialYear,
+      taxReviewStatus: tax.taxReviewStatus,
+      lineTax: tax.lines.map((line) => ({
+        sacCode: line.sacCode,
+        taxVersionId: line.taxVersionId,
+        rateBps: line.rateBps,
+      })),
+    },
+    lines: existing.services.map((s) => ({
+      serviceId: s.serviceId,
+      serviceNameSnapshot: s.serviceNameSnapshot,
+      staffNameSnapshot: s.staffId ? (staffNameById.get(s.staffId) ?? null) : null,
+    })),
+    settlement,
+  })
+  if (!result.ok) {
+    throw conflict(
+      ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION,
+      'This session was completed or changed meanwhile. Reload it to see where it stands.',
+    )
+  }
+
+  await publishBookingEvent({
+    bookingId: existing.id,
+    branchId: existing.branchId,
+    customerId: existing.customerId,
+    event: 'completed',
+    data: { status: 'completed' },
+  })
+
+  return apiSuccess({
+    booking: result.booking,
+    invoice: {
+      invoiceNumber: result.invoice.invoiceNumber,
+      totalPaise: 0,
+      gstPaise: 0,
+      taxReviewStatus: tax.taxReviewStatus,
+    },
+    gemsEarned: 0,
+    discountPaise: 0,
+    gemsRedeemed: 0,
+    gemsRedeemedServiceId: null,
+    remainingMinutes: result.remainingMinutes,
+  })
+}
 
 export const POST = withErrorHandler(
   async (req: Request, route: { params: Promise<{ id: string }> }) => {
@@ -96,6 +216,17 @@ export const POST = withErrorHandler(
     if (!existing) {
       throw notFound('Booking not found.')
     }
+    // A membership session is paid for with its minutes: completing it
+    // consumes them and issues the ₹0 session invoice.
+    if (existing.isMembershipSession) {
+      if (offerId || requestsGemsRedemption) {
+        throw badRequest('A membership session takes no offer or gems.')
+      }
+      return completeSession(existing, session.user.id)
+    }
+    if (!paymentMethod) {
+      throw badRequest('Invalid request data', { paymentMethod: ['Choose how the customer paid.'] })
+    }
     if (!COMPLETABLE_STATUSES.has(existing.status)) {
       throw conflict(
         ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION,
@@ -118,15 +249,18 @@ export const POST = withErrorHandler(
     }
 
     const now = new Date()
-    const today = now.toISOString().slice(0, 10)
+    // One offer per customer per IST day (not the UTC date).
+    const today = istToday(now)
 
-    // Offer application (optional). When an offer is supplied, validate it is
-    // active, salon-only, not combined with gems, and not a second redemption
-    // for this customer today; then compute the discounted total. With no offer
-    // the totals are unchanged (discount 0, final = original) — no regression.
-    let appliedOfferId: string | null = null
+    // Offer application (optional, multi-branch offers.md). When an offer is
+    // supplied, validate it is live today (IST), the booking is a salon one
+    // taking no gems, and the customer hasn't used an offer today; then its
+    // rule gives the discount on the lines it covers. The completion batch
+    // revalidates the offer and the one-a-day rule as it writes. With no offer
+    // the discount is 0.
+    let appliedOffer: NonNullable<Awaited<ReturnType<typeof getOfferById>>> | null = null
     let discountPaise = 0
-    let finalPaise = existing.totalAmountPaise
+    let discountableLines: boolean[] | undefined
 
     if (offerId) {
       const offer = await getOfferById(offerId)
@@ -134,32 +268,42 @@ export const POST = withErrorHandler(
         throw notFound('Offer not found.')
       }
 
-      // Active + within date range (throws OFFER_EXPIRED 409).
-      assertOfferActive(offer)
+      // Active + within its dates, today in IST (throws OFFER_EXPIRED 409).
+      assertOfferActive(offer, now)
       // Salon-only — the booking is a single service type (throws
       // OFFER_NOT_APPLICABLE 409 for spa bookings).
       assertOfferSalonOnly([existing.serviceType])
-      // Offers cannot be combined with a gems redemption on the same booking.
-      if (requestsGemsRedemption) {
+      // Offers cannot be combined with gems on the same booking: redeemed at
+      // this checkout, or when the customer booked it with gems.
+      if (requestsGemsRedemption || existing.isGemsRedemption) {
         throw conflict(
           ERROR_CODES.OFFER_NOT_APPLICABLE,
           'An offer cannot be combined with gems on the same booking.',
         )
       }
-      // One offer per customer per day — friendly pre-check before the DB
-      // unique constraint would fire.
+      // One offer per customer per IST day, at any branch — a friendly
+      // pre-check; the unique (customer, day) decides it in the write.
       const priorRedemption = await getOfferRedemptionForCustomerOnDate(existing.customerId, today)
       if (priorRedemption) {
         throw conflict(
           ERROR_CODES.OFFER_NOT_APPLICABLE,
-          'This customer has already redeemed an offer today.',
+          'This customer has already used an offer today.',
         )
       }
 
-      const computed = computeOfferDiscount(offer, existing.totalAmountPaise)
-      discountPaise = computed.discountPaise
-      finalPaise = computed.finalPaise
-      appliedOfferId = offer.id
+      // The rule's discount on the lines it covers (409 when it covers or
+      // saves nothing, or a combo is incomplete).
+      const outcome = assertOfferApplies(
+        offer,
+        existing.services.map((s) => ({
+          serviceId: s.serviceId,
+          grossPaise: s.priceAtBookingPaise,
+        })),
+        new Map(offer.services.map((s) => [s.id, s.name])),
+      )
+      discountPaise = outcome.discountPaise
+      discountableLines = outcome.coveredLines
+      appliedOffer = offer
     }
 
     // Gems redemption (optional, salon or spa). When a service id is supplied the
@@ -169,13 +313,12 @@ export const POST = withErrorHandler(
     // NOT an offer). The gem cost is read server-side from live catalogue + the
     // customer's CURRENT balance — any client-supplied amount is ignored.
     let gemsRedemption: { serviceId: string; gemsRequired: number } | null = null
-    let gemsCoveredPaise = 0
 
     if (gemsRedeemedServiceId) {
       // Offers cannot be combined with a gems redemption on the same booking.
       // (Also caught in the offer branch above; repeated here for the
       // gems-without-offer entry path so the rule holds either way.)
-      if (appliedOfferId) {
+      if (appliedOffer) {
         throw conflict(
           ERROR_CODES.OFFER_NOT_APPLICABLE,
           'An offer cannot be combined with gems on the same booking.',
@@ -202,28 +345,33 @@ export const POST = withErrorHandler(
       const balance = summary?.balance ?? 0
       const gemsRequired = assertRedeemable(service, balance)
 
+      // The redeemed service's line is billed at 0 below.
       gemsRedemption = { serviceId: gemsRedeemedServiceId, gemsRequired }
-      gemsCoveredPaise = bookedService.priceAtBookingPaise
-      // The redeemed service's snapshot price leaves the payable money total.
-      finalPaise = existing.totalAmountPaise - gemsCoveredPaise
     }
 
-    // Pre-compute the monetary values in the business/route layer (the db layer
-    // must not import @rgss/business). Prices are GST-inclusive paise.
-    //  - subtotal: the payable base value. For an offer it is the original
-    //    (pre-discount) base so the invoice reads Subtotal → Discount → Total.
-    //    For a gems redemption the covered service is excluded entirely (it is
-    //    not a discount), so the subtotal is the base of the reduced total.
-    //  - taxable value + GST: split from the final payable total so they
-    //    reconstruct `finalPaise` exactly (Req 12.2)
-    //  - gems EARNED: floor of rupees on the final PAID total (after removing any
-    //    gems-covered service), but exactly 0 for a membership session
-    //    (Req 12.3, 12.4)
-    const { basePaise: subtotalPaise } = splitGST(
-      gemsRedemption ? finalPaise : existing.totalAmountPaise,
+    // The invoice's tax (multi-branch R6.4): each line at the rate in force for
+    // its SAC code at this branch now, the offer discount shared across the
+    // lines, totals summed from the lines. The gems-covered service stays on
+    // the invoice for the record but is billed at 0. No fallback rate: a
+    // missing rate or SAC code is a 409 before anything is written.
+    const sacCodes = await serviceSacCodes(
+      existing.services.map((s) => ({ serviceId: s.serviceId, name: s.serviceNameSnapshot })),
     )
-    const { basePaise: taxableValuePaise, gstPaise } = splitGST(finalPaise)
-    const gemsEarned = calculateGemsEarned(finalPaise, existing.isMembershipSession)
+    const tax = await invoiceTaxFor({
+      branch,
+      taxPoint: now,
+      lines: existing.services.map((s) => ({
+        grossPaise: gemsRedemption?.serviceId === s.serviceId ? 0 : s.priceAtBookingPaise,
+        sacCode: sacCodes.get(s.serviceId) ?? '',
+      })),
+      discountPaise,
+      // The offer's discount is shared across the lines it covers only.
+      ...(discountableLines ? { discountableLines } : {}),
+    })
+    const totals = tax.totals
+    // Gems EARNED: floor of rupees on what was paid, 0 for a membership
+    // session (Req 12.3, 12.4).
+    const gemsEarned = calculateGemsEarned(totals.netPaise, existing.isMembershipSession)
 
     // Snapshot staff names onto each invoice item.
     const staffIds = [
@@ -234,33 +382,52 @@ export const POST = withErrorHandler(
     const staffNames = await getStaffNamesByIds(staffIds)
     const staffNameById = new Map(staffNames.map((s) => [s.id, s.name]))
 
-    const invoiceNumber = generateInvoiceNumber(branch.number, now)
+    // The share and value per gem stored on the settlement entries for gems
+    // spent on this booking that another branch issued (R10). Unreadable
+    // settings are a 409, never a guess.
+    const settlement = await getSettlementSetting()
 
-    // Persist atomically (Req 12.1): booking → completed + service invoice (with
-    // the pre-computed GST split) + invoice items + gems credit + status log in a
-    // single db.batch(). The query layer only persists the values supplied here.
+    // Persist atomically (Req 12.1): booking → completed + the next invoice
+    // number + the invoice with its issuer and tax facts + gems + status log in
+    // a single db.batch(). The query layer only persists the values given here.
     const result = await completeBookingWithInvoice({
       bookingId: id,
       changedById: session.user.id,
+      settlement,
       invoice: {
-        invoiceNumber,
         branchId: existing.branchId,
         customerId: existing.customerId,
-        subtotalPaise,
-        discountAmountPaise: discountPaise,
-        taxableValuePaise,
-        gstAmountPaise: gstPaise,
-        totalAmountPaise: finalPaise,
         invoiceType: 'service',
         paymentMethod,
+        subtotalPaise: totals.grossPaise,
+        discountAmountPaise: totals.discountPaise,
+        taxableValuePaise: totals.taxablePaise,
+        gstAmountPaise: totals.taxPaise,
+        cgstPaise: totals.cgstPaise,
+        sgstPaise: totals.sgstPaise,
+        totalAmountPaise: totals.netPaise,
         gemsEarned,
         gemsRedemption,
+        taxPointAt: tax.taxPointAt,
+        financialYear: tax.financialYear,
+        taxReviewStatus: tax.taxReviewStatus,
+        // The offer and its rule as applied, kept on the invoice (R6.1), and
+        // the IST day it uses up for the customer.
+        offer: appliedOffer
+          ? {
+              id: appliedOffer.id,
+              name: appliedOffer.name,
+              type: appliedOffer.offerType,
+              value: offerValueOf(appliedOffer),
+              redeemedOn: today,
+            }
+          : null,
       },
       items: existing.services.map((s, index) => {
-        // The gems-covered service stays on the invoice for the record but
-        // contributes 0 to the money total: keep its name + unit-price snapshot,
-        // bill the line at 0. Sum of line totals therefore equals finalPaise.
-        const isGemsCovered = gemsRedemption?.serviceId === s.serviceId
+        const line = tax.lines[index]
+        if (!line) {
+          throw new Error('invoice line tax missing')
+        }
         return {
           serviceId: s.serviceId,
           serviceNameSnapshot: s.serviceNameSnapshot,
@@ -269,8 +436,16 @@ export const POST = withErrorHandler(
             : 'Unassigned',
           quantity: 1,
           unitPricePaise: s.priceAtBookingPaise,
-          totalPricePaise: isGemsCovered ? 0 : s.priceAtBookingPaise,
+          totalPricePaise: line.grossPaise,
           displayOrder: index,
+          sacCode: line.sacCode,
+          taxVersionId: line.taxVersionId,
+          rateBps: line.rateBps,
+          discountPaise: line.discountPaise,
+          taxableValuePaise: line.taxablePaise,
+          taxPaise: line.taxPaise,
+          cgstPaise: line.cgstPaise,
+          sgstPaise: line.sgstPaise,
         }
       }),
     })
@@ -278,12 +453,6 @@ export const POST = withErrorHandler(
     if (!result) {
       // Booking vanished between the read and the write — surface as not-found.
       throw notFound('Booking not found.')
-    }
-
-    // Record the offer redemption (one-per-customer-per-day, DB-enforced). Kept
-    // outside the completion batch as it belongs to the offers feature.
-    if (appliedOfferId) {
-      await recordOfferRedemption(appliedOfferId, existing.customerId, existing.id, today)
     }
 
     // Best-effort: durably enqueue the invoice-pdf job (runs on apps/web). It
@@ -316,9 +485,10 @@ export const POST = withErrorHandler(
     return apiSuccess({
       booking: result.booking,
       invoice: {
-        invoiceNumber,
-        totalPaise: finalPaise,
-        gstPaise,
+        invoiceNumber: result.invoice?.invoiceNumber ?? null,
+        totalPaise: totals.netPaise,
+        gstPaise: totals.taxPaise,
+        taxReviewStatus: tax.taxReviewStatus,
       },
       gemsEarned,
       discountPaise,

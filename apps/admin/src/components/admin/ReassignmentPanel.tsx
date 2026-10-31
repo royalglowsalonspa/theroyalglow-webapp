@@ -26,13 +26,11 @@ export function ReassignmentPanel({ work }: { work: ReassignmentWork }) {
         className="flex items-center gap-2 font-ui text-sm text-cocoa-dark"
       >
         <Icon icon={TriangleAlert} decorative size={16} className="text-deep-gold" />
-        {work.total === 1
-          ? '1 booking needs someone else'
-          : `${work.total} bookings need someone else`}
+        {work.total === 1 ? '1 booking needs staff' : `${work.total} bookings need staff`}
       </h2>
       <p className="mt-1 font-sans text-sm text-warm-gray">
-        Their assignee can no longer take them. Open each booking to assign someone; the customer’s
-        booking is unchanged.
+        Their assignee can’t take them now. Open each booking to assign someone, or start it once
+        its person is free; the customer’s booking is unchanged.
       </p>
       <ul className="mt-2 space-y-1.5">
         {work.items.map((item) => (
@@ -52,7 +50,7 @@ export function ReassignmentPanel({ work }: { work: ReassignmentWork }) {
           <Link href="/bookings" className="underline underline-offset-2">
             Bookings
           </Link>{' '}
-          page, marked “Needs staff”.
+          page, marked “Needs staff” or “Held up”.
         </p>
       ) : null}
     </section>

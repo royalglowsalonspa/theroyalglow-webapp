@@ -73,6 +73,15 @@ export const branch = pgTable(
     temporaryCloseReason: text('temporary_close_reason'),
     isPrimary: boolean('is_primary').notNull().default(false),
     displayOrder: integer('display_order').notNull().default(0),
+    // The issuer on its invoices (multi-branch R6.1): legal name and GSTIN,
+    // snapshotted onto each invoice when it is issued. Required before live
+    // invoicing (TX-08), optional before.
+    legalName: text('legal_name'),
+    gstin: text('gstin'),
+    // 1–4 characters that start the branch's invoice numbers (RS/2627/000123,
+    // R6.2). Fixed once the branch has issued an invoice (0018 trigger); a
+    // branch inserted without one gets "B" + its number in base 36.
+    invoicePrefix: text('invoice_prefix').notNull().unique(),
     // The branch's Owner (required, R1.2) and optional Manager. Each reference
     // is role-qualified: the *_role column is fixed to that role and the
     // composite foreign key targets user (id, role), so it holds only while
@@ -99,6 +108,12 @@ export const branch = pgTable(
       'branch_owner_is_not_manager_check',
       sql`owner_user_id IS NULL OR manager_user_id IS NULL OR owner_user_id <> manager_user_id`,
     ),
+    // 15-character GSTIN: state code, PAN, entity number, 'Z', check character.
+    check(
+      'branch_gstin_check',
+      sql`gstin IS NULL OR gstin ~ '^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$'`,
+    ),
+    check('branch_invoice_prefix_check', sql`invoice_prefix ~ '^[A-Z][A-Z0-9]{0,3}$'`),
     foreignKey({
       name: 'branch_owner_fk',
       columns: [table.ownerUserId, table.ownerRole],

@@ -46,6 +46,7 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Textarea } from '@/components/ui/textarea'
 import { formatDateDDMMYYYY, formatINR } from '@/lib/admin/bookings'
+import { formatDateIST } from '@/lib/admin/format'
 
 export interface ProfileTag {
   slug: string
@@ -83,6 +84,8 @@ export interface MembershipRow {
   status: string
   totalHoursMinutes: number
   usedHoursMinutes: number
+  /** Held by sessions booked or in progress; absent on older responses. */
+  reservedMinutes?: number
   startsAt: string | null
   expiresAt: string | null
 }
@@ -603,7 +606,9 @@ function MembershipCard({
 }) {
   const total = membership.totalHoursMinutes
   const used = Math.min(membership.usedHoursMinutes, total)
-  const remaining = Math.max(0, total - used)
+  // Held by sessions booked or in progress: not used yet, not free either.
+  const held = Math.min(membership.reservedMinutes ?? 0, total - used)
+  const remaining = Math.max(0, total - used - held)
   const usedPct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0
 
   return (
@@ -619,9 +624,10 @@ function MembershipCard({
             <span className="text-dusty-gray text-xs"> · #{membership.membershipNumber}</span>
           </p>
           <p className="text-xs font-sans text-dusty-gray">
-            {membership.startsAt ? formatDateDDMMYYYY(membership.startsAt) : '—'}
+            {/* Validity instants, shown as their IST dates (start is 00:00 IST). */}
+            {formatDateIST(membership.startsAt)}
             {' – '}
-            {membership.expiresAt ? formatDateDDMMYYYY(membership.expiresAt) : '—'}
+            {formatDateIST(membership.expiresAt)}
           </p>
         </div>
         <StatusBadge status={membership.status} />
@@ -630,8 +636,9 @@ function MembershipCard({
         <div className="h-full rounded-full bg-deep-gold" style={{ width: `${usedPct}%` }} />
       </div>
       <p className="mt-2 text-xs font-sans text-warm-gray">
-        {formatHoursMinutes(used)} used · {formatHoursMinutes(remaining)} remaining of{' '}
-        {formatHoursMinutes(total)}
+        {formatHoursMinutes(used)} used
+        {held > 0 ? ` · ${formatHoursMinutes(held)} held` : ''} · {formatHoursMinutes(remaining)}{' '}
+        remaining of {formatHoursMinutes(total)}
       </p>
     </div>
   )

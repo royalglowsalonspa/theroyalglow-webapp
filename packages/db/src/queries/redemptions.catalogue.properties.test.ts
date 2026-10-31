@@ -150,7 +150,13 @@ function project(
   }
   const out: Record<string, unknown> = {}
   for (const [alias, column] of Object.entries(projection)) {
-    out[alias] = (row as unknown as Record<string, unknown>)[snakeToCamel(column.name)]
+    // A computed SQL field (the branches offering it, R4.3) isn't a seeded
+    // column: report every branch, as the fragment does for an all-branches
+    // service. Admission and order don't depend on it.
+    out[alias] =
+      typeof column.name === 'string'
+        ? (row as unknown as Record<string, unknown>)[snakeToCamel(column.name)]
+        : null
   }
   return out
 }

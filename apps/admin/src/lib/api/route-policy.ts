@@ -18,6 +18,9 @@
  *                  active branch (R3.2); needs branch context too
  * - shared       : the same for every branch; no branch money in responses
  * - developer    : Developer only, across all branches
+ * - settlement   : statements between branches (R10): the Owners of the two
+ *                  branches and the Developer, whatever the active branch;
+ *                  requireSettlementViewer, 404 for anyone else
  * - self         : the signed-in person's own data
  * - job          : QStash-signed; branch scope comes from the job's records
  * - auth, health : Better Auth's handler; the unauthenticated health probe
@@ -30,6 +33,7 @@ export type RoutePolicy =
   | 'shared_money'
   | 'shared'
   | 'developer'
+  | 'settlement'
   | 'self'
   | 'job'
   | 'auth'
@@ -55,8 +59,11 @@ export const ADMIN_ROUTE_POLICIES = {
   bookings: { GET: 'branch' },
   'bookings/new': { POST: 'branch' },
   'bookings/[id]': { GET: 'branch', PATCH: 'branch' },
+  'bookings/[id]/cancel': { POST: 'branch' },
   'bookings/[id]/complete': { POST: 'branch' },
   'bookings/[id]/noshow': { POST: 'branch' },
+  'bookings/[id]/reschedule': { POST: 'branch' },
+  'bookings/[id]/start': { POST: 'branch' },
   branches: { GET: 'shared', POST: 'developer' },
   'branches/owner-candidates': { GET: 'developer' },
   'branches/[id]': { PATCH: 'developer', DELETE: 'developer' },
@@ -92,6 +99,8 @@ export const ADMIN_ROUTE_POLICIES = {
   'jobs/post-service-followup': job,
   'jobs/service-drift-reconcile': job,
   'jobs/session-cleanup': job,
+  'jobs/settlement-close': job,
+  'jobs/staff-overrun-check': job,
   'jobs/stale-booking-alert': job,
   'jobs/weekly-report': job,
   leads: { GET: 'branch', POST: 'branch' },
@@ -104,7 +113,9 @@ export const ADMIN_ROUTE_POLICIES = {
   'me/leave': { GET: 'self', POST: 'self' },
   'me/leave/[id]': { DELETE: 'self' },
   'me/schedule': { GET: 'self' },
-  'membership-tiers': { GET: 'shared' },
+  // Tiers are one shared list; writes are audited against the active branch.
+  'membership-tiers': { GET: 'shared', POST: 'shared' },
+  'membership-tiers/[id]': { PATCH: 'shared' },
   memberships: { GET: 'shared_money', POST: 'branch' },
   'memberships/[id]': { GET: 'shared_money' },
   // Cancelling stays with the selling branch (route inventory gap 5).
@@ -120,7 +131,19 @@ export const ADMIN_ROUTE_POLICIES = {
   services: { GET: 'shared', POST: 'retired' },
   'services/all': { GET: 'shared' },
   'services/[id]': { PATCH: 'retired' },
-  settings: { GET: 'developer', PUT: 'developer' },
+  // The active branch's booking settings (R6.3) and the shared invoicing
+  // switch: Developer only, requireBranchRole('developer').
+  settings: { GET: 'branch', PUT: 'branch' },
+  // Statements between branches (R10): the two branches' Owners and the
+  // Developer; corrections are the Developer's alone.
+  settlements: { GET: 'settlement' },
+  'settlements/[id]': { GET: 'settlement' },
+  'settlements/[id]/paid': { POST: 'settlement' },
+  'settlements/entries/[id]/reverse': { POST: 'developer' },
+  // Branch tax rates: records of the active branch that only the Developer
+  // manages (TX-01); requireBranchRole('developer'), proven by the routes' tests.
+  'tax-versions': { GET: 'branch', POST: 'branch' },
+  'tax-versions/[id]': { PATCH: 'branch' },
   staff: { GET: 'branch', POST: 'people' },
   'staff/all': { GET: 'people' },
   'staff/candidates': { GET: 'people' },

@@ -55,6 +55,31 @@ member. The grid updates live as bookings come and go.
   [Realtime](/content/docs/realtime) for the channels and events involved.
 </Info>
 
+## How the weekly schedule limits bookings
+
+A manager sets each staff member's week at the active branch: which days they
+work there and their hours. A shared manager works at one branch per day. The
+week decides what the person can be booked for:
+
+- A confirmed booking must fall on one of their working days, at that day's
+  branch, within their hours. Someone without a saved week works the branch's
+  opening hours.
+- Staff pickers mark anyone outside their schedule **Not scheduled then** and
+  don't let reception pick them for a booking planned ahead. Work starting now
+  (starting a booking, recording a membership session) is never refused for
+  the schedule: the person is there.
+- Saving a week that no longer covers some of the person's upcoming bookings
+  takes them off those bookings in the same save, at every branch. Confirmed
+  bookings appear on the dashboard as needing staff, with the reason "isn't
+  scheduled to work then"; a pending request just loses its suggested person.
+  A booking already under way keeps its person.
+- Moving a booking keeps its person when they can take the new time. If they
+  can't (on leave, not scheduled, or booked then), the booking moves anyway and
+  waits on the dashboard for someone else.
+
+The database checks these rules on every write, so a stale page or a change
+made at the same moment can't leave someone on a booking they can't take.
+
 ## How it works — leave requests
 
 Staff submit leave for themselves, and an approver decides:

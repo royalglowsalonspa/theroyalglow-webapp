@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 25-06-2026 & Updated - 25-06-2026
+ * Date         : Created - 25-06-2026 & Updated - 30-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : BookingDetail
@@ -9,35 +9,38 @@
  * Description  : Client component that fetches and renders a single customer
  *                booking. Shows a status timeline, the service snapshot list,
  *                date/time and total, and offers cancel + reschedule actions
- *                gated by the booking's status and reschedule eligibility.
+ *                under the branch's booking rules (R6.3).
  *
  * Responsibilities :
- * - Fetch the booking from GET /api/bookings/[id] on mount
+ * - Fetch the booking and its terms from GET /api/bookings/[id] on mount
  * - Present loading, not-found, and error states (aria-live)
  * - Render booking number, status badge + timeline, date/time, services, total
- * - Cancel (POST /cancel) for pending/confirmed bookings
- * - Reschedule (POST /reschedule) gated by reschedule eligibility, then refresh
+ * - Cancel (POST /cancel) after a confirmation that says when it is late
+ * - Reschedule (POST /reschedule) to a time the branch has free that day
+ *   (GET /api/availability), when its rules still allow it
  *
  * Features / Functionality :
  * - Status timeline derived from lifecycle timestamps (booked/confirmed/…)
- * - Inline reschedule panel (date + 30-min slot grid mirroring availability)
+ * - Inline reschedule panel: the branch's own slots for the chosen date,
+ *   long enough for the booking, with its notice when the day has none
  * - Surfaces error.message from the response envelope on action failure
  *
  * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4
  * Layer        : Presentation
  *
- * Dependencies : @rgss/business (formatINR, checkReschedulable), React hooks
+ * Dependencies : @rgss/business (formatINR, durationText, types), React hooks
  *
  * Notes        :
- * - Presentation only — all business rules live in the API + business layer.
+ * - Presentation only — all business rules live in the API + business layer;
+ *   the server re-checks every action.
  * - Dates/times are sliced from the wire value to stay timezone-safe.
  ************************************************************/
 
 'use client'
 
-import { checkReschedulable, formatINR } from '@rgss/business'
+import { type AvailabilitySlot, type BookingTerms, durationText, formatINR } from '@rgss/business'
 import { Loader2 } from 'lucide-react'
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useBookingStatus } from '@/components/realtime/RealtimeProvider'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -56,6 +59,7 @@ interface BookingServiceRow {
 interface Booking {
   id: string
   bookingNumber: string
+  branchId: string
   status: string
   serviceType: 'salon' | 'spa'
   bookingDate: string
@@ -75,8 +79,6 @@ interface Booking {
   services: BookingServiceRow[]
 }
 
-const CANCELLABLE_STATUSES = new Set(['pending', 'confirmed'])
-
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Pending',
   confirmed: 'Confirmed',
@@ -86,6 +88,11 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: 'Rejected',
   no_show: 'No Show',
 }
+
+// Statuses a customer can still change; for them the page explains the
+// reschedule rules even when they no longer allow it, and offers cancelling
+// even when the branch's rules can't be read.
+const OPEN_STATUSES = new Set(['pending', 'confirmed'])
 
 const DEFAULT_STATUS_STYLE = { bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' }
 
@@ -102,18 +109,12 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; dot: string }> =
   no_show: { bg: 'bg-red-100', text: 'text-red-900', dot: 'bg-red-800' },
 }
 
-// Slot grid mirrors GET /api/availability and the reschedule business rule:
-// 10:00 open, 30-min slots, last start 20:30. The server still validates that
-// the full service duration finishes before close (21:00).
-const SLOT_OPTIONS: string[] = (() => {
-  const slots: string[] = []
-  for (let mins = 10 * 60; mins <= 20 * 60 + 30; mins += 30) {
-    const h = Math.floor(mins / 60)
-    const m = mins % 60
-    slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
-  }
-  return slots
-})()
+// The reschedule panel's times for the chosen date.
+type SlotState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'ready'; starts: string[]; notice: string | null; closure: string | null }
+  | { status: 'error'; message: string }
 
 // --- Formatting helpers (timezone-safe: operate on the wire string) ---
 
@@ -156,6 +157,15 @@ function todayInIST(): string {
   return istNow.toISOString().slice(0, 10)
 }
 
+/** What the confirmation says before a cancellation. */
+export function cancelWarning(terms: BookingTerms | null): string {
+  const cancel = terms?.cancel
+  if (cancel?.late) {
+    return `Your appointment is less than ${durationText(cancel.cutoffHours * 60)} away, so this counts as a late cancellation. You won't be charged, but it's noted on your record.`
+  }
+  return 'You can book again at any time.'
+}
+
 interface TimelineEntry {
   label: string
   at: string
@@ -185,17 +195,24 @@ function buildTimeline(booking: Booking): TimelineEntry[] {
 
 export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?: string | null }) {
   const [booking, setBooking] = useState<Booking | null>(null)
+  const [terms, setTerms] = useState<BookingTerms | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
 
+  const [confirmingCancel, setConfirmingCancel] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  const [cancelNotice, setCancelNotice] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
   const [showReschedule, setShowReschedule] = useState(false)
   const [rescheduleDate, setRescheduleDate] = useState('')
-  const [rescheduleTime, setRescheduleTime] = useState(SLOT_OPTIONS[0] ?? '10:00')
+  const [rescheduleTime, setRescheduleTime] = useState('')
+  const [slotState, setSlotState] = useState<SlotState>({ status: 'idle' })
   const [rescheduling, setRescheduling] = useState(false)
+
+  const confirmWarningId = useId()
+  const confirmRef = useRef<HTMLFieldSetElement>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -212,6 +229,7 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
         throw new Error(json?.error?.message ?? 'Could not load this booking.')
       }
       setBooking(json.data.booking as Booking)
+      setTerms((json.data.terms ?? null) as BookingTerms | null)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Could not load this booking.')
     } finally {
@@ -234,6 +252,65 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
     load()
   })
 
+  // The branch's own times for the chosen date, long enough for this booking.
+  const branchId = booking?.branchId
+  const duration = booking?.totalDurationMinutes
+  useEffect(() => {
+    if (!showReschedule || !rescheduleDate || !branchId || !duration) {
+      setSlotState({ status: 'idle' })
+      return
+    }
+    let cancelled = false
+    setSlotState({ status: 'loading' })
+    setRescheduleTime('')
+    const params = new URLSearchParams({
+      date: rescheduleDate,
+      branchId,
+      durationMinutes: String(duration),
+    })
+    fetch(`/api/availability?${params.toString()}`)
+      .then(async (res) => {
+        const json = await res.json()
+        if (!res.ok || !json.success) {
+          throw new Error(json?.error?.message ?? 'Could not load times for that date.')
+        }
+        return json.data as {
+          slots: AvailabilitySlot[]
+          notice?: string | null
+          closure?: { name?: unknown } | null
+        }
+      })
+      .then((data) => {
+        if (cancelled) return
+        const starts = data.slots.filter((s) => s.available).map((s) => s.startTime)
+        const closureName = data.closure?.name
+        setSlotState({
+          status: 'ready',
+          starts,
+          notice: data.notice ?? null,
+          closure: typeof closureName === 'string' ? closureName : null,
+        })
+        setRescheduleTime(starts[0] ?? '')
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        setSlotState({
+          status: 'error',
+          message: err instanceof Error ? err.message : 'Could not load times for that date.',
+        })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [showReschedule, rescheduleDate, branchId, duration])
+
+  // The confirmation takes focus so keyboard and screen-reader users land on it.
+  useEffect(() => {
+    if (confirmingCancel) {
+      confirmRef.current?.focus()
+    }
+  }, [confirmingCancel])
+
   const handleCancel = useCallback(async () => {
     setCancelling(true)
     setActionError(null)
@@ -243,6 +320,12 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not cancel this booking.')
       }
+      setConfirmingCancel(false)
+      setCancelNotice(
+        json.data?.late === true
+          ? "Booking cancelled. It was a late cancellation: you weren't charged, and it's noted on your record."
+          : 'Booking cancelled.',
+      )
       await load()
     } catch (err: unknown) {
       setActionError(err instanceof Error ? err.message : 'Could not cancel this booking.')
@@ -267,6 +350,7 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
           throw new Error(json?.error?.message ?? 'Could not reschedule this booking.')
         }
         setShowReschedule(false)
+        setRescheduleDate('')
         await load()
       } catch (err: unknown) {
         setActionError(err instanceof Error ? err.message : 'Could not reschedule this booking.')
@@ -277,15 +361,7 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
     [id, load, rescheduleDate, rescheduleTime],
   )
 
-  const rescheduleEligible = useMemo(() => {
-    if (!booking) return false
-    return checkReschedulable({
-      status: booking.status,
-      rescheduleCount: booking.rescheduleCount,
-    }).ok
-  }, [booking])
-
-  if (loading) {
+  if (loading && !booking) {
     return (
       <output className="flex items-center gap-3 py-16" aria-live="polite">
         <Loader2 className="size-5 animate-spin text-deep-gold" aria-hidden="true" />
@@ -325,7 +401,16 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
 
   const style = STATUS_STYLES[booking.status] ?? DEFAULT_STATUS_STYLE
   const timeline = buildTimeline(booking)
-  const canCancel = CANCELLABLE_STATUSES.has(booking.status)
+  // Without terms (the branch's settings can't be read) cancelling is still
+  // offered: the server never blocks it on settings.
+  const canCancel = terms ? terms.cancel !== null : OPEN_STATUSES.has(booking.status)
+  const reschedule = terms?.reschedule
+  const canReschedule = reschedule?.allowed === true
+  // Why an open booking can't be moved online any more (the server says).
+  const rescheduleBlocked =
+    reschedule && !reschedule.allowed && OPEN_STATUSES.has(booking.status)
+      ? reschedule.message
+      : null
 
   return (
     <div className="mt-8 space-y-8">
@@ -351,6 +436,11 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
           <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} aria-hidden="true" />
           {STATUS_LABELS[booking.status] ?? booking.status}
         </span>
+        {cancelNotice && (
+          <output className="block font-sans text-[14px] text-warm-gray" aria-live="polite">
+            {cancelNotice}
+          </output>
+        )}
       </header>
 
       {/* Appointment summary */}
@@ -441,7 +531,7 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
       </section>
 
       {/* Actions */}
-      {(canCancel || rescheduleEligible) && (
+      {(canCancel || canReschedule || rescheduleBlocked) && (
         <section aria-label="Manage booking" className="space-y-4 border-t border-cloud-gray pt-6">
           {actionError && (
             <p className="font-sans text-[14px] text-error" role="alert">
@@ -449,13 +539,18 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
             </p>
           )}
 
+          {rescheduleBlocked && (
+            <p className="font-sans text-[14px] text-warm-gray">{rescheduleBlocked}</p>
+          )}
+
           <div className="flex flex-wrap gap-3">
-            {rescheduleEligible && (
+            {canReschedule && (
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => {
                   setShowReschedule((prev) => !prev)
+                  setConfirmingCancel(false)
                   setActionError(null)
                 }}
                 aria-expanded={showReschedule}
@@ -465,32 +560,82 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
               </Button>
             )}
 
-            {canCancel && (
+            {canCancel && !confirmingCancel && (
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleCancel}
-                disabled={cancelling}
-                aria-busy={cancelling}
+                onClick={() => {
+                  setConfirmingCancel(true)
+                  setShowReschedule(false)
+                  setActionError(null)
+                }}
                 className="rounded-full border-error/40 font-ui text-[12px] uppercase tracking-[0.5px] text-error hover:bg-error/5 hover:text-error"
               >
-                {cancelling ? (
-                  <>
-                    <Loader2 className="animate-spin" aria-hidden="true" />
-                    Cancelling…
-                  </>
-                ) : (
-                  'Cancel Booking'
-                )}
+                Cancel Booking
               </Button>
             )}
           </div>
 
-          {rescheduleEligible && showReschedule && (
+          {canCancel && confirmingCancel && (
+            <fieldset
+              ref={confirmRef}
+              tabIndex={-1}
+              aria-describedby={confirmWarningId}
+              className="min-w-0 rounded-[6px] border border-error/30 bg-error/5 p-5 outline-none"
+            >
+              {/* Floated so the legend sits inside the box, not on its border. */}
+              <legend className="float-left mb-3 w-full font-ui text-[15px] text-cocoa-dark">
+                Cancel this booking?
+              </legend>
+              <p
+                id={confirmWarningId}
+                className="clear-both mb-3 font-sans text-[14px] text-warm-gray"
+              >
+                {cancelWarning(terms)}
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCancel}
+                  disabled={cancelling}
+                  aria-busy={cancelling}
+                  className="rounded-full border-error/40 font-ui text-[12px] uppercase tracking-[0.5px] text-error hover:bg-error/5 hover:text-error"
+                >
+                  {cancelling ? (
+                    <>
+                      <Loader2 className="animate-spin" aria-hidden="true" />
+                      Cancelling…
+                    </>
+                  ) : (
+                    'Yes, Cancel Booking'
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setConfirmingCancel(false)}
+                  disabled={cancelling}
+                  className="rounded-full border-deep-gold font-ui text-[12px] uppercase tracking-[0.5px] text-cocoa-dark hover:bg-golden-mist hover:text-cocoa-dark"
+                >
+                  Keep Booking
+                </Button>
+              </div>
+            </fieldset>
+          )}
+
+          {canReschedule && showReschedule && (
             <form
               onSubmit={handleReschedule}
               className="flex flex-col gap-4 rounded-[6px] border border-cloud-gray bg-warm-cream/40 p-5"
             >
+              {reschedule?.allowed && (
+                <p className="font-sans text-[14px] text-warm-gray">
+                  {reschedule.remaining === 1
+                    ? 'You can reschedule this booking once more.'
+                    : `You can reschedule this booking ${reschedule.remaining} more times.`}
+                </p>
+              )}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label
@@ -520,21 +665,44 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
                     id="reschedule-time"
                     value={rescheduleTime}
                     onChange={(e) => setRescheduleTime(e.target.value)}
-                    className="h-10 w-full rounded-md border border-input bg-canvas-white px-3 font-ui text-[15px] text-cocoa-dark outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    disabled={slotState.status !== 'ready' || slotState.starts.length === 0}
+                    aria-describedby="reschedule-times-status"
+                    className="h-10 w-full rounded-md border border-input bg-canvas-white px-3 font-ui text-[15px] text-cocoa-dark outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60"
                   >
-                    {SLOT_OPTIONS.map((slot) => (
-                      <option key={slot} value={slot}>
-                        {formatTime12h(slot)}
+                    {slotState.status === 'ready' && slotState.starts.length > 0 ? (
+                      slotState.starts.map((slot) => (
+                        <option key={slot} value={slot}>
+                          {formatTime12h(slot)}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="">
+                        {rescheduleDate ? 'No times' : 'Choose a date first'}
                       </option>
-                    ))}
+                    )}
                   </select>
                 </div>
               </div>
+              <p
+                id="reschedule-times-status"
+                className="font-sans text-[14px] text-warm-gray"
+                aria-live="polite"
+              >
+                {slotState.status === 'loading' && 'Loading times…'}
+                {slotState.status === 'error' && slotState.message}
+                {slotState.status === 'ready' &&
+                  (slotState.closure
+                    ? `The salon is closed that day (${slotState.closure}).`
+                    : (slotState.notice ??
+                      (slotState.starts.length === 0
+                        ? 'No times left that day. Try another date.'
+                        : '')))}
+              </p>
               <Button
                 type="submit"
                 variant="gold"
                 size="lg"
-                disabled={rescheduling || !rescheduleDate}
+                disabled={rescheduling || !rescheduleDate || !rescheduleTime}
                 aria-busy={rescheduling}
                 className="w-fit rounded-full font-ui text-[12px] uppercase tracking-[0.5px]"
               >

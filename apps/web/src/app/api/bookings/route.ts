@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 30-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : GET|POST /api/bookings
@@ -15,6 +15,8 @@
  * - Enqueue triggered jobs (stale-pending alert, no-show check)
  *
  * Features / Functionality :
+ * - The branch's own hours, lead time, booking window and per-customer
+ *   booking limit decide the booking; it records the settings revision (R6.3)
  * - Multi-service booking with duration and pricing calculation
  * - Booking number generation (BK-{branch}-{YYMM}-{type}-{random})
  * - Auto staff assignment for pending bookings
@@ -33,20 +35,25 @@
 
 import {
   addMinutesToTime,
+  assertBookingCap,
   assertBranchOpenOn,
+  assertServicesOfferedAt,
+  assertSlotBookable,
   calculateBookingTotal,
   generateBookingNumber,
-  isBookableSlotStart,
+  istToday,
 } from '@rgss/business'
 import {
+  countUpcomingBookingsAtBranch,
   createBookingWithServices,
   getBookingsByCustomer,
   getBranchById,
+  getBranchPolicy,
   getClosureOn,
   getDefaultStaffForService,
   getServicesByIds,
 } from '@rgss/db/queries'
-import { badRequest, conflict } from '@rgss/errors'
+import { badRequest } from '@rgss/errors'
 import { bookingStatusSchema, createBookingSchema } from '@rgss/types'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireOnboardedCustomer, requireSession } from '@/lib/api/session'
@@ -96,7 +103,15 @@ export const POST = withErrorHandler(async (req: Request) => {
     throw badRequest('Selected branch is not accepting bookings.')
   }
   // ...and open that day: no booking on a holiday or closure (R1.8).
-  assertBranchOpenOn(await getClosureOn(branch.id, bookingDate), branch.name, bookingDate)
+  const [closure, policy] = await Promise.all([
+    getClosureOn(branch.id, bookingDate),
+    getBranchPolicy(branch.id),
+  ])
+  assertBranchOpenOn(closure, branch.name, bookingDate)
+  // The branch's own hours and booking rules decide the booking (R6.3).
+  if (!policy) {
+    throw badRequest('Branch not found.')
+  }
 
   // Fetch services and validate them. De-duplicate ids before lookup.
   const uniqueServiceIds = [...new Set(serviceIds)]
@@ -111,6 +126,8 @@ export const POST = withErrorHandler(async (req: Request) => {
   if (services.some((s) => s.serviceType !== serviceType)) {
     throw badRequest('All services must match the selected service type.')
   }
+  // ...and offered at this branch (R4.3); the database refuses the same.
+  assertServicesOfferedAt(services, branch)
 
   // Pricing + duration (GST-inclusive paise, integer math only).
   const { totalAmountPaise, totalDurationMinutes } = calculateBookingTotal(
@@ -121,11 +138,27 @@ export const POST = withErrorHandler(async (req: Request) => {
   )
   const endTime = addMinutesToTime(startTime, totalDurationMinutes)
 
-  // The requested start must sit on the 30-min grid within open hours and the
-  // full duration must finish before close, else the slot is unavailable (409).
-  if (!isBookableSlotStart(startTime, totalDurationMinutes)) {
-    throw conflict('BOOKING_SLOT_UNAVAILABLE', 'The requested time slot is not available.')
-  }
+  // The branch's settings decide the slot: its opening hours that weekday,
+  // the 30-minute grid, its lead time and booking window (409 saying why).
+  const now = new Date()
+  assertSlotBookable(policy, {
+    date: bookingDate,
+    startTime,
+    durationMinutes: totalDurationMinutes,
+    now,
+    actor: 'customer',
+    branchName: branch.name,
+  })
+  // ...and how many upcoming bookings a customer may hold there (409).
+  assertBookingCap({
+    rules: policy.bookingRules,
+    upcomingAtBranch: await countUpcomingBookingsAtBranch(
+      session.user.id,
+      branch.id,
+      istToday(now),
+    ),
+    branchName: branch.name,
+  })
 
   // Preserve the requested service order for snapshots + staff assignment.
   // A pending booking carries a tentative assignee that the admin replaces on
@@ -178,6 +211,8 @@ export const POST = withErrorHandler(async (req: Request) => {
       totalDurationMinutes,
       isWalkin: false,
       notes: notes ?? null,
+      // The settings revision that accepted it: later edits never rewrite it.
+      settingsRevision: policy.revision,
     },
     serviceRows,
   )

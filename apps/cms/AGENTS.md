@@ -50,7 +50,7 @@ Run these from the **repository root**, unless a row specifies otherwise.
 
 - `dev` runs Turbopack, the bundler `next build` also uses. `dev:webpack` is the
   fallback for a machine where Turbopack cannot start.
-- Keep `payload` and all six direct `@payloadcms/*` dependencies on the same exact
+- Keep `payload` and all seven direct `@payloadcms/*` dependencies on the same exact
   version. Inspect lockfile compatibility and the shared Drizzle version on upgrades.
 - Generated `src/payload-types.ts` and `src/app/(payload)/admin/importMap.js`
   come from Payload. Regenerate after relevant collection/plugin/component changes.

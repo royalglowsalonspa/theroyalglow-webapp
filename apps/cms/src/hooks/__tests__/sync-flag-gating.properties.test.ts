@@ -169,10 +169,14 @@ describe('Property 13: Sync Flag Gating — Requirements 3.12, 15.6', () => {
           const writes = fake.insert.mock.calls.length + fake.update.mock.calls.length
 
           if (shouldSync) {
-            // Exactly one write, on the builder matching the operation.
+            // Exactly one row write: an upsert, whichever the operation (R4.7),
+            // then the branch rows are replaced (none here: all branches).
             expect(writes).toBe(1)
-            expect(fake.insert).toHaveBeenCalledTimes(operation === 'create' ? 1 : 0)
-            expect(fake.update).toHaveBeenCalledTimes(operation === 'update' ? 1 : 0)
+            expect(fake.insert).toHaveBeenCalledTimes(1)
+            expect(fake.onConflictDoUpdate).toHaveBeenCalledTimes(1)
+            expect(fake.update).not.toHaveBeenCalled()
+            expect(fake.deleteFrom).toHaveBeenCalledTimes(1)
+            expect(operation === 'create' || operation === 'update').toBe(true)
           } else {
             // No write at all, and the transaction handle is never even resolved.
             expect(writes).toBe(0)

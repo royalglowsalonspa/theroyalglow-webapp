@@ -15,11 +15,15 @@
  * - Enforce schedule entry business rules (start < end)
  *
  * Features / Functionality :
+ * - The branch's own business hours for the editor's time picker (R6.3)
  * - Grid of everyone who works at the branch; a day another branch holds
  *   shows as "elsewhere" with no hours and no branch name
  * - Booking counts are this branch's bookings only
  * - A Manager shared between branches works at one branch per day: a day
  *   another branch holds can't be claimed here (409 SCHEDULE_DAY_ELSEWHERE)
+ * - Saving a week takes the person off their bookings still to come that it
+ *   no longer covers, at every branch, in the same transaction; PUT answers
+ *   how many confirmed ones now need someone else (MS-09)
  *
  * Tech Stack   : Next.js 16 (Route Handler)
  * Layer        : API (Thin Orchestrator)
@@ -41,8 +45,8 @@ import {
 } from '@rgss/business'
 import {
   getBranchClosures,
+  getBranchSettingsForAdmin,
   getScheduleDays,
-  getSettings,
   getWeeklyScheduleGrid,
   isStaffAtBranch,
   upsertStaffSchedule,
@@ -79,12 +83,13 @@ export const GET = withErrorHandler(async (req: Request) => {
       ? weekStartParam
       : startOfWeek(new Date())
 
-  // The opening hours the editor's time picker stays within. Settings are
-  // Developer-only, so the grid gets them here. The week's closures mark the
-  // days the branch is shut (R1.8).
+  // The branch's own opening hours, which the editor's time picker stays
+  // within (null when they can't be read). Settings are Developer-only, so the
+  // grid gets them here. The week's closures mark the days the branch is shut
+  // (R1.8).
   const [grid, settings] = await Promise.all([
     getWeeklyScheduleGrid(branchId, weekStart),
-    getSettings(),
+    getBranchSettingsForAdmin(branchId, 1),
   ])
   const firstDay = grid.dates[0]
   const lastDay = grid.dates[grid.dates.length - 1]
@@ -92,7 +97,7 @@ export const GET = withErrorHandler(async (req: Request) => {
 
   return apiSuccess({
     branchId,
-    businessHours: settings.businessHours,
+    businessHours: settings?.current.businessHours ?? null,
     closures: closures.map((c) => ({
       date: c.date,
       name: c.name,
@@ -144,11 +149,13 @@ export const PUT = withErrorHandler(async (req: Request) => {
     )
   }
 
-  const result = await upsertStaffSchedule(staffId, branchId, entries)
+  const result = await upsertStaffSchedule(staffId, branchId, entries, ctx.session.user.id)
   if (!result.ok) {
     // Another branch took a day, or they stopped working here, meanwhile.
     throw scheduleConflict('Their schedule changed while you were editing. Reload and try again.')
   }
 
-  return apiSuccess({ ok: true })
+  // Their bookings the new week no longer covers lost them, at every branch,
+  // and wait on the dashboard for someone else (MS-09).
+  return apiSuccess({ ok: true, reassignments: result.reassignedBookingIds.length })
 })

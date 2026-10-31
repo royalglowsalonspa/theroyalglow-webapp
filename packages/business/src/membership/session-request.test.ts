@@ -6,10 +6,67 @@
  *                its idempotency key already recorded only when it asks for
  *                exactly the same lines: services, durations and staff, in any
  *                order. Anything else must be treated as a different request.
+ *
+ *                One person does a whole session, named by the form or by
+ *                every line (0028); naming nobody or two people is a 400.
  ************************************************************/
 
+import { AppError } from '@rgss/errors'
 import { describe, expect, it } from 'vitest'
-import { isSameSessionRequest, type SessionLine } from './session-request'
+import { isSameSessionRequest, type SessionLine, sessionAssignee } from './session-request'
+
+function refusalOf(run: () => unknown): { statusCode: number; message: string } | null {
+  try {
+    run()
+  } catch (error) {
+    if (error instanceof AppError) {
+      return { statusCode: error.statusCode, message: error.message }
+    }
+    throw error
+  }
+  return null
+}
+
+describe('sessionAssignee', () => {
+  it('takes the form’s choice when the lines name nobody', () => {
+    expect(sessionAssignee('stf_1', [{ staffId: null }, {}])).toBe('stf_1')
+  })
+
+  it('takes the one person every naming line agrees on', () => {
+    expect(sessionAssignee(undefined, [{ staffId: 'stf_1' }, { staffId: 'stf_1' }])).toBe('stf_1')
+    // A line that names nobody follows the others.
+    expect(sessionAssignee(undefined, [{ staffId: 'stf_1' }, { staffId: null }])).toBe('stf_1')
+    expect(sessionAssignee('stf_1', [{ staffId: 'stf_1' }])).toBe('stf_1')
+  })
+
+  it('refuses a session that names nobody', () => {
+    expect(refusalOf(() => sessionAssignee(undefined, [{}, { staffId: null }]))).toEqual({
+      statusCode: 400,
+      message: 'Choose who is doing this session.',
+    })
+    expect(refusalOf(() => sessionAssignee('', [{ staffId: '' }]))).toEqual({
+      statusCode: 400,
+      message: 'Choose who is doing this session.',
+    })
+  })
+
+  it.each<{ name: string; staffId: string | undefined; lines: string[] }>([
+    { name: 'two lines', staffId: undefined, lines: ['stf_1', 'stf_2'] },
+    { name: 'the form and a line', staffId: 'stf_2', lines: ['stf_1'] },
+  ])('refuses a session whose $name name different people', ({ staffId, lines }) => {
+    expect(
+      refusalOf(() =>
+        sessionAssignee(
+          staffId,
+          lines.map((id) => ({ staffId: id })),
+        ),
+      ),
+    ).toEqual({
+      statusCode: 400,
+      message: 'One person does the whole session. Choose one person for all of it.',
+    })
+  })
+})
 
 const RECORDED: SessionLine[] = [
   { serviceId: 'svc_aroma_60', durationMinutes: 60, staffId: 'stf_1' },

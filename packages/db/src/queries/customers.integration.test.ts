@@ -26,6 +26,7 @@
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { db } from '../index'
+import { issuedInvoiceStatements } from '../test/issued-invoice'
 import { isLiveDbAvailable, queryRow } from '../test/live-db'
 import { createBookingWithServices } from './bookings'
 import {
@@ -40,7 +41,12 @@ import {
 } from './customers'
 
 const LIVE = isLiveDbAvailable()
-const RUN = Math.random().toString(36).slice(2, 8)
+// Letters only: the directory search below uses the prefix, and three or more
+// digits in a search term also match phone numbers (person-search.ts), which
+// let a real customer's phone into the results.
+const RUN = Array.from({ length: 6 }, () =>
+  String.fromCharCode(97 + Math.floor(Math.random() * 26)),
+).join('')
 const PREFIX = `cust_it_${RUN}`
 const BRANCH_A = `${PREFIX}_a`
 const BRANCH_B = `${PREFIX}_b`
@@ -124,13 +130,74 @@ describe.skipIf(!LIVE)('shared customers with per-branch money against a live da
     await book('b_pending', BRANCH_B, ASHA, 'pending', '2099-01-04', '09:00', 80_000)
     await book('b_ravi', BRANCH_B, RAVI, 'completed', '2099-01-06', '15:00', 300_000)
 
-    await db.execute(sql`
-      insert into invoice (id, invoice_number, branch_id, booking_id, customer_id,
-                           subtotal_paise, total_amount_paise, payment_status, created_at)
-      values (${`${PREFIX}_inv_a`}, ${`${PREFIX}_INV_A`}, ${BRANCH_A}, ${bookings.a_visit}, ${ASHA}, 42373, 50000, 'paid', '2099-01-02T06:00:00Z'),
-             (${`${PREFIX}_inv_a_unpaid`}, ${`${PREFIX}_INV_A2`}, ${BRANCH_A}, ${bookings.a_cancelled}, ${ASHA}, 5932, 7000, 'pending', '2099-01-05T06:00:00Z'),
-             (${`${PREFIX}_inv_b`}, ${`${PREFIX}_INV_B`}, ${BRANCH_B}, ${bookings.b_visit}, ${ASHA}, 101695, 120000, 'paid', '2099-01-03T06:00:00Z'),
-             (${`${PREFIX}_inv_ravi`}, ${`${PREFIX}_INV_R`}, ${BRANCH_B}, ${bookings.b_ravi}, ${RAVI}, 254237, 300000, 'paid', '2099-01-06T06:00:00Z')`)
+    // Issued invoices with their snapshot (0018); numbers are at most 16 characters.
+    const issue = (p: {
+      key: string
+      booking: string
+      branchId: string
+      customerId: string
+      sequence: number
+      amountPaise: number
+      paid: boolean
+      at: string
+    }) =>
+      issuedInvoiceStatements({
+        id: `${PREFIX}_inv_${p.key}`,
+        number: `ZZ${RUN}${p.key.slice(0, 6)}`,
+        sequence: p.sequence,
+        branchId: p.branchId,
+        customerId: p.customerId,
+        bookingId: bookings[p.booking] ?? null,
+        paymentStatus: p.paid ? 'paid' : 'pending',
+        taxPointAt: new Date(p.at),
+        lines: [{ name: `ZZ IT service ${p.booking}`, amountPaise: p.amountPaise }],
+      })
+    const [first, ...rest] = await Promise.all([
+      issue({
+        key: 'a',
+        booking: 'a_visit',
+        branchId: BRANCH_A,
+        customerId: ASHA,
+        sequence: 1,
+        amountPaise: 50_000,
+        paid: true,
+        at: '2099-01-02T06:00:00Z',
+      }),
+      issue({
+        key: 'a_unpaid',
+        booking: 'a_cancelled',
+        branchId: BRANCH_A,
+        customerId: ASHA,
+        sequence: 2,
+        amountPaise: 7_000,
+        paid: false,
+        at: '2099-01-05T06:00:00Z',
+      }),
+      issue({
+        key: 'b',
+        booking: 'b_visit',
+        branchId: BRANCH_B,
+        customerId: ASHA,
+        sequence: 1,
+        amountPaise: 120_000,
+        paid: true,
+        at: '2099-01-03T06:00:00Z',
+      }),
+      issue({
+        key: 'ravi',
+        booking: 'b_ravi',
+        branchId: BRANCH_B,
+        customerId: RAVI,
+        sequence: 2,
+        amountPaise: 300_000,
+        paid: true,
+        at: '2099-01-06T06:00:00Z',
+      }),
+    ]).then((sets) => sets.flat())
+    if (!first) {
+      throw new Error('no invoice statements')
+    }
+    await db.batch([first, ...rest])
 
     const note = (branchId: string, visibility: 'shared' | 'branch', content: string) =>
       addCustomerNote({ customerId: ASHA, authorId: AUTHOR, branchId, visibility, content })

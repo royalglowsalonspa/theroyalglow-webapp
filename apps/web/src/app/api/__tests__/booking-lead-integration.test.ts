@@ -28,7 +28,8 @@
  *                Validates: Requirements 5.2, 9.1
  ************************************************************/
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { DEFAULT_BOOKING_RULES, DEFAULT_BUSINESS_HOURS } from '@rgss/types'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // Mock seams. `@rgss/business` is intentionally NOT mocked — the booking total,
@@ -49,6 +50,8 @@ const sessionMocks = vi.hoisted(() => {
 const dbMocks = vi.hoisted(() => ({
   // booking create flow
   getBranchById: vi.fn(),
+  getBranchPolicy: vi.fn(),
+  countUpcomingBookingsAtBranch: vi.fn(async () => 0),
   getClosureOn: vi.fn(async (): Promise<{ name: string; allBranches: boolean } | null> => null),
   getServicesByIds: vi.fn(),
   getDefaultStaffForService: vi.fn(),
@@ -80,8 +83,23 @@ function jsonRequest(url: string, body: unknown): Request {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // Thursday 25/06/2026, 10:00 IST: the 01/07 booking is inside the window.
+  vi.useFakeTimers({ now: new Date('2026-06-25T04:30:00.000Z'), toFake: ['Date'] })
   sessionMocks.requireSession.mockResolvedValue(CUSTOMER_SESSION)
   enqueueMock.mockResolvedValue(undefined)
+  // The branch's current settings (R6.3) and no upcoming bookings there.
+  dbMocks.getBranchPolicy.mockResolvedValue({
+    branchId: 'branch_rs',
+    branchName: 'Rayasandra',
+    revision: 2,
+    businessHours: DEFAULT_BUSINESS_HOURS,
+    bookingRules: DEFAULT_BOOKING_RULES,
+  })
+  dbMocks.countUpcomingBookingsAtBranch.mockResolvedValue(0)
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 // ===========================================================================
@@ -175,6 +193,8 @@ describe('POST /api/bookings — happy path', () => {
     expect(saved.booking.totalAmountPaise).toBe(80_000)
     expect(saved.booking.totalDurationMinutes).toBe(60)
     expect(saved.booking.customerId).toBe('cust_1')
+    // Accepted under the branch's current settings revision (R6.3).
+    expect(saved.booking.settingsRevision).toBe(2)
 
     // One snapshot row per selected service, with the name + price frozen from
     // the source service (Req 5.7).

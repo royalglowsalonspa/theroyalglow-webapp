@@ -13,7 +13,9 @@
  *
  * Features / Functionality :
  * - generateBookingNumber, calculateBookingTotal, addMinutesToTime
- * - checkReschedulable, isBookableSlotStart (reschedule policy)
+ * - checkReschedulable (reschedule eligibility)
+ * - the branch booking policy: slots, the booking limit, cancellation and
+ *   reschedule terms (./policy, R6.3)
  * - generateAvailability (slot grid + past-date rejection)
  *
  * Tech Stack   : TypeScript
@@ -26,5 +28,6 @@
 export * from './availability'
 export * from './booking-number'
 export * from './branch'
+export * from './policy'
 export * from './pricing'
 export * from './reschedule'

@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 21-06-2026 & Updated - 21-06-2026
+ * Date         : Created - 21-06-2026 & Updated - 25-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : invoicing/email
@@ -14,10 +14,14 @@
  * Responsibilities :
  * - Render a branded, table-based invoice summary safe for email clients
  * - Format money via formatINR (paise → ₹) and the issue date via formatDateIN
+ * - Print the stored taxable value, CGST/SGST and the lines' shared rate, and
+ *   the issuer as issued (multi-branch R6.1); never a built-in rate
+ * - Say a provisional-rate invoice is a test invoice (TX-10)
  * - Escape all interpolated text to prevent HTML injection
  *
  * Features / Functionality :
  * - buildInvoiceEmailHtml(data) → { subject, html }
+ * - sharedRatePercentLabel(rates) → "5%" when every line used one rate
  *
  * Tech Stack   : TypeScript
  * Layer        : Business Logic (pure)
@@ -44,11 +48,23 @@ export interface InvoiceEmailData {
   items: InvoiceEmailItem[]
   subtotalPaise: number
   discountPaise: number
+  /** The stored taxable value; older invoices without one derive it. */
+  taxableValuePaise?: number | null
   gstPaise: number
+  /** The stored halves of the tax, printed when present (multi-branch R6.1). */
+  cgstPaise?: number | null
+  sgstPaise?: number | null
+  /** The rate the lines used, when they all used one ("5%"). */
+  ratePercentLabel?: string | null
   totalPaise: number
   gemsEarned: number
   paymentMethod: string
   issuedAt: Date
+  /** The branch as issued; older invoices name no issuer here. */
+  issuerName?: string | null
+  issuerGstin?: string | null
+  /** Provisional rates: says it is a test invoice (TX-10). */
+  provisional?: boolean
 }
 
 // Escape the five HTML-significant characters so customer/service names can
@@ -73,6 +89,22 @@ function itemRow(item: InvoiceEmailItem): string {
     <td style="padding:8px 0;border-bottom:1px solid ${LINE};color:${COCOA};font-size:14px">${esc(item.name)}${staff}</td>
     <td style="padding:8px 0;border-bottom:1px solid ${LINE};color:${COCOA};font-size:14px;text-align:right;white-space:nowrap">${formatINR(item.pricePaise)}</td>
   </tr>`
+}
+
+// "5%" → "2.5%": each of CGST and SGST is half the intra-state rate.
+function halfRate(label: string): string {
+  const percent = Number.parseFloat(label)
+  return Number.isFinite(percent) ? `${percent / 2}%` : label
+}
+
+/** The rate label of a set of lines when they share one: 500 bps → "5%". */
+export function sharedRatePercentLabel(rates: readonly (number | null)[]): string | null {
+  const known = rates.filter((rate): rate is number => rate !== null)
+  if (known.length === 0 || known.length !== rates.length) {
+    return null
+  }
+  const first = known[0] as number
+  return known.every((rate) => rate === first) ? `${first / 100}%` : null
 }
 
 function totalRow(
@@ -106,6 +138,21 @@ export function buildInvoiceEmailHtml(data: InvoiceEmailData): { subject: string
   const bookingRef = data.bookingNumber
     ? `<p style="margin:2px 0;color:${MUTED};font-size:12px">Booking ${esc(data.bookingNumber)}</p>`
     : ''
+  // Stored CGST/SGST when the invoice has them; one GST line otherwise. The
+  // rate is the one stored on the lines, never a constant (multi-branch R6.4).
+  // totalRow escapes its label, so the rate goes in as plain text.
+  const rate = data.ratePercentLabel ? ` @ ${data.ratePercentLabel}` : ''
+  const taxHtml =
+    data.cgstPaise != null && data.sgstPaise != null
+      ? `${totalRow(`CGST${data.ratePercentLabel ? ` @ ${halfRate(data.ratePercentLabel)}` : ''}`, formatINR(data.cgstPaise), { muted: true })}
+        ${totalRow(`SGST${data.ratePercentLabel ? ` @ ${halfRate(data.ratePercentLabel)}` : ''}`, formatINR(data.sgstPaise), { muted: true })}`
+      : totalRow(`GST${rate}, inclusive`, formatINR(data.gstPaise), { muted: true })
+  const issuer = data.issuerName
+    ? `${esc(data.issuerName)}${data.issuerGstin ? ` · GSTIN ${esc(data.issuerGstin)}` : ''}`
+    : 'Royal Glow Salon &amp; Spa'
+  const footerText = data.provisional
+    ? 'This is a test invoice: its tax rates are provisional and have not been reviewed.'
+    : `Issued by ${issuer}. Prices include GST.`
 
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -132,15 +179,15 @@ export function buildInvoiceEmailHtml(data: InvoiceEmailData): { subject: string
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:14px">
         ${totalRow('Subtotal', formatINR(data.subtotalPaise))}
         ${discountHtml}
-        ${totalRow('Taxable value', formatINR(data.totalPaise - data.gstPaise), { muted: true })}
-        ${totalRow('GST (18%, inclusive)', formatINR(data.gstPaise), { muted: true })}
+        ${totalRow('Taxable value', formatINR(data.taxableValuePaise ?? data.totalPaise - data.gstPaise), { muted: true })}
+        ${taxHtml}
         ${totalRow('Total', formatINR(data.totalPaise), { bold: true })}
       </table>
 
       ${gemsHtml}
 
       <p style="margin:24px 0 0;color:${MUTED};font-size:12px;line-height:1.5">
-        This is a GST-compliant invoice (SAC 999721). For any query, reply to this email or call your branch.
+        ${footerText} For any query, reply to this email or call your branch.
       </p>
     </div>
     <p style="text-align:center;color:${MUTED};font-size:11px;margin:16px 0 0">Royal Glow Salon &amp; Spa · Bengaluru</p>

@@ -9,14 +9,16 @@
  *                service. Handles existence checks (idempotency), uploads of
  *                rendered PDFs, and reads of previously stored PDFs.
  *
- * Object key scheme : invoices/{YYYY}/{invoiceNumber}.pdf
- *                     where YYYY is the issuedAt year (UTC).
+ * Object key scheme : invoices/{YYYY}/{invoiceFileStem(invoiceNumber)}.pdf
+ *                     where YYYY is the issuedAt year (UTC) and "/" in a
+ *                     per-branch number becomes "-".
  *
  * Notes        :
  * - region 'auto' + forcePathStyle true are the R2 requirements.
  * - getPdfBytes returns a Uint8Array decoded from the streaming body.
  ************************************************************/
 import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { invoiceFileStem } from '@rgss/business'
 import { env } from '../env'
 
 const client = new S3Client({
@@ -29,10 +31,13 @@ const client = new S3Client({
   },
 })
 
-// invoices/{YYYY}/{invoiceNumber}.pdf — YYYY is the issuedAt year (UTC).
+// invoices/{YYYY}/{invoice number as a file name}.pdf — YYYY is the issuedAt
+// year (UTC). Per-branch numbers contain slashes (RS/2627/000123), which the
+// file name turns into hyphens (RS-2627-000123); older numbers
+// (INV-1-2627-92921) have none, so their keys are unchanged.
 export function buildObjectKey(invoiceNumber: string, issuedAt: string): string {
   const year = new Date(issuedAt).getUTCFullYear()
-  return `invoices/${year}/${invoiceNumber}.pdf`
+  return `invoices/${year}/${invoiceFileStem(invoiceNumber)}.pdf`
 }
 
 // Public URL for a stored object, built from the configured base URL.

@@ -100,10 +100,15 @@ const fake = vi.hoisted(() => {
 
 vi.mock('../index', () => ({ db: fake.db }))
 
-import { booking, bookingService } from '../schema/booking'
+import { booking, bookingService, bookingStatusLog } from '../schema/booking'
 import { invoice, invoiceItem } from '../schema/invoice'
 import { spaMembership } from '../schema/membership'
-import { getMembershipSessionByKey, recordMembershipSession } from './memberships'
+import { invoiceSequence } from '../schema/tax'
+import {
+  completeMembershipSession,
+  getMembershipSessionByKey,
+  recordMembershipSession,
+} from './memberships'
 
 const dialect = new PgDialect()
 
@@ -126,7 +131,6 @@ const PARAMS = {
   bookingDate: new Date('2026-10-28T00:00:00.000Z'),
   startTime: '10:00',
   endTime: '11:30',
-  invoiceNumber: 'INV-1-2627-54321',
   services: [
     {
       serviceId: 'svc_aroma_60',
@@ -138,69 +142,101 @@ const PARAMS = {
     { serviceId: 'svc_scrub_30', serviceNameSnapshot: 'Scrub 30', durationMinutes: 30 },
   ],
   idempotencyKey: 'key-0000001',
+  recordedById: 'usr_reception',
+}
+
+const COMPLETE = {
+  bookingId: 'bk_1',
+  branchId: 'branch_rayasandra',
+  changedById: 'usr_reception',
+  invoice: {
+    taxPointAt: new Date('2026-10-28T06:30:00.000Z'),
+    financialYear: '2627',
+    taxReviewStatus: 'provisional' as const,
+    lineTax: [
+      { sacCode: '999723', taxVersionId: 'tax_rs_999723', rateBps: 500 },
+      { sacCode: '999723', taxVersionId: 'tax_rs_999723', rateBps: 500 },
+    ],
+  },
+  lines: [
+    { serviceId: 'svc_aroma_60', serviceNameSnapshot: 'Aroma 60', staffNameSnapshot: 'Anita' },
+    { serviceId: 'svc_scrub_30', serviceNameSnapshot: 'Scrub 30', staffNameSnapshot: 'Anita' },
+  ],
+  settlement: { shareBps: 10_000 },
 }
 
 const BOOKING_ROW = { id: 'bk_1', bookingNumber: PARAMS.bookingNumber }
-const INVOICE_ROW = { id: 'inv_1', invoiceNumber: PARAMS.invoiceNumber }
+const INVOICE_ROW = { id: 'inv_1', invoiceNumber: 'RS/2627/000042' }
 
-// Batch results in statement order: booking, lines, guard, balance, invoice,
-// items, stats.
-function batchResult(total: number, used: number) {
-  return [[BOOKING_ROW], {}, { rows: [{ ok: 1 }] }, [{ total, used }], [INVOICE_ROW], {}, {}]
+// Record now: booking, lines, status log, balance.
+function recordResult(total: number, used: number, reserved: number) {
+  return [[BOOKING_ROW], {}, {}, [{ total, used, reserved }]]
+}
+
+// Complete: guard, status log, counter, invoice, items, entry, KPIs, booking,
+// balance.
+function completeResult(total: number, used: number, reserved: number) {
+  return [
+    { rows: [{ ok: 1 }] },
+    {},
+    {},
+    [INVOICE_ROW],
+    {},
+    {},
+    {},
+    [BOOKING_ROW],
+    [{ total, used, reserved }],
+  ]
 }
 
 beforeEach(() => {
   fake.reset()
-  fake.state.batchResult = batchResult(600, 210)
+  fake.state.batchResult = recordResult(600, 210, 90)
 })
 
-describe('recordMembershipSession', () => {
-  it('writes everything in one batch, with the booking first and the deduction before the invoice', async () => {
+describe('recordMembershipSession (Record now)', () => {
+  it('writes the in-progress booking, its lines and its status log in one batch', async () => {
     await recordMembershipSession(PARAMS)
 
     expect(fake.batches).toHaveLength(1)
     const statements = fake.batches[0] ?? []
-    expect(statements.map((s) => s.op)).toEqual([
-      'insert',
-      'insert',
-      'execute',
-      'select',
-      'insert',
-      'insert',
-      'execute',
-    ])
+    expect(statements.map((s) => s.op)).toEqual(['insert', 'insert', 'insert', 'select'])
     expect(statements[0]?.args[0]).toBe(booking)
     expect(statements[1]?.args[0]).toBe(bookingService)
+    expect(statements[2]?.args[0]).toBe(bookingStatusLog)
     expect(argOf(statements[3], 'from')).toBe(spaMembership)
-    expect(statements[4]?.args[0]).toBe(invoice)
-    expect(statements[5]?.args[0]).toBe(invoiceItem)
   })
 
-  it('deducts only while the membership is active, unexpired and still has the minutes', async () => {
+  it('starts the session now; the database holds its minutes with the booking (0026)', async () => {
     await recordMembershipSession(PARAMS)
+    const statements = fake.batches[0] ?? []
 
-    const guard = render(fake.batches[0]?.[2]?.args[0])
-    expect(guard.sql).toContain(
-      'UPDATE spa_membership SET used_hours_minutes = used_hours_minutes + $1, updated_at = now() WHERE id = $2',
-    )
-    expect(guard.sql).toContain("AND status = 'active'")
-    expect(guard.sql).toContain('AND expires_at >= now()')
-    expect(guard.sql).toContain('AND used_hours_minutes + $3 <= total_hours_minutes')
-    expect(guard.sql).toContain('SELECT 1 / count(*)::int AS ok FROM guard')
-    expect(guard.params).toEqual([90, 'mem_1', 90])
-  })
-
-  it('stores the idempotency key on the session booking, prefixed', async () => {
-    await recordMembershipSession(PARAMS)
-
-    expect(argOf(fake.batches[0]?.[0], 'values')).toMatchObject({
-      redemptionKey: 'msess:key-0000001',
-      status: 'completed',
+    const values = argOf(statements[0], 'values') as Record<string, unknown>
+    expect(values).toMatchObject({
+      status: 'in_progress',
       isMembershipSession: true,
       spaMembershipId: 'mem_1',
       totalDurationMinutes: 90,
       totalAmountPaise: 0,
+      redemptionKey: 'msess:key-0000001',
     })
+    expect(values.startedAt).toBeInstanceOf(Date)
+    expect(values.confirmedAt).toEqual(values.startedAt)
+    expect(values).not.toHaveProperty('completedAt')
+    expect(argOf(statements[2], 'values')).toMatchObject({
+      fromStatus: null,
+      toStatus: 'in_progress',
+      changedById: 'usr_reception',
+    })
+  })
+
+  it('issues no invoice and writes no settlement entry until it completes', async () => {
+    await recordMembershipSession(PARAMS)
+    const tables = (fake.batches[0] ?? []).map((s) => s.args[0])
+
+    expect(tables).not.toContain(invoice)
+    expect(tables).not.toContain(invoiceSequence)
+    expect(fake.batches[0]?.some((s) => s.op === 'execute')).toBe(false)
   })
 
   it('stores no key when the request has none', async () => {
@@ -209,25 +245,32 @@ describe('recordMembershipSession', () => {
     expect(argOf(fake.batches[0]?.[0], 'values')).toMatchObject({ redemptionKey: null })
   })
 
-  it('returns the booking, invoice and the balance read after the deduction', async () => {
+  it('returns the booking and the minutes left free after the hold', async () => {
     await expect(recordMembershipSession(PARAMS)).resolves.toEqual({
       ok: true,
       booking: BOOKING_ROW,
-      invoice: INVOICE_ROW,
-      remainingMinutes: 390,
+      remainingMinutes: 300,
     })
   })
 
   it.each([
-    ['the driver error', Object.assign(new Error('division by zero'), { code: '22012' })],
     [
-      'a wrapped driver error',
-      new Error('Failed query', {
-        cause: Object.assign(new Error('division by zero'), { code: '22012' }),
+      'too few minutes free',
+      Object.assign(new Error('check'), {
+        code: '23514',
+        constraint: 'spa_membership_reserved_check',
       }),
     ],
-    ['a message without a SQLSTATE', new Error('division by zero')],
-  ])('reports a failed balance guard (%s) as unavailable', async (_label, error) => {
+    [
+      'a membership not valid now (wrapped)',
+      new Error('Failed query', {
+        cause: Object.assign(new Error('check'), {
+          code: '23514',
+          constraint: 'membership_hold_validity',
+        }),
+      }),
+    ],
+  ])('reports a refused hold (%s) as unavailable', async (_label, error) => {
     fake.state.batchError = error
 
     await expect(recordMembershipSession(PARAMS)).resolves.toEqual({
@@ -260,17 +303,132 @@ describe('recordMembershipSession', () => {
     })
   })
 
-  it('rethrows any other unique violation or failure', async () => {
-    const numberClash = Object.assign(new Error('duplicate key'), {
-      code: '23505',
-      constraint: 'booking_booking_number_unique',
+  it('rethrows any other violation or failure', async () => {
+    const otherCheck = Object.assign(new Error('check'), {
+      code: '23514',
+      constraint: 'booking_total_check',
     })
-    fake.state.batchError = numberClash
-    await expect(recordMembershipSession(PARAMS)).rejects.toBe(numberClash)
+    fake.state.batchError = otherCheck
+    await expect(recordMembershipSession(PARAMS)).rejects.toBe(otherCheck)
 
     const outage = new Error('fetch failed')
     fake.state.batchError = outage
     await expect(recordMembershipSession(PARAMS)).rejects.toBe(outage)
+  })
+})
+
+describe('completeMembershipSession', () => {
+  beforeEach(() => {
+    fake.state.awaitQueue = [[{ customerId: 'usr_1' }]]
+    fake.state.batchResult = completeResult(600, 300, 0)
+  })
+
+  it('completes, logs, invoices and settles in one batch', async () => {
+    await completeMembershipSession(COMPLETE)
+
+    expect(fake.batches).toHaveLength(1)
+    const statements = fake.batches[0] ?? []
+    expect(statements.map((s) => s.op)).toEqual([
+      'execute',
+      'insert',
+      'insert',
+      'insert',
+      'insert',
+      'execute',
+      'execute',
+      'select',
+      'select',
+    ])
+    expect(statements[1]?.args[0]).toBe(bookingStatusLog)
+    expect(statements[2]?.args[0]).toBe(invoiceSequence)
+    expect(statements[3]?.args[0]).toBe(invoice)
+    expect(statements[4]?.args[0]).toBe(invoiceItem)
+  })
+
+  it('moves only an in-progress session of the branch, aborting otherwise', async () => {
+    await completeMembershipSession(COMPLETE)
+
+    const guard = render(fake.batches[0]?.[0]?.args[0])
+    expect(guard.sql).toContain("SET status = 'completed', completed_at = now()")
+    expect(guard.sql).toContain('AND is_membership_session')
+    expect(guard.sql).toContain("AND status = 'in_progress'")
+    expect(guard.sql).toContain('SELECT 1 / count(*)::int AS ok FROM done')
+    expect(guard.params).toEqual(['bk_1', 'branch_rayasandra'])
+    expect(argOf(fake.batches[0]?.[1], 'values')).toMatchObject({
+      fromStatus: 'in_progress',
+      toStatus: 'completed',
+      changedById: 'usr_reception',
+    })
+  })
+
+  it('issues the ₹0 session invoice from the delivering branch, each line with its SAC code and rate (TX-07)', async () => {
+    await completeMembershipSession(COMPLETE)
+    const statements = fake.batches[0] ?? []
+
+    expect(argOf(statements[3], 'values')).toMatchObject({
+      branchId: 'branch_rayasandra',
+      bookingId: 'bk_1',
+      customerId: 'usr_1',
+      invoiceType: 'membership_session',
+      financialYear: '2627',
+      taxReviewStatus: 'provisional',
+      totalAmountPaise: 0,
+      gemsEarned: 0,
+    })
+    const lines = argOf(statements[4], 'values') as Record<string, unknown>[]
+    expect(lines).toHaveLength(2)
+    expect(lines[0]).toMatchObject({
+      serviceId: 'svc_aroma_60',
+      staffNameSnapshot: 'Anita',
+      sacCode: '999723',
+      taxVersionId: 'tax_rs_999723',
+      rateBps: 500,
+      totalPricePaise: 0,
+    })
+  })
+
+  it('values the settlement entry from the minutes used after this consumption (MS-20, MS-23)', async () => {
+    await completeMembershipSession(COMPLETE)
+
+    const entry = render(fake.batches[0]?.[5]?.args[0])
+    expect(entry.sql).toContain("WHERE h.booking_id = $1 AND h.state = 'consumed'")
+    expect(entry.sql).toContain('m.price_paid_paise::bigint AS price')
+    expect(entry.sql).toContain(
+      '(x.price * x.used) / x.total - (x.price * (x.used - x.minutes)) / x.total AS value',
+    )
+    expect(entry.sql).toContain(
+      '(p.gst * x.used) / x.total - (p.gst * (x.used - x.minutes)) / x.total AS gst',
+    )
+    expect(entry.sql).toContain('INSERT INTO settlement_entry')
+    expect(entry.params).toEqual(expect.arrayContaining(['bk_1', 10_000, 'usr_reception']))
+  })
+
+  it('returns the booking, its invoice and the minutes left free', async () => {
+    await expect(completeMembershipSession(COMPLETE)).resolves.toEqual({
+      ok: true,
+      booking: BOOKING_ROW,
+      invoice: INVOICE_ROW,
+      remainingMinutes: 300,
+    })
+  })
+
+  it('reports a session not in progress (the guard aborted) without writing', async () => {
+    fake.state.batchError = Object.assign(new Error('division by zero'), { code: '22012' })
+
+    await expect(completeMembershipSession(COMPLETE)).resolves.toEqual({
+      ok: false,
+      reason: 'not_in_progress',
+    })
+  })
+
+  it('reports a booking not at the branch before writing anything', async () => {
+    fake.state.awaitQueue = [[]]
+
+    await expect(completeMembershipSession(COMPLETE)).resolves.toEqual({
+      ok: false,
+      reason: 'not_in_progress',
+    })
+    expect(fake.batches).toHaveLength(0)
   })
 })
 
@@ -287,16 +445,31 @@ describe('getMembershipSessionByKey', () => {
     expect(where.params).toEqual(['msess:key-0000001', 'mem_1', true])
   })
 
-  it('returns the recorded session with its lines, invoice and current balance', async () => {
+  it('returns the session with its lines, invoice and the minutes free now', async () => {
     const found = { id: 'bk_1', bookingNumber: PARAMS.bookingNumber }
     const lines = [{ serviceId: 'svc_aroma_60', durationMinutes: 60, staffId: 'stf_1' }]
-    fake.state.awaitQueue = [[found], lines, [INVOICE_ROW], [{ total: 600, used: 300 }]]
+    fake.state.awaitQueue = [
+      [found],
+      lines,
+      [INVOICE_ROW],
+      [{ total: 600, used: 300, reserved: 60 }],
+    ]
 
     await expect(getMembershipSessionByKey('mem_1', 'key-0000001')).resolves.toEqual({
       booking: found,
       invoice: INVOICE_ROW,
       services: lines,
-      remainingMinutes: 300,
+      remainingMinutes: 240,
+    })
+  })
+
+  it('answers a session still in progress with no invoice yet', async () => {
+    const found = { id: 'bk_1', bookingNumber: PARAMS.bookingNumber }
+    fake.state.awaitQueue = [[found], [], [], [{ total: 600, used: 0, reserved: 90 }]]
+
+    await expect(getMembershipSessionByKey('mem_1', 'key-0000001')).resolves.toMatchObject({
+      invoice: null,
+      remainingMinutes: 510,
     })
   })
 })

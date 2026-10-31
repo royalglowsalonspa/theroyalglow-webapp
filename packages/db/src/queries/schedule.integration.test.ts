@@ -47,6 +47,9 @@ const MANAGER_PROFILE = `${MANAGER}_p`
 const STYLIST_PROFILE = `${STYLIST}_p`
 const REVIEWER = `${PREFIX}_reviewer`
 
+/** A saved week that took nobody off a booking (these people have none). */
+const SAVED = { ok: true, reassignedBookingIds: [] }
+
 /** A week with the given weekdays working 10:00–18:00, the rest off. */
 function week(working: number[]) {
   return Array.from({ length: 7 }, (_, dayOfWeek) => ({
@@ -106,7 +109,7 @@ describe.skipIf(!LIVE)('branch schedules and leave against a live database', () 
   })
 
   it('gives a shared Manager’s working days to the branch that schedules them', async () => {
-    expect(await upsertStaffSchedule(MANAGER_PROFILE, BRANCH_A, week([1, 2]))).toEqual({ ok: true })
+    expect(await upsertStaffSchedule(MANAGER_PROFILE, BRANCH_A, week([1, 2]))).toEqual(SAVED)
 
     expect(await heldDays(MANAGER_PROFILE)).toEqual([
       { day: 1, branchId: BRANCH_A },
@@ -129,7 +132,7 @@ describe.skipIf(!LIVE)('branch schedules and leave against a live database', () 
 
   it('never lets a day off at one branch clear a day another branch holds', async () => {
     // B sends Monday and Tuesday as off, Wednesday working.
-    expect(await upsertStaffSchedule(MANAGER_PROFILE, BRANCH_B, week([3]))).toEqual({ ok: true })
+    expect(await upsertStaffSchedule(MANAGER_PROFILE, BRANCH_B, week([3]))).toEqual(SAVED)
 
     expect(await heldDays(MANAGER_PROFILE)).toEqual([
       { day: 1, branchId: BRANCH_A },
@@ -140,7 +143,7 @@ describe.skipIf(!LIVE)('branch schedules and leave against a live database', () 
 
   it('releases a day only for the branch that held it', async () => {
     // A gives up Tuesday; Wednesday stays with B.
-    expect(await upsertStaffSchedule(MANAGER_PROFILE, BRANCH_A, week([1]))).toEqual({ ok: true })
+    expect(await upsertStaffSchedule(MANAGER_PROFILE, BRANCH_A, week([1]))).toEqual(SAVED)
 
     expect(await heldDays(MANAGER_PROFILE)).toEqual([
       { day: 1, branchId: BRANCH_A },
@@ -155,7 +158,7 @@ describe.skipIf(!LIVE)('branch schedules and leave against a live database', () 
     })
     expect(await heldDays(STYLIST_PROFILE)).toEqual([])
 
-    expect(await upsertStaffSchedule(STYLIST_PROFILE, BRANCH_A, week([4]))).toEqual({ ok: true })
+    expect(await upsertStaffSchedule(STYLIST_PROFILE, BRANCH_A, week([4]))).toEqual(SAVED)
     expect(await heldDays(STYLIST_PROFILE)).toEqual([{ day: 4, branchId: BRANCH_A }])
   })
 

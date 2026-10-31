@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 29-07-2026 & Updated - 29-07-2026
+ * Date         : Created - 29-07-2026 & Updated - 31-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : service-drift
@@ -9,7 +9,8 @@
  * Description  : Read-only snapshot reads for the daily service-catalogue drift
  *                reconciliation job. Loads `cms.service` / `cms.service_category`
  *                and `public.service` / `public.service_category` in a shape the
- *                pure diffing logic can compare field-for-field.
+ *                pure diffing logic can compare field-for-field, including the
+ *                SAC code and branch availability (multi-branch tasks §6).
  *
  * Responsibilities :
  * - Read the CMS-side (Payload) catalogue rows, normalised to Drizzle's shape
@@ -23,12 +24,12 @@
  * Tech Stack   : TypeScript, Drizzle ORM
  * Layer        : Data Access
  *
- * Dependencies : drizzle-orm, ../index, ../schema/service
+ * Dependencies : drizzle-orm, ../index
  *
  * Notes        :
  * - READ-ONLY. Requirement 17.5 makes the reconciliation job detect-and-alert,
  *   never auto-repair, so this module contains no writes.
- * - Four `cms.*` normalisations are load-bearing:
+ * - Five `cms.*` normalisations are load-bearing:
  *     1. the relationship column is `category_id_id` (Payload's `categoryId`
  *        field + the adapter's `_id` suffix), mapped to `categoryId`
  *     2. `duration_minutes` is the enum `cms.enum_service_duration_minutes`,
@@ -38,6 +39,11 @@
  *        to match Drizzle's `integer` columns. Money stays integer paise.
  *     4. `cms.*` timestamps are `timestamp(3)` while `public.*` keeps
  *        microseconds — the caller MUST compare them with a tolerance.
+ *     5. availability is the radio `availability` ('all' | 'selected') with the
+ *        branch ids in Payload's `<collection>_texts` table under the path
+ *        `availableBranches`; public has `all_branches` and the join tables.
+ *        Both sides report the sorted, comma-joined ids only while not every
+ *        branch is chosen (null otherwise).
  * - Raw SQL is used for the `cms.*` side deliberately: adding `cms` tables to
  *   packages/db/src/schema would change the drizzle snapshot and trip the CI
  *   drift gate. Payload owns that schema and its own migrations.
@@ -45,9 +51,8 @@
  *   writes (Requirement 17.6).
  ************************************************************/
 
-import { asc, sql } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 import { db } from '../index'
-import { service, serviceCategory } from '../schema/service'
 
 // Snapshot reads for the drift-reconciliation job (Requirement 17). Both sides
 // are shaped identically (camelCase keys, integers as numbers, timestamps as
@@ -62,6 +67,10 @@ export type ServiceCategoryDriftRow = {
   serviceType: string | null
   displayOrder: number | null
   isActive: boolean | null
+  sacCode: string | null
+  allBranches: boolean | null
+  /** Sorted, comma-joined branch ids while not every branch; else null. */
+  branchIds: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -81,6 +90,10 @@ export type ServiceDriftRow = {
   gemsRedeemable: boolean | null
   gemsRequired: number | null
   gemsCatalogueOrder: number | null
+  sacCode: string | null
+  allBranches: boolean | null
+  /** Sorted, comma-joined branch ids while not every branch; else null. */
+  branchIds: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -129,23 +142,10 @@ function toBool(value: unknown): boolean | null {
   return value === true || value === 'true' || value === 't'
 }
 
-async function readCmsCategories(): Promise<ServiceCategoryDriftRow[]> {
-  const result = await db.execute(sql`
-    SELECT
-      id,
-      name,
-      slug,
-      description,
-      service_type::text AS service_type,
-      display_order::int AS display_order,
-      is_active,
-      created_at,
-      updated_at
-    FROM cms.service_category
-    ORDER BY id ASC
-  `)
+type Row = Record<string, unknown>
 
-  return (result.rows as Record<string, unknown>[]).map((row) => ({
+function categoryRow(row: Row): ServiceCategoryDriftRow {
+  return {
     id: String(row.id),
     name: toText(row.name),
     slug: toText(row.slug),
@@ -153,37 +153,16 @@ async function readCmsCategories(): Promise<ServiceCategoryDriftRow[]> {
     serviceType: toText(row.service_type),
     displayOrder: toNumber(row.display_order),
     isActive: toBool(row.is_active),
+    sacCode: toText(row.sac_code),
+    allBranches: toBool(row.all_branches),
+    branchIds: toText(row.branch_ids),
     createdAt: toDate(row.created_at),
     updatedAt: toDate(row.updated_at),
-  }))
+  }
 }
 
-async function readCmsServices(): Promise<ServiceDriftRow[]> {
-  // `duration_minutes` is an enum — `::text::int` is the ONLY valid path to the
-  // integer Drizzle stores. A direct `::int` cast raises 42846.
-  const result = await db.execute(sql`
-    SELECT
-      id,
-      category_id_id AS category_id,
-      name,
-      slug,
-      description,
-      duration_minutes::text::int AS duration_minutes,
-      buffer_minutes::int AS buffer_minutes,
-      price_paise::int AS price_paise,
-      is_active,
-      image_url,
-      display_order::int AS display_order,
-      gems_redeemable,
-      gems_required::int AS gems_required,
-      gems_catalogue_order::int AS gems_catalogue_order,
-      created_at,
-      updated_at
-    FROM cms.service
-    ORDER BY id ASC
-  `)
-
-  return (result.rows as Record<string, unknown>[]).map((row) => ({
+function serviceRow(row: Row): ServiceDriftRow {
+  return {
     id: String(row.id),
     categoryId: toText(row.category_id),
     name: toText(row.name),
@@ -198,52 +177,111 @@ async function readCmsServices(): Promise<ServiceDriftRow[]> {
     gemsRedeemable: toBool(row.gems_redeemable),
     gemsRequired: toNumber(row.gems_required),
     gemsCatalogueOrder: toNumber(row.gems_catalogue_order),
+    sacCode: toText(row.sac_code),
+    allBranches: toBool(row.all_branches),
+    branchIds: toText(row.branch_ids),
     createdAt: toDate(row.created_at),
     updatedAt: toDate(row.updated_at),
-  }))
+  }
+}
+
+async function readCmsCategories(): Promise<ServiceCategoryDriftRow[]> {
+  const result = await db.execute(sql`
+    SELECT
+      c.id,
+      c.name,
+      c.slug,
+      c.description,
+      c.service_type::text AS service_type,
+      c.display_order::int AS display_order,
+      c.is_active,
+      c.sac_code::text AS sac_code,
+      (c.availability::text = 'all') AS all_branches,
+      CASE WHEN c.availability::text = 'all' THEN NULL ELSE (
+        SELECT string_agg(t.text, ',' ORDER BY t.text)
+          FROM cms.service_category_texts t
+         WHERE t.parent_id = c.id AND t.path = 'availableBranches'
+      ) END AS branch_ids,
+      c.created_at,
+      c.updated_at
+    FROM cms.service_category c
+    ORDER BY c.id ASC
+  `)
+
+  return (result.rows as Row[]).map(categoryRow)
+}
+
+async function readCmsServices(): Promise<ServiceDriftRow[]> {
+  // `duration_minutes` is an enum — `::text::int` is the ONLY valid path to the
+  // integer Drizzle stores. A direct `::int` cast raises 42846.
+  const result = await db.execute(sql`
+    SELECT
+      s.id,
+      s.category_id_id AS category_id,
+      s.name,
+      s.slug,
+      s.description,
+      s.duration_minutes::text::int AS duration_minutes,
+      s.buffer_minutes::int AS buffer_minutes,
+      s.price_paise::int AS price_paise,
+      s.is_active,
+      s.image_url,
+      s.display_order::int AS display_order,
+      s.gems_redeemable,
+      s.gems_required::int AS gems_required,
+      s.gems_catalogue_order::int AS gems_catalogue_order,
+      s.sac_code::text AS sac_code,
+      (s.availability::text = 'all') AS all_branches,
+      CASE WHEN s.availability::text = 'all' THEN NULL ELSE (
+        SELECT string_agg(t.text, ',' ORDER BY t.text)
+          FROM cms.service_texts t
+         WHERE t.parent_id = s.id AND t.path = 'availableBranches'
+      ) END AS branch_ids,
+      s.created_at,
+      s.updated_at
+    FROM cms.service s
+    ORDER BY s.id ASC
+  `)
+
+  return (result.rows as Row[]).map(serviceRow)
 }
 
 async function readPublicCategories(): Promise<ServiceCategoryDriftRow[]> {
-  const rows = await db
-    .select({
-      id: serviceCategory.id,
-      name: serviceCategory.name,
-      slug: serviceCategory.slug,
-      description: serviceCategory.description,
-      serviceType: serviceCategory.serviceType,
-      displayOrder: serviceCategory.displayOrder,
-      isActive: serviceCategory.isActive,
-      createdAt: serviceCategory.createdAt,
-      updatedAt: serviceCategory.updatedAt,
-    })
-    .from(serviceCategory)
-    .orderBy(asc(serviceCategory.id))
+  const result = await db.execute(sql`
+    SELECT
+      c.id, c.name, c.slug, c.description, c.service_type::text AS service_type,
+      c.display_order, c.is_active, c.sac_code, c.all_branches,
+      CASE WHEN c.all_branches THEN NULL ELSE (
+        SELECT string_agg(cb.branch_id, ',' ORDER BY cb.branch_id)
+          FROM service_category_branch cb
+         WHERE cb.category_id = c.id
+      ) END AS branch_ids,
+      c.created_at, c.updated_at
+    FROM service_category c
+    ORDER BY c.id ASC
+  `)
 
-  return rows.map((row) => ({ ...row, serviceType: String(row.serviceType) }))
+  return (result.rows as Row[]).map(categoryRow)
 }
 
 async function readPublicServices(): Promise<ServiceDriftRow[]> {
-  return db
-    .select({
-      id: service.id,
-      categoryId: service.categoryId,
-      name: service.name,
-      slug: service.slug,
-      description: service.description,
-      durationMinutes: service.durationMinutes,
-      bufferMinutes: service.bufferMinutes,
-      pricePaise: service.pricePaise,
-      isActive: service.isActive,
-      imageUrl: service.imageUrl,
-      displayOrder: service.displayOrder,
-      gemsRedeemable: service.gemsRedeemable,
-      gemsRequired: service.gemsRequired,
-      gemsCatalogueOrder: service.gemsCatalogueOrder,
-      createdAt: service.createdAt,
-      updatedAt: service.updatedAt,
-    })
-    .from(service)
-    .orderBy(asc(service.id))
+  const result = await db.execute(sql`
+    SELECT
+      s.id, s.category_id, s.name, s.slug, s.description, s.duration_minutes,
+      s.buffer_minutes, s.price_paise, s.is_active, s.image_url, s.display_order,
+      s.gems_redeemable, s.gems_required, s.gems_catalogue_order, s.sac_code,
+      s.all_branches,
+      CASE WHEN s.all_branches THEN NULL ELSE (
+        SELECT string_agg(sb.branch_id, ',' ORDER BY sb.branch_id)
+          FROM service_branch sb
+         WHERE sb.service_id = s.id
+      ) END AS branch_ids,
+      s.created_at, s.updated_at
+    FROM service s
+    ORDER BY s.id ASC
+  `)
+
+  return (result.rows as Row[]).map(serviceRow)
 }
 
 /**

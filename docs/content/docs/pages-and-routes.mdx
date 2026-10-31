@@ -104,6 +104,7 @@ All admin routes are served from `admin.theroyalglow.in` at **root paths** (no `
 | `/settings` | Manager | System settings |
 | `/branches` | Owner | Branch management |
 | `/users` | Owner | User management and role assignment |
+| `/settlements` | Owner, Developer | Monthly statements between branches for SPA membership sessions and gems |
 | `/integrations` | Developer | Integration configuration |
 | `/logs` | Developer | Audit logs |
 
@@ -164,7 +165,10 @@ Served from `admin.theroyalglow.in/api/*`. There is no `/api/admin/` segment —
 | `/api/bookings` | GET, POST | Receptionist | List / create booking |
 | `/api/bookings/new` | POST | Receptionist | Walk-in booking creation |
 | `/api/bookings/[id]` | PATCH | Receptionist | Approve, reject, assign staff |
-| `/api/bookings/[id]/complete` | POST | Receptionist | Mark completed + invoice + gems |
+| `/api/bookings/[id]/start` | POST | Receptionist | Start a confirmed booking (in progress) |
+| `/api/bookings/[id]/reschedule` | POST | Receptionist | The salon moves a pending or confirmed booking (not counted against the customer) |
+| `/api/bookings/[id]/cancel` | POST | Receptionist | The salon cancels a pending or confirmed booking with a reason |
+| `/api/bookings/[id]/complete` | POST | Receptionist | Mark completed + invoice + gems; a membership session uses its minutes |
 | `/api/bookings/[id]/noshow` | POST | Receptionist | Mark no-show |
 | `/api/customers` | GET | Receptionist | Customer list with search/filter |
 | `/api/customers/[id]` | GET | Receptionist | Customer detail |
@@ -186,7 +190,7 @@ Served from `admin.theroyalglow.in/api/*`. There is no `/api/admin/` segment —
 | `/api/me/leave` | GET, POST | Staff | Own leave list / submit |
 | `/api/me/leave/[id]` | PATCH | Staff | Update own leave |
 | `/api/me/schedule` | GET | Staff | Own schedule |
-| `/api/schedule` | GET | Receptionist | Staff schedule for date |
+| `/api/schedule` | GET, PUT | Manager | The active branch's weekly staff grid / save a person's week (takes them off bookings it no longer covers) |
 | `/api/waitlist` | GET, POST | Receptionist | Waitlist list / add |
 | `/api/waitlist/[id]` | PATCH, DELETE | Receptionist | Update / remove waitlist entry |
 | `/api/tags` | GET | Receptionist | Available CRM tags |
@@ -233,7 +237,7 @@ QStash signature required. Hosted in `@rgss/admin` and served from `admin.theroy
 | `/api/jobs/nightly-sales-summary` | Nightly sales rollup |
 | `/api/jobs/membership-auto-expire` | Hard-expire lapsed memberships |
 | `/api/jobs/offer-auto-expire` | Expire ended offers |
-| `/api/jobs/gems-auto-expire` | Expire gems past 365 days |
+| `/api/jobs/gems-auto-expire` | Expire unspent gems past 365 days |
 | `/api/jobs/session-cleanup` | Purge stale auth sessions |
 | `/api/jobs/monthly-gst-summary` | Monthly GST summary |
 

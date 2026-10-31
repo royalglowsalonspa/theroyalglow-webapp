@@ -34,6 +34,7 @@
 import { sql } from 'drizzle-orm'
 import {
   boolean,
+  check,
   date,
   index,
   integer,
@@ -67,6 +68,13 @@ export const offer = pgTable(
     terms: text('terms'),
     imageUrl: text('image_url'),
     displayOrder: integer('display_order').notNull().default(0),
+    // The Payload offer this row mirrors (offers.md): its id is
+    // `cms_offer_<cms_id>`. Null for the legacy offers made in the admin
+    // portal before the move to the CMS.
+    cmsId: integer('cms_id').unique(),
+    // Off for a counter-only discount: the rule applies at checkout, but no
+    // public list shows it (R4.8).
+    showOnWebsite: boolean('show_on_website').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
       .notNull()
@@ -75,6 +83,27 @@ export const offer = pgTable(
   },
   (table) => [
     index('offer_display_order_active_idx').on(table.displayOrder).where(sql`is_active = true`),
+    // A mirrored rule is whole: its id follows the CMS id, its dates are in
+    // order, and only its type's value is set, in range. Legacy rows are exempt
+    // (test data, removed by the clean-up allowlist).
+    check(
+      'offer_cms_rule_check',
+      sql`${table.cmsId} IS NULL OR (
+        ${table.id} = 'cms_offer_' || ${table.cmsId}::text
+        AND ${table.endDate} >= ${table.startDate}
+        AND (
+          (${table.offerType} = 'percentage'
+            AND coalesce(${table.discountPercentage}, 0) BETWEEN 1 AND 100
+            AND ${table.discountAmountPaise} IS NULL AND ${table.comboPricePaise} IS NULL)
+          OR (${table.offerType} = 'flat'
+            AND coalesce(${table.discountAmountPaise}, 0) > 0
+            AND ${table.discountPercentage} IS NULL AND ${table.comboPricePaise} IS NULL)
+          OR (${table.offerType} = 'combo_price'
+            AND coalesce(${table.comboPricePaise}, 0) > 0
+            AND ${table.discountPercentage} IS NULL AND ${table.discountAmountPaise} IS NULL)
+        )
+      )`,
+    ),
   ],
 )
 

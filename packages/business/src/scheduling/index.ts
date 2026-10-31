@@ -9,17 +9,19 @@
  * Description  : Barrel export for scheduling domain business logic.
  *
  * Responsibilities :
- * - Re-export leave status machine and schedule validation
+ * - Re-export leave status machine, schedule validation and assignee rules
  *
  * Features / Functionality :
  * - assertLeaveTransition, assertValidScheduleEntry, dayOfWeekLabel
+ * - isCandidateFor, replacementSuggestions
  *
  * Tech Stack   : TypeScript
  * Layer        : Business Logic
  *
- * Dependencies : ./leave-status, ./schedule
+ * Dependencies : ./assignee, ./leave-status, ./schedule
  *
  * Notes        : None
  ************************************************************/
+export * from './assignee'
 export * from './leave-status'
 export * from './schedule'

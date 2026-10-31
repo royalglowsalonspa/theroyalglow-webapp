@@ -126,7 +126,7 @@ function ok(data: unknown, meta?: unknown) {
 function routeFetch(input: RequestInfo | URL): Promise<Response> {
   const url = String(input)
   if (url.includes('/api/membership-tiers')) {
-    return Promise.resolve(ok([]))
+    return Promise.resolve(ok({ tiers: [], canEditTax: false }))
   }
   if (url.includes('/api/memberships')) {
     return Promise.resolve(ok({ branchId: 'branch_rayasandra', memberships: [] }))

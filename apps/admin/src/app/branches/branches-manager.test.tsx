@@ -13,6 +13,7 @@
  *                needs a few DOM APIs jsdom omits, stubbed below.
  ************************************************************/
 
+import { financialYearIST } from '@rgss/business'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { axe, toHaveNoViolations } from 'jest-axe'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -21,6 +22,9 @@ const toastMocks = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning
 vi.mock('@/lib/admin/toast', () => ({ toast: toastMocks }))
 
 import { BranchesManager } from './branches-manager'
+
+// The financial year the number previews show today.
+const FY = financialYearIST(new Date())
 
 expect.extend(toHaveNoViolations)
 
@@ -41,6 +45,8 @@ const BASE = {
   temporaryCloseReason: null,
   isPrimary: false,
   displayOrder: 0,
+  legalName: null,
+  gstin: null,
 }
 
 const RAYASANDRA = {
@@ -51,6 +57,7 @@ const RAYASANDRA = {
   name: 'Rayasandra',
   status: 'operational',
   isPrimary: true,
+  invoicePrefix: 'RS',
 }
 
 const OLD_TOWN = {
@@ -60,6 +67,7 @@ const OLD_TOWN = {
   code: 'OT',
   name: 'Old Town',
   status: 'shutdown',
+  invoicePrefix: 'OT',
 }
 
 const BLOCKED = {
@@ -330,5 +338,66 @@ describe('BranchesManager', () => {
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByRole('button', { name: 'Save' })).toBeEnabled()
     expect(checkCalls()).toHaveLength(0)
+  })
+
+  it('sends the issuer details on save, and the prefix only when it changes (R6.1)', async () => {
+    render(<BranchesManager />)
+
+    await openRowActions('Rayasandra')
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(
+      within(dialog).getByText(`Invoice numbers look like RS/${FY}/000123`, { exact: false }),
+    ).toBeInTheDocument()
+    fireEvent.change(within(dialog).getByLabelText('Legal name'), {
+      target: { value: '  Royal Glow Salon and Spa LLP ' },
+    })
+    fireEvent.change(within(dialog).getByLabelText('GSTIN'), {
+      target: { value: '29abcde1234f1z5' },
+    })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(sent('PATCH')).toHaveLength(1))
+    const body = JSON.parse(String(sent('PATCH')[0]?.init?.body ?? '{}'))
+    expect(body).toMatchObject({
+      legalName: 'Royal Glow Salon and Spa LLP',
+      gstin: '29ABCDE1234F1Z5',
+    })
+    expect(body).not.toHaveProperty('invoicePrefix')
+  })
+
+  it('refuses a malformed GSTIN or prefix, and sends a changed prefix in capitals (R6.2)', async () => {
+    render(<BranchesManager />)
+
+    await openRowActions('Rayasandra')
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.change(within(dialog).getByLabelText('GSTIN'), { target: { value: '29ABCDE1234' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    expect(
+      await within(dialog).findByText('Enter the 15-character GSTIN, or leave it empty.'),
+    ).toBeInTheDocument()
+
+    fireEvent.change(within(dialog).getByLabelText('GSTIN'), { target: { value: '' } })
+    fireEvent.change(within(dialog).getByLabelText('Invoice prefix'), { target: { value: '1RS' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    expect(
+      await within(dialog).findByText(
+        'The invoice prefix is 1 to 4 letters or digits, starting with a letter.',
+      ),
+    ).toBeInTheDocument()
+    expect(sent('PATCH')).toHaveLength(0)
+
+    fireEvent.change(within(dialog).getByLabelText('Invoice prefix'), { target: { value: 'ry1' } })
+    expect(
+      within(dialog).getByText(`Invoice numbers look like RY1/${FY}/000123`, { exact: false }),
+    ).toBeInTheDocument()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(sent('PATCH')).toHaveLength(1))
+    expect(JSON.parse(String(sent('PATCH')[0]?.init?.body ?? '{}'))).toMatchObject({
+      invoicePrefix: 'RY1',
+      gstin: '',
+    })
   })
 })

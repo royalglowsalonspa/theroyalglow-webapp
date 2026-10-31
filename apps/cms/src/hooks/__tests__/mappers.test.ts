@@ -34,11 +34,36 @@
 import { SERVICE_DURATION_MINUTES } from '@rgss/types'
 import { describe, expect, it } from 'vitest'
 import {
+  availabilityOf,
   mapPayloadToPublicCategory,
   mapPayloadToPublicService,
   type PayloadServiceCategoryDoc,
   type PayloadServiceDoc,
 } from '../mappers'
+
+describe('availabilityOf', () => {
+  it('is every branch unless Selected branches is chosen', () => {
+    expect(availabilityOf({})).toEqual({ allBranches: true, branchIds: [] })
+    expect(availabilityOf({ availability: 'all', availableBranches: ['b'] })).toEqual({
+      allBranches: true,
+      branchIds: [],
+    })
+    expect(availabilityOf({ availability: 'unexpected' })).toEqual({
+      allBranches: true,
+      branchIds: [],
+    })
+  })
+
+  it('lists the chosen branches once each, trimmed and sorted', () => {
+    expect(
+      availabilityOf({ availability: 'selected', availableBranches: [' rs ', 'mh', 'rs', ''] }),
+    ).toEqual({ allBranches: false, branchIds: ['mh', 'rs'] })
+    expect(availabilityOf({ availability: 'selected', availableBranches: null })).toEqual({
+      allBranches: false,
+      branchIds: [],
+    })
+  })
+})
 
 const CREATED_AT_ISO = '2026-06-01T10:00:00.000Z'
 
@@ -60,6 +85,9 @@ function serviceDoc(overrides: Partial<PayloadServiceDoc> = {}): PayloadServiceD
     gemsRedeemable: true,
     gemsRequired: 40,
     gemsCatalogueOrder: 1,
+    sacCode: '999721',
+    availability: 'selected',
+    availableBranches: ['branch_rs'],
     createdAt: CREATED_AT_ISO,
     ...overrides,
   }
@@ -76,6 +104,8 @@ function categoryDoc(
     serviceType: 'salon',
     displayOrder: 1,
     isActive: true,
+    sacCode: '999722',
+    availability: 'all',
     createdAt: CREATED_AT_ISO,
     ...overrides,
   }
@@ -98,8 +128,18 @@ describe('mapPayloadToPublicService: field mapping', () => {
       gemsRedeemable: true,
       gemsRequired: 40,
       gemsCatalogueOrder: 1,
+      sacCode: '999721',
+      allBranches: false,
       createdAt: CREATED_AT_ISO,
     })
+  })
+
+  it('reads an empty SAC code as the category’s (null) and missing availability as all branches', () => {
+    const row = mapPayloadToPublicService(
+      serviceDoc({ sacCode: null, availability: null, availableBranches: null }),
+    )
+    expect(row.sacCode).toBeNull()
+    expect(row.allBranches).toBe(true)
   })
 
   it('never emits an updatedAt — the sync hook owns that column', () => {
@@ -185,6 +225,8 @@ describe('mapPayloadToPublicCategory', () => {
       slug: 'hair-beauty',
       description: 'Salon services',
       serviceType: 'salon',
+      sacCode: '999722',
+      allBranches: true,
       displayOrder: 1,
       isActive: true,
       createdAt: CREATED_AT_ISO,

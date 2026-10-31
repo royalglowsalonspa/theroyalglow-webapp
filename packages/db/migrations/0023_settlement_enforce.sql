@@ -1,0 +1,2 @@
+ALTER TABLE "loyalty_transaction" ADD CONSTRAINT "loyalty_transaction_branch_check" CHECK ("loyalty_transaction"."type" = 'adjusted' OR "loyalty_transaction"."branch_id" IS NOT NULL);--> statement-breakpoint
+ALTER TABLE "loyalty_transaction" ADD CONSTRAINT "loyalty_transaction_batch_check" CHECK (("loyalty_transaction"."type" = 'expired') = ("loyalty_transaction"."batch_id" IS NOT NULL));

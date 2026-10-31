@@ -61,6 +61,9 @@ function category(overrides: Partial<DrizzleCategoryRow> = {}): DrizzleCategoryR
     slug: 'hair-care',
     description: null,
     serviceType: 'salon',
+    // The CMS requires one of the reviewed codes on a category.
+    sacCode: '999721',
+    allBranches: true,
     displayOrder: 0,
     isActive: true,
     createdAt: NOW,
@@ -85,6 +88,8 @@ function svc(overrides: Partial<DrizzleServiceRow> = {}): DrizzleServiceRow {
     gemsRedeemable: false,
     gemsRequired: null,
     gemsCatalogueOrder: null,
+    sacCode: null,
+    allBranches: true,
     createdAt: NOW,
     updatedAt: NOW,
     ...overrides,

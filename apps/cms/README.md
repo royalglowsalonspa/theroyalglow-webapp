@@ -14,7 +14,7 @@ whole monorepo; this document explains the CMS implementation and its boundaries
 The app uses Payload 3, Next.js App Router, React, TypeScript, Lexical rich text,
 the Payload PostgreSQL adapter, Sharp, Cloudflare R2 through the S3 plugin, Resend,
 and the Payload MCP plugin. [package.json](package.json) and the root lockfile are
-the source of truth for versions; all seven Payload packages are pinned together.
+the source of truth for versions; all eight Payload packages are pinned together.
 
 Payload stores its tables in the `cms` schema. The booking application uses
 Drizzle-managed tables in `public` in the same database. The CMS edits content
@@ -35,8 +35,8 @@ staff operations, and invoice rendering belong to sibling apps and shared packag
 | `testimonial` | Customer review cards for marketing pages |
 | `offer` | Promotional copy/cards; actual booking discount rules are separate |
 | `service-card` | Homepage category cards and display prices; not bookable service records |
-| `service_category` | Operational salon/spa taxonomy, mirrored to the booking database |
-| `service` | Bookable services, paise prices, durations, buffers, and gems settings |
+| `service_category` | Operational salon/spa taxonomy with its required SAC code and branch availability, mirrored to the booking database; every version kept |
+| `service` | Bookable services, paise prices, durations, buffers, gems settings, an optional SAC code and branch availability; every version kept |
 | `payload-mcp-api-keys` | Plugin-managed MCP credentials and per-key capabilities |
 
 The first twelve collections are registered in
@@ -52,6 +52,9 @@ No Payload globals are configured.
 | `src/access/published.ts` | Public/published reads and authenticated write helper |
 | `src/hooks/` | Catalogue mapping/synchronization and web cache notifications |
 | `src/lib/sync-db.ts` | Payload transaction resolver and sync feature flag |
+| `src/lib/catalogue-fields.ts` | SAC code, branch availability and `editedBy` fields shared by the two catalogue collections |
+| `src/components/` | Custom admin field components: the branch picker for availability |
+| `src/endpoints/` | Custom REST endpoints: `GET /api/catalogue-branches` for the branch picker |
 | `src/app/(payload)/admin/` | Payload admin routes and generated component import map |
 | `src/app/(payload)/api/[...slug]/` | Payload REST handler, including plugin endpoints |
 | `src/migrations/` | Payload migration TypeScript, snapshots, and ordered index |
@@ -134,10 +137,20 @@ table definitions and resolve the active Payload transaction via `await txDb(req
 For transactional requests, the CMS write and public mirror commit or roll back
 together. Sync errors are rethrown rather than allowing an apparently successful save.
 
-Create operations upsert by ID; updates target the same ID. Custom text IDs and
-category relationships preserve references used by bookings. Service prices are
-integer paise, not rupees. Services and categories are retired through `isActive`;
-their access configuration rejects deletion.
+Creates and updates both upsert by ID, so a save also recreates a missing mirror
+row. Custom text IDs and category relationships preserve references used by
+bookings. Service prices are integer paise, not rupees. Services and categories
+are retired through `isActive`; their access configuration rejects deletion.
+
+The hooks also mirror each document's SAC code and branch availability
+(`all_branches`, plus the `service_branch` or `service_category_branch` rows,
+replaced on every save). Those columns come from application migration 0033, so
+apply the application migrations before deploying a CMS that writes them. The
+branch picker lists `public.branch` through `GET /api/catalogue-branches`, which
+needs a CMS login; on save, validation checks every chosen ID names a branch.
+Both collections keep every version (no drafts), and each version records the
+CMS login that saved it in `editedBy`. See
+[catalogue management](../../knowledge-base/service-catalogue-management.md).
 
 Only `SERVICE_SYNC_ENABLED=false` stops the mirroring. It is an operational
 control used by migration/seed procedures, and it permits the two schemas to
@@ -204,7 +217,8 @@ configuration alone does not prove the current live deployment matches it.
 ## Verification and known gaps
 
 Root Vitest's `cms` project covers mappings, schema fields, generated IDs,
-idempotency, timestamps, feature-flag gating, and account-unlock access. Its
+idempotency, timestamps, feature-flag gating, availability and SAC fields, the
+branch endpoint, and account-unlock access. Its
 default configuration excludes the live atomicity and seed suites.
 
 Those live suites use real Payload/PostgreSQL and are collected through the root

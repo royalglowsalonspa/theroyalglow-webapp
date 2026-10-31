@@ -34,6 +34,10 @@ import { defineConfig, devices } from '@playwright/test'
  *     production builds), started with that email.
  * - ADMIN_E2E_WRITE_PERSON_EMAIL / ADMIN_E2E_WRITE_BRANCH_ID : opt in to the
  *     people write journeys (e2e/people-writes.spec.ts).
+ * - ADMIN_E2E_WRITE_MEMBERSHIP_SESSIONS=1 : opt in to the membership session
+ *     journey (e2e/membership-sessions.spec.ts). It seeds a throwaway
+ *     membership in the database packages/db/.env names, which must be the
+ *     one the server reads, and deletes it afterwards.
  *
  * Notes        : RBAC specs require seeded role accounts. When a role's
  *                storageState is absent they self-skip (see fixtures/auth.ts),

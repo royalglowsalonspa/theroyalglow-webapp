@@ -218,6 +218,43 @@ describe('buildServiceDriftReport: changed fields', () => {
   })
 })
 
+describe('buildServiceDriftReport: tax code and branch availability', () => {
+  it('flags a SAC code changed outside the CMS', () => {
+    const result = report({
+      cmsServices: [serviceRow({ sacCode: '999722' })],
+      publicServices: [serviceRow({ sacCode: '999721' })],
+    })
+    expect(tableOf(result, 'service').findings).toEqual([
+      expect.objectContaining({
+        kind: 'field_mismatch',
+        field: 'sacCode',
+        cmsValue: '999722',
+        publicValue: '999721',
+      }),
+    ])
+  })
+
+  it('flags availability and branch lists that differ, and not equal ones', () => {
+    const restricted = { allBranches: false, branchIds: 'branch_mh,branch_rs' }
+    const same = report({
+      cmsCategories: [categoryRow(restricted)],
+      publicCategories: [categoryRow(restricted)],
+    })
+    expect(tableOf(same, 'service_category').hasDrift).toBe(false)
+
+    const result = report({
+      cmsCategories: [categoryRow(restricted)],
+      publicCategories: [categoryRow({ allBranches: true, branchIds: null })],
+    })
+    expect(
+      tableOf(result, 'service_category').findings.map((f) => [f.field, f.cmsValue, f.publicValue]),
+    ).toEqual([
+      ['allBranches', 'false', 'true'],
+      ['branchIds', 'branch_mh,branch_rs', null],
+    ])
+  })
+})
+
 describe('buildServiceDriftReport: timestamp tolerance', () => {
   it('does NOT flag a precision-truncation difference (timestamp(3) vs microseconds)', () => {
     // cms.* is timestamp(3), public.* keeps microseconds: the same logical

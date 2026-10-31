@@ -63,6 +63,7 @@ const NOTIFICATION_TYPES = [
   'gems_expiry_7d',
   'gems_expired',
   'branch_manager_missing',
+  'staff_overrun',
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
@@ -224,6 +225,18 @@ export function buildNotificationContent(
         title: 'No-show Check',
         body: `Please confirm whether the ${date} appointment${at} was a no-show.`,
       }
+    case 'staff_overrun': {
+      // MS-08: the person assigned is still with another customer when a
+      // booking of theirs is due. Reception waits or assigns someone else;
+      // nothing moves on its own.
+      const who = data.staffName ?? 'The person assigned'
+      const when = data.time ? `${data.time} ` : ''
+      const free = data.suggestions ? ` Free then: ${data.suggestions}.` : ''
+      return {
+        title: 'Booking Held Up',
+        body: `${who} is still with another customer, so the ${when}booking${at} on ${date} can’t start yet. Wait for them or assign someone else.${free}`,
+      }
+    }
     case 'branch_manager_missing': {
       const branches = Number(data.count ?? '1')
       if (branches > 1 && data.branchList) {

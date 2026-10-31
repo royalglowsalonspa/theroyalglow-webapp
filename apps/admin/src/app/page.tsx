@@ -34,11 +34,15 @@
 import { CalendarDays, ClipboardList, Hand, TrendingUp } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { ClosedDayBookingsPanel } from '@/components/admin/ClosedDayBookingsPanel'
 import { MissingManagerBanner } from '@/components/admin/MissingManagerBanner'
 import { ReassignmentPanel } from '@/components/admin/ReassignmentPanel'
+import { UnofferedServiceBookingsPanel } from '@/components/admin/UnofferedServiceBookingsPanel'
 import { Button } from '@/components/ui/button'
 import { Icon } from '@/components/ui/icon'
+import { closedDayBookings } from '@/lib/bookings/closed-day-bookings'
 import { reassignmentWork } from '@/lib/bookings/reassignment-work'
+import { unofferedServiceBookings } from '@/lib/bookings/unoffered-service-bookings'
 import { missingManagerNotice } from '@/lib/branches/missing-manager'
 import { DashboardOverview } from './dashboard-overview'
 
@@ -68,9 +72,13 @@ function getTodayIST(): string {
 export default async function AdminDashboardPage() {
   // Multi-branch R1.9: an operational branch without a Manager says so here.
   // R1.7: bookings whose assignee was taken off them wait for someone else.
-  const [missingManager, reassignments] = await Promise.all([
+  // R1.8: bookings on days the branch is now closed wait to be moved or cancelled.
+  // R4.4: bookings with a service the branch no longer offers wait for a decision.
+  const [missingManager, reassignments, closedDays, unofferedServices] = await Promise.all([
     missingManagerNotice(),
     reassignmentWork(),
+    closedDayBookings(),
+    unofferedServiceBookings(),
   ])
 
   return (
@@ -86,6 +94,8 @@ export default async function AdminDashboardPage() {
 
       {missingManager ? <MissingManagerBanner notice={missingManager} /> : null}
       {reassignments ? <ReassignmentPanel work={reassignments} /> : null}
+      {closedDays ? <ClosedDayBookingsPanel bookings={closedDays} /> : null}
+      {unofferedServices ? <UnofferedServiceBookingsPanel bookings={unofferedServices} /> : null}
 
       {/* Live KPIs + recent bookings */}
       <DashboardOverview />

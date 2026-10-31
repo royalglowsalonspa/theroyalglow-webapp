@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { WEB_ORIGIN } from './fixtures/auth'
+import { IMPERSONATED_ROLE, WEB_ORIGIN } from './fixtures/auth'
 
 /************************************************************
  * Admin auth-redirect E2E (Req 15.2, 4.4/4.7)
@@ -18,6 +18,13 @@ import { WEB_ORIGIN } from './fixtures/auth'
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308])
 
 test.describe('unauthenticated admin access', () => {
+  // A server started with ADMIN_DEV_IMPERSONATE_EMAIL signs every request in,
+  // so there is no unauthenticated visitor to bounce.
+  test.skip(
+    IMPERSONATED_ROLE !== null,
+    'the impersonating dev server treats every request as signed in',
+  )
+
   test('GET /bookings redirects (Location → web origin) without a session', async ({ request }) => {
     // No storageState on this context → no session cookie is sent.
     const res = await request.get('/bookings', { maxRedirects: 0 })

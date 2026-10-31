@@ -20,6 +20,7 @@
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { db } from '../index'
+import { issuedInvoiceStatements } from '../test/issued-invoice'
 import { isLiveDbAvailable, queryRow } from '../test/live-db'
 import { createBookingWithServices } from './bookings'
 import { getBranchPeople } from './branch-recipients'
@@ -37,6 +38,8 @@ const RAVI = `${PREFIX}_ravi`
 
 let ownerId = ''
 let serviceId = ''
+// The fixture invoices' numbers, unique across the suite's branches.
+let sequence = 0
 
 async function book(params: {
   key: string
@@ -85,18 +88,22 @@ async function invoice(params: {
   paid: boolean
   createdAt: string
 }) {
-  const id = `${PREFIX}_inv_${params.key}`
-  await db.batch([
-    db.execute(sql`
-      insert into invoice (id, invoice_number, branch_id, booking_id, customer_id,
-                           subtotal_paise, total_amount_paise, payment_status, created_at)
-      values (${id}, ${`${PREFIX}_INV_${params.key}`}, ${params.branchId}, ${params.bookingId},
-              ${params.customerId}, ${params.totalPaise}, ${params.totalPaise},
-              ${params.paid ? 'paid' : 'pending'}, ${params.createdAt})`),
-    db.execute(sql`
-      insert into invoice_item (id, invoice_id, service_name_snapshot, unit_price_paise, total_price_paise)
-      values (${`${id}_item`}, ${id}, ${`ZZ IT ${params.key}`}, ${params.totalPaise}, ${params.totalPaise})`),
-  ])
+  // Issued with its snapshot (0018): numbered within its branch, the number at
+  // most 16 characters, its tax point the moment it was created.
+  sequence += 1
+  await db.batch(
+    await issuedInvoiceStatements({
+      id: `${PREFIX}_inv_${params.key}`,
+      number: `ZZ${RUN}${sequence}`,
+      sequence,
+      branchId: params.branchId,
+      customerId: params.customerId,
+      bookingId: params.bookingId,
+      paymentStatus: params.paid ? 'paid' : 'pending',
+      taxPointAt: new Date(params.createdAt),
+      lines: [{ name: `ZZ IT ${params.key}`, amountPaise: params.totalPaise }],
+    }),
+  )
 }
 
 describe.skipIf(!LIVE)('branch context for background jobs against a live database', () => {

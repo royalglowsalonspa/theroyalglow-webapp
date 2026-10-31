@@ -31,30 +31,56 @@
  ************************************************************/
 
 import { sql } from 'drizzle-orm'
-import { boolean, index, integer, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
+import {
+  boolean,
+  check,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'
 import { user } from './auth'
 import { branch } from './branch'
 import { spaMembershipStatusEnum } from './enums'
 
-export const spaMembershipTier = pgTable('spa_membership_tier', {
-  id: text('id')
-    .primaryKey()
-    .$defaultFn(() => nanoid()),
-  name: text('name').notNull().unique(),
-  slug: text('slug').notNull().unique(),
-  description: text('description'),
-  defaultHoursMinutes: integer('default_hours_minutes').notNull(),
-  defaultPricePaise: integer('default_price_paise').notNull(),
-  defaultValidityDays: integer('default_validity_days').notNull(),
-  isActive: boolean('is_active').notNull().default(true),
-  displayOrder: integer('display_order').notNull().default(0),
-  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-})
+// Starting templates for a sale, shared by every branch and never shown to
+// customers (multi-branch R9.1, R9.4). Edits change later sales only: a
+// membership keeps its own hours, price and a snapshot of the tier.
+export const spaMembershipTier = pgTable(
+  'spa_membership_tier',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    name: text('name').notNull().unique(),
+    slug: text('slug').notNull().unique(),
+    description: text('description'),
+    // 0 usual hours or price: agreed at the counter (a "custom" tier).
+    defaultHoursMinutes: integer('default_hours_minutes').notNull(),
+    defaultPricePaise: integer('default_price_paise').notNull(),
+    defaultValidityDays: integer('default_validity_days').notNull(),
+    // The tax classification of a sale, one of the reviewed SAC codes
+    // (tax-settings.md §1). Only the Developer changes it.
+    sacCode: text('sac_code').notNull().default('999723'),
+    isActive: boolean('is_active').notNull().default(true),
+    displayOrder: integer('display_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    check(
+      'spa_membership_tier_usual_values_check',
+      sql`${table.defaultHoursMinutes} >= 0 AND ${table.defaultPricePaise} >= 0 AND ${table.defaultValidityDays} > 0`,
+    ),
+    check('spa_membership_tier_sac_code_check', sql`${table.sacCode} ~ '^[0-9]{6}$'`),
+  ],
+)
 
 export const spaMembership = pgTable(
   'spa_membership',
@@ -82,7 +108,12 @@ export const spaMembership = pgTable(
       onDelete: 'restrict',
     }),
     totalHoursMinutes: integer('total_hours_minutes').notNull(),
+    // Consumed minutes: the sum of the membership's consumed holds.
     usedHoursMinutes: integer('used_hours_minutes').notNull().default(0),
+    // Minutes held by confirmed and in-progress sessions: the sum of its held
+    // holds. Both totals are kept by the hold triggers and checked at commit
+    // (migration 0026); nothing else writes them.
+    reservedMinutes: integer('reserved_minutes').notNull().default(0),
     pricePaidPaise: integer('price_paid_paise').notNull(),
     startsAt: timestamp('starts_at', { withTimezone: true, mode: 'date' }).notNull(),
     expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
@@ -99,6 +130,18 @@ export const spaMembership = pgTable(
       .$onUpdate(() => new Date()),
   },
   (table) => [
+    // Minute accounting can't go negative or past the pool (MS-10), and a
+    // membership ends after it starts.
+    check(
+      'spa_membership_minutes_check',
+      sql`${table.totalHoursMinutes} > 0 AND ${table.usedHoursMinutes} >= 0 AND ${table.usedHoursMinutes} <= ${table.totalHoursMinutes}`,
+    ),
+    check('spa_membership_validity_check', sql`${table.expiresAt} > ${table.startsAt}`),
+    // Held and consumed minutes together never exceed the pool (MS-01).
+    check(
+      'spa_membership_reserved_check',
+      sql`${table.reservedMinutes} >= 0 AND ${table.usedHoursMinutes} + ${table.reservedMinutes} <= ${table.totalHoursMinutes}`,
+    ),
     uniqueIndex('spa_membership_active_customer_idx')
       .on(table.customerId)
       .where(sql`status = 'active'`),

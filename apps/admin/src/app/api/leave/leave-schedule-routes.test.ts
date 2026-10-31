@@ -19,7 +19,7 @@
  ************************************************************/
 
 import { ERROR_CODES } from '@rgss/errors'
-import { DEFAULT_BOOKING_RULES, DEFAULT_BUSINESS_HOURS, DEFAULT_GST } from '@rgss/types'
+import { DEFAULT_BOOKING_RULES, DEFAULT_BUSINESS_HOURS } from '@rgss/types'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { branchContext, OTHER_BRANCH, TEST_BRANCH } from '@/test/branch-context'
 
@@ -37,7 +37,7 @@ const dbMocks = vi.hoisted(() => ({
   recordAudit: vi.fn(),
   getBranchClosures: vi.fn(async () => []),
   getWeeklyScheduleGrid: vi.fn(),
-  getSettings: vi.fn(),
+  getBranchSettingsForAdmin: vi.fn(),
   isStaffAtBranch: vi.fn(),
   getScheduleDays: vi.fn(),
   upsertStaffSchedule: vi.fn(),
@@ -102,10 +102,18 @@ beforeEach(() => {
     leave: { id: 'lv1', approvalStatus: 'approved' },
     reassignedBookingIds: [],
   })
-  dbMocks.getSettings.mockResolvedValue({
-    businessHours: DEFAULT_BUSINESS_HOURS,
-    gst: DEFAULT_GST,
-    bookingRules: DEFAULT_BOOKING_RULES,
+  // The active branch's own settings (R6.3), as the admin view reads them.
+  dbMocks.getBranchSettingsForAdmin.mockResolvedValue({
+    current: {
+      branchId: TEST_BRANCH.id,
+      branchName: TEST_BRANCH.name,
+      revision: 3,
+      savedAt: '2026-10-30T05:00:00.000Z',
+      savedByName: 'Katabathuni Bose',
+      businessHours: { ...DEFAULT_BUSINESS_HOURS, sun: { open: null, close: null, closed: true } },
+      bookingRules: DEFAULT_BOOKING_RULES,
+    },
+    history: [],
   })
 })
 
@@ -276,8 +284,13 @@ describe('GET /api/schedule', () => {
     expect(res.status).toBe(200)
     expect(mocks.requireBranchRole).toHaveBeenCalledWith('manager')
     expect(dbMocks.getWeeklyScheduleGrid).toHaveBeenCalledWith(TEST_BRANCH.id, '2026-11-01')
-    // Settings are Developer-only, so the grid carries the opening hours.
-    expect(body.data.businessHours).toEqual(DEFAULT_BUSINESS_HOURS)
+    // Settings are Developer-only, so the grid carries the active branch's own
+    // opening hours (R6.3): this branch is closed on Sundays.
+    expect(dbMocks.getBranchSettingsForAdmin).toHaveBeenCalledWith(TEST_BRANCH.id, 1)
+    expect(body.data.businessHours).toEqual({
+      ...DEFAULT_BUSINESS_HOURS,
+      sun: { open: null, close: null, closed: true },
+    })
     const [here, there] = body.data.staff[0].schedule
     expect(here).toMatchObject({ dayOfWeek: 1, isWorking: true, elsewhere: false })
     expect(there).toMatchObject({
@@ -287,6 +300,29 @@ describe('GET /api/schedule', () => {
       elsewhere: true,
     })
     expect(JSON.stringify(body)).not.toContain(OTHER_BRANCH.id)
+  })
+
+  it("sends no hours when the branch's can't be read, rather than inventing them", async () => {
+    dbMocks.getWeeklyScheduleGrid.mockResolvedValue({ dates: [], staff: [] })
+    dbMocks.getBranchSettingsForAdmin.mockResolvedValue({
+      current: {
+        branchId: TEST_BRANCH.id,
+        branchName: TEST_BRANCH.name,
+        revision: 3,
+        savedAt: '2026-10-30T05:00:00.000Z',
+        savedByName: null,
+        businessHours: null,
+        bookingRules: DEFAULT_BOOKING_RULES,
+      },
+      history: [],
+    })
+
+    const res = await scheduleRoute.GET(
+      new Request('https://admin.theroyalglow.in/api/schedule?weekStart=2026-11-01'),
+    )
+
+    expect(res.status).toBe(200)
+    expect((await res.json()).data.businessHours).toBeNull()
   })
 })
 
@@ -298,17 +334,36 @@ describe('PUT /api/schedule', () => {
     mocks.requireBranchRole.mockResolvedValue(branchContext({ role: 'manager' }))
     dbMocks.isStaffAtBranch.mockResolvedValue(true)
     dbMocks.getScheduleDays.mockResolvedValue([])
-    dbMocks.upsertStaffSchedule.mockResolvedValue({ ok: true })
+    dbMocks.upsertStaffSchedule.mockResolvedValue({ ok: true, reassignedBookingIds: [] })
   })
 
-  it('saves a week at the active branch', async () => {
+  it('saves a week at the active branch, by the person saving it', async () => {
     const entries = fullWeek([1, 2, 3])
 
     const res = await put({ branchId: TEST_BRANCH.id, staffId: 'st_sty', entries })
 
     expect(res.status).toBe(200)
+    expect((await res.json()).data).toEqual({ ok: true, reassignments: 0 })
     expect(dbMocks.isStaffAtBranch).toHaveBeenCalledWith('st_sty', TEST_BRANCH.id)
-    expect(dbMocks.upsertStaffSchedule).toHaveBeenCalledWith('st_sty', TEST_BRANCH.id, entries)
+    // branchContext() acts as user_1.
+    expect(dbMocks.upsertStaffSchedule).toHaveBeenCalledWith(
+      'st_sty',
+      TEST_BRANCH.id,
+      entries,
+      'user_1',
+    )
+  })
+
+  it('says how many bookings the new week took the person off (MS-09)', async () => {
+    dbMocks.upsertStaffSchedule.mockResolvedValue({
+      ok: true,
+      reassignedBookingIds: ['bk_1', 'bk_2'],
+    })
+
+    const res = await put({ branchId: TEST_BRANCH.id, staffId: 'st_sty', entries: fullWeek([1]) })
+
+    expect(res.status).toBe(200)
+    expect((await res.json()).data).toEqual({ ok: true, reassignments: 2 })
   })
 
   it('refuses claiming a day another branch holds, naming the day only', async () => {

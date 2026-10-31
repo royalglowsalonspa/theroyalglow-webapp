@@ -42,6 +42,8 @@ function membershipView(m: MembershipRow) {
     status: m.status,
     totalHoursMinutes: m.totalHoursMinutes,
     usedHoursMinutes: m.usedHoursMinutes,
+    // Held by sessions booked or in progress (0026).
+    reservedMinutes: m.reservedMinutes,
     startsAt: m.startsAt.toISOString(),
     expiresAt: m.expiresAt.toISOString(),
   }

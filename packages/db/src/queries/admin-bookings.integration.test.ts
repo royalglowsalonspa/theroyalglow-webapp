@@ -24,6 +24,7 @@
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { db } from '../index'
+import { issuedInvoiceStatements } from '../test/issued-invoice'
 import { isLiveDbAvailable, queryRow, queryRows } from '../test/live-db'
 import { approveBooking, assignStaff, getBookingForAdmin, listBookings } from './admin-bookings'
 import { createBookingWithServices, getDefaultStaffForService } from './bookings'
@@ -192,18 +193,34 @@ describe.skipIf(!LIVE)('branch-scoped admin booking queries against a live datab
     beforeAll(async () => {
       // The booking suite above seeds the branches, customer and bookings; this
       // one adds one paid invoice per branch, paid on DAY (IST).
+      // Issued with their snapshot (0018); numbers are at most 16 characters.
       const paidAt = new Date(`${DAY}T06:00:00.000Z`)
-      await db.batch([
-        db.execute(sql`
-        insert into invoice (id, invoice_number, branch_id, booking_id, customer_id,
-                             subtotal_paise, total_amount_paise, payment_status, paid_at)
-        values (${INVOICE_A}, ${`${PREFIX}_INV_A`}, ${BRANCH_A}, ${bookingA}, ${CUSTOMER}, 42373, 50000, 'paid', ${paidAt}),
-               (${INVOICE_B}, ${`${PREFIX}_INV_B`}, ${BRANCH_B}, ${bookingB}, ${CUSTOMER}, 101695, 120000, 'paid', ${paidAt})`),
-        db.execute(sql`
-        insert into invoice_item (id, invoice_id, service_name_snapshot, unit_price_paise, total_price_paise)
-        values (${`${INVOICE_A}_i`}, ${INVOICE_A}, 'ZZ IT service A', 50000, 50000),
-               (${`${INVOICE_B}_i`}, ${INVOICE_B}, 'ZZ IT service B', 120000, 120000)`),
-      ])
+      const [first, ...rest] = [
+        ...(await issuedInvoiceStatements({
+          id: INVOICE_A,
+          number: `ZZ${RUN}A`,
+          sequence: 1,
+          branchId: BRANCH_A,
+          customerId: CUSTOMER,
+          bookingId: bookingA,
+          taxPointAt: paidAt,
+          lines: [{ name: 'ZZ IT service A', amountPaise: 50_000 }],
+        })),
+        ...(await issuedInvoiceStatements({
+          id: INVOICE_B,
+          number: `ZZ${RUN}B`,
+          sequence: 1,
+          branchId: BRANCH_B,
+          customerId: CUSTOMER,
+          bookingId: bookingB,
+          taxPointAt: paidAt,
+          lines: [{ name: 'ZZ IT service B', amountPaise: 120_000 }],
+        })),
+      ]
+      if (!first) {
+        throw new Error('no invoice statements')
+      }
+      await db.batch([first, ...rest])
     })
 
     it('keeps each branch’s invoice ledger to its own invoices', async () => {

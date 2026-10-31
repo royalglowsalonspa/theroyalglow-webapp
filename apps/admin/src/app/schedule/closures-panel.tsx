@@ -343,7 +343,8 @@ function AffectedBookings({
           : `${bookings.length} bookings are on closed days`}
       </p>
       <p className="mb-2 font-sans text-[13px] text-warm-gray">
-        Reschedule or reject them from the booking. They can’t be confirmed for a closed day.
+        Move or cancel each one from its booking (reject one that is still pending). They can’t be
+        confirmed for a closed day, and the dashboard lists them until they are dealt with.
       </p>
       <ul className="space-y-1">
         {bookings.map((b) => (

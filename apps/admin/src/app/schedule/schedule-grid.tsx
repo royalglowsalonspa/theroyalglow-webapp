@@ -57,7 +57,7 @@ import { Skeleton } from '@/components/ui/state/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { TimeSelect } from '@/components/ui/time-select'
 import { useAsyncData } from '@/components/ui/use-async-data'
-import { formatTime12h } from '@/lib/admin/bookings'
+import { formatTime12h, reassignmentsNotice } from '@/lib/admin/bookings'
 import { toast } from '@/lib/admin/toast'
 import { ClosuresPanel } from './closures-panel'
 
@@ -84,8 +84,8 @@ interface StaffWeekRow {
 interface GridData {
   /** The branch the grid was loaded for; saves send it back. */
   branchId: string
-  /** Opening hours the editor's time picker stays within. */
-  businessHours?: BusinessHours
+  /** The branch's opening hours the editor's time picker stays within; null when unreadable. */
+  businessHours?: BusinessHours | null
   /** Days this week the branch is closed (R1.8). */
   closures?: { date: string; name: string; allBranches: boolean }[]
   dates: string[]
@@ -204,9 +204,9 @@ export function ScheduleGrid() {
   const fetcher = useCallback(() => fetchSchedule(weekStart), [weekStart])
   const { state, retry } = useAsyncData(fetcher)
 
-  // The configured opening hours arrive with the grid, so the editor's time
-  // picker only offers times within each day's open→close window (falls back
-  // to the defaults).
+  // The branch's opening hours arrive with the grid, so the editor's time
+  // picker only offers times within each day's open→close window. The
+  // defaults only bound the picker when the branch's hours can't be read.
   const businessHours =
     (state.status === 'success' ? state.data.businessHours : undefined) ?? DEFAULT_BUSINESS_HOURS
 
@@ -506,6 +506,12 @@ function ScheduleEditor({
         throw new Error(json?.error?.message ?? 'Could not save the schedule.')
       }
       toast.success('Schedule saved')
+      // Bookings the new week no longer covers lost them and wait on the
+      // dashboard for someone else (MS-09).
+      const moved = reassignmentsNotice(json.data?.reassignments)
+      if (moved) {
+        toast.warning(moved)
+      }
       onSaved()
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Could not save the schedule.'

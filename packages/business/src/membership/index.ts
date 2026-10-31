@@ -25,5 +25,7 @@
 
 export * from './hours'
 export * from './number'
+export * from './sale'
 export * from './session-request'
+export * from './tiers'
 export * from './validity'

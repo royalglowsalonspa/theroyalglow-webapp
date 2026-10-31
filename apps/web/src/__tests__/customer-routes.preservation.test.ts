@@ -46,8 +46,9 @@ import { existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { normaliseIndianPhone } from '@rgss/business'
+import { DEFAULT_BOOKING_RULES, DEFAULT_BUSINESS_HOURS } from '@rgss/types'
 import fc from 'fast-check'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // Mock seams. Session, the data-access layer, the best-effort job enqueue, the
@@ -74,7 +75,7 @@ const dbMocks = vi.hoisted(() => ({
   createLead: vi.fn(),
   getPublicBranches: vi.fn(),
   // membership
-  getCustomerMembership: vi.fn(),
+  getOwnMemberships: vi.fn(),
   getMembershipSessions: vi.fn(),
   // offers
   getActiveOffers: vi.fn(),
@@ -84,6 +85,9 @@ const dbMocks = vi.hoisted(() => ({
   markNotificationsRead: vi.fn(),
   // bookings
   getBranchById: vi.fn(),
+  // The branch's settings (R6.3) and the customer's upcoming bookings there.
+  getBranchPolicy: vi.fn(),
+  countUpcomingBookingsAtBranch: vi.fn(async () => 0),
   // No closure on any day: the create envelope is what is preserved here.
   getClosureOn: vi.fn(async (): Promise<{ name: string; allBranches: boolean } | null> => null),
   getServicesByIds: vi.fn(),
@@ -174,11 +178,14 @@ const leadBodyArb = fc.record(
   { requiredKeys: ['name', 'phone'] },
 )
 
-// JSON-safe membership-ish records (only values that survive Response.json).
+// JSON-safe records shaped like the customer's own membership: hours, price
+// paid and validity, never a tier (multi-branch R9.1).
 const membershipRecordArb = fc.record({
   id: fc.string({ minLength: 1, maxLength: 16 }),
-  tier: fc.constantFrom('silver', 'gold', 'platinum'),
-  hoursRemaining: fc.integer({ min: 0, max: 100 }),
+  membershipNumber: fc.string({ minLength: 1, maxLength: 20 }),
+  totalHoursMinutes: fc.integer({ min: 60, max: 30_000 }),
+  usedHoursMinutes: fc.integer({ min: 0, max: 30_000 }),
+  pricePaidPaise: fc.integer({ min: 1, max: 100_000_000 }),
 })
 
 const sessionRecordArb = fc.record({
@@ -310,7 +317,7 @@ describe('GET /api/membership preservation (Req 3.2)', () => {
         async (userId, active, past, sessions) => {
           vi.clearAllMocks()
           sessionMocks.requireSession.mockResolvedValue({ user: { id: userId } })
-          dbMocks.getCustomerMembership.mockResolvedValue({ active, past })
+          dbMocks.getOwnMemberships.mockResolvedValue({ active, past })
           dbMocks.getMembershipSessions.mockResolvedValue(sessions)
 
           const res = await membershipGET(
@@ -327,7 +334,7 @@ describe('GET /api/membership preservation (Req 3.2)', () => {
           })
 
           // Strictly scoped to the authenticated customer.
-          expect(dbMocks.getCustomerMembership).toHaveBeenCalledWith(userId)
+          expect(dbMocks.getOwnMemberships).toHaveBeenCalledWith(userId)
           if (active) {
             expect(dbMocks.getMembershipSessions).toHaveBeenCalledWith(active.id)
           } else {
@@ -485,6 +492,14 @@ describe('PATCH /api/notifications preservation (Req 3.4)', () => {
 //   enqueueJob is mocked at the route boundary (the route passes only the path).
 // ===========================================================================
 describe('POST /api/bookings preservation (Req 3.5)', () => {
+  // Monday 01/06/2026, 10:00 IST: 10/06 is inside the branch's booking window.
+  beforeEach(() => {
+    vi.useFakeTimers({ now: new Date('2026-06-01T04:30:00.000Z'), toFake: ['Date'] })
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('returns the identical create envelope and enqueues the same triggered jobs', async () => {
     await fc.assert(
       fc.asyncProperty(uniformServicesArb, async (services) => {
@@ -492,9 +507,22 @@ describe('POST /api/bookings preservation (Req 3.5)', () => {
         sessionMocks.requireSession.mockResolvedValue({ user: { id: 'cust_1' } })
         publishMock.mockResolvedValue(undefined)
         enqueueMock.mockResolvedValue(undefined)
+        dbMocks.getBranchPolicy.mockResolvedValue({
+          branchId: 'br_1',
+          branchName: 'Rayasandra',
+          revision: 1,
+          businessHours: DEFAULT_BUSINESS_HOURS,
+          bookingRules: DEFAULT_BOOKING_RULES,
+        })
+        dbMocks.countUpcomingBookingsAtBranch.mockResolvedValue(0)
 
         const byId = new Map(services.map((s) => [s.id, s]))
-        dbMocks.getBranchById.mockResolvedValue({ id: 'br_1', code: 'RS', status: 'operational' })
+        dbMocks.getBranchById.mockResolvedValue({
+          id: 'br_1',
+          code: 'RS',
+          status: 'operational',
+          name: 'Rayasandra',
+        })
         dbMocks.getServicesByIds.mockImplementation(async (ids: string[]) =>
           ids.map((id) => byId.get(id)).filter((s): s is FakeService => Boolean(s)),
         )
@@ -507,7 +535,7 @@ describe('POST /api/bookings preservation (Req 3.5)', () => {
           }),
         )
 
-        // A far-future date guarantees the no-show enqueue delay is positive.
+        // A future date inside the window keeps the no-show enqueue delay positive.
         const res = await bookingsPOST(
           new Request('https://theroyalglow.in/api/bookings', {
             method: 'POST',
@@ -515,7 +543,7 @@ describe('POST /api/bookings preservation (Req 3.5)', () => {
             body: JSON.stringify({
               branchId: 'br_1',
               serviceType: services[0]?.serviceType,
-              bookingDate: '2099-06-10',
+              bookingDate: '2026-06-10',
               startTime: '10:00',
               serviceIds: services.map((s) => s.id),
             }),

@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 30-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : booking
@@ -36,6 +36,7 @@ import {
   boolean,
   check,
   date,
+  foreignKey,
   index,
   integer,
   pgTable,
@@ -47,6 +48,7 @@ import {
 import { nanoid } from 'nanoid'
 import { user } from './auth'
 import { branch } from './branch'
+import { branchSetting } from './branch-setting'
 import {
   bookingReassignmentReasonEnum,
   bookingReassignmentResolutionEnum,
@@ -97,12 +99,19 @@ export const booking = pgTable(
     // bookings. Partial unique index de-dupes retried submissions.
     redemptionKey: text('redemption_key'),
     confirmedAt: timestamp('confirmed_at', { withTimezone: true, mode: 'date' }),
+    // When the service actually started (Start, or Record now): a membership
+    // session's validity is checked at this instant (membership-scheduling.md).
+    startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' }),
     completedAt: timestamp('completed_at', { withTimezone: true, mode: 'date' }),
     cancellationReason: text('cancellation_reason'),
     cancelledAt: timestamp('cancelled_at', { withTimezone: true, mode: 'date' }),
     rejectionReason: text('rejection_reason'),
     rejectedAt: timestamp('rejected_at', { withTimezone: true, mode: 'date' }),
     rescheduleCount: integer('reschedule_count').notNull().default(0),
+    // The branch settings revision the booking was accepted under: the hours
+    // and booking rules that decided it (multi-branch R6.3). Null on bookings
+    // made before branch settings existed and on ₹0 membership sessions.
+    settingsRevision: integer('settings_revision'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
       .notNull()
@@ -110,6 +119,12 @@ export const booking = pgTable(
       .$onUpdate(() => new Date()),
   },
   (table) => [
+    // The revision must be one the booking's branch has.
+    foreignKey({
+      name: 'booking_branch_settings_revision_fk',
+      columns: [table.branchId, table.settingsRevision],
+      foreignColumns: [branchSetting.branchId, branchSetting.revision],
+    }).onDelete('restrict'),
     index('booking_booking_date_idx').on(table.bookingDate),
     index('booking_customer_id_idx').on(table.customerId),
     index('booking_branch_id_booking_date_idx').on(table.branchId, table.bookingDate),
@@ -147,7 +162,11 @@ export const bookingService = pgTable(
     durationMinutes: integer('duration_minutes').notNull(),
     displayOrder: integer('display_order').notNull().default(0),
   },
-  (table) => [index('booking_service_staff_id_idx').on(table.staffId)],
+  (table) => [
+    index('booking_service_staff_id_idx').on(table.staffId),
+    // The occupancy triggers read a booking's lines on every change (0028).
+    index('booking_service_booking_id_idx').on(table.bookingId),
+  ],
 )
 
 // Reassignment work (multi-branch R1.7, R5.8): a booking whose assignee was
@@ -200,6 +219,10 @@ export const bookingStatusLog = pgTable('booking_status_log', {
     .notNull()
     .references(() => user.id, { onDelete: 'restrict' }),
   notes: text('notes'),
+  // The branch settings revision a policy decision used, such as whether a
+  // cancellation was late or a reschedule was in time (multi-branch R6.3).
+  // Null for changes no booking rule decides.
+  settingsRevision: integer('settings_revision'),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 })
 

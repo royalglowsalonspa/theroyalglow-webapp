@@ -10,10 +10,11 @@
  *                path each schedule POSTs to and its cron expression. The
  *                registration script (scripts/register-schedules.ts) reads this
  *                single source of truth so the crons and the route handlers can
- *                never drift apart. Count is 19: 8 original + 6 migrated from
+ *                never drift apart. Count is 21: 8 original + 6 migrated from
  *                pg_cron + the service-catalogue drift reconciliation + the
  *                pending-booking closeout + the customer-stats reconcile + the
- *                missing-Manager reminder + the realtime-revocation sweep.
+ *                missing-Manager reminder + the realtime-revocation sweep + the
+ *                cross-branch settlement close + the staff overrun check.
  *
  * Responsibilities :
  * - Declare each scheduled job's route path + UTC cron + human description
@@ -43,7 +44,7 @@ export interface JobSchedule {
 }
 
 // The QStash scheduled jobs (8 original + 6 migrated from pg_cron + 1 drift
-// reconciliation safety net + 2 booking/CRM housekeeping jobs + 2 multi-branch
+// reconciliation safety net + 2 booking/CRM housekeeping jobs + 4 multi-branch
 // jobs). Crons are UTC; the comment gives the IST intent.
 export const JOB_SCHEDULES: readonly JobSchedule[] = [
   {
@@ -181,5 +182,23 @@ export const JOB_SCHEDULES: readonly JobSchedule[] = [
     path: '/api/jobs/realtime-revocations',
     cron: '55 18 * * *',
     description: 'Daily 00:25 IST — sweep pending realtime token revocations (R2.6).',
+  },
+  // Daily, not monthly: a missed run catches up the next day, and a run on a
+  // day with no ended month to close changes nothing (settlement.md).
+  {
+    key: 'settlement-close',
+    path: '/api/jobs/settlement-close',
+    cron: '0 19 * * *',
+    description:
+      'Daily 00:30 IST — close every ended IST month into cross-branch settlement statements (R10).',
+  },
+  // UTC hours 2–16 are 07:30–22:15 IST: the salon day, 60 runs. A held-up
+  // booking outside it is still refused at its start and flagged then.
+  {
+    key: 'staff-overrun-check',
+    path: '/api/jobs/staff-overrun-check',
+    cron: '*/15 2-16 * * *',
+    description:
+      'Every 15 min, 07:30–22:15 IST — flag bookings held up because their person is still with another customer, and tell the branch (MS-08).',
   },
 ] as const

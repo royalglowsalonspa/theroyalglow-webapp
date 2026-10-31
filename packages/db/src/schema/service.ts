@@ -32,27 +32,53 @@
  ************************************************************/
 
 import { sql } from 'drizzle-orm'
-import { boolean, index, integer, pgTable, primaryKey, text, timestamp } from 'drizzle-orm/pg-core'
+import {
+  boolean,
+  check,
+  index,
+  integer,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+} from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'
+import { branch } from './branch'
 import { serviceTypeEnum } from './enums'
 import { staffProfile } from './profile'
 
-export const serviceCategory = pgTable('service_category', {
-  id: text('id')
-    .primaryKey()
-    .$defaultFn(() => nanoid()),
-  name: text('name').notNull(),
-  slug: text('slug').notNull().unique(),
-  description: text('description'),
-  serviceType: serviceTypeEnum('service_type').notNull(),
-  displayOrder: integer('display_order').notNull().default(0),
-  isActive: boolean('is_active').notNull().default(true),
-  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-})
+export const serviceCategory = pgTable(
+  'service_category',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    name: text('name').notNull(),
+    slug: text('slug').notNull().unique(),
+    description: text('description'),
+    serviceType: serviceTypeEnum('service_type').notNull(),
+    // The category's tax classification (SAC code), used for a service that
+    // doesn't set its own (tax-settings.md §1). Payload owns it (tasks §6);
+    // 0018 seeded it from the category slug.
+    sacCode: text('sac_code'),
+    // Offered at every branch, including branches added later (R4.2). When
+    // false, `service_category_branch` lists the branches; Payload owns both.
+    allBranches: boolean('all_branches').notNull().default(true),
+    displayOrder: integer('display_order').notNull().default(0),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    check(
+      'service_category_sac_code_check',
+      sql`${table.sacCode} IS NULL OR ${table.sacCode} ~ '^[0-9]{6}$'`,
+    ),
+  ],
+)
 
 export const service = pgTable(
   'service',
@@ -75,6 +101,12 @@ export const service = pgTable(
     gemsRedeemable: boolean('gems_redeemable').notNull().default(false),
     gemsRequired: integer('gems_required'),
     gemsCatalogueOrder: integer('gems_catalogue_order'),
+    // The service's own tax classification (SAC code); null uses its
+    // category's. Payload owns it (tasks §6).
+    sacCode: text('sac_code'),
+    // Offered at every branch its category is (R4.2). When false,
+    // `service_branch` lists the branches; Payload owns both.
+    allBranches: boolean('all_branches').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
       .notNull()
@@ -86,6 +118,10 @@ export const service = pgTable(
     index('service_gems_redeemable_idx')
       .on(table.id)
       .where(sql`gems_redeemable = true AND is_active = true`),
+    check(
+      'service_sac_code_check',
+      sql`${table.sacCode} IS NULL OR ${table.sacCode} ~ '^[0-9]{6}$'`,
+    ),
   ],
 )
 
@@ -100,4 +136,42 @@ export const staffService = pgTable(
       .references(() => service.id, { onDelete: 'cascade' }),
   },
   (table) => [primaryKey({ columns: [table.staffId, table.serviceId] })],
+)
+
+// The branches a service is offered at while `service.all_branches` is false
+// (ignored, and kept empty by the CMS sync, while it is true). A service is
+// offered at a branch only when its category is too: see
+// `service_available_at` (0034), which every new booking line must pass.
+export const serviceBranch = pgTable(
+  'service_branch',
+  {
+    serviceId: text('service_id')
+      .notNull()
+      .references(() => service.id, { onDelete: 'cascade' }),
+    branchId: text('branch_id')
+      .notNull()
+      .references(() => branch.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.serviceId, table.branchId] }),
+    index('service_branch_branch_id_idx').on(table.branchId),
+  ],
+)
+
+// The branches a category is offered at while `service_category.all_branches`
+// is false. Same rules as `service_branch`.
+export const serviceCategoryBranch = pgTable(
+  'service_category_branch',
+  {
+    categoryId: text('category_id')
+      .notNull()
+      .references(() => serviceCategory.id, { onDelete: 'cascade' }),
+    branchId: text('branch_id')
+      .notNull()
+      .references(() => branch.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.categoryId, table.branchId] }),
+    index('service_category_branch_branch_id_idx').on(table.branchId),
+  ],
 )

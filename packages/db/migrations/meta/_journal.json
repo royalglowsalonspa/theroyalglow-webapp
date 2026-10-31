@@ -113,6 +113,153 @@
       "when": 1793312230049,
       "tag": "0015_booking_assignee_guard_leave_date",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793316354782,
+      "tag": "0016_membership_tier_tax_and_checks",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793322008625,
+      "tag": "0017_tax_versions_and_invoice_snapshots",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793322074998,
+      "tag": "0018_tax_guards_and_seed",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793349355341,
+      "tag": "0019_branch_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793349417312,
+      "tag": "0020_branch_settings_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793361683169,
+      "tag": "0021_settlement_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1793361792287,
+      "tag": "0022_settlement_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1793361972710,
+      "tag": "0023_settlement_enforce",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1793365398395,
+      "tag": "0024_settlement_entry_gst_share",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1793379935370,
+      "tag": "0025_membership_holds",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793379955461,
+      "tag": "0026_membership_hold_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1793388621593,
+      "tag": "0027_staff_occupancy",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1793388652054,
+      "tag": "0028_staff_occupancy_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1793393470660,
+      "tag": "0029_staff_overrun_values",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1793393503745,
+      "tag": "0030_staff_overrun_close",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1793398581753,
+      "tag": "0031_off_schedule_reason",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1793399016691,
+      "tag": "0032_assignee_schedule_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1793410024533,
+      "tag": "0033_catalogue_branch_availability",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1793410091569,
+      "tag": "0034_catalogue_availability_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1793437971189,
+      "tag": "0035_offer_cms_mirror_and_invoice_snapshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1793437989956,
+      "tag": "0036_invoice_offer_snapshot_guard",
+      "breakpoints": true
     }
   ]
 }

@@ -46,6 +46,44 @@ export type ServiceDesignation = (typeof SERVICE_DESIGNATIONS)[number]
 
 const recordId = z.string().trim().min(1).max(64)
 
+/** Longest slot the "starting now" availability read checks: a full day. */
+export const AVAILABILITY_MAX_MINUTES = 24 * 60
+
+// Who can take a slot, for the assignment pickers (membership-scheduling.md
+// slice 2b): a booking at the active branch, with its own date, times and
+// kind (`booking`), or `minutes` of a `kind` starting now, for Record now, or
+// at `date` and `start` (IST), for a session booked ahead. Neither gives the
+// plain staff list; a mix is refused.
+export const staffAvailabilityQuerySchema = z
+  .strictObject({
+    booking: recordId.optional(),
+    minutes: z.coerce.number().int().min(1).max(AVAILABILITY_MAX_MINUTES).optional(),
+    kind: z.enum(['salon', 'spa']).optional(),
+    date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    start: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/)
+      .optional(),
+  })
+  .refine(
+    (q) => {
+      const slot = Number(q.minutes !== undefined) + Number(q.kind !== undefined)
+      const at = Number(q.date !== undefined) + Number(q.start !== undefined)
+      if (q.booking !== undefined) {
+        return slot === 0 && at === 0
+      }
+      return (slot === 0 && at === 0) || (slot === 2 && at !== 1)
+    },
+    {
+      message:
+        'Ask about a booking, or about minutes and a kind (from now, or at a date and start), not a mix.',
+    },
+  )
+export type StaffAvailabilityQuery = z.infer<typeof staffAvailabilityQuerySchema>
+
 /** Longest specialization a profile stores (R1.6). */
 export const SPECIALIZATION_MAX_LENGTH = 200
 

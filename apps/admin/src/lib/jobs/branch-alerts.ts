@@ -20,7 +20,7 @@ import { buildNotificationContent, frontDeskRecipients } from '@rgss/business'
 import { createNotification, getBranchPeople, hasNotification } from '@rgss/db/queries'
 import { dispatchNotification } from '@/lib/notifications/dispatch'
 
-export type BranchAlertType = 'stale_pending_booking' | 'no_show_check'
+export type BranchAlertType = 'stale_pending_booking' | 'no_show_check' | 'staff_overrun'
 
 export type BranchAlertResult = {
   /** People told in this run. */

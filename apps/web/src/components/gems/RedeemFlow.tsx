@@ -37,6 +37,7 @@
 'use client'
 
 import { formatINR } from '@rgss/business'
+import type { PublicBranchList } from '@rgss/types'
 import { Check, Loader2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -49,12 +50,18 @@ export interface RedeemableItem {
   gemsRequired: number
   pricePaise: number
   affordable: boolean
+  /** The branches that offer it; null (or absent) means every branch. */
+  availableBranchIds?: string[] | null
 }
 
 interface RedeemFlowProps {
   balance: number
   catalogue: RedeemableItem[]
-  branchId?: string
+  /**
+   * The public branch list (GET /api/branches): the customer redeems at the
+   * branch they choose (multi-branch R7.2), the default one preselected.
+   */
+  branchList: PublicBranchList
 }
 
 // Availability slot shape (mirrors GET /api/availability response).
@@ -64,8 +71,10 @@ interface AvailabilitySlot {
   available: boolean
 }
 
-// Same default the booking dialog uses — the single live branch.
-const DEFAULT_BRANCH_ID = 'branch_rayasandra'
+// Whether the branch offers the reward (R4.3). The redeem API checks the same.
+function offeredAt(item: RedeemableItem, branchId: string | null): boolean {
+  return !branchId || !item.availableBranchIds || item.availableBranchIds.includes(branchId)
+}
 
 // Local (IST for our users) calendar date → YYYY-MM-DD, no UTC drift.
 function toISODate(date: Date): string {
@@ -100,9 +109,25 @@ interface RedeemResult {
   duplicate: boolean
 }
 
-export function RedeemFlow({ balance, catalogue, branchId = DEFAULT_BRANCH_ID }: RedeemFlowProps) {
+export function RedeemFlow({ balance, catalogue, branchList }: RedeemFlowProps) {
   // Local balance so affordability + the hero stay accurate after a redemption.
   const [currentBalance, setCurrentBalance] = useState(balance)
+
+  // The branch to redeem at: the customer's choice while it takes bookings,
+  // otherwise the default one; null when no branch is taking bookings.
+  const bookable = useMemo(
+    () => branchList.branches.filter((b) => b.acceptingBookings),
+    [branchList],
+  )
+  const [chosenBranchId, setChosenBranchId] = useState<string | null>(null)
+  const branchId =
+    bookable.find((b) => b.id === chosenBranchId)?.id ?? branchList.defaultBranchId ?? null
+  const branch = bookable.find((b) => b.id === branchId) ?? null
+  // Only the rewards that branch offers.
+  const offered = useMemo(
+    () => catalogue.filter((item) => offeredAt(item, branchId)),
+    [catalogue, branchId],
+  )
 
   // Dialog state.
   const [activeService, setActiveService] = useState<RedeemableItem | null>(null)
@@ -203,9 +228,9 @@ export function RedeemFlow({ balance, catalogue, branchId = DEFAULT_BRANCH_ID }:
     return () => document.removeEventListener('keydown', trap)
   }, [isOpen, selectedDate, slotsLoading, submitting, result])
 
-  // Fetch availability whenever a date is picked.
+  // Fetch availability whenever a date is picked, at the chosen branch.
   useEffect(() => {
-    if (!isOpen || !selectedDate) return
+    if (!isOpen || !selectedDate || !branchId) return
     let cancelled = false
     setSlotsLoading(true)
     setSlotsError(null)
@@ -237,7 +262,15 @@ export function RedeemFlow({ balance, catalogue, branchId = DEFAULT_BRANCH_ID }:
   }, [isOpen, selectedDate, branchId])
 
   const handleConfirm = useCallback(async () => {
-    if (!activeService || !selectedDate || !selectedTime || !idempotencyKeyRef.current) return
+    if (
+      !activeService ||
+      !branchId ||
+      !selectedDate ||
+      !selectedTime ||
+      !idempotencyKeyRef.current
+    ) {
+      return
+    }
 
     setSubmitting(true)
     setSubmitError(null)
@@ -277,13 +310,38 @@ export function RedeemFlow({ balance, catalogue, branchId = DEFAULT_BRANCH_ID }:
 
   return (
     <>
-      {catalogue.length === 0 ? (
+      {bookable.length > 1 && (
+        <div className="mb-5 flex flex-wrap items-center gap-3">
+          <label htmlFor="redeem-branch" className="font-ui text-[13px] text-warm-stone">
+            Redeem at
+          </label>
+          <select
+            id="redeem-branch"
+            value={branchId ?? ''}
+            onChange={(e) => setChosenBranchId(e.target.value)}
+            className="cursor-pointer rounded-full border border-deep-gold/40 bg-warm-cream py-1.5 pr-8 pl-4 font-ui text-[13px] text-cocoa-dark hover:border-deep-gold focus-visible:outline-2 focus-visible:outline-deep-gold focus-visible:outline-offset-2"
+          >
+            {bookable.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}, {b.city}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {!branch ? (
+        <p className="font-sans text-[15px] text-dusty-gray py-4" role="status">
+          Gems can't be redeemed online right now. Please call the salon to redeem them.
+        </p>
+      ) : offered.length === 0 ? (
         <p className="font-sans text-[15px] text-dusty-gray py-4">
-          No rewards are available right now. Check back soon.
+          {catalogue.length === 0
+            ? 'No rewards are available right now. Check back soon.'
+            : `No rewards are available at ${branch.name} right now.`}
         </p>
       ) : (
         <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {catalogue.map((item) => {
+          {offered.map((item) => {
             // Recompute against the live local balance (all-or-nothing rule).
             const affordable = currentBalance >= item.gemsRequired
             const shortBy = item.gemsRequired - currentBalance

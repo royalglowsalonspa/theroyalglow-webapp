@@ -8,8 +8,10 @@
  * Description  : Verifies GET /api/reports — the standard success envelope and
  *                combined payload shape, RBAC (401 unauthenticated / 403
  *                forbidden / Manager+ guard), range param forwarding to the
- *                query layer, and the 400 envelope on invalid dates. Session +
- *                DB are mocked; no live session/DB.
+ *                query layer, the 400 envelope on invalid dates, and the
+ *                settlement block (money for the Owner and the Developer,
+ *                minutes and gems only for a Manager). Session + DB are
+ *                mocked; no live session/DB.
  *
  * Layer        : Testing
  *
@@ -27,6 +29,7 @@ const dbMocks = vi.hoisted(() => ({
   getRevenueTrend: vi.fn(),
   getBookingsByStatus: vi.fn(),
   getTopServices: vi.fn(),
+  getBranchSettlementReport: vi.fn(),
 }))
 
 vi.mock('@/lib/api/branch-context', async (importOriginal) => {
@@ -48,6 +51,17 @@ const SUMMARY = {
 const TREND = [{ date: '2026-06-01', revenuePaise: 100000 }]
 const BY_STATUS = [{ status: 'completed', count: 4 }]
 const TOP = [{ name: 'Hair Spa', bookings: 3, revenuePaise: 300000 }]
+const SETTLEMENT = {
+  memberships: {
+    deliveredMinutes: 120,
+    deliveredValuePaise: 250000,
+    ownMembersMinutes: 60,
+    ownMembersValuePaise: 125000,
+    toReceivePaise: 250000,
+    toPayPaise: 125000,
+  },
+  gems: { issued: 40, redeemed: 25, toReceivePaise: 1500, toPayPaise: 500 },
+}
 
 const unauthenticated = () =>
   new AppError({
@@ -70,6 +84,7 @@ beforeEach(() => {
   dbMocks.getRevenueTrend.mockResolvedValue(TREND)
   dbMocks.getBookingsByStatus.mockResolvedValue(BY_STATUS)
   dbMocks.getTopServices.mockResolvedValue(TOP)
+  dbMocks.getBranchSettlementReport.mockResolvedValue(SETTLEMENT)
 })
 
 describe('GET /api/reports', () => {
@@ -105,9 +120,45 @@ describe('GET /api/reports', () => {
       dbMocks.getRevenueTrend,
       dbMocks.getBookingsByStatus,
       dbMocks.getTopServices,
+      dbMocks.getBranchSettlementReport,
     ]) {
       expect(query).toHaveBeenCalledWith(TEST_BRANCH.id, expect.objectContaining(expectedRange))
     }
+  })
+
+  it("shows the branch's Owner every settlement figure", async () => {
+    mocks.requireBranchRole.mockResolvedValue(branchContext({ userId: 'u_owner', role: 'owner' }))
+    const res = await reportsRoute.GET(new Request('https://admin.theroyalglow.in/api/reports'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.settlement).toEqual(SETTLEMENT)
+  })
+
+  it('shows the Developer every settlement figure', async () => {
+    mocks.requireBranchRole.mockResolvedValue(branchContext({ userId: 'u_dev', role: 'developer' }))
+    const res = await reportsRoute.GET(new Request('https://admin.theroyalglow.in/api/reports'))
+    const body = await res.json()
+
+    expect(body.data.settlement).toEqual(SETTLEMENT)
+  })
+
+  it('shows a Manager minutes and gems but no settlement money', async () => {
+    const res = await reportsRoute.GET(new Request('https://admin.theroyalglow.in/api/reports'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.settlement).toEqual({
+      memberships: {
+        deliveredMinutes: 120,
+        deliveredValuePaise: null,
+        ownMembersMinutes: 60,
+        ownMembersValuePaise: null,
+        toReceivePaise: null,
+        toPayPaise: null,
+      },
+      gems: { issued: 40, redeemed: 25, toReceivePaise: null, toPayPaise: null },
+    })
   })
 
   it('forwards an explicit from/to range to the query layer', async () => {

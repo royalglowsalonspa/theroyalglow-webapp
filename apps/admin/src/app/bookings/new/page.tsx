@@ -34,6 +34,7 @@
  * - Server Component — no client-side code here.
  ************************************************************/
 
+import { isOfferedAt } from '@rgss/business'
 import { getActiveCatalogue } from '@rgss/db/queries'
 import type { Metadata } from 'next'
 import { EmptyState } from '@/components/ui/state/empty-state'
@@ -62,16 +63,19 @@ export default async function NewWalkinBookingPage() {
   const catalogue = await getActiveCatalogue()
 
   // Flatten the grouped catalogue into a lean service list the form filters by
-  // service type. Price + duration drive the running total shown to the user.
+  // service type, keeping only what this branch offers (R4.3; the API refuses
+  // the rest). Price + duration drive the running total shown to the user.
   const serviceOptions: WalkinService[] = catalogue.flatMap((category) =>
-    category.services.map((s) => ({
-      id: s.id,
-      name: s.name,
-      serviceType: s.serviceType,
-      categoryName: category.name,
-      pricePaise: s.pricePaise,
-      durationMinutes: s.durationMinutes,
-    })),
+    category.services
+      .filter((s) => isOfferedAt(s.availableBranchIds, branch.id))
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        serviceType: s.serviceType,
+        categoryName: category.name,
+        pricePaise: s.pricePaise,
+        durationMinutes: s.durationMinutes,
+      })),
   )
 
   return (

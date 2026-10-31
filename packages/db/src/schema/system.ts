@@ -82,17 +82,32 @@ export const dailySalesSummary = pgTable(
   (table) => [unique('daily_sales_summary_date_branch_id_unique').on(table.date, table.branchId)],
 )
 
-export const monthlyGstSummary = pgTable('monthly_gst_summary', {
-  id: text('id')
-    .primaryKey()
-    .$defaultFn(() => nanoid()),
-  month: text('month').notNull().unique(),
-  taxableValuePaise: integer('taxable_value_paise').notNull().default(0),
-  gstAmountPaise: integer('gst_amount_paise').notNull().default(0),
-  invoiceCount: integer('invoice_count').notNull().default(0),
-  sacCode: text('sac_code').notNull().default('999721'),
-  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
-})
+// One row per month, branch, issuer GSTIN and SAC code (multi-branch R6.5),
+// aggregated from the stored invoice amounts, never from current rates. The
+// issuer GSTIN is null for a branch without one (pre-launch test invoices).
+export const monthlyGstSummary = pgTable(
+  'monthly_gst_summary',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    month: text('month').notNull(),
+    branchId: text('branch_id').references(() => branch.id, { onDelete: 'cascade' }),
+    issuerGstin: text('issuer_gstin'),
+    taxableValuePaise: integer('taxable_value_paise').notNull().default(0),
+    gstAmountPaise: integer('gst_amount_paise').notNull().default(0),
+    cgstPaise: integer('cgst_paise').notNull().default(0),
+    sgstPaise: integer('sgst_paise').notNull().default(0),
+    invoiceCount: integer('invoice_count').notNull().default(0),
+    sacCode: text('sac_code').notNull().default('999721'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique('monthly_gst_summary_month_branch_issuer_sac_unique')
+      .on(table.month, table.branchId, table.issuerGstin, table.sacCode)
+      .nullsNotDistinct(),
+  ],
+)
 
 export const auditLog = pgTable(
   'audit_log',

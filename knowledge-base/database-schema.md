@@ -2,7 +2,7 @@
 
 ## Overview
 
-Production-level schema for Royal Glow Salon & Spa. **40 tables** covering auth, profiles, services, scheduling, bookings, billing, SPA memberships, offers, CRM, leads, loyalty (gems), notifications, branches, and system operations.
+Production-level schema for Royal Glow Salon & Spa. **53 tables** covering auth, profiles, services and their branch availability, scheduling, bookings and staff occupancy, billing, SPA memberships and their minute holds, offers, CRM, leads, loyalty (gems), cross-branch settlement, notifications, branches, and system operations.
 
 **ORM:** Drizzle ORM (pure TypeScript, edge-native)
 **Database:** Neon DB (PostgreSQL 16, serverless, branching)
@@ -25,7 +25,7 @@ Production-level schema for Royal Glow Salon & Spa. **40 tables** covering auth,
 | **Snapshots** | Price, service name, and staff name are snapshotted on `invoice_item` and `booking_service`. Original records can change without corrupting historical data. |
 | **Currency display** | Indian numbering system — `en-IN` locale. Format: `₹X,XX,XXX.XX`. Always show 2 decimal places. See formatting utility below. |
 | **Date display** | Indian format: `DD/MM/YYYY` via `Intl.DateTimeFormat('en-IN')`. e.g., `09/05/2026`. Used everywhere: UI, invoices, emails. |
-| **GST-inclusive pricing** | All customer-facing prices include 18% GST (SAC 999721). `service.price_paise` = GST-inclusive amount. Invoice back-calculates: base = price ÷ 1.18, GST = price − base. |
+| **GST-inclusive pricing** | All customer-facing prices include GST. `service.price_paise` = GST-inclusive amount. Each invoice line is taxed at the branch's rate in force for its SAC code (`branch_tax_version`); see GST-Inclusive Pricing below. |
 
 ### Currency Display Format — Indian Numbering System
 
@@ -96,26 +96,25 @@ export function formatDateIN(date: Date): string {
 
 ### GST-Inclusive Pricing
 
-All customer-facing prices **include 18% GST** (SAC 999721). The `service.price_paise` column stores the GST-inclusive amount.
+All customer-facing prices **include GST**. The `service.price_paise` column stores the GST-inclusive amount. The rate is not a constant: each branch has effective-dated rates per SAC code (`branch_tax_version`), and a service's SAC code is its own or its category's (multi-branch R6.4). There is no fallback rate: an invoice whose branch has no rate in force for a line's code is refused (409 `TAX_CONFIGURATION_INCOMPLETE`).
 
-**Invoice back-calculation** (in `packages/business/invoicing/`):
+**Invoice tax** (`packages/business/src/invoicing/tax.ts`, `prepareInvoiceTax`), in integer paise and basis points (500 = 5%):
 ```ts
-const GST_RATE = 0.18
+// Per line, after its share of any discount (largest remainder, ties to the
+// earlier line):
+taxable = roundHalfUp(amount × 10_000 / (10_000 + rateBps))
+tax     = amount − taxable
+cgst    = floor(tax / 2)   // the odd paisa goes to SGST
+sgst    = tax − cgst
+// Invoice totals are the sums of the lines, never recomputed from the header.
 
-/** Back-calculate base and GST from inclusive price */
-export function splitGST(inclusivePaise: number) {
-  const basePaise = Math.round(inclusivePaise / (1 + GST_RATE))
-  const gstPaise = inclusivePaise - basePaise
-  return { basePaise, gstPaise, totalPaise: inclusivePaise }
-}
-
-// splitGST(118000) → { basePaise: 100000, gstPaise: 18000, totalPaise: 118000 }
-// ₹1,180.00 inclusive = ₹1,000.00 base + ₹180.00 GST
+// ₹1,050.00 at 5%: taxable ₹1,000.00 + GST ₹50.00 (CGST ₹25.00, SGST ₹25.00)
 ```
 
 **Rules:**
-- Customer sees: `₹1,180.00` (that's it — no "plus tax")
-- Invoice line items show: Base ₹1,000.00 + GST ₹180.00 = Total ₹1,180.00
+- Customer sees: `₹1,050.00` (that's it — no "plus tax")
+- Invoice lines show their SAC code and rate; the invoice shows taxable value, CGST and SGST as stored when it was issued
+- An issued invoice keeps its amounts, rates and issuer forever; a later rate change applies to later invoices only
 - Gems earned on the GST-inclusive total (the amount customer actually paid)
 - **Gems are earned on `invoice_type = 'service'` ONLY** — this covers both Salon AND SPA non-member sessions
 - Gems are NOT earned on `membership_purchase` or `membership_session` invoices (SPA membership)
@@ -142,12 +141,14 @@ CREATE TYPE booking_status AS ENUM (
 CREATE TYPE booking_reassignment_reason AS ENUM (
   'left_branch',   -- removed from the branch, or moved to another
   'unavailable',   -- approved leave that day
-  'overrun'        -- previous session running over (planned, Phase 4)
+  'overrun',       -- busy with another customer then, or held up (slice 2b)
+  'off_schedule'   -- (0031) their weekly schedule doesn't cover the time
 );
 
 CREATE TYPE booking_reassignment_resolution AS ENUM (
   'reassigned',    -- someone else was assigned
-  'booking_ended'  -- cancelled, rejected, no-show, rescheduled or completed
+  'booking_ended', -- cancelled, rejected, no-show, rescheduled, moved or completed
+  'started'        -- (0029) went ahead with the person it waited for (0030 trigger)
 );
 
 -- Lead pipeline
@@ -214,7 +215,9 @@ CREATE TYPE notification_type AS ENUM (
   'gems_expiry_7d',          -- push: "Your X gems expire in 7 days — book now to use them!"
   'gems_expired',            -- push: "Your gems have expired and been removed from your balance."
   -- Multi-branch (migration 0009)
-  'branch_manager_missing'   -- email to a branch's Owner: an operational branch has no Manager (R1.9)
+  'branch_manager_missing',  -- email to a branch's Owner: an operational branch has no Manager (R1.9)
+  -- Staff occupancy (migration 0029)
+  'staff_overrun'            -- push to a branch's front desk: a booking is held up because its person is still with another customer (MS-08)
 );
 
 CREATE TYPE notification_channel AS ENUM (
@@ -230,10 +233,18 @@ CREATE TYPE notification_status AS ENUM (
 
 -- Loyalty
 CREATE TYPE loyalty_tx_type AS ENUM (
-  'earned',        -- from invoice payment
-  'redeemed',      -- used as discount
-  'expired',       -- gems expired (future)
-  'adjusted'       -- manual adjustment by admin
+  'earned',        -- from invoice payment (a batch)
+  'redeemed',      -- spent on a free catalogue service
+  'expired',       -- a lapsed batch's unspent gems
+  'adjusted',      -- manual adjustment by admin
+  'returned'       -- a redemption's gems given back (0021)
+);
+
+-- Cross-branch settlement ledger (0021)
+CREATE TYPE settlement_entry_kind AS ENUM (
+  'membership_session',
+  'gems_redemption',
+  'reversal'
 );
 
 -- Staff
@@ -285,6 +296,13 @@ CREATE TYPE invoice_type AS ENUM (
   'service',              -- normal salon/spa non-member session (has ₹ amount)
   'membership_purchase',  -- lump sum when membership created (has ₹ amount, no gems earned)
   'membership_session'    -- ₹0 usage record per SPA membership session
+);
+
+-- Launch tax review of a branch's rate, and what an invoice records about
+-- the rates it used (multi-branch TX-10)
+CREATE TYPE tax_review_status AS ENUM (
+  'provisional',  -- not yet reviewed: invoices using it are test invoices
+  'reviewed'      -- approved by the launch tax review
 );
 
 -- Staff leave approval lifecycle
@@ -423,6 +441,8 @@ erDiagram
         text name
         text slug UK
         service_type service_type
+        text sac_code
+        boolean all_branches
         integer display_order
         boolean is_active
     }
@@ -436,6 +456,8 @@ erDiagram
         integer duration_minutes
         integer buffer_minutes
         integer price_paise
+        text sac_code
+        boolean all_branches
         boolean is_active
         text image_url
         integer display_order
@@ -446,6 +468,16 @@ erDiagram
     staff_service {
         text staff_id FK "PK"
         text service_id FK "PK"
+    }
+
+    service_branch {
+        text service_id FK "PK"
+        text branch_id FK "PK"
+    }
+
+    service_category_branch {
+        text category_id FK "PK"
+        text branch_id FK "PK"
     }
 
     %% ══════════════════════════════════════════
@@ -547,6 +579,22 @@ erDiagram
         timestamp resolved_at
         booking_reassignment_resolution resolution
         text resolved_by_id FK
+    }
+
+    staff_occupancy {
+        text booking_id PK
+        text staff_id FK
+        text branch_id FK
+        service_type kind
+        tstzrange during
+    }
+
+    staff_work {
+        text booking_id PK
+        text staff_id FK
+        text branch_id FK
+        service_type kind
+        tstzrange during
     }
 
     waitlist {
@@ -833,6 +881,11 @@ erDiagram
     staff_profile ||--o{ staff_service : "can perform"
     service ||--o{ staff_service : "performed by"
 
+    service ||--o{ service_branch : "offered at"
+    branch ||--o{ service_branch : "offers"
+    service_category ||--o{ service_category_branch : "offered at"
+    branch ||--o{ service_category_branch : "offers"
+
     staff_profile ||--o{ staff_schedule : "has schedule"
     staff_profile ||--o{ staff_time_off : "takes time off"
 
@@ -843,6 +896,10 @@ erDiagram
     booking ||--o{ booking_status_log : "status tracked by"
     booking ||--o{ booking_reassignment : "awaits someone else"
     staff_profile ||--o{ booking_reassignment : "taken off"
+    booking ||--o| staff_occupancy : "keeps busy (planned)"
+    booking ||--o| staff_work : "kept busy (actual)"
+    staff_profile ||--o{ staff_occupancy : "booked"
+    staff_profile ||--o{ staff_work : "worked"
 
     user ||--o{ waitlist : "joins"
     service ||--o{ waitlist : "waiting for"
@@ -1014,7 +1071,7 @@ Extended profile data for customers. One-to-one with `user`.
 | `total_visits` | `integer` | NOT NULL, DEFAULT 0 | Denormalized — updated on booking completion |
 | `total_spent_paise` | `integer` | NOT NULL, DEFAULT 0 | Denormalized — lifetime value in paise |
 | `noshow_count` | `integer` | NOT NULL, DEFAULT 0 | Lifetime no-show count. Incremented on each `no_show` status for non-walk-in bookings only (`is_walkin = false`). |
-| `late_cancellation_count` | `integer` | NOT NULL, DEFAULT 0 | Cancellations within `cancellation_window_hours`. CRM visibility only — no fee ever. Staff phones customer to understand reason. |
+| `late_cancellation_count` | `integer` | NOT NULL, DEFAULT 0 | The customer's own cancellations within the branch's cancellation cut-off (its `cancellationCutoffHours` booking rule), counted in the cancellation's transaction. CRM visibility only — no fee ever. Staff phones customer to understand reason. Cancellations made by staff aren't counted. |
 | `consecutive_completed_bookings` | `integer` | NOT NULL, DEFAULT 0 | Resets to 0 on every no-show. Increments on every completed booking. When it reaches `noshow_recovery_bookings` (3) → restrictions auto-lifted, tag removed. |
 | `booking_requires_approval` | `boolean` | NOT NULL, DEFAULT false | `true` when `noshow_count` reaches 4. All future bookings require manager approval. Receptionist can override per-booking. |
 | `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
@@ -1064,6 +1121,8 @@ Groups services. Separated into Salon vs SPA via `service_type` toggle.
 | `slug` | `text` | NOT NULL, UNIQUE | URL-safe: "haircut-styling", "premium-spa" |
 | `description` | `text` | nullable | |
 | `service_type` | `service_type` | NOT NULL | Enum: `'salon'` or `'spa'` — powers the Salon/SPA toggle on booking dialog |
+| `sac_code` | `text` | nullable | The tax classification of its services (999721 hair care, 999722 facial and cosmetic care, 999723 spa and massage, 999729 other beauty treatments); 0018 seeds it by slug. A service without a code can't be invoiced. Payload requires it on every category, from that list, and its sync writes it here |
+| `all_branches` | `boolean` | NOT NULL, DEFAULT true | Every branch offers its services, including branches added later (0033). When false, only the branches in `service_category_branch` do |
 | `display_order` | `integer` | NOT NULL, DEFAULT 0 | Sort order on website |
 | `is_active` | `boolean` | NOT NULL, DEFAULT true | |
 | `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
@@ -1110,6 +1169,8 @@ Individual services offered.
 | `gems_redeemable` | `boolean` | NOT NULL, DEFAULT false | Whether this service can be unlocked with gems. `true` = appears in the Gems Catalogue. |
 | `gems_required` | `integer` | nullable | Gems needed to redeem this service. Required when `gems_redeemable = true`. e.g., `500` |
 | `gems_catalogue_order` | `integer` | nullable | Sort order within the Gems Catalogue page. Lower = shown first. |
+| `sac_code` | `text` | nullable | Its own tax classification; null uses its category's |
+| `all_branches` | `boolean` | NOT NULL, DEFAULT true | Its own availability: every branch, including branches added later (0033). When false, only the branches in `service_branch`. Its category's availability limits it too |
 | `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
 | `updated_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
 
@@ -1126,13 +1187,28 @@ Junction table — which staff can perform which services.
 | `staff_id` | `text` | PK (composite), FK → `staff_profile.id` ON DELETE CASCADE | |
 | `service_id` | `text` | PK (composite), FK → `service.id` ON DELETE CASCADE | |
 
+#### `service_branch` and `service_category_branch`
+
+The branches a service, or a category, is offered at when its `all_branches` is false (0033, multi-branch R4.2). Payload owns them: its catalogue sync replaces a document's rows in the same transaction as the save, and writes none for "all branches". Both cascade from either side and are indexed by `branch_id`.
+
+| Table | Columns | Constraints |
+|-------|---------|-------------|
+| `service_branch` | `service_id`, `branch_id` | PK (`service_id`, `branch_id`); FK → `service.id` and → `branch.id`, ON DELETE CASCADE |
+| `service_category_branch` | `category_id`, `branch_id` | PK (`category_id`, `branch_id`); FK → `service_category.id` and → `branch.id`, ON DELETE CASCADE |
+
+**Rules (0034):**
+
+- A service is offered at a branch when its own availability and its category's both include the branch: `service_available_at(service_id, branch_id)`. "All branches" includes branches added later; an unknown service is offered nowhere.
+- Trigger `booking_service_availability_guard` (BEFORE INSERT OR UPDATE OF `service_id` on `booking_service`) refuses a line for a service its booking's branch doesn't offer, with check violation `booking_service_branch_availability`, whatever writes it: customer bookings, walk-ins, membership sessions and gems redemptions. The routes check first and answer 400 naming the service; a refusal caused by a catalogue change after that check is 409 `CONFLICT`.
+- Lines already written aren't rechecked when the catalogue changes later (R4.4). The dashboard's list of bookings with a service the branch no longer offers (`getBookingsWithServicesNotOffered`: pending and confirmed bookings, today or later in IST) is derived from these tables and `booking_service`, so reception keeps, cancels or rebooks each one; no flag is stored.
+
 ---
 
 ### Scheduling
 
 #### `staff_schedule`
 
-Weekly recurring schedule template per staff member. 7 rows per staff (one per day).
+Weekly recurring schedule template per staff member: at most one row per weekday.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
@@ -1142,8 +1218,11 @@ Weekly recurring schedule template per staff member. 7 rows per staff (one per d
 | `start_time` | `time` | nullable | Working start (e.g., `09:00`) |
 | `end_time` | `time` | nullable | Working end (e.g., `19:00`) |
 | `is_working` | `boolean` | NOT NULL, DEFAULT true | `false` = day off |
+| `branch_id` | `text` | nullable, FK → `branch.id` ON DELETE RESTRICT | The branch they work at that weekday (multi-branch R5.10): a Manager shared between branches is at one branch per day. Null on a day off |
 
-**Constraint:** UNIQUE(`staff_id`, `day_of_week`)
+**Constraint:** UNIQUE(`staff_id`, `day_of_week`). **Indexes:** (`staff_id`, `day_of_week`), (`branch_id`, `day_of_week`).
+
+**The schedule limits planned work (migrations `0031`, `0032`; `.kiro/specs/multi-branch-support/membership-scheduling.md`, slice 3).** When a person has a row for a weekday, a confirmed booking of theirs that day must be at that row's branch, on a working day, within `start_time`–`end_time`. Function `staff_off_schedule(staff, branch, date, start, end)` says whether the row rules a time out; a time past midnight is outside any hours. Without a row for the weekday, nothing is ruled out: the person works the branch's opening hours. Work under way is never checked. Saving a week (`upsertStaffSchedule`) takes the person off their bookings still to come that the week no longer covers, at every branch, in the same transaction: confirmed ones get an open `booking_reassignment` with reason `off_schedule`, pending ones only lose their tentative assignee. The person's profile is locked first, so a concurrent assignment is either released or checked against the new week.
 
 #### `staff_time_off`
 
@@ -1200,7 +1279,7 @@ Closures: holidays (Diwali, Christmas, etc.) and one-off closed days, for one br
 
 **Indexes:** `holiday_branch_date_uidx` UNIQUE (`branch_id`, `date`) WHERE `branch_id IS NOT NULL`, and `holiday_all_branches_date_uidx` UNIQUE (`date`) WHERE `branch_id IS NULL`: one closure per date per branch, plus at most one all-branches closure per date.
 
-**Rules:** the branch's Manager, Owner and Developer maintain its closures, one date or a range of up to 31 days, never in the past. A closed day blocks online booking, reschedule, gems redemption, walk-ins and approval; bookings already on it are listed for staff to reschedule or reject, not cancelled. Rejecting and recording membership sessions still work.
+**Rules:** the branch's Manager, Owner and Developer maintain its closures, one date or a range of up to 31 days, never in the past. A closed day blocks online booking, reschedule, gems redemption, walk-ins and approval; bookings already on it are listed for staff to move, cancel or reject, never cancelled by the closure. Rejecting and recording membership sessions still work. There is no database guard: the dashboard's list of bookings on closed days (`getBookingsOnClosedDays`: pending and confirmed bookings, today or later in IST, each naming the branch's own closure before an every-branch one) is derived from this table and `booking`, so a booking stays listed until it is dealt with.
 
 ---
 
@@ -1228,11 +1307,13 @@ Core business entity — one appointment, potentially multiple services.
 | `offer_id` | `text` | nullable, FK → `offer.id` ON DELETE SET NULL | Offer/combo applied to this booking (if any). Salon bookings only. |
 | `is_membership_session` | `boolean` | NOT NULL, DEFAULT false | `true` = SPA membership session. Total = ₹0. Requires `spa_membership_id`. |
 | `spa_membership_id` | `text` | nullable, FK → `spa_membership.id` ON DELETE RESTRICT | The membership whose hours are consumed. Null for non-member bookings. |
+| `started_at` | `timestamptz` | nullable | When the service actually started: Start (confirmed → in progress) or Record now, from the database's clock (0025). A membership session's validity is checked at this instant; before it starts, at its planned IST start |
 | `cancellation_reason` | `text` | nullable | Filled when status → cancelled |
 | `cancelled_at` | `timestamptz` | nullable | When cancellation happened |
 | `rejection_reason` | `text` | nullable | Filled when receptionist rejects the booking |
 | `rejected_at` | `timestamptz` | nullable | When rejection happened |
-| `reschedule_count` | `integer` | NOT NULL, DEFAULT 0 | Times this booking has been rescheduled. Max = `reschedule_limit_per_booking` (2). 3rd attempt blocked in business logic — customer must cancel and re-book fresh. |
+| `reschedule_count` | `integer` | NOT NULL, DEFAULT 0 | Times this booking has been rescheduled. Max = the branch's `maxReschedulesPerBooking` booking rule (default 2); after that the customer cancels and re-books. |
+| `settings_revision` | `integer` | nullable; with `branch_id`, FK → `branch_setting (branch_id, revision)` ON DELETE RESTRICT (`booking_branch_settings_revision_fk`) | The branch settings revision whose hours and booking rules accepted the booking (or its latest reschedule). Always one of its own branch's revisions. Null on bookings from before branch settings (`0019`). |
 | `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
 | `updated_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
 
@@ -1281,7 +1362,7 @@ Walk-in: receptionist creates → confirmed (skips pending)
 
 #### `booking_service`
 
-Junction — individual services within a booking. Each service can have a different staff member.
+Junction — individual services within a booking. A pending booking may carry a tentative person per service; once it is confirmed, one person does every service (0028).
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
@@ -1289,12 +1370,18 @@ Junction — individual services within a booking. Each service can have a diffe
 | `booking_id` | `text` | NOT NULL, FK → `booking.id` ON DELETE CASCADE | |
 | `service_id` | `text` | NOT NULL, FK → `service.id` ON DELETE RESTRICT | |
 | `staff_id` | `text` | nullable, FK → `staff_profile.id` ON DELETE SET NULL | The staff performing this service. A pending booking carries a tentative assignee that approval replaces; null while a booking waits for someone else (see `booking_reassignment`). |
-
-**Assignee guard (multi-branch R1.7, R5.2; migrations `0014`/`0015`, trigger `booking_assignee_guard`, BEFORE INSERT OR UPDATE OF `staff_id`):** on a booking that is `pending`, `confirmed` or `in_progress`, the assignee must work at the booking's branch (an active profile there, or the branch's Manager); on a `confirmed` or `in_progress` booking, they must also not be on approved leave that day. Refusals raise `check_violation` on `booking_assignee_works_at_branch` or `booking_assignee_on_leave`. Finished bookings keep their history and aren't checked. The trigger locks the branch row and the staff profile `FOR SHARE`, the rows role changes and leave decisions lock first, so a concurrent change either sees the assignment and releases it, or commits first and the assignment is refused.
 | `service_name_snapshot` | `text` | NOT NULL | Frozen service name at time of booking |
 | `price_at_booking_paise` | `integer` | NOT NULL | Frozen price — original service price may change later |
 | `duration_minutes` | `integer` | NOT NULL | Frozen duration |
 | `display_order` | `integer` | NOT NULL, DEFAULT 0 | Order of services in this booking |
+
+**Index:** `booking_service_booking_id_idx` on `booking_id` (0027): the occupancy triggers read a booking's lines.
+
+**Assignee guard (multi-branch R1.7, R5.2; migrations `0014`/`0015`, trigger `booking_assignee_guard`, BEFORE INSERT OR UPDATE OF `staff_id`):** on a booking that is `pending`, `confirmed` or `in_progress`, the assignee must work at the booking's branch (an active profile there, or the branch's Manager); on a `confirmed` or `in_progress` booking, they must also not be on approved leave that day. Since `0032`, on a `confirmed` booking they must also be within their weekly schedule (see `staff_schedule`); work under way isn't checked against it. Refusals raise `check_violation` on `booking_assignee_works_at_branch`, `booking_assignee_on_leave` or `booking_assignee_off_schedule`. Finished bookings keep their history and aren't checked. The trigger locks the branch row and the staff profile `FOR SHARE`, the rows role changes, leave decisions and schedule saves lock first, so a concurrent change either sees the assignment and releases it, or commits first and the assignment is refused.
+
+**Recheck on confirm and move (0032):** the deferred constraint trigger `booking_assignee_recheck` (AFTER UPDATE OF `status`, `booking_date`, `start_time`, `end_time`, `branch_id` ON `booking`) runs when a booking becomes `confirmed` or a confirmed booking moves. At commit it checks every person its lines name, as the line guard does: works at the branch, not on approved leave that day, scheduled then. Because it is deferred, approval can confirm and assign in one transaction, and a move can take its person off the booking in the same transaction (`rescheduleBooking` does when they can't take the new time).
+
+**One assignee (0028):** once a booking is `confirmed` or `in_progress`, every line names the same person. The deferred constraint triggers `booking_service_one_assignee` (lines inserted or reassigned) and `booking_one_assignee` (status changes) check it at commit and raise `check_violation` on `booking_one_assignee`, so one transaction may rewrite every line.
 
 #### `booking_status_log`
 
@@ -1307,7 +1394,8 @@ Audit trail for every booking status change.
 | `from_status` | `booking_status` | nullable | null for initial creation |
 | `to_status` | `booking_status` | NOT NULL | |
 | `changed_by` | `text` | NOT NULL, FK → `user.id` ON DELETE RESTRICT | Staff or customer who changed it |
-| `notes` | `text` | nullable | "Customer called to cancel" |
+| `notes` | `text` | nullable | "Customer called to cancel"; "Late cancellation: …" when the branch's cut-off made it late |
+| `settings_revision` | `integer` | nullable | The branch settings revision a booking rule used for this change: whether a customer's cancellation was late, or a reschedule's cut-off, limit and new slot. Null for changes no booking rule decides. |
 | `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
 
 #### `booking_reassignment`
@@ -1318,21 +1406,49 @@ Reassignment work (multi-branch R1.7, R5.8; migrations `0012`, `0013`): a confir
 |--------|------|-------------|-------------|
 | `id` | `text` | PK, DEFAULT `gen_random_uuid()::text` | Made by the database: the entry is written by the same statement that clears the assignment |
 | `booking_id` | `text` | NOT NULL, FK → `booking.id` ON DELETE CASCADE | |
-| `reason` | `booking_reassignment_reason` | NOT NULL | `left_branch` (removed or moved), `unavailable` (approved leave that day), `overrun` (planned, Phase 4) |
+| `reason` | `booking_reassignment_reason` | NOT NULL | `left_branch` (removed or moved), `unavailable` (approved leave that day), `overrun` (the person is busy then: the `0028` backfill on a confirmed booking that clashed with an earlier one, a move onto a time they're booked, or held up, slice 2b), `off_schedule` (their weekly schedule doesn't cover the time, `0031`) |
 | `previous_staff_id` | `text` | nullable, FK → `staff_profile.id` ON DELETE SET NULL | The person taken off the booking |
 | `created_by_id` | `text` | nullable, FK → `user.id` ON DELETE SET NULL | Who made the change that took them off |
 | `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
 | `resolved_at` | `timestamptz` | nullable | |
-| `resolution` | `booking_reassignment_resolution` | nullable | `reassigned` or `booking_ended` |
+| `resolution` | `booking_reassignment_resolution` | nullable | `reassigned`, `booking_ended` or `started` |
 | `resolved_by_id` | `text` | nullable, FK → `user.id` ON DELETE SET NULL | Who assigned someone else; null when the booking ended |
 
 **Constraints:** `booking_reassignment_open_uidx` UNIQUE (`booking_id`) WHERE `resolved_at IS NULL` (one open entry per booking); CHECK `booking_reassignment_resolution_check` (open entries have no resolution, resolved ones have one).
 
 **How entries open and close:**
 - A role change (`applyBranchRolePlan`) and a leave approval (`updateLeaveStatus`) clear, in their own transaction, the assignments of bookings still to come (`pending` or `confirmed`, starting now or later in IST) whose assignee no longer works at the branch or is on that leave. Confirmed bookings get an open entry; pending ones only lose their tentative assignee. A booking that should already have started keeps its assignee.
+- **Schedule and moves (slice 3):** saving a person's week (`upsertStaffSchedule`) clears, the same way, their assignments that the week no longer covers, with reason `off_schedule`, at every branch. Moving a confirmed booking (`rescheduleBooking`) keeps its person when they can take the new time; otherwise it clears them in the move's transaction with reason `unavailable` (leave that day), `off_schedule` or `overrun` (booked then). A pending booking keeps its tentative assignee.
 - Assigning someone (`approveBooking`, `assignStaff`) closes the entry as `reassigned`, with the actor.
 - Trigger `booking_reassignment_close_on_end` closes it as `booking_ended` when the booking becomes cancelled, rejected, no-show, rescheduled or completed, by any path.
-- The customer's booking is never cancelled or moved. A booking with nobody assigned can't be completed (409).
+- **Held up (slice 2b):** the staff overrun check and a refused start open an entry with reason `overrun` that keeps the assignee, on a confirmed booking whose person is still with another customer and would start it more than 10 minutes late (`flagStaffOverruns`). Reception waits or assigns someone else. Trigger `booking_reassignment_close_on_start` (0030) closes any open entry as `started` when its booking starts; moving the booking (`rescheduleBooking`) closes an open overrun entry that still names its person as `booking_ended`. Reads mark such an entry `heldUp`.
+- Taking someone off a booking never cancels or moves it; reception does that explicitly (`POST /api/bookings/[id]/reschedule` or `/cancel` in the admin portal). A booking with nobody assigned can't be completed (409).
+
+#### `staff_occupancy`
+
+When each confirmed or in-progress booking keeps its assignee busy: the planned interval (migrations `0027`, `0028`; `.kiro/specs/multi-branch-support/membership-scheduling.md`, slice 2). One row per booking whose service lines name one person. The application never writes it: triggers on `booking` and `booking_service` keep it on every path, and a direct write is refused (`check_violation` on `staff_projection_derived`; test fixtures under `rgss.ledger_fixture` excepted).
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `booking_id` | `text` | PK, FK → `booking.id` ON DELETE CASCADE | |
+| `staff_id` | `text` | NOT NULL, FK → `staff_profile.id` ON DELETE CASCADE | The person. One profile per person, so a clash counts at every branch |
+| `branch_id` | `text` | NOT NULL, FK → `branch.id` ON DELETE RESTRICT | |
+| `kind` | `service_type` | NOT NULL | The booking's `service_type` |
+| `during` | `tstzrange` | NOT NULL, CHECK `staff_occupancy_during_check` (bounded, half-open, not empty) | The booking's IST date and times; an end before the start is on the next day. A booking in progress keeps its planned interval |
+
+#### `staff_work`
+
+When each booking that started actually kept its assignee busy (`0027`, `0028`): from `started_at` to `completed_at`, with no end while it runs, or to the cancellation, rejection or update instant if it ended another way. Completed rows stay for the record and for retrospective clash checks. Kept and guarded like `staff_occupancy`.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `booking_id` | `text` | PK, FK → `booking.id` ON DELETE CASCADE | |
+| `staff_id` | `text` | NOT NULL, FK → `staff_profile.id` ON DELETE CASCADE | |
+| `branch_id` | `text` | NOT NULL, FK → `branch.id` ON DELETE RESTRICT | |
+| `kind` | `service_type` | NOT NULL | |
+| `during` | `tstzrange` | NOT NULL, CHECK `staff_work_during_check` (lower bound set, half-open, not empty) | Open-ended while the booking is in progress |
+
+**Exclusions (`0028`, `btree_gist`), on both tables:** `*_spa_overlap` EXCLUDE USING gist (`staff_id` WITH =, `during` WITH &&) WHERE `kind = 'spa'`, and `*_mixed_overlap` EXCLUDE USING gist (`staff_id` WITH =, `during` WITH &&, `kind` WITH <>). For one person, a SPA interval overlaps no other interval of theirs; two salon intervals may overlap; back-to-back intervals don't overlap. A refusal raises `exclusion_violation` (23P01) naming the constraint: on `staff_occupancy` the person is booked then (MS-07); on `staff_work` they are still with another customer, which refuses a start (MS-08).
 
 #### `waitlist`
 
@@ -1357,20 +1473,27 @@ Customers waiting for a fully-booked slot to open up.
 
 #### `invoice`
 
-Generated at checkout after service completion.
+Issued at checkout, at a membership sale and for each membership session. An invoice issued since migration 0018 carries its issue snapshot (multi-branch R6.1): its issuer, tax point, financial year, number and review status, and each line's tax facts. Once issued, none of these change.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | `text` | PK | |
-| `invoice_number` | `text` | NOT NULL, UNIQUE | Auto-generated: `INV-1-2627-92921`. Display: `#INV1262792921`. Branch number + financial year + 5-digit random. Single format for ALL types. Retry on collision. |
-| `branch_id` | `text` | NOT NULL, FK → `branch.id` ON DELETE RESTRICT | Branch that generated this invoice |
-| `booking_id` | `text` | NOT NULL, FK → `booking.id` ON DELETE RESTRICT | |
+| `invoice_number` | `text` | NOT NULL, UNIQUE | `RS/2627/000123`: the branch's prefix, the IST financial year and the branch's count for that year, at least 6 digits, at most 16 characters (GST rule). Invoices issued before 0017 keep `INV-1-2627-92921`. |
+| `branch_id` | `text` | NOT NULL, FK → `branch.id` ON DELETE RESTRICT | Branch that issued this invoice |
+| `booking_id` | `text` | nullable, FK → `booking.id` ON DELETE RESTRICT; unique where not null | Null for a membership purchase. A booking is billed once (`invoice_booking_id_uidx`). |
 | `customer_id` | `text` | NOT NULL, FK → `user.id` ON DELETE RESTRICT | |
 | `subtotal_paise` | `integer` | NOT NULL | GST-inclusive sum of line items before discount |
-| `discount_amount_paise` | `integer` | NOT NULL, DEFAULT 0 | GST-inclusive manual discount or gems redemption value |
-| `taxable_value_paise` | `integer` | NOT NULL, DEFAULT 0 | GST-exclusive taxable value after discount, back-calculated from inclusive pricing |
-| `gst_amount_paise` | `integer` | NOT NULL, DEFAULT 0 | GST component after discount (18%, SAC 999721) |
+| `discount_amount_paise` | `integer` | NOT NULL, DEFAULT 0 | GST-inclusive offer discount, shared across the lines |
+| `taxable_value_paise` | `integer` | NOT NULL, DEFAULT 0 | Sum of the lines' taxable values |
+| `gst_amount_paise` | `integer` | NOT NULL, DEFAULT 0 | Sum of the lines' tax |
+| `cgst_paise` | `integer` | nullable | Sum of the lines' CGST; null before 0017 |
+| `sgst_paise` | `integer` | nullable | Sum of the lines' SGST; null before 0017 |
 | `total_amount_paise` | `integer` | NOT NULL | Final GST-inclusive amount payable: `subtotal - discount = taxable_value + gst_amount` |
+| `tax_point_at` | `timestamptz` | nullable | The moment of issue, which picks the rates; also `paid_at` for counter sales. Null only on invoices issued before 0017 |
+| `financial_year` | `text` | nullable | `'2627'` for 1 April 2026 to 31 March 2027 (IST) |
+| `sequence_number` | `integer` | nullable; unique per branch and financial year | The branch's count, from `invoice_sequence` |
+| `tax_review_status` | `tax_review_status` | nullable | `provisional` when any rate used was unreviewed: the invoice says it is a test invoice (TX-10) |
+| `issuer_name`, `issuer_legal_name`, `issuer_gstin`, `issuer_address`, `issuer_state` | `text` | nullable | The branch as issued, copied in the issuing statement |
 | `invoice_type` | `invoice_type` | NOT NULL, DEFAULT 'service' | Drives email template + PDF format. See invoice types below. |
 | `payment_method` | `payment_method` | NOT NULL, DEFAULT 'cash' | Enum: cash, upi, card (Phase 1 — receptionist selects), online (Phase 2) |
 | `payment_status` | `payment_status` | NOT NULL, DEFAULT 'pending' | For `membership_session` type: always `'paid'` at ₹0. |
@@ -1391,33 +1514,79 @@ Generated at checkout after service completion.
 | `membership_purchase` | ₹ amount (lump sum) | ❌ No | Membership welcome invoice |
 | `membership_session` | ₹0 | ❌ No | Session usage confirmation |
 
-**Invoice Number Generation:**
+**Invoice Number Generation (multi-branch R6.2):**
 ```
--- No sequences. Random 5-digit generation with retry on unique constraint collision.
--- Format: INV-{branch_number}-{financial_year}-{5_digit_random}
--- Example: INV-1-2627-92921 (Rayasandra, FY April 2026 → March 2027)
--- Display: #INV1262792921 (stripped dashes, prefixed with #)
--- Single format for ALL invoice types (service, membership_purchase, membership_session)
--- The invoice_type column differentiates internally — no separate numbering per type.
--- Financial year: April 2026 → March 2027 = "2627". Rolls over April 1st.
--- Pool: 90,000 values per branch per financial year. At max ~900 invoices/month, collision probability per insert < 1%.
+-- Consecutive per branch and financial year, as GST requires; one series for
+-- every invoice type.
+-- Format: {branch prefix}/{financial year}/{sequence, at least 6 digits}
+-- Example: RS/2627/000123 (Rayasandra, FY April 2026 → March 2027)
+-- The issuing db.batch() upserts invoice_sequence (branch, FY) first, which
+-- locks that row until the transaction ends, then inserts the invoice with the
+-- new number. Concurrent issues at one branch wait for each other; a batch
+-- that rolls back takes its number back with it, so no number is skipped.
+-- The prefix is the branch's invoice_prefix, fixed once it has issued.
+-- Invoices issued before 0017 keep INV-{branch}-{FY}-{5 random digits}.
+-- Financial year: April 2026 → March 2027 = "2627", on the IST calendar.
 ```
+
+**Guards (0017 checks, 0018 triggers):**
+- `invoice_snapshot_check`: an invoice with a tax point has every issue fact, `cgst + sgst = gst`, `taxable + gst = total` and a number of at most 16 characters
+- `invoice_requires_snapshot`: a new invoice must have a tax point
+- `invoice_snapshot_fixed`: an issued invoice's number, branch, booking, customer, type, amounts, gems, tax point, financial year, sequence, review status and issuer can't change; payment details, the PDF URL and notes still can
+- the 0011 shutdown guard still refuses a new invoice at a shut-down branch
 
 #### `invoice_item`
 
-Line items on an invoice — one per service.
+Line items on an invoice — one per service, or one for a membership purchase.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | `text` | PK | |
 | `invoice_id` | `text` | NOT NULL, FK → `invoice.id` ON DELETE CASCADE | |
-| `service_id` | `text` | NOT NULL, FK → `service.id` ON DELETE RESTRICT | |
-| `service_name_snapshot` | `text` | NOT NULL | Frozen — service name can change |
-| `staff_name_snapshot` | `text` | NOT NULL | Frozen — who performed the service |
+| `service_id` | `text` | nullable, FK → `service.id` ON DELETE RESTRICT | Null for a membership purchase line |
+| `service_name_snapshot` | `text` | NOT NULL | Frozen — service name can change. A membership purchase reads "SPA membership: N hours, valid until DD/MM/YYYY" |
+| `staff_name_snapshot` | `text` | nullable | Frozen — who performed the service |
 | `quantity` | `integer` | NOT NULL, DEFAULT 1 | Usually 1 |
 | `unit_price_paise` | `integer` | NOT NULL | Price per unit at time of invoice |
-| `total_price_paise` | `integer` | NOT NULL | `quantity × unit_price` |
+| `total_price_paise` | `integer` | NOT NULL | The line's tax-inclusive amount before its discount share (0 for a gems-covered service) |
+| `sac_code` | `text` | nullable | The line's SAC code: the service's own, else its category's; the tier's for a membership |
+| `tax_version_id` | `text` | nullable, FK → `branch_tax_version.id` ON DELETE RESTRICT | The rate used |
+| `rate_bps` | `integer` | nullable | The rate used, in basis points |
+| `discount_paise` | `integer` | nullable | The line's share of the invoice discount |
+| `taxable_value_paise`, `tax_paise`, `cgst_paise`, `sgst_paise` | `integer` | nullable | The line's tax on `total_price − discount` |
 | `display_order` | `integer` | NOT NULL, DEFAULT 0 | |
+
+The tax columns are null only on items issued before 0017. `invoice_item_tax_check` makes them add up when present, and the `invoice_item_tax_guard` trigger requires that a line of an issued invoice uses the version in force for its SAC code at the invoice's branch and tax point, and never changes afterwards.
+
+#### `branch_tax_version`
+
+Effective-dated GST rates per branch and SAC code (multi-branch R6.4, TX-01). Managed by the Developer on Settings → Tax (`/api/tax-versions`).
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `text` | PK | Seeded rows: `tax_<branch>_<sac>` |
+| `branch_id` | `text` | NOT NULL, FK → `branch.id` ON DELETE CASCADE | |
+| `sac_code` | `text` | NOT NULL, six digits | |
+| `rate_bps` | `integer` | NOT NULL, 0–2800 | Total GST: 500 = 5%; invoices split it into CGST and SGST |
+| `prices_include_tax` | `boolean` | NOT NULL, DEFAULT true, must be true | Only tax-inclusive prices are supported |
+| `effective_from` | `timestamptz` | NOT NULL; unique per branch and SAC code | 00:00 IST on the version's date. A version applies until the next one for the same branch and code |
+| `review_status` | `tax_review_status` | NOT NULL, DEFAULT 'provisional' | `reviewed` after the launch tax review; `reviewed_at` is set exactly when reviewed |
+| `reason` | `text` | NOT NULL, not blank | Why the rate starts |
+| `created_by`, `reviewed_by` | `text` | nullable, FK → `user.id` ON DELETE RESTRICT | Null on seeded and copied rows |
+| `reviewed_at`, `created_at` | `timestamptz` | | |
+
+A branch's first rate for a code may start on any date; a change starts on a future date, so it never alters a rate an issued invoice used. The `branch_tax_version_fixed` trigger keeps a version as created: only its review is recorded, once, and a version in force can't be deleted while its branch exists. 0018 seeds a provisional 5% for SAC 999721, 999722, 999723 and 999729 at every branch from 22/09/2025 00:00 IST, and `branch_copy_tax_versions` gives a branch created later provisional copies of the primary branch's rates in force, from 00:00 IST on its creation day.
+
+#### `invoice_sequence`
+
+The last invoice number issued per branch and financial year.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `branch_id` | `text` | PK (with `financial_year`), FK → `branch.id` ON DELETE CASCADE | |
+| `financial_year` | `text` | PK, four digits | `'2627'` |
+| `last_number` | `integer` | NOT NULL, above 0 | |
+| `updated_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
 
 ---
 
@@ -1425,21 +1594,24 @@ Line items on an invoice — one per service.
 
 #### `spa_membership_tier`
 
-Admin-configurable tier templates. Receptionists/Managers edit these defaults in the admin portal. When creating a per-customer membership, these are the starting values — all can be overridden at creation time.
+Internal tier templates for the admin portal (multi-branch R9). Receptionists and above add and edit them on the Membership tiers screen (`/memberships/tiers`); a sale starts from a tier's usual values and the hours and price are agreed at the counter. One list serves every branch. Customers never see tiers or their usual prices. Tiers are retired (`is_active = false`), never deleted: memberships refer to them. Editing a tier changes later sales only.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | `text` | PK | |
 | `name` | `text` | NOT NULL, UNIQUE | "Silver", "Gold", "Platinum" |
-| `slug` | `text` | NOT NULL, UNIQUE | "silver", "gold", "platinum" |
-| `description` | `text` | nullable | Displayed on `/membership` info page |
-| `default_hours_minutes` | `integer` | NOT NULL | Template hours. 8 hrs = 480, 15 hrs = 900 |
-| `default_price_paise` | `integer` | NOT NULL | Template price. ₹10,000 = 1000000 |
-| `default_validity_days` | `integer` | NOT NULL | e.g., 90 days |
-| `is_active` | `boolean` | NOT NULL, DEFAULT true | Hide tier from creation form without deleting |
-| `display_order` | `integer` | NOT NULL, DEFAULT 0 | Order on the `/membership` info page |
+| `slug` | `text` | NOT NULL, UNIQUE | From the name; a taken slug gets a short suffix |
+| `description` | `text` | nullable | Internal note |
+| `default_hours_minutes` | `integer` | NOT NULL, CHECK ≥ 0 | Usual hours as minutes, whole hours. 8 hrs = 480, 15 hrs = 900. 0 = agreed at the counter |
+| `default_price_paise` | `integer` | NOT NULL, CHECK ≥ 0 | Usual price, GST-inclusive. ₹10,000 = 1000000. 0 = agreed at the counter |
+| `default_validity_days` | `integer` | NOT NULL, CHECK > 0 | Usual validity, e.g. 90 days; prefills the expiry date |
+| `sac_code` | `text` | NOT NULL, DEFAULT '999723', CHECK six digits | Tax classification of a sale (0016). The reviewed codes (999721/2/3/9) are enforced in the API; only the Developer changes it |
+| `is_active` | `boolean` | NOT NULL, DEFAULT true | Retired tiers aren't offered in the sale form |
+| `display_order` | `integer` | NOT NULL, DEFAULT 0 | Order in the sale form and the tiers screen |
 | `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
 | `updated_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
+
+Checks (0016): `spa_membership_tier_usual_values_check` and `spa_membership_tier_sac_code_check`.
 
 **Seed data:**
 | Tier | Slug | Default Hours | Default Price | Default Validity |
@@ -1460,12 +1632,16 @@ Per-customer membership instance. Created by Receptionist/Manager/Owner/Develope
 | `membership_number` | `text` | NOT NULL, UNIQUE | Auto-generated: `RG-MEM-26-90872`. Display: `#RGMEM2690872`. Calendar year (last 2 digits) + 5-digit random. No branch code — members can use any branch. Retry on collision. |
 | `customer_id` | `text` | NOT NULL, FK → `user.id` ON DELETE RESTRICT | |
 | `tier_id` | `text` | NOT NULL, FK → `spa_membership_tier.id` ON DELETE RESTRICT | |
-| `tier_name_snapshot` | `text` | NOT NULL | Frozen tier name — tier can be renamed later |
-| `total_hours_minutes` | `integer` | NOT NULL | Agreed hours (overridable from tier default at creation). 8 hrs = 480. |
-| `used_hours_minutes` | `integer` | NOT NULL, DEFAULT 0 | Denormalized running total. Updated on each session. |
-| `price_paid_paise` | `integer` | NOT NULL | Negotiated price at time of membership creation |
-| `starts_at` | `date` | NOT NULL | Membership start date |
-| `expires_at` | `date` | NOT NULL | `starts_at + validity_days` |
+| `tier_name_snapshot` | `text` | NOT NULL | Frozen tier name — tier can be renamed later. Admin only; never shown to customers |
+| `tier_usual_hours_minutes` | `integer` | nullable | The tier's usual hours at sale time (agreed-versus-usual). Null for sales before the snapshot existed |
+| `tier_usual_price_paise` | `integer` | nullable | The tier's usual price at sale time. Null for older sales |
+| `selling_branch_id` | `text` | nullable, FK → `branch.id` ON DELETE RESTRICT | The branch that sold it and issued its purchase invoice (0007); the hours are usable at every branch |
+| `total_hours_minutes` | `integer` | NOT NULL, CHECK > 0 | Agreed whole hours as minutes, independent of the tier. 8 hrs = 480. |
+| `used_hours_minutes` | `integer` | NOT NULL, DEFAULT 0, CHECK 0 ≤ used ≤ total | Minutes consumed by completed sessions: the sum of the membership's `consumed` holds, kept by trigger (0026) |
+| `reserved_minutes` | `integer` | NOT NULL, DEFAULT 0, CHECK ≥ 0 and used + reserved ≤ total | Minutes held by sessions booked or in progress: the sum of its `held` holds, kept by trigger (0025, 0026). Free minutes = total − used − reserved |
+| `price_paid_paise` | `integer` | NOT NULL | Agreed price, GST-inclusive; typed separately from the hours |
+| `starts_at` | `timestamptz` | NOT NULL | 00:00 IST on the picked start date (today in IST by default) |
+| `expires_at` | `timestamptz` | NOT NULL, CHECK > `starts_at` | 23:59:59.999 IST on the picked expiry date |
 | `status` | `spa_membership_status` | NOT NULL, DEFAULT 'active' | active / expired / cancelled |
 | `created_by` | `text` | NOT NULL, FK → `user.id` ON DELETE RESTRICT | Staff who created this membership |
 | `invoice_id` | `text` | nullable, FK → `invoice.id` ON DELETE RESTRICT | The `membership_purchase` invoice for this enrollment |
@@ -1475,13 +1651,34 @@ Per-customer membership instance. Created by Receptionist/Manager/Owner/Develope
 
 **Constraints:**
 ```sql
--- Prevent overspend of hours
-CHECK (used_hours_minutes <= total_hours_minutes)
+-- Minute accounting can't go negative or past the pool (0016)
+CONSTRAINT spa_membership_minutes_check
+  CHECK (total_hours_minutes > 0 AND used_hours_minutes >= 0
+         AND used_hours_minutes <= total_hours_minutes)
+
+-- A membership ends after it starts (0016)
+CONSTRAINT spa_membership_validity_check CHECK (expires_at > starts_at)
 
 -- One active membership per customer at a time
-CREATE UNIQUE INDEX idx_membership_one_active
+CREATE UNIQUE INDEX spa_membership_active_customer_idx
   ON spa_membership (customer_id)
   WHERE status = 'active';
+
+-- Price paid and purchased minutes define every session's settlement value,
+-- so they can't change after sale (trigger spa_membership_terms_fixed, 0022)
+
+-- Held and consumed minutes never overcommit the pool (0025)
+CONSTRAINT spa_membership_reserved_check
+  CHECK (reserved_minutes >= 0
+         AND used_hours_minutes + reserved_minutes <= total_hours_minutes)
+
+-- At commit, used and reserved equal the membership's consumed and held holds,
+-- whatever wrote them (deferred constraint triggers
+-- membership_minutes_balanced_*, 0026)
+
+-- A membership with a held session can't be cancelled; cancelling first
+-- cancels its unstarted sessions in the same transaction (trigger
+-- spa_membership_cancel_guard, 0026)
 ```
 
 **Membership number generation:**
@@ -1490,34 +1687,43 @@ CREATE UNIQUE INDEX idx_membership_one_active
 -- Format: RG-MEM-{YY}-{branch_number}-{5_digit_random}
 -- Example: RG-MEM-26-1-90872
 -- Display: #RGMEM26190872 (stripped dashes, prefixed with #)
--- YY = calendar year last 2 digits. Resets conceptually on Jan 1 (26 → 27).
--- Branch number embedded — sessions restricted to originating branch only.
+-- YY = the IST calendar year of the start date. branch_number = the selling branch.
 -- Pool: 90,000 values per branch per calendar year. Collision rate negligible.
 ```
 
-**Branch-locked sessions:** Membership sessions can ONLY be recorded at the branch where the membership was originally purchased. The session recording flow validates `booking.branch_id == spa_membership originating branch` and rejects with an error if they don't match. Customer must purchase a separate membership if they want SPA hours at a different branch.
+**Shared hours (multi-branch R5.9, R9.5):** a membership sold at any branch is usable at every branch. A session is a booking at the branch that performs it; the selling branch keeps the money and the cancellation, and owes the performing branch the session's value in the monthly settlement (`.kiro/specs/multi-branch-support/settlement.md`).
 
 **Membership flow:**
 ```
-Admin creates membership for customer
-  → Selects tier (Silver/Gold/Platinum)
-  → Overrides hours and/or price if negotiated
-  → Sets start date (today by default)
-  → expires_at = starts_at + tier.default_validity_days
-  → spa_membership record created (status: active)
-  → membership_purchase invoice generated (₹ amount)
+Receptionist or above sells a membership at their active branch
+  → Chooses the customer and a tier (prefills its usual hours, price and expiry)
+  → Agrees whole hours (− / +, at least 1) and the price separately
+  → Start date: today in IST by default (at most 60 days ahead)
+  → Expiry date: after the start, at most 1,095 days later
+  → starts_at = 00:00 IST on the start date; expires_at = 23:59:59.999 IST on the expiry date
+  → spa_membership record created (status: active) with the tier snapshot
+  → membership_purchase invoice from the selling branch, in the same transaction;
+    its line reads "SPA membership: N hours, valid until DD/MM/YYYY" (no tier)
   → Invoice emailed to customer (Resend)
   → Push notification: "Your Royal Glow SPA Membership is active!"
   → Customer sees full details on /membership
 
-On each session:
-  Admin records session in admin portal
-  → Selects customer + service performed
-  → used_hours_minutes += service.duration_minutes
-  → booking record created (status: completed, is_membership_session: true, total: ₹0)
-  → membership_session invoice generated (₹0)
-  → Invoice + session summary emailed to customer
-  → Customer sees session in /bookings and /membership
+On each session (membership-scheduling.md, migrations 0025–0026):
+  Record now (Receptionist or above, at the branch performing the session)
+  → Selects the SPA services, minutes and staff
+  → booking created: status in_progress, started_at = now(), today's IST date,
+    is_membership_session: true, total ₹0
+  → the database holds its minutes (membership_hold 'held'; reserved_minutes +=)
+  Complete (from the booking page, once the session is done)
+  → booking in_progress → completed
+  → the hold is consumed (reserved_minutes −=, used_hours_minutes +=)
+  → membership_session invoice (₹0) from the delivering branch, and the
+    settlement entry when another branch sold the membership
+  → Customer sees the session in /bookings and /membership
+  A session booked ahead holds its minutes from confirmation; Start
+  (POST /api/bookings/[id]/start) moves it to in progress and rechecks the
+  membership's validity at that instant. Cancelling, rejecting or missing a
+  session releases its minutes.
 
 Expiry reminders (QStash → Resend):
   → 30 days before expires_at: "Your membership expires in 30 days. X hours remaining."
@@ -1525,11 +1731,38 @@ Expiry reminders (QStash → Resend):
   → 1 day before expires_at:   "Last chance: Expires tomorrow. Unused hours forfeited."
   → When used_hours_minutes leaves < 60 min remaining: "Less than 1 hour left on your membership."
 
-Auto-expiry (QStash daily 00:30 IST):
+Auto-expiry (QStash daily 00:00 IST, membership-auto-expire):
+  → cancel the unstarted (pending or confirmed) sessions of memberships past
+    expires_at, releasing their holds; sessions in progress keep theirs
   → UPDATE spa_membership SET status = 'expired'
-    WHERE expires_at < CURRENT_DATE AND status = 'active'
+    WHERE expires_at < now() AND status = 'active'
   → Notification: "Your membership has expired. Unused hours have been forfeited."
 ```
+
+#### `membership_hold`
+
+The minutes one SPA membership session holds, uses or gave back (0025, 0026; `.kiro/specs/multi-branch-support/membership-scheduling.md`). One row per membership-session booking. The application never writes it: a trigger on `booking` derives it from the session's status.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `text` | PK, DEFAULT `gen_random_uuid()::text` | |
+| `spa_membership_id` | `text` | NOT NULL, FK → `spa_membership.id` ON DELETE RESTRICT | The membership whose minutes the session uses |
+| `booking_id` | `text` | NOT NULL, UNIQUE, FK → `booking.id` ON DELETE RESTRICT | The session booking |
+| `branch_id` | `text` | NOT NULL, FK → `branch.id` ON DELETE RESTRICT | The branch delivering the session |
+| `minutes` | `integer` | NOT NULL, CHECK > 0 | The session's duration; changes only while the session is confirmed |
+| `state` | `membership_hold_state` | NOT NULL, DEFAULT 'held' | `held` (booked or in progress), `consumed` (completed) or `released` (cancelled, rejected, no-show, rescheduled) |
+| `held_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
+| `consumed_at` | `timestamptz` | nullable | Set with `consumed` only (CHECK `membership_hold_state_check`) |
+| `released_at` | `timestamptz` | nullable | Set with `released` only |
+
+**Index:** `membership_hold_membership_held_idx` on `spa_membership_id` WHERE `state = 'held'`.
+
+**Rules (0026):**
+- A booking's status decides its hold: confirmed or in progress → held; completed → consumed; cancelled, rejected, no-show or rescheduled → released. A pending session holds nothing.
+- A new hold needs an active membership valid at the session's start, `coalesce(started_at, planned IST start)` within `[starts_at, expires_at]` (inclusive); starting or moving a session rechecks it. Consumption has no validity check.
+- Consumed and released are final; a hold keeps its membership, booking, branch and time; holds are never deleted (test fixtures excepted, under `rgss.ledger_fixture`).
+- A membership session completes only from in progress, and an in-progress session can't be cancelled, rejected or marked a no-show (`membership_session_started`).
+- Triggers keep `spa_membership.reserved_minutes` and `used_hours_minutes` equal to the sums of held and consumed holds. Who changed a session is on its booking status log; holds carry no actor.
 
 ---
 
@@ -1691,22 +1924,121 @@ One account per customer. Created on first completed booking.
 | `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
 | `updated_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
 
-**Invariant:** `gems_balance = total_gems_earned - total_gems_redeemed` (enforced in business logic, verified by reconciliation QStash job)
+**Invariant:** the balance equals the account's movements: earned + returned − redeemed + expired (expired amounts are negative) ± adjustments. `CHECK (gems_balance >= 0 AND total_gems_earned >= 0 AND total_gems_redeemed >= 0)` (0021); migration 0022 refused to finish while any balance disagreed with its movements.
 
 #### `loyalty_transaction`
 
-Every gem earn, redeem, expiry, or manual adjustment. Immutable ledger — insert only, never update.
+Every gem earn, redeem, return, expiry, or manual adjustment. Immutable ledger — insert only, never update. Each `earned` row is a **batch**: gems from one invoice, issued by that invoice's branch, expiring together (multi-branch ST-02).
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | `text` | PK | |
 | `loyalty_account_id` | `text` | NOT NULL, FK → `loyalty_account.id` ON DELETE RESTRICT | |
-| `type` | `loyalty_tx_type` | NOT NULL | Enum: earned, redeemed, expired, adjusted |
-| `gems_amount` | `integer` | NOT NULL | Positive for earn/adjust-up, negative for redeem/expire |
-| `invoice_id` | `text` | nullable, FK → `invoice.id` ON DELETE RESTRICT | Which invoice triggered this (null for manual adjustments) |
-| `description` | `text` | nullable | "Earned from invoice #INV1262792921", "Redeemed on booking" |
-| `expires_at` | `timestamptz` | nullable | Set to `created_at + gems_expiry_days` (365 days / 1 year) for `type = 'earned'` only. `null` for redeemed / expired / adjusted rows. QStash gems-auto-expire job scans this column nightly to expire gems. |
+| `type` | `loyalty_tx_type` | NOT NULL | Enum: earned, redeemed, returned, expired, adjusted |
+| `gems_amount` | `integer` | NOT NULL, CHECK by type | Positive for earned, redeemed and returned; negative for expired; any non-zero amount for adjusted |
+| `invoice_id` | `text` | nullable, FK → `invoice.id` ON DELETE RESTRICT | The invoice that earned the gems |
+| `booking_id` | `text` | nullable, FK → `booking.id` ON DELETE SET NULL | For redeemed and returned rows: the booking of the free service |
+| `branch_id` | `text` | FK → `branch.id` ON DELETE RESTRICT; NOT NULL except for `adjusted` (0023) | Earned: the issuing branch (the invoice's). Redeemed and returned: the booking's branch. Expired: the batch's branch |
+| `batch_id` | `text` | FK → `loyalty_transaction.id`; set for, and only for, `expired` (0023) | The earned batch whose unspent gems this expiry removes |
+| `redemption_id` | `text` | FK → `loyalty_transaction.id`; UNIQUE where set; set for, and only for, `returned` | The redemption this return gives back, at most once |
+| `description` | `text` | nullable | "Returned: booking BK-… did not go ahead", "Expired: gems earned on DD/MM/YYYY". Older expiries carry an internal `expired:<id>` marker, hidden on `/gems` |
+| `expires_at` | `timestamptz` | nullable | `created_at + 365 days` for `type = 'earned'` only. Only batches with `expires_at > now()` are spendable |
 | `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
+
+**Guards (0022):** an expiry names a batch of its own account, is recorded after the batch's expiry, at the batch's branch, and never removes more than the batch has unspent (`loyalty_batch_unspent(batch)` = earned − active allocations + expired). The nightly job expires only unspent gems; the earning branch keeps the value of expired gems (ST-04).
+
+#### `loyalty_allocation`
+
+Which batches a redemption spent: earliest expiry first, then earliest earned, written in the transaction that deducts the balance (ST-02, ST-06).
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `text` | PK | |
+| `redemption_id` | `text` | NOT NULL, FK → `loyalty_transaction.id` ON DELETE RESTRICT | The `redeemed` row |
+| `batch_id` | `text` | NOT NULL, FK → `loyalty_transaction.id` ON DELETE RESTRICT | The `earned` row the gems came from |
+| `gems` | `integer` | NOT NULL, CHECK > 0 | Gems taken from that batch |
+| `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
+| `released_at` | `timestamptz` | nullable | Set once when the free service is rejected, cancelled or missed and the gems go back to the batch (ST-03) |
+
+**Constraints:** UNIQUE(`redemption_id`, `batch_id`); partial index on `batch_id` WHERE `released_at IS NULL`. Trigger `loyalty_allocation_guard`: the redemption and batch belong to one account, the batch is earned and unexpired when spent, and neither the batch's unspent gems nor the redemption's amount are exceeded; allocations and expiries of a batch serialize on the batch row. Trigger `loyalty_allocation_fixed`: an allocation only ever changes by being released, once.
+
+---
+
+### Cross-branch settlement
+
+What branches owe each other when a member uses SPA hours, or a customer spends gems, at a branch other than the one that sold the membership or issued the gems (multi-branch R10, `.kiro/specs/multi-branch-support/settlement.md`). Amounts are paise in `bigint`. Entries are recorded as the service is delivered; each IST calendar month closes into one statement per pair of branches and one net position per branch. Only the net is paid, outside the system. Branch pairs are ordered by byte value (`COLLATE "C"`).
+
+#### `settlement_period`
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `month` | `date` | PK, CHECK first day of month | The IST month |
+| `closed_at` | `timestamptz` | nullable | Set once by the close, after the month has ended (`settlement_period_guard`) |
+| `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
+
+#### `settlement_entry`
+
+The ledger. Never updated or deleted (`settlement_entry_fixed`); a correction is a reversing entry.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `text` | PK | |
+| `kind` | `settlement_entry_kind` | NOT NULL | Enum: membership_session, gems_redemption, reversal |
+| `posting_month` | `date` | NOT NULL, FK → `settlement_period.month` | Set by trigger `settlement_entry_post`: the IST month of `now()`, or the next open month once that one has closed (MS-24). Holds a share lock on the month row, so a close waits for entries in flight |
+| `owing_branch_id` | `text` | NOT NULL, FK → `branch.id` | The branch that sold the membership or issued the gems |
+| `owed_branch_id` | `text` | NOT NULL, FK → `branch.id` | The branch that delivered the service. The same branch both ways is an internal entry, in no statement |
+| `spa_membership_id` | `text` | FK → `spa_membership.id` | Membership sessions |
+| `booking_id` | `text` | FK → `booking.id` | The booking the service was delivered on |
+| `loyalty_transaction_id` | `text` | FK → `loyalty_transaction.id` | Gems: the redemption |
+| `reverses_entry_id` | `text` | FK → `settlement_entry.id`, UNIQUE where set | A reversal's original, reversed at most once |
+| `minutes` | `integer` | nullable | Session minutes |
+| `gems` | `integer` | nullable | Gems spent from that issuing branch |
+| `value_paise` | `bigint` | NOT NULL | What the service was worth: for a session, `floor(P·(c+n)/T) − floor(P·c/T)` (price paid P, purchased minutes T, c used before, n this session); for gems, gems × value per gem |
+| `gst_share_paise` | `bigint` | NOT NULL, DEFAULT 0 | The same formula on the purchase invoice's GST; 0 for gems (TX-12) |
+| `amount_owed_paise` | `bigint` | NOT NULL, CHECK = `(value − gst_share) × share_bps / 10000` | Settlement is without GST |
+| `share_bps` | `integer` | NOT NULL, CHECK 0–10000 | The share in force when recorded (ST-05) |
+| `gem_value_paise` | `integer` | nullable | The value per gem in force when recorded |
+| `note` | `text` | nullable | A reversal's reason (required) |
+| `created_by` | `text` | FK → `user.id` | |
+| `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
+
+**Constraints:** one entry per session booking (`settlement_entry_session_unique`), one per redemption and issuing branch (`settlement_entry_gems_unique`), one reversal per entry. `settlement_entry_shape_check` fixes which columns each kind carries; since 0024 a session's GST share is not capped at its value (both are floor differences and can differ by 1 paisa), while the membership's entries still add up exactly to its price and GST.
+
+#### `branch_settlement`
+
+A closed month's statement for one pair of branches. Inserted only by the transaction that closed the month; afterwards it only gains its payment, once (`branch_settlement_guard`).
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `text` | PK | |
+| `month` | `date` | NOT NULL, FK → `settlement_period.month` | |
+| `branch_a_id`, `branch_b_id` | `text` | NOT NULL, FK → `branch.id`, CHECK A < B by byte value | The pair |
+| `a_owes_b_membership_paise`, `a_owes_b_membership_value_paise`, `a_owes_b_membership_gst_paise`, `a_owes_b_gems_paise` | `bigint` | NOT NULL | What A owes B: memberships (amount owed, sessions' value, GST share) and gems |
+| `b_owes_a_*` | `bigint` | NOT NULL | The same, B to A |
+| `paying_branch_id`, `receiving_branch_id` | `text` | FK → `branch.id`; both null when it nets to zero | |
+| `net_paise` | `bigint` | NOT NULL, CHECK = the absolute difference of the totals | |
+| `entry_count` | `integer` | NOT NULL, CHECK > 0 | |
+| `closed_at` | `timestamptz` | NOT NULL | |
+| `paid_on` | `date` | nullable | IST date the money moved, recorded by the paying branch's Owner or the Developer (MS-25) |
+| `payment_reference` | `text` | nullable | UTR or UPI reference |
+| `internal_transfer` | `boolean` | NOT NULL, DEFAULT false | One Owner owns both branches |
+| `paid_recorded_by`, `paid_recorded_at` | `text`, `timestamptz` | nullable | Who recorded the payment, when |
+
+**Constraints:** UNIQUE(`month`, `branch_a_id`, `branch_b_id`); the payment columns are all set (with a non-blank reference and `net_paise > 0`) or all empty.
+
+#### `settlement_position`
+
+Each branch's net across all its counterparts for a closed month. Made by the close; never changes (`settlement_position_guard`). A month's positions add up to zero (ST-08).
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `month` | `date` | PK (with `branch_id`), FK → `settlement_period.month` | |
+| `branch_id` | `text` | PK, FK → `branch.id` | |
+| `receivable_paise`, `payable_paise` | `bigint` | NOT NULL | Owed to the branch, owed by it |
+| `net_paise` | `bigint` | NOT NULL, CHECK = receivable − payable | |
+| `closed_at` | `timestamptz` | NOT NULL | |
+
+**Settings:** `system_setting` key `settlement` = `{ shareBps, gemValuePaise }`, defaults `{ 10000, 100 }` (100%, ₹1.00 a gem), edited by the Developer in Settings. An unreadable value refuses new entries (409 `SETTLEMENT_SETTINGS_INVALID`) rather than guessing. Test fixtures may delete ledger rows or name an entry's month only with `set_config('rgss.ledger_fixture', 'on', true)`; the application never sets it.
 
 ---
 
@@ -1775,6 +2107,9 @@ Business locations. Currently single-branch (Rayasandra). Multi-branch ready for
 | `temporary_close_reason` | `text` | nullable | "Renovation until June 2026" |
 | `is_primary` | `boolean` | NOT NULL, DEFAULT false | Primary branch. Only one `true` at a time. |
 | `display_order` | `integer` | NOT NULL, DEFAULT 0 | Sort order in branch selector |
+| `legal_name` | `text` | nullable | Registered name on its invoices (R6.1); needed for live invoicing (TX-08) |
+| `gstin` | `text` | nullable, 15-character GSTIN format check | The branch's GST registration; the admin also checks the check character. Needed for live invoicing |
+| `invoice_prefix` | `text` | NOT NULL, UNIQUE, 1–4 capitals or digits starting with a letter | Starts its invoice numbers (`RS` in `RS/2627/000123`). Defaults to a 1–4 character code, else `B` and the branch number in base 36 (`branch_invoice_prefix_default`); fixed once the branch has issued an invoice (`branch_invoice_prefix_fixed`) |
 | `owner_user_id` | `text` | NOT NULL; with `owner_role`, FK → `user (id, role)`, DEFERRABLE | The branch's Owner (R1.2). Holds only while that user's role is `owner`. |
 | `owner_role` | `text` | NOT NULL, DEFAULT 'owner', CHECK = 'owner' | Role qualifier for the Owner key |
 | `manager_user_id` | `text` | nullable; with `manager_role`, FK → `user (id, role)`, DEFERRABLE | The branch's Manager, if any. Never the Owner. |
@@ -1795,6 +2130,30 @@ Business locations. Currently single-branch (Rayasandra). Multi-branch ready for
 - Single branch: branch picker hidden, auto-selects the primary branch
 - Multi-branch: only branches with `status = 'operational'` are selectable
 - Staff work at one branch (`staff_profile.branch_id`); the picker lists the active branch's eligible people
+- Each branch's own business hours and booking rules decide its bookings (`branch_setting`, below)
+
+#### `branch_setting`
+
+Each branch's weekly business hours and booking rules, as numbered revisions (multi-branch R1.1, R6.3; migrations `0019`, `0020`). Every save adds the branch's next revision with the whole settings document, so the settings any booking decision used can always be read back. The current settings are the branch's highest revision.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `text` | PK | `bset_{branch_id}_1` for a copied revision 1, else generated |
+| `branch_id` | `text` | NOT NULL, FK → `branch.id` ON DELETE CASCADE | |
+| `revision` | `integer` | NOT NULL, CHECK > 0; UNIQUE with `branch_id` (`branch_setting_branch_revision_unique`) | 1, 2, 3… per branch, without gaps. Two saves from the same revision collide; the later one is refused (409 `SETTINGS_CHANGED`) |
+| `business_hours` | `jsonb` | NOT NULL, an object | Per day `mon`…`sun`: `{ open, close, closed }`, IST 24-hour `HH:MM` (`businessHoursSchema`) |
+| `booking_rules` | `jsonb` | NOT NULL, an object | `minAdvanceLeadTimeMinutes`, `maxAdvanceBookingDays`, `cancellationCutoffHours`, `maxActiveBookingsPerCustomer`, `rescheduleCutoffHours`, `maxReschedulesPerBooking` (`bookingRulesSchema`) |
+| `changed_section` | `branch_setting_section` | nullable | `business_hours` or `booking_rules`: the section this save changed (the other is carried over). Null for a revision copied in whole |
+| `created_by` | `text` | nullable, FK → `user.id` ON DELETE RESTRICT | The Developer who saved it. Null for copied revisions |
+| `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
+
+**Rules (0020, hand-written triggers):**
+- `branch_copy_settings` (AFTER INSERT ON `branch`): a new branch starts from the primary branch's current settings as its revision 1, or the documented defaults (`branch_default_business_hours()`, `branch_default_booking_rules()`, equal to `DEFAULT_BUSINESS_HOURS` and `DEFAULT_BOOKING_RULES` in `@rgss/types`) when there is no primary branch.
+- `branch_setting_next_revision` (BEFORE INSERT): a revision must be the branch's next number.
+- `branch_setting_fixed` (BEFORE UPDATE OR DELETE): a revision never changes, and goes only with its branch.
+- The application validates both sections on save and on read. A section that can't be read is an error for booking decisions (409 `BRANCH_SETTINGS_INCOMPLETE`), never replaced with defaults; the admin Settings screen shows it as unset so the Developer can save it again. A customer's cancellation still goes through, without a lateness decision.
+
+**Who reads it:** availability, customer bookings, gems redemptions, walk-ins (business hours only), cancellations and reschedules, the customer's booking page, and the admin schedule grid (business hours). No background job reads it: reminder, close-out and no-show timings are product constants, and no-show thresholds stay shared because a customer's no-show count is shared.
 
 **Shutdown and delete (R1.10, migration `0011_branch_shutdown_guard`, hand-written triggers):**
 - `booking_branch_open` / `invoice_branch_open` (BEFORE INSERT OR UPDATE OF `branch_id`): refuse a booking or invoice at a `shutdown` branch (constraint name `branch_shut_down`). They lock the branch row `FOR SHARE`, so a write racing a shutdown either commits first, and then blocks it, or sees it.
@@ -1805,7 +2164,7 @@ Business locations. Currently single-branch (Rayasandra). Multi-branch ready for
 
 ### Reference Number Generation
 
-All reference numbers use **5-digit random generation** (not sequential) to prevent competitors from inferring business volume. Uniqueness enforced by DB UNIQUE constraint + application retry on collision (max 3 attempts).
+Booking and membership numbers use **5-digit random generation** (not sequential) to prevent competitors from inferring business volume. Uniqueness enforced by DB UNIQUE constraint + application retry on collision (max 3 attempts). Invoice numbers are the exception: GST requires a consecutive serial per series, so they come from the branch's `invoice_sequence` counter (`RS/2627/000123`; see `invoice`).
 
 **Booking Number:**
 ```
@@ -1822,17 +2181,18 @@ Example: BK-RS-2605-H-38291     → display: #BKRS2605H38291
 | `38291` | `customAlphabet('0123456789', 5)` from nanoid | Range: 10000–99999 |
 | `-M` | suffix | Only when `is_membership_session = true` |
 
-**Invoice Number:**
+**Invoice Number (consecutive, multi-branch R6.2):**
 ```
-Format:  INV-{branch_number}-{financial_year}-{5_random}
-Example: INV-1-2627-92921       → display: #INV1262792921
+Format:  {branch.invoice_prefix}/{financial_year}/{sequence}
+Example: RS/2627/000123
 ```
 | Part | Source | Notes |
 |------|--------|-------|
-| `INV` | fixed prefix | |
-| `1` | `branch.number` | Single digit (Rayasandra = 1) |
-| `2627` | financial year | April 2026 → March 2027 = `2627` |
-| `92921` | 5-digit random | Range: 10000–99999 |
+| `RS` | `branch.invoice_prefix` | 1–4 characters; fixed once the branch has issued |
+| `2627` | financial year of the tax point (IST) | April 2026 → March 2027 = `2627` |
+| `000123` | `invoice_sequence.last_number` | Next number for the branch and year, at least 6 digits; allocated in the issuing transaction |
+
+Invoices issued before 0017 keep `INV-{branch_number}-{financial_year}-{5_random}` (e.g. `INV-1-2627-92921`). The PDF's storage key replaces `/` with `-` (`invoiceFileStem`), so older keys are unchanged.
 
 **Membership Number:**
 ```
@@ -1846,7 +2206,7 @@ Example: RG-MEM-26-1-90872        → display: #RGMEM26190872
 | `1` | `branch.number` | Single digit (Rayasandra = 1) — tracks originating branch |
 | `90872` | 5-digit random | Range: 10000–99999 |
 
-**Branch-locked:** Membership sessions can only be recorded at the branch where the membership was purchased. Session recording validates that `booking.branch_id` matches the membership's originating branch — rejects if mismatch.
+**Shared hours:** A membership's hours are usable at every branch (multi-branch R9). A session is a booking at the branch that performs it; the membership number keeps the selling branch's number, and `spa_membership.selling_branch_id` records the seller.
 
 **Display format rules:**
 - All dashes stripped + prefixed with `#` for customer-facing display
@@ -1918,20 +2278,25 @@ CREATE UNIQUE INDEX idx_daily_sales_branch_date ON daily_sales_summary (date, br
 
 #### `monthly_gst_summary`
 
-Monthly aggregate for GST filing support. Populated by QStash monthly-gst-summary job on the 1st of each month for the previous month.
+Monthly aggregate for GST filing support, one row per month, branch, issuer GSTIN and SAC code (multi-branch R6.5). The QStash `monthly-gst-summary` job (01:00 IST on the 2nd) rebuilds the previous IST month in one transaction: it deletes the month's rows and sums the stored lines of the paid `service` and `membership_purchase` invoices whose tax point falls in the month, so a re-run gives the same rows and an invoice that is no longer paid drops out. Amounts come from what the invoices stored, never from current rates. An invoice issued before the snapshots existed (no tax point) counts under SAC `999721` with its header amounts and creation day, CGST half its GST rounded down.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| `id` | `text` | PK | |
-| `month` | `date` | NOT NULL, UNIQUE | First day of the month being summarized |
-| `taxable_value_paise` | `integer` | NOT NULL, DEFAULT 0 | GST-exclusive taxable value from paid `service` and `membership_purchase` invoices |
-| `gst_amount_paise` | `integer` | NOT NULL, DEFAULT 0 | GST collected for the month |
-| `invoice_count` | `integer` | NOT NULL, DEFAULT 0 | Count of invoices included |
-| `sac_code` | `text` | NOT NULL, DEFAULT '999721' | Salon/spa SAC code used for GST filing |
-| `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
+| `id` | `text` | PK | `md5(month:branch:gstin:sac)`, stable across rebuilds |
+| `month` | `text` | NOT NULL | `'YYYY-MM'` on the IST calendar |
+| `branch_id` | `text` | nullable, FK → `branch.id` ON DELETE CASCADE | The issuing branch; null on rows written before 0017 |
+| `issuer_gstin` | `text` | nullable | The GSTIN the invoices were issued under; null for a branch without one (test invoices) |
+| `sac_code` | `text` | NOT NULL, DEFAULT '999721' | The lines' SAC code |
+| `taxable_value_paise` | `integer` | NOT NULL, DEFAULT 0 | Sum of the lines' taxable values |
+| `gst_amount_paise` | `integer` | NOT NULL, DEFAULT 0 | Sum of the lines' tax |
+| `cgst_paise` | `integer` | NOT NULL, DEFAULT 0 | Sum of the lines' CGST |
+| `sgst_paise` | `integer` | NOT NULL, DEFAULT 0 | Sum of the lines' SGST |
+| `invoice_count` | `integer` | NOT NULL, DEFAULT 0 | Invoices with a line under the code; an invoice with lines under two codes counts in both rows |
+| `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | When the row was last rebuilt |
 
 ```sql
-CREATE UNIQUE INDEX idx_monthly_gst_month ON monthly_gst_summary (month);
+ALTER TABLE monthly_gst_summary ADD CONSTRAINT monthly_gst_summary_month_branch_issuer_sac_unique
+  UNIQUE NULLS NOT DISTINCT (month, branch_id, issuer_gstin, sac_code);
 ```
 
 #### `audit_log`
@@ -1959,7 +2324,7 @@ Key-value configuration editable from Owner View → System Settings.
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | `text` | PK | |
-| `key` | `text` | NOT NULL, UNIQUE | `'salon_name'`, `'gst_number'`, `'address'`, `'phone'` |
+| `key` | `text` | NOT NULL, UNIQUE | `'salon_name'`, `'invoicing'`, `'address'`, `'phone'`. GST is not a setting: a branch's GSTIN is on `branch` and its rates are `branch_tax_version` rows (R6.4). Business hours and booking rules are each branch's own `branch_setting` revisions (R6.3); `0020` moved the shared `business_hours` and `booking_rules` rows there |
 | `value` | `jsonb` | NOT NULL | Flexible value storage |
 | `description` | `text` | nullable | Human-readable description |
 | `updated_by` | `text` | nullable, FK → `user.id` ON DELETE SET NULL | Last person to update |
@@ -1976,15 +2341,10 @@ Key-value configuration editable from Owner View → System Settings.
 | `salon_lng` | `"77.66475897572211"` | GPS longitude (Google Maps) |
 | `salon_plus_code` | `"VMF7+MW"` | Google Plus Code |
 | `gmb_website_pending` | `"royalglowsalonspa.netlify.app"` | Current GMB website — update website to `https://theroyalglow.in` and booking/action link to `https://theroyalglow.in/?book=1&utm_source=gmb` on launch |
-| `gst_number` | `"XXAAACR1234X1ZX"` | GSTIN for invoices |
-| `sac_code` | `"999721"` | SAC code for salon services (GST) |
-| `gst_rate` | `0.18` | 18% GST. Customer-facing prices are inclusive; invoices back-calculate: base = price ÷ 1.18 |
+| `invoicing` | `{"live": false}` | Live invoicing, set by the Developer in Settings. Off: invoices may use provisional rates and say they are test invoices (TX-10). On: a branch needs its legal name, GSTIN and reviewed rates to issue (TX-08) |
 | `gems_earn_rate` | `0.01` | 1% — gems per rupee spent |
 | `gems_value_paise` | `100` | 1 gem = ₹1.00 = 100 paise |
 | `gems_expiry_days` | `365` | Days after earning before gems expire. Set as `expires_at = created_at + INTERVAL '365 days'` on every `earned` loyalty_transaction insert. 1 year validity. |
-| `cancellation_window_hours` | `4` | Hours before appointment within which a cancellation is tagged as "late" in CRM. Staff phones customer. No fee ever. |
-| `reschedule_window_hours` | `1` | Customer must reschedule at least this many hours before the appointment |
-| `reschedule_limit_per_booking` | `2` | Max reschedules per booking. 3rd attempt blocked — must cancel and re-book fresh. |
 | `noshow_approval_threshold` | `4` | 4th no-show triggers `booking_requires_approval = true` and "No-Show Risk" CRM tag |
 | `noshow_flag_threshold` | `5` | 5th no-show adds ⚠️ warning note visible to receptionist on all future bookings |
 | `noshow_recovery_bookings` | `3` | Consecutive completed bookings needed to clear restrictions and remove "No-Show Risk" tag |
@@ -2239,14 +2599,14 @@ Gems earned: floor(total_amount_in_rupees × 0.01)
 Invoice PDF generated → emailed to customer (Resend)
 ```
 
-**Invoice PDF sections (Salon):**
-- Header: Royal Glow logo, invoice number (#INV1262XXXXXXX), date
+**Invoice PDF sections (Salon, template v2):**
+- Header: the issuer as issued (name, legal name, GSTIN, address), invoice number (RS/2627/000123), date of the tax point
 - Customer name + phone
-- Line items: service name, staff name, price each
-- Taxable value (base price ex-GST, back-calculated)
-- GST 18% (SAC 999721)
+- Line items: service name, staff name, price each, with each line's SAC code and GST rate
 - Discount (if any)
+- Taxable value, CGST and SGST (each half the rate) as stored on the invoice
 - **Total (GST-inclusive)**
+- A "test invoice" mark while the rates used are provisional (TX-10)
 - Payment method: Cash
 - Gems earned this visit
 - Footer: thank you note, theroyalglow.in
@@ -2309,14 +2669,12 @@ Invoice PDF emailed to customer — membership welcome invoice
 ```
 
 **Invoice PDF sections (Membership Purchase):**
-- Header: Royal Glow logo, invoice number, date
+- Header: the selling branch as issued, invoice number, date
 - Customer name + phone
-- **Membership: Silver / Gold / Platinum**
+- One line: "SPA membership: N hours, valid until DD/MM/YYYY" (customers never see the tier, R9.1)
 - Membership ID: #RGMEM26XXXXX
-- Hours included: X hours
-- Valid from: DD/MM/YYYY — Valid until: DD/MM/YYYY
 - Amount paid: ₹X,XXX.00 (GST-inclusive)
-- GST 18% (SAC 999721) back-calculated
+- The tier's SAC code (999723 by default) at the selling branch's rate in force, with the stored CGST and SGST (TX-11)
 - Payment method: Cash
 - Footer: welcome message, /membership page link
 
@@ -2479,6 +2837,7 @@ packages/db/schema/
 ├── notification.ts      → push_subscription, notification
 ├── system.ts            → daily_sales_summary, monthly_gst_summary, audit_log, system_setting
 ├── branch.ts            → branch
+├── tax.ts               → branch_tax_version, invoice_sequence
 └── enums.ts             → all PostgreSQL enum type definitions
 ```
 
@@ -2493,7 +2852,7 @@ packages/db/schema/
 | Services | 3 | service_category, service, staff_service |
 | Scheduling | 4 | staff_schedule, staff_time_off, business_hour, holiday |
 | Bookings | 5 | booking, booking_service, booking_status_log, booking_reassignment, waitlist |
-| Billing | 2 | invoice, invoice_item |
+| Billing | 4 | invoice, invoice_item, branch_tax_version, invoice_sequence |
 | CRM & Leads | 5 | lead, lead_note, customer_tag, customer_tag_assignment, customer_note |
 | Loyalty | 2 | loyalty_account, loyalty_transaction |
 | SPA Memberships | 2 | spa_membership_tier, spa_membership |
@@ -2501,7 +2860,7 @@ packages/db/schema/
 | Notifications | 2 | push_subscription, notification |
 | Branches | 1 | branch |
 | System | 5 | daily_sales_summary, monthly_gst_summary, audit_log, system_setting, realtime_revocation |
-| **Total** | **40** | |
+| **Total** | **42** | |
 
 
 

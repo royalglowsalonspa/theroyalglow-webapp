@@ -56,6 +56,12 @@ export type OpenReassignment = {
   customerName: string
   reason: ReassignmentReason
   previousStaffName: string | null
+  /**
+   * Held up, not taken off: an overrun flag on a booking that still names
+   * the person it waits for (slice 2b). Reception waits or assigns someone
+   * else; otherwise the booking has nobody assigned.
+   */
+  heldUp: boolean
   since: Date
 }
 
@@ -63,8 +69,14 @@ export type OpenReassignment = {
 export type ReassignmentSummary = {
   reason: ReassignmentReason
   previousStaffName: string | null
+  heldUp: boolean
   since: Date
 }
+
+// The open entry is an overrun flag whose booking still names the person it
+// waits for (the backfill's overrun entries cleared the assignee instead).
+const HELD_UP = sql<boolean>`coalesce(${bookingReassignment.reason} = 'overrun'
+  and booking_sole_assignee(${bookingReassignment.bookingId}) = ${bookingReassignment.previousStaffId}, false)`
 
 // The booking `b` hasn't started and is due now or later, in IST.
 const STILL_TO_COME = sql`b.status in ('pending', 'confirmed')
@@ -89,7 +101,7 @@ function oneOf(column: SQL, values: readonly string[]): SQL {
 
 // Lists the released confirmed bookings and returns their ids. `released`
 // must return booking_id, staff_id and the booking's status.
-function recordReleased(released: SQL, reason: ReassignmentReason, actorId: string): SQL {
+function recordReleased(released: SQL, reason: ReassignmentReason, actorId: string | null): SQL {
   return sql`with released as (${released}),
     flagged as (
       insert into booking_reassignment (booking_id, reason, previous_staff_id, created_by_id)
@@ -155,6 +167,90 @@ export function releaseAssignmentsOnLeaveStatement(params: { leaveId: string; ac
   )
 }
 
+/**
+ * Clear the future assignments of the staff profile `staffId` that its weekly
+ * schedule, as it stands after the writes before this statement in the same
+ * transaction, no longer covers: a day off, a day at another branch, or time
+ * outside the day's hours (0032), at every branch (MS-09). Confirmed bookings
+ * are listed for reassignment; pending ones only lose their tentative
+ * assignee; a booking under way keeps its person.
+ */
+export function releaseAssignmentsOffScheduleStatement(params: {
+  staffId: string
+  actorId: string | null
+}) {
+  return db.execute(
+    recordReleased(
+      sql`update booking_service bs
+        set staff_id = null
+        from booking b
+        where bs.booking_id = b.id
+          and bs.staff_id = ${params.staffId}::text
+          and ${STILL_TO_COME}
+          and staff_off_schedule(bs.staff_id, b.branch_id, b.booking_date, b.start_time, b.end_time)
+        returning bs.booking_id, ${params.staffId}::text as staff_id, b.status`,
+      'off_schedule',
+      params.actorId,
+    ),
+  )
+}
+
+/**
+ * Before booking `bookingId` moves to `date` from `startTime` to `endTime`,
+ * take its person off it when they can't take the new time, so the move goes
+ * ahead and reception assigns someone (MS-09): on approved leave that day
+ * ('unavailable'), not scheduled then ('off_schedule'), or booked then
+ * ('overrun': busy with another customer at that time). Only a confirmed
+ * booking holds its person; a pending one keeps its tentative assignee for
+ * approval to replace. Lists the booking for reassignment, by `actorId`.
+ */
+export function releaseAssigneeForMoveStatement(params: {
+  bookingId: string
+  date: string
+  startTime: string
+  endTime: string
+  actorId: string
+}) {
+  const date = sql`${params.date}::date`
+  const start = sql`${params.startTime}::time`
+  const end = sql`${params.endTime}::time`
+  return db.execute(sql`
+    with lines as (
+      select bs.id as line_id, bs.booking_id, bs.staff_id,
+             case
+               when exists (select 1 from staff_time_off t
+                             where t.staff_id = bs.staff_id and t.approval_status = 'approved'
+                               and t.date = to_char(${date}, 'YYYY-MM-DD')) then 'unavailable'
+               when staff_off_schedule(bs.staff_id, b.branch_id, ${date}, ${start}, ${end})
+                 then 'off_schedule'
+               when exists (select 1 from staff_occupancy o
+                             where o.staff_id = bs.staff_id and o.booking_id <> b.id
+                               and o.during && booking_planned_during(${date}, ${start}, ${end})
+                               and (o.kind = 'spa' or b.service_type = 'spa')) then 'overrun'
+             end as reason
+        from booking_service bs
+        join booking b on b.id = bs.booking_id
+       where b.id = ${params.bookingId}::text
+         and b.status = 'confirmed'
+         and bs.staff_id is not null
+    ),
+    gone as (
+      update booking_service bs
+         set staff_id = null
+        from lines l
+       where bs.id = l.line_id
+         and l.reason is not null
+      returning l.booking_id, l.staff_id, l.reason
+    )
+    insert into booking_reassignment (booking_id, reason, previous_staff_id, created_by_id)
+    select distinct on (booking_id) booking_id, reason::booking_reassignment_reason, staff_id,
+           ${params.actorId}::text
+      from gone
+     order by booking_id, staff_id
+    on conflict (booking_id) where resolved_at is null do nothing
+    returning booking_id`)
+}
+
 /** The confirmed booking ids a release statement listed, from its batch result. */
 export function releasedBookingIds(result: unknown): string[] {
   const rows = (result as { rows?: { booking_id?: unknown }[] } | null)?.rows ?? []
@@ -181,8 +277,24 @@ export function resolveReassignmentStatement(bookingId: string, branchId: string
     )
 }
 
-/** Why the database refused an assignee (migration 0014), or null for another error. */
-export type AssigneeRefusal = 'not_at_branch' | 'on_leave'
+/**
+ * Why the database refused an assignee, or null for another error:
+ * - not_at_branch, on_leave: trigger booking_assignee_guard (0014);
+ * - off_schedule: their weekly schedule rules the time out (0032);
+ * - booked: the person has another booking then (staff_occupancy, 0028);
+ * - working: the person is still with another customer (staff_work, 0028);
+ * - one_assignee: a confirmed booking's lines name different people (0028).
+ */
+export type AssigneeRefusal =
+  | 'not_at_branch'
+  | 'on_leave'
+  | 'off_schedule'
+  | 'booked'
+  | 'working'
+  | 'one_assignee'
+
+const BOOKED_CONSTRAINTS = ['staff_occupancy_spa_overlap', 'staff_occupancy_mixed_overlap']
+const WORKING_CONSTRAINTS = ['staff_work_spa_overlap', 'staff_work_mixed_overlap']
 
 export function assigneeRefusal(error: unknown): AssigneeRefusal | null {
   if (isConstraintViolation(error, SQLSTATE.checkViolation, ['booking_assignee_works_at_branch'])) {
@@ -191,7 +303,37 @@ export function assigneeRefusal(error: unknown): AssigneeRefusal | null {
   if (isConstraintViolation(error, SQLSTATE.checkViolation, ['booking_assignee_on_leave'])) {
     return 'on_leave'
   }
+  if (isConstraintViolation(error, SQLSTATE.checkViolation, ['booking_assignee_off_schedule'])) {
+    return 'off_schedule'
+  }
+  if (isConstraintViolation(error, SQLSTATE.exclusionViolation, BOOKED_CONSTRAINTS)) {
+    return 'booked'
+  }
+  if (isConstraintViolation(error, SQLSTATE.exclusionViolation, WORKING_CONSTRAINTS)) {
+    return 'working'
+  }
+  if (isConstraintViolation(error, SQLSTATE.checkViolation, ['booking_one_assignee'])) {
+    return 'one_assignee'
+  }
   return null
+}
+
+/** What reception reads when the database refuses an assignee. */
+export function assigneeRefusalMessage(refusal: AssigneeRefusal): string {
+  switch (refusal) {
+    case 'on_leave':
+      return 'That staff member is on approved leave that day. Choose someone else.'
+    case 'not_at_branch':
+      return 'That staff member no longer works at this branch. Choose someone else.'
+    case 'off_schedule':
+      return 'That staff member isn’t scheduled to work then. Choose someone else.'
+    case 'booked':
+      return 'That staff member has another booking at that time. Choose someone else.'
+    case 'working':
+      return 'That staff member is still with another customer. Choose someone else.'
+    case 'one_assignee':
+      return 'One person does the whole booking. Choose one person for all of it.'
+  }
 }
 
 const customer = alias(user, 'reassignment_customer')
@@ -210,6 +352,7 @@ export async function getOpenReassignments(branchId: string): Promise<OpenReassi
       customerName: customer.name,
       reason: bookingReassignment.reason,
       previousStaffName: previousUser.name,
+      heldUp: HELD_UP,
       since: bookingReassignment.createdAt,
     })
     .from(bookingReassignment)
@@ -233,6 +376,7 @@ export async function getOpenReassignmentsFor(
       bookingId: bookingReassignment.bookingId,
       reason: bookingReassignment.reason,
       previousStaffName: previousUser.name,
+      heldUp: HELD_UP,
       since: bookingReassignment.createdAt,
     })
     .from(bookingReassignment)
@@ -247,7 +391,12 @@ export async function getOpenReassignmentsFor(
   return new Map(
     rows.map((row) => [
       row.bookingId,
-      { reason: row.reason, previousStaffName: row.previousStaffName, since: row.since },
+      {
+        reason: row.reason,
+        previousStaffName: row.previousStaffName,
+        heldUp: row.heldUp,
+        since: row.since,
+      },
     ]),
   )
 }

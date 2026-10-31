@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 15-06-2026 & Updated - 15-06-2026
+ * Date         : Created - 15-06-2026 & Updated - 31-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : sync-service-category (hooks)
@@ -8,21 +8,25 @@
  *
  * Description  : Payload `afterChange` hook that mirrors every
  *                `cms.service_category` write to `public.service_category`,
- *                the table the booking engine reads. The write is issued on
- *                Payload's own request-scoped transaction handle, so the cms
- *                row and the public row commit or roll back TOGETHER.
+ *                the table the booking engine reads, and its branch
+ *                availability (`public.service_category_branch`). The writes
+ *                are issued on Payload's own request-scoped transaction
+ *                handle, so the cms row and the public rows commit or roll
+ *                back TOGETHER.
  *
  * Responsibilities :
  * - Short-circuit when the SERVICE_SYNC_ENABLED flag is off (no write, no throw)
  * - Resolve Payload's transaction-bound Drizzle handle via txDb(req)
- * - UPSERT public.service_category on `create`, UPDATE by id on `update`
+ * - UPSERT public.service_category on create AND update, so a missing mirror
+ *   row is recreated by the next save (multi-branch R4.7)
+ * - Replace the category's `service_category_branch` rows
  * - Emit structured success / failure logs (operation, documentId, durationMs)
  * - Re-throw on failure so Payload rolls the WHOLE transaction back
  *
  * Features / Functionality :
  * - syncServiceCategoryToPublic → CollectionAfterChangeHook
- * - Idempotent create path (onConflictDoUpdate) — safe on re-seed and retry
- * - `id` / `createdAt` excluded from the conflict set clause (Property 10)
+ * - Idempotent (onConflictDoUpdate) — safe on re-seed and retry
+ * - `id` / `createdAt` excluded from the create conflict set (Property 10)
  *
  * Tech Stack   : Payload CMS v3, Drizzle ORM, PostgreSQL (Neon)
  * Layer        : CMS (Hooks — sync)
@@ -38,8 +42,8 @@
 
 import { eq } from 'drizzle-orm'
 import type { CollectionAfterChangeHook } from 'payload'
-import { isSyncEnabled, serviceCategory, txDb } from '../lib/sync-db'
-import { mapPayloadToPublicCategory } from './mappers'
+import { isSyncEnabled, serviceCategory, serviceCategoryBranch, txDb } from '../lib/sync-db'
+import { availabilityOf, mapPayloadToPublicCategory } from './mappers'
 
 export const syncServiceCategoryToPublic: CollectionAfterChangeHook = async ({
   doc,
@@ -74,31 +78,35 @@ export const syncServiceCategoryToPublic: CollectionAfterChangeHook = async ({
     // so coerce here rather than silencing the mismatch with a cast.
     const createdAt = new Date(mapped.createdAt)
 
-    if (operation === 'create') {
-      // UPSERT, never a bare insert. The seed script seeds CATEGORIES FIRST:
-      // it reads rows FROM public.service_category and then calls
-      // payload.create() with the SAME id, so categories hit this collision
-      // before services do. A bare .insert() would raise a duplicate-key /
-      // unique-slug violation; onConflictDoUpdate makes re-seeds, hook
-      // retries, and pre-existing rows safe instead of fatal.
+    if (operation === 'create' || operation === 'update') {
+      // UPSERT, never a bare insert or update. The seed script seeds
+      // CATEGORIES FIRST: it reads rows FROM public.service_category and then
+      // calls payload.create() with the SAME id, so a bare .insert() would
+      // raise a duplicate-key / unique-slug violation; a bare .update() of a
+      // missing mirror row would write nothing (R4.7).
       //
-      // `id` and `createdAt` are destructured OUT of the set clause so an
-      // existing row keeps its original creation timestamp while every mutable
-      // field converges on the Payload document.
+      // On create, `id` and `createdAt` stay OUT of the set clause so an
+      // existing row keeps its original creation timestamp; an update carries
+      // Payload's createdAt, as it always has.
       const { id: _id, createdAt: _createdAt, ...updatableFields } = mapped
+      const set =
+        operation === 'update'
+          ? { ...updatableFields, createdAt, updatedAt: new Date() }
+          : { ...updatableFields, updatedAt: new Date() }
 
       await db
         .insert(serviceCategory)
         .values({ ...mapped, createdAt })
-        .onConflictDoUpdate({
-          target: serviceCategory.id,
-          set: { ...updatableFields, updatedAt: new Date() },
-        })
-    } else if (operation === 'update') {
-      await db
-        .update(serviceCategory)
-        .set({ ...mapped, createdAt, updatedAt: new Date() })
-        .where(eq(serviceCategory.id, doc.id))
+        .onConflictDoUpdate({ target: serviceCategory.id, set })
+
+      // Branch availability, replaced wholesale (empty for all branches).
+      const { allBranches, branchIds } = availabilityOf(doc)
+      await db.delete(serviceCategoryBranch).where(eq(serviceCategoryBranch.categoryId, doc.id))
+      if (!allBranches && branchIds.length > 0) {
+        await db
+          .insert(serviceCategoryBranch)
+          .values(branchIds.map((branchId) => ({ categoryId: doc.id, branchId })))
+      }
     }
     // No delete branch — delete is disabled at the access-control layer
     // (`delete: () => false`); categories are retired via the isActive toggle.

@@ -9,8 +9,8 @@
  *                    time and the purchase invoice go in `sale`, which is null
  *                    unless the person can access the selling branch;
  *                  - a session performed at another branch shows its date,
- *                    branch, services and duration, not its booking number or
- *                    staff.
+ *                    branch, services, duration and status, not its booking
+ *                    number or staff.
  *
  * Notes        : Pure. The decisions come from @rgss/business.
  ************************************************************/
@@ -82,6 +82,8 @@ export type MembershipSessionView =
       startTime: string
       endTime: string
       totalDurationMinutes: number
+      /** Whether its minutes are held (booked, in progress) or used (completed). */
+      status: string
       services: { serviceNameSnapshot: string; durationMinutes: number }[]
     }
 
@@ -93,13 +95,13 @@ export function sessionForBranch(session: SessionRow, branchId: string): Members
     startTime: session.startTime,
     endTime: session.endTime,
     totalDurationMinutes: session.totalDurationMinutes,
+    status: session.status,
   }
   if (session.branchId === branchId) {
     return {
       scope: 'this_branch',
       id: session.id,
       bookingNumber: session.bookingNumber,
-      status: session.status,
       services: session.services.map((s) => ({
         serviceNameSnapshot: s.serviceNameSnapshot,
         durationMinutes: s.durationMinutes,

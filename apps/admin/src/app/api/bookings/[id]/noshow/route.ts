@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 31-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : POST /api/bookings/[id]/noshow
@@ -11,18 +11,20 @@
  *
  * Responsibilities :
  * - Validate booking exists and is in confirmed state
- * - Transition booking status to no_show
+ * - Transition booking status to no_show, with a status-log entry
+ * - Give back any gems the booking was made with (multi-branch ST-03)
  * - Return updated booking data
  *
  * Features / Functionality :
- * - Status guard (only confirmed → no_show)
- * - Conflict error for invalid status transitions
+ * - Status guard (only confirmed → no_show), re-checked in the write: a
+ *   double submit or a concurrent change is a 409, never a second move
  * - No-show tier escalation handled by background job
  *
  * Tech Stack   : Next.js 16 (Route Handler)
  * Layer        : API (Thin Orchestrator)
  *
- * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/db/queries, @rgss/errors
+ * Dependencies : @/lib/api/error-handler, @/lib/api/branch-context,
+ *                @rgss/db/queries, @rgss/errors, @rgss/types
  *
  * Notes        :
  * - Requires min role at the active branch: receptionist. The body names the
@@ -30,7 +32,7 @@
  * - No-show count escalation is handled by the noshow-check background job.
  ************************************************************/
 
-import { getBookingForAdmin, updateBookingStatus } from '@rgss/db/queries'
+import { getBookingForAdmin, markBookingNoShow } from '@rgss/db/queries'
 import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
 import { bookingNoShowSchema } from '@rgss/types'
 import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
@@ -64,7 +66,10 @@ export const POST = withErrorHandler(
       )
     }
 
-    const updated = await updateBookingStatus(id, branchId, 'no_show')
+    const updated = await markBookingNoShow(id, branchId, ctx.session.user.id)
+    if (!updated) {
+      throw notFound('Booking not found.')
+    }
 
     return apiSuccess({ booking: updated })
   },

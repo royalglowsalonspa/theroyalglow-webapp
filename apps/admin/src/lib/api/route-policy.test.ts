@@ -107,6 +107,9 @@ function guardProblem(policies: RoutePolicy[], source: string): string | null {
   if (policies.includes('job') && !has('verifyQStashSignature(')) {
     return 'a job must verify its QStash signature'
   }
+  if (policies.includes('settlement') && !has('requireSettlementViewer(')) {
+    return 'a settlement handler must check the viewer with requireSettlementViewer'
+  }
   if (policies.includes('retired') && !has('gone(')) {
     return 'a retired handler must answer 410 Gone'
   }
@@ -181,5 +184,12 @@ describe('guardProblem', () => {
   it('refuses an unsigned job and a retired route that still works', () => {
     expect(guardProblem(['job'], 'export const POST = handler')).toMatch(/QStash/)
     expect(guardProblem(['retired'], 'return apiSuccess({})')).toMatch(/410/)
+  })
+
+  it('refuses a settlement route that trusts the active branch instead of the viewer', () => {
+    expect(guardProblem(['settlement'], "requireBranchRole('owner')")).toMatch(
+      /requireSettlementViewer/,
+    )
+    expect(guardProblem(['settlement'], 'await requireSettlementViewer()')).toBeNull()
   })
 })
