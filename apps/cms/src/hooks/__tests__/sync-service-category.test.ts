@@ -143,31 +143,60 @@ describe('syncServiceCategoryToPublic: create', () => {
 })
 
 describe('syncServiceCategoryToPublic: update', () => {
-  it('updates public.service_category WHERE id = the document id', async () => {
+  it('upserts public.service_category keyed on the document id', async () => {
+    fake.rows.set(CATEGORY_ID, { id: CATEGORY_ID, isActive: true })
     await runHook(categoryDoc({ isActive: false }), 'update')
 
-    expect(fake.update).toHaveBeenCalledWith(serviceCategory)
-    expect(fake.insert).not.toHaveBeenCalled()
-
-    const compiled = dialect.sqlToQuery(fake.where.mock.calls[0]?.[0] as SQL)
-    expect(compiled.sql).toBe('"service_category"."id" = $1')
-    expect(compiled.params).toEqual([CATEGORY_ID])
-
-    const patch = fake.set.mock.calls[0]?.[0] as FakeRow
-    expect(patch.isActive).toBe(false)
+    expect(fake.insert).toHaveBeenCalledWith(serviceCategory)
+    expect(fake.update).not.toHaveBeenCalled()
+    const config = fake.onConflictDoUpdate.mock.calls[0]?.[0] as { target: unknown; set: FakeRow }
+    expect(config.target).toBe(serviceCategory.id)
+    expect(config.set).not.toHaveProperty('id')
+    expect(config.set.isActive).toBe(false)
+    expect(fake.rows.get(CATEGORY_ID)?.isActive).toBe(false)
   })
 
-  it('preserves createdAt and stamps updatedAt at sync time', async () => {
+  it('recreates a missing mirror row instead of writing nothing (R4.7)', async () => {
+    await runHook(categoryDoc({ name: 'Hair' }), 'update')
+
+    expect(fake.rows.get(CATEGORY_ID)).toMatchObject({ id: CATEGORY_ID, name: 'Hair' })
+  })
+
+  it('carries createdAt and stamps updatedAt at sync time', async () => {
     const before = Date.now()
     await runHook(categoryDoc(), 'update')
     const after = Date.now()
 
-    const patch = fake.set.mock.calls[0]?.[0] as FakeRow
-    expect((patch.createdAt as Date).toISOString()).toBe(CREATED_AT_ISO)
+    const config = fake.onConflictDoUpdate.mock.calls[0]?.[0] as { set: FakeRow }
+    expect((config.set.createdAt as Date).toISOString()).toBe(CREATED_AT_ISO)
 
-    const updatedAt = patch.updatedAt as Date
+    const updatedAt = config.set.updatedAt as Date
     expect(updatedAt.getTime()).toBeGreaterThanOrEqual(before)
     expect(updatedAt.getTime()).toBeLessThanOrEqual(after)
+  })
+})
+
+describe('syncServiceCategoryToPublic: tax code and branch availability', () => {
+  it('writes the SAC code and all_branches with the row', async () => {
+    await runHook(categoryDoc({ sacCode: '999723' }), 'create')
+
+    expect(fake.values.mock.calls[0]?.[0]).toMatchObject({ sacCode: '999723', allBranches: true })
+    expect(fake.joinRowsOf('service_category_branch')).toEqual([])
+  })
+
+  it('lists the selected branches in service_category_branch, keyed on this category', async () => {
+    await runHook(
+      categoryDoc({ availability: 'selected', availableBranches: ['branch_rs', 'branch_rs'] }),
+      'update',
+    )
+
+    expect(fake.writtenRow().allBranches).toBe(false)
+    expect(fake.joinRowsOf('service_category_branch')).toEqual([
+      { categoryId: CATEGORY_ID, branchId: 'branch_rs' },
+    ])
+    const compiled = dialect.sqlToQuery(fake.deleteWhere.mock.calls[0]?.[0] as SQL)
+    expect(compiled.sql).toBe('"service_category_branch"."category_id" = $1')
+    expect(compiled.params).toEqual([CATEGORY_ID])
   })
 })
 

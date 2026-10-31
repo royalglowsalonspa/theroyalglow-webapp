@@ -45,6 +45,47 @@ export function resolveDefaultBranch<T extends Pick<BranchSummary, 'status' | 'i
 }
 
 /**
+ * The branch an ad link's `branch` parameter names, by id or by branch code,
+ * ignoring case (`?branch=MH`), or null for a missing or unknown value.
+ */
+export function matchBranchParam<T extends { id: string; code: string }>(
+  branches: readonly T[],
+  value: string | undefined,
+): T | null {
+  const wanted = value?.trim().toLowerCase()
+  if (!wanted) {
+    return null
+  }
+  return (
+    branches.find((b) => b.id.toLowerCase() === wanted || b.code.toLowerCase() === wanted) ?? null
+  )
+}
+
+/**
+ * The branch a lead captured on the public site belongs to (multi-branch
+ * R7.3): the branch the ad link named, when it exists and isn't shut down
+ * (an ad may promote a branch that opens soon), otherwise the default booking
+ * branch, otherwise the primary branch. A lead is someone to call back, so it
+ * always lands in a branch's pipeline; null only when there are no branches.
+ */
+export function resolveLeadBranch<T extends Pick<BranchSummary, 'id' | 'status' | 'isPrimary'>>(
+  branches: readonly T[],
+  requestedId: string | undefined,
+): T | null {
+  const requested =
+    requestedId === undefined
+      ? undefined
+      : branches.find((b) => b.id === requestedId && b.status !== 'shutdown')
+  return (
+    requested ??
+    resolveDefaultBranch(branches) ??
+    branches.find((b) => b.isPrimary && b.status !== 'shutdown') ??
+    branches.find((b) => b.status !== 'shutdown') ??
+    null
+  )
+}
+
+/**
  * The branch list the booking dialog shows, in the given order. `isPrimary` is
  * an internal flag and is not exposed; `defaultBranchId` carries its effect.
  */

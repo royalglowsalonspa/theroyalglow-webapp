@@ -88,17 +88,26 @@ export const notificationTypeEnum = pgEnum('notification_type', [
   'no_show_check',
   'gems_expiry_7d',
   'gems_expired',
+  // To a branch's Owner: an operational branch has no Manager (multi-branch R1.9).
+  'branch_manager_missing',
+  // To a branch's front desk: the person assigned to a booking is still with
+  // another customer, so it can't start (membership-scheduling.md, MS-08).
+  'staff_overrun',
 ])
 
 export const notificationChannelEnum = pgEnum('notification_channel', ['push', 'email'])
 
 export const notificationStatusEnum = pgEnum('notification_status', ['pending', 'sent', 'failed'])
 
+// A gems movement. 'returned' gives back the gems of a free service that
+// didn't happen (rejected, cancelled or missed), to the batches they came from
+// (settlement.md).
 export const loyaltyTxTypeEnum = pgEnum('loyalty_tx_type', [
   'earned',
   'redeemed',
   'expired',
   'adjusted',
+  'returned',
 ])
 
 export const staffDesignationEnum = pgEnum('staff_designation', [
@@ -146,4 +155,61 @@ export const branchStatusEnum = pgEnum('branch_status', [
   'temporarily_closed',
   'opens_soon',
   'shutdown',
+])
+
+// Who can read a customer note: every Royal Glow branch, or only the branch that
+// wrote it (multi-branch R3.1). Existing notes default to 'branch'.
+export const noteVisibilityEnum = pgEnum('note_visibility', ['shared', 'branch'])
+
+// How a realtime token revocation ended (multi-branch R2.6): Ably confirmed it,
+// every token issued before the change had already expired, or realtime is
+// not configured so no token was ever issued.
+export const realtimeRevocationOutcomeEnum = pgEnum('realtime_revocation_outcome', [
+  'revoked',
+  'expired',
+  'not_configured',
+])
+// Why a booking lost its assignee and needs someone else (multi-branch R1.7,
+// R5.6–R5.8): they no longer work at its branch (removed or moved), they are
+// unavailable that day (approved leave), their previous session overran, or
+// their weekly schedule no longer covers it (0031, MS-09).
+export const bookingReassignmentReasonEnum = pgEnum('booking_reassignment_reason', [
+  'left_branch',
+  'unavailable',
+  'overrun',
+  'off_schedule',
+])
+// How reassignment work ended: someone was assigned, the booking ended
+// (cancelled, rejected, missed, rescheduled) without starting, or it started
+// with the person it waited for once their earlier work finished (0030).
+export const bookingReassignmentResolutionEnum = pgEnum('booking_reassignment_resolution', [
+  'reassigned',
+  'booking_ended',
+  'started',
+])
+// Whether a tax rate has passed the launch tax review (multi-branch R6,
+// tax-settings.md TX-10). Invoices record which kind of rate they used.
+export const taxReviewStatusEnum = pgEnum('tax_review_status', ['provisional', 'reviewed'])
+// The part of a branch's booking settings a revision changed (multi-branch
+// R6.3): its weekly business hours or its booking rules.
+export const branchSettingSectionEnum = pgEnum('branch_setting_section', [
+  'business_hours',
+  'booking_rules',
+])
+// A membership session's minutes (membership-scheduling.md): held from
+// confirmation, then consumed at completion or released when the session
+// doesn't happen. Consumed and released are final.
+export const membershipHoldStateEnum = pgEnum('membership_hold_state', [
+  'held',
+  'consumed',
+  'released',
+])
+
+// What a cross-branch settlement entry records (multi-branch R10,
+// settlement.md): a membership session delivered at a branch, gems spent at a
+// branch, or the correction of an earlier entry.
+export const settlementEntryKindEnum = pgEnum('settlement_entry_kind', [
+  'membership_session',
+  'gems_redemption',
+  'reversal',
 ])

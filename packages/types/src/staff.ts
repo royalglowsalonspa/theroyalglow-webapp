@@ -6,19 +6,20 @@
  * Module Name  : staff (types)
  * Scope        : Shared Types & Validation
  *
- * Description  : Zod schemas + types for admin Staff management — editing a
- *                staff member's staff_profile fields and replacing the set of
- *                services they are able to perform (staff_service mapping that
- *                drives booking availability).
+ * Description  : Zod schemas + types for the Staff page at a branch: adding,
+ *                editing and removing Stylists and Therapists, and replacing
+ *                the services a staff member performs (the staff_service
+ *                mapping that drives booking availability).
  *
  * Responsibilities :
- * - Validate the staff_profile create input (link an existing user by email)
- * - Validate the staff_profile partial update (designation, phone, bio,
- *   specialization, active flag, hire date)
+ * - Validate Add staff (a person from the search, Stylist or Therapist)
+ * - Validate the partial profile update (title, phone, bio, specialization,
+ *   hire date)
+ * - Validate Remove staff
  * - Validate the service-capability replacement payload ({ serviceIds })
  *
  * Features / Functionality :
- * - staffCreateSchema — link an existing account (by email) as a staff member
+ * - staffAddSchema / staffRemoveSchema — carry the rendered branch (R2.4)
  * - staffUpdateSchema — every field optional (PATCH semantics)
  * - staffServicesSchema — replaces capabilities wholesale
  * - STAFF_DESIGNATIONS literal union (mirrors the DB enum)
@@ -29,9 +30,8 @@
  * Dependencies : zod
  *
  * Notes        : Only columns that actually exist on staff_profile are editable
- *                here — there is no displayOrder column on staff_profile, so it
- *                is intentionally absent. Staff are deactivated (isActive=false),
- *                never hard-deleted.
+ *                here. Removed staff keep their profile, inactive, so bookings
+ *                and invoices keep their staff; nothing is hard-deleted.
  ************************************************************/
 import { z } from 'zod'
 
@@ -39,37 +39,92 @@ import { z } from 'zod'
 export const STAFF_DESIGNATIONS = ['receptionist', 'stylist', 'therapist', 'manager'] as const
 export type StaffDesignation = (typeof STAFF_DESIGNATIONS)[number]
 
-// Create a staff_profile by linking an existing user account (identified by the
-// email they signed in with). The user must already exist — the API returns a
-// clear 404 ("ask them to sign in first") otherwise. Email is trimmed +
-// lowercased so it matches regardless of how it was typed (Google emails are
-// case-insensitive). Optional text fields accept null to leave them blank.
-export const staffCreateSchema = z.object({
-  email: z.string().trim().toLowerCase().email().max(320),
-  designation: z.enum(STAFF_DESIGNATIONS),
-  phone: z.string().trim().max(20).nullable().optional(),
-  bio: z.string().trim().max(1000).nullable().optional(),
-  specialization: z.string().trim().max(200).nullable().optional(),
-  hireDate: z.coerce.date().nullable().optional(),
-})
-export type StaffCreateInput = z.infer<typeof staffCreateSchema>
+// The titles of the Staff role: the people who perform services. Managers and
+// Receptionists carry the title of their own role (R1.11).
+export const SERVICE_DESIGNATIONS = ['stylist', 'therapist'] as const
+export type ServiceDesignation = (typeof SERVICE_DESIGNATIONS)[number]
 
-// Partial update of an existing staff_profile. Every field is optional so the
-// admin can patch one column at a time; nullable text fields accept null to
-// clear them. `hireDate` is coerced from an ISO string in the request body.
+const recordId = z.string().trim().min(1).max(64)
+
+/** Longest slot the "starting now" availability read checks: a full day. */
+export const AVAILABILITY_MAX_MINUTES = 24 * 60
+
+// Who can take a slot, for the assignment pickers (membership-scheduling.md
+// slice 2b): a booking at the active branch, with its own date, times and
+// kind (`booking`), or `minutes` of a `kind` starting now, for Record now, or
+// at `date` and `start` (IST), for a session booked ahead. Neither gives the
+// plain staff list; a mix is refused.
+export const staffAvailabilityQuerySchema = z
+  .strictObject({
+    booking: recordId.optional(),
+    minutes: z.coerce.number().int().min(1).max(AVAILABILITY_MAX_MINUTES).optional(),
+    kind: z.enum(['salon', 'spa']).optional(),
+    date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    start: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/)
+      .optional(),
+  })
+  .refine(
+    (q) => {
+      const slot = Number(q.minutes !== undefined) + Number(q.kind !== undefined)
+      const at = Number(q.date !== undefined) + Number(q.start !== undefined)
+      if (q.booking !== undefined) {
+        return slot === 0 && at === 0
+      }
+      return (slot === 0 && at === 0) || (slot === 2 && at !== 1)
+    },
+    {
+      message:
+        'Ask about a booking, or about minutes and a kind (from now, or at a date and start), not a mix.',
+    },
+  )
+export type StaffAvailabilityQuery = z.infer<typeof staffAvailabilityQuerySchema>
+
+/** Longest specialization a profile stores (R1.6). */
+export const SPECIALIZATION_MAX_LENGTH = 200
+
+const specialization = z.string().trim().max(SPECIALIZATION_MAX_LENGTH).nullable().optional()
+
+// Add an existing account, found with the people search, as a Stylist or
+// Therapist at the branch the page was rendered for (R1.11). Role, profile,
+// branch and audit entry are written in one transaction; re-adding someone
+// who was removed reactivates their earlier profile.
+export const staffAddSchema = z.object({
+  branchId: recordId,
+  userId: recordId,
+  designation: z.enum(SERVICE_DESIGNATIONS),
+  specialization,
+})
+export type StaffAddInput = z.infer<typeof staffAddSchema>
+
+// Edit a staff member of the branch the page was rendered for. Every field is
+// optional so one column can change at a time; nullable text fields accept
+// null to clear them. Only a Stylist or Therapist changes title, between those
+// two. Removal replaces the old active toggle (R1.5), so there is none here.
 export const staffProfileUpdateSchema = z.object({
-  designation: z.enum(STAFF_DESIGNATIONS).optional(),
+  branchId: recordId,
+  designation: z.enum(SERVICE_DESIGNATIONS).optional(),
   phone: z.string().trim().max(20).nullable().optional(),
   bio: z.string().trim().max(1000).nullable().optional(),
-  specialization: z.string().trim().max(200).nullable().optional(),
-  isActive: z.boolean().optional(),
+  specialization,
   hireDate: z.coerce.date().nullable().optional(),
 })
 export type StaffProfileUpdateInput = z.infer<typeof staffProfileUpdateSchema>
 
+// Remove a Stylist or Therapist from the branch the page was rendered for:
+// they return to Customer and are signed out; history is kept (R1.11).
+export const staffRemoveSchema = z.object({ branchId: recordId })
+export type StaffRemoveInput = z.infer<typeof staffRemoveSchema>
+
 // Replace a staff member's service capabilities wholesale. An empty array
-// clears all capabilities. IDs are de-duplicated server-side.
+// clears all capabilities. IDs are de-duplicated server-side. `branchId` is
+// the branch the page was rendered for (R2.4).
 export const staffServiceAssignmentSchema = z.object({
+  branchId: recordId,
   serviceIds: z.array(z.string().min(1)).max(500),
 })
 export type StaffServiceAssignmentInput = z.infer<typeof staffServiceAssignmentSchema>

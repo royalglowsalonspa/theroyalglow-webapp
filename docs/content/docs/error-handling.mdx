@@ -121,6 +121,11 @@ export const ErrorCode = {
   MEMBERSHIP_EXPIRED: 'MEMBERSHIP_EXPIRED',
   MEMBERSHIP_INSUFFICIENT_HOURS: 'MEMBERSHIP_INSUFFICIENT_HOURS',
   MEMBERSHIP_ALREADY_ACTIVE: 'MEMBERSHIP_ALREADY_ACTIVE',
+  MEMBERSHIP_NOT_STARTED: 'MEMBERSHIP_NOT_STARTED', // sold to start later (409)
+
+  // Staff occupancy (409): the person is still with another customer, or has
+  // another booking at that time. Reception waits or assigns someone else.
+  STAFF_BUSY: 'STAFF_BUSY',
 
   // Gems domain
   GEMS_INSUFFICIENT_BALANCE: 'GEMS_INSUFFICIENT_BALANCE',

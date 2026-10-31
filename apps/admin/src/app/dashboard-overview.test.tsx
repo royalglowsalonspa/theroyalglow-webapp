@@ -81,6 +81,7 @@ function todayIST(): string {
 function sampleBooking(overrides: Partial<AdminBooking> = {}): AdminBooking {
   return {
     id: 'bk_1',
+    branchId: 'branch_rayasandra',
     bookingNumber: 'BK-RS-2606-H-38291',
     status: 'completed',
     serviceType: 'salon',

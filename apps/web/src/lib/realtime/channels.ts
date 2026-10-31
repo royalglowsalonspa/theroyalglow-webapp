@@ -12,8 +12,9 @@
  *                `customer:{userId}:bookings` (the token-authorised channel — the
  *                customer token grants `customer:{userId}:*`), which the server
  *                publishes to from apps/web/src/lib/realtime/publish.ts. The
- *                per-booking `booking:{bookingId}` channel also exists (admin +
- *                assigned staff feed) but a customer token does NOT authorise it.
+ *                per-booking `booking:{branchId}:{bookingId}` channel also exists
+ *                (that branch's staff feed) but a customer token does NOT
+ *                authorise it.
  *
  * Responsibilities :
  * - Build the per-customer bookings channel name (token-authorised for customers)
@@ -22,7 +23,7 @@
  *
  * Features / Functionality :
  * - customerBookingsChannel(userId) — `customer:{userId}:bookings`
- * - bookingChannel(id) — `booking:{bookingId}`
+ * - bookingChannel(branchId, id) — `booking:{branchId}:{bookingId}`
  * - BOOKING_EVENTS — the event verbs publishBookingEvent emits
  *
  * Tech Stack   : TypeScript
@@ -39,19 +40,25 @@
 // authorises (the token grants `customer:{userId}:*`). Customer booking
 // live-status flows here: the server publishes booking lifecycle events to this
 // channel (publish.ts), each carrying `data.bookingId` so a per-booking view can
-// filter to the one booking it is showing. `booking:{bookingId}` (below) is the
-// per-booking channel for admin + assigned staff and is NOT customer-authorised.
+// filter to the one booking it is showing. `booking:{branchId}:{bookingId}`
+// (below) is the per-booking channel for that branch's staff and is NOT
+// customer-authorised.
 export function customerBookingsChannel(userId: string): string {
   return `customer:${userId}:bookings`
 }
 
-// Per-booking channel. The server publishes booking lifecycle events here via
-// publishBookingEvent (publish.ts → `booking:{bookingId}`).
-export function bookingChannel(bookingId: string): string {
-  return `booking:${bookingId}`
+// Per-booking channel, under its branch (multi-branch design §3). The server
+// publishes booking lifecycle events here via publishBookingEvent (publish.ts).
+export function bookingChannel(branchId: string, bookingId: string): string {
+  return `booking:${branchId}:${bookingId}`
 }
 
-// Canonical event names the server emits on `booking:{bookingId}`. Mirrors the
+// The branch's staff bookings feed. Matches the admin portal's channel name.
+export function adminBookingsChannel(branchId: string): string {
+  return `admin:bookings:${branchId}`
+}
+
+// Canonical event names the server emits on the booking channels. Mirrors the
 // BookingEvent union in publish.ts so subscribers stay in lockstep with the
 // publisher. Consumers wire handlers against these verbs.
 export const BOOKING_EVENTS = ['created', 'status_changed', 'completed', 'assigned'] as const

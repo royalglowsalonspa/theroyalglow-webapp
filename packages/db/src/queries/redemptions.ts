@@ -47,10 +47,26 @@ import { nanoid } from 'nanoid'
 import { db } from '../index'
 import { booking } from '../schema/booking'
 import { service, serviceCategory } from '../schema/service'
+import {
+  isBranchAvailabilityRefusal,
+  serviceAvailableBranchIds,
+  serviceNoLongerOffered,
+} from './catalogue-availability'
+import { allocateRedemption, isGemsShortfall, lockLoyaltyAccount } from './gems-ledger'
+import { assigneeRefusal } from './reassignments'
+
+function insufficientGems(): AppError {
+  return new AppError({
+    code: ERROR_CODES.GEMS_INSUFFICIENT_BALANCE,
+    message: 'You do not have enough gems to redeem this service.',
+    statusCode: 409,
+  })
+}
 
 // Live re-read of a single service joined to its category for the serviceType
 // (salon/spa), including the gem fields + isActive used for execution-time
-// re-validation (Req 7). Returns null when the service does not exist.
+// re-validation (Req 7) and the branches that offer it (null = every branch,
+// R4.3). Returns null when the service does not exist.
 export async function getRedeemableServiceById(serviceId: string): Promise<{
   id: string
   name: string
@@ -60,6 +76,7 @@ export async function getRedeemableServiceById(serviceId: string): Promise<{
   isActive: boolean
   gemsRedeemable: boolean
   gemsRequired: number | null
+  availableBranchIds: string[] | null
 } | null> {
   const rows = await db
     .select({
@@ -71,6 +88,7 @@ export async function getRedeemableServiceById(serviceId: string): Promise<{
       isActive: service.isActive,
       gemsRedeemable: service.gemsRedeemable,
       gemsRequired: service.gemsRequired,
+      availableBranchIds: serviceAvailableBranchIds(),
     })
     .from(service)
     .innerJoin(serviceCategory, eq(service.categoryId, serviceCategory.id))
@@ -96,26 +114,31 @@ export type RedeemServiceWithGemsInput = {
   staffId: string
   idempotencyKey: string
   description: string
+  /** The branch settings revision that accepted the slot (R6.3). */
+  settingsRevision: number
 }
 
 export type RedeemServiceWithGemsResult =
   | { bookingId: string; bookingNumber: string; gemsSpent: number; newBalance: number }
   | { duplicate: true; bookingId: string; bookingNumber: string }
 
-// The guarded atomic write. A single data-modifying-CTE statement:
+// The guarded atomic write: one transaction (db.batch) of three statements.
+// First the customer's loyalty account is locked. Then a data-modifying CTE:
 //   guard               — UPDATE loyalty_account … WHERE gems_balance >= req (the guard)
 //   new_booking         — INSERT booking            … SELECT … FROM guard
 //   new_booking_service — INSERT booking_service    … SELECT … FROM new_booking
 //   new_tx              — INSERT loyalty_transaction… SELECT … FROM new_booking
 // terminating in a SELECT that projects the new balance + booking id/number.
+// Last, the redemption is spent from the batches that expire first
+// (allocateRedemption), so every gem traces back to the branch that issued it.
 //
 // Postgres runs data-modifying CTEs exactly once and always to completion, so the
 // two unreferenced INSERT CTEs (new_booking_service, new_tx) still execute. When
 // the guard matches 0 rows, every downstream SELECT … FROM guard/new_booking
-// yields 0 rows → nothing persists and the final SELECT returns 0 rows.
+// yields 0 rows, so no redemption exists and the allocation aborts the batch.
 //
-// 0 rows           → throw GEMS_INSUFFICIENT_BALANCE (nothing persisted).
-// unique violation → idempotency replay: return the already-created booking.
+// guard or batches short → throw GEMS_INSUFFICIENT_BALANCE (nothing persisted).
+// unique violation       → idempotency replay: return the already-created booking.
 //
 // Idempotency is resolved in TWO places, deliberately:
 //
@@ -158,11 +181,19 @@ export async function redeemServiceWithGems(
   let rows: Array<{ booking_id: string; booking_number: string; new_balance: number }>
 
   try {
-    const result = await db.execute<{
-      booking_id: string
-      booking_number: string
-      new_balance: number
-    }>(sql`
+    // One transaction: lock the account, write the redemption (guarded on the
+    // balance), then spend it from the batches that expire first. The
+    // allocation reads the batches after the lock, so a concurrent redemption
+    // that committed meanwhile is seen and its gems can't be spent twice
+    // (ST-06). It aborts the transaction when the redemption wasn't written or
+    // the batches can't cover it.
+    const [, result] = await db.batch([
+      lockLoyaltyAccount(input.accountId),
+      db.execute<{
+        booking_id: string
+        booking_number: string
+        new_balance: number
+      }>(sql`
       WITH guard AS (
         UPDATE loyalty_account
            SET gems_balance        = gems_balance - ${input.gemsRequired},
@@ -177,12 +208,12 @@ export async function redeemServiceWithGems(
           (id, booking_number, branch_id, customer_id, status, service_type,
            booking_date, start_time, end_time, total_amount_paise,
            total_duration_minutes, is_walkin, is_membership_session, offer_id,
-           is_gems_redemption, gems_redeemed, redemption_key)
+           is_gems_redemption, gems_redeemed, redemption_key, settings_revision)
         SELECT ${bookingId}, ${input.bookingNumber}, ${input.branchId}, ${input.customerId},
                'pending'::booking_status, ${input.serviceType}::service_type,
                ${bookingDateStr}::date, ${input.startTime}::time, ${input.endTime}::time, 0,
                ${input.durationMinutes}, false, false, NULL,
-               true, ${input.gemsRequired}, ${input.idempotencyKey}
+               true, ${input.gemsRequired}, ${input.idempotencyKey}, ${input.settingsRevision}::int
         FROM guard
         RETURNING id AS booking_id, booking_number
       ),
@@ -197,9 +228,9 @@ export async function redeemServiceWithGems(
       ),
       new_tx AS (
         INSERT INTO loyalty_transaction
-          (id, loyalty_account_id, type, gems_amount, booking_id, description)
+          (id, loyalty_account_id, type, gems_amount, booking_id, branch_id, description)
         SELECT ${txId}, ${input.accountId}, 'redeemed'::loyalty_tx_type, ${input.gemsRequired},
-               nb.booking_id, ${input.description}
+               nb.booking_id, ${input.branchId}, ${input.description}
         FROM new_booking nb
         RETURNING id
       )
@@ -207,7 +238,9 @@ export async function redeemServiceWithGems(
              nb.booking_number AS booking_number,
              g.new_balance AS new_balance
       FROM new_booking nb, guard g
-    `)
+    `),
+      allocateRedemption(txId),
+    ])
     rows = result.rows
   } catch (error) {
     // Idempotency replay: a retried submission with the same redemption_key hits
@@ -219,18 +252,35 @@ export async function redeemServiceWithGems(
         return { duplicate: true, bookingId: found.id, bookingNumber: found.bookingNumber }
       }
     }
+    // The chosen assignee left the branch after they were picked (migration
+    // 0014). The whole statement rolled back, gems included; picking again works.
+    if (assigneeRefusal(error)) {
+      throw new AppError({
+        code: ERROR_CODES.BOOKING_SLOT_UNAVAILABLE,
+        message: 'The staff for this booking just became unavailable. Please try again.',
+        statusCode: 409,
+        retryable: true,
+      })
+    }
+    // The service stopped being offered at the branch after the route checked
+    // (0034). The whole statement rolled back, gems included.
+    if (isBranchAvailabilityRefusal(error)) {
+      throw serviceNoLongerOffered()
+    }
+    // The balance guard matched no row, so no redemption was written, or the
+    // unexpired batches couldn't cover it: the allocation divided by zero and
+    // the whole transaction rolled back. Nothing persisted.
+    if (isGemsShortfall(error)) {
+      throw insufficientGems()
+    }
     throw error
   }
 
   const row = rows[0]
   if (!row) {
-    // Guard matched 0 rows: balance was insufficient at execution time. Nothing
-    // persisted (the CTE gating guarantees it).
-    throw new AppError({
-      code: ERROR_CODES.GEMS_INSUFFICIENT_BALANCE,
-      message: 'You do not have enough gems to redeem this service.',
-      statusCode: 409,
-    })
+    // Unreachable while the allocation guard runs (it aborts first); kept so a
+    // zero-row result can never be reported as a redemption.
+    throw insufficientGems()
   }
 
   return {

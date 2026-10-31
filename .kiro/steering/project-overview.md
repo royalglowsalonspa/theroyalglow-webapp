@@ -94,7 +94,7 @@ subdomain provides the admin namespace). Sessions are shared across subdomains v
 
 - **Solo developer** — no microservices, minimal ops overhead
 - **₹0/month infrastructure** at launch (all free tiers)
-- **India-first** — DPDP Act, IST timezone, INR (paise), GST 18%, DD/MM/YYYY dates
+- **India-first** — DPDP Act, IST timezone, INR (paise), GST per branch and SAC code (tax versions), DD/MM/YYYY dates
 - **Premium brand** — Lighthouse ≥95 performance, 100 accessibility/SEO
 - **India-first latency** — AWS `ap-southeast-1` (Singapore), co-located with Neon, with CloudFront for static assets and media
 

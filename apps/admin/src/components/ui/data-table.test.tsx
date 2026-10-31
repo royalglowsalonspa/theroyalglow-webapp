@@ -132,6 +132,40 @@ describe('DataTable inline row actions (Req 6.5)', () => {
     expect(onEdit).toHaveBeenCalledTimes(1)
     expect(onDelete).not.toHaveBeenCalled()
   })
+
+  it('opens only the menu, not the row, when Enter is pressed on the kebab trigger', () => {
+    const onRowClick = vi.fn()
+    const rowActions = (_row: AdminRow<Person>): RowAction[] => [
+      { label: 'Edit', icon: Pencil, onSelect: () => {} },
+    ]
+
+    render(
+      <DataTable<Person>
+        columns={COLUMNS}
+        data={PEOPLE}
+        tableId="people"
+        rowActions={rowActions}
+        onRowClick={onRowClick}
+      />,
+    )
+
+    const [trigger] = screen.getAllByRole('button', { name: 'Row actions' })
+    if (!trigger) {
+      throw new Error('expected at least one row-action trigger')
+    }
+    fireEvent.keyDown(trigger, { key: 'Enter' })
+
+    expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeInTheDocument()
+    expect(onRowClick).not.toHaveBeenCalled()
+
+    // Enter on the row itself still opens it.
+    const firstRow = trigger.closest('tr')
+    if (!firstRow) {
+      throw new Error('expected the trigger inside a row')
+    }
+    fireEvent.keyDown(firstRow, { key: 'Enter' })
+    expect(onRowClick).toHaveBeenCalledWith(PEOPLE[0])
+  })
 })
 
 describe('DataTable row selection (Req 6.6)', () => {

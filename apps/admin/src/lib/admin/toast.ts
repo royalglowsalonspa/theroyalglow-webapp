@@ -14,6 +14,7 @@
  * Responsibilities :
  * - `toast.success(action)` — 5 s auto-dismiss confirmation (Req 16.1, 16.3)
  * - `toast.error(action, reason?)` — persistent failure notice (Req 16.2, 16.4)
+ * - `toast.warning(message)` — persistent notice about a completed action
  *
  * Tech Stack   : TypeScript, sonner
  * Layer        : Presentation (helper, no I/O, no business logic)
@@ -50,5 +51,13 @@ export const toast = {
     sonnerToast.error(reason ? `${action}: ${reason}` : action, {
       duration: Number.POSITIVE_INFINITY,
     })
+  },
+
+  /**
+   * Show a warning about an action that succeeded but left something to know
+   * (for example live updates not cut off yet). Persists until dismissed.
+   */
+  warning(message: string): void {
+    sonnerToast.warning(message, { duration: Number.POSITIVE_INFINITY })
   },
 }

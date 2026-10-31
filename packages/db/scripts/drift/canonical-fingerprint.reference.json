@@ -1,12 +1,20 @@
 {
   "_comment": "AUTHORITATIVE DB-free canonical reference derived from the committed Drizzle latest snapshot selected by migrations/meta/_journal.json. Regenerate with `bun run drift:reference` after an intentional schema change captured by `drizzle-kit generate`, then commit this file with the migration.",
   "version": 1,
-  "hash": "2f1395d3264c5a75377f1771a34383f79cfb8c8e7e8ef2a004d7cb6b20904770",
+  "hash": "dcfadbed792a6cb5ad6e2541ca79c1f43ed8a2f91c0633fd7c0bdad7659c8f65",
   "fingerprint": {
     "enums": [
       {
         "name": "audit_action",
         "labels": ["create", "update", "delete", "status_change"]
+      },
+      {
+        "name": "booking_reassignment_reason",
+        "labels": ["left_branch", "unavailable", "overrun", "off_schedule"]
+      },
+      {
+        "name": "booking_reassignment_resolution",
+        "labels": ["reassigned", "booking_ended", "started"]
       },
       {
         "name": "booking_status",
@@ -20,6 +28,10 @@
           "no_show",
           "rescheduled"
         ]
+      },
+      {
+        "name": "branch_setting_section",
+        "labels": ["business_hours", "booking_rules"]
       },
       {
         "name": "branch_status",
@@ -51,7 +63,15 @@
       },
       {
         "name": "loyalty_tx_type",
-        "labels": ["earned", "redeemed", "expired", "adjusted"]
+        "labels": ["earned", "redeemed", "expired", "adjusted", "returned"]
+      },
+      {
+        "name": "membership_hold_state",
+        "labels": ["held", "consumed", "released"]
+      },
+      {
+        "name": "note_visibility",
+        "labels": ["shared", "branch"]
       },
       {
         "name": "notification_channel",
@@ -87,7 +107,9 @@
           "stale_pending_booking",
           "no_show_check",
           "gems_expiry_7d",
-          "gems_expired"
+          "gems_expired",
+          "branch_manager_missing",
+          "staff_overrun"
         ]
       },
       {
@@ -99,8 +121,16 @@
         "labels": ["pending", "paid", "refunded"]
       },
       {
+        "name": "realtime_revocation_outcome",
+        "labels": ["revoked", "expired", "not_configured"]
+      },
+      {
         "name": "service_type",
         "labels": ["salon", "spa"]
+      },
+      {
+        "name": "settlement_entry_kind",
+        "labels": ["membership_session", "gems_redemption", "reversal"]
       },
       {
         "name": "spa_membership_status",
@@ -109,6 +139,10 @@
       {
         "name": "staff_designation",
         "labels": ["receptionist", "stylist", "therapist", "manager"]
+      },
+      {
+        "name": "tax_review_status",
+        "labels": ["provisional", "reviewed"]
       },
       {
         "name": "waitlist_status",
@@ -246,6 +280,12 @@
             "default": null
           },
           {
+            "name": "branch_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
             "name": "created_at",
             "type": "timestamptz",
             "nullable": false,
@@ -302,6 +342,12 @@
         "indexes": [
           {
             "columns": ["actor_id", "created_at"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["branch_id", "created_at"],
             "unique": false,
             "predicate": null,
             "method": "btree"
@@ -450,6 +496,12 @@
             "default": null
           },
           {
+            "name": "settings_revision",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
             "name": "spa_membership_id",
             "type": "text",
             "nullable": true,
@@ -459,6 +511,12 @@
             "name": "start_time",
             "type": "time",
             "nullable": false,
+            "default": null
+          },
+          {
+            "name": "started_at",
+            "type": "timestamptz",
+            "nullable": true,
             "default": null
           },
           {
@@ -494,6 +552,13 @@
           }
         ],
         "foreignKeys": [
+          {
+            "columns": ["branch_id", "settings_revision"],
+            "refTable": "branch_setting",
+            "refColumns": ["branch_id", "revision"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
           {
             "columns": ["branch_id"],
             "refTable": "branch",
@@ -570,6 +635,111 @@
             "columns": ["status"],
             "unique": false,
             "predicate": "status NOT IN ('completed', 'cancelled', 'no_show')",
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "booking_reassignment",
+        "columns": [
+          {
+            "name": "booking_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "created_by_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": "gen_random_uuid()::text"
+          },
+          {
+            "name": "previous_staff_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "reason",
+            "type": "booking_reassignment_reason",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "resolution",
+            "type": "booking_reassignment_resolution",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "resolved_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "resolved_by_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["booking_id"],
+            "refTable": "booking",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["created_by_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "set null",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["previous_staff_id"],
+            "refTable": "staff_profile",
+            "refColumns": ["id"],
+            "onDelete": "set null",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["resolved_by_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "set null",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["booking_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["booking_id"],
+            "unique": true,
+            "predicate": "resolved_at IS NULL",
             "method": "btree"
           }
         ]
@@ -653,6 +823,12 @@
         ],
         "indexes": [
           {
+            "columns": ["booking_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
             "columns": ["staff_id"],
             "unique": false,
             "predicate": null,
@@ -696,6 +872,12 @@
           {
             "name": "notes",
             "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "settings_revision",
+            "type": "integer",
             "nullable": true,
             "default": null
           },
@@ -796,7 +978,19 @@
             "default": null
           },
           {
+            "name": "gstin",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
             "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "invoice_prefix",
             "type": "text",
             "nullable": false,
             "default": null
@@ -814,8 +1008,26 @@
             "default": null
           },
           {
+            "name": "legal_name",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
             "name": "longitude",
             "type": "numeric(10, 7)",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "manager_role",
+            "type": "text",
+            "nullable": false,
+            "default": "'manager'"
+          },
+          {
+            "name": "manager_user_id",
+            "type": "text",
             "nullable": true,
             "default": null
           },
@@ -835,6 +1047,18 @@
             "name": "opening_date",
             "type": "date",
             "nullable": true,
+            "default": null
+          },
+          {
+            "name": "owner_role",
+            "type": "text",
+            "nullable": false,
+            "default": "'owner'"
+          },
+          {
+            "name": "owner_user_id",
+            "type": "text",
+            "nullable": false,
             "default": null
           },
           {
@@ -881,6 +1105,10 @@
             "columns": ["code"]
           },
           {
+            "name": "branch_invoice_prefix_unique",
+            "columns": ["invoice_prefix"]
+          },
+          {
             "name": "branch_number_unique",
             "columns": ["number"]
           }
@@ -892,9 +1120,431 @@
             "refColumns": ["id"],
             "onDelete": "restrict",
             "onUpdate": "no action"
+          },
+          {
+            "columns": ["manager_user_id", "manager_role"],
+            "refTable": "user",
+            "refColumns": ["id", "role"],
+            "onDelete": "no action",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["owner_user_id", "owner_role"],
+            "refTable": "user",
+            "refColumns": ["id", "role"],
+            "onDelete": "no action",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["manager_user_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["owner_user_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "branch_setting",
+        "columns": [
+          {
+            "name": "booking_rules",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "branch_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "business_hours",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "changed_section",
+            "type": "branch_setting_section",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "created_by",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "revision",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "branch_setting_branch_revision_unique",
+            "columns": ["branch_id", "revision"]
+          }
+        ],
+        "foreignKeys": [
+          {
+            "columns": ["branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["created_by"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
           }
         ],
         "indexes": []
+      },
+      {
+        "name": "branch_settlement",
+        "columns": [
+          {
+            "name": "a_owes_b_gems_paise",
+            "type": "bigint",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "a_owes_b_membership_gst_paise",
+            "type": "bigint",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "a_owes_b_membership_paise",
+            "type": "bigint",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "a_owes_b_membership_value_paise",
+            "type": "bigint",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "b_owes_a_gems_paise",
+            "type": "bigint",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "b_owes_a_membership_gst_paise",
+            "type": "bigint",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "b_owes_a_membership_paise",
+            "type": "bigint",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "b_owes_a_membership_value_paise",
+            "type": "bigint",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "branch_a_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "branch_b_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "closed_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "entry_count",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": "gen_random_uuid()::text"
+          },
+          {
+            "name": "internal_transfer",
+            "type": "boolean",
+            "nullable": false,
+            "default": "false"
+          },
+          {
+            "name": "month",
+            "type": "date",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "net_paise",
+            "type": "bigint",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "paid_on",
+            "type": "date",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "paid_recorded_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "paid_recorded_by",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "paying_branch_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "payment_reference",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "receiving_branch_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "branch_settlement_month_pair_unique",
+            "columns": ["branch_a_id", "branch_b_id", "month"]
+          }
+        ],
+        "foreignKeys": [
+          {
+            "columns": ["branch_a_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["branch_b_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["month"],
+            "refTable": "settlement_period",
+            "refColumns": ["month"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["paid_recorded_by"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["paying_branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["receiving_branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["branch_a_id", "month"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["branch_b_id", "month"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "branch_tax_version",
+        "columns": [
+          {
+            "name": "branch_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "created_by",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "effective_from",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "prices_include_tax",
+            "type": "boolean",
+            "nullable": false,
+            "default": "true"
+          },
+          {
+            "name": "rate_bps",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "reason",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "review_status",
+            "type": "tax_review_status",
+            "nullable": false,
+            "default": "'provisional'"
+          },
+          {
+            "name": "reviewed_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "reviewed_by",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "sac_code",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["created_by"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["reviewed_by"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["branch_id", "effective_from", "sac_code"],
+            "unique": true,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["branch_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          }
+        ]
       },
       {
         "name": "business_hour",
@@ -956,6 +1606,12 @@
             "default": null
           },
           {
+            "name": "branch_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
             "name": "content",
             "type": "text",
             "nullable": false,
@@ -978,6 +1634,12 @@
             "type": "text",
             "nullable": false,
             "default": null
+          },
+          {
+            "name": "visibility",
+            "type": "note_visibility",
+            "nullable": false,
+            "default": "'branch'"
           }
         ],
         "primaryKey": ["id"],
@@ -998,6 +1660,13 @@
             "onUpdate": "no action"
           },
           {
+            "columns": ["branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
             "columns": ["customer_id"],
             "refTable": "user",
             "refColumns": ["id"],
@@ -1010,6 +1679,12 @@
             "columns": ["booking_id"],
             "unique": false,
             "predicate": "booking_id IS NOT NULL",
+            "method": "btree"
+          },
+          {
+            "columns": ["branch_id", "customer_id"],
+            "unique": false,
+            "predicate": null,
             "method": "btree"
           }
         ]
@@ -1439,6 +2114,12 @@
         "name": "holiday",
         "columns": [
           {
+            "name": "branch_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
             "name": "created_at",
             "type": "timestamptz",
             "nullable": false,
@@ -1464,14 +2145,30 @@
           }
         ],
         "primaryKey": ["id"],
-        "uniques": [
+        "uniques": [],
+        "foreignKeys": [
           {
-            "name": "holiday_date_unique",
-            "columns": ["date"]
+            "columns": ["branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
           }
         ],
-        "foreignKeys": [],
-        "indexes": []
+        "indexes": [
+          {
+            "columns": ["branch_id", "date"],
+            "unique": true,
+            "predicate": "branch_id IS NOT NULL",
+            "method": "btree"
+          },
+          {
+            "columns": ["date"],
+            "unique": true,
+            "predicate": "branch_id IS NULL",
+            "method": "btree"
+          }
+        ]
       },
       {
         "name": "invoice",
@@ -1486,6 +2183,12 @@
             "name": "branch_id",
             "type": "text",
             "nullable": false,
+            "default": null
+          },
+          {
+            "name": "cgst_paise",
+            "type": "integer",
+            "nullable": true,
             "default": null
           },
           {
@@ -1505,6 +2208,12 @@
             "type": "integer",
             "nullable": false,
             "default": "0"
+          },
+          {
+            "name": "financial_year",
+            "type": "text",
+            "nullable": true,
+            "default": null
           },
           {
             "name": "gems_earned",
@@ -1549,8 +2258,62 @@
             "default": "'service'"
           },
           {
+            "name": "issuer_address",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "issuer_gstin",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "issuer_legal_name",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "issuer_name",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "issuer_state",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
             "name": "notes",
             "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "offer_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "offer_name_snapshot",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "offer_type_snapshot",
+            "type": "discount_type",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "offer_value_snapshot",
+            "type": "integer",
             "nullable": true,
             "default": null
           },
@@ -1585,9 +2348,33 @@
             "default": null
           },
           {
+            "name": "sequence_number",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "sgst_paise",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
             "name": "subtotal_paise",
             "type": "integer",
             "nullable": false,
+            "default": null
+          },
+          {
+            "name": "tax_point_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "tax_review_status",
+            "type": "tax_review_status",
+            "nullable": true,
             "default": null
           },
           {
@@ -1644,9 +2431,28 @@
             "refColumns": ["id"],
             "onDelete": "restrict",
             "onUpdate": "no action"
+          },
+          {
+            "columns": ["offer_id"],
+            "refTable": "offer",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
           }
         ],
         "indexes": [
+          {
+            "columns": ["booking_id"],
+            "unique": true,
+            "predicate": "booking_id IS NOT NULL",
+            "method": "btree"
+          },
+          {
+            "columns": ["branch_id", "financial_year", "sequence_number"],
+            "unique": true,
+            "predicate": "sequence_number IS NOT NULL",
+            "method": "btree"
+          },
           {
             "columns": ["branch_id"],
             "unique": false,
@@ -1660,6 +2466,12 @@
             "method": "btree"
           },
           {
+            "columns": ["offer_id"],
+            "unique": false,
+            "predicate": "offer_id IS NOT NULL",
+            "method": "btree"
+          },
+          {
             "columns": ["paid_at"],
             "unique": false,
             "predicate": "payment_status = 'paid'",
@@ -1670,6 +2482,18 @@
       {
         "name": "invoice_item",
         "columns": [
+          {
+            "name": "cgst_paise",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "discount_paise",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
           {
             "name": "display_order",
             "type": "integer",
@@ -1695,6 +2519,18 @@
             "default": "1"
           },
           {
+            "name": "rate_bps",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "sac_code",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
             "name": "service_id",
             "type": "text",
             "nullable": true,
@@ -1707,8 +2543,32 @@
             "default": null
           },
           {
+            "name": "sgst_paise",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
             "name": "staff_name_snapshot",
             "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "tax_paise",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "tax_version_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "taxable_value_paise",
+            "type": "integer",
             "nullable": true,
             "default": null
           },
@@ -1741,6 +2601,67 @@
             "refColumns": ["id"],
             "onDelete": "restrict",
             "onUpdate": "no action"
+          },
+          {
+            "columns": ["tax_version_id"],
+            "refTable": "branch_tax_version",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["invoice_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["tax_version_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "invoice_sequence",
+        "columns": [
+          {
+            "name": "branch_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "financial_year",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "last_number",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          }
+        ],
+        "primaryKey": ["branch_id", "financial_year"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
           }
         ],
         "indexes": []
@@ -1750,6 +2671,12 @@
         "columns": [
           {
             "name": "assigned_to",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "branch_id",
             "type": "text",
             "nullable": true,
             "default": null
@@ -1862,6 +2789,13 @@
             "onUpdate": "no action"
           },
           {
+            "columns": ["branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
             "columns": ["converted_booking_id"],
             "refTable": "booking",
             "refColumns": ["id"],
@@ -1881,6 +2815,12 @@
             "columns": ["assigned_to"],
             "unique": false,
             "predicate": "status NOT IN ('won', 'lost')",
+            "method": "btree"
+          },
+          {
+            "columns": ["branch_id", "status"],
+            "unique": false,
+            "predicate": null,
             "method": "btree"
           },
           {
@@ -2016,10 +2956,94 @@
         "indexes": []
       },
       {
+        "name": "loyalty_allocation",
+        "columns": [
+          {
+            "name": "batch_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "gems",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": "gen_random_uuid()::text"
+          },
+          {
+            "name": "redemption_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "released_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "loyalty_allocation_redemption_batch_unique",
+            "columns": ["batch_id", "redemption_id"]
+          }
+        ],
+        "foreignKeys": [
+          {
+            "columns": ["batch_id"],
+            "refTable": "loyalty_transaction",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["redemption_id"],
+            "refTable": "loyalty_transaction",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["batch_id"],
+            "unique": false,
+            "predicate": "released_at IS NULL",
+            "method": "btree"
+          }
+        ]
+      },
+      {
         "name": "loyalty_transaction",
         "columns": [
           {
+            "name": "batch_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
             "name": "booking_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "branch_id",
             "type": "text",
             "nullable": true,
             "default": null
@@ -2067,6 +3091,12 @@
             "default": null
           },
           {
+            "name": "redemption_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
             "name": "type",
             "type": "loyalty_tx_type",
             "nullable": false,
@@ -2077,10 +3107,24 @@
         "uniques": [],
         "foreignKeys": [
           {
+            "columns": ["batch_id"],
+            "refTable": "loyalty_transaction",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
             "columns": ["booking_id"],
             "refTable": "booking",
             "refColumns": ["id"],
             "onDelete": "set null",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
@@ -2096,9 +3140,34 @@
             "refColumns": ["id"],
             "onDelete": "restrict",
             "onUpdate": "no action"
+          },
+          {
+            "columns": ["redemption_id"],
+            "refTable": "loyalty_transaction",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
           }
         ],
         "indexes": [
+          {
+            "columns": ["batch_id"],
+            "unique": false,
+            "predicate": "batch_id IS NOT NULL",
+            "method": "btree"
+          },
+          {
+            "columns": ["booking_id"],
+            "unique": false,
+            "predicate": "booking_id IS NOT NULL",
+            "method": "btree"
+          },
+          {
+            "columns": ["branch_id", "created_at"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
           {
             "columns": ["created_at", "loyalty_account_id"],
             "unique": false,
@@ -2110,12 +3179,127 @@
             "unique": false,
             "predicate": "type = 'earned' AND expires_at IS NOT NULL",
             "method": "btree"
+          },
+          {
+            "columns": ["redemption_id"],
+            "unique": true,
+            "predicate": "redemption_id IS NOT NULL",
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "membership_hold",
+        "columns": [
+          {
+            "name": "booking_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "branch_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "consumed_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "held_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": "gen_random_uuid()::text"
+          },
+          {
+            "name": "minutes",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "released_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "spa_membership_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "state",
+            "type": "membership_hold_state",
+            "nullable": false,
+            "default": "'held'"
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "membership_hold_booking_unique",
+            "columns": ["booking_id"]
+          }
+        ],
+        "foreignKeys": [
+          {
+            "columns": ["booking_id"],
+            "refTable": "booking",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["spa_membership_id"],
+            "refTable": "spa_membership",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["spa_membership_id"],
+            "unique": false,
+            "predicate": "state = 'held'",
+            "method": "btree"
           }
         ]
       },
       {
         "name": "monthly_gst_summary",
         "columns": [
+          {
+            "name": "branch_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "cgst_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
           {
             "name": "created_at",
             "type": "timestamptz",
@@ -2141,6 +3325,12 @@
             "default": "0"
           },
           {
+            "name": "issuer_gstin",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
             "name": "month",
             "type": "text",
             "nullable": false,
@@ -2153,6 +3343,12 @@
             "default": "'999721'"
           },
           {
+            "name": "sgst_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
             "name": "taxable_value_paise",
             "type": "integer",
             "nullable": false,
@@ -2162,11 +3358,19 @@
         "primaryKey": ["id"],
         "uniques": [
           {
-            "name": "monthly_gst_summary_month_unique",
-            "columns": ["month"]
+            "name": "monthly_gst_summary_month_branch_issuer_sac_unique",
+            "columns": ["branch_id", "issuer_gstin", "month", "sac_code"]
           }
         ],
-        "foreignKeys": [],
+        "foreignKeys": [
+          {
+            "columns": ["branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          }
+        ],
         "indexes": []
       },
       {
@@ -2270,6 +3474,12 @@
         "name": "offer",
         "columns": [
           {
+            "name": "cms_id",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
             "name": "combo_price_paise",
             "type": "integer",
             "nullable": true,
@@ -2342,6 +3552,12 @@
             "default": null
           },
           {
+            "name": "show_on_website",
+            "type": "boolean",
+            "nullable": false,
+            "default": "true"
+          },
+          {
             "name": "slug",
             "type": "text",
             "nullable": false,
@@ -2368,6 +3584,10 @@
         ],
         "primaryKey": ["id"],
         "uniques": [
+          {
+            "name": "offer_cms_id_unique",
+            "columns": ["cms_id"]
+          },
           {
             "name": "offer_slug_unique",
             "columns": ["slug"]
@@ -2570,8 +3790,92 @@
         ]
       },
       {
+        "name": "realtime_revocation",
+        "columns": [
+          {
+            "name": "attempts",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "last_attempt_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "last_error",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "outcome",
+            "type": "realtime_revocation_outcome",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "requested_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "resolved_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "user_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["user_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["requested_at"],
+            "unique": false,
+            "predicate": "resolved_at IS NULL",
+            "method": "btree"
+          },
+          {
+            "columns": ["user_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          }
+        ]
+      },
+      {
         "name": "service",
         "columns": [
+          {
+            "name": "all_branches",
+            "type": "boolean",
+            "nullable": false,
+            "default": "true"
+          },
           {
             "name": "buffer_minutes",
             "type": "integer",
@@ -2657,6 +3961,12 @@
             "default": null
           },
           {
+            "name": "sac_code",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
             "name": "slug",
             "type": "text",
             "nullable": false,
@@ -2701,8 +4011,57 @@
         ]
       },
       {
+        "name": "service_branch",
+        "columns": [
+          {
+            "name": "branch_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "service_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["service_id", "branch_id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["service_id"],
+            "refTable": "service",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["branch_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          }
+        ]
+      },
+      {
         "name": "service_category",
         "columns": [
+          {
+            "name": "all_branches",
+            "type": "boolean",
+            "nullable": false,
+            "default": "true"
+          },
           {
             "name": "created_at",
             "type": "timestamptz",
@@ -2740,6 +4099,12 @@
             "default": null
           },
           {
+            "name": "sac_code",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
             "name": "service_type",
             "type": "service_type",
             "nullable": false,
@@ -2767,6 +4132,49 @@
         ],
         "foreignKeys": [],
         "indexes": []
+      },
+      {
+        "name": "service_category_branch",
+        "columns": [
+          {
+            "name": "branch_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "category_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["category_id", "branch_id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["category_id"],
+            "refTable": "service_category",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["branch_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          }
+        ]
       },
       {
         "name": "session",
@@ -2846,6 +4254,323 @@
         ]
       },
       {
+        "name": "settlement_entry",
+        "columns": [
+          {
+            "name": "amount_owed_paise",
+            "type": "bigint",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "booking_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "created_by",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "gem_value_paise",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "gems",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "gst_share_paise",
+            "type": "bigint",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": "gen_random_uuid()::text"
+          },
+          {
+            "name": "kind",
+            "type": "settlement_entry_kind",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "loyalty_transaction_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "minutes",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "note",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "owed_branch_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "owing_branch_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "posting_month",
+            "type": "date",
+            "nullable": false,
+            "default": "(date_trunc('month', (now() AT TIME ZONE 'Asia/Kolkata')))::date"
+          },
+          {
+            "name": "reverses_entry_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "share_bps",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "spa_membership_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "value_paise",
+            "type": "bigint",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["booking_id"],
+            "refTable": "booking",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["created_by"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["loyalty_transaction_id"],
+            "refTable": "loyalty_transaction",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["owed_branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["owing_branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["posting_month"],
+            "refTable": "settlement_period",
+            "refColumns": ["month"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["reverses_entry_id"],
+            "refTable": "settlement_entry",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["spa_membership_id"],
+            "refTable": "spa_membership",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["booking_id"],
+            "unique": false,
+            "predicate": "booking_id IS NOT NULL",
+            "method": "btree"
+          },
+          {
+            "columns": ["booking_id"],
+            "unique": true,
+            "predicate": "kind = 'membership_session'",
+            "method": "btree"
+          },
+          {
+            "columns": ["loyalty_transaction_id", "owing_branch_id"],
+            "unique": true,
+            "predicate": "kind = 'gems_redemption'",
+            "method": "btree"
+          },
+          {
+            "columns": ["owed_branch_id", "owing_branch_id", "posting_month"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["owed_branch_id", "posting_month"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["reverses_entry_id"],
+            "unique": true,
+            "predicate": "reverses_entry_id IS NOT NULL",
+            "method": "btree"
+          },
+          {
+            "columns": ["spa_membership_id"],
+            "unique": false,
+            "predicate": "spa_membership_id IS NOT NULL",
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "settlement_period",
+        "columns": [
+          {
+            "name": "closed_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "month",
+            "type": "date",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["month"],
+        "uniques": [],
+        "foreignKeys": [],
+        "indexes": []
+      },
+      {
+        "name": "settlement_position",
+        "columns": [
+          {
+            "name": "branch_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "closed_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "month",
+            "type": "date",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "net_paise",
+            "type": "bigint",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "payable_paise",
+            "type": "bigint",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "receivable_paise",
+            "type": "bigint",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["month", "branch_id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["month"],
+            "refTable": "settlement_period",
+            "refColumns": ["month"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["branch_id", "month"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          }
+        ]
+      },
+      {
         "name": "spa_membership",
         "columns": [
           {
@@ -2903,6 +4628,18 @@
             "default": null
           },
           {
+            "name": "reserved_minutes",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "selling_branch_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
             "name": "starts_at",
             "type": "timestamptz",
             "nullable": false,
@@ -2924,6 +4661,18 @@
             "name": "tier_name_snapshot",
             "type": "text",
             "nullable": false,
+            "default": null
+          },
+          {
+            "name": "tier_usual_hours_minutes",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "tier_usual_price_paise",
+            "type": "integer",
+            "nullable": true,
             "default": null
           },
           {
@@ -2968,6 +4717,13 @@
             "onUpdate": "no action"
           },
           {
+            "columns": ["selling_branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
             "columns": ["tier_id"],
             "refTable": "spa_membership_tier",
             "refColumns": ["id"],
@@ -2992,6 +4748,12 @@
             "columns": ["expires_at"],
             "unique": false,
             "predicate": "status = 'active'",
+            "method": "btree"
+          },
+          {
+            "columns": ["selling_branch_id"],
+            "unique": false,
+            "predicate": null,
             "method": "btree"
           }
         ]
@@ -3054,6 +4816,12 @@
             "default": null
           },
           {
+            "name": "sac_code",
+            "type": "text",
+            "nullable": false,
+            "default": "'999723'"
+          },
+          {
             "name": "slug",
             "type": "text",
             "nullable": false,
@@ -3081,10 +4849,77 @@
         "indexes": []
       },
       {
+        "name": "staff_occupancy",
+        "columns": [
+          {
+            "name": "booking_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "branch_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "during",
+            "type": "tstzrange",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "kind",
+            "type": "service_type",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "staff_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["booking_id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["booking_id"],
+            "refTable": "booking",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["staff_id"],
+            "refTable": "staff_profile",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": []
+      },
+      {
         "name": "staff_profile",
         "columns": [
           {
             "name": "bio",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "branch_id",
             "type": "text",
             "nullable": true,
             "default": null
@@ -3126,6 +4961,12 @@
             "default": null
           },
           {
+            "name": "role_witness",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
             "name": "specialization",
             "type": "text",
             "nullable": true,
@@ -3153,6 +4994,20 @@
         ],
         "foreignKeys": [
           {
+            "columns": ["branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["user_id", "role_witness"],
+            "refTable": "user",
+            "refColumns": ["id", "role"],
+            "onDelete": "no action",
+            "onUpdate": "no action"
+          },
+          {
             "columns": ["user_id"],
             "refTable": "user",
             "refColumns": ["id"],
@@ -3161,6 +5016,18 @@
           }
         ],
         "indexes": [
+          {
+            "columns": ["branch_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["branch_id"],
+            "unique": true,
+            "predicate": "role_witness = 'receptionist'",
+            "method": "btree"
+          },
           {
             "columns": ["user_id"],
             "unique": false,
@@ -3172,6 +5039,12 @@
       {
         "name": "staff_schedule",
         "columns": [
+          {
+            "name": "branch_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
           {
             "name": "day_of_week",
             "type": "integer",
@@ -3218,6 +5091,13 @@
         ],
         "foreignKeys": [
           {
+            "columns": ["branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
             "columns": ["staff_id"],
             "refTable": "staff_profile",
             "refColumns": ["id"],
@@ -3226,6 +5106,12 @@
           }
         ],
         "indexes": [
+          {
+            "columns": ["branch_id", "day_of_week"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
           {
             "columns": ["day_of_week", "staff_id"],
             "unique": false,
@@ -3373,6 +5259,67 @@
         ]
       },
       {
+        "name": "staff_work",
+        "columns": [
+          {
+            "name": "booking_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "branch_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "during",
+            "type": "tstzrange",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "kind",
+            "type": "service_type",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "staff_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["booking_id"],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": ["booking_id"],
+            "refTable": "booking",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["staff_id"],
+            "refTable": "staff_profile",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": []
+      },
+      {
         "name": "system_setting",
         "columns": [
           {
@@ -3505,10 +5452,21 @@
           {
             "name": "user_email_unique",
             "columns": ["email"]
+          },
+          {
+            "name": "user_id_role_key",
+            "columns": ["id", "role"]
           }
         ],
         "foreignKeys": [],
-        "indexes": []
+        "indexes": [
+          {
+            "columns": ["role"],
+            "unique": true,
+            "predicate": "role = 'developer'",
+            "method": "btree"
+          }
+        ]
       },
       {
         "name": "verification",
@@ -3558,6 +5516,12 @@
       {
         "name": "waitlist",
         "columns": [
+          {
+            "name": "branch_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
           {
             "name": "created_at",
             "type": "timestamptz",
@@ -3623,6 +5587,13 @@
         "uniques": [],
         "foreignKeys": [
           {
+            "columns": ["branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
             "columns": ["customer_id"],
             "refTable": "user",
             "refColumns": ["id"],
@@ -3644,7 +5615,14 @@
             "onUpdate": "no action"
           }
         ],
-        "indexes": []
+        "indexes": [
+          {
+            "columns": ["branch_id", "preferred_date"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          }
+        ]
       }
     ],
     "version": 1

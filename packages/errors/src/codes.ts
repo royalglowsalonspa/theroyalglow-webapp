@@ -49,16 +49,37 @@ export const ERROR_CODES = {
   // have not been collected. Distinct from FORBIDDEN because it is RECOVERABLE —
   // the client routes the customer to /onboarding rather than showing a dead end.
   ONBOARDING_REQUIRED: 'ONBOARDING_REQUIRED',
+  // Multi-branch: the signed-in person may act on no branch at all (403), or a
+  // form rendered for one branch was submitted after the person switched to
+  // another (409; reload to continue).
+  BRANCH_ACCESS_NONE: 'BRANCH_ACCESS_NONE',
+  BRANCH_CONTEXT_CHANGED: 'BRANCH_CONTEXT_CHANGED',
+  // Scheduling: a weekday another branch already holds for a shared Manager
+  // (409), or a leave request already decided or withdrawn meanwhile (409).
+  SCHEDULE_DAY_ELSEWHERE: 'SCHEDULE_DAY_ELSEWHERE',
+  LEAVE_ALREADY_DECIDED: 'LEAVE_ALREADY_DECIDED',
   // Booking domain
   BOOKING_SLOT_UNAVAILABLE: 'BOOKING_SLOT_UNAVAILABLE',
   BOOKING_ALREADY_CANCELLED: 'BOOKING_ALREADY_CANCELLED',
   BOOKING_MAX_RESCHEDULES: 'BOOKING_MAX_RESCHEDULES',
   BOOKING_CANCEL_WINDOW_PASSED: 'BOOKING_CANCEL_WINDOW_PASSED',
   BOOKING_INVALID_STATUS_TRANSITION: 'BOOKING_INVALID_STATUS_TRANSITION',
+  // Branch booking rules (multi-branch R6.3): the customer already has the
+  // most upcoming bookings the branch allows (409), or a reschedule comes
+  // later than the branch's reschedule cut-off (409).
+  BOOKING_LIMIT_REACHED: 'BOOKING_LIMIT_REACHED',
+  BOOKING_RESCHEDULE_WINDOW_PASSED: 'BOOKING_RESCHEDULE_WINDOW_PASSED',
   // Membership domain
   MEMBERSHIP_EXPIRED: 'MEMBERSHIP_EXPIRED',
   MEMBERSHIP_INSUFFICIENT_HOURS: 'MEMBERSHIP_INSUFFICIENT_HOURS',
   MEMBERSHIP_ALREADY_ACTIVE: 'MEMBERSHIP_ALREADY_ACTIVE',
+  // A membership sold to start later gives no session before its start date
+  // (409; membership-scheduling.md, MS-05).
+  MEMBERSHIP_NOT_STARTED: 'MEMBERSHIP_NOT_STARTED',
+  // Staff occupancy (membership-scheduling.md, MS-07, MS-08): the person is
+  // still with another customer, or has another booking at that time (409).
+  // Reception waits or assigns someone else.
+  STAFF_BUSY: 'STAFF_BUSY',
   // Invoice domain
   INVOICE_ALREADY_PAID: 'INVOICE_ALREADY_PAID',
   INVOICE_GENERATION_FAILED: 'INVOICE_GENERATION_FAILED',
@@ -71,6 +92,25 @@ export const ERROR_CODES = {
   OFFER_NOT_APPLICABLE: 'OFFER_NOT_APPLICABLE',
   // Branch domain
   BRANCH_INACTIVE: 'BRANCH_INACTIVE',
+  // Multi-branch R1.10: people, bookings, unpaid invoices or waitlist entries
+  // are still open at the branch (409), or it still has records and can't be
+  // deleted (409).
+  BRANCH_SHUTDOWN_BLOCKED: 'BRANCH_SHUTDOWN_BLOCKED',
+  BRANCH_NOT_EMPTY: 'BRANCH_NOT_EMPTY',
+  // Tax (multi-branch R6.4, TX-08): no rate in force for a SAC code at the
+  // branch, or live invoicing without the branch's legal name, GSTIN or
+  // reviewed rates (409). There is never a fallback rate.
+  TAX_CONFIGURATION_INCOMPLETE: 'TAX_CONFIGURATION_INCOMPLETE',
+  // Branch settings (multi-branch R6.3): the branch has no valid booking
+  // settings (409; never replaced with defaults), or someone saved the
+  // settings since the form was opened (409; reload to continue).
+  BRANCH_SETTINGS_INCOMPLETE: 'BRANCH_SETTINGS_INCOMPLETE',
+  SETTINGS_CHANGED: 'SETTINGS_CHANGED',
+  // Cross-branch settlement (multi-branch R10): the share rate or value per
+  // gem can't be read (409; fixed in Settings, never defaulted), or a
+  // statement is already marked paid (409).
+  SETTLEMENT_SETTINGS_INVALID: 'SETTLEMENT_SETTINGS_INVALID',
+  SETTLEMENT_ALREADY_PAID: 'SETTLEMENT_ALREADY_PAID',
 } as const
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES]

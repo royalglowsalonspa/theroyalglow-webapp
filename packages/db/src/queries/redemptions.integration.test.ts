@@ -48,6 +48,7 @@
 
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { db } from '../index'
 import { isLiveDbAvailable, queryRow, queryRows } from '../test/live-db'
 import { getRedeemableServices } from './loyalty'
 import { redeemServiceWithGems } from './redemptions'
@@ -60,6 +61,7 @@ const PREFIX = `gems_it_${RUN}`
 
 const USER_ID = `${PREFIX}_user`
 const ACCOUNT_ID = `${PREFIX}_account`
+const BATCH_ID = `${PREFIX}_batch`
 const SERVICE_A = `${PREFIX}_svc_a`
 const SERVICE_B = `${PREFIX}_svc_b`
 const SERVICE_UNORDERED = `${PREFIX}_svc_unordered`
@@ -117,6 +119,14 @@ describe.skipIf(!LIVE)('gems redemption against a live database (Task 7.4)', () 
         (id, customer_id, gems_balance, total_gems_earned, total_gems_redeemed)
       VALUES (${ACCOUNT_ID}, ${USER_ID}, ${START_BALANCE}, ${START_BALANCE}, 0)
     `)
+    // The balance is one earned batch at the branch, so a redemption has gems
+    // to spend (multi-branch R10).
+    await queryRows(sql`
+      INSERT INTO public.loyalty_transaction
+        (id, loyalty_account_id, type, gems_amount, branch_id, description, expires_at)
+      VALUES (${BATCH_ID}, ${ACCOUNT_ID}, 'earned', ${START_BALANCE}, ${BRANCH_ID},
+              'ZZ Gems IT batch', now() + interval '300 days')
+    `)
 
     await seedService(SERVICE_A, COST_A, 1)
     await seedService(SERVICE_B, 400, 2)
@@ -124,12 +134,24 @@ describe.skipIf(!LIVE)('gems redemption against a live database (Task 7.4)', () 
   })
 
   afterAll(async () => {
-    // Ordered to respect the FKs: transactions (RESTRICT on the account) →
-    // bookings (booking_service CASCADEs) → account → user → services (RESTRICT
-    // from booking_service).
-    await queryRows(
-      sql`DELETE FROM public.loyalty_transaction WHERE loyalty_account_id = ${ACCOUNT_ID}`,
-    )
+    // Ordered to respect the FKs: allocations (only deletable in a test
+    // fixture, 0022) → transactions (RESTRICT on the account) → bookings
+    // (booking_service CASCADEs) → account → user → services (RESTRICT from
+    // booking_service).
+    await db.batch([
+      db.execute(sql`select set_config('rgss.ledger_fixture', 'on', true)`),
+      db.execute(sql`
+        DELETE FROM public.loyalty_allocation
+         WHERE batch_id IN (SELECT id FROM public.loyalty_transaction
+                             WHERE loyalty_account_id = ${ACCOUNT_ID})`),
+      db.execute(sql`
+        DELETE FROM public.loyalty_transaction
+         WHERE loyalty_account_id = ${ACCOUNT_ID}
+           AND (batch_id IS NOT NULL OR redemption_id IS NOT NULL)`),
+      db.execute(
+        sql`DELETE FROM public.loyalty_transaction WHERE loyalty_account_id = ${ACCOUNT_ID}`,
+      ),
+    ])
     await queryRows(sql`DELETE FROM public.booking WHERE customer_id = ${USER_ID}`)
     await queryRows(sql`DELETE FROM public.loyalty_account WHERE customer_id = ${USER_ID}`)
     await queryRows(sql`DELETE FROM public."user" WHERE id = ${USER_ID}`)
@@ -191,6 +213,7 @@ describe.skipIf(!LIVE)('gems redemption against a live database (Task 7.4)', () 
       staffId: staffId as string,
       idempotencyKey: REDEMPTION_KEY,
       description: 'Redeemed: ZZ Gems IT service',
+      settingsRevision: 1,
     })
 
     expect('duplicate' in result).toBe(false)
@@ -256,18 +279,31 @@ describe.skipIf(!LIVE)('gems redemption against a live database (Task 7.4)', () 
       service_name_snapshot: `ZZ Gems IT ${SERVICE_A}`,
     })
 
-    // (4) exactly one `redeemed` transaction, stored POSITIVE and linked
+    // (4) exactly one `redeemed` transaction, stored POSITIVE, linked and at
+    // the booking's branch, beside the batch it spent
     const transactions = await queryRows<{
       type: string
       gems_amount: number
       booking_id: string | null
+      branch_id: string | null
     }>(sql`
-      SELECT type, gems_amount, booking_id
+      SELECT type, gems_amount, booking_id, branch_id
       FROM public.loyalty_transaction WHERE loyalty_account_id = ${ACCOUNT_ID}
+      ORDER BY type
     `)
     expect(transactions).toEqual([
-      { type: 'redeemed', gems_amount: COST_A, booking_id: result.bookingId },
+      { type: 'earned', gems_amount: START_BALANCE, booking_id: null, branch_id: BRANCH_ID },
+      { type: 'redeemed', gems_amount: COST_A, booking_id: result.bookingId, branch_id: BRANCH_ID },
     ])
+
+    // (5) the redemption spent the batch: what it took is recorded, active
+    expect(
+      await queryRows(sql`
+        SELECT a.batch_id, a.gems, a.released_at
+          FROM public.loyalty_allocation a
+          JOIN public.loyalty_transaction r ON r.id = a.redemption_id
+         WHERE r.booking_id = ${result.bookingId}`),
+    ).toEqual([{ batch_id: BATCH_ID, gems: COST_A, released_at: null }])
   })
 
   it('persists NOTHING after a forced guard failure (Req 4.4 atomicity)', async () => {
@@ -296,6 +332,7 @@ describe.skipIf(!LIVE)('gems redemption against a live database (Task 7.4)', () 
         staffId: staffId as string,
         idempotencyKey: failedKey,
         description: 'Redeemed: should never persist',
+        settingsRevision: 1,
       }),
     ).rejects.toMatchObject({ code: 'GEMS_INSUFFICIENT_BALANCE', statusCode: 409 })
 
@@ -318,12 +355,13 @@ describe.skipIf(!LIVE)('gems redemption against a live database (Task 7.4)', () 
         SELECT count(*) AS count FROM public.booking_service WHERE service_id = ${SERVICE_B}
       `),
     ).toEqual({ count: '0' })
+    // The batch and the first redemption only.
     expect(
       await queryRow<{ count: string }>(sql`
         SELECT count(*) AS count FROM public.loyalty_transaction
         WHERE loyalty_account_id = ${ACCOUNT_ID}
       `),
-    ).toEqual({ count: '1' })
+    ).toEqual({ count: '2' })
   })
 
   it('resolves a replayed idempotency key to the original booking without deducting again', async () => {
@@ -351,6 +389,7 @@ describe.skipIf(!LIVE)('gems redemption against a live database (Task 7.4)', () 
       staffId: staffId as string,
       idempotencyKey: REDEMPTION_KEY,
       description: 'Redeemed: replay',
+      settingsRevision: 1,
     })
 
     expect(replay).toMatchObject({ duplicate: true, bookingId: createdBookingIds[0] })

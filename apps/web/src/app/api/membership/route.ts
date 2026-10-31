@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 25-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : GET /api/membership
@@ -15,7 +15,7 @@
  * - Return past (expired/cancelled) memberships
  *
  * Features / Functionality :
- * - Active membership with tier details and hours remaining
+ * - Active membership with its hours, price paid and validity (no tier)
  * - Session history for active membership
  * - Historical membership records (expired/cancelled)
  *
@@ -29,19 +29,21 @@
  * - Sessions are only fetched for the active membership, not past ones.
  ************************************************************/
 
-import { getCustomerMembership, getMembershipSessions } from '@rgss/db/queries'
+import { getMembershipSessions, getOwnMemberships } from '@rgss/db/queries'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireSession } from '@/lib/api/session'
 
 // GET /api/membership — the caller's own SPA membership(s): the single active
 // membership (if any) with its session history, plus past (expired/cancelled)
 // memberships. Strictly scoped to the authenticated customer (session.user.id);
-// never exposes another customer's membership data.
+// never exposes another customer's membership data. Each membership carries
+// its own hours, price paid and validity, never a tier name or usual tier
+// price (multi-branch R9.1, MS-17).
 export const GET = withErrorHandler(async () => {
   const session = await requireSession()
   const customerId = session.user.id
 
-  const { active, past } = await getCustomerMembership(customerId)
+  const { active, past } = await getOwnMemberships(customerId)
 
   // Session history only applies to the active membership; an absent active
   // membership yields an empty list rather than an error.

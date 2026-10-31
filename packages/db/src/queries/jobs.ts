@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 25-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : jobs
@@ -10,8 +10,10 @@
  *                and QStash data reads for scheduled/triggered automation.
  *
  * Responsibilities :
- * - pg_cron TS mirrors: expire memberships, offers, gems, sessions
- * - Build daily sales summary and monthly GST summary (idempotent upserts)
+ * - pg_cron TS mirrors: expire memberships, offers, sessions (gems expiry
+ *   lives in gems-ledger.ts, which knows which gems were spent)
+ * - Build the daily sales summary (idempotent upsert) and the monthly GST
+ *   summary per branch, issuer GSTIN and SAC code (idempotent rebuild)
  * - QStash reads: upcoming bookings, expiring memberships, birthdays
  * - QStash reads: nudge-eligible memberships, stale leads, gems expiry
  * - Report data aggregation (daily and weekly)
@@ -37,18 +39,23 @@
  *                @rgss/business/jobs/time.ts for the richer IST utilities.
  ************************************************************/
 
-import { and, asc, desc, eq, gt, gte, inArray, isNotNull, lt, lte, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, isNotNull, isNull, lt, lte, sql } from 'drizzle-orm'
 import { db } from '../index'
 import { session, user } from '../schema/auth'
 import { booking } from '../schema/booking'
+import { branch } from '../schema/branch'
 import { invoice, invoiceItem } from '../schema/invoice'
 import { lead } from '../schema/lead'
-import { loyaltyAccount, loyaltyTransaction } from '../schema/loyalty'
 import { spaMembership } from '../schema/membership'
 import { notification } from '../schema/notification'
 import { offer } from '../schema/offer'
 import { customerProfile } from '../schema/profile'
 import { dailySalesSummary, monthlyGstSummary } from '../schema/system'
+import {
+  expireLapsedGems,
+  type GemsExpiryResult,
+  returnGemsOfEndedRedemptions,
+} from './gems-ledger'
 
 // ============================================================================
 // Background-jobs query layer (Phase 6).
@@ -58,8 +65,7 @@ import { dailySalesSummary, monthlyGstSummary } from '../schema/system'
 //      migrations/0001_pg_cron_jobs.sql, so the same maintenance logic can be
 //      invoked on demand (e.g. a "rebuild summary" admin action) and reasoned
 //      about in the typed codebase. Every function is idempotent, matching the
-//      SQL's ON CONFLICT upserts / status-guarded updates / `expired:<id>` gems
-//      marker.
+//      SQL's ON CONFLICT upserts / status-guarded updates.
 //   2. QStash data reads — the DB side of the 12 job routes. They only read (or,
 //      for the stale/no-show routes, are paired with mutations elsewhere) and
 //      shape rows so the routes can build notification content + dispatch.
@@ -109,23 +115,13 @@ function istDayRange(dateISO: string): { start: Date; end: Date } {
   return { start, end: new Date(start.getTime() + DAY_MS) }
 }
 
-// [start, end) UTC instant range for an IST calendar month ('YYYY-MM'). The
-// monthly GST summary aggregates every paid invoice whose IST creation day falls
-// inside this range.
-function istMonthRange(monthISO: string): { start: Date; end: Date } {
-  const year = Number(monthISO.slice(0, 4))
-  const month = Number(monthISO.slice(5, 7)) // 1-12
-  const nextYear = month === 12 ? year + 1 : year
-  const nextMonth = month === 12 ? 1 : month + 1
-  const start = new Date(`${monthISO}-01T00:00:00+05:30`)
-  const end = new Date(`${nextYear}-${pad2(nextMonth)}-01T00:00:00+05:30`)
-  return { start, end }
-}
-
-// Idempotency marker stored on the offsetting `expired` loyalty_transaction.
-// Matches @rgss/business gemsExpiredMarker and the `'expired:' || id` SQL.
-function expiredMarker(txId: string): string {
-  return `expired:${txId}`
+// 'YYYY-MM' of the IST calendar month before the one containing `now`: the
+// month the monthly GST summary closes when it runs early in the next month.
+export function previousIstMonthKey(now: Date): string {
+  const wall = new Date(now.getTime() + IST_OFFSET_MS)
+  const month = wall.getUTCMonth() // 0-11: the current IST month
+  const year = month === 0 ? wall.getUTCFullYear() - 1 : wall.getUTCFullYear()
+  return `${year}-${pad2(month === 0 ? 12 : month)}`
 }
 
 type NotificationType = (typeof notification.$inferSelect)['type']
@@ -152,84 +148,18 @@ export async function expireMemberships(now: Date = new Date()): Promise<number>
 // calendar date, mirroring the SQL's `end_date < (NOW() AT TIME ZONE
 // 'Asia/Kolkata')::date`). end_date is a date-mode column, so the cutoff is a
 // UTC-midnight Date of the IST "today". Idempotent: a second run matches zero
-// rows (is_active already false). (Property 2)
+// rows (is_active already false). (Property 2) Legacy admin offers only: a
+// Payload offer ends by its dates, and its mirror keeps `active` as the CMS
+// has it (offers.md).
 export async function expireOffers(now: Date = new Date()): Promise<number> {
   const todayIST = new Date(`${istDateString(now)}T00:00:00.000Z`)
   const rows = await db
     .update(offer)
     .set({ isActive: false })
-    .where(and(eq(offer.isActive, true), lt(offer.endDate, todayIST)))
+    .where(and(eq(offer.isActive, true), lt(offer.endDate, todayIST), isNull(offer.cmsId)))
     .returning()
 
   return rows.length
-}
-
-// Job 7 — for each EARNED loyalty_transaction whose gems have expired and which
-// has not already been offset, insert one offsetting 'expired' transaction
-// (gems_amount = -original) marked `expired:<txId>` and decrement the owning
-// loyalty_account.gems_balance by the same amount. The `expired:<txId>` marker
-// makes this idempotent: an already-offset transaction is skipped, so a re-run
-// conserves balance and offsets nothing twice. The offset insert + balance
-// decrement run together in one db.batch() (atomic on neon-http) per account.
-// (Property 3)
-export async function expireGems(
-  now: Date = new Date(),
-): Promise<{ accountsAffected: number; gemsExpired: number }> {
-  const candidates = await db
-    .select({
-      id: loyaltyTransaction.id,
-      loyaltyAccountId: loyaltyTransaction.loyaltyAccountId,
-      gemsAmount: loyaltyTransaction.gemsAmount,
-    })
-    .from(loyaltyTransaction)
-    .where(
-      and(
-        eq(loyaltyTransaction.type, 'earned'),
-        gt(loyaltyTransaction.gemsAmount, 0),
-        isNotNull(loyaltyTransaction.expiresAt),
-        lt(loyaltyTransaction.expiresAt, now),
-      ),
-    )
-
-  if (candidates.length === 0) {
-    return { accountsAffected: 0, gemsExpired: 0 }
-  }
-
-  // Drop any earned transaction that already has its `expired:<id>` offset row.
-  const markers = candidates.map((c) => expiredMarker(c.id))
-  const existing = await db
-    .select({ description: loyaltyTransaction.description })
-    .from(loyaltyTransaction)
-    .where(
-      and(eq(loyaltyTransaction.type, 'expired'), inArray(loyaltyTransaction.description, markers)),
-    )
-  const alreadyOffset = new Set(existing.map((e) => e.description))
-
-  const pending = candidates.filter((c) => !alreadyOffset.has(expiredMarker(c.id)))
-  if (pending.length === 0) {
-    return { accountsAffected: 0, gemsExpired: 0 }
-  }
-
-  const affectedAccounts = new Set<string>()
-  let gemsExpired = 0
-  for (const tx of pending) {
-    affectedAccounts.add(tx.loyaltyAccountId)
-    gemsExpired += tx.gemsAmount
-    await db.batch([
-      db.insert(loyaltyTransaction).values({
-        loyaltyAccountId: tx.loyaltyAccountId,
-        type: 'expired',
-        gemsAmount: -tx.gemsAmount,
-        description: expiredMarker(tx.id),
-      }),
-      db
-        .update(loyaltyAccount)
-        .set({ gemsBalance: sql`${loyaltyAccount.gemsBalance} - ${tx.gemsAmount}` })
-        .where(eq(loyaltyAccount.id, tx.loyaltyAccountId)),
-    ])
-  }
-
-  return { accountsAffected: affectedAccounts.size, gemsExpired }
 }
 
 // Job 4 — delete expired Better Auth session rows. Returns the number deleted.
@@ -367,43 +297,75 @@ export async function buildDailySalesSummary(dateISO: string) {
   return results
 }
 
-// Job 6 — aggregate the given IST month's ('YYYY-MM') PAID service +
-// membership_purchase invoices into one monthly_gst_summary row, upserting on
-// the unique `month` column. Totals equal the sum of taxable value / GST amount
-// over the matching invoices. Idempotent via ON CONFLICT DO UPDATE. (Property 4)
-export async function buildMonthlyGstSummary(monthISO: string) {
-  const { start, end } = istMonthRange(monthISO)
-
-  const [agg] = await db
-    .select({
-      taxableValuePaise: sql<number>`coalesce(sum(${invoice.taxableValuePaise}), 0)::int`,
-      gstAmountPaise: sql<number>`coalesce(sum(${invoice.gstAmountPaise}), 0)::int`,
-      invoiceCount: sql<number>`count(*)::int`,
-    })
-    .from(invoice)
-    .where(
-      and(
-        eq(invoice.paymentStatus, 'paid'),
-        inArray(invoice.invoiceType, ['service', 'membership_purchase']),
-        gte(invoice.createdAt, start),
-        lt(invoice.createdAt, end),
+// Job 6 — rebuild the GST summary of one IST month ('YYYY-MM'): one row per
+// branch, issuer GSTIN and SAC code (multi-branch R6.5), summed from the stored
+// line amounts of the paid service and membership-purchase invoices whose tax
+// point falls in the month, never from current rates. An invoice issued before
+// the snapshots existed has no line tax: it counts under SAC 999721 with its
+// header amounts and its creation day, CGST half the GST rounded down (the
+// `splitIntraState` rule). invoice_count counts the invoices with a line under
+// the code, so an invoice with lines under two codes counts in both rows.
+//
+// The month's rows are replaced in one transaction, so a re-run gives the same
+// rows and an invoice that is no longer paid drops out. A duplicate delivery
+// running at the same time updates the rows the first one inserted instead of
+// failing on the unique key. (Property 4)
+export async function buildMonthlyGstSummary(monthKey: string) {
+  const results = await db.batch([
+    db.delete(monthlyGstSummary).where(eq(monthlyGstSummary.month, monthKey)),
+    db.execute(sql`
+      INSERT INTO monthly_gst_summary
+        (id, month, branch_id, issuer_gstin, sac_code, taxable_value_paise,
+         gst_amount_paise, cgst_paise, sgst_paise, invoice_count)
+      SELECT
+        md5(${monthKey}::text || ':' || l.branch_id || ':' || coalesce(l.issuer_gstin, '') || ':' || l.sac_code),
+        ${monthKey}::text,
+        l.branch_id,
+        l.issuer_gstin,
+        l.sac_code,
+        sum(l.taxable_value_paise)::int,
+        sum(l.tax_paise)::int,
+        sum(l.cgst_paise)::int,
+        sum(l.sgst_paise)::int,
+        count(DISTINCT l.invoice_id)::int
+      FROM (
+        SELECT i.id AS invoice_id, i.branch_id, i.issuer_gstin, ii.sac_code,
+               ii.taxable_value_paise, ii.tax_paise, ii.cgst_paise, ii.sgst_paise
+          FROM invoice i
+          JOIN invoice_item ii ON ii.invoice_id = i.id
+         WHERE i.tax_point_at IS NOT NULL
+           AND i.payment_status = 'paid'
+           AND i.invoice_type IN ('service', 'membership_purchase')
+           AND to_char(i.tax_point_at AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM') = ${monthKey}::text
+        UNION ALL
+        SELECT i.id, i.branch_id, i.issuer_gstin, '999721',
+               i.taxable_value_paise, i.gst_amount_paise,
+               i.gst_amount_paise / 2, i.gst_amount_paise - i.gst_amount_paise / 2
+          FROM invoice i
+         WHERE i.tax_point_at IS NULL
+           AND i.payment_status = 'paid'
+           AND i.invoice_type IN ('service', 'membership_purchase')
+           AND to_char(i.created_at AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM') = ${monthKey}::text
+      ) l
+      GROUP BY l.branch_id, l.issuer_gstin, l.sac_code
+      ON CONFLICT ON CONSTRAINT monthly_gst_summary_month_branch_issuer_sac_unique DO UPDATE SET
+        taxable_value_paise = EXCLUDED.taxable_value_paise,
+        gst_amount_paise    = EXCLUDED.gst_amount_paise,
+        cgst_paise          = EXCLUDED.cgst_paise,
+        sgst_paise          = EXCLUDED.sgst_paise,
+        invoice_count       = EXCLUDED.invoice_count
+    `),
+    db
+      .select()
+      .from(monthlyGstSummary)
+      .where(eq(monthlyGstSummary.month, monthKey))
+      .orderBy(
+        asc(monthlyGstSummary.branchId),
+        asc(monthlyGstSummary.issuerGstin),
+        asc(monthlyGstSummary.sacCode),
       ),
-    )
-
-  const summary = {
-    taxableValuePaise: agg?.taxableValuePaise ?? 0,
-    gstAmountPaise: agg?.gstAmountPaise ?? 0,
-    invoiceCount: agg?.invoiceCount ?? 0,
-    sacCode: '999721',
-  }
-
-  const [row] = await db
-    .insert(monthlyGstSummary)
-    .values({ month: monthISO, ...summary })
-    .onConflictDoUpdate({ target: monthlyGstSummary.month, set: summary })
-    .returning()
-
-  return row as typeof monthlyGstSummary.$inferSelect
+  ])
+  return results[2]
 }
 
 // ============================================================================
@@ -423,11 +385,14 @@ export async function getUpcomingConfirmedBookings(now: Date = new Date()) {
       customerId: booking.customerId,
       bookingDate: booking.bookingDate,
       startTime: booking.startTime,
+      // The reminder names the branch (multi-branch R7.2).
+      branchName: branch.name,
       customerName: user.name,
       customerEmail: user.email,
       appointmentRemindersEnabled: customerProfile.appointmentRemindersEnabled,
     })
     .from(booking)
+    .innerJoin(branch, eq(branch.id, booking.branchId))
     .innerJoin(user, eq(booking.customerId, user.id))
     .leftJoin(customerProfile, eq(customerProfile.userId, user.id))
     .where(and(eq(booking.status, 'confirmed'), gte(booking.bookingDate, today)))
@@ -444,7 +409,6 @@ export async function getMembershipsExpiringInDays(days: number, now: Date = new
       id: spaMembership.id,
       membershipNumber: spaMembership.membershipNumber,
       customerId: spaMembership.customerId,
-      tierNameSnapshot: spaMembership.tierNameSnapshot,
       expiresAt: spaMembership.expiresAt,
       userId: user.id,
       customerName: user.name,
@@ -493,7 +457,6 @@ export async function getNudgeEligibleMemberships() {
       id: spaMembership.id,
       membershipNumber: spaMembership.membershipNumber,
       customerId: spaMembership.customerId,
-      tierNameSnapshot: spaMembership.tierNameSnapshot,
       totalHoursMinutes: spaMembership.totalHoursMinutes,
       usedHoursMinutes: spaMembership.usedHoursMinutes,
       expiresAt: spaMembership.expiresAt,
@@ -531,25 +494,32 @@ export async function getStaleFollowUpLeads(hours: number, now: Date = new Date(
 }
 
 // Job 15 — earned gems expiring in exactly `days` IST calendar days, grouped by
-// customer with the total expiring amount. The day match is computed in JS via
-// daysUntilIST. Returns one entry per affected customer.
+// customer with the total expiring amount: each batch's unspent gems only, so a
+// customer is never warned about gems they already spent (settlement.md). The
+// day match is computed in JS via daysUntilIST. Returns one entry per affected
+// customer.
 export async function getGemsExpiringInDays(days: number, now: Date = new Date()) {
-  const rows = await db
-    .select({
-      customerId: loyaltyAccount.customerId,
-      gemsAmount: loyaltyTransaction.gemsAmount,
-      expiresAt: loyaltyTransaction.expiresAt,
-    })
-    .from(loyaltyTransaction)
-    .innerJoin(loyaltyAccount, eq(loyaltyTransaction.loyaltyAccountId, loyaltyAccount.id))
-    .where(and(eq(loyaltyTransaction.type, 'earned'), isNotNull(loyaltyTransaction.expiresAt)))
+  const result = await db.execute<{
+    customer_id: string
+    unspent: string | number
+    expires_at: string | Date
+  }>(sql`
+    select la.customer_id, u.unspent, e.expires_at
+      from loyalty_transaction e
+      join loyalty_account la on la.id = e.loyalty_account_id
+     cross join lateral (select loyalty_batch_unspent(e.id) as unspent) u
+     where e.type = 'earned'
+       and e.expires_at is not null
+       and e.expires_at > ${now.toISOString()}::timestamptz
+       and u.unspent > 0
+  `)
 
   const byCustomer = new Map<string, number>()
-  for (const r of rows) {
-    if (r.expiresAt === null || daysUntilIST(r.expiresAt, now) !== days) {
+  for (const r of result.rows) {
+    if (daysUntilIST(new Date(r.expires_at), now) !== days) {
       continue
     }
-    byCustomer.set(r.customerId, (byCustomer.get(r.customerId) ?? 0) + r.gemsAmount)
+    byCustomer.set(r.customer_id, (byCustomer.get(r.customer_id) ?? 0) + Number(r.unspent))
   }
 
   return Array.from(byCustomer.entries()).map(([customerId, expiringGems]) => ({
@@ -558,12 +528,42 @@ export async function getGemsExpiringInDays(days: number, now: Date = new Date()
   }))
 }
 
-// Shared aggregation for the daily (job 13) and weekly (job 14) reports. Revenue
-// is summed over PAID invoices in the [invStart, invEnd) instant range; booking
-// counters + new-customer detection run over bookings whose booking_date falls
-// in [bkStart, bkEnd] (inclusive). Mirrors the daily-summary mapping so report
-// figures equal the underlying invoices/invoice items. (Property 11)
-async function computeReportData(invStart: Date, invEnd: Date, bkStart: Date, bkEnd: Date) {
+// One branch's report figures over a period. Structurally the same as
+// @rgss/business ReportFigures (this layer can't import that package).
+export type BranchReportFigures = {
+  services: { name: string; qty: number; revenuePaise: number }[]
+  revenue: { salonPaise: number; spaPaise: number; membershipPaise: number; totalPaise: number }
+  bookings: { completed: number; noShows: number; cancelled: number; walkIns: number }
+  customers: { newCount: number; returning: number }
+  membershipSessions: number
+}
+
+function emptyBranchReportFigures(): BranchReportFigures {
+  return {
+    services: [],
+    revenue: { salonPaise: 0, spaPaise: 0, membershipPaise: 0, totalPaise: 0 },
+    bookings: { completed: 0, noShows: 0, cancelled: 0, walkIns: 0 },
+    customers: { newCount: 0, returning: 0 },
+    membershipSessions: 0,
+  }
+}
+
+// Shared aggregation for the daily (job 13) and weekly (job 14) reports, one
+// set of figures per branch (multi-branch R6.5, R7.4). Revenue is summed over
+// PAID invoices in the [invStart, invEnd) instant range, by the invoice's
+// branch. Booking counters run over bookings whose booking_date falls in
+// [bkStart, bkEnd] (inclusive), by the booking's branch. A new customer is
+// one whose first booking anywhere falls in the period, counted at that
+// booking's branch; every other customer seen at a branch is returning there.
+// Only branches with activity appear. The four reads run in one db.batch().
+// Mirrors the daily-summary mapping so report figures equal the underlying
+// invoices/invoice items. (Property 11)
+async function computeBranchReports(
+  invStart: Date,
+  invEnd: Date,
+  bkStart: Date,
+  bkEnd: Date,
+): Promise<Map<string, BranchReportFigures>> {
   const invWhere = and(
     eq(invoice.paymentStatus, 'paid'),
     gte(invoice.createdAt, invStart),
@@ -571,44 +571,9 @@ async function computeReportData(invStart: Date, invEnd: Date, bkStart: Date, bk
   )
   const bkWhere = and(gte(booking.bookingDate, bkStart), lte(booking.bookingDate, bkEnd))
 
-  const [rev] = await db
-    .select({
-      totalPaise: sql<number>`coalesce(sum(${invoice.totalAmountPaise}), 0)::int`,
-      salonPaise: sql<number>`coalesce(sum(case when ${invoice.invoiceType} = 'service' and ${booking.serviceType} = 'salon' then ${invoice.totalAmountPaise} else 0 end), 0)::int`,
-      spaPaise: sql<number>`coalesce(sum(case when ${invoice.invoiceType} = 'service' and ${booking.serviceType} = 'spa' then ${invoice.totalAmountPaise} else 0 end), 0)::int`,
-      membershipPaise: sql<number>`coalesce(sum(case when ${invoice.invoiceType} = 'membership_purchase' then ${invoice.totalAmountPaise} else 0 end), 0)::int`,
-    })
-    .from(invoice)
-    .leftJoin(booking, eq(invoice.bookingId, booking.id))
-    .where(invWhere)
-
-  const serviceRows = await db
-    .select({
-      name: invoiceItem.serviceNameSnapshot,
-      qty: sql<number>`coalesce(sum(${invoiceItem.quantity}), 0)::int`,
-      revenuePaise: sql<number>`coalesce(sum(${invoiceItem.totalPricePaise}), 0)::int`,
-    })
-    .from(invoiceItem)
-    .innerJoin(invoice, eq(invoiceItem.invoiceId, invoice.id))
-    .where(invWhere)
-    .groupBy(invoiceItem.serviceNameSnapshot)
-    .orderBy(desc(sql`sum(${invoiceItem.totalPricePaise})`))
-
-  const [bk] = await db
-    .select({
-      completed: sql<number>`count(*) filter (where ${booking.status} = 'completed')::int`,
-      noShows: sql<number>`count(*) filter (where ${booking.status} = 'no_show')::int`,
-      cancelled: sql<number>`count(*) filter (where ${booking.status} = 'cancelled')::int`,
-      walkIns: sql<number>`count(*) filter (where ${booking.isWalkin} = true)::int`,
-      membershipSessions: sql<number>`count(*) filter (where ${booking.isMembershipSession} = true)::int`,
-      distinctCustomers: sql<number>`count(distinct ${booking.customerId})::int`,
-    })
-    .from(booking)
-    .where(bkWhere)
-
   const firstBooking = db
     .select({
-      customerId: booking.customerId,
+      branchId: booking.branchId,
       bookingDate: booking.bookingDate,
       rn: sql<number>`row_number() over (partition by ${booking.customerId} order by ${booking.createdAt} asc)`.as(
         'rn',
@@ -617,65 +582,133 @@ async function computeReportData(invStart: Date, invEnd: Date, bkStart: Date, bk
     .from(booking)
     .as('fb')
 
-  const [newc] = await db
-    .select({ newCount: sql<number>`count(*)::int` })
-    .from(firstBooking)
-    .where(
-      and(
-        eq(firstBooking.rn, 1),
-        gte(firstBooking.bookingDate, bkStart),
-        lte(firstBooking.bookingDate, bkEnd),
+  const [revenueRows, serviceRows, bookingRows, newCustomerRows] = await db.batch([
+    db
+      .select({
+        branchId: invoice.branchId,
+        totalPaise: sql<number>`coalesce(sum(${invoice.totalAmountPaise}), 0)::int`,
+        salonPaise: sql<number>`coalesce(sum(case when ${invoice.invoiceType} = 'service' and ${booking.serviceType} = 'salon' then ${invoice.totalAmountPaise} else 0 end), 0)::int`,
+        spaPaise: sql<number>`coalesce(sum(case when ${invoice.invoiceType} = 'service' and ${booking.serviceType} = 'spa' then ${invoice.totalAmountPaise} else 0 end), 0)::int`,
+        membershipPaise: sql<number>`coalesce(sum(case when ${invoice.invoiceType} = 'membership_purchase' then ${invoice.totalAmountPaise} else 0 end), 0)::int`,
+      })
+      .from(invoice)
+      .leftJoin(booking, eq(invoice.bookingId, booking.id))
+      .where(invWhere)
+      .groupBy(invoice.branchId),
+    db
+      .select({
+        branchId: invoice.branchId,
+        name: invoiceItem.serviceNameSnapshot,
+        qty: sql<number>`coalesce(sum(${invoiceItem.quantity}), 0)::int`,
+        revenuePaise: sql<number>`coalesce(sum(${invoiceItem.totalPricePaise}), 0)::int`,
+      })
+      .from(invoiceItem)
+      .innerJoin(invoice, eq(invoiceItem.invoiceId, invoice.id))
+      .where(invWhere)
+      .groupBy(invoice.branchId, invoiceItem.serviceNameSnapshot)
+      .orderBy(
+        asc(invoice.branchId),
+        desc(sql`sum(${invoiceItem.totalPricePaise})`),
+        asc(invoiceItem.serviceNameSnapshot),
       ),
-    )
+    db
+      .select({
+        branchId: booking.branchId,
+        completed: sql<number>`count(*) filter (where ${booking.status} = 'completed')::int`,
+        noShows: sql<number>`count(*) filter (where ${booking.status} = 'no_show')::int`,
+        cancelled: sql<number>`count(*) filter (where ${booking.status} = 'cancelled')::int`,
+        walkIns: sql<number>`count(*) filter (where ${booking.isWalkin} = true)::int`,
+        membershipSessions: sql<number>`count(*) filter (where ${booking.isMembershipSession} = true)::int`,
+        distinctCustomers: sql<number>`count(distinct ${booking.customerId})::int`,
+      })
+      .from(booking)
+      .where(bkWhere)
+      .groupBy(booking.branchId),
+    db
+      .select({ branchId: firstBooking.branchId, newCount: sql<number>`count(*)::int` })
+      .from(firstBooking)
+      .where(
+        and(
+          eq(firstBooking.rn, 1),
+          gte(firstBooking.bookingDate, bkStart),
+          lte(firstBooking.bookingDate, bkEnd),
+        ),
+      )
+      .groupBy(firstBooking.branchId),
+  ])
 
-  const newCount = newc?.newCount ?? 0
-  const distinctCustomers = bk?.distinctCustomers ?? 0
-
-  return {
-    services: serviceRows.map((s) => ({
-      name: s.name,
-      qty: s.qty,
-      revenuePaise: s.revenuePaise,
-    })),
-    revenue: {
-      salonPaise: rev?.salonPaise ?? 0,
-      spaPaise: rev?.spaPaise ?? 0,
-      membershipPaise: rev?.membershipPaise ?? 0,
-      totalPaise: rev?.totalPaise ?? 0,
-    },
-    bookings: {
-      completed: bk?.completed ?? 0,
-      noShows: bk?.noShows ?? 0,
-      cancelled: bk?.cancelled ?? 0,
-      walkIns: bk?.walkIns ?? 0,
-    },
-    customers: { newCount, returning: Math.max(0, distinctCustomers - newCount) },
-    membershipSessions: bk?.membershipSessions ?? 0,
+  const reports = new Map<string, BranchReportFigures>()
+  const forBranch = (branchId: string): BranchReportFigures => {
+    const existing = reports.get(branchId)
+    if (existing) {
+      return existing
+    }
+    const created = emptyBranchReportFigures()
+    reports.set(branchId, created)
+    return created
   }
+
+  for (const row of revenueRows) {
+    forBranch(row.branchId).revenue = {
+      salonPaise: row.salonPaise,
+      spaPaise: row.spaPaise,
+      membershipPaise: row.membershipPaise,
+      totalPaise: row.totalPaise,
+    }
+  }
+  for (const row of serviceRows) {
+    forBranch(row.branchId).services.push({
+      name: row.name,
+      qty: row.qty,
+      revenuePaise: row.revenuePaise,
+    })
+  }
+  const distinctCustomers = new Map<string, number>()
+  for (const row of bookingRows) {
+    const figures = forBranch(row.branchId)
+    figures.bookings = {
+      completed: row.completed,
+      noShows: row.noShows,
+      cancelled: row.cancelled,
+      walkIns: row.walkIns,
+    }
+    figures.membershipSessions = row.membershipSessions
+    distinctCustomers.set(row.branchId, row.distinctCustomers)
+  }
+  for (const row of newCustomerRows) {
+    forBranch(row.branchId).customers.newCount = row.newCount
+  }
+  for (const [branchId, figures] of reports) {
+    figures.customers.returning = Math.max(
+      0,
+      (distinctCustomers.get(branchId) ?? 0) - figures.customers.newCount,
+    )
+  }
+  return reports
 }
 
-// Job 13 — the day's report figures (shape matches @rgss/business
-// DailyReportData), computed directly from the day's PAID invoices + bookings.
-export async function getDailyReportData(dateISO: string) {
+// Job 13 — each branch's figures for one IST day, from that day's PAID
+// invoices and bookings. Branches without activity are absent.
+export async function getDailyBranchReports(dateISO: string) {
   const { start, end } = istDayRange(dateISO)
   const bookingDate = new Date(`${dateISO}T00:00:00.000Z`)
-  const figures = await computeReportData(start, end, bookingDate, bookingDate)
-  return { date: bookingDate, ...figures }
+  const branches = await computeBranchReports(start, end, bookingDate, bookingDate)
+  return { date: bookingDate, branches }
 }
 
-// Job 14 — the period's report figures (shape matches @rgss/business
-// WeeklyReportData) over [startISO, endISO] inclusive, plus the period bounds.
-export async function getWeeklyReportData(startISO: string, endISO: string) {
+// Job 14 — each branch's figures over [startISO, endISO] inclusive, plus the
+// period bounds. Branches without activity are absent.
+export async function getWeeklyBranchReports(startISO: string, endISO: string) {
   const invStart = istDayRange(startISO).start
   const invEnd = istDayRange(endISO).end
   const periodStart = new Date(`${startISO}T00:00:00.000Z`)
   const periodEnd = new Date(`${endISO}T00:00:00.000Z`)
-  const figures = await computeReportData(invStart, invEnd, periodStart, periodEnd)
-  return { date: periodStart, periodStart, periodEnd, ...figures }
+  const branches = await computeBranchReports(invStart, invEnd, periodStart, periodEnd)
+  return { date: periodStart, periodStart, periodEnd, branches }
 }
 
-// Job 17 — a single booking by id, or null. The stale-pending route checks it is
-// still 'pending' (and >24h old) before auto-rejecting. (Property 12)
+// Job 17 — a single booking by id, or null. The stale-pending route alerts the
+// receptionists only while it is still 'pending'. (Property 12)
 export async function getPendingBooking(id: string) {
   const rows = await db.select().from(booking).where(eq(booking.id, id)).limit(1)
   return rows[0] ?? null
@@ -696,8 +729,12 @@ export async function getBookingForFollowup(id: string) {
       customerName: user.name,
       customerEmail: user.email,
       marketingConsent: customerProfile.marketingConsent,
+      // The review request names the branch and links its own Google listing.
+      branchName: branch.name,
+      branchGoogleMapsUrl: branch.googleMapsUrl,
     })
     .from(booking)
+    .innerJoin(branch, eq(branch.id, booking.branchId))
     .innerJoin(user, eq(booking.customerId, user.id))
     .leftJoin(customerProfile, eq(customerProfile.userId, user.id))
     .where(eq(booking.id, id))
@@ -754,15 +791,74 @@ export async function hasNotification(
   return rows.length > 0
 }
 
-// User ids of staff who should receive operational alerts (stale-pending,
-// no-show). Anyone at receptionist level or above.
-export async function getReceptionistUserIds(): Promise<string[]> {
+// Daily idempotency for the jobs that send one message per person per day
+// (lead follow-ups, the missing-Manager reminder): has this user had a
+// notification of this type since `since`? Suppresses repeats on re-runs and
+// QStash retries the same day. (Property 6)
+export async function hasNotificationSince(
+  userId: string,
+  type: NotificationType,
+  since: Date,
+): Promise<boolean> {
   const rows = await db
-    .select({ id: user.id })
-    .from(user)
-    .where(inArray(user.role, ['receptionist', 'manager', 'owner', 'developer']))
+    .select({ id: notification.id })
+    .from(notification)
+    .where(
+      and(
+        eq(notification.userId, userId),
+        eq(notification.type, type),
+        gte(notification.createdAt, since),
+      ),
+    )
+    .limit(1)
 
-  return rows.map((r) => r.id)
+  return rows.length > 0
+}
+
+// Operational alerts (stale-pending, no-show, lead follow-ups) go to the
+// branch's own people: see getBranchPeople (branch-recipients.ts) and
+// frontDeskRecipients in @rgss/business (multi-branch R7.4).
+
+// Job 21 — Pending-booking closeout (route: /api/jobs/pending-booking-closeout,
+// 30 16 * * * UTC = 10:00 PM IST, after the 21:00 close). A booking the salon
+// never confirmed, rejected or cancelled must not stay 'pending' once its
+// appointment is over, so every still-pending booking whose IST end instant
+// (booking_date + end_time) is at or before `now` becomes 'no_show'.
+//
+// - Status-guarded UPDATE → idempotent: a QStash retry or re-run matches only
+//   rows that are still pending, i.e. nothing it already closed.
+// - The end-instant predicate (not "booking_date < today") means a manual or
+//   early run never closes an appointment that has not happened yet, and the
+//   first run also sweeps the whole backlog of earlier days.
+// - Deliberately does NOT touch customer_profile.noshow_count: the salon never
+//   confirmed these bookings, so they must not count toward no-show tiers.
+// - No booking_status_log row: changed_by_id is a NOT NULL user FK and a system
+//   transition has no acting user (same as the other system status jobs).
+// - A booking made with gems gives them back to their batches in the same
+//   transaction (settlement.md ST-03); the return also catches any earlier
+//   ended booking whose gems were never returned.
+//
+// Returns the closed bookings so the route can log/publish them.
+export async function closeLapsedPendingBookings(now: Date = new Date()) {
+  const [closed] = await db.batch([
+    db
+      .update(booking)
+      .set({ status: 'no_show' })
+      .where(
+        and(
+          eq(booking.status, 'pending'),
+          sql`(${booking.bookingDate} + ${booking.endTime}) AT TIME ZONE 'Asia/Kolkata' <= ${now.toISOString()}::timestamptz`,
+        ),
+      )
+      .returning({
+        id: booking.id,
+        bookingNumber: booking.bookingNumber,
+        branchId: booking.branchId,
+        customerId: booking.customerId,
+      }),
+    ...returnGemsOfEndedRedemptions(sql`true`),
+  ])
+  return closed
 }
 
 // ============================================================================
@@ -782,7 +878,8 @@ export async function getReceptionistUserIds(): Promise<string[]> {
 //   of truth. To guarantee the QStash port behaves byte-for-byte like the
 //   pg_cron job it replaces, each body is ported VERBATIM here — the SQL is the
 //   same statement pg_cron executed (CTE + ON CONFLICT upserts, status-guarded
-//   UPDATEs, the gems `expired:<id>` marker). The typed Drizzle mirrors in
+//   UPDATEs). The gems expiry is the exception: the original expired spent gems
+//   too, so it was rewritten (job 7 below). The typed Drizzle mirrors in
 //   section 1 remain for on-demand/admin use; these raw ports are what the
 //   scheduled routes invoke.
 //
@@ -794,8 +891,8 @@ export async function getReceptionistUserIds(): Promise<string[]> {
 //     - membership / offer auto-expire → status-guarded UPDATE (re-run matches
 //       zero rows),
 //     - session cleanup → DELETE of already-gone rows is a no-op,
-//     - gems auto-expire → the `expired:<txId>` marker + NOT EXISTS guard makes
-//       a re-run offset nothing twice and conserve balance.
+//     - gems auto-expire → expires each batch's unspent gems, so a re-run finds
+//       nothing left to expire and conserves the balance.
 //
 // All cron windows are UTC (Postgres/Neon runs UTC); calendar-day boundaries
 // are converted to 'Asia/Kolkata' inside the SQL exactly as pg_cron did.
@@ -917,28 +1014,67 @@ export async function jobNightlySalesSummary(): Promise<void> {
   `)
 }
 
+/** Why the expiry job cancelled a membership session that never started. */
+export const MEMBERSHIP_EXPIRED_SESSION_REASON =
+  'The membership expired before this session started.'
+
 // Job 2 — Membership Auto-Expire (route: /api/jobs/membership-auto-expire,
-// heartbeat MEMBERSHIP_EXPIRE, 30 18 * * * UTC = 12:00 AM IST). Flips active
-// memberships past their expiry to 'expired'. Status-guarded → idempotent (a
-// re-run matches zero rows). Ported verbatim from job_membership_auto_expire().
-export async function jobMembershipAutoExpire(): Promise<void> {
-  await db.execute(sql`
-    UPDATE spa_membership
-    SET status = 'expired', updated_at = NOW()
-    WHERE status = 'active'
-      AND expires_at < NOW()
-  `)
+// heartbeat MEMBERSHIP_EXPIRE, 30 18 * * * UTC = 12:00 AM IST). In one
+// transaction: cancels the sessions of expired memberships that never started,
+// which gives back their held minutes (0026; they can't start any more,
+// MS-04, MS-06), then flips active memberships past their expiry to
+// 'expired'. Sessions already in progress keep their minutes and complete
+// later. Status-guarded, so a re-run matches nothing. No status log: a system
+// change has no acting user (as in the other status jobs).
+export async function jobMembershipAutoExpire(): Promise<{
+  expired: number
+  cancelledSessions: number
+}> {
+  const [cancelled, expired] = await db.batch([
+    db.execute<{ n: number }>(sql`
+      WITH unstarted AS (
+        UPDATE booking b
+           SET status = 'cancelled', cancellation_reason = ${MEMBERSHIP_EXPIRED_SESSION_REASON},
+               cancelled_at = now(), updated_at = now()
+         WHERE b.is_membership_session
+           AND b.status IN ('pending', 'confirmed')
+           AND b.spa_membership_id IN (SELECT m.id FROM spa_membership m
+                                        WHERE m.status IN ('active', 'expired')
+                                          AND m.expires_at < now())
+        RETURNING 1
+      )
+      SELECT count(*)::int AS n FROM unstarted
+    `),
+    db.execute<{ n: number }>(sql`
+      WITH flipped AS (
+        UPDATE spa_membership
+           SET status = 'expired', updated_at = now()
+         WHERE status = 'active'
+           AND expires_at < now()
+        RETURNING 1
+      )
+      SELECT count(*)::int AS n FROM flipped
+    `),
+  ])
+  return {
+    expired: Number(expired.rows[0]?.n ?? 0),
+    cancelledSessions: Number(cancelled.rows[0]?.n ?? 0),
+  }
 }
 
 // Job 3 — Offer Auto-Expire (route: /api/jobs/offer-auto-expire, heartbeat
 // OFFER_EXPIRE, 35 18 * * * UTC = 12:05 AM IST). Deactivates offers whose
 // end_date (a DATE) has passed the current IST calendar date. Status-guarded →
-// idempotent. Ported verbatim from job_offer_auto_expire().
+// idempotent. Ported verbatim from job_offer_auto_expire(). Since 31/10/2026
+// only legacy admin offers (`cms_id IS NULL`): a Payload offer ends by its
+// dates, which checkout and every list check, and its mirror keeps `active`
+// as the CMS has it, so the drift check stays clean (offers.md).
 export async function jobOfferAutoExpire(): Promise<void> {
   await db.execute(sql`
     UPDATE offer
     SET is_active = false, updated_at = NOW()
     WHERE is_active = true
+      AND cms_id IS NULL
       AND end_date < (NOW() AT TIME ZONE 'Asia/Kolkata')::date
   `)
 }
@@ -955,100 +1091,25 @@ export async function jobSessionCleanup(): Promise<void> {
 }
 
 // Job 6 — Monthly GST Summary (route: /api/jobs/monthly-gst-summary, heartbeat
-// MONTHLY_GST, 30 19 1 * * UTC = 1:00 AM IST on the 1st). Aggregates the
-// PREVIOUS IST month's paid service + membership_purchase invoices into
-// monthly_gst_summary (month stored as TEXT 'YYYY-MM'). Idempotent via
-// ON CONFLICT (month) DO UPDATE. Ported verbatim from job_monthly_gst_summary().
-export async function jobMonthlyGstSummary(): Promise<void> {
-  await db.execute(sql`
-    WITH target AS (
-      SELECT
-        to_char(
-          (date_trunc('month', (NOW() AT TIME ZONE 'Asia/Kolkata')) - INTERVAL '1 month'),
-          'YYYY-MM'
-        ) AS month_key
-    ),
-    agg AS (
-      SELECT
-        t.month_key,
-        COALESCE(SUM(i.taxable_value_paise), 0)::int AS taxable_value_paise,
-        COALESCE(SUM(i.gst_amount_paise), 0)::int    AS gst_amount_paise,
-        COUNT(*)::int                                AS invoice_count
-      FROM invoice i
-      CROSS JOIN target t
-      WHERE i.payment_status = 'paid'
-        AND i.invoice_type IN ('service', 'membership_purchase')
-        AND to_char((i.created_at AT TIME ZONE 'Asia/Kolkata'), 'YYYY-MM') = t.month_key
-      GROUP BY t.month_key
-    )
-    INSERT INTO monthly_gst_summary (id, month, taxable_value_paise, gst_amount_paise, invoice_count, sac_code)
-    SELECT
-      md5(month_key),
-      month_key,
-      taxable_value_paise,
-      gst_amount_paise,
-      invoice_count,
-      '999721'
-    FROM agg
-    ON CONFLICT (month) DO UPDATE SET
-      taxable_value_paise = EXCLUDED.taxable_value_paise,
-      gst_amount_paise    = EXCLUDED.gst_amount_paise,
-      invoice_count       = EXCLUDED.invoice_count,
-      sac_code            = EXCLUDED.sac_code
-  `)
+// MONTHLY_GST, 30 19 1 * * UTC = 01:00 IST on the 2nd). Rebuilds the
+// PREVIOUS IST month's rows per branch, issuer GSTIN and SAC code; see
+// buildMonthlyGstSummary. Idempotent: a re-run replaces the month's rows with
+// the same values.
+export async function jobMonthlyGstSummary(now: Date = new Date()) {
+  return buildMonthlyGstSummary(previousIstMonthKey(now))
 }
 
 // Job 7 — Gems Auto-Expire (route: /api/jobs/gems-auto-expire, heartbeat
-// GEMS_EXPIRE, 40 18 * * * UTC = 12:10 AM IST). For each EARNED
-// loyalty_transaction whose gems have expired and which has NOT already been
-// offset, insert one offsetting 'expired' transaction (gems_amount = -original)
-// marked `expired:<txId>` and decrement the owning loyalty_account.gems_balance
-// by the same amount.
+// GEMS_EXPIRE, 40 18 * * * UTC = 12:10 AM IST). Each earned batch past its
+// expiry loses its UNSPENT gems only: its amount less what redemptions took
+// from it and what has already expired of it. The old port expired a batch's
+// full amount even when the customer had spent it, which could drive the
+// balance negative (settlement.md); the database now refuses that.
 //
-// PL/pgSQL → CTE PORT: the original job_gems_auto_expire() was PL/pgSQL with a
-// per-row FOR loop. This is ported as a SINGLE data-modifying CTE statement that
-// achieves the IDENTICAL effect (the migration explicitly allows this):
-//   1. `expired_tx` selects the same candidate rows, including the same
-//      `expired:<id>` NOT EXISTS idempotency guard — so already-offset
-//      transactions are skipped and a re-run offsets nothing twice.
-//   2. `ins` inserts one offset row per candidate with the SAME id
-//      (md5('expired:' || id)), type 'expired', gems_amount = -original, and the
-//      `expired:<id>` description marker.
-//   3. the final UPDATE decrements each account's balance by the SUM of its
-//      candidates' original gems — equal to applying each loop iteration's
-//      single-row decrement, but folded per account.
-// All CTEs see the same snapshot of `expired_tx`, so the inserted offsets and
-// the balance decrements always correspond. This touches money/balances, so the
-// idempotency marker is preserved exactly. (Mirrors expireGems() in section 1.)
-export async function jobGemsAutoExpire(): Promise<void> {
-  await db.execute(sql`
-    WITH expired_tx AS (
-      SELECT lt.id, lt.loyalty_account_id, lt.gems_amount
-      FROM loyalty_transaction lt
-      WHERE lt.type = 'earned'
-        AND lt.gems_amount > 0
-        AND lt.expires_at IS NOT NULL
-        AND lt.expires_at < NOW()
-        AND NOT EXISTS (
-          SELECT 1 FROM loyalty_transaction lt2
-          WHERE lt2.type = 'expired'
-            AND lt2.description = 'expired:' || lt.id
-        )
-    ),
-    ins AS (
-      INSERT INTO loyalty_transaction (id, loyalty_account_id, type, gems_amount, description, created_at)
-      SELECT md5('expired:' || e.id), e.loyalty_account_id, 'expired', -e.gems_amount, 'expired:' || e.id, NOW()
-      FROM expired_tx e
-      RETURNING 1
-    ),
-    bal AS (
-      SELECT e.loyalty_account_id, SUM(e.gems_amount) AS total
-      FROM expired_tx e
-      GROUP BY e.loyalty_account_id
-    )
-    UPDATE loyalty_account la
-    SET gems_balance = la.gems_balance - bal.total, updated_at = NOW()
-    FROM bal
-    WHERE la.id = bal.loyalty_account_id
-  `)
+// One transaction (gems-ledger.ts expireLapsedGems): lock the affected
+// accounts, give back the gems of any ended booking that still holds them,
+// then expire what is left unspent and debit the balances. Idempotent: a
+// re-run finds nothing unspent, so QStash retries expire nothing twice.
+export async function jobGemsAutoExpire(): Promise<GemsExpiryResult> {
+  return expireLapsedGems()
 }

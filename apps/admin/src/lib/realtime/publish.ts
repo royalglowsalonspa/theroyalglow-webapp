@@ -14,8 +14,8 @@
  *                (see ably-channels.md).
  *
  * Responsibilities :
- * - Publish a booking event to `booking:{bookingId}`, the per-branch admin
- *   feed (`admin:bookings:{branchId}`), and (when customerId is given) the
+ * - Publish a booking event to `booking:{branchId}:{bookingId}`, the per-branch
+ *   admin feed (`admin:bookings:{branchId}`), and (when customerId is given) the
  *   customer's own channel (`customer:{customerId}:bookings`) via the Ably REST
  *   HTTP API
  * - Stamp `bookingId` into the event payload so per-customer subscribers can
@@ -25,7 +25,8 @@
  *
  * Features / Functionality :
  * - publishBookingEvent({ bookingId, branchId, event, data }) — fan-out publish
- * - Reuses the shared adminBookingsChannel() naming (channels.ts)
+ * - Reuses the shared channel naming (channels.ts); every staff channel names
+ *   its branch (multi-branch design §3)
  * - HTTP Basic auth built from ABLY_PRIVATE_KEY with btoa (Workers-safe)
  * - ~2s AbortSignal.timeout so a slow Ably never stalls the request
  *
@@ -49,7 +50,11 @@
  ************************************************************/
 
 import { createLogger } from '@rgss/logger'
-import { adminBookingsChannel, customerBookingsChannel } from '@/lib/realtime/channels'
+import {
+  adminBookingsChannel,
+  bookingChannel,
+  customerBookingsChannel,
+} from '@/lib/realtime/channels'
 
 const logger = createLogger({
   service: 'admin:realtime:publish',
@@ -61,9 +66,10 @@ const logger = createLogger({
 export type BookingEvent = 'created' | 'status_changed' | 'completed' | 'assigned'
 
 type PublishBookingEventInput = {
-  // The booking this event is about. When present, publishes to `booking:{id}`
-  // and is stamped into the event payload as `data.bookingId` so subscribers on
-  // the shared customer channel can filter to the right booking.
+  // The booking this event is about. With branchId, publishes to
+  // `booking:{branchId}:{bookingId}`; it is always stamped into the event payload
+  // as `data.bookingId` so subscribers on the shared customer channel can filter
+  // to the right booking.
   bookingId?: string | null
   // The branch the booking belongs to. When present, publishes to the admin
   // dashboard feed `admin:bookings:{branchId}`.
@@ -154,8 +160,9 @@ export async function publishBookingEvent(input: PublishBookingEventInput): Prom
     : { ...input.data }
 
   const channels: string[] = []
-  if (input.bookingId) {
-    channels.push(`booking:${input.bookingId}`)
+  if (input.bookingId && input.branchId) {
+    // Only the booking's branch can subscribe to its channel.
+    channels.push(bookingChannel(input.branchId, input.bookingId))
   }
   if (input.branchId) {
     // Reuse the single source of truth for admin channel naming (channels.ts).

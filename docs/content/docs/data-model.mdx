@@ -1,19 +1,21 @@
 ---
 title: Data Model
-description: The 38-table Drizzle schema for Royal Glow — conventions, table groupings, enums, and ID formats.
+description: The 53-table Drizzle schema for Royal Glow — conventions, table groupings, enums, and ID formats.
 icon: database
 ---
 
 Royal Glow runs on **Neon PostgreSQL 16** with **Drizzle ORM** (pure TypeScript,
-edge-native). The schema lives in `packages/db/src/schema/` as **15 files**
-defining **38 tables** that cover auth, profiles, services, scheduling,
-bookings, billing, memberships, offers, CRM, leads, loyalty, notifications,
-branches, and system operations.
+edge-native). The schema lives in `packages/db/src/schema/`: **19 files**
+define **53 tables** that cover auth, profiles, services and where they are
+offered, scheduling, bookings and staff occupancy, billing and tax, memberships
+and their minute holds, offers, CRM, leads, loyalty, cross-branch settlement,
+notifications, branches and their settings, and system operations.
 
 <Info>
   Every monetary value is an **integer in paise** (₹1 = 100 paise) — never a
   float. Every timestamp is `timestamptz` (stored UTC, displayed IST). Prices
-  are GST-inclusive at 18%.
+  are GST-inclusive; each invoice line is taxed at the branch's rate in force
+  for its SAC code.
 </Info>
 
 ## Conventions
@@ -32,11 +34,11 @@ These rules are mandatory across every table.
 | `Deletes` | `hard delete` | No soft-delete columns. Tracked via audit_log. |
 | `Foreign keys` | `explicit ON DELETE` | CASCADE for children, RESTRICT for references. Indexed on all FK columns. |
 | `Snapshots` | `frozen copies` | Price + service/staff name frozen on booking_service and invoice_item so historical records never drift. |
-| `GST` | `18% inclusive` | SAC 999721. Back-calc: base = round(price ÷ 1.18). |
+| `GST` | `inclusive, per branch` | Each invoice line uses the branch's rate in force (`branch_tax_version`) for its SAC code: the service's own, else its category's. No fallback rate. |
 
 ## Schema files & table groupings
 
-The 15 schema files in `packages/db/src/schema/` map to 38 tables. The tree below
+The 19 table files in `packages/db/src/schema/` define 53 tables. The tree below
 lists the actual `pgTable` names defined in each file.
 
 <Tree>
@@ -44,18 +46,23 @@ lists the actual `pgTable` names defined in each file.
     <Tree.File name="enums.ts — all PostgreSQL enums (not a table)" />
     <Tree.File name="auth.ts — user, session, account, verification (4)" />
     <Tree.File name="profile.ts — customer_profile, staff_profile (2)" />
-    <Tree.File name="service.ts — service_category, service, staff_service (3)" />
+    <Tree.File name="service.ts — service_category, service, staff_service, service_branch, service_category_branch (5)" />
     <Tree.File name="schedule.ts — staff_schedule, staff_time_off, business_hour, holiday (4)" />
-    <Tree.File name="booking.ts — booking, booking_service, booking_status_log, waitlist (4)" />
+    <Tree.File name="booking.ts — booking, booking_service, booking_reassignment, booking_status_log, waitlist (5)" />
+    <Tree.File name="staff-occupancy.ts — staff_occupancy, staff_work (2)" />
     <Tree.File name="invoice.ts — invoice, invoice_item (2)" />
+    <Tree.File name="tax.ts — branch_tax_version, invoice_sequence (2)" />
     <Tree.File name="membership.ts — spa_membership_tier, spa_membership (2)" />
+    <Tree.File name="membership-hold.ts — membership_hold (1)" />
     <Tree.File name="offer.ts — offer, offer_service, offer_redemption (3)" />
     <Tree.File name="lead.ts — lead, lead_note (2)" />
     <Tree.File name="crm.ts — customer_tag, customer_tag_assignment, customer_note (3)" />
-    <Tree.File name="loyalty.ts — loyalty_account, loyalty_transaction (2)" />
+    <Tree.File name="loyalty.ts — loyalty_account, loyalty_transaction, loyalty_allocation (3)" />
+    <Tree.File name="settlement.ts — settlement_period, settlement_entry, branch_settlement, settlement_position (4)" />
     <Tree.File name="notification.ts — notification, push_subscription (2)" />
     <Tree.File name="branch.ts — branch (1)" />
-    <Tree.File name="system.ts — daily_sales_summary, monthly_gst_summary, audit_log, system_setting (4)" />
+    <Tree.File name="branch-setting.ts — branch_setting (1)" />
+    <Tree.File name="system.ts — daily_sales_summary, monthly_gst_summary, audit_log, system_setting, realtime_revocation (5)" />
   </Tree.Folder>
 </Tree>
 
@@ -63,7 +70,16 @@ lists the actual `pgTable` names defined in each file.
   The `auth.ts` tables (`user`, `session`, `account`, `verification`) are owned
   by Better Auth's Drizzle adapter. Don't add custom columns to them — extend
   via `customer_profile` / `staff_profile` instead. Enums are defined separately
-  in `enums.ts` (not counted as a table). Totals: **15 files**, **38 tables**.
+  in `enums.ts` (not counted as a table). Totals: **19 table files**, **53 tables**.
+</Info>
+
+<Info>
+  `service_branch` and `service_category_branch` list the branches a service or
+  category is offered at when its `all_branches` is false. A service is offered
+  at a branch only when its own availability and its category's both include
+  it (`service_available_at`), and the database refuses a new booking line for
+  a service its booking's branch doesn't offer (migration 0034). Payload's
+  catalogue sync writes these tables.
 </Info>
 
 ## Key enums
@@ -97,36 +113,42 @@ Defined natively in PostgreSQL via `enums.ts`.
 | Entity | Format | Example |
 | --- | --- | --- |
 | Booking | `BK-{branch_code}-{YYMM}-{H\|S}-{5_random}[-M]` | `BK-RS-2605-H-38291` |
-| Invoice | `INV-{branch_number}-{financial_year}-{5_random}` | `INV-1-2627-92921` |
+| Invoice | `{branch_prefix}/{financial_year}/{sequence}` | `RS/2627/000123` |
 | Membership | `RG-MEM-{YY}-{branch_number}-{5_random}` | `RG-MEM-26-1-90872` |
 
 `H` = salon (hair/beauty), `S` = spa. The `-M` suffix marks a membership
-session booking.
+session booking. Invoice numbers are consecutive per branch and financial year
+(`invoice_sequence`), as GST requires; invoices issued before migration 0017
+keep their older `INV-…` numbers.
 
-## GST (18% inclusive)
+## GST (inclusive, per branch)
 
-Customer-facing prices already include GST. The invoice back-calculates the base
-and tax from the inclusive amount.
+Customer-facing prices already include GST. The rate isn't a constant: each
+branch has effective-dated rates per SAC code (`branch_tax_version`), and a
+service's SAC code is its own or its category's. There is no fallback rate; an
+invoice whose branch has no rate in force for a line's code is refused (409
+`TAX_CONFIGURATION_INCOMPLETE`). Each line is taxed in integer paise and basis
+points (500 = 5%), after its share of any discount:
 
 ```ts
-const GST_RATE = 0.18
+taxable = roundHalfUp(amount × 10_000 / (10_000 + rateBps))
+tax     = amount − taxable
+cgst    = floor(tax / 2)   // the odd paisa goes to SGST
+sgst    = tax − cgst
 
-function splitGST(inclusivePaise: number) {
-  const basePaise = Math.round(inclusivePaise / (1 + GST_RATE))
-  const gstPaise = inclusivePaise - basePaise
-  return { basePaise, gstPaise, totalPaise: inclusivePaise }
-}
-
-// splitGST(118000) → { basePaise: 100000, gstPaise: 18000, totalPaise: 118000 }
-// ₹1,180.00 inclusive = ₹1,000.00 base + ₹180.00 GST
+// ₹1,050.00 at 5%: taxable ₹1,000.00 + GST ₹50.00 (CGST ₹25.00, SGST ₹25.00)
 ```
+
+An issued invoice keeps its amounts, rates and issuer forever; a later rate
+change applies to later invoices only.
 
 ## Loyalty (gems) rules
 
 - **Earn:** 1 gem per ₹100 invoiced (floor), on `invoice_type = 'service'` only.
 - **No gems** on `membership_purchase` or `membership_session` invoices.
-- **Expiry:** 365 days from earn date, auto-deducted by the QStash gems-auto-expire job.
-- **Redemption:** against specific catalogue services — not a ₹ discount.
+- **Expiry:** 365 days from earn date. The QStash gems-auto-expire job deducts only gems still unspent.
+- **Redemption:** against specific catalogue services — not a ₹ discount. Usable at any branch, earliest-expiring gems first; gems for a free service that doesn't go ahead are returned.
+- **Settlement:** gems issued at one branch and spent at another are owed by the issuing branch at the value per gem (₹1.00 by default), in a monthly statement without GST.
 - **Cannot combine** with an offer on the same booking.
 
 ## Booking lifecycle

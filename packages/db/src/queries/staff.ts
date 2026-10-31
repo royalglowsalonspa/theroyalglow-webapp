@@ -1,137 +1,178 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 21-06-2026 & Updated - 21-06-2026
+ * Date         : Created - 21-06-2026 & Updated - 28-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : staff
- * Scope        : Data Access — Staff management (admin)
+ * Scope        : Data Access — Staff at a branch (admin)
  *
- * Description  : Admin-wide staff queries backing the Staff management module:
- *                the management list (staff_profile joined to user identity with
- *                an assigned-service count), a single staff member with their
- *                assigned serviceIds, a partial profile update, and a wholesale
- *                replacement of a staff member's service capabilities.
+ * Description  : Queries behind the Staff page and the staff pickers, always
+ *                for one branch: who works there (its Manager, Receptionist,
+ *                Stylists and Therapists), one staff member there with the
+ *                services they perform, a scoped profile edit, and the
+ *                wholesale replacement of their service capabilities.
  *
  * Responsibilities :
- * - List all staff (profile + user name/email/role) with service counts
- * - Fetch one staff profile + identity + assigned serviceIds (getStaffById)
- * - Read just the assigned serviceIds for a staff member
- * - Create a staff_profile by linking an existing user account (by email)
- * - Patch only the provided staff_profile columns
+ * - List the people who work at a branch, with service counts
+ * - The lean picker list of a branch's active staff
+ * - Fetch one staff member at a branch, with their serviceIds
+ * - Patch a staff member's profile, only while they work at the branch
  * - Replace the staff_service rows for a staff member atomically
  *
  * Features / Functionality :
+ * - "Works at" comes from the role relationships of migration 0004: an active
+ *   profile that grants its role, at the branch, or the branch's Manager
+ * - A record at another branch reads as not found (multi-branch R2.3)
  * - Set-based service counts via a single group-by (no N+1)
- * - Partial update mirrors the updateService pattern (exactOptionalProps safe)
- * - Atomic capability replacement via db.batch (delete + insert)
  *
  * Tech Stack   : TypeScript, Drizzle ORM
  * Layer        : Data Access
  *
  * Dependencies : drizzle-orm, @rgss/types, ../index, ../schema/auth,
- *                ../schema/profile, ../schema/service
+ *                ../schema/branch, ../schema/profile, ../schema/service
  *
- * Notes        : neon-http has no interactive transactions (db.transaction
- *                throws), so the capability replacement uses db.batch() — a
- *                single atomic, server-side transaction round-trip. Referential
- *                safety (staff + service existence) is enforced at the API
- *                boundary before these run; FKs are ON DELETE CASCADE.
+ * Notes        : Adding and removing people changes roles, so it goes through
+ *                branch-roles.ts (one transaction with the role, profile,
+ *                branch and audit entry). Removed staff keep their profile,
+ *                inactive, so bookings and invoices keep their staff.
  ************************************************************/
 
-import type { StaffCreateInput, StaffProfileUpdateInput } from '@rgss/types'
-import { asc, eq, sql } from 'drizzle-orm'
+import type { StaffProfileUpdateInput } from '@rgss/types'
+import { and, asc, eq, inArray, type SQL, sql } from 'drizzle-orm'
 import { db } from '../index'
 import { user } from '../schema/auth'
+import { booking, bookingService } from '../schema/booking'
+import { branch } from '../schema/branch'
 import { staffProfile } from '../schema/profile'
 import { staffService } from '../schema/service'
 
-// Role hierarchy (mirrors apps/admin rbac ROLE_LEVELS). Used only to decide
-// whether a linked account should be promoted to 'staff' on profile creation —
-// never to demote a higher role (e.g. a manager who also performs services).
-const ROLE_LEVEL: Record<string, number> = {
-  customer: 0,
-  staff: 1,
-  receptionist: 2,
-  manager: 3,
-  owner: 4,
-  developer: 5,
+/** A role a staff profile can grant (its role witness). */
+export type StaffRoleWitness = 'staff' | 'receptionist' | 'manager'
+
+/**
+ * The profiles of people who work at `branchId`: active, granting their role,
+ * and either at the branch (Stylists, Therapists, the Receptionist) or the
+ * branch's Manager, whose branches come from branch.manager_user_id.
+ */
+export function staffWorksAt(branchId: string): SQL {
+  return worksAt(branchId)
 }
 
-// All staff (profile + user identity), each with its assigned-service count.
+function worksAt(branchId: string): SQL {
+  return sql`(${staffProfile.isActive} = true and ${staffProfile.roleWitness} is not null
+    and (${staffProfile.branchId} = ${branchId}
+      or ${staffProfile.userId} = (select ${branch.managerUserId} from ${branch} where ${branch.id} = ${branchId})))`
+}
+
+const STAFF_COLUMNS = {
+  id: staffProfile.id,
+  userId: staffProfile.userId,
+  name: user.name,
+  email: user.email,
+  role: user.role,
+  phone: staffProfile.phone,
+  designation: staffProfile.designation,
+  roleWitness: staffProfile.roleWitness,
+  bio: staffProfile.bio,
+  specialization: staffProfile.specialization,
+  isActive: staffProfile.isActive,
+  hireDate: staffProfile.hireDate,
+  createdAt: staffProfile.createdAt,
+  updatedAt: staffProfile.updatedAt,
+} as const
+
+// The people who work at a branch, each with their assigned-service count.
 // Two set-based queries (staff, then counts grouped by staff) mapped in memory
 // — never one count query per row.
-export async function getStaffForAdmin() {
+export async function getBranchStaff(branchId: string) {
   const staff = await db
-    .select({
-      id: staffProfile.id,
-      userId: staffProfile.userId,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      phone: staffProfile.phone,
-      designation: staffProfile.designation,
-      bio: staffProfile.bio,
-      specialization: staffProfile.specialization,
-      isActive: staffProfile.isActive,
-      hireDate: staffProfile.hireDate,
-      createdAt: staffProfile.createdAt,
-    })
+    .select(STAFF_COLUMNS)
     .from(staffProfile)
     .innerJoin(user, eq(staffProfile.userId, user.id))
+    .where(worksAt(branchId))
     .orderBy(asc(user.name))
+  if (staff.length === 0) {
+    return []
+  }
 
   const counts = await db
     .select({ staffId: staffService.staffId, count: sql<number>`count(*)::int` })
     .from(staffService)
+    .where(
+      inArray(
+        staffService.staffId,
+        staff.map((s) => s.id),
+      ),
+    )
     .groupBy(staffService.staffId)
 
   const countByStaff = new Map(counts.map((c) => [c.staffId, c.count]))
   return staff.map((s) => ({ ...s, serviceCount: countByStaff.get(s.id) ?? 0 }))
 }
 
-// A single staff member: profile + user identity + the list of serviceIds they
-// can perform, or null if the profile is missing.
-export async function getStaffProfileById(id: string) {
-  const rows = await db
+// The active staff at a branch with their names, for assignment pickers.
+export async function getActiveStaffAtBranch(branchId: string) {
+  return db
     .select({
       id: staffProfile.id,
       userId: staffProfile.userId,
       name: user.name,
-      email: user.email,
-      role: user.role,
-      phone: staffProfile.phone,
       designation: staffProfile.designation,
-      bio: staffProfile.bio,
-      specialization: staffProfile.specialization,
-      isActive: staffProfile.isActive,
-      hireDate: staffProfile.hireDate,
-      createdAt: staffProfile.createdAt,
-      updatedAt: staffProfile.updatedAt,
     })
     .from(staffProfile)
     .innerJoin(user, eq(staffProfile.userId, user.id))
-    .where(eq(staffProfile.id, id))
+    .where(worksAt(branchId))
+    .orderBy(asc(user.name))
+}
+
+// Whether the staff profile works at the branch now: who a booking there may
+// be assigned to.
+export async function isStaffAtBranch(id: string, branchId: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: staffProfile.id })
+    .from(staffProfile)
+    .where(and(eq(staffProfile.id, id), worksAt(branchId)))
+    .limit(1)
+  return rows.length > 0
+}
+
+// One staff member who works at the branch, with the serviceIds they can
+// perform, or null when there is no such profile there.
+export async function getStaffMemberAtBranch(id: string, branchId: string) {
+  const rows = await db
+    .select(STAFF_COLUMNS)
+    .from(staffProfile)
+    .innerJoin(user, eq(staffProfile.userId, user.id))
+    .where(and(eq(staffProfile.id, id), worksAt(branchId)))
     .limit(1)
 
   const found = rows[0]
   if (!found) {
     return null
   }
-
-  const assigned = await db
-    .select({ serviceId: staffService.serviceId })
-    .from(staffService)
-    .where(eq(staffService.staffId, id))
-
-  return { ...found, serviceIds: assigned.map((r) => r.serviceId) }
+  return { ...found, serviceIds: await getStaffServiceIds(id) }
 }
 
-// Spec alias — the Staff management spec refers to this lookup as getStaffById.
-// Same row shape (profile + identity + assigned serviceIds) or null.
-export const getStaffById = getStaffProfileById
+// Confirmed bookings still to come at the branch that name this staff member:
+// what removing them lists for reassignment (R1.7). Same rule as the release
+// in reassignments.ts: starting now or later in IST.
+export async function countUpcomingAssignments(staffId: string, branchId: string): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(distinct ${booking.id})::int` })
+    .from(bookingService)
+    .innerJoin(booking, eq(bookingService.bookingId, booking.id))
+    .where(
+      and(
+        eq(bookingService.staffId, staffId),
+        eq(booking.branchId, branchId),
+        eq(booking.status, 'confirmed'),
+        sql`((${booking.bookingDate} + ${booking.startTime}) at time zone 'Asia/Kolkata') >= now()`,
+      ),
+    )
+  return row?.count ?? 0
+}
 
 // Just the serviceIds a staff member can perform (a single set-based read).
-// Useful for the assignment editor's initial state without the full profile.
 export async function getStaffServiceIds(staffId: string): Promise<string[]> {
   const rows = await db
     .select({ serviceId: staffService.serviceId })
@@ -140,68 +181,26 @@ export async function getStaffServiceIds(staffId: string): Promise<string[]> {
   return rows.map((r) => r.serviceId)
 }
 
-// Outcome of a create attempt. A tagged result keeps the API route thin: it maps
-// `user_not_found` → 404 ("ask them to sign in first") and `already_staff` → 409
-// without the query layer importing the errors package.
-export type CreateStaffProfileResult =
-  | { ok: true; staff: typeof staffProfile.$inferSelect }
-  | { ok: false; reason: 'user_not_found' | 'already_staff' }
-
-// Create a staff_profile by linking an EXISTING user account (matched by email,
-// case-insensitively). Returns `user_not_found` when no account exists (the
-// admin must ask them to sign in first) and `already_staff` when the account
-// already has a profile (the unique user_id constraint). On success the account
-// is promoted to role 'staff' only when its current role ranks lower, then the
-// profile is inserted and returned.
-export async function createStaffProfile(
-  data: StaffCreateInput,
-): Promise<CreateStaffProfileResult> {
-  const email = data.email.trim().toLowerCase()
-
-  const accounts = await db
-    .select({ id: user.id, role: user.role })
-    .from(user)
-    .where(sql`lower(${user.email}) = ${email}`)
-    .limit(1)
-  const account = accounts[0]
-  if (!account) {
-    return { ok: false, reason: 'user_not_found' }
+/**
+ * Patch the profile of a staff member who works at `branchId` and whose role
+ * is one of `roles`. Only provided keys are written; nullable text columns
+ * accept null to clear. A title change applies only to a Stylist or
+ * Therapist, so it also requires the Staff role. Returns the updated row, or
+ * null when no such staff member works there (moved, removed or never).
+ */
+export async function updateStaffMemberAtBranch(params: {
+  id: string
+  branchId: string
+  roles: readonly StaffRoleWitness[]
+  patch: Omit<StaffProfileUpdateInput, 'branchId'>
+}) {
+  const { id, branchId, patch } = params
+  const roles =
+    patch.designation === undefined ? params.roles : params.roles.filter((r) => r === 'staff')
+  if (roles.length === 0) {
+    return null
   }
 
-  const existingProfile = await db
-    .select({ id: staffProfile.id })
-    .from(staffProfile)
-    .where(eq(staffProfile.userId, account.id))
-    .limit(1)
-  if (existingProfile[0]) {
-    return { ok: false, reason: 'already_staff' }
-  }
-
-  // Promote to 'staff' only when the current role ranks lower (never demote a
-  // manager/owner who is also being added as a performing staff member).
-  const currentLevel = ROLE_LEVEL[account.role ?? 'customer'] ?? 0
-  if (currentLevel < (ROLE_LEVEL.staff ?? 1)) {
-    await db.update(user).set({ role: 'staff' }).where(eq(user.id, account.id))
-  }
-
-  const [created] = await db
-    .insert(staffProfile)
-    .values({
-      userId: account.id,
-      designation: data.designation,
-      phone: data.phone ?? null,
-      bio: data.bio ?? null,
-      specialization: data.specialization ?? null,
-      hireDate: data.hireDate ?? null,
-    })
-    .returning()
-
-  return { ok: true, staff: created as typeof staffProfile.$inferSelect }
-}
-
-// Patch a staff_profile. Only provided keys are written; nullable text columns
-// accept null to clear. `updatedAt` auto-bumps. Returns the updated row or null.
-export async function updateStaffProfile(id: string, patch: StaffProfileUpdateInput) {
   const values: Partial<typeof staffProfile.$inferInsert> = {}
   if (patch.designation !== undefined) {
     values.designation = patch.designation
@@ -215,24 +214,24 @@ export async function updateStaffProfile(id: string, patch: StaffProfileUpdateIn
   if (patch.specialization !== undefined) {
     values.specialization = patch.specialization ?? null
   }
-  if (patch.isActive !== undefined) {
-    values.isActive = patch.isActive
-  }
   if (patch.hireDate !== undefined) {
     values.hireDate = patch.hireDate ?? null
   }
-
-  if (Object.keys(values).length === 0) {
-    const rows = await db.select().from(staffProfile).where(eq(staffProfile.id, id)).limit(1)
-    return rows[0] ?? null
-  }
+  // Nothing to write still has to match, so `updatedAt` is always set.
+  values.updatedAt = new Date()
 
   const [updated] = await db
     .update(staffProfile)
     .set(values)
-    .where(eq(staffProfile.id, id))
-    .returning()
-  return updated ?? null
+    .where(
+      and(
+        eq(staffProfile.id, id),
+        worksAt(branchId),
+        inArray(staffProfile.roleWitness, [...roles]),
+      ),
+    )
+    .returning({ id: staffProfile.id })
+  return updated ? getStaffMemberAtBranch(updated.id, branchId) : null
 }
 
 // Replace the staff_service rows for a staff member atomically. IDs are

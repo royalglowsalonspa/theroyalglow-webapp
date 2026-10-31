@@ -10,17 +10,23 @@
  *                  record a timestamp + optional reason, and log the transition
  *                  (Property 17);
  *                - the transition guards reject invalid states with the right
- *                  409 codes (Property 18).
+ *                  409 codes (Property 18);
+ *                - within the branch's cut-off a cancellation is late: allowed,
+ *                  never charged, recorded with the settings revision (R6.3);
+ *                  unreadable settings never block a cancellation.
  *
  * Layer        : Testing
  *
  * Notes        : Node environment (server route handler). `@/lib/api/session`
  *                and `@rgss/db/queries` are mocked with in-memory fakes; no live
- *                session or DB. `@rgss/types` (Zod) and `@rgss/errors` stay REAL.
+ *                session or DB. `@rgss/types` (Zod), `@rgss/business` and
+ *                `@rgss/errors` stay REAL. Date is faked to 10/06/2026, 10:00 IST.
  ************************************************************/
 
+import { conflict, ERROR_CODES } from '@rgss/errors'
+import { DEFAULT_BOOKING_RULES, DEFAULT_BUSINESS_HOURS } from '@rgss/types'
 import fc from 'fast-check'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const sessionMocks = vi.hoisted(() => ({
   requireSession: vi.fn(),
@@ -31,6 +37,7 @@ const sessionMocks = vi.hoisted(() => ({
 const dbMocks = vi.hoisted(() => ({
   getBookingByIdForCustomer: vi.fn(),
   getBookingById: vi.fn(),
+  getBranchPolicy: vi.fn(),
   cancelBooking: vi.fn(),
   rescheduleBooking: vi.fn(),
 }))
@@ -39,6 +46,17 @@ vi.mock('@/lib/api/session', () => sessionMocks)
 vi.mock('@rgss/db/queries', () => dbMocks)
 
 import * as cancelRoute from '@/app/api/bookings/[id]/cancel/route'
+
+// Wednesday 10/06/2026, 10:00 IST.
+const NOW = new Date('2026-06-10T04:30:00.000Z')
+
+const POLICY = {
+  branchId: 'br_1',
+  branchName: 'Rayasandra',
+  revision: 4,
+  businessHours: DEFAULT_BUSINESS_HOURS,
+  bookingRules: DEFAULT_BOOKING_RULES,
+}
 
 const postReq = (id: string, body: unknown) =>
   new Request(`https://theroyalglow.in/api/bookings/${id}/cancel`, {
@@ -54,9 +72,14 @@ function makeStore(booking: {
   customerId: string
   status: string
   rescheduleCount?: number
+  bookingDate?: string
+  startTime?: string
 }) {
   const record = {
+    branchId: 'br_1',
     ...booking,
+    bookingDate: new Date(`${booking.bookingDate ?? '2026-06-20'}T00:00:00.000Z`),
+    startTime: booking.startTime ?? '15:00:00',
     cancellationReason: null as string | null,
     cancelledAt: null as Date | null,
     statusLogs: [] as Array<{
@@ -96,6 +119,12 @@ function makeStore(booking: {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.useFakeTimers({ now: NOW, toFake: ['Date'] })
+  dbMocks.getBranchPolicy.mockResolvedValue(POLICY)
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 describe('POST /api/bookings/[id]/cancel — active transition', () => {
@@ -174,5 +203,76 @@ describe('POST /api/bookings/[id]/cancel — transition guards', () => {
       ),
       { numRuns: 100 },
     )
+  })
+})
+
+describe("POST /api/bookings/[id]/cancel — the branch's cut-off (R6.3)", () => {
+  async function cancel(booking: { bookingDate: string; startTime: string }) {
+    makeStore({ id: 'bk_1', customerId: 'cust_1', status: 'confirmed', ...booking })
+    sessionMocks.requireSession.mockResolvedValue({ user: { id: 'cust_1' } })
+    const res = await cancelRoute.POST(postReq('bk_1', {}), {
+      params: Promise.resolve({ id: 'bk_1' }),
+    })
+    return { status: res.status, body: await res.json() }
+  }
+
+  it('is late within the cut-off: still cancelled, recorded with the revision', async () => {
+    // 13:00 today is three hours away; the branch's cut-off is four.
+    const { status, body } = await cancel({ bookingDate: '2026-06-10', startTime: '13:00:00' })
+
+    expect(status).toBe(200)
+    expect(body.data).toMatchObject({ status: 'cancelled', late: true })
+    expect(dbMocks.getBranchPolicy).toHaveBeenCalledWith('br_1')
+    expect(dbMocks.cancelBooking).toHaveBeenCalledWith('bk_1', 'cust_1', null, {
+      late: true,
+      settingsRevision: 4,
+    })
+  })
+
+  it('is not late before the cut-off', async () => {
+    const { body } = await cancel({ bookingDate: '2026-06-10', startTime: '15:00:00' })
+
+    expect(body.data.late).toBe(false)
+    expect(dbMocks.cancelBooking).toHaveBeenCalledWith('bk_1', 'cust_1', null, {
+      late: false,
+      settingsRevision: 4,
+    })
+  })
+
+  it("follows this branch's own cut-off", async () => {
+    dbMocks.getBranchPolicy.mockResolvedValue({
+      ...POLICY,
+      revision: 7,
+      bookingRules: { ...DEFAULT_BOOKING_RULES, cancellationCutoffHours: 2 },
+    })
+
+    const { body } = await cancel({ bookingDate: '2026-06-10', startTime: '13:00:00' })
+
+    expect(body.data.late).toBe(false)
+    expect(dbMocks.cancelBooking).toHaveBeenCalledWith('bk_1', 'cust_1', null, {
+      late: false,
+      settingsRevision: 7,
+    })
+  })
+
+  it('never blocks a cancellation on unreadable settings: no lateness is decided', async () => {
+    dbMocks.getBranchPolicy.mockRejectedValue(
+      conflict(ERROR_CODES.BRANCH_SETTINGS_INCOMPLETE, 'Rayasandra has no valid booking settings.'),
+    )
+
+    const { status, body } = await cancel({ bookingDate: '2026-06-10', startTime: '11:00:00' })
+
+    expect(status).toBe(200)
+    expect(body.data).toMatchObject({ status: 'cancelled', late: false })
+    expect(dbMocks.cancelBooking).toHaveBeenCalledWith('bk_1', 'cust_1', null, undefined)
+  })
+
+  it('still fails on any other error reading the settings', async () => {
+    dbMocks.getBranchPolicy.mockRejectedValue(new Error('connection reset'))
+
+    const { status } = await cancel({ bookingDate: '2026-06-10', startTime: '15:00:00' })
+
+    expect(status).toBe(500)
+    expect(dbMocks.cancelBooking).not.toHaveBeenCalled()
   })
 })

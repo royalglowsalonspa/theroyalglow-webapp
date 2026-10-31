@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 31-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : llms-full.txt
@@ -16,7 +16,8 @@
  * - Gracefully degrade to pointer URL on DB errors
  *
  * Features / Functionality :
- * - Per-category service listing (name, price, duration)
+ * - Per-category service listing (name, price, duration), with "Only at …"
+ *   for a service only some branches offer
  * - INR formatting via formatINR (paise → ₹)
  * - Contact block with opening hours
  * - Booking and social links
@@ -31,8 +32,8 @@
  * - Extends llms.txt with full menu detail
  ************************************************************/
 
-import { formatINR } from '@rgss/business'
-import { getAllServicesGrouped } from '@rgss/db/queries'
+import { availabilityLabel, formatINR } from '@rgss/business'
+import { getAllServicesGrouped, getPublicBranches } from '@rgss/db/queries'
 import { BUSINESS, FAQS, SITE_URL } from '@/lib/seo/business'
 
 /**
@@ -95,16 +96,21 @@ function faqSection(): string {
 
 type ServiceMenu = Awaited<ReturnType<typeof getAllServicesGrouped>>
 
-/** Render the live full menu grouped by category. */
-function menuSection(categories: ServiceMenu): string {
+/**
+ * Render the live full menu grouped by category. A service only some branches
+ * offer says where, naming public branches only (multi-branch R4.2), as the
+ * services page does.
+ */
+function menuSection(categories: ServiceMenu, branchNames: ReadonlyMap<string, string>): string {
   const blocks = categories
     .filter((category) => category.services.length > 0)
     .map((category) => {
       const lines = category.services
-        .map(
-          (service) =>
-            `- ${service.name} — ${formatINR(service.pricePaise)} — ${service.durationMinutes} min`,
-        )
+        .map((service) => {
+          const note = availabilityLabel(service.availableBranchIds, branchNames)
+          const line = `- ${service.name} — ${formatINR(service.pricePaise)} — ${service.durationMinutes} min`
+          return note ? `${line} — ${note}` : line
+        })
         .join('\n')
       return `### ${category.name}\n${lines}`
     })
@@ -150,8 +156,11 @@ ${BUSINESS.sameAs.map((url) => `- ${url}`).join('\n')}
 
 export async function GET(): Promise<Response> {
   try {
-    const categories = await getAllServicesGrouped()
-    return new Response(renderBody(menuSection(categories)), { headers: TEXT_HEADERS })
+    const [categories, branches] = await Promise.all([getAllServicesGrouped(), getPublicBranches()])
+    const branchNames = new Map(branches.map((b) => [b.id, b.name]))
+    return new Response(renderBody(menuSection(categories, branchNames)), {
+      headers: TEXT_HEADERS,
+    })
   } catch {
     return new Response(renderBody(menuFallback()), { headers: TEXT_HEADERS })
   }

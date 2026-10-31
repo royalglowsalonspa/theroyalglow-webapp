@@ -30,8 +30,17 @@ This endpoint takes no path or query parameters.
 
 ### Response
 
-`data.categories` is an array of category objects. Each category carries its own
-columns plus a `services` array of the active services that belong to it.
+`data.categories` is an array of active categories, each with a `services` array
+of its active services in display order.
+
+Each service says where it is offered. `availableBranchIds` is `null` when
+every branch offers it, branches opened later included; otherwise it lists the
+branch ids that do. A service is offered at a branch only when its own setting
+and its category's both include the branch. `availabilityNote` is the text the
+website shows for a restricted service ("Only at Rayasandra",
+"Only at Marathahalli and Rayasandra"), naming branches from
+`GET /api/branches` only; it is `null` for a service every branch offers, and
+"Not offered at any branch right now" when none of its branches is public.
 
 ```json
 {
@@ -39,33 +48,38 @@ columns plus a `services` array of the active services that belong to it.
   "data": {
     "categories": [
       {
-        "id": "cat_haircare01",
-        "name": "Hair Care",
-        "slug": "hair-care",
-        "description": "Cuts, colour, and treatments",
-        "serviceType": "salon",
-        "displayOrder": 0,
-        "isActive": true,
-        "createdAt": "2026-05-01T04:30:00.000Z",
-        "updatedAt": "2026-05-01T04:30:00.000Z",
+        "id": "cat_vvipspa01",
+        "name": "VVIP SPA Service",
+        "serviceType": "spa",
+        "displayOrder": 9,
         "services": [
           {
-            "id": "svc_haircut001",
-            "categoryId": "cat_haircare01",
-            "name": "Signature Haircut",
-            "slug": "signature-haircut",
-            "description": "Consultation, wash, cut, and style",
-            "durationMinutes": 45,
-            "bufferMinutes": 0,
-            "pricePaise": 80000,
-            "isActive": true,
-            "imageUrl": "https://cdn.theroyalglow.in/services/haircut.webp",
-            "displayOrder": 0,
+            "id": "svc_swedish001",
+            "categoryId": "cat_vvipspa01",
+            "categoryName": "VVIP SPA Service",
+            "serviceType": "spa",
+            "name": "Swedish Massage",
+            "slug": "swedish-massage",
+            "durationMinutes": 60,
+            "pricePaise": 250000,
             "gemsRedeemable": false,
             "gemsRequired": null,
-            "gemsCatalogueOrder": null,
-            "createdAt": "2026-05-01T04:30:00.000Z",
-            "updatedAt": "2026-05-01T04:30:00.000Z"
+            "availableBranchIds": null,
+            "availabilityNote": null
+          },
+          {
+            "id": "svc_hotstone01",
+            "categoryId": "cat_vvipspa01",
+            "categoryName": "VVIP SPA Service",
+            "serviceType": "spa",
+            "name": "Hot Stone Therapy",
+            "slug": "hot-stone-therapy",
+            "durationMinutes": 90,
+            "pricePaise": 450000,
+            "gemsRedeemable": true,
+            "gemsRequired": 500,
+            "availableBranchIds": ["br_rayasandra01"],
+            "availabilityNote": "Only at Rayasandra"
           }
         ]
       }
@@ -104,6 +118,10 @@ GET /api/services/signature-haircut
 
 ### Response
 
+An inactive service is not found. `availableBranchIds` is `null` when every
+branch offers the service, otherwise the branch ids that do; this endpoint has
+no `availabilityNote`.
+
 ```json
 {
   "success": true,
@@ -111,20 +129,16 @@ GET /api/services/signature-haircut
     "service": {
       "id": "svc_haircut001",
       "categoryId": "cat_haircare01",
+      "categoryName": "Haircut & Styling",
+      "serviceType": "salon",
       "name": "Signature Haircut",
       "slug": "signature-haircut",
       "description": "Consultation, wash, cut, and style",
       "durationMinutes": 45,
-      "bufferMinutes": 0,
       "pricePaise": 80000,
-      "isActive": true,
-      "imageUrl": "https://cdn.theroyalglow.in/services/haircut.webp",
-      "displayOrder": 0,
       "gemsRedeemable": false,
       "gemsRequired": null,
-      "gemsCatalogueOrder": null,
-      "createdAt": "2026-05-01T04:30:00.000Z",
-      "updatedAt": "2026-05-01T04:30:00.000Z"
+      "availableBranchIds": null
     }
   }
 }
@@ -209,16 +223,20 @@ Unexpected/transient failure (e.g. database unreachable). `retryable: true`.
 
 ## GET /api/availability
 
-Returns the bookable time slots for a single date. Slots are a fixed
-30-minute schedule from **10:00 to 21:00** (first slot starts `10:00`, last slot
-starts `20:30` and ends `21:00`). A slot is `available: false` when it falls
-outside that weekday's configured business hours (every slot, on a day the salon
-is closed) or, for today, when its start time has already passed in IST.
+Returns the time slots a customer can request on a date at a branch: a 30-minute
+grid across that branch's opening hours that day. Each branch has its own
+opening hours, lead time and booking window, which the Developer sets under
+Settings. A slot is `available: false` when it starts sooner than the branch's
+lead time from now (IST) or, with `durationMinutes`, when a booking that long
+would run past closing. The slots are a request grid, not a promise of free
+staff, and they don't depend on which services a branch offers: the booking
+dialog lists only the chosen branch's services, and `POST /api/bookings` refuses
+the rest.
 
 **Minimum role:** Public
 
 ```http
-GET /api/availability?date=2026-06-15&branchId=br_rayasandra01
+GET /api/availability?date=2026-11-15&branchId=br_rayasandra01&durationMinutes=90
 ```
 
 ### Query parameters
@@ -226,19 +244,28 @@ GET /api/availability?date=2026-06-15&branchId=br_rayasandra01
 | Name | Type | Required | Description |
 | --- | --- | --- | --- |
 | `date` | `string` | Yes | Query. Calendar date in YYYY-MM-DD format. Must be a real date and not earlier than today (compared in IST, UTC+5:30). |
-| `branchId` | `string` | No | Query. A branch id from `GET /api/branches`; the branch must exist and be operational. When omitted, the slots are for that endpoint's `defaultBranchId`. Business hours are one setting shared by every branch, so the grid does not currently differ between branches. |
+| `branchId` | `string` | No | Query. A branch id from `GET /api/branches`; the branch must exist and be operational. When omitted, the slots are for that endpoint's `defaultBranchId`. |
+| `durationMinutes` | `integer` | No | Query. How long the booking runs, 1–720. Without it every slot is judged as one 30-minute slot. |
 
 ### Response
+
+`notice` says why a day has no slots when the branch is closed that weekday or
+the date is beyond its booking window ("Rayasandra is closed on Mondays.",
+"Rayasandra takes bookings up to 30 days ahead."), and `slots` is then empty;
+otherwise it is `null`. On a holiday or closure, `closure` names it and every
+slot is `available: false`; otherwise `closure` is `null`.
 
 ```json
 {
   "success": true,
   "data": {
     "slots": [
-      { "startTime": "10:00", "endTime": "10:30", "available": true },
+      { "startTime": "10:00", "endTime": "10:30", "available": false },
       { "startTime": "10:30", "endTime": "11:00", "available": true },
-      { "startTime": "20:30", "endTime": "21:00", "available": true }
-    ]
+      { "startTime": "19:30", "endTime": "20:00", "available": false }
+    ],
+    "closure": null,
+    "notice": null
   }
 }
 ```
@@ -249,10 +276,17 @@ GET /api/availability?date=2026-06-15&branchId=br_rayasandra01
 <Accordion title="VALIDATION_ERROR — 400">
 
 `date` is missing, not `YYYY-MM-DD`, not a real calendar date, or in the past;
-`branchId` is present but empty; the named branch does not exist
-(`Branch not found.`) or is not operational
-(`Selected branch is not accepting bookings.`); or no `branchId` was sent and no
-branch is taking bookings (`No branch is taking bookings right now.`).
+`branchId` is present but empty; `durationMinutes` is not a whole number from 1
+to 720; the named branch does not exist (`Branch not found.`) or is not
+operational (`Selected branch is not accepting bookings.`); or no `branchId`
+was sent and no branch is taking bookings
+(`No branch is taking bookings right now.`).
+
+</Accordion>
+<Accordion title="BRANCH_SETTINGS_INCOMPLETE — 409">
+
+The branch has no valid booking settings. Nothing falls back to defaults; the
+Developer sets them under Settings.
 
 </Accordion>
 <Accordion title="INTERNAL_ERROR — 500">

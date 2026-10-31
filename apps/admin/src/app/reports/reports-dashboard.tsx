@@ -46,12 +46,14 @@
 
 import type {
   BookingsByStatusPoint,
+  BranchSettlementReport,
   ReportRange,
   ReportsResponse,
   RevenueTrendPoint,
   TopServiceRow,
 } from '@rgss/types'
 import { CalendarRange, Gem, IndianRupee, Receipt, TrendingUp } from 'lucide-react'
+import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import {
@@ -187,6 +189,8 @@ export function ReportsDashboard() {
           </div>
 
           <TopServicesTable rows={state.data.topServices} />
+
+          {state.data.settlement ? <SettlementCard report={state.data.settlement} /> : null}
         </div>
       )}
     </div>
@@ -368,6 +372,103 @@ function TopServicesTable({ rows }: { rows: TopServiceRow[] }) {
         tableId="top-services"
         caption="Top services by revenue for the selected range"
       />
+    </section>
+  )
+}
+
+/** 150 → "2 h 30 min"; negative after a correction. */
+export function minutesText(minutes: number): string {
+  const sign = minutes < 0 ? '−' : ''
+  const abs = Math.abs(minutes)
+  const hours = Math.floor(abs / 60)
+  const rest = abs % 60
+  if (hours === 0) {
+    return `${sign}${rest} min`
+  }
+  return rest === 0 ? `${sign}${hours} h` : `${sign}${hours} h ${rest} min`
+}
+
+function MoneyRow({ label, paise }: { label: string; paise: number | null }) {
+  if (paise === null) {
+    return null
+  }
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="text-warm-gray">{label}</dt>
+      <dd className="font-ui tabular-nums text-cocoa-dark">{formatINRWithPaise(paise)}</dd>
+    </div>
+  )
+}
+
+function CountRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="text-warm-gray">{label}</dt>
+      <dd className="font-ui tabular-nums text-cocoa-dark">{value}</dd>
+    </div>
+  )
+}
+
+// Memberships and gems across branches (multi-branch R10): what this branch
+// delivered and issued, and what it is owed and owes. Money is null for a
+// Manager, who sees minutes and gems only.
+export function SettlementCard({ report }: { report: BranchSettlementReport }) {
+  const seesMoney = report.memberships.toPayPaise !== null
+  return (
+    <section
+      className="flex flex-col gap-4 rounded-cards border border-outline-gray bg-canvas-white p-5"
+      aria-labelledby="reports-settlement-heading"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 id="reports-settlement-heading" className="font-display text-base text-cocoa-dark">
+          Memberships and gems across branches
+        </h3>
+        {seesMoney ? (
+          <Link
+            href="/settlements"
+            className="font-ui text-sm text-deep-gold transition-colors hover:text-cocoa-dark"
+          >
+            Statements →
+          </Link>
+        ) : (
+          <p className="font-sans text-xs text-dusty-gray">
+            Amounts are for the branch&apos;s Owner and the Developer.
+          </p>
+        )}
+      </div>
+      <div className="grid gap-6 font-sans text-sm sm:grid-cols-2">
+        <div className="space-y-2">
+          <h4 className="font-ui text-[11px] uppercase tracking-wider text-dusty-gray">
+            Memberships
+          </h4>
+          <dl className="space-y-1.5">
+            <CountRow
+              label="Session time delivered here"
+              value={minutesText(report.memberships.deliveredMinutes)}
+            />
+            <MoneyRow label="Value delivered here" paise={report.memberships.deliveredValuePaise} />
+            <CountRow
+              label="Time used by members sold here"
+              value={minutesText(report.memberships.ownMembersMinutes)}
+            />
+            <MoneyRow
+              label="Value used by members sold here"
+              paise={report.memberships.ownMembersValuePaise}
+            />
+            <MoneyRow label="To receive" paise={report.memberships.toReceivePaise} />
+            <MoneyRow label="To pay" paise={report.memberships.toPayPaise} />
+          </dl>
+        </div>
+        <div className="space-y-2">
+          <h4 className="font-ui text-[11px] uppercase tracking-wider text-dusty-gray">Gems</h4>
+          <dl className="space-y-1.5">
+            <CountRow label="Gems issued here" value={String(report.gems.issued)} />
+            <CountRow label="Gems redeemed here" value={String(report.gems.redeemed)} />
+            <MoneyRow label="To receive" paise={report.gems.toReceivePaise} />
+            <MoneyRow label="To pay" paise={report.gems.toPayPaise} />
+          </dl>
+        </div>
+      </div>
     </section>
   )
 }

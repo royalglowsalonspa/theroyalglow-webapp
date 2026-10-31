@@ -54,6 +54,9 @@ export type BookingStatusFilter = z.infer<typeof bookingStatusSchema>
 export const availabilityQuerySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
   branchId: z.string().min(1, 'branchId must not be empty').optional(),
+  // How long the booking runs, so slots it would run past closing from are
+  // unavailable. Optional: without it every slot is judged as one 30-minute slot.
+  durationMinutes: z.coerce.number().int().min(1).max(720).optional(),
 })
 export type AvailabilityQueryInput = z.infer<typeof availabilityQuerySchema>
 

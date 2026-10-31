@@ -11,8 +11,9 @@
  *
  * Responsibilities :
  * - Extract UTM parameters from search params for attribution
+ * - Resolve the `branch` parameter (id or code) the ad link names
  * - Fetch available service interest options for the form dropdown
- * - Mount the LeadCaptureForm component with UTM context
+ * - Mount the LeadCaptureForm component with UTM and branch context
  *
  * Features / Functionality :
  * - UTM parameter extraction (source, medium, campaign, content, term)
@@ -28,7 +29,8 @@
  * - This page is NOT linked from site navigation — reached only via ad clicks
  ************************************************************/
 
-import { getServiceInterestOptions } from '@rgss/db/queries'
+import { matchBranchParam } from '@rgss/business'
+import { getPublicBranches, getServiceInterestOptions } from '@rgss/db/queries'
 import type { Metadata } from 'next'
 import { LeadCaptureForm } from '@/components/lead/LeadCaptureForm'
 
@@ -50,7 +52,7 @@ function firstParam(value: string | string[] | undefined): string | undefined {
 
 export default async function BookLandingPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams
-  const services = await getServiceInterestOptions()
+  const [services, branches] = await Promise.all([getServiceInterestOptions(), getPublicBranches()])
 
   const utm = {
     utmSource: firstParam(sp.utm_source),
@@ -59,6 +61,9 @@ export default async function BookLandingPage({ searchParams }: { searchParams: 
     utmContent: firstParam(sp.utm_content),
     utmTerm: firstParam(sp.utm_term),
   }
+  // An ad can name its branch (`?branch=MH`); the API falls back to the
+  // default branch otherwise (multi-branch R7.3).
+  const branchId = matchBranchParam(branches, firstParam(sp.branch))?.id
 
-  return <LeadCaptureForm services={services} utm={utm} />
+  return <LeadCaptureForm services={services} utm={utm} branchId={branchId} />
 }

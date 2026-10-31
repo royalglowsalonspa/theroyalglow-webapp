@@ -6,13 +6,14 @@
  * Module Name  : invoices
  * Scope        : Data Access — Billing / Invoices (admin ledger)
  *
- * Description  : Admin-wide invoice queries backing the Billing module: a
- *                paginated/searchable/filterable invoice ledger and a single
- *                invoice with its line items and customer identity.
+ * Description  : Invoice queries backing the Billing module, per issuing
+ *                branch: a paginated/searchable/filterable invoice ledger and a
+ *                single invoice with its line items and customer identity.
  *
  * Responsibilities :
- * - List invoices (newest first) with search + status/type filters + paging
- * - Fetch one invoice with its items for the detail view
+ * - List a branch's invoices (newest first) with search + status/type
+ *   filters + paging
+ * - Fetch one of its invoices with its items for the detail view
  *
  * Features / Functionality :
  * - Search across invoice number, customer name, and email (ilike)
@@ -38,10 +39,11 @@ import { branch } from '../schema/branch'
 import { invoice, invoiceItem } from '../schema/invoice'
 import { customerProfile } from '../schema/profile'
 
-// Paginated, searchable, filterable invoice ledger. Returns rows joined to the
-// customer's identity plus a total count for pagination.
-export async function getInvoices(query: InvoiceListQuery) {
-  const conditions = []
+// One branch's paginated, searchable, filterable invoice ledger: the invoices it
+// issued (multi-branch R2.3). Returns rows joined to the customer's identity
+// plus a total count for pagination.
+export async function getInvoices(branchId: string, query: InvoiceListQuery) {
+  const conditions = [eq(invoice.branchId, branchId)]
   if (query.status) {
     conditions.push(eq(invoice.paymentStatus, query.status))
   }
@@ -59,7 +61,7 @@ export async function getInvoices(query: InvoiceListQuery) {
       conditions.push(search)
     }
   }
-  const where = conditions.length > 0 ? and(...conditions) : undefined
+  const where = and(...conditions)
   const offset = (query.page - 1) * query.pageSize
 
   const rows = await db
@@ -92,8 +94,9 @@ export async function getInvoices(query: InvoiceListQuery) {
   return { rows, totalCount: countResult[0]?.count ?? 0 }
 }
 
-// A single invoice with its line items + customer identity, or null if missing.
-export async function getInvoiceById(id: string) {
+// A single invoice issued by the branch, with its line items + customer
+// identity, or null when the branch issued no such invoice.
+export async function getInvoiceById(id: string, branchId: string) {
   const rows = await db
     .select({
       id: invoice.id,
@@ -106,6 +109,8 @@ export async function getInvoiceById(id: string) {
       discountAmountPaise: invoice.discountAmountPaise,
       taxableValuePaise: invoice.taxableValuePaise,
       gstAmountPaise: invoice.gstAmountPaise,
+      cgstPaise: invoice.cgstPaise,
+      sgstPaise: invoice.sgstPaise,
       totalAmountPaise: invoice.totalAmountPaise,
       invoiceType: invoice.invoiceType,
       paymentMethod: invoice.paymentMethod,
@@ -117,10 +122,16 @@ export async function getInvoiceById(id: string) {
       notes: invoice.notes,
       paidAt: invoice.paidAt,
       createdAt: invoice.createdAt,
+      // The issue facts (multi-branch R6.1); null on older invoices.
+      taxPointAt: invoice.taxPointAt,
+      taxReviewStatus: invoice.taxReviewStatus,
+      issuerName: invoice.issuerName,
+      issuerLegalName: invoice.issuerLegalName,
+      issuerGstin: invoice.issuerGstin,
     })
     .from(invoice)
     .innerJoin(user, eq(invoice.customerId, user.id))
-    .where(eq(invoice.id, id))
+    .where(and(eq(invoice.id, id), eq(invoice.branchId, branchId)))
     .limit(1)
 
   const found = rows[0]
@@ -136,6 +147,10 @@ export async function getInvoiceById(id: string) {
       quantity: invoiceItem.quantity,
       unitPricePaise: invoiceItem.unitPricePaise,
       totalPricePaise: invoiceItem.totalPricePaise,
+      sacCode: invoiceItem.sacCode,
+      rateBps: invoiceItem.rateBps,
+      discountPaise: invoiceItem.discountPaise,
+      taxPaise: invoiceItem.taxPaise,
     })
     .from(invoiceItem)
     .where(eq(invoiceItem.invoiceId, id))
@@ -145,37 +160,24 @@ export async function getInvoiceById(id: string) {
 }
 
 // Everything the invoice-pdf job needs to (a) build the InvoicePdfPayload sent
-// to the render service and (b) compose the invoice email. One header read
-// joined to the customer identity + phone, the seller branch, and the booking
-// number; plus the line items (newest displayOrder first → asc). Returns null
+// to the render service and (b) compose the invoice email: the invoice as
+// issued (number, tax point, issuer snapshot, amounts, review status), each
+// line with its tax facts, the customer and the booking number. Returns null
 // when the invoice does not exist (the job then no-ops without a retry loop).
 //
-// NOTE: the branch table has no GSTIN / SAC columns, so the job sources the SAC
-// from a project-wide constant and leaves GSTIN undefined (optional in the
-// render contract). The seller address is composed from the branch columns.
+// The issuer comes from the invoice's own snapshot (multi-branch R6.1), so a
+// re-render after the branch changes reproduces the original (TX-05). An
+// invoice issued before the snapshots existed has none; the job then falls
+// back to the branch row, as it always did for those.
 export async function getInvoiceForPdf(invoiceId: string) {
   const rows = await db
     .select({
-      // Invoice header
-      id: invoice.id,
-      invoiceNumber: invoice.invoiceNumber,
-      paymentMethod: invoice.paymentMethod,
-      createdAt: invoice.createdAt,
-      subtotalPaise: invoice.subtotalPaise,
-      discountAmountPaise: invoice.discountAmountPaise,
-      taxableValuePaise: invoice.taxableValuePaise,
-      gstAmountPaise: invoice.gstAmountPaise,
-      totalAmountPaise: invoice.totalAmountPaise,
-      gemsEarned: invoice.gemsEarned,
-      gemsRedeemed: invoice.gemsRedeemed,
-      gemsRedeemedServiceId: invoice.gemsRedeemedServiceId,
-      notes: invoice.notes,
-      bookingId: invoice.bookingId,
+      invoice,
       // Customer identity
       customerName: user.name,
       customerEmail: user.email,
       customerPhone: customerProfile.phone,
-      // Seller (branch)
+      // The branch row, for invoices issued before the issuer snapshot
       branchName: branch.name,
       branchAddressLine1: branch.addressLine1,
       branchAddressLine2: branch.addressLine2,
@@ -208,29 +210,20 @@ export async function getInvoiceForPdf(invoiceId: string) {
       quantity: invoiceItem.quantity,
       unitPricePaise: invoiceItem.unitPricePaise,
       totalPricePaise: invoiceItem.totalPricePaise,
+      sacCode: invoiceItem.sacCode,
+      rateBps: invoiceItem.rateBps,
+      discountPaise: invoiceItem.discountPaise,
+      taxableValuePaise: invoiceItem.taxableValuePaise,
+      taxPaise: invoiceItem.taxPaise,
       displayOrder: invoiceItem.displayOrder,
     })
     .from(invoiceItem)
     .where(eq(invoiceItem.invoiceId, invoiceId))
     .orderBy(asc(invoiceItem.displayOrder))
 
+  const inv = found.invoice
   return {
-    invoice: {
-      id: found.id,
-      invoiceNumber: found.invoiceNumber,
-      paymentMethod: found.paymentMethod,
-      createdAt: found.createdAt,
-      subtotalPaise: found.subtotalPaise,
-      discountAmountPaise: found.discountAmountPaise,
-      taxableValuePaise: found.taxableValuePaise,
-      gstAmountPaise: found.gstAmountPaise,
-      totalAmountPaise: found.totalAmountPaise,
-      gemsEarned: found.gemsEarned,
-      gemsRedeemed: found.gemsRedeemed,
-      gemsRedeemedServiceId: found.gemsRedeemedServiceId,
-      notes: found.notes,
-      bookingId: found.bookingId,
-    },
+    invoice: inv,
     items,
     branch: {
       name: found.branchName,

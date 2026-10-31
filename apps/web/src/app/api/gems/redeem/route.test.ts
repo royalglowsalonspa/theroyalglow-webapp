@@ -14,7 +14,7 @@
  *                (apps/web/src/app/api/gems/redeem/route.ts). `@/lib/api/session`
  *                and `@rgss/db/queries` are replaced with in-memory fakes — NO
  *                real DB, no network. `@rgss/business` stays REAL, so the actual
- *                `assertRedeemable`, `isBookableSlotStart`, `addMinutesToTime`
+ *                `assertRedeemable`, `assertSlotBookable`, `addMinutesToTime`
  *                and `generateBookingNumber` run.
  *
  *                The `redeemServiceWithGems` fake reproduces the query-layer
@@ -56,8 +56,9 @@
  *                opening hours, so the real slot rule always admits it.
  ************************************************************/
 
-import { AppError, ERROR_CODES } from '@rgss/errors'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { AppError, conflict, ERROR_CODES } from '@rgss/errors'
+import { DEFAULT_BOOKING_RULES, DEFAULT_BUSINESS_HOURS } from '@rgss/types'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // Mock seams. Only the session guard and the data-access layer are faked.
@@ -78,8 +79,11 @@ const sessionMocks = vi.hoisted(() => {
 // test time and every route test throws. Add an entry whenever the route reaches
 // for a new query.
 const dbMocks = vi.hoisted(() => ({
+  countUpcomingBookingsAtBranch: vi.fn(async () => 0),
   findBookingByRedemptionKey: vi.fn(),
   getBranchById: vi.fn(),
+  getBranchPolicy: vi.fn(),
+  getClosureOn: vi.fn(async (): Promise<{ name: string; allBranches: boolean } | null> => null),
   getDefaultStaffForService: vi.fn(),
   getLoyaltySummary: vi.fn(),
   getOrCreateLoyaltyAccount: vi.fn(),
@@ -105,6 +109,8 @@ type FakeService = {
   isActive: boolean
   gemsRedeemable: boolean
   gemsRequired: number | null
+  /** Null or absent: every branch (R4.3). */
+  availableBranchIds?: string[] | null
 }
 
 type FakeBooking = {
@@ -139,7 +145,7 @@ type FakeStore = {
   /** null models a customer with no loyalty account row yet (Req 11.3). */
   summaryVisible: boolean
   services: Map<string, FakeService>
-  branch: { id: string; code: string; status: string } | null
+  branch: { id: string; code: string; status: string; name: string } | null
   staffId: string | null
   bookings: FakeBooking[]
   transactions: FakeTransaction[]
@@ -149,6 +155,18 @@ let store: FakeStore
 let bookingSeq = 0
 
 const CUSTOMER_SESSION = { user: { id: 'cust_1', role: 'customer' } }
+
+// Monday 01/06/2026, 10:00 IST: the redemptions below (10/06) are 9 days ahead.
+const NOW = new Date('2026-06-01T04:30:00.000Z')
+
+// The branch's current settings (R6.3): the documented defaults at revision 4.
+const POLICY = {
+  branchId: 'br_1',
+  branchName: 'Rayasandra',
+  revision: 4,
+  businessHours: DEFAULT_BUSINESS_HOURS,
+  bookingRules: DEFAULT_BOOKING_RULES,
+}
 
 function redeemableService(overrides: Partial<FakeService> = {}): FakeService {
   return {
@@ -263,8 +281,15 @@ function fakeRedeem(input: {
   }
 }
 
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.useFakeTimers({ now: NOW, toFake: ['Date'] })
+  dbMocks.getBranchPolicy.mockResolvedValue(POLICY)
+  dbMocks.countUpcomingBookingsAtBranch.mockResolvedValue(0)
   bookingSeq = 0
 
   store = {
@@ -277,7 +302,7 @@ beforeEach(() => {
     },
     summaryVisible: true,
     services: new Map([['svc_facial', redeemableService()]]),
-    branch: { id: 'br_1', code: 'RS', status: 'operational' },
+    branch: { id: 'br_1', code: 'RS', status: 'operational', name: 'Rayasandra' },
     staffId: 'staff_1',
     bookings: [],
     transactions: [],
@@ -691,7 +716,7 @@ describe('POST /api/gems/redeem — request and slot validation', () => {
     const missing = await POST(postRequest(body({ branchId: 'br_nope' })), ROUTE_CTX)
     expect(missing.status).toBe(400)
 
-    store.branch = { id: 'br_1', code: 'RS', status: 'temporarily_closed' }
+    store.branch = { id: 'br_1', code: 'RS', status: 'temporarily_closed', name: 'Rayasandra' }
     const closed = await POST(postRequest(body()), ROUTE_CTX)
     expect(closed.status).toBe(400)
 
@@ -707,5 +732,125 @@ describe('POST /api/gems/redeem — request and slot validation', () => {
     expect(res.status).toBe(400)
     expect(store.bookings).toHaveLength(0)
     expect(store.account.gemsBalance).toBe(1000)
+  })
+})
+
+// ===========================================================================
+// Multi-branch R1.8 — a closed day takes no redemption
+// ===========================================================================
+describe('POST /api/gems/redeem — closed days (R1.8)', () => {
+  it('refuses a redemption on a closed day and spends nothing', async () => {
+    dbMocks.getBranchById.mockResolvedValueOnce({
+      id: 'br_1',
+      code: 'RS',
+      status: 'operational',
+      name: 'Rayasandra',
+    })
+    dbMocks.getClosureOn.mockResolvedValueOnce({ name: 'Diwali', allBranches: true })
+
+    const res = await POST(postRequest(body()), ROUTE_CTX)
+    const json = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(json.error).toMatchObject({
+      code: ERROR_CODES.BOOKING_SLOT_UNAVAILABLE,
+      message: 'Rayasandra is closed on 10/06/2026 (Diwali).',
+    })
+    expect(dbMocks.getClosureOn).toHaveBeenCalledWith('br_1', '2026-06-10')
+    expect(dbMocks.redeemServiceWithGems).not.toHaveBeenCalled()
+    expect(store.account.gemsBalance).toBe(1000)
+  })
+})
+
+// ===========================================================================
+// Multi-branch R6.3 — the branch's own settings decide the redemption's slot
+// ===========================================================================
+describe("POST /api/gems/redeem — the branch's booking settings (R6.3)", () => {
+  it('records the settings revision that accepted the slot', async () => {
+    const res = await POST(postRequest(body()), ROUTE_CTX)
+
+    expect(res.status).toBe(201)
+    expect(dbMocks.getBranchPolicy).toHaveBeenCalledWith('br_1')
+    expect(dbMocks.redeemServiceWithGems).toHaveBeenCalledWith(
+      expect.objectContaining({ settingsRevision: 4 }),
+    )
+  })
+
+  it("refuses a slot outside the branch's hours that weekday, spending nothing", async () => {
+    // Wednesdays 12:00–20:00 at this branch; 10/06/2026 is a Wednesday.
+    dbMocks.getBranchPolicy.mockResolvedValue({
+      ...POLICY,
+      businessHours: {
+        ...DEFAULT_BUSINESS_HOURS,
+        wed: { open: '12:00', close: '20:00', closed: false },
+      },
+    })
+
+    const json = await (await POST(postRequest(body()), ROUTE_CTX)).json()
+
+    expect(json.error).toMatchObject({
+      code: ERROR_CODES.BOOKING_SLOT_UNAVAILABLE,
+      message:
+        'Rayasandra is open 12:00–20:00 on Wednesdays, and the booking must finish by 20:00.',
+    })
+    expect(dbMocks.redeemServiceWithGems).not.toHaveBeenCalled()
+    expect(store.account.gemsBalance).toBe(1000)
+  })
+
+  it("counts toward the branch's limit of upcoming bookings", async () => {
+    dbMocks.countUpcomingBookingsAtBranch.mockResolvedValue(3)
+
+    const res = await POST(postRequest(body()), ROUTE_CTX)
+    const json = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(json.error.code).toBe(ERROR_CODES.BOOKING_LIMIT_REACHED)
+    expect(dbMocks.countUpcomingBookingsAtBranch).toHaveBeenCalledWith(
+      'cust_1',
+      'br_1',
+      '2026-06-01',
+    )
+    expect(dbMocks.redeemServiceWithGems).not.toHaveBeenCalled()
+  })
+
+  it('answers 409 when the branch has no readable settings, spending nothing', async () => {
+    dbMocks.getBranchPolicy.mockRejectedValue(
+      conflict(ERROR_CODES.BRANCH_SETTINGS_INCOMPLETE, 'Rayasandra has no valid booking settings.'),
+    )
+
+    const res = await POST(postRequest(body()), ROUTE_CTX)
+
+    expect(res.status).toBe(409)
+    expect((await res.json()).error.code).toBe(ERROR_CODES.BRANCH_SETTINGS_INCOMPLETE)
+    expect(dbMocks.redeemServiceWithGems).not.toHaveBeenCalled()
+  })
+})
+
+// ===========================================================================
+// Multi-branch R4.3 — a reward is redeemed only where it is offered
+// ===========================================================================
+describe('POST /api/gems/redeem — branch availability (R4.3)', () => {
+  it('refuses a reward the chosen branch doesn’t offer, spending nothing', async () => {
+    store.services.set('svc_facial', redeemableService({ availableBranchIds: ['br_2'] }))
+
+    const res = await POST(postRequest(body()), ROUTE_CTX)
+    const json = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(json.error).toMatchObject({
+      code: ERROR_CODES.VALIDATION_ERROR,
+      message: expect.stringMatching(/isn't offered at Rayasandra/),
+    })
+    expect(dbMocks.redeemServiceWithGems).not.toHaveBeenCalled()
+    expect(store.account.gemsBalance).toBe(1000)
+  })
+
+  it('redeems a reward listed for the chosen branch', async () => {
+    store.services.set('svc_facial', redeemableService({ availableBranchIds: ['br_1'] }))
+
+    const res = await POST(postRequest(body()), ROUTE_CTX)
+
+    expect(res.status).toBe(201)
+    expect(dbMocks.redeemServiceWithGems).toHaveBeenCalledTimes(1)
   })
 })

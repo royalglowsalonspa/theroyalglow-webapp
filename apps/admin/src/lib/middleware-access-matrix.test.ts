@@ -40,9 +40,9 @@ const ROLE_LEVEL: Record<RoleName, number> = {
  * Every known admin route (Root-Path Convention) and the minimum role that
  * must be allowed, taken straight from the design's route → min-role mapping:
  *   - Receptionist (2): ops/crm/billing/leave/memberships/waitlist + dashboard
- *   - Manager (3):      services/offers/staff/schedule/reports/settings
- *   - Owner (4):        branches/users
- *   - Developer (5):    integrations/logs
+ *   - Manager (3):      services/offers/staff/schedule/reports
+ *   - Owner (4):        branches/users/settlements
+ *   - Developer (5):    settings/integrations/logs
  */
 const ROUTE_MIN_ROLE: ReadonlyArray<readonly [string, RoleName]> = [
   ['/', 'receptionist'],
@@ -58,9 +58,10 @@ const ROUTE_MIN_ROLE: ReadonlyArray<readonly [string, RoleName]> = [
   ['/staff', 'manager'],
   ['/schedule', 'manager'],
   ['/reports', 'manager'],
-  ['/settings', 'manager'],
+  ['/settings', 'developer'],
   ['/branches', 'owner'],
   ['/users', 'owner'],
+  ['/settlements', 'owner'],
   ['/integrations', 'developer'],
   ['/logs', 'developer'],
 ] as const

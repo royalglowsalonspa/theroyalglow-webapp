@@ -1,48 +1,55 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 30-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : POST /api/ably/token (admin)
  * Scope        : API — Admin Realtime
  *
  * Description  : Issues subscribe-only Ably token requests for the admin portal.
- *                Requires Receptionist or higher; capability is scoped to the
- *                admin channel set. Returns 503 when realtime is not configured.
+ *                The capability lists the channels of every branch where the
+ *                person is a Receptionist or above, read from the database now
+ *                (multi-branch R2.2, R2.6). Returns 503 when realtime is not
+ *                configured.
  *
  * Responsibilities :
- * - Enforce Receptionist+ access (403 below)
- * - Issue an admin-scoped, subscribe-only Ably token request
+ * - Require Receptionist or above at the active branch (403 below)
+ * - Issue a branch-scoped, subscribe-only Ably token request
  * - Return 503 gracefully when the Ably key is absent
  *
  * Features / Functionality :
- * - Role-gated token issue (Receptionist minimum)
+ * - No cross-branch wildcards: `booking:*` and `admin:bookings:*` are gone
  * - Graceful degradation when Ably key is absent (client falls back to polling)
  *
  * Tech Stack   : Next.js 16 (Route Handler)
  * Layer        : API (Thin Orchestrator)
  *
- * Dependencies : @/lib/api/error-handler, @/lib/api/session,
- *                @/lib/realtime/ably, @rgss/errors
+ * Dependencies : @/lib/api/branch-context, @/lib/api/error-handler,
+ *                @/lib/realtime/ably, @rgss/business, @rgss/errors
  *
- * Notes        : Admin tokens are subscribe-only and admin-scoped
- *                (admin:bookings:*, admin:schedule:*, admin:leave, booking:*).
+ * Notes        : A shared Manager's token covers each branch they manage; the
+ *                UI subscribes only to the active branch's channels.
  ************************************************************/
 
+import { hasBranchRole } from '@rgss/business'
 import { AppError, ERROR_CODES } from '@rgss/errors'
+import { requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { createAblyTokenRequest } from '@/lib/realtime/ably'
 
-// POST /api/ably/token — issue an admin-scoped Ably token request. Requires
-// Receptionist or higher (requireRole throws 403 below). If the realtime
-// provider key is not configured, the helper returns null and we answer 503 so
-// the client can degrade gracefully (polling).
+// POST /api/ably/token — issue a branch-scoped Ably token request. If the
+// realtime provider key is not configured, the helper returns null and we
+// answer 503 so the client can degrade gracefully (polling).
 export const POST = withErrorHandler(async () => {
-  const session = await requireRole('receptionist')
+  const ctx = await requireBranchRole('receptionist')
+
+  const branchIds = ctx.access.branches
+    .filter((branch) => hasBranchRole(branch, 'receptionist'))
+    .map((branch) => branch.id)
 
   const tokenRequest = await createAblyTokenRequest({
-    userId: session.user.id,
+    userId: ctx.session.user.id,
+    branchIds,
   })
 
   if (tokenRequest === null) {

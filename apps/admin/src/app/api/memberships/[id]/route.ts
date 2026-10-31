@@ -1,43 +1,46 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 30-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : GET /api/memberships/[id]
  * Scope        : API — Admin Membership
  *
  * Description  : Returns a single membership detail with its session history
- *                for the admin membership detail page.
+ *                for the admin membership detail page, as the active branch
+ *                sees a membership every branch shares.
  *
  * Responsibilities :
  * - Retrieve membership by ID with full details
- * - Fetch associated session history
- * - Return 404 for non-existent memberships
- *
- * Features / Functionality :
- * - Full membership detail (tier, hours, expiry, status)
- * - Session history (dates, services, durations)
- * - Hours used vs remaining calculation
+ * - Show what it was sold for only to people who can access the selling
+ *   branch (route inventory gap 5)
+ * - Fetch session history from every branch; other branches' sessions show
+ *   date, branch, services and duration only
+ * - Say whether the person may cancel it from here
  *
  * Tech Stack   : Next.js 16 (Route Handler)
  * Layer        : API (Thin Orchestrator)
  *
- * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/db/queries, @rgss/errors
+ * Dependencies : @/lib/api/branch-context, @/lib/api/error-handler,
+ *                @/lib/memberships/membership-view, @rgss/business,
+ *                @rgss/db/queries, @rgss/errors
  *
  * Notes        :
- * - Requires min role: receptionist.
- * - Sessions are included inline with the membership response.
+ * - Requires receptionist or above at the active branch.
+ * - `branchId` is the branch the page renders for; writes send it back.
  ************************************************************/
 
+import { membershipCancelRefusal } from '@rgss/business'
 import { getMembershipById, getMembershipSessions } from '@rgss/db/queries'
 import { notFound } from '@rgss/errors'
+import { requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
+import { membershipForViewer, sessionForBranch } from '@/lib/memberships/membership-view'
 
 export const GET = withErrorHandler(
-  async (_req: Request, ctx: { params: Promise<{ id: string }> }) => {
-    await requireRole('receptionist')
-    const { id } = await ctx.params
+  async (_req: Request, route: { params: Promise<{ id: string }> }) => {
+    const ctx = await requireBranchRole('receptionist')
+    const { id } = await route.params
 
     const membership = await getMembershipById(id)
     if (!membership) {
@@ -45,6 +48,14 @@ export const GET = withErrorHandler(
     }
 
     const sessions = await getMembershipSessions(id)
-    return apiSuccess({ ...membership, sessions })
+    const cancelRefusal = membershipCancelRefusal(ctx.access, ctx.branch, membership.sellingBranch)
+
+    return apiSuccess({
+      branchId: ctx.branch.id,
+      ...membershipForViewer(membership, ctx.access),
+      canCancel: cancelRefusal === null,
+      cancelRefusal: cancelRefusal?.reason ?? null,
+      sessions: sessions.map((s) => sessionForBranch(s, ctx.branch.id)),
+    })
   },
 )

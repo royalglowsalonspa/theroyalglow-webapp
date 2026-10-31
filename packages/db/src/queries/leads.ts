@@ -60,11 +60,16 @@ export async function createLead(data: Omit<typeof lead.$inferInsert, 'id'>) {
   return created as typeof lead.$inferSelect
 }
 
-// Single lead with its service-interest name, assigned-to user name, and the
-// linked converted booking number (all LEFT JOINed, so each is null when
-// absent), or null if the lead does not exist. Notes are fetched separately via
-// getLeadNotes.
-export async function getLeadById(id: string) {
+// A lead in one branch's pipeline (multi-branch R2.3).
+function leadAt(id: string, branchId: string) {
+  return and(eq(lead.id, id), eq(lead.branchId, branchId))
+}
+
+// Single lead in the branch's pipeline with its service-interest name,
+// assigned-to user name, and the linked converted booking number (all LEFT
+// JOINed, so each is null when absent), or null when the branch has no such
+// lead. Notes are fetched separately via getLeadNotes.
+export async function getLeadById(id: string, branchId: string) {
   const rows = await db
     .select({
       lead,
@@ -76,7 +81,7 @@ export async function getLeadById(id: string) {
     .leftJoin(service, eq(lead.serviceInterestedId, service.id))
     .leftJoin(user, eq(lead.assignedTo, user.id))
     .leftJoin(booking, eq(lead.convertedBookingId, booking.id))
-    .where(eq(lead.id, id))
+    .where(leadAt(id, branchId))
     .limit(1)
 
   const found = rows[0]
@@ -109,10 +114,11 @@ export async function getLeadNotes(leadId: string) {
     .orderBy(desc(leadNote.createdAt))
 }
 
-// All leads (optionally filtered by status), newest first, each flattened with
-// its service-interest name. The kanban page buckets these flat rows by status.
-export async function getLeadsForPipeline(filters: LeadPipelineFilters = {}) {
-  const conditions = []
+// One branch's leads (optionally filtered by status), newest first, each
+// flattened with its service-interest name. The kanban page buckets these flat
+// rows by status.
+export async function getLeadsForPipeline(branchId: string, filters: LeadPipelineFilters = {}) {
+  const conditions = [eq(lead.branchId, branchId)]
   if (filters.status) {
     conditions.push(eq(lead.status, filters.status as LeadStatus))
   }
@@ -124,7 +130,7 @@ export async function getLeadsForPipeline(filters: LeadPipelineFilters = {}) {
     })
     .from(lead)
     .leftJoin(service, eq(lead.serviceInterestedId, service.id))
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .where(and(...conditions))
     .orderBy(desc(lead.createdAt))
 
   return rows.map((r) => ({
@@ -133,10 +139,11 @@ export async function getLeadsForPipeline(filters: LeadPipelineFilters = {}) {
   }))
 }
 
-// Update a lead's mutable fields (status, lastContactedAt, convertedBookingId,
-// assignedTo) and return the updated row, or null if no lead matched.
-export async function updateLead(id: string, patch: LeadPatch) {
-  const [updated] = await db.update(lead).set(patch).where(eq(lead.id, id)).returning()
+// Update the mutable fields (status, lastContactedAt, convertedBookingId,
+// assignedTo) of a lead in the branch's pipeline and return the updated row, or
+// null when the branch has no such lead.
+export async function updateLead(id: string, branchId: string, patch: LeadPatch) {
+  const [updated] = await db.update(lead).set(patch).where(leadAt(id, branchId)).returning()
 
   return updated ?? null
 }

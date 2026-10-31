@@ -39,7 +39,13 @@
 // request-scoped transaction handle, resolved per call by txDb() below.
 // Unqualified Drizzle table defs resolve to `public.*` via search_path
 // (verified by the Task 2.0a spike on the dev Neon branch).
-import { service, serviceCategory } from '@rgss/db/schema'
+import {
+  branch,
+  service,
+  serviceBranch,
+  serviceCategory,
+  serviceCategoryBranch,
+} from '@rgss/db/schema'
 // Type-only import. `drizzle-orm` is pinned to the EXACT version `packages/db`
 // resolves (0.45.2) so `apps/cms`, `@rgss/db` and `@payloadcms/drizzle` all share
 // ONE physical copy — the single-drizzle-instance property the Task 2.0a spike
@@ -47,7 +53,9 @@ import { service, serviceCategory } from '@rgss/db/schema'
 // typechecking.
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 
-export { service, serviceCategory }
+// `branch` is read only (the availability picker and its validation); the
+// join tables are written by the sync hooks with their parent rows.
+export { branch, service, serviceBranch, serviceCategory, serviceCategoryBranch }
 
 /**
  * Resolve the Drizzle client bound to Payload's ACTIVE TRANSACTION for this

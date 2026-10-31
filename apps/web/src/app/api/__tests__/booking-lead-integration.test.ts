@@ -28,7 +28,8 @@
  *                Validates: Requirements 5.2, 9.1
  ************************************************************/
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { DEFAULT_BOOKING_RULES, DEFAULT_BUSINESS_HOURS } from '@rgss/types'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // Mock seams. `@rgss/business` is intentionally NOT mocked — the booking total,
@@ -49,12 +50,16 @@ const sessionMocks = vi.hoisted(() => {
 const dbMocks = vi.hoisted(() => ({
   // booking create flow
   getBranchById: vi.fn(),
+  getBranchPolicy: vi.fn(),
+  countUpcomingBookingsAtBranch: vi.fn(async () => 0),
+  getClosureOn: vi.fn(async (): Promise<{ name: string; allBranches: boolean } | null> => null),
   getServicesByIds: vi.fn(),
   getDefaultStaffForService: vi.fn(),
   createBookingWithServices: vi.fn(),
   getBookingsByCustomer: vi.fn(),
   // lead create flow
   createLead: vi.fn(),
+  getPublicBranches: vi.fn(),
 }))
 
 const enqueueMock = vi.hoisted(() => vi.fn())
@@ -78,8 +83,23 @@ function jsonRequest(url: string, body: unknown): Request {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // Thursday 25/06/2026, 10:00 IST: the 01/07 booking is inside the window.
+  vi.useFakeTimers({ now: new Date('2026-06-25T04:30:00.000Z'), toFake: ['Date'] })
   sessionMocks.requireSession.mockResolvedValue(CUSTOMER_SESSION)
   enqueueMock.mockResolvedValue(undefined)
+  // The branch's current settings (R6.3) and no upcoming bookings there.
+  dbMocks.getBranchPolicy.mockResolvedValue({
+    branchId: 'branch_rs',
+    branchName: 'Rayasandra',
+    revision: 2,
+    businessHours: DEFAULT_BUSINESS_HOURS,
+    bookingRules: DEFAULT_BOOKING_RULES,
+  })
+  dbMocks.countUpcomingBookingsAtBranch.mockResolvedValue(0)
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 // ===========================================================================
@@ -173,6 +193,8 @@ describe('POST /api/bookings — happy path', () => {
     expect(saved.booking.totalAmountPaise).toBe(80_000)
     expect(saved.booking.totalDurationMinutes).toBe(60)
     expect(saved.booking.customerId).toBe('cust_1')
+    // Accepted under the branch's current settings revision (R6.3).
+    expect(saved.booking.settingsRevision).toBe(2)
 
     // One snapshot row per selected service, with the name + price frozen from
     // the source service (Req 5.7).
@@ -204,6 +226,24 @@ describe('POST /api/leads — happy path', () => {
       createdLead = { id: 'lead_generated_1', status: data.status ?? 'new', ...data }
       return createdLead
     })
+    dbMocks.getPublicBranches.mockResolvedValue([
+      {
+        id: 'branch_mh',
+        code: 'MH',
+        name: 'Marathahalli',
+        city: 'Bengaluru',
+        status: 'operational',
+        isPrimary: false,
+      },
+      {
+        id: 'branch_rs',
+        code: 'RS',
+        name: 'Rayasandra',
+        city: 'Bengaluru',
+        status: 'operational',
+        isPrimary: true,
+      },
+    ])
 
     const res = await leadsPOST(
       jsonRequest('https://theroyalglow.in/api/leads', {
@@ -232,9 +272,69 @@ describe('POST /api/leads — happy path', () => {
         utmSource: 'meta',
         utmMedium: 'paid_social',
         utmCampaign: 'monsoon',
+        // No branch named: the default (primary) branch's pipeline (R7.3).
+        branchId: 'branch_rs',
       }),
     )
     expect(createdLead).not.toBeNull()
     expect((createdLead as unknown as { status: string }).status).toBe('new')
+  })
+})
+
+describe('POST /api/leads — the branch an ad names (R7.3)', () => {
+  const BRANCHES = [
+    {
+      id: 'branch_rs',
+      code: 'RS',
+      name: 'Rayasandra',
+      city: 'Bengaluru',
+      status: 'operational',
+      isPrimary: true,
+    },
+    {
+      id: 'branch_mh',
+      code: 'MH',
+      name: 'Marathahalli',
+      city: 'Bengaluru',
+      status: 'opens_soon',
+      isPrimary: false,
+    },
+  ]
+
+  it('files the lead under the branch the ad link named, even before it opens', async () => {
+    dbMocks.createLead.mockResolvedValue({ id: 'lead_mh' })
+    dbMocks.getPublicBranches.mockResolvedValue(BRANCHES)
+
+    const res = await leadsPOST(
+      jsonRequest('https://theroyalglow.in/api/leads', {
+        name: 'Ravi',
+        phone: '9876543210',
+        branchId: 'branch_mh',
+      }),
+      { params: Promise.resolve({}) } as never,
+    )
+
+    expect(res.status).toBe(201)
+    expect(dbMocks.createLead).toHaveBeenCalledWith(
+      expect.objectContaining({ branchId: 'branch_mh' }),
+    )
+  })
+
+  it('falls back to the default branch for a branch that does not exist', async () => {
+    dbMocks.createLead.mockResolvedValue({ id: 'lead_rs' })
+    dbMocks.getPublicBranches.mockResolvedValue(BRANCHES)
+
+    await leadsPOST(
+      jsonRequest('https://theroyalglow.in/api/leads', {
+        name: 'Ravi',
+        phone: '9876543210',
+        branchId: 'branch_made_up',
+      }),
+      { params: Promise.resolve({}) } as never,
+    )
+
+    expect(dbMocks.createLead).toHaveBeenCalledWith(
+      expect.objectContaining({ branchId: 'branch_rs' }),
+    )
   })
 })

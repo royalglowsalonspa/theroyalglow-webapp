@@ -1,27 +1,30 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 15-06-2026 & Updated - 15-06-2026
+ * Date         : Created - 15-06-2026 & Updated - 31-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : sync-service (hooks)
  * Scope        : CMS Integration — Service Sync (cms.service → public.service)
  *
  * Description  : Payload `afterChange` hook that mirrors every service document
- *                written in the CMS into the app's `public.service` table, on
+ *                written in the CMS into the app's `public.service` table and
+ *                its branch availability (`public.service_branch`), on
  *                Payload's OWN request transaction, so the `cms.service` write
- *                and the `public.service` write commit or roll back together.
+ *                and the `public.*` writes commit or roll back together.
  *
  * Responsibilities :
  * - Short-circuit on the SERVICE_SYNC_ENABLED feature flag before any write
  * - Resolve Payload's transaction-bound Drizzle handle via txDb(req)
- * - UPSERT public.service on `create`, UPDATE by id on `update`
+ * - UPSERT public.service on create AND update, so a missing mirror row is
+ *   recreated by the next save (multi-branch R4.7)
+ * - Replace the service's `service_branch` rows (empty for all branches)
  * - Emit structured success/failure logs with operation, documentId, durationMs
  * - Re-throw on failure so Payload rolls the WHOLE transaction back
  *
  * Features / Functionality :
  * - syncServiceToPublic: CollectionAfterChangeHook
- * - Idempotent create path (onConflictDoUpdate) — safe to re-run
- * - createdAt is never overwritten on an existing row
+ * - Idempotent (onConflictDoUpdate) — safe to re-run
+ * - createdAt is never overwritten on create; an update carries Payload's
  *
  * Tech Stack   : Payload CMS v3, Drizzle ORM, PostgreSQL (Neon), TypeScript
  * Layer        : CMS (Hooks — sync)
@@ -35,12 +38,14 @@
  * - The mapper returns `createdAt` as `Date | string` (Payload serialises
  *   timestamps to ISO strings), while the Drizzle column is
  *   `timestamp(..., { mode: 'date' })`. It is coerced to a real `Date` here.
+ * - A restored version goes through here too (Payload's restoreVersion runs
+ *   afterChange with operation 'update').
  ************************************************************/
 
 import { eq } from 'drizzle-orm'
 import type { CollectionAfterChangeHook } from 'payload'
-import { isSyncEnabled, service, txDb } from '../lib/sync-db'
-import { mapPayloadToPublicService } from './mappers'
+import { isSyncEnabled, service, serviceBranch, txDb } from '../lib/sync-db'
+import { availabilityOf, mapPayloadToPublicService } from './mappers'
 
 /**
  * Coerce a Payload timestamp to a real `Date`.
@@ -79,30 +84,33 @@ export const syncServiceToPublic: CollectionAfterChangeHook = async ({ doc, oper
     // createdAt coerced once, here, so both write paths get a real Date.
     const row = { ...mapped, createdAt: toDate(mapped.createdAt) }
 
-    if (operation === 'create') {
-      // UPSERT, never a bare insert. The seed script reads rows FROM
+    if (operation === 'create' || operation === 'update') {
+      // UPSERT, never a bare insert or update. The seed script reads rows FROM
       // public.service and then calls payload.create() with the SAME id, so a
-      // plain .insert() would raise a duplicate-key / unique-slug violation.
-      // onConflictDoUpdate makes re-seeding, hook retries, and pre-existing
-      // rows safe instead of fatal.
+      // plain .insert() would raise a duplicate-key / unique-slug violation;
+      // and a plain .update() of a missing mirror row would silently write
+      // nothing, leaving the booking engine without the service (R4.7).
       //
-      // `id` and `createdAt` are destructured OUT of the set clause so an
-      // existing row keeps its original creation timestamp while every mutable
-      // field converges on the Payload document.
-      const { id: _id, createdAt: _createdAt, ...updatable } = row
+      // On create, `id` and `createdAt` are kept OUT of the set clause so an
+      // existing row keeps its original creation timestamp; an update carries
+      // Payload's createdAt, as it always has.
+      const { id: _id, createdAt, ...updatable } = row
+      const set =
+        operation === 'update'
+          ? { ...updatable, createdAt, updatedAt: new Date() }
+          : { ...updatable, updatedAt: new Date() }
 
-      await db
-        .insert(service)
-        .values(row)
-        .onConflictDoUpdate({
-          target: service.id,
-          set: { ...updatable, updatedAt: new Date() },
-        })
-    } else if (operation === 'update') {
-      await db
-        .update(service)
-        .set({ ...row, updatedAt: new Date() })
-        .where(eq(service.id, doc.id))
+      await db.insert(service).values(row).onConflictDoUpdate({ target: service.id, set })
+
+      // Branch availability: the rows list the branches while not all are
+      // chosen. Replaced wholesale; the mirror row exists by now (FK).
+      const { allBranches, branchIds } = availabilityOf(doc)
+      await db.delete(serviceBranch).where(eq(serviceBranch.serviceId, doc.id))
+      if (!allBranches && branchIds.length > 0) {
+        await db
+          .insert(serviceBranch)
+          .values(branchIds.map((branchId) => ({ serviceId: doc.id, branchId })))
+      }
     }
     // No delete branch — delete is disabled at the access control layer
     // (`delete: () => false`); services are retired via the isActive toggle.

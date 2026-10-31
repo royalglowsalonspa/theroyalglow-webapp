@@ -7,9 +7,14 @@
  *
  * Description  : Verifies GET /api/waitlist (list + pagination meta + status
  *                filter) and PATCH /api/waitlist/[id] (valid transition,
- *                illegal transition rejected, 404 missing), plus the RBAC guard
+ *                illegal transition rejected, 404 missing), plus the guard
  *                (401 unauthenticated / 403 forbidden) and the response
- *                envelope. Session + DB are mocked; no live session/DB.
+ *                envelope. Both work on the active branch only: another
+ *                branch's entry is not found, and a transition rendered for
+ *                another branch is refused with 409 (multi-branch R2.3, R2.4).
+ *
+ * Approach     : requireBranchRole and the DB are mocked; assertRenderedBranch
+ *                and the state machine stay real. No live session/DB.
  *
  * Layer        : Testing
  *
@@ -18,26 +23,25 @@
 
 import { AppError, ERROR_CODES } from '@rgss/errors'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { branchContext, OTHER_BRANCH, TEST_BRANCH } from '@/test/branch-context'
 
-const sessionMocks = vi.hoisted(() => ({
-  requireRole: vi.fn(),
-  requireSession: vi.fn(),
-  getOptionalSession: vi.fn(),
-}))
+const mocks = vi.hoisted(() => ({ requireBranchRole: vi.fn() }))
 
 const dbMocks = vi.hoisted(() => ({
   getWaitlist: vi.fn(),
   getWaitlistEntryById: vi.fn(),
   updateWaitlistStatus: vi.fn(),
+  recordAudit: vi.fn(),
 }))
 
-vi.mock('@/lib/api/session', () => sessionMocks)
+vi.mock('@/lib/api/branch-context', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api/branch-context')>()
+  return { ...actual, requireBranchRole: mocks.requireBranchRole }
+})
 vi.mock('@rgss/db/queries', () => dbMocks)
 
 import * as waitlistIdRoute from '@/app/api/waitlist/[id]/route'
 import * as waitlistRoute from '@/app/api/waitlist/route'
-
-const AUTHORIZED = { user: { id: 'u_admin', role: 'receptionist' } }
 
 const unauthenticated = () =>
   new AppError({
@@ -53,24 +57,23 @@ const forbidden = () =>
     statusCode: 403,
   })
 
-const patch = (id: string, body: unknown) =>
+const patch = (id: string, body: Record<string, unknown>, branchId: string = TEST_BRANCH.id) =>
   waitlistIdRoute.PATCH(
     new Request(`https://admin.theroyalglow.in/api/waitlist/${id}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ branchId, ...body }),
     }),
     { params: Promise.resolve({ id }) },
   )
 
 beforeEach(() => {
   vi.clearAllMocks()
-  sessionMocks.requireRole.mockResolvedValue(AUTHORIZED)
-  sessionMocks.requireSession.mockResolvedValue(AUTHORIZED)
+  mocks.requireBranchRole.mockResolvedValue(branchContext({ userId: 'u_admin' }))
 })
 
 describe('GET /api/waitlist', () => {
-  it('returns waitlist entries with pagination meta', async () => {
+  it('returns the active branch’s entries with pagination meta', async () => {
     dbMocks.getWaitlist.mockResolvedValue({
       rows: [{ id: 'w1', status: 'waiting', customerName: 'Asha' }],
       totalCount: 1,
@@ -81,11 +84,15 @@ describe('GET /api/waitlist', () => {
 
     expect(res.status).toBe(200)
     expect(body.success).toBe(true)
-    expect(body.data).toEqual({ entries: [{ id: 'w1', status: 'waiting', customerName: 'Asha' }] })
+    expect(body.data).toEqual({
+      branchId: TEST_BRANCH.id,
+      entries: [{ id: 'w1', status: 'waiting', customerName: 'Asha' }],
+    })
     expect(body.meta).toMatchObject({ page: 1, totalPages: 1, totalCount: 1 })
+    expect(mocks.requireBranchRole).toHaveBeenCalledWith('receptionist')
   })
 
-  it('forwards the status + pagination filters to the query', async () => {
+  it('forwards the branch, status + pagination filters to the query', async () => {
     dbMocks.getWaitlist.mockResolvedValue({ rows: [], totalCount: 0 })
 
     await waitlistRoute.GET(
@@ -93,6 +100,7 @@ describe('GET /api/waitlist', () => {
     )
 
     expect(dbMocks.getWaitlist).toHaveBeenCalledWith(
+      TEST_BRANCH.id,
       expect.objectContaining({ status: 'notified', page: 2, pageSize: 10 }),
     )
   })
@@ -109,14 +117,14 @@ describe('GET /api/waitlist', () => {
   })
 
   it('→ 401 when unauthenticated', async () => {
-    sessionMocks.requireRole.mockRejectedValue(unauthenticated())
+    mocks.requireBranchRole.mockRejectedValue(unauthenticated())
     const res = await waitlistRoute.GET(new Request('https://admin.theroyalglow.in/api/waitlist'))
     expect(res.status).toBe(401)
     expect(dbMocks.getWaitlist).not.toHaveBeenCalled()
   })
 
   it('→ 403 when role is insufficient', async () => {
-    sessionMocks.requireRole.mockRejectedValue(forbidden())
+    mocks.requireBranchRole.mockRejectedValue(forbidden())
     const res = await waitlistRoute.GET(new Request('https://admin.theroyalglow.in/api/waitlist'))
     expect(res.status).toBe(403)
   })
@@ -128,7 +136,7 @@ describe('GET /api/waitlist', () => {
 })
 
 describe('PATCH /api/waitlist/[id]', () => {
-  it('applies a valid transition (waiting → notified)', async () => {
+  it('applies a valid transition (waiting → notified) and audits it for the branch', async () => {
     dbMocks.getWaitlistEntryById.mockResolvedValue({ id: 'w1', status: 'waiting' })
     dbMocks.updateWaitlistStatus.mockResolvedValue({ id: 'w1', status: 'notified' })
 
@@ -137,7 +145,16 @@ describe('PATCH /api/waitlist/[id]', () => {
 
     expect(res.status).toBe(200)
     expect(body).toEqual({ success: true, data: { entry: { id: 'w1', status: 'notified' } } })
-    expect(dbMocks.updateWaitlistStatus).toHaveBeenCalledWith('w1', 'notified')
+    expect(dbMocks.getWaitlistEntryById).toHaveBeenCalledWith('w1', TEST_BRANCH.id)
+    expect(dbMocks.updateWaitlistStatus).toHaveBeenCalledWith('w1', TEST_BRANCH.id, 'notified')
+    expect(dbMocks.recordAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: 'u_admin',
+        entityType: 'waitlist',
+        entityId: 'w1',
+        branchId: TEST_BRANCH.id,
+      }),
+    )
   })
 
   it('rejects an illegal transition (waiting → booked) with the 409 envelope', async () => {
@@ -151,7 +168,8 @@ describe('PATCH /api/waitlist/[id]', () => {
     expect(dbMocks.updateWaitlistStatus).not.toHaveBeenCalled()
   })
 
-  it('returns the 404 envelope when the entry is missing', async () => {
+  it('returns the 404 envelope when the branch has no such entry', async () => {
+    // A missing entry and one at another branch read the same (R2.3).
     dbMocks.getWaitlistEntryById.mockResolvedValue(null)
 
     const res = await patch('missing', { status: 'notified' })
@@ -159,6 +177,16 @@ describe('PATCH /api/waitlist/[id]', () => {
 
     expect(res.status).toBe(404)
     expect(body.error).toMatchObject({ code: ERROR_CODES.NOT_FOUND, statusCode: 404 })
+    expect(dbMocks.updateWaitlistStatus).not.toHaveBeenCalled()
+  })
+
+  it('refuses a transition rendered for another branch with 409, before reading', async () => {
+    const res = await patch('w1', { status: 'notified' }, OTHER_BRANCH.id)
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body.error.code).toBe(ERROR_CODES.BRANCH_CONTEXT_CHANGED)
+    expect(dbMocks.getWaitlistEntryById).not.toHaveBeenCalled()
     expect(dbMocks.updateWaitlistStatus).not.toHaveBeenCalled()
   })
 
@@ -172,7 +200,7 @@ describe('PATCH /api/waitlist/[id]', () => {
   })
 
   it('→ 403 when role is insufficient', async () => {
-    sessionMocks.requireRole.mockRejectedValue(forbidden())
+    mocks.requireBranchRole.mockRejectedValue(forbidden())
     const res = await patch('w1', { status: 'notified' })
     expect(res.status).toBe(403)
     expect(dbMocks.getWaitlistEntryById).not.toHaveBeenCalled()

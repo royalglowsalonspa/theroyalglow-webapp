@@ -33,12 +33,15 @@ import type {
   ServiceCreateInput,
   ServiceUpdateInput,
 } from '@rgss/types'
-import { and, asc, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, eq, getTableColumns, inArray, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { db } from '../index'
 import { service, serviceCategory } from '../schema/service'
+import { serviceAvailableBranchIds } from './catalogue-availability'
 
-// Get all active categories with their active services, grouped
+// Get all active categories with their active services, grouped. Each service
+// carries `availableBranchIds`: null when every branch offers it, else the
+// branches that do (R4.2).
 export async function getAllServicesGrouped() {
   const categories = await db
     .select()
@@ -47,7 +50,7 @@ export async function getAllServicesGrouped() {
     .orderBy(asc(serviceCategory.displayOrder))
 
   const services = await db
-    .select()
+    .select({ ...getTableColumns(service), availableBranchIds: serviceAvailableBranchIds() })
     .from(service)
     .where(eq(service.isActive, true))
     .orderBy(asc(service.displayOrder))
@@ -61,8 +64,9 @@ export async function getAllServicesGrouped() {
 // Active catalogue: active categories ordered by displayOrder, each carrying its
 // active services (ordered by displayOrder) with the full read projection used by
 // the booking/services surfaces. Services are joined to their category so each
-// row carries the category name. Pure read — no side effects; suitable for a
-// future cache wrapper.
+// row carries the category name, and carry `availableBranchIds` (null = every
+// branch) so a surface can show only what the chosen branch offers. Pure read
+// — no side effects; suitable for a future cache wrapper.
 export async function getActiveCatalogue() {
   const categories = await db
     .select({
@@ -87,6 +91,7 @@ export async function getActiveCatalogue() {
       pricePaise: service.pricePaise,
       gemsRedeemable: service.gemsRedeemable,
       gemsRequired: service.gemsRequired,
+      availableBranchIds: serviceAvailableBranchIds(),
     })
     .from(service)
     .innerJoin(serviceCategory, eq(service.categoryId, serviceCategory.id))
@@ -101,8 +106,10 @@ export async function getActiveCatalogue() {
 
 // Fetch services by an array of ids (empty input → empty result). Includes the
 // owning category's service_type since booking callers validate salon/spa
-// against it, plus isActive so inactive services can be rejected, and the full
-// read projection (category name, price paise, duration, gem fields).
+// against it, plus isActive so inactive services can be rejected, the
+// branches that offer each (`availableBranchIds`, null = every branch) so they
+// can refuse one the booking's branch doesn't, and the full read projection
+// (category name, price paise, duration, gem fields).
 export async function getServicesByIds(ids: string[]) {
   if (ids.length === 0) {
     return []
@@ -120,6 +127,7 @@ export async function getServicesByIds(ids: string[]) {
       isActive: service.isActive,
       gemsRedeemable: service.gemsRedeemable,
       gemsRequired: service.gemsRequired,
+      availableBranchIds: serviceAvailableBranchIds(),
     })
     .from(service)
     .innerJoin(serviceCategory, eq(service.categoryId, serviceCategory.id))
@@ -143,6 +151,7 @@ export async function getServiceBySlug(slug: string) {
       pricePaise: service.pricePaise,
       gemsRedeemable: service.gemsRedeemable,
       gemsRequired: service.gemsRequired,
+      availableBranchIds: serviceAvailableBranchIds(),
     })
     .from(service)
     .innerJoin(serviceCategory, eq(service.categoryId, serviceCategory.id))

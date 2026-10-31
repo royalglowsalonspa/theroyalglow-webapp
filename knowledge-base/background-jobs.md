@@ -152,11 +152,23 @@ GROUP BY i.branch_id;
 | **Schedule** | `30 18 * * *` UTC = 12:00 AM IST |
 | **Heartbeat** | `BETTER_STACK_HEARTBEAT_MEMBERSHIP_EXPIRY` |
 
-**What it does:** Flips `spa_membership.status` from `active` to `expired` for all memberships whose `expires_at` has passed.
+**What it does:** In one transaction, cancels the membership sessions that never started (pending or confirmed) of every membership whose `expires_at` has passed, with the reason "The membership expired before this session started.", then flips `spa_membership.status` from `active` to `expired` for those memberships. Cancelling a session releases the minutes it held (migration 0026). A session already in progress keeps its held minutes and completes later. The route returns `{ expired, cancelledSessions }`.
 
-**Why:** A customer's membership expires at 11:59 PM. At midnight their status flips automatically. If they try to book an SPA session the next day, the system correctly shows them as non-member. No manual intervention.
+**Why:** A customer's membership expires at 11:59 PM. At midnight their status flips automatically. If they try to book an SPA session the next day, the system correctly shows them as non-member. A session booked for after the expiry can't start any more, so its minutes are given back; one that started in time still completes (membership-scheduling.md, MS-04 and MS-06). No manual intervention. The job writes no booking status-log entry: it is a system change with no acting person.
 
 ```sql
+WITH unstarted AS (
+  UPDATE booking b
+     SET status = 'cancelled', cancellation_reason = 'The membership expired before this session started.',
+         cancelled_at = now(), updated_at = now()
+   WHERE b.is_membership_session
+     AND b.status IN ('pending', 'confirmed')
+     AND b.spa_membership_id IN (SELECT m.id FROM spa_membership m
+                                  WHERE m.status IN ('active', 'expired') AND m.expires_at < now())
+  RETURNING 1
+)
+SELECT count(*) FROM unstarted;
+
 UPDATE spa_membership
 SET status = 'expired', updated_at = NOW()
 WHERE status = 'active'
@@ -232,25 +244,25 @@ UPDATE "user" SET
 
 | Field | Value |
 |-------|-------|
-| **Schedule** | `30 19 1 * *` UTC = 1:00 AM IST on the 1st of every month |
-| **Heartbeat** | `BETTER_STACK_HEARTBEAT_NIGHTLY_SALES` (shared) |
+| **Schedule** | `30 19 1 * *` UTC = 1:00 AM IST on the **2nd** of every month (19:30 UTC on the 1st); it summarises the previous IST month |
+| **Heartbeat** | `BETTER_STACK_HEARTBEAT_MONTHLY_GST` |
 
-**What it does:** Aggregates the previous month's GST into a `monthly_gst_summary` table — total taxable value, total GST collected (18%), invoice count, SAC code 999721.
+**What it does:** Rebuilds the previous IST month's `monthly_gst_summary` rows: one per branch, issuer GSTIN and SAC code (multi-branch R6.5), with taxable value, GST, CGST, SGST and the number of invoices with a line under the code. It sums the lines each invoice stored when it was issued (paid `service` and `membership_purchase` invoices whose tax point falls in the month), never today's rates. An invoice from before the issue snapshots counts under SAC 999721 with its header amounts. Code: `buildMonthlyGstSummary` in `packages/db/src/queries/jobs.ts`.
 
-**Why:** GSTIN `XXAAACR1234X1ZX` means quarterly GST filing is mandatory. Owner or CA needs total GST collected per month. Pre-aggregated table eliminates recomputation at filing time.
+**Why:** each branch files GST under its own GSTIN; the Owner or CA needs taxable value and tax per GSTIN and SAC code per month. A pre-aggregated table avoids recomputing at filing time.
+
+**Idempotent:** one transaction deletes the month's rows and inserts them again from the invoices, so a QStash retry gives the same rows (ids are `md5(month:branch:gstin:sac)`) and an invoice that is no longer paid drops out. A duplicate delivery running at the same time updates the first one's rows instead of failing.
 
 ```sql
-INSERT INTO monthly_gst_summary (month, taxable_value_paise, gst_amount_paise, invoice_count, sac_code)
-SELECT
-  DATE_TRUNC('month', NOW()) - INTERVAL '1 month',
-  SUM(i.taxable_value_paise),
-  SUM(i.gst_amount_paise),
-  COUNT(*),
-  '999721'
-FROM invoice
-WHERE invoice_type IN ('service', 'membership_purchase')
-  AND payment_status = 'paid'
-  AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', NOW()) - INTERVAL '1 month';
+-- Previous IST month, e.g. '2026-10', computed in the job.
+DELETE FROM monthly_gst_summary WHERE month = :month;
+INSERT INTO monthly_gst_summary (id, month, branch_id, issuer_gstin, sac_code,
+  taxable_value_paise, gst_amount_paise, cgst_paise, sgst_paise, invoice_count)
+SELECT md5(...), :month, branch_id, issuer_gstin, sac_code,
+       sum(taxable), sum(tax), sum(cgst), sum(sgst), count(DISTINCT invoice_id)
+  FROM (lines of snapshotted invoices UNION ALL headers of older ones) l
+ GROUP BY branch_id, issuer_gstin, sac_code
+ON CONFLICT ON CONSTRAINT monthly_gst_summary_month_branch_issuer_sac_unique DO UPDATE ...;
 ```
 
 ---
@@ -259,32 +271,20 @@ WHERE invoice_type IN ('service', 'membership_purchase')
 
 | Field | Value |
 |-------|-------|
-| **Type** | pg_cron |
+| **Type** | QStash scheduled (was pg_cron) |
 | **Schedule** | `40 18 * * *` UTC = 12:10 AM IST |
-| **Heartbeat** | `BETTER_STACK_HEARTBEAT_NIGHTLY_SALES` (shared) |
+| **Endpoint** | `POST /api/jobs/gems-auto-expire` |
+| **Heartbeat** | `BETTER_STACK_HEARTBEAT_GEMS_EXPIRE` |
 
-**What it does:** Finds all `loyalty_transaction` rows where `type = 'earned'`, `expires_at < NOW()`, and `gems_amount > 0` with no corresponding `expired` row already created for them. For each, inserts a new `expired` transaction deducting the gems and updates `loyalty_account.gems_balance`.
+**What it does (`expireLapsedGems` in `packages/db/src/queries/gems-ledger.ts`, multi-branch ST-03, ST-04):** in one transaction,
 
-```sql
--- Find earned transactions that have expired and not yet been offset
-SELECT lt.id, lt.loyalty_account_id, lt.gems_amount
-FROM loyalty_transaction lt
-WHERE lt.type = 'earned'
-  AND lt.expires_at < NOW()
-  AND NOT EXISTS (
-    SELECT 1 FROM loyalty_transaction lt2
-    WHERE lt2.type = 'expired'
-      AND lt2.description = 'expired:' || lt.id
-  );
+1. gives back the gems of any redemption whose booking ended (rejected, cancelled, no-show) without them being returned: a `returned` row per redemption, its allocations released;
+2. expires each lapsed batch's **unspent** gems only, never gems already spent on a free service: one `expired` row per batch naming it in `batch_id`, described "Expired: gems earned on DD/MM/YYYY", recorded at the batch's branch;
+3. takes the expired total off each balance.
 
--- For each: insert expiry row + update balance
-INSERT INTO loyalty_transaction (id, loyalty_account_id, type, gems_amount, description, created_at)
-VALUES (gen_id(), :account_id, 'expired', -:gems_amount, 'expired:' || :earned_tx_id, NOW());
+Unspent = earned − active allocations + earlier expiries (`loyalty_batch_unspent`). The database refuses an expiry that removes more than that (trigger `loyalty_expiry_guard`). The earning branch keeps the value of expired gems; no settlement entry is made. Answers `{ batches, gems, returned }`.
 
-UPDATE loyalty_account
-SET gems_balance = gems_balance - :gems_amount, updated_at = NOW()
-WHERE id = :account_id;
-```
+**Why it changed:** the original job expired every earned row in full, so gems a customer had already spent were deducted a second time; with spending tracked per batch (`loyalty_allocation`) only what is left can expire. Idempotent: a rerun finds nothing unspent, so QStash retries expire nothing twice.
 
 **Customer sees:** Gems balance reduced on `/gems` page. A push notification fires (Job 15 handles expiry warning — this job handles the actual deduction silently).
 
@@ -364,12 +364,18 @@ Only fires if `membership_alerts_enabled = true` on customer profile.
 
 | Field | Value |
 |-------|-------|
-| **Schedule** | Daily `0 5 * * *` UTC = 10:30 AM IST |
+| **Schedule** | Daily `30 5 * * *` UTC = 11:00 AM IST |
 | **Endpoint** | `POST /api/jobs/lead-followups` |
+| **Heartbeat** | `BETTER_STACK_HEARTBEAT_LEAD_FOLLOWUPS` |
 
-**What it does:** Finds leads with `status = 'follow_up'` and `last_contacted_at` older than 48 hours. Sends a push notification to the assigned receptionist.
+**What it does:** Finds leads with `status = 'follow_up'` and `last_contacted_at` older than 48 hours. Each lead goes to its own branch (multi-branch R7.4):
 
-**Receptionist sees:** "Lead 'Priya Sharma' needs follow-up. Last contacted 2 days ago."
+- to the person it is assigned to, while they still hold a role at the lead's branch (the Developer acts at every branch);
+- otherwise to the branch's front desk: its Receptionist, and its Manager or, without one, its Owner.
+
+Each person gets one push per IST day covering all their stale leads. A lead without a branch is skipped and counted in the response (`unrouted`), never sent elsewhere.
+
+**Receptionist sees:** "A follow-up with Priya at Rayasandra is due." With several: "3 leads at Rayasandra need a follow-up", or "4 leads need a follow-up: 3 at Rayasandra, 1 at Marathahalli".
 
 ---
 
@@ -379,29 +385,34 @@ Only fires if `membership_alerts_enabled = true` on customer profile.
 |-------|-------|
 | **Schedule** | Daily `0 17 * * *` UTC = 10:30 PM IST |
 | **Endpoint** | `POST /api/jobs/daily-sales-report` |
-| **Recipients** | Owner + Manager + Developer — Slack + email (Resend) |
+| **Heartbeat** | `BETTER_STACK_HEARTBEAT_NIGHTLY_SALES` (shared) |
+| **Recipients** | Each branch's Owner and Manager (email); the Developer (summary by email and Slack) |
 
-**What it does:** Queries today's invoices and booking data, formats the report, posts to Slack via webhook, and emails via Resend to `DAILY_REPORT_EMAIL_RECIPIENTS`.
+**What it does:** Reads today's paid invoices and bookings **per branch** (multi-branch R6.5, R7.4) and formats one report per branch. Every operational branch gets a report; a branch that isn't operational gets one only when it had activity.
 
-**Report format:**
+- Each branch's Owner and Manager receive that branch's report. Someone with several branches gets one email with a section per branch. Nobody receives a branch where they hold no role, so a franchise Owner never sees Royal Glow's figures, and the reverse.
+- The Developer alone receives the summary across branches: one block per branch plus the total. The same summary is posted to `SLACK_WEBHOOK_URL`, which must therefore be a channel only the Developer reads.
+- Receptionists receive no sales report.
+- Recipients come from branch roles. `DAILY_REPORT_EMAIL_RECIPIENTS` is retired: a fixed address list can't follow who may see which branch.
+- The job answers 500 only when reading fails, before anything is sent. Sends never throw, so a QStash retry never resends reports.
+
+New and returning customers are counted per branch: a customer is new where their first-ever booking falls in the period; at any other branch they are returning.
+
+**Report format (one branch):**
 ```
-📊 Royal Glow — Daily Sales Report
+📊 Royal Glow Rayasandra — Daily Sales Report
 Date: DD/MM/YYYY (Weekday)
 ─────────────────────────────────────
 
 🛎️ Services Performed
-   8x Haircut                     ₹6,000
-   4x Anti-Dandruff Treatment    ₹11,000
-   3x Aroma Therapy               ₹7,500
-   2x Deep Tissue Massage         ₹5,000
-   1x Bridal Makeup               ₹4,500
+   8x Haircut                     ₹6,000.00
    ── sorted by revenue, highest first ──
 
 💰 Revenue
-   Salon services:        ₹20,400
-   SPA services:          ₹16,000
-   Membership purchases:  ₹15,000
-   Total collected:       ₹51,400
+   Salon services:        ₹20,400.00
+   SPA services:          ₹16,000.00
+   Membership purchases:  ₹15,000.00
+   Total collected:       ₹51,400.00
 
 📅 Bookings
    Completed:   18
@@ -416,25 +427,9 @@ Date: DD/MM/YYYY (Weekday)
 💳 SPA Membership sessions: 3
 ```
 
-**Services breakdown query:**
-```sql
-SELECT COALESCE(s.name, ii.service_name_snapshot) AS service_name,
-       COUNT(ii.id) AS qty,
-       SUM(ii.total_price_paise) AS revenue_paise
-FROM invoice_item ii
-JOIN invoice i ON ii.invoice_id = i.id
-LEFT JOIN service s ON ii.service_id = s.id
-WHERE DATE(i.created_at AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE
-  AND i.payment_status = 'paid'
-GROUP BY COALESCE(s.name, ii.service_name_snapshot)
-ORDER BY revenue_paise DESC;
-```
+**Summary format (Developer only):** "📊 Royal Glow — Daily Summary, All Branches", then per branch: total collected, completed, no-shows, cancelled and new customers, then the same lines for all branches together.
 
-**New env vars required:**
-```
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxx/yyy/zzz
-DAILY_REPORT_EMAIL_RECIPIENTS=owner@theroyalglow.in,manager@theroyalglow.in
-```
+Queries: `getDailyBranchReports` / `getWeeklyBranchReports` in `packages/db/src/queries/jobs.ts` (four grouped reads in one `db.batch()`); recipients: `getBranchPeople` (`branch-recipients.ts`) and `planReportDeliveries` (`packages/business/src/branch/recipients.ts`).
 
 ---
 
@@ -442,11 +437,12 @@ DAILY_REPORT_EMAIL_RECIPIENTS=owner@theroyalglow.in,manager@theroyalglow.in
 
 | Field | Value |
 |-------|-------|
-| **Schedule** | Weekly `30 3 * * 1` UTC = Monday 9:00 AM IST |
+| **Schedule** | Weekly `30 2 * * 1` UTC = Monday 8:00 AM IST |
 | **Endpoint** | `POST /api/jobs/weekly-report` |
-| **Recipients** | Owner + Manager + Developer — Slack + email |
+| **Heartbeat** | `BETTER_STACK_HEARTBEAT_NIGHTLY_SALES` (shared) |
+| **Recipients** | As Job 13 |
 
-**What it does:** Same format as the daily report but covers the last 7 days. Adds week-over-week revenue comparison (this week vs last week). Helps owner and manager identify trends and plan staffing.
+**What it does:** The daily format over the last 7 IST days, per branch, with each branch compared with its own previous 7 days ("📈 Week-over-week: +₹500.00 (+50%)"). The Developer's summary adds each branch's and the total's week-over-week change.
 
 ---
 
@@ -458,16 +454,7 @@ DAILY_REPORT_EMAIL_RECIPIENTS=owner@theroyalglow.in,manager@theroyalglow.in
 | **Schedule** | Daily `0 5 * * *` UTC = 10:30 AM IST |
 | **Endpoint** | `POST /api/jobs/gems-expiry-reminder` |
 
-**What it does:** Finds customers who have `earned` gems transactions expiring in exactly 7 days. Sends a **push notification only** (no email per design). Groups by customer so a customer with multiple expiring batches gets one combined notification.
-
-```sql
-SELECT la.customer_id, SUM(lt.gems_amount) AS expiring_gems, lt.expires_at
-FROM loyalty_transaction lt
-JOIN loyalty_account la ON lt.loyalty_account_id = la.id
-WHERE lt.type = 'earned'
-  AND DATE(lt.expires_at AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE + INTERVAL '7 days'
-GROUP BY la.customer_id, lt.expires_at;
-```
+**What it does:** Finds customers with gems batches expiring in exactly 7 days and counts only each batch's **unspent** gems (`loyalty_batch_unspent`), so gems already spent on a free service aren't announced as expiring. Sends a **push notification only** (no email per design). Groups by customer so a customer with multiple expiring batches gets one combined notification; a customer whose expiring batches are fully spent gets none.
 
 **Customer receives (push only):**
 > "⏰ Your **X gems** expire in 7 days on DD/MM/YYYY. Book a service before then to use them!"
@@ -488,7 +475,7 @@ These are not on a schedule. They are enqueued by API routes with a delay when a
 | **Delay** | +24 hours |
 | **Endpoint** | `POST /api/jobs/post-service-followup` |
 
-**What it does:** 24 hours after a service is completed, sends a post-service follow-up email via Brevo with a direct Google Maps review link and thank-you offer. Only fires if `marketing_consent = true`.
+**What it does:** 24 hours after a service is completed, sends a post-service follow-up email that names the branch and links that branch's own Google Maps listing (`branch.google_maps_url`, used only when it is a valid https URL). Only fires if `marketing_consent = true`. The implementation sends through Resend; the email text is escaped.
 
 **Why 24h delay:** The visit is still fresh in the customer's mind, but the ask is no longer happening at the counter. That gives enough breathing room without waiting so long that response intent drops.
 
@@ -504,13 +491,13 @@ These are not on a schedule. They are enqueued by API routes with a delay when a
 | **Delay** | +2 hours |
 | **Endpoint** | `POST /api/jobs/stale-booking-alert` |
 
-**What it does:** If a booking is still `pending` 2 hours after creation, sends a push notification to ALL receptionists and the manager.
+**What it does:** If a booking is still `pending` 2 hours after creation, sends a push notification to that booking's branch: its Receptionist, and its Manager or, without one, its Owner (multi-branch R7.4; `alertBranchFrontDesk` in `apps/admin/src/lib/jobs/branch-alerts.ts`). Nobody at another branch is told, and the Developer isn't paged. The branch comes from the booking row, never the payload. Each person is told once per booking, so a QStash retry after a partial fan-out tells only those not yet told.
 
 **Why:** Receptionist gets busy and misses a new booking request. Customer is left waiting and confused. This ensures no booking falls through the cracks.
 
 **Receptionist sees:** "⚠️ Booking from Priya Sharma (3:00 PM today) has been pending for 2 hours — review now."
 
-**If still pending after 24 hours:** Auto-reject with apology push + email to customer: "We're sorry — your booking request could not be confirmed. Please book again or call us at +91 63601 35720."
+**Alert only.** The earlier "auto-reject after 24 hours" branch was removed (25/10/2026): this job is enqueued once at +2h, so that branch never ran in practice, and it contradicted the end-of-day rule. A booking nobody actions is closed by Job 21 (pending → `no_show` once its appointment has ended).
 
 ---
 
@@ -522,7 +509,7 @@ These are not on a schedule. They are enqueued by API routes with a delay when a
 | **Delay** | +15 minutes after `end_time` |
 | **Endpoint** | `POST /api/jobs/noshow-check` |
 
-**What it does:** Checks if the booking status is still `confirmed` 15 minutes after the scheduled end time. If yes — it likely means the customer didn't show up and the receptionist hasn't marked it. Sends a push notification to receptionists.
+**What it does:** Checks if the booking status is still `confirmed` 15 minutes after the scheduled end time. If yes — it likely means the customer didn't show up and the receptionist hasn't marked it. Sends a push notification to that booking's branch front desk, exactly as Job 17 does.
 
 **Receptionist sees:** "Booking #xxx for [Customer] at 4:00 PM appears to be a no-show. Mark accordingly."
 
@@ -592,6 +579,44 @@ read uses `::text::int`.
 
 ---
 
+## Job 21 — Pending-Booking Closeout
+
+| Field | Value |
+|-------|-------|
+| **Type** | QStash scheduled |
+| **Schedule** | Daily `30 16 * * *` UTC = 10:00 PM IST (after the 21:00 close) |
+| **Endpoint** | `POST /api/jobs/pending-booking-closeout` |
+| **Heartbeat** | `BETTER_STACK_HEARTBEAT_PENDING_CLOSEOUT` |
+
+**Business rule:** a booking the salon has not confirmed, rejected, or cancelled by the end of its day is closed as `no_show`. It must not sit as `pending` in the admin queue or in the customer's My Bookings.
+
+**What it does:** one status-guarded `UPDATE booking SET status = 'no_show'` for every `pending` booking whose IST end instant (`booking_date + end_time`) is at or before now. The end-instant predicate means an early or manual run never closes an appointment that has not happened yet, and the first run also sweeps the backlog of earlier days. It publishes a best-effort realtime `status_changed` event per closed booking.
+
+**Ordering:** runs before the daily sales report (22:30 IST) and the nightly sales summary (23:30 IST), so both count these bookings under no-shows.
+
+**Deliberately not done:** it does not increment `customer_profile.noshow_count` (the salon never confirmed these bookings, so they must not count toward no-show tiers), sends no customer notification, and writes no `booking_status_log` row (`changed_by_id` is a NOT NULL user FK and a system transition has no acting user). Confirmed bookings are untouched: Job 18 alerts a receptionist and a human decides.
+
+**Idempotent:** the `status = 'pending'` guard means a QStash retry matches nothing it already closed.
+
+---
+
+## Job 22 — Customer KPI Reconcile
+
+| Field | Value |
+|-------|-------|
+| **Type** | QStash scheduled |
+| **Schedule** | Daily `50 18 * * *` UTC = 12:20 AM IST |
+| **Endpoint** | `POST /api/jobs/customer-stats-reconcile` |
+| **Heartbeat** | `BETTER_STACK_HEARTBEAT_CUSTOMER_STATS` |
+
+**What it does:** recomputes the CRM KPIs on `customer_profile` (`total_visits`, `total_spent_paise`, `first_visit_at`, `last_visit_at`) for every customer from the source tables, writing only rows whose values changed.
+
+**Definitions:** a visit is a `completed` booking (service, walk-in, membership session, or gems redemption); the visit instant is `booking_date + start_time` read as IST; LTV is the sum of `paid` invoice totals of every type (membership sessions are ₹0).
+
+**Primary maintenance is in-transaction:** booking completion, membership purchase, and membership session recording each append the same recompute (`refreshCustomerStatsStatement`, `packages/db/src/queries/customer-stats.ts`) to their atomic `db.batch()`. This job is the backfill for profiles written before the KPIs were maintained and the safety net for any drift. Recompute, never increment, so retries cannot double count. `noshow_count` is not derived here: it is a manager-adjustable counter.
+
+---
+
 ## Complete Job Inventory
 
 | # | Job | Tool | Schedule / Trigger | External calls |
@@ -607,29 +632,99 @@ read uses `::text::int`.
 | 9 | Membership expiry alerts | QStash | Daily 12:30 AM IST | web-push + Resend |
 | 10 | Birthday emails | QStash | Daily 9:30 AM IST | Brevo + web-push |
 | 11 | Membership usage nudges | QStash | Daily randomized batch | web-push + Resend |
-| 12 | Lead follow-up reminders | QStash | Daily 10:30 AM IST | web-push |
-| 13 | Daily sales report | QStash | Daily 10:30 PM IST | Slack webhook + Resend |
-| 14 | Weekly summary report | QStash | Monday 9:00 AM IST | Slack webhook + Resend |
+| 12 | Lead follow-up reminders | QStash | Daily 11:00 AM IST | web-push (the lead's branch) |
+| 13 | Daily sales report | QStash | Daily 10:30 PM IST | Resend per branch; Developer summary by Resend + Slack |
+| 14 | Weekly summary report | QStash | Monday 8:00 AM IST | As Job 13 |
 | 15 | Gems expiry reminder | QStash | Daily 10:30 AM IST | web-push only |
-| 16 | Post-service follow-up | QStash triggered | +24h after `completed` | Brevo |
-| 17 | Stale pending booking alert | QStash triggered | +2h after booking created | web-push |
-| 18 | No-show check | QStash triggered | +15min after `end_time` | web-push |
+| 16 | Post-service follow-up | QStash triggered | +24h after `completed` | Resend (branch review link) |
+| 17 | Stale pending booking alert | QStash triggered | +2h after booking created | web-push (the booking's branch) |
+| 18 | No-show check | QStash triggered | +15min after `end_time` | web-push (the booking's branch) |
 | 19 | Membership expired notice | QStash triggered | +1h after `expires_at` | Resend |
 | 20 | Service catalogue drift reconciliation | QStash | `45 18 * * *` UTC | None |
+| 21 | Pending-booking closeout | QStash | `30 16 * * *` UTC | Ably (best-effort) |
+| 22 | Customer KPI reconcile | QStash | `50 18 * * *` UTC | None |
+| 23 | Missing-Manager reminder | QStash | `30 4 * * *` UTC = 10:00 AM IST | Resend (each affected Owner) |
+| 24 | Realtime token revocations | QStash triggered + daily sweep `55 18 * * *` UTC | After a role change; 00:25 IST | Ably REST |
+| 25 | Settlement close | QStash | `0 19 * * *` UTC = 12:30 AM IST | None |
+| 26 | Staff overrun check | QStash | `*/15 2-16 * * *` UTC = every 15 min, 07:30 AM–10:15 PM IST | web-push (the booking's branch) |
 
-**Total: 20 jobs — 15 QStash scheduled + 4 QStash triggered + 1 GitHub Actions cron (Job 5)**
+**Total: 26 jobs — 21 QStash scheduled (Job 24's daily sweep included) + 4 QStash triggered + 1 GitHub Actions cron (Job 5).** Job 24 is also queued by role changes.
+
+The invoice PDF render (`/api/jobs/invoice-pdf`) is a fifth QStash-triggered route, enqueued at booking completion; it is part of the synchronous invoice flow rather than a numbered job.
 
 ---
 
+## Job 23 — Missing-Manager Reminder (multi-branch R1.9)
+
+| Field | Value |
+|-------|-------|
+| **Schedule** | Daily `30 4 * * *` UTC = 10:00 AM IST |
+| **Endpoint** | `POST /api/jobs/missing-manager-reminder` |
+| **Heartbeat** | `BETTER_STACK_HEARTBEAT_MISSING_MANAGER` |
+
+**What it does:** Finds every operational branch without a Manager and emails its Owner, one `branch_manager_missing` notification per Owner per IST day naming all their branches ("Marathahalli has no Manager", or "2 branches have no Manager"). A branch drops out as soon as it has a Manager or stops being operational, so the reminders stop by themselves. The admin dashboard shows the same condition as a banner at that branch, with an "Assign a Manager" link for the Owner and the Developer (the people who can assign one, R1.5).
 
 ---
 
-## New Env Vars (jobs-specific)
+## Job 24 — Realtime Token Revocations (multi-branch R2.6)
+
+| Field | Value |
+|-------|-------|
+| **Trigger** | A role or branch change that takes away someone's admin access (queued with a delay) |
+| **Sweep** | Daily `55 18 * * *` UTC = 12:25 AM IST |
+| **Endpoint** | `POST /api/jobs/realtime-revocations` |
+
+**What it does:** Works through the `realtime_revocation` outbox the role change wrote in its own transaction: confirms the revocation with Ably after the TokenRequest window, retries failed calls (500 → QStash backoff), and closes rows older than the token lifetime as `expired`. The daily sweep closes anything a failed enqueue left pending, at one message a day. See [Ably channels](./ably-channels.md#revocation-after-a-role-change-r26).
+
+---
+
+## Job 25 — Settlement Close (multi-branch R10)
+
+| Field | Value |
+|-------|-------|
+| **Schedule** | Daily `0 19 * * *` UTC = 12:30 AM IST |
+| **Endpoint** | `POST /api/jobs/settlement-close` |
+| **Heartbeat** | `BETTER_STACK_HEARTBEAT_SETTLEMENT_CLOSE` |
+
+**What it does (`closeSettlementMonths` in `packages/db/src/queries/settlement.ts`):** closes every ended IST month not closed yet. For each, one statement (`branch_settlement`) per pair of branches with entries that month: what each owes the other for membership sessions and for gems, and the net, so only the difference is paid. Then each branch's net position across its counterparts (`settlement_position`); a month's positions add up to zero. Answers `{ months: [{ month, statements }] }`. See [settlement.md](../.kiro/specs/multi-branch-support/settlement.md).
+
+**Why daily:** a missed run catches up the next night; on most days no month has just ended and nothing changes.
+
+**Safe to repeat:** one transaction marks the months closed first, which waits for any entry still being recorded into them (entries take a share lock on their month), so the statements see every entry. Only the transaction that closed a month can insert its statements and positions, so a QStash retry or a concurrent run closes nothing twice. An entry recorded after its month closed goes to the next open month. A failure answers 500 for QStash to retry, without the heartbeat.
+
+---
+
+## Job 26 — Staff Overrun Check (membership-scheduling.md slice 2b, MS-08)
+
+| Field | Value |
+|-------|-------|
+| **Type** | QStash scheduled |
+| **Schedule** | `*/15 2-16 * * *` UTC = every 15 minutes, 07:30 AM–10:15 PM IST (60 runs a day) |
+| **Endpoint** | `POST /api/jobs/staff-overrun-check` |
+| **Heartbeat** | `BETTER_STACK_HEARTBEAT_STAFF_OVERRUN` |
+
+**What it does (`raiseStaffOverruns` in `apps/admin/src/lib/jobs/staff-overrun.ts`):** finds confirmed bookings due within 15 minutes whose person is still with another customer and is expected to start them more than 10 minutes late (`flagStaffOverruns` in `packages/db/src/queries/staff-occupancy.ts`). "Expected" is the earlier work's actual start plus its planned length, and at least now; a SPA booking clashes with any work, two salon bookings don't. Each such booking gets open reassignment work with reason `overrun`, keeping its assignee, so the dashboard and the bookings list show it as "Held up". Then it tells each held-up booking's branch front desk (its Receptionist, and its Manager or, without one, its Owner) with a `staff_overrun` push: "Asha is still with another customer, so the 11:00 booking at Rayasandra on 31/10/2026 can't start yet. Wait for them or assign someone else. Free then: Lata, Manish." The names are up to three people free for the booking's slot who may do that kind of work: Therapists for SPA, Stylists for salon, the Manager or Receptionist for either; those who perform its services first.
+
+**Why it alerts and never acts:** the database already refuses the held-up booking's start until the earlier work completes (`staff_work`, 0028), whatever reached reception. Reception waits or assigns someone else; nothing is moved, started or reassigned by the job. A suggestion is not a lock: assigning rechecks leave, the branch and the person's other bookings in the write.
+
+**How a flag ends:** starting the booking closes it as `started` (trigger `booking_reassignment_close_on_start`, 0030); assigning someone closes it as `reassigned`; moving the booking or ending it closes it as `booking_ended`.
+
+**Safe to repeat:** one open flag per booking (`booking_reassignment_open_uidx`), and the flagging statement locks the bookings it flags, so a booking started meanwhile isn't flagged. One notification per person per booking: each run tells only the people not yet told, so a failed alert is retried by the next run. A refused start (`POST /api/bookings/[id]/start`, 409 `STAFF_BUSY`) runs the same check for that booking once it is due, so a hold-up outside the job's hours is flagged too. A failure answers 500 for QStash to retry, without the heartbeat.
+
+---
+
+## Env Vars (jobs-specific)
 
 ```
-# Daily/Weekly reports
+# Daily/Weekly reports: the Developer's summary across branches. The channel
+# must be one only the Developer reads.
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxx/yyy/zzz
-DAILY_REPORT_EMAIL_RECIPIENTS=owner@theroyalglow.in,manager@theroyalglow.in
+# Missing-Manager reminder heartbeat
+BETTER_STACK_HEARTBEAT_MISSING_MANAGER=
+# Settlement close heartbeat
+BETTER_STACK_HEARTBEAT_SETTLEMENT_CLOSE=
+# Staff overrun check heartbeat (every 15 minutes in the salon day)
+BETTER_STACK_HEARTBEAT_STAFF_OVERRUN=
 ```
 
-> Add these to [environment-variables.md](./environment-variables.md) before launch.
+`DAILY_REPORT_EMAIL_RECIPIENTS` is retired: report recipients come from branch roles (each branch's Owner and Manager; the Developer for the summary). See [environment-variables.md](./environment-variables.md).

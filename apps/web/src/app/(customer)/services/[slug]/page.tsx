@@ -34,8 +34,8 @@
  *   so every emitted /services/{slug} URL resolves here.
  ************************************************************/
 
-import { formatINR } from '@rgss/business'
-import { getAllServicesGrouped, getServiceBySlug } from '@rgss/db/queries'
+import { availabilityLabel, formatINR } from '@rgss/business'
+import { getAllServicesGrouped, getPublicBranches, getServiceBySlug } from '@rgss/db/queries'
 import { ArrowLeft } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -110,11 +110,19 @@ export default async function ServiceDetailPage({ params }: ServiceDetailPagePro
   const description = service.description ?? describeService(service.name, service.categoryName)
   const bookHref = `/?book=1&service=${encodeURIComponent(service.slug)}`
 
+  // Where a restricted service is offered (multi-branch R7.2), naming public
+  // branches only. A failed branch read just leaves the note out.
+  const branchNames = new Map(
+    (await getPublicBranches().catch(() => [])).map((b) => [b.id, b.name] as const),
+  )
+  const offeredAt = availabilityLabel(service.availableBranchIds, branchNames)
+
   const facts: { label: string; value: string }[] = [
     { label: 'Price', value: formatINR(service.pricePaise) },
     { label: 'Duration', value: `${service.durationMinutes} min` },
     { label: 'Category', value: service.categoryName },
     { label: 'Type', value: serviceTypeLabel(service.serviceType) },
+    ...(offeredAt ? [{ label: 'Where', value: offeredAt }] : []),
   ]
 
   return (

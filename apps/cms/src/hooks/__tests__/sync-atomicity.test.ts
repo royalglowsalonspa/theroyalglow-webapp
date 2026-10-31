@@ -181,6 +181,8 @@ describe.skipIf(!live)('service sync atomicity (integration — live dev branch)
         name: 'ZZ Sync Test Category',
         slug: `${PREFIX}-cat-happy`,
         serviceType: 'salon',
+        sacCode: '999721',
+        availability: 'all',
         displayOrder: 900,
         // Deliberately inactive: a throwaway row must never be bookable, even
         // for the seconds it exists.
@@ -216,6 +218,7 @@ describe.skipIf(!live)('service sync atomicity (integration — live dev branch)
           slug: `${PREFIX}-svc-${n}`,
           description: n % 2 === 0 ? null : `throwaway ${n}`,
           durationMinutes: String(minutes) as DurationOption,
+          availability: 'all',
           bufferMinutes: n,
           pricePaise: 100_000 + n,
           isActive: false,
@@ -289,6 +292,8 @@ describe.skipIf(!live)('service sync atomicity (integration — live dev branch)
           name: 'ZZ Sync Test Orphan Category',
           slug: `${PREFIX}-cat-orphan`,
           serviceType: 'spa',
+          sacCode: '999723',
+          availability: 'all',
           isActive: false,
         },
       })
@@ -320,6 +325,7 @@ describe.skipIf(!live)('service sync atomicity (integration — live dev branch)
           name: 'ZZ Sync Test Rollback Service',
           slug: `${PREFIX}-svc-rollback`,
           durationMinutes: '30',
+          availability: 'all',
           pricePaise: 123_400,
           isActive: false,
         },
@@ -359,6 +365,8 @@ describe.skipIf(!live)('service sync atomicity (integration — live dev branch)
         name: 'ZZ Sync Test Control Category',
         slug: `${PREFIX}-cat-control`,
         serviceType: 'salon',
+        sacCode: '999721',
+        availability: 'all',
         isActive: false,
       },
     })

@@ -207,18 +207,29 @@ Customer books → pending
 
 ### 2h. Cancellation & No-Show Policy
 
+> **Per branch (multi-branch R6.3):** the hours, cut-offs and limits below are
+> each branch's booking rules, set by the Developer in Settings; the values
+> shown are the defaults every branch starts with. Every booking, cancellation
+> and reschedule records the settings revision that decided it.
+
 #### Cancellation by customer
 | When | Consequence |
 |------|-------------|
 | More than 4 hours before appointment | Free cancellation. No record. Slot released immediately. |
-| Within 4 hours of appointment | Tagged in CRM. `late_cancellation_count++`. Staff phones customer to understand reason. **No fee ever.** |
+| Within 4 hours of appointment | Still allowed. Tagged in CRM. `late_cancellation_count++`. Staff phones customer to understand reason. **No fee ever.** The booking page warns the customer before they confirm. |
 | After booking is `in_progress` | Not possible — service is already running. |
 
 **Reschedule rules:**
 - Customer can reschedule **up to 2 times** per booking
-- Each reschedule must be at least **1 hour** before the original appointment time
+- Each reschedule must be at least **1 hour** before the original appointment time; after that the customer can still cancel
 - 3rd reschedule attempt is blocked — customer must cancel and re-book fresh
 - Prevents slot-hoarding with repeated reschedules on premium time slots
+- The new time must be within the branch's hours, lead time and booking window; the booking page only offers such times
+
+**Booking limits:**
+- At least **1 hour** ahead, at most **30 days** ahead, within the branch's hours that weekday
+- At most **3** upcoming (pending or confirmed) bookings per customer at a branch; bookings at other branches don't count
+- Walk-ins at the counter follow only the branch's hours
 
 #### No-show tiers
 | Cumulative no-shows | Consequence |
@@ -610,15 +621,16 @@ All admin routes are served from `admin.theroyalglow.in` (Root-Path Convention �
 | `/billing` | All invoices — filterable by type (service, membership_purchase, membership_session), date | Receptionist |
 | `/billing/[id]` | Invoice detail — line items, GST breakdown, PDF preview, resend email | Receptionist |
 | **Reports & Analytics** | | |
-| `/reports` | Analytics overview — revenue KPIs, top services, busiest slots | Manager |
+| `/reports` | Analytics overview — revenue KPIs, top services, busiest slots, memberships and gems across branches (amounts for the Owner and Developer) | Manager |
+| `/settlements` | Monthly statements between branches for membership sessions and gems: entries, CSV, mark paid, corrections (Developer) | Owner of either branch, Developer |
 | `/reports/financial` | Financial report — daily/monthly revenue, GST summary, Cash / UPI / Card breakdown | Manager |
 | `/reports/salon` | Salon analytics — service breakdown, category performance | Manager |
 | `/reports/spa` | SPA analytics — membership utilisation, session frequency, tier distribution | Manager |
 | `/reports/staff` | Staff performance — bookings per staff, revenue attributed, utilisation rate | Manager |
 | `/reports/leads` | Lead analytics — conversion rate, revenue per Meta campaign, pipeline funnel | Manager |
 | **Settings** | | |
-| `/settings` | System settings — salon info, GST number, business hours, policy config keys (cancellation window, no-show thresholds etc.) | Manager |
-| `/users` | User management — list all users, assign/change roles, suspend/ban, view sessions | Owner |
+| `/settings` | The active branch's business hours and booking rules (lead time, booking window, late-cancellation cut-off, upcoming bookings per customer, reschedule cut-off and limit), saved as numbered revisions with their history; live invoicing, and the settlement share and value per gem, for every branch. GST rates per branch at `/settings/tax` | Developer |
+| `/users` | Users & Roles — find a person, assign/change their role (confirmation dialog), keeps their Staff entry in step | Owner |
 | **Developer only** | | |
 | `/integrations` | Integration management — Ably, AiSensy, Meta Pixel/CAPI, Sentry config | Developer |
 | `/logs` | Error log viewer — Sentry-sourced, filterable by severity | Developer |
@@ -692,7 +704,7 @@ SPA memberships are purchased packages of hours. Members can book any SPA servic
 
 All tiers give access to **all SPA services** (Standard, Premium, VVIP). Hours are the only constraint.
 
-**Branch-locked:** Membership sessions can only be recorded at the branch where the membership was purchased. If a customer wants SPA hours at a different branch, they need a separate membership for that branch.
+**Shared hours (multi-branch R5.9, R9.5):** a membership sold at any branch is usable at every branch. A session is recorded at the branch that performs it; the selling branch keeps the money and owes the performing branch the session's value, less its GST share, in the monthly settlement (see "Settlements between branches" below).
 
 **Creating a membership:**
 - Admin (Receptionist/Manager/Owner/Developer) goes to `admin.theroyalglow.in/memberships/new`
@@ -705,20 +717,20 @@ All tiers give access to **all SPA services** (Standard, Premium, VVIP). Hours a
 - Customer notified: "Your Royal Glow SPA Membership is active!"
 - **No gems earned on membership purchase**
 
-**Recording a session:**
-- Admin goes to `admin.theroyalglow.in/memberships` → find customer → Record Session
-- Selects service(s) performed, confirms duration
-- System validates remaining hours before allowing
-- Booking record created (status: `completed`, total: ₹0, `is_membership_session: true`)
-- `membership_session` invoice (₹0) emailed to customer
-- Hours deducted from membership pool
+**Recording a session (Record now):**
+- Admin goes to `admin.theroyalglow.in/memberships` → opens the membership → Record Session, at the branch performing it
+- Selects service(s) performed, confirms duration and staff
+- System validates free minutes (total − used − held) before allowing; a membership sold to start later can't be used before its start date
+- Booking record created (status: `in_progress`, `started_at` = now, total: ₹0, `is_membership_session: true`); the database holds its minutes
+- When the session is done, reception completes it from its booking (no payment method): the minutes are used, and the `membership_session` invoice (₹0) is issued from the branch that performed it
+- A session booked ahead holds its minutes from confirmation and is started from its booking first; cancelling, rejecting or missing it gives the minutes back
 - **No gems earned on membership sessions**
 
 **Customer view (`/membership` page):**
-- Active membership: Tier name, Membership ID (#RGMEM26XXXXX)
-- Hours: X hrs used / Y hrs total / Z hrs remaining (with visual progress bar)
+- Active membership: Membership ID (#RGMEM26XXXXX); customers never see the tier
+- Hours: X hrs used / Y hrs total / Z hrs remaining (with visual progress bar); minutes set aside for a booked or in-progress session are shown separately and aren't remaining
 - Valid until: DD/MM/YYYY
-- Session history: list of all sessions with date, service, duration
+- Sessions: booked, in progress and completed, with date, service, duration
 - Past memberships (expired/cancelled) shown in a collapsed section
 
 **Expiry reminders (automated):**
@@ -730,6 +742,17 @@ All tiers give access to **all SPA services** (Standard, Premium, VVIP). Hours a
 | Hours < 60 min remaining | "Less than 1 hour left on your membership." |
 
 **Hard expiry:** Unused hours are forfeited after `expires_at`. No rollover.
+
+**Settlements between branches (multi-branch R10):** when a member uses hours, or a customer spends gems, at a branch other than the one that sold the membership or issued the gems, that branch owes the one that delivered the service. Settlement is without GST.
+
+| Item | What is owed |
+|------|--------------|
+| Membership session | The session's share of the price paid (price × minutes ÷ purchased minutes, rounded so a membership's sessions add up exactly), less the matching share of the purchase invoice's GST, at the Developer's share rate (100% by default) |
+| Gems | Gems spent × the value per gem (₹1.00 by default), owed by the branch that issued them, earliest-expiring gems first. Gems of a free service that doesn't go ahead are returned; expired gems settle nothing |
+
+- Each IST month closes at 00:30 IST on the 1st into one statement per pair of branches; only the net is paid, by bank transfer or UPI, outside the system.
+- `admin.theroyalglow.in/settlements`: the Owners of the two branches and the Developer see statements, entries and a CSV for the accountant. The paying branch's Owner or the Developer marks a statement paid with the date and reference; an internal transfer is allowed between two branches of the same Owner. Only the Developer corrects an entry, with a reversing entry and a reason, in the month open now; a closed statement never changes.
+- Reports show each branch's session time and gems across branches; the amounts to receive and to pay are for its Owner and the Developer only, since another branch's membership value would reveal its rate.
 
 ---
 
@@ -760,14 +783,14 @@ All tiers give access to **all SPA services** (Standard, Premium, VVIP). Hours a
 ---
 
 ### 9. User Management (Admin)
-Custom `admin.theroyalglow.in/users` page built on Better Auth admin APIs.
+Custom `admin.theroyalglow.in/users` page ("Users & Roles").
 
-**Features:**
-- List all users (customers + staff)
-- Assign / change roles
-- Suspend / ban accounts
-- View session history
-- Filter by role, status, signup date
+**Features (implemented):**
+- Find one person by name, phone, or email; no list of all users (that lives in CRM `/customers`)
+- Assign / change roles, with a confirmation dialog showing the person's name, email, phone, and what the change grants or removes
+- Staff, Receptionist, and Manager roles add the person to the Staff page automatically (with a Staff title); demotion to Customer deactivates their Staff entry
+
+**Planned, not implemented:** suspend / ban accounts, view session history.
 
 ---
 

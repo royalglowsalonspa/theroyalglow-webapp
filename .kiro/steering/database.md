@@ -25,11 +25,11 @@
 | **Foreign keys** | All FKs use appropriate `ON DELETE` (CASCADE for children, RESTRICT for references). |
 | **Indexes** | Explicit on all FK columns, all WHERE/ORDER BY columns, composite for common patterns. |
 | **Snapshots** | Price + service name frozen on `booking_service` and `invoice_item`. |
-| **GST** | All prices GST-inclusive (18%, SAC 999721). Back-calc: `base = price ÷ 1.18`. |
+| **GST** | All prices GST-inclusive, at the branch's rate in force for the line's SAC code (`branch_tax_version`); see GST Calculation. |
 
 ---
 
-## Schema Files (15)
+## Schema Files (main ones)
 
 ```
 packages/db/schema/
@@ -47,8 +47,15 @@ packages/db/schema/
 ├── loyalty.ts         ← loyalty_account, loyalty_transaction
 ├── notification.ts    ← notification, push_subscription
 ├── branch.ts          ← branch
+├── branch-setting.ts  ← branch_setting (each branch's hours and booking rules, as revisions)
+├── tax.ts             ← branch_tax_version, invoice_sequence
 └── system.ts          ← daily_sales_summary, monthly_gst_summary, audit_log, system_setting
 ```
+
+Business hours and booking rules are per branch (`branch_setting`, R6.3): read
+them with `getBranchPolicy` and decide with `packages/business/src/booking/policy.ts`.
+A missing or unreadable setting is a 409 (`BRANCH_SETTINGS_INCOMPLETE`), never a
+default. Revisions are never edited; a save adds the next one.
 
 ---
 
@@ -75,7 +82,7 @@ packages/db/schema/
 | Entity | Format | Example |
 |--------|--------|---------|
 | Booking | `BK-{branch_code}-{YYMM}-{H\|S}-{5_random}[-M]` | `BK-RS-2605-H-38291` |
-| Invoice | `INV-{branch_number}-{financial_year}-{5_digit_random}` | `INV-1-2627-92921` |
+| Invoice | `{branch_invoice_prefix}/{financial_year}/{6+_digit_sequence}` — consecutive per branch and FY from `invoice_sequence` (older invoices keep `INV-1-2627-92921`) | `RS/2627/000123` |
 | Membership | `RG-MEM-{YY}-{branch_number}-{5_random}` | `RG-MEM-26-1-90872` |
 
 ---
@@ -94,16 +101,22 @@ import { db } from '@repo/db'
 
 ## GST Calculation
 
-```typescript
-const GST_RATE = 0.18
+There is no built-in rate. Each branch has effective-dated rates per SAC code
+(`branch_tax_version`, integer basis points); a line uses the rate in force for
+its SAC code at the invoice's branch and tax point, and a missing rate is a 409
+(`TAX_CONFIGURATION_INCOMPLETE`), never a fallback. Use `prepareInvoiceTax` in
+`packages/business/src/invoicing/tax.ts`:
 
-// Back-calculate from inclusive price
-function splitGST(inclusivePaise: number) {
-  const basePaise = Math.round(inclusivePaise / (1 + GST_RATE))
-  const gstPaise = inclusivePaise - basePaise
-  return { basePaise, gstPaise, totalPaise: inclusivePaise }
-}
+```typescript
+// Per line, after its largest-remainder share of the discount:
+// taxable = round half up of amount × 10_000 / (10_000 + rateBps)
+// tax = amount − taxable; CGST = floor(tax / 2); SGST = tax − CGST
+// Invoice totals are the sums of the lines.
 ```
+
+Issued invoices store every tax fact (issuer, tax point, number, per-line SAC
+code, version, rate and amounts) and never change; render and report from the
+stored values, never from today's rates.
 
 ---
 
@@ -111,9 +124,10 @@ function splitGST(inclusivePaise: number) {
 
 - **Earn:** 1 gem per ₹100 invoiced (floor). Only on `invoice_type = 'service'`.
 - **NO gems** on membership purchases or membership sessions.
-- **Expiry:** 365 days from earn date. Auto-expired by QStash gems-auto-expire job.
-- **Redemption:** Against specific catalogue services only, NOT a ₹ discount.
+- **Expiry:** 365 days from earn date. Auto-expired by QStash gems-auto-expire job, which expires only each batch's **unspent** gems.
+- **Redemption:** Against specific catalogue services only, NOT a ₹ discount. Usable at any branch; spends the earliest-expiring batches first (`loyalty_allocation`). Gems of a free service that is rejected, cancelled or missed are `returned`.
 - **Cannot combine** with offers on the same booking.
+- **Settlement:** gems spent at a branch other than the issuing one are owed by the issuing branch at the value per gem; SPA membership sessions at another branch are owed by the selling branch. Monthly, without GST (`settlement_entry`, 0021–0024).
 
 ---
 

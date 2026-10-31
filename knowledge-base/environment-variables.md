@@ -72,6 +72,8 @@ Required server values currently cover:
 
 `INVOICING_SERVICE_URL` and `INVOICE_PDF_HMAC_SECRET` are optional caller settings. The job sends an invoice email without the PDF attachment when either is missing. `NEXT_PUBLIC_ADMIN_SENTRY_DSN` is optional; admin Sentry is disabled when absent.
 
+Report jobs read guarded optional values. `SLACK_WEBHOOK_URL` receives the Developer's summary across all branches, so it must post to a channel only the Developer reads. `DAILY_REPORT_EMAIL_RECIPIENTS` is retired: each branch's report goes to that branch's Owner and Manager, read from branch roles (multi-branch R7.4). Heartbeats are `BETTER_STACK_HEARTBEAT_<NAME>`; the missing-Manager reminder uses `BETTER_STACK_HEARTBEAT_MISSING_MANAGER` and the staff overrun check (every 15 minutes in the salon day) `BETTER_STACK_HEARTBEAT_STAFF_OVERRUN`.
+
 ### Invoice renderer (`apps/invoicing`)
 
 `apps/invoicing/src/env.ts` requires:

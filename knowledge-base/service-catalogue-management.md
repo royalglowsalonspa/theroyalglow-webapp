@@ -10,8 +10,10 @@ For the one-time migration itself — backup, per-branch checklist, rollback —
 
 | Task | Where | Notes |
 |------|-------|-------|
-| Create / edit a service | CMS → `service` collection | Name, category, price, duration, buffer, description, image URL, display order, gems config |
-| Create / edit a category | CMS → `service_category` collection | Name, `serviceType` (`salon` / `spa`), display order |
+| Create / edit a service | CMS → `service` collection | Name, category, price, duration, buffer, description, image URL, display order, gems config, SAC code (optional), branches offered at |
+| Create / edit a category | CMS → `service_category` collection | Name, `serviceType` (`salon` / `spa`), SAC code (required), branches offered at, display order |
+| Choose where it's offered | CMS → "Offered at" on the category or service | All branches (default, includes branches opened later) or Selected branches. See [Branch availability](#branch-availability) |
+| See or restore an earlier version | CMS → the document's Versions tab | Every save is kept, with who saved it. See [Version history](#version-history) |
 | Retire a service or category | CMS → set `isActive` to false | **Delete is disabled on both collections.** Hard deletes are blocked at the access layer (`delete: () => false`), matching the never-hard-delete DB convention and avoiding the `ON DELETE RESTRICT` foreign key on `booking_service.service_id` |
 | Reorder display | CMS → `displayOrder` | Lower first, within a category |
 | Assign staff to a service | Admin portal → Staff | `staff_service` is not part of the CMS collections |
@@ -28,7 +30,7 @@ For the one-time migration itself — backup, per-branch checklist, rollback —
 | `POST /api/service-categories` | `410` `ENDPOINT_GONE` |
 | `PATCH /api/service-categories/[id]` | `410` `ENDPOINT_GONE` |
 
-`GET /api/services` and `GET /api/services/all` are unchanged — the offers manager, manual booking and membership recording all still read through them.
+`GET /api/services` and `GET /api/services/all` still read the catalogue. The offers manager, the lead screens and membership session recording read `GET /api/services`, which also carries each service's `availableBranchIds` (null = every branch), so the session dialog lists only the active branch's services. `services/all` feeds the staff skills picker and lists every service. The walk-in page reads the catalogue directly and lists only what the active branch offers.
 
 ## Field rules enforced by the CMS
 
@@ -37,11 +39,28 @@ For the one-time migration itself — backup, per-branch checklist, rollback —
 | `id` | 21-character `nanoid`, generated in a `beforeValidate` hook. Overrides Payload's default auto-increment integer id so the `cms.*` and `public.*` ID spaces stay identical — the FK columns on `booking_service`, `staff_service`, `offer_service` and `waitlist` all reference `public.service.id` |
 | `slug` | Auto-generated from the name (`slugify({ lower: true, strict: true })`) in a `beforeChange` hook |
 | `durationMinutes` | Fixed `select` of 8 values — 15, 30, 45, 60, 90, 120, 150, 180 — derived from `SERVICE_DURATION_MINUTES` in `packages/types/src/service.ts`, the single source of truth. The 8 values come from an audit of the real 57-service catalogue |
-| `pricePaise` | Integer, minimum 0. Paise, GST-inclusive (18%, SAC 999721) |
+| `pricePaise` | Integer, minimum 0. Paise, GST-inclusive; an invoice taxes it at the branch's rate in force for the service's SAC code |
 | `gemsRequired` | Required and greater than 0 whenever `gemsRedeemable` is true (`beforeValidate`) |
 | `serviceType` (category) | `salon` or `spa` |
+| `sacCode` | A select of the reviewed codes, `REVIEWED_SAC_CODES` in `packages/types` (999721 hair care, 999722 facial and cosmetic care, 999723 spa and massage, 999729 other beauty treatments). Required on a category; optional on a service, where empty means the category's code applies |
+| `availability` | Radio, required: `all` (default) or `selected`. "All branches" includes branches opened later |
+| `availableBranches` | Branch ids, shown only for `selected`. At least one is required; on save every id must name a branch in `public.branch`. Cleared when `all` is chosen |
+| `editedBy` | Read-only, in the sidebar. Set on every save and restore to the CMS login's email (`system` for a script) |
 
 **Adding a duration value later costs two steps**, not zero: Payload backs a `select` with a `cms`-schema enum, so (1) edit `SERVICE_DURATION_MINUTES`, then (2) run one `payload migrate:create` plus `payload migrate` per branch. `public.service.duration_minutes` stays a plain `integer` with no CHECK constraint, so no Drizzle migration and no booking-engine change is involved.
+
+## Branch availability
+
+Each category and each service is offered at **All branches** (the default) or at **Selected branches** (multi-branch R4.2, `.kiro/specs/multi-branch-support/catalogue-availability.md`). A service is offered at a branch only when its own choice and its category's both include the branch, so a category limited to Rayasandra limits every service in it. "All branches" includes branches opened later; to stop offering something everywhere, untick Active instead.
+
+- **Picker.** Branches live in the admin portal (`public.branch`), not in Payload. The field lists them from the CMS endpoint `GET /api/catalogue-branches` (CMS login required) and hides shut-down branches unless one is already chosen.
+- **Where it applies.** The website's services list, a service's page, `llms.txt` and `llms-full.txt` say "Only at …" for a restricted service, naming public branches only. The booking dialog, the gems "Redeem at" picker, the walk-in page and the membership session dialog list only what the chosen branch offers.
+- **Enforcement.** The booking, walk-in, session and gems redemption routes refuse a service the branch doesn't offer (400, naming it). The database refuses the same lines (`booking_service_availability_guard`, migration 0034); a refusal caused by a catalogue change after the route's check answers 409 `CONFLICT`, and nothing is written.
+- **Existing bookings.** Limiting a service never changes bookings already made. The admin dashboard lists the active branch's pending and confirmed bookings, from today on, with a service it no longer offers, for reception to keep, cancel or rebook.
+
+## Version history
+
+Services and categories keep every saved version (`versions: { maxPerDoc: 0 }`, no drafts): a save publishes straight away, as before. The Versions tab compares and restores earlier versions; a restore is a save, so it syncs and revalidates like one. Payload's version records don't name the editor, so each version carries `editedBy`, the CMS login that saved it. Versions start with the first save after the CMS migration `20261031_015028_catalogue_tax_versions_availability`.
 
 ## How the sync works
 
@@ -51,13 +70,16 @@ Payload admin save
        └─ afterChange: syncServiceToPublic
             ├─ isSyncEnabled() false? → log + return, no public write
             ├─ txDb(req) → the Drizzle handle bound to THAT transaction
-            ├─ mapPayloadToPublicService(doc) → snake_case row
-            ├─ create: INSERT … ON CONFLICT (id) DO UPDATE  (idempotent)
-            │  update: UPDATE … WHERE id = doc.id, updatedAt = now
+            ├─ mapPayloadToPublicService(doc) → snake_case row (sac_code, all_branches included)
+            ├─ create or update: INSERT … ON CONFLICT (id) DO UPDATE  (idempotent;
+            │  a save recreates a missing mirror row)
+            ├─ replace the document's service_branch rows (none for All branches)
             └─ on error: structured error log + re-throw
        └─ revalidateHooks('service') → WEB_APP_URL/api/revalidate
   └─ COMMIT — cms.* and public.* land together, or neither does
 ```
+
+The category hook does the same for `public.service_category` and `service_category_branch`.
 
 | Piece | File |
 |-------|------|
@@ -83,21 +105,26 @@ Payload admin save
 | `SERVICE_SYNC_ENABLED=false` left on | CMS writes succeed against `cms.*`; `public.*` is not touched and nothing throws | Editors see saves succeed while the website never changes — the quietest failure in this system | Job 20 catches it within a day. Re-enable the flag, then reconcile by hand |
 | Direct SQL edit against `public.*` | Bypasses the CMS entirely; `cms.*` still holds the old value. The next CMS edit of that row overwrites the manual change | Divergence with no error anywhere | Don't do it. Job 20 reports it; fix by re-saving the correct values in the CMS |
 | Duplicate id on the create path | `ON CONFLICT (id) DO UPDATE` converges instead of colliding. `id` and `createdAt` are excluded from the update set, so the original creation timestamp survives | Nothing — by design | None |
+| Mirror row missing on an update | The update path upserts too, so the save recreates the `public.*` row (multi-branch R4.7) | Nothing — the next save repairs it | Job 20 reports the gap until someone saves the document |
+| Selected branches with none chosen, or an unknown id | Field validation refuses the save before any write | "Choose at least one branch…" or "No branch has the id …" on the field | Choose branches again, or choose All branches |
+| A chosen branch is deleted later | The join row cascades away; if it was the only one, the service is offered nowhere | The website says "Not offered at any branch right now"; the routes refuse it | Edit the document: choose branches again, or All branches |
+| `public` schema without migration 0033 | The hooks write `all_branches` and the join tables, so every catalogue save fails and rolls back | HTTP 500 on save, error log | Apply the application migrations before deploying the CMS (see the multi-branch rollout) |
 | Re-running the seed | Payload rejects a duplicate `id` in its own validation before the hook runs; the script's `cms.*` id skip-set means it skips instead | "created 0, skipped N" | None |
 
-**Safety net — Job 20, `service-drift-reconcile`.** A daily QStash job (`45 18 * * *` UTC = 00:15 IST) compares `cms.service` ↔ `public.service` and `cms.service_category` ↔ `public.service_category` on row counts, ids and field values. It is read-only: it detects and alerts, never repairs, so a human reviews any divergence. It pings `BETTER_STACK_HEARTBEAT_SERVICE_DRIFT` **only on a clean run**, so drift trips the monitor by withholding the heartbeat. Full detail in [background-jobs.md](./background-jobs.md).
+**Safety net — Job 20, `service-drift-reconcile`.** A daily QStash job (`45 18 * * *` UTC = 00:15 IST) compares `cms.service` ↔ `public.service` and `cms.service_category` ↔ `public.service_category` on row counts, ids and field values, including SAC codes, "all branches" and the branch lists (Payload's `<collection>_texts` rows against the join tables). It is read-only: it detects and alerts, never repairs, so a human reviews any divergence. It pings `BETTER_STACK_HEARTBEAT_SERVICE_DRIFT` **only on a clean run**, so drift trips the monitor by withholding the heartbeat. Full detail in [background-jobs.md](./background-jobs.md).
 
 ### Two caveats that look like drift and are not
 
 1. **A CMS-originated create leaves `public.*.updated_at` fresher than `cms.*`.** The mapper omits `updatedAt` on the create path, so `public.*` takes the column default `now()` while `cms.*` keeps Payload's value. `created_at` **is** preserved on both. Job 20 does not flag it — both are written in the same request, well inside its 1-second tolerance.
 2. **Timestamps match only to the millisecond.** Payload's `cms.*` timestamp columns are precision 3; `public.*` keeps microseconds (max observed delta 0.0004 s). Any comparison needs a tolerance — Job 20 uses `DRIFT_TIMESTAMP_TOLERANCE_MS` (1 s).
 
-## Read surfaces (unchanged by all of this)
+## Read surfaces
 
 | Surface | Reads |
 |---------|-------|
-| `/services`, `/services/[slug]` | `getCatalogueServices`, `getServiceBySlug` → `public.*` |
-| `GET /api/services` (web) | `public.*` |
+| `/services`, `/services/[slug]` | `GET /api/services` (client), `getServiceBySlug` → `public.*` |
+| `GET /api/services` (web) | `getActiveCatalogue` → `public.*`, plus `availabilityNote` from `getPublicBranches` |
+| Branch availability | `public.service.all_branches`, `public.service_category.all_branches`, `service_branch`, `service_category_branch` (`availableBranchIds` on every catalogue read) |
 | Booking dialog + availability | `public.service.duration_minutes`, `buffer_minutes` |
 | Pricing display | `public.service.price_paise` |
 | Active filtering / grouping | `public.service.is_active`, `category_id` |
@@ -112,3 +139,4 @@ Payload admin save
 - [payload-mcp.md](./payload-mcp.md) — read-only CMS access for AI agents
 - [pages/admin.md](./pages/admin.md) — admin portal pages, including the `/services` redirect
 - `.kiro/specs/payload-service-management/` — requirements, design, tasks
+- `.kiro/specs/multi-branch-support/catalogue-availability.md` — SAC codes, version history and branch availability (design and as built)

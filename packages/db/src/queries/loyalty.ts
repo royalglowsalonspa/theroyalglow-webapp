@@ -37,6 +37,7 @@ import { db } from '../index'
 import { invoice } from '../schema/invoice'
 import { loyaltyAccount, loyaltyTransaction } from '../schema/loyalty'
 import { service } from '../schema/service'
+import { serviceAvailableBranchIds } from './catalogue-availability'
 
 // Find a customer's loyalty account, creating it on first use.
 export async function getOrCreateLoyaltyAccount(customerId: string) {
@@ -129,7 +130,8 @@ export async function getLoyaltyTransactions(customerId: string, limit: number, 
 }
 
 // Active services flagged as gems-redeemable, ordered by catalogue order
-// (nulls last). Powers the customer gems catalogue grid.
+// (nulls last). Powers the customer gems catalogue grid. `availableBranchIds`
+// (null = every branch) lets it show what the chosen branch offers (R4.3).
 export async function getRedeemableServices() {
   return db
     .select({
@@ -137,6 +139,7 @@ export async function getRedeemableServices() {
       name: service.name,
       gemsRequired: service.gemsRequired,
       pricePaise: service.pricePaise,
+      availableBranchIds: serviceAvailableBranchIds(),
     })
     .from(service)
     .where(and(eq(service.gemsRedeemable, true), eq(service.isActive, true)))

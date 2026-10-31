@@ -34,8 +34,6 @@
  *                10.x field-mapping table, NOT by calling the mapper.
  ************************************************************/
 
-import type { SQL } from 'drizzle-orm'
-import { PgDialect } from 'drizzle-orm/pg-core'
 import fc from 'fast-check'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { serviceCategory, txDb } from '../../lib/sync-db'
@@ -49,8 +47,6 @@ vi.mock('../../lib/sync-db', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../lib/sync-db')>()
   return { ...actual, txDb: vi.fn() }
 })
-
-const dialect = new PgDialect()
 
 type HookArgs = Parameters<typeof syncServiceCategoryToPublic>[0]
 
@@ -145,7 +141,7 @@ describe('Property 8: Category Create Sync Correctness', () => {
 })
 
 describe('Property 9: Category Update Sync Correctness', () => {
-  it('updates public.service_category WHERE id = the document id and touches no other row', async () => {
+  it('upserts public.service_category keyed on the document id and touches no other row', async () => {
     await fc.assert(
       fc.asyncProperty(
         fc.uniqueArray(nanoidArb, { minLength: 2, maxLength: 4 }).chain(([targetId, ...otherIds]) =>
@@ -162,16 +158,19 @@ describe('Property 9: Category Update Sync Correctness', () => {
 
           await runHook(doc, 'update')
 
-          expect(fake.update).toHaveBeenCalledTimes(1)
-          expect(fake.update).toHaveBeenCalledWith(serviceCategory)
-          expect(fake.insert).not.toHaveBeenCalled()
+          // An upsert keyed on the document id (R4.7: a missing mirror row is
+          // recreated), never a bare update.
+          expect(fake.update).not.toHaveBeenCalled()
+          expect(fake.insert).toHaveBeenCalledWith(serviceCategory)
+          const config = fake.onConflictDoUpdate.mock.calls[0]?.[0] as {
+            target: unknown
+            set: FakeRow
+          }
+          expect(config.target).toBe(serviceCategory.id)
 
-          const compiled = dialect.sqlToQuery(fake.where.mock.calls[0]?.[0] as SQL)
-          expect(compiled.sql).toBe('"service_category"."id" = $1')
-          expect(compiled.params).toEqual([doc.id])
-
-          const patch = fake.set.mock.calls[0]?.[0] as FakeRow
-          expect(patch).toMatchObject(expectedRow(doc))
+          const { id: _id, ...fields } = expectedRow(doc)
+          expect(config.set).toMatchObject(fields)
+          expect(fake.rows.get(doc.id)).toMatchObject(expectedRow(doc))
 
           for (const id of otherIds) {
             expect(fake.rows.get(id)).toEqual({ id, name: `untouched-${id}` })

@@ -140,6 +140,11 @@ export const SERVICE_DRIFT_FIELDS = [
   'gemsRedeemable',
   'gemsRequired',
   'gemsCatalogueOrder',
+  // Tax classification and branch availability (multi-branch tasks §6).
+  // `branchIds` is the sorted, comma-joined list while `allBranches` is false.
+  'sacCode',
+  'allBranches',
+  'branchIds',
   'createdAt',
   'updatedAt',
 ] as const
@@ -152,6 +157,9 @@ export const SERVICE_CATEGORY_DRIFT_FIELDS = [
   'serviceType',
   'displayOrder',
   'isActive',
+  'sacCode',
+  'allBranches',
+  'branchIds',
   'createdAt',
   'updatedAt',
 ] as const

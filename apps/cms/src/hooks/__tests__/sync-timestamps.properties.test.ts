@@ -105,7 +105,8 @@ describe('Property 11: UpdatedAt Correctness — update path', () => {
         await runService(doc, 'update')
         const after = Date.now()
 
-        const patch = fake.set.mock.calls[0]?.[0] as FakeRow
+        // The update path is an upsert (R4.7); its set clause is the patch.
+        const patch = fake.upsertSet()
         expectStampedInWindow(patch.updatedAt, before, after)
         // Property 10: the instant Payload supplied survives the sync untouched.
         expect((patch.createdAt as Date).getTime()).toBe(new Date(doc.createdAt).getTime())
@@ -122,7 +123,7 @@ describe('Property 11: UpdatedAt Correctness — update path', () => {
         await runCategory(doc, 'update')
         const after = Date.now()
 
-        const patch = fake.set.mock.calls[0]?.[0] as FakeRow
+        const patch = fake.upsertSet()
         expectStampedInWindow(patch.updatedAt, before, after)
         expect((patch.createdAt as Date).getTime()).toBe(new Date(doc.createdAt).getTime())
       }),

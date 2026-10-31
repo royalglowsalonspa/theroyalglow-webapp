@@ -30,7 +30,9 @@
  *                ../src/schema/*, ./data/*
  *
  * Notes        : Execution order: branch → settings → categories → services
- *                → tiers → tags (FK dependency chain).
+ *                → tiers → tags (FK dependency chain). Missing branches need
+ *                SEED_OWNER_EMAIL (an account that has signed in once): every
+ *                branch has an Owner.
  ************************************************************/
 
 /**
@@ -45,7 +47,9 @@
  */
 
 import { neon } from '@neondatabase/serverless'
+import { eq, sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/neon-http'
+import { user } from '../src/schema/auth'
 import { branch } from '../src/schema/branch'
 import { customerTag } from '../src/schema/crm'
 import { spaMembershipTier } from '../src/schema/membership'
@@ -66,13 +70,50 @@ if (!DATABASE_URL) {
   process.exit(1)
 }
 
-const sql = neon(DATABASE_URL)
-const db = drizzle(sql)
+const client = neon(DATABASE_URL)
+const db = drizzle(client)
 
+// Every branch needs an Owner (multi-branch R1.2; migration 0006), so missing
+// branches are created only for an existing account named by SEED_OWNER_EMAIL,
+// who must have signed in once. Branches that already exist are left alone.
+// Creating them and making that account the Owner is one transaction, with
+// the role-qualified key deferred to commit.
 async function seedBranches() {
   console.log('  → Seeding branches...')
-  await db.insert(branch).values(branches).onConflictDoNothing()
-  console.log(`    ✓ ${branches.length} branches`)
+  const existing = new Set((await db.select({ id: branch.id }).from(branch)).map((b) => b.id))
+  const missing = branches.filter((b) => !existing.has(b.id))
+  if (missing.length === 0) {
+    console.log(`    ✓ ${branches.length} branches already present`)
+    return
+  }
+
+  const ownerEmail = process.env.SEED_OWNER_EMAIL?.trim().toLowerCase()
+  if (!ownerEmail) {
+    console.log(
+      `    ⚠ ${missing.length} branches skipped: every branch needs an Owner. Set SEED_OWNER_EMAIL to the Owner's account and run again.`,
+    )
+    return
+  }
+  const [owner] = await db
+    .select({ id: user.id, role: user.role })
+    .from(user)
+    .where(sql`lower(${user.email}) = ${ownerEmail}`)
+    .limit(1)
+  if (!owner) {
+    throw new Error(
+      `No account for ${ownerEmail}. They sign in once at theroyalglow.in, then run the seed again.`,
+    )
+  }
+  if (owner.role !== null && owner.role !== 'customer' && owner.role !== 'owner') {
+    throw new Error(`${ownerEmail} is a ${owner.role}. An Owner can't hold another role.`)
+  }
+
+  await db.batch([
+    db.execute(sql`set constraints branch_owner_fk deferred`),
+    db.insert(branch).values(missing.map((b) => ({ ...b, ownerUserId: owner.id }))),
+    db.update(user).set({ role: 'owner' }).where(eq(user.id, owner.id)),
+  ])
+  console.log(`    ✓ ${missing.length} branches, owned by ${ownerEmail}`)
 }
 
 async function seedSettings() {

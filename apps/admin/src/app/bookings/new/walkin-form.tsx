@@ -16,7 +16,8 @@
  *                created booking's detail page.
  *
  * Responsibilities :
- * - Pick the branch and the service type (salon / spa)
+ * - Show the branch the walk-in is booked at (the active branch) and pick
+ *   the service type (salon / spa)
  * - Look up and link an EXISTING customer (the walk-in's account)
  * - Multi-select services of the chosen type with a running total + duration
  * - Capture the date, start time, and optional notes
@@ -51,20 +52,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Icon } from '@/components/ui/icon'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { TimeSelect } from '@/components/ui/time-select'
 import { formatINRWithPaise } from '@/lib/admin/bookings'
 import { toast } from '@/lib/admin/toast'
 
-/** Operational branch option offered in the branch picker. */
+/** The active branch the walk-in is booked at. */
 export type WalkinBranch = {
   id: string
   name: string
@@ -102,18 +95,18 @@ type ServiceType = (typeof SERVICE_TYPES)[number]['value']
 const FIELD_LABEL = 'font-ui text-[10px] uppercase tracking-wider text-dusty-gray'
 
 export function WalkinForm({
-  branches,
+  branch,
   services,
 }: {
-  branches: WalkinBranch[]
+  branch: WalkinBranch
   services: WalkinService[]
 }) {
   const router = useRouter()
 
   // ── Form state ──────────────────────────────────────────────────────────
-  // Default the branch to the only operational branch when there is exactly
-  // one, sparing the receptionist a redundant choice.
-  const [branchId, setBranchId] = useState(branches.length === 1 ? (branches[0]?.id ?? '') : '')
+  // The walk-in is booked at the branch this page was rendered for; the API
+  // refuses it if the person has switched branch since (multi-branch R2.4).
+  const branchId = branch.id
   const [serviceType, setServiceType] = useState<ServiceType>('salon')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bookingDate, setBookingDate] = useState('')
@@ -221,10 +214,6 @@ export function WalkinForm({
   const submit = useCallback(async () => {
     // Client-side guards mirror the server schema for fast, friendly feedback;
     // the API remains the source of truth.
-    if (!branchId) {
-      setError('Select a branch.')
-      return
-    }
     if (!customer) {
       setError('Link an existing customer.')
       return
@@ -274,8 +263,6 @@ export function WalkinForm({
     }
   }, [branchId, customer, selectedIds, bookingDate, startTime, serviceType, notes, router])
 
-  const noBranches = branches.length === 0
-
   return (
     <div className="max-w-3xl space-y-5">
       <BackLink />
@@ -290,287 +277,268 @@ export function WalkinForm({
         the pending approval queue.
       </p>
 
-      {noBranches ? (
-        <div className="flex items-start gap-2 rounded-cards border border-cloud-gray bg-cloud-gray/40 px-4 py-3">
-          <Icon icon={AlertCircle} decorative size={18} className="mt-0.5 text-dusty-gray" />
-          <p className="font-sans text-sm text-warm-gray">
-            No operational branch is available, so a walk-in cannot be created right now.
-          </p>
-        </div>
-      ) : (
-        <form
-          className="space-y-5"
-          onSubmit={(event) => {
-            event.preventDefault()
-            void submit()
-          }}
-        >
-          {/* Branch + service type */}
-          <Section title="Branch & type">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-1">
-                <label htmlFor="walkin-branch" className={FIELD_LABEL}>
-                  Branch
-                </label>
-                <Select value={branchId} onValueChange={setBranchId}>
-                  <SelectTrigger id="walkin-branch" className="w-full">
-                    <SelectValue placeholder="Select branch…" />
-                  </SelectTrigger>
-                  <SelectContent position="popper">
-                    <SelectGroup>
-                      {branches.map((b) => (
-                        <SelectItem key={b.id} value={b.id}>
-                          {b.name} ({b.code})
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <fieldset>
-                  <legend className={`mb-1 ${FIELD_LABEL}`}>Service type</legend>
-                  <div className="inline-flex rounded-buttons border border-outline-gray p-0.5">
-                    {SERVICE_TYPES.map((t) => {
-                      const active = serviceType === t.value
-                      return (
-                        <button
-                          key={t.value}
-                          type="button"
-                          aria-pressed={active}
-                          onClick={() => changeServiceType(t.value)}
-                          className={`h-8 rounded-buttons px-4 font-ui text-sm transition-colors motion-reduce:transition-none ${
-                            active
-                              ? 'bg-cocoa-dark text-canvas-white'
-                              : 'text-warm-gray hover:text-cocoa-dark'
-                          }`}
-                        >
-                          {t.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </fieldset>
-              </div>
+      <form
+        className="space-y-5"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void submit()
+        }}
+      >
+        {/* Branch + service type */}
+        <Section title="Branch & type">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <span className={FIELD_LABEL}>Branch</span>
+              <p className="py-1.5 font-sans text-sm text-cocoa-dark">
+                {branch.name} ({branch.code})
+              </p>
+              <p className="font-sans text-[11px] text-dusty-gray">
+                To book at another branch, switch branch first.
+              </p>
             </div>
-          </Section>
 
-          {/* Customer lookup */}
-          <Section title="Customer">
-            {customer ? (
-              <div className="flex items-center justify-between gap-3 rounded-cards border border-cloud-gray bg-canvas-white px-3 py-2.5">
-                <span className="flex min-w-0 items-center gap-2">
-                  <Icon icon={UserCheck} decorative size={18} className="text-success" />
-                  <span className="min-w-0">
-                    <span className="block truncate font-sans text-sm text-cocoa-dark">
-                      {customer.name}
-                    </span>
-                    <span className="block truncate font-sans text-xs text-dusty-gray">
-                      {customer.phone ?? customer.email}
-                    </span>
+            <div className="flex flex-col gap-1">
+              <fieldset>
+                <legend className={`mb-1 ${FIELD_LABEL}`}>Service type</legend>
+                <div className="inline-flex rounded-buttons border border-outline-gray p-0.5">
+                  {SERVICE_TYPES.map((t) => {
+                    const active = serviceType === t.value
+                    return (
+                      <button
+                        key={t.value}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => changeServiceType(t.value)}
+                        className={`h-8 rounded-buttons px-4 font-ui text-sm transition-colors motion-reduce:transition-none ${
+                          active
+                            ? 'bg-cocoa-dark text-canvas-white'
+                            : 'text-warm-gray hover:text-cocoa-dark'
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </fieldset>
+            </div>
+          </div>
+        </Section>
+
+        {/* Customer lookup */}
+        <Section title="Customer">
+          {customer ? (
+            <div className="flex items-center justify-between gap-3 rounded-cards border border-cloud-gray bg-canvas-white px-3 py-2.5">
+              <span className="flex min-w-0 items-center gap-2">
+                <Icon icon={UserCheck} decorative size={18} className="text-success" />
+                <span className="min-w-0">
+                  <span className="block truncate font-sans text-sm text-cocoa-dark">
+                    {customer.name}
+                  </span>
+                  <span className="block truncate font-sans text-xs text-dusty-gray">
+                    {customer.phone ?? customer.email}
                   </span>
                 </span>
-                <button
-                  type="button"
-                  onClick={clearCustomer}
-                  className="inline-flex items-center gap-1 rounded-buttons px-2 py-1 font-ui text-xs text-warm-gray transition-colors hover:bg-cloud-gray hover:text-cocoa-dark motion-reduce:transition-none"
-                >
-                  Change
-                  <Icon icon={X} decorative size={14} />
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-1">
-                <label htmlFor="walkin-customer" className={FIELD_LABEL}>
-                  Find an existing customer
-                </label>
-                <div className="relative">
-                  <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-dusty-gray">
-                    <Icon icon={Search} decorative size={16} />
-                  </span>
-                  <Input
-                    id="walkin-customer"
-                    type="text"
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Search by name, phone, or email…"
-                    autoComplete="off"
-                    aria-describedby="walkin-customer-hint"
-                    className="pl-8"
-                  />
-                </div>
-                <p id="walkin-customer-hint" className="font-sans text-xs text-dusty-gray">
-                  A walk-in is linked to an existing customer account.
-                </p>
-
-                {/* Results / status (aria-live so AT hears matches arrive). */}
-                <div aria-live="polite">
-                  {searching ? (
-                    <p className="px-1 py-2 font-sans text-xs text-dusty-gray">Searching…</p>
-                  ) : results.length > 0 ? (
-                    <ul className="mt-1 divide-y divide-cloud-gray overflow-hidden rounded-cards border border-cloud-gray">
-                      {results.map((r) => (
-                        <li key={r.id}>
-                          <button
-                            type="button"
-                            onClick={() => linkCustomer(r)}
-                            className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-cloud-gray motion-reduce:transition-none"
-                          >
-                            <span className="min-w-0">
-                              <span className="block truncate font-sans text-sm text-cocoa-dark">
-                                {r.name}
-                              </span>
-                              <span className="block truncate font-sans text-xs text-dusty-gray">
-                                {r.phone ?? r.email}
-                              </span>
-                            </span>
-                            <Icon icon={Check} decorative size={16} className="text-dusty-gray" />
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : query.trim().length >= 2 ? (
-                    <p className="px-1 py-2 font-sans text-xs text-dusty-gray">
-                      No matching customers.
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-            )}
-          </Section>
-
-          {/* Services */}
-          <Section title="Services">
-            {visibleServices.length === 0 ? (
-              <p className="font-sans text-sm text-dusty-gray">
-                No active {serviceType === 'spa' ? 'SPA' : 'salon'} services are available.
-              </p>
-            ) : (
-              <fieldset className="space-y-1.5">
-                <legend className="sr-only">Select services</legend>
-                {visibleServices.map((s) => {
-                  const checked = selectedIds.has(s.id)
-                  return (
-                    <div
-                      key={s.id}
-                      className={`flex items-center justify-between gap-3 rounded-cards border px-3 py-2.5 transition-colors motion-reduce:transition-none ${
-                        checked
-                          ? 'border-deep-gold bg-warm-cream'
-                          : 'border-cloud-gray hover:bg-cloud-gray/50'
-                      }`}
-                    >
-                      <span className="flex min-w-0 items-center gap-2.5">
-                        <Checkbox
-                          id={`walkin-svc-${s.id}`}
-                          checked={checked}
-                          onCheckedChange={() => toggleService(s.id)}
-                        />
-                        <label htmlFor={`walkin-svc-${s.id}`} className="min-w-0 cursor-pointer">
-                          <span className="block truncate font-sans text-sm text-cocoa-dark">
-                            {s.name}
-                          </span>
-                          <span className="block truncate font-sans text-xs text-dusty-gray">
-                            {s.categoryName} · {s.durationMinutes} min
-                          </span>
-                        </label>
-                      </span>
-                      <span className="shrink-0 font-ui text-sm text-cocoa-dark">
-                        {formatINRWithPaise(s.pricePaise)}
-                      </span>
-                    </div>
-                  )
-                })}
-              </fieldset>
-            )}
-
-            {/* Running total */}
-            <div className="mt-3 flex items-center justify-between border-t border-cloud-gray pt-3">
-              <span className="font-ui text-xs uppercase tracking-wider text-dusty-gray">
-                {selectedIds.size} selected · {totalMinutes} min
               </span>
-              <span className="font-ui font-medium text-cocoa-dark">
-                {formatINRWithPaise(totalPaise)}
-              </span>
+              <button
+                type="button"
+                onClick={clearCustomer}
+                className="inline-flex items-center gap-1 rounded-buttons px-2 py-1 font-ui text-xs text-warm-gray transition-colors hover:bg-cloud-gray hover:text-cocoa-dark motion-reduce:transition-none"
+              >
+                Change
+                <Icon icon={X} decorative size={14} />
+              </button>
             </div>
-          </Section>
-
-          {/* Schedule */}
-          <Section title="Schedule">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-1">
-                <label htmlFor="walkin-date" className={FIELD_LABEL}>
-                  Date
-                </label>
-                <Input
-                  id="walkin-date"
-                  type="date"
-                  value={bookingDate}
-                  onChange={(event) => setBookingDate(event.target.value)}
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label htmlFor="walkin-time" className={FIELD_LABEL}>
-                  Start time
-                </label>
-                <TimeSelect
-                  id="walkin-time"
-                  value={startTime}
-                  onChange={setStartTime}
-                  ariaLabel="Start time"
-                  className="w-full"
-                />
-              </div>
-            </div>
-          </Section>
-
-          {/* Notes */}
-          <Section title="Notes (optional)">
+          ) : (
             <div className="flex flex-col gap-1">
-              <label htmlFor="walkin-notes" className="sr-only">
-                Notes
+              <label htmlFor="walkin-customer" className={FIELD_LABEL}>
+                Find an existing customer
               </label>
-              <Textarea
-                id="walkin-notes"
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                rows={3}
-                maxLength={500}
-                placeholder="Anything the team should know…"
+              <div className="relative">
+                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-dusty-gray">
+                  <Icon icon={Search} decorative size={16} />
+                </span>
+                <Input
+                  id="walkin-customer"
+                  type="text"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search by name, phone, or email…"
+                  autoComplete="off"
+                  aria-describedby="walkin-customer-hint"
+                  className="pl-8"
+                />
+              </div>
+              <p id="walkin-customer-hint" className="font-sans text-xs text-dusty-gray">
+                A walk-in is linked to an existing customer account.
+              </p>
+
+              {/* Results / status (aria-live so AT hears matches arrive). */}
+              <div aria-live="polite">
+                {searching ? (
+                  <p className="px-1 py-2 font-sans text-xs text-dusty-gray">Searching…</p>
+                ) : results.length > 0 ? (
+                  <ul className="mt-1 divide-y divide-cloud-gray overflow-hidden rounded-cards border border-cloud-gray">
+                    {results.map((r) => (
+                      <li key={r.id}>
+                        <button
+                          type="button"
+                          onClick={() => linkCustomer(r)}
+                          className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-cloud-gray motion-reduce:transition-none"
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate font-sans text-sm text-cocoa-dark">
+                              {r.name}
+                            </span>
+                            <span className="block truncate font-sans text-xs text-dusty-gray">
+                              {r.phone ?? r.email}
+                            </span>
+                          </span>
+                          <Icon icon={Check} decorative size={16} className="text-dusty-gray" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : query.trim().length >= 2 ? (
+                  <p className="px-1 py-2 font-sans text-xs text-dusty-gray">
+                    No matching customers.
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          )}
+        </Section>
+
+        {/* Services */}
+        <Section title="Services">
+          {visibleServices.length === 0 ? (
+            <p className="font-sans text-sm text-dusty-gray">
+              No active {serviceType === 'spa' ? 'SPA' : 'salon'} services are available.
+            </p>
+          ) : (
+            <fieldset className="space-y-1.5">
+              <legend className="sr-only">Select services</legend>
+              {visibleServices.map((s) => {
+                const checked = selectedIds.has(s.id)
+                return (
+                  <div
+                    key={s.id}
+                    className={`flex items-center justify-between gap-3 rounded-cards border px-3 py-2.5 transition-colors motion-reduce:transition-none ${
+                      checked
+                        ? 'border-deep-gold bg-warm-cream'
+                        : 'border-cloud-gray hover:bg-cloud-gray/50'
+                    }`}
+                  >
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <Checkbox
+                        id={`walkin-svc-${s.id}`}
+                        checked={checked}
+                        onCheckedChange={() => toggleService(s.id)}
+                      />
+                      <label htmlFor={`walkin-svc-${s.id}`} className="min-w-0 cursor-pointer">
+                        <span className="block truncate font-sans text-sm text-cocoa-dark">
+                          {s.name}
+                        </span>
+                        <span className="block truncate font-sans text-xs text-dusty-gray">
+                          {s.categoryName} · {s.durationMinutes} min
+                        </span>
+                      </label>
+                    </span>
+                    <span className="shrink-0 font-ui text-sm text-cocoa-dark">
+                      {formatINRWithPaise(s.pricePaise)}
+                    </span>
+                  </div>
+                )
+              })}
+            </fieldset>
+          )}
+
+          {/* Running total */}
+          <div className="mt-3 flex items-center justify-between border-t border-cloud-gray pt-3">
+            <span className="font-ui text-xs uppercase tracking-wider text-dusty-gray">
+              {selectedIds.size} selected · {totalMinutes} min
+            </span>
+            <span className="font-ui font-medium text-cocoa-dark">
+              {formatINRWithPaise(totalPaise)}
+            </span>
+          </div>
+        </Section>
+
+        {/* Schedule */}
+        <Section title="Schedule">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <label htmlFor="walkin-date" className={FIELD_LABEL}>
+                Date
+              </label>
+              <Input
+                id="walkin-date"
+                type="date"
+                value={bookingDate}
+                onChange={(event) => setBookingDate(event.target.value)}
               />
             </div>
-          </Section>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="walkin-time" className={FIELD_LABEL}>
+                Start time
+              </label>
+              <TimeSelect
+                id="walkin-time"
+                value={startTime}
+                onChange={setStartTime}
+                ariaLabel="Start time"
+                className="w-full"
+              />
+            </div>
+          </div>
+        </Section>
 
-          {/* Status + submit. The status region is aria-live so submit
+        {/* Notes */}
+        <Section title="Notes (optional)">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="walkin-notes" className="sr-only">
+              Notes
+            </label>
+            <Textarea
+              id="walkin-notes"
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              rows={3}
+              maxLength={500}
+              placeholder="Anything the team should know…"
+            />
+          </div>
+        </Section>
+
+        {/* Status + submit. The status region is aria-live so submit
               progress and errors are announced to assistive technology. */}
-          <div aria-live="assertive">
-            {error ? (
-              <p className="flex items-center gap-1.5 font-sans text-sm text-error" role="alert">
-                <Icon icon={AlertCircle} decorative size={16} />
-                {error}
-              </p>
-            ) : null}
-          </div>
+        <div aria-live="assertive">
+          {error ? (
+            <p className="flex items-center gap-1.5 font-sans text-sm text-error" role="alert">
+              <Icon icon={AlertCircle} decorative size={16} />
+              {error}
+            </p>
+          ) : null}
+        </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              disabled={submitting}
-              aria-busy={submitting}
-              className="inline-flex items-center justify-center gap-1.5 rounded-buttons bg-success px-5 py-2.5 font-ui text-sm text-canvas-white transition-colors hover:bg-success-dark disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
-            >
-              {submitting ? 'Creating…' : 'Create walk-in booking'}
-              {submitting ? null : <Icon icon={Check} decorative size={16} />}
-            </button>
-            <Link
-              href="/bookings"
-              className="rounded-buttons border border-cloud-gray px-5 py-2.5 font-ui text-sm text-cocoa-dark transition-colors hover:bg-cloud-gray motion-reduce:transition-none"
-            >
-              Cancel
-            </Link>
-          </div>
-        </form>
-      )}
+        <div className="flex items-center gap-3">
+          <button
+            type="submit"
+            disabled={submitting}
+            aria-busy={submitting}
+            className="inline-flex items-center justify-center gap-1.5 rounded-buttons bg-success px-5 py-2.5 font-ui text-sm text-canvas-white transition-colors hover:bg-success-dark disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
+          >
+            {submitting ? 'Creating…' : 'Create walk-in booking'}
+            {submitting ? null : <Icon icon={Check} decorative size={16} />}
+          </button>
+          <Link
+            href="/bookings"
+            className="rounded-buttons border border-cloud-gray px-5 py-2.5 font-ui text-sm text-cocoa-dark transition-colors hover:bg-cloud-gray motion-reduce:transition-none"
+          >
+            Cancel
+          </Link>
+        </div>
+      </form>
     </div>
   )
 }

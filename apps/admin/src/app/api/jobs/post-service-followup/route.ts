@@ -35,6 +35,7 @@ import { getBookingForFollowup } from '@rgss/db/queries'
 import { createLogger } from '@rgss/logger'
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
+import { escapeHtml, httpsUrlOrNull } from '@/lib/notifications/html'
 import { sendEmail } from '@/lib/notifications/providers/email'
 
 // Job 16 — Post-service follow-up (QStash triggered, enqueued +24h by booking
@@ -81,11 +82,17 @@ export const POST = async (req: Request) => {
       ) {
         const { title, body } = buildNotificationContent('post_service_followup', {
           serviceName: booking.serviceType === 'spa' ? 'SPA treatment' : 'salon service',
+          branchName: booking.branchName,
         })
+        // Each branch has its own Google listing: ask for the review there.
+        const reviewUrl = httpsUrlOrNull(booking.branchGoogleMapsUrl)
+        const reviewLink = reviewUrl
+          ? `<p><a href="${escapeHtml(reviewUrl)}">Leave a review for Royal Glow ${escapeHtml(booking.branchName)}</a></p>`
+          : ''
         sent = await sendEmail({
           to: booking.customerEmail,
           subject: title,
-          html: `<p>${body}</p>`,
+          html: `<p>${escapeHtml(body)}</p>${reviewLink}`,
         })
       }
     }

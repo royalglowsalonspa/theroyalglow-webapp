@@ -20,6 +20,8 @@
  * - adminBookingActionSchema — discriminated union (approve/reject/assign)
  * - completeBookingSchema — payment method for invoice generation
  * - adminCreateWalkinSchema — receptionist-created walk-in booking input
+ * - adminBookingCancelSchema / adminBookingMoveSchema — the salon cancels or
+ *   moves a booking (slice 3)
  *
  * Tech Stack   : TypeScript, Zod
  * Layer        : Shared Package
@@ -33,6 +35,7 @@
  ************************************************************/
 import { z } from 'zod'
 import { bookingStatusSchema } from './booking'
+import { renderedBranchIdSchema } from './branch'
 
 // Query params for GET /api/bookings (admin). All filters are optional; when
 // omitted the listing returns every booking. `status` reuses the booking
@@ -48,8 +51,10 @@ export const adminBookingListQuerySchema = z.object({
 })
 export type AdminBookingListQuery = z.infer<typeof adminBookingListQuerySchema>
 
+// Every booking write names the branch its page was rendered for (R2.4).
 export const approveBookingSchema = z.object({
   action: z.literal('approve'),
+  branchId: renderedBranchIdSchema,
   staffId: z.string().min(1),
 })
 export type ApproveBookingInput = z.infer<typeof approveBookingSchema>
@@ -57,6 +62,7 @@ export type ApproveBookingInput = z.infer<typeof approveBookingSchema>
 // Reject a pending booking with a customer-facing reason.
 export const rejectBookingSchema = z.object({
   action: z.literal('reject'),
+  branchId: renderedBranchIdSchema,
   rejectionReason: z.string().min(1).max(500),
 })
 export type RejectBookingInput = z.infer<typeof rejectBookingSchema>
@@ -64,6 +70,7 @@ export type RejectBookingInput = z.infer<typeof rejectBookingSchema>
 // (Re)assign staff to all services on a booking, regardless of status.
 export const assignBookingSchema = z.object({
   action: z.literal('assign'),
+  branchId: renderedBranchIdSchema,
   staffId: z.string().min(1),
 })
 export type AssignBookingInput = z.infer<typeof assignBookingSchema>
@@ -90,12 +97,28 @@ export type AdminBookingActionInput = z.infer<typeof adminBookingActionSchema>
 // the gem amount itself from live catalogue + balance data — a client-supplied
 // gem AMOUNT is never accepted here.
 export const completeBookingSchema = z.object({
-  paymentMethod: z.enum(['cash', 'upi', 'card']),
+  branchId: renderedBranchIdSchema,
+  // Required for every booking but a membership session, which takes no
+  // payment: its minutes were paid for with the membership. The route checks.
+  paymentMethod: z.enum(['cash', 'upi', 'card']).optional(),
   offerId: z.string().min(1).optional(),
   gemsRedeemedServiceId: z.string().min(1).optional(),
   redeemGems: z.boolean().optional(),
 })
 export type CompleteBookingInput = z.infer<typeof completeBookingSchema>
+
+// Mark a confirmed booking as a no-show.
+export const bookingNoShowSchema = z.object({
+  branchId: renderedBranchIdSchema,
+})
+export type BookingNoShowInput = z.infer<typeof bookingNoShowSchema>
+
+// Start a confirmed booking now: the customer is in the chair. The server
+// records the actual start; a membership session keeps its held minutes.
+export const bookingStartSchema = z.object({
+  branchId: renderedBranchIdSchema,
+})
+export type BookingStartInput = z.infer<typeof bookingStartSchema>
 
 // Admin walk-in booking creation (receptionist+). A walk-in is a customer who
 // arrives in person, so the receptionist records the booking on their behalf
@@ -113,7 +136,9 @@ export type CompleteBookingInput = z.infer<typeof completeBookingSchema>
 // in lock-step; `isWalkin`/`status` are NOT accepted from the client — the
 // admin route forces them server-side.
 export const adminCreateWalkinSchema = z.object({
-  branchId: z.string().min(1, 'A branch is required.'),
+  // The branch the form was rendered for; the walk-in is created there only
+  // when it is still the active branch (R2.4).
+  branchId: renderedBranchIdSchema,
   customerId: z.string().min(1, 'An existing customer is required.'),
   serviceType: z.enum(['salon', 'spa']),
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
@@ -122,3 +147,23 @@ export const adminCreateWalkinSchema = z.object({
   notes: z.string().max(500).optional(),
 })
 export type AdminCreateWalkinInput = z.infer<typeof adminCreateWalkinSchema>
+
+// The salon cancels a pending or confirmed booking (membership-scheduling.md
+// slice 3): for a closed day, a person no one can replace, or the customer's
+// call. The reason is shown to the customer. Never counted as a late
+// cancellation of theirs.
+export const adminBookingCancelSchema = z.object({
+  branchId: renderedBranchIdSchema,
+  reason: z.string().trim().min(1, 'Say why the booking is cancelled.').max(500),
+})
+export type AdminBookingCancelInput = z.infer<typeof adminBookingCancelSchema>
+
+// The salon moves a pending or confirmed booking to another date and start
+// time at its branch, keeping its services and length. It doesn't count
+// against the customer's reschedule limit.
+export const adminBookingMoveSchema = z.object({
+  branchId: renderedBranchIdSchema,
+  bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/, 'Time must be in HH:MM format'),
+})
+export type AdminBookingMoveInput = z.infer<typeof adminBookingMoveSchema>

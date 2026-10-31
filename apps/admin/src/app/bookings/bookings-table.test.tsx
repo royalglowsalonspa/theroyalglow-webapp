@@ -36,6 +36,7 @@ vi.mock('next/navigation', () => ({
 function sampleBooking(): AdminBooking {
   return {
     id: 'bk_1',
+    branchId: 'branch_rayasandra',
     bookingNumber: 'BK-RS-2606-H-38291',
     status: 'confirmed',
     serviceType: 'salon',

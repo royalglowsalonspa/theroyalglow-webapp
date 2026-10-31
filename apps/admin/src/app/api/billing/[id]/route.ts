@@ -24,16 +24,17 @@
 
 import { getInvoiceById } from '@rgss/db/queries'
 import { notFound } from '@rgss/errors'
+import { requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 
-// GET /api/billing/[id] — a single invoice with line items.
+// GET /api/billing/[id] — one of the active branch's invoices with line items.
+// An invoice issued by another branch is not found (R2.3).
 export const GET = withErrorHandler(
-  async (_req: Request, ctx: { params: Promise<{ id: string }> }) => {
-    await requireRole('receptionist')
-    const { id } = await ctx.params
+  async (_req: Request, route: { params: Promise<{ id: string }> }) => {
+    const ctx = await requireBranchRole('receptionist')
+    const { id } = await route.params
 
-    const invoice = await getInvoiceById(id)
+    const invoice = await getInvoiceById(id, ctx.branch.id)
     if (!invoice) {
       throw notFound('Invoice not found.')
     }

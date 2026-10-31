@@ -1,25 +1,28 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 25-06-2026 & Updated - 25-06-2026
+ * Date         : Created - 25-06-2026 & Updated - 30-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : availability
  * Scope        : Business Logic — Booking
  *
- * Description  : Pure availability slot generation for a date + branch.
- *                Produces a fixed 30-minute grid within branch business
- *                hours and flags each slot's availability against business
- *                hours, recorded holidays, and (for today, IST) the current
- *                IST wall-clock time. Rejects past dates before generating.
+ * Description  : Pure availability slot generation for a date at a branch.
+ *                Produces a 30-minute grid across the branch's opening hours
+ *                that day and flags each slot unavailable on a holiday or
+ *                closure, or when it starts sooner than the branch's lead time
+ *                allows. Rejects past dates before generating.
  *
  * Responsibilities :
  * - Reject past dates (earlier than today in IST) with VALIDATION_ERROR (400)
- * - Generate slots on a fixed 30-min grid (open 10:00, last start 20:30, close 21:00)
- * - Flag slots unavailable when outside business hours, on a holiday, or
- *   (today, IST) earlier than the current IST time
+ * - Generate slots on the half hour from opening until the last slot that
+ *   ends by closing; no slots on a day the branch is closed
+ * - Flag slots unavailable on a holiday or closure, when they start sooner
+ *   than now plus the lead time, or when a booking of the given length would
+ *   run past closing from them
  *
  * Features / Functionality :
- * - generateAvailability({ date, now?, holidays?, businessHours? }) → Slot[]
+ * - generateAvailability({ date, now?, holidays?, businessHours?,
+ *   leadTimeMinutes?, durationMinutes? }) → Slot[]
  * - Each slot: { startTime, endTime, available }, endTime = start + 30 min
  *
  * Tech Stack   : TypeScript
@@ -28,16 +31,18 @@
  * Dependencies : @rgss/errors, ./reschedule (slot constants)
  *
  * Notes        :
- * - Pure and deterministic — accepts `now`, `holidays`, and `businessHours`
- *   as parameters (no I/O, no DB, no framework). IST = UTC+5:30.
- * - Reuses SLOT_OPEN_MINUTES / SLOT_CLOSE_MINUTES / SLOT_DURATION_MINUTES so
- *   the grid stays consistent with the reschedule slot rules.
+ * - Pure and deterministic — accepts `now`, `holidays`, `businessHours` and
+ *   `leadTimeMinutes` as parameters (no I/O, no DB, no framework). IST =
+ *   UTC+5:30.
+ * - The slots are a request grid, not a promise of free staff (R7.1): the
+ *   receptionist confirms who does it.
  ************************************************************/
 import { badRequest } from '@rgss/errors'
 import { SLOT_CLOSE_MINUTES, SLOT_DURATION_MINUTES, SLOT_OPEN_MINUTES } from './reschedule'
 
 /** IST is UTC+5:30. */
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000
+const MINUTE_MS = 60 * 1000
 
 /** A single availability slot. Times are 24h "HH:MM" strings. */
 export type AvailabilitySlot = {
@@ -55,12 +60,22 @@ export type BusinessHours = {
 export type GenerateAvailabilityInput = {
   /** Requested date as an IST calendar day, "YYYY-MM-DD". */
   date: string
-  /** Current instant. Defaults to now. Used for IST "today" + current-time checks. */
+  /** Current instant. Defaults to now. Used for IST "today" and the lead time. */
   now?: Date
-  /** Recorded holiday dates as "YYYY-MM-DD". */
+  /** Recorded holiday and closure dates as "YYYY-MM-DD". */
   holidays?: readonly string[]
-  /** The day's actual business hours. Defaults to the standard 10:00–21:00 window. */
-  businessHours?: BusinessHours
+  /**
+   * The day's opening window: the grid spans it. Null when the branch is
+   * closed that day, which gives no slots. Defaults to 10:00–21:00.
+   */
+  businessHours?: BusinessHours | null
+  /** Slots starting sooner than this many minutes from now are unavailable. */
+  leadTimeMinutes?: number
+  /**
+   * How long the booking runs. A slot it would run past closing from is
+   * unavailable. Defaults to one slot (30 minutes).
+   */
+  durationMinutes?: number
 }
 
 function pad2(n: number): string {
@@ -74,21 +89,10 @@ function minutesToTime(minutes: number): string {
   return `${pad2(h)}:${pad2(m)}`
 }
 
-/** Shift a UTC instant into IST wall-clock time (read via UTC accessors). */
-function istWall(date: Date): Date {
-  return new Date(date.getTime() + IST_OFFSET_MS)
-}
-
 /** "YYYY-MM-DD" of an instant in IST. */
 function istDateString(date: Date): string {
-  const wall = istWall(date)
+  const wall = new Date(date.getTime() + IST_OFFSET_MS)
   return `${wall.getUTCFullYear()}-${pad2(wall.getUTCMonth() + 1)}-${pad2(wall.getUTCDate())}`
-}
-
-/** Minutes since IST midnight for an instant. */
-function istMinutesOfDay(date: Date): number {
-  const wall = istWall(date)
-  return wall.getUTCHours() * 60 + wall.getUTCMinutes()
 }
 
 /**
@@ -111,20 +115,21 @@ function parseISODate(date: string): { y: number; m: number; d: number } | null 
 }
 
 /**
- * Generate the availability grid for a date and branch.
+ * Generate the availability grid for a date at a branch.
  *
  * Throws a VALIDATION_ERROR (400) when the date is malformed or earlier than
- * today in IST — before any slots are generated. Otherwise returns a fixed
- * 30-minute grid within the business-hours window, each slot flagged
- * unavailable when it falls outside the day's business hours, the date is a
- * recorded holiday, or (when the date is today in IST) its start is earlier
- * than the current IST time.
+ * today in IST — before any slots are generated. Otherwise returns the
+ * half-hour slots from opening until the last one that ends by closing, each
+ * flagged unavailable when the date is a holiday or closure, or when the slot
+ * starts sooner than now plus the lead time.
  */
 export function generateAvailability({
   date,
   now = new Date(),
   holidays = [],
   businessHours = { openMinutes: SLOT_OPEN_MINUTES, closeMinutes: SLOT_CLOSE_MINUTES },
+  leadTimeMinutes = 0,
+  durationMinutes = SLOT_DURATION_MINUTES,
 }: GenerateAvailabilityInput): AvailabilitySlot[] {
   const parsed = parseISODate(date)
   if (parsed === null) {
@@ -133,36 +138,35 @@ export function generateAvailability({
     })
   }
 
-  const today = istDateString(now)
   // Lexicographic comparison is correct for zero-padded YYYY-MM-DD strings.
-  if (date < today) {
+  if (date < istDateString(now)) {
     throw badRequest('Cannot request availability for a past date', {
       date: ['Date must not be in the past'],
     })
   }
 
-  const isToday = date === today
+  if (businessHours === null) {
+    return []
+  }
+
   const isHoliday = holidays.includes(date)
-  const currentMinutes = istMinutesOfDay(now)
+  // 00:00 IST on the date, as an instant.
+  const dayStart = Date.UTC(parsed.y, parsed.m - 1, parsed.d) - IST_OFFSET_MS
+  const earliest = now.getTime() + Math.max(0, leadTimeMinutes) * MINUTE_MS
+  const first = Math.ceil(businessHours.openMinutes / SLOT_DURATION_MINUTES) * SLOT_DURATION_MINUTES
+  const runs = Math.max(SLOT_DURATION_MINUTES, durationMinutes)
 
   const slots: AvailabilitySlot[] = []
-  // Fixed 30-min grid across the standard operating window: open .. (close - duration).
   for (
-    let start = SLOT_OPEN_MINUTES;
-    start + SLOT_DURATION_MINUTES <= SLOT_CLOSE_MINUTES;
+    let start = first;
+    start + SLOT_DURATION_MINUTES <= businessHours.closeMinutes;
     start += SLOT_DURATION_MINUTES
   ) {
-    const end = start + SLOT_DURATION_MINUTES
-    const withinBusinessHours =
-      start >= businessHours.openMinutes && end <= businessHours.closeMinutes
-    const inPastToday = isToday && start < currentMinutes
-
-    const available = withinBusinessHours && !isHoliday && !inPastToday
-
+    const startsAt = dayStart + start * MINUTE_MS
     slots.push({
       startTime: minutesToTime(start),
-      endTime: minutesToTime(end),
-      available,
+      endTime: minutesToTime(start + SLOT_DURATION_MINUTES),
+      available: !isHoliday && startsAt >= earliest && start + runs <= businessHours.closeMinutes,
     })
   }
 

@@ -26,20 +26,23 @@
  *                @rgss/errors, @rgss/types
  *
  * Notes        :
- * - Requires min role: receptionist.
+ * - Requires min role at the active branch: receptionist.
  * - Query params are Zod-validated via customerListQuerySchema.
+ * - Every branch sees every customer (shared identity), but LTV and the LTV
+ *   sort count only the active branch's paid invoices (multi-branch R3.2).
  ************************************************************/
 
 import { getCustomers } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { customerListQuerySchema } from '@rgss/types'
+import { requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 
 // GET /api/customers — paginated, searchable, sortable customer directory.
-// Receptionist+. Returns the standard envelope with pagination `meta`.
+// Receptionist+. Returns the standard envelope with pagination `meta`, and the
+// branch whose money `branchSpentPaise` shows.
 export const GET = withErrorHandler(async (req: Request) => {
-  await requireRole('receptionist')
+  const ctx = await requireBranchRole('receptionist')
 
   const params = Object.fromEntries(new URL(req.url).searchParams)
   const parsed = customerListQuerySchema.safeParse(params)
@@ -48,8 +51,11 @@ export const GET = withErrorHandler(async (req: Request) => {
   }
 
   const query = parsed.data
-  const { rows, totalCount } = await getCustomers(query)
+  const { rows, totalCount } = await getCustomers(ctx.branch.id, query)
   const totalPages = Math.max(1, Math.ceil(totalCount / query.pageSize))
 
-  return apiSuccess({ customers: rows }, { page: query.page, totalPages, totalCount })
+  return apiSuccess(
+    { branchId: ctx.branch.id, customers: rows },
+    { page: query.page, totalPages, totalCount },
+  )
 })

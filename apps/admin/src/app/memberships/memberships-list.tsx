@@ -51,9 +51,12 @@ import { useAsyncData } from '@/components/ui/use-async-data'
 import {
   daysUntil,
   formatDateDDMMYYYY,
+  formatINR,
   MEMBERSHIP_STATUS_OPTIONS,
+  type MembershipListData,
   type MembershipListRow,
   type MembershipTier,
+  type MembershipTierList,
   minutesToHM,
 } from '@/lib/admin/memberships'
 
@@ -76,16 +79,18 @@ async function fetchMemberships(): Promise<MembershipsData> {
     throw new Error(listJson?.error?.message ?? 'Could not load memberships.')
   }
   // Tier options are non-fatal; the filter falls back to status-only on failure.
+  // Retired tiers stay in the filter: older memberships still refer to them.
   let tiers: MembershipTier[] = []
   try {
     const tiersJson = await tiersRes.json()
     if (tiersRes.ok && tiersJson.success) {
-      tiers = tiersJson.data as MembershipTier[]
+      tiers = (tiersJson.data as MembershipTierList).tiers ?? []
     }
   } catch {
     /* status-only filtering still works */
   }
-  return { memberships: listJson.data as MembershipListRow[], tiers }
+  const list = listJson.data as MembershipListData
+  return { memberships: list.memberships ?? [], tiers }
 }
 
 export function MembershipsList() {
@@ -126,11 +131,34 @@ export function MembershipsList() {
       { accessorKey: 'customerName', header: 'Customer' },
       { accessorKey: 'tierName', header: 'Tier' },
       {
+        id: 'soldAt',
+        header: 'Sold at',
+        accessorFn: (m) => m.sellingBranch?.name ?? '',
+        cell: ({ row }) => row.original.sellingBranch?.name ?? '—',
+      },
+      {
+        id: 'price',
+        header: 'Price',
+        enableSorting: false,
+        cell: ({ row }) => <SaleCell membership={row.original} />,
+      },
+      {
         id: 'hours',
         header: 'Hours',
         accessorFn: (m) => m.usedHoursMinutes,
-        cell: ({ row }) =>
-          `${minutesToHM(row.original.usedHoursMinutes)} / ${minutesToHM(row.original.totalHoursMinutes)}`,
+        cell: ({ row }) => {
+          const m = row.original
+          const held = m.reservedMinutes ?? 0
+          return (
+            <span>
+              {minutesToHM(m.usedHoursMinutes)} / {minutesToHM(m.totalHoursMinutes)}
+              {/* Booked or in progress: not used yet, not free either. */}
+              {held > 0 ? (
+                <span className="block text-[11px] text-dusty-gray">{minutesToHM(held)} held</span>
+              ) : null}
+            </span>
+          )
+        },
       },
       {
         accessorKey: 'status',
@@ -179,12 +207,20 @@ export function MembershipsList() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-2xl tracking-tight text-cocoa-dark">Memberships</h1>
-        <Link
-          href="/memberships/new"
-          className="inline-flex items-center gap-1.5 rounded-buttons bg-cocoa-dark px-4 py-2 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray"
-        >
-          + Create Membership
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/memberships/tiers"
+            className="inline-flex items-center gap-1.5 rounded-buttons border border-cloud-gray bg-canvas-white px-4 py-2 font-ui text-sm text-cocoa-dark transition-colors hover:bg-cloud-gray/40"
+          >
+            Tiers
+          </Link>
+          <Link
+            href="/memberships/new"
+            className="inline-flex items-center gap-1.5 rounded-buttons bg-cocoa-dark px-4 py-2 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray"
+          >
+            + Sell Membership
+          </Link>
+        </div>
       </div>
 
       {state.status === 'loading' ? (
@@ -239,4 +275,29 @@ function expiryHint(expiresAt: string): string {
     return 'Expires today'
   }
   return `${days} day${days === 1 ? '' : 's'} left`
+}
+
+// The agreed price beside the tier's usual price at sale time. Shown only to
+// people who can access the selling branch (route inventory gap 5); older
+// sales have no usual price on record.
+function SaleCell({ membership }: { membership: MembershipListRow }) {
+  const { sale } = membership
+  if (!sale) {
+    return (
+      <span className="text-dusty-gray">
+        <span aria-hidden="true">—</span>
+        <span className="sr-only">Shown at the selling branch only</span>
+      </span>
+    )
+  }
+  return (
+    <span className="whitespace-nowrap">
+      {formatINR(sale.pricePaidPaise)}
+      {sale.tierUsualPricePaise !== null ? (
+        <span className="block text-[11px] text-dusty-gray">
+          Usual {formatINR(sale.tierUsualPricePaise)}
+        </span>
+      ) : null}
+    </span>
+  )
 }

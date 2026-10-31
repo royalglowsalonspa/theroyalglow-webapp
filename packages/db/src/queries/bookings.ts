@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 30-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : bookings
@@ -13,8 +13,11 @@
  * - Fetch customer's bookings with services (newest first)
  * - Fetch single booking by ID with service details
  * - Create booking + booking_service rows atomically
- * - Cancel a booking with reason and timestamp (+ status-log entry, atomic batch)
- * - Reschedule a booking to a new slot (+ status-log entry, atomic batch)
+ * - Cancel a booking with reason and timestamp (+ status-log entry, the gems
+ *   it was booked with given back and, when late, the customer's
+ *   late-cancellation count; atomic batch)
+ * - Reschedule a booking to a new slot (+ status-log entry, atomic batch),
+ *   recording the branch settings revision that accepted it
  * - Append standalone status-log entries for lifecycle transitions
  * - Lookup services by IDs and resolve default staff
  *
@@ -34,13 +37,22 @@
  *                a placeholder staff that the admin reassigns on approval.
  ************************************************************/
 
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
+import { AppError, conflict, ERROR_CODES } from '@rgss/errors'
+import { and, asc, desc, eq, inArray, isNull, type SQL, sql } from 'drizzle-orm'
+import type { BatchItem } from 'drizzle-orm/batch'
 import { nanoid } from 'nanoid'
 import { db } from '../index'
-import { booking, bookingService, bookingStatusLog } from '../schema/booking'
+import { booking, bookingReassignment, bookingService, bookingStatusLog } from '../schema/booking'
 import { branch } from '../schema/branch'
-import { staffProfile } from '../schema/profile'
+import { customerProfile, staffProfile } from '../schema/profile'
+import { staffTimeOff } from '../schema/schedule'
 import { staffService } from '../schema/service'
+import { staffOccupancy } from '../schema/staff-occupancy'
+import { isBranchAvailabilityRefusal, serviceNoLongerOffered } from './catalogue-availability'
+import { isConstraintViolation, isGuardAbort, SQLSTATE } from './driver-errors'
+import { returnGemsOfEndedRedemptions } from './gems-ledger'
+import { assigneeRefusal, releaseAssigneeForMoveStatement } from './reassignments'
+import { staffWorksAt } from './staff'
 
 type NewBooking = typeof booking.$inferInsert
 type NewBookingService = typeof bookingService.$inferInsert
@@ -125,16 +137,31 @@ export async function getBranchById(id: string) {
   return rows[0] ?? null
 }
 
-// Pick a default active staff member able to perform the given service. Pending
-// bookings carry an auto-assigned staff that the admin reassigns on approval — the
-// booking_service.staff_id column is NOT NULL, so a placeholder is always required.
-// Falls back to any active staff member if none is mapped to the service.
-export async function getDefaultStaffForService(serviceId: string) {
+// Pick a default staff member at the branch for the given service. Pending
+// bookings carry a tentative assignee that the admin replaces on approval; a
+// walk-in keeps it. Prefers someone at the branch who performs the service,
+// then a Stylist or Therapist there, then anyone who works there; never
+// someone from another branch (multi-branch R2.3). With `dateISO`
+// (YYYY-MM-DD), skips anyone on approved leave that day, whom the database
+// refuses on a confirmed booking (migration 0014). Null when nobody is left.
+export async function getDefaultStaffForService(
+  serviceId: string,
+  branchId: string,
+  dateISO?: string,
+) {
+  const available = dateISO
+    ? sql`not exists (select 1 from ${staffTimeOff}
+        where ${staffTimeOff.staffId} = ${staffProfile.id}
+          and ${staffTimeOff.date} = ${dateISO}
+          and ${staffTimeOff.approvalStatus} = 'approved')`
+    : sql`true`
+
   const mapped = await db
     .select({ id: staffProfile.id })
     .from(staffService)
     .innerJoin(staffProfile, eq(staffService.staffId, staffProfile.id))
-    .where(and(eq(staffService.serviceId, serviceId), eq(staffProfile.isActive, true)))
+    .where(and(eq(staffService.serviceId, serviceId), staffWorksAt(branchId), available))
+    .orderBy(asc(staffProfile.id))
     .limit(1)
 
   if (mapped[0]) {
@@ -144,10 +171,74 @@ export async function getDefaultStaffForService(serviceId: string) {
   const anyStaff = await db
     .select({ id: staffProfile.id })
     .from(staffProfile)
-    .where(eq(staffProfile.isActive, true))
+    .where(and(staffWorksAt(branchId), available))
+    .orderBy(sql`(${staffProfile.roleWitness} = 'staff') desc`, asc(staffProfile.id))
     .limit(1)
 
   return anyStaff[0]?.id ?? null
+}
+
+// Pick the one default staff member at the branch for a whole booking, which
+// one person does once it is confirmed (0028). Prefers someone who performs
+// the most of `serviceIds`, then a Stylist or Therapist, then anyone who works
+// there; never someone from another branch. Skips anyone on approved leave on
+// `dateISO` (YYYY-MM-DD) and, with a `slot`, anyone whose bookings then clash
+// with it: a SPA booking overlaps nothing of theirs, salon bookings may
+// overlap each other. Null when nobody is left. The database checks again
+// when the booking is written.
+export async function getDefaultStaffForBooking(params: {
+  serviceIds: readonly string[]
+  branchId: string
+  dateISO: string
+  slot?: { startTime: string; endTime: string; kind: 'salon' | 'spa' }
+}) {
+  const onLeave = sql`exists (select 1 from ${staffTimeOff}
+      where ${staffTimeOff.staffId} = ${staffProfile.id}
+        and ${staffTimeOff.date} = ${params.dateISO}
+        and ${staffTimeOff.approvalStatus} = 'approved')`
+  const slot = params.slot
+  const clashes = slot
+    ? sql`exists (select 1 from ${staffOccupancy}
+        where ${staffOccupancy.staffId} = ${staffProfile.id}
+          and ${staffOccupancy.during} && booking_planned_during(${params.dateISO}::date,
+            ${slot.startTime}::time, ${slot.endTime}::time)
+          and (${staffOccupancy.kind} = 'spa' or ${slot.kind}::service_type = 'spa'))`
+    : sql`false`
+  const performs =
+    params.serviceIds.length > 0
+      ? sql`(select count(*) from ${staffService}
+          where ${staffService.staffId} = ${staffProfile.id}
+            and ${staffService.serviceId} in (${sql.join(
+              params.serviceIds.map((id) => sql`${id}`),
+              sql`, `,
+            )}))`
+      : sql`0`
+
+  // Not scheduled then (0032): a day off, a day at another branch, or outside
+  // the day's hours.
+  const offSchedule = slot
+    ? sql`staff_off_schedule(${staffProfile.id}, ${params.branchId}, ${params.dateISO}::date,
+        ${slot.startTime}::time, ${slot.endTime}::time)`
+    : sql`false`
+
+  const rows = await db
+    .select({ id: staffProfile.id })
+    .from(staffProfile)
+    .where(
+      and(
+        staffWorksAt(params.branchId),
+        sql`not ${onLeave}`,
+        sql`not ${clashes}`,
+        sql`not ${offSchedule}`,
+      ),
+    )
+    .orderBy(
+      sql`${performs} desc`,
+      sql`(${staffProfile.roleWitness} = 'staff') desc`,
+      asc(staffProfile.id),
+    )
+    .limit(1)
+  return rows[0]?.id ?? null
 }
 
 // Insert a booking + its booking_service snapshot rows atomically, return the booking.
@@ -173,12 +264,32 @@ export async function createBookingWithServices(
     return created as typeof booking.$inferSelect
   }
 
-  const [bookingResult] = await db.batch([
-    insertBooking,
-    db.insert(bookingService).values(serviceValues),
-  ])
+  let bookingResult: unknown
+  try {
+    ;[bookingResult] = await db.batch([
+      insertBooking,
+      db.insert(bookingService).values(serviceValues),
+    ])
+  } catch (error) {
+    // The chosen assignee left the branch or went on leave after they were
+    // picked (migration 0014). Nothing was written; picking again works.
+    if (assigneeRefusal(error)) {
+      throw new AppError({
+        code: ERROR_CODES.BOOKING_SLOT_UNAVAILABLE,
+        message: 'The staff for this booking just became unavailable. Please try again.',
+        statusCode: 409,
+        retryable: true,
+      })
+    }
+    // A service stopped being offered at the branch after the route checked
+    // (0034). Nothing was written.
+    if (isBranchAvailabilityRefusal(error)) {
+      throw serviceNoLongerOffered()
+    }
+    throw error
+  }
 
-  return bookingResult[0] as typeof booking.$inferSelect
+  return (bookingResult as (typeof booking.$inferSelect)[])[0] as typeof booking.$inferSelect
 }
 
 // Append a single booking_status_log entry capturing a lifecycle transition.
@@ -206,14 +317,50 @@ export async function insertStatusLog(entry: {
   return created ?? null
 }
 
+// Postgres rejects table-qualified column names in SET, so use the bare name.
+function column(c: { name: string }): ReturnType<typeof sql.identifier> {
+  return sql.identifier(c.name)
+}
+
+// An UPDATE that aborts the whole batch when it matches no row: the booking
+// changed after it was read (cancelled twice, started, moved meanwhile).
+function guarded(update: SQL): SQL {
+  return sql`with changed as (${update} returning 1) select 1 / count(*)::int as ok from changed`
+}
+
+function changedMeanwhile(action: string): AppError {
+  return conflict(
+    ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION,
+    `This booking changed while you were ${action} it. Reload it to see where it stands.`,
+  )
+}
+
+/** What the branch's booking rules decided about a cancellation (R6.3). */
+export type CancellationDecision = {
+  /** Within the branch's cut-off: counted on the customer's record, never charged. */
+  late: boolean
+  /** The branch settings revision that decided it. */
+  settingsRevision: number
+}
+
 // Mark a booking as cancelled and append a status-log entry capturing the
 // transition, in a single atomic batch. Records the cancellation reason and
-// timestamp, and logs the prior → cancelled move with the acting user (Req 7.5).
+// timestamp, and logs the prior → cancelled move with the acting user (Req 7.5)
+// and, for a customer's cancellation, the settings revision that decided
+// whether it was late. A late cancellation adds one to the customer's
+// late-cancellation count in the same batch. The update applies only to a
+// pending or confirmed booking that still has the status read here, so a
+// double submit can't count a late cancellation twice: it rolls back with 409.
 // Returns null when the booking does not exist. neon-http has no interactive
 // transactions, so db.batch() provides atomicity (same pattern as reschedule).
-export async function cancelBooking(id: string, changedById: string, reason: string | null) {
+export async function cancelBooking(
+  id: string,
+  changedById: string,
+  reason: string | null,
+  decision?: CancellationDecision,
+) {
   const rows = await db
-    .select({ status: booking.status })
+    .select({ status: booking.status, customerId: booking.customerId })
     .from(booking)
     .where(eq(booking.id, id))
     .limit(1)
@@ -222,41 +369,89 @@ export async function cancelBooking(id: string, changedById: string, reason: str
     return null
   }
 
-  const updateStmt = db
-    .update(booking)
-    .set({
-      status: 'cancelled',
-      cancellationReason: reason,
-      cancelledAt: new Date(),
-    })
-    .where(eq(booking.id, id))
-    .returning()
+  const late = decision?.late === true
+  // Only an open booking is cancelled, and only from the status read here.
+  const cancel = db.execute(
+    guarded(sql`update ${booking}
+      set ${column(booking.status)} = 'cancelled',
+          ${column(booking.cancellationReason)} = ${reason},
+          ${column(booking.cancelledAt)} = now(),
+          ${column(booking.updatedAt)} = now()
+      where ${booking.id} = ${id}
+        and ${booking.status} = ${current.status}::booking_status
+        and ${booking.status} in ('pending', 'confirmed')`),
+  )
 
-  const logStmt = db.insert(bookingStatusLog).values({
+  const noteSuffix = reason ? `: ${reason}` : ''
+  const log = db.insert(bookingStatusLog).values({
     bookingId: id,
     fromStatus: current.status,
     toStatus: 'cancelled',
     changedById,
-    notes: reason ? `Cancelled: ${reason}` : 'Cancelled',
+    notes: late ? `Late cancellation${noteSuffix}` : `Cancelled${noteSuffix}`,
+    settingsRevision: decision?.settingsRevision ?? null,
   })
 
-  const [updateResult] = await db.batch([updateStmt, logStmt])
-  return (updateResult[0] as typeof booking.$inferSelect | undefined) ?? null
+  const read = db.select().from(booking).where(eq(booking.id, id)).limit(1)
+
+  const writes: BatchItem<'pg'>[] = [cancel, log]
+  if (late) {
+    writes.push(
+      db
+        .update(customerProfile)
+        .set({ lateCancellationCount: sql`${customerProfile.lateCancellationCount} + 1` })
+        .where(eq(customerProfile.userId, current.customerId)),
+    )
+  }
+  // A booking made with gems gives them back to the batches they came from
+  // (ST-03), in the same transaction as the cancellation.
+  writes.push(...returnGemsOfEndedRedemptions(sql`r.booking_id = ${id}`))
+
+  const statements: BatchItem<'pg'>[] = [...writes, read]
+  let after: (typeof booking.$inferSelect)[] | undefined
+  try {
+    const results = await db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]])
+    after = results.at(-1) as (typeof booking.$inferSelect)[]
+  } catch (error) {
+    if (isGuardAbort(error)) {
+      throw changedMeanwhile('cancelling')
+    }
+    throw error
+  }
+  return after?.[0] ?? null
 }
 
 // Reschedule a booking to a new date/slot and append a status-log entry, in a
 // single atomic batch. The booking's lifecycle status is preserved (a pending
 // booking stays pending, a confirmed one stays confirmed) — only the slot moves
-// and reschedule_count increments. The log row captures the move for the audit
+// and reschedule_count increments, unless the salon moved it. A confirmed
+// booking's person who can't take the new time (leave, schedule, another
+// booking) is taken off it and the booking listed for reassignment, in the
+// same batch (MS-09). The log row captures the move for the audit
 // trail (from/to status are identical by design; the notes carry the new slot).
+// With `settingsRevision`, the booking now stands on the slot that revision of
+// the branch's settings accepted, and the log says so. The move applies only
+// while the booking still has the status and reschedule count read here, so a
+// double submit can't move it twice past the branch's limit (409).
 // neon-http has no interactive transactions, so db.batch() is used for atomicity.
 export async function rescheduleBooking(
   id: string,
   changedById: string,
-  data: { bookingDate: Date; startTime: string; endTime: string },
+  data: {
+    bookingDate: Date
+    startTime: string
+    endTime: string
+    settingsRevision?: number
+    /**
+     * Whether the move counts against the customer's reschedule limit
+     * (default true). A move the salon makes, such as off a closed day,
+     * doesn't.
+     */
+    countsTowardLimit?: boolean
+  },
 ) {
   const rows = await db
-    .select({ status: booking.status })
+    .select({ status: booking.status, rescheduleCount: booking.rescheduleCount })
     .from(booking)
     .where(eq(booking.id, id))
     .limit(1)
@@ -266,26 +461,98 @@ export async function rescheduleBooking(
   }
 
   const noteDate = data.bookingDate.toISOString().slice(0, 10)
+  const revision = data.settingsRevision ?? null
+  const counted = data.countsTowardLimit === false ? 0 : 1
 
-  const updateStmt = db
-    .update(booking)
-    .set({
-      bookingDate: data.bookingDate,
-      startTime: data.startTime,
-      endTime: data.endTime,
-      rescheduleCount: sql`${booking.rescheduleCount} + 1`,
-    })
-    .where(eq(booking.id, id))
-    .returning()
+  const move = db.execute(
+    guarded(sql`update ${booking}
+      set ${column(booking.bookingDate)} = ${noteDate}::date,
+          ${column(booking.startTime)} = ${data.startTime}::time,
+          ${column(booking.endTime)} = ${data.endTime}::time,
+          ${column(booking.rescheduleCount)} = ${booking.rescheduleCount} + ${counted}::int,
+          ${column(booking.settingsRevision)} = coalesce(${revision}::int, ${booking.settingsRevision}),
+          ${column(booking.updatedAt)} = now()
+      where ${booking.id} = ${id}
+        and ${booking.status} = ${current.status}::booking_status
+        and ${booking.status} in ('pending', 'confirmed')
+        and ${booking.rescheduleCount} = ${current.rescheduleCount}::int`),
+  )
 
-  const logStmt = db.insert(bookingStatusLog).values({
+  const log = db.insert(bookingStatusLog).values({
     bookingId: id,
     fromStatus: current.status,
     toStatus: current.status,
     changedById,
     notes: `Rescheduled to ${noteDate} ${data.startTime}`,
+    settingsRevision: revision,
   })
 
-  const [updateResult] = await db.batch([updateStmt, logStmt])
-  return (updateResult[0] as typeof booking.$inferSelect | undefined) ?? null
+  // Held up at its old time (slice 2b): the move answers that, so the
+  // overrun flag ends with the old slot. A flag that took someone off the
+  // booking stays open: it still needs a person.
+  const endOverrun = db
+    .update(bookingReassignment)
+    .set({ resolvedAt: sql`now()`, resolution: 'booking_ended' })
+    .where(
+      and(
+        eq(bookingReassignment.bookingId, id),
+        eq(bookingReassignment.reason, 'overrun'),
+        isNull(bookingReassignment.resolvedAt),
+        sql`booking_sole_assignee(${bookingReassignment.bookingId}) = ${bookingReassignment.previousStaffId}`,
+      ),
+    )
+
+  // The people it names are locked first, as every assignment, schedule save
+  // and leave approval locks them, so a change to their week or leave runs
+  // wholly before this move (and the release below sees it) or after it (and
+  // sees the moved booking).
+  const lockPeople = db.execute(sql`select sp.id from staff_profile sp
+    where sp.id in (select bs.staff_id from booking_service bs where bs.booking_id = ${id})
+    order by sp.id for share`)
+
+  // A confirmed booking keeps its person when they can take the new time;
+  // otherwise the move goes ahead without them and reception assigns someone
+  // (MS-09). The database checks the moved booking again at commit (0032).
+  const release = releaseAssigneeForMoveStatement({
+    bookingId: id,
+    date: noteDate,
+    startTime: data.startTime,
+    endTime: data.endTime,
+    actorId: changedById,
+  })
+
+  const read = db.select().from(booking).where(eq(booking.id, id)).limit(1)
+
+  let after: (typeof booking.$inferSelect)[]
+  try {
+    ;[, , , , , after] = await db.batch([lockPeople, endOverrun, release, move, log, read])
+  } catch (error) {
+    if (isGuardAbort(error)) {
+      throw changedMeanwhile('rescheduling')
+    }
+    // A membership session moved outside its membership's validity: the
+    // database refuses it (0026), so the session keeps its slot.
+    if (isConstraintViolation(error, SQLSTATE.checkViolation, ['membership_hold_validity'])) {
+      throw conflict(
+        ERROR_CODES.MEMBERSHIP_EXPIRED,
+        'The membership doesn’t cover that time. Choose a time before it expires.',
+      )
+    }
+    const refusal = assigneeRefusal(error)
+    // The person doing it took another booking at the new time meanwhile (0028).
+    if (refusal === 'booked') {
+      throw new AppError({
+        code: ERROR_CODES.BOOKING_SLOT_UNAVAILABLE,
+        message: 'That time isn’t free any more. Choose another time.',
+        statusCode: 409,
+      })
+    }
+    // Their branch changed while it moved (0032 rechecks at commit): nothing
+    // moved, and trying again takes them off it.
+    if (refusal !== null) {
+      throw changedMeanwhile('rescheduling')
+    }
+    throw error
+  }
+  return after[0] ?? null
 }

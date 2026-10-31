@@ -26,7 +26,8 @@
  *                @rgss/db/queries, @rgss/errors, @rgss/types
  *
  * Notes        :
- * - Requires min role: receptionist.
+ * - Requires min role at the active branch: receptionist. A lead in another
+ *   branch's pipeline is not found; PATCH names the rendered branch.
  * - Lead status transitions enforced by assertLeadTransition business rule.
  ************************************************************/
 
@@ -34,15 +35,16 @@ import { assertLeadTransition } from '@rgss/business'
 import { getLeadById, getLeadNotes, updateLead } from '@rgss/db/queries'
 import { badRequest, notFound } from '@rgss/errors'
 import { updateLeadStatusSchema } from '@rgss/types'
+import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 
 export const GET = withErrorHandler(
-  async (_req: Request, ctx: { params: Promise<{ id: string }> }) => {
-    await requireRole('receptionist')
-    const { id } = await ctx.params
+  async (_req: Request, route: { params: Promise<{ id: string }> }) => {
+    const ctx = await requireBranchRole('receptionist')
+    const { id } = await route.params
 
-    const lead = await getLeadById(id)
+    // A lead in another branch's pipeline is not found (R2.3).
+    const lead = await getLeadById(id, ctx.branch.id)
     if (!lead) {
       throw notFound('Lead not found.')
     }
@@ -54,17 +56,19 @@ export const GET = withErrorHandler(
 )
 
 export const PATCH = withErrorHandler(
-  async (req: Request, ctx: { params: Promise<{ id: string }> }) => {
-    await requireRole('receptionist')
-    const { id } = await ctx.params
+  async (req: Request, route: { params: Promise<{ id: string }> }) => {
+    const ctx = await requireBranchRole('receptionist')
+    const { id } = await route.params
 
     const body = await req.json().catch(() => null)
     const parsed = updateLeadStatusSchema.safeParse(body)
     if (!parsed.success) {
       throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
     }
+    assertRenderedBranch(ctx, parsed.data.branchId)
+    const branchId = ctx.branch.id
 
-    const existing = await getLeadById(id)
+    const existing = await getLeadById(id, branchId)
     if (!existing) {
       throw notFound('Lead not found.')
     }
@@ -78,7 +82,7 @@ export const PATCH = withErrorHandler(
       patch.lastContactedAt = new Date()
     }
 
-    const updated = await updateLead(id, patch)
+    const updated = await updateLead(id, branchId, patch)
 
     return apiSuccess({ lead: updated })
   },

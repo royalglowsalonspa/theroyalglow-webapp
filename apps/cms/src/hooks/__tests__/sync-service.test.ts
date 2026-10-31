@@ -183,35 +183,84 @@ describe('syncServiceToPublic: create', () => {
 })
 
 describe('syncServiceToPublic: update', () => {
-  it('updates public.service WHERE id = the document id', async () => {
+  it('upserts public.service keyed on the document id', async () => {
+    fake.rows.set(SERVICE_ID, { id: SERVICE_ID, name: 'Haircut' })
     await runHook(serviceDoc({ name: 'Haircut Deluxe' }), 'update')
 
-    expect(fake.update).toHaveBeenCalledTimes(1)
-    expect(fake.update).toHaveBeenCalledWith(service)
-    expect(fake.insert).not.toHaveBeenCalled()
-
-    // Compile the Drizzle condition to SQL rather than trusting its shape.
-    const condition = fake.where.mock.calls[0]?.[0] as SQL
-    const compiled = dialect.sqlToQuery(condition)
-    expect(compiled.sql).toBe('"service"."id" = $1')
-    expect(compiled.params).toEqual([SERVICE_ID])
-
-    const patch = fake.set.mock.calls[0]?.[0] as FakeRow
-    expect(patch.name).toBe('Haircut Deluxe')
+    expect(fake.insert).toHaveBeenCalledWith(service)
+    expect(fake.update).not.toHaveBeenCalled()
+    const config = fake.onConflictDoUpdate.mock.calls[0]?.[0] as { target: unknown; set: FakeRow }
+    expect(config.target).toBe(service.id)
+    expect(config.set).not.toHaveProperty('id')
+    expect(config.set.name).toBe('Haircut Deluxe')
+    expect(fake.rows.get(SERVICE_ID)?.name).toBe('Haircut Deluxe')
   })
 
-  it('preserves createdAt and stamps updatedAt at sync time', async () => {
+  it('recreates a missing mirror row instead of writing nothing (R4.7)', async () => {
+    await runHook(serviceDoc({ name: 'Haircut Deluxe' }), 'update')
+
+    expect(fake.rows.get(SERVICE_ID)).toMatchObject({ id: SERVICE_ID, name: 'Haircut Deluxe' })
+  })
+
+  it('carries createdAt and stamps updatedAt at sync time', async () => {
     const before = Date.now()
     await runHook(serviceDoc(), 'update')
     const after = Date.now()
 
-    const patch = fake.set.mock.calls[0]?.[0] as FakeRow
-    expect((patch.createdAt as Date).toISOString()).toBe(CREATED_AT_ISO)
+    const config = fake.onConflictDoUpdate.mock.calls[0]?.[0] as { set: FakeRow }
+    expect((config.set.createdAt as Date).toISOString()).toBe(CREATED_AT_ISO)
 
-    const updatedAt = patch.updatedAt as Date
+    const updatedAt = config.set.updatedAt as Date
     expect(updatedAt).toBeInstanceOf(Date)
     expect(updatedAt.getTime()).toBeGreaterThanOrEqual(before)
     expect(updatedAt.getTime()).toBeLessThanOrEqual(after)
+  })
+})
+
+describe('syncServiceToPublic: tax code and branch availability', () => {
+  it('writes the SAC code and all_branches with the row', async () => {
+    await runHook(serviceDoc({ sacCode: '999722' }), 'create')
+
+    const written = fake.values.mock.calls[0]?.[0] as FakeRow
+    expect(written).toMatchObject({ sacCode: '999722', allBranches: true })
+  })
+
+  it('lists the selected branches in service_branch, replacing the old ones', async () => {
+    await runHook(
+      serviceDoc({ availability: 'selected', availableBranches: ['branch_rs', 'branch_mh'] }),
+      'update',
+    )
+    expect(fake.writtenRow().allBranches).toBe(false)
+    expect(fake.joinRowsOf('service_branch')).toEqual([
+      { serviceId: SERVICE_ID, branchId: 'branch_mh' },
+      { serviceId: SERVICE_ID, branchId: 'branch_rs' },
+    ])
+
+    // Delete is keyed on this service only.
+    const condition = fake.deleteWhere.mock.calls[0]?.[0] as SQL
+    const compiled = dialect.sqlToQuery(condition)
+    expect(compiled.sql).toBe('"service_branch"."service_id" = $1')
+    expect(compiled.params).toEqual([SERVICE_ID])
+
+    await runHook(
+      serviceDoc({ availability: 'selected', availableBranches: ['branch_rs'] }),
+      'update',
+    )
+    expect(fake.joinRowsOf('service_branch')).toEqual([
+      { serviceId: SERVICE_ID, branchId: 'branch_rs' },
+    ])
+  })
+
+  it('clears the branch rows when every branch is chosen again', async () => {
+    await runHook(
+      serviceDoc({ availability: 'selected', availableBranches: ['branch_rs'] }),
+      'update',
+    )
+    await runHook(serviceDoc({ availability: 'all', availableBranches: ['branch_rs'] }), 'update')
+
+    expect(fake.joinRowsOf('service_branch')).toEqual([])
+    const lastRow = fake.rows.get(SERVICE_ID) as FakeRow
+    expect(lastRow.allBranches).toBe(true)
   })
 })
 

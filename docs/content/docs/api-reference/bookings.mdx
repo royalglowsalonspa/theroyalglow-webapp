@@ -23,12 +23,18 @@ with status `pending` and a generated booking number. Pricing and total
 duration are computed server-side from the selected services (GST-inclusive
 paise), and `endTime` is derived from `startTime` + total duration.
 
-**Minimum role:** `customer` (`requireSession`)
+**Minimum role:** `customer` with a completed profile (`requireOnboardedCustomer`)
 
 ```http
 POST /api/bookings
 Content-Type: application/json
 ```
+
+The branch's own settings decide the slot: its opening hours that weekday, the
+30-minute grid, its lead time and booking window, and how many upcoming
+bookings a customer may hold there. Every service must be offered at the
+branch: its own availability and its category's both include it (see
+`availableBranchIds` on `GET /api/services`).
 
 ### Request body
 
@@ -82,10 +88,44 @@ The booking number format is `BK-{branchCode}-{YYMM}-{H|S}-{5 digits}` —
 No active session.
 
 </Accordion>
+<Accordion title="ONBOARDING_REQUIRED — 403">
+
+The customer has no completed profile (phone, date of birth, gender). The
+client sends them to `/onboarding`.
+
+</Accordion>
 <Accordion title="VALIDATION_ERROR — 400">
 
 Body fails `createBookingSchema`; branch not found or not operational; a service
-id is unknown, inactive, or a type mismatch; or no active staff is available.
+id is unknown, inactive, or a type mismatch; no active staff is available; or a
+service isn't offered at the branch, for example
+`Hot Stone Therapy isn't offered at Marathahalli. Choose another service, or book at a branch that offers it.`
+
+</Accordion>
+<Accordion title="BOOKING_SLOT_UNAVAILABLE — 409">
+
+The branch is closed that day (a holiday or closure), or the slot breaks its
+settings: a closed weekday, outside its opening hours, off the 30-minute grid,
+sooner than its lead time or beyond its booking window. The message says which.
+Also returned when the person tentatively assigned became unavailable while the
+booking was being written; trying again works.
+
+</Accordion>
+<Accordion title="BOOKING_LIMIT_REACHED — 409">
+
+The customer already holds as many upcoming bookings at the branch as it takes
+at once.
+
+</Accordion>
+<Accordion title="CONFLICT — 409">
+
+The services offered at the branch changed after the request was checked, so
+the database refused a service; nothing was written. Choose the services again.
+
+</Accordion>
+<Accordion title="BRANCH_SETTINGS_INCOMPLETE — 409">
+
+The branch has no valid booking settings.
 
 </Accordion>
 <Accordion title="INTERNAL_ERROR — 500">
@@ -94,12 +134,6 @@ Unexpected/transient failure. `retryable: true`.
 
 </Accordion>
 </AccordionGroup>
-
-<Info>
-  All pre-condition failures (branch state, service existence/activeness, type
-  mismatch, no available staff) are raised as `badRequest`, so they surface as
-  `VALIDATION_ERROR` with a 400 — not as booking-domain codes.
-</Info>
 
 ---
 

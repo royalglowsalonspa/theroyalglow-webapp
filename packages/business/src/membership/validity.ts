@@ -26,6 +26,19 @@
  ************************************************************/
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000
 
+/** 00:00:00.000 IST on `dateISO` ('YYYY-MM-DD'), whatever the host timezone. */
+export function startOfDayIST(dateISO: string): Date {
+  return new Date(`${dateISO}T00:00:00.000+05:30`)
+}
+
+/**
+ * 23:59:59.999 IST on `dateISO` ('YYYY-MM-DD'): a membership expiring that day
+ * is valid until this instant, inclusive (membership-scheduling.md).
+ */
+export function endOfDayIST(dateISO: string): Date {
+  return new Date(`${dateISO}T23:59:59.999+05:30`)
+}
+
 // Membership expiry = start date + validityDays, set to end-of-day IST.
 // Pure and deterministic: shift the instant into IST wall-clock, advance the
 // calendar day count, pin to 23:59:59.999 IST, then convert back to a UTC instant.

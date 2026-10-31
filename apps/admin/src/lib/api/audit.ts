@@ -50,6 +50,8 @@ export async function audit(
     action: AuditAction
     entityType: string
     entityId: string
+    /** The branch the action belongs to (multi-branch); omit when it has none. */
+    branchId?: string | null
     oldValues?: unknown
     newValues?: unknown
   },
@@ -60,6 +62,7 @@ export async function audit(
       action: entry.action,
       entityType: entry.entityType,
       entityId: entry.entityId,
+      branchId: entry.branchId ?? null,
       oldValues: entry.oldValues,
       newValues: entry.newValues,
       ipAddress: clientIp(req),

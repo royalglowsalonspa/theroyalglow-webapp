@@ -1,75 +1,110 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 21-06-2026 & Updated - 21-06-2026
+ * Date         : Created - 21-06-2026 & Updated - 28-10-2026
  *
  * Project      : theroyalglow-webapp (apps/admin)
  * Module Name  : GET|PATCH /api/staff/[id]
- * Scope        : API — Admin Staff management
+ * Scope        : API — Staff at the active branch (multi-branch R1.5, R1.11, R2.3)
  *
- * Description  : GET returns one staff member (profile + user identity +
- *                assigned serviceIds). PATCH updates the editable staff_profile
- *                fields. Both Manager+.
+ * Description  : GET returns one staff member of the active branch (profile,
+ *                identity, assigned serviceIds and how many upcoming bookings
+ *                name them). PATCH edits their title, phone, bio,
+ *                specialization or hire date.
  *
  * Responsibilities :
- * - GET: fetch a staff profile by id (404 if missing)
- * - PATCH: Zod-validate + patch the profile (404 if missing)
+ * - GET: one staff member here, 404 for anyone who doesn't work here
+ * - PATCH: Zod-validate, check the rendered branch and who may edit whom,
+ *   then patch with a scoped compare-and-set
  *
  * Tech Stack   : Next.js 16 (Route Handler)
  * Layer        : API (Thin Orchestrator)
  *
- * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/db/queries,
+ * Dependencies : @/lib/api/audit, @/lib/api/branch-context,
+ *                @/lib/api/error-handler, @rgss/business, @rgss/db/queries,
  *                @rgss/errors, @rgss/types
  *
- * Notes        : Staff are deactivated (isActive=false), never hard-deleted, so
- *                historical bookings/invoices keep their staff snapshots intact.
+ * Notes        : Managers edit Stylists and Therapists; the Owner and the
+ *                Developer edit everyone here. Only a Stylist or Therapist
+ *                changes title, between those two. There is no active toggle:
+ *                Remove staff replaces it (POST /api/staff/[id]/remove).
  ************************************************************/
 
-import { getStaffProfileById, updateStaffProfile } from '@rgss/db/queries'
-import { badRequest, notFound } from '@rgss/errors'
+import { editableStaffRoles } from '@rgss/business'
+import {
+  countUpcomingAssignments,
+  getStaffMemberAtBranch,
+  updateStaffMemberAtBranch,
+} from '@rgss/db/queries'
+import { badRequest, conflict, ERROR_CODES, forbidden, notFound } from '@rgss/errors'
 import { staffProfileUpdateSchema } from '@rgss/types'
 import { audit } from '@/lib/api/audit'
+import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 
-// GET /api/staff/[id] — one staff member with assigned serviceIds. Manager+.
-export const GET = withErrorHandler(
-  async (_req: Request, ctx: { params: Promise<{ id: string }> }) => {
-    await requireRole('manager')
-    const { id } = await ctx.params
+type Params = { params: Promise<{ id: string }> }
 
-    const staff = await getStaffProfileById(id)
-    if (!staff) {
-      throw notFound('Staff member not found.')
-    }
+// GET /api/staff/[id] — one staff member of the active branch.
+export const GET = withErrorHandler(async (_req: Request, { params }: Params) => {
+  const ctx = await requireBranchRole('manager')
+  const { id } = await params
 
-    return apiSuccess({ staff })
-  },
-)
+  const staff = await getStaffMemberAtBranch(id, ctx.branch.id)
+  if (!staff) {
+    throw notFound('Staff member not found.')
+  }
+  const upcomingAssignments = await countUpcomingAssignments(id, ctx.branch.id)
+  return apiSuccess({ staff: { ...staff, upcomingAssignments } })
+})
 
-// PATCH /api/staff/[id] — update editable profile fields. Manager+.
-export const PATCH = withErrorHandler(
-  async (req: Request, ctx: { params: Promise<{ id: string }> }) => {
-    const session = await requireRole('manager')
-    const { id } = await ctx.params
+// PATCH /api/staff/[id] — edit a staff member of the active branch.
+export const PATCH = withErrorHandler(async (req: Request, { params }: Params) => {
+  const ctx = await requireBranchRole('manager')
+  const { id } = await params
 
-    const body = await req.json().catch(() => null)
-    const parsed = staffProfileUpdateSchema.safeParse(body)
-    if (!parsed.success) {
-      throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
-    }
+  const body = await req.json().catch(() => null)
+  const parsed = staffProfileUpdateSchema.safeParse(body)
+  if (!parsed.success) {
+    throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
+  }
+  const { branchId, ...patch } = parsed.data
+  assertRenderedBranch(ctx, branchId)
 
-    const existing = await getStaffProfileById(id)
-    if (!existing) {
-      throw notFound('Staff member not found.')
-    }
+  const existing = await getStaffMemberAtBranch(id, ctx.branch.id)
+  if (!existing) {
+    throw notFound('Staff member not found.')
+  }
+  const roles = editableStaffRoles(ctx.branch.role)
+  if (
+    existing.roleWitness === null ||
+    !(roles as readonly string[]).includes(existing.roleWitness)
+  ) {
+    throw forbidden('Managers edit Stylists and Therapists only.')
+  }
+  if (patch.designation !== undefined && existing.roleWitness !== 'staff') {
+    throw badRequest('Only a Stylist or Therapist changes title. The others follow their role.')
+  }
 
-    const updated = await updateStaffProfile(id, parsed.data)
-    await audit(req, session, {
-      action: 'update',
-      entityType: 'staff_profile',
-      entityId: id,
-      newValues: parsed.data,
-    })
-    return apiSuccess({ staff: updated })
-  },
-)
+  const updated = await updateStaffMemberAtBranch({ id, branchId: ctx.branch.id, roles, patch })
+  if (!updated) {
+    throw conflict(
+      ERROR_CODES.CONFLICT,
+      'This staff member changed while you were editing. Reload and try again.',
+    )
+  }
+
+  await audit(req, ctx.session, {
+    action: 'update',
+    entityType: 'staff_profile',
+    entityId: id,
+    branchId: ctx.branch.id,
+    oldValues: {
+      designation: existing.designation,
+      phone: existing.phone,
+      bio: existing.bio,
+      specialization: existing.specialization,
+      hireDate: existing.hireDate,
+    },
+    newValues: patch,
+  })
+  return apiSuccess({ staff: updated })
+})

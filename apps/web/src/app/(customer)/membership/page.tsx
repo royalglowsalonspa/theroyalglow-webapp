@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 08-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 25-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : MembershipPage
@@ -32,8 +32,8 @@
  * - Protected route; redirects to / (homepage) if no session
  ************************************************************/
 
-import { formatDateIN } from '@rgss/business'
-import { getCustomerMembership, getMembershipSessions } from '@rgss/db/queries'
+import { formatDateIN, formatINR, istToday } from '@rgss/business'
+import { getMembershipSessions, getOwnMemberships, type OwnMembership } from '@rgss/db/queries'
 import { Sparkles } from 'lucide-react'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
@@ -62,8 +62,10 @@ const MS_PER_DAY = 1000 * 60 * 60 * 24
 const URGENT_DAYS = 7
 const REMINDER_DAYS = 30
 
-type ActiveMembership = NonNullable<Awaited<ReturnType<typeof getCustomerMembership>>['active']>
-type PastMembership = Awaited<ReturnType<typeof getCustomerMembership>>['past'][number]
+// The customer's own hours, price paid and validity. Customers never see a
+// tier or its usual price (multi-branch R9.1, MS-17).
+type ActiveMembership = OwnMembership
+type PastMembership = OwnMembership
 type MembershipSession = Awaited<ReturnType<typeof getMembershipSessions>>[number]
 
 const PAST_STATUS_LABELS: Record<string, string> = {
@@ -99,7 +101,7 @@ export default async function MembershipPage() {
   }
 
   const customerId = session.user.id
-  const { active, past } = await getCustomerMembership(customerId)
+  const { active, past } = await getOwnMemberships(customerId)
   const sessions = active ? await getMembershipSessions(active.id) : []
 
   return (
@@ -129,9 +131,13 @@ function ActiveMembershipCard({
 }) {
   const total = membership.totalHoursMinutes
   const used = Math.min(membership.usedHoursMinutes, total)
-  const remaining = Math.max(0, total - used)
+  // Held for sessions booked or in progress: not used yet, not free either.
+  const held = Math.min(membership.reservedMinutes, total - used)
+  const remaining = Math.max(0, total - used - held)
   const usedPct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0
+  const heldPct = total > 0 ? Math.min(100 - usedPct, Math.round((held / total) * 100)) : 0
 
+  const startsAt = toDate(membership.startsAt)
   const expiresAt = toDate(membership.expiresAt)
   const daysLeft = expiresAt ? daysUntil(expiresAt, new Date()) : null
 
@@ -148,7 +154,7 @@ function ActiveMembershipCard({
               id="membership-card-heading"
               className="font-display text-[24px] leading-tight tracking-tight text-cocoa-dark"
             >
-              {membership.tierNameSnapshot} Membership
+              SPA Membership
             </h2>
             <p className="mt-1 font-ui text-[13px] tracking-[0.5px] text-warm-stone">
               #{membership.membershipNumber}
@@ -162,15 +168,25 @@ function ActiveMembershipCard({
 
         {/* Hours balance bar (decorative; sr-only text conveys the same data). */}
         <div>
-          <div className="h-3 w-full overflow-hidden rounded-full bg-cloud-gray" aria-hidden="true">
+          <div
+            className="flex h-3 w-full overflow-hidden rounded-full bg-cloud-gray"
+            aria-hidden="true"
+          >
             <div
-              className="h-full rounded-full bg-royal-gold transition-[width] duration-500 motion-reduce:transition-none"
+              className="h-full bg-royal-gold transition-[width] duration-500 motion-reduce:transition-none"
               style={{ width: `${usedPct}%` }}
             />
+            {heldPct > 0 ? (
+              <div
+                className="h-full bg-royal-gold/40 transition-[width] duration-500 motion-reduce:transition-none"
+                style={{ width: `${heldPct}%` }}
+              />
+            ) : null}
           </div>
           <p className="sr-only">
-            {formatHoursMinutes(used)} used, {formatHoursMinutes(remaining)} remaining of{' '}
-            {formatHoursMinutes(total)} total.
+            {formatHoursMinutes(used)} used,{' '}
+            {held > 0 ? `${formatHoursMinutes(held)} booked, ` : ''}
+            {formatHoursMinutes(remaining)} remaining of {formatHoursMinutes(total)} total.
           </p>
           <dl className="mt-4 grid grid-cols-3 gap-3">
             <div className="rounded-[6px] bg-warm-cream px-4 py-3">
@@ -198,16 +214,32 @@ function ActiveMembershipCard({
               </dd>
             </div>
           </dl>
+          {held > 0 ? (
+            <p className="mt-3 font-sans text-[13px] text-dusty-gray">
+              {formatHoursMinutes(held)} is set aside for a session booked or in progress. It counts
+              as used once the session is complete.
+            </p>
+          ) : null}
         </div>
 
-        {/* Validity */}
-        <div className="border-t border-cloud-gray pt-4">
+        {/* Validity and what was paid. A membership sold to start later says so. */}
+        <div className="flex flex-col gap-2 border-t border-cloud-gray pt-4">
+          {startsAt && startsAt.getTime() > Date.now() ? (
+            <p className="font-sans text-[15px] text-cocoa-dark">
+              <span className="mr-2 font-ui text-[11px] uppercase tracking-[1px] text-warm-stone">
+                Starts on
+              </span>
+              <time className="font-ui" dateTime={istToday(startsAt)}>
+                {formatDateIN(startsAt)}
+              </time>
+            </p>
+          ) : null}
           <p className="font-sans text-[15px] text-cocoa-dark">
             <span className="mr-2 font-ui text-[11px] uppercase tracking-[1px] text-warm-stone">
               Valid until
             </span>
             {expiresAt ? (
-              <time className="font-ui" dateTime={expiresAt.toISOString().slice(0, 10)}>
+              <time className="font-ui" dateTime={istToday(expiresAt)}>
                 {formatDateIN(expiresAt)}
               </time>
             ) : (
@@ -216,6 +248,18 @@ function ActiveMembershipCard({
             {daysLeft !== null && daysLeft > 0 && (
               <span className="font-ui text-dusty-gray"> · {daysLeft} days left</span>
             )}
+          </p>
+          <p className="font-sans text-[15px] text-cocoa-dark">
+            <span className="mr-2 font-ui text-[11px] uppercase tracking-[1px] text-warm-stone">
+              Price paid
+            </span>
+            <span className="font-ui">{formatINR(membership.pricePaidPaise)}</span>
+            {membership.sellingBranchName ? (
+              <span className="font-ui text-dusty-gray">
+                {' '}
+                · bought at {membership.sellingBranchName}, usable at every branch
+              </span>
+            ) : null}
           </p>
         </div>
       </Card>
@@ -268,6 +312,12 @@ function UrgencyBanner({
   )
 }
 
+// A session still to finish says so; a completed one needs no label.
+const SESSION_STATUS_LABELS: Record<string, string> = {
+  confirmed: 'Booked',
+  in_progress: 'In progress',
+}
+
 function SessionHistory({ sessions }: { sessions: MembershipSession[] }) {
   return (
     <section className="mb-6" aria-labelledby="session-history-heading">
@@ -275,7 +325,7 @@ function SessionHistory({ sessions }: { sessions: MembershipSession[] }) {
         id="session-history-heading"
         className="mb-4 font-display text-[20px] tracking-tight text-cocoa-dark"
       >
-        Session history
+        Sessions
       </h2>
 
       {sessions.length === 0 ? (
@@ -310,6 +360,12 @@ function SessionHistory({ sessions }: { sessions: MembershipSession[] }) {
                         '—'
                       )}
                       {staffNames ? ` · ${staffNames}` : ''}
+                      {SESSION_STATUS_LABELS[s.status] ? (
+                        <span className="text-warm-stone">
+                          {' · '}
+                          {SESSION_STATUS_LABELS[s.status]}
+                        </span>
+                      ) : null}
                     </p>
                   </div>
                   <span className="whitespace-nowrap font-ui text-[14px] text-gold-ink">
@@ -343,7 +399,8 @@ function PastMemberships({ memberships }: { memberships: PastMembership[] }) {
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-sans text-[15px] text-cocoa-dark">
-                          {m.tierNameSnapshot}
+                          {formatHoursMinutes(m.totalHoursMinutes)} for{' '}
+                          {formatINR(m.pricePaidPaise)}
                           <span className="text-[13px] text-dusty-gray">
                             {' · '}#{m.membershipNumber}
                           </span>
@@ -382,8 +439,8 @@ function EmptyState() {
         You don't have an active membership
       </p>
       <p className="mb-6 max-w-[420px] font-sans text-[14px] text-dusty-gray">
-        SPA memberships give you pre-paid hours across all our SPA services. Call us to find the
-        tier that suits you.
+        SPA memberships give you pre-paid hours across all our SPA services, at every Royal Glow
+        branch. Call us to choose the hours that suit you.
       </p>
       <Button
         asChild
