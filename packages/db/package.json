@@ -18,14 +18,14 @@
     "seed:prod": "bun run scripts/seed-prod.ts"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.2.0",
+    "@neondatabase/serverless": "^1.2.1",
     "@rgss/errors": "workspace:*",
     "@rgss/types": "workspace:*",
     "drizzle-orm": "^0.45.4",
     "nanoid": "^6.0.2"
   },
   "devDependencies": {
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "drizzle-kit": "^0.31.11",
     "fast-check": "^4.10.2",
     "typescript": "7.0.2"
