@@ -118,3 +118,56 @@ new columns are nullable or defaulted, and the old admin offers still save
 (as legacy rows). The CMS migration only adds columns with defaults and drops
 NOT NULL from the card image, so the old CMS still saves while the new one
 starts.
+
+## As built (21 November 2026, Neon dev)
+
+Applied to dev: app migrations 0035–0036 (31 October) and the Payload
+migration `20261121_114423_offer_checkout_rules` (21 November; applied over
+HTTPS because Postgres TCP from this machine was refused, then recorded in
+`cms.payload_migrations` as batch 6). The three existing CMS offers kept their
+cards, shown on the website, with no rule.
+
+| Part | Where |
+| --- | --- |
+| Rule checks, merge of a partial update, IST days | `apps/cms/src/lib/offer-rule.ts` |
+| Save validation (`beforeValidate`), sync-off refusal | `apps/cms/src/hooks/validate-offer.ts` |
+| Mirror mapping and sync (`afterChange`, `txDb(req)`) | `apps/cms/src/hooks/offer-mapper.ts`, `sync-offer.ts` |
+| Collection: card, `showOnWebsite`, `rule` group, `editedBy`, versions, no delete | `apps/cms/src/collections/Offer.ts` |
+| Card read skips counter-only offers | `apps/web/src/lib/cms/client.ts` |
+| Rule evaluation and checkout choices | `packages/business/src/offers/rule.ts`, `applicability.ts` |
+| Discount shared across the linked lines | `packages/business/src/invoicing/tax.ts` |
+| Checkout list `GET /api/bookings/[id]/offers` | `apps/admin/src/app/api/bookings/[id]/offers/route.ts` |
+| Checkout panel offer choice | `apps/admin/src/app/bookings/[id]/booking-detail.tsx` |
+| Guarded in-batch redemption, invoice snapshot | `packages/db/src/queries/admin-bookings.ts`, `invoice-issue.ts` |
+| Offer drift | `packages/business/src/jobs/offer-drift.ts`, `packages/db/src/queries/service-drift.ts` |
+
+Behaviour as built:
+
+- The checkout list answers `{ offers, usedOfferToday, note }`. Each offer
+  carries the saving on this booking and its terms. `note` says why none
+  applies: a membership session, a booking made with gems, a spa booking, an
+  offer already used today, or no offer applying today.
+- When completion is refused for the offer (409 `OFFER_EXPIRED` or
+  `OFFER_NOT_APPLICABLE`), the panel reloads the list and drops a choice that
+  no longer applies, so the receptionist can complete without it.
+- A mirror's `image_url` is null: the card image stays in Payload. Display
+  order is the CMS order rounded; blank terms are stored as null.
+- Drift compares no timestamps, because a card-only save moves `updatedAt`
+  without touching the rule. A CMS offer without a rule must have no mirror or
+  an inactive one.
+
+Verified:
+
+- Unit: CMS rule, validation and sync hooks (34 new tests; CMS 175 in all),
+  business offer drift, the checkout list route, the panel, route policy and
+  the admin smoke test.
+- Live, `packages/db/src/queries/offers.integration.test.ts` (7 tests): the
+  redemption, the booking's offer and the invoice snapshot are written
+  together; a retired or ended offer is refused with `OFFER_EXPIRED` and
+  nothing is written; a second offer the same IST day at the other branch is
+  refused with `OFFER_NOT_APPLICABLE` and rolled back; of two simultaneous
+  checkouts exactly one takes an offer; an issued invoice's snapshot can't
+  change while its notes can; `offer_cms_rule_check` and
+  `invoice_offer_snapshot_check` refuse malformed rows.
+- Live, `service-drift.integration.test.ts`: a CMS rule reads exactly as its
+  mirror, missing until the mirror exists.

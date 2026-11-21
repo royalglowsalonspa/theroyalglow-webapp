@@ -892,7 +892,9 @@ export const FALLBACK_OFFERS: Offer[] = [
  */
 export async function getActiveOffers(now: Date = new Date()): Promise<Offer[]> {
   const response = await cmsFetch<unknown>(
-    '/api/offer?where[active][equals]=true&depth=1&sort=order',
+    // A counter-only offer (Show on website unticked) keeps its checkout rule
+    // but never shows a card (multi-branch offers.md).
+    '/api/offer?where[active][equals]=true&where[showOnWebsite][not_equals]=false&depth=1&sort=order',
     { tags: ['offer'] },
   )
   const offers: Offer[] = []

@@ -98,3 +98,23 @@ export function isConstraintViolation(
   const message = typeof e.message === 'string' ? e.message : ''
   return constraints.some((name) => message.includes(`"${name}"`))
 }
+
+/**
+ * True when a guard aborted the transaction by casting `marker` to an integer
+ * (SQLSTATE 22P02, "invalid input syntax for type integer: \"<marker>\""),
+ * which tells one guard's refusal apart from another's.
+ */
+export function abortedWithMarker(error: unknown, marker: string): boolean {
+  let current: unknown = error
+  for (let depth = 0; depth < MAX_CAUSE_DEPTH; depth += 1) {
+    if (typeof current !== 'object' || current === null) {
+      return false
+    }
+    const e = current as DriverErrorLike
+    if (typeof e.message === 'string' && e.message.includes(marker)) {
+      return true
+    }
+    current = e.cause
+  }
+  return false
+}

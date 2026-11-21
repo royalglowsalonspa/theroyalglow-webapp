@@ -57,9 +57,9 @@ Pass before scheduling a production migration window:
 For each environment, preserve this dependency order and both migration ledgers; never use schema push or edit applied migrations.
 If a step fails, stop subsequent steps and retain the compatible additive state while preparing a forward repair.
 
-### Current application migrations (31 October 2026)
+### Current application migrations (21 November 2026)
 
-Applied on Neon dev (`0000`–`0034`). Production has `0000`–`0003`.
+Applied on Neon dev (`0000`–`0036`). Production has `0000`–`0003`.
 
 | Migration | Kind |
 | --- | --- |
@@ -94,12 +94,15 @@ Applied on Neon dev (`0000`–`0034`). Production has `0000`–`0003`.
 | `0032_assignee_schedule_guards` | Guards, hand-written, rerunnable: `staff_off_schedule`; a confirmed booking's assignee must be within their weekly schedule when they have a row for that weekday (a working day, at that day's branch, within its hours); a deferred trigger checks at commit, when a booking becomes confirmed or a confirmed booking moves, that every person it names works at its branch, isn't on approved leave that day and is scheduled then. Existing bookings aren't revalidated: no one has weekly rows yet. `off_schedule` appears only in the application's statements (the enum trap) |
 | `0033_catalogue_branch_availability` | Additive, generated: `all_branches` (default true) on `service` and `service_category`; join tables `service_branch` and `service_category_branch`, cascading from both sides and indexed by branch. Every existing service stays offered at every branch |
 | `0034_catalogue_availability_guard` | Guard, hand-written, rerunnable: `service_available_at(service, branch)`, true when the service's and its category's availability both include the branch ("all branches" includes branches added later); trigger `booking_service_availability_guard` refuses a booking line, on insert or a change of service, for a service its booking's branch doesn't offer (check violation `booking_service_branch_availability`). Lines already written aren't rechecked when the catalogue changes later |
+| `0035_offer_cms_mirror_and_invoice_snapshot` | Additive plus checks, generated: `offer.cms_id` (unique, null on the admin-made test offers) and `offer.show_on_website` (default true); `offer_cms_rule_check` holds a Payload mirror (`cms_id` set) to its id `cms_offer_<cms id>`, an end on or after its start and exactly its type's value (percentage 1–100, a positive flat amount or combo price); invoice `offer_id` (restrict) with name, type and value snapshots, all four or none and the value above 0 (`invoice_offer_snapshot_check`). Every existing row passes: no offer has a `cms_id` and no invoice an offer |
+| `0036_invoice_offer_snapshot_guard` | Guard, hand-written, rerunnable: `invoice_snapshot_fixed()` also fixes the offer and its snapshot on an issued invoice, so a later CMS edit or a retired offer never changes a past invoice |
 
-Drizzle applies migrations strictly in journal order, so `0007`–`0034` can't
-go in before `0005`–`0006`, and the new code needs `0007`–`0034`. Recommended
+Drizzle applies migrations strictly in journal order, so `0007`–`0036` can't
+go in before `0005`–`0006`, and the new code needs `0007`–`0036`. Recommended
 production sequence: pause role and staff changes, counter billing, gems
-redemptions, membership sessions and catalogue edits in Payload, apply
-`0004`–`0034` in one run, then deploy the CMS (its start command applies the
+redemptions, membership sessions, catalogue and offer edits in Payload and
+offer edits in the admin portal, apply
+`0004`–`0036` in one run, then deploy the CMS (its start command applies the
 CMS migration below) and web and admin straight away. Between the two, the old code's role and staff writes fail closed (the
 `0006` checks and triggers reject them) instead of writing unkeyed rows, and
 the old code can't issue an invoice at all: checkout and membership sales fail
@@ -125,6 +128,11 @@ moving a confirmed booking onto a day its person has approved leave is
 refused at commit and nothing moves (before, it moved and kept them). The
 weekly schedule limits nothing until a week is saved, because no one has
 weekly rows yet; the new code's saves release what they rule out.
+After `0035`–`0036` the old admin's offer writes still work: its rows carry no
+`cms_id`, so the mirror check doesn't apply, and its checkout writes no
+invoice offer snapshot, which the snapshot check allows. Its offer expiry job
+would also retire a CMS mirror past its end date, which drift then reports
+until the next CMS save; mirrors exist only once the new CMS saves a rule.
 After `0020` the old code finds no shared
 business hours or booking rules and uses its built-in defaults; production's
 saved values return with the new code, as each branch's revision 1. A booking
@@ -144,15 +152,16 @@ prefix must be unique. Invoices issued before `0017` keep their numbers and
 header-only tax and render as before. Reset `test` and `pprd` from production
 afterwards.
 
-### Current CMS migrations (31 October 2026)
+### Current CMS migrations (21 November 2026)
 
-Neon dev's Payload ledger holds six migrations, the last listed below. Check
-production's ledger before the window: the CMS start command runs
+Neon dev's Payload ledger holds seven migrations, the last two listed below.
+Check production's ledger before the window: the CMS start command runs
 `payload migrate`, so it should hold the first five.
 
 | Migration | Kind |
 | --- | --- |
 | `20261031_015028_catalogue_tax_versions_availability` | Generated, then hand-edited. On categories and services: a SAC code from the reviewed list, `availability` (`all` or `selected`, default `all`), `edited_by`, a branch list (`service_category_texts`, `service_texts`) and version tables (`_service_category_v`, `_service_v` and their branch lists). It carries over the application's SAC codes and any branch availability `0033` stores (skipped where those don't exist), fills a category still without a code from `0018`'s slug table, else by type (salon `999721`, SPA `999723`), then makes the category's code required. Existing documents get their first version on their next save |
+| `20261121_114423_offer_checkout_rules` | Generated, imports corrected by hand. On offers: `show_on_website` (default true), the checkout rule (`rule_type`, default `none`, with its percentage, flat amount, combo price and terms), `edited_by`, the linked services (`offer_rels`, path `rule.services`) and version tables (`_offer_v`, `_offer_v_rels`); the card image is no longer required at the database (the collection requires it while the card is shown). Existing offers keep their cards, shown, with no rule |
 
 Apply `0033` before the CMS deploys: the new sync hooks write `all_branches`
 and the join tables, and without them every catalogue save fails and writes
@@ -169,6 +178,18 @@ trigger refuses nothing until an editor limits one, and `0034` needs no data
 check. Once one is limited, bookings already made for it at a branch that no
 longer offers it stay as they are; the admin dashboard lists them for
 reception to keep, cancel or rebook.
+
+Apply `0035` before the CMS deploys as well: the offer hook writes `cms_id`
+and `show_on_website`, and without them a save with a checkout rule fails and
+writes nothing. Card-only saves don't touch the mirror. The old CMS keeps
+saving while the new one migrates, because the offer migration only adds
+defaulted columns and relaxes the image. Deploy web after the CMS: its card
+read filters on `showOnWebsite`, which the old CMS can't query. The drift job
+reads the new offer columns too, which the CMS-before-admin order above
+already covers. The admin-made test offers stay in `public.offer` without a
+`cms_id` and are not migrated. They stay usable at checkout until the expiry
+job retires them after their end date, and the admin portal can no longer
+edit them, so list production's live ones before the window.
 
 Invoices issued after `0018` are test invoices until the launch tax review
 (TX-10): the seeded 5% rates are provisional and `invoicing.live` is off. To

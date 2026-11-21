@@ -33,7 +33,7 @@ staff operations, and invoice rendering belong to sibling apps and shared packag
 | `banner` | Announcement banners, links, and optional display windows |
 | `faq` | Public questions and answers consumed by the website |
 | `testimonial` | Customer review cards for marketing pages |
-| `offer` | Promotional copy/cards; actual booking discount rules are separate |
+| `offer` | Website offer cards plus an optional checkout rule (percentage, flat or combo price, linked salon services, terms) mirrored to the booking database; "Show on website" off makes a counter-only discount; never deleted, every version kept |
 | `service-card` | Homepage category cards and display prices; not bookable service records |
 | `service_category` | Operational salon/spa taxonomy with its required SAC code and branch availability, mirrored to the booking database; every version kept |
 | `service` | Bookable services, paise prices, durations, buffers, gems settings, an optional SAC code and branch availability; every version kept |
@@ -50,8 +50,9 @@ No Payload globals are configured.
 | `src/payload.config.ts` | Collections, database, editor, R2, Resend, CORS/CSRF, MCP |
 | `src/collections/` | Collection fields, access, validation, and hook wiring |
 | `src/access/published.ts` | Public/published reads and authenticated write helper |
-| `src/hooks/` | Catalogue mapping/synchronization and web cache notifications |
+| `src/hooks/` | Catalogue and offer mapping/synchronization, offer rule validation, and web cache notifications |
 | `src/lib/sync-db.ts` | Payload transaction resolver and sync feature flag |
+| `src/lib/offer-rule.ts` | Offer checkout rule checks and IST calendar days, shared by the offer hooks |
 | `src/lib/catalogue-fields.ts` | SAC code, branch availability and `editedBy` fields shared by the two catalogue collections |
 | `src/components/` | Custom admin field components: the branch picker for availability |
 | `src/endpoints/` | Custom REST endpoints: `GET /api/catalogue-branches` for the branch picker |
@@ -111,7 +112,7 @@ output is generated under `.next`; it is not source material to edit or commit.
 | `PAYLOAD_SECRET` | Stable signing/encryption secret; use a strong production secret |
 | `PAYLOAD_PUBLIC_SERVER_URL` | Canonical CMS origin |
 | `WEB_APP_URL` | Web origin in CORS/CSRF configuration and revalidation destination |
-| `SERVICE_SYNC_ENABLED` | Defaults to enabled; only literal `false` disables catalogue mirroring |
+| `SERVICE_SYNC_ENABLED` | Defaults to enabled; only literal `false` disables catalogue and offer mirroring |
 | `R2_BUCKET_NAME`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | All four must be nonempty to enable R2 media storage |
 | `RESEND_API_KEY` | Enables the email adapter when nonempty |
 | `RESEND_FROM_ADDRESS`, `RESEND_FROM_NAME` | Optional sender overrides; address must use a verified domain |
@@ -152,7 +153,18 @@ Both collections keep every version (no drafts), and each version records the
 CMS login that saved it in `editedBy`. See
 [catalogue management](../../knowledge-base/service-catalogue-management.md).
 
-Only `SERVICE_SYNC_ENABLED=false` stops the mirroring. It is an operational
+`Offer` works the same way for its checkout rule. A `beforeValidate` hook checks
+the rule (its value, at least one linked service and two for a combo, both
+dates) and that every linked service is an active salon service, reading
+`public.*` in the save's transaction. An `afterChange` hook upserts the mirror
+`public.offer` row `cms_offer_<id>` and replaces its `offer_service` rows; a
+save without a rule retires an existing mirror and leaves it with its last rule.
+The mirror columns come from application migration 0035. A card-only offer
+never touches the mirror, and the web reads cards from Payload directly.
+
+Only `SERVICE_SYNC_ENABLED=false` stops the mirroring. While it is off, an offer
+save that has or had a checkout rule is refused, so the CMS never shows a rule
+the counter can't apply. It is an operational
 control used by migration/seed procedures, and it permits the two schemas to
 diverge while disabled. The seed script copies existing public catalogue rows
 into Payload, validates them, and processes categories before services. Review

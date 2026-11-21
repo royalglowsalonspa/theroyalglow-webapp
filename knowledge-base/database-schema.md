@@ -1501,6 +1501,10 @@ Issued at checkout, at a membership sale and for each membership session. An inv
 | `gems_earned` | `integer` | NOT NULL, DEFAULT 0 | Gems earned from this invoice (always from paid amount) |
 | `gems_redeemed` | `integer` | NOT NULL, DEFAULT 0 | Gems spent to unlock a catalogue service on this booking |
 | `gems_redeemed_service_id` | `text` | nullable, FK → `service.id` ON DELETE RESTRICT | The specific catalogue service that was unlocked with gems. Null if no gems redeemed. |
+| `offer_id` | `text` | nullable, FK → `offer.id` ON DELETE RESTRICT; indexed where not null | The offer applied at checkout (0035) |
+| `offer_name_snapshot` | `text` | nullable | The offer's name when applied |
+| `offer_type_snapshot` | `discount_type` | nullable | Its rule type when applied |
+| `offer_value_snapshot` | `integer` | nullable | Its value when applied: the percentage, or paise for a flat amount or combo price |
 | `pdf_url` | `text` | nullable | R2 URL of generated PDF invoice |
 | `notes` | `text` | nullable | Internal notes |
 | `paid_at` | `timestamptz` | nullable | When payment was marked received |
@@ -1529,10 +1533,11 @@ Issued at checkout, at a membership sale and for each membership session. An inv
 -- Financial year: April 2026 → March 2027 = "2627", on the IST calendar.
 ```
 
-**Guards (0017 checks, 0018 triggers):**
+**Guards (0017 and 0035 checks, 0018 and 0036 triggers):**
 - `invoice_snapshot_check`: an invoice with a tax point has every issue fact, `cgst + sgst = gst`, `taxable + gst = total` and a number of at most 16 characters
+- `invoice_offer_snapshot_check`: the offer and its three snapshots are all set or all null, and the value is above 0
 - `invoice_requires_snapshot`: a new invoice must have a tax point
-- `invoice_snapshot_fixed`: an issued invoice's number, branch, booking, customer, type, amounts, gems, tax point, financial year, sequence, review status and issuer can't change; payment details, the PDF URL and notes still can
+- `invoice_snapshot_fixed`: an issued invoice's number, branch, booking, customer, type, amounts, gems, tax point, financial year, sequence, review status, issuer, offer and offer snapshots can't change; payment details, the PDF URL and notes still can
 - the 0011 shutdown guard still refuses a new invoice at a shut-down branch
 
 #### `invoice_item`
@@ -1770,11 +1775,11 @@ The minutes one SPA membership session holds, uses or gave back (0025, 0026; `.k
 
 #### `offer`
 
-Promotions, discounts, and combo bundles displayed on `/offers`.
+Promotions, discounts, and combo bundles applied at checkout and listed on `/offers`. Payload CMS owns offers (multi-branch offers.md): a CMS offer with a checkout rule is mirrored here, in the save's transaction, as `cms_offer_<cms id>`; removing the rule retires the mirror. Rows without `cms_id` are test offers the admin portal made before the move; they are not migrated, and only the expiry job still changes them.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| `id` | `text` | PK | |
+| `id` | `text` | PK | `cms_offer_<cms id>` for a CMS mirror |
 | `name` | `text` | NOT NULL | "Summer Glow Combo", "20% Off Facials" |
 | `slug` | `text` | NOT NULL, UNIQUE | URL-safe identifier |
 | `description` | `text` | nullable | Displayed on the offer card |
@@ -1788,6 +1793,8 @@ Promotions, discounts, and combo bundles displayed on `/offers`.
 | `terms` | `text` | nullable | "Valid on weekdays only", "Cannot combine with gems" |
 | `image_url` | `text` | nullable | R2 URL for offer banner/card |
 | `display_order` | `integer` | NOT NULL, DEFAULT 0 | Sort order on /offers page |
+| `cms_id` | `integer` | nullable, UNIQUE | The Payload offer this row mirrors (0035); null on the legacy admin-made offers |
+| `show_on_website` | `boolean` | NOT NULL, DEFAULT true | Off for a counter-only discount: checkout lists it, `/offers` doesn't |
 | `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
 | `updated_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
 
@@ -1798,9 +1805,12 @@ CHECK (offer_type != 'flat'        OR discount_amount_paise IS NOT NULL)
 CHECK (offer_type != 'combo_price' OR combo_price_paise IS NOT NULL)
 CHECK (start_date <= end_date)
 CHECK (discount_percentage IS NULL OR (discount_percentage > 0 AND discount_percentage <= 100))
+-- offer_cms_rule_check (0035): a CMS mirror's id is 'cms_offer_' || cms_id, it
+-- ends on or after it starts, and it holds exactly its type's value:
+-- a percentage of 1-100, or a positive flat amount or combo price.
 ```
 
-**Active offer query:** `WHERE is_active = true AND start_date <= CURRENT_DATE AND end_date >= CURRENT_DATE`
+**Active offer query:** `WHERE is_active = true AND start_date <= <today IST> AND end_date >= <today IST>`, on the IST calendar day, not the database's UTC date.
 
 #### `offer_service`
 
@@ -1811,8 +1821,9 @@ Junction — which services are included in an offer/combo.
 | `offer_id` | `text` | PK (composite), FK → `offer.id` ON DELETE CASCADE | |
 | `service_id` | `text` | PK (composite), FK → `service.id` ON DELETE CASCADE | |
 
-For **combo_price** offers: customer must select ALL linked services to get the combo price.
-For **percentage/flat** offers: discount applies to any of the linked services.
+For **combo_price** offers: the booking must include ALL linked services; the discount is the linked lines' total less the combo price.
+For **percentage/flat** offers: the discount applies to the booking's linked lines only (a flat amount at most their total), shared across them in proportion. A legacy offer with no linked services covers every line.
+A CMS mirror's rows are replaced on each save with a rule.
 
 #### `offer_redemption`
 
@@ -1827,7 +1838,7 @@ Tracks which customer used which offer on which date. **One offer per customer p
 | `redeemed_date` | `date` | NOT NULL | The date the offer was used |
 | `created_at` | `timestamptz` | NOT NULL, DEFAULT now() | |
 
-**Constraint:** `UNIQUE (customer_id, redeemed_date)` — one offer total per customer per day (any offer, not per-offer).
+**Constraint:** `UNIQUE (customer_id, redeemed_date)` — one offer total per customer per IST day (any offer, not per-offer), at any branch. Checkout writes the redemption in the completion batch, only while the offer is active and the day is within its dates; a second checkout the same day, even at the same moment, fails on this index and its invoice rolls back.
 
 ---
 

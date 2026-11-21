@@ -489,14 +489,14 @@ screen may follow by 31 January 2027.
 
 ## 6. Implement CMS availability, offers and customer flows
 
-- [ ] Enable version history with editor attribution on services, categories
+- [x] Enable version history with editor attribution on services, categories
   and offers (design §5). Keep signed-in write access for the Owner, Manager and
   Developer logins, with no CMS roles at launch. Make the SAC field a select
   limited to the reviewed codes.
   *31/10: done for services and categories ([as built](catalogue-availability.md#as-built-31-october-2026-neon-dev)):
   every version kept, a read-only `editedBy` set from the CMS login on each
   save and restore, the SAC select limited to `REVIEWED_SAC_CODES` (required on
-  a category). Offers get versions with their new structure (below).*
+  a category). 21/11: offers too, with their new structure (below).*
 - [x] Add category/service All branches or selected branch relationships and
   service SAC fields, including new-branch behavior and available-branch labels.
   *31/10: app 0033 (`all_branches`, `service_branch`, `service_category_branch`)
@@ -506,19 +506,44 @@ screen may follow by 31 January 2027.
   `/api/catalogue-branches`). All branches includes branches added later; a
   service is offered where its category is too. Labels: "Only at …" on
   `/services` and `/services/[slug]` (R7.2).*
-- [ ] Add the offer record structure (design §5): website card plus an optional
+- [x] Add the offer record structure (design §5): website card plus an optional
   checkout rule with percentage/flat/combo price, linked services and dates;
   retirement; validated transactional upsert into the app mirror. Add the
   "Show on website" tick (approved 28 October), on by default. Make
   admin Offers read-only with a Payload link only after the CMS ownership cutover
   is ready, and do not migrate admin-created test offers.
-- [ ] Add Developer repair/resync with revision checks and parity verification;
+  *21/11 ([as built](offers.md#as-built-21-november-2026-neon-dev)): Payload
+  `offer` holds the card, "Show on website" and a "Checkout rule" group,
+  validated on save against active salon services and mirrored in the save's
+  transaction to `cms_offer_<id>` (0035: `cms_id`, `show_on_website`,
+  `offer_cms_rule_check`; Payload migration `offer_checkout_rules`). A rule
+  removed retires the mirror. While sync is off, a save with a rule is
+  refused. Admin Offers is read-only (`POST`/`PATCH` answer 410) and labels
+  the admin-made rows as test offers; they are not migrated. Checkout lists
+  the offers that apply (`GET /api/bookings/[id]/offers`) and the discount
+  covers only the linked lines.*
+- [x] Add Developer repair/resync with revision checks and parity verification;
   extend detect-only drift monitoring to offers and availability.
   *31/10: drift now compares SAC codes and availability; a normal save
   upserts, so it recreates a missing service or category mirror (R4.7).
-  Still open: offers drift and the Developer resync.*
-- [ ] Enforce offer/customer/IST-day uniqueness under concurrent checkout across
+  21/11: offers drift too (each CMS rule against its mirror, no timestamps;
+  a rule-free offer's mirror must be inactive). 21/11
+  ([as built](catalogue-resync.md#as-built-21-november-2026-neon-dev)):
+  Integrations → Catalogue sync lists the drift by record; the Developer's
+  resync (`POST /api/catalogue-sync`, at most 25) copies each CMS row into its
+  mirror in its own transaction, only while the CMS row is at the revision the
+  report showed (`FOR UPDATE`; else 409 `CATALOGUE_CHANGED`), checks
+  dependencies first, audits every attempt and reports what a fresh read still
+  finds. Job 20 stays detect-only. Live suite
+  `catalogue-resync.integration.test.ts` (6).*
+- [x] Enforce offer/customer/IST-day uniqueness under concurrent checkout across
   branches; keep invoice rule snapshots when offers later change.
+  *21/11: the redemption is written in the completion batch only while the
+  offer is live on the IST day (else 409 `OFFER_EXPIRED`), and the unique
+  `(customer_id, redeemed_date)` refuses a second one at any branch, even at
+  the same moment (409 `OFFER_NOT_APPLICABLE`); either way the invoice rolls
+  back. 0036 fixes the invoice's offer snapshot. Live suite
+  `offers.integration.test.ts` (7).*
 - [x] Apply branch availability to booking, walk-in, checkout additions, gems and
   membership sessions. Preserve valid historical/confirmed service snapshots.
   *31/10: `assertServicesOfferedAt` in customer bookings, walk-ins, gems

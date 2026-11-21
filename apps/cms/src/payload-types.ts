@@ -388,7 +388,7 @@ export interface Testimonial {
   createdAt: string;
 }
 /**
- * Promotional offer cards shown on homepage and /offers page.
+ * Offers: the website card, and an optional checkout rule the counter applies. Retire an offer by unticking Active.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "offer".
@@ -396,7 +396,7 @@ export interface Testimonial {
 export interface Offer {
   id: number;
   /**
-   * E.g. "20% OFF All Facials — This week only!"
+   * E.g. "20% OFF All Facials — This week only!" The counter sees it too.
    */
   title: string;
   /**
@@ -407,106 +407,62 @@ export interface Offer {
    * E.g. "20% OFF", "₹500 off", "Buy 2 Get 1 Free". Shown as a badge.
    */
   discountLabel?: string | null;
-  image: number | Media;
+  /**
+   * Required while Show on website is ticked.
+   */
+  image?: (number | null) | Media;
   ctaLabel?: string | null;
   /**
    * Internal path or full URL. Default opens the booking dialog.
    */
   ctaHref?: string | null;
   category?: ('all' | 'salon' | 'spa' | 'bridal' | 'nails' | 'skincare') | null;
+  /**
+   * Untick to retire the offer: the website and the counter stop offering it. Offers are never deleted.
+   */
   active: boolean;
   /**
-   * Leave blank to show immediately.
+   * Untick for a counter-only discount: the checkout rule still applies, but no website page shows the card.
+   */
+  showOnWebsite: boolean;
+  /**
+   * Leave blank to show the card immediately. A checkout rule needs it: it applies from this day (IST).
    */
   validFrom?: string | null;
   /**
-   * Leave blank for no expiry. Web app filters by this date.
+   * Leave blank for a card with no expiry. A checkout rule needs it: it applies until the end of this day (IST).
    */
   validUntil?: string | null;
+  /**
+   * What the counter takes off a salon booking. One offer per customer per day at any branch, never with gems.
+   */
+  rule: {
+    type: 'none' | 'percentage' | 'flat' | 'combo_price';
+    /**
+     * A whole number from 1 to 100, taken off the linked services.
+     */
+    percentage?: number | null;
+    /**
+     * In paise: ₹500.00 is 50000. Taken off the linked services, never more than they cost.
+     */
+    amountPaise?: number | null;
+    /**
+     * In paise: ₹2,999.00 is 299900. The booking must include every linked service; together they cost this.
+     */
+    comboPricePaise?: number | null;
+    /**
+     * Active salon services the rule applies to. A combo needs at least two.
+     */
+    services?: (string | Service)[] | null;
+    /**
+     * Shown at the counter, e.g. "Weekdays only".
+     */
+    terms?: string | null;
+  };
   /**
    * Lower numbers appear first.
    */
   order?: number | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Homepage service category cards (Hair, Spa, Bridal, Nails, etc.).
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "service-card".
- */
-export interface ServiceCard {
-  id: number;
-  /**
-   * E.g. "Hair", "Spa", "Bridal"
-   */
-  name: string;
-  /**
-   * Display string shown on the card. E.g. "₹500", "₹1,499"
-   */
-  fromPrice: string;
-  image: number | Media;
-  /**
-   * Descriptive text for screen readers and SEO.
-   */
-  imageAlt?: string | null;
-  /**
-   * Where the "Book →" button links. Use anchor IDs like /services#spa.
-   */
-  bookingHref: string;
-  active?: boolean | null;
-  /**
-   * Lower numbers appear first in the scroll row.
-   */
-  order?: number | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Bookable service categories. Categories are DEACTIVATED (untick "Active"), never deleted — that is why there is no delete button. A category's Salon/SPA type governs which services can belong to it, and a booking may only contain services of one type.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "service_category".
- */
-export interface ServiceCategory {
-  id: string;
-  /**
-   * E.g. "Hair Care", "Body Massage", "Bridal".
-   */
-  name: string;
-  /**
-   * URL-safe identifier. Generated from the name if left blank.
-   */
-  slug: string;
-  /**
-   * Optional. Shown to customers alongside the category.
-   */
-  description?: string | null;
-  /**
-   * Governs which services belong here. A booking is Salon OR SPA, never mixed.
-   */
-  serviceType: 'salon' | 'spa';
-  /**
-   * Lower numbers appear first in the booking dialog and /services page.
-   */
-  displayOrder?: number | null;
-  /**
-   * Untick to retire this category. This replaces deletion.
-   */
-  isActive?: boolean | null;
-  /**
-   * The tax classification for its services, unless a service sets its own. Invoices show the code in force when they are issued.
-   */
-  sacCode: '999721' | '999722' | '999723' | '999729';
-  /**
-   * All branches includes branches opened later. Its services can narrow this further.
-   */
-  availability: 'all' | 'selected';
-  /**
-   * Customers and the counter can only choose it at these branches.
-   */
-  availableBranches?: string[] | null;
   /**
    * The CMS login that saved this version. Set automatically.
    */
@@ -575,6 +531,90 @@ export interface Service {
    * The CMS login that saved this version. Set automatically.
    */
   editedBy?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Bookable service categories. Categories are DEACTIVATED (untick "Active"), never deleted — that is why there is no delete button. A category's Salon/SPA type governs which services can belong to it, and a booking may only contain services of one type.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "service_category".
+ */
+export interface ServiceCategory {
+  id: string;
+  /**
+   * E.g. "Hair Care", "Body Massage", "Bridal".
+   */
+  name: string;
+  /**
+   * URL-safe identifier. Generated from the name if left blank.
+   */
+  slug: string;
+  /**
+   * Optional. Shown to customers alongside the category.
+   */
+  description?: string | null;
+  /**
+   * Governs which services belong here. A booking is Salon OR SPA, never mixed.
+   */
+  serviceType: 'salon' | 'spa';
+  /**
+   * Lower numbers appear first in the booking dialog and /services page.
+   */
+  displayOrder?: number | null;
+  /**
+   * Untick to retire this category. This replaces deletion.
+   */
+  isActive?: boolean | null;
+  /**
+   * The tax classification for its services, unless a service sets its own. Invoices show the code in force when they are issued.
+   */
+  sacCode: '999721' | '999722' | '999723' | '999729';
+  /**
+   * All branches includes branches opened later. Its services can narrow this further.
+   */
+  availability: 'all' | 'selected';
+  /**
+   * Customers and the counter can only choose it at these branches.
+   */
+  availableBranches?: string[] | null;
+  /**
+   * The CMS login that saved this version. Set automatically.
+   */
+  editedBy?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Homepage service category cards (Hair, Spa, Bridal, Nails, etc.).
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "service-card".
+ */
+export interface ServiceCard {
+  id: number;
+  /**
+   * E.g. "Hair", "Spa", "Bridal"
+   */
+  name: string;
+  /**
+   * Display string shown on the card. E.g. "₹500", "₹1,499"
+   */
+  fromPrice: string;
+  image: number | Media;
+  /**
+   * Descriptive text for screen readers and SEO.
+   */
+  imageAlt?: string | null;
+  /**
+   * Where the "Book →" button links. Use anchor IDs like /services#spa.
+   */
+  bookingHref: string;
+  active?: boolean | null;
+  /**
+   * Lower numbers appear first in the scroll row.
+   */
+  order?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -990,9 +1030,21 @@ export interface OfferSelect<T extends boolean = true> {
   ctaHref?: T;
   category?: T;
   active?: T;
+  showOnWebsite?: T;
   validFrom?: T;
   validUntil?: T;
+  rule?:
+    | T
+    | {
+        type?: T;
+        percentage?: T;
+        amountPaise?: T;
+        comboPricePaise?: T;
+        services?: T;
+        terms?: T;
+      };
   order?: T;
+  editedBy?: T;
   updatedAt?: T;
   createdAt?: T;
 }

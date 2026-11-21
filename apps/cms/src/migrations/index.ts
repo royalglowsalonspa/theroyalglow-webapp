@@ -4,6 +4,7 @@ import * as migration_20260729_182235_create_service_catalogue_collections from 
 import * as migration_20260729_201902_add_mcp_api_keys from './20260729_201902_add_mcp_api_keys';
 import * as migration_20260921_165524_auth_reset_password_requested_at from './20260921_165524_auth_reset_password_requested_at';
 import * as migration_20261031_015028_catalogue_tax_versions_availability from './20261031_015028_catalogue_tax_versions_availability';
+import * as migration_20261121_114423_offer_checkout_rules from './20261121_114423_offer_checkout_rules';
 
 export const migrations = [
   {
@@ -34,6 +35,11 @@ export const migrations = [
   {
     up: migration_20261031_015028_catalogue_tax_versions_availability.up,
     down: migration_20261031_015028_catalogue_tax_versions_availability.down,
-    name: '20261031_015028_catalogue_tax_versions_availability'
+    name: '20261031_015028_catalogue_tax_versions_availability',
+  },
+  {
+    up: migration_20261121_114423_offer_checkout_rules.up,
+    down: migration_20261121_114423_offer_checkout_rules.down,
+    name: '20261121_114423_offer_checkout_rules'
   },
 ];

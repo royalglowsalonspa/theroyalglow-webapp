@@ -63,8 +63,8 @@ export type DriftRow = {
   readonly id: string
 } & Readonly<Record<string, DriftFieldValue | undefined>>
 
-/** The two reconciled table pairs. */
-export type DriftTableName = 'service' | 'service_category'
+/** The reconciled table pairs; offers since multi-branch offers.md (./offer-drift). */
+export type DriftTableName = 'service' | 'service_category' | 'offer'
 
 export type DriftFindingKind = 'missing_in_public' | 'extra_in_public' | 'stale' | 'field_mismatch'
 

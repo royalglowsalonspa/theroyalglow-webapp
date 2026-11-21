@@ -404,6 +404,78 @@ Unexpected/transient failure. `retryable: true`.
 
 ---
 
+## GET /api/bookings/[id]/offers
+
+The offers checkout can apply to a booking at the active branch, for the
+checkout panel. Offers are authored in Payload CMS; this reads their mirror.
+It lists the live offers (active, today on the IST calendar within their dates,
+counter-only ones included) that save something on the booking's lines, best
+saving first. It is advisory: completion checks the offer again as it writes.
+
+**Minimum role:** `receptionist` at the active branch
+
+```http
+GET /api/bookings/bk_8f2a1c9e4d/offers
+```
+
+### Path parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | `string` | Yes | Path. The booking id. |
+
+### Response
+
+`offers` is empty, with `note` saying why, for a membership session ("A
+membership session takes no offer."), a booking made with gems ("A booking made
+with gems takes no offer."), a spa booking ("Offers apply to salon bookings
+only."), a customer who has used an offer today (`usedOfferToday: true`, "This
+customer has already used an offer today."), or when nothing applies ("No offer
+applies to this booking today."). `discountPaise` is the saving on this
+booking.
+
+```json
+{
+  "success": true,
+  "data": {
+    "offers": [
+      {
+        "id": "cms_offer_12",
+        "name": "Monsoon Glow 20% Off",
+        "terms": "One offer per customer per day.",
+        "offerType": "percentage",
+        "discountPaise": 26000
+      }
+    ],
+    "usedOfferToday": false,
+    "note": null
+  }
+}
+```
+
+### Errors
+
+<AccordionGroup>
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="FORBIDDEN — 403">
+
+Caller's role is below `receptionist`, or the caller doesn't work at the
+active branch.
+
+</Accordion>
+<Accordion title="NOT_FOUND — 404">
+
+No booking with that id at the active branch.
+
+</Accordion>
+</AccordionGroup>
+
+---
+
 ## POST /api/bookings/[id]/complete
 
 Completes a booking at the counter: collects the in-person payment method,
@@ -442,14 +514,14 @@ payload.
 | --- | --- | --- | --- |
 | `branchId` | `string` | Yes | The branch the page was rendered for. |
 | `paymentMethod` | `enum` | Yes, except for a membership session | cash, upi, or card. Ignored for a membership session. |
-| `offerId` | `string` | No | Apply a salon-only offer to the total. Validated as active and within its date range; cannot be combined with gems; one offer per customer per day. |
+| `offerId` | `string` | No | Apply one of the offers `GET /api/bookings/[id]/offers` lists. The discount covers only the lines whose service the offer's rule links (a combo needs all of them). Salon only; cannot be combined with gems; one offer per customer per IST day at any branch. |
 | `gemsRedeemedServiceId` | `string` | No | Presence signals a gems redemption on this booking. Mutually exclusive with offerId. |
 | `redeemGems` | `boolean` | No | Truthy value also signals a gems redemption (mutually exclusive with offerId). |
 
 ```json
 {
   "paymentMethod": "upi",
-  "offerId": "off_monsoon20"
+  "offerId": "cms_offer_12"
 }
 ```
 
@@ -503,8 +575,18 @@ discount applied (all amounts in paise).
 <Info>
   Gems are earned on the discounted total at 1 gem per ₹100 (floor) and expire
   365 days from earn date. The invoice subtotal is the original (pre-discount)
-  base; the taxable value and GST are split from the discounted total. With no
+  base; the discount is shared across the covered lines in proportion, and each
+  line's taxable value and GST are split from what is left of it. With no
   `offerId`, `discountPaise` is `0` and the total is unchanged.
+</Info>
+
+<Info>
+  The offer is checked again as the booking completes, in the same transaction
+  as the invoice: the redemption is written only while the offer is active and
+  today (IST) is within its dates, and the unique customer + day refuses a
+  second offer that day at any branch, even from a checkout running at the same
+  moment. A refusal writes nothing. The invoice keeps the offer's name, type and
+  value as applied; later edits in the CMS never change it.
 </Info>
 
 ### Errors
@@ -541,13 +623,18 @@ or the session completed or changed meanwhile.
 </Accordion>
 <Accordion title="OFFER_EXPIRED — 409">
 
-Supplied offer is inactive or outside its date range.
+The offer is inactive or outside its dates, including when it was retired or
+ended between the offer list and the completion ("This offer ended or was
+retired just now. Complete without it, or choose another."). Nothing is written.
 
 </Accordion>
 <Accordion title="OFFER_NOT_APPLICABLE — 409">
 
-Offer applied to a spa booking, combined with a gems redemption, or the customer
-already redeemed an offer today.
+The offer was applied to a spa booking or combined with a gems redemption; its
+rule covers none of the booking's lines, or a combo misses one of its services;
+or the customer has already used an offer today, here or at another branch
+("This customer has already used an offer today. Complete without it.").
+Nothing is written.
 
 </Accordion>
 <Accordion title="INTERNAL_ERROR — 500">

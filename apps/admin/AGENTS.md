@@ -54,9 +54,12 @@ For the contributor overview, configuration, and route map, read [README.md](REA
   existing feature records an audit trail. Audit failure is best-effort.
   Client IP is intentionally null: forwarded headers are not trusted identity
   under the current CloudFront/Lambda topology.
-- Payload CMS owns service and category authoring. Admin catalogue reads remain;
-  retired writes return 410 and `/services` redirects to CMS. Do not reintroduce
-  writes to those catalogue tables from the admin UI or API.
+- Payload CMS owns service, category and offer authoring. Admin catalogue reads
+  remain; retired writes return 410 and `/services` redirects to CMS. Do not
+  reintroduce writes to those catalogue tables from the admin UI or API. The one
+  exception is the Developer's catalogue resync (`/api/catalogue-sync`), which
+  only copies the CMS row into its mirror at the revision the drift report
+  showed; keep it a copy, never an authoring path.
 - Preserve integer-paise amounts and shared pricing/GST calculations. Use
   `src/lib/admin/format.ts` for INR and IST display, rather than browser-local
   time or ad hoc divisions and date parsing in components.

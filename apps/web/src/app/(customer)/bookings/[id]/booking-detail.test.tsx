@@ -17,7 +17,7 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { HttpResponse, http } from 'msw/http'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { server } from '@/test/msw-server'
 
 vi.mock('@/components/realtime/RealtimeProvider', () => ({ useBookingStatus: vi.fn() }))
@@ -78,7 +78,14 @@ async function renderPage() {
   await screen.findByRole('heading', { name: 'BK-RS-2611-H-12345' }, LOAD)
 }
 
+// The dates here are fixed, so the page's "today" is too: a new date before
+// it fails the date field's minimum and the form never submits (21/11/2026).
+beforeEach(() => {
+  vi.useFakeTimers({ now: new Date('2026-11-05T05:30:00.000Z'), toFake: ['Date'] })
+})
+
 afterEach(() => {
+  vi.useRealTimers()
   cleanup()
 })
 

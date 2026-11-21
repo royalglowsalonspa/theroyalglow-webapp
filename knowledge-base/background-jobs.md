@@ -184,15 +184,16 @@ WHERE status = 'active'
 | **Schedule** | `35 18 * * *` UTC = 12:05 AM IST |
 | **Heartbeat** | `BETTER_STACK_HEARTBEAT_NIGHTLY_SALES` (shared) |
 
-**What it does:** Deactivates offers whose `end_date` has passed.
+**What it does:** Deactivates the legacy admin-made offers (`cms_id IS NULL`) whose `end_date` has passed.
 
-**Why:** Manager creates "20% off Facials — valid till 31 May". On 1 June, the offer disappears from `/offers` and cannot be applied at checkout. No manual cleanup needed.
+**Why:** Offers are now authored in Payload CMS, and a CMS offer ends by its own dates, which checkout and every list check on the IST calendar day. Its mirror keeps `is_active` as the CMS has it, so the drift job (Job 20) stays clean. Only the test offers the admin portal made before the move still need the job, since nothing else edits them.
 
 ```sql
 UPDATE offer
 SET is_active = false, updated_at = NOW()
 WHERE is_active = true
-  AND end_date < CURRENT_DATE;
+  AND cms_id IS NULL
+  AND end_date < (NOW() AT TIME ZONE 'Asia/Kolkata')::date;
 ```
 
 ---
@@ -542,8 +543,14 @@ These are not on a schedule. They are enqueued by API routes with a delay when a
 
 **What it does:** Compares `cms.service` against `public.service`, and
 `cms.service_category` against `public.service_category` — row counts, per-row
-`id`, and per-row field values including `updatedAt`. Any divergence is written
-as an error-level structured log listing every finding.
+`id`, and per-row field values including `updatedAt`. Since the offers slice
+(multi-branch offers.md) it also compares each CMS offer that has a checkout
+rule with its mirror `public.offer` row `cms_offer_<id>`: a missing or extra
+mirror, name, description, rule type and value, IST dates, active, website
+flag, terms, display order and linked services. Offers compare no timestamps,
+because a card-only save moves `updatedAt` without touching the rule; a CMS
+offer without a rule must have no mirror or an inactive one. Any divergence is
+written as an error-level structured log listing every finding.
 
 **Why:** Payload CMS is the authoring source of truth for the catalogue, and an
 `afterChange` hook mirrors each CMS write into `public.*` inside the same
@@ -554,7 +561,12 @@ instead of letting stale prices or durations reach the booking engine.
 
 **Detect only, never repair:** the job is read-only (Requirement 17.5) — a human
 reviews the report before anything is mutated. It opens no transaction and takes
-no locks, so it never blocks CMS writes.
+no locks, so it never blocks CMS writes. The repair path is explicit: the
+Developer's Integrations → Catalogue sync panel shows the same findings by record
+and resyncs chosen records from the CMS, each at the CMS revision it showed
+(`POST /api/catalogue-sync`, see
+[service-catalogue-management.md](./service-catalogue-management.md#repair)). The
+job's drift log names that path.
 
 **Alerting:** the `SERVICE_DRIFT` heartbeat is pinged **only on a clean run**.
 Drift — or a failed run — withholds the ping, so the BetterStack heartbeat

@@ -49,6 +49,7 @@ const dialect = new PgDialect()
 const JOIN_PARENT: Record<string, string> = {
   service_branch: 'serviceId',
   service_category_branch: 'categoryId',
+  offer_service: 'offerId',
 }
 
 export function makeFakeTxDb() {
@@ -111,13 +112,14 @@ export function makeFakeTxDb() {
     where: (condition: SQL) => deleteWhere(condition, getTableName(table)),
   }))
 
-  // update(table).set(patch).where(condition)
-  const where = vi.fn(async (_condition: unknown) => {
+  // update(table).set(patch).where(condition): the row is the patch's id, else
+  // the condition's first parameter (`eq(table.id, id)`).
+  const where = vi.fn(async (condition: unknown) => {
     if (failure) {
       throw failure
     }
     const patch = pendingPatch ?? {}
-    const id = String(patch.id)
+    const id = String(patch.id ?? dialect.sqlToQuery(condition as SQL).params[0])
     const existing = rows.get(id)
     if (existing) {
       rows.set(id, { ...existing, ...patch })

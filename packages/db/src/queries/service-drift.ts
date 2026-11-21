@@ -285,21 +285,135 @@ async function readPublicServices(): Promise<ServiceDriftRow[]> {
 }
 
 /**
- * Read both catalogue snapshots for the reconciliation job.
- *
- * Read-only, no transaction, four independent SELECTs. Categories are returned
- * alongside services so one job run covers both table pairs.
+ * An offer's checkout rule as the sync writes its mirror (multi-branch
+ * offers.md), or the mirror itself. Dates are IST calendar days; the linked
+ * services are sorted and comma-joined.
  */
-export async function getServiceDriftSnapshot(): Promise<ServiceDriftSnapshot> {
-  const [cmsCategories, publicCategories, cmsServices, publicServices] = await Promise.all([
-    readCmsCategories(),
-    readPublicCategories(),
-    readCmsServices(),
-    readPublicServices(),
-  ])
+export type OfferDriftRow = {
+  id: string
+  name: string | null
+  description: string | null
+  offerType: string | null
+  discountPercentage: number | null
+  discountAmountPaise: number | null
+  comboPricePaise: number | null
+  startDate: string | null
+  endDate: string | null
+  isActive: boolean | null
+  terms: string | null
+  displayOrder: number | null
+  showOnWebsite: boolean | null
+  serviceIds: string | null
+}
+
+export type OfferDriftSnapshot = {
+  /** CMS offers with a checkout rule. */
+  ruleRows: OfferDriftRow[]
+  /** Mirror ids (`cms_offer_<id>`) of the CMS offers without a rule. */
+  ruleFreeIds: string[]
+  /** The mirrors of CMS offers; legacy admin offers are left out. */
+  publicRows: OfferDriftRow[]
+}
+
+function offerRow(row: Row): OfferDriftRow {
+  return {
+    id: String(row.id),
+    name: toText(row.name),
+    description: toText(row.description),
+    offerType: toText(row.offer_type),
+    discountPercentage: toNumber(row.discount_percentage),
+    discountAmountPaise: toNumber(row.discount_amount_paise),
+    comboPricePaise: toNumber(row.combo_price_paise),
+    startDate: toText(row.start_date),
+    endDate: toText(row.end_date),
+    isActive: toBool(row.is_active),
+    terms: toText(row.terms),
+    displayOrder: toNumber(row.display_order),
+    showOnWebsite: toBool(row.show_on_website),
+    serviceIds: toText(row.service_ids),
+  }
+}
+
+async function readCmsOffers(): Promise<{ ruleRows: OfferDriftRow[]; ruleFreeIds: string[] }> {
+  // Shaped as the sync hook maps it (apps/cms/src/hooks/offer-mapper.ts): only
+  // the rule type's value, IST days of the card's dates, trimmed terms, the
+  // rounded display order. Payload `numeric` columns come back as strings.
+  const result = await db.execute(sql`
+    SELECT
+      'cms_offer_' || o.id AS id,
+      o.rule_type::text AS rule_type,
+      o.title AS name,
+      o.description,
+      o.rule_type::text AS offer_type,
+      CASE WHEN o.rule_type::text = 'percentage' THEN o.rule_percentage::int END
+        AS discount_percentage,
+      CASE WHEN o.rule_type::text = 'flat' THEN o.rule_amount_paise::int END
+        AS discount_amount_paise,
+      CASE WHEN o.rule_type::text = 'combo_price' THEN o.rule_combo_price_paise::int END
+        AS combo_price_paise,
+      to_char(o.valid_from AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD') AS start_date,
+      to_char(o.valid_until AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD') AS end_date,
+      o.active AS is_active,
+      nullif(btrim(o.rule_terms), '') AS terms,
+      round(coalesce(o."order", 0))::int AS display_order,
+      o.show_on_website,
+      (SELECT string_agg(DISTINCT r.service_id, ',' ORDER BY r.service_id)
+         FROM cms.offer_rels r
+        WHERE r.parent_id = o.id AND r.path = 'rule.services' AND r.service_id IS NOT NULL
+      ) AS service_ids
+    FROM cms.offer o
+    ORDER BY o.id ASC
+  `)
+
+  const rows = result.rows as Row[]
+  return {
+    ruleRows: rows.filter((row) => row.rule_type !== 'none').map(offerRow),
+    ruleFreeIds: rows.filter((row) => row.rule_type === 'none').map((row) => String(row.id)),
+  }
+}
+
+async function readPublicOffers(): Promise<OfferDriftRow[]> {
+  const result = await db.execute(sql`
+    SELECT
+      o.id, o.name, o.description, o.offer_type::text AS offer_type,
+      o.discount_percentage, o.discount_amount_paise, o.combo_price_paise,
+      to_char(o.start_date, 'YYYY-MM-DD') AS start_date,
+      to_char(o.end_date, 'YYYY-MM-DD') AS end_date,
+      o.is_active, o.terms, o.display_order, o.show_on_website,
+      (SELECT string_agg(s.service_id, ',' ORDER BY s.service_id)
+         FROM offer_service s
+        WHERE s.offer_id = o.id
+      ) AS service_ids
+    FROM offer o
+    WHERE o.cms_id IS NOT NULL
+    ORDER BY o.id ASC
+  `)
+
+  return (result.rows as Row[]).map(offerRow)
+}
+
+/**
+ * Read the catalogue snapshots for the reconciliation job: categories,
+ * services and offers, both sides each.
+ *
+ * Read-only, no transaction, independent SELECTs.
+ */
+export async function getServiceDriftSnapshot(): Promise<
+  ServiceDriftSnapshot & { offers: OfferDriftSnapshot }
+> {
+  const [cmsCategories, publicCategories, cmsServices, publicServices, cmsOffers, publicOffers] =
+    await Promise.all([
+      readCmsCategories(),
+      readPublicCategories(),
+      readCmsServices(),
+      readPublicServices(),
+      readCmsOffers(),
+      readPublicOffers(),
+    ])
 
   return {
     categories: { cmsRows: cmsCategories, publicRows: publicCategories },
     services: { cmsRows: cmsServices, publicRows: publicServices },
+    offers: { ...cmsOffers, publicRows: publicOffers },
   }
 }

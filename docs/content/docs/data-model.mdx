@@ -82,6 +82,15 @@ lists the actual `pgTable` names defined in each file.
   catalogue sync writes these tables.
 </Info>
 
+<Info>
+  `offer` rows with a `cms_id` mirror Payload offers that have a checkout rule
+  (id `cms_offer_<cms id>`), written with their `offer_service` rows by the CMS
+  sync; rows without one are test offers from the admin portal. An invoice
+  keeps the offer it applied and its name, type and value
+  (`offer_name_snapshot`, `offer_type_snapshot`, `offer_value_snapshot`),
+  which can't change once issued (migrations 0035–0036).
+</Info>
+
 ## Key enums
 
 Defined natively in PostgreSQL via `enums.ts`.
@@ -168,7 +177,9 @@ recorded in `booking_status_log`.
 <AccordionGroup>
 
 <Accordion title="One offer per customer per day">
-Unique constraint on `offer_redemption` (customer + date).
+Unique constraint on `offer_redemption` (customer + IST date), at any branch.
+Checkout writes the redemption in the completion transaction, so two checkouts
+at the same moment can't both use an offer.
 </Accordion>
 
 <Accordion title="One active membership per customer">

@@ -853,7 +853,42 @@ function InProgressActions({
   )
 }
 
-// --- Checkout: the payment method, then complete with the service invoice ---
+/** An offer checkout can apply, with what it saves (GET /api/bookings/[id]/offers). */
+interface CheckoutOfferChoice {
+  id: string
+  name: string
+  terms: string | null
+  discountPaise: number
+}
+
+interface CheckoutOffers {
+  offers: CheckoutOfferChoice[]
+  /** Why there are none: a SPA booking, gems, or an offer used today. */
+  note: string | null
+}
+
+const NO_OFFER = 'none'
+
+// The offers checkout can apply (multi-branch offers.md). Advisory: a failed
+// read leaves checkout without offers, and the completion revalidates.
+async function fetchCheckoutOffers(bookingId: string): Promise<CheckoutOffers> {
+  try {
+    const res = await fetch(`/api/bookings/${encodeURIComponent(bookingId)}/offers`)
+    const json = await res.json()
+    const data = json?.data
+    if (!res.ok || !json?.success || !Array.isArray(data?.offers)) {
+      return { offers: [], note: null }
+    }
+    return {
+      offers: data.offers as CheckoutOfferChoice[],
+      note: typeof data.note === 'string' ? data.note : null,
+    }
+  } catch {
+    return { offers: [], note: null }
+  }
+}
+
+// --- Checkout: an offer, the payment method, then the service invoice ---
 function Checkout({
   booking,
   onBack,
@@ -866,8 +901,25 @@ function Checkout({
   onCompleted: (result: CompletionResult) => void
 }) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
+  const [offers, setOffers] = useState<CheckoutOffers | null>(null)
+  const [offerId, setOfferId] = useState<string>(NO_OFFER)
   const [submitting, setSubmitting] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchCheckoutOffers(booking.id).then((list) => {
+      if (!cancelled) {
+        setOffers(list)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [booking.id])
+
+  const chosen = offers?.offers.find((o) => o.id === offerId) ?? null
+  const totalPaise = booking.totalAmountPaise - (chosen?.discountPaise ?? 0)
 
   const complete = useCallback(async () => {
     const fallback = 'Could not complete this booking.'
@@ -877,7 +929,7 @@ function Checkout({
       const data = await postBookingAction<CompletionResponse>(
         booking,
         'complete',
-        { paymentMethod },
+        { paymentMethod, ...(chosen ? { offerId: chosen.id } : {}) },
         fallback,
       )
       toast.success(`Booking completed · invoice ${data.invoice.invoiceNumber}`)
@@ -891,13 +943,59 @@ function Checkout({
       const message = messageOf(err, fallback)
       setActionError(message)
       toast.error('Could not complete booking', message)
+      // The offer may have ended, or been used at another branch meanwhile:
+      // refresh the list and drop a choice that no longer applies.
+      if (chosen) {
+        const list = await fetchCheckoutOffers(booking.id)
+        setOffers(list)
+        if (!list.offers.some((o) => o.id === chosen.id)) {
+          setOfferId(NO_OFFER)
+        }
+      }
     } finally {
       setSubmitting(false)
     }
-  }, [booking, paymentMethod, onCompleted, onChanged])
+  }, [booking, paymentMethod, chosen, onCompleted, onChanged])
 
   return (
     <div className="space-y-3">
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-1 font-ui text-[10px] uppercase tracking-wider text-dusty-gray">
+          Offer
+        </legend>
+        {offers === null ? (
+          <p className="font-sans text-xs text-dusty-gray">Checking offers…</p>
+        ) : offers.offers.length === 0 ? (
+          <p className="font-sans text-xs text-warm-gray">{offers.note ?? 'No offer applies.'}</p>
+        ) : (
+          <RadioGroup value={offerId} onValueChange={setOfferId} aria-label="Offer">
+            <div className="flex items-center gap-2">
+              <RadioGroupItem id="offer-none" value={NO_OFFER} />
+              <Label
+                htmlFor="offer-none"
+                className="cursor-pointer font-sans text-sm text-cocoa-dark"
+              >
+                No offer
+              </Label>
+            </div>
+            {offers.offers.map((o) => (
+              <div key={o.id} className="flex items-start gap-2">
+                <RadioGroupItem id={`offer-${o.id}`} value={o.id} className="mt-0.5" />
+                <Label
+                  htmlFor={`offer-${o.id}`}
+                  className="flex cursor-pointer flex-col items-start gap-0.5 font-sans text-sm text-cocoa-dark"
+                >
+                  <span>
+                    {o.name} · saves {formatINRWithPaise(o.discountPaise)}
+                  </span>
+                  {o.terms ? <span className="text-xs text-warm-gray">{o.terms}</span> : null}
+                </Label>
+              </div>
+            ))}
+          </RadioGroup>
+        )}
+      </fieldset>
+
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-1 font-ui text-[10px] uppercase tracking-wider text-dusty-gray">
           Payment Method
@@ -921,10 +1019,18 @@ function Checkout({
         </RadioGroup>
       </fieldset>
 
+      {chosen ? (
+        <div className="flex items-center justify-between text-sm">
+          <span className="font-sans text-warm-gray">{chosen.name}</span>
+          <span className="font-ui text-cocoa-dark">
+            −{formatINRWithPaise(chosen.discountPaise)}
+          </span>
+        </div>
+      ) : null}
       <div className="flex items-center justify-between border-t border-cloud-gray pt-2 text-sm">
         <span className="font-ui text-xs uppercase tracking-wider text-dusty-gray">Total</span>
         <span className="font-ui font-medium text-cocoa-dark">
-          {formatINRWithPaise(booking.totalAmountPaise)}
+          {formatINRWithPaise(totalPaise)}
         </span>
       </div>
 

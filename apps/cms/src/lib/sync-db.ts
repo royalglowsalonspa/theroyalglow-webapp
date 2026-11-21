@@ -41,6 +41,8 @@
 // (verified by the Task 2.0a spike on the dev Neon branch).
 import {
   branch,
+  offer,
+  offerService,
   service,
   serviceBranch,
   serviceCategory,
@@ -55,7 +57,16 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 
 // `branch` is read only (the availability picker and its validation); the
 // join tables are written by the sync hooks with their parent rows.
-export { branch, service, serviceBranch, serviceCategory, serviceCategoryBranch }
+// `offer` and `offer_service` mirror an Offer's checkout rule (offers.md).
+export {
+  branch,
+  offer,
+  offerService,
+  service,
+  serviceBranch,
+  serviceCategory,
+  serviceCategoryBranch,
+}
 
 /**
  * Resolve the Drizzle client bound to Payload's ACTIVE TRANSACTION for this

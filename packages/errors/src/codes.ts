@@ -111,6 +111,9 @@ export const ERROR_CODES = {
   // statement is already marked paid (409).
   SETTLEMENT_SETTINGS_INVALID: 'SETTLEMENT_SETTINGS_INVALID',
   SETTLEMENT_ALREADY_PAID: 'SETTLEMENT_ALREADY_PAID',
+  // Catalogue resync (multi-branch R4.7): the CMS document changed, or is
+  // gone, since the drift report the Developer acted on (409; refresh first).
+  CATALOGUE_CHANGED: 'CATALOGUE_CHANGED',
 } as const
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES]

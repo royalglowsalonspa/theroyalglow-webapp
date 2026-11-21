@@ -64,10 +64,14 @@ export const ADMIN_ROUTE_POLICIES = {
   'bookings/[id]/noshow': { POST: 'branch' },
   'bookings/[id]/reschedule': { POST: 'branch' },
   'bookings/[id]/start': { POST: 'branch' },
+  // The offers checkout can apply to the booking (offers.md).
+  'bookings/[id]/offers': { GET: 'branch' },
   branches: { GET: 'shared', POST: 'developer' },
   'branches/owner-candidates': { GET: 'developer' },
   'branches/[id]': { PATCH: 'developer', DELETE: 'developer' },
   'branches/[id]/shutdown-check': { GET: 'developer' },
+  // The Developer's catalogue drift report and resync (catalogue-resync.md).
+  'catalogue-sync': { GET: 'developer', POST: 'developer' },
   closures: { GET: 'branch', POST: 'branch' },
   'closures/[id]': { DELETE: 'branch' },
   customers: { GET: 'shared_money' },
@@ -122,8 +126,9 @@ export const ADMIN_ROUTE_POLICIES = {
   'memberships/[id]/cancel': { POST: 'branch' },
   'memberships/[id]/sessions': { POST: 'branch' },
   notifications: { GET: 'self', PATCH: 'self' },
-  offers: { GET: 'shared', POST: 'shared' },
-  'offers/[id]': { GET: 'shared', PATCH: 'shared' },
+  // Offers are edited in Payload (R4.6): the admin portal only reads them.
+  offers: { GET: 'shared', POST: 'retired' },
+  'offers/[id]': { GET: 'shared', PATCH: 'retired' },
   reports: { GET: 'branch' },
   schedule: { GET: 'branch', PUT: 'branch' },
   'service-categories': { GET: 'shared', POST: 'retired' },

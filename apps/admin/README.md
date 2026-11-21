@@ -29,7 +29,7 @@ renders PDFs requested by admin jobs.
 | Self-service | `/me/schedule`, `/me/leave` | The signed-in staff member's schedule and leave | Staff |
 | Offers and business settings | `/offers`, `/settings`, `/reports` | Offers, settings, and business reporting | Manager |
 | Organization and access | `/branches`, `/users` | Branch and user management | Owner |
-| Diagnostics | `/integrations`, `/logs` | Integration status and audit-log views | Developer |
+| Diagnostics | `/integrations`, `/logs` | Integration status, catalogue sync (drift by record, resync from the CMS) and audit-log views | Developer |
 | Catalogue handoff | `/services` | Redirect to Payload's service collection; authoring is no longer local | Manager |
 
 The table describes page access. Individual APIs can apply additional role and
@@ -217,7 +217,9 @@ Definitions removed from the array are not automatically deleted by this script.
 
 Job handlers preserve per-operation idempotency/deduplication for retries.
 Publishing and heartbeats are best-effort. Catalogue drift reconciliation reports
-differences between CMS and the public catalogue without repairing data.
+differences between CMS and the public catalogue without repairing data; the
+Developer repairs chosen records from Integrations → Catalogue sync, which copies
+each CMS row into its mirror at the revision it showed.
 
 Ably tokens are issued through `/api/ably/token` for receptionist-or-higher users
 with subscribe-only admin capabilities. Server publishing and notification

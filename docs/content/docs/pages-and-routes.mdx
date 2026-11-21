@@ -105,7 +105,7 @@ All admin routes are served from `admin.theroyalglow.in` at **root paths** (no `
 | `/branches` | Owner | Branch management |
 | `/users` | Owner | User management and role assignment |
 | `/settlements` | Owner, Developer | Monthly statements between branches for SPA membership sessions and gems |
-| `/integrations` | Developer | Integration configuration |
+| `/integrations` | Developer | Integration health, and Catalogue sync: where the app's copy of the CMS catalogue differs from Payload, with a resync that copies the CMS record |
 | `/logs` | Developer | Audit logs |
 
 </Tab>
@@ -212,6 +212,7 @@ Served from `admin.theroyalglow.in/api/*`. There is no `/api/admin/` segment —
 | `/api/settings` | GET, PATCH | Manager | System settings |
 | `/api/users` | GET | Owner | User list / role management |
 | `/api/integrations` | GET | Developer | Integration configuration |
+| `/api/catalogue-sync` | GET, POST | Developer | The CMS ↔ app catalogue drift by record; POST resyncs up to 25 records from the CMS, each only at the CMS revision it was shown (409 `CATALOGUE_CHANGED` otherwise), and reports what still differs |
 | `/api/logs` | GET | Developer | Audit logs |
 | `/api/health` | GET | — | Admin health check |
 | `/api/ably/token` | POST | Receptionist | Scoped Ably JWT (Token Auth) |

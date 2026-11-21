@@ -266,9 +266,14 @@ describe('migrated routes preserve their pre-redesign actions (Req 17.6, 17.7)',
     await screen.findByText('No leads yet')
   })
 
-  it('offers keeps the Create Offer action', async () => {
+  // Offers moved to Payload (multi-branch R4.6): creating one is now a link to
+  // the CMS, not a form here.
+  it('offers links to the CMS, where offers are now created', async () => {
     render(<OffersManager />)
-    expect(screen.getByRole('button', { name: '+ Create Offer' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Edit offers in the CMS/ })).toHaveAttribute(
+      'href',
+      'https://cms.theroyalglow.in/admin/collections/offer',
+    )
     await screen.findByText('No offers found')
   })
 })

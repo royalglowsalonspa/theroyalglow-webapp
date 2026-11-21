@@ -21,7 +21,9 @@
  *
  * Notes        : None
  ************************************************************/
+export * from './catalogue-resync'
 export * from './idempotency'
+export * from './offer-drift'
 export * from './report'
 export * from './service-drift'
 export * from './time'

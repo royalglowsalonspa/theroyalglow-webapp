@@ -487,6 +487,87 @@ describe('BookingDetail — an ordinary booking may start before checkout', () =
     expect(screen.getByText('+15 gems awarded')).toBeInTheDocument()
   })
 
+  // Offers from Payload, applied at the counter (multi-branch offers.md).
+  function stubOffers(offers: unknown) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        calls.push({ url, init })
+        if (url === '/api/bookings/bk_1/offers') {
+          return ok(offers)
+        }
+        if (url === '/api/bookings/bk_1/complete' && init?.method === 'POST') {
+          return ok({
+            booking: { ...current, status: 'completed' },
+            invoice: { invoiceNumber: 'RS/2627/000044', totalPaise: 120_000, gstPaise: 5714 },
+            gemsEarned: 12,
+          })
+        }
+        if (url.startsWith('/api/staff')) {
+          return ok({ branchId: 'rs', staff: STAFF })
+        }
+        return ok({ booking: current })
+      }),
+    )
+  }
+
+  it('applies an offer at checkout, showing the saving and the new total', async () => {
+    current = booking({ status: 'in_progress', startedAt: '2026-11-05T09:30:00.000Z' })
+    stubOffers({
+      offers: [
+        {
+          id: 'cms_offer_7',
+          name: '₹300 off haircuts',
+          terms: 'Weekdays only',
+          offerType: 'flat',
+          discountPaise: 30_000,
+        },
+      ],
+      usedOfferToday: false,
+      note: null,
+    })
+    const { container } = render(<BookingDetail bookingId="bk_1" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Complete & Checkout' }))
+    fireEvent.click(
+      await screen.findByRole('radio', { name: /₹300 off haircuts · saves ₹300\.00/ }),
+    )
+    expect(screen.getByText('−₹300.00')).toBeInTheDocument()
+    expect(screen.getByText('₹1,200.00')).toBeInTheDocument()
+    expect(screen.getByText('Weekdays only')).toBeInTheDocument()
+    expect(await axe(container)).toHaveNoViolations()
+
+    current = booking({ status: 'completed' })
+    fireEvent.click(screen.getByRole('button', { name: 'Complete & Generate Invoice' }))
+
+    await waitFor(() => expect(posts('complete')).toHaveLength(1))
+    expect(bodyOf(posts('complete')[0])).toEqual({
+      branchId: 'rs',
+      paymentMethod: 'cash',
+      offerId: 'cms_offer_7',
+    })
+  })
+
+  it('says why no offer applies, and completes without one', async () => {
+    current = booking({ status: 'in_progress', startedAt: '2026-11-05T09:30:00.000Z' })
+    stubOffers({
+      offers: [],
+      usedOfferToday: true,
+      note: 'This customer has already used an offer today.',
+    })
+    render(<BookingDetail bookingId="bk_1" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Complete & Checkout' }))
+    expect(
+      await screen.findByText('This customer has already used an offer today.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('radiogroup', { name: 'Offer' })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Complete & Generate Invoice' }))
+    await waitFor(() => expect(posts('complete')).toHaveLength(1))
+    expect(bodyOf(posts('complete')[0])).toEqual({ branchId: 'rs', paymentMethod: 'cash' })
+  })
+
   it('holds the start of a booking for a later day, saying to move it first', async () => {
     current = booking({ bookingDate: '2026-11-06' })
     render(<BookingDetail bookingId="bk_1" />)
