@@ -38,6 +38,7 @@ const dbMocks = vi.hoisted(() => ({
   rescheduleBooking: vi.fn(),
 }))
 const publishMock = vi.hoisted(() => vi.fn(async () => undefined))
+const notifyMock = vi.hoisted(() => vi.fn(async () => true))
 
 vi.mock('@/lib/api/branch-context', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api/branch-context')>()
@@ -45,6 +46,7 @@ vi.mock('@/lib/api/branch-context', async (importOriginal) => {
 })
 vi.mock('@rgss/db/queries', () => dbMocks)
 vi.mock('@/lib/realtime/publish', () => ({ publishBookingEvent: publishMock }))
+vi.mock('@/lib/notifications/booking-change', () => ({ notifyBookingChange: notifyMock }))
 
 import { POST } from './route'
 
@@ -95,11 +97,14 @@ beforeEach(() => {
   dbMocks.getBranchPolicy.mockResolvedValue(POLICY)
   dbMocks.getClosureOn.mockResolvedValue(null)
   dbMocks.getOpenReassignmentsFor.mockResolvedValue(new Map())
-  dbMocks.rescheduleBooking.mockImplementation(async (id: string) => ({
-    id,
-    status: 'confirmed',
-    startTime: '11:00:00',
-  }))
+  dbMocks.rescheduleBooking.mockImplementation(
+    async (id: string, _actor: string, move: { bookingDate: Date }) => ({
+      id,
+      status: 'confirmed',
+      bookingDate: move.bookingDate,
+      startTime: '11:00:00',
+    }),
+  )
 })
 
 describe('POST /api/bookings/[id]/reschedule (admin)', () => {
@@ -108,7 +113,12 @@ describe('POST /api/bookings/[id]/reschedule (admin)', () => {
 
     expect(res.status).toBe(200)
     expect((await res.json()).data).toEqual({
-      booking: { id: BOOKING_ID, status: 'confirmed', startTime: '11:00:00' },
+      booking: {
+        id: BOOKING_ID,
+        status: 'confirmed',
+        bookingDate: '2026-11-03T00:00:00.000Z',
+        startTime: '11:00:00',
+      },
       needsStaff: false,
     })
     expect(branchMocks.requireBranchRole).toHaveBeenCalledWith('receptionist')
@@ -127,6 +137,17 @@ describe('POST /api/bookings/[id]/reschedule (admin)', () => {
       customerId: 'cust_1',
       event: 'status_changed',
       data: { status: 'confirmed' },
+    })
+    // The customer is told the new time, from the booking as moved (R7.2).
+    expect(notifyMock).toHaveBeenCalledWith({
+      type: 'booking_rescheduled',
+      booking: {
+        id: BOOKING_ID,
+        customerId: 'cust_1',
+        branchId: TEST_BRANCH.id,
+        bookingDate: new Date('2026-11-03T00:00:00.000Z'),
+        startTime: '11:00:00',
+      },
     })
   })
 
@@ -283,5 +304,6 @@ describe('POST /api/bookings/[id]/reschedule (admin)', () => {
     expect(res.status).toBe(409)
     expect((await errorOf(res)).code).toBe(ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION)
     expect(publishMock).not.toHaveBeenCalled()
+    expect(notifyMock).not.toHaveBeenCalled()
   })
 })

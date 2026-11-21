@@ -69,4 +69,41 @@ describe('buildNotificationContent', () => {
       'The person assigned is still with another customer, so the booking on your selected date can’t start yet. Wait for them or assign someone else.',
     )
   })
+
+  describe("the salon's changes to a booking name its branch (R7.2)", () => {
+    const at = { date: '05/11/2026', time: '11:00', branchName: 'Rayasandra' }
+
+    it('confirms it', () => {
+      expect(buildNotificationContent('booking_confirmed', at).body).toBe(
+        'Your appointment at Royal Glow Rayasandra on 05/11/2026 at 11:00 is confirmed. See you soon!',
+      )
+    })
+
+    it('moves it', () => {
+      expect(buildNotificationContent('booking_rescheduled', at).body).toBe(
+        'Your appointment at Royal Glow Rayasandra has been moved to 05/11/2026 at 11:00.',
+      )
+    })
+
+    it('cancels it, with the reason as one sentence', () => {
+      expect(
+        buildNotificationContent('booking_cancelled', { ...at, reason: 'The branch is closed' })
+          .body,
+      ).toBe(
+        'Your appointment at Royal Glow Rayasandra on 05/11/2026 has been cancelled. Reason: The branch is closed. We hope to see you again soon.',
+      )
+      expect(buildNotificationContent('booking_cancelled', at).body).toBe(
+        'Your appointment at Royal Glow Rayasandra on 05/11/2026 has been cancelled. We hope to see you again soon.',
+      )
+    })
+
+    it('rejects it, keeping a reason that already ends a sentence', () => {
+      expect(
+        buildNotificationContent('booking_rejected', { ...at, reason: 'Nobody is free then!' })
+          .body,
+      ).toBe(
+        "Sorry, your 05/11/2026 booking at Royal Glow Rayasandra couldn't be confirmed. Reason: Nobody is free then! Book again?",
+      )
+    })
+  })
 })

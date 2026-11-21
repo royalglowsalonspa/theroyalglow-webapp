@@ -50,6 +50,7 @@ import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
 import { adminBookingActionSchema } from '@rgss/types'
 import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { notifyBookingChange } from '@/lib/notifications/booking-change'
 import { publishBookingEvent } from '@/lib/realtime/publish'
 
 export const GET = withErrorHandler(
@@ -139,6 +140,8 @@ export const PATCH = withErrorHandler(
         event: 'assigned',
         data: { staffId: action.staffId },
       })
+      // The customer hears it, with the branch's details (R7.2); best-effort.
+      await notifyBookingChange({ type: 'booking_confirmed', booking: existing })
 
       return apiSuccess({ booking: updated })
     }
@@ -165,6 +168,11 @@ export const PATCH = withErrorHandler(
         customerId: existing.customerId,
         event: 'status_changed',
         data: { status: 'rejected' },
+      })
+      await notifyBookingChange({
+        type: 'booking_rejected',
+        booking: existing,
+        reason: action.rejectionReason,
       })
 
       return apiSuccess({ booking: updated })

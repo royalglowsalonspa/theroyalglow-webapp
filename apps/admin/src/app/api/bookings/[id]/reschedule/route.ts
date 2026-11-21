@@ -56,6 +56,7 @@ import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
 import { adminBookingMoveSchema } from '@rgss/types'
 import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { notifyBookingChange } from '@/lib/notifications/booking-change'
 import { publishBookingEvent } from '@/lib/realtime/publish'
 
 export const POST = withErrorHandler(
@@ -133,6 +134,17 @@ export const POST = withErrorHandler(
       customerId: existing.customerId,
       event: 'status_changed',
       data: { status: updated.status },
+    })
+    // The customer hears the new time, with the branch's details (R7.2).
+    await notifyBookingChange({
+      type: 'booking_rescheduled',
+      booking: {
+        id,
+        customerId: existing.customerId,
+        branchId: branch.id,
+        bookingDate: updated.bookingDate,
+        startTime: updated.startTime,
+      },
     })
 
     return apiSuccess({ booking: updated, needsStaff: work !== undefined && !work.heldUp })

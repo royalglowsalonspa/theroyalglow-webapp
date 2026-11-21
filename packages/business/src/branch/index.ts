@@ -7,6 +7,7 @@
 
 export * from './access'
 export * from './closures'
+export * from './contact'
 export * from './customer-view'
 export * from './membership-access'
 export * from './recipients'

@@ -63,6 +63,7 @@ const store = new Map<string, FakeBooking>()
 const mocks = vi.hoisted(() => ({
   requireBranchRole: vi.fn(),
   publishBookingEvent: vi.fn(),
+  notifyBookingChange: vi.fn(async () => true),
 }))
 
 const dbMocks = vi.hoisted(() => {
@@ -122,6 +123,9 @@ vi.mock('@/lib/api/branch-context', async (importOriginal) => {
   return { ...actual, requireBranchRole: mocks.requireBranchRole }
 })
 vi.mock('@/lib/realtime/publish', () => ({ publishBookingEvent: mocks.publishBookingEvent }))
+vi.mock('@/lib/notifications/booking-change', () => ({
+  notifyBookingChange: mocks.notifyBookingChange,
+}))
 vi.mock('@rgss/db/queries', () => dbMocks)
 
 import { GET, PATCH } from '@/app/api/bookings/[id]/route'
@@ -384,5 +388,61 @@ describe('PATCH /api/bookings/[id] — closed days (R1.8)', () => {
     expect(res.status).toBe(200)
     expect(store.get(BOOKING_ID)?.status).toBe('rejected')
     expect(dbMocks.getClosureOn).not.toHaveBeenCalled()
+  })
+})
+
+describe('PATCH /api/bookings/[id] — telling the customer (R7.2)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.requireBranchRole.mockResolvedValue(branchContext({ userId: 'u_rcp' }))
+  })
+
+  it('tells the customer their booking is confirmed, after the write', async () => {
+    seedBooking('pending')
+
+    const res = await PATCH(
+      patchRequest({ action: 'approve', branchId: TEST_BRANCH.id, staffId: 'stf_1' }),
+      route,
+    )
+
+    expect(res.status).toBe(200)
+    expect(mocks.notifyBookingChange).toHaveBeenCalledTimes(1)
+    expect(mocks.notifyBookingChange).toHaveBeenCalledWith({
+      type: 'booking_confirmed',
+      booking: expect.objectContaining({
+        id: BOOKING_ID,
+        customerId: 'cust_1',
+        branchId: TEST_BRANCH.id,
+      }),
+    })
+  })
+
+  it('tells them why it was rejected', async () => {
+    seedBooking('pending')
+
+    await PATCH(
+      patchRequest({ action: 'reject', branchId: TEST_BRANCH.id, rejectionReason: 'Fully booked' }),
+      route,
+    )
+
+    expect(mocks.notifyBookingChange).toHaveBeenCalledWith({
+      type: 'booking_rejected',
+      booking: expect.objectContaining({ id: BOOKING_ID }),
+      reason: 'Fully booked',
+    })
+  })
+
+  it('tells them nothing when the change is refused, or for a staff assignment', async () => {
+    seedBooking('confirmed')
+    await PATCH(
+      patchRequest({ action: 'approve', branchId: TEST_BRANCH.id, staffId: 'stf_1' }),
+      route,
+    )
+    await PATCH(
+      patchRequest({ action: 'assign', branchId: TEST_BRANCH.id, staffId: 'stf_2' }),
+      route,
+    )
+
+    expect(mocks.notifyBookingChange).not.toHaveBeenCalled()
   })
 })

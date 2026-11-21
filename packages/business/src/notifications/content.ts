@@ -73,6 +73,12 @@ function placeName(branchName: string | undefined): string {
   return branchName ? `Royal Glow ${branchName}` : 'Royal Glow'
 }
 
+// A reason typed by staff as a sentence: trimmed, ending in a full stop once.
+function sentence(text: string): string {
+  const trimmed = text.trim()
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`
+}
+
 // " at Rayasandra" when the branch is known, else nothing.
 function atBranch(branchName: string | undefined): string {
   return branchName ? ` at ${branchName}` : ''
@@ -107,25 +113,28 @@ export function buildNotificationContent(
         title: 'Almost time! 1 hour to go',
         body: `Your ${serviceName} appointment is at ${time}. See you soon at ${place}.`,
       }
+    // The salon's changes to a booking name the branch it is at (R7.2).
     case 'booking_confirmed':
       return {
         title: 'Booking Confirmed! ✓',
-        body: `Your appointment on ${date} at ${time} is confirmed. See you at Royal Glow!`,
+        body: `Your appointment at ${place} on ${date} at ${time} is confirmed. See you soon!`,
       }
     case 'booking_rescheduled':
       return {
         title: 'Booking Rescheduled',
-        body: `Your appointment has been moved to ${date} at ${time}.`,
+        body: `Your appointment at ${place} has been moved to ${date} at ${time}.`,
       }
     case 'booking_cancelled':
       return {
         title: 'Booking Cancelled',
-        body: `Your appointment on ${date} has been cancelled. We hope to see you again soon.`,
+        body: `Your appointment at ${place} on ${date} has been cancelled.${
+          data.reason ? ` Reason: ${sentence(data.reason)}` : ''
+        } We hope to see you again soon.`,
       }
     case 'booking_rejected':
       return {
         title: 'Booking Rejected',
-        body: `Sorry, your ${date} booking couldn't be confirmed. Reason: ${reason}. Book again?`,
+        body: `Sorry, your ${date} booking at ${place} couldn't be confirmed. Reason: ${sentence(reason)} Book again?`,
       }
     case 'membership_created':
       return {

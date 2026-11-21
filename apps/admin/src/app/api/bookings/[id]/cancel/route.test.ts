@@ -28,6 +28,7 @@ const dbMocks = vi.hoisted(() => ({
   cancelBooking: vi.fn(),
 }))
 const publishMock = vi.hoisted(() => vi.fn(async () => undefined))
+const notifyMock = vi.hoisted(() => vi.fn(async () => true))
 
 vi.mock('@/lib/api/branch-context', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api/branch-context')>()
@@ -35,6 +36,7 @@ vi.mock('@/lib/api/branch-context', async (importOriginal) => {
 })
 vi.mock('@rgss/db/queries', () => dbMocks)
 vi.mock('@/lib/realtime/publish', () => ({ publishBookingEvent: publishMock }))
+vi.mock('@/lib/notifications/booking-change', () => ({ notifyBookingChange: notifyMock }))
 
 import { POST } from './route'
 
@@ -92,6 +94,12 @@ describe('POST /api/bookings/[id]/cancel (admin)', () => {
         customerId: 'cust_1',
         event: 'status_changed',
         data: { status: 'cancelled' },
+      })
+      // The customer is told why, with the branch's details (R7.2).
+      expect(notifyMock).toHaveBeenCalledWith({
+        type: 'booking_cancelled',
+        booking: expect.objectContaining({ id: BOOKING_ID, customerId: 'cust_1' }),
+        reason: 'Branch closed for Diwali',
       })
     },
   )

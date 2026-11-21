@@ -307,20 +307,28 @@ export function OnboardingForm({
         <p className="font-ui text-sm font-medium text-warm-gray">Consent &amp; Preferences</p>
 
         <div className="flex items-start justify-between gap-3">
-          <Label htmlFor="privacy-consent" className="flex-1 cursor-pointer font-normal">
-            <span className="font-sans text-sm text-cocoa-dark">
-              I agree to the{' '}
-              <a href="/privacy" className="underline underline-offset-2 hover:text-gold-ink">
-                Privacy Policy
-              </a>{' '}
-              <span className="text-error">*</span>
-            </span>
-          </Label>
+          <div className="flex-1">
+            <Label htmlFor="privacy-consent" className="cursor-pointer font-normal">
+              <span className="font-sans text-sm text-cocoa-dark">
+                I agree to the{' '}
+                <a href="/privacy" className="underline underline-offset-2 hover:text-gold-ink">
+                  Privacy Policy
+                </a>{' '}
+                <span className="text-error">*</span>
+              </span>
+            </Label>
+            {/* Sharing across branches, said up front (multi-branch R3.4). */}
+            <p id="privacy-consent-description" className="mt-1 font-sans text-xs text-warm-gray">
+              Your profile, gems and membership are shared across Royal Glow branches, so you can
+              book at any of them. What you pay stays with the branch that bills you.
+            </p>
+          </div>
           <Switch
             id="privacy-consent"
             checked={privacyConsent}
             onCheckedChange={setPrivacyConsent}
             aria-required="true"
+            aria-describedby="privacy-consent-description"
             className="mt-0.5"
           />
         </div>

@@ -33,7 +33,8 @@
  * - Receptionist or above at the active branch; the body names the branch
  *   the page was rendered for ({ branchId, reason }).
  * - The customer sees the booking cancelled with the reason; nothing is
- *   charged. Customer notifications for salon changes are not built yet.
+ *   charged. They are told by push and email, with the branch's details
+ *   (notifyBookingChange, best-effort).
  ************************************************************/
 
 import { cancelBooking, getBookingForAdmin } from '@rgss/db/queries'
@@ -41,6 +42,7 @@ import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
 import { adminBookingCancelSchema } from '@rgss/types'
 import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { notifyBookingChange } from '@/lib/notifications/booking-change'
 import { publishBookingEvent } from '@/lib/realtime/publish'
 
 export const POST = withErrorHandler(
@@ -83,6 +85,12 @@ export const POST = withErrorHandler(
       customerId: existing.customerId,
       event: 'status_changed',
       data: { status: updated.status },
+    })
+    // The customer hears why, with the branch's details (R7.2); best-effort.
+    await notifyBookingChange({
+      type: 'booking_cancelled',
+      booking: existing,
+      reason: parsed.data.reason,
     })
 
     return apiSuccess({ booking: updated })
