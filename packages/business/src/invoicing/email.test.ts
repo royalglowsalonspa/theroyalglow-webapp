@@ -117,9 +117,18 @@ describe('buildInvoiceEmailHtml — the tax as issued (multi-branch R6.1, R6.4)'
     )
   })
 
+  it('prints escaped issuer address lines in an invoice email without a PDF', () => {
+    const { html } = buildInvoiceEmailHtml({
+      ...issued,
+      issuerAddressLines: ['27 A & B Main Road', 'Bengaluru, Karnataka 560099'],
+    })
+    expect(html).toContain('<br>27 A &amp; B Main Road<br>Bengaluru, Karnataka 560099')
+  })
+
   it('says an invoice issued with provisional rates is a test invoice (TX-10)', () => {
     const { html } = buildInvoiceEmailHtml({ ...issued, provisional: true })
     expect(html).toContain('This is a test invoice: its tax rates are provisional')
+    expect(html).toContain('Royal Glow Salon &amp; Spa — Rayasandra')
     expect(html).not.toContain('Issued by')
   })
 })

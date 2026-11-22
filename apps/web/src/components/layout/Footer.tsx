@@ -12,7 +12,7 @@
  *                Bottom bar: copyright + legal links + cookie preferences.
  *
  * Responsibilities :
- * - Display brand name, address (Rayasandra), opening hours
+ * - Display brand name, locations, contact links and opening hours
  * - Render Explore column: Services, Offers, Gems Catalogue, Blog, About, Contact, FAQ
  * - Render Account column: Book Now, Bookings, Membership, Favorites, Profile
  * - Render Follow Us: Instagram, Facebook, YouTube, LinkedIn social icons
@@ -27,8 +27,11 @@
  * Notes        : Server component — no 'use client' needed
  ************************************************************/
 
+import { formatCalendarDateIN } from '@rgss/business'
 import Link from 'next/link'
 import { CookiePreferencesButton } from '@/components/consent/CookiePreferencesButton'
+import type { PublicLocation } from '@/lib/branch-directory'
+import { BUSINESS } from '@/lib/seo/business'
 
 const exploreLinks = [
   { href: '/services', label: 'Services' },
@@ -70,7 +73,7 @@ const socialLinks = [
   },
 ]
 
-export function Footer() {
+export function Footer({ locations }: { locations: PublicLocation[] }) {
   return (
     <footer
       className="border-t border-outline-gray font-sans"
@@ -85,28 +88,59 @@ export function Footer() {
               <h2 className="font-display font-black text-2xl tracking-tight text-cocoa-dark">
                 Royal Glow Salon &amp; SPA
               </h2>
-              <div className="space-y-1">
-                <p className="font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-gold-ink">
-                  Visit Branch
-                </p>
-                <address className="not-italic font-sans text-sm text-warm-gray">
-                  Rayasandra, 560100
-                </address>
-              </div>
-            </div>
-
-            <div className="space-y-3">
               <p className="font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-gold-ink">
-                Opening Hours
+                Locations &amp; Hours
               </p>
-              <div className="font-sans text-sm text-warm-gray">
-                <div className="grid grid-cols-[auto_1fr] gap-y-2 gap-x-4">
-                  <span>Mon — Fri</span>
-                  <span className="text-cocoa-dark font-medium">10:00 — 21:00</span>
-                  <span>Sat — Sun</span>
-                  <span className="text-cocoa-dark font-medium">10:00 — 22:00</span>
-                </div>
-              </div>
+              {locations.length > 0 ? (
+                <ul className="space-y-5 font-sans text-sm text-warm-gray">
+                  {locations.map((location) => {
+                    const [closure] = location.closures
+                    return (
+                      <li key={location.id ?? 'primary'} className="space-y-2">
+                        <Link
+                          href={`/contact#location-${location.id ?? 'primary'}`}
+                          className="font-semibold text-cocoa-dark hover:text-gold-ink"
+                        >
+                          {location.name}
+                        </Link>
+                        {location.status && <p>{location.status}</p>}
+                        <address className="not-italic">
+                          <p className="whitespace-pre-line">{location.addressLines.join('\n')}</p>
+                          {location.phone && (
+                            <a href={location.phone.href} className="block hover:text-gold-ink">
+                              {location.phone.label}
+                            </a>
+                          )}
+                        </address>
+                        {location.hours && (
+                          <dl className="space-y-1">
+                            {location.hours.map((row) => (
+                              <div key={row.days} className="flex flex-wrap gap-x-3">
+                                <dt>{row.days}</dt>
+                                <dd className="font-medium text-cocoa-dark">{row.hours}</dd>
+                              </div>
+                            ))}
+                          </dl>
+                        )}
+                        {closure && (
+                          <p>
+                            Closed{' '}
+                            <time dateTime={closure.date}>
+                              {formatCalendarDateIN(closure.date)}
+                            </time>
+                            {' · '}
+                            {closure.name}
+                          </p>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : (
+                <p className="font-sans text-sm text-warm-gray">
+                  No locations are listed right now.
+                </p>
+              )}
             </div>
           </div>
 
@@ -183,10 +217,10 @@ export function Footer() {
                 Email Us
               </p>
               <a
-                href="mailto:hello@theroyalglow.in"
+                href={`mailto:${BUSINESS.email}`}
                 className="font-ui text-sm text-warm-gray hover:text-gold-ink transition-colors duration-200 block"
               >
-                hello@theroyalglow.in
+                {BUSINESS.email}
               </a>
             </div>
           </div>

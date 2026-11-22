@@ -19,6 +19,7 @@ const dbMocks = vi.hoisted(() => ({
   getBranchPeople: vi.fn(),
   hasNotification: vi.fn(),
   hasNotificationSince: vi.fn(),
+  createAppointmentReminderNotification: vi.fn(),
   createNotification: vi.fn(),
   getStaleFollowUpLeads: vi.fn(),
   getBookingForNoShow: vi.fn(),
@@ -113,6 +114,7 @@ beforeEach(() => {
   vi.stubEnv('INTERNAL_JOB_TOKEN', undefined)
   dbMocks.hasNotification.mockResolvedValue(false)
   dbMocks.hasNotificationSince.mockResolvedValue(false)
+  dbMocks.createAppointmentReminderNotification.mockImplementation(async (p) => created(p))
   dbMocks.createNotification.mockImplementation(async (p) => created(p))
   sendEmailMock.mockResolvedValue(true)
   slackMock.mockResolvedValue(true)
@@ -378,29 +380,88 @@ describe('POST /api/jobs/weekly-report', () => {
 })
 
 describe('customer messages name the real branch', () => {
-  it('appointment reminders say which branch the appointment is at', async () => {
+  const confirmedBooking = {
+    id: 'bk_9',
+    customerId: 'cust_1',
+    bookingDate: new Date('2026-10-26T00:00:00.000Z'),
+    startTime: '10:05:00',
+    branch: {
+      name: 'Marathahalli',
+      addressLine1: '42 Outer Ring Road',
+      addressLine2: null,
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      pincode: '560037',
+      phone: '+91 98765 43210',
+      googleMapsUrl: 'https://maps.app.goo.gl/marathahalli',
+    },
+    customerEmail: 'priya@x.test',
+    appointmentRemindersEnabled: true,
+  }
+
+  function setReminderTime(instant: string) {
     vi.useFakeTimers({ toFake: ['Date'] })
-    // 10:00 IST on 25/10; the appointment is 10:05 IST the next day.
-    vi.setSystemTime(new Date('2026-10-25T04:30:00.000Z'))
-    dbMocks.getUpcomingConfirmedBookings.mockResolvedValue([
-      {
-        id: 'bk_9',
-        bookingNumber: 'BK-MH-2610-H-12345',
-        customerId: 'cust_1',
-        bookingDate: new Date('2026-10-26T00:00:00.000Z'),
-        startTime: '10:05:00',
-        branchName: 'Marathahalli',
-        customerName: 'Priya',
-        customerEmail: 'priya@x.test',
-        appointmentRemindersEnabled: true,
-      },
-    ])
+    vi.setSystemTime(new Date(instant))
+  }
+
+  it.each([
+    ['2026-10-25T04:30:00.000Z', 'reminder_24h'],
+    ['2026-10-26T03:30:00.000Z', 'reminder_1h'],
+  ])('includes its own branch contact in each reminder (%s)', async (instant, type) => {
+    setReminderTime(instant)
+    dbMocks.getUpcomingConfirmedBookings.mockResolvedValue([confirmedBooking])
 
     const res = await remindersPOST(jobRequest())
 
     expect(await res.json()).toEqual({ success: true, processed: 1 })
-    expect(notificationFor('cust_1')).toMatchObject({ type: 'reminder_24h', bookingId: 'bk_9' })
-    expect(notificationFor('cust_1')?.body).toContain('Royal Glow Marathahalli')
+    expect(dbMocks.createAppointmentReminderNotification).toHaveBeenCalledWith({
+      id: `${type}:bk_9`,
+      type,
+      bookingId: 'bk_9',
+      userId: 'cust_1',
+      title: expect.any(String),
+      body: expect.stringMatching(/Royal Glow Marathahalli.*\+91 98765 43210/),
+    })
+    expect(dispatchMock).toHaveBeenCalledOnce()
+    const email = emailTo('priya@x.test')
+    expect(email?.html).toContain('Your appointment')
+    expect(email?.html).toContain('42 Outer Ring Road')
+    expect(email?.html).toContain('href="tel:+919876543210"')
+    expect(email?.html).toContain('href="https://maps.app.goo.gl/marathahalli"')
+    expect(email?.html).toContain('/bookings/bk_9')
+  })
+
+  it('does not send either channel for an opted-out customer or an already logged reminder', async () => {
+    setReminderTime('2026-10-25T04:30:00.000Z')
+    dbMocks.getUpcomingConfirmedBookings.mockResolvedValue([
+      { ...confirmedBooking, id: 'bk_opted_out', appointmentRemindersEnabled: false },
+      confirmedBooking,
+    ])
+    dbMocks.hasNotification.mockResolvedValueOnce(true)
+
+    const res = await remindersPOST(jobRequest())
+
+    expect(await res.json()).toEqual({ success: true, processed: 0 })
+    expect(dbMocks.hasNotification).toHaveBeenCalledExactlyOnceWith(
+      'cust_1',
+      'reminder_24h',
+      'bk_9',
+    )
+    expect(dbMocks.createAppointmentReminderNotification).not.toHaveBeenCalled()
+    expect(dispatchMock).not.toHaveBeenCalled()
+    expect(sendEmailMock).not.toHaveBeenCalled()
+  })
+
+  it('does not send either channel if another run already claimed the reminder', async () => {
+    setReminderTime('2026-10-25T04:30:00.000Z')
+    dbMocks.getUpcomingConfirmedBookings.mockResolvedValue([confirmedBooking])
+    dbMocks.createAppointmentReminderNotification.mockResolvedValueOnce(null)
+
+    const res = await remindersPOST(jobRequest())
+
+    expect(await res.json()).toEqual({ success: true, processed: 0 })
+    expect(dispatchMock).not.toHaveBeenCalled()
+    expect(sendEmailMock).not.toHaveBeenCalled()
   })
 
   it("the review request links the branch's own Google listing, escaped", async () => {

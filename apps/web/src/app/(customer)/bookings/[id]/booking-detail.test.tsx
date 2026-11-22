@@ -31,6 +31,12 @@ function booking(overrides: Record<string, unknown> = {}) {
     id: 'bk_1',
     bookingNumber: 'BK-RS-2611-H-12345',
     branchId: 'branch_rs',
+    branchContact: {
+      name: 'Rayasandra',
+      addressLine1: '1st Floor, Narmada Complex',
+      city: 'Bengaluru',
+      phone: '+91 63601 35720',
+    },
     status: 'confirmed',
     serviceType: 'salon',
     bookingDate: '2026-11-10T00:00:00.000Z',
@@ -87,6 +93,22 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers()
   cleanup()
+})
+
+it('shows the address and phone of the branch that owns the booking', async () => {
+  mockBooking(TERMS, {
+    branchId: 'branch_indiranagar',
+    branchContact: { name: 'Indiranagar', addressLine1: '100 Feet Road', phone: '98765 43210' },
+  })
+
+  await renderPage()
+
+  expect(screen.getByText('Indiranagar')).toBeInTheDocument()
+  expect(screen.getByText('100 Feet Road')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: '98765 43210' })).toHaveAttribute(
+    'href',
+    'tel:+919876543210',
+  )
 })
 
 describe('BookingDetail — cancelling', () => {

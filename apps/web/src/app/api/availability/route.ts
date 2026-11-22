@@ -24,7 +24,7 @@
  * - 30-minute slot grid across the branch's opening hours that day
  * - IST-aware past-date validation (VALIDATION_ERROR 400)
  * - Slots starting sooner than the branch's lead time are unavailable
- * - Response: { slots, closure: { name } | null, notice: string | null }
+ * - Response: { slots, businessHours, closure, notice }
  *
  * Tech Stack   : Next.js 16 (Route Handler)
  * Layer        : API (Thin Orchestrator)
@@ -52,6 +52,7 @@ import {
   isBranchBookable,
   openWindowOn,
   resolveDefaultBranch,
+  weekdayOf,
 } from '@rgss/business'
 import { getBranchById, getBranchPolicy, getClosureOn, getPublicBranches } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
@@ -113,17 +114,20 @@ export const GET = withErrorHandler(async (req: Request) => {
     actor: 'customer',
     branchName: policy.branchName,
   })
+  const window = openWindowOn(policy.businessHours, date)
+  const { open, close } = policy.businessHours[weekdayOf(date)]
   const slots = generateAvailability({
     date,
     now,
     holidays: closure ? [date] : [],
-    businessHours: notice === null ? openWindowOn(policy.businessHours, date) : null,
+    businessHours: notice === null ? window : null,
     leadTimeMinutes: policy.bookingRules.minAdvanceLeadTimeMinutes,
     ...(durationMinutes === undefined ? {} : { durationMinutes }),
   })
 
   return apiSuccess({
     slots,
+    businessHours: window && !closure ? { open, close } : null,
     closure: closure ? { name: closure.name } : null,
     notice,
   })

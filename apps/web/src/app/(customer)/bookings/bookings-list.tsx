@@ -53,6 +53,7 @@ interface BookingServiceRow {
 interface Booking {
   id: string
   bookingNumber: string
+  branchName: string
   status: string
   serviceType: 'salon' | 'spa'
   bookingDate: string
@@ -338,6 +339,7 @@ function BookingCard({
         </time>
         {' · '}
         {formatTime12h(booking.startTime)}
+        {booking.branchName && ` · ${booking.branchName}`}
       </p>
 
       <p className="font-sans text-[14px] text-warm-gray">

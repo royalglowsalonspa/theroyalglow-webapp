@@ -65,7 +65,12 @@ beforeEach(() => {
     status: 'confirmed',
     customerId: 'cust_1',
   })
-  dbMocks.cancelBooking.mockImplementation(async (id: string) => ({ id, status: 'cancelled' }))
+  dbMocks.cancelBooking.mockImplementation(async (id: string) => ({
+    id,
+    status: 'cancelled',
+    branchId: TEST_BRANCH.id,
+    customerId: 'cust_1',
+  }))
 })
 
 describe('POST /api/bookings/[id]/cancel (admin)', () => {
@@ -78,7 +83,12 @@ describe('POST /api/bookings/[id]/cancel (admin)', () => {
 
       expect(res.status).toBe(200)
       expect((await res.json()).data).toEqual({
-        booking: { id: BOOKING_ID, status: 'cancelled' },
+        booking: {
+          id: BOOKING_ID,
+          status: 'cancelled',
+          branchId: TEST_BRANCH.id,
+          customerId: 'cust_1',
+        },
       })
       expect(branchMocks.requireBranchRole).toHaveBeenCalledWith('receptionist')
       expect(dbMocks.getBookingForAdmin).toHaveBeenCalledWith(BOOKING_ID, TEST_BRANCH.id)

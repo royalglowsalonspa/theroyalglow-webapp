@@ -227,11 +227,7 @@ export async function getBranchByIdAdmin(id: string) {
 // layer and passed in as already-resolved values; this layer only persists them
 // atomically. The invoice number is the one exception: it comes from the
 // branch's counter inside the same batch (invoice-issue.ts). Status-transition
-// guards (e.g. approve/reject require `pending`, completion requires
-// `confirmed`/`in_progress`) are enforced by the route before these writers
-// run, and completion re-checks its own in SQL — the prior status is read here
-// to stamp the booking_status_log `fromStatus`, mirroring cancelBooking /
-// rescheduleBooking in queries/bookings.ts.
+// guards are checked by the routes and enforced in the booking write.
 //
 // neon-http has no interactive transactions (db.transaction throws), so each
 // multi-statement write uses db.batch() — a single atomic, server-side
@@ -288,8 +284,9 @@ async function runAssigning(
 // Approve a pending booking: set status → `confirmed` (+ confirmedAt), assign the
 // chosen staff member to every booking_service row, close any reassignment work,
 // and append a status-log entry capturing the prior → confirmed transition with
-// the acting user (Req 11.1, 11.4). Returns the updated booking, or null when the
-// booking does not exist; 409 when the person can't take it (runAssigning).
+// the acting user (Req 11.1, 11.4). Only the pending transition can commit, so a
+// concurrent approval cannot log or notify twice. Returns null when the
+// booking doesn't exist at this branch.
 export async function approveBooking(
   id: string,
   branchId: string,
@@ -297,7 +294,7 @@ export async function approveBooking(
   staffId: string,
 ) {
   const rows = await db
-    .select({ status: booking.status })
+    .select({ id: booking.id })
     .from(booking)
     .where(atBranch(id, branchId))
     .limit(1)
@@ -306,11 +303,15 @@ export async function approveBooking(
     return null
   }
 
-  const updateStmt = db
+  const update = db
     .update(booking)
     .set({ status: 'confirmed', confirmedAt: new Date() })
-    .where(atBranch(id, branchId))
-    .returning()
+    .where(and(atBranch(id, branchId), eq(booking.status, 'pending')))
+    .returning({ id: booking.id })
+  const updateStmt = db.execute(sql`
+    WITH moved AS (${update.getSQL()})
+    SELECT 1 / count(*)::int AS ok FROM moved
+  `)
 
   const assignStmt = db
     .update(bookingService)
@@ -319,21 +320,31 @@ export async function approveBooking(
 
   const logStmt = db.insert(bookingStatusLog).values({
     bookingId: id,
-    fromStatus: current.status,
+    fromStatus: 'pending',
     toStatus: 'confirmed',
     changedById,
     notes: 'Approved',
   })
 
-  const [updateResult] = await runAssigning(branchId, staffId, [
-    updateStmt,
-    assignStmt,
-    resolveReassignmentStatement(id, branchId, changedById),
-    logStmt,
-  ])
-  return ((updateResult as (typeof booking.$inferSelect)[])[0] ?? null) as
-    | typeof booking.$inferSelect
-    | null
+  const read = db.select().from(booking).where(atBranch(id, branchId))
+  try {
+    const results = await runAssigning(branchId, staffId, [
+      updateStmt,
+      assignStmt,
+      resolveReassignmentStatement(id, branchId, changedById),
+      logStmt,
+      read,
+    ])
+    return (results.at(-1) as (typeof booking.$inferSelect)[])[0] ?? null
+  } catch (error) {
+    if (isGuardAbort(error)) {
+      throw conflict(
+        ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION,
+        'This booking changed while you were approving it. Reload it to see where it stands.',
+      )
+    }
+    throw error
+  }
 }
 
 /**

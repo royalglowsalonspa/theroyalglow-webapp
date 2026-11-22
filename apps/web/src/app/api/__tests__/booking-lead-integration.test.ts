@@ -28,6 +28,7 @@
  *                Validates: Requirements 5.2, 9.1
  ************************************************************/
 
+import { ERROR_CODES } from '@rgss/errors'
 import { DEFAULT_BOOKING_RULES, DEFAULT_BUSINESS_HOURS } from '@rgss/types'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -336,5 +337,18 @@ describe('POST /api/leads — the branch an ad names (R7.3)', () => {
     expect(dbMocks.createLead).toHaveBeenCalledWith(
       expect.objectContaining({ branchId: 'branch_rs' }),
     )
+  })
+
+  it('refuses the enquiry when there is no eligible branch pipeline', async () => {
+    dbMocks.getPublicBranches.mockResolvedValue([])
+
+    const res = await leadsPOST(
+      jsonRequest('https://theroyalglow.in/api/leads', { name: 'Ravi', phone: '9876543210' }),
+      { params: Promise.resolve({}) } as never,
+    )
+
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ error: { code: ERROR_CODES.BRANCH_INACTIVE } })
+    expect(dbMocks.createLead).not.toHaveBeenCalled()
   })
 })

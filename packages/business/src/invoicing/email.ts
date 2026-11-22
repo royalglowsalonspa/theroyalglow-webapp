@@ -60,9 +60,10 @@ export interface InvoiceEmailData {
   gemsEarned: number
   paymentMethod: string
   issuedAt: Date
-  /** The branch as issued; older invoices name no issuer here. */
+  /** The branch as issued, or the branch record for a legacy invoice. */
   issuerName?: string | null
   issuerGstin?: string | null
+  issuerAddressLines?: readonly string[]
   /** Provisional rates: says it is a test invoice (TX-10). */
   provisional?: boolean
 }
@@ -151,8 +152,9 @@ export function buildInvoiceEmailHtml(data: InvoiceEmailData): { subject: string
     ? `${esc(data.issuerName)}${data.issuerGstin ? ` · GSTIN ${esc(data.issuerGstin)}` : ''}`
     : 'Royal Glow Salon &amp; Spa'
   const footerText = data.provisional
-    ? 'This is a test invoice: its tax rates are provisional and have not been reviewed.'
+    ? `${data.issuerName ? `${issuer}. ` : ''}This is a test invoice: its tax rates are provisional and have not been reviewed.`
     : `Issued by ${issuer}. Prices include GST.`
+  const issuerAddress = (data.issuerAddressLines ?? []).map((line) => `<br>${esc(line)}`).join('')
 
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -187,7 +189,7 @@ export function buildInvoiceEmailHtml(data: InvoiceEmailData): { subject: string
       ${gemsHtml}
 
       <p style="margin:24px 0 0;color:${MUTED};font-size:12px;line-height:1.5">
-        ${footerText} For any query, reply to this email or call your branch.
+        ${footerText} For any query, reply to this email or call your branch.${issuerAddress}
       </p>
     </div>
     <p style="text-align:center;color:${MUTED};font-size:11px;margin:16px 0 0">Royal Glow Salon &amp; Spa · Bengaluru</p>

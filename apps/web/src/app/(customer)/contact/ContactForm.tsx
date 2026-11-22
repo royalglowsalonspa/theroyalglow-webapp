@@ -64,7 +64,8 @@ const PHONE_RE = /^[6-9]\d{9}$/
 
 const LABEL_CLASS = 'mb-2 font-ui text-xs uppercase tracking-[0.5px] text-cocoa-dark'
 
-export function ContactForm() {
+export function ContactForm({ branches }: { branches: { id: string; name: string }[] }) {
+  const [branchId, setBranchId] = useState(branches.length === 1 ? (branches[0]?.id ?? '') : '')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -108,6 +109,7 @@ export function ContactForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          branchId: branchId || undefined,
           name: name.trim(),
           email: email.trim(),
           // Omit phone entirely when blank so the optional server field stays absent.
@@ -156,6 +158,29 @@ export function ContactForm() {
           className="rounded-[6px] border border-error/30 bg-error/10 px-4 py-3 font-ui text-sm text-error"
         >
           {submitError || 'Something went wrong. Please try again or call us directly.'}
+        </div>
+      )}
+
+      {branches.length > 1 && (
+        <div>
+          <Label htmlFor="contact-branch" className={LABEL_CLASS}>
+            Branch
+          </Label>
+          <select
+            id="contact-branch"
+            name="branchId"
+            value={branchId}
+            onChange={(event) => setBranchId(event.target.value)}
+            disabled={isSubmitting}
+            className="h-10 w-full rounded-md border border-cloud-gray bg-canvas-white px-3 font-sans text-sm text-cocoa-dark focus-visible:outline-gold-ink"
+          >
+            <option value="">General enquiry</option>
+            {branches.map(({ id, name }) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </select>
         </div>
       )}
 

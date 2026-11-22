@@ -31,7 +31,7 @@
  * - Notes are append-only; no edit or delete in current phase.
  ************************************************************/
 
-import { addLeadNote, getLeadById } from '@rgss/db/queries'
+import { addLeadNote } from '@rgss/db/queries'
 import { badRequest, notFound } from '@rgss/errors'
 import { addLeadNoteSchema } from '@rgss/types'
 import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
@@ -49,12 +49,10 @@ export const POST = withErrorHandler(
     }
     assertRenderedBranch(ctx, parsed.data.branchId)
 
-    // Notes go only on a lead in the active branch's pipeline (R2.3).
-    if (!(await getLeadById(id, ctx.branch.id))) {
+    const note = await addLeadNote(id, ctx.branch.id, ctx.session.user.id, parsed.data.content)
+    if (!note) {
       throw notFound('Lead not found.')
     }
-
-    const note = await addLeadNote(id, ctx.session.user.id, parsed.data.content)
 
     return apiSuccess({ note }, undefined, 201)
   },

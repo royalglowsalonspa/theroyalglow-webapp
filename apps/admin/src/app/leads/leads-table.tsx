@@ -338,7 +338,16 @@ export function LeadsTable() {
         }}
         title={activeLead?.name ?? 'Lead detail'}
       >
-        {activeLeadId ? <LeadDetail leadId={activeLeadId} embedded /> : null}
+        {activeLeadId ? (
+          <LeadDetail
+            leadId={activeLeadId}
+            embedded
+            onMoved={() => {
+              setActiveLeadId(null)
+              retry()
+            }}
+          />
+        ) : null}
       </SlideOverPanel>
 
       {dialogOpen && state.status === 'success' ? (

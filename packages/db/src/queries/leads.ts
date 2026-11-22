@@ -32,12 +32,16 @@
  *                completes a booking after the lead was captured.
  ************************************************************/
 
-import { and, asc, desc, eq } from 'drizzle-orm'
+import { TRANSFERABLE_LEAD_STATUSES } from '@rgss/types'
+import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm'
+import { nanoid } from 'nanoid'
 import { db } from '../index'
 import { user } from '../schema/auth'
 import { booking } from '../schema/booking'
+import { branch } from '../schema/branch'
 import { lead, leadNote } from '../schema/lead'
 import { service, serviceCategory } from '../schema/service'
+import { auditLog } from '../schema/system'
 
 type LeadStatus = (typeof lead.$inferSelect)['status']
 
@@ -97,8 +101,8 @@ export async function getLeadById(id: string, branchId: string) {
   }
 }
 
-// A lead's notes, newest first, each with its author name.
-export async function getLeadNotes(leadId: string) {
+// A lead's notes at its branch, newest first, each with its author name.
+export async function getLeadNotes(leadId: string, branchId: string) {
   return db
     .select({
       id: leadNote.id,
@@ -109,8 +113,9 @@ export async function getLeadNotes(leadId: string) {
       createdAt: leadNote.createdAt,
     })
     .from(leadNote)
+    .innerJoin(lead, eq(leadNote.leadId, lead.id))
     .innerJoin(user, eq(leadNote.authorId, user.id))
-    .where(eq(leadNote.leadId, leadId))
+    .where(leadAt(leadId, branchId))
     .orderBy(desc(leadNote.createdAt))
 }
 
@@ -141,18 +146,102 @@ export async function getLeadsForPipeline(branchId: string, filters: LeadPipelin
 
 // Update the mutable fields (status, lastContactedAt, convertedBookingId,
 // assignedTo) of a lead in the branch's pipeline and return the updated row, or
-// null when the branch has no such lead.
-export async function updateLead(id: string, branchId: string, patch: LeadPatch) {
-  const [updated] = await db.update(lead).set(patch).where(leadAt(id, branchId)).returning()
+// null when the lead moved or its status changed since validation.
+export async function updateLead(
+  id: string,
+  branchId: string,
+  expectedStatus: LeadStatus,
+  patch: LeadPatch,
+) {
+  const [updated] = await db
+    .update(lead)
+    .set(patch)
+    .where(and(leadAt(id, branchId), eq(lead.status, expectedStatus)))
+    .returning()
 
   return updated ?? null
 }
 
-// Add a note to a lead and return it. The id auto-defaults in schema.
-export async function addLeadNote(leadId: string, authorId: string, content: string) {
-  const [created] = await db.insert(leadNote).values({ leadId, authorId, content }).returning()
+// Lock the lead while adding a note so a concurrent move cannot send the
+// note to the destination after the source has lost access to the lead.
+export async function addLeadNote(
+  leadId: string,
+  branchId: string,
+  authorId: string,
+  content: string,
+) {
+  const source = db
+    .select({
+      id: sql<string>`${nanoid()}::text`.as('id'),
+      leadId: lead.id,
+      authorId: sql<string>`${authorId}::text`.as('author_id'),
+      content: sql<string>`${content}::text`.as('content'),
+      createdAt: sql<Date>`now()`.as('created_at'),
+    })
+    .from(lead)
+    .where(leadAt(leadId, branchId))
+    .for('update')
+  const [created] = await db.insert(leadNote).select(source).returning()
 
-  return created as typeof leadNote.$inferSelect
+  return created ?? null
+}
+
+type MoveLeadResult =
+  | { ok: true; destination: { id: string; name: string } }
+  | { ok: false; reason: 'not_found' | 'destination_unavailable' | 'status_conflict' }
+
+/** Move an open lead and audit it in one statement. Its notes follow its ID. */
+export async function moveLead({
+  id,
+  branchId,
+  toBranchId,
+  actorId,
+}: {
+  id: string
+  branchId: string
+  toBranchId: string
+  actorId: string
+}): Promise<MoveLeadResult> {
+  const result = await db.execute<{
+    lead_found: boolean
+    destination_found: boolean
+    destination_id: string | null
+    destination_name: string | null
+  }>(sql`
+    with source_lead as (
+      select ${lead.id} from ${lead} where ${leadAt(id, branchId)} for update
+    ), destination as (
+      select ${branch.id}, ${branch.name} from ${branch}
+      where ${and(eq(branch.id, toBranchId), ne(branch.id, branchId), ne(branch.status, 'shutdown'))}
+      for share
+    ), moved as (
+      update ${lead}
+      set branch_id = destination.id, assigned_to = null, updated_at = now()
+      from source_lead, destination
+      where ${lead.id} = source_lead.id
+        and ${inArray(lead.status, TRANSFERABLE_LEAD_STATUSES)}
+      returning ${lead.id}, destination.id as destination_id, destination.name as destination_name
+    ), audited as (
+      insert into ${auditLog}
+        (id, actor_id, action, entity_type, entity_id, branch_id, old_values, new_values)
+      select ${nanoid()}, ${actorId}, 'update', 'lead', moved.id, ${branchId},
+        jsonb_build_object('branchId', ${branchId}::text),
+        jsonb_build_object('branchId', moved.destination_id, 'assignedTo', null)
+      from moved
+    )
+    select exists(select 1 from source_lead) as lead_found,
+      exists(select 1 from destination) as destination_found,
+      moved.destination_id, moved.destination_name
+    from (select 1) as result left join moved on true
+  `)
+  const row = result.rows[0]
+  if (!row?.lead_found) return { ok: false, reason: 'not_found' }
+  if (!row.destination_found) return { ok: false, reason: 'destination_unavailable' }
+  if (row.destination_id === null || row.destination_name === null) {
+    return { ok: false, reason: 'status_conflict' }
+  }
+
+  return { ok: true, destination: { id: row.destination_id, name: row.destination_name } }
 }
 
 // Active services with their owning category's service_type, for the /book

@@ -575,6 +575,34 @@ describe('BookingDialog focus', () => {
 })
 
 describe('BookingDialog closed days (multi-branch R1.8)', () => {
+  it('shows the selected branch’s hours, then replaces them with the new branch’s closure', async () => {
+    mockApi(
+      http.get('*/api/availability', ({ request }) => {
+        const branchId = new URL(request.url).searchParams.get('branchId')
+        return HttpResponse.json({
+          success: true,
+          data:
+            branchId === 'branch_indiranagar'
+              ? { slots: [], closure: { name: 'Maintenance' }, businessHours: null }
+              : { ...slots(), businessHours: { open: '10:00', close: '21:00' } },
+        })
+      }),
+    )
+
+    renderDialog()
+    const picker = await findBranchPicker()
+    fireEvent.click(dateButtons()[0] as HTMLElement)
+
+    const rayasandraHours = 'Branch hours 10:00 AM – 09:00 PM IST'
+    expect(await screen.findByText(rayasandraHours, {}, LOAD)).toBeInTheDocument()
+
+    fireEvent.change(picker, { target: { value: 'branch_indiranagar' } })
+    expect(screen.queryByText(rayasandraHours)).not.toBeInTheDocument()
+    expect(
+      await screen.findByText(/closed on this day \(Maintenance\)/, {}, LOAD),
+    ).toBeInTheDocument()
+  })
+
   it('says the day is closed, and why, instead of offering times', async () => {
     mockApi(
       http.get('*/api/availability', () =>

@@ -41,7 +41,7 @@ const mockState = vi.hoisted(() => ({
 }))
 
 // Fake the db client so the real query function runs with zero I/O. The builder
-// only needs the from → where → orderBy chain that `getBookingsByCustomer` uses;
+// only needs the from → join → where → orderBy chain that the booking query uses;
 // orderBy is the terminal that resolves to the (predicate-filtered) seed rows.
 vi.mock('../index', () => ({
   db: {
@@ -51,6 +51,11 @@ vi.mock('../index', () => ({
       const builder = {
         from(t: unknown) {
           table = t
+          return builder
+        },
+        innerJoin(joined: unknown, condition: unknown) {
+          expect(joined).toBe(branch)
+          expect(condition).toEqual({ kind: 'eq', col: booking.branchId, val: branch.id })
           return builder
         },
         where(p: unknown) {
@@ -81,6 +86,7 @@ vi.mock('drizzle-orm', async (importOriginal) => {
 })
 
 import { booking, bookingService } from '../schema/booking'
+import { branch } from '../schema/branch'
 import { getBookingsByCustomer } from './bookings'
 
 // Map real schema column objects → the camelCase row keys the function reads.

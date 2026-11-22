@@ -31,12 +31,7 @@
  *                caller's response is unchanged.
  ************************************************************/
 
-import {
-  branchAddressLines,
-  buildNotificationContent,
-  formatCalendarDateIN,
-  telHref,
-} from '@rgss/business'
+import { buildNotificationContent, formatCalendarDateIN } from '@rgss/business'
 import {
   createNotification,
   getBranchById,
@@ -44,8 +39,8 @@ import {
   hasNotification,
 } from '@rgss/db/queries'
 import { createLogger } from '@rgss/logger'
+import { bookingEmailHtml } from './booking-email'
 import { dispatchNotification } from './dispatch'
-import { escapeHtml, httpsUrlOrNull } from './html'
 import { sendEmail } from './providers/email'
 
 const logger = createLogger({
@@ -78,48 +73,6 @@ const ONCE: ReadonlySet<BookingChangeType> = new Set([
   'booking_rejected',
   'booking_cancelled',
 ])
-
-type BranchRow = NonNullable<Awaited<ReturnType<typeof getBranchById>>>
-
-/** The email: the message, the branch's details and a link to the booking. */
-export function bookingChangeEmailHtml(params: {
-  title: string
-  body: string
-  branch: Pick<
-    BranchRow,
-    'name' | 'addressLine1' | 'addressLine2' | 'city' | 'state' | 'pincode' | 'phone'
-  > & { googleMapsUrl: string | null }
-  bookingUrl: string
-}): string {
-  const { branch } = params
-  const lines = branchAddressLines(branch)
-    .map((line) => `<br>${escapeHtml(line)}`)
-    .join('')
-  const tel = telHref(branch.phone)
-  const phone = tel
-    ? `<p style="margin:8px 0 0;font-size:14px"><a href="${escapeHtml(tel)}" style="color:#8a6a2f">${escapeHtml(branch.phone)}</a></p>`
-    : ''
-  const maps = httpsUrlOrNull(branch.googleMapsUrl)
-  const directions = maps
-    ? `<p style="margin:4px 0 0;font-size:14px"><a href="${escapeHtml(maps)}" style="color:#8a6a2f">Get directions</a></p>`
-    : ''
-
-  return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;background:#faf7f2;font-family:Helvetica,Arial,sans-serif">
-  <div style="max-width:560px;margin:0 auto;padding:24px">
-    <div style="background:#ffffff;border:1px solid #ece7df;border-radius:12px;padding:28px">
-      <h1 style="margin:0 0 12px;color:#1a0f0a;font-size:20px">${escapeHtml(params.title)}</h1>
-      <p style="margin:0 0 16px;color:#5b5249;font-size:15px;line-height:1.55">${escapeHtml(params.body)}</p>
-      <div style="padding:12px 16px;background:#faf7f2;border-radius:8px">
-        <p style="margin:0;color:#1a0f0a;font-size:14px;line-height:1.55"><strong>Royal Glow ${escapeHtml(branch.name)}</strong>${lines}</p>
-        ${phone}${directions}
-      </div>
-      <p style="margin:20px 0 0;font-size:14px"><a href="${escapeHtml(params.bookingUrl)}" style="color:#8a6a2f">View your booking</a></p>
-    </div>
-  </div>
-</body></html>`
-}
 
 /**
  * Tell the customer about the salon's change to their booking. Never throws.
@@ -173,7 +126,7 @@ export async function notifyBookingChange(params: {
       await sendEmail({
         to: contact.email,
         subject: title,
-        html: bookingChangeEmailHtml({
+        html: bookingEmailHtml({
           title,
           body,
           branch,

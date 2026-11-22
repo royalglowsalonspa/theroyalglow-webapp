@@ -556,8 +556,19 @@ screen may follow by 31 January 2027.
   panel show only what the branch offers. Live suite
   `catalogue-availability.integration.test.ts` (6); admin E2E
   `catalogue-availability.spec.ts`.*
-- [ ] Update public hours/holidays, contact/footer, booking notifications, leads,
+- [x] Update public hours/holidays, contact/footer, booking notifications, leads,
   privacy copy and branch-specific reports/jobs (R3/R4/R7).
+  *22/11 ([implementation notes](customer-flows.md)): The website reads the
+  branch directory with a short cache and a Rayasandra fallback. Contact lists
+  branch hours and upcoming closures and routes enquiries to the selected
+  branch. The booking flow shows the selected day's hours, and booking views
+  show the appointment location. Reception can move an open lead to another
+  branch in one audited write that keeps the notes and clears the assignee.
+  Lead and report views use the existing authorized branch switcher. Booking
+  change and reminder emails use branch contact details. Invoice emails use
+  the recorded issuer details and include the PDF when available. The
+  privacy policy and onboarding already explain data sharing across
+  branches. Launch verification remains in §7.*
 
 ## 7. Verify, rehearse and prepare launch
 

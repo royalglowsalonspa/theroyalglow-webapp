@@ -39,6 +39,7 @@ const indianPhone = z
 
 export const LEAD_STATUSES = ['new', 'contacted', 'follow_up', 'booked', 'won', 'lost'] as const
 export type LeadStatus = (typeof LEAD_STATUSES)[number]
+export const TRANSFERABLE_LEAD_STATUSES = ['new', 'contacted', 'follow_up'] as const
 
 export const createLeadSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -81,3 +82,8 @@ export const addLeadNoteSchema = z.object({
   content: z.string().trim().min(1).max(1000),
 })
 export type AddLeadNoteInput = z.infer<typeof addLeadNoteSchema>
+
+export const moveLeadSchema = z.object({
+  branchId: renderedBranchIdSchema,
+  toBranchId: renderedBranchIdSchema,
+})

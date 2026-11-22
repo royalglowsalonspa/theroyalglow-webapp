@@ -32,9 +32,9 @@
  ************************************************************/
 
 import { assertLeadTransition } from '@rgss/business'
-import { getLeadById, getLeadNotes, updateLead } from '@rgss/db/queries'
-import { badRequest, notFound } from '@rgss/errors'
-import { updateLeadStatusSchema } from '@rgss/types'
+import { getLeadById, getLeadNotes, getPublicBranches, updateLead } from '@rgss/db/queries'
+import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
+import { TRANSFERABLE_LEAD_STATUSES, updateLeadStatusSchema } from '@rgss/types'
 import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 
@@ -49,9 +49,17 @@ export const GET = withErrorHandler(
       throw notFound('Lead not found.')
     }
 
-    const notes = await getLeadNotes(id)
+    const [notes, branches] = await Promise.all([
+      getLeadNotes(id, ctx.branch.id),
+      TRANSFERABLE_LEAD_STATUSES.some((status) => status === lead.status)
+        ? getPublicBranches()
+        : [],
+    ])
+    const destinations = branches
+      .filter(({ id, status }) => id !== ctx.branch.id && status !== 'shutdown')
+      .map(({ id, name }) => ({ id, name }))
 
-    return apiSuccess({ lead, notes })
+    return apiSuccess({ lead, notes, destinations })
   },
 )
 
@@ -82,7 +90,10 @@ export const PATCH = withErrorHandler(
       patch.lastContactedAt = new Date()
     }
 
-    const updated = await updateLead(id, branchId, patch)
+    const updated = await updateLead(id, branchId, existing.status, patch)
+    if (!updated) {
+      throw conflict(ERROR_CODES.CONFLICT, 'This lead changed. Reload before updating its status.')
+    }
 
     return apiSuccess({ lead: updated })
   },

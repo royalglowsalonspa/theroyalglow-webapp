@@ -30,12 +30,9 @@ export type LoadedInvoice = NonNullable<Awaited<ReturnType<typeof getInvoiceForP
 // The one code invoices issued before per-line classification printed.
 const LEGACY_SAC_CODE = '999721'
 
-// Map the loaded invoice into the fully-computed render contract. Everything
-// comes from what the invoice stored when it was issued (TX-05): its number,
-// tax point, issuer snapshot, amounts, CGST/SGST and each line's SAC code and
-// rate. Nothing is recalculated from today's branch or tax settings.
-export function buildPdfPayload(loaded: LoadedInvoice): InvoicePdfPayload {
-  const { invoice: inv, items, branch, customer, bookingNumber } = loaded
+/** Issuer details shared by the invoice PDF and its email. */
+export function getInvoiceSeller(loaded: LoadedInvoice): InvoicePdfPayload['seller'] {
+  const { invoice: inv, branch } = loaded
   const snapshotted = inv.taxPointAt !== null
 
   // The issuer as issued; an invoice from before the snapshot uses the branch.
@@ -49,6 +46,26 @@ export function buildPdfPayload(loaded: LoadedInvoice): InvoicePdfPayload {
         ]
   ).filter((line): line is string => Boolean(line?.trim()))
 
+  return {
+    name: (snapshotted ? inv.issuerName : null) ?? branch.name,
+    legalName: snapshotted ? (inv.issuerLegalName ?? undefined) : undefined,
+    addressLines,
+    gstin: (snapshotted ? inv.issuerGstin : null) ?? undefined,
+    phone: branch.phone ?? undefined,
+    email: branch.email ?? undefined,
+    // Older invoices carried one code for everything; newer ones per line.
+    sacCode: snapshotted ? undefined : LEGACY_SAC_CODE,
+  }
+}
+
+// Map the loaded invoice into the fully-computed render contract. Everything
+// comes from what the invoice stored when it was issued (TX-05): its number,
+// tax point, issuer snapshot, amounts, CGST/SGST and each line's SAC code and
+// rate. Nothing is recalculated from today's branch or tax settings.
+export function buildPdfPayload(loaded: LoadedInvoice): InvoicePdfPayload {
+  const { invoice: inv, items, customer, bookingNumber } = loaded
+  const snapshotted = inv.taxPointAt !== null
+
   // Stored halves when the invoice has them; the even split older invoices used.
   const cgstPaise = inv.cgstPaise ?? Math.floor(inv.gstAmountPaise / 2)
   const sgstPaise = inv.sgstPaise ?? inv.gstAmountPaise - cgstPaise
@@ -61,16 +78,7 @@ export function buildPdfPayload(loaded: LoadedInvoice): InvoicePdfPayload {
     bookingNumber: bookingNumber ?? undefined,
     taxReviewStatus: inv.taxReviewStatus ?? undefined,
     invoiceType: inv.invoiceType,
-    seller: {
-      name: (snapshotted ? inv.issuerName : null) ?? branch.name,
-      legalName: snapshotted ? (inv.issuerLegalName ?? undefined) : undefined,
-      addressLines,
-      gstin: (snapshotted ? inv.issuerGstin : null) ?? undefined,
-      phone: branch.phone ?? undefined,
-      email: branch.email ?? undefined,
-      // Older invoices carried one code for everything; newer ones per line.
-      sacCode: snapshotted ? undefined : LEGACY_SAC_CODE,
-    },
+    seller: getInvoiceSeller(loaded),
     customer: {
       name: customer.name,
       email: customer.email ?? undefined,

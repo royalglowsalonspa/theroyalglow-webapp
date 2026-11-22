@@ -106,12 +106,12 @@ export function buildNotificationContent(
     case 'reminder_24h':
       return {
         title: `Reminder: Tomorrow at ${time}`,
-        body: `${serviceName} at ${place}. We're looking forward to seeing you!`,
+        body: `${data.serviceName ?? 'Your appointment'} at ${place}. We're looking forward to seeing you!`,
       }
     case 'reminder_1h':
       return {
         title: 'Almost time! 1 hour to go',
-        body: `Your ${serviceName} appointment is at ${time}. See you soon at ${place}.`,
+        body: `Your ${data.serviceName ? `${data.serviceName} ` : ''}appointment is at ${time}. See you soon at ${place}.`,
       }
     // The salon's changes to a booking name the branch it is at (R7.2).
     case 'booking_confirmed':

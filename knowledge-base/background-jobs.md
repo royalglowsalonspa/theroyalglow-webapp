@@ -301,12 +301,12 @@ Unspent = earned − active allocations + earlier expiries (`loyalty_batch_unspe
 | **Endpoint** | `POST /api/jobs/appointment-reminders` |
 | **Heartbeat** | `BETTER_STACK_HEARTBEAT_REMINDERS` |
 
-**What it does:** Finds `confirmed` bookings starting in exactly the next 24h window or 1h window with no matching `notification` row already sent for `reminder_24h` / `reminder_1h`. Fires push notification (web-push) + email (Resend) to the customer, then writes a `notification` log row for idempotency.
+**What it does:** Finds `confirmed` bookings in the 24h or 1h reminder window. It logs each reminder in `notification` before dispatch, so overlapping runs and retries skip it. The push and in-app reminder identify the booking's branch and its phone when available. The email includes the branch address, directions when available, and a link to the booking.
 
 **Customer experience:**
 - Booking at Wednesday 4:00 PM
-- **Tuesday 4:00 PM:** "Your appointment at Royal Glow is tomorrow at 16:00" — push + email
-- **Wednesday 3:00 PM:** "Your appointment at Royal Glow starts in 1 hour" — push + email
+- **Tuesday 4:00 PM:** Reminder that the appointment at Royal Glow Marathahalli is tomorrow.
+- **Wednesday 3:00 PM:** Reminder that the appointment at Royal Glow Marathahalli is in one hour.
 
 Only sends if `appointment_reminders_enabled = true` on the customer profile.
 

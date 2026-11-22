@@ -372,22 +372,28 @@ export async function buildMonthlyGstSummary(monthKey: string) {
 // 2. QStash data reads (the DB side of the 12 job routes)
 // ============================================================================
 
-// Job 8 — confirmed bookings on or after today (IST), each with the customer's
-// name/email and their appointment-reminder preference. The route computes each
-// booking's start instant from bookingDate + startTime, classifies it via
+// Job 8 — confirmed bookings on or after today (IST), each with the branch's
+// contact details, the customer's email and their reminder preference. The
+// route computes the start instant from bookingDate + startTime, classifies it via
 // reminderWindowMatch (24h/1h), de-dupes via hasNotification, and sends.
 export async function getUpcomingConfirmedBookings(now: Date = new Date()) {
   const today = new Date(`${istDateString(now)}T00:00:00.000Z`)
   return db
     .select({
       id: booking.id,
-      bookingNumber: booking.bookingNumber,
       customerId: booking.customerId,
       bookingDate: booking.bookingDate,
       startTime: booking.startTime,
-      // The reminder names the branch (multi-branch R7.2).
-      branchName: branch.name,
-      customerName: user.name,
+      branch: {
+        name: branch.name,
+        addressLine1: branch.addressLine1,
+        addressLine2: branch.addressLine2,
+        city: branch.city,
+        state: branch.state,
+        pincode: branch.pincode,
+        phone: branch.phone,
+        googleMapsUrl: branch.googleMapsUrl,
+      },
       customerEmail: user.email,
       appointmentRemindersEnabled: customerProfile.appointmentRemindersEnabled,
     })

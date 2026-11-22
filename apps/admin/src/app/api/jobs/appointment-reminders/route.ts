@@ -11,7 +11,7 @@
  *
  * Responsibilities :
  * - Find confirmed bookings entering 24h or 1h reminder windows
- * - Send push notifications respecting customer preferences
+ * - Send push and email reminders respecting customer preferences
  * - Maintain idempotency via notification deduplication rows
  *
  * Features / Functionality :
@@ -30,12 +30,23 @@
  * - Does NOT use withErrorHandler; 500 triggers QStash retry.
  ************************************************************/
 
-import { buildNotificationContent, reminderWindowMatch } from '@rgss/business'
-import { createNotification, getUpcomingConfirmedBookings, hasNotification } from '@rgss/db/queries'
+import {
+  buildNotificationContent,
+  reminderDedupeKey,
+  reminderWindowMatch,
+  telHref,
+} from '@rgss/business'
+import {
+  createAppointmentReminderNotification,
+  getUpcomingConfirmedBookings,
+  hasNotification,
+} from '@rgss/db/queries'
 import { createLogger } from '@rgss/logger'
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
+import { bookingEmailHtml } from '@/lib/notifications/booking-email'
 import { dispatchNotification } from '@/lib/notifications/dispatch'
+import { sendEmail } from '@/lib/notifications/providers/email'
 
 // Job 8 — Appointment Reminders (QStash scheduled, every 15 min 8am–10pm IST).
 //
@@ -51,6 +62,8 @@ import { dispatchNotification } from '@/lib/notifications/dispatch'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
+
+const WEB_ORIGIN = process.env.NEXT_PUBLIC_WEB_ORIGIN ?? 'https://theroyalglow.in'
 
 const logger = createLogger({
   service: 'admin:jobs:appointment-reminders',
@@ -94,26 +107,28 @@ export const POST = async (req: Request) => {
 
       const type = window === '24h' ? 'reminder_24h' : 'reminder_1h'
 
-      // Idempotency: a matching row for this booking + reminder type suppresses
-      // any later re-send (Property 6).
+      // Recognize reminders logged before claims began using a stable ID.
       if (await hasNotification(bk.customerId, type, bk.id)) {
         continue
       }
 
-      // Names the branch the appointment is at (multi-branch R7.2).
       const { title, body } = buildNotificationContent(type, {
         time: bk.startTime.slice(0, 5),
-        branchName: bk.branchName,
+        branchName: bk.branch.name,
       })
+      const phone = telHref(bk.branch.phone) ? ` Call ${bk.branch.phone.trim()}.` : ''
 
-      const created = await createNotification({
+      const created = await createAppointmentReminderNotification({
+        id: reminderDedupeKey(bk.id, window),
         userId: bk.customerId,
         type,
         title,
-        body,
-        channel: 'push',
+        body: `${body}${phone}`,
         bookingId: bk.id,
       })
+      if (!created) {
+        continue
+      }
 
       await dispatchNotification({
         id: created.id,
@@ -123,6 +138,19 @@ export const POST = async (req: Request) => {
         title: created.title,
         body: created.body,
       })
+
+      if (bk.customerEmail) {
+        await sendEmail({
+          to: bk.customerEmail,
+          subject: title,
+          html: bookingEmailHtml({
+            title,
+            body,
+            branch: bk.branch,
+            bookingUrl: `${WEB_ORIGIN}/bookings/${encodeURIComponent(bk.id)}`,
+          }),
+        })
+      }
 
       processed += 1
     }

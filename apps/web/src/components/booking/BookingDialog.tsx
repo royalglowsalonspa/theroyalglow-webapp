@@ -192,6 +192,11 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
   const [slots, setSlots] = useState<AvailabilitySlot[]>([])
   const [slotsLoading, setSlotsLoading] = useState(false)
   const [slotsError, setSlotsError] = useState<string | null>(null)
+  const [dayHours, setDayHours] = useState<{
+    date: string
+    branchId: string
+    label: string
+  } | null>(null)
   // Why the chosen day is closed (a holiday or one-off closure), if it is.
   const [slotsClosure, setSlotsClosure] = useState<string | null>(null)
   // Why the branch takes no bookings that day under its settings (a weekday
@@ -385,7 +390,8 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
     setSlotsClosure(null)
     setSlotsNotice(null)
     setSlots([])
-    const query = new URLSearchParams({ date: toISODate(selectedDate), branchId: activeBranchId })
+    const date = toISODate(selectedDate)
+    const query = new URLSearchParams({ date, branchId: activeBranchId })
     fetch(`/api/availability?${query}`)
       .then(async (res) => {
         const json = await res.json().catch(() => null)
@@ -394,10 +400,16 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
         }
         const closureName: unknown = json.data.closure?.name
         const notice: unknown = json.data.notice
+        const open: unknown = json.data.businessHours?.open
+        const close: unknown = json.data.businessHours?.close
         return {
           slots: json.data.slots as AvailabilitySlot[],
           closure: typeof closureName === 'string' ? closureName : null,
           notice: typeof notice === 'string' ? notice : null,
+          hours:
+            typeof open === 'string' && typeof close === 'string'
+              ? `${formatTime12h(open)} – ${formatTime12h(close)}`
+              : null,
         }
       })
       .then((result) => {
@@ -405,6 +417,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
           setSlots(result.slots)
           setSlotsClosure(result.closure)
           setSlotsNotice(result.notice)
+          setDayHours(result.hours ? { date, branchId: activeBranchId, label: result.hours } : null)
         }
       })
       .catch((err: unknown) => {
@@ -433,6 +446,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
     setSlotsError(null)
     setSlotsClosure(null)
     setSlotsNotice(null)
+    setDayHours(null)
     setSubmitError(null)
     setSubmitting(false)
     setIsSubmitted(false)
@@ -707,6 +721,13 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
               slotsError={slotsError}
               slotsClosure={slotsClosure}
               slotsNotice={slotsNotice}
+              hours={
+                selectedDate &&
+                dayHours?.branchId === activeBranchId &&
+                dayHours.date === toISODate(selectedDate)
+                  ? dayHours.label
+                  : null
+              }
               onSelectDate={(d) => {
                 setSelectedDate(d)
                 setSelectedTime(null)
@@ -912,6 +933,7 @@ function Step1({
   slotsError,
   slotsClosure,
   slotsNotice,
+  hours,
   onSelectDate,
   onSelectTime,
 }: {
@@ -929,6 +951,7 @@ function Step1({
   slotsClosure: string | null
   /** Why the branch takes no bookings that day under its settings, if so. */
   slotsNotice: string | null
+  hours: string | null
   onSelectDate: (d: Date) => void
   onSelectTime: (t: string) => void
 }) {
@@ -988,6 +1011,9 @@ function Step1({
         <h3 className="font-ui text-[11px] uppercase tracking-[2px] text-gold-ink mb-3">
           Select Time
         </h3>
+        {hours && !slotsLoading && !slotsError && !slotsClosure && (
+          <p className="mb-3 font-sans text-[14px] text-dusty-gray">Branch hours {hours} IST</p>
+        )}
 
         {!selectedDate ? (
           <p className="font-sans text-[14px] text-dusty-gray">

@@ -15,6 +15,7 @@
  ************************************************************/
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { SendEmailParams } from './providers/email'
 
 const dbMocks = vi.hoisted(() => ({
   hasNotification: vi.fn(async () => false),
@@ -23,13 +24,14 @@ const dbMocks = vi.hoisted(() => ({
   getUserContact: vi.fn(),
 }))
 const dispatchMock = vi.hoisted(() => vi.fn(async () => undefined))
-const sendEmailMock = vi.hoisted(() => vi.fn(async () => true))
+const sendEmailMock = vi.hoisted(() => vi.fn(async (_params: SendEmailParams) => true))
 
 vi.mock('@rgss/db/queries', () => dbMocks)
 vi.mock('./dispatch', () => ({ dispatchNotification: dispatchMock }))
 vi.mock('./providers/email', () => ({ sendEmail: sendEmailMock }))
 
-import { bookingChangeEmailHtml, notifyBookingChange } from './booking-change'
+import { notifyBookingChange } from './booking-change'
+import { bookingEmailHtml } from './booking-email'
 
 const BRANCH = {
   id: 'branch_rs',
@@ -87,19 +89,16 @@ describe('notifyBookingChange', () => {
     })
 
     expect(sendEmailMock).toHaveBeenCalledTimes(1)
-    const email = sendEmailMock.mock.calls[0]?.[0] as unknown as {
-      to: string
-      subject: string
-      html: string
-    }
-    expect(email.to).toBe('asha@example.com')
-    expect(email.subject).toBe('Booking Confirmed! ✓')
-    expect(email.html).toContain(body)
-    expect(email.html).toContain('<strong>Royal Glow Rayasandra</strong>')
-    expect(email.html).toContain('<br>Bengaluru, Karnataka 560100')
-    expect(email.html).toContain('href="tel:+916360135720"')
-    expect(email.html).toContain('href="https://maps.app.goo.gl/royalglow"')
-    expect(email.html).toContain('href="https://theroyalglow.in/bookings/bk_1"')
+    const email = sendEmailMock.mock.calls[0]?.[0]
+    expect(email).toBeDefined()
+    expect(email?.to).toBe('asha@example.com')
+    expect(email?.subject).toBe('Booking Confirmed! ✓')
+    expect(email?.html).toContain(body)
+    expect(email?.html).toContain('<strong>Royal Glow Rayasandra</strong>')
+    expect(email?.html).toContain('<br>Bengaluru, Karnataka 560100')
+    expect(email?.html).toContain('href="tel:+916360135720"')
+    expect(email?.html).toContain('href="https://maps.app.goo.gl/royalglow"')
+    expect(email?.html).toContain('href="https://theroyalglow.in/bookings/bk_1"')
   })
 
   it('sends a confirmation, rejection or cancellation once per booking', async () => {
@@ -138,9 +137,9 @@ describe('notifyBookingChange', () => {
         body: 'Your appointment at Royal Glow Rayasandra on 05/11/2026 has been cancelled. Reason: Branch closed <today>. We hope to see you again soon.',
       }),
     )
-    const email = sendEmailMock.mock.calls[0]?.[0] as unknown as { html: string }
-    expect(email.html).toContain('Branch closed &lt;today&gt;.')
-    expect(email.html).not.toContain('<today>')
+    const email = sendEmailMock.mock.calls[0]?.[0]
+    expect(email?.html).toContain('Branch closed &lt;today&gt;.')
+    expect(email?.html).not.toContain('<today>')
   })
 
   it('still sends the push without an email address', async () => {
@@ -161,9 +160,9 @@ describe('notifyBookingChange', () => {
   })
 })
 
-describe('bookingChangeEmailHtml', () => {
+describe('bookingEmailHtml', () => {
   it('escapes the branch details and leaves out a link that isn’t https', () => {
-    const html = bookingChangeEmailHtml({
+    const html = bookingEmailHtml({
       title: 'Booking Confirmed! ✓',
       body: 'See you soon!',
       branch: {

@@ -66,6 +66,22 @@ export async function createNotification(params: CreateNotificationParams) {
   return created as typeof notification.$inferSelect
 }
 
+/** Claim a reminder before sending either channel, even if two runs overlap. */
+export async function createAppointmentReminderNotification(
+  params: Omit<CreateNotificationParams, 'type' | 'channel' | 'bookingId'> & {
+    id: string
+    type: 'reminder_24h' | 'reminder_1h'
+    bookingId: string
+  },
+) {
+  const [created] = await db
+    .insert(notification)
+    .values({ ...params, channel: 'push' })
+    .onConflictDoNothing({ target: notification.id })
+    .returning()
+  return created ?? null
+}
+
 // A user's notification feed, newest first, paginated. Scoped to the user so a
 // caller can only ever read their own rows (Property 10).
 export async function getNotificationsForUser(userId: string, limit: number, offset: number) {

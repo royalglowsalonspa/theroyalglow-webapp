@@ -89,7 +89,7 @@ export const POST = withErrorHandler(
     // The customer hears why, with the branch's details (R7.2); best-effort.
     await notifyBookingChange({
       type: 'booking_cancelled',
-      booking: existing,
+      booking: updated,
       reason: parsed.data.reason,
     })
 

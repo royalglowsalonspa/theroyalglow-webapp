@@ -39,3 +39,59 @@ test('the booking dialog loads times for the preselected branch', async ({ page 
   await expect(dialog.getByRole('button', { name: '10:00', exact: true })).toBeVisible()
   await expect(dialog.getByRole('alert')).toHaveCount(0)
 })
+
+test('a branch change refreshes the displayed hours and holiday for the chosen date', async ({
+  page,
+}) => {
+  await page.route('**/api/branches', (route) =>
+    route.fulfill({
+      json: {
+        success: true,
+        data: {
+          branches: ['Rayasandra', 'Indiranagar'].map((name) => ({
+            id: name.toLowerCase(),
+            name,
+            city: 'Bengaluru',
+            status: 'operational',
+            acceptingBookings: true,
+          })),
+          defaultBranchId: 'rayasandra',
+        },
+      },
+    }),
+  )
+  await page.route('**/api/availability?*', (route) => {
+    const branchId = new URL(route.request().url()).searchParams.get('branchId')
+    return route.fulfill({
+      json: {
+        success: true,
+        data:
+          branchId === 'rayasandra'
+            ? {
+                slots: [{ startTime: '10:00', endTime: '10:30', available: true }],
+                businessHours: { open: '10:00', close: '21:00' },
+                closure: null,
+                notice: null,
+              }
+            : {
+                slots: [],
+                businessHours: null,
+                closure: { name: 'Branch holiday' },
+                notice: null,
+              },
+      },
+    })
+  })
+
+  await page.goto('/?book=1')
+  const dialog = page.getByRole('dialog')
+  const branchPicker = dialog.getByRole('combobox', { name: /branch/i })
+  await expect(branchPicker).toHaveValue('rayasandra')
+  await dialog.locator('button[aria-pressed]').nth(1).click()
+  await expect(dialog.getByText('Branch hours 10:00 AM – 09:00 PM IST')).toBeVisible()
+
+  await branchPicker.selectOption('indiranagar')
+  await expect(dialog.getByText(/closed on this day \(Branch holiday\)/)).toBeVisible()
+  await expect(dialog.getByText(/Branch hours/)).toHaveCount(0)
+  await expect(dialog.getByRole('button', { name: '10:00', exact: true })).toHaveCount(0)
+})

@@ -49,7 +49,7 @@ import { getInvoiceForPdf, setInvoicePdfUrl } from '@rgss/db/queries'
 import { createLogger } from '@rgss/logger'
 import { invoicePdfPayloadSchema, invoicePdfResultSchema } from '@rgss/types'
 import { env } from '@/env'
-import { buildPdfPayload, type LoadedInvoice } from '@/lib/invoices/pdf-payload'
+import { buildPdfPayload, getInvoiceSeller, type LoadedInvoice } from '@/lib/invoices/pdf-payload'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
 import { sendEmail } from '@/lib/notifications/providers/email'
 
@@ -226,6 +226,7 @@ async function sendInvoiceEmail(
     return false
   }
 
+  const seller = getInvoiceSeller(loaded)
   const { subject, html } = buildInvoiceEmailHtml({
     customerName: customer.name ?? 'Guest',
     invoiceNumber: inv.invoiceNumber,
@@ -248,8 +249,9 @@ async function sendInvoiceEmail(
     gemsEarned: inv.gemsEarned,
     paymentMethod: inv.paymentMethod,
     issuedAt: inv.taxPointAt ?? inv.createdAt,
-    issuerName: inv.issuerName,
-    issuerGstin: inv.issuerGstin,
+    issuerName: seller.name,
+    issuerGstin: seller.gstin ?? null,
+    issuerAddressLines: seller.addressLines,
     provisional: inv.taxReviewStatus === 'provisional',
   })
 

@@ -34,7 +34,7 @@
 
 import { normaliseIndianPhone, resolveLeadBranch } from '@rgss/business'
 import { createLead, getPublicBranches } from '@rgss/db/queries'
-import { badRequest } from '@rgss/errors'
+import { badRequest, conflict, ERROR_CODES } from '@rgss/errors'
 import { createLeadSchema } from '@rgss/types'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { enforceRateLimit, getClientIp } from '@/lib/api/rate-limit'
@@ -61,11 +61,14 @@ export const POST = withErrorHandler(async (req: Request) => {
   // The branch the ad link named when it is real, else the default branch, so
   // every lead reaches a branch's pipeline (multi-branch R7.3).
   const branch = resolveLeadBranch(await getPublicBranches(), requestedBranchId)
+  if (!branch) {
+    throw conflict(ERROR_CODES.BRANCH_INACTIVE, 'No branch is accepting enquiries right now.')
+  }
   const lead = await createLead({
     ...fields,
     phone,
     source: fields.source ?? 'meta_ad',
-    branchId: branch?.id ?? null,
+    branchId: branch.id,
   })
 
   // Fire the Meta CAPI 'Lead' event (best-effort). event_id = lead id so this

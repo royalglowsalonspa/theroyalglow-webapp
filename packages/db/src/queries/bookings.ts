@@ -38,7 +38,7 @@
  ************************************************************/
 
 import { AppError, conflict, ERROR_CODES } from '@rgss/errors'
-import { and, asc, desc, eq, inArray, isNull, type SQL, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, getTableColumns, inArray, isNull, type SQL, sql } from 'drizzle-orm'
 import type { BatchItem } from 'drizzle-orm/batch'
 import { nanoid } from 'nanoid'
 import { db } from '../index'
@@ -67,8 +67,9 @@ export async function getBookingsByCustomer(customerId: string, statusFilter?: B
   const predicate = statusFilter ? and(ownership, eq(booking.status, statusFilter)) : ownership
 
   const bookings = await db
-    .select()
+    .select({ ...getTableColumns(booking), branchName: branch.name })
     .from(booking)
+    .innerJoin(branch, eq(booking.branchId, branch.id))
     .where(predicate)
     .orderBy(desc(booking.bookingDate), desc(booking.createdAt))
 
@@ -113,8 +114,20 @@ export async function getBookingById(id: string) {
 // a missing row and the caller maps both to NOT_FOUND.
 export async function getBookingByIdForCustomer(id: string, customerId: string) {
   const rows = await db
-    .select()
+    .select({
+      ...getTableColumns(booking),
+      branchContact: {
+        name: branch.name,
+        addressLine1: branch.addressLine1,
+        addressLine2: branch.addressLine2,
+        city: branch.city,
+        state: branch.state,
+        pincode: branch.pincode,
+        phone: branch.phone,
+      },
+    })
     .from(booking)
+    .innerJoin(branch, eq(booking.branchId, branch.id))
     .where(and(eq(booking.id, id), eq(booking.customerId, customerId)))
     .limit(1)
   const found = rows[0]

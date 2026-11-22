@@ -7,7 +7,7 @@
  * Scope        : Notifications — Email
  *
  * Description  : Transactional email delivery provider via Resend.
- *                Optional dependency — no-op when API key is absent.
+ *                No-op when the provider API key is absent.
  *
  * Responsibilities :
  * - Send transactional emails via Resend API
@@ -16,13 +16,12 @@
  *
  * Features / Functionality :
  * - sendEmail({ to, subject, html, replyTo? }) — async boolean delivery
- * - Lazy resend module import (optional dependency)
  * - Configurable from address via RESEND_FROM_EMAIL
  *
- * Tech Stack   : TypeScript, Resend (optional)
+ * Tech Stack   : TypeScript, Resend API
  * Layer        : API Infrastructure
  *
- * Dependencies : @rgss/logger, resend (optional)
+ * Dependencies : @rgss/logger
  *
  * Notes        : Reads process.env directly for graceful degradation
  ************************************************************/
@@ -36,11 +35,6 @@ import { createLogger } from '@rgss/logger'
 // fail build-time validation when it is absent. Reading `process.env` directly
 // behind a truthy guard lets the app build and run with no key configured
 // (Property 10 — no-op + return false without config).
-//
-// `resend` is an optional, lazily imported dependency — it need not be
-// installed until the key is provisioned, so a missing module simply yields a
-// benign `false`. This helper NEVER throws to its caller (Property 9): any
-// failure is caught, logged, and reported as `false`.
 
 const logger = createLogger({
   service: 'web:notifications:email',
@@ -48,6 +42,7 @@ const logger = createLogger({
 })
 
 const DEFAULT_FROM = 'Royal Glow <contact@theroyalglow.in>'
+const RESEND_EMAIL_URL = 'https://api.resend.com/emails'
 
 export type SendEmailParams = {
   to: string | string[]
@@ -63,78 +58,33 @@ export type SendEmailParams = {
   attachments?: { filename: string; content: string }[]
 }
 
-// Minimal slice of the optional `resend` module surface we rely on. Modeled
-// locally so this file compiles without the package (or its types) installed.
-type ResendSendPayload = {
-  from: string
-  to: string | string[]
-  subject: string
-  html: string
-  // Resend SDK (v3+) accepts camelCase `replyTo`. Optional — only sent when set.
-  replyTo?: string | string[]
-  // Base64 attachments — only sent when provided.
-  attachments?: { filename: string; content: string }[]
-}
-
-type ResendClient = {
-  emails: {
-    send(payload: ResendSendPayload): Promise<unknown>
-  }
-}
-
-type ResendConstructor = new (apiKey: string) => ResendClient
-
-function resolveResend(mod: unknown): ResendConstructor | null {
-  if (typeof mod !== 'object' || mod === null) {
-    return null
-  }
-  const candidate = mod as { Resend?: unknown; default?: { Resend?: unknown } }
-  if (typeof candidate.Resend === 'function') {
-    return candidate.Resend as ResendConstructor
-  }
-  if (candidate.default && typeof candidate.default.Resend === 'function') {
-    return candidate.default.Resend as ResendConstructor
-  }
-  return null
-}
-
 export async function sendEmail(params: SendEmailParams): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY
   const from = process.env.RESEND_FROM_EMAIL ?? DEFAULT_FROM
 
   // Not configured → no-op (Property 10). Nothing was sent.
   if (!apiKey) {
-    logger.info('sendEmail skipped (RESEND_API_KEY not configured)', {
-      subject: params.subject,
-    })
+    logger.info('sendEmail skipped (RESEND_API_KEY not configured)')
     return false
   }
 
   try {
-    // Lazy, catchable import keeps `resend` an optional dependency. Use a
-    // non-literal specifier so the type checker does not require it installed.
-    const mod: unknown = await import('resend' as string).catch(() => null)
-    const Resend = resolveResend(mod)
-    if (!Resend) {
-      logger.debug('resend module unavailable; cannot deliver email')
-      return false
-    }
-
-    const client = new Resend(apiKey)
-    await client.emails.send({
-      from,
-      to: params.to,
-      subject: params.subject,
-      html: params.html,
-      // Only include replyTo when provided; keeps the payload minimal otherwise.
-      ...(params.replyTo ? { replyTo: params.replyTo } : {}),
-      // Only include attachments when provided (keeps text emails minimal).
-      ...(params.attachments && params.attachments.length > 0
-        ? { attachments: params.attachments }
-        : {}),
+    const { replyTo, attachments, ...email } = params
+    const response = await fetch(RESEND_EMAIL_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...email,
+        from,
+        reply_to: replyTo,
+        attachments: attachments?.length ? attachments : undefined,
+      }),
+      signal: AbortSignal.timeout(5_000),
     })
-
-    return true
+    if (!response.ok) {
+      logger.warn('Resend rejected the email', { status: response.status })
+    }
+    return response.ok
   } catch (error) {
     // Never throw to the caller (Property 9).
     logger.error('sendEmail failed', {

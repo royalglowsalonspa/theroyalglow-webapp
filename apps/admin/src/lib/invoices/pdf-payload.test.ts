@@ -11,11 +11,36 @@
  *                snapshots renders as it always did: the branch row, one SAC
  *                code and an even split. Both satisfy the render contract.
  *
- * Approach     : Pure mapping; fixtures shaped like getInvoiceForPdf's result.
+ * Approach     : Fixtures shaped like getInvoiceForPdf's result, plus an
+ *                invoice delivery check with stubbed rendering and email.
  ************************************************************/
 
 import { invoicePdfPayloadSchema } from '@rgss/types'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+const invoiceMocks = vi.hoisted(() => ({
+  getInvoiceForPdf: vi.fn(),
+  setInvoicePdfUrl: vi.fn(),
+  send: vi.fn(),
+  service: {
+    INVOICING_SERVICE_URL: 'https://invoice-render.test',
+    INVOICE_PDF_HMAC_SECRET: 'test-signing-key',
+  },
+}))
+
+vi.mock('@rgss/db/queries', () => ({
+  getInvoiceForPdf: invoiceMocks.getInvoiceForPdf,
+  setInvoicePdfUrl: invoiceMocks.setInvoicePdfUrl,
+}))
+vi.mock('@/env', () => ({ env: invoiceMocks.service }))
+vi.mock('@/lib/jobs/verify', () => ({ verifyQStashSignature: vi.fn().mockResolvedValue(true) }))
+vi.mock('resend', () => ({
+  Resend: class {
+    emails = { send: invoiceMocks.send }
+  },
+}))
+
+import { POST as invoicePdfPOST } from '@/app/api/jobs/invoice-pdf/route'
 import { buildPdfPayload, type LoadedInvoice } from './pdf-payload'
 
 const ISSUED_AT = new Date('2026-10-25T06:45:00.000Z')
@@ -300,5 +325,99 @@ describe('buildPdfPayload — an invoice from before the snapshots', () => {
 
   it('satisfies the render contract', () => {
     expect(invoicePdfPayloadSchema.safeParse(buildPdfPayload(legacy())).success).toBe(true)
+  })
+})
+
+describe('invoice PDF delivery', () => {
+  beforeEach(() => {
+    invoiceMocks.send.mockResolvedValue({ data: { id: 'sent_42' }, error: null })
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+  })
+
+  it('emails the stored issuer and forwards the rendered PDF to the email provider', async () => {
+    const invoice = loaded()
+    const pdfUrl = 'https://invoice-storage.test/42.pdf'
+    const renderResult = Response.json({
+      invoiceNumber: invoice.invoice.invoiceNumber,
+      pdfUrl,
+      pdfBase64: 'cGRm',
+    })
+    invoiceMocks.getInvoiceForPdf.mockResolvedValue(invoice)
+    vi.stubEnv('RESEND_API_KEY', 'test-email-key')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(renderResult))
+
+    const response = await invoicePdfPOST(
+      new Request('https://admin.test/api/jobs/invoice-pdf', {
+        method: 'POST',
+        body: JSON.stringify({ invoiceId: invoice.invoice.id }),
+      }),
+    )
+
+    expect(await response.json()).toMatchObject({ success: true, sent: true, attached: true })
+    expect(invoiceMocks.setInvoicePdfUrl).toHaveBeenCalledWith(invoice.invoice.id, pdfUrl)
+    expect(invoiceMocks.send).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        to: invoice.customer.email,
+        html: expect.stringContaining('12 Rayasandra Main Road'),
+        attachments: [{ filename: 'RS-2627-000042.pdf', content: 'cGRm' }],
+      }),
+    )
+    expect(invoiceMocks.send.mock.calls[0]?.[0]?.html).not.toContain('99 New Address')
+  })
+
+  it('emails a legacy invoice with the branch address when rendering fails', async () => {
+    const invoice = loaded({
+      invoice: storedInvoice({
+        taxPointAt: null,
+        issuerName: null,
+        issuerAddress: null,
+        issuerGstin: null,
+        taxReviewStatus: null,
+      }),
+    })
+    invoiceMocks.getInvoiceForPdf.mockResolvedValue(invoice)
+    vi.stubEnv('RESEND_API_KEY', 'test-email-key')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 503 })))
+
+    const response = await invoicePdfPOST(
+      new Request('https://admin.test/api/jobs/invoice-pdf', {
+        method: 'POST',
+        body: JSON.stringify({ invoiceId: invoice.invoice.id }),
+      }),
+    )
+
+    expect(await response.json()).toMatchObject({
+      success: true,
+      sent: true,
+      attached: false,
+      reason: 'service-status-503',
+    })
+    const sent = invoiceMocks.send.mock.calls[0]?.[0]
+    expect(sent?.html).toContain('Royal Glow — Rayasandra (renamed)')
+    expect(sent?.html).toContain('99 New Address')
+    expect(sent).not.toHaveProperty('attachments')
+    expect(invoiceMocks.setInvoicePdfUrl).not.toHaveBeenCalled()
+  })
+
+  it('reports the invoice as unsent when the email provider rejects it', async () => {
+    const invoice = loaded()
+    invoiceMocks.getInvoiceForPdf.mockResolvedValue(invoice)
+    invoiceMocks.send.mockResolvedValue({ data: null, error: { name: 'validation_error' } })
+    vi.stubEnv('RESEND_API_KEY', 'test-email-key')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 503 })))
+
+    const response = await invoicePdfPOST(
+      new Request('https://admin.test/api/jobs/invoice-pdf', {
+        method: 'POST',
+        body: JSON.stringify({ invoiceId: invoice.invoice.id }),
+      }),
+    )
+
+    expect(await response.json()).toMatchObject({ success: true, attached: false, sent: false })
   })
 })

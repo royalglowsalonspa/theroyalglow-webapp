@@ -121,6 +121,9 @@ export const PATCH = withErrorHandler(
       // staff to every service, and writes a status-log entry capturing the
       // prior → confirmed transition with the acting user (Req 11.1, 11.4).
       const updated = await approveBooking(id, branchId, changedById, action.staffId)
+      if (!updated) {
+        throw notFound('Booking not found.')
+      }
 
       // Best-effort realtime publish: approval is a status change AND a staff
       // assignment, so emit both verbs to the booking channel + per-branch admin
@@ -141,7 +144,7 @@ export const PATCH = withErrorHandler(
         data: { staffId: action.staffId },
       })
       // The customer hears it, with the branch's details (R7.2); best-effort.
-      await notifyBookingChange({ type: 'booking_confirmed', booking: existing })
+      await notifyBookingChange({ type: 'booking_confirmed', booking: updated })
 
       return apiSuccess({ booking: updated })
     }
@@ -159,6 +162,9 @@ export const PATCH = withErrorHandler(
       // reason, and writes a status-log entry capturing the prior → rejected
       // transition with the acting user (Req 11.2, 11.4).
       const updated = await rejectBooking(id, branchId, changedById, action.rejectionReason)
+      if (!updated) {
+        throw notFound('Booking not found.')
+      }
 
       // Best-effort realtime publish: notify the booking channel + per-branch
       // admin feed of the status change. Never throws / no-ops without the key.
@@ -171,7 +177,7 @@ export const PATCH = withErrorHandler(
       })
       await notifyBookingChange({
         type: 'booking_rejected',
-        booking: existing,
+        booking: updated,
         reason: action.rejectionReason,
       })
 

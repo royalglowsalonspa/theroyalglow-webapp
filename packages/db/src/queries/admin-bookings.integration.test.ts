@@ -21,6 +21,7 @@
  *                primary branch's Owner, who keeps their own branches.
  ************************************************************/
 
+import { ERROR_CODES } from '@rgss/errors'
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { db } from '../index'
@@ -48,7 +49,7 @@ let serviceId = ''
 let bookingA = ''
 let bookingB = ''
 
-async function book(branchId: string, number: string): Promise<string> {
+async function book(branchId: string, number: string, day = '2099-01-01'): Promise<string> {
   const created = await createBookingWithServices(
     {
       bookingNumber: `${PREFIX}_${number}`,
@@ -56,7 +57,7 @@ async function book(branchId: string, number: string): Promise<string> {
       customerId: CUSTOMER,
       status: 'pending',
       serviceType: 'salon',
-      bookingDate: new Date('2099-01-01T00:00:00.000Z'),
+      bookingDate: new Date(`${day}T00:00:00.000Z`),
       startTime: '10:00',
       endTime: '10:30',
       totalAmountPaise: 50_000,
@@ -161,6 +162,29 @@ describe.skipIf(!LIVE)('branch-scoped admin booking queries against a live datab
     expect(
       await queryRows(sql`select id from booking_status_log where booking_id = ${bookingB}`),
     ).toEqual([])
+  })
+
+  it('commits only one status change when two requests approve the same booking', async () => {
+    const id = await book(BRANCH_B, 'race', '2099-01-02')
+    const results = await Promise.allSettled([
+      approveBooking(id, BRANCH_B, ACTOR, PROFILE_B),
+      approveBooking(id, BRANCH_B, ACTOR, PROFILE_B),
+    ])
+
+    expect(results).toEqual(
+      expect.arrayContaining([
+        { status: 'fulfilled', value: expect.objectContaining({ id, status: 'confirmed' }) },
+        {
+          status: 'rejected',
+          reason: expect.objectContaining({ code: ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION }),
+        },
+      ]),
+    )
+    expect(
+      await queryRows(
+        sql`select from_status, to_status from booking_status_log where booking_id = ${id}`,
+      ),
+    ).toEqual([{ from_status: 'pending', to_status: 'confirmed' }])
   })
 
   it('never reassigns the services of a booking at another branch', async () => {

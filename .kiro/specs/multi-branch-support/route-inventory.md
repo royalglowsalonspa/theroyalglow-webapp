@@ -43,7 +43,8 @@ Policy classes:
 | `bookings/[id]/cancel` | POST | receptionist | branch | *New (§4 slice 3):* the salon cancels a pending or confirmed booking with a reason (`{ branchId, reason }`), never counted as the customer's late cancellation; gems go back and a session's minutes are released in the same write; 409 once under way |
 | `billing`, `billing/[id]` | GET | receptionist | branch | Active branch's invoices; 404 for others |
 | `waitlist`, `waitlist/[id]` | GET, PATCH | receptionist | branch | Add a branch to waitlist rows |
-| `leads`, `leads/[id]`, `leads/[id]/notes` | GET, POST, PATCH | receptionist | branch | Branch from the ad link; audited cross-branch move |
+| `leads`, `leads/[id]`, `leads/[id]/notes` | GET, POST, PATCH | receptionist | branch | Branch from the ad link; detail and notes are scoped to the active branch |
+| `leads/[id]/move` | POST | receptionist | source branch | Moves an open lead and its notes, clears the assignee and audits both branch IDs in the same write |
 | `leave`, `leave/[id]` | GET, PATCH | receptionist | branch | Active branch's staff; leave for a shared Manager needs an Owner of one of their branches or the Developer (R5.10) |
 | `schedule` | GET, PUT | manager | branch | Schedule per branch per day; a shared Manager is at one branch each day; GET carries the branch's own business hours (*done*). *Done (§4 slice 3):* PUT takes the person off the bookings still to come the new week no longer covers, at every branch, in the same transaction, and answers how many now need someone (`reassignments`) |
 | `reports` | GET | manager | branch | Aggregate the active branch only |

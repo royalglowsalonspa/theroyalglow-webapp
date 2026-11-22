@@ -164,6 +164,7 @@ describe('GET /api/availability — closures (R1.8)', () => {
 
     expect(status).toBe(200)
     expect(body.data.closure).toEqual({ name: 'Diwali' })
+    expect(body.data.businessHours).toBeNull()
     expect(body.data.slots).toHaveLength(22)
     expect(body.data.slots.every((s: { available: boolean }) => !s.available)).toBe(true)
   })
@@ -187,6 +188,7 @@ describe("GET /api/availability — the branch's own settings (R6.3)", () => {
 
     const { body } = await get(`date=${FUTURE_DATE}`)
 
+    expect(body.data.businessHours).toEqual({ open: '12:00', close: '20:00' })
     expect(body.data.slots[0].startTime).toBe('12:00')
     expect(body.data.slots.at(-1)).toEqual({
       startTime: '19:30',

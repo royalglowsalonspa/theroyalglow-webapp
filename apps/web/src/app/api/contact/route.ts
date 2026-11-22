@@ -14,7 +14,7 @@
  * - Rate-limit unauthenticated submissions per IP (public write endpoint)
  * - Validate the enquiry payload with contactFormSchema
  * - Normalise an optional Indian phone to E.164 for the salon's convenience
- * - Email the enquiry to the salon inbox, with Reply-To set to the submitter
+ * - Email the enquiry to the selected branch or main inbox, with Reply-To set to the submitter
  *
  * Features / Functionality :
  * - Per-IP rate limiting (mirrors /api/leads)
@@ -33,32 +33,42 @@
  * Notes        :
  * - sendEmail no-ops without RESEND_API_KEY and never throws, so a missing key
  *   (or a Resend outage) can never break this endpoint's success response.
- * - The destination inbox is the optional CONTACT_INBOX_EMAIL server var when
- *   provisioned, falling back to the public address shown on the /contact page.
+ * - The main inbox is CONTACT_INBOX_EMAIL when provisioned, falling back to
+ *   the public company email.
  ************************************************************/
 
 import { normaliseValidIndianPhone } from '@rgss/business'
+import { getBranchById } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { createLogger } from '@rgss/logger'
 import { contactFormSchema } from '@rgss/types'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { enforceRateLimit, getClientIp } from '@/lib/api/rate-limit'
 import { sendEmail } from '@/lib/notifications/providers/email'
+import { BUSINESS } from '@/lib/seo/business'
 
 const logger = createLogger({
   service: 'web:api:contact',
   environment: process.env.NODE_ENV ?? 'development',
 })
 
-// Public fallback address shown on the /contact page. Used when the optional
-// CONTACT_INBOX_EMAIL server var is not provisioned.
-const DEFAULT_SALON_INBOX_EMAIL = 'hello@theroyalglow.in'
-
 // Resolve the salon's routing inbox: the optional CONTACT_INBOX_EMAIL env var
 // (validated as an email in apps/web/src/env.ts) when present, else the public
 // fallback. Read from process.env directly to keep this a graceful optional —
 // the var is optional so it must never make the route depend on its presence.
-const SALON_INBOX_EMAIL = process.env.CONTACT_INBOX_EMAIL ?? DEFAULT_SALON_INBOX_EMAIL
+const SALON_INBOX_EMAIL = process.env.CONTACT_INBOX_EMAIL ?? BUSINESS.email
+
+async function resolveEnquiryBranch(branchId?: string) {
+  if (!branchId) return null
+
+  try {
+    const branch = await getBranchById(branchId)
+    return branch && branch.status !== 'shutdown' ? branch : null
+  } catch {
+    logger.warn('Contact enquiry branch could not be resolved. Using the main inbox.')
+    return null
+  }
+}
 
 // Escape the five HTML-significant characters so a submitter's name / message /
 // email can never break the email markup or inject content. (Same approach as
@@ -79,8 +89,10 @@ function buildEnquiryEmail(input: {
   email: string
   phone?: string | undefined
   message: string
+  branchName: string | null
 }): { subject: string; html: string } {
-  const subject = `New contact enquiry from ${input.name}`
+  const branchLabel = input.branchName ? ` · ${input.branchName}` : ''
+  const subject = `New contact enquiry from ${input.name}${branchLabel}`
   const phoneRow = input.phone
     ? `<p style="margin:4px 0;color:#5b5249;font-size:14px"><strong>Phone:</strong> ${esc(input.phone)}</p>`
     : ''
@@ -127,11 +139,13 @@ export const POST = withErrorHandler(async (req: Request) => {
     ? (normaliseValidIndianPhone(parsed.data.phone) ?? parsed.data.phone)
     : undefined
 
+  const branch = await resolveEnquiryBranch(parsed.data.branchId)
   const { subject, html } = buildEnquiryEmail({
     name: parsed.data.name,
     email: parsed.data.email,
     phone,
     message: parsed.data.message,
+    branchName: branch?.name ?? null,
   })
 
   // Best-effort delivery (mirrors /api/bookings + admin complete route):
@@ -140,15 +154,13 @@ export const POST = withErrorHandler(async (req: Request) => {
   // Reply-To is the submitter so the salon can reply straight from their inbox.
   try {
     const delivered = await sendEmail({
-      to: SALON_INBOX_EMAIL,
+      to: branch?.email || SALON_INBOX_EMAIL,
       subject,
       html,
       replyTo: parsed.data.email,
     })
     if (!delivered) {
-      logger.warn('contact enquiry email not delivered (provider unconfigured or failed)', {
-        email: parsed.data.email,
-      })
+      logger.warn('contact enquiry email not delivered (provider unconfigured or failed)')
     }
   } catch (error) {
     // Defensive: sendEmail already swallows its own errors, but we never let an

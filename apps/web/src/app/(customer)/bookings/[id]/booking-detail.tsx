@@ -38,7 +38,15 @@
 
 'use client'
 
-import { type AvailabilitySlot, type BookingTerms, durationText, formatINR } from '@rgss/business'
+import {
+  type AvailabilitySlot,
+  type BookingTerms,
+  type BranchAddressFields,
+  branchAddressLines,
+  durationText,
+  formatINR,
+  telHref,
+} from '@rgss/business'
 import { Loader2 } from 'lucide-react'
 import { type FormEvent, useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useBookingStatus } from '@/components/realtime/RealtimeProvider'
@@ -60,6 +68,7 @@ interface Booking {
   id: string
   bookingNumber: string
   branchId: string
+  branchContact: BranchAddressFields & { name: string; phone: string }
   status: string
   serviceType: 'salon' | 'spa'
   bookingDate: string
@@ -401,6 +410,8 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
 
   const style = STATUS_STYLES[booking.status] ?? DEFAULT_STATUS_STYLE
   const timeline = buildTimeline(booking)
+  const { branchContact } = booking
+  const branchPhoneLink = telHref(branchContact?.phone)
   // Without terms (the branch's settings can't be read) cancelling is still
   // offered: the server never blocks it on settings.
   const canCancel = terms ? terms.cancel !== null : OPEN_STATUSES.has(booking.status)
@@ -464,6 +475,24 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
               {formatTime12h(booking.startTime)} – {formatTime12h(booking.endTime)}
             </dd>
           </div>
+          {branchContact && (
+            <div className="sm:col-span-2">
+              <dt className="mb-1 font-ui text-[11px] uppercase tracking-[0.5px] text-warm-stone">
+                Branch
+              </dt>
+              <dd className="space-y-1 font-sans text-[15px] text-cocoa-dark">
+                <p className="font-ui font-medium">{branchContact.name}</p>
+                <p className="whitespace-pre-line">
+                  {branchAddressLines(branchContact).join('\n')}
+                </p>
+                {branchPhoneLink && (
+                  <a href={branchPhoneLink} className="hover:underline">
+                    {branchContact.phone}
+                  </a>
+                )}
+              </dd>
+            </div>
+          )}
         </dl>
       </Card>
 
