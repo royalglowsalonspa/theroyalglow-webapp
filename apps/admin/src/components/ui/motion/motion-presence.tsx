@@ -8,7 +8,7 @@
  *                the bounded `routeTransition` variant; `ListPresence` wraps a
  *                set of animating children in `AnimatePresence` so list/table
  *                rows can enter and exit with the `listRow` variant. Both render
- *                their children directly (final visual state, no animation) when
+ *                their children in their final visual state when
  *                the user prefers reduced motion (Req 3.7, 4.6).
  *
  * Responsibilities :
@@ -32,8 +32,8 @@ import { usePrefersReducedMotion } from './use-reduced-motion'
 
 /**
  * Animate page content on route change. Pass a stable `routeKey` (typically the
- * pathname) so the content re-enters when the route changes. Under reduced
- * motion the children render directly with no animation.
+ * pathname) so the content re-enters when the route changes. Keep the wrapper
+ * stable when the motion preference changes so the page state is preserved.
  *
  * NOTE: This intentionally does NOT use `AnimatePresence`. With the Next.js App
  * Router, `AnimatePresence mode="wait"` keeps the EXITING route's DOM mounted
@@ -53,12 +53,14 @@ export function RouteTransition({
 }) {
   const reduced = usePrefersReducedMotion()
 
-  if (reduced) {
-    return <>{children}</>
-  }
-
   return (
-    <motion.div key={routeKey} variants={routeTransition} initial="hidden" animate="visible">
+    <motion.div
+      key={routeKey}
+      className="motion-reduce:transform-none! motion-reduce:opacity-100!"
+      variants={routeTransition}
+      initial={reduced ? false : 'hidden'}
+      animate={reduced ? { opacity: 1, y: 0, transition: { duration: 0 } } : 'visible'}
+    >
       {children}
     </motion.div>
   )
