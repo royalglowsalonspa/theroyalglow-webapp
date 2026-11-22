@@ -1,47 +1,79 @@
-# Ops-activated: requires R2 + Neon test-branch secrets to run.
-# Restores the latest weekly backup into the Neon `test` branch and runs
-# integrity checks. Mirrors deployment.md "Monthly Backup Restore Test".
 name: Monthly Backup Restore Test
 
 on:
   schedule:
-    - cron: '0 3 1 * *' # 1st of every month at 3 AM UTC
+    - cron: '0 3 1 * *'
   workflow_dispatch:
+    inputs:
+      manifest_key:
+        description: Exact weekly/rgss_full_…manifest.json key to verify
+        required: true
+        type: string
+
+permissions:
+  contents: read
 
 jobs:
   restore-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: auto
       R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
     steps:
-      - name: Install PostgreSQL client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client-16
+      - uses: actions/checkout@v7
 
-      - name: Get latest backup from R2
+      - name: Install PostgreSQL tools
         run: |
-          LATEST=$(aws s3 ls s3://rgss-backups/weekly/ --endpoint-url "$R2_ENDPOINT" \
-            | sort | tail -1 | awk '{print $4}')
-          aws s3 cp "s3://rgss-backups/weekly/$LATEST" backup.sql.gz \
-            --endpoint-url "$R2_ENDPOINT"
-          gunzip backup.sql.gz
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-18
+          echo '/usr/lib/postgresql/18/bin' >> "$GITHUB_PATH"
 
-      - name: Restore to Neon test branch and verify
+      - name: Resolve and download the exact backup pair
+        shell: bash
         env:
-          RESTORE_DB_URL: ${{ secrets.DATABASE_URL_UNPOOLED_TEST }}
+          SELECTED_MANIFEST: ${{ inputs.manifest_key }}
         run: |
-          psql "$RESTORE_DB_URL" < backup.sql
-          psql "$RESTORE_DB_URL" -c "SELECT COUNT(*) FROM booking;"
-          psql "$RESTORE_DB_URL" -c "SELECT COUNT(*) FROM invoice;"
-          psql "$RESTORE_DB_URL" -c "SELECT COUNT(*) FROM \"user\";"
-          echo "Backup restore test passed"
+          set -euo pipefail
+          umask 077
+          key="$SELECTED_MANIFEST"
+          if [[ -z "$key" ]]; then
+            key=$(aws s3api list-objects-v2 --bucket rgss-backups --prefix weekly/rgss_full_ \
+              --endpoint-url "$R2_ENDPOINT" |
+              jq -er '[.Contents[]? | .Key | select(endswith(".manifest.json"))] | max')
+          fi
+          [[ "$key" =~ ^weekly/rgss_full_[0-9]{8}T[0-9]{6}Z_[0-9]+-[0-9]+\.manifest\.json$ ]]
+          restore_dir=$(mktemp -d)
+          dump_key="${key%.manifest.json}.dump"
+          {
+            echo "RESTORE_DIR=$restore_dir"
+            echo "MANIFEST_PATH=$restore_dir/${key##*/}"
+            echo "DUMP_PATH=$restore_dir/${dump_key##*/}"
+          } >> "$GITHUB_ENV"
+          aws s3 cp "s3://rgss-backups/$key" "$restore_dir/${key##*/}" --endpoint-url "$R2_ENDPOINT"
+          aws s3 cp "s3://rgss-backups/$dump_key" "$restore_dir/${dump_key##*/}" --endpoint-url "$R2_ENDPOINT"
+          echo "Verifying the selected manifest: $key" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Restore and compare in an isolated PostgreSQL container
+        shell: bash
+        run: bash scripts/backup/verify-isolated-restore.sh "$MANIFEST_PATH" "$DUMP_PATH"
+
+      - name: Remove local backup copies
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${RESTORE_DIR:-}" ]]; then
+            rm -f -- "$MANIFEST_PATH" "$DUMP_PATH"
+            rmdir -- "$RESTORE_DIR"
+          fi
 
       - name: Notify on failure
         if: failure()
+        env:
+          INCIDENT_WEBHOOK: ${{ secrets.BETTER_STACK_INCIDENT_WEBHOOK }}
         run: |
-          curl -X POST ${{ secrets.BETTER_STACK_INCIDENT_WEBHOOK }} \
-            -H "Content-Type: application/json" \
-            -d '{"title": "Monthly restore test FAILED", "severity": "high"}'
+          curl --fail-with-body --silent --show-error --max-time 10 "$INCIDENT_WEBHOOK" \
+            -H 'Content-Type: application/json' \
+            -d '{"title":"Monthly isolated restore verification failed","severity":"high"}'

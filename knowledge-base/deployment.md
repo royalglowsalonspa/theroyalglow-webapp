@@ -190,10 +190,18 @@ The calling admin workload uses `INVOICING_SERVICE_URL` and the matching HMAC se
 |---|---|---|---|
 | Neon point-in-time recovery | Continuous within plan retention | Neon | Restore to a point before data corruption |
 | Weekly `pg_dump` | Weekly | Cloudflare R2 `weekly/` prefix | Off-site database recovery |
-| Restore drill | Monthly | Isolated Neon test target | Prove backup integrity and restore procedure |
+| Restore drill | Monthly | Empty PostgreSQL container on the runner | Prove the named backup can be restored in isolation |
 | Pre-migration table backup | Before destructive migration | Cloudflare R2 `pre-migration/` prefix | Fast targeted recovery |
 
-`.github/workflows/weekly-backup.yml` creates, uploads, and verifies compressed dumps. `.github/workflows/monthly-backup-test.yml` validates restorability. R2 backup credentials are independent of the DNS automation token.
+`.github/workflows/weekly-backup.yml` exports a consistent PostgreSQL snapshot
+as a custom-format dump and uses the same snapshot to record migration ledgers,
+table counts, financial totals, schema and object reference hashes. It verifies
+the R2 upload before publishing the matching manifest. Run
+`.github/workflows/monthly-backup-test.yml` with that exact manifest key for
+release evidence. The restore runs with no network in an empty PostgreSQL
+container, compares the result with the manifest, and removes the local copy.
+The R2 invoice and media objects still need their own recovery inventory and
+verification. R2 backup credentials are independent of the DNS automation token.
 
 ### Recovery decision matrix
 

@@ -2,13 +2,16 @@ name: Weekly Prod Backup
 
 on:
   schedule:
-    - cron: '0 2 * * 0' # Every Sunday 2 AM UTC (7:30 AM IST)
+    - cron: '0 2 * * 0'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   backup:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -17,44 +20,79 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install PostgreSQL client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client-16
-
-      - name: Create compressed backup
+      - name: Install PostgreSQL tools
         run: |
-          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-          BACKUP_FILE="rgss_prod_${TIMESTAMP}.sql.gz"
-          pg_dump "${{ secrets.DATABASE_URL_UNPOOLED_PROD }}" \
-            --no-owner --no-privileges --clean --if-exists \
-            | gzip > "$BACKUP_FILE"
-          echo "BACKUP_FILE=$BACKUP_FILE" >> "$GITHUB_ENV"
-          echo "BACKUP_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)" >> "$GITHUB_ENV"
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-18
+          echo '/usr/lib/postgresql/18/bin' >> "$GITHUB_PATH"
 
-      - name: Upload to Cloudflare R2
+      - name: Capture the consistent full backup and manifest
+        shell: bash
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.DATABASE_URL_UNPOOLED_PROD }}
+          BACKUP_SOURCE_ID: neon-prod
+          BACKUP_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
         run: |
-          aws s3 cp "${{ env.BACKUP_FILE }}" \
-            "s3://rgss-backups/weekly/${{ env.BACKUP_FILE }}" \
-            --endpoint-url "$R2_ENDPOINT"
+          set -euo pipefail
+          umask 077
+          export BACKUP_OUTPUT_DIR
+          BACKUP_OUTPUT_DIR=$(mktemp -d)
+          echo "BACKUP_OUTPUT_DIR=$BACKUP_OUTPUT_DIR" >> "$GITHUB_ENV"
+          export BACKUP_SOURCE_COMMIT
+          BACKUP_SOURCE_COMMIT=$(git ls-remote --exit-code origin refs/heads/prod | cut -f1)
+          [[ "$BACKUP_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          stem=$(bash scripts/backup/capture-full.sh)
+          echo "BACKUP_STEM=$stem" >> "$GITHUB_ENV"
 
-      - name: Verify backup integrity
+      - name: Upload and verify the dump before publishing the manifest
+        shell: bash
         run: |
-          aws s3 cp "s3://rgss-backups/weekly/${{ env.BACKUP_FILE }}" verify.sql.gz \
-            --endpoint-url "$R2_ENDPOINT"
-          gunzip -t verify.sql.gz
-          echo "Backup verified: ${{ env.BACKUP_FILE }} (${{ env.BACKUP_SIZE }})"
+          set -euo pipefail
+          umask 077
+          dump="$BACKUP_OUTPUT_DIR/$BACKUP_STEM.dump"
+          manifest="$BACKUP_OUTPUT_DIR/$BACKUP_STEM.manifest.json"
+          dest="s3://rgss-backups/weekly/$BACKUP_STEM"
+          aws s3 cp "$dump" "$dest.dump" --endpoint-url "$R2_ENDPOINT"
+          aws s3 cp "$dest.dump" "$BACKUP_OUTPUT_DIR/uploaded.dump" --endpoint-url "$R2_ENDPOINT"
+          cmp -s "$dump" "$BACKUP_OUTPUT_DIR/uploaded.dump"
+          aws s3 cp "$manifest" "$dest.manifest.json" --endpoint-url "$R2_ENDPOINT"
+          aws s3 cp "$dest.manifest.json" "$BACKUP_OUTPUT_DIR/uploaded.manifest.json" --endpoint-url "$R2_ENDPOINT"
+          cmp -s "$manifest" "$BACKUP_OUTPUT_DIR/uploaded.manifest.json"
+          echo "Verified upload: weekly/$BACKUP_STEM.manifest.json" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Cleanup old backups (keep last 8 weeks)
+      - name: Keep the newest eight complete pairs
+        shell: bash
         run: |
-          aws s3 ls s3://rgss-backups/weekly/ --endpoint-url "$R2_ENDPOINT" \
-            | sort | head -n -8 | awk '{print $4}' \
-            | xargs -I {} aws s3 rm "s3://rgss-backups/weekly/{}" --endpoint-url "$R2_ENDPOINT"
+          set -euo pipefail
+          old_keys=$(aws s3api list-objects-v2 --bucket rgss-backups --prefix weekly/rgss_full_ \
+            --endpoint-url "$R2_ENDPOINT" |
+            jq -r '[.Contents[]? | .Key | select(endswith(".manifest.json"))] | sort | reverse | .[8:][]')
+          while IFS= read -r key; do
+            [[ -z "$key" ]] && continue
+            [[ "$key" =~ ^weekly/rgss_full_[0-9]{8}T[0-9]{6}Z_[0-9]+-[0-9]+\.manifest\.json$ ]]
+            aws s3 rm "s3://rgss-backups/$key" --endpoint-url "$R2_ENDPOINT"
+            aws s3 rm "s3://rgss-backups/${key%.manifest.json}.dump" --endpoint-url "$R2_ENDPOINT"
+          done <<< "$old_keys"
+
+      - name: Remove local backup copies
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${BACKUP_OUTPUT_DIR:-}" ]]; then
+            rm -f -- "$BACKUP_OUTPUT_DIR"/*.{dump,json,schema}
+            rmdir -- "$BACKUP_OUTPUT_DIR"
+          fi
 
       - name: Ping BetterStack heartbeat
-        run: curl -sf "${{ secrets.BETTER_STACK_HEARTBEAT_BACKUP }}"
+        env:
+          BACKUP_HEARTBEAT: ${{ secrets.BETTER_STACK_HEARTBEAT_BACKUP }}
+        run: curl --fail --silent --show-error --max-time 10 "$BACKUP_HEARTBEAT"
 
       - name: Notify on failure
         if: failure()
+        env:
+          INCIDENT_WEBHOOK: ${{ secrets.BETTER_STACK_INCIDENT_WEBHOOK }}
         run: |
-          curl -X POST ${{ secrets.BETTER_STACK_INCIDENT_WEBHOOK }} \
-            -H "Content-Type: application/json" \
-            -d '{"title": "Weekly backup FAILED", "severity": "critical"}'
+          curl --fail-with-body --silent --show-error --max-time 10 "$INCIDENT_WEBHOOK" \
+            -H 'Content-Type: application/json' \
+            -d '{"title":"Weekly backup failed","severity":"critical"}'
