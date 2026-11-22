@@ -65,8 +65,14 @@ async function taxScreen(page: Page): Promise<TaxScreen> {
 /** Open the Tax screen and wait until it has loaded. */
 async function openTaxScreen(page: Page, screen: TaxScreen): Promise<void> {
   await page.goto('/settings/tax')
+  await expectTaxScreen(page, screen)
+}
+
+async function expectTaxScreen(page: Page, screen: TaxScreen): Promise<void> {
+  // The branch's tax data loads after the page renders, including on a cold app.
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
     `Tax Rates · ${screen.branchName}`,
+    { timeout: 30_000 },
   )
 }
 
@@ -203,9 +209,7 @@ describeAs('developer', 'Tax rates', () => {
 
     await page.getByRole('link', { name: /Tax rates for the active branch/ }).click()
     await expect(page).toHaveURL(/\/settings\/tax$/)
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-      `Tax Rates · ${screen.branchName}`,
-    )
+    await expectTaxScreen(page, screen)
   })
 })
 

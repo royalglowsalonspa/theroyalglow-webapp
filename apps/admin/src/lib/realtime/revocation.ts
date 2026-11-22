@@ -90,13 +90,12 @@ async function revokeAtAbly(apiKey: string, userIds: readonly string[]): Promise
         signal: AbortSignal.timeout(REVOKE_TIMEOUT_MS),
       },
     )
-    const text = await res.text().catch(() => '')
+    const text = await res.text()
     if (!res.ok) {
       return { ok: false, error: `Ably ${res.status}: ${text.slice(0, 300)}` }
     }
-    const failures = parseFailureCount(text)
-    if (failures > 0) {
-      return { ok: false, error: `Ably revoked only part of the batch: ${text.slice(0, 300)}` }
+    if (!confirmsRevocationBatch(text, userIds.length)) {
+      return { ok: false, error: 'Ably did not confirm revocation for every target' }
     }
     return { ok: true }
   } catch (error) {
@@ -104,12 +103,12 @@ async function revokeAtAbly(apiKey: string, userIds: readonly string[]): Promise
   }
 }
 
-function parseFailureCount(text: string): number {
+function confirmsRevocationBatch(text: string, targetCount: number): boolean {
   try {
-    const body = JSON.parse(text) as { failureCount?: unknown }
-    return typeof body.failureCount === 'number' ? body.failureCount : 0
+    const body: { successCount?: unknown; failureCount?: unknown } | null = JSON.parse(text)
+    return body?.successCount === targetCount && body.failureCount === 0
   } catch {
-    return 0
+    return false
   }
 }
 

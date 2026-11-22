@@ -740,4 +740,14 @@ BETTER_STACK_HEARTBEAT_SETTLEMENT_CLOSE=
 BETTER_STACK_HEARTBEAT_STAFF_OVERRUN=
 ```
 
+Set these heartbeat URLs in the matching SST stage before checking delivery from
+the deployed admin app. The URLs grant permission to ping the monitors and
+belong in the stage's secret store.
+
+| Admin environment variable | SST secret |
+| --- | --- |
+| `BETTER_STACK_HEARTBEAT_MISSING_MANAGER` | `BetterStackHeartbeatMissingManager` |
+| `BETTER_STACK_HEARTBEAT_SETTLEMENT_CLOSE` | `BetterStackHeartbeatSettlementClose` |
+| `BETTER_STACK_HEARTBEAT_STAFF_OVERRUN` | `BetterStackHeartbeatStaffOverrun` |
+
 `DAILY_REPORT_EMAIL_RECIPIENTS` is retired: report recipients come from branch roles (each branch's Owner and Manager; the Developer for the summary). See [environment-variables.md](./environment-variables.md).

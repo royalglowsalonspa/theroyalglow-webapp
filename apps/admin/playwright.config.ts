@@ -34,6 +34,11 @@ import { defineConfig, devices } from '@playwright/test'
  *     production builds), started with that email.
  * - ADMIN_E2E_WRITE_PERSON_EMAIL / ADMIN_E2E_WRITE_BRANCH_ID : opt in to the
  *     people write journeys (e2e/people-writes.spec.ts).
+ * - ADMIN_E2E_TRANSFER_SOURCE_BRANCH_ID / ADMIN_E2E_TRANSFER_DESTINATION_BRANCH_ID
+ *     / ADMIN_E2E_TRANSFER_LEAD_ID : opt in to moving a disposable open lead
+ *     between two branches owned by the stored Owner session. Also provide
+ *     ADMIN_E2E_INACCESSIBLE_BRANCH_ID and ADMIN_E2E_INACCESSIBLE_LEAD_ID for
+ *     a real fixture in a third branch outside that Owner's access.
  * - ADMIN_E2E_WRITE_MEMBERSHIP_SESSIONS=1 : opt in to the membership session
  *     journey (e2e/membership-sessions.spec.ts). It seeds a throwaway
  *     membership in the database packages/db/.env names, which must be the

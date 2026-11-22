@@ -14,6 +14,7 @@
  *                property. Do NOT overwrite sibling property tests.
  ************************************************************/
 
+import { createHash, createHmac } from 'node:crypto'
 import fc from 'fast-check'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -78,6 +79,39 @@ function buildRequest(headers: Record<string, string>, signature: string | null)
 afterEach(() => {
   vi.unstubAllEnvs()
   vi.clearAllMocks()
+})
+
+describe('QStash Receiver with synthetic signing keys', () => {
+  const current = 'local-test-current-signing-key-value'
+  const next = 'local-test-next-signing-key-value'
+  const body = '{"branchId":"test-branch"}'
+
+  function signDelivery(key: string) {
+    vi.stubEnv('QSTASH_CURRENT_SIGNING_KEY', current)
+    vi.stubEnv('QSTASH_NEXT_SIGNING_KEY', next)
+    const now = Math.floor(Date.now() / 1000)
+    const header = Buffer.from(JSON.stringify({ alg: 'HS256' })).toString('base64url')
+    const claims = Buffer.from(
+      JSON.stringify({
+        iss: 'Upstash',
+        nbf: now - 1,
+        exp: now + 60,
+        body: createHash('sha256').update(body).digest('base64url'),
+      }),
+    ).toString('base64url')
+    const content = `${header}.${claims}`
+    return `${content}.${createHmac('sha256', key).update(content).digest('base64url')}`
+  }
+
+  it.each([current, next])('accepts a valid delivery during key rotation', async (key) => {
+    expect(await verifyQStashSignature(buildRequest({}, signDelivery(key)), body)).toBe(true)
+  })
+
+  it('rejects a delivery whose raw body changed', async () => {
+    expect(await verifyQStashSignature(buildRequest({}, signDelivery(current)), `${body}\n`)).toBe(
+      false,
+    )
+  })
 })
 
 // Feature: admin-subdomain-migration, Property 7: QStash webhook receivers reject unverified requests before side effects

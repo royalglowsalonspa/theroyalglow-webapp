@@ -90,6 +90,10 @@ export default $config({
     const qstashToken = new sst.Secret('QstashToken')
     const qstashCurrentKey = new sst.Secret('QstashCurrentSigningKey')
     const qstashNextKey = new sst.Secret('QstashNextSigningKey')
+    // Heartbeat URLs are credentials. An unset monitor is a no-op in admin.
+    const heartbeatMissingManager = new sst.Secret('BetterStackHeartbeatMissingManager', '')
+    const heartbeatSettlementClose = new sst.Secret('BetterStackHeartbeatSettlementClose', '')
+    const heartbeatStaffOverrun = new sst.Secret('BetterStackHeartbeatStaffOverrun', '')
     const resendApiKey = new sst.Secret('ResendApiKey')
     const vapidPrivateKey = new sst.Secret('VapidPrivateKey')
     const invoicePdfHmacSecret = new sst.Secret('InvoicePdfHmacSecret')
@@ -211,6 +215,9 @@ export default $config({
         RESEND_API_KEY: resendApiKey.value,
         VAPID_PRIVATE_KEY: vapidPrivateKey.value,
         VAPID_SUBJECT: 'mailto:contact@theroyalglow.in',
+        BETTER_STACK_HEARTBEAT_MISSING_MANAGER: heartbeatMissingManager.value,
+        BETTER_STACK_HEARTBEAT_SETTLEMENT_CLOSE: heartbeatSettlementClose.value,
+        BETTER_STACK_HEARTBEAT_STAFF_OVERRUN: heartbeatStaffOverrun.value,
       },
       server: {
         architecture: 'arm64',

@@ -50,8 +50,11 @@ and [rollout](rollout.md) before selecting work.
   prototypes below depend on it. *28/10: decided, confirmed by the user: stay
   on neon-http with guarded statements and batches
   ([spike results](spike-results.md) §5). 22/11: the guarded batches passed
-  rollback and concurrency checks on disposable Neon. AWS Lambda connection
-  and cold-start timings remain open.*
+  rollback and concurrency checks on disposable Neon. Three fresh Node
+  24.21.0 processes imported and initialized the HTTP driver in 17–22 ms,
+  and their first query against the disposable Neon compute took 1.11–1.44 s.
+  These measurements were local. AWS Lambda connection and cold-start timings
+  remain open pending a deployed non-production candidate.*
 - [x] Prototype role-qualified references and deferred guards on a disposable
   database: mandatory Owner, one Manager/Receptionist, shared Manager, global
   Owner/performer exclusion, preserved inactive history and protected Developer.
@@ -617,7 +620,10 @@ screen may follow by 31 January 2027.
   cases and the branch-role, invoice and offer suites passed 29 cases. Both
   live Payload suites passed all 19 cases against local PostgreSQL 18.6 with
   synthetic data, including rollback across schemas, fixture teardown and an
-  idempotent catalogue seed. Provider responses were tested with mocks.*
+  idempotent catalogue seed. The real QStash Receiver accepted both synthetic
+  rotation keys and rejected a changed request body. Ably response tests verify
+  the application keeps unconfirmed revocations pending. Live provider
+  delivery and existing-token revocation evidence remain open.*
 - [ ] Pass affected app typechecks/lint/builds and populated Playwright role
   fixtures. Missing/skipped authorization fixtures do not count as a pass.
   *22/11: PR #312 passed CI lint, typecheck, unit tests, CodeQL and the web
@@ -633,10 +639,11 @@ screen may follow by 31 January 2027.
   fails when presentation and API/schema changes are reviewed together.*
 - [ ] Run the complete two-branch journey and adversarial third-branch access
   suite, existing-token checks and all MS/TX acceptance cases. Close Gate 1.
-  *22/11: the Owner's stored session was denied a real third branch and stale
-  tabs could not write after a branch switch. The combined two-branch write
-  journey and all existing-token and MS/TX acceptance cases still need a
-  release rehearsal.*
+  *22/11: a stored Owner session transferred a lead from branch A to branch B,
+  lost read and write access from A, and verified the lead at B. It could
+  neither switch to the third branch C nor read C's fixture. The test moved the
+  lead back. Previously stale tabs were denied after a branch switch. Existing
+  live tokens and the complete MS/TX release matrix still need verification.*
 - [x] Harden full backup and restore verification, isolate temporary targets and
   validate snapshot manifests, schema, counts, balances and object references.
   *22/11: capture and verification scripts use the same PostgreSQL snapshot
@@ -652,10 +659,18 @@ screen may follow by 31 January 2027.
   cutover and idempotence, and exact cleanup of CMS drafts and public mirror
   fixtures. The Neon clone was forward-migrated from `0036` through `0041`.
   Browser and settlement fixtures were removed from Neon, and the local CMS
-  test database was removed. The selected release backup and deployed
-  environment evidence remain open.*
+  test database was removed. On 22/11 Neon still reported the two staging
+  branches archived, and the latest production backup and restore workflows
+  had failed. The exact release backup, R2 recovery and deployed environment
+  evidence remain open. See [the recovery record](rollout.md#launch-and-recovery-record).*
 - [ ] Prepare reviewed launch tax/SAC/GSTIN values, genuine operational data,
   deployment evidence, cleanup preview and production recovery runbook.
+  *22/11: the [runbook](rollout.md#launch-and-recovery-record) names the release
+  evidence, owners and recovery checkpoints. The read-only launch preview ran
+  against the complete release schema and reported the four branch-field null
+  checks and the fixture issuer/rate gaps. The three branch-job heartbeat
+  secrets are wired into admin. Approved branch and tax data, deployed evidence
+  and a cleanup preview based on the selected backup remain open.*
 - [ ] Run the separately authorized production operations with current evidence,
   preserve real records and close Gate 3 before accepting real business activity.
 

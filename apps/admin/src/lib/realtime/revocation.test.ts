@@ -136,6 +136,26 @@ describe('processRealtimeRevocations', () => {
     expect((await processRealtimeRevocations({ now: NOW })).failed).toBe(2)
   })
 
+  it.each(['', '{}', '<html>Unexpected response</html>', '{"successCount":0,"failureCount":0}'])(
+    'leaves the outbox entry pending on an unconfirmed response %j',
+    async (body) => {
+      dbMocks.getPendingRealtimeRevocations.mockResolvedValue([
+        row('r1', 'u1', ago(TOKEN_REQUEST_WINDOW_MS + 1000)),
+      ])
+      fetchMock.mockResolvedValue(new Response(body, { status: 200 }))
+
+      expect(await processRealtimeRevocations({ now: NOW })).toMatchObject({
+        pending: 1,
+        failed: 1,
+      })
+      expect(dbMocks.resolveRealtimeRevocations).not.toHaveBeenCalledWith(
+        ['r1'],
+        'revoked',
+        expect.anything(),
+      )
+    },
+  )
+
   it('closes rows past the token lifetime as expired, without calling Ably', async () => {
     dbMocks.getPendingRealtimeRevocations.mockResolvedValue([
       row('r1', 'u1', ago(OLD_TOKENS_GONE_AFTER_MS + 1)),

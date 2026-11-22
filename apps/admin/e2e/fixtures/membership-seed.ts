@@ -89,29 +89,32 @@ export async function seedMembership(branchId: string, minutes = 120): Promise<S
 
 /** Delete everything the seed and the journey wrote, then prove nothing is left. */
 export async function removeSeed(): Promise<void> {
-  const like = `${PREFIX}%`
-  const bookings = sql`(select id from booking where customer_id like ${like})`
+  const customerId = `${PREFIX}_c`
+  const membershipId = `${PREFIX}_m`
+  const tierId = `${PREFIX}_tier`
+  const bookings = sql`(select id from booking where customer_id = ${customerId})`
   await db.batch([
     // Holds, invoices and ledger rows go only under the fixture flag (0022, 0026).
     db.execute(sql`select set_config('rgss.ledger_fixture', 'on', true)`),
     db.execute(sql`delete from settlement_entry where booking_id in ${bookings}`),
     db.execute(sql`delete from membership_hold where booking_id in ${bookings}`),
     db.execute(
-      sql`delete from invoice_item where invoice_id in (select id from invoice where customer_id like ${like})`,
+      sql`delete from invoice_item where invoice_id in (select id from invoice where customer_id = ${customerId})`,
     ),
-    db.execute(sql`delete from invoice where customer_id like ${like}`),
+    db.execute(sql`delete from invoice where customer_id = ${customerId}`),
     db.execute(sql`delete from booking_service where booking_id in ${bookings}`),
     db.execute(sql`delete from booking_status_log where booking_id in ${bookings}`),
-    db.execute(sql`delete from booking where customer_id like ${like}`),
-    db.execute(sql`delete from spa_membership where customer_id like ${like}`),
-    db.execute(sql`delete from spa_membership_tier where id like ${like}`),
-    db.execute(sql`delete from "user" where id like ${like}`),
+    db.execute(sql`delete from booking where customer_id = ${customerId}`),
+    db.execute(sql`delete from spa_membership where id = ${membershipId}`),
+    db.execute(sql`delete from spa_membership_tier where id = ${tierId}`),
+    db.execute(sql`delete from "user" where id = ${customerId}`),
   ])
   const left = await db.execute<Record<string, string>>(sql`
-    select (select count(*) from booking where customer_id like ${like})::text as bookings,
-           (select count(*) from invoice where customer_id like ${like})::text as invoices,
-           (select count(*) from spa_membership where customer_id like ${like})::text as memberships,
-           (select count(*) from "user" where id like ${like})::text as users`)
+    select (select count(*) from booking where customer_id = ${customerId})::text as bookings,
+           (select count(*) from invoice where customer_id = ${customerId})::text as invoices,
+           (select count(*) from spa_membership where id = ${membershipId})::text as memberships,
+           (select count(*) from spa_membership_tier where id = ${tierId})::text as tiers,
+           (select count(*) from "user" where id = ${customerId})::text as users`)
   const residue = left.rows[0] ?? {}
   if (Object.values(residue).some((n) => n !== '0')) {
     throw new Error(`the membership seed left rows behind: ${JSON.stringify(residue)}`)

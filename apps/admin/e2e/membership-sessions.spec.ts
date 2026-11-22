@@ -33,6 +33,7 @@ import {
  ************************************************************/
 
 type StaffOption = { id: string; name: string; designation: string }
+const expectLoaded = expect.configure({ timeout: 30_000 })
 
 /** The value of one of the hours-balance figures ("Used", "Held", "Remaining", "Total"). */
 function figure(page: Page, label: string) {
@@ -95,7 +96,7 @@ function sessionJourney(role: AdminRole) {
           await panel.getByRole('button', { name: 'Record Session' }).click()
 
           await expect(page.getByText('Session started')).toBeVisible({ timeout: 30_000 })
-          await expect(figure(page, 'Held')).toHaveText('0h 30m')
+          await expectLoaded(figure(page, 'Held')).toHaveText('0h 30m')
           await expect(figure(page, 'Remaining')).toHaveText('1h 30m')
           await expect(figure(page, 'Used')).toHaveText('0h 0m')
           await expect(page.getByRole('row').filter({ hasText: 'In Progress' })).toHaveCount(1)
@@ -172,7 +173,7 @@ function sessionJourney(role: AdminRole) {
           await expect(page.getByText(`Session booked for ${shown} at 11:00 AM`)).toBeVisible({
             timeout: 30_000,
           })
-          await expect(figure(page, 'Held')).toHaveText('1h 0m')
+          await expectLoaded(figure(page, 'Held')).toHaveText('1h 0m')
           await expect(figure(page, 'Remaining')).toHaveText('1h 0m')
           expect(await membershipTotals(seeded.id)).toEqual({ used: 0, reserved: 60 })
         })

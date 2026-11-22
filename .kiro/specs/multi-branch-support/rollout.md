@@ -102,12 +102,12 @@ Applied on Neon dev (`0000`–`0036`). Production has `0000`–`0003`.
 | `0040_membership_correction_guards` | Validates the original session invoice, actor and remaining minutes. Applies the balance, posts a signed cross-branch adjustment when needed, and records the audit in the same transaction. |
 | `0041_staff_designation_enum_cast` | Explicitly casts the designation reassignment reason in the trigger's `SELECT DISTINCT`, as identified in the isolated rehearsal. |
 
-Drizzle applies migrations strictly in journal order, so `0007`–`0036` can't
-go in before `0005`–`0006`, and the new code needs `0007`–`0036`. Recommended
+Drizzle applies migrations strictly in journal order. The release candidate
+needs all migrations through `0041`. Recommended
 production sequence: pause role and staff changes, counter billing, gems
 redemptions, membership sessions, catalogue and offer edits in Payload and
 offer edits in the admin portal, apply
-`0004`–`0036` in one run, then deploy the CMS (its start command applies the
+`0004`–`0041` in journal order, then deploy the CMS (its start command applies the
 CMS migration below) and web and admin straight away. Between the two, the old code's role and staff writes fail closed (the
 `0006` checks and triggers reject them) instead of writing unkeyed rows, and
 the old code can't issue an invoice at all: checkout and membership sales fail
@@ -214,13 +214,17 @@ then wait for old tokens to expire); register the four new QStash schedules
 `BETTER_STACK_HEARTBEAT_SETTLEMENT_CLOSE` and
 `BETTER_STACK_HEARTBEAT_STAFF_OVERRUN` monitors. `staff-overrun-check` runs
 60 times a day, so check the QStash daily message quota with it registered.
-No heartbeat URL is wired
-into the admin Lambda in `sst.config.ts` yet, so every job's heartbeat is a
-no-op in production until they are; wire them before relying on the monitors.
+The admin Lambda maps the three heartbeat variables to the stage's [SST
+secrets](../../../knowledge-base/background-jobs.md#env-vars-jobs-specific).
+Verify delivered pings from the release environment before relying on the monitors.
 A later enforcement migration
 sets NOT NULL on `lead.branch_id`, `waitlist.branch_id`,
 `customer_note.branch_id` and `spa_membership.selling_branch_id` once the
-backfill reports no nulls.
+backfill reports no nulls. Run the [read-only launch preview](../../../packages/db/scripts/preview-multi-branch-launch.sql)
+with the candidate launch date on the restored release schema. It reports the
+four null counts, branch issuer/settings coverage, and active service and tier
+tax gaps at the start of the launch day in IST. Reconcile its results with the
+approved branch and tax records.
 
 ## Gate 2: isolated migration and recovery rehearsal
 
@@ -298,6 +302,42 @@ If that is unsafe, maintain the write pause and repair forward; prevent older ad
 Disabling sync alone is not rollback: it permits divergence. Freeze affected authoring, reconcile both schemas and verify parity before reopening it.
 Restore from backup only as an explicitly authorized recovery operation; account for writes, objects and external deliveries after the snapshot.
 Restore/repair the paired application and CMS state together, revalidate both ledgers, then resume queues with duplicate-delivery controls.
+### Launch and recovery record
+
+Record these references together for the release window. Keep customer data,
+backup contents and provider credentials in their approved stores.
+
+| Evidence | Capture before launch |
+| --- | --- |
+| Release and deployment | Promoted Git SHA, deployment evidence for web, admin, CMS and invoicing in each target stage, and both database migration heads. |
+| Approved branch data and tax | Owner review of branch details, staff coverage, hours, closures and availability. Tax approval reference with effective dates, issuer legal name/GSTIN, SAC codes and rates for every branch and invoice line type. |
+| Isolation and operational checks | Passing signed-session and realtime results, provider job delivery and heartbeat evidence, and branch-specific billing/render/report checks. |
+| Backup and recovery | Exact DB dump and manifest keys with checksums, source branch ID, R2 recovery references, isolated restore evidence and duration, and the agreed outage and data-loss limits. |
+| Cleanup | Reviewed exact test-ID allowlist and a preview from the same quiesced snapshot, retained-record checks, queued test work, and object inventory. |
+| Execution and recovery owners | Maintainer approval for the named window, who can pause each writer and resume traffic, who owns forward repair and restore, and the escalation channel. |
+
+1. Pause intake and the affected writers and consumers. Record which versions
+   and queues have stopped. Compare the evidence against the candidate SHA and
+   the current database and object inventories before executing cleanup.
+2. Stop and maintain the pause on ledger mismatch, reconciliation failure,
+   unexpected retained-record changes or lost isolation. Capture the failure
+   time, the last successful operation and any writes or deliveries after the
+   backup snapshot. Use the same record to decide whether to repair forward
+   within the window or request the authorized restore procedure.
+3. Before restoring to a shared target, recover the named database and assets
+   in isolation and reconcile changes after the snapshot. Restore app binaries
+   only after verifying compatibility with each recovered ledger and the CMS
+   write authority. Record approval for the selected recovery action.
+4. Verify queues and deduplication state, branch isolation, catalogue parity,
+   retained accounting and invoice assets before reopening traffic. Resume
+   writers and consumers in dependency order and record the first healthy run.
+
+On 22 November 2026, Neon still reported `test` and `pprd` archived. The latest
+production [weekly backup run](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/45006730820)
+failed at PostgreSQL client installation. The latest [monthly restore run](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/41296793499)
+failed while looking up the R2 backup. Use a successful exact-pair restore as
+the evidence for this gate.
+
 The 1 January 2027 date remains conditional; no fixed effort estimate or automatic waiver follows from this plan.
 Sequence work through the three gates, preserve recovery/testing time and defer optional scope or the launch date when required evidence is missing.
 

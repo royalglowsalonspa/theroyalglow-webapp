@@ -1,6 +1,6 @@
 import { expect, type Page, test } from '@playwright/test'
-import { activeBranch, errorCode, myBranches, switchBranch } from './fixtures/admin-api'
-import { type AdminRole, describeAs } from './fixtures/auth'
+import { activeBranch, data, errorCode, myBranches, switchBranch } from './fixtures/admin-api'
+import { type AdminRole, describeAs, IMPERSONATED_ROLE } from './fixtures/auth'
 
 /************************************************************
  * Branch switcher E2E (multi-branch R2.1, R2.4)
@@ -223,3 +223,72 @@ for (const role of ROLES) {
     })
   })
 }
+
+describeAs('owner', 'Two-branch lead transfer', () => {
+  const sourceId = process.env.ADMIN_E2E_TRANSFER_SOURCE_BRANCH_ID
+  const destinationId = process.env.ADMIN_E2E_TRANSFER_DESTINATION_BRANCH_ID
+  const hiddenId = process.env.ADMIN_E2E_INACCESSIBLE_BRANCH_ID
+  const leadId = process.env.ADMIN_E2E_TRANSFER_LEAD_ID
+  const hiddenLeadId = process.env.ADMIN_E2E_INACCESSIBLE_LEAD_ID
+
+  test('moves a lead, changes its visibility, and keeps a third branch private', async ({
+    page,
+  }) => {
+    test.skip(
+      !!IMPERSONATED_ROLE || !(sourceId && destinationId && hiddenId && leadId && hiddenLeadId),
+      'provide a stored Owner session and disposable lead fixtures in three branches',
+    )
+    if (!(sourceId && destinationId && hiddenId && leadId && hiddenLeadId)) return
+
+    const { branches } = await myBranches(page.request)
+    const accessibleIds = branches.map((branch) => branch.id)
+    expect(new Set([sourceId, destinationId, hiddenId]).size).toBe(3)
+    expect(leadId).not.toBe(hiddenLeadId)
+    expect(accessibleIds).toEqual(expect.arrayContaining([sourceId, destinationId]))
+    expect(accessibleIds).not.toContain(hiddenId)
+
+    const leadPath = `/api/leads/${encodeURIComponent(leadId)}`
+    const hiddenLeadPath = `/api/leads/${encodeURIComponent(hiddenLeadId)}`
+    await switchBranch(page.request, sourceId)
+    const initial = await page.request.get(leadPath)
+    expect(initial.status()).toBe(200)
+    const { lead } = await data<{ lead: { branchId: string; status: string } }>(initial)
+    expect(lead.branchId).toBe(sourceId)
+
+    await switchBranch(page.request, destinationId)
+    expect((await page.request.get(leadPath)).status()).toBe(404)
+    await switchBranch(page.request, sourceId)
+
+    const move = await page.request.post(`${leadPath}/move`, {
+      data: { branchId: sourceId, toBranchId: destinationId },
+    })
+    expect(move.status(), await move.text()).toBe(200)
+    try {
+      expect((await page.request.get(leadPath)).status()).toBe(404)
+      expect(
+        (
+          await page.request.patch(leadPath, { data: { branchId: sourceId, status: 'contacted' } })
+        ).status(),
+      ).toBe(404)
+
+      await switchBranch(page.request, destinationId)
+      const received = await page.request.get(leadPath)
+      expect(received.status()).toBe(200)
+      expect(await received.json()).toMatchObject({
+        data: { lead: { id: leadId, branchId: destinationId, status: lead.status } },
+      })
+      expect((await page.request.get(hiddenLeadPath)).status()).toBe(404)
+      const denied = await page.request.put('/api/me/branch', { data: { branchId: hiddenId } })
+      expect(denied.status()).toBe(404)
+      expect(await errorCode(denied)).toBe('NOT_FOUND')
+      expect((await activeBranch(page.request)).id).toBe(destinationId)
+      expect((await page.request.get(hiddenLeadPath)).status()).toBe(404)
+    } finally {
+      await switchBranch(page.request, destinationId)
+      const restored = await page.request.post(`${leadPath}/move`, {
+        data: { branchId: destinationId, toBranchId: sourceId },
+      })
+      expect(restored.status(), await restored.text()).toBe(200)
+    }
+  })
+})
