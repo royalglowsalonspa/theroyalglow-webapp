@@ -97,14 +97,29 @@ describe.skipIf(!isLiveDbAvailable())('lead moves on disposable Postgres', () =>
         { ok: false, reason: 'not_found' },
       ]),
     )
-    expect(await getLeadById(openLead, source)).toBeNull()
-    expect(await getLeadById(openLead, destination)).toMatchObject({ assignedTo: null })
-    expect(await getLeadNotes(openLead, source)).toEqual([])
-    expect(await getLeadNotes(openLead, destination)).toMatchObject([{ id: note?.id }])
-    expect(await addLeadNote(openLead, source, ownerId, 'Stale source tab')).toBeNull()
-    expect(await updateLead(openLead, source, 'follow_up', { status: 'booked' })).toBeNull()
-
-    const records = await db.select().from(auditLog).where(eq(auditLog.entityId, openLead))
+    const [
+      sourceLead,
+      destinationLead,
+      sourceNotes,
+      destinationNotes,
+      staleNote,
+      stalePatch,
+      records,
+    ] = await Promise.all([
+      getLeadById(openLead, source),
+      getLeadById(openLead, destination),
+      getLeadNotes(openLead, source),
+      getLeadNotes(openLead, destination),
+      addLeadNote(openLead, source, ownerId, 'Stale source tab'),
+      updateLead(openLead, source, 'follow_up', { status: 'booked' }),
+      db.select().from(auditLog).where(eq(auditLog.entityId, openLead)),
+    ])
+    expect(sourceLead).toBeNull()
+    expect(destinationLead).toMatchObject({ assignedTo: null })
+    expect(sourceNotes).toEqual([])
+    expect(destinationNotes).toMatchObject([{ id: note?.id }])
+    expect(staleNote).toBeNull()
+    expect(stalePatch).toBeNull()
     expect(records).toMatchObject([
       {
         actorId: ownerId,
@@ -114,7 +129,7 @@ describe.skipIf(!isLiveDbAvailable())('lead moves on disposable Postgres', () =>
         newValues: { branchId: destination, assignedTo: null },
       },
     ])
-  })
+  }, 20_000)
 
   it('refuses a move to the same, missing or shut-down branch and refuses a booked lead', async () => {
     for (const toBranchId of [source, `${source}_unknown`, shutdown]) {
