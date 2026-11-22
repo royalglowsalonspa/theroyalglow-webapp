@@ -275,7 +275,7 @@ export function MembershipDetail({ membershipId }: { membershipId: string }) {
 
       {/* Sessions: booked, in progress and completed */}
       <SessionHistory sessions={data.sessions} used={used} held={held} />
-      <CorrectionHistory corrections={data.corrections ?? []} showInvoiceLinks />
+      <CorrectionHistory corrections={data.corrections ?? []} linkTo="invoice" />
 
       <RecordSessionPanel
         open={recordOpen}

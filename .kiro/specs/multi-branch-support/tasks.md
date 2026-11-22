@@ -62,7 +62,7 @@ and [rollout](rollout.md) before selecting work.
   exactly-once hold consumption and rollback passed on disposable Neon.
   `multi-branch-schema.integration.test.ts` also checked the installed deferred
   foreign keys, exclusion constraints and triggers.*
-- [ ] Generate/review additive Drizzle schema, SQL, snapshots and fingerprints,
+- [x] Generate/review additive Drizzle schema, SQL, snapshots and fingerprints,
   then compatible Payload migrations with explicit ordering. No schema push.
   *28/10: first slice applied to dev as `0004_multi_branch_people`:*
   - *a `user (id, role)` key;*
@@ -73,8 +73,10 @@ and [rollout](rollout.md) before selecting work.
 
   *All of it stays inactive until the backfill. The SQL was hand-reordered and
   made deferrable; the drift reference is regenerated; typecheck, db tests and
-  `drizzle-kit check` pass. Remaining slices: settings and tax, occupancy,
-  membership holds and settlement, catalogue availability.*
+  `drizzle-kit check` pass. The subsequent slices are recorded in the
+  [migration table](rollout.md). On 22/11 the normal Drizzle and Payload CLIs
+  applied 42 and seven migrations respectively to synthetic PostgreSQL 18.6.
+  CI's drift check passed with the regenerated fingerprint.*
 - [x] Design an idempotent backfill with preview/conflict report and preservation
   of existing explicit branches and historical identity/tax evidence.
   *22/11: `preview-multi-branch-backfill.sql` reports projected row counts and
@@ -149,7 +151,7 @@ and [rollout](rollout.md) before selecting work.
   demote then promote passes `user_one_developer` and the deferred
   `user_role_relationships` trigger; promote first fails on the index;
   demote alone is refused at `COMMIT`.*
-- [ ] Update Users & Roles (Owner and Developer: Manager and Receptionist),
+- [x] Update Users & Roles (Owner and Developer: Manager and Receptionist),
   Staff, schedules, leave and missing-Manager reminders. Remove the active
   toggle; retain historical staff identities. *29/10: Users & Roles
   (`/api/users`, `/api/users/branch-roles`, `users-manager.tsx`) and Staff
@@ -159,7 +161,10 @@ and [rollout](rollout.md) before selecting work.
   job (10:00 IST, one email per Owner per IST day, stops once a Manager is
   assigned; notification type `branch_manager_missing`, migration 0009 on
   dev) and a dashboard banner with an assign link for the Owner and the
-  Developer.*
+  Developer. 22/11: concurrent runs claim one reminder per Owner and IST day.
+  A designation change releases incompatible future assignments and leaves
+  completed work in the original history. Disposable PostgreSQL verified
+  the assignment guard, staff edit and reassignment flag.*
 - [x] Rebuild Add staff on the Staff page (`CreateStaffDialog` in
   `apps/admin/src/app/staff/staff-manager.tsx`, `POST /api/staff`) per R1.11:
   a person search by phone, email or name, Stylist/Therapist designation,
@@ -184,12 +189,14 @@ and [rollout](rollout.md) before selecting work.
   bookings (R5.8). The database refuses an assignee who doesn't work at the
   branch, or who is on approved leave on a confirmed booking's day (0014,
   0015). Live suite `reassignments.integration.test.ts` (5).*
-- [ ] Add branch switcher, explicit form branch identity, cache isolation and
+- [x] Add branch switcher, explicit form branch identity, cache isolation and
   stale-tab rejection; include two-tab tests and delayed-response tests.
   *29/10: switcher (`/api/me/branch`, HttpOnly cookie, full reload on switch)
   and rendered-branch checks (`assertRenderedBranch`, 409
-  BRANCH_CONTEXT_CHANGED) on the people routes. Still open: the other
-  branch-owned routes, two-tab and delayed-response tests.*
+  BRANCH_CONTEXT_CHANGED) on the people routes. 22/11: branch-scoped admin
+  responses use `private, no-store`. With a stored Owner session, Playwright
+  verified that a real third branch is refused, a stale tab gets 409, and a
+  delayed lead response cannot repaint the old branch after switching.*
   *29/10: Playwright specs in `apps/admin/e2e/`: `branch-switcher`,
   `users-roles` (including the stale-branch 409), `staff`, and the opt-in
   `people-writes` (add, edit and remove a Therapist; choose and remove a
@@ -252,7 +259,7 @@ and [rollout](rollout.md) before selecting work.
 
 ## 4. Implement scheduling and membership lifecycle
 
-- [ ] Replace instant-completed membership entry with request/confirm/start/
+- [x] Replace instant-completed membership entry with request/confirm/start/
   complete operations and one assignee; introduce actual timestamps and retained
   eligibility/history needed by retrospective entries.
   *Slice 1 done ([implementation design](membership-scheduling.md#implementation-design-31-october-2026)):
@@ -267,9 +274,9 @@ and [rollout](rollout.md) before selecting work.
   the sessions endpoint with a `startTime` books a confirmed session for its
   date and time at the active branch, as the counter books, with validity
   checked at its planned start; the session panel has Now or Book ahead, and
-  a booking for a later day can't start before its day. Still open: the
-  retained-history and correction evidence is tracked in the retrospective
-  item below.*
+  a booking for a later day can't start before its day. Completed work
+  retains its actual interval and a retained profile. The retrospective
+  workflow records any reviewed evidence with the affected visit.*
 - [x] Implement reserve/consume/release transactions, state guards, stable
   operation keys, booking-level uniqueness and ledger reconciliation (MS-01–06).
   *0025 adds `membership_hold` (one per session booking, held → consumed or
@@ -329,13 +336,17 @@ and [rollout](rollout.md) before selecting work.
   reason `off_schedule`, and reception moves or cancels a booking from its
   detail page (`POST /api/bookings/[id]/reschedule` and `/cancel`, not
   counted against the customer).*
-- [ ] Add bounded, authorized retrospective recording/corrections with audit,
+- [x] Add bounded, authorized retrospective recording/corrections with audit,
   historical time/conflict checks and safe accounting (MS-11–13).
   *22/11: Developers can record an omitted visit with reviewed historical
   eligibility evidence. A disposable Neon test verified duplicate races,
   expired-but-valid visits, staff overlap rollback, the closed work interval,
-  and one audited invoice and settlement. Billing policy for correcting a
-  session that already has an issued invoice remains open.*
+  and one audited invoice and settlement. The approved correction workflow
+  links a signed, append-only adjustment to the issued invoice. The database
+  updates the balance, audit and cross-branch settlement together. The
+  membership and invoice pages display the correction history. Disposable
+  Neon verified the immutable original invoice and hold, reassignment of the
+  balance and settlement, branch/role refusal, and duplicate correction races.*
 
 ## 4b. Membership sales and tiers (admin portal)
 
@@ -600,9 +611,10 @@ screen may follow by 31 January 2027.
 - [ ] Pass focused unit/property tests for pure rules and integration tests on
   disposable infrastructure for constraints, transactions and provider behavior.
   *22/11: Lead transfer, duplicate booking approval and branch job/report
-  checks ran on disposable Neon branches. The broader integration run reached
-  the DB suites, but both Payload suites failed to connect over PostgreSQL
-  TCP. Provider responses were tested with mocks.*
+  checks ran on disposable Neon branches. Both live Payload suites passed
+  against local PostgreSQL 18.6 with synthetic data, including rollback across
+  schemas, fixture teardown and an idempotent catalogue seed. Provider
+  responses were tested with mocks.*
 - [ ] Pass affected app typechecks/lint/builds and populated Playwright role
   fixtures. Missing/skipped authorization fixtures do not count as a pass.
   *22/11: PR #312 passed CI lint, typecheck, unit tests, CodeQL and the web
@@ -610,19 +622,26 @@ screen may follow by 31 January 2027.
   Neon branch, a receptionist moved a lead and lost access to it, and an
   Owner saw it at the destination and switched between distinct branch report
   totals. These browser checks used development impersonation. The full
-  stored-session role matrix and the admin path allowlist remain open. The
-  updated lockfile passed the strict dependency audit locally.*
+  stored-session subset passed 20 cases including all four RBAC cases, with
+  16 failures and four single-branch cases skipped. The full role matrix and
+  admin path allowlist remain open. The updated lockfile passed the strict
+  dependency audit locally and in CI.*
 - [ ] Run the complete two-branch journey and adversarial third-branch access
   suite, existing-token checks and all MS/TX acceptance cases. Close Gate 1.
-- [ ] Harden full backup and restore verification, isolate temporary targets and
+- [x] Harden full backup and restore verification, isolate temporary targets and
   validate snapshot manifests, schema, counts, balances and object references.
   *22/11: capture and verification scripts use the same PostgreSQL snapshot
   for the dump and manifest, verify hashes and restore into a container with
-  networking disabled. Both workflows parsed and the shell scripts passed
-  syntax checks. The synthetic CI round trip and a restore of the release's
-  named backup are separate checks.*
+  networking disabled. A real PostgreSQL 18.6 synthetic round trip into a
+  second local cluster verified schema, manifest, amounts, object-reference
+  digests and teardown. It rejected changed counts and a corrupt dump.
+  Gate 2 still requires restore of the named backup and recovery of its R2 assets.*
 - [ ] Rehearse migration, rollback/forward repair, CMS cutover and exact test-only
   cleanup from the chosen backup; verify teardown and close Gate 2.
+  *22/11: local synthetic PostgreSQL proved the migration order, catalogue
+  cutover and idempotence, and exact cleanup of CMS drafts and public mirror
+  fixtures. The Neon clone was forward-migrated from `0036` through `0041`.
+  The selected release backup and deployed environment evidence remain open.*
 - [ ] Prepare reviewed launch tax/SAC/GSTIN values, genuine operational data,
   deployment evidence, cleanup preview and production recovery runbook.
 - [ ] Run the separately authorized production operations with current evidence,

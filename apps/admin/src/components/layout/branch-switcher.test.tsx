@@ -95,7 +95,7 @@ describe('BranchSwitcher', () => {
 
     expect(screen.getAllByText('Owner · Operational').length).toBeGreaterThan(0)
     expect(screen.getByRole('menuitem', { name: /Marathahalli/ })).toBeInTheDocument()
-    expect(screen.getByText('Owner · Opens soon')).toBeInTheDocument()
+    expect(screen.getByText(`${BRANCHES[1]?.code} · Owner · Opens soon`)).toBeInTheDocument()
   })
 
   it('stores the new branch and reloads the page', async () => {

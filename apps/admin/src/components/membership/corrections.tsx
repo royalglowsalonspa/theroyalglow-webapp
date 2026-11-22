@@ -12,10 +12,10 @@ import { toast } from '@/lib/admin/toast'
 
 export function CorrectionHistory({
   corrections,
-  showInvoiceLinks = false,
+  linkTo,
 }: {
   corrections: readonly MembershipCorrection[]
-  showInvoiceLinks?: boolean
+  linkTo: 'invoice' | 'membership'
 }) {
   const heading = useId()
   if (corrections.length === 0) return null
@@ -42,17 +42,17 @@ export function CorrectionHistory({
             <p className="text-xs text-dusty-gray">
               {formatDateTimeIST(correction.performedAt)}
               {correction.performedByName ? ` · ${correction.performedByName}` : ''}
-              {showInvoiceLinks && (
-                <>
-                  {' · '}
-                  <Link
-                    className="text-deep-gold underline"
-                    href={`/billing/${encodeURIComponent(correction.originalInvoiceId)}`}
-                  >
-                    {correction.invoiceNumber}
-                  </Link>
-                </>
-              )}
+              {' · '}
+              <Link
+                className="text-deep-gold underline"
+                href={
+                  linkTo === 'invoice'
+                    ? `/billing/${encodeURIComponent(correction.originalInvoiceId)}`
+                    : `/memberships/${encodeURIComponent(correction.membershipId)}`
+                }
+              >
+                {linkTo === 'invoice' ? correction.invoiceNumber : 'View membership accounting'}
+              </Link>
             </p>
           </li>
         ))}

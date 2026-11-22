@@ -180,7 +180,7 @@ export function BranchSwitcher() {
                 <span className="grid flex-1 leading-tight">
                   <span className="truncate text-cocoa-dark">{branch.name}</span>
                   <span className="truncate font-ui text-[11px] text-dusty-gray">
-                    {ROLE_LABEL[branch.role]} · {STATUS_LABEL[branch.status]}
+                    {branch.code} · {ROLE_LABEL[branch.role]} · {STATUS_LABEL[branch.status]}
                   </span>
                 </span>
                 {branch.id === active?.id ? (

@@ -18,10 +18,11 @@ afterEach(() => {
 it('shows the signed correction, its reason and a link to the original invoice', () => {
   render(
     <CorrectionHistory
-      showInvoiceLinks
+      linkTo="invoice"
       corrections={[
         {
           id: 'correction_1',
+          membershipId: target.membershipId,
           originalInvoiceId: target.originalInvoiceId,
           invoiceNumber: 'MH/2627/000042',
           availableMinutesDelta: 30,

@@ -28,10 +28,8 @@ jobs:
           --health-timeout 2s
           --health-retries 15
     env:
-      BACKUP_DATABASE_URL: postgresql://postgres:local-ci-fixture-only@127.0.0.1:${{ job.services.postgres.ports[5432] }}/postgres
       BACKUP_SOURCE_ID: local-ci-fixture
       BACKUP_SOURCE_COMMIT: ${{ github.sha }}
-      BACKUP_OUTPUT_DIR: ${{ runner.temp }}/backup-round-trip
     steps:
       - uses: actions/checkout@v7
       - name: Install PostgreSQL tools
@@ -41,6 +39,9 @@ jobs:
           echo '/usr/lib/postgresql/18/bin' >> "$GITHUB_PATH"
       - name: Exercise capture, isolated restore and manifest verification
         shell: bash
+        env:
+          BACKUP_DATABASE_URL: postgresql://postgres:local-ci-fixture-only@127.0.0.1:${{ job.services.postgres.ports[5432] }}/postgres
+          BACKUP_OUTPUT_DIR: ${{ runner.temp }}/backup-round-trip
         run: |
           set -euo pipefail
           psql -X -v ON_ERROR_STOP=1 "$BACKUP_DATABASE_URL" <<'SQL'

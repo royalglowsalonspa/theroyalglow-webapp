@@ -28,7 +28,9 @@ WITH relations AS (
          ('public', 'spa_membership', 'total_hours_minutes'),
          ('public', 'spa_membership', 'used_hours_minutes'),
          ('public', 'spa_membership', 'reserved_minutes'),
-         ('public', 'membership_hold', 'minutes')
+         ('public', 'membership_hold', 'minutes'),
+         ('public', 'membership_correction', 'available_minutes_delta'),
+         ('public', 'settlement_entry', 'amount_owed_paise')
 ), sums AS (
   SELECT string_agg(
     format(

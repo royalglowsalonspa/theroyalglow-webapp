@@ -54,6 +54,7 @@ type FakeBooking = {
   rejectionReason: string | null
   confirmedAt: Date | null
   rejectedAt: Date | null
+  redemptionKey?: string
   services: FakeService[]
   statusLog: StatusLogEntry[]
 }
@@ -324,6 +325,20 @@ describe('GET|PATCH /api/bookings/[id] — the active branch only (R2.3, R2.4)',
       expect(store.get(BOOKING_ID)?.services.every((s) => s.staffId === null)).toBe(true)
     },
   )
+
+  it('preserves the recorded staff on an audited retrospective membership session', async () => {
+    const recorded = seedBooking('completed')
+    recorded.redemptionKey = 'msess-history:00000000-0000-4000-8000-000000000001'
+
+    const res = await PATCH(
+      patchRequest({ action: 'assign', branchId: TEST_BRANCH.id, staffId: 'stf_here' }),
+      route,
+    )
+
+    expect(res.status).toBe(409)
+    expect(dbMocks.assignStaff).not.toHaveBeenCalled()
+    expect(mocks.publishBookingEvent).not.toHaveBeenCalled()
+  })
 
   it('assigns staff at the branch and announces it for the booking’s branch', async () => {
     seedBooking('confirmed')

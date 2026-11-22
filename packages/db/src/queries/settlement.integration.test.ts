@@ -221,7 +221,8 @@ async function fixtureBooking(): Promise<string> {
 describe.skipIf(!LIVE)(
   'the cross-branch settlement ledger against a live database',
   {
-    timeout: 30_000,
+    // Rounding cases complete up to ten bookings through separate Neon requests.
+    timeout: 90_000,
   },
   () => {
     let m20 = ''
@@ -280,6 +281,16 @@ describe.skipIf(!LIVE)(
         db.execute(
           sql`delete from settlement_entry where owing_branch_id like ${like} or owed_branch_id like ${like}`,
         ),
+        db.execute(
+          sql`delete from audit_log where entity_type = 'membership_correction' and branch_id like ${like}`,
+        ),
+        // Restore the original hold totals before removing the consumed holds.
+        // This keeps the immediate minutes check valid during fixture cleanup.
+        db.execute(sql`
+          update spa_membership m set used_hours_minutes = m.used_hours_minutes + a.delta
+          from (select membership_id, sum(available_minutes_delta)::int as delta
+                  from membership_correction where branch_id like ${like} group by membership_id) a
+          where m.id = a.membership_id and m.customer_id like ${like}`),
         db.execute(sql`delete from membership_correction where branch_id like ${like}`),
         db.execute(sql`
         delete from settlement_period p
@@ -316,6 +327,7 @@ describe.skipIf(!LIVE)(
                  where branch_a_id like ${like} or branch_b_id like ${like}) as statements,
                (select count(*) from settlement_period where month in ${months}) as months,
                (select count(*) from membership_correction where branch_id like ${like}) as corrections,
+               (select count(*) from audit_log where entity_type = 'membership_correction' and branch_id like ${like}) as correction_audits,
                (select count(*) from booking where customer_id like ${like}) as bookings,
                (select count(*) from branch where id like ${like}) as branches,
                (select count(*) from "user" where id like ${like}) as users`),
@@ -324,6 +336,7 @@ describe.skipIf(!LIVE)(
         statements: '0',
         months: '0',
         corrections: '0',
+        correction_audits: '0',
         bookings: '0',
         branches: '0',
         users: '0',

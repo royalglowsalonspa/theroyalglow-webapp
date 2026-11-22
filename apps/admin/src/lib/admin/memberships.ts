@@ -162,6 +162,7 @@ export type MembershipSessionRow =
 
 export type MembershipCorrection = {
   id: string
+  membershipId: string
   originalInvoiceId: string
   invoiceNumber: string
   availableMinutesDelta: number

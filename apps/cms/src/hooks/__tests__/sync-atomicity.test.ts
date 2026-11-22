@@ -151,6 +151,14 @@ describe.skipIf(!live)('service sync atomicity (integration — live dev branch)
    */
   async function cleanup(): Promise<void> {
     const like = `${PREFIX}%`
+    const versionSlug = `${PREFIX}-%`
+    // Payload keeps draft versions separately. Service versions still
+    // reference their category after the main service record is deleted.
+    await queryRows(payload, sql`delete from cms._service_v where version_slug like ${versionSlug}`)
+    await queryRows(
+      payload,
+      sql`delete from cms._service_category_v where version_slug like ${versionSlug}`,
+    )
     await queryRows(payload, sql`delete from public.service where id like ${like}`)
     await queryRows(payload, sql`delete from cms.service where id like ${like}`)
     await queryRows(payload, sql`delete from public.service_category where id like ${like}`)
@@ -412,20 +420,25 @@ describe.skipIf(!live)('service sync atomicity (integration — live dev branch)
     const after = await counts()
     expect(after).toEqual(baseline)
 
-    // And no `zz`-prefixed residue anywhere in either schema.
+    const like = `${PREFIX}%`
+    const versionSlug = `${PREFIX}-%`
     const [residue] = await queryRows(
       payload,
       sql`select
-            (select count(*) from public.service where id like ${'zz%'})::int          as public_service,
-            (select count(*) from public.service_category where id like ${'zz%'})::int as public_category,
-            (select count(*) from cms.service where id like ${'zz%'})::int             as cms_service,
-            (select count(*) from cms.service_category where id like ${'zz%'})::int    as cms_category`,
+            (select count(*) from public.service where id like ${like})::int as public_service,
+            (select count(*) from public.service_category where id like ${like})::int as public_category,
+            (select count(*) from cms.service where id like ${like})::int as cms_service,
+            (select count(*) from cms.service_category where id like ${like})::int as cms_category,
+            (select count(*) from cms._service_v where version_slug like ${versionSlug})::int as cms_service_versions,
+            (select count(*) from cms._service_category_v where version_slug like ${versionSlug})::int as cms_category_versions`,
     )
     expect(residue).toEqual({
       public_service: 0,
       public_category: 0,
       cms_service: 0,
       cms_category: 0,
+      cms_service_versions: 0,
+      cms_category_versions: 0,
     })
   }, 120_000)
 })

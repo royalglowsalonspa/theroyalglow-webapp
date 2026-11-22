@@ -41,18 +41,17 @@
  *   from the `cms.*` id skip-set built below.
  * - Prerequisites: the Payload migration (Task 3.0) applied on the target
  *   branch, and DATABASE_URL pointing at that branch.
- * - Reads use `@rgss/db`'s neon-http client (a separate read-only connection).
- *   That is safe here: the seed is one-off and non-transactional, and Payload
- *   owns every write.
+ * - Reads use Payload's PostgreSQL connection, so the source catalogue and
+ *   destination collections are always on the same database.
  * - The two pre-flight guards (`assertSyncDisabled`, `assertSeedable`) live in
  *   `./lib/seed-validation` so they can be asserted WITHOUT a database. They are
  *   pure and their messages are unchanged by that extraction.
  ************************************************************/
 import config from '@payload-config'
-import { db as drizzleDb } from '@rgss/db'
 import { service, serviceBranch, serviceCategory, serviceCategoryBranch } from '@rgss/db/schema'
 import type { SacCode } from '@rgss/types'
 import { getPayload } from 'payload'
+import { txDb } from '../src/lib/sync-db'
 import { assertSeedable, assertSyncDisabled, type DurationOption } from './lib/seed-validation'
 
 /** Branch ids by entity id, from a join table's rows. */
@@ -78,6 +77,8 @@ const main = async (): Promise<void> => {
   assertSyncDisabled()
 
   const payload = await getPayload({ config })
+  // The catalogue source is the public schema of Payload's own database.
+  const drizzleDb = await txDb({ payload })
 
   // Read the live catalogue. Categories are ordered before services below
   // because service.categoryId is a Payload relationship that must resolve.

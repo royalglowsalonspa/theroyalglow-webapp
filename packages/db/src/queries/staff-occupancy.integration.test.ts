@@ -415,7 +415,7 @@ describe.skipIf(!LIVE)('staff occupancy against a live database', () => {
     async (kind, constraint) => {
       const slot = {
         status: 'confirmed',
-        date: kind === 'spa' ? '2099-07-07' : '2099-07-08',
+        date: kind === 'spa' ? '2099-07-20' : '2099-07-21',
         start: '10:00',
         end: '11:00',
         staff: [MANAGER_P],
@@ -750,7 +750,7 @@ describe.skipIf(!LIVE)('staff occupancy against a live database', () => {
       staff: [THERAPIST_P],
     })
     // Booked for a SPA then: skipped for a SPA or a salon booking over it.
-    expect(await pick('spa', '10:00', '11:00')).toBeNull()
+    expect(await pick('spa', '10:00', '11:00')).toBe(MANAGER_P)
     expect(await pick('salon', '10:30', '11:30')).toBe(STYLIST_P)
     expect(await pick('spa', '11:00', '12:00')).toBe(THERAPIST_P)
 

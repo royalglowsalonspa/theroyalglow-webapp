@@ -49,10 +49,11 @@ for (const role of ROLES) {
         menu.getByText(branches.length > 1 ? 'Switch branch' : 'Your branch'),
       ).toBeVisible()
       await expect(menu.getByRole('menuitem')).toHaveCount(branches.length)
-      for (const branch of branches) {
+      for (const [index, branch] of branches.entries()) {
         await expect(
-          menu.getByRole('menuitem').filter({ has: page.getByText(branch.name, { exact: true }) }),
-        ).toHaveCount(1)
+          menu.getByRole('menuitem').nth(index).getByText(branch.name, { exact: true }),
+        ).toBeVisible()
+        await expect(menu.getByRole('menuitem').nth(index)).toContainText(branch.code)
       }
       const marked = menu
         .getByRole('menuitem')
@@ -82,7 +83,7 @@ for (const role of ROLES) {
       })
       await page
         .getByRole('menuitem')
-        .filter({ has: page.getByText(target.name, { exact: true }) })
+        .nth(branches.findIndex((branch) => branch.id === target.id))
         .click()
       await reloaded
 
@@ -207,7 +208,10 @@ for (const role of ROLES) {
         await firstRead.promise
         await expect(switcher(page)).toHaveAccessibleName(switcherName(active.name))
         await switcher(page).press('Enter')
-        await page.getByRole('menuitem').filter({ hasText: other.name }).press('Enter')
+        await page
+          .getByRole('menuitem')
+          .nth(branches.findIndex((branch) => branch.id === other.id))
+          .press('Enter')
         await expect(switcher(page)).toHaveAccessibleName(switcherName(other.name))
         await expect(page.getByText(currentName, { exact: true })).toBeVisible()
       } finally {

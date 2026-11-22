@@ -212,7 +212,7 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
       ) : (
         <>
           <InvoiceBody invoice={state.data.invoice} columns={columns} />
-          <CorrectionHistory corrections={state.data.corrections ?? []} />
+          <CorrectionHistory corrections={state.data.corrections ?? []} linkTo="membership" />
           {state.data.correctionTarget && (
             <MembershipCorrectionForm target={state.data.correctionTarget} onSaved={retry} />
           )}
