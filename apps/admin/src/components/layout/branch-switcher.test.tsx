@@ -93,7 +93,9 @@ describe('BranchSwitcher', () => {
     stubApi()
     await openSwitcher()
 
-    expect(screen.getAllByText('Owner · Operational').length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText(`${BRANCHES[0]?.code} · Owner · Operational`).length,
+    ).toBeGreaterThan(0)
     expect(screen.getByRole('menuitem', { name: /Marathahalli/ })).toBeInTheDocument()
     expect(screen.getByText(`${BRANCHES[1]?.code} · Owner · Opens soon`)).toBeInTheDocument()
   })

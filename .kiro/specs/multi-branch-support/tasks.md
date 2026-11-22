@@ -12,11 +12,13 @@ and [rollout](rollout.md) before selecting work.
   unrelated work separate from feature commits. *22/11: the draft PR branch
   matched its remote before work resumed. The untracked handoff stayed local.
   The Next.js 16.4.5 dependency update is separate from the feature changes.*
-- [ ] Add `experimental.turbopackFileSystemCacheForDev: false` to
+- [x] Add `experimental.turbopackFileSystemCacheForDev: false` to
   `apps/web/next.config.ts` and `apps/cms/next.config.ts`, matching
   `apps/admin/next.config.ts`; restart each dev server twice and confirm the
-  page no longer reloads repeatedly. *28/10: config added; restart check
-  pending.*
+  page no longer reloads repeatedly. *22/11: browser checks on Next.js 16.4.5
+  covered two restarts of each app. Web and admin made at most one follow-up
+  navigation per startup. The CMS login made none once the database had a
+  synthetic user.*
 - [x] Map APIs, server pages/actions, exports, queries, jobs, realtime publishers,
   invoice paths and settings readers to branch/shared/self-service policies.
   *28/10: [route inventory](route-inventory.md); its six gaps feed §3.*
@@ -345,8 +347,8 @@ and [rollout](rollout.md) before selecting work.
   links a signed, append-only adjustment to the issued invoice. The database
   updates the balance, audit and cross-branch settlement together. The
   membership and invoice pages display the correction history. Disposable
-  Neon verified the immutable original invoice and hold, reassignment of the
-  balance and settlement, branch/role refusal, and duplicate correction races.*
+  Neon verified the immutable original invoice and hold, the updated balance
+  and settlement, branch/role refusal, and duplicate correction races.*
 
 ## 4b. Membership sales and tiers (admin portal)
 

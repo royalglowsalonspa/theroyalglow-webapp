@@ -107,11 +107,12 @@ for (const role of ROLES) {
       // Someone already on this branch's staff is found but can't be added.
       const member = staff[0]
       const term = member ? member.email : 'e2e-nobody-zzq'
-      const lookup = page.waitForResponse(
-        (response) => response.url().includes('/api/staff/candidates') && response.ok(),
+      const lookup = page.waitForResponse((response) =>
+        response.url().includes('/api/staff/candidates'),
       )
       await search.fill(term)
-      await lookup
+      const response = await lookup
+      expect(response.ok(), `Staff search returned ${response.status()}`).toBe(true)
 
       if (member) {
         const match = dialog.getByRole('button', { name: new RegExp(escapeRegExp(member.email)) })

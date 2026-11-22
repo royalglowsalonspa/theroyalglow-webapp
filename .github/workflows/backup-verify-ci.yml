@@ -23,7 +23,7 @@ jobs:
         ports:
           - 5432/tcp
         options: >-
-          --health-cmd 'pg_isready -h 127.0.0.1 -U postgres'
+          --health-cmd "pg_isready -h 127.0.0.1 -U postgres"
           --health-interval 2s
           --health-timeout 2s
           --health-retries 15

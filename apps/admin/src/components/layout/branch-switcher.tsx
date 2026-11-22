@@ -131,7 +131,7 @@ export function BranchSwitcher() {
 
   const name = active?.name ?? (state ? 'No branch' : 'Loading…')
   const detail = active
-    ? `${ROLE_LABEL[active.role]} · ${STATUS_LABEL[active.status]}`
+    ? `${active.code} · ${ROLE_LABEL[active.role]} · ${STATUS_LABEL[active.status]}`
     : state
       ? 'Ask your branch Owner'
       : ''
