@@ -620,7 +620,11 @@ screen may follow by 31 January 2027.
   cases and the branch-role, invoice and offer suites passed 29 cases. Both
   live Payload suites passed all 19 cases against local PostgreSQL 18.6 with
   synthetic data, including rollback across schemas, fixture teardown and an
-  idempotent catalogue seed. The real QStash Receiver accepted both synthetic
+  idempotent catalogue seed. Eight live suites on a disposable Neon copy with
+  all 42 migrations passed 87 cases across membership, invoice, settlement,
+  staff and branch settings. Two suites affected by the default five-second
+  remote-query allowance passed all 23 cases on rerun with a 30-second
+  allowance. The real QStash Receiver accepted both synthetic
   rotation keys and rejected a changed request body. Ably response tests verify
   the application keeps unconfirmed revocations pending. Live provider
   delivery and existing-token revocation evidence remain open.*
