@@ -1,7 +1,7 @@
 {
   "_comment": "AUTHORITATIVE DB-free canonical reference derived from the committed Drizzle latest snapshot selected by migrations/meta/_journal.json. Regenerate with `bun run drift:reference` after an intentional schema change captured by `drizzle-kit generate`, then commit this file with the migration.",
   "version": 1,
-  "hash": "dcfadbed792a6cb5ad6e2541ca79c1f43ed8a2f91c0633fd7c0bdad7659c8f65",
+  "hash": "a216fc0ad20797a0977e90d31681a6a3e901abdbfddfe82d45229c87a9c49417",
   "fingerprint": {
     "enums": [
       {
@@ -10,7 +10,7 @@
       },
       {
         "name": "booking_reassignment_reason",
-        "labels": ["left_branch", "unavailable", "overrun", "off_schedule"]
+        "labels": ["left_branch", "unavailable", "overrun", "off_schedule", "designation_changed"]
       },
       {
         "name": "booking_reassignment_resolution",

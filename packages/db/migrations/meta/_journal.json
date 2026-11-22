@@ -260,6 +260,20 @@
       "when": 1793437989956,
       "tag": "0036_invoice_offer_snapshot_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1795341469185,
+      "tag": "0037_staff_designation_reason",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1795341474662,
+      "tag": "0038_staff_designation_guards",
+      "breakpoints": true
     }
   ]
 }

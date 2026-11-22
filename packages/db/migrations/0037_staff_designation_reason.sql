@@ -1,0 +1,1 @@
+ALTER TYPE "public"."booking_reassignment_reason" ADD VALUE 'designation_changed';

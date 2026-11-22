@@ -178,6 +178,7 @@ export const bookingReassignmentReasonEnum = pgEnum('booking_reassignment_reason
   'unavailable',
   'overrun',
   'off_schedule',
+  'designation_changed',
 ])
 // How reassignment work ended: someone was assigned, the booking ended
 // (cancelled, rejected, missed, rescheduled) without starting, or it started
