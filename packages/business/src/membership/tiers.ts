@@ -40,8 +40,8 @@ export function tierSlug(name: string): string {
     .normalize('NFKD')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+    .replace(/^-/, '')
     .slice(0, 60)
-    .replace(/-+$/g, '')
+    .replace(/-$/, '')
   return slug || 'tier'
 }

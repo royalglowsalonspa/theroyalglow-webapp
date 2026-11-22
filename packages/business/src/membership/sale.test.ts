@@ -145,6 +145,12 @@ describe('tierSlug', () => {
     expect(tierSlug('  Diwali — Special 2026!  ')).toBe('diwali-special-2026')
     expect(tierSlug('★★★')).toBe('tier')
   })
+
+  it('removes separators even when the slug is truncated at one', () => {
+    const word = 'a'.repeat(59)
+    expect(tierSlug(`---${word}-next---`)).toBe(word)
+    expect(tierSlug('-'.repeat(500))).toBe('tier')
+  })
 })
 
 describe('assertTaxClassChange (MS-18)', () => {
