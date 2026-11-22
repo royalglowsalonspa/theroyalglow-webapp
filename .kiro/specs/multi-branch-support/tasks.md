@@ -613,23 +613,30 @@ screen may follow by 31 January 2027.
 - [ ] Pass focused unit/property tests for pure rules and integration tests on
   disposable infrastructure for constraints, transactions and provider behavior.
   *22/11: Lead transfer, duplicate booking approval and branch job/report
-  checks ran on disposable Neon branches. Both live Payload suites passed
-  against local PostgreSQL 18.6 with synthetic data, including rollback across
-  schemas, fixture teardown and an idempotent catalogue seed. Provider
-  responses were tested with mocks.*
+  checks ran on disposable Neon branches. The settlement suite passed all 10
+  cases and the branch-role, invoice and offer suites passed 29 cases. Both
+  live Payload suites passed all 19 cases against local PostgreSQL 18.6 with
+  synthetic data, including rollback across schemas, fixture teardown and an
+  idempotent catalogue seed. Provider responses were tested with mocks.*
 - [ ] Pass affected app typechecks/lint/builds and populated Playwright role
   fixtures. Missing/skipped authorization fixtures do not count as a pass.
   *22/11: PR #312 passed CI lint, typecheck, unit tests, CodeQL and the web
   and admin builds. Seven web browser tests passed locally. On a disposable
   Neon branch, a receptionist moved a lead and lost access to it, and an
   Owner saw it at the destination and switched between distinct branch report
-  totals. These browser checks used development impersonation. The full
-  stored-session subset passed 20 cases including all four RBAC cases, with
-  16 failures and four single-branch cases skipped. The full role matrix and
-  admin path allowlist remain open. The updated lockfile passed the strict
-  dependency audit locally and in CI.*
+  totals using development impersonation. The stored-session branch switcher,
+  RBAC, Staff and Users & Roles suites then passed all 36 applicable cases
+  across the main run and targeted reruns. Four switch scenarios were
+  inapplicable to a Receptionist with one branch. Full write journeys remain
+  in Gate 1. The strict dependency audit passed locally and in CI. PR #312
+  keeps the implementation together, and its required admin path check
+  fails when presentation and API/schema changes are reviewed together.*
 - [ ] Run the complete two-branch journey and adversarial third-branch access
   suite, existing-token checks and all MS/TX acceptance cases. Close Gate 1.
+  *22/11: the Owner's stored session was denied a real third branch and stale
+  tabs could not write after a branch switch. The combined two-branch write
+  journey and all existing-token and MS/TX acceptance cases still need a
+  release rehearsal.*
 - [x] Harden full backup and restore verification, isolate temporary targets and
   validate snapshot manifests, schema, counts, balances and object references.
   *22/11: capture and verification scripts use the same PostgreSQL snapshot
@@ -637,13 +644,16 @@ screen may follow by 31 January 2027.
   networking disabled. A real PostgreSQL 18.6 synthetic round trip into a
   second local cluster verified schema, manifest, amounts, object-reference
   digests and teardown. It rejected changed counts and a corrupt dump.
+  The Linux PR check also passed the round trip in a network-isolated container.
   Gate 2 still requires restore of the named backup and recovery of its R2 assets.*
 - [ ] Rehearse migration, rollback/forward repair, CMS cutover and exact test-only
   cleanup from the chosen backup; verify teardown and close Gate 2.
   *22/11: local synthetic PostgreSQL proved the migration order, catalogue
   cutover and idempotence, and exact cleanup of CMS drafts and public mirror
   fixtures. The Neon clone was forward-migrated from `0036` through `0041`.
-  The selected release backup and deployed environment evidence remain open.*
+  Browser and settlement fixtures were removed from Neon, and the local CMS
+  test database was removed. The selected release backup and deployed
+  environment evidence remain open.*
 - [ ] Prepare reviewed launch tax/SAC/GSTIN values, genuine operational data,
   deployment evidence, cleanup preview and production recovery runbook.
 - [ ] Run the separately authorized production operations with current evidence,
