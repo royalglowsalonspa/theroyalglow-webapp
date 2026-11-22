@@ -120,5 +120,32 @@ for (const role of ROLES) {
       await page.goto('/')
       await expect(switcher(page)).toHaveAccessibleName(switcherName(active.name))
     })
+
+    test('rejects a lead action from a tab rendered before a branch switch', async ({
+      page,
+      context,
+    }) => {
+      const { active, branches } = await myBranches(page.request)
+      const other = branches.find((branch) => branch.id !== active?.id)
+      test.skip(!(active && other), 'this account works in only one branch')
+      if (!(active && other)) return
+
+      await page.goto('/leads')
+      await expect(switcher(page)).toHaveAccessibleName(switcherName(active.name))
+
+      const secondTab = await context.newPage()
+      await secondTab.goto('/leads')
+      await expect(switcher(secondTab)).toHaveAccessibleName(switcherName(active.name))
+      expect((await switchBranch(secondTab.request, other.id)).id).toBe(other.id)
+      await secondTab.reload()
+      await expect(switcher(secondTab)).toHaveAccessibleName(switcherName(other.name))
+      await expect(switcher(page)).toHaveAccessibleName(switcherName(active.name))
+
+      const response = await page.request.post('/api/leads/e2e-no-such-lead/move', {
+        data: { branchId: active.id, toBranchId: other.id },
+      })
+      expect(response.status()).toBe(409)
+      expect(await errorCode(response)).toBe('BRANCH_CONTEXT_CHANGED')
+    })
   })
 }

@@ -1,8 +1,8 @@
 # Implementation tasks: multi-branch support v6
 
-An ordered work plan. A checked item is implemented and verified on Neon dev
-(not yet committed or deployed); italic notes record progress and what is
-still open. Read [requirements](requirements.md), [design](design.md),
+An ordered work plan. A checked item records completed work; italic notes
+record the verification environment and any remaining release steps. Read
+[requirements](requirements.md), [design](design.md),
 [membership/scheduling](membership-scheduling.md), [tax/settings](tax-settings.md)
 and [rollout](rollout.md) before selecting work.
 
@@ -231,6 +231,9 @@ and [rollout](rollout.md) before selecting work.
   branch and link its own Google listing. `DAILY_REPORT_EMAIL_RECIPIENTS`
   retired. Live suite `branch-jobs.integration.test.ts` (5). Monthly GST per
   branch, issuer GSTIN and SAC code: done with the issuer snapshots (§5).*
+  *22/11: customer and salon reschedules queue a no-show check for the new
+  slot. The signed receiver checks the booking's current IST end time plus
+  15 minutes and claims one notification per recipient and slot.*
 
 ## 4. Implement scheduling and membership lifecycle
 
@@ -484,8 +487,10 @@ screen may follow by 31 January 2027.
   SGST, test-invoice badge, ₹0 session note) with legacy invoices rendered as
   before; the email prints the stored split and issuer; the R2 key keeps
   older numbers' paths. The monthly GST summary is rebuilt per branch, issuer
-  GSTIN and SAC code from the stored lines. Sales reports already sum stored
-  totals.*
+  GSTIN and SAC code from the stored lines. 22/11: Daily and weekly sales
+  emails break each branch's stored totals down by invoice issuer. Weekly
+  reports include issuers and branches that had activity only in the
+  comparison period.*
 
 ## 6. Implement CMS availability, offers and customer flows
 
@@ -574,8 +579,19 @@ screen may follow by 31 January 2027.
 
 - [ ] Pass focused unit/property tests for pure rules and integration tests on
   disposable infrastructure for constraints, transactions and provider behavior.
+  *22/11: Lead transfer, duplicate booking approval and branch job/report
+  checks ran on disposable Neon branches. The broader integration run reached
+  the DB suites, but both Payload suites failed to connect over PostgreSQL
+  TCP. Provider responses were tested with mocks.*
 - [ ] Pass affected app typechecks/lint/builds and populated Playwright role
   fixtures. Missing/skipped authorization fixtures do not count as a pass.
+  *22/11: PR #312 passed CI lint, typecheck, unit tests, CodeQL and the web
+  and admin builds. Seven web browser tests passed locally. On a disposable
+  Neon branch, a receptionist moved a lead and lost access to it, and an
+  Owner saw it at the destination and switched between distinct branch report
+  totals. These browser checks used development impersonation. The full
+  stored-session role matrix, the strict dependency audit and the admin path
+  allowlist remain open.*
 - [ ] Run the complete two-branch journey and adversarial third-branch access
   suite, existing-token checks and all MS/TX acceptance cases. Close Gate 1.
 - [ ] Harden full backup and restore verification, isolate temporary targets and
