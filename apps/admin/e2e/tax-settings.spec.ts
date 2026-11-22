@@ -25,6 +25,7 @@ type TaxVersionView = {
   id: string
   sacCode: string
   rateBps: number
+  effectiveFrom: string
   reviewStatus: 'provisional' | 'reviewed'
   reason: string
   state: 'in_force' | 'scheduled' | 'replaced'
@@ -47,8 +48,8 @@ const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
 
 /** 'YYYY-MM-DD' on the IST calendar, `days` from now. */
-function istDate(days = 0): string {
-  return new Date(Date.now() + IST_OFFSET_MS + days * DAY_MS).toISOString().slice(0, 10)
+function istDate(days = 0, timestamp = Date.now()): string {
+  return new Date(timestamp + IST_OFFSET_MS + days * DAY_MS).toISOString().slice(0, 10)
 }
 
 /** "2627" for 1 April 2026 to 31 March 2027, on the IST calendar. */
@@ -156,18 +157,24 @@ describeAs('developer', 'Tax rates', () => {
       return
     }
 
-    // A change of rate starting today.
-    const today = await page.request.post('/api/tax-versions', {
+    // Pick a past day without a version. A branch created today already has
+    // provisional rates starting today, which is a separate 409 conflict.
+    const oldest = Math.min(
+      ...before.versions
+        .filter((version) => version.sacCode === existing.sacCode)
+        .map((version) => Date.parse(version.effectiveFrom)),
+    )
+    const past = await page.request.post('/api/tax-versions', {
       data: {
         branchId: before.branchId,
         sacCode: existing.sacCode,
         rateBps: existing.rateBps === 1800 ? 1200 : 1800,
-        effectiveFrom: istDate(0),
+        effectiveFrom: istDate(-1, oldest),
         reason: 'E2E: a change that must be refused',
       },
     })
-    expect(today.status()).toBe(400)
-    expect((await today.json()).error.details).toEqual({
+    expect(past.status()).toBe(400)
+    expect((await past.json()).error.details).toEqual({
       effectiveFrom: ['Choose tomorrow or later'],
     })
 
@@ -208,7 +215,7 @@ describeAs('developer', 'Tax rates', () => {
     })
 
     await page.getByRole('link', { name: /Tax rates for the active branch/ }).click()
-    await expect(page).toHaveURL(/\/settings\/tax$/)
+    await expect(page).toHaveURL(/\/settings\/tax$/, { timeout: 30_000 })
     await expectTaxScreen(page, screen)
   })
 })

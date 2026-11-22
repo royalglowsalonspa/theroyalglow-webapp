@@ -624,7 +624,7 @@ screen may follow by 31 January 2027.
   rotation keys and rejected a changed request body. Ably response tests verify
   the application keeps unconfirmed revocations pending. Live provider
   delivery and existing-token revocation evidence remain open.*
-- [ ] Pass affected app typechecks/lint/builds and populated Playwright role
+- [x] Pass affected app typechecks/lint/builds and populated Playwright role
   fixtures. Missing/skipped authorization fixtures do not count as a pass.
   *22/11: PR #312 passed CI lint, typecheck, unit tests, CodeQL and the web
   and admin builds. Seven web browser tests passed locally. On a disposable
@@ -633,17 +633,23 @@ screen may follow by 31 January 2027.
   totals using development impersonation. The stored-session branch switcher,
   RBAC, Staff and Users & Roles suites then passed all 36 applicable cases
   across the main run and targeted reruns. Four switch scenarios were
-  inapplicable to a Receptionist with one branch. Full write journeys remain
-  in Gate 1. The strict dependency audit passed locally and in CI. PR #312
-  keeps the implementation together, and its required admin path check
-  fails when presentation and API/schema changes are reviewed together.*
+  inapplicable to a Receptionist with one branch. The updated admin app also
+  passed its CI lint, typecheck, tests and build. The strict dependency audit
+  passed locally and in CI. Gate 1 remains open for the full write journeys
+  and required admin path check, which fails when the presentation and API or
+  schema changes in PR #312 are reviewed together.*
 - [ ] Run the complete two-branch journey and adversarial third-branch access
   suite, existing-token checks and all MS/TX acceptance cases. Close Gate 1.
   *22/11: a stored Owner session transferred a lead from branch A to branch B,
   lost read and write access from A, and verified the lead at B. It could
   neither switch to the third branch C nor read C's fixture. The test moved the
-  lead back. Previously stale tabs were denied after a branch switch. Existing
-  live tokens and the complete MS/TX release matrix still need verification.*
+  lead back. Previously stale tabs were denied after a branch switch. The
+  signed-session browser run on the full Drizzle release schema passed all
+  three Developer membership cases, including record/complete and book/cancel,
+  and five Developer/Owner tax cases. The disposable clone's fixture branches,
+  leads, users and sessions were removed and retained branch and user counts
+  were unchanged. Existing live tokens and the rest of the MS/TX release
+  matrix still need verification.*
 - [x] Harden full backup and restore verification, isolate temporary targets and
   validate snapshot manifests, schema, counts, balances and object references.
   *22/11: capture and verification scripts use the same PostgreSQL snapshot

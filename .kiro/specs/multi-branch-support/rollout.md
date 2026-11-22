@@ -37,6 +37,13 @@ Pass before scheduling a production migration window:
 - Collect the relevant tests in their actual runners and require passing lint, types, schema checks and affected-app builds.
 - Keep unrelated workspace edits separate from the release. Any failed or unavailable required check leaves this gate open.
 
+For the Lambda driver check, use the release candidate on a non-production AWS
+stage with its isolated Neon target. Call the admin `/api/health` endpoint from
+the deployed URL. Correlate a successful cold request with the Lambda `REPORT`
+entry that includes `Init Duration`, then collect successful warm requests on
+the same function revision. Record the initialization and request times and the
+target IDs with the existing transaction rollback and concurrency results.
+
 ## Additive migration and deployment order
 
 1. Inventory source data, current ledgers and all writers, including jobs, old app instances and CMS hooks; identify incompatible versions.
