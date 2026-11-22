@@ -274,6 +274,27 @@
       "when": 1795341474662,
       "tag": "0038_staff_designation_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1795342438564,
+      "tag": "0039_membership_corrections",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1795342468286,
+      "tag": "0040_membership_correction_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1795354633898,
+      "tag": "0041_staff_designation_enum_cast",
+      "breakpoints": true
     }
   ]
 }

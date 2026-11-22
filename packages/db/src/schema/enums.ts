@@ -213,4 +213,5 @@ export const settlementEntryKindEnum = pgEnum('settlement_entry_kind', [
   'membership_session',
   'gems_redemption',
   'reversal',
+  'membership_correction',
 ])

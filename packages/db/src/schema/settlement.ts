@@ -61,6 +61,7 @@ import { branch } from './branch'
 import { settlementEntryKindEnum } from './enums'
 import { loyaltyTransaction } from './loyalty'
 import { spaMembership } from './membership'
+import { membershipCorrection } from './membership-correction'
 
 // The IST calendar month an entry is recorded in.
 const IST_MONTH = sql`(date_trunc('month', (now() AT TIME ZONE 'Asia/Kolkata')))::date`
@@ -96,6 +97,9 @@ export const settlementEntry = pgTable(
       .notNull()
       .references(() => branch.id, { onDelete: 'restrict' }),
     spaMembershipId: text('spa_membership_id').references(() => spaMembership.id, {
+      onDelete: 'restrict',
+    }),
+    membershipCorrectionId: text('membership_correction_id').references(() => membershipCorrection.id, {
       onDelete: 'restrict',
     }),
     // The booking the service was delivered on.
@@ -134,6 +138,9 @@ export const settlementEntry = pgTable(
     uniqueIndex('settlement_entry_reversal_unique')
       .on(table.reversesEntryId)
       .where(sql`reverses_entry_id IS NOT NULL`),
+    uniqueIndex('settlement_entry_membership_correction_unique')
+      .on(table.membershipCorrectionId)
+      .where(sql`membership_correction_id IS NOT NULL`),
     index('settlement_entry_month_pair_idx').on(
       table.postingMonth,
       table.owingBranchId,
@@ -157,22 +164,33 @@ export const settlementEntry = pgTable(
     // entries still add up exactly (0024).
     check(
       'settlement_entry_shape_check',
-      sql`CASE ${table.kind}
+      sql`CASE ${table.kind}::text
         WHEN 'membership_session' THEN
           ${table.spaMembershipId} IS NOT NULL AND ${table.bookingId} IS NOT NULL
           AND ${table.minutes} > 0 AND ${table.gems} IS NULL AND ${table.gemValuePaise} IS NULL
           AND ${table.loyaltyTransactionId} IS NULL AND ${table.reversesEntryId} IS NULL
+          AND ${table.membershipCorrectionId} IS NULL
           AND ${table.valuePaise} >= 0 AND ${table.gstSharePaise} >= 0
         WHEN 'gems_redemption' THEN
           ${table.loyaltyTransactionId} IS NOT NULL AND ${table.bookingId} IS NOT NULL
           AND ${table.gems} > 0 AND ${table.gemValuePaise} > 0 AND ${table.minutes} IS NULL
           AND ${table.spaMembershipId} IS NULL AND ${table.reversesEntryId} IS NULL
+          AND ${table.membershipCorrectionId} IS NULL
           AND ${table.valuePaise} = ${table.gems}::bigint * ${table.gemValuePaise}
           AND ${table.gstSharePaise} = 0
         WHEN 'reversal' THEN
           ${table.reversesEntryId} IS NOT NULL AND ${table.note} IS NOT NULL
+          AND ${table.membershipCorrectionId} IS NULL
           AND length(btrim(${table.note})) > 0
           AND ${table.valuePaise} <= 0 AND ${table.gstSharePaise} <= 0
+        WHEN 'membership_correction' THEN
+          ${table.spaMembershipId} IS NOT NULL AND ${table.bookingId} IS NOT NULL
+          AND ${table.membershipCorrectionId} IS NOT NULL
+          AND ${table.owingBranchId} <> ${table.owedBranchId}
+          AND ${table.minutes} IS NOT NULL AND ${table.minutes} <> 0
+          AND ${table.gems} IS NULL AND ${table.gemValuePaise} IS NULL
+          AND ${table.loyaltyTransactionId} IS NULL AND ${table.reversesEntryId} IS NULL
+          AND ${table.note} IS NOT NULL AND length(btrim(${table.note})) > 0
         ELSE false
       END`,
     ),

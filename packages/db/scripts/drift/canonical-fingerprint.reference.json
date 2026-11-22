@@ -1,7 +1,7 @@
 {
   "_comment": "AUTHORITATIVE DB-free canonical reference derived from the committed Drizzle latest snapshot selected by migrations/meta/_journal.json. Regenerate with `bun run drift:reference` after an intentional schema change captured by `drizzle-kit generate`, then commit this file with the migration.",
   "version": 1,
-  "hash": "a216fc0ad20797a0977e90d31681a6a3e901abdbfddfe82d45229c87a9c49417",
+  "hash": "aa6ea152f5074a0e187791079cee15c67b5277eb09f2464ece46fb45696325f7",
   "fingerprint": {
     "enums": [
       {
@@ -130,7 +130,7 @@
       },
       {
         "name": "settlement_entry_kind",
-        "labels": ["membership_session", "gems_redemption", "reversal"]
+        "labels": ["membership_session", "gems_redemption", "reversal", "membership_correction"]
       },
       {
         "name": "spa_membership_status",
@@ -3189,6 +3189,141 @@
         ]
       },
       {
+        "name": "membership_correction",
+        "columns": [
+          {
+            "name": "available_minutes_delta",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "booking_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "branch_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "evidence_reference",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": "gen_random_uuid()::text"
+          },
+          {
+            "name": "idempotency_key",
+            "type": "uuid",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "membership_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "original_invoice_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "performed_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "performed_by",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "reason",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["id"],
+        "uniques": [
+          {
+            "name": "membership_correction_branch_key",
+            "columns": ["branch_id", "idempotency_key"]
+          }
+        ],
+        "foreignKeys": [
+          {
+            "columns": ["booking_id"],
+            "refTable": "booking",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["branch_id"],
+            "refTable": "branch",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["membership_id"],
+            "refTable": "spa_membership",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["original_invoice_id"],
+            "refTable": "invoice",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["performed_by"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": ["booking_id"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["branch_id", "membership_id", "performed_at"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": ["branch_id", "original_invoice_id", "performed_at"],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          }
+        ]
+      },
+      {
         "name": "membership_hold",
         "columns": [
           {
@@ -4317,6 +4452,12 @@
             "default": null
           },
           {
+            "name": "membership_correction_id",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
             "name": "minutes",
             "type": "integer",
             "nullable": true,
@@ -4396,6 +4537,13 @@
             "onUpdate": "no action"
           },
           {
+            "columns": ["membership_correction_id"],
+            "refTable": "membership_correction",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
             "columns": ["owed_branch_id"],
             "refTable": "branch",
             "refColumns": ["id"],
@@ -4448,6 +4596,12 @@
             "columns": ["loyalty_transaction_id", "owing_branch_id"],
             "unique": true,
             "predicate": "kind = 'gems_redemption'",
+            "method": "btree"
+          },
+          {
+            "columns": ["membership_correction_id"],
+            "unique": true,
+            "predicate": "membership_correction_id IS NOT NULL",
             "method": "btree"
           },
           {
