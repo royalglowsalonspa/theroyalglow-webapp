@@ -11,13 +11,19 @@
  * - alertBranchFrontDesk({ branchId, bookingId, type, data })
  *
  * Notes        : The branch comes from the booking row, never from the job
- *                payload (trusted branch context). One notification per
- *                person per booking and type: a QStash retry after a partial
- *                fan-out tells only the people not yet told.
+ *                payload (trusted branch context). A QStash retry after a
+ *                partial fan-out tells only people not yet told about that
+ *                booking and alert, or that slot for a no-show check.
  ************************************************************/
 
 import { buildNotificationContent, frontDeskRecipients } from '@rgss/business'
-import { createNotification, getBranchPeople, hasNotification } from '@rgss/db/queries'
+import {
+  createNotification,
+  createNotificationOnce,
+  getBranchPeople,
+  hasNotification,
+  hasNotificationSince,
+} from '@rgss/db/queries'
 import { dispatchNotification } from '@/lib/notifications/dispatch'
 
 export type BranchAlertType = 'stale_pending_booking' | 'no_show_check' | 'staff_overrun'
@@ -29,12 +35,16 @@ export type BranchAlertResult = {
   recipients: number
 }
 
-export async function alertBranchFrontDesk(params: {
-  branchId: string
-  bookingId: string
-  type: BranchAlertType
-  data: Record<string, string>
-}): Promise<BranchAlertResult> {
+export async function alertBranchFrontDesk(
+  params: {
+    branchId: string
+    bookingId: string
+    data: Record<string, string>
+  } & (
+    | { type: 'no_show_check'; checkAt: Date }
+    | { type: Exclude<BranchAlertType, 'no_show_check'> }
+  ),
+): Promise<BranchAlertResult> {
   const { branches } = await getBranchPeople([params.branchId])
   const branch = branches[0]
   if (!branch) {
@@ -49,20 +59,34 @@ export async function alertBranchFrontDesk(params: {
 
   let notified = 0
   for (const recipient of recipients) {
-    if (await hasNotification(recipient.userId, params.type, params.bookingId)) {
+    const { userId } = recipient
+    const alreadyNotified =
+      params.type === 'no_show_check'
+        ? await hasNotificationSince(userId, params.type, params.checkAt, params.bookingId)
+        : await hasNotification(userId, params.type, params.bookingId)
+    if (alreadyNotified) {
       continue
     }
-    const created = await createNotification({
-      userId: recipient.userId,
+    const notification = {
+      userId,
       type: params.type,
       title,
       body,
-      channel: 'push',
       bookingId: params.bookingId,
-    })
+    }
+    const created =
+      params.type === 'no_show_check'
+        ? await createNotificationOnce({
+            ...notification,
+            id: `no-show-check:${JSON.stringify([userId, params.bookingId, params.checkAt])}`,
+          })
+        : await createNotification({ ...notification, channel: 'push' })
+    if (!created) {
+      continue
+    }
     await dispatchNotification({
       id: created.id,
-      userId: recipient.userId,
+      userId,
       type: params.type,
       channel: created.channel,
       title,

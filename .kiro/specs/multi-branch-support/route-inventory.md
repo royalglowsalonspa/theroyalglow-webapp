@@ -91,8 +91,9 @@ Policy classes:
 
 | Job | Scope needed |
 | --- | --- |
-| `daily-sales-report`, `weekly-report` | One report per branch to its recipients; Developer may get a summary (R7.4) |
-| `nightly-sales-summary`, `monthly-gst-summary` | Per branch and issuer, from stored invoice amounts (R6.5). Done (§5) for the GST summary: rows per month, branch, issuer GSTIN and SAC code from the stored lines, rebuilt in one transaction |
+| `daily-sales-report`, `weekly-report` | One report per branch to its recipients, with collections grouped by the stored invoice issuer (R6.5, R7.4). Developer receives the branch summary |
+| `nightly-sales-summary` | Internal daily rollup per branch, from stored invoice amounts |
+| `monthly-gst-summary` | Rows per month, branch, issuer GSTIN and SAC code from the stored invoice data (R6.5), rebuilt in one transaction |
 | `appointment-reminders`, `post-service-followup`, `noshow-check`, `stale-booking-alert`, `pending-booking-closeout` | Per booking: real branch details in messages; alerts go to that branch; no-show releases holds |
 | `lead-followups` | The lead's branch |
 | `invoice-pdf` | Render from the invoice's issuer snapshot (R6.1). Done (§5): `buildPdfPayload`, template v2 per-line SAC and rate; older invoices render as before |

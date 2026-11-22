@@ -28,6 +28,7 @@
  * - All figures arrive as integer paise
  * - Output is deterministic for a given input (sorted, stable)
  ************************************************************/
+import type { SalesReportIssuerRevenue } from '@rgss/types'
 import { formatINR } from '../utils/currency'
 import { formatDateIN } from '../utils/date'
 
@@ -65,6 +66,7 @@ export type DailyReportData = {
   date: Date
   services: ReportService[]
   revenue: RevenueSplit
+  issuerRevenue: SalesReportIssuerRevenue[]
   bookings: BookingCounts
   customers: CustomerCounts
   membershipSessions: number
@@ -83,6 +85,7 @@ export function emptyReportFigures(): ReportFigures {
   return {
     services: [],
     revenue: { salonPaise: 0, spaPaise: 0, membershipPaise: 0, totalPaise: 0 },
+    issuerRevenue: [],
     bookings: { completed: 0, noShows: 0, cancelled: 0, walkIns: 0 },
     customers: { newCount: 0, returning: 0 },
     membershipSessions: 0,
@@ -149,11 +152,12 @@ function formatCustomers(customers: CustomerCounts): string {
   ].join('\n')
 }
 
-function formatBody(data: ReportFigures): string {
+function formatBody(data: ReportFigures, previous?: ReportFigures): string {
   return [
     formatServices(data.services),
     '',
     formatRevenue(data.revenue),
+    ...formatIssuerRevenue(data.issuerRevenue, previous?.issuerRevenue),
     '',
     formatBookings(data.bookings),
     '',
@@ -217,6 +221,32 @@ function formatComparison(currentPaise: number, previousPaise: number): string {
   return `${formatSigned(deltaPaise)} (${sign}${pct}%)`
 }
 
+function issuerKey(issuer: SalesReportIssuerRevenue): string {
+  return issuer.gstin ? `gstin:${issuer.gstin}` : `name:${issuer.name ?? ''}`
+}
+
+function formatIssuerRevenue(
+  current: readonly SalesReportIssuerRevenue[],
+  previous?: readonly SalesReportIssuerRevenue[],
+): string[] {
+  const currentByIssuer = new Map(current.map((issuer) => [issuerKey(issuer), issuer]))
+  const previousByIssuer = new Map(previous?.map((issuer) => [issuerKey(issuer), issuer]))
+  const issuers = new Map([...previousByIssuer, ...currentByIssuer])
+  if (issuers.size === 0) return []
+
+  const lines = Array.from(issuers, ([key, issuer]) => {
+    const label =
+      issuer.name && issuer.gstin
+        ? `${issuer.name} (${issuer.gstin})`
+        : (issuer.name ?? issuer.gstin ?? 'Issuer not recorded')
+    const collected = currentByIssuer.get(key)?.totalPaise ?? 0
+    const prior = previousByIssuer.get(key)?.totalPaise ?? 0
+    const comparison = previous ? ` · Week-over-week ${formatComparison(collected, prior)}` : ''
+    return `   ${label} · ${formatINR(collected)}${comparison}`
+  })
+  return ['', 'Revenue by invoice issuer', ...lines]
+}
+
 // Weekly report body (job 14): the daily format over a 7-day period plus a
 // week-over-week comparison line against the previous week's totals. For one
 // branch when `branchName` is given; `previous` is then that branch's week.
@@ -235,7 +265,7 @@ export function formatWeeklyReport(
   const comparison = formatComparison(data.revenue.totalPaise, previous.revenue.totalPaise)
   const wow = ['', DIVIDER, `📈 Week-over-week: ${comparison}`].join('\n')
 
-  return header + formatBody(data) + wow
+  return header + formatBody(data, previous) + wow
 }
 
 // The email subject for one person's reports: one branch, or several.

@@ -43,9 +43,11 @@ const dbMocks = vi.hoisted(() => ({
   cancelBooking: vi.fn(),
   rescheduleBooking: vi.fn(),
 }))
+const enqueueMock = vi.hoisted(() => vi.fn(async () => undefined))
 
 vi.mock('@/lib/api/session', () => sessionMocks)
 vi.mock('@rgss/db/queries', () => dbMocks)
+vi.mock('@/lib/jobs/enqueue', () => ({ enqueueJob: enqueueMock }))
 
 import * as rescheduleRoute from '@/app/api/bookings/[id]/reschedule/route'
 
@@ -242,6 +244,12 @@ describe('POST /api/bookings/[id]/reschedule — slot move', () => {
       endTime: '13:00',
       settingsRevision: 4,
     })
+    // Friday 13:15 IST: fifteen minutes after the new scheduled end.
+    expect(enqueueMock).toHaveBeenCalledExactlyOnceWith(
+      '/api/jobs/noshow-check',
+      { bookingId: 'bk_1' },
+      (4 * 24 + 3) * 60 * 60 + 15 * 60,
+    )
   })
 })
 
@@ -274,6 +282,7 @@ describe('POST /api/bookings/[id]/reschedule — closed days (R1.8, R5.7)', () =
     })
     expect(dbMocks.getClosureOn).toHaveBeenCalledWith('br_mh', bookingDate)
     expect(dbMocks.rescheduleBooking).not.toHaveBeenCalled()
+    expect(enqueueMock).not.toHaveBeenCalled()
     expect(store.rescheduleCount).toBe(0)
   })
 })

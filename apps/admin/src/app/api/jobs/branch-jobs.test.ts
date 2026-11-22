@@ -19,7 +19,7 @@ const dbMocks = vi.hoisted(() => ({
   getBranchPeople: vi.fn(),
   hasNotification: vi.fn(),
   hasNotificationSince: vi.fn(),
-  createAppointmentReminderNotification: vi.fn(),
+  createNotificationOnce: vi.fn(),
   createNotification: vi.fn(),
   getStaleFollowUpLeads: vi.fn(),
   getBookingForNoShow: vi.fn(),
@@ -84,10 +84,11 @@ function jobRequest(body = '{}'): Request {
   return new Request('https://admin.theroyalglow.in/api/jobs/x', { method: 'POST', body })
 }
 
-function figures(totalPaise: number, completed = 0) {
+function figures(totalPaise: number, completed = 0, issuerName?: string) {
   return {
     services: [],
     revenue: { salonPaise: totalPaise, spaPaise: 0, membershipPaise: 0, totalPaise },
+    issuerRevenue: issuerName ? [{ gstin: null, name: issuerName, totalPaise }] : [],
     bookings: { completed, noShows: 0, cancelled: 0, walkIns: 0 },
     customers: { newCount: 0, returning: 0 },
     membershipSessions: 0,
@@ -114,7 +115,7 @@ beforeEach(() => {
   vi.stubEnv('INTERNAL_JOB_TOKEN', undefined)
   dbMocks.hasNotification.mockResolvedValue(false)
   dbMocks.hasNotificationSince.mockResolvedValue(false)
-  dbMocks.createAppointmentReminderNotification.mockImplementation(async (p) => created(p))
+  dbMocks.createNotificationOnce.mockImplementation(async (p) => created(p))
   dbMocks.createNotification.mockImplementation(async (p) => created(p))
   sendEmailMock.mockResolvedValue(true)
   slackMock.mockResolvedValue(true)
@@ -138,12 +139,14 @@ function emailTo(address: string) {
 }
 
 describe('POST /api/jobs/noshow-check', () => {
-  it("alerts the booking's own branch, whatever the payload claims", async () => {
+  it("alerts the booking's own branch at the end of the grace period", async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-25T11:45:00.000Z') })
     dbMocks.getBookingForNoShow.mockResolvedValue({
       id: 'bk_1',
       status: 'confirmed',
       branchId: 'branch_mh',
       bookingDate: new Date('2026-10-25T00:00:00.000Z'),
+      endTime: '17:00:00',
     })
     dbMocks.getBranchPeople.mockResolvedValue({ branches: [MH], developer: DEV })
 
@@ -154,9 +157,32 @@ describe('POST /api/jobs/noshow-check', () => {
     expect(await res.json()).toEqual({ success: true, notified: 1 })
     expect(dbMocks.getBranchPeople).toHaveBeenCalledWith(['branch_mh'])
     // MH has no Manager or Receptionist: its Owner covers. Not the Developer.
-    expect(notifiedUsers()).toEqual(['owner'])
-    expect(notificationFor('owner')?.body).toContain('at Marathahalli')
+    expect(dbMocks.createNotificationOnce).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        userId: 'owner',
+        type: 'no_show_check',
+        bookingId: 'bk_1',
+        body: expect.stringContaining('at Marathahalli'),
+      }),
+    )
     expect(heartbeatMock).toHaveBeenCalledWith('NOSHOW_CHECK')
+  })
+
+  it('ignores an old check that arrives before the moved appointment is due', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-26T11:44:59.999Z') })
+    dbMocks.getBookingForNoShow.mockResolvedValue({
+      id: 'bk_1',
+      status: 'confirmed',
+      branchId: 'branch_mh',
+      bookingDate: new Date('2026-10-26T00:00:00.000Z'),
+      endTime: '17:00:00',
+    })
+
+    const res = await noshowPOST(jobRequest(JSON.stringify({ bookingId: 'bk_1' })))
+
+    expect(await res.json()).toEqual({ success: true, notified: 0 })
+    expect(dbMocks.getBranchPeople).not.toHaveBeenCalled()
+    expect(dispatchMock).not.toHaveBeenCalled()
   })
 
   it('leaves a booking that was already actioned alone', async () => {
@@ -290,8 +316,8 @@ describe('POST /api/jobs/daily-sales-report', () => {
     dbMocks.getDailyBranchReports.mockResolvedValue({
       date: new Date('2026-10-25T00:00:00.000Z'),
       branches: new Map([
-        ['branch_rs', figures(150_000, 3)],
-        ['branch_fr', figures(90_000, 2)],
+        ['branch_rs', figures(150_000, 3, 'Recorded Rayasandra Issuer')],
+        ['branch_fr', figures(90_000, 2, 'Recorded Franchise Issuer')],
       ]),
     })
   })
@@ -306,6 +332,8 @@ describe('POST /api/jobs/daily-sales-report', () => {
     expect(owner?.html).toContain('Royal Glow Rayasandra — Daily Sales Report')
     expect(owner?.html).toContain('Royal Glow Marathahalli — Daily Sales Report')
     expect(owner?.html).not.toContain('Whitefield')
+    expect(owner?.html).toContain('Recorded Rayasandra Issuer')
+    expect(owner?.html).not.toContain('Recorded Franchise Issuer')
 
     const manager = emailTo('manager@x.test')
     expect(manager?.subject).toBe('Royal Glow Rayasandra — Daily Sales Report')
@@ -315,6 +343,7 @@ describe('POST /api/jobs/daily-sales-report', () => {
     expect(franchise?.subject).toBe('Royal Glow Whitefield — Daily Sales Report')
     expect(franchise?.html).not.toContain('Rayasandra')
     expect(franchise?.html).toContain('₹900.00')
+    expect(franchise?.html).toContain('Recorded Franchise Issuer')
 
     // The Receptionist gets no sales report.
     expect(emailTo('reception@x.test')).toBeUndefined()
@@ -348,12 +377,15 @@ describe('POST /api/jobs/daily-sales-report', () => {
 })
 
 describe('POST /api/jobs/weekly-report', () => {
-  it('compares each branch with its own previous week', async () => {
-    dbMocks.getBranchPeople.mockResolvedValue({ branches: [RS, MH, FR], developer: DEV })
+  it('compares branches with their previous week, including a closed branch with prior activity', async () => {
+    dbMocks.getBranchPeople.mockResolvedValue({
+      branches: [RS, MH, { ...FR, status: 'shutdown' }],
+      developer: DEV,
+    })
     const thisWeek = new Map([['branch_rs', figures(150_000)]])
     const lastWeek = new Map([
       ['branch_rs', figures(100_000)],
-      ['branch_fr', figures(50_000)],
+      ['branch_fr', figures(50_000, 0, 'Recorded Franchise Issuer')],
     ])
     let call = 0
     dbMocks.getWeeklyBranchReports.mockImplementation(async (start: string, end: string) => {
@@ -374,6 +406,7 @@ describe('POST /api/jobs/weekly-report', () => {
     expect(manager?.html).toContain('Week-over-week: +₹500.00 (+50%)')
     const franchise = emailTo('franchise@x.test')
     expect(franchise?.html).toContain('Week-over-week: -₹500.00 (-100%)')
+    expect(franchise?.html).toContain('Recorded Franchise Issuer · ₹0.00')
     expect(franchise?.html).not.toContain('Rayasandra')
     expect(emailTo('dev@x.test')?.subject).toBe('Royal Glow — Weekly Summary, All Branches')
   })
@@ -414,7 +447,7 @@ describe('customer messages name the real branch', () => {
     const res = await remindersPOST(jobRequest())
 
     expect(await res.json()).toEqual({ success: true, processed: 1 })
-    expect(dbMocks.createAppointmentReminderNotification).toHaveBeenCalledWith({
+    expect(dbMocks.createNotificationOnce).toHaveBeenCalledWith({
       id: `${type}:bk_9`,
       type,
       bookingId: 'bk_9',
@@ -447,7 +480,7 @@ describe('customer messages name the real branch', () => {
       'reminder_24h',
       'bk_9',
     )
-    expect(dbMocks.createAppointmentReminderNotification).not.toHaveBeenCalled()
+    expect(dbMocks.createNotificationOnce).not.toHaveBeenCalled()
     expect(dispatchMock).not.toHaveBeenCalled()
     expect(sendEmailMock).not.toHaveBeenCalled()
   })
@@ -455,7 +488,7 @@ describe('customer messages name the real branch', () => {
   it('does not send either channel if another run already claimed the reminder', async () => {
     setReminderTime('2026-10-25T04:30:00.000Z')
     dbMocks.getUpcomingConfirmedBookings.mockResolvedValue([confirmedBooking])
-    dbMocks.createAppointmentReminderNotification.mockResolvedValueOnce(null)
+    dbMocks.createNotificationOnce.mockResolvedValueOnce(null)
 
     const res = await remindersPOST(jobRequest())
 

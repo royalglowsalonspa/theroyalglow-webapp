@@ -34,6 +34,22 @@ describe('formatDailyReport', () => {
     expect(text.split('\n')[0]).toBe('📊 Royal Glow — Daily Sales Report')
     expect(text).toContain('(none)')
   })
+
+  it('shows each stored issuer separately and identifies invoices without a snapshot', () => {
+    const data: DailyReportData = { date: DATE, ...figures(150_000) }
+    data.issuerRevenue = [
+      { gstin: '29ABCDE1234F1Z5', name: 'Original Issuer', totalPaise: 100_000 },
+      { gstin: null, name: 'Pre-registration Issuer', totalPaise: 30_000 },
+      { gstin: null, name: null, totalPaise: 20_000 },
+    ]
+
+    const text = formatDailyReport(data, 'Rayasandra')
+
+    expect(text).toContain('Original Issuer (29ABCDE1234F1Z5) · ₹1,000.00')
+    expect(text).toContain('Pre-registration Issuer · ₹300.00')
+    expect(text).toContain('Issuer not recorded · ₹200.00')
+    expect(text).toContain('Total collected:      ₹1,500.00')
+  })
 })
 
 describe('formatWeeklyReport', () => {
@@ -48,6 +64,32 @@ describe('formatWeeklyReport', () => {
     expect(text.split('\n')[0]).toBe('📊 Royal Glow Marathahalli — Weekly Sales Report')
     expect(text).toContain('Week: 19/10/2026 – 25/10/2026')
     expect(text).toContain('📈 Week-over-week: +₹1,000.00 (+100%)')
+  })
+
+  it('compares the same GSTIN across a name change and includes an issuer from the previous week', () => {
+    const data = {
+      date: DATE,
+      periodStart: new Date('2026-10-19T00:00:00.000Z'),
+      periodEnd: DATE,
+      ...figures(150_000),
+    }
+    data.issuerRevenue = [{ gstin: '29ABCDE1234F1Z5', name: 'Renamed Issuer', totalPaise: 150_000 }]
+    const previous = figures(110_000)
+    previous.issuerRevenue = [
+      { gstin: '29ABCDE1234F1Z5', name: 'Original Issuer', totalPaise: 100_000 },
+      { gstin: '29ABCDE1234F1Z6', name: 'Former Issuer', totalPaise: 10_000 },
+    ]
+
+    const text = formatWeeklyReport(data, previous, 'Rayasandra')
+
+    expect(text).toContain(
+      'Renamed Issuer (29ABCDE1234F1Z5) · ₹1,500.00 · Week-over-week +₹500.00 (+50%)',
+    )
+    expect(text).not.toContain('Original Issuer')
+    expect(text).toContain(
+      'Former Issuer (29ABCDE1234F1Z6) · ₹0.00 · Week-over-week -₹100.00 (-100%)',
+    )
+    expect(text).toContain('📈 Week-over-week: +₹400.00 (+36.4%)')
   })
 })
 

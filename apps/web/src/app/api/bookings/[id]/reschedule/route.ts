@@ -43,6 +43,7 @@ import {
   assertBranchOpenOn,
   assertReschedulable,
   assertSlotBookable,
+  noShowCheckDelaySeconds,
 } from '@rgss/business'
 import {
   getBookingByIdForCustomer,
@@ -54,6 +55,7 @@ import { badRequest, notFound } from '@rgss/errors'
 import { rescheduleBookingSchema } from '@rgss/types'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireSession } from '@/lib/api/session'
+import { enqueueJob } from '@/lib/jobs/enqueue'
 import { publishBookingEvent } from '@/lib/realtime/publish'
 
 export const POST = withErrorHandler(
@@ -121,6 +123,11 @@ export const POST = withErrorHandler(
     })
     if (!updated) {
       throw notFound('Booking not found.')
+    }
+
+    const noShowDelay = noShowCheckDelaySeconds(bookingDate, endTime)
+    if (noShowDelay > 0) {
+      await enqueueJob('/api/jobs/noshow-check', { bookingId: updated.id }, noShowDelay)
     }
 
     // Best-effort realtime publish: notify the booking channel and the per-branch

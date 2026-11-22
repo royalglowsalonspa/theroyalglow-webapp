@@ -6,7 +6,7 @@
  * Module Name  : POST /api/jobs/noshow-check
  * Scope        : API — Background Jobs
  *
- * Description  : QStash-triggered job (enqueued +15min after booking end time)
+ * Description  : QStash-triggered job (scheduled for +15min after booking end time)
  *                that alerts the booking's branch if a confirmed booking was
  *                never checked in.
  *
@@ -31,10 +31,10 @@
  * - NEVER auto-marks no-show; a human decides.
  * - Ignores bookings already in completed/cancelled/no_show status.
  * - The branch comes from the booking row, not the payload. One notification
- *   per person per booking, so a retry tells only the people not yet told.
+ *   per person per slot, so a retry tells only the people not yet told.
  ************************************************************/
 
-import { formatDateIN } from '@rgss/business'
+import { formatDateIN, noShowCheckAt } from '@rgss/business'
 import { getBookingForNoShow } from '@rgss/db/queries'
 import { createLogger } from '@rgss/logger'
 import { alertBranchFrontDesk } from '@/lib/jobs/branch-alerts'
@@ -42,7 +42,7 @@ import { pingHeartbeat } from '@/lib/jobs/heartbeat'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
 
 // Job 18 — No-show check (QStash triggered, enqueued +15m after the booking's
-// end time by booking confirmation). If the booking is STILL 'confirmed' past
+// end time by booking creation or rescheduling). If it is STILL 'confirmed' past
 // its end, alert its branch's front desk to review it — the job NEVER
 // auto-marks the no-show (Requirement 6.3); a human decides. Any other status
 // is left alone.
@@ -74,16 +74,17 @@ export const POST = async (req: Request) => {
 
     let notified = 0
 
-    if (bookingId) {
-      const booking = await getBookingForNoShow(bookingId)
-
-      // Only alert when the appointment is still confirmed past its end — never
-      // auto-mark the no-show.
-      if (booking && booking.status === 'confirmed') {
+    const booking = bookingId ? await getBookingForNoShow(bookingId) : null
+    if (booking?.status === 'confirmed') {
+      // An earlier job can arrive after a move. Check the stored slot and grace
+      // period before alerting. The new slot has its own queued check.
+      const checkAt = noShowCheckAt(booking.bookingDate.toISOString().slice(0, 10), booking.endTime)
+      if (checkAt <= Date.now()) {
         const result = await alertBranchFrontDesk({
           branchId: booking.branchId,
-          bookingId,
+          bookingId: booking.id,
           type: 'no_show_check',
+          checkAt: new Date(checkAt),
           data: { date: formatDateIN(booking.bookingDate) },
         })
         notified = result.notified

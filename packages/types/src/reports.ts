@@ -31,6 +31,13 @@
 import { z } from 'zod'
 import type { BranchSettlementReport } from './settlement'
 
+/** A branch's paid invoice total for an issuer recorded at issue time. */
+export type SalesReportIssuerRevenue = {
+  gstin: string | null
+  name: string | null
+  totalPaise: number
+}
+
 // Named relative ranges supported by the Reports dashboard selector.
 export const REPORT_RANGES = ['7d', '30d', '90d', 'mtd'] as const
 export type ReportRange = (typeof REPORT_RANGES)[number]

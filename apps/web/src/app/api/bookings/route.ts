@@ -42,6 +42,7 @@ import {
   calculateBookingTotal,
   generateBookingNumber,
   istToday,
+  noShowCheckDelaySeconds,
 } from '@rgss/business'
 import {
   countUpcomingBookingsAtBranch,
@@ -225,9 +226,8 @@ export const POST = withErrorHandler(async (req: Request) => {
   // 2. No-show check 15 minutes after the appointment's end. The end instant is
   //    the IST wall-clock (the salon's timezone) of bookingDate + endTime; only
   //    enqueue when that instant is still in the future.
-  const endInstantMs = new Date(`${bookingDate}T${endTime}:00+05:30`).getTime()
-  const noShowDelaySeconds = Math.floor((endInstantMs + 15 * 60 * 1000 - Date.now()) / 1000)
-  if (Number.isFinite(noShowDelaySeconds) && noShowDelaySeconds > 0) {
+  const noShowDelaySeconds = noShowCheckDelaySeconds(bookingDate, endTime)
+  if (noShowDelaySeconds > 0) {
     await enqueueJob('/api/jobs/noshow-check', { bookingId: created.id }, noShowDelaySeconds)
   }
 

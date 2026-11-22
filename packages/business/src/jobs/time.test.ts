@@ -6,6 +6,7 @@ import {
   istDayStart,
   istToday,
   monthKeyIST,
+  noShowCheckDelaySeconds,
   reminderWindowMatch,
 } from './time'
 
@@ -71,6 +72,13 @@ describe('reminderWindowMatch', () => {
     const now = new Date('2026-05-30T10:00:00Z')
     const startsAt = new Date(now.getTime() + 3 * MS_PER_HOUR)
     expect(reminderWindowMatch(startsAt, now)).toBeNull()
+  })
+})
+
+describe('noShowCheckDelaySeconds', () => {
+  it('rounds up a partial second to keep the queued check after the IST grace period', () => {
+    const now = new Date('2026-05-30T11:44:59.900Z').getTime()
+    expect(noShowCheckDelaySeconds('2026-05-30', '17:00', now)).toBe(1)
   })
 })
 

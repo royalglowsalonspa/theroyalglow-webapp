@@ -391,6 +391,7 @@ Each person gets one push per IST day covering all their stale leads. A lead wit
 
 **What it does:** Reads today's paid invoices and bookings **per branch** (multi-branch R6.5, R7.4) and formats one report per branch. Every operational branch gets a report; a branch that isn't operational gets one only when it had activity.
 
+- Each branch report breaks collections down by the GSTIN stored on the invoice, or the stored issuer name when no GSTIN was captured. Older invoices without an issuer snapshot appear under “Issuer not recorded.” The nightly sales summary (Job 1) continues to store one operational rollup per branch and date.
 - Each branch's Owner and Manager receive that branch's report. Someone with several branches gets one email with a section per branch. Nobody receives a branch where they hold no role, so a franchise Owner never sees Royal Glow's figures, and the reverse.
 - The Developer alone receives the summary across branches: one block per branch plus the total. The same summary is posted to `SLACK_WEBHOOK_URL`, which must therefore be a channel only the Developer reads.
 - Receptionists receive no sales report.
@@ -443,7 +444,7 @@ Queries: `getDailyBranchReports` / `getWeeklyBranchReports` in `packages/db/src/
 | **Heartbeat** | `BETTER_STACK_HEARTBEAT_NIGHTLY_SALES` (shared) |
 | **Recipients** | As Job 13 |
 
-**What it does:** The daily format over the last 7 IST days, per branch, with each branch compared with its own previous 7 days ("📈 Week-over-week: +₹500.00 (+50%)"). The Developer's summary adds each branch's and the total's week-over-week change.
+**What it does:** The daily format over the last 7 IST days, with week-over-week comparisons for each branch and invoice issuer. A branch that is no longer operational is included when it had activity in either period. The Developer's summary adds each branch's and the total's week-over-week change.
 
 ---
 
@@ -510,7 +511,7 @@ These are not on a schedule. They are enqueued by API routes with a delay when a
 | **Delay** | +15 minutes after `end_time` |
 | **Endpoint** | `POST /api/jobs/noshow-check` |
 
-**What it does:** Checks if the booking status is still `confirmed` 15 minutes after the scheduled end time. If yes — it likely means the customer didn't show up and the receptionist hasn't marked it. Sends a push notification to that booking's branch front desk, exactly as Job 17 does.
+**What it does:** Booking creation and customer or salon rescheduling queue a check 15 minutes after the scheduled end time. The job reads the booking's current slot and sends a push notification to its branch front desk only when the booking is still `confirmed` and the current grace period has passed. An older job arriving before that point skips the alert. Multiple checks for the same slot send at most one alert to each recipient.
 
 **Receptionist sees:** "Booking #xxx for [Customer] at 4:00 PM appears to be a no-show. Mark accordingly."
 

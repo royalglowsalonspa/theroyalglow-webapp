@@ -39,6 +39,7 @@
  *                @rgss/business/jobs/time.ts for the richer IST utilities.
  ************************************************************/
 
+import type { SalesReportIssuerRevenue } from '@rgss/types'
 import { and, asc, desc, eq, gte, isNotNull, isNull, lt, lte, sql } from 'drizzle-orm'
 import { db } from '../index'
 import { session, user } from '../schema/auth'
@@ -539,6 +540,7 @@ export async function getGemsExpiringInDays(days: number, now: Date = new Date()
 export type BranchReportFigures = {
   services: { name: string; qty: number; revenuePaise: number }[]
   revenue: { salonPaise: number; spaPaise: number; membershipPaise: number; totalPaise: number }
+  issuerRevenue: SalesReportIssuerRevenue[]
   bookings: { completed: number; noShows: number; cancelled: number; walkIns: number }
   customers: { newCount: number; returning: number }
   membershipSessions: number
@@ -548,6 +550,7 @@ function emptyBranchReportFigures(): BranchReportFigures {
   return {
     services: [],
     revenue: { salonPaise: 0, spaPaise: 0, membershipPaise: 0, totalPaise: 0 },
+    issuerRevenue: [],
     bookings: { completed: 0, noShows: 0, cancelled: 0, walkIns: 0 },
     customers: { newCount: 0, returning: 0 },
     membershipSessions: 0,
@@ -556,8 +559,8 @@ function emptyBranchReportFigures(): BranchReportFigures {
 
 // Shared aggregation for the daily (job 13) and weekly (job 14) reports, one
 // set of figures per branch (multi-branch R6.5, R7.4). Revenue is summed over
-// PAID invoices in the [invStart, invEnd) instant range, by the invoice's
-// branch. Booking counters run over bookings whose booking_date falls in
+// PAID invoices in the [invStart, invEnd) instant range, by branch and stored
+// issuer. Booking counters run over bookings whose booking_date falls in
 // [bkStart, bkEnd] (inclusive), by the booking's branch. A new customer is
 // one whose first booking anywhere falls in the period, counted at that
 // booking's branch; every other customer seen at a branch is returning there.
@@ -576,6 +579,12 @@ async function computeBranchReports(
     lt(invoice.createdAt, invEnd),
   )
   const bkWhere = and(gte(booking.bookingDate, bkStart), lte(booking.bookingDate, bkEnd))
+  // A registered issuer's GSTIN identifies it even if the name has changed.
+  // Where no GSTIN was captured, keep the stored name, if any, as the identity.
+  const issuerName = sql<
+    string | null
+  >`coalesce(nullif(btrim(${invoice.issuerLegalName}), ''), nullif(btrim(${invoice.issuerName}), ''))`
+  const issuerWithoutGstin = sql`case when ${invoice.issuerGstin} is null then ${issuerName} end`
 
   const firstBooking = db
     .select({
@@ -592,6 +601,8 @@ async function computeBranchReports(
     db
       .select({
         branchId: invoice.branchId,
+        gstin: invoice.issuerGstin,
+        issuerName: sql<string | null>`min(${issuerName})`,
         totalPaise: sql<number>`coalesce(sum(${invoice.totalAmountPaise}), 0)::int`,
         salonPaise: sql<number>`coalesce(sum(case when ${invoice.invoiceType} = 'service' and ${booking.serviceType} = 'salon' then ${invoice.totalAmountPaise} else 0 end), 0)::int`,
         spaPaise: sql<number>`coalesce(sum(case when ${invoice.invoiceType} = 'service' and ${booking.serviceType} = 'spa' then ${invoice.totalAmountPaise} else 0 end), 0)::int`,
@@ -600,7 +611,8 @@ async function computeBranchReports(
       .from(invoice)
       .leftJoin(booking, eq(invoice.bookingId, booking.id))
       .where(invWhere)
-      .groupBy(invoice.branchId),
+      .groupBy(invoice.branchId, invoice.issuerGstin, issuerWithoutGstin)
+      .orderBy(asc(invoice.branchId), asc(invoice.issuerGstin), asc(issuerWithoutGstin)),
     db
       .select({
         branchId: invoice.branchId,
@@ -655,12 +667,16 @@ async function computeBranchReports(
   }
 
   for (const row of revenueRows) {
-    forBranch(row.branchId).revenue = {
-      salonPaise: row.salonPaise,
-      spaPaise: row.spaPaise,
-      membershipPaise: row.membershipPaise,
+    const figures = forBranch(row.branchId)
+    figures.revenue.salonPaise += row.salonPaise
+    figures.revenue.spaPaise += row.spaPaise
+    figures.revenue.membershipPaise += row.membershipPaise
+    figures.revenue.totalPaise += row.totalPaise
+    figures.issuerRevenue.push({
+      gstin: row.gstin,
+      name: row.issuerName,
       totalPaise: row.totalPaise,
-    }
+    })
   }
   for (const row of serviceRows) {
     forBranch(row.branchId).services.push({
@@ -797,14 +813,12 @@ export async function hasNotification(
   return rows.length > 0
 }
 
-// Daily idempotency for the jobs that send one message per person per day
-// (lead follow-ups, the missing-Manager reminder): has this user had a
-// notification of this type since `since`? Suppresses repeats on re-runs and
-// QStash retries the same day. (Property 6)
+// Time-scoped idempotency for one daily digest or one booking's current slot.
 export async function hasNotificationSince(
   userId: string,
   type: NotificationType,
   since: Date,
+  bookingId?: string,
 ): Promise<boolean> {
   const rows = await db
     .select({ id: notification.id })
@@ -814,6 +828,7 @@ export async function hasNotificationSince(
         eq(notification.userId, userId),
         eq(notification.type, type),
         gte(notification.createdAt, since),
+        bookingId === undefined ? undefined : eq(notification.bookingId, bookingId),
       ),
     )
     .limit(1)

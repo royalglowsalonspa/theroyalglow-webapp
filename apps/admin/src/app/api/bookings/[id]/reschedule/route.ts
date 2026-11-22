@@ -43,6 +43,7 @@ import {
   appointmentStartsAt,
   assertBranchOpenOn,
   assertSlotBookable,
+  noShowCheckDelaySeconds,
   staffClosureHint,
 } from '@rgss/business'
 import {
@@ -56,6 +57,7 @@ import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
 import { adminBookingMoveSchema } from '@rgss/types'
 import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
+import { enqueueJob } from '@/lib/jobs/enqueue'
 import { notifyBookingChange } from '@/lib/notifications/booking-change'
 import { publishBookingEvent } from '@/lib/realtime/publish'
 
@@ -116,15 +118,20 @@ export const POST = withErrorHandler(
       )
     }
 
+    const endTime = addMinutesToTime(startTime, durationMinutes)
     const updated = await rescheduleBooking(id, ctx.session.user.id, {
       bookingDate: new Date(`${bookingDate}T00:00:00.000Z`),
       startTime,
-      endTime: addMinutesToTime(startTime, durationMinutes),
+      endTime,
       settingsRevision: policy.revision,
       countsTowardLimit: false,
     })
     if (!updated) {
       throw notFound('Booking not found.')
+    }
+    const noShowDelay = noShowCheckDelaySeconds(bookingDate, endTime)
+    if (noShowDelay > 0) {
+      await enqueueJob('/api/jobs/noshow-check', { bookingId: updated.id }, noShowDelay)
     }
     const work = (await getOpenReassignmentsFor([id])).get(id)
 

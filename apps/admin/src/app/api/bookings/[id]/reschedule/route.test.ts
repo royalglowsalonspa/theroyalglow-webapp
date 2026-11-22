@@ -39,12 +39,14 @@ const dbMocks = vi.hoisted(() => ({
 }))
 const publishMock = vi.hoisted(() => vi.fn(async () => undefined))
 const notifyMock = vi.hoisted(() => vi.fn(async () => true))
+const enqueueMock = vi.hoisted(() => vi.fn(async () => undefined))
 
 vi.mock('@/lib/api/branch-context', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api/branch-context')>()
   return { ...actual, requireBranchRole: branchMocks.requireBranchRole }
 })
 vi.mock('@rgss/db/queries', () => dbMocks)
+vi.mock('@/lib/jobs/enqueue', () => ({ enqueueJob: enqueueMock }))
 vi.mock('@/lib/realtime/publish', () => ({ publishBookingEvent: publishMock }))
 vi.mock('@/lib/notifications/booking-change', () => ({ notifyBookingChange: notifyMock }))
 
@@ -131,6 +133,12 @@ describe('POST /api/bookings/[id]/reschedule (admin)', () => {
       settingsRevision: 7,
       countsTowardLimit: false,
     })
+    // Tuesday 12:45 IST: fifteen minutes after the new scheduled end.
+    expect(enqueueMock).toHaveBeenCalledExactlyOnceWith(
+      '/api/jobs/noshow-check',
+      { bookingId: BOOKING_ID },
+      24 * 60 * 60 + 35 * 60,
+    )
     expect(publishMock).toHaveBeenCalledWith({
       bookingId: BOOKING_ID,
       branchId: TEST_BRANCH.id,

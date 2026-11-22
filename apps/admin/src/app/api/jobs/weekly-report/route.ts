@@ -89,7 +89,7 @@ export const POST = async (req: Request) => {
         name: b.name,
         status: b.status,
         people: b,
-        hasActivity: current.branches.has(b.id),
+        hasActivity: current.branches.has(b.id) || previous.branches.has(b.id),
       })),
     )
     const branchNames = new Map(people.branches.map((b) => [b.id, b.name]))

@@ -37,7 +37,7 @@ import {
   telHref,
 } from '@rgss/business'
 import {
-  createAppointmentReminderNotification,
+  createNotificationOnce,
   getUpcomingConfirmedBookings,
   hasNotification,
 } from '@rgss/db/queries'
@@ -118,7 +118,7 @@ export const POST = async (req: Request) => {
       })
       const phone = telHref(bk.branch.phone) ? ` Call ${bk.branch.phone.trim()}.` : ''
 
-      const created = await createAppointmentReminderNotification({
+      const created = await createNotificationOnce({
         id: reminderDedupeKey(bk.id, window),
         userId: bk.customerId,
         type,
