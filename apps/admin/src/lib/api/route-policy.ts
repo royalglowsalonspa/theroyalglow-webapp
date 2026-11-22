@@ -109,6 +109,7 @@ export const ADMIN_ROUTE_POLICIES = {
   'jobs/weekly-report': job,
   leads: { GET: 'branch', POST: 'branch' },
   'leads/[id]': { GET: 'branch', PATCH: 'branch' },
+  'leads/[id]/move': { POST: 'branch' },
   'leads/[id]/notes': { POST: 'branch' },
   leave: { GET: 'branch' },
   'leave/[id]': { PATCH: 'branch' },
