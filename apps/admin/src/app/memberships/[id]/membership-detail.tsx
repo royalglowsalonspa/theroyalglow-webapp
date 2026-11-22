@@ -45,6 +45,7 @@ import { AVAILABILITY_MAX_MINUTES } from '@rgss/types'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { CorrectionHistory } from '@/components/membership/corrections'
 import { Checkbox } from '@/components/ui/checkbox'
 import { type AdminColumnDef, DataTable } from '@/components/ui/data-table'
 import { Input } from '@/components/ui/input'
@@ -245,6 +246,14 @@ export function MembershipDetail({ membershipId }: { membershipId: string }) {
         >
           Record Session
         </button>
+        {data.canRecordHistorical && (
+          <Link
+            href={`/memberships/${encodeURIComponent(membershipId)}/retrospective`}
+            className="rounded-buttons border border-outline-gray px-4 py-2 font-ui text-sm text-cocoa-dark"
+          >
+            Record a past session
+          </Link>
+        )}
         <button
           type="button"
           onClick={() => setCancelOpen(true)}
@@ -266,6 +275,7 @@ export function MembershipDetail({ membershipId }: { membershipId: string }) {
 
       {/* Sessions: booked, in progress and completed */}
       <SessionHistory sessions={data.sessions} used={used} held={held} />
+      <CorrectionHistory corrections={data.corrections ?? []} showInvoiceLinks />
 
       <RecordSessionPanel
         open={recordOpen}
@@ -409,6 +419,21 @@ function SessionHistory({
         accessorFn: (s) => s.status,
         // Booked or in progress: its minutes are held. Completed: used.
         cell: ({ row }) => <StatusBadge status={row.original.status} />,
+      },
+      {
+        id: 'invoice',
+        header: 'Invoice',
+        enableSorting: false,
+        cell: ({ row: { original: session } }) =>
+          session.scope === 'this_branch' && session.invoiceId ? (
+            <Link
+              aria-label={`View invoice for booking ${session.bookingNumber}`}
+              className="text-deep-gold underline"
+              href={`/billing/${encodeURIComponent(session.invoiceId)}`}
+            >
+              View invoice
+            </Link>
+          ) : null,
       },
     ],
     [],

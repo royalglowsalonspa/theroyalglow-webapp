@@ -23,7 +23,7 @@
  * Tech Stack   : TypeScript (BigInt)
  * Layer        : Business Logic
  *
- * Dependencies : None
+ * Dependencies : @rgss/types
  *
  * Notes        : The database writes each entry in the statement that
  *                consumes the minutes or completes the free service, with
@@ -31,6 +31,8 @@
  *                versions are the specification the live suite checks them
  *                against (membership-scheduling.md, settlement.md).
  ************************************************************/
+
+import type { ReversibleSettlementEntryKind, SettlementEntryKind } from '@rgss/types'
 
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000
 
@@ -123,9 +125,9 @@ export function gemsEntryValue(input: {
 export type NettableEntry = {
   owingBranchId: string
   owedBranchId: string
-  kind: 'membership_session' | 'gems_redemption' | 'reversal'
+  kind: SettlementEntryKind
   /** For a reversal, the kind it reverses. */
-  reversedKind?: 'membership_session' | 'gems_redemption'
+  reversedKind?: ReversibleSettlementEntryKind
   amountOwedPaise: bigint
 }
 

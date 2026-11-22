@@ -46,7 +46,7 @@ import { booking, bookingReassignment, bookingService, bookingStatusLog } from '
 import { branch } from '../schema/branch'
 import { customerProfile, staffProfile } from '../schema/profile'
 import { staffTimeOff } from '../schema/schedule'
-import { staffService } from '../schema/service'
+import { service, serviceCategory, staffService } from '../schema/service'
 import { staffOccupancy } from '../schema/staff-occupancy'
 import { isBranchAvailabilityRefusal, serviceNoLongerOffered } from './catalogue-availability'
 import { isConstraintViolation, isGuardAbort, SQLSTATE } from './driver-errors'
@@ -162,6 +162,12 @@ export async function getDefaultStaffForService(
   branchId: string,
   dateISO?: string,
 ) {
+  const kind = db
+    .select({ kind: serviceCategory.serviceType })
+    .from(service)
+    .innerJoin(serviceCategory, eq(service.categoryId, serviceCategory.id))
+    .where(eq(service.id, serviceId))
+  const eligible = sql`staff_designation_matches(${staffProfile.designation}::text, (${kind})::text)`
   const available = dateISO
     ? sql`not exists (select 1 from ${staffTimeOff}
         where ${staffTimeOff.staffId} = ${staffProfile.id}
@@ -173,7 +179,7 @@ export async function getDefaultStaffForService(
     .select({ id: staffProfile.id })
     .from(staffService)
     .innerJoin(staffProfile, eq(staffService.staffId, staffProfile.id))
-    .where(and(eq(staffService.serviceId, serviceId), staffWorksAt(branchId), available))
+    .where(and(eq(staffService.serviceId, serviceId), staffWorksAt(branchId), eligible, available))
     .orderBy(asc(staffProfile.id))
     .limit(1)
 
@@ -184,7 +190,7 @@ export async function getDefaultStaffForService(
   const anyStaff = await db
     .select({ id: staffProfile.id })
     .from(staffProfile)
-    .where(and(staffWorksAt(branchId), available))
+    .where(and(staffWorksAt(branchId), eligible, available))
     .orderBy(sql`(${staffProfile.roleWitness} = 'staff') desc`, asc(staffProfile.id))
     .limit(1)
 
@@ -240,6 +246,7 @@ export async function getDefaultStaffForBooking(params: {
     .where(
       and(
         staffWorksAt(params.branchId),
+        slot && sql`staff_designation_matches(${staffProfile.designation}::text, ${slot.kind})`,
         sql`not ${onLeave}`,
         sql`not ${clashes}`,
         sql`not ${offSchedule}`,

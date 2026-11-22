@@ -51,6 +51,7 @@ type SessionService = {
 type SessionRow = {
   id: string
   bookingNumber: string
+  invoiceId?: string
   branchId: string
   branchName: string
   bookingDate: Date
@@ -67,6 +68,7 @@ export type MembershipSessionView =
       scope: 'this_branch'
       id: string
       bookingNumber: string
+      invoiceId: string | null
       branchName: string
       bookingDate: string
       startTime: string
@@ -102,6 +104,7 @@ export function sessionForBranch(session: SessionRow, branchId: string): Members
       scope: 'this_branch',
       id: session.id,
       bookingNumber: session.bookingNumber,
+      invoiceId: session.invoiceId ?? null,
       services: session.services.map((s) => ({
         serviceNameSnapshot: s.serviceNameSnapshot,
         durationMinutes: s.durationMinutes,

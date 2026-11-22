@@ -225,7 +225,7 @@ describe('POST /api/memberships/[id]/sessions', () => {
     const res = await post({ services: [LINE], idempotencyKey: KEY })
 
     expect(res.status).toBe(200)
-    expect(dbMocks.getMembershipSessionByKey).toHaveBeenCalledWith('mem_1', KEY)
+    expect(dbMocks.getMembershipSessionByKey).toHaveBeenCalledWith('mem_1', KEY, TEST_BRANCH.id)
     expect((await res.json()).data).toEqual({
       booking: { id: 'bk_1' },
       invoice: { id: 'inv_1' },

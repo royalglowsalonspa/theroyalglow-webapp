@@ -31,7 +31,11 @@
  ************************************************************/
 
 import { membershipCancelRefusal } from '@rgss/business'
-import { getMembershipById, getMembershipSessions } from '@rgss/db/queries'
+import {
+  getMembershipById,
+  getMembershipSessions,
+  listMembershipCorrections,
+} from '@rgss/db/queries'
 import { notFound } from '@rgss/errors'
 import { requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
@@ -47,15 +51,20 @@ export const GET = withErrorHandler(
       throw notFound('Membership not found.')
     }
 
-    const sessions = await getMembershipSessions(id)
+    const [sessions, corrections] = await Promise.all([
+      getMembershipSessions(id, ctx.branch.id),
+      listMembershipCorrections({ membershipId: id, branchId: ctx.branch.id }),
+    ])
     const cancelRefusal = membershipCancelRefusal(ctx.access, ctx.branch, membership.sellingBranch)
 
     return apiSuccess({
       branchId: ctx.branch.id,
+      canRecordHistorical: ctx.branch.role === 'developer' && membership.status !== 'cancelled',
       ...membershipForViewer(membership, ctx.access),
       canCancel: cancelRefusal === null,
       cancelRefusal: cancelRefusal?.reason ?? null,
       sessions: sessions.map((s) => sessionForBranch(s, ctx.branch.id)),
+      corrections,
     })
   },
 )

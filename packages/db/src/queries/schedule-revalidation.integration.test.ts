@@ -56,13 +56,13 @@ const BRANCH_A = `${PREFIX}_a`
 const BRANCH_B = `${PREFIX}_b`
 const OWNER = `${PREFIX}_owner`
 const MANAGER = `${PREFIX}_mgr`
-// Named so the Stylist sorts before the Therapist among equals.
+// Named so the Stylist sorts before the second Stylist among equals.
 const STYLIST = `${PREFIX}_a_sty`
-const THERAPIST = `${PREFIX}_b_ther`
+const SECOND_STYLIST = `${PREFIX}_b_ther`
 const CUSTOMER = `${PREFIX}_cust`
 const MANAGER_P = `${MANAGER}_p`
 const STYLIST_P = `${STYLIST}_p`
-const THERAPIST_P = `${THERAPIST}_p`
+const SECOND_STYLIST_P = `${SECOND_STYLIST}_p`
 
 const TIMEOUT = { timeout: 60_000 }
 
@@ -212,7 +212,7 @@ describe.skipIf(!LIVE)('schedule, leave and closure revalidation against a live 
         values (${OWNER}, 'ZZ Srv IT Owner', ${`${OWNER}@example.invalid`}, false, 'owner'),
                (${MANAGER}, 'ZZ Srv IT Manager', ${`${MANAGER}@example.invalid`}, false, 'manager'),
                (${STYLIST}, 'ZZ Srv IT Ravi', ${`${STYLIST}@example.invalid`}, false, 'staff'),
-               (${THERAPIST}, 'ZZ Srv IT Meera', ${`${THERAPIST}@example.invalid`}, false, 'staff'),
+               (${SECOND_STYLIST}, 'ZZ Srv IT Meera', ${`${SECOND_STYLIST}@example.invalid`}, false, 'staff'),
                (${CUSTOMER}, 'ZZ Srv IT Customer', ${`${CUSTOMER}@example.invalid`}, false, 'customer')`),
       db.execute(sql`
         insert into branch (id, number, code, name, address_line1, pincode, phone, display_order,
@@ -223,11 +223,11 @@ describe.skipIf(!LIVE)('schedule, leave and closure revalidation against a live 
         insert into staff_profile (id, user_id, designation, is_active, branch_id, role_witness)
         values (${MANAGER_P}, ${MANAGER}, 'manager', true, null, 'manager'),
                (${STYLIST_P}, ${STYLIST}, 'stylist', true, ${BRANCH_A}, 'staff'),
-               (${THERAPIST_P}, ${THERAPIST}, 'therapist', true, ${BRANCH_A}, 'staff')`),
+               (${SECOND_STYLIST_P}, ${SECOND_STYLIST}, 'stylist', true, ${BRANCH_A}, 'staff')`),
       // Both perform the salon service; the Manager doesn't.
       db.execute(sql`
         insert into staff_service (staff_id, service_id)
-        values (${STYLIST_P}, ${salonServiceId}), (${THERAPIST_P}, ${salonServiceId})`),
+        values (${STYLIST_P}, ${salonServiceId}), (${SECOND_STYLIST_P}, ${salonServiceId})`),
     ])
   }, 60_000)
 
@@ -381,14 +381,14 @@ describe.skipIf(!LIVE)('schedule, leave and closure revalidation against a live 
       )
       expect((await slotOf(request))?.status).toBe('pending')
 
-      // The Therapist has no weekly rows: they work the branch's hours.
-      await assignStaff(monday, BRANCH_A, THERAPIST_P, OWNER)
-      expect(await assigneeOf(monday)).toBe(THERAPIST_P)
+      // The second Stylist has no weekly rows: they work the branch's hours.
+      await assignStaff(monday, BRANCH_A, SECOND_STYLIST_P, OWNER)
+      expect(await assigneeOf(monday)).toBe(SECOND_STYLIST_P)
       expect(await openFlagOf(monday)).toBeNull()
     },
   )
 
-  // After: the Stylist works Tuesdays only; the Therapist Mondays only.
+  // After: the Stylist works Tuesdays only; the second Stylist Mondays only.
   it(
     'leaves a booking under way with its person, and never refuses running work for the schedule',
     TIMEOUT,
@@ -404,11 +404,16 @@ describe.skipIf(!LIVE)('schedule, leave and closure revalidation against a live 
       expect(await assigneeOf(running)).toBe(STYLIST_P)
 
       expect(
-        await upsertStaffSchedule(THERAPIST_P, BRANCH_A, week({ 1: ['10:00', '18:00'] }), OWNER),
+        await upsertStaffSchedule(
+          SECOND_STYLIST_P,
+          BRANCH_A,
+          week({ 1: ['10:00', '18:00'] }),
+          OWNER,
+        ),
       ).toEqual({ ok: true, reassignedBookingIds: [] })
-      // Thursday is the Therapist's day off, yet they can take over work under way.
-      await assignStaff(running, BRANCH_A, THERAPIST_P, OWNER)
-      expect(await assigneeOf(running)).toBe(THERAPIST_P)
+      // Thursday is the second Stylist's day off, yet they can take over work under way.
+      await assignStaff(running, BRANCH_A, SECOND_STYLIST_P, OWNER)
+      expect(await assigneeOf(running)).toBe(SECOND_STYLIST_P)
 
       await complete(running)
       expect((await slotOf(running))?.status).toBe('completed')
@@ -505,10 +510,10 @@ describe.skipIf(!LIVE)('schedule, leave and closure revalidation against a live 
         actor: OWNER,
       })
 
-      // The Therapist works Mondays; then a Monday of their leave.
-      await assignStaff(moving, BRANCH_A, THERAPIST_P, OWNER)
+      // The second Stylist works Mondays; then a Monday of their leave.
+      await assignStaff(moving, BRANCH_A, SECOND_STYLIST_P, OWNER)
       expect(await openFlagOf(moving)).toBeNull()
-      await approvedLeave(THERAPIST_P, '2099-03-30')
+      await approvedLeave(SECOND_STYLIST_P, '2099-03-30')
       await rescheduleBooking(moving, OWNER, {
         bookingDate: new Date('2099-03-30T00:00:00.000Z'),
         startTime: '15:00',
@@ -518,7 +523,7 @@ describe.skipIf(!LIVE)('schedule, leave and closure revalidation against a live 
       expect(await assigneeOf(moving)).toBeNull()
       expect(await openFlagOf(moving)).toEqual({
         reason: 'unavailable',
-        previous: THERAPIST_P,
+        previous: SECOND_STYLIST_P,
         actor: OWNER,
       })
       expect((await slotOf(moving))?.reschedules).toBe(1)
@@ -593,13 +598,13 @@ describe.skipIf(!LIVE)('schedule, leave and closure revalidation against a live 
           ).map((person) => [person.id, person.busy]),
         )
 
-      // Monday: only the Therapist works.
+      // Monday: only the second Stylist works.
       const monday = await busyAt(BRANCH_A, '2099-03-16')
       expect(monday.get(STYLIST_P)).toEqual({ reason: 'off_schedule' })
       expect(monday.get(MANAGER_P)).toEqual({ reason: 'off_schedule' })
-      expect(monday.get(THERAPIST_P)).toBeNull()
+      expect(monday.get(SECOND_STYLIST_P)).toBeNull()
       // Leave is said first.
-      expect((await busyAt(BRANCH_A, '2099-03-30')).get(THERAPIST_P)).toEqual({
+      expect((await busyAt(BRANCH_A, '2099-03-30')).get(SECOND_STYLIST_P)).toEqual({
         reason: 'on_leave',
       })
       expect((await busyAt(BRANCH_A, '2099-03-10')).get(STYLIST_P)).toEqual({ reason: 'on_leave' })
@@ -615,7 +620,7 @@ describe.skipIf(!LIVE)('schedule, leave and closure revalidation against a live 
           dateISO,
           slot: { startTime: '10:00', endTime: '11:00', kind: 'salon' },
         })
-      expect(await pick('2099-03-16')).toBe(THERAPIST_P)
+      expect(await pick('2099-03-16')).toBe(SECOND_STYLIST_P)
       expect(await pick('2099-03-17')).toBe(STYLIST_P)
       // Wednesday: neither performer works, so the Manager.
       expect(await pick('2099-03-18')).toBe(MANAGER_P)
@@ -712,7 +717,7 @@ describe.skipIf(!LIVE)('schedule, leave and closure revalidation against a live 
     },
   )
 
-  // Each round: the Therapist works Mondays, then a week without Mondays is
+  // Each round: the second Stylist works Mondays, then a week without Mondays is
   // saved while they are assigned to a Monday booking. After: Mondays again.
   it(
     'never keeps an assignee that a week saved at the same moment rules out (MS-09)',
@@ -720,7 +725,7 @@ describe.skipIf(!LIVE)('schedule, leave and closure revalidation against a live 
     async () => {
       const mondaysOnly = week({ 1: ['10:00', '18:00'] })
       for (const round of [1, 2, 3]) {
-        await upsertStaffSchedule(THERAPIST_P, BRANCH_A, mondaysOnly, OWNER)
+        await upsertStaffSchedule(SECOND_STYLIST_P, BRANCH_A, mondaysOnly, OWNER)
         const raced = await book(`race_${round}`, {
           status: 'confirmed',
           date: '2099-03-09',
@@ -730,8 +735,8 @@ describe.skipIf(!LIVE)('schedule, leave and closure revalidation against a live 
         })
 
         const [assigned, saved] = await Promise.allSettled([
-          assignStaff(raced, BRANCH_A, THERAPIST_P, OWNER),
-          upsertStaffSchedule(THERAPIST_P, BRANCH_A, week({ 2: ['10:00', '18:00'] }), OWNER),
+          assignStaff(raced, BRANCH_A, SECOND_STYLIST_P, OWNER),
+          upsertStaffSchedule(SECOND_STYLIST_P, BRANCH_A, week({ 2: ['10:00', '18:00'] }), OWNER),
         ])
 
         expect(saved.status).toBe('fulfilled')
@@ -749,7 +754,7 @@ describe.skipIf(!LIVE)('schedule, leave and closure revalidation against a live 
           )
         }
       }
-      await upsertStaffSchedule(THERAPIST_P, BRANCH_A, mondaysOnly, OWNER)
+      await upsertStaffSchedule(SECOND_STYLIST_P, BRANCH_A, mondaysOnly, OWNER)
     },
   )
 })

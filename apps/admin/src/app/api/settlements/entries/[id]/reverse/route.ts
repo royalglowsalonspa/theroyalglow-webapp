@@ -55,6 +55,13 @@ export const POST = withErrorHandler(
           throw conflict(ERROR_CODES.CONFLICT, 'This entry has already been reversed.')
         case 'is_reversal':
           throw badRequest("A reversing entry can't itself be reversed.")
+        case 'is_membership_correction':
+          throw badRequest('Correct the membership session minutes to adjust this entry.')
+        case 'already_corrected':
+          throw conflict(
+            ERROR_CODES.CONFLICT,
+            'This session already has a minutes correction. Correct the session minutes to adjust it.',
+          )
         case 'internal':
           throw badRequest(
             'An entry within one branch settles nothing, so there is nothing to reverse.',

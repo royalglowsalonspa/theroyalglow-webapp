@@ -45,7 +45,10 @@ import {
   cancelMembership,
   completeMembershipSession,
   createMembershipWithInvoice,
+  getHistoricalMembershipSessionByKey,
+  getMembershipSessionByKey,
   getMembershipSessions,
+  recordHistoricalMembershipSession,
   recordMembershipSession,
 } from './memberships'
 
@@ -55,6 +58,8 @@ const PREFIX = `mh_it_${RUN}`
 const A = `${PREFIX}_a`
 const B = `${PREFIX}_b`
 const ACTOR = `${PREFIX}_actor`
+const STAFF_USER = `${PREFIX}_staff`
+const STAFF = `${PREFIX}_profile`
 const TIER = `${PREFIX}_tier`
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -141,7 +146,12 @@ async function sell(
 }
 
 /** Record now: a session of `minutes` at `branchId`, in progress from now. */
-async function recordNow(m: { id: string; customer: string }, branchId: string, minutes = 60) {
+async function recordNow(
+  m: { id: string; customer: string },
+  branchId: string,
+  minutes = 60,
+  idempotencyKey?: string,
+) {
   return recordMembershipSession({
     membershipId: m.id,
     bookingNumber: `${PREFIX}_R${next()}`,
@@ -152,6 +162,7 @@ async function recordNow(m: { id: string; customer: string }, branchId: string, 
     endTime: '12:00',
     services: [{ serviceId, serviceNameSnapshot: 'ZZ Holds IT spa', durationMinutes: minutes }],
     recordedById: ACTOR,
+    ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
   })
 }
 
@@ -235,7 +246,8 @@ describe.skipIf(!LIVE)(
       const service = await queryRow<{ id: string; sac: string }>(
         sql`select s.id, coalesce(s.sac_code, c.sac_code) as sac
             from service s join service_category c on c.id = s.category_id
-            where s.is_active = true and coalesce(s.sac_code, c.sac_code) is not null
+            where s.is_active = true and c.service_type = 'spa'
+              and coalesce(s.sac_code, c.sac_code) is not null
             order by s.id limit 1`,
       )
       serviceId = service?.id ?? ''
@@ -244,11 +256,15 @@ describe.skipIf(!LIVE)(
       await db.batch([
         db.execute(sql`
           insert into "user" (id, name, email, email_verified, role)
-          values (${ACTOR}, 'ZZ Holds IT actor', ${`${ACTOR}@example.invalid`}, false, 'customer')`),
+          values (${ACTOR}, 'ZZ Holds IT actor', ${`${ACTOR}@example.invalid`}, false, 'customer'),
+                 (${STAFF_USER}, 'ZZ Holds IT therapist', ${`${STAFF_USER}@example.invalid`}, false, 'staff')`),
         db.execute(sql`
           insert into branch (id, number, code, name, address_line1, pincode, phone, display_order, owner_user_id)
           values (${A}, ${number}, ${`${PREFIX}_A`}, 'ZZ Holds IT A', 'Test', '560100', '0000000000', 960, ${owner?.id ?? ''}),
                  (${B}, ${number + 1}, ${`${PREFIX}_B`}, 'ZZ Holds IT B', 'Test', '560100', '0000000000', 961, ${owner?.id ?? ''})`),
+        db.execute(sql`
+          insert into staff_profile (id, user_id, designation, is_active, branch_id, role_witness)
+          values (${STAFF}, ${STAFF_USER}, 'therapist', true, ${B}, 'staff')`),
         db.execute(sql`
           insert into spa_membership_tier (id, name, slug, default_hours_minutes, default_price_paise, default_validity_days, is_active)
           values (${TIER}, ${`ZZ Holds IT ${RUN}`}, ${TIER}, 600, 600000, 90, false)`),
@@ -276,9 +292,11 @@ describe.skipIf(!LIVE)(
         db.execute(
           sql`delete from booking_status_log where booking_id in (select id from booking where customer_id like ${like})`,
         ),
+        db.execute(sql`delete from audit_log where branch_id like ${like}`),
         db.execute(sql`delete from booking where customer_id like ${like}`),
         db.execute(sql`delete from spa_membership where customer_id like ${like}`),
         db.execute(sql`delete from spa_membership_tier where id = ${TIER}`),
+        db.execute(sql`delete from staff_profile where id = ${STAFF}`),
         db.execute(sql`delete from branch where id like ${like}`),
         db.execute(sql`delete from "user" where id like ${like}`),
       ])
@@ -306,6 +324,120 @@ describe.skipIf(!LIVE)(
       expect(
         await queryRows(sql`select id from booking where spa_membership_id = ${m.id}`),
       ).toHaveLength(2)
+    })
+
+    it('creates one booking and hold when the same operation key is submitted twice', async () => {
+      const m = await sell(120)
+      const key = `${PREFIX}_one_operation`
+      const results = await Promise.all([recordNow(m, A, 60, key), recordNow(m, A, 60, key)])
+      const successful = results.find((result) => result.ok)
+      if (!successful?.ok) {
+        throw new Error('Expected one reservation to commit')
+      }
+
+      expect(results.filter((result) => !result.ok)).toEqual([
+        { ok: false, reason: 'duplicate_key' },
+      ])
+      expect(await totals(m.id)).toMatchObject({ used: 0, reserved: 60 })
+      expect(await holdOf(successful.booking.id)).toEqual({ state: 'held', minutes: 60 })
+      expect(await getMembershipSessionByKey(m.id, key, A)).toMatchObject({
+        booking: { id: successful.booking.id },
+      })
+      expect(await getMembershipSessionByKey(m.id, key, B)).toBeNull()
+      expect(
+        await queryRows(sql`select id from booking where spa_membership_id = ${m.id}`),
+      ).toEqual([{ id: successful.booking.id }])
+    })
+
+    it('records an omitted session once on an expired membership, with audit, settlement and closed staff history (MS-11)', async () => {
+      const developer = await queryRow<{ id: string }>(
+        sql`select id from "user" where role = 'developer' limit 1`,
+      )
+      if (!developer) throw new Error('Expected a retained Developer in the disposable fixture')
+      const now = new Date()
+      const actualStart = new Date(`${istDay(-2)}T11:00:00+05:30`)
+      const actualEnd = new Date(`${istDay(-2)}T12:00:00+05:30`)
+      const valid = { startsAt: new Date(`${istDay(-3)}T00:00:00+05:30`), expiresAt: actualEnd }
+      const m = await sell(120, valid)
+      await db.execute(sql`update spa_membership set status = 'expired' where id = ${m.id}`)
+      const input = {
+        membershipId: m.id,
+        customerId: m.customer,
+        bookingNumber: `${PREFIX}_history`,
+        branchId: B,
+        staffId: STAFF,
+        changedById: developer.id,
+        actualStart,
+        actualEnd,
+        reason: 'Reviewed desk log',
+        evidenceReference: 'Fixture desk log page 123',
+        idempotencyKey: `${PREFIX}_history`,
+        requestFingerprint: 'historical-test-fingerprint',
+        lines: [
+          {
+            serviceId,
+            serviceNameSnapshot: 'ZZ Holds IT spa',
+            staffNameSnapshot: 'ZZ Holds IT therapist',
+            durationMinutes: 60,
+          },
+        ],
+        settlement: { shareBps: 10_000 },
+        invoice: {
+          taxPointAt: now,
+          financialYear: fixtureFinancialYear(now),
+          taxReviewStatus: 'provisional' as const,
+          lineTax: [{ sacCode: serviceSac, taxVersionId: `tax_${B}_${serviceSac}`, rateBps: 500 }],
+        },
+      }
+      expect(await recordHistoricalMembershipSession({ ...input, changedById: ACTOR })).toEqual({
+        ok: false,
+        reason: 'unavailable',
+      })
+      const attempts = await Promise.all([
+        recordHistoricalMembershipSession(input),
+        recordHistoricalMembershipSession({ ...input, bookingNumber: `${PREFIX}_history_retry` }),
+      ])
+      const success = attempts.find((attempt) => attempt.ok)
+      if (!success?.ok) throw new Error('Expected one completed historical session')
+      expect(attempts.filter((attempt) => attempt.ok)).toHaveLength(1)
+      expect(success).toMatchObject({
+        booking: { status: 'completed', startedAt: actualStart, completedAt: actualEnd },
+        invoice: { invoiceType: 'membership_session', totalAmountPaise: 0 },
+        remainingMinutes: 60,
+      })
+      const id = success.booking.id
+      expect(await getHistoricalMembershipSessionByKey(m.id, input.idempotencyKey, A)).toBeNull()
+      expect(
+        await getHistoricalMembershipSessionByKey(m.id, input.idempotencyKey, B),
+      ).toMatchObject({
+        booking: { id },
+        fingerprint: input.requestFingerprint,
+      })
+      expect(await holdOf(id)).toEqual({ state: 'consumed', minutes: 60 })
+      expect(await totals(m.id)).toEqual({ used: 60, reserved: 0, status: 'expired' })
+      expect(
+        await queryRow(sql`
+        select (select count(*) from staff_occupancy where booking_id = ${id}) as planned,
+               (select count(*) from staff_work where booking_id = ${id} and not upper_inf(during)) as actual,
+               (select count(*) from settlement_entry where booking_id = ${id}) as settled,
+               (select count(*) from audit_log where entity_id = ${id} and actor_id = ${developer.id}) as audited
+      `),
+      ).toEqual({ planned: '0', actual: '1', settled: '1', audited: '1' })
+
+      const overlapping = await sell(120, valid)
+      expect(
+        await recordHistoricalMembershipSession({
+          ...input,
+          membershipId: overlapping.id,
+          customerId: overlapping.customer,
+          bookingNumber: `${PREFIX}_history_overlap`,
+          idempotencyKey: `${PREFIX}_history_overlap`,
+        }),
+      ).toEqual({ ok: false, reason: 'staff' })
+      expect(await totals(overlapping.id)).toMatchObject({ used: 0, reserved: 0 })
+      expect(
+        await queryRows(sql`select id from booking where spa_membership_id = ${overlapping.id}`),
+      ).toEqual([])
     })
 
     it('books a session ahead: confirmed, its minutes held, validity at its planned start', async () => {

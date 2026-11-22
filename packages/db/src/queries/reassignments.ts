@@ -289,6 +289,7 @@ export type AssigneeRefusal =
   | 'not_at_branch'
   | 'on_leave'
   | 'off_schedule'
+  | 'designation'
   | 'booked'
   | 'working'
   | 'one_assignee'
@@ -305,6 +306,9 @@ export function assigneeRefusal(error: unknown): AssigneeRefusal | null {
   }
   if (isConstraintViolation(error, SQLSTATE.checkViolation, ['booking_assignee_off_schedule'])) {
     return 'off_schedule'
+  }
+  if (isConstraintViolation(error, SQLSTATE.checkViolation, ['booking_assignee_designation'])) {
+    return 'designation'
   }
   if (isConstraintViolation(error, SQLSTATE.exclusionViolation, BOOKED_CONSTRAINTS)) {
     return 'booked'
@@ -327,6 +331,8 @@ export function assigneeRefusalMessage(refusal: AssigneeRefusal): string {
       return 'That staff member no longer works at this branch. Choose someone else.'
     case 'off_schedule':
       return 'That staff member isn’t scheduled to work then. Choose someone else.'
+    case 'designation':
+      return 'That staff member’s designation does not match this booking. Choose someone else.'
     case 'booked':
       return 'That staff member has another booking at that time. Choose someone else.'
     case 'working':

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 : "${BACKUP_DATABASE_URL:?Set the direct database connection}"
 : "${BACKUP_SOURCE_ID:?Set the configured source identity}"
@@ -18,7 +19,7 @@ manifest="$BACKUP_OUTPUT_DIR/$stem.manifest.json"
 # Keep the exporting transaction open while pg_dump and the manifest query
 # import the same snapshot. Neither command modifies the source database.
 coproc SNAPSHOT {
-  psql -X -qAt -v ON_ERROR_STOP=1 "$BACKUP_DATABASE_URL"
+  exec psql -X -qAt -v ON_ERROR_STOP=1 "$BACKUP_DATABASE_URL"
 }
 snapshot_pid=$SNAPSHOT_PID
 snapshot_input=${SNAPSHOT[1]}
@@ -30,6 +31,7 @@ cleanup() {
 trap cleanup EXIT
 printf '%s\n' 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;' 'SELECT pg_export_snapshot();' >&"$snapshot_input"
 IFS= read -r snapshot <&"$snapshot_output"
+snapshot=${snapshot%$'\r'}
 [[ "$snapshot" =~ ^[[:xdigit:]]+-[[:xdigit:]]+-[[:digit:]]+$ ]]
 
 pg_dump "$BACKUP_DATABASE_URL" --snapshot="$snapshot" --format=custom \
@@ -38,7 +40,7 @@ pg_dump "$BACKUP_DATABASE_URL" --snapshot="$snapshot" --schema-only \
   --no-owner --no-acl | bash "$script_dir/normalize-schema.sh" > "$schema"
 {
   printf "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;\nSET TRANSACTION SNAPSHOT '%s';\n" "$snapshot"
-  printf 'SET LOCAL search_path = pg_catalog;\n'
+  printf "SET LOCAL search_path = pg_catalog;\nSET LOCAL TIME ZONE 'UTC';\n"
   cat "$script_dir/database-facts.sql"
   printf '\nCOMMIT;\n'
 } | psql -X -qAt -v ON_ERROR_STOP=1 "$BACKUP_DATABASE_URL" > "$facts"

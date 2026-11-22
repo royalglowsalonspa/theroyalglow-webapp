@@ -35,6 +35,7 @@ function entry(overrides: Partial<SettlementEntryView>): SettlementEntryView {
     reversesEntryId: null,
     note: null,
     reversedByEntryId: null,
+    hasMembershipCorrection: false,
     ...overrides,
   }
 }
@@ -234,5 +235,16 @@ describe('settlementStatementCsv', () => {
       '',
       '-952.39',
     ])
+  })
+
+  it('labels a membership correction and exports its signed adjustment', () => {
+    const report = parse(
+      settlementStatementCsv(STATEMENT, [
+        entry({ kind: 'membership_correction', minutes: -5, amountOwedPaise: -1_000 }),
+      ]),
+    )
+    expect(report[2]?.[1]).toBe('Membership correction')
+    expect(report[2]?.[6]).toBe('-5')
+    expect(report[2]?.[12]).toBe('-10.00')
   })
 })

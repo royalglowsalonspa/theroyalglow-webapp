@@ -43,7 +43,12 @@
  ************************************************************/
 
 import { formatDateIN, istToday, membershipUnusableAt } from '@rgss/business'
-import { getBookingForAdmin, getMembershipById, startBooking } from '@rgss/db/queries'
+import {
+  assigneeRefusalMessage,
+  getBookingForAdmin,
+  getMembershipById,
+  startBooking,
+} from '@rgss/db/queries'
 import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
 import { createLogger } from '@rgss/logger'
 import { bookingStartSchema } from '@rgss/types'
@@ -165,6 +170,9 @@ export const POST = withErrorHandler(
           ERROR_CODES.CONFLICT,
           'This booking names more than one person. Assign one person to all of it, then start it.',
         )
+      }
+      if (result.reason === 'staff_designation') {
+        throw conflict(ERROR_CODES.CONFLICT, assigneeRefusalMessage('designation'))
       }
       throw conflict(
         ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION,

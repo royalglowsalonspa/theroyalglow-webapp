@@ -32,6 +32,7 @@ const dbMocks = vi.hoisted(() => ({
   getMemberships: vi.fn(),
   getMembershipById: vi.fn(),
   getMembershipSessions: vi.fn(),
+  listMembershipCorrections: vi.fn(),
   getActiveMembershipForCustomer: vi.fn(),
   getMembershipTierById: vi.fn(),
   getBranchByIdAdmin: vi.fn(),
@@ -110,6 +111,7 @@ const SOLD_AT_RS = {
 const SESSION_AT = (branch: typeof TEST_BRANCH, id: string) => ({
   id,
   bookingNumber: `BK-${branch.code}-2610-S-0000${id.slice(-1)}-M`,
+  invoiceId: `invoice_${id}`,
   branchId: branch.id,
   branchName: branch.name,
   bookingDate: new Date('2026-10-20T00:00:00.000Z'),
@@ -145,6 +147,7 @@ beforeEach(() => {
   mocks.requireBranchRole.mockResolvedValue(contextFor('receptionist', [TEST_BRANCH]))
   dbMocks.getMembershipById.mockResolvedValue(SOLD_AT_RS)
   dbMocks.getMembershipSessions.mockResolvedValue([])
+  dbMocks.listMembershipCorrections.mockResolvedValue([])
 })
 
 describe('GET /api/memberships — who sees what a membership was sold for', () => {
@@ -221,8 +224,28 @@ describe('GET /api/memberships/[id] — sessions and cancelling across branches'
     expect(data.sessions[1]).toMatchObject({
       scope: 'this_branch',
       id: 'bk_1',
+      invoiceId: 'invoice_bk_1',
       status: 'completed',
       services: [{ staffName: 'Anita' }],
+    })
+    expect(dbMocks.getMembershipSessions).toHaveBeenCalledWith('mem_1', TEST_BRANCH.id)
+  })
+
+  it('loads correction notes only for the active branch', async () => {
+    mocks.requireBranchRole.mockResolvedValue(contextFor('owner', [OTHER_BRANCH], OTHER_BRANCH))
+    const correction = { id: 'mc_1', reason: 'Corrected duplicate minutes' }
+    dbMocks.listMembershipCorrections.mockResolvedValue([correction])
+
+    const response = await detailRoute.GET(
+      new Request('https://admin.theroyalglow.in/api/memberships/mem_1'),
+      params,
+    )
+
+    expect(response.status).toBe(200)
+    expect((await response.json()).data.corrections).toEqual([correction])
+    expect(dbMocks.listMembershipCorrections).toHaveBeenCalledExactlyOnceWith({
+      membershipId: 'mem_1',
+      branchId: OTHER_BRANCH.id,
     })
   })
 

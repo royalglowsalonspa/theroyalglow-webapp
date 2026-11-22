@@ -33,12 +33,14 @@
  *                migration 0022), then zero residue is proven.
  ************************************************************/
 
+import { randomUUID } from 'node:crypto'
 import { addDaysISO, istTodayISO } from '@rgss/types'
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { db } from '../index'
 import { fixtureFinancialYear } from '../test/issued-invoice'
 import { isLiveDbAvailable, queryRow, queryRows } from '../test/live-db'
+import { recordMembershipCorrection } from './membership-corrections'
 import {
   completeMembershipSession,
   createMembershipWithInvoice,
@@ -48,6 +50,7 @@ import {
   closeSettlementMonths,
   getBranchSettlementReport,
   getOpenSettlementMonths,
+  getSettlementEntry,
   getSettlementStatement,
   getSettlementStatementEntries,
   listSettlementStatements,
@@ -277,6 +280,7 @@ describe.skipIf(!LIVE)(
         db.execute(
           sql`delete from settlement_entry where owing_branch_id like ${like} or owed_branch_id like ${like}`,
         ),
+        db.execute(sql`delete from membership_correction where branch_id like ${like}`),
         db.execute(sql`
         delete from settlement_period p
          where p.month in ${months}
@@ -311,6 +315,7 @@ describe.skipIf(!LIVE)(
                (select count(*) from branch_settlement
                  where branch_a_id like ${like} or branch_b_id like ${like}) as statements,
                (select count(*) from settlement_period where month in ${months}) as months,
+               (select count(*) from membership_correction where branch_id like ${like}) as corrections,
                (select count(*) from booking where customer_id like ${like}) as bookings,
                (select count(*) from branch where id like ${like}) as branches,
                (select count(*) from "user" where id like ${like}) as users`),
@@ -318,6 +323,7 @@ describe.skipIf(!LIVE)(
         entries: '0',
         statements: '0',
         months: '0',
+        corrections: '0',
         bookings: '0',
         branches: '0',
         users: '0',
@@ -690,6 +696,138 @@ describe.skipIf(!LIVE)(
       expect(atA.memberships.toReceivePaise).toBe(0)
       // 1,000 gems issued at A; the backdated gems entries are not today's.
       expect(atA.gems).toEqual({ issued: 1000, redeemed: 0, toReceivePaise: 0, toPayPaise: 0 })
+    })
+
+    it('reports signed membership corrections without reversing or rewriting the original entry', async () => {
+      const membershipId = await sell('minutes_fix', 120)
+      const bookingId = await session(membershipId, B, 60)
+      const source = await queryRow<{
+        developer: string
+        invoice_id: string
+        entry_id: string
+      }>(sql`
+        select (select id from "user" where role = 'developer') as developer,
+               i.id as invoice_id, e.id as entry_id
+        from invoice i join settlement_entry e on e.booking_id = i.booking_id
+        where i.booking_id = ${bookingId} and e.kind = 'membership_session'`)
+      if (!source?.developer || !source.invoice_id || !source.entry_id) {
+        throw new Error('Expected the Developer and original session invoice and ledger entry')
+      }
+
+      const today = istTodayISO()
+      const month = today.slice(0, 7)
+      const range = { from: addDaysISO(today, -1), to: addDaysISO(today, 1) }
+      const findMonth = async () =>
+        (await getOpenSettlementMonths(ONLY_A)).find((m) => m.month === month && m.branchB.id === B)
+      const [oldMonth, oldReport, original] = await Promise.all([
+        findMonth(),
+        getBranchSettlementReport(B, range),
+        getSettlementEntry(source.entry_id, ONLY_A),
+      ])
+      if (!oldMonth || !original) throw new Error('Expected an open A/B month and session entry')
+
+      const reason = 'The signed service record shows 45 minutes'
+      const originalInvoice = await queryRow(
+        sql`select to_jsonb(i) as record from invoice i where id = ${source.invoice_id}`,
+      )
+      const correctionInput = {
+        branchId: B,
+        membershipId,
+        bookingId,
+        originalInvoiceId: source.invoice_id,
+        availableMinutesDelta: 15,
+        reason,
+        idempotencyKey: randomUUID(),
+        performedBy: source.developer,
+        evidenceReference: 'Reviewed fixture log',
+      }
+      expect(await recordMembershipCorrection({ ...correctionInput, performedBy: ACTOR })).toEqual({
+        ok: false,
+        reason: 'actor',
+      })
+      expect(await recordMembershipCorrection({ ...correctionInput, branchId: C })).toEqual({
+        ok: false,
+        reason: 'target',
+      })
+      expect(
+        await recordMembershipCorrection({ ...correctionInput, availableMinutesDelta: 100 }),
+      ).toEqual({ ok: false, reason: 'balance' })
+      const repeated = await Promise.all([
+        recordMembershipCorrection(correctionInput),
+        recordMembershipCorrection(correctionInput),
+      ])
+      expect(repeated).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ ok: true, remainingMinutes: 75, duplicate: false }),
+          expect.objectContaining({ ok: true, remainingMinutes: 75, duplicate: true }),
+        ]),
+      )
+      const recorded = repeated[0]
+      if (!recorded?.ok) throw new Error('Expected one recorded correction')
+      expect(
+        await recordMembershipCorrection({ ...correctionInput, availableMinutesDelta: 20 }),
+      ).toEqual({ ok: false, reason: 'duplicate_key' })
+      expect(
+        await queryRow(
+          sql`select to_jsonb(i) as record from invoice i where id = ${source.invoice_id}`,
+        ),
+      ).toEqual(originalInvoice)
+      expect(
+        await queryRow(sql`
+        select (select count(*)::int from audit_log where entity_type = 'membership_correction' and entity_id = ${recorded.correction.id}) as audited,
+               (select minutes from membership_hold where booking_id = ${bookingId}) as original_minutes
+      `),
+      ).toEqual({ audited: 1, original_minutes: 60 })
+
+      const [newMonth, newReport, entries, outsiderEntries] = await Promise.all([
+        findMonth(),
+        getBranchSettlementReport(B, range),
+        getSettlementStatementEntries(oldMonth),
+        getOpenSettlementMonths(ONLY_C),
+      ])
+      const correction = entries.find((entry) => entry.kind === 'membership_correction')
+      expect(correction).toMatchObject({
+        owingBranch: original.owingBranch,
+        owedBranch: original.owedBranch,
+        bookingNumber: original.bookingNumber,
+        membershipNumber: original.membershipNumber,
+        shareBps: original.shareBps,
+        minutes: -15,
+        valuePaise: -125_000,
+        gstSharePaise: -5_952,
+        amountOwedPaise: -119_048,
+        note: reason,
+        reversedKind: null,
+        reversesEntryId: null,
+      })
+      if (!correction) throw new Error('Expected the signed correction in the branch pair')
+      expect(newMonth).toMatchObject({
+        entryCount: oldMonth.entryCount + 1,
+        aOwesB: {
+          membershipPaise: oldMonth.aOwesB.membershipPaise - 119_048,
+          membershipValuePaise: oldMonth.aOwesB.membershipValuePaise - 125_000,
+          membershipGstSharePaise: oldMonth.aOwesB.membershipGstSharePaise - 5_952,
+        },
+        bOwesA: oldMonth.bOwesA,
+      })
+      expect(newReport.memberships).toMatchObject({
+        deliveredMinutes: oldReport.memberships.deliveredMinutes - 15,
+        toReceivePaise: Number(oldReport.memberships.toReceivePaise) - 119_048,
+      })
+      expect(
+        outsiderEntries.some((entry) => entry.branchA.id === A && entry.branchB.id === B),
+      ).toBe(false)
+      expect(await getSettlementEntry(correction.id, ONLY_C)).toBeNull()
+      expect(await getSettlementEntry(original.id, ONLY_A)).toEqual({
+        ...original,
+        hasMembershipCorrection: true,
+      })
+      expect(
+        await reverseSettlementEntry({ entryId: correction.id, note: reason, actorId: ACTOR }),
+      ).toEqual({ ok: false, reason: 'is_membership_correction' })
+      expect(
+        await reverseSettlementEntry({ entryId: original.id, note: reason, actorId: ACTOR }),
+      ).toEqual({ ok: false, reason: 'already_corrected' })
     })
   },
 )

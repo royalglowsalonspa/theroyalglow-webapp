@@ -43,7 +43,12 @@ export interface AdminBookingServiceRow {
   staffName?: string | null
 }
 /** Why a booking lost its assignee (multi-branch R1.7, MS-09). */
-export type ReassignmentReason = 'left_branch' | 'unavailable' | 'overrun' | 'off_schedule'
+export type ReassignmentReason =
+  | 'left_branch'
+  | 'unavailable'
+  | 'overrun'
+  | 'off_schedule'
+  | 'designation_changed'
 /** A booking waiting for someone else to take it. */
 export interface AdminBookingReassignment {
   reason: ReassignmentReason
@@ -70,6 +75,8 @@ export function reassignmentReasonText(work: {
       return `${who} is on approved leave that day.`
     case 'off_schedule':
       return `${who} isn’t scheduled to work then.`
+    case 'designation_changed':
+      return `${who} changed designation and can no longer take this booking.`
     case 'overrun':
       // Held up: still with another customer when this one was due (slice
       // 2b). Otherwise they were booked then: the 0028 backfill found them

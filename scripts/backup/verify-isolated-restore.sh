@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 if [[ $# != 2 ]]; then
   echo 'Usage: verify-isolated-restore.sh <named-manifest.json> <named-dump>' >&2
@@ -26,9 +27,18 @@ image="postgres:$major-bookworm"
 scratch=$(mktemp -d)
 container=''
 cleanup() {
-  if [[ -n "$container" ]]; then docker rm -f -v "$container" >/dev/null; fi
-  rm -f -- "$scratch/restored.json" "$scratch/expected.json" "$scratch/schema" "$scratch/restore.log"
-  rmdir -- "$scratch"
+  local result=$?
+  if [[ -n "$container" ]] && ! docker rm -f -v "$container" >/dev/null; then
+    echo 'Could not remove the isolated restore container.' >&2
+    result=1
+  fi
+  rm -f -- "$scratch/restored.json" "$scratch/expected.json" "$scratch/schema" "$scratch/restore.log" ||
+    result=1
+  rmdir -- "$scratch" || result=1
+  if [[ "$result" == 0 ]]; then
+    echo "Isolated restore verified and removed in $((SECONDS - started)) seconds."
+  fi
+  exit "$result"
 }
 trap cleanup EXIT
 
@@ -41,7 +51,7 @@ for (( attempt = 0; attempt < 30; attempt++ )); do
   sleep 1
 done
 docker exec "$container" pg_isready -q -h 127.0.0.1 -U postgres
-docker exec "$container" createdb -U postgres restore_check
+docker exec "$container" createdb -U postgres --template=template0 restore_check
 if ! docker exec -i "$container" pg_restore -U postgres --dbname=restore_check \
   --no-owner --no-acl --exit-on-error --single-transaction < "$dump" > "$scratch/restore.log" 2>&1; then
   echo 'PostgreSQL rejected the restore. Diagnostics may contain copied data and were withheld.' >&2
@@ -49,7 +59,7 @@ if ! docker exec -i "$container" pg_restore -U postgres --dbname=restore_check \
 fi
 
 {
-  printf 'BEGIN READ ONLY;\nSET LOCAL search_path = pg_catalog;\n'
+  printf "BEGIN READ ONLY;\nSET LOCAL search_path = pg_catalog;\nSET LOCAL TIME ZONE 'UTC';\n"
   cat "$script_dir/database-facts.sql"
   printf '\nCOMMIT;\n'
 } | docker exec -i "$container" psql -X -qAt -v ON_ERROR_STOP=1 \
@@ -66,5 +76,3 @@ if [[ "$(sha256sum "$scratch/schema" | cut -d ' ' -f1)" != "$(jq -r '.schemaSha2
   echo 'Restored schema differs from the manifest.' >&2
   exit 1
 fi
-
-echo "Isolated restore verified in $((SECONDS - started)) seconds."

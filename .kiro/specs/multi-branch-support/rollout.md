@@ -96,6 +96,11 @@ Applied on Neon dev (`0000`–`0036`). Production has `0000`–`0003`.
 | `0034_catalogue_availability_guard` | Guard, hand-written, rerunnable: `service_available_at(service, branch)`, true when the service's and its category's availability both include the branch ("all branches" includes branches added later); trigger `booking_service_availability_guard` refuses a booking line, on insert or a change of service, for a service its booking's branch doesn't offer (check violation `booking_service_branch_availability`). Lines already written aren't rechecked when the catalogue changes later |
 | `0035_offer_cms_mirror_and_invoice_snapshot` | Additive plus checks, generated: `offer.cms_id` (unique, null on the admin-made test offers) and `offer.show_on_website` (default true); `offer_cms_rule_check` holds a Payload mirror (`cms_id` set) to its id `cms_offer_<cms id>`, an end on or after its start and exactly its type's value (percentage 1–100, a positive flat amount or combo price); invoice `offer_id` (restrict) with name, type and value snapshots, all four or none and the value above 0 (`invoice_offer_snapshot_check`). Every existing row passes: no offer has a `cms_id` and no invoice an offer |
 | `0036_invoice_offer_snapshot_guard` | Guard, hand-written, rerunnable: `invoice_snapshot_fixed()` also fixes the offer and its snapshot on an issued invoice, so a later CMS edit or a retired offer never changes a past invoice |
+| `0037_staff_designation_reason` | Additive enum value `designation_changed`. The next migration uses it only when its triggers run after commit. |
+| `0038_staff_designation_guards` | Checks the staff designation when assigning or starting bookings. Changing a designation clears future incompatible assignments and gives confirmed bookings a reassignment flag. Completed staff history is preserved. |
+| `0039_membership_corrections` | Adds the append-only correction note table, its link to settlement entries, and the signed adjustment posting kind. |
+| `0040_membership_correction_guards` | Validates the original session invoice, actor and remaining minutes. Applies the balance, posts a signed cross-branch adjustment when needed, and records the audit in the same transaction. |
+| `0041_staff_designation_enum_cast` | Explicitly casts the designation reassignment reason in the trigger's `SELECT DISTINCT`, as identified in the isolated rehearsal. |
 
 Drizzle applies migrations strictly in journal order, so `0007`–`0036` can't
 go in before `0005`–`0006`, and the new code needs `0007`–`0036`. Recommended
@@ -243,8 +248,16 @@ Pass using the exact candidate migrations, cleanup implementation and release ar
 - Restore that exact named artifact, not an unqualified latest backup, into the verified empty disposable target.
 - Fail immediately on dump/restore errors: check pipeline exit status and use `psql -v ON_ERROR_STOP=1` or the equivalent fail-fast restore mode.
 - Compare restored rows, schema, ledgers and critical sums with the consistent-snapshot manifest; printed counts without assertions do not pass.
+- A synthetic PostgreSQL 18.6 rehearsal captured and restored a full archive into
+  a second empty local cluster. It rejected an incorrect count and a checksum
+  mismatch, and confirmed that the scratch database was removed. The PR's Linux
+  check exercises the container's network isolation. Restoring the approved
+  release backup and recovering its R2 assets are part of the release rehearsal.
 - Run representative read and invariant checks, record the successful restore duration, and confirm the recovery target meets the agreed outage window.
-- The current monthly workflow needs these checks and isolated-target handling before its green status can serve as release evidence.
+- The monthly workflow restores an exact dump/manifest pair in an empty
+  network-isolated PostgreSQL container and compares the facts before teardown.
+  Keep the approved run and its artifact reference for the release rehearsal.
+  Verify R2 object recovery separately from the database's stored references.
 - Keep backup data, credentials and PII quarantined through verification and teardown; never expose copied production credentials to test clients.
 
 ## Cleanup preparation and execution

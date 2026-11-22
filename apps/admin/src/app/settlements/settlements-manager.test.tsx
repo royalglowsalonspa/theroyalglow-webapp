@@ -106,6 +106,7 @@ function entry(overrides: Partial<SettlementEntryView>): SettlementEntryView {
     reversesEntryId: null,
     note: null,
     reversedByEntryId: null,
+    hasMembershipCorrection: false,
     ...overrides,
   }
 }
@@ -594,6 +595,9 @@ describe('settlements helpers', () => {
 
   it('names what an entry is, and what a correction corrects', () => {
     expect(entryKindText(SESSION)).toBe('Membership session')
+    expect(entryKindText({ ...SESSION, kind: 'membership_correction' })).toBe(
+      'Membership correction',
+    )
     expect(entryKindText(GEMS)).toBe('Gems')
     expect(entryKindText(CORRECTION)).toBe('Correction (gems)')
     expect(entryKindText({ ...CORRECTION, reversedKind: 'membership_session' })).toBe(
@@ -605,6 +609,8 @@ describe('settlements helpers', () => {
     expect(canReverse(SESSION)).toBe(true)
     expect(canReverse(GEMS)).toBe(false)
     expect(canReverse(CORRECTION)).toBe(false)
+    expect(canReverse({ ...SESSION, kind: 'membership_correction' })).toBe(false)
+    expect(canReverse({ ...SESSION, hasMembershipCorrection: true })).toBe(false)
     expect(canReverse({ ...SESSION, owedBranch: MH })).toBe(false)
   })
 })

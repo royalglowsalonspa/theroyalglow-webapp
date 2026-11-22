@@ -8,9 +8,10 @@ and [rollout](rollout.md) before selecting work.
 
 ## 1. Establish the release baseline
 
-- [ ] Inventory current uncommitted admin/CRM/Next changes and their checks; keep
-  unrelated work separate from feature commits. Next is already pinned to 16.4.3
-  with an admin development-cache mitigation, not a dependency patch.
+- [x] Inventory current uncommitted admin/CRM/Next changes and their checks; keep
+  unrelated work separate from feature commits. *22/11: the draft PR branch
+  matched its remote before work resumed. The untracked handoff stayed local.
+  The Next.js 16.4.5 dependency update is separate from the feature changes.*
 - [ ] Add `experimental.turbopackFileSystemCacheForDev: false` to
   `apps/web/next.config.ts` and `apps/cms/next.config.ts`, matching
   `apps/admin/next.config.ts`; restart each dev server twice and confirm the
@@ -19,9 +20,14 @@ and [rollout](rollout.md) before selecting work.
 - [x] Map APIs, server pages/actions, exports, queries, jobs, realtime publishers,
   invoice paths and settings readers to branch/shared/self-service policies.
   *28/10: [route inventory](route-inventory.md); its six gaps feed §3.*
-- [ ] Record migration heads and compatible application/CMS versions; do not
-  infer live state or successful deployment from a workflow file.
-- [ ] Isolate and fix the existing membership-balance/idempotency defect with
+- [x] Record migration heads and compatible application/CMS versions; do not
+  infer live state or successful deployment from a workflow file. *22/11:
+  the isolated copy of Neon dev reported PostgreSQL 18.7, Drizzle migration
+  `0036_invoice_offer_snapshot_guard` (37 entries) and Payload migration
+  `20261121_114423_offer_checkout_rules` (7 entries). The app manifests pin
+  Next.js 16.4.5 and Payload 3.91.0. Production deployment evidence belongs to
+  Gate 3.*
+- [x] Isolate and fix the existing membership-balance/idempotency defect with
   actual concurrent-write tests before introducing the larger lifecycle change.
   The fix can work with today's neon-http driver, as one guarded statement or a
   batch in which a database check fails the whole write, so it need not wait for
@@ -29,7 +35,9 @@ and [rollout](rollout.md) before selecting work.
   optional idempotency key with replay); SQL verified on a disposable branch
   ([spike results](spike-results.md) §1). Typecheck, Biome and unit tests pass
   (`session-request.test.ts`, `memberships.test.ts`, sessions
-  `route.test.ts`). The two-connection race test is still pending.*
+  `route.test.ts`). 22/11: parallel writes on disposable Neon proved that one
+  branch wins the final reservation and one duplicate operation key creates one
+  booking and one hold. A replay is scoped to the original branch.*
 
 ## 2. Prove the database invariants first
 
@@ -39,18 +47,21 @@ and [rollout](rollout.md) before selecting work.
   failed guard, connection handling on Lambda and cold-start cost before the
   prototypes below depend on it. *28/10: decided, confirmed by the user: stay
   on neon-http with guarded statements and batches
-  ([spike results](spike-results.md) §5).*
-- [ ] Prototype role-qualified references and deferred guards on a disposable
+  ([spike results](spike-results.md) §5). 22/11: the guarded batches passed
+  rollback and concurrency checks on disposable Neon. AWS Lambda connection
+  and cold-start timings remain open.*
+- [x] Prototype role-qualified references and deferred guards on a disposable
   database: mandatory Owner, one Manager/Receptionist, shared Manager, global
   Owner/performer exclusion, preserved inactive history and protected Developer.
-- [ ] Prototype planned SPA/SPA and SPA/hair exclusions plus actual-start
+- [x] Prototype planned SPA/SPA and SPA/hair exclusions plus actual-start
   serialization; cover back-to-back, hair/hair, direct SQL and concurrent writes.
-- [ ] Prototype minute holds and exactly-once consumption with the chosen driver;
+- [x] Prototype minute holds and exactly-once consumption with the chosen driver;
   prove zero-row guard failure rolls back booking/invoice/occupancy changes.
   *28/10: all three prototypes above passed every case run one transaction at
-  a time ([spike results](spike-results.md) §2–4). Concurrent two-connection
-  cases are still open, as are hand-written migrations for constraints Drizzle
-  can't declare and drift-gate coverage for them (§6).*
+  a time ([spike results](spike-results.md) §2–4). 22/11: parallel conflicts,
+  exactly-once hold consumption and rollback passed on disposable Neon.
+  `multi-branch-schema.integration.test.ts` also checked the installed deferred
+  foreign keys, exclusion constraints and triggers.*
 - [ ] Generate/review additive Drizzle schema, SQL, snapshots and fingerprints,
   then compatible Payload migrations with explicit ordering. No schema push.
   *28/10: first slice applied to dev as `0004_multi_branch_people`:*
@@ -64,8 +75,12 @@ and [rollout](rollout.md) before selecting work.
   made deferrable; the drift reference is regenerated; typecheck, db tests and
   `drizzle-kit check` pass. Remaining slices: settings and tax, occupancy,
   membership holds and settlement, catalogue availability.*
-- [ ] Design an idempotent backfill with preview/conflict report and preservation
+- [x] Design an idempotent backfill with preview/conflict report and preservation
   of existing explicit branches and historical identity/tax evidence.
+  *22/11: `preview-multi-branch-backfill.sql` reports projected row counts and
+  conflicts before the one-time `0005` migration. It found no pending updates
+  or conflicts on the disposable dev copy. Rehearsal against the selected
+  backup remains in Gate 2.*
 
 ## 3. Implement branch authorization and administrative ownership
 
@@ -253,8 +268,8 @@ and [rollout](rollout.md) before selecting work.
   date and time at the active branch, as the counter books, with validity
   checked at its planned start; the session panel has Now or Book ahead, and
   a booking for a later day can't start before its day. Still open: the
-  retained history retrospective entries need (slice 4, deferred to after
-  launch, see below).*
+  retained-history and correction evidence is tracked in the retrospective
+  item below.*
 - [x] Implement reserve/consume/release transactions, state guards, stable
   operation keys, booking-level uniqueness and ledger reconciliation (MS-01–06).
   *0025 adds `membership_hold` (one per session booking, held → consumed or
@@ -316,6 +331,11 @@ and [rollout](rollout.md) before selecting work.
   counted against the customer).*
 - [ ] Add bounded, authorized retrospective recording/corrections with audit,
   historical time/conflict checks and safe accounting (MS-11–13).
+  *22/11: Developers can record an omitted visit with reviewed historical
+  eligibility evidence. A disposable Neon test verified duplicate races,
+  expired-but-valid visits, staff overlap rollback, the closed work interval,
+  and one audited invoice and settlement. Billing policy for correcting a
+  session that already has an issued invoice remains open.*
 
 ## 4b. Membership sales and tiers (admin portal)
 
@@ -590,12 +610,17 @@ screen may follow by 31 January 2027.
   Neon branch, a receptionist moved a lead and lost access to it, and an
   Owner saw it at the destination and switched between distinct branch report
   totals. These browser checks used development impersonation. The full
-  stored-session role matrix, the strict dependency audit and the admin path
-  allowlist remain open.*
+  stored-session role matrix and the admin path allowlist remain open. The
+  updated lockfile passed the strict dependency audit locally.*
 - [ ] Run the complete two-branch journey and adversarial third-branch access
   suite, existing-token checks and all MS/TX acceptance cases. Close Gate 1.
 - [ ] Harden full backup and restore verification, isolate temporary targets and
   validate snapshot manifests, schema, counts, balances and object references.
+  *22/11: capture and verification scripts use the same PostgreSQL snapshot
+  for the dump and manifest, verify hashes and restore into a container with
+  networking disabled. Both workflows parsed and the shell scripts passed
+  syntax checks. The synthetic CI round trip and a restore of the release's
+  named backup are separate checks.*
 - [ ] Rehearse migration, rollback/forward repair, CMS cutover and exact test-only
   cleanup from the chosen backup; verify teardown and close Gate 2.
 - [ ] Prepare reviewed launch tax/SAC/GSTIN values, genuine operational data,
@@ -611,9 +636,9 @@ before a branch with a different Owner joins.
 
 - **Retrospective session recording** (MS-11 and
   [retrospective recording](membership-scheduling.md#retrospective-recording)):
-  launch with "Record now" only. Until the audited correction workflow exists, a
-  session that was not recorded at the time needs a Developer-assisted minute
-  adjustment, recorded with reason and actor.
+  launch initially scoped to "Record now". The omitted-visit workflow and
+  Developer-reviewed corrections to issued records now have separate entry
+  points and share the membership ledger.
 - **A separate durable delivery service:** keep writing outbox rows in the same
   transaction, but retry pending rows from a QStash scheduled job, as the other
   jobs already run on QStash, instead of building new delivery infrastructure.

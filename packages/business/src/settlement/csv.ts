@@ -46,6 +46,7 @@ export function rupeesPlain(paise: number): string {
 
 const KIND_LABEL: Record<SettlementEntryKind, string> = {
   membership_session: 'Membership session',
+  membership_correction: 'Membership correction',
   gems_redemption: 'Gems',
   reversal: 'Reversal',
 }

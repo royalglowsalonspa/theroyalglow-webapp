@@ -140,6 +140,26 @@ Reserve and consume the available accounting remainder atomically without steali
 Persist a completed historical interval, never a live busy lock. Booking-level uniqueness prevents duplicate recording.
 Corrections use explicit audited adjustments with invoice handling defined by the billing specification; no silent row replacement.
 
+For an omitted visit, the Developer selects the delivering branch and retained
+staff profile and records a reason and a reference to reviewed eligibility
+evidence. The window is 30 days, with up to 480 minutes per visit. The visit
+retains its actual times in `staff_work`. The zero-charge invoice is issued
+with the current issue timestamp. The booking, consumed hold, invoice,
+settlement and audit are committed together. A replay is limited to the
+original branch and must match the submitted evidence and service details.
+To adjust a completed session with an issued zero-charge invoice, a Developer
+at the delivering branch enters a signed change to the available minute
+balance, a reason and optionally an evidence reference. A positive change
+restores minutes and a negative change consumes more. The append-only
+correction note links to the session and invoice and appears on their admin
+billing and membership pages. The original document and hold retain what
+was recorded, and the database requires the corrected balance to reconcile
+with the original holds and the notes. An adjustment cannot spend existing
+reservations, restore more than the session consumed, or extend membership
+validity. A cross-branch correction posts its signed value and GST allocation
+in the current open settlement period at the original session's share. The
+original settlement entry and any closed statement retain their recorded amounts.
+
 ## Selling a membership
 
 User decisions recorded in v6.1:

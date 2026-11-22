@@ -191,6 +191,7 @@ export async function getStaffServiceIds(staffId: string): Promise<string[]> {
 export async function updateStaffMemberAtBranch(params: {
   id: string
   branchId: string
+  actorId: string
   roles: readonly StaffRoleWitness[]
   patch: Omit<StaffProfileUpdateInput, 'branchId'>
 }) {
@@ -220,7 +221,7 @@ export async function updateStaffMemberAtBranch(params: {
   // Nothing to write still has to match, so `updatedAt` is always set.
   values.updatedAt = new Date()
 
-  const [updated] = await db
+  const update = db
     .update(staffProfile)
     .set(values)
     .where(
@@ -231,6 +232,17 @@ export async function updateStaffMemberAtBranch(params: {
       ),
     )
     .returning({ id: staffProfile.id })
+  const [updated] =
+    patch.designation === undefined
+      ? await update
+      : (
+          await db.batch([
+            db.execute(
+              sql`select set_config('rgss.staff_designation_actor', ${params.actorId}, true)`,
+            ),
+            update,
+          ])
+        )[1]
   return updated ? getStaffMemberAtBranch(updated.id, branchId) : null
 }
 

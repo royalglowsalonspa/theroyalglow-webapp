@@ -40,6 +40,7 @@
 import type {
   BranchSettlementReport,
   ResolvedReportRange,
+  ReversibleSettlementEntryKind,
   SettlementAmounts,
   SettlementBranchRef,
   SettlementEntryKind,
@@ -82,6 +83,10 @@ function iso(value: string | Date | null | undefined): string {
 function monthStart(month: string): string {
   return `${month}-01`
 }
+
+// All membership adjustments roll up with membership sessions, while the
+// entry rows retain their own kinds so a statement can explain the change.
+const MEMBERSHIP_KINDS = sql`('membership_session', 'membership_correction')`
 
 /** A condition on a pair of branch columns: the pair touches the scope. */
 function pairInScope(scope: SettlementScope, a: SQL, b: SQL): SQL {
@@ -171,13 +176,13 @@ export async function closeSettlementMonths(): Promise<SettlementCloseResult> {
           select e.posting_month as month,
                  least(e.owing_branch_id collate "C", e.owed_branch_id collate "C") as a,
                  greatest(e.owing_branch_id collate "C", e.owed_branch_id collate "C") as b,
-                 coalesce(sum(e.amount_owed_paise) filter (where c.forward and c.kind = 'membership_session'), 0) as ab_m,
-                 coalesce(sum(e.value_paise) filter (where c.forward and c.kind = 'membership_session'), 0) as ab_mv,
-                 coalesce(sum(e.gst_share_paise) filter (where c.forward and c.kind = 'membership_session'), 0) as ab_mg,
+                 coalesce(sum(e.amount_owed_paise) filter (where c.forward and c.kind in ${MEMBERSHIP_KINDS}), 0) as ab_m,
+                 coalesce(sum(e.value_paise) filter (where c.forward and c.kind in ${MEMBERSHIP_KINDS}), 0) as ab_mv,
+                 coalesce(sum(e.gst_share_paise) filter (where c.forward and c.kind in ${MEMBERSHIP_KINDS}), 0) as ab_mg,
                  coalesce(sum(e.amount_owed_paise) filter (where c.forward and c.kind = 'gems_redemption'), 0) as ab_g,
-                 coalesce(sum(e.amount_owed_paise) filter (where not c.forward and c.kind = 'membership_session'), 0) as ba_m,
-                 coalesce(sum(e.value_paise) filter (where not c.forward and c.kind = 'membership_session'), 0) as ba_mv,
-                 coalesce(sum(e.gst_share_paise) filter (where not c.forward and c.kind = 'membership_session'), 0) as ba_mg,
+                 coalesce(sum(e.amount_owed_paise) filter (where not c.forward and c.kind in ${MEMBERSHIP_KINDS}), 0) as ba_m,
+                 coalesce(sum(e.value_paise) filter (where not c.forward and c.kind in ${MEMBERSHIP_KINDS}), 0) as ba_mv,
+                 coalesce(sum(e.gst_share_paise) filter (where not c.forward and c.kind in ${MEMBERSHIP_KINDS}), 0) as ba_mg,
                  coalesce(sum(e.amount_owed_paise) filter (where not c.forward and c.kind = 'gems_redemption'), 0) as ba_g,
                  count(*)::int as entries
             from settlement_entry e
@@ -325,7 +330,7 @@ export async function getSettlementStatement(
 type EntryRow = {
   id: string
   kind: SettlementEntryKind
-  reversed_kind: Exclude<SettlementEntryKind, 'reversal'> | null
+  reversed_kind: ReversibleSettlementEntryKind | null
   month: string
   created_at: string | Date
   owing_branch_id: string
@@ -344,6 +349,7 @@ type EntryRow = {
   reverses_entry_id: string | null
   note: string | null
   reversed_by_entry_id: string | null
+  has_membership_correction: boolean
 }
 
 function toEntry(row: EntryRow): SettlementEntryView {
@@ -367,6 +373,7 @@ function toEntry(row: EntryRow): SettlementEntryView {
     reversesEntryId: row.reverses_entry_id,
     note: row.note,
     reversedByEntryId: row.reversed_by_entry_id,
+    hasMembershipCorrection: row.has_membership_correction,
   }
 }
 
@@ -378,7 +385,10 @@ const ENTRY_SELECT = sql`
          m.membership_number, bk.booking_number,
          e.minutes, e.gems, e.value_paise, e.gst_share_paise, e.amount_owed_paise,
          e.share_bps, e.gem_value_paise, e.reverses_entry_id, e.note,
-         r.id as reversed_by_entry_id
+         r.id as reversed_by_entry_id,
+         e.kind = 'membership_session' and exists (
+           select 1 from membership_correction c where c.booking_id = e.booking_id
+         ) as has_membership_correction
     from settlement_entry e
     join branch bo on bo.id = e.owing_branch_id
     join branch bd on bd.id = e.owed_branch_id
@@ -446,13 +456,13 @@ export async function getOpenSettlementMonths(
         select e.posting_month as month,
                least(e.owing_branch_id collate "C", e.owed_branch_id collate "C") as a,
                greatest(e.owing_branch_id collate "C", e.owed_branch_id collate "C") as b,
-               coalesce(sum(e.amount_owed_paise) filter (where c.forward and c.kind = 'membership_session'), 0) as a_owes_b_membership_paise,
-               coalesce(sum(e.value_paise) filter (where c.forward and c.kind = 'membership_session'), 0) as a_owes_b_membership_value_paise,
-               coalesce(sum(e.gst_share_paise) filter (where c.forward and c.kind = 'membership_session'), 0) as a_owes_b_membership_gst_paise,
+               coalesce(sum(e.amount_owed_paise) filter (where c.forward and c.kind in ${MEMBERSHIP_KINDS}), 0) as a_owes_b_membership_paise,
+               coalesce(sum(e.value_paise) filter (where c.forward and c.kind in ${MEMBERSHIP_KINDS}), 0) as a_owes_b_membership_value_paise,
+               coalesce(sum(e.gst_share_paise) filter (where c.forward and c.kind in ${MEMBERSHIP_KINDS}), 0) as a_owes_b_membership_gst_paise,
                coalesce(sum(e.amount_owed_paise) filter (where c.forward and c.kind = 'gems_redemption'), 0) as a_owes_b_gems_paise,
-               coalesce(sum(e.amount_owed_paise) filter (where not c.forward and c.kind = 'membership_session'), 0) as b_owes_a_membership_paise,
-               coalesce(sum(e.value_paise) filter (where not c.forward and c.kind = 'membership_session'), 0) as b_owes_a_membership_value_paise,
-               coalesce(sum(e.gst_share_paise) filter (where not c.forward and c.kind = 'membership_session'), 0) as b_owes_a_membership_gst_paise,
+               coalesce(sum(e.amount_owed_paise) filter (where not c.forward and c.kind in ${MEMBERSHIP_KINDS}), 0) as b_owes_a_membership_paise,
+               coalesce(sum(e.value_paise) filter (where not c.forward and c.kind in ${MEMBERSHIP_KINDS}), 0) as b_owes_a_membership_value_paise,
+               coalesce(sum(e.gst_share_paise) filter (where not c.forward and c.kind in ${MEMBERSHIP_KINDS}), 0) as b_owes_a_membership_gst_paise,
                coalesce(sum(e.amount_owed_paise) filter (where not c.forward and c.kind = 'gems_redemption'), 0) as b_owes_a_gems_paise,
                count(*)::int as entries
           from settlement_entry e
@@ -551,9 +561,19 @@ export async function markSettlementPaid(params: {
 
 export type ReverseSettlementEntryResult =
   | { ok: true; entryId: string; month: string }
-  | { ok: false; reason: 'not_found' | 'already_reversed' | 'is_reversal' | 'internal' }
+  | {
+      ok: false
+      reason:
+        | 'not_found'
+        | 'already_reversed'
+        | 'is_reversal'
+        | 'is_membership_correction'
+        | 'already_corrected'
+        | 'internal'
+    }
 
 const REVERSAL_UNIQUE = 'settlement_entry_reversal_unique'
+const MEMBERSHIP_CORRECTION_LINK = 'settlement_membership_correction_link'
 
 /**
  * Correct an entry by recording its reversal, never by editing it (MS-24).
@@ -570,9 +590,13 @@ export async function reverseSettlementEntry(params: {
     kind: SettlementEntryKind
     internal: boolean
     reversed: boolean
+    corrected: boolean
   }>(sql`
     select e.kind, e.owing_branch_id = e.owed_branch_id as internal,
-           exists (select 1 from settlement_entry r where r.reverses_entry_id = e.id) as reversed
+           exists (select 1 from settlement_entry r where r.reverses_entry_id = e.id) as reversed,
+           e.kind = 'membership_session' and exists (
+             select 1 from membership_correction c where c.booking_id = e.booking_id
+           ) as corrected
       from settlement_entry e
      where e.id = ${entryId}
   `)
@@ -582,6 +606,12 @@ export async function reverseSettlementEntry(params: {
   }
   if (found.kind === 'reversal') {
     return { ok: false, reason: 'is_reversal' }
+  }
+  if (found.kind === 'membership_correction') {
+    return { ok: false, reason: 'is_membership_correction' }
+  }
+  if (found.corrected) {
+    return { ok: false, reason: 'already_corrected' }
   }
   if (found.internal) {
     return { ok: false, reason: 'internal' }
@@ -606,6 +636,9 @@ export async function reverseSettlementEntry(params: {
   } catch (error) {
     if (isConstraintViolation(error, SQLSTATE.uniqueViolation, [REVERSAL_UNIQUE])) {
       return { ok: false, reason: 'already_reversed' }
+    }
+    if (isConstraintViolation(error, SQLSTATE.checkViolation, [MEMBERSHIP_CORRECTION_LINK])) {
+      return { ok: false, reason: 'already_corrected' }
     }
     throw error
   }
@@ -636,12 +669,12 @@ export async function getBranchSettlementReport(
          and e.created_at < ${toExclusive.toISOString()}::timestamptz
     )
     select
-      coalesce(sum(minutes) filter (where kind = 'membership_session' and owed_branch_id = ${branchId}), 0) as delivered_minutes,
-      coalesce(sum(value_paise) filter (where kind = 'membership_session' and owed_branch_id = ${branchId}), 0) as delivered_value,
-      coalesce(sum(minutes) filter (where kind = 'membership_session' and owing_branch_id = ${branchId}), 0) as own_minutes,
-      coalesce(sum(value_paise) filter (where kind = 'membership_session' and owing_branch_id = ${branchId}), 0) as own_value,
-      coalesce(sum(amount_owed_paise) filter (where kind = 'membership_session' and owed_branch_id = ${branchId} and owing_branch_id <> ${branchId}), 0) as membership_receive,
-      coalesce(sum(amount_owed_paise) filter (where kind = 'membership_session' and owing_branch_id = ${branchId} and owed_branch_id <> ${branchId}), 0) as membership_pay,
+      coalesce(sum(minutes) filter (where kind in ${MEMBERSHIP_KINDS} and owed_branch_id = ${branchId}), 0) as delivered_minutes,
+      coalesce(sum(value_paise) filter (where kind in ${MEMBERSHIP_KINDS} and owed_branch_id = ${branchId}), 0) as delivered_value,
+      coalesce(sum(minutes) filter (where kind in ${MEMBERSHIP_KINDS} and owing_branch_id = ${branchId}), 0) as own_minutes,
+      coalesce(sum(value_paise) filter (where kind in ${MEMBERSHIP_KINDS} and owing_branch_id = ${branchId}), 0) as own_value,
+      coalesce(sum(amount_owed_paise) filter (where kind in ${MEMBERSHIP_KINDS} and owed_branch_id = ${branchId} and owing_branch_id <> ${branchId}), 0) as membership_receive,
+      coalesce(sum(amount_owed_paise) filter (where kind in ${MEMBERSHIP_KINDS} and owing_branch_id = ${branchId} and owed_branch_id <> ${branchId}), 0) as membership_pay,
       coalesce(sum(gems) filter (where kind = 'gems_redemption' and owed_branch_id = ${branchId}), 0) as gems_redeemed,
       coalesce(sum(amount_owed_paise) filter (where kind = 'gems_redemption' and owed_branch_id = ${branchId} and owing_branch_id <> ${branchId}), 0) as gems_receive,
       coalesce(sum(amount_owed_paise) filter (where kind = 'gems_redemption' and owing_branch_id = ${branchId} and owed_branch_id <> ${branchId}), 0) as gems_pay,

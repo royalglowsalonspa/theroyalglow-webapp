@@ -126,6 +126,8 @@ export const ADMIN_ROUTE_POLICIES = {
   // Cancelling stays with the selling branch (route inventory gap 5).
   'memberships/[id]/cancel': { POST: 'branch' },
   'memberships/[id]/sessions': { POST: 'branch' },
+  'memberships/[id]/sessions/retrospective': { POST: 'branch' },
+  'memberships/corrections': { POST: 'branch' },
   notifications: { GET: 'self', PATCH: 'self' },
   // Offers are edited in Payload (R4.6): the admin portal only reads them.
   offers: { GET: 'shared', POST: 'retired' },

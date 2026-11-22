@@ -489,7 +489,12 @@ export type StartBookingResult =
        * staff_busy: its assignee is still with another customer (0028, MS-08).
        * not_one_assignee: its service lines name different people (0028).
        */
-      reason: 'not_confirmed' | 'membership_unavailable' | 'staff_busy' | 'not_one_assignee'
+      reason:
+        | 'not_confirmed'
+        | 'membership_unavailable'
+        | 'staff_busy'
+        | 'not_one_assignee'
+        | 'staff_designation'
     }
 
 // Start a confirmed booking at the branch now ("Start" in
@@ -549,6 +554,9 @@ export async function startBooking(params: {
     }
     if (refusal === 'one_assignee') {
       return { ok: false, reason: 'not_one_assignee' }
+    }
+    if (refusal === 'designation') {
+      return { ok: false, reason: 'staff_designation' }
     }
     throw error
   }

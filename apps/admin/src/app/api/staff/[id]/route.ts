@@ -84,7 +84,13 @@ export const PATCH = withErrorHandler(async (req: Request, { params }: Params) =
     throw badRequest('Only a Stylist or Therapist changes title. The others follow their role.')
   }
 
-  const updated = await updateStaffMemberAtBranch({ id, branchId: ctx.branch.id, roles, patch })
+  const updated = await updateStaffMemberAtBranch({
+    id,
+    branchId: ctx.branch.id,
+    actorId: ctx.session.user.id,
+    roles,
+    patch,
+  })
   if (!updated) {
     throw conflict(
       ERROR_CODES.CONFLICT,

@@ -96,9 +96,15 @@ for (const role of ROLES) {
 
     test('a branch the person cannot work in is refused and changes nothing', async ({ page }) => {
       const before = await activeBranch(page.request)
+      const hiddenBranch = process.env.ADMIN_E2E_INACCESSIBLE_BRANCH_ID
+      const { branches } = await myBranches(page.request)
+      const target =
+        hiddenBranch && !branches.some((branch) => branch.id === hiddenBranch)
+          ? hiddenBranch
+          : 'e2e-no-such-branch'
 
       const response = await page.request.put('/api/me/branch', {
-        data: { branchId: 'e2e-no-such-branch' },
+        data: { branchId: target },
       })
       expect(response.status()).toBe(404)
       expect(await errorCode(response)).toBe('NOT_FOUND')
@@ -146,6 +152,70 @@ for (const role of ROLES) {
       })
       expect(response.status()).toBe(409)
       expect(await errorCode(response)).toBe('BRANCH_CONTEXT_CHANGED')
+    })
+
+    test('does not paint the previous branch when its pipeline response arrives late', async ({
+      page,
+    }) => {
+      const { active, branches } = await myBranches(page.request)
+      const other = branches.find((branch) => branch.id !== active?.id)
+      test.skip(!(active && other), 'this account works in only one branch')
+      if (!(active && other)) return
+
+      const firstRead = Promise.withResolvers<void>()
+      const releaseFirstRead = Promise.withResolvers<void>()
+      const firstResponseFinished = Promise.withResolvers<void>()
+      const previousName = 'Lead from the previous branch'
+      const currentName = 'Lead from the selected branch'
+      let requests = 0
+      await page.route('**/api/leads', async (route) => {
+        const previous = requests++ === 0
+        if (previous) {
+          firstRead.resolve()
+          await releaseFirstRead.promise
+        }
+        try {
+          await route.fulfill({
+            json: {
+              success: true,
+              data: {
+                branchId: previous ? active.id : other.id,
+                leads: [
+                  {
+                    id: previous ? 'lead_previous' : 'lead_current',
+                    name: previous ? previousName : currentName,
+                    phone: '+910000000000',
+                    status: 'new',
+                    source: 'manual',
+                    daysSinceCapture: 0,
+                    isStale: false,
+                  },
+                ],
+              },
+            },
+          })
+        } catch (error) {
+          // Reload can cancel the first document's pending network request.
+          if (!previous) throw error
+        } finally {
+          if (previous) firstResponseFinished.resolve()
+        }
+      })
+
+      try {
+        await page.goto('/leads')
+        await firstRead.promise
+        await expect(switcher(page)).toHaveAccessibleName(switcherName(active.name))
+        await switcher(page).press('Enter')
+        await page.getByRole('menuitem').filter({ hasText: other.name }).press('Enter')
+        await expect(switcher(page)).toHaveAccessibleName(switcherName(other.name))
+        await expect(page.getByText(currentName, { exact: true })).toBeVisible()
+      } finally {
+        releaseFirstRead.resolve()
+      }
+      await firstResponseFinished.promise
+      await expect(page.getByText(previousName, { exact: true })).toHaveCount(0)
+      await expect(page.getByText(currentName, { exact: true })).toBeVisible()
     })
   })
 }

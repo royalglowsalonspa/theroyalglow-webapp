@@ -26,6 +26,8 @@ const mocks = vi.hoisted(() => ({ requireBranchRole: vi.fn() }))
 const dbMocks = vi.hoisted(() => ({
   getInvoices: vi.fn(),
   getInvoiceById: vi.fn(),
+  getMembershipCorrectionTarget: vi.fn(),
+  listMembershipCorrections: vi.fn(),
 }))
 
 vi.mock('@/lib/api/branch-context', async (importOriginal) => {
@@ -157,6 +159,64 @@ describe('GET /api/billing/[id]', () => {
 
     expect(res.status).toBe(404)
     expect(body.error).toMatchObject({ code: ERROR_CODES.NOT_FOUND, statusCode: 404 })
+    expect(dbMocks.listMembershipCorrections).not.toHaveBeenCalled()
+  })
+
+  it.each(['receptionist', 'developer'] as const)(
+    'scopes session corrections to the invoice branch for the %s',
+    async (role) => {
+      mocks.requireBranchRole.mockResolvedValue(branchContext({ role }))
+      dbMocks.getInvoiceById.mockResolvedValue({ id: 'inv1', invoiceType: 'membership_session' })
+      const correction = { id: 'mc1', reason: 'Verified incorrect deduction' }
+      dbMocks.listMembershipCorrections.mockResolvedValue([correction])
+      dbMocks.getMembershipCorrectionTarget.mockResolvedValue({
+        membershipId: 'mem1',
+        bookingId: 'bk1',
+      })
+
+      const response = await billingIdRoute.GET(
+        new Request('https://admin.theroyalglow.in/api/billing/inv1'),
+        { params: Promise.resolve({ id: 'inv1' }) },
+      )
+
+      expect(response.status).toBe(200)
+      const { data } = await response.json()
+      expect(data.corrections).toEqual([correction])
+      expect(dbMocks.listMembershipCorrections).toHaveBeenCalledExactlyOnceWith({
+        invoiceId: 'inv1',
+        branchId: TEST_BRANCH.id,
+      })
+      if (role === 'developer') {
+        expect(dbMocks.getMembershipCorrectionTarget).toHaveBeenCalledExactlyOnceWith(
+          'inv1',
+          TEST_BRANCH.id,
+        )
+        expect(data.correctionTarget).toEqual({
+          membershipId: 'mem1',
+          bookingId: 'bk1',
+          originalInvoiceId: 'inv1',
+          branchId: TEST_BRANCH.id,
+          branchName: TEST_BRANCH.name,
+        })
+      } else {
+        expect(dbMocks.getMembershipCorrectionTarget).not.toHaveBeenCalled()
+        expect(data.correctionTarget).toBeNull()
+      }
+    },
+  )
+
+  it('does not offer corrections for an ineligible session invoice', async () => {
+    mocks.requireBranchRole.mockResolvedValue(branchContext({ role: 'developer' }))
+    dbMocks.getInvoiceById.mockResolvedValue({ id: 'inv1', invoiceType: 'membership_session' })
+    dbMocks.getMembershipCorrectionTarget.mockResolvedValue(null)
+    dbMocks.listMembershipCorrections.mockResolvedValue([])
+
+    const response = await billingIdRoute.GET(
+      new Request('https://admin.theroyalglow.in/api/billing/inv1'),
+      { params: Promise.resolve({ id: 'inv1' }) },
+    )
+
+    expect((await response.json()).data.correctionTarget).toBeNull()
   })
 
   it('→ 403 when role is insufficient', async () => {

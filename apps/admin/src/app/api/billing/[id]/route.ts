@@ -22,7 +22,11 @@
  * Notes        : Requires min role: receptionist. Read-only.
  ************************************************************/
 
-import { getInvoiceById } from '@rgss/db/queries'
+import {
+  getInvoiceById,
+  getMembershipCorrectionTarget,
+  listMembershipCorrections,
+} from '@rgss/db/queries'
 import { notFound } from '@rgss/errors'
 import { requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
@@ -39,6 +43,17 @@ export const GET = withErrorHandler(
       throw notFound('Invoice not found.')
     }
 
-    return apiSuccess({ invoice })
+    if (invoice.invoiceType !== 'membership_session') {
+      return apiSuccess({ invoice })
+    }
+
+    const [corrections, target] = await Promise.all([
+      listMembershipCorrections({ invoiceId: id, branchId: ctx.branch.id }),
+      ctx.branch.role === 'developer' ? getMembershipCorrectionTarget(id, ctx.branch.id) : null,
+    ])
+    const correctionTarget = target
+      ? { ...target, originalInvoiceId: id, branchId: ctx.branch.id, branchName: ctx.branch.name }
+      : null
+    return apiSuccess({ invoice, corrections, correctionTarget })
   },
 )

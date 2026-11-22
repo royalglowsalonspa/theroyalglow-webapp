@@ -39,7 +39,12 @@
  ************************************************************/
 
 import { conflict, ERROR_CODES } from '@rgss/errors'
-import type { SettlementSetting } from '@rgss/types'
+import {
+  HISTORICAL_SESSION_KEY_PREFIX,
+  HISTORICAL_SESSION_LOOKBACK_DAYS,
+  HISTORICAL_SESSION_MAX_MINUTES,
+  type SettlementSetting,
+} from '@rgss/types'
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { BatchItem } from 'drizzle-orm/batch'
 import { nanoid } from 'nanoid'
@@ -50,6 +55,7 @@ import { branch } from '../schema/branch'
 import { invoice } from '../schema/invoice'
 import { spaMembership, spaMembershipTier } from '../schema/membership'
 import { staffProfile } from '../schema/profile'
+import { auditLog } from '../schema/system'
 import { isBranchAvailabilityRefusal, serviceNoLongerOffered } from './catalogue-availability'
 import { refreshCustomerStatsStatement } from './customer-stats'
 import { isConstraintViolation, isGuardAbort, SQLSTATE } from './driver-errors'
@@ -302,11 +308,20 @@ export async function getActiveMembershipForCustomer(customerId: string) {
 // no-show and rescheduled sessions released their minutes and are left out.
 const MEMBERSHIP_SESSION_STATUSES = ['confirmed', 'in_progress', 'completed'] as const
 
-export async function getMembershipSessions(membershipId: string) {
+export async function getMembershipSessions(membershipId: string, invoiceBranchId?: string) {
   const rows = await db
-    .select({ session: booking, branchName: branch.name })
+    .select({ session: booking, branchName: branch.name, invoiceId: invoice.id })
     .from(booking)
     .innerJoin(branch, eq(branch.id, booking.branchId))
+    .leftJoin(
+      invoice,
+      and(
+        eq(invoice.bookingId, booking.id),
+        invoiceBranchId === undefined ? sql`false` : eq(invoice.branchId, invoiceBranchId),
+        eq(invoice.branchId, booking.branchId),
+        eq(invoice.invoiceType, 'membership_session'),
+      ),
+    )
     .where(
       and(
         eq(booking.spaMembershipId, membershipId),
@@ -314,7 +329,11 @@ export async function getMembershipSessions(membershipId: string) {
       ),
     )
     .orderBy(desc(booking.bookingDate), desc(booking.createdAt))
-  const bookings = rows.map((r) => ({ ...r.session, branchName: r.branchName }))
+  const bookings = rows.map((r) => ({
+    ...r.session,
+    branchName: r.branchName,
+    ...(r.invoiceId ? { invoiceId: r.invoiceId } : {}),
+  }))
 
   if (bookings.length === 0) {
     return []
@@ -504,14 +523,13 @@ export type RecordMembershipSessionResult =
 // redemptions. The prefix keeps the two key spaces apart, and replay lookups
 // also require a session of the same membership, so a key from anywhere else
 // never resolves to a session.
-const SESSION_KEY_PREFIX = 'msess:'
 const REDEMPTION_KEY_INDEX = 'booking_redemption_key_uidx'
 // What the database refuses a new hold with (0025, 0026): too few minutes
 // free, or a membership that can't be used at the session's start.
 const HOLD_REFUSALS = ['spa_membership_reserved_check', 'membership_hold_validity'] as const
 
-function sessionKey(idempotencyKey: string): string {
-  return `${SESSION_KEY_PREFIX}${idempotencyKey}`
+function sessionKey(idempotencyKey: string, historical = false): string {
+  return `${historical ? HISTORICAL_SESSION_KEY_PREFIX : 'msess:'}${idempotencyKey}`
 }
 
 /** Minutes free on a membership: purchased, less consumed, less held. */
@@ -692,11 +710,6 @@ export async function completeMembershipSession(
   params: CompleteMembershipSessionParams,
 ): Promise<CompleteMembershipSessionResult> {
   const { bookingId, branchId } = params
-  const invoiceId = nanoid()
-  if (params.invoice.lineTax.length !== params.lines.length) {
-    throw new Error('completeMembershipSession: one line tax per service')
-  }
-
   const complete = db.execute(sql`
     WITH done AS (
       UPDATE booking
@@ -718,6 +731,33 @@ export async function completeMembershipSession(
   const customerId = customer[0]?.customerId
   if (!customerId) {
     return { ok: false, reason: 'not_in_progress' }
+  }
+
+  const result = await finishMembershipSession(params, customerId, [
+    complete,
+    db.insert(bookingStatusLog).values({
+      bookingId,
+      fromStatus: 'in_progress',
+      toStatus: 'completed',
+      changedById: params.changedById,
+      notes: 'Membership session completed',
+    }),
+  ]).catch((error: unknown) => {
+    if (isGuardAbort(error)) return null
+    throw error
+  })
+  return result ?? { ok: false, reason: 'not_in_progress' }
+}
+
+async function finishMembershipSession(
+  params: CompleteMembershipSessionParams,
+  customerId: string,
+  writes: [BatchItem<'pg'>, ...BatchItem<'pg'>[]],
+) {
+  const { bookingId, branchId } = params
+  const invoiceId = nanoid()
+  if (params.invoice.lineTax.length !== params.lines.length) {
+    throw new Error('Membership session needs one tax classification per service')
   }
 
   const { counter, insertInvoice, insertLines } = issueInvoiceStatements(
@@ -796,50 +836,161 @@ export async function completeMembershipSession(
       FROM valued v
   `)
 
-  const results = await db
-    .batch([
-      complete,
-      db.insert(bookingStatusLog).values({
-        bookingId,
-        fromStatus: 'in_progress',
-        toStatus: 'completed',
-        changedById: params.changedById,
-        notes: 'Membership session completed',
-      }),
-      counter,
-      insertInvoice,
-      insertLines,
-      entry,
-      // A completed session is a visit: recompute the CRM KPIs after it.
-      refreshCustomerStatsStatement(customerId),
-      db.select().from(booking).where(eq(booking.id, bookingId)),
-      db
-        .select(balanceColumns)
-        .from(spaMembership)
-        .where(
-          sql`${spaMembership.id} = (select ${booking.spaMembershipId} from ${booking} where ${booking.id} = ${bookingId})`,
-        ),
-    ])
-    .catch((error: unknown) => {
-      if (isGuardAbort(error)) {
-        return 'not_in_progress' as const
-      }
-      throw error
-    })
+  const results = await db.batch([
+    ...writes,
+    counter,
+    insertInvoice,
+    insertLines,
+    entry,
+    // A completed session is a visit: recompute the CRM KPIs after it.
+    refreshCustomerStatsStatement(customerId),
+    db.select().from(booking).where(eq(booking.id, bookingId)),
+    db
+      .select(balanceColumns)
+      .from(spaMembership)
+      .where(
+        sql`${spaMembership.id} = (select ${booking.spaMembershipId} from ${booking} where ${booking.id} = ${bookingId})`,
+      ),
+  ])
 
-  if (results === 'not_in_progress') {
-    return { ok: false, reason: 'not_in_progress' }
-  }
-
-  // [complete, log, counter, invoice, lines, entry, KPIs, booking, balance]
   return {
-    ok: true,
-    booking: (results[7] as (typeof booking.$inferSelect)[])[0] as typeof booking.$inferSelect,
-    invoice: (results[3] as (typeof invoice.$inferSelect)[])[0] as typeof invoice.$inferSelect,
+    ok: true as const,
+    booking: (results.at(-2) as (typeof booking.$inferSelect)[])[0] as typeof booking.$inferSelect,
+    invoice: (results.at(-6) as (typeof invoice.$inferSelect)[])[0] as typeof invoice.$inferSelect,
     remainingMinutes: freeMinutes(
-      (results[8] as { total: number; used: number; reserved: number }[])[0],
+      (results.at(-1) as { total: number; used: number; reserved: number }[])[0],
     ),
   }
+}
+
+type HistoricalMembershipSession = Omit<CompleteMembershipSessionParams, 'bookingId' | 'lines'> & {
+  membershipId: string
+  customerId: string
+  bookingNumber: string
+  staffId: string
+  actualStart: Date
+  actualEnd: Date
+  /** Reason for late entry and reference to reviewed historical eligibility evidence. */
+  reason: string
+  evidenceReference: string
+  idempotencyKey: string
+  requestFingerprint: string
+  lines: (CompleteMembershipSessionParams['lines'][number] & { durationMinutes: number })[]
+}
+
+export async function listStaffForHistoricalSession() {
+  return db
+    .select({ id: staffProfile.id, name: user.name, active: staffProfile.isActive })
+    .from(staffProfile)
+    .innerJoin(user, eq(staffProfile.userId, user.id))
+    .orderBy(asc(user.name), asc(staffProfile.id))
+}
+
+/** Issue an omitted session as completed history in one transaction. */
+export async function recordHistoricalMembershipSession(params: HistoricalMembershipSession) {
+  const { branchId, membershipId, customerId, staffId, actualStart, actualEnd, changedById } =
+    params
+  const bookingId = nanoid()
+  const minutes = params.lines.reduce((total, line) => total + line.durationMinutes, 0)
+  const started = actualStart.toISOString()
+  const ended = actualEnd.toISOString()
+
+  // Serialize for a membership before checking its historical intervals. The
+  // existing staff_work exclusions cover concurrent writes on the staff side.
+  const lockBranch = db.execute(sql`SELECT id FROM ${branch} WHERE id = ${branchId} FOR SHARE`)
+  const lockMembership = db.execute(sql`
+    SELECT id FROM ${spaMembership} WHERE id = ${membershipId} FOR UPDATE
+  `)
+  const insertBooking = db.execute(sql`
+    WITH inserted AS (
+      INSERT INTO booking
+        (id, booking_number, branch_id, customer_id, status, service_type, booking_date,
+         start_time, end_time, total_amount_paise, total_duration_minutes, is_membership_session,
+         spa_membership_id, redemption_key, started_at, completed_at)
+      SELECT ${bookingId}, ${params.bookingNumber}, ${branchId}, m.customer_id, 'completed', 'spa',
+        (t.started AT TIME ZONE 'Asia/Kolkata')::date,
+        (t.started AT TIME ZONE 'Asia/Kolkata')::time,
+        (t.ended AT TIME ZONE 'Asia/Kolkata')::time,
+        0, ${minutes}, true, m.id, ${sessionKey(params.idempotencyKey, true)}, t.started, t.ended
+      FROM spa_membership m
+      JOIN branch br ON br.id = ${branchId} AND br.status = 'operational'
+      JOIN staff_profile sp ON sp.id = ${staffId}
+      JOIN "user" actor ON actor.id = ${changedById} AND actor.role = 'developer'
+      CROSS JOIN (SELECT ${started}::timestamptz AS started, ${ended}::timestamptz AS ended) t
+      WHERE m.id = ${membershipId} AND m.customer_id = ${customerId} AND m.status <> 'cancelled'
+        AND t.started BETWEEN m.starts_at AND m.expires_at
+        AND t.started >= now() - make_interval(days => ${HISTORICAL_SESSION_LOOKBACK_DAYS})
+        AND t.ended <= now()
+        AND extract(epoch FROM t.ended - t.started) = ${minutes}::int * 60
+        AND ${minutes}::int BETWEEN 1 AND ${HISTORICAL_SESSION_MAX_MINUTES}
+        AND m.used_hours_minutes + m.reserved_minutes + ${minutes}::int <= m.total_hours_minutes
+        AND NOT EXISTS (
+          SELECT 1 FROM booking b
+          WHERE b.spa_membership_id = m.id AND b.status IN ('completed', 'in_progress')
+            AND CASE WHEN b.started_at IS NOT NULL AND b.status = 'in_progress'
+              THEN tstzrange(b.started_at, NULL, '[)') && tstzrange(t.started, t.ended, '[)')
+              WHEN b.started_at IS NOT NULL AND b.completed_at >= b.started_at
+              THEN tstzrange(b.started_at, b.completed_at, '[)') && tstzrange(t.started, t.ended, '[)')
+              ELSE booking_planned_during(b.booking_date, b.start_time, b.end_time)
+                && tstzrange(t.started, t.ended, '[)')
+            END
+        )
+      RETURNING id
+    ) SELECT 1 / count(*)::int AS ok FROM inserted
+  `)
+  const serviceRows = params.lines.map((line, displayOrder) => ({
+    bookingId,
+    staffId,
+    serviceId: line.serviceId,
+    serviceNameSnapshot: line.serviceNameSnapshot,
+    priceAtBookingPaise: 0,
+    durationMinutes: line.durationMinutes,
+    displayOrder,
+  }))
+
+  return finishMembershipSession({ ...params, bookingId }, customerId, [
+    lockBranch,
+    lockMembership,
+    insertBooking,
+    db.insert(bookingService).values(serviceRows),
+    db.insert(bookingStatusLog).values({
+      bookingId,
+      fromStatus: null,
+      toStatus: 'completed',
+      changedById,
+      notes: 'Historical membership session recorded',
+    }),
+    db.insert(auditLog).values({
+      actorId: changedById,
+      action: 'create',
+      entityType: 'historical_membership_session',
+      entityId: bookingId,
+      branchId,
+      newValues: {
+        membershipId,
+        staffId,
+        actualStart: started,
+        actualEnd: ended,
+        minutes,
+        reason: params.reason,
+        evidenceReference: params.evidenceReference,
+        requestFingerprint: params.requestFingerprint,
+      },
+    }),
+  ]).catch((error: unknown) => {
+    if (
+      isGuardAbort(error) ||
+      isConstraintViolation(error, SQLSTATE.checkViolation, HOLD_REFUSALS)
+    ) {
+      return { ok: false, reason: 'unavailable' } as const
+    }
+    if (isConstraintViolation(error, SQLSTATE.uniqueViolation, [REDEMPTION_KEY_INDEX])) {
+      return { ok: false, reason: 'duplicate_key' } as const
+    }
+    if (isBranchAvailabilityRefusal(error)) throw serviceNoLongerOffered()
+    if (assigneeRefusal(error)) return { ok: false, reason: 'staff' } as const
+    throw error
+  })
 }
 
 // The session that an earlier request recorded on this membership with this
@@ -847,14 +998,20 @@ export async function completeMembershipSession(
 // has completed, its service lines (so the caller can check the retry asks
 // for the same session) and the minutes the membership has free now. Null
 // when the key has not recorded a session on this membership.
-export async function getMembershipSessionByKey(membershipId: string, idempotencyKey: string) {
+export async function getMembershipSessionByKey(
+  membershipId: string,
+  idempotencyKey: string,
+  branchId: string,
+  historical = false,
+) {
   const rows = await db
     .select()
     .from(booking)
     .where(
       and(
-        eq(booking.redemptionKey, sessionKey(idempotencyKey)),
+        eq(booking.redemptionKey, sessionKey(idempotencyKey, historical)),
         eq(booking.spaMembershipId, membershipId),
+        eq(booking.branchId, branchId),
         eq(booking.isMembershipSession, true),
       ),
     )
@@ -888,6 +1045,29 @@ export async function getMembershipSessionByKey(membershipId: string, idempotenc
     services,
     remainingMinutes: freeMinutes(balances[0]),
   }
+}
+
+export async function getHistoricalMembershipSessionByKey(
+  membershipId: string,
+  idempotencyKey: string,
+  branchId: string,
+) {
+  const recorded = await getMembershipSessionByKey(membershipId, idempotencyKey, branchId, true)
+  if (!recorded?.invoice) return null
+
+  const [record] = await db
+    .select({ fingerprint: sql<string>`${auditLog.newValues}->>'requestFingerprint'` })
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.entityType, 'historical_membership_session'),
+        eq(auditLog.entityId, recorded.booking.id),
+        eq(auditLog.branchId, branchId),
+      ),
+    )
+    .limit(1)
+
+  return record ? { ...recorded, fingerprint: record.fingerprint } : null
 }
 
 // Cancel an active membership sold at `sellingBranchId`, appending the reason

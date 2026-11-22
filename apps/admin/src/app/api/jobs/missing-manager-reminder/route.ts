@@ -31,7 +31,7 @@ import {
   missingManagerMessageData,
   missingManagerReminders,
 } from '@rgss/business'
-import { createNotification, getBranchPeople, hasNotificationSince } from '@rgss/db/queries'
+import { createNotificationOnce, getBranchPeople, hasNotificationSince } from '@rgss/db/queries'
 import { createLogger } from '@rgss/logger'
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
@@ -67,13 +67,17 @@ export const POST = async (req: Request) => {
         'branch_manager_missing',
         missingManagerMessageData(reminder),
       )
-      const created = await createNotification({
+      const created = await createNotificationOnce({
+        id: `missing-manager:${JSON.stringify([ownerId, since])}`,
         userId: ownerId,
         type: 'branch_manager_missing',
         title,
         body,
         channel: 'email',
       })
+      if (!created) {
+        continue
+      }
       await dispatchNotification({
         id: created.id,
         userId: ownerId,

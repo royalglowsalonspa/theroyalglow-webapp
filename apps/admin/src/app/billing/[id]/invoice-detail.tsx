@@ -47,12 +47,14 @@ import { cn } from '@rgss/ui/lib/utils'
 import { ArrowLeft, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useMemo } from 'react'
+import { CorrectionHistory, MembershipCorrectionForm } from '@/components/membership/corrections'
 import { type AdminColumnDef, DataTable } from '@/components/ui/data-table'
 import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { useAsyncData } from '@/components/ui/use-async-data'
 import { formatDateTimeIST, formatINRWithPaise, PLACEHOLDER } from '@/lib/admin/format'
+import type { CorrectionTarget, MembershipCorrection } from '@/lib/admin/memberships'
 
 interface InvoiceItem {
   id: string
@@ -101,6 +103,12 @@ interface Invoice {
   items: InvoiceItem[]
 }
 
+type InvoiceDetailData = {
+  invoice: Invoice
+  corrections?: MembershipCorrection[]
+  correctionTarget?: CorrectionTarget | null
+}
+
 /** The GST rate the lines share (500 → "5%"), or null when they differ or carry none. */
 function sharedRate(items: readonly InvoiceItem[]): string | null {
   const first = items[0]?.rateBps
@@ -115,13 +123,13 @@ function halfRate(rate: string | null): string {
 }
 
 export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
-  const fetchInvoice = useCallback(async (): Promise<Invoice> => {
+  const fetchInvoice = useCallback(async (): Promise<InvoiceDetailData> => {
     const res = await fetch(`/api/billing/${invoiceId}`)
     const json = await res.json()
     if (!res.ok || !json.success) {
       throw new Error(json?.error?.message ?? 'Could not load the invoice.')
     }
-    return json.data.invoice as Invoice
+    return json.data as InvoiceDetailData
   }, [invoiceId])
 
   const { state, retry } = useAsyncData(fetchInvoice)
@@ -202,7 +210,13 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
       ) : state.status === 'error' ? (
         <ErrorState message={state.message} onRetry={retry} />
       ) : (
-        <InvoiceBody invoice={state.data} columns={columns} />
+        <>
+          <InvoiceBody invoice={state.data.invoice} columns={columns} />
+          <CorrectionHistory corrections={state.data.corrections ?? []} />
+          {state.data.correctionTarget && (
+            <MembershipCorrectionForm target={state.data.correctionTarget} onSaved={retry} />
+          )}
+        </>
       )}
     </div>
   )

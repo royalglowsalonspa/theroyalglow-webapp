@@ -367,6 +367,7 @@ describe('GET|PATCH /api/staff/[id]', () => {
     expect(dbMocks.updateStaffMemberAtBranch).toHaveBeenCalledWith({
       id: 'st_sty1',
       branchId: 'rs',
+      actorId: 'mgr1',
       roles: ['staff'],
       patch: { designation: 'therapist' },
     })

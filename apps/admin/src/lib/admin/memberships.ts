@@ -140,6 +140,7 @@ export type MembershipSessionRow =
       scope: 'this_branch'
       id: string
       bookingNumber: string
+      invoiceId?: string | null
       branchName: string
       bookingDate: string
       startTime: string
@@ -159,16 +160,37 @@ export type MembershipSessionRow =
       services: Pick<MembershipSessionServiceRow, 'serviceNameSnapshot' | 'durationMinutes'>[]
     }
 
+export type MembershipCorrection = {
+  id: string
+  originalInvoiceId: string
+  invoiceNumber: string
+  availableMinutesDelta: number
+  reason: string
+  evidenceReference: string | null
+  performedByName: string | null
+  performedAt: string
+}
+
+export type CorrectionTarget = {
+  branchId: string
+  branchName: string
+  membershipId: string
+  bookingId: string
+  originalInvoiceId: string
+}
+
 // GET /api/memberships/[id] → membership + customer email + full tier + sessions,
 // the branch the page renders for (writes send it back) and whether the person
 // may cancel it from here.
 export interface MembershipDetailData extends MembershipBase {
+  canRecordHistorical?: boolean
   branchId: string
   customerEmail: string
   tier: MembershipTier
   canCancel: boolean
   cancelRefusal: string | null
   sessions: MembershipSessionRow[]
+  corrections: MembershipCorrection[]
 }
 
 // A customer row from GET /api/customers?q= (subset used by the picker).

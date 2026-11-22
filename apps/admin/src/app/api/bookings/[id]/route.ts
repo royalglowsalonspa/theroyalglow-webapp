@@ -32,7 +32,7 @@
  *   another branch is not found; a write names the branch its page was
  *   rendered for (409 BRANCH_CONTEXT_CHANGED after a switch).
  * - Only staff who work at the branch can be assigned.
- * - Staff reassignment is allowed regardless of booking status.
+ * - Staff reassignment preserves audited retrospective sessions.
  * - approve/reject delegate to approveBooking/rejectBooking, which persist a
  *   booking_status_log entry (prior → new status + acting user) atomically.
  ************************************************************/
@@ -47,7 +47,7 @@ import {
   rejectBooking,
 } from '@rgss/db/queries'
 import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
-import { adminBookingActionSchema } from '@rgss/types'
+import { adminBookingActionSchema, HISTORICAL_SESSION_KEY_PREFIX } from '@rgss/types'
 import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { notifyBookingChange } from '@/lib/notifications/booking-change'
@@ -89,6 +89,16 @@ export const PATCH = withErrorHandler(
     }
 
     const action = parsed.data
+
+    if (
+      action.action === 'assign' &&
+      existing.redemptionKey?.startsWith(HISTORICAL_SESSION_KEY_PREFIX)
+    ) {
+      throw conflict(
+        ERROR_CODES.CONFLICT,
+        'Use an audited correction to change a retrospective session.',
+      )
+    }
 
     // Only someone who works at this branch can be assigned to its bookings.
     if (

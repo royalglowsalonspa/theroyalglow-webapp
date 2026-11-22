@@ -83,7 +83,8 @@ describe.skipIf(!LIVE)('branch-scoped admin booking queries against a live datab
       sql`select owner_user_id as id from branch order by is_primary desc, display_order limit 1`,
     )
     const service = await queryRow<{ id: string }>(
-      sql`select id from service where is_active = true order by id limit 1`,
+      sql`select s.id from service s join service_category c on c.id = s.category_id
+          where s.is_active and c.service_type = 'salon' order by s.id limit 1`,
     )
     serviceId = service?.id ?? ''
     const number = 9700 + Math.floor(Math.random() * 90)

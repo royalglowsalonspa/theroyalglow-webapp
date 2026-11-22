@@ -162,6 +162,47 @@ export const recordSessionSchema = z
   })
 export type RecordSessionInput = z.infer<typeof recordSessionSchema>
 
+export const HISTORICAL_SESSION_LOOKBACK_DAYS = 30
+export const HISTORICAL_SESSION_MAX_MINUTES = 480
+export const HISTORICAL_SESSION_KEY_PREFIX = 'msess-history:'
+
+export const membershipCorrectionSchema = z.object({
+  branchId: z.string().min(1),
+  membershipId: z.string().min(1),
+  bookingId: z.string().min(1),
+  originalInvoiceId: z.string().min(1),
+  idempotencyKey: z.uuid(),
+  availableMinutesDelta: z
+    .number()
+    .int()
+    .min(-480)
+    .max(480)
+    .refine((delta) => delta !== 0),
+  reason: z.string().trim().min(10).max(500),
+  evidenceReference: z.string().trim().min(1).max(500).optional(),
+})
+
+export type MembershipCorrectionInput = z.infer<typeof membershipCorrectionSchema>
+
+export const historicalMembershipSessionSchema = z.strictObject({
+  branchId: renderedBranchIdSchema,
+  staffId: z.string().trim().min(1).max(128),
+  actualStart: z.iso.datetime({ offset: true, precision: 0 }),
+  actualEnd: z.iso.datetime({ offset: true, precision: 0 }),
+  reason: z.string().trim().min(10).max(500),
+  evidenceReference: z.string().trim().min(5).max(300),
+  idempotencyKey: z.uuid(),
+  services: z
+    .array(
+      z.strictObject({
+        serviceId: z.string().trim().min(1).max(128),
+        durationMinutes: z.number().int().min(1).max(HISTORICAL_SESSION_MAX_MINUTES),
+      }),
+    )
+    .min(1)
+    .max(16),
+})
+
 // Cancelling stays with the selling branch (route inventory gap 5); the body
 // names the branch the page was rendered for.
 export const cancelMembershipSchema = z.object({

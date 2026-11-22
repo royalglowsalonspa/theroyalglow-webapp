@@ -49,8 +49,17 @@ export const DEFAULT_SETTLEMENT: SettlementSetting = { shareBps: 10_000, gemValu
 
 /* ── Ledger ─────────────────────────────────────────────────────────────── */
 
-export const SETTLEMENT_ENTRY_KINDS = ['membership_session', 'gems_redemption', 'reversal'] as const
+export const SETTLEMENT_ENTRY_KINDS = [
+  'membership_session',
+  'gems_redemption',
+  'reversal',
+  'membership_correction',
+] as const
 export type SettlementEntryKind = (typeof SETTLEMENT_ENTRY_KINDS)[number]
+export type ReversibleSettlementEntryKind = Extract<
+  SettlementEntryKind,
+  'membership_session' | 'gems_redemption'
+>
 
 /** An IST calendar month, "YYYY-MM". */
 export const settlementMonthSchema = z
@@ -126,13 +135,13 @@ export type SettlementEntryView = {
   id: string
   kind: SettlementEntryKind
   /** For a reversal, the kind of entry it reverses. */
-  reversedKind: Exclude<SettlementEntryKind, 'reversal'> | null
+  reversedKind: ReversibleSettlementEntryKind | null
   /** "YYYY-MM": the month the entry belongs to. */
   month: string
   recordedAt: string
   owingBranch: SettlementBranchRef
   owedBranch: SettlementBranchRef
-  /** Membership number, for a membership session. */
+  /** Membership number, for a membership session or correction. */
   membershipNumber: string | null
   /** The booking the service was delivered on. */
   bookingNumber: string | null
@@ -148,6 +157,8 @@ export type SettlementEntryView = {
   note: string | null
   /** The reversal recorded against this entry, when there is one. */
   reversedByEntryId: string | null
+  /** Whether a membership session has a linked minutes correction. */
+  hasMembershipCorrection: boolean
 }
 
 /** The net of a pair's amounts each way: who pays whom. */

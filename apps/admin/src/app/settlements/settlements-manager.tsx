@@ -95,20 +95,22 @@ export function netText(net: SettlementNetView): string {
   return `${net.payingBranch.name} pays ${net.receivingBranch.name} ${formatINRWithPaise(net.amountPaise)}`
 }
 
-/** "Membership session", or what a reversal corrects. */
+/** The ledger entry's kind, including which kind a reversal corrects. */
 export function entryKindText(entry: SettlementEntryView): string {
   if (entry.kind === 'reversal') {
     return entry.reversedKind === 'gems_redemption'
       ? 'Correction (gems)'
       : 'Correction (membership session)'
   }
-  return entry.kind === 'gems_redemption' ? 'Gems' : 'Membership session'
+  if (entry.kind === 'gems_redemption') return 'Gems'
+  return entry.kind === 'membership_correction' ? 'Membership correction' : 'Membership session'
 }
 
-/** The Developer may reverse an entry between two branches that isn't a reversal or reversed. */
+/** The Developer may reverse an original entry between two branches once. */
 export function canReverse(entry: SettlementEntryView): boolean {
   return (
-    entry.kind !== 'reversal' &&
+    (entry.kind === 'membership_session' || entry.kind === 'gems_redemption') &&
+    !entry.hasMembershipCorrection &&
     entry.reversedByEntryId === null &&
     entry.owingBranch.id !== entry.owedBranch.id
   )

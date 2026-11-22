@@ -31,12 +31,14 @@
  ************************************************************/
 
 import type { InvoiceListQuery } from '@rgss/types'
-import { and, asc, desc, eq, ilike, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, ilike, ne, or, sql } from 'drizzle-orm'
 import { db } from '../index'
 import { user } from '../schema/auth'
 import { booking } from '../schema/booking'
 import { branch } from '../schema/branch'
 import { invoice, invoiceItem } from '../schema/invoice'
+import { spaMembership } from '../schema/membership'
+import { membershipHold } from '../schema/membership-hold'
 import { customerProfile } from '../schema/profile'
 
 // One branch's paginated, searchable, filterable invoice ledger: the invoices it
@@ -157,6 +159,39 @@ export async function getInvoiceById(id: string, branchId: string) {
     .orderBy(asc(invoiceItem.displayOrder))
 
   return { ...found, items }
+}
+
+/** Find the consumed membership session behind an eligible branch invoice. */
+export async function getMembershipCorrectionTarget(invoiceId: string, branchId: string) {
+  const [target] = await db
+    .select({ bookingId: booking.id, membershipId: spaMembership.id })
+    .from(invoice)
+    .innerJoin(
+      booking,
+      and(eq(booking.id, invoice.bookingId), eq(booking.branchId, invoice.branchId)),
+    )
+    .innerJoin(spaMembership, eq(spaMembership.id, booking.spaMembershipId))
+    .innerJoin(
+      membershipHold,
+      and(
+        eq(membershipHold.bookingId, booking.id),
+        eq(membershipHold.branchId, invoice.branchId),
+        eq(membershipHold.spaMembershipId, spaMembership.id),
+      ),
+    )
+    .where(
+      and(
+        eq(invoice.id, invoiceId),
+        eq(invoice.branchId, branchId),
+        eq(invoice.invoiceType, 'membership_session'),
+        eq(invoice.totalAmountPaise, 0),
+        eq(booking.status, 'completed'),
+        eq(membershipHold.state, 'consumed'),
+        ne(spaMembership.status, 'cancelled'),
+      ),
+    )
+    .limit(1)
+  return target ?? null
 }
 
 // Everything the invoice-pdf job needs to (a) build the InvoicePdfPayload sent

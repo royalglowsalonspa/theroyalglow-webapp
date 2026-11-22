@@ -436,13 +436,14 @@ describe('getMembershipSessionByKey', () => {
   it('resolves the prefixed key only to a session booking of the same membership', async () => {
     fake.state.awaitQueue = [[]]
 
-    await expect(getMembershipSessionByKey('mem_1', 'key-0000001')).resolves.toBeNull()
+    await expect(getMembershipSessionByKey('mem_1', 'key-0000001', 'branch_rs')).resolves.toBeNull()
 
     const where = render(argOf(fake.records[0], 'where'))
     expect(where.sql).toContain('"booking"."redemption_key" = $1')
     expect(where.sql).toContain('"booking"."spa_membership_id" = $2')
-    expect(where.sql).toContain('"booking"."is_membership_session" = $3')
-    expect(where.params).toEqual(['msess:key-0000001', 'mem_1', true])
+    expect(where.sql).toContain('"booking"."branch_id" = $3')
+    expect(where.sql).toContain('"booking"."is_membership_session" = $4')
+    expect(where.params).toEqual(['msess:key-0000001', 'mem_1', 'branch_rs', true])
   })
 
   it('returns the session with its lines, invoice and the minutes free now', async () => {
@@ -455,7 +456,7 @@ describe('getMembershipSessionByKey', () => {
       [{ total: 600, used: 300, reserved: 60 }],
     ]
 
-    await expect(getMembershipSessionByKey('mem_1', 'key-0000001')).resolves.toEqual({
+    await expect(getMembershipSessionByKey('mem_1', 'key-0000001', 'branch_rs')).resolves.toEqual({
       booking: found,
       invoice: INVOICE_ROW,
       services: lines,
@@ -467,7 +468,9 @@ describe('getMembershipSessionByKey', () => {
     const found = { id: 'bk_1', bookingNumber: PARAMS.bookingNumber }
     fake.state.awaitQueue = [[found], [], [], [{ total: 600, used: 0, reserved: 90 }]]
 
-    await expect(getMembershipSessionByKey('mem_1', 'key-0000001')).resolves.toMatchObject({
+    await expect(
+      getMembershipSessionByKey('mem_1', 'key-0000001', 'branch_rs'),
+    ).resolves.toMatchObject({
       invoice: null,
       remainingMinutes: 510,
     })

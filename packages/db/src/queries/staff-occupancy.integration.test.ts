@@ -34,6 +34,7 @@ import { approveBooking, assignStaff, markBookingNoShow, startBooking } from './
 import { cancelBooking, getDefaultStaffForBooking, rescheduleBooking } from './bookings'
 import { findDriverError, SQLSTATE } from './driver-errors'
 import { getOpenReassignmentsFor } from './reassignments'
+import { updateStaffMemberAtBranch } from './staff'
 
 const LIVE = isLiveDbAvailable()
 const RUN = Math.random().toString(36).slice(2, 8)
@@ -196,10 +197,11 @@ describe.skipIf(!LIVE)('staff occupancy against a live database', () => {
         values (${MANAGER_P}, ${MANAGER}, 'manager', true, null, 'manager'),
                (${THERAPIST_P}, ${THERAPIST}, 'therapist', true, ${BRANCH_A}, 'staff'),
                (${STYLIST_P}, ${STYLIST}, 'stylist', true, ${BRANCH_A}, 'staff')`),
-      // The Therapist performs both services, the Stylist the salon one.
+      // Include a stale service mapping to verify the default picker filters it.
       db.execute(sql`
         insert into staff_service (staff_id, service_id)
         values (${THERAPIST_P}, ${spaServiceId}), (${THERAPIST_P}, ${salonServiceId}),
+               (${MANAGER_P}, ${salonServiceId}),
                (${STYLIST_P}, ${salonServiceId})`),
     ])
   }, 60_000)
@@ -321,7 +323,7 @@ describe.skipIf(!LIVE)('staff occupancy against a live database', () => {
         kind: 'salon',
         status: 'confirmed',
         date: day,
-        staff: [STYLIST_P],
+        staff: [MANAGER_P],
       } as const
       await book('d2_salon_1', { ...salon, start: '10:00', end: '11:00' })
       const second = await book('d2_salon_2', { ...salon, start: '10:30', end: '11:30' })
@@ -372,7 +374,7 @@ describe.skipIf(!LIVE)('staff occupancy against a live database', () => {
     TIMEOUT,
     async () => {
       const day = '2099-07-04'
-      const at = { branchId: BRANCH_A, status: 'confirmed', date: day, staff: [STYLIST_P] } as const
+      const at = { branchId: BRANCH_A, status: 'confirmed', date: day, staff: [MANAGER_P] } as const
       const salonRun = await book('d4_salon_run', {
         ...at,
         kind: 'salon',
@@ -404,6 +406,73 @@ describe.skipIf(!LIVE)('staff occupancy against a live database', () => {
     },
   )
 
+  it.each([
+    ['spa', 'staff_occupancy_spa_overlap'],
+    ['salon', 'staff_occupancy_mixed_overlap'],
+  ] as const)(
+    'commits only one planned reservation when a SPA and a %s booking race',
+    TIMEOUT,
+    async (kind, constraint) => {
+      const slot = {
+        status: 'confirmed',
+        date: kind === 'spa' ? '2099-07-07' : '2099-07-08',
+        start: '10:00',
+        end: '11:00',
+        staff: [MANAGER_P],
+      } as const
+      const keys = [`race_${kind}_a`, `race_${kind}_b`] as const
+      const [left, right] = keys
+      const results = await Promise.all([
+        refusedBy(book(left, { ...slot, branchId: BRANCH_A, kind: 'spa' })),
+        refusedBy(book(right, { ...slot, branchId: BRANCH_B, kind })),
+      ])
+      expect(results).toEqual(expect.arrayContaining(['written', `23P01 ${constraint}`]))
+
+      const committed = await Promise.all(keys.map((key) => statusOf(`${PREFIX}_${key}`)))
+      const projected = await Promise.all(keys.map((key) => occupancyOf(`${PREFIX}_${key}`)))
+      expect(committed).toEqual(expect.arrayContaining(['confirmed', null]))
+      expect(projected.filter((row) => row !== null)).toHaveLength(1)
+    },
+  )
+
+  it(
+    'starts only one booking when back-to-back SPA and salon appointments race',
+    TIMEOUT,
+    async () => {
+      const slot = {
+        status: 'confirmed',
+        date: '2099-07-09',
+        staff: [MANAGER_P],
+      } as const
+      const [spa, salon] = await Promise.all([
+        book('race_actual_a', {
+          ...slot,
+          branchId: BRANCH_A,
+          kind: 'spa',
+          start: '10:00',
+          end: '11:00',
+        }),
+        book('race_actual_b', {
+          ...slot,
+          branchId: BRANCH_B,
+          kind: 'salon',
+          start: '11:00',
+          end: '12:00',
+        }),
+      ])
+      const results = await Promise.all([start(spa, BRANCH_A), start(salon, BRANCH_B)])
+      expect(results.filter((result) => result.ok)).toHaveLength(1)
+      expect(results.filter((result) => !result.ok)).toEqual([{ ok: false, reason: 'staff_busy' }])
+
+      const started = results[0]?.ok ? spa : salon
+      const waiting = started === spa ? salon : spa
+      expect((await workOf(started))?.running).toBe(true)
+      expect(await statusOf(waiting)).toBe('confirmed')
+      expect(await workOf(waiting)).toBeNull()
+      await complete(started)
+    },
+  )
+
   it(
     'follows the booking through approve, assign, reschedule, cancel, complete and no-show',
     TIMEOUT,
@@ -417,7 +486,7 @@ describe.skipIf(!LIVE)('staff occupancy against a live database', () => {
         date: day,
         start: '10:00',
         end: '11:00',
-        staff: [THERAPIST_P, STYLIST_P],
+        staff: [THERAPIST_P, MANAGER_P],
       })
       expect(await occupancyOf(request)).toBeNull()
 
@@ -430,8 +499,8 @@ describe.skipIf(!LIVE)('staff occupancy against a live database', () => {
         to: '2099-07-05 11:00',
       })
 
-      await assignStaff(request, BRANCH_A, STYLIST_P, OWNER)
-      expect((await occupancyOf(request))?.staff).toBe(STYLIST_P)
+      await assignStaff(request, BRANCH_A, MANAGER_P, OWNER)
+      expect((await occupancyOf(request))?.staff).toBe(MANAGER_P)
 
       await rescheduleBooking(request, OWNER, {
         bookingDate: new Date('2099-07-15T00:00:00.000Z'),
@@ -452,7 +521,7 @@ describe.skipIf(!LIVE)('staff occupancy against a live database', () => {
         date: '2099-07-15',
         start: '16:00',
         end: '17:00',
-        staff: [STYLIST_P],
+        staff: [MANAGER_P],
       })
       const moved = await rescheduleBooking(request, OWNER, {
         bookingDate: new Date('2099-07-15T00:00:00.000Z'),
@@ -463,7 +532,7 @@ describe.skipIf(!LIVE)('staff occupancy against a live database', () => {
       expect(await occupancyOf(request)).toBeNull()
       expect((await getOpenReassignmentsFor([request])).get(request)).toMatchObject({
         reason: 'overrun',
-        previousStaffName: 'ZZ Occ IT Ravi',
+        previousStaffName: 'ZZ Occ IT Manager',
         heldUp: false,
       })
 
@@ -525,7 +594,7 @@ describe.skipIf(!LIVE)('staff occupancy against a live database', () => {
         date: day,
         start: '12:00',
         end: '13:00',
-        staff: [THERAPIST_P, STYLIST_P],
+        staff: [THERAPIST_P, MANAGER_P],
       })
 
       // Direct writes to either projection are refused.
@@ -561,7 +630,7 @@ describe.skipIf(!LIVE)('staff occupancy against a live database', () => {
             date: day,
             start: '14:00',
             end: '15:00',
-            staff: [THERAPIST_P, STYLIST_P],
+            staff: [MANAGER_P, STYLIST_P],
           }),
         ),
       ).toBe('23514 booking_one_assignee')
@@ -584,15 +653,15 @@ describe.skipIf(!LIVE)('staff occupancy against a live database', () => {
       expect(
         await refusedBy(
           db.execute(sql`
-          update booking_service set staff_id = ${THERAPIST_P}
+          update booking_service set staff_id = ${MANAGER_P}
            where booking_id = ${pair} and display_order = 1`),
         ),
       ).toBe('23514 booking_one_assignee')
       // Every line at once is a reassignment, and the projection follows it.
       await db.execute(
-        sql`update booking_service set staff_id = ${THERAPIST_P} where booking_id = ${pair}`,
+        sql`update booking_service set staff_id = ${MANAGER_P} where booking_id = ${pair}`,
       )
-      expect((await occupancyOf(pair))?.staff).toBe(THERAPIST_P)
+      expect((await occupancyOf(pair))?.staff).toBe(MANAGER_P)
 
       await complete(running)
     },
@@ -625,12 +694,12 @@ describe.skipIf(!LIVE)('staff occupancy against a live database', () => {
     expect(await statusOf(request)).toBe('pending')
     expect(await occupancyOf(request)).toBeNull()
 
-    await approveBooking(request, BRANCH_A, OWNER, STYLIST_P)
+    await approveBooking(request, BRANCH_A, OWNER, MANAGER_P)
     expect(await statusOf(request)).toBe('confirmed')
     expect(await messageOf(assignStaff(request, BRANCH_A, THERAPIST_P, OWNER))).toBe(
       'That staff member has another booking at that time. Choose someone else.',
     )
-    expect((await occupancyOf(request))?.staff).toBe(STYLIST_P)
+    expect((await occupancyOf(request))?.staff).toBe(MANAGER_P)
 
     // Free by plan, but still with another customer: assigning them to a
     // booking that is running is refused too.
@@ -681,7 +750,7 @@ describe.skipIf(!LIVE)('staff occupancy against a live database', () => {
       staff: [THERAPIST_P],
     })
     // Booked for a SPA then: skipped for a SPA or a salon booking over it.
-    expect(await pick('spa', '10:00', '11:00')).toBe(STYLIST_P)
+    expect(await pick('spa', '10:00', '11:00')).toBeNull()
     expect(await pick('salon', '10:30', '11:30')).toBe(STYLIST_P)
     expect(await pick('spa', '11:00', '12:00')).toBe(THERAPIST_P)
 
@@ -692,10 +761,51 @@ describe.skipIf(!LIVE)('staff occupancy against a live database', () => {
       date: day,
       start: '13:00',
       end: '14:00',
-      staff: [THERAPIST_P],
+      staff: [STYLIST_P],
     })
     // Booked for a salon service: still picked for another salon service then.
-    expect(await pick('salon', '13:30', '14:30')).toBe(THERAPIST_P)
-    expect(await pick('spa', '13:30', '14:30')).toBe(STYLIST_P)
+    expect(await pick('salon', '13:30', '14:30')).toBe(STYLIST_P)
+    expect(await pick('spa', '13:30', '14:30')).toBe(THERAPIST_P)
   })
+
+  it(
+    'enforces designation on assignment and releases only future incompatible work after a title change',
+    TIMEOUT,
+    async () => {
+      const spa = {
+        branchId: BRANCH_A,
+        kind: 'spa',
+        status: 'confirmed',
+        date: '2099-07-12',
+        start: '10:00',
+        end: '11:00',
+      } as const
+      expect(await refusedBy(book('d12_invalid', { ...spa, staff: [STYLIST_P] }))).toBe(
+        '23514 booking_assignee_designation',
+      )
+      const completed = await book('d12_completed', { ...spa, staff: [THERAPIST_P] })
+      expect((await start(completed)).ok).toBe(true)
+      await complete(completed)
+      const future = await book('d12_future', { ...spa, staff: [THERAPIST_P] })
+      await updateStaffMemberAtBranch({
+        id: THERAPIST_P,
+        branchId: BRANCH_A,
+        actorId: OWNER,
+        roles: ['staff'],
+        patch: { designation: 'stylist' },
+      })
+      expect(await occupancyOf(future)).toBeNull()
+      expect(await workOf(completed)).toMatchObject({ staff: THERAPIST_P, running: false })
+      expect(
+        await queryRow(sql`
+      select reason::text as reason, created_by_id as actor
+      from booking_reassignment where booking_id = ${future} and resolved_at is null
+    `),
+      ).toEqual({ reason: 'designation_changed', actor: OWNER })
+      expect(await start(future)).toEqual({ ok: false, reason: 'staff_designation' })
+      await assignStaff(future, BRANCH_A, MANAGER_P, OWNER)
+      expect((await start(future)).ok).toBe(true)
+      await complete(future)
+    },
+  )
 })

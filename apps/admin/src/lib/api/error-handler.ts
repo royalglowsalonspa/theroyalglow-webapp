@@ -57,6 +57,9 @@ type RouteHandler<Ctx = unknown> = (req: Request, ctx: Ctx) => Promise<Response>
 // handler still receives `ctx` typed as `Ctx`.
 type WrappedRouteHandler<Ctx = unknown> = (req: Request, ctx?: Ctx) => Promise<Response>
 
+// Admin responses depend on the signed-in account and may depend on its active branch.
+const PRIVATE_RESPONSE_HEADERS = { 'Cache-Control': 'private, no-store' }
+
 export function withErrorHandler<Ctx = unknown>(
   handler: RouteHandler<Ctx>,
 ): WrappedRouteHandler<Ctx> {
@@ -70,7 +73,7 @@ export function withErrorHandler<Ctx = unknown>(
       if (error instanceof AppError) {
         // On a 429 rate-limit, surface a real `Retry-After` header (seconds)
         // alongside the JSON envelope so clients can back off correctly.
-        const headers: Record<string, string> = {}
+        const headers: Record<string, string> = { ...PRIVATE_RESPONSE_HEADERS }
         if (error.code === ERROR_CODES.RATE_LIMITED) {
           const retryAfter = retryAfterFromDetails(error.details)
           if (retryAfter !== null) {
@@ -113,7 +116,7 @@ export function withErrorHandler<Ctx = unknown>(
             retryable: true,
           },
         },
-        { status: 500 },
+        { status: 500, headers: PRIVATE_RESPONSE_HEADERS },
       )
     }
   }
@@ -124,5 +127,8 @@ export function apiSuccess<T>(
   meta?: { page?: number; totalPages?: number; totalCount?: number },
   status = 200,
 ): Response {
-  return Response.json({ success: true, data, ...(meta ? { meta } : {}) }, { status })
+  return Response.json(
+    { success: true, data, ...(meta ? { meta } : {}) },
+    { status, headers: PRIVATE_RESPONSE_HEADERS },
+  )
 }

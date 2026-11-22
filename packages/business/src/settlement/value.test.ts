@@ -241,6 +241,21 @@ describe('netPair — one payment per pair and month (ST-07, ST-08)', () => {
     expect(reversed.netPaise).toBe(1n)
   })
 
+  it('applies signed corrections to the membership total for the original direction', () => {
+    const result = netPair('b_mh', 'b_rs', [
+      ...entries,
+      {
+        owingBranchId: 'b_rs',
+        owedBranchId: 'b_mh',
+        kind: 'membership_correction',
+        amountOwedPaise: -500n,
+      },
+    ])
+    expect(result.bOwesA.membershipPaise).toBe(94_739n)
+    expect(result.bOwesA.gemsPaise).toBe(50_000n)
+    expect(result.netPaise).toBe(49_501n)
+  })
+
   it('nets to nothing when both sides match', () => {
     const even = netPair('b_mh', 'b_rs', [
       {

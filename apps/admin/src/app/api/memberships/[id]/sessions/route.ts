@@ -87,9 +87,10 @@ const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000
 async function replaySession(
   membershipId: string,
   idempotencyKey: string,
+  branchId: string,
   requested: readonly SessionLine[],
 ) {
-  const recorded = await getMembershipSessionByKey(membershipId, idempotencyKey)
+  const recorded = await getMembershipSessionByKey(membershipId, idempotencyKey, branchId)
   if (!recorded) {
     return null
   }
@@ -135,7 +136,7 @@ export const POST = withErrorHandler(
     // A retry of a session already written gets that session back, before the
     // balance check: the first attempt may have held the last hours.
     if (idempotencyKey) {
-      const replayed = await replaySession(id, idempotencyKey, sessionServices)
+      const replayed = await replaySession(id, idempotencyKey, ctx.branch.id, sessionServices)
       if (replayed) {
         return apiSuccess(replayed)
       }
@@ -278,7 +279,7 @@ export const POST = withErrorHandler(
       if (result.reason === 'duplicate_key') {
         // A concurrent request with the same key committed first.
         const replayed = idempotencyKey
-          ? await replaySession(id, idempotencyKey, sessionServices)
+          ? await replaySession(id, idempotencyKey, ctx.branch.id, sessionServices)
           : null
         if (replayed) {
           return apiSuccess(replayed)

@@ -186,6 +186,7 @@ const ENTRIES = [
     reversesEntryId: null,
     note: null,
     reversedByEntryId: null,
+    hasMembershipCorrection: false,
   },
   {
     id: 'ste_2',
@@ -207,6 +208,7 @@ const ENTRIES = [
     reversesEntryId: null,
     note: null,
     reversedByEntryId: null,
+    hasMembershipCorrection: false,
   },
 ]
 
@@ -705,6 +707,18 @@ describe('POST /api/settlements/entries/[id]/reverse', () => {
       400,
       ERROR_CODES.VALIDATION_ERROR,
       'An entry within one branch settles nothing, so there is nothing to reverse.',
+    ],
+    [
+      'is_membership_correction',
+      400,
+      ERROR_CODES.VALIDATION_ERROR,
+      'Correct the membership session minutes to adjust this entry.',
+    ],
+    [
+      'already_corrected',
+      409,
+      ERROR_CODES.CONFLICT,
+      'This session already has a minutes correction. Correct the session minutes to adjust it.',
     ],
   ])('maps %s to %i, unaudited', async (reason, status, code, message) => {
     dbMocks.reverseSettlementEntry.mockResolvedValue({ ok: false, reason })

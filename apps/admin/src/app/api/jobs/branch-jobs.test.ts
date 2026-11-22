@@ -263,13 +263,14 @@ describe('POST /api/jobs/missing-manager-reminder', () => {
     const res = await missingManagerPOST(jobRequest())
 
     expect(await res.json()).toEqual({ success: true, branches: 2, sent: 2 })
-    expect(notifiedUsers()).toEqual(['owner', 'franchise'])
-    expect(notificationFor('owner')).toMatchObject({
+    const notifications = dbMocks.createNotificationOnce.mock.calls.map(([p]) => p)
+    expect(notifications.map((p) => p.userId)).toEqual(['owner', 'franchise'])
+    expect(notifications[0]).toMatchObject({
       type: 'branch_manager_missing',
       channel: 'email',
       title: 'Marathahalli has no Manager',
     })
-    expect(notificationFor('franchise')?.title).toBe('Whitefield has no Manager')
+    expect(notifications[1]?.title).toBe('Whitefield has no Manager')
     expect(heartbeatMock).toHaveBeenCalledWith('MISSING_MANAGER')
   })
 
@@ -279,9 +280,13 @@ describe('POST /api/jobs/missing-manager-reminder', () => {
 
     await missingManagerPOST(jobRequest())
 
-    expect(notifiedUsers()).toEqual(['owner'])
-    expect(notificationFor('owner')?.title).toBe('2 branches have no Manager')
-    expect(notificationFor('owner')?.body).toContain('Marathahalli and Electronic City')
+    expect(dbMocks.createNotificationOnce).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        userId: 'owner',
+        title: '2 branches have no Manager',
+        body: expect.stringContaining('Marathahalli and Electronic City'),
+      }),
+    )
   })
 
   it('stops once a Manager is assigned, and sends once a day', async () => {
@@ -297,7 +302,22 @@ describe('POST /api/jobs/missing-manager-reminder', () => {
     const res = await missingManagerPOST(jobRequest())
 
     expect(await res.json()).toEqual({ success: true, branches: 1, sent: 0 })
-    expect(dbMocks.createNotification).not.toHaveBeenCalled()
+    expect(dbMocks.createNotificationOnce).not.toHaveBeenCalled()
+  })
+
+  it('lets only one delivery claim the reminder at the IST day boundary', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-25T18:45:00.000Z') })
+    dbMocks.getBranchPeople.mockResolvedValue({ branches: [MH], developer: DEV })
+    dbMocks.createNotificationOnce.mockResolvedValueOnce(null)
+
+    const first = await missingManagerPOST(jobRequest())
+    const second = await missingManagerPOST(jobRequest())
+
+    expect(await first.json()).toEqual({ success: true, branches: 1, sent: 0 })
+    expect(await second.json()).toEqual({ success: true, branches: 1, sent: 1 })
+    const claims = dbMocks.createNotificationOnce.mock.calls.map(([p]) => p.id)
+    expect(claims).toEqual(Array(2).fill('missing-manager:["owner","2026-10-25T18:30:00.000Z"]'))
+    expect(dispatchMock).toHaveBeenCalledTimes(1)
   })
 
   it('answers 500 without the heartbeat when reading fails', async () => {
