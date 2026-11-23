@@ -66,8 +66,9 @@ No Payload globals are configured.
 
 ## Local development
 
-1. Install the Bun version declared in the root `packageManager`, plus compatible
-   Node.js tooling. Run `bun install --frozen-lockfile` from the repository root.
+1. Install the Bun version declared in the root `packageManager` and the Node.js
+   version in [`.node-version`](../../.node-version). Run `bun install
+   --frozen-lockfile` from the repository root.
 2. Copy [`.env.example`](.env.example) to an ignored `apps/cms/.env.local` and fill
    the values for a development database. Do not copy production credentials into
    documentation, test fixtures, or shell output.
@@ -219,6 +220,8 @@ decision; a newer package version alone does not make that operation safe.
 The current deployment recipe is the [Render Blueprint](../../infra/render/render.yaml):
 
 - Service `rgss-cms`, Node runtime, Singapore, free plan, source branch `prod`.
+- Runtime: the repository's [`.node-version`](../../.node-version). Any Render
+  `NODE_VERSION` override must satisfy Payload's supported Node versions.
 - Build: `bun install --frozen-lockfile && bun run --filter=@rgss/cms build`.
 - Start: `cd apps/cms && bun run migrate && bun run start:prod`.
 - Health check: `/admin`; secret values are supplied through Render configuration.
