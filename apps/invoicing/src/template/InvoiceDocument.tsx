@@ -29,6 +29,12 @@ const HAIRLINE = '#E5E7EB'
 // timezone, so the issue instant is passed as is (adding +5:30 first would
 // move an invoice issued after 18:30 IST to the next day).
 
+// The built-in Helvetica font cannot encode the rupee symbol. Keep the
+// shared Indian digit grouping and show the ISO currency code in the PDF.
+function formatPdfAmount(paise: number): string {
+  return formatINR(paise).replace('₹', 'INR ')
+}
+
 const styles = StyleSheet.create({
   page: {
     paddingTop: 48,
@@ -290,7 +296,9 @@ export function InvoiceDocument(payload: InvoicePdfPayload) {
                 <Text style={styles.itemName}>{item.name}</Text>
                 {item.gemsCovered ? <Text style={styles.gemsTag}>Gems</Text> : null}
                 {item.discountPaise ? (
-                  <Text style={styles.itemMuted}>Discount − {formatINR(item.discountPaise)}</Text>
+                  <Text style={styles.itemMuted}>
+                    Discount - {formatPdfAmount(item.discountPaise)}
+                  </Text>
                 ) : null}
               </View>
               {perLine ? (
@@ -300,7 +308,7 @@ export function InvoiceDocument(payload: InvoicePdfPayload) {
                 {item.staffName ?? '—'}
               </Text>
               <Text style={styles.colQty}>{item.quantity}</Text>
-              <Text style={styles.colUnit}>{formatINR(item.unitPricePaise)}</Text>
+              <Text style={styles.colUnit}>{formatPdfAmount(item.unitPricePaise)}</Text>
               {perLine ? (
                 <Text style={[styles.colRate, styles.itemMuted]}>
                   {item.rateBps !== null && item.rateBps !== undefined
@@ -309,7 +317,7 @@ export function InvoiceDocument(payload: InvoicePdfPayload) {
                 </Text>
               ) : null}
               <Text style={styles.colAmount}>
-                {item.gemsCovered ? formatINR(0) : formatINR(item.totalPricePaise)}
+                {formatPdfAmount(item.gemsCovered ? 0 : item.totalPricePaise)}
               </Text>
             </View>
           ))}
@@ -322,29 +330,29 @@ export function InvoiceDocument(payload: InvoicePdfPayload) {
               <>
                 <View style={styles.totalLine}>
                   <Text style={styles.totalKey}>Subtotal</Text>
-                  <Text>{formatINR(totals.subtotalPaise)}</Text>
+                  <Text>{formatPdfAmount(totals.subtotalPaise)}</Text>
                 </View>
                 <View style={styles.totalLine}>
                   <Text style={styles.totalKey}>Discount</Text>
-                  <Text>- {formatINR(totals.discountPaise)}</Text>
+                  <Text>- {formatPdfAmount(totals.discountPaise)}</Text>
                 </View>
               </>
             ) : null}
             <View style={styles.totalLine}>
               <Text style={styles.totalKey}>Taxable value</Text>
-              <Text>{formatINR(totals.taxableValuePaise)}</Text>
+              <Text>{formatPdfAmount(totals.taxableValuePaise)}</Text>
             </View>
             <View style={styles.totalLine}>
               <Text style={styles.totalKey}>CGST{halfRate}</Text>
-              <Text>{formatINR(totals.cgstPaise)}</Text>
+              <Text>{formatPdfAmount(totals.cgstPaise)}</Text>
             </View>
             <View style={styles.totalLine}>
               <Text style={styles.totalKey}>SGST{halfRate}</Text>
-              <Text>{formatINR(totals.sgstPaise)}</Text>
+              <Text>{formatPdfAmount(totals.sgstPaise)}</Text>
             </View>
             <View style={styles.grandLine}>
               <Text style={styles.grandKey}>Total</Text>
-              <Text style={styles.grandValue}>{formatINR(totals.totalPaise)}</Text>
+              <Text style={styles.grandValue}>{formatPdfAmount(totals.totalPaise)}</Text>
             </View>
           </View>
         </View>

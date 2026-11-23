@@ -72,7 +72,7 @@ The URL above is illustrative. The response is not wrapped in the web app's `suc
 
 ### Storage and reuse
 
-Object keys are `invoices/{YYYY}/{invoiceNumber}.pdf`, where `YYYY` comes from the UTC year of `issuedAt`. Download URLs join that key to `R2_PUBLIC_BASE_URL`; the code does not generate expiring signed download URLs.
+Object keys are `invoices/{YYYY}/{invoice file stem}.pdf`, where `YYYY` comes from the UTC year of `issuedAt` and slashes in the invoice number become hyphens. Download URLs join that key to `R2_PUBLIC_BASE_URL`; the code does not generate expiring signed download URLs.
 
 An existing key returns its stored bytes with `reused: true`; otherwise the service renders and uploads with `Content-Type: application/pdf`. This is a HEAD-then-GET/PUT reuse mechanism, not an atomic exactly-once guarantee across concurrent requests. Storage errors other than not-found propagate as failures.
 
@@ -126,14 +126,15 @@ Run from the **repository root**:
 
 ```bash
 bunx turbo run lint typecheck build --filter=@rgss/invoicing
+bunx vitest run --project invoicing
 bunx vitest run --project business packages/business/src/invoicing
 ```
 
-The second command exercises existing shared invoice-domain tests, not the service's HTTP/storage integration. The workspace currently has no `test` script, and root Vitest has no invoicing project. Add test discovery alongside future service tests so they actually run in CI.
+The invoicing project checks signed rendering, stored-object reuse and rejected requests with a stubbed S3 client. The business project exercises the shared invoice calculations.
 
 For a deliberate service smoke test, use a test bucket and a valid shared-schema fixture. Verify rejection of missing/stale/bad signatures, rejection of invalid payloads, fresh rendering, stored-object reuse, readable PDF content, and a clear failure for unavailable storage. Check that visual changes preserve long customer names, line-item wrapping, and totals. The task should explicitly account for the test objects it creates.
 
-Date-display caveat: the template currently adds an IST offset before passing the date to `formatDateIN`, which already formats in `Asia/Kolkata`. This can double-adjust the displayed calendar date near a boundary. Review both implementations and add boundary cases when addressing that behavior; it is not a recommended formatting pattern.
+The template uses the saved issue instant with `formatDateIN` for the IST date. It labels amounts `INR` so built-in Helvetica displays the currency correctly.
 
 ## Packaging and deployment
 

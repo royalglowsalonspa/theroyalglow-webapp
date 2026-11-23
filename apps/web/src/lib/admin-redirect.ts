@@ -27,8 +27,9 @@
  *                301 NextResponse.redirect.
  ************************************************************/
 
-// New admin app origin (no trailing slash).
-export const ADMIN_ORIGIN = 'https://admin.theroyalglow.in'
+import { adminPortalUrl } from './roles'
+
+export { DEFAULT_ADMIN_ORIGIN as ADMIN_ORIGIN } from './roles'
 
 /**
  * Map a legacy `/admin/*` path on the customer domain to the absolute URL on
@@ -61,5 +62,5 @@ export function mapAdminRedirect(path: string, search?: string): string {
     rest = path.slice('/admin'.length) // keeps the leading slash of the remainder
   }
 
-  return `${ADMIN_ORIGIN}${rest}${query}`
+  return `${adminPortalUrl()}${rest}${query}`
 }

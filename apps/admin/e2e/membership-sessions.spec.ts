@@ -111,7 +111,27 @@ function sessionJourney(role: AdminRole) {
           await expect(page.getByRole('radiogroup', { name: 'Payment method' })).toHaveCount(0)
           await expect(page.getByRole('button', { name: 'Mark No-Show' })).toHaveCount(0)
 
+          const originalCompletion = page.waitForResponse(
+            (response) =>
+              response.request().method() === 'POST' &&
+              /\/api\/bookings\/[^/]+\/complete$/.test(new URL(response.url()).pathname),
+          )
           await page.getByRole('button', { name: 'Complete Session' }).click()
+          const completed = await originalCompletion
+          expect(completed.status()).toBe(200)
+          const original = await completed.json()
+          const request = completed.request().postDataJSON()
+          expect(request).toMatchObject({ idempotencyKey: expect.any(String) })
+
+          const endpoint = new URL(completed.url()).pathname
+          const repeated = await page.request.post(endpoint, { data: request })
+          expect(repeated.status()).toBe(200)
+          expect(await repeated.json()).toEqual(original)
+          const changed = await page.request.post(endpoint, {
+            data: { ...request, redeemGems: true },
+          })
+          expect(changed.status()).toBe(409)
+          expect(await errorCode(changed)).toBe('CONFLICT')
 
           // `next dev` compiles the route on its first request.
           await expect(page.getByText('Session completed', { exact: true })).toBeVisible({

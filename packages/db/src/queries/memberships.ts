@@ -54,6 +54,7 @@ import { booking, bookingService, bookingStatusLog } from '../schema/booking'
 import { branch } from '../schema/branch'
 import { invoice } from '../schema/invoice'
 import { spaMembership, spaMembershipTier } from '../schema/membership'
+import { membershipSessionCompletion } from '../schema/membership-session-completion'
 import { staffProfile } from '../schema/profile'
 import { auditLog } from '../schema/system'
 import { isBranchAvailabilityRefusal, serviceNoLongerOffered } from './catalogue-availability'
@@ -659,11 +660,17 @@ export async function recordMembershipSession(
   }
 }
 
+type MembershipSessionCompletionKey = {
+  key: string
+  requestFingerprint: string
+}
+
 type CompleteMembershipSessionParams = {
   bookingId: string
   /** The delivering branch, which issues the session invoice. */
   branchId: string
   changedById: string
+  idempotency?: MembershipSessionCompletionKey
   /**
    * The ₹0 session invoice's issue facts. Each line records its service's SAC
    * code and the rate in force, so a zero value is never read as exempt.
@@ -689,7 +696,41 @@ export type CompleteMembershipSessionResult =
     }
   // The booking wasn't an in-progress membership session at the branch when
   // the write ran (already completed, or never started). Nothing was written.
-  | { ok: false; reason: 'not_in_progress' }
+  | { ok: false; reason: 'not_in_progress' | 'duplicate_key' }
+
+/** Read the original result only for the completing actor at the delivering branch. */
+export async function getMembershipSessionCompletion(input: {
+  bookingId: string
+  branchId: string
+  actorId: string
+  key: string
+}) {
+  const rows = await db
+    .select({
+      booking,
+      invoice: { invoiceNumber: invoice.invoiceNumber, taxReviewStatus: invoice.taxReviewStatus },
+      remainingMinutes: membershipSessionCompletion.remainingMinutes,
+      requestFingerprint: membershipSessionCompletion.requestFingerprint,
+    })
+    .from(membershipSessionCompletion)
+    .innerJoin(booking, eq(booking.id, membershipSessionCompletion.bookingId))
+    .innerJoin(
+      invoice,
+      and(eq(invoice.bookingId, booking.id), eq(invoice.branchId, booking.branchId)),
+    )
+    .where(
+      and(
+        eq(booking.id, input.bookingId),
+        eq(booking.branchId, input.branchId),
+        eq(booking.status, 'completed'),
+        eq(invoice.invoiceType, 'membership_session'),
+        eq(membershipSessionCompletion.actorId, input.actorId),
+        eq(membershipSessionCompletion.idempotencyKey, input.key),
+      ),
+    )
+    .limit(1)
+  return rows[0] ?? null
+}
 
 // Complete a membership session in one transaction (MS-02): the booking moves
 // from in progress to completed, which consumes its hold (0026 trigger); the
@@ -744,6 +785,13 @@ export async function completeMembershipSession(
     }),
   ]).catch((error: unknown) => {
     if (isGuardAbort(error)) return null
+    if (
+      isConstraintViolation(error, SQLSTATE.uniqueViolation, [
+        'membership_session_completion_actor_key',
+      ])
+    ) {
+      return { ok: false as const, reason: 'duplicate_key' as const }
+    }
     throw error
   })
   return result ?? { ok: false, reason: 'not_in_progress' }
@@ -838,6 +886,20 @@ async function finishMembershipSession(
 
   const results = await db.batch([
     ...writes,
+    ...(params.idempotency
+      ? [
+          db.execute(sql`
+          INSERT INTO membership_session_completion
+            (booking_id, actor_id, idempotency_key, request_fingerprint, remaining_minutes)
+          SELECT b.id, ${params.changedById}, ${params.idempotency.key}::uuid,
+                 ${params.idempotency.requestFingerprint},
+                 m.total_hours_minutes - m.used_hours_minutes - m.reserved_minutes
+            FROM booking b
+            JOIN spa_membership m ON m.id = b.spa_membership_id
+           WHERE b.id = ${bookingId} AND b.branch_id = ${branchId}
+        `),
+        ]
+      : []),
     counter,
     insertInvoice,
     insertLines,

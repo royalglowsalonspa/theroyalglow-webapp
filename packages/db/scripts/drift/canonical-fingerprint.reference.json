@@ -1,7 +1,7 @@
 {
   "_comment": "AUTHORITATIVE DB-free canonical reference derived from the committed Drizzle latest snapshot selected by migrations/meta/_journal.json. Regenerate with `bun run drift:reference` after an intentional schema change captured by `drizzle-kit generate`, then commit this file with the migration.",
   "version": 1,
-  "hash": "aa6ea152f5074a0e187791079cee15c67b5277eb09f2464ece46fb45696325f7",
+  "hash": "8c4fa7cb89aa80a5bef89bf4c7630d57bffaef56b1967d6518b3ffb92a15e5c8",
   "fingerprint": {
     "enums": [
       {
@@ -3419,6 +3419,65 @@
             "method": "btree"
           }
         ]
+      },
+      {
+        "name": "membership_session_completion",
+        "columns": [
+          {
+            "name": "actor_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "booking_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "idempotency_key",
+            "type": "uuid",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "remaining_minutes",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "request_fingerprint",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["booking_id"],
+        "uniques": [
+          {
+            "name": "membership_session_completion_actor_key",
+            "columns": ["actor_id", "idempotency_key"]
+          }
+        ],
+        "foreignKeys": [
+          {
+            "columns": ["actor_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["booking_id"],
+            "refTable": "booking",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": []
       },
       {
         "name": "monthly_gst_summary",

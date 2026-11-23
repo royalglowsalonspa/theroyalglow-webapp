@@ -53,7 +53,7 @@
 
 import { ArrowLeft, Check, TriangleAlert, X } from 'lucide-react'
 import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { StatusBadge } from '@/components/admin/StatusBadge'
 import { Icon } from '@/components/ui/icon'
 import { Input } from '@/components/ui/input'
@@ -757,6 +757,7 @@ function InProgressActions({
   const [mode, setMode] = useState<'idle' | 'checkout'>('idle')
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const completion = useRef<{ bookingId: string; key: string } | null>(null)
   const unassigned = assigneeLabel(booking.services) === null
 
   // A session takes no payment: completing it uses its held minutes and
@@ -766,7 +767,15 @@ function InProgressActions({
     setBusy(true)
     setActionError(null)
     try {
-      const data = await postBookingAction<CompletionResponse>(booking, 'complete', {}, fallback)
+      if (completion.current?.bookingId !== booking.id) {
+        completion.current = { bookingId: booking.id, key: crypto.randomUUID() }
+      }
+      const data = await postBookingAction<CompletionResponse>(
+        booking,
+        'complete',
+        { idempotencyKey: completion.current.key },
+        fallback,
+      )
       toast.success(`Session completed · invoice ${data.invoice.invoiceNumber}`)
       onCompleted({
         invoiceNumber: data.invoice.invoiceNumber,

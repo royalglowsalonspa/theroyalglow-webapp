@@ -144,9 +144,8 @@ jobs:
   # The standalone @rgss/invoicing (Hono + @react-pdf/renderer) Cloud Run
   # service. `build` runs tsup, which bundles the workspace @rgss/* deps inline
   # — so this job catches bundling regressions before a manual `gcloud run
-  # deploy`. No test step: the service currently ships no unit tests (its render
-  # contract + HMAC helpers are covered by @rgss/types / @rgss/business tests in
-  # the repo-wide unit-tests job).
+  # deploy`. The repo-wide unit-tests job also runs the invoicing HTTP and
+  # renderer tests with a stubbed storage transport.
   # ---------------------------------------------------------------------------
   invoicing-ci:
     runs-on: ubuntu-latest
@@ -278,6 +277,8 @@ jobs:
         env:
           SKIP_ENV_VALIDATION: '1'
       - run: bun run release:check
+      - name: Test Lambda rehearsal validation
+        run: node --test scripts/release/rehearse-lambda-health.test.mjs
       - run: bun test scripts/mcp/generate.test.ts
 
   # Validate the upstream schema as well as our workspace/grouping policy.
@@ -446,15 +447,11 @@ jobs:
       - name: No emoji icons in admin presentation source (Req 2.3)
         run: node scripts/assert-no-emoji-icons.mjs
       # -----------------------------------------------------------------------
-      # Path-allowlist gate (admin-portal-redesign · task 11.4) — Req 16.1–16.3,
-      # 16.6–16.8. The redesign is presentation-layer ONLY; this gate inspects
-      # the PR diff vs the base branch (BASE_SHA, mirroring the cutover-guards
-      # migration-diff step) and FAILS when an admin presentation change reaches
-      # past its boundary into a PROTECTED path: packages/db/(src/)schema,
-      # packages/db/migrations, an admin API route contract, apps/admin/src/lib/
-      # rbac.ts, or the committed drift fingerprint reference. A protected-path
-      # change made WITHOUT admin presentation changes is out of this gate's
-      # scope (owned by drift-gate / cutover-guards) and passes here.
+      # Req 21 confines redesign changes to presentation. The script compares
+      # the PR diff against its base. It keeps the strict boundary for redesign
+      # refs, redesign spec changes and mixed diffs without a matching feature
+      # spec. Documented full-stack features retain the app, drift and cutover
+      # checks, along with the other static checks in this job.
       # -----------------------------------------------------------------------
       # Scoped to FEATURE PRs into `dev`. On a release promotion (dev -> test ->
       # pprd -> prod) the diff spans every commit accumulated since that branch
@@ -463,10 +460,13 @@ jobs:
       # the redesign boundary check against a promotion diff can only produce a
       # false failure, which is exactly what it did on the first dev -> test
       # promotion (79 protected paths flagged).
-      - name: Admin presentation stays within its path boundary (Req 16)
+      - name: Test classification of admin redesign and feature changes
+        run: node --test scripts/admin-design/path-allowlist-scope.test.mjs
+      - name: Admin redesign stays within its path boundary (Req 21)
         if: github.event_name == 'pull_request' && github.base_ref == 'dev'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          ADMIN_PATH_ALLOWLIST_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: node scripts/admin-design/path-allowlist.mjs
       - name: Root-Path Convention — ADMIN_NAV omits the /admin prefix (Req 4.9)
         run: node scripts/admin-design/root-path-convention.mjs

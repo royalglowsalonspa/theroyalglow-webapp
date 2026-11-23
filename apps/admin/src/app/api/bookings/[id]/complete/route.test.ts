@@ -120,6 +120,7 @@ type CapturedSession = {
   bookingId: string
   branchId: string
   changedById: string
+  idempotency?: { key: string; requestFingerprint: string }
   invoice: {
     taxPointAt: Date
     financialYear: string
@@ -155,6 +156,7 @@ const harness = vi.hoisted(() => ({
 const mocks = vi.hoisted(() => ({ requireBranchRole: vi.fn() }))
 const enqueueMocks = vi.hoisted(() => ({ enqueueJob: vi.fn(async () => {}) }))
 const emailMocks = vi.hoisted(() => ({ sendEmail: vi.fn(async () => {}) }))
+const realtimeMocks = vi.hoisted(() => ({ publishBookingEvent: vi.fn(async () => {}) }))
 
 const dbMocks = vi.hoisted(() => ({
   getBookingForAdmin: vi.fn(async (id: string, branchId: string) => {
@@ -174,6 +176,29 @@ const dbMocks = vi.hoisted(() => ({
   getInvoicingSetting: vi.fn(async () => ({ live: harness.live })),
   // The Developer's settlement settings (R10), stored on gems entries.
   getSettlementSetting: vi.fn(async () => ({ shareBps: 10_000, gemValuePaise: 100 })),
+  getMembershipSessionCompletion: vi.fn(
+    async (input: { bookingId: string; branchId: string; actorId: string; key: string }) => {
+      const { lastSession, booking } = harness
+      if (
+        !booking ||
+        !lastSession?.idempotency ||
+        lastSession.bookingId !== input.bookingId ||
+        lastSession.branchId !== input.branchId ||
+        lastSession.changedById !== input.actorId ||
+        lastSession.idempotency.key !== input.key
+      )
+        return null
+      return {
+        booking: { ...booking },
+        invoice: {
+          invoiceNumber: 'RS/2627/000002',
+          taxReviewStatus: lastSession.invoice.taxReviewStatus,
+        },
+        remainingMinutes: 480,
+        requestFingerprint: lastSession.idempotency.requestFingerprint,
+      }
+    },
+  ),
   getServiceSacCodes: vi.fn(async (ids: string[]) => {
     const codes = new Map<string, string>()
     for (const id of ids) {
@@ -248,7 +273,11 @@ const dbMocks = vi.hoisted(() => ({
     return {
       ok: true,
       booking: { ...bk },
-      invoice: { id: 'inv_s1', invoiceNumber: 'RS/2627/000002' },
+      invoice: {
+        id: 'inv_s1',
+        invoiceNumber: 'RS/2627/000002',
+        taxReviewStatus: params.invoice.taxReviewStatus,
+      },
       remainingMinutes: 480,
     }
   }),
@@ -260,6 +289,7 @@ vi.mock('@/lib/api/branch-context', async (importOriginal) => {
 })
 vi.mock('@/lib/jobs/enqueue', () => enqueueMocks)
 vi.mock('@/lib/notifications/providers/email', () => emailMocks)
+vi.mock('@/lib/realtime/publish', () => realtimeMocks)
 vi.mock('@rgss/db/queries', () => dbMocks)
 
 import { POST } from '@/app/api/bookings/[id]/complete/route'
@@ -1196,6 +1226,56 @@ describe('POST /api/bookings/[id]/complete — the payment method', () => {
 })
 
 describe('POST /api/bookings/[id]/complete — membership sessions (membership-scheduling.md)', () => {
+  const KEY = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
+  const OTHER_KEY = '3f2504e0-4f89-41d3-9a0c-0305e82c3302'
+
+  it('replays the original completion for its actor and key without rerunning tax or delivery (MS-02)', async () => {
+    seedSession()
+    const first = await POST(completeWith({ idempotencyKey: KEY }), ctx)
+    expect(first.status).toBe(200)
+
+    // An issuer setting change after completion must not affect replay.
+    harness.versions = []
+    harness.live = true
+    const replay = await POST(completeWith({ idempotencyKey: KEY }), ctx)
+    expect(replay.status).toBe(200)
+    expect(await replay.json()).toEqual(await first.json())
+    expect(dbMocks.completeMembershipSession).toHaveBeenCalledOnce()
+    expect(dbMocks.getBranchTaxVersions).toHaveBeenCalledOnce()
+    expect(realtimeMocks.publishBookingEvent).toHaveBeenCalledOnce()
+
+    const different = await POST(completeWith({ idempotencyKey: OTHER_KEY }), ctx)
+    expect(different.status).toBe(409)
+    expect((await different.json()).error.code).toBe(ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION)
+
+    const changed = await POST(completeWith({ idempotencyKey: KEY, paymentMethod: 'cash' }), ctx)
+    expect(changed.status).toBe(409)
+    expect((await changed.json()).error.message).toBe(
+      'This completion key was already used for another request.',
+    )
+
+    mocks.requireBranchRole.mockResolvedValue(branchContext({ userId: 'u_other' }))
+    const otherActor = await POST(completeWith({ idempotencyKey: KEY }), ctx)
+    expect(otherActor.status).toBe(409)
+    expect(dbMocks.completeMembershipSession).toHaveBeenCalledOnce()
+  })
+
+  it('replays after the completion guard loses a same-key race (MS-02)', async () => {
+    seedSession()
+    dbMocks.completeMembershipSession.mockImplementationOnce(async (params) => {
+      harness.lastSession = params
+      if (harness.booking) harness.booking.status = 'completed'
+      return { ok: false, reason: 'not_in_progress' }
+    })
+
+    const response = await POST(completeWith({ idempotencyKey: KEY }), ctx)
+
+    expect(response.status).toBe(200)
+    expect((await response.json()).data.invoice.invoiceNumber).toBe('RS/2627/000002')
+    expect(dbMocks.getMembershipSessionCompletion).toHaveBeenCalledTimes(2)
+    expect(realtimeMocks.publishBookingEvent).not.toHaveBeenCalled()
+  })
+
   it('consumes the held minutes with a ₹0 session invoice at the branch’s rates (TX-07)', async () => {
     seedSession()
 

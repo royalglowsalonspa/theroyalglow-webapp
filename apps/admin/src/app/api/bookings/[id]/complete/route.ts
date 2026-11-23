@@ -35,6 +35,7 @@
  * - Offers cannot be combined with gems redemption on the same booking.
  ************************************************************/
 
+import { createHash } from 'node:crypto'
 import {
   assertOfferActive,
   assertOfferApplies,
@@ -49,6 +50,7 @@ import {
   getBookingForAdmin,
   getBranchByIdAdmin,
   getLoyaltySummary,
+  getMembershipSessionCompletion,
   getOfferById,
   getOfferRedemptionForCustomerOnDate,
   getRedeemableServiceById,
@@ -56,7 +58,7 @@ import {
   getStaffNamesByIds,
 } from '@rgss/db/queries'
 import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
-import { completeBookingSchema } from '@rgss/types'
+import { type CompleteBookingInput, completeBookingSchema } from '@rgss/types'
 import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { invoiceTaxFor, serviceSacCodes } from '@/lib/api/invoice-tax'
@@ -67,6 +69,7 @@ const COMPLETABLE_STATUSES = new Set(['confirmed', 'in_progress'])
 
 type AdminBooking = NonNullable<Awaited<ReturnType<typeof getBookingForAdmin>>>
 type CheckoutOfferRow = NonNullable<Awaited<ReturnType<typeof getOfferById>>>
+type SessionCompletion = NonNullable<Awaited<ReturnType<typeof getMembershipSessionCompletion>>>
 
 /** The rule's value the invoice keeps: the percentage, or paise for a flat or combo price. */
 function offerValueOf(offer: CheckoutOfferRow): number {
@@ -90,7 +93,48 @@ function offerValueOf(offer: CheckoutOfferRow): number {
  * delivering branch at its rates in force (TX-07) and the settlement entry
  * for the selling branch (R10). One transaction in the query layer.
  */
-async function completeSession(existing: AdminBooking, actorId: string): Promise<Response> {
+async function completeSession(
+  existing: AdminBooking,
+  actorId: string,
+  input: CompleteBookingInput,
+): Promise<Response> {
+  const idempotency = input.idempotencyKey
+    ? {
+        key: input.idempotencyKey,
+        requestFingerprint: createHash('sha256')
+          .update(
+            JSON.stringify([
+              input.branchId,
+              input.paymentMethod ?? null,
+              input.offerId ?? null,
+              input.gemsRedeemedServiceId ?? null,
+              input.redeemGems ?? null,
+            ]),
+          )
+          .digest('hex'),
+      }
+    : undefined
+  const replay = async () => {
+    if (!idempotency) return null
+    const completed = await getMembershipSessionCompletion({
+      bookingId: existing.id,
+      branchId: existing.branchId,
+      actorId,
+      key: idempotency.key,
+    })
+    if (!completed) return null
+    if (completed.requestFingerprint !== idempotency.requestFingerprint) {
+      throw completionKeyConflict()
+    }
+    return sessionCompletionResponse(completed)
+  }
+
+  const prior = await replay()
+  if (prior) return prior
+
+  if (input.offerId || input.gemsRedeemedServiceId || input.redeemGems) {
+    throw badRequest('A membership session takes no offer or gems.')
+  }
   if (existing.status !== 'in_progress') {
     throw conflict(
       ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION,
@@ -134,6 +178,7 @@ async function completeSession(existing: AdminBooking, actorId: string): Promise
     bookingId: existing.id,
     branchId: existing.branchId,
     changedById: actorId,
+    ...(idempotency ? { idempotency } : {}),
     invoice: {
       taxPointAt: tax.taxPointAt,
       financialYear: tax.financialYear,
@@ -152,6 +197,10 @@ async function completeSession(existing: AdminBooking, actorId: string): Promise
     settlement,
   })
   if (!result.ok) {
+    // The competing transaction may have committed after the first lookup.
+    const retry = await replay()
+    if (retry) return retry
+    if (result.reason === 'duplicate_key') throw completionKeyConflict()
     throw conflict(
       ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION,
       'This session was completed or changed meanwhile. Reload it to see where it stands.',
@@ -166,13 +215,21 @@ async function completeSession(existing: AdminBooking, actorId: string): Promise
     data: { status: 'completed' },
   })
 
+  return sessionCompletionResponse(result)
+}
+
+function completionKeyConflict() {
+  return conflict(ERROR_CODES.CONFLICT, 'This completion key was already used for another request.')
+}
+
+function sessionCompletionResponse(result: Omit<SessionCompletion, 'requestFingerprint'>) {
   return apiSuccess({
     booking: result.booking,
     invoice: {
       invoiceNumber: result.invoice.invoiceNumber,
       totalPaise: 0,
       gstPaise: 0,
-      taxReviewStatus: tax.taxReviewStatus,
+      taxReviewStatus: result.invoice.taxReviewStatus,
     },
     gemsEarned: 0,
     discountPaise: 0,
@@ -219,10 +276,7 @@ export const POST = withErrorHandler(
     // A membership session is paid for with its minutes: completing it
     // consumes them and issues the ₹0 session invoice.
     if (existing.isMembershipSession) {
-      if (offerId || requestsGemsRedemption) {
-        throw badRequest('A membership session takes no offer or gems.')
-      }
-      return completeSession(existing, session.user.id)
+      return completeSession(existing, session.user.id, parsed.data)
     }
     if (!paymentMethod) {
       throw badRequest('Invalid request data', { paymentMethod: ['Choose how the customer paid.'] })

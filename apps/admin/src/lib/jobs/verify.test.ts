@@ -24,6 +24,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 // REAL module under test and is intentionally NOT mocked.
 // ---------------------------------------------------------------------------
 const dbMocks = {
+  getInvoiceForPdf: vi.fn(),
   getPendingBooking: vi.fn(),
   getBookingForNoShow: vi.fn(),
   getBranchPeople: vi.fn(),
@@ -33,8 +34,11 @@ const dbMocks = {
 }
 const dispatchMock = vi.fn()
 const heartbeatMock = vi.fn()
+const sendEmailMock = vi.fn()
 
 vi.mock('@rgss/db/queries', () => dbMocks)
+vi.mock('@/env', () => ({ env: {} }))
+vi.mock('@/lib/notifications/providers/email', () => ({ sendEmail: sendEmailMock }))
 vi.mock('@/lib/notifications/dispatch', () => ({
   dispatchNotification: dispatchMock,
 }))
@@ -78,6 +82,7 @@ function buildRequest(headers: Record<string, string>, signature: string | null)
 
 afterEach(() => {
   vi.unstubAllEnvs()
+  vi.unstubAllGlobals()
   vi.clearAllMocks()
 })
 
@@ -86,7 +91,7 @@ describe('QStash Receiver with synthetic signing keys', () => {
   const next = 'local-test-next-signing-key-value'
   const body = '{"branchId":"test-branch"}'
 
-  function signDelivery(key: string) {
+  function signDelivery(key: string, rawBody = body) {
     vi.stubEnv('QSTASH_CURRENT_SIGNING_KEY', current)
     vi.stubEnv('QSTASH_NEXT_SIGNING_KEY', next)
     const now = Math.floor(Date.now() / 1000)
@@ -96,7 +101,7 @@ describe('QStash Receiver with synthetic signing keys', () => {
         iss: 'Upstash',
         nbf: now - 1,
         exp: now + 60,
-        body: createHash('sha256').update(body).digest('base64url'),
+        body: createHash('sha256').update(rawBody).digest('base64url'),
       }),
     ).toString('base64url')
     const content = `${header}.${claims}`
@@ -111,6 +116,28 @@ describe('QStash Receiver with synthetic signing keys', () => {
     expect(await verifyQStashSignature(buildRequest({}, signDelivery(current)), `${body}\n`)).toBe(
       false,
     )
+  })
+
+  it('accepts a signed invoice canary without database, render, email or heartbeat work', async () => {
+    const { POST } = await import('@/app/api/jobs/invoice-pdf/route')
+    const rawBody = JSON.stringify({ rehearsalId: 'synthetic-rehearsal' })
+    const makeRequest = (headers?: HeadersInit) =>
+      new Request('https://admin.fixture.example/api/jobs/invoice-pdf', {
+        method: 'POST',
+        body: rawBody,
+        ...(headers ? { headers } : {}),
+      })
+    const render = vi.fn()
+    vi.stubGlobal('fetch', render)
+
+    const signed = await POST(makeRequest({ 'upstash-signature': signDelivery(current, rawBody) }))
+    expect(signed.status).toBe(200)
+    expect(await signed.json()).toEqual({ success: true, skipped: 'no-invoice-id' })
+    expect((await POST(makeRequest())).status).toBe(401)
+    expect(dbMocks.getInvoiceForPdf).not.toHaveBeenCalled()
+    expect(render).not.toHaveBeenCalled()
+    expect(sendEmailMock).not.toHaveBeenCalled()
+    expect(heartbeatMock).not.toHaveBeenCalled()
   })
 })
 

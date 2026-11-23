@@ -28,10 +28,9 @@ This is a Hono service running on Node.js, not a Next.js app.
   built-in Helvetica. Keep it independent of browser-only APIs and DOM components.
 - Monetary values arrive as final integer paise. Reuse `formatINR` and
   `amountInWordsINR` for presentation; business tax/discount calculations stay upstream.
-- `formatDateIN` already selects IST, while the template currently adds a manual
-  offset before calling it. Treat that as a date-boundary risk, not a pattern to
-  copy; review both functions and boundary cases when fixing date display.
-- Object keys are `invoices/{issuedAt UTC year}/{invoiceNumber}.pdf`.
+- Pass the saved issue instant directly to `formatDateIN`, which selects IST.
+  Use `INR` for currency in the template so it renders with built-in Helvetica.
+- Object keys use the issue instant's UTC year and the normalized invoice number.
   A stored key is reused. Changing the key scheme affects previously issued PDFs.
 - Existing-object reuse is a HEAD/GET flow, not an atomic distributed lock. Do not
   describe it as exactly-once processing or silently overwrite it with new semantics.
@@ -50,6 +49,7 @@ Run from the **repository root** unless noted:
 | Lint / typecheck / bundle | `bunx turbo run lint typecheck build --filter=@rgss/invoicing` |
 | Watch and restart server | `bun run --filter=@rgss/invoicing dev` |
 | Start built service | `bun run --filter=@rgss/invoicing start` |
+| Service tests | `bunx vitest run --project invoicing` |
 | Related domain tests | `bunx vitest run --project business packages/business/src/invoicing` |
 
 - `src/env.ts` is authoritative. HMAC and R2 settings are mandatory even for the
@@ -57,9 +57,8 @@ Run from the **repository root** unless noted:
   to 8080; production must honor the value supplied by the hosting platform.
 - The Node entrypoint does not load an env file itself. Export the values or use
   an explicit Node `--env-file` when starting `dist/index.js` directly.
-- There is currently no invoicing test project in root `vitest.config.ts` and no
-  workspace `test` script. If adding app tests, also wire test discovery; do not
-  claim the root suite executes otherwise uncollected service tests.
+- The root Vitest `invoicing` project covers the signed render route and template
+  using a stubbed S3 client.
 - For HTTP/storage changes, cover invalid signatures, malformed payloads, existing
   object reuse, and storage failures with isolated tests. Use a test bucket for a
   deliberate live smoke test; `/healthz` alone does not verify rendering or R2.

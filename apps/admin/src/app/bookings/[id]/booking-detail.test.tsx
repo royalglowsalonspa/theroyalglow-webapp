@@ -408,7 +408,10 @@ describe('BookingDetail — a membership session starts, then completes', () => 
 
     await waitFor(() => expect(posts('complete')).toHaveLength(1))
     // No payment method: the membership paid for the minutes.
-    expect(bodyOf(posts('complete')[0])).toEqual({ branchId: 'rs' })
+    expect(bodyOf(posts('complete')[0])).toEqual({
+      branchId: 'rs',
+      idempotencyKey: expect.stringMatching(/^[\da-f-]{36}$/i),
+    })
     await waitFor(() =>
       expect(toastMocks.success).toHaveBeenCalledWith('Session completed · invoice RS/2627/000042'),
     )
@@ -450,6 +453,9 @@ describe('BookingDetail — a membership session starts, then completes', () => 
       'This session was completed or changed meanwhile. Reload it to see where it stands.',
     )
     expect(reads()).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Complete Session' }))
+    await waitFor(() => expect(posts('complete')).toHaveLength(2))
+    expect(bodyOf(posts('complete')[1])).toEqual(bodyOf(posts('complete')[0]))
   })
 })
 

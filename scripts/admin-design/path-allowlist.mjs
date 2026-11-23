@@ -7,7 +7,7 @@
  *
  * Description  : Fails (exit 1) when an admin-portal-redesign diff touches a
  *                PROTECTED (out-of-bounds) path. The redesign is a
- *                presentation-layer effort ONLY (Req 16.1–16.3, 16.6–16.8):
+ *                presentation-layer effort ONLY (Req 21.1–21.3, 21.6–21.8):
  *                it must NOT change the data model, API request/response
  *                contracts, the RBAC access-control logic, or the committed
  *                drift fingerprint reference.
@@ -15,12 +15,11 @@
  *                Mirrors the cutover-guards migration-diff pattern in
  *                .github/workflows/ci.yml — it inspects the git diff vs the
  *                base branch (BASE_SHA) and is pragmatic by design: it only
- *                FAILS when a protected path is modified ALONGSIDE admin
- *                presentation changes. A PR that legitimately touches a
- *                protected path on its own (e.g. a real schema migration or
- *                an API change made deliberately outside this redesign) is
- *                NOT this gate's concern and passes here — the drift-gate and
- *                cutover-guards jobs own those broader disciplines.
+ *                checks a protected path modified alongside admin presentation.
+ *                CI can recognize a documented feature by its pull-request
+ *                head ref and the matching requirements and design diff. The
+ *                redesign spec or a redesign ref always takes precedence. Apps,
+ *                drift-gate and cutover-guards still validate feature PRs.
  *
  *                FORMATTING-ONLY protected edits are also allowed: a repo-wide
  *                formatter/linter migration (e.g. Biome v1 -> v2) reorders
@@ -38,7 +37,7 @@
  *                re-serialisation; unknown file types fall back to strict byte
  *                comparison.
  *
- * Protected paths (DENYLIST — Req 16.2, 16.3, 16.8):
+ * Protected paths (DENYLIST — Req 21.2, 21.3, 21.8):
  *   • packages/db/schema/**          — DB schema (declared location)
  *   • packages/db/src/schema/**      — DB schema (actual location)
  *   • packages/db/migrations/**      — generated migration history
@@ -48,16 +47,16 @@
  *   • packages/db/scripts/drift/canonical-fingerprint.reference.json
  *                                    — committed drift fingerprint reference
  *
- * Admin presentation paths (the redesign's permitted surface — Req 16.1):
+ * Admin presentation paths (the redesign's permitted surface — Req 21.1):
  *   • apps/admin/src/components/**
  *   • apps/admin/src/app/**  (EXCLUDING apps/admin/src/app/api/**)
  *   • apps/admin/src/lib/admin/**
  *   • apps/admin/app/**  /  apps/admin/components/**  (legacy locations)
  *
  * Decision matrix:
- *   presentation? │ protected?          │ result
+ *   boundary?     │ protected?          │ result
  *   ──────────────┼─────────────────────┼─────────────────────────────────
- *        no       │        any          │ PASS (not a redesign diff)
+ *        no       │        any          │ PASS (feature or outside presentation)
  *        yes      │        no           │ PASS (clean presentation-only)
  *        yes      │ formatting-only     │ PASS (no semantic change; noted)
  *        yes      │ semantic change     │ FAIL (reached past its boundary)
@@ -79,8 +78,9 @@
  * Dependencies : node:child_process, node:fs, node:module, @biomejs/biome
  ************************************************************/
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { classifyAdminChange } from './path-allowlist-scope.mjs'
 
 const nodeRequire = createRequire(import.meta.url)
 const BIOME_BIN = nodeRequire.resolve('@biomejs/biome/bin/biome')
@@ -92,30 +92,30 @@ const BIOME_BIN = nodeRequire.resolve('@biomejs/biome/bin/biome')
 // ---------------------------------------------------------------------------
 const PROTECTED = [
   {
-    reason: 'DB schema (Req 16.2)',
+    reason: 'DB schema (Req 21.2)',
     match: (p) => p.startsWith('packages/db/schema/') || p.startsWith('packages/db/src/schema/'),
   },
   {
-    reason: 'DB migration history (Req 16.2, 16.8)',
+    reason: 'DB migration history (Req 21.2, 21.8)',
     match: (p) => p.startsWith('packages/db/migrations/'),
   },
   {
-    reason: 'admin API request/response contract (Req 16.2, 16.4)',
+    reason: 'admin API request/response contract (Req 21.2, 21.4)',
     match: (p) => p.startsWith('apps/admin/src/app/api/') && /\/route\.tsx?$/.test(p),
   },
   {
-    reason: 'RBAC access-control logic (Req 16.3)',
+    reason: 'RBAC access-control logic (Req 21.3)',
     match: (p) => p === 'apps/admin/src/lib/rbac.ts',
   },
   {
-    reason: 'committed drift fingerprint reference (Req 16.8)',
+    reason: 'committed drift fingerprint reference (Req 21.8)',
     match: (p) => p === 'packages/db/scripts/drift/canonical-fingerprint.reference.json',
   },
 ]
 
 // ---------------------------------------------------------------------------
 // Admin presentation-path predicate — the redesign's permitted surface
-// (Req 16.1, 16.6). A path under apps/admin/src/app/api/** is API surface,
+// (Req 21.1, 21.6). A path under apps/admin/src/app/api/** is API surface,
 // NOT presentation, so it is explicitly excluded here.
 // ---------------------------------------------------------------------------
 function isPresentationPath(p) {
@@ -138,7 +138,7 @@ function protectedReason(p) {
 }
 
 // ---------------------------------------------------------------------------
-// Formatting-only detection (Req 16 — intent, not letter)
+// Formatting-only detection (Req 21)
 //
 // The gate exists to stop SEMANTIC changes to protected paths: contracts, the
 // data model, RBAC logic. A repo-wide formatter or linter migration rewrites
@@ -232,6 +232,7 @@ function showAtRev(rev, path) {
     return execFileSync('git', ['show', `${rev}:${path}`], {
       encoding: 'utf8',
       maxBuffer: 32 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'ignore'],
     })
   } catch {
     return null
@@ -246,14 +247,13 @@ async function isFormattingOnlyChange(base, path) {
   const before = showAtRev(base, path)
   if (before === null) return false
 
-  // Prefer the working tree (covers local pre-commit runs); fall back to HEAD.
-  let after = null
+  // A missing working-tree file is a deletion, including before commit.
+  let after
   try {
     after = readFileSync(path, 'utf8')
   } catch {
-    after = showAtRev('HEAD', path)
+    return false
   }
-  if (after === null) return false
 
   const [a, b] = await Promise.all([canonicalise(path, before), canonicalise(path, after)])
   return a === b
@@ -305,11 +305,11 @@ function changedFiles(base) {
   // Committed range vs base (three-dot = since merge-base), mirroring the
   // cutover-guards migration-diff step.
   if (base && base !== 'HEAD') {
-    add(tryGit(['diff', '--name-only', `${base}...HEAD`]))
+    add(git(['diff', '--no-renames', '--name-only', `${base}...HEAD`, '--']))
   }
   // Fold in local staged + unstaged changes so the gate is useful pre-commit.
-  add(tryGit(['diff', '--name-only', 'HEAD']))
-  add(tryGit(['diff', '--name-only', '--cached']))
+  add(git(['diff', '--no-renames', '--name-only', 'HEAD', '--']))
+  add(git(['diff', '--no-renames', '--name-only', '--cached', '--']))
 
   return [...set]
 }
@@ -317,8 +317,14 @@ function changedFiles(base) {
 // ---------------------------------------------------------------------------
 // Run
 // ---------------------------------------------------------------------------
-const base = resolveBase()
+const base = git(['merge-base', 'HEAD', resolveBase()])
 const files = changedFiles(base)
+const scope = classifyAdminChange(process.env.ADMIN_PATH_ALLOWLIST_HEAD_REF, files, existsSync)
+
+if (scope === 'feature') {
+  console.log('Path boundary is for redesigns. App, drift and cutover checks cover this feature.')
+  process.exit(0)
+}
 
 const presentationChanges = files.filter(isPresentationPath)
 const protectedTouches = files
@@ -338,9 +344,9 @@ for (const touch of protectedTouches) {
   }
 }
 
-// No presentation changes → this is not an admin-portal-redesign diff; the
-// protected-path disciplines are enforced elsewhere (drift-gate / cutover).
-if (presentationChanges.length === 0) {
+// For unspecified scope, the appearance of presentation work triggers the
+// boundary. An explicit redesign must pass even without presentation edits.
+if (scope === 'unspecified' && presentationChanges.length === 0) {
   console.log(
     '✔ path-allowlist gate skipped — no admin presentation changes detected ' +
       `vs base (${base}). Protected-path discipline for non-redesign diffs is ` +
@@ -352,7 +358,7 @@ if (presentationChanges.length === 0) {
 if (protectedViolations.length > 0) {
   console.error(
     '\n✖ path-allowlist gate FAILED — admin-portal-redesign diff makes a ' +
-      'SEMANTIC change to PROTECTED path(s) (Req 16.1–16.3, 16.6–16.8).\n' +
+      'SEMANTIC change to PROTECTED path(s) (Req 21.1–21.3, 21.6–21.8).\n' +
       '  The redesign is presentation-layer ONLY: it must not change the data ' +
       'model, API contracts, RBAC logic, or the drift fingerprint reference.\n' +
       '  (Formatting-only rewrites of protected files are allowed and are not ' +
@@ -361,12 +367,14 @@ if (protectedViolations.length > 0) {
   for (const v of protectedViolations) {
     console.error(`  • ${v.file}\n      ↳ ${v.reason}`)
   }
-  console.error('\n  Admin presentation changes detected in the same diff:')
-  for (const f of presentationChanges.slice(0, 10)) {
-    console.error(`      · ${f}`)
-  }
-  if (presentationChanges.length > 10) {
-    console.error(`      · …and ${presentationChanges.length - 10} more`)
+  if (presentationChanges.length > 0) {
+    console.error('\n  Admin presentation changes detected in the same diff:')
+    for (const f of presentationChanges.slice(0, 10)) {
+      console.error(`      · ${f}`)
+    }
+    if (presentationChanges.length > 10) {
+      console.error(`      · …and ${presentationChanges.length - 10} more`)
+    }
   }
   console.error(
     '\nFix: revert the protected-path edits and keep the redesign confined to ' +
@@ -395,9 +403,5 @@ if (formattingOnly.length > 0) {
   }
 }
 
-console.log(
-  '✔ path-allowlist gate passed — admin presentation changes detected and no ' +
-    `protected path was semantically modified vs base (${base}). The redesign ` +
-    'stays within its presentation-layer boundary (Req 16).',
-)
+console.log(`Path boundary passed. No protected path was semantically modified vs base (${base}).`)
 process.exit(0)

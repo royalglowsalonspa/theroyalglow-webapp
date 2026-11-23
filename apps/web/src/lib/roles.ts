@@ -35,6 +35,8 @@
 /** Roles that may enter the admin portal (everything above `customer`). */
 export const ADMIN_ROLES = ['staff', 'receptionist', 'manager', 'owner', 'developer'] as const
 
+export const DEFAULT_ADMIN_ORIGIN = 'https://admin.theroyalglow.in'
+
 /**
  * True when the role is an assigned, non-customer admin role. Unknown, null, or
  * 'customer' roles are not eligible (fails closed).
@@ -49,5 +51,5 @@ export function isAdminRole(role: string | null | undefined): boolean {
  * the production subdomain.
  */
 export function adminPortalUrl(): string {
-  return process.env.NEXT_PUBLIC_ADMIN_URL ?? 'https://admin.theroyalglow.in'
+  return process.env.NEXT_PUBLIC_ADMIN_URL ?? DEFAULT_ADMIN_ORIGIN
 }

@@ -19,8 +19,22 @@
  ************************************************************/
 
 import fc from 'fast-check'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { ADMIN_ORIGIN, mapAdminRedirect } from './admin-redirect'
+import { mapStaffRedirect } from './staff-redirect'
+
+it('keeps both legacy redirects on the configured rehearsal admin origin', () => {
+  vi.stubEnv('NEXT_PUBLIC_ADMIN_URL', 'https://admin.staging.example')
+  try {
+    expect(mapAdminRedirect('/admin/bookings', '?status=pending')).toBe(
+      'https://admin.staging.example/bookings?status=pending',
+    )
+    expect(mapStaffRedirect('/staff/leave')).toBe('https://admin.staging.example/me/leave')
+    expect(mapStaffRedirect('/staff/..')).toBe('https://admin.staging.example/me')
+  } finally {
+    vi.unstubAllEnvs()
+  }
+})
 
 // Feature: admin-subdomain-migration, Property 4: Web→admin 301 redirect preserves the sub-path
 // Validates: Requirements 9.4, 15.5

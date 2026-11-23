@@ -104,6 +104,9 @@ export const completeBookingSchema = z.object({
   offerId: z.string().min(1).optional(),
   gemsRedeemedServiceId: z.string().min(1).optional(),
   redeemGems: z.boolean().optional(),
+  // Current clients send this for membership session completion. Older clients
+  // can still complete a session once without a replay key.
+  idempotencyKey: z.uuid().optional(),
 })
 export type CompleteBookingInput = z.infer<typeof completeBookingSchema>
 

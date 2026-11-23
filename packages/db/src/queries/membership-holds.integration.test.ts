@@ -47,6 +47,7 @@ import {
   createMembershipWithInvoice,
   getHistoricalMembershipSessionByKey,
   getMembershipSessionByKey,
+  getMembershipSessionCompletion,
   getMembershipSessions,
   recordHistoricalMembershipSession,
   recordMembershipSession,
@@ -166,12 +167,17 @@ async function recordNow(
   })
 }
 
-async function complete(bookingId: string, branchId: string) {
+async function complete(
+  bookingId: string,
+  branchId: string,
+  idempotency?: { key: string; requestFingerprint: string },
+) {
   const now = new Date()
   return completeMembershipSession({
     bookingId,
     branchId,
     changedById: ACTOR,
+    ...(idempotency ? { idempotency } : {}),
     invoice: {
       taxPointAt: now,
       financialYear: fixtureFinancialYear(now),
@@ -514,6 +520,54 @@ describe.skipIf(!LIVE)(
                    and invoice_type = 'membership_session') as invoices,
                  (select count(*) from settlement_entry where booking_id = ${recorded.booking.id}) as entries`),
       ).toEqual({ invoices: '1', entries: '1' })
+    })
+
+    it('keeps a keyed completion result and rolls back reuse for a different booking (MS-02)', async () => {
+      const membership = await sell(180)
+      const first = await recordNow(membership, B)
+      if (!first.ok) throw new Error('first session was not recorded')
+      const idempotency = { key: crypto.randomUUID(), requestFingerprint: 'first request' }
+      const [left, right] = await Promise.all([
+        complete(first.booking.id, B, idempotency),
+        complete(first.booking.id, B, idempotency),
+      ])
+      const completed = left.ok ? left : right
+      expect(left.ok).not.toBe(right.ok)
+      if (!completed.ok) throw new Error('first session was not completed')
+      expect(completed.remainingMinutes).toBe(120)
+
+      const second = await recordNow(membership, A)
+      if (!second.ok) throw new Error('second session was not recorded')
+      expect(await complete(second.booking.id, A, idempotency)).toEqual({
+        ok: false,
+        reason: 'duplicate_key',
+      })
+      expect(await holdOf(second.booking.id)).toEqual({ state: 'held', minutes: 60 })
+      expect(await totals(membership.id)).toMatchObject({ used: 60, reserved: 60 })
+      expect(
+        await queryRow(sql`
+          select (select count(*) from invoice where booking_id = ${second.booking.id}) as invoices,
+                 (select count(*) from settlement_entry where booking_id = ${second.booking.id}) as entries`),
+      ).toEqual({ invoices: '0', entries: '0' })
+
+      const lookup = {
+        bookingId: first.booking.id,
+        branchId: B,
+        actorId: ACTOR,
+        key: idempotency.key,
+      }
+      expect(await getMembershipSessionCompletion(lookup)).toEqual({
+        booking: completed.booking,
+        invoice: { invoiceNumber: completed.invoice.invoiceNumber, taxReviewStatus: 'provisional' },
+        remainingMinutes: 120,
+        requestFingerprint: idempotency.requestFingerprint,
+      })
+      expect(await getMembershipSessionCompletion({ ...lookup, branchId: A })).toBeNull()
+      expect(await getMembershipSessionCompletion({ ...lookup, actorId: STAFF_USER })).toBeNull()
+      expect(
+        await getMembershipSessionCompletion({ ...lookup, key: crypto.randomUUID() }),
+      ).toBeNull()
+      expect((await complete(second.booking.id, A)).ok).toBe(true)
     })
 
     it('releases the minutes of a session that doesn’t happen, once, for reuse (MS-03, MS-04)', async () => {

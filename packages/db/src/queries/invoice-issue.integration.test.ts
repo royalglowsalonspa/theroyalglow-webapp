@@ -87,11 +87,11 @@ async function failure(write: PromiseLike<unknown>): Promise<string> {
   return 'no error'
 }
 
-/** The branch's version in force now for the SAC code. */
-async function inForce(branchId: string, sacCode: string) {
+/** The branch's version in force at the invoice's tax point for the SAC code. */
+async function inForce(branchId: string, sacCode: string, taxPointAt = new Date()) {
   const version = await queryRow<{ id: string; rate_bps: number }>(sql`
     select id, rate_bps from branch_tax_version
-     where branch_id = ${branchId} and sac_code = ${sacCode} and effective_from <= now()
+     where branch_id = ${branchId} and sac_code = ${sacCode} and effective_from <= ${taxPointAt.toISOString()}
      order by effective_from desc
      limit 1`)
   if (!version) {
@@ -110,9 +110,10 @@ async function issueOf(params: {
   lines: Line[]
   header?: Partial<InvoiceIssue>
 }) {
+  const taxPointAt = params.header?.taxPointAt ?? new Date()
   const lines: InvoiceIssueLine[] = []
   for (const [index, line] of params.lines.entries()) {
-    const version = await inForce(params.branchId, line.sacCode)
+    const version = await inForce(params.branchId, line.sacCode, taxPointAt)
     const split = splitFixtureTax(line.amountPaise, version.rate_bps)
     lines.push({
       serviceId: null,
@@ -135,7 +136,6 @@ async function issueOf(params: {
   }
   const sum = (pick: (line: InvoiceIssueLine) => number) =>
     lines.reduce((total, line) => total + pick(line), 0)
-  const taxPointAt = new Date()
   const issue: InvoiceIssue = {
     id: params.id,
     branchId: params.branchId,
@@ -613,5 +613,47 @@ describe.skipIf(!LIVE)('issuing invoices against a live database', () => {
       ['999722', 1],
     ])
     expect(after[1]?.taxableValuePaise).toBe(split(50_000, rate722).taxablePaise)
+  })
+
+  it('persists the rate in force immediately before, at and after IST midnight (TX-04)', async () => {
+    const sacCode = '999721'
+    const previous = await inForce(BRANCH_C, sacCode)
+    const boundary = new Date(createdDayStart.getTime() + 3 * DAY_MS)
+    const next = await createTaxVersion({
+      branchId: BRANCH_C,
+      sacCode,
+      rateBps: previous.rate_bps === 1800 ? 500 : 1800,
+      effectiveFrom: boundary,
+      reason: 'ZZ IT effective-date boundary',
+      createdBy: CUSTOMER,
+    })
+
+    const cases = [
+      { offset: -1, id: previous.id, rate: previous.rate_bps },
+      { offset: 0, id: next.id, rate: next.rateBps },
+      { offset: 1, id: next.id, rate: next.rateBps },
+    ]
+    for (const { offset, id, rate } of cases) {
+      const invoiceId = `${PREFIX}_ist_boundary_${offset}`
+      const taxPointAt = new Date(boundary.getTime() + offset)
+      await issue({
+        id: invoiceId,
+        branchId: BRANCH_C,
+        header: { taxPointAt },
+        lines: [{ amountPaise: 105_000, sacCode }],
+      })
+      expect(
+        await queryRow(sql`
+          select line.tax_version_id, line.rate_bps, line.tax_paise,
+                 (extract(epoch from invoice.tax_point_at) * 1000)::bigint::text as tax_point_ms
+          from invoice_item line join invoice on invoice.id = line.invoice_id
+          where invoice.id = ${invoiceId}`),
+      ).toEqual({
+        tax_version_id: id,
+        rate_bps: rate,
+        tax_paise: splitFixtureTax(105_000, rate).taxPaise,
+        tax_point_ms: String(taxPointAt.getTime()),
+      })
+    }
   })
 })

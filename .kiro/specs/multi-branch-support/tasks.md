@@ -53,8 +53,14 @@ and [rollout](rollout.md) before selecting work.
   rollback and concurrency checks on disposable Neon. Three fresh Node
   24.21.0 processes imported and initialized the HTTP driver in 17–22 ms,
   and their first query against the disposable Neon compute took 1.11–1.44 s.
-  These measurements were local. AWS Lambda connection and cold-start timings
-  remain open pending a deployed non-production candidate.*
+  These measurements were local. Regression tests distinguish failures before
+  connection from ambiguous write results. A Lambda rehearsal tool correlates
+  health requests with CloudWatch reports and checks the expected rehearsal
+  alias. The local SST candidate takes dedicated domains, auth settings and
+  provider inputs for `rehearsal-*` stages. Mocked SST wiring checks preserved
+  the production configuration, and the built web app returned both legacy
+  redirects to the configured rehearsal admin origin. AWS Lambda connection
+  and cold-start timings remain open pending a deployed non-production candidate.*
 - [x] Prototype role-qualified references and deferred guards on a disposable
   database: mandatory Owner, one Manager/Receptionist, shared Manager, global
   Owner/performer exclusion, preserved inactive history and protected Developer.
@@ -288,10 +294,15 @@ and [rollout](rollout.md) before selecting work.
   released, never deleted), `spa_membership.reserved_minutes` with the CHECK
   `used + reserved ≤ total`, and `booking.started_at`. 0026 derives each hold
   from its booking's status by trigger, keeps the totals by trigger and checks
-  at commit that they equal the holds, whatever wrote them. The idempotency key
-  stays on the booking (`booking_redemption_key_uidx`). Membership cancel
-  cancels the unstarted sessions with it and is refused while one is in
-  progress (MS-13). Live suite `membership-holds.integration.test.ts` (14).*
+  at commit that they equal the holds, whatever wrote them. The session creation
+  key stays on the booking (`booking_redemption_key_uidx`). On the local release
+  candidate, 0042 records the completion key and response data in the same
+  transaction as the invoice and debit. The browser receives the original
+  response when it repeats the request and a conflict when it changes the
+  request under the same key. Older clients can still complete a session once
+  without a key. Cancelling a membership cancels unstarted sessions and is
+  refused while one is in progress (MS-13). Live suite
+  `membership-holds.integration.test.ts` (18).*
 - [x] Apply membership validity at planned and actual start. Preserve completion
   after a valid start; return no-show holds without extending expiry.
   *Validity is checked at `coalesce(started_at, planned IST start)` within
@@ -625,9 +636,29 @@ screen may follow by 31 January 2027.
   staff and branch settings. Two suites affected by the default five-second
   remote-query allowance passed all 23 cases on rerun with a 30-second
   allowance. The real QStash Receiver accepted both synthetic
-  rotation keys and rejected a changed request body. Ably response tests verify
-  the application keeps unconfirmed revocations pending. Live provider
-  delivery and existing-token revocation evidence remain open.*
+  rotation keys and rejected a changed request body. A QStash rehearsal script
+  checks the invoice handler's unsigned rejection and the exact signed delivery
+  log without an invoice ID. The built admin app returned HTTP 401 unsigned and
+  200 for the locally signed request. Local tests verified that the signed
+  handler returns without database, render, email or heartbeat work. The script
+  also compares stage schedules against the canonical UTC crons through a
+  read-only list.
+  Ably response tests verify the application keeps unconfirmed revocations
+  pending. An isolated Ably canary is ready, and its missing-configuration
+  guard passed locally. The deployed handover test is collected by Playwright
+  and refused a production origin before opening fixture sessions. All 43
+  focused realtime and role API unit tests passed. Seven focused suites passed
+  on the disposable Neon copy with migration `0042`. The invoice suite passed
+  all 12 cases after adding the TX-04 boundary check. The admin PDF payload
+  and invoicing render suites passed all 18 cases. The built invoicing process
+  returned 401 for a changed signed body, rendered the signed invoice, and
+  reused its exact saved PDF bytes against a loopback S3 fixture. Live provider
+  delivery and existing-token revocation evidence remain open. The local DB,
+  business and types suites passed all 770 unit cases. 23/11: a fresh native
+  PostgreSQL 18.6 database received 43 Drizzle and seven Payload migrations.
+  The local SQL adapter verified successful batches and rollback when the
+  final statement failed. The focused checkout, membership and tax unit suite
+  passed all 101 cases.*
 - [x] Pass affected app typechecks/lint/builds and populated Playwright role
   fixtures. Missing/skipped authorization fixtures do not count as a pass.
   *22/11: PR #312 passed CI lint, typecheck, unit tests, CodeQL and the web
@@ -639,9 +670,12 @@ screen may follow by 31 January 2027.
   across the main run and targeted reruns. Four switch scenarios were
   inapplicable to a Receptionist with one branch. The updated admin app also
   passed its CI lint, typecheck, tests and build. The strict dependency audit
-  passed locally and in CI. Gate 1 remains open for the full write journeys
-  and required admin path check, which fails when the presentation and API or
-  schema changes in PR #312 are reviewed together.*
+  passed locally and in CI. The local path-rule change passed for this feature
+  and rejected the same mixed diff under explicit redesign scope. The required
+  check on PR #312 still runs the published rule until the local changes are
+  pushed. The local candidate passed DB and admin typechecks and the admin
+  production build. The invoicing bundle, typecheck and lint passed locally.
+  Gate 1 also requires the remaining release write journeys.*
 - [ ] Run the complete two-branch journey and adversarial third-branch access
   suite, existing-token checks and all MS/TX acceptance cases. Close Gate 1.
   *22/11: a stored Owner session transferred a lead from branch A to branch B,
@@ -652,8 +686,23 @@ screen may follow by 31 January 2027.
   three Developer membership cases, including record/complete and book/cancel,
   and five Developer/Owner tax cases. The disposable clone's fixture branches,
   leads, users and sessions were removed and retained branch and user counts
-  were unchanged. Existing live tokens and the rest of the MS/TX release
-  matrix still need verification.*
+  were unchanged. A second disposable clone with local migration 0042 passed
+  the signed-session completion and replay journey and 18 live membership
+  cases, including atomicity across booking, invoice and settlement. An opt-in
+  handover test now checks an attached subscriber during Owner removal and
+  verifies denial of a fresh token from the old session. On the disposable
+  database, TX-04 persisted the expected invoice rate and tax point one
+  millisecond before, at and one millisecond after IST midnight. For TX-05,
+  the rendered PDF showed the saved issuer, GSTIN, invoice number, IST date,
+  SAC, discount, GST split and total. Its currency label now reads `INR` on
+  line items and totals. A template test for TX-07 verifies the zero-charge
+  session label, its saved SAC and rate, and no balance due. 23/11: the signed
+  Owner test passed again on the native rehearsal with Rayasandra and
+  Marathahalli accessible and Whitefield excluded. TX-03 saved a scheduled 12%
+  SAC version in Rayasandra, confirmed its former 5% version still applied
+  before the effective date, and checked checkout and membership purchase
+  amounts after the change against Marathahalli's separate 18% rate. The live
+  handover and the remaining deployed MS/TX cases still need verification.*
 - [x] Harden full backup and restore verification, isolate temporary targets and
   validate snapshot manifests, schema, counts, balances and object references.
   *22/11: capture and verification scripts use the same PostgreSQL snapshot
@@ -672,15 +721,35 @@ screen may follow by 31 January 2027.
   test database was removed. On 22/11 Neon still reported the two staging
   branches archived, and the latest production backup and restore workflows
   had failed. The exact release backup, R2 recovery and deployed environment
-  evidence remain open. See [the recovery record](rollout.md#launch-and-recovery-record).*
+  evidence remain open. A second disposable clone passed the exact-ID preview
+  and cleanup of a synthetic CMS offer, its version and public mirror. It
+  refused an unreviewed dependency and preserved an unrelated offer. 23/11:
+  the offline asset verifier binds the reviewed inventory to the selected
+  database manifest and checks the recovered file sizes and SHA-256 digests.
+  Synthetic tests passed, including mismatched manifests and altered bytes.
+  An exact native capture and restore of the realistic fixture matched both
+  ledgers, the schema hash, three branches and four paid invoices totaling
+  2,210,000 paise. Drizzle and Payload migration replay kept both migration
+  counts. The preview approved a single synthetic lead ID. A rollback kept
+  the lead, then the committed trial at the restored target removed that
+  lead while retaining two leads, three branches and four invoices. The
+  local database cluster, browser session and scratch backups were removed.
+  The approved release backup, its R2 assets and deployed evidence remain open.
+  See [the recovery record](rollout.md#launch-and-recovery-record).*
 - [ ] Prepare reviewed launch tax/SAC/GSTIN values, genuine operational data,
   deployment evidence, cleanup preview and production recovery runbook.
   *22/11: the [runbook](rollout.md#launch-and-recovery-record) names the release
   evidence, owners and recovery checkpoints. The read-only launch preview ran
   against the complete release schema and reported the four branch-field null
   checks and the fixture issuer/rate gaps. The three branch-job heartbeat
-  secrets are wired into admin. Approved branch and tax data, deployed evidence
-  and a cleanup preview based on the selected backup remain open.*
+  secrets are wired into admin. The [cleanup preview](rollout.md#read-only-cleanup-preview)
+  checks the selected manifest checksum and reports reviewed IDs, retained
+  references, financial effects and external follow-up. 23/11: the approved
+  synthetic fixtures for branch locations, hours, staff, provisional rates
+  and catalogue are applied on native disposable PostgreSQL. The launch
+  preview reported zero null branch fields at the four required columns and
+  correctly reported the fixture rates as provisional. Reviewed production
+  values, deployed evidence and the real release cleanup preview remain open.*
 - [ ] Run the separately authorized production operations with current evidence,
   preserve real records and close Gate 3 before accepting real business activity.
 
