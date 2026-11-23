@@ -501,13 +501,17 @@ export async function getOpenSettlementMonths(
 
 export type MarkSettlementPaidResult =
   | { ok: true }
-  | { ok: false; reason: 'not_found' | 'already_paid' | 'nothing_owed' | 'not_same_owner' }
+  | {
+      ok: false
+      reason: 'not_found' | 'already_paid' | 'nothing_owed' | 'not_same_owner' | 'forbidden'
+    }
 
 /**
  * Record that a statement's net was paid, once (MS-25): the IST date, the
  * reference, and whether it was a transfer between two branches of one
  * Owner. One guarded statement, so two people marking it at once record it
- * once. The caller checks who may mark it; this re-checks the facts.
+ * once. Read access under the same actor-before-branches lock order as role
+ * changes, so a concurrent handover can't leave an older authorization in use.
  */
 export async function markSettlementPaid(params: {
   id: string
@@ -517,32 +521,54 @@ export async function markSettlementPaid(params: {
   actorId: string
 }): Promise<MarkSettlementPaidResult> {
   const { id, paidOn, reference, internalTransfer, actorId } = params
+  const canPay = sql`(actor.role = 'developer'
+    or (actor.role = 'owner' and paying.owner_user_id = actor.id))`
   const updated = await db.execute<{ id: string }>(sql`
+    with locked_actor as materialized (
+      select id, role from "user"
+       where id = ${actorId} and role in ('owner', 'developer')
+       for share
+    ),
+    locked_branches as materialized (
+      select b.id, b.owner_user_id
+        from branch b
+        join branch_settlement statement
+          on statement.id = ${id} and b.id in (statement.branch_a_id, statement.branch_b_id)
+        cross join locked_actor
+       order by b.id
+       for share of b
+    )
     update branch_settlement s
        set paid_on = ${paidOn}::date,
            payment_reference = ${reference},
            internal_transfer = ${internalTransfer}::boolean,
            paid_recorded_by = ${actorId},
            paid_recorded_at = now()
+      from locked_actor actor, locked_branches paying
      where s.id = ${id}
        and s.paid_on is null
        and s.net_paise > 0
+       and paying.id = s.paying_branch_id
+       and ${canPay}
        and (not ${internalTransfer}::boolean
-            or (select a.owner_user_id from branch a where a.id = s.branch_a_id)
-             = (select b.owner_user_id from branch b where b.id = s.branch_b_id))
+            or (select a.owner_user_id from locked_branches a where a.id = s.branch_a_id)
+             = (select b.owner_user_id from locked_branches b where b.id = s.branch_b_id))
     returning s.id
   `)
   if (updated.rows.length > 0) {
     return { ok: true }
   }
 
-  const current = await db.execute<{ paid: boolean; net_paise: Numeric; same_owner: boolean }>(sql`
-    select s.paid_on is not null as paid, s.net_paise,
-           ba.owner_user_id = bb.owner_user_id as same_owner
+  const current = await db.execute<{ paid: boolean; net_paise: Numeric; can_pay: boolean }>(sql`
+    select s.paid_on is not null as paid, s.net_paise, coalesce(${canPay}, false) as can_pay
       from branch_settlement s
       join branch ba on ba.id = s.branch_a_id
       join branch bb on bb.id = s.branch_b_id
+      join "user" actor on actor.id = ${actorId}
+      left join branch paying on paying.id = s.paying_branch_id
      where s.id = ${id}
+       and (actor.role = 'developer' or (actor.role = 'owner'
+         and actor.id in (ba.owner_user_id, bb.owner_user_id)))
   `)
   const row = current.rows[0]
   if (!row) {
@@ -553,6 +579,9 @@ export async function markSettlementPaid(params: {
   }
   if (n(row.net_paise) <= 0) {
     return { ok: false, reason: 'nothing_owed' }
+  }
+  if (!row.can_pay) {
+    return { ok: false, reason: 'forbidden' }
   }
   return { ok: false, reason: 'not_same_owner' }
 }

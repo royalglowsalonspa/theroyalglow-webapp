@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/backup-verify-ci.yml'
       - '.github/workflows/monthly-backup-test.yml'
+      - '.github/workflows/pre-migration-backup.yml'
       - '.github/workflows/weekly-backup.yml'
       - 'scripts/backup/**'
 
@@ -13,7 +14,7 @@ permissions:
 
 jobs:
   backup-round-trip:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     services:
       postgres:
@@ -33,12 +34,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
+      - name: Test R2 storage preflight with fixture credentials
+        run: bash scripts/backup/verify-r2-backup-access.test.sh
       - name: Test cleanup and recovered asset verification
         run: bun test scripts/backup/preview-cleanup.test.mjs scripts/backup/verify-recovered-assets.test.mjs
-      - name: Install PostgreSQL tools
+      - name: Select preinstalled PostgreSQL 18 tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client-18
+          test -x /usr/lib/postgresql/18/bin/pg_dump
           echo '/usr/lib/postgresql/18/bin' >> "$GITHUB_PATH"
       - name: Exercise capture, isolated restore and manifest verification
         shell: bash
@@ -74,3 +76,31 @@ jobs:
             echo 'The restore accepted an incorrect manifest.' >&2
             exit 1
           fi
+          export BACKUP_KEY_PREFIX=release
+          export BACKUP_RELEASE_CANDIDATE_COMMIT="$BACKUP_SOURCE_COMMIT"
+          export BACKUP_SOURCE_DEPLOYED_COMMIT='1111111111111111111111111111111111111111'
+          export BACKUP_SOURCE_NEON_BRANCH_ID=br-local-ci-fixture
+          export BACKUP_SOURCE_NEON_HOST=ep-local-ci-fixture.ap-southeast-1.aws.neon.tech
+          if bash scripts/backup/capture-full.sh; then
+            echo 'A release backup accepted an unreviewed database host.' >&2
+            exit 1
+          fi
+          # This synthetic hostname resolves only to the CI service on loopback.
+          printf '127.0.0.1 %s\n' "$BACKUP_SOURCE_NEON_HOST" | sudo tee -a /etc/hosts >/dev/null
+          export BACKUP_DATABASE_URL="${BACKUP_DATABASE_URL/127.0.0.1/$BACKUP_SOURCE_NEON_HOST}"
+          export BACKUP_RUN_ID="$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          release_stem=$(bash scripts/backup/capture-full.sh)
+          release_manifest="$BACKUP_OUTPUT_DIR/$release_stem.manifest.json"
+          release_dump="$BACKUP_OUTPUT_DIR/$release_stem.dump"
+          release_key="release/$release_stem.dump"
+          jq -e --arg branch "$BACKUP_SOURCE_NEON_BRANCH_ID" --arg host "$BACKUP_SOURCE_NEON_HOST" \
+            --arg source "$BACKUP_SOURCE_COMMIT" --arg deployed "$BACKUP_SOURCE_DEPLOYED_COMMIT" \
+            '.sourceCommit == $source and .sourceDeployedCommit == $deployed and
+              .sourceNeonHost == $host and .sourceNeonBranchId == $branch' "$release_manifest"
+          if bash scripts/backup/verify-isolated-restore.sh "$release_manifest" "$release_dump" \
+            "$release_key" "$BACKUP_SOURCE_DEPLOYED_COMMIT"; then
+            echo 'The restore accepted a release backup for a different candidate.' >&2
+            exit 1
+          fi
+          bash scripts/backup/verify-isolated-restore.sh "$release_manifest" "$release_dump" \
+            "$release_key" "$BACKUP_RELEASE_CANDIDATE_COMMIT"

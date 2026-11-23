@@ -83,13 +83,20 @@ Report jobs read guarded optional values. `SLACK_WEBHOOK_URL` receives the Devel
 - `R2_ENDPOINT`
 - `R2_ACCESS_KEY_ID`
 - `R2_SECRET_ACCESS_KEY`
-- `R2_PUBLIC_BASE_URL`
 
-`PORT` and `NODE_ENV` have defaults. `SENTRY_DSN` is optional.
+Use `R2_BUCKET_NAME=rgss-invoices` with bucket-scoped credentials and set
+`R2_INVOICE_ACCESS=private` for production. Public mode is the legacy default
+and requires `R2_PUBLIC_BASE_URL`. `PORT` and `NODE_ENV` have defaults.
+`SENTRY_DSN` is optional.
 
 ### Payload CMS (`apps/cms`)
 
 Use `apps/cms/.env.example`, `apps/cms/src/payload.config.ts`, and CMS storage configuration together. Core ownership includes the CMS database URL, `PAYLOAD_SECRET`, R2 storage values, and `SERVICE_SYNC_ENABLED`.
+
+Production CMS uses `R2_BUCKET_NAME=rgss-uploads`. Once media verification
+passes, set `R2_MEDIA_PUBLIC_URL=https://media.theroyalglow.in` in Render.
+The AWS deployment reads `R2_UPLOAD_BUCKET_NAME` and `R2_UPLOAD_PUBLIC_URL`
+from GitHub variables for the production web media settings.
 
 `SERVICE_SYNC_ENABLED` defaults on; only the literal string `false` disables catalogue synchronization. Disable it while seeding or during a catalogue-sync rollback.
 

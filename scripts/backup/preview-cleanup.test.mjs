@@ -15,9 +15,9 @@ const allowlist = {
   ],
 }
 
-test('requires a matching selected backup manifest', () => {
+test.each(['weekly', 'release'])('requires a matching selected %s backup manifest', (purpose) => {
   const selected = parseAllowlist(JSON.stringify(allowlist))
-  const key = 'weekly/rgss_full_20261122T160000Z_123-1.dump'
+  const key = `${purpose}/rgss_full_20261122T160000Z_123-1.dump`
   expect(verifyBackupReference(selected, { version: 1, dumpSha256, key })).toBe(key)
   expect(() => verifyBackupReference(selected, { version: 1, dumpSha256, key: 'latest' })).toThrow()
   expect(() =>

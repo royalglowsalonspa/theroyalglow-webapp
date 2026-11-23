@@ -4,26 +4,51 @@ on:
   schedule:
     - cron: '0 2 * * 0'
   workflow_dispatch:
+    inputs:
+      backup_purpose:
+        description: 'Use release for the pre-cutover backup retained outside weekly rotation'
+        type: choice
+        options: [weekly, release]
+        default: weekly
+        required: true
+      release_candidate_sha:
+        description: 'Release only. Full SHA of the reviewed dev candidate.'
+        type: string
+      source_deployed_sha:
+        description: 'Release only. Full SHA confirmed for the running AWS deployment.'
+        type: string
+      source_neon_host:
+        description: 'Release only. Reviewed direct Neon production hostname.'
+        type: string
+      source_neon_branch_id:
+        description: 'Release only. Neon branch ID mapped to that hostname in the release record.'
+        type: string
 
 permissions:
   contents: read
 
 jobs:
   backup:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_WRITE_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_WRITE_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: auto
-      R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
-      - name: Install PostgreSQL tools
+      - name: Verify private R2 backup storage access
+        shell: bash
+        env:
+          R2_BACKUP_ACCOUNT_ID: ${{ vars.R2_BACKUP_ACCOUNT_ID }}
+        run: bash scripts/backup/verify-r2-backup-access.sh
+
+      - name: Select preinstalled PostgreSQL 18 tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client-18
+          test -x /usr/lib/postgresql/18/bin/pg_dump
           echo '/usr/lib/postgresql/18/bin' >> "$GITHUB_PATH"
 
       - name: Capture the consistent full backup and manifest
@@ -32,6 +57,11 @@ jobs:
           BACKUP_DATABASE_URL: ${{ secrets.DATABASE_URL_UNPOOLED_PROD }}
           BACKUP_SOURCE_ID: neon-prod
           BACKUP_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          BACKUP_KEY_PREFIX: ${{ inputs.backup_purpose || 'weekly' }}
+          BACKUP_RELEASE_CANDIDATE_COMMIT: ${{ inputs.release_candidate_sha }}
+          BACKUP_SOURCE_DEPLOYED_COMMIT: ${{ inputs.source_deployed_sha }}
+          BACKUP_SOURCE_NEON_HOST: ${{ inputs.source_neon_host }}
+          BACKUP_SOURCE_NEON_BRANCH_ID: ${{ inputs.source_neon_branch_id }}
         run: |
           set -euo pipefail
           umask 077
@@ -39,10 +69,21 @@ jobs:
           BACKUP_OUTPUT_DIR=$(mktemp -d)
           echo "BACKUP_OUTPUT_DIR=$BACKUP_OUTPUT_DIR" >> "$GITHUB_ENV"
           export BACKUP_SOURCE_COMMIT
-          BACKUP_SOURCE_COMMIT=$(git ls-remote --exit-code origin refs/heads/prod | cut -f1)
+          git fetch --no-tags origin refs/heads/prod:refs/remotes/origin/prod
+          BACKUP_SOURCE_COMMIT=$(git rev-parse --verify refs/remotes/origin/prod)
           [[ "$BACKUP_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          if [[ "$BACKUP_KEY_PREFIX" == release ]]; then
+            git fetch --no-tags origin refs/heads/dev:refs/remotes/origin/dev
+            [[ "$BACKUP_RELEASE_CANDIDATE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+            [[ "$BACKUP_SOURCE_DEPLOYED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+            git merge-base --is-ancestor "$BACKUP_RELEASE_CANDIDATE_COMMIT" refs/remotes/origin/dev
+            git merge-base --is-ancestor "$BACKUP_SOURCE_DEPLOYED_COMMIT" "$BACKUP_SOURCE_COMMIT"
+          fi
           stem=$(bash scripts/backup/capture-full.sh)
-          echo "BACKUP_STEM=$stem" >> "$GITHUB_ENV"
+          {
+            echo "BACKUP_STEM=$stem"
+            echo "BACKUP_KEY_PREFIX=$BACKUP_KEY_PREFIX"
+          } >> "$GITHUB_ENV"
 
       - name: Upload and verify the dump before publishing the manifest
         shell: bash
@@ -51,27 +92,31 @@ jobs:
           umask 077
           dump="$BACKUP_OUTPUT_DIR/$BACKUP_STEM.dump"
           manifest="$BACKUP_OUTPUT_DIR/$BACKUP_STEM.manifest.json"
-          dest="s3://rgss-backups/weekly/$BACKUP_STEM"
-          aws s3 cp "$dump" "$dest.dump" --endpoint-url "$R2_ENDPOINT"
-          aws s3 cp "$dest.dump" "$BACKUP_OUTPUT_DIR/uploaded.dump" --endpoint-url "$R2_ENDPOINT"
+          dest="s3://$R2_BACKUP_BUCKET/$BACKUP_KEY_PREFIX/$BACKUP_STEM"
+          aws s3 cp "$dump" "$dest.dump" --endpoint-url "$R2_BACKUP_ENDPOINT"
+          aws s3 cp "$dest.dump" "$BACKUP_OUTPUT_DIR/uploaded.dump" --endpoint-url "$R2_BACKUP_ENDPOINT"
           cmp -s "$dump" "$BACKUP_OUTPUT_DIR/uploaded.dump"
-          aws s3 cp "$manifest" "$dest.manifest.json" --endpoint-url "$R2_ENDPOINT"
-          aws s3 cp "$dest.manifest.json" "$BACKUP_OUTPUT_DIR/uploaded.manifest.json" --endpoint-url "$R2_ENDPOINT"
+          aws s3 cp "$manifest" "$dest.manifest.json" --endpoint-url "$R2_BACKUP_ENDPOINT"
+          aws s3 cp "$dest.manifest.json" "$BACKUP_OUTPUT_DIR/uploaded.manifest.json" --endpoint-url "$R2_BACKUP_ENDPOINT"
           cmp -s "$manifest" "$BACKUP_OUTPUT_DIR/uploaded.manifest.json"
-          echo "Verified upload: weekly/$BACKUP_STEM.manifest.json" >> "$GITHUB_STEP_SUMMARY"
+          echo "Verified upload: $BACKUP_KEY_PREFIX/$BACKUP_STEM.manifest.json" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Manifest SHA-256: %s\nDump SHA-256: %s\n' \
+            "$(sha256sum "$manifest" | cut -f1 -d ' ')" \
+            "$(sha256sum "$dump" | cut -f1 -d ' ')" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Keep the newest eight complete pairs
+        if: env.BACKUP_KEY_PREFIX == 'weekly'
         shell: bash
         run: |
           set -euo pipefail
-          old_keys=$(aws s3api list-objects-v2 --bucket rgss-backups --prefix weekly/rgss_full_ \
-            --endpoint-url "$R2_ENDPOINT" |
+          old_keys=$(aws s3api list-objects-v2 --bucket "$R2_BACKUP_BUCKET" --prefix weekly/rgss_full_ \
+            --endpoint-url "$R2_BACKUP_ENDPOINT" |
             jq -r '[.Contents[]? | .Key | select(endswith(".manifest.json"))] | sort | reverse | .[8:][]')
           while IFS= read -r key; do
             [[ -z "$key" ]] && continue
             [[ "$key" =~ ^weekly/rgss_full_[0-9]{8}T[0-9]{6}Z_[0-9]+-[0-9]+\.manifest\.json$ ]]
-            aws s3 rm "s3://rgss-backups/$key" --endpoint-url "$R2_ENDPOINT"
-            aws s3 rm "s3://rgss-backups/${key%.manifest.json}.dump" --endpoint-url "$R2_ENDPOINT"
+            aws s3 rm "s3://$R2_BACKUP_BUCKET/$key" --endpoint-url "$R2_BACKUP_ENDPOINT"
+            aws s3 rm "s3://$R2_BACKUP_BUCKET/${key%.manifest.json}.dump" --endpoint-url "$R2_BACKUP_ENDPOINT"
           done <<< "$old_keys"
 
       - name: Remove local backup copies
@@ -84,15 +129,25 @@ jobs:
           fi
 
       - name: Ping BetterStack heartbeat
+        if: env.BACKUP_KEY_PREFIX == 'weekly'
         env:
           BACKUP_HEARTBEAT: ${{ secrets.BETTER_STACK_HEARTBEAT_BACKUP }}
-        run: curl --fail --silent --show-error --max-time 10 "$BACKUP_HEARTBEAT"
+        run: |
+          if [[ -z "$BACKUP_HEARTBEAT" ]]; then
+            echo '::warning title=Backup heartbeat unavailable::No Better Stack backup heartbeat is configured.'
+            exit 0
+          fi
+          curl --fail --silent --show-error --max-time 10 "$BACKUP_HEARTBEAT"
 
       - name: Notify on failure
         if: failure()
         env:
           INCIDENT_WEBHOOK: ${{ secrets.BETTER_STACK_INCIDENT_WEBHOOK }}
         run: |
+          if [[ -z "$INCIDENT_WEBHOOK" ]]; then
+            echo '::warning title=Notification unavailable::The backup failed and no Better Stack incident webhook is configured.'
+            exit 0
+          fi
           curl --fail-with-body --silent --show-error --max-time 10 "$INCIDENT_WEBHOOK" \
             -H 'Content-Type: application/json' \
             -d '{"title":"Weekly backup failed","severity":"critical"}'

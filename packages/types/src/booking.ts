@@ -79,11 +79,15 @@ export type CreateBookingInput = z.infer<typeof createBookingSchema>
 
 export const cancelBookingSchema = z.object({
   reason: z.string().max(500).optional(),
+  confirmedTerms: z
+    .object({ policyRevision: z.number().int().positive().nullable(), late: z.boolean() })
+    .optional(),
 })
 export type CancelBookingInput = z.infer<typeof cancelBookingSchema>
 
 export const rescheduleBookingSchema = z.object({
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   startTime: z.string().regex(/^\d{2}:\d{2}$/),
+  expectedPolicyRevision: z.number().int().positive().optional(),
 })
 export type RescheduleBookingInput = z.infer<typeof rescheduleBookingSchema>

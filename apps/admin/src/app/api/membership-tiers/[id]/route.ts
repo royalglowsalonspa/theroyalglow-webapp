@@ -57,8 +57,9 @@ export const PATCH = withErrorHandler(async (req: Request, route: RouteContext) 
   if (!existing) {
     throw notFound('Membership tier not found.')
   }
+  const canEditTax = hasBranchRole(ctx.branch, 'developer')
   assertTaxClassChange({
-    isDeveloper: hasBranchRole(ctx.branch, 'developer'),
+    isDeveloper: canEditTax,
     current: existing.sacCode,
     next: data.sacCode,
   })
@@ -82,8 +83,14 @@ export const PATCH = withErrorHandler(async (req: Request, route: RouteContext) 
   if (data.displayOrder !== undefined) {
     patch.displayOrder = data.displayOrder
   }
-  if (data.sacCode !== undefined) {
+  // An unchanged SAC from a non-Developer is accepted without writing it.
+  // The Developer may have updated the classification since the lookup.
+  if (canEditTax && data.sacCode !== undefined) {
     patch.sacCode = data.sacCode
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return apiSuccess({ tier: existing })
   }
 
   const tier = await updateMembershipTier(id, patch)

@@ -114,6 +114,7 @@ output is generated under `.next`; it is not source material to edit or commit.
 | `WEB_APP_URL` | Web origin in CORS/CSRF configuration and revalidation destination |
 | `SERVICE_SYNC_ENABLED` | Defaults to enabled; only literal `false` disables catalogue and offer mirroring |
 | `R2_BUCKET_NAME`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | All four must be nonempty to enable R2 media storage |
+| `R2_MEDIA_PUBLIC_URL` | Optional HTTPS origin used for direct media links from the configured bucket |
 | `RESEND_API_KEY` | Enables the email adapter when nonempty |
 | `RESEND_FROM_ADDRESS`, `RESEND_FROM_NAME` | Optional sender overrides; address must use a verified domain |
 | `REVALIDATE_SECRET` | Shared with web to authenticate cache revalidation requests |
@@ -126,9 +127,11 @@ PNG, and WebP, requires alt text, and generates 400/800/1600-pixel image variant
 
 Resend is optional in the config. Without an API key, real email delivery is not
 configured. Sender defaults are `contact@theroyalglow.in` and `Royal Glow Salon & Spa`.
-The Blueprint also lists `NEXT_PUBLIC_R2_PUBLIC_URL`, but the current CMS Payload
-storage configuration does not read it; distinguish hosting declarations from
-variables actually used by the app.
+Production CMS uploads belong in `rgss-uploads`. After verifying the existing
+media keys and all generated sizes in the new bucket, set `R2_BUCKET_NAME` and
+its scoped credentials in Render. Set `R2_MEDIA_PUBLIC_URL` to
+`https://media.theroyalglow.in` after confirming the hostname serves that
+bucket. Leaving the public origin unset uses Payload's download endpoint.
 
 ## Catalogue synchronization and cache refresh
 

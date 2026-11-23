@@ -42,6 +42,7 @@ Shared dependencies are `@rgss/types` for contracts, `@rgss/business` for format
 | --- | --- | --- |
 | `GET` | `/healthz` | `200 { "status": "ok" }`; process liveness only |
 | `POST` | `/v1/invoices` | Verify, render/reuse, store, and return the invoice PDF result |
+| `POST` | `/v1/invoices/download` | Verify and return a stored PDF to the admin backend |
 
 ### Signed invoice request
 
@@ -57,24 +58,28 @@ Use the shared [request-signing helpers](../../packages/business/src/security/re
 
 All monetary values arrive as final integer **paise**. The service formats them for display; it does not recalculate GST, discounts, or totals. Seller/customer/line-item fields and optional data are defined by the shared schema, which is authoritative over examples.
 
-Success is a direct `InvoicePdfResult` object:
+In private mode, success is a direct `InvoicePdfResult` object with the object key:
 
 ```json
 {
   "invoiceNumber": "INV-EXAMPLE",
-  "pdfUrl": "https://media.example.test/invoices/2026/INV-EXAMPLE.pdf",
+  "pdfObjectKey": "invoices/2026/INV-EXAMPLE.pdf",
   "pdfBase64": "<base64-encoded-pdf>",
   "reused": false
 }
 ```
 
-The URL above is illustrative. The response is not wrapped in the web app's `success/data` envelope. Missing/invalid signatures return **401**, invalid JSON or schema data returns **400**, and unexpected render/storage failures return **500** without stack traces.
+Missing or invalid signatures return **401**. Invalid JSON or schema data returns **400**. Unexpected render or storage failures return **500**. The signed download route returns **404** when the object is missing.
 
 ### Storage and reuse
 
-Object keys are `invoices/{YYYY}/{invoice file stem}.pdf`, where `YYYY` comes from the UTC year of `issuedAt` and slashes in the invoice number become hyphens. Download URLs join that key to `R2_PUBLIC_BASE_URL`; the code does not generate expiring signed download URLs.
+Object keys are `invoices/{YYYY}/{invoice file stem}.pdf`, where `YYYY` comes from the UTC year of `issuedAt` and slashes in the invoice number become hyphens.
 
-An existing key returns its stored bytes with `reused: true`; otherwise the service renders and uploads with `Content-Type: application/pdf`. This is a HEAD-then-GET/PUT reuse mechanism, not an atomic exactly-once guarantee across concurrent requests. Storage errors other than not-found propagate as failures.
+Use the private `rgss-invoices` bucket for production. The renderer returns `pdfObjectKey` and the PDF bytes for the customer's email attachment. The admin job stores a link served by its branch-authorized billing route. That route retrieves the bytes from the renderer using a signed `POST /v1/invoices/download` with the invoice number and issue instant.
+
+Legacy public responses use `pdfUrl` built from `R2_PUBLIC_BASE_URL`. Existing invoices keep the links already stored for them.
+
+An existing key returns its stored bytes with `reused: true`. For an absent key, the service renders and uploads with `Content-Type: application/pdf` and `If-None-Match: *`. Concurrent requests can both render. The first write wins, and the other request reads the stored bytes and returns `reused: true`. Unexpected storage errors propagate as failures.
 
 The key does not include template version or request contents. Reusing the same invoice number and year returns the existing PDF even when the template or payload changes.
 
@@ -89,12 +94,13 @@ The key does not include template version or request contents. Reusing the same 
 | `R2_ENDPOINT` | Required URL | S3-compatible R2 API endpoint |
 | `R2_ACCESS_KEY_ID` | Required | R2 access credential |
 | `R2_SECRET_ACCESS_KEY` | Required | R2 secret credential |
-| `R2_PUBLIC_BASE_URL` | Required URL | Base used for the returned PDF URL; trailing slashes normalized |
+| `R2_INVOICE_ACCESS` | Set to `private` for `rgss-invoices` | Selects private storage responses; a deployment that omits it uses legacy public responses |
+| `R2_PUBLIC_BASE_URL` | Required for public mode | Base used for legacy returned PDF URLs |
 | `PORT` | Optional; `8080` | Listening port; honor the value supplied by Cloud Run |
 | `NODE_ENV` | Optional; `development` | `development`, `test`, or `production` |
 | `SENTRY_DSN` | Optional URL | Error reporting; omit when unused |
 
-There is no app-local env template in this folder. Refer to the [shared example](../../.env.example), but include only the required app settings in an ignored local file or process environment. Never use production credentials for exploratory rendering. There is no `SKIP_ENV_VALIDATION` bypass in this service.
+Use the [invoice environment template](.env.example) with a dedicated fixture bucket for local rendering. Keep actual credentials in an ignored local file or the hosting secret store.
 
 ## Local development
 

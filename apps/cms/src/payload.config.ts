@@ -57,6 +57,7 @@ import { Team } from './collections/Team'
 import { Testimonial } from './collections/Testimonial'
 import { Users } from './collections/Users'
 import { catalogueBranchesEndpoint } from './endpoints/catalogue-branches'
+import { publicMediaFileUrl, readPublicMediaOrigin } from './lib/media-storage'
 import { resolveServerURL } from './lib/server-url'
 
 const filename = fileURLToPath(import.meta.url)
@@ -72,6 +73,9 @@ const isR2Configured =
   (process.env.R2_ENDPOINT ?? '') !== '' &&
   (process.env.R2_ACCESS_KEY_ID ?? '') !== '' &&
   (process.env.R2_SECRET_ACCESS_KEY ?? '') !== ''
+const mediaOrigin = isR2Configured
+  ? readPublicMediaOrigin(process.env.R2_MEDIA_PUBLIC_URL)
+  : undefined
 
 // Resend email is only enabled when RESEND_API_KEY is present. Without it,
 // Payload falls back to the console "no email adapter" transport (fine for
@@ -150,10 +154,15 @@ export default buildConfig({
       alwaysInsertFields: true,
       collections: {
         // All Payload-managed media is stored under the `cms/` key prefix
-        // (R2 "folder") to keep it separate from other app uploads
-        // (e.g. future `website/`, `invoices/` prefixes used outside Payload).
+        // (R2 "folder") in the uploads bucket.
         media: {
           prefix: 'cms',
+          ...(mediaOrigin
+            ? {
+                generateFileURL: ({ filename, prefix }) =>
+                  publicMediaFileUrl(mediaOrigin, filename, prefix),
+              }
+            : {}),
         },
       },
       bucket: process.env.R2_BUCKET_NAME ?? '',

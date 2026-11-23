@@ -59,3 +59,9 @@ export function formatInvoiceNumber(
 export function invoiceFileStem(invoiceNumber: string): string {
   return invoiceNumber.replace(/[^A-Za-z0-9-]+/g, '-')
 }
+
+/** The persistent storage key uses the UTC year of the original issue instant. */
+export function invoicePdfObjectKey(invoiceNumber: string, issuedAt: string): string {
+  const year = new Date(issuedAt).getUTCFullYear()
+  return `invoices/${year}/${invoiceFileStem(invoiceNumber)}.pdf`
+}

@@ -64,6 +64,7 @@ const PREFIX = `st_it_${RUN}`
 const A = `${PREFIX}_a`
 const B = `${PREFIX}_b`
 const C = `${PREFIX}_c`
+const OWNER_AB = `${PREFIX}_owner_ab`
 const OWNER_C = `${PREFIX}_owner_c`
 const ACTOR = `${PREFIX}_actor`
 const TIER = `${PREFIX}_tier`
@@ -232,9 +233,6 @@ describe.skipIf(!LIVE)(
     const statements: Record<string, string> = {}
 
     beforeAll(async () => {
-      const owner = await queryRow<{ id: string }>(
-        sql`select owner_user_id as id from branch order by is_primary desc, display_order limit 1`,
-      )
       const service = await queryRow<{ id: string; sac: string }>(
         sql`select s.id, coalesce(s.sac_code, c.sac_code) as sac
           from service s join service_category c on c.id = s.category_id
@@ -250,11 +248,12 @@ describe.skipIf(!LIVE)(
         insert into "user" (id, name, email, email_verified, role)
         values (${ACTOR}, 'ZZ Settle IT actor', ${`${ACTOR}@example.invalid`}, false, 'customer'),
                (${GEMS_CUSTOMER}, 'ZZ Settle IT gems', ${`${GEMS_CUSTOMER}@example.invalid`}, false, 'customer'),
+               (${OWNER_AB}, 'ZZ Settle IT owner AB', ${`${OWNER_AB}@example.invalid`}, false, 'owner'),
                (${OWNER_C}, 'ZZ Settle IT owner C', ${`${OWNER_C}@example.invalid`}, false, 'owner')`),
         db.execute(sql`
         insert into branch (id, number, code, name, address_line1, pincode, phone, display_order, owner_user_id)
-        values (${A}, ${number}, ${`${PREFIX}_A`}, 'ZZ Settle IT A', 'Test', '560100', '0000000000', 940, ${owner?.id ?? ''}),
-               (${B}, ${number + 1}, ${`${PREFIX}_B`}, 'ZZ Settle IT B', 'Test', '560100', '0000000000', 941, ${owner?.id ?? ''}),
+        values (${A}, ${number}, ${`${PREFIX}_A`}, 'ZZ Settle IT A', 'Test', '560100', '0000000000', 940, ${OWNER_AB}),
+               (${B}, ${number + 1}, ${`${PREFIX}_B`}, 'ZZ Settle IT B', 'Test', '560100', '0000000000', 941, ${OWNER_AB}),
                (${C}, ${number + 2}, ${`${PREFIX}_C`}, 'ZZ Settle IT C', 'Test', '560100', '0000000000', 942, ${OWNER_C})`),
         db.execute(sql`
         insert into spa_membership_tier (id, name, slug, default_hours_minutes, default_price_paise, default_validity_days, is_active)
@@ -580,11 +579,63 @@ describe.skipIf(!LIVE)(
       ).toMatch(/made only by closing/)
     })
 
+    it('rechecks the actor and branch ownership when recording a payment (MS-25)', async () => {
+      const ab = statements[`${A}|${B}`] ?? ''
+      const ac = statements[`${A}|${C}`] ?? ''
+      const paid = { paidOn: '2026-10-30', reference: 'UTR 4488', internalTransfer: false }
+
+      const open = await getSettlementStatement(ab, { all: true })
+      expect(open?.payingBranchId).toBe(A)
+      const handoverMarker = sql`hashtextextended(${`settlement-handover:${ab}`}::text, 0)`
+      const handover = db.batch([
+        db.execute(sql`
+          select id from "user" where id in (${OWNER_AB}, ${OWNER_C}) order by id for no key update
+        `),
+        db.execute(sql`update branch set owner_user_id = ${OWNER_C} where id = ${A}`),
+        db.execute(sql`select pg_advisory_xact_lock(${handoverMarker})`),
+        db.execute(sql`select pg_sleep(3)`),
+      ])
+      const payDuringHandover = async () => {
+        // Observe the writer's lock while the old Owner is still visible to
+        // unlocked reads. The payment must wait and see the committed change.
+        await expect
+          .poll(() =>
+            queryRow(sql`select pg_try_advisory_xact_lock(${handoverMarker}) as acquired`),
+          )
+          .toEqual({ acquired: false })
+        return markSettlementPaid({ ...paid, id: ab, actorId: OWNER_AB })
+      }
+      try {
+        const [, payment] = await Promise.all([handover, payDuringHandover()])
+        expect(payment).toEqual({
+          ok: false,
+          reason: 'forbidden',
+        })
+      } finally {
+        await handover
+        await db.execute(sql`update branch set owner_user_id = ${OWNER_AB} where id = ${A}`)
+      }
+      expect(await markSettlementPaid({ ...paid, id: ab, actorId: ACTOR })).toEqual({
+        ok: false,
+        reason: 'not_found',
+      })
+      expect(await markSettlementPaid({ ...paid, id: ab, actorId: OWNER_C })).toEqual({
+        ok: false,
+        reason: 'not_found',
+      })
+      expect(await markSettlementPaid({ ...paid, id: ac, actorId: OWNER_AB })).toEqual({
+        ok: false,
+        reason: 'forbidden',
+      })
+      expect((await getSettlementStatement(ab, { all: true }))?.paid).toBeNull()
+      expect((await getSettlementStatement(ac, { all: true }))?.paid).toBeNull()
+    })
+
     it('records a payment once, and an internal transfer only between one Owner’s branches (MS-25)', async () => {
       const ab = statements[`${A}|${B}`] ?? ''
       const ac = statements[`${A}|${C}`] ?? ''
       const bc = statements[`${B}|${C}`] ?? ''
-      const paid = { paidOn: '2026-10-30', reference: 'UTR 4455', actorId: ACTOR }
+      const paid = { paidOn: '2026-10-30', reference: 'UTR 4455', actorId: OWNER_AB }
 
       expect(await markSettlementPaid({ ...paid, id: ab, internalTransfer: true })).toEqual({
         ok: true,
@@ -593,13 +644,12 @@ describe.skipIf(!LIVE)(
         ok: false,
         reason: 'already_paid',
       })
-      expect(await markSettlementPaid({ ...paid, id: ac, internalTransfer: true })).toEqual({
-        ok: false,
-        reason: 'not_same_owner',
-      })
-      expect(await markSettlementPaid({ ...paid, id: ac, internalTransfer: false })).toEqual({
-        ok: true,
-      })
+      expect(
+        await markSettlementPaid({ ...paid, id: ac, internalTransfer: true, actorId: OWNER_C }),
+      ).toEqual({ ok: false, reason: 'not_same_owner' })
+      expect(
+        await markSettlementPaid({ ...paid, id: ac, internalTransfer: false, actorId: OWNER_C }),
+      ).toEqual({ ok: true })
       expect(await markSettlementPaid({ ...paid, id: bc, internalTransfer: false })).toEqual({
         ok: false,
         reason: 'nothing_owed',
@@ -612,7 +662,7 @@ describe.skipIf(!LIVE)(
         paidOn: '2026-10-30',
         reference: 'UTR 4455',
         internalTransfer: true,
-        recordedByName: 'ZZ Settle IT actor',
+        recordedByName: 'ZZ Settle IT owner AB',
       })
     })
 

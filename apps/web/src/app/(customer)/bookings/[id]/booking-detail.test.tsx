@@ -74,7 +74,10 @@ const TERMS = {
 function mockBooking(terms: unknown = TERMS, overrides: Record<string, unknown> = {}) {
   server.use(
     http.get('*/api/bookings/bk_1', () =>
-      HttpResponse.json({ success: true, data: { booking: booking(overrides), terms } }),
+      HttpResponse.json({
+        success: true,
+        data: { booking: booking(overrides), terms, policyRevision: terms ? 4 : null },
+      }),
     ),
   )
 }
@@ -82,6 +85,12 @@ function mockBooking(terms: unknown = TERMS, overrides: Record<string, unknown> 
 async function renderPage() {
   render(<BookingDetail id="bk_1" />)
   await screen.findByRole('heading', { name: 'BK-RS-2611-H-12345' }, LOAD)
+}
+
+async function confirmCancellation() {
+  const confirm = screen.getByRole('button', { name: 'Yes, Cancel Booking' })
+  await waitFor(() => expect(confirm).toBeEnabled(), LOAD)
+  fireEvent.click(confirm)
 }
 
 // The dates here are fixed, so the page's "today" is too: a new date before
@@ -136,7 +145,7 @@ describe('BookingDetail — cancelling', () => {
     expect(cancel).not.toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel Booking' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Yes, Cancel Booking' }))
+    await confirmCancellation()
     expect(await screen.findByText('Booking cancelled.', {}, LOAD)).toBeInTheDocument()
     expect(cancel).toHaveBeenCalledOnce()
   })
@@ -155,10 +164,57 @@ describe('BookingDetail — cancelling', () => {
       "Your appointment is less than 4 hours away, so this counts as a late cancellation. You won't be charged, but it's noted on your record.",
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Yes, Cancel Booking' }))
+    await confirmCancellation()
     expect(
       await screen.findByText(/It was a late cancellation: you weren't charged/, {}, LOAD),
     ).toBeInTheDocument()
+  })
+
+  it('refreshes changed terms and requires a new confirmation after the server rejects stale terms', async () => {
+    let currentRevision = 4
+    let late = false
+    const cancel = vi.fn()
+    server.use(
+      http.get('*/api/bookings/bk_1', () =>
+        HttpResponse.json({
+          success: true,
+          data: {
+            booking: booking(),
+            terms: { ...TERMS, cancel: { late, cutoffHours: 4 } },
+            policyRevision: currentRevision,
+          },
+        }),
+      ),
+      http.post('*/api/bookings/bk_1/cancel', async ({ request }) => {
+        cancel(await request.json())
+        if (cancel.mock.calls.length === 1) {
+          currentRevision = 5
+          late = true
+          return HttpResponse.json(
+            {
+              success: false,
+              error: { code: 'BOOKING_TERMS_CHANGED', message: 'Review the new terms.' },
+            },
+            { status: 409 },
+          )
+        }
+        return HttpResponse.json({ success: true, data: { status: 'cancelled', late: true } })
+      }),
+    )
+    await renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel Booking' }))
+    await confirmCancellation()
+
+    expect(await screen.findByText('Review the new terms.', {}, LOAD)).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Cancel this booking?' })).toHaveTextContent(
+      /counts as a late cancellation/,
+    )
+    expect(cancel.mock.calls).toEqual([[{ confirmedTerms: { policyRevision: 4, late: false } }]])
+
+    await confirmCancellation()
+    await waitFor(() => expect(cancel).toHaveBeenCalledTimes(2), LOAD)
+    expect(cancel).toHaveBeenLastCalledWith({ confirmedTerms: { policyRevision: 5, late: true } })
   })
 
   it('still offers cancelling when the branch’s rules can’t be read', async () => {
@@ -220,9 +276,16 @@ describe('BookingDetail — rescheduling', () => {
     ])
 
     fireEvent.change(screen.getByLabelText('New time'), { target: { value: '13:00' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm New Slot' }))
+    const confirm = screen.getByRole('button', { name: 'Confirm New Slot' })
+    await waitFor(() => expect(confirm).toBeEnabled(), LOAD)
+    fireEvent.click(confirm)
     await waitFor(
-      () => expect(sent).toEqual({ bookingDate: '2026-11-12', startTime: '13:00' }),
+      () =>
+        expect(sent).toEqual({
+          bookingDate: '2026-11-12',
+          startTime: '13:00',
+          expectedPolicyRevision: 4,
+        }),
       LOAD,
     )
   })

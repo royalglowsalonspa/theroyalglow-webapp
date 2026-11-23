@@ -76,9 +76,9 @@ For the contributor overview, configuration, and route map, read [README.md](REA
   `enqueueJob()` and heartbeat delivery are best-effort and must not turn a
   successful core mutation into an upstream-provider failure.
 - Recurring schedule definitions belong in `src/lib/jobs/schedules.ts`; cron
-  expressions are UTC. Registration replaces schedules with matching destination
-  URLs and requires a reachable admin origin. Preview with `--dry` when reviewing
-  schedule changes; registration changes the remote QStash configuration.
+  expressions are UTC. Registration requires a reachable admin origin and keeps
+  matching active schedules. Preview with `--dry` and use `--jobs` for a scoped
+  apply. Paused or duplicate schedules require explicit resolution.
 - Invoice orchestration calls `apps/invoicing` for PDF rendering. Preserve its
   signed request contract and documented no-attachment fallback.
 - `service-drift-reconcile` detects and reports CMS/public divergence; it does not

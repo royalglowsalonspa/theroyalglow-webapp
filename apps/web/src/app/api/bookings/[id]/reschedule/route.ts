@@ -51,7 +51,7 @@ import {
   getClosureOn,
   rescheduleBooking,
 } from '@rgss/db/queries'
-import { badRequest, notFound } from '@rgss/errors'
+import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
 import { rescheduleBookingSchema } from '@rgss/types'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireSession } from '@/lib/api/session'
@@ -94,7 +94,13 @@ export const POST = withErrorHandler(
     if (!parsed.success) {
       throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
     }
-    const { bookingDate, startTime } = parsed.data
+    const { bookingDate, startTime, expectedPolicyRevision } = parsed.data
+    if (expectedPolicyRevision !== undefined && expectedPolicyRevision !== policy.revision) {
+      throw conflict(
+        ERROR_CODES.BOOKING_TERMS_CHANGED,
+        'The reschedule terms changed. Review them before choosing a new time.',
+      )
+    }
 
     // The branch must be open on the new date (R1.8, R5.7), and the new slot
     // within its hours, lead time and booking window. Duration is the

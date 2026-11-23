@@ -17,8 +17,13 @@
  * - region 'auto' + forcePathStyle true are the R2 requirements.
  * - getPdfBytes returns a Uint8Array decoded from the streaming body.
  ************************************************************/
-import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
-import { invoiceFileStem } from '@rgss/business'
+import {
+  GetObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+  S3Client,
+  S3ServiceException,
+} from '@aws-sdk/client-s3'
 import { env } from '../env'
 
 const client = new S3Client({
@@ -31,18 +36,16 @@ const client = new S3Client({
   },
 })
 
-// invoices/{YYYY}/{invoice number as a file name}.pdf — YYYY is the issuedAt
-// year (UTC). Per-branch numbers contain slashes (RS/2627/000123), which the
-// file name turns into hyphens (RS-2627-000123); older numbers
-// (INV-1-2627-92921) have none, so their keys are unchanged.
-export function buildObjectKey(invoiceNumber: string, issuedAt: string): string {
-  const year = new Date(issuedAt).getUTCFullYear()
-  return `invoices/${year}/${invoiceFileStem(invoiceNumber)}.pdf`
-}
-
 // Public URL for a stored object, built from the configured base URL.
 export function buildPdfUrl(key: string): string {
+  if (!env.R2_PUBLIC_BASE_URL) throw new Error('Public invoice base URL is unavailable')
   return `${env.R2_PUBLIC_BASE_URL}/${key}`
+}
+
+function isObjectNotFound(error: unknown): boolean {
+  const status = (error as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode
+  const name = (error as { name?: string })?.name
+  return status === 404 || name === 'NotFound' || name === 'NoSuchKey'
 }
 
 // Returns true when an object already exists at `key` (idempotency check).
@@ -52,25 +55,30 @@ export async function objectExists(key: string): Promise<boolean> {
     await client.send(new HeadObjectCommand({ Bucket: env.R2_BUCKET_NAME, Key: key }))
     return true
   } catch (error) {
-    const status = (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode
-    const name = (error as { name?: string }).name
-    if (status === 404 || name === 'NotFound' || name === 'NoSuchKey') {
+    if (isObjectNotFound(error)) {
       return false
     }
     throw error
   }
 }
 
-// Upload PDF bytes at `key` with the correct content type.
-export async function putPdf(key: string, bytes: Uint8Array): Promise<void> {
-  await client.send(
-    new PutObjectCommand({
-      Bucket: env.R2_BUCKET_NAME,
-      Key: key,
-      Body: bytes,
-      ContentType: 'application/pdf',
-    }),
-  )
+// R2 checks the condition when committing the write, including concurrent PUTs.
+export async function putPdfIfAbsent(key: string, bytes: Uint8Array): Promise<boolean> {
+  try {
+    await client.send(
+      new PutObjectCommand({
+        Bucket: env.R2_BUCKET_NAME,
+        Key: key,
+        Body: bytes,
+        ContentType: 'application/pdf',
+        IfNoneMatch: '*',
+      }),
+    )
+    return true
+  } catch (error) {
+    if (error instanceof S3ServiceException && error.$metadata.httpStatusCode === 412) return false
+    throw error
+  }
 }
 
 // Read a stored PDF back as a Uint8Array.
@@ -80,4 +88,13 @@ export async function getPdfBytes(key: string): Promise<Uint8Array> {
     throw new Error(`R2 object has no body: ${key}`)
   }
   return response.Body.transformToByteArray()
+}
+
+export async function findPdfBytes(key: string): Promise<Uint8Array | null> {
+  try {
+    return await getPdfBytes(key)
+  } catch (error) {
+    if (isObjectNotFound(error)) return null
+    throw error
+  }
 }

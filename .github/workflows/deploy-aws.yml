@@ -98,19 +98,21 @@ jobs:
           # same ID is already the subdomain of R2_ENDPOINT below.
           CLOUDFLARE_DEFAULT_ACCOUNT_ID: ${{ vars.CLOUDFLARE_DEFAULT_ACCOUNT_ID }}
           NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
-          NEXT_PUBLIC_ABLY_KEY: ${{ vars.NEXT_PUBLIC_ABLY_KEY }}
+          # The browser uses this as a feature flag and authenticates through /api/ably/token.
+          NEXT_PUBLIC_ABLY_KEY: ${{ vars.NEXT_PUBLIC_ABLY_KEY != '' && 'enabled' || '' }}
           NEXT_PUBLIC_POSTHOG_KEY: ${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}
           NEXT_PUBLIC_POSTHOG_HOST: ${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}
           NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ vars.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}
           NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
           NEXT_PUBLIC_ADMIN_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_ADMIN_SENTRY_DSN }}
-          NEXT_PUBLIC_R2_PUBLIC_URL: ${{ vars.NEXT_PUBLIC_R2_PUBLIC_URL }}
+          NEXT_PUBLIC_R2_PUBLIC_URL: ${{ vars.R2_UPLOAD_BUCKET_NAME && vars.R2_UPLOAD_PUBLIC_URL || vars.NEXT_PUBLIC_R2_PUBLIC_URL }}
           NEXT_PUBLIC_CMS_URL: ${{ vars.NEXT_PUBLIC_CMS_URL }}
           NEXT_PUBLIC_ADMIN_URL: ${{ vars.NEXT_PUBLIC_ADMIN_URL }}
           NEXT_PUBLIC_META_PIXEL_ID: ${{ vars.NEXT_PUBLIC_META_PIXEL_ID }}
           NEXT_PUBLIC_CLARITY_ID: ${{ vars.NEXT_PUBLIC_CLARITY_ID }}
           # Non-secret runtime config read by sst.config.ts
-          R2_BUCKET_NAME: ${{ vars.R2_BUCKET_NAME }}
+          QSTASH_URL: ${{ vars.QSTASH_URL }}
+          R2_BUCKET_NAME: ${{ vars.R2_UPLOAD_PUBLIC_URL && vars.R2_UPLOAD_BUCKET_NAME || vars.R2_BUCKET_NAME }}
           R2_ENDPOINT: ${{ vars.R2_ENDPOINT }}
           INVOICING_SERVICE_URL: ${{ vars.INVOICING_SERVICE_URL }}
         run: bunx sst deploy --stage "$SST_STAGE"

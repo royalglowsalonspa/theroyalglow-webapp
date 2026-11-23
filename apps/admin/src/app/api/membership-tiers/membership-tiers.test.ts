@@ -233,15 +233,35 @@ describe('PATCH /api/membership-tiers/[id]', () => {
     expect((tierRoute as Record<string, unknown>).DELETE).toBeUndefined()
   })
 
-  it('refuses a SAC change from a Manager, but takes the unchanged code (MS-18)', async () => {
+  it('refuses a SAC change from a Manager and preserves a concurrent Developer change', async () => {
     actAs('manager')
 
     const refused = await edit({ sacCode: '999721' })
     expect(refused.status).toBe(403)
     expect(dbMocks.updateMembershipTier).not.toHaveBeenCalled()
 
-    const unchanged = await edit({ name: 'Gold', sacCode: '999723' })
+    dbMocks.updateMembershipTier.mockImplementationOnce(async (_id: string, patch: object) => ({
+      ...GOLD,
+      sacCode: '999729',
+      ...patch,
+    }))
+    const unchanged = await edit({ name: 'Gold Plus', sacCode: GOLD.sacCode })
     expect(unchanged.status).toBe(200)
+    expect((await unchanged.json()).data.tier).toMatchObject({
+      name: 'Gold Plus',
+      sacCode: '999729',
+    })
+    expect(dbMocks.updateMembershipTier).toHaveBeenCalledWith('tier_gold', { name: 'Gold Plus' })
+  })
+
+  it('returns the tier when a Manager only resends its current SAC code', async () => {
+    actAs('manager')
+    const res = await edit({ sacCode: GOLD.sacCode })
+
+    expect(res.status).toBe(200)
+    expect((await res.json()).data.tier).toEqual(GOLD)
+    expect(dbMocks.updateMembershipTier).not.toHaveBeenCalled()
+    expect(dbMocks.recordAudit).not.toHaveBeenCalled()
   })
 
   it('lets the Developer change the SAC code', async () => {

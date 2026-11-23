@@ -88,6 +88,7 @@ export const POST = withErrorHandler(
     const raw = await req.json().catch(() => ({}))
     const parsed = cancelBookingSchema.safeParse(raw ?? {})
     const reason = parsed.success ? (parsed.data.reason ?? null) : null
+    const confirmedTerms = parsed.success ? parsed.data.confirmedTerms : undefined
 
     // Late within the branch's cut-off: allowed, never charged, counted.
     const policy = await policyForCancellation(existing.branchId)
@@ -104,6 +105,17 @@ export const POST = withErrorHandler(
           settingsRevision: policy.revision,
         }
       : undefined
+
+    if (
+      confirmedTerms &&
+      (confirmedTerms.policyRevision !== (policy?.revision ?? null) ||
+        confirmedTerms.late !== (decision?.late ?? false))
+    ) {
+      throw conflict(
+        ERROR_CODES.BOOKING_TERMS_CHANGED,
+        'The cancellation terms changed. Review them before cancelling.',
+      )
+    }
 
     const updated = await cancelBooking(id, session.user.id, reason, decision)
     if (!updated) {

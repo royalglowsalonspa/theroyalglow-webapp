@@ -1,5 +1,11 @@
 -- Run after SET TRANSACTION SNAPSHOT, with search_path set to pg_catalog.
 -- Build one read-only query for tables that exist at the captured schema version.
+-- The optional export emits private reference rows for the restored copy only.
+\if :{?rgss_backup_reference_export}
+\else
+\set rgss_backup_reference_export false
+\endif
+
 WITH relations AS (
   SELECT n.nspname AS schema_name, c.relname AS table_name, c.relkind
   FROM pg_class c
@@ -63,12 +69,28 @@ WITH relations AS (
     ),
     ' UNION ALL '
     ORDER BY r.schema_name, r.table_name, r.column_name
-  ) AS statement
+  ) AS statement,
+  string_agg(
+    format(
+      'SELECT %L as kind, row_number() OVER (ORDER BY id) as position, jsonb_build_array(id, %I)::text as pair FROM %I.%I WHERE %I IS NOT NULL',
+      format('%I.%I.%I', r.schema_name, r.table_name, r.column_name),
+      r.column_name, r.schema_name, r.table_name, r.column_name
+    ),
+    ' UNION ALL '
+    ORDER BY r.schema_name, r.table_name, r.column_name
+  ) AS export_statement
   FROM reference_columns r
   JOIN information_schema.columns c
     ON (r.schema_name, r.table_name, r.column_name) = (c.table_schema, c.table_name, c.column_name)
 )
-SELECT format($facts$
+SELECT CASE WHEN :'rgss_backup_reference_export'::boolean THEN
+  format($reference_export$
+    SELECT coalesce(jsonb_agg(jsonb_build_object('kind', kind, 'position', position, 'pair', pair)
+      ORDER BY kind, position), '[]'::jsonb)
+    FROM (%s) AS reference_rows
+  $reference_export$, coalesce(object_references.export_statement,
+    'SELECT NULL::text AS kind, NULL::bigint AS position, NULL::text AS pair WHERE false'))
+ELSE format($facts$
 WITH counts AS (%s), sums AS (%s), object_references AS (%s)
 SELECT jsonb_build_object(
   'database', current_database(),
@@ -101,6 +123,6 @@ $facts$,
   CASE WHEN to_regclass('cms.payload_migrations') IS NOT NULL THEN
     '(SELECT coalesce(jsonb_agg(to_jsonb(m) ORDER BY id), ''[]''::jsonb) FROM cms.payload_migrations m)'
   ELSE 'NULL' END
-)
+) END
 FROM counts CROSS JOIN sums CROSS JOIN object_references
 \gexec

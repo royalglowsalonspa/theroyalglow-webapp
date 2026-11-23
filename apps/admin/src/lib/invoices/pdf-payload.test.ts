@@ -370,6 +370,69 @@ describe('invoice PDF delivery', () => {
     expect(invoiceMocks.send.mock.calls[0]?.[0]?.html).not.toContain('99 New Address')
   })
 
+  it('stores a protected link for private storage and emails the inline PDF', async () => {
+    const invoice = loaded()
+    invoiceMocks.getInvoiceForPdf.mockResolvedValue(invoice)
+    vi.stubEnv('RESEND_API_KEY', 'test-email-key')
+    const fetcher = vi.fn().mockResolvedValue(
+      Response.json({
+        invoiceNumber: invoice.invoice.invoiceNumber,
+        pdfObjectKey: 'invoices/2026/RS-2627-000042.pdf',
+        pdfBase64: 'cGRm',
+      }),
+    )
+    vi.stubGlobal('fetch', fetcher)
+
+    const response = await invoicePdfPOST(
+      new Request('https://admin.test/api/jobs/invoice-pdf', {
+        method: 'POST',
+        body: JSON.stringify({ invoiceId: invoice.invoice.id }),
+      }),
+    )
+
+    expect(await response.json()).toMatchObject({ success: true, sent: true, attached: true })
+    expect(invoiceMocks.setInvoicePdfUrl).toHaveBeenCalledWith(
+      invoice.invoice.id,
+      `/api/billing/${invoice.invoice.id}/pdf`,
+    )
+    expect(invoiceMocks.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: invoice.customer.email,
+        attachments: [{ filename: 'RS-2627-000042.pdf', content: 'cGRm' }],
+      }),
+    )
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not save or send a private PDF key that belongs to a different invoice', async () => {
+    const invoice = loaded()
+    invoiceMocks.getInvoiceForPdf.mockResolvedValue(invoice)
+    vi.stubEnv('RESEND_API_KEY', 'test-email-key')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        Response.json({
+          invoiceNumber: invoice.invoice.invoiceNumber,
+          pdfObjectKey: 'invoices/2026/RS-2627-111111.pdf',
+          pdfBase64: 'cGRm',
+        }),
+      ),
+    )
+    const response = await invoicePdfPOST(
+      new Request('https://admin.test/api/jobs/invoice-pdf', {
+        method: 'POST',
+        body: JSON.stringify({ invoiceId: invoice.invoice.id }),
+      }),
+    )
+    expect(await response.json()).toMatchObject({
+      success: true,
+      attached: false,
+      reason: 'invalid-result',
+    })
+    expect(invoiceMocks.setInvoicePdfUrl).not.toHaveBeenCalled()
+    expect(invoiceMocks.send.mock.calls[0]?.[0]).not.toHaveProperty('attachments')
+  })
+
   it('emails a legacy invoice with the branch address when rendering fails', async () => {
     const invoice = loaded({
       invoice: storedInvoice({

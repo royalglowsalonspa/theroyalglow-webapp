@@ -120,17 +120,29 @@ export const invoicePdfPayloadSchema = z.object({
 
 export type InvoicePdfPayload = z.infer<typeof invoicePdfPayloadSchema>
 
-// The service's success response: where the rendered PDF was stored and its
-// bytes (base64) so the caller can attach it to the invoice email without a
-// second fetch. `pdfBase64` is optional so the caller can also choose to fetch
-// from `pdfUrl` instead of receiving the bytes inline.
-export const invoicePdfResultSchema = z.object({
+/** Enough stored invoice facts to locate a rendered PDF. */
+export const invoicePdfDownloadSchema = invoicePdfPayloadSchema
+  .pick({ invoiceNumber: true, issuedAt: true })
+  .strict()
+
+const invoicePdfResultBaseSchema = z.object({
   invoiceNumber: z.string().min(1),
-  pdfUrl: z.string().url(),
-  pdfBase64: z.string().min(1).optional(),
   // True when an existing stored PDF was returned (idempotent replay), false
   // when freshly rendered this call.
   reused: z.boolean().default(false),
 })
+
+// Private storage always sends the PDF inline for email attachments. Legacy
+// public storage can omit the inline bytes and let the caller fetch the URL.
+export const invoicePdfResultSchema = z.union([
+  invoicePdfResultBaseSchema.extend({
+    pdfObjectKey: z.string().regex(/^invoices\/\d{4}\/[A-Za-z0-9-]+\.pdf$/),
+    pdfBase64: z.string().min(1),
+  }),
+  invoicePdfResultBaseSchema.extend({
+    pdfUrl: z.string().url(),
+    pdfBase64: z.string().min(1).optional(),
+  }),
+])
 
 export type InvoicePdfResult = z.infer<typeof invoicePdfResultSchema>

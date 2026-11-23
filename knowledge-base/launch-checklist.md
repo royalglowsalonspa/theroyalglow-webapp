@@ -103,13 +103,13 @@ Do not add an independent Route 53 hosted zone for the production domain. Cloudf
 
 ### Cloudflare R2
 
-- [ ] Media/invoice and backup buckets exist.
+- [ ] `rgss-uploads`, `rgss-invoices`, and `rgss-backups` exist.
 - [ ] Workload credentials use least-privilege bucket access.
 - [ ] Backup credentials are separate from DNS automation credentials.
-- [ ] Public media/invoice hostname resolves and serves expected objects.
+- [ ] The public media hostname serves expected uploads and `/.health`.
+- [ ] Invoice and backup buckets use private access.
 - [ ] CORS allows only required Royal Glow origins and methods.
 - [ ] Lifecycle rules preserve required invoice and backup retention.
-- [ ] `R2_PUBLIC_BASE_URL` is configured for `apps/invoicing`.
 
 ### Payload CMS on Render
 
@@ -133,9 +133,10 @@ gcloud run deploy rgss-invoicing --source . --region asia-south1
 - [ ] `/healthz` returns healthy.
 - [ ] `INVOICE_PDF_HMAC_SECRET` matches the admin caller.
 - [ ] `R2_BUCKET_NAME`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY` are configured.
-- [ ] `R2_PUBLIC_BASE_URL` has no accidental path duplication or trailing-slash issue.
+- [ ] `R2_BUCKET_NAME=rgss-invoices` and `R2_INVOICE_ACCESS=private`.
 - [ ] Admin uses `INVOICING_SERVICE_URL`.
-- [ ] A signed test request renders a PDF and returns a working R2 URL.
+- [ ] A signed rehearsal request stores a PDF and sends the customer attachment.
+- [ ] The admin billing route serves the PDF to authorized branch staff.
 
 ## T-48h - Operations Readiness
 

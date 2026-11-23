@@ -2,15 +2,36 @@
 set -euo pipefail
 umask 077
 
-if [[ $# != 2 ]]; then
-  echo 'Usage: verify-isolated-restore.sh <named-manifest.json> <named-dump>' >&2
+if [[ $# -lt 2 || $# -gt 4 ]]; then
+  echo 'Usage: verify-isolated-restore.sh <named-manifest.json> <named-dump> [dump-key] [release-candidate-sha]' >&2
   exit 2
 fi
 
 manifest=$1
 dump=$2
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-expected_key="weekly/$(basename -- "$dump")"
+dump_name=$(basename -- "$dump")
+expected_key=${3:-weekly/$dump_name}
+candidate=${4:-}
+if [[ "$expected_key" != "weekly/$dump_name" && "$expected_key" != "release/$dump_name" ]]; then
+  echo 'The expected backup key must match the named dump.' >&2
+  exit 2
+fi
+if [[ "$expected_key" == release/* ]]; then
+  if [[ ! "$candidate" =~ ^[0-9a-f]{40}$ ]]; then
+    echo 'The full reviewed candidate SHA is required to verify a release backup.' >&2
+    exit 2
+  fi
+  jq -e --arg candidate "$candidate" '
+    .releaseCandidateCommit == $candidate and
+    (.sourceDeployedCommit | test("^[0-9a-f]{40}$")) and
+    (.sourceNeonHost | test("^ep-[a-z0-9-]+([.][a-z0-9-]+)+[.]neon[.]tech$")) and
+    (.sourceNeonBranchId | test("^br-[a-z0-9-]+$"))
+  ' "$manifest" >/dev/null
+elif [[ -n "$candidate" ]]; then
+  echo 'A release candidate SHA requires a release backup.' >&2
+  exit 2
+fi
 jq -e --arg key "$expected_key" '
   .version == 1 and .key == $key and (.sourceCommit | test("^[0-9a-f]{40}$")) and
   (.dumpSha256 | test("^[0-9a-f]{64}$")) and (.schemaSha256 | test("^[0-9a-f]{64}$")) and

@@ -32,12 +32,15 @@ This is a Hono service running on Node.js, not a Next.js app.
   Use `INR` for currency in the template so it renders with built-in Helvetica.
 - Object keys use the issue instant's UTC year and the normalized invoice number.
   A stored key is reused. Changing the key scheme affects previously issued PDFs.
-- Existing-object reuse is a HEAD/GET flow, not an atomic distributed lock. Do not
-  describe it as exactly-once processing or silently overwrite it with new semantics.
+- Existing-object reuse uses HEAD/GET. An absent key uses a conditional PUT, and
+  a precondition failure reads the PDF saved by the other request. Concurrent
+  requests can both render before the first write commits.
 - In `src/storage/r2.ts`, only not-found responses mean an absent object. Preserve
   propagation of credential/network/storage errors and `application/pdf` uploads.
-- The public URL is built from `R2_PUBLIC_BASE_URL`; access policy is external to
-  this app. Do not claim these are expiring signed download URLs.
+- Private storage responses include the object key and PDF bytes. The admin
+  billing route authorizes downloads by branch; the renderer's download route
+  verifies HMAC before reading storage. Public mode builds the legacy URL from
+  `R2_PUBLIC_BASE_URL`.
 
 ## Configuration and commands
 

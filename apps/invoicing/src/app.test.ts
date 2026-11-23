@@ -1,4 +1,9 @@
-import { GetObjectCommand, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
+import {
+  GetObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+  S3ServiceException,
+} from '@aws-sdk/client-s3'
 import { signRequest } from '@rgss/business'
 import { type InvoicePdfPayload, invoicePdfResultSchema } from '@rgss/types'
 import { Children, isValidElement, type ReactNode } from 'react'
@@ -10,6 +15,7 @@ const fixture = vi.hoisted(() => ({
   secret: 'fixture-invoice-hmac-secret',
   bucket: 'fixture-invoices',
   publicUrl: 'https://media.example.invalid',
+  privateStorage: false,
   send: vi.fn(),
 }))
 
@@ -22,6 +28,9 @@ vi.mock('./env', () => ({
     R2_ACCESS_KEY_ID: 'fixture',
     R2_SECRET_ACCESS_KEY: 'fixture',
     R2_PUBLIC_BASE_URL: fixture.publicUrl,
+    get R2_INVOICE_ACCESS() {
+      return fixture.privateStorage ? 'private' : 'public'
+    },
   },
 }))
 
@@ -73,10 +82,10 @@ const issuedInvoice: InvoicePdfPayload = {
   invoiceType: 'service',
 }
 
-async function postInvoice(body: string, signedBody = body) {
+async function postInvoice(body: string, signedBody = body, path = '/v1/invoices') {
   const timestamp = Date.now()
   const signature = await signRequest({ secret: fixture.secret, timestamp, body: signedBody })
-  return app.request('/v1/invoices', {
+  return app.request(path, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -98,7 +107,10 @@ function documentText(node: ReactNode): string {
 }
 
 describe('issued invoice rendering', () => {
-  beforeEach(() => fixture.send.mockReset())
+  beforeEach(() => {
+    fixture.privateStorage = false
+    fixture.send.mockReset()
+  })
 
   it('prints the saved invoice facts in IST with a currency label Helvetica supports', () => {
     const visibleText = documentText(InvoiceDocument(issuedInvoice)).replace(/\s+/g, ' ')
@@ -171,6 +183,7 @@ describe('issued invoice rendering', () => {
     expect(fixture.send.mock.calls[1]?.[0]?.input).toEqual({
       ...object,
       ContentType: 'application/pdf',
+      IfNoneMatch: '*',
       Body: new Uint8Array(pdf),
     })
     fixture.send.mockResolvedValueOnce({}).mockResolvedValueOnce({
@@ -186,11 +199,100 @@ describe('issued invoice rendering', () => {
     expect(fixture.send.mock.calls[3]?.[0]?.input).toEqual(object)
   })
 
+  it('keeps the first stored PDF when two signed render requests race', async () => {
+    let markBothChecked: (() => void) | undefined
+    const bothChecked = new Promise<void>((resolve) => {
+      markBothChecked = resolve
+    })
+    let checks = 0
+    let stored: Uint8Array | undefined
+    const candidates: Uint8Array[] = []
+
+    fixture.send.mockImplementation(
+      async (command: HeadObjectCommand | PutObjectCommand | GetObjectCommand) => {
+        if (command instanceof HeadObjectCommand) {
+          checks++
+          if (checks === 2) markBothChecked?.()
+          await bothChecked
+          throw { name: 'NotFound' }
+        }
+        if (command instanceof PutObjectCommand) {
+          const { Body, IfNoneMatch } = command.input
+          if (!(Body instanceof Uint8Array)) throw new Error('Expected rendered PDF bytes')
+          candidates.push(Body)
+          if (IfNoneMatch === '*' && stored) {
+            throw new S3ServiceException({
+              name: 'PreconditionFailed',
+              $fault: 'client',
+              $metadata: { httpStatusCode: 412 },
+            })
+          }
+          stored = Body
+          return {}
+        }
+        return { Body: { transformToByteArray: async () => stored } }
+      },
+    )
+
+    const responses = await Promise.all([
+      postInvoice(JSON.stringify(issuedInvoice)),
+      postInvoice(JSON.stringify({ ...issuedInvoice, notes: 'Added after issue' })),
+    ])
+    expect(responses.map((response) => response.status)).toEqual([200, 200])
+    const results = await Promise.all(
+      responses.map(async (response) => invoicePdfResultSchema.parse(await response.json())),
+    )
+
+    expect(candidates).toHaveLength(2)
+    expect(candidates[0]).not.toEqual(candidates[1])
+    expect(stored).toBe(candidates[0])
+    expect(results.map((result) => result.reused).sort()).toEqual([false, true])
+    const storedBase64 = Buffer.from(candidates[0] ?? []).toString('base64')
+    for (const result of results) {
+      expect(result.pdfBase64).toBe(storedBase64)
+    }
+  })
+
   it('rejects a changed signed body before reading storage', async () => {
     const response = await postInvoice('{', '{}')
 
     expect(response.status).toBe(401)
     expect(fixture.send).not.toHaveBeenCalled()
+  })
+
+  it('renders private PDFs without a public URL and serves them only after signing', async () => {
+    fixture.privateStorage = true
+    fixture.send.mockRejectedValueOnce({ name: 'NotFound' }).mockResolvedValueOnce({})
+    const render = await postInvoice(JSON.stringify(issuedInvoice))
+    expect(render.status).toBe(200)
+    const result = invoicePdfResultSchema.parse(await render.json())
+    const key = 'invoices/2026/RS-2627-000042.pdf'
+    expect(result).toMatchObject({ pdfObjectKey: key, invoiceNumber: issuedInvoice.invoiceNumber })
+    expect(result).not.toHaveProperty('pdfUrl')
+
+    const path = '/v1/invoices/download'
+    const body = JSON.stringify({
+      invoiceNumber: issuedInvoice.invoiceNumber,
+      issuedAt: issuedInvoice.issuedAt,
+    })
+    const unsigned = await app.request(path, { method: 'POST', body })
+    expect(unsigned.status).toBe(401)
+    expect(fixture.send).toHaveBeenCalledTimes(2)
+
+    const bytes = Buffer.from(result.pdfBase64 ?? '', 'base64')
+    fixture.send.mockResolvedValueOnce({
+      Body: { transformToByteArray: async () => bytes },
+    })
+    const download = await postInvoice(body, body, path)
+    expect(download.status).toBe(200)
+    expect(download.headers.get('content-type')).toBe('application/pdf')
+    expect(download.headers.get('cache-control')).toBe('private, no-store')
+    expect(Buffer.from(await download.arrayBuffer())).toEqual(bytes)
+    expect(fixture.send.mock.calls[2]?.[0]).toBeInstanceOf(GetObjectCommand)
+    expect(fixture.send.mock.calls[2]?.[0]?.input).toEqual({ Bucket: fixture.bucket, Key: key })
+
+    fixture.send.mockRejectedValueOnce({ name: 'NoSuchKey' })
+    expect((await postInvoice(body, body, path)).status).toBe(404)
   })
 
   it('rejects invalid signed JSON before reading storage', async () => {

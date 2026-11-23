@@ -6,8 +6,11 @@ on:
   workflow_dispatch:
     inputs:
       manifest_key:
-        description: Exact weekly/rgss_full_…manifest.json key to verify
+        description: Exact weekly/ or release/ manifest key to verify
         required: true
+        type: string
+      release_candidate_sha:
+        description: Full reviewed candidate SHA required for a release/ manifest
         type: string
 
 permissions:
@@ -15,20 +18,24 @@ permissions:
 
 jobs:
   restore-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_READ_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_READ_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: auto
-      R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install PostgreSQL tools
+      - name: Verify private R2 backup storage access
+        shell: bash
+        env:
+          R2_BACKUP_ACCOUNT_ID: ${{ vars.R2_BACKUP_ACCOUNT_ID }}
+        run: bash scripts/backup/verify-r2-backup-access.sh
+
+      - name: Select preinstalled PostgreSQL 18 tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client-18
+          test -x /usr/lib/postgresql/18/bin/pg_dump
           echo '/usr/lib/postgresql/18/bin' >> "$GITHUB_PATH"
 
       - name: Resolve and download the exact backup pair
@@ -40,25 +47,37 @@ jobs:
           umask 077
           key="$SELECTED_MANIFEST"
           if [[ -z "$key" ]]; then
-            key=$(aws s3api list-objects-v2 --bucket rgss-backups --prefix weekly/rgss_full_ \
-              --endpoint-url "$R2_ENDPOINT" |
-              jq -er '[.Contents[]? | .Key | select(endswith(".manifest.json"))] | max')
+            if ! key=$(aws s3api list-objects-v2 --bucket "$R2_BACKUP_BUCKET" --prefix weekly/rgss_full_ \
+              --endpoint-url "$R2_BACKUP_ENDPOINT" |
+              jq -er '[.Contents[]? | .Key | select(test("^weekly/rgss_full_[0-9]{8}T[0-9]{6}Z_[0-9]+-[0-9]+[.]manifest[.]json$"))] | max'); then
+              echo '::error title=No verified backup available::The weekly backup manifest could not be resolved. Confirm a successful upload to rgss-backups.' >&2
+              exit 1
+            fi
           fi
-          [[ "$key" =~ ^weekly/rgss_full_[0-9]{8}T[0-9]{6}Z_[0-9]+-[0-9]+\.manifest\.json$ ]]
+          if [[ ! "$key" =~ ^(weekly|release)/rgss_full_[0-9]{8}T[0-9]{6}Z_[0-9]+-[0-9]+\.manifest\.json$ ]]; then
+            echo '::error title=Invalid backup manifest key::Choose an exact weekly or release manifest key from a successful backup run.' >&2
+            exit 1
+          fi
           restore_dir=$(mktemp -d)
           dump_key="${key%.manifest.json}.dump"
           {
             echo "RESTORE_DIR=$restore_dir"
             echo "MANIFEST_PATH=$restore_dir/${key##*/}"
             echo "DUMP_PATH=$restore_dir/${dump_key##*/}"
+            echo "DUMP_KEY=$dump_key"
           } >> "$GITHUB_ENV"
-          aws s3 cp "s3://rgss-backups/$key" "$restore_dir/${key##*/}" --endpoint-url "$R2_ENDPOINT"
-          aws s3 cp "s3://rgss-backups/$dump_key" "$restore_dir/${dump_key##*/}" --endpoint-url "$R2_ENDPOINT"
+          aws s3 cp "s3://$R2_BACKUP_BUCKET/$key" "$restore_dir/${key##*/}" --endpoint-url "$R2_BACKUP_ENDPOINT"
+          jq -e '.sourceId == "neon-prod"' "$restore_dir/${key##*/}" >/dev/null
+          aws s3 cp "s3://$R2_BACKUP_BUCKET/$dump_key" "$restore_dir/${dump_key##*/}" --endpoint-url "$R2_BACKUP_ENDPOINT"
           echo "Verifying the selected manifest: $key" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Restore and compare in an isolated PostgreSQL container
         shell: bash
-        run: bash scripts/backup/verify-isolated-restore.sh "$MANIFEST_PATH" "$DUMP_PATH"
+        env:
+          RELEASE_CANDIDATE: ${{ inputs.release_candidate_sha }}
+        run: |
+          bash scripts/backup/verify-isolated-restore.sh \
+            "$MANIFEST_PATH" "$DUMP_PATH" "$DUMP_KEY" "$RELEASE_CANDIDATE"
 
       - name: Remove local backup copies
         if: always()
@@ -74,6 +93,10 @@ jobs:
         env:
           INCIDENT_WEBHOOK: ${{ secrets.BETTER_STACK_INCIDENT_WEBHOOK }}
         run: |
+          if [[ -z "$INCIDENT_WEBHOOK" ]]; then
+            echo '::warning title=Notification unavailable::The restore check failed and no Better Stack incident webhook is configured.'
+            exit 0
+          fi
           curl --fail-with-body --silent --show-error --max-time 10 "$INCIDENT_WEBHOOK" \
             -H 'Content-Type: application/json' \
             -d '{"title":"Monthly isolated restore verification failed","severity":"high"}'

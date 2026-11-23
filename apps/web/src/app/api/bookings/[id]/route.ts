@@ -21,7 +21,7 @@
  * - Ownership check returns 404 (not 403) to avoid leaking booking-id existence
  * - Includes status timestamps (confirmed/completed/cancelled/rejected) for the
  *   client-rendered status timeline
- * - Response: { booking, terms: BookingTerms | null }
+ * - Response: { booking, terms: BookingTerms | null, policyRevision: number | null }
  *
  * Tech Stack   : Next.js 16 (Route Handler)
  * Layer        : API (Thin Orchestrator)
@@ -54,6 +54,7 @@ export const GET = withErrorHandler(
     }
 
     let terms: BookingTerms | null = null
+    let policyRevision: number | null = null
     try {
       const policy = await getBranchPolicy(existing.branchId)
       if (policy) {
@@ -67,6 +68,7 @@ export const GET = withErrorHandler(
           ),
           now: new Date(),
         })
+        policyRevision = policy.revision
       }
     } catch (error) {
       if (!(error instanceof AppError && error.code === ERROR_CODES.BRANCH_SETTINGS_INCOMPLETE)) {
@@ -74,6 +76,6 @@ export const GET = withErrorHandler(
       }
     }
 
-    return apiSuccess({ booking: existing, terms })
+    return apiSuccess({ booking: existing, terms, policyRevision })
   },
 )

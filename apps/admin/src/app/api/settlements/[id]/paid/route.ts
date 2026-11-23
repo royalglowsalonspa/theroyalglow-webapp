@@ -45,6 +45,10 @@ function nothingOwed() {
   )
 }
 
+function cannotMarkPaid(branchName = 'the paying branch') {
+  return forbidden(`Only ${branchName}'s Owner or the Developer can mark this statement paid.`)
+}
+
 export const POST = withErrorHandler(
   async (req: Request, route: { params: Promise<{ id: string }> }) => {
     const { session, viewer, scope } = await requireSettlementViewer()
@@ -73,9 +77,7 @@ export const POST = withErrorHandler(
       throw nothingOwed()
     }
     if (!canMarkSettlementPaid(viewer, record)) {
-      throw forbidden(
-        `Only ${record.net.payingBranch?.name ?? 'the paying branch'}'s Owner or the Developer can mark this statement paid.`,
-      )
+      throw cannotMarkPaid(record.net.payingBranch?.name)
     }
     if (internalTransfer && !record.sameOwner) {
       throw badRequest('An internal transfer is only between two branches of the same Owner.', {
@@ -98,6 +100,8 @@ export const POST = withErrorHandler(
           throw alreadyPaid()
         case 'nothing_owed':
           throw nothingOwed()
+        case 'forbidden':
+          throw cannotMarkPaid(record.net.payingBranch?.name)
         case 'not_same_owner':
           throw badRequest('An internal transfer is only between two branches of the same Owner.')
       }

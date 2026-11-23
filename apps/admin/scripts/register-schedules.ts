@@ -1,80 +1,153 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 21-06-2026 & Updated - 21-06-2026
+ * Date         : Created - 21-06-2026 & Updated - 23-11-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : scripts/register-schedules
  * Scope        : Background Jobs — QStash schedule registration
- *
- * Description  : Idempotently registers the 15 QStash scheduled jobs (defined in
- *                src/lib/jobs/schedules.ts) against QStash. For each job it
- *                removes any existing schedule pointing at the same destination
- *                URL, then creates a fresh schedule with the configured cron —
- *                so re-running the script is always safe and converges to the
- *                JOB_SCHEDULES source of truth.
- *
- * Usage        : (run once per environment, with that env's values)
- *   QSTASH_TOKEN=... NEXT_PUBLIC_APP_URL=https://admin.theroyalglow.in \
- *     bun run scripts/register-schedules.ts
- *   Add --dry to preview without changing anything.
- *
- * Notes        : QStash cannot reach localhost, so this is a prod/pprd concern.
- *                NEXT_PUBLIC_APP_URL must be the PUBLIC origin QStash will POST to.
- *                Reads env directly (no @/env) so it runs as a standalone script.
  ************************************************************/
 
-import { Client } from '@upstash/qstash'
+import { createHash } from 'node:crypto'
+import { pathToFileURL } from 'node:url'
+import { parseArgs } from 'node:util'
+import { Client, type Schedule } from '@upstash/qstash'
+import { rehearsalQStashOrigin } from '../../../scripts/release/rehearsal-config'
 import { JOB_SCHEDULES } from '../src/lib/jobs/schedules'
 
-const token = process.env.QSTASH_TOKEN
-const appUrl = process.env.NEXT_PUBLIC_APP_URL
-const dryRun = process.argv.includes('--dry')
+type Job = (typeof JOB_SCHEDULES)[number]
+type SchedulePlan = {
+  job: Job
+  destination: string
+} & (
+  | { action: 'keep' }
+  | { action: 'create' | 'update'; scheduleId: string }
+  | { action: 'blocked'; reason: string }
+)
 
-if (!token) {
-  console.error('❌ QSTASH_TOKEN is required.')
-  process.exit(1)
+class ScheduleRegistrationError extends Error {}
+
+function selectJobs(args: string[]) {
+  let parsed: { dry?: boolean; jobs?: string[] }
+  try {
+    parsed = parseArgs({
+      args,
+      options: { dry: { type: 'boolean' }, jobs: { type: 'string', multiple: true } },
+    }).values
+  } catch {
+    throw new ScheduleRegistrationError('Use register-schedules [--dry] [--jobs key1,key2]')
+  }
+  const dry = parsed.dry ?? false
+  if (!parsed.jobs) return { jobs: JOB_SCHEDULES, dry, scoped: false }
+
+  const keys = parsed.jobs[0]?.split(',').map((key) => key.trim()) ?? []
+  const jobs = JOB_SCHEDULES.filter(({ key }) => keys.includes(key))
+  if (parsed.jobs.length !== 1 || jobs.length !== keys.length || keys.length === 0) {
+    throw new ScheduleRegistrationError(
+      'Select unique canonical job keys as one comma-separated list',
+    )
+  }
+  return { jobs, dry, scoped: true }
 }
-if (!appUrl || !/^https?:\/\//.test(appUrl)) {
-  console.error('❌ NEXT_PUBLIC_APP_URL must be a public http(s) origin QStash can reach.')
-  process.exit(1)
+
+function planSchedule(base: string, job: Job, current: Schedule[], scoped: boolean): SchedulePlan {
+  const destination = `${base}${job.path}`
+  const target = { job, destination }
+  const matches = current.filter((schedule) => {
+    const url = URL.parse(schedule.destination)
+    return url?.origin === base && url.pathname.replace(/\/+$/, '') === job.path
+  })
+  const [match] = matches
+  if (!match) {
+    // A rerun after a lost response uses the same ID for this exact destination.
+    const scheduleId = `rgss-${createHash('sha256').update(destination).digest('hex').slice(0, 32)}`
+    if (current.some((existing) => existing.scheduleId === scheduleId)) {
+      return { ...target, action: 'blocked', reason: 'schedule ID already points elsewhere' }
+    }
+    return { ...target, action: 'create', scheduleId }
+  }
+  if (matches.length > 1) return { ...target, action: 'blocked', reason: 'duplicate schedules' }
+  if (match.isPaused !== false) {
+    return { ...target, action: 'blocked', reason: 'paused schedule requires explicit review' }
+  }
+  const cron = match.cron.trim().replace(/\s+/g, ' ')
+  if (match.destination === destination && cron === job.cron && match.method === 'POST') {
+    return { ...target, action: 'keep' }
+  }
+  if (scoped) return { ...target, action: 'blocked', reason: 'existing schedule differs' }
+  return { ...target, action: 'update', scheduleId: match.scheduleId }
 }
 
-async function main(): Promise<void> {
-  const client = new Client({ token: token as string })
-  const base = (appUrl as string).replace(/\/$/, '')
-
-  // Existing schedules — to remove stale ones for the same destinations first.
-  const existing = await client.schedules.list()
-  console.log(`\n🗓  Registering ${JOB_SCHEDULES.length} schedules against ${base}\n`)
-
-  for (const job of JOB_SCHEDULES) {
-    const destination = `${base}${job.path}`
-    const stale = existing.filter((s) => s.destination === destination)
-
-    if (dryRun) {
-      const note = stale.length ? `  (would replace ${stale.length})` : ''
-      console.log(`DRY  ${job.key.padEnd(26)} ${job.cron.padEnd(14)} → ${destination}${note}`)
-      continue
-    }
-
-    // Remove any existing schedule(s) pointing at this destination (idempotent).
-    for (const s of stale) {
-      await client.schedules.delete(s.scheduleId)
-    }
-
-    const { scheduleId } = await client.schedules.create({
-      destination,
-      cron: job.cron,
-    })
-
-    console.log(`OK   ${job.key.padEnd(26)} ${job.cron.padEnd(14)} → ${scheduleId}`)
+export async function registerSchedules(
+  args: string[],
+  env: { token?: string | undefined; appUrl?: string | undefined; provider?: string | undefined },
+  report: (line: string) => void,
+) {
+  const { jobs, dry, scoped } = selectJobs(args)
+  const token = env.token?.trim()
+  if (!token) throw new ScheduleRegistrationError('QSTASH_TOKEN is required')
+  const url = URL.parse(env.appUrl ?? '')
+  if (!url || !['https:', 'http:'].includes(url.protocol) || url.href !== `${url.origin}/`) {
+    throw new ScheduleRegistrationError(
+      'NEXT_PUBLIC_APP_URL must be the public admin HTTP(S) origin',
+    )
+  }
+  let baseUrl: string
+  try {
+    baseUrl = rehearsalQStashOrigin(env.provider?.trim() || undefined)
+  } catch {
+    throw new ScheduleRegistrationError('QSTASH_URL must be an Upstash QStash HTTPS origin')
   }
 
-  console.log('\n✅ Schedule registration complete.\n')
-  process.exit(0)
+  const client = new Client({
+    token,
+    baseUrl,
+    retry: false,
+    devMode: false,
+    enableTelemetry: false,
+  })
+  const current = await client.schedules.list()
+  const plan = jobs.map((job) => planSchedule(url.origin, job, current, scoped))
+  report(`${dry ? 'Dry run' : 'Registration plan'} for ${url.origin}`)
+  for (const item of plan) {
+    const action = item.action === 'blocked' ? item.reason : item.action
+    report(`${item.job.key} ${item.job.cron} ${item.destination} ${action}`)
+  }
+  if (plan.some((item) => item.action === 'blocked')) {
+    throw new ScheduleRegistrationError('Resolve the blocked schedules before applying the plan')
+  }
+  if (dry) return
+
+  for (const item of plan) {
+    if (item.action !== 'create' && item.action !== 'update') continue
+    const { scheduleId } = await client.schedules.create({
+      scheduleId: item.scheduleId,
+      destination: item.destination,
+      cron: item.job.cron,
+      method: 'POST',
+    })
+    if (scheduleId !== item.scheduleId) {
+      throw new ScheduleRegistrationError(`QStash returned an unexpected ID for ${item.job.key}`)
+    }
+    report(`${item.job.key} ${item.action === 'create' ? 'created' : 'updated'}`)
+  }
 }
 
-main().catch((err) => {
-  console.error('❌ Schedule registration failed:', err)
-  process.exit(1)
-})
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    await registerSchedules(
+      process.argv.slice(2),
+      {
+        token: process.env.QSTASH_TOKEN,
+        appUrl: process.env.NEXT_PUBLIC_APP_URL,
+        provider: process.env.QSTASH_URL,
+      },
+      console.log,
+    )
+  } catch (error) {
+    // Provider failures can include request details. Keep token and payloads out of terminal logs.
+    console.error(
+      error instanceof ScheduleRegistrationError ? error.message : 'Schedule registration failed',
+    )
+    process.exitCode = 1
+  }
+}

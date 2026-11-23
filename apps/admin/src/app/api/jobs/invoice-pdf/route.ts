@@ -42,6 +42,7 @@
 import {
   buildInvoiceEmailHtml,
   invoiceFileStem,
+  invoicePdfObjectKey,
   sharedRatePercentLabel,
   signRequest,
 } from '@rgss/business'
@@ -49,6 +50,7 @@ import { getInvoiceForPdf, setInvoicePdfUrl } from '@rgss/db/queries'
 import { createLogger } from '@rgss/logger'
 import { invoicePdfPayloadSchema, invoicePdfResultSchema } from '@rgss/types'
 import { env } from '@/env'
+import { invoicePdfDownloadPath } from '@/lib/invoices/pdf-access'
 import { buildPdfPayload, getInvoiceSeller, type LoadedInvoice } from '@/lib/invoices/pdf-payload'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
 import { sendEmail } from '@/lib/notifications/providers/email'
@@ -163,19 +165,27 @@ export const POST = async (req: Request) => {
     }
 
     const parsedResult = invoicePdfResultSchema.safeParse(await renderResponse.json())
-    if (!parsedResult.success) {
+    if (
+      !parsedResult.success ||
+      parsedResult.data.invoiceNumber !== renderPayload.invoiceNumber ||
+      ('pdfObjectKey' in parsedResult.data &&
+        parsedResult.data.pdfObjectKey !==
+          invoicePdfObjectKey(renderPayload.invoiceNumber, renderPayload.issuedAt))
+    ) {
       logger.error('invoice-pdf job: render service returned an invalid result', { invoiceId })
       const sent = await sendInvoiceEmail(loaded)
       return Response.json({ success: true, attached: false, reason: 'invalid-result', sent })
     }
     const result = parsedResult.data
 
-    // Persist the stored PDF URL onto the invoice row.
-    await setInvoicePdfUrl(invoiceId, result.pdfUrl)
+    // Private invoices use a stable, branch-authorized link on the admin app.
+    const publicPdfUrl = 'pdfUrl' in result ? result.pdfUrl : undefined
+    await setInvoicePdfUrl(invoiceId, publicPdfUrl ?? invoicePdfDownloadPath(invoiceId))
 
     // Resolve the PDF bytes: prefer the inline base64 returned by the service,
     // otherwise fetch the stored URL and base64-encode it.
-    const base64 = result.pdfBase64 ?? (await fetchPdfBase64(result.pdfUrl))
+    const base64 =
+      result.pdfBase64 ?? (publicPdfUrl ? await fetchPdfBase64(publicPdfUrl) : undefined)
     const attachments = base64
       ? // RS/2627/000123 → RS-2627-000123.pdf: no slashes in a file name.
         [{ filename: `${invoiceFileStem(result.invoiceNumber)}.pdf`, content: base64 }]

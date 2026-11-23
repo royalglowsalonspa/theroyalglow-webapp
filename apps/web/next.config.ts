@@ -8,6 +8,17 @@ import type { NextConfig } from 'next'
 // Set here (not in a script) so it applies on every OS and every entry point.
 process.env.SENTRY_SUPPRESS_INSTRUMENTATION_FILE_WARNING ??= '1'
 
+// Rehearsal can use its own HTTPS R2 and CMS origins. Use exact host and port
+// patterns from deployment config, keeping the listed legacy hosts available.
+const configuredImageOrigins = [
+  process.env.NEXT_PUBLIC_R2_PUBLIC_URL,
+  process.env.NEXT_PUBLIC_CMS_URL,
+].flatMap((value) => {
+  const url = URL.parse(value ?? '')
+  if (url?.protocol !== 'https:' || url.username || url.password) return []
+  return [{ protocol: 'https' as const, hostname: url.hostname, port: url.port }]
+})
+
 const nextConfig: NextConfig = {
   transpilePackages: [
     '@rgss/business',
@@ -39,7 +50,11 @@ const nextConfig: NextConfig = {
     // Hosts that next/image is allowed to load from. CMS media resolves via
     // NEXT_PUBLIC_R2_PUBLIC_URL (R2 CDN) in prod, or the CMS origin in dev.
     remotePatterns: [
-      // Cloudflare R2 public media host (matches NEXT_PUBLIC_R2_PUBLIC_URL)
+      ...configuredImageOrigins,
+      // Current and previous Cloudflare R2 media URLs. Saved absolute links
+      // keep their original host so existing content continues to resolve.
+      { protocol: 'https', hostname: 'media.theroyalglow.in' },
+      { protocol: 'https', hostname: 'r2.theroyalglow.in' },
       { protocol: 'https', hostname: 'pub-40c9806a7ea146c9b0469960f8b84d94.r2.dev' },
       // Payload CMS origin (prod) — fallback when media served from CMS
       { protocol: 'https', hostname: 'cms.theroyalglow.in' },

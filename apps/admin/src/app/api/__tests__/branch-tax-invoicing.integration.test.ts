@@ -6,10 +6,13 @@ import {
   createBookingWithServices,
   getBranchByIdAdmin,
   getBranchTaxVersions,
+  getInvoiceForPdf,
   getInvoicingSetting,
+  getServiceSacCodes,
 } from '@rgss/db/queries'
 import { sql } from 'drizzle-orm'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { buildPdfPayload } from '@/lib/invoices/pdf-payload'
 import { branchContext } from '@/test/branch-context'
 import { POST as completeBooking } from '../bookings/[id]/complete/route'
 import { POST as sellMembership } from '../memberships/route'
@@ -26,6 +29,7 @@ vi.mock('@/lib/realtime/publish', () => ({ publishBookingEvent: vi.fn() }))
 
 const BRANCH_A = 'rehearsal_mb_a'
 const BRANCH_B = 'rehearsal_mb_b'
+const BRANCH_C = 'rehearsal_mb_c'
 const DEVELOPER = 'rehearsal_mb_developer'
 const TIER = 'rehearsal_mb_tier_restore'
 const SAC = '999723'
@@ -41,7 +45,7 @@ function assertDisposableDatabase(): string {
     !['127.0.0.1', 'localhost', '[::1]'].includes(target.hostname) ||
     !/^\/rgss_rehearsal_[a-z0-9_]+$/.test(target.pathname)
   ) {
-    throw new Error('TX-03 requires a fresh loopback database named rgss_rehearsal_*')
+    throw new Error('The tax rehearsal requires a fresh loopback database named rgss_rehearsal_*')
   }
   return target.pathname.slice(1)
 }
@@ -71,8 +75,12 @@ async function fixturesAt(id: string) {
     staffId: string
     serviceId: string
     serviceName: string
+    serviceSac: string | null
+    categoryId: string
+    categorySac: string | null
   }>(sql`
-    select sp.id as "staffId", s.id as "serviceId", s.name as "serviceName"
+    select sp.id as "staffId", s.id as "serviceId", s.name as "serviceName",
+           s.sac_code as "serviceSac", c.id as "categoryId", c.sac_code as "categorySac"
     from staff_profile sp
     join staff_service ss on ss.staff_id = sp.id
     join service s on s.id = ss.service_id
@@ -88,22 +96,22 @@ async function fixturesAt(id: string) {
   return {
     branch: { id, name: b.name, code: b.code, status: b.status, isPrimary: b.isPrimary },
     performer,
+    issuer: { gstin: b.gstin, legalName: b.legalName, addressLine1: b.addressLine1 },
   }
 }
 
-async function issueInvoices(
+async function createCheckoutFixture(
   { branch, performer }: Awaited<ReturnType<typeof fixturesAt>>,
   day: string,
-  expiresOn: string,
 ) {
-  const customerId = `rehearsal_tx03_${randomUUID()}`
+  const customerId = `rehearsal_tax_${randomUUID()}`
   await db.execute(sql`
     insert into "user" (id, name, email, email_verified, role)
     values (${customerId}, 'Riya Rehearsal', ${`${customerId}@example.invalid`}, false, 'customer')
   `)
   const booking = await createBookingWithServices(
     {
-      bookingNumber: `TX03-${customerId}`,
+      bookingNumber: `TAX-${customerId}`,
       customerId,
       branchId: branch.id,
       status: 'confirmed',
@@ -128,31 +136,43 @@ async function issueInvoices(
   requireBranchRole.mockResolvedValue(
     branchContext({ branch, userId: `${branch.id}_receptionist`, role: 'receptionist' }),
   )
+  return { bookingId: booking.id, customerId }
+}
 
-  await expectResponse(
-    await completeBooking(
-      post(`/api/bookings/${booking.id}/complete`, {
-        branchId: branch.id,
-        paymentMethod: 'upi',
-      }),
-      { params: Promise.resolve({ id: booking.id }) },
-    ),
-    200,
+function checkout(bookingId: string, branchId: string): Promise<Response> {
+  return completeBooking(
+    post(`/api/bookings/${bookingId}/complete`, { branchId, paymentMethod: 'upi' }),
+    { params: Promise.resolve({ id: bookingId }) },
   )
-  await expectResponse(
-    await sellMembership(
-      post('/api/memberships', {
-        branchId: branch.id,
-        customerId,
-        tierId: TIER,
-        hours: 10,
-        pricePaise: MEMBERSHIP_PRICE,
-        expiresOn,
-        paymentMethod: 'upi',
-      }),
-    ),
-    201,
+}
+
+function membershipSale(
+  branchId: string,
+  customerId: string,
+  expiresOn: string,
+): Promise<Response> {
+  return sellMembership(
+    post('/api/memberships', {
+      branchId,
+      customerId,
+      tierId: TIER,
+      hours: 10,
+      pricePaise: MEMBERSHIP_PRICE,
+      expiresOn,
+      paymentMethod: 'upi',
+    }),
   )
+}
+
+async function issueInvoices(
+  fixture: Awaited<ReturnType<typeof fixturesAt>>,
+  day: string,
+  expiresOn: string,
+) {
+  const branchId = fixture.branch.id
+  const { bookingId, customerId } = await createCheckoutFixture(fixture, day)
+  await expectResponse(await checkout(bookingId, branchId), 200)
+  await expectResponse(await membershipSale(branchId, customerId, expiresOn), 201)
   const { rows } = await db.execute(sql`
     select i.branch_id, i.invoice_type, i.total_amount_paise, i.taxable_value_paise,
            i.gst_amount_paise, i.cgst_paise, i.sgst_paise, i.tax_review_status,
@@ -166,16 +186,18 @@ async function issueInvoices(
 
 // This issues real invoice numbers on the dummy branches. Run at most once on
 // a fresh rehearsal database, then retain the redacted evidence and discard it.
-describe.skipIf(process.env.ADMIN_REHEARSAL_TAX !== '1')('branch tax invoicing (TX-03)', () => {
-  afterEach(() => vi.useRealTimers())
-
-  it('applies the saved rate to checkout and membership sales only at the edited branch', async () => {
+describe.skipIf(process.env.ADMIN_REHEARSAL_TAX !== '1')('branch tax invoicing', () => {
+  beforeAll(async () => {
     const database = assertDisposableDatabase()
     const {
       rows: [identity],
     } = await db.execute(sql`select current_database() as database`)
     expect(identity?.database).toBe(database)
     expect(await getInvoicingSetting()).toEqual({ live: false })
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('applies the saved rate to checkout and membership sales only at the edited branch', async () => {
     const [branchA, branchB] = await Promise.all([fixturesAt(BRANCH_A), fixturesAt(BRANCH_B)])
 
     const current = new Date()
@@ -248,5 +270,145 @@ describe.skipIf(process.env.ADMIN_REHEARSAL_TAX !== '1')('branch tax invoicing (
       { ...forBranch(BRANCH_B, comparison, 1800), ...checkout(88_983, 16_017, 8_008, 8_009) },
       { ...forBranch(BRANCH_B, comparison, 1800), ...membership(847_458, 152_542, 76_271, 76_271) },
     ])
+  }, 30_000)
+
+  it('rebuilds the issued tax and issuer facts after the branch and catalogue change (TX-05)', async () => {
+    const fixture = await fixturesAt(BRANCH_A)
+    const issueDay = istToday(new Date(Date.now() + 7 * DAY_MS))
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(startOfDayIST(issueDay).getTime() + DAY_MS / 2))
+    const { bookingId } = await createCheckoutFixture(fixture, issueDay)
+    await expectResponse(await checkout(bookingId, BRANCH_A), 200)
+
+    const {
+      rows: [invoice],
+    } = await db.execute<{ id: string }>(
+      sql`select id from invoice where booking_id = ${bookingId}`,
+    )
+    if (!invoice) throw new Error('The fixture checkout did not issue an invoice')
+    const loadPayload = async () => {
+      const loaded = await getInvoiceForPdf(invoice.id)
+      if (!loaded) throw new Error('The issued invoice is missing from the PDF loader')
+      return buildPdfPayload(loaded)
+    }
+    const before = await loadPayload()
+    expect(before.seller).toMatchObject({
+      name: fixture.branch.name,
+      legalName: fixture.issuer.legalName,
+      gstin: fixture.issuer.gstin,
+    })
+    expect(before.items[0]?.sacCode).toBe(SAC)
+
+    const changedSac = '999722'
+    const effectiveDay = istToday(new Date(Date.now() + DAY_MS))
+    requireBranchRole.mockResolvedValue(
+      branchContext({ branch: fixture.branch, userId: DEVELOPER, role: 'developer' }),
+    )
+    await expectResponse(
+      await saveTaxVersion(
+        post('/api/tax-versions', {
+          branchId: BRANCH_A,
+          sacCode: changedSac,
+          rateBps: 2600,
+          effectiveFrom: effectiveDay,
+          reason: 'Synthetic change after issuing the original invoice',
+        }),
+      ),
+      201,
+    )
+    try {
+      await db.batch([
+        db.execute(sql`
+          update branch set name = 'Rayasandra Spa Annex (Rehearsal)',
+            legal_name = 'Rehearsal Annex LLP', gstin = '29ZZZZZ0064Z1Z0',
+            address_line1 = 'Suite 7, Example Arcade' where id = ${BRANCH_A}
+        `),
+        db.execute(sql`
+          update service set sac_code = ${changedSac} where id = ${fixture.performer.serviceId}
+        `),
+      ])
+      vi.setSystemTime(startOfDayIST(effectiveDay))
+      expect((await getBranchByIdAdmin(BRANCH_A))?.name).toBe('Rayasandra Spa Annex (Rehearsal)')
+      expect(
+        (await getServiceSacCodes([fixture.performer.serviceId])).get(fixture.performer.serviceId),
+      ).toBe(changedSac)
+      const rates = await getBranchTaxVersions(BRANCH_A)
+      expect(versionInForce(rates, BRANCH_A, changedSac, new Date())?.rateBps).toBe(2600)
+      expect(await loadPayload()).toEqual(before)
+    } finally {
+      await db.batch([
+        db.execute(sql`
+          update branch set name = ${fixture.branch.name}, legal_name = ${fixture.issuer.legalName},
+            gstin = ${fixture.issuer.gstin}, address_line1 = ${fixture.issuer.addressLine1}
+          where id = ${BRANCH_A}
+        `),
+        db.execute(sql`
+          update service set sac_code = ${fixture.performer.serviceSac}
+          where id = ${fixture.performer.serviceId}
+        `),
+      ])
+    }
+  }, 30_000)
+
+  it('blocks live-mode issuance and leaves the invoice sequence untouched (TX-08)', async () => {
+    const fixture = await fixturesAt(BRANCH_C)
+    const { performer, issuer } = fixture
+    const today = new Date(`${istToday()}T00:00:00.000Z`)
+    const daysUntilSaturday = (6 - today.getUTCDay() + 7) % 7 || 7
+    const day = istToday(new Date(today.getTime() + daysUntilSaturday * DAY_MS))
+    const expiresOn = istToday(new Date(today.getTime() + 90 * DAY_MS))
+    const { bookingId, customerId } = await createCheckoutFixture(fixture, day)
+    const expectBlocked = async (response: Response, message: RegExp) => {
+      const body = await response.json()
+      expect(response.status, JSON.stringify(body)).toBe(409)
+      expect(body).toMatchObject({
+        success: false,
+        error: { code: 'TAX_CONFIGURATION_INCOMPLETE', message: expect.stringMatching(message) },
+      })
+    }
+    await db.execute(sql`update system_setting set value = '{"live":true}' where key = 'invoicing'`)
+    try {
+      await expectBlocked(await checkout(bookingId, BRANCH_C), /reviewed tax rates/)
+      await expectBlocked(
+        await membershipSale(BRANCH_C, customerId, expiresOn),
+        /reviewed tax rates/,
+      )
+
+      await db.execute(sql`
+        update branch_tax_version set review_status = 'reviewed', reviewed_at = now(),
+          reviewed_by = ${DEVELOPER} where id = ${`rehearsal_mb_tax_c_${SAC}`}
+      `)
+      await db.execute(sql`update branch set gstin = null where id = ${BRANCH_C}`)
+      await expectBlocked(await checkout(bookingId, BRANCH_C), /GSTIN/)
+      await expectBlocked(await membershipSale(BRANCH_C, customerId, expiresOn), /GSTIN/)
+
+      await db.execute(sql`update branch set gstin = ${issuer.gstin} where id = ${BRANCH_C}`)
+      await db.batch([
+        db.execute(sql`update service set sac_code = null where id = ${performer.serviceId}`),
+        db.execute(
+          sql`update service_category set sac_code = null where id = ${performer.categoryId}`,
+        ),
+      ])
+      await expectBlocked(await checkout(bookingId, BRANCH_C), /no tax classification/)
+
+      const { rows } = await db.execute(sql`
+        select (select status from booking where id = ${bookingId}) as status,
+          (select count(*)::int from invoice_sequence where branch_id = ${BRANCH_C}) as sequences,
+          (select count(*)::int from invoice where branch_id = ${BRANCH_C}) as invoices,
+          (select count(*)::int from spa_membership where customer_id = ${customerId}) as memberships
+      `)
+      expect(rows).toEqual([{ status: 'confirmed', sequences: 0, invoices: 0, memberships: 0 }])
+    } finally {
+      await db.batch([
+        db.execute(sql`update system_setting set value = '{"live":false}' where key = 'invoicing'`),
+        db.execute(sql`update branch set gstin = ${issuer.gstin} where id = ${BRANCH_C}`),
+        db.execute(
+          sql`update service set sac_code = ${performer.serviceSac} where id = ${performer.serviceId}`,
+        ),
+        db.execute(
+          sql`update service_category set sac_code = ${performer.categorySac} where id = ${performer.categoryId}`,
+        ),
+      ])
+    }
   }, 30_000)
 })

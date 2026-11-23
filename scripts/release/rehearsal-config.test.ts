@@ -140,6 +140,7 @@ it('uses independent rehearsal settings and preserves production domains and sec
   sites.clear()
   secrets.clear()
   vi.stubGlobal('$app', { stage: 'production' })
+  vi.stubEnv('QSTASH_URL', 'https://qstash-us-east-1.upstash.io')
   await sstConfig.run?.()
   expect(dns).toHaveBeenCalledOnce()
   expect(secrets).toContain('DatabaseUrl')
@@ -149,10 +150,17 @@ it('uses independent rehearsal settings and preserves production domains and sec
     environment: {
       BETTER_AUTH_URL: 'https://theroyalglow.in',
       R2_BUCKET_NAME: 'production-assets',
+      QSTASH_URL: 'https://qstash-us-east-1.upstash.io',
     },
   })
   expect(sites.get('Admin')).toMatchObject({
     domain: { name: 'admin.theroyalglow.in' },
-    environment: { BETTER_AUTH_URL: 'https://admin.theroyalglow.in' },
+    environment: {
+      BETTER_AUTH_URL: 'https://admin.theroyalglow.in',
+      QSTASH_URL: 'https://qstash-us-east-1.upstash.io',
+    },
   })
+
+  vi.stubEnv('QSTASH_URL', 'https://provider.example.com')
+  await expect(sstConfig.run?.()).rejects.toThrow('Upstash QStash HTTPS origin')
 })

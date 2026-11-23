@@ -124,7 +124,7 @@ export function verifyBackupReference(allowlist, backup) {
     !isObject(backup) ||
     backup.version !== 1 ||
     typeof backup.key !== 'string' ||
-    !/^weekly\/rgss_full_[0-9]{8}T[0-9]{6}Z_[0-9]+-[0-9]+\.dump$/.test(backup.key) ||
+    !/^(weekly|release)\/rgss_full_[0-9]{8}T[0-9]{6}Z_[0-9]+-[0-9]+\.dump$/.test(backup.key) ||
     backup.dumpSha256 !== allowlist.dumpSha256
   ) {
     throw new Error('The allowlist must name the selected full-backup manifest checksum.')

@@ -5,19 +5,17 @@ import { rehearsalDomain, rehearsalQStashOrigin } from '../../../scripts/release
 import { JOB_SCHEDULES } from '../src/lib/jobs/schedules'
 
 const INVOICE_JOB = '/api/jobs/invoice-pdf'
+const PRODUCTION_ADMIN_ORIGIN = 'https://admin.theroyalglow.in'
 const POLL_INTERVAL_MS = 2000
 const MAX_POLLS = 20
 const END_STATES = new Set(['FAILED', 'CANCELED', 'CANCELLED'])
 
 type QStashClient = Pick<Client, 'publishJSON' | 'logs'>
+type Environment = Readonly<Record<string, string | undefined>>
 
-class RehearsalError extends Error {}
+class QStashCheckError extends Error {}
 
-export async function verifyRehearsalSchedules(
-  domain: string,
-  schedules: Pick<Client['schedules'], 'list'>,
-) {
-  const origin = `https://admin.${rehearsalDomain(domain)}`
+async function verifySchedules(origin: string, schedules: Pick<Client['schedules'], 'list'>) {
   const registered = (await schedules.list()).flatMap((schedule) => {
     const url = URL.parse(schedule.destination)
     return url?.origin === origin && url.pathname.startsWith('/api/jobs/')
@@ -58,12 +56,8 @@ export async function verifyRehearsalSchedules(
   }
 }
 
-export async function rehearseQStashDelivery(
-  domain: string,
-  client: QStashClient,
-  request: typeof fetch = fetch,
-) {
-  const destination = `https://admin.${rehearsalDomain(domain)}${INVOICE_JOB}`
+async function verifySignedDelivery(origin: string, client: QStashClient, request: typeof fetch) {
+  const destination = `${origin}${INVOICE_JOB}`
   // The invoice job checks for an invoiceId before reading the database or
   // contacting invoicing or mail. A correlation ID is the only payload field.
   const body = { rehearsalId: randomUUID() }
@@ -75,9 +69,7 @@ export async function rehearseQStashDelivery(
     signal: AbortSignal.timeout(15_000),
   })
   if (unsigned.status !== 401 || (await unsigned.text()) !== 'Unauthorized') {
-    throw new RehearsalError(
-      'The rehearsal invoice job must reject the unsigned request before publishing',
-    )
+    throw new QStashCheckError('The invoice job must reject the unsigned request before publishing')
   }
 
   const { messageId } = await client.publishJSON({
@@ -87,7 +79,7 @@ export async function rehearseQStashDelivery(
     timeout: 15,
   })
   if (typeof messageId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(messageId)) {
-    throw new RehearsalError('QStash did not return a rehearsal message ID')
+    throw new QStashCheckError('QStash did not return a probe message ID')
   }
 
   for (let attempt = 0; attempt < MAX_POLLS; attempt++) {
@@ -103,53 +95,75 @@ export async function rehearseQStashDelivery(
       }
     }
     if (exact.some((log) => END_STATES.has(log.state))) {
-      throw new RehearsalError(`QStash reported a failed rehearsal delivery for ${messageId}`)
+      throw new QStashCheckError(`QStash reported a failed probe delivery for ${messageId}`)
     }
     if (attempt < MAX_POLLS - 1)
       await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
   }
-  throw new RehearsalError(`No matching QStash delivery log appeared for ${messageId}`)
+  throw new QStashCheckError(`No matching QStash delivery log appeared for ${messageId}`)
+}
+
+function readCheckConfig(args: readonly string[], env: Environment) {
+  const [mode, productionAction, ...extra] = args
+  const production = mode === '--production'
+  const verifyOnly = (production ? productionAction : mode) === '--verify-schedules'
+  const validCommand = production
+    ? extra.length === 0 && (verifyOnly || productionAction === '--confirm-no-invoice-delivery')
+    : args.length === 0 || (args.length === 1 && verifyOnly)
+  if (!validCommand) {
+    throw new QStashCheckError(
+      'Use [--verify-schedules] for rehearsal, or --production followed by --verify-schedules or --confirm-no-invoice-delivery',
+    )
+  }
+
+  const provider = production ? env.QSTASH_URL : env.REHEARSAL_QSTASH_URL
+  if (production && !provider?.trim()) {
+    throw new QStashCheckError('Set QSTASH_URL to the current production QStash HTTPS origin')
+  }
+  let origin: string
+  let baseUrl: string
+  try {
+    origin = production
+      ? PRODUCTION_ADMIN_ORIGIN
+      : `https://admin.${rehearsalDomain(env.REHEARSAL_DOMAIN ?? '')}`
+    baseUrl = rehearsalQStashOrigin(provider)
+  } catch (error) {
+    throw new QStashCheckError(error instanceof Error ? error.message : 'Invalid QStash settings')
+  }
+  const tokenName = production ? 'QSTASH_TOKEN' : 'REHEARSAL_QSTASH_TOKEN'
+  const token = env[tokenName]?.trim()
+  if (!token) {
+    throw new QStashCheckError(`Set ${tokenName} to the QStash token for this target`)
+  }
+  return { origin, baseUrl, token, verifyOnly }
+}
+
+export async function runQStashCheck(
+  args: readonly string[],
+  env: Environment,
+  request: typeof fetch = fetch,
+) {
+  const { origin, baseUrl, token, verifyOnly } = readCheckConfig(args, env)
+  const client = new Client({
+    token,
+    baseUrl,
+    retry: false,
+    devMode: false,
+    enableTelemetry: false,
+  })
+  return verifyOnly
+    ? verifySchedules(origin, client.schedules)
+    : verifySignedDelivery(origin, client, request)
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    const [mode, ...extra] = process.argv.slice(2)
-    if (extra.length || (mode !== undefined && mode !== '--verify-schedules')) {
-      throw new RehearsalError(
-        'Usage: bun apps/admin/scripts/rehearse-qstash-delivery.ts [--verify-schedules]',
-      )
-    }
-    let domain: string
-    let baseUrl: string
-    try {
-      domain = rehearsalDomain(process.env.REHEARSAL_DOMAIN ?? '')
-      baseUrl = rehearsalQStashOrigin(process.env.REHEARSAL_QSTASH_URL)
-    } catch (error) {
-      throw new RehearsalError(
-        error instanceof Error ? error.message : 'Invalid rehearsal settings',
-      )
-    }
-    const token = process.env.REHEARSAL_QSTASH_TOKEN
-    if (!token?.trim()) {
-      throw new RehearsalError('Set REHEARSAL_QSTASH_TOKEN to the isolated provider token')
-    }
-    const client = new Client({
-      token,
-      baseUrl,
-      retry: false,
-      devMode: false,
-      enableTelemetry: false,
-    })
-    if (mode === '--verify-schedules') {
-      const result = await verifyRehearsalSchedules(domain, client.schedules)
-      console.log(JSON.stringify(result))
-      if (!result.verified) process.exitCode = 2
-    } else {
-      console.log(JSON.stringify(await rehearseQStashDelivery(domain, client)))
-    }
+    const result = await runQStashCheck(process.argv.slice(2), process.env)
+    console.log(JSON.stringify(result))
+    if ('verified' in result && !result.verified) process.exitCode = 2
   } catch (error) {
     // Provider errors can contain request contents. Emit only our own safe text.
-    console.error(error instanceof RehearsalError ? error.message : 'The QStash rehearsal failed')
+    console.error(error instanceof QStashCheckError ? error.message : 'The QStash check failed')
     process.exitCode = 1
   }
 }

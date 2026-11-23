@@ -13,6 +13,10 @@ on:
         description: 'I approve promoting this dev commit to production after all checks pass'
         type: boolean
         default: false
+      defer_production_deploy:
+        description: 'Advance prod without dispatching AWS deployment or release publication'
+        type: boolean
+        default: false
 
 concurrency:
   group: environment-promotion
@@ -113,9 +117,17 @@ jobs:
       # GITHUB_TOKEN pushes do not start push workflows. Explicitly dispatch
       # deployment and release processing; the exact validated SHA is deployed.
       - name: Dispatch production deployment and release processing
+        if: ${{ !inputs.defer_production_deploy }}
         env:
           GH_TOKEN: ${{ github.token }}
           PROMOTION_SHA: ${{ github.sha }}
         run: |
           gh workflow run deploy-aws.yml --ref prod -f git_ref="$PROMOTION_SHA"
           gh workflow run release-please.yml --ref prod
+      - name: Record deferred deployment
+        if: inputs.defer_production_deploy
+        env:
+          PROMOTION_SHA: ${{ github.sha }}
+        run: |
+          printf 'Promoted `%s` with AWS deployment and release publication deferred.\n' \
+            "$PROMOTION_SHA" >> "$GITHUB_STEP_SUMMARY"

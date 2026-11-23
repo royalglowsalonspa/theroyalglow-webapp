@@ -178,9 +178,24 @@ Required service values include:
 - `R2_ENDPOINT`
 - `R2_ACCESS_KEY_ID`
 - `R2_SECRET_ACCESS_KEY`
-- `R2_PUBLIC_BASE_URL`
 
-The calling admin workload uses `INVOICING_SERVICE_URL` and the matching HMAC secret. Verify `/healthz`, then send one signed test render and confirm the returned PDF URL resolves through R2.
+Deploy the admin billing download route before switching the renderer. For
+production, set `R2_BUCKET_NAME=rgss-invoices` and `R2_INVOICE_ACCESS=private`
+on Cloud Run, with credentials scoped to that bucket. Leave
+`R2_PUBLIC_BASE_URL` unset in private mode. The calling admin workload uses
+`INVOICING_SERVICE_URL` and the matching HMAC secret. Verify `/healthz` and
+then check signed rendering, the email attachment, and branch-authorized PDF
+download using a synthetic invoice in rehearsal.
+
+### Upload bucket cutover
+
+Before changing the bucket in Render, verify the existing `cms/` keys and
+all generated image sizes in `rgss-uploads`. Set `R2_BUCKET_NAME=rgss-uploads`
+with bucket-scoped credentials and use `R2_MEDIA_PUBLIC_URL` for the HTTPS
+origin serving that bucket. For AWS web, the deployment uses
+`R2_UPLOAD_BUCKET_NAME` and `R2_UPLOAD_PUBLIC_URL` from GitHub variables.
+Confirm that the public origin serves a media object and `/.health`. Existing
+absolute links continue to use their saved hostname.
 
 ## Backup and Recovery
 

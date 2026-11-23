@@ -80,6 +80,8 @@ Payload reads configuration directly from `process.env`. Production needs:
 
 R2 storage enables only when `R2_BUCKET_NAME`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, and
 `R2_SECRET_ACCESS_KEY` are all present. Otherwise local development uses disk storage.
+Set the production bucket to `rgss-uploads`. Configure
+`R2_MEDIA_PUBLIC_URL=https://media.theroyalglow.in` after verifying the media objects.
 
 `REVALIDATE_SECRET` must match the web value when CMS-triggered revalidation is enabled.
 
@@ -92,9 +94,10 @@ The Cloud Run service validates at startup:
 - `R2_ENDPOINT`
 - `R2_ACCESS_KEY_ID`
 - `R2_SECRET_ACCESS_KEY`
-- `R2_PUBLIC_BASE_URL`
 
-`SENTRY_DSN` is optional. Cloud Run supplies `PORT`; local default is `8080`.
+Set `R2_BUCKET_NAME=rgss-invoices` and `R2_INVOICE_ACCESS=private` for
+production. Legacy public mode requires `R2_PUBLIC_BASE_URL`. `SENTRY_DSN` is
+optional. Cloud Run supplies `PORT`, which defaults to `8080` locally.
 
 Web/admin callers use `INVOICING_SERVICE_URL` plus the same `INVOICE_PDF_HMAC_SECRET`. When either
 caller value is absent, invoice email degrades to no PDF attachment.

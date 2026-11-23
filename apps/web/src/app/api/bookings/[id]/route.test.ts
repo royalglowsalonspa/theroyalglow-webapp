@@ -149,6 +149,7 @@ describe("GET /api/bookings/[id] — the booking's terms (R6.3)", () => {
     const { body } = await getBooking()
 
     expect(dbMocks.getBranchPolicy).toHaveBeenCalledWith('br_1')
+    expect(body.data.policyRevision).toBe(POLICY.revision)
     expect(body.data.terms).toEqual({
       cancel: { late: true, cutoffHours: 4 },
       reschedule: { allowed: true, remaining: 2, cutoffHours: 1 },
@@ -192,6 +193,7 @@ describe("GET /api/bookings/[id] — the booking's terms (R6.3)", () => {
     expect(status).toBe(200)
     expect(body.data.booking.id).toBe('bk_1')
     expect(body.data.terms).toBeNull()
+    expect(body.data.policyRevision).toBeNull()
   })
 
   it('fails on any other error reading the settings', async () => {

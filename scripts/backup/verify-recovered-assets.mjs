@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 const SHA256 = /^[a-f0-9]{64}$/
-const BACKUP_KEY = /^weekly\/rgss_full_\d{8}T\d{6}Z_\d+-\d+\.dump$/
+const BACKUP_KEY = /^(weekly|release)\/rgss_full_\d{8}T\d{6}Z_\d+-\d+\.dump$/
 const BUCKET = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/
 const FILE_NAME = /^[a-z0-9][a-z0-9_-]{0,79}\.object$/
 
@@ -23,7 +23,53 @@ async function hashFile(path) {
   return { size, sha256: hash.digest('hex') }
 }
 
-export async function verifyRecoveredAssets(manifestPath, inventoryPath, recoveredDirectory) {
+function verifyReferenceExport(referenceFacts, exportedRows) {
+  if (
+    !referenceFacts ||
+    typeof referenceFacts !== 'object' ||
+    Array.isArray(referenceFacts) ||
+    !Array.isArray(exportedRows)
+  ) {
+    throw new Error('Expected database reference facts and a matching reference export')
+  }
+  const rowsByKind = new Map(Object.keys(referenceFacts).map((kind) => [kind, []]))
+  const referenceIds = new Set()
+  for (const row of exportedRows) {
+    const rows = rowsByKind.get(row?.kind)
+    if (!rows || row.position !== rows.length + 1 || typeof row.pair !== 'string') {
+      throw new Error('The database reference export has an invalid row or position')
+    }
+    const pair = JSON.parse(row.pair)
+    if (
+      !Array.isArray(pair) ||
+      pair.length !== 2 ||
+      (typeof pair[0] !== 'string' && !Number.isSafeInteger(pair[0])) ||
+      typeof pair[1] !== 'string'
+    ) {
+      throw new Error('The database reference export has an invalid row or position')
+    }
+    rows.push(row.pair)
+    referenceIds.add(JSON.stringify([row.kind, row.position]))
+  }
+  for (const [kind, rows] of rowsByKind) {
+    const facts = referenceFacts[kind]
+    // Match PostgreSQL's jsonb_agg text using the database's ordered row text.
+    const digest = createHash('sha256')
+      .update(`[${rows.join(', ')}]`)
+      .digest('hex')
+    if (facts?.count !== String(rows.length) || facts.sha256 !== digest) {
+      throw new Error('The database reference export differs from the selected backup manifest')
+    }
+  }
+  return referenceIds
+}
+
+export async function verifyRecoveredAssets(
+  manifestPath,
+  inventoryPath,
+  recoveredDirectory,
+  referenceExportPath,
+) {
   const manifestBytes = await readFile(manifestPath)
   const manifest = JSON.parse(manifestBytes.toString('utf8'))
   if (
@@ -37,24 +83,29 @@ export async function verifyRecoveredAssets(manifestPath, inventoryPath, recover
   const inventory = JSON.parse(inventoryBytes.toString('utf8'))
   const manifestSha256 = createHash('sha256').update(manifestBytes).digest('hex')
   if (
-    inventory?.version !== 1 ||
+    inventory?.version !== 2 ||
     inventory.manifestSha256 !== manifestSha256 ||
     !hasText(inventory.reviewReference) ||
-    !Array.isArray(inventory.objects)
+    !Array.isArray(inventory.objects) ||
+    !Array.isArray(inventory.excludedReferences)
   ) {
     throw new Error('Expected a reviewed asset inventory for this exact backup manifest')
   }
-  const references = manifest.facts?.objectReferences
-  if (!references || typeof references !== 'object' || Array.isArray(references)) {
-    throw new Error('The selected backup manifest must include its database reference facts')
+  const referenceExport = JSON.parse(await readFile(referenceExportPath, 'utf8'))
+  const remainingReferences = verifyReferenceExport(
+    manifest.facts?.objectReferences,
+    referenceExport,
+  )
+  const assignReference = (reference) => {
+    if (!remainingReferences.delete(JSON.stringify([reference?.kind, reference?.position]))) {
+      throw new Error('The inventory has an unknown or duplicate database reference')
+    }
   }
-  const referenceCounts = Object.values(references).map((entry) => entry?.count)
-  if (referenceCounts.some((count) => typeof count !== 'string' || !/^\d+$/.test(count))) {
-    throw new Error('The selected backup manifest has invalid database reference counts')
-  }
-  const requiresObjects = referenceCounts.some((count) => BigInt(count) > 0n)
-  if (requiresObjects && inventory.objects.length === 0) {
-    throw new Error('The database backup has object references but the asset inventory is empty')
+  for (const excluded of inventory.excludedReferences) {
+    if (!hasText(excluded?.reason)) {
+      throw new Error('Every excluded database reference requires a reviewed reason')
+    }
+    assignReference(excluded)
   }
 
   const files = new Set()
@@ -71,7 +122,9 @@ export async function verifyRecoveredAssets(manifestPath, inventoryPath, recover
       !Number.isSafeInteger(object.size) ||
       object.size < 0 ||
       typeof object.sha256 !== 'string' ||
-      !SHA256.test(object.sha256)
+      !SHA256.test(object.sha256) ||
+      !Array.isArray(object.references) ||
+      object.references.length === 0
     ) {
       throw new Error(`Invalid asset inventory entry ${index + 1}`)
     }
@@ -79,8 +132,14 @@ export async function verifyRecoveredAssets(manifestPath, inventoryPath, recover
     if (files.has(object.file) || sourceObjects.has(source)) {
       throw new Error(`Duplicate file or source object at inventory entry ${index + 1}`)
     }
+    for (const reference of object.references) assignReference(reference)
     files.add(object.file)
     sourceObjects.add(source)
+  }
+  if (remainingReferences.size) {
+    throw new Error(
+      `The inventory leaves ${remainingReferences.size} database references unaccounted for`,
+    )
   }
 
   if (!(await lstat(recoveredDirectory)).isDirectory()) {
@@ -107,15 +166,17 @@ export async function verifyRecoveredAssets(manifestPath, inventoryPath, recover
     inventorySha256: createHash('sha256').update(inventoryBytes).digest('hex'),
     objectsVerified: files.size,
     bytesVerified: bytesVerified.toString(),
+    referencesVerified: referenceExport.length - inventory.excludedReferences.length,
+    referencesExcluded: inventory.excludedReferences.length,
   }
 }
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   try {
     const args = process.argv.slice(2)
-    if (args.length !== 3) {
+    if (args.length !== 4) {
       throw new Error(
-        'Usage: verify-recovered-assets.mjs <manifest> <inventory> <recovered-directory>',
+        'Usage: verify-recovered-assets.mjs <manifest> <inventory> <recovered-directory> <reference-export>',
       )
     }
     console.log(JSON.stringify(await verifyRecoveredAssets(...args)))

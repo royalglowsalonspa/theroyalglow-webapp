@@ -202,18 +202,23 @@ operational context; the schedule definitions and route files are the executable
 source of truth.
 
 From **`apps/admin`**, with the intended environment's `QSTASH_TOKEN` and public
-`NEXT_PUBLIC_APP_URL` configured:
+`NEXT_PUBLIC_APP_URL` configured. Set `QSTASH_URL` if that token uses a regional
+endpoint other than the default EU origin.
 
 ```sh
 bun run register-schedules --dry
 bun run register-schedules
+bun run register-schedules --dry --jobs settlement-close,staff-overrun-check
 ```
 
-The dry run reads remote schedules and prints the plan. Registration deletes
-existing schedules for each matching destination URL and creates its replacement;
-it is a remote configuration operation, separate from starting or building the
-app. QStash must be able to reach the destination, so localhost is insufficient.
-Definitions removed from the array are not automatically deleted by this script.
+The dry run only reads remote schedules and prints the plan. Registration creates
+missing schedules and keeps matching active schedules. A full registration updates
+an active mismatch by its existing QStash ID. A scoped registration fails before
+writes if a selected schedule differs. Paused or duplicate schedules require
+explicit resolution in either mode. GitHub Actions defaults to a dry run and
+accepts the same comma-separated scope through its `jobs` input. QStash must be able
+to reach the configured admin origin. Definitions removed from the array are never
+automatically deleted by this script.
 
 Job handlers preserve per-operation idempotency/deduplication for retries.
 Publishing and heartbeats are best-effort. Catalogue drift reconciliation reports

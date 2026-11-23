@@ -1,29 +1,69 @@
 // biome-ignore-all lint/suspicious/noUndeclaredEnvVars: Standalone rehearsal script, outside Turbo.
 import { randomUUID } from 'node:crypto'
+import { pathToFileURL } from 'node:url'
 import { type ConnectionStateChange, ErrorInfo, Realtime, Rest } from 'ably'
+import { rehearsalAblyKey } from '../../../scripts/release/rehearsal-config'
 
 const TOKEN_REVOKED = 40141
 const TOKEN_TTL_MS = 120_000
 const REVOCATION_TIMEOUT_MS = 15_000
 const ABLY_APP_ID = /^[a-zA-Z0-9_-]+$/
 
-async function run() {
-  const key = process.env.REHEARSAL_ABLY_KEY
-  const expectedApp = process.env.REHEARSAL_ABLY_APP_ID
-  const productionApp = process.env.PRODUCTION_ABLY_APP_ID
+type RehearsalEnvironment = Readonly<Record<string, string | undefined>>
+
+class RehearsalError extends Error {}
+
+export async function rehearseAblyRevocation(environment: RehearsalEnvironment) {
+  const key = environment.REHEARSAL_ABLY_KEY
+  const expectedApp = environment.REHEARSAL_ABLY_APP_ID
+  const productionApp = environment.PRODUCTION_ABLY_APP_ID
   if (
     !key ||
     !expectedApp ||
     !productionApp ||
     !ABLY_APP_ID.test(expectedApp) ||
     !ABLY_APP_ID.test(productionApp) ||
-    expectedApp === productionApp ||
-    key.split('.')[0] !== expectedApp
+    expectedApp === productionApp
   ) {
-    throw new Error('Use a dedicated rehearsal Ably key and confirm both app IDs before running')
+    throw new RehearsalError(
+      'Use a dedicated rehearsal Ably key and confirm both app IDs before running',
+    )
+  }
+  try {
+    rehearsalAblyKey(key, expectedApp)
+  } catch {
+    throw new RehearsalError('The key does not match the isolated rehearsal Ably app')
   }
 
-  // The provider request cannot target a real user or a production channel.
+  return verifySyntheticRevocation(key, expectedApp)
+}
+
+export async function runAblyRevocationCanary(
+  args: readonly string[],
+  environment: RehearsalEnvironment,
+) {
+  if (args.length === 0) return rehearseAblyRevocation(environment)
+
+  if (args.length !== 1 || args[0] !== '--confirm-production-synthetic-revocation') {
+    throw new RehearsalError(
+      'Usage: rehearse-ably-revocation.ts [--confirm-production-synthetic-revocation]',
+    )
+  }
+
+  const { ABLY_PRIVATE_KEY: key, PRODUCTION_ABLY_APP_ID: expectedApp } = environment
+  if (!key || !expectedApp || !ABLY_APP_ID.test(expectedApp)) {
+    throw new RehearsalError('Set the production Ably key and confirm the deployed app ID')
+  }
+  try {
+    rehearsalAblyKey(key, expectedApp)
+  } catch {
+    throw new RehearsalError('The key does not match the confirmed production Ably app')
+  }
+  return verifySyntheticRevocation(key, expectedApp)
+}
+
+async function verifySyntheticRevocation(key: string, expectedApp: string) {
+  // Both modes mint a unique subscribe-only token and target only its client ID.
   const fixture = `rgss-rehearsal-${randomUUID()}`
   const clientId = `${fixture}-subscriber`
   const rest = new Rest({ key, logLevel: 0, httpRequestTimeout: 5000, httpMaxRetryCount: 0 })
@@ -39,7 +79,7 @@ async function run() {
   try {
     await client.channels.get(fixture).attach()
     if (client.connection.state !== 'connected') {
-      throw new Error('The synthetic subscriber did not establish a live connection')
+      throw new RehearsalError('The synthetic subscriber did not establish a live connection')
     }
 
     const invalidated = Promise.withResolvers<number | null>()
@@ -53,13 +93,15 @@ async function run() {
         { type: 'clientId', value: clientId },
       ])
       if (successCount !== 1 || failureCount !== 0) {
-        throw new Error('Ably did not confirm revocation of the synthetic subscriber')
+        throw new RehearsalError('Ably did not confirm revocation of the synthetic subscriber')
       }
       const code = await invalidated.promise
       if (code === null) {
-        throw new Error('The connected subscriber did not report token revocation before timeout')
+        throw new RehearsalError(
+          'The connected subscriber did not report token revocation before timeout',
+        )
       }
-      console.log(JSON.stringify({ appId: expectedApp, fixture, existingConnectionError: code }))
+      return { appId: expectedApp, fixture, existingConnectionError: code }
     } finally {
       clearTimeout(timer)
       client.connection.off('disconnected', onDisconnected)
@@ -69,13 +111,18 @@ async function run() {
   }
 }
 
-try {
-  await run()
-} catch (error) {
-  if (error instanceof ErrorInfo) {
-    console.error(`Ably rehearsal failed with provider code ${error.code}`)
-  } else {
-    console.error(error instanceof Error ? error.message : 'Ably rehearsal did not pass')
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    console.log(JSON.stringify(await runAblyRevocationCanary(process.argv.slice(2), process.env)))
+  } catch (error) {
+    // A transport error can include the SDK request or key configuration.
+    console.error(
+      error instanceof ErrorInfo
+        ? `Ably rehearsal failed with provider code ${error.code}`
+        : error instanceof RehearsalError
+          ? error.message
+          : 'Ably rehearsal did not pass',
+    )
+    process.exitCode = 1
   }
-  process.exitCode = 1
 }

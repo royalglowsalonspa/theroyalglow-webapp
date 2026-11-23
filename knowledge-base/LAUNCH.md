@@ -21,7 +21,9 @@ Cloudflare remains authoritative DNS and R2 object storage. It does not run appl
 - AWS authentication: GitHub OIDC through `AWS_DEPLOY_ROLE_ARN`.
 - Cloudflare DNS automation: `CLOUDFLARE_API_TOKEN` secret plus `CLOUDFLARE_DEFAULT_ACCOUNT_ID` variable, used only by SST DNS integration.
 - CMS variables: Render service Environment tab.
-- Invoicing variables: Cloud Run variables and Google Secret Manager. R2 values include `R2_ENDPOINT`, `R2_BUCKET_NAME`, and `R2_PUBLIC_BASE_URL`; credentials remain secrets.
+- Invoicing variables live in Cloud Run and Google Secret Manager. Set
+  `R2_BUCKET_NAME=rgss-invoices` and `R2_INVOICE_ACCESS=private` with the R2
+  endpoint and scoped secret credentials.
 
 ## Pre-release gates
 

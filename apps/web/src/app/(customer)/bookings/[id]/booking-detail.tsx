@@ -47,6 +47,7 @@ import {
   formatINR,
   telHref,
 } from '@rgss/business'
+import { ERROR_CODES } from '@rgss/errors'
 import { Loader2 } from 'lucide-react'
 import { type FormEvent, useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useBookingStatus } from '@/components/realtime/RealtimeProvider'
@@ -205,6 +206,7 @@ function buildTimeline(booking: Booking): TimelineEntry[] {
 export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?: string | null }) {
   const [booking, setBooking] = useState<Booking | null>(null)
   const [terms, setTerms] = useState<BookingTerms | null>(null)
+  const [policyRevision, setPolicyRevision] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
@@ -228,7 +230,7 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
     setError(null)
     setNotFound(false)
     try {
-      const res = await fetch(`/api/bookings/${id}`)
+      const res = await fetch(`/api/bookings/${id}`, { cache: 'no-store' })
       const json = await res.json()
       if (res.status === 404) {
         setNotFound(true)
@@ -239,6 +241,7 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
       }
       setBooking(json.data.booking as Booking)
       setTerms((json.data.terms ?? null) as BookingTerms | null)
+      setPolicyRevision(json.data.policyRevision ?? null)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Could not load this booking.')
     } finally {
@@ -265,7 +268,7 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
   const branchId = booking?.branchId
   const duration = booking?.totalDurationMinutes
   useEffect(() => {
-    if (!showReschedule || !rescheduleDate || !branchId || !duration) {
+    if (!showReschedule || !rescheduleDate || !branchId || !duration || policyRevision === null) {
       setSlotState({ status: 'idle' })
       return
     }
@@ -311,7 +314,7 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
     return () => {
       cancelled = true
     }
-  }, [showReschedule, rescheduleDate, branchId, duration])
+  }, [showReschedule, rescheduleDate, branchId, duration, policyRevision])
 
   // The confirmation takes focus so keyboard and screen-reader users land on it.
   useEffect(() => {
@@ -324,9 +327,16 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
     setCancelling(true)
     setActionError(null)
     try {
-      const res = await fetch(`/api/bookings/${id}/cancel`, { method: 'POST' })
+      const res = await fetch(`/api/bookings/${id}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          confirmedTerms: { policyRevision, late: terms?.cancel?.late ?? false },
+        }),
+      })
       const json = await res.json()
       if (!res.ok || !json.success) {
+        if (json?.error?.code === ERROR_CODES.BOOKING_TERMS_CHANGED) await load()
         throw new Error(json?.error?.message ?? 'Could not cancel this booking.')
       }
       setConfirmingCancel(false)
@@ -341,7 +351,7 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
     } finally {
       setCancelling(false)
     }
-  }, [id, load])
+  }, [id, load, policyRevision, terms])
 
   const handleReschedule = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -352,10 +362,21 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
         const res = await fetch(`/api/bookings/${id}/reschedule`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bookingDate: rescheduleDate, startTime: rescheduleTime }),
+          body: JSON.stringify({
+            bookingDate: rescheduleDate,
+            startTime: rescheduleTime,
+            expectedPolicyRevision: policyRevision ?? undefined,
+          }),
         })
         const json = await res.json()
         if (!res.ok || !json.success) {
+          if (
+            json?.error?.code === ERROR_CODES.BOOKING_TERMS_CHANGED ||
+            json?.error?.code === ERROR_CODES.BOOKING_RESCHEDULE_WINDOW_PASSED ||
+            json?.error?.code === ERROR_CODES.BOOKING_MAX_RESCHEDULES
+          ) {
+            await load()
+          }
           throw new Error(json?.error?.message ?? 'Could not reschedule this booking.')
         }
         setShowReschedule(false)
@@ -367,7 +388,7 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
         setRescheduling(false)
       }
     },
-    [id, load, rescheduleDate, rescheduleTime],
+    [id, load, policyRevision, rescheduleDate, rescheduleTime],
   )
 
   if (loading && !booking) {
@@ -561,7 +582,11 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
 
       {/* Actions */}
       {(canCancel || canReschedule || rescheduleBlocked) && (
-        <section aria-label="Manage booking" className="space-y-4 border-t border-cloud-gray pt-6">
+        <section
+          id="manage-booking"
+          aria-label="Manage booking"
+          className="space-y-4 border-t border-cloud-gray pt-6"
+        >
           {actionError && (
             <p className="font-sans text-[14px] text-error" role="alert">
               {actionError}
@@ -578,6 +603,7 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
                 type="button"
                 variant="outline"
                 onClick={() => {
+                  if (!showReschedule) void load()
                   setShowReschedule((prev) => !prev)
                   setConfirmingCancel(false)
                   setActionError(null)
@@ -594,6 +620,7 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
                 type="button"
                 variant="outline"
                 onClick={() => {
+                  void load()
                   setConfirmingCancel(true)
                   setShowReschedule(false)
                   setActionError(null)
@@ -627,8 +654,8 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
                   type="button"
                   variant="outline"
                   onClick={handleCancel}
-                  disabled={cancelling}
-                  aria-busy={cancelling}
+                  disabled={loading || cancelling}
+                  aria-busy={loading || cancelling}
                   className="rounded-full border-error/40 font-ui text-[12px] uppercase tracking-[0.5px] text-error hover:bg-error/5 hover:text-error"
                 >
                   {cancelling ? (
@@ -731,8 +758,8 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
                 type="submit"
                 variant="gold"
                 size="lg"
-                disabled={rescheduling || !rescheduleDate || !rescheduleTime}
-                aria-busy={rescheduling}
+                disabled={loading || rescheduling || !rescheduleDate || !rescheduleTime}
+                aria-busy={loading || rescheduling}
                 className="w-fit rounded-full font-ui text-[12px] uppercase tracking-[0.5px]"
               >
                 {rescheduling ? (

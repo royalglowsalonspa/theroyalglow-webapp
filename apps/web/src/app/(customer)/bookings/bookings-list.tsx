@@ -14,11 +14,11 @@
  * Responsibilities :
  * - Fetch bookings from GET /api/bookings and display them
  * - Provide upcoming/past tab filtering with counts
- * - Handle booking cancellation via POST /api/bookings/[id]/cancel
+ * - Link to the booking detail's cancellation confirmation
  *
  * Features / Functionality :
  * - Tab-based filtering (upcoming vs past bookings)
- * - Cancel action with loading/error states per booking card
+ * - Per-booking link to review cancellation terms
  * - Empty state with "Book Now" CTA using the booking dialog
  *
  * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, shadcn/ui,
@@ -35,6 +35,7 @@
 'use client'
 
 import { CalendarDays, Loader2 } from 'lucide-react'
+import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useBookingDialog } from '@/components/booking/BookingDialogProvider'
 import { Button } from '@/components/ui/button'
@@ -137,8 +138,6 @@ export function BookingsList() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('upcoming')
-  const [cancellingId, setCancellingId] = useState<string | null>(null)
-  const [cancelError, setCancelError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -160,26 +159,6 @@ export function BookingsList() {
   useEffect(() => {
     load()
   }, [load])
-
-  const handleCancel = useCallback(
-    async (id: string) => {
-      setCancellingId(id)
-      setCancelError(null)
-      try {
-        const res = await fetch(`/api/bookings/${id}/cancel`, { method: 'POST' })
-        const json = await res.json()
-        if (!res.ok || !json.success) {
-          throw new Error(json?.error?.message ?? 'Could not cancel this booking.')
-        }
-        await load()
-      } catch (err: unknown) {
-        setCancelError(err instanceof Error ? err.message : 'Could not cancel this booking.')
-      } finally {
-        setCancellingId(null)
-      }
-    },
-    [load],
-  )
 
   const { upcoming, past } = useMemo(() => {
     const up: Booking[] = []
@@ -251,12 +230,6 @@ export function BookingsList() {
         ))}
       </div>
 
-      {cancelError && (
-        <p className="font-sans text-[14px] text-error" role="alert">
-          {cancelError}
-        </p>
-      )}
-
       {visible.length === 0 ? (
         <p className="py-8 font-sans text-[15px] text-dusty-gray">
           {tab === 'upcoming'
@@ -267,11 +240,7 @@ export function BookingsList() {
         <ul className="flex flex-col gap-4">
           {visible.map((booking) => (
             <li key={booking.id}>
-              <BookingCard
-                booking={booking}
-                cancelling={cancellingId === booking.id}
-                onCancel={() => handleCancel(booking.id)}
-              />
+              <BookingCard booking={booking} />
             </li>
           ))}
         </ul>
@@ -291,15 +260,7 @@ export function BookingsList() {
   )
 }
 
-function BookingCard({
-  booking,
-  cancelling,
-  onCancel,
-}: {
-  booking: Booking
-  cancelling: boolean
-  onCancel: () => void
-}) {
+function BookingCard({ booking }: { booking: Booking }) {
   const style = STATUS_STYLES[booking.status] ?? DEFAULT_STATUS_STYLE
   const canCancel = CANCELLABLE_STATUSES.has(booking.status)
 
@@ -353,22 +314,12 @@ function BookingCard({
 
         {canCancel && (
           <Button
-            type="button"
+            asChild
             variant="outline"
             size="sm"
-            onClick={onCancel}
-            disabled={cancelling}
-            aria-busy={cancelling}
             className="rounded-full border-error/40 font-ui text-[12px] uppercase tracking-[0.5px] text-error hover:bg-error/5 hover:text-error"
           >
-            {cancelling ? (
-              <>
-                <Loader2 className="animate-spin" aria-hidden="true" />
-                Cancelling…
-              </>
-            ) : (
-              'Cancel'
-            )}
+            <Link href={`/bookings/${booking.id}#manage-booking`}>Review Cancellation</Link>
           </Button>
         )}
       </div>

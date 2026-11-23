@@ -630,6 +630,7 @@ describe('POST /api/settlements/[id]/paid', () => {
     ['nothing_owed', 409, ERROR_CODES.CONFLICT],
     ['not_found', 404, ERROR_CODES.NOT_FOUND],
     ['not_same_owner', 400, ERROR_CODES.VALIDATION_ERROR],
+    ['forbidden', 403, ERROR_CODES.FORBIDDEN],
   ])('maps a write that found it %s to %i, unaudited', async (reason, status, code) => {
     dbMocks.markSettlementPaid.mockResolvedValue({ ok: false, reason })
 

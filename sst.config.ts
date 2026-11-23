@@ -37,12 +37,6 @@
  *                certificate. Production DNS stays on Cloudflare.
  ************************************************************/
 
-import {
-  readRehearsalConfig,
-  rehearsalAblyKey,
-  rehearsalDatabaseUrl,
-} from './scripts/release/rehearsal-config'
-
 export default $config({
   app(input) {
     return {
@@ -60,8 +54,11 @@ export default $config({
   },
 
   async run() {
+    const { readRehearsalConfig, rehearsalAblyKey, rehearsalDatabaseUrl, rehearsalQStashOrigin } =
+      await import('./scripts/release/rehearsal-config')
     const isProd = $app.stage === 'production'
     const rehearsal = readRehearsalConfig($app.stage, process.env)
+    const qstashUrl = process.env.QSTASH_URL?.trim()
 
     // ── DNS ────────────────────────────────────────────────────────────────
     // theroyalglow.in is hosted on Cloudflare (blakely/jarred.ns.cloudflare.com)
@@ -81,7 +78,7 @@ export default $config({
 
     // ── Secrets ────────────────────────────────────────────────────────────
     // Set with: bunx sst secret set <Name> "<value>" --stage production
-    // Stored as SSM SecureString; injected into the Lambda environment at deploy.
+    // SST stores these per stage and injects the values at deploy.
     // NEVER put NEXT_PUBLIC_* here — those are build-time and must be real
     // environment variables during `next build` (supplied by CI).
     const stageSecret = (name: string, placeholder?: string) =>
@@ -180,6 +177,7 @@ export default $config({
             RESEND_FROM_EMAIL: rehearsal.contactEmail,
           }
         : passthrough({
+            QSTASH_URL: qstashUrl ? rehearsalQStashOrigin(qstashUrl) : undefined,
             R2_BUCKET_NAME: process.env.R2_BUCKET_NAME,
             R2_ENDPOINT: process.env.R2_ENDPOINT,
             INVOICING_SERVICE_URL: process.env.INVOICING_SERVICE_URL,

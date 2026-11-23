@@ -17,8 +17,9 @@
  * Notes        : Node environment (server route handlers). Receptionist+.
  ************************************************************/
 
+import { verifyRequest } from '@rgss/business'
 import { AppError, ERROR_CODES } from '@rgss/errors'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { branchContext, TEST_BRANCH } from '@/test/branch-context'
 
 const mocks = vi.hoisted(() => ({ requireBranchRole: vi.fn() }))
@@ -35,7 +36,14 @@ vi.mock('@/lib/api/branch-context', async (importOriginal) => {
   return { ...actual, requireBranchRole: mocks.requireBranchRole }
 })
 vi.mock('@rgss/db/queries', () => dbMocks)
+vi.mock('@/env', () => ({
+  env: {
+    INVOICING_SERVICE_URL: 'https://invoicing.example.invalid',
+    INVOICE_PDF_HMAC_SECRET: 'fixture-invoice-secret',
+  },
+}))
 
+import * as billingIdPdfRoute from '@/app/api/billing/[id]/pdf/route'
 import * as billingIdRoute from '@/app/api/billing/[id]/route'
 import * as billingRoute from '@/app/api/billing/route'
 
@@ -56,6 +64,72 @@ const forbidden = () =>
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.requireBranchRole.mockResolvedValue(branchContext({ userId: 'u_admin' }))
+})
+afterEach(() => vi.unstubAllGlobals())
+
+describe('GET /api/billing/[id]/pdf', () => {
+  const request = new Request('https://admin.theroyalglow.in/api/billing/inv1/pdf')
+  const route = { params: Promise.resolve({ id: 'inv1' }) }
+
+  it('checks the active branch before fetching a private PDF', async () => {
+    dbMocks.getInvoiceById.mockResolvedValue({
+      id: 'inv1',
+      invoiceNumber: 'RS/2627/000042',
+      pdfUrl: '/api/billing/inv1/pdf',
+      taxPointAt: new Date('2026-10-24T18:30:00.000Z'),
+      createdAt: new Date('2026-10-24T18:31:00.000Z'),
+    })
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response('%PDF-fixture', { headers: { 'Content-Type': 'application/pdf' } }),
+      )
+    vi.stubGlobal('fetch', fetcher)
+
+    const res = await billingIdPdfRoute.GET(request, route)
+    expect(mocks.requireBranchRole).toHaveBeenCalledWith('receptionist')
+    expect(dbMocks.getInvoiceById).toHaveBeenCalledWith('inv1', TEST_BRANCH.id)
+    const call = fetcher.mock.calls[0]
+    expect(call?.[0]).toBe('https://invoicing.example.invalid/v1/invoices/download')
+    const init = call?.[1]
+    expect(init).toMatchObject({ method: 'POST', cache: 'no-store', redirect: 'error' })
+    const body = String(init?.body)
+    expect(JSON.parse(body)).toEqual({
+      invoiceNumber: 'RS/2627/000042',
+      issuedAt: '2026-10-24T18:30:00.000Z',
+    })
+    const headers = new Headers(init?.headers)
+    expect(
+      await verifyRequest({
+        secret: 'fixture-invoice-secret',
+        timestamp: Number(headers.get('x-rgss-timestamp')),
+        signature: headers.get('x-rgss-signature') ?? '',
+        body,
+      }),
+    ).toBe(true)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('cache-control')).toBe('private, no-store')
+    expect(res.headers.get('content-disposition')).toBe('attachment; filename="RS-2627-000042.pdf"')
+    expect(await res.text()).toBe('%PDF-fixture')
+  })
+
+  it('returns 404 without calling the renderer when a different branch owns the invoice', async () => {
+    dbMocks.getInvoiceById.mockResolvedValue(null)
+    const fetcher = vi.fn<typeof fetch>()
+    vi.stubGlobal('fetch', fetcher)
+
+    const res = await billingIdPdfRoute.GET(request, route)
+    expect(dbMocks.getInvoiceById).toHaveBeenCalledWith('inv1', TEST_BRANCH.id)
+    expect(res.status).toBe(404)
+    expect(fetcher).not.toHaveBeenCalled()
+  })
+
+  it('enforces authorization before reading an invoice row', async () => {
+    mocks.requireBranchRole.mockRejectedValue(forbidden())
+    const res = await billingIdPdfRoute.GET(request, route)
+    expect(res.status).toBe(403)
+    expect(dbMocks.getInvoiceById).not.toHaveBeenCalled()
+  })
 })
 
 describe('GET /api/billing', () => {

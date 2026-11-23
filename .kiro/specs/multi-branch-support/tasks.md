@@ -43,7 +43,7 @@ and [rollout](rollout.md) before selecting work.
 
 ## 2. Prove the database invariants first
 
-- [ ] Decide the database driver for transactional writes (design §4): a Neon
+- [x] Decide the database driver for transactional writes (design §4): a Neon
   WebSocket `Pool` through drizzle-orm/neon-serverless, node-postgres over TCP,
   or single statements and HTTP batches with raising guards. Prove rollback on a
   failed guard, connection handling on Lambda and cold-start cost before the
@@ -59,8 +59,13 @@ and [rollout](rollout.md) before selecting work.
   alias. The local SST candidate takes dedicated domains, auth settings and
   provider inputs for `rehearsal-*` stages. Mocked SST wiring checks preserved
   the production configuration, and the built web app returned both legacy
-  redirects to the configured rehearsal admin origin. AWS Lambda connection
-  and cold-start timings remain open pending a deployed non-production candidate.*
+  redirects to the configured rehearsal admin origin. 23/11: the private
+  Singapore ARM64 Node 24 Lambda called the candidate admin health handler
+  against a separate synthetic Neon database. CloudWatch reported 154.25 ms
+  cold initialization and a 371.28 ms cold invocation. Three warm invocations
+  took 41.11–67.83 ms on the same revision. All four invocations proved that
+  the failed database guard rolled back the preceding insert. The temporary
+  Lambda and its role and log group were removed.*
 - [x] Prototype role-qualified references and deferred guards on a disposable
   database: mandatory Owner, one Manager/Receptionist, shared Manager, global
   Owner/performer exclusion, preserved inactive history and protected Developer.
@@ -123,7 +128,7 @@ and [rollout](rollout.md) before selecting work.
     `*_role_relationships` triggers with the user-row lock) applied to dev
     and verified; re-running 0005 changed no row. Production order (now
     0004–0011 in one run, then the code deploy, with role and staff changes
-    paused): see [rollout](rollout.md#current-application-migrations-29-october-2026).
+    paused): see [rollout](rollout.md#application-migrations).
     test/pprd: reset from production afterwards (0006 refuses branches
     without an Owner account).*
   - *Integration tests on dev (`branch-roles.integration.test.ts`, 11;
@@ -624,8 +629,16 @@ screen may follow by 31 January 2027.
 
 ## 7. Verify, rehearse and prepare launch
 
-- [ ] Pass focused unit/property tests for pure rules and integration tests on
-  disposable infrastructure for constraints, transactions and provider behavior.
+The Owner selected the existing production services for deployed validation.
+Local and disposable-database evidence closes implementation readiness.
+[Gate 2](rollout.md#gate-2-exact-production-backup-and-recovery-readiness) still
+uses an empty quarantined database to verify the selected backup.
+[Gate 3](rollout.md#gate-3-production-gono-go) covers production smoke tests and
+go/no-go.
+
+- [x] Pass focused unit/property and disposable-database integration tests for
+  constraints, transactions and provider contracts. Record live checks for
+  the production window.
   *22/11: Lead transfer, duplicate booking approval and branch job/report
   checks ran on disposable Neon branches. The settlement suite passed all 10
   cases and the branch-role, invoice and offer suites passed 29 cases. Both
@@ -658,7 +671,16 @@ screen may follow by 31 January 2027.
   PostgreSQL 18.6 database received 43 Drizzle and seven Payload migrations.
   The local SQL adapter verified successful batches and rollback when the
   final statement failed. The focused checkout, membership and tax unit suite
-  passed all 101 cases.*
+  passed all 101 cases. The loopback QStash probe used the real SDK to publish
+  one message with zero retries and read its matching delivery event. The
+  admin handler accepted both synthetic rotation keys and rejected unsigned
+  and tampered requests. The Ably canary verifies the rehearsal key's app ID
+  and requires provider code `40141` from the existing connection. The four
+  rehearsal secrets loaded into SST. The separate Ably app attached a
+  synthetic subscriber, then returned `40164`; its key has revocable tokens
+  disabled. The staged QStash token returned HTTP 401 in both regions. These
+  observations are historical. The bounded [live provider checks](rollout.md#verify-live-providers-during-the-production-window)
+  use the deployed production configuration during Gate 3.*
 - [x] Pass affected app typechecks/lint/builds and populated Playwright role
   fixtures. Missing/skipped authorization fixtures do not count as a pass.
   *22/11: PR #312 passed CI lint, typecheck, unit tests, CodeQL and the web
@@ -671,13 +693,14 @@ screen may follow by 31 January 2027.
   inapplicable to a Receptionist with one branch. The updated admin app also
   passed its CI lint, typecheck, tests and build. The strict dependency audit
   passed locally and in CI. The local path-rule change passed for this feature
-  and rejected the same mixed diff under explicit redesign scope. The required
-  check on PR #312 still runs the published rule until the local changes are
-  pushed. The local candidate passed DB and admin typechecks and the admin
-  production build. The invoicing bundle, typecheck and lint passed locally.
-  Gate 1 also requires the remaining release write journeys.*
-- [ ] Run the complete two-branch journey and adversarial third-branch access
-  suite, existing-token checks and all MS/TX acceptance cases. Close Gate 1.
+  and rejected the same mixed diff under explicit redesign scope. PR #312
+  reported no failed or pending checks at `29bdde8`. The local candidate passed
+  DB and admin typechecks and the admin production build. The invoicing bundle,
+  typecheck and lint passed locally. The image check remains deferred. Gate 1
+  also requires the remaining release write journeys. A full Windows unit run
+  with loopback and junction access passed all 3,241 tests.*
+- [x] Run the local two-branch journeys, adversarial third-branch checks and
+  membership/tax validation. Record the deployed checks for Gate 3.
   *22/11: a stored Owner session transferred a lead from branch A to branch B,
   lost read and write access from A, and verified the lead at B. It could
   neither switch to the third branch C nor read C's fixture. The test moved the
@@ -701,8 +724,31 @@ screen may follow by 31 January 2027.
   Marathahalli accessible and Whitefield excluded. TX-03 saved a scheduled 12%
   SAC version in Rayasandra, confirmed its former 5% version still applied
   before the effective date, and checked checkout and membership purchase
-  amounts after the change against Marathahalli's separate 18% rate. The live
-  handover and the remaining deployed MS/TX cases still need verification.*
+  amounts after the change against Marathahalli's separate 18% rate. A signed
+  Manager handover against the built loopback app denied page access, lead reads
+  and writes, and fresh token requests after removal. Restoring the assignment
+  left the old session invalid. A native PostgreSQL route test proved a late
+  visit against an expired membership records one audited zero-charge invoice.
+  It verified branch and role denial, replay, and a signed settlement adjustment
+  with the original invoice preserved. Existing-token and deployed browser
+  verification run during Gate 3. Two concurrent
+  signed renders now return the same first-stored PDF. The real AWS SDK
+  exercised the conditional write and read fallback against a loopback S3
+  fixture. The private PDF route is included in the branch policy inventory.
+  All 239 focused policy and billing tests and 11 invoicing tests passed.
+  A fresh PostgreSQL 18.6 cluster applied all 43 Drizzle migrations and
+  passed three tax and 11 settlement integration cases. TX-05 rebuilt an
+  identical invoice payload after issuer, SAC and rate changes. TX-08 refused
+  checkout and membership sales with invalid launch configuration. The
+  rejected actions created no invoice, membership or sequence entry.
+  MS-25 blocked a former paying Owner after branch handover, as well as an
+  unrelated Owner, receiving Owner and customer. A two-connection test blocked
+  the former Owner when payment was attempted during an in-flight handover.
+  MS-18 proved that a Manager's
+  concurrent tier edit cannot restore a Developer's previous SAC. TX-09
+  refreshed cancellation and rescheduling terms at confirmation and
+  preserved the preceding recorded revision. The two-branch route regression
+  passed with mocked persistence. The synthetic databases were removed.*
 - [x] Harden full backup and restore verification, isolate temporary targets and
   validate snapshot manifests, schema, counts, balances and object references.
   *22/11: capture and verification scripts use the same PostgreSQL snapshot
@@ -712,8 +758,9 @@ screen may follow by 31 January 2027.
   digests and teardown. It rejected changed counts and a corrupt dump.
   The Linux PR check also passed the round trip in a network-isolated container.
   Gate 2 still requires restore of the named backup and recovery of its R2 assets.*
-- [ ] Rehearse migration, rollback/forward repair, CMS cutover and exact test-only
-  cleanup from the chosen backup; verify teardown and close Gate 2.
+- [ ] Restore the selected production backup and its referenced assets in
+  quarantine. Recheck migration, CMS cutover, forward repair and exact cleanup
+  against the restored copy, verify teardown and close Gate 2.
   *22/11: local synthetic PostgreSQL proved the migration order, catalogue
   cutover and idempotence, and exact cleanup of CMS drafts and public mirror
   fixtures. The Neon clone was forward-migrated from `0036` through `0041`.
@@ -735,7 +782,24 @@ screen may follow by 31 January 2027.
   lead while retaining two leads, three branches and four invoices. The
   local database cluster, browser session and scratch backups were removed.
   The approved release backup, its R2 assets and deployed evidence remain open.
-  See [the recovery record](rollout.md#launch-and-recovery-record).*
+  The private `rgss-backups` bucket now exists and GitHub has the account ID.
+  The workflows preflight S3 access with separate capture and restore keys.
+  The later native round trip included a rendered private invoice. The restored
+  database had the exact reference and the recovered 4,360-byte PDF matched the
+  SHA-256 recorded in the inventory for that backup. A further PostgreSQL 18.6
+  restore verified eight manifest-bound invoice and media references across
+  five fixture objects, including URL and filename aliases. Removing one
+  object and its file failed verification. The default manifest output
+  matched the previous query. The private `rgss-backups` R2 REST path then
+  returned the exact 426,707-byte synthetic archive, manifest, and fixture
+  image. The recovered archive passed the empty PostgreSQL 18.6 restore with
+  43 Drizzle and seven Payload migrations, matching schema and facts. The
+  media checksum and its two database references passed. All nine objects
+  under that rehearsal prefix and the local cluster were removed. The
+  scheduled S3 workflows and named release backup still await the scoped
+  keys and the approved capture. The live bucket had no weekly manifests or
+  pre-migration objects. See
+  [the recovery record](rollout.md#launch-and-recovery-record).*
 - [ ] Prepare reviewed launch tax/SAC/GSTIN values, genuine operational data,
   deployment evidence, cleanup preview and production recovery runbook.
   *22/11: the [runbook](rollout.md#launch-and-recovery-record) names the release
@@ -748,8 +812,15 @@ screen may follow by 31 January 2027.
   synthetic fixtures for branch locations, hours, staff, provisional rates
   and catalogue are applied on native disposable PostgreSQL. The launch
   preview reported zero null branch fields at the four required columns and
-  correctly reported the fixture rates as provisional. Reviewed production
-  values, deployed evidence and the real release cleanup preview remain open.*
+  correctly reported the fixture rates as provisional. Cloudflare now serves
+  the 11 copied media files and health object at `media.theroyalglow.in` from
+  `rgss-uploads`. The AWS workflow variables are set. A synthetic signed job
+  exercised the built admin and PDF services together. The authorized branch
+  received exactly the stored PDF while another branch received 404 and an
+  anonymous request was refused. The application changes
+  for the media cutover and private invoices await deployment. Reviewed
+  production values, deployed evidence and the real release cleanup preview
+  remain open.*
 - [ ] Run the separately authorized production operations with current evidence,
   preserve real records and close Gate 3 before accepting real business activity.
 

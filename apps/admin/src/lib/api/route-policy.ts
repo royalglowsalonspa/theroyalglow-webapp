@@ -56,6 +56,7 @@ export const ADMIN_ROUTE_POLICIES = {
   'auth/[...all]': { GET: 'auth', POST: 'auth' },
   billing: { GET: 'branch' },
   'billing/[id]': { GET: 'branch' },
+  'billing/[id]/pdf': { GET: 'branch' },
   bookings: { GET: 'branch' },
   'bookings/new': { POST: 'branch' },
   'bookings/[id]': { GET: 'branch', PATCH: 'branch' },

@@ -292,6 +292,40 @@ describe("POST /api/bookings/[id]/reschedule — the branch's rules (R6.3)", () 
     sessionMocks.requireSession.mockResolvedValue({ user: { id: 'cust_1' } })
   })
 
+  it('leaves the old slot in place until the revised policy is confirmed', async () => {
+    dbMocks.getClosureOn.mockResolvedValue(null)
+    dbMocks.getBranchPolicy.mockResolvedValue({ ...POLICY, revision: 5 })
+    const store = makeStore({
+      id: 'bk_1',
+      customerId: 'cust_1',
+      status: 'confirmed',
+      rescheduleCount: 0,
+      totalDurationMinutes: 60,
+    })
+    const target = { bookingDate: '2026-06-05', startTime: '12:00' }
+    const ctx = { params: Promise.resolve({ id: 'bk_1' }) }
+
+    const stale = await rescheduleRoute.POST(
+      postReq('bk_1', { ...target, expectedPolicyRevision: 4 }),
+      ctx,
+    )
+    expect(stale.status).toBe(409)
+    expect((await stale.json()).error.code).toBe(ERROR_CODES.BOOKING_TERMS_CHANGED)
+    expect(store.statusLogs).toEqual([])
+    expect(store.rescheduleCount).toBe(0)
+
+    const confirmed = await rescheduleRoute.POST(
+      postReq('bk_1', { ...target, expectedPolicyRevision: 5 }),
+      ctx,
+    )
+    expect(confirmed.status).toBe(200)
+    expect(dbMocks.rescheduleBooking).toHaveBeenCalledWith(
+      'bk_1',
+      'cust_1',
+      expect.objectContaining({ settingsRevision: 5 }),
+    )
+  })
+
   it('refuses inside the reschedule cut-off, leaving cancelling open', async () => {
     // The appointment is at 10:30 today: half an hour away, the cut-off is an hour.
     makeStore({

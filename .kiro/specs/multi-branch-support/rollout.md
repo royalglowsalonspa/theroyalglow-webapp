@@ -1,7 +1,8 @@
 # Multi-branch support v6: rollout and recovery
 
-Status: planning specification, 27 October 2026. Target launch: 1 January 2027, conditional on all three gates below.
-This document defines future implementation and operations; writing it does not execute migrations, workflows, cleanup, role changes, commits or deployments.
+Status: implementation and launch runbook, updated 23 November 2026. Target launch: 1 January 2027, conditional on all three gates below.
+
+The Owner chose to verify deployed behavior on the existing production services during the approved release window. Gate 1 uses the completed local and disposable-database checks. This release does not require a new hosted rehearsal environment, domain, certificate or provider account. A temporary quarantined backup restore remains part of Gate 2. It does not receive production traffic or connect to live delivery providers.
 
 Neon state checked read-only through the Neon API on 27 October 2026 (project `divine-heart-60915941`):
 
@@ -19,7 +20,7 @@ Do not infer available branches, configured secrets, successful backups or workf
 - Follow generate → review SQL → commit → migrate, including schema, generated metadata and fingerprint references where applicable.
 - Use an explicit direct `DATABASE_URL_UNPOOLED` for Drizzle; supply the direct connection through `DATABASE_URL` for Payload.
 - Merge reviewed work into `dev` once, then promote the same validated commit through `dev → test → pprd → prod` using the promotion workflow.
-- A Git promotion is not proof that either database schema migrated or that web, admin, CMS and invoicing deployed successfully.
+- Record database migration and web, admin, CMS and invoicing deployment separately from Git promotion.
 - Record the source commit, deployed artifact revisions, migration ledger heads, environment/branch IDs and evidence links for every gate.
 - Commits, workflow dispatch, provisioning and production actions belong to later implementation/operations tasks with the applicable authorization.
 - Current Next.js baseline is 16.4.3 in web, admin and CMS. Only `apps/admin/next.config.ts` sets `experimental.turbopackFileSystemCacheForDev: false`; web and CMS also run `next dev --turbopack` and need the same setting (tasks §1). There is no dependency patch to merge.
@@ -31,59 +32,28 @@ Pass before scheduling a production migration window:
 - Resolve v6 role, branch-context, service availability, invoice snapshot and CMS editing-authority rules into executable acceptance tests.
 - Validate the booking/assignment constraints on disposable PostgreSQL, including simultaneous requests and the mixed SPA/hair cases.
 - Verify membership reservations, completion debits and retries atomically; no-show releases return hours only within the original membership expiry.
-- Verify removal/handover access loss across HTTP, page reads and existing realtime connections, including cross-branch record requests.
+- Verify removal/handover access loss across HTTP and page reads, including cross-branch record requests, and exercise token revocation logic locally. Check an existing provider connection in Gate 3.
 - Inventory every branch-owned read/write, aggregate, export, job, token capability and shared-customer projection; test negative access cases.
 - Ensure real invoice issuance requires approved tax settings; provisional GST/SAC configuration is for pre-launch test activity only.
-- Collect the relevant tests in their actual runners and require passing lint, types, schema checks and affected-app builds.
+- Collect the relevant tests in their actual runners and require passing lint, types, schema checks and affected-app builds. Verify the invoicing deployment artifact in Gate 3 if the local image check remains deferred.
 - Keep unrelated workspace edits separate from the release. Any failed or unavailable required check leaves this gate open.
 
-For the Lambda driver check, use the release candidate on a non-production AWS
-stage with its isolated Neon target. Call the admin `/api/health` endpoint from
-the deployed URL. Correlate a successful cold request with the Lambda `REPORT`
-entry that includes `Init Duration`, then collect successful warm requests on
-the same function revision. Record the initialization and request times and the
-target IDs with the existing transaction rollback and concurrency results.
+The driver proof uses rollback and concurrency checks on disposable PostgreSQL and
+the recorded timing of the private AWS probe. Deployed CloudFront, browser, and
+provider behavior are verified during the production release window.
 
-From a shell authorized to read the reviewed isolated stage and its log group,
-run `node scripts/release/rehearse-lambda-health.mjs <stage> <admin-function-arn> <distribution-id> <revision-id> <admin-origin>`.
-It checks the stage tags and origin mapping before calling health and correlates
-each response with its CloudWatch report. Start after a fresh rehearsal deploy
-or after the isolated function has cooled. Save the redacted result with the
-commit and Neon branch ID. The production deploy workflow always uses the
-production stage, including when `git_ref` is supplied.
+On 23 November 2026, the private probe at revision
+`78116d03-6f48-4a3e-866e-8882e239803f` ran the app code from `29bdde8` with
+the probe from this workspace. CloudWatch measured 154.25 ms of initialization
+and 371.28 ms for the cold invocation. Three warm invocations measured
+67.83, 56.56 and 41.11 ms. The admin health handler took 302.92 ms cold and
+4.29–16.55 ms warm. The failed synthetic `CHECK` rolled back the prior insert
+on all four invocations. The temporary function, role and logs were removed.
 
-### Isolated deployment for the browser and Lambda rehearsal
-
-Use a named `rehearsal-*` SST stage and synthetic data. The stage uses a shared
-auth cookie scoped to `REHEARSAL_DOMAIN` and serves web and admin at
-`web.<domain>` and `admin.<domain>`. The domain must be separate from
-`theroyalglow.in`. Attach the prevalidated `REHEARSAL_CERTIFICATE_ARN` in
-`us-east-1` covering both hostnames. The stage uses the approved rehearsal DNS
-records managed outside SST, as described in [SST custom domains](https://sst.dev/docs/custom-domains/).
-
-| Input | Use |
-| --- | --- |
-| `REHEARSAL_DOMAIN`, `REHEARSAL_CERTIFICATE_ARN` | Browser origins, shared cookie and CloudFront aliases. Register the appropriate Google OAuth callbacks for these hosts. |
-| `REHEARSAL_NEON_HOST` | Direct endpoint hostname of the disposable Neon branch. The `RehearsalDatabaseUrl` secret must use this endpoint or its matching pooler. |
-| `REHEARSAL_ABLY_APP_ID`, `PRODUCTION_ABLY_APP_ID` | Verify that the revocation-enabled `RehearsalAblyPrivateKey` comes from a separate app. |
-| `REHEARSAL_QSTASH_URL` | Optional provider regional origin used by both apps and the delivery check. Defaults to `https://qstash.upstash.io`. |
-| `REHEARSAL_CMS_ORIGIN`, `REHEARSAL_INVOICING_ORIGIN` | Dedicated HTTPS services. Configure CMS and invoicing with the matching rehearsal revalidation/render signing secrets and the isolated database/storage they need. |
-| `REHEARSAL_R2_ENDPOINT`, `REHEARSAL_R2_BUCKET`, `REHEARSAL_R2_PUBLIC_ORIGIN` | R2 endpoint, bucket and public origin for synthetic assets. Scope the rehearsal credentials to that bucket. |
-| `REHEARSAL_VAPID_PUBLIC_KEY`, `REHEARSAL_POSTHOG_KEY`, `REHEARSAL_POSTHOG_HOST` | Rehearsal push and analytics settings. Use the matching rehearsal VAPID keypair and a dedicated analytics project. |
-
-Store each SST secret under its normal name with `Rehearsal` prepended and
-select the named stage. Configure dedicated QStash, Redis, OAuth and Resend
-accounts and use `rehearsal@<domain>` for the contact inbox and verified sender.
-Start from a clean checkout and deployment environment so local production
-environment files do not supply extra provider values. Restore production
-backups in the separate quarantined environment from Gate 2.
-
-An authorized operator deploys the reviewed candidate with
-`bunx sst deploy --stage <named-rehearsal-stage>`. After pointing the two
-approved DNS records at their CloudFront distributions, verify auth and job
-destinations in those hosts before registering isolated schedules or running
-signed browser cases. Record the deployed Git SHA, function ARN and revision,
-distribution ID, Neon branch ID and provider evidence in the launch record.
+The standalone [Lambda health timing tool](../../../scripts/release/rehearse-lambda-health.mjs)
+remains available for nonproduction diagnostics. For this release, use read-only
+production health requests after deploying the reviewed candidate and correlate
+request IDs with the production Lambda logs.
 
 ### Local rehearsal with synthetic salon data
 
@@ -109,6 +79,10 @@ auth values and leave outbound providers unconfigured.
    in the test process and its workers. In a built Next app, use `localhost`
    as the hostname in `DATABASE_URL`. Run the scenario once per prepared
    database because it issues four synthetic invoices and adds a tax version.
+   Enable `ADMIN_REHEARSAL_MEMBERSHIP_HISTORY=1` for the separate
+   `membership-history.integration.test.ts` route rehearsal. It records an
+   omitted visit, verifies role and branch restrictions, and applies a linked
+   correction while preserving the issue snapshot.
 4. For the recovery rehearsal, run `scripts/backup/capture-full.sh` with the
    synthetic database URL and `BACKUP_SOURCE_ID=local-synthetic-fixture`. In
    an empty `rgss_rehearsal_restore_<name>` database, use the exact resulting
@@ -122,6 +96,16 @@ auth values and leave outbound providers unconfigured.
 The local adapter exercises the application queries and transaction guards on
 PostgreSQL. Collect separate evidence for deployed AWS, Neon, QStash and Ably
 behavior, the selected release backup, and approved launch values.
+
+To check local signed-session handover, start the built admin app on
+`http://127.0.0.1:<port>` with the same database and adapter, with Ably unset.
+Set `PLAYWRIGHT_ADMIN_BASE_URL` to that origin, set `ADMIN_E2E_OWNER_STATE`
+and `ADMIN_E2E_MANAGER_STATE` to fresh signed fixture storage states for
+`rehearsal_mb_owner_ab` and `rehearsal_mb_a_manager`, and set
+`ADMIN_E2E_LOCAL_HANDOVER=1`. Run `local-role-handover.spec.ts` with the admin
+Playwright config. The test restores the assignment and confirms that the
+original Manager session remains invalid. Use the separate deployed realtime
+test to observe Ably disconnecting an existing subscriber.
 
 ## Additive migration and deployment order
 
@@ -143,7 +127,7 @@ behavior, the selected release backup, and approved launch values.
 For each environment, preserve this dependency order and both migration ledgers; never use schema push or edit applied migrations.
 If a step fails, stop subsequent steps and retain the compatible additive state while preparing a forward repair.
 
-### Current application migrations (21 November 2026)
+### Application migrations
 
 Applied on Neon dev (`0000`–`0036`). Production has `0000`–`0003`.
 
@@ -244,7 +228,7 @@ prefix must be unique. Invoices issued before `0017` keep their numbers and
 header-only tax and render as before. Reset `test` and `pprd` from production
 afterwards.
 
-### Current CMS migrations (21 November 2026)
+### CMS migrations
 
 Neon dev's Payload ledger holds seven migrations, the last two listed below.
 Check production's ledger before the window: the CMS start command runs
@@ -305,44 +289,57 @@ The admin Lambda maps the three heartbeat variables to the stage's [SST
 secrets](../../../knowledge-base/background-jobs.md#env-vars-jobs-specific).
 Verify delivered pings from the release environment before relying on the monitors.
 
-For the provider-level token check, run `bun apps/admin/scripts/rehearse-ably-revocation.ts`
-with `REHEARSAL_ABLY_KEY` from the dedicated rehearsal app's secret store and
-both `REHEARSAL_ABLY_APP_ID` and `PRODUCTION_ABLY_APP_ID`. The canary creates a
-unique subscriber on a synthetic channel, revokes its existing token and waits
-for the realtime connection to observe the revocation.
+### Verify live providers during the production window
 
-For the deployed handover, run
-`bunx playwright test --config apps/admin/playwright.config.ts realtime-handover.spec.ts --reporter=line`
-with `ADMIN_E2E_REALTIME_HANDOVER=1`, `REHEARSAL_DOMAIN`,
-`PLAYWRIGHT_ADMIN_BASE_URL=https://admin.<rehearsal-domain>`, and the same two
-Ably app IDs. Set `ADMIN_E2E_REVOCATION_BRANCH_ID` and
-`ADMIN_E2E_REVOCATION_MANAGER_EMAIL` to a disposable branch and its Manager.
-Provide the matching `ADMIN_E2E_OWNER_STATE` and `ADMIN_E2E_MANAGER_STATE`
-Playwright storage-state files. Both accounts must be active at the fixture
-branch, and the Manager must work only there and have no assigned bookings.
-The test exchanges a branch-scoped token request issued by the deployed admin,
-attaches a subscriber, and removes the Manager through the Owner API. It
-requires the connected subscriber to report `40141` and the old Manager
-session to be denied a fresh token. The test restores the fixture role and
-invalidates the Manager's stored session, so capture a fresh session before
-rerunning. Save the outcome with the stage revision without session files or
-token values. [Ably token revocation](https://ably.com/docs/auth/revocation)
+Use the production provider credentials from their approved secret stores in an
+authorized shell. Verify the exact deployed commit and host before sending any
+requests. Keep new schedules and customer intake paused until the applicable checks
+pass.
 
-After the rehearsal admin origin is reachable, run
-`bun apps/admin/scripts/rehearse-qstash-delivery.ts` with `REHEARSAL_DOMAIN`,
-`REHEARSAL_QSTASH_TOKEN` from the isolated secret store, and the same
-`REHEARSAL_QSTASH_URL` as the stage when a regional origin is configured. The
-script confirms the invoice handler rejects an unsigned request, publishes one
-signed message without an invoice ID or retries, and verifies the matching
-delivery in QStash. This payload returns before any database lookup, PDF render,
-email or heartbeat. Record the message ID, destination and delivery time from
-the report. [Upstash delivery logs](https://upstash.com/docs/qstash/howto/debug-logs)
+- **QStash delivery.** From the candidate checkout, set `QSTASH_TOKEN` and the
+  deployed `QSTASH_URL` and run:
+  ```sh
+  bun apps/admin/scripts/rehearse-qstash-delivery.ts --production --confirm-no-invoice-delivery
+  ```
+  This uses the exact production admin origin, requires the unsigned request to
+  return 401, and publishes one signed request without an invoice ID and with zero
+  retries. It returns before database, PDF, email or heartbeat work. Record the
+  message ID, target and confirmed delivery time. In **Register QStash Schedules**,
+  review the dry run with `jobs=missing-manager-reminder,realtime-revocations,settlement-close,staff-overrun-check`.
+  Apply only the reviewed jobs at the approved point. Keep unrelated customer
+  delivery schedules paused until the final go/no-go. After the approved resume,
+  use the same probe with `--production --verify-schedules` to verify the active
+  job paths, UTC crons and methods. Use the same regional
+  `QSTASH_URL` repository variable for AWS runtime and schedule registration.
+  If the variable is empty, both use the provider default
+  `https://qstash.upstash.io`. [Upstash delivery logs](https://upstash.com/docs/qstash/howto/debug-logs)
+- **Ably and branch access.** Confirm the deployed admin uses the production key
+  configured for **Revocable tokens** and allow tokens issued by the previous key
+  to expire after any approved rotation. Keep `NEXT_PUBLIC_ABLY_KEY` as the
+  nonsecret value `enabled`. Review rotation of any full key previously used
+  in that browser configuration. Use the production canary on its
+  generated subscriber to verify provider code `40141`. With `ABLY_PRIVATE_KEY`
+  from the deployed runtime's secret store and the confirmed
+  `PRODUCTION_ABLY_APP_ID`, run:
+  ```sh
+  bun apps/admin/scripts/rehearse-ably-revocation.ts --confirm-production-synthetic-revocation
+  ```
+  The script mints one subscribe-only token and targets that generated client ID.
+  For application evidence,
+  use signed sessions and a separately approved test-only Owner/Manager assignment
+  with no business bookings. Attach the Manager's existing branch subscription,
+  remove only the test assignment through the Owner API, and verify the old
+  connection reports `40141`, the old session cannot obtain another token, and
+  branch pages/read/write calls are denied. Restore the approved fixture assignment,
+  verify old sessions remain invalid, then clear fixture sessions and preserve the
+  audit. Do not experiment with an operational Manager's branch assignment.
+  [Ably token revocation](https://ably.com/docs/auth/revocation)
+- **Heartbeat and release health.** Compare the approved schedule list with the
+  provider, then verify heartbeats from permitted quiet runs. Confirm scheduled jobs
+  that reach customer data or advance settlement periods are enabled only at their
+  approved point. Save web/admin health and deployed revision, CMS catalogue
+  parity, and private PDF access evidence with redacted IDs.
 
-After registering the approved rehearsal schedules, run the same command with
-`--verify-schedules`. This reads the isolated provider's registration and
-reports differences from the current job paths, UTC crons and enabled POST
-methods. Confirm signed execution of the scheduled multi-branch handlers and
-their heartbeats on the stage with synthetic records and destinations.
 A later enforcement migration
 sets NOT NULL on `lead.branch_id`, `waitlist.branch_id`,
 `customer_note.branch_id` and `spa_membership.selling_branch_id` once the
@@ -352,20 +349,25 @@ four null counts, branch issuer/settings coverage, and active service and tier
 tax gaps at the start of the launch day in IST. Reconcile its results with the
 approved branch and tax records.
 
-## Gate 2: isolated migration and recovery rehearsal
+## Gate 2: exact production backup and recovery readiness
 
-Pass using the exact candidate migrations, cleanup implementation and release artifacts intended for production:
+The completed synthetic rehearsal validates the procedure. Before production DDL or
+cleanup, validate the actual release backup from the quiesced source.
 
-- Verify live branch availability and identity read-only before choosing the rehearsal target.
-- If test/pprd are unavailable, provision a temporary isolated Neon rehearsal database and record its mapping to the missing environment stage.
-- Keep Git promotion order unchanged; an isolated database rehearsal does not silently waive configured test/pprd deployment checks.
-- Quarantine the target from application traffic and outbound email, messages, jobs, analytics and production storage writes before copying data.
-- Use dedicated test credentials and storage. Copied sessions, OAuth tokens, lead contacts, notes and other PII remain restricted until sanitized or destroyed.
-- The existing replication script is not a complete sanitizer or proof that an archived branch can be restored; review and close its coverage gaps first.
-- Restore the selected full backup into an empty temporary target, then rehearse additive migration, backfill, enforcement and cleanup.
-- Exercise failure/retry and recovery boundaries between Drizzle migration, CMS migration, app deployment and CMS ownership cutover.
-- Run acceptance tests against actual PostgreSQL and the deployed rehearsal apps; record passing results and unresolved operational dependencies.
-- Rehearse teardown, revoke temporary credentials and delete isolated copies when evidence is retained; retain only approved redacted reports.
+- Confirm the release SHA, current production state and exact Neon branch identity
+  through metadata. Keep Git promotion and database migration order unchanged.
+  Archived branches may need to be reactivated or migrate under the existing
+  release procedure without deploying a new application environment.
+- Obtain the exact approved full database dump, manifest and R2 asset inventory.
+  Restore the dump into an empty, quarantined target with no app traffic, provider
+  egress, or production credentials. A disposable PostgreSQL recovery target is
+  sufficient. Keep any copied sessions, OAuth records and PII restricted.
+- Verify the restored schema, both ledgers, counts, balances, constraints and linked
+  invoice/media files. Use the candidate migrations and reviewed allowlist on the
+  restored copy for preflight, rollback/forward repair and cleanup preview.
+- Reject unverified snapshots, unexpected conflicts, unresolved asset references,
+  and unexplained differences. Record restore duration, hashes, redacted evidence
+  and teardown. Keep the approved backup available throughout the release window.
 
 ## Full backup and restore requirements
 
@@ -393,26 +395,49 @@ Pass using the exact candidate migrations, cleanup implementation and release ar
 ### Verify recovered R2 assets
 
 Review an exact inventory of invoice PDFs and CMS media, including generated
-variants, for the selected database backup. Reconcile the inventory with the
-restored database references, document any intentionally excluded objects, and
-record where each original can be recovered. Establish the expected SHA-256 and
-byte length from that trusted recovery source before restoring the files.
-
-Create an inventory JSON with `version: 1`, the SHA-256 of the exact database
-manifest file as `manifestSha256`, an approval reference in `reviewReference`,
-and an `objects` array. Each entry has `bucket`, `key`, `recoveryReference`,
-`sha256`, `size` in bytes, and `file`. Use a unique lowercase filename such as
-`invoice-42.object` for the recovered file. Put only the listed files in the
-quarantined directory. Run the offline comparison from the repository root.
+variants, for the selected database backup. Export the reference rows from the
+quarantined restored database before running migrations or cleanup. Keep the
+export with the restricted recovery materials.
 
 ```sh
-node scripts/backup/verify-recovered-assets.mjs <manifest> <inventory> <recovered-directory>
+umask 077
+psql "$RESTORED_DATABASE_URL" -X -qAt -v ON_ERROR_STOP=1 \
+  -v rgss_backup_reference_export=true \
+  -c 'BEGIN READ ONLY; SET LOCAL search_path = pg_catalog;' \
+  -f scripts/backup/database-facts.sql -c 'COMMIT;' > reference-export.json
+```
+
+Create an inventory JSON with `version: 2`, the SHA-256 of the exact database
+manifest file as `manifestSha256`, an approval reference in `reviewReference`,
+and `objects` and `excludedReferences` arrays. Each object has `bucket`, `key`,
+`recoveryReference`, `sha256`, `size` in bytes, `file` and a `references` array
+of `{kind, position}` pairs from the export. Attach both URL and filename
+references for a CMS asset to the same inventory object. For a private invoice
+link, use the invoice number and issue date to resolve its storage key. Each
+approved exclusion must include the reference's `kind`, `position` and `reason`.
+Establish the expected checksum and byte length from the trusted recovery
+source before restoring the files. Use a unique lowercase filename such as
+`invoice-42.object`. Put only the listed files in the quarantined directory.
+
+```sh
+node scripts/backup/verify-recovered-assets.mjs <manifest> <inventory> <recovered-directory> <reference-export>
 ```
 
 Record the printed hashes and verified counts with the database restore
-evidence. The comparison checks the recovered bytes against the approved
-inventory. The reference reconciliation and proof that the files came from
-the named recovery locations are part of the review.
+evidence. The comparison checks the export against the manifest's database
+digests, requires every reference to appear once and checks the recovered
+bytes. Reviewers confirm the references resolve to the listed bucket and key,
+the sources are trusted and any reported exclusions are approved.
+
+On 23 November 2026, the private `rgss-backups` R2 REST path round-tripped
+the synthetic `rgss_full_20261123T174419Z_312-1.dump` (426,707 bytes,
+SHA-256 `abb6c9f6a7f3eb0ffbf76e069f0aea7675006f38e0595af7128093e9eb91a460`),
+its manifest and a PNG fixture. An empty native PostgreSQL target matched the
+schema, facts, 43 Drizzle migrations and seven Payload migrations. The
+recovered asset verifier matched both CMS references to the 68-byte object.
+The temporary local cluster was removed, and the remote rehearsal prefix was
+verified empty. The live scheduled S3 capture and recovery of the selected
+release backup still require their scoped workflow credentials.
 
 ## Cleanup preparation and execution
 
@@ -437,7 +462,7 @@ Cleanup is a separately reviewed production operation, not a migration side effe
 
 ### Read-only cleanup preview
 
-Restore the exact verified dump into a quarantined rehearsal target and apply
+Restore the exact verified dump into a quarantined recovery target and apply
 the candidate migrations. Set `CLEANUP_PREVIEW_DATABASE_URL` to its explicit
 read-only connection. Run `bun scripts/backup/preview-cleanup.mjs <allowlist.json> <manifest.json>`
 using the selected backup manifest. Each allowlist entry identifies an exact
@@ -455,12 +480,53 @@ not execute cleanup or establish that a record is a test record.
 
 ## Gate 3: production go/no-go
 
-- Gates 1 and 2 pass, the exact release and cleanup evidence is approved, and the current backup has a successful verified restore.
-- Real branch details, owners, managers or documented coverage, schedules, closures and catalogue availability are checked end to end.
-- Approved GST/SAC/legal issuer settings replace provisional test values before real invoicing; historical issuer snapshots remain immutable.
-- Cross-branch isolation, staff conflicts, membership accounting, offer application, invoice rendering and branch-specific notifications pass production-safe checks.
-- Operators have the recovery owner, escalation route, maintenance controls, monitoring and rollback decision thresholds available for the launch window.
-- Any unresolved isolation, accounting, concurrency, migration or recovery failure is a no-go, regardless of the calendar date.
+1. **Authorize and quiesce.** Confirm the reviewed candidate SHA, existing app
+   revisions, current database ledgers, Owner-approved branch data and tax
+   records, recovery owner, and maintenance window. Verify each pause for
+   intake, CMS auto-deploy and authoring, staff billing and the affected
+   publishers and consumers. Record in-flight job IDs and disable or drain
+   the corresponding deliveries before capture.
+2. **Capture and verify recovery.** Run **Weekly Prod Backup** with
+   `backup_purpose=release`, `release_candidate_sha`, `source_deployed_sha`,
+   `source_neon_host` and `source_neon_branch_id`. Use the published exact
+   `release/...manifest.json` value as `manifest_key` in **Monthly Backup
+   Restore Test** and supply the same `release_candidate_sha`. The restore
+   workflow removes its container at the end. Use the identical verified pair
+   for the quarantined asset and cleanup checks in Gate 2.
+   Take the separate catalogue snapshot before Payload DDL. Stop on a missing
+   artifact, invalid backup, changed candidate, unexplained data, or required
+   R2 object that cannot be recovered.
+3. **Promote and migrate.** Dispatch **Promote validated commit** from
+   `dev` with target `prod`, maintainer approval and
+   `defer_production_deploy=true`. This advances the exact validated commit
+   through `test` and `pprd` without dispatching AWS deployment or release
+   publication. Render auto-deploy must already be paused. Apply the reviewed
+   Drizzle then Payload migrations to their verified targets in the existing
+   environment order. Review before/after counts and both ledgers. Proceed
+   only when all expected branch, occupancy, membership and invoice guards
+   are present and reconciliation passes.
+4. **Deploy the approved artifacts.** Deploy Cloud Run invoicing with the
+   candidate artifact and private `rgss-invoices` configuration. Deploy CMS
+   after its migrations and verify catalogue parity and the media origin.
+   Then dispatch **Deploy AWS** on `prod` with `git_ref` set to the same full
+   reviewed SHA. Confirm all four revisions, health endpoints and runtime
+   configuration. Apply only the reviewed cleanup, if approved, against
+   the still-quiesced production data and reconcile all retained records.
+5. **Verify production before reopening.** First use read-only health,
+   roles, branch isolation, catalogue availability and previews. Run the
+   bounded provider canaries and the approved test-only handover above.
+   Check permitted operational actions only against the approved exact
+   fixture list. Keep payment capture, real email/SMS, third-party delivery
+   and real invoice issuance outside synthetic tests. Use local evidence
+   for concurrency, invalid tax and synthetic invoice/settlement write
+   cases. Record the first genuine invoice and normal job outcomes after
+   authorization rather than spending production invoice numbers on probes.
+6. **Reopen on a recorded go decision.** Verify approved issuer/SAC values,
+   schedules, closures, notification destinations and invoice access.
+   Enable live invoicing only after TX-10 review. Resume writers and jobs
+   in dependency order, verify first deliveries and publish the release
+   from the exact promoted SHA. An unexpected authorization, accounting,
+   migration or recovery result keeps the write pause in effect.
 
 ## Recovery and schedule
 
@@ -501,19 +567,34 @@ backup contents and provider credentials in their approved stores.
    writers and consumers in dependency order and record the first healthy run.
 
 On 23 November 2026, Neon reported `dev`, `test` and `pprd` archived. AWS
-reported no matching rehearsal Lambda or certificate for an isolated browser
-stage. Provision a separate synthetic database and stage with dedicated HTTPS
-origins and provider credentials for the live checks.
+reported no separate hosted browser stage. The approved production-window
+checks use the existing production services.
 
 The latest recorded production
 [weekly backup run](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/45006730820)
 failed at PostgreSQL client installation. The recorded
 [monthly restore run](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/41296793499)
-failed with an invalid R2 endpoint. The connected Cloudflare account did not
-list the configured `rgss-backups` bucket. Confirm the intended backup account
-and private bucket, configure the matching S3 endpoint and scoped capture and
-restore credentials, and verify the exact dump and assets together. Use a
-successful exact-pair restore as evidence for this gate.
+failed with an invalid R2 endpoint. The Cloudflare account now has three
+purpose-specific buckets. Use `rgss-uploads` for website and CMS media,
+`rgss-invoices` for private invoice PDFs, and `rgss-backups` for private
+database backup and recovery artifacts. The legacy media bucket continues to
+serve existing absolute URLs during the cutover.
+
+The approved media hostname is `https://media.theroyalglow.in`. The new
+bucket contains the website media copied from `theroyalglow-uploads` and the
+`.health` object used by the web app. The updated AWS workflow prefers the
+`R2_UPLOAD_BUCKET_NAME` and `R2_UPLOAD_PUBLIC_URL` repository variables when
+both are set. Deploy that workflow with the web configuration that allows
+the new hostname. Set Render CMS to use `rgss-uploads` with a scoped key and
+the media public URL. Set the invoicing service to use `rgss-invoices` with
+private PDF access and a key scoped to that bucket.
+
+The backup workflows use the GitHub repository variable
+`R2_BACKUP_ACCOUNT_ID` for the S3 endpoint and credentials scoped to
+`rgss-backups`. Store the capture pair in `R2_BACKUP_WRITE_ACCESS_KEY_ID` and
+`R2_BACKUP_WRITE_SECRET_ACCESS_KEY`. Store the read-only restore pair in
+`R2_BACKUP_READ_ACCESS_KEY_ID` and `R2_BACKUP_READ_SECRET_ACCESS_KEY`. Verify the
+exact dump and assets together for this gate.
 
 The 1 January 2027 date remains conditional; no fixed effort estimate or automatic waiver follows from this plan.
 Sequence work through the three gates, preserve recovery/testing time and defer optional scope or the launch date when required evidence is missing.

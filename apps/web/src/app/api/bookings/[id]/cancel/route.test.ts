@@ -71,6 +71,7 @@ function makeStore(booking: {
   id: string
   customerId: string
   status: string
+  branchId?: string
   rescheduleCount?: number
   bookingDate?: string
   startTime?: string
@@ -87,6 +88,7 @@ function makeStore(booking: {
       toStatus: string
       changedById: string
       notes: string
+      settingsRevision: number | null
     }>,
   }
 
@@ -98,7 +100,12 @@ function makeStore(booking: {
   })
 
   dbMocks.cancelBooking.mockImplementation(
-    async (id: string, changedById: string, reason: string | null) => {
+    async (
+      id: string,
+      changedById: string,
+      reason: string | null,
+      decision?: { late: boolean; settingsRevision: number },
+    ) => {
       if (id !== record.id) return null
       const priorStatus = record.status
       record.status = 'cancelled'
@@ -108,7 +115,8 @@ function makeStore(booking: {
         fromStatus: priorStatus,
         toStatus: 'cancelled',
         changedById,
-        notes: reason ? `Cancelled: ${reason}` : 'Cancelled',
+        notes: `${decision?.late ? 'Late cancellation' : 'Cancelled'}${reason ? `: ${reason}` : ''}`,
+        settingsRevision: decision?.settingsRevision ?? null,
       })
       return { ...record }
     },
@@ -253,6 +261,78 @@ describe("POST /api/bookings/[id]/cancel — the branch's cut-off (R6.3)", () =>
       late: false,
       settingsRevision: 7,
     })
+  })
+
+  it('applies an updated revision to the next action only at that branch (TX-09)', async () => {
+    const otherPolicy = { ...POLICY, branchId: 'br_2', branchName: 'Marathahalli', revision: 7 }
+    const policies = new Map([
+      [POLICY.branchId, POLICY],
+      [otherPolicy.branchId, otherPolicy],
+    ])
+    dbMocks.getBranchPolicy.mockImplementation(async (id: string) => policies.get(id) ?? null)
+    sessionMocks.requireSession.mockResolvedValue({ user: { id: 'cust_1' } })
+
+    function appointment(id: string, branchId: string) {
+      return makeStore({
+        id,
+        branchId,
+        customerId: 'cust_1',
+        status: 'confirmed',
+        bookingDate: '2026-06-10',
+        startTime: '13:00:00',
+      })
+    }
+    function confirm(id: string, policyRevision: number, late: boolean) {
+      return cancelRoute.POST(postReq(id, { confirmedTerms: { policyRevision, late } }), {
+        params: Promise.resolve({ id }),
+      })
+    }
+
+    const earlier = appointment('bk_old', POLICY.branchId)
+    expect((await confirm(earlier.id, 4, true)).status).toBe(200)
+    policies.set(POLICY.branchId, {
+      ...POLICY,
+      revision: 5,
+      bookingRules: { ...DEFAULT_BOOKING_RULES, cancellationCutoffHours: 2 },
+    })
+
+    const next = appointment('bk_next', POLICY.branchId)
+    const stale = await confirm(next.id, 4, true)
+    expect(stale.status).toBe(409)
+    expect((await stale.json()).error.code).toBe(ERROR_CODES.BOOKING_TERMS_CHANGED)
+    expect(next.statusLogs).toEqual([])
+    expect((await confirm(next.id, 5, false)).status).toBe(200)
+    expect(next.statusLogs.at(0)).toMatchObject({ notes: 'Cancelled', settingsRevision: 5 })
+
+    const other = appointment('bk_other', otherPolicy.branchId)
+    expect((await confirm(other.id, 7, true)).status).toBe(200)
+    expect(other.statusLogs.at(0)).toMatchObject({
+      notes: 'Late cancellation',
+      settingsRevision: 7,
+    })
+    expect(earlier.statusLogs.at(0)).toMatchObject({
+      notes: 'Late cancellation',
+      settingsRevision: 4,
+    })
+  })
+
+  it('asks for new confirmation if the cutoff passed while the same revision was displayed', async () => {
+    makeStore({
+      id: 'bk_1',
+      customerId: 'cust_1',
+      status: 'confirmed',
+      bookingDate: '2026-06-10',
+      startTime: '13:00:00',
+    })
+    sessionMocks.requireSession.mockResolvedValue({ user: { id: 'cust_1' } })
+
+    const stale = await cancelRoute.POST(
+      postReq('bk_1', { confirmedTerms: { policyRevision: 4, late: false } }),
+      { params: Promise.resolve({ id: 'bk_1' }) },
+    )
+    expect(stale.status).toBe(409)
+    expect((await stale.json()).error.code).toBe(ERROR_CODES.BOOKING_TERMS_CHANGED)
+    expect(dbMocks.cancelBooking).not.toHaveBeenCalled()
   })
 
   it('never blocks a cancellation on unreadable settings: no lateness is decided', async () => {

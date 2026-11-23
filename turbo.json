@@ -1,5 +1,10 @@
 {
-  "globalPassThroughEnv": ["SKIP_ENV_VALIDATION", "NODE_OPTIONS", "BETTER_AUTH_SECRET"],
+  "globalPassThroughEnv": [
+    "SKIP_ENV_VALIDATION",
+    "NODE_OPTIONS",
+    "BETTER_AUTH_SECRET",
+    "QSTASH_URL"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
