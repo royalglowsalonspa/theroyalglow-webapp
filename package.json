@@ -7,7 +7,7 @@
     "url": "https://github.com/sponsors/katbose"
   },
   "type": "module",
-  "packageManager": "bun@1.4.4",
+  "packageManager": "bun@1.4.5",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -54,7 +54,7 @@
     "@types/semver": "^7.8.0",
     "@vitejs/plugin-react": "^6.3.0",
     "@vitest/coverage-v8": "5.1.1",
-    "checkly": "^9.5.0",
+    "checkly": "^10.2.0",
     "fast-xml-parser": "^5.12.0",
     "glob": "^14.0.2",
     "husky": "^9.1.7",

@@ -3,10 +3,9 @@ import { Frequency } from 'checkly/constructs'
 
 // Checkly synthetic-monitoring project config for Royal Glow Salon & Spa.
 //
-// This is delivered as CODE. Activating these checks is an OPS step: it needs
-// a Checkly account + `npx checkly deploy` (see `launch-checklist.md`). The
-// `checkly` package is a root devDependency only — nothing here is part of the
-// app build, and `tests/synthetic/` is not imported by any workspace.
+// Activating these checks requires a Checkly account and
+// `npx checkly deploy --schedule-on-deploy` (see `launch-checklist.md`).
+// The root `checkly` devDependency and `tests/synthetic/` stay outside app builds.
 //
 // The five checks (see `observability.md` Layer 5) live in `*.check.ts` files
 // next to this config and are discovered via `checks.checkMatch`. They target

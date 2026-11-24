@@ -66,8 +66,10 @@ export type FlagKey = (typeof FLAGS)[keyof typeof FLAGS]
 // Minimal slice of the optional `posthog-node` PostHog client surface we rely
 // on. Modeled locally so this file compiles without the package installed.
 type PostHogClient = {
-  isFeatureEnabled(flag: string, distinctId: string): Promise<boolean | undefined>
-  shutdown?(): Promise<void>
+  evaluateFlags(
+    distinctId: string,
+    options: { flagKeys: string[] },
+  ): Promise<{ isEnabled(flag: string, options: { defaultValue: boolean }): boolean }>
 }
 
 type PostHogConstructor = new (apiKey: string, options?: { host?: string }) => PostHogClient
@@ -136,8 +138,8 @@ export async function isFeatureEnabled(
       return defaultValue
     }
 
-    const result = await client.isFeatureEnabled(flag, distinctId)
-    return typeof result === 'boolean' ? result : defaultValue
+    const flags = await client.evaluateFlags(distinctId, { flagKeys: [flag] })
+    return flags.isEnabled(flag, { defaultValue })
   } catch (error) {
     // Never throw — flag evaluation is best-effort.
     logger.error('isFeatureEnabled failed', {
