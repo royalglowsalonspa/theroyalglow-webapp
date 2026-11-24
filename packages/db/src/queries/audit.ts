@@ -34,6 +34,8 @@ export async function recordAudit(entry: {
   action: AuditAction
   entityType: string
   entityId: string
+  /** The branch the action belongs to; omit for actions across all branches. */
+  branchId?: string | null
   oldValues?: unknown
   newValues?: unknown
   ipAddress?: string | null
@@ -43,6 +45,7 @@ export async function recordAudit(entry: {
     action: entry.action,
     entityType: entry.entityType,
     entityId: entry.entityId,
+    branchId: entry.branchId ?? null,
     oldValues: entry.oldValues ?? null,
     newValues: entry.newValues ?? null,
     ipAddress: entry.ipAddress ?? null,

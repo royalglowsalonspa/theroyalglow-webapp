@@ -1,6 +1,6 @@
 ---
 title: Admin — Bookings
-description: Admin endpoints to list, view, approve, reject, assign, complete, and no-show bookings.
+description: Admin endpoints to list, view, approve, reject, assign, start, move, cancel, complete, and no-show bookings.
 icon: clipboard-list
 ---
 
@@ -384,9 +384,92 @@ No booking with that id.
 `approve`/`reject` attempted on a booking that is not `pending`.
 
 </Accordion>
+<Accordion title="CONFLICT — 409">
+
+The database refused the person for `approve` or `assign`, and nothing
+changed. The message says why: they have another booking at that time (for
+one person, a SPA booking overlaps nothing else of theirs, at any branch);
+they are still with another customer (assigning to a booking in progress);
+they are on approved leave that day; their weekly schedule doesn't cover the
+time ("That staff member isn’t scheduled to work then.", for a confirmed
+booking only); or they no longer work at this branch.
+
+</Accordion>
 <Accordion title="INTERNAL_ERROR — 500">
 
 Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</AccordionGroup>
+
+---
+
+## GET /api/bookings/[id]/offers
+
+The offers checkout can apply to a booking at the active branch, for the
+checkout panel. Offers are authored in Payload CMS; this reads their mirror.
+It lists the live offers (active, today on the IST calendar within their dates,
+counter-only ones included) that save something on the booking's lines, best
+saving first. It is advisory: completion checks the offer again as it writes.
+
+**Minimum role:** `receptionist` at the active branch
+
+```http
+GET /api/bookings/bk_8f2a1c9e4d/offers
+```
+
+### Path parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | `string` | Yes | Path. The booking id. |
+
+### Response
+
+`offers` is empty, with `note` saying why, for a membership session ("A
+membership session takes no offer."), a booking made with gems ("A booking made
+with gems takes no offer."), a spa booking ("Offers apply to salon bookings
+only."), a customer who has used an offer today (`usedOfferToday: true`, "This
+customer has already used an offer today."), or when nothing applies ("No offer
+applies to this booking today."). `discountPaise` is the saving on this
+booking.
+
+```json
+{
+  "success": true,
+  "data": {
+    "offers": [
+      {
+        "id": "cms_offer_12",
+        "name": "Monsoon Glow 20% Off",
+        "terms": "One offer per customer per day.",
+        "offerType": "percentage",
+        "discountPaise": 26000
+      }
+    ],
+    "usedOfferToday": false,
+    "note": null
+  }
+}
+```
+
+### Errors
+
+<AccordionGroup>
+<Accordion title="UNAUTHENTICATED — 401">
+
+No active session.
+
+</Accordion>
+<Accordion title="FORBIDDEN — 403">
+
+Caller's role is below `receptionist`, or the caller doesn't work at the
+active branch.
+
+</Accordion>
+<Accordion title="NOT_FOUND — 404">
+
+No booking with that id at the active branch.
 
 </Accordion>
 </AccordionGroup>
@@ -399,6 +482,14 @@ Completes a booking at the counter: collects the in-person payment method,
 transitions the booking to `completed`, generates a GST-inclusive service
 invoice, awards loyalty gems, and (optionally) applies an offer. Only
 `confirmed` or `in_progress` bookings can be completed.
+
+A SPA membership session is paid for with the membership's minutes. It
+completes from `in_progress` only (start it first with
+`POST /api/bookings/[id]/start`), takes no payment method, offer or gems, and
+completing it uses the minutes it held and issues the ₹0 `membership_session`
+invoice from the branch that performed it. When another branch sold the
+membership, the settlement entry is recorded in the same transaction. The
+response carries `remainingMinutes`, the membership's free minutes after it.
 
 **Minimum role:** `receptionist` (`requireRole('receptionist')`)
 
@@ -421,15 +512,16 @@ payload.
 
 | Name | Type | Required | Description |
 | --- | --- | --- | --- |
-| `paymentMethod` | `enum` | Yes | cash, upi, or card. |
-| `offerId` | `string` | No | Apply a salon-only offer to the total. Validated as active and within its date range; cannot be combined with gems; one offer per customer per day. |
+| `branchId` | `string` | Yes | The branch the page was rendered for. |
+| `paymentMethod` | `enum` | Yes, except for a membership session | cash, upi, or card. Ignored for a membership session. |
+| `offerId` | `string` | No | Apply one of the offers `GET /api/bookings/[id]/offers` lists. The discount covers only the lines whose service the offer's rule links (a combo needs all of them). Salon only; cannot be combined with gems; one offer per customer per IST day at any branch. |
 | `gemsRedeemedServiceId` | `string` | No | Presence signals a gems redemption on this booking. Mutually exclusive with offerId. |
 | `redeemGems` | `boolean` | No | Truthy value also signals a gems redemption (mutually exclusive with offerId). |
 
 ```json
 {
   "paymentMethod": "upi",
-  "offerId": "off_monsoon20"
+  "offerId": "cms_offer_12"
 }
 ```
 
@@ -483,8 +575,18 @@ discount applied (all amounts in paise).
 <Info>
   Gems are earned on the discounted total at 1 gem per ₹100 (floor) and expire
   365 days from earn date. The invoice subtotal is the original (pre-discount)
-  base; the taxable value and GST are split from the discounted total. With no
+  base; the discount is shared across the covered lines in proportion, and each
+  line's taxable value and GST are split from what is left of it. With no
   `offerId`, `discountPaise` is `0` and the total is unchanged.
+</Info>
+
+<Info>
+  The offer is checked again as the booking completes, in the same transaction
+  as the invoice: the redemption is written only while the offer is active and
+  today (IST) is within its dates, and the unique customer + day refuses a
+  second offer that day at any branch, even from a checkout running at the same
+  moment. A refusal writes nothing. The invoice keeps the offer's name, type and
+  value as applied; later edits in the CMS never change it.
 </Info>
 
 ### Errors
@@ -502,8 +604,9 @@ Caller's role is below `receptionist`.
 </Accordion>
 <Accordion title="VALIDATION_ERROR — 400">
 
-Body fails `completeBookingSchema` (invalid/missing `paymentMethod`). `details`
-carries field errors.
+Body fails `completeBookingSchema` (invalid `paymentMethod`, or none for a
+booking that isn't a membership session), or an offer or gems were sent for a
+membership session. `details` carries field errors.
 
 </Accordion>
 <Accordion title="NOT_FOUND — 404">
@@ -513,23 +616,275 @@ Booking not found, its branch not found, or a supplied `offerId` not found.
 </Accordion>
 <Accordion title="BOOKING_INVALID_STATUS_TRANSITION — 409">
 
-Booking is not `confirmed` or `in_progress`.
+Booking is not `confirmed` or `in_progress`; a membership session is not
+`in_progress` ("Start this session before you complete it." when confirmed);
+or the session completed or changed meanwhile.
 
 </Accordion>
 <Accordion title="OFFER_EXPIRED — 409">
 
-Supplied offer is inactive or outside its date range.
+The offer is inactive or outside its dates, including when it was retired or
+ended between the offer list and the completion ("This offer ended or was
+retired just now. Complete without it, or choose another."). Nothing is written.
 
 </Accordion>
 <Accordion title="OFFER_NOT_APPLICABLE — 409">
 
-Offer applied to a spa booking, combined with a gems redemption, or the customer
-already redeemed an offer today.
+The offer was applied to a spa booking or combined with a gems redemption; its
+rule covers none of the booking's lines, or a combo misses one of its services;
+or the customer has already used an offer today, here or at another branch
+("This customer has already used an offer today. Complete without it.").
+Nothing is written.
 
 </Accordion>
 <Accordion title="INTERNAL_ERROR — 500">
 
 Unexpected/transient failure. `retryable: true`.
+
+</Accordion>
+</AccordionGroup>
+
+---
+
+## POST /api/bookings/[id]/start
+
+Starts a `confirmed` booking now: the customer is in the chair. The booking
+moves to `in_progress` and `startedAt` is set from the database's clock, with a
+status-log entry, once; a double submit answers 409. Someone must be assigned
+to every service. A booking for a later day starts on that day; move it to
+today to start it sooner. A SPA membership session keeps the minutes it holds, and the
+database rechecks its membership's validity at this instant, so a session
+delayed past the membership's expiry can't start on its earlier booking.
+
+**Minimum role:** `receptionist` at the active branch (`requireBranchRole('receptionist')`)
+
+```http
+POST /api/bookings/bk_8f2a1c9e4d/start
+Content-Type: application/json
+```
+
+### Request body
+
+Validated by `bookingStartSchema` (`@rgss/types`).
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `branchId` | `string` | Yes | The branch the page was rendered for. |
+
+### Response
+
+Returns the started booking, with `status: "in_progress"` and `startedAt`.
+
+### Errors
+
+<AccordionGroup>
+<Accordion title="NOT_FOUND — 404">
+
+No booking with that id at the active branch.
+
+</Accordion>
+<Accordion title="BOOKING_INVALID_STATUS_TRANSITION — 409">
+
+The booking isn't `confirmed`, or it was started or changed meanwhile. A
+booking for a later day (its `bookingDate` is after today, IST) can't start
+yet: "This booking is for DD/MM/YYYY. Start it on that day, or move it to
+today first." A booking from an earlier day still starts.
+
+</Accordion>
+<Accordion title="CONFLICT — 409">
+
+Nobody is assigned to the booking, or its services name different people. One
+person does the whole booking: assign them, then start it.
+
+</Accordion>
+<Accordion title="STAFF_BUSY — 409">
+
+The person assigned is still with another customer: a SPA booking of theirs is
+running, or a salon booking is running and this one is a SPA. The message names
+them. Complete that booking first, or assign someone else to this one. The
+database refuses the start even when the page is stale.
+
+</Accordion>
+<Accordion title="MEMBERSHIP_EXPIRED — 409">
+
+A membership session's membership has expired (the message names the date) or
+was cancelled.
+
+</Accordion>
+<Accordion title="MEMBERSHIP_NOT_STARTED — 409">
+
+A membership session's membership starts later; the message names its start
+date.
+
+</Accordion>
+</AccordionGroup>
+
+---
+
+## POST /api/bookings/[id]/reschedule
+
+The salon moves a `pending` or `confirmed` booking at the active branch to
+another date and start time, for example off a day the branch has closed. The
+booking keeps its services and length. The move records the branch settings
+revision that allowed it and doesn't count against the customer's reschedule
+limit.
+
+The time is checked as the counter books: the branch must be open that day,
+and the booking must fall within its hours, start on the hour or half hour, and
+still be to come. The customer's booking window and lead time don't apply.
+
+The person assigned stays when they can take the new time. Otherwise the move
+goes ahead without them, in the same transaction, and the booking waits on the
+dashboard for someone else: they are on approved leave that day, their weekly
+schedule doesn't cover the time, or they have another booking then.
+`needsStaff` says so.
+
+**Minimum role:** `receptionist` at the active branch (`requireBranchRole('receptionist')`)
+
+```http
+POST /api/bookings/bk_8f2a1c9e4d/reschedule
+Content-Type: application/json
+```
+
+### Request body
+
+Validated by `adminBookingMoveSchema` (`@rgss/types`).
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `branchId` | `string` | Yes | The branch the page was rendered for. |
+| `bookingDate` | `string` | Yes | The new IST date, `YYYY-MM-DD`. |
+| `startTime` | `string` | Yes | The new IST start time, `HH:mm`. |
+
+```json
+{
+  "branchId": "br_rayasandra01",
+  "bookingDate": "2026-06-16",
+  "startTime": "11:30"
+}
+```
+
+### Response
+
+The moved booking, and whether it now needs someone else.
+
+```json
+{
+  "success": true,
+  "data": {
+    "booking": {
+      "id": "bk_8f2a1c9e4d",
+      "status": "confirmed",
+      "bookingDate": "2026-06-16",
+      "startTime": "11:30:00",
+      "endTime": "12:30:00",
+      "rescheduleCount": 0
+    },
+    "needsStaff": false
+  }
+}
+```
+
+### Errors
+
+<AccordionGroup>
+<Accordion title="VALIDATION_ERROR — 400">
+
+Body fails `adminBookingMoveSchema` (missing or malformed date or time).
+
+</Accordion>
+<Accordion title="NOT_FOUND — 404">
+
+No booking with that id at the active branch.
+
+</Accordion>
+<Accordion title="BRANCH_CONTEXT_CHANGED — 409">
+
+The page was rendered for another branch than the active one.
+
+</Accordion>
+<Accordion title="BOOKING_INVALID_STATUS_TRANSITION — 409">
+
+The booking isn't `pending` or `confirmed` (one under way can't be moved), or
+it changed meanwhile.
+
+</Accordion>
+<Accordion title="BOOKING_SLOT_UNAVAILABLE — 409">
+
+The branch is closed that day (the message names the closure and how to remove
+it), the time is outside the branch's hours, off the half-hour grid or already
+passed, or someone took the person for that time meanwhile.
+
+</Accordion>
+<Accordion title="MEMBERSHIP_EXPIRED — 409">
+
+A membership session can't move outside its membership's validity; it keeps its
+slot.
+
+</Accordion>
+</AccordionGroup>
+
+---
+
+## POST /api/bookings/[id]/cancel
+
+The salon cancels a `pending` or `confirmed` booking at the active branch,
+saying why: a day the branch closed, nobody free to do it, or the customer's
+call. The cancellation is never counted as the customer's late cancellation.
+Gems the booking was made with go back to the customer, and a membership
+session's held minutes return to its membership, in the same write. The
+customer sees the booking cancelled with the reason.
+
+**Minimum role:** `receptionist` at the active branch (`requireBranchRole('receptionist')`)
+
+```http
+POST /api/bookings/bk_8f2a1c9e4d/cancel
+Content-Type: application/json
+```
+
+### Request body
+
+Validated by `adminBookingCancelSchema` (`@rgss/types`).
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `branchId` | `string` | Yes | The branch the page was rendered for. |
+| `reason` | `string` | Yes | 1–500 characters, shown to the customer. |
+
+```json
+{
+  "branchId": "br_rayasandra01",
+  "reason": "The salon is closed for Diwali on 15/06/2026."
+}
+```
+
+### Response
+
+The cancelled booking, with `status: "cancelled"`, `cancellationReason` and
+`cancelledAt`.
+
+### Errors
+
+<AccordionGroup>
+<Accordion title="VALIDATION_ERROR — 400">
+
+No reason, a blank one, or one over 500 characters.
+
+</Accordion>
+<Accordion title="NOT_FOUND — 404">
+
+No booking with that id at the active branch.
+
+</Accordion>
+<Accordion title="BRANCH_CONTEXT_CHANGED — 409">
+
+The page was rendered for another branch than the active one.
+
+</Accordion>
+<Accordion title="BOOKING_INVALID_STATUS_TRANSITION — 409">
+
+The booking isn't `pending` or `confirmed` (complete one under way instead), or
+it changed meanwhile.
 
 </Accordion>
 </AccordionGroup>

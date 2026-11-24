@@ -32,8 +32,9 @@
  *                to emit a real 301 NextResponse.redirect.
  ************************************************************/
 
-// New admin app origin (no trailing slash). Mirrors admin-redirect.ts.
-export const ADMIN_ORIGIN = 'https://admin.theroyalglow.in'
+import { adminPortalUrl } from './roles'
+
+export { DEFAULT_ADMIN_ORIGIN as ADMIN_ORIGIN } from './roles'
 
 /**
  * Map a legacy `/staff/*` path on the customer domain to its canonical
@@ -91,11 +92,12 @@ export function mapStaffRedirect(path: string, search?: string): string {
     }
   })
 
-  const { pathname: resolved } = new URL(rest, ADMIN_ORIGIN)
+  const origin = adminPortalUrl()
+  const { pathname: resolved } = new URL(rest, origin)
   const staysInNamespace = resolved === '/me' || resolved.startsWith('/me/')
   if (hasEncodedParentSegment || !staysInNamespace) {
     rest = '/me'
   }
 
-  return `${ADMIN_ORIGIN}${rest}${query}`
+  return `${origin}${rest}${query}`
 }

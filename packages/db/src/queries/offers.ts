@@ -1,76 +1,41 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 31-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : offers
  * Scope        : Data Access — Offers
  *
- * Description  : Query functions for offer/promotion management including
- *                CRUD, service linking, activation, and redemption tracking.
+ * Description  : Reads of the app's offer mirror. Payload owns the offers
+ *                (multi-branch offers.md): its sync writes `offer` and
+ *                `offer_service`, and checkout records `offer_redemption`
+ *                inside the completion batch (completeBookingWithInvoice).
  *
  * Responsibilities :
- * - Fetch active offers for customer-facing display
- * - Fetch all offers for admin management
- * - Create and update offers with service linkage atomically
- * - Track offer redemptions with one-per-customer-per-day enforcement
- * - Deactivate offers (soft-disable)
+ * - The public list: live offers shown on the website
+ * - The checkout list: live offers, counter-only ones included
+ * - Every offer for the admin portal's read-only Offers page
+ * - One offer by id, and a customer's redemption on an IST day
  *
  * Features / Functionality :
- * - Offers enriched with linked service names and IDs
- * - Active offer filtering by date range and isActive flag
- * - Atomic offer + offer_service creation via db.batch()
- * - Full service set replacement on offer update
- * - Redemption pre-check and recording with date scoping
+ * - Each offer carries its linked services (ids and names)
+ * - "Live" = active and today's IST date within its dates, inclusive
  *
  * Tech Stack   : TypeScript, Drizzle ORM
  * Layer        : Data Access
  *
- * Dependencies : drizzle-orm, nanoid, ../index, ../schema/offer, ../schema/service
+ * Dependencies : drizzle-orm, ../index, ../schema/offer, ../schema/service
  *
  * Notes        : Offers apply to salon services only. One offer per customer
- *                per day is enforced by DB unique constraint.
+ *                per IST day is enforced by the unique (customer_id,
+ *                redeemed_date). The admin portal no longer writes offers
+ *                (410); legacy rows it made have no `cms_id`.
  ************************************************************/
 
-import { and, asc, desc, eq, gte, inArray, lte } from 'drizzle-orm'
-import { nanoid } from 'nanoid'
+import { and, asc, desc, eq, inArray, type SQL, sql } from 'drizzle-orm'
 import { db } from '../index'
 import { offer, offerRedemption, offerService } from '../schema/offer'
 import { service } from '../schema/service'
-
-type NewOffer = typeof offer.$inferInsert
-type OfferType = (typeof offer.$inferSelect)['offerType']
-
-type CreateOfferData = {
-  name: string
-  slug: string
-  description?: string | null
-  offerType: OfferType
-  discountPercentage?: number | null
-  discountAmountPaise?: number | null
-  comboPricePaise?: number | null
-  startDate: Date
-  endDate: Date
-  terms?: string | null
-  displayOrder?: number
-  serviceIds: string[]
-}
-
-type UpdateOfferData = {
-  name?: string
-  slug?: string
-  description?: string | null
-  offerType?: OfferType
-  discountPercentage?: number | null
-  discountAmountPaise?: number | null
-  comboPricePaise?: number | null
-  startDate?: Date
-  endDate?: Date
-  isActive?: boolean
-  terms?: string | null
-  displayOrder?: number
-  serviceIds?: string[]
-}
 
 // Linked services (id + name) for a set of offer ids, ordered by the service's
 // display order. Empty input → empty result. Used to attach `services` to each
@@ -108,35 +73,52 @@ function attachServices(row: OfferRow, links: OfferServiceLink[]) {
   }
 }
 
-// Active offers for the customer offers page: isActive AND the calendar date
-// range includes `now`, ordered by display order. Each offer carries its linked
-// service names. startDate/endDate are date-mode columns, so the comparison is
-// by calendar date.
-export async function getActiveOffers(now: Date = new Date()) {
-  const offers = await db
-    .select()
-    .from(offer)
-    .where(and(eq(offer.isActive, true), lte(offer.startDate, now), gte(offer.endDate, now)))
-    .orderBy(asc(offer.displayOrder))
-
-  if (offers.length === 0) {
+async function withServices(rows: OfferRow[]) {
+  if (rows.length === 0) {
     return []
   }
+  const links = await getServicesForOffers(rows.map((o) => o.id))
+  return rows.map((o) => attachServices(o, links))
+}
 
-  const links = await getServicesForOffers(offers.map((o) => o.id))
-  return offers.map((o) => attachServices(o, links))
+/** Active, with today's IST date within its dates, inclusive. */
+function liveOn(todayIST: string): SQL {
+  return sql`${offer.isActive} AND ${offer.startDate} <= ${todayIST}::date AND ${offer.endDate} >= ${todayIST}::date`
+}
+
+/** 'YYYY-MM-DD' of `now` on the IST calendar. */
+function istDate(now: Date): string {
+  return new Date(now.getTime() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10)
+}
+
+// The public list (GET /api/offers): live offers shown on the website, in
+// display order, each with its linked services. Counter-only rules
+// (show_on_website false) never appear here.
+export async function getActiveOffers(now: Date = new Date()) {
+  const rows = await db
+    .select()
+    .from(offer)
+    .where(and(liveOn(istDate(now)), eq(offer.showOnWebsite, true)))
+    .orderBy(asc(offer.displayOrder))
+  return withServices(rows)
+}
+
+// The offers checkout can apply now: live, counter-only ones included, each
+// with its linked services. The route keeps those that save something on the
+// booking (checkoutOfferChoices in @rgss/business).
+export async function getOffersForCheckout(now: Date = new Date()) {
+  const rows = await db
+    .select()
+    .from(offer)
+    .where(liveOn(istDate(now)))
+    .orderBy(asc(offer.displayOrder), asc(offer.name))
+  return withServices(rows)
 }
 
 // All offers (admin view), newest first, each with its linked services.
 export async function getAllOffersAdmin() {
-  const offers = await db.select().from(offer).orderBy(desc(offer.createdAt))
-
-  if (offers.length === 0) {
-    return []
-  }
-
-  const links = await getServicesForOffers(offers.map((o) => o.id))
-  return offers.map((o) => attachServices(o, links))
+  const rows = await db.select().from(offer).orderBy(desc(offer.createdAt))
+  return withServices(rows)
 }
 
 // A single offer with its linked services, or null if not found.
@@ -146,97 +128,13 @@ export async function getOfferById(id: string) {
   if (!found) {
     return null
   }
-
-  const links = await getServicesForOffers([found.id])
-  return attachServices(found, links)
+  const [withLinks] = await withServices([found])
+  return withLinks ?? null
 }
 
-// Insert an offer + its offer_service rows atomically. neon-http has no
-// interactive transactions, so we use db.batch() — one server-side transaction.
-// The offer id is pre-generated so the offer_service rows can reference it within
-// the batch. Returns the created offer.
-export async function createOfferWithServices(data: CreateOfferData) {
-  const offerId = nanoid()
-  const offerValues: NewOffer = {
-    id: offerId,
-    name: data.name,
-    slug: data.slug,
-    description: data.description ?? null,
-    offerType: data.offerType,
-    discountPercentage: data.discountPercentage ?? null,
-    discountAmountPaise: data.discountAmountPaise ?? null,
-    comboPricePaise: data.comboPricePaise ?? null,
-    startDate: data.startDate,
-    endDate: data.endDate,
-    terms: data.terms ?? null,
-    displayOrder: data.displayOrder ?? 0,
-  }
-  const insertOffer = db.insert(offer).values(offerValues).returning()
-
-  if (data.serviceIds.length === 0) {
-    const [created] = await insertOffer
-    return created as typeof offer.$inferSelect
-  }
-
-  const offerServiceValues = data.serviceIds.map((serviceId) => ({ offerId, serviceId }))
-  const [offerResult] = await db.batch([
-    insertOffer,
-    db.insert(offerService).values(offerServiceValues),
-  ])
-
-  return offerResult[0] as typeof offer.$inferSelect
-}
-
-// Update an offer's columns present in `patch`. When `serviceIds` is supplied,
-// the offer_service set is fully replaced (delete existing then insert the new
-// set) atomically via db.batch(). Returns the updated offer, or null if no offer
-// exists with that id.
-export async function updateOffer(id: string, patch: UpdateOfferData) {
-  const { serviceIds, ...offerPatch } = patch
-  const hasOfferUpdates = Object.values(offerPatch).some((value) => value !== undefined)
-
-  let updated: typeof offer.$inferSelect | null
-  if (hasOfferUpdates) {
-    const [row] = await db.update(offer).set(offerPatch).where(eq(offer.id, id)).returning()
-    updated = row ?? null
-  } else {
-    const rows = await db.select().from(offer).where(eq(offer.id, id)).limit(1)
-    updated = rows[0] ?? null
-  }
-
-  if (!updated) {
-    return null
-  }
-
-  if (serviceIds) {
-    if (serviceIds.length > 0) {
-      await db.batch([
-        db.delete(offerService).where(eq(offerService.offerId, id)),
-        db.insert(offerService).values(serviceIds.map((serviceId) => ({ offerId: id, serviceId }))),
-      ])
-    } else {
-      await db.delete(offerService).where(eq(offerService.offerId, id))
-    }
-  }
-
-  return updated
-}
-
-// Soft-disable an offer by clearing its active flag. Returns the updated row, or
-// null if no offer exists with that id.
-export async function deactivateOffer(id: string) {
-  const [updated] = await db
-    .update(offer)
-    .set({ isActive: false })
-    .where(eq(offer.id, id))
-    .returning()
-
-  return updated ?? null
-}
-
-// The customer's offer redemption for a given calendar date, or null. Backs the
-// one-offer-per-customer-per-day pre-check. redeemedDate is a date-mode column,
-// so the comparison is by calendar date.
+// The customer's offer redemption on an IST calendar day ('YYYY-MM-DD'), or
+// null: the checkout list says when the customer has used today's offer. The
+// unique (customer_id, redeemed_date) is what enforces it, in the completion.
 export async function getOfferRedemptionForCustomerOnDate(customerId: string, dateISO: string) {
   const rows = await db
     .select()
@@ -250,26 +148,4 @@ export async function getOfferRedemptionForCustomerOnDate(customerId: string, da
     .limit(1)
 
   return rows[0] ?? null
-}
-
-// Record an offer redemption for a customer on a calendar date. The DB unique
-// constraint on (customer_id, redeemed_date) enforces one offer per customer per
-// day. Returns the created row.
-export async function recordOfferRedemption(
-  offerId: string,
-  customerId: string,
-  bookingId: string,
-  dateISO: string,
-) {
-  const [created] = await db
-    .insert(offerRedemption)
-    .values({
-      offerId,
-      customerId,
-      bookingId,
-      redeemedDate: new Date(`${dateISO}T00:00:00.000Z`),
-    })
-    .returning()
-
-  return created as typeof offerRedemption.$inferSelect
 }

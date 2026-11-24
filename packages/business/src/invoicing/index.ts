@@ -9,20 +9,22 @@
  * Description  : Barrel export for invoicing domain logic.
  *
  * Responsibilities :
- * - Re-export GST calculation and invoice number generation
+ * - Re-export the tax arithmetic and invoice number format
  *
  * Features / Functionality :
- * - splitGST, getFinancialYear, generateInvoiceNumber
+ * - computeInvoiceTax, splitInclusive, resolveTaxVersions, assertInvoiceIssuable
+ * - financialYearIST, formatInvoiceNumber, invoiceFileStem
  *
  * Tech Stack   : TypeScript
  * Layer        : Business Logic
  *
- * Dependencies : ./gst, ./invoice-number
+ * Dependencies : ./tax, ./invoice-number
  *
- * Notes        : None
+ * Notes        : Rates come from the branch's tax versions (multi-branch R6.4);
+ *                there is no built-in rate.
  ************************************************************/
 
 export * from './amount-in-words'
 export * from './email'
-export * from './gst'
 export * from './invoice-number'
+export * from './tax'

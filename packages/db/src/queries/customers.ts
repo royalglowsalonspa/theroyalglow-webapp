@@ -32,26 +32,54 @@
  *
  * Notes        : Customers are user rows with role 'customer' that have a
  *                customer_profile. Loyalty balance is LEFT JOINed (nullable).
+ *                Multi-branch (R3): identity, tags, gems and memberships are
+ *                shared by every branch; money is per branch. Every money
+ *                figure here is computed from one branch's paid invoices, and
+ *                the customer-wide total_spent_paise counter is never returned.
  ************************************************************/
 
-import type { CustomerListQuery, OnboardingConsentReceipt } from '@rgss/types'
-import { and, asc, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm'
+import type {
+  CustomerHistoryEntry,
+  CustomerListQuery,
+  CustomerNoteView,
+  NoteVisibility,
+  OnboardingConsentReceipt,
+} from '@rgss/types'
+import { and, asc, desc, eq, inArray, ne, or, type SQL, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { db } from '../index'
 import { user } from '../schema/auth'
-import { booking } from '../schema/booking'
+import { booking, bookingService } from '../schema/booking'
+import { branch } from '../schema/branch'
 import { customerNote, customerTag, customerTagAssignment } from '../schema/crm'
 import { invoice } from '../schema/invoice'
 import { loyaltyAccount } from '../schema/loyalty'
 import { spaMembership } from '../schema/membership'
 import { customerProfile } from '../schema/profile'
 import { auditLog } from '../schema/system'
+import { personSearchCondition } from './person-search'
 
 type CustomerSort = CustomerListQuery['sort']
 
-// Map a sort key to its Drizzle order expression. `last_visit` and `gems` push
+// What one branch has been paid by each customer: paid invoices of every type
+// (service and membership purchase; sessions are ₹0), the LTV definition in
+// customer-stats, restricted to the branch (R3.2).
+function branchSpendByCustomer(branchId: string) {
+  return db
+    .select({
+      customerId: invoice.customerId,
+      spentPaise: sql<number>`sum(${invoice.totalAmountPaise})::int`.as('spent_paise'),
+    })
+    .from(invoice)
+    .where(and(eq(invoice.branchId, branchId), eq(invoice.paymentStatus, 'paid')))
+    .groupBy(invoice.customerId)
+    .as('branch_spend')
+}
+
+// Map a sort key to its Drizzle order expression. `ltv` ranks by the branch's
+// own takings, never the customer-wide counter. `last_visit` and `gems` push
 // NULLs to the end so customers with no visit/loyalty data rank last.
-function buildCustomerOrderBy(sort: CustomerSort) {
+function buildCustomerOrderBy(sort: CustomerSort, branchSpent: SQL<number>) {
   switch (sort) {
     case 'visits':
       return desc(customerProfile.totalVisits)
@@ -64,7 +92,7 @@ function buildCustomerOrderBy(sort: CustomerSort) {
     case 'noshows':
       return desc(customerProfile.noshowCount)
     default:
-      return desc(customerProfile.totalSpentPaise)
+      return sql`${branchSpent} desc`
   }
 }
 
@@ -91,7 +119,10 @@ async function getTagsForCustomers(customerIds: string[]) {
 // with role 'customer' that have a customer_profile; the loyalty balance is
 // LEFT JOINed (null when the account was never created). A separate count query
 // applies the same filters so `totalCount` reflects the full filtered set.
-export async function getCustomers(query: CustomerListQuery) {
+// Every branch sees every customer (shared identity), but `branchSpentPaise`
+// and the LTV sort count only `branchId`'s paid invoices (R3.2). Visits and
+// last visit are shared visit history.
+export async function getCustomers(branchId: string, query: CustomerListQuery) {
   // Resolve a tag-slug filter to its id up front. An unknown slug matches nobody.
   let tagId: string | null = null
   if (query.tag) {
@@ -108,18 +139,21 @@ export async function getCustomers(query: CustomerListQuery) {
 
   const conditions = [eq(user.role, 'customer')]
   if (query.q) {
-    const pattern = `%${query.q}%`
-    const search = or(
-      ilike(user.name, pattern),
-      ilike(customerProfile.phone, pattern),
-      ilike(user.email, pattern),
-    )
+    // Shared with the Users & Roles lookup, so both screens match the same way
+    // (name / email substring, phone by digits).
+    const search = personSearchCondition(query.q, {
+      name: user.name,
+      email: user.email,
+      phones: [customerProfile.phone],
+    })
     if (search) {
       conditions.push(search)
     }
   }
 
   const offset = (query.page - 1) * query.pageSize
+  const branchSpend = branchSpendByCustomer(branchId)
+  const branchSpent = sql<number>`coalesce(${branchSpend.spentPaise}, 0)`
 
   let dataQuery = db
     .select({
@@ -128,7 +162,7 @@ export async function getCustomers(query: CustomerListQuery) {
       email: user.email,
       phone: customerProfile.phone,
       totalVisits: customerProfile.totalVisits,
-      totalSpentPaise: customerProfile.totalSpentPaise,
+      branchSpentPaise: branchSpent,
       noshowCount: customerProfile.noshowCount,
       firstVisitAt: customerProfile.firstVisitAt,
       lastVisitAt: customerProfile.lastVisitAt,
@@ -138,6 +172,7 @@ export async function getCustomers(query: CustomerListQuery) {
     .from(user)
     .innerJoin(customerProfile, eq(customerProfile.userId, user.id))
     .leftJoin(loyaltyAccount, eq(loyaltyAccount.customerId, user.id))
+    .leftJoin(branchSpend, eq(branchSpend.customerId, user.id))
     .$dynamic()
 
   let countQuery = db
@@ -156,9 +191,11 @@ export async function getCustomers(query: CustomerListQuery) {
   }
 
   const where = and(...conditions)
+  // The id tie-break keeps offset pages stable: many customers share a sort
+  // value (for example nothing spent at this branch yet).
   const rows = await dataQuery
     .where(where)
-    .orderBy(buildCustomerOrderBy(query.sort))
+    .orderBy(buildCustomerOrderBy(query.sort, branchSpent), asc(user.id))
     .limit(query.pageSize)
     .offset(offset)
 
@@ -177,8 +214,9 @@ export async function getCustomers(query: CustomerListQuery) {
   return { rows: rowsWithTags, totalCount }
 }
 
-// Single customer profile: user identity + customer_profile KPIs + gems balance
-// + tag chips, or null if the user has no customer_profile.
+// Single customer profile: shared identity + visit and no-show KPIs + gems
+// balance + tag chips, or null if the user has no customer_profile. Shared by
+// every branch, so it carries no money; see getCustomerBranchSpend (R3.2).
 export async function getCustomerProfile(userId: string) {
   const rows = await db
     .select({
@@ -191,7 +229,6 @@ export async function getCustomerProfile(userId: string) {
       gender: customerProfile.gender,
       dateOfBirth: customerProfile.dateOfBirth,
       totalVisits: customerProfile.totalVisits,
-      totalSpentPaise: customerProfile.totalSpentPaise,
       noshowCount: customerProfile.noshowCount,
       lateCancellationCount: customerProfile.lateCancellationCount,
       bookingRequiresApproval: customerProfile.bookingRequiresApproval,
@@ -287,10 +324,18 @@ export async function createCustomerProfile(
 // Owner/manager overrides on a customer_profile (e.g. resetting the no-show
 // count or toggling the booking-approval gate). Only the supplied keys are
 // written; `updatedAt` is bumped automatically by the schema. Returns the
-// updated profile row, or null when the user has no customer_profile.
+// customer's gates after the change, or null when the user has no
+// customer_profile. Never the whole row: it holds the customer-wide spending
+// counter (R3.2).
 type UpdateCustomerProfilePatch = {
   noshowCount?: number | undefined
   bookingRequiresApproval?: boolean | undefined
+}
+
+const customerGates = {
+  id: customerProfile.userId,
+  noshowCount: customerProfile.noshowCount,
+  bookingRequiresApproval: customerProfile.bookingRequiresApproval,
 }
 
 export async function updateCustomerProfile(userId: string, patch: UpdateCustomerProfilePatch) {
@@ -302,10 +347,10 @@ export async function updateCustomerProfile(userId: string, patch: UpdateCustome
     values.bookingRequiresApproval = patch.bookingRequiresApproval
   }
 
-  // Nothing to change → return the current row unchanged.
+  // Nothing to change → return the current gates unchanged.
   if (Object.keys(values).length === 0) {
     const current = await db
-      .select()
+      .select(customerGates)
       .from(customerProfile)
       .where(eq(customerProfile.userId, userId))
       .limit(1)
@@ -316,7 +361,7 @@ export async function updateCustomerProfile(userId: string, patch: UpdateCustome
     .update(customerProfile)
     .set(values)
     .where(eq(customerProfile.userId, userId))
-    .returning()
+    .returning(customerGates)
 
   return updated ?? null
 }
@@ -384,26 +429,185 @@ export async function updateNotificationPreferences(
   return updated ?? null
 }
 
-// A customer's bookings, newest first, paginated.
-export async function getCustomerBookings(userId: string, limit: number, offset: number) {
+/**
+ * What the customer paid one branch, and how many visits that took (R3.2):
+ * paid invoices of every type at the branch (the customer-stats LTV
+ * definition) and completed bookings there. One round trip.
+ */
+export async function getCustomerBranchSpend(customerId: string, branchId: string) {
+  const [spend, visits] = await db.batch([
+    db
+      .select({ paise: sql<number>`coalesce(sum(${invoice.totalAmountPaise}), 0)::int` })
+      .from(invoice)
+      .where(
+        and(
+          eq(invoice.customerId, customerId),
+          eq(invoice.branchId, branchId),
+          eq(invoice.paymentStatus, 'paid'),
+        ),
+      ),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(booking)
+      .where(
+        and(
+          eq(booking.customerId, customerId),
+          eq(booking.branchId, branchId),
+          eq(booking.status, 'completed'),
+        ),
+      ),
+  ])
+  return { spentPaise: spend[0]?.paise ?? 0, visits: visits[0]?.count ?? 0 }
+}
+
+// Service names on each booking, in booking order.
+async function getServiceNamesForBookings(bookingIds: string[]): Promise<Map<string, string[]>> {
+  const names = new Map<string, string[]>()
+  if (bookingIds.length === 0) {
+    return names
+  }
+  const rows = await db
+    .select({ bookingId: bookingService.bookingId, name: bookingService.serviceNameSnapshot })
+    .from(bookingService)
+    .where(inArray(bookingService.bookingId, bookingIds))
+    .orderBy(asc(bookingService.bookingId), asc(bookingService.displayOrder))
+  for (const row of rows) {
+    const list = names.get(row.bookingId)
+    if (list) {
+      list.push(row.name)
+    } else {
+      names.set(row.bookingId, [row.name])
+    }
+  }
+  return names
+}
+
+// A `date` column as YYYY-MM-DD (Drizzle reads it as UTC midnight).
+function isoDate(value: Date): string {
+  return value.toISOString().slice(0, 10)
+}
+
+/**
+ * A customer's history as one branch sees it (R3.2), each list newest first
+ * and at most `limit` long, so merging them yields the true newest `limit`:
+ * - `thisBranch`: every booking at the branch, with its number and amount;
+ * - `otherBranches`: completed visits elsewhere with only their date, branch
+ *   and services. Their amounts and ids are never selected.
+ */
+export async function getCustomerHistory(customerId: string, branchId: string, limit: number) {
+  const newestFirst = [desc(booking.bookingDate), desc(booking.startTime), desc(booking.createdAt)]
+  const [own, elsewhere] = await Promise.all([
+    db
+      .select({
+        id: booking.id,
+        bookingNumber: booking.bookingNumber,
+        bookingDate: booking.bookingDate,
+        startTime: booking.startTime,
+        serviceType: booking.serviceType,
+        status: booking.status,
+        isMembershipSession: booking.isMembershipSession,
+        totalAmountPaise: booking.totalAmountPaise,
+      })
+      .from(booking)
+      .where(and(eq(booking.customerId, customerId), eq(booking.branchId, branchId)))
+      .orderBy(...newestFirst)
+      .limit(limit),
+    db
+      .select({
+        id: booking.id,
+        branchName: branch.name,
+        bookingDate: booking.bookingDate,
+        startTime: booking.startTime,
+        serviceType: booking.serviceType,
+      })
+      .from(booking)
+      .innerJoin(branch, eq(branch.id, booking.branchId))
+      .where(
+        and(
+          eq(booking.customerId, customerId),
+          ne(booking.branchId, branchId),
+          eq(booking.status, 'completed'),
+        ),
+      )
+      .orderBy(...newestFirst)
+      .limit(limit),
+  ])
+
+  const services = await getServiceNamesForBookings([
+    ...own.map((b) => b.id),
+    ...elsewhere.map((b) => b.id),
+  ])
+
+  const thisBranch = own.map(
+    (b): CustomerHistoryEntry => ({
+      scope: 'this_branch',
+      bookingId: b.id,
+      bookingNumber: b.bookingNumber,
+      bookingDate: isoDate(b.bookingDate),
+      startTime: b.startTime,
+      serviceType: b.serviceType,
+      status: b.status,
+      isMembershipSession: b.isMembershipSession,
+      totalAmountPaise: b.totalAmountPaise,
+      services: services.get(b.id) ?? [],
+    }),
+  )
+  const otherBranches = elsewhere.map(
+    (b): CustomerHistoryEntry => ({
+      scope: 'other_branch',
+      branchName: b.branchName,
+      bookingDate: isoDate(b.bookingDate),
+      startTime: b.startTime,
+      serviceType: b.serviceType,
+      services: services.get(b.id) ?? [],
+    }),
+  )
+  return { thisBranch, otherBranches }
+}
+
+// A customer's invoices at one branch, newest first, paginated. Another
+// branch's invoices are never listed (R3.2, R3.4).
+export async function getCustomerInvoices(
+  customerId: string,
+  branchId: string,
+  limit: number,
+  offset: number,
+) {
   return db
-    .select()
-    .from(booking)
-    .where(eq(booking.customerId, userId))
-    .orderBy(desc(booking.bookingDate), desc(booking.createdAt))
+    .select({
+      id: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      invoiceType: invoice.invoiceType,
+      paymentStatus: invoice.paymentStatus,
+      totalAmountPaise: invoice.totalAmountPaise,
+      gemsEarned: invoice.gemsEarned,
+      createdAt: invoice.createdAt,
+    })
+    .from(invoice)
+    .where(and(eq(invoice.customerId, customerId), eq(invoice.branchId, branchId)))
+    .orderBy(desc(invoice.createdAt), desc(invoice.id))
     .limit(limit)
     .offset(offset)
 }
 
-// A customer's invoices, newest first, paginated.
-export async function getCustomerInvoices(userId: string, limit: number, offset: number) {
-  return db
-    .select()
-    .from(invoice)
-    .where(eq(invoice.customerId, userId))
-    .orderBy(desc(invoice.createdAt))
-    .limit(limit)
-    .offset(offset)
+/** Is this booking the customer's, at this branch? Notes may only link those. */
+export async function isCustomerBookingAtBranch(
+  bookingId: string,
+  customerId: string,
+  branchId: string,
+): Promise<boolean> {
+  const rows = await db
+    .select({ id: booking.id })
+    .from(booking)
+    .where(
+      and(
+        eq(booking.id, bookingId),
+        eq(booking.customerId, customerId),
+        eq(booking.branchId, branchId),
+      ),
+    )
+    .limit(1)
+  return rows.length > 0
 }
 
 // A customer's memberships split into the single active one (if any) and past
@@ -421,21 +625,35 @@ export async function getCustomerMembership(userId: string) {
   return { active, past }
 }
 
-// A customer's notes, newest first, with each note's author name.
-export async function getCustomerNotes(userId: string) {
-  return db
+/**
+ * The notes one branch may read, newest first (R3.1): every shared note, and
+ * the branch's own private notes. Another branch's private note is never
+ * returned, nor is a private note with no branch.
+ */
+export async function getCustomerNotes(
+  customerId: string,
+  branchId: string,
+): Promise<CustomerNoteView[]> {
+  const rows = await db
     .select({
       id: customerNote.id,
       content: customerNote.content,
-      bookingId: customerNote.bookingId,
-      authorId: customerNote.authorId,
       authorName: user.name,
+      branchName: branch.name,
+      visibility: customerNote.visibility,
       createdAt: customerNote.createdAt,
     })
     .from(customerNote)
     .innerJoin(user, eq(customerNote.authorId, user.id))
-    .where(eq(customerNote.customerId, userId))
-    .orderBy(desc(customerNote.createdAt))
+    .leftJoin(branch, eq(branch.id, customerNote.branchId))
+    .where(
+      and(
+        eq(customerNote.customerId, customerId),
+        or(eq(customerNote.visibility, 'shared'), eq(customerNote.branchId, branchId)),
+      ),
+    )
+    .orderBy(desc(customerNote.createdAt), desc(customerNote.id))
+  return rows.map((n) => ({ ...n, createdAt: n.createdAt.toISOString() }))
 }
 
 // All customer tags, alphabetical, for the tag picker.
@@ -485,22 +703,40 @@ export async function removeTag(customerId: string, tagId: string) {
     )
 }
 
+type NewCustomerNote = {
+  customerId: string
+  authorId: string
+  /** The branch whose staff writes it. */
+  branchId: string
+  content: string
+  /** Chosen by the writer: every branch, or only `branchId` (R3.1). */
+  visibility: NoteVisibility
+  /** A booking of the customer's at `branchId`; the caller checks this. */
+  bookingId?: string | undefined
+}
+
 // Add a note to a customer, optionally linked to a booking. Id auto-defaults.
-export async function addCustomerNote(
-  customerId: string,
-  authorId: string,
-  content: string,
-  bookingId?: string,
-) {
+export async function addCustomerNote(note: NewCustomerNote) {
   const [created] = await db
     .insert(customerNote)
     .values({
-      customerId,
-      authorId,
-      content,
-      bookingId: bookingId ?? null,
+      customerId: note.customerId,
+      authorId: note.authorId,
+      branchId: note.branchId,
+      visibility: note.visibility,
+      content: note.content,
+      bookingId: note.bookingId ?? null,
     })
-    .returning()
+    .returning({
+      id: customerNote.id,
+      content: customerNote.content,
+      visibility: customerNote.visibility,
+      bookingId: customerNote.bookingId,
+      createdAt: customerNote.createdAt,
+    })
 
-  return created as typeof customerNote.$inferSelect
+  if (!created) {
+    throw new Error('customer_note insert returned no rows.')
+  }
+  return created
 }

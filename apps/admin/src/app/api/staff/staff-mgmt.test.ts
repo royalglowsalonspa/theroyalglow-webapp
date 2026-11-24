@@ -3,46 +3,66 @@
  * Author       : KATABATHUNI BOSE
  * Project      : theroyalglow-webapp (apps/admin)
  * Module Name  : staff-mgmt.test
- * Scope        : Unit tests for the admin Staff management API routes
+ * Scope        : Unit tests for the Staff page API — permissions and envelopes
  *
- * Description  : Verifies GET /api/staff/all (roster + service counts),
- *                GET /api/staff/[id] (profile + serviceIds + 404),
- *                PATCH /api/staff/[id] (update + 404 + 400 validation), and
- *                PUT /api/staff/[id]/services (replace capabilities, incl.
- *                referential validation and that setStaffServices is called with
- *                the parsed serviceIds) — plus RBAC (Manager+) and the response
- *                envelope. Session + DB are mocked; no live session/DB.
+ * Description  : Every Staff management route asks requireBranchRole for the
+ *                Manager level at the active branch and touches no data when
+ *                it refuses; malformed payloads get the 400 envelope; each
+ *                route exports only its methods; an empty service list clears
+ *                capabilities without an existence check. Behaviour per branch
+ *                and per role is covered by staff-routes.test.ts.
  *
  * Layer        : Testing
  *
- * Notes        : Node environment (server route handlers). Manager+.
+ * Notes        : Node environment (server route handlers). requireBranchRole
+ *                and the db queries are mocked.
  ************************************************************/
 
 import { AppError, ERROR_CODES } from '@rgss/errors'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const sessionMocks = vi.hoisted(() => ({
-  requireRole: vi.fn(),
-  requireSession: vi.fn(),
-  getOptionalSession: vi.fn(),
-}))
+const mocks = vi.hoisted(() => ({ requireBranchRole: vi.fn(), audit: vi.fn() }))
 
 const dbMocks = vi.hoisted(() => ({
-  getStaffForAdmin: vi.fn(),
-  getStaffProfileById: vi.fn(),
-  updateStaffProfile: vi.fn(),
+  getBranchStaff: vi.fn(),
+  getStaffMemberAtBranch: vi.fn(),
+  updateStaffMemberAtBranch: vi.fn(),
+  countUpcomingAssignments: vi.fn(),
   setStaffServices: vi.fn(),
   getServicesByIds: vi.fn(),
+  searchUsers: vi.fn(),
+  getRoleSnapshot: vi.fn(),
+  applyBranchRolePlan: vi.fn(),
 }))
 
-vi.mock('@/lib/api/session', () => sessionMocks)
+vi.mock('@/lib/api/branch-context', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api/branch-context')>()
+  return { ...actual, requireBranchRole: mocks.requireBranchRole }
+})
+vi.mock('@/lib/api/audit', () => ({ audit: mocks.audit }))
 vi.mock('@rgss/db/queries', () => dbMocks)
 
+import * as staffRemoveRoute from '@/app/api/staff/[id]/remove/route'
 import * as staffIdRoute from '@/app/api/staff/[id]/route'
 import * as staffServicesRoute from '@/app/api/staff/[id]/services/route'
 import * as staffAllRoute from '@/app/api/staff/all/route'
+import * as candidatesRoute from '@/app/api/staff/candidates/route'
 
-const MANAGER = { user: { id: 'u_mgr', role: 'manager' } }
+const BASE = 'https://admin.theroyalglow.in/api/staff'
+
+const MANAGER_CTX = {
+  session: { user: { id: 'u_mgr' } },
+  access: { userId: 'u_mgr', role: 'manager', branches: [] },
+  branch: {
+    id: 'rs',
+    name: 'Rayasandra',
+    code: 'RS',
+    status: 'operational',
+    isPrimary: true,
+    role: 'manager',
+  },
+}
+
 const jsonReq = (url: string, method: string, body?: unknown) =>
   new Request(url, {
     method,
@@ -50,218 +70,105 @@ const jsonReq = (url: string, method: string, body?: unknown) =>
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   })
 
-const forbidden = () =>
-  new AppError({ code: ERROR_CODES.FORBIDDEN, message: 'no', statusCode: 403 })
+const params = (id: string) => ({ params: Promise.resolve({ id }) })
+
+const refused = () => new AppError({ code: ERROR_CODES.FORBIDDEN, message: 'no', statusCode: 403 })
 
 beforeEach(() => {
   vi.clearAllMocks()
-  sessionMocks.requireRole.mockResolvedValue(MANAGER)
-  sessionMocks.requireSession.mockResolvedValue(MANAGER)
+  mocks.requireBranchRole.mockResolvedValue(MANAGER_CTX)
 })
 
-describe('GET /api/staff/all', () => {
-  it('returns the roster with service counts', async () => {
-    dbMocks.getStaffForAdmin.mockResolvedValue([{ id: 'st1', name: 'Asha', serviceCount: 3 }])
+describe('permissions', () => {
+  const calls: Array<[string, () => Promise<Response>]> = [
+    ['GET /api/staff/all', () => staffAllRoute.GET(new Request(`${BASE}/all`))],
+    [
+      'GET /api/staff/candidates',
+      () => candidatesRoute.GET(new Request(`${BASE}/candidates?search=asha`)),
+    ],
+    ['GET /api/staff/[id]', () => staffIdRoute.GET(new Request(`${BASE}/st1`), params('st1'))],
+    [
+      'PATCH /api/staff/[id]',
+      () => staffIdRoute.PATCH(jsonReq(`${BASE}/st1`, 'PATCH', { branchId: 'rs' }), params('st1')),
+    ],
+    [
+      'POST /api/staff/[id]/remove',
+      () =>
+        staffRemoveRoute.POST(
+          jsonReq(`${BASE}/st1/remove`, 'POST', { branchId: 'rs' }),
+          params('st1'),
+        ),
+    ],
+    [
+      'PUT /api/staff/[id]/services',
+      () =>
+        staffServicesRoute.PUT(
+          jsonReq(`${BASE}/st1/services`, 'PUT', { branchId: 'rs', serviceIds: [] }),
+          params('st1'),
+        ),
+    ],
+  ]
 
-    const res = await staffAllRoute.GET(new Request('https://admin.theroyalglow.in/api/staff/all'))
-    const body = await res.json()
-
-    expect(res.status).toBe(200)
-    expect(body.success).toBe(true)
-    expect(body.data).toEqual({ staff: [{ id: 'st1', name: 'Asha', serviceCount: 3 }] })
+  it.each(calls)('%s asks for the Manager level at the active branch', async (_name, call) => {
+    dbMocks.getBranchStaff.mockResolvedValue([])
+    dbMocks.searchUsers.mockResolvedValue([])
+    dbMocks.getStaffMemberAtBranch.mockResolvedValue(null)
+    await call()
+    expect(mocks.requireBranchRole).toHaveBeenCalledWith('manager')
   })
 
-  it('→ 403 for a non-manager', async () => {
-    sessionMocks.requireRole.mockRejectedValue(forbidden())
-    const res = await staffAllRoute.GET(new Request('https://admin.theroyalglow.in/api/staff/all'))
+  it.each(calls)('%s touches no data when refused', async (_name, call) => {
+    mocks.requireBranchRole.mockRejectedValue(refused())
+    const res = await call()
     expect(res.status).toBe(403)
-    expect(dbMocks.getStaffForAdmin).not.toHaveBeenCalled()
-  })
-
-  it('exports GET only', () => {
-    expect(typeof staffAllRoute.GET).toBe('function')
-    expect((staffAllRoute as Record<string, unknown>).POST).toBeUndefined()
+    for (const query of Object.values(dbMocks)) {
+      expect(query).not.toHaveBeenCalled()
+    }
   })
 })
 
-describe('GET /api/staff/[id]', () => {
-  it('returns the staff profile + serviceIds', async () => {
-    dbMocks.getStaffProfileById.mockResolvedValue({
-      id: 'st1',
-      name: 'Asha',
-      serviceIds: ['svc1', 'svc2'],
-    })
-
-    const res = await staffIdRoute.GET(new Request('https://admin.theroyalglow.in/api/staff/st1'), {
-      params: Promise.resolve({ id: 'st1' }),
-    })
-    const body = await res.json()
-
-    expect(res.status).toBe(200)
-    expect(body).toEqual({
-      success: true,
-      data: { staff: { id: 'st1', name: 'Asha', serviceIds: ['svc1', 'svc2'] } },
-    })
-  })
-
-  it('→ 404 when the staff member is missing', async () => {
-    dbMocks.getStaffProfileById.mockResolvedValue(null)
-
-    const res = await staffIdRoute.GET(
-      new Request('https://admin.theroyalglow.in/api/staff/missing'),
-      { params: Promise.resolve({ id: 'missing' }) },
-    )
-    const body = await res.json()
-
-    expect(res.status).toBe(404)
-    expect(body.error).toMatchObject({ code: ERROR_CODES.NOT_FOUND, statusCode: 404 })
-  })
-
-  it('→ 403 when role is insufficient', async () => {
-    sessionMocks.requireRole.mockRejectedValue(forbidden())
-    const res = await staffIdRoute.GET(new Request('https://admin.theroyalglow.in/api/staff/st1'), {
-      params: Promise.resolve({ id: 'st1' }),
-    })
-    expect(res.status).toBe(403)
-    expect(dbMocks.getStaffProfileById).not.toHaveBeenCalled()
-  })
-})
-
-describe('PATCH /api/staff/[id]', () => {
-  it('updates editable profile fields (200)', async () => {
-    dbMocks.getStaffProfileById.mockResolvedValue({ id: 'st1', designation: 'stylist' })
-    dbMocks.updateStaffProfile.mockResolvedValue({ id: 'st1', designation: 'therapist' })
-
-    const res = await staffIdRoute.PATCH(
-      jsonReq('https://admin.theroyalglow.in/api/staff/st1', 'PATCH', {
-        designation: 'therapist',
-        isActive: true,
-      }),
-      { params: Promise.resolve({ id: 'st1' }) },
-    )
-    const body = await res.json()
-
-    expect(res.status).toBe(200)
-    expect(body.data).toEqual({ staff: { id: 'st1', designation: 'therapist' } })
-    expect(dbMocks.updateStaffProfile).toHaveBeenCalledWith(
-      'st1',
-      expect.objectContaining({ designation: 'therapist', isActive: true }),
-    )
-  })
-
-  it('rejects an invalid designation with the 400 envelope', async () => {
-    const res = await staffIdRoute.PATCH(
-      jsonReq('https://admin.theroyalglow.in/api/staff/st1', 'PATCH', { designation: 'barber' }),
-      { params: Promise.resolve({ id: 'st1' }) },
+describe('payloads and envelopes', () => {
+  it('rejects a malformed services payload with the 400 envelope', async () => {
+    const res = await staffServicesRoute.PUT(
+      jsonReq(`${BASE}/st1/services`, 'PUT', { branchId: 'rs', serviceIds: 'nope' }),
+      params('st1'),
     )
     const body = await res.json()
 
     expect(res.status).toBe(400)
+    expect(body.success).toBe(false)
     expect(body.error).toMatchObject({ code: ERROR_CODES.VALIDATION_ERROR, statusCode: 400 })
-    expect(dbMocks.updateStaffProfile).not.toHaveBeenCalled()
+    expect(dbMocks.setStaffServices).not.toHaveBeenCalled()
   })
 
-  it('→ 404 when the staff member is missing', async () => {
-    dbMocks.getStaffProfileById.mockResolvedValue(null)
+  it('rejects an edit without the rendered branch', async () => {
     const res = await staffIdRoute.PATCH(
-      jsonReq('https://admin.theroyalglow.in/api/staff/missing', 'PATCH', { isActive: false }),
-      { params: Promise.resolve({ id: 'missing' }) },
+      jsonReq(`${BASE}/st1`, 'PATCH', { bio: 'x' }),
+      params('st1'),
     )
-    expect(res.status).toBe(404)
-    expect(dbMocks.updateStaffProfile).not.toHaveBeenCalled()
+    expect(res.status).toBe(400)
+    expect(dbMocks.updateStaffMemberAtBranch).not.toHaveBeenCalled()
   })
 
-  it('→ 403 for a non-manager', async () => {
-    sessionMocks.requireRole.mockRejectedValue(forbidden())
-    const res = await staffIdRoute.PATCH(
-      jsonReq('https://admin.theroyalglow.in/api/staff/st1', 'PATCH', { isActive: false }),
-      { params: Promise.resolve({ id: 'st1' }) },
-    )
-    expect(res.status).toBe(403)
-  })
-})
-
-describe('PUT /api/staff/[id]/services', () => {
-  it('replaces capabilities and calls setStaffServices with the parsed serviceIds', async () => {
-    dbMocks.getStaffProfileById.mockResolvedValue({ id: 'st1' })
-    dbMocks.getServicesByIds.mockResolvedValue([{ id: 'svc1' }, { id: 'svc2' }])
-    dbMocks.setStaffServices.mockResolvedValue(['svc1', 'svc2'])
-
-    const res = await staffServicesRoute.PUT(
-      jsonReq('https://admin.theroyalglow.in/api/staff/st1/services', 'PUT', {
-        serviceIds: ['svc1', 'svc2'],
-      }),
-      { params: Promise.resolve({ id: 'st1' }) },
-    )
-    const body = await res.json()
-
-    expect(res.status).toBe(200)
-    expect(body.data).toEqual({ staffId: 'st1', serviceIds: ['svc1', 'svc2'] })
-    expect(dbMocks.setStaffServices).toHaveBeenCalledWith('st1', ['svc1', 'svc2'])
-  })
-
-  it('accepts an empty serviceIds array (clears capabilities)', async () => {
-    dbMocks.getStaffProfileById.mockResolvedValue({ id: 'st1' })
+  it('clears capabilities for an empty list without an existence check', async () => {
+    dbMocks.getStaffMemberAtBranch.mockResolvedValue({ id: 'st1', roleWitness: 'staff' })
     dbMocks.setStaffServices.mockResolvedValue([])
 
     const res = await staffServicesRoute.PUT(
-      jsonReq('https://admin.theroyalglow.in/api/staff/st1/services', 'PUT', { serviceIds: [] }),
-      { params: Promise.resolve({ id: 'st1' }) },
+      jsonReq(`${BASE}/st1/services`, 'PUT', { branchId: 'rs', serviceIds: [] }),
+      params('st1'),
     )
+
     expect(res.status).toBe(200)
     expect(dbMocks.setStaffServices).toHaveBeenCalledWith('st1', [])
     expect(dbMocks.getServicesByIds).not.toHaveBeenCalled()
   })
 
-  it('rejects a non-existent serviceId with 400', async () => {
-    dbMocks.getStaffProfileById.mockResolvedValue({ id: 'st1' })
-    dbMocks.getServicesByIds.mockResolvedValue([{ id: 'svc1' }])
-
-    const res = await staffServicesRoute.PUT(
-      jsonReq('https://admin.theroyalglow.in/api/staff/st1/services', 'PUT', {
-        serviceIds: ['svc1', 'ghost'],
-      }),
-      { params: Promise.resolve({ id: 'st1' }) },
-    )
-    expect(res.status).toBe(400)
-    expect(dbMocks.setStaffServices).not.toHaveBeenCalled()
-  })
-
-  it('rejects a malformed payload with the 400 envelope', async () => {
-    const res = await staffServicesRoute.PUT(
-      jsonReq('https://admin.theroyalglow.in/api/staff/st1/services', 'PUT', {
-        serviceIds: 'nope',
-      }),
-      { params: Promise.resolve({ id: 'st1' }) },
-    )
-    const body = await res.json()
-
-    expect(res.status).toBe(400)
-    expect(body.error).toMatchObject({ code: ERROR_CODES.VALIDATION_ERROR, statusCode: 400 })
-    expect(dbMocks.setStaffServices).not.toHaveBeenCalled()
-  })
-
-  it('→ 404 when the staff member is missing', async () => {
-    dbMocks.getStaffProfileById.mockResolvedValue(null)
-    const res = await staffServicesRoute.PUT(
-      jsonReq('https://admin.theroyalglow.in/api/staff/missing/services', 'PUT', {
-        serviceIds: ['svc1'],
-      }),
-      { params: Promise.resolve({ id: 'missing' }) },
-    )
-    expect(res.status).toBe(404)
-    expect(dbMocks.setStaffServices).not.toHaveBeenCalled()
-  })
-
-  it('→ 403 for a non-manager', async () => {
-    sessionMocks.requireRole.mockRejectedValue(forbidden())
-    const res = await staffServicesRoute.PUT(
-      jsonReq('https://admin.theroyalglow.in/api/staff/st1/services', 'PUT', {
-        serviceIds: ['svc1'],
-      }),
-      { params: Promise.resolve({ id: 'st1' }) },
-    )
-    expect(res.status).toBe(403)
-    expect(dbMocks.setStaffServices).not.toHaveBeenCalled()
+  it('exports only the methods each route supports', () => {
+    expect(Object.keys(staffAllRoute)).toEqual(['GET'])
+    expect(Object.keys(candidatesRoute)).toEqual(['GET'])
+    expect(Object.keys(staffIdRoute).sort()).toEqual(['GET', 'PATCH'])
+    expect(Object.keys(staffRemoveRoute)).toEqual(['POST'])
+    expect(Object.keys(staffServicesRoute)).toEqual(['PUT'])
   })
 })

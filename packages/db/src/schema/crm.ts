@@ -34,6 +34,8 @@ import { index, pgTable, primaryKey, text, timestamp } from 'drizzle-orm/pg-core
 import { nanoid } from 'nanoid'
 import { user } from './auth'
 import { booking } from './booking'
+import { branch } from './branch'
+import { noteVisibilityEnum } from './enums'
 
 export const customerTag = pgTable('customer_tag', {
   id: text('id')
@@ -81,10 +83,16 @@ export const customerNote = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'restrict' }),
     bookingId: text('booking_id').references(() => booking.id, { onDelete: 'set null' }),
+    // The branch whose staff wrote the note, and whether every Royal Glow branch
+    // or only that branch may read it (multi-branch R3.1). Existing notes become
+    // private to their branch; nothing is published implicitly.
+    branchId: text('branch_id').references(() => branch.id, { onDelete: 'restrict' }),
+    visibility: noteVisibilityEnum('visibility').notNull().default('branch'),
     content: text('content').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   },
   (table) => [
     index('customer_note_booking_id_idx').on(table.bookingId).where(sql`booking_id IS NOT NULL`),
+    index('customer_note_customer_id_branch_id_idx').on(table.customerId, table.branchId),
   ],
 )

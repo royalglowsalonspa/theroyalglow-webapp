@@ -32,7 +32,7 @@
  ************************************************************/
 
 import type { WaitlistListQuery, WaitlistStatus } from '@rgss/types'
-import { desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import { db } from '../index'
 import { user } from '../schema/auth'
 import { waitlist } from '../schema/booking'
@@ -58,12 +58,16 @@ const waitlistSelection = {
   createdAt: waitlist.createdAt,
 }
 
-// Paginated waitlist queue, newest first, optionally narrowed by status. The
-// customer (user) and service (+ its category) are INNER JOINed — every entry
-// has both by FK. A separate count query applies the same status filter so
-// `totalCount` reflects the full filtered set, not just the current page.
-export async function getWaitlist(query: WaitlistListQuery) {
-  const where = query.status ? eq(waitlist.status, query.status) : undefined
+// One branch's paginated waitlist queue, newest first, optionally narrowed by
+// status (multi-branch R2.3). The customer (user) and service (+ its category)
+// are INNER JOINed — every entry has both by FK. A separate count query applies
+// the same filters so `totalCount` reflects the full filtered set, not just the
+// current page.
+export async function getWaitlist(branchId: string, query: WaitlistListQuery) {
+  const where = and(
+    eq(waitlist.branchId, branchId),
+    query.status ? eq(waitlist.status, query.status) : undefined,
+  )
   const offset = (query.page - 1) * query.pageSize
 
   const rows = await db
@@ -77,8 +81,8 @@ export async function getWaitlist(query: WaitlistListQuery) {
     .limit(query.pageSize)
     .offset(offset)
 
-  // Count off the base table only — the status filter lives on waitlist, so the
-  // JOINs are unnecessary for the total.
+  // Count off the base table only — the filters live on waitlist, so the JOINs
+  // are unnecessary for the total.
   const countResult = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(waitlist)
@@ -88,15 +92,21 @@ export async function getWaitlist(query: WaitlistListQuery) {
   return { rows, totalCount }
 }
 
-// A single waitlist entry with customer + service detail, or null if not found.
-export async function getWaitlistEntryById(id: string) {
+// A waitlist entry at one branch, with customer + service detail.
+function entryAt(id: string, branchId: string) {
+  return and(eq(waitlist.id, id), eq(waitlist.branchId, branchId))
+}
+
+// A single waitlist entry at the branch with customer + service detail, or null
+// when the branch has no such entry.
+export async function getWaitlistEntryById(id: string, branchId: string) {
   const rows = await db
     .select(waitlistSelection)
     .from(waitlist)
     .innerJoin(user, eq(waitlist.customerId, user.id))
     .innerJoin(service, eq(waitlist.serviceId, service.id))
     .innerJoin(serviceCategory, eq(service.categoryId, serviceCategory.id))
-    .where(eq(waitlist.id, id))
+    .where(entryAt(id, branchId))
     .limit(1)
 
   return rows[0] ?? null
@@ -106,14 +116,14 @@ export async function getWaitlistEntryById(id: string) {
 // notifiedAt (when the customer was told their slot opened up); other
 // transitions leave it untouched. The legality of the move is enforced by the
 // route-layer state-machine guard before this is called. Returns the updated
-// row, or null when the id matched nothing.
-export async function updateWaitlistStatus(id: string, status: WaitlistStatus) {
+// row, or null when the branch has no such entry.
+export async function updateWaitlistStatus(id: string, branchId: string, status: WaitlistStatus) {
   const values: Partial<typeof waitlist.$inferInsert> = { status }
   if (status === 'notified') {
     values.notifiedAt = new Date()
   }
 
-  const [updated] = await db.update(waitlist).set(values).where(eq(waitlist.id, id)).returning()
+  const [updated] = await db.update(waitlist).set(values).where(entryAt(id, branchId)).returning()
 
   return updated ?? null
 }

@@ -160,3 +160,13 @@ describe('OnboardingForm without a booking', () => {
     expect(screen.queryByText(/connection failed/i)).not.toBeInTheDocument()
   })
 })
+
+describe('OnboardingForm consent (multi-branch R3.4)', () => {
+  it('says the account is shared across Royal Glow branches, and what stays with one', () => {
+    renderForm()
+
+    expect(screen.getByRole('switch', { name: /privacy policy/i })).toHaveAccessibleDescription(
+      'Your profile, gems and membership are shared across Royal Glow branches, so you can book at any of them. What you pay stays with the branch that bills you.',
+    )
+  })
+})

@@ -5,139 +5,117 @@
  * Scope        : Property-based tests for the pure Ably capability builder
  *
  * Description  : fast-check + Vitest property tests for `apps/admin/src/lib/
- *                realtime/capability.ts` and the Receptionist+ role gate that
- *                decides whether an admin Ably token is issued at all.
- *
- * Notes        : Append-only — add a new `describe` block per property. Do NOT
- *                overwrite sibling property tests.
+ *                realtime/capability.ts`. An admin token is subscribe-only and
+ *                covers exactly the channels of the branches it is built for
+ *                (multi-branch R2.6, design §3): never another branch's
+ *                channel, never a cross-branch wildcard.
  ************************************************************/
 
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { ROLE_LEVELS, resolveRoleLevel } from '@/lib/rbac'
-import { ADMIN_ABLY_CHANNELS, buildAdminAblyCapability } from './capability'
+import {
+  adminChannelPatternsForBranch,
+  buildAdminAblyCapability,
+  isChannelSafeBranchId,
+} from './capability'
+import {
+  adminBookingsChannel,
+  adminLeaveChannel,
+  adminScheduleChannel,
+  bookingChannel,
+} from './channels'
 
-// Feature: admin-subdomain-migration, Property 6: Ably token capability is subscribe-only and scoped to admin channels
-//
-// Property 6: Ably token capability is subscribe-only and scoped to admin channels
-// Validates: Requirements 8.1
-//
-// For any requesting user holding a role of Receptionist or higher, the issued
-// Ably token capability grants only the `subscribe` operation and only on
-// channels within the admin set (admin:bookings:*, admin:schedule:*,
-// admin:leave, booking:*); for any user below Receptionist, no admin token is
-// issued (request is forbidden).
+// A model of Ably's matching for the resources we issue: a trailing `*`
+// segment matches the rest of the name; anything else matches exactly.
+function grants(pattern: string, channel: string): boolean {
+  if (pattern.endsWith(':*')) {
+    return channel.startsWith(pattern.slice(0, -1))
+  }
+  return pattern === channel
+}
 
-describe('Property 6: Ably token capability is subscribe-only and scoped to admin channels', () => {
-  // The canonical allowed admin channel set, as a Set for subset checks.
-  const ALLOWED_CHANNELS = new Set<string>(ADMIN_ABLY_CHANNELS)
+function allows(capability: Record<string, string[]>, channel: string): boolean {
+  return Object.keys(capability).some((pattern) => grants(pattern, channel))
+}
 
-  // The role gate: a Receptionist+ (level >= 2) user gets an admin token.
-  const RECEPTIONIST_LEVEL = ROLE_LEVELS.receptionist
-  const isAdminRole = (role: string | null | undefined): boolean =>
-    resolveRoleLevel(role) >= RECEPTIONIST_LEVEL
+const branchId = fc.stringMatching(/^[A-Za-z0-9_-]{1,24}$/)
+const isoDate = fc
+  .tuple(
+    fc.integer({ min: 2026, max: 2030 }),
+    fc.integer({ min: 1, max: 12 }),
+    fc.integer({ min: 1, max: 28 }),
+  )
+  .map(([y, m, d]) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`)
+const bookingId = fc.stringMatching(/^[A-Za-z0-9_-]{6,21}$/)
 
-  // Pure model of the token-issuing decision: Receptionist+ receives the admin
-  // capability map; anyone below is forbidden (no token).
-  type TokenDecision = { issued: true; capability: Record<string, string[]> } | { issued: false }
-
-  const decideToken = (role: string | null | undefined): TokenDecision =>
-    isAdminRole(role) ? { issued: true, capability: buildAdminAblyCapability() } : { issued: false }
-
-  // --- Capability shape invariants (builder takes no input) --------------- //
-
-  it('grants only the subscribe operation on every channel', () => {
+describe('buildAdminAblyCapability', () => {
+  it('grants only subscribe, on every channel pattern', () => {
     fc.assert(
-      // The builder is nullary; the property is over repeated invocations to
-      // confirm the invariant holds deterministically across runs.
-      fc.property(fc.constant(null), () => {
-        const capability = buildAdminAblyCapability()
-        const operations = new Set<string>()
+      fc.property(fc.uniqueArray(branchId, { minLength: 1, maxLength: 4 }), (branchIds) => {
+        const capability = buildAdminAblyCapability(branchIds)
         for (const ops of Object.values(capability)) {
-          for (const op of ops) {
-            operations.add(op)
-          }
-          // Each channel's operation array is exactly ['subscribe'].
           expect(ops).toEqual(['subscribe'])
         }
-        // The only operation present anywhere is 'subscribe' (no publish,
-        // presence, history, etc.).
-        expect([...operations]).toEqual(['subscribe'])
       }),
-      { numRuns: 25 },
     )
   })
 
-  it('only includes channels from the allowed admin set and covers it exactly', () => {
+  it('covers exactly the four patterns of each branch it is built for', () => {
     fc.assert(
-      fc.property(fc.constant(null), () => {
-        const capability = buildAdminAblyCapability()
-        const keys = Object.keys(capability)
+      fc.property(fc.uniqueArray(branchId, { minLength: 1, maxLength: 4 }), (branchIds) => {
+        const keys = new Set(Object.keys(buildAdminAblyCapability(branchIds)))
+        expect(keys).toEqual(new Set(branchIds.flatMap(adminChannelPatternsForBranch)))
+      }),
+    )
+  })
 
-        // Non-empty.
-        expect(keys.length).toBeGreaterThan(0)
+  it('never issues a cross-branch wildcard', () => {
+    const capability = buildAdminAblyCapability(['branch_rs', 'branch_mh'])
+    for (const legacy of ['booking:*', 'admin:bookings:*', 'admin:schedule:*', 'admin:*', '*']) {
+      expect(capability).not.toHaveProperty(legacy)
+    }
+    expect(capability).not.toHaveProperty('admin:leave')
+  })
 
-        // Subset: no customer/other channel leaks in.
-        for (const channel of keys) {
-          expect(ALLOWED_CHANNELS.has(channel)).toBe(true)
+  it('lets a branch’s token read its own channels and no other branch’s', () => {
+    fc.assert(
+      fc.property(branchId, branchId, isoDate, bookingId, (mine, other, date, booking) => {
+        fc.pre(mine !== other)
+        const capability = buildAdminAblyCapability([mine])
+
+        for (const channel of [
+          adminBookingsChannel(mine),
+          adminScheduleChannel(mine, date),
+          adminLeaveChannel(mine),
+          bookingChannel(mine, booking),
+        ]) {
+          expect(allows(capability, channel)).toBe(true)
         }
-
-        // Exact coverage: the capability covers precisely ADMIN_ABLY_CHANNELS.
-        expect(new Set(keys)).toEqual(ALLOWED_CHANNELS)
-        expect(keys.length).toBe(ALLOWED_CHANNELS.size)
-      }),
-      { numRuns: 25 },
-    )
-  })
-
-  // --- Role-gating decision (genuinely input-varying) --------------------- //
-
-  // Arbitrary roles: the known hierarchy plus unknown/empty strings and the
-  // null/undefined cases, all of which resolveRoleLevel must handle.
-  const roleArb: fc.Arbitrary<string | null | undefined> = fc.oneof(
-    fc.constantFrom(...Object.keys(ROLE_LEVELS)),
-    fc.string(),
-    fc.constantFrom(null, undefined, 'ADMIN', 'Receptionist', 'root', ''),
-  )
-
-  it('issues the admin subscribe-only capability iff the role is Receptionist or higher', () => {
-    fc.assert(
-      fc.property(roleArb, (role) => {
-        const level = resolveRoleLevel(role)
-        const decision = decideToken(role)
-
-        if (level >= RECEPTIONIST_LEVEL) {
-          // Receptionist+ : a token IS issued with the admin capability.
-          expect(decision.issued).toBe(true)
-          if (decision.issued) {
-            // The issued capability is exactly the admin set, subscribe-only.
-            expect(new Set(Object.keys(decision.capability))).toEqual(ALLOWED_CHANNELS)
-            for (const ops of Object.values(decision.capability)) {
-              expect(ops).toEqual(['subscribe'])
-            }
-          }
-        } else {
-          // Below Receptionist : forbidden, no token issued.
-          expect(decision.issued).toBe(false)
+        for (const channel of [
+          adminBookingsChannel(other),
+          adminScheduleChannel(other, date),
+          adminLeaveChannel(other),
+          bookingChannel(other, booking),
+        ]) {
+          // A prefix of `mine` must not reach `other` either: the `:` after the
+          // branch id stops `branch_r` from matching `branch_rs`.
+          expect(allows(capability, channel)).toBe(false)
         }
       }),
-      { numRuns: 25 },
     )
   })
 
-  it('forbids every role below Receptionist (customer, staff, unknown, absent)', () => {
-    const belowReceptionistArb: fc.Arbitrary<string | null | undefined> = fc.oneof(
-      fc.constantFrom('customer', 'staff'),
-      fc.string().filter((s) => resolveRoleLevel(s) < RECEPTIONIST_LEVEL),
-      fc.constantFrom(null, undefined, ''),
-    )
+  it('issues nothing for no branches', () => {
+    expect(buildAdminAblyCapability([])).toEqual({})
+  })
 
-    fc.assert(
-      fc.property(belowReceptionistArb, (role) => {
-        expect(isAdminRole(role)).toBe(false)
-        expect(decideToken(role).issued).toBe(false)
-      }),
-      { numRuns: 25 },
+  it('skips a branch id that could change a pattern’s meaning', () => {
+    for (const unsafe of ['*', 'a:b', 'a b', '', 'x'.repeat(65)]) {
+      expect(isChannelSafeBranchId(unsafe)).toBe(false)
+      expect(buildAdminAblyCapability([unsafe])).toEqual({})
+    }
+    expect(Object.keys(buildAdminAblyCapability(['*', 'branch_rs']))).toEqual(
+      adminChannelPatternsForBranch('branch_rs'),
     )
   })
 })

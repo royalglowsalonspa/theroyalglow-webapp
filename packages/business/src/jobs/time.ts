@@ -42,6 +42,7 @@ export const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 const MS_PER_HOUR = 60 * 60 * 1000
+const NO_SHOW_GRACE_MS = 15 * 60 * 1000
 // The appointment-reminder job runs every 15 minutes, so a booking matches a
 // window if its start falls inside the next 15-minute slot at the +24h or +1h mark.
 const SLOT_MS = 15 * 60 * 1000
@@ -84,6 +85,27 @@ export function istDateInDays(now: Date, n: number): string {
 // True iff `a` and `b` fall on the same IST calendar day.
 export function isSameISTDay(a: Date, b: Date): boolean {
   return istToday(a) === istToday(b)
+}
+
+// The instant the IST calendar day of `now` began (IST midnight). Daily jobs
+// use it to send at most one message per person per IST day.
+export function istDayStart(now: Date = new Date()): Date {
+  return new Date(`${istToday(now)}T00:00:00+05:30`)
+}
+
+/** The no-show check is due 15 minutes after the booking's IST end time. */
+export function noShowCheckAt(bookingDate: string, endTime: string): number {
+  const wallTime = endTime.length === 5 ? `${endTime}:00` : endTime
+  return new Date(`${bookingDate}T${wallTime}+05:30`).getTime() + NO_SHOW_GRACE_MS
+}
+
+/** Round up so the queue cannot deliver just before the check is due. */
+export function noShowCheckDelaySeconds(
+  bookingDate: string,
+  endTime: string,
+  now = Date.now(),
+): number {
+  return Math.ceil((noShowCheckAt(bookingDate, endTime) - now) / 1000)
 }
 
 // Classify a booking start against the reminder windows. Returns '24h' when the

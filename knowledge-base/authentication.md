@@ -56,14 +56,14 @@ The application uses **six concrete RBAC roles** via Better Auth:
 - No access to admin app (`admin.theroyalglow.in`)
 
 ### 3. Receptionist (`receptionist`)
-- Lowest admin role
+- Lowest admin role; works at one branch (one Receptionist per branch)
 - Manages bookings, customer check-in, billing, memberships, and leave approvals
 
 ### 4. Manager (`manager`)
-- Full operational access across staff, services, reports, scheduling, and settings
+- Runs one or more branches: staff (Stylists and Therapists), services, reports, scheduling, and settings
 
 ### 5. Owner (`owner`)
-- Full business access, including `admin.theroyalglow.in/users`
+- Owns one or more branches, with full business access to them, including choosing their Manager and Receptionist at `admin.theroyalglow.in/users`
 
 ### 6. Developer (`developer`)
 - Full access to everything
@@ -208,37 +208,60 @@ Architecture: Better Auth Cloud is a **hosted cloud service by Better Auth — y
 
 ## Custom Admin User Management Panel
 
-Since the Better Auth Cloud dashboard is generic (not branded), expose day-to-day user management through the custom `/users` page in the Royal Glow admin portal (`admin.theroyalglow.in/users`):
+Since the Better Auth Cloud dashboard is generic (not branded), people are managed in the Royal Glow admin portal, **one branch at a time** (multi-branch support, `.kiro/specs/multi-branch-support/`). The sidebar's branch switcher picks the active branch; every screen and API below works on that branch only.
 
-```ts
-// List all users
-const users = await auth.api.listUsers()
+Canonical application role values: `customer` · `staff` · `receptionist` · `manager` · `owner` · `developer`. Since migration `0004`–`0006`, a branch role is a relationship, not just a value:
 
-// Ban a user
-await auth.api.banUser({ userId })
+| Role | Held through | Rule enforced by the database |
+|------|--------------|-------------------------------|
+| Owner | `branch.owner_user_id` | Every branch has one; an Owner owns at least one branch and holds no other role |
+| Manager | `branch.manager_user_id` + an active `staff_profile` (no branch) | One per branch; may manage several branches; manages at least one |
+| Receptionist | active `staff_profile` at one branch | One per branch |
+| Staff (Stylist, Therapist) | active `staff_profile` at one branch | Any number |
+| Developer | `user.role` | Exactly one account |
 
-// Assign roles — follows the project's role hierarchy:
-// Developer assigns Owner
-await auth.api.setRole({ userId, role: 'owner' })
+**Who changes what** (planned by `planBranchRoleChange` in `packages/business/src/branch/roles.ts`, applied by `applyBranchRolePlan` in `packages/db/src/queries/branch-roles.ts`):
 
-// Owner assigns Manager (or any role below)
-await auth.api.setRole({ userId, role: 'manager' })
+| Change | Where | Who |
+|--------|-------|-----|
+| Owner of a branch (handover) | Users & Roles (`/users`) | Developer only |
+| Manager, Receptionist: choose or remove | Users & Roles (`/users`) | The branch's Owner, or the Developer |
+| Stylists and Therapists: add, edit, remove | Staff (`/staff`) | The branch's Manager, its Owner, or the Developer |
+| Create a branch (with its Owner), edit branch details | Branches (`/branches`) | Developer only |
 
-// Manager assigns Receptionist or Staff
-await auth.api.setRole({ userId, role: 'receptionist' })
-await auth.api.setRole({ userId, role: 'staff' })
+- Nobody changes their own role, and the Developer account is never changed in the app.
+- Someone who loses their last role becomes a Customer and is signed out (their sessions are deleted). Their account, customer data and history are kept; adding them again later reactivates the same staff profile.
+- Every change is one transaction: it locks the people and branches involved, re-checks every row the decision was made from, writes the role, branch, profile and audit entry together, and is refused (409, "reload and try again") if anything changed meanwhile. A form carries the branch it was rendered for, so a tab left open across a branch switch is refused too.
+- Roles are re-read from the database on every admin request, so the session's cached copy (up to 5 minutes old) never grants anything.
+
+Intended accounts: Owner = `royalglowsalonspa@gmail.com`, Developer = `katbose.dev@gmail.com`.
+
+### Changing the Developer — database only
+
+The new person signs in once on `theroyalglow.in` (this creates their `user` row). Then, in the Neon SQL editor on the right branch (`dev`, then `prod`):
+
+```sql
+-- Replacing the Developer: one transaction, and demote BEFORE promoting.
+-- Each UPDATE must report 1 row; if not, run ROLLBACK instead of COMMIT.
+BEGIN;
+UPDATE "user" SET role = 'customer', updated_at = now()
+WHERE lower(email) = lower('old.developer@example.com');
+UPDATE "user" SET role = 'developer', updated_at = now()
+WHERE lower(email) = lower('new.developer@example.com');
+-- Sign the old Developer out everywhere, as the app does when a role is lost.
+DELETE FROM session
+WHERE user_id = (SELECT id FROM "user" WHERE lower(email) = lower('old.developer@example.com'));
+COMMIT;
+
+-- First Developer on a database branch that has none: the promote UPDATE alone,
+-- or `bun run packages/db/scripts/set-role.ts <email> developer`.
 ```
 
-Canonical application role values: `customer` · `staff` · `receptionist` · `manager` · `owner` · `developer`
+The database allows exactly one Developer: the unique index `user_one_developer` rejects a second one as soon as it is written, and the deferred trigger `user_role_relationships` rejects losing the last one at `COMMIT`. Demoting first, inside one transaction, satisfies both. A wrong address can't leave the database with no Developer or with two: if the old address matches nothing, the promote fails at once on `user_one_developer`; if the new one matches nothing, `COMMIT` is refused with "The Developer can only be replaced, not removed". Checked on dev in direct SQL on 25/10/2026 (demote then promote passes both guards; promote first fails on the index; demote alone fails at `COMMIT`), rolled back each time. Other branch roles can't be set with a single `UPDATE` any more; the database rejects it, so use the admin screens above. `set-role.ts` only handles `customer` and the first `developer`.
 
-**Role assignment hierarchy:**
-| Who assigns | Can assign |
-|-------------|------------|
-| Developer | `owner` (and any role below) |
-| Owner | `manager`, `receptionist`, `staff` |
-| Manager | `receptionist`, `staff` |
+The change applies to new requests at once; the edge middleware's cached copy refreshes within 5 minutes (signing out and in refreshes it immediately). The old Developer's open live updates stop within 13 minutes, when their last realtime token expires. Database edits are not written to `audit_log`, so note who and why in the change log.
 
-> The `admin.theroyalglow.in/users` page enforces this hierarchy in the UI — a Manager's role-picker only shows options they are allowed to assign.
+Better Auth Cloud's dashboard (`dash()` plugin endpoints under `/api/auth/dash/*`) can also edit users. Its user-editing endpoints reject every request unless `BETTER_AUTH_API_KEY` is configured (checked 25/10/2026 in `@better-auth/infra` 0.4.20), and the SST deployment does not set it. Treat connecting the dashboard as a database-level access decision; the role relationships above still apply to its writes.
 
 This gives a **branded, in-product user management UI** that matches the premium feel of the rest of the site.
 

@@ -32,20 +32,26 @@
  *                @rgss/business, @rgss/db/queries, @rgss/logger, @rgss/types
  *
  * Notes        :
- * - All money is integer paise. CGST/SGST are split evenly from the GST total.
- * - The branch table has no GSTIN/SAC columns: SAC falls back to the
- *   project-wide constant (999721) and GSTIN is left undefined (optional).
+ * - All money is integer paise, read from what the invoice stored when it was
+ *   issued: issuer, CGST/SGST, each line's SAC code and rate (multi-branch
+ *   R6.1, TX-05). Nothing is recalculated from current settings.
+ * - Invoices issued before the snapshots existed render from the branch row
+ *   with one SAC code and an even CGST/SGST split, as before.
  ************************************************************/
 
-import { buildInvoiceEmailHtml, signRequest } from '@rgss/business'
+import {
+  buildInvoiceEmailHtml,
+  invoiceFileStem,
+  invoicePdfObjectKey,
+  sharedRatePercentLabel,
+  signRequest,
+} from '@rgss/business'
 import { getInvoiceForPdf, setInvoicePdfUrl } from '@rgss/db/queries'
 import { createLogger } from '@rgss/logger'
-import {
-  type InvoicePdfPayload,
-  invoicePdfPayloadSchema,
-  invoicePdfResultSchema,
-} from '@rgss/types'
+import { invoicePdfPayloadSchema, invoicePdfResultSchema } from '@rgss/types'
 import { env } from '@/env'
+import { invoicePdfDownloadPath } from '@/lib/invoices/pdf-access'
+import { buildPdfPayload, getInvoiceSeller, type LoadedInvoice } from '@/lib/invoices/pdf-payload'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
 import { sendEmail } from '@/lib/notifications/providers/email'
 
@@ -59,8 +65,6 @@ import { sendEmail } from '@/lib/notifications/providers/email'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-// SAC code for beauty/wellness services (project-wide billing convention).
-const SAC_CODE = '999721'
 // Wall-clock budget for the render service call and the PDF byte fetch.
 const SERVICE_TIMEOUT_MS = 10_000
 
@@ -70,7 +74,6 @@ const logger = createLogger({
 })
 
 type Payload = { invoiceId?: unknown }
-type LoadedInvoice = NonNullable<Awaited<ReturnType<typeof getInvoiceForPdf>>>
 
 export const POST = async (req: Request) => {
   const bodyText = await req.text()
@@ -162,21 +165,30 @@ export const POST = async (req: Request) => {
     }
 
     const parsedResult = invoicePdfResultSchema.safeParse(await renderResponse.json())
-    if (!parsedResult.success) {
+    if (
+      !parsedResult.success ||
+      parsedResult.data.invoiceNumber !== renderPayload.invoiceNumber ||
+      ('pdfObjectKey' in parsedResult.data &&
+        parsedResult.data.pdfObjectKey !==
+          invoicePdfObjectKey(renderPayload.invoiceNumber, renderPayload.issuedAt))
+    ) {
       logger.error('invoice-pdf job: render service returned an invalid result', { invoiceId })
       const sent = await sendInvoiceEmail(loaded)
       return Response.json({ success: true, attached: false, reason: 'invalid-result', sent })
     }
     const result = parsedResult.data
 
-    // Persist the stored PDF URL onto the invoice row.
-    await setInvoicePdfUrl(invoiceId, result.pdfUrl)
+    // Private invoices use a stable, branch-authorized link on the admin app.
+    const publicPdfUrl = 'pdfUrl' in result ? result.pdfUrl : undefined
+    await setInvoicePdfUrl(invoiceId, publicPdfUrl ?? invoicePdfDownloadPath(invoiceId))
 
     // Resolve the PDF bytes: prefer the inline base64 returned by the service,
     // otherwise fetch the stored URL and base64-encode it.
-    const base64 = result.pdfBase64 ?? (await fetchPdfBase64(result.pdfUrl))
+    const base64 =
+      result.pdfBase64 ?? (publicPdfUrl ? await fetchPdfBase64(publicPdfUrl) : undefined)
     const attachments = base64
-      ? [{ filename: `${result.invoiceNumber}.pdf`, content: base64 }]
+      ? // RS/2627/000123 → RS-2627-000123.pdf: no slashes in a file name.
+        [{ filename: `${invoiceFileStem(result.invoiceNumber)}.pdf`, content: base64 }]
       : undefined
     if (!attachments) {
       logger.warn('invoice-pdf job: could not resolve PDF bytes; sending no-attachment email', {
@@ -208,65 +220,6 @@ function parseBody(bodyText: string): Payload {
   }
 }
 
-// Map the loaded invoice into the fully-computed render contract. Money is taken
-// verbatim from the invoice columns (the service never recomputes). CGST/SGST
-// are split evenly from the GST total so cgst + sgst === gst exactly.
-function buildPdfPayload(loaded: LoadedInvoice): InvoicePdfPayload {
-  const { invoice: inv, items, branch, customer, bookingNumber } = loaded
-
-  const addressLines = [
-    branch.addressLine1,
-    branch.addressLine2,
-    `${branch.city}, ${branch.state} ${branch.pincode}`,
-  ].filter((line): line is string => Boolean(line?.trim()))
-
-  const cgstPaise = Math.floor(inv.gstAmountPaise / 2)
-  const sgstPaise = inv.gstAmountPaise - cgstPaise
-
-  return {
-    templateVersion: 'v1',
-    invoiceNumber: inv.invoiceNumber,
-    issuedAt: inv.createdAt.toISOString(),
-    paymentMethod: inv.paymentMethod,
-    bookingNumber: bookingNumber ?? undefined,
-    seller: {
-      name: branch.name,
-      addressLines,
-      // GSTIN is not stored on the branch table → left undefined (optional).
-      gstin: undefined,
-      phone: branch.phone ?? undefined,
-      email: branch.email ?? undefined,
-      sacCode: SAC_CODE,
-    },
-    customer: {
-      name: customer.name,
-      email: customer.email ?? undefined,
-      phone: customer.phone ?? undefined,
-    },
-    items: items.map((item) => ({
-      name: item.serviceNameSnapshot,
-      staffName: item.staffNameSnapshot ?? undefined,
-      quantity: item.quantity,
-      unitPricePaise: item.unitPricePaise,
-      totalPricePaise: item.totalPricePaise,
-      // The gems-redeemed service is marked covered (its line total is 0).
-      gemsCovered: item.serviceId === inv.gemsRedeemedServiceId,
-    })),
-    totals: {
-      subtotalPaise: inv.subtotalPaise,
-      discountPaise: inv.discountAmountPaise,
-      taxableValuePaise: inv.taxableValuePaise,
-      cgstPaise,
-      sgstPaise,
-      gstPaise: inv.gstAmountPaise,
-      totalPaise: inv.totalAmountPaise,
-    },
-    gemsEarned: inv.gemsEarned,
-    gemsRedeemed: inv.gemsRedeemed,
-    notes: inv.notes ?? undefined,
-  }
-}
-
 // Send the invoice email (same content the complete route built inline), with
 // the PDF attached when provided. Skipped when the customer has no email
 // (mirrors the complete route's guard). Best-effort: sendEmail never throws.
@@ -283,6 +236,7 @@ async function sendInvoiceEmail(
     return false
   }
 
+  const seller = getInvoiceSeller(loaded)
   const { subject, html } = buildInvoiceEmailHtml({
     customerName: customer.name ?? 'Guest',
     invoiceNumber: inv.invoiceNumber,
@@ -295,11 +249,20 @@ async function sendInvoiceEmail(
     })),
     subtotalPaise: inv.subtotalPaise,
     discountPaise: inv.discountAmountPaise,
+    // The stored issue facts (multi-branch R6.1); older invoices lack them.
+    taxableValuePaise: inv.taxPointAt ? inv.taxableValuePaise : null,
     gstPaise: inv.gstAmountPaise,
+    cgstPaise: inv.cgstPaise,
+    sgstPaise: inv.sgstPaise,
+    ratePercentLabel: sharedRatePercentLabel(items.map((item) => item.rateBps)),
     totalPaise: inv.totalAmountPaise,
     gemsEarned: inv.gemsEarned,
     paymentMethod: inv.paymentMethod,
-    issuedAt: inv.createdAt,
+    issuedAt: inv.taxPointAt ?? inv.createdAt,
+    issuerName: seller.name,
+    issuerGstin: seller.gstin ?? null,
+    issuerAddressLines: seller.addressLines,
+    provisional: inv.taxReviewStatus === 'provisional',
   })
 
   return await sendEmail({

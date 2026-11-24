@@ -1,520 +1,455 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 21-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 21-06-2026 & Updated - 28-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : Users Manager
- * Scope        : Admin Portal — User / RBAC administration
+ * Scope        : Admin Portal — Users & Roles at the active branch (R1.4, R1.5)
  *
- * Description  : Owner-facing role-management screen rebuilt on the admin
- *                design-system primitives. An assign-role form (email + role)
- *                sits above a searchable account directory rendered with the
- *                reusable DataTable. Each account shows its current role and
- *                access state as semantic Status_Badge pills, and a per-row
- *                "Change role" action opens a SlideOverPanel role editor.
- *                Consumes GET|POST /api/users as-is.
+ * Description  : Who runs the active branch: its Owner, Manager and
+ *                Receptionist, each on a card with Change (find a person and
+ *                confirm) and, for the Manager and Receptionist, Remove. The
+ *                Developer changes the Owner; the branch's Owner or the
+ *                Developer changes the Manager and Receptionist. Stylists and
+ *                Therapists are managed on the Staff page.
  *
  * Responsibilities :
- * - Assign a role to a user by the email they signed in with (POST /api/users)
- * - List/search all accounts via GET /api/users (server-side search)
- * - Render role + active state via the StatusBadge primitive
- * - Provide a SlideOverPanel role editor per directory row
- * - Surface API guard errors (self-edit, privilege ceiling, unknown email)
- * - Route loading / empty / error through the shared state presenters
+ * - Load the branch's holders from GET /api/users/branch-roles
+ * - Change a holder: person search (GET /api/users?search=) + confirmation,
+ *   then POST /api/users { kind, branchId, userId, expectedHolderId }
+ * - Remove the Manager or Receptionist with a confirmation
  *
  * Features / Functionality :
- * - Assign-role form with role <select> and live validation feedback
- * - FilterBar search (debounced + trimmed) + column-visibility control
- * - DataTable directory with avatar, name, email, role, status, joined
- * - SlideOverPanel inline role editor with optimistic reload after success
- * - Accessible status messaging (role="alert" / aria-live)
+ * - Only the people the server says can take the role are pickable; the
+ *   others say why, without naming another branch
+ * - Every change sends the branch the page was rendered for and the holder
+ *   it showed, so a switch or a concurrent change is refused, not overwritten
+ * - Accessible status messaging (role="alert" / aria-live) + toasts
  *
- * Tech Stack   : Next.js 16, React (Client Component), TypeScript,
- *                @tanstack/react-table
+ * Tech Stack   : Next.js 16, React (Client Component), TypeScript
  * Layer        : Presentation (Management Component)
  *
- * Dependencies : @/components/ui/data-table, @/components/ui/filter-bar,
- *                @/components/ui/status-badge, @/components/ui/slide-over-panel,
- *                @/components/ui/state/*, @/components/ui/use-async-data,
- *                @/lib/admin/bookings, @rgss/types (ASSIGNABLE_ROLES), React
- *
- * Notes        : All mutations go through POST /api/users; the server enforces
- *                the real privilege guards. This UI is a convenience layer.
- *                Presentation-layer only — no API / RBAC / data-model changes.
- *                Uses ONLY semantic Brand-Token utilities (Req 1.2); lucide
- *                icons via the Icon wrapper (Req 2). Requirements 17.1–17.7.
+ * Notes        : The server re-plans every change from current rows; this
+ *                screen only shows what it was told. Uses ONLY semantic
+ *                Brand-Token utilities; lucide icons via the Icon wrapper.
  ************************************************************/
 
 'use client'
 
-import { ASSIGNABLE_ROLES, type AssignableRole } from '@rgss/types'
-import type { ColumnVisibilityState } from '@tanstack/react-table'
-import { KeyRound, Users } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { type AdminColumnDef, DataTable } from '@/components/ui/data-table'
-import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
-import { Input } from '@/components/ui/input'
+import { cn } from '@rgss/ui/lib/utils'
+import { Building2, Lock, UserRound } from 'lucide-react'
+import { useCallback, useState } from 'react'
+import { type PersonMatch, PersonSearch, personLabel } from '@/components/people/person-search'
 import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { SlideOverPanel } from '@/components/ui/slide-over-panel'
-import { EmptyState } from '@/components/ui/state/empty-state'
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Icon } from '@/components/ui/icon'
 import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { useAsyncData } from '@/components/ui/use-async-data'
-import { formatDateDDMMYYYY } from '@/lib/admin/bookings'
+import { reassignmentsNotice } from '@/lib/admin/bookings'
+import { adminPagesForRole } from '@/lib/admin/role-access'
 import { toast } from '@/lib/admin/toast'
+import { liveUpdatesNotice } from '@/lib/realtime/token-lifetime'
 
-interface AdminUser {
-  id: string
-  name: string
-  email: string
-  role: string | null
-  image: string | null
-  banned: boolean | null
-  createdAt: string
+type Holder = 'owner' | 'manager' | 'receptionist'
+type SetKind = 'set_owner' | 'set_manager' | 'set_receptionist'
+
+/** GET /api/users/branch-roles */
+interface BranchRoles {
+  branch: { id: string; name: string; code: string; status: string }
+  owner: PersonMatch | null
+  manager: PersonMatch | null
+  receptionist: PersonMatch | null
+  can: { setOwner: boolean; setManager: boolean; setReceptionist: boolean }
 }
 
-// Human labels per role (lowest → highest privilege).
-const ROLE_LABEL: Record<AssignableRole, string> = {
-  customer: 'Customer',
-  staff: 'Staff',
-  receptionist: 'Receptionist',
-  manager: 'Manager',
+/** One match from GET /api/users?search= */
+interface RoleMatch extends PersonMatch {
+  /** The role they hold at this branch, if any. */
+  here: Holder | 'staff' | null
+  /** The roles they can be given here. */
+  actions: SetKind[]
+  /** Why they can't be given any, or a note about them. */
+  note: string | null
+}
+
+type Pending =
+  | { mode: 'change'; holder: Holder; person: RoleMatch }
+  | { mode: 'remove'; holder: Exclude<Holder, 'owner'>; person: PersonMatch }
+
+const HOLDERS: readonly Holder[] = ['owner', 'manager', 'receptionist']
+
+const LABEL: Record<Holder | 'staff', string> = {
   owner: 'Owner',
-  developer: 'Developer',
+  manager: 'Manager',
+  receptionist: 'Receptionist',
+  staff: 'Staff',
 }
 
-/** Toggleable data columns surfaced to the FilterBar column-visibility control. */
-const COLUMN_META: { id: string; label: string }[] = [
-  { id: 'user', label: 'User' },
-  { id: 'email', label: 'Email' },
-  { id: 'role', label: 'Role' },
-  { id: 'status', label: 'Status' },
-  { id: 'joined', label: 'Joined' },
-]
+const KIND: Record<Holder, SetKind> = {
+  owner: 'set_owner',
+  manager: 'set_manager',
+  receptionist: 'set_receptionist',
+}
 
-function roleLabel(role: string | null): string {
-  if (role && role in ROLE_LABEL) {
-    return ROLE_LABEL[role as AssignableRole]
+const CAN: Record<Holder, keyof BranchRoles['can']> = {
+  owner: 'setOwner',
+  manager: 'setManager',
+  receptionist: 'setReceptionist',
+}
+
+const DUTY: Record<Holder, string> = {
+  owner: 'Owns the branch: chooses its Manager and Receptionist and sees its reports.',
+  manager: 'Runs the branch day to day: staff, schedules, leave and reports.',
+  receptionist: 'Handles bookings, billing and customers at the counter.',
+}
+
+const LOCKED: Record<Holder, string> = {
+  owner: 'Only the Developer can change the Owner.',
+  manager: "Only the branch's Owner or the Developer can change the Manager.",
+  receptionist: "Only the branch's Owner or the Developer can change the Receptionist.",
+}
+
+// What happens to the person being replaced or removed.
+const AFTERWARDS: Record<Holder, string> = {
+  owner:
+    'They stay Owner of any other branch they own. With none left, they become a Customer and are signed out.',
+  manager:
+    'They keep any other branch they manage. With none left, they become a Customer and are signed out.',
+  receptionist: 'They become a Customer and are signed out.',
+}
+
+async function api<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, init)
+  const json = await res.json().catch(() => null)
+  if (!res.ok || !json?.success) {
+    throw new Error(json?.error?.message ?? 'Something went wrong. Please try again.')
   }
-  return 'No role'
+  return json.data as T
 }
 
-async function fetchUsers(term: string): Promise<AdminUser[]> {
-  const qs = term.trim() ? `?search=${encodeURIComponent(term.trim())}` : ''
-  const res = await fetch(`/api/users${qs}`)
-  const json = await res.json()
-  if (!res.ok || !json.success) {
-    throw new Error(json?.error?.message ?? 'Could not load users.')
-  }
-  return json.data.users as AdminUser[]
-}
+const fetchBranchRoles = () => api<BranchRoles>('/api/users/branch-roles')
 
-export function UsersManager() {
-  const [search, setSearch] = useState('')
-  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({})
-  const [editing, setEditing] = useState<AdminUser | null>(null)
-
-  const fetcher = useCallback(() => fetchUsers(search), [search])
-  const { state, retry } = useAsyncData(fetcher)
-
-  // Re-request when the search term changes; the initial mount fetch is owned
-  // by the hook, so skip the first effect run to avoid a duplicate request.
-  const didMount = useRef(false)
-  // biome-ignore lint/correctness/useExhaustiveDependencies: re-fetch only when search changes; retry() reads the latest term through the fetcher closure.
-  useEffect(() => {
-    if (!didMount.current) {
-      didMount.current = true
-      return
-    }
-    retry()
-  }, [search, retry])
-
-  const columns = useMemo<AdminColumnDef<AdminUser, unknown>[]>(
-    () => [
-      {
-        id: 'user',
-        accessorKey: 'name',
-        header: 'User',
-        cell: ({ row }) => {
-          const u = row.original
-          return (
-            <div className="flex items-center gap-3">
-              {u.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={u.image}
-                  alt=""
-                  className="h-9 w-9 shrink-0 rounded-pill border border-outline-gray object-cover"
-                />
-              ) : (
-                <span
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-pill bg-cloud-gray font-ui text-sm font-bold text-warm-gray"
-                  aria-hidden="true"
-                >
-                  {(u.name || u.email).trim().charAt(0).toUpperCase()}
-                </span>
-              )}
-              <span className="font-ui font-medium text-cocoa-dark">{u.name || '—'}</span>
-            </div>
-          )
-        },
-      },
-      {
-        id: 'email',
-        accessorKey: 'email',
-        header: 'Email',
-        cell: ({ row }) => <span className="text-warm-gray">{row.original.email}</span>,
-      },
-      {
-        id: 'role',
-        accessorKey: 'role',
-        header: 'Role',
-        enableSorting: false,
-        cell: ({ row }) =>
-          row.original.role ? (
-            <StatusBadge status={row.original.role} />
-          ) : (
-            <span className="text-dusty-gray">No role</span>
-          ),
-      },
-      {
-        id: 'status',
-        header: 'Status',
-        enableSorting: false,
-        cell: ({ row }) => <StatusBadge status={row.original.banned ? 'banned' : 'active'} />,
-      },
-      {
-        id: 'joined',
-        accessorKey: 'createdAt',
-        header: 'Joined',
-        cell: ({ row }) => (
-          <span className="text-warm-gray">{formatDateDDMMYYYY(row.original.createdAt)}</span>
-        ),
-      },
-    ],
-    [],
+const searchPeople = (term: string, signal: AbortSignal) =>
+  api<{ users: RoleMatch[] }>(`/api/users?search=${encodeURIComponent(term)}`, { signal }).then(
+    (data) => data.users,
   )
 
-  const columnToggles: ColumnToggle[] = COLUMN_META.map((meta) => ({
-    id: meta.id,
-    label: meta.label,
-    visible: columnVisibility[meta.id] !== false,
-  }))
+export function UsersManager() {
+  const { state, retry } = useAsyncData(fetchBranchRoles)
+  const [changing, setChanging] = useState<Holder | null>(null)
+  const [pending, setPending] = useState<Pending | null>(null)
+
+  const done = useCallback(() => {
+    setPending(null)
+    setChanging(null)
+    retry()
+  }, [retry])
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-3xl space-y-6">
       <div>
         <h1 className="font-display text-2xl tracking-tight text-cocoa-dark">Users &amp; Roles</h1>
         <p className="mt-0.5 font-sans text-sm text-dusty-gray">
-          Assign access levels. A person must sign in on theroyalglow.in once before you can give
-          them a role — that first sign-in creates their account.
+          Who runs this branch. The Developer sets the Owner; the Owner chooses the Manager and the
+          Receptionist. Stylists and Therapists are added on the Staff page. A person must sign in
+          on theroyalglow.in once before they can be given a role.
         </p>
       </div>
 
-      <AssignRoleForm onAssigned={retry} />
-
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-lg tracking-tight text-cocoa-dark">Directory</h2>
-          <FilterBar
-            config={{
-              search: {
-                placeholder: 'Search name or email…',
-                ariaLabel: 'Search users by name or email',
-              },
-              columnVisibility: true,
-            }}
-            search={search}
-            onSearchChange={setSearch}
-            columns={columnToggles}
-            onColumnToggle={(id, visible) =>
-              setColumnVisibility((current) => ({ ...current, [id]: visible }))
-            }
-          />
-        </div>
-
-        {state.status === 'loading' ? (
-          <Skeleton rows={6} variant="table" />
-        ) : state.status === 'error' ? (
-          <ErrorState message={state.message} onRetry={retry} />
-        ) : state.data.length === 0 ? (
-          <EmptyState
-            icon={Users}
-            title={search.trim() ? 'No users match that search' : 'No users yet'}
-            message="Accounts appear here after their first sign-in on theroyalglow.in."
-          />
-        ) : (
-          <DataTable
-            columns={columns}
-            data={state.data}
-            tableId="users"
-            caption="User directory"
-            columnVisibility={columnVisibility}
-            onColumnVisibilityChange={setColumnVisibility}
-            rowActions={(row) => [
-              {
-                label: 'Change role',
-                icon: KeyRound,
-                onSelect: () => setEditing(row.original),
-              },
-            ]}
-          />
-        )}
-      </section>
-
-      <RoleEditorPanel
-        user={editing}
-        onClose={() => setEditing(null)}
-        onChanged={() => {
-          setEditing(null)
-          retry()
-        }}
-      />
+      {state.status === 'loading' ? (
+        <Skeleton rows={3} variant="table" />
+      ) : state.status === 'error' ? (
+        <ErrorState message={state.message} onRetry={retry} />
+      ) : (
+        <>
+          <p className="flex items-center gap-2 font-sans text-sm text-cocoa-dark">
+            <Icon icon={Building2} decorative size={16} className="text-warm-gray" />
+            <span className="font-ui font-medium">{state.data.branch.name}</span>
+            {state.data.branch.status !== 'operational' ? (
+              <StatusBadge status={state.data.branch.status} />
+            ) : null}
+          </p>
+          <div className="space-y-4">
+            {HOLDERS.map((holder) => (
+              <HolderCard
+                key={holder}
+                holder={holder}
+                roles={state.data}
+                changing={changing === holder}
+                onChange={() => setChanging(changing === holder ? null : holder)}
+                onPick={(person) => setPending({ mode: 'change', holder, person })}
+                onRemove={(person) =>
+                  holder === 'owner' ? undefined : setPending({ mode: 'remove', holder, person })
+                }
+              />
+            ))}
+          </div>
+          {pending ? (
+            <ConfirmDialog
+              pending={pending}
+              roles={state.data}
+              onCancel={() => setPending(null)}
+              onDone={done}
+            />
+          ) : null}
+        </>
+      )}
     </div>
   )
 }
 
-/* ── Assign-role form (email + role) ────────────────────────────────────── */
+/* ── One role at the branch ─────────────────────────────────────────────── */
 
-function AssignRoleForm({ onAssigned }: { onAssigned: () => void }) {
-  const [email, setEmail] = useState('')
-  const [role, setRole] = useState<AssignableRole>('receptionist')
-  const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+function HolderCard({
+  holder,
+  roles,
+  changing,
+  onChange,
+  onPick,
+  onRemove,
+}: {
+  holder: Holder
+  roles: BranchRoles
+  changing: boolean
+  onChange: () => void
+  onPick: (person: RoleMatch) => void
+  onRemove: (person: PersonMatch) => void
+}) {
+  const current = roles[holder]
+  const allowed = roles.can[CAN[holder]]
+  const label = LABEL[holder]
+  const headingId = `holder-${holder}`
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email.trim()) {
-      setMessage({ kind: 'err', text: 'Enter the email the person signs in with.' })
-      return
-    }
-    setBusy(true)
-    setMessage(null)
-    try {
-      const res = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), role }),
-      })
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error?.message ?? 'Could not assign the role.')
+  const status = useCallback(
+    (match: RoleMatch) => {
+      const pickable = match.actions.includes(KIND[holder])
+      if (match.here === holder) {
+        return { pickable: false, text: `Already the ${label}` }
       }
-      const assigned = json.data.user as AdminUser
-      const summary = `${assigned.name || assigned.email} is now ${roleLabel(assigned.role)}.`
-      setMessage({ kind: 'ok', text: summary })
-      toast.success(summary)
-      setEmail('')
-      onAssigned()
-    } catch (err: unknown) {
-      const text = err instanceof Error ? err.message : 'Could not assign the role.'
-      setMessage({ kind: 'err', text })
-      toast.error('Could not assign role', text)
-    } finally {
-      setBusy(false)
-    }
-  }
+      if (!pickable) {
+        return { pickable, text: match.note ?? 'Not available' }
+      }
+      return { pickable, text: match.here ? `${LABEL[match.here]} here` : null }
+    },
+    [holder, label],
+  )
 
   return (
-    <form
-      onSubmit={submit}
+    <section
+      aria-labelledby={headingId}
       className="space-y-3 rounded-cards border border-cloud-gray bg-canvas-white p-4"
     >
-      <h2 className="font-display text-lg tracking-tight text-cocoa-dark">Assign a role</h2>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="min-w-0 flex-1">
-          <label
-            htmlFor="assign-email"
-            className="mb-1 block font-ui text-[11px] uppercase tracking-wider text-dusty-gray"
-          >
-            Email
-          </label>
-          <Input
-            id="assign-email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            aria-required="true"
-            placeholder="person@gmail.com"
-          />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 id={headingId} className="font-display text-lg tracking-tight text-cocoa-dark">
+            {label}
+          </h2>
+          <p className="font-sans text-xs text-dusty-gray">{DUTY[holder]}</p>
         </div>
-        <div className="sm:w-52">
-          <label
-            htmlFor="assign-role"
-            className="mb-1 block font-ui text-[11px] uppercase tracking-wider text-dusty-gray"
-          >
-            Role
-          </label>
-          <Select value={role} onValueChange={(v) => setRole(v as AssignableRole)}>
-            <SelectTrigger id="assign-role" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent position="popper">
-              <SelectGroup>
-                {ASSIGNABLE_ROLES.map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {ROLE_LABEL[r]}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </div>
-        <button
-          type="submit"
-          disabled={busy}
-          className="h-[38px] rounded-buttons bg-cocoa-dark px-5 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {busy ? 'Assigning…' : 'Assign role'}
-        </button>
+        {allowed ? (
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={onChange}
+              aria-expanded={changing}
+              className="rounded-buttons border border-cloud-gray px-3 py-1.5 font-ui text-xs text-cocoa-dark transition-colors hover:bg-cloud-gray motion-reduce:transition-none"
+            >
+              {changing ? 'Cancel' : current ? 'Change' : `Choose ${label}`}
+            </button>
+            {current && holder !== 'owner' ? (
+              <button
+                type="button"
+                onClick={() => onRemove(current)}
+                className="rounded-buttons px-3 py-1.5 font-ui text-xs text-error transition-colors hover:bg-error/10 motion-reduce:transition-none"
+              >
+                Remove
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
-      {message && (
-        <p
-          className={`font-sans text-sm ${message.kind === 'ok' ? 'text-success' : 'text-error'}`}
-          role={message.kind === 'err' ? 'alert' : undefined}
-          aria-live="polite"
-        >
-          {message.text}
+      <div className="flex items-center gap-2.5 rounded-cards border border-cloud-gray px-3 py-2.5">
+        <Icon icon={UserRound} decorative size={18} className="shrink-0 text-warm-gray" />
+        {current ? (
+          <span className="min-w-0">
+            <span className="block truncate font-sans text-sm text-cocoa-dark">
+              {personLabel(current)}
+            </span>
+            <span className="block truncate font-sans text-xs text-dusty-gray">
+              {current.phone ? `${current.email} · ${current.phone}` : current.email}
+            </span>
+          </span>
+        ) : (
+          <span className="font-sans text-sm text-dusty-gray">No {label} yet.</span>
+        )}
+      </div>
+
+      {!allowed ? (
+        <p className="flex items-center gap-2 font-sans text-xs text-warm-gray">
+          <Icon icon={Lock} decorative size={14} />
+          {LOCKED[holder]}
         </p>
-      )}
-    </form>
+      ) : changing ? (
+        <PersonSearch<RoleMatch>
+          label={`Find the new ${label}`}
+          search={searchPeople}
+          status={status}
+          onPick={onPick}
+        />
+      ) : null}
+    </section>
   )
 }
 
-/* ── SlideOverPanel role editor ─────────────────────────────────────────── */
+/* ── Confirmation ───────────────────────────────────────────────────────── */
 
-function RoleEditorPanel({
-  user,
-  onClose,
-  onChanged,
+function ConfirmDialog({
+  pending,
+  roles,
+  onCancel,
+  onDone,
 }: {
-  user: AdminUser | null
-  onClose: () => void
-  onChanged: () => void
+  pending: Pending
+  roles: BranchRoles
+  onCancel: () => void
+  onDone: () => void
 }) {
-  const [role, setRole] = useState<AssignableRole>('customer')
   const [busy, setBusy] = useState(false)
-  const [rowError, setRowError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  // Seed the editor whenever a user is selected.
-  useEffect(() => {
-    if (!user) {
-      return
-    }
-    setRole(
-      (user.role && (ASSIGNABLE_ROLES as readonly string[]).includes(user.role)
-        ? user.role
-        : 'customer') as AssignableRole,
-    )
-    setRowError(null)
-  }, [user])
+  const { holder, person } = pending
+  const label = LABEL[holder]
+  const branch = roles.branch.name
+  const current = roles[holder]
+  const removing = pending.mode === 'remove'
 
-  const save = async () => {
-    if (!user) {
-      return
-    }
+  const title = removing
+    ? `Remove ${personLabel(person)} as ${label}?`
+    : `Make ${personLabel(person)} the ${label} of ${branch}?`
+
+  const confirm = async () => {
     setBusy(true)
-    setRowError(null)
+    setError(null)
     try {
-      const res = await fetch('/api/users', {
+      const body = removing
+        ? { kind: 'remove', branchId: roles.branch.id, userId: person.id }
+        : {
+            kind: KIND[holder],
+            branchId: roles.branch.id,
+            userId: person.id,
+            expectedHolderId: current?.id ?? null,
+          }
+      const result = await api<{
+        changed: boolean
+        liveUpdates?: string
+        reassignments?: number
+      }>('/api/users', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email: user.email, role }),
+        body: JSON.stringify(body),
       })
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error?.message ?? 'Could not update the role.')
+      const summary = removing
+        ? `${personLabel(person)} is no longer the ${label} of ${branch}.`
+        : `${personLabel(person)} is now the ${label} of ${branch}.`
+      toast.success(summary)
+      // A replaced or removed Manager or Receptionist leaves their bookings
+      // here for someone else (R1.7).
+      const moved = reassignmentsNotice(result.reassignments)
+      if (moved) {
+        toast.warning(moved)
       }
-      toast.success(`Role updated to ${roleLabel(role)}`)
-      onChanged()
+      const notice = liveUpdatesNotice(result.liveUpdates)
+      if (notice) {
+        toast.warning(notice)
+      }
+      onDone()
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Could not update the role.'
-      setRowError(message)
-      toast.error('Could not update role', message)
+      const text = err instanceof Error ? err.message : 'Could not change the role.'
+      setError(text)
+      toast.error('Could not change the role', text)
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <SlideOverPanel
-      open={user !== null}
-      onOpenChange={(open) => !open && onClose()}
-      title="Change role"
-      description={user ? user.name || user.email : undefined}
-      footer={
-        <div className="flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={busy}
-            className="h-9 rounded-buttons border border-outline-gray bg-canvas-white px-4 font-ui text-sm text-warm-gray transition-colors hover:bg-cloud-gray disabled:opacity-60"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={save}
-            disabled={busy}
-            className="h-9 rounded-buttons bg-cocoa-dark px-4 font-ui text-sm text-canvas-white transition-colors hover:bg-warm-gray disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {busy ? 'Saving…' : 'Save'}
-          </button>
-        </div>
-      }
-    >
-      {user ? (
-        <div className="space-y-4">
-          <dl className="space-y-2 font-sans text-sm text-cocoa-dark">
-            <div className="flex gap-2">
-              <dt className="text-dusty-gray">Email</dt>
-              <dd className="truncate">{user.email}</dd>
+    <AlertDialog open onOpenChange={(open) => !open && !busy && onCancel()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="font-display tracking-tight text-cocoa-dark">
+            {title}
+          </AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="space-y-3 font-sans text-sm text-warm-gray">
+              <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 rounded-cards border border-cloud-gray p-3 text-left">
+                <dt className="text-dusty-gray">Name</dt>
+                <dd className="text-cocoa-dark">{personLabel(person)}</dd>
+                <dt className="text-dusty-gray">Email</dt>
+                <dd className="break-all text-cocoa-dark">{person.email}</dd>
+                <dt className="text-dusty-gray">Phone</dt>
+                <dd className="text-cocoa-dark">{person.phone ?? 'Not on file'}</dd>
+                <dt className="text-dusty-gray">Branch</dt>
+                <dd className="text-cocoa-dark">{branch}</dd>
+                {removing ? null : (
+                  <>
+                    <dt className="text-dusty-gray">Admin pages</dt>
+                    <dd className="text-cocoa-dark">{adminPagesForRole(holder).join(', ')}</dd>
+                  </>
+                )}
+              </dl>
+              {removing ? (
+                <p>
+                  They stop being the {label} here. {AFTERWARDS[holder]} Their account and history
+                  are kept.
+                </p>
+              ) : (
+                <>
+                  <p>
+                    They get {label} access to the admin portal for {branch}.
+                  </p>
+                  {current ? (
+                    <p>
+                      {personLabel(current)} stops being the {label} here. {AFTERWARDS[holder]}
+                    </p>
+                  ) : null}
+                </>
+              )}
             </div>
-            <div className="flex items-center gap-2">
-              <dt className="text-dusty-gray">Current</dt>
-              <dd>{user.role ? <StatusBadge status={user.role} /> : <span>No role</span>}</dd>
-            </div>
-          </dl>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
 
-          <div className="flex flex-col gap-1">
-            <span className="font-ui text-[11px] uppercase tracking-wider text-dusty-gray">
-              New role
-            </span>
-            <Select value={role} onValueChange={(v) => setRole(v as AssignableRole)}>
-              <SelectTrigger aria-label={`Role for ${user.email}`} className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent position="popper">
-                <SelectGroup>
-                  {ASSIGNABLE_ROLES.map((r) => (
-                    <SelectItem key={r} value={r}>
-                      {ROLE_LABEL[r]}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </div>
+        {error ? (
+          <p className="font-sans text-sm text-error" role="alert">
+            {error}
+          </p>
+        ) : null}
 
-          {rowError && (
-            <p className="font-sans text-sm text-error" role="alert">
-              {rowError}
-            </p>
-          )}
-        </div>
-      ) : null}
-    </SlideOverPanel>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={busy}
+            onClick={(event) => {
+              // Keep the dialog open while the request runs; it closes on success.
+              event.preventDefault()
+              confirm()
+            }}
+            className={cn(removing && 'bg-error text-canvas-white hover:bg-error/90')}
+          >
+            {busy ? 'Saving…' : removing ? 'Remove' : `Make ${label}`}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
-
-/* ── Shared primitives ──────────────────────────────────────────────────── */

@@ -573,3 +573,113 @@ describe('BookingDialog focus', () => {
     expect(close).toHaveFocus()
   })
 })
+
+describe('BookingDialog closed days (multi-branch R1.8)', () => {
+  it('shows the selected branch’s hours, then replaces them with the new branch’s closure', async () => {
+    mockApi(
+      http.get('*/api/availability', ({ request }) => {
+        const branchId = new URL(request.url).searchParams.get('branchId')
+        return HttpResponse.json({
+          success: true,
+          data:
+            branchId === 'branch_indiranagar'
+              ? { slots: [], closure: { name: 'Maintenance' }, businessHours: null }
+              : { ...slots(), businessHours: { open: '10:00', close: '21:00' } },
+        })
+      }),
+    )
+
+    renderDialog()
+    const picker = await findBranchPicker()
+    fireEvent.click(dateButtons()[0] as HTMLElement)
+
+    const rayasandraHours = 'Branch hours 10:00 AM – 09:00 PM IST'
+    expect(await screen.findByText(rayasandraHours, {}, LOAD)).toBeInTheDocument()
+
+    fireEvent.change(picker, { target: { value: 'branch_indiranagar' } })
+    expect(screen.queryByText(rayasandraHours)).not.toBeInTheDocument()
+    expect(
+      await screen.findByText(/closed on this day \(Maintenance\)/, {}, LOAD),
+    ).toBeInTheDocument()
+  })
+
+  it('says the day is closed, and why, instead of offering times', async () => {
+    mockApi(
+      http.get('*/api/availability', () =>
+        HttpResponse.json({
+          success: true,
+          data: {
+            slots: [{ startTime: '10:00', endTime: '10:30', available: false }],
+            closure: { name: 'Diwali' },
+          },
+        }),
+      ),
+    )
+
+    renderDialog()
+    await findBranchPicker()
+    fireEvent.click(dateButtons()[0] as HTMLElement)
+
+    expect(
+      await screen.findByText(
+        'We’re closed on this day (Diwali). Please choose another day.',
+        {},
+        LOAD,
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '10:00' })).toBeNull()
+  })
+})
+
+describe("BookingDialog days the branch's settings take no bookings (multi-branch R6.3)", () => {
+  it('says why there are no times: a weekday the branch is closed', async () => {
+    mockApi(
+      http.get('*/api/availability', () =>
+        HttpResponse.json({
+          success: true,
+          data: { slots: [], closure: null, notice: 'Rayasandra is closed on Tuesdays.' },
+        }),
+      ),
+    )
+
+    renderDialog()
+    await findBranchPicker()
+    fireEvent.click(dateButtons()[0] as HTMLElement)
+
+    expect(
+      await screen.findByText(
+        'Rayasandra is closed on Tuesdays. Please choose another day.',
+        {},
+        LOAD,
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('No slots available for this date. Try another day.')).toBeNull()
+  })
+
+  it('says a date is beyond the booking window', async () => {
+    mockApi(
+      http.get('*/api/availability', () =>
+        HttpResponse.json({
+          success: true,
+          data: {
+            slots: [],
+            closure: null,
+            notice: 'Rayasandra takes bookings up to 7 days ahead.',
+          },
+        }),
+      ),
+    )
+
+    renderDialog()
+    await findBranchPicker()
+    fireEvent.click(dateButtons()[0] as HTMLElement)
+
+    expect(
+      await screen.findByText(
+        'Rayasandra takes bookings up to 7 days ahead. Please choose another day.',
+        {},
+        LOAD,
+      ),
+    ).toBeInTheDocument()
+  })
+})

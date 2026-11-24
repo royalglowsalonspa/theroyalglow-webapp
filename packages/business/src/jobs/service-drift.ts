@@ -63,8 +63,8 @@ export type DriftRow = {
   readonly id: string
 } & Readonly<Record<string, DriftFieldValue | undefined>>
 
-/** The two reconciled table pairs. */
-export type DriftTableName = 'service' | 'service_category'
+/** The reconciled table pairs; offers since multi-branch offers.md (./offer-drift). */
+export type DriftTableName = 'service' | 'service_category' | 'offer'
 
 export type DriftFindingKind = 'missing_in_public' | 'extra_in_public' | 'stale' | 'field_mismatch'
 
@@ -140,6 +140,11 @@ export const SERVICE_DRIFT_FIELDS = [
   'gemsRedeemable',
   'gemsRequired',
   'gemsCatalogueOrder',
+  // Tax classification and branch availability (multi-branch tasks §6).
+  // `branchIds` is the sorted, comma-joined list while `allBranches` is false.
+  'sacCode',
+  'allBranches',
+  'branchIds',
   'createdAt',
   'updatedAt',
 ] as const
@@ -152,6 +157,9 @@ export const SERVICE_CATEGORY_DRIFT_FIELDS = [
   'serviceType',
   'displayOrder',
   'isActive',
+  'sacCode',
+  'allBranches',
+  'branchIds',
   'createdAt',
   'updatedAt',
 ] as const

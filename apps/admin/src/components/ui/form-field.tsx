@@ -61,18 +61,21 @@ export function FormActions({
   onCancel,
   submitLabel,
   busyLabel = 'Saving…',
+  submitDisabled = false,
 }: {
   busy: boolean
   onCancel: () => void
   submitLabel: string
   busyLabel?: string
+  /** Hold the submit back (the form explains why); Cancel stays available. */
+  submitDisabled?: boolean
 }) {
   return (
     <div className="flex items-center justify-end gap-2 pt-2">
       <Button type="button" variant="outline" onClick={onCancel} disabled={busy}>
         Cancel
       </Button>
-      <Button type="submit" disabled={busy} aria-busy={busy}>
+      <Button type="submit" disabled={busy || submitDisabled} aria-busy={busy}>
         {busy ? busyLabel : submitLabel}
       </Button>
     </div>

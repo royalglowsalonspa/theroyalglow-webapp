@@ -12,7 +12,9 @@ import {
   type BranchSummary,
   buildPublicBranchList,
   isBranchBookable,
+  matchBranchParam,
   resolveDefaultBranch,
+  resolveLeadBranch,
 } from './branch'
 
 function branch(overrides: Partial<BranchSummary> & Pick<BranchSummary, 'id'>): BranchSummary {
@@ -94,5 +96,51 @@ describe('buildPublicBranchList', () => {
   it('reports no default when no branch is taking bookings', () => {
     expect(buildPublicBranchList([MARATHAHALLI]).defaultBranchId).toBeNull()
     expect(buildPublicBranchList([])).toEqual({ branches: [], defaultBranchId: null })
+  })
+})
+
+describe('resolveLeadBranch (R7.3)', () => {
+  it('uses the branch the ad link named, even before it opens', () => {
+    expect(resolveLeadBranch([RAYASANDRA, MARATHAHALLI], 'branch_marathahalli')).toBe(MARATHAHALLI)
+  })
+
+  it('falls back to the default booking branch for a missing or unknown branch', () => {
+    expect(resolveLeadBranch([MARATHAHALLI, RAYASANDRA], undefined)).toBe(RAYASANDRA)
+    expect(resolveLeadBranch([MARATHAHALLI, RAYASANDRA], 'branch_nowhere')).toBe(RAYASANDRA)
+  })
+
+  it('never files a lead under a shut-down branch', () => {
+    const closed = branch({ id: 'branch_closed', status: 'shutdown' })
+    expect(resolveLeadBranch([closed, RAYASANDRA], 'branch_closed')).toBe(RAYASANDRA)
+  })
+
+  it('still finds a pipeline when no branch is taking bookings', () => {
+    const closedPrimary = branch({ id: 'branch_a', status: 'temporarily_closed', isPrimary: true })
+    expect(resolveLeadBranch([MARATHAHALLI, closedPrimary], undefined)).toBe(closedPrimary)
+    expect(resolveLeadBranch([MARATHAHALLI], undefined)).toBe(MARATHAHALLI)
+  })
+
+  it('has nowhere to file a lead only when every branch is shut down or none exist', () => {
+    expect(resolveLeadBranch([branch({ id: 'gone', status: 'shutdown' })], undefined)).toBeNull()
+    expect(resolveLeadBranch([], 'branch_rayasandra')).toBeNull()
+  })
+})
+
+describe('matchBranchParam', () => {
+  const branches = [
+    { id: 'branch_rayasandra', code: 'RS' },
+    { id: 'branch_marathahalli', code: 'MH' },
+  ]
+
+  it('matches a branch by id or by code, ignoring case', () => {
+    expect(matchBranchParam(branches, 'MH')?.id).toBe('branch_marathahalli')
+    expect(matchBranchParam(branches, ' rs ')?.id).toBe('branch_rayasandra')
+    expect(matchBranchParam(branches, 'BRANCH_MARATHAHALLI')?.id).toBe('branch_marathahalli')
+  })
+
+  it('matches nothing for a missing or unknown value', () => {
+    expect(matchBranchParam(branches, undefined)).toBeNull()
+    expect(matchBranchParam(branches, '  ')).toBeNull()
+    expect(matchBranchParam(branches, 'XX')).toBeNull()
   })
 })

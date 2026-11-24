@@ -702,25 +702,29 @@
 
 ---
 
-## 7.35 `/users` — User Management
+## 7.35 `/users` — Users & Roles
 
 | Property | Detail |
 |----------|--------|
-| **Title** | User Management |
+| **Title** | Users & Roles |
 | **Min. Role** | Owner |
-| **Purpose** | Manage all user accounts, roles, and access. |
+| **Purpose** | Give one person an access level (RBAC role) and keep their Staff entry in step with it. |
 
 **UI Components:**
-- Filters: role (Customer/Staff/Receptionist/Manager/Owner/Developer), status (active/suspended/banned), signup date range
-- User table: name, email, role badge, status, signup date, last active
-- Row actions: "Change Role" (dropdown respecting hierarchy), "Suspend", "Ban", "View Sessions"
-- Search: by name, email, phone
-- Pagination: 50 per page
+- "Find a person" lookup: search by name, phone, or email (at least 2 characters, up to 10 matches). There is **no directory** of all users; the full list of sign-ups lives in CRM `/customers` (decided 25/10/2026, so the page never loads every account).
+- Selected person card: name, email, phone, current role badge, Staff status ("On Staff as Receptionist" / "Not on Staff").
+- Role picker (Customer / Staff / Receptionist / Manager / Owner / Developer). Only the **Staff** role shows a **Staff title** picker, and the owner must choose **Stylist or Therapist** (no default; an existing Stylist/Therapist title is preselected). Receptionist and Manager are roles in their own right and always carry their own title, so they have no picker.
+- Preview line: pages gained or lost (derived from the RBAC nav config) and the Staff page change.
+- **Confirmation alert dialog** before anything is written: name, email, phone, current → new role, Staff title, Staff page effect, pages gained/lost. Buttons "Don't assign" (focused default) and "Assign". A demotion is styled as destructive.
 
 **Business rules:**
-- Cannot assign a role higher than your own
+- You can only give roles **below** your own level, and only change someone **below** your own level (`decideRoleChange` in `apps/admin/src/lib/rbac.ts`)
 - Cannot modify your own role
 - Developer can assign Owner; Owner can assign Manager; Manager can assign Receptionist/Staff
+- **Protected roles:** only the Developer can give or change the Owner role; the Developer role is never given and the Developer account never changed in the app (database only — see `knowledge-base/authentication.md`). The role picker lists only the roles the signed-in user may give; a protected account shows "Role locked" instead of a picker.
+- The API re-reads the acting user's role from the database and writes with a compare-and-set on the target's current role (409 if it changed meanwhile)
+- **Role ↔ Staff roster:** the Staff page lists `staff_profile` rows. Assigning Staff, Receptionist, or Manager creates or reactivates the person's `staff_profile` in the same transaction as the role. Demotion to Customer deactivates it (never deletes: bookings reference it). Owner/Developer leave it unchanged. Rule: `planStaffProfileForRole` in `packages/business/src/staff/role-staffing.ts`.
+- Titles per role (decided 25/10/2026): Staff → stylist **or** therapist (required choice); Receptionist → receptionist (fixed); Manager → manager (fixed). The API rejects any other combination, and a Staff assignment without a title for someone who is not already a stylist/therapist (400). The title is a label only: what someone can be booked for comes from their service capabilities (`staff_service`), set on the Staff page.
 
 ---
 

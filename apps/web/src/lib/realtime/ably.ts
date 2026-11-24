@@ -7,16 +7,17 @@
  * Scope        : Realtime
  *
  * Description  : Server-side Ably token request builder for realtime features.
- *                Issues scoped tokens for customer and admin channels.
+ *                Issues tokens scoped to the signed-in customer's own channels.
  *
  * Responsibilities :
  * - Build scoped Ably token requests with capability restrictions
  * - Scope customer channels to their user ID
- * - Grant admin wildcard subscribe when user is admin
+ * - Never grant staff channels: those come from the admin portal, scoped to
+ *   the person's branches (multi-branch R2.6)
  * - Return null when Ably is not configured (caller returns 503)
  *
  * Features / Functionality :
- * - createAblyTokenRequest({ userId, isAdmin }) — scoped token issue
+ * - createAblyTokenRequest({ userId }) — scoped token issue
  * - Lazy ably module import (optional dependency)
  *
  * Tech Stack   : TypeScript, Ably (optional)
@@ -74,10 +75,7 @@ function resolveAblyRest(mod: unknown): AblyRestConstructor | null {
   return null
 }
 
-export async function createAblyTokenRequest(params: {
-  userId: string
-  isAdmin: boolean
-}): Promise<unknown | null> {
+export async function createAblyTokenRequest(params: { userId: string }): Promise<unknown | null> {
   const apiKey = process.env.ABLY_PRIVATE_KEY
   // Not configured → caller turns this into a 503 SERVICE_UNAVAILABLE.
   if (!apiKey) {
@@ -100,16 +98,11 @@ export async function createAblyTokenRequest(params: {
     //   with `data.bookingId` so a per-booking view filters to the right one.
     //   This wildcard grant (`customer:{userId}:*`) authorises exactly that and
     //   nothing else — a customer can never read another customer's channel.
-    // - `booking:{id}` is the per-booking channel (admin + assigned staff feed);
-    //   it is deliberately NOT granted here (no `booking:*`) so a customer token
-    //   cannot read arbitrary bookings.
-    // - `admin:*` (admins only) covers the admin feeds incl.
-    //   `admin:bookings:{branchId}`.
+    // - `booking:{branchId}:{id}` and every `admin:*` feed belong to a branch's
+    //   staff. The admin portal issues those, per branch; this customer token
+    //   never grants them, whatever the signed-in person's role.
     const capability: Capability = {
       [`customer:${params.userId}:*`]: ['subscribe'],
-    }
-    if (params.isAdmin) {
-      capability['admin:*'] = ['subscribe']
     }
 
     const client = new Rest({ key: apiKey })

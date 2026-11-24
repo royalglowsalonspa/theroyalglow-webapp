@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 21-11-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : PrivacyPolicyPage
@@ -15,7 +15,7 @@
  * - Document data principal rights and grievance procedures under DPDP Act
  *
  * Features / Functionality :
- * - 11-section legal document with semantic HTML headings
+ * - 12-section legal document with semantic HTML headings
  * - Accessible section navigation via aria-labelledby
  * - Canonical contact details pulled from BUSINESS constant
  *
@@ -39,7 +39,7 @@ export const metadata = buildMetadata({
   robotsIndex: true,
 })
 
-const LAST_UPDATED = '15 February 2026'
+const LAST_UPDATED = '21 November 2026'
 const tel = `tel:${BUSINESS.telephone.replace(/[^\d+]/g, '')}`
 const mailto = `mailto:${BUSINESS.email}`
 
@@ -52,7 +52,7 @@ export default function PrivacyPolicyPage() {
           Privacy Policy
         </h1>
         <p className="mt-4 font-ui text-warm-gray/80 text-sm">
-          Last updated: <time dateTime="2026-02-15">{LAST_UPDATED}</time>
+          Last updated: <time dateTime="2026-11-21">{LAST_UPDATED}</time>
         </p>
         <p className="mt-6">
           {BUSINESS.name} ("Royal Glow", "we", "us", or "our") is committed to protecting your
@@ -199,13 +199,42 @@ export default function PrivacyPolicyPage() {
         </p>
       </section>
 
-      <section aria-labelledby="third-parties" className="mt-10">
-        <h2 id="third-parties" className="font-display text-2xl text-cocoa-dark">
-          7. Sharing and third-party processors
+      <section aria-labelledby="branches" className="mt-10">
+        <h2 id="branches" className="font-display text-2xl text-cocoa-dark">
+          7. Sharing across Royal Glow branches
         </h2>
         <p className="mt-4">
-          We do not sell your personal data. We share it only with trusted service providers who
-          process it on our behalf and under contract, including:
+          Royal Glow has more than one branch, and some may be run by franchise partners under the
+          Royal Glow name. You have one account across all of them, so you can book, earn and use
+          gems, and use your membership at any branch:
+        </p>
+        <ul className="mt-4 list-disc space-y-2 pl-6 marker:text-gold-ink">
+          <li>
+            <strong className="text-cocoa-dark">Shared with every branch</strong> — your name,
+            contact and profile details, consent choices and notification preferences, the tags
+            staff add to your profile, your gems balance, and your membership.
+          </li>
+          <li>
+            <strong className="text-cocoa-dark">Your visits</strong> — each branch can see the date,
+            the branch, and the services of your visits to other branches, so it can look after you
+            well.
+          </li>
+          <li>
+            <strong className="text-cocoa-dark">Kept by the branch</strong> — what you paid, your
+            invoices and payment details stay with the branch that billed you, and a note staff
+            write about you stays with their branch unless they share it with the others.
+          </li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="third-parties" className="mt-10">
+        <h2 id="third-parties" className="font-display text-2xl text-cocoa-dark">
+          8. Sharing and third-party processors
+        </h2>
+        <p className="mt-4">
+          We do not sell your personal data. Beyond Royal Glow branches (section 7), we share it
+          only with trusted service providers who process it on our behalf and under contract,
+          including:
         </p>
         <ul className="mt-4 list-disc space-y-2 pl-6 marker:text-gold-ink">
           <li>
@@ -225,7 +254,7 @@ export default function PrivacyPolicyPage() {
 
       <section aria-labelledby="security" className="mt-10">
         <h2 id="security" className="font-display text-2xl text-cocoa-dark">
-          8. How we protect your data
+          9. How we protect your data
         </h2>
         <p className="mt-4">
           We apply reasonable security safeguards to protect your personal data against unauthorised
@@ -238,7 +267,7 @@ export default function PrivacyPolicyPage() {
 
       <section aria-labelledby="children" className="mt-10">
         <h2 id="children" className="font-display text-2xl text-cocoa-dark">
-          9. Children's data
+          10. Children's data
         </h2>
         <p className="mt-4">
           Our services are intended for adults. Where a booking is made for a minor, we expect a
@@ -250,7 +279,7 @@ export default function PrivacyPolicyPage() {
 
       <section aria-labelledby="changes" className="mt-10">
         <h2 id="changes" className="font-display text-2xl text-cocoa-dark">
-          10. Changes to this policy
+          11. Changes to this policy
         </h2>
         <p className="mt-4">
           We may update this policy from time to time to reflect changes in our practices or the
@@ -261,7 +290,7 @@ export default function PrivacyPolicyPage() {
 
       <section aria-labelledby="grievances" className="mt-10">
         <h2 id="grievances" className="font-display text-2xl text-cocoa-dark">
-          11. Grievances and contact
+          12. Grievances and contact
         </h2>
         <p className="mt-4">
           If you have any questions about this policy, wish to exercise your rights, or want to

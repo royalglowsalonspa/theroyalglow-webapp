@@ -85,9 +85,8 @@ export const POST = async (req: Request) => {
           continue
         }
 
-        const { title, body } = buildNotificationContent(tier.type, {
-          serviceName: m.tierNameSnapshot,
-        })
+        // Customer copy never names the tier (multi-branch R9.1, MS-17).
+        const { title, body } = buildNotificationContent(tier.type)
 
         const created = await createNotification({
           userId: m.userId,

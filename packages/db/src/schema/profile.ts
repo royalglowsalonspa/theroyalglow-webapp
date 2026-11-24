@@ -30,9 +30,22 @@
  *                staff_profile is created by admin when adding staff.
  ************************************************************/
 
-import { boolean, date, index, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import {
+  boolean,
+  check,
+  date,
+  foreignKey,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'
 import { user } from './auth'
+import { branch } from './branch'
 import { genderEnum, staffDesignationEnum } from './enums'
 
 export const customerProfile = pgTable(
@@ -89,11 +102,56 @@ export const staffProfile = pgTable(
     specialization: text('specialization'),
     isActive: boolean('is_active').notNull().default(true),
     hireDate: date('hire_date', { mode: 'date' }),
+    // The one branch an active Receptionist or Staff member works at. Null for
+    // a Manager, whose branches come from branch.manager_user_id, and for
+    // inactive history.
+    branchId: text('branch_id').references(() => branch.id, { onDelete: 'restrict' }),
+    // The user's current role while the profile grants one: 'staff',
+    // 'receptionist' or 'manager'. Null while inactive. The composite foreign key
+    // to user (id, role) means the role can't change without this profile
+    // (DEFERRABLE, set in migration SQL). See multi-branch design.md §1.
+    roleWitness: text('role_witness'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
       .notNull()
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => [index('staff_profile_user_id_idx').on(table.userId)],
+  (table) => [
+    index('staff_profile_user_id_idx').on(table.userId),
+    index('staff_profile_branch_id_idx').on(table.branchId),
+    check(
+      'staff_profile_role_witness_check',
+      sql`role_witness IS NULL OR role_witness IN ('staff', 'receptionist', 'manager')`,
+    ),
+    // An active profile grants exactly the role it records; an inactive one
+    // grants none and is kept as history.
+    check('staff_profile_active_witness_check', sql`is_active = (role_witness IS NOT NULL)`),
+    // The title follows the role: Managers and Receptionists carry their own,
+    // Staff are Stylists or Therapists.
+    check(
+      'staff_profile_designation_matches_role_check',
+      sql`role_witness IS NULL
+        OR (role_witness = 'manager' AND designation = 'manager')
+        OR (role_witness = 'receptionist' AND designation = 'receptionist')
+        OR (role_witness = 'staff' AND designation IN ('stylist', 'therapist'))`,
+    ),
+    // Receptionists and Staff work at one branch; a Manager's branches come
+    // from branch.manager_user_id, so their profile names none.
+    check(
+      'staff_profile_branch_by_role_check',
+      sql`role_witness IS NULL
+        OR (role_witness = 'manager' AND branch_id IS NULL)
+        OR (role_witness IN ('staff', 'receptionist') AND branch_id IS NOT NULL)`,
+    ),
+    foreignKey({
+      name: 'staff_profile_role_fk',
+      columns: [table.userId, table.roleWitness],
+      foreignColumns: [user.id, user.role],
+    }),
+    // At most one active Receptionist per branch (R1.2).
+    uniqueIndex('staff_profile_one_receptionist_per_branch')
+      .on(table.branchId)
+      .where(sql`role_witness = 'receptionist'`),
+  ],
 )

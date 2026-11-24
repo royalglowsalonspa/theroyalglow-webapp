@@ -36,7 +36,7 @@
  *   fix-then-rerun cycle.
  ************************************************************/
 import type { service, serviceCategory } from '@rgss/db/schema'
-import { SERVICE_DURATION_MINUTES } from '@rgss/types'
+import { REVIEWED_SAC_CODES, SERVICE_DURATION_MINUTES } from '@rgss/types'
 import { isSyncEnabled } from '../../src/lib/sync-db'
 
 /** A live `public.service_category` row, as read by the seed script. */
@@ -52,6 +52,7 @@ export type DrizzleServiceRow = typeof service.$inferSelect
 export type DurationOption = `${(typeof SERVICE_DURATION_MINUTES)[number]}`
 
 const ALLOWED_DURATIONS: ReadonlySet<number> = new Set(SERVICE_DURATION_MINUTES)
+const REVIEWED_CODES: ReadonlySet<string> = new Set(REVIEWED_SAC_CODES)
 
 /**
  * Refuse to run while the sync hooks are live.
@@ -94,7 +95,23 @@ export function collectSeedProblems(
   const problems: string[] = []
   const categoryIds = new Set(categories.map((cat) => cat.id))
 
+  // The CMS requires one of the reviewed SAC codes on every category.
+  for (const cat of categories) {
+    if (cat.sacCode === null || !REVIEWED_CODES.has(cat.sacCode)) {
+      problems.push(
+        `category ${cat.id} (${cat.slug}): sacCode=${cat.sacCode} is not one of the reviewed codes [${REVIEWED_SAC_CODES.join(', ')}]`,
+      )
+    }
+  }
+
   for (const svc of services) {
+    // A service's own code is optional, but must be a reviewed one when set.
+    if (svc.sacCode !== null && !REVIEWED_CODES.has(svc.sacCode)) {
+      problems.push(
+        `service ${svc.id} (${svc.slug}): sacCode=${svc.sacCode} is not one of the reviewed codes [${REVIEWED_SAC_CODES.join(', ')}]`,
+      )
+    }
+
     // Durations outside SERVICE_DURATION_MINUTES cannot be represented by the
     // Payload `select` field. Coercing them silently would either corrupt the
     // booking duration or fail opaquely mid-seed, so they are surfaced here.

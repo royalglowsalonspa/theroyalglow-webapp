@@ -148,8 +148,15 @@ describe('rescheduleBookingSchema', () => {
 })
 
 describe('adminBookingActionSchema (discriminated union)', () => {
+  // Every admin write names the branch the page was rendered for (R2.4).
+  const branchId = 'branch_rs'
+
   it('accepts an approve action with staffId', () => {
-    const result = adminBookingActionSchema.safeParse({ action: 'approve', staffId: 'stf_1' })
+    const result = adminBookingActionSchema.safeParse({
+      action: 'approve',
+      staffId: 'stf_1',
+      branchId,
+    })
     expect(result.success).toBe(true)
     if (result.success) {
       expect(result.data.action).toBe('approve')
@@ -157,49 +164,68 @@ describe('adminBookingActionSchema (discriminated union)', () => {
   })
 
   it('rejects an approve action missing staffId', () => {
-    expect(adminBookingActionSchema.safeParse({ action: 'approve' }).success).toBe(false)
+    expect(adminBookingActionSchema.safeParse({ action: 'approve', branchId }).success).toBe(false)
+  })
+
+  it('rejects an action that does not name the rendered branch', () => {
+    expect(
+      adminBookingActionSchema.safeParse({ action: 'approve', staffId: 'stf_1' }).success,
+    ).toBe(false)
   })
 
   it('accepts a reject action with a rejectionReason', () => {
     expect(
-      adminBookingActionSchema.safeParse({ action: 'reject', rejectionReason: 'Fully booked' })
-        .success,
+      adminBookingActionSchema.safeParse({
+        action: 'reject',
+        rejectionReason: 'Fully booked',
+        branchId,
+      }).success,
     ).toBe(true)
   })
 
   it('rejects a reject action with an empty rejectionReason', () => {
     expect(
-      adminBookingActionSchema.safeParse({ action: 'reject', rejectionReason: '' }).success,
+      adminBookingActionSchema.safeParse({ action: 'reject', rejectionReason: '', branchId })
+        .success,
     ).toBe(false)
   })
 
   it('accepts an assign action with staffId', () => {
-    expect(adminBookingActionSchema.safeParse({ action: 'assign', staffId: 'stf_2' }).success).toBe(
-      true,
-    )
+    expect(
+      adminBookingActionSchema.safeParse({ action: 'assign', staffId: 'stf_2', branchId }).success,
+    ).toBe(true)
   })
 
   it('rejects an unknown action discriminant', () => {
-    expect(adminBookingActionSchema.safeParse({ action: 'cancel', staffId: 'stf_1' }).success).toBe(
-      false,
-    )
+    expect(
+      adminBookingActionSchema.safeParse({ action: 'cancel', staffId: 'stf_1', branchId }).success,
+    ).toBe(false)
   })
 
   it('rejects a reject payload submitted under the approve discriminant', () => {
     // approve requires staffId, not rejectionReason — wrong shape for the tag
     expect(
-      adminBookingActionSchema.safeParse({ action: 'approve', rejectionReason: 'x' }).success,
+      adminBookingActionSchema.safeParse({ action: 'approve', rejectionReason: 'x', branchId })
+        .success,
     ).toBe(false)
   })
 })
 
 describe('completeBookingSchema', () => {
   it('accepts a supported payment method', () => {
-    expect(completeBookingSchema.safeParse({ paymentMethod: 'upi' }).success).toBe(true)
+    expect(
+      completeBookingSchema.safeParse({ paymentMethod: 'upi', branchId: 'branch_rs' }).success,
+    ).toBe(true)
   })
 
   it('rejects an unsupported payment method', () => {
-    expect(completeBookingSchema.safeParse({ paymentMethod: 'online' }).success).toBe(false)
+    expect(
+      completeBookingSchema.safeParse({ paymentMethod: 'online', branchId: 'branch_rs' }).success,
+    ).toBe(false)
+  })
+
+  it('rejects a checkout that does not name the rendered branch', () => {
+    expect(completeBookingSchema.safeParse({ paymentMethod: 'upi' }).success).toBe(false)
   })
 })
 

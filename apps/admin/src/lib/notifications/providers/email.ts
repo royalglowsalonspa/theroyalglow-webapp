@@ -7,8 +7,7 @@
  * Scope        : Notifications — Email
  *
  * Description  : Transactional email delivery provider via Resend.
- *                Optional dependency — no-op when API key is absent.
- *                Ported verbatim from apps/web.
+ *                No-op when the provider API key is absent.
  *
  * Responsibilities :
  * - Send transactional emails via Resend API
@@ -17,13 +16,13 @@
  *
  * Features / Functionality :
  * - sendEmail({ to, subject, html }) — async boolean delivery
- * - Lazy resend module import (optional dependency)
+ * - Lazy Resend import
  * - Configurable from address via RESEND_FROM_EMAIL
  *
  * Tech Stack   : TypeScript, Resend (optional)
  * Layer        : API Infrastructure
  *
- * Dependencies : @rgss/logger, resend (optional)
+ * Dependencies : @rgss/logger, resend
  *
  * Notes        : Reads process.env directly for graceful degradation
  ************************************************************/
@@ -37,10 +36,8 @@ import { createLogger } from '@rgss/logger'
 // fail build-time validation when it is absent. Reading `process.env` directly
 // behind a truthy guard lets the app build and run with no key configured.
 //
-// `resend` is an optional, lazily imported dependency — it need not be
-// installed until the key is provisioned, so a missing module simply yields a
-// benign `false`. This helper NEVER throws to its caller: any failure is
-// caught, logged, and reported as `false`.
+// The provider is loaded only when a key is present. Delivery failures are
+// logged and reported as `false`.
 
 const logger = createLogger({
   service: 'admin:notifications:email',
@@ -53,37 +50,7 @@ export type SendEmailParams = {
   to: string | string[]
   subject: string
   html: string
-}
-
-// Minimal slice of the optional `resend` module surface we rely on. Modeled
-// locally so this file compiles without the package (or its types) installed.
-type ResendSendPayload = {
-  from: string
-  to: string | string[]
-  subject: string
-  html: string
-}
-
-type ResendClient = {
-  emails: {
-    send(payload: ResendSendPayload): Promise<unknown>
-  }
-}
-
-type ResendConstructor = new (apiKey: string) => ResendClient
-
-function resolveResend(mod: unknown): ResendConstructor | null {
-  if (typeof mod !== 'object' || mod === null) {
-    return null
-  }
-  const candidate = mod as { Resend?: unknown; default?: { Resend?: unknown } }
-  if (typeof candidate.Resend === 'function') {
-    return candidate.Resend as ResendConstructor
-  }
-  if (candidate.default && typeof candidate.default.Resend === 'function') {
-    return candidate.default.Resend as ResendConstructor
-  }
-  return null
+  attachments?: { filename: string; content: string }[]
 }
 
 export async function sendEmail(params: SendEmailParams): Promise<boolean> {
@@ -99,23 +66,13 @@ export async function sendEmail(params: SendEmailParams): Promise<boolean> {
   }
 
   try {
-    // Lazy, catchable import keeps `resend` an optional dependency. Use a
-    // non-literal specifier so the type checker does not require it installed.
-    const mod: unknown = await import('resend' as string).catch(() => null)
-    const Resend = resolveResend(mod)
-    if (!Resend) {
-      logger.debug('resend module unavailable; cannot deliver email')
+    const { Resend } = await import('resend')
+    const client = new Resend(apiKey)
+    const { error } = await client.emails.send({ ...params, from })
+    if (error) {
+      logger.warn('Resend rejected the email', { name: error.name })
       return false
     }
-
-    const client = new Resend(apiKey)
-    await client.emails.send({
-      from,
-      to: params.to,
-      subject: params.subject,
-      html: params.html,
-    })
-
     return true
   } catch (error) {
     // Never throw to the caller.

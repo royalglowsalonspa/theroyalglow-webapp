@@ -1,12 +1,13 @@
 ---
 title: Offers & Combos
-description: Promotional offers — percentage, flat, and combo-price — applied at checkout by the receptionist, with the rules that govern them.
+description: Promotional offers — percentage, flat, and combo-price — authored in the CMS and applied at checkout by the receptionist, with the rules that govern them.
 icon: ticket-percent
 ---
 
-Offers are the salon's promotions: a percentage off a service, a flat rupee
-discount, or a bundle of services at one combo price. They are displayed to
-customers and applied at the counter when the customer pays.
+Offers are the salon's promotions: a percentage off some services, a flat rupee
+discount, or a bundle of services at one combo price. Customers see them on the
+`/offers` page, and the receptionist applies one at the counter when the
+customer pays.
 
 <Info>
   Offers are applied **at checkout by a receptionist** — they are not
@@ -18,27 +19,30 @@ customers and applied at the counter when the customer pays.
 
 A flexible way to run promotions that drive visits — "20% off all Facials this
 week", "₹500 off any Hair Treatment", or "Hair + Facial + Manicure = ₹2,999".
-Customers see the active offers on the `/offers` page; staff apply the right one
-when ringing up the bill.
+Each offer is authored in the CMS as a website card with an optional
+**checkout rule**. A card without a rule is advertising only; a rule without a
+card on the website (Show on website unticked) is a counter-only discount.
 
 ## How it works
 
 <Steps>
 <Step title="Create">
-A manager creates an offer in the admin portal, choosing its type, the services
-it applies to, and a start and end date.
+An editor creates the offer in the CMS (`cms.theroyalglow.in`, Offers): the
+card, its Valid from and Valid until dates, and the checkout rule's type,
+value, services and terms. The CMS checks the rule on save: its services must
+be active salon services.
 </Step>
 <Step title="Display">
-While active and within its date range, the offer appears on the public
-`/offers` page with its terms.
+While active and within its dates, an offer shown on the website appears on
+the public `/offers` page with its terms.
 </Step>
 <Step title="Apply">
-At checkout, the receptionist applies a single eligible offer to the customer's
-booking before taking payment.
+At checkout, the booking's panel lists the offers that apply to it, each with
+what it saves. The receptionist picks one, or none, before taking payment.
 </Step>
-<Step title="Expire">
-When the end date passes, the offer auto-expires via a scheduled background job
-and drops off the public list.
+<Step title="End">
+The offer stops applying after its Valid until date (IST). Untick Active in
+the CMS to retire it earlier. Offers are never deleted.
 </Step>
 </Steps>
 
@@ -48,33 +52,40 @@ and drops off the public list.
 <Tab title="Percentage">
 **Type:** `percentage`
 
-A percentage (1–100) off the linked services.
+A percentage (1–100) off the booking's lines for the linked services, rounded
+down to the paisa.
 
 **Example:** "20% off all Facials".
 </Tab>
 <Tab title="Flat">
 **Type:** `flat`
 
-A fixed rupee amount deducted from the bill.
+A fixed rupee amount off the linked lines, at most their total.
 
 **Example:** "₹500 off any Hair Treatment".
 </Tab>
 <Tab title="Combo price">
 **Type:** `combo_price`
 
-A single bundle price replaces the individual service prices.
+The linked services together at one price. The booking must include every
+linked service; the saving is their total less the combo price.
 
 **Example:** "Hair + Facial + Manicure = ₹2,999".
 </Tab>
 </Tabs>
+
+An offer that saves nothing on a booking, because the booking has none of its
+services, isn't listed for it. The invoice shares the discount across the
+linked lines only, so each line's tax follows its own share.
 
 ## Rules
 
 <Warning>
   **One offer per customer per day** and **offers cannot combine with gems** — an
   offer and a [gems](/content/docs/features/loyalty-gems) redemption cannot both apply to
-  the same booking. The daily limit is enforced in the database with a unique
-  constraint on customer + date.
+  the same booking. The daily limit counts the IST calendar day at every branch,
+  and the database enforces it with a unique constraint on customer + date, so
+  two checkouts at the same moment can't both use an offer.
 </Warning>
 
 <AccordionGroup>
@@ -82,21 +93,27 @@ A single bundle price replaces the individual service prices.
 A receptionist, at checkout — not the customer during booking. This keeps
 control of discounts with staff and prevents stacking.
 </Accordion>
-<Accordion title="Do offers apply to SPA memberships?">
-No. Offers are **salon only**. They do not apply to SPA memberships. See
-[SPA Memberships](/content/docs/features/memberships).
+<Accordion title="Do offers apply to SPA services or memberships?">
+No. Offers are **salon only**: spa bookings and membership sessions take no
+offer. See [SPA Memberships](/content/docs/features/memberships).
 </Accordion>
-<Accordion title="How are offers activated and expired?">
-Every offer is date-bound with a start and end date. It auto-activates and
-auto-expires — the expiry is run by a QStash scheduled job.
+<Accordion title="What if the offer ends while the customer is at the counter?">
+Checkout checks the offer again when it completes the booking. If the offer
+was retired or its dates ended in between, completion is refused and nothing
+is written; the panel refreshes its list so the receptionist can complete
+without it or choose another.
+</Accordion>
+<Accordion title="Does editing an offer change past invoices?">
+No. The invoice keeps the offer's name, type and value as applied, and the
+database refuses any later change to them.
 </Accordion>
 <Accordion title="Where are an offer's terms shown?">
-Each offer card carries its own terms (e.g. "Valid on weekdays only"), displayed
-to the customer on the `/offers` page.
+Each offer carries its own terms (e.g. "Valid on weekdays only"), shown on the
+card and in the checkout panel.
 </Accordion>
-<Accordion title="What happens to an offer if the salon cancels the booking?">
-If the salon cancels a booking that had an offer applied, the offer is
-reinstated for the customer's next booking rather than being lost.
+<Accordion title="What happens to an offer if the booking is cancelled?">
+Nothing is used up: an offer is recorded only when a booking is completed with
+it, so the customer can still use one that day.
 </Accordion>
 </AccordionGroup>
 
@@ -104,7 +121,10 @@ reinstated for the customer's next booking rather than being lost.
 
 <Columns cols={2}>
   <Card title="Loyalty & Offers API" href="/content/docs/api-reference/loyalty-offers">
-  Public active offers plus manager-only offer CRUD.
+  Public active offers and the read-only admin offer list.
+</Card>
+  <Card title="Admin Bookings API" href="/content/docs/api-reference/admin-bookings">
+  The checkout offer list and completing with an offer.
 </Card>
   <Card title="Loyalty — Gems" href="/content/docs/features/loyalty-gems">
   Why an offer and gems cannot be combined.

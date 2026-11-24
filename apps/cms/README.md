@@ -14,7 +14,7 @@ whole monorepo; this document explains the CMS implementation and its boundaries
 The app uses Payload 3, Next.js App Router, React, TypeScript, Lexical rich text,
 the Payload PostgreSQL adapter, Sharp, Cloudflare R2 through the S3 plugin, Resend,
 and the Payload MCP plugin. [package.json](package.json) and the root lockfile are
-the source of truth for versions; all seven Payload packages are pinned together.
+the source of truth for versions; all eight Payload packages are pinned together.
 
 Payload stores its tables in the `cms` schema. The booking application uses
 Drizzle-managed tables in `public` in the same database. The CMS edits content
@@ -33,10 +33,10 @@ staff operations, and invoice rendering belong to sibling apps and shared packag
 | `banner` | Announcement banners, links, and optional display windows |
 | `faq` | Public questions and answers consumed by the website |
 | `testimonial` | Customer review cards for marketing pages |
-| `offer` | Promotional copy/cards; actual booking discount rules are separate |
+| `offer` | Website offer cards plus an optional checkout rule (percentage, flat or combo price, linked salon services, terms) mirrored to the booking database; "Show on website" off makes a counter-only discount; never deleted, every version kept |
 | `service-card` | Homepage category cards and display prices; not bookable service records |
-| `service_category` | Operational salon/spa taxonomy, mirrored to the booking database |
-| `service` | Bookable services, paise prices, durations, buffers, and gems settings |
+| `service_category` | Operational salon/spa taxonomy with its required SAC code and branch availability, mirrored to the booking database; every version kept |
+| `service` | Bookable services, paise prices, durations, buffers, gems settings, an optional SAC code and branch availability; every version kept |
 | `payload-mcp-api-keys` | Plugin-managed MCP credentials and per-key capabilities |
 
 The first twelve collections are registered in
@@ -50,8 +50,12 @@ No Payload globals are configured.
 | `src/payload.config.ts` | Collections, database, editor, R2, Resend, CORS/CSRF, MCP |
 | `src/collections/` | Collection fields, access, validation, and hook wiring |
 | `src/access/published.ts` | Public/published reads and authenticated write helper |
-| `src/hooks/` | Catalogue mapping/synchronization and web cache notifications |
+| `src/hooks/` | Catalogue and offer mapping/synchronization, offer rule validation, and web cache notifications |
 | `src/lib/sync-db.ts` | Payload transaction resolver and sync feature flag |
+| `src/lib/offer-rule.ts` | Offer checkout rule checks and IST calendar days, shared by the offer hooks |
+| `src/lib/catalogue-fields.ts` | SAC code, branch availability and `editedBy` fields shared by the two catalogue collections |
+| `src/components/` | Custom admin field components: the branch picker for availability |
+| `src/endpoints/` | Custom REST endpoints: `GET /api/catalogue-branches` for the branch picker |
 | `src/app/(payload)/admin/` | Payload admin routes and generated component import map |
 | `src/app/(payload)/api/[...slug]/` | Payload REST handler, including plugin endpoints |
 | `src/migrations/` | Payload migration TypeScript, snapshots, and ordered index |
@@ -109,8 +113,9 @@ output is generated under `.next`; it is not source material to edit or commit.
 | `PAYLOAD_SECRET` | Stable signing/encryption secret; use a strong production secret |
 | `PAYLOAD_PUBLIC_SERVER_URL` | Canonical CMS origin |
 | `WEB_APP_URL` | Web origin in CORS/CSRF configuration and revalidation destination |
-| `SERVICE_SYNC_ENABLED` | Defaults to enabled; only literal `false` disables catalogue mirroring |
+| `SERVICE_SYNC_ENABLED` | Defaults to enabled; only literal `false` disables catalogue and offer mirroring |
 | `R2_BUCKET_NAME`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | All four must be nonempty to enable R2 media storage |
+| `R2_MEDIA_PUBLIC_URL` | Optional HTTPS origin used for direct media links from the configured bucket |
 | `RESEND_API_KEY` | Enables the email adapter when nonempty |
 | `RESEND_FROM_ADDRESS`, `RESEND_FROM_NAME` | Optional sender overrides; address must use a verified domain |
 | `REVALIDATE_SECRET` | Shared with web to authenticate cache revalidation requests |
@@ -123,9 +128,11 @@ PNG, and WebP, requires alt text, and generates 400/800/1600-pixel image variant
 
 Resend is optional in the config. Without an API key, real email delivery is not
 configured. Sender defaults are `contact@theroyalglow.in` and `Royal Glow Salon & Spa`.
-The Blueprint also lists `NEXT_PUBLIC_R2_PUBLIC_URL`, but the current CMS Payload
-storage configuration does not read it; distinguish hosting declarations from
-variables actually used by the app.
+Production CMS uploads belong in `rgss-uploads`. After verifying the existing
+media keys and all generated sizes in the new bucket, set `R2_BUCKET_NAME` and
+its scoped credentials in Render. Set `R2_MEDIA_PUBLIC_URL` to
+`https://media.theroyalglow.in` after confirming the hostname serves that
+bucket. Leaving the public origin unset uses Payload's download endpoint.
 
 ## Catalogue synchronization and cache refresh
 
@@ -135,12 +142,33 @@ table definitions and resolve the active Payload transaction via `await txDb(req
 For transactional requests, the CMS write and public mirror commit or roll back
 together. Sync errors are rethrown rather than allowing an apparently successful save.
 
-Create operations upsert by ID; updates target the same ID. Custom text IDs and
-category relationships preserve references used by bookings. Service prices are
-integer paise, not rupees. Services and categories are retired through `isActive`;
-their access configuration rejects deletion.
+Creates and updates both upsert by ID, so a save also recreates a missing mirror
+row. Custom text IDs and category relationships preserve references used by
+bookings. Service prices are integer paise, not rupees. Services and categories
+are retired through `isActive`; their access configuration rejects deletion.
 
-Only `SERVICE_SYNC_ENABLED=false` stops the mirroring. It is an operational
+The hooks also mirror each document's SAC code and branch availability
+(`all_branches`, plus the `service_branch` or `service_category_branch` rows,
+replaced on every save). Those columns come from application migration 0033, so
+apply the application migrations before deploying a CMS that writes them. The
+branch picker lists `public.branch` through `GET /api/catalogue-branches`, which
+needs a CMS login; on save, validation checks every chosen ID names a branch.
+Both collections keep every version (no drafts), and each version records the
+CMS login that saved it in `editedBy`. See
+[catalogue management](../../knowledge-base/service-catalogue-management.md).
+
+`Offer` works the same way for its checkout rule. A `beforeValidate` hook checks
+the rule (its value, at least one linked service and two for a combo, both
+dates) and that every linked service is an active salon service, reading
+`public.*` in the save's transaction. An `afterChange` hook upserts the mirror
+`public.offer` row `cms_offer_<id>` and replaces its `offer_service` rows; a
+save without a rule retires an existing mirror and leaves it with its last rule.
+The mirror columns come from application migration 0035. A card-only offer
+never touches the mirror, and the web reads cards from Payload directly.
+
+Only `SERVICE_SYNC_ENABLED=false` stops the mirroring. While it is off, an offer
+save that has or had a checkout rule is refused, so the CMS never shows a rule
+the counter can't apply. It is an operational
 control used by migration/seed procedures, and it permits the two schemas to
 diverge while disabled. The seed script copies existing public catalogue rows
 into Payload, validates them, and processes categories before services. Review
@@ -207,7 +235,8 @@ configuration alone does not prove the current live deployment matches it.
 ## Verification and known gaps
 
 Root Vitest's `cms` project covers mappings, schema fields, generated IDs,
-idempotency, timestamps, feature-flag gating, and account-unlock access. Its
+idempotency, timestamps, feature-flag gating, availability and SAC fields, the
+branch endpoint, and account-unlock access. Its
 default configuration excludes the live atomicity and seed suites.
 
 Those live suites use real Payload/PostgreSQL and are collected through the root

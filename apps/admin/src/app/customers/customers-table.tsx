@@ -41,6 +41,8 @@
  * - Uses ONLY semantic Brand-Token utilities — no hex / raw radius literals.
  * - Every pre-redesign field (Name, Phone, Tags, Visits, LTV, Gems, Last
  *   Visit) and the profile navigation action are preserved (Req 17.6, 17.7).
+ * - LTV is what the active branch was paid (multi-branch R3.2); visits and
+ *   last visit are shared visit history.
  * - Column sorting is server-driven (via the sort dropdown), so the table
  *   columns are not independently re-sortable — matching prior behaviour.
  *
@@ -74,7 +76,8 @@ interface CustomerListRow {
   email: string
   phone: string | null
   totalVisits: number
-  totalSpentPaise: number
+  /** Paid at the active branch only (multi-branch R3.2). */
+  branchSpentPaise: number
   noshowCount: number
   lastVisitAt: string | null
   gemsBalance: number | null
@@ -240,11 +243,11 @@ export function CustomersTable() {
       },
       {
         id: 'ltv',
-        accessorKey: 'totalSpentPaise',
+        accessorKey: 'branchSpentPaise',
         header: 'LTV',
         enableSorting: false,
         cell: ({ row }) => (
-          <span className="font-ui">{formatINR(row.original.totalSpentPaise)}</span>
+          <span className="font-ui">{formatINR(row.original.branchSpentPaise)}</span>
         ),
       },
       {
@@ -290,8 +293,12 @@ export function CustomersTable() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="space-y-1">
         <h1 className="font-display text-2xl tracking-tight text-cocoa-dark">Customers</h1>
+        <p className="font-sans text-sm text-dusty-gray">
+          Customers are shared by every Royal Glow branch. Visits and last visit cover all branches;
+          LTV covers this branch only.
+        </p>
       </div>
 
       {/* Controls: FilterBar (search, sort, tag, columns) */}

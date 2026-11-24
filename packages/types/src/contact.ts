@@ -32,6 +32,7 @@
  *   boundary: never accept client input past this point unvalidated.
  ************************************************************/
 import { z } from 'zod'
+import { renderedBranchIdSchema } from './branch'
 
 // Optional Indian mobile. Reuses the same accept-rule as createLeadSchema
 // (leading 6-9, optional +91/91/0 prefix). Kept optional via the surrounding
@@ -43,6 +44,8 @@ const indianPhone = z
   .regex(/^(?:\+?91|0)?[6-9]\d{9}$/, 'Enter a valid 10-digit Indian mobile number')
 
 export const contactFormSchema = z.object({
+  // Omitted for a general enquiry or when the branch directory is unavailable.
+  branchId: renderedBranchIdSchema.optional(),
   // Full name — required, bounded to keep email subjects/records sane.
   name: z.string().trim().min(1, 'Name is required').max(120),
   // Reply-to address — required so an enquiry is actionable by the salon.

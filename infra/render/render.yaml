@@ -146,6 +146,7 @@ services:
       # storage-s3 adapter is only enabled when ALL four are present; otherwise
       # Payload falls back to local-disk media. Region is hardcoded to "auto"
       # in payload.config.ts (R2 convention), so there is NO region env var.
+      # Set to rgss-uploads after the matching CMS object keys are verified.
       - key: R2_BUCKET_NAME
         sync: false
       - key: R2_ENDPOINT
@@ -155,9 +156,9 @@ services:
       - key: R2_SECRET_ACCESS_KEY
         sync: false
 
-      # Public base URL for serving R2 media (read client-side). e.g.
-      # https://r2.theroyalglow.in
-      - key: NEXT_PUBLIC_R2_PUBLIC_URL
+      # Set to https://media.theroyalglow.in after validating access to the
+      # new bucket. An unset value keeps the Payload download route.
+      - key: R2_MEDIA_PUBLIC_URL
         sync: false
 
       # --- Email (Resend) ---

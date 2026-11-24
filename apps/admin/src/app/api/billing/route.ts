@@ -30,12 +30,13 @@
 import { getInvoices } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { invoiceListQuerySchema } from '@rgss/types'
+import { requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 
-// GET /api/billing — searchable, filterable, paginated invoice ledger.
+// GET /api/billing — the active branch's searchable, filterable, paginated
+// invoice ledger.
 export const GET = withErrorHandler(async (req: Request) => {
-  await requireRole('receptionist')
+  const ctx = await requireBranchRole('receptionist')
 
   const params = Object.fromEntries(new URL(req.url).searchParams)
   const parsed = invoiceListQuerySchema.safeParse(params)
@@ -44,8 +45,11 @@ export const GET = withErrorHandler(async (req: Request) => {
   }
 
   const query = parsed.data
-  const { rows, totalCount } = await getInvoices(query)
+  const { rows, totalCount } = await getInvoices(ctx.branch.id, query)
   const totalPages = Math.max(1, Math.ceil(totalCount / query.pageSize))
 
-  return apiSuccess({ invoices: rows }, { page: query.page, totalPages, totalCount })
+  return apiSuccess(
+    { branchId: ctx.branch.id, invoices: rows },
+    { page: query.page, totalPages, totalCount },
+  )
 })

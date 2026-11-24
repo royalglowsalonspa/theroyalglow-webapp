@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 31-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : llms.txt
@@ -16,7 +16,8 @@
  * - Gracefully degrade to static fallback on DB errors
  *
  * Features / Functionality :
- * - Live service name list from DB
+ * - Live service name list from DB, with "(only at …)" for a service only
+ *   some branches offer
  * - Key pages directory for AI citation
  * - API endpoint documentation for agents
  * - Contact block with opening hours
@@ -24,14 +25,15 @@
  * Tech Stack   : Next.js 16 (Route Handler), force-dynamic
  * Layer        : Infrastructure (SEO)
  *
- * Dependencies : @/lib/seo/business, @rgss/db/queries
+ * Dependencies : @/lib/seo/business, @rgss/business, @rgss/db/queries
  *
  * Notes        :
  * - Always returns 200 (never 500s)
  * - Cached for 1 hour via Cache-Control header
  ************************************************************/
 
-import { getAllServicesGrouped } from '@rgss/db/queries'
+import { availabilityLabel } from '@rgss/business'
+import { getAllServicesGrouped, getPublicBranches } from '@rgss/db/queries'
 import { BUSINESS, SITE_URL } from '@/lib/seo/business'
 
 /**
@@ -127,9 +129,17 @@ ${BUSINESS.sameAs.map((url) => `- ${url}`).join('\n')}
 
 export async function GET(): Promise<Response> {
   try {
-    const categories = await getAllServicesGrouped()
+    const [categories, branches] = await Promise.all([getAllServicesGrouped(), getPublicBranches()])
+    const branchNames = new Map(branches.map((b) => [b.id, b.name]))
+    // A service only some branches offer says where (multi-branch R4.2),
+    // naming public branches only: "Hot Stone (only at Rayasandra)".
     const serviceNames = categories.flatMap((category) =>
-      category.services.map((service) => service.name),
+      category.services.map((service) => {
+        const note = availabilityLabel(service.availableBranchIds, branchNames)
+        return note
+          ? `${service.name} (${note.charAt(0).toLowerCase()}${note.slice(1)})`
+          : service.name
+      }),
     )
     return new Response(renderBody(serviceNames), { headers: TEXT_HEADERS })
   } catch {

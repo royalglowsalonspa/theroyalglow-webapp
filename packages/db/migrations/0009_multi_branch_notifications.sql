@@ -1,0 +1,1 @@
+ALTER TYPE "public"."notification_type" ADD VALUE 'branch_manager_missing';

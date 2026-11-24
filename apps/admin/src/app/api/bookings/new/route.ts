@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 21-06-2026 & Updated - 21-06-2026
+ * Date         : Created - 21-06-2026 & Updated - 30-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : POST /api/bookings/new
@@ -39,6 +39,9 @@
  *
  * Notes        :
  * - Requires min role: receptionist.
+ * - The branch's opening hours decide the slot; the booking records the
+ *   settings revision that accepted it (R6.3). The customer lead time,
+ *   booking window and booking limit don't apply at the counter.
  * - All prices are GST-inclusive in paise (integer math only).
  * - No background jobs are enqueued: a walk-in is confirmed in person, so the
  *   stale-pending alert (pending-only) does not apply and the customer is
@@ -52,44 +55,56 @@
 
 import {
   addMinutesToTime,
+  assertBranchOpenOn,
+  assertServicesOfferedAt,
+  assertSlotBookable,
   calculateBookingTotal,
   generateBookingNumber,
-  isBookableSlotStart,
+  staffClosureHint,
 } from '@rgss/business'
 import {
   createBookingWithServices,
-  getBranchById,
+  getBranchPolicy,
+  getClosureOn,
   getCustomerProfile,
-  getDefaultStaffForService,
+  getDefaultStaffForBooking,
   getServicesByIds,
 } from '@rgss/db/queries'
-import { badRequest, conflict } from '@rgss/errors'
+import { badRequest, notFound } from '@rgss/errors'
 import { adminCreateWalkinSchema } from '@rgss/types'
+import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 import { publishBookingEvent } from '@/lib/realtime/publish'
 
 export const POST = withErrorHandler(async (req: Request) => {
-  // Receptionist+ may create walk-ins (the same minimum role that manages
-  // bookings elsewhere in the admin app).
-  await requireRole('receptionist')
+  // Receptionist or above at the active branch may create walk-ins there.
+  const ctx = await requireBranchRole('receptionist')
 
   const body = await req.json().catch(() => null)
   const parsed = adminCreateWalkinSchema.safeParse(body)
   if (!parsed.success) {
     throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
   }
+  // The form names the branch it was rendered for: a tab left open across a
+  // switch gets 409 instead of booking into the newly selected branch (R2.4).
+  assertRenderedBranch(ctx, parsed.data.branchId)
 
-  const { branchId, customerId, serviceType, bookingDate, startTime, serviceIds, notes } =
-    parsed.data
+  const { customerId, serviceType, bookingDate, startTime, serviceIds, notes } = parsed.data
+  const branch = ctx.branch
+  const branchId = branch.id
 
-  // Branch must exist and be operational (mirrors the customer POST checks).
-  const branch = await getBranchById(branchId)
-  if (!branch) {
-    throw badRequest('Branch not found.')
-  }
+  // A walk-in needs an operational branch (mirrors the customer POST checks).
   if (branch.status !== 'operational') {
-    throw badRequest('Selected branch is not accepting bookings.')
+    throw badRequest(`${branch.name} is not accepting bookings.`)
+  }
+  // ...that is open that day (R1.8). Its own hours decide the slot (R6.3).
+  const [closure, policy] = await Promise.all([
+    getClosureOn(branchId, bookingDate),
+    getBranchPolicy(branchId),
+  ])
+  assertBranchOpenOn(closure, branch.name, bookingDate, staffClosureHint(branch.role))
+  if (!policy) {
+    throw notFound('Branch not found.')
   }
 
   // The linked customer must be an existing customer (user with a customer
@@ -113,6 +128,8 @@ export const POST = withErrorHandler(async (req: Request) => {
   if (services.some((s) => s.serviceType !== serviceType)) {
     throw badRequest('All services must match the selected service type.')
   }
+  // ...and offered at this branch (R4.3); the database refuses the same.
+  assertServicesOfferedAt(services, branch)
 
   // Pricing + duration (GST-inclusive paise, integer math only).
   const { totalAmountPaise, totalDurationMinutes } = calculateBookingTotal(
@@ -123,16 +140,23 @@ export const POST = withErrorHandler(async (req: Request) => {
   )
   const endTime = addMinutesToTime(startTime, totalDurationMinutes)
 
-  // The requested start must sit on the 30-min grid within open hours and the
-  // full duration must finish before close, else the slot is unavailable (409).
-  if (!isBookableSlotStart(startTime, totalDurationMinutes)) {
-    throw conflict('BOOKING_SLOT_UNAVAILABLE', 'The requested time slot is not available.')
-  }
+  // The walk-in must fit the branch's opening hours that weekday on the
+  // 30-minute grid, on today or a later date (409 saying why). Staff at the
+  // counter aren't held to the customer lead time or booking window.
+  assertSlotBookable(policy, {
+    date: bookingDate,
+    startTime,
+    durationMinutes: totalDurationMinutes,
+    now: new Date(),
+    actor: 'staff',
+    branchName: branch.name,
+  })
 
-  // Preserve the requested service order for snapshots + staff assignment.
-  // booking_service.staff_id is NOT NULL on the persisted row, so every service
-  // gets an auto-assigned active staff member (the receptionist can reassign
-  // later from the booking detail page).
+  // Preserve the requested service order for snapshots. One person does the
+  // whole booking (0028): the default is someone who works at the branch,
+  // isn't on approved leave that day and has no clashing booking then, as the
+  // database checks on a confirmed booking. The receptionist can reassign
+  // later from the booking detail page.
   const orderedServices = uniqueServiceIds.map((id) => {
     const svc = services.find((s) => s.id === id)
     if (!svc) {
@@ -140,22 +164,23 @@ export const POST = withErrorHandler(async (req: Request) => {
     }
     return svc
   })
-  const serviceRows = await Promise.all(
-    orderedServices.map(async (svc, index) => {
-      const staffId = await getDefaultStaffForService(svc.id)
-      if (!staffId) {
-        throw badRequest('No staff available to perform the selected services.')
-      }
-      return {
-        serviceId: svc.id,
-        staffId,
-        serviceNameSnapshot: svc.name,
-        priceAtBookingPaise: svc.pricePaise,
-        durationMinutes: svc.durationMinutes,
-        displayOrder: index,
-      }
-    }),
-  )
+  const staffId = await getDefaultStaffForBooking({
+    serviceIds: orderedServices.map((s) => s.id),
+    branchId,
+    dateISO: bookingDate,
+    slot: { startTime, endTime, kind: serviceType },
+  })
+  if (!staffId) {
+    throw badRequest(`No staff at ${branch.name} are free for the selected services then.`)
+  }
+  const serviceRows = orderedServices.map((svc, index) => ({
+    serviceId: svc.id,
+    staffId,
+    serviceNameSnapshot: svc.name,
+    priceAtBookingPaise: svc.pricePaise,
+    durationMinutes: svc.durationMinutes,
+    displayOrder: index,
+  }))
 
   const bookingNumber = generateBookingNumber(
     branch.code,
@@ -181,6 +206,8 @@ export const POST = withErrorHandler(async (req: Request) => {
       // timeline; the receptionist creating it is the confirming actor.
       confirmedAt: new Date(),
       notes: notes ?? null,
+      // The settings revision that accepted it: later edits never rewrite it.
+      settingsRevision: policy.revision,
     },
     serviceRows,
   )

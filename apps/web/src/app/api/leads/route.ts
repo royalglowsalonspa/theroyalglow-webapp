@@ -18,6 +18,8 @@
  * - Per-IP rate limiting (prevents abuse on public endpoint)
  * - Indian phone normalisation (+91 prefix)
  * - Meta ad source attribution (default: meta_ad)
+ * - Filed under the branch the ad link named, or the default branch
+ *   (multi-branch R7.3)
  *
  * Tech Stack   : Next.js 16 (Route Handler)
  * Layer        : API (Thin Orchestrator)
@@ -30,9 +32,9 @@
  * - Extension point for Meta CAPI 'Lead' event in Phase 7.
  ************************************************************/
 
-import { normaliseIndianPhone } from '@rgss/business'
-import { createLead } from '@rgss/db/queries'
-import { badRequest } from '@rgss/errors'
+import { normaliseIndianPhone, resolveLeadBranch } from '@rgss/business'
+import { createLead, getPublicBranches } from '@rgss/db/queries'
+import { badRequest, conflict, ERROR_CODES } from '@rgss/errors'
 import { createLeadSchema } from '@rgss/types'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { enforceRateLimit, getClientIp } from '@/lib/api/rate-limit'
@@ -54,11 +56,19 @@ export const POST = withErrorHandler(async (req: Request) => {
     throw badRequest('Invalid lead data', parsed.error.flatten().fieldErrors)
   }
 
-  const phone = normaliseIndianPhone(parsed.data.phone)
+  const { branchId: requestedBranchId, ...fields } = parsed.data
+  const phone = normaliseIndianPhone(fields.phone)
+  // The branch the ad link named when it is real, else the default branch, so
+  // every lead reaches a branch's pipeline (multi-branch R7.3).
+  const branch = resolveLeadBranch(await getPublicBranches(), requestedBranchId)
+  if (!branch) {
+    throw conflict(ERROR_CODES.BRANCH_INACTIVE, 'No branch is accepting enquiries right now.')
+  }
   const lead = await createLead({
-    ...parsed.data,
+    ...fields,
     phone,
-    source: parsed.data.source ?? 'meta_ad',
+    source: fields.source ?? 'meta_ad',
+    branchId: branch.id,
   })
 
   // Fire the Meta CAPI 'Lead' event (best-effort). event_id = lead id so this

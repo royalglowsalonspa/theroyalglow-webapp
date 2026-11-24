@@ -1,50 +1,56 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 25-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : POST /api/jobs/daily-sales-report
  * Scope        : API — Background Jobs
  *
- * Description  : QStash-scheduled job (10:30 PM IST daily) that generates the
- *                daily sales report and posts it to Slack + emails recipients.
+ * Description  : QStash-scheduled job (10:30 PM IST daily) that sends each
+ *                branch's daily sales report to that branch's Owner and
+ *                Manager, and the summary across branches to the Developer
+ *                (multi-branch R6.5, R7.4).
  *
  * Responsibilities :
- * - Query today's paid invoices and booking metrics
- * - Format plain-text sales report
- * - Post to Slack and email to configured recipients
+ * - Query today's paid invoices and booking metrics, per branch
+ * - Format one report per branch and the summary across branches
+ * - Email each Owner and Manager their branches' reports (one email each)
+ * - Email the summary to the Developer and post it to Slack
  *
  * Features / Functionality :
- * - Daily revenue, booking count, and service breakdown
- * - Slack webhook integration (guarded no-op without key)
- * - Email delivery to owner/manager (guarded no-op without key)
+ * - Reported branches: every operational branch, plus any other with activity
+ * - Nobody sees a branch they hold no role at (R3.2)
+ * - Slack webhook and email are guarded no-ops without keys
  *
  * Tech Stack   : Next.js 16 (Route Handler)
  * Layer        : API (Thin Orchestrator)
  *
- * Dependencies : @/lib/jobs/heartbeat, @/lib/jobs/verify, @/lib/notifications/providers/email,
- *                @/lib/reports/slack, @rgss/business, @rgss/db/queries, @rgss/logger
+ * Dependencies : @/lib/jobs/heartbeat, @/lib/jobs/verify, @/lib/reports/deliver,
+ *                @rgss/business, @rgss/db/queries, @rgss/logger
  *
  * Notes        :
- * - Gracefully no-ops Slack/email when provider keys are absent.
  * - Report covers today (IST), not yesterday.
+ * - Recipients come from branch roles. DAILY_REPORT_EMAIL_RECIPIENTS is
+ *   retired: a fixed list can't follow who may see which branch.
+ * - 500 only when reading fails, before anything is sent; sends never throw,
+ *   so QStash never resends a report.
  ************************************************************/
 
-import { formatDailyReport, istToday } from '@rgss/business'
-import { getDailyReportData } from '@rgss/db/queries'
+import {
+  emptyReportFigures,
+  formatDailyReport,
+  formatDailySummary,
+  istToday,
+  planReportDeliveries,
+} from '@rgss/business'
+import { getBranchPeople, getDailyBranchReports } from '@rgss/db/queries'
 import { createLogger } from '@rgss/logger'
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
-import { sendEmail } from '@/lib/notifications/providers/email'
-import { postToSlack } from '@/lib/reports/slack'
+import { deliverBranchReports } from '@/lib/reports/deliver'
 
 // Job 13 — Daily Sales Report (QStash scheduled, `0 17 * * *` UTC = 10:30 PM
-// IST). Queries the day's PAID invoices + bookings, formats the plain-text
-// report (background-jobs.md format), posts it to Slack, and emails it to the
-// owner/manager/developer recipients. Both sends are guarded extension points:
-// with no SLACK_WEBHOOK_URL / RESEND_API_KEY / DAILY_REPORT_EMAIL_RECIPIENTS
-// configured they no-op + log, so the route still runs its DB read, pings its
-// heartbeat, and returns 200.
+// IST).
 //
 // Route shape: NOT withErrorHandler. Read the raw body once, verify the QStash
 // signature (401 on failure → no work), do the work inside try/catch (500 on
@@ -59,30 +65,6 @@ const logger = createLogger({
   environment: process.env.NODE_ENV ?? 'development',
 })
 
-// The plain-text report is embedded in a <pre> block for the HTML email, so
-// any HTML-special characters in service names etc. must be escaped.
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
-
-// Parse DAILY_REPORT_EMAIL_RECIPIENTS (comma-separated) read straight from
-// process.env (guarded, optional) into a clean list of addresses.
-function reportRecipients(): string[] {
-  const raw = process.env.DAILY_REPORT_EMAIL_RECIPIENTS
-  if (!raw) {
-    return []
-  }
-  return raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0)
-}
-
 export const POST = async (req: Request) => {
   // Verifying the signature consumes the body, so read it once here and pass
   // the raw text through (this route has no JSON body to parse anyway).
@@ -94,28 +76,40 @@ export const POST = async (req: Request) => {
 
   try {
     // The daily report runs at end of day (10:30 PM IST) and covers the day
-    // that is just finishing, so the relevant figures are TODAY's in IST —
-    // istToday() — not yesterday's.
+    // that is just finishing, so the relevant figures are TODAY's in IST.
     const dateISO = istToday()
-    const data = await getDailyReportData(dateISO)
-    const text = formatDailyReport(data)
+    const [report, people] = await Promise.all([getDailyBranchReports(dateISO), getBranchPeople()])
 
-    // Slack (guarded no-op without SLACK_WEBHOOK_URL).
-    await postToSlack(text)
+    const plan = planReportDeliveries(
+      people.branches.map((b) => ({
+        id: b.id,
+        name: b.name,
+        status: b.status,
+        people: b,
+        hasActivity: report.branches.has(b.id),
+      })),
+    )
+    const branchNames = new Map(people.branches.map((b) => [b.id, b.name]))
+    const reportText = new Map<string, string>()
+    const summaryLines = plan.branchIds.map((id) => {
+      const figures = report.branches.get(id) ?? emptyReportFigures()
+      const branchName = branchNames.get(id) ?? id
+      reportText.set(id, formatDailyReport({ date: report.date, ...figures }, branchName))
+      return { branchName, figures }
+    })
 
-    // Email to the configured report recipients (guarded no-op without
-    // RESEND_API_KEY or with no recipients configured).
-    const recipients = reportRecipients()
-    if (recipients.length > 0) {
-      await sendEmail({
-        to: recipients,
-        subject: 'Royal Glow — Daily Sales Report',
-        html: `<pre>${escapeHtml(text)}</pre>`,
-      })
-    }
+    const result = await deliverBranchReports({
+      kind: 'Daily',
+      plan,
+      branchNames,
+      reportText,
+      summary: formatDailySummary(report.date, summaryLines),
+      developerEmail: people.developer?.email ?? null,
+    })
+    logger.info('[job:daily-sales-report] sent', { branches: plan.branchIds.length, ...result })
 
     await pingHeartbeat('NIGHTLY_SALES')
-    return Response.json({ success: true })
+    return Response.json({ success: true, branches: plan.branchIds.length, ...result })
   } catch (error) {
     logger.error('[job:daily-sales-report] failed', {
       error: error instanceof Error ? error.message : String(error),

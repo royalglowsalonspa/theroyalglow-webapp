@@ -13,8 +13,8 @@ name: Register QStash Schedules
 # test apps/web/src/__tests__/admin-web-separation.invariants.test.ts asserts
 # this workflow — and not any customer-side workflow — owns the registration.
 #
-# `register-schedules` is idempotent (QStash upserts by destination), so
-# re-running it is safe and is a no-op once the schedules exist.
+# A dry run is the default. Scoped runs only add missing selected jobs and
+# leave matching schedules in place. Resolve paused or duplicate jobs explicitly.
 #
 # Run it after any change to the job schedule definitions, and once after the
 # first successful AWS admin deployment.
@@ -23,10 +23,23 @@ name: Register QStash Schedules
 # secrets or application environment variables:
 #   secret QSTASH_TOKEN            — Upstash QStash token
 #   var    NEXT_PUBLIC_ADMIN_URL   — e.g. https://admin.theroyalglow.in
+#   var    QSTASH_URL              — optional QStash endpoint (defaults to EU)
 # ---------------------------------------------------------------------------
 
 on:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview schedules without making provider changes'
+        type: boolean
+        default: true
+      jobs:
+        description: 'Optional comma-separated canonical job keys. Leave blank for all jobs.'
+        type: string
+
+concurrency:
+  group: register-qstash-schedules
+  cancel-in-progress: false
 
 jobs:
   register:
@@ -49,12 +62,24 @@ jobs:
             echo "::error title=Missing configuration::Cannot register schedules without:$missing"
             exit 1
           fi
+          if [ "${ADMIN_URL%/}" != "https://admin.theroyalglow.in" ]; then
+            echo '::error title=Unexpected target::This workflow requires the production admin origin.'
+            exit 1
+          fi
           echo "Registering schedules against $ADMIN_URL"
 
-      # Registration targets the ADMIN origin — the background-jobs surface owner.
+      # Registration targets the ADMIN origin. Workflow inputs become arguments.
       - name: Register QStash schedules (idempotent)
         working-directory: apps/admin
         env:
           QSTASH_TOKEN: ${{ secrets.QSTASH_TOKEN }}
+          QSTASH_URL: ${{ vars.QSTASH_URL }}
           NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_ADMIN_URL }}
-        run: bun run register-schedules
+          DRY_RUN: ${{ inputs.dry_run }}
+          QSTASH_JOB_KEYS: ${{ inputs.jobs }}
+        shell: bash
+        run: |
+          args=()
+          if [ "$DRY_RUN" != "false" ]; then args+=(--dry); fi
+          if [ -n "$QSTASH_JOB_KEYS" ]; then args+=(--jobs "$QSTASH_JOB_KEYS"); fi
+          bun run register-schedules "${args[@]}"

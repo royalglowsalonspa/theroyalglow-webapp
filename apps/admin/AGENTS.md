@@ -54,9 +54,12 @@ For the contributor overview, configuration, and route map, read [README.md](REA
   existing feature records an audit trail. Audit failure is best-effort.
   Client IP is intentionally null: forwarded headers are not trusted identity
   under the current CloudFront/Lambda topology.
-- Payload CMS owns service and category authoring. Admin catalogue reads remain;
-  retired writes return 410 and `/services` redirects to CMS. Do not reintroduce
-  writes to those catalogue tables from the admin UI or API.
+- Payload CMS owns service, category and offer authoring. Admin catalogue reads
+  remain; retired writes return 410 and `/services` redirects to CMS. Do not
+  reintroduce writes to those catalogue tables from the admin UI or API. The one
+  exception is the Developer's catalogue resync (`/api/catalogue-sync`), which
+  only copies the CMS row into its mirror at the revision the drift report
+  showed; keep it a copy, never an authoring path.
 - Preserve integer-paise amounts and shared pricing/GST calculations. Use
   `src/lib/admin/format.ts` for INR and IST display, rather than browser-local
   time or ad hoc divisions and date parsing in components.
@@ -73,9 +76,9 @@ For the contributor overview, configuration, and route map, read [README.md](REA
   `enqueueJob()` and heartbeat delivery are best-effort and must not turn a
   successful core mutation into an upstream-provider failure.
 - Recurring schedule definitions belong in `src/lib/jobs/schedules.ts`; cron
-  expressions are UTC. Registration replaces schedules with matching destination
-  URLs and requires a reachable admin origin. Preview with `--dry` when reviewing
-  schedule changes; registration changes the remote QStash configuration.
+  expressions are UTC. Registration requires a reachable admin origin and keeps
+  matching active schedules. Preview with `--dry` and use `--jobs` for a scoped
+  apply. Paused or duplicate schedules require explicit resolution.
 - Invoice orchestration calls `apps/invoicing` for PDF rendering. Preserve its
   signed request contract and documented no-attachment fallback.
 - `service-drift-reconcile` detects and reports CMS/public divergence; it does not
@@ -129,3 +132,13 @@ For browser checks, see README setup for the explicit admin/web origins and role
 state files. Missing role fixtures skip RBAC specs and do not prove access works.
 The existing `check:admin-path-allowlist` gate rejects semantic API/RBAC/schema
 changes mixed with presentation changes; inspect its actual diff when it fails.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

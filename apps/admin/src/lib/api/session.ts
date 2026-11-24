@@ -19,16 +19,19 @@
  * Features / Functionality :
  * - requireSession() — throws 401 if no session
  * - getOptionalSession() — returns session or null
- * - requireRole() — throws 403 if role level insufficient
+ * - requireRole() — throws 403 if the role stored now is below the minimum
  *
  * Tech Stack   : TypeScript, Better Auth, Next.js
  * Layer        : API
  *
- * Dependencies : @/lib/auth-server, @/lib/api/rate-limit, @rgss/errors, next/headers
+ * Dependencies : @/lib/auth-server, @/lib/api/rate-limit, @rgss/db/queries,
+ *                @rgss/errors, next/headers
  *
- * Notes        : None
+ * Notes        : Branch-owned handlers use requireBranchRole (branch-context.ts),
+ *                which also reads current branch access.
  ************************************************************/
 
+import { getUserById } from '@rgss/db/queries'
 import { AppError, ERROR_CODES } from '@rgss/errors'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth-server'
@@ -76,9 +79,24 @@ const ROLE_LEVELS: Record<string, number> = {
   developer: 5,
 }
 
+/**
+ * Authenticate and require at least `minRole`, judged on the role stored now.
+ * Better Auth can answer getSession from its 5-minute cookie cache, so the
+ * session's own role may predate a role change; it is never trusted here
+ * (multi-branch R2.2). The returned session carries the current role.
+ */
 export async function requireRole(minRole: keyof typeof ROLE_LEVELS) {
   const session = await requireSession()
-  const role = (session.user as { role?: string }).role ?? 'customer'
+  const account = await getUserById(session.user.id)
+  if (!account) {
+    // The session outlived its account.
+    throw new AppError({
+      code: ERROR_CODES.UNAUTHENTICATED,
+      message: 'You must be signed in.',
+      statusCode: 401,
+    })
+  }
+  const role = account.role ?? 'customer'
   if ((ROLE_LEVELS[role] ?? 0) < (ROLE_LEVELS[minRole] ?? 0)) {
     throw new AppError({
       code: ERROR_CODES.FORBIDDEN,
@@ -86,5 +104,5 @@ export async function requireRole(minRole: keyof typeof ROLE_LEVELS) {
       statusCode: 403,
     })
   }
-  return session
+  return { ...session, user: { ...session.user, role } }
 }

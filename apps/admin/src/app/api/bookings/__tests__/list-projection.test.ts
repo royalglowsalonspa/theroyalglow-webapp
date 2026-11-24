@@ -10,8 +10,8 @@
  *                staff name), the assigned staff, and the booking status — the
  *                projection the admin bookings page renders.
  *
- * Approach     : `@/lib/api/session` (requireRole) and `@rgss/db/queries`
- *                (listBookings) are mocked with an in-memory fake so no real
+ * Approach     : requireBranchRole and `@rgss/db/queries` (listBookings) are
+ *                mocked with an in-memory fake so no real
  *                session or Neon connection is hit. `@rgss/business` is left
  *                REAL. The route handler is invoked directly and the success
  *                envelope is asserted field-by-field.
@@ -22,25 +22,27 @@
  ************************************************************/
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { branchContext, TEST_BRANCH } from '@/test/branch-context'
 
-const sessionMocks = vi.hoisted(() => ({
-  requireRole: vi.fn(),
+const mocks = vi.hoisted(() => ({
+  requireBranchRole: vi.fn(),
 }))
 
 const dbMocks = vi.hoisted(() => ({
   listBookings: vi.fn(),
 }))
 
-vi.mock('@/lib/api/session', () => sessionMocks)
+vi.mock('@/lib/api/branch-context', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api/branch-context')>()
+  return { ...actual, requireBranchRole: mocks.requireBranchRole }
+})
 vi.mock('@rgss/db/queries', () => dbMocks)
 
 import { GET as bookingsGET } from '@/app/api/bookings/route'
 
-const AUTHORIZED_SESSION = { user: { id: 'u_admin', role: 'receptionist' } }
-
 beforeEach(() => {
   vi.clearAllMocks()
-  sessionMocks.requireRole.mockResolvedValue(AUTHORIZED_SESSION)
+  mocks.requireBranchRole.mockResolvedValue(branchContext({ userId: 'u_admin' }))
 })
 
 // A representative cross-customer projection as produced by listBookings: each
@@ -99,6 +101,10 @@ describe('GET /api/bookings (admin) — listing projection (Req 10.2)', () => {
 
     expect(res.status).toBe(200)
     expect(body.success).toBe(true)
+    // Only the active branch's bookings are read (multi-branch R2.3).
+    expect(mocks.requireBranchRole).toHaveBeenCalledWith('receptionist')
+    expect(dbMocks.listBookings).toHaveBeenCalledWith(TEST_BRANCH.id, {})
+    expect(body.data.branchId).toBe(TEST_BRANCH.id)
     expect(Array.isArray(body.data.bookings)).toBe(true)
     expect(body.data.bookings).toHaveLength(2)
 
@@ -137,7 +143,7 @@ describe('GET /api/bookings (admin) — listing projection (Req 10.2)', () => {
       ),
     )
 
-    expect(dbMocks.listBookings).toHaveBeenCalledWith({
+    expect(dbMocks.listBookings).toHaveBeenCalledWith(TEST_BRANCH.id, {
       status: 'pending',
       serviceType: 'spa',
       date: '2026-06-04',

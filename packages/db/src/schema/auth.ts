@@ -30,27 +30,43 @@
  *                Schema matches Better Auth's expected structure.
  ************************************************************/
 
-import { boolean, index, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import { boolean, index, pgTable, text, timestamp, unique, uniqueIndex } from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'
 
-export const user = pgTable('user', {
-  id: text('id')
-    .primaryKey()
-    .$defaultFn(() => nanoid()),
-  name: text('name').notNull(),
-  email: text('email').notNull().unique(),
-  emailVerified: boolean('email_verified').notNull().default(false),
-  image: text('image'),
-  role: text('role').default('customer'),
-  banned: boolean('banned').default(false),
-  banReason: text('ban_reason'),
-  banExpires: timestamp('ban_expires', { withTimezone: true, mode: 'date' }),
-  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-})
+export const user = pgTable(
+  'user',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    name: text('name').notNull(),
+    email: text('email').notNull().unique(),
+    emailVerified: boolean('email_verified').notNull().default(false),
+    image: text('image'),
+    role: text('role').default('customer'),
+    banned: boolean('banned').default(false),
+    banReason: text('ban_reason'),
+    banExpires: timestamp('ban_expires', { withTimezone: true, mode: 'date' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    // Target of the role-qualified foreign keys from branch (Owner, Manager) and
+    // staff_profile (role witness). A reference to (id, 'owner') holds only
+    // while that user's current role is still 'owner'. id is the primary key,
+    // so this restricts nothing by itself.
+    unique('user_id_role_key').on(table.id, table.role),
+    // At most one Developer (R1.3), checked on every statement. A deferred
+    // trigger (migration 0006) also requires at least one at commit, so a
+    // handover demotes the current Developer before promoting the next, in
+    // one transaction (knowledge-base/authentication.md).
+    uniqueIndex('user_one_developer').on(table.role).where(sql`role = 'developer'`),
+  ],
+)
 
 export const session = pgTable(
   'session',

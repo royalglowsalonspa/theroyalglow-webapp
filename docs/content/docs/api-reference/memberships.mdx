@@ -494,15 +494,39 @@ Unexpected/transient failure. `retryable: true`.
 
 ## POST `admin.theroyalglow.in/api/memberships/[id]/sessions`
 
-Records a SPA session against a membership. Each service line deducts its
-duration from the remaining hours. The handler guards membership state and
-remaining hours **before** any writes, validates that every service id exists,
-snapshots service and staff names, then atomically creates a completed ₹0
-booking flagged as a membership session (booking number suffixed `-M`), its
-`booking_service` rows, a ₹0 `membership_session` invoice (zero gems), and
-increments the membership's used minutes. `bookingDate` defaults to today (IST).
+"Record now": starts a SPA session against a membership at the active branch.
+The session is an in-progress ₹0 booking flagged as a membership session
+(booking number suffixed `-M`), started now on today's IST date, with its
+`booking_service` rows. The database holds the session's minutes from the
+membership in the same transaction, so the membership's free minutes are its
+total less used less held. Completing the session from its booking
+(`POST /api/bookings/[id]/complete`, no payment method) uses the minutes and
+issues the ₹0 `membership_session` invoice. No gems are earned.
 
-**Minimum role:** `receptionist` (`requireRole('receptionist')`)
+One person does the whole session, and it starts now, so the request names
+them. The handler checks the membership's state and free minutes up front,
+validates the services and that the person works at the active branch, and
+snapshots their name. The database checks again when it holds the minutes: if
+the membership stopped being active, expired, or no longer has the minutes free
+(for example, another branch started a session at the same moment), or the
+person has another booking now or is still with another customer, nothing is
+written and the request fails with a 409.
+
+Send an `idempotencyKey` to make retries safe. A request whose key already
+started a session on this membership returns `200 OK` with that session and
+`duplicate: true`, without holding again. This holds even when the first
+attempt held the last of the hours.
+
+**Booking a session ahead.** Send a `startTime` with the `bookingDate` to book
+the session for that day and time instead: a `confirmed` booking that holds
+its minutes from now until it is started and completed from its booking, or
+cancelled. The time is checked as the counter books: the active branch must be
+open that day, and the session must fall within its hours, start on the hour
+or half hour, and still be to come. The membership must be valid at the
+planned start, and the person must be free and scheduled then. A booking for a
+later day can't be started before that day.
+
+**Minimum role:** `receptionist` at the active branch (`requireBranchRole('receptionist')`)
 
 ```http
 POST /api/memberships/mem_9aZ2bYc31/sessions
@@ -521,29 +545,38 @@ Validated by `recordSessionSchema` (`@rgss/types`).
 
 | Name | Type | Required | Description |
 | --- | --- | --- | --- |
+| `branchId` | `string` | Yes | The branch the form was rendered for. A different active branch answers 409 `BRANCH_CONTEXT_CHANGED`. |
+| `staffId` | `string` | No | The one person doing the whole session; must work at the active branch and be free at its time: now, or the time a session booked ahead is for. Required unless every line names the same person. |
 | `services` | `array` | Yes | At least one service line (see fields below). |
 | `services[].serviceId` | `string` | Yes | Non-empty; must be an existing service. |
-| `services[].staffId` | `string` | No | Staff member assigned to this line. |
-| `services[].durationMinutes` | `integer` | Yes | Positive. Minutes to deduct for this line. |
-| `bookingDate` | `string` | No | YYYY-MM-DD. Defaults to today (IST). |
+| `services[].staffId` | `string` | No | For forms that name the person per line: every line must name the same person, and the same one as `staffId` when both are sent. |
+| `services[].durationMinutes` | `integer` | Yes | Positive. Minutes to hold for this line. |
+| `bookingDate` | `string` | No | YYYY-MM-DD. Without `startTime` it must be today (IST): a session recorded now takes today's date. Required with `startTime`. |
+| `startTime` | `string` | No | HH:mm (IST). Books the session ahead for `bookingDate` at this time. |
+| `idempotencyKey` | `string` | No | 8–64 characters from `A-Z a-z 0-9 _ -`, e.g. `crypto.randomUUID()`. Use a new key for each session attempt; reuse it only to retry the same request. |
 
 ```json
 {
+  "branchId": "branch_rayasandra",
+  "staffId": "stf_therapist01",
   "services": [
     {
       "serviceId": "svc_aromamassage",
-      "staffId": "stf_therapist01",
       "durationMinutes": 120
     }
   ],
-  "bookingDate": "2026-06-10"
+  "idempotencyKey": "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
 }
 ```
 
 ### Response
 
-Returns `201 Created` with the created booking, the ₹0 session invoice, and the
-membership's remaining minutes after the deduction.
+Returns `201 Created` with the in-progress booking (or, for a session booked
+ahead, the `confirmed` booking with `startedAt: null`), `invoice: null` (the
+invoice is issued on completion), the membership's free minutes after the
+hold, and `duplicate: false`. A retry with an already-used key returns `200 OK`
+with the original session, its invoice once the session has completed, and
+`duplicate: true`.
 
 ```json
 {
@@ -554,7 +587,7 @@ membership's remaining minutes after the deduction.
       "bookingNumber": "BK-RS-2606-S-44120-M",
       "branchId": "branch_rayasandra",
       "customerId": "usr_abc123",
-      "status": "completed",
+      "status": "in_progress",
       "serviceType": "spa",
       "bookingDate": "2026-06-10",
       "startTime": "15:30:00",
@@ -563,24 +596,12 @@ membership's remaining minutes after the deduction.
       "totalDurationMinutes": 120,
       "isMembershipSession": true,
       "spaMembershipId": "mem_9aZ2bYc31",
-      "completedAt": "2026-06-10T07:00:00.000Z"
+      "startedAt": "2026-06-10T10:00:00.000Z",
+      "completedAt": null
     },
-    "invoice": {
-      "id": "inv_55cc66dd77",
-      "invoiceNumber": "INV-1-2627-71044",
-      "branchId": "branch_rayasandra",
-      "bookingId": "bk_77aa11bb22",
-      "customerId": "usr_abc123",
-      "subtotalPaise": 0,
-      "taxableValuePaise": 0,
-      "gstAmountPaise": 0,
-      "totalAmountPaise": 0,
-      "invoiceType": "membership_session",
-      "paymentStatus": "paid",
-      "gemsEarned": 0,
-      "paidAt": "2026-06-10T07:00:00.000Z"
-    },
-    "remainingMinutes": 780
+    "invoice": null,
+    "remainingMinutes": 780,
+    "duplicate": false
   }
 }
 ```
@@ -600,22 +621,70 @@ Session role is below `receptionist`.
 </Accordion>
 <Accordion title="VALIDATION_ERROR — 400">
 
-Body fails `recordSessionSchema`, or one or more selected services do not exist.
+Body fails `recordSessionSchema`; the session names nobody ("Choose who is
+doing this session.") or different people ("One person does the whole
+session. Choose one person for all of it."); one or more selected services do
+not exist; the person doesn't work at the active branch; the active branch
+isn't operational; `bookingDate` isn't today (IST) for a session recorded now;
+a `startTime` came without its `bookingDate`; or a service isn't offered at
+the active branch ("Hot Stone Therapy isn't offered at Marathahalli. Choose
+another service, or book at a branch that offers it."). The session dialog
+lists only the branch's SPA services.
+
+</Accordion>
+<Accordion title="BOOKING_SLOT_UNAVAILABLE — 409">
+
+A session booked ahead: the branch is closed that day (the message names the
+closure), the time is outside the branch's hours or off the half-hour grid, or
+it has already passed. Nothing was written.
+
+</Accordion>
+<Accordion title="STAFF_BUSY — 409">
+
+The person has another booking at this time, or is still with another
+customer. Nothing was written; choose someone else or wait.
 
 </Accordion>
 <Accordion title="NOT_FOUND — 404">
 
-No membership with that id, or the primary branch could not be resolved.
+No membership with that id, or the active branch could not be resolved.
+
+</Accordion>
+<Accordion title="BRANCH_CONTEXT_CHANGED — 409">
+
+The form was rendered for another branch than the one now active. Nothing was
+written; reload to continue.
 
 </Accordion>
 <Accordion title="MEMBERSHIP_EXPIRED — 409">
 
-The membership is not `active` or is past its expiry.
+The membership is not `active` or is past its expiry. For a session booked
+ahead, the membership expires before the planned start; the message names the
+expiry date so a time before it can be chosen.
+
+</Accordion>
+<Accordion title="MEMBERSHIP_NOT_STARTED — 409">
+
+The membership was sold to start later; sessions can be recorded from its
+start date, which the message names. A session booked ahead is checked at its
+planned start, so it can be booked now for a time from that date.
 
 </Accordion>
 <Accordion title="MEMBERSHIP_INSUFFICIENT_HOURS — 409">
 
-The requested duration exceeds the remaining membership hours.
+The requested duration exceeds the membership's free minutes (total less used
+less held by sessions booked or in progress), including when the membership
+changed between the up-front check and the write.
+
+</Accordion>
+<Accordion title="CONFLICT — 409">
+
+The `idempotencyKey` was already used for a different session or request, or
+the database refused the person: they are on approved leave, aren't scheduled
+to work at the time a session booked ahead is for, or left the branch after
+the form was opened. Also returned when the services offered at the branch
+changed after the request was checked ("The services offered at this branch
+just changed. Choose the services again."). Nothing was written.
 
 </Accordion>
 <Accordion title="INTERNAL_ERROR — 500">
@@ -629,11 +698,16 @@ Unexpected/transient failure. `retryable: true`.
 
 ## POST `admin.theroyalglow.in/api/memberships/[id]/cancel`
 
-Cancels a membership: sets status to `cancelled` and appends the reason to the
-membership's notes. This is the only membership endpoint that requires
-`manager`.
+Cancels a membership sold at the active branch. In one transaction it cancels
+the membership's sessions booked but not started, which gives their minutes
+back, each with a status-log entry naming the person cancelling; then it sets
+the membership to `cancelled` and appends the reason to its notes. While a
+session is in progress the request is refused with a 409: complete the session
+first. Unused hours are forfeited; refunds are handled offline.
 
-**Minimum role:** `manager` (`requireRole('manager')`)
+**Minimum role:** the selling branch's Manager or Owner, or the Developer,
+working at the selling branch (`requireBranchRole` plus the selling-branch
+check)
 
 ```http
 POST /api/memberships/mem_9aZ2bYc31/cancel
@@ -652,38 +726,28 @@ Validated by `cancelMembershipSchema` (`@rgss/types`).
 
 | Name | Type | Required | Description |
 | --- | --- | --- | --- |
+| `branchId` | `string` | Yes | The branch the page was rendered for. A different active branch answers 409 `BRANCH_CONTEXT_CHANGED`. |
 | `reason` | `string` | Yes | Trimmed, 1–500 characters. Appended to the membership notes as "Cancelled: {reason}". |
 
 ```json
 {
+  "branchId": "branch_rayasandra",
   "reason": "Customer relocated out of the city."
 }
 ```
 
 ### Response
 
-Returns the updated membership row.
+Returns the membership's id and new status, and how many sessions booked but
+not started were cancelled with it.
 
 ```json
 {
   "success": true,
   "data": {
     "id": "mem_9aZ2bYc31",
-    "membershipNumber": "RG-MEM-26-1-90872",
-    "customerId": "usr_abc123",
-    "tierId": "tier_gold",
-    "tierNameSnapshot": "Gold",
-    "totalHoursMinutes": 900,
-    "usedHoursMinutes": 120,
-    "pricePaidPaise": 1500000,
-    "startsAt": "2026-06-01T00:00:00.000Z",
-    "expiresAt": "2026-08-30T18:29:59.999Z",
     "status": "cancelled",
-    "createdBy": "usr_reception01",
-    "invoiceId": "inv_3kP9qWx20",
-    "notes": "Cancelled: Customer relocated out of the city.",
-    "createdAt": "2026-06-01T05:30:00.000Z",
-    "updatedAt": "2026-06-12T08:00:00.000Z"
+    "cancelledSessions": 1
   }
 }
 ```
@@ -698,17 +762,25 @@ No active session.
 </Accordion>
 <Accordion title="FORBIDDEN — 403">
 
-Session role is below `manager`.
+The person isn't the selling branch's Manager or Owner, or the Developer; the
+message names the branch that can cancel it.
 
 </Accordion>
 <Accordion title="VALIDATION_ERROR — 400">
 
-Body fails `cancelMembershipSchema` (missing or over-long `reason`).
+Body fails `cancelMembershipSchema` (missing or over-long `reason`, or no
+`branchId`).
 
 </Accordion>
 <Accordion title="NOT_FOUND — 404">
 
 No membership with that id.
+
+</Accordion>
+<Accordion title="CONFLICT — 409">
+
+A session on the membership is in progress (complete it, then cancel the
+membership), or the membership is no longer active. Nothing changed.
 
 </Accordion>
 <Accordion title="INTERNAL_ERROR — 500">

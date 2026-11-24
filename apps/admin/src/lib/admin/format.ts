@@ -15,6 +15,7 @@
  *
  * Responsibilities :
  * - Provide formatDateTimeIST() — UTC → IST, DD/MM/YYYY + 24h HH:MM
+ * - Provide formatDateIST() — UTC instant → its IST calendar date, DD/MM/YYYY
  * - Provide formatTime24hIST() — UTC → IST, 24-hour zero-padded HH:MM
  * - Expose the PLACEHOLDER ('—') constant for null/invalid input
  * - Re-export formatINRWithPaise / formatDateDDMMYYYY (unchanged)
@@ -38,7 +39,7 @@
 // applies a constant +05:30 offset year-round (Req 15.3). Imported from
 // @rgss/business rather than redeclared, so there is exactly ONE definition of
 // the display zone in the monorepo and it cannot drift per app.
-import { IST_TIME_ZONE } from '@rgss/business'
+import { financialYearIST, formatInvoiceNumber, IST_TIME_ZONE } from '@rgss/business'
 
 // Re-export the existing currency/date helpers unchanged (Req 15.1, 15.2).
 // Call sites can import every formatter from this single module.
@@ -107,6 +108,24 @@ export function formatDateTimeIST(value: DateInput): string {
   return `${day}/${month}/${year}, ${hour}:${minute}`
 }
 
+// "2026-11-02T18:30:00.000Z" → "03/11/2026": the IST calendar date of an
+// instant. Use it for instants such as a membership's start (00:00 IST, which
+// is the previous day in UTC); formatDateDDMMYYYY reads the UTC date part and
+// suits calendar-date strings only. Returns PLACEHOLDER for invalid input.
+export function formatDateIST(value: DateInput): string {
+  const date = toValidDate(value)
+  if (date === null) {
+    return PLACEHOLDER
+  }
+  const parts = new Intl.DateTimeFormat('en-IN', {
+    timeZone: IST_TIME_ZONE,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).formatToParts(date)
+  return `${part(parts, 'day')}/${part(parts, 'month')}/${part(parts, 'year')}`
+}
+
 // "2026-05-24T10:00:00.000Z" → "15:30" (IST).
 // 24-hour, zero-padded HH:MM in India Standard Time (Req 15.5). Returns
 // PLACEHOLDER for null/undefined/NaN/invalid input.
@@ -126,4 +145,10 @@ export function formatTime24hIST(value: DateInput): string {
   const minute = part(parts, 'minute')
 
   return `${hour}:${minute}`
+}
+
+// "RS" → "RS/2627/000123": what a branch's invoice numbers look like in the
+// current IST financial year, for the Branches editor and the Tax screen.
+export function sampleInvoiceNumber(prefix: string, now: Date = new Date()): string {
+  return formatInvoiceNumber(prefix, financialYearIST(now), 123)
 }

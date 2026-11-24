@@ -14,6 +14,8 @@
  *                  - 13.7  Property 13 — customer bookings are never walk-ins
  *                  - 13.9  Edge guards: empty serviceIds → 400, forced
  *                          unavailable slot → BOOKING_SLOT_UNAVAILABLE 409
+ *                  - R6.3  The branch's hours, window, lead time and booking
+ *                          limit decide; the booking records the revision
  *
  * Approach     : `@/lib/api/session` (requireSession) and `@rgss/db/queries`
  *                (getServicesByIds, getBranchById, getDefaultStaffForService,
@@ -31,9 +33,10 @@
  *                Validates: Requirements 5.1, 5.3, 5.4, 5.7, 5.8, 5.9, 6.1
  ************************************************************/
 
-import { AppError, ERROR_CODES } from '@rgss/errors'
+import { AppError, conflict, ERROR_CODES } from '@rgss/errors'
+import { DEFAULT_BOOKING_RULES, DEFAULT_BUSINESS_HOURS } from '@rgss/types'
 import fc from 'fast-check'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // Mock seams. The session guard, the data-access layer, and the best-effort job
@@ -57,6 +60,9 @@ const sessionMocks = vi.hoisted(() => {
 const dbMocks = vi.hoisted(() => ({
   getServicesByIds: vi.fn(),
   getBranchById: vi.fn(),
+  getBranchPolicy: vi.fn(),
+  countUpcomingBookingsAtBranch: vi.fn(async () => 0),
+  getClosureOn: vi.fn(async (): Promise<{ name: string; allBranches: boolean } | null> => null),
   getDefaultStaffForService: vi.fn(),
   createBookingWithServices: vi.fn(),
   getBookingsByCustomer: vi.fn(),
@@ -87,9 +93,21 @@ type FakeService = {
 
 const CUSTOMER_SESSION = { user: { id: 'cust_1', role: 'customer' } }
 
+// Monday 01/06/2026, 10:00 IST: the bookings below (10/06) are 9 days ahead.
+const NOW = new Date('2026-06-01T04:30:00.000Z')
+
+// The branch's current settings (R6.3): the documented defaults at revision 4.
+const POLICY = {
+  branchId: 'br_1',
+  branchName: 'Rayasandra',
+  revision: 4,
+  businessHours: DEFAULT_BUSINESS_HOURS,
+  bookingRules: DEFAULT_BOOKING_RULES,
+}
+
 // In-memory catalogue + branch backing the query-layer fakes.
 let fakeServices: Map<string, FakeService>
-let fakeBranch: { id: string; code: string; status: string } | null
+let fakeBranch: { id: string; code: string; status: string; name: string } | null
 
 function setServices(services: FakeService[]): void {
   fakeServices = new Map(services.map((s) => [s.id, s]))
@@ -121,13 +139,16 @@ const unauthenticated = () =>
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.useFakeTimers({ now: NOW, toFake: ['Date'] })
 
   // Default: an authenticated customer.
   sessionMocks.requireSession.mockResolvedValue(CUSTOMER_SESSION)
 
-  // Default operational branch.
-  fakeBranch = { id: 'br_1', code: 'RS', status: 'operational' }
+  // Default operational branch, with its settings and no upcoming bookings.
+  fakeBranch = { id: 'br_1', code: 'RS', status: 'operational', name: 'Rayasandra' }
   fakeServices = new Map()
+  dbMocks.getBranchPolicy.mockResolvedValue(POLICY)
+  dbMocks.countUpcomingBookingsAtBranch.mockResolvedValue(0)
 
   // Query-layer fakes wired to the in-memory store.
   dbMocks.getBranchById.mockImplementation(async (id: string) =>
@@ -149,6 +170,10 @@ beforeEach(() => {
 
   // enqueueJob is best-effort and mocked to a no-op.
   enqueueMock.mockResolvedValue(undefined)
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 // ---------------------------------------------------------------------------
@@ -575,5 +600,212 @@ describe('Booking-create edge guards (Task 13.9)', () => {
       statusCode: 409,
     })
     expect(dbMocks.createBookingWithServices).not.toHaveBeenCalled()
+  })
+})
+
+// ===========================================================================
+// Multi-branch R1.8 — a closed day takes no booking
+// ===========================================================================
+describe('Closed days (R1.8)', () => {
+  it('refuses a booking on a day the branch is closed, naming it, and writes nothing', async () => {
+    dbMocks.getBranchById.mockResolvedValueOnce({
+      id: 'br_1',
+      code: 'RS',
+      status: 'operational',
+      name: 'Rayasandra',
+    })
+    dbMocks.getClosureOn.mockResolvedValueOnce({ name: 'Diwali', allBranches: true })
+
+    const res = await POST(
+      postRequest({
+        branchId: 'br_1',
+        serviceType: 'salon',
+        bookingDate: '2099-11-08',
+        startTime: '10:00',
+        serviceIds: ['svc_1'],
+      }),
+      ROUTE_CTX,
+    )
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body.error).toMatchObject({
+      code: ERROR_CODES.BOOKING_SLOT_UNAVAILABLE,
+      message: 'Rayasandra is closed on 08/11/2099 (Diwali).',
+    })
+    expect(dbMocks.getClosureOn).toHaveBeenCalledWith('br_1', '2099-11-08')
+    expect(dbMocks.getServicesByIds).not.toHaveBeenCalled()
+    expect(dbMocks.createBookingWithServices).not.toHaveBeenCalled()
+    expect(enqueueMock).not.toHaveBeenCalled()
+  })
+})
+
+// ===========================================================================
+// Multi-branch R6.3 — the branch's own settings decide the booking
+// ===========================================================================
+describe("The branch's booking settings (R6.3)", () => {
+  const CUT = {
+    id: 'svc_0',
+    name: 'Cut',
+    pricePaise: 50000,
+    durationMinutes: 60,
+    serviceType: 'salon' as const,
+    isActive: true,
+  }
+
+  function book(overrides: Record<string, unknown> = {}) {
+    return POST(
+      postRequest({
+        branchId: 'br_1',
+        serviceType: 'salon',
+        bookingDate: '2026-06-10',
+        startTime: '11:00',
+        serviceIds: ['svc_0'],
+        ...overrides,
+      }),
+      ROUTE_CTX,
+    )
+  }
+
+  beforeEach(() => {
+    setServices([CUT])
+  })
+
+  it('records the settings revision that accepted the booking', async () => {
+    const res = await book()
+
+    expect(res.status).toBe(201)
+    expect(dbMocks.getBranchPolicy).toHaveBeenCalledWith('br_1')
+    expect(dbMocks.createBookingWithServices.mock.calls[0]?.[0]).toMatchObject({
+      settingsRevision: 4,
+    })
+  })
+
+  it("refuses a time outside that weekday's hours at the branch, saying them", async () => {
+    // Wednesdays 12:00–20:00 at this branch.
+    dbMocks.getBranchPolicy.mockResolvedValue({
+      ...POLICY,
+      businessHours: {
+        ...DEFAULT_BUSINESS_HOURS,
+        wed: { open: '12:00', close: '20:00', closed: false },
+      },
+    })
+
+    const body = await (await book()).json()
+
+    expect(body.error).toMatchObject({
+      code: ERROR_CODES.BOOKING_SLOT_UNAVAILABLE,
+      message:
+        'Rayasandra is open 12:00–20:00 on Wednesdays, and the booking must finish by 20:00.',
+    })
+    expect(dbMocks.createBookingWithServices).not.toHaveBeenCalled()
+  })
+
+  it('refuses a date beyond the booking window and a time inside the lead time', async () => {
+    const late = await (await book({ bookingDate: '2026-07-15' })).json()
+    expect(late.error).toMatchObject({
+      code: ERROR_CODES.BOOKING_SLOT_UNAVAILABLE,
+      message: 'Rayasandra takes bookings up to 30 days ahead.',
+    })
+
+    // 10:30 today is half an hour away; the branch asks for an hour.
+    const soon = await (await book({ bookingDate: '2026-06-01', startTime: '10:30' })).json()
+    expect(soon.error.message).toBe('Book at least 1 hour ahead.')
+    expect(dbMocks.createBookingWithServices).not.toHaveBeenCalled()
+  })
+
+  it('refuses a customer at the branch’s limit of upcoming bookings, counted there', async () => {
+    dbMocks.countUpcomingBookingsAtBranch.mockResolvedValue(3)
+
+    const res = await book()
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body.error.code).toBe(ERROR_CODES.BOOKING_LIMIT_REACHED)
+    expect(dbMocks.countUpcomingBookingsAtBranch).toHaveBeenCalledWith(
+      'cust_1',
+      'br_1',
+      '2026-06-01',
+    )
+    expect(dbMocks.createBookingWithServices).not.toHaveBeenCalled()
+  })
+
+  it('follows a lower limit at this branch', async () => {
+    dbMocks.getBranchPolicy.mockResolvedValue({
+      ...POLICY,
+      bookingRules: { ...DEFAULT_BOOKING_RULES, maxActiveBookingsPerCustomer: 1 },
+    })
+    dbMocks.countUpcomingBookingsAtBranch.mockResolvedValue(1)
+
+    const body = await (await book()).json()
+
+    expect(body.error.message).toMatch(/1 upcoming booking at Rayasandra/)
+  })
+
+  it('answers 409 when the branch has no readable settings, never defaults', async () => {
+    dbMocks.getBranchPolicy.mockRejectedValue(
+      conflict(ERROR_CODES.BRANCH_SETTINGS_INCOMPLETE, 'Rayasandra has no valid booking settings.'),
+    )
+
+    const res = await book()
+
+    expect(res.status).toBe(409)
+    expect((await res.json()).error.code).toBe(ERROR_CODES.BRANCH_SETTINGS_INCOMPLETE)
+    expect(dbMocks.createBookingWithServices).not.toHaveBeenCalled()
+  })
+})
+
+// ===========================================================================
+// Multi-branch R4.3 — only services the branch offers can be booked there
+// ===========================================================================
+describe('Branch availability (R4.3)', () => {
+  function book(serviceIds: string[]) {
+    return POST(
+      postRequest({
+        branchId: 'br_1',
+        serviceType: 'salon',
+        bookingDate: '2026-06-10',
+        startTime: '11:00',
+        serviceIds,
+      }),
+      ROUTE_CTX,
+    )
+  }
+
+  const base = {
+    pricePaise: 50000,
+    durationMinutes: 30,
+    serviceType: 'salon' as const,
+    isActive: true,
+  }
+
+  it('refuses a service the branch doesn’t offer, naming it, and writes nothing', async () => {
+    setServices([
+      { ...base, id: 'svc_cut', name: 'Cut' },
+      { ...base, id: 'svc_colour', name: 'Colour', availableBranchIds: ['br_2'] } as FakeService,
+    ])
+
+    const res = await book(['svc_cut', 'svc_colour'])
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message:
+        "Colour isn't offered at Rayasandra. Choose another service, or book at a branch that offers it.",
+    })
+    expect(dbMocks.createBookingWithServices).not.toHaveBeenCalled()
+  })
+
+  it('books services offered at every branch or listed for this one', async () => {
+    setServices([
+      { ...base, id: 'svc_cut', name: 'Cut', availableBranchIds: null } as FakeService,
+      { ...base, id: 'svc_colour', name: 'Colour', availableBranchIds: ['br_1'] } as FakeService,
+    ])
+
+    const res = await book(['svc_cut', 'svc_colour'])
+
+    expect(res.status).toBe(201)
+    expect(dbMocks.createBookingWithServices).toHaveBeenCalledTimes(1)
   })
 })

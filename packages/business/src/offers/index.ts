@@ -24,3 +24,4 @@
 
 export * from './applicability'
 export * from './discount'
+export * from './rule'

@@ -6,13 +6,15 @@
  * Module Name  : GET /api/bookings
  * Scope        : API — Admin Booking
  *
- * Description  : Admin endpoint for listing all bookings with optional filters
- *                (status, service type, date). Receptionist+ access.
+ * Description  : Admin endpoint listing the active branch's bookings with
+ *                optional filters (status, service type, date). Receptionist
+ *                or above at that branch.
  *
  * Responsibilities :
- * - Enforce receptionist+ RBAC access
+ * - Authorize at the active branch (fresh role and branch access)
  * - Parse optional filter query parameters
- * - Return filtered booking list for admin dashboard
+ * - Return the branch's filtered booking list for the bookings page and
+ *   dashboard
  *
  * Features / Functionality :
  * - Status filter (pending, confirmed, completed, etc.)
@@ -25,20 +27,19 @@
  * Dependencies : @/lib/api/error-handler, @/lib/api/session, @rgss/db/queries
  *
  * Notes        :
- * - Requires min role: receptionist.
+ * - Requires min role at the active branch: receptionist.
  * - Used by the admin bookings list page and dashboard widgets.
- * - Uses listBookings (not getAllBookings) so each booking_service row carries
- *   its assigned staff member's name in the projection.
+ * - Each booking_service row carries its assigned staff member's name.
  ************************************************************/
 
 import { listBookings } from '@rgss/db/queries'
 import { badRequest } from '@rgss/errors'
 import { adminBookingListQuerySchema } from '@rgss/types'
+import { requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
 
 export const GET = withErrorHandler(async (req: Request) => {
-  await requireRole('receptionist')
+  const ctx = await requireBranchRole('receptionist')
 
   const { searchParams } = new URL(req.url)
   const parsed = adminBookingListQuerySchema.safeParse({
@@ -63,6 +64,6 @@ export const GET = withErrorHandler(async (req: Request) => {
     filters.date = parsed.data.date
   }
 
-  const bookings = await listBookings(filters)
-  return apiSuccess({ bookings })
+  const bookings = await listBookings(ctx.branch.id, filters)
+  return apiSuccess({ branchId: ctx.branch.id, bookings })
 })

@@ -80,6 +80,8 @@ const SERVICE_GROUP_LABELS: Record<ServiceOption['serviceType'], string> = {
 
 export function LeadKanban() {
   const [leads, setLeads] = useState<LeadPipelineRow[] | null>(null)
+  // The branch whose pipeline is shown; a manual lead joins it.
+  const [branchId, setBranchId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -94,6 +96,7 @@ export function LeadKanban() {
         throw new Error(json?.error?.message ?? 'Could not load leads.')
       }
       setLeads(json.data.leads as LeadPipelineRow[])
+      setBranchId(json.data.branchId as string)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Could not load leads.')
     } finally {
@@ -157,8 +160,9 @@ export function LeadKanban() {
         </>
       )}
 
-      {dialogOpen && (
+      {dialogOpen && branchId && (
         <ManualLeadDialog
+          branchId={branchId}
           onClose={() => setDialogOpen(false)}
           onCreated={() => {
             setDialogOpen(false)
@@ -238,7 +242,15 @@ function LeadCard({ lead }: { lead: LeadPipelineRow }) {
   )
 }
 
-function ManualLeadDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function ManualLeadDialog({
+  branchId,
+  onClose,
+  onCreated,
+}: {
+  branchId: string
+  onClose: () => void
+  onCreated: () => void
+}) {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [serviceInterestedId, setServiceInterestedId] = useState('')
@@ -312,6 +324,7 @@ function ManualLeadDialog({ onClose, onCreated }: { onClose: () => void; onCreat
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            branchId,
             name: name.trim(),
             phone: phone.trim(),
             serviceInterestedId: serviceInterestedId || undefined,
@@ -329,7 +342,7 @@ function ManualLeadDialog({ onClose, onCreated }: { onClose: () => void; onCreat
         setSubmitting(false)
       }
     },
-    [name, phone, serviceInterestedId, onCreated, validate],
+    [branchId, name, phone, serviceInterestedId, onCreated, validate],
   )
 
   return (

@@ -72,6 +72,8 @@ Required server values currently cover:
 
 `INVOICING_SERVICE_URL` and `INVOICE_PDF_HMAC_SECRET` are optional caller settings. The job sends an invoice email without the PDF attachment when either is missing. `NEXT_PUBLIC_ADMIN_SENTRY_DSN` is optional; admin Sentry is disabled when absent.
 
+Report jobs read guarded optional values. `SLACK_WEBHOOK_URL` receives the Developer's summary across all branches, so it must post to a channel only the Developer reads. `DAILY_REPORT_EMAIL_RECIPIENTS` is retired: each branch's report goes to that branch's Owner and Manager, read from branch roles (multi-branch R7.4). Heartbeats are `BETTER_STACK_HEARTBEAT_<NAME>`; the missing-Manager reminder uses `BETTER_STACK_HEARTBEAT_MISSING_MANAGER` and the staff overrun check (every 15 minutes in the salon day) `BETTER_STACK_HEARTBEAT_STAFF_OVERRUN`.
+
 ### Invoice renderer (`apps/invoicing`)
 
 `apps/invoicing/src/env.ts` requires:
@@ -81,13 +83,20 @@ Required server values currently cover:
 - `R2_ENDPOINT`
 - `R2_ACCESS_KEY_ID`
 - `R2_SECRET_ACCESS_KEY`
-- `R2_PUBLIC_BASE_URL`
 
-`PORT` and `NODE_ENV` have defaults. `SENTRY_DSN` is optional.
+Use `R2_BUCKET_NAME=rgss-invoices` with bucket-scoped credentials and set
+`R2_INVOICE_ACCESS=private` for production. Public mode is the legacy default
+and requires `R2_PUBLIC_BASE_URL`. `PORT` and `NODE_ENV` have defaults.
+`SENTRY_DSN` is optional.
 
 ### Payload CMS (`apps/cms`)
 
 Use `apps/cms/.env.example`, `apps/cms/src/payload.config.ts`, and CMS storage configuration together. Core ownership includes the CMS database URL, `PAYLOAD_SECRET`, R2 storage values, and `SERVICE_SYNC_ENABLED`.
+
+Production CMS uses `R2_BUCKET_NAME=rgss-uploads`. Once media verification
+passes, set `R2_MEDIA_PUBLIC_URL=https://media.theroyalglow.in` in Render.
+The AWS deployment reads `R2_UPLOAD_BUCKET_NAME` and `R2_UPLOAD_PUBLIC_URL`
+from GitHub variables for the production web media settings.
 
 `SERVICE_SYNC_ENABLED` defaults on; only the literal string `false` disables catalogue synchronization. Disable it while seeding or during a catalogue-sync rollback.
 

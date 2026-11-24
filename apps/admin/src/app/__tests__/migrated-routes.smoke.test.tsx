@@ -126,10 +126,10 @@ function ok(data: unknown, meta?: unknown) {
 function routeFetch(input: RequestInfo | URL): Promise<Response> {
   const url = String(input)
   if (url.includes('/api/membership-tiers')) {
-    return Promise.resolve(ok([]))
+    return Promise.resolve(ok({ tiers: [], canEditTax: false }))
   }
   if (url.includes('/api/memberships')) {
-    return Promise.resolve(ok([]))
+    return Promise.resolve(ok({ branchId: 'branch_rayasandra', memberships: [] }))
   }
   if (url.includes('/api/bookings')) {
     return Promise.resolve(ok({ bookings: [] }))
@@ -148,6 +148,11 @@ function routeFetch(input: RequestInfo | URL): Promise<Response> {
   }
   if (url.includes('/api/schedule')) {
     return Promise.resolve(ok({ dates: [], staff: [] }))
+  }
+  if (url.includes('/api/closures')) {
+    return Promise.resolve(
+      ok({ branchId: 'branch_rayasandra', canCloseAllBranches: false, closures: [] }),
+    )
   }
   if (url.includes('/api/leave')) {
     return Promise.resolve(ok({ leave: [] }))
@@ -261,9 +266,14 @@ describe('migrated routes preserve their pre-redesign actions (Req 17.6, 17.7)',
     await screen.findByText('No leads yet')
   })
 
-  it('offers keeps the Create Offer action', async () => {
+  // Offers moved to Payload (multi-branch R4.6): creating one is now a link to
+  // the CMS, not a form here.
+  it('offers links to the CMS, where offers are now created', async () => {
     render(<OffersManager />)
-    expect(screen.getByRole('button', { name: '+ Create Offer' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Edit offers in the CMS/ })).toHaveAttribute(
+      'href',
+      'https://cms.theroyalglow.in/admin/collections/offer',
+    )
     await screen.findByText('No offers found')
   })
 })

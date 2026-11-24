@@ -3,27 +3,36 @@
  * Module Name  : ui/motion/use-reduced-motion
  * Scope        : Admin — Reduced-motion preference hook
  *
- * Description  : Thin wrapper over motion's `useReducedMotion` that returns a
- *                strict boolean (defaulting to `false` before hydration / when
- *                the preference is unknown). Consumed by the motion presence
- *                wrappers and any component that must render the final visual
- *                state instead of animating when the user prefers reduced
- *                motion (Req 3.7, 4.6).
+ * Description  : Tracks the browser's reduced-motion setting while using the
+ *                same snapshot during server rendering and hydration.
  *
- * Tech Stack   : React, motion (motion.dev)
- * Layer        : Presentation (hook, no I/O, no business logic)
- *
- * Dependencies : motion/react (useReducedMotion)
+ * Tech Stack   : React, MediaQueryList
  ************************************************************/
 
 'use client'
 
-import { useReducedMotion } from 'motion/react'
+import { useSyncExternalStore } from 'react'
+
+const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
+
+function subscribe(onChange: () => void) {
+  const query = window.matchMedia?.(REDUCED_MOTION_QUERY)
+  query?.addEventListener('change', onChange)
+  return () => query?.removeEventListener('change', onChange)
+}
+
+function getPreference() {
+  return window.matchMedia?.(REDUCED_MOTION_QUERY).matches ?? false
+}
+
+function getServerPreference() {
+  return false
+}
 
 /**
  * @returns `true` when the user has requested reduced motion, else `false`.
  * Resolves to `false` while the preference is still unknown.
  */
 export function usePrefersReducedMotion(): boolean {
-  return useReducedMotion() ?? false
+  return useSyncExternalStore(subscribe, getPreference, getServerPreference)
 }

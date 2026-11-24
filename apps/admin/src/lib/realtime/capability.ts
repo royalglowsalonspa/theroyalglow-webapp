@@ -1,51 +1,75 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 04-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 30-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : ably capability builder
  * Scope        : Realtime
  *
  * Description  : Pure builder for the admin Ably token capability map. Grants
- *                subscribe-only access scoped to the admin realtime channel set.
- *                No I/O — kept pure so it is property-testable (Property 6).
+ *                subscribe-only access to the channels of the branches the
+ *                person may work at, and nothing else (multi-branch R2.6,
+ *                design §3). No I/O — kept pure so it is property-testable.
  *
  * Responsibilities :
- * - Produce the capability map granted to Receptionist+ admin tokens
- * - Guarantee subscribe-only operations on admin-scoped channels only
+ * - Produce the capability map for a set of authorized branch ids
+ * - Guarantee subscribe-only operations on those branches' channels only
+ * - Never issue the legacy cross-branch wildcards
  *
  * Features / Functionality :
- * - buildAdminAblyCapability() — returns channel → ['subscribe'] map
+ * - buildAdminAblyCapability(branchIds) — channel → ['subscribe'] map
+ * - adminChannelPatternsForBranch(branchId) — one branch's four patterns
  *
  * Tech Stack   : TypeScript
  * Layer        : API Infrastructure (pure)
  *
- * Dependencies : none
+ * Dependencies : ./channels
  *
- * Notes        : Channels mirror features.md Ably channel set:
- *                admin:bookings:*, admin:schedule:*, admin:leave, booking:*
+ * Notes        : Ably matches a trailing `*` segment against the rest of the
+ *                name, so `booking:{branchId}:*` covers that branch's
+ *                bookings and no other branch's. A branch id that could
+ *                change a pattern's meaning (`*`, `:` or anything outside the
+ *                id alphabet) is skipped rather than granted.
  ************************************************************/
 
+import { adminBookingsChannel, adminLeaveChannel } from './channels'
+
 // Ably capability map: channel/namespace → allowed operations. The admin token
-// is subscribe-only (read-only realtime); server-side publishing is a later
-// phase and is intentionally not granted here.
+// is subscribe-only (read-only realtime); publishing stays on the server.
 export type AblyCapability = Record<string, ['subscribe']>
 
-// The exact admin channel set the admin portal subscribes to (Req 8.1). Frozen
-// so callers cannot mutate the canonical list at runtime.
-export const ADMIN_ABLY_CHANNELS = [
-  'admin:bookings:*',
-  'admin:schedule:*',
-  'admin:leave',
-  'booking:*',
-] as const
+// Branch ids are generated server-side (`branch_<slug>` or nanoid), so this
+// alphabet is all a real id contains.
+const SAFE_BRANCH_ID = /^[A-Za-z0-9_-]{1,64}$/
 
-// Pure: build the subscribe-only, admin-scoped capability map. Takes no input
-// and performs no I/O so it can be unit/property tested directly (Property 6).
-export function buildAdminAblyCapability(): AblyCapability {
+/** True when the id can appear inside a channel pattern without changing it. */
+export function isChannelSafeBranchId(branchId: string): boolean {
+  return SAFE_BRANCH_ID.test(branchId)
+}
+
+/** The four channel patterns one branch's staff may subscribe to. */
+export function adminChannelPatternsForBranch(branchId: string): string[] {
+  return [
+    adminBookingsChannel(branchId),
+    `admin:schedule:${branchId}:*`,
+    adminLeaveChannel(branchId),
+    `booking:${branchId}:*`,
+  ]
+}
+
+/**
+ * The subscribe-only capability for someone authorized at `branchIds`. An empty
+ * list yields an empty map, which the caller must not issue.
+ */
+export function buildAdminAblyCapability(branchIds: readonly string[]): AblyCapability {
   const capability: AblyCapability = {}
-  for (const channel of ADMIN_ABLY_CHANNELS) {
-    capability[channel] = ['subscribe']
+  for (const branchId of branchIds) {
+    if (!isChannelSafeBranchId(branchId)) {
+      continue
+    }
+    for (const channel of adminChannelPatternsForBranch(branchId)) {
+      capability[channel] = ['subscribe']
+    }
   }
   return capability
 }

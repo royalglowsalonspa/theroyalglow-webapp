@@ -35,12 +35,17 @@ import { BookingDialogTrigger } from '@/components/booking/BookingDialogTrigger'
 import { Footer } from '@/components/layout/Footer'
 import { Header } from '@/components/layout/Header'
 import { auth } from '@/lib/auth-server'
+import { loadPublicLocations } from '@/lib/branch-directory'
 import { AnnouncementBar } from './_components/AnnouncementBar'
 
 export default async function CustomerLayout({ children }: { children: React.ReactNode }) {
   // Resolve the session on the server so the header renders the correct
   // auth state on first paint — no signed-out → avatar flash on refresh.
-  const session = await auth.api.getSession({ headers: await headers() })
+  const requestHeaders = await headers()
+  const [session, locations] = await Promise.all([
+    auth.api.getSession({ headers: requestHeaders }),
+    loadPublicLocations(),
+  ])
   const initialUser = session?.user
     ? {
         name: session.user.name ?? null,
@@ -66,7 +71,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
       <main id="main-content" className="pt-[116px]">
         {children}
       </main>
-      <Footer />
+      <Footer locations={locations} />
       <Suspense fallback={null}>
         <BookingDialogTrigger />
       </Suspense>

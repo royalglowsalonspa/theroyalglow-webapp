@@ -25,6 +25,7 @@
  ************************************************************/
 
 import {
+  ArrowLeftRight,
   Building2,
   CalendarDays,
   CalendarRange,
@@ -67,6 +68,7 @@ export const NAV_ICON_MAP: Record<string, LucideIcon> = {
   '/memberships': Gem,
   '/billing': ReceiptText,
   '/reports': TrendingUp,
+  '/settlements': ArrowLeftRight,
   '/settings': Settings,
   '/branches': Building2,
   '/users': KeyRound,

@@ -134,7 +134,7 @@ Cloudflare remains the authoritative DNS provider and R2 remains object storage.
 | **Stryker Run** | Execute mutation tests | `npx stryker run` |
 | **Checkly Init** | Initialize Checkly synthetic monitoring project | `npx checkly init` |
 | **Checkly Test** | Dry-run checks on Checkly cloud before deploy | `npx checkly test` |
-| **Checkly Deploy** | Deploy monitoring checks to production | `npx checkly deploy` |
+| **Checkly Deploy** | Deploy monitoring checks and run them immediately | `npx checkly deploy --schedule-on-deploy` |
 | **Lighthouse CI** | Run Lighthouse audits in CI (performance gate) | `npx lhci autorun` |
 | **Lighthouse CLI** | Run a one-off Lighthouse audit locally | `npx lighthouse <url> --output html` |
 

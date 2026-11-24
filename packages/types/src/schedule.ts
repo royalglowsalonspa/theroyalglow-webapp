@@ -28,8 +28,12 @@
  * - One leave row per (staff, date) — DB unique constraint
  ************************************************************/
 import { z } from 'zod'
+import { renderedBranchIdSchema } from './branch'
 
+// A staff member's week at the branch the schedule page was rendered for
+// (multi-branch R2.4, R5.10).
 export const upsertScheduleSchema = z.object({
+  branchId: renderedBranchIdSchema,
   staffId: z.string().min(1),
   entries: z
     .array(
@@ -61,9 +65,14 @@ export const submitLeaveSchema = z.object({
 })
 export type SubmitLeaveInput = z.infer<typeof submitLeaveSchema>
 
-export const approveLeaveSchema = z.object({ action: z.literal('approve') })
+// A decision names the branch whose leave queue it was made in (R2.4).
+export const approveLeaveSchema = z.object({
+  action: z.literal('approve'),
+  branchId: renderedBranchIdSchema,
+})
 export const rejectLeaveSchema = z.object({
   action: z.literal('reject'),
+  branchId: renderedBranchIdSchema,
   rejectionReason: z.string().trim().min(1).max(500),
 })
 

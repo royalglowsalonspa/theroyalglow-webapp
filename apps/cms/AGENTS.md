@@ -1,6 +1,6 @@
 <!-- BEGIN:nextjs-agent-rules -->
 
-# This is NOT the Next.js you know
+## This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
 
@@ -50,7 +50,7 @@ Run these from the **repository root**, unless a row specifies otherwise.
 
 - `dev` runs Turbopack, the bundler `next build` also uses. `dev:webpack` is the
   fallback for a machine where Turbopack cannot start.
-- Keep `payload` and all six direct `@payloadcms/*` dependencies on the same exact
+- Keep `payload` and all seven direct `@payloadcms/*` dependencies on the same exact
   version. Inspect lockfile compatibility and the shared Drizzle version on upgrades.
 - Generated `src/payload-types.ts` and `src/app/(payload)/admin/importMap.js`
   come from Payload. Regenerate after relevant collection/plugin/component changes.
@@ -63,10 +63,13 @@ Run these from the **repository root**, unless a row specifies otherwise.
 - Keep `schemaName: 'cms'` and `push: false`. Use forward Payload migrations for
   CMS changes; do not use Drizzle migrations to remodel Payload-owned tables.
 - `service` and `service_category` are operational records mirrored into the
-  booking catalogue. `service-card` and CMS `offer` are marketing content.
+  booking catalogue. `service-card` is marketing content. An `offer` is a
+  marketing card plus an optional checkout rule; offers with a rule are mirrored
+  to `public.offer` (`cms_offer_<id>`) and `offer_service` like the catalogue.
 - Preserve custom text IDs, category relationships, integer `pricePaise`, allowed
   durations, gems validation, and `isActive` retirement behavior. Service/category
-  deletion remains denied because booking history refers to them.
+  deletion remains denied because booking history refers to them; offer deletion
+  is denied too, because invoices refer to the mirror (retire with `active`).
 - Synchronization must use `await txDb(req)` in `src/lib/sync-db.ts`. Do not use
   the shared HTTP database client or the adapter's base pool in an active request;
   these would bypass the Payload transaction.

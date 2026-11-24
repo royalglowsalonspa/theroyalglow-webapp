@@ -1,0 +1,5 @@
+ALTER TABLE "spa_membership_tier" ADD COLUMN "sac_code" text DEFAULT '999723' NOT NULL;--> statement-breakpoint
+ALTER TABLE "spa_membership" ADD CONSTRAINT "spa_membership_minutes_check" CHECK ("spa_membership"."total_hours_minutes" > 0 AND "spa_membership"."used_hours_minutes" >= 0 AND "spa_membership"."used_hours_minutes" <= "spa_membership"."total_hours_minutes");--> statement-breakpoint
+ALTER TABLE "spa_membership" ADD CONSTRAINT "spa_membership_validity_check" CHECK ("spa_membership"."expires_at" > "spa_membership"."starts_at");--> statement-breakpoint
+ALTER TABLE "spa_membership_tier" ADD CONSTRAINT "spa_membership_tier_usual_values_check" CHECK ("spa_membership_tier"."default_hours_minutes" >= 0 AND "spa_membership_tier"."default_price_paise" >= 0 AND "spa_membership_tier"."default_validity_days" > 0);--> statement-breakpoint
+ALTER TABLE "spa_membership_tier" ADD CONSTRAINT "spa_membership_tier_sac_code_check" CHECK ("spa_membership_tier"."sac_code" ~ '^[0-9]{6}$');

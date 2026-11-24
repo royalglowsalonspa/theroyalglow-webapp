@@ -35,15 +35,18 @@ import { z } from 'zod'
 
 const paise = z.number().int().nonnegative()
 
-// Seller (the salon branch) block printed in the invoice header.
+// Seller (the branch as issued) block printed in the invoice header.
 const invoiceSellerSchema = z.object({
   name: z.string().min(1),
+  // The registered legal name, when it differs from the trading name.
+  legalName: z.string().min(1).nullish(),
   addressLines: z.array(z.string().min(1)).min(1).max(5),
   gstin: z.string().min(1).optional(),
   phone: z.string().min(1).optional(),
   email: z.string().email().optional(),
-  // SAC code for the service (999721 — beauty/wellness).
-  sacCode: z.string().min(1),
+  // One SAC code for the whole invoice, for invoices issued before lines
+  // carried their own (template v1). Newer invoices print it per line.
+  sacCode: z.string().min(1).optional(),
 })
 
 // The customer the invoice is billed to.
@@ -62,6 +65,16 @@ const invoiceLineSchema = z.object({
   unitPricePaise: paise,
   totalPricePaise: paise,
   gemsCovered: z.boolean().default(false),
+  // The line's stored tax facts (multi-branch R6.1); absent on invoices
+  // issued before lines carried them.
+  sacCode: z
+    .string()
+    .regex(/^\d{6}$/)
+    .nullish(),
+  rateBps: z.number().int().min(0).max(2800).nullish(),
+  discountPaise: paise.nullish(),
+  taxableValuePaise: paise.nullish(),
+  taxPaise: paise.nullish(),
 })
 
 // Final, pre-computed monetary totals (all integer paise). taxableValue + gst
@@ -82,10 +95,16 @@ export const invoicePdfPayloadSchema = z.object({
   templateVersion: z.string().min(1).default('v1'),
 
   invoiceNumber: z.string().min(1),
-  // ISO-8601 instant; the service formats it to DD/MM/YYYY in IST.
+  // ISO-8601 instant of issue (the tax point); formatted DD/MM/YYYY in IST.
   issuedAt: z.string().datetime(),
   paymentMethod: z.enum(['cash', 'upi', 'card', 'online']),
   bookingNumber: z.string().min(1).nullish(),
+  // Issued with provisional (unreviewed) rates: printed as a test invoice
+  // (multi-branch TX-10). Absent on invoices issued before the review status.
+  taxReviewStatus: z.enum(['provisional', 'reviewed']).nullish(),
+  // What the invoice is for: a membership session prints as a ₹0 usage
+  // record, not as a tax-exempt supply (TX-07).
+  invoiceType: z.enum(['service', 'membership_purchase', 'membership_session']).optional(),
 
   seller: invoiceSellerSchema,
   customer: invoiceCustomerSchema,
@@ -101,17 +120,29 @@ export const invoicePdfPayloadSchema = z.object({
 
 export type InvoicePdfPayload = z.infer<typeof invoicePdfPayloadSchema>
 
-// The service's success response: where the rendered PDF was stored and its
-// bytes (base64) so the caller can attach it to the invoice email without a
-// second fetch. `pdfBase64` is optional so the caller can also choose to fetch
-// from `pdfUrl` instead of receiving the bytes inline.
-export const invoicePdfResultSchema = z.object({
+/** Enough stored invoice facts to locate a rendered PDF. */
+export const invoicePdfDownloadSchema = invoicePdfPayloadSchema
+  .pick({ invoiceNumber: true, issuedAt: true })
+  .strict()
+
+const invoicePdfResultBaseSchema = z.object({
   invoiceNumber: z.string().min(1),
-  pdfUrl: z.string().url(),
-  pdfBase64: z.string().min(1).optional(),
   // True when an existing stored PDF was returned (idempotent replay), false
   // when freshly rendered this call.
   reused: z.boolean().default(false),
 })
+
+// Private storage always sends the PDF inline for email attachments. Legacy
+// public storage can omit the inline bytes and let the caller fetch the URL.
+export const invoicePdfResultSchema = z.union([
+  invoicePdfResultBaseSchema.extend({
+    pdfObjectKey: z.string().regex(/^invoices\/\d{4}\/[A-Za-z0-9-]+\.pdf$/),
+    pdfBase64: z.string().min(1),
+  }),
+  invoicePdfResultBaseSchema.extend({
+    pdfUrl: z.string().url(),
+    pdfBase64: z.string().min(1).optional(),
+  }),
+])
 
 export type InvoicePdfResult = z.infer<typeof invoicePdfResultSchema>

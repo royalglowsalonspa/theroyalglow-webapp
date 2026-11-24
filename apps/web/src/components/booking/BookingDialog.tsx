@@ -57,6 +57,14 @@ interface ApiService {
   durationMinutes: number
   pricePaise: number
   description?: string | null
+  /** The branches that offer it; null (or absent) means every branch. */
+  availableBranchIds?: string[] | null
+}
+
+// Whether the branch offers the service (multi-branch R4.3). The booking API
+// checks the same and refuses a service its branch doesn't offer.
+function offeredAt(service: ApiService, branchId: string | null): boolean {
+  return !branchId || !service.availableBranchIds || service.availableBranchIds.includes(branchId)
 }
 
 interface ApiCategory {
@@ -184,6 +192,16 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
   const [slots, setSlots] = useState<AvailabilitySlot[]>([])
   const [slotsLoading, setSlotsLoading] = useState(false)
   const [slotsError, setSlotsError] = useState<string | null>(null)
+  const [dayHours, setDayHours] = useState<{
+    date: string
+    branchId: string
+    label: string
+  } | null>(null)
+  // Why the chosen day is closed (a holiday or one-off closure), if it is.
+  const [slotsClosure, setSlotsClosure] = useState<string | null>(null)
+  // Why the branch takes no bookings that day under its settings (a weekday
+  // it is closed, a date beyond its booking window), if so.
+  const [slotsNotice, setSlotsNotice] = useState<string | null>(null)
 
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -369,18 +387,38 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
     let cancelled = false
     setSlotsLoading(true)
     setSlotsError(null)
+    setSlotsClosure(null)
+    setSlotsNotice(null)
     setSlots([])
-    const query = new URLSearchParams({ date: toISODate(selectedDate), branchId: activeBranchId })
+    const date = toISODate(selectedDate)
+    const query = new URLSearchParams({ date, branchId: activeBranchId })
     fetch(`/api/availability?${query}`)
       .then(async (res) => {
         const json = await res.json().catch(() => null)
         if (!res.ok || !json?.success) {
           throw new Error(json?.error?.message ?? 'Could not load slots.')
         }
-        return json.data.slots as AvailabilitySlot[]
+        const closureName: unknown = json.data.closure?.name
+        const notice: unknown = json.data.notice
+        const open: unknown = json.data.businessHours?.open
+        const close: unknown = json.data.businessHours?.close
+        return {
+          slots: json.data.slots as AvailabilitySlot[],
+          closure: typeof closureName === 'string' ? closureName : null,
+          notice: typeof notice === 'string' ? notice : null,
+          hours:
+            typeof open === 'string' && typeof close === 'string'
+              ? `${formatTime12h(open)} – ${formatTime12h(close)}`
+              : null,
+        }
       })
-      .then((s) => {
-        if (!cancelled) setSlots(s)
+      .then((result) => {
+        if (!cancelled) {
+          setSlots(result.slots)
+          setSlotsClosure(result.closure)
+          setSlotsNotice(result.notice)
+          setDayHours(result.hours ? { date, branchId: activeBranchId, label: result.hours } : null)
+        }
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -406,6 +444,9 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
     setNotes('')
     setSlots([])
     setSlotsError(null)
+    setSlotsClosure(null)
+    setSlotsNotice(null)
+    setDayHours(null)
     setSubmitError(null)
     setSubmitting(false)
     setIsSubmitted(false)
@@ -418,10 +459,15 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
     onClose()
   }, [reset, onClose])
 
-  // Derived data
+  // Derived data. Only what the chosen branch offers is shown: each category
+  // lists its services offered there, and a category with none is hidden.
   const visibleCategories = useMemo(
-    () => (categories ?? []).filter((c) => c.serviceType === serviceType),
-    [categories, serviceType],
+    () =>
+      (categories ?? [])
+        .filter((c) => c.serviceType === serviceType)
+        .map((c) => ({ ...c, services: c.services.filter((s) => offeredAt(s, activeBranchId)) }))
+        .filter((c) => c.services.length > 0),
+    [categories, serviceType, activeBranchId],
   )
 
   const allServices = useMemo(() => (categories ?? []).flatMap((c) => c.services), [categories])
@@ -431,6 +477,25 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
     for (const s of allServices) map.set(s.id, s)
     return map
   }, [allServices])
+
+  // A branch change (or a restored booking) keeps only the services the
+  // branch offers, and the categories that still have one chosen or offered.
+  useEffect(() => {
+    if (!categories || !activeBranchId) return
+    setSelectedServiceIds((prev) => {
+      const next = prev.filter((id) => {
+        const s = servicesById.get(id)
+        return s ? offeredAt(s, activeBranchId) : false
+      })
+      return next.length === prev.length ? prev : next
+    })
+    setSelectedCategoryIds((prev) => {
+      const next = prev.filter((id) =>
+        categories.some((c) => c.id === id && c.services.some((s) => offeredAt(s, activeBranchId))),
+      )
+      return next.length === prev.length ? prev : next
+    })
+  }, [activeBranchId, categories, servicesById])
 
   // Services grouped under their (selected) category, for step 3.
   const groupedSelectedCategories = useMemo(
@@ -654,6 +719,15 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
               slots={slots}
               slotsLoading={slotsLoading}
               slotsError={slotsError}
+              slotsClosure={slotsClosure}
+              slotsNotice={slotsNotice}
+              hours={
+                selectedDate &&
+                dayHours?.branchId === activeBranchId &&
+                dayHours.date === toISODate(selectedDate)
+                  ? dayHours.label
+                  : null
+              }
               onSelectDate={(d) => {
                 setSelectedDate(d)
                 setSelectedTime(null)
@@ -857,6 +931,9 @@ function Step1({
   slots,
   slotsLoading,
   slotsError,
+  slotsClosure,
+  slotsNotice,
+  hours,
   onSelectDate,
   onSelectTime,
 }: {
@@ -870,6 +947,11 @@ function Step1({
   slots: AvailabilitySlot[]
   slotsLoading: boolean
   slotsError: string | null
+  /** Why the chosen day is closed, if it is. */
+  slotsClosure: string | null
+  /** Why the branch takes no bookings that day under its settings, if so. */
+  slotsNotice: string | null
+  hours: string | null
   onSelectDate: (d: Date) => void
   onSelectTime: (t: string) => void
 }) {
@@ -929,6 +1011,9 @@ function Step1({
         <h3 className="font-ui text-[11px] uppercase tracking-[2px] text-gold-ink mb-3">
           Select Time
         </h3>
+        {hours && !slotsLoading && !slotsError && !slotsClosure && (
+          <p className="mb-3 font-sans text-[14px] text-dusty-gray">Branch hours {hours} IST</p>
+        )}
 
         {!selectedDate ? (
           <p className="font-sans text-[14px] text-dusty-gray">
@@ -951,6 +1036,14 @@ function Step1({
         ) : slotsError ? (
           <p className="font-sans text-[14px] text-error" role="alert">
             {slotsError}
+          </p>
+        ) : slotsClosure ? (
+          <p className="font-sans text-[14px] text-dusty-gray" aria-live="polite">
+            We’re closed on this day ({slotsClosure}). Please choose another day.
+          </p>
+        ) : slotsNotice ? (
+          <p className="font-sans text-[14px] text-dusty-gray" aria-live="polite">
+            {slotsNotice} Please choose another day.
           </p>
         ) : slots.length === 0 ? (
           <p className="font-sans text-[14px] text-dusty-gray">

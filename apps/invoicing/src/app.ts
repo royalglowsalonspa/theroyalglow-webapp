@@ -8,6 +8,7 @@
  * Description  : The invoicing service HTTP surface.
  *                - GET  /healthz       liveness probe
  *                - POST /v1/invoices   HMAC-verified render + store (idempotent)
+ *                - POST /v1/invoices/download   HMAC-verified read of a stored PDF
  *
  * Security     : EVERY /v1/invoices request is HMAC-SHA256 verified (shared
  *                secret over `${timestamp}.${rawBody}`) BEFORE any parsing or
@@ -19,23 +20,28 @@
  *                the supplied paise values and validates its own response shape
  *                against invoicePdfResultSchema before returning.
  ************************************************************/
-import { verifyRequest } from '@rgss/business'
+import { invoicePdfObjectKey, verifyRequest } from '@rgss/business'
 import { createLogger } from '@rgss/logger'
 import type { InvoicePdfResult } from '@rgss/types'
-import { invoicePdfPayloadSchema, invoicePdfResultSchema } from '@rgss/types'
+import {
+  invoicePdfDownloadSchema,
+  invoicePdfPayloadSchema,
+  invoicePdfResultSchema,
+} from '@rgss/types'
 import { Hono } from 'hono'
+import { createMiddleware } from 'hono/factory'
 import { env } from './env'
 import { renderInvoicePdf } from './render'
 import { captureException } from './sentry'
-import { buildObjectKey, buildPdfUrl, getPdfBytes, objectExists, putPdf } from './storage/r2'
+import { buildPdfUrl, findPdfBytes, getPdfBytes, objectExists, putPdfIfAbsent } from './storage/r2'
 
 const logger = createLogger({ service: 'invoicing', environment: env.NODE_ENV })
 
-export const app = new Hono()
+type SignedJson = { Variables: { signedJson: unknown } }
 
-app.get('/healthz', (c) => c.json({ status: 'ok' }))
+export const app = new Hono<SignedJson>()
 
-app.post('/v1/invoices', async (c) => {
+const requireSignedJson = createMiddleware<SignedJson>(async (c, next) => {
   try {
     // 1. Read the RAW body exactly as signed (no re-serialisation).
     const rawText = await c.req.text()
@@ -56,14 +62,27 @@ app.post('/v1/invoices', async (c) => {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Invalid signature' } }, 401)
     }
 
-    // 3. Parse + validate the body against the shared contract.
-    let json: unknown
+    // 3. Parse the body for validation by the chosen route.
     try {
-      json = JSON.parse(rawText)
+      c.set('signedJson', JSON.parse(rawText))
     } catch {
       return c.json({ error: { code: 'VALIDATION_ERROR', message: 'Body is not valid JSON' } }, 400)
     }
-    const parsed = invoicePdfPayloadSchema.safeParse(json)
+    await next()
+  } catch (error) {
+    logger.error('invoice PDF request failed', {
+      message: error instanceof Error ? error.message : 'unknown error',
+    })
+    captureException(error)
+    return c.json({ error: { code: 'INTERNAL_ERROR', message: 'Internal error' } }, 500)
+  }
+})
+
+app.get('/healthz', (c) => c.json({ status: 'ok' }))
+
+app.post('/v1/invoices', requireSignedJson, async (c) => {
+  try {
+    const parsed = invoicePdfPayloadSchema.safeParse(c.get('signedJson'))
     if (!parsed.success) {
       return c.json(
         {
@@ -79,29 +98,24 @@ app.post('/v1/invoices', async (c) => {
     const payload = parsed.data
 
     // 4. Idempotency: derive the key; replay a stored PDF if present.
-    const key = buildObjectKey(payload.invoiceNumber, payload.issuedAt)
-    const pdfUrl = buildPdfUrl(key)
+    const key = invoicePdfObjectKey(payload.invoiceNumber, payload.issuedAt)
+    const exists = await objectExists(key)
+    const rendered = exists ? null : await renderInvoicePdf(payload)
+    const created = rendered !== null && (await putPdfIfAbsent(key, rendered))
+    const bytes = created ? rendered : await getPdfBytes(key)
+    const reused = !created
+    logger.info(reused ? 'invoice pdf reused' : 'invoice pdf rendered', {
+      invoiceNumber: payload.invoiceNumber,
+      key,
+    })
 
-    let result: InvoicePdfResult
-    if (await objectExists(key)) {
-      const bytes = await getPdfBytes(key)
-      result = {
-        invoiceNumber: payload.invoiceNumber,
-        pdfUrl,
-        pdfBase64: Buffer.from(bytes).toString('base64'),
-        reused: true,
-      }
-      logger.info('invoice pdf reused', { invoiceNumber: payload.invoiceNumber, key })
-    } else {
-      const bytes = await renderInvoicePdf(payload)
-      await putPdf(key, bytes)
-      result = {
-        invoiceNumber: payload.invoiceNumber,
-        pdfUrl,
-        pdfBase64: Buffer.from(bytes).toString('base64'),
-        reused: false,
-      }
-      logger.info('invoice pdf rendered', { invoiceNumber: payload.invoiceNumber, key })
+    const result: InvoicePdfResult = {
+      invoiceNumber: payload.invoiceNumber,
+      pdfBase64: Buffer.from(bytes).toString('base64'),
+      reused,
+      ...(env.R2_INVOICE_ACCESS === 'private'
+        ? { pdfObjectKey: key }
+        : { pdfUrl: buildPdfUrl(key) }),
     }
 
     // 5. Validate our own response shape before returning.
@@ -117,6 +131,34 @@ app.post('/v1/invoices', async (c) => {
   } catch (error) {
     // Never leak stack traces to the caller.
     logger.error('invoice render failed', {
+      message: error instanceof Error ? error.message : 'unknown error',
+    })
+    captureException(error)
+    return c.json({ error: { code: 'INTERNAL_ERROR', message: 'Internal error' } }, 500)
+  }
+})
+
+app.post('/v1/invoices/download', requireSignedJson, async (c) => {
+  try {
+    const request = invoicePdfDownloadSchema.safeParse(c.get('signedJson'))
+    if (!request.success) {
+      return c.json(
+        { error: { code: 'VALIDATION_ERROR', message: 'Invalid invoice download request' } },
+        400,
+      )
+    }
+    const { invoiceNumber, issuedAt } = request.data
+    const bytes = await findPdfBytes(invoicePdfObjectKey(invoiceNumber, issuedAt))
+    if (!bytes) {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Invoice PDF not found' } }, 404)
+    }
+    return c.body(new Uint8Array(bytes), 200, {
+      'Cache-Control': 'private, no-store',
+      'Content-Type': 'application/pdf',
+      'X-Content-Type-Options': 'nosniff',
+    })
+  } catch (error) {
+    logger.error('invoice PDF download failed', {
       message: error instanceof Error ? error.message : 'unknown error',
     })
     captureException(error)

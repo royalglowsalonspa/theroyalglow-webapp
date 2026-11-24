@@ -7,12 +7,15 @@
  * Scope        : API — Background Jobs
  *
  * Description  : QStash-scheduled job (12:00 AM IST daily) that flips active
- *                SPA memberships past their expiry to 'expired'.
+ *                SPA memberships past their expiry to 'expired', after
+ *                cancelling their sessions that never started, which gives
+ *                back the minutes those held (membership-scheduling.md MS-06).
  *
  * Responsibilities :
  * - Verify the QStash signature before doing any work
- * - Run the status-guarded membership expiry UPDATE (idempotent)
- * - Ping the MEMBERSHIP_EXPIRE heartbeat on success
+ * - Run the status-guarded expiry (idempotent); sessions in progress keep
+ *   their minutes and complete later
+ * - Ping the MEMBERSHIP_EXPIRE heartbeat on success; answer the counts
  *
  * Features / Functionality :
  * - Hard expiry enforcement (the notify-only alerts are a separate job)
@@ -54,9 +57,12 @@ export const POST = async (req: Request) => {
   }
 
   try {
-    await jobMembershipAutoExpire()
+    const result = await jobMembershipAutoExpire()
+    if (result.expired > 0 || result.cancelledSessions > 0) {
+      logger.info('[job:membership-auto-expire] done', result)
+    }
     await pingHeartbeat('MEMBERSHIP_EXPIRE')
-    return Response.json({ success: true })
+    return Response.json({ success: true, ...result })
   } catch (error) {
     // Return 500 so QStash retries with backoff; the body is idempotent.
     logger.error('[job:membership-auto-expire] failed', {

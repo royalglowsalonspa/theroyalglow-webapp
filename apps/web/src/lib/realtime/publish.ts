@@ -13,7 +13,7 @@
  *                so customer and admin UIs update live (see ably-channels.md).
  *
  * Responsibilities :
- * - Publish a booking event to `booking:{bookingId}`,
+ * - Publish a booking event to `booking:{branchId}:{bookingId}`,
  *   `admin:bookings:{branchId}`, and (when customerId is given)
  *   `customer:{customerId}:bookings` via the Ably REST HTTP API
  * - Stamp `bookingId` into the event payload so per-customer subscribers can
@@ -42,7 +42,7 @@
  ************************************************************/
 
 import { createLogger } from '@rgss/logger'
-import { customerBookingsChannel } from './channels'
+import { adminBookingsChannel, bookingChannel, customerBookingsChannel } from './channels'
 
 const logger = createLogger({
   service: 'web:realtime:publish',
@@ -54,9 +54,10 @@ const logger = createLogger({
 export type BookingEvent = 'created' | 'status_changed' | 'completed' | 'assigned'
 
 type PublishBookingEventInput = {
-  // The booking this event is about. When present, publishes to `booking:{id}`
-  // and is stamped into the event payload as `data.bookingId` so subscribers on
-  // the shared customer channel can filter to the right booking.
+  // The booking this event is about. With branchId, publishes to
+  // `booking:{branchId}:{bookingId}`; it is always stamped into the event payload
+  // as `data.bookingId` so subscribers on the shared customer channel can filter
+  // to the right booking.
   bookingId?: string | null
   // The branch the booking belongs to. When present, publishes to the admin
   // dashboard feed `admin:bookings:{branchId}`.
@@ -147,11 +148,12 @@ export async function publishBookingEvent(input: PublishBookingEventInput): Prom
     : { ...input.data }
 
   const channels: string[] = []
-  if (input.bookingId) {
-    channels.push(`booking:${input.bookingId}`)
+  if (input.bookingId && input.branchId) {
+    // Only the booking's branch can subscribe to its channel.
+    channels.push(bookingChannel(input.branchId, input.bookingId))
   }
   if (input.branchId) {
-    channels.push(`admin:bookings:${input.branchId}`)
+    channels.push(adminBookingsChannel(input.branchId))
   }
   if (input.customerId) {
     // The owning customer's own channel — the channel their token authorises.

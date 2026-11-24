@@ -37,7 +37,7 @@ name: Pre-Migration Catalogue Backup
 #   test -> DATABASE_URL_UNPOOLED_TEST
 #   pprd -> DATABASE_URL_UNPOOLED_PPRD
 #   prod -> DATABASE_URL_UNPOOLED_PROD
-# Plus the R2 secrets already used by weekly-backup.yml.
+# Plus the dedicated backup write credentials used by weekly-backup.yml.
 # ---------------------------------------------------------------------------
 
 on:
@@ -53,18 +53,30 @@ on:
           - pprd
           - prod
 
+permissions:
+  contents: read
+
 jobs:
   backup:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_WRITE_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_WRITE_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: auto
-      R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
     steps:
-      - name: Install PostgreSQL client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client-16
+      - uses: actions/checkout@v7
+
+      - name: Verify private R2 backup storage access
+        shell: bash
+        env:
+          R2_BACKUP_ACCOUNT_ID: ${{ vars.R2_BACKUP_ACCOUNT_ID }}
+        run: bash scripts/backup/verify-r2-backup-access.sh
+
+      - name: Select preinstalled PostgreSQL 18 tools
+        run: |
+          test -x /usr/lib/postgresql/18/bin/pg_dump
+          echo '/usr/lib/postgresql/18/bin' >> "$GITHUB_PATH"
 
       # Same resolver as migrate.yml: pick the unpooled URL for the requested
       # branch and fail LOUDLY when the secret is missing, rather than letting
@@ -98,9 +110,15 @@ jobs:
         env:
           PGURL: ${{ steps.target.outputs.url }}
         run: |
+          set -euo pipefail
           count() {
-            psql "$PGURL" -tAc \
-              "SELECT CASE WHEN to_regclass('$1') IS NULL THEN 'absent' ELSE (SELECT count(*)::text FROM $1) END"
+            local exists
+            exists=$(psql -X "$PGURL" -v ON_ERROR_STOP=1 -tAc "SELECT to_regclass('$1') IS NOT NULL") || return
+            if [[ "$exists" == t ]]; then
+              psql -X "$PGURL" -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM $1"
+            else
+              echo absent
+            fi
           }
           {
             echo "### Catalogue baseline — ${{ inputs.environment }}"
@@ -108,7 +126,8 @@ jobs:
             echo "| Table | Rows |"
             echo "|-------|------|"
             for t in public.service_category public.service cms.service_category cms.service; do
-              echo "| \`$t\` | $(count "$t") |"
+              rows=$(count "$t")
+              echo "| \`$t\` | $rows |"
             done
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -116,14 +135,17 @@ jobs:
       # both before the Payload migration (cms.service_category absent) and
       # after it.
       - name: Dump catalogue tables
+        shell: bash
         env:
           PGURL: ${{ steps.target.outputs.url }}
         run: |
+          set -euo pipefail
+          umask 077
           TIMESTAMP=$(date +%Y%m%d_%H%M%S)
           BACKUP_FILE="rgss_catalogue_${{ inputs.environment }}_${TIMESTAMP}.sql.gz"
           TABLE_ARGS=()
           for t in public.service_category public.service cms.service_category cms.service; do
-            EXISTS=$(psql "$PGURL" -tAc "SELECT to_regclass('$t') IS NOT NULL")
+            EXISTS=$(psql -X "$PGURL" -v ON_ERROR_STOP=1 -tAc "SELECT to_regclass('$t') IS NOT NULL")
             if [ "$EXISTS" = "t" ]; then
               TABLE_ARGS+=(--table="$t")
             else
@@ -143,19 +165,22 @@ jobs:
 
       - name: Upload to Cloudflare R2
         run: |
-          aws s3 cp "${{ env.BACKUP_FILE }}" \
-            "s3://rgss-backups/pre-migration/${{ env.BACKUP_FILE }}" \
-            --endpoint-url "$R2_ENDPOINT"
+          aws s3 cp "$BACKUP_FILE" "s3://$R2_BACKUP_BUCKET/pre-migration/$BACKUP_FILE" \
+            --endpoint-url "$R2_BACKUP_ENDPOINT"
 
       # Download it back and prove it decompresses AND contains a data section
       # for public.service. A dump that gunzips cleanly but holds no rows is a
       # backup that only looks like one.
       - name: Verify backup integrity
+        shell: bash
         run: |
-          aws s3 cp "s3://rgss-backups/pre-migration/${{ env.BACKUP_FILE }}" verify.sql.gz \
-            --endpoint-url "$R2_ENDPOINT"
+          set -euo pipefail
+          umask 077
+          aws s3 cp "s3://$R2_BACKUP_BUCKET/pre-migration/$BACKUP_FILE" verify.sql.gz \
+            --endpoint-url "$R2_BACKUP_ENDPOINT"
+          cmp -s "$BACKUP_FILE" verify.sql.gz
           gunzip -t verify.sql.gz
-          if ! gunzip -c verify.sql.gz | grep -q 'COPY public.service '; then
+          if ! gunzip -c verify.sql.gz | grep -F 'COPY public.service ' >/dev/null; then
             echo "::error title=Backup incomplete::No COPY data section for public.service in the dump."
             exit 1
           fi
@@ -165,14 +190,20 @@ jobs:
         run: |
           {
             echo ""
-            echo "**Backup:** \`s3://rgss-backups/pre-migration/${{ env.BACKUP_FILE }}\` (${{ env.BACKUP_SIZE }})"
+            echo "**Backup:** \`s3://$R2_BACKUP_BUCKET/pre-migration/$BACKUP_FILE\` ($BACKUP_SIZE)"
             echo ""
             echo "Restore procedure: knowledge-base/service-catalogue-migration.md"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Notify on failure
         if: failure()
+        env:
+          INCIDENT_WEBHOOK: ${{ secrets.BETTER_STACK_INCIDENT_WEBHOOK }}
         run: |
-          curl -X POST ${{ secrets.BETTER_STACK_INCIDENT_WEBHOOK }} \
+          if [[ -z "$INCIDENT_WEBHOOK" ]]; then
+            echo '::warning title=Notification unavailable::The backup failed and no Better Stack incident webhook is configured.'
+            exit 0
+          fi
+          curl --fail-with-body --silent --show-error --max-time 10 "$INCIDENT_WEBHOOK" \
             -H "Content-Type: application/json" \
             -d '{"title": "Pre-migration catalogue backup FAILED (${{ inputs.environment }})", "severity": "high"}'

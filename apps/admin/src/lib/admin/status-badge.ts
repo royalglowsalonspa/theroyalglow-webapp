@@ -59,6 +59,8 @@ export const STATUS_VARIANT: Record<string, BadgeVariant> = {
   approved: 'success',
   // warning — pending or in-progress states
   pending: 'warning',
+  // a settlement statement with money owed and no payment recorded yet
+  unpaid: 'warning',
   follow_up: 'warning',
   in_progress: 'warning',
   contacted: 'warning',

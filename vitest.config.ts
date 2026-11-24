@@ -109,6 +109,18 @@ export function createRootConfig({ includeLiveSuites = false }: RootConfigOption
           },
         },
         {
+          plugins: [react()],
+          resolve: {
+            alias: { react: resolve(import.meta.dirname, 'apps/invoicing/node_modules/react') },
+          },
+          test: {
+            name: 'invoicing',
+            environment: 'node',
+            include: ['apps/invoicing/src/**/*.test.ts'],
+            exclude,
+          },
+        },
+        {
           test: {
             name: 'errors',
             environment: 'node',
@@ -124,6 +136,11 @@ export function createRootConfig({ includeLiveSuites = false }: RootConfigOption
             // This is the project that owns the Neon-forking drift suites, so
             // the exclusion matters most here.
             exclude,
+            // The live suites share the dev database: a role change's guard
+            // checks every branch row, so another suite's throwaway branches
+            // appearing meanwhile make it report a stale change. Run their
+            // files one at a time; the ordinary db unit tests stay parallel.
+            ...(includeLiveSuites ? { fileParallelism: false } : {}),
           },
         },
         {

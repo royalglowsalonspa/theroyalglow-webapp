@@ -34,11 +34,19 @@
 'use client'
 
 import { formatDateIN } from '@rgss/business'
-import { ArrowLeft, MessageCircle, Phone, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowRightLeft, MessageCircle, Phone, Trash2 } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Icon } from '@/components/ui/icon'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { EmptyState } from '@/components/ui/state/empty-state'
 import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
@@ -52,12 +60,15 @@ import {
   type LeadNoteRow,
   type LeadStatus,
 } from '@/lib/admin/leads'
+import { toast } from '@/lib/admin/toast'
 
 // The lead record returned by GET /api/leads/[id] (the lead row joined
 // with its service-interest name, assigned-to name, and converted booking
 // number). Timestamps arrive as ISO strings over the wire.
 type LeadRecord = {
   id: string
+  /** The pipeline (branch) the lead is in; writes send it back. */
+  branchId: string
   name: string
   phone: string
   email: string | null
@@ -78,6 +89,8 @@ type LeadRecord = {
   createdAt: string
   updatedAt: string
 }
+
+type Destination = { id: string; name: string }
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24
 
@@ -100,9 +113,19 @@ function toWhatsAppLink(phone: string): string {
   return `https://wa.me/91${digits}`
 }
 
-export function LeadDetail({ leadId, embedded = false }: { leadId: string; embedded?: boolean }) {
+export function LeadDetail({
+  leadId,
+  embedded = false,
+  onMoved,
+}: {
+  leadId: string
+  embedded?: boolean
+  onMoved?: () => void
+}) {
+  const router = useRouter()
   const [lead, setLead] = useState<LeadRecord | null>(null)
   const [notes, setNotes] = useState<LeadNoteRow[]>([])
+  const [destinations, setDestinations] = useState<Destination[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -117,6 +140,7 @@ export function LeadDetail({ leadId, embedded = false }: { leadId: string; embed
       }
       setLead(json.data.lead as LeadRecord)
       setNotes(json.data.notes as LeadNoteRow[])
+      setDestinations(json.data.destinations ?? [])
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Could not load this lead.')
     } finally {
@@ -145,9 +169,23 @@ export function LeadDetail({ leadId, embedded = false }: { leadId: string; embed
         <ErrorState message={error} onRetry={load} />
       ) : lead ? (
         <>
-          <InfoCard lead={lead} onChanged={load} />
+          <InfoCard
+            lead={lead}
+            destinations={destinations}
+            onChanged={load}
+            onMoved={() => {
+              setLead(null)
+              setNotes([])
+              setLoading(true)
+              if (onMoved) {
+                onMoved()
+              } else {
+                router.replace('/leads')
+              }
+            }}
+          />
           <AttributionPanel lead={lead} />
-          <NotesTimeline leadId={leadId} notes={notes} onAdded={load} />
+          <NotesTimeline leadId={leadId} branchId={lead.branchId} notes={notes} onAdded={load} />
         </>
       ) : (
         <EmptyState
@@ -159,12 +197,27 @@ export function LeadDetail({ leadId, embedded = false }: { leadId: string; embed
   )
 }
 
-function InfoCard({ lead, onChanged }: { lead: LeadRecord; onChanged: () => void }) {
+function InfoCard({
+  lead,
+  destinations,
+  onChanged,
+  onMoved,
+}: {
+  lead: LeadRecord
+  destinations: Destination[]
+  onChanged: () => void
+  onMoved: () => void
+}) {
   const [busyStatus, setBusyStatus] = useState<LeadStatus | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [lostOpen, setLostOpen] = useState(false)
   const [lostReason, setLostReason] = useState('')
+  const [moveOpen, setMoveOpen] = useState(false)
+  const [toBranchId, setToBranchId] = useState('')
+  const [moving, setMoving] = useState(false)
   const reasonId = useId()
+  const destinationId = useId()
+  const busy = busyStatus !== null || moving
 
   const days = daysSinceCapture(lead.createdAt)
   const whatsAppHref = toWhatsAppLink(lead.phone)
@@ -184,7 +237,11 @@ function InfoCard({ lead, onChanged }: { lead: LeadRecord; onChanged: () => void
         const res = await fetch(`/api/leads/${lead.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(reason ? { status, reason } : { status }),
+          body: JSON.stringify(
+            reason
+              ? { branchId: lead.branchId, status, reason }
+              : { branchId: lead.branchId, status },
+          ),
         })
         const json = await res.json()
         if (!res.ok || !json.success) {
@@ -199,7 +256,7 @@ function InfoCard({ lead, onChanged }: { lead: LeadRecord; onChanged: () => void
         setBusyStatus(null)
       }
     },
-    [lead.id, onChanged],
+    [lead.id, lead.branchId, onChanged],
   )
 
   function submitLost(e: React.FormEvent) {
@@ -209,6 +266,30 @@ function InfoCard({ lead, onChanged }: { lead: LeadRecord; onChanged: () => void
       return
     }
     patchStatus('lost', lostReason.trim())
+  }
+
+  async function submitMove(e: React.FormEvent) {
+    e.preventDefault()
+    if (busy || !toBranchId) return
+    setMoving(true)
+    setActionError(null)
+    try {
+      const res = await fetch(`/api/leads/${lead.id}/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ branchId: lead.branchId, toBranchId }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        throw new Error(json?.error?.message ?? 'Could not move the lead.')
+      }
+      toast.success(`Lead moved to ${json.data.destination.name}`)
+      onMoved()
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : 'Could not move the lead.')
+    } finally {
+      setMoving(false)
+    }
   }
 
   return (
@@ -260,7 +341,7 @@ function InfoCard({ lead, onChanged }: { lead: LeadRecord; onChanged: () => void
             type="button"
             size="sm"
             onClick={() => patchStatus(status)}
-            disabled={busyStatus !== null}
+            disabled={busy || moveOpen}
             aria-busy={busyStatus === status}
             className="font-ui"
           >
@@ -277,13 +358,74 @@ function InfoCard({ lead, onChanged }: { lead: LeadRecord; onChanged: () => void
               setLostOpen(true)
               setActionError(null)
             }}
-            disabled={busyStatus !== null}
+            disabled={busy || moveOpen}
             className="border-error/40 font-ui text-error hover:bg-error/5 hover:text-error"
           >
             <Icon icon={Trash2} decorative size={15} /> Mark Lost
           </Button>
         )}
+
+        {destinations.length > 0 && !moveOpen && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy || lostOpen}
+            onClick={() => {
+              setMoveOpen(true)
+              setActionError(null)
+            }}
+            className="font-ui"
+          >
+            <Icon icon={ArrowRightLeft} decorative size={15} /> Move to another branch
+          </Button>
+        )}
       </div>
+
+      {moveOpen && (
+        <form onSubmit={submitMove} className="mt-3 space-y-2">
+          <label
+            htmlFor={destinationId}
+            className="block font-ui text-sm font-medium text-warm-gray"
+          >
+            Destination branch
+          </label>
+          <Select value={toBranchId} onValueChange={setToBranchId} disabled={moving}>
+            <SelectTrigger id={destinationId}>
+              <SelectValue placeholder="Choose a branch" />
+            </SelectTrigger>
+            <SelectContent>
+              {destinations.map(({ id, name }) => (
+                <SelectItem key={id} value={id}>
+                  {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="font-sans text-sm text-warm-gray">
+            The lead and its notes will move to the selected branch. The current assignment will be
+            cleared.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" size="sm" disabled={busy || !toBranchId} aria-busy={moving}>
+              {moving ? 'Moving…' : 'Move lead'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={moving}
+              onClick={() => {
+                setMoveOpen(false)
+                setToBranchId('')
+                setActionError(null)
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      )}
 
       {/* Inline "mark lost" reason form */}
       {lostOpen && (
@@ -365,10 +507,12 @@ function AttributionPanel({ lead }: { lead: LeadRecord }) {
 
 function NotesTimeline({
   leadId,
+  branchId,
   notes,
   onAdded,
 }: {
   leadId: string
+  branchId: string
   notes: LeadNoteRow[]
   onAdded: () => void
 }) {
@@ -389,7 +533,7 @@ function NotesTimeline({
         const res = await fetch(`/api/leads/${leadId}/notes`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: content.trim() }),
+          body: JSON.stringify({ branchId, content: content.trim() }),
         })
         const json = await res.json()
         if (!res.ok || !json.success) {
@@ -403,7 +547,7 @@ function NotesTimeline({
         setSaving(false)
       }
     },
-    [content, leadId, onAdded],
+    [branchId, content, leadId, onAdded],
   )
 
   return (

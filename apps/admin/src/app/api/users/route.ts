@@ -1,49 +1,58 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 21-06-2026 & Updated - 21-06-2026
+ * Date         : Created - 21-06-2026 & Updated - 28-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : GET|POST /api/users
- * Scope        : API — Admin User / RBAC administration
+ * Scope        : API — Users & Roles at the active branch (multi-branch R1.4, R1.5)
  *
- * Description  : Owner-facing user directory + role assignment. GET returns a
- *                searchable list of all accounts; POST assigns an RBAC role to
- *                a user by the email they signed in with.
+ * Description  : GET looks people up by name, phone, or email and says, for
+ *                each, which roles they can be given at the active branch, or
+ *                why not. POST changes who holds a role there: the Developer
+ *                sets the Owner; the branch's Owner or the Developer sets and
+ *                removes its Manager and Receptionist.
  *
  * Responsibilities :
- * - List/search user accounts for the role-administration screen (owner+)
- * - Assign a role to an existing user by email (owner+)
- * - Enforce privilege guards: no self-edit, no granting a role above your own,
- *   no editing an account already above your own level
+ * - Look up people (≥ 3 characters, ≤ 10 matches) — Owner of the branch+
+ * - Preview each match's possible changes with the same planner POST uses
+ * - Apply one change in one transaction (lib/api/branch-roles)
  *
  * Features / Functionality :
- * - GET  /api/users?search= → { users: AdminUserRow[] }
- * - POST /api/users { email, role } → { user: AdminUserRow }
- * - Zod-validated input; case-insensitive email match
+ * - GET  /api/users?search= → { branchId, users: [{ id, name, email, phone,
+ *        here, actions, note }] }
+ * - POST /api/users { kind, branchId, userId, expectedHolderId? }
+ *        → { changed }
  *
  * Tech Stack   : Next.js 16 (Route Handler)
  * Layer        : API (Thin Orchestrator)
  *
- * Dependencies : @/lib/api/error-handler, @/lib/api/session, @/lib/rbac,
- *                @rgss/db/queries, @rgss/errors, @rgss/types
+ * Dependencies : @/lib/api/branch-context, @/lib/api/branch-roles,
+ *                @/lib/api/error-handler, @rgss/business, @rgss/db/queries,
+ *                @rgss/errors, @rgss/types
  *
  * Notes        :
- * - Requires min role: owner (matches ROUTE_MIN_LEVEL '/users' = 4).
- * - A user must sign in once on theroyalglow.in before a role can be assigned
- *   (the sign-in creates their `user` row). A 404 is returned otherwise.
+ * - Authority is re-read from the database on every call, and again inside
+ *   the write transaction; the session's cached role grants nothing.
+ * - `branchId` in POST is the branch the page was rendered for; a tab left
+ *   open across a branch switch gets 409 BRANCH_CONTEXT_CHANGED.
+ * - A match never says which other branch someone works at (R1.11).
+ * - Stylists and Therapists are added and removed on the Staff page.
  ************************************************************/
 
-import { getUserByEmail, listUsers, updateUserRoleByEmail } from '@rgss/db/queries'
-import { badRequest, forbidden, notFound } from '@rgss/errors'
-import { assignRoleSchema, userListQuerySchema } from '@rgss/types'
-import { audit } from '@/lib/api/audit'
+import { type BranchRoleRequest, heldRoleAt, receptionistAt } from '@rgss/business'
+import { getRoleSnapshot, searchUsers } from '@rgss/db/queries'
+import { badRequest } from '@rgss/errors'
+import { branchRoleChangeSchema, userListQuerySchema } from '@rgss/types'
+import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
+import { changeBranchRole, previewBranchRoles } from '@/lib/api/branch-roles'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
-import { requireRole } from '@/lib/api/session'
-import { ROLE_LEVELS, resolveRoleLevel } from '@/lib/rbac'
 
-// GET /api/users?search= — searchable account directory. Owner+ only.
+const DEVELOPER_NOTE = "The Developer account's role can only be changed in the database."
+
+// GET /api/users?search= — people the actor could give a role at the active
+// branch. Owner of that branch, or the Developer.
 export const GET = withErrorHandler(async (req: Request) => {
-  await requireRole('owner')
+  const ctx = await requireBranchRole('owner')
 
   const params = Object.fromEntries(new URL(req.url).searchParams)
   const parsed = userListQuerySchema.safeParse(params)
@@ -51,62 +60,69 @@ export const GET = withErrorHandler(async (req: Request) => {
     throw badRequest('Invalid query parameters', parsed.error.flatten().fieldErrors)
   }
 
-  const users = await listUsers(parsed.data.search ? { search: parsed.data.search } : {})
-  return apiSuccess({ users })
+  const branchId = ctx.branch.id
+  // searchUsers returns [] for a missing/short term — never the whole table.
+  const matches = await searchUsers(parsed.data.search ?? '')
+  if (matches.length === 0) {
+    return apiSuccess({ branchId, users: [] })
+  }
+
+  const actorId = ctx.session.user.id
+  const snapshot = await getRoleSnapshot(branchId, [actorId, ...matches.map((m) => m.id)])
+  const branch = snapshot.branches.find((b) => b.id === branchId)
+  const holders = {
+    set_owner: branch?.ownerUserId ?? null,
+    set_manager: branch?.managerUserId ?? null,
+    set_receptionist: receptionistAt(snapshot, branchId)?.userId ?? null,
+  } as const
+
+  const users = matches.map((match) => {
+    const requests: BranchRoleRequest[] = (
+      ['set_owner', 'set_manager', 'set_receptionist'] as const
+    ).map((kind) => ({ kind, branchId, userId: match.id, expectedHolderId: holders[kind] }))
+    const previews = previewBranchRoles(snapshot, actorId, requests)
+    const actions = previews.filter((p) => p.outcome === 'change').map((p) => p.kind)
+    const here = heldRoleAt(snapshot, branchId, match.id)
+
+    let note: string | null = null
+    if (match.id === actorId) {
+      note = 'This is you. Nobody changes their own role.'
+    } else if (snapshot.users.find((u) => u.id === match.id)?.role === 'developer') {
+      note = DEVELOPER_NOTE
+    } else if (actions.length === 0 && here === null) {
+      note = previews.find((p) => p.outcome === 'unavailable')?.reason ?? null
+    }
+
+    return {
+      id: match.id,
+      name: match.name,
+      email: match.email,
+      phone: match.phone,
+      here,
+      actions,
+      note,
+    }
+  })
+  return apiSuccess({ branchId, users })
 })
 
-// POST /api/users { email, role } — assign an RBAC role to a user by email.
-// Owner+ only, with privilege guards (see below).
+// POST /api/users — change who holds a role at the active branch.
 export const POST = withErrorHandler(async (req: Request) => {
-  const session = await requireRole('owner')
-  const actor = session.user as { id: string; email?: string | null; role?: string | null }
+  const ctx = await requireBranchRole('owner')
 
   const body = await req.json().catch(() => null)
-  const parsed = assignRoleSchema.safeParse(body)
+  const parsed = branchRoleChangeSchema.safeParse(body)
   if (!parsed.success) {
     throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
   }
-  const { email, role } = parsed.data
+  assertRenderedBranch(ctx, parsed.data.branchId)
 
-  const actorLevel = resolveRoleLevel(actor.role)
-  const targetRoleLevel = ROLE_LEVELS[role]
-
-  // Guard 1: cannot grant a role higher than your own (no privilege escalation).
-  if (targetRoleLevel > actorLevel) {
-    throw forbidden('You cannot assign a role higher than your own.')
-  }
-
-  // Guard 2: cannot change your own role (prevents self-lockout / self-promote).
-  if (actor.email && actor.email.toLowerCase() === email) {
-    throw badRequest('You cannot change your own role.')
-  }
-
-  // The user must already exist (they sign in on the website first).
-  const existing = await getUserByEmail(email)
-  if (!existing) {
-    throw notFound(
-      'No account found with that email. Ask them to sign in on theroyalglow.in once, then try again.',
-    )
-  }
-
-  // Guard 3: cannot edit an account already at a higher level than yours.
-  if (resolveRoleLevel(existing.role) > actorLevel) {
-    throw forbidden('You cannot change the role of an account above your own level.')
-  }
-
-  const updated = await updateUserRoleByEmail(email, role)
-  if (!updated) {
-    // Race: row vanished between lookup and update. Treat as not found.
-    throw notFound('No account found with that email.')
-  }
-
-  await audit(req, session, {
-    action: 'status_change',
-    entityType: 'user',
-    entityId: updated.id,
-    oldValues: { role: existing.role },
-    newValues: { role },
+  const result = await changeBranchRole(ctx.session.user.id, parsed.data)
+  // A replaced or removed Manager or Receptionist leaves their bookings at the
+  // branch for reassignment (R1.7).
+  return apiSuccess({
+    changed: result.changed,
+    liveUpdates: result.liveUpdates,
+    reassignments: result.reassignments,
   })
-
-  return apiSuccess({ user: updated })
 })

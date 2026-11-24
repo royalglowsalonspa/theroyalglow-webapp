@@ -8,8 +8,10 @@
  * Description  : Verifies GET /api/reports — the standard success envelope and
  *                combined payload shape, RBAC (401 unauthenticated / 403
  *                forbidden / Manager+ guard), range param forwarding to the
- *                query layer, and the 400 envelope on invalid dates. Session +
- *                DB are mocked; no live session/DB.
+ *                query layer, the 400 envelope on invalid dates, and the
+ *                settlement block (money for the Owner and the Developer,
+ *                minutes and gems only for a Manager). Session + DB are
+ *                mocked; no live session/DB.
  *
  * Layer        : Testing
  *
@@ -18,26 +20,25 @@
 
 import { AppError, ERROR_CODES } from '@rgss/errors'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { branchContext, TEST_BRANCH } from '@/test/branch-context'
 
-const sessionMocks = vi.hoisted(() => ({
-  requireRole: vi.fn(),
-  requireSession: vi.fn(),
-  getOptionalSession: vi.fn(),
-}))
+const mocks = vi.hoisted(() => ({ requireBranchRole: vi.fn() }))
 
 const dbMocks = vi.hoisted(() => ({
   getRevenueSummary: vi.fn(),
   getRevenueTrend: vi.fn(),
   getBookingsByStatus: vi.fn(),
   getTopServices: vi.fn(),
+  getBranchSettlementReport: vi.fn(),
 }))
 
-vi.mock('@/lib/api/session', () => sessionMocks)
+vi.mock('@/lib/api/branch-context', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api/branch-context')>()
+  return { ...actual, requireBranchRole: mocks.requireBranchRole }
+})
 vi.mock('@rgss/db/queries', () => dbMocks)
 
 import * as reportsRoute from '@/app/api/reports/route'
-
-const AUTHORIZED = { user: { id: 'u_manager', role: 'manager' } }
 
 const SUMMARY = {
   rangeRevenuePaise: 500000,
@@ -50,6 +51,17 @@ const SUMMARY = {
 const TREND = [{ date: '2026-06-01', revenuePaise: 100000 }]
 const BY_STATUS = [{ status: 'completed', count: 4 }]
 const TOP = [{ name: 'Hair Spa', bookings: 3, revenuePaise: 300000 }]
+const SETTLEMENT = {
+  memberships: {
+    deliveredMinutes: 120,
+    deliveredValuePaise: 250000,
+    ownMembersMinutes: 60,
+    ownMembersValuePaise: 125000,
+    toReceivePaise: 250000,
+    toPayPaise: 125000,
+  },
+  gems: { issued: 40, redeemed: 25, toReceivePaise: 1500, toPayPaise: 500 },
+}
 
 const unauthenticated = () =>
   new AppError({
@@ -67,12 +79,12 @@ const forbidden = () =>
 
 beforeEach(() => {
   vi.clearAllMocks()
-  sessionMocks.requireRole.mockResolvedValue(AUTHORIZED)
-  sessionMocks.requireSession.mockResolvedValue(AUTHORIZED)
+  mocks.requireBranchRole.mockResolvedValue(branchContext({ userId: 'u_manager', role: 'manager' }))
   dbMocks.getRevenueSummary.mockResolvedValue(SUMMARY)
   dbMocks.getRevenueTrend.mockResolvedValue(TREND)
   dbMocks.getBookingsByStatus.mockResolvedValue(BY_STATUS)
   dbMocks.getTopServices.mockResolvedValue(TOP)
+  dbMocks.getBranchSettlementReport.mockResolvedValue(SETTLEMENT)
 })
 
 describe('GET /api/reports', () => {
@@ -95,17 +107,58 @@ describe('GET /api/reports', () => {
 
   it('enforces the Manager+ guard', async () => {
     await reportsRoute.GET(new Request('https://admin.theroyalglow.in/api/reports'))
-    expect(sessionMocks.requireRole).toHaveBeenCalledWith('manager')
+    expect(mocks.requireBranchRole).toHaveBeenCalledWith('manager')
   })
 
   it('forwards the resolved range to every query', async () => {
     await reportsRoute.GET(new Request('https://admin.theroyalglow.in/api/reports?range=7d'))
 
     const expectedRange = { from: expect.any(String), to: expect.any(String) }
-    expect(dbMocks.getRevenueSummary).toHaveBeenCalledWith(expect.objectContaining(expectedRange))
-    expect(dbMocks.getRevenueTrend).toHaveBeenCalledWith(expect.objectContaining(expectedRange))
-    expect(dbMocks.getBookingsByStatus).toHaveBeenCalledWith(expect.objectContaining(expectedRange))
-    expect(dbMocks.getTopServices).toHaveBeenCalledWith(expect.objectContaining(expectedRange))
+    // Every figure is the active branch's alone (multi-branch R2.3).
+    for (const query of [
+      dbMocks.getRevenueSummary,
+      dbMocks.getRevenueTrend,
+      dbMocks.getBookingsByStatus,
+      dbMocks.getTopServices,
+      dbMocks.getBranchSettlementReport,
+    ]) {
+      expect(query).toHaveBeenCalledWith(TEST_BRANCH.id, expect.objectContaining(expectedRange))
+    }
+  })
+
+  it("shows the branch's Owner every settlement figure", async () => {
+    mocks.requireBranchRole.mockResolvedValue(branchContext({ userId: 'u_owner', role: 'owner' }))
+    const res = await reportsRoute.GET(new Request('https://admin.theroyalglow.in/api/reports'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.settlement).toEqual(SETTLEMENT)
+  })
+
+  it('shows the Developer every settlement figure', async () => {
+    mocks.requireBranchRole.mockResolvedValue(branchContext({ userId: 'u_dev', role: 'developer' }))
+    const res = await reportsRoute.GET(new Request('https://admin.theroyalglow.in/api/reports'))
+    const body = await res.json()
+
+    expect(body.data.settlement).toEqual(SETTLEMENT)
+  })
+
+  it('shows a Manager minutes and gems but no settlement money', async () => {
+    const res = await reportsRoute.GET(new Request('https://admin.theroyalglow.in/api/reports'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.settlement).toEqual({
+      memberships: {
+        deliveredMinutes: 120,
+        deliveredValuePaise: null,
+        ownMembersMinutes: 60,
+        ownMembersValuePaise: null,
+        toReceivePaise: null,
+        toPayPaise: null,
+      },
+      gems: { issued: 40, redeemed: 25, toReceivePaise: null, toPayPaise: null },
+    })
   })
 
   it('forwards an explicit from/to range to the query layer', async () => {
@@ -113,7 +166,10 @@ describe('GET /api/reports', () => {
       new Request('https://admin.theroyalglow.in/api/reports?from=2026-06-01&to=2026-06-15'),
     )
 
-    expect(dbMocks.getRevenueSummary).toHaveBeenCalledWith({ from: '2026-06-01', to: '2026-06-15' })
+    expect(dbMocks.getRevenueSummary).toHaveBeenCalledWith(TEST_BRANCH.id, {
+      from: '2026-06-01',
+      to: '2026-06-15',
+    })
   })
 
   it('rejects an invalid date with the 400 envelope', async () => {
@@ -139,14 +195,14 @@ describe('GET /api/reports', () => {
   })
 
   it('→ 401 when unauthenticated', async () => {
-    sessionMocks.requireRole.mockRejectedValue(unauthenticated())
+    mocks.requireBranchRole.mockRejectedValue(unauthenticated())
     const res = await reportsRoute.GET(new Request('https://admin.theroyalglow.in/api/reports'))
     expect(res.status).toBe(401)
     expect(dbMocks.getRevenueSummary).not.toHaveBeenCalled()
   })
 
   it('→ 403 when role is insufficient', async () => {
-    sessionMocks.requireRole.mockRejectedValue(forbidden())
+    mocks.requireBranchRole.mockRejectedValue(forbidden())
     const res = await reportsRoute.GET(new Request('https://admin.theroyalglow.in/api/reports'))
     expect(res.status).toBe(403)
     expect(dbMocks.getRevenueSummary).not.toHaveBeenCalled()

@@ -44,6 +44,7 @@ import slugify from 'slugify'
 import { adminsWrite, anyoneReads } from '../access/published'
 import { revalidateHooks } from '../hooks/revalidate'
 import { syncServiceCategoryToPublic } from '../hooks/sync-service-category'
+import { availabilityFields, editedByField, sacCodeField } from '../lib/catalogue-fields'
 
 /**
  * Cache-busting hooks. The tag is deliberately `'service'`, NOT
@@ -114,9 +115,12 @@ export const ServiceCategory: CollectionConfig = {
     //      button at all.
     delete: () => false,
   },
+  // Every save and restore is kept, with who saved it (`editedBy`). No drafts:
+  // a save goes live, as before. A restore runs the same validation and sync.
+  versions: { maxPerDoc: 0 },
   admin: {
     useAsTitle: 'name',
-    defaultColumns: ['name', 'serviceType', 'isActive', 'displayOrder'],
+    defaultColumns: ['name', 'serviceType', 'sacCode', 'availability', 'isActive', 'displayOrder'],
     description:
       'Bookable service categories. Categories are DEACTIVATED (untick "Active"), never deleted — that is why there is no delete button. A category\'s Salon/SPA type governs which services can belong to it, and a booking may only contain services of one type.',
     // Same group as the Service collection so the two sit together in the sidebar.
@@ -202,5 +206,12 @@ export const ServiceCategory: CollectionConfig = {
         description: 'Untick to retire this category. This replaces deletion.',
       },
     },
+    sacCodeField({
+      required: true,
+      description:
+        'The tax classification for its services, unless a service sets its own. Invoices show the code in force when they are issued.',
+    }),
+    ...availabilityFields('category'),
+    editedByField(),
   ],
 }

@@ -61,6 +61,8 @@ interface CatalogueService {
   pricePaise: number
   gemsRedeemable: boolean
   gemsRequired: number | null
+  /** "Only at Rayasandra" for a restricted service; null at every branch (R7.2). */
+  availabilityNote?: string | null
 }
 
 interface CatalogueCategory {
@@ -85,6 +87,9 @@ function ServiceCard({ service }: { service: CatalogueService }) {
   return (
     <Card className="gap-0 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-golden-mist hover:shadow-card-hover">
       <h4 className="font-sans text-[15px] font-medium text-cocoa-dark">{service.name}</h4>
+      {service.availabilityNote ? (
+        <p className="mt-1 font-ui text-xs text-warm-stone">{service.availabilityNote}</p>
+      ) : null}
       <div className="mt-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="font-ui text-sm text-dusty-gray">{service.durationMinutes} min</span>

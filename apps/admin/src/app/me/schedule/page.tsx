@@ -24,10 +24,10 @@
 import { dayOfWeekLabel } from '@rgss/business'
 import { getStaffProfileByUserId, getStaffSchedule } from '@rgss/db/queries'
 import type { Metadata } from 'next'
-import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { formatTime12h } from '@/lib/admin/bookings'
-import { auth } from '@/lib/auth-server'
+import { loadBranchAccess } from '@/lib/api/branch-context'
+import { getOptionalSession } from '@/lib/api/session'
 import { NoStaffProfileEmpty } from './no-profile-empty'
 
 export const metadata: Metadata = {
@@ -48,18 +48,25 @@ function displayTime(value: string | null): string | null {
 }
 
 export default async function MeSchedulePage() {
-  const session = await auth.api.getSession({ headers: await headers() })
+  const session = await getOptionalSession()
   if (!session) {
     redirect('https://theroyalglow.in')
   }
 
   const staff = await getStaffProfileByUserId(session.user.id)
-  const schedule = staff ? await getStaffSchedule(staff.id) : []
+  const [schedule, access] = staff
+    ? await Promise.all([getStaffSchedule(staff.id), loadBranchAccess(session.user.id)])
+    : [[], null]
 
   const byDay = new Map<number, ScheduleRow>()
   for (const row of schedule) {
     byDay.set(row.dayOfWeek, row)
   }
+
+  // Someone at several branches (a shared Manager) sees which branch each day
+  // is at; only their own branches are named (multi-branch R5.10).
+  const branchNames = new Map(access?.branches.map((b) => [b.id, b.name]) ?? [])
+  const showBranch = branchNames.size > 1
 
   return (
     <div className="mx-auto max-w-[960px]">
@@ -86,12 +93,19 @@ export default async function MeSchedulePage() {
               const start = displayTime(row?.startTime ?? null)
               const end = displayTime(row?.endTime ?? null)
               const hasHours = working && start && end
+              const branchName =
+                showBranch && working && row?.branchId ? branchNames.get(row.branchId) : undefined
 
               return (
                 <li key={dayIndex}>
                   <article className="flex items-center justify-between gap-3 rounded-cards border border-cloud-gray bg-canvas-white px-4 py-3">
                     <span className="font-sans text-[15px] text-cocoa-dark">
                       {dayOfWeekLabel(dayIndex)}
+                      {branchName ? (
+                        <span className="ml-2 font-ui text-[12px] text-dusty-gray">
+                          {branchName}
+                        </span>
+                      ) : null}
                     </span>
                     {hasHours ? (
                       <span className="font-ui text-[14px] text-deep-gold whitespace-nowrap">

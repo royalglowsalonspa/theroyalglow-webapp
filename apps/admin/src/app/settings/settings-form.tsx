@@ -1,45 +1,56 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 21-06-2026 & Updated - 21-06-2026
+ * Date         : Created - 21-06-2026 & Updated - 31-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : Settings Form
- * Scope        : Admin Portal — System settings editor
+ * Scope        : Admin Portal — Branch booking settings, invoicing, settlement
  *
- * Description  : Loads the full settings object from GET /api/settings and edits
- *                it section-by-section: a business-hours grid (per-day open/close
- *                + closed toggle), a GST card (rate + inclusive note), and a
- *                booking-rules card. Each section has its own Save button that
- *                PUTs { section, value } and shows a success confirmation.
+ * Description  : Loads GET /api/settings and edits it section by section: the
+ *                active branch's business hours and booking rules (each save
+ *                becomes the branch's next settings revision, R6.3), and the
+ *                settings every branch shares: the invoicing switch and the
+ *                cross-branch settlement share and value per gem (R10). Shows
+ *                the current revision, who saved it, and the recent history.
  *
  * Responsibilities :
- * - Fetch settings (with defaults) and seed editable local state
- * - Validate-light + submit each section independently via PUT /api/settings
- * - Surface loading, error, and per-section saving/success states
+ * - Fetch the active branch's settings and seed editable local state
+ * - Save each section on its own via PUT /api/settings; a branch section
+ *   names the branch and the revision it was edited from
+ * - Say when someone saved since the page loaded, or the branch was switched,
+ *   and offer a reload instead of overwriting
+ * - Flag a section that is missing or unreadable: the branch takes no
+ *   bookings until it is saved
  *
  * Tech Stack   : Next.js 16, React (Client Component), Tailwind
  * Layer        : Presentation (Management Component)
  *
- * Dependencies : @rgss/types (schemas, defaults, day metadata), React hooks
+ * Dependencies : @rgss/types (schemas, defaults, day metadata), React hooks,
+ *                @/lib/admin/format
  *
- * Notes        : Manager+ (edge middleware + API requireRole). Times are IST
- *                24h "HH:MM" strings; GST is price-inclusive.
+ * Notes        : Developer only (edge middleware + API). Times are IST 24h
+ *                "HH:MM" strings. GST rates are per branch (Tax screen).
  ************************************************************/
 
 'use client'
 
 import {
   type BookingRules,
+  type BranchSettingSection,
+  type BranchSettingsRevisionView,
+  type BranchSettingsView,
   type BusinessHours,
   DAY_KEYS,
   DAY_LABELS,
   type DayKey,
   DEFAULT_BOOKING_RULES,
   DEFAULT_BUSINESS_HOURS,
-  DEFAULT_GST,
-  type GstSetting,
-  type Settings,
+  DEFAULT_INVOICING,
+  DEFAULT_SETTLEMENT,
+  type InvoicingSetting,
+  type SettlementSetting,
 } from '@rgss/types'
+import Link from 'next/link'
 import { useCallback, useEffect, useId, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -48,15 +59,52 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ErrorState } from '@/components/ui/state/error-state'
 import { Skeleton } from '@/components/ui/state/skeleton'
+import { Switch } from '@/components/ui/switch'
 import { TimeSelect } from '@/components/ui/time-select'
+import { formatDateTimeIST } from '@/lib/admin/format'
 import { toast } from '@/lib/admin/toast'
 
-type Section = 'businessHours' | 'gst' | 'bookingRules'
+/** GET /api/settings. */
+export interface SettingsScreenData {
+  branch: BranchSettingsView
+  history: BranchSettingsRevisionView[]
+  invoicing: InvoicingSetting
+  /** Null when the stored value can't be read: save it again. */
+  settlement: SettlementSetting | null
+}
+
+/** What a branch section save returns: the branch's new revision. */
+type BranchSaved = Pick<SettingsScreenData, 'branch' | 'history'>
+
+export const SECTION_LABELS: Record<BranchSettingSection, string> = {
+  businessHours: 'Business hours',
+  bookingRules: 'Booking rules',
+}
+
+// Errors that mean the page is out of date: reload rather than retry.
+const RELOAD_CODES = new Set(['SETTINGS_CHANGED', 'BRANCH_CONTEXT_CHANGED'])
+
+/** "Revision 3, saved 30/10/2026, 02:05 PM by Asha", or how it was set up. */
+export function revisionLine(view: {
+  revision: number
+  savedAt: string | null
+  savedByName: string | null
+}): string {
+  if (view.revision === 0 || view.savedAt === null) {
+    return 'No settings saved yet.'
+  }
+  const when = formatDateTimeIST(view.savedAt)
+  return view.savedByName
+    ? `Revision ${view.revision}, saved ${when} by ${view.savedByName}`
+    : `Revision ${view.revision}, set up ${when}`
+}
 
 export function SettingsForm() {
+  const [data, setData] = useState<SettingsScreenData | null>(null)
   const [businessHours, setBusinessHours] = useState<BusinessHours>(DEFAULT_BUSINESS_HOURS)
-  const [gst, setGst] = useState<GstSetting>(DEFAULT_GST)
   const [bookingRules, setBookingRules] = useState<BookingRules>(DEFAULT_BOOKING_RULES)
+  const [invoicing, setInvoicing] = useState<InvoicingSetting>(DEFAULT_INVOICING)
+  const [settlement, setSettlement] = useState<SettlementSetting>(DEFAULT_SETTLEMENT)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -69,10 +117,14 @@ export function SettingsForm() {
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not load settings.')
       }
-      const settings = json.data.settings as Settings
-      setBusinessHours(settings.businessHours)
-      setGst(settings.gst)
-      setBookingRules(settings.bookingRules)
+      const next = json.data as SettingsScreenData
+      setData(next)
+      // A section that can't be read starts from the standard values, and
+      // says so; nothing is saved until the Developer saves it.
+      setBusinessHours(next.branch.businessHours ?? DEFAULT_BUSINESS_HOURS)
+      setBookingRules(next.branch.bookingRules ?? DEFAULT_BOOKING_RULES)
+      setInvoicing(next.invoicing)
+      setSettlement(next.settlement ?? DEFAULT_SETTLEMENT)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Could not load settings.')
     } finally {
@@ -84,24 +136,54 @@ export function SettingsForm() {
     load()
   }, [load])
 
+  // A branch save is the branch's new revision: later saves start from it.
+  const onBranchSaved = useCallback((saved: BranchSaved) => {
+    setData((prev) => (prev ? { ...prev, branch: saved.branch, history: saved.history } : prev))
+  }, [])
+
   return (
     <div className="space-y-6">
       <header>
         <h1 className="text-2xl font-display text-cocoa-dark tracking-tight">Settings</h1>
         <p className="font-sans text-sm text-dusty-gray mt-0.5">
-          Business hours, GST, and booking rules. Each section saves on its own.
+          {data
+            ? `Booking settings for ${data.branch.branchName}, and invoicing and settlement for every branch. Each section saves on its own.`
+            : 'Booking settings for the active branch, and invoicing and settlement for every branch.'}
         </p>
+        {data && (
+          <p className="font-sans text-xs text-dusty-gray mt-1" data-testid="settings-revision">
+            {revisionLine(data.branch)}
+          </p>
+        )}
       </header>
 
       {loading ? (
         <Skeleton variant="card" rows={3} />
-      ) : error ? (
-        <ErrorState message={error} onRetry={load} />
+      ) : error || !data ? (
+        <ErrorState message={error ?? 'Could not load settings.'} onRetry={load} />
       ) : (
         <div className="space-y-8">
-          <BusinessHoursSection value={businessHours} onChange={setBusinessHours} />
-          <GstSection value={gst} onChange={setGst} />
-          <BookingRulesSection value={bookingRules} onChange={setBookingRules} />
+          <BusinessHoursSection
+            branch={data.branch}
+            value={businessHours}
+            onChange={setBusinessHours}
+            onSaved={onBranchSaved}
+            onReload={load}
+          />
+          <BookingRulesSection
+            branch={data.branch}
+            value={bookingRules}
+            onChange={setBookingRules}
+            onSaved={onBranchSaved}
+            onReload={load}
+          />
+          <InvoicingSection value={invoicing} onChange={setInvoicing} />
+          <SettlementSection
+            value={settlement}
+            unreadable={data.settlement === null}
+            onChange={setSettlement}
+          />
+          <HistorySection branchName={data.branch.branchName} history={data.history} />
         </div>
       )}
     </div>
@@ -110,56 +192,107 @@ export function SettingsForm() {
 
 /* ── Shared save hook ───────────────────────────────────────────────────── */
 
-// Encapsulates the PUT lifecycle for one section: busy + error + transient
-// success message. Returns a `save(value)` that resolves true on success.
-function useSectionSave(section: Section) {
+// The PUT lifecycle for one section: busy, error, whether the page is out of
+// date, and a transient success message. `save(body)` resolves to the
+// response data on success, else null.
+function useSectionSave() {
   const [busy, setBusy] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [stale, setStale] = useState(false)
   const [saved, setSaved] = useState(false)
 
-  const save = useCallback(
-    async (value: unknown): Promise<boolean> => {
-      setBusy(true)
-      setSaveError(null)
-      setSaved(false)
-      try {
-        const res = await fetch('/api/settings', {
-          method: 'PUT',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ section, value }),
-        })
-        const json = await res.json()
-        if (!res.ok || !json.success) {
-          throw new Error(json?.error?.message ?? 'Could not save changes.')
+  const save = useCallback(async (body: Record<string, unknown>): Promise<unknown> => {
+    setBusy(true)
+    setSaveError(null)
+    setStale(false)
+    setSaved(false)
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        const code: unknown = json?.error?.code
+        if (typeof code === 'string' && RELOAD_CODES.has(code)) {
+          setStale(true)
         }
-        setSaved(true)
-        toast.success('Settings saved')
-        return true
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Could not save changes.'
-        setSaveError(message)
-        toast.error('Could not save settings', message)
-        return false
-      } finally {
-        setBusy(false)
+        throw new Error(json?.error?.message ?? 'Could not save changes.')
+      }
+      setSaved(true)
+      toast.success('Settings saved')
+      return json.data
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Could not save changes.'
+      setSaveError(message)
+      toast.error('Could not save settings', message)
+      return null
+    } finally {
+      setBusy(false)
+    }
+  }, [])
+
+  return { busy, saveError, stale, saved, save, clearSaved: () => setSaved(false) }
+}
+
+type BranchSectionProps<T> = {
+  branch: BranchSettingsView
+  value: T
+  onChange: (next: T) => void
+  onSaved: (saved: BranchSaved) => void
+  onReload: () => void
+}
+
+// Saves one branch section from the revision the page holds.
+function useBranchSectionSave(
+  section: BranchSettingSection,
+  branch: BranchSettingsView,
+  onSaved: (saved: BranchSaved) => void,
+) {
+  const state = useSectionSave()
+  const { save } = state
+  const saveValue = useCallback(
+    async (value: BusinessHours | BookingRules) => {
+      const data = await save({
+        section,
+        branchId: branch.branchId,
+        expectedRevision: branch.revision,
+        value,
+      })
+      if (data) {
+        onSaved(data as BranchSaved)
       }
     },
-    [section],
+    [save, section, branch.branchId, branch.revision, onSaved],
   )
+  return { ...state, saveValue }
+}
 
-  return { busy, saveError, saved, save, clearSaved: () => setSaved(false) }
+/** A branch section that is missing or can't be read. */
+function UnreadableNotice({ branchName, what }: { branchName: string; what: string }) {
+  return (
+    <p className="font-sans text-sm text-error" role="alert">
+      {branchName}&apos;s {what} are missing or can&apos;t be read, so it isn&apos;t taking
+      bookings. The standard {what} are filled in below: check them and save.
+    </p>
+  )
 }
 
 /* ── Business hours ─────────────────────────────────────────────────────── */
 
 function BusinessHoursSection({
+  branch,
   value,
   onChange,
-}: {
-  value: BusinessHours
-  onChange: (next: BusinessHours) => void
-}) {
-  const { busy, saveError, saved, save, clearSaved } = useSectionSave('businessHours')
+  onSaved,
+  onReload,
+}: BranchSectionProps<BusinessHours>) {
+  const { busy, saveError, stale, saved, saveValue, clearSaved } = useBranchSectionSave(
+    'businessHours',
+    branch,
+    onSaved,
+  )
 
   const updateDay = (day: DayKey, patch: Partial<BusinessHours[DayKey]>) => {
     clearSaved()
@@ -168,9 +301,12 @@ function BusinessHoursSection({
 
   return (
     <SectionCard
-      title="Business Hours"
-      description="Opening and closing times per day (IST, 24-hour). Toggle a day closed to disable bookings."
+      title={`Business hours at ${branch.branchName}`}
+      description="Opening and closing times per day (IST, 24-hour). Customers book within them; toggle a day closed to take no bookings that weekday."
     >
+      {branch.businessHours === null && (
+        <UnreadableNotice branchName={branch.branchName} what="business hours" />
+      )}
       <div className="border border-cloud-gray rounded-cards overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -241,58 +377,13 @@ function BusinessHoursSection({
         </div>
       </div>
 
-      <SectionFooter busy={busy} saved={saved} saveError={saveError} onSave={() => save(value)} />
-    </SectionCard>
-  )
-}
-
-/* ── GST ────────────────────────────────────────────────────────────────── */
-
-function GstSection({
-  value,
-  onChange,
-}: {
-  value: GstSetting
-  onChange: (next: GstSetting) => void
-}) {
-  const { busy, saveError, saved, save, clearSaved } = useSectionSave('gst')
-  const rateId = useId()
-
-  return (
-    <SectionCard
-      title="GST"
-      description="Goods & Services Tax applied to invoices. Prices are GST-inclusive."
-    >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Rate (%)" htmlFor={rateId}>
-          <Input
-            id={rateId}
-            type="number"
-            min={0}
-            max={100}
-            step="0.01"
-            value={value.ratePercent}
-            onChange={(e) => {
-              clearSaved()
-              onChange({ ...value, ratePercent: Number(e.target.value) })
-            }}
-          />
-        </Field>
-        <div className="flex items-end">
-          <span className="inline-flex items-center rounded-pill bg-deep-gold/15 px-3 py-1 font-ui text-[11px] uppercase tracking-[0.5px] text-deep-gold">
-            Price-inclusive
-          </span>
-        </div>
-      </div>
-      <p className="font-sans text-xs text-dusty-gray">
-        All catalogue prices already include GST (back-calculated on invoices, SAC 999721).
-      </p>
-
       <SectionFooter
         busy={busy}
         saved={saved}
         saveError={saveError}
-        onSave={() => save({ ...value, inclusive: true })}
+        stale={stale}
+        onSave={() => saveValue(value)}
+        onReload={onReload}
       />
     </SectionCard>
   )
@@ -301,13 +392,17 @@ function GstSection({
 /* ── Booking rules ──────────────────────────────────────────────────────── */
 
 function BookingRulesSection({
+  branch,
   value,
   onChange,
-}: {
-  value: BookingRules
-  onChange: (next: BookingRules) => void
-}) {
-  const { busy, saveError, saved, save, clearSaved } = useSectionSave('bookingRules')
+  onSaved,
+  onReload,
+}: BranchSectionProps<BookingRules>) {
+  const { busy, saveError, stale, saved, saveValue, clearSaved } = useBranchSectionSave(
+    'bookingRules',
+    branch,
+    onSaved,
+  )
 
   const updateField = (patch: Partial<BookingRules>) => {
     clearSaved()
@@ -316,12 +411,16 @@ function BookingRulesSection({
 
   return (
     <SectionCard
-      title="Booking Rules"
-      description="Policy limits for customer bookings. Slot length is set per service, not here."
+      title={`Booking rules at ${branch.branchName}`}
+      description="Limits for customers booking online at this branch. Slot length is set per service, not here; walk-ins at the counter only follow the business hours."
     >
+      {branch.bookingRules === null && (
+        <UnreadableNotice branchName={branch.branchName} what="booking rules" />
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
         <NumberField
-          label="Min advance lead time (minutes)"
+          label="Lead time (minutes)"
+          hint="Customers book at least this long before the appointment."
           value={value.minAdvanceLeadTimeMinutes}
           min={0}
           max={10080}
@@ -329,7 +428,8 @@ function BookingRulesSection({
           onChange={(n) => updateField({ minAdvanceLeadTimeMinutes: n })}
         />
         <NumberField
-          label="Max advance window (days)"
+          label="Booking window (days)"
+          hint="How far ahead customers can book."
           value={value.maxAdvanceBookingDays}
           min={1}
           max={365}
@@ -337,7 +437,8 @@ function BookingRulesSection({
           onChange={(n) => updateField({ maxAdvanceBookingDays: n })}
         />
         <NumberField
-          label="Cancellation cut-off (hours)"
+          label="Late cancellation within (hours)"
+          hint="Cancelling closer to the appointment is still allowed and never charged, but it is counted on the customer's record."
           value={value.cancellationCutoffHours}
           min={0}
           max={168}
@@ -345,16 +446,213 @@ function BookingRulesSection({
           onChange={(n) => updateField({ cancellationCutoffHours: n })}
         />
         <NumberField
-          label="Max active bookings / customer"
+          label="Upcoming bookings per customer"
+          hint="Pending and confirmed bookings one customer can hold at this branch."
           value={value.maxActiveBookingsPerCustomer}
           min={1}
           max={50}
           step={1}
           onChange={(n) => updateField({ maxActiveBookingsPerCustomer: n })}
         />
+        <NumberField
+          label="Reschedule cut-off (hours)"
+          hint="Customers reschedule at least this long before the appointment."
+          value={value.rescheduleCutoffHours}
+          min={0}
+          max={168}
+          step={1}
+          onChange={(n) => updateField({ rescheduleCutoffHours: n })}
+        />
+        <NumberField
+          label="Reschedules per booking"
+          hint="After this many, the customer cancels and books again."
+          value={value.maxReschedulesPerBooking}
+          min={0}
+          max={10}
+          step={1}
+          onChange={(n) => updateField({ maxReschedulesPerBooking: n })}
+        />
       </div>
 
-      <SectionFooter busy={busy} saved={saved} saveError={saveError} onSave={() => save(value)} />
+      <SectionFooter
+        busy={busy}
+        saved={saved}
+        saveError={saveError}
+        stale={stale}
+        onSave={() => saveValue(value)}
+        onReload={onReload}
+      />
+    </SectionCard>
+  )
+}
+
+/* ── Invoicing ──────────────────────────────────────────────────────────── */
+
+// GST rates are not a setting: each branch has its own effective-dated rates
+// per SAC code on the Tax screen (multi-branch R6.4). This section only
+// switches invoices from test to live after the launch tax review (TX-08),
+// for every branch at once.
+function InvoicingSection({
+  value,
+  onChange,
+}: {
+  value: InvoicingSetting
+  onChange: (next: InvoicingSetting) => void
+}) {
+  const { busy, saveError, saved, save, clearSaved } = useSectionSave()
+  const switchId = useId()
+
+  return (
+    <SectionCard
+      title="Invoicing (all branches)"
+      description="GST rates are set per branch and SAC code on the Tax screen. Prices include GST."
+    >
+      <div className="flex items-start gap-3">
+        <Switch
+          id={switchId}
+          checked={value.live}
+          onCheckedChange={(checked) => {
+            clearSaved()
+            onChange({ live: checked })
+          }}
+        />
+        <div className="space-y-1">
+          <Label htmlFor={switchId} className="cursor-pointer font-sans text-sm text-cocoa-dark">
+            Live invoicing
+          </Label>
+          <p className="font-sans text-xs text-dusty-gray">
+            {value.live
+              ? 'Invoices are real. A branch invoices only once it has its legal name, GSTIN and reviewed tax rates.'
+              : 'Test invoicing: invoices may use provisional rates and say so. Switch on after the launch tax review.'}
+          </p>
+        </div>
+      </div>
+      <p className="font-sans text-xs text-dusty-gray">
+        <Link href="/settings/tax" className="text-deep-gold hover:text-cocoa-dark">
+          Tax rates for the active branch →
+        </Link>
+      </p>
+
+      <SectionFooter
+        busy={busy}
+        saved={saved}
+        saveError={saveError}
+        stale={false}
+        onSave={() => save({ section: 'invoicing', value })}
+      />
+    </SectionCard>
+  )
+}
+
+/* ── Settlement ─────────────────────────────────────────────────────────── */
+
+// What branches owe each other when a member uses hours, or a customer spends
+// gems, at a branch other than the one that sold the membership or issued the
+// gems (multi-branch R10). One setting for every pair of branches; each entry
+// keeps the values it was recorded with, so a change affects later entries
+// only (ST-05).
+function SettlementSection({
+  value,
+  unreadable,
+  onChange,
+}: {
+  value: SettlementSetting
+  unreadable: boolean
+  onChange: (next: SettlementSetting) => void
+}) {
+  const { busy, saveError, saved, save, clearSaved } = useSectionSave()
+
+  const update = (patch: Partial<SettlementSetting>) => {
+    clearSaved()
+    onChange({ ...value, ...patch })
+  }
+
+  return (
+    <SectionCard
+      title="Settlement between branches (all branches)"
+      description="When a member uses their hours, or a customer spends gems, at another branch, the branch that sold the membership or issued the gems owes the branch that delivered the service. Statements close monthly; changes apply to entries recorded from now on."
+    >
+      {unreadable && (
+        <p className="font-sans text-sm text-error" role="alert">
+          The saved settlement settings can&apos;t be read, so sessions and gems at other branches
+          can&apos;t be recorded. These are the standard values; save them to fix it.
+        </p>
+      )}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <NumberField
+          label="Share for the delivering branch (%)"
+          hint="Of a membership session's value without GST, or of the gems' value. 100% passes on the whole amount."
+          value={value.shareBps / 100}
+          min={0}
+          max={100}
+          step={0.01}
+          onChange={(n) => update({ shareBps: Math.round(n * 100) })}
+        />
+        <NumberField
+          label="Value of one gem (₹)"
+          hint="What one gem spent at another branch is worth. Customers earn 1 gem per ₹100, so ₹1.00 keeps it a 1% reward."
+          value={value.gemValuePaise / 100}
+          min={0.01}
+          max={1000}
+          step={0.01}
+          onChange={(n) => update({ gemValuePaise: Math.round(n * 100) })}
+        />
+      </div>
+      <p className="font-sans text-xs text-dusty-gray">
+        <Link href="/settlements" className="text-deep-gold hover:text-cocoa-dark">
+          Statements between branches →
+        </Link>
+      </p>
+
+      <SectionFooter
+        busy={busy}
+        saved={saved}
+        saveError={saveError}
+        stale={false}
+        onSave={() => save({ section: 'settlement', value })}
+      />
+    </SectionCard>
+  )
+}
+
+/* ── History ────────────────────────────────────────────────────────────── */
+
+function HistorySection({
+  branchName,
+  history,
+}: {
+  branchName: string
+  history: BranchSettingsRevisionView[]
+}) {
+  return (
+    <SectionCard
+      title="History"
+      description={`Every save is a new revision of ${branchName}'s settings. Bookings keep the revision that decided them.`}
+    >
+      {history.length === 0 ? (
+        <p className="font-sans text-sm text-dusty-gray">No revisions yet.</p>
+      ) : (
+        <ol className="divide-y divide-cloud-gray border border-cloud-gray rounded-cards">
+          {history.map((entry) => (
+            <li
+              key={entry.revision}
+              className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-2.5"
+            >
+              <span className="font-sans text-sm text-cocoa-dark">
+                <span>Revision {entry.revision}</span>
+                <span className="text-dusty-gray">
+                  {' · '}
+                  {entry.section ? SECTION_LABELS[entry.section] : 'All settings, set up'}
+                </span>
+              </span>
+              <span className="font-sans text-xs text-dusty-gray">
+                {formatDateTimeIST(entry.savedAt)}
+                {entry.savedByName ? ` · ${entry.savedByName}` : ''}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
     </SectionCard>
   )
 }
@@ -363,6 +661,7 @@ function BookingRulesSection({
 
 function NumberField({
   label,
+  hint,
   value,
   min,
   max,
@@ -370,6 +669,7 @@ function NumberField({
   onChange,
 }: {
   label: string
+  hint: string
   value: number
   min: number
   max: number
@@ -378,7 +678,7 @@ function NumberField({
 }) {
   const id = useId()
   return (
-    <Field label={label} htmlFor={id}>
+    <Field label={label} htmlFor={id} hint={hint}>
       <Input
         id={id}
         type="number"
@@ -416,12 +716,16 @@ function SectionFooter({
   busy,
   saved,
   saveError,
+  stale,
   onSave,
+  onReload,
 }: {
   busy: boolean
   saved: boolean
   saveError: string | null
+  stale: boolean
   onSave: () => void
+  onReload?: () => void
 }) {
   return (
     <div className="flex items-center justify-end gap-3 pt-1">
@@ -435,9 +739,15 @@ function SectionFooter({
           Saved.
         </output>
       )}
-      <Button type="button" onClick={onSave} disabled={busy} aria-busy={busy}>
-        {busy ? 'Saving…' : 'Save'}
-      </Button>
+      {stale && onReload ? (
+        <Button type="button" variant="outline" onClick={onReload}>
+          Reload settings
+        </Button>
+      ) : (
+        <Button type="button" onClick={onSave} disabled={busy} aria-busy={busy}>
+          {busy ? 'Saving…' : 'Save'}
+        </Button>
+      )}
     </div>
   )
 }

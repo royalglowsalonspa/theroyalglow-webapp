@@ -1,6 +1,6 @@
 /************************************************************
  * Author       : KATABATHUNI BOSE
- * Date         : Created - 04-06-2026 & Updated - 08-06-2026
+ * Date         : Created - 04-06-2026 & Updated - 31-10-2026
  *
  * Project      : theroyalglow-webapp
  * Module Name  : GemsPage
@@ -17,7 +17,8 @@
  *
  * Features / Functionality :
  * - Auto-creates loyalty account for first-time visitors
- * - Colour-coded transaction types (earned, redeemed, expired, adjusted)
+ * - Colour-coded transaction types (earned, redeemed, returned, expired,
+ *   adjusted)
  * - Server-side pagination with prev/next navigation
  *
  * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, shadcn/ui,
@@ -25,17 +26,18 @@
  * Layer        : Presentation
  *
  * Dependencies : auth, formatDateIN, loyalty queries, RedeemFlow,
- *                @/components/ui/{card,button}
+ *                @/components/ui/{card,button}, @/lib/gems-history
  *
  * Notes        :
  * - Protected route; redirects to / (homepage) if no session
  ************************************************************/
 
-import { computeAffordability, formatDateIN } from '@rgss/business'
+import { buildPublicBranchList, computeAffordability, formatDateIN } from '@rgss/business'
 import {
   getLoyaltySummary,
   getLoyaltyTransactions,
   getOrCreateLoyaltyAccount,
+  getPublicBranches,
   getRedeemableServices,
 } from '@rgss/db/queries'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
@@ -47,6 +49,7 @@ import { RedeemFlow } from '@/components/gems/RedeemFlow'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { auth } from '@/lib/auth-server'
+import { describeGemsTx } from '@/lib/gems-history'
 
 export const metadata: Metadata = {
   title: 'My Gems',
@@ -58,14 +61,6 @@ const PAGE_SIZE = 20
 
 type PageProps = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
-}
-
-// Earned/adjusted gems add to the balance; redeemed/expired remove from it.
-const TX_META: Record<string, { label: string; sign: '+' | '-'; tone: string }> = {
-  earned: { label: 'Earned', sign: '+', tone: 'text-emerald-700' },
-  redeemed: { label: 'Redeemed', sign: '-', tone: 'text-gold-ink' },
-  expired: { label: 'Expired', sign: '-', tone: 'text-dusty-gray' },
-  adjusted: { label: 'Adjusted', sign: '+', tone: 'text-cocoa-dark' },
 }
 
 function parsePage(value: string | string[] | undefined): number {
@@ -94,11 +89,14 @@ export default async function GemsPage({ searchParams }: PageProps) {
   // Ensure an account exists so a first-time customer sees zeros, not an error.
   await getOrCreateLoyaltyAccount(customerId)
 
-  const [summary, transactions, redeemable] = await Promise.all([
+  const [summary, transactions, redeemable, branches] = await Promise.all([
     getLoyaltySummary(customerId),
     getLoyaltyTransactions(customerId, PAGE_SIZE, offset),
     getRedeemableServices(),
+    getPublicBranches(),
   ])
+  // The customer redeems at the branch they choose (multi-branch R7.2).
+  const branchList = buildPublicBranchList(branches)
 
   const balance = summary ?? { balance: 0, totalEarned: 0, totalRedeemed: 0 }
   const hasPrev = page > 1
@@ -115,6 +113,7 @@ export default async function GemsPage({ searchParams }: PageProps) {
     gemsRequired: item.gemsRequired as number,
     pricePaise: item.pricePaise,
     affordable: item.affordable,
+    availableBranchIds: item.availableBranchIds,
   }))
 
   return (
@@ -176,7 +175,7 @@ export default async function GemsPage({ searchParams }: PageProps) {
           appointment. Each reward is fully covered by gems.
         </p>
 
-        <RedeemFlow balance={balance.balance} catalogue={catalogue} />
+        <RedeemFlow balance={balance.balance} catalogue={catalogue} branchList={branchList} />
       </section>
 
       {/* Transaction history */}
@@ -195,20 +194,14 @@ export default async function GemsPage({ searchParams }: PageProps) {
         ) : (
           <ul className="flex flex-col gap-3">
             {transactions.map((tx) => {
-              const meta = TX_META[tx.type] ?? {
-                label: tx.type,
-                sign: '+' as const,
-                tone: 'text-cocoa-dark',
-              }
+              const line = describeGemsTx(tx)
               const createdAt = toDate(tx.createdAt)
               const expiresAt = toDate(tx.expiresAt)
               return (
                 <li key={tx.id}>
                   <Card className="flex-row items-center justify-between gap-3 px-4 py-3">
                     <div className="min-w-0">
-                      <p className="font-sans text-[15px] text-cocoa-dark">
-                        {tx.description ?? meta.label}
-                      </p>
+                      <p className="font-sans text-[15px] text-cocoa-dark">{line.text}</p>
                       <p className="font-ui text-[12px] text-dusty-gray">
                         {createdAt ? (
                           <time dateTime={createdAt.toISOString().slice(0, 10)}>
@@ -223,9 +216,9 @@ export default async function GemsPage({ searchParams }: PageProps) {
                           : ''}
                       </p>
                     </div>
-                    <span className={`whitespace-nowrap font-ui text-[15px] ${meta.tone}`}>
-                      {meta.sign}
-                      {Math.abs(tx.gemsAmount).toLocaleString('en-IN')}
+                    <span className={`whitespace-nowrap font-ui text-[15px] ${line.tone}`}>
+                      {line.sign}
+                      {line.gems.toLocaleString('en-IN')}
                     </span>
                   </Card>
                 </li>

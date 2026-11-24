@@ -42,7 +42,7 @@
  * - Read-only and idempotent, so at-least-once delivery is harmless.
  ************************************************************/
 
-import { buildServiceDriftReport } from '@rgss/business'
+import { buildServiceDriftReport, withOfferDrift } from '@rgss/business'
 import { getServiceDriftSnapshot } from '@rgss/db/queries'
 import { createLogger } from '@rgss/logger'
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
@@ -76,10 +76,14 @@ export const POST = async (req: Request) => {
 
   try {
     const snapshot = await getServiceDriftSnapshot()
-    const report = buildServiceDriftReport({
-      categories: snapshot.categories,
-      services: snapshot.services,
-    })
+    // Offers too: each Payload checkout rule against its mirror (offers.md).
+    const report = withOfferDrift(
+      buildServiceDriftReport({
+        categories: snapshot.categories,
+        services: snapshot.services,
+      }),
+      snapshot.offers,
+    )
     const durationMs = Date.now() - startedAt
 
     const summary = {
@@ -104,6 +108,8 @@ export const POST = async (req: Request) => {
       logger.error('[job:service-drift-reconcile] CMS ↔ public catalogue drift detected', {
         ...summary,
         findings: report.tables.flatMap((t) => t.findings),
+        // The explicit repair path (catalogue-resync.md); this job never repairs.
+        repair: 'Developer: Integrations → Catalogue sync (/integrations)',
       })
       return Response.json({ success: true, hasDrift: true, report }, { status: 200 })
     }

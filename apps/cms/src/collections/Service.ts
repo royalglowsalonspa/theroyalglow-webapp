@@ -51,6 +51,7 @@ import slugify from 'slugify'
 import { adminsWrite, anyoneReads } from '../access/published'
 import { revalidateHooks } from '../hooks/revalidate'
 import { syncServiceToPublic } from '../hooks/sync-service'
+import { availabilityFields, editedByField, sacCodeField } from '../lib/catalogue-fields'
 
 // Existing cache-busting hooks for the `service` tag. Kept and COMPOSED with
 // the sync hook below — never replaced. See the `hooks` block for why.
@@ -134,11 +135,21 @@ export const Service: CollectionConfig = {
   },
   admin: {
     useAsTitle: 'name',
-    defaultColumns: ['name', 'categoryId', 'durationMinutes', 'pricePaise', 'isActive'],
+    defaultColumns: [
+      'name',
+      'categoryId',
+      'durationMinutes',
+      'pricePaise',
+      'availability',
+      'isActive',
+    ],
     description:
       'Bookable services synced to the booking engine. Services are DEACTIVATED, never deleted — untick "Active" to retire one. There is intentionally no delete button, because past bookings and invoices reference these records.',
     group: 'Services',
   },
+  // Every save and restore is kept, with who saved it (`editedBy`). No drafts:
+  // a save goes live, as before. A restore runs the same validation and sync.
+  versions: { maxPerDoc: 0 },
   fields: [
     {
       // CUSTOM ID OVERRIDE. Without a top-level field named `id`, Payload's
@@ -298,5 +309,12 @@ export const Service: CollectionConfig = {
         description: 'Position in the gems redemption catalogue.',
       },
     },
+    sacCodeField({
+      required: false,
+      description:
+        "Leave empty to use the category's code. Invoices show the code in force when they are issued.",
+    }),
+    ...availabilityFields('service'),
+    editedByField(),
   ],
 }

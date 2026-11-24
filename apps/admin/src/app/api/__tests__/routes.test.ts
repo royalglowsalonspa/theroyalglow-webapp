@@ -18,8 +18,10 @@
  *                  3. HTTP method presence — the documented handlers are
  *                     exported (and undocumented ones are not).
  *
- * Approach     : `@/lib/api/session` (requireRole/requireSession) and
- *                `@rgss/db/queries` are mocked so no real session or DB is hit.
+ * Approach     : `@/lib/api/session` (requireRole/requireSession),
+ *                requireBranchRole and `@rgss/db/queries` are mocked so no real
+ *                session or DB is hit. requireBranchRole defers to the requireRole
+ *                mock, so one rejection exercises either guard.
  *                `@rgss/business` stays REAL (pure functions). The route's
  *                exported handler is invoked directly with a constructed Request
  *                and the JSON envelope + status are asserted.
@@ -32,6 +34,7 @@
 
 import { AppError, ERROR_CODES } from '@rgss/errors'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { branchContext, TEST_BRANCH } from '@/test/branch-context'
 
 // ---------------------------------------------------------------------------
 // Mock seams. The session guard and the data-access layer are mocked so the
@@ -44,9 +47,10 @@ const sessionMocks = vi.hoisted(() => ({
   getOptionalSession: vi.fn(),
 }))
 
+const branchMocks = vi.hoisted(() => ({ requireBranchRole: vi.fn() }))
+
 const dbMocks = vi.hoisted(() => ({
   // bookings
-  getAllBookings: vi.fn(),
   listBookings: vi.fn(),
   // customers
   getCustomers: vi.fn(),
@@ -58,13 +62,18 @@ const dbMocks = vi.hoisted(() => ({
   // leave/[id]
   getLeaveById: vi.fn(),
   updateLeaveStatus: vi.fn(),
+  recordAudit: vi.fn(),
   createNotification: vi.fn(),
-  getConfirmedBookingsForStaffOnDate: vi.fn(),
+  getBookingSummaries: vi.fn(),
 }))
 
 const dispatchMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/api/session', () => sessionMocks)
+vi.mock('@/lib/api/branch-context', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api/branch-context')>()
+  return { ...actual, requireBranchRole: branchMocks.requireBranchRole }
+})
 vi.mock('@rgss/db/queries', () => dbMocks)
 vi.mock('@/lib/notifications/dispatch', () => ({ dispatchNotification: dispatchMock }))
 
@@ -113,6 +122,11 @@ beforeEach(() => {
   // Default: every guard authorizes a receptionist.
   sessionMocks.requireRole.mockResolvedValue(AUTHORIZED_SESSION)
   sessionMocks.requireSession.mockResolvedValue(AUTHORIZED_SESSION)
+  // Branch-owned routes: same decision as requireRole, at the test branch.
+  branchMocks.requireBranchRole.mockImplementation(async (minRole: string) => {
+    await sessionMocks.requireRole(minRole)
+    return branchContext({ userId: 'u_admin' })
+  })
 })
 
 // ===========================================================================
@@ -127,7 +141,10 @@ describe('Response envelope — success path', () => {
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(body).toEqual({ success: true, data: { bookings: [{ id: 'bk1' }, { id: 'bk2' }] } })
+    expect(body).toEqual({
+      success: true,
+      data: { branchId: TEST_BRANCH.id, bookings: [{ id: 'bk1' }, { id: 'bk2' }] },
+    })
     expect(dbMocks.listBookings).toHaveBeenCalledOnce()
   })
 
@@ -141,7 +158,7 @@ describe('Response envelope — success path', () => {
     )
     await res.json()
 
-    expect(dbMocks.listBookings).toHaveBeenCalledWith({
+    expect(dbMocks.listBookings).toHaveBeenCalledWith(TEST_BRANCH.id, {
       status: 'pending',
       serviceType: 'spa',
       date: '2026-06-04',
@@ -156,12 +173,17 @@ describe('Response envelope — success path', () => {
 
     expect(res.status).toBe(200)
     expect(body.success).toBe(true)
-    expect(body.data).toEqual({ customers: [{ id: 'c1' }] })
+    // The branch whose money the list shows (multi-branch R3.2).
+    expect(body.data).toEqual({ branchId: TEST_BRANCH.id, customers: [{ id: 'c1' }] })
+    expect(dbMocks.getCustomers).toHaveBeenCalledWith(
+      TEST_BRANCH.id,
+      expect.objectContaining({ sort: 'ltv' }),
+    )
     // meta is present and well-formed for the paginated directory.
     expect(body.meta).toMatchObject({ page: expect.any(Number), totalPages: 1, totalCount: 1 })
   })
 
-  it('GET /api/membership-tiers returns { success:true, data: tiers }', async () => {
+  it('GET /api/membership-tiers returns { success:true, data:{ tiers, canEditTax } }', async () => {
     const tiers = [{ id: 'silver' }, { id: 'gold' }]
     dbMocks.getMembershipTiers.mockResolvedValue(tiers)
 
@@ -169,7 +191,9 @@ describe('Response envelope — success path', () => {
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(body).toEqual({ success: true, data: tiers })
+    // Every tier, retired ones too; only the Developer may change a SAC code.
+    expect(body).toEqual({ success: true, data: { tiers, canEditTax: false } })
+    expect(dbMocks.getMembershipTiers).toHaveBeenCalledWith({ includeInactive: true })
   })
 
   it('POST /api/leads creates a lead and returns 201 with { leadId }', async () => {
@@ -177,6 +201,7 @@ describe('Response envelope — success path', () => {
 
     const res = await leadsPOST(
       jsonRequest('https://admin.theroyalglow.in/api/leads', 'POST', {
+        branchId: TEST_BRANCH.id,
         name: 'Asha Rao',
         phone: '9876543210',
       }),
@@ -185,10 +210,41 @@ describe('Response envelope — success path', () => {
 
     expect(res.status).toBe(201)
     expect(body).toEqual({ success: true, data: { leadId: 'lead_1' } })
-    // Phone normalised to +91 form and source forced to 'manual'.
+    // Phone normalised to +91 form, source forced to 'manual', and the lead
+    // joins the active branch's pipeline.
     expect(dbMocks.createLead).toHaveBeenCalledWith(
-      expect.objectContaining({ phone: '+919876543210', source: 'manual' }),
+      expect.objectContaining({
+        phone: '+919876543210',
+        source: 'manual',
+        branchId: TEST_BRANCH.id,
+      }),
     )
+  })
+
+  it('POST /api/leads refuses a form rendered for another branch (409)', async () => {
+    const res = await leadsPOST(
+      jsonRequest('https://admin.theroyalglow.in/api/leads', 'POST', {
+        branchId: 'branch_elsewhere',
+        name: 'Asha Rao',
+        phone: '9876543210',
+      }),
+    )
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body.error.code).toBe(ERROR_CODES.BRANCH_CONTEXT_CHANGED)
+    expect(dbMocks.createLead).not.toHaveBeenCalled()
+  })
+
+  it('GET /api/leads lists the active branch’s pipeline', async () => {
+    dbMocks.getLeadsForPipeline.mockResolvedValue([])
+
+    const res = await leadsGET(new Request('https://admin.theroyalglow.in/api/leads?status=new'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data).toEqual({ branchId: TEST_BRANCH.id, leads: [] })
+    expect(dbMocks.getLeadsForPipeline).toHaveBeenCalledWith(TEST_BRANCH.id, { status: 'new' })
   })
 
   it('PATCH /api/leave/[id] approves a pending request and returns { leave, conflicts }', async () => {
@@ -199,13 +255,17 @@ describe('Response envelope — success path', () => {
       staffUserId: 'user_staff_1',
       date: '2026-06-10',
     })
-    dbMocks.updateLeaveStatus.mockResolvedValue({ id: 'leave_1', approvalStatus: 'approved' })
+    dbMocks.updateLeaveStatus.mockResolvedValue({
+      leave: { id: 'leave_1', approvalStatus: 'approved' },
+      reassignedBookingIds: [],
+    })
     dbMocks.createNotification.mockResolvedValue({ id: 'notif_1', channel: 'push' })
-    dbMocks.getConfirmedBookingsForStaffOnDate.mockResolvedValue([])
+    dbMocks.getBookingSummaries.mockResolvedValue([])
 
     const res = await leavePATCH(
       jsonRequest('https://admin.theroyalglow.in/api/leave/leave_1', 'PATCH', {
         action: 'approve',
+        branchId: TEST_BRANCH.id,
       }),
       { params: Promise.resolve({ id: 'leave_1' }) },
     )
@@ -217,12 +277,15 @@ describe('Response envelope — success path', () => {
       leave: { id: 'leave_1', approvalStatus: 'approved' },
       conflicts: [],
     })
+    expect(dbMocks.getLeaveById).toHaveBeenCalledWith('leave_1', TEST_BRANCH.id)
     expect(dbMocks.updateLeaveStatus).toHaveBeenCalledWith(
       'leave_1',
+      TEST_BRANCH.id,
       'approved',
       'u_admin',
       undefined,
     )
+    expect(dbMocks.getBookingSummaries).toHaveBeenCalledWith([], TEST_BRANCH.id)
   })
 })
 
@@ -255,6 +318,7 @@ describe('Response envelope — error path', () => {
     const res = await leavePATCH(
       jsonRequest('https://admin.theroyalglow.in/api/leave/missing', 'PATCH', {
         action: 'approve',
+        branchId: TEST_BRANCH.id,
       }),
       { params: Promise.resolve({ id: 'missing' }) },
     )
@@ -303,6 +367,7 @@ describe('Auth guard — requireRole enforcement', () => {
         leavePATCH(
           jsonRequest('https://admin.theroyalglow.in/api/leave/leave_1', 'PATCH', {
             action: 'approve',
+            branchId: TEST_BRANCH.id,
           }),
           { params: Promise.resolve({ id: 'leave_1' }) },
         ),
@@ -364,9 +429,10 @@ describe('HTTP method presence', () => {
     expect((customersRoute as Record<string, unknown>).POST).toBeUndefined()
   })
 
-  it('GET /api/membership-tiers exports GET only', () => {
+  it('/api/membership-tiers exports GET and POST (multi-branch R9.4), no DELETE', () => {
     expect(typeof tiersRoute.GET).toBe('function')
-    expect((tiersRoute as Record<string, unknown>).POST).toBeUndefined()
+    expect(typeof tiersRoute.POST).toBe('function')
+    expect((tiersRoute as Record<string, unknown>).DELETE).toBeUndefined()
   })
 
   it('/api/leads exports both GET and POST', () => {

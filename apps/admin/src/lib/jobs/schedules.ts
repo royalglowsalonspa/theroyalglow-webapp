@@ -6,13 +6,15 @@
  * Module Name  : schedules
  * Scope        : Background Jobs
  *
- * Description  : Canonical definitions of the 8 QStash *scheduled* jobs — the
+ * Description  : Canonical definitions of the QStash *scheduled* jobs — the
  *                path each schedule POSTs to and its cron expression. The
  *                registration script (scripts/register-schedules.ts) reads this
- *                (count is 15: 8 original + 6 migrated from pg_cron + the
- *                service-catalogue drift reconciliation job)
  *                single source of truth so the crons and the route handlers can
- *                never drift apart.
+ *                never drift apart. Count is 21: 8 original + 6 migrated from
+ *                pg_cron + the service-catalogue drift reconciliation + the
+ *                pending-booking closeout + the customer-stats reconcile + the
+ *                missing-Manager reminder + the realtime-revocation sweep + the
+ *                cross-branch settlement close + the staff overrun check.
  *
  * Responsibilities :
  * - Declare each scheduled job's route path + UTC cron + human description
@@ -42,7 +44,8 @@ export interface JobSchedule {
 }
 
 // The QStash scheduled jobs (8 original + 6 migrated from pg_cron + 1 drift
-// reconciliation safety net). Crons are UTC; the comment gives the IST intent.
+// reconciliation safety net + 2 booking/CRM housekeeping jobs + 4 multi-branch
+// jobs). Crons are UTC; the comment gives the IST intent.
 export const JOB_SCHEDULES: readonly JobSchedule[] = [
   {
     key: 'appointment-reminders',
@@ -132,7 +135,9 @@ export const JOB_SCHEDULES: readonly JobSchedule[] = [
     key: 'monthly-gst-summary',
     path: '/api/jobs/monthly-gst-summary',
     cron: '30 19 1 * *',
-    description: 'Monthly 01:00 IST on the 1st — monthly GST summary (was pg_cron).',
+    // 19:30 UTC on the 1st is 01:00 IST on the 2nd; it still summarises the
+    // previous IST month.
+    description: 'Monthly 01:00 IST on the 2nd — previous month GST summary (was pg_cron).',
   },
   // ── Service-catalogue drift safety net ───────────────────────────────────
   // Runs after the nightly maintenance block so it observes a settled catalogue.
@@ -142,5 +147,58 @@ export const JOB_SCHEDULES: readonly JobSchedule[] = [
     path: '/api/jobs/service-drift-reconcile',
     cron: '45 18 * * *',
     description: 'Daily 00:15 IST — CMS ↔ public service catalogue drift reconciliation.',
+  },
+  // ── Booking + CRM housekeeping ───────────────────────────────────────────
+  // The closeout runs after the 21:00 close and BEFORE daily-sales-report
+  // (22:30 IST) and nightly-sales-summary (23:30 IST), so both count the
+  // bookings it closes. The KPI reconcile follows the nightly maintenance block.
+  {
+    key: 'pending-booking-closeout',
+    path: '/api/jobs/pending-booking-closeout',
+    cron: '30 16 * * *',
+    description:
+      'Daily 22:00 IST — close bookings still pending after their appointment (→ no_show).',
+  },
+  {
+    key: 'customer-stats-reconcile',
+    path: '/api/jobs/customer-stats-reconcile',
+    cron: '50 18 * * *',
+    description:
+      'Daily 00:20 IST — recompute CRM visits / LTV / last visit from bookings + invoices.',
+  },
+  // ── Multi-branch ─────────────────────────────────────────────────────────
+  {
+    key: 'missing-manager-reminder',
+    path: '/api/jobs/missing-manager-reminder',
+    cron: '30 4 * * *',
+    description:
+      'Daily 10:00 IST — remind each Owner of their operational branches without a Manager (R1.9).',
+  },
+  // A role change queues this job itself (QStash-triggered) to confirm or
+  // retry token revocation. The daily run is the sweep for anything a failed
+  // enqueue left pending; one message a day keeps the QStash budget.
+  {
+    key: 'realtime-revocations',
+    path: '/api/jobs/realtime-revocations',
+    cron: '55 18 * * *',
+    description: 'Daily 00:25 IST — sweep pending realtime token revocations (R2.6).',
+  },
+  // Daily, not monthly: a missed run catches up the next day, and a run on a
+  // day with no ended month to close changes nothing (settlement.md).
+  {
+    key: 'settlement-close',
+    path: '/api/jobs/settlement-close',
+    cron: '0 19 * * *',
+    description:
+      'Daily 00:30 IST — close every ended IST month into cross-branch settlement statements (R10).',
+  },
+  // UTC hours 2–16 are 07:30–22:15 IST: the salon day, 60 runs. A held-up
+  // booking outside it is still refused at its start and flagged then.
+  {
+    key: 'staff-overrun-check',
+    path: '/api/jobs/staff-overrun-check',
+    cron: '*/15 2-16 * * *',
+    description:
+      'Every 15 min, 07:30–22:15 IST — flag bookings held up because their person is still with another customer, and tell the branch (MS-08).',
   },
 ] as const

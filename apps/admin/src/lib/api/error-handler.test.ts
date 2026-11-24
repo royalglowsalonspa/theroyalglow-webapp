@@ -16,7 +16,7 @@
 
 import { AppError, ERROR_CODES } from '@rgss/errors'
 import { describe, expect, it } from 'vitest'
-import { withErrorHandler } from './error-handler'
+import { apiSuccess, withErrorHandler } from './error-handler'
 import { RATE_LIMIT_RETRY_AFTER_KEY } from './rate-limit'
 
 function makeRequest(): Request {
@@ -92,8 +92,14 @@ describe('withErrorHandler — Retry-After rendering (Req 7.5)', () => {
 
     expect(res.status).toBe(400)
     expect(res.headers.get('Retry-After')).toBeNull()
+    expect(res.headers.get('Cache-Control')).toBe('private, no-store')
 
     const body = (await res.json()) as { error: { code: string } }
     expect(body.error.code).toBe(ERROR_CODES.VALIDATION_ERROR)
   })
+})
+
+it('does not let a browser cache an API response for another branch or session', () => {
+  const response = apiSuccess({ branchId: 'branch-a' })
+  expect(response.headers.get('Cache-Control')).toBe('private, no-store')
 })

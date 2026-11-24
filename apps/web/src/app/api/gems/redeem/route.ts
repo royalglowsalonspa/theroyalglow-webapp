@@ -19,7 +19,9 @@
  *
  * Features / Functionality :
  * - Server-side gemsRequired (client gems amount is never accepted/trusted)
- * - Slot validation reused from the booking flow (isBookableSlotStart)
+ * - The branch's hours, lead time, booking window and per-customer booking
+ *   limit decide the slot, as for any booking; the booking records the
+ *   settings revision (R6.3)
  * - Idempotency replay returns the original booking (200, deducted once), even
  *   once the remaining balance no longer covers the cost
  *
@@ -42,20 +44,27 @@
 
 import {
   addMinutesToTime,
+  assertBookingCap,
+  assertBranchOpenOn,
   assertRedeemable,
+  assertServicesOfferedAt,
+  assertSlotBookable,
   generateBookingNumber,
-  isBookableSlotStart,
+  istToday,
 } from '@rgss/business'
 import {
+  countUpcomingBookingsAtBranch,
   findBookingByRedemptionKey,
   getBranchById,
+  getBranchPolicy,
+  getClosureOn,
   getDefaultStaffForService,
   getLoyaltySummary,
   getOrCreateLoyaltyAccount,
   getRedeemableServiceById,
   redeemServiceWithGems,
 } from '@rgss/db/queries'
-import { badRequest, conflict, notFound } from '@rgss/errors'
+import { badRequest, notFound } from '@rgss/errors'
 import { redeemGemsSchema } from '@rgss/types'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireOnboardedCustomer } from '@/lib/api/session'
@@ -125,6 +134,16 @@ export const POST = withErrorHandler(async (req: Request) => {
   if (branch.status !== 'operational') {
     throw badRequest('Selected branch is not accepting bookings.')
   }
+  // ...and open that day (R1.8). Its own hours and booking rules decide the
+  // slot (R6.3).
+  const [closure, policy] = await Promise.all([
+    getClosureOn(branch.id, bookingDate),
+    getBranchPolicy(branch.id),
+  ])
+  assertBranchOpenOn(closure, branch.name, bookingDate)
+  if (!policy) {
+    throw badRequest('Branch not found.')
+  }
 
   // Live re-read of the service for execution-time re-validation (Req 7).
   const service = await getRedeemableServiceById(serviceId)
@@ -135,17 +154,37 @@ export const POST = withErrorHandler(async (req: Request) => {
   // Eligibility + affordability gate. Returns the SERVER-side gemsRequired and
   // throws GEMS_SERVICE_NOT_REDEEMABLE (400) / GEMS_INSUFFICIENT_BALANCE (409).
   const gemsRequired = assertRedeemable(service, balance)
+  // ...and offered at the chosen branch (R4.3); the database refuses the same.
+  assertServicesOfferedAt([service], branch)
 
-  // The requested start must sit on the 30-min grid within open hours and the
-  // full duration must finish before close, else the slot is unavailable (409).
+  // The branch's settings decide the slot: its opening hours that weekday,
+  // the 30-minute grid, its lead time and booking window (409 saying why), and
+  // a redemption is an upcoming booking like any other for its limit.
   const endTime = addMinutesToTime(startTime, service.durationMinutes)
-  if (!isBookableSlotStart(startTime, service.durationMinutes)) {
-    throw conflict('BOOKING_SLOT_UNAVAILABLE', 'The requested time slot is not available.')
-  }
+  const now = new Date()
+  assertSlotBookable(policy, {
+    date: bookingDate,
+    startTime,
+    durationMinutes: service.durationMinutes,
+    now,
+    actor: 'customer',
+    branchName: branch.name,
+  })
+  assertBookingCap({
+    rules: policy.bookingRules,
+    upcomingAtBranch: await countUpcomingBookingsAtBranch(
+      session.user.id,
+      branch.id,
+      istToday(now),
+    ),
+    branchName: branch.name,
+  })
 
-  // booking_service.staff_id is NOT NULL; redemption bookings get an auto-assigned
-  // active staff member that the admin reassigns on approval.
-  const staffId = await getDefaultStaffForService(serviceId)
+  // A redemption booking is pending: its tentative assignee is replaced on
+  // approval. Preferably someone not on approved leave that day.
+  const staffId =
+    (await getDefaultStaffForService(serviceId, branch.id, bookingDate)) ??
+    (await getDefaultStaffForService(serviceId, branch.id))
   if (!staffId) {
     throw badRequest('No staff available to perform the selected service.')
   }
@@ -173,6 +212,7 @@ export const POST = withErrorHandler(async (req: Request) => {
     staffId,
     idempotencyKey,
     description: `Redeemed: ${service.name}`,
+    settingsRevision: policy.revision,
   })
 
   // Still reachable when two concurrent FIRST attempts share a key: the pre-gate

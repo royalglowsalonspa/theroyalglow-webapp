@@ -6,17 +6,16 @@
  * Module Name  : ContactPage
  * Scope        : Customer Pages
  *
- * Description  : Contact page displaying salon location, NAP info, Google Maps embed,
- *                business hours, and a message form for enquiries.
+ * Description  : The public branch directory and contact enquiry form.
  *
  * Responsibilities :
  * - Render address, phone, email, and operating hours
- * - Embed Google Maps iframe showing salon location
+ * - Link to directions and list branch closures
  * - Provide a contact form for name, phone, and message
  *
  * Features / Functionality :
  * - Two-column layout: map + NAP info on left, contact form on right
- * - Google Maps embed with lazy loading
+ * - Branch navigation on pages listing more than one location
  * - Accessible form with validation and ARIA attributes
  *
  * Tech Stack   : React, Next.js 16 (App Router), Tailwind CSS v4, JSON-LD
@@ -28,8 +27,10 @@
  * - Form is wired to POST /api/contact via the ContactForm client component
  ************************************************************/
 
+import { formatCalendarDateIN } from '@rgss/business'
 import type { Metadata } from 'next'
 import { JsonLd } from '@/components/seo/JsonLd'
+import { loadPublicLocations, type PublicLocation } from '@/lib/branch-directory'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd, localBusinessJsonLd } from '@/lib/seo/jsonld'
 import { buildMetadata } from '@/lib/seo/metadata'
@@ -38,11 +39,84 @@ import { ContactForm } from './ContactForm'
 export const metadata: Metadata = buildMetadata({
   title: 'Contact Us',
   description:
-    'Get in touch with Royal Glow Salon & Spa. Visit us at Narmada Complex, Rayasandra Main Road, Bengaluru or call +91 63601 35720.',
+    'Find Royal Glow Salon & Spa locations, opening hours and contact details in Bengaluru.',
   path: '/contact',
 })
 
-export default function ContactPage() {
+const DETAIL_HEADING = 'mb-2 font-ui text-[11px] uppercase tracking-[2px] text-gold-ink'
+const DETAIL_LINK = 'font-sans text-[15px] text-cocoa-dark underline-offset-4 hover:underline'
+
+function LocationDetails({ location }: { location: PublicLocation }) {
+  const anchor = `location-${location.id ?? 'primary'}`
+  return (
+    <article
+      id={anchor}
+      aria-labelledby={`${anchor}-heading`}
+      className="scroll-mt-32 rounded-[6px] border border-cloud-gray p-5 sm:p-6"
+    >
+      <h2 id={`${anchor}-heading`} className="font-display text-[28px] text-cocoa-dark">
+        {location.name}
+      </h2>
+      {location.status && <p className="mt-1 font-ui text-sm text-gold-ink">{location.status}</p>}
+      <address className="mt-4 space-y-1 font-sans text-[15px] text-cocoa-dark not-italic">
+        <p className="whitespace-pre-line">{location.addressLines.join('\n')}</p>
+        {location.phone && (
+          <p>
+            <a href={location.phone.href} className={DETAIL_LINK}>
+              {location.phone.label}
+            </a>
+          </p>
+        )}
+        {location.email && (
+          <p>
+            <a href={`mailto:${location.email}`} className={DETAIL_LINK}>
+              {location.email}
+            </a>
+          </p>
+        )}
+        {location.directions && (
+          <p>
+            <a href={location.directions} className={DETAIL_LINK}>
+              Get directions
+            </a>
+          </p>
+        )}
+      </address>
+      <div className="mt-5">
+        <h3 className={DETAIL_HEADING}>Regular hours</h3>
+        {location.hours ? (
+          <dl className="space-y-1 font-sans text-[15px] text-cocoa-dark">
+            {location.hours.map((row) => (
+              <div key={row.days} className="flex flex-wrap gap-x-3">
+                <dt className="text-warm-gray">{row.days}</dt>
+                <dd>{row.hours}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <p className="font-sans text-[15px] text-warm-gray">Hours are unavailable.</p>
+        )}
+      </div>
+      {location.closures.length > 0 && (
+        <div className="mt-5">
+          <h3 className={DETAIL_HEADING}>Upcoming closures</h3>
+          <ul className="space-y-1 font-sans text-[15px] text-cocoa-dark">
+            {location.closures.map(({ date, name }) => (
+              <li key={date}>
+                <time dateTime={date}>{formatCalendarDateIN(date)}</time> · {name}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </article>
+  )
+}
+
+export default async function ContactPage() {
+  const locations = await loadPublicLocations()
+  const branches = locations.flatMap(({ id, name }) => (id ? [{ id, name }] : []))
+
   return (
     <>
       {/* JSON-LD Structured Data */}
@@ -76,85 +150,29 @@ export default function ContactPage() {
         {/* ═══════════════════════════════════════════════════════ */}
         <section aria-label="Contact information and form" className="px-5 pb-20">
           <div className="mx-auto max-w-[1278px] grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
-            {/* LEFT COLUMN: Map + NAP */}
-            <div>
-              {/* Google Maps embed — official keyless "Embed a map" iframe for
-                  the real Royal Glow Salon & Spa Business Profile (feature ID
-                  0x3bae6d5cd0552b29:0xb87793c64005049e). No Maps Embed API key
-                  required; allowed by the middleware CSP frame-src
-                  (https://www.google.com). Width is responsive (100%); height
-                  fixed to the contact-card design. */}
-              <div className="rounded-[6px] overflow-hidden border border-cloud-gray">
-                <iframe
-                  title="Royal Glow Salon & Spa location on Google Maps"
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3889.5204681262835!2d77.66475897572211!3d12.874219217004518!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bae6d5cd0552b29%3A0xb87793c64005049e!2sROYAL%20GLOW%20SALON%20%26%20SPA!5e0!3m2!1sen!2sin!4v1782664203581!5m2!1sen!2sin"
-                  width="100%"
-                  height="300"
-                  style={{ border: 0 }}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  className="w-full"
-                />
-              </div>
-
-              {/* NAP Info */}
-              <address className="not-italic mt-8 space-y-4">
-                <div>
-                  <h2 className="font-ui text-[11px] uppercase tracking-[2px] text-gold-ink mb-2">
-                    Address
-                  </h2>
-                  <p className="font-sans text-[15px] leading-[1.55] text-cocoa-dark">
-                    1st Floor, Narmada Complex, 48/3,
-                    <br />
-                    Rayasandra Main Rd, Above SBI Bank,
-                    <br />
-                    Naganathapura, Parappana Agrahara,
-                    <br />
-                    Bengaluru, Karnataka 560100, India
-                  </p>
-                </div>
-
-                <div>
-                  <h2 className="font-ui text-[11px] uppercase tracking-[2px] text-gold-ink mb-2">
-                    Phone
-                  </h2>
-                  <a
-                    href="tel:+916360135720"
-                    className="font-sans text-[15px] text-cocoa-dark hover:text-gold-ink transition-colors duration-200"
-                  >
-                    +91 63601 35720
-                  </a>
-                </div>
-
-                <div>
-                  <h2 className="font-ui text-[11px] uppercase tracking-[2px] text-gold-ink mb-2">
-                    Email
-                  </h2>
-                  <a
-                    href="mailto:hello@theroyalglow.in"
-                    className="font-sans text-[15px] text-cocoa-dark hover:text-gold-ink transition-colors duration-200"
-                  >
-                    hello@theroyalglow.in
-                  </a>
-                </div>
-
-                <div>
-                  <h2 className="font-ui text-[11px] uppercase tracking-[2px] text-gold-ink mb-2">
-                    Hours
-                  </h2>
-                  <dl className="font-sans text-[15px] leading-[1.55] text-cocoa-dark space-y-1">
-                    <div className="flex gap-2">
-                      <dt className="text-warm-gray">Mon–Fri:</dt>
-                      <dd>10:00 AM – 9:00 PM</dd>
-                    </div>
-                    <div className="flex gap-2">
-                      <dt className="text-warm-gray">Sat–Sun:</dt>
-                      <dd>10:00 AM – 10:00 PM</dd>
-                    </div>
-                  </dl>
-                </div>
-              </address>
+            <div className="space-y-5">
+              {branches.length > 1 && (
+                <nav aria-label="Choose a branch">
+                  <ul className="flex flex-wrap gap-2">
+                    {branches.map(({ id, name }) => (
+                      <li key={id}>
+                        <a
+                          href={`#location-${id}`}
+                          className="inline-block rounded-full border border-cloud-gray px-4 py-2 font-ui text-sm text-cocoa-dark hover:border-gold-ink"
+                        >
+                          {name}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </nav>
+              )}
+              {locations.map((location) => (
+                <LocationDetails key={location.id ?? 'primary'} location={location} />
+              ))}
+              {locations.length === 0 && (
+                <p className="font-sans text-warm-gray">No locations are listed right now.</p>
+              )}
             </div>
 
             {/* RIGHT COLUMN: Contact Form */}
@@ -168,7 +186,7 @@ export default function ContactPage() {
               </p>
 
               {/* Interactive enquiry form — client component wired to POST /api/contact */}
-              <ContactForm />
+              <ContactForm branches={branches} />
             </div>
           </div>
         </section>

@@ -13,6 +13,11 @@ const nextConfig: NextConfig = {
   // project-local native `tsc` CLI for build-time validation instead.
   experimental: {
     useTypeScriptCli: true,
+    // Next 16.4.x can restore stale HMR versions from disk and send `restart`
+    // on every browser subscription, creating an endless reload loop.
+    // Keep in-memory HMR and the production build cache; avoid the broken
+    // cross-restart dev cache until vercel/next.js#100251 is fixed upstream.
+    turbopackFileSystemCacheForDev: false,
   },
   transpilePackages: [
     '@rgss/business',

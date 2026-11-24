@@ -42,9 +42,13 @@ const authMocks = vi.hoisted(() => ({
 const devAuthMock = vi.hoisted(() => vi.fn())
 const rateLimitMock = vi.hoisted(() => vi.fn())
 const headersMock = vi.hoisted(() => vi.fn())
+const getUserByIdMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/auth-server', () => ({
   auth: { api: { getSession: authMocks.getSession } },
+}))
+vi.mock('@rgss/db/queries', () => ({
+  getUserById: getUserByIdMock,
 }))
 vi.mock('@/lib/dev-auth', () => ({
   getDevImpersonatedSession: devAuthMock,
@@ -70,7 +74,14 @@ beforeEach(() => {
   devAuthMock.mockResolvedValue(null)
   headersMock.mockResolvedValue(new Headers())
   rateLimitMock.mockResolvedValue(undefined)
+  getUserByIdMock.mockResolvedValue(null)
 })
+
+/** A session whose stored account currently has `stored` as its role. */
+function signedInAs(sessionRole: string | undefined, stored: string | null = sessionRole ?? null) {
+  authMocks.getSession.mockResolvedValue(sessionWithRole(sessionRole))
+  getUserByIdMock.mockResolvedValue({ id: 'user_123', role: stored })
+}
 
 describe('requireSession', () => {
   it('throws 401 UNAUTHENTICATED when there is no session', async () => {
@@ -138,19 +149,19 @@ describe('requireRole — hierarchy enforcement', () => {
   const ORDER = ['customer', 'staff', 'receptionist', 'manager', 'owner', 'developer'] as const
 
   it('passes when the user role exactly equals the minimum role', async () => {
-    authMocks.getSession.mockResolvedValue(sessionWithRole('receptionist'))
+    signedInAs('receptionist')
     await expect(requireRole('receptionist')).resolves.toMatchObject({
       user: { role: 'receptionist' },
     })
   })
 
   it('passes when the user role is higher than the minimum role', async () => {
-    authMocks.getSession.mockResolvedValue(sessionWithRole('owner'))
+    signedInAs('owner')
     await expect(requireRole('manager')).resolves.toBeTruthy()
   })
 
   it('throws 403 FORBIDDEN when the user role is below the minimum role', async () => {
-    authMocks.getSession.mockResolvedValue(sessionWithRole('staff'))
+    signedInAs('staff')
     await expect(requireRole('manager')).rejects.toMatchObject({
       code: ERROR_CODES.FORBIDDEN,
       statusCode: 403,
@@ -158,7 +169,7 @@ describe('requireRole — hierarchy enforcement', () => {
   })
 
   it('treats an absent role as customer (level 0) and forbids privileged access', async () => {
-    authMocks.getSession.mockResolvedValue(sessionWithRole(undefined))
+    signedInAs(undefined, null)
     await expect(requireRole('receptionist')).rejects.toMatchObject({
       code: ERROR_CODES.FORBIDDEN,
       statusCode: 403,
@@ -166,7 +177,7 @@ describe('requireRole — hierarchy enforcement', () => {
   })
 
   it('treats an unknown role as level 0 and forbids privileged access', async () => {
-    authMocks.getSession.mockResolvedValue(sessionWithRole('intern'))
+    signedInAs('intern')
     await expect(requireRole('staff')).rejects.toMatchObject({
       code: ERROR_CODES.FORBIDDEN,
       statusCode: 403,
@@ -174,7 +185,7 @@ describe('requireRole — hierarchy enforcement', () => {
   })
 
   it('allows developer (top of hierarchy) through every gate', async () => {
-    authMocks.getSession.mockResolvedValue(sessionWithRole('developer'))
+    signedInAs('developer')
     for (const min of ORDER) {
       await expect(requireRole(min)).resolves.toBeTruthy()
     }
@@ -185,12 +196,11 @@ describe('requireRole — hierarchy enforcement', () => {
       const role = ORDER[i]
       if (!role) continue
       // Passes its own level.
-      authMocks.getSession.mockResolvedValue(sessionWithRole(role))
+      signedInAs(role)
       await expect(requireRole(role)).resolves.toBeTruthy()
       // Fails the next level up (if one exists).
       const next = ORDER[i + 1]
       if (next) {
-        authMocks.getSession.mockResolvedValue(sessionWithRole(role))
         await expect(requireRole(next)).rejects.toMatchObject({ statusCode: 403 })
       }
     }
@@ -198,6 +208,35 @@ describe('requireRole — hierarchy enforcement', () => {
 
   it('propagates the 401 from requireSession when unauthenticated', async () => {
     authMocks.getSession.mockResolvedValue(null)
+    await expect(requireRole('staff')).rejects.toMatchObject({
+      code: ERROR_CODES.UNAUTHENTICATED,
+      statusCode: 401,
+    })
+    expect(getUserByIdMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('requireRole — the stored role, not the cached session role (R2.2)', () => {
+  it('refuses a cached session whose role was removed since it was cached', async () => {
+    // The 5-minute cookie cache still says Receptionist; the account is now a Customer.
+    signedInAs('receptionist', 'customer')
+    await expect(requireRole('receptionist')).rejects.toMatchObject({
+      code: ERROR_CODES.FORBIDDEN,
+      statusCode: 403,
+    })
+    expect(getUserByIdMock).toHaveBeenCalledWith('user_123')
+  })
+
+  it('admits a role granted after the session was cached, and returns the current role', async () => {
+    signedInAs('customer', 'manager')
+    await expect(requireRole('manager')).resolves.toMatchObject({
+      user: { id: 'user_123', role: 'manager' },
+    })
+  })
+
+  it('answers 401 when the session outlived its account', async () => {
+    authMocks.getSession.mockResolvedValue(sessionWithRole('owner'))
+    getUserByIdMock.mockResolvedValue(null)
     await expect(requireRole('staff')).rejects.toMatchObject({
       code: ERROR_CODES.UNAUTHENTICATED,
       statusCode: 401,

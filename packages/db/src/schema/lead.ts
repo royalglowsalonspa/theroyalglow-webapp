@@ -36,6 +36,7 @@ import { index, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'
 import { user } from './auth'
 import { booking } from './booking'
+import { branch } from './branch'
 import { leadStatusEnum } from './enums'
 import { service } from './service'
 
@@ -48,6 +49,9 @@ export const lead = pgTable(
     name: text('name').notNull(),
     phone: text('phone').notNull(),
     email: text('email'),
+    // The branch this lead belongs to, from the ad link or the main branch
+    // (multi-branch R7.3).
+    branchId: text('branch_id').references(() => branch.id, { onDelete: 'restrict' }),
     serviceInterestedId: text('service_interested_id').references(() => service.id, {
       onDelete: 'set null',
     }),
@@ -71,6 +75,7 @@ export const lead = pgTable(
   },
   (table) => [
     index('lead_status_idx').on(table.status),
+    index('lead_branch_id_status_idx').on(table.branchId, table.status),
     index('lead_assigned_to_idx').on(table.assignedTo).where(sql`status NOT IN ('won', 'lost')`),
     index('lead_utm_campaign_idx').on(table.utmCampaign).where(sql`utm_campaign IS NOT NULL`),
   ],

@@ -138,12 +138,17 @@ jobs:
         env:
           PGURL: ${{ steps.target.outputs.url }}
         run: |
-          APPLIED=$(psql "$PGURL" -tAc "SELECT CASE WHEN to_regclass('cms.payload_migrations') IS NULL THEN '0' ELSE (SELECT count(*)::text FROM cms.payload_migrations WHERE name = '20260729_182023_drop_legacy_service_collection') END")
+          APPLIED=0
+          LEDGER_EXISTS=$(psql -X -v ON_ERROR_STOP=1 "$PGURL" -tAc "SELECT to_regclass('cms.payload_migrations') IS NOT NULL")
+          if [ "$LEDGER_EXISTS" = "t" ]; then
+            APPLIED=$(psql -X -v ON_ERROR_STOP=1 "$PGURL" -tAc "SELECT count(*) FROM cms.payload_migrations WHERE name = '20260729_182023_drop_legacy_service_collection'")
+          fi
           if [ "$APPLIED" != "0" ]; then
             echo "Drop migration already applied on ${{ inputs.environment }} — cms.service is the new shape, pre-flight not applicable."
             exit 0
           fi
-          if [ "$(psql "$PGURL" -tAc "SELECT to_regclass('cms.service') IS NOT NULL")" != "t" ]; then
+          LEGACY_EXISTS=$(psql -X -v ON_ERROR_STOP=1 "$PGURL" -tAc "SELECT to_regclass('cms.service') IS NOT NULL")
+          if [ "$LEGACY_EXISTS" != "t" ]; then
             echo "cms.service does not exist on ${{ inputs.environment }} — nothing to lose."
             exit 0
           fi

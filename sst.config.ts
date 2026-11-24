@@ -32,10 +32,9 @@
  *                function, a DynamoDB ISR tag cache and an SQS revalidation
  *                queue. All within always-free allowances at this traffic.
  *
- *                Domains attach on the `production` stage only, after the
- *                CloudFront-URL verification described in M2C/M2AWS.md §9. DNS stays
- *                on Cloudflare; SST manages just the ACM validation records, the
- *                CAA records and the two aliases.
+ *                Production names attach only on the `production` stage.
+ *                Rehearsal stages use an independently managed domain and
+ *                certificate. Production DNS stays on Cloudflare.
  ************************************************************/
 
 export default $config({
@@ -47,13 +46,19 @@ export default $config({
       removal: input?.stage === 'production' ? 'retain' : 'remove',
       providers: {
         aws: { region: 'ap-southeast-1' },
-        cloudflare: { package: '@pulumi/cloudflare', version: '6.20.0' },
+        ...(!input.stage?.startsWith('rehearsal-') && {
+          cloudflare: { package: '@pulumi/cloudflare', version: '6.20.0' },
+        }),
       },
     }
   },
 
   async run() {
+    const { readRehearsalConfig, rehearsalAblyKey, rehearsalDatabaseUrl, rehearsalQStashOrigin } =
+      await import('./scripts/release/rehearsal-config')
     const isProd = $app.stage === 'production'
+    const rehearsal = readRehearsalConfig($app.stage, process.env)
+    const qstashUrl = process.env.QSTASH_URL?.trim()
 
     // ── DNS ────────────────────────────────────────────────────────────────
     // theroyalglow.in is hosted on Cloudflare (blakely/jarred.ns.cloudflare.com)
@@ -69,40 +74,48 @@ export default $config({
     //
     // Requires CLOUDFLARE_API_TOKEN at deploy time with Zone:Read + DNS:Edit.
     const cloudflareZone = '9c72d0f642d34af388e7d870073dc64d'
-    const dns = sst.cloudflare.dns({ zone: cloudflareZone })
+    const dns = isProd ? sst.cloudflare.dns({ zone: cloudflareZone }) : undefined
 
     // ── Secrets ────────────────────────────────────────────────────────────
     // Set with: bunx sst secret set <Name> "<value>" --stage production
-    // Stored as SSM SecureString; injected into the Lambda environment at deploy.
+    // SST stores these per stage and injects the values at deploy.
     // NEVER put NEXT_PUBLIC_* here — those are build-time and must be real
     // environment variables during `next build` (supplied by CI).
-    const databaseUrl = new sst.Secret('DatabaseUrl')
+    const stageSecret = (name: string, placeholder?: string) =>
+      new sst.Secret(rehearsal ? `Rehearsal${name}` : name, placeholder)
+    const databaseUrl = stageSecret('DatabaseUrl')
+    const pooledDatabaseUrl = rehearsal
+      ? databaseUrl.value.apply((value) => rehearsalDatabaseUrl(value, rehearsal.neonHost, false))
+      : databaseUrl.value
 
-    // ONE secret shared by both apps: sessions are exchanged across subdomains
-    // via a `.theroyalglow.in`-scoped cookie, so the value must be byte-identical.
-    const betterAuthSecret = new sst.Secret('BetterAuthSecret')
+    // Both apps share one signing secret for the stage's cookie domain.
+    const betterAuthSecret = stageSecret('BetterAuthSecret')
 
-    const googleClientId = new sst.Secret('GoogleOauthClientId')
-    const googleClientSecret = new sst.Secret('GoogleOauthClientSecret')
-    const ablyPrivateKey = new sst.Secret('AblyPrivateKey')
-    const upstashRedisUrl = new sst.Secret('UpstashRedisRestUrl')
-    const upstashRedisToken = new sst.Secret('UpstashRedisRestToken')
-    const qstashToken = new sst.Secret('QstashToken')
-    const qstashCurrentKey = new sst.Secret('QstashCurrentSigningKey')
-    const qstashNextKey = new sst.Secret('QstashNextSigningKey')
-    const resendApiKey = new sst.Secret('ResendApiKey')
-    const vapidPrivateKey = new sst.Secret('VapidPrivateKey')
-    const invoicePdfHmacSecret = new sst.Secret('InvoicePdfHmacSecret')
+    const googleClientId = stageSecret('GoogleOauthClientId')
+    const googleClientSecret = stageSecret('GoogleOauthClientSecret')
+    const ablyPrivateKey = stageSecret('AblyPrivateKey')
+    const upstashRedisUrl = stageSecret('UpstashRedisRestUrl')
+    const upstashRedisToken = stageSecret('UpstashRedisRestToken')
+    const qstashToken = stageSecret('QstashToken')
+    const qstashCurrentKey = stageSecret('QstashCurrentSigningKey')
+    const qstashNextKey = stageSecret('QstashNextSigningKey')
+    // Heartbeat URLs are credentials. An unset monitor is a no-op in admin.
+    const heartbeatMissingManager = stageSecret('BetterStackHeartbeatMissingManager', '')
+    const heartbeatSettlementClose = stageSecret('BetterStackHeartbeatSettlementClose', '')
+    const heartbeatStaffOverrun = stageSecret('BetterStackHeartbeatStaffOverrun', '')
+    const resendApiKey = stageSecret('ResendApiKey')
+    const vapidPrivateKey = stageSecret('VapidPrivateKey')
+    const invoicePdfHmacSecret = stageSecret('InvoicePdfHmacSecret')
     // Shared with the Render-hosted CMS, which POSTs it to web /api/revalidate
     // after a content save. Web-only: apps/admin has no revalidate route. Without
     // it that handler answers 503 "Revalidation not configured", the CMS hook
     // swallows the failure, and owner edits stay invisible until the 1h fetch TTL
     // lapses — which is exactly how a published hero banner kept rendering the
     // bundled fallback SVG. The value MUST be byte-identical to the CMS setting.
-    const revalidateSecret = new sst.Secret('RevalidateSecret')
-    const internalJobToken = new sst.Secret('InternalJobToken')
-    const r2AccessKeyId = new sst.Secret('R2AccessKeyId')
-    const r2SecretAccessKey = new sst.Secret('R2SecretAccessKey')
+    const revalidateSecret = stageSecret('RevalidateSecret')
+    const internalJobToken = stageSecret('InternalJobToken')
+    const r2AccessKeyId = stageSecret('R2AccessKeyId')
+    const r2SecretAccessKey = stageSecret('R2SecretAccessKey')
 
     // Forward only variables that actually carry a value.
     //
@@ -119,11 +132,13 @@ export default $config({
     // Environment shared by both apps. Values that differ per app are set below.
     const sharedEnv = {
       APP_ENV: isProd ? 'prod' : $app.stage,
-      DATABASE_URL: databaseUrl.value,
+      DATABASE_URL: pooledDatabaseUrl,
       BETTER_AUTH_SECRET: betterAuthSecret.value,
       GOOGLE_OAUTH_CLIENT_ID: googleClientId.value,
       GOOGLE_OAUTH_CLIENT_SECRET: googleClientSecret.value,
-      ABLY_PRIVATE_KEY: ablyPrivateKey.value,
+      ABLY_PRIVATE_KEY: rehearsal
+        ? ablyPrivateKey.value.apply((value) => rehearsalAblyKey(value, rehearsal.ablyAppId))
+        : ablyPrivateKey.value,
       UPSTASH_REDIS_REST_URL: upstashRedisUrl.value,
       UPSTASH_REDIS_REST_TOKEN: upstashRedisToken.value,
       QSTASH_TOKEN: qstashToken.value,
@@ -138,20 +153,41 @@ export default $config({
       // Omitted when unset — see the note on `passthrough` above.
       // INVOICING_SERVICE_URL is currently unset (same as Render), so invoice
       // email degrades to a no-attachment send rather than crashing the app.
-      ...passthrough({
-        R2_BUCKET_NAME: process.env.R2_BUCKET_NAME,
-        R2_ENDPOINT: process.env.R2_ENDPOINT,
-        INVOICING_SERVICE_URL: process.env.INVOICING_SERVICE_URL,
-      }),
+      ...(rehearsal
+        ? {
+            COOKIE_DOMAIN: rehearsal.cookieDomain,
+            NEXT_PUBLIC_WEB_ORIGIN: rehearsal.web.origin,
+            NEXT_PUBLIC_ADMIN_URL: rehearsal.admin.origin,
+            NEXT_PUBLIC_CMS_URL: rehearsal.cmsOrigin,
+            NEXT_PUBLIC_R2_PUBLIC_URL: rehearsal.r2PublicOrigin,
+            NEXT_PUBLIC_GOOGLE_CLIENT_ID: googleClientId.value,
+            NEXT_PUBLIC_ABLY_KEY: rehearsal.ablyAppId,
+            NEXT_PUBLIC_VAPID_PUBLIC_KEY: rehearsal.vapidPublicKey,
+            NEXT_PUBLIC_POSTHOG_KEY: rehearsal.posthogKey,
+            NEXT_PUBLIC_POSTHOG_HOST: rehearsal.posthogHost,
+            NEXT_PUBLIC_SENTRY_DSN: '',
+            NEXT_PUBLIC_ADMIN_SENTRY_DSN: '',
+            NEXT_PUBLIC_META_PIXEL_ID: '',
+            NEXT_PUBLIC_CLARITY_ID: '',
+            QSTASH_URL: rehearsal.qstashOrigin,
+            R2_BUCKET_NAME: rehearsal.r2Bucket,
+            R2_ENDPOINT: rehearsal.r2Endpoint,
+            INVOICING_SERVICE_URL: rehearsal.invoicingOrigin,
+            CONTACT_INBOX_EMAIL: rehearsal.contactEmail,
+            RESEND_FROM_EMAIL: rehearsal.contactEmail,
+          }
+        : passthrough({
+            QSTASH_URL: qstashUrl ? rehearsalQStashOrigin(qstashUrl) : undefined,
+            R2_BUCKET_NAME: process.env.R2_BUCKET_NAME,
+            R2_ENDPOINT: process.env.R2_ENDPOINT,
+            INVOICING_SERVICE_URL: process.env.INVOICING_SERVICE_URL,
+          })),
     }
 
     // ── Customer site — theroyalglow.in ───────────────────────────────────
     const web = new sst.aws.Nextjs('Web', {
       path: 'apps/web',
-      // Domains attach on `production` ONLY. A dev stage must never claim these
-      // hostnames — two stages cannot own the same CloudFront alias, and the
-      // loser fails mid-deploy with CNAMEAlreadyExists.
-      ...(isProd && {
+      ...(dns && {
         domain: {
           name: 'theroyalglow.in',
           // Serves an apex-redirect on the same distribution, so www needs no
@@ -160,17 +196,22 @@ export default $config({
           dns,
         },
       }),
+      ...(rehearsal && {
+        domain: { name: rehearsal.web.hostname, cert: rehearsal.web.cert, dns: false as const },
+      }),
       environment: {
         ...sharedEnv,
         // NEXT_PUBLIC_APP_URL differs per app and cannot be a single repo
         // variable — it must be set here so each build gets the right value.
-        NEXT_PUBLIC_APP_URL: 'https://theroyalglow.in',
-        BETTER_AUTH_URL: 'https://theroyalglow.in',
+        NEXT_PUBLIC_APP_URL: rehearsal?.web.origin ?? 'https://theroyalglow.in',
+        BETTER_AUTH_URL: rehearsal?.web.origin ?? 'https://theroyalglow.in',
         // Authenticates the CMS -> web revalidation ping. Web only.
         REVALIDATE_SECRET: revalidateSecret.value,
         RESEND_API_KEY: resendApiKey.value,
         VAPID_PRIVATE_KEY: vapidPrivateKey.value,
-        VAPID_SUBJECT: 'mailto:contact@theroyalglow.in',
+        VAPID_SUBJECT: rehearsal
+          ? `mailto:${rehearsal.contactEmail}`
+          : 'mailto:contact@theroyalglow.in',
       },
       server: {
         architecture: 'arm64',
@@ -186,21 +227,28 @@ export default $config({
       // Separate distribution, separate certificate — but sessions still work
       // across both because the auth cookie is scoped to `.theroyalglow.in`,
       // and cookie scope follows the domain, not the origin.
-      ...(isProd && {
+      ...(dns && {
         domain: {
           name: 'admin.theroyalglow.in',
           dns,
         },
       }),
+      ...(rehearsal && {
+        domain: { name: rehearsal.admin.hostname, cert: rehearsal.admin.cert, dns: false as const },
+      }),
       environment: {
         ...sharedEnv,
         // NEXT_PUBLIC_APP_URL for the admin app is its own subdomain, not the
         // customer site — must be set here so the build gets the right value.
-        NEXT_PUBLIC_APP_URL: 'https://admin.theroyalglow.in',
-        BETTER_AUTH_URL: 'https://admin.theroyalglow.in',
+        NEXT_PUBLIC_APP_URL: rehearsal?.admin.origin ?? 'https://admin.theroyalglow.in',
+        BETTER_AUTH_URL: rehearsal?.admin.origin ?? 'https://admin.theroyalglow.in',
         // apps/admin/src/env.ts requires both; on Neon these are the pooled and
         // direct hosts respectively.
-        DATABASE_URL_UNPOOLED: process.env.DATABASE_URL_UNPOOLED ?? databaseUrl.value,
+        DATABASE_URL_UNPOOLED: rehearsal
+          ? databaseUrl.value.apply((value) =>
+              rehearsalDatabaseUrl(value, rehearsal.neonHost, true),
+            )
+          : (process.env.DATABASE_URL_UNPOOLED ?? databaseUrl.value),
         // Email + web push belong here too, NOT only on web. This app owns the
         // whole /api/jobs/* surface (reminders, birthday mail, membership
         // alerts, daily/weekly reports) and lib/notifications/dispatch.ts.
@@ -210,7 +258,12 @@ export default $config({
         // would look healthy while being mute.
         RESEND_API_KEY: resendApiKey.value,
         VAPID_PRIVATE_KEY: vapidPrivateKey.value,
-        VAPID_SUBJECT: 'mailto:contact@theroyalglow.in',
+        VAPID_SUBJECT: rehearsal
+          ? `mailto:${rehearsal.contactEmail}`
+          : 'mailto:contact@theroyalglow.in',
+        BETTER_STACK_HEARTBEAT_MISSING_MANAGER: heartbeatMissingManager.value,
+        BETTER_STACK_HEARTBEAT_SETTLEMENT_CLOSE: heartbeatSettlementClose.value,
+        BETTER_STACK_HEARTBEAT_STAFF_OVERRUN: heartbeatStaffOverrun.value,
       },
       server: {
         architecture: 'arm64',

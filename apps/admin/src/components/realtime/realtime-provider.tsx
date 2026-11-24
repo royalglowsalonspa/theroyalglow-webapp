@@ -16,7 +16,8 @@
  *
  * Responsibilities :
  * - Authenticate via authCallback against POST /api/ably/token
- * - Subscribe to admin:bookings:{branchId}, admin:schedule:{date}, admin:leave
+ * - Subscribe to admin:bookings:{branchId}, admin:leave:{branchId} and
+ *   admin:schedule:{branchId}:{date} for the branch it is given
  * - Track connection state and drive the reconnect indicator (≤2s)
  * - Re-subscribe to every registered channel/event on recovery
  * - Degrade gracefully when realtime is unconfigured (503) or `ably` absent
@@ -42,10 +43,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ADMIN_BOOKINGS_EVENTS,
-  ADMIN_LEAVE_CHANNEL,
   ADMIN_LEAVE_EVENTS,
   ADMIN_SCHEDULE_EVENTS,
   adminBookingsChannel,
+  adminLeaveChannel,
   adminScheduleChannel,
 } from '@/lib/realtime/channels'
 import {
@@ -81,9 +82,12 @@ const RealtimeContext = createContext<RealtimeContextValue | null>(null)
 type Registration = { channel: string; event: string; handler: AblyMessageListener }
 
 type RealtimeProviderProps = {
-  /** When set, auto-subscribe to `admin:bookings:{branchId}`. */
+  /**
+   * The branch the page renders for. When set, auto-subscribe to its bookings
+   * feed and leave queue. Every channel names its branch (design §3).
+   */
   branchId?: string
-  /** When set (YYYY-MM-DD), auto-subscribe to `admin:schedule:{date}`. */
+  /** With branchId, auto-subscribe to that branch's schedule for this date (YYYY-MM-DD). */
   scheduleDate?: string
   /** Optional sink for every admin event (minimal, extensible wiring). */
   onEvent?: (channel: string, message: AblyMessage) => void
@@ -307,9 +311,8 @@ export function RealtimeProvider({
   }, [resubscribeAll])
 
   // ── Auto-subscriptions (Req 8.2, 8.3) ────────────────────────────────────
-  // Subscribe to the admin channels on mount using the canonical event sets.
-  // admin:leave is always on; bookings/schedule subscribe when their id/date
-  // is provided. A built-in dispatcher forwards to the optional onEvent sink;
+  // Subscribe to the branch's channels on mount using the canonical event sets,
+  // only when the branch is given: nothing subscribes outside a branch context. A built-in dispatcher forwards to the optional onEvent sink;
   // page-level handlers extend via useRealtimeChannel without rewiring here.
   useEffect(() => {
     const cleanups: Array<() => void> = []
@@ -320,22 +323,23 @@ export function RealtimeProvider({
         onEventRef.current?.(channel, message)
       }
 
-    // admin:leave — global leave queue.
-    for (const event of ADMIN_LEAVE_EVENTS) {
-      cleanups.push(subscribe(ADMIN_LEAVE_CHANNEL, event, dispatch(ADMIN_LEAVE_CHANNEL)))
-    }
-
-    // admin:bookings:{branchId}
     if (branchId) {
-      const channel = adminBookingsChannel(branchId)
+      // admin:leave:{branchId}
+      const leave = adminLeaveChannel(branchId)
+      for (const event of ADMIN_LEAVE_EVENTS) {
+        cleanups.push(subscribe(leave, event, dispatch(leave)))
+      }
+
+      // admin:bookings:{branchId}
+      const bookings = adminBookingsChannel(branchId)
       for (const event of ADMIN_BOOKINGS_EVENTS) {
-        cleanups.push(subscribe(channel, event, dispatch(channel)))
+        cleanups.push(subscribe(bookings, event, dispatch(bookings)))
       }
     }
 
-    // admin:schedule:{YYYY-MM-DD}
-    if (scheduleDate) {
-      const channel = adminScheduleChannel(scheduleDate)
+    // admin:schedule:{branchId}:{YYYY-MM-DD}
+    if (branchId && scheduleDate) {
+      const channel = adminScheduleChannel(branchId, scheduleDate)
       for (const event of ADMIN_SCHEDULE_EVENTS) {
         cleanups.push(subscribe(channel, event, dispatch(channel)))
       }

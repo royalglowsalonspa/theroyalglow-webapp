@@ -178,9 +178,24 @@ Required service values include:
 - `R2_ENDPOINT`
 - `R2_ACCESS_KEY_ID`
 - `R2_SECRET_ACCESS_KEY`
-- `R2_PUBLIC_BASE_URL`
 
-The calling admin workload uses `INVOICING_SERVICE_URL` and the matching HMAC secret. Verify `/healthz`, then send one signed test render and confirm the returned PDF URL resolves through R2.
+Deploy the admin billing download route before switching the renderer. For
+production, set `R2_BUCKET_NAME=rgss-invoices` and `R2_INVOICE_ACCESS=private`
+on Cloud Run, with credentials scoped to that bucket. Leave
+`R2_PUBLIC_BASE_URL` unset in private mode. The calling admin workload uses
+`INVOICING_SERVICE_URL` and the matching HMAC secret. Verify `/healthz` and
+then check signed rendering, the email attachment, and branch-authorized PDF
+download using a synthetic invoice in rehearsal.
+
+### Upload bucket cutover
+
+Before changing the bucket in Render, verify the existing `cms/` keys and
+all generated image sizes in `rgss-uploads`. Set `R2_BUCKET_NAME=rgss-uploads`
+with bucket-scoped credentials and use `R2_MEDIA_PUBLIC_URL` for the HTTPS
+origin serving that bucket. For AWS web, the deployment uses
+`R2_UPLOAD_BUCKET_NAME` and `R2_UPLOAD_PUBLIC_URL` from GitHub variables.
+Confirm that the public origin serves a media object and `/.health`. Existing
+absolute links continue to use their saved hostname.
 
 ## Backup and Recovery
 
@@ -190,10 +205,18 @@ The calling admin workload uses `INVOICING_SERVICE_URL` and the matching HMAC se
 |---|---|---|---|
 | Neon point-in-time recovery | Continuous within plan retention | Neon | Restore to a point before data corruption |
 | Weekly `pg_dump` | Weekly | Cloudflare R2 `weekly/` prefix | Off-site database recovery |
-| Restore drill | Monthly | Isolated Neon test target | Prove backup integrity and restore procedure |
+| Restore drill | Monthly | Empty PostgreSQL container on the runner | Prove the named backup can be restored in isolation |
 | Pre-migration table backup | Before destructive migration | Cloudflare R2 `pre-migration/` prefix | Fast targeted recovery |
 
-`.github/workflows/weekly-backup.yml` creates, uploads, and verifies compressed dumps. `.github/workflows/monthly-backup-test.yml` validates restorability. R2 backup credentials are independent of the DNS automation token.
+`.github/workflows/weekly-backup.yml` exports a consistent PostgreSQL snapshot
+as a custom-format dump and uses the same snapshot to record migration ledgers,
+table counts, financial totals, schema and object reference hashes. It verifies
+the R2 upload before publishing the matching manifest. Run
+`.github/workflows/monthly-backup-test.yml` with that exact manifest key for
+release evidence. The restore runs with no network in an empty PostgreSQL
+container, compares the result with the manifest, and removes the local copy.
+The R2 invoice and media objects still need their own recovery inventory and
+verification. R2 backup credentials are independent of the DNS automation token.
 
 ### Recovery decision matrix
 

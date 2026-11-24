@@ -20,8 +20,15 @@
  ************************************************************/
 
 import { NextRequest } from 'next/server'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { middleware } from './middleware'
+
+// A shell set up for admin E2E runs has the local-dev bypass variables set,
+// which skip the middleware entirely; these cases test the middleware itself.
+beforeEach(() => {
+  vi.stubEnv('ADMIN_DEV_BYPASS_AUTH', '')
+  vi.stubEnv('ADMIN_DEV_IMPERSONATE_EMAIL', '')
+})
 
 afterEach(() => {
   vi.unstubAllGlobals()

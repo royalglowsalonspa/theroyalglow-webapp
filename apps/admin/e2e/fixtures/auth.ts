@@ -19,6 +19,12 @@
  *        ADMIN_E2E_RECEPTIONIST_STATE=apps/admin/e2e/.auth/receptionist.json
  *      or drop the files in the default dir (e2e/.auth/<role>.json).
  *
+ * Local alternative (no stored sessions): run `next dev` with
+ *   ADMIN_DEV_IMPERSONATE_EMAIL=<account> and tell the suite that account's
+ *   role with ADMIN_E2E_IMPERSONATED_ROLE=<role>. The server then acts as that
+ *   account for every request, so only that role's specs run (describeAs).
+ *   Impersonation is ignored by production builds.
+ *
  * Notes        : When a role's state file is absent the RBAC specs self-skip
  *                (see hasRoleState). This keeps the suite enumerable and
  *                typecheckable in environments without seeded accounts, while
@@ -27,11 +33,37 @@
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { test } from '@playwright/test'
 
 const here = dirname(fileURLToPath(import.meta.url))
 
-/** Roles exercised by the RBAC E2E matrix (Req 15.2). */
-export type AdminRole = 'receptionist' | 'owner' | 'developer'
+/** Roles exercised by the admin E2E suite (RBAC matrix Req 15.2, multi-branch R1). */
+export type AdminRole = 'receptionist' | 'manager' | 'owner' | 'developer'
+
+const ADMIN_ROLES: readonly AdminRole[] = ['receptionist', 'manager', 'owner', 'developer']
+
+function parseImpersonatedRole(value: string | undefined): AdminRole | null {
+  const role = value?.trim().toLowerCase() ?? ''
+  if (role === '') {
+    return null
+  }
+  const known = ADMIN_ROLES.find((r) => r === role)
+  if (!known) {
+    throw new Error(
+      `ADMIN_E2E_IMPERSONATED_ROLE must be one of ${ADMIN_ROLES.join(', ')}; got "${value}".`,
+    )
+  }
+  return known
+}
+
+/**
+ * The role of the account the target `next dev` server impersonates
+ * (ADMIN_DEV_IMPERSONATE_EMAIL), declared by ADMIN_E2E_IMPERSONATED_ROLE.
+ * Null when the suite authenticates with stored sessions instead.
+ */
+export const IMPERSONATED_ROLE: AdminRole | null = parseImpersonatedRole(
+  process.env.ADMIN_E2E_IMPERSONATED_ROLE,
+)
 
 /** Default directory holding seeded storageState files (gitignored). */
 const DEFAULT_STATE_DIR = process.env.ADMIN_E2E_STATE_DIR ?? join(here, '..', '.auth')
@@ -53,6 +85,35 @@ export function hasRoleState(role: AdminRole): boolean {
   } catch {
     return false
   }
+}
+
+/**
+ * True when the suite can act as `role`: the target server impersonates that
+ * role, or (without impersonation) a stored session exists for it.
+ */
+export function canActAs(role: AdminRole): boolean {
+  return IMPERSONATED_ROLE ? IMPERSONATED_ROLE === role : hasRoleState(role)
+}
+
+function cannotActAsReason(role: AdminRole): string {
+  return IMPERSONATED_ROLE
+    ? `the target server impersonates a ${IMPERSONATED_ROLE}, not a ${role}`
+    : `no seeded storageState for "${role}" (set ADMIN_E2E_${role.toUpperCase()}_STATE or ADMIN_E2E_IMPERSONATED_ROLE)`
+}
+
+/**
+ * Register a describe block that runs as `role`, and skips (saying why) when
+ * the suite can't act as that role. An impersonating server needs no stored
+ * session; anything else uses the role's storageState.
+ */
+export function describeAs(role: AdminRole, title: string, body: () => void): void {
+  test.describe(`${title} — as ${role}`, () => {
+    test.skip(!canActAs(role), cannotActAsReason(role))
+    // `next dev` compiles each route on its first request.
+    test.slow(IMPERSONATED_ROLE !== null, 'the impersonating server is `next dev`')
+    test.use(IMPERSONATED_ROLE ? {} : { storageState: roleStatePath(role) })
+    body()
+  })
 }
 
 /**

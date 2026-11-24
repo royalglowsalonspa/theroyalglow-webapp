@@ -36,25 +36,38 @@ import { drizzle } from 'drizzle-orm/neon-http'
  * sign-in (the callback writes `session`/`account`/`verification` rows) and a
  * spinning "Sign in" button.
  *
- * `fetch` only throws for connection-level failures (no HTTP response was
- * received), which means the SQL never executed — so retrying is safe even for
- * writes. We retry a few transient failures with a short backoff and otherwise
- * pass straight through. HTTP error statuses are NOT thrown by fetch, so they
- * are never retried here.
+ * A dropped connection can hide a committed write. Retry only errors that
+ * establish the request never reached Neon. Propagate ambiguous failures so
+ * callers can recover with their operation keys and database guards.
  */
-const baseFetch: typeof fetch = (...args) => fetch(...args)
+const BEFORE_CONNECT_CODES = new Set([
+  'EAI_AGAIN',
+  'ENOTFOUND',
+  'ECONNREFUSED',
+  'UND_ERR_CONNECT_TIMEOUT',
+])
+
+function failedBeforeConnect(error: unknown): boolean {
+  if (!(error instanceof TypeError)) return false
+  const cause = error.cause
+  return (
+    typeof cause === 'object' &&
+    cause !== null &&
+    'code' in cause &&
+    typeof cause.code === 'string' &&
+    BEFORE_CONNECT_CODES.has(cause.code)
+  )
+}
 
 neonConfig.fetchFunction = async (input: unknown, init: unknown): Promise<Response> => {
-  let lastError: unknown
-  for (let attempt = 0; attempt < 4; attempt++) {
+  for (let attempt = 1; ; attempt++) {
     try {
-      return await baseFetch(input as RequestInfo, init as RequestInit)
+      return await fetch(input as RequestInfo, init as RequestInit)
     } catch (error) {
-      lastError = error
-      await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)))
+      if (attempt === 4 || !failedBeforeConnect(error)) throw error
+      await new Promise((resolve) => setTimeout(resolve, 200 * attempt))
     }
   }
-  throw lastError
 }
 
 /**

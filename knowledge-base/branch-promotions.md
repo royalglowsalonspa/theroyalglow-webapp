@@ -31,6 +31,14 @@ and dispatches Release Please. Branch advancement and successful deployment are
 separate results; inspect the deployment run before claiming the release is live.
 External branch-connected services must also be checked after promotion.
 
+For a release that needs migrations before deployment, select
+`defer_production_deploy` in the production promotion. The usual commit
+validation and maintainer approval still apply. The workflow advances the
+branches and records the SHA without dispatching AWS or Release Please.
+Pause any separately managed auto-deploy before promotion. After migrations
+and their checks pass, manually deploy the exact promoted SHA and dispatch
+release publication after acceptance.
+
 Release Please opens version/changelog PRs against `dev`. Publication runs after
 promotion on `prod`, and only while both refs match the run SHA. No release commit
 is created directly on `prod`. This avoids a reverse-sync merge and preserves the

@@ -7,16 +7,18 @@
  * Scope        : Realtime
  *
  * Description  : Server-side Ably token request builder for the admin portal.
- *                Issues subscribe-only tokens scoped to the admin channel set.
- *                Mirrors apps/web's resolveAblyRest + lazy-import pattern.
+ *                Issues subscribe-only tokens for the channels of the branches
+ *                the person may work at (multi-branch R2.6), bound to their
+ *                user id. Mirrors apps/web's resolveAblyRest + lazy-import pattern.
  *
  * Responsibilities :
  * - Build a scoped Ably token request for an admin user
- * - Apply the pure subscribe-only admin capability (buildAdminAblyCapability)
+ * - Apply the pure subscribe-only branch capability (buildAdminAblyCapability)
+ * - Keep the token short-lived (TOKEN_TTL_MS); revocation still applies
  * - Return null when Ably is not configured (caller returns 503)
  *
  * Features / Functionality :
- * - createAblyTokenRequest({ userId }) — scoped token issue
+ * - createAblyTokenRequest({ userId, branchIds }) — scoped token issue
  * - Lazy ably module import (optional dependency)
  *
  * Tech Stack   : TypeScript, Ably (optional)
@@ -32,6 +34,7 @@
 
 import { createLogger } from '@rgss/logger'
 import { buildAdminAblyCapability } from '@/lib/realtime/capability'
+import { TOKEN_TTL_MS } from '@/lib/realtime/token-lifetime'
 
 const logger = createLogger({
   service: 'admin:realtime:ably',
@@ -40,7 +43,7 @@ const logger = createLogger({
 
 // Minimal slice of the optional `ably` module surface we rely on. Modeled
 // locally so this file compiles without the package (or its types) installed.
-type TokenParams = { capability: string; clientId?: string }
+type TokenParams = { capability: string; clientId?: string; ttl?: number }
 
 type AblyRestClient = {
   auth: {
@@ -64,12 +67,19 @@ function resolveAblyRest(mod: unknown): AblyRestConstructor | null {
   return null
 }
 
+// A token lives TOKEN_TTL_MS, then the client asks the token route again, which
+// re-reads the person's branches. Short-lived is defence in depth only: a role
+// change still revokes tokens already issued (R2.6, revocation.ts).
+
 // Build a scoped, subscribe-only Ably token request for an admin user. Returns
 // null when `ABLY_PRIVATE_KEY` is unset or the optional `ably` module is
 // unavailable → caller turns null into a 503 SERVICE_UNAVAILABLE (graceful
-// degradation to polling). Capability is fixed to the admin channel set; this
-// helper is only reached after the route has enforced Receptionist+.
-export async function createAblyTokenRequest(params: { userId: string }): Promise<unknown | null> {
+// degradation to polling). The capability covers only `branchIds`, which the
+// route read from the database for this request.
+export async function createAblyTokenRequest(params: {
+  userId: string
+  branchIds: readonly string[]
+}): Promise<unknown | null> {
   const apiKey = process.env.ABLY_PRIVATE_KEY
   if (!apiKey) {
     return null
@@ -87,8 +97,9 @@ export async function createAblyTokenRequest(params: { userId: string }): Promis
 
     const client = new Rest({ key: apiKey })
     const tokenRequest = await client.auth.createTokenRequest({
-      capability: JSON.stringify(buildAdminAblyCapability()),
+      capability: JSON.stringify(buildAdminAblyCapability(params.branchIds)),
       clientId: params.userId,
+      ttl: TOKEN_TTL_MS,
     })
 
     return tokenRequest

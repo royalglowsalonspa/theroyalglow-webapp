@@ -54,14 +54,16 @@ function stripTrailingSlash(base: string): string {
   return base.endsWith('/') ? base.slice(0, -1) : base
 }
 
-/** Prefix a relative URL with the R2 public base (fallback: CMS base). */
+/** Route a relative Payload file link to the CMS and storage keys to R2. */
 function toAbsoluteUrl(url: string): string {
   if (/^https?:\/\//i.test(url)) {
     return url
   }
 
   const r2Base = process.env.NEXT_PUBLIC_R2_PUBLIC_URL
-  const base = typeof r2Base === 'string' && r2Base.trim() !== '' ? r2Base.trim() : cmsBaseUrl()
+  const path = url.startsWith('/') ? url : `/${url}`
+  const storageBase = r2Base?.trim()
+  const base = path.startsWith('/api/media/file/') ? cmsBaseUrl() : storageBase || cmsBaseUrl()
 
   if (base === null) {
     // No base to resolve against — return the relative URL as-is rather than
@@ -70,8 +72,7 @@ function toAbsoluteUrl(url: string): string {
   }
 
   const normalisedBase = stripTrailingSlash(base)
-  const normalisedPath = url.startsWith('/') ? url : `/${url}`
-  return `${normalisedBase}${normalisedPath}`
+  return `${normalisedBase}${path}`
 }
 
 /** Returns null when the media field is empty/unpopulated or has no URL. */

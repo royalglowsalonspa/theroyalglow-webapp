@@ -34,8 +34,6 @@
  *                the mapper against itself would be vacuous.
  ************************************************************/
 
-import type { SQL } from 'drizzle-orm'
-import { PgDialect } from 'drizzle-orm/pg-core'
 import fc from 'fast-check'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { service, txDb } from '../../lib/sync-db'
@@ -50,8 +48,6 @@ vi.mock('../../lib/sync-db', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../lib/sync-db')>()
   return { ...actual, txDb: vi.fn() }
 })
-
-const dialect = new PgDialect()
 
 type HookArgs = Parameters<typeof syncServiceToPublic>[0]
 
@@ -162,7 +158,7 @@ describe('Property 6: Service Create Sync Correctness', () => {
 })
 
 describe('Property 7: Service Update Sync Correctness', () => {
-  it('updates public.service WHERE id = the document id and touches no other row', async () => {
+  it('upserts public.service keyed on the document id and touches no other row', async () => {
     await fc.assert(
       fc.asyncProperty(
         // Distinct ids: the first is the target, the rest are decoy rows that
@@ -181,19 +177,20 @@ describe('Property 7: Service Update Sync Correctness', () => {
 
           await runHook(doc, 'update')
 
-          expect(fake.update).toHaveBeenCalledTimes(1)
-          expect(fake.update).toHaveBeenCalledWith(service)
-          expect(fake.insert).not.toHaveBeenCalled()
+          // An upsert keyed on the document id (R4.7: a missing mirror row is
+          // recreated), never a bare update.
+          expect(fake.update).not.toHaveBeenCalled()
+          expect(fake.insert).toHaveBeenCalledWith(service)
+          const config = fake.onConflictDoUpdate.mock.calls[0]?.[0] as {
+            target: unknown
+            set: FakeRow
+          }
+          expect(config.target).toBe(service.id)
 
-          // The WHERE clause is compiled to SQL rather than trusted by shape:
-          // it must bind exactly this id, so no other row can be reached.
-          const compiled = dialect.sqlToQuery(fake.where.mock.calls[0]?.[0] as SQL)
-          expect(compiled.sql).toBe('"service"."id" = $1')
-          expect(compiled.params).toEqual([doc.id])
-
-          // The patch carries the updated field values.
-          const patch = fake.set.mock.calls[0]?.[0] as FakeRow
-          expect(patch).toMatchObject(expectedRow(doc))
+          // The row now carries the updated field values.
+          const { id: _id, ...fields } = expectedRow(doc)
+          expect(config.set).toMatchObject(fields)
+          expect(fake.rows.get(doc.id)).toMatchObject(expectedRow(doc))
 
           // Every decoy row is byte-for-byte as it was.
           for (const id of otherIds) {

@@ -6,9 +6,10 @@
  * Module Name  : reports
  * Scope        : Data Access — Reports / Analytics (admin)
  *
- * Description  : SQL-side aggregation queries backing the admin Reports module:
- *                revenue KPIs, daily revenue trend, bookings-by-status, and the
- *                top services by revenue. Every aggregation is performed in
+ * Description  : SQL-side aggregation queries backing the admin Reports module,
+ *                one branch at a time (multi-branch R2.3): revenue KPIs, daily
+ *                revenue trend, bookings-by-status, and the top services by
+ *                revenue. Every aggregation is performed in
  *                PostgreSQL (SUM / COUNT / GROUP BY / date_trunc) — rows are
  *                never pulled into JS to be aggregated.
  *
@@ -62,7 +63,10 @@ function paidAtBounds(range: ResolvedReportRange): { fromTs: Date; toExclusiveTs
 
 // KPIs for the range plus today + month-to-date paid revenue. Each figure is a
 // single grouped/aggregated SQL query — no rows are materialised in JS.
-export async function getRevenueSummary(range: ResolvedReportRange): Promise<RevenueSummary> {
+export async function getRevenueSummary(
+  branchId: string,
+  range: ResolvedReportRange,
+): Promise<RevenueSummary> {
   const { fromTs, toExclusiveTs } = paidAtBounds(range)
 
   const today = istTodayISO()
@@ -78,6 +82,7 @@ export async function getRevenueSummary(range: ResolvedReportRange): Promise<Rev
     .from(invoice)
     .where(
       and(
+        eq(invoice.branchId, branchId),
         eq(invoice.paymentStatus, 'paid'),
         gte(invoice.paidAt, fromTs),
         lt(invoice.paidAt, toExclusiveTs),
@@ -88,7 +93,11 @@ export async function getRevenueSummary(range: ResolvedReportRange): Promise<Rev
     .select({ count: sql<number>`count(*)::int` })
     .from(booking)
     .where(
-      and(sql`${booking.bookingDate} >= ${range.from}`, sql`${booking.bookingDate} <= ${range.to}`),
+      and(
+        eq(booking.branchId, branchId),
+        sql`${booking.bookingDate} >= ${range.from}`,
+        sql`${booking.bookingDate} <= ${range.to}`,
+      ),
     )
 
   const [todayRevenue] = await db
@@ -96,6 +105,7 @@ export async function getRevenueSummary(range: ResolvedReportRange): Promise<Rev
     .from(invoice)
     .where(
       and(
+        eq(invoice.branchId, branchId),
         eq(invoice.paymentStatus, 'paid'),
         gte(invoice.paidAt, todayStart),
         lt(invoice.paidAt, tomorrowStart),
@@ -107,6 +117,7 @@ export async function getRevenueSummary(range: ResolvedReportRange): Promise<Rev
     .from(invoice)
     .where(
       and(
+        eq(invoice.branchId, branchId),
         eq(invoice.paymentStatus, 'paid'),
         gte(invoice.paidAt, monthStart),
         lt(invoice.paidAt, tomorrowStart),
@@ -130,7 +141,10 @@ export async function getRevenueSummary(range: ResolvedReportRange): Promise<Rev
 // Paid revenue per IST calendar day across the range. Grouping happens in SQL
 // (date_trunc on the IST-localised paid_at); gaps are zero-filled in JS AFTER
 // the grouped query so the chart shows a continuous series.
-export async function getRevenueTrend(range: ResolvedReportRange): Promise<RevenueTrendPoint[]> {
+export async function getRevenueTrend(
+  branchId: string,
+  range: ResolvedReportRange,
+): Promise<RevenueTrendPoint[]> {
   const { fromTs, toExclusiveTs } = paidAtBounds(range)
 
   const dayExpr = sql<string>`to_char(date_trunc('day', ${invoice.paidAt} AT TIME ZONE 'Asia/Kolkata'), 'YYYY-MM-DD')`
@@ -143,6 +157,7 @@ export async function getRevenueTrend(range: ResolvedReportRange): Promise<Reven
     .from(invoice)
     .where(
       and(
+        eq(invoice.branchId, branchId),
         eq(invoice.paymentStatus, 'paid'),
         gte(invoice.paidAt, fromTs),
         lt(invoice.paidAt, toExclusiveTs),
@@ -170,6 +185,7 @@ export async function getRevenueTrend(range: ResolvedReportRange): Promise<Reven
 // Booking counts grouped by lifecycle status for bookings within the range
 // (by booking_date). Aggregation is done in SQL via GROUP BY.
 export async function getBookingsByStatus(
+  branchId: string,
   range: ResolvedReportRange,
 ): Promise<BookingsByStatusPoint[]> {
   const rows = await db
@@ -179,7 +195,11 @@ export async function getBookingsByStatus(
     })
     .from(booking)
     .where(
-      and(sql`${booking.bookingDate} >= ${range.from}`, sql`${booking.bookingDate} <= ${range.to}`),
+      and(
+        eq(booking.branchId, branchId),
+        sql`${booking.bookingDate} >= ${range.from}`,
+        sql`${booking.bookingDate} <= ${range.to}`,
+      ),
     )
     .groupBy(booking.status)
     .orderBy(sql`count(*) desc`)
@@ -191,6 +211,7 @@ export async function getBookingsByStatus(
 // the parent (paid) invoice and grouped by the service-name snapshot. Revenue
 // and counts are summed in SQL; only the top `limit` rows are returned.
 export async function getTopServices(
+  branchId: string,
   range: ResolvedReportRange,
   limit = 10,
 ): Promise<TopServiceRow[]> {
@@ -206,6 +227,7 @@ export async function getTopServices(
     .innerJoin(invoice, eq(invoiceItem.invoiceId, invoice.id))
     .where(
       and(
+        eq(invoice.branchId, branchId),
         eq(invoice.paymentStatus, 'paid'),
         gte(invoice.paidAt, fromTs),
         lt(invoice.paidAt, toExclusiveTs),

@@ -6,30 +6,29 @@
  * Module Name  : user (types)
  * Scope        : Shared Types & Validation
  *
- * Description  : Zod schemas for admin user/role administration. Used by the
- *                owner-facing role-assignment screen (admin.theroyalglow.in
- *                /users) to validate the assign-role request and the user
- *                directory search query.
+ * Description  : Zod schemas for people administration at a branch: the
+ *                Users & Roles screen (admin.theroyalglow.in/users) changes a
+ *                branch's Owner, Manager or Receptionist, and both it and the
+ *                Staff page search for people by name, phone or email.
  *
  * Responsibilities :
  * - Define the canonical RBAC role list shared by client + server
- * - Validate role-assignment input (email + target role)
- * - Validate the optional user-directory search query
+ * - Validate a branch role change (multi-branch R1.4, R1.5, R2.4)
+ * - Validate the person lookup term
  *
  * Features / Functionality :
  * - ASSIGNABLE_ROLES — the 6 RBAC roles, lowest → highest
- * - assignRoleSchema — { email, role } with email normalised to lowercase
- * - userListQuerySchema — { search? } for the directory filter
+ * - branchRoleChangeSchema — set Owner / Manager / Receptionist, or remove
+ * - userListQuerySchema — { search? } lookup by name, phone, or email
  *
  * Tech Stack   : TypeScript, Zod
  * Layer        : Shared Package
  *
  * Dependencies : zod
  *
- * Notes        :
- * - The actual privilege-ceiling check (an owner cannot grant a role above
- *   their own, nor edit a higher-privileged account) lives in the API route —
- *   it depends on the acting session and is not a pure input-shape concern.
+ * Notes        : Who may make a change, and what it writes, is decided by
+ *                @rgss/business planBranchRoleChange against current rows; it
+ *                depends on the acting person, not on the input's shape.
  ************************************************************/
 import { z } from 'zod'
 
@@ -45,17 +44,47 @@ export const ASSIGNABLE_ROLES = [
 ] as const
 export type AssignableRole = (typeof ASSIGNABLE_ROLES)[number]
 
-// Assign a role to an existing user, identified by the email they signed in
-// with. Email is trimmed + lowercased so it matches regardless of how the user
-// typed it (Google emails are case-insensitive).
-export const assignRoleSchema = z.object({
-  email: z.string().trim().toLowerCase().email().max(320),
-  role: z.enum(ASSIGNABLE_ROLES),
-})
-export type AssignRoleInput = z.infer<typeof assignRoleSchema>
-
-// Optional free-text filter for the user directory (matches name OR email).
+// Lookup term for the people searches (matches name, phone, or email). There
+// is no directory: a blank or short term returns no accounts.
 export const userListQuerySchema = z.object({
   search: z.string().trim().max(120).optional(),
 })
 export type UserListQuery = z.infer<typeof userListQuerySchema>
+
+/** Fewest characters a people search runs on (R1.11). */
+export const PERSON_SEARCH_MIN_LENGTH = 3
+
+const recordId = z.string().trim().min(1).max(64)
+
+// Who holds a role at a branch, changed through Users & Roles (R1.5): the
+// Developer sets the Owner; the branch's Owner or the Developer sets and
+// removes its Manager and Receptionist. `branchId` is the branch the page was
+// rendered for; the server rejects the change if the active branch has since
+// changed (R2.4). Replacing a holder names the holder the actor saw, null for
+// none, so a concurrent replacement is never overwritten unseen (R1.4).
+export const branchRoleChangeSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('set_owner'),
+    branchId: recordId,
+    userId: recordId,
+    expectedHolderId: recordId.nullable(),
+  }),
+  z.object({
+    kind: z.literal('set_manager'),
+    branchId: recordId,
+    userId: recordId,
+    expectedHolderId: recordId.nullable(),
+  }),
+  z.object({
+    kind: z.literal('set_receptionist'),
+    branchId: recordId,
+    userId: recordId,
+    expectedHolderId: recordId.nullable(),
+  }),
+  z.object({ kind: z.literal('remove'), branchId: recordId, userId: recordId }),
+])
+export type BranchRoleChangeInput = z.infer<typeof branchRoleChangeSchema>
+
+/** The branch roles Users & Roles can give. */
+export const BRANCH_HOLDER_ROLES = ['owner', 'manager', 'receptionist'] as const
+export type BranchHolderRole = (typeof BRANCH_HOLDER_ROLES)[number]

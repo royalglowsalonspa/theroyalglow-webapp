@@ -54,6 +54,9 @@ export type BookingStatusFilter = z.infer<typeof bookingStatusSchema>
 export const availabilityQuerySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
   branchId: z.string().min(1, 'branchId must not be empty').optional(),
+  // How long the booking runs, so slots it would run past closing from are
+  // unavailable. Optional: without it every slot is judged as one 30-minute slot.
+  durationMinutes: z.coerce.number().int().min(1).max(720).optional(),
 })
 export type AvailabilityQueryInput = z.infer<typeof availabilityQuerySchema>
 
@@ -76,11 +79,15 @@ export type CreateBookingInput = z.infer<typeof createBookingSchema>
 
 export const cancelBookingSchema = z.object({
   reason: z.string().max(500).optional(),
+  confirmedTerms: z
+    .object({ policyRevision: z.number().int().positive().nullable(), late: z.boolean() })
+    .optional(),
 })
 export type CancelBookingInput = z.infer<typeof cancelBookingSchema>
 
 export const rescheduleBookingSchema = z.object({
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   startTime: z.string().regex(/^\d{2}:\d{2}$/),
+  expectedPolicyRevision: z.number().int().positive().optional(),
 })
 export type RescheduleBookingInput = z.infer<typeof rescheduleBookingSchema>

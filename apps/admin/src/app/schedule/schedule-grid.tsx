@@ -57,8 +57,9 @@ import { Skeleton } from '@/components/ui/state/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { TimeSelect } from '@/components/ui/time-select'
 import { useAsyncData } from '@/components/ui/use-async-data'
-import { formatTime12h } from '@/lib/admin/bookings'
+import { formatTime12h, reassignmentsNotice } from '@/lib/admin/bookings'
 import { toast } from '@/lib/admin/toast'
+import { ClosuresPanel } from './closures-panel'
 
 // ─── API shapes (mirror GET /api/schedule → apiSuccess({ dates, staff })) ───
 
@@ -69,6 +70,8 @@ interface ScheduleEntry {
   startTime: string | null
   endTime: string | null
   isWorking: boolean
+  /** Held by another branch that day (a shared Manager): no hours shown here. */
+  elsewhere: boolean
 }
 
 interface StaffWeekRow {
@@ -79,6 +82,12 @@ interface StaffWeekRow {
 }
 
 interface GridData {
+  /** The branch the grid was loaded for; saves send it back. */
+  branchId: string
+  /** The branch's opening hours the editor's time picker stays within; null when unreadable. */
+  businessHours?: BusinessHours | null
+  /** Days this week the branch is closed (R1.8). */
+  closures?: { date: string; name: string; allBranches: boolean }[]
   dates: string[]
   staff: StaffWeekRow[]
 }
@@ -159,8 +168,9 @@ function workingHoursLabel(entry: ScheduleEntry | undefined): string | null {
 // Maps JS dayOfWeek (0=Sun … 6=Sat) to the settings DayKey (mon…sun).
 const DOW_TO_DAYKEY: readonly DayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
 
-// The 7-entry editor state, indexed by dayOfWeek 0..6.
-type EditorEntry = { isWorking: boolean; startTime: string; endTime: string }
+// The 7-entry editor state, indexed by dayOfWeek 0..6. A day another branch
+// holds can't be edited here.
+type EditorEntry = { isWorking: boolean; startTime: string; endTime: string; elsewhere: boolean }
 
 function buildEditorEntries(schedule: ScheduleEntry[]): EditorEntry[] {
   const byDay = new Map<number, ScheduleEntry>()
@@ -173,6 +183,7 @@ function buildEditorEntries(schedule: ScheduleEntry[]): EditorEntry[] {
       isWorking: row?.isWorking ?? false,
       startTime: toHHMM(row?.startTime ?? null),
       endTime: toHHMM(row?.endTime ?? null),
+      elsewhere: row?.elsewhere ?? false,
     }
   })
 }
@@ -189,30 +200,15 @@ async function fetchSchedule(weekStart: string): Promise<GridData> {
 export function ScheduleGrid() {
   const [weekStart, setWeekStart] = useState(() => startOfWeekISO(todayISO()))
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null)
-  const [businessHours, setBusinessHours] = useState<BusinessHours>(DEFAULT_BUSINESS_HOURS)
 
   const fetcher = useCallback(() => fetchSchedule(weekStart), [weekStart])
   const { state, retry } = useAsyncData(fetcher)
 
-  // Load the configured opening hours once so the editor's time picker only
-  // offers times within each day's open→close window (best-effort; falls back
-  // to the defaults).
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/settings')
-      .then((res) => res.json())
-      .then((json) => {
-        if (!cancelled && json?.success && json.data?.settings?.businessHours) {
-          setBusinessHours(json.data.settings.businessHours as BusinessHours)
-        }
-      })
-      .catch(() => {
-        /* keep defaults */
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  // The branch's opening hours arrive with the grid, so the editor's time
+  // picker only offers times within each day's open→close window. The
+  // defaults only bound the picker when the branch's hours can't be read.
+  const businessHours =
+    (state.status === 'success' ? state.data.businessHours : undefined) ?? DEFAULT_BUSINESS_HOURS
 
   // Re-request when the week changes; the initial mount fetch is owned by the
   // hook, so skip the very first effect run to avoid a duplicate request.
@@ -279,6 +275,7 @@ export function ScheduleGrid() {
                   {state.data.dates.map((date) => {
                     const dow = dayOfWeekOf(date)
                     const dayNum = new Date(`${date}T00:00:00.000Z`).getUTCDate()
+                    const closure = state.data.closures?.find((c) => c.date === date)
                     return (
                       <th
                         key={date}
@@ -289,6 +286,15 @@ export function ScheduleGrid() {
                         <span className="block font-sans text-[11px] normal-case tracking-normal text-warm-stone">
                           {dayNum}
                         </span>
+                        {closure ? (
+                          <span
+                            className="mx-auto mt-1 block max-w-24 truncate font-sans text-[11px] normal-case tracking-normal text-deep-gold"
+                            title={closure.name}
+                          >
+                            Closed
+                            <span className="sr-only">: {closure.name}</span>
+                          </span>
+                        ) : null}
                       </th>
                     )
                   })}
@@ -298,6 +304,7 @@ export function ScheduleGrid() {
                 {state.data.staff.map((row) => (
                   <StaffRow
                     key={row.staff.id}
+                    branchId={state.data.branchId}
                     row={row}
                     dates={state.data.dates}
                     businessHours={businessHours}
@@ -315,11 +322,15 @@ export function ScheduleGrid() {
           </div>
         </div>
       )}
+
+      {/* Holidays and one-off closures; a change refreshes the week's markers. */}
+      <ClosuresPanel onChanged={retry} />
     </div>
   )
 }
 
 function StaffRow({
+  branchId,
   row,
   dates,
   businessHours,
@@ -328,6 +339,7 @@ function StaffRow({
   onCancel,
   onSaved,
 }: {
+  branchId: string
   row: StaffWeekRow
   dates: string[]
   businessHours: BusinessHours
@@ -381,7 +393,11 @@ function StaffRow({
             <td key={date} className="px-3 py-3 text-center align-top">
               <div className="flex flex-col items-center gap-1">
                 {onLeave && <StatusBadge status="leave" />}
-                {hours ? (
+                {entry?.elsewhere ? (
+                  <span className="font-ui text-[11px] uppercase tracking-[0.5px] text-warm-stone">
+                    Other branch
+                  </span>
+                ) : hours ? (
                   <span className="whitespace-nowrap font-ui text-xs text-deep-gold">{hours}</span>
                 ) : (
                   <span className="font-ui text-[11px] uppercase tracking-[0.5px] text-warm-stone">
@@ -403,6 +419,7 @@ function StaffRow({
         <tr>
           <td colSpan={dates.length + 1} className="bg-warm-cream/40 px-4 py-4">
             <ScheduleEditor
+              branchId={branchId}
               staffId={row.staff.id}
               staffName={row.staff.name}
               initialSchedule={row.schedule}
@@ -418,6 +435,7 @@ function StaffRow({
 }
 
 function ScheduleEditor({
+  branchId,
   staffId,
   staffName,
   initialSchedule,
@@ -425,6 +443,7 @@ function ScheduleEditor({
   onCancel,
   onSaved,
 }: {
+  branchId: string
   staffId: string
   staffName: string
   initialSchedule: ScheduleEntry[]
@@ -467,10 +486,12 @@ function ScheduleEditor({
     setSaveError(null)
     try {
       const payload = {
+        branchId,
         staffId,
+        // A day another branch holds is sent as off; the server leaves it alone.
         entries: entries.map((e, day) => ({
           dayOfWeek: day,
-          isWorking: e.isWorking,
+          isWorking: e.isWorking && !e.elsewhere,
           startTime: e.isWorking ? e.startTime : null,
           endTime: e.isWorking ? e.endTime : null,
         })),
@@ -485,6 +506,12 @@ function ScheduleEditor({
         throw new Error(json?.error?.message ?? 'Could not save the schedule.')
       }
       toast.success('Schedule saved')
+      // Bookings the new week no longer covers lost them and wait on the
+      // dashboard for someone else (MS-09).
+      const moved = reassignmentsNotice(json.data?.reassignments)
+      if (moved) {
+        toast.warning(moved)
+      }
       onSaved()
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Could not save the schedule.'
@@ -511,6 +538,7 @@ function ScheduleEditor({
                 <Checkbox
                   id={`${staffId}-day-${day}`}
                   checked={entry.isWorking}
+                  disabled={entry.elsewhere}
                   onCheckedChange={(checked) => updateEntry(day, { isWorking: checked === true })}
                 />
                 <label
@@ -520,6 +548,12 @@ function ScheduleEditor({
                   {DAY_LONG[day]}
                 </label>
               </div>
+
+              {entry.elsewhere ? (
+                <span className="font-sans text-xs text-warm-gray">
+                  At another branch that day. Change it there first.
+                </span>
+              ) : null}
 
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5">
