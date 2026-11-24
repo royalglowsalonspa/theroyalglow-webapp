@@ -27,7 +27,12 @@
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { db } from '../index'
-import { isLiveDbAvailable, queryRow, queryRows } from '../test/live-db'
+import {
+  isLiveDbAvailable,
+  queryRow,
+  queryRows,
+  requireOperationalPrimaryBranchId,
+} from '../test/live-db'
 import { getCmsRevisions, resyncCatalogueRecord } from './catalogue-resync'
 import { getServiceDriftSnapshot } from './service-drift'
 
@@ -38,9 +43,9 @@ const CATEGORY = `${PREFIX}_cat`
 const SERVICE = `${PREFIX}_svc`
 // A CMS service that is never mirrored.
 const UNMIRRORED = `${PREFIX}_svc_cms_only`
-const BRANCH = 'branch_rayasandra'
 const SAVED = '2026-11-21T06:00:00.000Z'
 
+let branchId: string
 let offerCmsId = 0
 let offerId = ''
 
@@ -83,7 +88,7 @@ async function sides(table: 'service_category' | 'service' | 'offer', id: string
 describe.skipIf(!LIVE)('Developer catalogue resync against a live database', () => {
   beforeAll(async () => {
     // A branch must exist for the category's selected availability.
-    expect(await queryRow(sql`select id from branch where id = ${BRANCH}`)).not.toBeNull()
+    branchId = await requireOperationalPrimaryBranchId()
     await db.batch([
       db.execute(sql`
         insert into cms.service_category (id, name, slug, service_type, sac_code, availability,
@@ -92,7 +97,7 @@ describe.skipIf(!LIVE)('Developer catalogue resync against a live database', () 
                 990, true, ${SAVED}, ${SAVED})`),
       db.execute(sql`
         insert into cms.service_category_texts ("order", parent_id, path, text)
-        values (1, ${CATEGORY}, 'availableBranches', ${BRANCH})`),
+        values (1, ${CATEGORY}, 'availableBranches', ${branchId})`),
       db.execute(sql`
         insert into cms.service (id, category_id_id, name, slug, duration_minutes, buffer_minutes,
                                  price_paise, is_active, display_order, gems_redeemable,
@@ -192,7 +197,7 @@ describe.skipIf(!LIVE)('Developer catalogue resync against a live database', () 
       await queryRows(
         sql`select branch_id from service_category_branch where category_id = ${CATEGORY}`,
       ),
-    ).toEqual([{ branch_id: BRANCH }])
+    ).toEqual([{ branch_id: branchId }])
     expect(
       await queryRows(sql`select service_id from offer_service where offer_id = ${offerId}`),
     ).toEqual([{ service_id: SERVICE }])

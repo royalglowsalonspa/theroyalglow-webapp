@@ -22,7 +22,7 @@
 import { sql } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { db } from '../index'
-import { isLiveDbAvailable, queryRow } from '../test/live-db'
+import { isLiveDbAvailable, queryRow, requireOperationalPrimaryBranchId } from '../test/live-db'
 import { getServiceDriftSnapshot, type ServiceDriftSnapshot } from './service-drift'
 
 const LIVE = isLiveDbAvailable()
@@ -84,6 +84,7 @@ describe.skipIf(!LIVE)('catalogue drift snapshot against a live database', () =>
   })
 
   it('reports a restriction written to the public side only', TIMEOUT, async () => {
+    const branchId = await requireOperationalPrimaryBranchId()
     const target = await queryRow<{ id: string }>(sql`
       select c.id from service_category c join cms.service_category m on m.id = c.id
        where c.all_branches order by c.id limit 1`)
@@ -94,7 +95,7 @@ describe.skipIf(!LIVE)('catalogue drift snapshot against a live database', () =>
         db.execute(sql`update service_category set all_branches = false where id = ${id}`),
         db.execute(sql`
           insert into service_category_branch (category_id, branch_id)
-          values (${id}, 'branch_rayasandra')`),
+          values (${id}, ${branchId})`),
       ])
       const findings = newFieldFindings(await getServiceDriftSnapshot())
       expect(findings).toEqual([
@@ -110,7 +111,7 @@ describe.skipIf(!LIVE)('catalogue drift snapshot against a live database', () =>
           id,
           field: 'branchIds',
           cmsValue: null,
-          publicValue: 'branch_rayasandra',
+          publicValue: branchId,
         }),
       ])
     } finally {

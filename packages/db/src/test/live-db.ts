@@ -40,7 +40,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { SQL } from 'drizzle-orm'
+import { type SQL, sql } from 'drizzle-orm'
 import { db } from '../index'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -132,4 +132,13 @@ export async function queryRow<T extends Record<string, unknown> = Record<string
 ): Promise<T | null> {
   const rows = await queryRows<T>(query)
   return rows[0] ?? null
+}
+
+/** Require the seeded primary branch before exercising branch-scoped queries. */
+export async function requireOperationalPrimaryBranchId(): Promise<string> {
+  const branch = await queryRow<{ id: string }>(sql`
+    select id from public.branch where is_primary and status = 'operational'
+  `)
+  if (!branch) throw new Error('Integration tests require a seeded operational primary branch')
+  return branch.id
 }
