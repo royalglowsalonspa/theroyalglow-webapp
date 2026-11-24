@@ -1,6 +1,6 @@
 {
   "name": "@rgss/findup-sync",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "packageManager": "bun@1.4.5",
   "private": true,
   "type": "commonjs",
