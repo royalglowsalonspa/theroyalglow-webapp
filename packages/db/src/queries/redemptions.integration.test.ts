@@ -492,30 +492,9 @@ describe.skipIf(!LIVE)('gems redemption against a live database (Task 7.4)', () 
   it('returns the catalogue ordered by gemsCatalogueOrder ascending, nulls last (Req 1.5)', async () => {
     const catalogue = await getRedeemableServices()
 
-    // Postgres did the ordering; assert the seeded rows come back in the order
-    // the requirement mandates, with the null-order row last.
+    // The application query must put the two ordered fixtures first, followed
+    // by the unordered fixture. Other catalogue entries do not affect the test.
     const seeded = catalogue.filter((s) => s.id.startsWith(PREFIX)).map((s) => s.id)
     expect(seeded).toEqual([SERVICE_A, SERVICE_B, SERVICE_UNORDERED])
-
-    // And globally: every non-null order is non-decreasing and precedes the nulls.
-    const orders = await queryRows<{ gems_catalogue_order: number | null }>(sql`
-      SELECT s.gems_catalogue_order
-      FROM public.service s
-      WHERE s.gems_redeemable = true AND s.is_active = true
-      ORDER BY s.gems_catalogue_order ASC NULLS LAST
-    `)
-    let seenNull = false
-    let previous: number | null = null
-    for (const { gems_catalogue_order: order } of orders) {
-      if (order === null) {
-        seenNull = true
-        continue
-      }
-      expect(seenNull).toBe(false)
-      if (previous !== null) {
-        expect(order).toBeGreaterThanOrEqual(previous)
-      }
-      previous = order
-    }
   })
 })

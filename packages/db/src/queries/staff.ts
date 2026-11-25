@@ -259,7 +259,7 @@ async function writeStaffMemberAtBranch(params: StaffMemberWrite): Promise<boole
     .where(eq(branch.id, branchId))
     .for('share')
   const requireUpdated = db.execute(
-    sql`with changed as (${update}) select 1 / count(*)::int as ok from changed`,
+    sql`with changed as (${update.getSQL()}) select 1 / count(*)::int as ok from changed`,
   )
   const unique = [...new Set(serviceIds)]
   const deleteExisting = db.delete(staffService).where(eq(staffService.staffId, id))
