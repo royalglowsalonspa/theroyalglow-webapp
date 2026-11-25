@@ -15,7 +15,7 @@
  *                needs a few DOM APIs jsdom omits, stubbed below.
  ************************************************************/
 
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { axe, toHaveNoViolations } from 'jest-axe'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -139,6 +139,79 @@ async function pick(label: string, option: string) {
   fireEvent.keyDown(await screen.findByRole('combobox', { name: label }), { key: 'Enter' })
   fireEvent.click(await screen.findByRole('option', { name: option }))
 }
+
+describe('BookingDetail — concurrent transitions', () => {
+  it('ignores a late response for the previous booking', async () => {
+    const oldRead = Promise.withResolvers<Response>()
+    const request = vi.mocked(fetch)
+    request.mockImplementationOnce(() => oldRead.promise)
+    const nextBooking = booking({ id: 'bk_2', bookingNumber: 'BK-RS-2611-H-23456' })
+    request.mockImplementationOnce(async () => ok({ booking: nextBooking }))
+    const { rerender } = render(<BookingDetail bookingId="bk_1" />)
+
+    rerender(<BookingDetail bookingId="bk_2" />)
+    expect(await screen.findByRole('heading', { name: nextBooking.bookingNumber })).toBeVisible()
+
+    await act(async () => {
+      oldRead.resolve(ok({ booking: booking() }))
+    })
+    expect(request.mock.calls[0]?.[1]?.signal?.aborted).toBe(true)
+    expect(screen.getByRole('heading', { name: nextBooking.bookingNumber })).toBeVisible()
+    expect(screen.queryByText('BK-RS-2611-H-12345')).not.toBeInTheDocument()
+  })
+
+  it('blocks lifecycle actions during a staff change and unlocks after refusal', async () => {
+    current = booking()
+    render(<BookingDetail bookingId="bk_1" />)
+    await pick('Assigned staff', 'Ravi (stylist)')
+    const assignment = Promise.withResolvers<Response>()
+    const request = vi.mocked(fetch)
+    request.mockImplementationOnce(() => assignment.promise)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change staff' }))
+    const start = screen.getByRole('button', { name: 'Start Service' })
+    expect(start).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Complete & Checkout' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Mark No-Show' })).toBeDisabled()
+    fireEvent.click(start)
+    expect(request).not.toHaveBeenCalledWith('/api/bookings/bk_1/start', expect.anything())
+
+    await act(async () => {
+      assignment.resolve(
+        new Response(
+          JSON.stringify({ success: false, error: { message: 'Staff is unavailable.' } }),
+          {
+            status: 409,
+          },
+        ),
+      )
+    })
+    expect(screen.getByRole('alert')).toHaveTextContent('Staff is unavailable.')
+    expect(start).toBeEnabled()
+  })
+
+  it('reloads the booking after the server rejects its stale lifecycle state', async () => {
+    current = booking()
+    render(<BookingDetail bookingId="bk_1" />)
+    const noShow = await screen.findByRole('button', { name: 'Mark No-Show' })
+    vi.mocked(fetch).mockImplementationOnce(async () => {
+      current = booking({ status: 'in_progress' })
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: { code: 'BOOKING_INVALID_STATUS_TRANSITION', message: 'Booking changed.' },
+        }),
+        { status: 409 },
+      )
+    })
+
+    fireEvent.click(noShow)
+
+    expect(await screen.findByText('In progress', { selector: 'p' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Mark No-Show' })).not.toBeInTheDocument()
+    expect(toastMocks.error).toHaveBeenCalledWith('Could not mark no-show', 'Booking changed.')
+  })
+})
 
 describe('BookingDetail — reassignment (R1.7)', () => {
   it('says why it needs someone else and holds checkout until someone is assigned', async () => {
@@ -452,8 +525,8 @@ describe('BookingDetail — a membership session starts, then completes', () => 
       'Could not complete session',
       'This session was completed or changed meanwhile. Reload it to see where it stands.',
     )
-    expect(reads()).toHaveLength(1)
-    fireEvent.click(screen.getByRole('button', { name: 'Complete Session' }))
+    expect(reads()).toHaveLength(2)
+    fireEvent.click(await screen.findByRole('button', { name: 'Complete Session' }))
     await waitFor(() => expect(posts('complete')).toHaveLength(2))
     expect(bodyOf(posts('complete')[1])).toEqual(bodyOf(posts('complete')[0]))
   })

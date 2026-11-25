@@ -125,6 +125,7 @@ export const POST = withErrorHandler(
       endTime,
       settingsRevision: policy.revision,
       countsTowardLimit: false,
+      expected: existing,
     })
     if (!updated) {
       throw notFound('Booking not found.')

@@ -355,6 +355,40 @@ function changedMeanwhile(action: string): AppError {
   )
 }
 
+type BookingChangeState = Pick<
+  typeof booking.$inferSelect,
+  'branchId' | 'customerId' | 'status' | 'bookingDate' | 'startTime' | 'endTime' | 'rescheduleCount'
+>
+
+async function readBookingChangeState(id: string): Promise<BookingChangeState | undefined> {
+  const [state] = await db
+    .select({
+      branchId: booking.branchId,
+      customerId: booking.customerId,
+      status: booking.status,
+      bookingDate: booking.bookingDate,
+      startTime: booking.startTime,
+      endTime: booking.endTime,
+      rescheduleCount: booking.rescheduleCount,
+    })
+    .from(booking)
+    .where(eq(booking.id, id))
+    .limit(1)
+  return state
+}
+
+function matchesBookingChangeState(id: string, expected: BookingChangeState): SQL {
+  return sql`${booking.id} = ${id}
+    and ${booking.branchId} = ${expected.branchId}
+    and ${booking.customerId} = ${expected.customerId}
+    and ${booking.status} = ${expected.status}::booking_status
+    and ${booking.status} in ('pending', 'confirmed')
+    and ${booking.bookingDate} = ${expected.bookingDate.toISOString().slice(0, 10)}::date
+    and ${booking.startTime} = ${expected.startTime}::time
+    and ${booking.endTime} = ${expected.endTime}::time
+    and ${booking.rescheduleCount} = ${expected.rescheduleCount}::int`
+}
+
 /** What the branch's booking rules decided about a cancellation (R6.3). */
 export type CancellationDecision = {
   /** Within the branch's cut-off: counted on the customer's record, never charged. */
@@ -369,8 +403,8 @@ export type CancellationDecision = {
 // and, for a customer's cancellation, the settings revision that decided
 // whether it was late. A late cancellation adds one to the customer's
 // late-cancellation count in the same batch. The update applies only to a
-// pending or confirmed booking that still has the status read here, so a
-// double submit can't count a late cancellation twice: it rolls back with 409.
+// pending or confirmed booking that still matches the slot and status used
+// to decide its terms. A concurrent change rolls the batch back with 409.
 // Returns null when the booking does not exist. neon-http has no interactive
 // transactions, so db.batch() provides atomicity (same pattern as reschedule).
 export async function cancelBooking(
@@ -378,28 +412,21 @@ export async function cancelBooking(
   changedById: string,
   reason: string | null,
   decision?: CancellationDecision,
+  expected?: BookingChangeState,
 ) {
-  const rows = await db
-    .select({ status: booking.status, customerId: booking.customerId })
-    .from(booking)
-    .where(eq(booking.id, id))
-    .limit(1)
-  const current = rows[0]
+  const current = expected ?? (await readBookingChangeState(id))
   if (!current) {
     return null
   }
 
   const late = decision?.late === true
-  // Only an open booking is cancelled, and only from the status read here.
   const cancel = db.execute(
     guarded(sql`update ${booking}
       set ${column(booking.status)} = 'cancelled',
           ${column(booking.cancellationReason)} = ${reason},
           ${column(booking.cancelledAt)} = now(),
           ${column(booking.updatedAt)} = now()
-      where ${booking.id} = ${id}
-        and ${booking.status} = ${current.status}::booking_status
-        and ${booking.status} in ('pending', 'confirmed')`),
+      where ${matchesBookingChangeState(id, current)}`),
   )
 
   const noteSuffix = reason ? `: ${reason}` : ''
@@ -451,8 +478,8 @@ export async function cancelBooking(
 // trail (from/to status are identical by design; the notes carry the new slot).
 // With `settingsRevision`, the booking now stands on the slot that revision of
 // the branch's settings accepted, and the log says so. The move applies only
-// while the booking still has the status and reschedule count read here, so a
-// double submit can't move it twice past the branch's limit (409).
+// while the booking still has the slot, status and reschedule count the
+// caller checked, so a stale request cannot move it again (409).
 // neon-http has no interactive transactions, so db.batch() is used for atomicity.
 export async function rescheduleBooking(
   id: string,
@@ -462,6 +489,7 @@ export async function rescheduleBooking(
     startTime: string
     endTime: string
     settingsRevision?: number
+    expected?: BookingChangeState
     /**
      * Whether the move counts against the customer's reschedule limit
      * (default true). A move the salon makes, such as off a closed day,
@@ -470,12 +498,7 @@ export async function rescheduleBooking(
     countsTowardLimit?: boolean
   },
 ) {
-  const rows = await db
-    .select({ status: booking.status, rescheduleCount: booking.rescheduleCount })
-    .from(booking)
-    .where(eq(booking.id, id))
-    .limit(1)
-  const current = rows[0]
+  const current = data.expected ?? (await readBookingChangeState(id))
   if (!current) {
     return null
   }
@@ -492,10 +515,7 @@ export async function rescheduleBooking(
           ${column(booking.rescheduleCount)} = ${booking.rescheduleCount} + ${counted}::int,
           ${column(booking.settingsRevision)} = coalesce(${revision}::int, ${booking.settingsRevision}),
           ${column(booking.updatedAt)} = now()
-      where ${booking.id} = ${id}
-        and ${booking.status} = ${current.status}::booking_status
-        and ${booking.status} in ('pending', 'confirmed')
-        and ${booking.rescheduleCount} = ${current.rescheduleCount}::int`),
+      where ${matchesBookingChangeState(id, current)}`),
   )
 
   const log = db.insert(bookingStatusLog).values({

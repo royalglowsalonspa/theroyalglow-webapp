@@ -73,6 +73,26 @@ export type ReassignmentSummary = {
   since: Date
 }
 
+export type BookingServiceAssignment = { id: string; staffId: string | null }
+
+/** Match and lock the assignments used to prepare a write, until it commits. */
+export function bookingServiceAssignmentsAreCurrent(
+  bookingId: string,
+  expected: readonly BookingServiceAssignment[],
+): SQL {
+  const assignments = Object.fromEntries(expected.map(({ id, staffId }) => [id, staffId]))
+  // Fail fast if an assignment writer already has a row. Waiting here can
+  // deadlock when that writer needs a booking projection this write holds.
+  return sql`(
+    SELECT coalesce(jsonb_object_agg(locked.id, locked.staff_id), '{}'::jsonb)
+      FROM (
+        SELECT id, staff_id FROM booking_service
+         WHERE booking_id = ${bookingId}
+         FOR SHARE NOWAIT
+      ) locked
+  ) = ${JSON.stringify(assignments)}::jsonb`
+}
+
 // The open entry is an overrun flag whose booking still names the person it
 // waits for (the backfill's overrun entries cleared the assignee instead).
 const HELD_UP = sql<boolean>`coalesce(${bookingReassignment.reason} = 'overrun'

@@ -179,6 +179,7 @@ async function completeSession(
     branchId: existing.branchId,
     changedById: actorId,
     ...(idempotency ? { idempotency } : {}),
+    expectedAssignments: existing.services.map(({ id, staffId }) => ({ id, staffId })),
     invoice: {
       taxPointAt: tax.taxPointAt,
       financialYear: tax.financialYear,
@@ -447,6 +448,8 @@ export const POST = withErrorHandler(
     const result = await completeBookingWithInvoice({
       bookingId: id,
       changedById: session.user.id,
+      expectedStatus: existing.status,
+      expectedAssignments: existing.services.map(({ id, staffId }) => ({ id, staffId })),
       settlement,
       invoice: {
         branchId: existing.branchId,

@@ -59,6 +59,8 @@ function confirmed(overrides: Record<string, unknown> = {}) {
     branchId: TEST_BRANCH.id,
     customerId: 'cust_1',
     bookingDate: new Date('2026-11-05T00:00:00.000Z'),
+    startTime: '14:00:00',
+    endTime: '15:00:00',
     isMembershipSession: false,
     spaMembershipId: null,
     services: [{ serviceId: 'svc_1', staffId: 'stf_1' }],
@@ -139,6 +141,11 @@ describe('POST /api/bookings/[id]/start', () => {
       bookingId: BOOKING_ID,
       branchId: TEST_BRANCH.id,
       changedById: 'u_rec',
+      expectedSlot: {
+        bookingDate: new Date('2026-11-05T00:00:00.000Z'),
+        startTime: '14:00:00',
+        endTime: '15:00:00',
+      },
     })
     expect(realtimeMocks.publishBookingEvent).toHaveBeenCalledWith({
       bookingId: BOOKING_ID,
