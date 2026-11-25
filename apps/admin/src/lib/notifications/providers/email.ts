@@ -70,10 +70,10 @@ export async function sendEmail(params: SendEmailParams): Promise<boolean> {
     const { Resend } = await import('resend')
     const client = new Resend(apiKey)
     const { idempotencyKey, ...email } = params
-    const { error } = await client.emails.send(
-      { ...email, from },
-      idempotencyKey ? { idempotencyKey } : undefined,
-    )
+    const message = { ...email, from }
+    const { error } = idempotencyKey
+      ? await client.emails.send(message, { idempotencyKey })
+      : await client.emails.send(message)
     if (error) {
       logger.warn('Resend rejected the email', { name: error.name })
       return false
