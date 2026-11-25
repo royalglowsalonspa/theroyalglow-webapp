@@ -58,7 +58,10 @@ export type SendEmailParams = {
   attachments?: { filename: string; content: string }[]
 }
 
-export async function sendEmail(params: SendEmailParams): Promise<boolean> {
+export async function sendEmail(
+  params: SendEmailParams,
+  idempotencyKey?: string,
+): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY
   const from = process.env.RESEND_FROM_EMAIL ?? DEFAULT_FROM
 
@@ -72,7 +75,11 @@ export async function sendEmail(params: SendEmailParams): Promise<boolean> {
     const { replyTo, attachments, ...email } = params
     const response = await fetch(RESEND_EMAIL_URL, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
+      },
       body: JSON.stringify({
         ...email,
         from,

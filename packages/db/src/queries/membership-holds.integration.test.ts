@@ -52,6 +52,7 @@ import {
   recordHistoricalMembershipSession,
   recordMembershipSession,
 } from './memberships'
+import type { BookingServiceAssignment } from './reassignments'
 
 const LIVE = isLiveDbAvailable()
 const RUN = Math.random().toString(36).slice(2, 8)
@@ -163,7 +164,9 @@ async function recordNow(
     endTime: '12:00',
     services: [{ serviceId, serviceNameSnapshot: 'ZZ Holds IT spa', durationMinutes: minutes }],
     recordedById: ACTOR,
-    ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
+    ...(idempotencyKey === undefined
+      ? {}
+      : { idempotencyKey, requestFingerprint: `${branchId}:${minutes}` }),
   })
 }
 
@@ -171,6 +174,7 @@ async function complete(
   bookingId: string,
   branchId: string,
   idempotency?: { key: string; requestFingerprint: string },
+  expectedAssignments?: readonly BookingServiceAssignment[],
 ) {
   const now = new Date()
   return completeMembershipSession({
@@ -178,6 +182,7 @@ async function complete(
     branchId,
     changedById: ACTOR,
     ...(idempotency ? { idempotency } : {}),
+    ...(expectedAssignments ? { expectedAssignments } : {}),
     invoice: {
       taxPointAt: now,
       financialYear: fixtureFinancialYear(now),
@@ -348,7 +353,12 @@ describe.skipIf(!LIVE)(
       expect(await holdOf(successful.booking.id)).toEqual({ state: 'held', minutes: 60 })
       expect(await getMembershipSessionByKey(m.id, key, A)).toMatchObject({
         booking: { id: successful.booking.id },
+        replay: { kind: 'fingerprint', fingerprint: `${A}:60` },
       })
+      expect(
+        await queryRows(sql`select entity_id from audit_log
+        where entity_type = 'membership_session_recording' and new_values->>'membershipId' = ${m.id}`),
+      ).toEqual([{ entity_id: successful.booking.id }])
       expect(await getMembershipSessionByKey(m.id, key, B)).toBeNull()
       expect(
         await queryRows(sql`select id from booking where spa_membership_id = ${m.id}`),
@@ -527,9 +537,19 @@ describe.skipIf(!LIVE)(
       const first = await recordNow(membership, B)
       if (!first.ok) throw new Error('first session was not recorded')
       const idempotency = { key: crypto.randomUUID(), requestFingerprint: 'first request' }
+      const assignments = await queryRows<BookingServiceAssignment>(sql`
+        select id, staff_id as "staffId" from booking_service where booking_id = ${first.booking.id}
+      `)
+      expect(assignments).toHaveLength(1)
+      const stale = assignments.map(({ id }) => ({ id, staffId: STAFF }))
+      expect(await complete(first.booking.id, B, idempotency, stale)).toEqual({
+        ok: false,
+        reason: 'not_in_progress',
+      })
+      expect(await holdOf(first.booking.id)).toEqual({ state: 'held', minutes: 60 })
       const [left, right] = await Promise.all([
-        complete(first.booking.id, B, idempotency),
-        complete(first.booking.id, B, idempotency),
+        complete(first.booking.id, B, idempotency, assignments),
+        complete(first.booking.id, B, idempotency, assignments),
       ])
       const completed = left.ok ? left : right
       expect(left.ok).not.toBe(right.ok)
@@ -837,6 +857,30 @@ describe.skipIf(!LIVE)(
         reason: 'membership_unavailable',
       })
       expect(await statusOf(early)).toBe('confirmed')
+    })
+
+    it('refuses to start a confirmed session whose reviewed slot has already changed', async () => {
+      const m = await sell(120)
+      const actualDay = istDay(1)
+      const id = await bookAhead(m, A, { day: actualDay, at: '10:00' })
+
+      expect(
+        await startBooking({
+          bookingId: id,
+          branchId: A,
+          changedById: ACTOR,
+          expectedSlot: {
+            bookingDate: new Date(`${istDay(0)}T00:00:00.000Z`),
+            startTime: '10:00:00',
+            endTime: '11:00:00',
+          },
+        }),
+      ).toEqual({ ok: false, reason: 'not_confirmed' })
+      expect(await statusOf(id)).toBe('confirmed')
+      expect(await holdOf(id)).toEqual({ state: 'held', minutes: 60 })
+      expect(
+        await queryRows(sql`select 1 from booking_status_log where booking_id = ${id}`),
+      ).toHaveLength(0)
     })
 
     it('starts an ordinary booking with no hold', async () => {

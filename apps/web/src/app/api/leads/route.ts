@@ -29,7 +29,7 @@
  *
  * Notes        :
  * - Only unauthenticated write endpoint in the system.
- * - Extension point for Meta CAPI 'Lead' event in Phase 7.
+ * - Lead contact details stay in the first-party pipeline.
  ************************************************************/
 
 import { normaliseIndianPhone, resolveLeadBranch } from '@rgss/business'
@@ -38,7 +38,6 @@ import { badRequest, conflict, ERROR_CODES } from '@rgss/errors'
 import { createLeadSchema } from '@rgss/types'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { enforceRateLimit, getClientIp } from '@/lib/api/rate-limit'
-import { sendLeadCapiEvent } from '@/lib/meta/capi'
 
 // Public, unauthenticated lead capture from the /book ad-landing page.
 // This is the ONLY unauthenticated write endpoint in this phase, so it is
@@ -71,20 +70,7 @@ export const POST = withErrorHandler(async (req: Request) => {
     branchId: branch.id,
   })
 
-  // Fire the Meta CAPI 'Lead' event (best-effort). event_id = lead id so this
-  // server-side event deduplicates against the browser Pixel's 'Lead'. The
-  // client IP / User-Agent improve match quality; PII is SHA-256 hashed inside
-  // the client. This NEVER throws and no-ops without the access token, so it
-  // can never break or block the lead-creation response above.
-  await sendLeadCapiEvent({
-    eventId: lead.id,
-    name: parsed.data.name,
-    email: parsed.data.email,
-    phone,
-    clientIpAddress: getClientIp(req),
-    clientUserAgent: req.headers.get('user-agent'),
-    eventSourceUrl: req.headers.get('referer'),
-  })
-
+  // Cookie preferences live in browser storage. This endpoint has no verified
+  // marketing opt-in, so it cannot forward the submitter's details to Meta.
   return apiSuccess({ leadId: lead.id }, undefined, 201)
 })

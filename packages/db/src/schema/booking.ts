@@ -40,10 +40,12 @@ import {
   index,
   integer,
   pgTable,
+  primaryKey,
   text,
   time,
   timestamp,
   uniqueIndex,
+  uuid,
 } from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'
 import { user } from './auth'
@@ -140,6 +142,24 @@ export const booking = pgTable(
       .on(table.redemptionKey)
       .where(sql`redemption_key IS NOT NULL`),
   ],
+)
+
+// Keep the original command separate from the booking, whose time and status
+// can change after creation. Old bookings and non-customer flows need no row.
+export const customerBookingRequest = pgTable(
+  'customer_booking_request',
+  {
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    requestKey: uuid('request_key').notNull(),
+    requestFingerprint: text('request_fingerprint').notNull(),
+    bookingId: text('booking_id')
+      .notNull()
+      .unique()
+      .references(() => booking.id, { onDelete: 'cascade' }),
+  },
+  (table) => [primaryKey({ columns: [table.customerId, table.requestKey] })],
 )
 
 export const bookingService = pgTable(

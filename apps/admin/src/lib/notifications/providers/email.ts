@@ -51,6 +51,7 @@ export type SendEmailParams = {
   subject: string
   html: string
   attachments?: { filename: string; content: string }[]
+  idempotencyKey?: string
 }
 
 export async function sendEmail(params: SendEmailParams): Promise<boolean> {
@@ -68,7 +69,11 @@ export async function sendEmail(params: SendEmailParams): Promise<boolean> {
   try {
     const { Resend } = await import('resend')
     const client = new Resend(apiKey)
-    const { error } = await client.emails.send({ ...params, from })
+    const { idempotencyKey, ...email } = params
+    const message = { ...email, from }
+    const { error } = idempotencyKey
+      ? await client.emails.send(message, { idempotencyKey })
+      : await client.emails.send(message)
     if (error) {
       logger.warn('Resend rejected the email', { name: error.name })
       return false

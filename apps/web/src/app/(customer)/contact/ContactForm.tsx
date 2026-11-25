@@ -38,7 +38,7 @@
 'use client'
 
 import { Loader2 } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -73,6 +73,8 @@ export function ContactForm({ branches }: { branches: { id: string; name: string
   const [state, setState] = useState<FormState>('idle')
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [submitError, setSubmitError] = useState('')
+  const requestInFlight = useRef(false)
+  const requestKeys = useRef(new Map<string, string>())
 
   const isSubmitting = state === 'submitting'
 
@@ -98,33 +100,44 @@ export function ContactForm({ branches }: { branches: { id: string; name: string
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (requestInFlight.current) return
     setSubmitError('')
     if (!validate()) {
       return
     }
 
+    requestInFlight.current = true
     setState('submitting')
     try {
+      const body = JSON.stringify({
+        branchId: branchId || undefined,
+        name: name.trim(),
+        email: email.trim(),
+        // Omit phone entirely when blank so the optional server field stays absent.
+        phone: phone.trim() || undefined,
+        message: message.trim(),
+      })
+      const key = requestKeys.current.get(body) ?? globalThis.crypto?.randomUUID?.()
+      if (key) requestKeys.current.set(body, key)
       const res = await fetch('/api/contact', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          branchId: branchId || undefined,
-          name: name.trim(),
-          email: email.trim(),
-          // Omit phone entirely when blank so the optional server field stays absent.
-          phone: phone.trim() || undefined,
-          message: message.trim(),
-        }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(key ? { 'Idempotency-Key': key } : {}),
+        },
+        body,
       })
       const json = await res.json()
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not send your message.')
       }
+      requestKeys.current.clear()
       setState('success')
     } catch (err: unknown) {
       setSubmitError(err instanceof Error ? err.message : 'We could not send your message.')
       setState('error')
+    } finally {
+      requestInFlight.current = false
     }
   }
 

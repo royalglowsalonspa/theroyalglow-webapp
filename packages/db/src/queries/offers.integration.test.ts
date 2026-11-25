@@ -35,8 +35,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { db } from '../index'
 import { fixtureFinancialYear, splitFixtureTax } from '../test/issued-invoice'
 import { isLiveDbAvailable, queryRow, queryRows } from '../test/live-db'
-import { completeBookingWithInvoice } from './admin-bookings'
+import { assignStaff, completeBookingWithInvoice, startBooking } from './admin-bookings'
 import { findDriverError, SQLSTATE } from './driver-errors'
+import type { BookingServiceAssignment } from './reassignments'
 
 const LIVE = isLiveDbAvailable()
 const RUN = Math.random().toString(36).slice(2, 8)
@@ -160,7 +161,12 @@ async function taxVersion(branchId: string) {
  * Complete `booked` with `applied` (or no offer), its saving taken off the one
  * line and the tax worked out inside what is left, as checkout computes it.
  */
-async function complete(booked: Booked, applied: Applied | null) {
+async function complete(
+  booked: Booked,
+  applied: Applied | null,
+  expectedStatus?: 'confirmed' | 'in_progress',
+  expectedAssignments?: readonly BookingServiceAssignment[],
+) {
   const version = await taxVersion(booked.branchId)
   const discountPaise = applied?.savesPaise ?? 0
   const net = LINE_PAISE - discountPaise
@@ -169,6 +175,8 @@ async function complete(booked: Booked, applied: Applied | null) {
   return completeBookingWithInvoice({
     bookingId: booked.id,
     changedById: ACTOR,
+    ...(expectedStatus ? { expectedStatus } : {}),
+    ...(expectedAssignments ? { expectedAssignments } : {}),
     settlement: DEFAULT,
     invoice: {
       branchId: booked.branchId,
@@ -477,6 +485,33 @@ describe.skipIf(!LIVE)('offers at checkout against a live database', { timeout: 
     })
   })
 
+  it('requires a fresh checkout after the booking is started, with the actual prior status in the log', async () => {
+    const c = await customer('start_before_checkout')
+    const booked = await book(c, BRANCH_A)
+    expect(
+      await startBooking({ bookingId: booked.id, branchId: BRANCH_A, changedById: ACTOR }),
+    ).toMatchObject({ ok: true })
+
+    await expect(complete(booked, null, 'confirmed')).rejects.toMatchObject({
+      code: 'BOOKING_INVALID_STATUS_TRANSITION',
+      statusCode: 409,
+    })
+    expect(await outcome(booked)).toMatchObject({ status: 'in_progress', invoices: '0' })
+
+    expect((await complete(booked, null, 'in_progress'))?.invoice?.totalAmountPaise).toBe(
+      LINE_PAISE,
+    )
+    expect(
+      await queryRows(sql`
+      select from_status, to_status from booking_status_log where booking_id = ${booked.id}
+        order by created_at, id
+    `),
+    ).toEqual([
+      { from_status: 'confirmed', to_status: 'in_progress' },
+      { from_status: 'in_progress', to_status: 'completed' },
+    ])
+  })
+
   it('lets exactly one of two simultaneous checkouts take an offer', async () => {
     const c = await customer('race')
     const atA = await book(c, BRANCH_A)
@@ -494,6 +529,23 @@ describe.skipIf(!LIVE)('offers at checkout against a live database', { timeout: 
                (select count(*) from invoice where customer_id = ${c}) as invoices,
                (select count(*) from booking where customer_id = ${c} and status = 'completed') as completed`),
     ).toEqual({ redemptions: '1', invoices: '1', completed: '1' })
+  })
+
+  it('rolls back checkout when the invoice names a released assignee', async () => {
+    const booked = await book(await customer('released_assignee'), BRANCH_A)
+    const id = `${booked.id}_s1`
+    const expectedAssignments = [{ id, staffId: PROFILE_A }]
+    await db.execute(sql`update booking_service set staff_id = null where id = ${id}`)
+
+    await expect(complete(booked, null, 'confirmed', expectedAssignments)).rejects.toMatchObject({
+      code: 'BOOKING_INVALID_STATUS_TRANSITION',
+      statusCode: 409,
+    })
+    expect(await outcome(booked)).toMatchObject({ status: 'confirmed', invoices: '0' })
+
+    await assignStaff(booked.id, BRANCH_A, PROFILE_A, ACTOR)
+    const completed = await complete(booked, null, 'confirmed', expectedAssignments)
+    expect(completed?.invoice?.totalAmountPaise).toBe(LINE_PAISE)
   })
 
   it('keeps an issued invoice’s offer snapshot fixed, while its notes may still be recorded', async () => {

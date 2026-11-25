@@ -39,7 +39,7 @@ import { JsonLd } from '@/components/seo/JsonLd'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Reveal, RevealGroup, RevealItem } from '@/components/ui/motion/reveal'
-import { FALLBACK_OFFERS, getActiveOffers } from '@/lib/cms/client'
+import { getActiveOffers } from '@/lib/cms/client'
 import type { Offer } from '@/lib/cms/types'
 import { SITE_URL } from '@/lib/seo/business'
 import { breadcrumbJsonLd } from '@/lib/seo/jsonld'
@@ -90,8 +90,7 @@ export default async function OffersPage({
     ? (rawCategory as CategoryFilter)
     : 'all'
 
-  const cmsOffers = await getActiveOffers()
-  const allOffers = cmsOffers.length > 0 ? cmsOffers : FALLBACK_OFFERS
+  const allOffers = await getActiveOffers()
   const offers = filterByCategory(allOffers, category)
 
   return (
@@ -184,7 +183,9 @@ export default async function OffersPage({
           ) : (
             <div className="py-16 text-center">
               <p className="font-sans text-[17px] leading-[1.6] text-warm-gray">
-                No offers in this category right now. Try another filter or check back soon!
+                {allOffers.length === 0
+                  ? 'There are no current offers. Check back soon.'
+                  : 'No offers in this category. Try another filter.'}
               </p>
             </div>
           )}

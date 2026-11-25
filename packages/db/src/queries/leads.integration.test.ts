@@ -6,7 +6,7 @@ import { branch } from '../schema/branch'
 import { lead } from '../schema/lead'
 import { auditLog } from '../schema/system'
 import { isLiveDbAvailable, queryRow } from '../test/live-db'
-import { addLeadNote, getLeadById, getLeadNotes, moveLead, updateLead } from './leads'
+import { addLeadNote, getLeadById, getLeadNotes, markLeadLost, moveLead, updateLead } from './leads'
 
 const run = randomUUID().slice(0, 8)
 const source = `lead_it_${run}_source`
@@ -15,8 +15,9 @@ const shutdown = `lead_it_${run}_shutdown`
 const openLead = `lead_it_${run}_open`
 const bookedLead = `lead_it_${run}_booked`
 const rollbackLead = `lead_it_${run}_rollback`
+const lostLead = `lead_it_${run}_lost`
 const branchIds = [source, destination, shutdown]
-const leadIds = [openLead, bookedLead, rollbackLead]
+const leadIds = [openLead, bookedLead, rollbackLead, lostLead]
 const destinationName = 'Lead IT branch B'
 let ownerId: string
 
@@ -161,5 +162,34 @@ describe.skipIf(!isLiveDbAvailable())('lead moves on disposable Postgres', () =>
     expect(await getLeadById(rollbackLead, source)).toMatchObject({ assignedTo: ownerId })
     expect(await getLeadById(rollbackLead, destination)).toBeNull()
     expect(await db.select().from(auditLog).where(eq(auditLog.entityId, rollbackLead))).toEqual([])
+  })
+
+  it('keeps exactly the reason from the winning lost transition', async () => {
+    const reasons = ['Moved away', 'Changed plans']
+    const attempts = await Promise.all(
+      reasons.map((reason) => markLeadLost(lostLead, source, 'follow_up', ownerId, reason)),
+    )
+
+    expect(attempts.filter(Boolean)).toEqual([
+      expect.objectContaining({ id: lostLead, status: 'lost' }),
+    ])
+    const winningReason = reasons[attempts.findIndex(Boolean)]
+    const notes = await getLeadNotes(lostLead, source)
+    expect(notes).toMatchObject([{ authorId: ownerId, content: `Marked lost: ${winningReason}` }])
+  })
+
+  it('keeps the status when writing the loss note fails', async () => {
+    await expect(
+      markLeadLost(
+        rollbackLead,
+        source,
+        'follow_up',
+        `${source}_missing_actor`,
+        'Test loss reason',
+      ),
+    ).rejects.toThrow()
+
+    expect(await getLeadById(rollbackLead, source)).toMatchObject({ status: 'follow_up' })
+    expect(await getLeadNotes(rollbackLead, source)).toEqual([])
   })
 })

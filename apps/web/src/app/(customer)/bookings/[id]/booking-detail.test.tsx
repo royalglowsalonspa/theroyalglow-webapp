@@ -15,9 +15,10 @@
  * Layer        : Testing (Presentation / Component)
  ************************************************************/
 
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { HttpResponse, http } from 'msw/http'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useBookingStatus } from '@/components/realtime/RealtimeProvider'
 import { server } from '@/test/msw-server'
 
 vi.mock('@/components/realtime/RealtimeProvider', () => ({ useBookingStatus: vi.fn() }))
@@ -118,6 +119,41 @@ it('shows the address and phone of the branch that owns the booking', async () =
     'href',
     'tel:+919876543210',
   )
+})
+
+it('keeps the latest booking snapshot when realtime refreshes finish out of order', async () => {
+  const oldRead = Promise.withResolvers<Response>()
+  const fetch = vi.spyOn(globalThis, 'fetch')
+  fetch.mockResolvedValueOnce(
+    Response.json({ success: true, data: { booking: booking(), terms: TERMS, policyRevision: 4 } }),
+  )
+  fetch.mockReturnValueOnce(oldRead.promise)
+  fetch.mockResolvedValueOnce(
+    Response.json({
+      success: true,
+      data: {
+        booking: booking({ status: 'cancelled' }),
+        terms: { cancel: null, reschedule: null },
+        policyRevision: 4,
+      },
+    }),
+  )
+
+  try {
+    await renderPage()
+    const onEvent = vi.mocked(useBookingStatus).mock.lastCall?.[2]
+    expect(onEvent).toBeDefined()
+    act(() => onEvent?.('booking.rescheduled', { data: { bookingId: 'bk_1' } }))
+    act(() => onEvent?.('booking.cancelled', { data: { bookingId: 'bk_1' } }))
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Cancel Booking' })).toBeNull())
+
+    await act(async () => {
+      oldRead.resolve(Response.json({ success: true, data: { booking: booking(), terms: TERMS } }))
+    })
+    expect(screen.queryByRole('button', { name: 'Cancel Booking' })).toBeNull()
+  } finally {
+    fetch.mockRestore()
+  }
 })
 
 describe('BookingDetail — cancelling', () => {
@@ -225,6 +261,43 @@ describe('BookingDetail — cancelling', () => {
     expect(screen.queryByRole('button', { name: 'Reschedule' })).toBeNull()
   })
 
+  it('refreshes the booking when a competing transition prevents cancellation', async () => {
+    let started = false
+    server.use(
+      http.get('*/api/bookings/bk_1', () =>
+        HttpResponse.json({
+          success: true,
+          data: {
+            booking: booking({ status: started ? 'in_progress' : 'confirmed' }),
+            terms: started ? { cancel: null, reschedule: null } : TERMS,
+            policyRevision: 4,
+          },
+        }),
+      ),
+      http.post('*/api/bookings/bk_1/cancel', () => {
+        started = true
+        return HttpResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'BOOKING_INVALID_STATUS_TRANSITION',
+              message: 'This booking can no longer be cancelled.',
+            },
+          },
+          { status: 409 },
+        )
+      }),
+    )
+    await renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel Booking' }))
+    await confirmCancellation()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('can no longer be cancelled')
+    expect(screen.queryByRole('button', { name: 'Cancel Booking' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Reschedule' })).not.toBeInTheDocument()
+  })
+
   it('writes the warning from the terms', () => {
     expect(cancelWarning(null)).toBe('You can book again at any time.')
     expect(cancelWarning({ ...TERMS, cancel: { late: true, cutoffHours: 1 } } as never)).toMatch(
@@ -236,6 +309,7 @@ describe('BookingDetail — cancelling', () => {
 describe('BookingDetail — rescheduling', () => {
   it("offers the branch's free times for the date, long enough for the booking", async () => {
     const availabilityUrls: string[] = []
+    const releaseReschedule = Promise.withResolvers<void>()
     let sent: unknown = null
     mockBooking()
     server.use(
@@ -256,6 +330,7 @@ describe('BookingDetail — rescheduling', () => {
       }),
       http.post('*/api/bookings/bk_1/reschedule', async ({ request }) => {
         sent = await request.json()
+        await releaseReschedule.promise
         return HttpResponse.json({ success: true, data: { id: 'bk_1', status: 'confirmed' } })
       }),
     )
@@ -279,6 +354,10 @@ describe('BookingDetail — rescheduling', () => {
     const confirm = screen.getByRole('button', { name: 'Confirm New Slot' })
     await waitFor(() => expect(confirm).toBeEnabled(), LOAD)
     fireEvent.click(confirm)
+    expect(screen.getByRole('button', { name: 'Cancel Booking' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Close' })).toBeDisabled()
+    expect(screen.getByLabelText('New date')).toBeDisabled()
+    expect(screen.getByLabelText('New time')).toBeDisabled()
     await waitFor(
       () =>
         expect(sent).toEqual({
@@ -288,6 +367,8 @@ describe('BookingDetail — rescheduling', () => {
         }),
       LOAD,
     )
+    releaseReschedule.resolve()
+    await waitFor(() => expect(screen.queryByLabelText('New date')).toBeNull(), LOAD)
   })
 
   it('says why a date has no times', async () => {

@@ -27,22 +27,22 @@
  ************************************************************/
 
 import type { PublicBranchList } from '@rgss/types'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { HttpResponse, http } from 'msw/http'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-
+import { startGoogleSignIn } from '@/lib/google-signin'
 import { ONBOARDING_PATH } from '@/lib/onboarding-prompt'
 import { server } from '@/test/msw-server'
 
 // Signed-in session so the submit path posts a booking (rather than launching
 // the Google sign-in redirect).
+const auth = vi.hoisted(() => ({ signedIn: true }))
 vi.mock('@/lib/auth-client', () => ({
-  useSession: () => ({ data: { user: { id: 'cust_1', name: 'Asha' } } }),
+  useSession: () => ({ data: auth.signedIn ? { user: { id: 'cust_1', name: 'Asha' } } : null }),
 }))
 vi.mock('@/lib/analytics/events', () => ({ track: vi.fn() }))
 vi.mock('@/lib/google-signin', () => ({
   startGoogleSignIn: vi.fn(),
-  markBookingIntentForOnboarding: vi.fn(),
 }))
 
 // The dialog routes to /onboarding when the API answers 403 ONBOARDING_REQUIRED.
@@ -169,6 +169,7 @@ function renderDialog() {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  auth.signedIn = true
   sessionStorage.clear()
 })
 
@@ -305,6 +306,140 @@ describe('BookingDialog UI wiring (Req 14)', () => {
   })
 })
 
+describe('BookingDialog lifecycle', () => {
+  it('loads the catalogue again when the dialog closes before the first response', async () => {
+    const firstRequest = Promise.withResolvers<void>()
+    const firstResponse = Promise.withResolvers<void>()
+    let catalogueRequests = 0
+    mockApi(
+      http.get('*/api/services', async () => {
+        catalogueRequests += 1
+        if (catalogueRequests === 1) {
+          firstRequest.resolve()
+          await firstResponse.promise
+        }
+        return HttpResponse.json({ success: true, data: catalogue() })
+      }),
+    )
+    const onClose = vi.fn()
+    const { rerender } = render(<BookingDialog isOpen onClose={onClose} />)
+    await firstRequest.promise
+
+    rerender(<BookingDialog isOpen={false} onClose={onClose} />)
+    rerender(<BookingDialog isOpen onClose={onClose} />)
+    firstResponse.resolve()
+
+    await advanceToSummary()
+    expect(catalogueRequests).toBe(2)
+  })
+
+  it('starts a fresh booking after dismissing the summary with Escape', async () => {
+    mockApi()
+    const onClose = vi.fn()
+    const { rerender } = render(<BookingDialog isOpen onClose={onClose} />)
+    await advanceToSummary()
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledOnce()
+    rerender(<BookingDialog isOpen={false} onClose={onClose} />)
+    rerender(<BookingDialog isOpen onClose={onClose} />)
+
+    expect(await findBranchPicker()).toBeVisible()
+    expect(screen.queryByText('Booking Summary')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+  })
+
+  it('keeps a pending booking visible and prevents a second submit', async () => {
+    const request = Promise.withResolvers<void>()
+    const response = Promise.withResolvers<void>()
+    let bookings = 0
+    mockApi(
+      http.post('*/api/bookings', async () => {
+        bookings += 1
+        request.resolve()
+        await response.promise
+        return HttpResponse.json({ success: true, data: { bookingNumber: 'BK-RS-TEST' } })
+      }),
+    )
+    const onClose = vi.fn()
+    render(<BookingDialog isOpen onClose={onClose} />)
+    await advanceToSummary()
+
+    const submit = screen.getByRole('button', { name: 'Submit Booking' })
+    fireEvent.click(submit)
+    fireEvent.click(submit)
+    await request.promise
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).not.toHaveBeenCalled()
+    expect(closeButton()).toBeDisabled()
+    response.resolve()
+
+    expect(await screen.findByText('BK-RS-TEST', {}, LOAD)).toBeVisible()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledOnce()
+    expect(bookings).toBe(1)
+  })
+
+  it('ignores the previous submission if the parent closes and reopens the dialog', async () => {
+    const request = Promise.withResolvers<void>()
+    const response = Promise.withResolvers<void>()
+    mockApi(
+      http.post('*/api/bookings', async () => {
+        request.resolve()
+        await response.promise
+        return HttpResponse.json({ success: true, data: { bookingNumber: 'BK-RS-OLD' } })
+      }),
+    )
+    const onClose = vi.fn()
+    const { rerender } = render(<BookingDialog isOpen onClose={onClose} />)
+    await advanceToSummary()
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Booking' }))
+    await request.promise
+
+    rerender(<BookingDialog isOpen={false} onClose={onClose} />)
+    rerender(<BookingDialog isOpen onClose={onClose} />)
+    await act(async () => response.resolve())
+
+    expect(await findBranchPicker()).toBeVisible()
+    expect(screen.queryByText('BK-RS-OLD')).not.toBeInTheDocument()
+    expect(closeButton()).toBeEnabled()
+  })
+
+  it('reports failed sign-in and lets a guest retry without losing selections', async () => {
+    auth.signedIn = false
+    vi.mocked(startGoogleSignIn).mockRejectedValueOnce(new Error('Google sign-in is unavailable.'))
+    mockApi()
+    renderDialog()
+    await advanceToSummary()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in to Book' }))
+
+    expect(await screen.findByRole('alert', {}, LOAD)).toHaveTextContent(
+      'Google sign-in is unavailable.',
+    )
+    expect(screen.getByText('Signature Haircut')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Sign in to Book' })).toBeEnabled()
+  })
+
+  it('continues to sign-in when the browser blocks booking draft storage', async () => {
+    auth.signedIn = false
+    mockApi()
+    renderDialog()
+    await advanceToSummary()
+    const store = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('Storage blocked', 'SecurityError')
+    })
+
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Sign in to Book' }))
+      await waitFor(() => expect(startGoogleSignIn).toHaveBeenCalledWith('/?book=1'), LOAD)
+      expect(screen.queryByText('Storage blocked')).not.toBeInTheDocument()
+    } finally {
+      store.mockRestore()
+    }
+  })
+})
+
 describe('BookingDialog branch picker', () => {
   it('shows times from an API that requires a branch, without the customer choosing one', async () => {
     // The P1 regression: the dialog sent only `date`, so every customer saw
@@ -367,6 +502,27 @@ describe('BookingDialog branch picker', () => {
 
     expect(await screen.findByText('BK-RS-2609-H-38291', {}, LOAD)).toBeInTheDocument()
     expect(postedBody).toMatchObject({ branchId: 'branch_indiranagar' })
+  })
+
+  it('reuses the request key when the booking response was lost', async () => {
+    const keys: unknown[] = []
+    mockApi(
+      http.post('*/api/bookings', async ({ request }) => {
+        const { idempotencyKey } = (await request.json()) as { idempotencyKey: unknown }
+        keys.push(idempotencyKey)
+        if (keys.length === 1) return HttpResponse.error()
+        return HttpResponse.json({ success: true, data: { bookingNumber: 'BK-RS-original' } })
+      }),
+    )
+
+    renderDialog()
+    await advanceToSummary()
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Booking' }))
+    await screen.findByRole('alert', {}, LOAD)
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Booking' }))
+
+    expect(await screen.findByText('BK-RS-original', {}, LOAD)).toBeInTheDocument()
+    expect(keys).toEqual([expect.any(String), keys[0]])
   })
 
   it('offers a retry when branches fail to load, and asks for no times until one loads', async () => {
@@ -493,7 +649,10 @@ describe('BookingDialog branch picker', () => {
     await advanceToSummary()
     fireEvent.click(screen.getByRole('button', { name: 'Submit Booking' }))
 
-    await waitFor(() => expect(routerPushMock).toHaveBeenCalledWith(ONBOARDING_PATH), LOAD)
+    await waitFor(
+      () => expect(routerPushMock).toHaveBeenCalledWith(`${ONBOARDING_PATH}?book=1`),
+      LOAD,
+    )
     expect(JSON.parse(sessionStorage.getItem(BOOKING_INTENT_KEY) ?? '{}')).toMatchObject({
       branchId: 'branch_indiranagar',
       time: '10:00',

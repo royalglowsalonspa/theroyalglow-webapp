@@ -32,7 +32,7 @@
  ************************************************************/
 
 import { sql } from 'drizzle-orm'
-import { boolean, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+import { boolean, index, integer, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'
 import { user } from './auth'
 import { booking } from './booking'
@@ -77,6 +77,8 @@ export const pushSubscription = pgTable(
     p256dhKey: text('p256dh_key').notNull(),
     authKey: text('auth_key').notNull(),
     isActive: boolean('is_active').notNull().default(true),
+    // A database trigger advances this generation whenever a binding changes.
+    bindingVersion: integer('binding_version').notNull().default(1),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
       .notNull()
@@ -85,5 +87,8 @@ export const pushSubscription = pgTable(
   },
   (table) => [
     index('push_subscription_user_id_active_idx').on(table.userId).where(sql`is_active = true`),
+    uniqueIndex('push_subscription_active_endpoint_uidx')
+      .on(table.endpoint)
+      .where(sql`is_active = true`),
   ],
 )

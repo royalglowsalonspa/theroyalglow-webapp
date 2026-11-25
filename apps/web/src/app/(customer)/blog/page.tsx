@@ -15,9 +15,7 @@
  ************************************************************/
 
 import type { Metadata } from 'next'
-import { Suspense } from 'react'
 import { BlogFeed } from '@/components/blog/BlogFeed'
-import { NewsletterForm } from '@/components/blog/NewsletterForm'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { getPublishedPosts } from '@/lib/cms/client'
 import { SITE_URL } from '@/lib/seo/business'
@@ -74,19 +72,10 @@ export default async function BlogPage() {
         {/* ═══════════════════════════════════════════════════════ */}
         {/* INTERACTIVE FEED (Search, Filter, Pagination, Grid) */}
         {/* ═══════════════════════════════════════════════════════ */}
-        <section aria-label="Blog articles" className="px-5">
+        <section aria-label="Blog articles" className="px-5 pb-20">
           <div className="mx-auto max-w-[1278px]">
             <BlogFeed initialPosts={posts} />
           </div>
-        </section>
-
-        {/* ═══════════════════════════════════════════════════════ */}
-        {/* NEWSLETTER FORM */}
-        {/* ═══════════════════════════════════════════════════════ */}
-        <section aria-label="Newsletter subscription" className="px-5 pb-20">
-          <Suspense fallback={null}>
-            <NewsletterForm />
-          </Suspense>
         </section>
       </div>
     </>

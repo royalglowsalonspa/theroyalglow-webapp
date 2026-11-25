@@ -20,11 +20,13 @@
  ************************************************************/
 
 import { and, asc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm'
+import type { BatchItem } from 'drizzle-orm/batch'
 import { db } from '../index'
 import { user } from '../schema/auth'
 import { booking } from '../schema/booking'
 import { branch } from '../schema/branch'
 import { holiday } from '../schema/schedule'
+import { bookingClosureDayLock } from './booking-admission'
 
 export type ClosureRow = {
   id: string
@@ -105,11 +107,17 @@ export async function createClosures(params: {
   if (dates.length === 0) {
     return { created: [], alreadyClosed: [] }
   }
-  const created = await db
+  const insert = db
     .insert(holiday)
     .values(dates.map((date) => ({ branchId: params.branchId, date, name: params.name })))
     .onConflictDoNothing()
     .returning(CLOSURE_COLUMNS)
+  const writes: [BatchItem<'pg'>, ...BatchItem<'pg'>[]] = [insert]
+  writes.unshift(
+    ...dates.map((date) => db.execute(sql`select ${bookingClosureDayLock(date, false)}`)),
+  )
+  const results = await db.batch(writes)
+  const created = results.at(-1) as ClosureRow[]
   const createdDates = new Set(created.map((row) => row.date))
   return {
     created: created.sort((a, b) => a.date.localeCompare(b.date)),

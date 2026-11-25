@@ -39,13 +39,19 @@ import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { db } from '../index'
 import { isLiveDbAvailable, queryRow, queryRows } from '../test/live-db'
-import { cancelBooking, createBookingWithServices, rescheduleBooking } from './bookings'
+import {
+  cancelBooking,
+  createBookingWithServices,
+  findCustomerBookingRequest,
+  rescheduleBooking,
+} from './bookings'
 import {
   countUpcomingBookingsAtBranch,
   getBranchPolicy,
   getBranchSettingsForAdmin,
   saveBranchSettingsSection,
 } from './branch-settings'
+import { createClosures } from './closures'
 
 const LIVE = isLiveDbAvailable()
 const RUN = Math.random().toString(36).slice(2, 8)
@@ -434,4 +440,102 @@ describe.skipIf(!LIVE)('branch booking settings against a live database', () => 
     // From a later day, the earlier ones are past.
     expect(await countUpcomingBookingsAtBranch(CUSTOMER, BRANCH_A, istDatePlus(4))).toBe(2)
   })
+
+  it('stores one immutable record for a customer request and refuses changed branch openness', async () => {
+    const date = istDatePlus(16)
+    const bookingDate = new Date(`${date}T00:00:00.000Z`)
+    const admission = { branchName: 'ZZ Bset IT B', todayISO: istDatePlus(0), maxUpcoming: 20 }
+    const request = { key: crypto.randomUUID(), fingerprint: 'request-for-original-date' }
+    const data = {
+      bookingNumber: `${PREFIX}_request`,
+      branchId: BRANCH_B,
+      customerId: CUSTOMER,
+      serviceType: 'salon' as const,
+      status: 'pending' as const,
+      bookingDate,
+      startTime: '14:00',
+      endTime: '15:00',
+      totalDurationMinutes: 60,
+      settingsRevision: 1,
+    }
+    const original = await createBookingWithServices(data, [], { admission, request })
+    await expect(
+      createBookingWithServices({ ...data, bookingNumber: `${PREFIX}_retry` }, [], {
+        admission,
+        request,
+      }),
+    ).rejects.toThrow(/customer_booking_request_customer_id_request_key_pk/)
+    expect(await findCustomerBookingRequest(CUSTOMER, request.key)).toEqual({
+      id: original.id,
+      bookingNumber: original.bookingNumber,
+      fingerprint: request.fingerprint,
+    })
+    expect(await findCustomerBookingRequest(ACTOR, request.key)).toBeNull()
+
+    await createClosures({ branchId: BRANCH_B, dates: [date], name: `${PREFIX} closure` })
+    await expect(
+      createBookingWithServices({ ...data, bookingNumber: `${PREFIX}_closed` }, [], {
+        admission,
+      }),
+    ).rejects.toMatchObject({ code: ERROR_CODES.BOOKING_SLOT_UNAVAILABLE, statusCode: 409 })
+
+    await db.execute(sql`update branch set status = 'temporarily_closed' where id = ${BRANCH_B}`)
+    await expect(
+      createBookingWithServices({ ...data, bookingNumber: `${PREFIX}_inactive` }, [], {
+        admission,
+      }),
+    ).rejects.toMatchObject({ code: ERROR_CODES.BRANCH_INACTIVE, statusCode: 409 })
+  })
+
+  it.each([true, false])(
+    'refuses stale booking changes after a move (counts toward customer limit: %s)',
+    async (countsTowardLimit) => {
+      const expected = await book(BRANCH_A, istDatePlus(2), 4)
+      const bookingDate = new Date(`${istDatePlus(3)}T00:00:00.000Z`)
+      const moved = await rescheduleBooking(expected.id, ACTOR, {
+        expected,
+        bookingDate,
+        startTime: '15:00',
+        endTime: '16:00',
+        countsTowardLimit,
+      })
+      const before = await queryRow(
+        sql`select late_cancellation_count from customer_profile where user_id = ${CUSTOMER}`,
+      )
+      const conflict = { code: ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION, statusCode: 409 }
+
+      await expect(
+        rescheduleBooking(expected.id, CUSTOMER, {
+          expected,
+          bookingDate,
+          startTime: '17:00',
+          endTime: '18:00',
+        }),
+      ).rejects.toMatchObject(conflict)
+      await expect(
+        cancelBooking(expected.id, CUSTOMER, null, { late: true, settingsRevision: 4 }, expected),
+      ).rejects.toMatchObject(conflict)
+
+      expect(moved).toMatchObject({ rescheduleCount: Number(countsTowardLimit) })
+      expect(
+        await queryRow(
+          sql`select status, start_time, reschedule_count from booking where id = ${expected.id}`,
+        ),
+      ).toEqual({
+        status: 'confirmed',
+        start_time: '15:00:00',
+        reschedule_count: Number(countsTowardLimit),
+      })
+      expect(
+        await queryRows(
+          sql`select to_status from booking_status_log where booking_id = ${expected.id}`,
+        ),
+      ).toEqual([{ to_status: 'confirmed' }])
+      expect(
+        await queryRow(
+          sql`select late_cancellation_count from customer_profile where user_id = ${CUSTOMER}`,
+        ),
+      ).toEqual(before)
+    },
+  )
 })

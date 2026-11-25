@@ -123,7 +123,13 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; dot: string }> =
 type SlotState =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'ready'; starts: string[]; notice: string | null; closure: string | null }
+  | {
+      status: 'ready'
+      date: string
+      starts: string[]
+      notice: string | null
+      closure: string | null
+    }
   | { status: 'error'; message: string }
 
 // --- Formatting helpers (timezone-safe: operate on the wire string) ---
@@ -203,54 +209,92 @@ function buildTimeline(booking: Booking): TimelineEntry[] {
   return entries
 }
 
-export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?: string | null }) {
-  const [booking, setBooking] = useState<Booking | null>(null)
-  const [terms, setTerms] = useState<BookingTerms | null>(null)
-  const [policyRevision, setPolicyRevision] = useState<number | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [notFound, setNotFound] = useState(false)
+interface BookingSnapshot {
+  booking: Booking
+  terms: BookingTerms | null
+  policyRevision: number | null
+}
 
-  const [confirmingCancel, setConfirmingCancel] = useState(false)
-  const [cancelling, setCancelling] = useState(false)
+type DetailState =
+  | { status: 'loading'; snapshot: BookingSnapshot | null }
+  | { status: 'ready'; snapshot: BookingSnapshot }
+  | { status: 'not-found' }
+  | { status: 'error'; message: string }
+
+type Action = 'idle' | 'confirming-cancel' | 'editing-reschedule' | 'cancelling' | 'rescheduling'
+
+export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?: string | null }) {
+  const [detail, setDetail] = useState<DetailState>({ status: 'loading', snapshot: null })
+  const activeRead = useRef<AbortController | null>(null)
+  const snapshot = detail.status === 'loading' || detail.status === 'ready' ? detail.snapshot : null
+  const { booking, terms = null, policyRevision = null } = snapshot ?? {}
+  const loading = detail.status === 'loading'
+
+  const [action, setAction] = useState<Action>('idle')
+  const activeWrite = useRef<AbortController | null>(null)
+  const cancelling = action === 'cancelling'
+  const rescheduling = action === 'rescheduling'
+  const writePending = cancelling || rescheduling
+  const confirmingCancel = action === 'confirming-cancel' || cancelling
+  const showReschedule = action === 'editing-reschedule' || rescheduling
   const [cancelNotice, setCancelNotice] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
-  const [showReschedule, setShowReschedule] = useState(false)
   const [rescheduleDate, setRescheduleDate] = useState('')
   const [rescheduleTime, setRescheduleTime] = useState('')
   const [slotState, setSlotState] = useState<SlotState>({ status: 'idle' })
-  const [rescheduling, setRescheduling] = useState(false)
+  const availableStarts =
+    slotState.status === 'ready' && slotState.date === rescheduleDate ? slotState.starts : []
 
   const confirmWarningId = useId()
   const confirmRef = useRef<HTMLFieldSetElement>(null)
 
   const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    setNotFound(false)
+    activeRead.current?.abort()
+    const request = new AbortController()
+    activeRead.current = request
+    setDetail((state) => ({
+      status: 'loading',
+      snapshot: 'snapshot' in state ? state.snapshot : null,
+    }))
     try {
-      const res = await fetch(`/api/bookings/${id}`, { cache: 'no-store' })
-      const json = await res.json()
+      const res = await fetch(`/api/bookings/${id}`, { cache: 'no-store', signal: request.signal })
+      if (request.signal.aborted) return
       if (res.status === 404) {
-        setNotFound(true)
+        setDetail({ status: 'not-found' })
         return
       }
+      const json = await res.json()
+      if (request.signal.aborted) return
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not load this booking.')
       }
-      setBooking(json.data.booking as Booking)
-      setTerms((json.data.terms ?? null) as BookingTerms | null)
-      setPolicyRevision(json.data.policyRevision ?? null)
+      setDetail({
+        status: 'ready',
+        snapshot: {
+          booking: json.data.booking as Booking,
+          terms: (json.data.terms ?? null) as BookingTerms | null,
+          policyRevision: json.data.policyRevision ?? null,
+        },
+      })
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not load this booking.')
+      if (request.signal.aborted) return
+      setDetail({
+        status: 'error',
+        message: err instanceof Error ? err.message : 'Could not load this booking.',
+      })
     } finally {
-      setLoading(false)
+      if (activeRead.current === request) activeRead.current = null
     }
   }, [id])
 
   useEffect(() => {
-    load()
+    void load()
+    return () => {
+      activeRead.current?.abort()
+      activeWrite.current?.abort()
+      activeWrite.current = null
+    }
   }, [load])
 
   // Live updates: the server publishes booking events to the viewer's own
@@ -272,7 +316,7 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
       setSlotState({ status: 'idle' })
       return
     }
-    let cancelled = false
+    const request = new AbortController()
     setSlotState({ status: 'loading' })
     setRescheduleTime('')
     const params = new URLSearchParams({
@@ -280,7 +324,7 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
       branchId,
       durationMinutes: String(duration),
     })
-    fetch(`/api/availability?${params.toString()}`)
+    fetch(`/api/availability?${params.toString()}`, { signal: request.signal })
       .then(async (res) => {
         const json = await res.json()
         if (!res.ok || !json.success) {
@@ -293,11 +337,12 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
         }
       })
       .then((data) => {
-        if (cancelled) return
+        if (request.signal.aborted) return
         const starts = data.slots.filter((s) => s.available).map((s) => s.startTime)
         const closureName = data.closure?.name
         setSlotState({
           status: 'ready',
+          date: rescheduleDate,
           starts,
           notice: data.notice ?? null,
           closure: typeof closureName === 'string' ? closureName : null,
@@ -305,15 +350,13 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
         setRescheduleTime(starts[0] ?? '')
       })
       .catch((err: unknown) => {
-        if (cancelled) return
+        if (request.signal.aborted) return
         setSlotState({
           status: 'error',
           message: err instanceof Error ? err.message : 'Could not load times for that date.',
         })
       })
-    return () => {
-      cancelled = true
-    }
+    return () => request.abort()
   }, [showReschedule, rescheduleDate, branchId, duration, policyRevision])
 
   // The confirmation takes focus so keyboard and screen-reader users land on it.
@@ -324,43 +367,67 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
   }, [confirmingCancel])
 
   const handleCancel = useCallback(async () => {
-    setCancelling(true)
+    if (activeRead.current || activeWrite.current || action !== 'confirming-cancel') return
+    const request = new AbortController()
+    activeWrite.current = request
+    setAction('cancelling')
     setActionError(null)
     try {
       const res = await fetch(`/api/bookings/${id}/cancel`, {
         method: 'POST',
+        signal: request.signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           confirmedTerms: { policyRevision, late: terms?.cancel?.late ?? false },
         }),
       })
       const json = await res.json()
+      if (request.signal.aborted) return
       if (!res.ok || !json.success) {
-        if (json?.error?.code === ERROR_CODES.BOOKING_TERMS_CHANGED) await load()
+        if (
+          json?.error?.code === ERROR_CODES.BOOKING_TERMS_CHANGED ||
+          json?.error?.code === ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION
+        ) {
+          await load()
+        }
         throw new Error(json?.error?.message ?? 'Could not cancel this booking.')
       }
-      setConfirmingCancel(false)
       setCancelNotice(
         json.data?.late === true
           ? "Booking cancelled. It was a late cancellation: you weren't charged, and it's noted on your record."
           : 'Booking cancelled.',
       )
       await load()
+      if (!request.signal.aborted) setAction('idle')
     } catch (err: unknown) {
+      if (request.signal.aborted) return
       setActionError(err instanceof Error ? err.message : 'Could not cancel this booking.')
+      setAction('confirming-cancel')
     } finally {
-      setCancelling(false)
+      if (activeWrite.current === request) activeWrite.current = null
     }
-  }, [id, load, policyRevision, terms])
+  }, [action, id, load, policyRevision, terms])
 
   const handleReschedule = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault()
-      setRescheduling(true)
+      if (
+        activeRead.current ||
+        activeWrite.current ||
+        action !== 'editing-reschedule' ||
+        slotState.status !== 'ready' ||
+        slotState.date !== rescheduleDate ||
+        !slotState.starts.includes(rescheduleTime)
+      )
+        return
+      const request = new AbortController()
+      activeWrite.current = request
+      setAction('rescheduling')
       setActionError(null)
       try {
         const res = await fetch(`/api/bookings/${id}/reschedule`, {
           method: 'POST',
+          signal: request.signal,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             bookingDate: rescheduleDate,
@@ -369,9 +436,11 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
           }),
         })
         const json = await res.json()
+        if (request.signal.aborted) return
         if (!res.ok || !json.success) {
           if (
             json?.error?.code === ERROR_CODES.BOOKING_TERMS_CHANGED ||
+            json?.error?.code === ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION ||
             json?.error?.code === ERROR_CODES.BOOKING_RESCHEDULE_WINDOW_PASSED ||
             json?.error?.code === ERROR_CODES.BOOKING_MAX_RESCHEDULES
           ) {
@@ -379,16 +448,20 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
           }
           throw new Error(json?.error?.message ?? 'Could not reschedule this booking.')
         }
-        setShowReschedule(false)
-        setRescheduleDate('')
         await load()
+        if (!request.signal.aborted) {
+          setAction('idle')
+          setRescheduleDate('')
+        }
       } catch (err: unknown) {
+        if (request.signal.aborted) return
         setActionError(err instanceof Error ? err.message : 'Could not reschedule this booking.')
+        setAction('editing-reschedule')
       } finally {
-        setRescheduling(false)
+        if (activeWrite.current === request) activeWrite.current = null
       }
     },
-    [id, load, policyRevision, rescheduleDate, rescheduleTime],
+    [action, id, load, policyRevision, rescheduleDate, rescheduleTime, slotState],
   )
 
   if (loading && !booking) {
@@ -400,7 +473,7 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
     )
   }
 
-  if (notFound) {
+  if (detail.status === 'not-found') {
     return (
       <Card className="mt-8 px-5 py-10 text-center">
         <p className="mb-2 font-display text-[22px] text-cocoa-dark">Booking not found</p>
@@ -411,11 +484,11 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
     )
   }
 
-  if (error || !booking) {
+  if (detail.status === 'error' || !booking) {
     return (
       <div className="mt-8 rounded-[6px] border border-error/40 bg-error/5 px-5 py-6 text-center">
         <p className="mb-3 font-sans text-[15px] text-error" role="alert">
-          {error ?? 'Could not load this booking.'}
+          {detail.status === 'error' ? detail.message : 'Could not load this booking.'}
         </p>
         <Button
           type="button"
@@ -580,6 +653,12 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
         )}
       </section>
 
+      {actionError && (
+        <p className="font-sans text-[14px] text-error" role="alert">
+          {actionError}
+        </p>
+      )}
+
       {/* Actions */}
       {(canCancel || canReschedule || rescheduleBlocked) && (
         <section
@@ -587,12 +666,6 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
           aria-label="Manage booking"
           className="space-y-4 border-t border-cloud-gray pt-6"
         >
-          {actionError && (
-            <p className="font-sans text-[14px] text-error" role="alert">
-              {actionError}
-            </p>
-          )}
-
           {rescheduleBlocked && (
             <p className="font-sans text-[14px] text-warm-gray">{rescheduleBlocked}</p>
           )}
@@ -602,10 +675,11 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
               <Button
                 type="button"
                 variant="outline"
+                disabled={writePending}
                 onClick={() => {
+                  if (activeWrite.current) return
                   if (!showReschedule) void load()
-                  setShowReschedule((prev) => !prev)
-                  setConfirmingCancel(false)
+                  setAction(showReschedule ? 'idle' : 'editing-reschedule')
                   setActionError(null)
                 }}
                 aria-expanded={showReschedule}
@@ -619,10 +693,11 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
               <Button
                 type="button"
                 variant="outline"
+                disabled={writePending}
                 onClick={() => {
+                  if (activeWrite.current) return
                   void load()
-                  setConfirmingCancel(true)
-                  setShowReschedule(false)
+                  setAction('confirming-cancel')
                   setActionError(null)
                 }}
                 className="rounded-full border-error/40 font-ui text-[12px] uppercase tracking-[0.5px] text-error hover:bg-error/5 hover:text-error"
@@ -670,7 +745,7 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setConfirmingCancel(false)}
+                  onClick={() => setAction('idle')}
                   disabled={cancelling}
                   className="rounded-full border-deep-gold font-ui text-[12px] uppercase tracking-[0.5px] text-cocoa-dark hover:bg-golden-mist hover:text-cocoa-dark"
                 >
@@ -704,6 +779,7 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
                     id="reschedule-date"
                     type="date"
                     required
+                    disabled={rescheduling}
                     min={todayInIST()}
                     value={rescheduleDate}
                     onChange={(e) => setRescheduleDate(e.target.value)}
@@ -721,12 +797,12 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
                     id="reschedule-time"
                     value={rescheduleTime}
                     onChange={(e) => setRescheduleTime(e.target.value)}
-                    disabled={slotState.status !== 'ready' || slotState.starts.length === 0}
+                    disabled={rescheduling || availableStarts.length === 0}
                     aria-describedby="reschedule-times-status"
                     className="h-10 w-full rounded-md border border-input bg-canvas-white px-3 font-ui text-[15px] text-cocoa-dark outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60"
                   >
-                    {slotState.status === 'ready' && slotState.starts.length > 0 ? (
-                      slotState.starts.map((slot) => (
+                    {availableStarts.length > 0 ? (
+                      availableStarts.map((slot) => (
                         <option key={slot} value={slot}>
                           {formatTime12h(slot)}
                         </option>
@@ -758,7 +834,7 @@ export function BookingDetail({ id, viewerUserId }: { id: string; viewerUserId?:
                 type="submit"
                 variant="gold"
                 size="lg"
-                disabled={loading || rescheduling || !rescheduleDate || !rescheduleTime}
+                disabled={loading || rescheduling || !availableStarts.includes(rescheduleTime)}
                 aria-busy={loading || rescheduling}
                 className="w-fit rounded-full font-ui text-[12px] uppercase tracking-[0.5px]"
               >

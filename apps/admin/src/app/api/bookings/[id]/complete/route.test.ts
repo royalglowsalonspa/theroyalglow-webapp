@@ -43,6 +43,7 @@ import { branchContext, OTHER_BRANCH, TEST_BRANCH } from '@/test/branch-context'
 // and the tax configuration before calling it, so otherwise it is never invoked.
 // ---------------------------------------------------------------------------
 type FakeService = {
+  id: string
   serviceId: string
   serviceNameSnapshot: string
   staffId: string | null
@@ -331,7 +332,13 @@ function version(
 }
 
 function service(id: string, name: string, pricePaise: number, staffId = 'stf_1'): FakeService {
-  return { serviceId: id, serviceNameSnapshot: name, staffId, priceAtBookingPaise: pricePaise }
+  return {
+    id: `line_${id}`,
+    serviceId: id,
+    serviceNameSnapshot: name,
+    staffId,
+    priceAtBookingPaise: pricePaise,
+  }
 }
 
 // One booking with one service by default. Giving only `totalAmountPaise`
@@ -443,6 +450,12 @@ describe('POST /api/bookings/[id]/complete — completion transition (property)'
             expect(json.success).toBe(true)
             expect(bk.status).toBe('completed')
             expect(dbMocks.completeBookingWithInvoice).toHaveBeenCalledOnce()
+            expect(dbMocks.completeBookingWithInvoice).toHaveBeenCalledWith(
+              expect.objectContaining({
+                expectedStatus: status,
+                expectedAssignments: [{ id: 'line_svc_1', staffId: 'stf_1' }],
+              }),
+            )
             expect(json.data.invoice.invoiceNumber).toBe('RS/2627/000001')
             expect(json.data.invoice.totalPaise).toBe(totalAmountPaise)
             const inv = harness.lastInvoice as CapturedInvoice
@@ -1301,6 +1314,10 @@ describe('POST /api/bookings/[id]/complete — membership sessions (membership-s
       bookingId: BOOKING_ID,
       branchId: TEST_BRANCH.id,
       changedById: 'u_admin',
+      expectedAssignments: [
+        { id: 'line_svc_aroma', staffId: 'stf_1' },
+        { id: 'line_svc_scrub', staffId: 'stf_2' },
+      ],
       // The selling branch owes the delivering one this share of the value.
       settlement: { shareBps: 10_000, gemValuePaise: 100 },
       lines: [

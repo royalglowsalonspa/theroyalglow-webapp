@@ -15,7 +15,7 @@
  *
  * Features / Functionality :
  * - gemsExpiredMarker(txId) — prevents double-expiration
- * - reminderDedupeKey(bookingId, window) — prevents duplicate reminders
+ * - reminderDedupeKey — identifies the appointment and reminder window
  *
  * Tech Stack   : TypeScript
  * Layer        : Business Logic
@@ -34,8 +34,12 @@ export function gemsExpiredMarker(txId: string): string {
   return `expired:${txId}`
 }
 
-// Dedupe key for an appointment reminder (job 8) so a given booking is reminded
-// at most once per window (24h / 1h).
-export function reminderDedupeKey(bookingId: string, kind: ReminderWindow): string {
-  return `reminder_${kind}:${bookingId}`
+// A move creates a new reminder occurrence, even when the booking ID is reused.
+export function reminderDedupeKey(
+  bookingId: string,
+  kind: ReminderWindow,
+  startsAt: Date,
+  slotAcceptedAt: Date,
+): string {
+  return `reminder_${kind}:${JSON.stringify([bookingId, startsAt.toISOString(), slotAcceptedAt.toISOString()])}`
 }

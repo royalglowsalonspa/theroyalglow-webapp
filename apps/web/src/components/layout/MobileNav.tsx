@@ -38,7 +38,7 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { signOut } from '@/lib/auth-client'
+import { useCustomerSignOut } from '@/components/auth/useCustomerSignOut'
 import { startGoogleSignIn } from '@/lib/google-signin'
 import { adminPortalUrl, isAdminRole } from '@/lib/roles'
 import { cn } from '@/lib/utils'
@@ -192,6 +192,7 @@ interface MobileNavProps {
 }
 
 export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
+  const { handleSignOut, signingOut, signOutFailed } = useCustomerSignOut()
   const navRef = useRef<HTMLDivElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const [mounted, setMounted] = useState(false)
@@ -233,20 +234,6 @@ export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
       // The drawer has already closed here, so there's no inline slot to show
       // an error — but log it so a failed OAuth launch isn't fully invisible.
       console.error('[auth] Google sign-in failed:', err)
-    }
-  }
-
-  async function handleSignOut() {
-    try {
-      await signOut({
-        fetchOptions: {
-          onSuccess: () => {
-            window.location.href = '/'
-          },
-        },
-      })
-    } catch {
-      window.location.href = '/'
     }
   }
 
@@ -511,6 +498,8 @@ export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
             <button
               type="button"
               onClick={handleSignOut}
+              aria-busy={signingOut}
+              disabled={signingOut}
               className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-error/30 font-ui font-bold text-sm text-error transition-colors duration-200 hover:bg-error/8 active:scale-[0.98]"
             >
               <svg
@@ -526,7 +515,7 @@ export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                 <path d="m16 17 5-5-5-5M21 12H9" />
               </svg>
-              Logout{firstName ? ` (${firstName})` : ''}
+              {signingOut ? 'Signing out…' : `Logout${firstName ? ` (${firstName})` : ''}`}
             </button>
           ) : (
             <button
@@ -557,6 +546,11 @@ export function MobileNav({ isOpen, onClose, pathname, user }: MobileNavProps) {
               </svg>
               Continue with Google
             </button>
+          )}
+          {user && signOutFailed && (
+            <p role="alert" className="font-sans text-sm text-error">
+              Could not sign out. Please try again.
+            </p>
           )}
         </div>
       </div>

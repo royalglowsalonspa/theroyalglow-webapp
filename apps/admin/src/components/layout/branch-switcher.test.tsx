@@ -89,6 +89,29 @@ async function openSwitcher() {
 }
 
 describe('BranchSwitcher', () => {
+  it('shows a failed initial load and retries without reloading the current page', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, json: async () => ({ success: false }) })
+      .mockResolvedValueOnce(ok({ active: BRANCHES[0], branches: BRANCHES }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(
+      <SidebarProvider>
+        <BranchSwitcher />
+      </SidebarProvider>,
+    )
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load your branches.')
+    const trigger = screen.getByRole('button', { name: 'Branch: Branch unavailable' })
+    fireEvent.keyDown(trigger, { key: 'Enter' })
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Try again' }))
+
+    expect(await screen.findByRole('button', { name: /Active branch: Rayasandra/ })).toBeVisible()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(reload).not.toHaveBeenCalled()
+  })
+
   it('shows the active branch with the role held there', async () => {
     stubApi()
     await openSwitcher()

@@ -18,7 +18,6 @@
 
 import { buildNotificationContent, frontDeskRecipients } from '@rgss/business'
 import {
-  createNotification,
   createNotificationOnce,
   getBranchPeople,
   hasNotification,
@@ -67,20 +66,21 @@ export async function alertBranchFrontDesk(
     if (alreadyNotified) {
       continue
     }
-    const notification = {
+    // Keep recognizing older rows above, then atomically claim the delivery.
+    // No-show checks retain their existing key so retries during rollout agree.
+    const id =
+      params.type === 'no_show_check'
+        ? `no-show-check:${JSON.stringify([userId, params.bookingId, params.checkAt])}`
+        : `${params.type}:${JSON.stringify([userId, params.bookingId])}`
+    const created = await createNotificationOnce({
+      id,
       userId,
       type: params.type,
       title,
       body,
+      channel: 'push',
       bookingId: params.bookingId,
-    }
-    const created =
-      params.type === 'no_show_check'
-        ? await createNotificationOnce({
-            ...notification,
-            id: `no-show-check:${JSON.stringify([userId, params.bookingId, params.checkAt])}`,
-          })
-        : await createNotification({ ...notification, channel: 'push' })
+    })
     if (!created) {
       continue
     }

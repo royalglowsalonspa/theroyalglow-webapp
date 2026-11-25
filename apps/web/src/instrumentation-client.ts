@@ -20,6 +20,7 @@
 
 import type * as SentrySdk from '@sentry/nextjs'
 import { sentryDataCollection } from '@/lib/sentry/data-collection'
+import { filterBrowserError } from '@/lib/sentry/filter-browser-error'
 
 let sentry: typeof SentrySdk | undefined
 
@@ -36,6 +37,7 @@ if (dsn) {
         tracesSampleRate: 0.1,
         enabled: process.env.NODE_ENV === 'production',
         dataCollection: sentryDataCollection,
+        beforeSend: filterBrowserError,
         replaysSessionSampleRate: 0,
         replaysOnErrorSampleRate: 0,
       })

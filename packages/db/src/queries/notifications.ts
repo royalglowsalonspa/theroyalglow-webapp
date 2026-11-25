@@ -32,6 +32,7 @@
  *                layer handles actual delivery and updates status to sent/failed.
  ************************************************************/
 
+import { conflict, ERROR_CODES } from '@rgss/errors'
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '../index'
 import { user } from '../schema/auth'
@@ -118,42 +119,31 @@ type PushSubscriptionInput = {
   keys: { p256dh: string; auth: string }
 }
 
-// Upsert a Web Push subscription by endpoint. `endpoint` has no unique
-// constraint, so we look up an existing row and update it (re-binding it to the
-// caller and reactivating it) or insert a fresh one. Returns the stored row.
+// A browser can switch signed-in accounts without creating a new PushManager
+// subscription. Rebind an active endpoint only if it is the caller's or the
+// browser presents its current subscription keys. Inactive rows remain history.
 export async function savePushSubscription(userId: string, sub: PushSubscriptionInput) {
-  const existing = await db
-    .select()
-    .from(pushSubscription)
-    .where(eq(pushSubscription.endpoint, sub.endpoint))
-    .limit(1)
-
-  const found = existing[0]
-  if (found) {
-    const [updated] = await db
-      .update(pushSubscription)
-      .set({
-        userId,
-        p256dhKey: sub.keys.p256dh,
-        authKey: sub.keys.auth,
-        isActive: true,
-      })
-      .where(eq(pushSubscription.id, found.id))
-      .returning()
-    return updated as typeof pushSubscription.$inferSelect
-  }
-
-  const [created] = await db
+  const values = { userId, p256dhKey: sub.keys.p256dh, authKey: sub.keys.auth }
+  const [saved] = await db
     .insert(pushSubscription)
-    .values({
-      userId,
-      endpoint: sub.endpoint,
-      p256dhKey: sub.keys.p256dh,
-      authKey: sub.keys.auth,
-      isActive: true,
+    .values({ ...values, endpoint: sub.endpoint })
+    .onConflictDoUpdate({
+      target: pushSubscription.endpoint,
+      targetWhere: sql`is_active = true`,
+      set: { ...values, updatedAt: sql`now()` },
+      setWhere: sql`${pushSubscription.userId} = ${userId}
+        OR (${pushSubscription.p256dhKey} = ${values.p256dhKey}
+          AND ${pushSubscription.authKey} = ${values.authKey})`,
     })
     .returning()
-  return created as typeof pushSubscription.$inferSelect
+
+  if (!saved) {
+    throw conflict(
+      ERROR_CODES.CONFLICT,
+      'This push subscription changed. Refresh notifications and try again.',
+    )
+  }
+  return saved
 }
 
 // Soft-unsubscribe: deactivate the caller's subscription for an endpoint.
@@ -161,7 +151,30 @@ export async function removePushSubscription(userId: string, endpoint: string) {
   await db
     .update(pushSubscription)
     .set({ isActive: false })
-    .where(and(eq(pushSubscription.userId, userId), eq(pushSubscription.endpoint, endpoint)))
+    .where(
+      and(
+        eq(pushSubscription.userId, userId),
+        eq(pushSubscription.endpoint, endpoint),
+        eq(pushSubscription.isActive, true),
+      ),
+    )
+}
+
+// A stale provider result can only deactivate the exact binding that it tried.
+export async function pruneGonePushSubscription(
+  observed: Pick<typeof pushSubscription.$inferSelect, 'id' | 'userId' | 'bindingVersion'>,
+) {
+  await db
+    .update(pushSubscription)
+    .set({ isActive: false })
+    .where(
+      and(
+        eq(pushSubscription.id, observed.id),
+        eq(pushSubscription.userId, observed.userId),
+        eq(pushSubscription.bindingVersion, observed.bindingVersion),
+        eq(pushSubscription.isActive, true),
+      ),
+    )
 }
 
 // All of the caller's active push subscriptions, used by the dispatch seam.

@@ -17,7 +17,7 @@
  *
  * Features / Functionality :
  * - revalidateHooks(tag) → { afterChange, afterDelete } for a collection
- * - Fire-and-forget; logs a warning on failure, never throws
+ * - Runs after the CMS HTTP response and logs unsuccessful invalidation
  *
  * Tech Stack   : Payload CMS v3, TypeScript
  * Layer        : CMS (Hooks)
@@ -29,24 +29,37 @@
  *   the web app running) so admin saves never error.
  ************************************************************/
 
+import { after } from 'next/server'
 import type { CollectionAfterChangeHook, CollectionAfterDeleteHook } from 'payload'
 
-async function ping(tag: string): Promise<void> {
-  const webAppUrl = process.env.WEB_APP_URL
-  const secret = process.env.REVALIDATE_SECRET
-  if (!webAppUrl || !secret) {
-    return
-  }
-
+async function ping(webAppUrl: string, secret: string, tag: string): Promise<void> {
   try {
-    await fetch(`${webAppUrl.replace(/\/$/, '')}/api/revalidate`, {
+    const response = await fetch(`${webAppUrl.replace(/\/$/, '')}/api/revalidate`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ secret, tag }),
+      signal: AbortSignal.timeout(5_000),
     })
-  } catch (error) {
-    // Never block the CMS write on a revalidation failure.
-    console.warn(`[revalidate] failed to ping web app for tag "${tag}":`, error)
+    if (!response.ok) {
+      console.warn(`[revalidate] web app rejected the "${tag}" refresh (${response.status})`)
+    }
+  } catch {
+    console.warn(`[revalidate] request failed for tag "${tag}"`)
+  }
+}
+
+function schedulePing(tag: string): void {
+  const webAppUrl = process.env.WEB_APP_URL
+  const secret = process.env.REVALIDATE_SECRET
+  if (!webAppUrl || !secret) return
+
+  try {
+    // Payload commits after the collection hooks. Delay invalidation until the
+    // request finishes so the next site fetch can see the committed content.
+    after(() => ping(webAppUrl, secret, tag))
+  } catch {
+    // Local CLI operations have no Next.js request. The cache TTL still applies.
+    console.warn(`[revalidate] could not schedule the "${tag}" refresh after this operation`)
   }
 }
 
@@ -59,11 +72,11 @@ export function revalidateHooks(tag: string): {
   afterDelete: CollectionAfterDeleteHook[]
 } {
   const afterChange: CollectionAfterChangeHook = ({ doc }) => {
-    void ping(tag)
+    schedulePing(tag)
     return doc
   }
   const afterDelete: CollectionAfterDeleteHook = ({ doc }) => {
-    void ping(tag)
+    schedulePing(tag)
     return doc
   }
   return { afterChange: [afterChange], afterDelete: [afterDelete] }

@@ -103,9 +103,11 @@ vi.mock('../index', () => ({ db: fake.db }))
 import { booking, bookingService, bookingStatusLog } from '../schema/booking'
 import { invoice, invoiceItem } from '../schema/invoice'
 import { spaMembership } from '../schema/membership'
+import { auditLog } from '../schema/system'
 import { invoiceSequence } from '../schema/tax'
 import {
   completeMembershipSession,
+  createMembershipWithInvoice,
   getMembershipSessionByKey,
   recordMembershipSession,
 } from './memberships'
@@ -142,6 +144,7 @@ const PARAMS = {
     { serviceId: 'svc_scrub_30', serviceNameSnapshot: 'Scrub 30', durationMinutes: 30 },
   ],
   idempotencyKey: 'key-0000001',
+  requestFingerprint: 'record-session-fingerprint',
   recordedById: 'usr_reception',
 }
 
@@ -167,6 +170,48 @@ const COMPLETE = {
 
 const BOOKING_ROW = { id: 'bk_1', bookingNumber: PARAMS.bookingNumber }
 const INVOICE_ROW = { id: 'inv_1', invoiceNumber: 'RS/2627/000042' }
+
+const SALE: Parameters<typeof createMembershipWithInvoice>[0] = {
+  membershipNumber: 'MEM-1',
+  customerId: PARAMS.customerId,
+  tierId: 'tier_1',
+  tierNameSnapshot: 'Gold',
+  tierUsualHoursMinutes: 600,
+  tierUsualPricePaise: 105_000,
+  totalHoursMinutes: 600,
+  pricePaidPaise: 105_000,
+  startsAt: new Date('2026-10-28T00:00:00.000Z'),
+  expiresAt: new Date('2026-11-30T00:00:00.000Z'),
+  createdBy: PARAMS.recordedById,
+  branchId: PARAMS.branchId,
+  invoice: {
+    paymentMethod: 'upi',
+    subtotalPaise: 105_000,
+    discountAmountPaise: 0,
+    taxableValuePaise: 100_000,
+    gstAmountPaise: 5_000,
+    cgstPaise: 2_500,
+    sgstPaise: 2_500,
+    totalAmountPaise: 105_000,
+    taxPointAt: COMPLETE.invoice.taxPointAt,
+    financialYear: COMPLETE.invoice.financialYear,
+    taxReviewStatus: COMPLETE.invoice.taxReviewStatus,
+  },
+  invoiceLine: {
+    serviceNameSnapshot: 'SPA membership: 10 hours',
+    quantity: 1,
+    unitPricePaise: 105_000,
+    totalPricePaise: 105_000,
+    sacCode: '999723',
+    taxVersionId: 'tax_rs_999723',
+    rateBps: 500,
+    discountPaise: 0,
+    taxableValuePaise: 100_000,
+    taxPaise: 5_000,
+    cgstPaise: 2_500,
+    sgstPaise: 2_500,
+  },
+}
 
 // Record now: booking, lines, status log, balance.
 function recordResult(total: number, used: number, reserved: number) {
@@ -194,17 +239,48 @@ beforeEach(() => {
   fake.state.batchResult = recordResult(600, 210, 90)
 })
 
+describe('createMembershipWithInvoice', () => {
+  it('reports a concurrent active purchase as the same conflict as the pre-check', async () => {
+    fake.state.batchError = {
+      cause: { code: '23505', constraint: 'spa_membership_active_customer_idx' },
+    }
+
+    await expect(createMembershipWithInvoice(SALE)).rejects.toMatchObject({
+      code: 'MEMBERSHIP_ALREADY_ACTIVE',
+      statusCode: 409,
+    })
+    expect(fake.batches).toHaveLength(1)
+  })
+
+  it('preserves an unrelated unique constraint error from the purchase batch', async () => {
+    const error = { cause: { code: '23505', constraint: 'invoice_invoice_number_unique' } }
+    fake.state.batchError = error
+
+    await expect(createMembershipWithInvoice(SALE)).rejects.toBe(error)
+  })
+})
+
 describe('recordMembershipSession (Record now)', () => {
-  it('writes the in-progress booking, its lines and its status log in one batch', async () => {
+  it('writes the booking, lines, status log and keyed request identity in one batch', async () => {
     await recordMembershipSession(PARAMS)
 
     expect(fake.batches).toHaveLength(1)
     const statements = fake.batches[0] ?? []
-    expect(statements.map((s) => s.op)).toEqual(['insert', 'insert', 'insert', 'select'])
+    expect(statements.map((s) => s.op)).toEqual(['insert', 'insert', 'insert', 'select', 'insert'])
     expect(statements[0]?.args[0]).toBe(booking)
     expect(statements[1]?.args[0]).toBe(bookingService)
     expect(statements[2]?.args[0]).toBe(bookingStatusLog)
     expect(argOf(statements[3], 'from')).toBe(spaMembership)
+    expect(statements[4]?.args[0]).toBe(auditLog)
+    expect(argOf(statements[4], 'values')).toMatchObject({
+      actorId: PARAMS.recordedById,
+      branchId: PARAMS.branchId,
+      entityType: 'membership_session_recording',
+      newValues: {
+        membershipId: PARAMS.membershipId,
+        requestFingerprint: PARAMS.requestFingerprint,
+      },
+    })
   })
 
   it('starts the session now; the database holds its minutes with the booking (0026)', async () => {
@@ -240,9 +316,11 @@ describe('recordMembershipSession (Record now)', () => {
   })
 
   it('stores no key when the request has none', async () => {
-    await recordMembershipSession({ ...PARAMS, idempotencyKey: null })
+    const { requestFingerprint: _fingerprint, ...params } = PARAMS
+    await recordMembershipSession({ ...params, idempotencyKey: null })
 
     expect(argOf(fake.batches[0]?.[0], 'values')).toMatchObject({ redemptionKey: null })
+    expect(fake.batches[0]?.some((s) => s.args[0] === auditLog)).toBe(false)
   })
 
   it('returns the booking and the minutes left free after the hold', async () => {
@@ -454,6 +532,7 @@ describe('getMembershipSessionByKey', () => {
       lines,
       [INVOICE_ROW],
       [{ total: 600, used: 300, reserved: 60 }],
+      [{ fingerprint: PARAMS.requestFingerprint }],
     ]
 
     await expect(getMembershipSessionByKey('mem_1', 'key-0000001', 'branch_rs')).resolves.toEqual({
@@ -461,18 +540,45 @@ describe('getMembershipSessionByKey', () => {
       invoice: INVOICE_ROW,
       services: lines,
       remainingMinutes: 240,
+      replay: { kind: 'fingerprint', fingerprint: PARAMS.requestFingerprint },
     })
+    expect(render(argOf(fake.records[4], 'where')).params).toEqual([
+      'membership_session_recording',
+      'bk_1',
+      'branch_rs',
+      'create',
+    ])
   })
 
   it('answers a session still in progress with no invoice yet', async () => {
     const found = { id: 'bk_1', bookingNumber: PARAMS.bookingNumber }
-    fake.state.awaitQueue = [[found], [], [], [{ total: 600, used: 0, reserved: 90 }]]
+    fake.state.awaitQueue = [
+      [found],
+      [],
+      [],
+      [{ total: 600, used: 0, reserved: 90 }],
+      [],
+      [
+        {
+          actorId: PARAMS.recordedById,
+          status: 'in_progress',
+          moved: false,
+        },
+      ],
+    ]
 
     await expect(
       getMembershipSessionByKey('mem_1', 'key-0000001', 'branch_rs'),
     ).resolves.toMatchObject({
       invoice: null,
       remainingMinutes: 510,
+      replay: {
+        kind: 'legacy',
+        origin: { actorId: PARAMS.recordedById, status: 'in_progress', moved: false },
+      },
     })
+    expect(render(argOf(fake.records[5], 'where')).sql).toContain(
+      '"booking_status_log"."from_status" is null',
+    )
   })
 })

@@ -89,7 +89,7 @@ define the details. Never put private keys in `NEXT_PUBLIC_*` variables.
 | Realtime | `ABLY_PRIVATE_KEY` signs scoped token requests and publishes server events. `NEXT_PUBLIC_ABLY_KEY` is present in the validator; never place the private key there. |
 | Email/contact | `RESEND_API_KEY`, optional `CONTACT_INBOX_EMAIL`; see the contact handler and `lib/notifications/providers/email.ts`. |
 | Analytics | `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST`, optional `NEXT_PUBLIC_CLARITY_ID` and `NEXT_PUBLIC_META_PIXEL_ID`; provider loading requires the corresponding consent. |
-| Server marketing events | Optional `META_PIXEL_ACCESS_TOKEN` with `NEXT_PUBLIC_META_PIXEL_ID`; lead CAPI delivery is best-effort. |
+| Browser marketing events | The optional `NEXT_PUBLIC_META_PIXEL_ID` is used only with browser marketing consent. Public lead submissions stay in the first-party pipeline. |
 | Push | `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, optional `VAPID_SUBJECT`; subscriptions originate here, notification/job dispatch is owned by admin. |
 | Error monitoring | `NEXT_PUBLIC_SENTRY_DSN`; `SENTRY_ORG`, `SENTRY_PROJECT`, and `SENTRY_AUTH_TOKEN` are used for configured build-time source-map uploads. |
 
@@ -285,8 +285,8 @@ validation, not merely a successful typecheck.
 
 - `/favorites` is an authenticated empty-state shell; saved-service management is
   not implemented by that page.
-- The blog newsletter form currently changes local React state only. It has no
-  subscription API call or persisted mailing-list enrollment.
+- Newsletter subscription requires a configured mailing-list provider or durable
+  enrollment before it can be offered on the blog.
 - Marketing fallback copy and prices are display content, not validated live
   catalogue entries or proof that an offer is active in transactional data.
 - Optional adapter configuration, successful health HTTP status, and rendered

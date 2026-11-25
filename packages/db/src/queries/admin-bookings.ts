@@ -52,7 +52,7 @@ import type { invoice } from '../schema/invoice'
 import { loyaltyAccount, loyaltyTransaction } from '../schema/loyalty'
 import { staffProfile } from '../schema/profile'
 import { refreshCustomerStatsStatement } from './customer-stats'
-import { isConstraintViolation, isGuardAbort, SQLSTATE } from './driver-errors'
+import { findDriverError, isConstraintViolation, isGuardAbort, SQLSTATE } from './driver-errors'
 import {
   allocateRedemption,
   gemsSettlementEntries,
@@ -70,6 +70,8 @@ import { getOrCreateLoyaltyAccount } from './loyalty'
 import {
   assigneeRefusal,
   assigneeRefusalMessage,
+  type BookingServiceAssignment,
+  bookingServiceAssignmentsAreCurrent,
   getOpenReassignmentsFor,
   resolveReassignmentStatement,
 } from './reassignments'
@@ -363,11 +365,13 @@ async function endBookingAt(params: {
   toStatus: 'rejected' | 'no_show'
   /** Further columns the move sets, as `column = value` pairs; null for none. */
   set: SQL | null
+  eligibility?: SQL
   notes: string
   action: string
 }): Promise<typeof booking.$inferSelect> {
   const { id, branchId, changedById, fromStatus, toStatus } = params
   const extra = params.set ? sql`, ${params.set}` : sql``
+  const eligibility = params.eligibility ? sql`AND (${params.eligibility})` : sql``
   const move = db.execute(sql`
     WITH moved AS (
       UPDATE booking
@@ -375,6 +379,7 @@ async function endBookingAt(params: {
        WHERE id = ${id}
          AND branch_id = ${branchId}
          AND status = ${fromStatus}::booking_status
+         ${eligibility}
       RETURNING 1
     )
     SELECT 1 / count(*)::int AS ok FROM moved
@@ -448,10 +453,23 @@ export async function rejectBooking(
 // Mark a confirmed booking as a no-show after its appointment: status →
 // `no_show`, a status-log entry with the acting user, and any gems it was
 // booked with given back (ST-03). Returns the updated booking, or null when
-// the booking does not exist; 409 when it is no longer confirmed.
-export async function markBookingNoShow(id: string, branchId: string, changedById: string) {
+// the booking does not exist; 409 when it is no longer confirmed or the
+// appointment has not ended. The write rechecks the end in case the slot moved.
+export async function markBookingNoShow(
+  id: string,
+  branchId: string,
+  changedById: string,
+  now: Date = new Date(),
+) {
+  const appointmentEnded = sql`coalesce(
+    upper(booking_planned_during(${booking.bookingDate}, ${booking.startTime}, ${booking.endTime})),
+    (${booking.bookingDate} + ${booking.endTime}) AT TIME ZONE 'Asia/Kolkata'
+  ) <= ${now.toISOString()}::timestamptz`
   const rows = await db
-    .select({ status: booking.status })
+    .select({
+      status: booking.status,
+      appointmentEnded: sql`(${appointmentEnded})::int`.mapWith(Number),
+    })
     .from(booking)
     .where(atBranch(id, branchId))
     .limit(1)
@@ -465,6 +483,12 @@ export async function markBookingNoShow(id: string, branchId: string, changedByI
       `Only confirmed bookings can be marked as no-show (current status: "${current.status}").`,
     )
   }
+  if (current.appointmentEnded === 0) {
+    throw conflict(
+      ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION,
+      'Only mark a booking as no-show after its scheduled end time.',
+    )
+  }
 
   return endBookingAt({
     id,
@@ -473,6 +497,7 @@ export async function markBookingNoShow(id: string, branchId: string, changedByI
     fromStatus: current.status,
     toStatus: 'no_show',
     set: null,
+    eligibility: appointmentEnded,
     notes: 'Marked no-show',
     action: 'marking',
   })
@@ -504,14 +529,20 @@ export type StartBookingResult =
 // validity at the actual start (0026), so a session delayed past expiry can't
 // start on its earlier reservation (MS-06). The start opens the assignee's
 // actual work (0028), refused while their earlier work runs (MS-08). The move
-// applies only while the booking is still confirmed at the branch, so a
-// double submit starts once.
+// applies only while the booking is still confirmed at the branch. When the
+// caller checks the scheduled day, the write also requires that reviewed slot.
 export async function startBooking(params: {
   bookingId: string
   branchId: string
   changedById: string
+  expectedSlot?: Pick<typeof booking.$inferSelect, 'bookingDate' | 'startTime' | 'endTime'>
 }): Promise<StartBookingResult> {
-  const { bookingId, branchId, changedById } = params
+  const { bookingId, branchId, changedById, expectedSlot } = params
+  const slotGuard = expectedSlot
+    ? sql`AND booking_date = ${expectedSlot.bookingDate.toISOString().slice(0, 10)}::date
+        AND start_time = ${expectedSlot.startTime}::time
+        AND end_time = ${expectedSlot.endTime}::time`
+    : sql``
   const move = db.execute(sql`
     WITH started AS (
       UPDATE booking
@@ -519,6 +550,7 @@ export async function startBooking(params: {
        WHERE id = ${bookingId}
          AND branch_id = ${branchId}
          AND status = 'confirmed'
+         ${slotGuard}
       RETURNING 1
     )
     SELECT 1 / count(*)::int AS ok FROM started
@@ -655,6 +687,8 @@ function isNotCompletableAbort(error: unknown): boolean {
 export async function completeBookingWithInvoice(params: {
   bookingId: string
   changedById: string
+  expectedStatus?: BookingStatus
+  expectedAssignments?: readonly BookingServiceAssignment[]
   invoice: CompleteBookingInvoice
   items: InvoiceIssueLine[]
   /**
@@ -667,13 +701,16 @@ export async function completeBookingWithInvoice(params: {
   const redemption = inv.gemsRedemption ?? null
 
   // The invoice is issued by the booking's own branch.
-  const rows = await db
-    .select({ status: booking.status })
-    .from(booking)
-    .where(atBranch(bookingId, inv.branchId))
-    .limit(1)
-  const current = rows[0]
-  if (!current) {
+  const priorStatus =
+    params.expectedStatus ??
+    (
+      await db
+        .select({ status: booking.status })
+        .from(booking)
+        .where(atBranch(bookingId, inv.branchId))
+        .limit(1)
+    )[0]?.status
+  if (!priorStatus) {
     return null
   }
 
@@ -708,9 +745,11 @@ export async function completeBookingWithInvoice(params: {
   const { counter, insertInvoice, insertLines } = issueInvoiceStatements(issue, items)
   const number = invoiceNumberOf(invoiceId)
 
-  // The status guard: the booking moves to completed only while it is still
-  // confirmed or in progress; otherwise the cast fails and the batch rolls back.
-  // It also records the offer checkout applied.
+  // The prior status in the audit log must match the row being completed.
+  // The invoice's staff snapshots must match the service assignments at commit.
+  const assignmentGuard = params.expectedAssignments
+    ? sql`AND (${bookingServiceAssignmentsAreCurrent(bookingId, params.expectedAssignments)})`
+    : sql``
   const completeStmt = db.execute(sql`
     WITH done AS (
       UPDATE booking
@@ -718,7 +757,9 @@ export async function completeBookingWithInvoice(params: {
              ${appliedOffer ? sql`, offer_id = ${appliedOffer.id}` : sql``}
        WHERE id = ${bookingId}
          AND branch_id = ${inv.branchId}
+         AND status = ${priorStatus}::booking_status
          AND status IN ('confirmed', 'in_progress')
+         ${assignmentGuard}
       RETURNING id
     )
     SELECT (CASE WHEN count(*) = 0 THEN ${NOT_COMPLETABLE} ELSE '1' END)::int AS ok FROM done
@@ -836,7 +877,7 @@ export async function completeBookingWithInvoice(params: {
   statements.push(
     db.insert(bookingStatusLog).values({
       bookingId,
-      fromStatus: current.status,
+      fromStatus: priorStatus,
       toStatus: 'completed',
       changedById,
       notes: sql`'Completed — invoice ' || ${number}`,
@@ -852,10 +893,11 @@ export async function completeBookingWithInvoice(params: {
   try {
     results = await db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]])
   } catch (error) {
-    if (isNotCompletableAbort(error)) {
+    if (isNotCompletableAbort(error) || findDriverError(error, [SQLSTATE.lockNotAvailable])) {
       throw new AppError({
         code: ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION,
-        message: 'This booking is no longer confirmed or in progress.',
+        message:
+          'This booking changed while you were completing it. Reload it to see where it stands.',
         statusCode: 409,
       })
     }

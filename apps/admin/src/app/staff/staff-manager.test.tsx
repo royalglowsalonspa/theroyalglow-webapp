@@ -227,4 +227,56 @@ describe('StaffManager', () => {
     expect(screen.queryByRole('menuitem', { name: 'Remove' })).toBeNull()
     expect(screen.queryByRole('menuitem', { name: 'Edit' })).toBeNull()
   })
+
+  it('blocks staff saving until details are available and sends one combined edit after retry', async () => {
+    const fetchMock = stubApi()
+    const normal = fetchMock.getMockImplementation()
+    const firstDetail = Promise.withResolvers<Response>()
+    let reads = 0
+    fetchMock.mockImplementation((url, init) => {
+      if (url === '/api/staff/st_sty1' && !init?.method && reads++ === 0) return firstDetail.promise
+      if (url === '/api/services/all') {
+        return Promise.resolve(
+          ok({
+            services: [
+              {
+                id: 'cut',
+                name: 'Haircut',
+                categoryId: 'hair',
+                categoryName: 'Hair',
+                isActive: true,
+              },
+            ],
+          }),
+        )
+      }
+      return normal?.(url, init) ?? Promise.reject(new Error('Unexpected request'))
+    })
+    render(<StaffManager />)
+    await openRowActions('Asha')
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    const save = dialog.getByRole('button', { name: 'Save' })
+    expect(save).toBeDisabled()
+
+    firstDetail.reject(new Error('Staff details unavailable'))
+    expect(await dialog.findByRole('alert')).toHaveTextContent('Staff details unavailable')
+    expect(save).toBeDisabled()
+    fireEvent.click(dialog.getByRole('button', { name: 'Retry loading services' }))
+    await waitFor(() => expect(save).toBeEnabled())
+    fireEvent.click(dialog.getByRole('checkbox', { name: 'Haircut' }))
+    fireEvent.change(dialog.getByLabelText('Bio'), { target: { value: 'Hair stylist' } })
+    fireEvent.click(save)
+
+    const writes = fetchMock.mock.calls.filter(
+      ([, init]) => init?.method === 'PATCH' || init?.method === 'PUT',
+    )
+    expect(writes).toHaveLength(1)
+    expect(writes[0]?.[0]).toBe('/api/staff/st_sty1')
+    expect(JSON.parse(writes[0]?.[1]?.body ?? '{}')).toMatchObject({
+      branchId: 'rs',
+      bio: 'Hair stylist',
+      serviceIds: ['cut'],
+    })
+  })
 })

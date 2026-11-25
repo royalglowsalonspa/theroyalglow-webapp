@@ -390,6 +390,48 @@ describe('GET|PATCH /api/staff/[id]', () => {
     expect(dbMocks.updateStaffMemberAtBranch).not.toHaveBeenCalled()
   })
 
+  it('PATCH validates and submits profile plus capabilities to one write', async () => {
+    dbMocks.getStaffMemberAtBranch.mockResolvedValue(member())
+    dbMocks.getServicesByIds.mockResolvedValue([{ id: 'svc1' }])
+    dbMocks.updateStaffMemberAtBranch.mockResolvedValue(member({ serviceIds: ['svc1'] }))
+
+    const res = await staffIdRoute.PATCH(
+      jsonReq(`${URL_BASE}/st_sty1`, 'PATCH', {
+        branchId: 'rs',
+        bio: 'Stylist',
+        serviceIds: ['svc1', 'svc1'],
+      }),
+      params('st_sty1'),
+    )
+
+    expect(res.status).toBe(200)
+    expect(dbMocks.getServicesByIds).toHaveBeenCalledWith(['svc1'])
+    expect(dbMocks.updateStaffMemberAtBranch).toHaveBeenCalledWith({
+      id: 'st_sty1',
+      branchId: 'rs',
+      actorId: 'mgr1',
+      roles: ['staff'],
+      patch: { bio: 'Stylist' },
+      serviceIds: ['svc1'],
+    })
+    expect(dbMocks.setStaffServices).not.toHaveBeenCalled()
+  })
+
+  it('PATCH rejects unknown capabilities before editing the profile', async () => {
+    dbMocks.getStaffMemberAtBranch.mockResolvedValue(member())
+    dbMocks.getServicesByIds.mockResolvedValue([])
+    const res = await staffIdRoute.PATCH(
+      jsonReq(`${URL_BASE}/st_sty1`, 'PATCH', {
+        branchId: 'rs',
+        bio: 'Stylist',
+        serviceIds: ['missing'],
+      }),
+      params('st_sty1'),
+    )
+    expect(res.status).toBe(400)
+    expect(dbMocks.updateStaffMemberAtBranch).not.toHaveBeenCalled()
+  })
+
   it("PATCH lets the Owner edit the Receptionist's details but not their title", async () => {
     actAs('own1')
     dbMocks.getStaffMemberAtBranch.mockResolvedValue(
@@ -506,7 +548,13 @@ describe('PUT /api/staff/[id]/services', () => {
     )
 
     expect((await res.json()).data).toEqual({ staffId: 'st_sty1', serviceIds: ['svc1', 'svc2'] })
-    expect(dbMocks.setStaffServices).toHaveBeenCalledWith('st_sty1', ['svc1', 'svc2'])
+    expect(dbMocks.setStaffServices).toHaveBeenCalledWith({
+      id: 'st_sty1',
+      branchId: 'rs',
+      actorId: 'mgr1',
+      roles: ['staff'],
+      serviceIds: ['svc1', 'svc2'],
+    })
   })
 
   it('rejects a non-existent serviceId with 400', async () => {

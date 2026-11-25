@@ -117,7 +117,7 @@ export const POST = withErrorHandler(
       )
     }
 
-    const updated = await cancelBooking(id, session.user.id, reason, decision)
+    const updated = await cancelBooking(id, session.user.id, reason, decision, existing)
     if (!updated) {
       throw notFound('Booking not found.')
     }

@@ -33,7 +33,7 @@ import {
   getActivePushSubscriptions,
   getUserContact,
   markNotificationDelivery,
-  removePushSubscription,
+  pruneGonePushSubscription,
 } from '@rgss/db/queries'
 import { createLogger } from '@rgss/logger'
 import { escapeHtml } from './html'
@@ -103,8 +103,11 @@ export async function dispatchNotification(notification: DispatchableNotificatio
           authKey: sub.authKey,
         })),
         { title, body },
-        // Prune subscriptions the push service reports as gone (404/410).
-        (endpoint) => removePushSubscription(userId, endpoint),
+        // Prune only the binding that produced the provider's 404/410.
+        async (endpoint) => {
+          const observed = subscriptions.find((sub) => sub.endpoint === endpoint)
+          if (observed) await pruneGonePushSubscription(observed)
+        },
       )
       if (sent > 0) {
         delivered = true

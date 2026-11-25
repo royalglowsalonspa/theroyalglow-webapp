@@ -17,7 +17,7 @@
  * Features / Functionality :
  * - Three-tier expiry alerts (30d, 7d, 1d)
  * - Customer preference respect (membershipAlertsEnabled)
- * - Per-(user, tier-type) deduplication
+ * - One notification per membership, expiry date, and reminder tier
  *
  * Tech Stack   : Next.js 16 (Route Handler)
  * Layer        : API (Thin Orchestrator)
@@ -30,8 +30,12 @@
  * - Hard expiry is enforced by QStash membership-auto-expire job; this job only notifies.
  ************************************************************/
 
-import { buildNotificationContent } from '@rgss/business'
-import { createNotification, getMembershipsExpiringInDays, hasNotification } from '@rgss/db/queries'
+import { buildNotificationContent, istDayStart, istToday } from '@rgss/business'
+import {
+  createNotificationOnce,
+  getMembershipsExpiringInDays,
+  hasNotificationSince,
+} from '@rgss/db/queries'
 import { createLogger } from '@rgss/logger'
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
@@ -43,7 +47,7 @@ import { dispatchNotification } from '@/lib/notifications/dispatch'
 // 30, 7, or 1 IST calendar days (the day match is computed in the query via
 // `daysUntilIST`, so each membership lands in at most one tier per run —
 // Property 5). Respects `membershipAlertsEnabled` (Requirement 2.4) and is
-// idempotent via a per-(user,type) `notification` row (Property 6).
+// claims each membership's expiry reminder atomically (Property 6).
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -67,6 +71,7 @@ export const POST = async (req: Request) => {
 
   try {
     const now = new Date()
+    const today = istDayStart(now)
     let processed = 0
 
     for (const tier of TIERS) {
@@ -78,23 +83,24 @@ export const POST = async (req: Request) => {
           continue
         }
 
-        // Dedupe per (user, tier-type). type+user is sufficient: the same tier
-        // only matches a given membership on one day, so it never double-sends
-        // across re-runs/retries (Property 6).
-        if (await hasNotification(m.userId, tier.type)) {
+        // Each owner has at most one active membership. A legacy alert for
+        // this tier today belongs to the current reminder window.
+        if (await hasNotificationSince(m.userId, tier.type, today)) {
           continue
         }
 
         // Customer copy never names the tier (multi-branch R9.1, MS-17).
         const { title, body } = buildNotificationContent(tier.type)
 
-        const created = await createNotification({
+        const created = await createNotificationOnce({
+          id: `${tier.type}:${JSON.stringify([m.id, istToday(m.expiresAt)])}`,
           userId: m.userId,
           type: tier.type,
           title,
           body,
           channel: 'push',
         })
+        if (!created) continue
 
         await dispatchNotification({
           id: created.id,

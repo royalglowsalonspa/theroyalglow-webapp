@@ -51,6 +51,7 @@
 
 'use client'
 
+import { ERROR_CODES } from '@rgss/errors'
 import { ArrowLeft, Check, TriangleAlert, X } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -103,34 +104,76 @@ interface CompletionResult {
   remainingMinutes: number | null
 }
 
+type BookingRead =
+  | { status: 'loading' }
+  | { status: 'failed'; message: string }
+  | { status: 'ready'; booking: AdminBooking }
+
+class BookingStateConflict extends Error {}
+type BookingChanged = (conflict?: BookingStateConflict) => void
+
 export function BookingDetail({ bookingId }: { bookingId: string }) {
-  const [booking, setBooking] = useState<AdminBooking | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  return <BookingDetailView key={bookingId} bookingId={bookingId} />
+}
+
+function BookingDetailView({ bookingId }: { bookingId: string }) {
+  const [read, setRead] = useState<BookingRead>({ status: 'loading' })
+  const activeRead = useRef<AbortController | null>(null)
+  const mounted = useRef(false)
   const [completion, setCompletion] = useState<CompletionResult | null>(null)
+  const completionKey = useRef<string | null>(null)
+  const [conflictMessage, setConflictMessage] = useState<string | null>(null)
+
+  const getCompletionKey = useCallback(() => {
+    completionKey.current ??= crypto.randomUUID()
+    return completionKey.current
+  }, [])
 
   const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+    if (!mounted.current) return
+    activeRead.current?.abort()
+    const controller = new AbortController()
+    activeRead.current = controller
+    setRead({ status: 'loading' })
     try {
-      const res = await fetch(`/api/bookings/${bookingId}`)
+      const res = await fetch(`/api/bookings/${bookingId}`, { signal: controller.signal })
       const json = await res.json()
+      if (controller.signal.aborted) return
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Could not load this booking.')
       }
-      setBooking(json.data.booking as AdminBooking)
+      const booking: AdminBooking | null = json.data.booking
+      setRead(
+        booking
+          ? { status: 'ready', booking }
+          : { status: 'failed', message: 'Booking not found.' },
+      )
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not load this booking.')
-    } finally {
-      setLoading(false)
+      if (controller.signal.aborted) return
+      setRead({
+        status: 'failed',
+        message: err instanceof Error ? err.message : 'Could not load this booking.',
+      })
     }
   }, [bookingId])
+  const onChanged: BookingChanged = useCallback(
+    (conflict) => {
+      setConflictMessage(conflict?.message ?? null)
+      void load()
+    },
+    [load],
+  )
 
   useEffect(() => {
-    load()
+    mounted.current = true
+    void load()
+    return () => {
+      mounted.current = false
+      activeRead.current?.abort()
+    }
   }, [load])
 
-  if (loading) {
+  if (read.status === 'loading') {
     return (
       <div className="max-w-4xl space-y-5">
         <BackLink />
@@ -139,15 +182,16 @@ export function BookingDetail({ bookingId }: { bookingId: string }) {
     )
   }
 
-  if (error || !booking) {
+  if (read.status === 'failed') {
     return (
       <div className="max-w-4xl space-y-4">
         <BackLink />
-        <ErrorState message={error ?? 'Booking not found.'} onRetry={load} />
+        <ErrorState message={read.message} onRetry={load} />
       </div>
     )
   }
 
+  const { booking } = read
   const total = booking.totalAmountPaise
 
   return (
@@ -172,6 +216,12 @@ export function BookingDetail({ bookingId }: { bookingId: string }) {
           {SERVICE_TYPE_LABEL[booking.serviceType] ?? booking.serviceType}
         </span>
       </div>
+
+      {conflictMessage ? (
+        <p className="font-sans text-xs text-error" role="alert">
+          {conflictMessage}
+        </p>
+      ) : null}
 
       {booking.reassignment ? <ReassignmentNotice work={booking.reassignment} /> : null}
 
@@ -270,8 +320,9 @@ export function BookingDetail({ bookingId }: { bookingId: string }) {
           <ActionPanel
             booking={booking}
             completion={completion}
-            onChanged={load}
+            onChanged={onChanged}
             onCompleted={(result) => setCompletion(result)}
+            getCompletionKey={getCompletionKey}
           />
         </div>
       </div>
@@ -284,11 +335,13 @@ function ActionPanel({
   completion,
   onChanged,
   onCompleted,
+  getCompletionKey,
 }: {
   booking: AdminBooking
   completion: CompletionResult | null
-  onChanged: () => void
+  onChanged: BookingChanged
   onCompleted: (result: CompletionResult) => void
+  getCompletionKey: () => string
 }) {
   return (
     <div className="rounded-cards border border-cloud-gray bg-canvas-white p-4 lg:sticky lg:top-4">
@@ -298,7 +351,12 @@ function ActionPanel({
       ) : booking.status === 'confirmed' ? (
         <ConfirmedActions booking={booking} onChanged={onChanged} onCompleted={onCompleted} />
       ) : booking.status === 'in_progress' ? (
-        <InProgressActions booking={booking} onChanged={onChanged} onCompleted={onCompleted} />
+        <InProgressActions
+          booking={booking}
+          onChanged={onChanged}
+          onCompleted={onCompleted}
+          getCompletionKey={getCompletionKey}
+        />
       ) : booking.status === 'completed' ? (
         <CompletedState completion={completion} session={booking.isMembershipSession === true} />
       ) : (
@@ -353,13 +411,36 @@ function sharedAssigneeId(booking: AdminBooking): string {
   return ids.size === 1 && only ? only : ''
 }
 
+function useBookingAction<Action extends string>() {
+  const lock = useRef(false)
+  const [active, setActive] = useState<Action | null>(null)
+  const begin = useCallback((action: Action) => {
+    if (lock.current) return false
+    lock.current = true
+    setActive(action)
+    return true
+  }, [])
+  const finish = useCallback(() => {
+    lock.current = false
+    setActive(null)
+  }, [])
+  return { active, begin, finish }
+}
+
 // --- Pending: approve (staff picker) + reject (reason) ---
-function PendingActions({ booking, onChanged }: { booking: AdminBooking; onChanged: () => void }) {
+function PendingActions({
+  booking,
+  onChanged,
+}: {
+  booking: AdminBooking
+  onChanged: BookingChanged
+}) {
   const staff = useBranchStaff(booking.id)
   const [staffId, setStaffId] = useState('')
   const [mode, setMode] = useState<'idle' | 'reject' | 'move'>('idle')
   const [reason, setReason] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const { active, begin, finish } = useBookingAction<'approve' | 'reject'>()
+  const submitting = active !== null
   const [actionError, setActionError] = useState<string | null>(null)
 
   const approve = useCallback(async () => {
@@ -367,7 +448,7 @@ function PendingActions({ booking, onChanged }: { booking: AdminBooking; onChang
       setActionError('Select a staff member to assign.')
       return
     }
-    setSubmitting(true)
+    if (!begin('approve')) return
     setActionError(null)
     try {
       const res = await fetch(`/api/bookings/${booking.id}`, {
@@ -386,16 +467,16 @@ function PendingActions({ booking, onChanged }: { booking: AdminBooking; onChang
       setActionError(message)
       toast.error('Could not approve booking', message)
     } finally {
-      setSubmitting(false)
+      finish()
     }
-  }, [booking.id, booking.branchId, staffId, onChanged])
+  }, [booking.id, booking.branchId, staffId, onChanged, begin, finish])
 
   const reject = useCallback(async () => {
     if (!reason.trim()) {
       setActionError('A rejection reason is required.')
       return
     }
-    setSubmitting(true)
+    if (!begin('reject')) return
     setActionError(null)
     try {
       const res = await fetch(`/api/bookings/${booking.id}`, {
@@ -418,9 +499,9 @@ function PendingActions({ booking, onChanged }: { booking: AdminBooking; onChang
       setActionError(message)
       toast.error('Could not reject booking', message)
     } finally {
-      setSubmitting(false)
+      finish()
     }
-  }, [booking.id, booking.branchId, reason, onChanged])
+  }, [booking.id, booking.branchId, reason, onChanged, begin, finish])
 
   if (mode === 'move') {
     return <MoveBooking booking={booking} onBack={() => setMode('idle')} onChanged={onChanged} />
@@ -438,7 +519,7 @@ function PendingActions({ booking, onChanged }: { booking: AdminBooking; onChang
             >
               Assign Staff
             </label>
-            <Select value={staffId} onValueChange={setStaffId}>
+            <Select value={staffId} onValueChange={setStaffId} disabled={submitting}>
               <SelectTrigger id="staff-picker" className="w-full">
                 <SelectValue placeholder={staff === null ? 'Loading staff…' : 'Select staff…'} />
               </SelectTrigger>
@@ -498,6 +579,7 @@ function PendingActions({ booking, onChanged }: { booking: AdminBooking; onChang
             <Textarea
               id="reject-reason"
               value={reason}
+              disabled={submitting}
               onChange={(e) => setReason(e.target.value)}
               rows={4}
               maxLength={500}
@@ -567,13 +649,25 @@ async function postBookingAction<T>(
   })
   const json = await res.json()
   if (!res.ok || !json.success) {
-    throw new Error(json?.error?.message ?? fallback)
+    const message = json?.error?.message ?? fallback
+    if (json?.error?.code === ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION) {
+      throw new BookingStateConflict(message)
+    }
+    throw new Error(message)
   }
   return json.data as T
 }
 
-function messageOf(err: unknown, fallback: string): string {
-  return err instanceof Error ? err.message : fallback
+function handleBookingActionError(
+  err: unknown,
+  fallback: string,
+  onChanged: BookingChanged,
+  setActionError: (message: string) => void,
+): string {
+  const message = err instanceof Error ? err.message : fallback
+  if (err instanceof BookingStateConflict) onChanged(err)
+  else setActionError(message)
+  return message
 }
 
 const PRIMARY_ACTION =
@@ -588,49 +682,47 @@ function ConfirmedActions({
   onCompleted,
 }: {
   booking: AdminBooking
-  onChanged: () => void
+  onChanged: BookingChanged
   onCompleted: (result: CompletionResult) => void
 }) {
   // A membership session is paid for with its minutes, and starts before it
   // completes (membership-scheduling.md).
   const session = booking.isMembershipSession === true
   const [mode, setMode] = useState<'idle' | 'checkout' | 'move' | 'cancel'>('idle')
-  const [busy, setBusy] = useState<'start' | 'noshow' | null>(null)
+  const { active: busy, begin, finish } = useBookingAction<'start' | 'noshow' | 'assign'>()
   const [actionError, setActionError] = useState<string | null>(null)
 
   const start = useCallback(async () => {
     const fallback = session ? 'Could not start this session.' : 'Could not start this booking.'
-    setBusy('start')
+    if (!begin('start')) return
     setActionError(null)
     try {
       await postBookingAction(booking, 'start', {}, fallback)
       toast.success(session ? 'Session started' : 'Booking started')
       onChanged()
     } catch (err: unknown) {
-      const message = messageOf(err, fallback)
-      setActionError(message)
+      const message = handleBookingActionError(err, fallback, onChanged, setActionError)
       toast.error(session ? 'Could not start session' : 'Could not start booking', message)
     } finally {
-      setBusy(null)
+      finish()
     }
-  }, [booking, session, onChanged])
+  }, [booking, session, onChanged, begin, finish])
 
   const markNoShow = useCallback(async () => {
     const fallback = 'Could not mark this booking as no-show.'
-    setBusy('noshow')
+    if (!begin('noshow')) return
     setActionError(null)
     try {
       await postBookingAction(booking, 'noshow', {}, fallback)
       toast.success('Marked as no-show')
       onChanged()
     } catch (err: unknown) {
-      const message = messageOf(err, fallback)
-      setActionError(message)
+      const message = handleBookingActionError(err, fallback, onChanged, setActionError)
       toast.error('Could not mark no-show', message)
     } finally {
-      setBusy(null)
+      finish()
     }
-  }, [booking, onChanged])
+  }, [booking, onChanged, begin, finish])
 
   // A booking without its assignee waits for someone else (R1.7).
   const unassigned = assigneeLabel(booking.services) === null
@@ -657,7 +749,14 @@ function ConfirmedActions({
 
   return (
     <div className="space-y-3">
-      <AssignStaffControl booking={booking} onChanged={onChanged} />
+      <AssignStaffControl
+        booking={booking}
+        onChanged={onChanged}
+        disabled={busy !== null}
+        submitting={busy === 'assign'}
+        begin={begin}
+        finish={finish}
+      />
       {actionError && (
         <p className="font-sans text-xs text-error" role="alert">
           {actionError}
@@ -748,32 +847,30 @@ function InProgressActions({
   booking,
   onChanged,
   onCompleted,
+  getCompletionKey,
 }: {
   booking: AdminBooking
-  onChanged: () => void
+  onChanged: BookingChanged
   onCompleted: (result: CompletionResult) => void
+  getCompletionKey: () => string
 }) {
   const session = booking.isMembershipSession === true
   const [mode, setMode] = useState<'idle' | 'checkout'>('idle')
-  const [busy, setBusy] = useState(false)
+  const { active, begin, finish } = useBookingAction<'complete' | 'assign'>()
   const [actionError, setActionError] = useState<string | null>(null)
-  const completion = useRef<{ bookingId: string; key: string } | null>(null)
   const unassigned = assigneeLabel(booking.services) === null
 
   // A session takes no payment: completing it uses its held minutes and
   // issues the ₹0 session invoice.
   const completeSession = useCallback(async () => {
     const fallback = 'Could not complete this session.'
-    setBusy(true)
+    if (!begin('complete')) return
     setActionError(null)
     try {
-      if (completion.current?.bookingId !== booking.id) {
-        completion.current = { bookingId: booking.id, key: crypto.randomUUID() }
-      }
       const data = await postBookingAction<CompletionResponse>(
         booking,
         'complete',
-        { idempotencyKey: completion.current.key },
+        { idempotencyKey: getCompletionKey() },
         fallback,
       )
       toast.success(`Session completed · invoice ${data.invoice.invoiceNumber}`)
@@ -784,13 +881,12 @@ function InProgressActions({
       })
       onChanged()
     } catch (err: unknown) {
-      const message = messageOf(err, fallback)
-      setActionError(message)
+      const message = handleBookingActionError(err, fallback, onChanged, setActionError)
       toast.error('Could not complete session', message)
     } finally {
-      setBusy(false)
+      finish()
     }
-  }, [booking, onCompleted, onChanged])
+  }, [booking, onCompleted, onChanged, begin, finish, getCompletionKey])
 
   if (mode === 'checkout') {
     return (
@@ -814,7 +910,14 @@ function InProgressActions({
       {/* Someone has to be named on the invoice (R1.7). */}
       {unassigned ? (
         <>
-          <AssignStaffControl booking={booking} onChanged={onChanged} />
+          <AssignStaffControl
+            booking={booking}
+            onChanged={onChanged}
+            disabled={active !== null}
+            submitting={active === 'assign'}
+            begin={begin}
+            finish={finish}
+          />
           <p id="complete-hint" className="font-sans text-xs text-warm-gray">
             {session
               ? 'Assign who is doing this session before completing it.'
@@ -832,12 +935,12 @@ function InProgressActions({
           <button
             type="button"
             onClick={completeSession}
-            disabled={unassigned || busy}
-            aria-busy={busy}
+            disabled={unassigned || active !== null}
+            aria-busy={active === 'complete'}
             aria-describedby={unassigned ? 'complete-hint' : 'session-hint'}
             className={PRIMARY_ACTION}
           >
-            {busy ? 'Completing…' : 'Complete Session'}
+            {active === 'complete' ? 'Completing…' : 'Complete Session'}
           </button>
           <p id="session-hint" className="font-sans text-xs text-warm-gray">
             Uses {minutesToHM(booking.totalDurationMinutes ?? 0)} of the membership and issues a ₹0
@@ -906,13 +1009,14 @@ function Checkout({
 }: {
   booking: AdminBooking
   onBack: () => void
-  onChanged: () => void
+  onChanged: BookingChanged
   onCompleted: (result: CompletionResult) => void
 }) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
   const [offers, setOffers] = useState<CheckoutOffers | null>(null)
   const [offerId, setOfferId] = useState<string>(NO_OFFER)
-  const [submitting, setSubmitting] = useState(false)
+  const { active, begin, finish } = useBookingAction<'checkout'>()
+  const submitting = active !== null
   const [actionError, setActionError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -932,7 +1036,7 @@ function Checkout({
 
   const complete = useCallback(async () => {
     const fallback = 'Could not complete this booking.'
-    setSubmitting(true)
+    if (!begin('checkout')) return
     setActionError(null)
     try {
       const data = await postBookingAction<CompletionResponse>(
@@ -949,12 +1053,11 @@ function Checkout({
       })
       onChanged()
     } catch (err: unknown) {
-      const message = messageOf(err, fallback)
-      setActionError(message)
+      const message = handleBookingActionError(err, fallback, onChanged, setActionError)
       toast.error('Could not complete booking', message)
       // The offer may have ended, or been used at another branch meanwhile:
       // refresh the list and drop a choice that no longer applies.
-      if (chosen) {
+      if (chosen && !(err instanceof BookingStateConflict)) {
         const list = await fetchCheckoutOffers(booking.id)
         setOffers(list)
         if (!list.offers.some((o) => o.id === chosen.id)) {
@@ -962,13 +1065,13 @@ function Checkout({
         }
       }
     } finally {
-      setSubmitting(false)
+      finish()
     }
-  }, [booking, paymentMethod, chosen, onCompleted, onChanged])
+  }, [booking, paymentMethod, chosen, onCompleted, onChanged, begin, finish])
 
   return (
     <div className="space-y-3">
-      <fieldset className="flex flex-col gap-2">
+      <fieldset className="flex flex-col gap-2" disabled={submitting}>
         <legend className="mb-1 font-ui text-[10px] uppercase tracking-wider text-dusty-gray">
           Offer
         </legend>
@@ -1005,7 +1108,7 @@ function Checkout({
         )}
       </fieldset>
 
-      <fieldset className="flex flex-col gap-2">
+      <fieldset className="flex flex-col gap-2" disabled={submitting}>
         <legend className="mb-1 font-ui text-[10px] uppercase tracking-wider text-dusty-gray">
           Payment Method
         </legend>
@@ -1120,13 +1223,14 @@ function MoveBooking({
 }: {
   booking: AdminBooking
   onBack: () => void
-  onChanged: () => void
+  onChanged: BookingChanged
 }) {
   const currentDate = booking.bookingDate.slice(0, 10)
   const currentTime = booking.startTime.slice(0, 5)
   const [bookingDate, setBookingDate] = useState(currentDate)
   const [startTime, setStartTime] = useState(currentTime)
-  const [submitting, setSubmitting] = useState(false)
+  const { active, begin, finish } = useBookingAction<'move'>()
+  const submitting = active !== null
   const [actionError, setActionError] = useState<string | null>(null)
   const unchanged = bookingDate === currentDate && startTime === currentTime
 
@@ -1136,7 +1240,7 @@ function MoveBooking({
       setActionError('Choose the new date and start time.')
       return
     }
-    setSubmitting(true)
+    if (unchanged || !begin('move')) return
     setActionError(null)
     try {
       const data = await postBookingAction<MoveResponse>(
@@ -1153,13 +1257,12 @@ function MoveBooking({
       }
       onChanged()
     } catch (err: unknown) {
-      const message = messageOf(err, fallback)
-      setActionError(message)
+      const message = handleBookingActionError(err, fallback, onChanged, setActionError)
       toast.error('Could not move booking', message)
     } finally {
-      setSubmitting(false)
+      finish()
     }
-  }, [booking, bookingDate, startTime, onChanged])
+  }, [booking, bookingDate, startTime, unchanged, onChanged, begin, finish])
 
   return (
     <div className="space-y-3">
@@ -1172,6 +1275,7 @@ function MoveBooking({
           type="date"
           min={todayISTDateString()}
           value={bookingDate}
+          disabled={submitting}
           onChange={(event) => setBookingDate(event.target.value)}
         />
       </div>
@@ -1183,6 +1287,7 @@ function MoveBooking({
           id="move-time"
           value={startTime}
           onChange={setStartTime}
+          disabled={submitting}
           ariaLabel="New start time"
           step={30}
           className="w-full"
@@ -1226,11 +1331,12 @@ function CancelBooking({
 }: {
   booking: AdminBooking
   onBack: () => void
-  onChanged: () => void
+  onChanged: BookingChanged
 }) {
   const session = booking.isMembershipSession === true
   const [reason, setReason] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const { active, begin, finish } = useBookingAction<'cancel'>()
+  const submitting = active !== null
   const [actionError, setActionError] = useState<string | null>(null)
 
   const cancel = useCallback(async () => {
@@ -1239,20 +1345,19 @@ function CancelBooking({
       setActionError('A cancellation reason is required.')
       return
     }
-    setSubmitting(true)
+    if (!begin('cancel')) return
     setActionError(null)
     try {
       await postBookingAction(booking, 'cancel', { reason: reason.trim() }, fallback)
       toast.success('Booking cancelled')
       onChanged()
     } catch (err: unknown) {
-      const message = messageOf(err, fallback)
-      setActionError(message)
+      const message = handleBookingActionError(err, fallback, onChanged, setActionError)
       toast.error('Could not cancel booking', message)
     } finally {
-      setSubmitting(false)
+      finish()
     }
-  }, [booking, reason, onChanged])
+  }, [booking, reason, onChanged, begin, finish])
 
   return (
     <div className="space-y-3">
@@ -1263,6 +1368,7 @@ function CancelBooking({
         <Textarea
           id="cancel-reason"
           value={reason}
+          disabled={submitting}
           onChange={(e) => setReason(e.target.value)}
           rows={4}
           maxLength={500}
@@ -1301,14 +1407,21 @@ function CancelBooking({
 function AssignStaffControl({
   booking,
   onChanged,
+  disabled,
+  submitting,
+  begin,
+  finish,
 }: {
   booking: AdminBooking
   onChanged: () => void
+  disabled: boolean
+  submitting: boolean
+  begin: (action: 'assign') => boolean
+  finish: () => void
 }) {
   const staff = useBranchStaff(booking.id)
   const current = sharedAssigneeId(booking)
   const [staffId, setStaffId] = useState(current)
-  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Follow the booking after a reload.
@@ -1317,7 +1430,7 @@ function AssignStaffControl({
   }, [current])
 
   const assign = useCallback(async () => {
-    setSubmitting(true)
+    if (!staffId || staffId === current || !begin('assign')) return
     setError(null)
     try {
       const res = await fetch(`/api/bookings/${booking.id}`, {
@@ -1337,9 +1450,9 @@ function AssignStaffControl({
       setError(message)
       toast.error('Could not assign staff', message)
     } finally {
-      setSubmitting(false)
+      finish()
     }
-  }, [booking.id, booking.branchId, staffId, staff, onChanged])
+  }, [booking.id, booking.branchId, staffId, current, staff, onChanged, begin, finish])
 
   return (
     <div className="flex flex-col gap-1.5 border-b border-cloud-gray pb-3">
@@ -1349,7 +1462,7 @@ function AssignStaffControl({
       >
         {current ? 'Assigned staff' : 'Assign staff'}
       </label>
-      <Select value={staffId} onValueChange={setStaffId}>
+      <Select value={staffId} onValueChange={setStaffId} disabled={disabled}>
         <SelectTrigger id="assign-staff" className="w-full">
           <SelectValue placeholder={staff === null ? 'Loading staff…' : 'Select staff…'} />
         </SelectTrigger>
@@ -1366,7 +1479,7 @@ function AssignStaffControl({
       <button
         type="button"
         onClick={assign}
-        disabled={submitting || !staffId || staffId === current}
+        disabled={disabled || !staffId || staffId === current}
         aria-busy={submitting}
         className="w-full rounded-buttons border border-cloud-gray px-4 py-2 font-ui text-sm text-cocoa-dark transition-colors hover:bg-cloud-gray disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
       >

@@ -292,7 +292,10 @@ describe('BranchesManager', () => {
     await waitFor(() => expect(sent('PATCH')).toHaveLength(1))
     const [patch] = sent('PATCH')
     expect(patch?.url).toBe('/api/branches/branch_rs')
-    expect(JSON.parse(String(patch?.init?.body ?? '{}'))).toMatchObject({ status: 'shutdown' })
+    expect(JSON.parse(String(patch?.init?.body ?? '{}'))).toMatchObject({
+      status: 'shutdown',
+      expectedStatus: 'operational',
+    })
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
@@ -364,6 +367,8 @@ describe('BranchesManager', () => {
       gstin: '29ABCDE1234F1Z5',
     })
     expect(body).not.toHaveProperty('invoicePrefix')
+    expect(body).not.toHaveProperty('status')
+    expect(body).not.toHaveProperty('expectedStatus')
   })
 
   it('refuses a malformed GSTIN or prefix, and sends a changed prefix in capitals (R6.2)', async () => {

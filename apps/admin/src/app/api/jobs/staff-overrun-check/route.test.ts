@@ -21,7 +21,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const dbMocks = vi.hoisted(() => ({
   OVERRUN_GRACE_MINUTES: 10,
   OVERRUN_LEAD_MINUTES: 15,
-  createNotification: vi.fn(),
+  createNotificationOnce: vi.fn(),
   flagStaffOverruns: vi.fn(),
   getBranchPeople: vi.fn(),
   getLiveStaffOverruns: vi.fn(),
@@ -92,7 +92,7 @@ function jobRequest(): Request {
 }
 
 function notifications() {
-  return dbMocks.createNotification.mock.calls.map(([p]) => p)
+  return dbMocks.createNotificationOnce.mock.calls.map(([p]) => p)
 }
 
 beforeEach(() => {
@@ -108,8 +108,7 @@ beforeEach(() => {
   dbMocks.getStaffAvailability.mockResolvedValue(PEOPLE)
   dbMocks.getBranchPeople.mockResolvedValue({ branches: [RS], developer: null })
   dbMocks.hasNotification.mockResolvedValue(false)
-  dbMocks.createNotification.mockImplementation(async (p) => ({
-    id: `n_${p.userId}`,
+  dbMocks.createNotificationOnce.mockImplementation(async (p) => ({
     channel: 'push',
     ...p,
   }))
@@ -200,7 +199,7 @@ describe('POST /api/jobs/staff-overrun-check', () => {
 
     expect(await res.json()).toEqual({ success: true, flagged: 0, heldUp: 0, notified: 0 })
     expect(dbMocks.getStaffAvailability).not.toHaveBeenCalled()
-    expect(dbMocks.createNotification).not.toHaveBeenCalled()
+    expect(dbMocks.createNotificationOnce).not.toHaveBeenCalled()
     expect(heartbeatMock).toHaveBeenCalledWith('STAFF_OVERRUN')
   })
 

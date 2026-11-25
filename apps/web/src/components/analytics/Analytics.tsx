@@ -32,7 +32,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { CONSENT_EVENT, getConsent } from '@/lib/consent/consent'
+import { CONSENT_EVENT, CONSENT_STORAGE_KEY, getConsent } from '@/lib/consent/consent'
 
 /**
  * Consent-gated, key-guarded analytics loader.
@@ -49,9 +49,8 @@ import { CONSENT_EVENT, getConsent } from '@/lib/consent/consent'
  */
 
 /** Minimal shape of the `posthog-js` default export we depend on. */
-type PostHogLike = {
+type PostHogLike = NonNullable<Window['posthog']> & {
   init: (key: string, options?: Record<string, unknown>) => void
-  capture: (event: string, props?: Record<string, unknown>) => void
 }
 
 type PostHogModule = {
@@ -62,7 +61,7 @@ type FbqFn = (...args: unknown[]) => void
 
 type FbqInstance = FbqFn & {
   callMethod?: (...args: unknown[]) => void
-  queue: unknown[]
+  queue: unknown[][]
   push: FbqFn
   loaded: boolean
   version: string
@@ -71,7 +70,7 @@ type FbqInstance = FbqFn & {
 type ClarityFn = (...args: unknown[]) => void
 
 type ClarityInstance = ClarityFn & {
-  q: unknown[]
+  q?: unknown[][]
 }
 
 // `window.posthog` and `window.fbq` are already declared in `lib/analytics/events.ts`.
@@ -81,7 +80,7 @@ type ClarityInstance = ClarityFn & {
 declare global {
   interface Window {
     _fbq?: Window['fbq']
-    clarity?: (...args: unknown[]) => void
+    clarity?: ClarityInstance
   }
 }
 
@@ -94,7 +93,7 @@ function logDevError(scope: string, error: unknown): void {
 }
 
 let posthogLoading = false
-let clarityLoading = false
+let clarityStopped = false
 
 async function loadPostHog(): Promise<void> {
   if (typeof window === 'undefined' || window.posthog || posthogLoading) {
@@ -113,7 +112,7 @@ async function loadPostHog(): Promise<void> {
     // not be installed for the build to pass.
     const mod = (await import('posthog-js' as string).catch(() => null)) as PostHogModule | null
 
-    if (!mod) {
+    if (!mod || !getConsent().analytics) {
       return
     }
 
@@ -131,6 +130,7 @@ async function loadPostHog(): Promise<void> {
 
     // Expose the instance so `events.ts#track` can forward events to it.
     window.posthog = instance
+    instance.opt_in_capturing({ captureEventName: false })
   } catch (error) {
     logDevError('posthog init failed', error)
   } finally {
@@ -172,6 +172,7 @@ function loadMetaPixel(): void {
     const first = document.getElementsByTagName('script')[0]
     first?.parentNode?.insertBefore(script, first)
 
+    window.fbq('consent', 'grant')
     window.fbq('init', pixelId)
     window.fbq('track', 'PageView')
   } catch (error) {
@@ -179,8 +180,26 @@ function loadMetaPixel(): void {
   }
 }
 
+function setClarityConsent(analytics: boolean) {
+  const clarity = window.clarity
+  if (!clarity) return
+  if (!analytics) {
+    // Clarity's denied consent mode restarts cookieless recording. Stop the
+    // collector instead, and drop grants queued while the tag was loading.
+    if (clarity.q) clarity.q = []
+    clarity('stop')
+    clarityStopped = true
+    return
+  }
+  if (clarityStopped) {
+    clarity('start')
+    clarityStopped = false
+  }
+  window.clarity?.('consentv2', { analytics_Storage: 'granted', ad_Storage: 'denied' })
+}
+
 function loadClarity(): void {
-  if (typeof window === 'undefined' || window.clarity || clarityLoading) {
+  if (typeof window === 'undefined' || window.clarity) {
     return
   }
 
@@ -188,8 +207,6 @@ function loadClarity(): void {
   if (!clarityId) {
     return
   }
-
-  clarityLoading = true
 
   try {
     // Standard Microsoft Clarity bootstrap, typed instead of the vendor's
@@ -200,38 +217,68 @@ function loadClarity(): void {
     //     y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
     //   })(window, document, 'clarity', 'script', clarityId)
     const clarity = ((...args: unknown[]): void => {
-      clarity.q.push(args)
+      clarity.q?.push(args)
     }) as ClarityInstance
     clarity.q = []
 
     window.clarity = clarity
+    clarityStopped = false
+    setClarityConsent(true)
 
     const script = document.createElement('script')
     script.async = true
     script.src = `https://www.clarity.ms/tag/${clarityId}`
+    script.addEventListener(
+      'load',
+      () => {
+        if (!getConsent().analytics) evaluateConsent()
+      },
+      { once: true },
+    )
     const first = document.getElementsByTagName('script')[0]
     first?.parentNode?.insertBefore(script, first)
   } catch (error) {
     logDevError('clarity init failed', error)
-  } finally {
-    clarityLoading = false
   }
 }
 
 function evaluateConsent(): void {
+  const consent = getConsent()
   try {
-    const consent = getConsent()
-
-    if (consent.analytics) {
+    if (window.posthog) {
+      if (consent.analytics) window.posthog.opt_in_capturing({ captureEventName: false })
+      else window.posthog.opt_out_capturing()
+    } else if (consent.analytics) {
       void loadPostHog()
-      loadClarity()
     }
+  } catch (error) {
+    logDevError('posthog consent update failed', error)
+  }
 
-    if (consent.marketing) {
+  try {
+    if (window.clarity) setClarityConsent(consent.analytics)
+    else if (consent.analytics) loadClarity()
+  } catch (error) {
+    logDevError('clarity consent update failed', error)
+  }
+
+  try {
+    if (window.fbq) {
+      const pixel = window.fbq as Partial<FbqInstance>
+      if (!consent.marketing && !pixel.callMethod && pixel.queue) {
+        // Keep the identity but revoke before initialization or any capture.
+        pixel.queue = [
+          ['consent', 'revoke'],
+          ...pixel.queue.filter(([command]) => command === 'init'),
+        ]
+      } else {
+        window.fbq('consent', consent.marketing ? 'grant' : 'revoke')
+      }
+    } else if (consent.marketing) {
       loadMetaPixel()
     }
   } catch (error) {
-    logDevError('consent evaluation failed', error)
+    logDevError('meta consent update failed', error)
   }
 }
 
@@ -239,9 +286,15 @@ export function Analytics() {
   useEffect(() => {
     evaluateConsent()
 
-    const handleConsentChange = () => evaluateConsent()
-    window.addEventListener(CONSENT_EVENT, handleConsentChange)
-    return () => window.removeEventListener(CONSENT_EVENT, handleConsentChange)
+    function handleStorage(event: StorageEvent) {
+      if (event.key === CONSENT_STORAGE_KEY || event.key === null) evaluateConsent()
+    }
+    window.addEventListener(CONSENT_EVENT, evaluateConsent)
+    window.addEventListener('storage', handleStorage)
+    return () => {
+      window.removeEventListener(CONSENT_EVENT, evaluateConsent)
+      window.removeEventListener('storage', handleStorage)
+    }
   }, [])
 
   return null

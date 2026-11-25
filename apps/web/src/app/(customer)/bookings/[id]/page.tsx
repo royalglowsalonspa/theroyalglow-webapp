@@ -73,7 +73,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
           connection. The provider degrades gracefully (children render and the
           page fetches status normally) when realtime is unavailable. */}
       <RealtimeProvider>
-        <BookingDetail id={id} viewerUserId={viewerUserId} />
+        <BookingDetail key={id} id={id} viewerUserId={viewerUserId} />
       </RealtimeProvider>
     </div>
   )

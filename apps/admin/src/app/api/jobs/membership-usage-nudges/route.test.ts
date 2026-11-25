@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   verify: vi.fn(),
   eligible: vi.fn(),
   hasNotification: vi.fn(),
-  createNotification: vi.fn(),
+  createNotificationOnce: vi.fn(),
   dispatch: vi.fn(),
   heartbeat: vi.fn(),
 }))
@@ -15,7 +15,7 @@ vi.mock('node:crypto', () => ({ randomInt: vi.fn() }))
 vi.mock('@rgss/db/queries', () => ({
   getNudgeEligibleMemberships: mocks.eligible,
   hasNotification: mocks.hasNotification,
-  createNotification: mocks.createNotification,
+  createNotificationOnce: mocks.createNotificationOnce,
 }))
 vi.mock('@/lib/jobs/verify', () => ({ verifyQStashSignature: mocks.verify }))
 vi.mock('@/lib/jobs/heartbeat', () => ({ pingHeartbeat: mocks.heartbeat }))
@@ -45,7 +45,7 @@ beforeEach(() => {
   mocks.verify.mockResolvedValue(true)
   mocks.eligible.mockResolvedValue([])
   mocks.hasNotification.mockResolvedValue(false)
-  mocks.createNotification.mockImplementation(async (input) => ({ id: 'notification', ...input }))
+  mocks.createNotificationOnce.mockImplementation(async (input) => input)
   // Always select the upper valid index, leaving input order intact.
   vi.mocked(randomInt).mockImplementation((max) => max - 1)
 })
@@ -74,7 +74,7 @@ describe('membership usage nudges', () => {
     expect(randomInt).toHaveBeenNthCalledWith(1, 25)
     expect(randomInt).toHaveBeenLastCalledWith(2)
     expect(mocks.hasNotification).toHaveBeenCalledTimes(20)
-    expect(mocks.createNotification.mock.calls.map(([input]) => input.userId)).toEqual(
+    expect(mocks.createNotificationOnce.mock.calls.map(([input]) => input.userId)).toEqual(
       Array.from({ length: 19 }, (_, i) => `user-${i + 1}`),
     )
     expect(mocks.dispatch).toHaveBeenCalledTimes(19)

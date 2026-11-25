@@ -26,7 +26,7 @@
  *                @rgss/errors, @rgss/types
  *
  * Notes        :
- * - Subscription is bound to user + endpoint (composite uniqueness).
+ * - An active endpoint belongs to one account at a time.
  * - Used for booking status push notifications and admin alerts.
  ************************************************************/
 

@@ -58,6 +58,18 @@ import { requireSession } from '@/lib/api/session'
 import { enqueueJob } from '@/lib/jobs/enqueue'
 import { publishBookingEvent } from '@/lib/realtime/publish'
 
+function bookingResponse(booking: {
+  id: string
+  status: string
+  bookingDate: Date
+  startTime: string
+  endTime: string
+  rescheduleCount: number
+}) {
+  const { id, status, bookingDate, startTime, endTime, rescheduleCount } = booking
+  return apiSuccess({ id, status, bookingDate, startTime, endTime, rescheduleCount })
+}
+
 export const POST = withErrorHandler(
   async (req: Request, ctx: { params: Promise<{ id: string }> }) => {
     const session = await requireSession()
@@ -71,6 +83,24 @@ export const POST = withErrorHandler(
       throw notFound('Booking not found.')
     }
 
+    const body = await req.json()
+    const parsed = rescheduleBookingSchema.safeParse(body)
+    if (!parsed.success) {
+      throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
+    }
+    const { bookingDate, startTime, expectedPolicyRevision } = parsed.data
+    const currentDate = existing.bookingDate.toISOString().slice(0, 10)
+
+    // A retry can arrive after the first move used the customer's last
+    // reschedule. The already-selected slot needs no write or new side effects.
+    if (
+      (existing.status === 'pending' || existing.status === 'confirmed') &&
+      bookingDate === currentDate &&
+      startTime === existing.startTime.slice(0, 5)
+    ) {
+      return bookingResponse(existing)
+    }
+
     // The branch's current rules decide whether it can still move: its status,
     // the reschedules it has had, and the cut-off before the appointment.
     const policy = await getBranchPolicy(existing.branchId)
@@ -82,19 +112,10 @@ export const POST = withErrorHandler(
       rules: policy.bookingRules,
       status: existing.status,
       rescheduleCount: existing.rescheduleCount,
-      startsAt: appointmentStartsAt(
-        existing.bookingDate.toISOString().slice(0, 10),
-        existing.startTime,
-      ),
+      startsAt: appointmentStartsAt(currentDate, existing.startTime),
       now,
     })
 
-    const body = await req.json()
-    const parsed = rescheduleBookingSchema.safeParse(body)
-    if (!parsed.success) {
-      throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
-    }
-    const { bookingDate, startTime, expectedPolicyRevision } = parsed.data
     if (expectedPolicyRevision !== undefined && expectedPolicyRevision !== policy.revision) {
       throw conflict(
         ERROR_CODES.BOOKING_TERMS_CHANGED,
@@ -126,12 +147,13 @@ export const POST = withErrorHandler(
       startTime,
       endTime,
       settingsRevision: policy.revision,
+      expected: existing,
     })
     if (!updated) {
       throw notFound('Booking not found.')
     }
 
-    const noShowDelay = noShowCheckDelaySeconds(bookingDate, endTime)
+    const noShowDelay = noShowCheckDelaySeconds(bookingDate, startTime, endTime)
     if (noShowDelay > 0) {
       await enqueueJob('/api/jobs/noshow-check', { bookingId: updated.id }, noShowDelay)
     }
@@ -148,13 +170,6 @@ export const POST = withErrorHandler(
       data: { status: updated.status },
     })
 
-    return apiSuccess({
-      id: updated.id,
-      status: updated.status,
-      bookingDate: updated.bookingDate,
-      startTime: updated.startTime,
-      endTime: updated.endTime,
-      rescheduleCount: updated.rescheduleCount,
-    })
+    return bookingResponse(updated)
   },
 )

@@ -8,18 +8,15 @@
  *
  * Description  : Server component that resolves homepage special offers from
  *                Payload CMS (active, ordered, within validity window) and
- *                renders full-bleed image cards. Falls back to curated
- *                hardcoded offers when the CMS is unconfigured, unreachable,
- *                or empty. Rebuilt on the shadcn/ui Button + Badge primitives
- *                with a motion Reveal header.
+ *                renders full-bleed image cards with a motion Reveal header.
  *
  * Responsibilities :
  * - Fetch active offers via the CMS read seam (getActiveOffers)
- * - Provide a graceful hardcoded fallback when CMS returns nothing
+ * - Hide the section when there are no published offers to show
  * - Render up to two offer cards with booking CTAs
  *
  * Features / Functionality :
- * - CMS-first content with curated fallback (2 offers)
+ * - Show up to two current offers from the CMS
  * - ISR-cached reads (1h default) via the CMS fetch seam
  * - Gradient overlay cards with hover scale + gold CTA buttons
  *
@@ -38,7 +35,7 @@ import { ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Reveal } from '@/components/ui/motion/reveal'
-import { FALLBACK_OFFERS, getActiveOffers } from '@/lib/cms/client'
+import { getActiveOffers } from '@/lib/cms/client'
 import type { Offer } from '@/lib/cms/types'
 
 const HOMEPAGE_OFFER_LIMIT = 2
@@ -73,9 +70,8 @@ function OfferCard({ offer }: { offer: Offer }) {
 }
 
 export async function OffersSection() {
-  const cmsOffers = await getActiveOffers()
-  const source = cmsOffers.length > 0 ? cmsOffers : FALLBACK_OFFERS
-  const offers = source.slice(0, HOMEPAGE_OFFER_LIMIT)
+  const offers = (await getActiveOffers()).slice(0, HOMEPAGE_OFFER_LIMIT)
+  if (offers.length === 0) return null
 
   return (
     <section

@@ -245,13 +245,12 @@ const uniformServicesArb = fc
 // POST /api/leads — preservation baseline (Req 3.1)
 // ===========================================================================
 describe('POST /api/leads preservation (Req 3.1)', () => {
-  it('returns 201 + { leadId }, normalises phone, defaults source, fires CAPI best-effort', async () => {
+  it('stores the lead with normalised contact details without sharing them through CAPI', async () => {
     await fc.assert(
       fc.asyncProperty(leadBodyArb, async (body) => {
         vi.clearAllMocks()
         rateLimitMocks.enforceRateLimit.mockResolvedValue(undefined)
         rateLimitMocks.getClientIp.mockReturnValue('203.0.113.7')
-        capiMock.mockResolvedValue(undefined)
         dbMocks.createLead.mockResolvedValue({ id: 'lead_generated_1' })
         dbMocks.getPublicBranches.mockResolvedValue([
           {
@@ -292,11 +291,7 @@ describe('POST /api/leads preservation (Req 3.1)', () => {
           }),
         )
 
-        // Best-effort CAPI event fired with the lead id as the dedup event_id.
-        expect(capiMock).toHaveBeenCalledOnce()
-        expect(capiMock).toHaveBeenCalledWith(
-          expect.objectContaining({ eventId: 'lead_generated_1', phone: expectedPhone }),
-        )
+        expect(capiMock).not.toHaveBeenCalled()
       }),
       { numRuns: 100 },
     )

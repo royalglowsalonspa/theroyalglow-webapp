@@ -25,10 +25,22 @@ import { issuedInvoiceStatements } from '../test/issued-invoice'
 import { isLiveDbAvailable, queryRow } from '../test/live-db'
 import { createBookingWithServices } from './bookings'
 import { getBranchPeople } from './branch-recipients'
-import { getDailyBranchReports, getWeeklyBranchReports, hasNotificationSince } from './jobs'
+import {
+  closeLapsedPendingBookings,
+  getDailyBranchReports,
+  getUpcomingConfirmedBookings,
+  getWeeklyBranchReports,
+  hasNotificationSince,
+} from './jobs'
 import { createNotificationOnce } from './notifications'
 
 const LIVE = isLiveDbAvailable()
+// The closeout job writes globally, so exercise it only against the CI action's
+// disposable loopback cluster, even when a developer database is configured.
+const SYNTHETIC =
+  Boolean(process.env.REHEARSAL_PG_DATA) &&
+  Boolean(process.env.RGSS_LOCAL_DB_PRELOAD) &&
+  URL.parse(process.env.DATABASE_URL ?? '')?.hostname === '127.0.0.1'
 const RUN = Math.random().toString(36).slice(2, 8)
 const PREFIX = `bjob_it_${RUN}`
 const BRANCH_A = `${PREFIX}_a`
@@ -50,9 +62,11 @@ async function book(params: {
   key: string
   branchId: string
   customerId: string
-  status: 'completed' | 'cancelled'
+  status: 'completed' | 'cancelled' | 'pending' | 'confirmed'
   serviceType: 'salon' | 'spa'
   day: string
+  startTime?: string
+  endTime?: string
   totalAmountPaise: number
   isWalkin?: boolean
 }) {
@@ -64,8 +78,8 @@ async function book(params: {
       status: params.status,
       serviceType: params.serviceType,
       bookingDate: new Date(`${params.day}T00:00:00.000Z`),
-      startTime: '10:00',
-      endTime: '11:00',
+      startTime: params.startTime ?? '10:00',
+      endTime: params.endTime ?? '11:00',
       totalAmountPaise: params.totalAmountPaise,
       totalDurationMinutes: 60,
       isWalkin: params.isWalkin ?? false,
@@ -374,6 +388,30 @@ describe.skipIf(!LIVE)('branch context for background jobs against a live databa
     expect((await getWeeklyBranchReports('2099-02-10', '2099-02-16')).branches.size).toBe(0)
   })
 
+  it('reads the latest move as the reminder occurrence boundary for a confirmed booking', async () => {
+    const id = await book({
+      key: 'appointment_reminder',
+      branchId: BRANCH_A,
+      customerId: ASHA,
+      status: 'confirmed',
+      serviceType: 'salon',
+      day: '2099-03-07',
+      totalAmountPaise: 20_000,
+    })
+    const movedAt = '2099-03-03T05:00:00.000Z'
+    await db.execute(sql`
+      insert into booking_status_log (id, booking_id, from_status, to_status, changed_by_id, notes, created_at)
+      values
+        (${`${PREFIX}_move_log`}, ${id}, 'confirmed', 'confirmed', ${ownerId},
+          'Rescheduled to 2099-03-07 10:00', ${movedAt}::timestamptz),
+        (${`${PREFIX}_later_log`}, ${id}, 'confirmed', 'confirmed', ${ownerId},
+          'Unrelated note', '2099-03-04T05:00:00.000Z')
+    `)
+
+    const upcoming = await getUpcomingConfirmedBookings(new Date('2099-03-06T04:30:00.000Z'))
+    expect(upcoming.find((row) => row.id === id)?.slotAcceptedAt).toEqual(new Date(movedAt))
+  })
+
   it('bounds the daily de-duplication by the given instant', async () => {
     await db.execute(sql`
       insert into notification (id, user_id, type, title, body, channel)
@@ -385,6 +423,30 @@ describe.skipIf(!LIVE)('branch context for background jobs against a live databa
     expect(await hasNotificationSince(ASHA, 'lead_follow_up_due', inAnHour)).toBe(false)
     expect(await hasNotificationSince(ASHA, 'branch_manager_missing', anHourAgo)).toBe(false)
     expect(await hasNotificationSince(RAVI, 'lead_follow_up_due', anHourAgo)).toBe(false)
+  })
+
+  it.runIf(SYNTHETIC)('closes an overnight pending booking at its next-day IST end', async () => {
+    // Earlier than the other integration fixtures, so the global job only sees
+    // this appointment and leaves parallel suites' fixtures alone.
+    const id = await book({
+      key: 'overnight_closeout',
+      branchId: BRANCH_A,
+      customerId: ASHA,
+      status: 'pending',
+      serviceType: 'salon',
+      day: '2021-02-01',
+      startTime: '23:15',
+      endTime: '00:15',
+      totalAmountPaise: 0,
+    })
+    const end = new Date('2021-02-01T18:45:00.000Z')
+    const before = await closeLapsedPendingBookings(new Date(end.getTime() - 1))
+    expect(before.some((booking) => booking.id === id)).toBe(false)
+    const closed = await closeLapsedPendingBookings(end)
+    expect(closed).toEqual(expect.arrayContaining([expect.objectContaining({ id })]))
+    expect(await queryRow(sql`select status from booking where id = ${id}`)).toEqual({
+      status: 'no_show',
+    })
   })
 
   it('claims one notification for simultaneous checks of the same booking slot', async () => {

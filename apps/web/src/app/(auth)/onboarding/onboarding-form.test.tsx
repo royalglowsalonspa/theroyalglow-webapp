@@ -161,6 +161,51 @@ describe('OnboardingForm without a booking', () => {
   })
 })
 
+describe('OnboardingForm after a profile is saved', () => {
+  it('continues to booking when browser storage writes are denied', async () => {
+    const bodies = acceptOnboarding()
+    const setStorage = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('Storage unavailable', 'SecurityError')
+    })
+    const removeStorage = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new DOMException('Storage unavailable', 'SecurityError')
+    })
+
+    try {
+      renderForm({ book: '1' })
+      fillRequiredFields()
+      fireEvent.click(screen.getByRole('button', { name: 'Continue to Booking' }))
+
+      await waitFor(() => expect(routerMock.replace).toHaveBeenCalledWith('/?book=1'))
+      expect(bodies).toHaveLength(1)
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    } finally {
+      setStorage.mockRestore()
+      removeStorage.mockRestore()
+    }
+  })
+
+  it('recovers a lost success response without writing the retry’s consent choices', async () => {
+    const priorConsent = JSON.stringify({ v: 1, analytics: true, marketing: false })
+    localStorage.setItem('rgss_cookie_consent', priorConsent)
+    server.use(
+      http.post('*/api/onboarding/complete', () =>
+        HttpResponse.json(
+          { success: false, error: { code: 'PROFILE_EXISTS', message: 'Profile already exists' } },
+          { status: 409 },
+        ),
+      ),
+    )
+    renderForm({ book: '1' })
+    fillRequiredFields()
+    fireEvent.click(screen.getByRole('button', { name: 'Continue to Booking' }))
+
+    await waitFor(() => expect(routerMock.replace).toHaveBeenCalledWith('/?book=1'))
+    expect(localStorage.getItem('rgss_cookie_consent')).toBe(priorConsent)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})
+
 describe('OnboardingForm consent (multi-branch R3.4)', () => {
   it('says the account is shared across Royal Glow branches, and what stays with one', () => {
     renderForm()

@@ -68,6 +68,7 @@ export const createBookingSchema = z.object({
   serviceIds: z.array(z.string().min(1)).min(1),
   notes: z.string().max(500).optional(),
   leadId: z.string().optional(),
+  idempotencyKey: z.uuid().optional(),
   // Deliberately NO `isWalkin`. A booking the customer makes themselves is never
   // a walk-in: walk-ins are created only by staff through the admin portal's
   // "New walk-in" flow (adminCreateWalkinSchema), which forces the flag

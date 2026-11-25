@@ -46,7 +46,7 @@ import {
   type StaffDesignation,
 } from '@rgss/types'
 import { Pencil, Scissors, UserMinus, UserPlus, UserRound } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { type PersonMatch, PersonSearch, personLabel } from '@/components/people/person-search'
 import {
   AlertDialog,
@@ -58,6 +58,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { type AdminColumnDef, DataTable, type RowAction } from '@/components/ui/data-table'
 import { type ColumnToggle, FilterBar } from '@/components/ui/filter-bar'
@@ -296,12 +297,15 @@ export function StaffManager() {
 
       {branch ? (
         <>
-          <StaffDialog
-            staff={editing}
-            branchId={branch.id}
-            onClose={() => setEditing(null)}
-            onSaved={saved}
-          />
+          {editing && (
+            <StaffDialog
+              key={`${branch.id}/${editing.id}`}
+              staff={editing}
+              branchId={branch.id}
+              onClose={() => setEditing(null)}
+              onSaved={saved}
+            />
+          )}
           <AddStaffDialog
             open={adding}
             branch={branch}
@@ -604,70 +608,40 @@ function StaffDialog({
   onClose,
   onSaved,
 }: {
-  staff: StaffRow | null
+  staff: StaffRow
   branchId: string
   onClose: () => void
   onSaved: () => void
 }) {
-  const [designation, setDesignation] = useState<ServiceDesignation>('stylist')
-  const [phone, setPhone] = useState('')
-  const [specialization, setSpecialization] = useState('')
-  const [bio, setBio] = useState('')
-
-  const [catalogue, setCatalogue] = useState<CatalogueService[]>([])
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-
-  const [loadingDetail, setLoadingDetail] = useState(false)
+  const [designation, setDesignation] = useState<ServiceDesignation>(
+    staff.designation === 'therapist' ? 'therapist' : 'stylist',
+  )
+  const [phone, setPhone] = useState(staff.phone ?? '')
+  const [specialization, setSpecialization] = useState(staff.specialization ?? '')
+  const [bio, setBio] = useState(staff.bio ?? '')
+  const [selection, setSelection] = useState<Set<string> | null>(null)
+  const saving = useRef(false)
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
-  // Only a Stylist or Therapist changes title; the others follow their role.
-  const performsServices = staff?.roleWitness === 'staff'
-
-  // Seed the form + load the catalogue and this member's assigned services
-  // whenever the dialog opens for a staff row.
-  useEffect(() => {
-    if (!staff) {
-      return
-    }
-    setDesignation(staff.designation === 'therapist' ? 'therapist' : 'stylist')
-    setPhone(staff.phone ?? '')
-    setSpecialization(staff.specialization ?? '')
-    setBio(staff.bio ?? '')
-    setFormError(null)
-
-    let cancelled = false
-    const loadDetail = async () => {
-      setLoadingDetail(true)
-      try {
-        const [services, detail] = await Promise.all([
-          api<{ services: CatalogueService[] }>('/api/services/all'),
-          api<{ staff: { serviceIds: string[] } }>(`/api/staff/${staff.id}`),
-        ])
-        if (cancelled) {
-          return
-        }
-        setCatalogue(services.services)
-        setSelected(new Set(detail.staff.serviceIds ?? []))
-      } catch (err: unknown) {
-        if (!cancelled) {
-          setFormError(err instanceof Error ? err.message : 'Could not load details.')
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingDetail(false)
-        }
-      }
-    }
-    loadDetail()
-    return () => {
-      cancelled = true
-    }
-  }, [staff])
+  const { state: details, retry } = useAsyncData(async () => {
+    const [catalogue, member] = await Promise.all([
+      api<{ services: CatalogueService[] }>('/api/services/all'),
+      api<{ staff: { serviceIds: string[] } }>(`/api/staff/${staff.id}`),
+    ])
+    return { services: catalogue.services, assigned: new Set(member.staff.serviceIds) }
+  })
+  const selected = selection ?? (details.status === 'success' ? details.data.assigned : null)
+  const catalogue = details.status === 'success' ? details.data.services : []
+  const performsServices = staff.roleWitness === 'staff'
+  const dismiss = () => {
+    if (!saving.current) onClose()
+  }
 
   const toggleService = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev)
+    if (!selected || saving.current) return
+    setSelection((prev) => {
+      const next = new Set(prev ?? selected)
       if (next.has(id)) {
         next.delete(id)
       } else {
@@ -695,9 +669,11 @@ function StaffDialog({
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!staff) {
-      return
-    }
+    if (details.status !== 'success' || !selected || saving.current) return
+    saving.current = true
+    const assigned = details.data.assigned
+    const serviceChanged =
+      selected.size !== assigned.size || [...selected].some((id) => !assigned.has(id))
     setFormError(null)
     setBusy(true)
     try {
@@ -707,10 +683,7 @@ function StaffDialog({
         phone: trimmedOrNull(phone),
         specialization: trimmedOrNull(specialization),
         bio: trimmedOrNull(bio),
-      })
-      await send(`/api/staff/${staff.id}/services`, 'PUT', {
-        branchId,
-        serviceIds: [...selected],
+        ...(serviceChanged ? { serviceIds: [...selected] } : {}),
       })
       toast.success(`${staff.name} updated`)
       onSaved()
@@ -719,16 +692,13 @@ function StaffDialog({
       setFormError(message)
       toast.error('Could not save changes', message)
     } finally {
+      saving.current = false
       setBusy(false)
     }
   }
 
   return (
-    <FormDialog
-      open={Boolean(staff)}
-      onClose={onClose}
-      title={staff ? `Edit ${staff.name}` : 'Edit staff'}
-    >
+    <FormDialog open onClose={dismiss} title={`Edit ${staff.name}`}>
       <form onSubmit={submit} className="space-y-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {performsServices ? (
@@ -739,7 +709,7 @@ function StaffDialog({
                 Title
               </span>
               <span className="py-2 font-sans text-sm text-cocoa-dark">
-                {staff ? DESIGNATION_LABEL[staff.designation] : ''}
+                {DESIGNATION_LABEL[staff.designation]}
               </span>
             </div>
           )}
@@ -774,9 +744,18 @@ function StaffDialog({
           <span className="mb-1.5 block font-ui text-xs uppercase tracking-wider text-dusty-gray">
             Services this member can perform
           </span>
-          {loadingDetail ? (
+          {details.status === 'loading' ? (
             <div className="rounded-cards border border-cloud-gray bg-cloud-gray/30 px-4 py-6 text-center">
               <span className="font-sans text-sm text-dusty-gray">Loading services…</span>
+            </div>
+          ) : details.status === 'error' ? (
+            <div className="space-y-2">
+              <p className="font-sans text-sm text-error" role="alert">
+                {details.message}
+              </p>
+              <Button type="button" variant="outline" onClick={retry}>
+                Retry loading services
+              </Button>
             </div>
           ) : grouped.length === 0 ? (
             <div className="rounded-cards border border-cloud-gray bg-cloud-gray/30 px-4 py-6 text-center">
@@ -796,7 +775,8 @@ function StaffDialog({
                       <div key={svc.id} className="flex items-center gap-2">
                         <Checkbox
                           id={`svc-${svc.id}`}
-                          checked={selected.has(svc.id)}
+                          checked={selected?.has(svc.id) ?? false}
+                          disabled={busy}
                           onCheckedChange={() => toggleService(svc.id)}
                         />
                         <label
@@ -812,9 +792,11 @@ function StaffDialog({
               ))}
             </div>
           )}
-          <p className="mt-1.5 font-sans text-xs text-dusty-gray">
-            {selected.size} service{selected.size === 1 ? '' : 's'} selected
-          </p>
+          {selected && (
+            <p className="mt-1.5 font-sans text-xs text-dusty-gray">
+              {selected.size} service{selected.size === 1 ? '' : 's'} selected
+            </p>
+          )}
         </div>
 
         {formError && (
@@ -823,7 +805,12 @@ function StaffDialog({
           </p>
         )}
 
-        <FormActions busy={busy} onCancel={onClose} submitLabel="Save" />
+        <FormActions
+          busy={busy}
+          onCancel={dismiss}
+          submitDisabled={details.status !== 'success'}
+          submitLabel="Save"
+        />
       </form>
     </FormDialog>
   )

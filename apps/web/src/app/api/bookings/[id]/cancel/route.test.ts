@@ -231,20 +231,24 @@ describe("POST /api/bookings/[id]/cancel — the branch's cut-off (R6.3)", () =>
     expect(status).toBe(200)
     expect(body.data).toMatchObject({ status: 'cancelled', late: true })
     expect(dbMocks.getBranchPolicy).toHaveBeenCalledWith('br_1')
-    expect(dbMocks.cancelBooking).toHaveBeenCalledWith('bk_1', 'cust_1', null, {
-      late: true,
-      settingsRevision: 4,
-    })
+    expect(dbMocks.cancelBooking).toHaveBeenCalledWith(
+      'bk_1',
+      'cust_1',
+      null,
+      { late: true, settingsRevision: 4 },
+      expect.objectContaining({
+        status: 'confirmed',
+        bookingDate: new Date('2026-06-10T00:00:00.000Z'),
+        startTime: '13:00:00',
+      }),
+    )
   })
 
   it('is not late before the cut-off', async () => {
     const { body } = await cancel({ bookingDate: '2026-06-10', startTime: '15:00:00' })
 
     expect(body.data.late).toBe(false)
-    expect(dbMocks.cancelBooking).toHaveBeenCalledWith('bk_1', 'cust_1', null, {
-      late: false,
-      settingsRevision: 4,
-    })
+    expect(dbMocks.cancelBooking.mock.calls[0]?.[3]).toEqual({ late: false, settingsRevision: 4 })
   })
 
   it("follows this branch's own cut-off", async () => {
@@ -257,10 +261,7 @@ describe("POST /api/bookings/[id]/cancel — the branch's cut-off (R6.3)", () =>
     const { body } = await cancel({ bookingDate: '2026-06-10', startTime: '13:00:00' })
 
     expect(body.data.late).toBe(false)
-    expect(dbMocks.cancelBooking).toHaveBeenCalledWith('bk_1', 'cust_1', null, {
-      late: false,
-      settingsRevision: 7,
-    })
+    expect(dbMocks.cancelBooking.mock.calls[0]?.[3]).toEqual({ late: false, settingsRevision: 7 })
   })
 
   it('applies an updated revision to the next action only at that branch (TX-09)', async () => {
@@ -344,7 +345,13 @@ describe("POST /api/bookings/[id]/cancel — the branch's cut-off (R6.3)", () =>
 
     expect(status).toBe(200)
     expect(body.data).toMatchObject({ status: 'cancelled', late: false })
-    expect(dbMocks.cancelBooking).toHaveBeenCalledWith('bk_1', 'cust_1', null, undefined)
+    expect(dbMocks.cancelBooking).toHaveBeenCalledWith(
+      'bk_1',
+      'cust_1',
+      null,
+      undefined,
+      expect.objectContaining({ id: 'bk_1', startTime: '11:00:00' }),
+    )
   })
 
   it('still fails on any other error reading the settings', async () => {

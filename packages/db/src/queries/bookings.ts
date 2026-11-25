@@ -42,12 +42,23 @@ import { and, asc, desc, eq, getTableColumns, inArray, isNull, type SQL, sql } f
 import type { BatchItem } from 'drizzle-orm/batch'
 import { nanoid } from 'nanoid'
 import { db } from '../index'
-import { booking, bookingReassignment, bookingService, bookingStatusLog } from '../schema/booking'
+import {
+  booking,
+  bookingReassignment,
+  bookingService,
+  bookingStatusLog,
+  customerBookingRequest,
+} from '../schema/booking'
 import { branch } from '../schema/branch'
 import { customerProfile, staffProfile } from '../schema/profile'
 import { staffTimeOff } from '../schema/schedule'
 import { service, serviceCategory, staffService } from '../schema/service'
 import { staffOccupancy } from '../schema/staff-occupancy'
+import {
+  type CustomerBookingAdmission,
+  customerBookingAdmissionError,
+  customerBookingAdmissionStatements,
+} from './booking-admission'
 import { isBranchAvailabilityRefusal, serviceNoLongerOffered } from './catalogue-availability'
 import { isConstraintViolation, isGuardAbort, SQLSTATE } from './driver-errors'
 import { returnGemsOfEndedRedemptions } from './gems-ledger'
@@ -57,6 +68,31 @@ import { staffWorksAt } from './staff'
 type NewBooking = typeof booking.$inferInsert
 type NewBookingService = typeof bookingService.$inferInsert
 type BookingStatus = (typeof booking.$inferSelect)['status']
+
+type CustomerBookingCommand = { key: string; fingerprint: string }
+
+/** Find the original booking for an authenticated customer's request key. */
+export async function findCustomerBookingRequest(customerId: string, key: string) {
+  const [found] = await db
+    .select({
+      id: booking.id,
+      bookingNumber: booking.bookingNumber,
+      fingerprint: customerBookingRequest.requestFingerprint,
+    })
+    .from(customerBookingRequest)
+    .innerJoin(
+      booking,
+      and(eq(booking.id, customerBookingRequest.bookingId), eq(booking.customerId, customerId)),
+    )
+    .where(
+      and(
+        eq(customerBookingRequest.customerId, customerId),
+        eq(customerBookingRequest.requestKey, key),
+      ),
+    )
+    .limit(1)
+  return found ?? null
+}
 
 // All bookings owned by a customer, newest first, each with its booking_service
 // rows. Ownership is enforced by filtering on customer_id, so the result never
@@ -268,6 +304,7 @@ export async function getDefaultStaffForBooking(params: {
 export async function createBookingWithServices(
   data: Omit<NewBooking, 'id'> & { id?: string },
   services: Omit<NewBookingService, 'bookingId'>[],
+  options?: { admission: CustomerBookingAdmission; request?: CustomerBookingCommand },
 ) {
   const bookingId = data.id ?? nanoid()
   const bookingValues: NewBooking = { ...data, id: bookingId }
@@ -278,19 +315,43 @@ export async function createBookingWithServices(
 
   const insertBooking = db.insert(booking).values(bookingValues).returning()
 
-  if (serviceValues.length === 0) {
+  if (serviceValues.length === 0 && !options) {
     const [created] = await insertBooking
     // .returning() on a single-row insert always yields the inserted row.
     return created as typeof booking.$inferSelect
   }
 
+  const guards = options
+    ? customerBookingAdmissionStatements(
+        {
+          customerId: data.customerId,
+          branchId: data.branchId,
+          date: data.bookingDate.toISOString().slice(0, 10),
+        },
+        options.admission,
+      )
+    : []
+  const writes: [BatchItem<'pg'>, ...BatchItem<'pg'>[]] = [insertBooking]
+  writes.unshift(...guards)
+  if (serviceValues.length > 0) writes.push(db.insert(bookingService).values(serviceValues))
+  if (options?.request) {
+    writes.push(
+      db.insert(customerBookingRequest).values({
+        customerId: data.customerId,
+        requestKey: options.request.key,
+        requestFingerprint: options.request.fingerprint,
+        bookingId,
+      }),
+    )
+  }
+
   let bookingResult: unknown
   try {
-    ;[bookingResult] = await db.batch([
-      insertBooking,
-      db.insert(bookingService).values(serviceValues),
-    ])
+    const results = await db.batch(writes)
+    bookingResult = results[guards.length]
   } catch (error) {
+    const refusal = options && customerBookingAdmissionError(error, options.admission.branchName)
+    if (refusal) throw refusal
     // The chosen assignee left the branch or went on leave after they were
     // picked (migration 0014). Nothing was written; picking again works.
     if (assigneeRefusal(error)) {
@@ -355,6 +416,40 @@ function changedMeanwhile(action: string): AppError {
   )
 }
 
+type BookingChangeState = Pick<
+  typeof booking.$inferSelect,
+  'branchId' | 'customerId' | 'status' | 'bookingDate' | 'startTime' | 'endTime' | 'rescheduleCount'
+>
+
+async function readBookingChangeState(id: string): Promise<BookingChangeState | undefined> {
+  const [state] = await db
+    .select({
+      branchId: booking.branchId,
+      customerId: booking.customerId,
+      status: booking.status,
+      bookingDate: booking.bookingDate,
+      startTime: booking.startTime,
+      endTime: booking.endTime,
+      rescheduleCount: booking.rescheduleCount,
+    })
+    .from(booking)
+    .where(eq(booking.id, id))
+    .limit(1)
+  return state
+}
+
+function matchesBookingChangeState(id: string, expected: BookingChangeState): SQL {
+  return sql`${booking.id} = ${id}
+    and ${booking.branchId} = ${expected.branchId}
+    and ${booking.customerId} = ${expected.customerId}
+    and ${booking.status} = ${expected.status}::booking_status
+    and ${booking.status} in ('pending', 'confirmed')
+    and ${booking.bookingDate} = ${expected.bookingDate.toISOString().slice(0, 10)}::date
+    and ${booking.startTime} = ${expected.startTime}::time
+    and ${booking.endTime} = ${expected.endTime}::time
+    and ${booking.rescheduleCount} = ${expected.rescheduleCount}::int`
+}
+
 /** What the branch's booking rules decided about a cancellation (R6.3). */
 export type CancellationDecision = {
   /** Within the branch's cut-off: counted on the customer's record, never charged. */
@@ -369,8 +464,8 @@ export type CancellationDecision = {
 // and, for a customer's cancellation, the settings revision that decided
 // whether it was late. A late cancellation adds one to the customer's
 // late-cancellation count in the same batch. The update applies only to a
-// pending or confirmed booking that still has the status read here, so a
-// double submit can't count a late cancellation twice: it rolls back with 409.
+// pending or confirmed booking that still matches the slot and status used
+// to decide its terms. A concurrent change rolls the batch back with 409.
 // Returns null when the booking does not exist. neon-http has no interactive
 // transactions, so db.batch() provides atomicity (same pattern as reschedule).
 export async function cancelBooking(
@@ -378,28 +473,21 @@ export async function cancelBooking(
   changedById: string,
   reason: string | null,
   decision?: CancellationDecision,
+  expected?: BookingChangeState,
 ) {
-  const rows = await db
-    .select({ status: booking.status, customerId: booking.customerId })
-    .from(booking)
-    .where(eq(booking.id, id))
-    .limit(1)
-  const current = rows[0]
+  const current = expected ?? (await readBookingChangeState(id))
   if (!current) {
     return null
   }
 
   const late = decision?.late === true
-  // Only an open booking is cancelled, and only from the status read here.
   const cancel = db.execute(
     guarded(sql`update ${booking}
       set ${column(booking.status)} = 'cancelled',
           ${column(booking.cancellationReason)} = ${reason},
           ${column(booking.cancelledAt)} = now(),
           ${column(booking.updatedAt)} = now()
-      where ${booking.id} = ${id}
-        and ${booking.status} = ${current.status}::booking_status
-        and ${booking.status} in ('pending', 'confirmed')`),
+      where ${matchesBookingChangeState(id, current)}`),
   )
 
   const noteSuffix = reason ? `: ${reason}` : ''
@@ -451,8 +539,8 @@ export async function cancelBooking(
 // trail (from/to status are identical by design; the notes carry the new slot).
 // With `settingsRevision`, the booking now stands on the slot that revision of
 // the branch's settings accepted, and the log says so. The move applies only
-// while the booking still has the status and reschedule count read here, so a
-// double submit can't move it twice past the branch's limit (409).
+// while the booking still has the slot, status and reschedule count the
+// caller checked, so a stale request cannot move it again (409).
 // neon-http has no interactive transactions, so db.batch() is used for atomicity.
 export async function rescheduleBooking(
   id: string,
@@ -462,6 +550,7 @@ export async function rescheduleBooking(
     startTime: string
     endTime: string
     settingsRevision?: number
+    expected?: BookingChangeState
     /**
      * Whether the move counts against the customer's reschedule limit
      * (default true). A move the salon makes, such as off a closed day,
@@ -470,12 +559,7 @@ export async function rescheduleBooking(
     countsTowardLimit?: boolean
   },
 ) {
-  const rows = await db
-    .select({ status: booking.status, rescheduleCount: booking.rescheduleCount })
-    .from(booking)
-    .where(eq(booking.id, id))
-    .limit(1)
-  const current = rows[0]
+  const current = data.expected ?? (await readBookingChangeState(id))
   if (!current) {
     return null
   }
@@ -492,10 +576,7 @@ export async function rescheduleBooking(
           ${column(booking.rescheduleCount)} = ${booking.rescheduleCount} + ${counted}::int,
           ${column(booking.settingsRevision)} = coalesce(${revision}::int, ${booking.settingsRevision}),
           ${column(booking.updatedAt)} = now()
-      where ${booking.id} = ${id}
-        and ${booking.status} = ${current.status}::booking_status
-        and ${booking.status} in ('pending', 'confirmed')
-        and ${booking.rescheduleCount} = ${current.rescheduleCount}::int`),
+      where ${matchesBookingChangeState(id, current)}`),
   )
 
   const log = db.insert(bookingStatusLog).values({

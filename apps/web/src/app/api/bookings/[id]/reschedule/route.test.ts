@@ -186,6 +186,7 @@ describe('POST /api/bookings/[id]/reschedule — slot move', () => {
             status,
             rescheduleCount: priorCount,
             totalDurationMinutes: slot.duration,
+            bookingDate: istDatePlus(30),
           })
           sessionMocks.requireSession.mockResolvedValue({ user: { id: ownerId } })
 
@@ -243,6 +244,12 @@ describe('POST /api/bookings/[id]/reschedule — slot move', () => {
       startTime: '12:00',
       endTime: '13:00',
       settingsRevision: 4,
+      expected: expect.objectContaining({
+        status: 'confirmed',
+        bookingDate: new Date('2026-06-20T00:00:00.000Z'),
+        startTime: '15:00:00',
+        rescheduleCount: 0,
+      }),
     })
     // Friday 13:15 IST: fifteen minutes after the new scheduled end.
     expect(enqueueMock).toHaveBeenCalledExactlyOnceWith(
@@ -346,6 +353,30 @@ describe("POST /api/bookings/[id]/reschedule — the branch's rules (R6.3)", () 
       message: 'Reschedule at least 1 hour before the appointment. You can still cancel it.',
     })
     expect(dbMocks.rescheduleBooking).not.toHaveBeenCalled()
+  })
+
+  it('returns the booked slot without spending another reschedule or resending events', async () => {
+    sessionMocks.requireSession.mockResolvedValue({ user: { id: 'cus_1' } })
+    const date = istDatePlus(5)
+    const store = makeStore({
+      id: 'bk_1',
+      customerId: 'cus_1',
+      status: 'confirmed',
+      rescheduleCount: 1,
+      totalDurationMinutes: 60,
+      bookingDate: date,
+      startTime: '15:00:00',
+    })
+
+    const { status, body } = await reschedule(date, '15:00')
+
+    expect(status).toBe(200)
+    expect(body).toMatchObject({
+      data: { id: store.id, rescheduleCount: 1, startTime: '15:00:00' },
+    })
+    expect(dbMocks.rescheduleBooking).not.toHaveBeenCalled()
+    expect(enqueueMock).not.toHaveBeenCalled()
+    expect(store.statusLogs).toHaveLength(0)
   })
 
   it("stops at this branch's number of reschedules", async () => {

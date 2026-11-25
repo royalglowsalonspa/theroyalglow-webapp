@@ -33,17 +33,8 @@
 
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-
-// Mirror GET /api/notifications → apiSuccess({ notifications, unreadCount }).
-interface NotificationRow {
-  id: string
-  type: string
-  title: string
-  body: string
-  readAt: string | null
-  createdAt: string
-}
+import { useEffect, useRef, useState } from 'react'
+import { useNotificationFeed } from './use-notification-feed'
 
 const POLL_INTERVAL_MS = 30_000
 
@@ -76,40 +67,10 @@ function relativeTime(iso: string): string {
 }
 
 export function NotificationBell() {
-  const [notifications, setNotifications] = useState<NotificationRow[]>([])
-  const [unreadCount, setUnreadCount] = useState(0)
+  const { feed, markAllRead, markStatus } = useNotificationFeed(POLL_INTERVAL_MS)
   const [open, setOpen] = useState(false)
-  // Hidden until the first successful fetch confirms an authenticated session.
-  const [available, setAvailable] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
-
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch('/api/notifications', {
-        headers: { accept: 'application/json' },
-      })
-      if (res.status === 401) {
-        setAvailable(false)
-        return
-      }
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        return
-      }
-      setAvailable(true)
-      setNotifications(json.data.notifications as NotificationRow[])
-      setUnreadCount(json.data.unreadCount as number)
-    } catch {
-      // Network blip — keep the last known state and retry on the next poll.
-    }
-  }, [])
-
-  // Initial load + polling.
-  useEffect(() => {
-    load()
-    const timer = setInterval(load, POLL_INTERVAL_MS)
-    return () => clearInterval(timer)
-  }, [load])
+  const marking = markStatus === 'marking'
 
   // Close on outside click + Escape.
   useEffect(() => {
@@ -134,28 +95,8 @@ export function NotificationBell() {
     }
   }, [open])
 
-  const markAllRead = useCallback(async () => {
-    try {
-      const res = await fetch('/api/notifications', {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({}),
-      })
-      if (res.ok) {
-        setNotifications((prev) =>
-          prev.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })),
-        )
-        setUnreadCount(0)
-      }
-    } catch {
-      // ignore — next poll will reconcile
-    }
-  }, [])
-
-  if (!available) {
-    return null
-  }
-
+  if (!feed.snapshot) return null
+  const { notifications, unreadCount } = feed.snapshot
   const badge = unreadCount > 9 ? '9+' : String(unreadCount)
 
   return (
@@ -205,12 +146,20 @@ export function NotificationBell() {
               <button
                 type="button"
                 onClick={markAllRead}
+                disabled={marking}
+                aria-busy={marking}
                 className="font-ui text-xs text-gold-ink hover:text-cocoa-dark transition-colors"
               >
-                Mark all read
+                {marking ? 'Marking as read…' : 'Mark all read'}
               </button>
             )}
           </div>
+
+          {markStatus === 'error' && (
+            <p role="alert" className="px-4 pt-3 font-sans text-xs text-error">
+              Could not mark notifications as read. Please try again.
+            </p>
+          )}
 
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (

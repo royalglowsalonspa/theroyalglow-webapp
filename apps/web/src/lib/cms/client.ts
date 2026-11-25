@@ -850,42 +850,6 @@ export async function getTestimonials(): Promise<Testimonial[]> {
   return testimonials
 }
 
-/** Curated homepage offers shown when the CMS is unconfigured/unreachable/empty. */
-export const FALLBACK_OFFERS: Offer[] = [
-  {
-    id: 'fallback-facials',
-    title: '20% OFF All Facials — This week only!',
-    description: 'Refresh your glow with our signature skincare rituals.',
-    discountLabel: '20% OFF',
-    image: {
-      url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuChf_-S9qaSgh4ChgD4vHvHOXi0JaNdY6sbENglW-QFs2Y4_PxRHayjVgKBYvET6H1oc_jFCq-SpkAlMqZvATcX4vqOf_4Qv7lowJ0Z-yUpijd-prJwrxZL009WIpMoejD5h8E1v_-VX8fFsNU1Xw-qZCSpfkKGZXC8nFE4r2FGwMDV6aDAqywKydJi6rijlY3TMDjBOuQh3RIWyVZSVNguwgQ-dDaXeufdUkyJX6-zPdZ_AFn-rgIWM6Tpw4_aG2tbZyj4RDWqDmM',
-      alt: '20% off facials at Royal Glow — skincare treatment',
-      width: null,
-      height: null,
-    },
-    ctaLabel: 'Book Now',
-    ctaHref: '/?book=1',
-    category: 'skincare',
-    validUntil: null,
-  },
-  {
-    id: 'fallback-head-massage',
-    title: 'Free Head Massage with any SPA booking',
-    description: 'Unwind a little deeper, on the house.',
-    discountLabel: 'Free add-on',
-    image: {
-      url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDHedetGHswV5AvpWgVH4EwLo9_l2a4jGr_COWOvJIYh1S1t5nt6KYk_ERnSYzSlgQFVu-dClz4Ywcr6J5hT3fvWKZPoUQWt8Bw0Q7rDOmZp_8GxX0DDyqmt5p2yXE9RjXHzB6TRqveNgRpqTQS5VvXUcjda0g2-Nv3jDjp14f5HQW8rHnmgy3OXM3DCbhgWiuFZVF_Kk3EQ5GnGqLP0xBGMo-qR8C6yIgSEaPMB3L000XhYHYhsEj-8VEuCjzHXntthSt61iFilQA',
-      alt: 'Free head massage offer at Royal Glow Spa',
-      width: null,
-      height: null,
-    },
-    ctaLabel: 'Book Now',
-    ctaHref: '/?book=1',
-    category: 'spa',
-    validUntil: null,
-  },
-]
-
 /**
  * Active marketing offers within their validity window, in display order.
  * Empty when the CMS is unconfigured/unreachable/empty.

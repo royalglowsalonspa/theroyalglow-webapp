@@ -86,6 +86,7 @@ const RECORDED = {
   invoice: { id: 'inv_1' },
   services: [LINE],
   remainingMinutes: 0,
+  replay: { kind: 'legacy', origin: { actorId: 'u_rec', status: 'in_progress', moved: false } },
 }
 
 function post(body: Record<string, unknown>) {
@@ -151,6 +152,7 @@ describe('POST /api/memberships/[id]/sessions', () => {
       customerId: 'usr_1',
       branchId: TEST_BRANCH.id,
       idempotencyKey: KEY,
+      requestFingerprint: expect.stringMatching(/^[\da-f]{64}$/),
       // The status log records who started the session.
       recordedById: 'u_rec',
       services: [
@@ -251,6 +253,39 @@ describe('POST /api/memberships/[id]/sessions', () => {
       remainingMinutes: 540,
       duplicate: true,
     })
+  })
+
+  it('normalizes line order and staff fields, and replays the original request after reassignment', async () => {
+    const second = { serviceId: 'svc_other', durationMinutes: 30 }
+    dbMocks.getServicesByIds.mockResolvedValue([
+      { id: 'svc_aroma_60', name: 'Aroma 60' },
+      { id: 'svc_other', name: 'Other' },
+    ])
+    expect((await post({ services: [LINE, second], idempotencyKey: KEY })).status).toBe(201)
+    const fingerprint = dbMocks.recordMembershipSession.mock.calls[0]?.[0].requestFingerprint
+    dbMocks.getMembershipSessionByKey.mockResolvedValue({
+      ...RECORDED,
+      services: [{ ...LINE, staffId: 'replacement' }],
+      replay: { kind: 'fingerprint', fingerprint },
+    })
+    vi.useFakeTimers({ now: new Date('2026-12-31T21:00:00.000Z'), toFake: ['Date'] })
+    expect(
+      (
+        await post({
+          staffId: 'stf_1',
+          services: [second, { serviceId: LINE.serviceId, durationMinutes: LINE.durationMinutes }],
+          idempotencyKey: KEY,
+        })
+      ).status,
+    ).toBe(200)
+    expect(dbMocks.recordMembershipSession).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects a different actor when an older session has only a creation log', async () => {
+    dbMocks.getMembershipSessionByKey.mockResolvedValue(RECORDED)
+    branchMocks.requireBranchRole.mockResolvedValue(branchContext({ userId: 'u_other' }))
+    expect((await post({ services: [LINE], idempotencyKey: KEY })).status).toBe(409)
+    expect(dbMocks.recordMembershipSession).not.toHaveBeenCalled()
   })
 
   it('rejects a key reused for a different session, writing nothing', async () => {
@@ -564,6 +599,54 @@ describe('POST /api/memberships/[id]/sessions — booked ahead', () => {
     })
     expect(params.bookingDate).toEqual(new Date('2026-11-07T00:00:00.000Z'))
     expect(params.bookingNumber).toMatch(/^BK-RS-2611-S-\d{5}-M$/)
+  })
+
+  it('binds an ahead reservation to its original actor, date, time, mode and performer', async () => {
+    const input = {
+      services: [LINE],
+      bookingDate: '2026-11-07',
+      startTime: '16:30',
+      idempotencyKey: KEY,
+    }
+    expect((await post(input)).status).toBe(201)
+    const fingerprint = dbMocks.recordMembershipSession.mock.calls[0]?.[0].requestFingerprint
+    dbMocks.getMembershipSessionByKey.mockResolvedValue({
+      ...RECORDED,
+      booking: { id: 'bk_1', bookingDate: new Date('2026-11-08'), startTime: '10:30:00' },
+      replay: { kind: 'fingerprint', fingerprint },
+    })
+    expect((await post(input)).status).toBe(200)
+    expect((await post({ ...input, bookingDate: '2026-11-08' })).status).toBe(409)
+    expect((await post({ ...input, startTime: '17:30' })).status).toBe(409)
+    expect((await post({ ...input, startTime: undefined })).status).toBe(409)
+    expect((await post({ ...input, services: [{ ...LINE, staffId: 'stf_2' }] })).status).toBe(409)
+    branchMocks.requireBranchRole.mockResolvedValue(branchContext({ userId: 'u_other' }))
+    expect((await post(input)).status).toBe(409)
+    expect(dbMocks.recordMembershipSession).toHaveBeenCalledTimes(1)
+  })
+
+  it('replays a legacy ahead booking only from the matching, unmoved slot', async () => {
+    const input = {
+      services: [LINE],
+      bookingDate: '2026-11-07',
+      startTime: '16:30',
+      idempotencyKey: KEY,
+    }
+    const origin = { actorId: 'u_rec', status: 'confirmed', moved: false }
+    const legacy = {
+      ...RECORDED,
+      booking: { id: 'bk_1', bookingDate: new Date('2026-11-07'), startTime: '16:30:00' },
+      replay: { kind: 'legacy', origin },
+    }
+    dbMocks.getMembershipSessionByKey.mockResolvedValue(legacy)
+    expect((await post(input)).status).toBe(200)
+    expect((await post({ ...input, startTime: '17:30' })).status).toBe(409)
+    dbMocks.getMembershipSessionByKey.mockResolvedValue({
+      ...legacy,
+      replay: { kind: 'legacy', origin: { ...origin, moved: true } },
+    })
+    expect((await post(input)).status).toBe(409)
+    expect(dbMocks.recordMembershipSession).not.toHaveBeenCalled()
   })
 
   it('books later today, and beyond the customer’s window and lead time', async () => {

@@ -9,7 +9,7 @@
  * Description  : GET returns one staff member of the active branch (profile,
  *                identity, assigned serviceIds and how many upcoming bookings
  *                name them). PATCH edits their title, phone, bio,
- *                specialization or hire date.
+ *                specialization, hire date and service capabilities.
  *
  * Responsibilities :
  * - GET: one staff member here, 404 for anyone who doesn't work here
@@ -32,6 +32,7 @@
 import { editableStaffRoles } from '@rgss/business'
 import {
   countUpcomingAssignments,
+  getServicesByIds,
   getStaffMemberAtBranch,
   updateStaffMemberAtBranch,
 } from '@rgss/db/queries'
@@ -66,7 +67,7 @@ export const PATCH = withErrorHandler(async (req: Request, { params }: Params) =
   if (!parsed.success) {
     throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
   }
-  const { branchId, ...patch } = parsed.data
+  const { branchId, serviceIds, ...patch } = parsed.data
   assertRenderedBranch(ctx, branchId)
 
   const existing = await getStaffMemberAtBranch(id, ctx.branch.id)
@@ -84,12 +85,18 @@ export const PATCH = withErrorHandler(async (req: Request, { params }: Params) =
     throw badRequest('Only a Stylist or Therapist changes title. The others follow their role.')
   }
 
+  const uniqueIds = serviceIds === undefined ? undefined : [...new Set(serviceIds)]
+  if (uniqueIds?.length && (await getServicesByIds(uniqueIds)).length !== uniqueIds.length) {
+    throw badRequest('One or more selected services do not exist.')
+  }
+
   const updated = await updateStaffMemberAtBranch({
     id,
     branchId: ctx.branch.id,
     actorId: ctx.session.user.id,
     roles,
     patch,
+    ...(uniqueIds !== undefined ? { serviceIds: uniqueIds } : {}),
   })
   if (!updated) {
     throw conflict(
@@ -112,5 +119,15 @@ export const PATCH = withErrorHandler(async (req: Request, { params }: Params) =
     },
     newValues: patch,
   })
+  if (uniqueIds !== undefined) {
+    await audit(req, ctx.session, {
+      action: 'update',
+      entityType: 'staff_services',
+      entityId: id,
+      branchId: ctx.branch.id,
+      oldValues: { serviceIds: existing.serviceIds },
+      newValues: { serviceIds: uniqueIds },
+    })
+  }
   return apiSuccess({ staff: updated })
 })

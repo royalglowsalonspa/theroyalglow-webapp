@@ -30,6 +30,7 @@
  ************************************************************/
 
 import { createLogger } from '@rgss/logger'
+import { normalizeWebPushEndpoint } from '@rgss/types'
 
 // Web Push delivery provider. Sends a payload to a set of the recipient's
 // active push subscriptions using VAPID auth.
@@ -154,10 +155,16 @@ export async function sendWebPush(
     let failed = 0
 
     for (const sub of subscriptions) {
+      const endpoint = normalizeWebPushEndpoint(sub.endpoint)
+      if (!endpoint) {
+        failed += 1
+        logger.warn('ignored unsupported Web Push endpoint')
+        continue
+      }
       try {
         await webpush.sendNotification(
           {
-            endpoint: sub.endpoint,
+            endpoint,
             keys: { p256dh: sub.p256dhKey, auth: sub.authKey },
           },
           serialized,

@@ -7,9 +7,39 @@ import { server } from '@/test/msw-server'
 const { loadPublicLocations } = vi.hoisted(() => ({ loadPublicLocations: vi.fn() }))
 vi.mock('@/lib/branch-directory', () => ({ loadPublicLocations }))
 
+import { ContactForm } from './ContactForm'
 import ContactPage from './page'
 
 afterEach(cleanup)
+
+it('keeps the enquiry and reuses its delivery key after a failed send', async () => {
+  const keys: (string | null)[] = []
+  server.use(
+    http.post('*/api/contact', ({ request }) => {
+      keys.push(request.headers.get('Idempotency-Key'))
+      if (keys.length === 1) {
+        return HttpResponse.json(
+          { success: false, error: { message: 'Try again' } },
+          { status: 503 },
+        )
+      }
+      return HttpResponse.json({ success: true, data: { received: true } }, { status: 201 })
+    }),
+  )
+  render(<ContactForm branches={[]} />)
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Test Customer' } })
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'customer@example.com' } })
+  fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Please call me back.' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Send Message' }))
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('Try again')
+  expect(screen.getByLabelText('Message')).toHaveValue('Please call me back.')
+  expect(screen.queryByText('Message sent')).not.toBeInTheDocument()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Send Message' }))
+  expect(await screen.findByText('Message sent')).toBeInTheDocument()
+  expect(keys).toEqual([expect.any(String), keys[0]])
+})
 
 it('renders distinct branch hours and closures and sends the enquiry to the chosen branch', async () => {
   const first: PublicLocation = {

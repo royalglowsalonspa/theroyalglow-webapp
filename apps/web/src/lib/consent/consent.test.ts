@@ -29,7 +29,7 @@
  * Notes        : None
  ************************************************************/
 
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getConsent, rejectNonEssential, setConsent } from './consent'
 
 describe('consent', () => {
@@ -64,6 +64,20 @@ describe('consent', () => {
     expect(state.marketing).toBe(false)
     expect(state.necessary).toBe(true)
     expect(state.decided).toBe(true)
+  })
+
+  it('honors withdrawal in this tab if it cannot overwrite older grants in storage', () => {
+    setConsent({ analytics: true, marketing: true })
+    const write = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('Storage is blocked', 'SecurityError')
+    })
+    try {
+      rejectNonEssential()
+      expect(getConsent()).toMatchObject({ decided: true, analytics: false, marketing: false })
+    } finally {
+      write.mockRestore()
+      rejectNonEssential()
+    }
   })
 
   it('round-trips for arbitrary boolean pairs (PBT)', () => {

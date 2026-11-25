@@ -146,7 +146,12 @@ describe('PATCH /api/waitlist/[id]', () => {
     expect(res.status).toBe(200)
     expect(body).toEqual({ success: true, data: { entry: { id: 'w1', status: 'notified' } } })
     expect(dbMocks.getWaitlistEntryById).toHaveBeenCalledWith('w1', TEST_BRANCH.id)
-    expect(dbMocks.updateWaitlistStatus).toHaveBeenCalledWith('w1', TEST_BRANCH.id, 'notified')
+    expect(dbMocks.updateWaitlistStatus).toHaveBeenCalledWith(
+      'w1',
+      TEST_BRANCH.id,
+      'waiting',
+      'notified',
+    )
     expect(dbMocks.recordAudit).toHaveBeenCalledWith(
       expect.objectContaining({
         actorId: 'u_admin',
@@ -155,6 +160,18 @@ describe('PATCH /api/waitlist/[id]', () => {
         branchId: TEST_BRANCH.id,
       }),
     )
+  })
+
+  it('returns 409 without auditing when the entry changes before the write', async () => {
+    dbMocks.getWaitlistEntryById.mockResolvedValue({ id: 'w1', status: 'waiting' })
+    dbMocks.updateWaitlistStatus.mockResolvedValue(null)
+
+    const res = await patch('w1', { status: 'notified' })
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body.error).toMatchObject({ code: ERROR_CODES.CONFLICT, statusCode: 409 })
+    expect(dbMocks.recordAudit).not.toHaveBeenCalled()
   })
 
   it('rejects an illegal transition (waiting → booked) with the 409 envelope', async () => {

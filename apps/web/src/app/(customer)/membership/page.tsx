@@ -32,7 +32,7 @@
  * - Protected route; redirects to / (homepage) if no session
  ************************************************************/
 
-import { formatDateIN, formatINR, istToday } from '@rgss/business'
+import { daysUntilIST, formatDateIN, formatINR, istToday } from '@rgss/business'
 import { getMembershipSessions, getOwnMemberships, type OwnMembership } from '@rgss/db/queries'
 import { Sparkles } from 'lucide-react'
 import type { Metadata } from 'next'
@@ -56,7 +56,6 @@ export const metadata: Metadata = {
 
 const SALON_PHONE = '+916360135720'
 const SALON_PHONE_DISPLAY = '+91 63601 35720'
-const MS_PER_DAY = 1000 * 60 * 60 * 24
 
 // Urgency thresholds (days remaining) per the membership-flow design.
 const URGENT_DAYS = 7
@@ -86,12 +85,6 @@ function formatHoursMinutes(totalMinutes: number): string {
   const hours = Math.floor(safe / 60)
   const minutes = safe % 60
   return `${hours}h ${minutes}m`
-}
-
-// Whole days from `now` until `expiresAt`, rounded up. Expiry is stored as
-// end-of-day IST, so a same-day expiry still counts as a day remaining.
-function daysUntil(expiresAt: Date, now: Date): number {
-  return Math.ceil((expiresAt.getTime() - now.getTime()) / MS_PER_DAY)
 }
 
 export default async function MembershipPage() {
@@ -139,7 +132,10 @@ function ActiveMembershipCard({
 
   const startsAt = toDate(membership.startsAt)
   const expiresAt = toDate(membership.expiresAt)
-  const daysLeft = expiresAt ? daysUntil(expiresAt, new Date()) : null
+  const now = new Date()
+  const state =
+    expiresAt && expiresAt < now ? 'expired' : startsAt && startsAt > now ? 'scheduled' : 'active'
+  const daysLeft = expiresAt && state === 'active' ? daysUntilIST(expiresAt, now) : null
 
   return (
     <>
@@ -160,9 +156,11 @@ function ActiveMembershipCard({
               #{membership.membershipNumber}
             </p>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 font-ui text-[11px] text-emerald-700">
-            <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
-            Active
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-ui text-[11px] ${state === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-warm-cream text-cocoa-dark'}`}
+          >
+            <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
+            {state === 'active' ? 'Active' : state === 'scheduled' ? 'Scheduled' : 'Expired'}
           </span>
         </div>
 
@@ -199,7 +197,7 @@ function ActiveMembershipCard({
             </div>
             <div className="rounded-[6px] bg-warm-cream px-4 py-3">
               <dt className="mb-1 font-ui text-[11px] uppercase tracking-[1px] text-warm-stone">
-                Remaining
+                {state === 'expired' ? 'Unused' : 'Remaining'}
               </dt>
               <dd className="font-display text-[20px] text-gold-ink">
                 {formatHoursMinutes(remaining)}
@@ -224,7 +222,7 @@ function ActiveMembershipCard({
 
         {/* Validity and what was paid. A membership sold to start later says so. */}
         <div className="flex flex-col gap-2 border-t border-cloud-gray pt-4">
-          {startsAt && startsAt.getTime() > Date.now() ? (
+          {startsAt && state === 'scheduled' ? (
             <p className="font-sans text-[15px] text-cocoa-dark">
               <span className="mr-2 font-ui text-[11px] uppercase tracking-[1px] text-warm-stone">
                 Starts on
@@ -257,7 +255,8 @@ function ActiveMembershipCard({
             {membership.sellingBranchName ? (
               <span className="font-ui text-dusty-gray">
                 {' '}
-                · bought at {membership.sellingBranchName}, usable at every branch
+                · bought at {membership.sellingBranchName}
+                {state === 'active' ? ', usable at every branch' : null}
               </span>
             ) : null}
           </p>

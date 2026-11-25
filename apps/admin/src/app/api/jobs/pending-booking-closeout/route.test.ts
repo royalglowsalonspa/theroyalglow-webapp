@@ -20,7 +20,7 @@ const dbMocks = vi.hoisted(() => ({
   getPendingBooking: vi.fn(),
   getBranchPeople: vi.fn(),
   hasNotification: vi.fn(),
-  createNotification: vi.fn(),
+  createNotificationOnce: vi.fn(),
   updateBookingStatus: vi.fn(),
 }))
 const publishMock = vi.hoisted(() => vi.fn())
@@ -170,7 +170,7 @@ describe('POST /api/jobs/stale-booking-alert (alert only)', () => {
       developer: null,
     })
     dbMocks.hasNotification.mockResolvedValue(false)
-    dbMocks.createNotification.mockResolvedValue({ id: 'n_1', channel: 'push' })
+    dbMocks.createNotificationOnce.mockResolvedValue({ id: 'n_1', channel: 'push' })
 
     const res = await stalePOST(jobRequest(JSON.stringify({ bookingId: 'bk_old' })))
     expect(await res.json()).toEqual({ success: true, action: 'alerted', notified: 2 })
@@ -184,6 +184,6 @@ describe('POST /api/jobs/stale-booking-alert (alert only)', () => {
 
     const res = await stalePOST(jobRequest(JSON.stringify({ bookingId: 'bk_1' })))
     expect(await res.json()).toEqual({ success: true, action: 'none', notified: 0 })
-    expect(dbMocks.createNotification).not.toHaveBeenCalled()
+    expect(dbMocks.createNotificationOnce).not.toHaveBeenCalled()
   })
 })

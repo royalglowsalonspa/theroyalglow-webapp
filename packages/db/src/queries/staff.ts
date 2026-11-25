@@ -45,6 +45,7 @@ import { booking, bookingService } from '../schema/booking'
 import { branch } from '../schema/branch'
 import { staffProfile } from '../schema/profile'
 import { staffService } from '../schema/service'
+import { isGuardAbort } from './driver-errors'
 
 /** A role a staff profile can grant (its role witness). */
 export type StaffRoleWitness = 'staff' | 'receptionist' | 'manager'
@@ -188,18 +189,26 @@ export async function getStaffServiceIds(staffId: string): Promise<string[]> {
  * Therapist, so it also requires the Staff role. Returns the updated row, or
  * null when no such staff member works there (moved, removed or never).
  */
-export async function updateStaffMemberAtBranch(params: {
+type StaffMemberWrite = {
   id: string
   branchId: string
   actorId: string
   roles: readonly StaffRoleWitness[]
-  patch: Omit<StaffProfileUpdateInput, 'branchId'>
-}) {
-  const { id, branchId, patch } = params
+  patch: Omit<StaffProfileUpdateInput, 'branchId' | 'serviceIds'>
+  serviceIds?: string[] | undefined
+}
+
+export async function updateStaffMemberAtBranch(params: StaffMemberWrite) {
+  const updated = await writeStaffMemberAtBranch(params)
+  return updated ? getStaffMemberAtBranch(params.id, params.branchId) : null
+}
+
+async function writeStaffMemberAtBranch(params: StaffMemberWrite): Promise<boolean> {
+  const { id, branchId, patch, serviceIds } = params
   const roles =
     patch.designation === undefined ? params.roles : params.roles.filter((r) => r === 'staff')
   if (roles.length === 0) {
-    return null
+    return false
   }
 
   const values: Partial<typeof staffProfile.$inferInsert> = {}
@@ -232,35 +241,44 @@ export async function updateStaffMemberAtBranch(params: {
       ),
     )
     .returning({ id: staffProfile.id })
-  const [updated] =
-    patch.designation === undefined
-      ? await update
-      : (
-          await db.batch([
-            db.execute(
-              sql`select set_config('rgss.staff_designation_actor', ${params.actorId}, true)`,
-            ),
-            update,
-          ])
-        )[1]
-  return updated ? getStaffMemberAtBranch(updated.id, branchId) : null
-}
-
-// Replace the staff_service rows for a staff member atomically. IDs are
-// de-duplicated; an empty set clears all capabilities. Returns the persisted
-// (de-duplicated) serviceIds. Referential safety is validated by the caller.
-export async function setStaffServices(staffId: string, serviceIds: string[]) {
-  const unique = [...new Set(serviceIds)]
-  const deleteExisting = db.delete(staffService).where(eq(staffService.staffId, staffId))
-
-  if (unique.length === 0) {
-    await deleteExisting
-    return []
+  const setActor = db.execute(
+    sql`select set_config('rgss.staff_designation_actor', ${params.actorId}, true)`,
+  )
+  if (serviceIds === undefined) {
+    const [updated] =
+      patch.designation === undefined ? await update : (await db.batch([setActor, update]))[1]
+    return Boolean(updated)
   }
 
-  await db.batch([
-    deleteExisting,
-    db.insert(staffService).values(unique.map((serviceId) => ({ staffId, serviceId }))),
-  ])
-  return unique
+  // Lock the branch while a Manager's assignment is used. The guarded update
+  // takes the same staff row lock for both save routes and holds it during
+  // replacement, even when there were no existing capability rows to lock.
+  const lockBranch = db
+    .select({ id: branch.id })
+    .from(branch)
+    .where(eq(branch.id, branchId))
+    .for('share')
+  const requireUpdated = db.execute(
+    sql`with changed as (${update.getSQL()}) select 1 / count(*)::int as ok from changed`,
+  )
+  const unique = [...new Set(serviceIds)]
+  const deleteExisting = db.delete(staffService).where(eq(staffService.staffId, id))
+  const insert = unique.length
+    ? [db.insert(staffService).values(unique.map((serviceId) => ({ staffId: id, serviceId })))]
+    : []
+  try {
+    await db.batch([lockBranch, setActor, requireUpdated, deleteExisting, ...insert])
+    return true
+  } catch (error) {
+    if (isGuardAbort(error)) return false
+    throw error
+  }
+}
+
+// The capability-only API uses the same transaction as a combined staff edit.
+export async function setStaffServices(
+  params: Omit<StaffMemberWrite, 'patch' | 'serviceIds'> & { serviceIds: string[] },
+) {
+  const updated = await writeStaffMemberAtBranch({ ...params, patch: {} })
+  return updated ? [...new Set(params.serviceIds)] : null
 }

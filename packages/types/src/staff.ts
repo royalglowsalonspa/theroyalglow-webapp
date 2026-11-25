@@ -88,6 +88,7 @@ export type StaffAvailabilityQuery = z.infer<typeof staffAvailabilityQuerySchema
 export const SPECIALIZATION_MAX_LENGTH = 200
 
 const specialization = z.string().trim().max(SPECIALIZATION_MAX_LENGTH).nullable().optional()
+const staffServiceIds = z.array(z.string().min(1)).max(500)
 
 // Add an existing account, found with the people search, as a Stylist or
 // Therapist at the branch the page was rendered for (R1.11). Role, profile,
@@ -112,6 +113,7 @@ export const staffProfileUpdateSchema = z.object({
   bio: z.string().trim().max(1000).nullable().optional(),
   specialization,
   hireDate: z.coerce.date().nullable().optional(),
+  serviceIds: staffServiceIds.optional(),
 })
 export type StaffProfileUpdateInput = z.infer<typeof staffProfileUpdateSchema>
 
@@ -125,7 +127,7 @@ export type StaffRemoveInput = z.infer<typeof staffRemoveSchema>
 // the branch the page was rendered for (R2.4).
 export const staffServiceAssignmentSchema = z.object({
   branchId: recordId,
-  serviceIds: z.array(z.string().min(1)).max(500),
+  serviceIds: staffServiceIds,
 })
 export type StaffServiceAssignmentInput = z.infer<typeof staffServiceAssignmentSchema>
 

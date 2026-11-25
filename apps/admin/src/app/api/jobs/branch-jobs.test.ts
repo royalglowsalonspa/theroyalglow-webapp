@@ -17,7 +17,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const dbMocks = vi.hoisted(() => ({
   getBranchPeople: vi.fn(),
-  hasNotification: vi.fn(),
   hasNotificationSince: vi.fn(),
   createNotificationOnce: vi.fn(),
   createNotification: vi.fn(),
@@ -113,7 +112,6 @@ beforeEach(() => {
   vi.stubEnv('QSTASH_CURRENT_SIGNING_KEY', undefined)
   vi.stubEnv('QSTASH_NEXT_SIGNING_KEY', undefined)
   vi.stubEnv('INTERNAL_JOB_TOKEN', undefined)
-  dbMocks.hasNotification.mockResolvedValue(false)
   dbMocks.hasNotificationSince.mockResolvedValue(false)
   dbMocks.createNotificationOnce.mockImplementation(async (p) => created(p))
   dbMocks.createNotification.mockImplementation(async (p) => created(p))
@@ -127,11 +125,11 @@ afterEach(() => {
 })
 
 function notifiedUsers(): string[] {
-  return dbMocks.createNotification.mock.calls.map(([p]) => p.userId)
+  return dbMocks.createNotificationOnce.mock.calls.map(([p]) => p.userId)
 }
 
 function notificationFor(userId: string) {
-  return dbMocks.createNotification.mock.calls.map(([p]) => p).find((p) => p.userId === userId)
+  return dbMocks.createNotificationOnce.mock.calls.map(([p]) => p).find((p) => p.userId === userId)
 }
 
 function emailTo(address: string) {
@@ -146,6 +144,7 @@ describe('POST /api/jobs/noshow-check', () => {
       status: 'confirmed',
       branchId: 'branch_mh',
       bookingDate: new Date('2026-10-25T00:00:00.000Z'),
+      startTime: '16:00:00',
       endTime: '17:00:00',
     })
     dbMocks.getBranchPeople.mockResolvedValue({ branches: [MH], developer: DEV })
@@ -175,6 +174,7 @@ describe('POST /api/jobs/noshow-check', () => {
       status: 'confirmed',
       branchId: 'branch_mh',
       bookingDate: new Date('2026-10-26T00:00:00.000Z'),
+      startTime: '16:00:00',
       endTime: '17:00:00',
     })
 
@@ -183,6 +183,24 @@ describe('POST /api/jobs/noshow-check', () => {
     expect(await res.json()).toEqual({ success: true, notified: 0 })
     expect(dbMocks.getBranchPeople).not.toHaveBeenCalled()
     expect(dispatchMock).not.toHaveBeenCalled()
+  })
+
+  it('waits through the grace period on the next IST day for an overnight appointment', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-26T19:14:59.999Z') })
+    dbMocks.getBookingForNoShow.mockResolvedValue({
+      id: 'bk_night',
+      status: 'confirmed',
+      branchId: 'branch_mh',
+      bookingDate: new Date('2026-10-26T00:00:00.000Z'),
+      startTime: '23:30:00',
+      endTime: '00:30:00',
+    })
+    dbMocks.getBranchPeople.mockResolvedValue({ branches: [MH], developer: DEV })
+    const body = JSON.stringify({ bookingId: 'bk_night' })
+
+    expect(await (await noshowPOST(jobRequest(body))).json()).toMatchObject({ notified: 0 })
+    vi.setSystemTime(new Date('2026-10-26T19:15:00.000Z'))
+    expect(await (await noshowPOST(jobRequest(body))).json()).toMatchObject({ notified: 1 })
   })
 
   it('leaves a booking that was already actioned alone', async () => {
@@ -244,6 +262,21 @@ describe('POST /api/jobs/lead-followups', () => {
 
     expect(await res.json()).toEqual({ success: true, processed: 0, unrouted: 0 })
     expect(dbMocks.getBranchPeople).not.toHaveBeenCalled()
+  })
+
+  it('skips dispatch when another delivery won the daily claim', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-25T18:45:00.000Z') })
+    dbMocks.getStaleFollowUpLeads.mockResolvedValue([leads[0]])
+    dbMocks.getBranchPeople.mockResolvedValue({ branches: [RS], developer: DEV })
+    dbMocks.createNotificationOnce.mockResolvedValueOnce(null)
+
+    const res = await leadsPOST(jobRequest())
+
+    expect(await res.json()).toEqual({ success: true, processed: 0, unrouted: 0 })
+    expect(dbMocks.createNotificationOnce).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'lead_follow_up_due:["reception","2026-10-26"]' }),
+    )
+    expect(dispatchMock).not.toHaveBeenCalled()
   })
 })
 
@@ -438,6 +471,7 @@ describe('customer messages name the real branch', () => {
     customerId: 'cust_1',
     bookingDate: new Date('2026-10-26T00:00:00.000Z'),
     startTime: '10:05:00',
+    slotAcceptedAt: new Date('2026-10-24T04:00:00.000Z'),
     branch: {
       name: 'Marathahalli',
       addressLine1: '42 Outer Ring Road',
@@ -468,7 +502,7 @@ describe('customer messages name the real branch', () => {
 
     expect(await res.json()).toEqual({ success: true, processed: 1 })
     expect(dbMocks.createNotificationOnce).toHaveBeenCalledWith({
-      id: `${type}:bk_9`,
+      id: `${type}:["bk_9","2026-10-26T04:35:00.000Z","2026-10-24T04:00:00.000Z"]`,
       type,
       bookingId: 'bk_9',
       userId: 'cust_1',
@@ -490,14 +524,15 @@ describe('customer messages name the real branch', () => {
       { ...confirmedBooking, id: 'bk_opted_out', appointmentRemindersEnabled: false },
       confirmedBooking,
     ])
-    dbMocks.hasNotification.mockResolvedValueOnce(true)
+    dbMocks.hasNotificationSince.mockResolvedValueOnce(true)
 
     const res = await remindersPOST(jobRequest())
 
     expect(await res.json()).toEqual({ success: true, processed: 0 })
-    expect(dbMocks.hasNotification).toHaveBeenCalledExactlyOnceWith(
+    expect(dbMocks.hasNotificationSince).toHaveBeenCalledExactlyOnceWith(
       'cust_1',
       'reminder_24h',
+      confirmedBooking.slotAcceptedAt,
       'bk_9',
     )
     expect(dbMocks.createNotificationOnce).not.toHaveBeenCalled()
@@ -515,6 +550,25 @@ describe('customer messages name the real branch', () => {
     expect(await res.json()).toEqual({ success: true, processed: 0 })
     expect(dispatchMock).not.toHaveBeenCalled()
     expect(sendEmailMock).not.toHaveBeenCalled()
+  })
+
+  it('creates a separate occurrence for the moved appointment', async () => {
+    setReminderTime('2026-10-25T05:00:00.000Z')
+    const movedAt = new Date('2026-10-25T04:50:00.000Z')
+    dbMocks.getUpcomingConfirmedBookings.mockResolvedValue([
+      { ...confirmedBooking, startTime: '10:35:00', slotAcceptedAt: movedAt },
+    ])
+    const originalReminderAt = new Date('2026-10-25T04:30:00.000Z')
+    dbMocks.hasNotificationSince.mockImplementation(
+      async (_userId: string, _type: string, since: Date) => originalReminderAt >= since,
+    )
+
+    expect(await (await remindersPOST(jobRequest())).json()).toMatchObject({ processed: 1 })
+    expect(dbMocks.createNotificationOnce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'reminder_24h:["bk_9","2026-10-26T05:05:00.000Z","2026-10-25T04:50:00.000Z"]',
+      }),
+    )
   })
 
   it("the review request links the branch's own Google listing, escaped", async () => {
@@ -536,6 +590,24 @@ describe('customer messages name the real branch', () => {
     const email = emailTo('asha@x.test')
     expect(email?.html).toContain('at Royal Glow Rayasandra')
     expect(email?.html).toContain('href="https://maps.app.goo.gl/abc?x=1&amp;y=2"')
+    expect(email?.idempotencyKey).toBe('post-service-followup/bk_7')
+  })
+
+  it('lets QStash retry a configured follow-up provider failure', async () => {
+    vi.stubEnv('RESEND_API_KEY', 'synthetic_configured')
+    sendEmailMock.mockResolvedValueOnce(false)
+    dbMocks.getBookingForFollowup.mockResolvedValue({
+      id: 'bk_retry',
+      status: 'completed',
+      serviceType: 'salon',
+      marketingConsent: true,
+      customerEmail: 'customer@example.test',
+      branchName: 'Rayasandra',
+    })
+
+    const response = await followupPOST(jobRequest(JSON.stringify({ bookingId: 'bk_retry' })))
+    expect(response.status).toBe(503)
+    expect(heartbeatMock).not.toHaveBeenCalled()
   })
 
   it('drops a review link that is not https', async () => {

@@ -43,7 +43,7 @@ import type { SalesReportIssuerRevenue } from '@rgss/types'
 import { and, asc, desc, eq, gte, isNotNull, isNull, lt, lte, sql } from 'drizzle-orm'
 import { db } from '../index'
 import { session, user } from '../schema/auth'
-import { booking } from '../schema/booking'
+import { booking, bookingStatusLog } from '../schema/booking'
 import { branch } from '../schema/branch'
 import { invoice, invoiceItem } from '../schema/invoice'
 import { lead } from '../schema/lead'
@@ -376,7 +376,7 @@ export async function buildMonthlyGstSummary(monthKey: string) {
 // Job 8 — confirmed bookings on or after today (IST), each with the branch's
 // contact details, the customer's email and their reminder preference. The
 // route computes the start instant from bookingDate + startTime, classifies it via
-// reminderWindowMatch (24h/1h), de-dupes via hasNotification, and sends.
+// reminderWindowMatch (24h/1h) and dedupes each version of the appointment.
 export async function getUpcomingConfirmedBookings(now: Date = new Date()) {
   const today = new Date(`${istDateString(now)}T00:00:00.000Z`)
   return db
@@ -385,6 +385,12 @@ export async function getUpcomingConfirmedBookings(now: Date = new Date()) {
       customerId: booking.customerId,
       bookingDate: booking.bookingDate,
       startTime: booking.startTime,
+      slotAcceptedAt: sql<Date>`coalesce(
+        (select max(${bookingStatusLog.createdAt}) from ${bookingStatusLog}
+          where ${bookingStatusLog.bookingId} = ${booking.id}
+            and ${bookingStatusLog.notes} like 'Rescheduled to %'),
+        ${booking.createdAt}
+      )`.mapWith(booking.createdAt),
       branch: {
         name: branch.name,
         addressLine1: branch.addressLine1,
@@ -844,7 +850,7 @@ export async function hasNotificationSince(
 // 30 16 * * * UTC = 10:00 PM IST, after the 21:00 close). A booking the salon
 // never confirmed, rejected or cancelled must not stay 'pending' once its
 // appointment is over, so every still-pending booking whose IST end instant
-// (booking_date + end_time) is at or before `now` becomes 'no_show'.
+// is at or before `now` becomes 'no_show', including slots that end after midnight.
 //
 // - Status-guarded UPDATE → idempotent: a QStash retry or re-run matches only
 //   rows that are still pending, i.e. nothing it already closed.
@@ -868,7 +874,10 @@ export async function closeLapsedPendingBookings(now: Date = new Date()) {
       .where(
         and(
           eq(booking.status, 'pending'),
-          sql`(${booking.bookingDate} + ${booking.endTime}) AT TIME ZONE 'Asia/Kolkata' <= ${now.toISOString()}::timestamptz`,
+          sql`coalesce(
+            upper(booking_planned_during(${booking.bookingDate}, ${booking.startTime}, ${booking.endTime})),
+            (${booking.bookingDate} + ${booking.endTime}) AT TIME ZONE 'Asia/Kolkata'
+          ) <= ${now.toISOString()}::timestamptz`,
         ),
       )
       .returning({

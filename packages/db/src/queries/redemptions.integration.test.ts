@@ -49,7 +49,14 @@
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { db } from '../index'
-import { isLiveDbAvailable, queryRow, queryRows } from '../test/live-db'
+import {
+  isLiveDbAvailable,
+  queryRow,
+  queryRows,
+  requireOperationalPrimaryBranchId,
+} from '../test/live-db'
+import { createBookingWithServices } from './bookings'
+import { countUpcomingBookingsAtBranch } from './branch-settings'
 import { getRedeemableServices } from './loyalty'
 import { redeemServiceWithGems } from './redemptions'
 
@@ -67,10 +74,6 @@ const SERVICE_B = `${PREFIX}_svc_b`
 const SERVICE_UNORDERED = `${PREFIX}_svc_unordered`
 const REDEMPTION_KEY = `${PREFIX}-idem-key`
 
-// Existing dev rows the seeded services hang off — never modified.
-const CATEGORY_ID = 'cat_haircut'
-const BRANCH_ID = 'branch_rayasandra'
-
 const START_BALANCE = 900
 const COST_A = 300
 
@@ -87,7 +90,9 @@ async function catalogueCounts(): Promise<CountRow> {
 }
 
 let baselineCounts: CountRow
-let staffId: string | null = null
+let branchId: string
+let categoryId: string
+let staffId: string
 /** booking ids this suite created, so cleanup can be precise. */
 const createdBookingIds: string[] = []
 
@@ -96,7 +101,7 @@ async function seedService(id: string, gemsRequired: number, order: number | nul
     INSERT INTO public.service
       (id, category_id, name, slug, duration_minutes, buffer_minutes, price_paise,
        is_active, display_order, gems_redeemable, gems_required, gems_catalogue_order)
-    VALUES (${id}, ${CATEGORY_ID}, ${`ZZ Gems IT ${id}`}, ${id}, 30, 0, 100000,
+    VALUES (${id}, ${categoryId}, ${`ZZ Gems IT ${id}`}, ${id}, 30, 0, 100000,
             true, 999, true, ${gemsRequired}, ${order})
   `)
 }
@@ -104,11 +109,29 @@ async function seedService(id: string, gemsRequired: number, order: number | nul
 describe.skipIf(!LIVE)('gems redemption against a live database (Task 7.4)', () => {
   beforeAll(async () => {
     baselineCounts = await catalogueCounts()
+    branchId = await requireOperationalPrimaryBranchId()
+
+    const category = await queryRow<{ id: string }>(sql`
+      SELECT c.id FROM public.service_category c
+      WHERE c.is_active AND c.service_type = 'salon'
+        AND (c.all_branches OR EXISTS (
+          SELECT 1 FROM public.service_category_branch cb
+          WHERE cb.category_id = c.id AND cb.branch_id = ${branchId}
+        ))
+      ORDER BY c.id LIMIT 1
+    `)
+    if (!category) throw new Error('The primary branch needs an available salon category')
+    categoryId = category.id
 
     const staff = await queryRow<{ id: string }>(sql`
-      SELECT id FROM public.staff_profile WHERE is_active = true LIMIT 1
+      SELECT sp.id FROM public.staff_profile sp
+      JOIN public.branch b ON b.id = ${branchId}
+      WHERE sp.is_active
+        AND (sp.branch_id = b.id OR sp.user_id = b.manager_user_id)
+      ORDER BY (sp.designation = 'stylist') DESC, sp.id LIMIT 1
     `)
-    staffId = staff?.id ?? null
+    if (!staff) throw new Error('The primary branch needs an active staff profile')
+    staffId = staff.id
 
     await queryRows(sql`
       INSERT INTO public."user" (id, name, email, email_verified, role)
@@ -124,7 +147,7 @@ describe.skipIf(!LIVE)('gems redemption against a live database (Task 7.4)', () 
     await queryRows(sql`
       INSERT INTO public.loyalty_transaction
         (id, loyalty_account_id, type, gems_amount, branch_id, description, expires_at)
-      VALUES (${BATCH_ID}, ${ACCOUNT_ID}, 'earned', ${START_BALANCE}, ${BRANCH_ID},
+      VALUES (${BATCH_ID}, ${ACCOUNT_ID}, 'earned', ${START_BALANCE}, ${branchId},
               'ZZ Gems IT batch', now() + interval '300 days')
     `)
 
@@ -200,7 +223,7 @@ describe.skipIf(!LIVE)('gems redemption against a live database (Task 7.4)', () 
     const result = await redeemServiceWithGems({
       accountId: ACCOUNT_ID,
       customerId: USER_ID,
-      branchId: BRANCH_ID,
+      branchId,
       bookingNumber: `BK-RS-2608-H-${RUN.slice(0, 5)}`,
       serviceType: 'salon',
       bookingDate: new Date('2026-08-10T00:00:00.000Z'),
@@ -210,7 +233,7 @@ describe.skipIf(!LIVE)('gems redemption against a live database (Task 7.4)', () 
       gemsRequired: COST_A,
       serviceId: SERVICE_A,
       serviceName: `ZZ Gems IT ${SERVICE_A}`,
-      staffId: staffId as string,
+      staffId,
       idempotencyKey: REDEMPTION_KEY,
       description: 'Redeemed: ZZ Gems IT service',
       settingsRevision: 1,
@@ -292,8 +315,8 @@ describe.skipIf(!LIVE)('gems redemption against a live database (Task 7.4)', () 
       ORDER BY type
     `)
     expect(transactions).toEqual([
-      { type: 'earned', gems_amount: START_BALANCE, booking_id: null, branch_id: BRANCH_ID },
-      { type: 'redeemed', gems_amount: COST_A, booking_id: result.bookingId, branch_id: BRANCH_ID },
+      { type: 'earned', gems_amount: START_BALANCE, booking_id: null, branch_id: branchId },
+      { type: 'redeemed', gems_amount: COST_A, booking_id: result.bookingId, branch_id: branchId },
     ])
 
     // (5) the redemption spent the batch: what it took is recorded, active
@@ -319,7 +342,7 @@ describe.skipIf(!LIVE)('gems redemption against a live database (Task 7.4)', () 
       redeemServiceWithGems({
         accountId: ACCOUNT_ID,
         customerId: USER_ID,
-        branchId: BRANCH_ID,
+        branchId,
         bookingNumber: `BK-RS-2608-H-${RUN.slice(0, 4)}9`,
         serviceType: 'salon',
         bookingDate: new Date('2026-08-11T00:00:00.000Z'),
@@ -329,7 +352,7 @@ describe.skipIf(!LIVE)('gems redemption against a live database (Task 7.4)', () 
         gemsRequired: (before?.gems_balance ?? 0) + 1,
         serviceId: SERVICE_B,
         serviceName: `ZZ Gems IT ${SERVICE_B}`,
-        staffId: staffId as string,
+        staffId,
         idempotencyKey: failedKey,
         description: 'Redeemed: should never persist',
         settingsRevision: 1,
@@ -376,7 +399,7 @@ describe.skipIf(!LIVE)('gems redemption against a live database (Task 7.4)', () 
     const replay = await redeemServiceWithGems({
       accountId: ACCOUNT_ID,
       customerId: USER_ID,
-      branchId: BRANCH_ID,
+      branchId,
       bookingNumber: `BK-RS-2608-H-${RUN.slice(0, 4)}8`,
       serviceType: 'salon',
       bookingDate: new Date('2026-08-10T00:00:00.000Z'),
@@ -386,7 +409,7 @@ describe.skipIf(!LIVE)('gems redemption against a live database (Task 7.4)', () 
       gemsRequired: COST_A,
       serviceId: SERVICE_A,
       serviceName: `ZZ Gems IT ${SERVICE_A}`,
-      staffId: staffId as string,
+      staffId,
       idempotencyKey: REDEMPTION_KEY,
       description: 'Redeemed: replay',
       settingsRevision: 1,
@@ -407,33 +430,71 @@ describe.skipIf(!LIVE)('gems redemption against a live database (Task 7.4)', () 
     ).toEqual({ count: '1' })
   })
 
+  it('lets just one simultaneous ordinary booking and redemption take the last booking place', async () => {
+    const todayISO = '2099-06-01'
+    const bookingDate = new Date(`${todayISO}T00:00:00.000Z`)
+    const existing = await countUpcomingBookingsAtBranch(USER_ID, branchId, todayISO)
+    const admission = { branchName: 'test branch', todayISO, maxUpcoming: existing + 1 }
+    const before = await queryRow<{ gems_balance: number }>(sql`
+      select gems_balance from loyalty_account where id = ${ACCOUNT_ID}
+    `)
+    const ordinaryNumber = `${PREFIX}_ordinary_cap`
+    const redeemNumber = `${PREFIX}_gems_cap`
+    const results = await Promise.allSettled([
+      createBookingWithServices(
+        {
+          bookingNumber: ordinaryNumber,
+          branchId,
+          customerId: USER_ID,
+          serviceType: 'salon',
+          status: 'pending',
+          bookingDate,
+          startTime: '10:00',
+          endTime: '10:30',
+          totalDurationMinutes: 30,
+          settingsRevision: 1,
+        },
+        [],
+        { admission },
+      ),
+      redeemServiceWithGems({
+        accountId: ACCOUNT_ID,
+        customerId: USER_ID,
+        branchId,
+        bookingNumber: redeemNumber,
+        serviceType: 'salon',
+        bookingDate,
+        startTime: '11:00',
+        endTime: '11:30',
+        durationMinutes: 30,
+        gemsRequired: COST_A,
+        serviceId: SERVICE_A,
+        serviceName: 'ZZ Gems IT service',
+        staffId,
+        idempotencyKey: `${REDEMPTION_KEY}-cap`,
+        description: 'Redeemed: ZZ Gems IT service',
+        settingsRevision: 1,
+        admission,
+      }),
+    ])
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
+    const refused = results.find((result) => result.status === 'rejected')
+    expect(refused?.reason).toMatchObject({ code: 'BOOKING_LIMIT_REACHED', statusCode: 409 })
+    expect(await countUpcomingBookingsAtBranch(USER_ID, branchId, todayISO)).toBe(existing + 1)
+    const after = await queryRow<{ gems_balance: number }>(sql`
+      select gems_balance from loyalty_account where id = ${ACCOUNT_ID}
+    `)
+    const expectedSpend = results[1]?.status === 'fulfilled' ? COST_A : 0
+    expect(after?.gems_balance).toBe(Number(before?.gems_balance) - expectedSpend)
+  })
+
   it('returns the catalogue ordered by gemsCatalogueOrder ascending, nulls last (Req 1.5)', async () => {
     const catalogue = await getRedeemableServices()
 
-    // Postgres did the ordering; assert the seeded rows come back in the order
-    // the requirement mandates, with the null-order row last.
+    // The application query must put the two ordered fixtures first, followed
+    // by the unordered fixture. Other catalogue entries do not affect the test.
     const seeded = catalogue.filter((s) => s.id.startsWith(PREFIX)).map((s) => s.id)
     expect(seeded).toEqual([SERVICE_A, SERVICE_B, SERVICE_UNORDERED])
-
-    // And globally: every non-null order is non-decreasing and precedes the nulls.
-    const orders = await queryRows<{ gems_catalogue_order: number | null }>(sql`
-      SELECT s.gems_catalogue_order
-      FROM public.service s
-      WHERE s.gems_redeemable = true AND s.is_active = true
-      ORDER BY s.gems_catalogue_order ASC NULLS LAST
-    `)
-    let seenNull = false
-    let previous: number | null = null
-    for (const { gems_catalogue_order: order } of orders) {
-      if (order === null) {
-        seenNull = true
-        continue
-      }
-      expect(seenNull).toBe(false)
-      if (previous !== null) {
-        expect(order).toBeGreaterThanOrEqual(previous)
-      }
-      previous = order
-    }
   })
 })

@@ -184,13 +184,50 @@ describe('PATCH /api/branches/[id] — Developer edits', () => {
     dbMocks.updateBranch.mockResolvedValue({ id: 'br1', status: 'temporarily_closed' })
 
     const res = await branchIdRoute.PATCH(
-      jsonReq(`${BASE}/br1`, 'PATCH', { status: 'temporarily_closed' }),
+      jsonReq(`${BASE}/br1`, 'PATCH', {
+        status: 'temporarily_closed',
+        expectedStatus: 'operational',
+      }),
       { params: Promise.resolve({ id: 'br1' }) },
     )
 
     expect(res.status).toBe(200)
     expect(mocks.requireCurrentRole).toHaveBeenCalledWith('developer')
-    expect(dbMocks.updateBranch).toHaveBeenCalledWith('br1', { status: 'temporarily_closed' })
+    expect(dbMocks.updateBranch).toHaveBeenCalledWith(
+      'br1',
+      { status: 'temporarily_closed' },
+      'operational',
+    )
+  })
+
+  it.each([undefined, 'operational'])(
+    'refuses reopening from a stale form with expected status %s',
+    async (expectedStatus) => {
+      dbMocks.getBranchById.mockResolvedValue({ id: 'br1', name: 'Rayasandra', status: 'shutdown' })
+      const res = await branchIdRoute.PATCH(
+        jsonReq(`${BASE}/br1`, 'PATCH', {
+          name: 'New name',
+          status: 'operational',
+          expectedStatus,
+        }),
+        { params: Promise.resolve({ id: 'br1' }) },
+      )
+      expect(res.status).toBe(409)
+      expect(dbMocks.updateBranch).not.toHaveBeenCalled()
+      expect(mocks.audit).not.toHaveBeenCalled()
+    },
+  )
+
+  it('reports a branch status that changes between the read and the write', async () => {
+    dbMocks.getBranchById.mockResolvedValue({ id: 'br1', name: 'Rayasandra', status: 'shutdown' })
+    dbMocks.updateBranch.mockResolvedValue(null)
+    const res = await branchIdRoute.PATCH(
+      jsonReq(`${BASE}/br1`, 'PATCH', { status: 'operational', expectedStatus: 'shutdown' }),
+      { params: Promise.resolve({ id: 'br1' }) },
+    )
+    expect(res.status).toBe(409)
+    expect(dbMocks.updateBranch).toHaveBeenCalledWith('br1', { status: 'operational' }, 'shutdown')
+    expect(mocks.audit).not.toHaveBeenCalled()
   })
 
   it('never changes the Owner', async () => {
@@ -317,14 +354,20 @@ describe('PATCH /api/branches/[id] — shutting down (R1.10)', () => {
     })
 
     const res = await branchIdRoute.PATCH(
-      jsonReq(`${BASE}/br2`, 'PATCH', { status: 'shutdown', temporaryCloseReason: 'Lease ended' }),
+      jsonReq(`${BASE}/br2`, 'PATCH', {
+        status: 'shutdown',
+        expectedStatus: 'operational',
+        temporaryCloseReason: 'Lease ended',
+      }),
       ctxFor('br2'),
     )
 
     expect(res.status).toBe(200)
-    expect(dbMocks.shutDownBranch).toHaveBeenCalledWith('br2', {
-      temporaryCloseReason: 'Lease ended',
-    })
+    expect(dbMocks.shutDownBranch).toHaveBeenCalledWith(
+      'br2',
+      { temporaryCloseReason: 'Lease ended' },
+      'operational',
+    )
     expect(dbMocks.updateBranch).not.toHaveBeenCalled()
     expect(mocks.audit).toHaveBeenCalledWith(
       expect.any(Request),
@@ -338,7 +381,7 @@ describe('PATCH /api/branches/[id] — shutting down (R1.10)', () => {
     dbMocks.getBranchShutdownBlockers.mockResolvedValue(OPEN)
 
     const res = await branchIdRoute.PATCH(
-      jsonReq(`${BASE}/br2`, 'PATCH', { status: 'shutdown' }),
+      jsonReq(`${BASE}/br2`, 'PATCH', { status: 'shutdown', expectedStatus: 'operational' }),
       ctxFor('br2'),
     )
     const body = await res.json()
@@ -362,10 +405,14 @@ describe('PATCH /api/branches/[id] — shutting down (R1.10)', () => {
     )
 
     expect(dbMocks.shutDownBranch).not.toHaveBeenCalled()
-    expect(dbMocks.updateBranch).toHaveBeenCalledWith('br2', {
-      status: 'shutdown',
-      phone: '+91 80 0000 0000',
-    })
+    expect(dbMocks.updateBranch).toHaveBeenCalledWith(
+      'br2',
+      {
+        status: 'shutdown',
+        phone: '+91 80 0000 0000',
+      },
+      'shutdown',
+    )
   })
 })
 
