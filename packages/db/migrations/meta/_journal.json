@@ -302,6 +302,20 @@
       "when": 1795361530946,
       "tag": "0042_membership_session_completion",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1795631125727,
+      "tag": "0043_customer_booking_request",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1795631639209,
+      "tag": "0044_push_subscription_binding",
+      "breakpoints": true
     }
   ]
 }

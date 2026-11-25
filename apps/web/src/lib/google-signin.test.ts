@@ -71,7 +71,7 @@ describe('startGoogleSignIn — first-time registrations reach /onboarding', () 
     expect(socialCallArg()).toMatchObject({
       provider: 'google',
       callbackURL: '/?book=1',
-      newUserCallbackURL: '/onboarding',
+      newUserCallbackURL: '/onboarding?book=1',
     })
   })
 
@@ -108,7 +108,10 @@ describe('startGoogleSignIn — context kept across the OAuth redirect', () => {
     })
     try {
       await startGoogleSignIn('/?book=1')
-      expect(socialCallArg()).toMatchObject({ callbackURL: '/?book=1' })
+      expect(socialCallArg()).toMatchObject({
+        callbackURL: '/?book=1',
+        newUserCallbackURL: '/onboarding?book=1',
+      })
     } finally {
       write.mockRestore()
       window.history.replaceState(null, '', '/')

@@ -215,6 +215,11 @@ async function redeemNewService(input: RedeemGemsInput, customerId: string) {
     idempotencyKey,
     description: `Redeemed: ${service.name}`,
     settingsRevision: policy.revision,
+    admission: {
+      branchName: branch.name,
+      todayISO: istToday(now),
+      maxUpcoming: policy.bookingRules.maxActiveBookingsPerCustomer,
+    },
   })
 
   // A concurrent winner can commit after the initial replay lookup. The data

@@ -78,7 +78,12 @@ describe('reminderWindowMatch', () => {
 describe('noShowCheckDelaySeconds', () => {
   it('rounds up a partial second to keep the queued check after the IST grace period', () => {
     const now = new Date('2026-05-30T11:44:59.900Z').getTime()
-    expect(noShowCheckDelaySeconds('2026-05-30', '17:00', now)).toBe(1)
+    expect(noShowCheckDelaySeconds('2026-05-30', '16:00', '17:00', now)).toBe(1)
+  })
+
+  it('waits for the next IST day when the appointment ends after midnight', () => {
+    const justBeforeGrace = new Date('2026-05-30T19:14:59.500Z').getTime()
+    expect(noShowCheckDelaySeconds('2026-05-30', '23:30', '00:30', justBeforeGrace)).toBe(1)
   })
 })
 

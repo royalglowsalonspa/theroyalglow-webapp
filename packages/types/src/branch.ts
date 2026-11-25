@@ -107,6 +107,9 @@ export type BranchCreateInput = z.infer<typeof branchCreateSchema>
 // Editing never changes the Owner: that is the Owner handover in Users & Roles.
 export const branchUpdateSchema = branchFieldsSchema.partial()
 export type BranchUpdateInput = z.infer<typeof branchUpdateSchema>
+export const branchUpdateRequestSchema = branchUpdateSchema.extend({
+  expectedStatus: z.enum(BRANCH_STATUSES).optional(),
+})
 
 // The admin branch switcher's choice (R2.1). A preference only: the server
 // uses it only for a branch the person can access.

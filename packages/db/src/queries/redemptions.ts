@@ -43,10 +43,16 @@
 
 import { AppError, ERROR_CODES } from '@rgss/errors'
 import { and, eq, sql } from 'drizzle-orm'
+import type { BatchItem } from 'drizzle-orm/batch'
 import { nanoid } from 'nanoid'
 import { db } from '../index'
 import { booking } from '../schema/booking'
 import { service, serviceCategory } from '../schema/service'
+import {
+  type CustomerBookingAdmission,
+  customerBookingAdmissionError,
+  customerBookingAdmissionStatements,
+} from './booking-admission'
 import {
   isBranchAvailabilityRefusal,
   serviceAvailableBranchIds,
@@ -116,6 +122,7 @@ export type RedeemServiceWithGemsInput = {
   description: string
   /** The branch settings revision that accepted the slot (R6.3). */
   settingsRevision: number
+  admission?: CustomerBookingAdmission
 }
 
 export type RedeemServiceWithGemsResult =
@@ -178,6 +185,16 @@ export async function redeemServiceWithGems(
 
   // `date` column wants YYYY-MM-DD; mirror the bookings.ts reschedule convention.
   const bookingDateStr = input.bookingDate.toISOString().slice(0, 10)
+  const admission = input.admission
+    ? customerBookingAdmissionStatements(
+        {
+          customerId: input.customerId,
+          branchId: input.branchId,
+          date: bookingDateStr,
+        },
+        input.admission,
+      )
+    : []
 
   let rows: Array<{ booking_id: string; booking_number: string; new_balance: number }>
 
@@ -188,13 +205,11 @@ export async function redeemServiceWithGems(
     // that committed meanwhile is seen and its gems can't be spent twice
     // (ST-06). It aborts the transaction when the redemption wasn't written or
     // the batches can't cover it.
-    const [, result] = await db.batch([
-      lockLoyaltyAccount(input.accountId),
-      db.execute<{
-        booking_id: string
-        booking_number: string
-        new_balance: number
-      }>(sql`
+    const write = db.execute<{
+      booking_id: string
+      booking_number: string
+      new_balance: number
+    }>(sql`
       WITH guard AS (
         UPDATE loyalty_account
            SET gems_balance        = gems_balance - ${input.gemsRequired},
@@ -239,18 +254,27 @@ export async function redeemServiceWithGems(
              nb.booking_number AS booking_number,
              g.new_balance AS new_balance
       FROM new_booking nb, guard g
-    `),
+    `)
+    const statements: [BatchItem<'pg'>, ...BatchItem<'pg'>[]] = [
+      lockLoyaltyAccount(input.accountId),
+      write,
       allocateRedemption(txId),
-    ])
+    ]
+    statements.unshift(...admission)
+    const results = await db.batch(statements)
+    const result = results[admission.length + 1] as Awaited<typeof write>
     rows = result.rows
   } catch (error) {
     const shortfall = isGemsShortfall(error)
-    if (shortfall || isRedemptionKeyConflict(error)) {
+    const refused =
+      input.admission && customerBookingAdmissionError(error, input.admission.branchName)
+    if (shortfall || refused || isRedemptionKeyConflict(error)) {
       const found = await findBookingByRedemptionKey(input.idempotencyKey, input.customerId)
       if (found) {
         return { duplicate: true, bookingId: found.id, bookingNumber: found.bookingNumber }
       }
     }
+    if (refused) throw refused
     // The chosen assignee left the branch after they were picked (migration
     // 0014). The whole statement rolled back, gems included; picking again works.
     if (assigneeRefusal(error)) {

@@ -153,7 +153,7 @@ export const POST = withErrorHandler(
       throw notFound('Booking not found.')
     }
 
-    const noShowDelay = noShowCheckDelaySeconds(bookingDate, endTime)
+    const noShowDelay = noShowCheckDelaySeconds(bookingDate, startTime, endTime)
     if (noShowDelay > 0) {
       await enqueueJob('/api/jobs/noshow-check', { bookingId: updated.id }, noShowDelay)
     }

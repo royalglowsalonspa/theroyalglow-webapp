@@ -49,6 +49,9 @@ export const CONSENT_EVENT = 'rgss:consent-change'
 /** `localStorage` key under which the consent state is persisted. */
 export const CONSENT_STORAGE_KEY = 'rgss_cookie_consent'
 
+// A withdrawal still applies to this document if storage rejects the write.
+let transientConsent: ConsentState | null = null
+
 /** The default state for a visitor who has not yet made a choice. */
 function defaultConsent(): ConsentState {
   return { necessary: true, analytics: false, marketing: false, decided: false }
@@ -61,12 +64,13 @@ function coerceConsent(value: unknown): ConsentState {
   }
 
   const record = value as Record<string, unknown>
+  if (record.decided !== true) return defaultConsent()
 
   return {
     necessary: true,
     analytics: record.analytics === true,
     marketing: record.marketing === true,
-    decided: record.decided === true,
+    decided: true,
   }
 }
 
@@ -80,6 +84,7 @@ export function getConsent(): ConsentState {
   if (typeof window === 'undefined') {
     return defaultConsent()
   }
+  if (transientConsent) return transientConsent
 
   try {
     const stored = window.localStorage.getItem(CONSENT_STORAGE_KEY)
@@ -109,8 +114,16 @@ export function setConsent(partial: { analytics?: boolean; marketing?: boolean }
   if (typeof window !== 'undefined') {
     try {
       window.localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(next))
+      transientConsent = null
     } catch {
-      // Ignore persistence failures (private mode, quota, disabled storage).
+      transientConsent = next
+      if (!next.analytics || !next.marketing) {
+        try {
+          window.localStorage.removeItem(CONSENT_STORAGE_KEY)
+        } catch {
+          // The current document still uses the in-memory choice.
+        }
+      }
     }
 
     try {

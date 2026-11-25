@@ -33,7 +33,7 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { signOut } from '@/lib/auth-client'
+import { useCustomerSignOut } from '@/components/auth/useCustomerSignOut'
 import { adminPortalUrl, isAdminRole } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 
@@ -180,6 +180,7 @@ function Avatar({
 export function UserMenu({ user }: UserMenuProps) {
   const [gems, setGems] = useState<number | null>(null)
   const [unread, setUnread] = useState(0)
+  const { handleSignOut, signingOut, signOutFailed } = useCustomerSignOut()
 
   // Fetch the loyalty balance + unread notification count once so the badges
   // mirror the real totals. Both are best-effort and stay silent on failure.
@@ -212,20 +213,6 @@ export function UserMenu({ user }: UserMenuProps) {
       cancelled = true
     }
   }, [])
-
-  async function handleSignOut() {
-    try {
-      await signOut({
-        fetchOptions: {
-          onSuccess: () => {
-            window.location.href = '/'
-          },
-        },
-      })
-    } catch {
-      window.location.href = '/'
-    }
-  }
 
   return (
     <DropdownMenu.Root modal={false}>
@@ -398,10 +385,17 @@ export function UserMenu({ user }: UserMenuProps) {
 
           <DropdownMenu.Separator className="my-1 h-px bg-cloud-gray" />
 
-          <DropdownMenu.Item asChild>
+          <DropdownMenu.Item
+            asChild
+            disabled={signingOut}
+            onSelect={(event) => {
+              event.preventDefault()
+              void handleSignOut()
+            }}
+          >
             <button
               type="button"
-              onClick={handleSignOut}
+              aria-busy={signingOut}
               className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 font-ui text-sm text-error outline-none transition-colors duration-150 data-[highlighted]:bg-error/8 focus-visible:bg-error/8"
             >
               <svg
@@ -417,9 +411,14 @@ export function UserMenu({ user }: UserMenuProps) {
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                 <path d="m16 17 5-5-5-5M21 12H9" />
               </svg>
-              <span className="font-bold">Logout</span>
+              <span className="font-bold">{signingOut ? 'Signing out…' : 'Logout'}</span>
             </button>
           </DropdownMenu.Item>
+          {signOutFailed && (
+            <p role="alert" className="px-3 pb-2 font-sans text-sm text-error">
+              Could not sign out. Please try again.
+            </p>
+          )}
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>

@@ -34,7 +34,7 @@ import { approveBooking, assignStaff, markBookingNoShow, startBooking } from './
 import { cancelBooking, getDefaultStaffForBooking, rescheduleBooking } from './bookings'
 import { findDriverError, SQLSTATE } from './driver-errors'
 import { getOpenReassignmentsFor } from './reassignments'
-import { updateStaffMemberAtBranch } from './staff'
+import { getStaffMemberAtBranch, setStaffServices, updateStaffMemberAtBranch } from './staff'
 
 const LIVE = isLiveDbAvailable()
 const RUN = Math.random().toString(36).slice(2, 8)
@@ -239,6 +239,53 @@ describe.skipIf(!LIVE)('staff occupancy against a live database', () => {
       users: '0',
     })
   }, 60_000)
+
+  it(
+    'serializes capability replacements and rolls back a failed combined staff edit',
+    TIMEOUT,
+    async () => {
+      const target = {
+        id: STYLIST_P,
+        branchId: BRANCH_A,
+        actorId: OWNER,
+        roles: ['staff'],
+      } as const
+      try {
+        expect(await setStaffServices({ ...target, serviceIds: [] })).toEqual([])
+        await Promise.all([
+          updateStaffMemberAtBranch({
+            ...target,
+            patch: { bio: 'Updated' },
+            serviceIds: [salonServiceId],
+          }),
+          setStaffServices({ ...target, serviceIds: [spaServiceId] }),
+        ])
+        const saved = await getStaffMemberAtBranch(target.id, target.branchId)
+        expect(saved?.bio).toBe('Updated')
+        expect(saved?.serviceIds).toHaveLength(1)
+        expect([salonServiceId, spaServiceId]).toContain(saved?.serviceIds[0])
+
+        await expect(
+          updateStaffMemberAtBranch({
+            ...target,
+            patch: { bio: 'Rolled back' },
+            serviceIds: [`${PREFIX}_missing`],
+          }),
+        ).rejects.toThrow()
+        expect(await setStaffServices({ ...target, branchId: BRANCH_B, serviceIds: [] })).toBeNull()
+        expect(await getStaffMemberAtBranch(target.id, target.branchId)).toMatchObject({
+          bio: 'Updated',
+          serviceIds: saved?.serviceIds,
+        })
+      } finally {
+        await updateStaffMemberAtBranch({
+          ...target,
+          patch: { bio: null },
+          serviceIds: [salonServiceId],
+        })
+      }
+    },
+  )
 
   it(
     'keeps a SPA booking clear of every other booking of the same person, at any branch',

@@ -33,6 +33,7 @@ import {
   shutDownBranch,
   shutdownIsClear,
 } from './branch-shutdown'
+import { updateBranch } from './branches'
 import { createClosures } from './closures'
 
 const LIVE = isLiveDbAvailable()
@@ -238,6 +239,19 @@ describe.skipIf(!LIVE)('shutting a branch down against a live database', () => {
     ).toMatch(/still has people, bookings or payments/)
   })
 
+  it('does not clear schedules when a shutdown was based on a stale status', async () => {
+    expect(await shutDownBranch(MAIN, {}, 'temporarily_closed')).toEqual({
+      ok: false,
+      reason: 'changed',
+    })
+    expect(await statusOf(MAIN)).toBe('operational')
+    expect(
+      await queryRow(
+        sql`select count(*) as n from staff_schedule where branch_id = ${MAIN} and is_working`,
+      ),
+    ).toEqual({ n: '2' })
+  })
+
   it('shuts down once everything is resolved, clearing leftover schedule days', async () => {
     // Resolve: the booking cancelled, the invoice paid, the waitlist entry
     // cancelled; the Manager and Receptionist removed in one transaction.
@@ -257,6 +271,8 @@ describe.skipIf(!LIVE)('shutting a branch down against a live database', () => {
     expect(result.ok).toBe(true)
     expect(result.ok && result.branch.status).toBe('shutdown')
     expect(result.ok && result.branch.temporaryCloseReason).toBe('Lease ended')
+    expect(await updateBranch(MAIN, { status: 'operational' }, 'temporarily_closed')).toBeNull()
+    expect(await statusOf(MAIN)).toBe('shutdown')
     expect(
       await queryRow(sql`select count(*) as n from staff_schedule where branch_id = ${MAIN}`),
     ).toEqual({ n: '0' })

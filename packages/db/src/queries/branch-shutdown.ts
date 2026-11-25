@@ -21,7 +21,7 @@
  *                Developer; the trigger is the guarantee.
  ************************************************************/
 
-import type { BranchUpdateInput } from '@rgss/types'
+import type { BranchStatusValue, BranchUpdateInput } from '@rgss/types'
 import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm'
 import { db } from '../index'
 import { session, user } from '../schema/auth'
@@ -155,7 +155,7 @@ export async function getBranchShutdownBlockers(
 
 export type ShutDownResult =
   | { ok: true; branch: typeof branch.$inferSelect }
-  | { ok: false; reason: 'not_found' | 'unresolved' }
+  | { ok: false; reason: 'not_found' | 'unresolved' | 'changed' }
 
 /**
  * Shut the branch down, with any other edits, in one transaction. Leftover
@@ -166,10 +166,17 @@ export type ShutDownResult =
 export async function shutDownBranch(
   branchId: string,
   patch: BranchUpdateInput,
+  expectedStatus?: BranchStatusValue,
 ): Promise<ShutDownResult> {
   const values = { ...branchUpdateValues(patch), status: 'shutdown' as const }
+  const scope = and(eq(branch.id, branchId), expectedStatus && eq(branch.status, expectedStatus))
   try {
-    const [, updated] = await db.batch([
+    // Protect the earlier status before clearing any schedule rows. A stale
+    // shutdown rolls back the whole operation.
+    const [, , updated] = await db.batch([
+      db.execute(sql`with matching_branch as (
+        select ${branch.id} from ${branch} where ${scope} for update
+      ) select 1 / count(*)::int as ok from matching_branch`),
       db
         .update(staffSchedule)
         .set({ isWorking: false, startTime: null, endTime: null, branchId: null })
@@ -179,6 +186,9 @@ export async function shutDownBranch(
     const row = updated[0]
     return row ? { ok: true, branch: row } : { ok: false, reason: 'not_found' }
   } catch (error) {
+    if (isGuardAbort(error)) {
+      return { ok: false, reason: expectedStatus === undefined ? 'not_found' : 'changed' }
+    }
     if (isConstraintViolation(error, SQLSTATE.checkViolation, ['branch_shutdown_unresolved'])) {
       return { ok: false, reason: 'unresolved' }
     }

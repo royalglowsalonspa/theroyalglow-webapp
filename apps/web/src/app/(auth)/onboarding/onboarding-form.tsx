@@ -23,7 +23,7 @@
  * Dependencies : react, next/navigation, @/components/ui/{input,label,switch,button}
  *
  * Notes        :
- * - Writes consent to localStorage key: rgss_cookie_consent
+ * - Updates browser consent through the shared consent store
  * - Clears auth context from sessionStorage after successful submit
  * - Context comes from sessionStorage (saved before Google sign-in, or by the
  *   booking dialog) and from `bookingContext`, the onboarding URL's query
@@ -39,13 +39,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { setConsent } from '@/lib/consent/consent'
 import {
   buildPostOnboardingDestination,
   mergeOnboardingContext,
 } from '@/lib/post-onboarding-destination'
 
 const AUTH_CONTEXT_KEY = 'rgss_auth_context'
-const COOKIE_CONSENT_KEY = 'rgss_cookie_consent'
 
 const NO_CONTEXT: Record<string, string> = {}
 
@@ -202,19 +202,7 @@ export function OnboardingForm({
     setSubmission({ status: 'complete' })
     // Only the accepted submission can update browser consent preferences.
     if (profileCreated) {
-      try {
-        localStorage.setItem(
-          COOKIE_CONSENT_KEY,
-          JSON.stringify({
-            v: 1,
-            analytics: analyticsConsent,
-            marketing: marketingConsent,
-            ts: new Date().toISOString(),
-          }),
-        )
-      } catch {
-        // Browser storage can be unavailable after the profile was saved.
-      }
+      setConsent({ analytics: analyticsConsent, marketing: marketingConsent })
     }
     try {
       sessionStorage.removeItem(AUTH_CONTEXT_KEY)

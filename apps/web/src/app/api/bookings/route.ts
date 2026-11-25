@@ -33,6 +33,7 @@
  * - All prices are GST-inclusive in paise (integer math only).
  ************************************************************/
 
+import { createHash } from 'node:crypto'
 import {
   addMinutesToTime,
   assertBookingCap,
@@ -47,6 +48,7 @@ import {
 import {
   countUpcomingBookingsAtBranch,
   createBookingWithServices,
+  findCustomerBookingRequest,
   getBookingsByCustomer,
   getBranchById,
   getBranchPolicy,
@@ -54,8 +56,8 @@ import {
   getDefaultStaffForService,
   getServicesByIds,
 } from '@rgss/db/queries'
-import { badRequest } from '@rgss/errors'
-import { bookingStatusSchema, createBookingSchema } from '@rgss/types'
+import { badRequest, conflict, ERROR_CODES } from '@rgss/errors'
+import { bookingStatusSchema, type CreateBookingInput, createBookingSchema } from '@rgss/types'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireOnboardedCustomer, requireSession } from '@/lib/api/session'
 import { enqueueJob } from '@/lib/jobs/enqueue'
@@ -93,7 +95,59 @@ export const POST = withErrorHandler(async (req: Request) => {
     throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
   }
 
-  const { branchId, serviceType, bookingDate, startTime, serviceIds, notes } = parsed.data
+  const input = parsed.data
+  const customerId = session.user.id
+  const request = input.idempotencyKey
+    ? {
+        key: input.idempotencyKey,
+        fingerprint: createHash('sha256')
+          .update(
+            JSON.stringify([
+              input.branchId,
+              input.serviceType,
+              input.bookingDate,
+              input.startTime,
+              [...new Set(input.serviceIds)],
+              input.notes ?? null,
+              input.leadId ?? null,
+            ]),
+          )
+          .digest('hex'),
+      }
+    : undefined
+
+  async function replay() {
+    if (!request) return null
+    const prior = await findCustomerBookingRequest(customerId, request.key)
+    if (!prior) return null
+    if (prior.fingerprint !== request.fingerprint) {
+      throw conflict(
+        ERROR_CODES.CONFLICT,
+        'This booking request was already used with different details.',
+      )
+    }
+    return apiSuccess({ id: prior.id, bookingNumber: prior.bookingNumber, status: 'pending' })
+  }
+
+  const previous = await replay()
+  if (previous) return previous
+  try {
+    return await createCustomerBooking(input, customerId, request)
+  } catch (error) {
+    // A concurrent request can commit between the lookup and a mutable gate,
+    // or win the request key when there is still room under the cap.
+    const committed = await replay()
+    if (committed) return committed
+    throw error
+  }
+})
+
+async function createCustomerBooking(
+  input: CreateBookingInput,
+  customerId: string,
+  request?: { key: string; fingerprint: string },
+) {
+  const { branchId, serviceType, bookingDate, startTime, serviceIds, notes } = input
 
   // Branch must exist and be operational.
   const branch = await getBranchById(branchId)
@@ -153,11 +207,7 @@ export const POST = withErrorHandler(async (req: Request) => {
   // ...and how many upcoming bookings a customer may hold there (409).
   assertBookingCap({
     rules: policy.bookingRules,
-    upcomingAtBranch: await countUpcomingBookingsAtBranch(
-      session.user.id,
-      branch.id,
-      istToday(now),
-    ),
+    upcomingAtBranch: await countUpcomingBookingsAtBranch(customerId, branch.id, istToday(now)),
     branchName: branch.name,
   })
 
@@ -202,7 +252,7 @@ export const POST = withErrorHandler(async (req: Request) => {
     {
       bookingNumber,
       branchId,
-      customerId: session.user.id,
+      customerId,
       status: 'pending',
       serviceType,
       bookingDate: new Date(`${bookingDate}T00:00:00.000Z`),
@@ -216,6 +266,14 @@ export const POST = withErrorHandler(async (req: Request) => {
       settingsRevision: policy.revision,
     },
     serviceRows,
+    {
+      admission: {
+        branchName: branch.name,
+        todayISO: istToday(now),
+        maxUpcoming: policy.bookingRules.maxActiveBookingsPerCustomer,
+      },
+      ...(request ? { request } : {}),
+    },
   )
 
   // Best-effort triggered-job enqueues. enqueueJob never throws and no-ops
@@ -226,7 +284,7 @@ export const POST = withErrorHandler(async (req: Request) => {
   // 2. No-show check 15 minutes after the appointment's end. The end instant is
   //    the IST wall-clock (the salon's timezone) of bookingDate + endTime; only
   //    enqueue when that instant is still in the future.
-  const noShowDelaySeconds = noShowCheckDelaySeconds(bookingDate, endTime)
+  const noShowDelaySeconds = noShowCheckDelaySeconds(bookingDate, startTime, endTime)
   if (noShowDelaySeconds > 0) {
     await enqueueJob('/api/jobs/noshow-check', { bookingId: created.id }, noShowDelaySeconds)
   }
@@ -238,7 +296,7 @@ export const POST = withErrorHandler(async (req: Request) => {
   await publishBookingEvent({
     bookingId: created.id,
     branchId,
-    customerId: session.user.id,
+    customerId,
     event: 'created',
     data: { status: created.status },
   })
@@ -252,4 +310,4 @@ export const POST = withErrorHandler(async (req: Request) => {
     undefined,
     201,
   )
-})
+}

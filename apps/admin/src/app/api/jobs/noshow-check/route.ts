@@ -78,7 +78,11 @@ export const POST = async (req: Request) => {
     if (booking?.status === 'confirmed') {
       // An earlier job can arrive after a move. Check the stored slot and grace
       // period before alerting. The new slot has its own queued check.
-      const checkAt = noShowCheckAt(booking.bookingDate.toISOString().slice(0, 10), booking.endTime)
+      const checkAt = noShowCheckAt(
+        booking.bookingDate.toISOString().slice(0, 10),
+        booking.startTime,
+        booking.endTime,
+      )
       if (checkAt <= Date.now()) {
         const result = await alertBranchFrontDesk({
           branchId: booking.branchId,

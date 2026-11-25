@@ -36,14 +36,21 @@ import {
   shutDownBranch,
   updateBranch,
 } from '@rgss/db/queries'
-import { AppError, badRequest, ERROR_CODES, notFound } from '@rgss/errors'
-import { branchUpdateSchema } from '@rgss/types'
+import { AppError, badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
+import { branchUpdateRequestSchema } from '@rgss/types'
 import { audit } from '@/lib/api/audit'
 import { requireCurrentRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { revokeLiveUpdates } from '@/lib/realtime/revocation'
 
 type RouteContext = { params: Promise<{ id: string }> }
+
+function branchChanged(branchName: string) {
+  return conflict(
+    ERROR_CODES.CONFLICT,
+    `${branchName} changed while you were editing it. Reload and try again.`,
+  )
+}
 
 /** 409 listing what must be resolved before the branch can shut down. */
 async function shutdownBlocked(branchId: string, branchName: string): Promise<AppError> {
@@ -65,7 +72,7 @@ export const PATCH = withErrorHandler(async (req: Request, ctx: RouteContext) =>
   const { id } = await ctx.params
 
   const body = await req.json().catch(() => null)
-  const parsed = branchUpdateSchema.safeParse(body)
+  const parsed = branchUpdateRequestSchema.safeParse(body)
   if (!parsed.success) {
     throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
   }
@@ -75,14 +82,23 @@ export const PATCH = withErrorHandler(async (req: Request, ctx: RouteContext) =>
     throw notFound('Branch not found.')
   }
 
+  const { expectedStatus, ...patch } = parsed.data
+  if (
+    (expectedStatus !== undefined && expectedStatus !== existing.status) ||
+    (expectedStatus === undefined && patch.status !== undefined && patch.status !== existing.status)
+  ) {
+    throw branchChanged(existing.name)
+  }
+
   // Shutting down: everything open there must be resolved first (R1.10).
-  if (parsed.data.status === 'shutdown' && existing.status !== 'shutdown') {
-    const { status: _shutdown, ...rest } = parsed.data
-    const result = await shutDownBranch(id, rest)
+  if (patch.status === 'shutdown' && existing.status !== 'shutdown') {
+    const { status: _shutdown, ...rest } = patch
+    const result = await shutDownBranch(id, rest, existing.status)
     if (!result.ok) {
       if (result.reason === 'not_found') {
         throw notFound('Branch not found.')
       }
+      if (result.reason === 'changed') throw branchChanged(existing.name)
       throw await shutdownBlocked(id, existing.name)
     }
     await audit(req, session, {
@@ -91,19 +107,26 @@ export const PATCH = withErrorHandler(async (req: Request, ctx: RouteContext) =>
       entityId: id,
       branchId: id,
       oldValues: existing,
-      newValues: parsed.data,
+      newValues: patch,
     })
     return apiSuccess({ branch: result.branch })
   }
 
-  const updated = await updateBranch(id, parsed.data)
+  const updated =
+    patch.status === undefined
+      ? await updateBranch(id, patch)
+      : await updateBranch(id, patch, existing.status)
+  if (!updated) {
+    if (patch.status !== undefined) throw branchChanged(existing.name)
+    throw notFound('Branch not found.')
+  }
   await audit(req, session, {
     action: 'update',
     entityType: 'branch',
     entityId: id,
     branchId: id,
     oldValues: existing,
-    newValues: parsed.data,
+    newValues: patch,
   })
   return apiSuccess({ branch: updated })
 })

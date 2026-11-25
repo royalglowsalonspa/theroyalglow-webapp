@@ -103,6 +103,7 @@ vi.mock('../index', () => ({ db: fake.db }))
 import { booking, bookingService, bookingStatusLog } from '../schema/booking'
 import { invoice, invoiceItem } from '../schema/invoice'
 import { spaMembership } from '../schema/membership'
+import { auditLog } from '../schema/system'
 import { invoiceSequence } from '../schema/tax'
 import {
   completeMembershipSession,
@@ -143,6 +144,7 @@ const PARAMS = {
     { serviceId: 'svc_scrub_30', serviceNameSnapshot: 'Scrub 30', durationMinutes: 30 },
   ],
   idempotencyKey: 'key-0000001',
+  requestFingerprint: 'record-session-fingerprint',
   recordedById: 'usr_reception',
 }
 
@@ -259,16 +261,26 @@ describe('createMembershipWithInvoice', () => {
 })
 
 describe('recordMembershipSession (Record now)', () => {
-  it('writes the in-progress booking, its lines and its status log in one batch', async () => {
+  it('writes the booking, lines, status log and keyed request identity in one batch', async () => {
     await recordMembershipSession(PARAMS)
 
     expect(fake.batches).toHaveLength(1)
     const statements = fake.batches[0] ?? []
-    expect(statements.map((s) => s.op)).toEqual(['insert', 'insert', 'insert', 'select'])
+    expect(statements.map((s) => s.op)).toEqual(['insert', 'insert', 'insert', 'select', 'insert'])
     expect(statements[0]?.args[0]).toBe(booking)
     expect(statements[1]?.args[0]).toBe(bookingService)
     expect(statements[2]?.args[0]).toBe(bookingStatusLog)
     expect(argOf(statements[3], 'from')).toBe(spaMembership)
+    expect(statements[4]?.args[0]).toBe(auditLog)
+    expect(argOf(statements[4], 'values')).toMatchObject({
+      actorId: PARAMS.recordedById,
+      branchId: PARAMS.branchId,
+      entityType: 'membership_session_recording',
+      newValues: {
+        membershipId: PARAMS.membershipId,
+        requestFingerprint: PARAMS.requestFingerprint,
+      },
+    })
   })
 
   it('starts the session now; the database holds its minutes with the booking (0026)', async () => {
@@ -304,9 +316,11 @@ describe('recordMembershipSession (Record now)', () => {
   })
 
   it('stores no key when the request has none', async () => {
-    await recordMembershipSession({ ...PARAMS, idempotencyKey: null })
+    const { requestFingerprint: _fingerprint, ...params } = PARAMS
+    await recordMembershipSession({ ...params, idempotencyKey: null })
 
     expect(argOf(fake.batches[0]?.[0], 'values')).toMatchObject({ redemptionKey: null })
+    expect(fake.batches[0]?.some((s) => s.args[0] === auditLog)).toBe(false)
   })
 
   it('returns the booking and the minutes left free after the hold', async () => {
@@ -518,6 +532,7 @@ describe('getMembershipSessionByKey', () => {
       lines,
       [INVOICE_ROW],
       [{ total: 600, used: 300, reserved: 60 }],
+      [{ fingerprint: PARAMS.requestFingerprint }],
     ]
 
     await expect(getMembershipSessionByKey('mem_1', 'key-0000001', 'branch_rs')).resolves.toEqual({
@@ -525,18 +540,45 @@ describe('getMembershipSessionByKey', () => {
       invoice: INVOICE_ROW,
       services: lines,
       remainingMinutes: 240,
+      replay: { kind: 'fingerprint', fingerprint: PARAMS.requestFingerprint },
     })
+    expect(render(argOf(fake.records[4], 'where')).params).toEqual([
+      'membership_session_recording',
+      'bk_1',
+      'branch_rs',
+      'create',
+    ])
   })
 
   it('answers a session still in progress with no invoice yet', async () => {
     const found = { id: 'bk_1', bookingNumber: PARAMS.bookingNumber }
-    fake.state.awaitQueue = [[found], [], [], [{ total: 600, used: 0, reserved: 90 }]]
+    fake.state.awaitQueue = [
+      [found],
+      [],
+      [],
+      [{ total: 600, used: 0, reserved: 90 }],
+      [],
+      [
+        {
+          actorId: PARAMS.recordedById,
+          status: 'in_progress',
+          moved: false,
+        },
+      ],
+    ]
 
     await expect(
       getMembershipSessionByKey('mem_1', 'key-0000001', 'branch_rs'),
     ).resolves.toMatchObject({
       invoice: null,
       remainingMinutes: 510,
+      replay: {
+        kind: 'legacy',
+        origin: { actorId: PARAMS.recordedById, status: 'in_progress', moved: false },
+      },
     })
+    expect(render(argOf(fake.records[5], 'where')).sql).toContain(
+      '"booking_status_log"."from_status" is null',
+    )
   })
 })

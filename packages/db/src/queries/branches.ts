@@ -32,8 +32,8 @@
  ************************************************************/
 
 import { conflict, ERROR_CODES } from '@rgss/errors'
-import type { BranchCreateInput, BranchUpdateInput } from '@rgss/types'
-import { asc, eq, ne, sql } from 'drizzle-orm'
+import type { BranchCreateInput, BranchStatusValue, BranchUpdateInput } from '@rgss/types'
+import { and, asc, eq, ne, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { db } from '../index'
 import { user } from '../schema/auth'
@@ -191,13 +191,21 @@ export async function createBranch(data: BranchCreateInput): Promise<CreateBranc
 // Patch a branch. Only provided keys are written; `updatedAt` auto-bumps.
 // `code` and `number` are immutable and not patchable. Shutting a branch
 // down goes through shutDownBranch (branch-shutdown.ts) instead.
-export async function updateBranch(id: string, patch: BranchUpdateInput) {
+export async function updateBranch(
+  id: string,
+  patch: BranchUpdateInput,
+  expectedStatus?: BranchStatusValue,
+) {
   const values = branchUpdateValues(patch)
   if (Object.keys(values).length === 0) {
     return getBranchById(id)
   }
   try {
-    const [updated] = await db.update(branch).set(values).where(eq(branch.id, id)).returning()
+    const [updated] = await db
+      .update(branch)
+      .set(values)
+      .where(and(eq(branch.id, id), expectedStatus && eq(branch.status, expectedStatus)))
+      .returning()
     return updated ?? null
   } catch (error) {
     // The prefix is fixed once the branch has numbered an invoice (0018

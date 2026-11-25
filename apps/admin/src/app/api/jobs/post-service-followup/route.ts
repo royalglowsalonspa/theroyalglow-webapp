@@ -27,7 +27,7 @@
  *
  * Notes        :
  * - Only sends to completed bookings with consenting customers.
- * - Returns 200 even on email no-op to avoid QStash retries.
+ * - Lets QStash retry delivery failures from a configured provider.
  ************************************************************/
 
 import { buildNotificationContent } from '@rgss/business'
@@ -93,7 +93,11 @@ export const POST = async (req: Request) => {
           to: booking.customerEmail,
           subject: title,
           html: `<p>${escapeHtml(body)}</p>${reviewLink}`,
+          idempotencyKey: `post-service-followup/${booking.id}`,
         })
+        if (!sent && process.env.RESEND_API_KEY) {
+          return new Response('Follow-up email delivery failed', { status: 503 })
+        }
       }
     }
 

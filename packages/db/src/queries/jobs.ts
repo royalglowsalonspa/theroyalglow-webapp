@@ -43,7 +43,7 @@ import type { SalesReportIssuerRevenue } from '@rgss/types'
 import { and, asc, desc, eq, gte, isNotNull, isNull, lt, lte, sql } from 'drizzle-orm'
 import { db } from '../index'
 import { session, user } from '../schema/auth'
-import { booking } from '../schema/booking'
+import { booking, bookingStatusLog } from '../schema/booking'
 import { branch } from '../schema/branch'
 import { invoice, invoiceItem } from '../schema/invoice'
 import { lead } from '../schema/lead'
@@ -376,7 +376,7 @@ export async function buildMonthlyGstSummary(monthKey: string) {
 // Job 8 — confirmed bookings on or after today (IST), each with the branch's
 // contact details, the customer's email and their reminder preference. The
 // route computes the start instant from bookingDate + startTime, classifies it via
-// reminderWindowMatch (24h/1h), de-dupes via hasNotification, and sends.
+// reminderWindowMatch (24h/1h) and dedupes each version of the appointment.
 export async function getUpcomingConfirmedBookings(now: Date = new Date()) {
   const today = new Date(`${istDateString(now)}T00:00:00.000Z`)
   return db
@@ -385,6 +385,12 @@ export async function getUpcomingConfirmedBookings(now: Date = new Date()) {
       customerId: booking.customerId,
       bookingDate: booking.bookingDate,
       startTime: booking.startTime,
+      slotAcceptedAt: sql<Date>`coalesce(
+        (select max(${bookingStatusLog.createdAt}) from ${bookingStatusLog}
+          where ${bookingStatusLog.bookingId} = ${booking.id}
+            and ${bookingStatusLog.notes} like 'Rescheduled to %'),
+        ${booking.createdAt}
+      )`.mapWith(booking.createdAt),
       branch: {
         name: branch.name,
         addressLine1: branch.addressLine1,

@@ -48,6 +48,7 @@
  * - No gems are earned on membership sessions.
  ************************************************************/
 
+import { createHash } from 'node:crypto'
 import {
   addMinutesToTime,
   appointmentStartsAt,
@@ -81,6 +82,14 @@ import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000
 
+type SessionReplayRequest = {
+  actorId: string
+  bookingDate: string | undefined
+  startTime: string | undefined
+  services: readonly SessionLine[]
+  fingerprint: string
+}
+
 // Answer a retried request with the session its idempotency key already
 // started on this membership. Null when the key hasn't started one. A key
 // reused for a different session is a conflict, never a second hold.
@@ -88,13 +97,26 @@ async function replaySession(
   membershipId: string,
   idempotencyKey: string,
   branchId: string,
-  requested: readonly SessionLine[],
+  requested: SessionReplayRequest,
 ) {
   const recorded = await getMembershipSessionByKey(membershipId, idempotencyKey, branchId)
   if (!recorded) {
     return null
   }
-  if (!isSameSessionRequest(requested, recorded.services)) {
+  const { replay, booking } = recorded
+  const matches =
+    replay.kind === 'fingerprint'
+      ? replay.fingerprint === requested.fingerprint
+      : replay.origin?.actorId === requested.actorId &&
+        !replay.origin.moved &&
+        replay.origin.status ===
+          (requested.startTime === undefined ? 'in_progress' : 'confirmed') &&
+        (requested.bookingDate === undefined ||
+          booking.bookingDate.toISOString().slice(0, 10) === requested.bookingDate) &&
+        (requested.startTime === undefined ||
+          booking.startTime.slice(0, 5) === requested.startTime) &&
+        isSameSessionRequest(requested.services, recorded.services)
+  if (!matches) {
     throw conflict(
       ERROR_CODES.CONFLICT,
       'This request was already used to record a different session. Close the form, open it again and retry.',
@@ -127,6 +149,31 @@ export const POST = withErrorHandler(
     // every line is theirs.
     const staffId = sessionAssignee(parsed.data.staffId, parsed.data.services)
     const sessionServices = parsed.data.services.map((s) => ({ ...s, staffId }))
+    const actorId = ctx.session.user.id
+    // Record now is an intent, so its generated clock values do not affect a
+    // retry. An explicitly supplied date or planned start is still bound.
+    const replayRequest: SessionReplayRequest = {
+      actorId,
+      bookingDate,
+      startTime: plannedTime,
+      services: sessionServices,
+      fingerprint: createHash('sha256')
+        .update(
+          JSON.stringify({
+            actorId,
+            membershipId: id,
+            branchId: ctx.branch.id,
+            when: ahead ? 'ahead' : 'now',
+            bookingDate: bookingDate ?? null,
+            startTime: plannedTime ?? null,
+            staffId,
+            services: sessionServices
+              .map((line) => JSON.stringify([line.serviceId, line.durationMinutes]))
+              .sort(),
+          }),
+        )
+        .digest('hex'),
+    }
 
     const membership = await getMembershipById(id)
     if (!membership) {
@@ -136,7 +183,7 @@ export const POST = withErrorHandler(
     // A retry of a session already written gets that session back, before the
     // balance check: the first attempt may have held the last hours.
     if (idempotencyKey) {
-      const replayed = await replaySession(id, idempotencyKey, ctx.branch.id, sessionServices)
+      const replayed = await replaySession(id, idempotencyKey, ctx.branch.id, replayRequest)
       if (replayed) {
         return apiSuccess(replayed)
       }
@@ -258,8 +305,10 @@ export const POST = withErrorHandler(
         staffNameSnapshot: staffName,
         durationMinutes: s.durationMinutes,
       })),
-      idempotencyKey: idempotencyKey ?? null,
-      recordedById: ctx.session.user.id,
+      ...(idempotencyKey
+        ? { idempotencyKey, requestFingerprint: replayRequest.fingerprint }
+        : { idempotencyKey: null }),
+      recordedById: actorId,
       when: ahead ? 'ahead' : 'now',
       settingsRevision,
     })
@@ -279,7 +328,7 @@ export const POST = withErrorHandler(
       if (result.reason === 'duplicate_key') {
         // A concurrent request with the same key committed first.
         const replayed = idempotencyKey
-          ? await replaySession(id, idempotencyKey, ctx.branch.id, sessionServices)
+          ? await replaySession(id, idempotencyKey, ctx.branch.id, replayRequest)
           : null
         if (replayed) {
           return apiSuccess(replayed)

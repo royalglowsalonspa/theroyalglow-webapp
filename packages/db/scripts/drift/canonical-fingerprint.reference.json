@@ -1,7 +1,7 @@
 {
   "_comment": "AUTHORITATIVE DB-free canonical reference derived from the committed Drizzle latest snapshot selected by migrations/meta/_journal.json. Regenerate with `bun run drift:reference` after an intentional schema change captured by `drizzle-kit generate`, then commit this file with the migration.",
   "version": 1,
-  "hash": "8c4fa7cb89aa80a5bef89bf4c7630d57bffaef56b1967d6518b3ffb92a15e5c8",
+  "hash": "01f3d94e5ef47c25e06400d16ebdfa1706824fc8821bd0d638f623fe9d13b9db",
   "fingerprint": {
     "enums": [
       {
@@ -1588,6 +1588,59 @@
           }
         ],
         "foreignKeys": [],
+        "indexes": []
+      },
+      {
+        "name": "customer_booking_request",
+        "columns": [
+          {
+            "name": "booking_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "customer_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "request_fingerprint",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "request_key",
+            "type": "uuid",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": ["customer_id", "request_key"],
+        "uniques": [
+          {
+            "name": "customer_booking_request_booking_id_unique",
+            "columns": ["booking_id"]
+          }
+        ],
+        "foreignKeys": [
+          {
+            "columns": ["booking_id"],
+            "refTable": "booking",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": ["customer_id"],
+            "refTable": "user",
+            "refColumns": ["id"],
+            "onDelete": "cascade",
+            "onUpdate": "no action"
+          }
+        ],
         "indexes": []
       },
       {
@@ -3921,6 +3974,12 @@
             "default": null
           },
           {
+            "name": "binding_version",
+            "type": "integer",
+            "nullable": false,
+            "default": "1"
+          },
+          {
             "name": "created_at",
             "type": "timestamptz",
             "nullable": false,
@@ -3975,6 +4034,12 @@
           }
         ],
         "indexes": [
+          {
+            "columns": ["endpoint"],
+            "unique": true,
+            "predicate": "is_active = true",
+            "method": "btree"
+          },
           {
             "columns": ["user_id"],
             "unique": false,

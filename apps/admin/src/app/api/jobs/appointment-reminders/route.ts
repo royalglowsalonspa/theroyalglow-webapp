@@ -39,7 +39,7 @@ import {
 import {
   createNotificationOnce,
   getUpcomingConfirmedBookings,
-  hasNotification,
+  hasNotificationSince,
 } from '@rgss/db/queries'
 import { createLogger } from '@rgss/logger'
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
@@ -107,8 +107,8 @@ export const POST = async (req: Request) => {
 
       const type = window === '24h' ? 'reminder_24h' : 'reminder_1h'
 
-      // Recognize reminders logged before claims began using a stable ID.
-      if (await hasNotification(bk.customerId, type, bk.id)) {
+      // Legacy reminders can suppress retries for this slot only.
+      if (await hasNotificationSince(bk.customerId, type, bk.slotAcceptedAt, bk.id)) {
         continue
       }
 
@@ -119,7 +119,7 @@ export const POST = async (req: Request) => {
       const phone = telHref(bk.branch.phone) ? ` Call ${bk.branch.phone.trim()}.` : ''
 
       const created = await createNotificationOnce({
-        id: reminderDedupeKey(bk.id, window),
+        id: reminderDedupeKey(bk.id, window, start, bk.slotAcceptedAt),
         userId: bk.customerId,
         type,
         title,

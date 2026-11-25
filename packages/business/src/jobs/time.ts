@@ -94,18 +94,25 @@ export function istDayStart(now: Date = new Date()): Date {
 }
 
 /** The no-show check is due 15 minutes after the booking's IST end time. */
-export function noShowCheckAt(bookingDate: string, endTime: string): number {
-  const wallTime = endTime.length === 5 ? `${endTime}:00` : endTime
-  return new Date(`${bookingDate}T${wallTime}+05:30`).getTime() + NO_SHOW_GRACE_MS
+export function noShowCheckAt(bookingDate: string, startTime: string, endTime: string): number {
+  const start = appointmentClock(bookingDate, startTime)
+  const end = appointmentClock(bookingDate, endTime)
+  return end + (end < start ? MS_PER_DAY : 0) + NO_SHOW_GRACE_MS
+}
+
+function appointmentClock(bookingDate: string, time: string): number {
+  const wallTime = time.length === 5 ? `${time}:00` : time
+  return new Date(`${bookingDate}T${wallTime}+05:30`).getTime()
 }
 
 /** Round up so the queue cannot deliver just before the check is due. */
 export function noShowCheckDelaySeconds(
   bookingDate: string,
+  startTime: string,
   endTime: string,
   now = Date.now(),
 ): number {
-  return Math.ceil((noShowCheckAt(bookingDate, endTime) - now) / 1000)
+  return Math.ceil((noShowCheckAt(bookingDate, startTime, endTime) - now) / 1000)
 }
 
 // Classify a booking start against the reminder windows. Returns '24h' when the

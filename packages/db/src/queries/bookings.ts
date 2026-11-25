@@ -42,12 +42,23 @@ import { and, asc, desc, eq, getTableColumns, inArray, isNull, type SQL, sql } f
 import type { BatchItem } from 'drizzle-orm/batch'
 import { nanoid } from 'nanoid'
 import { db } from '../index'
-import { booking, bookingReassignment, bookingService, bookingStatusLog } from '../schema/booking'
+import {
+  booking,
+  bookingReassignment,
+  bookingService,
+  bookingStatusLog,
+  customerBookingRequest,
+} from '../schema/booking'
 import { branch } from '../schema/branch'
 import { customerProfile, staffProfile } from '../schema/profile'
 import { staffTimeOff } from '../schema/schedule'
 import { service, serviceCategory, staffService } from '../schema/service'
 import { staffOccupancy } from '../schema/staff-occupancy'
+import {
+  type CustomerBookingAdmission,
+  customerBookingAdmissionError,
+  customerBookingAdmissionStatements,
+} from './booking-admission'
 import { isBranchAvailabilityRefusal, serviceNoLongerOffered } from './catalogue-availability'
 import { isConstraintViolation, isGuardAbort, SQLSTATE } from './driver-errors'
 import { returnGemsOfEndedRedemptions } from './gems-ledger'
@@ -57,6 +68,31 @@ import { staffWorksAt } from './staff'
 type NewBooking = typeof booking.$inferInsert
 type NewBookingService = typeof bookingService.$inferInsert
 type BookingStatus = (typeof booking.$inferSelect)['status']
+
+type CustomerBookingCommand = { key: string; fingerprint: string }
+
+/** Find the original booking for an authenticated customer's request key. */
+export async function findCustomerBookingRequest(customerId: string, key: string) {
+  const [found] = await db
+    .select({
+      id: booking.id,
+      bookingNumber: booking.bookingNumber,
+      fingerprint: customerBookingRequest.requestFingerprint,
+    })
+    .from(customerBookingRequest)
+    .innerJoin(
+      booking,
+      and(eq(booking.id, customerBookingRequest.bookingId), eq(booking.customerId, customerId)),
+    )
+    .where(
+      and(
+        eq(customerBookingRequest.customerId, customerId),
+        eq(customerBookingRequest.requestKey, key),
+      ),
+    )
+    .limit(1)
+  return found ?? null
+}
 
 // All bookings owned by a customer, newest first, each with its booking_service
 // rows. Ownership is enforced by filtering on customer_id, so the result never
@@ -268,6 +304,7 @@ export async function getDefaultStaffForBooking(params: {
 export async function createBookingWithServices(
   data: Omit<NewBooking, 'id'> & { id?: string },
   services: Omit<NewBookingService, 'bookingId'>[],
+  options?: { admission: CustomerBookingAdmission; request?: CustomerBookingCommand },
 ) {
   const bookingId = data.id ?? nanoid()
   const bookingValues: NewBooking = { ...data, id: bookingId }
@@ -278,19 +315,43 @@ export async function createBookingWithServices(
 
   const insertBooking = db.insert(booking).values(bookingValues).returning()
 
-  if (serviceValues.length === 0) {
+  if (serviceValues.length === 0 && !options) {
     const [created] = await insertBooking
     // .returning() on a single-row insert always yields the inserted row.
     return created as typeof booking.$inferSelect
   }
 
+  const guards = options
+    ? customerBookingAdmissionStatements(
+        {
+          customerId: data.customerId,
+          branchId: data.branchId,
+          date: data.bookingDate.toISOString().slice(0, 10),
+        },
+        options.admission,
+      )
+    : []
+  const writes: [BatchItem<'pg'>, ...BatchItem<'pg'>[]] = [insertBooking]
+  writes.unshift(...guards)
+  if (serviceValues.length > 0) writes.push(db.insert(bookingService).values(serviceValues))
+  if (options?.request) {
+    writes.push(
+      db.insert(customerBookingRequest).values({
+        customerId: data.customerId,
+        requestKey: options.request.key,
+        requestFingerprint: options.request.fingerprint,
+        bookingId,
+      }),
+    )
+  }
+
   let bookingResult: unknown
   try {
-    ;[bookingResult] = await db.batch([
-      insertBooking,
-      db.insert(bookingService).values(serviceValues),
-    ])
+    const results = await db.batch(writes)
+    bookingResult = results[guards.length]
   } catch (error) {
+    const refusal = options && customerBookingAdmissionError(error, options.admission.branchName)
+    if (refusal) throw refusal
     // The chosen assignee left the branch or went on leave after they were
     // picked (migration 0014). Nothing was written; picking again works.
     if (assigneeRefusal(error)) {

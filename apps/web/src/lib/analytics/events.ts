@@ -27,6 +27,8 @@
  * Notes        : None
  ************************************************************/
 
+import { getConsent } from '@/lib/consent/consent'
+
 /**
  * Typed analytics event helper.
  *
@@ -71,13 +73,15 @@ declare global {
   interface Window {
     posthog?: {
       capture: (event: string, props?: Record<string, unknown>) => void
+      opt_in_capturing: (options?: { captureEventName?: false }) => void
+      opt_out_capturing: () => void
     }
     fbq?: (...args: unknown[]) => void
   }
 }
 
 /**
- * Forward an analytics event to every loaded provider. Each provider call is
+ * Forward an analytics event to each consented, loaded provider. Each provider call is
  * independently guarded so a missing or throwing provider never affects the
  * others or the caller.
  */
@@ -85,15 +89,16 @@ export function track(event: AnalyticsEvent, props?: Record<string, unknown>): v
   if (typeof window === 'undefined') {
     return
   }
+  const consent = getConsent()
 
   try {
-    window.posthog?.capture(event, props)
+    if (consent.analytics) window.posthog?.capture(event, props)
   } catch {
     // Swallow provider errors — analytics must never break the app.
   }
 
   try {
-    if (window.fbq) {
+    if (consent.marketing && window.fbq) {
       const method = META_STANDARD_EVENTS.has(event) ? 'track' : 'trackCustom'
       window.fbq(method, event, props)
     }

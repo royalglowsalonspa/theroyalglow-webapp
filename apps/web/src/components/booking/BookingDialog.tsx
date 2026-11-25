@@ -43,8 +43,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { track } from '@/lib/analytics/events'
 import { useSession } from '@/lib/auth-client'
-import { markBookingIntentForOnboarding, startGoogleSignIn } from '@/lib/google-signin'
-import { ONBOARDING_PATH } from '@/lib/onboarding-prompt'
+import { startGoogleSignIn } from '@/lib/google-signin'
+import { onboardingPathForBooking } from '@/lib/onboarding-prompt'
 
 // --- Types (mirror GET /api/services response) ---
 type ServiceType = 'salon' | 'spa'
@@ -226,6 +226,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
   const restoredRef = useRef(false)
   const submissionRequest = useRef<AbortController | null>(null)
+  const unresolvedBookingKeys = useRef(new Map<string, string>())
 
   // The branch availability and the booking use: the customer's choice while
   // it is taking bookings, otherwise the default branch. Derived rather than
@@ -569,7 +570,11 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
       serviceIds: selectedServiceIds,
       notes,
     }
-    sessionStorage.setItem(BOOKING_INTENT_KEY, JSON.stringify(intent))
+    try {
+      sessionStorage.setItem(BOOKING_INTENT_KEY, JSON.stringify(intent))
+    } catch {
+      // Booking can reopen from its URL after sign-in without the saved draft.
+    }
   }, [
     activeBranchId,
     selectedDate,
@@ -603,18 +608,26 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
         return
       }
 
+      const selection = {
+        branchId: activeBranchId,
+        serviceType,
+        bookingDate: toISODate(selectedDate),
+        startTime: selectedTime,
+        serviceIds: selectedServiceIds,
+        notes: notes.trim() || undefined,
+      }
+      const selectionKey = JSON.stringify(selection)
+      let idempotencyKey = unresolvedBookingKeys.current.get(selectionKey)
+      if (!idempotencyKey) {
+        idempotencyKey = crypto.randomUUID()
+        unresolvedBookingKeys.current.set(selectionKey, idempotencyKey)
+      }
+
       const res = await fetch('/api/bookings', {
         method: 'POST',
         signal: request.signal,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          branchId: activeBranchId,
-          serviceType,
-          bookingDate: toISODate(selectedDate),
-          startTime: selectedTime,
-          serviceIds: selectedServiceIds,
-          notes: notes.trim() ? notes.trim() : undefined,
-        }),
+        body: JSON.stringify({ ...selection, idempotencyKey }),
       })
       const json = await res.json()
       if (request.signal.aborted) return
@@ -627,16 +640,19 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
       // their profile. The dialog reopens automatically afterwards via `?book=1`.
       if (res.status === 403 && json?.error?.code === 'ONBOARDING_REQUIRED') {
         persistIntent()
-        markBookingIntentForOnboarding()
         track('booking_onboarding_required')
-        router.push(ONBOARDING_PATH)
+        router.push(onboardingPathForBooking({}))
         return
       }
 
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? "Your booking couldn't be submitted.")
       }
-      const bookingNumber = json.data.bookingNumber as string
+      const bookingNumber: unknown = json.data?.bookingNumber
+      if (typeof bookingNumber !== 'string' || !bookingNumber) {
+        throw new Error("Your booking couldn't be confirmed. Please try again.")
+      }
+      unresolvedBookingKeys.current.delete(selectionKey)
       setSubmission({ status: 'submitted', bookingNumber })
       track('booking_request_submitted', {
         bookingId: bookingNumber,

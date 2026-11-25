@@ -30,7 +30,11 @@
  ************************************************************/
 
 import { signIn } from '@/lib/auth-client'
-import { BOOKING_CONTEXT_PARAMS, ONBOARDING_PATH } from '@/lib/onboarding-prompt'
+import {
+  BOOKING_CONTEXT_PARAMS,
+  ONBOARDING_PATH,
+  onboardingPathForBooking,
+} from '@/lib/onboarding-prompt'
 
 const AUTH_CONTEXT_KEY = 'rgss_auth_context'
 
@@ -68,40 +72,6 @@ export function preserveAuthContext(): void {
 export const NEW_USER_CALLBACK_URL = ONBOARDING_PATH
 
 /**
- * Record that the customer was mid-booking when they were sent to /onboarding,
- * so the booking dialog reopens once the profile row exists.
- *
- * Needed for the ALREADY-SIGNED-IN path: a customer who skipped onboarding and
- * later hits Submit is bounced by the API's 403 ONBOARDING_REQUIRED, with no
- * OAuth round trip to carry `?book=1` — so the intent is written here instead of
- * by preserveAuthContext(). Merges into the existing context rather than
- * replacing it, to keep any UTM/lead attribution already captured.
- *
- * That is the backstop. Tapping Book Now normally sends such a customer to
- * onboarding before the dialog opens (requireProfileBeforeBooking in
- * `@/lib/onboarding-guard`), with the intent in the onboarding URL instead.
- */
-export function markBookingIntentForOnboarding(): void {
-  if (typeof window === 'undefined') {
-    return
-  }
-  let context: Record<string, string> = {}
-  const stored = sessionStorage.getItem(AUTH_CONTEXT_KEY)
-  if (stored) {
-    try {
-      const parsed: unknown = JSON.parse(stored)
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        context = parsed as Record<string, string>
-      }
-    } catch {
-      // Corrupt payload: start clean rather than throwing away the intent.
-    }
-  }
-  context.book = '1'
-  sessionStorage.setItem(AUTH_CONTEXT_KEY, JSON.stringify(context))
-}
-
-/**
  * Launch Google OAuth directly. Preserves context first, then hands off to
  * Better Auth. Throws on failure so the caller can surface an error state.
  *
@@ -119,7 +89,8 @@ export async function startGoogleSignIn(callbackURL?: string): Promise<void> {
   preserveAuthContext()
   const result = await signIn.social({
     provider: 'google',
-    newUserCallbackURL: NEW_USER_CALLBACK_URL,
+    newUserCallbackURL:
+      callbackURL === '/?book=1' ? onboardingPathForBooking({}) : NEW_USER_CALLBACK_URL,
     ...(callbackURL ? { callbackURL } : {}),
   })
   if (result.error || !result.data?.redirect || !result.data.url) {

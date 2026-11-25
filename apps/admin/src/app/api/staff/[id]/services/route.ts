@@ -28,7 +28,7 @@
 
 import { editableStaffRoles } from '@rgss/business'
 import { getServicesByIds, getStaffMemberAtBranch, setStaffServices } from '@rgss/db/queries'
-import { badRequest, forbidden, notFound } from '@rgss/errors'
+import { badRequest, conflict, ERROR_CODES, forbidden, notFound } from '@rgss/errors'
 import { staffServiceAssignmentSchema } from '@rgss/types'
 import { audit } from '@/lib/api/audit'
 import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
@@ -52,8 +52,8 @@ export const PUT = withErrorHandler(async (req: Request, { params }: Params) => 
   if (!staff) {
     throw notFound('Staff member not found.')
   }
-  const editable: readonly string[] = editableStaffRoles(ctx.branch.role)
-  if (staff.roleWitness === null || !editable.includes(staff.roleWitness)) {
+  const editable = editableStaffRoles(ctx.branch.role)
+  if (staff.roleWitness === null || !(editable as readonly string[]).includes(staff.roleWitness)) {
     throw forbidden('Managers edit Stylists and Therapists only.')
   }
 
@@ -67,7 +67,19 @@ export const PUT = withErrorHandler(async (req: Request, { params }: Params) => 
     }
   }
 
-  const serviceIds = await setStaffServices(id, parsed.data.serviceIds)
+  const serviceIds = await setStaffServices({
+    id,
+    branchId: ctx.branch.id,
+    actorId: ctx.session.user.id,
+    roles: editable,
+    serviceIds: uniqueIds,
+  })
+  if (serviceIds === null) {
+    throw conflict(
+      ERROR_CODES.CONFLICT,
+      'This staff member changed while you were editing. Reload and try again.',
+    )
+  }
   await audit(req, ctx.session, {
     action: 'update',
     entityType: 'staff_services',

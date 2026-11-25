@@ -20,11 +20,14 @@ const enquiry = {
 }
 const mainInbox = process.env.CONTACT_INBOX_EMAIL ?? BUSINESS.email
 
-function post(branchId?: unknown) {
+function post(branchId?: unknown, idempotencyKey?: string) {
   return POST(
     new Request('https://theroyalglow.in/api/contact', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
+      },
       body: JSON.stringify({ ...enquiry, branchId }),
     }),
     undefined,
@@ -99,5 +102,29 @@ describe('POST /api/contact branch routing', () => {
 
     expect(mocks.getBranchById).not.toHaveBeenCalled()
     expect(mocks.sendEmail).not.toHaveBeenCalled()
+  })
+
+  it('returns a retryable failure if the provider declines or throws', async () => {
+    mocks.sendEmail.mockResolvedValueOnce(false).mockRejectedValueOnce(new Error('Network error'))
+
+    for (const response of [await post(), await post()]) {
+      expect(response.status).toBe(503)
+      expect(await response.json()).toMatchObject({
+        success: false,
+        error: { code: 'SERVICE_UNAVAILABLE', retryable: true },
+      })
+    }
+  })
+
+  it('rejects invalid retry keys and forwards valid ones in the contact namespace', async () => {
+    expect((await post(undefined, 'invalid')).status).toBe(400)
+    expect(mocks.sendEmail).not.toHaveBeenCalled()
+
+    const key = '44127296-858b-407d-b95e-c4a808297446'
+    expect((await post(undefined, key)).status).toBe(201)
+    expect(mocks.sendEmail).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ to: mainInbox }),
+      `contact/${key}`,
+    )
   })
 })

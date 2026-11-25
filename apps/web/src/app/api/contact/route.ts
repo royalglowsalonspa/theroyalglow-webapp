@@ -8,7 +8,7 @@
  *
  * Description  : Unauthenticated contact-form endpoint for the public /contact
  *                page. Rate-limited per IP, strictly Zod-validated, and emails
- *                the enquiry to the salon inbox (best-effort).
+ *                the enquiry to the salon inbox.
  *
  * Responsibilities :
  * - Rate-limit unauthenticated submissions per IP (public write endpoint)
@@ -18,9 +18,7 @@
  *
  * Features / Functionality :
  * - Per-IP rate limiting (mirrors /api/leads)
- * - Best-effort email: never throws if delivery fails — logs and still returns
- *   success, mirroring how /api/bookings and the admin complete route treat
- *   transactional email
+ * - Reports a retryable failure if the delivery provider does not accept it
  * - HTML-escaped enquiry body (no injection via name/message/email)
  *
  * Tech Stack   : Next.js 16 (Route Handler)
@@ -31,17 +29,17 @@
  *                @rgss/errors, @rgss/logger, @rgss/types
  *
  * Notes        :
- * - sendEmail no-ops without RESEND_API_KEY and never throws, so a missing key
- *   (or a Resend outage) can never break this endpoint's success response.
+ * - A retry with the same optional idempotency key reuses the provider request.
  * - The main inbox is CONTACT_INBOX_EMAIL when provisioned, falling back to
  *   the public company email.
  ************************************************************/
 
 import { normaliseValidIndianPhone } from '@rgss/business'
 import { getBranchById } from '@rgss/db/queries'
-import { badRequest } from '@rgss/errors'
+import { AppError, badRequest, ERROR_CODES } from '@rgss/errors'
 import { createLogger } from '@rgss/logger'
 import { contactFormSchema } from '@rgss/types'
+import { z } from 'zod'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { enforceRateLimit, getClientIp } from '@/lib/api/rate-limit'
 import { sendEmail } from '@/lib/notifications/providers/email'
@@ -57,6 +55,7 @@ const logger = createLogger({
 // fallback. Read from process.env directly to keep this a graceful optional —
 // the var is optional so it must never make the route depend on its presence.
 const SALON_INBOX_EMAIL = process.env.CONTACT_INBOX_EMAIL ?? BUSINESS.email
+const idempotencyKeySchema = z.uuid()
 
 async function resolveEnquiryBranch(branchId?: string) {
   if (!branchId) return null
@@ -132,6 +131,9 @@ export const POST = withErrorHandler(async (req: Request) => {
   if (!parsed.success) {
     throw badRequest('Invalid contact form data', parsed.error.flatten().fieldErrors)
   }
+  const keyHeader = req.headers.get('Idempotency-Key')
+  const key = keyHeader === null ? null : idempotencyKeySchema.safeParse(keyHeader)
+  if (key?.success === false) throw badRequest('Invalid request idempotency key.')
 
   // Normalise the optional phone to +91XXXXXXXXXX when present and valid; the
   // schema already guarantees validity, so this just canonicalises the format.
@@ -148,25 +150,28 @@ export const POST = withErrorHandler(async (req: Request) => {
     branchName: branch?.name ?? null,
   })
 
-  // Best-effort delivery (mirrors /api/bookings + admin complete route):
-  // sendEmail never throws and no-ops without RESEND_API_KEY, so a delivery
-  // failure can never turn a valid submission into an error for the customer.
-  // Reply-To is the submitter so the salon can reply straight from their inbox.
+  // Email is the enquiry's only destination. A refused email leaves nothing
+  // for the salon to answer, so the caller must be able to retry.
+  let delivered = false
   try {
-    const delivered = await sendEmail({
+    const email = {
       to: branch?.email || SALON_INBOX_EMAIL,
       subject,
       html,
       replyTo: parsed.data.email,
-    })
-    if (!delivered) {
-      logger.warn('contact enquiry email not delivered (provider unconfigured or failed)')
     }
-  } catch (error) {
-    // Defensive: sendEmail already swallows its own errors, but we never let an
-    // email problem fail the request.
-    logger.error('contact enquiry email threw unexpectedly', {
-      error: error instanceof Error ? error.message : String(error),
+    delivered = key?.success
+      ? await sendEmail(email, `contact/${key.data}`)
+      : await sendEmail(email)
+  } catch {
+    logger.error('contact enquiry email threw unexpectedly')
+  }
+  if (!delivered) {
+    throw new AppError({
+      code: ERROR_CODES.SERVICE_UNAVAILABLE,
+      message: 'We could not send your message right now. Please try again or call us directly.',
+      statusCode: 503,
+      retryable: true,
     })
   }
 

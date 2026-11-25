@@ -164,7 +164,9 @@ async function recordNow(
     endTime: '12:00',
     services: [{ serviceId, serviceNameSnapshot: 'ZZ Holds IT spa', durationMinutes: minutes }],
     recordedById: ACTOR,
-    ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
+    ...(idempotencyKey === undefined
+      ? {}
+      : { idempotencyKey, requestFingerprint: `${branchId}:${minutes}` }),
   })
 }
 
@@ -351,7 +353,12 @@ describe.skipIf(!LIVE)(
       expect(await holdOf(successful.booking.id)).toEqual({ state: 'held', minutes: 60 })
       expect(await getMembershipSessionByKey(m.id, key, A)).toMatchObject({
         booking: { id: successful.booking.id },
+        replay: { kind: 'fingerprint', fingerprint: `${A}:60` },
       })
+      expect(
+        await queryRows(sql`select entity_id from audit_log
+        where entity_type = 'membership_session_recording' and new_values->>'membershipId' = ${m.id}`),
+      ).toEqual([{ entity_id: successful.booking.id }])
       expect(await getMembershipSessionByKey(m.id, key, B)).toBeNull()
       expect(
         await queryRows(sql`select id from booking where spa_membership_id = ${m.id}`),

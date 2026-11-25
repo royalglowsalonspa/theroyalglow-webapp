@@ -23,7 +23,7 @@
  * Tech Stack   : React, Better Auth, shadcn/ui, lucide-react
  * Layer        : Presentation
  *
- * Dependencies : signOut (auth-client), React (useState, useRef),
+ * Dependencies : useCustomerSignOut,
  *                @/components/ui/button, lucide-react
  *
  * Notes        :
@@ -33,30 +33,11 @@
 'use client'
 
 import { Loader2, LogOut } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useCustomerSignOut } from '@/components/auth/useCustomerSignOut'
 import { Button } from '@/components/ui/button'
-import { signOut } from '@/lib/auth-client'
 
 export function SignOutButton() {
-  const [status, setStatus] = useState<'ready' | 'signing-out' | 'error'>('ready')
-  const attemptInFlight = useRef(false)
-  const signingOut = status === 'signing-out'
-
-  async function handleSignOut() {
-    if (attemptInFlight.current) return
-    attemptInFlight.current = true
-    setStatus('signing-out')
-    try {
-      const { data, error } = await signOut()
-      if (error || !data?.success) {
-        throw new Error('Sign-out failed')
-      }
-      window.location.href = '/'
-    } catch {
-      attemptInFlight.current = false
-      setStatus('error')
-    }
-  }
+  const { handleSignOut, signingOut, signOutFailed } = useCustomerSignOut()
 
   return (
     <div>
@@ -80,7 +61,7 @@ export function SignOutButton() {
           </>
         )}
       </Button>
-      {status === 'error' && (
+      {signOutFailed && (
         <p role="alert" className="mt-2 font-sans text-sm text-error">
           Could not sign out. Please try again.
         </p>

@@ -45,7 +45,7 @@ import {
   HISTORICAL_SESSION_MAX_MINUTES,
   type SettlementSetting,
 } from '@rgss/types'
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { BatchItem } from 'drizzle-orm/batch'
 import { nanoid } from 'nanoid'
 import { db } from '../index'
@@ -507,9 +507,6 @@ type RecordMembershipSessionParams = {
   endTime: string
   notes?: string | null
   services: SessionServiceInput[]
-  // Client idempotency key. With it, a retried request can never start the
-  // session twice; see getMembershipSessionByKey for the replay side.
-  idempotencyKey?: string | null
   /** Who recorded the session; on its status log. */
   recordedById: string
   /**
@@ -519,7 +516,10 @@ type RecordMembershipSessionParams = {
   when?: 'now' | 'ahead'
   /** The branch settings revision that accepted a session booked ahead. */
   settingsRevision?: number | null
-}
+} & (
+  | { idempotencyKey: string; requestFingerprint: string }
+  | { idempotencyKey?: null; requestFingerprint?: never }
+)
 
 export type RecordMembershipSessionResult =
   | {
@@ -542,6 +542,7 @@ export type RecordMembershipSessionResult =
 // also require a session of the same membership, so a key from anywhere else
 // never resolves to a session.
 const REDEMPTION_KEY_INDEX = 'booking_redemption_key_uidx'
+const SESSION_RECORD_ENTITY = 'membership_session_recording'
 // What the database refuses a new hold with (0025, 0026): too few minutes
 // free, or a membership that can't be used at the session's start.
 const HOLD_REFUSALS = ['spa_membership_reserved_check', 'membership_hold_validity'] as const
@@ -638,6 +639,21 @@ export async function recordMembershipSession(
         .select(balanceColumns)
         .from(spaMembership)
         .where(eq(spaMembership.id, params.membershipId)),
+      ...(params.idempotencyKey
+        ? [
+            db.insert(auditLog).values({
+              actorId: params.recordedById,
+              action: 'create',
+              entityType: SESSION_RECORD_ENTITY,
+              entityId: bookingId,
+              branchId: params.branchId,
+              newValues: {
+                membershipId: params.membershipId,
+                requestFingerprint: params.requestFingerprint,
+              },
+            }),
+          ]
+        : []),
     ])
     .catch((error: unknown) => {
       // A service stopped being offered at the branch after the route
@@ -1082,7 +1098,7 @@ export async function recordHistoricalMembershipSession(params: HistoricalMember
 // has completed, its service lines (so the caller can check the retry asks
 // for the same session) and the minutes the membership has free now. Null
 // when the key has not recorded a session on this membership.
-export async function getMembershipSessionByKey(
+async function readSessionByKey(
   membershipId: string,
   idempotencyKey: string,
   branchId: string,
@@ -1131,12 +1147,60 @@ export async function getMembershipSessionByKey(
   }
 }
 
+export async function getMembershipSessionByKey(
+  membershipId: string,
+  idempotencyKey: string,
+  branchId: string,
+) {
+  const recorded = await readSessionByKey(membershipId, idempotencyKey, branchId)
+  if (!recorded) return null
+
+  const bookingId = recorded.booking.id
+  const [receipt] = await db
+    .select({ fingerprint: sql<string | null>`${auditLog.newValues}->>'requestFingerprint'` })
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.entityType, SESSION_RECORD_ENTITY),
+        eq(auditLog.entityId, bookingId),
+        eq(auditLog.branchId, branchId),
+        eq(auditLog.action, 'create'),
+      ),
+    )
+    .orderBy(asc(auditLog.createdAt), asc(auditLog.id))
+    .limit(1)
+  if (receipt) return { ...recorded, replay: { kind: 'fingerprint' as const, ...receipt } }
+
+  // Older sessions did not capture the request. The creation event still
+  // proves who recorded it and how. A moved booking no longer proves its
+  // original slot, so it is unsafe to replay from the current slot.
+  const [origin] = await db
+    .select({
+      actorId: bookingStatusLog.changedById,
+      status: bookingStatusLog.toStatus,
+      moved: sql<boolean>`exists (select 1 from ${bookingStatusLog}
+        where ${bookingStatusLog.bookingId} = ${bookingId}
+          and ${bookingStatusLog.notes} like 'Rescheduled to %')`,
+    })
+    .from(bookingStatusLog)
+    .where(
+      and(
+        eq(bookingStatusLog.bookingId, bookingId),
+        isNull(bookingStatusLog.fromStatus),
+        inArray(bookingStatusLog.toStatus, ['confirmed', 'in_progress']),
+      ),
+    )
+    .orderBy(asc(bookingStatusLog.createdAt), asc(bookingStatusLog.id))
+    .limit(1)
+  return { ...recorded, replay: { kind: 'legacy' as const, origin: origin ?? null } }
+}
+
 export async function getHistoricalMembershipSessionByKey(
   membershipId: string,
   idempotencyKey: string,
   branchId: string,
 ) {
-  const recorded = await getMembershipSessionByKey(membershipId, idempotencyKey, branchId, true)
+  const recorded = await readSessionByKey(membershipId, idempotencyKey, branchId, true)
   if (!recorded?.invoice) return null
 
   const [record] = await db

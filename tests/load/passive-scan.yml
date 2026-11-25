@@ -1,0 +1,41 @@
+# Inspect the responses to ordinary public reads on the synthetic CI app.
+env:
+  contexts:
+    - name: rgss-local-web
+      urls:
+        - http://127.0.0.1:3000
+  parameters:
+    failOnError: true
+    failOnWarning: true
+    progressToStdout: true
+
+jobs:
+  - type: passiveScan-config
+    parameters:
+      scanOnlyInScope: true
+  - type: requestor
+    requests:
+      - url: http://127.0.0.1:3000/
+        method: GET
+        responseCode: 200
+      - url: http://127.0.0.1:3000/api/services
+        method: GET
+        responseCode: 200
+      - url: http://127.0.0.1:3000/api/branches
+        method: GET
+        responseCode: 200
+      - url: http://127.0.0.1:3000/api/health
+        method: GET
+        responseCode: 200
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 2
+  - type: report
+    parameters:
+      template: traditional-json
+      reportDir: /zap/rgss-report
+      reportFile: zap-passive
+      reportTitle: Royal Glow passive response checks
+  - type: exitStatus
+    parameters:
+      errorLevel: High

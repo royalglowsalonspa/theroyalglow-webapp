@@ -799,7 +799,12 @@ describe("POST /api/gems/redeem — the branch's booking settings (R6.3)", () =>
     expect(res.status).toBe(201)
     expect(dbMocks.getBranchPolicy).toHaveBeenCalledWith('br_1')
     expect(dbMocks.redeemServiceWithGems).toHaveBeenCalledWith(
-      expect.objectContaining({ settingsRevision: 4 }),
+      expect.objectContaining({
+        settingsRevision: 4,
+        admission: expect.objectContaining({
+          maxUpcoming: DEFAULT_BOOKING_RULES.maxActiveBookingsPerCustomer,
+        }),
+      }),
     )
   })
 

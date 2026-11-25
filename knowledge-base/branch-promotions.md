@@ -74,10 +74,16 @@ account (`royalglowsalonspa`) can manage rulesets; collaborators cannot.
 recent pull requests (#248, #251, #252, #254, #256, and #257 report only
 `codecov/patch`). Importing it unchanged would block every merge into `dev`.
 
-Integration and Playwright need `DATABASE_URL_TEST`; live load and ZAP checks need
-`PPRD_URL`. As of the 2026-09-09 audit those secrets were absent, so these jobs
-explicitly skip. An aggregate success with a preflight skip is not evidence of
-live integration or load validation. Database migration workflows remain separate.
+Integration, Playwright, k6 and the passive ZAP check run against the commit
+under review. GitHub-hosted runners create fresh PostgreSQL 18 databases, apply
+both migration histories and load synthetic fixtures. The load and passive
+security checks use a web build served on the same runner. The checks require
+neither a hosted `pprd` URL nor shared database credentials.
+
+This covers application behavior on PostgreSQL and local HTTP. Neon branch
+lifecycle tests still require a dedicated synthetic Neon project, and hosted
+capacity and provider checks remain separate from promotion CI. Environment
+database migration workflows are also separate.
 
 ## CI root causes reviewed on 2026-09-09
 

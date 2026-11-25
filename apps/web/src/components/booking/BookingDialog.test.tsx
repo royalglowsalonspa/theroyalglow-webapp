@@ -43,7 +43,6 @@ vi.mock('@/lib/auth-client', () => ({
 vi.mock('@/lib/analytics/events', () => ({ track: vi.fn() }))
 vi.mock('@/lib/google-signin', () => ({
   startGoogleSignIn: vi.fn(),
-  markBookingIntentForOnboarding: vi.fn(),
 }))
 
 // The dialog routes to /onboarding when the API answers 403 ONBOARDING_REQUIRED.
@@ -421,6 +420,24 @@ describe('BookingDialog lifecycle', () => {
     expect(screen.getByText('Signature Haircut')).toBeVisible()
     expect(screen.getByRole('button', { name: 'Sign in to Book' })).toBeEnabled()
   })
+
+  it('continues to sign-in when the browser blocks booking draft storage', async () => {
+    auth.signedIn = false
+    mockApi()
+    renderDialog()
+    await advanceToSummary()
+    const store = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('Storage blocked', 'SecurityError')
+    })
+
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Sign in to Book' }))
+      await waitFor(() => expect(startGoogleSignIn).toHaveBeenCalledWith('/?book=1'), LOAD)
+      expect(screen.queryByText('Storage blocked')).not.toBeInTheDocument()
+    } finally {
+      store.mockRestore()
+    }
+  })
 })
 
 describe('BookingDialog branch picker', () => {
@@ -485,6 +502,27 @@ describe('BookingDialog branch picker', () => {
 
     expect(await screen.findByText('BK-RS-2609-H-38291', {}, LOAD)).toBeInTheDocument()
     expect(postedBody).toMatchObject({ branchId: 'branch_indiranagar' })
+  })
+
+  it('reuses the request key when the booking response was lost', async () => {
+    const keys: unknown[] = []
+    mockApi(
+      http.post('*/api/bookings', async ({ request }) => {
+        const { idempotencyKey } = (await request.json()) as { idempotencyKey: unknown }
+        keys.push(idempotencyKey)
+        if (keys.length === 1) return HttpResponse.error()
+        return HttpResponse.json({ success: true, data: { bookingNumber: 'BK-RS-original' } })
+      }),
+    )
+
+    renderDialog()
+    await advanceToSummary()
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Booking' }))
+    await screen.findByRole('alert', {}, LOAD)
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Booking' }))
+
+    expect(await screen.findByText('BK-RS-original', {}, LOAD)).toBeInTheDocument()
+    expect(keys).toEqual([expect.any(String), keys[0]])
   })
 
   it('offers a retry when branches fail to load, and asks for no times until one loads', async () => {
@@ -611,7 +649,10 @@ describe('BookingDialog branch picker', () => {
     await advanceToSummary()
     fireEvent.click(screen.getByRole('button', { name: 'Submit Booking' }))
 
-    await waitFor(() => expect(routerPushMock).toHaveBeenCalledWith(ONBOARDING_PATH), LOAD)
+    await waitFor(
+      () => expect(routerPushMock).toHaveBeenCalledWith(`${ONBOARDING_PATH}?book=1`),
+      LOAD,
+    )
     expect(JSON.parse(sessionStorage.getItem(BOOKING_INTENT_KEY) ?? '{}')).toMatchObject({
       branchId: 'branch_indiranagar',
       time: '10:00',

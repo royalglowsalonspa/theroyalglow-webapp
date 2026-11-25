@@ -160,7 +160,14 @@ describe('payloads and envelopes', () => {
     )
 
     expect(res.status).toBe(200)
-    expect(dbMocks.setStaffServices).toHaveBeenCalledWith('st1', [])
+    expect(dbMocks.setStaffServices).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'st1',
+        branchId: 'rs',
+        roles: ['staff'],
+        serviceIds: [],
+      }),
+    )
     expect(dbMocks.getServicesByIds).not.toHaveBeenCalled()
   })
 

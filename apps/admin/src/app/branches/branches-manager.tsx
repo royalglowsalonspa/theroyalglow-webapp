@@ -665,8 +665,13 @@ function BranchDialog({
         state: stateName.trim(),
         pincode: pincode.trim(),
         phone: phone.trim(),
-        status,
         isPrimary,
+      }
+      if (!editing) {
+        payload.status = status
+      } else if (status !== editing.status) {
+        payload.status = status
+        payload.expectedStatus = editing.status
       }
       if (addressLine2.trim()) {
         payload.addressLine2 = addressLine2.trim()

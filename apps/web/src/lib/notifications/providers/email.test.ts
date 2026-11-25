@@ -51,6 +51,15 @@ describe('sendEmail', () => {
     expect(await sendEmail(message)).toBe(false)
   })
 
+  it('forwards the idempotency key as a header only', async () => {
+    fetchMock.mockResolvedValue(Response.json({ id: 'email_test' }))
+
+    expect(await sendEmail(message, 'contact/transaction-id')).toBe(true)
+    const request = fetchMock.mock.calls[0]?.[1]
+    expect(request?.headers).toMatchObject({ 'Idempotency-Key': 'contact/transaction-id' })
+    expect(JSON.parse(String(request?.body))).not.toHaveProperty('idempotencyKey')
+  })
+
   it('skips delivery when the provider is unconfigured', async () => {
     vi.stubEnv('RESEND_API_KEY', '')
     expect(await sendEmail(message)).toBe(false)

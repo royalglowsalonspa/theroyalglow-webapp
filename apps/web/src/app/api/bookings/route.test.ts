@@ -65,6 +65,7 @@ const dbMocks = vi.hoisted(() => ({
   getClosureOn: vi.fn(async (): Promise<{ name: string; allBranches: boolean } | null> => null),
   getDefaultStaffForService: vi.fn(),
   createBookingWithServices: vi.fn(),
+  findCustomerBookingRequest: vi.fn(),
   getBookingsByCustomer: vi.fn(),
 }))
 
@@ -149,6 +150,7 @@ beforeEach(() => {
   fakeServices = new Map()
   dbMocks.getBranchPolicy.mockResolvedValue(POLICY)
   dbMocks.countUpcomingBookingsAtBranch.mockResolvedValue(0)
+  dbMocks.findCustomerBookingRequest.mockResolvedValue(null)
 
   // Query-layer fakes wired to the in-memory store.
   dbMocks.getBranchById.mockImplementation(async (id: string) =>
@@ -534,6 +536,80 @@ describe('Property 13: customer bookings are never walk-ins (Task 13.7)', () => 
 // 13.9 — Edge guards on booking creation
 //        Validates: Requirements 5.3, 5.8
 // ===========================================================================
+describe('Customer booking request replay', () => {
+  const key = '7af1bdda-1ad4-4472-8017-06ec14c536bc'
+  const input = {
+    branchId: 'br_1',
+    serviceType: 'salon',
+    bookingDate: '2026-06-10',
+    startTime: '11:00',
+    serviceIds: ['svc_cut'],
+    idempotencyKey: key,
+  }
+
+  beforeEach(() => {
+    setServices([
+      {
+        id: 'svc_cut',
+        name: 'Cut',
+        pricePaise: 50_000,
+        durationMinutes: 30,
+        serviceType: 'salon',
+        isActive: true,
+      },
+    ])
+  })
+
+  it('returns the original booking before mutable gates and rejects changed details under the same key', async () => {
+    const first = await POST(postRequest(input), ROUTE_CTX)
+    expect(first.status).toBe(201)
+    const { data } = await first.json()
+    const write = dbMocks.createBookingWithServices.mock.calls[0]?.[2]
+    expect(write).toMatchObject({
+      admission: { branchName: 'Rayasandra', todayISO: '2026-06-01' },
+      request: { key, fingerprint: expect.any(String) },
+    })
+    dbMocks.findCustomerBookingRequest.mockResolvedValue({
+      ...data,
+      fingerprint: write.request.fingerprint,
+    })
+    fakeBranch = null
+    const duplicate = await POST(postRequest(input), ROUTE_CTX)
+    expect(duplicate.status).toBe(200)
+    expect((await duplicate.json()).data).toEqual(data)
+    expect(dbMocks.findCustomerBookingRequest).toHaveBeenLastCalledWith('cust_1', key)
+    expect(dbMocks.createBookingWithServices).toHaveBeenCalledOnce()
+    expect(enqueueMock).toHaveBeenCalledTimes(2)
+
+    const conflict = await POST(postRequest({ ...input, startTime: '12:00' }), ROUTE_CTX)
+    expect(conflict.status).toBe(409)
+    expect(dbMocks.createBookingWithServices).toHaveBeenCalledOnce()
+  })
+
+  it('recovers the committed result when a concurrent duplicate fills the final place', async () => {
+    dbMocks.createBookingWithServices.mockImplementationOnce(async (_booking, _services, write) => {
+      dbMocks.findCustomerBookingRequest.mockResolvedValue({
+        id: 'bk_existing',
+        bookingNumber: 'BK-RS-existing',
+        fingerprint: write.request.fingerprint,
+      })
+      throw new AppError({
+        code: ERROR_CODES.BOOKING_LIMIT_REACHED,
+        message: 'Full',
+        statusCode: 409,
+      })
+    })
+    const replay = await POST(postRequest(input), ROUTE_CTX)
+    expect(replay.status).toBe(200)
+    expect((await replay.json()).data).toEqual({
+      id: 'bk_existing',
+      bookingNumber: 'BK-RS-existing',
+      status: 'pending',
+    })
+    expect(enqueueMock).not.toHaveBeenCalled()
+  })
+})
+
 describe('Booking-create edge guards (Task 13.9)', () => {
   it('empty serviceIds → VALIDATION_ERROR 400 (Req 5.3)', async () => {
     setServices([
