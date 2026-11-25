@@ -60,7 +60,6 @@ jobs:
   integration:
     needs: [ci, codeql]
     uses: ./.github/workflows/integration.yml
-    secrets: inherit
 
   test:
     needs: integration
@@ -81,7 +80,6 @@ jobs:
     if: inputs.target != 'test'
     needs: test
     uses: ./.github/workflows/load-test.yml
-    secrets: inherit
 
   pprd:
     needs: load-security

@@ -1,90 +1,60 @@
 name: Integration & E2E
 
-# ---------------------------------------------------------------------------
-# Runs on promotion PRs into the long-lived branches (test -> pprd -> prod).
-#
-# Both jobs below need a REAL test database, which lives in the GitHub secret
-# DATABASE_URL_TEST. That secret is required because these jobs execute on the
-# GitHub runner — not on Render — so the Render dashboard env vars are not
-# visible to them.
-#
-# When the secret is absent the jobs SKIP instead of failing: an unconfigured
-# environment is not a code regression, and a permanently red required check on
-# every release PR trains people to ignore CI. The `preflight` job reports which
-# mode we are in so the skip is explicit in the run summary rather than silent.
-# Add DATABASE_URL_TEST (+ DATABASE_URL_UNPOOLED_TEST) and they start enforcing
-# automatically, with no workflow edit.
-#
-# NOTE: the previous `lighthouse-ci` job was removed. It ran `lhci autorun` with
-# no configPath, so it resolved no usable config and could only ever fail.
-# Lighthouse now lives in exactly one place: the `lighthouse-web` job in ci.yml,
-# which passes `configPath: .github/lighthouse/lighthouserc.json` explicitly and
-# audits the customer site built from the PR and served on localhost.
-#
-# There is deliberately NO lighthouserc at the repo root. One existed as a
-# leftover from the phase-9 testing spec, referenced by nothing, and was deleted
-# so nobody edits it expecting CI thresholds to change. `apps/admin/lighthouserc.json`
-# is separate and belongs to the admin redesign audit, not to CI.
-# ---------------------------------------------------------------------------
-
 on:
   workflow_call:
+  workflow_dispatch:
   pull_request:
     branches: [dev, test, pprd, prod]
 
-jobs:
-  # Resolves whether a test database is configured. Secrets cannot be evaluated
-  # in a job-level `if:`, so this exposes the answer as a job output instead.
-  preflight:
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    outputs:
-      has_test_db: ${{ steps.check.outputs.has_test_db }}
-    steps:
-      - id: check
-        env:
-          TEST_DB: ${{ secrets.DATABASE_URL_TEST }}
-        run: |
-          if [ -n "$TEST_DB" ]; then
-            echo "has_test_db=true" >> "$GITHUB_OUTPUT"
-            echo "Test database configured — integration + E2E will run."
-          else
-            echo "has_test_db=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=Integration/E2E skipped::DATABASE_URL_TEST is not configured, so the integration and Playwright jobs cannot boot the app and are being skipped. Add the secret to enable them."
-          fi
+permissions:
+  contents: read
 
+jobs:
   integration-tests:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: [preflight]
-    if: needs.preflight.outputs.has_test_db == 'true'
-    env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL_TEST }}
-      DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_TEST }}
-      APP_ENV: test
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
-      - name: Run integration tests
-        run: bun run test:integration
+      - uses: ./.github/actions/synthetic-postgres
+      - name: Run database integration tests
+        env:
+          ADMIN_REHEARSAL_TAX: '1'
+          ADMIN_REHEARSAL_MEMBERSHIP_HISTORY: '1'
+        run: |
+          export NODE_OPTIONS="--import=$RGSS_LOCAL_DB_PRELOAD"
+          # The separate Neon drift harness forks production and requires a cloud
+          # management credential. Keep it out of the runner-local database suite.
+          bun run test:integration --no-file-parallelism \
+            --exclude 'packages/db/scripts/drift/__tests__/**'
 
   playwright-e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
-    needs: [preflight, integration-tests]
-    if: needs.preflight.outputs.has_test_db == 'true'
-    env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL_TEST }}
-      APP_ENV: test
-      SKIP_ENV_VALIDATION: '1'
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
+      - uses: ./.github/actions/synthetic-postgres
       - run: bunx playwright install --with-deps chromium
-      - name: Run Playwright tests
-        run: bun run test:e2e
+      - name: Run customer website Playwright tests
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:3000
+        run: |
+          export DATABASE_URL="${DATABASE_URL/127.0.0.1/localhost}"
+          export NODE_OPTIONS="--import=$RGSS_LOCAL_DB_PRELOAD"
+          bun run test:e2e
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
@@ -95,18 +65,12 @@ jobs:
 
   integration-success:
     name: Integration Success
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 2
     if: always()
-    needs: [preflight, integration-tests, playwright-e2e]
+    needs: [integration-tests, playwright-e2e]
     steps:
-      - name: Verify integration jobs
+      - name: Require both suites to pass
         env:
           RESULTS: ${{ toJSON(needs.*.result) }}
-        run: |
-          if jq -e 'all(. == "success" or . == "skipped")' <<< "$RESULTS" >/dev/null; then
-            echo "Integration checks passed or were explicitly skipped by preflight."
-          else
-            echo "An integration check failed or was cancelled: $RESULTS"
-            exit 1
-          fi
+        run: jq -e 'all(. == "success")' <<< "$RESULTS" >/dev/null

@@ -1,0 +1,9 @@
+name: Prepare synthetic PostgreSQL
+description: Start a loopback PostgreSQL 18 cluster and apply the checked-out release schema and fixtures
+
+runs:
+  using: composite
+  steps:
+    - name: Migrate and seed a fresh PostgreSQL cluster
+      shell: bash
+      run: bash "$GITHUB_ACTION_PATH/setup.sh"

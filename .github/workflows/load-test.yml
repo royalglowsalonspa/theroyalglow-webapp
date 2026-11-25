@@ -1,60 +1,81 @@
 name: Load & Security
 
-# ---------------------------------------------------------------------------
-# Runs on promotion PRs into pprd / prod.
-#
-# Two different kinds of check live here, and they have different prerequisites:
-#
-#   1. Trivy filesystem scan — needs nothing external, so it ALWAYS runs and is
-#      a hard gate.
-#   2. k6 load test + OWASP ZAP baseline — both point at a DEPLOYED pre-production
-#      URL (secret PPRD_URL). There is currently no pprd deployment: Render
-#      deploys web/admin/cms from the `prod` branch only (see infra/render/render.yaml). With
-#      PPRD_URL unset, k6 silently fell back to http://localhost:3000 and failed
-#      with "connection refused" against a server that was never started, and ZAP
-#      was handed an empty target. Those are configuration gaps, not code
-#      regressions, so they SKIP with an explicit notice until a pprd URL exists.
-#      Set PPRD_URL and they enforce automatically, no workflow edit needed.
-# ---------------------------------------------------------------------------
+# Exercise the checked-out web build on loopback using runner-local synthetic
+# data. The k6 results measure this build on the runner, outside the deployed
+# AWS, CDN and Neon network path.
 
 on:
   workflow_call:
+  workflow_dispatch:
   pull_request:
     branches: [dev, test, pprd, prod]
 
-jobs:
-  # Secrets cannot be read in a job-level `if:`, so resolve availability here and
-  # expose it as an output.
-  preflight:
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    outputs:
-      has_pprd_url: ${{ steps.check.outputs.has_pprd_url }}
-    steps:
-      - id: check
-        env:
-          PPRD_URL: ${{ secrets.PPRD_URL }}
-        run: |
-          if [ -n "$PPRD_URL" ]; then
-            echo "has_pprd_url=true" >> "$GITHUB_OUTPUT"
-            echo "PPRD_URL configured — load test and ZAP baseline will run."
-          else
-            echo "has_pprd_url=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=Load test and ZAP skipped::PPRD_URL is not configured (there is no pprd deployment - Render deploys from prod only), so the k6 load test and OWASP ZAP baseline are being skipped. Set PPRD_URL to enable them."
-          fi
+permissions:
+  contents: read
 
-  k6-load-test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: [preflight]
-    if: needs.preflight.outputs.has_pprd_url == 'true'
+jobs:
+  web-runtime-checks:
+    name: Web load and passive security checks
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - uses: ./.github/actions/synthetic-postgres
       - uses: grafana/setup-k6-action@v1
-      - name: Run k6 load test
-        run: k6 run tests/load/booking-flow.js
+      - name: Build and start the synthetic web app
+        id: web
         env:
-          K6_TARGET_URL: ${{ secrets.PPRD_URL }}
+          COMMIT_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          export DATABASE_URL="${DATABASE_URL/127.0.0.1/localhost}"
+          export NODE_OPTIONS="--import=$RGSS_LOCAL_DB_PRELOAD"
+          bun run --filter @rgss/web build
+          bun run --filter @rgss/web start --hostname 127.0.0.1 > "$RUNNER_TEMP/rgss-load-web.log" 2>&1 &
+          web_pid=$!
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --max-time 2 http://127.0.0.1:3000/api/health |
+              jq -e --arg sha "$COMMIT_SHA" '.version == $sha and .checks.database.status == "pass"' >/dev/null; then
+              exit 0
+            fi
+            if ! kill -0 "$web_pid" 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/rgss-load-web.log"
+          exit 1
+
+      - name: Run the booking read-path load test
+        run: k6 run tests/load/booking-flow.js
+
+      - name: Run OWASP ZAP passive response checks
+        if: ${{ !cancelled() && steps.web.outcome == 'success' }}
+        shell: bash
+        run: |
+          install -d -m 0777 "$RUNNER_TEMP/rgss-zap"
+          docker run --rm --network host \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/tests/load/passive-scan.yml,target=/zap/rgss-plan.yml,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/rgss-zap,target=/zap/rgss-report" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap.sh -cmd -host 127.0.0.1 -port 8090 -autorun /zap/rgss-plan.yml
+
+      - name: Upload load server and passive scan diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-runtime-checks
+          path: |
+            ${{ runner.temp }}/rgss-load-web.log
+            ${{ runner.temp }}/rgss-zap/
+          retention-days: 7
 
   # Dependency/filesystem scanning needs no deployed environment — always gates.
   security-scan:
@@ -78,33 +99,20 @@ jobs:
           # duplicate findings and long runtimes.
           skip-dirs: 'node_modules,.next,.turbo,.open-next'
 
-  zap-baseline:
-    runs-on: ubuntu-latest
-    timeout-minutes: 12
-    needs: [preflight]
-    if: needs.preflight.outputs.has_pprd_url == 'true'
-    steps:
-      - uses: actions/checkout@v7
-      - name: OWASP ZAP baseline scan
-        uses: zaproxy/action-baseline@v0.15.0
-        with:
-          target: ${{ secrets.PPRD_URL }}
-          rules_file_name: 'zap-rules.tsv'
-
   load-security-success:
     name: Load & Security Success
     runs-on: ubuntu-latest
     timeout-minutes: 2
     if: always()
-    needs: [preflight, k6-load-test, security-scan, zap-baseline]
+    needs: [web-runtime-checks, security-scan]
     steps:
       - name: Verify load and security jobs
         env:
           RESULTS: ${{ toJSON(needs.*.result) }}
         run: |
-          if jq -e 'all(. == "success" or . == "skipped")' <<< "$RESULTS" >/dev/null; then
-            echo "Load and security checks passed or were explicitly skipped by preflight."
+          if jq -e 'all(. == "success")' <<< "$RESULTS" >/dev/null; then
+            echo "Load and security checks passed."
           else
-            echo "A load or security check failed or was cancelled: $RESULTS"
+            echo "A load or security check failed, was cancelled, or was skipped: $RESULTS"
             exit 1
           fi
