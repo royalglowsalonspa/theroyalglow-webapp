@@ -106,6 +106,7 @@ import { spaMembership } from '../schema/membership'
 import { invoiceSequence } from '../schema/tax'
 import {
   completeMembershipSession,
+  createMembershipWithInvoice,
   getMembershipSessionByKey,
   recordMembershipSession,
 } from './memberships'
@@ -168,6 +169,48 @@ const COMPLETE = {
 const BOOKING_ROW = { id: 'bk_1', bookingNumber: PARAMS.bookingNumber }
 const INVOICE_ROW = { id: 'inv_1', invoiceNumber: 'RS/2627/000042' }
 
+const SALE: Parameters<typeof createMembershipWithInvoice>[0] = {
+  membershipNumber: 'MEM-1',
+  customerId: PARAMS.customerId,
+  tierId: 'tier_1',
+  tierNameSnapshot: 'Gold',
+  tierUsualHoursMinutes: 600,
+  tierUsualPricePaise: 105_000,
+  totalHoursMinutes: 600,
+  pricePaidPaise: 105_000,
+  startsAt: new Date('2026-10-28T00:00:00.000Z'),
+  expiresAt: new Date('2026-11-30T00:00:00.000Z'),
+  createdBy: PARAMS.recordedById,
+  branchId: PARAMS.branchId,
+  invoice: {
+    paymentMethod: 'upi',
+    subtotalPaise: 105_000,
+    discountAmountPaise: 0,
+    taxableValuePaise: 100_000,
+    gstAmountPaise: 5_000,
+    cgstPaise: 2_500,
+    sgstPaise: 2_500,
+    totalAmountPaise: 105_000,
+    taxPointAt: COMPLETE.invoice.taxPointAt,
+    financialYear: COMPLETE.invoice.financialYear,
+    taxReviewStatus: COMPLETE.invoice.taxReviewStatus,
+  },
+  invoiceLine: {
+    serviceNameSnapshot: 'SPA membership: 10 hours',
+    quantity: 1,
+    unitPricePaise: 105_000,
+    totalPricePaise: 105_000,
+    sacCode: '999723',
+    taxVersionId: 'tax_rs_999723',
+    rateBps: 500,
+    discountPaise: 0,
+    taxableValuePaise: 100_000,
+    taxPaise: 5_000,
+    cgstPaise: 2_500,
+    sgstPaise: 2_500,
+  },
+}
+
 // Record now: booking, lines, status log, balance.
 function recordResult(total: number, used: number, reserved: number) {
   return [[BOOKING_ROW], {}, {}, [{ total, used, reserved }]]
@@ -192,6 +235,27 @@ function completeResult(total: number, used: number, reserved: number) {
 beforeEach(() => {
   fake.reset()
   fake.state.batchResult = recordResult(600, 210, 90)
+})
+
+describe('createMembershipWithInvoice', () => {
+  it('reports a concurrent active purchase as the same conflict as the pre-check', async () => {
+    fake.state.batchError = {
+      cause: { code: '23505', constraint: 'spa_membership_active_customer_idx' },
+    }
+
+    await expect(createMembershipWithInvoice(SALE)).rejects.toMatchObject({
+      code: 'MEMBERSHIP_ALREADY_ACTIVE',
+      statusCode: 409,
+    })
+    expect(fake.batches).toHaveLength(1)
+  })
+
+  it('preserves an unrelated unique constraint error from the purchase batch', async () => {
+    const error = { cause: { code: '23505', constraint: 'invoice_invoice_number_unique' } }
+    fake.state.batchError = error
+
+    await expect(createMembershipWithInvoice(SALE)).rejects.toBe(error)
+  })
 })
 
 describe('recordMembershipSession (Record now)', () => {

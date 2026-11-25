@@ -9,6 +9,7 @@ const db = vi.hoisted(() => ({
   getLeadById: vi.fn(),
   getLeadNotes: vi.fn(),
   getPublicBranches: vi.fn(),
+  markLeadLost: vi.fn(),
   moveLead: vi.fn(),
   updateLead: vi.fn(),
 }))
@@ -147,6 +148,42 @@ describe('lead detail while moving across branches', () => {
       status: 'contacted',
       lastContactedAt: expect.any(Date),
     })
+  })
+
+  it('records the acting user and reason when marking a lead lost', async () => {
+    db.getLeadById.mockResolvedValue({ id: 'lead_1', status: 'follow_up' })
+    db.markLeadLost.mockResolvedValue({ id: 'lead_1', status: 'lost' })
+
+    const response = await updateLead(
+      request('PATCH', '', { branchId: TEST_BRANCH.id, status: 'lost', reason: '  Moved away  ' }),
+      context,
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      data: { lead: { id: 'lead_1', status: 'lost' } },
+    })
+    expect(db.markLeadLost).toHaveBeenCalledWith(
+      'lead_1',
+      TEST_BRANCH.id,
+      'follow_up',
+      'user_1',
+      'Moved away',
+    )
+    expect(db.updateLead).not.toHaveBeenCalled()
+  })
+
+  it('refuses a missing loss reason without changing the lead', async () => {
+    db.getLeadById.mockResolvedValue({ id: 'lead_1', status: 'follow_up' })
+
+    const response = await updateLead(
+      request('PATCH', '', { branchId: TEST_BRANCH.id, status: 'lost', reason: '  ' }),
+      context,
+    )
+
+    expect(response.status).toBe(400)
+    expect(db.markLeadLost).not.toHaveBeenCalled()
+    expect(db.updateLead).not.toHaveBeenCalled()
   })
 
   it('adds a note only while the lead belongs to the active branch', async () => {

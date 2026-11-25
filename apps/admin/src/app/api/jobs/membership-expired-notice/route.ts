@@ -12,7 +12,7 @@
  * Responsibilities :
  * - Parse membershipId from QStash payload
  * - Send renewal email to the membership's customer
- * - Handle missing email/membership gracefully
+ * - Skip a missing membership, a cancellation or an expiry still in the future
  *
  * Features / Functionality :
  * - Final post-expiry renewal email
@@ -70,12 +70,20 @@ export const POST = async (req: Request) => {
     let sent = false
     if (membershipId) {
       const membership = await getMembershipById(membershipId)
-      if (membership?.customerEmail) {
+      // A queued notice can arrive early or outlive a cancellation. An elapsed
+      // expiry is still valid when the nightly status update has not run yet.
+      if (
+        membership?.customerEmail &&
+        membership.status !== 'cancelled' &&
+        membership.expiresAt.getTime() <= Date.now()
+      ) {
         const { title, body } = buildNotificationContent('membership_expired')
         sent = await sendEmail({
           to: membership.customerEmail,
           subject: title,
           html: `<p>${body}</p>`,
+          // Keep QStash retries within Resend's idempotency window replay-safe.
+          idempotencyKey: `membership-expired/${membershipId}`,
         })
       }
     }

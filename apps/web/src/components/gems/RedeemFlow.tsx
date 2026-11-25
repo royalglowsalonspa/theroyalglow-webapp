@@ -30,8 +30,7 @@
  * Notes        :
  * - WCAG 2.1 AA: dialog focus trap, aria-modal, Escape to close, labelled
  *   controls, aria-live result region.
- * - idempotencyKey is generated once per redemption attempt and stays stable
- *   across retries of that attempt.
+ * - Unconfirmed submissions retain their key for the same service and slot.
  ************************************************************/
 
 'use client'
@@ -109,6 +108,11 @@ interface RedeemResult {
   duplicate: boolean
 }
 
+type RedeemSubmission =
+  | { status: 'ready' | 'submitting' }
+  | { status: 'failed'; message: string }
+  | { status: 'succeeded'; result: RedeemResult }
+
 export function RedeemFlow({ balance, catalogue, branchList }: RedeemFlowProps) {
   // Local balance so affordability + the hero stay accurate after a redemption.
   const [currentBalance, setCurrentBalance] = useState(balance)
@@ -138,46 +142,41 @@ export function RedeemFlow({ balance, catalogue, branchList }: RedeemFlowProps) 
   const [slotsLoading, setSlotsLoading] = useState(false)
   const [slotsError, setSlotsError] = useState<string | null>(null)
 
-  const [submitting, setSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const [result, setResult] = useState<RedeemResult | null>(null)
+  const [submission, setSubmission] = useState<RedeemSubmission>({ status: 'ready' })
+  const submitting = submission.status === 'submitting'
+  const submitError = submission.status === 'failed' ? submission.message : null
+  const result = submission.status === 'succeeded' ? submission.result : null
 
   const dialogRef = useRef<HTMLDivElement>(null)
-  // Stable per-attempt idempotency key. Set once when the dialog opens for a
-  // service and kept across retries of that attempt; a new attempt (reopen)
-  // gets a fresh key.
-  const idempotencyKeyRef = useRef<string | null>(null)
+  // The ref protects event handlers before React renders the disabled controls.
+  const submissionInFlight = useRef(false)
+  // A lost response can hide a committed spend. Keep the key for that request
+  // if the customer closes and reopens the dialog on this page.
+  const unresolvedKeys = useRef(new Map<string, string>())
 
   const isOpen = activeService !== null
 
   const days = useMemo(() => getNext14Days(), [])
 
   const closeDialog = useCallback(() => {
+    if (submissionInFlight.current) return
     setActiveService(null)
     setSelectedDate(null)
     setSelectedTime(null)
     setSlots([])
     setSlotsError(null)
     setSlotsLoading(false)
-    setSubmitting(false)
-    setSubmitError(null)
-    setResult(null)
-    idempotencyKeyRef.current = null
+    setSubmission({ status: 'ready' })
   }, [])
 
   const openRedeem = useCallback((svc: RedeemableItem) => {
+    if (submissionInFlight.current) return
     setActiveService(svc)
     setSelectedDate(null)
     setSelectedTime(null)
     setSlots([])
     setSlotsError(null)
-    setSubmitError(null)
-    setResult(null)
-    // One key per redemption attempt (stable across retries of this attempt).
-    idempotencyKeyRef.current =
-      typeof crypto !== 'undefined' && 'randomUUID' in crypto
-        ? crypto.randomUUID()
-        : `rg-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    setSubmission({ status: 'ready' })
   }, [])
 
   // Body scroll lock while the dialog is open.
@@ -192,7 +191,7 @@ export function RedeemFlow({ balance, catalogue, branchList }: RedeemFlowProps) 
     }
   }, [isOpen])
 
-  // Escape to close.
+  // Escape closes the dialog when it is safe to discard the attempt.
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.key === 'Escape') closeDialog()
@@ -205,14 +204,20 @@ export function RedeemFlow({ balance, catalogue, branchList }: RedeemFlowProps) 
   // focusable elements after a date pick / slot load / result render.
   // biome-ignore lint/correctness/useExhaustiveDependencies: extra deps intentionally re-init the focus trap when dialog content changes.
   useEffect(() => {
-    if (!isOpen || !dialogRef.current) return
-    const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+    const dialog = dialogRef.current
+    if (!isOpen || !dialog) return
+    const focusable = dialog.querySelectorAll<HTMLElement>(
       'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])',
     )
-    if (focusable.length) focusable[0]?.focus()
+    const focusTarget = focusable[0] ?? dialog
+    focusTarget.focus()
 
     function trap(e: KeyboardEvent) {
-      if (e.key !== 'Tab' || !focusable.length) return
+      if (e.key !== 'Tab') return
+      if (!focusable.length) {
+        e.preventDefault()
+        return
+      }
       const first = focusable[0] as HTMLElement | undefined
       const last = focusable[focusable.length - 1] as HTMLElement | undefined
       if (!first || !last) return
@@ -263,48 +268,70 @@ export function RedeemFlow({ balance, catalogue, branchList }: RedeemFlowProps) 
 
   const handleConfirm = useCallback(async () => {
     if (
+      submissionInFlight.current ||
+      result ||
       !activeService ||
       !branchId ||
       !selectedDate ||
-      !selectedTime ||
-      !idempotencyKeyRef.current
+      !selectedTime
     ) {
       return
     }
 
-    setSubmitting(true)
-    setSubmitError(null)
+    const selection = {
+      serviceId: activeService.id,
+      branchId,
+      bookingDate: toISODate(selectedDate),
+      startTime: selectedTime,
+    }
+    const requestKey = JSON.stringify(selection)
+    let idempotencyKey = unresolvedKeys.current.get(requestKey)
+    if (!idempotencyKey) {
+      idempotencyKey =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `rg-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+      unresolvedKeys.current.set(requestKey, idempotencyKey)
+    }
+
+    submissionInFlight.current = true
+    setSubmission({ status: 'submitting' })
     try {
       const res = await fetch('/api/gems/redeem', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          serviceId: activeService.id,
-          branchId,
-          bookingDate: toISODate(selectedDate),
-          startTime: selectedTime,
-          idempotencyKey: idempotencyKeyRef.current,
-        }),
+        body: JSON.stringify({ ...selection, idempotencyKey }),
       })
       const json = await res.json()
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? 'Your redemption could not be completed.')
       }
 
+      const reference = json.data?.reference ?? json.data?.bookingNumber
+      if (typeof reference !== 'string' || !reference) {
+        throw new Error('Your redemption could not be confirmed. Please try again.')
+      }
+      unresolvedKeys.current.delete(requestKey)
       const newBalance: number | null =
         typeof json.data.newBalance === 'number' ? json.data.newBalance : null
-      setResult({
-        reference: (json.data.reference ?? json.data.bookingNumber) as string,
-        newBalance,
-        duplicate: json.data.duplicate === true,
+      setSubmission({
+        status: 'succeeded',
+        result: {
+          reference,
+          newBalance,
+          duplicate: json.data.duplicate === true,
+        },
       })
       if (newBalance != null) setCurrentBalance(newBalance)
     } catch (err: unknown) {
-      setSubmitError(err instanceof Error ? err.message : 'Your redemption could not be completed.')
+      setSubmission({
+        status: 'failed',
+        message: err instanceof Error ? err.message : 'Your redemption could not be completed.',
+      })
     } finally {
-      setSubmitting(false)
+      submissionInFlight.current = false
     }
-  }, [activeService, selectedDate, selectedTime, branchId])
+  }, [activeService, selectedDate, selectedTime, branchId, result])
 
   const canConfirm = Boolean(selectedDate && selectedTime) && !submitting
 
@@ -318,7 +345,12 @@ export function RedeemFlow({ balance, catalogue, branchList }: RedeemFlowProps) 
           <select
             id="redeem-branch"
             value={branchId ?? ''}
-            onChange={(e) => setChosenBranchId(e.target.value)}
+            disabled={submitting}
+            onChange={(e) => {
+              if (submissionInFlight.current) return
+              setChosenBranchId(e.target.value)
+              setSelectedTime(null)
+            }}
             className="cursor-pointer rounded-full border border-deep-gold/40 bg-warm-cream py-1.5 pr-8 pl-4 font-ui text-[13px] text-cocoa-dark hover:border-deep-gold focus-visible:outline-2 focus-visible:outline-deep-gold focus-visible:outline-offset-2"
           >
             {bookable.map((b) => (
@@ -360,6 +392,7 @@ export function RedeemFlow({ balance, catalogue, branchList }: RedeemFlowProps) 
                       <Button
                         type="button"
                         variant="gold"
+                        disabled={submitting}
                         onClick={() => openRedeem(item)}
                         className="w-full rounded-full font-ui text-[12px] uppercase tracking-[0.5px]"
                       >
@@ -401,6 +434,7 @@ export function RedeemFlow({ balance, catalogue, branchList }: RedeemFlowProps) 
           <button
             type="button"
             tabIndex={-1}
+            disabled={submitting}
             aria-label="Close redemption dialog"
             className="absolute inset-0 bg-cocoa-dark/60 backdrop-blur-sm"
             onClick={closeDialog}
@@ -409,6 +443,7 @@ export function RedeemFlow({ balance, catalogue, branchList }: RedeemFlowProps) 
           {/* Modal */}
           <div
             ref={dialogRef}
+            tabIndex={-1}
             className="relative z-10 flex flex-col w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-lg sm:rounded-[6px] bg-canvas-white sm:shadow-elevated overflow-hidden"
           >
             {/* Header */}
@@ -424,6 +459,7 @@ export function RedeemFlow({ balance, catalogue, branchList }: RedeemFlowProps) 
                 variant="ghost"
                 size="icon-sm"
                 onClick={closeDialog}
+                disabled={submitting}
                 className="rounded-full"
                 aria-label="Close redemption dialog"
               >
@@ -471,7 +507,9 @@ export function RedeemFlow({ balance, catalogue, branchList }: RedeemFlowProps) 
                           <button
                             key={d.toISOString()}
                             type="button"
+                            disabled={submitting}
                             onClick={() => {
+                              if (submissionInFlight.current) return
                               setSelectedDate(d)
                               setSelectedTime(null)
                             }}
@@ -528,14 +566,19 @@ export function RedeemFlow({ balance, catalogue, branchList }: RedeemFlowProps) 
                       >
                         {slots.map((slot) => {
                           const isSelected = selectedTime === slot.startTime
+                          const disabled = submitting || !slot.available
                           return (
                             <button
                               key={slot.startTime}
                               type="button"
-                              onClick={() => slot.available && setSelectedTime(slot.startTime)}
-                              disabled={!slot.available}
+                              onClick={() => {
+                                if (!submissionInFlight.current && slot.available) {
+                                  setSelectedTime(slot.startTime)
+                                }
+                              }}
+                              disabled={disabled}
                               aria-pressed={isSelected}
-                              aria-disabled={!slot.available}
+                              aria-disabled={disabled}
                               className={`font-ui text-[13px] py-2 rounded-full border motion-safe:transition-all duration-200 ${
                                 isSelected
                                   ? 'bg-royal-gold border-deep-gold text-cocoa-dark'

@@ -44,7 +44,7 @@ import {
 } from './admin-bookings'
 import { cancelBooking } from './bookings'
 import { expireLapsedGems } from './gems-ledger'
-import { redeemServiceWithGems } from './redemptions'
+import { type RedeemServiceWithGemsInput, redeemServiceWithGems } from './redemptions'
 
 const LIVE = isLiveDbAvailable()
 const RUN = Math.random().toString(36).slice(2, 8)
@@ -104,10 +104,13 @@ async function batch(account: string, branchId: string, gems: number, days: numb
   return id
 }
 
-/** A pending ₹0 booking at `branchId` paid with `gems`. */
-async function redeem(c: { id: string; account: string }, branchId: string, gems: number) {
+function redemptionInput(
+  c: { id: string; account: string },
+  branchId: string,
+  gems: number,
+): RedeemServiceWithGemsInput {
   const n = next()
-  const result = await redeemServiceWithGems({
+  return {
     accountId: c.account,
     customerId: c.id,
     branchId,
@@ -124,7 +127,12 @@ async function redeem(c: { id: string; account: string }, branchId: string, gems
     idempotencyKey: `${PREFIX}-key-${n}`,
     description: 'Redeemed: ZZ Gems Ledger IT',
     settingsRevision: 1,
-  })
+  }
+}
+
+/** A pending ₹0 booking at `branchId` paid with `gems`. */
+async function redeem(c: { id: string; account: string }, branchId: string, gems: number) {
+  const result = await redeemServiceWithGems(redemptionInput(c, branchId, gems))
   if ('duplicate' in result) {
     throw new Error('unexpected replay')
   }
@@ -364,7 +372,8 @@ describe.skipIf(!LIVE)(
 
       const missed = await redeem(c, BRANCH_A, 300)
       await approveBooking(missed, BRANCH_A, ACTOR, PROFILE_A)
-      await markBookingNoShow(missed, BRANCH_A, ACTOR)
+      // The synthetic booking ends at 10:30 IST on 1 February 2099.
+      await markBookingNoShow(missed, BRANCH_A, ACTOR, new Date('2099-02-01T05:00:00.000Z'))
       expect(await account(c.account)).toEqual({ gems_balance: 300, total_gems_redeemed: 0 })
 
       // Each return is one 'returned' row naming its redemption; none settles.
@@ -485,6 +494,26 @@ describe.skipIf(!LIVE)(
           join loyalty_transaction r on r.id = a.redemption_id
          where r.loyalty_account_id = ${c.account} and a.released_at is null`),
       ).toEqual({ allocated: '500', unspent: '0' })
+    })
+
+    it('replays one concurrent redemption after the winner spends the final gem', async () => {
+      const c = await customer('replay')
+      await batch(c.account, BRANCH_A, 300, 100)
+      const input = redemptionInput(c, BRANCH_A, 300)
+
+      const results = await Promise.all([
+        redeemServiceWithGems(input),
+        redeemServiceWithGems(input),
+      ])
+
+      expect(results.filter((result) => 'duplicate' in result)).toHaveLength(1)
+      expect(results[0].bookingId).toBe(results[1].bookingId)
+      expect(await account(c.account)).toEqual({ gems_balance: 0, total_gems_redeemed: 300 })
+      expect(
+        await queryRow(sql`
+          select count(*) as n from loyalty_transaction
+           where loyalty_account_id = ${c.account} and type = 'redeemed'`),
+      ).toEqual({ n: '1' })
     })
 
     it('spends checkout gems from batches before the invoice’s own gems are earned', async () => {

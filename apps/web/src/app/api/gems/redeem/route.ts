@@ -64,8 +64,8 @@ import {
   getRedeemableServiceById,
   redeemServiceWithGems,
 } from '@rgss/db/queries'
-import { badRequest, notFound } from '@rgss/errors'
-import { redeemGemsSchema } from '@rgss/types'
+import { AppError, badRequest, ERROR_CODES, notFound } from '@rgss/errors'
+import { type RedeemGemsInput, redeemGemsSchema } from '@rgss/types'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { requireOnboardedCustomer } from '@/lib/api/session'
 
@@ -98,32 +98,38 @@ export const POST = withErrorHandler(async (req: Request) => {
     throw badRequest('Invalid request data', parsed.error.flatten().fieldErrors)
   }
 
-  const { serviceId, branchId, bookingDate, startTime, idempotencyKey } = parsed.data
-
-  // Idempotency replay, resolved BEFORE the balance gate below (Req 6.1).
-  //
-  // A customer who spends their whole balance and then retries the same request
-  // (network blip, double tap, client retry) no longer satisfies
-  // `balance >= gemsRequired`, so `assertRedeemable` would reject the retry with
-  // 409 GEMS_INSUFFICIENT_BALANCE and the already-created booking would never be
-  // returned. The replay is a fact about a key we have already honoured, not a
-  // new spend, so it must not be gated on affordability at all.
-  //
-  // Deliberately placed AFTER `requireSession` and AFTER Zod validation — an
-  // unauthenticated or malformed request must never reach a DB lookup — and
-  // scoped to the authenticated customer, so a guessed key cannot resolve
-  // someone else's booking. It also runs ahead of the branch/service re-reads:
-  // a booking that already exists stays retrievable even if its service was
-  // deactivated afterwards.
-  const replayed = await findBookingByRedemptionKey(idempotencyKey, session.user.id)
+  const customerId = session.user.id
+  const { idempotencyKey } = parsed.data
+  // Replay after auth and validation, before any mutable booking preconditions.
+  const replayed = await findBookingByRedemptionKey(idempotencyKey, customerId)
   if (replayed) {
     return duplicateResponse(replayed.bookingNumber)
   }
 
+  try {
+    return await redeemNewService(parsed.data, customerId)
+  } catch (error) {
+    // A concurrent request can commit between the replay lookup and either
+    // gate that the new booking itself changes (balance or upcoming count).
+    if (
+      error instanceof AppError &&
+      (error.code === ERROR_CODES.GEMS_INSUFFICIENT_BALANCE ||
+        error.code === ERROR_CODES.BOOKING_LIMIT_REACHED)
+    ) {
+      const committed = await findBookingByRedemptionKey(idempotencyKey, customerId)
+      if (committed) return duplicateResponse(committed.bookingNumber)
+    }
+    throw error
+  }
+})
+
+async function redeemNewService(input: RedeemGemsInput, customerId: string) {
+  const { serviceId, branchId, bookingDate, startTime, idempotencyKey } = input
+
   // Resolve the loyalty account from the SESSION (never client ids). A brand-new
   // customer is created with a zero balance.
-  const account = await getOrCreateLoyaltyAccount(session.user.id)
-  const summary = await getLoyaltySummary(session.user.id)
+  const account = await getOrCreateLoyaltyAccount(customerId)
+  const summary = await getLoyaltySummary(customerId)
   const balance = summary?.balance ?? 0
 
   // Branch must exist and be operational.
@@ -172,11 +178,7 @@ export const POST = withErrorHandler(async (req: Request) => {
   })
   assertBookingCap({
     rules: policy.bookingRules,
-    upcomingAtBranch: await countUpcomingBookingsAtBranch(
-      session.user.id,
-      branch.id,
-      istToday(now),
-    ),
+    upcomingAtBranch: await countUpcomingBookingsAtBranch(customerId, branch.id, istToday(now)),
     branchName: branch.name,
   })
 
@@ -198,7 +200,7 @@ export const POST = withErrorHandler(async (req: Request) => {
   // Guarded, atomic, idempotent write. Charges the SERVER-side gemsRequired.
   const result = await redeemServiceWithGems({
     accountId: account.id,
-    customerId: session.user.id,
+    customerId,
     branchId,
     bookingNumber,
     serviceType: service.serviceType,
@@ -215,8 +217,8 @@ export const POST = withErrorHandler(async (req: Request) => {
     settingsRevision: policy.revision,
   })
 
-  // Still reachable when two concurrent FIRST attempts share a key: the pre-gate
-  // lookup above saw no booking, and the partial unique index rejected the loser.
+  // A concurrent winner can commit after the initial replay lookup. The data
+  // layer resolves the replay if the guarded write is refused.
   if ('duplicate' in result) {
     return duplicateResponse(result.bookingNumber)
   }
@@ -231,4 +233,4 @@ export const POST = withErrorHandler(async (req: Request) => {
     undefined,
     201,
   )
-})
+}

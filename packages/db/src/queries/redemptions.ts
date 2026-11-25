@@ -137,8 +137,8 @@ export type RedeemServiceWithGemsResult =
 // the guard matches 0 rows, every downstream SELECT … FROM guard/new_booking
 // yields 0 rows, so no redemption exists and the allocation aborts the batch.
 //
-// guard or batches short → throw GEMS_INSUFFICIENT_BALANCE (nothing persisted).
-// unique violation       → idempotency replay: return the already-created booking.
+// A shortfall or a key conflict rolls back the write. An existing booking for
+// the same customer/key makes this a replay, otherwise the refusal propagates.
 //
 // Idempotency is resolved in TWO places, deliberately:
 //
@@ -149,13 +149,14 @@ export type RedeemServiceWithGemsResult =
 //      no booking INSERT would run, the unique index would never be violated,
 //      and the retry would be reported as GEMS_INSUFFICIENT_BALANCE instead of
 //      returning the booking the first attempt created.
-//   2. The `booking_redemption_key_uidx` partial unique index, still the ultimate
-//      arbiter for two concurrent FIRST attempts on the same key.
+//   2. After a guarded write fails with a key conflict or shortfall. The loser
+//      may observe the winner's lower balance after taking the account lock
+//      and never reach the partial unique index at all.
 //
 // The lookup is a read-only fast path, never an authorisation for a mutation, so
 // it introduces no TOCTOU window: if it is stale it can only fail to see a
 // concurrently-committing booking, and that case falls through to the guarded
-// write where the unique index rejects the loser and rolls its deduction back.
+// write. Either refusal rolls the loser back before we look up the key again.
 export async function redeemServiceWithGems(
   input: RedeemServiceWithGemsInput,
 ): Promise<RedeemServiceWithGemsResult> {
@@ -243,10 +244,8 @@ export async function redeemServiceWithGems(
     ])
     rows = result.rows
   } catch (error) {
-    // Idempotency replay: a retried submission with the same redemption_key hits
-    // the partial unique index. The whole statement rolls back (no second
-    // deduction); resolve to the booking the first attempt created.
-    if (isRedemptionKeyConflict(error)) {
+    const shortfall = isGemsShortfall(error)
+    if (shortfall || isRedemptionKeyConflict(error)) {
       const found = await findBookingByRedemptionKey(input.idempotencyKey, input.customerId)
       if (found) {
         return { duplicate: true, bookingId: found.id, bookingNumber: found.bookingNumber }
@@ -270,7 +269,7 @@ export async function redeemServiceWithGems(
     // The balance guard matched no row, so no redemption was written, or the
     // unexpired batches couldn't cover it: the allocation divided by zero and
     // the whole transaction rolled back. Nothing persisted.
-    if (isGemsShortfall(error)) {
+    if (shortfall) {
       throw insufficientGems()
     }
     throw error
@@ -292,9 +291,8 @@ export async function redeemServiceWithGems(
 }
 
 // Resolve a redemption_key to the booking a previous attempt persisted, for the
-// customer who OWNS it. Three call sites: the pre-write replay fast path, the
-// answer to a unique-index conflict, and the route's pre-balance-gate replay
-// short-circuit (so a retry is never reported as insufficient balance).
+// customer who owns it. Both the route and the guarded write use this lookup
+// before attempting a new spend and to resolve a concurrent replay.
 //
 // `customerId` is NOT optional and is NOT a convenience filter — it is the
 // ownership check. The idempotency key is client-supplied, so an unscoped lookup

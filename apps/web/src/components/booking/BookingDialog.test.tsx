@@ -27,17 +27,18 @@
  ************************************************************/
 
 import type { PublicBranchList } from '@rgss/types'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { HttpResponse, http } from 'msw/http'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-
+import { startGoogleSignIn } from '@/lib/google-signin'
 import { ONBOARDING_PATH } from '@/lib/onboarding-prompt'
 import { server } from '@/test/msw-server'
 
 // Signed-in session so the submit path posts a booking (rather than launching
 // the Google sign-in redirect).
+const auth = vi.hoisted(() => ({ signedIn: true }))
 vi.mock('@/lib/auth-client', () => ({
-  useSession: () => ({ data: { user: { id: 'cust_1', name: 'Asha' } } }),
+  useSession: () => ({ data: auth.signedIn ? { user: { id: 'cust_1', name: 'Asha' } } : null }),
 }))
 vi.mock('@/lib/analytics/events', () => ({ track: vi.fn() }))
 vi.mock('@/lib/google-signin', () => ({
@@ -169,6 +170,7 @@ function renderDialog() {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  auth.signedIn = true
   sessionStorage.clear()
 })
 
@@ -302,6 +304,122 @@ describe('BookingDialog UI wiring (Req 14)', () => {
     expect(await screen.findByRole('alert', {}, LOAD)).toHaveTextContent(
       'That slot was just taken.',
     )
+  })
+})
+
+describe('BookingDialog lifecycle', () => {
+  it('loads the catalogue again when the dialog closes before the first response', async () => {
+    const firstRequest = Promise.withResolvers<void>()
+    const firstResponse = Promise.withResolvers<void>()
+    let catalogueRequests = 0
+    mockApi(
+      http.get('*/api/services', async () => {
+        catalogueRequests += 1
+        if (catalogueRequests === 1) {
+          firstRequest.resolve()
+          await firstResponse.promise
+        }
+        return HttpResponse.json({ success: true, data: catalogue() })
+      }),
+    )
+    const onClose = vi.fn()
+    const { rerender } = render(<BookingDialog isOpen onClose={onClose} />)
+    await firstRequest.promise
+
+    rerender(<BookingDialog isOpen={false} onClose={onClose} />)
+    rerender(<BookingDialog isOpen onClose={onClose} />)
+    firstResponse.resolve()
+
+    await advanceToSummary()
+    expect(catalogueRequests).toBe(2)
+  })
+
+  it('starts a fresh booking after dismissing the summary with Escape', async () => {
+    mockApi()
+    const onClose = vi.fn()
+    const { rerender } = render(<BookingDialog isOpen onClose={onClose} />)
+    await advanceToSummary()
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledOnce()
+    rerender(<BookingDialog isOpen={false} onClose={onClose} />)
+    rerender(<BookingDialog isOpen onClose={onClose} />)
+
+    expect(await findBranchPicker()).toBeVisible()
+    expect(screen.queryByText('Booking Summary')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+  })
+
+  it('keeps a pending booking visible and prevents a second submit', async () => {
+    const request = Promise.withResolvers<void>()
+    const response = Promise.withResolvers<void>()
+    let bookings = 0
+    mockApi(
+      http.post('*/api/bookings', async () => {
+        bookings += 1
+        request.resolve()
+        await response.promise
+        return HttpResponse.json({ success: true, data: { bookingNumber: 'BK-RS-TEST' } })
+      }),
+    )
+    const onClose = vi.fn()
+    render(<BookingDialog isOpen onClose={onClose} />)
+    await advanceToSummary()
+
+    const submit = screen.getByRole('button', { name: 'Submit Booking' })
+    fireEvent.click(submit)
+    fireEvent.click(submit)
+    await request.promise
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).not.toHaveBeenCalled()
+    expect(closeButton()).toBeDisabled()
+    response.resolve()
+
+    expect(await screen.findByText('BK-RS-TEST', {}, LOAD)).toBeVisible()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledOnce()
+    expect(bookings).toBe(1)
+  })
+
+  it('ignores the previous submission if the parent closes and reopens the dialog', async () => {
+    const request = Promise.withResolvers<void>()
+    const response = Promise.withResolvers<void>()
+    mockApi(
+      http.post('*/api/bookings', async () => {
+        request.resolve()
+        await response.promise
+        return HttpResponse.json({ success: true, data: { bookingNumber: 'BK-RS-OLD' } })
+      }),
+    )
+    const onClose = vi.fn()
+    const { rerender } = render(<BookingDialog isOpen onClose={onClose} />)
+    await advanceToSummary()
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Booking' }))
+    await request.promise
+
+    rerender(<BookingDialog isOpen={false} onClose={onClose} />)
+    rerender(<BookingDialog isOpen onClose={onClose} />)
+    await act(async () => response.resolve())
+
+    expect(await findBranchPicker()).toBeVisible()
+    expect(screen.queryByText('BK-RS-OLD')).not.toBeInTheDocument()
+    expect(closeButton()).toBeEnabled()
+  })
+
+  it('reports failed sign-in and lets a guest retry without losing selections', async () => {
+    auth.signedIn = false
+    vi.mocked(startGoogleSignIn).mockRejectedValueOnce(new Error('Google sign-in is unavailable.'))
+    mockApi()
+    renderDialog()
+    await advanceToSummary()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in to Book' }))
+
+    expect(await screen.findByRole('alert', {}, LOAD)).toHaveTextContent(
+      'Google sign-in is unavailable.',
+    )
+    expect(screen.getByText('Signature Haircut')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Sign in to Book' })).toBeEnabled()
   })
 })
 

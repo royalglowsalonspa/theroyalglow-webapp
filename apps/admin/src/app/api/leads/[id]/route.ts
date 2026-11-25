@@ -32,7 +32,13 @@
  ************************************************************/
 
 import { assertLeadTransition } from '@rgss/business'
-import { getLeadById, getLeadNotes, getPublicBranches, updateLead } from '@rgss/db/queries'
+import {
+  getLeadById,
+  getLeadNotes,
+  getPublicBranches,
+  markLeadLost,
+  updateLead,
+} from '@rgss/db/queries'
 import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
 import { TRANSFERABLE_LEAD_STATUSES, updateLeadStatusSchema } from '@rgss/types'
 import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
@@ -81,16 +87,17 @@ export const PATCH = withErrorHandler(
       throw notFound('Lead not found.')
     }
 
-    assertLeadTransition(existing.status, parsed.data.status, parsed.data.reason)
+    const { status } = parsed.data
+    const reason = parsed.data.reason?.trim() ?? ''
+    assertLeadTransition(existing.status, status, reason)
 
-    const patch: { status: typeof parsed.data.status; lastContactedAt?: Date } = {
-      status: parsed.data.status,
-    }
-    if (parsed.data.status === 'contacted') {
-      patch.lastContactedAt = new Date()
-    }
-
-    const updated = await updateLead(id, branchId, existing.status, patch)
+    const updated =
+      status === 'lost'
+        ? await markLeadLost(id, branchId, existing.status, ctx.session.user.id, reason)
+        : await updateLead(id, branchId, existing.status, {
+            status,
+            ...(status === 'contacted' ? { lastContactedAt: new Date() } : {}),
+          })
     if (!updated) {
       throw conflict(ERROR_CODES.CONFLICT, 'This lead changed. Reload before updating its status.')
     }

@@ -37,11 +37,12 @@
 import {
   buildNotificationContent,
   istDayStart,
+  istToday,
   leadFollowUpMessageData,
   planLeadFollowUps,
 } from '@rgss/business'
 import {
-  createNotification,
+  createNotificationOnce,
   getBranchPeople,
   getStaleFollowUpLeads,
   hasNotificationSince,
@@ -88,6 +89,7 @@ export const POST = async (req: Request) => {
       unrouted = plan.unrouted
 
       const since = istDayStart(now)
+      const day = istToday(now)
       for (const digest of plan.digests) {
         if (await hasNotificationSince(digest.userId, 'lead_follow_up_due', since)) {
           continue
@@ -96,13 +98,15 @@ export const POST = async (req: Request) => {
           'lead_follow_up_due',
           leadFollowUpMessageData(digest),
         )
-        const created = await createNotification({
+        const created = await createNotificationOnce({
+          id: `lead_follow_up_due:${JSON.stringify([digest.userId, day])}`,
           userId: digest.userId,
           type: 'lead_follow_up_due',
           title,
           body,
           channel: 'push',
         })
+        if (!created) continue
         await dispatchNotification({
           id: created.id,
           userId: created.userId,

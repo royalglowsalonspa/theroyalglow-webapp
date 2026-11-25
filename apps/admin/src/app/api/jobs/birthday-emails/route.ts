@@ -27,11 +27,15 @@
  *
  * Notes        :
  * - QStash signature verification required (401 on fail).
- * - Dedupe by (user, 'birthday_offer') type; one send per birthday per year.
+ * - Claim one birthday offer per customer and IST calendar year.
  ************************************************************/
 
-import { buildNotificationContent } from '@rgss/business'
-import { createNotification, getBirthdayCustomers, hasNotification } from '@rgss/db/queries'
+import { buildNotificationContent, istToday } from '@rgss/business'
+import {
+  createNotificationOnce,
+  getBirthdayCustomers,
+  hasNotificationSince,
+} from '@rgss/db/queries'
 import { createLogger } from '@rgss/logger'
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
@@ -43,12 +47,6 @@ import { dispatchNotification } from '@/lib/notifications/dispatch'
 // have `marketingConsent` (enforced in the query), then sends a birthday offer
 // via email + in-app notification.
 //
-// Dedupe is by (user, 'birthday_offer'). `hasNotification` by type alone would
-// suppress for ever, but a customer's birthday matches on exactly one day per
-// year, so in practice this only ever matches the single send made on that
-// birthday — acceptable for a once-a-year event, and it correctly prevents a
-// double-send across same-day re-runs / QStash retries (Property 6).
-
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
@@ -65,11 +63,14 @@ export const POST = async (req: Request) => {
 
   try {
     const now = new Date()
+    const year = istToday(now).slice(0, 4)
+    const yearStart = new Date(`${year}-01-01T00:00:00+05:30`)
     const customers = await getBirthdayCustomers(now)
     let processed = 0
 
     for (const c of customers) {
-      if (await hasNotification(c.userId, 'birthday_offer')) {
+      // Recognize a birthday offer sent this year before stable IDs existed.
+      if (await hasNotificationSince(c.userId, 'birthday_offer', yearStart)) {
         continue
       }
 
@@ -77,13 +78,15 @@ export const POST = async (req: Request) => {
         staffName: c.customerName ?? 'our team',
       })
 
-      const created = await createNotification({
+      const created = await createNotificationOnce({
+        id: `birthday_offer:${JSON.stringify([c.userId, year])}`,
         userId: c.userId,
         type: 'birthday_offer',
         title,
         body,
         channel: 'email',
       })
+      if (!created) continue
 
       await dispatchNotification({
         id: created.id,

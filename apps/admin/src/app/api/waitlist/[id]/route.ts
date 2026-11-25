@@ -31,7 +31,7 @@
  ************************************************************/
 
 import { getWaitlistEntryById, updateWaitlistStatus } from '@rgss/db/queries'
-import { badRequest, notFound } from '@rgss/errors'
+import { badRequest, conflict, ERROR_CODES, notFound } from '@rgss/errors'
 import { waitlistStatusUpdateSchema } from '@rgss/types'
 import { audit } from '@/lib/api/audit'
 import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
@@ -62,7 +62,13 @@ export const PATCH = withErrorHandler(
 
     assertWaitlistTransition(existing.status, parsed.data.status)
 
-    const updated = await updateWaitlistStatus(id, branchId, parsed.data.status)
+    const updated = await updateWaitlistStatus(id, branchId, existing.status, parsed.data.status)
+    if (!updated) {
+      throw conflict(
+        ERROR_CODES.CONFLICT,
+        'This waitlist entry changed. Reload before updating it.',
+      )
+    }
     await audit(req, ctx.session, {
       action: 'status_change',
       entityType: 'waitlist',

@@ -127,11 +127,11 @@ afterEach(() => {
 })
 
 function notifiedUsers(): string[] {
-  return dbMocks.createNotification.mock.calls.map(([p]) => p.userId)
+  return dbMocks.createNotificationOnce.mock.calls.map(([p]) => p.userId)
 }
 
 function notificationFor(userId: string) {
-  return dbMocks.createNotification.mock.calls.map(([p]) => p).find((p) => p.userId === userId)
+  return dbMocks.createNotificationOnce.mock.calls.map(([p]) => p).find((p) => p.userId === userId)
 }
 
 function emailTo(address: string) {
@@ -244,6 +244,21 @@ describe('POST /api/jobs/lead-followups', () => {
 
     expect(await res.json()).toEqual({ success: true, processed: 0, unrouted: 0 })
     expect(dbMocks.getBranchPeople).not.toHaveBeenCalled()
+  })
+
+  it('skips dispatch when another delivery won the daily claim', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-25T18:45:00.000Z') })
+    dbMocks.getStaleFollowUpLeads.mockResolvedValue([leads[0]])
+    dbMocks.getBranchPeople.mockResolvedValue({ branches: [RS], developer: DEV })
+    dbMocks.createNotificationOnce.mockResolvedValueOnce(null)
+
+    const res = await leadsPOST(jobRequest())
+
+    expect(await res.json()).toEqual({ success: true, processed: 0, unrouted: 0 })
+    expect(dbMocks.createNotificationOnce).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'lead_follow_up_due:["reception","2026-10-26"]' }),
+    )
+    expect(dispatchMock).not.toHaveBeenCalled()
   })
 })
 

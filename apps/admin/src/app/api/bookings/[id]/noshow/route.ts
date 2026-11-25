@@ -7,7 +7,7 @@
  * Scope        : API — Admin Booking
  *
  * Description  : Marks a confirmed booking as no-show. Only confirmed bookings
- *                can transition to no_show status.
+ *                can transition to no_show status after the scheduled end.
  *
  * Responsibilities :
  * - Validate booking exists and is in confirmed state
@@ -16,9 +16,8 @@
  * - Return updated booking data
  *
  * Features / Functionality :
- * - Status guard (only confirmed → no_show), re-checked in the write: a
- *   double submit or a concurrent change is a 409, never a second move
- * - No-show tier escalation handled by background job
+ * - Status and end time are checked in the write: a competing change that
+ *   makes the booking ineligible returns 409
  *
  * Tech Stack   : Next.js 16 (Route Handler)
  * Layer        : API (Thin Orchestrator)
@@ -29,7 +28,6 @@
  * Notes        :
  * - Requires min role at the active branch: receptionist. The body names the
  *   branch the page was rendered for ({ branchId }).
- * - No-show count escalation is handled by the noshow-check background job.
  ************************************************************/
 
 import { getBookingForAdmin, markBookingNoShow } from '@rgss/db/queries'
@@ -57,8 +55,7 @@ export const POST = withErrorHandler(
       throw notFound('Booking not found.')
     }
 
-    // Only a confirmed booking can be marked no-show (after the appointment
-    // window). No-show tier escalation is handled by a background job later.
+    // The query rechecks this status and the scheduled end before the write.
     if (existing.status !== 'confirmed') {
       throw conflict(
         ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION,

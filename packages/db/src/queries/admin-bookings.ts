@@ -363,11 +363,13 @@ async function endBookingAt(params: {
   toStatus: 'rejected' | 'no_show'
   /** Further columns the move sets, as `column = value` pairs; null for none. */
   set: SQL | null
+  eligibility?: SQL
   notes: string
   action: string
 }): Promise<typeof booking.$inferSelect> {
   const { id, branchId, changedById, fromStatus, toStatus } = params
   const extra = params.set ? sql`, ${params.set}` : sql``
+  const eligibility = params.eligibility ? sql`AND (${params.eligibility})` : sql``
   const move = db.execute(sql`
     WITH moved AS (
       UPDATE booking
@@ -375,6 +377,7 @@ async function endBookingAt(params: {
        WHERE id = ${id}
          AND branch_id = ${branchId}
          AND status = ${fromStatus}::booking_status
+         ${eligibility}
       RETURNING 1
     )
     SELECT 1 / count(*)::int AS ok FROM moved
@@ -448,10 +451,23 @@ export async function rejectBooking(
 // Mark a confirmed booking as a no-show after its appointment: status →
 // `no_show`, a status-log entry with the acting user, and any gems it was
 // booked with given back (ST-03). Returns the updated booking, or null when
-// the booking does not exist; 409 when it is no longer confirmed.
-export async function markBookingNoShow(id: string, branchId: string, changedById: string) {
+// the booking does not exist; 409 when it is no longer confirmed or the
+// appointment has not ended. The write rechecks the end in case the slot moved.
+export async function markBookingNoShow(
+  id: string,
+  branchId: string,
+  changedById: string,
+  now: Date = new Date(),
+) {
+  const appointmentEnded = sql`coalesce(
+    upper(booking_planned_during(${booking.bookingDate}, ${booking.startTime}, ${booking.endTime})),
+    (${booking.bookingDate} + ${booking.endTime}) AT TIME ZONE 'Asia/Kolkata'
+  ) <= ${now.toISOString()}::timestamptz`
   const rows = await db
-    .select({ status: booking.status })
+    .select({
+      status: booking.status,
+      appointmentEnded: sql`(${appointmentEnded})::int`.mapWith(Number),
+    })
     .from(booking)
     .where(atBranch(id, branchId))
     .limit(1)
@@ -465,6 +481,12 @@ export async function markBookingNoShow(id: string, branchId: string, changedByI
       `Only confirmed bookings can be marked as no-show (current status: "${current.status}").`,
     )
   }
+  if (current.appointmentEnded === 0) {
+    throw conflict(
+      ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION,
+      'Only mark a booking as no-show after its scheduled end time.',
+    )
+  }
 
   return endBookingAt({
     id,
@@ -473,6 +495,7 @@ export async function markBookingNoShow(id: string, branchId: string, changedByI
     fromStatus: current.status,
     toStatus: 'no_show',
     set: null,
+    eligibility: appointmentEnded,
     notes: 'Marked no-show',
     action: 'marking',
   })

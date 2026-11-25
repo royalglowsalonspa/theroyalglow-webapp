@@ -394,6 +394,13 @@ type CreateMembershipWithInvoiceParams = {
   invoiceLine: Omit<InvoiceIssueLine, 'serviceId' | 'staffNameSnapshot' | 'displayOrder'>
 }
 
+function membershipAlreadyActive() {
+  return conflict(
+    ERROR_CODES.MEMBERSHIP_ALREADY_ACTIVE,
+    'This customer already has an active membership',
+  )
+}
+
 // Create a membership and its membership_purchase invoice atomically. neon-http
 // has no interactive transactions, so we use db.batch() — one server-side
 // transaction. The membership and invoice ids are pre-generated so the membership
@@ -404,10 +411,7 @@ type CreateMembershipWithInvoiceParams = {
 export async function createMembershipWithInvoice(params: CreateMembershipWithInvoiceParams) {
   const existing = await getActiveMembershipForCustomer(params.customerId)
   if (existing) {
-    throw conflict(
-      ERROR_CODES.MEMBERSHIP_ALREADY_ACTIVE,
-      'This customer already has an active membership',
-    )
+    throw membershipAlreadyActive()
   }
 
   const membershipId = nanoid()
@@ -459,7 +463,15 @@ export async function createMembershipWithInvoice(params: CreateMembershipWithIn
     statements.push(insertLines)
   }
   statements.push(refreshCustomerStatsStatement(params.customerId))
-  const results = await db.batch(statements)
+  const results = await db.batch(statements).catch((error: unknown) => {
+    // Another sale may commit after the active membership pre-check.
+    if (
+      isConstraintViolation(error, SQLSTATE.uniqueViolation, ['spa_membership_active_customer_idx'])
+    ) {
+      throw membershipAlreadyActive()
+    }
+    throw error
+  })
 
   return {
     membership: (

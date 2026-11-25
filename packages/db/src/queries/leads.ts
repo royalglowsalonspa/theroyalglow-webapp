@@ -50,7 +50,7 @@ type LeadPipelineFilters = {
 }
 
 type LeadPatch = {
-  status?: LeadStatus
+  status?: Exclude<LeadStatus, 'lost'>
   lastContactedAt?: Date | null
   convertedBookingId?: string | null
   assignedTo?: string | null
@@ -159,6 +159,41 @@ export async function updateLead(
     .where(and(leadAt(id, branchId), eq(lead.status, expectedStatus)))
     .returning()
 
+  return updated ?? null
+}
+
+/** Mark a lead lost and retain the actor's reason in its notes atomically. */
+export async function markLeadLost(
+  id: string,
+  branchId: string,
+  expectedStatus: LeadStatus,
+  actorId: string,
+  reason: string,
+) {
+  const changed = db.$with('changed_lead').as(
+    db
+      .update(lead)
+      .set({ status: 'lost' })
+      .where(and(leadAt(id, branchId), eq(lead.status, expectedStatus)))
+      .returning(),
+  )
+  const note = db.$with('loss_note').as(
+    db
+      .insert(leadNote)
+      .select(
+        db
+          .select({
+            id: sql<string>`${nanoid()}::text`.as('id'),
+            leadId: changed.id,
+            authorId: sql<string>`${actorId}::text`.as('author_id'),
+            content: sql<string>`${`Marked lost: ${reason}`}::text`.as('content'),
+            createdAt: sql<Date>`now()`.as('created_at'),
+          })
+          .from(changed),
+      )
+      .returning({ id: leadNote.id }),
+  )
+  const [updated] = await db.with(changed, note).select().from(changed)
   return updated ?? null
 }
 

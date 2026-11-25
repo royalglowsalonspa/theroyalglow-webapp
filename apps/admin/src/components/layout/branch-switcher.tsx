@@ -30,7 +30,7 @@
 
 import type { BranchStatusValue } from '@rgss/types'
 import { Check, ChevronsUpDown, Store } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,7 +55,13 @@ type SwitcherBranch = {
   role: 'staff' | 'receptionist' | 'manager' | 'owner' | 'developer'
 }
 
-type SwitcherState = { active: SwitcherBranch | null; branches: SwitcherBranch[] }
+type BranchChoices = { active: SwitcherBranch | null; branches: SwitcherBranch[] }
+
+type SwitcherState =
+  | { status: 'loading' }
+  | { status: 'load_failed' }
+  | { status: 'ready'; choices: BranchChoices; error?: string }
+  | { status: 'switching'; choices: BranchChoices }
 
 const STATUS_LABEL: Record<BranchStatusValue, string> = {
   operational: 'Operational',
@@ -82,59 +88,96 @@ function reloadForBranch(): void {
  */
 export function BranchSwitcher() {
   const { isMobile } = useSidebar()
-  const [state, setState] = useState<SwitcherState | null>(null)
-  const [switching, setSwitching] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [state, setState] = useState<SwitcherState>({ status: 'loading' })
+  const loading = state.status === 'loading'
+  const switchRequest = useRef<AbortController | null>(null)
 
   useEffect(() => {
-    let cancelled = false
-    fetch('/api/me/branch')
-      .then((res) => res.json())
-      .then((json) => {
-        if (!cancelled && json?.success) {
-          setState(json.data as SwitcherState)
+    if (!loading) return
+    const request = new AbortController()
+    fetch('/api/me/branch', { signal: request.signal })
+      .then(async (res) => {
+        const json = await res.json()
+        const choices = json?.data as BranchChoices | undefined
+        if (!res.ok || !json?.success || !Array.isArray(choices?.branches)) {
+          throw new Error('Could not load your branches.')
         }
+        if (!request.signal.aborted) setState({ status: 'ready', choices })
       })
       .catch(() => {
-        // Without the list the switcher shows no branch; pages still work.
+        if (!request.signal.aborted) {
+          setState({ status: 'load_failed' })
+        }
       })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    return () => request.abort()
+  }, [loading])
 
-  const active = state?.active ?? null
-  const branches = state?.branches ?? []
+  useEffect(
+    () => () => {
+      switchRequest.current?.abort()
+      switchRequest.current = null
+    },
+    [],
+  )
+
+  const choices = state.status === 'ready' || state.status === 'switching' ? state.choices : null
+  const active = choices?.active ?? null
+  const branches = choices?.branches ?? []
+  const error =
+    state.status === 'load_failed'
+      ? 'Could not load your branches.'
+      : state.status === 'ready'
+        ? state.error
+        : null
 
   const switchTo = async (branch: SwitcherBranch) => {
-    if (branch.id === active?.id || switching) {
+    if (state.status !== 'ready' || branch.id === active?.id || switchRequest.current) {
       return
     }
-    setSwitching(branch.id)
-    setError(null)
+    const request = new AbortController()
+    switchRequest.current = request
+    setState({ status: 'switching', choices: state.choices })
     try {
       const res = await fetch('/api/me/branch', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ branchId: branch.id }),
+        signal: request.signal,
       })
       const json = await res.json()
       if (!res.ok || !json?.success) {
         throw new Error(json?.error?.message ?? 'Could not switch branch.')
       }
-      reloadForBranch()
+      if (!request.signal.aborted) reloadForBranch()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not switch branch.')
-      setSwitching(null)
+      if (!request.signal.aborted) {
+        switchRequest.current = null
+        setState({
+          status: 'ready',
+          choices: state.choices,
+          error: err instanceof Error ? err.message : 'Could not switch branch.',
+        })
+      }
     }
   }
 
-  const name = active?.name ?? (state ? 'No branch' : 'Loading…')
+  const name =
+    active?.name ??
+    (state.status === 'loading'
+      ? 'Loading…'
+      : state.status === 'load_failed'
+        ? 'Branch unavailable'
+        : 'No branch')
   const detail = active
     ? `${active.code} · ${ROLE_LABEL[active.role]} · ${STATUS_LABEL[active.status]}`
-    : state
+    : choices
       ? 'Ask your branch Owner'
       : ''
+  const accessibleName = active
+    ? `Active branch: ${active.name}. Switch branch.`
+    : choices
+      ? 'Branch: none'
+      : `Branch: ${name}`
 
   return (
     <SidebarMenu>
@@ -143,7 +186,7 @@ export function BranchSwitcher() {
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              aria-label={active ? `Active branch: ${active.name}. Switch branch.` : 'Branch: none'}
+              aria-label={accessibleName}
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
@@ -167,10 +210,15 @@ export function BranchSwitcher() {
             <DropdownMenuLabel className="font-ui text-xs text-dusty-gray">
               {branches.length > 1 ? 'Switch branch' : 'Your branch'}
             </DropdownMenuLabel>
+            {state.status === 'load_failed' ? (
+              <DropdownMenuItem onSelect={() => setState({ status: 'loading' })}>
+                Try again
+              </DropdownMenuItem>
+            ) : null}
             {branches.map((branch) => (
               <DropdownMenuItem
                 key={branch.id}
-                disabled={switching !== null}
+                disabled={state.status === 'switching'}
                 onSelect={() => switchTo(branch)}
                 className="gap-2 p-2"
               >

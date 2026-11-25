@@ -15,7 +15,6 @@ const dbMocks = vi.hoisted(() => ({
   getBranchPeople: vi.fn(),
   hasNotification: vi.fn(),
   hasNotificationSince: vi.fn(),
-  createNotification: vi.fn(),
   createNotificationOnce: vi.fn(),
 }))
 const dispatchMock = vi.hoisted(() => vi.fn())
@@ -45,10 +44,6 @@ beforeEach(() => {
   vi.clearAllMocks()
   dbMocks.hasNotification.mockResolvedValue(false)
   dbMocks.hasNotificationSince.mockResolvedValue(false)
-  dbMocks.createNotification.mockImplementation(async (p: { userId: string }) => ({
-    id: `n_${p.userId}`,
-    channel: 'push',
-  }))
   dbMocks.createNotificationOnce.mockImplementation(async (p: { id: string }) => ({
     id: p.id,
     channel: 'push',
@@ -68,9 +63,9 @@ describe('alertBranchFrontDesk', () => {
 
     expect(result).toEqual({ notified: 2, recipients: 2 })
     expect(dbMocks.getBranchPeople).toHaveBeenCalledWith(['branch_rs'])
-    const told = dbMocks.createNotification.mock.calls.map(([p]) => p.userId)
+    const told = dbMocks.createNotificationOnce.mock.calls.map(([p]) => p.userId)
     expect(told).toEqual(['reception', 'manager'])
-    const [first] = dbMocks.createNotification.mock.calls[0] ?? []
+    const [first] = dbMocks.createNotificationOnce.mock.calls[0] ?? []
     expect(first).toMatchObject({ type: 'stale_pending_booking', bookingId: 'bk_1' })
     expect(first.body).toContain('at Rayasandra')
     expect(dispatchMock).toHaveBeenCalledTimes(2)
@@ -143,6 +138,33 @@ describe('alertBranchFrontDesk', () => {
     expect(dispatchMock).not.toHaveBeenCalled()
   })
 
+  it.each(['stale_pending_booking', 'staff_overrun'] as const)(
+    'delivers %s once when two jobs both see no previous alert',
+    async (type) => {
+      dbMocks.getBranchPeople.mockResolvedValue({
+        branches: [branch({ manager: null, receptionist: null })],
+        developer: null,
+      })
+      const claimed = new Set<string>()
+      dbMocks.createNotificationOnce.mockImplementation(async ({ id }: { id: string }) => {
+        if (claimed.has(id)) return null
+        claimed.add(id)
+        return { id, channel: 'push' }
+      })
+      const params = { branchId: 'branch_rs', bookingId: 'bk_3', type, data: {} }
+
+      const results = await Promise.all([
+        alertBranchFrontDesk(params),
+        alertBranchFrontDesk(params),
+      ])
+
+      expect(results[0].notified + results[1].notified).toBe(1)
+      expect(dbMocks.hasNotification).toHaveBeenCalledTimes(2)
+      expect(Array.from(claimed)).toEqual([`${type}:["owner","bk_3"]`])
+      expect(dispatchMock).toHaveBeenCalledOnce()
+    },
+  )
+
   it('tells nobody when the branch is unknown', async () => {
     dbMocks.getBranchPeople.mockResolvedValue({ branches: [], developer: OWNER })
 
@@ -154,6 +176,6 @@ describe('alertBranchFrontDesk', () => {
     })
 
     expect(result).toEqual({ notified: 0, recipients: 0 })
-    expect(dbMocks.createNotification).not.toHaveBeenCalled()
+    expect(dbMocks.createNotificationOnce).not.toHaveBeenCalled()
   })
 })

@@ -32,7 +32,11 @@
 
 import { randomInt } from 'node:crypto'
 import { buildNotificationContent } from '@rgss/business'
-import { createNotification, getNudgeEligibleMemberships, hasNotification } from '@rgss/db/queries'
+import {
+  createNotificationOnce,
+  getNudgeEligibleMemberships,
+  hasNotification,
+} from '@rgss/db/queries'
 import { createLogger } from '@rgss/logger'
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
@@ -47,8 +51,8 @@ import { dispatchNotification } from '@/lib/notifications/dispatch'
 // Dedupe: `hasNotification(userId, 'membership_usage_nudge')` matches ALL prior
 // nudges, so a member is nudged at most once. A proper recency-window dedupe
 // (nudge again after N days) is a future refinement — documented here; the
-// simple check keeps the campaign from re-nudging the same person and is enough
-// to satisfy idempotency across same-batch re-runs / QStash retries (Property 6).
+// existing history and a stable ID keep the campaign from re-nudging the same
+// person across retries and concurrent deliveries (Property 6).
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -109,13 +113,15 @@ export const POST = async (req: Request) => {
         count: formatRemaining(m.totalHoursMinutes, m.usedHoursMinutes),
       })
 
-      const created = await createNotification({
+      const created = await createNotificationOnce({
+        id: `membership_usage_nudge:${JSON.stringify([m.userId])}`,
         userId: m.userId,
         type: 'membership_usage_nudge',
         title,
         body,
         channel: 'push',
       })
+      if (!created) continue
 
       await dispatchNotification({
         id: created.id,

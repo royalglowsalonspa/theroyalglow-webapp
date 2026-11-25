@@ -115,15 +115,25 @@ export async function getWaitlistEntryById(id: string, branchId: string) {
 // Transition a waitlist entry's status. The first move into 'notified' stamps
 // notifiedAt (when the customer was told their slot opened up); other
 // transitions leave it untouched. The legality of the move is enforced by the
-// route-layer state-machine guard before this is called. Returns the updated
-// row, or null when the branch has no such entry.
-export async function updateWaitlistStatus(id: string, branchId: string, status: WaitlistStatus) {
+// route-layer state machine. Match the status it validated so a concurrent
+// write cannot overwrite a later transition. Null means the entry changed or
+// is no longer at the branch.
+export async function updateWaitlistStatus(
+  id: string,
+  branchId: string,
+  expectedStatus: WaitlistStatus,
+  status: WaitlistStatus,
+) {
   const values: Partial<typeof waitlist.$inferInsert> = { status }
   if (status === 'notified') {
     values.notifiedAt = new Date()
   }
 
-  const [updated] = await db.update(waitlist).set(values).where(entryAt(id, branchId)).returning()
+  const [updated] = await db
+    .update(waitlist)
+    .set(values)
+    .where(and(entryAt(id, branchId), eq(waitlist.status, expectedStatus)))
+    .returning()
 
   return updated ?? null
 }

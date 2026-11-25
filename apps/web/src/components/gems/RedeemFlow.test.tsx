@@ -30,9 +30,8 @@
  ************************************************************/
 
 import type { PublicBranchList } from '@rgss/types'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { HttpResponse, http } from 'msw/http'
-import { delay } from 'msw/utils/delay'
 import { afterEach, describe, expect, it } from 'vitest'
 import { server } from '@/test/msw-server'
 import { type RedeemableItem, RedeemFlow } from './RedeemFlow'
@@ -98,15 +97,15 @@ function renderFlow(
   return render(<RedeemFlow balance={balance} catalogue={catalogue} branchList={branchList} />)
 }
 
-/** Open the dialog, pick the first date, pick the 10:00 slot. */
-async function openAndPickSlot() {
+/** Open the dialog, pick a date, and pick the 10:00 slot. */
+async function openAndPickSlot(dateIndex = 0) {
   fireEvent.click(screen.getByRole('button', { name: 'Redeem' }))
   const dialog = await screen.findByRole('dialog')
 
   const dateButtons = screen
     .getAllByRole('button')
     .filter((button) => button.hasAttribute('aria-pressed'))
-  fireEvent.click(dateButtons[0] as HTMLElement)
+  fireEvent.click(dateButtons[dateIndex] as HTMLElement)
 
   fireEvent.click(await screen.findByRole('button', { name: '10:00' }))
   return dialog
@@ -230,13 +229,16 @@ describe('RedeemFlow — dialog wiring', () => {
     expect(key.length).toBeLessThanOrEqual(64)
   })
 
-  it('disables the confirm button while the redemption is in flight (Req 6.1)', async () => {
+  it('keeps the same attempt open and sends one request until redemption settles', async () => {
     let posts = 0
+    const requestStarted = Promise.withResolvers<void>()
+    const responseReady = Promise.withResolvers<void>()
     server.use(
       http.get('*/api/availability', () => HttpResponse.json({ success: true, data: slots() })),
       http.post('*/api/gems/redeem', async () => {
         posts += 1
-        await delay(50)
+        requestStarted.resolve()
+        await responseReady.promise
         return HttpResponse.json(
           {
             success: true,
@@ -247,31 +249,53 @@ describe('RedeemFlow — dialog wiring', () => {
       }),
     )
 
-    renderFlow()
-    await openAndPickSlot()
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm Redemption' }))
+    renderFlow(1000, [AFFORDABLE], TWO_BRANCHES)
+    const dialog = await openAndPickSlot()
+    const confirm = screen.getByRole('button', { name: 'Confirm Redemption' })
+    act(() => {
+      confirm.click()
+      confirm.click()
+    })
 
-    // While submitting, the action is disabled and announces itself busy — a
-    // double-click cannot fire a second request.
-    const busy = await screen.findByRole('button', { name: /Redeeming/ })
-    expect(busy).toBeDisabled()
-    expect(busy).toHaveAttribute('aria-busy', 'true')
-    fireEvent.click(busy)
+    try {
+      await requestStarted.promise
+      const busy = screen.getByRole('button', { name: /Redeeming/ })
+      expect(busy).toBeDisabled()
+      expect(busy).toHaveAttribute('aria-busy', 'true')
+      expect(screen.getByRole('button', { name: 'Redeem' })).toBeDisabled()
+      expect(screen.getByLabelText('Redeem at')).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: '10:00' })).toBeDisabled()
+      for (const date of within(screen.getByRole('group', { name: 'Select Date' })).getAllByRole(
+        'button',
+      )) {
+        expect(date).toBeDisabled()
+      }
+      for (const close of within(dialog).getAllByRole('button', {
+        name: 'Close redemption dialog',
+      })) {
+        expect(close).toBeDisabled()
+        fireEvent.click(close)
+      }
+      fireEvent.keyDown(document, { key: 'Escape' })
+      expect(screen.getByRole('dialog')).toBe(dialog)
+      expect(dialog.contains(document.activeElement)).toBe(true)
+    } finally {
+      responseReady.resolve()
+    }
 
     await screen.findByText('BK-RS-2606-H-00001')
     expect(posts).toBe(1)
   })
 
-  it('reuses one idempotencyKey across retries of a single attempt, and a fresh key per attempt', async () => {
+  it('reuses an unresolved key for the same selection after reopening', async () => {
     const keys: string[] = []
-    let failNext = true
     server.use(
       http.get('*/api/availability', () => HttpResponse.json({ success: true, data: slots() })),
       http.post('*/api/gems/redeem', async ({ request }) => {
         const payload = (await request.json()) as { idempotencyKey: string }
         keys.push(payload.idempotencyKey)
-        if (failNext) {
-          failNext = false
+        if (keys.length <= 2) {
           return HttpResponse.json(
             { success: false, error: { code: 'INTERNAL_ERROR', message: 'Please try again.' } },
             { status: 500 },
@@ -290,22 +314,30 @@ describe('RedeemFlow — dialog wiring', () => {
     renderFlow()
     await openAndPickSlot()
 
-    // Attempt 1, submission 1 — fails.
     fireEvent.click(screen.getByRole('button', { name: 'Confirm Redemption' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Please try again.')
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
 
-    // Attempt 1, submission 2 — the SAME key, so the server can de-dupe.
+    // A different date is a different operation even when the slot is the same.
+    await openAndPickSlot(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Redemption' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Please try again.')
+    expect(keys).toHaveLength(2)
+    expect(keys[1]).not.toBe(keys[0])
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+
+    // Reopening the original selection resumes its unresolved request.
+    await openAndPickSlot()
     fireEvent.click(screen.getByRole('button', { name: 'Confirm Redemption' }))
     await screen.findByText('BK-RS-2606-H-11111')
-    expect(keys).toHaveLength(2)
-    expect(keys[1]).toBe(keys[0])
+    expect(keys[2]).toBe(keys[0])
 
-    // A brand-new attempt gets a brand-new key.
+    // A confirmed response lets a later intentional attempt start fresh.
     fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     await openAndPickSlot()
     fireEvent.click(screen.getByRole('button', { name: 'Confirm Redemption' }))
-    await waitFor(() => expect(keys).toHaveLength(3))
-    expect(keys[2]).not.toBe(keys[0])
+    await waitFor(() => expect(keys).toHaveLength(4))
+    expect(keys[3]).not.toBe(keys[0])
   })
 
   it('surfaces an insufficient-balance rejection without pretending it succeeded', async () => {

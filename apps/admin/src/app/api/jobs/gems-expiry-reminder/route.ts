@@ -27,11 +27,15 @@
  *
  * Notes        :
  * - Gems have a 365-day expiry; this is the only pre-expiry reminder.
- * - Idempotent via per-(customer, 'gems_expiry_7d') notification row.
+ * - One reminder per customer and expiry date.
  ************************************************************/
 
-import { buildNotificationContent } from '@rgss/business'
-import { createNotification, getGemsExpiringInDays, hasNotification } from '@rgss/db/queries'
+import { buildNotificationContent, istDateInDays, istDayStart } from '@rgss/business'
+import {
+  createNotificationOnce,
+  getGemsExpiringInDays,
+  hasNotificationSince,
+} from '@rgss/db/queries'
 import { createLogger } from '@rgss/logger'
 import { pingHeartbeat } from '@/lib/jobs/heartbeat'
 import { verifyQStashSignature } from '@/lib/jobs/verify'
@@ -43,7 +47,7 @@ import { dispatchNotification } from '@/lib/notifications/dispatch'
 // (grouped by customer in the query, so a customer with multiple expiring
 // batches gets one combined total) and sends a PUSH-only notification (no email
 // per design — gems are an engagement mechanic, not a critical alert).
-// Idempotent via a per-(customer,'gems_expiry_7d') notification row (Property 6).
+// The expiry date identifies the reminder across retries (Property 6).
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -63,11 +67,14 @@ export const POST = async (req: Request) => {
 
   try {
     const now = new Date()
+    const today = istDayStart(now)
+    const expiryDate = istDateInDays(now, EXPIRY_DAYS)
     const customers = await getGemsExpiringInDays(EXPIRY_DAYS, now)
     let processed = 0
 
     for (const { customerId, expiringGems } of customers) {
-      if (await hasNotification(customerId, 'gems_expiry_7d')) {
+      // Recognize legacy reminders from this same IST run date.
+      if (await hasNotificationSince(customerId, 'gems_expiry_7d', today)) {
         continue
       }
 
@@ -75,13 +82,15 @@ export const POST = async (req: Request) => {
         count: String(expiringGems),
       })
 
-      const created = await createNotification({
+      const created = await createNotificationOnce({
+        id: `gems_expiry_7d:${JSON.stringify([customerId, expiryDate])}`,
         userId: customerId,
         type: 'gems_expiry_7d',
         title,
         body,
         channel: 'push',
       })
+      if (!created) continue
 
       await dispatchNotification({
         id: created.id,

@@ -82,6 +82,22 @@ interface AvailabilitySlot {
   available: boolean
 }
 
+type BookingStep = 1 | 2 | 3 | 4
+
+const NEXT_STEP: Record<BookingStep, BookingStep> = { 1: 2, 2: 3, 3: 4, 4: 4 }
+const PREVIOUS_STEP: Record<BookingStep, BookingStep> = { 1: 1, 2: 1, 3: 2, 4: 3 }
+
+type CatalogueState =
+  | { status: 'loading' }
+  | { status: 'ready'; categories: ApiCategory[] }
+  | { status: 'failed'; message: string }
+
+type BookingSubmission =
+  | { status: 'idle' }
+  | { status: 'submitting' }
+  | { status: 'failed'; message: string }
+  | { status: 'submitted'; bookingNumber: string }
+
 const BOOKING_INTENT_KEY = 'rgss_booking_intent'
 
 // What the focus trap moves between.
@@ -168,7 +184,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
   const { data: session } = useSession()
   const router = useRouter()
 
-  const [step, setStep] = useState(1)
+  const [step, setStep] = useState<BookingStep>(1)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [serviceType, setServiceType] = useState<ServiceType>('salon')
@@ -185,9 +201,9 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
   const [branchesAttempt, setBranchesAttempt] = useState(0)
 
   // Data + async state
-  const [categories, setCategories] = useState<ApiCategory[] | null>(null)
-  const [servicesLoading, setServicesLoading] = useState(false)
-  const [servicesError, setServicesError] = useState<string | null>(null)
+  const [catalogue, setCatalogue] = useState<CatalogueState>({ status: 'loading' })
+  const categories = catalogue.status === 'ready' ? catalogue.categories : null
+  const catalogueReady = catalogue.status === 'ready'
 
   const [slots, setSlots] = useState<AvailabilitySlot[]>([])
   const [slotsLoading, setSlotsLoading] = useState(false)
@@ -203,13 +219,13 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
   // it is closed, a date beyond its booking window), if so.
   const [slotsNotice, setSlotsNotice] = useState<string | null>(null)
 
-  const [submitting, setSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const [isSubmitted, setIsSubmitted] = useState(false)
-  const [bookingNumber, setBookingNumber] = useState<string | null>(null)
+  const [submission, setSubmission] = useState<BookingSubmission>({ status: 'idle' })
+  const submitting = submission.status === 'submitting'
+  const isSubmitted = submission.status === 'submitted'
 
   const dialogRef = useRef<HTMLDivElement>(null)
   const restoredRef = useRef(false)
+  const submissionRequest = useRef<AbortController | null>(null)
 
   // The branch availability and the booking use: the customer's choice while
   // it is taking bookings, otherwise the default branch. Derived rather than
@@ -243,15 +259,6 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
       track('booking_started')
     }
   }, [isOpen])
-
-  // Escape to close
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
-    }
-    if (isOpen) document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
-  }, [isOpen, onClose])
 
   // Move focus into the dialog when it opens, and back to its top when the
   // content holding the focus is replaced (a step change, the success view).
@@ -318,18 +325,12 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
     }
   }, [isOpen, branchesAttempt])
 
-  // Fetch services when the dialog opens (once). Only re-run on open
-  // transitions: the inner `categories`/`servicesLoading` guard and the
-  // `cancelled` flag prevent duplicate fetches, and including `servicesLoading`
-  // here would re-run the effect the moment it is set true, cancelling the
-  // in-flight request before it can resolve.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional open-only trigger; see comment above.
+  // Reuse a loaded catalogue. Each open without one owns a fresh request.
   useEffect(() => {
-    if (!isOpen || categories || servicesLoading) return
-    let cancelled = false
-    setServicesLoading(true)
-    setServicesError(null)
-    fetch('/api/services')
+    if (!isOpen || catalogueReady) return
+    const request = new AbortController()
+    setCatalogue({ status: 'loading' })
+    fetch('/api/services', { signal: request.signal })
       .then(async (res) => {
         const json = await res.json()
         if (!res.ok || !json.success) {
@@ -337,21 +338,19 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
         }
         return json.data.categories as ApiCategory[]
       })
-      .then((cats) => {
-        if (!cancelled) setCategories(cats)
+      .then((categories) => {
+        if (!request.signal.aborted) setCatalogue({ status: 'ready', categories })
       })
       .catch((err: unknown) => {
-        if (!cancelled) {
-          setServicesError(err instanceof Error ? err.message : 'Could not load services.')
+        if (!request.signal.aborted) {
+          setCatalogue({
+            status: 'failed',
+            message: err instanceof Error ? err.message : 'Could not load services.',
+          })
         }
       })
-      .finally(() => {
-        if (!cancelled) setServicesLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [isOpen])
+    return () => request.abort()
+  }, [isOpen, catalogueReady])
 
   // Restore a saved booking intent (e.g. after returning from sign-in) once
   // services and branches are available, so the summary can name the services
@@ -361,10 +360,10 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
     if (!isOpen || !categories || !branchList || restoredRef.current) return
     restoredRef.current = true
     if (typeof window === 'undefined') return
-    const raw = sessionStorage.getItem(BOOKING_INTENT_KEY)
-    if (!raw) return
-    sessionStorage.removeItem(BOOKING_INTENT_KEY)
     try {
+      const raw = sessionStorage.getItem(BOOKING_INTENT_KEY)
+      if (!raw) return
+      sessionStorage.removeItem(BOOKING_INTENT_KEY)
       const intent = JSON.parse(raw) as BookingIntent
       setSelectedBranchId(intent.branchId ?? null)
       if (intent.date) setSelectedDate(new Date(`${intent.date}T00:00:00`))
@@ -375,7 +374,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
       setNotes(intent.notes ?? '')
       setStep(4)
     } catch {
-      // Corrupt intent — ignore and start fresh.
+      // Unavailable storage or corrupt intent: start fresh.
     }
   }, [isOpen, categories, branchList])
 
@@ -447,17 +446,35 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
     setSlotsClosure(null)
     setSlotsNotice(null)
     setDayHours(null)
-    setSubmitError(null)
-    setSubmitting(false)
-    setIsSubmitted(false)
-    setBookingNumber(null)
+    setSubmission({ status: 'idle' })
     restoredRef.current = false
   }, [])
 
+  useEffect(() => {
+    if (!isOpen) {
+      reset()
+      return
+    }
+    return () => {
+      submissionRequest.current?.abort()
+      submissionRequest.current = null
+    }
+  }, [isOpen, reset])
+
   const handleClose = useCallback(() => {
-    reset()
-    onClose()
-  }, [reset, onClose])
+    // A booking request may already have reached the server. Keep its result
+    // visible in this dialog before allowing the customer to start another.
+    if (!submissionRequest.current) onClose()
+  }, [onClose])
+
+  useEffect(() => {
+    if (!isOpen) return
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') handleClose()
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [isOpen, handleClose])
 
   // Derived data. Only what the chosen branch offers is shown: each category
   // lists its services offered there, and a category with none is hidden.
@@ -564,29 +581,31 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
   ])
 
   const handleSubmit = async () => {
-    if (!selectedDate || !selectedTime || selectedServiceIds.length === 0) return
+    if (submissionRequest.current || !selectedDate || !selectedTime || !selectedServiceIds.length) {
+      return
+    }
 
     // Step 1 cannot be passed without a branch, so this is only reached by a
     // restored booking at a time when no branch is taking bookings.
     if (!activeBranchId) {
-      setSubmitError('Online booking is paused right now.')
+      setSubmission({ status: 'failed', message: 'Online booking is paused right now.' })
       return
     }
 
-    // Not signed in → preserve intent and launch Google sign-in directly.
-    // callbackURL reopens the booking dialog (?book=1) after the OAuth round
-    // trip, where the persisted intent restores the user's selections.
-    if (!session?.user) {
-      persistIntent()
-      void startGoogleSignIn('/?book=1')
-      return
-    }
-
-    setSubmitting(true)
-    setSubmitError(null)
+    const request = new AbortController()
+    submissionRequest.current = request
+    setSubmission({ status: 'submitting' })
     try {
+      // The callback reopens the dialog with the saved selections after OAuth.
+      if (!session?.user) {
+        persistIntent()
+        await startGoogleSignIn('/?book=1')
+        return
+      }
+
       const res = await fetch('/api/bookings', {
         method: 'POST',
+        signal: request.signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           branchId: activeBranchId,
@@ -598,6 +617,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
         }),
       })
       const json = await res.json()
+      if (request.signal.aborted) return
 
       // The customer skipped onboarding, so the server refused the booking.
       // Tapping Book Now normally sends them to onboarding before the dialog
@@ -616,19 +636,26 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message ?? "Your booking couldn't be submitted.")
       }
-      setBookingNumber(json.data.bookingNumber as string)
-      setIsSubmitted(true)
+      const bookingNumber = json.data.bookingNumber as string
+      setSubmission({ status: 'submitted', bookingNumber })
       track('booking_request_submitted', {
-        bookingId: json.data.bookingNumber as string,
+        bookingId: bookingNumber,
       })
     } catch (err: unknown) {
-      setSubmitError(
-        err instanceof Error
-          ? err.message
-          : "Your booking couldn't be submitted. Please try again.",
-      )
+      if (!request.signal.aborted) {
+        setSubmission({
+          status: 'failed',
+          message:
+            err instanceof Error
+              ? err.message
+              : "Your booking couldn't be submitted. Please try again.",
+        })
+      }
     } finally {
-      setSubmitting(false)
+      if (submissionRequest.current === request) {
+        submissionRequest.current = null
+        setSubmission((state) => (state.status === 'submitting' ? { status: 'idle' } : state))
+      }
     }
   }
 
@@ -653,6 +680,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
         aria-label="Close booking dialog"
         className="absolute inset-0 bg-cocoa-dark/60 backdrop-blur-sm"
         onClick={handleClose}
+        disabled={submitting}
       />
 
       {/* Modal */}
@@ -673,6 +701,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
             variant="ghost"
             size="icon-sm"
             onClick={handleClose}
+            disabled={submitting}
             className="rounded-full"
             aria-label="Close booking dialog"
           >
@@ -701,8 +730,8 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {isSubmitted ? (
-            <SuccessView bookingNumber={bookingNumber} onDone={handleClose} />
+          {submission.status === 'submitted' ? (
+            <SuccessView bookingNumber={submission.bookingNumber} onDone={handleClose} />
           ) : step === 1 ? (
             <Step1
               branchList={branchList}
@@ -739,8 +768,8 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
               serviceType={serviceType}
               onServiceTypeChange={setServiceTypeAndReset}
               categories={visibleCategories}
-              loading={servicesLoading}
-              error={servicesError}
+              loading={catalogue.status === 'loading'}
+              error={catalogue.status === 'failed' ? catalogue.message : null}
               selectedCategoryIds={selectedCategoryIds}
               onToggleCategory={toggleCategory}
             />
@@ -764,7 +793,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
               totalDuration={totalDuration}
               notes={notes}
               onNotesChange={setNotes}
-              submitError={submitError}
+              submitError={submission.status === 'failed' ? submission.message : null}
               isSignedIn={Boolean(session?.user)}
             />
           )}
@@ -777,7 +806,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => setStep((s) => s - 1)}
+                onClick={() => setStep(PREVIOUS_STEP[step])}
                 disabled={submitting}
                 className="rounded-full font-ui text-[12px] uppercase tracking-[0.5px] hover:bg-golden-mist"
               >
@@ -793,7 +822,7 @@ export function BookingDialog({ isOpen, onClose }: BookingDialogProps) {
                 variant="gold"
                 onClick={() => {
                   track('booking_step_completed', { step })
-                  setStep((s) => s + 1)
+                  setStep(NEXT_STEP[step])
                 }}
                 disabled={
                   (step === 1 && !canNext1) ||

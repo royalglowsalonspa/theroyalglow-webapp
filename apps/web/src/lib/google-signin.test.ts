@@ -25,10 +25,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 type SocialOptions = Record<string, unknown>
+type SocialResult =
+  | { data: { redirect: boolean; url?: string }; error: null }
+  | { data: null; error: { message: string } }
 
-const socialMock = vi.hoisted(() =>
-  vi.fn(async (_options: Record<string, unknown>): Promise<void> => undefined),
-)
+const socialMock = vi.hoisted(() => vi.fn<(options: SocialOptions) => Promise<SocialResult>>())
 vi.mock('@/lib/auth-client', () => ({ signIn: { social: socialMock } }))
 
 import { NEW_USER_CALLBACK_URL, startGoogleSignIn } from './google-signin'
@@ -44,7 +45,10 @@ function socialCallArg(): SocialOptions {
 }
 
 beforeEach(() => {
-  socialMock.mockClear()
+  socialMock.mockReset().mockResolvedValue({
+    data: { redirect: true, url: 'https://accounts.google.com/' },
+    error: null,
+  })
   sessionStorage.clear()
 })
 
@@ -82,9 +86,35 @@ describe('startGoogleSignIn — first-time registrations reach /onboarding', () 
     // cannot be imported here. Assert the literal instead.
     expect(NEW_USER_CALLBACK_URL).toBe('/onboarding')
   })
+
+  it('reports a Better Auth error as a failed redirect', async () => {
+    socialMock.mockResolvedValueOnce({ data: null, error: { message: 'provider unavailable' } })
+
+    await expect(startGoogleSignIn()).rejects.toThrow('Google sign-in could not start')
+  })
+
+  it('reports a successful response with no redirect as a failed redirect', async () => {
+    socialMock.mockResolvedValueOnce({ data: { redirect: false }, error: null })
+
+    await expect(startGoogleSignIn()).rejects.toThrow('Google sign-in could not start')
+  })
 })
 
 describe('startGoogleSignIn — context kept across the OAuth redirect', () => {
+  it('still starts the OAuth redirect when optional browser storage is blocked', async () => {
+    window.history.replaceState(null, '', '/?book=1')
+    const write = vi.spyOn(Storage.prototype, 'setItem').mockImplementationOnce(() => {
+      throw new DOMException('Storage is blocked', 'SecurityError')
+    })
+    try {
+      await startGoogleSignIn('/?book=1')
+      expect(socialCallArg()).toMatchObject({ callbackURL: '/?book=1' })
+    } finally {
+      write.mockRestore()
+      window.history.replaceState(null, '', '/')
+    }
+  })
+
   it('saves the booking and acquisition parameters from the URL, and no others', async () => {
     window.history.replaceState(
       null,

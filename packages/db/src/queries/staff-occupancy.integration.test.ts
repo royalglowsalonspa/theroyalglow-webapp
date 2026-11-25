@@ -555,18 +555,31 @@ describe.skipIf(!LIVE)('staff occupancy against a live database', () => {
       expect(await occupancyOf(done)).toBeNull()
       expect(await workOf(done)).toEqual({ staff: THERAPIST_P, kind: 'spa', running: false })
 
-      // No-show: nobody held any more.
+      // An overnight appointment keeps its reservation until the next morning's end.
       const missed = await book('d5_missed', {
         branchId: BRANCH_A,
         kind: 'salon',
         status: 'confirmed',
         date: day,
-        start: '14:00',
-        end: '15:00',
+        start: '23:30',
+        end: '00:30',
         staff: [STYLIST_P],
       })
       expect((await occupancyOf(missed))?.kind).toBe('salon')
-      await markBookingNoShow(missed, BRANCH_A, OWNER)
+      const scheduledEnd = new Date(`${day}T19:00:00.000Z`) // 00:30 IST the next day
+      await expect(
+        markBookingNoShow(missed, BRANCH_A, OWNER, new Date(scheduledEnd.getTime() - 1)),
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        message: 'Only mark a booking as no-show after its scheduled end time.',
+      })
+      expect(await statusOf(missed)).toBe('confirmed')
+      expect((await occupancyOf(missed))?.kind).toBe('salon')
+      expect(
+        await queryRow(sql`select id from booking_status_log where booking_id = ${missed}`),
+      ).toBeNull()
+
+      await markBookingNoShow(missed, BRANCH_A, OWNER, scheduledEnd)
       expect(await occupancyOf(missed)).toBeNull()
       expect(await workOf(missed)).toBeNull()
     },

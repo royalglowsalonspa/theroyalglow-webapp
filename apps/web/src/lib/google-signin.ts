@@ -51,7 +51,11 @@ export function preserveAuthContext(): void {
     }
   }
   if (Object.keys(context).length > 0) {
-    sessionStorage.setItem(AUTH_CONTEXT_KEY, JSON.stringify(context))
+    try {
+      sessionStorage.setItem(AUTH_CONTEXT_KEY, JSON.stringify(context))
+    } catch {
+      // Storage can be blocked independently of the browser's OAuth redirect.
+    }
   }
 }
 
@@ -113,9 +117,12 @@ export function markBookingIntentForOnboarding(): void {
  */
 export async function startGoogleSignIn(callbackURL?: string): Promise<void> {
   preserveAuthContext()
-  await signIn.social({
+  const result = await signIn.social({
     provider: 'google',
     newUserCallbackURL: NEW_USER_CALLBACK_URL,
     ...(callbackURL ? { callbackURL } : {}),
   })
+  if (result.error || !result.data?.redirect || !result.data.url) {
+    throw new Error('Google sign-in could not start. Please try again.')
+  }
 }

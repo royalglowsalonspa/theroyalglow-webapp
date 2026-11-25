@@ -126,4 +126,20 @@ describe('POST /api/bookings/[id]/noshow', () => {
     expect(res.status).toBe(409)
     expect((await errorOf(res)).code).toBe(ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION)
   })
+
+  it('returns the scheduled-end conflict from the guarded write', async () => {
+    dbMocks.markBookingNoShow.mockRejectedValue(
+      conflict(
+        ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION,
+        'Only mark a booking as no-show after its scheduled end time.',
+      ),
+    )
+
+    const res = await noShow()
+    expect(res.status).toBe(409)
+    expect(await errorOf(res)).toMatchObject({
+      code: ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION,
+      message: 'Only mark a booking as no-show after its scheduled end time.',
+    })
+  })
 })

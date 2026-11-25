@@ -625,6 +625,33 @@ describe('POST /api/gems/redeem — idempotency and double-spend', () => {
     expect(dbMocks.redeemServiceWithGems).not.toHaveBeenCalled()
   })
 
+  it.each(['balance', 'booking limit'] as const)(
+    'replays a concurrent commit after the %s changes before validation',
+    async (changed) => {
+      if (changed === 'balance') store.account.gemsBalance = 500
+      const first = await POST(postRequest(body()), ROUTE_CTX)
+      expect(first.status).toBe(201)
+      const firstJson = await first.json()
+
+      // The retry initially reads before the winner commits, but its next
+      // reads see the balance or booking count after the commit.
+      dbMocks.findBookingByRedemptionKey.mockResolvedValueOnce(null)
+      if (changed === 'booking limit') {
+        dbMocks.countUpcomingBookingsAtBranch.mockResolvedValueOnce(
+          POLICY.bookingRules.maxActiveBookingsPerCustomer,
+        )
+      }
+
+      const retry = await POST(postRequest(body()), ROUTE_CTX)
+      expect(retry.status).toBe(200)
+      await expect(retry.json()).resolves.toMatchObject({
+        data: { duplicate: true, bookingNumber: firstJson.data.bookingNumber },
+      })
+      expect(dbMocks.redeemServiceWithGems).toHaveBeenCalledTimes(1)
+      expect(store.transactions).toHaveLength(1)
+    },
+  )
+
   it("a key belonging to another customer never resolves as this customer's replay (Req 8.2)", async () => {
     // Keys are client-supplied, so the replay lookup is scoped to the session
     // customer. Customer A guessing customer B's key must not be handed B's
