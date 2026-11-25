@@ -59,9 +59,14 @@ import { staffProfile } from '../schema/profile'
 import { auditLog } from '../schema/system'
 import { isBranchAvailabilityRefusal, serviceNoLongerOffered } from './catalogue-availability'
 import { refreshCustomerStatsStatement } from './customer-stats'
-import { isConstraintViolation, isGuardAbort, SQLSTATE } from './driver-errors'
+import { findDriverError, isConstraintViolation, isGuardAbort, SQLSTATE } from './driver-errors'
 import { type InvoiceIssue, type InvoiceIssueLine, issueInvoiceStatements } from './invoice-issue'
-import { type AssigneeRefusal, assigneeRefusal } from './reassignments'
+import {
+  type AssigneeRefusal,
+  assigneeRefusal,
+  type BookingServiceAssignment,
+  bookingServiceAssignmentsAreCurrent,
+} from './reassignments'
 
 // The branch that sold a membership (multi-branch R9, route inventory gap 5).
 // A row written before selling_branch_id existed falls back to its purchase
@@ -683,6 +688,7 @@ type CompleteMembershipSessionParams = {
   branchId: string
   changedById: string
   idempotency?: MembershipSessionCompletionKey
+  expectedAssignments?: readonly BookingServiceAssignment[]
   /**
    * The ₹0 session invoice's issue facts. Each line records its service's SAC
    * code and the rate in force, so a zero value is never read as exempt.
@@ -763,6 +769,9 @@ export async function completeMembershipSession(
   params: CompleteMembershipSessionParams,
 ): Promise<CompleteMembershipSessionResult> {
   const { bookingId, branchId } = params
+  const assignmentGuard = params.expectedAssignments
+    ? sql`AND (${bookingServiceAssignmentsAreCurrent(bookingId, params.expectedAssignments)})`
+    : sql``
   const complete = db.execute(sql`
     WITH done AS (
       UPDATE booking
@@ -771,6 +780,7 @@ export async function completeMembershipSession(
          AND branch_id = ${branchId}
          AND is_membership_session
          AND status = 'in_progress'
+         ${assignmentGuard}
       RETURNING id
     )
     SELECT 1 / count(*)::int AS ok FROM done
@@ -796,7 +806,7 @@ export async function completeMembershipSession(
       notes: 'Membership session completed',
     }),
   ]).catch((error: unknown) => {
-    if (isGuardAbort(error)) return null
+    if (isGuardAbort(error) || findDriverError(error, [SQLSTATE.lockNotAvailable])) return null
     if (
       isConstraintViolation(error, SQLSTATE.uniqueViolation, [
         'membership_session_completion_actor_key',

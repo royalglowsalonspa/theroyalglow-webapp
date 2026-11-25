@@ -844,7 +844,7 @@ export async function hasNotificationSince(
 // 30 16 * * * UTC = 10:00 PM IST, after the 21:00 close). A booking the salon
 // never confirmed, rejected or cancelled must not stay 'pending' once its
 // appointment is over, so every still-pending booking whose IST end instant
-// (booking_date + end_time) is at or before `now` becomes 'no_show'.
+// is at or before `now` becomes 'no_show', including slots that end after midnight.
 //
 // - Status-guarded UPDATE → idempotent: a QStash retry or re-run matches only
 //   rows that are still pending, i.e. nothing it already closed.
@@ -868,7 +868,10 @@ export async function closeLapsedPendingBookings(now: Date = new Date()) {
       .where(
         and(
           eq(booking.status, 'pending'),
-          sql`(${booking.bookingDate} + ${booking.endTime}) AT TIME ZONE 'Asia/Kolkata' <= ${now.toISOString()}::timestamptz`,
+          sql`coalesce(
+            upper(booking_planned_during(${booking.bookingDate}, ${booking.startTime}, ${booking.endTime})),
+            (${booking.bookingDate} + ${booking.endTime}) AT TIME ZONE 'Asia/Kolkata'
+          ) <= ${now.toISOString()}::timestamptz`,
         ),
       )
       .returning({

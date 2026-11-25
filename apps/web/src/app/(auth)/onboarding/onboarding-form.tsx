@@ -34,7 +34,7 @@
 
 import { Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -48,6 +48,10 @@ const AUTH_CONTEXT_KEY = 'rgss_auth_context'
 const COOKIE_CONSENT_KEY = 'rgss_cookie_consent'
 
 const NO_CONTEXT: Record<string, string> = {}
+
+type SubmissionState =
+  | { status: 'ready' | 'saving' | 'complete' }
+  | { status: 'error'; message: string }
 
 /** The context saved in sessionStorage, or none when it is missing or unreadable. */
 function readStoredContext(): Record<string, string> {
@@ -89,9 +93,10 @@ export function OnboardingForm({
   bookingContext = NO_CONTEXT,
 }: OnboardingFormProps) {
   const router = useRouter()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [serverError, setServerError] = useState('')
+  const [submission, setSubmission] = useState<SubmissionState>({ status: 'ready' })
+  const submitting = useRef(false)
   const [errors, setErrors] = useState<FormErrors>({})
+  const isSubmitting = submission.status === 'saving' || submission.status === 'complete'
 
   // Whether the customer came here on the way to a booking. The URL context is
   // known on the server; the sessionStorage context only in the browser, so it
@@ -140,17 +145,19 @@ export function OnboardingForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setServerError('')
+    if (submitting.current) return
+    setSubmission({ status: 'ready' })
 
     if (!validate()) return
 
-    setIsSubmitting(true)
+    submitting.current = true
+    setSubmission({ status: 'saving' })
+
+    // Keep the booking intent until onboarding reaches a terminal state.
+    const context = mergeOnboardingContext(readStoredContext(), bookingContext)
+    let profileCreated: boolean
 
     try {
-      // The saved auth context, plus the onboarding URL's context when Book Now
-      // sent a signed-in customer here (see mergeOnboardingContext).
-      const context = mergeOnboardingContext(readStoredContext(), bookingContext)
-
       const response = await fetch('/api/onboarding/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -169,22 +176,33 @@ export function OnboardingForm({
         }),
       })
 
+      profileCreated = response.ok
       if (!response.ok) {
         const data = await response.json()
-        setServerError(data.error?.message ?? 'Something went wrong. Please try again.')
-        setIsSubmitting(false)
-        return
+        // The server recognizes the authenticated customer's own profile.
+        // A retry after a lost response should still continue to the booking.
+        if (response.status !== 409 || data.error?.code !== 'PROFILE_EXISTS') {
+          submitting.current = false
+          setSubmission({
+            status: 'error',
+            message: data.error?.message ?? 'Something went wrong. Please try again.',
+          })
+          return
+        }
       }
+    } catch {
+      submitting.current = false
+      setSubmission({
+        status: 'error',
+        message: 'Connection failed. Check your internet and try again.',
+      })
+      return
+    }
 
-      // Resolve the post-onboarding destination BEFORE the context is cleared.
-      // A new customer who clicked "Book Now" was routed here by
-      // newUserCallbackURL, which overrides BookingDialog's own `/?book=1`
-      // callback, and a signed-in customer without a profile by the homepage's
-      // booking gate — so the booking intent only survives if we replay it now.
-      const destination = buildPostOnboardingDestination(context)
-
-      // Write consent to localStorage
-      if (typeof window !== 'undefined') {
+    setSubmission({ status: 'complete' })
+    // Only the accepted submission can update browser consent preferences.
+    if (profileCreated) {
+      try {
         localStorage.setItem(
           COOKIE_CONSENT_KEY,
           JSON.stringify({
@@ -194,18 +212,16 @@ export function OnboardingForm({
             ts: new Date().toISOString(),
           }),
         )
-        // Clear auth context from sessionStorage
-        sessionStorage.removeItem(AUTH_CONTEXT_KEY)
+      } catch {
+        // Browser storage can be unavailable after the profile was saved.
       }
-
-      // Replace, not push: the completed form cannot be submitted again, so Back
-      // from the booking should return to where the customer was before
-      // onboarding, not to this form.
-      router.replace(destination)
-    } catch {
-      setServerError('Connection failed. Check your internet and try again.')
-      setIsSubmitting(false)
     }
+    try {
+      sessionStorage.removeItem(AUTH_CONTEXT_KEY)
+    } catch {
+      // Navigation still uses the captured context when storage is blocked.
+    }
+    router.replace(buildPostOnboardingDestination(context))
   }
 
   return (
@@ -366,7 +382,11 @@ export function OnboardingForm({
       </div>
 
       {/* Server Error */}
-      {serverError && <p className="font-ui text-sm text-error">{serverError}</p>}
+      {submission.status === 'error' && (
+        <p className="font-ui text-sm text-error" role="alert">
+          {submission.message}
+        </p>
+      )}
 
       {/* Submit */}
       <Button

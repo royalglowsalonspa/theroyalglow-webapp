@@ -77,7 +77,17 @@ describe('POST /api/bookings/[id]/cancel (admin)', () => {
   it.each(['confirmed', 'pending'])(
     'cancels a %s booking with the reason, never as a late cancellation',
     async (status) => {
-      dbMocks.getBookingForAdmin.mockResolvedValue({ id: BOOKING_ID, status, customerId: 'cust_1' })
+      const existing = {
+        id: BOOKING_ID,
+        branchId: TEST_BRANCH.id,
+        customerId: 'cust_1',
+        status,
+        bookingDate: new Date('2026-11-04T00:00:00.000Z'),
+        startTime: '13:00:00',
+        endTime: '14:30:00',
+        rescheduleCount: 0,
+      }
+      dbMocks.getBookingForAdmin.mockResolvedValue(existing)
 
       const res = await cancel({ reason: '  Branch closed for Diwali  ' })
 
@@ -92,11 +102,13 @@ describe('POST /api/bookings/[id]/cancel (admin)', () => {
       })
       expect(branchMocks.requireBranchRole).toHaveBeenCalledWith('receptionist')
       expect(dbMocks.getBookingForAdmin).toHaveBeenCalledWith(BOOKING_ID, TEST_BRANCH.id)
-      // Three arguments: no lateness decision, so the customer's record isn't marked.
+      // No lateness decision, so the customer's record isn't marked.
       expect(dbMocks.cancelBooking).toHaveBeenCalledWith(
         BOOKING_ID,
         'u_rec',
         'Branch closed for Diwali',
+        undefined,
+        existing,
       )
       expect(publishMock).toHaveBeenCalledWith({
         bookingId: BOOKING_ID,

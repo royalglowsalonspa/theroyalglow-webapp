@@ -434,4 +434,56 @@ describe.skipIf(!LIVE)('branch booking settings against a live database', () => 
     // From a later day, the earlier ones are past.
     expect(await countUpcomingBookingsAtBranch(CUSTOMER, BRANCH_A, istDatePlus(4))).toBe(2)
   })
+
+  it.each([true, false])(
+    'refuses stale booking changes after a move (counts toward customer limit: %s)',
+    async (countsTowardLimit) => {
+      const expected = await book(BRANCH_A, istDatePlus(2), 4)
+      const bookingDate = new Date(`${istDatePlus(3)}T00:00:00.000Z`)
+      const moved = await rescheduleBooking(expected.id, ACTOR, {
+        expected,
+        bookingDate,
+        startTime: '15:00',
+        endTime: '16:00',
+        countsTowardLimit,
+      })
+      const before = await queryRow(
+        sql`select late_cancellation_count from customer_profile where user_id = ${CUSTOMER}`,
+      )
+      const conflict = { code: ERROR_CODES.BOOKING_INVALID_STATUS_TRANSITION, statusCode: 409 }
+
+      await expect(
+        rescheduleBooking(expected.id, CUSTOMER, {
+          expected,
+          bookingDate,
+          startTime: '17:00',
+          endTime: '18:00',
+        }),
+      ).rejects.toMatchObject(conflict)
+      await expect(
+        cancelBooking(expected.id, CUSTOMER, null, { late: true, settingsRevision: 4 }, expected),
+      ).rejects.toMatchObject(conflict)
+
+      expect(moved).toMatchObject({ rescheduleCount: Number(countsTowardLimit) })
+      expect(
+        await queryRow(
+          sql`select status, start_time, reschedule_count from booking where id = ${expected.id}`,
+        ),
+      ).toEqual({
+        status: 'confirmed',
+        start_time: '15:00:00',
+        reschedule_count: Number(countsTowardLimit),
+      })
+      expect(
+        await queryRows(
+          sql`select to_status from booking_status_log where booking_id = ${expected.id}`,
+        ),
+      ).toEqual([{ to_status: 'confirmed' }])
+      expect(
+        await queryRow(
+          sql`select late_cancellation_count from customer_profile where user_id = ${CUSTOMER}`,
+        ),
+      ).toEqual(before)
+    },
+  )
 })

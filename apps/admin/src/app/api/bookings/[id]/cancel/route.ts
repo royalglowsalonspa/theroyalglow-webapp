@@ -74,7 +74,13 @@ export const POST = withErrorHandler(
 
     // No lateness decision: the salon cancelled, so the customer's record
     // isn't marked.
-    const updated = await cancelBooking(id, ctx.session.user.id, parsed.data.reason)
+    const updated = await cancelBooking(
+      id,
+      ctx.session.user.id,
+      parsed.data.reason,
+      undefined,
+      existing,
+    )
     if (!updated) {
       throw notFound('Booking not found.')
     }

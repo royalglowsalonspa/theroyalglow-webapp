@@ -94,6 +94,11 @@ beforeEach(() => {
     id: BOOKING_ID,
     status: 'confirmed',
     customerId: 'cust_1',
+    branchId: TEST_BRANCH.id,
+    bookingDate: new Date('2026-11-04T00:00:00.000Z'),
+    startTime: '13:00:00',
+    endTime: '14:30:00',
+    rescheduleCount: 1,
     totalDurationMinutes: 90,
   })
   dbMocks.getBranchPolicy.mockResolvedValue(POLICY)
@@ -132,6 +137,13 @@ describe('POST /api/bookings/[id]/reschedule (admin)', () => {
       endTime: '12:30',
       settingsRevision: 7,
       countsTowardLimit: false,
+      expected: expect.objectContaining({
+        branchId: TEST_BRANCH.id,
+        status: 'confirmed',
+        bookingDate: new Date('2026-11-04T00:00:00.000Z'),
+        startTime: '13:00:00',
+        rescheduleCount: 1,
+      }),
     })
     // Tuesday 12:45 IST: fifteen minutes after the new scheduled end.
     expect(enqueueMock).toHaveBeenCalledExactlyOnceWith(

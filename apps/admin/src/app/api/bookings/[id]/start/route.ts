@@ -142,6 +142,11 @@ export const POST = withErrorHandler(
       bookingId: id,
       branchId,
       changedById: ctx.session.user.id,
+      expectedSlot: {
+        bookingDate: existing.bookingDate,
+        startTime: existing.startTime,
+        endTime: existing.endTime,
+      },
     })
     if (!result.ok) {
       if (result.reason === 'membership_unavailable') {

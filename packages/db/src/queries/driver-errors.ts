@@ -24,6 +24,7 @@ export const SQLSTATE = {
   // An exclusion constraint, such as a person booked twice at once (0028).
   exclusionViolation: '23P01',
   deadlockDetected: '40P01',
+  lockNotAvailable: '55P03',
 } as const
 
 // How far down an error's `cause` chain to look; bounded so a cycle can't hang.

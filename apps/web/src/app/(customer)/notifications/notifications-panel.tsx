@@ -31,19 +31,10 @@
 'use client'
 
 import { Bell } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useNotificationFeed } from '@/components/notifications/use-notification-feed'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-
-interface NotificationRow {
-  id: string
-  type: string
-  title: string
-  body: string
-  readAt: string | null
-  createdAt: string
-}
 
 // Compact relative time, falling back to DD/MM/YYYY (en-IN) for older items.
 function relativeTime(iso: string): string {
@@ -73,45 +64,9 @@ function relativeTime(iso: string): string {
 }
 
 export function NotificationsPanel() {
-  const [notifications, setNotifications] = useState<NotificationRow[]>([])
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [loading, setLoading] = useState(true)
-
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch('/api/notifications', { headers: { accept: 'application/json' } })
-      const json = await res.json()
-      if (res.ok && json.success) {
-        setNotifications(json.data.notifications as NotificationRow[])
-        setUnreadCount(json.data.unreadCount as number)
-      }
-    } catch {
-      // Network blip — keep the last known state.
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    load()
-  }, [load])
-
-  const markAllRead = useCallback(async () => {
-    // Optimistic: clear unread immediately, then reconcile with the server.
-    setNotifications((prev) =>
-      prev.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })),
-    )
-    setUnreadCount(0)
-    try {
-      await fetch('/api/notifications', {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({}),
-      })
-    } catch {
-      // ignore — a refresh will reconcile
-    }
-  }, [])
+  const { feed, refresh, markAllRead, markStatus } = useNotificationFeed()
+  const { notifications = [], unreadCount = 0 } = feed.snapshot ?? {}
+  const marking = markStatus === 'marking'
 
   return (
     <div className="mx-auto max-w-[680px] px-5 py-10 lg:py-14">
@@ -129,14 +84,37 @@ export function NotificationsPanel() {
             type="button"
             variant="link"
             onClick={markAllRead}
+            disabled={marking}
+            aria-busy={marking}
             className="h-auto shrink-0 p-0 font-ui text-sm font-bold text-gold-ink hover:text-cocoa-dark"
           >
-            Mark all read
+            {marking ? 'Marking as read…' : 'Mark all read'}
           </Button>
         )}
       </header>
 
-      {loading ? (
+      {markStatus === 'error' && (
+        <p role="alert" className="mb-4 font-sans text-sm text-error">
+          Could not mark notifications as read. Please try again.
+        </p>
+      )}
+      {feed.status === 'error' && (
+        <div className="mb-4 flex items-center gap-3">
+          <p role="alert" className="font-sans text-sm text-error">
+            Could not load notifications.
+          </p>
+          <Button type="button" variant="link" onClick={refresh}>
+            Try again
+          </Button>
+        </div>
+      )}
+      {feed.status === 'unauthorized' && (
+        <p role="alert" className="font-sans text-sm text-error">
+          Sign in to view your notifications.
+        </p>
+      )}
+
+      {feed.status === 'loading' ? (
         <ul className="flex flex-col gap-3" aria-hidden="true">
           {[0, 1, 2, 3].map((i) => (
             <li key={i}>
@@ -144,7 +122,7 @@ export function NotificationsPanel() {
             </li>
           ))}
         </ul>
-      ) : notifications.length === 0 ? (
+      ) : !feed.snapshot ? null : notifications.length === 0 ? (
         <Card className="items-center bg-warm-cream px-6 py-14 text-center">
           <span
             className="flex size-14 items-center justify-center rounded-full bg-canvas-white text-gold-ink shadow-card-hover"
