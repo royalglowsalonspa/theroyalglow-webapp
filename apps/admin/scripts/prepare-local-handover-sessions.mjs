@@ -46,6 +46,7 @@ const { test } = await auth.$context
 const fixtures = [
   { role: 'owner', userId: 'rehearsal_mb_owner_ab', email: 'owner_ab@example.invalid' },
   { role: 'manager', userId: 'rehearsal_mb_a_manager', email: 'a.manager@example.invalid' },
+  { role: 'staff', userId: 'rehearsal_mb_a_stylist', email: 'a.stylist@example.invalid' },
 ]
 
 for (const { role, userId, email } of fixtures) {
