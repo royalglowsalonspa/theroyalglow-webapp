@@ -50,6 +50,12 @@ JS
   *) echo 'Backup purpose must be weekly or release.' >&2; exit 2 ;;
 esac
 
+capture_assets=${BACKUP_CAPTURE_ASSETS:-false}
+if [[ "$capture_assets" != false && ( "$capture_assets" != true || "$key_prefix" != release ) ]]; then
+  echo 'Asset capture requires a release backup.' >&2
+  exit 2
+fi
+
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 timestamp=$(date -u +%Y%m%dT%H%M%SZ)
 stem="rgss_full_${timestamp}_${BACKUP_RUN_ID:-local}"
@@ -81,12 +87,18 @@ pg_dump "$BACKUP_DATABASE_URL" --snapshot="$snapshot" --format=custom \
   --no-owner --no-acl --file="$backup"
 pg_dump "$BACKUP_DATABASE_URL" --snapshot="$snapshot" --schema-only \
   --no-owner --no-acl | bash "$script_dir/normalize-schema.sh" > "$schema"
-{
-  printf "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;\nSET TRANSACTION SNAPSHOT '%s';\n" "$snapshot"
-  printf "SET LOCAL search_path = pg_catalog;\nSET LOCAL TIME ZONE 'UTC';\n"
-  cat "$script_dir/database-facts.sql"
-  printf '\nCOMMIT;\n'
-} | psql -X -qAt -v ON_ERROR_STOP=1 "$BACKUP_DATABASE_URL" > "$facts"
+read_snapshot_facts() {
+  {
+    printf "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;\nSET TRANSACTION SNAPSHOT '%s';\n" "$snapshot"
+    printf "SET LOCAL search_path = pg_catalog;\nSET LOCAL TIME ZONE 'UTC';\n"
+    cat "$script_dir/database-facts.sql"
+    printf '\nCOMMIT;\n'
+  } | psql -X -qAt -v ON_ERROR_STOP=1 "$@" "$BACKUP_DATABASE_URL"
+}
+read_snapshot_facts > "$facts"
+if [[ "$capture_assets" == true ]]; then
+  read_snapshot_facts -v rgss_backup_reference_export=true > "$BACKUP_OUTPUT_DIR/$stem.references.json"
+fi
 
 printf '%s\n' 'ROLLBACK;' '\q' >&"$snapshot_input"
 wait "$snapshot_pid"

@@ -1,6 +1,6 @@
 -- Run after SET TRANSACTION SNAPSHOT, with search_path set to pg_catalog.
 -- Build one read-only query for tables that exist at the captured schema version.
--- The optional export emits private reference rows for the restored copy only.
+-- The optional export emits private reference rows into a restricted local file.
 \if :{?rgss_backup_reference_export}
 \else
 \set rgss_backup_reference_export false

@@ -13,7 +13,7 @@ function hasText(value) {
   return typeof value === 'string' && value.trim().length > 0
 }
 
-async function hashFile(path) {
+export async function hashFile(path) {
   const hash = createHash('sha256')
   let size = 0
   for await (const chunk of createReadStream(path)) {
@@ -23,7 +23,7 @@ async function hashFile(path) {
   return { size, sha256: hash.digest('hex') }
 }
 
-function verifyReferenceExport(referenceFacts, exportedRows) {
+export function verifyReferenceExport(referenceFacts, exportedRows) {
   if (
     !referenceFacts ||
     typeof referenceFacts !== 'object' ||

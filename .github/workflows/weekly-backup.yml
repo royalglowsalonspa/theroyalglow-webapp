@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       backup_purpose:
-        description: 'Use release for the pre-cutover backup retained outside weekly rotation'
+        description: 'Use release for a pre-cutover database and media backup retained outside weekly rotation'
         type: choice
         options: [weekly, release]
         default: weekly
@@ -31,19 +31,24 @@ jobs:
   backup:
     runs-on: ubuntu-26.04
     timeout-minutes: 30
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_WRITE_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_WRITE_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: auto
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v6
+        if: inputs.backup_purpose == 'release'
+        with:
+          node-version-file: .node-version
 
       - name: Verify private R2 backup storage access
         shell: bash
         env:
           R2_BACKUP_ACCOUNT_ID: ${{ vars.R2_BACKUP_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_WRITE_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_WRITE_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
         run: bash scripts/backup/verify-r2-backup-access.sh
 
       - name: Select preinstalled PostgreSQL 18 tools
@@ -78,6 +83,7 @@ jobs:
             [[ "$BACKUP_SOURCE_DEPLOYED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
             git merge-base --is-ancestor "$BACKUP_RELEASE_CANDIDATE_COMMIT" refs/remotes/origin/dev
             git merge-base --is-ancestor "$BACKUP_SOURCE_DEPLOYED_COMMIT" "$BACKUP_SOURCE_COMMIT"
+            export BACKUP_CAPTURE_ASSETS=true
           fi
           stem=$(bash scripts/backup/capture-full.sh)
           {
@@ -85,8 +91,21 @@ jobs:
             echo "BACKUP_KEY_PREFIX=$BACKUP_KEY_PREFIX"
           } >> "$GITHUB_ENV"
 
-      - name: Upload and verify the dump before publishing the manifest
+      - name: Capture referenced CMS media for the release
+        if: env.BACKUP_KEY_PREFIX == 'release'
         shell: bash
+        run: |
+          node scripts/backup/release-backup-assets.mjs capture \
+            "$BACKUP_OUTPUT_DIR/$BACKUP_STEM.manifest.json" \
+            "$BACKUP_OUTPUT_DIR/$BACKUP_STEM.references.json" \
+            "$BACKUP_OUTPUT_DIR/assets"
+
+      - name: Upload and verify recovery bytes before publishing the manifest
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_WRITE_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_WRITE_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
         run: |
           set -euo pipefail
           umask 077
@@ -96,6 +115,11 @@ jobs:
           aws s3 cp "$dump" "$dest.dump" --endpoint-url "$R2_BACKUP_ENDPOINT"
           aws s3 cp "$dest.dump" "$BACKUP_OUTPUT_DIR/uploaded.dump" --endpoint-url "$R2_BACKUP_ENDPOINT"
           cmp -s "$dump" "$BACKUP_OUTPUT_DIR/uploaded.dump"
+          if [[ "$BACKUP_KEY_PREFIX" == release ]]; then
+            node scripts/backup/release-backup-assets.mjs publish "$manifest" \
+              "$BACKUP_OUTPUT_DIR/$BACKUP_STEM.references.json" "$BACKUP_OUTPUT_DIR/assets" \
+              >> "$GITHUB_STEP_SUMMARY"
+          fi
           aws s3 cp "$manifest" "$dest.manifest.json" --endpoint-url "$R2_BACKUP_ENDPOINT"
           aws s3 cp "$dest.manifest.json" "$BACKUP_OUTPUT_DIR/uploaded.manifest.json" --endpoint-url "$R2_BACKUP_ENDPOINT"
           cmp -s "$manifest" "$BACKUP_OUTPUT_DIR/uploaded.manifest.json"
@@ -107,6 +131,10 @@ jobs:
       - name: Keep the newest eight complete pairs
         if: env.BACKUP_KEY_PREFIX == 'weekly'
         shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_WRITE_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_WRITE_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
         run: |
           set -euo pipefail
           old_keys=$(aws s3api list-objects-v2 --bucket "$R2_BACKUP_BUCKET" --prefix weekly/rgss_full_ \
@@ -124,7 +152,14 @@ jobs:
         shell: bash
         run: |
           if [[ -n "${BACKUP_OUTPUT_DIR:-}" ]]; then
-            rm -f -- "$BACKUP_OUTPUT_DIR"/*.{dump,json,schema}
+            rm -f -- "$BACKUP_OUTPUT_DIR"/*.{dump,json,schema} \
+              "$BACKUP_OUTPUT_DIR/assets/inventory.json" "$BACKUP_OUTPUT_DIR/assets/objects"/*.object
+            if [[ -d "$BACKUP_OUTPUT_DIR/assets/objects" ]]; then
+              rmdir -- "$BACKUP_OUTPUT_DIR/assets/objects"
+            fi
+            if [[ -d "$BACKUP_OUTPUT_DIR/assets" ]]; then
+              rmdir -- "$BACKUP_OUTPUT_DIR/assets"
+            fi
             rmdir -- "$BACKUP_OUTPUT_DIR"
           fi
 

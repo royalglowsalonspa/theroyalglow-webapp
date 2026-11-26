@@ -1,4 +1,5 @@
 name: Register QStash Schedules
+run-name: Register production QStash schedules (${{ inputs.dry_run && 'dry run' || 'apply' }})
 
 # ---------------------------------------------------------------------------
 # MANUAL registrar for the QStash scheduled background jobs.
@@ -13,17 +14,18 @@ name: Register QStash Schedules
 # test apps/web/src/__tests__/admin-web-separation.invariants.test.ts asserts
 # this workflow — and not any customer-side workflow — owns the registration.
 #
-# A dry run is the default. Scoped runs only add missing selected jobs and
-# leave matching schedules in place. Resolve paused or duplicate jobs explicitly.
+# A dry run is the default and can show every job. Apply requires explicit
+# job keys. It adds missing selected jobs and leaves matching schedules in
+# place. Resolve paused, duplicate, or mismatched schedules explicitly.
 #
 # Run it after any change to the job schedule definitions, and once after the
 # first successful AWS admin deployment.
 #
-# Required GitHub secrets/vars. GitHub runners do not inherit SST runtime
-# secrets or application environment variables:
-#   secret QSTASH_TOKEN            — Upstash QStash token
+# Dispatch from prod. GitHub runners do not inherit SST runtime secrets.
+# Configure these under GitHub Actions settings:
+#   production-aws environment secret QSTASH_TOKEN — production Upstash token
 #   var    NEXT_PUBLIC_ADMIN_URL   — e.g. https://admin.theroyalglow.in
-#   var    QSTASH_URL              — optional QStash endpoint (defaults to EU)
+#   var    QSTASH_URL              — optional, defaults to https://qstash.upstash.io
 # ---------------------------------------------------------------------------
 
 on:
@@ -34,39 +36,45 @@ on:
         type: boolean
         default: true
       jobs:
-        description: 'Optional comma-separated canonical job keys. Leave blank for all jobs.'
+        description: 'Comma-separated canonical job keys. Required to apply. Leave blank to preview all.'
         type: string
 
 concurrency:
   group: register-qstash-schedules
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
+  validate:
+    name: Validate production ref
+    runs-on: ubuntu-latest
+    permissions: {}
+    timeout-minutes: 2
+    steps:
+      - name: Require the production ref
+        shell: bash
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/prod" ]; then
+            echo '::error title=Unexpected ref::Dispatch schedule registration from the prod branch.'
+            exit 1
+          fi
+
   register:
+    needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment:
+      name: production-aws
+      deployment: false
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
-
-      - name: Check required configuration
-        env:
-          QSTASH_TOKEN: ${{ secrets.QSTASH_TOKEN }}
-          ADMIN_URL: ${{ vars.NEXT_PUBLIC_ADMIN_URL }}
-        run: |
-          missing=""
-          [ -z "$QSTASH_TOKEN" ] && missing="$missing QSTASH_TOKEN(secret)"
-          [ -z "$ADMIN_URL" ] && missing="$missing NEXT_PUBLIC_ADMIN_URL(variable)"
-          if [ -n "$missing" ]; then
-            echo "::error title=Missing configuration::Cannot register schedules without:$missing"
-            exit 1
-          fi
-          if [ "${ADMIN_URL%/}" != "https://admin.theroyalglow.in" ]; then
-            echo '::error title=Unexpected target::This workflow requires the production admin origin.'
-            exit 1
-          fi
-          echo "Registering schedules against $ADMIN_URL"
 
       # Registration targets the ADMIN origin. Workflow inputs become arguments.
       - name: Register QStash schedules (idempotent)
@@ -79,7 +87,24 @@ jobs:
           QSTASH_JOB_KEYS: ${{ inputs.jobs }}
         shell: bash
         run: |
+          if [ -z "$QSTASH_TOKEN" ]; then
+            echo '::error title=Missing QStash credential::Set QSTASH_TOKEN in the production-aws GitHub environment.'
+            exit 1
+          fi
+          if [ "${NEXT_PUBLIC_APP_URL%/}" != "https://admin.theroyalglow.in" ]; then
+            echo '::error title=Unexpected target::This workflow requires the production admin origin.'
+            exit 1
+          fi
           args=()
-          if [ "$DRY_RUN" != "false" ]; then args+=(--dry); fi
+          case "$DRY_RUN" in
+            true) args+=(--dry) ;;
+            false)
+              if [ -z "${QSTASH_JOB_KEYS//[[:space:]]/}" ]; then
+                echo '::error title=Missing job selection::Specify the canonical job keys to apply.'
+                exit 1
+              fi
+              ;;
+            *) echo '::error title=Invalid mode::Select dry run or explicitly turn it off to apply.'; exit 1 ;;
+          esac
           if [ -n "$QSTASH_JOB_KEYS" ]; then args+=(--jobs "$QSTASH_JOB_KEYS"); fi
           bun run register-schedules "${args[@]}"

@@ -146,7 +146,9 @@ Application deployment and schedule registration are separate concerns. QStash s
 .github/workflows/register-schedules.yml
 ```
 
-The workflow uses the canonical schedule definitions in `apps/admin/src/lib/jobs/schedules.ts`. After job route or schedule changes, run the registration workflow and confirm the resulting QStash schedules and BetterStack heartbeats.
+The workflow uses the canonical schedule definitions in `apps/admin/src/lib/jobs/schedules.ts`. A repository administrator should open **Settings → Environments → production-aws**, restrict deployment branches to `prod`, and add the production Upstash QStash token as the environment secret `QSTASH_TOKEN`. SST manages the deployed runtime credential separately. Keep `NEXT_PUBLIC_ADMIN_URL` set to `https://admin.theroyalglow.in`. Set `QSTASH_URL` to the production QStash origin when the account uses a regional endpoint. Leaving the variable unset uses `https://qstash.upstash.io`.
+
+After job route or schedule changes, dispatch from `prod` with dry run enabled. Leave `jobs` blank to inventory every schedule. Before applying, dry-run the exact canonical keys in `jobs` so the preview uses the same scope as the write. Keep that selection and turn dry run off to apply. Confirm the resulting QStash schedules and BetterStack heartbeats separately from the AWS deployment.
 
 ## CMS Deployment
 
