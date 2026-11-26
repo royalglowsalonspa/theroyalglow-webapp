@@ -327,12 +327,22 @@ pass.
   The script mints one subscribe-only token and targets that generated client ID.
   For application evidence,
   use signed sessions and a separately approved test-only Owner/Manager assignment
-  with no business bookings. Attach the Manager's existing branch subscription,
-  remove only the test assignment through the Owner API, and verify the old
-  connection reports `40141`, the old session cannot obtain another token, and
-  branch pages/read/write calls are denied. Restore the approved fixture assignment,
-  verify old sessions remain invalid, then clear fixture sessions and preserve the
-  audit. Do not experiment with an operational Manager's branch assignment.
+  with no business bookings. The Playwright `realtime-handover.spec.ts` test
+  has an explicit `ADMIN_E2E_REALTIME_HANDOVER=production-fixture` mode for
+  `PLAYWRIGHT_ADMIN_BASE_URL=https://admin.theroyalglow.in`. Prepare an approved
+  non-primary `RGSS Launch Verification` branch in `temporarily_closed` status,
+  an unused synthetic lead in `new` status at that branch, and signed Owner
+  and Manager storage states kept outside Git. Set `PRODUCTION_ABLY_APP_ID`,
+  `ADMIN_E2E_REVOCATION_BRANCH_ID`, `ADMIN_E2E_REVOCATION_OWNER_ID`,
+  `ADMIN_E2E_REVOCATION_MANAGER_ID`, `ADMIN_E2E_REVOCATION_MANAGER_EMAIL`, and
+  `ADMIN_E2E_REVOCATION_LEAD_ID` to match the approved fixtures. Run only
+  `bun run --filter @rgss/admin test:e2e realtime-handover.spec.ts`.
+  The test attaches the Manager's existing subscription, removes the fixture
+  assignment through the Owner API and verifies `40141`, denied token and
+  page requests, and denied reads and writes on the fixture lead. It restores
+  the assignment with an expected-holder check and verifies the original
+  session remains invalid. Clear only the fixture sessions and preserve the
+  audit. The live run requires the approved fixture records and signed sessions.
   [Ably token revocation](https://ably.com/docs/auth/revocation)
 - **Heartbeat and release health.** Compare the approved schedule list with the
   provider, then verify heartbeats from permitted quiet runs. Confirm scheduled jobs
@@ -436,8 +446,9 @@ its manifest and a PNG fixture. An empty native PostgreSQL target matched the
 schema, facts, 43 Drizzle migrations and seven Payload migrations. The
 recovered asset verifier matched both CMS references to the 68-byte object.
 The temporary local cluster was removed, and the remote rehearsal prefix was
-verified empty. The live scheduled S3 capture and recovery of the selected
-release backup still require their scoped workflow credentials.
+verified empty. On 26 November, the scoped S3 capture and restore workflows
+verified the selected production database backup. Recovery of the referenced
+R2 object bytes remains open. See [the recovery record](#launch-and-recovery-record).
 
 ## Cleanup preparation and execution
 
@@ -490,9 +501,13 @@ not execute cleanup or establish that a record is a test record.
    `backup_purpose=release`, `release_candidate_sha`, `source_deployed_sha`,
    `source_neon_host` and `source_neon_branch_id`. Use the published exact
    `release/...manifest.json` value as `manifest_key` in **Monthly Backup
-   Restore Test** and supply the same `release_candidate_sha`. The restore
-   workflow removes its container at the end. Use the identical verified pair
-   for the quarantined asset and cleanup checks in Gate 2.
+   Restore Test** and supply the same `release_candidate_sha`. For a capture
+   with the release asset inventory, set `require_assets=true` and
+   `replay_candidate=true`. The workflow restores the dump in an isolated
+   container, verifies the referenced bytes from private R2, exercises both
+   migration ledgers and removes the container. Keep the identical manifest
+   for the private exact-ID cleanup preview in Gate 2. Older manifests can
+   still be verified as database-only backups.
    Take the separate catalogue snapshot before Payload DDL. Stop on a missing
    artifact, invalid backup, changed candidate, unexplained data, or required
    R2 object that cannot be recovered.
@@ -570,24 +585,24 @@ On 23 November 2026, Neon reported `dev`, `test` and `pprd` archived. AWS
 reported no separate hosted browser stage. The approved production-window
 checks use the existing production services.
 
-The latest recorded production
+An earlier production
 [weekly backup run](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/45006730820)
-failed at PostgreSQL client installation. The recorded
+failed at PostgreSQL client installation. An earlier
 [monthly restore run](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/41296793499)
-failed with an invalid R2 endpoint. The Cloudflare account now has three
-purpose-specific buckets. Use `rgss-uploads` for website and CMS media,
-`rgss-invoices` for private invoice PDFs, and `rgss-backups` for private
-database backup and recovery artifacts. The legacy media bucket continues to
-serve existing absolute URLs during the cutover.
+failed with an invalid R2 endpoint. The exact production release capture and
+isolated database restore succeeded on 26 November. Use `rgss-uploads` for
+website and CMS media, `rgss-invoices` for private invoice PDFs, and
+`rgss-backups` for private database backup and recovery artifacts. The legacy
+media bucket continues to serve existing absolute URLs during the cutover.
 
 The approved media hostname is `https://media.theroyalglow.in`. The new
 bucket contains the website media copied from `theroyalglow-uploads` and the
 `.health` object used by the web app. The updated AWS workflow prefers the
 `R2_UPLOAD_BUCKET_NAME` and `R2_UPLOAD_PUBLIC_URL` repository variables when
-both are set. Deploy that workflow with the web configuration that allows
-the new hostname. Set Render CMS to use `rgss-uploads` with a scoped key and
-the media public URL. Set the invoicing service to use `rgss-invoices` with
-private PDF access and a key scoped to that bucket.
+both are set. Confirm Render CMS uses `rgss-uploads` with a scoped key and
+the media public URL as part of CMS cutover verification. When standalone
+invoicing is in scope, configure `rgss-invoices` with private PDF access and
+a scoped key.
 
 The backup workflows use the GitHub repository variable
 `R2_BACKUP_ACCOUNT_ID` for the S3 endpoint and credentials scoped to
@@ -595,6 +610,67 @@ The backup workflows use the GitHub repository variable
 `R2_BACKUP_WRITE_SECRET_ACCESS_KEY`. Store the read-only restore pair in
 `R2_BACKUP_READ_ACCESS_KEY_ID` and `R2_BACKUP_READ_SECRET_ACCESS_KEY`. Verify the
 exact dump and assets together for this gate.
+
+#### 26 November 2026 production rollout evidence
+
+- The candidate `26362337fa1b6af667d2479d1bfe14a9c7299c26` reached
+  `dev`, `test`, `pprd` and `prod`. The production promotion passed CI,
+  PostgreSQL integration, Chromium, load and passive security checks. The
+  production migration applied and the new booking replay table, Web Push
+  index and binding trigger were verified. [Promotion](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/45716103366) · [Production migration](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/45718156439)
+- The production backup used source revision `415b799` and was bound to the
+  reviewed candidate. The exact dump and manifest passed the scoped S3
+  download and isolated database restore with teardown. Recovery of R2
+  object bytes and candidate rehearsal on that restored copy remain open.
+  [Capture](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/45711879948) · [Exact database restore](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/45712388253)
+- Web and admin deployed on AWS and CMS deployed on Render at the exact
+  candidate. Repeat web, admin and CMS HTTP smoke checks passed. The public
+  media health object and three sampled media objects each returned HTTP
+  200 to HEAD requests. Those responses verify live reachability. The
+  backup asset recovery uses the selected database manifest and its reviewed
+  object inventory. Sentry showed zero unresolved issues in its 90-day view
+  after deployment. [AWS deployment](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/45718483848) · [Render deployment](https://dashboard.render.com/web/srv-d9mgqpjm8hqs73caq540/deploys/dep-dc3mhgutlv9c73f6ssp0) · [Sentry](https://theroyalglow-sentry.sentry.io/issues/?query=is%3Aunresolved)
+- The read-only database preview found zero missing references across the
+  four branch ownership fields. Both non-shutdown branches have settings
+  and one is operational. The Owner approved the website branch hours and
+  synthetic staffing, waived the maintenance window and write and CMS
+  auto-deploy pauses for this rollout, and deferred standalone invoicing.
+- The catalogue parity queries found matching fields and timestamps across
+  10 categories and 57 services, with no CMS checkout offers or mirrors.
+  The daily QStash catalogue parity schedule was registered and its exact
+  destination, method and cron were verified. A signed one-off run was
+  delivered and the deployed job reported catalogue parity in CloudWatch.
+  The first scheduled execution and its monitoring heartbeat still need
+  observation.
+- The production QStash canary rejected the unsigned request and delivered
+  the signed synthetic request with no invoice ID. The schedule audit found
+  all 21 expected schedules absent before the parity monitor was registered.
+  The other 20 remain unregistered. The GitHub schedule dry run lacks its
+  repository `QSTASH_TOKEN` secret. The audit and scoped registration used
+  the existing production runtime configuration. [GitHub dry run](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/45740713239)
+- The production Ably canary established a synthetic subscription. The
+  revocation request returned `40164` because revocable tokens are disabled
+  on the deployed key. The repository build variable previously held a separate
+  full key from the same Ably app and now contains the literal `enabled`.
+  Review and retire the legacy key in Ably once its consumers are verified.
+  Enable revocable tokens on the deployed key and repeat the canary on a newly
+  issued token before the signed role handover.
+  [Ably error codes](https://ably.com/docs/platform/errors/codes)
+- The production inventory has nine bookings, six invoices and one lead to
+  classify before constructing a manifest-bound cleanup allowlist. There are
+  no stored invoice PDFs, and live invoicing is off. The database contained no
+  dedicated closed handover branch. The exact cleanup preview, deployed signed
+  role handover and approval to begin real business activity remain open.
+
+The release capture reads the media references in the same database snapshot
+as the dump, then retrieves the approved public CMS media bytes. Preserve those
+objects while collecting the release snapshot so an in-place media replacement
+cannot make the captured bytes older or newer than the reviewed reference.
+Capture checksums, sizes and media types in the inventory and publishes the
+manifest after verifying the private upload. Automatic capture stops if a
+private invoice PDF reference is present. The reviewed manual asset verifier
+can handle private invoice bytes when invoicing and its recovery access are in
+scope. Keep the cleanup allowlist and preview report in a restricted store.
 
 The 1 January 2027 date remains conditional; no fixed effort estimate or automatic waiver follows from this plan.
 Sequence work through the three gates, preserve recovery/testing time and defer optional scope or the launch date when required evidence is missing.

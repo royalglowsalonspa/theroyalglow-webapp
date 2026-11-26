@@ -757,7 +757,8 @@ go/no-go.
   second local cluster verified schema, manifest, amounts, object-reference
   digests and teardown. It rejected changed counts and a corrupt dump.
   The Linux PR check also passed the round trip in a network-isolated container.
-  Gate 2 still requires restore of the named backup and recovery of its R2 assets.*
+  The 26/11 restore later verified the named production database backup.
+  Recovery of its R2 assets remains part of Gate 2.*
 - [ ] Restore the selected production backup and its referenced assets in
   quarantine. Recheck migration, CMS cutover, forward repair and exact cleanup
   against the restored copy, verify teardown and close Gate 2.
@@ -767,8 +768,7 @@ go/no-go.
   Browser and settlement fixtures were removed from Neon, and the local CMS
   test database was removed. On 22/11 Neon still reported the two staging
   branches archived, and the latest production backup and restore workflows
-  had failed. The exact release backup, R2 recovery and deployed environment
-  evidence remain open. A second disposable clone passed the exact-ID preview
+  had failed. A second disposable clone passed the exact-ID preview
   and cleanup of a synthetic CMS offer, its version and public mirror. It
   refused an unreviewed dependency and preserved an unrelated offer. 23/11:
   the offline asset verifier binds the reviewed inventory to the selected
@@ -781,7 +781,6 @@ go/no-go.
   the lead, then the committed trial at the restored target removed that
   lead while retaining two leads, three branches and four invoices. The
   local database cluster, browser session and scratch backups were removed.
-  The approved release backup, its R2 assets and deployed evidence remain open.
   The private `rgss-backups` bucket now exists and GitHub has the account ID.
   The workflows preflight S3 access with separate capture and restore keys.
   The later native round trip included a rendered private invoice. The restored
@@ -795,10 +794,13 @@ go/no-go.
   image. The recovered archive passed the empty PostgreSQL 18.6 restore with
   43 Drizzle and seven Payload migrations, matching schema and facts. The
   media checksum and its two database references passed. All nine objects
-  under that rehearsal prefix and the local cluster were removed. The
-  scheduled S3 workflows and named release backup still await the scoped
-  keys and the approved capture. The live bucket had no weekly manifests or
-  pre-migration objects. See
+  under that rehearsal prefix and the local cluster were removed. At that point
+  the live bucket had no weekly manifests or pre-migration objects. On 26/11, the
+  scoped S3 capture and restore credentials worked for the exact
+  candidate-bound production database backup. The isolated restore matched its
+  manifest and removed the temporary target. The verified database restore
+  leaves R2 byte recovery and the candidate migration, CMS cutover, forward
+  repair, and cleanup preview on the selected restore open. See
   [the recovery record](rollout.md#launch-and-recovery-record).*
 - [ ] Prepare reviewed launch tax/SAC/GSTIN values, genuine operational data,
   deployment evidence, cleanup preview and production recovery runbook.
@@ -817,12 +819,27 @@ go/no-go.
   `rgss-uploads`. The AWS workflow variables are set. A synthetic signed job
   exercised the built admin and PDF services together. The authorized branch
   received exactly the stored PDF while another branch received 404 and an
-  anonymous request was refused. The application changes
-  for the media cutover and private invoices await deployment. Reviewed
-  production values, deployed evidence and the real release cleanup preview
-  remain open.*
+  anonymous request was refused. On 26/11, production deployment evidence
+  covers web, admin and CMS. The current database had zero missing branch
+  references across the four launch fields. Both non-shutdown branches have
+  settings and one is operational. The Owner approved the website branch
+  hours and synthetic staffing for this rollout, and deferred standalone
+  invoicing. Reviewed genuine operating data, invoicing tax approval and the
+  manifest-bound cleanup preview remain open. See
+  [the recovery record](rollout.md#launch-and-recovery-record).*
 - [ ] Run the separately authorized production operations with current evidence,
   preserve real records and close Gate 3 before accepting real business activity.
+  *On 26/11, the Owner waived the maintenance window and write and CMS auto-deploy
+  pauses for this rollout. The exact candidate passed promotion, database
+  migration and web, admin and CMS deployment checks. Read-only production
+  health, catalogue parity and public media checks passed. Sentry returned
+  zero unresolved issues in the past 90 days. The signed QStash canary passed
+  without issuing an invoice or sending mail. The daily catalogue parity
+  schedule is registered. The other 20 schedules, Ably token revocation,
+  deployed signed-session handover, exact cleanup preview and go decision
+  for real business activity remain open. No application write checks or
+  cleanup ran. See
+  [the recovery record](rollout.md#launch-and-recovery-record).*
 
 ## Launch scope candidates to defer (for phase planning)
 

@@ -63,6 +63,12 @@ jobs:
       name: production-aws
       url: https://theroyalglow.in
     steps:
+      - name: Require a non-secret Ably browser flag
+        if: vars.NEXT_PUBLIC_ABLY_KEY != '' && vars.NEXT_PUBLIC_ABLY_KEY != 'enabled'
+        run: |
+          echo '::error::NEXT_PUBLIC_ABLY_KEY must be empty or the literal enabled. Store the server key only in SST secrets.'
+          exit 1
+
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.git_ref || github.ref }}
@@ -99,7 +105,7 @@ jobs:
           CLOUDFLARE_DEFAULT_ACCOUNT_ID: ${{ vars.CLOUDFLARE_DEFAULT_ACCOUNT_ID }}
           NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
           # The browser uses this as a feature flag and authenticates through /api/ably/token.
-          NEXT_PUBLIC_ABLY_KEY: ${{ vars.NEXT_PUBLIC_ABLY_KEY != '' && 'enabled' || '' }}
+          NEXT_PUBLIC_ABLY_KEY: ${{ vars.NEXT_PUBLIC_ABLY_KEY == 'enabled' && 'enabled' || '' }}
           NEXT_PUBLIC_POSTHOG_KEY: ${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}
           NEXT_PUBLIC_POSTHOG_HOST: ${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}
           NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ vars.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}

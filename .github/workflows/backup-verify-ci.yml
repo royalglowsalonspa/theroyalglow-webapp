@@ -15,7 +15,7 @@ permissions:
 jobs:
   backup-round-trip:
     runs-on: ubuntu-26.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:18-bookworm
@@ -33,11 +33,19 @@ jobs:
       BACKUP_SOURCE_COMMIT: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
       - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
       - name: Test R2 storage preflight with fixture credentials
         run: bash scripts/backup/verify-r2-backup-access.test.sh
       - name: Test cleanup and recovered asset verification
-        run: bun test scripts/backup/preview-cleanup.test.mjs scripts/backup/verify-recovered-assets.test.mjs
+        run: >-
+          bun test scripts/backup/preview-cleanup.test.mjs scripts/backup/verify-recovered-assets.test.mjs
+          scripts/backup/release-backup-assets.test.mjs
       - name: Select preinstalled PostgreSQL 18 tools
         run: |
           test -x /usr/lib/postgresql/18/bin/pg_dump
@@ -89,7 +97,7 @@ jobs:
           printf '127.0.0.1 %s\n' "$BACKUP_SOURCE_NEON_HOST" | sudo tee -a /etc/hosts >/dev/null
           export BACKUP_DATABASE_URL="${BACKUP_DATABASE_URL/127.0.0.1/$BACKUP_SOURCE_NEON_HOST}"
           export BACKUP_RUN_ID="$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-          release_stem=$(bash scripts/backup/capture-full.sh)
+          release_stem=$(BACKUP_CAPTURE_ASSETS=true bash scripts/backup/capture-full.sh)
           release_manifest="$BACKUP_OUTPUT_DIR/$release_stem.manifest.json"
           release_dump="$BACKUP_OUTPUT_DIR/$release_stem.dump"
           release_key="release/$release_stem.dump"
@@ -97,6 +105,8 @@ jobs:
             --arg source "$BACKUP_SOURCE_COMMIT" --arg deployed "$BACKUP_SOURCE_DEPLOYED_COMMIT" \
             '.sourceCommit == $source and .sourceDeployedCommit == $deployed and
               .sourceNeonHost == $host and .sourceNeonBranchId == $branch' "$release_manifest"
+          jq -e 'any(.[]; .kind == "cms.media.filename" and
+            (.pair | fromjson) == [1, "example.jpg"])' "$BACKUP_OUTPUT_DIR/$release_stem.references.json"
           if bash scripts/backup/verify-isolated-restore.sh "$release_manifest" "$release_dump" \
             "$release_key" "$BACKUP_SOURCE_DEPLOYED_COMMIT"; then
             echo 'The restore accepted a release backup for a different candidate.' >&2
@@ -104,3 +114,29 @@ jobs:
           fi
           bash scripts/backup/verify-isolated-restore.sh "$release_manifest" "$release_dump" \
             "$release_key" "$BACKUP_RELEASE_CANDIDATE_COMMIT"
+          if BACKUP_REQUIRE_ASSETS=true bash scripts/backup/verify-isolated-restore.sh \
+            "$release_manifest" "$release_dump" "$release_key" "$BACKUP_RELEASE_CANDIDATE_COMMIT"; then
+            echo 'Strict verification accepted a legacy backup with no asset inventory.' >&2
+            exit 1
+          fi
+
+          # Capture requires a Drizzle ledger. Start with the real empty table
+          # and no Payload ledger so only the restored copy runs the migrations.
+          psql -X -v ON_ERROR_STOP=1 "$BACKUP_DATABASE_URL" -c 'CREATE DATABASE backup_replay_fixture'
+          export BACKUP_DATABASE_URL="${BACKUP_DATABASE_URL%/postgres}/backup_replay_fixture"
+          psql -X -v ON_ERROR_STOP=1 "$BACKUP_DATABASE_URL" <<'SQL'
+          CREATE SCHEMA drizzle;
+          CREATE TABLE drizzle.__drizzle_migrations (id serial PRIMARY KEY, hash text NOT NULL, created_at bigint);
+          CREATE TABLE public.replay_fixture (id text PRIMARY KEY);
+          INSERT INTO public.replay_fixture VALUES ('local-fixture');
+          SQL
+          export BACKUP_RUN_ID="$GITHUB_RUN_ID-$((GITHUB_RUN_ATTEMPT + 1000))"
+          replay_stem=$(bash scripts/backup/capture-full.sh)
+          replay_manifest="$BACKUP_OUTPUT_DIR/$replay_stem.manifest.json"
+          replay_dump="$BACKUP_OUTPUT_DIR/$replay_stem.dump"
+          BACKUP_CANDIDATE_CHECKOUT="$GITHUB_WORKSPACE" bash scripts/backup/verify-isolated-restore.sh \
+            "$replay_manifest" "$replay_dump" "release/$replay_stem.dump" "$BACKUP_RELEASE_CANDIDATE_COMMIT"
+          test "$(psql -X -v ON_ERROR_STOP=1 "$BACKUP_DATABASE_URL" -tAc \
+            "SELECT NOT EXISTS (SELECT 1 FROM drizzle.__drizzle_migrations)
+              AND to_regclass('cms.payload_migrations') IS NULL
+              AND EXISTS (SELECT 1 FROM public.replay_fixture WHERE id = 'local-fixture')")" = t

@@ -1,5 +1,5 @@
 // biome-ignore-all lint/suspicious/noUndeclaredEnvVars: Standalone Playwright rehearsal.
-import { type APIRequestContext, expect, test } from '@playwright/test'
+import { type APIRequestContext, type APIResponse, expect, test } from '@playwright/test'
 import type { BranchRoleChangeInput } from '@rgss/types'
 import { type ConnectionStateChange, ErrorInfo, Realtime, Rest } from 'ably'
 import { z } from 'zod'
@@ -12,7 +12,12 @@ import { hasRoleState, IMPERSONATED_ROLE, roleStatePath } from './fixtures/auth'
 const TOKEN_REVOKED = 40141
 const REVOCATION_TIMEOUT_MS = 15_000
 const ADMIN_REQUEST = { maxRedirects: 0, timeout: 10_000 }
+const PRODUCTION_ADMIN = 'https://admin.theroyalglow.in'
+const PRODUCTION_WEB = 'https://theroyalglow.in'
+const PRODUCTION_FIXTURE_BRANCH = 'RGSS Launch Verification'
+const SESSION_URL = '/api/auth/get-session?disableCookieCache=true'
 const ablyAppId = z.string().regex(/^[A-Za-z0-9_-]+$/)
+const fixtureId = z.string().regex(/^[A-Za-z0-9_-]+$/)
 const signedTokenRequest = z.object({
   keyName: z.string().regex(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/),
   clientId: z.string().min(1),
@@ -24,15 +29,19 @@ const signedTokenRequest = z.object({
 })
 
 function readFixture() {
-  const domain = rehearsalDomain(process.env.REHEARSAL_DOMAIN ?? '')
-  const origin = `https://admin.${domain}`
+  const production = process.env.ADMIN_E2E_REALTIME_HANDOVER === 'production-fixture'
+  const domain = production ? null : rehearsalDomain(process.env.REHEARSAL_DOMAIN ?? '')
+  const origin = production ? PRODUCTION_ADMIN : `https://admin.${domain}`
+  const webOrigin = production ? PRODUCTION_WEB : `https://web.${domain}`
   if (process.env.PLAYWRIGHT_ADMIN_BASE_URL?.replace(/\/$/, '') !== origin) {
-    throw new Error('PLAYWRIGHT_ADMIN_BASE_URL must match the isolated rehearsal admin origin')
+    throw new Error('PLAYWRIGHT_ADMIN_BASE_URL must match the selected admin origin')
   }
-  const app = ablyAppId.safeParse(process.env.REHEARSAL_ABLY_APP_ID)
   const productionApp = ablyAppId.safeParse(process.env.PRODUCTION_ABLY_APP_ID)
-  if (!app.success || !productionApp.success || app.data === productionApp.data) {
-    throw new Error('Set distinct REHEARSAL_ABLY_APP_ID and PRODUCTION_ABLY_APP_ID values')
+  const app = production ? productionApp : ablyAppId.safeParse(process.env.REHEARSAL_ABLY_APP_ID)
+  if (!app.success || !productionApp.success || (!production && app.data === productionApp.data)) {
+    throw new Error(
+      'Set the expected Ably app ID and keep the isolated app distinct from production',
+    )
   }
   const branchId = process.env.ADMIN_E2E_REVOCATION_BRANCH_ID ?? ''
   const managerEmail = process.env.ADMIN_E2E_REVOCATION_MANAGER_EMAIL?.trim().toLowerCase() ?? ''
@@ -40,17 +49,38 @@ function readFixture() {
     throw new Error('Set the disposable branch ID and Manager email for the realtime rehearsal')
   }
   if (IMPERSONATED_ROLE || !hasRoleState('owner') || !hasRoleState('manager')) {
-    throw new Error(
-      'Use signed rehearsal Owner and Manager storage states for the realtime rehearsal',
-    )
+    throw new Error('Use signed Owner and Manager storage states for the handover check')
   }
-  return { origin, webOrigin: `https://web.${domain}`, appId: app.data, branchId, managerEmail }
+  const approved = production
+    ? z.object({ ownerId: fixtureId, managerId: fixtureId, leadId: fixtureId }).parse({
+        ownerId: process.env.ADMIN_E2E_REVOCATION_OWNER_ID,
+        managerId: process.env.ADMIN_E2E_REVOCATION_MANAGER_ID,
+        leadId: process.env.ADMIN_E2E_REVOCATION_LEAD_ID,
+      })
+    : null
+  return { origin, webOrigin, appId: app.data, branchId, managerEmail, approved }
 }
 
 async function roleChange(owner: APIRequestContext, input: BranchRoleChangeInput) {
   return data<{ changed: boolean; liveUpdates: string; reassignments: number }>(
     await owner.post('/api/users', { ...ADMIN_REQUEST, data: input }),
   )
+}
+
+function expectDenied(response: APIResponse, webOrigin: string, path: string) {
+  const status = response.status()
+  if (status === 307) {
+    expect(new URL(response.headers().location ?? '').origin).toBe(webOrigin)
+    return
+  }
+  expect([401, 403], `the old Manager session must be denied at ${path}`).toContain(status)
+}
+
+async function readFixtureLead(context: APIRequestContext, leadPath: string, branchId: string) {
+  const { lead } = await data<{ lead: { branchId: string; status: string } }>(
+    await context.get(leadPath, ADMIN_REQUEST),
+  )
+  expect(lead).toMatchObject({ branchId, status: 'new' })
 }
 
 async function connectManager(
@@ -69,7 +99,7 @@ async function connectManager(
   const signed = signedTokenRequest.safeParse(await data<unknown>(response))
   if (!signed.success) throw new Error('Admin did not issue a signed Ably TokenRequest')
   expect(signed.data.clientId === userId, 'the token must belong to the fixture Manager').toBe(true)
-  expect(signed.data.keyName.split('.')[0], 'the issuer must be the isolated provider').toBe(
+  expect(signed.data.keyName.split('.')[0], 'the issuer must match the selected Ably app').toBe(
     fixture.appId,
   )
   const capability = buildAdminAblyCapability([fixture.branchId])
@@ -113,7 +143,10 @@ test.use({ trace: 'off' })
 test.describe('Deployed realtime role handover', () => {
   // The write invalidates the stored Manager session even when the role is restored.
   test.describe.configure({ retries: 0, timeout: 80_000 })
-  test.skip(process.env.ADMIN_E2E_REALTIME_HANDOVER !== '1', 'requires isolated provider fixtures')
+  test.skip(
+    !['1', 'production-fixture'].includes(process.env.ADMIN_E2E_REALTIME_HANDOVER ?? ''),
+    'requires approved signed fixture sessions',
+  )
 
   test('removing a Manager revokes a connected subscriber and denies a fresh token', async ({
     playwright,
@@ -130,17 +163,33 @@ test.describe('Deployed realtime role handover', () => {
       expect(active).toMatchObject({ id: fixture.branchId, role: 'owner' })
       const readRoles = async () =>
         data<BranchRoles>(await owner.get('/api/users/branch-roles', ADMIN_REQUEST))
-      const { branch, manager: holder, can } = await readRoles()
+      const { branch, owner: branchOwner, manager: holder, can } = await readRoles()
       expect(branch.id).toBe(fixture.branchId)
       expect(can.setManager).toBe(true)
       if (!holder || holder.email.toLowerCase() !== fixture.managerEmail) {
         throw new Error('The active branch must be managed by the named disposable fixture account')
+      }
+      const approved = fixture.approved
+      const leadPath = approved ? `/api/leads/${approved.leadId}` : null
+      if (approved) {
+        expect(active).toMatchObject({ isPrimary: false })
+        expect(branch).toMatchObject({
+          name: PRODUCTION_FIXTURE_BRANCH,
+          status: 'temporarily_closed',
+        })
+        expect(branchOwner?.id === approved.ownerId).toBe(true)
+        expect(holder.id === approved.managerId).toBe(true)
       }
 
       manager = await playwright.request.newContext({
         baseURL: fixture.origin,
         storageState: roleStatePath('manager'),
       })
+      if (leadPath) {
+        await readFixtureLead(owner, leadPath, branch.id)
+        await readFixtureLead(manager, leadPath, branch.id)
+        expect((await manager.get('/leads', ADMIN_REQUEST)).status()).toBe(200)
+      }
       client = await connectManager(manager, fixture, holder.id)
       const channel = client.channels.get(adminBookingsChannel(branch.id))
       await channel.attach()
@@ -158,12 +207,28 @@ test.describe('Deployed realtime role handover', () => {
         })
         expect((await readRoles()).manager).toBeNull()
 
-        const denied = await manager.post('/api/ably/token', ADMIN_REQUEST)
-        if (denied.status() === 307) {
-          expect(new URL(denied.headers().location ?? '').origin).toBe(fixture.webOrigin)
-        } else {
-          expect([401, 403]).toContain(denied.status())
+        const checks = leadPath
+          ? ([
+              ['GET', '/leads', undefined],
+              ['GET', leadPath, undefined],
+              ['PATCH', leadPath, { branchId: branch.id, status: 'contacted' }],
+              ['POST', '/api/ably/token', undefined],
+            ] as const)
+          : ([['POST', '/api/ably/token', undefined]] as const)
+        for (const [method, path, body] of checks) {
+          // Use the original cookie each time, including after a denial clears it.
+          const stale = await playwright.request.newContext({
+            baseURL: fixture.origin,
+            storageState: roleStatePath('manager'),
+          })
+          try {
+            const response = await stale.fetch(path, { method, data: body, ...ADMIN_REQUEST })
+            expectDenied(response, fixture.webOrigin, path)
+          } finally {
+            await stale.dispose()
+          }
         }
+        if (leadPath) await readFixtureLead(owner, leadPath, branch.id)
       } finally {
         const { manager: current } = await readRoles()
         if (current === null) {
@@ -181,6 +246,9 @@ test.describe('Deployed realtime role handover', () => {
           )
         }
       }
+      const sessionAfter = await manager.get(SESSION_URL, ADMIN_REQUEST)
+      expect(sessionAfter.status()).toBe(200)
+      expect(await sessionAfter.json()).toBeNull()
     } catch (error) {
       if (error instanceof ErrorInfo) {
         throw new Error(`Ably rehearsal failed with provider code ${error.code}`)
