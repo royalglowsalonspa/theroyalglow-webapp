@@ -17,6 +17,22 @@ if [[ "$expected_key" != "weekly/$dump_name" && "$expected_key" != "release/$dum
   echo 'The expected backup key must match the named dump.' >&2
   exit 2
 fi
+require_assets=${BACKUP_REQUIRE_ASSETS:-false}
+retain_all_cleanup=${BACKUP_RETAIN_ALL_CLEANUP:-false}
+if [[ "$retain_all_cleanup" != true && "$retain_all_cleanup" != false ]]; then
+  echo 'BACKUP_RETAIN_ALL_CLEANUP must be true or false.' >&2
+  exit 2
+fi
+if [[ "$retain_all_cleanup" == true ]]; then
+  if [[ -n "${BACKUP_REVIEWED_CLEANUP_ALLOWLIST:-}${BACKUP_CLEANUP_PREVIEW_REPORT:-}" ]]; then
+    echo 'Choose either the retain-all decision or an exact cleanup allowlist preview.' >&2
+    exit 2
+  fi
+  if [[ "$expected_key" != release/* || "$require_assets" != true || -z "${BACKUP_CANDIDATE_CHECKOUT:-}" ]]; then
+    echo 'The retain-all decision requires a release backup, strict asset verification and candidate replay.' >&2
+    exit 2
+  fi
+fi
 if [[ "$expected_key" == release/* ]]; then
   if [[ ! "$candidate" =~ ^[0-9a-f]{40}$ ]]; then
     echo 'The full reviewed candidate SHA is required to verify a release backup.' >&2
@@ -38,7 +54,11 @@ jq -e --arg key "$expected_key" '
   (.facts.postgresMajor | type == "number") and (.facts.counts | length > 0)
 ' "$manifest" >/dev/null
 verify_assets=false
-require_assets=${BACKUP_REQUIRE_ASSETS:-false}
+if [[ -n "${BACKUP_REVIEWED_CLEANUP_ALLOWLIST:-}${BACKUP_CLEANUP_PREVIEW_REPORT:-}" &&
+      -z "${BACKUP_CANDIDATE_CHECKOUT:-}" ]]; then
+  echo 'Cleanup preview requires a candidate checkout for isolated replay.' >&2
+  exit 2
+fi
 if [[ "$require_assets" != true && "$require_assets" != false ]]; then
   echo 'BACKUP_REQUIRE_ASSETS must be true or false.' >&2
   exit 2
@@ -83,6 +103,9 @@ cleanup() {
   rmdir -- "$scratch" || result=1
   if [[ "$result" == 0 ]]; then
     echo "Isolated restore verified and removed in $((SECONDS - started)) seconds."
+    if [[ "$retain_all_cleanup" == true ]]; then
+      echo 'Cleanup disposition retain_all. Selected 0. Missing 0. Unreviewed dependencies 0.'
+    fi
   fi
   exit "$result"
 }

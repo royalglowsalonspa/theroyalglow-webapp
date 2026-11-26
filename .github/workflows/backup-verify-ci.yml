@@ -120,23 +120,80 @@ jobs:
             exit 1
           fi
 
-          # Capture requires a Drizzle ledger. Start with the real empty table
-          # and no Payload ledger so only the restored copy runs the migrations.
+          # Start from the first Drizzle schema with an exact test record and no
+          # Payload ledger. Replay the remaining migrations on the copy only.
           psql -X -v ON_ERROR_STOP=1 "$BACKUP_DATABASE_URL" -c 'CREATE DATABASE backup_replay_fixture'
           export BACKUP_DATABASE_URL="${BACKUP_DATABASE_URL%/postgres}/backup_replay_fixture"
-          psql -X -v ON_ERROR_STOP=1 "$BACKUP_DATABASE_URL" <<'SQL'
+          journal=packages/db/migrations/meta/_journal.json
+          first_tag=$(jq -er '.entries[0].tag' "$journal")
+          first_time=$(jq -er '.entries[0].when' "$journal")
+          first_migration="packages/db/migrations/$first_tag.sql"
+          first_hash=$(sha256sum "$first_migration" | cut -d ' ' -f1)
+          psql -X -v ON_ERROR_STOP=1 "$BACKUP_DATABASE_URL" -f "$first_migration" >/dev/null
+          psql -X -v ON_ERROR_STOP=1 "$BACKUP_DATABASE_URL" \
+            -v migration_hash="$first_hash" -v migration_time="$first_time" <<'SQL'
           CREATE SCHEMA drizzle;
           CREATE TABLE drizzle.__drizzle_migrations (id serial PRIMARY KEY, hash text NOT NULL, created_at bigint);
-          CREATE TABLE public.replay_fixture (id text PRIMARY KEY);
-          INSERT INTO public.replay_fixture VALUES ('local-fixture');
+          INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES (:'migration_hash', :'migration_time');
+          INSERT INTO public.lead (id, name, phone) VALUES ('cleanup-fixture-private-id', 'Test lead', '0000000000');
           SQL
           export BACKUP_RUN_ID="$GITHUB_RUN_ID-$((GITHUB_RUN_ATTEMPT + 1000))"
-          replay_stem=$(bash scripts/backup/capture-full.sh)
+          replay_stem=$(BACKUP_CAPTURE_ASSETS=true bash scripts/backup/capture-full.sh)
           replay_manifest="$BACKUP_OUTPUT_DIR/$replay_stem.manifest.json"
           replay_dump="$BACKUP_OUTPUT_DIR/$replay_stem.dump"
-          BACKUP_CANDIDATE_CHECKOUT="$GITHUB_WORKSPACE" bash scripts/backup/verify-isolated-restore.sh \
-            "$replay_manifest" "$replay_dump" "release/$replay_stem.dump" "$BACKUP_RELEASE_CANDIDATE_COMMIT"
+          allowlist="$BACKUP_OUTPUT_DIR/$replay_stem.cleanup-allowlist.json"
+          jq -n --arg dumpSha256 "$(jq -er '.dumpSha256' "$replay_manifest")" '
+            {version: 1, dumpSha256: $dumpSha256, reviewReference: "fixture-private-review", rows: [
+              {table: "public.lead", key: {id: "cleanup-fixture-private-id"}, evidenceReference: "fixture-private-evidence"}
+            ]}
+          ' > "$allowlist"
+          replay_status=0
+          replay_output=$(BACKUP_CANDIDATE_CHECKOUT="$GITHUB_WORKSPACE" BACKUP_REVIEWED_CLEANUP_ALLOWLIST="$allowlist" \
+            bash scripts/backup/verify-isolated-restore.sh "$replay_manifest" "$replay_dump" \
+              "release/$replay_stem.dump" "$BACKUP_RELEASE_CANDIDATE_COMMIT" 2>&1) || replay_status=$?
+          if [[ "$replay_output" == *fixture-private-* ]]; then
+            echo 'The cleanup preview printed private fixture details.' >&2
+            exit 1
+          fi
+          if [[ "$replay_status" != 0 ]]; then
+            printf '%s\n' "$replay_output" >&2
+            exit "$replay_status"
+          fi
+          grep -Fx 'Restored catalogue check. Categories CMS 0, public 0. Services CMS 0, public 0. Offers CMS 0, public 0. Findings 0.' <<< "$replay_output"
+          grep -Fx 'Cleanup preview status database_review_complete. Selected 1. Missing 0. Unreviewed dependencies 0.' <<< "$replay_output"
+
+          retain_restore=(bash scripts/backup/verify-isolated-restore.sh "$replay_manifest" "$replay_dump"
+            "release/$replay_stem.dump" "$BACKUP_RELEASE_CANDIDATE_COMMIT")
+          export BACKUP_RETAIN_ALL_CLEANUP=true BACKUP_REQUIRE_ASSETS=true
+          export BACKUP_CANDIDATE_CHECKOUT="$GITHUB_WORKSPACE"
+          if BACKUP_REVIEWED_CLEANUP_ALLOWLIST="$allowlist" "${retain_restore[@]}"; then
+            echo 'The retain-all restore accepted a conflicting cleanup allowlist.' >&2
+            exit 1
+          fi
+          if "${retain_restore[@]}"; then
+            echo 'The retain-all restore accepted a release backup without verified assets.' >&2
+            exit 1
+          fi
+
+          # Capture the fixture's empty asset inventory and serve only its exact key.
+          fixture_asset_bundle="$BACKUP_OUTPUT_DIR/fixture-assets"
+          node scripts/backup/release-backup-assets.mjs capture "$replay_manifest" \
+            "$BACKUP_OUTPUT_DIR/$replay_stem.references.json" "$fixture_asset_bundle"
+          fixture_bin="$BACKUP_OUTPUT_DIR/fixture-bin"
+          mkdir -- "$fixture_bin"
+          cat > "$fixture_bin/aws" <<'AWS'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          [[ "$1" == s3 && "$2" == cp && "$3" == "$FIXTURE_INVENTORY_URL" ]]
+          cp -- "$FIXTURE_INVENTORY_PATH" "$4"
+          AWS
+          chmod +x "$fixture_bin/aws"
+          retain_output=$(PATH="$fixture_bin:$PATH" R2_BACKUP_BUCKET=rgss-backups \
+            R2_BACKUP_ENDPOINT=https://11111111111111111111111111111111.r2.cloudflarestorage.com \
+            FIXTURE_INVENTORY_URL="s3://rgss-backups/release/$replay_stem.assets/inventory.json" \
+            FIXTURE_INVENTORY_PATH="$fixture_asset_bundle/inventory.json" "${retain_restore[@]}")
+          grep -Fx 'Cleanup disposition retain_all. Selected 0. Missing 0. Unreviewed dependencies 0.' <<< "$retain_output"
           test "$(psql -X -v ON_ERROR_STOP=1 "$BACKUP_DATABASE_URL" -tAc \
-            "SELECT NOT EXISTS (SELECT 1 FROM drizzle.__drizzle_migrations)
+            "SELECT (SELECT count(*) FROM drizzle.__drizzle_migrations) = 1
               AND to_regclass('cms.payload_migrations') IS NULL
-              AND EXISTS (SELECT 1 FROM public.replay_fixture WHERE id = 'local-fixture')")" = t
+              AND EXISTS (SELECT 1 FROM public.lead WHERE id = 'cleanup-fixture-private-id')")" = t

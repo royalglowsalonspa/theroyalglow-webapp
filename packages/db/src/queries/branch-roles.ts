@@ -23,8 +23,8 @@
  *     expects, and aborts the batch when it matches no row.
  *  5. Bookings still to come whose assignee no longer works at their branch
  *     lose that assignee and are listed for reassignment (R1.7).
- *  6. One realtime revocation intent per person signed out (R2.6), so their
- *     live-update tokens are revoked even when the call to Ably fails now.
+ *  6. One realtime revocation intent per person whose access narrowed (R2.6),
+ *     so their old tokens are revoked even when the call to Ably fails now.
  *  7. One audit entry, committed with the change (R1.11).
  *
  * The database is the final safety net: the deferred keys, the
@@ -98,6 +98,7 @@ export type BranchRoleWrite =
       specialization?: string | null | undefined
     }
   | { kind: 'end_sessions'; userId: string }
+  | { kind: 'revoke_realtime'; userId: string }
 
 /** The audit entry written in the same transaction as the change. */
 export type BranchRoleAudit = {
@@ -113,8 +114,14 @@ export type BranchRoleAudit = {
 }
 
 export type ApplyBranchRolePlanResult =
-  /** `reassignments`: bookings still to come that lost their assignee (R1.7). */
-  { ok: true; signedOut: string[]; reassignments: number } | { ok: false; reason: 'stale' }
+  | {
+      ok: true
+      signedOut: string[]
+      realtimeRevocationUserIds: string[]
+      /** Bookings still to come that lost their assignee (R1.7). */
+      reassignments: number
+    }
+  | { ok: false; reason: 'stale' }
 
 /** The role-qualified keys from migration 0004. Deferred inside a role change. */
 export const ROLE_KEYS = ['branch_owner_fk', 'branch_manager_fk', 'staff_profile_role_fk'] as const
@@ -253,7 +260,9 @@ function guarded(update: SQL): SQL {
   return sql`with changed as (${update} returning 1) select 1 / count(*)::int as ok from changed`
 }
 
-function statementFor(write: BranchRoleWrite): BatchItem<'pg'> {
+function statementFor(
+  write: Exclude<BranchRoleWrite, { kind: 'revoke_realtime' }>,
+): BatchItem<'pg'> {
   switch (write.kind) {
     case 'profile_deactivate':
       // The profile keeps its last branch as history; without the witness it
@@ -351,9 +360,8 @@ function isStaleRoleChange(error: unknown): boolean {
 /**
  * Apply a planned role change in one transaction, only if every row in
  * `snapshot` is still as it was read. `snapshot` must be the one the plan was
- * made from. Returns the people signed out, or `stale` when nothing was
- * written because something changed meanwhile; the caller re-reads and plans
- * again. An empty plan writes nothing, not even an audit entry.
+ * made from. Reports who was signed out and who had a realtime revocation
+ * queued. A stale snapshot or an empty plan writes nothing.
  */
 export async function applyBranchRolePlan(params: {
   snapshot: BranchRoleSnapshot
@@ -362,8 +370,15 @@ export async function applyBranchRolePlan(params: {
 }): Promise<ApplyBranchRolePlanResult> {
   const { snapshot, writes, audit } = params
   const signedOut = writes.flatMap((w) => (w.kind === 'end_sessions' ? [w.userId] : []))
+  const realtimeRevocationUserIds = [
+    ...new Set(
+      writes.flatMap((w) =>
+        w.kind === 'end_sessions' || w.kind === 'revoke_realtime' ? [w.userId] : [],
+      ),
+    ),
+  ]
   if (writes.length === 0) {
-    return { ok: true, signedOut, reassignments: 0 }
+    return { ok: true, signedOut, realtimeRevocationUserIds, reassignments: 0 }
   }
   assertCovered(snapshot, writes)
 
@@ -375,12 +390,12 @@ export async function applyBranchRolePlan(params: {
     db.execute(lockPeople(snapshot.users.map((u) => u.id))),
     db.execute(LOCK_BRANCHES),
     db.execute(unchangedGuard(snapshot)),
-    ...writes.map(statementFor),
+    ...writes.filter((w) => w.kind !== 'revoke_realtime').map(statementFor),
   ]
   const statements: BatchItem<'pg'>[] = [
     ...head,
     releaseAssignmentsOfPeopleStatement({ userIds: people, actorId: audit.actorId }),
-    ...signedOut.map(realtimeRevocationStatement),
+    ...realtimeRevocationUserIds.map(realtimeRevocationStatement),
     db.insert(auditLog).values({
       actorId: audit.actorId,
       action: audit.action,
@@ -403,5 +418,5 @@ export async function applyBranchRolePlan(params: {
     throw error
   }
   const reassignments = releasedBookingIds(results[head.length]).length
-  return { ok: true, signedOut, reassignments }
+  return { ok: true, signedOut, realtimeRevocationUserIds, reassignments }
 }

@@ -20,6 +20,17 @@ on:
         description: Exercise and verify the exact candidate migrations after the isolated restore
         type: boolean
         default: false
+      preview_cleanup:
+        description: Preview reviewed test records using the private allowlist beside this release backup (requires assets and replay)
+        type: boolean
+        default: false
+      cleanup_allowlist_sha256:
+        description: SHA-256 of the exact reviewed cleanup allowlist file (required for preview)
+        type: string
+      retain_all_cleanup:
+        description: Record the decision to retain all records (requires strict assets and replay)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -34,12 +45,33 @@ jobs:
           persist-credentials: false
 
       - name: Validate the requested candidate replay inputs
-        if: inputs.replay_candidate
+        if: inputs.replay_candidate || inputs.preview_cleanup || inputs.retain_all_cleanup
         shell: bash
         env:
           SELECTED_MANIFEST: ${{ inputs.manifest_key }}
           RELEASE_CANDIDATE: ${{ inputs.release_candidate_sha }}
+          REPLAY_CANDIDATE: ${{ inputs.replay_candidate }}
+          REQUIRE_ASSETS: ${{ inputs.require_assets }}
+          PREVIEW_CLEANUP: ${{ inputs.preview_cleanup }}
+          ALLOWLIST_SHA256: ${{ inputs.cleanup_allowlist_sha256 }}
+          RETAIN_ALL_CLEANUP: ${{ inputs.retain_all_cleanup }}
         run: |
+          if [[ "$RETAIN_ALL_CLEANUP" == true && ( "$PREVIEW_CLEANUP" == true || -n "$ALLOWLIST_SHA256" ) ]]; then
+            echo 'Choose either the retain-all decision or an exact cleanup allowlist preview.' >&2
+            exit 1
+          fi
+          if [[ "$PREVIEW_CLEANUP" == true && ( "$REPLAY_CANDIDATE" != true || "$REQUIRE_ASSETS" != true ) ]]; then
+            echo 'Cleanup preview requires both candidate replay and strict asset verification.' >&2
+            exit 1
+          fi
+          if [[ "$RETAIN_ALL_CLEANUP" == true && ( "$REPLAY_CANDIDATE" != true || "$REQUIRE_ASSETS" != true ) ]]; then
+            echo 'The retain-all decision requires both candidate replay and strict asset verification.' >&2
+            exit 1
+          fi
+          if [[ "$PREVIEW_CLEANUP" == true && ! "$ALLOWLIST_SHA256" =~ ^[0-9a-f]{64}$ ]]; then
+            echo 'Cleanup preview requires the SHA-256 of the exact reviewed allowlist.' >&2
+            exit 1
+          fi
           if [[ ! "$SELECTED_MANIFEST" =~ ^release/rgss_full_[0-9]{8}T[0-9]{6}Z_[0-9]+-[0-9]+\.manifest\.json$ ||
                 ! "$RELEASE_CANDIDATE" =~ ^[0-9a-f]{40}$ ]]; then
             echo 'Candidate replay requires an exact release manifest key and full commit SHA.' >&2
@@ -92,6 +124,8 @@ jobs:
         shell: bash
         env:
           SELECTED_MANIFEST: ${{ inputs.manifest_key }}
+          PREVIEW_CLEANUP: ${{ inputs.preview_cleanup }}
+          ALLOWLIST_SHA256: ${{ inputs.cleanup_allowlist_sha256 }}
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_READ_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_READ_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: auto
@@ -122,6 +156,19 @@ jobs:
           aws s3 cp "s3://$R2_BACKUP_BUCKET/$key" "$restore_dir/${key##*/}" --endpoint-url "$R2_BACKUP_ENDPOINT"
           jq -e '.sourceId == "neon-prod"' "$restore_dir/${key##*/}" >/dev/null
           aws s3 cp "s3://$R2_BACKUP_BUCKET/$dump_key" "$restore_dir/${dump_key##*/}" --endpoint-url "$R2_BACKUP_ENDPOINT"
+          if [[ "$PREVIEW_CLEANUP" == true ]]; then
+            allowlist_key="${key%.manifest.json}.cleanup-allowlist.json"
+            if ! aws s3 cp "s3://$R2_BACKUP_BUCKET/$allowlist_key" "$restore_dir/cleanup-allowlist.json" \
+              --endpoint-url "$R2_BACKUP_ENDPOINT" --only-show-errors >/dev/null 2>&1 ||
+              [[ ! -s "$restore_dir/cleanup-allowlist.json" ]]; then
+              echo 'The reviewed private cleanup allowlist for the selected release is unavailable or empty.' >&2
+              exit 1
+            fi
+            if [[ "$(sha256sum "$restore_dir/cleanup-allowlist.json" | cut -d ' ' -f1)" != "$ALLOWLIST_SHA256" ]]; then
+              echo 'The private cleanup allowlist differs from the reviewed file.' >&2
+              exit 1
+            fi
+          fi
           echo "Verifying the selected manifest: $key" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Restore and compare in an isolated PostgreSQL container
@@ -130,6 +177,9 @@ jobs:
           RELEASE_CANDIDATE: ${{ inputs.release_candidate_sha }}
           BACKUP_REQUIRE_ASSETS: ${{ inputs.require_assets && 'true' || 'false' }}
           BACKUP_REPLAY_CANDIDATE: ${{ inputs.replay_candidate && 'true' || 'false' }}
+          PREVIEW_CLEANUP: ${{ inputs.preview_cleanup }}
+          BACKUP_RETAIN_ALL_CLEANUP: ${{ inputs.retain_all_cleanup && 'true' || 'false' }}
+          BACKUP_CLEANUP_PREVIEW_REPORT: ''
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_READ_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_READ_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: auto
@@ -137,6 +187,9 @@ jobs:
           set -euo pipefail
           if [[ "$BACKUP_REPLAY_CANDIDATE" == true ]]; then
             export BACKUP_CANDIDATE_CHECKOUT="$GITHUB_WORKSPACE/release-candidate"
+          fi
+          if [[ "$PREVIEW_CLEANUP" == true ]]; then
+            export BACKUP_REVIEWED_CLEANUP_ALLOWLIST="$RESTORE_DIR/cleanup-allowlist.json"
           fi
           bash scripts/backup/verify-isolated-restore.sh \
             "$MANIFEST_PATH" "$DUMP_PATH" "$DUMP_KEY" "$RELEASE_CANDIDATE" |
@@ -147,7 +200,7 @@ jobs:
         shell: bash
         run: |
           if [[ -n "${RESTORE_DIR:-}" ]]; then
-            rm -f -- "$MANIFEST_PATH" "$DUMP_PATH"
+            rm -f -- "$MANIFEST_PATH" "$DUMP_PATH" "$RESTORE_DIR/cleanup-allowlist.json"
             rmdir -- "$RESTORE_DIR"
           fi
 

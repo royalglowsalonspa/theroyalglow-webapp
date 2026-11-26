@@ -2,36 +2,14 @@
 import { type APIRequestContext, type APIResponse, expect, test } from '@playwright/test'
 import type { BranchRoleChangeInput } from '@rgss/types'
 import { type BranchRoles, data, errorCode, type MyBranches } from './fixtures/admin-api'
-import { hasRoleState, IMPERSONATED_ROLE, roleStatePath } from './fixtures/auth'
+import { roleStatePath } from './fixtures/auth'
+import { localSignedOrigin } from './fixtures/local-signed-origin'
 
 const REQUEST = { maxRedirects: 0, timeout: 10_000 }
 const FIXTURE_BRANCH = 'rehearsal_mb_a'
 const FIXTURE_MANAGER = 'rehearsal_mb_a_manager'
 const FIXTURE_LEAD = '/api/leads/rehearsal_mb_a_lead'
 const SESSION_URL = '/api/auth/get-session?disableCookieCache=true'
-
-function fixtureOrigin() {
-  const origin = URL.parse(process.env.PLAYWRIGHT_ADMIN_BASE_URL ?? '')
-  const database = URL.parse(process.env.DATABASE_URL ?? '')
-  if (
-    origin?.protocol !== 'http:' ||
-    origin.hostname !== '127.0.0.1' ||
-    !origin.port ||
-    origin.href !== `${origin.origin}/` ||
-    database?.protocol !== 'postgresql:' ||
-    !['127.0.0.1', 'localhost'].includes(database.hostname) ||
-    !/^\/rgss_rehearsal_[a-z0-9_]+$/.test(database.pathname) ||
-    !process.env.REHEARSAL_PG_DATA ||
-    IMPERSONATED_ROLE ||
-    !hasRoleState('owner') ||
-    !hasRoleState('manager')
-  ) {
-    throw new Error(
-      'Use the loopback rehearsal app, synthetic database and signed fixture sessions',
-    )
-  }
-  return origin.origin
-}
 
 function applyRoleChange(owner: APIRequestContext, change: BranchRoleChangeInput) {
   return owner
@@ -55,7 +33,7 @@ test.describe('Local signed Manager handover', () => {
   test('removal cuts off a Manager’s signed session across pages, reads, writes and token requests', async ({
     playwright,
   }) => {
-    const baseURL = fixtureOrigin()
+    const baseURL = localSignedOrigin()
     const owner = await playwright.request.newContext({
       baseURL,
       storageState: roleStatePath('owner'),
@@ -85,7 +63,25 @@ test.describe('Local signed Manager handover', () => {
       expect(await errorCode(tokenBefore)).toBe('SERVICE_UNAVAILABLE')
       const sessionBefore = await manager.get(SESSION_URL, REQUEST)
       expect(sessionBefore.status()).toBe(200)
-      expect(await sessionBefore.json()).toMatchObject({ user: { id: FIXTURE_MANAGER } })
+      expect((await sessionBefore.json())?.user?.id).toBe(FIXTURE_MANAGER)
+      const cachedSession = sessionBefore
+        .headersArray()
+        .find(
+          ({ name, value }) =>
+            name.toLowerCase() === 'set-cookie' &&
+            /^(?:__Secure-)?better-auth\.session_data=/.test(value),
+        )
+        ?.value.split(';')[0]
+      const originalToken = (await manager.storageState()).cookies.find(({ name }) =>
+        /^(?:__Secure-)?better-auth\.session_token$/.test(name),
+      )
+      if (!cachedSession || !originalToken) {
+        throw new Error('Expected a signed session token and a genuine Better Auth session cache')
+      }
+      const cachedRequest = {
+        ...REQUEST,
+        headers: { cookie: `${originalToken.name}=${originalToken.value}; ${cachedSession}` },
+      }
 
       try {
         const removed = await applyRoleChange(owner, {
@@ -99,6 +95,14 @@ test.describe('Local signed Manager handover', () => {
           reassignments: 0,
         })
         expect((await readRoles()).manager).toBeNull()
+
+        const cachedPageRequest = await playwright.request.newContext({ baseURL })
+        try {
+          const cachedPage = await cachedPageRequest.get('/leads', cachedRequest)
+          expectAccessDenied(cachedPage, '/leads with the signed session cache')
+        } finally {
+          await cachedPageRequest.dispose()
+        }
 
         // Separate contexts keep the same original cookie for every assertion,
         // even if middleware clears it on the previous denied request.
@@ -137,7 +141,16 @@ test.describe('Local signed Manager handover', () => {
       // login invalid. The Manager must establish a new session to return.
       const sessionAfter = await manager.get(SESSION_URL, REQUEST)
       expect(sessionAfter.status()).toBe(200)
-      expect(await sessionAfter.json()).toBeNull()
+      expect((await sessionAfter.json()) === null).toBe(true)
+      const cachedAfterRestore = await playwright.request.newContext({ baseURL })
+      try {
+        expectAccessDenied(
+          await cachedAfterRestore.get(FIXTURE_LEAD, cachedRequest),
+          `${FIXTURE_LEAD} with a signed cache after role restoration`,
+        )
+      } finally {
+        await cachedAfterRestore.dispose()
+      }
     } finally {
       await Promise.all([owner.dispose(), manager.dispose()])
     }

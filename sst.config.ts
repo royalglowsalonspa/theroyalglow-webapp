@@ -101,6 +101,7 @@ export default $config({
     const qstashNextKey = stageSecret('QstashNextSigningKey')
     // Heartbeat URLs are credentials. An unset monitor is a no-op in admin.
     const heartbeatMissingManager = stageSecret('BetterStackHeartbeatMissingManager', '')
+    const heartbeatServiceDrift = stageSecret('BetterStackHeartbeatServiceDrift', '')
     const heartbeatSettlementClose = stageSecret('BetterStackHeartbeatSettlementClose', '')
     const heartbeatStaffOverrun = stageSecret('BetterStackHeartbeatStaffOverrun', '')
     const resendApiKey = stageSecret('ResendApiKey')
@@ -262,6 +263,7 @@ export default $config({
           ? `mailto:${rehearsal.contactEmail}`
           : 'mailto:contact@theroyalglow.in',
         BETTER_STACK_HEARTBEAT_MISSING_MANAGER: heartbeatMissingManager.value,
+        BETTER_STACK_HEARTBEAT_SERVICE_DRIFT: heartbeatServiceDrift.value,
         BETTER_STACK_HEARTBEAT_SETTLEMENT_CLOSE: heartbeatSettlementClose.value,
         BETTER_STACK_HEARTBEAT_STAFF_OVERRUN: heartbeatStaffOverrun.value,
       },

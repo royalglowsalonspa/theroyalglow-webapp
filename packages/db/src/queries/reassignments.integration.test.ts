@@ -214,7 +214,12 @@ describe.skipIf(!LIVE)('reassignment work against a live database', () => {
       ],
     )
 
-    expect(result).toEqual({ ok: true, signedOut: [STYLIST_1], reassignments: 1 })
+    expect(result).toEqual({
+      ok: true,
+      signedOut: [STYLIST_1],
+      realtimeRevocationUserIds: [STYLIST_1],
+      reassignments: 1,
+    })
     const future = ids.s1_future as string
     expect(await staffOf(future)).toBeNull()
     expect(await work(future)).toEqual([
@@ -241,10 +246,18 @@ describe.skipIf(!LIVE)('reassignment work against a live database', () => {
     const result = await change(
       BRANCH_B,
       [MANAGER],
-      [{ kind: 'branch_manager', branchId: BRANCH_B, from: MANAGER, to: null }],
+      [
+        { kind: 'branch_manager', branchId: BRANCH_B, from: MANAGER, to: null },
+        { kind: 'revoke_realtime', userId: MANAGER },
+      ],
     )
 
-    expect(result).toEqual({ ok: true, signedOut: [], reassignments: 1 })
+    expect(result).toEqual({
+      ok: true,
+      signedOut: [],
+      realtimeRevocationUserIds: [MANAGER],
+      reassignments: 1,
+    })
     expect(await staffOf(ids.mgr_b as string)).toBeNull()
     expect(await staffOf(ids.mgr_a as string)).toBe(MANAGER_P)
     expect((await getOpenReassignments(BRANCH_B)).map((w) => w.bookingId)).toEqual([ids.mgr_b])

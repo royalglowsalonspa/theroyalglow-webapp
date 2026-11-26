@@ -92,6 +92,10 @@ describe('requireSession', () => {
       statusCode: 401,
     })
     await expect(requireSession()).rejects.toBeInstanceOf(AppError)
+    expect(authMocks.getSession).toHaveBeenCalledWith({
+      headers: expect.any(Headers),
+      query: { disableCookieCache: true },
+    })
   })
 
   it('returns the session and enforces the per-user rate limit when authenticated', async () => {
@@ -129,6 +133,10 @@ describe('getOptionalSession', () => {
   it('returns null when unauthenticated (no throw)', async () => {
     authMocks.getSession.mockResolvedValue(null)
     await expect(getOptionalSession()).resolves.toBeNull()
+    expect(authMocks.getSession).toHaveBeenCalledWith({
+      headers: expect.any(Headers),
+      query: { disableCookieCache: true },
+    })
   })
 
   it('returns the dev-impersonated session when present', async () => {

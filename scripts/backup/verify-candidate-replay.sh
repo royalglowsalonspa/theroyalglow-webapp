@@ -17,10 +17,15 @@ container=$1
 manifest=$(realpath -- "$2")
 checkout=$(cd -- "$3" && pwd -P)
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+verifier_catalogue=$(realpath -- "$script_dir/../../packages/db/src/queries/service-drift-snapshot.ts")
 reviewed_allowlist=${BACKUP_REVIEWED_CLEANUP_ALLOWLIST:-}
 private_report=${BACKUP_CLEANUP_PREVIEW_REPORT:-}
 [[ -z "$private_report" || -n "$reviewed_allowlist" ]] || fail 'A cleanup report requires a reviewed allowlist.'
-if [[ -n "$reviewed_allowlist" ]]; then reviewed_allowlist=$(realpath -- "$reviewed_allowlist"); fi
+if [[ -n "$reviewed_allowlist" ]]; then
+  [[ -f "$reviewed_allowlist" && -s "$reviewed_allowlist" && ! -L "$reviewed_allowlist" ]] ||
+    fail 'The reviewed cleanup allowlist must be a nonempty regular file.'
+  reviewed_allowlist=$(realpath -- "$reviewed_allowlist")
+fi
 
 candidate=$(jq -er 'select(.version == 1 and
   (.key | test("^release/rgss_full_[0-9]{8}T[0-9]{6}Z_[0-9]+-[0-9]+[.]dump$"))) |
@@ -46,7 +51,7 @@ bun_version=$(jq -er '.packageManager | capture("^bun@(?<version>[0-9]+[.][0-9]+
 [[ "$("$node_path" --version)" == "v$node_version" && "$("$bun_path" --version)" == "$bun_version" ]] ||
   fail 'Use the Node.js and Bun versions pinned by the candidate checkout.'
 
-for path in "$manifest" "$checkout" "$script_dir" "$node_path" "$bun_path" "$reviewed_allowlist"; do
+for path in "$manifest" "$checkout" "$script_dir" "$verifier_catalogue" "$node_path" "$bun_path" "$reviewed_allowlist"; do
   [[ "$path" != *','* && "$path" != *$'\n'* && "$path" != *$'\r'* ]] || fail 'Unsupported mount path.'
 done
 
@@ -175,6 +180,23 @@ if ! cmp -s "$scratch/first.json" "$scratch/second.json" ||
 fi
 echo 'Candidate Drizzle and Payload migrations reached their exact ledgers and replayed without changes.'
 
+catalogue_status=0
+catalogue=$("${sidecar[@]}" \
+  --mount "type=bind,source=$script_dir,target=/restore-verifier/scripts/backup,readonly" \
+  --mount "type=bind,source=$verifier_catalogue,target=/restore-verifier/packages/db/src/queries/service-drift-snapshot.ts,readonly" \
+  "$image" -euc 'bun --no-env-file /restore-verifier/scripts/backup/verify-restored-catalogue.mjs /candidate' \
+  2> "$scratch/commands.log") || catalogue_status=$?
+if [[ "$catalogue_status" == 0 || "$catalogue_status" == 2 ]]; then
+  jq -er --argjson status "$catalogue_status" '
+    def count: type == "number" and . >= 0 and . == floor;
+    select(.findings | count and (if $status == 0 then . == 0 else . > 0 end)) |
+    select([.counts.service_category, .counts.service, .counts.offer] |
+      all(.[]; (.cms | count) and (.public | count))) |
+    "Restored catalogue check. Categories CMS \(.counts.service_category.cms), public \(.counts.service_category.public). Services CMS \(.counts.service.cms), public \(.counts.service.public). Offers CMS \(.counts.offer.cms), public \(.counts.offer.public). Findings \(.findings)."
+  ' <<< "$catalogue" 2>/dev/null || fail 'The catalogue verification did not produce a valid summary.'
+fi
+[[ "$catalogue_status" == 0 ]] || fail 'Restored catalogue verification failed. Review a paired-schema forward repair in quarantine.'
+
 if [[ -n "$reviewed_allowlist" ]]; then
   status=0
   "${sidecar[@]}" \
@@ -188,10 +210,14 @@ if [[ -n "$reviewed_allowlist" ]]; then
     (set -o noclobber; cat "$scratch/cleanup.json" > "$private_report") ||
       fail 'Could not write the private cleanup report without overwriting an existing file.'
   fi
+  if [[ "$status" == 0 || "$status" == 2 ]]; then
+    jq -er --argjson result "$status" '
+      select(.status == (if $result == 0 then "database_review_complete" else "database_review_blocked" end)) |
+      select(all(.selected, .missing, .dependencies; type == "array")) |
+      "Cleanup preview status \(.status). Selected \(.selected | length). Missing \(.missing | length). Unreviewed dependencies \([.dependencies[] | select(.reviewed != true)] | length)."
+    ' "$scratch/cleanup.json" 2>/dev/null || fail 'The cleanup preview did not produce a valid report.'
+  fi
   [[ "$status" == 0 ]] || fail 'The reviewed cleanup preview did not pass on the migrated restore.'
-  jq -e '.status == "database_review_complete"' "$scratch/cleanup.json" >/dev/null ||
-    fail 'The cleanup preview did not produce complete database evidence.'
-  echo 'The reviewed cleanup allowlist passed the read-only database preview on the migrated restore.'
-else
+elif [[ "${BACKUP_RETAIN_ALL_CLEANUP:-false}" != true ]]; then
   echo 'Cleanup preview awaits the reviewed exact-ID allowlist for this backup.'
 fi

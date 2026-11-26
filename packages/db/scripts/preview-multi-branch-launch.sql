@@ -22,6 +22,28 @@ FROM public.branch AS b
 WHERE b.status <> 'shutdown'
 ORDER BY b.id;
 
+-- Count the designated service roster and days with scheduled coverage without
+-- exposing staff identities. These are weekly assignments, before dated leave.
+WITH coverage AS (
+  SELECT p.branch_id,
+         count(DISTINCT p.id) FILTER (WHERE p.designation = 'stylist') AS stylists,
+         count(DISTINCT p.id) FILTER (WHERE p.designation = 'therapist') AS therapists,
+         count(DISTINCT s.day_of_week) FILTER (WHERE p.designation = 'stylist') AS salon_days,
+         count(DISTINCT s.day_of_week) FILTER (WHERE p.designation = 'therapist') AS spa_days
+  FROM public.staff_profile AS p
+  LEFT JOIN public.staff_schedule AS s
+    ON s.staff_id = p.id AND s.branch_id = p.branch_id AND s.is_working AND s.start_time < s.end_time
+  WHERE p.is_active AND p.designation IN ('stylist', 'therapist')
+  GROUP BY p.branch_id
+)
+SELECT b.id AS branch_id, b.status,
+       coalesce(c.stylists, 0) AS active_stylists, coalesce(c.therapists, 0) AS active_therapists,
+       coalesce(c.salon_days, 0) AS scheduled_salon_days, coalesce(c.spa_days, 0) AS scheduled_spa_days
+FROM public.branch AS b
+LEFT JOIN coverage AS c ON c.branch_id = b.id
+WHERE b.status <> 'shutdown'
+ORDER BY b.id;
+
 -- Find active catalogue lines whose launch-day rate is missing or provisional.
 -- The newest applicable version takes precedence even if it is provisional.
 WITH launch AS (

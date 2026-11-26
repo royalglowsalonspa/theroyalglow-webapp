@@ -1,4 +1,3 @@
-import { getCookieCache } from 'better-auth/cookies'
 import type { NextRequest } from 'next/server'
 /************************************************************
  * Author       : KATABATHUNI BOSE
@@ -9,7 +8,7 @@ import type { NextRequest } from 'next/server'
  * Description  : Edge-compatible middleware for the admin portal. It is the
  *                thin I/O edge wrapper around the pure RBAC decision core in
  *                `lib/rbac.ts`. It reads the Better Auth session cookie, looks
- *                up the session via the admin's OWN /api/auth/get-session
+ *                up the current session via the admin's own /api/auth/get-session
  *                (same-origin, cookie forwarded), classifies the result into an
  *                `AuthState`, computes the route minimum level, asks `decide`
  *                for an action, and renders the matching `NextResponse`.
@@ -140,58 +139,29 @@ function allowWithCspNonce(request: NextRequest): NextResponse {
  * - lookup throws        → { kind: 'error' }
  * - lookup ok            → { kind: 'valid', roleLevel }
  *
- * Two-stage resolution:
- *  1. EDGE-NATIVE FAST PATH — verify Better Auth's signed `session_data` cache
- *     cookie locally with the shared secret (Web Crypto HMAC, no network, no
- *     DB). When it yields an admin role (level > 0) we allow immediately. This
- *     is the reliable path for the "just signed in on :3000, open the portal on
- *     :3001" flow and is immune to the self-fetch flakiness that previously
- *     bounced authenticated admins back to the customer site.
- *  2. DB-BACKED FALLBACK — when the cache cookie is absent/expired (its TTL is
- *     5 min) or resolved to a non-admin, defer to the admin's own
- *     /api/auth/get-session for the authoritative role.
+ * Read the current session and role from the same-origin auth endpoint.
+ * Better Auth's signed cache can outlive a revoked session after a handover.
  */
 async function classify(request: NextRequest): Promise<AuthState> {
   // Prefix-tolerant read: production cookies carry the `__Secure-` prefix, local
   // dev cookies do not — mirror Better Auth's own dual-name lookup.
   const sessionToken =
-    request.cookies.get(SESSION_COOKIE)?.value ?? request.cookies.get(SECURE_SESSION_COOKIE)?.value
+    request.cookies.get(SESSION_COOKIE) ?? request.cookies.get(SECURE_SESSION_COOKIE)
 
-  if (!sessionToken) {
+  if (!sessionToken?.value) {
     return { kind: 'no_cookie' }
   }
 
-  // ── Stage 1: verify the signed session-cache cookie at the edge ──────────
-  const secret = process.env.BETTER_AUTH_SECRET
-  if (secret) {
-    try {
-      // The cache cookie is named `better-auth.session_data` over http (dev)
-      // and `__Secure-better-auth.session_data` over https (prod). Try both
-      // names so the same code path works in every environment.
-      const cached =
-        (await getCookieCache(request, { secret, isSecure: false })) ??
-        (await getCookieCache(request, { secret, isSecure: true }))
-      const cachedRole = (cached?.user as { role?: string } | undefined)?.role
-      const cachedLevel = resolveRoleLevel(cachedRole)
-      if (cached?.user && cachedLevel > 0) {
-        return { kind: 'valid', roleLevel: cachedLevel }
-      }
-    } catch {
-      // Verification failure (bad signature / version) → fall through to the
-      // authoritative DB-backed lookup rather than failing the request here.
-    }
-  }
-
-  // ── Stage 2: authoritative same-origin get-session (DB-backed) ───────────
   try {
-    // Forward the FULL incoming cookie header so get-session sees the token
-    // under whichever name the browser sent (bare or `__Secure-` prefixed) plus
-    // the Better Auth cookie-cache cookie; fall back to a reconstructed pair if,
-    // somehow, no raw cookie header is present.
-    const cookieHeader = request.headers.get('cookie') ?? `${SESSION_COOKIE}=${sessionToken}`
-    const sessionRes = await fetch(`${request.nextUrl.origin}/api/auth/get-session`, {
-      headers: { cookie: cookieHeader },
-    })
+    const sessionRes = await fetch(
+      `${request.nextUrl.origin}/api/auth/get-session?disableCookieCache=true&disableRefresh=true`,
+      {
+        headers: {
+          cookie: request.headers.get('cookie') ?? `${sessionToken.name}=${sessionToken.value}`,
+        },
+        cache: 'no-store',
+      },
+    )
 
     if (!sessionRes.ok) {
       return { kind: 'invalid' }

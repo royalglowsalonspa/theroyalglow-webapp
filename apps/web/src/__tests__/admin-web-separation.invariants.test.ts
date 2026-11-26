@@ -428,6 +428,15 @@ describe('admin-web-separation: register-schedules + JOB_SCHEDULES resolve in ad
 })
 
 describe('admin-web-separation: QStash schedule registration is wired to the admin deploy + origin (Req 2.2, 3.6) [admin presence]', () => {
+  it('provides the optional catalogue heartbeat secret to the admin job runtime', () => {
+    const config = readFileSync(join(REPO_ROOT, 'sst.config.ts'), 'utf8')
+
+    expect(config).toContain("stageSecret('BetterStackHeartbeatServiceDrift', '')")
+    expect(config).toMatch(
+      /new sst\.aws\.Nextjs\('Admin', \{[\s\S]*?BETTER_STACK_HEARTBEAT_SERVICE_DRIFT: heartbeatServiceDrift\.value,/,
+    )
+  })
+
   const ADMIN_PACKAGE_JSON = join(REPO_ROOT, 'apps', 'admin', 'package.json')
 
   it('apps/admin/package.json owns the register-schedules script', () => {
@@ -445,5 +454,20 @@ describe('admin-web-separation: QStash schedule registration is wired to the adm
     expect(workflow).toContain('bun run register-schedules')
     // The registration origin is fed from the admin URL var.
     expect(workflow).toContain('NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_ADMIN_URL }}')
+  })
+
+  it('runs production QStash checks separately from schedule registration', () => {
+    const workflow = readFileSync(REGISTER_SCHEDULES_WORKFLOW, 'utf8')
+    expect(workflow).toMatch(
+      /type: choice\s+default: register\s+options:\s+- register\s+- verify\s+- signed-canary/,
+    )
+    expect(workflow).toContain('case "$OPERATION" in')
+    expect(workflow).toContain('if [ "$DRY_RUN" != "true" ] || [ -n "$QSTASH_JOB_KEYS" ]; then')
+    expect(workflow).toMatch(
+      /if \[ "\$OPERATION" = "verify" \]; then\s+exec bun scripts\/rehearse-qstash-delivery\.ts --production --verify-schedules/,
+    )
+    expect(workflow).toContain(
+      'exec bun scripts/rehearse-qstash-delivery.ts --production --confirm-no-invoice-delivery',
+    )
   })
 })

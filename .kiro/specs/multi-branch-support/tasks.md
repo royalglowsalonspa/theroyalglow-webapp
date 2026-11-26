@@ -757,9 +757,9 @@ go/no-go.
   second local cluster verified schema, manifest, amounts, object-reference
   digests and teardown. It rejected changed counts and a corrupt dump.
   The Linux PR check also passed the round trip in a network-isolated container.
-  The 26/11 restore later verified the named production database backup.
-  Recovery of its R2 assets remains part of Gate 2.*
-- [ ] Restore the selected production backup and its referenced assets in
+  The 26/11 restore verified the named production database backup and its
+  referenced R2 assets.*
+- [x] Restore the selected production backup and its referenced assets in
   quarantine. Recheck migration, CMS cutover, forward repair and exact cleanup
   against the restored copy, verify teardown and close Gate 2.
   *22/11: local synthetic PostgreSQL proved the migration order, catalogue
@@ -798,10 +798,14 @@ go/no-go.
   the live bucket had no weekly manifests or pre-migration objects. On 26/11, the
   scoped S3 capture and restore credentials worked for the exact
   candidate-bound production database backup. The isolated restore matched its
-  manifest and removed the temporary target. The verified database restore
-  leaves R2 byte recovery and the candidate migration, CMS cutover, forward
-  repair, and cleanup preview on the selected restore open. See
-  [the recovery record](rollout.md#launch-and-recovery-record).*
+  manifest and removed the temporary target. A later strict recovery verified
+  three CMS assets and all six references, replayed both candidate migration
+  histories and verified teardown. A second strict restore of the same backup
+  found matching CMS and public catalogues with 10 categories, 57 services,
+  zero checkout offers and zero drift. Both migration histories replayed without
+  changes, so no forward repair was needed. After the isolated target was
+  removed, the run recorded the retain-all decision with zero selected records.
+  See [the recovery record](rollout.md#launch-and-recovery-record).*
 - [ ] Prepare reviewed launch tax/SAC/GSTIN values, genuine operational data,
   deployment evidence, cleanup preview and production recovery runbook.
   *22/11: the [runbook](rollout.md#launch-and-recovery-record) names the release
@@ -824,8 +828,14 @@ go/no-go.
   references across the four launch fields. Both non-shutdown branches have
   settings and one is operational. The Owner approved the website branch
   hours and synthetic staffing for this rollout, and deferred standalone
-  invoicing. Reviewed genuine operating data, invoicing tax approval and the
-  manifest-bound cleanup preview remain open. See
+  invoicing. The production review retained all existing booking, invoice and
+  lead records. The public directory and branch settings agree on the hours.
+  The booking API returned the expected Saturday grid for Rayasandra and
+  refused Marathahalli, which is still marked Opening soon. The launch preview
+  now reports service roster and weekly coverage counts. Rayasandra has one
+  active Stylist and one active Therapist, both with zero service mappings
+  and zero scheduled shifts. Genuine
+  staffing before intake and the separate invoicing tax review remain open. See
   [the recovery record](rollout.md#launch-and-recovery-record).*
 - [ ] Run the separately authorized production operations with current evidence,
   preserve real records and close Gate 3 before accepting real business activity.
@@ -834,11 +844,21 @@ go/no-go.
   migration and web, admin and CMS deployment checks. Read-only production
   health, catalogue parity and public media checks passed. Sentry returned
   zero unresolved issues in the past 90 days. The signed QStash canary passed
-  without issuing an invoice or sending mail. The daily catalogue parity
-  schedule is registered. The other 20 schedules, Ably token revocation,
-  deployed signed-session handover, exact cleanup preview and go decision
-  for real business activity remain open. No application write checks or
-  cleanup ran. See
+  without issuing an invoice or sending mail. GitHub now has the QStash token
+  in the environment restricted to `prod`. The daily catalogue parity and
+  realtime revocation schedules are registered, and a fresh audit found 19
+  other schedules still inactive. Revocable tokens are enabled on the deployed
+  Ably key. A new synthetic connection was revoked with `40141` after the
+  exposed legacy key was retired. A subsequent role change exposed a mismatch
+  between the app's revocation parser and the REST response. The fix checks
+  the exact confirmed targets and keeps partial responses queued. Changes
+  that remove one of several branch assignments now queue revocation in the
+  role transaction and preserve the session for retained branches. Live
+  verification of these fixes is pending. The production admin runtime lacked the
+  catalogue heartbeat setting. SST now accepts an optional stage-scoped
+  monitor URL for the admin deployment. The deployed signed-session handover,
+  first scheduled job and heartbeat checks, and decision to begin real
+  business activity remain open. Existing records were retained. See
   [the recovery record](rollout.md#launch-and-recovery-record).*
 
 ## Launch scope candidates to defer (for phase planning)

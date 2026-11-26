@@ -296,28 +296,25 @@ authorized shell. Verify the exact deployed commit and host before sending any
 requests. Keep new schedules and customer intake paused until the applicable checks
 pass.
 
-- **QStash delivery.** From the candidate checkout, set `QSTASH_TOKEN` and the
-  deployed `QSTASH_URL` and run:
-  ```sh
-  bun apps/admin/scripts/rehearse-qstash-delivery.ts --production --confirm-no-invoice-delivery
-  ```
-  This uses the exact production admin origin, requires the unsigned request to
-  return 401, and publishes one signed request without an invoice ID and with zero
-  retries. It returns before database, PDF, email or heartbeat work. Record the
-  message ID, target and confirmed delivery time. In **Register QStash Schedules**,
-  review the dry run with `jobs=missing-manager-reminder,realtime-revocations,settlement-close,staff-overrun-check`.
-  Apply only the reviewed jobs at the approved point. Keep unrelated customer
-  delivery schedules paused until the final go/no-go. After the approved resume,
-  use the same probe with `--production --verify-schedules` to verify the active
-  job paths, UTC crons and methods. Use the same regional
-  `QSTASH_URL` repository variable for AWS runtime and schedule registration.
-  If the variable is empty, both use the provider default
-  `https://qstash.upstash.io`. [Upstash delivery logs](https://upstash.com/docs/qstash/howto/debug-logs)
-- **Ably and branch access.** Confirm the deployed admin uses the production key
-  configured for **Revocable tokens** and allow tokens issued by the previous key
-  to expire after any approved rotation. Keep `NEXT_PUBLIC_ABLY_KEY` as the
-  nonsecret value `enabled`. Review rotation of any full key previously used
-  in that browser configuration. Use the production canary on its
+- **QStash delivery.** A repository administrator restricts the `production-aws`
+  environment to `prod` and puts `QSTASH_TOKEN` in that environment's secrets.
+  In **Register QStash Schedules**, dispatch `signed-canary` from `prod` with
+  `dry_run=true` and an empty `jobs` field. It confirms the unsigned response
+  is 401, then publishes one signed request without an invoice ID and with zero
+  retries. It returns before database, PDF, email or heartbeat work. Use
+  `register` with `dry_run=true` to review the exact selected job keys. Apply
+  that reviewed selection only at the approved point. After the approved
+  resume, dispatch `verify` with `dry_run=true` and an empty `jobs` field to
+  check the full inventory, including job paths, UTC crons, methods, duplicates,
+  and paused schedules. AWS runtime and the workflow use the same optional
+  `QSTASH_URL` and default to `https://qstash.upstash.io` when it is unset.
+  [Upstash delivery logs](https://upstash.com/docs/qstash/howto/debug-logs)
+- **Ably and branch access.** In the production Ably dashboard, match the active
+  key to the deployed admin, enable **Revocable tokens**, and allow up to 13
+  minutes for previously issued admin tokens and requests to expire before
+  checking handover. Identify and retire the separate legacy key exposed by an
+  earlier deployment after verifying its consumers. Keep `NEXT_PUBLIC_ABLY_KEY`
+  as the nonsecret value `enabled`. Use the production canary on its
   generated subscriber to verify provider code `40141`. With `ABLY_PRIVATE_KEY`
   from the deployed runtime's secret store and the confirmed
   `PRODUCTION_ABLY_APP_ID`, run:
@@ -344,6 +341,11 @@ pass.
   session remains invalid. Clear only the fixture sessions and preserve the
   audit. The live run requires the approved fixture records and signed sessions.
   [Ably token revocation](https://ably.com/docs/auth/revocation)
+  The integration workflow also runs signed staffing and Manager handover
+  against a built admin app and PostgreSQL on runner loopback. It checks service
+  assignments, weekly shift edits, out-of-shift availability, branch isolation,
+  and rejection of a genuine stale session cache after removal. The synthetic
+  sessions, database and app logs stay on the disposable runner.
 - **Heartbeat and release health.** Compare the approved schedule list with the
   provider, then verify heartbeats from permitted quiet runs. Confirm scheduled jobs
   that reach customer data or advance settlement periods are enabled only at their
@@ -355,9 +357,10 @@ sets NOT NULL on `lead.branch_id`, `waitlist.branch_id`,
 `customer_note.branch_id` and `spa_membership.selling_branch_id` once the
 backfill reports no nulls. Run the [read-only launch preview](../../../packages/db/scripts/preview-multi-branch-launch.sql)
 with the candidate launch date on the restored release schema. It reports the
-four null counts, branch issuer/settings coverage, and active service and tier
-tax gaps at the start of the launch day in IST. Reconcile its results with the
-approved branch and tax records.
+four null counts, branch issuer/settings coverage, active service roster and
+scheduled days by service type, and applicable tax gaps at the start of the
+launch day in IST. Reconcile these counts with the approved branch and tax
+records. Check actual shifts and dated leave before accepting real bookings.
 
 ## Gate 2: exact production backup and recovery readiness
 
@@ -374,7 +377,8 @@ cleanup, validate the actual release backup from the quiesced source.
   sufficient. Keep any copied sessions, OAuth records and PII restricted.
 - Verify the restored schema, both ledgers, counts, balances, constraints and linked
   invoice/media files. Use the candidate migrations and reviewed allowlist on the
-  restored copy for preflight, rollback/forward repair and cleanup preview.
+  restored copy for preflight, rollback/forward repair and cleanup preview. Check
+  CMS and public catalogue parity before recording that no repair is needed.
 - Reject unverified snapshots, unexpected conflicts, unresolved asset references,
   and unexplained differences. Record restore duration, hashes, redacted evidence
   and teardown. Keep the approved backup available throughout the release window.
@@ -482,6 +486,23 @@ primary key and its record-level provenance. For example, a synthetic entry is
 The top-level JSON fields are `version` (1), `reviewReference`, `dumpSha256`
 (from the named backup manifest), and `rows` (the reviewed entries).
 
+For a hosted preview, upload the reviewed allowlist to private `rgss-backups`
+next to its verified release backup. Replace `.manifest.json` with
+`.cleanup-allowlist.json` in the exact release manifest key. Dispatch **Monthly
+Backup Restore Test** with that same manifest and candidate, with
+`require_assets=true`, `replay_candidate=true` and `preview_cleanup=true`.
+Supply `cleanup_allowlist_sha256` from the file that was reviewed. On Windows,
+use `(Get-FileHash -LiteralPath '<allowlist path>').Hash.ToLowerInvariant()`.
+The runner verifies that file and its binding to the dump, restores the assets,
+replays the candidate, then runs the preview inside the isolated restore.
+Only the aggregate result appears in Actions.
+
+When the record review selects zero records for removal, dispatch the same
+strict restore with `require_assets=true`, `replay_candidate=true` and
+`retain_all_cleanup=true`. Leave `preview_cleanup` off and the allowlist hash
+blank. The workflow records zero selected records against the exact backup
+after successful replay and teardown.
+
 Keep the report in the approved evidence store. A missing key or unreviewed
 incoming dependency exits with status 2. Review financial totals, invoice
 series, retained references and the object and queue inventory before approving
@@ -520,12 +541,13 @@ not execute cleanup or establish that a record is a test record.
    environment order. Review before/after counts and both ledgers. Proceed
    only when all expected branch, occupancy, membership and invoice guards
    are present and reconciliation passes.
-4. **Deploy the approved artifacts.** Deploy Cloud Run invoicing with the
-   candidate artifact and private `rgss-invoices` configuration. Deploy CMS
-   after its migrations and verify catalogue parity and the media origin.
-   Then dispatch **Deploy AWS** on `prod` with `git_ref` set to the same full
-   reviewed SHA. Confirm all four revisions, health endpoints and runtime
-   configuration. Apply only the reviewed cleanup, if approved, against
+4. **Deploy the approved artifacts.** When standalone invoicing is in scope,
+   deploy the Cloud Run candidate and verify private `rgss-invoices` access.
+   This rollout defers standalone invoicing. Deploy CMS after its migrations
+   and verify catalogue parity and the media origin. Then dispatch **Deploy
+   AWS** on `prod` with `git_ref` set to the same full reviewed SHA. Confirm the
+   deployed revisions, health endpoints and runtime configuration. Apply only
+   the reviewed cleanup, if approved, against
    the still-quiesced production data and reconcile all retained records.
 5. **Verify production before reopening.** First use read-only health,
    roles, branch isolation, catalogue availability and previews. Run the
@@ -620,8 +642,8 @@ exact dump and assets together for this gate.
   index and binding trigger were verified. [Promotion](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/45716103366) · [Production migration](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/45718156439)
 - The production backup used source revision `415b799` and was bound to the
   reviewed candidate. The exact dump and manifest passed the scoped S3
-  download and isolated database restore with teardown. Recovery of R2
-  object bytes and candidate rehearsal on that restored copy remain open.
+  download and isolated database restore with teardown. This original run
+  verified the database. The later asset-bound recovery is recorded below.
   [Capture](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/45711879948) · [Exact database restore](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/45712388253)
 - Web and admin deployed on AWS and CMS deployed on Render at the exact
   candidate. Repeat web, admin and CMS HTTP smoke checks passed. The public
@@ -635,32 +657,53 @@ exact dump and assets together for this gate.
   and one is operational. The Owner approved the website branch hours and
   synthetic staffing, waived the maintenance window and write and CMS
   auto-deploy pauses for this rollout, and deferred standalone invoicing.
+- The production contact page and branch settings show 10:00–21:00 IST on
+  weekdays and 10:00–22:00 IST on weekends. A Saturday availability query
+  returned the expected Rayasandra request grid, while Marathahalli refused
+  the request as Opening soon. Rayasandra now has one Manager, one
+  Receptionist, one Stylist and one Therapist. The Stylist and Therapist have
+  zero service mappings and zero scheduled shifts. Confirm their services and
+  shifts and verify actual coverage before intake.
 - The catalogue parity queries found matching fields and timestamps across
   10 categories and 57 services, with no CMS checkout offers or mirrors.
   The daily QStash catalogue parity schedule was registered and its exact
   destination, method and cron were verified. A signed one-off run was
   delivered and the deployed job reported catalogue parity in CloudWatch.
-  The first scheduled execution and its monitoring heartbeat still need
-  observation.
+  The live admin runtime lacked a catalogue heartbeat URL. Load the Better
+  Stack heartbeat URL into the `production` SST stage as
+  `BetterStackHeartbeatServiceDrift`, deploy through promotion, and verify
+  the first scheduled execution and heartbeat receipt.
 - The production QStash canary rejected the unsigned request and delivered
-  the signed synthetic request with no invoice ID. The schedule audit found
-  all 21 expected schedules absent before the parity monitor was registered.
-  The other 20 remain unregistered. The GitHub schedule dry run lacks its
-  repository `QSTASH_TOKEN` secret. The audit and scoped registration used
-  the existing production runtime configuration. [GitHub dry run](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/45740713239)
-- The production Ably canary established a synthetic subscription. The
-  revocation request returned `40164` because revocable tokens are disabled
-  on the deployed key. The repository build variable previously held a separate
-  full key from the same Ably app and now contains the literal `enabled`.
-  Review and retire the legacy key in Ably once its consumers are verified.
-  Enable revocable tokens on the deployed key and repeat the canary on a newly
-  issued token before the signed role handover.
+  the signed synthetic request with no invoice ID. The `production-aws`
+  GitHub environment is restricted to the exact `prod` branch and now holds
+  `QSTASH_TOKEN`. After verifying zero pending revocations, a scoped run
+  registered the security-only `realtime-revocations` schedule. The subsequent
+  read-only audit confirmed it and `service-drift-reconcile` are registered.
+  The 19 other schedules remain inactive pending launch acceptance.
+  [Scoped registration](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/45790490946) · [Schedule audit](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/45790655967)
+- Revocable tokens are enabled on the deployed Ably key. The exposed legacy
+  key was retired after checking both deployed applications use the active
+  key. A new synthetic subscription was then disconnected with provider code
+  `40141`. The public build variable contains the literal `enabled`.
   [Ably error codes](https://ably.com/docs/platform/errors/codes)
-- The production inventory has nine bookings, six invoices and one lead to
-  classify before constructing a manifest-bound cleanup allowlist. There are
-  no stored invoice PDFs, and live invoicing is off. The database contained no
-  dedicated closed handover branch. The exact cleanup preview, deployed signed
-  role handover and approval to begin real business activity remain open.
+- The production review retained all nine bookings, six invoices and one lead.
+  None had verified fixture provenance, so zero records were selected for
+  cleanup. Live invoicing is off and there are no stored invoice PDFs. The
+  deployed signed role handover still needs a dedicated Manager Google account
+  with no operating branch assignment and a dedicated closed branch. The Owner
+  can act on that fixture with the approved Royal Glow account. The decision to
+  begin real business activity is pending.
+- The recovery workflows from PR #316 reached all four Git branches at
+  `c51acf8`. A candidate-bound production backup included three CMS files
+  with six database references. The strict restore verified the asset bytes,
+  replayed both migration ledgers without changes on the second run, and
+  removed the isolated target. [Promotion](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/45749511366) · [Capture](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/45747391321) · [Strict restore](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/45747750618)
+- A second strict restore of the same backup verified catalogue parity in
+  quarantine. CMS and public each had 10 categories, 57 services and zero
+  checkout offers. The comparator found zero drift and both migration ledgers
+  replayed without changes. No forward repair was needed. The workflow removed
+  the isolated target and recorded the retain-all decision with zero selected
+  records. This closes Gate 2 for the named backup. [Catalogue and cleanup disposition](https://github.com/royalglowsalonspa/theroyalglow-webapp/actions/runs/45792088465)
 
 The release capture reads the media references in the same database snapshot
 as the dump, then retrieves the approved public CMS media bytes. Preserve those

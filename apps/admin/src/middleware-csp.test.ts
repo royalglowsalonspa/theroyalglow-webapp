@@ -19,6 +19,10 @@
  *                _Requirements: 7.3_
  ************************************************************/
 
+import { randomBytes } from 'node:crypto'
+import { betterAuth } from 'better-auth'
+import { memoryAdapter } from 'better-auth/adapters/memory'
+import { makeSignature } from 'better-auth/crypto'
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { middleware } from './middleware'
@@ -122,6 +126,80 @@ describe('admin middleware — CSP nonce on the allow branch (Req 7.3)', () => {
     expect(connectSrc).toBe(
       "connect-src 'self' https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
     )
+  })
+})
+
+describe('admin middleware — current session after role handover', () => {
+  it('denies a revoked login carrying a valid signed session-cache cookie', async () => {
+    const origin = 'https://admin.theroyalglow.in'
+    const secret = randomBytes(32).toString('hex')
+    const token = randomBytes(32).toString('hex')
+    const now = new Date()
+    const userId = 'rehearsal_manager'
+    const sessions = [
+      {
+        id: 'rehearsal_session',
+        token,
+        userId,
+        expiresAt: new Date(now.getTime() + 60 * 60 * 1000),
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]
+    const auth = betterAuth({
+      baseURL: origin,
+      secret,
+      database: memoryAdapter({
+        user: [
+          {
+            id: userId,
+            name: 'Rehearsal Manager',
+            email: 'manager@example.invalid',
+            emailVerified: true,
+            role: 'manager',
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        session: sessions,
+      }),
+      user: { additionalFields: { role: { type: 'string', input: false } } },
+      session: { cookieCache: { enabled: true, maxAge: 5 * 60 } },
+    })
+    vi.stubEnv('BETTER_AUTH_SECRET', secret)
+    vi.stubGlobal('fetch', (input: string, init: RequestInit) =>
+      auth.handler(new Request(input, init)),
+    )
+
+    const tokenCookie = `__Secure-better-auth.session_token=${token}.${await makeSignature(token, secret)}`
+    const sessionResponse = await auth.handler(
+      new Request(`${origin}/api/auth/get-session`, { headers: { cookie: tokenCookie } }),
+    )
+    const cacheCookie = sessionResponse.headers
+      .getSetCookie()
+      .find((cookie) => cookie.startsWith('__Secure-better-auth.session_data='))
+      ?.split(';', 1)[0]
+    expect(cacheCookie).toBeDefined()
+
+    const request = () =>
+      new NextRequest(`${origin}/leads`, {
+        headers: { cookie: `${tokenCookie}; ${cacheCookie}` },
+      })
+
+    expect((await middleware(request())).status).toBe(200)
+    sessions.length = 0
+    const denied = await middleware(request())
+    expect(denied.status).toBe(307)
+    expect(denied.cookies.get('__Secure-better-auth.session_token')?.value).toBe('')
+  })
+
+  it('fails closed when the same-origin session check is unreachable', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Session endpoint unavailable')))
+
+    const response = await middleware(makeAuthorizedRequest('/leads'))
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get('Content-Security-Policy')).toBeNull()
   })
 })
 

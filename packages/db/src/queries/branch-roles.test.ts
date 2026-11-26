@@ -208,6 +208,7 @@ describe('applyBranchRolePlan', () => {
     expect(await applyBranchRolePlan({ snapshot: SNAPSHOT, writes: [], audit: AUDIT })).toEqual({
       ok: true,
       signedOut: [],
+      realtimeRevocationUserIds: [],
       reassignments: 0,
     })
     expect(fake.records).toHaveLength(0)
@@ -216,7 +217,12 @@ describe('applyBranchRolePlan', () => {
   it('runs the change as one transaction: defer, lock, re-check, write, release, audit', async () => {
     const result = await applyBranchRolePlan({ snapshot: SNAPSHOT, writes: HANDOVER, audit: AUDIT })
 
-    expect(result).toEqual({ ok: true, signedOut: ['own'], reassignments: 0 })
+    expect(result).toEqual({
+      ok: true,
+      signedOut: ['own'],
+      realtimeRevocationUserIds: ['own'],
+      reassignments: 0,
+    })
     expect(fake.batches).toHaveLength(1)
     const statements = fake.batches[0] ?? []
     expect(statements.map((s) => s.op)).toEqual([
@@ -343,19 +349,35 @@ describe('applyBranchRolePlan', () => {
   })
 
   it('clears a branch Manager with a compare-and-set on the current one', async () => {
-    await applyBranchRolePlan({
+    const result = await applyBranchRolePlan({
       snapshot: SNAPSHOT,
-      writes: [{ kind: 'branch_manager', branchId: 'b1', from: 'mgr', to: null }],
+      writes: [
+        { kind: 'branch_manager', branchId: 'b1', from: 'mgr', to: null },
+        { kind: 'revoke_realtime', userId: 'mgr' },
+      ],
       audit: AUDIT,
     })
 
-    expect(render(fake.batches[0]?.[4]?.args[0])).toEqual({
+    const statements = fake.batches[0] ?? []
+    expect(render(statements[4]?.args[0])).toEqual({
       sql:
         'with changed as (update "branch" set "manager_user_id" = $1, "updated_at" = now() ' +
         'where "branch"."id" = $2 and "branch"."manager_user_id" is not distinct from $3 returning 1) ' +
         'select 1 / count(*)::int as ok from changed',
       params: [null, 'b1', 'mgr'],
     })
+    expect(result).toEqual({
+      ok: true,
+      signedOut: [],
+      realtimeRevocationUserIds: ['mgr'],
+      reassignments: 0,
+    })
+    expect(statements.filter((s) => s.op === 'delete')).toEqual([])
+    const revocations = statements.filter(
+      (s) => s.op === 'insert' && s.args[0] === realtimeRevocation,
+    )
+    expect(revocations).toHaveLength(1)
+    expect(argOf(revocations[0], 'values')).toEqual({ userId: 'mgr' })
   })
 
   it.each([

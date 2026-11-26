@@ -63,14 +63,78 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+  admin-signed-e2e:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - uses: ./.github/actions/synthetic-postgres
+      - name: Build admin for loopback
+        env:
+          BETTER_AUTH_URL: http://127.0.0.1:3001
+          NEXT_PUBLIC_APP_URL: http://127.0.0.1:3001
+          NEXT_PUBLIC_WEB_ORIGIN: http://127.0.0.1:3000
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: |
+          export DATABASE_URL="${DATABASE_URL/127.0.0.1/localhost}"
+          export NODE_OPTIONS="--import=$RGSS_LOCAL_DB_PRELOAD"
+          bun --no-env-file run --filter @rgss/admin build
+      - name: Verify signed admin handover and staffing against PostgreSQL
+        env:
+          ADMIN_E2E_LOCAL_HANDOVER: '1'
+          BETTER_AUTH_URL: http://127.0.0.1:3001
+          COOKIE_DOMAIN: '127.0.0.1'
+          NEXT_PUBLIC_APP_URL: http://127.0.0.1:3001
+          NEXT_PUBLIC_WEB_ORIGIN: http://127.0.0.1:3000
+          NEXT_TELEMETRY_DISABLED: '1'
+          PLAYWRIGHT_ADMIN_BASE_URL: http://127.0.0.1:3001
+        shell: bash
+        run: |
+          umask 077
+          export ADMIN_E2E_STATE_DIR
+          ADMIN_E2E_STATE_DIR=$(mktemp -d "$RUNNER_TEMP/rgss-admin-auth.XXXXXXXX")
+          cleanup() {
+            if [ -n "${admin_pid:-}" ]; then
+              kill "$admin_pid" 2>/dev/null || true
+              wait "$admin_pid" 2>/dev/null || true
+            fi
+            rm -f -- "$ADMIN_E2E_STATE_DIR"/{owner.json,manager.json,admin.log}
+            rmdir -- "$ADMIN_E2E_STATE_DIR"
+          }
+          trap cleanup EXIT
+
+          export DATABASE_URL="${DATABASE_URL/127.0.0.1/localhost}"
+          if ! bun --no-env-file apps/admin/scripts/prepare-local-handover-sessions.mjs \
+            > "$ADMIN_E2E_STATE_DIR/admin.log" 2>&1; then
+            echo 'Could not prepare test-only Owner and Manager sessions.' >&2
+            exit 1
+          fi
+          node --import "$RGSS_LOCAL_DB_PRELOAD" apps/admin/node_modules/next/dist/bin/next \
+            start apps/admin --hostname 127.0.0.1 --port 3001 \
+            >> "$ADMIN_E2E_STATE_DIR/admin.log" 2>&1 &
+          admin_pid=$!
+
+          curl --silent --show-error --fail --retry 30 --retry-all-errors --retry-delay 1 \
+            --max-time 2 "$PLAYWRIGHT_ADMIN_BASE_URL/api/health" | jq -e '.status == "healthy"' > /dev/null
+          # The specs use Playwright HTTP contexts and share the branch-role ledger.
+          bun --no-env-file run --filter @rgss/admin test:e2e --reporter=line --workers=1 \
+            local-role-handover.spec.ts local-staffing.spec.ts
+
   integration-success:
     name: Integration Success
     runs-on: ubuntu-26.04
     timeout-minutes: 2
     if: always()
-    needs: [integration-tests, playwright-e2e]
+    needs: [integration-tests, playwright-e2e, admin-signed-e2e]
     steps:
-      - name: Require both suites to pass
+      - name: Require all suites to pass
         env:
           RESULTS: ${{ toJSON(needs.*.result) }}
         run: jq -e 'all(. == "success")' <<< "$RESULTS" >/dev/null
