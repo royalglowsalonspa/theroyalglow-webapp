@@ -43,13 +43,18 @@ const row = (id: string, userId: string, requestedAt: Date) => ({
 })
 
 const fetchMock = vi.fn()
+const confirmedTarget = (userId: string) => ({
+  target: `clientId:${userId}`,
+  issuedBefore: NOW.getTime(),
+  appliesAt: NOW.getTime(),
+})
 
 beforeEach(() => {
   vi.clearAllMocks()
   vi.stubGlobal('fetch', fetchMock)
   vi.stubEnv('ABLY_PRIVATE_KEY', 'app123.key456:secret789')
   dbMocks.resolveRealtimeRevocations.mockImplementation(async (ids: string[]) => ids.length)
-  fetchMock.mockResolvedValue(new Response('{"successCount":1,"failureCount":0}', { status: 201 }))
+  fetchMock.mockResolvedValue(Response.json([confirmedTarget('u1')], { status: 201 }))
 })
 
 afterEach(() => {
@@ -103,17 +108,39 @@ describe('processRealtimeRevocations', () => {
     expect(run.nextAt).toEqual(new Date(requestedAt.getTime() + TOKEN_REQUEST_WINDOW_MS))
   })
 
+  it.each([
+    ['REST array', [confirmedTarget('u2'), confirmedTarget('u1')]],
+    [
+      'SDK batch',
+      { successCount: 2, failureCount: 0, results: [confirmedTarget('u2'), confirmedTarget('u1')] },
+    ],
+  ])('accepts a complete %s independent of response order', async (_format, body) => {
+    dbMocks.getPendingRealtimeRevocations.mockResolvedValue([
+      row('r1', 'u1', ago(TOKEN_REQUEST_WINDOW_MS + 1000)),
+      row('r2', 'u2', ago(TOKEN_REQUEST_WINDOW_MS + 1000)),
+    ])
+    fetchMock.mockResolvedValue(Response.json(body, { status: 201 }))
+
+    expect(await processRealtimeRevocations({ now: NOW })).toMatchObject({ resolved: 2, failed: 0 })
+    expect(dbMocks.resolveRealtimeRevocations).toHaveBeenCalledWith(['r1', 'r2'], 'revoked', NOW)
+  })
+
   it('records a refused call and stays pending', async () => {
     dbMocks.getPendingRealtimeRevocations.mockResolvedValue([
       row('r1', 'u1', ago(TOKEN_REQUEST_WINDOW_MS + 1000)),
     ])
-    fetchMock.mockResolvedValue(new Response('{"error":{"code":40160}}', { status: 401 }))
+    fetchMock.mockResolvedValue(
+      Response.json(
+        { error: { code: 40160, message: 'Provider echoed clientId:u1 in diagnostics' } },
+        { status: 401 },
+      ),
+    )
 
     const run = await processRealtimeRevocations({ now: NOW })
 
     expect(dbMocks.recordRealtimeRevocationAttempt).toHaveBeenCalledWith(
       ['r1'],
-      expect.stringContaining('Ably 401'),
+      'Ably 401 (code 40160)',
       NOW,
     )
     expect(dbMocks.resolveRealtimeRevocations).not.toHaveBeenCalledWith(
@@ -124,37 +151,55 @@ describe('processRealtimeRevocations', () => {
     expect(run).toMatchObject({ pending: 1, failed: 1 })
   })
 
-  it('treats a partial batch as a failure', async () => {
+  it.each([400, 207])('keeps all targets pending on a partial HTTP %i response', async (status) => {
     dbMocks.getPendingRealtimeRevocations.mockResolvedValue([
       row('r1', 'u1', ago(TOKEN_REQUEST_WINDOW_MS + 1000)),
       row('r2', 'u2', ago(TOKEN_REQUEST_WINDOW_MS + 1000)),
     ])
     fetchMock.mockResolvedValue(
-      new Response('{"successCount":1,"failureCount":1}', { status: 201 }),
+      Response.json(
+        {
+          error: { code: 40020 },
+          batchResponse: [confirmedTarget('u1'), { target: 'clientId:u2', error: { code: 40160 } }],
+        },
+        { status },
+      ),
     )
 
-    expect((await processRealtimeRevocations({ now: NOW })).failed).toBe(2)
+    expect(await processRealtimeRevocations({ now: NOW })).toMatchObject({ pending: 2, failed: 2 })
+    expect(dbMocks.resolveRealtimeRevocations).not.toHaveBeenCalledWith(
+      ['r1', 'r2'],
+      'revoked',
+      expect.anything(),
+    )
   })
 
-  it.each(['', '{}', '<html>Unexpected response</html>', '{"successCount":0,"failureCount":0}'])(
-    'leaves the outbox entry pending on an unconfirmed response %j',
-    async (body) => {
-      dbMocks.getPendingRealtimeRevocations.mockResolvedValue([
-        row('r1', 'u1', ago(TOKEN_REQUEST_WINDOW_MS + 1000)),
-      ])
-      fetchMock.mockResolvedValue(new Response(body, { status: 200 }))
+  it.each([
+    '',
+    '{}',
+    '<html>Unexpected response</html>',
+    '{"successCount":1,"failureCount":0}',
+    JSON.stringify([confirmedTarget('another-user')]),
+    JSON.stringify([confirmedTarget('u1'), confirmedTarget('u1')]),
+    JSON.stringify([{ ...confirmedTarget('u1'), appliesAt: null }]),
+    JSON.stringify([{ ...confirmedTarget('u1'), error: { code: 40160 } }]),
+    JSON.stringify({ successCount: 0, failureCount: 1, results: [confirmedTarget('u1')] }),
+  ])('leaves the outbox entry pending on an unconfirmed response %j', async (body) => {
+    dbMocks.getPendingRealtimeRevocations.mockResolvedValue([
+      row('r1', 'u1', ago(TOKEN_REQUEST_WINDOW_MS + 1000)),
+    ])
+    fetchMock.mockResolvedValue(new Response(body, { status: 201 }))
 
-      expect(await processRealtimeRevocations({ now: NOW })).toMatchObject({
-        pending: 1,
-        failed: 1,
-      })
-      expect(dbMocks.resolveRealtimeRevocations).not.toHaveBeenCalledWith(
-        ['r1'],
-        'revoked',
-        expect.anything(),
-      )
-    },
-  )
+    expect(await processRealtimeRevocations({ now: NOW })).toMatchObject({
+      pending: 1,
+      failed: 1,
+    })
+    expect(dbMocks.resolveRealtimeRevocations).not.toHaveBeenCalledWith(
+      ['r1'],
+      'revoked',
+      expect.anything(),
+    )
+  })
 
   it('closes rows past the token lifetime as expired, without calling Ably', async () => {
     dbMocks.getPendingRealtimeRevocations.mockResolvedValue([

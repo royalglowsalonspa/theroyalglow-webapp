@@ -3,7 +3,7 @@
  * Scope        : Realtime — revoke live-update tokens after a role change (R2.6)
  *
  * Description  : A role or branch change records a pending revocation for each
- *                person it signs out, in the same transaction. This asks Ably
+ *                affected person in the same transaction. This asks Ably
  *                to revoke their tokens and records how each one ended:
  *                  - revoked:        Ably confirmed a revocation made after
  *                                    every token with the old access could
@@ -34,6 +34,7 @@ import {
   resolveRealtimeRevocations,
 } from '@rgss/db/queries'
 import { createLogger } from '@rgss/logger'
+import { z } from 'zod'
 import { enqueueJob } from '@/lib/jobs/enqueue'
 import {
   type LiveUpdatesStatus,
@@ -71,11 +72,28 @@ export function revocationStep(requestedAt: Date, now: Date): RevocationStep {
 
 type AblyRevokeResult = { ok: true } | { ok: false; error: string }
 
+const ablyRevocationConfirmations = z.array(
+  z.object({
+    target: z.string(),
+    issuedBefore: z.int().positive(),
+    appliesAt: z.int().positive(),
+    error: z.never().optional(),
+  }),
+)
+const ablyRevocationBatch = z.object({
+  results: ablyRevocationConfirmations,
+  successCount: z.int().nonnegative(),
+  failureCount: z.literal(0),
+  error: z.never().optional(),
+})
+const ablyError = z.object({ error: z.object({ code: z.int().positive() }) })
+
 // POST /keys/{keyName}/revokeTokens with clientId targets, Basic auth with the
 // same key that issued the tokens. A partial result counts as a failure for
 // the whole call; revoking someone twice is harmless.
 async function revokeAtAbly(apiKey: string, userIds: readonly string[]): Promise<AblyRevokeResult> {
   const keyName = apiKey.split(':')[0] ?? ''
+  const targets = userIds.map((id) => `clientId:${id}`)
   try {
     const res = await fetch(
       `https://rest.ably.io/keys/${encodeURIComponent(keyName)}/revokeTokens`,
@@ -86,15 +104,17 @@ async function revokeAtAbly(apiKey: string, userIds: readonly string[]): Promise
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
-        body: JSON.stringify({ targets: userIds.map((id) => `clientId:${id}`) }),
+        body: JSON.stringify({ targets }),
         signal: AbortSignal.timeout(REVOKE_TIMEOUT_MS),
       },
     )
-    const text = await res.text()
+    const body: unknown = await res.json().catch(() => null)
     if (!res.ok) {
-      return { ok: false, error: `Ably ${res.status}: ${text.slice(0, 300)}` }
+      const error = ablyError.safeParse(body)
+      const code = error.success ? ` (code ${error.data.error.code})` : ''
+      return { ok: false, error: `Ably ${res.status}${code}` }
     }
-    if (!confirmsRevocationBatch(text, userIds.length)) {
+    if (res.status !== 201 || !confirmsRevocationBatch(body, targets)) {
       return { ok: false, error: 'Ably did not confirm revocation for every target' }
     }
     return { ok: true }
@@ -103,13 +123,23 @@ async function revokeAtAbly(apiKey: string, userIds: readonly string[]): Promise
   }
 }
 
-function confirmsRevocationBatch(text: string, targetCount: number): boolean {
-  try {
-    const body: { successCount?: unknown; failureCount?: unknown } | null = JSON.parse(text)
-    return body?.successCount === targetCount && body.failureCount === 0
-  } catch {
-    return false
+function confirmsRevocationBatch(body: unknown, targets: readonly string[]): boolean {
+  // Ably documents a per-target REST array. Its SDK batch response wraps the
+  // same results with counters, which by themselves do not confirm identities.
+  let results: z.infer<typeof ablyRevocationConfirmations>
+  if (Array.isArray(body)) {
+    const response = ablyRevocationConfirmations.safeParse(body)
+    if (!response.success) return false
+    results = response.data
+  } else {
+    const response = ablyRevocationBatch.safeParse(body)
+    if (!response.success || response.data.successCount !== targets.length) return false
+    results = response.data.results
   }
+  const unconfirmed = new Set(targets)
+  return (
+    results.length === targets.length && results.every(({ target }) => unconfirmed.delete(target))
+  )
 }
 
 export type RevocationRun = {
@@ -224,13 +254,13 @@ function secondsUntil(at: Date | null, now: Date): number {
 }
 
 /**
- * Right after a role change commits: revoke the signed-out people's tokens now
+ * Right after a role change commits: revoke the affected people's old tokens now
  * and queue the follow-up that finishes the job. Never throws.
  * - stopped:        their live connections were cut off
  * - retrying:       Ably didn't confirm; the job keeps trying, and their tokens
  *                   expire within OLD_TOKENS_GONE_AFTER_MS regardless
  * - not_configured: realtime is off
- * - none:           nobody was signed out
+ * - none:           no person needed token revocation
  */
 export async function revokeLiveUpdates(userIds: readonly string[]): Promise<LiveUpdatesStatus> {
   if (userIds.length === 0) {

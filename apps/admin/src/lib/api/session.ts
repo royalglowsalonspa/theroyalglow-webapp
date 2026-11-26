@@ -46,7 +46,10 @@ export async function requireSession() {
     return dev as unknown as NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>
   }
 
-  const session = await auth.api.getSession({ headers: await headers() })
+  const session = await auth.api.getSession({
+    headers: await headers(),
+    query: { disableCookieCache: true },
+  })
   if (!session) {
     throw new AppError({
       code: ERROR_CODES.UNAUTHENTICATED,
@@ -67,7 +70,10 @@ export async function getOptionalSession() {
   if (dev) {
     return dev as unknown as Awaited<ReturnType<typeof auth.api.getSession>>
   }
-  return auth.api.getSession({ headers: await headers() })
+  return auth.api.getSession({
+    headers: await headers(),
+    query: { disableCookieCache: true },
+  })
 }
 
 const ROLE_LEVELS: Record<string, number> = {
@@ -81,9 +87,7 @@ const ROLE_LEVELS: Record<string, number> = {
 
 /**
  * Authenticate and require at least `minRole`, judged on the role stored now.
- * Better Auth can answer getSession from its 5-minute cookie cache, so the
- * session's own role may predate a role change; it is never trusted here
- * (multi-branch R2.2). The returned session carries the current role.
+ * The returned session carries the current role (multi-branch R2.2).
  */
 export async function requireRole(minRole: keyof typeof ROLE_LEVELS) {
   const session = await requireSession()

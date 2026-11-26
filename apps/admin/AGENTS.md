@@ -26,9 +26,9 @@ For the contributor overview, configuration, and route map, read [README.md](REA
   `/me/*` is staff self-service; `/staff` is manager-level staff administration.
 - Keep the RBAC decision core free of framework imports, database calls, and I/O.
   Route matching uses path-segment boundaries and the longest matching prefix.
-- Middleware is edge-compatible. It verifies Better Auth's signed cookie cache,
-  then falls back to same-origin `/api/auth/get-session`; do not import
-  `auth-server`, the database client, or Node-only cryptography into middleware.
+- Middleware is edge-compatible. It authorizes pages through the same-origin
+  `/api/auth/get-session` endpoint with the cookie cache bypassed. Keep
+  `auth-server`, the database client, and Node-only cryptography out of middleware.
 - Preserve recognition of both bare and `__Secure-` session cookie names.
   Preserve failure-closed authentication, the per-request CSP nonce, and noindex
   metadata/headers for this private app.

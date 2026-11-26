@@ -154,7 +154,12 @@ beforeEach(() => {
   vi.clearAllMocks()
   actAs('mgr1')
   dbMocks.getRoleSnapshot.mockResolvedValue(SNAPSHOT)
-  dbMocks.applyBranchRolePlan.mockResolvedValue({ ok: true, signedOut: [], reassignments: 0 })
+  dbMocks.applyBranchRolePlan.mockResolvedValue({
+    ok: true,
+    signedOut: [],
+    realtimeRevocationUserIds: [],
+    reassignments: 0,
+  })
   dbMocks.countUpcomingAssignments.mockResolvedValue(0)
   revokeLiveUpdates.mockResolvedValue('none')
 })
@@ -485,6 +490,7 @@ describe('POST /api/staff/[id]/remove', () => {
     dbMocks.applyBranchRolePlan.mockResolvedValue({
       ok: true,
       signedOut: ['sty1'],
+      realtimeRevocationUserIds: ['sty1'],
       reassignments: 3,
     })
     revokeLiveUpdates.mockResolvedValue('stopped')

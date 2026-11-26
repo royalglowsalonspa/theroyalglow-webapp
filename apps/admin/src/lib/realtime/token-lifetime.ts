@@ -16,7 +16,7 @@ export const TOKEN_REQUEST_WINDOW_MS = 3 * 60 * 1000
 /** After this, no token issued with the old access can still be valid. */
 export const OLD_TOKENS_GONE_AFTER_MS = TOKEN_TTL_MS + TOKEN_REQUEST_WINDOW_MS
 
-/** What a role change reports about the signed-out people's live updates. */
+/** What a role change reports about the affected people's old realtime tokens. */
 export type LiveUpdatesStatus = 'stopped' | 'retrying' | 'not_configured' | 'none'
 
 /** What to tell the person who made a role change, or null when nothing needs saying. */

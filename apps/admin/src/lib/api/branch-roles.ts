@@ -95,7 +95,7 @@ export type BranchRoleChangeResult = {
   /** False when the request was already satisfied: nothing was written. */
   changed: boolean
   signedOut: string[]
-  /** Whether the signed-out people's live updates were cut off (R2.6). */
+  /** Whether tokens issued before the access change were revoked (R2.6). */
   liveUpdates: LiveUpdatesStatus
   /** Confirmed bookings still to come that lost their assignee (R1.7). */
   reassignments: number
@@ -139,7 +139,7 @@ export async function changeBranchRole(
   if (!result.ok) {
     throw conflict(ERROR_CODES.CONFLICT, STALE_MESSAGE)
   }
-  const liveUpdates = await revokeLiveUpdates(result.signedOut)
+  const liveUpdates = await revokeLiveUpdates(result.realtimeRevocationUserIds)
   return {
     plan,
     snapshot,

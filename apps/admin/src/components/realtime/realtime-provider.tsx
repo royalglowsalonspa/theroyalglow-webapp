@@ -61,7 +61,7 @@ import { ReconnectIndicator } from './reconnect-indicator'
 // - connecting   : establishing / re-establishing the connection
 // - connected    : live, subscriptions active
 // - disconnected : connection lost, reconnecting (indicator visible)
-// - unavailable  : realtime not configured (503) or `ably` not installed
+// - unavailable  : token access denied, realtime unconfigured, or SDK unavailable
 export type RealtimeStatus = 'connecting' | 'connected' | 'disconnected' | 'unavailable'
 
 type RealtimeContextValue = {
@@ -150,10 +150,25 @@ export function RealtimeProvider({
   // Lazily create the Ably client once on mount. Token Auth via authCallback.
   useEffect(() => {
     let cancelled = false
-    let client: AblyRealtimeClient | null = null
     // Tracks whether we were ever connected, so a later drop is a "reconnect"
     // rather than the initial connect.
     let hasConnected = false
+
+    function closeClient() {
+      const live = clientRef.current
+      clientRef.current = null
+      live?.connection.off()
+      live?.close()
+    }
+
+    function markUnavailable() {
+      if (cancelled) {
+        return
+      }
+      closeClient()
+      setStatus('unavailable')
+      setReconnecting(false)
+    }
 
     async function connect() {
       // Realtime is opt-in. When no public Ably key is configured (local dev,
@@ -177,7 +192,7 @@ export function RealtimeProvider({
         return
       }
 
-      client = new Realtime({
+      const client = new Realtime({
         autoConnect: true,
         closeOnUnload: true,
         // Surface reconnection promptly without being trigger-happy. The
@@ -187,16 +202,20 @@ export function RealtimeProvider({
         disconnectedRetryTimeout: 2000,
         authCallback: (_tokenParams, callback) => {
           // Fetch a subscribe-only admin token from the local token route and
-          // unwrap the { success, data } envelope. A 503 (realtime not
-          // configured) or any error flows back as an auth error → the
-          // connection fails and we degrade to "unavailable".
+          // unwrap the { success, data } envelope.
           fetch('/api/ably/token', {
             method: 'POST',
             headers: { accept: 'application/json' },
           })
             .then(async (res) => {
               if (!res.ok) {
-                throw new Error(`token route ${res.status}`)
+                callback(new Error(`token route ${res.status}`), null)
+                // A dismissed session or unavailable configuration should not
+                // cause another token request every time the SDK reconnects.
+                if (res.status === 401 || res.status === 403 || res.status === 503) {
+                  markUnavailable()
+                }
+                return
               }
               const json = (await res.json()) as { success?: boolean; data?: unknown }
               if (!json.success || json.data == null) {
@@ -204,19 +223,7 @@ export function RealtimeProvider({
               }
               callback(null, json.data)
             })
-            .catch((error) => {
-              // A 503 means realtime is intentionally not configured
-              // (ABLY_PRIVATE_KEY unset). Stop Ably's retry storm: report the
-              // auth failure, then close the client so it does not keep
-              // re-requesting the token every couple of seconds.
-              callback(error, null)
-              if (String((error as Error)?.message ?? '').includes('503')) {
-                if (!cancelled) {
-                  setStatus('unavailable')
-                }
-                clientRef.current?.close()
-              }
-            })
+            .catch((error) => callback(error, null))
         },
       })
 
@@ -258,25 +265,14 @@ export function RealtimeProvider({
       })
 
       // Terminal failure (e.g. token route 503) → unavailable, no indicator.
-      client.connection.on(['failed', 'closed'], () => {
-        if (cancelled) {
-          return
-        }
-        setStatus('unavailable')
-        setReconnecting(false)
-      })
+      client.connection.on(['failed', 'closed'], markUnavailable)
     }
 
     connect()
 
     return () => {
       cancelled = true
-      const live = clientRef.current
-      if (live) {
-        live.connection.off()
-        live.close()
-      }
-      clientRef.current = null
+      closeClient()
     }
   }, [resubscribeAll])
 

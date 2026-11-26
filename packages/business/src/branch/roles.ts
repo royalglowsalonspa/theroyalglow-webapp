@@ -102,6 +102,7 @@ export type RoleWrite =
       specialization?: string | null | undefined
     }
   | { kind: 'end_sessions'; userId: string }
+  | { kind: 'revoke_realtime'; userId: string }
 
 /**
  * - forbidden:   the actor may not make this change
@@ -140,6 +141,7 @@ class WritePlan {
   private readonly roleWrites: RoleWrite[] = []
   private readonly activations: RoleWrite[] = []
   private readonly signOuts = new Set<string>()
+  private readonly realtimeRevocations = new Set<string>()
 
   add(write: RoleWrite): this {
     switch (write.kind) {
@@ -158,6 +160,9 @@ class WritePlan {
         break
       case 'end_sessions':
         this.signOuts.add(write.userId)
+        break
+      case 'revoke_realtime':
+        this.realtimeRevocations.add(write.userId)
         break
     }
     return this
@@ -182,6 +187,13 @@ class WritePlan {
         ...this.roleWrites,
         ...this.activations,
         ...signedOut.map((userId): RoleWrite => ({ kind: 'end_sessions', userId })),
+        ...Array.from(
+          this.realtimeRevocations,
+          (userId): RoleWrite => ({
+            kind: 'revoke_realtime',
+            userId,
+          }),
+        ),
       ],
       signedOut,
     }
@@ -303,6 +315,8 @@ function planOwner(
     )
     if (!ownsAnother) {
       plan.demote(previous, activeProfileOf(snapshot, previous.id) !== null)
+    } else {
+      plan.add({ kind: 'revoke_realtime', userId: previous.id })
     }
   }
   return plan.done()
@@ -328,6 +342,8 @@ function replaceManager(
   )
   if (!managesAnother) {
     plan.demote(previous, activeProfileOf(snapshot, previous.id) !== null)
+  } else {
+    plan.add({ kind: 'revoke_realtime', userId: previous.id })
   }
   return null
 }
@@ -359,6 +375,9 @@ function planManager(
       return refuse('unavailable', 'This person works at another branch.')
     }
     plan.add({ kind: 'user_role', userId: target.id, from: target.role, to: 'manager' })
+    if (role === 'receptionist' && from !== branch.id) {
+      plan.add({ kind: 'revoke_realtime', userId: target.id })
+    }
   } else {
     return refuse('unavailable', 'An Owner cannot be a Manager.')
   }
@@ -580,6 +599,7 @@ export function applyRoleWrites(
         })
         break
       case 'end_sessions':
+      case 'revoke_realtime':
         break
     }
   }

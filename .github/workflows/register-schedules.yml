@@ -1,5 +1,5 @@
 name: Register QStash Schedules
-run-name: Register production QStash schedules (${{ inputs.dry_run && 'dry run' || 'apply' }})
+run-name: Production QStash (${{ inputs.operation == 'register' && (inputs.dry_run && 'dry run' || 'apply') || inputs.operation }})
 
 # ---------------------------------------------------------------------------
 # MANUAL registrar for the QStash scheduled background jobs.
@@ -17,6 +17,8 @@ run-name: Register production QStash schedules (${{ inputs.dry_run && 'dry run' 
 # A dry run is the default and can show every job. Apply requires explicit
 # job keys. It adds missing selected jobs and leaves matching schedules in
 # place. Resolve paused, duplicate, or mismatched schedules explicitly.
+# Verify checks the whole production inventory without changing it. The signed
+# canary sends only a probe with no invoice ID and never registers schedules.
 #
 # Run it after any change to the job schedule definitions, and once after the
 # first successful AWS admin deployment.
@@ -31,8 +33,16 @@ run-name: Register production QStash schedules (${{ inputs.dry_run && 'dry run' 
 on:
   workflow_dispatch:
     inputs:
+      operation:
+        description: 'Register schedules, verify the full inventory, or run a signed probe without an invoice'
+        type: choice
+        default: register
+        options:
+          - register
+          - verify
+          - signed-canary
       dry_run:
-        description: 'Preview schedules without making provider changes'
+        description: 'Preview schedule registration without making provider changes'
         type: boolean
         default: true
       jobs:
@@ -77,12 +87,13 @@ jobs:
       - run: bun install --frozen-lockfile
 
       # Registration targets the ADMIN origin. Workflow inputs become arguments.
-      - name: Register QStash schedules (idempotent)
+      - name: Register QStash schedules or run the selected production check
         working-directory: apps/admin
         env:
           QSTASH_TOKEN: ${{ secrets.QSTASH_TOKEN }}
-          QSTASH_URL: ${{ vars.QSTASH_URL }}
+          QSTASH_URL: ${{ vars.QSTASH_URL || 'https://qstash.upstash.io' }}
           NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_ADMIN_URL }}
+          OPERATION: ${{ inputs.operation }}
           DRY_RUN: ${{ inputs.dry_run }}
           QSTASH_JOB_KEYS: ${{ inputs.jobs }}
         shell: bash
@@ -95,6 +106,20 @@ jobs:
             echo '::error title=Unexpected target::This workflow requires the production admin origin.'
             exit 1
           fi
+          case "$OPERATION" in
+            register) ;;
+            verify|signed-canary)
+              if [ "$DRY_RUN" != "true" ] || [ -n "$QSTASH_JOB_KEYS" ]; then
+                echo '::error title=Conflicting inputs::Leave dry run enabled and job selection empty for production checks.'
+                exit 1
+              fi
+              if [ "$OPERATION" = "verify" ]; then
+                exec bun scripts/rehearse-qstash-delivery.ts --production --verify-schedules
+              fi
+              exec bun scripts/rehearse-qstash-delivery.ts --production --confirm-no-invoice-delivery
+              ;;
+            *) echo '::error title=Invalid operation::Select register, verify, or signed-canary.'; exit 1 ;;
+          esac
           args=()
           case "$DRY_RUN" in
             true) args+=(--dry) ;;

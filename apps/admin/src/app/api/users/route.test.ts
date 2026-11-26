@@ -141,7 +141,12 @@ beforeEach(() => {
   vi.clearAllMocks()
   actAs('own1')
   mocks.getRoleSnapshot.mockResolvedValue(SNAPSHOT)
-  mocks.applyBranchRolePlan.mockResolvedValue({ ok: true, signedOut: [] })
+  mocks.applyBranchRolePlan.mockResolvedValue({
+    ok: true,
+    signedOut: [],
+    realtimeRevocationUserIds: [],
+    reassignments: 0,
+  })
   revokeLiveUpdates.mockResolvedValue('none')
 })
 
@@ -215,7 +220,11 @@ describe('POST /api/users', () => {
     )
 
     expect(res.status).toBe(200)
-    expect((await res.json()).data).toEqual({ changed: true, liveUpdates: 'none' })
+    expect((await res.json()).data).toEqual({
+      changed: true,
+      liveUpdates: 'none',
+      reassignments: 0,
+    })
     expect(revokeLiveUpdates).toHaveBeenCalledWith([])
     expect(mocks.getRoleSnapshot).toHaveBeenCalledWith('rs', ['own1', 'cus1'])
     const [{ snapshot, writes, audit }] = mocks.applyBranchRolePlan.mock.calls[0] ?? [{}]
@@ -237,6 +246,38 @@ describe('POST /api/users', () => {
       branchId: 'rs',
       oldValues: { role: 'customer', profile: null },
     })
+  })
+
+  it('revokes a shared Manager’s old realtime access while keeping their session', async () => {
+    mocks.getRoleSnapshot.mockResolvedValue({
+      ...SNAPSHOT,
+      branches: [branchRow('rs', 'own1', 'mgr1', 1), branchRow('mh', 'own2', 'mgr1', 2)],
+    })
+    mocks.applyBranchRolePlan.mockResolvedValue({
+      ok: true,
+      signedOut: [],
+      realtimeRevocationUserIds: ['mgr1'],
+      reassignments: 0,
+    })
+    revokeLiveUpdates.mockResolvedValue('stopped')
+
+    const res = await POST(post({ kind: 'remove', branchId: 'rs', userId: 'mgr1' }))
+
+    expect(res.status).toBe(200)
+    expect((await res.json()).data).toEqual({
+      changed: true,
+      liveUpdates: 'stopped',
+      reassignments: 0,
+    })
+    expect(mocks.applyBranchRolePlan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        writes: [
+          { kind: 'branch_manager', branchId: 'rs', from: 'mgr1', to: null },
+          { kind: 'revoke_realtime', userId: 'mgr1' },
+        ],
+      }),
+    )
+    expect(revokeLiveUpdates).toHaveBeenCalledExactlyOnceWith(['mgr1'])
   })
 
   it('refuses a tab rendered for another branch before reading anything', async () => {

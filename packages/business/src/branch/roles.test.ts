@@ -116,12 +116,18 @@ describe('Owner', () => {
       plan('own1', { kind: 'set_owner', branchId: 'mh', userId: 'cus1', expectedHolderId: 'own1' }),
     ).toMatchObject({ ok: false, code: 'forbidden' })
 
-    const next = after('dev1', {
-      kind: 'set_owner',
-      branchId: 'mh',
-      userId: 'cus1',
-      expectedHolderId: 'own1',
-    })
+    const result = accepted(
+      plan('dev1', {
+        kind: 'set_owner',
+        branchId: 'mh',
+        userId: 'cus1',
+        expectedHolderId: 'own1',
+      }),
+    )
+    const next = applyRoleWrites(BASE, result.writes)
+    expect(result.writes).toContainEqual({ kind: 'revoke_realtime', userId: 'own1' })
+    expect(result.signedOut).toEqual([])
+    expect(roleInvariantViolations(next)).toEqual([])
     expect(branchOf(next, 'mh')?.ownerUserId).toBe('cus1')
     expect(roleOf(next, 'cus1')).toBe('owner')
     expect(roleOf(next, 'own1')).toBe('owner')
@@ -147,12 +153,19 @@ describe('Owner', () => {
 
 describe('Manager', () => {
   it('lets the Owner add their Manager to another branch they own', () => {
-    const next = after('own1', {
-      kind: 'set_manager',
-      branchId: 'mh',
-      userId: 'mgr1',
-      expectedHolderId: null,
-    })
+    const result = accepted(
+      plan('own1', {
+        kind: 'set_manager',
+        branchId: 'mh',
+        userId: 'mgr1',
+        expectedHolderId: null,
+      }),
+    )
+    expect(result.writes).toEqual([
+      { kind: 'branch_manager', branchId: 'mh', from: null, to: 'mgr1' },
+    ])
+    const next = applyRoleWrites(BASE, result.writes)
+    expect(roleInvariantViolations(next)).toEqual([])
     expect(branchOf(next, 'mh')?.managerUserId).toBe('mgr1')
     expect(roleOf(next, 'mgr1')).toBe('manager')
   })
@@ -178,20 +191,58 @@ describe('Manager', () => {
     expect(result.signedOut).toEqual(['mgr1'])
   })
 
-  it('keeps a replaced Manager who still manages another branch', () => {
-    const shared = after('own1', {
-      kind: 'set_manager',
-      branchId: 'mh',
-      userId: 'mgr1',
-      expectedHolderId: null,
-    })
-    const next = after(
-      'own1',
-      { kind: 'set_manager', branchId: 'rs', userId: 'cus1', expectedHolderId: 'mgr1' },
-      shared,
+  it.each([
+    { kind: 'set_manager', branchId: 'rs', userId: 'cus1', expectedHolderId: 'mgr1' },
+    { kind: 'remove', branchId: 'rs', userId: 'mgr1' },
+  ] satisfies BranchRoleRequest[])(
+    'revokes a shared Manager’s old tokens on $kind while preserving their session',
+    (request) => {
+      const shared = after('own1', {
+        kind: 'set_manager',
+        branchId: 'mh',
+        userId: 'mgr1',
+        expectedHolderId: null,
+      })
+      const unchanged = accepted(
+        plan(
+          'own1',
+          {
+            kind: 'set_manager',
+            branchId: 'mh',
+            userId: 'mgr1',
+            expectedHolderId: 'mgr1',
+          },
+          shared,
+        ),
+      )
+      expect(unchanged.writes).toEqual([])
+
+      const result = accepted(plan('own1', request, shared))
+      expect(result.writes).toContainEqual({ kind: 'revoke_realtime', userId: 'mgr1' })
+      expect(result.signedOut).toEqual([])
+      const next = applyRoleWrites(shared, result.writes)
+      expect(roleInvariantViolations(next)).toEqual([])
+      expect(roleOf(next, 'mgr1')).toBe('manager')
+      expect(branchOf(next, 'mh')?.managerUserId).toBe('mgr1')
+      expect(branchOf(next, 'rs')?.managerUserId).not.toBe('mgr1')
+    },
+  )
+
+  it('revokes a Receptionist’s old token when promoting them at another branch', () => {
+    const result = accepted(
+      plan('own1', {
+        kind: 'set_manager',
+        branchId: 'mh',
+        userId: 'rec1',
+        expectedHolderId: null,
+      }),
     )
-    expect(roleOf(next, 'mgr1')).toBe('manager')
-    expect(branchOf(next, 'mh')?.managerUserId).toBe('mgr1')
+    expect(result.writes).toContainEqual({ kind: 'revoke_realtime', userId: 'rec1' })
+    expect(result.signedOut).toEqual([])
+    const next = applyRoleWrites(BASE, result.writes)
+    expect(roleInvariantViolations(next)).toEqual([])
+    expect(profileOf(next, 'rec1')).toMatchObject({ roleWitness: 'manager', branchId: null })
+    expect(branchOf(next, 'mh')?.managerUserId).toBe('rec1')
   })
 
   it('refuses an Owner as Manager, a Manager choosing a Manager, and another Owner', () => {

@@ -161,6 +161,7 @@ describe.skipIf(!LIVE)('branch role changes against a live database', () => {
                  (${`${R1}_p`}, ${R1}, 'receptionist', true, ${B1}, 'receptionist')`,
       sql`insert into session (id, user_id, expires_at, token)
           values (${`${O1}_s`}, ${O1}, now() + interval '1 day', ${`${O1}_token`}),
+                 (${`${M1}_s`}, ${M1}, now() + interval '1 day', ${`${M1}_token`}),
                  (${`${R1}_s`}, ${R1}, now() + interval '1 day', ${`${R1}_token`})`,
     )
   })
@@ -216,7 +217,12 @@ describe.skipIf(!LIVE)('branch role changes against a live database', () => {
       O2,
     )
 
-    expect(result).toEqual({ ok: true, signedOut: [O1], reassignments: 0 })
+    expect(result).toEqual({
+      ok: true,
+      signedOut: [O1],
+      realtimeRevocationUserIds: [O1],
+      reassignments: 0,
+    })
     expect(await branchRefs(B1)).toEqual({ owner_user_id: O2, manager_user_id: M1 })
     expect(await roleOf(O2)).toBe('owner')
     expect(await roleOf(O1)).toBe('customer')
@@ -290,7 +296,12 @@ describe.skipIf(!LIVE)('branch role changes against a live database', () => {
       C2,
     )
 
-    expect(result).toEqual({ ok: true, signedOut: [R1], reassignments: 0 })
+    expect(result).toEqual({
+      ok: true,
+      signedOut: [R1],
+      realtimeRevocationUserIds: [R1],
+      reassignments: 0,
+    })
     expect(await roleOf(R1)).toBe('customer')
     expect(await profileOf(R1)).toMatchObject({
       is_active: false,
@@ -445,7 +456,12 @@ describe.skipIf(!LIVE)('branch role changes against a live database', () => {
       ],
       C1,
     )
-    expect(remove).toEqual({ ok: true, signedOut: [C1], reassignments: 0 })
+    expect(remove).toEqual({
+      ok: true,
+      signedOut: [C1],
+      realtimeRevocationUserIds: [C1],
+      reassignments: 0,
+    })
     expect(await roleOf(C1)).toBe('customer')
     expect(await profileOf(C1)).toMatchObject({ is_active: false, role_witness: null })
 
@@ -483,18 +499,37 @@ describe.skipIf(!LIVE)('branch role changes against a live database', () => {
       getRoleSnapshot(B2, [ACTOR, M1]),
     ])
 
-    const results = await Promise.all([
-      apply(fromB1, [{ kind: 'branch_manager', branchId: B1, from: M1, to: null }], M1),
-      apply(fromB2, [{ kind: 'branch_manager', branchId: B2, from: M1, to: null }], M1),
-    ])
+    const results = await Promise.all(
+      [
+        { snapshot: fromB1, branchId: B1 },
+        { snapshot: fromB2, branchId: B2 },
+      ].map(({ snapshot, branchId }) =>
+        apply(
+          snapshot,
+          [
+            { kind: 'branch_manager', branchId, from: M1, to: null },
+            { kind: 'revoke_realtime', userId: M1 },
+          ],
+          M1,
+        ),
+      ),
+    )
 
-    expect(results.filter((r) => r.ok)).toHaveLength(1)
+    expect(results.filter((r) => r.ok)).toEqual([
+      { ok: true, signedOut: [], realtimeRevocationUserIds: [M1], reassignments: 0 },
+    ])
     expect(results.filter((r) => !r.ok)).toEqual([{ ok: false, reason: 'stale' }])
     const managed = await count(
       sql`select count(*) as n from branch where manager_user_id = ${M1} and id like ${`${PREFIX}%`}`,
     )
     expect(managed).toBe(1)
     expect(await roleOf(M1)).toBe('manager')
+    expect(await count(sql`select count(*) as n from session where user_id = ${M1}`)).toBe(1)
+    expect(
+      await count(sql`
+      select count(*) as n from realtime_revocation where user_id = ${M1} and resolved_at is null
+    `),
+    ).toBe(1)
   })
 
   it("waits for another change's lock on a person instead of running beside it", async () => {
@@ -518,7 +553,12 @@ describe.skipIf(!LIVE)('branch role changes against a live database', () => {
     const waited = Date.now() - started
     await holder
 
-    expect(result).toEqual({ ok: true, signedOut: [], reassignments: 0 })
+    expect(result).toEqual({
+      ok: true,
+      signedOut: [],
+      realtimeRevocationUserIds: [],
+      reassignments: 0,
+    })
     expect(waited).toBeGreaterThanOrEqual(1000)
     expect((await branchRefs(free))?.manager_user_id).toBe(M1)
   }, 20_000)
