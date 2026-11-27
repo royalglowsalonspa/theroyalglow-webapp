@@ -81,7 +81,11 @@ export const ROUTE_MIN_LEVEL: ReadonlyArray<readonly [string, number]> = [
   // admin-web-separation feature). Level 1 = `staff`. Does NOT collide with the
   // manager-level `/staff` (level 3) prefix — `/me` and `/staff` share no path
   // segment, so longest-prefix matching keeps them independent.
-  ['/me', 1],
+  ['/me', ROLE_LEVELS.staff],
+  // Self-service handlers authorize their operations and scope data to the caller.
+  ['/api/me/branch', ROLE_LEVELS.staff],
+  ['/api/me/leave', ROLE_LEVELS.staff],
+  ['/api/me/schedule', ROLE_LEVELS.staff],
   ['/', 2], // dashboard root — matched last (shortest prefix)
 ] as const
 

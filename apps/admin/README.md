@@ -39,7 +39,9 @@ ownership requirements. The authoritative page map and sidebar are in
 
 Admin paths are rooted directly at the admin host: use `/bookings`, not
 `/admin/bookings`. Legacy `/admin/*` redirects on the customer site are implemented
-in the web app. `/staff` manages the team; `/me/*` is personal staff self-service.
+in the web app. The portal root takes Stylists and Therapists to My Schedule.
+Receptionists and higher roles land on the operations dashboard. `/staff` manages
+the team. `/me/*` and its self-service APIs are scoped to the signed-in person.
 
 ## Local development
 

@@ -21,7 +21,8 @@ import type { NextRequest } from 'next/server'
  * Features / Functionality :
  * - Lightweight edge-safe session check (no kysely/DB imports — fetch only)
  * - Unauthenticated / invalid / error → bounce to the customer site
- * - Insufficient role → 403 (no redirect); sufficient role → forward request
+ * - A signed-in Staff visit to the portal root opens My Schedule
+ * - Other insufficient roles → 403; sufficient role → forward request
  *
  * Tech Stack   : Next.js 16 Middleware, Edge Runtime
  * Layer        : Infrastructure (Edge)
@@ -39,7 +40,7 @@ import type { NextRequest } from 'next/server'
  * - Requirements: 4.3, 4.4, 4.5, 4.6, 5.2, 5.5, 5.6, 7.3
  ************************************************************/
 import { NextResponse } from 'next/server'
-import { type AuthState, decide, resolveRoleLevel, routeMinLevel } from './lib/rbac'
+import { type AuthState, decide, ROLE_LEVELS, resolveRoleLevel, routeMinLevel } from './lib/rbac'
 
 /** Better Auth session cookie name (shared scope `.theroyalglow.in`). */
 const SESSION_COOKIE = 'better-auth.session_token'
@@ -233,6 +234,16 @@ export async function middleware(request: NextRequest) {
     }
 
     case 'forbid':
+      if (
+        pathname === '/' &&
+        (request.method === 'GET' || request.method === 'HEAD') &&
+        state.kind === 'valid' &&
+        state.roleLevel === ROLE_LEVELS.staff
+      ) {
+        return NextResponse.redirect(new URL('/me/schedule', request.nextUrl), {
+          headers: { 'Cache-Control': 'private, no-store' },
+        })
+      }
       // Valid session but insufficient role → 403, no redirect (Req 4.6, 5.2).
       return new NextResponse('Forbidden', { status: 403 })
 

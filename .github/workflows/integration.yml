@@ -86,7 +86,7 @@ jobs:
           export DATABASE_URL="${DATABASE_URL/127.0.0.1/localhost}"
           export NODE_OPTIONS="--import=$RGSS_LOCAL_DB_PRELOAD"
           bun --no-env-file run --filter @rgss/admin build
-      - name: Verify signed admin handover and staffing against PostgreSQL
+      - name: Verify signed admin handover, staffing, and Staff self-service
         env:
           ADMIN_E2E_LOCAL_HANDOVER: '1'
           BETTER_AUTH_URL: http://127.0.0.1:3001
@@ -105,7 +105,7 @@ jobs:
               kill "$admin_pid" 2>/dev/null || true
               wait "$admin_pid" 2>/dev/null || true
             fi
-            rm -f -- "$ADMIN_E2E_STATE_DIR"/{owner.json,manager.json,admin.log}
+            rm -f -- "$ADMIN_E2E_STATE_DIR"/{owner.json,manager.json,staff.json,admin.log}
             rmdir -- "$ADMIN_E2E_STATE_DIR"
           }
           trap cleanup EXIT
@@ -113,7 +113,7 @@ jobs:
           export DATABASE_URL="${DATABASE_URL/127.0.0.1/localhost}"
           if ! bun --no-env-file apps/admin/scripts/prepare-local-handover-sessions.mjs \
             > "$ADMIN_E2E_STATE_DIR/admin.log" 2>&1; then
-            echo 'Could not prepare test-only Owner and Manager sessions.' >&2
+            echo 'Could not prepare test-only Owner, Manager, and Staff sessions.' >&2
             exit 1
           fi
           node --import "$RGSS_LOCAL_DB_PRELOAD" apps/admin/node_modules/next/dist/bin/next \
@@ -125,7 +125,7 @@ jobs:
             --max-time 2 "$PLAYWRIGHT_ADMIN_BASE_URL/api/health" | jq -e '.status == "healthy"' > /dev/null
           # The specs use Playwright HTTP contexts and share the branch-role ledger.
           bun --no-env-file run --filter @rgss/admin test:e2e --reporter=line --workers=1 \
-            local-role-handover.spec.ts local-staffing.spec.ts
+            local-role-handover.spec.ts local-staffing.spec.ts local-staff-portal.spec.ts
 
   integration-success:
     name: Integration Success

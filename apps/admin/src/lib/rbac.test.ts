@@ -286,9 +286,8 @@ describe('Property 1: RBAC access decision is correct and monotonic in role leve
 //
 // For any path in the admin route table, a valid session at the `staff`
 // Role_Level (1) is allowed by decide(routeMinLevel(path)) iff that path
-// resolves under the `/me` namespace (routeMinLevel === 1); for the dashboard
-// root and every route whose minimum level is receptionist (2) or higher, the
-// same staff session is forbidden.
+// resolves under the `/me` namespace or an approved self-service API. Staff
+// cannot render the dashboard itself or access receptionist+ routes.
 
 describe('Property 5: Staff is granted access to exactly the self-service routes', () => {
   const staffState: AuthState = { kind: 'valid', roleLevel: ROLE_LEVELS.staff }
@@ -310,20 +309,18 @@ describe('Property 5: Staff is granted access to exactly the self-service routes
     fc.constantFrom('/me/schedule', '/me/leave', '/', '/bookings', '/staff', '/staff/123'),
   )
 
-  it('allows staff iff the route resolves under /me, forbids the rest', () => {
+  it('allows staff only on self-service pages and APIs', () => {
     fc.assert(
       fc.property(tablePathArb, (path) => {
         const min = routeMinLevel(path)
         const decision = decide(staffState, min)
 
-        // Staff (level 1) may pass only routes whose minimum level is <= 1, which
-        // in the admin table is exactly the `/me` self-service namespace.
-        const resolvesUnderMe = path === '/me' || path.startsWith('/me/')
+        const selfService =
+          /^\/me(?:\/|$)/.test(path) || /^\/api\/me\/(?:branch|leave|schedule)(?:\/|$)/.test(path)
         const allowed = decision.action === 'allow'
 
         expect(allowed).toBe(min <= ROLE_LEVELS.staff)
-        // Routes that resolve under /me are exactly the level-1 routes.
-        expect(min <= ROLE_LEVELS.staff).toBe(resolvesUnderMe)
+        expect(min <= ROLE_LEVELS.staff).toBe(selfService)
 
         // Receptionist-or-higher routes (and the dashboard root) forbid staff.
         if (min >= ROLE_LEVELS.receptionist) {
@@ -409,12 +406,19 @@ describe('Admin RBAC staff access matrix (examples)', () => {
   it('allows staff on the self-service routes', () => {
     expect(staffDecisionFor('/me/schedule')).toBe('allow')
     expect(staffDecisionFor('/me/leave')).toBe('allow')
+    expect(staffDecisionFor('/api/me/branch')).toBe('allow')
+    expect(staffDecisionFor('/api/me/schedule')).toBe('allow')
+    expect(staffDecisionFor('/api/me/leave')).toBe('allow')
+    expect(staffDecisionFor('/api/me/leave/request-id')).toBe('allow')
   })
 
   it('forbids staff on the dashboard root and receptionist+/manager routes', () => {
     expect(staffDecisionFor('/')).toBe('forbid')
     expect(staffDecisionFor('/bookings')).toBe('forbid')
     expect(staffDecisionFor('/staff')).toBe('forbid')
+    expect(staffDecisionFor('/api/staff')).toBe('forbid')
+    expect(staffDecisionFor('/api/me/unknown')).toBe('forbid')
+    expect(staffDecisionFor('/api/me/leave-admin')).toBe('forbid')
   })
 
   it('allows receptionist (level 2) on the self-service routes too', () => {

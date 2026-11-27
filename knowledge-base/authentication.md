@@ -52,11 +52,12 @@ The application uses **six concrete RBAC roles** via Better Auth:
 
 ### 2. Staff (`staff`)
 - Stylist / Therapist role
-- Access: own schedule, assigned booking notes, leave requests
-- No access to admin app (`admin.theroyalglow.in`)
+- The website's Admin Portal link opens My Schedule at `admin.theroyalglow.in`.
+- Staff can view their own schedule and request or withdraw their own leave.
+- The operations dashboard, bookings, customer records, and team management require higher roles.
 
 ### 3. Receptionist (`receptionist`)
-- Lowest admin role; works at one branch (one Receptionist per branch)
+- First role with operations dashboard access. Works at one branch (one Receptionist per branch).
 - Manages bookings, customer check-in, billing, memberships, and leave approvals
 
 ### 4. Manager (`manager`)

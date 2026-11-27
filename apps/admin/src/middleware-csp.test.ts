@@ -59,6 +59,56 @@ function stubValidSession(role: string) {
   )
 }
 
+describe('admin middleware — Staff portal entry', () => {
+  it.each(['GET', 'HEAD'])('redirects a Staff %s to My Schedule', async (method) => {
+    stubValidSession('staff')
+    const request = new NextRequest('https://admin.theroyalglow.in/?next=/billing', {
+      method,
+      headers: { cookie: '__Secure-better-auth.session_token=valid-token' },
+    })
+    const response = await middleware(request)
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toBe('https://admin.theroyalglow.in/me/schedule')
+    expect(response.headers.get('cache-control')).toBe('private, no-store')
+  })
+
+  it.each(['receptionist', 'manager', 'owner', 'developer'])(
+    'keeps the dashboard for %s',
+    async (role) => {
+      stubValidSession(role)
+      const response = await middleware(makeAuthorizedRequest('/'))
+      expect(response.status).toBe(200)
+      expect(response.headers.get('location')).toBeNull()
+    },
+  )
+
+  it.each(['customer', 'unknown'])(
+    'forbids %s on the portal root and personal APIs',
+    async (role) => {
+      stubValidSession(role)
+      expect((await middleware(makeAuthorizedRequest('/'))).status).toBe(403)
+      expect((await middleware(makeAuthorizedRequest('/api/me/branch'))).status).toBe(403)
+    },
+  )
+
+  it('directs an anonymous portal visit back to the public site', async () => {
+    const response = await middleware(new NextRequest('https://admin.theroyalglow.in/'))
+    expect(response.headers.get('location')).toBe('https://theroyalglow.in/')
+  })
+
+  it('keeps the dashboard and management mutations unavailable to Staff', async () => {
+    stubValidSession('staff')
+    const request = new NextRequest('https://admin.theroyalglow.in/', {
+      method: 'POST',
+      headers: { cookie: 'better-auth.session_token=valid-token' },
+    })
+    expect((await middleware(request)).status).toBe(403)
+    expect((await middleware(makeAuthorizedRequest('/staff'))).status).toBe(403)
+    expect((await middleware(makeAuthorizedRequest('/api/bookings'))).status).toBe(403)
+  })
+})
+
 describe('admin middleware — CSP nonce on the allow branch (Req 7.3)', () => {
   it('attaches a Content-Security-Policy with default-src self and a script-src nonce', async () => {
     stubValidSession('owner') // level 4 >= /bookings min (2) → allow
