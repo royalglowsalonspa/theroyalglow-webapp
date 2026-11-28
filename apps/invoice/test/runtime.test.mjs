@@ -304,7 +304,9 @@ async function exerciseInvoiceWorker(t, legacyResendEnabled) {
         assert.equal((await call(accessPath, { headers: identity })).status, 403)
         assert.equal((await edit(identity, 'fixture@gmail.com', 'accountant')).status, 403)
       }
-      const ownerPage = await (await call(accessPath, { headers: owner })).text()
+      const response = await call(accessPath, { headers: owner })
+      assert.equal(response.headers.get('referrer-policy'), 'same-origin')
+      const ownerPage = await response.text()
       assert.match(ownerPage, /ca\.test@gmail\.com/)
       assert.doesNotMatch(ownerPage, /branch-2|other\.test@gmail\.com/)
       assert.equal((await call(`${accessPath}?branch=branch-2`, { headers: owner })).status, 404)
@@ -326,6 +328,10 @@ async function exerciseInvoiceWorker(t, legacyResendEnabled) {
         403,
       )
       assert.equal((await edit(owner, 'fixture@example.com', 'accountant')).status, 400)
+      assert.equal(
+        (await edit(owner, 'fixture@gmail.com', 'accountant', 'none', 'branch-1', 'null')).status,
+        403,
+      )
       assert.equal((await edit(owner, developer, 'accountant')).status, 403)
       assert.equal((await edit(owner, grants[0][0], 'accountant', 'owner')).status, 403)
       assert.equal((await edit(owner, grants[0][0], 'revoke', 'accountant')).status, 409)

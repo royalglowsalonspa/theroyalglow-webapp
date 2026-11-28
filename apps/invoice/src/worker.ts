@@ -49,7 +49,8 @@ app.use('*', async (c, next) => {
     'Content-Security-Policy',
     "default-src 'none'; style-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
   )
-  c.header('Referrer-Policy', 'no-referrer')
+  // Preserve the Origin header on same-origin form submissions.
+  c.header('Referrer-Policy', 'same-origin')
 })
 
 app.get('/healthz', (c) => c.json({ status: 'ok' }))
