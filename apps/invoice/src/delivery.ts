@@ -183,7 +183,17 @@ export async function deliverInvoice(
       )
     }
   } else {
-    await result.body?.cancel()
+    if (result.status === 429) {
+      const error: unknown = await result.json().catch(() => null)
+      const name = error && typeof error === 'object' && 'name' in error ? error.name : null
+      if (name === 'daily_quota_exceeded' || name === 'monthly_quota_exceeded') {
+        // An earlier pinned request may have reached the provider before this rejection.
+        await finish(attempt.request_hash ? 'uncertain' : 'failed', name)
+        return
+      }
+    } else {
+      await result.body?.cancel()
+    }
     if (result.status === 409 || (result.status < 500 && result.status !== 429)) {
       await finish(
         result.status === 409 || attempt.attempts > 1 ? 'uncertain' : 'failed',

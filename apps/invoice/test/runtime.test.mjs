@@ -59,6 +59,7 @@ async function exerciseInvoiceWorker(t, legacyResendEnabled) {
   )
   modules.sort((a, b) => Number(b.type === 'ESModule') - Number(a.type === 'ESModule'))
   const attempts = []
+  const providerResponses = new Map()
   let failNextDelivery = false
   let callbackBeforeAck
   const developer = 'developer.test@gmail.com'
@@ -136,6 +137,11 @@ async function exerciseInvoiceWorker(t, legacyResendEnabled) {
           const authorization = request.headers.get('authorization')
           const body = await request.json()
           attempts.push({ key, authorization, body })
+          const response = providerResponses.get(body.subject)
+          if (response) {
+            providerResponses.delete(body.subject)
+            return response
+          }
           const providerId = key === attempts[0].key ? 'fixture-provider-id' : key.split('/').at(-1)
           if (callbackBeforeAck) {
             await callbackBeforeAck(providerId, body)
@@ -3997,6 +4003,64 @@ async function exerciseInvoiceWorker(t, legacyResendEnabled) {
       }
       assert.deepEqual((await copiedFiles.list({ prefix: 'pdf-cache/' })).objects, [])
     })
+
+    await t.test(
+      'reports quota rejections and holds a previously uncertain invoice send',
+      async () => {
+        const outcomes = [
+          ['daily_quota_exceeded', false, 'failed', 'Resend daily sending quota reached'],
+          ['monthly_quota_exceeded', false, 'failed', 'Resend monthly sending quota reached'],
+          ['daily_quota_exceeded', true, 'uncertain', 'Resend daily sending quota reached'],
+        ]
+        for (const [index, [quota, hadAmbiguousAttempt, state, label]] of outcomes.entries()) {
+          const id = `quota-rehearsal-${index}`
+          const invoiceNumber = `QUOTA/STAGING/${index + 1}`
+          const subject = `Royal Glow invoice ${invoiceNumber}`
+          const operation = `initial:${id}`
+          assert.equal(
+            (
+              await send({
+                ...eligible,
+                eventId: id,
+                invoiceId: id,
+                invoice: { ...eligible.invoice, invoiceNumber },
+              })
+            ).status,
+            201,
+          )
+          const delivery = db
+            .prepare(
+              'SELECT state, failure, attempts, provider_id AS providerId FROM invoice_delivery WHERE operation_id = ?',
+            )
+            .bind(operation)
+          if (hadAmbiguousAttempt) {
+            providerResponses.set(subject, new Response(null, { status: 503 }))
+            await sweep()
+            assert.equal((await delivery.first()).state, 'retry')
+            await db
+              .prepare('UPDATE invoice_delivery SET due_at = 0 WHERE operation_id = ?')
+              .bind(operation)
+              .run()
+          }
+          providerResponses.set(subject, Response.json({ name: quota }, { status: 429 }))
+          await sweep()
+          assert.deepEqual(await delivery.first(), {
+            state,
+            failure: quota,
+            attempts: hadAmbiguousAttempt ? 2 : 1,
+            providerId: null,
+          })
+          const page = await call(`/portal/invoices/${id}/email`, { headers: owner })
+          const body = await page.text()
+          assert.match(body, new RegExp(label))
+          if (hadAmbiguousAttempt) assert.doesNotMatch(body, /Queue invoice email/)
+          else assert.match(body, /Queue invoice email/)
+          const requests = attempts.filter((attempt) => attempt.body.subject === subject)
+          assert.equal(requests.length, hadAmbiguousAttempt ? 2 : 1)
+          if (hadAmbiguousAttempt) assert.equal(requests[0].key, requests[1].key)
+        }
+      },
+    )
   } finally {
     await runtime.dispose()
   }

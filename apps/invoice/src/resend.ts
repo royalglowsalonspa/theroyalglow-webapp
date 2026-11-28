@@ -34,6 +34,10 @@ const providerLabels: Record<ResendStatus, string> = {
   suppressed: 'Suppressed by email provider',
   complained: 'Reported as spam',
 }
+const quotaDetails = new Map([
+  ['daily_quota_exceeded', 'Resend daily sending quota reached'],
+  ['monthly_quota_exceeded', 'Resend monthly sending quota reached'],
+])
 const requestTime = new Intl.DateTimeFormat('en-IN', {
   dateStyle: 'medium',
   timeStyle: 'short',
@@ -43,6 +47,7 @@ const requestTime = new Intl.DateTimeFormat('en-IN', {
 type Delivery = {
   operation_id: string
   state: keyof typeof labels
+  failure: string | null
   blocked: number
   requested_by: string | null
   requested_at: number | null
@@ -119,7 +124,7 @@ resendRoutes.get('/:id/email', async (c) => {
   const recipient = manualRecipient(snapshot)
   const canReview = invoice.role === 'owner'
   const { results: deliveries } = await c.env.DB.prepare(`
-    SELECT d.operation_id, d.state, d.requested_by, d.requested_at, d.provider_status, d.provider_event_at,
+    SELECT d.operation_id, d.state, d.failure, d.requested_by, d.requested_at, d.provider_status, d.provider_event_at,
       d.provider_id, CASE WHEN ?1 AND d.request_hash IS NOT NULL THEN d.callback_tag END AS review_reference,
       r.provider_id AS reviewed_provider_id, r.requested_by AS reviewed_by, r.requested_at AS reviewed_at,
       ${deliveryBlocks} AS blocked
@@ -177,8 +182,9 @@ resendRoutes.get('/:id/email', async (c) => {
     <h2>Email history</h2>
     ${
       deliveries.length
-        ? html`<ul>${deliveries.map(
-            (delivery) => html`
+        ? html`<ul>${deliveries.map((delivery) => {
+            const quota = quotaDetails.get(delivery.failure ?? '')
+            return html`
       <li><strong>${delivery.provider_status ? providerLabels[delivery.provider_status] : labels[delivery.state]}</strong>${
         delivery.provider_event_at === null
           ? ''
@@ -186,8 +192,8 @@ resendRoutes.get('/:id/email', async (c) => {
       }
       <br><small>${delivery.requested_by ? `Requested by ${delivery.requested_by}` : 'Automatic email'}${
         delivery.requested_at === null ? '' : ` · ${requestTime.format(delivery.requested_at)} IST`
-      }</small>${canReview ? deliveryReview(delivery, invoice) : ''}</li>`,
-          )}</ul>`
+      }</small>${quota ? html`<br><small>${quota}</small>` : ''}${canReview ? deliveryReview(delivery, invoice) : ''}</li>`
+          })}</ul>`
         : html`<p>No email activity recorded in this portal.</p>`
     }
     </main></body></html>`)
