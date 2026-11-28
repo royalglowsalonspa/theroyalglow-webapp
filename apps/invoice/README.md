@@ -193,6 +193,8 @@ Admin requests the existing PDF from the configured legacy renderer's signed dow
 
 In staging, a real synthetic PDF from the Node renderer returned HTTP 201 on archive and 204 on exact replay. The Worker rejected the same invoice with changed facts, and rejected an unregistered branch or an issued invoice ID. D1 recorded one matching archive, zero issued invoices and zero email operations. Cloudflare Access denied the anonymous download.
 
+The local historical rehearsal seeded invoices before the tax snapshot guards and applied all 46 PostgreSQL migrations. It verified branch and outbox exclusion, rejection of normalized key collisions within a UTC year, and the IST month boundary. A separate transport check used the Admin archive code, signed Node download, local S3 fixture and Worker. The first request archived the same PDF bytes, replay verified the copy, and both requests left invoice counts and email operations at zero. Production records still need source and original evidence review before import.
+
 Staff and CA users with the current branch grant can find the archived original in **Find an invoice** using its booking ID, booking number or invoice number. A creation-time fallback appears as a billing record date. The archive stays separate from invoice and GST registers, payment and refund views, and email delivery. A captured invoice's normal search result takes precedence if the portal later receives its exact source snapshot.
 
 #### Publish a billing source check
