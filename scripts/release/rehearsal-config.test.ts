@@ -237,10 +237,14 @@ it('uses independent rehearsal settings and preserves production domains and sec
   expect(sites.get('Admin')).not.toHaveProperty('environment.INVOICE_AUTOMATIC_EMAIL_BRANCH_ID')
 
   vi.stubGlobal('$app', { stage: 'dev' })
+  sites.clear()
   secrets.clear()
   await sstConfig.run?.()
+  expect(sites.get('Admin')).toHaveProperty('environment')
+  expect(sites.get('Admin')).not.toHaveProperty('environment.INVOICE_ROSTER_URL')
+  expect(sites.get('Admin')).not.toHaveProperty('environment.INVOICE_ROSTER_SOURCE')
   expect(sites.get('Admin')).not.toHaveProperty('environment.INVOICE_EVENTS_URL')
-  expect(secrets).not.toContain('InvoiceEventsSecret')
+  expect([...secrets].filter((name) => /^Invoice(?:Roster|Events)/.test(name))).toEqual([])
 
   vi.stubGlobal('$app', { stage: 'production' })
   vi.stubEnv('INVOICE_ROSTER_URL', undefined)

@@ -59,10 +59,16 @@ export default $config({
     const isProd = $app.stage === 'production'
     const rehearsal = readRehearsalConfig($app.stage, process.env)
     const qstashUrl = process.env.QSTASH_URL?.trim()
-    const invoiceRosterUrl = rehearsal
-      ? rehearsal.invoiceRosterOrigin && `${rehearsal.invoiceRosterOrigin}/internal/v1/staff-roster`
-      : process.env.INVOICE_ROSTER_URL?.trim()
-    const invoiceRosterSource = rehearsal ? 'staging' : process.env.INVOICE_ROSTER_SOURCE?.trim()
+    const invoiceRosterUrl = rehearsal?.invoiceRosterOrigin
+      ? `${rehearsal.invoiceRosterOrigin}/internal/v1/staff-roster`
+      : isProd
+        ? process.env.INVOICE_ROSTER_URL?.trim()
+        : undefined
+    const invoiceRosterSource = rehearsal
+      ? 'staging'
+      : isProd
+        ? process.env.INVOICE_ROSTER_SOURCE?.trim()
+        : undefined
     const invoiceEventsUrl = rehearsal?.invoiceEventsOrigin
       ? `${rehearsal.invoiceEventsOrigin}/internal/v1/invoice-events`
       : isProd
