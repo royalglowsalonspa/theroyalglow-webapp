@@ -1657,7 +1657,8 @@ async function exerciseInvoiceWorker(t, legacyResendEnabled) {
       assert.equal(csv.trimEnd().split('\r\n').length, 5)
       const audit = await db
         .prepare(`SELECT report_kind, invoice_count, missing_facts_count, line_count,
-        incomplete_line_count, total_paise, latest_received_at FROM invoice_register_export WHERE id = ?`)
+        incomplete_line_count, total_paise, latest_received_at, range_from, range_through
+        FROM invoice_register_export WHERE id = ?`)
         .bind(report.headers.get('x-invoice-report-id'))
         .first()
       assert.deepEqual(audit, {
@@ -1667,6 +1668,8 @@ async function exerciseInvoiceWorker(t, legacyResendEnabled) {
         line_count: 3,
         incomplete_line_count: 1,
         total_paise: 150000,
+        range_from: null,
+        range_through: null,
         latest_received_at: Math.max(
           ...before.map((row) => row.received_at),
           ...(await lineFacts(incomplete.invoiceId)).results.map((row) => row.received_at),
@@ -1674,6 +1677,72 @@ async function exerciseInvoiceWorker(t, legacyResendEnabled) {
       })
       assert.equal((await send(legacy)).status, 204)
       assert.equal((await lineFacts(legacy.invoiceId)).results.length, 2)
+
+      const firstDay = 'from=2025-03-01&through=2025-03-01'
+      const lastDay = 'from=2025-03-31&through=2025-03-31'
+      const range = await call(`${path}&from=2025-03-01&through=2025-03-05`, {
+        headers: accountant,
+      })
+      assert.equal(range.status, 200)
+      assert.equal(range.headers.get('cache-control'), 'private, no-store')
+      assert.equal(
+        range.headers.get('content-disposition'),
+        'attachment; filename="line-tax-register-2025-03-branch-1-2025-03-01_to_2025-03-05.csv"',
+      )
+      const subset = await range.text()
+      assert.match(
+        subset,
+        /line-start,line-start,branch-1,29ABCDE1234F1Z5,2025-02-28T18:30:00Z,2025-03-01,/,
+      )
+      assert.match(
+        subset,
+        /line-legacy,line-legacy,branch-1,29ABCDE1234F1Z5,2025-03-05T12:00:00Z,2025-03-05,/,
+      )
+      assert.doesNotMatch(subset, /line-before|line-after|line-incomplete|line-other/)
+      assert.equal(subset.trimEnd().split('\r\n').length, 5)
+      assert.deepEqual(
+        await db
+          .prepare(`SELECT actor_email, month, branch_id, range_from, range_through, invoice_count,
+            line_count, total_paise FROM invoice_register_export WHERE id = ?`)
+          .bind(range.headers.get('x-invoice-report-id'))
+          .first(),
+        {
+          actor_email: 'resend-ca.test@gmail.com',
+          month: '2025-03',
+          branch_id: 'branch-1',
+          range_from: '2025-03-01',
+          range_through: '2025-03-05',
+          invoice_count: 2,
+          line_count: 4,
+          total_paise: 100000,
+        },
+      )
+      const endOfMonth = await call(`${path}&${lastDay}`, { headers: accountant })
+      assert.equal(endOfMonth.status, 200)
+      const lastDayCsv = await endOfMonth.text()
+      assert.match(lastDayCsv, /line-incomplete,.*2025-03-31T18:29:59\.999Z,2025-03-31,/)
+      assert.doesNotMatch(lastDayCsv, /line-after|line-start|line-legacy/)
+      assert.equal((await call(`${path}&${firstDay}`, { headers: other })).status, 404)
+
+      const exportCount = () =>
+        db.prepare('SELECT COUNT(*) FROM invoice_register_export').first('COUNT(*)')
+      const completedExports = await exportCount()
+      for (const invalid of [
+        'from=2025-03-01',
+        'through=2025-03-01',
+        'from=2025-03-05&through=2025-03-04',
+        'from=2025-02-28&through=2025-03-01',
+        'from=2025-03-01&through=2025-03-32',
+      ]) {
+        const rejected = await call(`${path}&${invalid}`, { headers: accountant })
+        assert.equal(rejected.status, 400)
+        assert.equal(rejected.headers.get('content-disposition'), null)
+      }
+      const regular = await call(`${path.replace('line-tax.csv', 'invoices.csv')}&${firstDay}`, {
+        headers: accountant,
+      })
+      assert.equal(regular.status, 400)
+      assert.equal(await exportCount(), completedExports)
     })
 
     await t.test('GST review protects branch scope and withholds incomplete invoices', async () => {
@@ -1792,6 +1861,15 @@ async function exerciseInvoiceWorker(t, legacyResendEnabled) {
       assert.equal(report.status, 200)
       assert.equal(report.headers.get('cache-control'), 'private, no-store')
       const summary = await report.text()
+      assert.match(summary, /<form[^>]+action="\/portal\/reports\/line-tax\.csv"/)
+      assert.match(summary, /name="month" value="2025-01"/)
+      assert.match(summary, /name="branch" value="branch-1"/)
+      for (const name of ['from', 'through']) {
+        assert.match(
+          summary,
+          new RegExp(`type="date" name="${name}" min="2025-01-01" max="2025-01-31" required`),
+        )
+      }
       assert.match(summary, /<dt>Reviewed GST<\/dt>\s*<dd>₹71\.99<\/dd>\s*<small>1 invoice/)
       assert.match(summary, /<dt>Provisional GST<\/dt>\s*<dd>₹18\.00<\/dd>/)
       assert.match(summary, /<dt>Invoices needing review<\/dt>\s*<dd>4<\/dd>/)

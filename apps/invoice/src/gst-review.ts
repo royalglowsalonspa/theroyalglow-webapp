@@ -1,4 +1,4 @@
-import { formatINR, IST_TIME_ZONE } from '@rgss/business'
+import { formatINR, IST_TIME_ZONE, istMonthBounds, istToday } from '@rgss/business'
 import { html } from 'hono/html'
 import type { GstSummary } from './gst-summary'
 import { monthlyCloseLink } from './monthly-close-page'
@@ -14,9 +14,17 @@ const receiptTime = new Intl.DateTimeFormat('en-IN', {
   timeZone: IST_TIME_ZONE,
 })
 
-export async function renderGstReview(summary: GstSummary, month: string, branch?: string) {
+export async function renderGstReview(
+  result: GstSummary | Response,
+  month: string,
+  branch?: string,
+) {
+  const summary = result instanceof Response ? null : result
+  const error = result instanceof Response ? await result.text() : null
   const query = new URLSearchParams(branch ? { month, branch } : { month }).toString()
   const period = periodFormat.format(new Date(`${month}-01T00:00:00Z`))
+  const firstDay = `${month}-01`
+  const lastDay = istToday(new Date(istMonthBounds(month)[1].getTime() - 1)).padStart(10, '0')
 
   return new Response(
     String(
@@ -27,7 +35,9 @@ export async function renderGstReview(summary: GstSummary, month: string, branch
         <nav aria-label="Invoice portal"><a href="/portal/home?${query}">Dashboard and filters</a></nav>
         <h1>Monthly GST review</h1>
         <p>${period} (IST) · ${branch ?? 'All assigned branches'}</p>
-        <p class="dashboard-note">Based on invoices received by the portal. Figures reflect payment and tax facts saved at issuance. Review credits, refunds, and filing adjustments separately.</p>
+        ${
+          summary
+            ? html`<p class="dashboard-note">Based on invoices received by the portal. Figures reflect payment and tax facts saved at issuance. Review credits, refunds, and filing adjustments separately.</p>
         <dl class="dashboard-totals">
           <div><dt>Reviewed GST</dt><dd>${formatINR(summary.reviewed.gstPaise)}</dd>
             <small>${summary.reviewed.invoiceCount} ${summary.reviewed.invoiceCount === 1 ? 'invoice' : 'invoices'} · ${formatINR(summary.reviewed.taxablePaise)} taxable</small></div>
@@ -40,13 +50,28 @@ export async function renderGstReview(summary: GstSummary, month: string, branch
           summary.latestReceivedAt === null
             ? ''
             : ` Latest facts received ${receiptTime.format(summary.latestReceivedAt)} IST.`
-        }</p>
+        }</p>`
+            : html`<p role="status" class="dashboard-note">${error}</p>`
+        }
         <nav aria-label="Invoice exports">
           <a href="/portal/reports/invoices.csv?${query}">Invoice register (CSV)</a>
-          <a href="/portal/reports/line-tax.csv?${query}">Line-tax register (CSV)</a>
+          ${summary ? html`<a href="/portal/reports/line-tax.csv?${query}">Line-tax register (CSV)</a>` : ''}
           <a href="${monthlyCloseLink(month, branch)}">Monthly close drafts</a>
         </nav>
-        <section aria-labelledby="gst-breakdown">
+        <section aria-labelledby="line-tax-range">
+          <h2 id="line-tax-range">Export tax lines by date</h2>
+          <p class="dashboard-note">Choose part of the month if the full line-tax CSV exceeds 5,000 rows. Both dates are included in IST.</p>
+          <form method="get" action="/portal/reports/line-tax.csv" aria-labelledby="line-tax-range">
+            <input type="hidden" name="month" value="${month}">
+            ${branch ? html`<input type="hidden" name="branch" value="${branch}">` : ''}
+            <label>From <input type="date" name="from" min="${firstDay}" max="${lastDay}" required></label>
+            <label>Through <input type="date" name="through" min="${firstDay}" max="${lastDay}" required></label>
+            <button type="submit">Download line-tax CSV</button>
+          </form>
+        </section>
+        ${
+          summary
+            ? html`<section aria-labelledby="gst-breakdown">
           <h2 id="gst-breakdown">GST by branch, SAC and rate</h2>
           ${summary.groupCount > summary.groups.length ? html`<p>Showing ${summary.groups.length} of ${summary.groupCount} groups. Download the line-tax register for all included records.</p>` : ''}
           ${
@@ -79,9 +104,14 @@ export async function renderGstReview(summary: GstSummary, month: string, branch
           )}
           </ul></section>`
             : ''
+        }`
+            : ''
         }
       </main></body></html>`,
     ),
-    { headers: { 'content-type': 'text/html; charset=utf-8' } },
+    {
+      status: result instanceof Response ? result.status : 200,
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    },
   )
 }

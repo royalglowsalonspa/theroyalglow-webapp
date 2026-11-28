@@ -22,6 +22,8 @@ Apply D1 migration `0011_invoice_line_tax.sql` before deploying this Worker. The
 
 A local 31-day rehearsal at 50 invoices a day in one branch exported all 1,550 invoices and 4,650 lines at three lines per invoice. At four lines per invoice, the same branch month exceeded 5,000 lines. The Worker rejected the export before issuing a CSV or audit receipt.
 
+Apply D1 migration `0030_line_tax_export_dates.sql` before deploying date-range exports. In **Monthly GST review**, use **Export tax lines by date** to download consecutive ranges when the full month is too large. Both dates are included in IST. The CSV filename and audit record carry the selected dates. Each range uses the selected month and branch scope and keeps the same per-download limits. In the 6,200-line rehearsal, October 1–15 and October 16–31 produced 3,000 and 3,200 distinct lines, respectively. Monthly close drafts still capture one full branch month.
+
 ### Review monthly GST
 
 Select a month and branch on the dashboard and choose **Review monthly GST**. Opening the report directly defaults to the previous IST month. Owners, managers, and accountants see only their assigned branches. The report separates reviewed and provisional GST and groups saved amounts by issuing branch, issuer GSTIN, SAC, and rate. Zero-value membership usage is shown as a count.

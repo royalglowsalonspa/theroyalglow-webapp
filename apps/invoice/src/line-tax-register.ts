@@ -44,6 +44,7 @@ const numericColumns = [
   'total_paise',
 ] as const
 type NumericColumn = (typeof numericColumns)[number]
+export type LineTaxDateRange = { from: string; through: string }
 export type LineTaxRow = Record<
   Exclude<(typeof columns)[number], NumericColumn | 'issue_date_ist' | 'facts_status'>,
   string | null
@@ -71,8 +72,12 @@ export function lineTaxRegisterStatement(
   email: string,
   month: string,
   branch?: string,
+  range?: LineTaxDateRange,
 ): D1PreparedStatement {
   const [start, end] = istMonthBounds(month)
+  const rangeStart = range ? new Date(`${range.from}T00:00:00+05:30`) : start
+  const rangeEnd = range ? new Date(`${range.through}T00:00:00+05:30`) : end
+  if (range) rangeEnd.setUTCDate(rangeEnd.getUTCDate() + 1)
   return db
     .prepare(`
       SELECT i.id AS invoice_id, i.invoice_number, i.branch_id, i.issued_at AS issued_at_utc,
@@ -91,8 +96,8 @@ export function lineTaxRegisterStatement(
     `)
     .bind(
       email,
-      start.toISOString().slice(0, 16),
-      end.toISOString().slice(0, 16),
+      rangeStart.toISOString().slice(0, 16),
+      rangeEnd.toISOString().slice(0, 16),
       MAX_ROWS + 1,
       ...(branch ? [branch] : []),
     )
@@ -103,8 +108,15 @@ export async function buildLineTaxRegister(
   email: string,
   month: string,
   branch?: string,
+  range?: LineTaxDateRange,
 ): Promise<Response | LineTaxRegister> {
-  const { results } = await lineTaxRegisterStatement(db, email, month, branch).all<LineTaxRow>()
+  const { results } = await lineTaxRegisterStatement(
+    db,
+    email,
+    month,
+    branch,
+    range,
+  ).all<LineTaxRow>()
   return renderLineTaxRegister(results, branch)
 }
 
@@ -115,7 +127,7 @@ export function renderLineTaxRegister(
   if (results.length > MAX_ROWS) {
     return new Response(
       branch
-        ? 'This branch month exceeds the 5,000-row line-tax export limit.'
+        ? 'This selection exceeds the 5,000-row line-tax export limit.'
         : 'This selection exceeds 5,000 line-tax rows. Choose one branch.',
       { status: 422 },
     )
