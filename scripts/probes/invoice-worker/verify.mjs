@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict'
-import { mkdir, writeFile } from 'node:fs/promises'
 import { performance } from 'node:perf_hooks'
 
 const port = process.env.INVOICE_PROBE_PORT ?? '8787'
@@ -29,7 +28,7 @@ async function fetchPdf(sample) {
   assert.equal(response.headers.get('cache-control'), 'no-store')
   const pdf = Buffer.from(await response.arrayBuffer())
   assert.equal(pdf.subarray(0, 5).toString('ascii'), '%PDF-')
-  return { pdf, elapsed: Math.round(performance.now() - started) }
+  return { bytes: pdf.length, elapsed: Math.round(performance.now() - started) }
 }
 
 assert.equal((await request('/fixtures/normal')).status, 401)
@@ -40,13 +39,9 @@ assert.equal((await request('/fixtures/normal', { headers: incorrectHeaders })).
 assert.equal((await request('/fixtures/unknown', { headers })).status, 404)
 assert.equal((await request('/fixtures/normal', { headers, method: 'POST' })).status, 405)
 
-const output = new URL('./dist/', import.meta.url)
-await mkdir(output, { recursive: true })
-
 for (const sample of ['normal', 'large']) {
-  const { pdf, elapsed } = await fetchPdf(sample)
-  await writeFile(new URL(`${sample}.pdf`, output), pdf)
-  console.log(`${sample}: ${pdf.length} bytes, ${elapsed} ms round trip`)
+  const { bytes, elapsed } = await fetchPdf(sample)
+  console.log(`${sample}: ${bytes} bytes, ${elapsed} ms round trip`)
 }
 
 const burst = await Promise.all(

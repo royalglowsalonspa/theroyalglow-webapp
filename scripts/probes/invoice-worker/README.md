@@ -8,7 +8,7 @@ Use the repository's Bun version and Node 22.12 or later. From this directory, r
 
 1. Run `bun run dev` and wait for Wrangler to report readiness on `127.0.0.1:8787`.
 2. In another shell, run `bun run verify`. Set `INVOICE_PROBE_PORT` in that shell if you started Wrangler with a different port.
-3. Inspect `dist/normal.pdf` and `dist/large.pdf`. The check verifies the PDF signature, authorization failures, allowed routes, and a burst of ten concurrent requests. Run `pdfinfo` and visually inspect the pages to verify pagination and script rendering.
+3. The verifier checks the PDF signature, authorization failures, allowed routes, and a burst of ten concurrent requests. For visual inspection, download `/fixtures/normal` and `/fixtures/large` from your local probe with the same Bearer token. Run `pdfinfo` and inspect the pages to verify pagination and script rendering.
 4. Run `bun run bundle` to check the Wrangler bundle without deploying. To type-check, run `bun run wrangler types .wrangler/worker-configuration.d.ts` here, then `bun run tsc --project scripts/probes/invoice-worker/tsconfig.json` from the repository root.
 
 ## Hosted Free-plan proof
