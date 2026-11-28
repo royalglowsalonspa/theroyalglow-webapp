@@ -1,5 +1,10 @@
 import { expect, test } from 'bun:test'
-import { stagingConfig, verifyStagingDatabase } from './staging-config.mjs'
+import {
+  productionConfig,
+  stagingConfig,
+  verifyProductionDatabase,
+  verifyStagingDatabase,
+} from './staging-config.mjs'
 
 const source = Bun.file(new URL('../wrangler.jsonc', import.meta.url))
 const template = Bun.JSONC.parse(await source.text())
@@ -9,6 +14,13 @@ const values = {
   INVOICE_STAGING_ACCESS_TEAM: 'royal-glow-fixture',
   INVOICE_STAGING_ACCESS_AUDIENCE: 'b'.repeat(64),
   INVOICE_STAGING_DEVELOPER_EMAIL: 'developer-fixture@gmail.com',
+}
+const productionValues = {
+  INVOICE_PRODUCTION_ACCOUNT_ID: values.INVOICE_STAGING_ACCOUNT_ID,
+  INVOICE_PRODUCTION_D1_ID: '392dcafc-dfc3-46a8-bc7a-5124f497ed71',
+  INVOICE_PRODUCTION_ACCESS_TEAM: values.INVOICE_STAGING_ACCESS_TEAM,
+  INVOICE_PRODUCTION_ACCESS_AUDIENCE: 'a'.repeat(64),
+  INVOICE_PRODUCTION_DEVELOPER_EMAIL: values.INVOICE_STAGING_DEVELOPER_EMAIL,
 }
 
 test('generates an isolated Worker config with provider writes disabled', () => {
@@ -79,4 +91,58 @@ test('confirms the staged D1 ID from Cloudflare metadata before generating confi
     verifyStagingDatabase(staging.uuid, [staging, { ...staging, uuid: production.uuid }]),
   ).toThrow('INVOICE_STAGING_D1_ID')
   expect(() => verifyStagingDatabase(staging.uuid, { error: 'Unauthorized' })).toThrow('metadata')
+})
+
+test('binds production to its own host, D1, R2, and Access audience with writes paused', () => {
+  const output = productionConfig(template, { ...values, ...productionValues })
+  expect(output).toMatchObject({
+    name: 'rgss-invoice-production',
+    routes: [{ pattern: 'invoice.theroyalglow.in', custom_domain: true }],
+    workers_dev: false,
+    preview_urls: false,
+    d1_databases: [
+      {
+        binding: 'DB',
+        database_name: 'rgss-invoice-production',
+        database_id: productionValues.INVOICE_PRODUCTION_D1_ID,
+      },
+    ],
+    r2_buckets: [{ binding: 'FILES', bucket_name: 'rgss-invoices' }],
+    vars: {
+      BILLING_SOURCE: 'production',
+      ACCESS_AUDIENCE: productionValues.INVOICE_PRODUCTION_ACCESS_AUDIENCE,
+      INVOICE_EMAIL_ENABLED: 'false',
+      INVOICE_LEGACY_RESEND_ENABLED: 'false',
+      ACCESS_POLICY_SYNC_ENABLED: 'false',
+    },
+  })
+  expect(output.migrations).toEqual(template.migrations)
+  expect(output.durable_objects).toEqual(template.durable_objects)
+  expect(output.vars).not.toHaveProperty('BILLING_EVENT_SECRET')
+  expect(() => productionConfig(template, values)).toThrow('INVOICE_PRODUCTION_ACCESS_AUDIENCE')
+  expect(() =>
+    productionConfig(template, {
+      ...values,
+      ...productionValues,
+      INVOICE_PRODUCTION_ACCESS_AUDIENCE: values.INVOICE_STAGING_ACCESS_AUDIENCE,
+    }),
+  ).toThrow('must differ from the staging audience')
+  expect(() => productionConfig({ ...template, preview_urls: true }, productionValues)).toThrow(
+    'preview_urls',
+  )
+})
+
+test('accepts only the verified production database name and ID for production', () => {
+  const staging = { uuid: values.INVOICE_STAGING_D1_ID, name: 'rgss-invoice-staging' }
+  const production = {
+    uuid: productionValues.INVOICE_PRODUCTION_D1_ID,
+    name: 'rgss-invoice-production',
+  }
+  expect(() => verifyProductionDatabase(production.uuid, [staging, production])).not.toThrow()
+  expect(() => verifyProductionDatabase(staging.uuid, [staging, production])).toThrow(
+    'INVOICE_PRODUCTION_D1_ID',
+  )
+  expect(() => verifyProductionDatabase(production.uuid, [staging])).toThrow(
+    'INVOICE_PRODUCTION_D1_ID',
+  )
 })

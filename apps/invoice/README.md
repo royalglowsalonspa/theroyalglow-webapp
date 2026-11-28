@@ -103,6 +103,14 @@ The check fixes the target to `invoice-staging.theroyalglow.in`, checks anonymou
 
 On 2026-11-28, the isolated `rgss-invoice-rehearsal` Neon project applied all 46 reviewed migrations. The Admin checkout code ran locally against that managed database and recorded a synthetic ₹500 service checkout with ₹173.33 UPI and ₹326.67 cash. The Admin outbox job deliberately dropped the first acknowledgement after Cloudflare staging accepted the event with HTTP 201. It replayed the same bytes, received HTTP 204, and marked the event published on the second attempt. Neon held one invoice and two allocations totaling 50,000 paise. Signed reconciliation and D1 confirmed one matching invoice, zero email operations, and zero portal grants on the synthetic branch. The local Worker rehearsal rendered both payment amounts and reproduced the same PDF bytes after cache eviction. The deployed AWS Admin job and QStash scheduling still need rehearsal.
 
+### Prepare production Worker configuration
+
+Verify the production Google-only Access application for `invoice.theroyalglow.in`, the private `rgss-invoices` bucket, the `rgss-invoice-production` D1 database, and the hostname's routing in the Royal Glow account. Use the production application's Access audience and exact bootstrap Gmail. Set `INVOICE_PRODUCTION_ACCOUNT_ID`, `INVOICE_PRODUCTION_D1_ID`, `INVOICE_PRODUCTION_ACCESS_TEAM`, `INVOICE_PRODUCTION_ACCESS_AUDIENCE`, and `INVOICE_PRODUCTION_DEVELOPER_EMAIL`.
+
+Run `bun run --filter @rgss/invoice configure:production` with a Royal Glow Wrangler profile that can read D1 metadata. It verifies the D1 name and ID and writes the ignored `apps/invoice/wrangler.production.local.json`. The generated config disables email, Access policy sync, previews, and `workers.dev`. It uses the billing source `production`. Use that same source for the production Admin invoice and staff roster publishers when they are ready.
+
+From `apps/invoice`, inspect the bindings with `bun run wrangler deploy --dry-run --config wrangler.production.local.json`. Use stage-specific Worker secrets and service credentials. Follow the [launch checks](../../design/invoicing-modernization-plan.md#launch-checks-for-each-increment) before applying migrations or attaching the hostname.
+
 ### Branch access administration
 
 The portal opens the invoice dashboard for staff and the Access screen for the designated developer. At `/portal/access`, owners can assign, change and revoke manager and accountant grants for branches they own. The developer can manage all three roles across provisioned branches. Only owners, managers and accountants with current branch grants can retrieve invoices. Each successful form submission records the actor, Gmail address, branch, previous role, new role and time in the same D1 transaction as the change.
@@ -180,6 +188,8 @@ Apply D1 migration `0028_original_invoice_archive.sql`, deploy the matching Work
 ```
 
 Admin requests the existing PDF from the configured legacy renderer's signed download route. It uses the stored number and date to resolve the renderer's object key and rejects collisions in the normalized key for that UTC year. The renderer reads its existing storage. If its saved PDF is available and no larger than 1 MiB, the Worker keeps an integrity-checked copy under `original-archive/` in private R2. The Admin audit records the selected invoice, branch and reason. Replaying the same request verifies the copy and can repair a missing object.
+
+In staging, a real synthetic PDF from the Node renderer returned HTTP 201 on archive and 204 on exact replay. The Worker rejected the same invoice with changed facts, and rejected an unregistered branch or an issued invoice ID. D1 recorded one matching archive, zero issued invoices and zero email operations. Cloudflare Access denied the anonymous download.
 
 Staff and CA users with the current branch grant can find the archived original in **Find an invoice** using its booking ID, booking number or invoice number. A creation-time fallback appears as a billing record date. The archive stays separate from invoice and GST registers, payment and refund views, and email delivery. A captured invoice's normal search result takes precedence if the portal later receives its exact source snapshot.
 

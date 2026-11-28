@@ -18,6 +18,7 @@ coverage
 .dev.vars
 .dev.vars.*
 .wrangler
+wrangler.*.local.json
 .vscode
 .kiro
 .code-review-graph

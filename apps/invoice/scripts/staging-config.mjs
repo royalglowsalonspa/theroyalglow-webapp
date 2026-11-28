@@ -4,27 +4,24 @@ import { z } from 'zod'
 const accountId = '6493306f4e280b245bc0b862c64cd9ef'
 const stagingName = 'rgss-invoice-staging'
 export const stagingHost = 'invoice-staging.theroyalglow.in'
+const staging = {
+  name: stagingName,
+  host: stagingHost,
+  bucket: stagingName,
+  environment: 'staging',
+}
+const production = {
+  name: 'rgss-invoice-production',
+  host: 'invoice.theroyalglow.in',
+  bucket: 'rgss-invoices',
+  environment: 'production',
+}
 const allowedObjects = {
   PDF: 'InvoicePdf',
   ACCESS_SYNC: 'InvoiceAccessSync',
   REGISTER: 'InvoiceRegister',
 }
 const placeholder = '00000000-0000-0000-0000-000000000000'
-
-const inputs = z.object({
-  INVOICE_STAGING_ACCOUNT_ID: z.literal(accountId),
-  INVOICE_STAGING_D1_ID: z
-    .uuid()
-    .toLowerCase()
-    .refine((id) => id !== placeholder),
-  INVOICE_STAGING_ACCESS_TEAM: z.string().regex(/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/),
-  INVOICE_STAGING_ACCESS_AUDIENCE: z.string().regex(/^[a-f0-9]{64}$/),
-  INVOICE_STAGING_DEVELOPER_EMAIL: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .pipe(z.email().endsWith('@gmail.com')),
-})
 
 const workerTemplate = z.strictObject({
   name: z.literal(stagingName),
@@ -59,7 +56,22 @@ const workerTemplate = z.strictObject({
   ),
 })
 
-export function stagingConfig(template, values) {
+function targetConfig(template, values, target) {
+  const key = (name) => `INVOICE_${target.environment.toUpperCase()}_${name}`
+  const inputs = z.object({
+    [key('ACCOUNT_ID')]: z.literal(accountId),
+    [key('D1_ID')]: z
+      .uuid()
+      .toLowerCase()
+      .refine((id) => id !== placeholder),
+    [key('ACCESS_TEAM')]: z.string().regex(/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/),
+    [key('ACCESS_AUDIENCE')]: z.string().regex(/^[a-f0-9]{64}$/),
+    [key('DEVELOPER_EMAIL')]: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .pipe(z.email().endsWith('@gmail.com')),
+  })
   const settings = inputs.safeParse(values)
   if (!settings.success) {
     throw new Error(
@@ -86,15 +98,20 @@ export function stagingConfig(template, values) {
     throw new Error('Verify the PDF, ACCESS_SYNC, and REGISTER SQLite Durable Object bindings.')
   }
   const approved = settings.data
+  const audience = approved[key('ACCESS_AUDIENCE')]
+  if (target === production && audience === values.INVOICE_STAGING_ACCESS_AUDIENCE) {
+    throw new Error('INVOICE_PRODUCTION_ACCESS_AUDIENCE must differ from the staging audience.')
+  }
   return {
     ...config.data,
-    account_id: approved.INVOICE_STAGING_ACCOUNT_ID,
-    routes: [{ pattern: stagingHost, custom_domain: true }],
+    name: target.name,
+    account_id: approved[key('ACCOUNT_ID')],
+    routes: [{ pattern: target.host, custom_domain: true }],
     vars: {
-      BILLING_SOURCE: 'staging',
-      ACCESS_TEAM: approved.INVOICE_STAGING_ACCESS_TEAM,
-      ACCESS_AUDIENCE: approved.INVOICE_STAGING_ACCESS_AUDIENCE,
-      ACCESS_DEVELOPER_EMAIL: approved.INVOICE_STAGING_DEVELOPER_EMAIL,
+      BILLING_SOURCE: target.environment,
+      ACCESS_TEAM: approved[key('ACCESS_TEAM')],
+      ACCESS_AUDIENCE: audience,
+      ACCESS_DEVELOPER_EMAIL: approved[key('DEVELOPER_EMAIL')],
       ACCESS_POLICY_SYNC_ENABLED: 'false',
       INVOICE_EMAIL_ENABLED: 'false',
       INVOICE_LEGACY_RESEND_ENABLED: 'false',
@@ -102,30 +119,47 @@ export function stagingConfig(template, values) {
     d1_databases: [
       {
         binding: 'DB',
-        database_name: stagingName,
-        database_id: approved.INVOICE_STAGING_D1_ID,
+        database_name: target.name,
+        database_id: approved[key('D1_ID')],
       },
     ],
+    r2_buckets: [{ binding: 'FILES', bucket_name: target.bucket }],
   }
+}
+
+export function stagingConfig(template, values) {
+  return targetConfig(template, values, staging)
+}
+
+export function productionConfig(template, values) {
+  return targetConfig(template, values, production)
 }
 
 const databaseList = z.array(z.object({ uuid: z.uuid().toLowerCase(), name: z.string() }))
 
-export function verifyStagingDatabase(databaseId, metadata) {
+function verifyDatabase(databaseId, metadata, target) {
   const databases = databaseList.safeParse(metadata)
   if (!databases.success) throw new Error('Wrangler did not return valid D1 database metadata.')
   const candidates = databases.data.filter(
-    ({ uuid, name }) => uuid === databaseId || name === stagingName,
+    ({ uuid, name }) => uuid === databaseId || name === target.name,
   )
   if (
     candidates.length !== 1 ||
     candidates[0].uuid !== databaseId ||
-    candidates[0].name !== stagingName
+    candidates[0].name !== target.name
   ) {
     throw new Error(
-      'INVOICE_STAGING_D1_ID must match the rgss-invoice-staging database in Royal Glow.',
+      `INVOICE_${target.environment.toUpperCase()}_D1_ID must match the ${target.name} database in Royal Glow.`,
     )
   }
+}
+
+export function verifyStagingDatabase(databaseId, metadata) {
+  verifyDatabase(databaseId, metadata, staging)
+}
+
+export function verifyProductionDatabase(databaseId, metadata) {
+  verifyDatabase(databaseId, metadata, production)
 }
 
 async function readCloudflareDatabases(configFile) {
@@ -160,12 +194,24 @@ async function readCloudflareDatabases(configFile) {
 
 if (import.meta.main) {
   try {
+    const args = Bun.argv.slice(2)
+    const target = args.length === 0 ? staging : production
+    if (target === production && (args.length !== 1 || args[0] !== '--production')) {
+      throw new Error('Use configure:staging or configure:production.')
+    }
     const source = new URL('../wrangler.jsonc', import.meta.url)
-    const config = stagingConfig(Bun.JSONC.parse(await Bun.file(source).text()), Bun.env)
-    verifyStagingDatabase(config.d1_databases[0].database_id, await readCloudflareDatabases(source))
-    const output = new URL('../wrangler.staging.local.json', import.meta.url)
-    await Bun.write(output, `${JSON.stringify(config, null, 2)}\n`)
-    console.log('Wrote wrangler.staging.local.json for invoice-staging.theroyalglow.in.')
+    const config = targetConfig(Bun.JSONC.parse(await Bun.file(source).text()), Bun.env, target)
+    verifyDatabase(
+      config.d1_databases[0].database_id,
+      await readCloudflareDatabases(source),
+      target,
+    )
+    const output = `wrangler.${target.environment}.local.json`
+    await Bun.write(
+      new URL(`../${output}`, import.meta.url),
+      `${JSON.stringify(config, null, 2)}\n`,
+    )
+    console.log(`Wrote ${output} for ${target.host}.`)
   } catch (error) {
     console.error(error instanceof Error ? error.message : error)
     process.exitCode = 1

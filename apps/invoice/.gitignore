@@ -1,2 +1,3 @@
 .wrangler/
 wrangler.staging.local.json
+wrangler.production.local.json

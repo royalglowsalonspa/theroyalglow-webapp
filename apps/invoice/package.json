@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "wrangler dev --ip 127.0.0.1",
     "configure:staging": "bun scripts/staging-config.mjs",
+    "configure:production": "bun scripts/staging-config.mjs --production",
     "test:staging-config": "bun test scripts/staging-config.test.mjs",
     "smoke:staging": "bun scripts/staging-smoke.mjs",
     "test:staging-smoke": "bun test scripts/staging-smoke.test.mjs",

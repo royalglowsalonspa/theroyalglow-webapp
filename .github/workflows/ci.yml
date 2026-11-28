@@ -155,7 +155,7 @@ jobs:
           node-version-file: .node-version
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
-      - name: Check invoice staging configuration isolation
+      - name: Check invoice staging and production configuration isolation
         run: bun run --filter @rgss/invoice test:staging-config
       - name: Check invoice staging smoke isolation
         run: bun run --filter @rgss/invoice test:staging-smoke
