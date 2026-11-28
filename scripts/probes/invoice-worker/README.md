@@ -11,6 +11,8 @@ Use the repository's Bun version and Node 22.12 or later. From this directory, r
 3. The verifier checks the PDF signature, authorization failures, allowed routes, and a burst of ten concurrent requests. For visual inspection, download `/fixtures/normal` and `/fixtures/large` from your local probe with the same Bearer token. Run `pdfinfo` and inspect the pages to verify pagination and script rendering.
 4. Run `bun run bundle` to check the Wrangler bundle without deploying. To type-check, run `bun run wrangler types .wrangler/worker-configuration.d.ts` here, then `bun run tsc --project scripts/probes/invoice-worker/tsconfig.json` from the repository root.
 
+On Windows, use `bun run dev --persist-to "$env:TEMP\rgss-invoice-probe"` from deeply nested worktrees. A long default SQLite state path can surface as HTTP 500 on a PDF request. With the shorter path, both fixture PDFs and the ten-request burst passed.
+
 ## Hosted Free-plan proof
 
 Use a Wrangler identity with Worker deployment permission in the Royal Glow Cloudflare account. Confirm the account and plan before creating a disposable, isolated deployment. The committed config has public `workers.dev` and previews disabled. Create an environment-specific probe config and a reachable test route only for the measurement. Configure `INVOICE_PROBE_TOKEN` as a Worker secret before making the route reachable. The probe fails closed until that secret is present.
